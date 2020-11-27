@@ -1404,12 +1404,12 @@ func (bucket *SBucket) PerformDeleteCors(
 	if err != nil {
 		return nil, errors.Wrap(err, "GetIBucket")
 	}
-	err = iBucket.DeleteCORS(input.Id)
+	result, err := iBucket.DeleteCORS(input.Id)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("iBucket.DeleteCORS error %s", err)
 	}
-	db.OpsLog.LogEvent(bucket, db.ACT_DELETE_CORS, "", userCred)
-	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_DELETE_CORS, "", userCred, true)
+	db.OpsLog.LogEvent(bucket, db.ACT_DELETE_CORS, result, userCred)
+	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_DELETE_CORS, result, userCred, true)
 	return nil, nil
 }
 
@@ -1508,9 +1508,7 @@ func (bucket *SBucket) PerformSetReferer(
 		return nil, errors.Wrap(err, "GetIBucket")
 	}
 	conf := cloudprovider.SBucketRefererConf{
-		Enabled:         input.Enabled,
-		Type:            input.Type,
-		DomainList:      input.DomainList,
+		WhiteList:       input.WhiteList,
 		AllowEmptyRefer: input.AllowEmptyRefer,
 	}
 
@@ -1545,12 +1543,116 @@ func (bucket *SBucket) GetDetailsReferer(
 	if err != nil {
 		return conf, httperrors.NewInternalServerError("iBucket.GetRefer error %s", err)
 	}
-	conf.Enabled = referConf.Enabled
-	conf.Type = referConf.Type
-	conf.DomainList = referConf.DomainList
+	conf.WhiteList = referConf.WhiteList
+	conf.BlackList = referConf.BlackList
 	conf.AllowEmptyRefer = referConf.AllowEmptyRefer
 
 	return conf, nil
+}
+
+func (bucket *SBucket) AllowGetDetailsPolicy(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+func (bucket *SBucket) GetDetailsPolicy(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input jsonutils.JSONObject,
+) (api.BucketPolicy, error) {
+	policy := api.BucketPolicy{}
+	iBucket, err := bucket.GetIBucket()
+	if err != nil {
+		return policy, errors.Wrap(err, "GetIBucket")
+	}
+	policyStatements, err := iBucket.GetPolicy()
+	if err != nil {
+		return policy, httperrors.NewInternalServerError("iBucket.GetPolicy error %s", err)
+	}
+	for i := range policyStatements {
+		policy.Data = append(policy.Data, api.BucketPolicyStatement{
+			Principal:    policyStatements[i].Principal,
+			Action:       policyStatements[i].Action,
+			Effect:       policyStatements[i].Effect,
+			Resource:     policyStatements[i].Resource,
+			Condition:    policyStatements[i].Condition,
+			PrincipalId:  policyStatements[i].PrincipalId,
+			CannedAction: policyStatements[i].CannedAction,
+			ResourcePath: policyStatements[i].ResourcePath,
+			Id:           policyStatements[i].Id,
+		})
+	}
+	return policy, nil
+}
+
+func (bucket *SBucket) AllowPerformSetPolicy(
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.BucketPolicyStatementInput,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+func (bucket *SBucket) PerformSetPolicy(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.BucketPolicyStatementInput,
+) (jsonutils.JSONObject, error) {
+	err := input.Validate()
+	if err != nil {
+		return nil, err
+	}
+	iBucket, err := bucket.GetIBucket()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIBucket")
+	}
+	opts := cloudprovider.SBucketPolicyStatementInput{
+		PrincipalId:  input.PrincipalId,
+		CannedAction: input.CannedAction,
+		Effect:       input.Effect,
+		ResourcePath: input.ResourcePath,
+		IpEquals:     input.IpEquals,
+		IpNotEquals:  input.IpNotEquals,
+	}
+
+	err = iBucket.SetPolicy(opts)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("iBucket.SetPolicy error %s", err)
+	}
+	db.OpsLog.LogEvent(bucket, db.ACT_SET_POLICY, opts, userCred)
+	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_SET_POLICY, opts, userCred, true)
+	return nil, nil
+}
+
+func (bucket *SBucket) AllowPerformDeletePolicy(
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.BucketPolicyDeleteInput,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+func (bucket *SBucket) PerformDeletePolicy(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.BucketPolicyDeleteInput,
+) (jsonutils.JSONObject, error) {
+	iBucket, err := bucket.GetIBucket()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIBucket")
+	}
+	result, err := iBucket.DeletePolicy(input.Id)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("iBucket.DeletePolicy error %s", err)
+	}
+	db.OpsLog.LogEvent(bucket, db.ACT_DELETE_POLICY, result, userCred)
+	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_DELETE_POLICY, result, userCred, true)
+	return nil, nil
 }
 
 func (manager *SBucketManager) usageQByCloudEnv(q *sqlchemy.SQuery, providers []string, brands []string, cloudEnv string) *sqlchemy.SQuery {

@@ -110,16 +110,48 @@ type SBucketCORSRule struct {
 }
 
 type SBucketRefererConf struct {
-	// conf id
-	Id string
-	// 是否开启防盗链
-	Enabled bool
-	// Black-List、White-List
-	Type string
-	// 域名列表
-	DomainList []string
+	// 白名单域名列表
+	WhiteList []string
+	// 黑名单域名列表
+	BlackList []string
 	// 是否允许空referer 访问
 	AllowEmptyRefer bool
+}
+
+type SBucketPolicyStatement struct {
+	// 授权的目标主体
+	Principal map[string][]string `json:"Principal,omitempty"`
+	// 授权的行为
+	Action []string `json:"Action,omitempty"`
+	// Allow|Deny
+	Effect string `json:"Effect,omitempty"`
+	// 被授权的资源
+	Resource []string `json:"Resource,omitempty"`
+	// 触发授权的条件
+	Condition map[string]map[string]interface{} `json:"Condition,omitempty"`
+
+	// 解析字段，主账号id:子账号id
+	PrincipalId []string
+	// Read|ReadWrite|FullControl
+	CannedAction string
+	// 资源路径
+	ResourcePath []string
+	// 根据index 生成
+	Id string
+}
+
+type SBucketPolicyStatementInput struct {
+	// 主账号id:子账号id
+	PrincipalId []string
+	// Read|ReadWrite|FullControl
+	CannedAction string
+	// Allow|Deny
+	Effect string
+	// 被授权的资源地址,/*
+	ResourcePath []string
+	// ip 条件
+	IpEquals    []string
+	IpNotEquals []string
 }
 
 type SBaseCloudObject struct {
@@ -218,12 +250,16 @@ type ICloudBucket interface {
 
 	SetCORS(rules []SBucketCORSRule) error
 	GetCORSRules() ([]SBucketCORSRule, error)
-	DeleteCORS(id []string) error
+	DeleteCORS(id []string) ([]SBucketCORSRule, error)
 
 	SetReferer(conf SBucketRefererConf) error
 	GetReferer() (SBucketRefererConf, error)
 
 	GetCdnDomains() ([]SCdnDomain, error)
+
+	GetPolicy() ([]SBucketPolicyStatement, error)
+	SetPolicy(policy SBucketPolicyStatementInput) error
+	DeletePolicy(id []string) ([]SBucketPolicyStatement, error)
 }
 
 type ICloudObject interface {

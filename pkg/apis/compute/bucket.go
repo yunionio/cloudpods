@@ -18,6 +18,8 @@ import (
 	"net/http"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -237,6 +239,71 @@ type BucketCORSRuleDeleteInput struct {
 	Id []string
 }
 
+type BucketPolicy struct {
+	Data []BucketPolicyStatement
+}
+
+type BucketPolicyStatement struct {
+	// 授权的目标主体
+	Principal map[string][]string `json:"Principal,omitempty"`
+	// 授权的行为
+	Action []string `json:"Action,omitempty"`
+	// Allow|Deny
+	Effect string `json:"Effect,omitempty"`
+	// 被授权的资源地址
+	Resource []string `json:"Resource,omitempty"`
+	// 触发授权的条件
+	Condition map[string]map[string]interface{} `json:"Condition,omitempty"`
+
+	// 解析字段，主账号id:子账号id
+	PrincipalId []string
+	// Read|ReadWrite|FullControl
+	CannedAction string
+	// 资源路径
+	ResourcePath []string
+	// 根据index 生成
+	Id string
+}
+
+type BucketPolicyStatementInput struct {
+	// 主账号id:子账号id
+	PrincipalId []string
+	// Read|ReadWrite|FullControl
+	CannedAction string
+	// Allow|Deny
+	Effect string
+	// 被授权的资源地址,/*
+	ResourcePath []string
+	// ip 条件
+	IpEquals    []string
+	IpNotEquals []string
+}
+
+func (input *BucketPolicyStatementInput) Validate() error {
+	cannedAction := []string{"Read", "ReadWrite", "FullControl"}
+	if !utils.IsInStringArray(input.CannedAction, cannedAction) {
+		return httperrors.NewInputParameterError("invalid CannedAction %s ", input.CannedAction)
+	}
+	if input.Effect != "Allow" && input.Effect != "Deny" {
+		return httperrors.NewInputParameterError("invalid Effect %s ", input.Effect)
+	}
+	for i := range input.IpEquals {
+		if !regutils.MatchIP4Addr(input.IpEquals[i]) && !regutils.MatchCIDR(input.IpEquals[i]) {
+			return httperrors.NewInputParameterError("invalid ipv4 %s ", input.IpEquals[i])
+		}
+	}
+	for i := range input.IpNotEquals {
+		if !regutils.MatchIP4Addr(input.IpNotEquals[i]) && !regutils.MatchCIDR(input.IpNotEquals[i]) {
+			return httperrors.NewInputParameterError("invalid ipv4 %s ", input.IpNotEquals[i])
+		}
+	}
+	return nil
+}
+
+type BucketPolicyDeleteInput struct {
+	Id []string
+}
+
 func (input *BucketCORSRules) Validate() error {
 	for i := range input.Data {
 		if len(input.Data[i].AllowedOrigins) == 0 {
@@ -250,19 +317,14 @@ func (input *BucketCORSRules) Validate() error {
 }
 
 type BucketRefererConf struct {
-	// 是否开启防盗链
-	Enabled bool
-	// Black-List、White-List
-	Type string
-	// 域名列表
-	DomainList []string
-	// 是否允许空refer 访问
+	// 白名单域名列表
+	WhiteList []string
+	// 黑名单域名列表
+	BlackList []string
+	// 是否允许空referer 访问
 	AllowEmptyRefer bool
 }
 
 func (input *BucketRefererConf) Validate() error {
-	if len(input.DomainList) == 0 {
-		return httperrors.NewMissingParameterError("domain_list")
-	}
 	return nil
 }
