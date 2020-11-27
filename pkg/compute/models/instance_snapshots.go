@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -216,8 +215,8 @@ func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential,
 		out.GuestStatus = guest.Status
 	}
 	var osType string
-	cp := self.GetCloudprovider()
-	if utils.IsInStringArray(cp.Provider, ProviderHasSubSnapshot) {
+	provider := self.GetProviderName()
+	if utils.IsInStringArray(provider, ProviderHasSubSnapshot) {
 		snapshots, _ := self.GetSnapshots()
 		out.Snapshots = []api.SimpleSnapshot{}
 		for i := 0; i < len(snapshots); i++ {
@@ -400,11 +399,8 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 		return nil, errors.Wrap(err, "unmarshal sched input")
 	}
 
-	cp := self.GetCloudprovider()
-	if cp == nil {
-		return nil, fmt.Errorf("unable to get cloudprovider of isp %q", self.GetId())
-	}
-	if utils.IsInStringArray(cp.Provider, ProviderHasSubSnapshot) {
+	provider := self.GetProviderName()
+	if utils.IsInStringArray(provider, ProviderHasSubSnapshot) {
 		isjs := make([]SInstanceSnapshotJoint, 0)
 		err := InstanceSnapshotJointManager.Query().Equals("instance_snapshot_id", self.Id).Asc("disk_index").All(&isjs)
 		if err != nil {
@@ -614,8 +610,8 @@ func (manager *SInstanceSnapshotManager) newFromCloudInstanceSnapshot(ctx contex
 }
 
 func (self *SInstanceSnapshot) GetRegionDriver() IRegionDriver {
-	cp := self.GetCloudprovider()
-	return GetRegionDriver(cp.Provider)
+	provider := self.GetProviderName()
+	return GetRegionDriver(provider)
 }
 
 func (ism *SInstanceSnapshotManager) InitializeData() error {
