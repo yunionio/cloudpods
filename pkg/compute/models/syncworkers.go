@@ -15,6 +15,7 @@
 package models
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -23,6 +24,7 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/util/panicutils"
 )
 
 var (
@@ -59,17 +61,23 @@ func InitSyncWorkers(count int) {
 	)
 }
 
-func RunSyncCloudproviderRegionTask(key string, syncFunc func()) {
+func RunSyncCloudproviderRegionTask(ctx context.Context, key string, syncFunc func()) {
 	nodeIdxStr, _ := syncWorkerRing.GetNode(key)
 	nodeIdx, _ := strconv.Atoi(nodeIdxStr)
 	log.Debugf("run sync task at %d len %d", nodeIdx, len(syncWorkers))
-	syncWorkers[nodeIdx].Run(syncFunc, nil, nil)
+	syncWorkers[nodeIdx].Run(syncFunc, nil, func(err error) {
+		panicutils.SendPanicMessage(ctx, err)
+	})
 }
 
-func RunSyncCloudAccountTask(probeFunc func()) {
-	syncAccountWorker.Run(probeFunc, nil, nil)
+func RunSyncCloudAccountTask(ctx context.Context, probeFunc func()) {
+	syncAccountWorker.Run(probeFunc, nil, func(err error) {
+		panicutils.SendPanicMessage(ctx, err)
+	})
 }
 
-func RunSyncSecgroupTask(syncFunc func()) {
-	syncSecgroupWorker.Run(syncFunc, nil, nil)
+func RunSyncSecgroupTask(ctx context.Context, syncFunc func()) {
+	syncSecgroupWorker.Run(syncFunc, nil, func(err error) {
+		panicutils.SendPanicMessage(ctx, err)
+	})
 }

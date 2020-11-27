@@ -15,10 +15,13 @@
 package taskman
 
 import (
+	"context"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/util/panicutils"
 )
 
 var taskWorkMan *appsrv.SWorkerManager
@@ -41,5 +44,7 @@ func runTask(taskId string, data jsonutils.JSONObject) {
 	}
 	worker.Run(func() {
 		TaskManager.execTask(taskId, data)
-	}, nil, nil)
+	}, nil, func(err error) {
+		panicutils.SendPanicMessage(context.TODO(), err)
+	})
 }
