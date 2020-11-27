@@ -82,7 +82,7 @@ func init() {
 			return err
 		}
 		cache := ds.GetIStoragecache()
-		images, err := cache.GetIImages()
+		images, err := cache.GetICloudImages()
 		if err != nil {
 			return err
 		}

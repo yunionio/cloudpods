@@ -155,7 +155,7 @@ func TestShell() {
 		caches := _caches.([]cloudprovider.ICloudStoragecache)
 		for i := range caches {
 			_images := list(caches[i], "images", func() (interface{}, error) {
-				return caches[i].GetIImages()
+				return caches[i].GetICloudImages()
 			})
 			images := _images.([]cloudprovider.ICloudImage)
 			result.ImageCount = len(images)

@@ -148,8 +148,8 @@ func (image *SImage) Refresh() error {
 	return jsonutils.Update(image, new)
 }
 
-func (image *SImage) GetImageType() string {
-	return cloudprovider.CachedImageTypeSystem
+func (image *SImage) GetImageType() cloudprovider.TImageType {
+	return cloudprovider.ImageTypeSystem
 }
 
 func (image *SImage) GetSizeByte() int64 {

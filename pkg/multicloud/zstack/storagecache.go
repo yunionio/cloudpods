@@ -64,17 +64,21 @@ func (scache *SStoragecache) IsEmulated() bool {
 	return false
 }
 
-func (scache *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
+func (scache *SStoragecache) GetICustomizedCloudImages() ([]cloudprovider.ICloudImage, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (scache *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error) {
 	images, err := scache.region.GetImages(scache.ZoneId, "")
 	if err != nil {
 		return nil, err
 	}
-	iImages := []cloudprovider.ICloudImage{}
+	ret := []cloudprovider.ICloudImage{}
 	for i := 0; i < len(images); i++ {
 		images[i].storageCache = scache
-		iImages = append(iImages, &images[i])
+		ret = append(ret, &images[i])
 	}
-	return iImages, nil
+	return ret, nil
 }
 
 func (scache *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {

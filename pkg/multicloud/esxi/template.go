@@ -138,8 +138,8 @@ func (t *SVMTemplate) GetSizeByte() int64 {
 	return int64(sum) * (1 << 20)
 }
 
-func (t *SVMTemplate) GetImageType() string {
-	return cloudprovider.CachedImageTypeSystem
+func (t *SVMTemplate) GetImageType() cloudprovider.TImageType {
+	return cloudprovider.ImageTypeSystem
 }
 
 func (t *SVMTemplate) GetImageStatus() string {

@@ -44,6 +44,7 @@ type SSkuResourcesMeta struct {
 	DBInstanceBase   string `json:"dbinstance_base"`
 	ServerBase       string `json:"server_base"`
 	ElasticCacheBase string `json:"elastic_cache_base"`
+	ImageBase        string `json:"image_base"`
 }
 
 func (self *SSkuResourcesMeta) getZoneIdBySuffix(zoneMaps map[string]string, suffix string) string {
@@ -55,13 +56,26 @@ func (self *SSkuResourcesMeta) getZoneIdBySuffix(zoneMaps map[string]string, suf
 	return ""
 }
 
+func (self *SSkuResourcesMeta) GetCloudimages(regionExternalId string) ([]SCachedimage, error) {
+	objs, err := self.getObjsByRegion(self.ImageBase, regionExternalId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "getObjsByRegion")
+	}
+	images := []SCachedimage{}
+	err = jsonutils.Update(&images, objs)
+	if err != nil {
+		return nil, errors.Wrapf(err, "jsonutils.Update")
+	}
+	return images, nil
+}
+
 func (self *SSkuResourcesMeta) GetDBInstanceSkusByRegionExternalId(regionExternalId string) ([]SDBInstanceSku, error) {
 	regionId, zoneMaps, err := self.GetRegionIdAndZoneMaps(regionExternalId)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetRegionIdAndZoneMaps")
 	}
 	result := []SDBInstanceSku{}
-	objs, err := self.getSkusByRegion(self.DBInstanceBase, regionExternalId)
+	objs, err := self.getObjsByRegion(self.DBInstanceBase, regionExternalId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getSkusByRegion")
 	}
@@ -137,7 +151,7 @@ func (self *SSkuResourcesMeta) GetServerSkusByRegionExternalId(regionExternalId 
 		return nil, errors.Wrap(err, "GetRegionIdAndZoneMaps")
 	}
 	result := []SServerSku{}
-	objs, err := self.getSkusByRegion(self.ServerBase, regionExternalId)
+	objs, err := self.getObjsByRegion(self.ServerBase, regionExternalId)
 	if err != nil {
 		return nil, errors.Wrap(err, "getSkusByRegion")
 	}
@@ -191,9 +205,9 @@ func (self *SSkuResourcesMeta) GetElasticCacheSkusByRegionExternalId(regionExter
 
 	// aliyun finance cloud
 	remoteRegion := getElaticCacheSkuRegionExtId(regionExternalId)
-	objs, err := self.getSkusByRegion(self.ElasticCacheBase, remoteRegion)
+	objs, err := self.getObjsByRegion(self.ElasticCacheBase, remoteRegion)
 	if err != nil {
-		return nil, errors.Wrap(err, "getSkusByRegion")
+		return nil, errors.Wrap(err, "getObjsByRegion")
 	}
 	for _, obj := range objs {
 		sku := SElasticcacheSku{}
@@ -223,7 +237,7 @@ func (self *SSkuResourcesMeta) GetElasticCacheSkusByRegionExternalId(regionExter
 	return result, nil
 }
 
-func (self *SSkuResourcesMeta) getSkusByRegion(base string, region string) ([]jsonutils.JSONObject, error) {
+func (self *SSkuResourcesMeta) getObjsByRegion(base string, region string) ([]jsonutils.JSONObject, error) {
 	url := fmt.Sprintf("%s/%s.json", base, region)
 	items, err := self._get(url)
 	if err != nil {

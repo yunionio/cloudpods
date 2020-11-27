@@ -199,7 +199,11 @@ func (self *SDatastoreImageCache) GetIImageInTemplateVMsById(id string) (cloudpr
 	return nil, err
 }
 
-func (self *SDatastoreImageCache) GetIImages() ([]cloudprovider.ICloudImage, error) {
+func (self *SDatastoreImageCache) GetICustomizedCloudImages() ([]cloudprovider.ICloudImage, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SDatastoreImageCache) GetICloudImages() ([]cloudprovider.ICloudImage, error) {
 	images1, err := self.GetIImageInTemplateVMs()
 	if err != nil {
 		return nil, err

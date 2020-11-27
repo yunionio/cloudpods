@@ -67,7 +67,7 @@ func (c *SAgentImageCacheManager) PrefetchImageCache(ctx context.Context, data i
 	}
 	lockman.LockRawObject(ctx, idata.HostId, idata.ImageId)
 	defer lockman.ReleaseRawObject(ctx, idata.HostId, idata.ImageId)
-	if idata.ImageType == cloudprovider.CachedImageTypeSystem {
+	if cloudprovider.TImageType(idata.ImageType) == cloudprovider.ImageTypeSystem {
 		return c.perfetchTemplateVMImageCache(ctx, idata)
 	}
 	if len(idata.SrcHostIp) != 0 {

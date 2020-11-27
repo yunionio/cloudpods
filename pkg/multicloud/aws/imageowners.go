@@ -573,13 +573,13 @@ func comapreImageBuildIds(ver1 string, img2 SImage) int {
 	return strings.Compare(ver1, img2.OSBuildId)
 }
 
-func getImageType(image SImage) string {
+func getImageType(image SImage) cloudprovider.TImageType {
 	_, ok := awsImagePublishers[image.OwnerId]
 	if ok {
-		return cloudprovider.CachedImageTypeSystem
+		return cloudprovider.ImageTypeSystem
 	}
 	if !image.Public {
-		return cloudprovider.CachedImageTypeCustomized
+		return cloudprovider.ImageTypeCustomized
 	}
-	return cloudprovider.CachedImageTypeMarket
+	return cloudprovider.ImageTypeMarket
 }

@@ -62,7 +62,7 @@ func (f *ImagePredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, e
 		return false, fmt.Errorf("Fetch CachedImage %s: %v", imageId, err)
 	}
 	cacheImage := obj.(*models.SCachedimage)
-	if cacheImage.ImageType != cloudprovider.CachedImageTypeSystem {
+	if cloudprovider.TImageType(cacheImage.ImageType) != cloudprovider.ImageTypeSystem {
 		return false, nil
 	}
 	zones, err := cacheImage.GetUsableZoneIds()

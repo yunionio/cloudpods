@@ -682,7 +682,10 @@ func (manager *SStoragecacheManager) purgeAll(ctx context.Context, userCred mccl
 }
 
 func (sc *SStoragecache) purgeAllCachedimages(ctx context.Context, userCred mcclient.TokenCredential) error {
-	cachedimages := sc.getCachedImages()
+	cachedimages, err := sc.getCachedImages()
+	if err != nil {
+		return errors.Wrapf(err, "getCachedImages for storagecache %s(%s)", sc.Name, sc.Id)
+	}
 	for i := range cachedimages {
 		err := cachedimages[i].syncRemoveCloudImage(ctx, userCred)
 		if err != nil {

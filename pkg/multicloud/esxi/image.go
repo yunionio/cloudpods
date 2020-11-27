@@ -107,8 +107,8 @@ func (self *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 	return self.cache
 }
 
-func (self *SImage) GetImageType() string {
-	return cloudprovider.CachedImageTypeCustomized
+func (self *SImage) GetImageType() cloudprovider.TImageType {
+	return cloudprovider.ImageTypeCustomized
 }
 
 func (self *SImage) GetSizeByte() int64 {

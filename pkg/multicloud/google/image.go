@@ -154,11 +154,11 @@ func (image *SImage) Refresh() error {
 	return jsonutils.Update(image, _image)
 }
 
-func (image *SImage) GetImageType() string {
+func (image *SImage) GetImageType() cloudprovider.TImageType {
 	if strings.Index(image.SelfLink, image.storagecache.region.GetProjectId()) >= 0 {
-		return cloudprovider.CachedImageTypeCustomized
+		return cloudprovider.ImageTypeCustomized
 	}
-	return cloudprovider.CachedImageTypeSystem
+	return cloudprovider.ImageTypeSystem
 }
 
 func (image *SImage) GetSizeByte() int64 {
@@ -203,18 +203,6 @@ func (image *SImage) Delete(ctx context.Context) error {
 
 func (image *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 	return image.storagecache
-}
-
-func (region *SRegion) fetchImages() ([]SImage, error) {
-	if len(region.client.images) > 0 {
-		return region.client.images, nil
-	}
-	images, err := region.GetAllAvailableImages()
-	if err != nil {
-		return nil, err
-	}
-	region.client.images = images
-	return images, nil
 }
 
 func (region *SRegion) CreateImage(name string, desc string, bucketName string, sourceFile string) (*SImage, error) {

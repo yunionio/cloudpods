@@ -69,12 +69,13 @@ func (manager *SSyncableBaseResourceManager) ListItemFilter(
 
 type sStoragecacheSyncPair struct {
 	local  *SStoragecache
+	region *SCloudregion
 	remote cloudprovider.ICloudStoragecache
 	isNew  bool
 }
 
 func (pair *sStoragecacheSyncPair) syncCloudImages(ctx context.Context, userCred mcclient.TokenCredential) compare.SyncResult {
-	return pair.local.SyncCloudImages(ctx, userCred, pair.remote)
+	return pair.local.SyncCloudImages(ctx, userCred, pair.remote, pair.region)
 }
 
 func isInCache(pairs []sStoragecacheSyncPair, localCacheId string) bool {
@@ -537,6 +538,7 @@ func syncStorageCaches(ctx context.Context, userCred mcclient.TokenCredential, p
 	cachePair.local = localCache
 	cachePair.remote = remoteCache
 	cachePair.isNew = isNew
+	cachePair.region = localStorage.GetRegion()
 	return
 }
 

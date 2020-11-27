@@ -322,24 +322,34 @@ func (self *SStoragecache) getCachedImageList(excludeIds []string, imageType str
 	return images
 }
 
-func (self *SStoragecache) getCachedImages() []SStoragecachedimage {
+func (self *SStoragecache) getCachedImages() ([]SStoragecachedimage, error) {
 	images := make([]SStoragecachedimage, 0)
 	q := StoragecachedimageManager.Query().Equals("storagecache_id", self.Id)
 	err := db.FetchModelObjects(StoragecachedimageManager, q, &images)
 	if err != nil {
-		log.Errorf("%s", err)
-		return nil
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
-	return images
+	return images, nil
+}
+
+func (self *SStoragecache) getCustomdCachedImages() ([]SStoragecachedimage, error) {
+	images := make([]SStoragecachedimage, 0)
+	sq := CachedimageManager.Query("id").Equals("image_type", "customized").SubQuery()
+	q := StoragecachedimageManager.Query().Equals("storagecache_id", self.Id).In("cachedimage_id", sq)
+	err := db.FetchModelObjects(StoragecachedimageManager, q, &images)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return images, nil
 }
 
 func (self *SStoragecache) getCachedImageCount() int {
-	images := self.getCachedImages()
+	images, _ := self.getCachedImages()
 	return len(images)
 }
 
 func (self *SStoragecache) getCachedImageSize() int64 {
-	images := self.getCachedImages()
+	images, _ := self.getCachedImages()
 	if images == nil {
 		return 0
 	}
@@ -534,7 +544,7 @@ func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcc
 		}
 	} else {
 		cachedImage := imgObj.(*SCachedimage)
-		if cachedImage.ImageType != cloudprovider.CachedImageTypeCustomized && !isForce {
+		if cloudprovider.TImageType(cachedImage.ImageType) != cloudprovider.ImageTypeCustomized && !isForce {
 			return nil, httperrors.NewForbiddenError("cannot uncache non-customized images")
 		}
 		imageId = imgObj.GetId()
@@ -594,29 +604,80 @@ func (self *SStoragecache) PerformCacheImage(ctx context.Context, userCred mccli
 	return nil, err
 }
 
-func (cache *SStoragecache) SyncCloudImages(
+func (self *SStoragecache) SyncCloudImages(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	iStoragecache cloudprovider.ICloudStoragecache,
+	region *SCloudregion,
 ) compare.SyncResult {
-	lockman.LockObject(ctx, cache)
-	defer lockman.ReleaseObject(ctx, cache)
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
 
-	lockman.LockClass(ctx, StoragecachedimageManager, db.GetLockClassKey(StoragecachedimageManager, userCred))
-	defer lockman.ReleaseClass(ctx, StoragecachedimageManager, db.GetLockClassKey(StoragecachedimageManager, userCred))
+	lockman.LockRawObject(ctx, "cachedimages", self.Id)
+	defer lockman.ReleaseRawObject(ctx, "cachedimages", self.Id)
 
-	syncResult := compare.SyncResult{}
+	result := compare.SyncResult{}
 
-	log.Debugln("localCachedImages started")
-	localCachedImages := cache.getCachedImages()
-	log.Debugf("localCachedImages %d", len(localCachedImages))
-
-	remoteImages, err := iStoragecache.GetIImages()
+	driver, err := cloudprovider.GetProviderFactory(region.Provider)
 	if err != nil {
-		log.Errorf("fail to get images %s", err)
-		syncResult.Error(err)
-		return syncResult
+		result.Error(errors.Wrapf(err, "GetProviderFactory(%s)", region.Provider))
+		return result
 	}
+	if driver.IsPublicCloud() {
+		err = func() error {
+			err := region.SyncCloudImages(ctx, userCred, false)
+			if err != nil {
+				return errors.Wrapf(err, "SyncCloudImages")
+			}
+			err = self.CheckCloudimages(ctx, userCred, region.Name, region.Id)
+			if err != nil {
+				return errors.Wrapf(err, "CheckCloudimages")
+			}
+			return nil
+		}()
+		if err != nil {
+			log.Errorf("sync public image error: %v", err)
+		}
+
+		log.Debugln("localCachedImages started")
+		localCachedImages, err := self.getCustomdCachedImages()
+		if err != nil {
+			result.Error(errors.Wrapf(err, "getCustomdCachedImages"))
+			return result
+		}
+		log.Debugf("localCachedImages %d", len(localCachedImages))
+		remoteImages, err := iStoragecache.GetICustomizedCloudImages()
+		if err != nil {
+			result.Error(errors.Wrapf(err, "GetICustomizedCloudImages"))
+			return result
+		}
+		result = self.syncCloudImages(ctx, userCred, localCachedImages, remoteImages)
+	} else {
+		log.Debugln("localCachedImages started")
+		localCachedImages, err := self.getCachedImages()
+		if err != nil {
+			result.Error(errors.Wrapf(err, "getCachedImages"))
+			return result
+		}
+		log.Debugf("localCachedImages %d", len(localCachedImages))
+		remoteImages, err := iStoragecache.GetICloudImages()
+		if err != nil {
+			result.Error(errors.Wrapf(err, "GetICloudImages"))
+			return result
+		}
+		result = self.syncCloudImages(ctx, userCred, localCachedImages, remoteImages)
+	}
+
+	return result
+}
+
+func (cache *SStoragecache) syncCloudImages(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	localCachedImages []SStoragecachedimage,
+	remoteImages []cloudprovider.ICloudImage,
+) compare.SyncResult {
+	syncResult := compare.SyncResult{}
 
 	var syncOwnerId mcclient.IIdentityProvider
 
@@ -630,10 +691,9 @@ func (cache *SStoragecache) SyncCloudImages(
 	commonext := make([]cloudprovider.ICloudImage, 0)
 	added := make([]cloudprovider.ICloudImage, 0)
 
-	err = compare.CompareSets(localCachedImages, remoteImages, &removed, &commondb, &commonext, &added)
+	err := compare.CompareSets(localCachedImages, remoteImages, &removed, &commondb, &commonext, &added)
 	if err != nil {
-		log.Errorf("compare.CompareSets error %s", err)
-		syncResult.Error(err)
+		syncResult.Error(errors.Wrapf(err, "compare.CompareSets"))
 		return syncResult
 	}
 
@@ -672,12 +732,12 @@ func (self *SStoragecache) IsReachCapacityLimit(imageId string) bool {
 		return false
 	}
 	cachedImage := imgObj.(*SCachedimage)
-	if cachedImage.ImageType != cloudprovider.CachedImageTypeCustomized {
+	if cloudprovider.TImageType(cachedImage.ImageType) != cloudprovider.ImageTypeCustomized {
 		// no need to cache
 		log.Debugf("image %s is not a customized image, no need to cache", imageId)
 		return false
 	}
-	cachedImages := self.getCachedImageList(nil, cloudprovider.CachedImageTypeCustomized, []string{api.CACHED_IMAGE_STATUS_ACTIVE})
+	cachedImages := self.getCachedImageList(nil, string(cloudprovider.ImageTypeCustomized), []string{api.CACHED_IMAGE_STATUS_ACTIVE})
 	for i := range cachedImages {
 		if cachedImages[i].Id == imageId {
 			// already cached
@@ -690,7 +750,7 @@ func (self *SStoragecache) IsReachCapacityLimit(imageId string) bool {
 }
 
 func (self *SStoragecache) StartRelinquishLeastUsedCachedImageTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, parentTaskId string) error {
-	cachedImages := self.getCachedImageList([]string{imageId}, cloudprovider.CachedImageTypeCustomized, []string{api.CACHED_IMAGE_STATUS_ACTIVE})
+	cachedImages := self.getCachedImageList([]string{imageId}, string(cloudprovider.ImageTypeCustomized), []string{api.CACHED_IMAGE_STATUS_ACTIVE})
 	leastUsedIdx := -1
 	leastRefCount := -1
 	for i := range cachedImages {
@@ -734,4 +794,62 @@ func (manager *SStoragecacheManager) ListItemExportKeys(ctx context.Context,
 		}
 	}
 	return q, nil
+}
+
+func (self *SStoragecache) linkCloudimages(ctx context.Context, regionName, regionId string) error {
+	cloudimages := CloudimageManager.Query("external_id").Equals("cloudregion_id", regionId).SubQuery()
+	sq := StoragecachedimageManager.Query("cachedimage_id").Equals("storagecache_id", self.Id).SubQuery()
+	q := CachedimageManager.Query().Equals("image_type", "system").In("external_id", cloudimages).NotIn("id", sq)
+	images := []SCachedimage{}
+	err := db.FetchModelObjects(CachedimageManager, q, &images)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range images {
+		sci := &SStoragecachedimage{}
+		sci.SetModelManager(StoragecachedimageManager, sci)
+		sci.StoragecacheId = self.Id
+		sci.CachedimageId = images[i].Id
+		sci.Status = api.CACHED_IMAGE_STATUS_ACTIVE
+		err = StoragecachedimageManager.TableSpec().Insert(ctx, sci)
+		if err != nil {
+			return errors.Wrapf(err, "Insert")
+		}
+	}
+	if len(images) > 0 {
+		log.Infof("link new %d cloud image for region %s(%s) storagecache %s", len(images), regionName, regionId, self.Name)
+	}
+	return nil
+}
+
+func (self *SStoragecache) unlinkCloudimages(ctx context.Context, userCred mcclient.TokenCredential, regionName, regionId string) error {
+	cloudimages := CloudimageManager.Query("external_id").Equals("cloudregion_id", regionId).SubQuery()
+	sq := CachedimageManager.Query("id").Equals("image_type", "system").NotIn("external_id", cloudimages).SubQuery()
+	q := StoragecachedimageManager.Query().Equals("storagecache_id", self.Id).In("cachedimage_id", sq)
+	scis := []SStoragecachedimage{}
+	err := db.FetchModelObjects(StoragecachedimageManager, q, &scis)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range scis {
+		err = scis[i].Detach(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "scis[i].Detach")
+		}
+	}
+	if len(scis) > 0 {
+		log.Infof("unlink %d cloud image for region %s(%s) storagecache %s", len(scis), regionName, regionId, self.Name)
+	}
+	return nil
+}
+
+func (self *SStoragecache) CheckCloudimages(ctx context.Context, userCred mcclient.TokenCredential, regionName, regionId string) error {
+	lockman.LockRawObject(ctx, "cachedimages", regionId)
+	defer lockman.ReleaseRawObject(ctx, "cachedimages", regionId)
+
+	err := self.unlinkCloudimages(ctx, userCred, regionName, regionId)
+	if err != nil {
+		return errors.Wrapf(err, "unlinkCloudimages")
+	}
+	return self.linkCloudimages(ctx, regionName, regionId)
 }

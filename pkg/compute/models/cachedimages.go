@@ -93,6 +93,10 @@ type SCachedimage struct {
 	ImageType string `width:"16" default:"customized" list:"user"`
 }
 
+func (self SCachedimage) GetGlobalId() string {
+	return self.ExternalId
+}
+
 func (self *SCachedimage) ValidateDeleteCondition(ctx context.Context) error {
 	cnt, err := self.getStoragecacheCount()
 	if err != nil {
@@ -496,7 +500,7 @@ func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mccli
 		self.Name = newName
 		self.Size = image.GetSizeByte()
 		self.ExternalId = image.GetGlobalId()
-		self.ImageType = image.GetImageType()
+		self.ImageType = string(image.GetImageType())
 		self.PublicScope = string(image.GetPublicScope())
 		self.Status = image.GetStatus()
 		if image.GetPublicScope() == rbacutils.ScopeSystem {
@@ -532,7 +536,7 @@ func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userC
 	sImage := cloudprovider.CloudImage2Image(image)
 	cachedImage.Info = jsonutils.Marshal(&sImage)
 	cachedImage.LastSync = time.Now().UTC()
-	cachedImage.ImageType = image.GetImageType()
+	cachedImage.ImageType = string(image.GetImageType())
 	cachedImage.ExternalId = image.GetGlobalId()
 	cachedImage.Status = image.GetStatus()
 	cachedImage.PublicScope = string(image.GetPublicScope())

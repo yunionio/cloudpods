@@ -69,17 +69,21 @@ func (cache *SStoragecache) IsEmulated() bool {
 	return true
 }
 
-func (cache *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
-	images, err := cache.region.fetchImages()
+func (cache *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (cache *SStoragecache) GetICustomizedCloudImages() ([]cloudprovider.ICloudImage, error) {
+	images, err := cache.region.GetImages(cache.region.client.projectId, 1000, "")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetImages")
 	}
-	iimages := []cloudprovider.ICloudImage{}
+	ret := []cloudprovider.ICloudImage{}
 	for i := range images {
 		images[i].storagecache = cache
-		iimages = append(iimages, &images[i])
+		ret = append(ret, &images[i])
 	}
-	return iimages, nil
+	return ret, nil
 }
 
 func (cache *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {

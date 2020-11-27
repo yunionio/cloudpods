@@ -970,3 +970,106 @@ func (self *SCloudregion) ClearSchedDescCache() error {
 	}
 	return nil
 }
+
+func (self *SCloudregion) GetCloudimages() ([]SCloudimage, error) {
+	q := CloudimageManager.Query().Equals("cloudregion_id", self.Id)
+	images := []SCloudimage{}
+	err := db.FetchModelObjects(CloudimageManager, q, &images)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return images, nil
+}
+
+func (self *SCloudregion) SyncCloudImages(ctx context.Context, userCred mcclient.TokenCredential, refresh bool) error {
+	lockman.LockRawObject(ctx, "cloudimages", self.Id)
+	defer lockman.ReleaseRawObject(ctx, "cloudimages", self.Id)
+
+	dbImages, err := self.GetCloudimages()
+	if err != nil {
+		return errors.Wrapf(err, "GetCloudimages")
+	}
+	if len(dbImages) > 0 && !refresh {
+		return nil
+	}
+	meta, err := FetchSkuResourcesMeta()
+	if err != nil {
+		return errors.Wrapf(err, "FetchSkuResourcesMeta")
+	}
+	iImages, err := meta.GetCloudimages(self.ExternalId)
+	if err != nil {
+		return errors.Wrapf(err, "GetCloudimages")
+	}
+
+	removed := make([]SCloudimage, 0)
+	commondb := make([]SCloudimage, 0)
+	commonext := make([]SCachedimage, 0)
+	added := make([]SCachedimage, 0)
+	err = compare.CompareSets(dbImages, iImages, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		return errors.Wrapf(err, "compare.CompareSets")
+	}
+
+	result := compare.SyncResult{}
+	result.UpdateCnt = len(commondb)
+
+	for i := 0; i < len(removed); i++ {
+		err := removed[i].syncRemove(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
+
+	for i := 0; i < len(added); i++ {
+		err = self.newCloudimage(ctx, userCred, added[i])
+		if err != nil {
+			result.AddError(errors.Wrapf(err, "newCloudimage"))
+			continue
+		}
+		result.Add()
+	}
+	log.Infof("Sync Cloudimages for region %s result: %s", self.Name, result.Result())
+	return nil
+}
+
+func (self *SCloudregion) GetStoragecaches() ([]SStoragecache, error) {
+	zones := ZoneManager.Query("id").Equals("cloudregion_id", self.Id).SubQuery()
+	sq := StorageManager.Query("storagecache_id").In("zone_id", zones).SubQuery()
+	q := StoragecacheManager.Query().In("id", sq)
+	caches := []SStoragecache{}
+	err := db.FetchModelObjects(StoragecacheManager, q, &caches)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return caches, nil
+}
+
+func (self *SCloudregion) newCloudimage(ctx context.Context, userCred mcclient.TokenCredential, iImage SCachedimage) error {
+	_, err := db.FetchByExternalId(CachedimageManager, iImage.GetGlobalId())
+	if err != nil {
+		if errors.Cause(err) != sql.ErrNoRows {
+			return errors.Wrapf(err, "db.FetchModelObjects(%s)", iImage.GetGlobalId())
+		}
+		image := &iImage
+		image.Id = ""
+		image.IsPublic = true
+		image.ProjectId = "system"
+		image.SetModelManager(CachedimageManager, image)
+		err = CachedimageManager.TableSpec().Insert(ctx, image)
+		if err != nil {
+			return errors.Wrapf(err, "Insert cachedimage")
+		}
+	}
+	cloudimage := &SCloudimage{}
+	cloudimage.SetModelManager(CloudimageManager, cloudimage)
+	cloudimage.Name = iImage.Name
+	cloudimage.CloudregionId = self.Id
+	cloudimage.ExternalId = iImage.GetGlobalId()
+	err = CloudimageManager.TableSpec().Insert(ctx, cloudimage)
+	if err != nil {
+		return errors.Wrapf(err, "Insert cloudimage")
+	}
+	return nil
+}
