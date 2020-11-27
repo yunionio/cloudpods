@@ -610,8 +610,8 @@ func (manager *SInstanceSnapshotManager) newFromCloudInstanceSnapshot(ctx contex
 }
 
 func (self *SInstanceSnapshot) GetRegionDriver() IRegionDriver {
-	cp := self.GetCloudprovider()
-	return GetRegionDriver(cp.Provider)
+	provider := self.GetProviderName()
+	return GetRegionDriver(provider)
 }
 
 func (ism *SInstanceSnapshotManager) InitializeData() error {
