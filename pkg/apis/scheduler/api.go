@@ -81,6 +81,10 @@ type ScheduleInput struct {
 	CpuMicrocode string `json:"cpu_microcode"`
 	CpuMode      string `json:"cpu_mode"`
 
+	// In the migrate and create backup cases
+	// we don't need reallocate network
+	ReuseNetwork bool `json:"reuse_network"`
+
 	PendingUsages []jsonutils.JSONObject
 }
 

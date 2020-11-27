@@ -88,6 +88,11 @@ func IsNetworksAvailable(c core.Candidater, data *api.SchedInfo, req *computeapi
 		checkNets(ovnNetworks)
 	}
 
+	// reuse network
+	if data.ReuseNetwork {
+		return freeCnt, nil
+	}
+
 	if freeCnt <= 0 {
 		return freeCnt, fullErrMsgs
 	}
@@ -119,7 +124,9 @@ func IsNetworkAvailable(
 	}
 
 	if n.IsExitNetwork() != exit {
-		return FailReason{Reason: ErrExitIsNotMatch}
+		return FailReason{
+			Reason: fmt.Sprintf("%v(%v): %s", n.Name, n.Id, ErrExitIsNotMatch),
+		}
 	}
 
 	if !(c.Getter().GetFreePort(n.GetId()) > 0 || isMigrate()) {
@@ -226,7 +233,9 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 			h.ExcludeByErrors(errs)
 			return h.GetResult()
 		}
-		h.SetCapacity(int64(freePortCnt))
+		if !d.ReuseNetwork {
+			h.SetCapacity(int64(freePortCnt))
+		}
 	}
 
 	return h.GetResult()
