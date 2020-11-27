@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -126,6 +127,10 @@ func (manager *SSchedtagManager) GetResourceTypes() []string {
 		ret = append(ret, key)
 	}
 	return ret
+}
+
+func (manager *SSchedtagManager) GetJointManager(resTypePlural string) ISchedtagJointManager {
+	return manager.jointsManager[resTypePlural]
 }
 
 type SSchedtag struct {
@@ -379,23 +384,33 @@ func (self *SSchedtag) ValidateDeleteCondition(ctx context.Context) error {
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-/*
-func (self *SSchedtag) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return userCred.IsSystemAdmin()
+// GetObjectPtr wraps the given value with pointer: V => *V, *V => **V, etc.
+func GetObjectPtr(obj interface{}) interface{} {
+	v := reflect.ValueOf(obj)
+	pt := reflect.PtrTo(v.Type())
+	pv := reflect.New(pt.Elem())
+	pv.Elem().Set(v)
+
+	return pv.Interface()
 }
 
-func (self *SSchedtag) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return userCred.IsSystemAdmin()
-}*/
-
-func (self *SSchedtag) GetObjects(objs interface{}) error {
+func (self *SSchedtag) GetResources() ([]IModelWithSchedtag, error) {
+	objs := make([]interface{}, 0)
 	q := self.GetObjectQuery()
-	masterMan := self.GetJointManager().GetMasterManager()
-	err := db.FetchModelObjects(masterMan, q, objs)
+	masterMan, err := self.GetResourceManager()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	if err := db.FetchModelObjects(masterMan, q, &objs); err != nil {
+		return nil, err
+	}
+
+	ret := make([]IModelWithSchedtag, len(objs))
+	for i := range objs {
+		obj := objs[i]
+		ret[i] = GetObjectPtr(obj).(IModelWithSchedtag)
+	}
+	return ret, nil
 }
 
 func (self *SSchedtag) GetObjectQuery() *sqlchemy.SQuery {
@@ -412,7 +427,16 @@ func (self *SSchedtag) GetObjectQuery() *sqlchemy.SQuery {
 }
 
 func (self *SSchedtag) GetJointManager() ISchedtagJointManager {
-	return SchedtagManager.jointsManager[self.ResourceType]
+	return SchedtagManager.GetJointManager(self.ResourceType)
+}
+
+func (s *SSchedtag) GetResourceManager() (db.IStandaloneModelManager, error) {
+	jResMan := s.GetJointManager()
+	if jResMan == nil {
+		return nil, errors.Errorf("Not found bind joint resource manager by type %q", s.ResourceType)
+	}
+
+	return jResMan.GetMasterManager(), nil
 }
 
 func (self *SSchedtag) GetObjectCount() (int, error) {
@@ -587,19 +611,8 @@ func PerformSetResourceSchedtag(obj IModelWithSchedtag, ctx context.Context, use
 	jointMan := obj.GetSchedtagJointManager()
 	for _, setTagId := range setTagsId {
 		if !utils.IsInStringArray(setTagId, oldTagIds) {
-			if newTagObj, err := db.NewModelObject(jointMan); err != nil {
-				return nil, httperrors.NewGeneralError(err)
-			} else {
-				objectKey := jointMan.GetResourceIdKey(jointMan)
-				createData := jsonutils.NewDict()
-				createData.Add(jsonutils.NewString(setTagId), "schedtag_id")
-				createData.Add(jsonutils.NewString(obj.GetId()), objectKey)
-				if err := createData.Unmarshal(newTagObj); err != nil {
-					return nil, httperrors.NewGeneralError(fmt.Errorf("Create %s joint schedtag error: %v", jointMan.Keyword(), err))
-				}
-				if err := newTagObj.GetModelManager().TableSpec().Insert(ctx, newTagObj); err != nil {
-					return nil, httperrors.NewGeneralError(err)
-				}
+			if _, err := InsertJointResourceSchedtag(ctx, jointMan, obj.GetId(), setTagId); err != nil {
+				return nil, errors.Wrapf(err, "InsertJointResourceSchedtag %s %s", obj.GetId(), setTagId)
 			}
 		}
 	}
@@ -648,4 +661,79 @@ func (s *SSchedtag) AllowPerformSetScope(ctx context.Context, userCred mcclient.
 
 func (s *SSchedtag) PerformSetScope(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return db.PerformSetScope(ctx, s, userCred, data)
+}
+
+func (s *SSchedtag) GetJointResourceTag(resId string) (ISchedtagJointModel, error) {
+	jMan := s.GetJointManager()
+	jObj, err := db.FetchJointByIds(jMan, resId, s.GetId(), nil)
+	if err != nil {
+		return nil, err
+	}
+	return jObj.(ISchedtagJointModel), nil
+}
+
+func (s *SSchedtag) PerformSetResource(ctx context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject, input *api.SchedtagSetResourceInput) (jsonutils.JSONObject, error) {
+	if input == nil {
+		return nil, nil
+	}
+
+	setResIds := make(map[string]IModelWithSchedtag, 0)
+	resMan, err := s.GetResourceManager()
+	if err != nil {
+		return nil, errors.Wrap(err, "get resource manager")
+	}
+
+	// get need set resource ids
+	for i := 0; i < len(input.ResourceIds); i++ {
+		resId := input.ResourceIds[i]
+		res, err := resMan.FetchByIdOrName(userCred, resId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewNotFoundError("Resource %s %s not found", s.ResourceType, resId)
+			}
+			return nil, errors.Wrapf(err, "Fetch resource %s by id or name", s.ResourceType)
+		}
+		setResIds[res.GetId()] = res.(IModelWithSchedtag)
+	}
+
+	// unbind current resources if not in input
+	curRess, err := s.GetResources()
+	if err != nil {
+		return nil, errors.Wrap(err, "Get current bind resources")
+	}
+	curResIds := make([]string, 0)
+	for i := range curRess {
+		res := curRess[i]
+		if _, ok := setResIds[res.GetId()]; ok {
+			curResIds = append(curResIds, res.GetId())
+			continue
+		}
+		jObj, err := s.GetJointResourceTag(res.GetId())
+		if err != nil {
+			return nil, errors.Wrapf(err, "Get joint resource tag by id %s", res.GetId())
+		}
+		if err := jObj.Detach(ctx, userCred); err != nil {
+			return nil, errors.Wrap(err, "detach joint tag")
+		}
+	}
+
+	// bind input resources
+	jointMan := s.GetJointManager()
+	for resId := range setResIds {
+		if utils.IsInStringArray(resId, curResIds) {
+			// already binded
+			continue
+		}
+
+		if _, err := InsertJointResourceSchedtag(ctx, jointMan, resId, s.GetId()); err != nil {
+			return nil, errors.Wrapf(err, "InsertJointResourceSchedtag %s %s", resId, s.GetId())
+		}
+
+		res := setResIds[resId]
+		if err := res.ClearSchedDescCache(); err != nil {
+			log.Errorf("Resource %s/%s ClearSchedDescCache error: %v", res.Keyword(), res.GetId(), err)
+		}
+	}
+
+	return nil, nil
 }
