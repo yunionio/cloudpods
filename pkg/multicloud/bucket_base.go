@@ -94,8 +94,8 @@ func (b *SBaseBucket) GetCORSRules() ([]cloudprovider.SBucketCORSRule, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (b *SBaseBucket) DeleteCORS(id []string) error {
-	return cloudprovider.ErrNotImplemented
+func (b *SBaseBucket) DeleteCORS(id []string) ([]cloudprovider.SBucketCORSRule, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (b *SBaseBucket) SetReferer(conf cloudprovider.SBucketRefererConf) error {
@@ -107,5 +107,17 @@ func (b *SBaseBucket) GetReferer() (cloudprovider.SBucketRefererConf, error) {
 }
 
 func (b *SBaseBucket) GetCdnDomains() ([]cloudprovider.SCdnDomain, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (b *SBaseBucket) GetPolicy() ([]cloudprovider.SBucketPolicyStatement, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (b *SBaseBucket) SetPolicy(policy cloudprovider.SBucketPolicyStatementInput) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (b *SBaseBucket) DeletePolicy(id []string) ([]cloudprovider.SBucketPolicyStatement, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
