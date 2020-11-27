@@ -458,6 +458,14 @@ func init() {
 		EN("Set Referer").
 		CN("设置Referer"),
 	)
+	t.Set(ACT_SET_POLICY, i18n.NewTableEntry().
+		EN("Set Policy").
+		CN("设置Policy"),
+	)
+	t.Set(ACT_DELETE_POLICY, i18n.NewTableEntry().
+		EN("Delete Policy").
+		CN("删除Policy"),
+	)
 
 	t.Set(ACT_NAT_CREATE_SNAT, i18n.NewTableEntry().
 		EN("Nat Create Snat").

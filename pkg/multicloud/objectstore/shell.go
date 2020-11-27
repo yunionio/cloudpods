@@ -499,21 +499,17 @@ func S3Shell() {
 		if err != nil {
 			return err
 		}
-		err = bucket.DeleteCORS(args.Ids)
+		result, err := bucket.DeleteCORS(args.Ids)
 		if err != nil {
 			return err
 		}
+		printList(result, len(result), 0, len(result), nil)
 		fmt.Println("Success!")
 		return nil
 	})
 
 	type BucketSetRefererOption struct {
-		BUCKET string `help:"name of bucket to put object"`
-		// 是否开启防盗链
-		Enabled bool `help:"enable refer"`
-		// Black-List、White-List
-		Type string `help:"domain list type" choices:"Black-List|White-List"`
-		// 域名列表
+		BUCKET     string `help:"name of bucket to put object"`
 		DomainList []string
 		// 是否允许空refer 访问
 		AllowEmptyRefer bool `help:"all empty refer access"`
@@ -524,9 +520,7 @@ func S3Shell() {
 			return err
 		}
 		conf := cloudprovider.SBucketRefererConf{
-			Enabled:         args.Enabled,
-			Type:            args.Type,
-			DomainList:      args.DomainList,
+			WhiteList:       args.DomainList,
 			AllowEmptyRefer: args.AllowEmptyRefer,
 		}
 		err = bucket.SetReferer(conf)
@@ -536,6 +530,73 @@ func S3Shell() {
 		fmt.Println("Success!")
 		return nil
 
+	})
+
+	type BucketGetPolicyOption struct {
+		BUCKET string `help:"name of bucket to put object"`
+	}
+	shellutils.R(&BucketGetPolicyOption{}, "bucket-get-policy", "get bucket policy", func(cli cloudprovider.ICloudRegion, args *BucketGetPolicyOption) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		policy, err := bucket.GetPolicy()
+		if err != nil {
+			return err
+		}
+		printList(policy, len(policy), 0, len(policy), nil)
+		return nil
+	})
+
+	type BucketSetPolicyOption struct {
+		BUCKET string `help:"name of bucket to put object"`
+		// 格式主账号id:子账号id
+		PrincipalId []string
+		// Read|ReadWrite|FullControl
+		CannedAction string
+		// Allow|Deny
+		Effect string
+		// 被授权的资源地址
+		ResourcePath []string
+		// ip 条件
+		IpEquals    []string
+		IpNotEquals []string
+	}
+	shellutils.R(&BucketSetPolicyOption{}, "bucket-set-policy", "set bucket policy", func(cli cloudprovider.ICloudRegion, args *BucketSetPolicyOption) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		opts := cloudprovider.SBucketPolicyStatementInput{}
+		opts.CannedAction = args.CannedAction
+		opts.Effect = args.Effect
+		opts.IpEquals = args.IpEquals
+		opts.IpNotEquals = args.IpNotEquals
+		opts.ResourcePath = args.ResourcePath
+		opts.PrincipalId = args.PrincipalId
+
+		err = bucket.SetPolicy(opts)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	type BucketDeletePolicyOption struct {
+		BUCKET string `help:"name of bucket to put object"`
+		Id     []string
+	}
+	shellutils.R(&BucketDeletePolicyOption{}, "bucket-delete-policy", "delete bucket policy", func(cli cloudprovider.ICloudRegion, args *BucketDeletePolicyOption) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		result, err := bucket.DeletePolicy(args.Id)
+		if err != nil {
+			return err
+		}
+		printList(result, len(result), 0, len(result), nil)
+		return nil
 	})
 
 	type BucketGetRefererOption struct {

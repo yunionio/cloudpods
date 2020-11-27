@@ -448,10 +448,6 @@ func init() {
 
 	type BucketSetRefererOption struct {
 		ID string `help:"ID or name of bucket" json:"-"`
-		// 是否开启防盗链
-		Enabled bool `help:"enable refer"`
-		// Black-List、White-List
-		Type string `help:"domain list type" choices:"Black-List|White-List"`
 		// 域名列表
 		DomainList []string
 		// 是否允许空referer 访问
@@ -459,9 +455,7 @@ func init() {
 	}
 	R(&BucketSetRefererOption{}, "bucket-set-referer", "Set bucket referer", func(s *mcclient.ClientSession, args *BucketSetRefererOption) error {
 		conf := api.BucketRefererConf{
-			Enabled:         args.Enabled,
-			Type:            args.Type,
-			DomainList:      args.DomainList,
+			WhiteList:       args.DomainList,
 			AllowEmptyRefer: args.AllowEmptyRefer,
 		}
 		result, err := modules.Buckets.PerformAction(s, args.ID, "set-referer", jsonutils.Marshal(conf))
@@ -496,4 +490,61 @@ func init() {
 		return nil
 	})
 
+	type BucketGetPolicyOption struct {
+		ID string `help:"ID or name of bucket" json:"-"`
+	}
+	R(&BucketGetPolicyOption{}, "bucket-get-policy", "get bucket policy", func(s *mcclient.ClientSession, args *BucketGetPolicyOption) error {
+		result, err := modules.Buckets.GetSpecific(s, args.ID, "policy", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type BucketSetPolicyOption struct {
+		ID string `help:"ID or name of bucket" json:"-"`
+		// 格式主账号id:子账号id
+		PrincipalId []string `help:"ext account id, accountId:subaccountId"`
+		// Read|ReadWrite|FullControl
+		CannedAction string `help:"authority action" choice:"Read|FullControl"`
+		// Allow|Deny
+		Effect string `help:"allow or deny" choice:"Allow|Deny"`
+		// 被授权的资源地址
+		ResourcePath []string
+		// ip 条件
+		IpEquals    []string
+		IpNotEquals []string
+	}
+	R(&BucketSetPolicyOption{}, "bucket-set-policy", "set bucket policy", func(s *mcclient.ClientSession, args *BucketSetPolicyOption) error {
+		opts := api.BucketPolicyStatementInput{}
+		opts.CannedAction = args.CannedAction
+		opts.Effect = args.Effect
+		opts.IpEquals = args.IpEquals
+		opts.IpNotEquals = args.IpNotEquals
+		opts.ResourcePath = args.ResourcePath
+		opts.PrincipalId = args.PrincipalId
+
+		result, err := modules.Buckets.PerformAction(s, args.ID, "set-policy", jsonutils.Marshal(opts))
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type BucketDeletePolicyOption struct {
+		ID string `help:"ID or name of bucket" json:"-"`
+		Id []string
+	}
+	R(&BucketDeletePolicyOption{}, "bucket-delete-policy", "delete bucket policy", func(s *mcclient.ClientSession, args *BucketDeletePolicyOption) error {
+		input := api.BucketPolicyDeleteInput{}
+		input.Id = args.Id
+		result, err := modules.Buckets.PerformAction(s, args.ID, "delete-policy", jsonutils.Marshal(input))
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

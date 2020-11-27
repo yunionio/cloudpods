@@ -134,6 +134,8 @@ const (
 	ACT_SET_CORS       = "set_cors"
 	ACT_DELETE_CORS    = "delete_cors"
 	ACT_SET_REFERER    = "set_referer"
+	ACT_SET_POLICY     = "set_policy"
+	ACT_DELETE_POLICY  = "delete_policy"
 
 	ACT_NAT_CREATE_SNAT = "nat_create_snat"
 	ACT_NAT_CREATE_DNAT = "nat_create_dnat"
