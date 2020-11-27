@@ -77,6 +77,7 @@ func (self *GuestMigrateTask) GetSchedParams() (*schedapi.ScheduleInput, error) 
 			schedDesc.CpuMode = api.CPU_MODE_QEMU
 		}
 	}
+	schedDesc.ReuseNetwork = true
 	return schedDesc, nil
 }
 
