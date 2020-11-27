@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -56,7 +55,6 @@ type SInstanceSnapshot struct {
 
 	SManagedResourceBase
 	SCloudregionResourceBase
-	db.SMultiArchResourceBase
 
 	// 云主机Id
 	GuestId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
@@ -85,7 +83,6 @@ type SInstanceSnapshotManager struct {
 	db.SExternalizedResourceBaseManager
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
-	db.SMultiArchResourceBaseManager
 }
 
 var InstanceSnapshotManager *SInstanceSnapshotManager
@@ -116,11 +113,6 @@ func (manager *SInstanceSnapshotManager) ListItemFilter(
 	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
-	}
-
-	q, err = manager.SMultiArchResourceBaseManager.ListItemFilter(ctx, q, userCred, query.MultiArchResourceBaseListInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "SMultiArchResourceBaseManager.ListItemFilter")
 	}
 
 	guestStr := query.ServerId
@@ -216,8 +208,8 @@ func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential,
 		out.GuestStatus = guest.Status
 	}
 	var osType string
-	cp := self.GetCloudprovider()
-	if utils.IsInStringArray(cp.Provider, ProviderHasSubSnapshot) {
+	provider := self.GetProviderName()
+	if utils.IsInStringArray(provider, ProviderHasSubSnapshot) {
 		snapshots, _ := self.GetSnapshots()
 		out.Snapshots = []api.SimpleSnapshot{}
 		for i := 0; i < len(snapshots); i++ {
@@ -364,7 +356,6 @@ func (manager *SInstanceSnapshotManager) fillInstanceSnapshot(userCred mcclient.
 		instanceSnapshot.SecGroups = jsonutils.Marshal(secIds)
 	}
 	instanceSnapshot.OsType = guest.OsType
-	instanceSnapshot.OsArch = guest.OsArch
 	instanceSnapshot.ServerMetadata = serverMetadata
 	instanceSnapshot.InstanceType = guest.InstanceType
 }
@@ -400,11 +391,8 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 		return nil, errors.Wrap(err, "unmarshal sched input")
 	}
 
-	cp := self.GetCloudprovider()
-	if cp == nil {
-		return nil, fmt.Errorf("unable to get cloudprovider of isp %q", self.GetId())
-	}
-	if utils.IsInStringArray(cp.Provider, ProviderHasSubSnapshot) {
+	provider := self.GetProviderName()
+	if utils.IsInStringArray(provider, ProviderHasSubSnapshot) {
 		isjs := make([]SInstanceSnapshotJoint, 0)
 		err := InstanceSnapshotJointManager.Query().Equals("instance_snapshot_id", self.Id).Asc("disk_index").All(&isjs)
 		if err != nil {
