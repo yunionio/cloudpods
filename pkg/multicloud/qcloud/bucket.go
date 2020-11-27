@@ -806,7 +806,6 @@ func (b *SBucket) GetReferer() (cloudprovider.SBucketRefererConf, error) {
 	if referResult.EmptyReferConfiguration == "Allow" {
 		result.AllowEmptyRefer = true
 	}
-	result.AllowEmptyRefer = false
 	if referResult.Status == "Disabled" {
 		return result, nil
 	}
