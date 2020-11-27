@@ -24,7 +24,9 @@ import (
 	"time"
 
 	"github.com/tencentyun/cos-go-sdk-v5"
+	"gopkg.in/fatih/set.v0"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/timeutils"
@@ -709,10 +711,11 @@ func (b *SBucket) GetCORSRules() ([]cloudprovider.SBucketCORSRule, error) {
 	return result, nil
 }
 
-func (b *SBucket) DeleteCORS(id []string) error {
+func (b *SBucket) DeleteCORS(id []string) ([]cloudprovider.SBucketCORSRule, error) {
+	deletedRules := []cloudprovider.SBucketCORSRule{}
 	coscli, err := b.region.GetCosClient(b)
 	if err != nil {
-		return errors.Wrap(err, "b.region.GetCosClient")
+		return nil, errors.Wrap(err, "b.region.GetCosClient")
 	}
 
 	existedRules := []cos.BucketCORSRule{}
@@ -720,9 +723,9 @@ func (b *SBucket) DeleteCORS(id []string) error {
 		conf, _, err := coscli.Bucket.GetCORS(context.Background())
 		if err != nil {
 			if strings.Contains(err.Error(), "NoSuchCORSConfiguration") {
-				return nil
+				return nil, nil
 			}
-			return errors.Wrap(err, "b.region.GetCORS")
+			return nil, errors.Wrap(err, "b.region.GetCORS")
 		}
 		existedRules = conf.Rules
 	}
@@ -738,22 +741,30 @@ func (b *SBucket) DeleteCORS(id []string) error {
 	for i := range existedRules {
 		if _, ok := excludeMap[i]; !ok {
 			newRules = append(newRules, existedRules[i])
+		} else {
+			deletedRules = append(deletedRules, cloudprovider.SBucketCORSRule{
+				AllowedOrigins: existedRules[i].AllowedOrigins,
+				AllowedMethods: existedRules[i].AllowedMethods,
+				AllowedHeaders: existedRules[i].AllowedHeaders,
+				MaxAgeSeconds:  existedRules[i].MaxAgeSeconds,
+				ExposeHeaders:  existedRules[i].ExposeHeaders,
+			})
 		}
 	}
 	if len(newRules) < len(existedRules) {
 		if len(newRules) == 0 {
 			_, err = coscli.Bucket.DeleteCORS(context.Background())
 			if err != nil {
-				return errors.Wrap(err, "coscli.Bucket.DeleteCORS")
+				return nil, errors.Wrap(err, "coscli.Bucket.DeleteCORS")
 			}
-			return nil
+			return deletedRules, nil
 		}
 		_, err = coscli.Bucket.PutCORS(context.Background(), &cos.BucketPutCORSOptions{Rules: newRules})
 		if err != nil {
-			return errors.Wrap(err, "coscli.Bucket.PutCORS")
+			return nil, errors.Wrap(err, "coscli.Bucket.PutCORS")
 		}
 	}
-	return nil
+	return deletedRules, nil
 }
 
 func (b *SBucket) SetReferer(conf cloudprovider.SBucketRefererConf) error {
@@ -766,16 +777,15 @@ func (b *SBucket) SetReferer(conf cloudprovider.SBucketRefererConf) error {
 		RefererType:             "White-List",
 		EmptyReferConfiguration: "Deny",
 	}
-	if !conf.Enabled {
-		opts.Status = "Disabled"
-	}
-	if conf.Type != "White-List" {
-		opts.RefererType = "Black-List"
-	}
+
 	if conf.AllowEmptyRefer {
 		opts.EmptyReferConfiguration = "Allow"
 	}
-	opts.DomainList = conf.DomainList
+	opts.DomainList = conf.WhiteList
+	if len(opts.DomainList) == 0 {
+		opts.Status = "Disabled"
+		opts.DomainList = []string{"*"}
+	}
 	_, err = coscli.Bucket.PutReferer(context.Background(), &opts)
 	if err != nil {
 		return errors.Wrap(err, "coscli.Bucket.PutReferer")
@@ -793,20 +803,18 @@ func (b *SBucket) GetReferer() (cloudprovider.SBucketRefererConf, error) {
 		return result, errors.Wrap(err, " coscli.Bucket.GetReferer")
 	}
 
-	result.Enabled = true
-	result.Type = "White-List"
-	result.AllowEmptyRefer = false
-
-	if referResult.Status == "Disabled" {
-		result.Enabled = false
-	}
-	if referResult.RefererType == "Black-List" {
-		result.Type = "Black-List"
-	}
 	if referResult.EmptyReferConfiguration == "Allow" {
 		result.AllowEmptyRefer = true
 	}
-	result.DomainList = referResult.DomainList
+	result.AllowEmptyRefer = false
+	if referResult.Status == "Disabled" {
+		return result, nil
+	}
+	result.WhiteList = referResult.DomainList
+	if referResult.RefererType == "Black-List" {
+		result.WhiteList = nil
+		result.BlackList = referResult.DomainList
+	}
 	return result, nil
 }
 
@@ -874,4 +882,268 @@ func (b *SBucket) GetCdnDomains() ([]cloudprovider.SCdnDomain, error) {
 		})
 	}
 	return result, nil
+}
+
+func getQcsResourcePath(resource []string) []string {
+	path := []string{}
+	for i := range resource {
+		strs := strings.Split(resource[i], ":")
+		path = append(path, strs[len(strs)-1])
+	}
+	return path
+}
+
+func getQcsUserId(principal []string) []string {
+	ids := []string{}
+	for i := range principal {
+		//  qcs::cam::uin/100008182714:uin/100008182714
+		//  qcs::cam::uin/100008182714:service/cdn
+		//  qcs::cam::anyone:anyone
+
+		strs := strings.Split(principal[i], "::")
+		ids = append(ids, strings.Replace(strs[len(strs)-1], "uin/", "", 2))
+	}
+
+	return ids
+}
+
+var cannedReadActions = [...]string{
+	"name/cos:GetBucket",
+	"name/cos:GetBucketObjectVersions",
+	"name/cos:HeadBucket",
+	"name/cos:ListMultipartUploads",
+	"name/cos:ListParts",
+	"name/cos:GetObject",
+	"name/cos:HeadObject",
+	"name/cos:OptionsObject",
+}
+
+var cannedReadWriteActions = [...]string{
+	"name/cos:GetBucket",
+	"name/cos:GetBucketObjectVersions",
+	"name/cos:HeadBucket",
+	"name/cos:ListMultipartUploads",
+	"name/cos:ListParts",
+	"name/cos:GetObject",
+	"name/cos:HeadObject",
+	"name/cos:OptionsObject",
+
+	"name/cos:PutObject",
+	"name/cos:PostObject",
+	"name/cos:DeleteObject",
+	"name/cos:InitiateMultipartUpload",
+	"name/cos:UploadPart",
+	"name/cos:CompleteMultipartUpload",
+	"name/cos:AbortMultipartUpload",
+}
+
+func getCannedAction(action []string) string {
+	cannedAction := ""
+
+	actionSet := set.New(set.NonThreadSafe)
+	for i := range action {
+		actionSet.Add(action[i])
+	}
+	if actionSet.Has("name/cos:*") {
+		return "FullControl"
+	}
+
+	readSet := set.New(set.NonThreadSafe)
+	for i := range cannedReadActions {
+		readSet.Add(cannedReadActions[i])
+	}
+	if set.Difference(readSet, actionSet).Size() == 0 {
+		cannedAction = "Read"
+	}
+
+	readWriteSet := set.New(set.NonThreadSafe)
+	for i := range cannedReadWriteActions {
+		readWriteSet.Add(cannedReadWriteActions[i])
+	}
+	if set.Difference(readWriteSet, actionSet).Size() == 0 {
+		cannedAction = "ReadWrite"
+	}
+	return cannedAction
+}
+
+func (b *SBucket) GetPolicy() ([]cloudprovider.SBucketPolicyStatement, error) {
+	policyOptions := []cloudprovider.SBucketPolicyStatement{}
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		log.Errorf("GetCosClient fail %s", err)
+		return nil, errors.Wrap(err, "b.region.GetCosClient(b)")
+	}
+	result, _, err := coscli.Bucket.GetPolicy(context.Background())
+	if err != nil {
+		if strings.Contains(err.Error(), "404") {
+			return nil, nil
+		}
+		log.Errorf("coscli.Bucket.GetACL fail %s", err)
+		return nil, errors.Wrap(err, "coscli.Bucket.GetPolicy(context.Background())")
+	}
+
+	for i := range result.Statement {
+		policyOptions = append(policyOptions, cloudprovider.SBucketPolicyStatement{
+			Principal: result.Statement[i].Principal,
+			Action:    result.Statement[i].Action,
+			Effect:    result.Statement[i].Effect,
+			Resource:  result.Statement[i].Resource,
+			Condition: result.Statement[i].Condition,
+
+			PrincipalId:  getQcsUserId(result.Statement[i].Principal["qcs"]),
+			CannedAction: getCannedAction(result.Statement[i].Action),
+			ResourcePath: getQcsResourcePath(result.Statement[i].Resource),
+			Id:           strconv.Itoa(i),
+		})
+	}
+	return policyOptions, nil
+}
+
+func (b *SBucket) SetPolicy(policy cloudprovider.SBucketPolicyStatementInput) error {
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		log.Errorf("GetCosClient fail %s", err)
+		return nil
+	}
+	opts := cos.BucketPutPolicyOptions{}
+	opts.Version = "2.0"
+	oldOpts, _, err := coscli.Bucket.GetPolicy(context.Background())
+	if err != nil {
+		if !strings.Contains(err.Error(), "404") {
+			log.Errorf("coscli.Bucket.GetACL fail %s", err)
+			return errors.Wrap(err, "coscli.Bucket.GetPolicy(context.Background())")
+		}
+	}
+	if len(oldOpts.Statement) > 0 {
+		opts.Statement = oldOpts.Statement
+	}
+	newStatement := cos.BucketStatement{}
+	ids := []string{}
+	for i := range policy.PrincipalId {
+		id := strings.Split(policy.PrincipalId[i], ":")
+		if len(id) == 1 {
+			ids = append(ids, fmt.Sprintf("qcs::cam::uin/%s:uin/%s", id[0], id[0]))
+		}
+		if len(id) == 2 {
+			// 没有主账号id,设为owner id
+			if len(id[0]) == 0 {
+				s, _, err := coscli.Service.Get(context.Background())
+				if err != nil {
+					return errors.Wrap(err, "coscli.Service.Get")
+				}
+				id[0] = s.Owner.DisplayName
+			}
+			// 没有子账号，默认和主账号相同
+			if len(id[1]) == 0 {
+				id[1] = id[0]
+			}
+			ids = append(ids, fmt.Sprintf("qcs::cam::uin/%s:uin/%s", id[0], id[1]))
+		}
+		if len(id) > 2 {
+			return errors.Wrap(cloudprovider.ErrNotSupported, "Invalida PrincipalId Input")
+		}
+	}
+	principal := map[string][]string{}
+	principal["qcs"] = ids
+	newStatement.Principal = principal
+	newStatement.Effect = policy.Effect
+	resources := []string{}
+	for i := range policy.ResourcePath {
+		resources = append(resources, fmt.Sprintf("qcs::cos:%s:uid/%s:%s%s", b.GetIRegion().GetId(), b.appId, b.getFullName(), policy.ResourcePath[i]))
+	}
+	newStatement.Resource = resources
+	ipEqual := []string{}
+	ipNotEqual := []string{}
+	for i := range policy.IpEquals {
+		ipEqual = append(ipEqual, policy.IpEquals[i])
+	}
+	for i := range policy.IpNotEquals {
+		ipNotEqual = append(ipNotEqual, policy.IpNotEquals[i])
+	}
+	condition := map[string]map[string]interface{}{}
+	newStatement.Condition = condition
+	if len(ipEqual) > 0 {
+		newStatement.Condition["ip_equal"] = map[string]interface{}{"qcs:ip": ipEqual}
+	}
+	if len(ipNotEqual) > 0 {
+		newStatement.Condition["ip_not_equal"] = map[string]interface{}{"qcs:ip": ipNotEqual}
+	}
+
+	if policy.CannedAction == "FullControl" {
+		newStatement.Action = []string{"name/cos:*"}
+	}
+	if policy.CannedAction == "Read" {
+		newStatement.Action = cannedReadActions[:]
+	}
+	if policy.CannedAction == "ReadWrite" {
+		newStatement.Action = cannedReadWriteActions[:]
+	}
+	opts.Statement = append(opts.Statement, newStatement)
+
+	_, err = coscli.Bucket.PutPolicy(context.Background(), &opts)
+	if err != nil {
+		log.Errorf("coscli.Bucket.GetACL fail %s", err)
+		return errors.Wrapf(err, " coscli.Bucket.PutPolicy(context.Background(), %s)", jsonutils.Marshal(opts).String())
+	}
+	return nil
+}
+
+func (b *SBucket) DeletePolicy(id []string) ([]cloudprovider.SBucketPolicyStatement, error) {
+	deletedPolicy := []cloudprovider.SBucketPolicyStatement{}
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		log.Errorf("GetCosClient fail %s", err)
+		return nil, errors.Wrap(err, "b.region.GetCosClient(b)")
+	}
+	result, _, err := coscli.Bucket.GetPolicy(context.Background())
+	if err != nil {
+		if strings.Contains(err.Error(), "404") {
+			return nil, nil
+		}
+		log.Errorf("coscli.Bucket.GetACL fail %s", err)
+		return nil, errors.Wrap(err, "coscli.Bucket.GetPolicy(context.Background())")
+	}
+	newOpts := cos.BucketPutPolicyOptions{}
+	newOpts.Version = result.Version
+	newOpts.Principal = result.Principal
+	excludeMap := map[int]bool{}
+	for i := range id {
+		index, err := strconv.Atoi(id[i])
+		if err == nil {
+			excludeMap[index] = true
+		}
+	}
+	for i := range result.Statement {
+		if _, ok := excludeMap[i]; !ok {
+			newOpts.Statement = append(newOpts.Statement, result.Statement[i])
+		} else {
+			deletedPolicy = append(deletedPolicy, cloudprovider.SBucketPolicyStatement{
+				Principal: result.Statement[i].Principal,
+				Action:    result.Statement[i].Action,
+				Effect:    result.Statement[i].Effect,
+				Resource:  result.Statement[i].Resource,
+				Condition: result.Statement[i].Condition,
+
+				PrincipalId:  getQcsUserId(result.Statement[i].Principal["qcs"]),
+				CannedAction: getCannedAction(result.Statement[i].Action),
+				ResourcePath: getQcsResourcePath(result.Statement[i].Resource),
+			})
+		}
+	}
+
+	if len(newOpts.Statement) == 0 {
+		_, err := coscli.Bucket.DeletePolicy(context.Background())
+		if err != nil {
+			log.Errorf("coscli.Bucket.DeletePolicy fail %s", err)
+			return nil, errors.Wrap(err, "coscli.Bucket.DeletePolicy(context.Background())")
+		}
+		return deletedPolicy, nil
+	}
+
+	_, err = coscli.Bucket.PutPolicy(context.Background(), &newOpts)
+	if err != nil {
+		log.Errorf("coscli.Bucket.GetACL fail %s", err)
+		return nil, errors.Wrapf(err, "coscli.Bucket.PutPolicy(context.Background(), %s)", jsonutils.Marshal(newOpts).String())
+	}
+	return deletedPolicy, nil
 }
