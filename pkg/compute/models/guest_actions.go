@@ -4626,11 +4626,8 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 
 	// construct Quota
 	pendingUsage := &SRegionQuota{InstanceSnapshot: 1}
-	cp := self.GetHost().GetCloudprovider()
-	if cp == nil {
-		return nil, fmt.Errorf("unable to get cloudprovider of isp %q", self.GetId())
-	}
-	if utils.IsInStringArray(cp.Provider, ProviderHasSubSnapshot) {
+	provider := self.GetHost().GetProviderName()
+	if utils.IsInStringArray(provider, ProviderHasSubSnapshot) {
 		disks := self.GetDisks()
 		for i := 0; i < len(disks); i++ {
 			if storage := disks[i].GetDisk().GetStorage(); utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
