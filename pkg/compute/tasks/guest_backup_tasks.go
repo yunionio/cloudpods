@@ -294,6 +294,7 @@ func (self *GuestCreateBackupTask) GetSchedParams() (*schedapi.ScheduleInput, er
 		preferHostId, _ := self.Params.GetString("prefer_host_id")
 		schedDesc.ServerConfig.PreferHost = preferHostId
 	}
+	schedDesc.ReuseNetwork = true
 	return schedDesc, nil
 }
 

@@ -873,6 +873,7 @@ func (self *SGuestnetwork) ToNetworkConfig() *api.NetworkConfig {
 		Domain:  net.DomainId,
 		Ifname:  self.Ifname,
 		NetType: net.ServerType,
+		Exit:    net.IsExitNetwork(),
 	}
 	return ret
 }
