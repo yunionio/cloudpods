@@ -345,7 +345,11 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	for _, ipAddresses := range self.Addresses {
 		for _, ipAddress := range ipAddresses {
 			if ipAddress.OSEXTIPSType == "fixed" {
-				nic := SInstanceNic{instance: self, ipAddr: ipAddress.Addr}
+				nic := SInstanceNic{
+					instance: self,
+					ipAddr:   ipAddress.Addr,
+					macAddr:  ipAddress.OSEXTIPSMACMACAddr,
+				}
 				nics = append(nics, &nic)
 			}
 		}

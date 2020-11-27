@@ -216,7 +216,7 @@ type MetadataResourceListInput struct {
 	WithMeta *bool `json:"with_meta"`
 }
 
-type StandaloneResourceListInput struct {
+type StandaloneAnonResourceListInput struct {
 	ResourceBaseListInput
 
 	MetadataResourceListInput
@@ -224,10 +224,15 @@ type StandaloneResourceListInput struct {
 	// 显示所有的资源，包括模拟的资源
 	ShowEmulated *bool `json:"show_emulated" help:"show emulated resources" negative:"do not show emulated resources"`
 
-	// 以资源名称过滤列表
-	Names []string `json:"name" help:"filter by names"`
 	// 以资源ID过滤列表
 	Ids []string `json:"id" help:"filter by ids"`
+}
+
+type StandaloneResourceListInput struct {
+	StandaloneAnonResourceListInput
+
+	// 以资源名称过滤列表
+	Names []string `json:"name" help:"filter by names"`
 }
 
 type StatusResourceBaseListInput struct {

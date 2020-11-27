@@ -17,7 +17,6 @@ package ctyun
 import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -29,6 +28,8 @@ type SInstanceNic struct {
 	PortID    string    `json:"port_id"`
 	MACAddr   string    `json:"mac_addr"`
 	NetID     string    `json:"net_id"`
+
+	cloudprovider.DummyICloudNic
 }
 
 type FixedIP struct {
@@ -45,9 +46,11 @@ func (self *SInstanceNic) GetIP() string {
 }
 
 func (self *SInstanceNic) GetMAC() string {
-	ipAddr := self.GetIP()
-	ip, _ := netutils.NewIPV4Addr(ipAddr)
-	return ip.ToMac("00:16:")
+	return self.MACAddr
+}
+
+func (self *SInstanceNic) GetId() string {
+	return ""
 }
 
 func (self *SInstanceNic) GetDriver() string {

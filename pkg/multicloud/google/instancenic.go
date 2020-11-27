@@ -31,6 +31,12 @@ type SNetworkInterface struct {
 	AccessConfigs []AccessConfig
 	Fingerprint   string
 	Kind          string
+
+	cloudprovider.DummyICloudNic
+}
+
+func (nic *SNetworkInterface) GetId() string {
+	return ""
 }
 
 func (nic *SNetworkInterface) GetIP() string {

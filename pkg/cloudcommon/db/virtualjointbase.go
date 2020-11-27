@@ -184,3 +184,7 @@ func (self *SVirtualJointResourceBase) ValidateUpdateData(
 	}
 	return input, nil
 }
+
+func (manager *SVirtualJointResourceBaseManager) FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
+	return q.Equals("row_id", idStr)
+}

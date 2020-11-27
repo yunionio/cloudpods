@@ -78,6 +78,11 @@ type ICreateOpt interface {
 	IOpt
 }
 
+type IBatchCreateOpt interface {
+	IOpt
+	GetCountParam() int
+}
+
 func (cmd ResourceCmd) RunWithDesc(action, desc string, args interface{}, callback interface{}) {
 	man := cmd.manager
 	prefix := cmd.prefix
@@ -134,24 +139,48 @@ func (cmd ResourceCmd) List(args IListOpt) {
 }
 
 func (cmd ResourceCmd) Create(args ICreateOpt) {
-	cmd.CreateWithKeyworkd("create", args)
+	cmd.CreateWithKeyword("create", args)
 }
 
-func (cmd ResourceCmd) CreateWithKeyworkd(keyword string, args ICreateOpt) {
+func (cmd ResourceCmd) CreateWithKeyword(keyword string, args ICreateOpt) {
+	cmd.Run(keyword, args, cmd.create)
+}
+
+func (cmd ResourceCmd) create(s *mcclient.ClientSession, args ICreateOpt) error {
 	man := cmd.manager
-	callback := func(s *mcclient.ClientSession, args ICreateOpt) error {
-		params, err := args.Params()
-		if err != nil {
-			return err
-		}
-		ret, err := man.(modulebase.Manager).Create(s, params)
-		if err != nil {
-			return err
-		}
-		printObject(ret)
-		return nil
+	params, err := args.Params()
+	if err != nil {
+		return err
 	}
-	cmd.Run(keyword, args, callback)
+	ret, err := man.(modulebase.Manager).Create(s, params)
+	if err != nil {
+		return err
+	}
+	printObject(ret)
+	return nil
+}
+
+func (cmd ResourceCmd) BatchCreate(args IBatchCreateOpt) {
+	cmd.BatchCreateWithKeyword("create", args)
+}
+
+func (cmd ResourceCmd) BatchCreateWithKeyword(keyword string, args IBatchCreateOpt) {
+	cmd.Run(keyword, args, cmd.batchCreate)
+}
+
+func (cmd ResourceCmd) batchCreate(s *mcclient.ClientSession, args IBatchCreateOpt) error {
+	man := cmd.manager.(modulebase.Manager)
+	count := args.GetCountParam()
+	if count <= 1 {
+		return cmd.create(s, args)
+	}
+	params, err := args.Params()
+	if err != nil {
+		return err
+	}
+	rets := man.BatchCreate(s, params, count)
+	printBatchResults(rets, man.GetColumns(s))
+	return nil
 }
 
 type IIdOpt interface {

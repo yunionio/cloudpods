@@ -29,6 +29,12 @@ type SClassicInstanceNic struct {
 	Name     string
 	Type     string
 	Location string
+
+	cloudprovider.DummyICloudNic
+}
+
+func (self *SClassicInstanceNic) GetId() string {
+	return ""
 }
 
 func (self *SClassicInstanceNic) GetIP() string {

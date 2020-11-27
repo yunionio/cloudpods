@@ -31,6 +31,7 @@ type ModelSetsMaxUpdatedAt struct {
 	Guestnetworks      time.Time
 	Guestsecgroups     time.Time
 	Elasticips         time.Time
+	NetworkAddresses   time.Time
 
 	DnsRecords time.Time
 }
@@ -47,6 +48,7 @@ func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
 		Guestnetworks:      apihelper.PseudoZeroTime,
 		Guestsecgroups:     apihelper.PseudoZeroTime,
 		Elasticips:         apihelper.PseudoZeroTime,
+		NetworkAddresses:   apihelper.PseudoZeroTime,
 
 		DnsRecords: apihelper.PseudoZeroTime,
 	}
@@ -63,6 +65,7 @@ type ModelSets struct {
 	Guestnetworks      Guestnetworks
 	Guestsecgroups     Guestsecgroups
 	Elasticips         Elasticips
+	NetworkAddresses   NetworkAddresses
 
 	DnsRecords DnsRecords
 }
@@ -79,6 +82,7 @@ func NewModelSets() *ModelSets {
 		Guestnetworks:      Guestnetworks{},
 		Guestsecgroups:     Guestsecgroups{},
 		Elasticips:         Elasticips{},
+		NetworkAddresses:   NetworkAddresses{},
 
 		DnsRecords: DnsRecords{},
 	}
@@ -97,6 +101,7 @@ func (mss *ModelSets) ModelSetList() []apihelper.IModelSet {
 		mss.Guestnetworks,
 		mss.Guestsecgroups,
 		mss.Elasticips,
+		mss.NetworkAddresses,
 
 		mss.DnsRecords,
 	}
@@ -118,6 +123,7 @@ func (mss *ModelSets) copy_() *ModelSets {
 		Guestnetworks:      mss.Guestnetworks.Copy().(Guestnetworks),
 		Guestsecgroups:     mss.Guestsecgroups.Copy().(Guestsecgroups),
 		Elasticips:         mss.Elasticips.Copy().(Elasticips),
+		NetworkAddresses:   mss.NetworkAddresses.Copy().(NetworkAddresses),
 
 		DnsRecords: mss.DnsRecords.Copy().(DnsRecords),
 	}
@@ -161,6 +167,7 @@ func (mss *ModelSets) join() bool {
 	p = append(p, mss.Wires.joinNetworks(mss.Networks))
 	p = append(p, mss.Vpcs.joinNetworks(mss.Networks))
 	p = append(p, mss.Networks.joinGuestnetworks(mss.Guestnetworks))
+	p = append(p, mss.Networks.joinNetworkAddresses(mss.NetworkAddresses))
 	p = append(p, mss.Networks.joinElasticips(mss.Elasticips))
 	p = append(p, mss.Guests.joinHosts(mss.Hosts))
 	p = append(p, mss.Guests.joinSecurityGroups(mss.SecurityGroups))
@@ -168,6 +175,7 @@ func (mss *ModelSets) join() bool {
 	p = append(p, mss.Guestsecgroups.join(mss.SecurityGroups, mss.Guests))
 	p = append(p, mss.Guestnetworks.joinGuests(mss.Guests))
 	p = append(p, mss.Guestnetworks.joinElasticips(mss.Elasticips))
+	p = append(p, mss.Guestnetworks.joinNetworkAddresses(mss.NetworkAddresses))
 	for _, b := range p {
 		if !b {
 			return false

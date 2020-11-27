@@ -110,6 +110,10 @@ func (manager *SModelBaseManager) EnableGenerateName() bool {
 	return true
 }
 
+func (manager *SModelBaseManager) HasName() bool {
+	return false
+}
+
 func (model *SModelBase) MarkDeletePreventionOn() {
 	return
 }
@@ -418,7 +422,7 @@ func (manager *SModelBaseManager) BatchPreValidate(
 }
 
 func (manager *SModelBaseManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return nil, nil
+	return data, nil
 }
 
 func (manager *SModelBaseManager) OnCreateFailed(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {

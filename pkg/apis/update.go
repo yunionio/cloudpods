@@ -22,13 +22,18 @@ type ResourceBaseUpdateInput struct {
 	ModelBaseUpdateInput
 }
 
-type StandaloneResourceBaseUpdateInput struct {
+type StandaloneAnonResourceBaseUpdateInput struct {
 	ResourceBaseUpdateInput
+
+	// 资源描述
+	Description string `json:"description"`
+}
+
+type StandaloneResourceBaseUpdateInput struct {
+	StandaloneAnonResourceBaseUpdateInput
 
 	// 资源名称
 	Name string `json:"name"`
-	// 资源描述
-	Description string `json:"description"`
 }
 
 type StatusStandaloneResourceBaseUpdateInput struct {

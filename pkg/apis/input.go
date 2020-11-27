@@ -153,22 +153,8 @@ type StatusStandaloneResourceCreateInput struct {
 	StatusBaseResourceCreateInput
 }
 
-type StandaloneResourceCreateInput struct {
+type StandaloneAnonResourceCreateInput struct {
 	ResourceBaseCreateInput
-
-	// 资源名称，如果generate_name为空，则为必填项
-	// description: resource name, required if generated_name is not given
-	// unique: true
-	// required: true
-	// example: test-network
-	Name string `json:"name" help:"name of newly created resource" positional:"true" required:"true"`
-
-	// 生成资源名称的模板，如果name为空，则为必填项
-	// description: generated resource name, given a pattern to generate name, required if name is not given
-	// unique: false
-	// required: false
-	// example: test###
-	GenerateName string `json:"generate_name" help:"pattern for generating name if no name is given"`
 
 	// 资源描述
 	// required: false
@@ -183,6 +169,24 @@ type StandaloneResourceCreateInput struct {
 	// 标签列表,最多支持20个
 	// example: { "user:rd": "op" }
 	Metadata map[string]string `json:"__meta__" token:"tag" help:"tags in the form of key=value"`
+}
+
+type StandaloneResourceCreateInput struct {
+	StandaloneAnonResourceCreateInput
+
+	// 资源名称，如果generate_name为空，则为必填项
+	// description: resource name, required if generated_name is not given
+	// unique: true
+	// required: true
+	// example: test-network
+	Name string `json:"name" help:"name of newly created resource" positional:"true" required:"true"`
+
+	// 生成资源名称的模板，如果name为空，则为必填项
+	// description: generated resource name, given a pattern to generate name, required if name is not given
+	// unique: false
+	// required: false
+	// example: test###
+	GenerateName string `json:"generate_name" help:"pattern for generating name if no name is given"`
 }
 
 type JoinResourceBaseCreateInput struct {
