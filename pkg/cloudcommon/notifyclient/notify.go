@@ -161,40 +161,63 @@ func notify(ctx context.Context, recipientId []string, isGroup bool, priority np
 }
 
 func RawNotifyWithCtx(ctx context.Context, recipientId []string, isGroup bool, channel npk.TNotifyChannel, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
-	rawNotify(ctx, recipientId, isGroup, channel, priority, event, data)
+	rawNotify(ctx, sNotifyParams{
+		recipientId: recipientId,
+		isGroup:     isGroup,
+		channel:     channel,
+		priority:    priority,
+		event:       event,
+		data:        data,
+	})
 }
 
 func RawNotify(recipientId []string, isGroup bool, channel npk.TNotifyChannel, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
-	rawNotify(context.Background(), recipientId, isGroup, channel, priority, event, data)
+	rawNotify(context.Background(), sNotifyParams{
+		recipientId: recipientId,
+		isGroup:     isGroup,
+		channel:     channel,
+		priority:    priority,
+		event:       event,
+		data:        data,
+	})
 }
 
 // IntelliNotify try to create receiver nonexistent if createReceiver is set to true
 func IntelliNotify(ctx context.Context, recipientId []string, isGroup bool, channel npk.TNotifyChannel, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject, createReceiver bool) {
-	intelliNotify(ctx, recipientId, isGroup, channel, priority, event, data, createReceiver)
+	intelliNotify(ctx, sNotifyParams{
+		recipientId:    recipientId,
+		isGroup:        isGroup,
+		channel:        channel,
+		priority:       priority,
+		event:          event,
+		data:           data,
+		createReceiver: createReceiver,
+	})
 }
 
 const noSuchReceiver = `no such receiver whose uid is '(.*)'`
 
 var noSuchReceiverRegexp = regexp.MustCompile(noSuchReceiver)
 
-func intelliNotify(ctx context.Context, recipientId []string, isGroup bool, channel npk.TNotifyChannel, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject, createReceiver bool) {
-	log.Infof("notify %s event %s priority %s", recipientId, event, priority)
+func intelliNotify(ctx context.Context, p sNotifyParams) {
+	log.Infof("notify %s event %s priority %s", p.recipientId, p.event, p.priority)
 	msg := npk.SNotifyMessage{}
-	if isGroup {
-		msg.Gid = recipientId
+	if p.isGroup {
+		msg.Gid = p.recipientId
 	} else {
-		msg.Uid = recipientId
+		msg.Uid = p.recipientId
 	}
-	msg.Priority = priority
-	msg.ContactType = channel
-	topic, _ := getContent(ctx, event, "title", channel, data)
+	msg.Priority = p.priority
+	msg.Contacts = p.contacts
+	msg.ContactType = p.channel
+	topic, _ := getContent(ctx, p.event, "title", p.channel, p.data)
 	if len(topic) == 0 {
-		topic = event
+		topic = p.event
 	}
 	msg.Topic = topic
-	body, _ := getContent(ctx, event, "content", channel, data)
+	body, _ := getContent(ctx, p.event, "content", p.channel, p.data)
 	if len(body) == 0 {
-		body, _ = data.GetString()
+		body, _ = p.data.GetString()
 	}
 	msg.Msg = body
 	// log.Debugf("send notification %s %s", topic, body)
@@ -205,7 +228,7 @@ func intelliNotify(ctx context.Context, recipientId []string, isGroup bool, chan
 			if err == nil {
 				break
 			}
-			if !createReceiver {
+			if !p.createReceiver {
 				log.Errorf("unable to send notification: %v", err)
 				break
 			}
@@ -236,8 +259,19 @@ func intelliNotify(ctx context.Context, recipientId []string, isGroup bool, chan
 	}, nil, nil)
 }
 
-func rawNotify(ctx context.Context, recipientId []string, isGroup bool, channel npk.TNotifyChannel, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
-	intelliNotify(ctx, recipientId, isGroup, channel, priority, event, data, false)
+type sNotifyParams struct {
+	recipientId    []string
+	isGroup        bool
+	contacts       []string
+	channel        npk.TNotifyChannel
+	priority       npk.TNotifyPriority
+	event          string
+	data           jsonutils.JSONObject
+	createReceiver bool
+}
+
+func rawNotify(ctx context.Context, p sNotifyParams) {
+	intelliNotify(ctx, p)
 }
 
 func NotifyNormal(recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
@@ -249,18 +283,36 @@ func NotifyNormalWithCtx(ctx context.Context, recipientId []string, isGroup bool
 }
 
 func notifyNormal(ctx context.Context, recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
-	for _, c := range []npk.TNotifyChannel{
+	p := sNotifyParams{
+		recipientId: recipientId,
+		isGroup:     isGroup,
+		event:       event,
+		data:        data,
+		priority:    npk.NotifyPriorityNormal,
+	}
+	notifyWithChannel(ctx, p,
 		npk.NotifyByEmail,
 		npk.NotifyByDingTalk,
-		npk.NotifyByWebConsole,
 		npk.NotifyByFeishu,
 		npk.NotifyByWorkwx,
-	} {
-		rawNotify(ctx, recipientId, isGroup,
-			c,
-			npk.NotifyPriorityNormal,
-			event, data)
+		npk.NotifyByWebConsole,
+	)
+}
+
+func notifyWithChannel(ctx context.Context, p sNotifyParams, channels ...npk.TNotifyChannel) {
+	reps := p.recipientId
+	for _, c := range channels {
+		p.recipientId = []string{}
+		p.contacts = []string{}
+		p.channel = c
+		if c == npk.NotifyByWebConsole {
+			p.contacts = reps
+		} else {
+			p.recipientId = reps
+		}
+		rawNotify(ctx, p)
 	}
+
 }
 
 func NotifyImportant(recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
@@ -272,19 +324,21 @@ func NotifyImportantWithCtx(ctx context.Context, recipientId []string, isGroup b
 }
 
 func notifyImportant(ctx context.Context, recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
-	for _, c := range []npk.TNotifyChannel{
+	p := sNotifyParams{
+		recipientId: recipientId,
+		isGroup:     isGroup,
+		event:       event,
+		data:        data,
+		priority:    npk.NotifyPriorityNormal,
+	}
+	notifyWithChannel(ctx, p,
 		npk.NotifyByEmail,
 		npk.NotifyByDingTalk,
 		npk.NotifyByMobile,
 		npk.NotifyByWebConsole,
 		npk.NotifyByFeishu,
 		npk.NotifyByWorkwx,
-	} {
-		rawNotify(ctx, recipientId, isGroup,
-			c,
-			npk.NotifyPriorityImportant,
-			event, data)
-	}
+	)
 }
 
 func NotifyCritical(recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
@@ -296,19 +350,21 @@ func NotifyCriticalWithCtx(ctx context.Context, recipientId []string, isGroup bo
 }
 
 func notifyCritical(ctx context.Context, recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
-	for _, c := range []npk.TNotifyChannel{
+	p := sNotifyParams{
+		recipientId: recipientId,
+		isGroup:     isGroup,
+		event:       event,
+		data:        data,
+		priority:    npk.NotifyPriorityNormal,
+	}
+	notifyWithChannel(ctx, p,
 		npk.NotifyByEmail,
 		npk.NotifyByDingTalk,
 		npk.NotifyByMobile,
 		npk.NotifyByWebConsole,
 		npk.NotifyByFeishu,
 		npk.NotifyByWorkwx,
-	} {
-		rawNotify(ctx, recipientId, isGroup,
-			c,
-			npk.NotifyPriorityCritical,
-			event, data)
-	}
+	)
 }
 
 // NotifyAllWithoutRobot will send messages via all contacnt type from exclude robot contact type such as dingtalk-robot.
