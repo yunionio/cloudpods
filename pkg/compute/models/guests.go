@@ -513,10 +513,13 @@ func (manager *SGuestManager) ListItemFilter(
 
 func (manager *SGuestManager) ExtraSearchConditions(ctx context.Context, q *sqlchemy.SQuery, like string) []sqlchemy.ICondition {
 	var sq *sqlchemy.SSubQuery
-	if regutils.MatchIP4Addr(like) {
-		sq = GuestnetworkManager.Query("guest_id").Equals("ip_addr", like).SubQuery()
-	} else if regutils.MatchMacAddr(like) {
-		sq = GuestnetworkManager.Query("guest_id").Equals("mac_addr", like).SubQuery()
+	if len(like) > 1 {
+		switch {
+		case strings.Contains(like, "."):
+			sq = GuestnetworkManager.Query("guest_id").Contains("ip_addr", like).SubQuery()
+		case strings.Contains(like, ":"):
+			sq = GuestnetworkManager.Query("guest_id").Contains("mac_addr", like).SubQuery()
+		}
 	}
 	if sq != nil {
 		return []sqlchemy.ICondition{sqlchemy.In(q.Field("id"), sq)}
