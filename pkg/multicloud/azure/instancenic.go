@@ -20,7 +20,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/netutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -66,6 +65,8 @@ type SInstanceNic struct {
 	Type       string
 	Location   string
 	Properties InterfacePropertiesFormat `json:"properties,omitempty"`
+
+	cloudprovider.DummyICloudNic
 }
 
 func (self *SInstanceNic) GetIP() string {
@@ -85,10 +86,6 @@ func (self *SInstanceNic) Delete() error {
 
 func (self *SInstanceNic) GetMAC() string {
 	mac := self.Properties.MacAddress
-	if len(mac) == 0 {
-		ip, _ := netutils.NewIPV4Addr(self.GetIP())
-		return ip.ToMac("00:16:")
-	}
 	return strings.Replace(strings.ToLower(mac), "-", ":", -1)
 }
 

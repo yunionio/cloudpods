@@ -246,7 +246,19 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 			address = hn.IpAddr
 			reuseAddr = true
 		}
-		return guest.Attach2Network(ctx, userCred, net, pendingUsage, address, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, false, api.IPAllocationStepup, false, reuseAddr, nicConfs)
+		return guest.Attach2Network(ctx, userCred, models.Attach2NetworkArgs{
+			Network:             net,
+			PendingUsage:        pendingUsage,
+			IpAddr:              address,
+			NicDriver:           netConfig.Driver,
+			BwLimit:             netConfig.BwLimit,
+			Virtual:             netConfig.Vip,
+			TryReserved:         false,
+			AllocDir:            api.IPAllocationStepup,
+			RequireDesignatedIP: false,
+			UseDesignatedIP:     reuseAddr,
+			NicConfs:            nicConfs,
+		})
 	}
 	return nil, fmt.Errorf("No appropriate host virtual network...")
 }

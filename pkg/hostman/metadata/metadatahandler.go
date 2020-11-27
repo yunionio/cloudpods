@@ -101,6 +101,7 @@ func metaData(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 			"local-hostname", "local-ipv4", "mac",
 			"public-hostname", "public-ipv4",
 			"network_config/",
+			"local-sub-ipv4s",
 			//"amiid", "ami-manifest-path",
 			//"instance-action", "kernel-id",
 			//"ipv4-associations", "network/",
@@ -165,6 +166,22 @@ func metaData(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 			for _, nic := range guestNics {
 				nicip, _ := nic.GetString("ip")
 				ips = append(ips, nicip)
+			}
+			hostutils.Response(ctx, w, strings.Join(ips, "\n"))
+			return
+		case "local-sub-ipv4s":
+			ips := make([]string, 0)
+			guestNics, _ := guestDesc.GetArray("nics")
+			for _, nic := range guestNics {
+				nas, _ := nic.GetArray("networkaddresses")
+				for _, na := range nas {
+					if typ, _ := na.GetString("type"); typ == "sub_ip" {
+						ip, _ := na.GetString("ip_addr")
+						if ip != "" {
+							ips = append(ips, ip)
+						}
+					}
+				}
 			}
 			hostutils.Response(ctx, w, strings.Join(ips, "\n"))
 			return

@@ -71,10 +71,15 @@ type AdminSharableVirtualResourceDetails struct {
 	SharableVirtualResourceDetails
 }
 
-type StandaloneResourceShortDescDetail struct {
+type StandaloneAnonResourceShortDescDetail struct {
 	ModelBaseShortDescDetail
 
-	Id   string `json:"id"`
+	Id string `json:"id"`
+}
+
+type StandaloneResourceShortDescDetail struct {
+	StandaloneAnonResourceShortDescDetail
+
 	Name string `json:"name"`
 }
 
@@ -137,10 +142,14 @@ type UserResourceDetails struct {
 	OwnerName string `json:"owner_name"`
 }
 
-type StandaloneResourceDetails struct {
+type StandaloneAnonResourceDetails struct {
 	ResourceBaseDetails
 
 	MetadataResourceInfo
+}
+
+type StandaloneResourceDetails struct {
+	StandaloneAnonResourceDetails
 }
 
 type DomainizedResourceInfo struct {

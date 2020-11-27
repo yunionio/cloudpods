@@ -43,6 +43,8 @@ type SInstancePort struct {
 	NetId     string
 	PortId    string
 	PortState string
+
+	cloudprovider.DummyICloudNic
 }
 
 func (region *SRegion) GetInstancePorts(instanceId string) ([]SInstancePort, error) {
@@ -57,6 +59,10 @@ func (region *SRegion) GetInstancePorts(instanceId string) ([]SInstancePort, err
 		return nil, errors.Wrap(err, "resp.Unmarshal")
 	}
 	return ports, nil
+}
+
+func (nic *SInstancePort) GetId() string {
+	return ""
 }
 
 func (nic *SInstancePort) GetIP() string {

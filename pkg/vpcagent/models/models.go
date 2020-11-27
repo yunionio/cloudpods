@@ -62,14 +62,28 @@ type Guestnetwork struct {
 	compute_models.SGuestnetwork
 
 	// Guest could be nil for when the guest is pending_deleted
-	Guest     *Guest     `json:"-"`
-	Network   *Network   `json:"-"`
-	Elasticip *Elasticip `json:"-"`
+	Guest     *Guest           `json:"-"`
+	Network   *Network         `json:"-"`
+	Elasticip *Elasticip       `json:"-"`
+	SubIPs    NetworkAddresses `json:"-"`
 }
 
 func (el *Guestnetwork) Copy() *Guestnetwork {
 	return &Guestnetwork{
 		SGuestnetwork: el.SGuestnetwork,
+	}
+}
+
+type NetworkAddress struct {
+	compute_models.SNetworkAddress
+
+	Guestnetwork *Guestnetwork `json:"-"`
+	Network      *Network      `json:"-"`
+}
+
+func (el *NetworkAddress) Copy() *NetworkAddress {
+	return &NetworkAddress{
+		SNetworkAddress: el.SNetworkAddress,
 	}
 }
 

@@ -154,6 +154,46 @@ func (manager *SGuestnetworkManager) FetchCustomizeColumns(
 	return rows
 }
 
+func (manager *SGuestnetworkManager) fetchByRowIds(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	rowIds []int64,
+) ([]SGuestnetwork, error) {
+	var gns []SGuestnetwork
+	q := manager.Query().In("row_id", rowIds)
+	if err := db.FetchModelObjects(manager, q, &gns); err != nil {
+		return nil, errors.Wrapf(err, "fetch guestnetworks by row_id list")
+	}
+	idmap := map[int64]int{}
+	for i := range gns {
+		idmap[gns[i].RowId] = i
+	}
+	ret := make([]SGuestnetwork, len(rowIds))
+	for i, rowId := range rowIds {
+		if j, ok := idmap[rowId]; ok {
+			ret[i] = gns[j]
+		} else {
+			return nil, errors.Wrapf(errors.ErrNotFound, "guestnetwork row %d", rowId)
+		}
+	}
+	return ret, nil
+}
+
+func (manager *SGuestnetworkManager) fetchByRowId(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	rowId int64,
+) (*SGuestnetwork, error) {
+	gns, err := manager.fetchByRowIds(ctx, userCred, []int64{rowId})
+	if err != nil {
+		return nil, err
+	}
+	if len(gns) != 1 {
+		return nil, errors.Errorf("row_id %d: got %d guesnetwork entries", rowId, len(gns))
+	}
+	return &gns[0], nil
+}
+
 func (manager *SGuestnetworkManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return false
 }
@@ -195,17 +235,51 @@ func (manager *SGuestnetworkManager) GenerateMac(netId string, suggestion string
 	return "", fmt.Errorf("maximal retry reached")
 }
 
+type newGuestNetworkArgs struct {
+	guest   *SGuest
+	network *SNetwork
+
+	index int8
+
+	ipAddr              string
+	allocDir            api.IPAllocationDirection
+	tryReserved         bool
+	requireDesignatedIP bool
+	useDesignatedIP     bool
+
+	ifname      string
+	macAddr     string
+	bwLimit     int
+	nicDriver   string
+	teamWithMac string
+
+	virtual bool
+}
+
 func (manager *SGuestnetworkManager) newGuestNetwork(
-	ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, network *SNetwork,
-	index int8, address string, mac string, driver string, bwLimit int,
-	virtual bool, reserved bool,
-	allocDir api.IPAllocationDirection,
-	requiredDesignatedIp bool,
-	reUseAddr bool,
-	ifname string, teamWithMac string,
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	args newGuestNetworkArgs,
 ) (*SGuestnetwork, error) {
 	gn := SGuestnetwork{}
 	gn.SetModelManager(GuestnetworkManager, &gn)
+
+	var (
+		guest                = args.guest
+		network              = args.network
+		index                = args.index
+		address              = args.ipAddr
+		mac                  = args.macAddr
+		driver               = args.nicDriver
+		bwLimit              = args.bwLimit
+		virtual              = args.virtual
+		reserved             = args.tryReserved
+		allocDir             = args.allocDir
+		requiredDesignatedIp = args.requireDesignatedIP
+		reUseAddr            = args.useDesignatedIP
+		ifname               = args.ifname
+		teamWithMac          = args.teamWithMac
+	)
 
 	gn.GuestId = guest.Id
 	gn.NetworkId = network.Id
@@ -401,17 +475,30 @@ func guestGetHostWireFromNetwork(host *SHost, network *SNetwork) (*SHostwire, er
 	return hostWire, nil
 }
 
-func (self *SGuestnetwork) getJsonDescAtHost(host *SHost) jsonutils.JSONObject {
-	network := self.GetNetwork()
+func (self *SGuestnetwork) getJsonDescAtHost(ctx context.Context, host *SHost) jsonutils.JSONObject {
+	var (
+		ret     *jsonutils.JSONDict
+		network = self.GetNetwork()
+	)
 	if network.isOneCloudVpcNetwork() {
-		return self.getJsonDescOneCloudVpc(network)
+		ret = self.getJsonDescOneCloudVpc(network)
 	} else {
 		hostWire, err := guestGetHostWireFromNetwork(host, network)
 		if err != nil {
 			log.Errorln(err)
 		}
-		return self.getJsonDescHostwire(network, hostWire)
+		ret = self.getJsonDescHostwire(network, hostWire)
 	}
+	{
+		ipnets, err := NetworkAddressManager.fetchAddressesByGuestnetworkId(ctx, self.RowId)
+		if err != nil {
+			log.Errorln(err)
+		}
+		if len(ipnets) > 0 {
+			ret.Set("networkaddresses", jsonutils.Marshal(ipnets))
+		}
+	}
+	return ret
 }
 
 func (self *SGuestnetwork) getJsonDescHostwire(network *SNetwork, hostwire *SHostwire) *jsonutils.JSONDict {
@@ -612,6 +699,9 @@ func (self *SGuestnetwork) LogDetachEvent(ctx context.Context, userCred mcclient
 }
 
 func (self *SGuestnetwork) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if err := NetworkAddressManager.deleteByGuestnetworkId(ctx, userCred, self.RowId); err != nil {
+		return errors.Wrap(err, "delete attached network addresses")
+	}
 	return db.DeleteModel(ctx, userCred, self)
 }
 
@@ -838,6 +928,23 @@ func (manager *SGuestnetworkManager) FetchByIdsAndIpMac(guestId string, netId st
 		return nil, err
 	}
 	return ign.(*SGuestnetwork), nil
+}
+
+func (manager *SGuestnetworkManager) FetchByGuestIdIndex(guestId string, index int8) (*SGuestnetwork, error) {
+	q := manager.Query().
+		Equals("guest_id", guestId).
+		Equals("index", index)
+	var rets []SGuestnetwork
+	if err := db.FetchModelObjects(manager, q, &rets); err != nil {
+		return nil, err
+	}
+	if len(rets) > 1 {
+		return nil, errors.Errorf("guest %s has conflict nic index (%d)", guestId, index)
+	}
+	if len(rets) == 0 {
+		return nil, errors.ErrNotFound
+	}
+	return &rets[0], nil
 }
 
 func (self *SGuestnetwork) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {

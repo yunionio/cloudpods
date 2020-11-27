@@ -25,11 +25,13 @@ import (
 
 type SVirtualNIC struct {
 	SVirtualDevice
+
+	cloudprovider.DummyICloudNic
 }
 
 func NewVirtualNIC(vm *SVirtualMachine, dev types.BaseVirtualDevice, index int) SVirtualNIC {
 	return SVirtualNIC{
-		NewVirtualDevice(vm, dev, index),
+		SVirtualDevice: NewVirtualDevice(vm, dev, index),
 	}
 }
 
@@ -41,6 +43,10 @@ func (nic *SVirtualNIC) getVirtualEthernetCard() *types.VirtualEthernetCard {
 	return nil
 }
 
+func (nic *SVirtualNIC) GetId() string {
+	return ""
+}
+
 func (nic *SVirtualNIC) GetIP() string {
 	guestIps := nic.vm.getGuestIps()
 	if ip, ok := guestIps[nic.GetMAC()]; ok {
@@ -48,6 +54,10 @@ func (nic *SVirtualNIC) GetIP() string {
 	}
 	log.Warningf("cannot find ip for mac %s", nic.GetMAC())
 	return ""
+}
+
+func (nic *SVirtualNIC) GetDriver() string {
+	return nic.SVirtualDevice.GetDriver()
 }
 
 func (nic *SVirtualNIC) GetMAC() string {

@@ -35,6 +35,12 @@ type SInstanceNic struct {
 	InternalName   string   `json:"internalName"`
 	DeviceID       int      `json:"deviceId"`
 	ZStackTime
+
+	cloudprovider.DummyICloudNic
+}
+
+func (nic *SInstanceNic) GetId() string {
+	return ""
 }
 
 func (nic *SInstanceNic) GetIP() string {
