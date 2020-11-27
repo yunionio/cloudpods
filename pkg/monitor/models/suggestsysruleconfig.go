@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -87,6 +88,34 @@ func (man *SSuggestSysRuleConfigManager) InitScopeConfigs(ctx context.Context, u
 	if err := man.InitProjectScopeConfig(ctx, userCred, projects); err != nil {
 		log.Errorf("init project scope suggest config error: %v", err)
 	}
+}
+
+func (manager *SSuggestSysRuleConfigManager) Init() error {
+	return nil
+}
+
+func (man *SSuggestSysRuleConfigManager) Run(ctx context.Context) error {
+	return man.deleteUnusedConfig()
+}
+
+func (manager *SSuggestSysRuleConfigManager) deleteUnusedConfig() error {
+	userCred := auth.AdminCredential()
+	configs, err := manager.GetConfigsByScope(rbacutils.ScopeNone, userCred, false)
+	if err != nil {
+		return errors.Wrap(err, "SSuggestSysRuleConfigManager get ignore is false configs error")
+	}
+	for i, _ := range configs {
+		err := (&configs[i]).CustomizeDelete(context.Background(), userCred, jsonutils.NewDict(),
+			jsonutils.NewDict())
+		if err != nil {
+			return errors.Wrap(err, "init CustomizeDelete SuggestSysRuleConfig error")
+		}
+		err = (&configs[i]).Delete(context.Background(), userCred)
+		if err != nil {
+			return errors.Wrap(err, "init Delete SuggestSysRuleConfig error")
+		}
+	}
+	return nil
 }
 
 const (
@@ -434,6 +463,7 @@ func (man *SSuggestSysRuleConfigManager) ListItemFilter(ctx context.Context, q *
 	if query.ResourceType != nil {
 		q.Equals("resource_type", *query.ResourceType)
 	}
+	q.IsTrue("ignore_alert")
 	if query.IgnoreAlert != nil {
 		if *query.IgnoreAlert {
 			q.IsTrue("ignore_alert")
