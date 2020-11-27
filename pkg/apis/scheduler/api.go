@@ -82,6 +82,10 @@ type ScheduleInput struct {
 	CpuMode      string `json:"cpu_mode"`
 	OsArch       string `json:"os_arch"`
 
+	// In the migrate and create backup cases
+	// we don't need reallocate network
+	ReuseNetwork bool `json:"reuse_network"`
+
 	PendingUsages []jsonutils.JSONObject
 }
 
