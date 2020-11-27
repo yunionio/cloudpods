@@ -16,19 +16,15 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -73,26 +69,6 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncReadyFailed(ctx context.
 func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncReady(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	cloudaccount := obj.(*models.SCloudaccount)
 
-	driver, err := cloudaccount.GetProvider()
-	if err != nil {
-		cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred)
-		db.OpsLog.LogEvent(cloudaccount, db.ACT_SYNC_HOST_FAILED, err, self.UserCred)
-		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
-		logclient.AddActionLogWithStartable(self, cloudaccount, logclient.ACT_CLOUD_SYNC, err, self.UserCred, false)
-		return
-	}
-
-	if cloudprovider.IsSupportProject(driver) {
-		projects, err := driver.GetIProjects()
-		if err != nil {
-			msg := fmt.Sprintf("GetIProjects for cloudaccount %s failed %s", cloudaccount.GetName(), err)
-			log.Errorf(msg)
-		} else {
-			result := models.ExternalProjectManager.SyncProjects(ctx, self.GetUserCred(), cloudaccount, projects)
-			log.Infof("Sync project for cloudaccount %s result: %s", cloudaccount.GetName(), result.Result())
-		}
-	}
-
 	syncRange := models.SSyncRange{}
 	syncRangeJson, _ := self.Params.Get("sync_range")
 	if syncRangeJson != nil {
@@ -107,25 +83,10 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncReady(ctx context.Contex
 		return
 	}
 
-	if syncRange.FullSync && cloudprovider.IsSupportDnsZone(driver) {
-		dnsZones, err := driver.GetICloudDnsZones()
+	if syncRange.FullSync {
+		err := cloudaccount.SyncAccountResources(ctx, self.GetUserCred())
 		if err != nil {
-			log.Errorf("failed to get dns zones for account %s error: %v", cloudaccount.Name, err)
-		} else {
-			localZones, remoteZones, result := cloudaccount.SyncDnsZones(ctx, self.GetUserCred(), dnsZones)
-			log.Infof("Sync dns zones for cloudaccount %s result: %s", cloudaccount.GetName(), result.Result())
-			for i := 0; i < len(localZones); i++ {
-				func() {
-					lockman.LockObject(ctx, &localZones[i])
-					defer lockman.ReleaseObject(ctx, &localZones[i])
-
-					if localZones[i].Deleted {
-						return
-					}
-
-					syncDnsRecordSets(ctx, self.GetUserCred(), cloudaccount, &localZones[i], remoteZones[i])
-				}()
-			}
+			log.Errorf("SyncAccountResources error: %v", err)
 		}
 	}
 
@@ -139,11 +100,6 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncReady(ctx context.Contex
 	} else {
 		self.OnCloudaccountSyncComplete(ctx, obj, nil)
 	}
-}
-
-func syncDnsRecordSets(ctx context.Context, userCred mcclient.TokenCredential, account *models.SCloudaccount, localDnsZone *models.SDnsZone, remoteDnsZone cloudprovider.ICloudDnsZone) {
-	result := localDnsZone.SyncDnsRecordSets(ctx, userCred, account.Provider, remoteDnsZone)
-	log.Infof("Sync dns records for dns zone %s result: %s", localDnsZone.GetName(), result.Result())
 }
 
 func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
