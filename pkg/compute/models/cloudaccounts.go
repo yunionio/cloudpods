@@ -2559,6 +2559,7 @@ func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCre
 			if err == nil && autoSync && account.GetEnabled() && account.EnableAutoSync {
 				syncRange := SSyncRange{FullSync: true}
 				account.markAutoSync(userCred)
+				account.SyncAccountResources(ctx, userCred)
 				providers := account.GetEnabledCloudproviders()
 				for i := range providers {
 					provider := &providers[i]
@@ -3065,8 +3066,8 @@ func (self *SCloudaccount) GetAvailableExternalProject(local *db.STenant, projec
 // 若本地项目没有映射云上任何项目，则在云上新建一个同名项目
 // 若本地项目a映射云上项目b，但b项目不可用,则看云上是否有a项目，有则直接使用,若没有则在云上创建a-1, a-2类似项目
 func (self *SCloudaccount) SyncProject(ctx context.Context, userCred mcclient.TokenCredential, projectId string) (string, error) {
-	lockman.LockRawObject(ctx, self.Id, projectId)
-	defer lockman.ReleaseRawObject(ctx, self.Id, projectId)
+	lockman.LockRawObject(ctx, "projects", self.Id)
+	defer lockman.ReleaseRawObject(ctx, "projects", self.Id)
 
 	provider, err := self.GetProvider()
 	if err != nil {
@@ -3253,4 +3254,55 @@ func (self *SCloudaccount) SyncDnsZones(ctx context.Context, userCred mcclient.T
 	}
 
 	return localZones, remoteZones, result
+}
+
+func (self *SCloudaccount) SyncAccountResources(ctx context.Context, userCred mcclient.TokenCredential) error {
+	provider, err := self.GetProvider()
+	if err != nil {
+		return errors.Wrapf(err, "GetProvider")
+	}
+	if cloudprovider.IsSupportProject(provider) {
+		return func() error {
+			lockman.LockRawObject(ctx, "projects", self.Id)
+			defer lockman.ReleaseRawObject(ctx, "projects", self.Id)
+
+			projects, err := provider.GetIProjects()
+			if err != nil {
+				return errors.Wrapf(err, "provider.GetIProjects")
+			}
+			result := ExternalProjectManager.SyncProjects(ctx, userCred, self, projects)
+			log.Infof("Sync project for cloudaccount %s result: %s", self.Name, result.Result())
+			return nil
+		}()
+	}
+
+	if cloudprovider.IsSupportDnsZone(provider) {
+		return func() error {
+			lockman.LockRawObject(ctx, "dns_zones", self.Id)
+			defer lockman.ReleaseRawObject(ctx, "dns_zones", self.Id)
+
+			dnsZones, err := provider.GetICloudDnsZones()
+			if err != nil {
+				return errors.Wrapf(err, "GetICloudDnsZones")
+			}
+			localZones, remoteZones, result := self.SyncDnsZones(ctx, userCred, dnsZones)
+			log.Infof("Sync dns zones for cloudaccount %s result: %s", self.Name, result.Result())
+			for i := 0; i < len(localZones); i++ {
+				func() {
+					lockman.LockObject(ctx, &localZones[i])
+					defer lockman.ReleaseObject(ctx, &localZones[i])
+
+					if localZones[i].Deleted {
+						return
+					}
+
+					result := localZones[i].SyncDnsRecordSets(ctx, userCred, self.Provider, remoteZones[i])
+					log.Infof("Sync dns records for dns zone %s result: %s", localZones[i].GetName(), result.Result())
+				}()
+			}
+			return nil
+		}()
+	}
+
+	return nil
 }
