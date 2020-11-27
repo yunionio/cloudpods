@@ -94,6 +94,7 @@ serLoop:
 func (c *NoDataQueryCondition) getOnecloudHosts() ([]jsonutils.JSONObject, error) {
 	query := jsonutils.NewDict()
 	query.Set("brand", jsonutils.NewString(hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND))
+	query.Set("host-type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
 	allHosts, err := ListAllResources(&mc_mds.Hosts, query)
 	if err != nil {
 		return nil, errors.Wrap(err, "NoDataQueryCondition Host list error")
