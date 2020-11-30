@@ -19,7 +19,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -62,6 +64,7 @@ type SNetworkInterfaceAttachment struct {
 type SNetworkInterface struct {
 	multicloud.SNetworkInterfaceBase
 	region                      *SRegion
+	instance                    *SInstance
 	VpcId                       string
 	SubnetId                    string
 	NetworkInterfaceId          string
@@ -75,6 +78,7 @@ type SNetworkInterface struct {
 	Attachment                  SNetworkInterfaceAttachment
 	Zone                        string
 	PrivateIpAddressSet         []SPrivateIpAddress
+	cloudprovider.DummyICloudNic
 }
 
 func (nic *SNetworkInterface) GetName() string {
@@ -126,10 +130,61 @@ func (nic *SNetworkInterface) GetICloudInterfaceAddresses() ([]cloudprovider.ICl
 	return address, nil
 }
 
+func (nic *SNetworkInterface) GetIP() string {
+	if len(nic.PrivateIpAddressSet) > 0 {
+		return nic.PrivateIpAddressSet[0].PrivateIpAddress
+	}
+	return ""
+}
+
+func (nic *SNetworkInterface) GetMAC() string {
+	return nic.MacAddress
+}
+
+func (nic *SNetworkInterface) InClassicNetwork() bool {
+	return false
+}
+
+func (nic *SNetworkInterface) GetDriver() string {
+	return "virtio"
+}
+
+func (nic *SNetworkInterface) GetINetwork() cloudprovider.ICloudNetwork {
+	ivpc, err := nic.region.GetIVpcById(nic.VpcId)
+	if err != nil {
+		log.Errorf("%s: nic.region.GetIVpcById(%s)", err, nic.VpcId)
+		return nil
+	}
+	iwires, err := ivpc.GetIWires()
+	if err != nil {
+		log.Errorf(`%s: ivpc.GetIWires()`, err)
+		return nil
+	}
+	for i := range iwires {
+		inetwork, err := iwires[i].GetINetworkById(nic.SubnetId)
+		if err == nil {
+			return inetwork
+		} else {
+			if errors.Cause(err) != cloudprovider.ErrNotFound {
+				log.Errorf("error:%s", err)
+			}
+		}
+	}
+	return nil
+}
+
+func (nic *SNetworkInterface) GetSubAddress() ([]string, error) {
+	result := []string{}
+	for i := range nic.PrivateIpAddressSet {
+		result = append(result, nic.PrivateIpAddressSet[i].PrivateIpAddress)
+	}
+	return result, nil
+}
+
 func (region *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInterface, error) {
 	interfaces := []SNetworkInterface{}
 	for {
-		parts, total, err := region.GetNetworkInterfaces([]string{}, "", len(interfaces), 50)
+		parts, total, err := region.GetNetworkInterfaces([]string{}, "", nil, len(interfaces), 50)
 		if err != nil {
 			return nil, err
 		}
@@ -148,7 +203,7 @@ func (region *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInt
 	return ret, nil
 }
 
-func (region *SRegion) GetNetworkInterfaces(interfaceIds []string, subnetId string, offset int, limit int) ([]SNetworkInterface, int, error) {
+func (region *SRegion) GetNetworkInterfaces(interfaceIds []string, subnetId string, instanceIds []string, offset int, limit int) ([]SNetworkInterface, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50
 	}
@@ -160,10 +215,20 @@ func (region *SRegion) GetNetworkInterfaces(interfaceIds []string, subnetId stri
 		params[fmt.Sprintf("NetworkInterfaceIds.%d", idx)] = interfaceId
 	}
 
+	filterNameIndex := 0
 	if len(subnetId) > 0 {
 		params["Filters.0.Name"] = "subnet-id"
 		params["Filters.0.Values.0"] = subnetId
+		filterNameIndex++
 	}
+
+	if instanceIds != nil && len(instanceIds) > 0 {
+		params[fmt.Sprintf("Filters.%d.Name", filterNameIndex)] = "attachment.instance-id"
+		for index, instanceId := range instanceIds {
+			params[fmt.Sprintf("Filters.%d.Values.%d", filterNameIndex, index)] = instanceId
+		}
+	}
+
 	body, err := region.vpcRequest("DescribeNetworkInterfaces", params)
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "DescribeNetworkInterfaces")

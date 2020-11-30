@@ -289,17 +289,15 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 
 func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	nics := make([]cloudprovider.ICloudNic, 0)
-	classic := false
-	if len(self.VirtualPrivateCloud.VpcId) == 0 {
-		classic = true
+	interfaces, _, err := self.host.zone.region.GetNetworkInterfaces(nil, "", []string{self.GetGlobalId()}, 0, 50)
+	if err != nil {
+		return nil, errors.Wrap(err, `self.host.zone.region.GetNetworkInterfaces(nil, "", []string{self.GetGlobalId()}, 0, 50)`)
 	}
-	for _, ip := range self.VirtualPrivateCloud.PrivateIpAddresses {
-		nic := SInstanceNic{instance: self, ipAddr: ip}
-		nics = append(nics, &nic)
-	}
-	for _, ip := range self.PrivateIpAddresses {
-		nic := SInstanceNic{instance: self, ipAddr: ip, classic: classic}
-		nics = append(nics, &nic)
+
+	for i := range interfaces {
+		interfaces[i].region = self.host.zone.region
+		interfaces[i].instance = self
+		nics = append(nics, &interfaces[i])
 	}
 	return nics, nil
 }
