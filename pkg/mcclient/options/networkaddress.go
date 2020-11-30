@@ -54,6 +54,8 @@ type NetworkAddressListOptions struct {
 	ParentId   string
 	NetworkId  string
 	IpAddr     string
+
+	GuestId []string
 }
 
 func (opts *NetworkAddressListOptions) Params() (jsonutils.JSONObject, error) {
