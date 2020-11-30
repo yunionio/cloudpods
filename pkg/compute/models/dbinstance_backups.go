@@ -380,22 +380,6 @@ func (backup *SDBInstanceBackup) GetIDBInstanceBackup() (cloudprovider.ICloudDBI
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetIDBInstance")
 		}
-		err = cloudprovider.Wait(time.Second*3, time.Second*15, func() (bool, error) {
-			backups, err := iRds.GetIDBInstanceBackups()
-			if err != nil {
-				return false, errors.Wrapf(err, "GetIDBInstanceBackups")
-			}
-			for i := range backups {
-				if backups[i].GetGlobalId() == backup.ExternalId {
-					return true, nil
-				}
-			}
-			log.Warningf("failed to found backup %s", backup.ExternalId)
-			return false, nil
-		})
-		if err != nil {
-			return nil, errors.Wrapf(cloudprovider.ErrNotFound, "timeout for search backup %s", backup.ExternalId)
-		}
 		backups, err := iRds.GetIDBInstanceBackups()
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetIDBInstanceBackups")

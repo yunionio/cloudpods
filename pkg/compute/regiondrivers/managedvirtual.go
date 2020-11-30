@@ -2555,14 +2555,25 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceBackup(ct
 			return nil, errors.Wrapf(err, "db.SetExternalId")
 		}
 
-		iBackup, err := backup.GetIDBInstanceBackup()
-		if err != nil {
-			return nil, errors.Wrapf(err, "backup.GetIDBInstanceBackup")
-		}
+		err = cloudprovider.Wait(time.Second*5, time.Minute*15, func() (bool, error) {
+			iBackup, err := backup.GetIDBInstanceBackup()
+			if err != nil {
+				if errors.Cause(err) == cloudprovider.ErrNotFound {
+					log.Warningf("GetIDBInstanceBackup: %v", err)
+					return false, nil
+				}
+				return false, errors.Wrapf(err, "GetIDBInstanceBackup")
+			}
 
-		err = backup.SyncWithCloudDBInstanceBackup(ctx, userCred, iBackup, instance.GetCloudprovider())
+			err = backup.SyncWithCloudDBInstanceBackup(ctx, userCred, iBackup, instance.GetCloudprovider())
+			if err != nil {
+				log.Warningf("sync backup info error: %v", err)
+			}
+
+			return true, nil
+		})
 		if err != nil {
-			log.Warningf("sync backup info error: %v", err)
+			return nil, errors.Wrapf(err, "cloudprovider.Wait backup sync")
 		}
 
 		instance.SetStatus(userCred, api.DBINSTANCE_RUNNING, "")
