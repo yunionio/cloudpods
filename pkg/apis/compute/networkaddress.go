@@ -51,6 +51,8 @@ type NetworkAddressCreateInput struct {
 type NetworkAddressListInput struct {
 	apis.StandaloneAnonResourceListInput
 	NetworkFilterListInput
+
+	GuestId []string
 }
 
 type NetworkAddressDetails struct {

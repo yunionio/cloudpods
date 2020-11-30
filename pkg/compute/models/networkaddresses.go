@@ -515,6 +515,18 @@ func (man *SNetworkAddressManager) ListItemFilter(ctx context.Context, q *sqlche
 	if err != nil {
 		return nil, err
 	}
+
+	if len(input.GuestId) > 0 {
+		gnq := GuestnetworkManager.Query().SubQuery()
+		gq := GuestManager.Query().
+			In("id", input.GuestId).
+			SubQuery()
+		idq := man.Query("id").
+			Equals("parent_type", api.NetworkAddressParentTypeGuestnetwork)
+		idq = idq.Join(gnq, sqlchemy.Equals(gnq.Field("row_id"), idq.Field("parent_id")))
+		idq = idq.Join(gq, sqlchemy.Equals(gq.Field("id"), gnq.Field("guest_id")))
+		q = q.In("id", idq.SubQuery())
+	}
 	return q, nil
 }
 
