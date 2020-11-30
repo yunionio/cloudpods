@@ -173,6 +173,7 @@ func (manager *SCloudaccountManager) syncCloudaccounts(ctx context.Context, user
 			continue
 		}
 		account.StartSyncCloudIdResourcesTask(ctx, userCred, "")
+		account.StartSystemCloudpolicySyncTask(ctx, userCred, false, "") // 避免新加账号未能及时同步策略
 		localAccounts = append(localAccounts, *account)
 		result.Add()
 	}
@@ -764,7 +765,16 @@ func (self *SCloudaccount) GetCloudaccountByProvider(provider string) ([]SClouda
 	return accounts, nil
 }
 
-func (self *SCloudaccount) SyncSystemCloudpoliciesFromCloud(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (self *SCloudaccount) SyncSystemCloudpoliciesFromCloud(ctx context.Context, userCred mcclient.TokenCredential, refresh bool) error {
+	dbPolicies, err := self.GetSystemCloudpolicies()
+	if err != nil {
+		return errors.Wrapf(err, "GetSystemCloudpolicies")
+	}
+
+	if len(dbPolicies) > 0 && !refresh {
+		return nil
+	}
+
 	factory, err := self.GetProviderFactory()
 	if err != nil {
 		return errors.Wrapf(err, "GetProviderFactory")
@@ -804,22 +814,18 @@ func (self *SCloudaccount) SyncSystemCloudpoliciesFromCloud(ctx context.Context,
 			return errors.Wrapf(err, "GetISystemCloudpolicies for account %s(%s)", self.Name, self.Provider)
 		}
 	}
-	return self.syncSystemCloudpoliciesFromCloud(ctx, userCred, iPolicies)
+	return self.syncSystemCloudpoliciesFromCloud(ctx, userCred, iPolicies, dbPolicies)
 }
 
-func (self *SCloudaccount) syncSystemCloudpoliciesFromCloud(ctx context.Context, userCred mcclient.TokenCredential, iPolicies []cloudprovider.ICloudpolicy) error {
+func (self *SCloudaccount) syncSystemCloudpoliciesFromCloud(ctx context.Context, userCred mcclient.TokenCredential, iPolicies []cloudprovider.ICloudpolicy, dbPolicies []SCloudpolicy) error {
 	result := compare.SyncResult{}
-	dbPolicies, err := self.GetSystemCloudpolicies()
-	if err != nil {
-		return errors.Wrapf(err, "GetSystemCloudpolicies")
-	}
 
 	removed := make([]SCloudpolicy, 0)
 	commondb := make([]SCloudpolicy, 0)
 	commonext := make([]cloudprovider.ICloudpolicy, 0)
 	added := make([]cloudprovider.ICloudpolicy, 0)
 
-	err = compare.CompareSets(dbPolicies, iPolicies, &removed, &commondb, &commonext, &added)
+	err := compare.CompareSets(dbPolicies, iPolicies, &removed, &commondb, &commonext, &added)
 	if err != nil {
 		return errors.Wrapf(err, "compare.CompareSets")
 	}
@@ -920,6 +926,9 @@ func (self *SCloudaccount) GetICloudprovider() ([]SCloudprovider, error) {
 }
 
 func (self *SCloudaccount) syncCloudprovider(ctx context.Context, userCred mcclient.TokenCredential) compare.SyncResult {
+	lockman.LockRawObject(ctx, "cloudproviders", self.Id)
+	defer lockman.ReleaseRawObject(ctx, "cloudproviders", self.Id)
+
 	result := compare.SyncResult{}
 
 	providers, err := self.GetICloudprovider()
@@ -1020,22 +1029,28 @@ func (manager *SCloudaccountManager) SyncCloudidSystemPolicies(ctx context.Conte
 		log.Errorf("GetSupportCloudIdAccounts error: %v", err)
 		return
 	}
+	providers := []string{}
 	for i := range accounts {
 		_, err := accounts[i].GetProvider() // 检查账号是否可以正常连接
 		if err != nil {
 			log.Errorf("GetProvider for account %s(%s) error: %v", accounts[i].Name, accounts[i].Provider, err)
 			continue
 		}
-		err = accounts[i].StartSystemCloudpolicySyncTask(ctx, userCred, "")
+		if utils.IsInStringArray(accounts[i].Provider, providers) {
+			continue
+		}
+		err = accounts[i].StartSystemCloudpolicySyncTask(ctx, userCred, true, "")
 		if err != nil {
 			log.Errorf("StartSystemCloudpolicySyncTask for account %s(%s) error: %v", accounts[i].Name, accounts[i].Provider, err)
 			continue
 		}
+		providers = append(providers, accounts[i].Provider)
 	}
 }
 
-func (self *SCloudaccount) StartSystemCloudpolicySyncTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+func (self *SCloudaccount) StartSystemCloudpolicySyncTask(ctx context.Context, userCred mcclient.TokenCredential, refresh bool, parentTaskId string) error {
 	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewBool(refresh), "refresh")
 	task, err := taskman.TaskManager.NewTask(ctx, "SystemCloudpolicySyncTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
