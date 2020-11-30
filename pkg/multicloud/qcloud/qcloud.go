@@ -131,9 +131,13 @@ func NewQcloudClient(cfg *QcloudClientConfig) (*SQcloudClient, error) {
 // 部分接口支持金融区地域。由于金融区和非金融区是隔离不互通的，因此当公共参数 Region 为金融区地域（例如 ap-shanghai-fsi）时，需要同时指定带金融区地域的域名，最好和 Region 的地域保持一致，例如：clb.ap-shanghai-fsi.tencentcloudapi.com
 // https://cloud.tencent.com/document/product/416/6479
 func apiDomain(product string, params map[string]string) string {
-	region, ok := params["Region"]
-	if ok && strings.HasSuffix(region, "-fsi") {
-		return product + "." + region + ".tencentcloudapi.com"
+	regionId, _ := params["Region"]
+	return apiDomainByRegion(product, regionId)
+}
+
+func apiDomainByRegion(product, regionId string) string {
+	if strings.HasSuffix(regionId, "-fsi") {
+		return product + "." + regionId + ".tencentcloudapi.com"
 	} else {
 		return product + ".tencentcloudapi.com"
 	}
