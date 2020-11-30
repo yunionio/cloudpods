@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/image/policy"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	notifyv2 "yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/oldmodels"
@@ -71,24 +72,32 @@ type SNotification struct {
 	SendTimes  int
 }
 
+const (
+	SendByContact = "send_by_contact"
+)
+
 func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.NotificationCreateInput) (api.NotificationCreateInput, error) {
+	// compatible
+	if len(input.Receivers) == 0 && input.ContactType == api.WEBCONSOLE {
+		input.Contacts = input.Receivers
+		input.Receivers = []string{}
+	}
+	if len(input.Receivers) == 0 {
+		if !userCred.IsAllow(rbacutils.ScopeSystem, api.SERVICE_TYPE, nm.KeywordPlural(), policy.PolicyActionPerform, SendByContact) {
+			return input, httperrors.NewForbiddenError("can't send notification by contact, need receiver")
+		}
+		if len(input.Contacts) == 0 {
+			input.Contacts = []string{""}
+		}
+	}
+
 	// check contact type enabled
 	allContactType, err := ConfigManager.allContactType()
 	if err != nil {
 		return input, err
 	}
-	switch {
-	case input.ContactType == api.WEBHOOK:
-	case utils.IsInStringArray(input.ContactType, ConfigManager.filterContactType(allContactType, "")):
-		//check uids, rids and contacts
-		if len(input.Receivers) == 0 && len(input.Contacts) == 0 {
-			return input, httperrors.NewMissingParameterError("receivers | contacts")
-		}
-	case utils.IsInStringArray(input.ContactType, ConfigManager.filterContactType(allContactType, api.CTYPE_ROBOT_ONLY)):
-	default:
-		return input, httperrors.NewInputParameterError("Unconfigured contact type %q", input.ContactType)
-	}
 	if !utils.IsInStringArray(input.ContactType, allContactType) {
+		return input, httperrors.NewInputParameterError("Unconfigured contact type %q", input.ContactType)
 	}
 	// check receivers
 	if len(input.Receivers) > 0 {
@@ -133,6 +142,12 @@ func (n *SNotification) CustomizeCreate(ctx context.Context, userCred mcclient.T
 	}
 	for i := range input.Receivers {
 		_, err := ReceiverNotificationManager.Create(ctx, userCred, input.Receivers[i], n.Id)
+		if err != nil {
+			return errors.Wrap(err, "ReceiverNotificationManager.Create")
+		}
+	}
+	for i := range input.Contacts {
+		_, err := ReceiverNotificationManager.CreateWithoutReceiver(ctx, userCred, input.Contacts[i], n.Id)
 		if err != nil {
 			return errors.Wrap(err, "ReceiverNotificationManager.Create")
 		}
@@ -200,7 +215,7 @@ func (n *SNotification) ReceiveDetails() ([]api.ReceiveDetail, error) {
 	subRQ := ReceiverManager.Query("id", "name").SubQuery()
 	q := ReceiverNotificationManager.Query("receiver_id", "notification_id", "contact", "send_at", "send_by", "status", "failed_reason").Equals("notification_id", n.Id)
 	q.AppendField(subRQ.Field("name", "receiver_name"))
-	q = q.Join(subRQ, sqlchemy.Equals(q.Field("receiver_id"), subRQ.Field("id")))
+	q = q.LeftJoin(subRQ, sqlchemy.OR(sqlchemy.Equals(q.Field("receiver_id"), subRQ.Field("id")), sqlchemy.Equals(q.Field("contact"), subRQ.Field("id"))))
 	ret := make([]api.ReceiveDetail, 0, 2)
 	err := q.All(&ret)
 	if err != nil && errors.Cause(err) != sql.ErrNoRows {

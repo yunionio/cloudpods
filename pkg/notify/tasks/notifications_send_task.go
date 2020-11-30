@@ -49,7 +49,20 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 	}
 	notification.SetStatus(self.UserCred, apis.NOTIFICATION_STATUS_SENDING, "")
 
-	// sort out what needs to be sent
+	// split rns
+	var (
+		rnsWithReceiver    []*models.SReceiverNotification
+		rnsWithoutReceiver []*models.SReceiverNotification
+	)
+
+	for i := range rns {
+		if rns[i].ReceiverID == models.ReceiverIdDefault {
+			rnsWithoutReceiver = append(rnsWithoutReceiver, &rns[i])
+		} else {
+			rnsWithReceiver = append(rnsWithReceiver, &rns[i])
+		}
+	}
+
 	failedRecord := make([]string, 0)
 	sendFail := func(rn *models.SReceiverNotification, reason string) {
 		rn.AfterSend(ctx, false, reason)
@@ -58,50 +71,54 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 
 	// build contactMap
 	contactMap := make(map[string]*models.SReceiverNotification)
-	for i := range rns {
-		if len(rns[i].ReceiverID) == 0 {
-			contactMap[rns[i].Contact] = &rns[i]
+	for i := range rnsWithReceiver {
+		if len(rnsWithReceiver[i].ReceiverID) == 0 {
+			contactMap[rnsWithReceiver[i].Contact] = rnsWithReceiver[i]
 			continue
 		}
-		receiver, err := rns[i].Receiver()
+		receiver, err := rnsWithReceiver[i].Receiver()
 		if err != nil {
-			sendFail(&rns[i], fmt.Sprintf("fail to fetch Receiver: %s", err.Error()))
+			sendFail(rnsWithReceiver[i], fmt.Sprintf("fail to fetch Receiver: %s", err.Error()))
 			continue
 		}
 		// check receiver enabled
 		if receiver.Enabled.IsFalse() {
-			sendFail(&rns[i], fmt.Sprintf("disabled receiver"))
+			sendFail(rnsWithReceiver[i], fmt.Sprintf("disabled receiver"))
 			continue
 		}
 		// check contact enabled
 		enabled, err := receiver.IsEnabledContactType(notification.ContactType)
 		if err != nil {
-			sendFail(&rns[i], fmt.Sprintf("IsEnabledContactType error for receiver: %s", err.Error()))
+			sendFail(rnsWithReceiver[i], fmt.Sprintf("IsEnabledContactType error for receiver: %s", err.Error()))
 			continue
 		}
 		if !enabled {
-			sendFail(&rns[i], fmt.Sprintf("disabled contactType %q", notification.ContactType))
+			sendFail(rnsWithReceiver[i], fmt.Sprintf("disabled contactType %q", notification.ContactType))
 			continue
 		}
 
 		// check contact verified
 		verified, err := receiver.IsVerifiedContactType(notification.ContactType)
 		if err != nil {
-			sendFail(&rns[i], fmt.Sprintf("IsVerifiedContactType error for receiver: %s", err.Error()))
+			sendFail(rnsWithReceiver[i], fmt.Sprintf("IsVerifiedContactType error for receiver: %s", err.Error()))
 			continue
 		}
 		if !verified {
-			sendFail(&rns[i], fmt.Sprintf("unverified contactType %q", notification.ContactType))
+			sendFail(rnsWithReceiver[i], fmt.Sprintf("unverified contactType %q", notification.ContactType))
 			continue
 		}
 
 		contact, err := receiver.GetContact(notification.ContactType)
 		if err != nil {
 			reason := fmt.Sprintf("fail to fetch contact: %s", err.Error())
-			sendFail(&rns[i], reason)
+			sendFail(rnsWithReceiver[i], reason)
 			continue
 		}
-		contactMap[contact] = &rns[i]
+		contactMap[contact] = rnsWithReceiver[i]
+	}
+
+	for i := range rnsWithoutReceiver {
+		contactMap[rnsWithoutReceiver[i].Contact] = rnsWithoutReceiver[i]
 	}
 
 	// set status before send
