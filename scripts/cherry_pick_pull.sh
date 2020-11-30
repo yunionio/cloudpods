@@ -59,6 +59,15 @@ if ! which hub > /dev/null; then
   exit 1
 fi
 
+function version_lt() { 
+    test "$(echo "$@" | tr " " "\n" | sort -rV | head -n 1)" != "$1" 
+}
+
+if version_lt "$(hub version | awk '/hub/ {print $3}')" "2.13.0"; then
+  echo "Please install 'hub' with version 2.13.0+ from https://github.com/github/hub/releases"
+  exit 1
+fi
+
 if [[ "$#" -lt 2 ]]; then
   echo "${0} <remote branch> <pr-number>...: cherry pick one or more <pr> onto <remote branch> and leave instructions for proposing pull request"
   echo
