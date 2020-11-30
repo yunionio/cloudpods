@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/stringutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -56,14 +57,9 @@ func (self *SAMLProvider) GetName() string {
 }
 
 func (self *SAMLProvider) GetStatus() string {
-	mappings, err := self.client.ListSAMLProviderMappings()
-	if err != nil {
-		return api.SAML_PROVIDER_STATUS_UNKNOWN
-	}
-	for i := range mappings {
-		if mappings[i].Id == DEFAULT_ONECLOUD_MAPPING {
-			return api.SAML_PROVIDER_STATUS_AVAILABLE
-		}
+	mapping, _ := self.client.findMapping()
+	if mapping != nil {
+		return api.SAML_PROVIDER_STATUS_AVAILABLE
 	}
 	return api.SAML_PROVIDER_STATUS_UNVALIABLE
 }
@@ -121,6 +117,15 @@ func (self *SHuaweiClient) GetSAMLProviderProtocols(id string) ([]SAMLProviderPr
 	}
 	protocols := []SAMLProviderProtocol{}
 	return protocols, jsonutils.Update(&protocols, resp.Data)
+}
+
+func (self *SHuaweiClient) DeleteSAMLProviderProtocol(spId, id string) error {
+	client, err := self.newGeneralAPIClient()
+	if err != nil {
+		return errors.Wrap(err, "newGeneralAPIClient")
+	}
+	_, err = client.SAMLProviders.DeleteInContextWithSpec(nil, spId, fmt.Sprintf("protocols/%s", id), nil, nil, "")
+	return err
 }
 
 type SAMLProviderMetadata struct {
@@ -236,10 +241,6 @@ type SAMLProviderMapping struct {
 	Rules jsonutils.JSONObject
 }
 
-const (
-	DEFAULT_ONECLOUD_MAPPING = "yunion-onecloud-mapping"
-)
-
 var (
 	onecloudMappingRules = jsonutils.Marshal(map[string]interface{}{
 		"rules": []map[string]interface{}{
@@ -276,44 +277,55 @@ func (self *SHuaweiClient) ListSAMLProviderMappings() ([]SAMLProviderMapping, er
 	return mappings, nil
 }
 
+func (self *SHuaweiClient) findMapping() (*SAMLProviderMapping, error) {
+	mappings, err := self.ListSAMLProviderMappings()
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListSAMLProviderMappings")
+	}
+	for i := range mappings {
+		if jsonutils.Marshal(map[string]interface{}{"rules": mappings[i].Rules}).Equals(jsonutils.Marshal(onecloudMappingRules)) {
+			return &mappings[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
 func (self *SHuaweiClient) InitSAMLProviderMapping(spId string) error {
 	client, err := self.newGeneralAPIClient()
 	if err != nil {
 		return errors.Wrap(err, "newGeneralAPIClient")
 	}
 
-	mappings, err := self.ListSAMLProviderMappings()
+	mapping, err := self.findMapping()
 	if err != nil {
-		return errors.Wrapf(err, "ListSAMLProviderMappings")
-	}
-	params := map[string]interface{}{
-		"mapping": onecloudMappingRules,
-	}
-
-	find := false
-	for i := range mappings {
-		if mappings[i].Id == DEFAULT_ONECLOUD_MAPPING {
-			find = true
+		if errors.Cause(err) != cloudprovider.ErrNotFound {
+			return errors.Wrapf(err, "findMapping")
 		}
-	}
-	if !find {
-		_, err = client.SAMLProviderMappings.Update(DEFAULT_ONECLOUD_MAPPING, jsonutils.Marshal(params))
+		mappingId := stringutils.UUID4()
+		params := map[string]interface{}{
+			"mapping": onecloudMappingRules,
+		}
+		_, err = client.SAMLProviderMappings.Update(mappingId, jsonutils.Marshal(params))
 		if err != nil {
 			return errors.Wrapf(err, "create mapping")
+		}
+		mapping = &SAMLProviderMapping{
+			Id:    mappingId,
+			Rules: onecloudMappingRules,
 		}
 	}
 	protocols, err := self.GetSAMLProviderProtocols(spId)
 	if err != nil {
 		return errors.Wrapf(err, "GetSAMLProviderProtocols")
 	}
-	params = map[string]interface{}{
+	params := map[string]interface{}{
 		"protocol": map[string]string{
-			"mapping_id": DEFAULT_ONECLOUD_MAPPING,
+			"mapping_id": mapping.Id,
 		},
 	}
 	for i := range protocols {
 		if protocols[i].Id == "saml" {
-			if protocols[i].MappingId == DEFAULT_ONECLOUD_MAPPING {
+			if protocols[i].MappingId == mapping.Id {
 				return nil
 			}
 			_, err = client.SAMLProviders.PatchInContextWithSpec(nil, spId, "protocols/saml", jsonutils.Marshal(params), "")
@@ -321,5 +333,15 @@ func (self *SHuaweiClient) InitSAMLProviderMapping(spId string) error {
 		}
 	}
 	_, err = client.SAMLProviders.UpdateInContextWithSpec(nil, spId, "protocols/saml", jsonutils.Marshal(params), "")
+	return err
+}
+
+func (self *SHuaweiClient) DeleteSAMLProviderMapping(id string) error {
+	client, err := self.newGeneralAPIClient()
+	if err != nil {
+		return errors.Wrap(err, "newGeneralAPIClient")
+	}
+
+	_, err = client.SAMLProviderMappings.Delete(id, nil)
 	return err
 }
