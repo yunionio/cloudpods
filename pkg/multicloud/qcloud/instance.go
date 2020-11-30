@@ -21,6 +21,9 @@ import (
 	"strings"
 	"time"
 
+	qcommon "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	qvpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -288,18 +291,40 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 }
 
 func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
-	nics := make([]cloudprovider.ICloudNic, 0)
-	classic := false
-	if len(self.VirtualPrivateCloud.VpcId) == 0 {
-		classic = true
+	var (
+		classic = self.VirtualPrivateCloud.VpcId == ""
+		region  = self.host.zone.region
+
+		nics []cloudprovider.ICloudNic
+	)
+	client, err := region.client.getVpcClient(region.GetId())
+	if err != nil {
+		return nil, err
 	}
-	for _, ip := range self.VirtualPrivateCloud.PrivateIpAddresses {
-		nic := SInstanceNic{instance: self, ipAddr: ip}
-		nics = append(nics, &nic)
+	req := qvpc.NewDescribeNetworkInterfacesRequest()
+	req.Filters = []*qvpc.Filter{
+		&qvpc.Filter{
+			Values: qcommon.StringPtrs([]string{self.InstanceId}),
+			Name:   qcommon.StringPtr("attachment.instance-id"),
+		},
 	}
-	for _, ip := range self.PrivateIpAddresses {
-		nic := SInstanceNic{instance: self, ipAddr: ip, classic: classic}
-		nics = append(nics, &nic)
+	resp, err := client.DescribeNetworkInterfaces(req)
+	if err != nil {
+		return nil, err
+	}
+	for _, networkInterface := range resp.Response.NetworkInterfaceSet {
+		nic := &SInstanceNic{
+			instance: self,
+			id:       String(networkInterface.NetworkInterfaceId),
+			macAddr:  strings.ToLower(String(networkInterface.MacAddress)),
+			classic:  classic,
+		}
+		for _, addr := range networkInterface.PrivateIpAddressSet {
+			if Bool(addr.Primary) {
+				nic.ipAddr = String(addr.PrivateIpAddress)
+			}
+		}
+		nics = append(nics, nic)
 	}
 	return nics, nil
 }

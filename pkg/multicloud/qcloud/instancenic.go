@@ -15,21 +15,22 @@
 package qcloud
 
 import (
-	"yunion.io/x/pkg/util/netutils"
-
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SInstanceNic struct {
 	instance *SInstance
-	ipAddr   string
-	classic  bool
+
+	id      string
+	ipAddr  string
+	macAddr string
+	classic bool
 
 	cloudprovider.DummyICloudNic
 }
 
 func (self *SInstanceNic) GetId() string {
-	return ""
+	return self.id
 }
 
 func (self *SInstanceNic) GetIP() string {
@@ -37,8 +38,7 @@ func (self *SInstanceNic) GetIP() string {
 }
 
 func (self *SInstanceNic) GetMAC() string {
-	ip, _ := netutils.NewIPV4Addr(self.ipAddr)
-	return ip.ToMac("00:16:")
+	return self.macAddr
 }
 
 func (self *SInstanceNic) GetDriver() string {
