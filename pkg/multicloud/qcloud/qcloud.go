@@ -536,6 +536,7 @@ func (client *SQcloudClient) getVpcClient(regionId string) (*qvpc.Client, error)
 	}
 	cpf := profile.NewClientProfile()
 	cpf.HttpProfile.Endpoint = apiDomainByRegion("vpc", regionId)
+	vpcClient.WithProfile(cpf)
 	return vpcClient, nil
 }
 
