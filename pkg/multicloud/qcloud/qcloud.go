@@ -28,6 +28,7 @@ import (
 	sdkerrors "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	tchttp "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
+	qvpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"github.com/tencentyun/cos-go-sdk-v5/debug"
 
@@ -519,6 +520,19 @@ func (client *SQcloudClient) getSdkClient(regionId string) (*common.Client, erro
 	httpClient := client.cpcfg.HttpClient()
 	cli.WithHttpTransport(httpClient.Transport)
 	return cli, nil
+}
+
+func (client *SQcloudClient) getVpcClient(regionId string) (*qvpc.Client, error) {
+	cli, err := client.getSdkClient(regionId)
+	if err != nil {
+		return nil, err
+	}
+	vpcClient := &qvpc.Client{
+		Client: *cli,
+	}
+	cpf := profile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = apiDomainByRegion("vpc", regionId)
+	return vpcClient, nil
 }
 
 func (client *SQcloudClient) vpcRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
