@@ -31,13 +31,17 @@ type SReceiverNotificationManager struct {
 	db.SJointResourceBaseManager
 }
 
+const (
+	ReceiverIdDefault = "default"
+)
+
 // +onecloud:swagger-gen-ignore
 type SReceiverNotification struct {
 	db.SJointResourceBase
 
 	ReceiverID     string `width:"128" charset:"ascii" nullable:"false"`
 	NotificationID string `width:"128" charset:"ascii" nullable:"false"`
-	// ignore if ReceiverID is not empty
+	// ignore if ReceiverID is not empty or default
 	Contact      string    `width:"128" nullable:"false"`
 	SendAt       time.Time `nullable:"false"`
 	SendBy       string    `width:"128" nullable:"false"`
@@ -66,6 +70,7 @@ func (rnm *SReceiverNotificationManager) GetSlaveFieldName() string {
 func (rnm *SReceiverNotificationManager) CreateWithoutReceiver(ctx context.Context, userCred mcclient.TokenCredential, contact, notificationID string) (*SReceiverNotification, error) {
 	rn := &SReceiverNotification{
 		NotificationID: notificationID,
+		ReceiverID:     ReceiverIdDefault,
 		Contact:        contact,
 		Status:         api.RECEIVER_NOTIFICATION_RECEIVED,
 		SendBy:         userCred.GetUserId(),
