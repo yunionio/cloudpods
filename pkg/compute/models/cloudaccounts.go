@@ -529,19 +529,12 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		output.HostSuggestedNetworks = confs
 	}
 
-	// Find the suitable network containing the VM IP in Project 'input.Project', and if not, give the corresponding suggested network configuration in this project.
-	project := input.ProjectId
-	excludeNets := []*SNetwork{}
+	// Find the suitable network containing the VM IP, and if not, give the corresponding suggested network configuration in this project.
 	var allNets []SNetwork
 	if suitableWire != nil {
 		allNets, err = suitableWire.getNetworks(userCred, rbacutils.ScopeSystem)
 		if err != nil {
 			return output, err
-		}
-		for i := range allNets {
-			if allNets[i].ProjectId == project {
-				excludeNets = append(excludeNets, &allNets[i])
-			}
 		}
 	}
 
@@ -582,18 +575,32 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		return vms[i].IP < vms[j].IP
 	})
 
-	excludeNets = make([]*SNetwork, 0, len(allNets)+len(output.HostSuggestedNetworks))
+	type sExcludeNet struct {
+		StartIp netutils.IPV4Addr
+		EndIp   netutils.IPV4Addr
+		Id      string
+	}
+	excludeNets := make([]sExcludeNet, 0, len(allNets)+len(output.HostSuggestedNetworks))
 	for i := range allNets {
-		excludeNets = append(excludeNets, &allNets[i])
+		startIp, _ := netutils.NewIPV4Addr(allNets[i].GuestIpStart)
+		endIp, _ := netutils.NewIPV4Addr(allNets[i].GuestIpEnd)
+		excludeNets = append(excludeNets, sExcludeNet{
+			StartIp: startIp,
+			EndIp:   endIp,
+			Id:      allNets[i].GetId(),
+		})
 	}
 	for i := range output.HostSuggestedNetworks {
-		startipStr := output.HostSuggestedNetworks[i].GuestIpStart
-		endipStr := output.HostSuggestedNetworks[i].GuestIpEnd
-		excludeNets = append(excludeNets, &SNetwork{GuestIpEnd: endipStr, GuestIpStart: startipStr})
+		startIp, _ := netutils.NewIPV4Addr(output.HostSuggestedNetworks[i].GuestIpStart)
+		endIp, _ := netutils.NewIPV4Addr(output.HostSuggestedNetworks[i].GuestIpEnd)
+		excludeNets = append(excludeNets, sExcludeNet{
+			StartIp: startIp,
+			EndIp:   endIp,
+		})
 	}
 	// sort excludeNets via their GuestIpStart
 	sort.Slice(excludeNets, func(i, j int) bool {
-		return excludeNets[i].GuestIpStart < excludeNets[j].GuestIpStart
+		return excludeNets[i].StartIp < excludeNets[j].StartIp
 	})
 
 	svNets := make([]api.CASimpleNetConf, 0, 5)
@@ -604,8 +611,8 @@ Loop:
 		if vmi >= len(vms) {
 			break
 		}
-		startIp, _ := netutils.NewIPV4Addr(excludeNets[neti].GuestIpStart)
-		endIp, _ := netutils.NewIPV4Addr(excludeNets[neti].GuestIpEnd)
+		startIp := excludeNets[neti].StartIp
+		endIp := excludeNets[neti].EndIp
 		switch {
 		case vms[vmi].IP > endIp:
 			neti++
