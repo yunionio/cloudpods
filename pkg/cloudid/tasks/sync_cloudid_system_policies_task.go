@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
 )
@@ -39,7 +40,12 @@ func (self *SystemCloudpolicySyncTask) taskFailed(ctx context.Context, cloudacco
 
 func (self *SystemCloudpolicySyncTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	account := obj.(*models.SCloudaccount)
-	err := account.SyncSystemCloudpoliciesFromCloud(ctx, self.GetUserCred())
+
+	lockman.LockRawObject(ctx, "system policies", account.Provider)
+	defer lockman.ReleaseRawObject(ctx, "system policies", account.Provider)
+
+	refresh := jsonutils.QueryBoolean(self.GetParams(), "refresh", false)
+	err := account.SyncSystemCloudpoliciesFromCloud(ctx, self.GetUserCred(), refresh)
 	if err != nil {
 		self.taskFailed(ctx, account, errors.Wrapf(err, "SyncSystemCloudpoliciesFromCloud"))
 		return
