@@ -149,6 +149,16 @@ func Notify(recipientId []string, isGroup bool, priority npk.TNotifyPriority, ev
 	notify(context.Background(), recipientId, isGroup, priority, event, data)
 }
 
+func NotifyWithContact(ctx context.Context, contacts []string, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
+	p := sNotifyParams{
+		contacts: contacts,
+		priority: priority,
+		event:    event,
+		data:     data,
+	}
+	rawNotify(ctx, p)
+}
+
 func notify(ctx context.Context, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
 	switch priority {
 	case npk.NotifyPriorityCritical:
