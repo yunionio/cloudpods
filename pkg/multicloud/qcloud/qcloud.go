@@ -508,7 +508,11 @@ func (client *SQcloudClient) GetRegions() []SRegion {
 }
 
 func (client *SQcloudClient) getDefaultClient() (*common.Client, error) {
-	cli, err := common.NewClientWithSecretId(client.secretId, client.secretKey, QCLOUD_DEFAULT_REGION)
+	return client.getSdkClient(QCLOUD_DEFAULT_REGION)
+}
+
+func (client *SQcloudClient) getSdkClient(regionId string) (*common.Client, error) {
+	cli, err := common.NewClientWithSecretId(client.secretId, client.secretKey, regionId)
 	if err != nil {
 		return nil, err
 	}
