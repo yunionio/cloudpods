@@ -48,6 +48,15 @@ func init() {
 		return nil
 	})
 
+	type SAMLProviderProtocolDeleteOptions struct {
+		SAML_PROVIDER string
+		PROTOCOL      string
+	}
+
+	shellutils.R(&SAMLProviderProtocolDeleteOptions{}, "saml-provider-protocol-delete", "Delete saml provider protocol", func(cli *huawei.SRegion, args *SAMLProviderProtocolDeleteOptions) error {
+		return cli.GetClient().DeleteSAMLProviderProtocol(args.SAML_PROVIDER, args.PROTOCOL)
+	})
+
 	shellutils.R(&SAMLProviderIdOptions{}, "saml-provider-metadata-show", "Show saml provider metadata", func(cli *huawei.SRegion, args *SAMLProviderIdOptions) error {
 		result, err := cli.GetClient().GetSAMLProviderMetadata(args.ID)
 		if err != nil {
@@ -84,6 +93,14 @@ func init() {
 
 	shellutils.R(&MappingInitOptions{}, "saml-provider-mapping-init", "Init saml provider mapping", func(cli *huawei.SRegion, args *MappingInitOptions) error {
 		return cli.GetClient().InitSAMLProviderMapping(args.SAML_PROVIDER)
+	})
+
+	type MappingDeleteOptions struct {
+		ID string
+	}
+
+	shellutils.R(&MappingDeleteOptions{}, "saml-provider-mapping-delete", "Delete saml provider mapping", func(cli *huawei.SRegion, args *MappingDeleteOptions) error {
+		return cli.GetClient().DeleteSAMLProviderMapping(args.ID)
 	})
 
 }
