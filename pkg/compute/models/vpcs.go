@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -710,7 +711,13 @@ func (manager *SVpcManager) InitializeData() error {
 		}
 	}
 
-	{ // initialize default external_access_mode for onecloud vpc
+	if defaultMode := options.Options.DefaultVpcExternalAccessMode; defaultMode == "" {
+		options.Options.DefaultVpcExternalAccessMode = api.VPC_EXTERNAL_ACCESS_MODE_EIP_DISTGW
+	} else if !utils.IsInStringArray(defaultMode, api.VPC_EXTERNAL_ACCESS_MODES) {
+		return errors.Errorf("invalid DefaultVpcExternalAccessMode, got %s, want %s", defaultMode, api.VPC_EXTERNAL_ACCESS_MODES)
+	}
+	{
+		// initialize default external_access_mode for onecloud vpc
 		var vpcs []SVpc
 		q := manager.Query().
 			IsNullOrEmpty("manager_id").
@@ -722,7 +729,7 @@ func (manager *SVpcManager) InitializeData() error {
 		for i := range vpcs {
 			vpc := &vpcs[i]
 			if _, err := db.Update(vpc, func() error {
-				vpc.ExternalAccessMode = api.VPC_EXTERNAL_ACCESS_MODE_EIP_DISTGW
+				vpc.ExternalAccessMode = options.Options.DefaultVpcExternalAccessMode
 				return nil
 			}); err != nil {
 				return errors.Wrap(err, "db set default external_access_mode")
@@ -793,7 +800,7 @@ func (manager *SVpcManager) ValidateCreateData(
 	} else {
 		input.Status = api.VPC_STATUS_AVAILABLE
 		if input.ExternalAccessMode == "" {
-			input.ExternalAccessMode = api.VPC_EXTERNAL_ACCESS_MODE_EIP_DISTGW
+			input.ExternalAccessMode = options.Options.DefaultVpcExternalAccessMode
 		}
 		if !utils.IsInStringArray(input.ExternalAccessMode, api.VPC_EXTERNAL_ACCESS_MODES) {
 			return input, httperrors.NewInputParameterError("invalid external_access_mode %q, want %s",

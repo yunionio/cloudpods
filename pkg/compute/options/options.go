@@ -160,6 +160,8 @@ type ComputeOptions struct {
 
 	DefaultNetworkGatewayAddressEsxi uint32 `help:"Default address for network gateway" default:"1"`
 
+	DefaultVpcExternalAccessMode string `help:"default external access mode for on-premise vpc"`
+
 	NoCheckOsTypeForCachedImage bool `help:"Don't check os type for cached image"`
 
 	esxi.EsxiOptions
