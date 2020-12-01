@@ -28,6 +28,7 @@ import (
 	sdkerrors "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	tchttp "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
+	qvpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"github.com/tencentyun/cos-go-sdk-v5/debug"
 
@@ -130,9 +131,13 @@ func NewQcloudClient(cfg *QcloudClientConfig) (*SQcloudClient, error) {
 // 部分接口支持金融区地域。由于金融区和非金融区是隔离不互通的，因此当公共参数 Region 为金融区地域（例如 ap-shanghai-fsi）时，需要同时指定带金融区地域的域名，最好和 Region 的地域保持一致，例如：clb.ap-shanghai-fsi.tencentcloudapi.com
 // https://cloud.tencent.com/document/product/416/6479
 func apiDomain(product string, params map[string]string) string {
-	region, ok := params["Region"]
-	if ok && strings.HasSuffix(region, "-fsi") {
-		return product + "." + region + ".tencentcloudapi.com"
+	regionId, _ := params["Region"]
+	return apiDomainByRegion(product, regionId)
+}
+
+func apiDomainByRegion(product, regionId string) string {
+	if strings.HasSuffix(regionId, "-fsi") {
+		return product + "." + regionId + ".tencentcloudapi.com"
 	} else {
 		return product + ".tencentcloudapi.com"
 	}
@@ -508,13 +513,31 @@ func (client *SQcloudClient) GetRegions() []SRegion {
 }
 
 func (client *SQcloudClient) getDefaultClient() (*common.Client, error) {
-	cli, err := common.NewClientWithSecretId(client.secretId, client.secretKey, QCLOUD_DEFAULT_REGION)
+	return client.getSdkClient(QCLOUD_DEFAULT_REGION)
+}
+
+func (client *SQcloudClient) getSdkClient(regionId string) (*common.Client, error) {
+	cli, err := common.NewClientWithSecretId(client.secretId, client.secretKey, regionId)
 	if err != nil {
 		return nil, err
 	}
 	httpClient := client.cpcfg.HttpClient()
 	cli.WithHttpTransport(httpClient.Transport)
 	return cli, nil
+}
+
+func (client *SQcloudClient) getVpcClient(regionId string) (*qvpc.Client, error) {
+	cli, err := client.getSdkClient(regionId)
+	if err != nil {
+		return nil, err
+	}
+	vpcClient := &qvpc.Client{
+		Client: *cli,
+	}
+	cpf := profile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = apiDomainByRegion("vpc", regionId)
+	vpcClient.WithProfile(cpf)
+	return vpcClient, nil
 }
 
 func (client *SQcloudClient) vpcRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
