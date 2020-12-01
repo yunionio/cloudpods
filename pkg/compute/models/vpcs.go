@@ -209,6 +209,13 @@ func (self *SVpc) ValidateUpdateData(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
+	if self.Id == api.DEFAULT_VPC_ID {
+		return httperrors.NewProtectedResourceError("not allow to delete default vpc")
+	}
+	if self.Status == api.VPC_STATUS_UNKNOWN {
+		return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
+	}
+
 	cnt, err := self.GetNetworkCount()
 	if err != nil {
 		return httperrors.NewInternalServerError("GetNetworkCount fail %s", err)
@@ -222,9 +229,6 @@ func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
 	}
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("VPC not empty, please delete nat gateway first")
-	}
-	if self.Id == api.DEFAULT_VPC_ID {
-		return httperrors.NewProtectedResourceError("not allow to delete default vpc")
 	}
 	cnt, err = self.GetVpcPeeringConnectionCount()
 	if err != nil {
