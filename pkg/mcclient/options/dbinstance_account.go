@@ -12,18 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package options
 
-import (
-	"yunion.io/x/onecloud/cmd/climc/shell"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
-)
+import "yunion.io/x/jsonutils"
 
-func init() {
-	cmd := shell.NewResourceCmd(&modules.DBInstanceAccounts).WithKeyword("dbinstance-account")
-	cmd.List(&options.DBInstanceAccountListOptions{})
-	cmd.Update(&options.BaseUpdateOptions{})
-	cmd.Show(&options.DBInstanceAccountIdOptions{})
-	cmd.Delete(&options.DBInstanceAccountIdOptions{})
+type DBInstanceAccountListOptions struct {
+	BaseListOptions
+	DBInstance string `help:"ID or Name of DBInstance" json:"dbinstance"`
+}
+
+func (opts *DBInstanceAccountListOptions) Params() (jsonutils.JSONObject, error) {
+	return ListStructToParams(opts)
+}
+
+type DBInstanceAccountIdOptions struct {
+	ID string `help:"ID of DBInstanceaccount"`
+}
+
+func (opts *DBInstanceAccountIdOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *DBInstanceAccountIdOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
 }

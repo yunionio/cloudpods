@@ -123,13 +123,20 @@ func (manager *SDBInstanceDatabaseManager) FilterByOwner(q *sqlchemy.SQuery, use
 	return q
 }
 
-//func (self *SDBInstanceDatabase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-//只能创建或删除，避免update name后造成登录数据库名称异常
-//	return false
-//}
+func (self *SDBInstanceDatabase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return db.IsProjectAllowUpdate(userCred, self)
+}
 
-func (self *SDBInstanceDatabase) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return nil, httperrors.ErrForbidden
+func (self *SDBInstanceDatabase) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DBInstanceDatabaseUpdateInput) (api.DBInstanceDatabaseUpdateInput, error) {
+	var err error
+	input.StatusStandaloneResourceBaseUpdateInput, err = self.SStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StatusStandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrapf(err, "SStatusStandaloneResourceBase.ValidateUpdateData")
+	}
+	if len(input.Name) > 0 && input.Name != self.Name {
+		return input, httperrors.NewForbiddenError("not allow update rds database name")
+	}
+	return input, nil
 }
 
 // RDS数据库列表
