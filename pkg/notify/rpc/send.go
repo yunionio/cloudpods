@@ -238,7 +238,7 @@ func (self *SRpcService) execute(ctx context.Context, f func(client *apis.SendNo
 			return nil, errors.Wrapf(err, "restart service %s failed", serviceName)
 		}
 
-		_, err := f(sendService)
+		ret, err = f(sendService)
 		if err != nil {
 			st := status.Convert(err)
 			if st.Code() == codes.Unavailable {
