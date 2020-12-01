@@ -75,7 +75,7 @@ const (
 	IPAllocationDefault                        = ""
 )
 
-type SNetworkAddress struct {
+type SNetworkUsedAddress struct {
 	IpAddr        string
 	MacAddr       string
 	Owner         string
