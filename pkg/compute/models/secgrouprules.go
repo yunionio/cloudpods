@@ -502,6 +502,7 @@ func (self *SSecurityGroup) newFromCloudSecurityGroupRule(ctx context.Context, u
 		Action:      string(rule.Action),
 		Description: rule.Description,
 	}
+	secrule.SetModelManager(SecurityGroupRuleManager, secrule)
 	secrule.SecgroupId = self.Id
 
 	err := SecurityGroupRuleManager.TableSpec().Insert(ctx, secrule)
