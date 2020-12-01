@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -33,9 +34,11 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	npk "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -363,6 +366,10 @@ func (manager *SClouduserManager) ValidateCreateData(ctx context.Context, userCr
 		return input, err
 	}
 
+	if len(input.Email) > 0 && !regutils.MatchEmail(input.Email) {
+		return input, httperrors.NewInputParameterError("invalid email address")
+	}
+
 	if len(input.OwnerId) > 0 {
 		user, err := db.UserCacheManager.FetchUserById(ctx, input.OwnerId)
 		if err != nil {
@@ -522,6 +529,21 @@ func (self *SClouduser) PostCreate(ctx context.Context, userCred mcclient.TokenC
 	}
 	for _, groupId := range input.CloudgroupIds {
 		self.joinGroup(groupId)
+	}
+	if len(self.Email) > 0 && input.Notify {
+		msg := struct {
+			Account     string
+			Name        string
+			Password    string
+			IamLoginUrl string
+			Id          string
+		}{
+			Id:          self.Id,
+			Password:    input.Password,
+			IamLoginUrl: account.IamLoginUrl,
+		}
+		msg.Account, msg.Name = account.GetClouduserAccountName(self.Name)
+		notifyclient.NotifyWithContact(ctx, []string{self.Email}, npk.NotifyByEmail, npk.NotifyPriorityNormal, "CLOUD_USER_CREATED", jsonutils.Marshal(msg))
 	}
 	self.StartClouduserSyncTask(ctx, userCred, "")
 }
