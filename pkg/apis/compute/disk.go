@@ -106,6 +106,7 @@ type DiskListInput struct {
 	apis.VirtualResourceListInput
 	apis.ExternalizedResourceBaseListInput
 	apis.MultiArchResourceBaseListInput
+	apis.AutoDeleteResourceBaseListInput
 	billing.BillingResourceListInput
 	StorageFilterListInput
 
@@ -133,8 +134,6 @@ type DiskListInput struct {
 	DiskFormat string `json:"disk_format"`
 
 	DiskSize int `json:"disk_size"`
-
-	AutoDelete *bool `json:"auto_delete"`
 
 	FsFormat string `json:"fs_format"`
 
