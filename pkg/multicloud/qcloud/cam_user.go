@@ -191,10 +191,26 @@ func (self *SQcloudClient) GetICloudusers() ([]cloudprovider.IClouduser, error) 
 	if err != nil {
 		return nil, errors.Wrap(err, "ListUsers")
 	}
+
 	ret := []cloudprovider.IClouduser{}
 	for i := range users {
 		users[i].client = self
 		ret = append(ret, &users[i])
+	}
+	collaborators := []SUser{}
+	for {
+		part, total, err := self.ListCollaborators(len(collaborators), 50)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ListCollaborators")
+		}
+		collaborators = append(collaborators, part...)
+		if len(collaborators) >= total {
+			break
+		}
+	}
+	for i := range collaborators {
+		collaborators[i].client = self
+		ret = append(ret, &collaborators[i])
 	}
 	return ret, nil
 }
