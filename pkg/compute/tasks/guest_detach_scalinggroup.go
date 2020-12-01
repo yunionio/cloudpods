@@ -98,7 +98,9 @@ func (self *GuestDetachScalingGroupTask) OnDetachLoadbalancerComplete(ctx contex
 	}
 	self.Params.Set("guest_name", jsonutils.NewString(guest.GetName()))
 	self.SetStage("OnDeleteGuestComplete", nil)
-	if err := guest.StartDeleteGuestTask(ctx, self.UserCred, self.Id, false, true, true); err != nil {
+	opts := api.ServerDeleteInput{Purge: false, OverridePendingDelete: true, DeleteSnapshots: true}
+	err := guest.StartDeleteGuestTask(ctx, self.UserCred, self.Id, opts)
+	if err != nil {
 		self.taskFailed(ctx, sg, nil, jsonutils.NewString(err.Error()))
 	}
 }
