@@ -2601,11 +2601,11 @@ func (network *SNetwork) getUsedAddressQuery(owner mcclient.IIdentityProvider, s
 	return sqlchemy.Union(queries...).Query()
 }
 
-type SNetworkAddressList []api.SNetworkAddress
+type SNetworkUsedAddressList []api.SNetworkUsedAddress
 
-func (a SNetworkAddressList) Len() int      { return len(a) }
-func (a SNetworkAddressList) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a SNetworkAddressList) Less(i, j int) bool {
+func (a SNetworkUsedAddressList) Len() int      { return len(a) }
+func (a SNetworkUsedAddressList) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a SNetworkUsedAddressList) Less(i, j int) bool {
 	ipI, _ := netutils.NewIPV4Addr(a[i].IpAddr)
 	ipJ, _ := netutils.NewIPV4Addr(a[j].IpAddr)
 	return ipI < ipJ
@@ -2620,14 +2620,14 @@ func (network *SNetwork) GetDetailsAddresses(ctx context.Context, userCred mccli
 		return output, errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require %s allow %s", scope, allowScope)
 	}
 
-	netAddrs := make([]api.SNetworkAddress, 0)
+	netAddrs := make([]api.SNetworkUsedAddress, 0)
 	q := network.getUsedAddressQuery(userCred, scope, false)
 	err := q.All(&netAddrs)
 	if err != nil {
 		return output, httperrors.NewGeneralError(err)
 	}
 
-	sort.Sort(SNetworkAddressList(netAddrs))
+	sort.Sort(SNetworkUsedAddressList(netAddrs))
 
 	output.Addresses = netAddrs
 	return output, nil
