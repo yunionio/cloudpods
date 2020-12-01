@@ -334,7 +334,7 @@ type GetNetworkAddressesInput struct {
 
 type GetNetworkAddressesOutput struct {
 	// IP子网地址记录
-	Addresses []SNetworkAddress `json:"addresses"`
+	Addresses []SNetworkUsedAddress `json:"addresses"`
 }
 
 type NetworkSetBgpTypeInput struct {

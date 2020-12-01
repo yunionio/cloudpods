@@ -62,7 +62,7 @@ type SReceiverNotification struct {
 	apis.SJointResourceBase
 	ReceiverID     string `json:"receiver_id"`
 	NotificationID string `json:"notification_id"`
-	// ignore if ReceiverID is not empty
+	// ignore if ReceiverID is not empty or default
 	Contact      string `json:"contact"`
 	SendBy       string `json:"send_by"`
 	Status       string `json:"status"`
