@@ -106,4 +106,18 @@ func init() {
 		return nil
 	})
 
+	type CollaboratorList struct {
+		Offset int
+		Limit  int
+	}
+
+	shellutils.R(&CollaboratorList{}, "collaborator-list", "List collaborator", func(cli *qcloud.SRegion, args *CollaboratorList) error {
+		collaborators, _, err := cli.GetClient().ListCollaborators(args.Offset, args.Limit)
+		if err != nil {
+			return err
+		}
+		printList(collaborators, 0, 0, 0, nil)
+		return nil
+	})
+
 }
