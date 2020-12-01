@@ -92,3 +92,7 @@ type DBInstanceAccountDetails struct {
 
 	ProjectId string `json:"tenant_id"`
 }
+
+type DBInstanceAccountUpdateInput struct {
+	apis.StatusStandaloneResourceBaseUpdateInput
+}
