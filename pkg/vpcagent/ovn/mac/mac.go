@@ -24,3 +24,15 @@ func HashMac(in ...string) string {
 func HashVpcHostDistgwMac(hostId string) string {
 	return HashMac(hostId)
 }
+
+func HashSubnetRouterPortMac(netId string) string {
+	return HashMac(netId, "rp")
+}
+
+func HashSubnetDhcpMac(netId string) string {
+	return HashMac(netId, "dhcp")
+}
+
+func HashSubnetMetadataMac(netId string) string {
+	return HashMac(netId, "md")
+}
