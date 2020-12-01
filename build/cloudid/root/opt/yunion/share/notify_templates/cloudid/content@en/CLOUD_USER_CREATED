@@ -1,0 +1,6 @@
+Clouduser has been created successfully
+Root Account: {{ .account }}
+Name：{{ .name }}
+Password：{{ .password }}
+IAM Login URL: {{ .iam_login_url }}
+Resource ID: {{ .id }}
