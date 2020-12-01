@@ -60,6 +60,7 @@ type SDiskManager struct {
 	SStorageResourceBaseManager
 	SBillingResourceBaseManager
 	db.SMultiArchResourceBaseManager
+	db.SAutoDeleteResourceBaseManager
 }
 
 var DiskManager *SDiskManager
@@ -83,6 +84,7 @@ type SDisk struct {
 	SBillingResourceBase
 	SStorageResourceBase `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"optional"`
 	db.SMultiArchResourceBase
+	db.SAutoDeleteResourceBase
 
 	// 磁盘存储类型
 	// example: qcow2
@@ -92,10 +94,6 @@ type SDisk struct {
 	DiskSize int `nullable:"false" list:"user" json:"disk_size"`
 	// 磁盘路径
 	AccessPath string `width:"256" charset:"ascii" nullable:"true" get:"user" json:"access_path"`
-
-	// 是否跟随云主机自动删除, 仅绑定到云主机时才生效
-	// example: false
-	AutoDelete bool `nullable:"false" default:"false" get:"user" update:"user" json:"auto_delete"`
 
 	// 存储Id
 	// StorageId       string `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"optional"`
@@ -174,6 +172,11 @@ func (manager *SDiskManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SMultiArchResourceBaseManager.ListItemFilter")
 	}
 
+	q, err = manager.SAutoDeleteResourceBaseManager.ListItemFilter(ctx, q, userCred, query.AutoDeleteResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrapf(err, "SAutoDeleteResourceBaseManager.ListItemFilter")
+	}
+
 	if query.Unused != nil {
 		guestdisks := GuestdiskManager.Query().SubQuery()
 		sq := guestdisks.Query(guestdisks.Field("disk_id"))
@@ -222,14 +225,6 @@ func (manager *SDiskManager) ListItemFilter(
 
 	if query.DiskSize > 0 {
 		q = q.Equals("disk_size", query.DiskSize)
-	}
-
-	if query.AutoDelete != nil {
-		if *query.AutoDelete {
-			q = q.IsTrue("auto_delete")
-		} else {
-			q = q.IsFalse("auto_delete")
-		}
 	}
 
 	if len(query.FsFormat) > 0 {

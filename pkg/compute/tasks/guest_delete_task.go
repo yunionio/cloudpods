@@ -127,7 +127,8 @@ func (self *GuestDeleteTask) OnStartEipDissociate(ctx context.Context, guest *mo
 			self.OnEipDissociateComplete(ctx, guest, nil)
 		} else {
 			self.SetStage("OnEipDissociateComplete", nil)
-			eip.StartEipDissociateTask(ctx, self.UserCred, false, self.GetTaskId())
+			autoDelete := jsonutils.QueryBoolean(self.GetParams(), "delete_eip", false)
+			eip.StartEipDissociateTask(ctx, self.UserCred, autoDelete, self.GetTaskId())
 		}
 	} else {
 		self.OnEipDissociateComplete(ctx, guest, nil)
@@ -157,6 +158,10 @@ func (self *GuestDeleteTask) OnDiskDetachComplete(ctx context.Context, obj db.IS
 	}
 	// detach last detachable disk
 	lastDisk := guestdisks[len(guestdisks)-1].GetDisk()
+	deleteDisks := jsonutils.QueryBoolean(self.Params, "delete_disks", false)
+	if deleteDisks {
+		lastDisk.SetAutoDelete(lastDisk, self.GetUserCred(), true)
+	}
 	log.Debugf("lastDisk IsDetachable?? %v", lastDisk.IsDetachable())
 	if !lastDisk.IsDetachable() {
 		// no more disk need detach
