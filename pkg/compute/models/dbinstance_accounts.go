@@ -130,7 +130,19 @@ func (self *SDBInstanceAccount) AllowGetDetails(ctx context.Context, userCred mc
 }
 
 func (self *SDBInstanceAccount) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return false
+	return db.IsProjectAllowUpdate(userCred, self)
+}
+
+func (self *SDBInstanceAccount) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DBInstanceAccountUpdateInput) (api.DBInstanceAccountUpdateInput, error) {
+	var err error
+	input.StatusStandaloneResourceBaseUpdateInput, err = self.SStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StatusStandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrapf(err, "SStatusStandaloneResourceBase.ValidateUpdateData")
+	}
+	if len(input.Name) > 0 && input.Name != self.Name {
+		return input, httperrors.NewForbiddenError("not allow update rds account name")
+	}
+	return input, nil
 }
 
 func (self *SDBInstanceAccount) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
