@@ -280,8 +280,9 @@ func (manager *STaskManager) NewTask(
 	}
 	parentTask := task.GetParentTask()
 	if parentTask != nil {
-		st := SSubTask{TaskId: parentTask.Id, Stage: parentTask.Stage, SubtaskId: task.Id}
-		err := SubTaskManager.TableSpec().Insert(ctx, &st)
+		st := &SSubTask{TaskId: parentTask.Id, Stage: parentTask.Stage, SubtaskId: task.Id}
+		st.SetModelManager(SubTaskManager, st)
+		err := SubTaskManager.TableSpec().Insert(ctx, st)
 		if err != nil {
 			log.Errorf("Subtask insert error %s", err)
 			return nil, err
