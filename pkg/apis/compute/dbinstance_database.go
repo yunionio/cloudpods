@@ -80,3 +80,7 @@ type DBInstanceparameterDetails struct {
 
 	SDBInstanceParameter
 }
+
+type DBInstanceDatabaseUpdateInput struct {
+	apis.StatusStandaloneResourceBaseUpdateInput
+}
