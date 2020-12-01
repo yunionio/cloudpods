@@ -993,10 +993,13 @@ func (s *SKVMGuestInstance) ExecSuspendTask(ctx context.Context) {
 func (s *SKVMGuestInstance) GetNicDescMatch(mac, ip, port, bridge string) jsonutils.JSONObject {
 	nics, _ := s.Desc.GetArray("nics")
 	for _, nic := range nics {
+		nicBridge, _ := nic.GetString("bridge")
+		if bridge == "" && nicBridge != "" && nicBridge == options.HostOptions.OvnIntegrationBridge {
+			continue
+		}
 		nicMac, _ := nic.GetString("mac")
 		nicIp, _ := nic.GetString("ip")
 		nicPort, _ := nic.GetString("ifname")
-		nicBridge, _ := nic.GetString("bridge")
 		if (len(mac) == 0 || netutils2.MacEqual(nicMac, mac)) &&
 			(len(ip) == 0 || nicIp == ip) &&
 			(len(port) == 0 || nicPort == port) &&
