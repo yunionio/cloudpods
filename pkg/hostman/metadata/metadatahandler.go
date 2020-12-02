@@ -52,13 +52,13 @@ func Start(app *appsrv.Application, s *Service) {
 }
 
 type DescGetter interface {
-	Get(ip string) (guestDesc, guestNic jsonutils.JSONObject)
+	Get(ip string) (guestDesc jsonutils.JSONObject)
 }
 
 type classicDescGetter struct{}
 
-func (g classicDescGetter) Get(ip string) (guestDesc, guestNic jsonutils.JSONObject) {
-	guestDesc, guestNic = guestman.GetGuestManager().GetGuestNicDesc("", ip, "", "", false)
+func (g classicDescGetter) Get(ip string) (guestDesc jsonutils.JSONObject) {
+	guestDesc, _ = guestman.GetGuestManager().GetGuestNicDesc("", ip, "", "", false)
 	return
 }
 
@@ -75,12 +75,12 @@ type Service struct {
 	DescGetter DescGetter
 }
 
-func (s *Service) getGuestNicDesc(r *http.Request) (guestDesc, guestNic jsonutils.JSONObject) {
+func (s *Service) getGuestNicDesc(r *http.Request) (guestDesc jsonutils.JSONObject) {
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		panic(errors.Wrapf(err, "SplitHostPort %s", r.RemoteAddr))
 	}
-	guestDesc, guestNic = s.DescGetter.Get(ip)
+	guestDesc = s.DescGetter.Get(ip)
 	return
 }
 
@@ -105,8 +105,8 @@ func (s *Service) versionOnly(ctx context.Context, w http.ResponseWriter, r *htt
 }
 
 func (s *Service) userData(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	guestDesc, guestNic := s.getGuestNicDesc(r)
-	if guestDesc == nil || guestNic == nil {
+	guestDesc := s.getGuestNicDesc(r)
+	if guestDesc == nil {
 		hostutils.Response(ctx, w, "")
 		return
 	}
@@ -128,8 +128,8 @@ func (s *Service) userData(ctx context.Context, w http.ResponseWriter, r *http.R
 }
 
 func (s *Service) metaData(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	guestDesc, guestNic := s.getGuestNicDesc(r)
-	if guestDesc == nil || guestNic == nil {
+	guestDesc := s.getGuestNicDesc(r)
+	if guestDesc == nil {
 		hostutils.Response(ctx, w, "")
 		return
 	}
