@@ -379,6 +379,8 @@ func (self *SSuggestSysAlert) GetSuggestConfig(scope rbacutils.TRbacScope, domai
 	q := SuggestSysRuleConfigManager.Query().Equals("type", drvType).Equals("resource_type", resType)
 	if !batchIgnore {
 		q = q.Equals("resource_id", resId)
+	} else {
+		q = q.IsNull("resource_id")
 	}
 	q = SuggestSysRuleConfigManager.FilterByScope(q, scope, scopeId)
 	configs := make([]SSuggestSysRuleConfig, 0)

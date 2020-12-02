@@ -761,7 +761,6 @@ func (alert *SCommonAlert) ValidateUpdateData(
 			return data, errors.Wrap(err, "metric_query Unmarshal error")
 		}
 		scope, _ := data.GetString("scope")
-		log.Errorf("update query from:%s", metricQuery.From)
 		err = CommonAlertManager.ValidateMetricQuery(metricQuery, scope, userCred)
 		if err != nil {
 			return data, errors.Wrap(err, "metric query error")
