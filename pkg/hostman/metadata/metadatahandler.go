@@ -14,6 +14,7 @@
 
 package metadata
 
+// NOTE keep imports minimal.  DO NOT IMPORT guestman
 import (
 	"context"
 	"encoding/base64"
@@ -29,20 +30,9 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
-
-func StartService(app *appsrv.Application, address string, port int) {
-	s := &Service{
-		Address: address,
-		Port:    port,
-
-		DescGetter: classicDescGetter{},
-	}
-	Start(app, s)
-}
 
 func Start(app *appsrv.Application, s *Service) {
 	s.addHandler(app)
@@ -53,13 +43,6 @@ func Start(app *appsrv.Application, s *Service) {
 
 type DescGetter interface {
 	Get(ip string) (guestDesc jsonutils.JSONObject)
-}
-
-type classicDescGetter struct{}
-
-func (g classicDescGetter) Get(ip string) (guestDesc jsonutils.JSONObject) {
-	guestDesc, _ = guestman.GetGuestManager().GetGuestNicDesc("", ip, "", "", false)
-	return
 }
 
 type DescGetterFunc func(ip string) (guestDesc jsonutils.JSONObject)
