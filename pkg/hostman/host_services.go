@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 
 	execlient "yunion.io/x/executor/client"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -109,9 +110,17 @@ func (host *SHostService) RunService() {
 	host.initHandlers(app)
 
 	// Init Metadata handler
-	go metadata.StartService(
+	go metadata.Start(
 		app_common.InitApp(&options.HostOptions.BaseOptions, false),
-		options.HostOptions.Address, options.HostOptions.Port+1000)
+		&metadata.Service{
+			Address: options.HostOptions.Address,
+			Port:    options.HostOptions.Port + 1000,
+			DescGetter: metadata.DescGetterFunc(func(ip string) jsonutils.JSONObject {
+				guestDesc, _ := guestman.GetGuestManager().GetGuestNicDesc("", ip, "", "", false)
+				return guestDesc
+			}),
+		},
+	)
 
 	cronManager.AddJobEveryFewDays(
 		"CleanRecycleDiskFiles", 1, 3, 0, 0, storageman.CleanRecycleDiskfiles, false)
