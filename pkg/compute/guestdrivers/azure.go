@@ -232,7 +232,8 @@ func (self *SAzureGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCa
 				Changeable:     false,
 			},
 			Windows: cloudprovider.SOsDefaultAccount{
-				DefaultAccount: api.VM_DEFAULT_WINDOWS_LOGIN_USER,
+				// Administrator 为Azure保留用户，不能使用
+				DefaultAccount: api.VM_AZURE_DEFAULT_LOGIN_USER,
 				Changeable:     false,
 			},
 		},
