@@ -24,6 +24,13 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
+var QCLOUD_LOCAL_STORAGE_TYPES = []string{
+	"LOCAL_NVME",
+	"LOCAL_BASIC",
+	"LOCAL_SSD",
+	"LOCAL_PRO",
+}
+
 type SLocalStorage struct {
 	zone        *SZone
 	storageType string
