@@ -192,4 +192,6 @@ const (
 	ACT_NETWORK_ADD_VPC      = "network_add_vpc"
 	ACT_NETWORK_REMOVE_VPC   = "network_remove_vpc"
 	ACT_NETWORK_MODIFY_ROUTE = "network_modify_route"
+
+	ACT_UPDATE_RULE = "update_config"
 )
