@@ -14,8 +14,12 @@
 
 package consts
 
+import "time"
+
 var (
-	globalOpsLogEnabled = true
+	globalOpsLogEnabled       = true
+	splitableMaxDurationHours = 24 * 30 // 30 days
+	splitableMaxKeepSegments  = 6       // 6 * 30 days, half year
 )
 
 func DisableOpsLog() {
@@ -24,4 +28,20 @@ func DisableOpsLog() {
 
 func OpsLogEnabled() bool {
 	return globalOpsLogEnabled
+}
+
+func SetSplitableMaxKeepSegments(cnt int) {
+	splitableMaxKeepSegments = cnt
+}
+
+func SetSplitableMaxDurationHours(h int) {
+	splitableMaxDurationHours = h
+}
+
+func SplitableMaxKeepSegments() int {
+	return splitableMaxKeepSegments
+}
+
+func SplitableMaxDuration() time.Duration {
+	return time.Hour * time.Duration(splitableMaxDurationHours)
 }

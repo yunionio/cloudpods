@@ -138,6 +138,9 @@ type DBOptions struct {
 
 	LockmanMethod string `help:"method for lock synchronization" choices:"inmemory|etcd" default:"inmemory"`
 
+	// SplitableMaxKeepSegments  int `help:"maximal segements of splitable to keep, default 6 segments" default:"6"`
+	// SplitableMaxDurationHours int `help:"maximal number of hours that a splitable segement lasts, default 30 days" default:"720"`
+
 	EtcdOptions
 
 	EtcdLockPrefix string `help:"prefix of etcd lock records" default:"/onecloud/lockman"`

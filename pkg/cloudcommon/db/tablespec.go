@@ -17,6 +17,7 @@ package db
 import (
 	"context"
 	"reflect"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -25,6 +26,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/informer"
 	"yunion.io/x/onecloud/pkg/util/nopanic"
+	"yunion.io/x/onecloud/pkg/util/splitable"
 )
 
 type ITableSpec interface {
@@ -32,29 +34,52 @@ type ITableSpec interface {
 	Columns() []sqlchemy.IColumnSpec
 	PrimaryColumns() []sqlchemy.IColumnSpec
 	DataType() reflect.Type
-	CreateSQL() string
+	// CreateSQL() string
 	Instance() *sqlchemy.STable
 	ColumnSpec(name string) sqlchemy.IColumnSpec
 	Insert(ctx context.Context, dt interface{}) error
 	InsertOrUpdate(ctx context.Context, dt interface{}) error
 	Update(ctx context.Context, dt interface{}, doUpdate func() error) (sqlchemy.UpdateDiffs, error)
 	Fetch(dt interface{}) error
-	FetchAll(dest interface{}) error
+	// FetchAll(dest interface{}) error
 	SyncSQL() []string
 	DropForeignKeySQL() []string
 	AddIndex(unique bool, cols ...string) bool
 	Increment(ctx context.Context, diff interface{}, target interface{}) error
 	Decrement(ctx context.Context, diff interface{}, target interface{}) error
+
+	GetSplitTable() *splitable.SSplitTableSpec
 }
 
 type sTableSpec struct {
-	*sqlchemy.STableSpec
+	sqlchemy.ITableSpec
 }
 
-func newTableSpec(model interface{}, tableName string) ITableSpec {
-	return &sTableSpec{
-		STableSpec: sqlchemy.NewTableSpecFromStruct(model, tableName),
+func newTableSpec(model interface{}, tableName string, indexField string, dateField string, maxDuration time.Duration, maxSegments int) ITableSpec {
+	var itbl sqlchemy.ITableSpec
+	if len(indexField) > 0 && len(dateField) > 0 {
+		var err error
+		itbl, err = splitable.NewSplitTableSpec(model, tableName, indexField, dateField, maxDuration, maxSegments)
+		if err != nil {
+			log.Errorf("NewSplitTableSpec %s %s", tableName, err)
+			return nil
+		} else {
+			log.Debugf("table %s maxDuration %d hour maxSegements %d", tableName, maxDuration/time.Hour, maxSegments)
+		}
+	} else {
+		itbl = sqlchemy.NewTableSpecFromStruct(model, tableName)
 	}
+	return &sTableSpec{
+		ITableSpec: itbl,
+	}
+}
+
+func (ts *sTableSpec) GetSplitTable() *splitable.SSplitTableSpec {
+	sts, ok := ts.ITableSpec.(*splitable.SSplitTableSpec)
+	if ok {
+		return sts
+	}
+	return nil
 }
 
 func (ts *sTableSpec) newInformerModel(dt interface{}) (*informer.ModelObject, error) {
@@ -91,7 +116,7 @@ func (ts *sTableSpec) isMarkDeleted(dt interface{}) (bool, error) {
 }
 
 func (ts *sTableSpec) Insert(ctx context.Context, dt interface{}) error {
-	if err := ts.STableSpec.Insert(dt); err != nil {
+	if err := ts.ITableSpec.Insert(dt); err != nil {
 		return err
 	}
 	ts.inform(ctx, dt, informer.Create)
@@ -99,7 +124,7 @@ func (ts *sTableSpec) Insert(ctx context.Context, dt interface{}) error {
 }
 
 func (ts *sTableSpec) InsertOrUpdate(ctx context.Context, dt interface{}) error {
-	if err := ts.STableSpec.InsertOrUpdate(dt); err != nil {
+	if err := ts.ITableSpec.InsertOrUpdate(dt); err != nil {
 		return err
 	}
 	ts.inform(ctx, dt, informer.Create)
@@ -108,7 +133,7 @@ func (ts *sTableSpec) InsertOrUpdate(ctx context.Context, dt interface{}) error 
 
 func (ts *sTableSpec) Update(ctx context.Context, dt interface{}, doUpdate func() error) (sqlchemy.UpdateDiffs, error) {
 	oldObj := jsonutils.Marshal(dt)
-	diffs, err := ts.STableSpec.Update(dt, doUpdate)
+	diffs, err := ts.ITableSpec.Update(dt, doUpdate)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +155,7 @@ func (ts *sTableSpec) Update(ctx context.Context, dt interface{}, doUpdate func(
 
 func (ts *sTableSpec) Increment(ctx context.Context, diff, target interface{}) error {
 	oldObj := jsonutils.Marshal(target)
-	err := ts.STableSpec.Increment(diff, target)
+	err := ts.ITableSpec.Increment(diff, target)
 	if err != nil {
 		return errors.Wrap(err, "Increment")
 	}
@@ -140,7 +165,7 @@ func (ts *sTableSpec) Increment(ctx context.Context, diff, target interface{}) e
 
 func (ts *sTableSpec) Decrement(ctx context.Context, diff, target interface{}) error {
 	oldObj := jsonutils.Marshal(target)
-	err := ts.STableSpec.Decrement(diff, target)
+	err := ts.ITableSpec.Decrement(diff, target)
 	if err != nil {
 		return err
 	}

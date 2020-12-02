@@ -78,7 +78,16 @@ var _ IModel = (*SOpsLog)(nil)
 var opslogQueryWorkerMan *appsrv.SWorkerManager
 
 func init() {
-	OpsLog = &SOpsLogManager{NewModelBaseManager(SOpsLog{}, "opslog_tbl", "event", "events")}
+	OpsLog = &SOpsLogManager{NewModelBaseManagerWithSplitable(
+		SOpsLog{},
+		"opslog_tbl",
+		"event",
+		"events",
+		"id",
+		"ops_time",
+		consts.SplitableMaxDuration(),
+		consts.SplitableMaxKeepSegments(),
+	)}
 	OpsLog.SetVirtualObject(OpsLog)
 
 	opslogQueryWorkerMan = appsrv.NewWorkerManager("opslog_query_worker", 2, 1024, true)

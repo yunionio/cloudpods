@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/logger"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -51,11 +52,15 @@ var BaremetalEventManager *SBaremetalEventManager
 
 func init() {
 	BaremetalEventManager = &SBaremetalEventManager{
-		SModelBaseManager: db.NewModelBaseManager(
+		SModelBaseManager: db.NewModelBaseManagerWithSplitable(
 			SBaremetalEvent{},
 			"baremetal_event_tbl",
 			"baremetalevent",
 			"baremetalevents",
+			"id",
+			"created",
+			consts.SplitableMaxDuration(),
+			consts.SplitableMaxKeepSegments(),
 		),
 	}
 	BaremetalEventManager.SetVirtualObject(BaremetalEventManager)
