@@ -42,6 +42,11 @@ type ServerListInput struct {
 	Baremetal *bool `json:"baremetal"`
 	// 只列出GPU主机
 	Gpu *bool `json:"gpu"`
+	// 只列出还有备份机的主机
+	Backup *bool `json:"bakcup"`
+	// 列出指定类型的主机
+	// enum: normal,gpu,backup
+	ServerType string `json:"server_type"`
 	// 列出管理安全组为指定安全组的主机
 	AdminSecgroup string `json:"admin_security"`
 	// 列出Hypervisor为指定值的主机
