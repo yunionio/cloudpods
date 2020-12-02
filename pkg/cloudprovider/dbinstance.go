@@ -71,7 +71,8 @@ type SManagedDBInstanceCreateConfig struct {
 	Tags         map[string]string
 
 	// 仅从备份恢复到新实例用到
-	RdsId string
+	RdsId    string
+	BackupId string
 }
 
 type SManagedDBInstanceChangeConfig struct {
