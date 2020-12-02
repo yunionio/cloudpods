@@ -100,6 +100,22 @@ func (self *SAwsGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapa
 				Changeable:     false,
 			},
 		},
+		Storages: cloudprovider.Storage{
+			DataDisk: []cloudprovider.StorageInfo{
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_GP2_SSD, MaxSizeGb: 16384, MinSizeGb: 1, StepSizeGb: 1, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_IO1_SSD, MaxSizeGb: 16384, MinSizeGb: 4, StepSizeGb: 1, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_ST1_HDD, MaxSizeGb: 16384, MinSizeGb: 500, StepSizeGb: 1, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_SC1_HDD, MaxSizeGb: 16384, MinSizeGb: 500, StepSizeGb: 1, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_STANDARD_HDD, MaxSizeGb: 1024, MinSizeGb: 1, StepSizeGb: 1, Resizable: true},
+			},
+			SysDisk: []cloudprovider.StorageInfo{
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_GP2_SSD, MaxSizeGb: 16384, MinSizeGb: 1, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_IO1_SSD, MaxSizeGb: 16384, MinSizeGb: 4, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_ST1_HDD, MaxSizeGb: 16384, MinSizeGb: 500, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_SC1_HDD, MaxSizeGb: 16384, MinSizeGb: 500, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_STANDARD_HDD, MaxSizeGb: 1024, MinSizeGb: 1, StepSizeGb: 1, Resizable: false},
+			},
+		},
 	}
 }
 
