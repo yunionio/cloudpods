@@ -19,10 +19,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -35,9 +33,8 @@ func init() {
 	taskman.RegisterTask(DBInstanceRemoteUpdateTask{})
 }
 
-func (self *DBInstanceRemoteUpdateTask) taskFail(ctx context.Context, lb *models.SDBInstance, reason jsonutils.JSONObject) {
-	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_ENABLE, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, lb.Id, lb.Name, api.LB_STATUS_DISABLED, reason.String())
+func (self *DBInstanceRemoteUpdateTask) taskFail(ctx context.Context, dbinstance *models.SDBInstance, reason jsonutils.JSONObject) {
+	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_UPDATE_TAGS, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }
 

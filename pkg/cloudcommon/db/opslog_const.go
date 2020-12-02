@@ -276,4 +276,5 @@ const (
 	ACT_NETWORK_MODIFY_ROUTE_FAILED = "network_modify_route_failed"
 
 	ACT_UPDATE_RULE = "update_config"
+	ACT_UPDATE_TAGS = "update_tags"
 )
