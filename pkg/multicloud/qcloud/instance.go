@@ -238,7 +238,7 @@ func (self *SInstance) getVpc() (*SVpc, error) {
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	idisks := make([]cloudprovider.ICloudDisk, 0)
 
-	if utils.IsInStringArray(self.SystemDisk.DiskType, self.host.zone.localstorages) {
+	if utils.IsInStringArray(strings.ToUpper(self.SystemDisk.DiskType), QCLOUD_LOCAL_STORAGE_TYPES) {
 		storage := SLocalStorage{zone: self.host.zone, storageType: self.SystemDisk.DiskType}
 		disk := SLocalDisk{
 			storage:   &storage,
@@ -251,7 +251,7 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	}
 
 	for i := 0; i < len(self.DataDisks); i++ {
-		if utils.IsInStringArray(self.DataDisks[i].DiskType, self.host.zone.localstorages) {
+		if utils.IsInStringArray(strings.ToUpper(self.DataDisks[i].DiskType), QCLOUD_LOCAL_STORAGE_TYPES) {
 			storage := SLocalStorage{zone: self.host.zone, storageType: self.DataDisks[i].DiskType}
 			disk := SLocalDisk{
 				storage:   &storage,
