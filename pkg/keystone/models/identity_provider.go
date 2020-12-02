@@ -1481,6 +1481,9 @@ func (idp *SIdentityProvider) PerformDisable(
 	query jsonutils.JSONObject,
 	input apis.PerformDisableInput,
 ) (jsonutils.JSONObject, error) {
+	if idp.Driver == api.IdentityDriverSQL {
+		return nil, errors.Wrap(httperrors.ErrForbidden, "not allow to disable sql idp")
+	}
 	if idp.Driver == api.IdentityDriverLDAP || idp.AutoCreateUser.IsTrue() {
 		domains, _ := idp.getLinkedDomains()
 		for i := range domains {
