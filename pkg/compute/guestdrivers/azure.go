@@ -237,6 +237,18 @@ func (self *SAzureGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCa
 				Changeable:     false,
 			},
 		},
+		Storages: cloudprovider.Storage{
+			DataDisk: []cloudprovider.StorageInfo{
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_STANDARDSSD_LRS, MaxSizeGb: 32767, MinSizeGb: 1, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_STANDARD_LRS, MaxSizeGb: 32767, MinSizeGb: 1, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_PREMIUM_LRS, MaxSizeGb: 32767, MinSizeGb: 1, StepSizeGb: 1, Resizable: false},
+			},
+			SysDisk: []cloudprovider.StorageInfo{
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_STANDARDSSD_LRS, MaxSizeGb: 32767, MinSizeGb: 1, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_STANDARD_LRS, MaxSizeGb: 32767, MinSizeGb: 1, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_PREMIUM_LRS, MaxSizeGb: 32767, MinSizeGb: 1, StepSizeGb: 1, Resizable: false},
+			},
+		},
 	}
 }
 
