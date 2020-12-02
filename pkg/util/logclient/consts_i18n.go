@@ -641,4 +641,8 @@ func init() {
 		EN("Detach AlertResource").
 		CN("取消关联报警资源"),
 	)
+	t.Set(ACT_UPDATE_RULE, i18n.NewTableEntry().
+		EN("Update RuleConfig").
+		CN("调整规则配置"),
+	)
 }
