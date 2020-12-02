@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
@@ -58,7 +57,6 @@ serLoop:
 				if err != nil {
 					return nil, errors.Wrap(err, "NoDataQueryCondition NewEvalMatch error")
 				}
-				log.Errorf("nodata match:%#v", match)
 				normalHostIds[val] = match
 				continue serLoop
 			}
