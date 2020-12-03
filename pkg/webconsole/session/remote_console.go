@@ -34,6 +34,7 @@ const (
 	VMRC      = api.VMRC
 	ZSTACK    = api.ZSTACK
 	CTYUN     = api.CTYUN
+	HUAWEI    = api.HUAWEI
 )
 
 type RemoteConsoleInfo struct {
@@ -121,7 +122,7 @@ func (info *RemoteConsoleInfo) GetConnectParams() (string, error) {
 		return info.getAliyunURL()
 	case QCLOUD:
 		return info.getQcloudURL()
-	case OPENSTACK, VMRC, ZSTACK, CTYUN:
+	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI:
 		return info.Url, nil
 	default:
 		return "", fmt.Errorf("Can't convert protocol %s to connect params", info.Protocol)
