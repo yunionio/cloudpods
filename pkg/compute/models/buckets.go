@@ -1377,9 +1377,9 @@ func (bucket *SBucket) PerformSetCors(
 			Id:             input.Data[i].Id,
 		})
 	}
-	err = iBucket.SetCORS(rules)
+	err = cloudprovider.SetBucketCORS(iBucket, rules)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("iBucket.SetCORS error %s", err)
+		return nil, httperrors.NewInternalServerError("cloudprovider.SetBucketCORS error %s", err)
 	}
 	db.OpsLog.LogEvent(bucket, db.ACT_SET_CORS, rules, userCred)
 	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_SET_CORS, rules, userCred, true)
@@ -1404,7 +1404,7 @@ func (bucket *SBucket) PerformDeleteCors(
 	if err != nil {
 		return nil, errors.Wrap(err, "GetIBucket")
 	}
-	result, err := iBucket.DeleteCORS(input.Id)
+	result, err := cloudprovider.DeleteBucketCORS(iBucket, input.Id)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("iBucket.DeleteCORS error %s", err)
 	}

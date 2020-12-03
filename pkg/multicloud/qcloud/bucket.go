@@ -625,21 +625,16 @@ func (b *SBucket) DeleteWebSiteConf() error {
 }
 
 func (b *SBucket) SetCORS(rules []cloudprovider.SBucketCORSRule) error {
-	for i := range rules {
-		if len(rules[i].AllowedOrigins) == 0 {
-			return errors.Wrap(cloudprovider.ErrNotSupported, "missing AllowedOrigins")
-		}
-		if len(rules[i].AllowedMethods) == 0 {
-			return errors.Wrap(cloudprovider.ErrNotSupported, "missing AllowedMethods")
-		}
+	if len(rules) == 0 {
+		return nil
 	}
 	coscli, err := b.region.GetCosClient(b)
 	if err != nil {
 		return errors.Wrap(err, "b.region.GetCosClient")
 	}
-	opts := cos.BucketPutCORSOptions{}
+	input := cos.BucketPutCORSOptions{}
 	for i := range rules {
-		opts.Rules = append(opts.Rules, cos.BucketCORSRule{
+		input.Rules = append(input.Rules, cos.BucketCORSRule{
 			AllowedOrigins: rules[i].AllowedOrigins,
 			AllowedMethods: rules[i].AllowedMethods,
 			AllowedHeaders: rules[i].AllowedHeaders,
@@ -649,36 +644,7 @@ func (b *SBucket) SetCORS(rules []cloudprovider.SBucketCORSRule) error {
 		})
 	}
 
-	newSet := []cos.BucketCORSRule{}
-	updateSet := map[int]cos.BucketCORSRule{}
-
-	oldConf, _, err := coscli.Bucket.GetCORS(context.Background())
-	if err != nil {
-		if !strings.Contains(err.Error(), "NoSuchCORSConfiguration") {
-			return errors.Wrap(err, "b.region.GetCORS")
-		}
-	}
-
-	for i := range opts.Rules {
-		index, err := strconv.Atoi(opts.Rules[i].ID)
-		if err == nil && index < len(oldConf.Rules) {
-			updateSet[index] = opts.Rules[i]
-		} else {
-			newSet = append(newSet, opts.Rules[i])
-		}
-	}
-	updatedOpts := cos.BucketPutCORSOptions{}
-	for i := range oldConf.Rules {
-		if _, ok := updateSet[i]; !ok {
-			updatedOpts.Rules = append(updatedOpts.Rules, oldConf.Rules[i])
-		} else {
-			updatedOpts.Rules = append(updatedOpts.Rules, updateSet[i])
-		}
-	}
-
-	updatedOpts.Rules = append(updatedOpts.Rules, newSet...)
-
-	_, err = coscli.Bucket.PutCORS(context.Background(), &updatedOpts)
+	_, err = coscli.Bucket.PutCORS(context.Background(), &input)
 	if err != nil {
 		return errors.Wrap(err, "coscli.Bucket.PutCORS")
 	}
@@ -711,60 +677,16 @@ func (b *SBucket) GetCORSRules() ([]cloudprovider.SBucketCORSRule, error) {
 	return result, nil
 }
 
-func (b *SBucket) DeleteCORS(id []string) ([]cloudprovider.SBucketCORSRule, error) {
-	deletedRules := []cloudprovider.SBucketCORSRule{}
+func (b *SBucket) DeleteCORS() error {
 	coscli, err := b.region.GetCosClient(b)
 	if err != nil {
-		return nil, errors.Wrap(err, "b.region.GetCosClient")
+		return errors.Wrap(err, "b.region.GetCosClient")
 	}
-
-	existedRules := []cos.BucketCORSRule{}
-	if len(id) > 0 {
-		conf, _, err := coscli.Bucket.GetCORS(context.Background())
-		if err != nil {
-			if strings.Contains(err.Error(), "NoSuchCORSConfiguration") {
-				return nil, nil
-			}
-			return nil, errors.Wrap(err, "b.region.GetCORS")
-		}
-		existedRules = conf.Rules
+	_, err = coscli.Bucket.DeleteCORS(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "coscli.Bucket.DeleteCORS")
 	}
-
-	excludeMap := map[int]bool{}
-	for i := range id {
-		index, err := strconv.Atoi(id[i])
-		if err == nil {
-			excludeMap[index] = true
-		}
-	}
-	newRules := []cos.BucketCORSRule{}
-	for i := range existedRules {
-		if _, ok := excludeMap[i]; !ok {
-			newRules = append(newRules, existedRules[i])
-		} else {
-			deletedRules = append(deletedRules, cloudprovider.SBucketCORSRule{
-				AllowedOrigins: existedRules[i].AllowedOrigins,
-				AllowedMethods: existedRules[i].AllowedMethods,
-				AllowedHeaders: existedRules[i].AllowedHeaders,
-				MaxAgeSeconds:  existedRules[i].MaxAgeSeconds,
-				ExposeHeaders:  existedRules[i].ExposeHeaders,
-			})
-		}
-	}
-	if len(newRules) < len(existedRules) {
-		if len(newRules) == 0 {
-			_, err = coscli.Bucket.DeleteCORS(context.Background())
-			if err != nil {
-				return nil, errors.Wrap(err, "coscli.Bucket.DeleteCORS")
-			}
-			return deletedRules, nil
-		}
-		_, err = coscli.Bucket.PutCORS(context.Background(), &cos.BucketPutCORSOptions{Rules: newRules})
-		if err != nil {
-			return nil, errors.Wrap(err, "coscli.Bucket.PutCORS")
-		}
-	}
-	return deletedRules, nil
+	return nil
 }
 
 func (b *SBucket) SetReferer(conf cloudprovider.SBucketRefererConf) error {
@@ -807,6 +729,7 @@ func (b *SBucket) GetReferer() (cloudprovider.SBucketRefererConf, error) {
 		result.AllowEmptyRefer = true
 	}
 	if referResult.Status == "Disabled" {
+		result.AllowEmptyRefer = true
 		return result, nil
 	}
 	result.WhiteList = referResult.DomainList

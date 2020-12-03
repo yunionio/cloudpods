@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"yunion.io/x/log"
@@ -556,4 +558,118 @@ func (b *SBucket) CopyPart(ctx context.Context, key string, uploadId string, par
 		return "", errors.Wrap(err, "CopyPart")
 	}
 	return output.ETag, nil
+}
+
+func (b *SBucket) SetWebsite(websitConf cloudprovider.SBucketWebsiteConf) error {
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOBSClient")
+	}
+
+	obsWebConf := obs.SetBucketWebsiteConfigurationInput{}
+	obsWebConf.Bucket = b.Name
+	obsWebConf.BucketWebsiteConfiguration = obs.BucketWebsiteConfiguration{
+		IndexDocument: obs.IndexDocument{Suffix: websitConf.Index},
+		ErrorDocument: obs.ErrorDocument{Key: websitConf.ErrorDocument},
+	}
+	_, err = obscli.SetBucketWebsiteConfiguration(&obsWebConf)
+	if err != nil {
+		return errors.Wrap(err, "obscli.SetBucketWebsiteConfiguration(&obsWebConf)")
+	}
+	return nil
+}
+
+func (b *SBucket) GetWebsiteConf() (cloudprovider.SBucketWebsiteConf, error) {
+	result := cloudprovider.SBucketWebsiteConf{}
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		return result, errors.Wrap(err, "GetOBSClient")
+	}
+	out, err := obscli.GetBucketWebsiteConfiguration(b.Name)
+	if out == nil {
+		return result, nil
+	}
+	result.Index = out.IndexDocument.Suffix
+	result.ErrorDocument = out.ErrorDocument.Key
+	result.Url = fmt.Sprintf("https://%s.obs-website.%s.myhuaweicloud.com", b.Name, b.region.GetId())
+	return result, nil
+}
+
+func (b *SBucket) DeleteWebSiteConf() error {
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOBSClient")
+	}
+	_, err = obscli.DeleteBucketWebsiteConfiguration(b.Name)
+	if err != nil {
+		return errors.Wrapf(err, "obscli.DeleteBucketWebsiteConfiguration(%s)", b.Name)
+	}
+	return nil
+}
+
+func (b *SBucket) SetCORS(rules []cloudprovider.SBucketCORSRule) error {
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOBSClient")
+	}
+	opts := []obs.CorsRule{}
+	for i := range rules {
+		opts = append(opts, obs.CorsRule{
+			AllowedOrigin: rules[i].AllowedOrigins,
+			AllowedMethod: rules[i].AllowedMethods,
+			AllowedHeader: rules[i].AllowedHeaders,
+			MaxAgeSeconds: rules[i].MaxAgeSeconds,
+			ExposeHeader:  rules[i].ExposeHeaders,
+		})
+	}
+
+	input := obs.SetBucketCorsInput{}
+	input.Bucket = b.Name
+	input.BucketCors.CorsRules = opts
+	_, err = obscli.SetBucketCors(&input)
+	if err != nil {
+		return errors.Wrapf(err, "obscli.SetBucketCors(%s)", input)
+	}
+	return nil
+}
+
+func (b *SBucket) GetCORSRules() ([]cloudprovider.SBucketCORSRule, error) {
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetOBSClient")
+	}
+	conf, err := obscli.GetBucketCors(b.Name)
+	if err != nil {
+		if !strings.Contains(err.Error(), "NoSuchCORSConfiguration") {
+			return nil, errors.Wrapf(err, "obscli.GetBucketCors(%s)", b.Name)
+		}
+	}
+	if conf == nil {
+		return nil, nil
+	}
+	result := []cloudprovider.SBucketCORSRule{}
+	for i := range conf.CorsRules {
+		result = append(result, cloudprovider.SBucketCORSRule{
+			AllowedOrigins: conf.CorsRules[i].AllowedOrigin,
+			AllowedMethods: conf.CorsRules[i].AllowedMethod,
+			AllowedHeaders: conf.CorsRules[i].AllowedHeader,
+			MaxAgeSeconds:  conf.CorsRules[i].MaxAgeSeconds,
+			ExposeHeaders:  conf.CorsRules[i].ExposeHeader,
+			Id:             strconv.Itoa(i),
+		})
+	}
+	return result, nil
+}
+
+func (b *SBucket) DeleteCORS() error {
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOBSClient")
+	}
+
+	_, err = obscli.DeleteBucketCors(b.Name)
+	if err != nil {
+		return errors.Wrapf(err, "obscli.DeleteBucketCors(%s)", b.Name)
+	}
+	return nil
 }

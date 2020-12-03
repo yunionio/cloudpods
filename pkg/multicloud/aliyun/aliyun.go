@@ -60,6 +60,7 @@ const (
 	ALIYUN_PVTZ_API_VERSION   = "2018-01-01"
 	ALIYUN_ALIDNS_API_VERSION = "2015-01-09"
 	ALIYUN_CBN_API_VERSION    = "2017-09-12"
+	ALIYUN_CDN_API_VERSION    = "2018-05-10"
 )
 
 var (
@@ -288,6 +289,14 @@ func (self *SAliyunClient) cbnRequest(apiName string, params map[string]string) 
 		return nil, err
 	}
 	return jsonRequest(cli, "cbn.aliyuncs.com", ALIYUN_CBN_API_VERSION, apiName, params, self.debug)
+}
+
+func (self *SAliyunClient) cdnRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := self.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return jsonRequest(cli, "cdn.aliyuncs.com", ALIYUN_CDN_API_VERSION, apiName, params, self.debug)
 }
 
 func (self *SAliyunClient) fetchRegions() error {
