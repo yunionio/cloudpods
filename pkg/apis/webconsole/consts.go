@@ -29,4 +29,5 @@ const (
 	VMRC      = "vmrc"
 	ZSTACK    = "zstack"
 	CTYUN     = "ctyun"
+	HUAWEI    = "huawei"
 )

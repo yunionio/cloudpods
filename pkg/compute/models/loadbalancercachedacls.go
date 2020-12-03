@@ -514,7 +514,7 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 	f := aclEntites.Fingerprint()
 	if LoadbalancerAclManager.CountByFingerPrint(provider.ProjectId, f) == 0 {
 		localAcl := &SLoadbalancerAcl{}
-		localAcl.SetModelManager(man, localAcl)
+		localAcl.SetModelManager(LoadbalancerAclManager, localAcl)
 		localAcl.Name = acl.Name
 		localAcl.Description = acl.Description
 		localAcl.AclEntries = &aclEntites
