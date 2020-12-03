@@ -407,6 +407,28 @@ func (manager *SGuestManager) ListItemFilter(
 			q = q.NotIn("id", sq)
 		}
 	}
+	if len(query.ServerType) > 0 {
+		var trueVal, falseVal = true, false
+		switch query.ServerType {
+		case "normal":
+			query.Gpu = nil
+			query.Backup = nil
+		case "gpu":
+			query.Gpu = &trueVal
+			query.Backup = &falseVal
+		case "backup":
+			query.Gpu = &falseVal
+			query.Backup = &trueVal
+		default:
+			return nil, httperrors.NewInputParameterError("unknown server type %s", query.ServerType)
+		}
+	}
+
+	if query.Backup != nil {
+		if *query.Backup {
+			q = q.IsNotEmpty("backup_host_id")
+		}
+	}
 
 	if query.Gpu != nil {
 		isodev := IsolatedDeviceManager.Query().SubQuery()
