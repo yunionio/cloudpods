@@ -91,6 +91,7 @@ func (drv *InfluxdbBaseDriver) GetLatestAlerts(rule *models.SSuggestSysRule, ins
 		return ret, errors.Wrap(err, "rule getScaleEvalResult happen error")
 	}
 	if firing {
+		log.Errorf("evalMatchMapLen:%d", len(evalMatchMap))
 		serverArr, err := drv.getResourcesByEvalMatchsMap(evalMatchMap, instance)
 		if err != nil {
 			return ret, errors.Wrap(err, "rule  getResource error")
@@ -106,7 +107,7 @@ func (drv *InfluxdbBaseDriver) getScaleEvalResult(scales []monitor.Scale) (bool,
 	scaleEvalMatchs := make(map[string][]*monitor.EvalMatch, 0)
 	for index, scale := range scales {
 		condition := monitor.AlertCondition{
-			Type:      "query",
+			Type:      "suggest_query",
 			Query:     drv.newAlertQuery(scale),
 			Evaluator: monitor.Condition{Type: getQueryEvalType(scale), Params: []float64{scale.Threshold}},
 			Reducer:   monitor.Condition{Type: "avg"},
@@ -119,7 +120,7 @@ func (drv *InfluxdbBaseDriver) getScaleEvalResult(scales []monitor.Scale) (bool,
 				jsonutils.Marshal(condition))
 		}
 		duration, _ := time.ParseDuration(condition.Query.From)
-		queryCon := queryCondition.(*conditions.QueryCondition)
+		queryCon := queryCondition.(*conditions.SuggestQueryCondition)
 		queryCon.Reducer = conditions.NewSuggestRuleReducer(queryCon.Reducer.GetType(), duration)
 		//evalContext := alerting.NewEvalContext(context.Background(), auth.AdminCredential(), nil)
 		evalContext := alerting.EvalContext{
@@ -175,8 +176,9 @@ func (drv *InfluxdbBaseDriver) getResourcesByEvalMatchsMap(evalMatchsMap map[str
 	}
 	resArr := jsonutils.NewArray()
 	for _, evalMatch := range maxEvalMatch {
-		res, mappingId, mappingVal := drv.getResourceFromEvalMatch(evalMatch)
-		if mappingId == "" {
+		res, mappingId, err := drv.getResourceFromEvalMatch(evalMatch)
+		if err != nil {
+			log.Errorln(err)
 			continue
 		}
 		suggestSysAlert, err := getSuggestSysAlertFromJson(res, drv)
@@ -185,28 +187,44 @@ func (drv *InfluxdbBaseDriver) getResourcesByEvalMatchsMap(evalMatchsMap map[str
 		}
 		suggestSysAlert.Action = string(monitor.SCALE_DOWN_DRIVER_ACTION)
 		suggestSysAlert.MonitorConfig = jsonutils.Marshal(instance)
-		suggestSysAlert.Problem = describeEvalResultTojson(evalMatchsMap, mappingId, mappingVal)
+		suggestSysAlert.Problem = drv.describeEvalResultTojson(evalMatchsMap, mappingId)
 		resArr.Add(jsonutils.Marshal(suggestSysAlert))
 	}
 	return resArr.GetArray()
 }
 
-func (drv *InfluxdbBaseDriver) getResourceFromEvalMatch(evalMatch *monitor.EvalMatch) (jsonutils.JSONObject, string, string) {
-	idTag := getMetricIdTag(evalMatch.Tags)
+func (drv *InfluxdbBaseDriver) getResourceFromEvalMatch(evalMatch *monitor.EvalMatch) (jsonutils.JSONObject, string, error) {
 	var server jsonutils.JSONObject
 	mappingId := ""
-	mappingVal := ""
-	for id, val := range idTag {
-		serverobj, err := drv.getResourceById(id)
-		if err != nil {
-			continue
-		}
-		server = serverobj
-		mappingId = id
-		mappingVal = val
-		break
+	id, err := drv.getMetricId(evalMatch)
+	if err != nil {
+		return server, mappingId, errors.Wrap(err, "InfluxdbBaseDriver getMetricId err")
 	}
-	return server, mappingId, mappingVal
+	serverobj, err := drv.getResourceById(id)
+	if err != nil {
+		return server, mappingId, errors.Wrapf(err, "InfluxdbBaseDriver getResourceById:%s err", id)
+	}
+	server = serverobj
+	mappingId = id
+	return server, mappingId, nil
+}
+
+func (drv *InfluxdbBaseDriver) getMetricId(evalMatch *monitor.EvalMatch) (string, error) {
+	var id string
+	switch drv.GetResourceType() {
+	case monitor.SCALE_MONTITOR_RES_TYPE:
+		id = evalMatch.Tags[monitor.METRIC_VM_ID]
+	case monitor.REDIS_UNREASONABLE_MONITOR_RES_TYPE:
+		id = evalMatch.Tags[monitor.METRIC_REDIS_ID]
+	case monitor.RDS_UNREASONABLE_MONITOR_RES_TYPE:
+		id = evalMatch.Tags[monitor.METRIC_RDS_ID]
+	case monitor.OSS_UNREASONABLE_MONITOR_RES_TYPE:
+		id = evalMatch.Tags[monitor.METRIC_OSS_ID]
+	}
+	if len(id) == 0 {
+		return id, fmt.Errorf("no find resourceId by the driver type:%s", string(drv.GetResourceType()))
+	}
+	return id, nil
 }
 
 func (drv *InfluxdbBaseDriver) getResourceById(id string) (jsonutils.JSONObject, error) {
@@ -223,15 +241,16 @@ func (drv *InfluxdbBaseDriver) getResourceById(id string) (jsonutils.JSONObject,
 	return nil, fmt.Errorf("unsupporttd to get resource by the driver type:%s", string(drv.GetResourceType()))
 }
 
-func describeEvalResultTojson(evalMatchsMap map[string][]*monitor.EvalMatch, mappingId, mappingVal string) jsonutils.JSONObject {
+func (drv *InfluxdbBaseDriver) describeEvalResultTojson(evalMatchsMap map[string][]*monitor.EvalMatch,
+	mappingId string) jsonutils.JSONObject {
 	problem := jsonutils.NewDict()
+loopEvalMap:
 	for _, evalMatchs := range evalMatchsMap {
 		for _, evalMatch := range evalMatchs {
-			idTag := getMetricIdTag(evalMatch.Tags)
-			if val, ok := idTag[mappingId]; ok {
-				if val == mappingVal {
-					problem.Add(jsonutils.NewFloat64(*evalMatch.Value), evalMatch.Metric)
-				}
+			metricId, _ := drv.getMetricId(evalMatch)
+			if metricId == mappingId {
+				problem.Add(jsonutils.NewFloat64(*evalMatch.Value), evalMatch.Metric)
+				break loopEvalMap
 			}
 		}
 	}

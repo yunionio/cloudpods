@@ -925,7 +925,6 @@ func (alert *SCommonAlert) PerformConfig(ctx context.Context, userCred mcclient.
 	period, _ := data.GetString("period")
 	comparator, _ := data.GetString("comparator")
 	threshold, _ := data.GetString("threshold")
-	fmt.Println(threshold)
 	if len(period) != 0 {
 		if _, err := time.ParseDuration(period); err != nil {
 			return data, httperrors.NewInputParameterError("Invalid period format: %s", period)
@@ -960,6 +959,7 @@ func (alert *SCommonAlert) PerformConfig(ctx context.Context, userCred mcclient.
 		alert.Settings = jsonutils.Marshal(setting)
 		return nil
 	})
+	PerformConfigLog(alert, userCred)
 	return jsonutils.Marshal(alert), err
 }
 
