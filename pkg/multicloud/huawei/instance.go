@@ -1230,6 +1230,10 @@ func (self *SRegion) GetInstanceVNCUrl(instanceId string) (jsonutils.JSONObject,
 		return nil, err
 	}
 
+	if retDict, ok := ret.(*jsonutils.JSONDict); ok {
+		retDict.Set("protocol", jsonutils.NewString("huawei"))
+	}
+
 	return ret, nil
 }
 
