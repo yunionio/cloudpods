@@ -906,3 +906,39 @@ func (self *SInstance) GetProjectId() string {
 func (self *SInstance) GetError() error {
 	return nil
 }
+
+func (self *SRegion) SaveImage(osType, diskId string, opts *cloudprovider.SaveImageOptions) (*SImage, error) {
+	params := map[string]interface{}{
+		"Location": self.Name,
+		"Name":     opts.Name,
+		"Properties": map[string]interface{}{
+			"storageProfile": map[string]interface{}{
+				"osDisk": map[string]interface{}{
+					"osType": osType,
+					"managedDisk": map[string]string{
+						"id": diskId,
+					},
+					"osState": "Generalized",
+				},
+			},
+		},
+		"Type": "Microsoft.Compute/images",
+	}
+	image := &SImage{storageCache: self.getStoragecache()}
+	err := self.create("", jsonutils.Marshal(params), image)
+	if err != nil {
+		return nil, errors.Wrapf(err, "create image")
+	}
+	return image, nil
+}
+
+func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudprovider.ICloudImage, error) {
+	if self.Properties.StorageProfile.OsDisk.ManagedDisk == nil {
+		return nil, fmt.Errorf("invalid os disk for save image")
+	}
+	image, err := self.host.zone.region.SaveImage(self.GetOSType(), self.Properties.StorageProfile.OsDisk.ManagedDisk.ID, opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "SaveImage")
+	}
+	return image, nil
+}

@@ -437,6 +437,13 @@ func (self *SKVMGuestDriver) RequestAttachDisk(ctx context.Context, guest *model
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
+func (self *SKVMGuestDriver) RequestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, task taskman.ITask) error {
+	disks := guest.CategorizeDisks()
+	opts := api.DiskSaveInput{}
+	task.GetParams().Unmarshal(&opts)
+	return disks.Root.StartDiskSaveTask(ctx, userCred, opts, task.GetTaskId())
+}
+
 func (self *SKVMGuestDriver) GetDetachDiskStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }

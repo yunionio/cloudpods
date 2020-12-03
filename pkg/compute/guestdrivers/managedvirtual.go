@@ -133,6 +133,50 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 	return jsonutils.Marshal(&config), nil
 }
 
+func (self *SManagedVirtualizedGuestDriver) RequestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iVm, err := guest.GetIVM()
+		if err != nil {
+			return nil, errors.Wrapf(err, "guest.GetIVM")
+		}
+		opts := &cloudprovider.SaveImageOptions{}
+		err = task.GetParams().Unmarshal(opts)
+		image, err := iVm.SaveImage(opts)
+		if err != nil {
+			return nil, errors.Wrapf(err, "iVm.SaveImage")
+		}
+		err = cloudprovider.WaitStatus(image, cloudprovider.IMAGE_STATUS_ACTIVE, time.Second*10, time.Minute*10)
+		if err != nil {
+			return nil, errors.Wrapf(err, "wait image %s(%s) active current is: %s", image.GetName(), image.GetGlobalId(), image.GetStatus())
+		}
+		host := guest.GetHost()
+		if host == nil {
+			return nil, errors.Wrapf(cloudprovider.ErrNotFound, "find guest %s host", guest.Name)
+		}
+		region := host.GetRegion()
+		iRegion, err := host.GetIRegion()
+		if err != nil {
+			return nil, errors.Wrapf(err, "host.GetIRegion")
+		}
+		caches, err := region.GetStoragecaches()
+		if err != nil {
+			return nil, errors.Wrapf(err, "region.GetStoragecaches")
+		}
+		for i := range caches {
+			if caches[i].ManagerId == host.ManagerId {
+				iStoragecache, err := iRegion.GetIStoragecacheById(caches[i].ExternalId)
+				if err != nil {
+					return nil, errors.Wrapf(err, "iRegion.GetIStoragecacheById(%s)", caches[i].ExternalId)
+				}
+				result := caches[i].SyncCloudImages(ctx, userCred, iStoragecache, region)
+				log.Infof("sync cloud image for storagecache %s result: %s", caches[i].Name, result.Result())
+			}
+		}
+		return nil, nil
+	})
+	return nil
+}
+
 func (self *SManagedVirtualizedGuestDriver) RequestGuestCreateAllDisks(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	diskCat := guest.CategorizeDisks()
 	var imageId string

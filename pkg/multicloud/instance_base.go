@@ -17,6 +17,8 @@ package multicloud
 import (
 	"context"
 
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -63,4 +65,8 @@ func (instance *SInstanceBase) CreateInstanceSnapshot(ctx context.Context, name 
 
 func (instance *SInstanceBase) ResetToInstanceSnapshot(ctx context.Context, idStr string) error {
 	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SInstanceBase) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudprovider.ICloudImage, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "SaveImage")
 }

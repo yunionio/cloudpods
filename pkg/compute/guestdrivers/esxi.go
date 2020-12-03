@@ -507,6 +507,13 @@ func (self *SESXiGuestDriver) AllowReconfigGuest() bool {
 	return true
 }
 
+func (self *SESXiGuestDriver) RequestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, task taskman.ITask) error {
+	disks := guest.CategorizeDisks()
+	opts := api.DiskSaveInput{}
+	task.GetParams().Unmarshal(&opts)
+	return disks.Root.StartDiskSaveTask(ctx, userCred, opts, task.GetTaskId())
+}
+
 func (self *SESXiGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	subtask, err := taskman.TaskManager.NewTask(ctx, "ESXiGuestCreateDiskTask", guest, task.GetUserCred(), task.GetParams(), task.GetTaskId(), "", nil)
 	if err != nil {

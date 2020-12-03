@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/aws"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -177,4 +178,23 @@ func init() {
 		}
 		return nil
 	})
+
+	type InstanceSaveImageOptions struct {
+		ID         string `help:"Instance ID"`
+		IMAGE_NAME string `help:"Image name"`
+		Notes      string `hlep:"Image desc"`
+	}
+	shellutils.R(&InstanceSaveImageOptions{}, "instance-save-image", "Save instance to image", func(cli *aws.SRegion, args *InstanceSaveImageOptions) error {
+		opts := cloudprovider.SaveImageOptions{
+			Name:  args.IMAGE_NAME,
+			Notes: args.Notes,
+		}
+		image, err := cli.SaveImage(args.ID, &opts)
+		if err != nil {
+			return err
+		}
+		printObject(image)
+		return nil
+	})
+
 }

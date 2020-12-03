@@ -1090,3 +1090,35 @@ func (self *SInstance) SetAutoRenew(autoRenew bool) error {
 func (self *SInstance) SetMetadata(tags map[string]string, replace bool) error {
 	return self.host.zone.region.SetResourceTags("ecs", "instance", []string{self.InstanceId}, tags, replace)
 }
+
+func (self *SRegion) SaveImage(instanceId string, opts *cloudprovider.SaveImageOptions) (*SImage, error) {
+	params := map[string]string{
+		"InstanceId":  instanceId,
+		"ImageName":   opts.Name,
+		"Description": opts.Notes,
+		"ClientToken": utils.GenRequestId(20),
+	}
+	resp, err := self.ecsRequest("CreateImage", params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateImage")
+	}
+	ret := struct{ ImageId string }{}
+	err = resp.Unmarshal(&ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	image, err := self.GetImage(ret.ImageId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetImage(%s)", ret.ImageId)
+	}
+	image.storageCache = self.getStoragecache()
+	return image, nil
+}
+
+func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudprovider.ICloudImage, error) {
+	image, err := self.host.zone.region.SaveImage(self.InstanceId, opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "SaveImage(%s)", opts.Name)
+	}
+	return image, nil
+}

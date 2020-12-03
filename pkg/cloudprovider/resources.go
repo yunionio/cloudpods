@@ -330,6 +330,8 @@ type ICloudVM interface {
 	GetInstanceSnapshot(idStr string) (ICloudInstanceSnapshot, error)
 	GetInstanceSnapshots() ([]ICloudInstanceSnapshot, error)
 	ResetToInstanceSnapshot(ctx context.Context, idStr string) error
+
+	SaveImage(opts *SaveImageOptions) (ICloudImage, error)
 }
 
 type ICloudNic interface {

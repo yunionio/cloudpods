@@ -65,6 +65,11 @@ type SSubImage struct {
 	SizeBytes int64
 }
 
+type SaveImageOptions struct {
+	Name  string
+	Notes string
+}
+
 func CloudImage2Image(image ICloudImage) SImage {
 	return SImage{
 		CreatedAt:  image.GetCreatedAt(),

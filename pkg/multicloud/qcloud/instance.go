@@ -1009,3 +1009,46 @@ func (self *SInstance) SetAutoRenew(autoRenew bool) error {
 func (self *SInstance) SetMetadata(tags map[string]string, replace bool) error {
 	return self.host.zone.region.SetResourceTags("cvm", "instance", []string{self.InstanceId}, tags, replace)
 }
+
+func (self *SRegion) SaveImage(instanceId string, opts *cloudprovider.SaveImageOptions) (*SImage, error) {
+	params := map[string]string{
+		"ImageName":  opts.Name,
+		"InstanceId": instanceId,
+	}
+	if len(opts.Notes) > 0 {
+		params["ImageDescription"] = opts.Notes
+	}
+	resp, err := self.cvmRequest("CreateImage", params, true)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateImage")
+	}
+	ret := struct{ ImageId string }{}
+	err = resp.Unmarshal(&ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	imageIds := []string{}
+	if len(ret.ImageId) > 0 {
+		imageIds = append(imageIds, ret.ImageId)
+	}
+
+	images, _, err := self.GetImages("", "PRIVATE_IMAGE", imageIds, opts.Name, 0, 1)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetImage(%s,%s)", opts.Name, ret.ImageId)
+	}
+	for i := range images {
+		if images[i].ImageId == ret.ImageId || images[i].ImageName == opts.Name {
+			images[i].storageCache = self.getStoragecache()
+			return &images[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after save image %s", opts.Name)
+}
+
+func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudprovider.ICloudImage, error) {
+	image, err := self.host.zone.region.SaveImage(self.InstanceId, opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "SaveImage")
+	}
+	return image, nil
+}

@@ -1230,3 +1230,45 @@ func (self *SInstance) GetArn() string {
 	}
 	return fmt.Sprintf("arn:%s:ec2:%s:%s:instance/%s", partition, self.host.zone.region.GetId(), self.GetAccountId(), self.InstanceId)
 }
+
+func (self *SRegion) SaveImage(instanceId string, opts *cloudprovider.SaveImageOptions) (*SImage, error) {
+	params := map[string]string{
+		"Description": opts.Notes,
+		"InstanceId":  instanceId,
+		"Name":        opts.Name,
+	}
+	ret := struct {
+		ImageId string `xml:"imageId"`
+	}{}
+	err := self.ec2Request("CreateImage", params, &ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateImage")
+	}
+	err = cloudprovider.Wait(time.Second*10, time.Minute*5, func() (bool, error) {
+		_, err := self.GetImage(ret.ImageId)
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				return false, nil
+			}
+			return false, errors.Wrapf(err, "GetImage(%s)", ret.ImageId)
+		}
+		return true, nil
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "wait for image created")
+	}
+	image, err := self.GetImage(ret.ImageId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetImage(%s)", ret.ImageId)
+	}
+	image.storageCache = self.getStoragecache()
+	return image, nil
+}
+
+func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudprovider.ICloudImage, error) {
+	image, err := self.host.zone.region.SaveImage(self.InstanceId, opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "SaveImage")
+	}
+	return image, nil
+}

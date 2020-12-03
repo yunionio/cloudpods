@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/google"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -181,6 +182,24 @@ func init() {
 			return err
 		}
 		printObject(instance)
+		return nil
+	})
+
+	type InstanceSaveImageOptions struct {
+		DISK_ID    string `help:"Instance System disk ID"`
+		IMAGE_NAME string `help:"Image name"`
+		Notes      string `hlep:"Image desc"`
+	}
+	shellutils.R(&InstanceSaveImageOptions{}, "instance-save-image", "Save instance to image", func(cli *google.SRegion, args *InstanceSaveImageOptions) error {
+		opts := cloudprovider.SaveImageOptions{
+			Name:  args.IMAGE_NAME,
+			Notes: args.Notes,
+		}
+		image, err := cli.SaveImage(args.DISK_ID, &opts)
+		if err != nil {
+			return err
+		}
+		printObject(image)
 		return nil
 	})
 

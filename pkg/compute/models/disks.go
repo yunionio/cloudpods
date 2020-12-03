@@ -989,21 +989,38 @@ func (self *SDisk) GetZone() *SZone {
 	return nil
 }
 
-func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (string, error) {
-	if zone := self.GetZone(); zone == nil {
+func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerSaveImageInput) (string, error) {
+	zone := self.GetZone()
+	if zone == nil {
 		return "", httperrors.NewResourceNotFoundError("No zone for this disk")
 	}
-	data.Add(jsonutils.NewString(self.DiskFormat), "disk_format")
-	if !data.Contains("generate_name") {
-		name, _ := data.GetString("name")
+	if len(input.GenerateName) == 0 {
 		s := auth.GetAdminSession(ctx, options.Options.Region, "")
-		imageList, err := modules.Images.List(s, jsonutils.Marshal(map[string]string{"name": name, "admin": "true"}))
+		imageList, err := modules.Images.List(s, jsonutils.Marshal(map[string]string{"name": input.Name, "admin": "true"}))
 		if err != nil {
 			return "", err
 		}
 		if imageList.Total > 0 {
-			return "", httperrors.NewConflictError("Duplicate image name %s", name)
+			return "", httperrors.NewConflictError("Duplicate image name %s", input.Name)
 		}
+	}
+
+	opts := struct {
+		Name         string
+		GenerateName string
+		VirtualSize  int
+		DiskFormat   string
+		Properties   map[string]string
+	}{
+		Name:         input.Name,
+		GenerateName: input.GenerateName,
+		VirtualSize:  self.DiskSize,
+		DiskFormat:   self.DiskFormat,
+		Properties: map[string]string{
+			"notes":   input.Notes,
+			"os_type": input.OsType,
+			"os_arch": input.OsArch,
+		},
 	}
 
 	/*
@@ -1014,8 +1031,7 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 			return "", err
 		}*/
 	us := auth.GetSession(ctx, userCred, options.Options.Region, "")
-	data.Add(jsonutils.NewInt(int64(self.DiskSize)), "virtual_size")
-	result, err := modules.Images.Create(us, data)
+	result, err := modules.Images.Create(us, jsonutils.Marshal(opts))
 	if err != nil {
 		return "", err
 	}
@@ -1030,7 +1046,7 @@ func (self *SDisk) AllowPerformSave(ctx context.Context, userCred mcclient.Token
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "save")
 }
 
-func (self *SDisk) PerformSave(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SDisk) PerformSave(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DiskSaveInput) (jsonutils.JSONObject, error) {
 	if self.Status != api.DISK_READY {
 		return nil, httperrors.NewResourceNotReadyError("Save disk when disk is READY")
 
@@ -1043,26 +1059,27 @@ func (self *SDisk) PerformSave(ctx context.Context, userCred mcclient.TokenCrede
 		return nil, httperrors.NewResourceNotReadyError("Save disk when not being USED")
 	}
 
-	if name, err := data.GetString("name"); err != nil || len(name) == 0 {
+	if len(input.Name) == 0 {
 		return nil, httperrors.NewInputParameterError("Image name is required")
 	}
-	kwargs := data.(*jsonutils.JSONDict)
-	if imageId, err := self.PrepareSaveImage(ctx, userCred, kwargs); err != nil {
-		return nil, err
-	} else {
-		kwargs.Add(jsonutils.NewString(imageId), "image_id")
-		return nil, self.StartDiskSaveTask(ctx, userCred, kwargs, "")
+	opts := api.ServerSaveImageInput{
+		Name: input.Name,
 	}
+	input.ImageId, err = self.PrepareSaveImage(ctx, userCred, opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "PrepareSaveImage")
+	}
+	return nil, self.StartDiskSaveTask(ctx, userCred, input, "")
 }
 
-func (self *SDisk) StartDiskSaveTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
-	self.SetStatus(userCred, api.DISK_START_SAVE, "")
-	if task, err := taskman.TaskManager.NewTask(ctx, "DiskSaveTask", self, userCred, data, parentTaskId, "", nil); err != nil {
-		log.Errorf("Start DiskSaveTask failed:%v", err)
-		return err
-	} else {
-		task.ScheduleRun(nil)
+func (self *SDisk) StartDiskSaveTask(ctx context.Context, userCred mcclient.TokenCredential, input api.DiskSaveInput, parentTaskId string) error {
+	data := jsonutils.Marshal(input).(*jsonutils.JSONDict)
+	task, err := taskman.TaskManager.NewTask(ctx, "DiskSaveTask", self, userCred, data, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
 	}
+	self.SetStatus(userCred, api.DISK_START_SAVE, "")
+	task.ScheduleRun(nil)
 	return nil
 }
 

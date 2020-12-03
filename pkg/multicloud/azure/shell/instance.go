@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/azure"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -195,4 +196,24 @@ func init() {
 	shellutils.R(&InstanceSecurityGroupOptions{}, "instance-set-secgrp", "Attach a disk to intance", func(cli *azure.SRegion, args *InstanceSecurityGroupOptions) error {
 		return cli.SetSecurityGroup(args.ID, args.SecurityGroup)
 	})
+
+	type InstanceSaveImageOptions struct {
+		DISK_ID    string `help:"Instance Os Disk ID"`
+		IMAGE_NAME string `help:"Image name"`
+		Notes      string `hlep:"Image desc"`
+		OsType     string `help:"Os Type" choices:"Linux|Windows" default:"Linux"`
+	}
+	shellutils.R(&InstanceSaveImageOptions{}, "instance-save-image", "Save instance to image", func(cli *azure.SRegion, args *InstanceSaveImageOptions) error {
+		opts := cloudprovider.SaveImageOptions{
+			Name:  args.IMAGE_NAME,
+			Notes: args.Notes,
+		}
+		image, err := cli.SaveImage(args.OsType, args.DISK_ID, &opts)
+		if err != nil {
+			return err
+		}
+		printObject(image)
+		return nil
+	})
+
 }

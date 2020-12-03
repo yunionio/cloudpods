@@ -453,3 +453,28 @@ type ServerStopInput struct {
 	// 目前仅阿里云，腾讯云此参数生效
 	StopCharging bool `json:"stop_charging"`
 }
+
+type ServerSaveImageInput struct {
+	// 镜像名称
+	Name         string
+	GenerateName string
+	Notes        string
+	IsPublic     bool
+	// 镜像格式
+	Format string
+
+	// 保存镜像后是否自动启动,若实例状态为运行中,则会先关闭实例
+	// default: false
+	AutoStart bool
+	// swagger: ignore
+	Restart bool
+
+	// swagger: ignore
+	OsType string
+
+	// swagger: ignore
+	OsArch string
+
+	// swagger: ignore
+	ImageId string
+}
