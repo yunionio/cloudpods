@@ -466,7 +466,7 @@ func S3Shell() {
 			ExposeHeaders:  args.ExposeHeaders,
 			Id:             args.Id,
 		}
-		err = bucket.SetCORS([]cloudprovider.SBucketCORSRule{rule})
+		err = cloudprovider.SetBucketCORS(bucket, []cloudprovider.SBucketCORSRule{rule})
 		if err != nil {
 			return err
 		}
@@ -499,7 +499,7 @@ func S3Shell() {
 		if err != nil {
 			return err
 		}
-		result, err := bucket.DeleteCORS(args.Ids)
+		result, err := cloudprovider.DeleteBucketCORS(bucket, args.Ids)
 		if err != nil {
 			return err
 		}

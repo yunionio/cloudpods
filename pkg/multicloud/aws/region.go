@@ -1026,6 +1026,14 @@ func (region *SRegion) getS3Endpoint() string {
 	return ""
 }
 
+func (region *SRegion) getS3WebsiteEndpoint() string {
+	base := region.getBaseEndpoint()
+	if len(base) > 0 {
+		return "s3-website." + base
+	}
+	return ""
+}
+
 func (region *SRegion) getEc2Endpoint() string {
 	return region.RegionEndpoint
 }

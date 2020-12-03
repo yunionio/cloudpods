@@ -19,13 +19,17 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -501,4 +505,213 @@ func (b *SBucket) CopyPart(ctx context.Context, key string, uploadId string, par
 		return "", errors.Wrap(err, "bucket.UploadPartCopy")
 	}
 	return part.ETag, nil
+}
+
+func (b *SBucket) SetWebsite(websitConf cloudprovider.SBucketWebsiteConf) error {
+	if len(websitConf.Index) == 0 {
+		return errors.Wrap(cloudprovider.ErrNotSupported, "missing Index")
+	}
+	if len(websitConf.ErrorDocument) == 0 {
+		return errors.Wrap(cloudprovider.ErrNotSupported, "missing ErrorDocument")
+	}
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOssClient")
+	}
+
+	err = osscli.SetBucketWebsite(b.Name, websitConf.Index, websitConf.ErrorDocument)
+	if err != nil {
+		return errors.Wrapf(err, " osscli.SetBucketWebsite(%s,%s,%s)", b.Name, websitConf.Index, websitConf.ErrorDocument)
+	}
+	return nil
+}
+
+func (b *SBucket) GetWebsiteConf() (cloudprovider.SBucketWebsiteConf, error) {
+	result := cloudprovider.SBucketWebsiteConf{}
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return result, errors.Wrap(err, "GetOssClient")
+	}
+	websiteResult, err := osscli.GetBucketWebsite(b.Name)
+	if err != nil {
+		if strings.Contains(err.Error(), "NoSuchWebsiteConfiguration") {
+			return cloudprovider.SBucketWebsiteConf{}, nil
+		}
+		return result, errors.Wrapf(err, "osscli.GetBucketWebsite(%s)", b.Name)
+	}
+	result.Index = websiteResult.IndexDocument.Suffix
+	result.ErrorDocument = websiteResult.ErrorDocument.Key
+	return result, nil
+}
+
+func (b *SBucket) DeleteWebSiteConf() error {
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOssClient")
+	}
+	log.Infof("to be delete")
+	err = osscli.DeleteBucketWebsite(b.Name)
+	if err != nil {
+		return errors.Wrapf(err, "osscli.DeleteBucketWebsite(%s)", b.Name)
+	}
+	log.Infof("deleted")
+	return nil
+}
+
+func (b *SBucket) SetCORS(rules []cloudprovider.SBucketCORSRule) error {
+	if len(rules) == 0 {
+		return nil
+	}
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOssClient")
+	}
+	input := []oss.CORSRule{}
+	for i := range rules {
+		input = append(input, oss.CORSRule{
+			AllowedOrigin: rules[i].AllowedOrigins,
+			AllowedMethod: rules[i].AllowedMethods,
+			AllowedHeader: rules[i].AllowedHeaders,
+			MaxAgeSeconds: rules[i].MaxAgeSeconds,
+			ExposeHeader:  rules[i].ExposeHeaders,
+		})
+	}
+
+	err = osscli.SetBucketCORS(b.Name, input)
+	if err != nil {
+		return errors.Wrapf(err, "osscli.SetBucketCORS(%s,%s)", b.Name, jsonutils.Marshal(input).String())
+	}
+	return nil
+}
+
+func (b *SBucket) GetCORSRules() ([]cloudprovider.SBucketCORSRule, error) {
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetOssClient")
+	}
+	conf, err := osscli.GetBucketCORS(b.Name)
+	if err != nil {
+		if !strings.Contains(err.Error(), "NoSuchCORSConfiguration") {
+			return nil, errors.Wrapf(err, "osscli.GetBucketCORS(%s)", b.Name)
+		}
+	}
+	result := []cloudprovider.SBucketCORSRule{}
+	for i := range conf.CORSRules {
+		result = append(result, cloudprovider.SBucketCORSRule{
+			AllowedOrigins: conf.CORSRules[i].AllowedOrigin,
+			AllowedMethods: conf.CORSRules[i].AllowedMethod,
+			AllowedHeaders: conf.CORSRules[i].AllowedHeader,
+			MaxAgeSeconds:  conf.CORSRules[i].MaxAgeSeconds,
+			ExposeHeaders:  conf.CORSRules[i].ExposeHeader,
+			Id:             strconv.Itoa(i),
+		})
+	}
+	return result, nil
+}
+
+func (b *SBucket) DeleteCORS() error {
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOssClient")
+	}
+
+	err = osscli.DeleteBucketCORS(b.Name)
+	if err != nil {
+		return errors.Wrapf(err, "osscli.DeleteBucketCORS(%s)", b.Name)
+	}
+
+	return nil
+}
+
+func (b *SBucket) SetReferer(conf cloudprovider.SBucketRefererConf) error {
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOssClient")
+	}
+	err = osscli.SetBucketReferer(b.Name, conf.WhiteList, conf.AllowEmptyRefer)
+	if err != nil {
+		return errors.Wrapf(err, "osscli.SetBucketReferer(%s,%s,%d)", b.Name, conf.WhiteList, conf.AllowEmptyRefer)
+	}
+	return nil
+}
+
+func (b *SBucket) GetReferer() (cloudprovider.SBucketRefererConf, error) {
+	result := cloudprovider.SBucketRefererConf{}
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return result, errors.Wrap(err, "GetOssClient")
+	}
+	refererResult, err := osscli.GetBucketReferer(b.Name)
+	if err != nil {
+		return result, errors.Wrapf(err, "osscli.GetBucketReferer(%s)", b.Name)
+	}
+	result = cloudprovider.SBucketRefererConf{
+		WhiteList:       refererResult.RefererList,
+		AllowEmptyRefer: refererResult.AllowEmptyReferer,
+	}
+	return result, nil
+}
+
+func toAPICdnArea(area string) string {
+	switch area {
+	case "domestic":
+		return api.CDN_DOMAIN_AREA_MAINLAND
+	case "overseas":
+		return api.CDN_DOMAIN_AREA_OVERSEAS
+	case "global":
+		return api.CDN_DOMAIN_AREA_GLOBAL
+	default:
+		return ""
+	}
+}
+
+func toAPICdnStatus(status string) string {
+	switch status {
+	case "online":
+		return api.CDN_DOMAIN_STATUS_ONLINE
+	case "offline":
+		return api.CDN_DOMAIN_STATUS_OFFLINE
+	case "configuring", "checking", "stopping", "deleting":
+		return api.CDN_DOMAIN_STATUS_PROCESSING
+	case "check_failed", "configure_failed":
+		return api.CDN_DOMAIN_STATUS_REJECTED
+	default:
+		return ""
+	}
+}
+
+func (b *SBucket) GetCdnDomains() ([]cloudprovider.SCdnDomain, error) {
+	bucketExtUrl := fmt.Sprintf("%s.%s", b.Name, b.region.getOSSExternalDomain())
+	cdnDomains, err := b.region.client.DescribeDomainsBySource(bucketExtUrl)
+	if err != nil {
+		return nil, errors.Wrapf(err, " b.region.client.DescribeDomainsBySource(%s)", bucketExtUrl)
+	}
+	result := []cloudprovider.SCdnDomain{}
+	for i := range cdnDomains.DomainsData {
+		if cdnDomains.DomainsData[i].Source == bucketExtUrl {
+			for j := range cdnDomains.DomainsData[i].Domains.DomainNames {
+				area := ""
+				cdnDomianDescribes, err := b.region.client.DescribeUserDomains(cdnDomains.DomainsData[i].Domains.DomainNames[j])
+				if err != nil {
+					return nil, errors.Wrapf(err, "b.region.client.DescribeUserDomains(%s)", cdnDomains.DomainsData[i].Domains.DomainNames[j])
+				}
+				for k := range cdnDomianDescribes.PageData {
+					if cdnDomianDescribes.PageData[k].DomainName == cdnDomains.DomainsData[i].Domains.DomainNames[j] {
+						area = cdnDomianDescribes.PageData[k].Coverage
+						break
+					}
+				}
+
+				result = append(result, cloudprovider.SCdnDomain{
+					Domain:     cdnDomains.DomainsData[i].Domains.DomainNames[j],
+					Status:     toAPICdnStatus(cdnDomains.DomainsData[i].DomainInfos.DomainInfo[j].Status),
+					Cname:      cdnDomains.DomainsData[i].DomainInfos.DomainInfo[j].DomainCname,
+					Area:       toAPICdnArea(area),
+					Origin:     bucketExtUrl,
+					OriginType: api.CDN_DOMAIN_ORIGIN_TYPE_BUCKET,
+				})
+			}
+		}
+	}
+	return result, nil
 }
