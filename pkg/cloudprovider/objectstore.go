@@ -250,7 +250,7 @@ type ICloudBucket interface {
 
 	SetCORS(rules []SBucketCORSRule) error
 	GetCORSRules() ([]SBucketCORSRule, error)
-	DeleteCORS(id []string) ([]SBucketCORSRule, error)
+	DeleteCORS() error
 
 	SetReferer(conf SBucketRefererConf) error
 	GetReferer() (SBucketRefererConf, error)
@@ -737,4 +737,88 @@ func FetchMetaFromHttpHeader(metaPrefix string, headers http.Header) http.Header
 		}
 	}
 	return meta
+}
+
+func SetBucketCORS(ibucket ICloudBucket, rules []SBucketCORSRule) error {
+	if len(rules) == 0 {
+		return nil
+	}
+
+	oldRules, err := ibucket.GetCORSRules()
+	if err != nil {
+		return errors.Wrap(err, "ibucket.GetCORSRules()")
+	}
+
+	newSet := []SBucketCORSRule{}
+	updateSet := map[int]SBucketCORSRule{}
+	for i := range rules {
+		index, err := strconv.Atoi(rules[i].Id)
+		if err == nil && index < len(oldRules) {
+			updateSet[index] = rules[i]
+		} else {
+			newSet = append(newSet, rules[i])
+		}
+	}
+
+	updatedRules := []SBucketCORSRule{}
+	for i := range oldRules {
+		if _, ok := updateSet[i]; !ok {
+			updatedRules = append(updatedRules, oldRules[i])
+		} else {
+			updatedRules = append(updatedRules, updateSet[i])
+		}
+	}
+	updatedRules = append(updatedRules, newSet...)
+
+	err = ibucket.SetCORS(updatedRules)
+	if err != nil {
+		return errors.Wrap(err, "ibucket.SetCORS(updatedRules)")
+	}
+	return nil
+}
+
+func DeleteBucketCORS(ibucket ICloudBucket, id []string) ([]SBucketCORSRule, error) {
+	if len(id) == 0 {
+		return nil, nil
+	}
+	deletedRules := []SBucketCORSRule{}
+
+	oldRules, err := ibucket.GetCORSRules()
+	if err != nil {
+		return nil, errors.Wrap(err, "ibucket.GetCORSRules()")
+	}
+
+	excludeMap := map[int]bool{}
+	for i := range id {
+		index, err := strconv.Atoi(id[i])
+		if err == nil && index < len(oldRules) {
+			excludeMap[index] = true
+		}
+	}
+	if len(excludeMap) == 0 {
+		return nil, nil
+	}
+
+	newRules := []SBucketCORSRule{}
+	for i := range oldRules {
+		if _, ok := excludeMap[i]; !ok {
+			newRules = append(newRules, oldRules[i])
+		} else {
+			deletedRules = append(deletedRules, oldRules[i])
+		}
+	}
+
+	if len(newRules) == 0 {
+		err = ibucket.DeleteCORS()
+		if err != nil {
+			return nil, errors.Wrapf(err, "ibucket.DeleteCORS()")
+		}
+	} else {
+		err = ibucket.SetCORS(newRules)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ibucket.SetBucketCORS(newRules)")
+		}
+	}
+
+	return deletedRules, nil
 }
