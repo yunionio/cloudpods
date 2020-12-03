@@ -34,6 +34,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/errors"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -607,7 +608,7 @@ func (p *ServerBaseSchedtagPredicate) Execute(u *core.Unit, c core.Candidater) (
 
 func (p *ServerBaseSchedtagPredicate) GetResources(c core.Candidater) []ISchedtagCandidateResource {
 	res := p.filter.GetCandidateResource(c)
-	if res == nil {
+	if res == nil || gotypes.IsNil(res) {
 		return nil
 	}
 	return []ISchedtagCandidateResource{
