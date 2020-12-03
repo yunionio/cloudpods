@@ -521,7 +521,7 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 		localAcl.Fingerprint = f
 		localAcl.IsPublic = true
 		localAcl.PublicScope = string(rbacutils.ScopeDomain)
-		err := LoadbalancerAclManager.TableSpec().Insert(ctx, &localAcl)
+		err := LoadbalancerAclManager.TableSpec().Insert(ctx, localAcl)
 		if err != nil {
 			return nil, errors.Wrap(err, "cachedLoadbalancerAclManager.new.InsertAcl")
 		}
