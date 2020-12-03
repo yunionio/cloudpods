@@ -274,4 +274,6 @@ const (
 	ACT_NETWORK_REMOVE_VPC_FAILED   = "network_remove_vpc_failed"
 	ACT_NETWORK_MODIFY_ROUTE        = "network_modify_route"
 	ACT_NETWORK_MODIFY_ROUTE_FAILED = "network_modify_route_failed"
+
+	ACT_UPDATE_RULE = "update_config"
 )

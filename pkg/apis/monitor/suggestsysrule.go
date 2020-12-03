@@ -23,6 +23,11 @@ import (
 const (
 	METRIC_TAG   = "TAG"
 	METRIC_FIELD = "FIELD"
+
+	METRIC_VM_ID    = "vm_id"
+	METRIC_OSS_ID   = "oss_id"
+	METRIC_RDS_ID   = "rds_id"
+	METRIC_REDIS_ID = "redis_id"
 )
 
 var PROPERTY_TYPE = []string{"databases", "measurements", "metric-measurement"}

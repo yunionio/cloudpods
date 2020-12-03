@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
@@ -37,6 +36,7 @@ import (
 	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	"yunion.io/x/onecloud/pkg/monitor/registry"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -328,14 +328,11 @@ func (self *SSuggestSysRule) AllowPerformEnable(ctx context.Context, userCred mc
 }
 
 func (self *SSuggestSysRule) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !self.Enabled.Bool() {
-		db.Update(self, func() error {
-			self.Enabled = tristate.True
-			return nil
-		})
-		db.OpsLog.LogEvent(self, db.ACT_ENABLE, "", userCred)
-		self.updateCronjob()
+	err := db.EnabledPerformEnable(self, ctx, userCred, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
 	}
+	self.updateCronjob()
 	return nil, nil
 }
 
@@ -344,14 +341,11 @@ func (self *SSuggestSysRule) AllowPerformDisable(ctx context.Context, userCred m
 }
 
 func (self *SSuggestSysRule) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Enabled.IsTrue() {
-		db.Update(self, func() error {
-			self.Enabled = tristate.False
-			return nil
-		})
-		db.OpsLog.LogEvent(self, db.ACT_DISABLE, "", userCred)
-		self.updateCronjob()
+	err := db.EnabledPerformEnable(self, ctx, userCred, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
 	}
+	self.updateCronjob()
 	return nil, nil
 }
 
@@ -386,9 +380,14 @@ func (self *SSuggestSysRule) PerformConfig(ctx context.Context, userCred mcclien
 		}
 		return nil
 	})
-	db.OpsLog.LogEvent(self, "modifyconfig", "", userCred)
+	PerformConfigLog(self, userCred)
 	self.updateCronjob()
 	return nil, nil
+}
+
+func PerformConfigLog(model db.IModel, userCred mcclient.TokenCredential) {
+	db.OpsLog.LogEvent(model, db.ACT_UPDATE_RULE, "", userCred)
+	logclient.AddSimpleActionLog(model, logclient.ACT_UPDATE_RULE, nil, userCred, true)
 }
 
 func (self *SSuggestSysRuleManager) AllowGetPropertyRuleType(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
