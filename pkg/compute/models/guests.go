@@ -417,8 +417,8 @@ func (manager *SGuestManager) ListItemFilter(
 		var trueVal, falseVal = true, false
 		switch query.ServerType {
 		case "normal":
-			query.Gpu = nil
-			query.Backup = nil
+			query.Gpu = &falseVal
+			query.Backup = &falseVal
 		case "gpu":
 			query.Gpu = &trueVal
 			query.Backup = &falseVal
@@ -433,6 +433,8 @@ func (manager *SGuestManager) ListItemFilter(
 	if query.Backup != nil {
 		if *query.Backup {
 			q = q.IsNotEmpty("backup_host_id")
+		} else {
+			q = q.IsEmpty("backup_host_id")
 		}
 	}
 
