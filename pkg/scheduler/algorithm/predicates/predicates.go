@@ -477,11 +477,19 @@ func (p *BaseSchedtagPredicate) OnSelectEnd(sp ISchedtagPredicateInstance, u *co
 	inputRes := p.GetInputResourcesMap(c.IndexKey())
 	output := u.GetAllocatedResource(c.IndexKey())
 	inputs := sp.GetInputs(u)
-	for idx, res := range inputRes {
+
+	idxKeys := []int{}
+	// inputRes is unorder map, sorted it
+	for idx := range inputRes {
+		idxKeys = append(idxKeys, idx)
+	}
+	sort.Ints(idxKeys)
+
+	for idx := range idxKeys {
+		res := inputRes[idx]
 		selRes := p.selectResource(sp, c, inputs[idx], res)
 		sortRes := newSortCandidateResource(sp, selRes)
 		sort.Sort(sortRes)
-		//log.Debugf("sort result: %s", sortRes.DebugString())
 		sp.AddSelectResult(idx, inputs[idx], sortRes.res, output)
 	}
 }
