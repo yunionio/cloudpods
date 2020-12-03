@@ -653,4 +653,8 @@ func init() {
 		EN("Modify Network Route").
 		CN("修改网络路由策略"),
 	)
+	t.Set(ACT_UPDATE_RULE, i18n.NewTableEntry().
+		EN("Update RuleConfig").
+		CN("调整规则配置"),
+	)
 }
