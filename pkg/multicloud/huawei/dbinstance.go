@@ -457,6 +457,15 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 
 	if len(desc.MasterInstanceId) > 0 {
 		params["replica_of_id"] = desc.MasterInstanceId
+		delete(params, "security_group_id")
+	}
+
+	if len(desc.RdsId) > 0 && len(desc.BackupId) > 0 {
+		params["restore_point"] = map[string]interface{}{
+			"backup_id":   desc.BackupId,
+			"instance_id": desc.RdsId,
+			"type":        "backup",
+		}
 	}
 
 	switch desc.Category {
