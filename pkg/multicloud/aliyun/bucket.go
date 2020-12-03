@@ -715,3 +715,66 @@ func (b *SBucket) GetCdnDomains() ([]cloudprovider.SCdnDomain, error) {
 	}
 	return result, nil
 }
+
+func (b *SBucket) GetTags() (map[string]string, error) {
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetOssClient")
+	}
+
+	tagresult, err := osscli.GetBucketTagging(b.Name)
+	if err != nil {
+		if strings.Contains(err.Error(), "404") {
+			return nil, nil
+		}
+		return nil, errors.Wrapf(err, "osscli.GetBucketTagging(%s)", b.Name)
+	}
+	result := map[string]string{}
+	for i := range tagresult.Tags {
+		result[tagresult.Tags[i].Key] = tagresult.Tags[i].Value
+	}
+	return result, nil
+}
+
+func (b *SBucket) SetTags(tags map[string]string) error {
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOssClient")
+	}
+
+	input := []oss.Tag{}
+	for k, v := range tags {
+		input = append(input, oss.Tag{Key: k, Value: v})
+	}
+
+	err = osscli.SetBucketTagging(b.Name, oss.Tagging{Tags: input})
+	if err != nil {
+		return errors.Wrapf(err, "osscli.SetBucketTagging(%s)", jsonutils.Marshal(input))
+	}
+	return nil
+}
+
+func (b *SBucket) DeleteTags() error {
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOssClient")
+	}
+	err = osscli.DeleteBucketTagging(b.Name)
+	if err != nil {
+		return errors.Wrapf(err, "osscli.DeleteBucketTagging(%s)", b.Name)
+	}
+	return nil
+}
+
+func (b *SBucket) GetMetadata() *jsonutils.JSONDict {
+	meta := jsonutils.NewDict()
+	tags, err := b.GetTags()
+	if err != nil {
+		log.Errorf("error:%s b.getTags()", err)
+		return meta
+	}
+	for k, v := range tags {
+		meta.Add(jsonutils.NewString(v), k)
+	}
+	return meta
+}

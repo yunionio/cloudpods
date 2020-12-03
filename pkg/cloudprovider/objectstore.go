@@ -260,6 +260,10 @@ type ICloudBucket interface {
 	GetPolicy() ([]SBucketPolicyStatement, error)
 	SetPolicy(policy SBucketPolicyStatementInput) error
 	DeletePolicy(id []string) ([]SBucketPolicyStatement, error)
+
+	GetTags() (map[string]string, error)
+	SetTags(tags map[string]string) error
+	DeleteTags() error
 }
 
 type ICloudObject interface {
@@ -821,4 +825,34 @@ func DeleteBucketCORS(ibucket ICloudBucket, id []string) ([]SBucketCORSRule, err
 	}
 
 	return deletedRules, nil
+}
+
+func SetBucketMetadata(ibucket ICloudBucket, tags map[string]string, replace bool) error {
+	newTags := map[string]string{}
+	if replace {
+		newTags = tags
+	} else {
+		oldTags, err := ibucket.GetTags()
+		if err != nil {
+			return errors.Wrap(err, "b.getTags()")
+		}
+		for k, v := range oldTags {
+			if _, ok := tags[k]; !ok {
+				tags[k] = v
+			}
+		}
+		newTags = tags
+	}
+	if len(newTags) == 0 {
+		err := ibucket.DeleteTags()
+		if err != nil {
+			return errors.Wrap(err, "b.DeleteTags()")
+		}
+	} else {
+		err := ibucket.SetTags(newTags)
+		if err != nil {
+			return errors.Wrapf(err, "b.setTags(%s)", jsonutils.Marshal(newTags).String())
+		}
+	}
+	return nil
 }
