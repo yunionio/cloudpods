@@ -43,6 +43,7 @@ type ClouduserCreateOptions struct {
 	MobilePhone     string   `help:"phone number"`
 	IsConsoleLogin  *bool    `help:"is console login"`
 	Password        string   `help:"clouduser password"`
+	Notify          *bool    `help:"Notify user which set email when clouduser created"`
 }
 
 func (opts *ClouduserCreateOptions) Params() (jsonutils.JSONObject, error) {
