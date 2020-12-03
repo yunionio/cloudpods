@@ -20,11 +20,14 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/s3"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/s3cli"
@@ -143,6 +146,10 @@ func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
 			Description: "s3 domain",
 		},
 	}
+}
+
+func (b *SBucket) GetWebsiteUrl() string {
+	return fmt.Sprintf("http://%s.%s", b.Name, b.region.getS3WebsiteEndpoint())
 }
 
 func (b *SBucket) GetStats() cloudprovider.SBucketStats {
@@ -513,4 +520,161 @@ func (b *SBucket) CopyPart(ctx context.Context, key string, uploadId string, par
 		return "", errors.Wrap(err, "s3cli.UploadPartCopy")
 	}
 	return *output.CopyPartResult.ETag, nil
+}
+
+func (b *SBucket) SetWebsite(websitConf cloudprovider.SBucketWebsiteConf) error {
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return errors.Wrap(err, "GetS3Client")
+	}
+	s3WebConf := s3.WebsiteConfiguration{}
+	s3WebConf.SetIndexDocument(&s3.IndexDocument{Suffix: &websitConf.Index})
+	s3WebConf.SetErrorDocument(&s3.ErrorDocument{Key: &websitConf.ErrorDocument})
+	input := s3.PutBucketWebsiteInput{}
+	input.SetBucket(b.Name)
+	input.SetWebsiteConfiguration(&s3WebConf)
+	_, err = s3cli.PutBucketWebsite(&input)
+	if err != nil {
+		return errors.Wrapf(err, "s3cli.PutBucketWebsite(%s)", jsonutils.Marshal(input).String())
+	}
+	return nil
+}
+
+func (b *SBucket) GetWebsiteConf() (cloudprovider.SBucketWebsiteConf, error) {
+	result := cloudprovider.SBucketWebsiteConf{}
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return result, errors.Wrap(err, "GetS3Client")
+	}
+	input := s3.GetBucketWebsiteInput{}
+	input.SetBucket(b.Name)
+	webconfResult, err := s3cli.GetBucketWebsite(&input)
+	if err != nil {
+		return result, errors.Wrapf(err, "s3cli.GetBucketWebsite(%s)", b.Name)
+	}
+
+	if webconfResult.IndexDocument != nil && webconfResult.IndexDocument.Suffix != nil {
+		result.Index = *webconfResult.IndexDocument.Suffix
+	}
+	if webconfResult.ErrorDocument != nil && webconfResult.ErrorDocument.Key != nil {
+		result.ErrorDocument = *webconfResult.ErrorDocument.Key
+	}
+	result.Url = b.GetWebsiteUrl()
+	return result, nil
+}
+
+func (b *SBucket) DeleteWebSiteConf() error {
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return errors.Wrap(err, "GetS3Client")
+	}
+	input := s3.DeleteBucketWebsiteInput{}
+	input.SetBucket(b.Name)
+	_, err = s3cli.DeleteBucketWebsite(&input)
+	if err != nil {
+		return errors.Wrapf(err, "s3cli.DeleteBucketWebsite(%s)", b.Name)
+	}
+	return nil
+}
+
+func InputToAwsApiSliceString(input []string) []*string {
+	result := []*string{}
+	for i := range input {
+		result = append(result, &input[i])
+	}
+	return result
+}
+
+func InputToAwsApiInt64(input int64) *int64 {
+	return &input
+}
+
+func AwsApiSliceStringToOutput(input []*string) []string {
+	result := []string{}
+	for i := range input {
+		if input[i] != nil {
+			result = append(result, *input[i])
+		} else {
+			result = append(result, "")
+		}
+	}
+	return result
+}
+
+func AwsApiInt64ToOutput(input *int64) int64 {
+	if input == nil {
+		return 0
+	}
+	return *input
+}
+
+func (b *SBucket) SetCORS(rules []cloudprovider.SBucketCORSRule) error {
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return errors.Wrap(err, "GetS3Client")
+	}
+	opts := []*s3.CORSRule{}
+	for i := range rules {
+		opts = append(opts, &s3.CORSRule{
+			AllowedOrigins: InputToAwsApiSliceString(rules[i].AllowedOrigins),
+			AllowedMethods: InputToAwsApiSliceString(rules[i].AllowedMethods),
+			AllowedHeaders: InputToAwsApiSliceString(rules[i].AllowedHeaders),
+			MaxAgeSeconds:  InputToAwsApiInt64(int64(rules[i].MaxAgeSeconds)),
+			ExposeHeaders:  InputToAwsApiSliceString(rules[i].ExposeHeaders),
+		})
+	}
+
+	input := s3.PutBucketCorsInput{}
+	input.SetBucket(b.Name)
+	input.SetCORSConfiguration(&s3.CORSConfiguration{CORSRules: opts})
+	_, err = s3cli.PutBucketCors(&input)
+	if err != nil {
+		return errors.Wrapf(err, "s3cli.PutBucketCors(%s)", input)
+	}
+	return nil
+}
+
+func (b *SBucket) GetCORSRules() ([]cloudprovider.SBucketCORSRule, error) {
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetS3Client")
+	}
+	input := s3.GetBucketCorsInput{}
+	input.SetBucket(b.Name)
+	conf, err := s3cli.GetBucketCors(&input)
+	if err != nil {
+		if !strings.Contains(err.Error(), "NoSuchCORSConfiguration") {
+			return nil, errors.Wrapf(err, "s3cli.GetBucketCors(%s)", b.Name)
+		}
+	}
+	if conf == nil {
+		return nil, nil
+	}
+	result := []cloudprovider.SBucketCORSRule{}
+	for i := range conf.CORSRules {
+		result = append(result, cloudprovider.SBucketCORSRule{
+			AllowedOrigins: AwsApiSliceStringToOutput(conf.CORSRules[i].AllowedOrigins),
+			AllowedMethods: AwsApiSliceStringToOutput(conf.CORSRules[i].AllowedMethods),
+			AllowedHeaders: AwsApiSliceStringToOutput(conf.CORSRules[i].AllowedHeaders),
+			MaxAgeSeconds:  int(AwsApiInt64ToOutput(conf.CORSRules[i].MaxAgeSeconds)),
+			ExposeHeaders:  AwsApiSliceStringToOutput(conf.CORSRules[i].ExposeHeaders),
+			Id:             strconv.Itoa(i),
+		})
+	}
+	return result, nil
+}
+
+func (b *SBucket) DeleteCORS() error {
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return errors.Wrap(err, "GetS3Client")
+	}
+
+	input := s3.DeleteBucketCorsInput{}
+	input.SetBucket(b.Name)
+	_, err = s3cli.DeleteBucketCors(&input)
+	if err != nil {
+		return errors.Wrapf(err, "s3cli.DeleteBucketCors(%s)", b.Name)
+	}
+	return nil
 }
