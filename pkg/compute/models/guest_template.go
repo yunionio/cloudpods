@@ -791,6 +791,7 @@ func (gt *SGuestTemplate) inspect(ctx context.Context, userCred mcclient.TokenCr
 	_, err := GuestTemplateManager.validateContent(ctx, userCred, gt.GetOwnerId(), jsonutils.NewDict(), gt.Content.(*jsonutils.JSONDict))
 	if err == nil {
 		gt.updateCheckTime()
+		gt.SetStatus(userCred, computeapis.GT_READY, "inspect successfully")
 		logclient.AddSimpleActionLog(gt, logclient.ACT_HEALTH_CHECK, "", userCred, true)
 		return nil
 	}
@@ -804,7 +805,7 @@ func (gt *SGuestTemplate) inspect(ctx context.Context, userCred mcclient.TokenCr
 
 func (gm *SGuestTemplateManager) InspectAllTemplate(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	lastCheckTime := time.Now().Add(time.Duration(-options.Options.GuestTemplateCheckInterval) * time.Hour)
-	q := gm.Query().Equals("status", computeapis.GT_READY)
+	q := gm.Query()
 	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("last_check_time")), sqlchemy.LE(q.Field("last_check_time"),
 		lastCheckTime)))
 	gts := make([]SGuestTemplate, 0, 10)
