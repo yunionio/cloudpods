@@ -34,6 +34,7 @@ import (
 
 	proxyapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -108,6 +109,30 @@ func (manager *SCloudaccountManager) GetICloudaccounts() ([]SCloudaccount, error
 		return nil, errors.Wrap(err, "jsonutils.Update")
 	}
 	return accounts, nil
+}
+
+func (self *SCloudaccount) GetClouduserAccountName(name string) (string, string) {
+	account := ""
+	switch self.Provider {
+	case computeapi.CLOUD_PROVIDER_ALIYUN:
+		suffix := strings.TrimPrefix(self.IamLoginUrl, "https://signin.aliyun.com/")
+		suffix = strings.TrimSuffix(suffix, "/login.htm")
+		if len(suffix) > 0 {
+			name = fmt.Sprintf("%s@%s", name, suffix)
+			account = suffix
+		}
+	case computeapi.CLOUD_PROVIDER_QCLOUD, computeapi.CLOUD_PROVIDER_HUAWEI:
+		u, _ := url.Parse(self.IamLoginUrl)
+		if u != nil {
+			account = u.Query().Get("account")
+		}
+	case computeapi.CLOUD_PROVIDER_AWS:
+		account := strings.TrimPrefix(self.IamLoginUrl, "https://")
+		if info := strings.Split(account, "."); len(info) > 0 {
+			account = info[0]
+		}
+	}
+	return account, name
 }
 
 func (manager *SCloudaccountManager) GetCloudaccounts() ([]SCloudaccount, error) {
