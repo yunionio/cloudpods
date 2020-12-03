@@ -228,3 +228,8 @@ func (region *SRegion) CreateDBInstanceBackup(instanceId string, name string, de
 	}
 	return backupId, nil
 }
+
+func (self *SDBInstanceBackup) CreateICloudDBInstance(opts *cloudprovider.SManagedDBInstanceCreateConfig) (cloudprovider.ICloudDBInstance, error) {
+	opts.BackupId = self.Id
+	return self.region.CreateIDBInstance(opts)
+}

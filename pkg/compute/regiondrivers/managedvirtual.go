@@ -1860,6 +1860,11 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceFromBacku
 		if err != nil {
 			return nil, errors.Wrap(err, "rds.GetVpc()")
 		}
+		params := task.GetParams()
+		passwd, _ := params.GetString("password")
+		if len(passwd) == 0 && jsonutils.QueryBoolean(params, "reset_password", true) {
+			passwd = seclib2.RandomPassword2(12)
+		}
 		desc := cloudprovider.SManagedDBInstanceCreateConfig{
 			Name:          rds.Name,
 			Description:   rds.Description,
@@ -1872,6 +1877,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceFromBacku
 			EngineVersion: rds.EngineVersion,
 			Category:      rds.Category,
 			Port:          rds.Port,
+			Password:      passwd,
 		}
 		if len(backup.DBInstanceId) > 0 {
 			parentRds, err := backup.GetDBInstance()
@@ -1895,6 +1901,36 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceFromBacku
 			}
 			desc.NetworkId, desc.Address = net.ExternalId, networks[0].IpAddr
 		}
+
+		_cloudprovider := rds.GetCloudprovider()
+		desc.ProjectId, err = _cloudprovider.SyncProject(ctx, userCred, rds.ProjectId)
+		if err != nil {
+			log.Errorf("failed to sync project %s for create %s rds %s error: %v", rds.ProjectId, _cloudprovider.Provider, rds.Name, err)
+		}
+
+		region := rds.GetRegion()
+
+		err = region.GetDriver().InitDBInstanceUser(ctx, rds, task, &desc)
+		if err != nil {
+			return nil, err
+		}
+
+		secgroups, err := rds.GetSecgroups()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetSecgroups")
+		}
+		for i := range secgroups {
+			vpcId, err := region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, false)
+			if err != nil {
+				return nil, errors.Wrap(err, "GetSecurityGroupVpcId")
+			}
+			secId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, &secgroups[i], desc.ProjectId)
+			if err != nil {
+				return nil, errors.Wrap(err, "SyncSecurityGroup")
+			}
+			desc.SecgroupIds = append(desc.SecgroupIds, secId)
+		}
+
 		if rds.BillingType == billing_api.BILLING_TYPE_PREPAID {
 			bc, err := billing.ParseBillingCycle(rds.BillingCycle)
 			if err != nil {
@@ -1905,9 +1941,36 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceFromBacku
 			}
 		}
 
-		iRds, err := iBackup.CreateICloudDBInstance(&desc)
+		instanceTypes, err := rds.GetAvailableInstanceTypes()
 		if err != nil {
-			return nil, errors.Wrapf(err, "iBackup.CreateICloudDBInstance")
+			return nil, errors.Wrapf(err, "GetAvailableInstanceTypes")
+		}
+		if len(instanceTypes) == 0 {
+			return nil, fmt.Errorf("no avaiable sku for create")
+		}
+
+		var createFunc = func() (cloudprovider.ICloudDBInstance, error) {
+			errMsgs := []string{}
+			for i := range instanceTypes {
+				desc.SInstanceType = instanceTypes[i]
+				log.Debugf("create dbinstance params: %s", jsonutils.Marshal(desc).String())
+
+				iRds, err := iBackup.CreateICloudDBInstance(&desc)
+				if err != nil {
+					errMsgs = append(errMsgs, err.Error())
+					continue
+				}
+				return iRds, nil
+			}
+			if len(errMsgs) > 0 {
+				return nil, fmt.Errorf(strings.Join(errMsgs, "\n"))
+			}
+			return nil, fmt.Errorf("no avaiable skus %s(%dC%d) for create", rds.InstanceType, desc.VcpuCount, desc.VmemSizeMb)
+		}
+
+		iRds, err := createFunc()
+		if err != nil {
+			return nil, errors.Wrapf(err, "create")
 		}
 
 		err = db.SetExternalId(rds, userCred, iRds.GetGlobalId())
