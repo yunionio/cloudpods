@@ -82,6 +82,10 @@ type ClouduserCreateInput struct {
 
 	// swagger:ignore
 	ExternalId string `json:"external_id"`
+
+	// 是否发送邮件通知(仅设置email不为空生效)
+	// default: false
+	Notify bool `json:"notify"`
 }
 
 type ClouduserListInput struct {
