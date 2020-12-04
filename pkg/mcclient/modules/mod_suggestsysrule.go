@@ -50,7 +50,7 @@ type SInfluxdbShemaManager struct {
 }
 
 func NewSuggestSysRuleManager() *SSuggestSysRuleManager {
-	man := NewMonitorV2Manager("suggestsysrule", "suggestsysrules",
+	man := NewSuggestionManager("suggestsysrule", "suggestsysrules",
 		[]string{"id", "name", "type", "enabled", "period", "time_from", "setting"},
 		[]string{})
 	return &SSuggestSysRuleManager{
@@ -59,7 +59,7 @@ func NewSuggestSysRuleManager() *SSuggestSysRuleManager {
 }
 
 func NewSuggestSysAlertManager() *SSuggestSysAlertManager {
-	man := NewMonitorV2Manager("suggestsysalert", "suggestsysalerts",
+	man := NewSuggestionManager("suggestsysalert", "suggestsysalerts",
 		[]string{"id", "name", "type", "res_id", "monitor_config"},
 		[]string{})
 	return &SSuggestSysAlertManager{
@@ -68,7 +68,7 @@ func NewSuggestSysAlertManager() *SSuggestSysAlertManager {
 }
 
 func NewInfluxdbShemaManager() *SInfluxdbShemaManager {
-	man := NewMonitorV2Manager("influxdbshema", "influxdbshemas",
+	man := NewSuggestionManager("influxdbshema", "influxdbshemas",
 		[]string{},
 		[]string{})
 	return &SInfluxdbShemaManager{
