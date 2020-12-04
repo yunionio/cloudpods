@@ -85,7 +85,7 @@ type MetricValue struct {
 	Count *float64 `json:"count,omitempty"`
 }
 
-func (self *SRegion) GetMonitorData(name string, ns string, external_id string, since time.Time,
+func (self *SRegion) GetMonitorData(name string, ns string, resourceId string, since time.Time,
 	until time.Time) (*ResponseMetirc, error) {
 	params := url.Values{}
 	params.Set("metricnamespace", ns)
@@ -96,7 +96,7 @@ func (self *SRegion) GetMonitorData(name string, ns string, external_id string, 
 	if !since.IsZero() && !until.IsZero() {
 		params.Set("timespan", since.UTC().Format(time.RFC3339)+"/"+until.UTC().Format(time.RFC3339))
 	}
-	resource := fmt.Sprintf("%s/provider/microsoft.insights/metrics")
+	resource := fmt.Sprintf("%s/provider/microsoft.insights/metrics", resourceId)
 	elements := ResponseMetirc{}
 	err := self.get(resource, params, &elements)
 	if err != nil {
