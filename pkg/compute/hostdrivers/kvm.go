@@ -579,5 +579,5 @@ func (self *SKVMHostDriver) tryCleanKubernetesData(host *models.SHost, hostname 
 	if hostname == "" {
 		hostname = host.GetName()
 	}
-	return cli.Nodes().Delete(hostname, &metav1.DeleteOptions{})
+	return cli.Nodes().Delete(context.Background(), hostname, metav1.DeleteOptions{})
 }
