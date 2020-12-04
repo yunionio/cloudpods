@@ -514,13 +514,14 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 	f := aclEntites.Fingerprint()
 	if LoadbalancerAclManager.CountByFingerPrint(provider.ProjectId, f) == 0 {
 		localAcl := &SLoadbalancerAcl{}
+		localAcl.SetModelManager(LoadbalancerAclManager, localAcl)
 		localAcl.Name = acl.Name
 		localAcl.Description = acl.Description
 		localAcl.AclEntries = &aclEntites
 		localAcl.Fingerprint = f
 		localAcl.IsPublic = true
 		localAcl.PublicScope = string(rbacutils.ScopeDomain)
-		err := LoadbalancerAclManager.TableSpec().Insert(ctx, &localAcl)
+		err := LoadbalancerAclManager.TableSpec().Insert(ctx, localAcl)
 		if err != nil {
 			return nil, errors.Wrap(err, "cachedLoadbalancerAclManager.new.InsertAcl")
 		}
