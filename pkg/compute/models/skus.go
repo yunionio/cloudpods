@@ -215,46 +215,6 @@ func skuRelatedGuestCount(self *SServerSku) (int, error) {
 	return q.CountWithError()
 }
 
-func getNameAndExtId(resId string, manager db.IModelManager) (string, string, error) {
-	nKey := resId + ".Name"
-	eKey := resId + ".ExtId"
-	name := Cache.Get(nKey)
-	extId := Cache.Get(eKey)
-	if name == nil || extId == nil {
-		imodel, err := manager.FetchById(resId)
-		if err != nil {
-			return "", "", err
-		}
-
-		_name := imodel.GetName()
-		segs := strings.Split(_name, " ")
-		if len(segs) > 1 {
-			name = strings.Join(segs[1:], " ")
-		} else {
-			name = _name
-		}
-
-		_extId := ""
-		if region, ok := imodel.(*SCloudregion); ok {
-			_extId = region.ExternalId
-		} else if zone, ok := imodel.(*SZone); ok {
-			_extId = zone.ExternalId
-		} else {
-			return "", "", fmt.Errorf("res %s not a region/zone resource", resId)
-		}
-
-		segs = strings.Split(_extId, "/")
-		if len(segs) > 0 {
-			extId = segs[len(segs)-1]
-		}
-
-		Cache.Set(nKey, name)
-		Cache.Set(eKey, extId)
-	}
-
-	return name.(string), extId.(string), nil
-}
-
 func (self *SServerSkuManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
 }
@@ -307,6 +267,8 @@ func (manager *SServerSkuManager) FetchCustomizeColumns(
 		if len(rows[i].Zone) == 0 {
 			rows[i].CloudregionResourceInfo = regRows[i]
 		}
+
+		rows[i].CloudEnv = strings.Split(zoneRows[i].RegionExtId, "/")[0]
 		rows[i].TotalGuestCount = objs[i].(*SServerSku).getTotalGuestCount()
 	}
 
