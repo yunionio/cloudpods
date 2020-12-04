@@ -644,6 +644,7 @@ func init() {
 	t.Set(ACT_UPDATE_RULE, i18n.NewTableEntry().
 		EN("Update RuleConfig").
 		CN("调整规则配置"),
+	)
 	t.Set(ACT_UPDATE_TAGS, i18n.NewTableEntry().
 		EN("Update Tags").
 		CN("修改标签"),
