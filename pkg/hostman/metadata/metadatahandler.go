@@ -14,6 +14,7 @@
 
 package metadata
 
+// NOTE keep imports minimal.  DO NOT IMPORT guestman
 import (
 	"context"
 	"encoding/base64"
@@ -23,41 +24,72 @@ import (
 	"strconv"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
-func addMetadataHandler(prefix string, app *appsrv.Application) {
+func Start(app *appsrv.Application, s *Service) {
+	s.addHandler(app)
+	addr := net.JoinHostPort(s.Address, strconv.Itoa(s.Port))
+	log.Infof("Start metadata service on http://%s", addr)
+	app.ListenAndServeWithoutCleanup(addr, "", "")
+}
+
+type DescGetter interface {
+	Get(ip string) (guestDesc jsonutils.JSONObject)
+}
+
+type DescGetterFunc func(ip string) (guestDesc jsonutils.JSONObject)
+
+func (f DescGetterFunc) Get(ip string) (guestDesc jsonutils.JSONObject) {
+	return f(ip)
+}
+
+type Service struct {
+	Address string
+	Port    int
+
+	DescGetter DescGetter
+}
+
+func (s *Service) getGuestNicDesc(r *http.Request) (guestDesc jsonutils.JSONObject) {
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		panic(errors.Wrapf(err, "SplitHostPort %s", r.RemoteAddr))
+	}
+	guestDesc = s.DescGetter.Get(ip)
+	return
+}
+
+func (s *Service) addHandler(app *appsrv.Application) {
+	prefix := ""
+
 	for _, method := range []string{"GET", "HEAD"} {
 		app.AddHandler(method, fmt.Sprintf("%s/<version:%s>",
-			prefix, `(latest|\d{4}-\d{2}-\d{2})`), versionOnly)
+			prefix, `(latest|\d{4}-\d{2}-\d{2})`), s.versionOnly)
 	}
 
 	for _, method := range []string{"GET", "HEAD"} {
 		app.AddHandler(method, fmt.Sprintf("%s/<version:%s>/user-data",
-			prefix, `(latest|\d{4}-\d{2}-\d{2})`), userData)
+			prefix, `(latest|\d{4}-\d{2}-\d{2})`), s.userData)
 		app.AddHandler(method, fmt.Sprintf("%s/<version:%s>/meta-data",
-			prefix, `(latest|\d{4}-\d{2}-\d{2})`), metaData)
+			prefix, `(latest|\d{4}-\d{2}-\d{2})`), s.metaData)
 	}
 }
 
-func versionOnly(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (s *Service) versionOnly(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	hostutils.Response(ctx, w, strings.Join([]string{"meta-data", "user-data"}, "\n"))
 }
 
-func userData(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		hostutils.Response(ctx, w, httperrors.NewBadRequestError("Parse Remoteaddr %s error %s", r.RemoteAddr, err.Error()))
-		return
-	}
-	guestDesc, gusetNic := guestman.GetGuestManager().GetGuestNicDesc("", ip, "", "", false)
-	if guestDesc == nil || gusetNic == nil {
+func (s *Service) userData(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	guestDesc := s.getGuestNicDesc(r)
+	if guestDesc == nil {
 		hostutils.Response(ctx, w, "")
 		return
 	}
@@ -78,15 +110,9 @@ func userData(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	hostutils.Response(ctx, w, string(userDataDecoded))
 }
 
-func metaData(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		hostutils.Response(ctx, w, httperrors.NewBadRequestError("Parse Remoteaddr %s error %s", r.RemoteAddr, err.Error()))
-		return
-	}
-
-	guestDesc, gusetNic := guestman.GetGuestManager().GetGuestNicDesc("", ip, "", "", false)
-	if guestDesc == nil || gusetNic == nil {
+func (s *Service) metaData(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	guestDesc := s.getGuestNicDesc(r)
+	if guestDesc == nil {
 		hostutils.Response(ctx, w, "")
 		return
 	}
@@ -277,11 +303,4 @@ func metaData(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	hostutils.Response(ctx, w, httperrors.NewNotFoundError("Resource not handled"))
-}
-
-func StartService(app *appsrv.Application, address string, port int) {
-	addMetadataHandler("", app)
-	addr := net.JoinHostPort(address, strconv.Itoa(port))
-	log.Infof("Host Metadata Start listen on %s://%s", "http", addr)
-	app.ListenAndServeWithoutCleanup(addr, "", "")
 }
