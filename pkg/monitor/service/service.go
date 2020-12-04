@@ -38,7 +38,6 @@ import (
 	"yunion.io/x/onecloud/pkg/monitor/options"
 	"yunion.io/x/onecloud/pkg/monitor/registry"
 	"yunion.io/x/onecloud/pkg/monitor/subscriptionmodel"
-	"yunion.io/x/onecloud/pkg/monitor/suggestsysdrivers"
 	_ "yunion.io/x/onecloud/pkg/monitor/tasks"
 	_ "yunion.io/x/onecloud/pkg/monitor/tsdb/driver/influxdb"
 )
@@ -64,7 +63,6 @@ func StartService() {
 	go startServices()
 
 	cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount)
-	suggestsysdrivers.InitSuggestSysRuleCronjob()
 	cron.AddJobAtIntervalsWithStartRun("InitAlertResourceAdminRoleUsers", time.Duration(opts.InitAlertResourceAdminRoleUsersIntervalSeconds)*time.Second, models.GetAlertResourceManager().GetAdminRoleUsers, true)
 	cron.Start()
 	defer cron.Stop()

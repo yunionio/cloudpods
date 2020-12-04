@@ -58,7 +58,7 @@ type SInfluxdbShemaManager struct {
 }
 
 func NewSuggestSysRuleManager() *SSuggestSysRuleManager {
-	man := modules.NewMonitorV2Manager("suggestsysrule", "suggestsysrules",
+	man := modules.NewSuggestionManager("suggestsysrule", "suggestsysrules",
 		[]string{"id", "name", "type", "enabled", "setting"},
 		[]string{})
 	return &SSuggestSysRuleManager{
@@ -67,7 +67,7 @@ func NewSuggestSysRuleManager() *SSuggestSysRuleManager {
 }
 
 func NewSuggestSysAlertManager() *SSuggestSysAlertManager {
-	man := modules.NewMonitorV2Manager("suggestsysalert", "suggestsysalerts",
+	man := modules.NewSuggestionManager("suggestsysalert", "suggestsysalerts",
 		[]string{"id", "name", "type", "res_id", "monitor_config"},
 		[]string{})
 	return &SSuggestSysAlertManager{
@@ -76,7 +76,7 @@ func NewSuggestSysAlertManager() *SSuggestSysAlertManager {
 }
 
 func NewSuggestSysRuleConfigManager() *SSuggestSysRuleConfigManager {
-	man := modules.NewMonitorV2Manager("suggestsysruleconfig", "suggestsysruleconfigs",
+	man := modules.NewSuggestionManager("suggestsysruleconfig", "suggestsysruleconfigs",
 		[]string{"id", "name", "type", "resource_type", "enabled", "ignore_alert"},
 		[]string{"scope", "project_domain", "project"})
 	return &SSuggestSysRuleConfigManager{
@@ -85,7 +85,7 @@ func NewSuggestSysRuleConfigManager() *SSuggestSysRuleConfigManager {
 }
 
 func NewInfluxdbShemaManager() *SInfluxdbShemaManager {
-	man := modules.NewMonitorV2Manager("influxdbshema", "influxdbshemas",
+	man := modules.NewSuggestionManager("influxdbshema", "influxdbshemas",
 		[]string{},
 		[]string{})
 	return &SInfluxdbShemaManager{
