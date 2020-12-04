@@ -300,12 +300,12 @@ func (r *SRegionDNS) getK8sClient() (*kubernetes.Clientset, error) {
 }
 
 func getK8sServicePods(cli *kubernetes.Clientset, namespace, name string) ([]v1.Pod, error) {
-	svc, err := cli.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
+	svc, err := cli.CoreV1().Services(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	labelSelector := labels.SelectorFromSet(svc.Spec.Selector)
-	pods, err := cli.CoreV1().Pods(namespace).List(metav1.ListOptions{
+	pods, err := cli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
 		LabelSelector: labelSelector.String(),
 		FieldSelector: fields.Everything().String(),
 	})
