@@ -64,6 +64,7 @@ type Application struct {
 
 	isExiting       bool
 	idleConnsClosed chan struct{}
+	httpServer      *http.Server
 }
 
 const (
@@ -467,14 +468,21 @@ func (app *Application) ListenAndServeTLSWithCleanup2(addr string, certFile, key
 		app.addDefaultHandlers()
 		AddPProfHandler(app)
 	}
-	s := app.initServer(addr)
+	app.httpServer = app.initServer(addr)
 	if isMaster {
-		app.registerCleanShutdown(s, onStop)
+		app.registerCleanShutdown(app.httpServer, onStop)
 	}
-	app.listenAndServeInternal(s, certFile, keyFile)
+	app.listenAndServeInternal(app.httpServer, certFile, keyFile)
 	if isMaster {
 		app.waitCleanShutdown()
 	}
+}
+
+func (app *Application) Stop(ctx context.Context) error {
+	if app.httpServer != nil {
+		return app.httpServer.Shutdown(ctx)
+	}
+	return nil
 }
 
 func (app *Application) listenAndServeInternal(s *http.Server, certFile, keyFile string) {

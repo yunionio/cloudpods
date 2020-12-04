@@ -266,9 +266,9 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 
 func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *agentmodels.Network, mtu int) error {
 	var (
-		rpMac   = mac.HashMac(network.Id, "rp")
-		dhcpMac = mac.HashMac(network.Id, "dhcp")
-		mdMac   = mac.HashMac(network.Id, "md")
+		rpMac   = mac.HashSubnetRouterPortMac(network.Id)
+		dhcpMac = mac.HashSubnetDhcpMac(network.Id)
+		mdMac   = mac.HashSubnetMetadataMac(network.Id)
 		mdIp    = "169.254.169.254"
 	)
 	netLs := &ovn_nb.LogicalSwitch{
