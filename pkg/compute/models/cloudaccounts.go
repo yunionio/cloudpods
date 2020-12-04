@@ -442,10 +442,6 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 	if ownerId == nil {
 		ownerId = userCred
 	}
-	input.CloudaccountCreateInput, err = scm.validateCreateData(ctx, userCred, ownerId, query, input.CloudaccountCreateInput)
-	if err != nil {
-		return output, err
-	}
 	// validate domain
 	if len(input.ProjectDomainId) > 0 {
 		_, input.DomainizedResourceInput, err = db.ValidateDomainizedResourceInput(ctx, input.DomainizedResourceInput)
@@ -453,7 +449,6 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 			return output, err
 		}
 	}
-
 	domainId := input.ProjectDomainId
 	if len(input.ProjectId) > 0 {
 		var tenent *db.STenant
@@ -464,6 +459,9 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		if len(domainId) == 0 {
 			domainId = tenent.DomainId
 		}
+	}
+	if len(domainId) == 0 {
+		domainId = ownerId.GetProjectDomainId()
 	}
 
 	// Determine the zoneids according to esxiagent. If there is no esxiagent, zone0 is used by default. And the wires are filtered according to the specified domain and zoneids
@@ -491,8 +489,22 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 	if err != nil {
 		return output, errors.Wrap(err, "cloudprovider.GetProviderFactory")
 	}
-	proxySetting, _, _ := proxy.ValidateProxySettingResourceInput(userCred, input.ProxySettingResourceInput)
-	proxyFunc := proxySetting.HttpTransportProxyFunc()
+	input.SCloudaccount, err = factory.ValidateCreateCloudaccountData(ctx, userCred, input.SCloudaccountCredential)
+	if err != nil {
+		return output, errors.Wrap(err, "providerDriver.ValidateCreateCloudaccountData")
+	}
+	var proxyFunc httputils.TransportProxyFunc
+	{
+		if input.ProxySettingId == "" {
+			input.ProxySettingId = proxyapi.ProxySettingId_DIRECT
+		}
+		var proxySetting *proxy.SProxySetting
+		proxySetting, input.ProxySettingResourceInput, err = proxy.ValidateProxySettingResourceInput(userCred, input.ProxySettingResourceInput)
+		if err != nil {
+			return output, errors.Wrap(err, "ValidateProxySettingResourceInput")
+		}
+		proxyFunc = proxySetting.HttpTransportProxyFunc()
+	}
 	provider, err := factory.GetProvider(cloudprovider.ProviderConfig{
 		Vendor:    input.Provider,
 		URL:       input.AccessUrl,
@@ -500,6 +512,9 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		Secret:    input.Secret,
 		ProxyFunc: proxyFunc,
 	})
+	if err != nil {
+		return output, errors.Wrap(err, "factory.GetProvider")
+	}
 	iregion, err := provider.GetOnPremiseIRegion()
 	if err != nil {
 		return output, errors.Wrap(err, "provider.GetOnPremiseIRegion")
