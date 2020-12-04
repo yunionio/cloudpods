@@ -158,7 +158,6 @@ func TestFetchDiskConfigsByJSON(t *testing.T) {
 					Index:      0,
 					SizeMb:     10 * 1024,
 					Mountpoint: "/data1",
-					Medium:     compute.DISK_TYPE_HYBRID,
 				},
 				{
 					Index:  1,
