@@ -194,4 +194,5 @@ const (
 	ACT_NETWORK_MODIFY_ROUTE = "network_modify_route"
 
 	ACT_UPDATE_RULE = "update_config"
+	ACT_UPDATE_TAGS = "update_tags"
 )
