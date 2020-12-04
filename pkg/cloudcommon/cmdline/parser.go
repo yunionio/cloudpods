@@ -88,7 +88,7 @@ func ParseDiskConfig(diskStr string, idx int) (*compute.DiskConfig, error) {
 
 	// default backend and medium type
 	diskConfig.Backend = "" // STORAGE_LOCAL
-	diskConfig.Medium = compute.DISK_TYPE_HYBRID
+	diskConfig.Medium = ""
 
 	parts := strings.Split(diskStr, ":")
 	for _, p := range parts {
