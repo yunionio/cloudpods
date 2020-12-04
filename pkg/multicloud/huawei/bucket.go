@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
@@ -628,7 +629,7 @@ func (b *SBucket) SetCORS(rules []cloudprovider.SBucketCORSRule) error {
 	input.BucketCors.CorsRules = opts
 	_, err = obscli.SetBucketCors(&input)
 	if err != nil {
-		return errors.Wrapf(err, "obscli.SetBucketCors(%s)", input)
+		return errors.Wrapf(err, "obscli.SetBucketCors(%s)", jsonutils.Marshal(input).String())
 	}
 	return nil
 }
@@ -672,4 +673,67 @@ func (b *SBucket) DeleteCORS() error {
 		return errors.Wrapf(err, "obscli.DeleteBucketCors(%s)", b.Name)
 	}
 	return nil
+}
+
+func (b *SBucket) GetTags() (map[string]string, error) {
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetOBSClient")
+	}
+	tagresult, err := obscli.GetBucketTagging(b.Name)
+	if err != nil {
+		if strings.Contains(err.Error(), "404") {
+			return nil, nil
+		}
+		return nil, errors.Wrapf(err, "osscli.GetBucketTagging(%s)", b.Name)
+	}
+	result := map[string]string{}
+	for i := range tagresult.Tags {
+		result[tagresult.Tags[i].Key] = tagresult.Tags[i].Value
+	}
+	return result, nil
+}
+
+func (b *SBucket) SetTags(tags map[string]string) error {
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOBSClient")
+	}
+
+	input := obs.SetBucketTaggingInput{BucketTagging: obs.BucketTagging{}}
+	input.Bucket = b.Name
+	for k, v := range tags {
+		input.BucketTagging.Tags = append(input.BucketTagging.Tags, obs.Tag{Key: k, Value: v})
+	}
+
+	_, err = obscli.SetBucketTagging(&input)
+	if err != nil {
+		return errors.Wrapf(err, "obscli.SetBucketTagging(%s)", jsonutils.Marshal(input).String())
+	}
+	return nil
+}
+
+func (b *SBucket) DeleteTags() error {
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOBSClient")
+	}
+	_, err = obscli.DeleteBucketTagging(b.Name)
+	if err != nil {
+		return errors.Wrapf(err, "osscli.DeleteBucketTagging(%s)", b.Name)
+	}
+	return nil
+}
+
+func (b *SBucket) GetMetadata() *jsonutils.JSONDict {
+	meta := jsonutils.NewDict()
+	tags, err := b.GetTags()
+	if err != nil {
+		log.Errorf("error:%s b.getTags()", err)
+		return meta
+	}
+	for k, v := range tags {
+		meta.Add(jsonutils.NewString(v), k)
+	}
+	return meta
 }

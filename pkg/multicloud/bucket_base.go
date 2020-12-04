@@ -121,3 +121,15 @@ func (b *SBaseBucket) SetPolicy(policy cloudprovider.SBucketPolicyStatementInput
 func (b *SBaseBucket) DeletePolicy(id []string) ([]cloudprovider.SBucketPolicyStatement, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
+
+func (b *SBaseBucket) GetTags() (map[string]string, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (b *SBaseBucket) SetTags(tags map[string]string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (b *SBaseBucket) DeleteTags() error {
+	return cloudprovider.ErrNotImplemented
+}
