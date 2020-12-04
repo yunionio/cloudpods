@@ -72,7 +72,7 @@ func (self *SOpenStackRegionDriver) IsOnlySupportAllowRules() bool {
 	return true
 }
 
-func (self *SOpenStackRegionDriver) GetSecurityGroupPublicScope() rbacutils.TRbacScope {
+func (self *SOpenStackRegionDriver) GetSecurityGroupPublicScope(service string) rbacutils.TRbacScope {
 	return rbacutils.ScopeProject
 }
 

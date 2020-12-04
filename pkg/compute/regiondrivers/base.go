@@ -251,7 +251,7 @@ func (self *SBaseRegionDriver) GetDefaultSecurityGroupVpcId() string {
 	return api.NORMAL_VPC_ID
 }
 
-func (self *SBaseRegionDriver) GetSecurityGroupPublicScope() rbacutils.TRbacScope {
+func (self *SBaseRegionDriver) GetSecurityGroupPublicScope(service string) rbacutils.TRbacScope {
 	return rbacutils.ScopeSystem
 }
 
@@ -259,7 +259,7 @@ func (self *SBaseRegionDriver) GetSecurityGroupVpcId(ctx context.Context, userCr
 	return "", cloudprovider.ErrNotImplemented
 }
 
-func (self *SBaseRegionDriver) RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *models.SVpc, secgroup *models.SSecurityGroup, removeProjectId string) (string, error) {
+func (self *SBaseRegionDriver) RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *models.SVpc, secgroup *models.SSecurityGroup, removeProjectId, service string) (string, error) {
 	return "", fmt.Errorf("Not Implemented RequestSyncSecurityGroup")
 }
 
