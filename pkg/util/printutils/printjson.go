@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/prettytable"
+	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
@@ -125,14 +126,54 @@ func printJSONObject(dict *jsonutils.JSONDict, cb PrintJSONObjectFunc) {
 }
 
 func PrintJSONObject(obj jsonutils.JSONObject) {
-	dict, ok := obj.(*jsonutils.JSONDict)
-	if !ok {
+	switch jObj := obj.(type) {
+	case *jsonutils.JSONDict:
+		printJSONObject(jObj, func(s string) {
+			fmt.Print(s)
+		})
+	case *jsonutils.JSONArray:
+		printJSONArray(jObj)
+	default:
 		fmt.Println("Not a valid JSON object:", obj.String())
 		return
 	}
-	printJSONObject(dict, func(s string) {
-		fmt.Print(s)
-	})
+}
+
+func printJSONArray(array *jsonutils.JSONArray) {
+	objs, err := array.GetArray()
+	if err != nil {
+		fmt.Printf("GetArray objects error: %v", err)
+	}
+
+	if len(objs) == 0 {
+		return
+	}
+
+	columns := sets.NewString()
+
+	for _, obj := range objs {
+		dict, ok := obj.(*jsonutils.JSONDict)
+		if !ok {
+			fmt.Printf("Object %q is not dict", obj)
+			return
+		}
+		jMap, err := dict.GetMap()
+		if err != nil {
+			fmt.Printf("GetMap error: %v, object: %q", err, obj)
+			return
+		}
+		for k := range jMap {
+			columns.Insert(k)
+		}
+	}
+
+	list := &modulebase.ListResult{
+		Data:   objs,
+		Total:  array.Length(),
+		Limit:  0,
+		Offset: 0,
+	}
+	PrintJSONList(list, columns.List())
 }
 
 func flattenJSONObjectRecursive(v jsonutils.JSONObject, k string, rootDict *jsonutils.JSONDict) {
