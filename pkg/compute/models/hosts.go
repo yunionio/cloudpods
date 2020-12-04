@@ -3993,6 +3993,16 @@ func (self *SHost) PerformInitialize(
 	if err != nil {
 		log.Errorf("Host perform initialize failed on create disk %s", err)
 	}
+	net, err := self.getNetworkOfIPOnHost(self.AccessIp)
+	if err != nil {
+		log.Errorf("host perfrom initialize failed fetch net of access ip %s", err)
+	} else {
+		_, err = guest.attach2NetworkDesc(ctx, userCred, self, &api.NetworkConfig{
+			Address: self.AccessIp, Network: net.Id}, nil, nil)
+		if err != nil {
+			log.Errorf("host perform initialize failed on attach network %s", err)
+		}
+	}
 	return nil, nil
 }
 
