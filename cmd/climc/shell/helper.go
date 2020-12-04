@@ -302,6 +302,23 @@ func (cmd ResourceCmd) PerformWithKeyword(keyword, action string, args IPerformO
 	cmd.Run(keyword, args, callback)
 }
 
+func (cmd ResourceCmd) PerformClassWithKeyword(keyword, action string, args IOpt) {
+	man := cmd.manager
+	callback := func(s *mcclient.ClientSession, args IOpt) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := man.(modulebase.Manager).PerformClassAction(s, action, params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	}
+	cmd.Run(keyword, args, callback)
+}
+
 func (cmd ResourceCmd) Perform(action string, args IPerformOpt) {
 	cmd.PerformWithKeyword(action, action, args)
 }

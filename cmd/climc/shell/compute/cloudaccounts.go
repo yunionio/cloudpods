@@ -27,7 +27,7 @@ func init() {
 	cmd.Show(&options.SCloudAccountIdOptions{})
 	cmd.Delete(&options.SCloudAccountIdOptions{})
 	cmd.Update(&options.SCloudAccountUpdateBaseOptions{})
-	cmd.PerformClass("prepare-nets", &options.SVMwareCloudAccountPrepareNetsOptions{})
+	cmd.PerformClassWithKeyword("preparenets-vmware", "prepare-nets", &options.SVMwareCloudAccountPrepareNetsOptions{})
 
 	cmd.CreateWithKeyworkd("create-vmware", &options.SVMwareCloudAccountCreateOptions{})
 	cmd.CreateWithKeyworkd("create-aliyun", &options.SAliyunCloudAccountCreateOptions{})

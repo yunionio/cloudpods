@@ -724,6 +724,69 @@ func (cli *SESXiClient) dvpgKeyVlanMap() (*sync.Map, error) {
 	return ret, nil
 }
 
+func (cli *SESXiClient) HostVmIPsInDc(ctx context.Context, dc *SDatacenter) (map[string]string, []SSimpleVM, error) {
+	var hosts []mo.HostSystem
+	err := cli.scanMObjects(dc.object.Entity().Self, HOST_SYSTEM_PROPS, &hosts)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "scanMObjects")
+	}
+	return cli.hostVMIPs(ctx, hosts)
+}
+
+func (cli *SESXiClient) HostVmIPsInCluster(ctx context.Context, cluster *SCluster) (map[string]string, []SSimpleVM,
+	error) {
+	var hosts []mo.HostSystem
+	err := cli.scanMObjects(cluster.object.Entity().Self, HOST_SYSTEM_PROPS, &hosts)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "scanMObjects")
+	}
+	return cli.hostVMIPs(ctx, hosts)
+}
+
+func (cli *SESXiClient) hostVMIPs(ctx context.Context, hosts []mo.HostSystem) (map[string]string, []SSimpleVM, error) {
+	dvpgKeyVlanMap, err := cli.dvpgKeyVlanMap()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "unable to get dvpgKeyVlanMap")
+	}
+	group, ctx := errgroup.WithContext(ctx)
+	collection := make([][]SSimpleVM, len(hosts))
+	for i := range hosts {
+		j := i
+		group.Go(func() error {
+			vmIps, err := cli.vmIPs(&hosts[j], dvpgKeyVlanMap)
+			if err != nil {
+				return err
+			}
+			collection[j] = vmIps
+			return nil
+		})
+	}
+
+	hostIps := make(map[string]string, len(hosts))
+	for i := range hosts {
+		// find ip
+		host := &SHost{SManagedObject: newManagedObject(cli, &hosts[i], nil)}
+		ip := host.GetAccessIp()
+		hostIps[host.GetName()] = ip
+	}
+	err = group.Wait()
+	if err != nil {
+		return nil, nil, err
+	}
+	// length
+	length := 0
+	for i := range collection {
+		length += len(collection[i])
+	}
+	svms := make([]SSimpleVM, 0, length)
+	for i := range collection {
+		for j := range collection[i] {
+			svms = append(svms, collection[i][j])
+		}
+	}
+	return hostIps, svms, nil
+}
+
 func (cli *SESXiClient) HostVmIPs(ctx context.Context) (map[string]string, []SSimpleVM, error) {
 	dvpgKeyVlanMap, err := cli.dvpgKeyVlanMap()
 	if err != nil {
