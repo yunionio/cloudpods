@@ -61,6 +61,10 @@ const (
 
 	ZSTACK_BRAND_DSTACK     = "DStack"
 	ONECLOUD_BRAND_ONECLOUD = "OneCloud"
+
+	CLOUD_ACCOUNT_WIRE_LEVEL_VCENTER    = "vcenter"
+	CLOUD_ACCOUNT_WIRE_LEVEL_DATACENTER = "datacenter"
+	CLOUD_ACCOUNT_WIRE_LEVEL_CLUSTER    = "cluster"
 )
 
 const (

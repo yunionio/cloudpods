@@ -334,9 +334,16 @@ type CloudaccountPerformPublicInput struct {
 
 type CloudaccountPerformPrepareNetsInput struct {
 	CloudaccountCreateInput
+
+	// enum: vcenter,datacenter,cluster
+	WireLevelForVmware string `json:"wire_level_for_vmware"`
 }
 
 type CloudaccountPerformPrepareNetsOutput struct {
+	CAWireNets []CAWireNet `json:"wire_networks"`
+}
+
+type CAWireNet struct {
 	SuggestedWire CAWireConf  `json:"suggested_wire"`
 	SuitableWire  string      `json:"suitable_wire,allowempty"`
 	Hosts         []CAHostNet `json:"hosts"`
