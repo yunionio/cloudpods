@@ -631,6 +631,44 @@ func S3Shell() {
 		return nil
 	})
 
+	type BucketGetMetadata struct {
+		BUCKET string `help:"name of bucket to put object"`
+	}
+	shellutils.R(&BucketGetMetadata{}, "bucket-get-metadata", "get bucket metadata", func(cli cloudprovider.ICloudRegion, args *BucketGetMetadata) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		meta := bucket.GetMetadata()
+		printObject(meta)
+		return nil
+	})
+
+	type BucketSetMetadate struct {
+		BUCKET  string   `help:"name of bucket to put object"`
+		Tags    []string `help:"Tags info, eg: hypervisor=aliyun、os_type=Linux、os_version"`
+		Replace bool
+	}
+	shellutils.R(&BucketSetMetadate{}, "bucket-set-metadata", "set bucket metadata", func(cli cloudprovider.ICloudRegion, args *BucketSetMetadate) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		tags := map[string]string{}
+		for _, tag := range args.Tags {
+			pair := strings.Split(tag, "=")
+			if len(pair) == 2 {
+				tags[pair[0]] = pair[1]
+			}
+		}
+		err = cloudprovider.SetBucketMetadata(bucket, tags, args.Replace)
+		if err != nil {
+			return err
+		}
+		fmt.Println("Success!")
+		return nil
+	})
+
 	type BucketObjectDownloadOptions struct {
 		BUCKET string `help:"name of bucket"`
 		KEY    string `help:"Key of object"`

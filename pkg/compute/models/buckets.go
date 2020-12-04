@@ -228,6 +228,7 @@ func (manager *SBucketManager) newFromCloudBucket(
 	SyncCloudProject(userCred, &bucket, provider.GetOwnerId(), extBucket, provider.Id)
 	bucket.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
 
+	syncVirtualResourceMetadata(ctx, userCred, &bucket, extBucket)
 	db.OpsLog.LogEvent(&bucket, db.ACT_CREATE, bucket.GetShortDesc(ctx), userCred)
 
 	return &bucket, nil
@@ -297,6 +298,8 @@ func (bucket *SBucket) syncWithCloudBucket(
 	if err != nil {
 		return errors.Wrap(err, "db.UpdateWithLock")
 	}
+
+	syncVirtualResourceMetadata(ctx, userCred, bucket, extBucket)
 
 	db.OpsLog.LogSyncUpdate(bucket, diff, userCred)
 
@@ -538,6 +541,11 @@ func (bucket *SBucket) RemoteCreate(ctx context.Context, userCred mcclient.Token
 	err = bucket.syncWithCloudBucket(ctx, userCred, extBucket, nil, false)
 	if err != nil {
 		return errors.Wrap(err, "bucket.syncWithCloudBucket")
+	}
+	tags, _ := bucket.GetAllUserMetadata()
+	err = cloudprovider.SetBucketMetadata(extBucket, tags, false)
+	if err != nil {
+		log.Errorf("iBucket.SetMetadata failed: %s", err)
 	}
 	return nil
 }
@@ -1857,6 +1865,20 @@ func (bucket *SBucket) processObjectsActionInput(input api.BucketObjectsActionIn
 		}
 	}
 	return iBucket, objects, nil
+}
+
+func (bucket *SBucket) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
+	iBucket, err := bucket.GetIBucket()
+	if err != nil {
+		log.Errorf("bucket.GetIBucket() failed: %s", err)
+		return
+	}
+	tags, _ := bucket.GetAllUserMetadata()
+	err = cloudprovider.SetBucketMetadata(iBucket, tags, false)
+	if err != nil {
+		log.Errorf("iBucket.SetMetadata failed: %s", err)
+	}
+	db.OpsLog.LogEvent(bucket, db.ACT_UPDATE_TAGS, tags, userCred)
 }
 
 func (manager *SBucketManager) ListItemExportKeys(ctx context.Context,
