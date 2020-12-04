@@ -49,7 +49,6 @@ func TestFetchServerConfigsByJSON(t *testing.T) {
 						Index:   0,
 						SizeMb:  1024,
 						ImageId: "centos",
-						Medium:  "hybrid",
 					},
 				},
 				Networks: []*compute.NetworkConfig{
