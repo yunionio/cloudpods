@@ -1069,3 +1069,69 @@ func (b *SBucket) DeletePolicy(id []string) ([]cloudprovider.SBucketPolicyStatem
 	}
 	return deletedPolicy, nil
 }
+
+func (b *SBucket) GetTags() (map[string]string, error) {
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		log.Errorf("GetCosClient fail %s", err)
+		return nil, errors.Wrap(err, "b.region.GetCosClient(b)")
+	}
+
+	tagresult, _, err := coscli.Bucket.GetTagging(context.Background())
+	if err != nil {
+		if strings.Contains(err.Error(), "404") {
+			return nil, nil
+		}
+		return nil, errors.Wrap(err, "coscli.Bucket.GetTagging(context.Background())")
+	}
+	result := map[string]string{}
+	for i := range tagresult.TagSet {
+		result[tagresult.TagSet[i].Key] = tagresult.TagSet[i].Value
+	}
+	return result, nil
+}
+
+func (b *SBucket) SetTags(tags map[string]string) error {
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		log.Errorf("GetCosClient fail %s", err)
+		return errors.Wrap(err, "b.region.GetCosClient(b)")
+	}
+
+	input := cos.BucketPutTaggingOptions{}
+	for k, v := range tags {
+		input.TagSet = append(input.TagSet, cos.BucketTaggingTag{Key: k, Value: v})
+	}
+
+	_, err = coscli.Bucket.PutTagging(context.Background(), &input)
+	if err != nil {
+		return errors.Wrapf(err, "coscli.Bucket.PutTagging(%s)", jsonutils.Marshal(input))
+	}
+	return nil
+}
+
+func (b *SBucket) DeleteTags() error {
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		log.Errorf("GetCosClient fail %s", err)
+		return errors.Wrap(err, "b.region.GetCosClient(b)")
+	}
+	_, err = coscli.Bucket.DeleteTagging(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "coscli.Bucket.DeleteTagging(context.Background())")
+	}
+	return nil
+}
+
+func (b *SBucket) GetMetadata() *jsonutils.JSONDict {
+	meta := jsonutils.NewDict()
+	tags, err := b.GetTags()
+	if err != nil {
+		log.Errorf("error:%s b.getTags()", err)
+		return meta
+	}
+	for k, v := range tags {
+		meta.Add(jsonutils.NewString(v), k)
+	}
+	return meta
+}
