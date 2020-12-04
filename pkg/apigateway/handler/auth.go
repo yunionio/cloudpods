@@ -67,6 +67,7 @@ func (h *AuthHandlers) AddMethods() {
 		NewHP(h.getIdpSsoRedirectUri, "sso", "redirect", "<idp_id>"),
 		NewHP(h.listTotpRecoveryQuestions, "recovery"),
 		NewHP(h.handleSsoLogin, "ssologin"),
+		NewHP(h.postLogoutHandler, "logout"),
 		// oidc auth
 		NewHP(handleOIDCAuth, "oidc", "auth"),
 		NewHP(handleOIDCConfiguration, "oidc", ".well-known", "openid-configuration"),
@@ -551,6 +552,7 @@ func (h *AuthHandlers) doLogin(ctx context.Context, w http.ResponseWriter, req *
 
 func (h *AuthHandlers) postLogoutHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	clearAuthCookie(w)
+	appsrv.DisableClientCache(w)
 	appsrv.Send(w, "")
 }
 
