@@ -164,18 +164,18 @@ func (self *SImage) Refresh() error {
 	return jsonutils.Update(self, new)
 }
 
-func (self *SImage) GetImageType() string {
+func (self *SImage) GetImageType() cloudprovider.TImageType {
 	switch self.ImageOwnerAlias {
 	case ImageOwnerSystem:
-		return cloudprovider.CachedImageTypeSystem
+		return cloudprovider.ImageTypeSystem
 	case ImageOwnerSelf:
-		return cloudprovider.CachedImageTypeCustomized
+		return cloudprovider.ImageTypeCustomized
 	case ImageOwnerMarketplace:
-		return cloudprovider.CachedImageTypeMarket
+		return cloudprovider.ImageTypeMarket
 	case ImageOwnerOthers:
-		return cloudprovider.CachedImageTypeShared
+		return cloudprovider.ImageTypeShared
 	default:
-		return cloudprovider.CachedImageTypeCustomized
+		return cloudprovider.ImageTypeCustomized
 	}
 }
 

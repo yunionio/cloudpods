@@ -742,7 +742,7 @@ func (self *SHost) CreateVM2(ctx context.Context, ds *SDatastore, params SCreate
 		return self.DoCreateVM(ctx, ds, params)
 	}
 	imageInfo := params.Disks[0].ImageInfo
-	if imageInfo.ImageType != cloudprovider.CachedImageTypeSystem {
+	if imageInfo.ImageType != string(cloudprovider.ImageTypeSystem) {
 		return self.DoCreateVM(ctx, ds, params)
 	}
 	temvm, err := self.manager.SearchTemplateVM(imageInfo.ImageExternalId)

@@ -191,8 +191,8 @@ func (image *SImage) Refresh() error {
 	return jsonutils.Update(image, _image)
 }
 
-func (image *SImage) GetImageType() string {
-	return cloudprovider.CachedImageTypeSystem
+func (image *SImage) GetImageType() cloudprovider.TImageType {
+	return cloudprovider.ImageTypeSystem
 }
 
 func (image *SImage) GetPublicScope() rbacutils.TRbacScope {

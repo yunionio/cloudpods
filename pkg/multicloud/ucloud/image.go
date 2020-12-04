@@ -120,16 +120,16 @@ func (self *SImage) GetSizeByte() int64 {
 }
 
 // 镜像类型。标准镜像：Base，镜像市场：Business， 自定义镜像：Custom，默认返回所有类型
-func (self *SImage) GetImageType() string {
+func (self *SImage) GetImageType() cloudprovider.TImageType {
 	switch self.ImageType {
 	case "Base":
-		return cloudprovider.CachedImageTypeSystem
+		return cloudprovider.ImageTypeSystem
 	case "Custom":
-		return cloudprovider.CachedImageTypeCustomized
+		return cloudprovider.ImageTypeCustomized
 	case "Business":
-		return cloudprovider.CachedImageTypeShared
+		return cloudprovider.ImageTypeShared
 	default:
-		return cloudprovider.CachedImageTypeCustomized
+		return cloudprovider.ImageTypeCustomized
 	}
 }
 

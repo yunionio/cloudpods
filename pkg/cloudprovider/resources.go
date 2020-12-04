@@ -164,7 +164,7 @@ type ICloudImage interface {
 	GetIStoragecache() ICloudStoragecache
 
 	GetSizeByte() int64
-	GetImageType() string
+	GetImageType() TImageType
 	GetImageStatus() string
 	GetOsType() string
 	GetOsDist() string
@@ -182,7 +182,10 @@ type ICloudImage interface {
 type ICloudStoragecache interface {
 	ICloudResource
 
-	GetIImages() ([]ICloudImage, error)
+	// 私有云需要实现
+	GetICloudImages() ([]ICloudImage, error)
+	// 公有云需要实现
+	GetICustomizedCloudImages() ([]ICloudImage, error)
 	GetIImageById(extId string) (ICloudImage, error)
 
 	GetPath() string

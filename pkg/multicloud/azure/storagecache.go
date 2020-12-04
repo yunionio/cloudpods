@@ -45,8 +45,6 @@ const (
 
 type SStoragecache struct {
 	region *SRegion
-
-	iimages []cloudprovider.ICloudImage
 }
 
 func (self *SStoragecache) GetMetadata() *jsonutils.JSONDict {
@@ -77,26 +75,21 @@ func (self *SStoragecache) IsEmulated() bool {
 	return false
 }
 
-func (self *SStoragecache) fetchImages() error {
-	if images, err := self.region.GetImages(""); err != nil {
-		return err
-	} else {
-		self.iimages = make([]cloudprovider.ICloudImage, len(images))
-		for i := 0; i < len(images); i++ {
-			images[i].storageCache = self
-			self.iimages[i] = &images[i]
-		}
-	}
-	return nil
+func (self *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
-	if self.iimages == nil {
-		if err := self.fetchImages(); err != nil {
-			return nil, err
-		}
+func (self *SStoragecache) GetICustomizedCloudImages() ([]cloudprovider.ICloudImage, error) {
+	images, err := self.region.GetImages(cloudprovider.ImageTypeCustomized)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetImages")
 	}
-	return self.iimages, nil
+	ret := []cloudprovider.ICloudImage{}
+	for i := 0; i < len(images); i++ {
+		images[i].storageCache = self
+		ret = append(ret, &images[i])
+	}
+	return ret, nil
 }
 
 func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {

@@ -38,8 +38,6 @@ import (
 
 type SStoragecache struct {
 	region *SRegion
-
-	iimages []cloudprovider.ICloudImage
 }
 
 func (self *SStoragecache) GetId() string {
@@ -70,14 +68,21 @@ func (self *SStoragecache) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
-func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
-	if self.iimages == nil {
-		err := self.fetchImages()
-		if err != nil {
-			return nil, err
-		}
+func (self *SStoragecache) GetICustomizedCloudImages() ([]cloudprovider.ICloudImage, error) {
+	images, err := self.region.GetImages("", ImageOwnerSelf, nil, "", "hvm", nil, "", true)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetImages")
 	}
-	return self.iimages, nil
+	ret := []cloudprovider.ICloudImage{}
+	for i := 0; i < len(images); i += 1 {
+		images[i].storageCache = self
+		ret = append(ret, &images[i])
+	}
+	return ret, nil
+}
+
+func (self *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {
@@ -137,19 +142,6 @@ func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.To
 
 	return self.uploadImage(ctx, userCred, image, isForce)
 
-}
-
-func (self *SStoragecache) fetchImages() error {
-	images, err := self.region.GetImages("", ImageOwnerSelfSystem, nil, "", "hvm", nil, "", true)
-	if err != nil {
-		return err
-	}
-	self.iimages = make([]cloudprovider.ICloudImage, len(images))
-	for i := 0; i < len(images); i += 1 {
-		images[i].storageCache = self
-		self.iimages[i] = &images[i]
-	}
-	return nil
 }
 
 func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {

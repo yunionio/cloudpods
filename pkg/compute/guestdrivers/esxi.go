@@ -111,7 +111,7 @@ func (self *SESXiGuestDriver) ChooseHostStorage(host *models.SHost, guest *model
 			return nil, errors.Wrapf(err, "unable to fetch cachedimage %s", diskConfig.ImageId)
 		}
 		cachedimage := obj.(*models.SCachedimage)
-		if len(cachedimage.ExternalId) > 0 || cachedimage.ImageType != cloudprovider.CachedImageTypeSystem {
+		if len(cachedimage.ExternalId) > 0 || cloudprovider.TImageType(cachedimage.ImageType) != cloudprovider.ImageTypeSystem {
 			return self.SVirtualizedGuestDriver.ChooseHostStorage(host, guest, diskConfig, storageIds)
 		}
 		storages, err := cachedimage.GetStorages()
@@ -316,7 +316,7 @@ func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mc
 		return desc, errors.Wrapf(err, "CachedimageManager.FetchById(%s)", templateId)
 	}
 	img := model.(*models.SCachedimage)
-	if img.ImageType != cloudprovider.CachedImageTypeSystem {
+	if cloudprovider.TImageType(img.ImageType) != cloudprovider.ImageTypeSystem {
 		return desc, nil
 	}
 	sciSubQ := models.StoragecachedimageManager.Query("storagecache_id").Equals("cachedimage_id", templateId).Equals("status", api.CACHED_IMAGE_STATUS_ACTIVE).SubQuery()

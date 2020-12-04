@@ -34,8 +34,6 @@ import (
 
 type SStoragecache struct {
 	region *SRegion
-
-	iimages []cloudprovider.ICloudImage
 }
 
 func (cache *SStoragecache) GetMetadata() *jsonutils.JSONDict {
@@ -66,26 +64,21 @@ func (cache *SStoragecache) IsEmulated() bool {
 	return false
 }
 
-func (cache *SStoragecache) fetchImages() error {
+func (cache *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error) {
 	images, err := cache.region.GetImages("", ACTIVE, "")
 	if err != nil {
-		return err
+		return nil, err
 	}
-	cache.iimages = make([]cloudprovider.ICloudImage, len(images))
+	ret := []cloudprovider.ICloudImage{}
 	for i := 0; i < len(images); i++ {
 		images[i].storageCache = cache
-		cache.iimages[i] = &images[i]
+		ret = append(ret, &images[i])
 	}
-	return nil
+	return ret, nil
 }
 
-func (cache *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
-	if cache.iimages == nil {
-		if err := cache.fetchImages(); err != nil {
-			return nil, err
-		}
-	}
-	return cache.iimages, nil
+func (cache *SStoragecache) GetICustomizedCloudImages() ([]cloudprovider.ICloudImage, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (cache *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {

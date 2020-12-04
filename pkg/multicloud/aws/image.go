@@ -84,7 +84,7 @@ type SImage struct {
 	ImageId      string
 	ImageName    string
 	OSType       string
-	ImageType    string
+	ImageType    cloudprovider.TImageType
 	// IsSupportCloudinit   bool
 	EnaSupport bool
 	Platform   string
@@ -216,7 +216,7 @@ func (self *SImage) Refresh() error {
 	return jsonutils.Update(self, new)
 }
 
-func (self *SImage) GetImageType() string {
+func (self *SImage) GetImageType() cloudprovider.TImageType {
 	return self.ImageType
 }
 

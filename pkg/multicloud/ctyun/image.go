@@ -112,16 +112,16 @@ func (self *SImage) GetSizeByte() int64 {
 	return self.MinDisk * 1024 * 1024 * 1024
 }
 
-func (self *SImage) GetImageType() string {
+func (self *SImage) GetImageType() cloudprovider.TImageType {
 	switch self.ImageType {
 	case "gold":
-		return cloudprovider.CachedImageTypeSystem
+		return cloudprovider.ImageTypeSystem
 	case "private":
-		return cloudprovider.CachedImageTypeCustomized
+		return cloudprovider.ImageTypeCustomized
 	case "shared":
-		return cloudprovider.CachedImageTypeShared
+		return cloudprovider.ImageTypeShared
 	default:
-		return cloudprovider.CachedImageTypeCustomized
+		return cloudprovider.ImageTypeCustomized
 	}
 }
 

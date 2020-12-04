@@ -96,7 +96,7 @@ type SImage struct {
 	Sku       string
 	Version   string
 
-	ImageType string
+	ImageType cloudprovider.TImageType
 }
 
 func (self *SImage) GetMinRamSizeMb() int {
@@ -156,19 +156,12 @@ func (self *SImage) Refresh() error {
 	return jsonutils.Update(self, image)
 }
 
-func (self *SImage) GetImageType() string {
-	return self.ImageType
+func (self *SImage) GetImageType() cloudprovider.TImageType {
+	return cloudprovider.TImageType(self.ImageType)
 }
 
 func (self *SImage) GetSizeByte() int64 {
 	return int64(self.Properties.StorageProfile.OsDisk.DiskSizeGB) * 1024 * 1024 * 1024
-}
-
-func (self *SImage) isPublic() bool {
-	if self.ImageType == cloudprovider.CachedImageTypeCustomized {
-		return false
-	}
-	return true
 }
 
 func (self *SImage) GetOsType() string {
@@ -180,14 +173,14 @@ func (self *SImage) GetOsType() string {
 }
 
 func (self *SImage) GetOsArch() string {
-	if self.ImageType == cloudprovider.CachedImageTypeCustomized {
+	if self.GetImageType() == cloudprovider.ImageTypeCustomized {
 		return "x86_64"
 	}
 	return publisherGetOsArch(self.Publisher, self.Offer, self.Sku, self.Version)
 }
 
 func (self *SImage) GetOsDist() string {
-	if self.ImageType == cloudprovider.CachedImageTypeCustomized {
+	if self.GetImageType() == cloudprovider.ImageTypeCustomized {
 		return ""
 	}
 	return publisherGetOsDist(self.Publisher, self.Offer, self.Sku, self.Version)
@@ -287,7 +280,7 @@ func (self *SRegion) CreateImage(snapshotId, imageName, osType, imageDesc string
 	return &image, self.create("", jsonutils.Marshal(image), &image)
 }
 
-func (self *SRegion) getOfferedImages(publishersFilter []string, offersFilter []string, skusFilter []string, verFilter []string, imageType string, latestVer bool) ([]SImage, error) {
+func (self *SRegion) getOfferedImages(publishersFilter []string, offersFilter []string, skusFilter []string, verFilter []string, imageType cloudprovider.TImageType, latestVer bool) ([]SImage, error) {
 	images := make([]SImage, 0)
 	idMap, err := self.GetOfferedImageIDs(publishersFilter, offersFilter, skusFilter, verFilter, latestVer)
 	if err != nil {
@@ -363,7 +356,7 @@ func (self *SRegion) getPrivateImages() ([]SImage, error) {
 	}
 	for i := 0; i < len(images); i++ {
 		if images[i].Location == self.Name {
-			images[i].ImageType = cloudprovider.CachedImageTypeCustomized
+			images[i].ImageType = cloudprovider.ImageTypeCustomized
 			result = append(result, images[i])
 		}
 	}
@@ -378,26 +371,26 @@ func toLowerStringArray(input []string) []string {
 	return output
 }
 
-func (self *SRegion) GetImages(imageType string) ([]SImage, error) {
+func (self *SRegion) GetImages(imageType cloudprovider.TImageType) ([]SImage, error) {
 	images := make([]SImage, 0)
 	if len(imageType) == 0 {
 		ret, _ := self.getPrivateImages()
 		if len(ret) > 0 {
 			images = append(images, ret...)
 		}
-		ret, _ = self.getOfferedImages(knownPublishers, nil, nil, nil, cloudprovider.CachedImageTypeSystem, true)
+		ret, _ = self.getOfferedImages(knownPublishers, nil, nil, nil, cloudprovider.ImageTypeSystem, true)
 		if len(ret) > 0 {
 			images = append(images, ret...)
 		}
 		return images, nil
 	}
 	switch imageType {
-	case cloudprovider.CachedImageTypeCustomized:
+	case cloudprovider.ImageTypeCustomized:
 		return self.getPrivateImages()
-	case cloudprovider.CachedImageTypeSystem:
-		return self.getOfferedImages(knownPublishers, nil, nil, nil, cloudprovider.CachedImageTypeSystem, true)
+	case cloudprovider.ImageTypeSystem:
+		return self.getOfferedImages(knownPublishers, nil, nil, nil, cloudprovider.ImageTypeSystem, true)
 	default:
-		return self.getOfferedImages(nil, nil, nil, nil, cloudprovider.CachedImageTypeMarket, true)
+		return self.getOfferedImages(nil, nil, nil, nil, cloudprovider.ImageTypeMarket, true)
 	}
 }
 

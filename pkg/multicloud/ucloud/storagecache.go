@@ -37,23 +37,6 @@ import (
 
 type SStoragecache struct {
 	region *SRegion
-
-	iimages []cloudprovider.ICloudImage
-}
-
-func (self *SStoragecache) fetchImages() error {
-	images, err := self.region.GetImages("", "")
-	if err != nil {
-		return err
-	}
-
-	for i := range images {
-		image := images[i]
-		image.storageCache = self
-		self.iimages = append(self.iimages, &image)
-	}
-
-	return nil
 }
 
 func GetBucketName(regionId string, imageId string) string {
@@ -88,14 +71,21 @@ func (self *SStoragecache) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
-func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
-	if self.iimages == nil {
-		err := self.fetchImages()
-		if err != nil {
-			return nil, err
-		}
+func (self *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SStoragecache) GetICustomizedCloudImages() ([]cloudprovider.ICloudImage, error) {
+	images, err := self.region.GetImages("", "Custom")
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetImages")
 	}
-	return self.iimages, nil
+	ret := []cloudprovider.ICloudImage{}
+	for i := range images {
+		images[i].storageCache = self
+		ret = append(ret, &images[i])
+	}
+	return ret, nil
 }
 
 func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {

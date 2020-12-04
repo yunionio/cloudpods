@@ -36,35 +36,10 @@ import (
 
 type SStoragecache struct {
 	region *SRegion
-
-	iimages []cloudprovider.ICloudImage
 }
 
 func GetBucketName(regionId string, imageId string) string {
 	return fmt.Sprintf("imgcache-%s-%s", strings.ToLower(regionId), imageId)
-}
-
-func (self *SStoragecache) fetchImages() error {
-	imagesGold, err := self.region.GetImages("", ImageOwnerPublic, "", EnvFusionCompute)
-	if err != nil {
-		return err
-	}
-
-	imagesSelf, err := self.region.GetImages("", ImageOwnerSelf, "", EnvFusionCompute)
-	if err != nil {
-		return err
-	}
-
-	self.iimages = make([]cloudprovider.ICloudImage, len(imagesGold)+len(imagesSelf))
-	for i := range imagesGold {
-		imagesGold[i].storageCache = self
-		self.iimages[i] = &imagesGold[i]
-	}
-	for i := range imagesSelf {
-		imagesSelf[i].storageCache = self
-		self.iimages[i+len(imagesGold)] = &imagesSelf[i]
-	}
-	return nil
 }
 
 func (self *SStoragecache) GetId() string {
@@ -95,14 +70,22 @@ func (self *SStoragecache) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
-func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
-	if self.iimages == nil {
-		err := self.fetchImages()
-		if err != nil {
-			return nil, err
-		}
+func (self *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SStoragecache) GetICustomizedCloudImages() ([]cloudprovider.ICloudImage, error) {
+	imagesSelf, err := self.region.GetImages("", ImageOwnerSelf, "", EnvFusionCompute)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetImages")
 	}
-	return self.iimages, nil
+
+	ret := []cloudprovider.ICloudImage{}
+	for i := range imagesSelf {
+		imagesSelf[i].storageCache = self
+		ret = append(ret, &imagesSelf[i])
+	}
+	return ret, nil
 }
 
 func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {

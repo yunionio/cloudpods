@@ -152,6 +152,8 @@ func StartService() {
 		cron.AddJobEveryFewDays("SyncElasticCacheSkus", opts.SyncSkusDay, opts.SyncSkusHour, 0, 0, models.SyncElasticCacheSkus, true)
 		cron.AddJobEveryFewDays("StorageSnapshotsRecycle", 1, 2, 0, 0, models.StorageManager.StorageSnapshotsRecycle, false)
 
+		cron.AddJobEveryFewDays("SyncCloudImages", opts.SyncCloudImagesDay, opts.SyncCloudImagesHour, 0, 0, models.SyncPublicCloudImages, true)
+
 		cron.AddJobEveryFewHour("InspectAllTemplate", 1, 0, 0, models.GuestTemplateManager.InspectAllTemplate, true)
 
 		cron.AddJobAtIntervalsWithStartRun("ScheduledTaskCheck", time.Duration(60)*time.Second, models.ScheduledTaskManager.Timer, true)

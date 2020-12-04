@@ -80,7 +80,7 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 		}
 
 		image.ExternalId = scimg.ExternalId
-		if cachedImage.ImageType == cloudprovider.CachedImageTypeCustomized {
+		if cloudprovider.TImageType(cachedImage.ImageType) == cloudprovider.ImageTypeCustomized {
 			image.ExternalId, err = iStorageCache.UploadImage(ctx, userCred, image, isForce)
 			if err != nil {
 				return nil, errors.Wrap(err, "iStorageCache.UploadImage")

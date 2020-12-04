@@ -91,6 +91,7 @@ func InitHandlers(app *appsrv.Application) {
 
 		models.ScheduledTaskLabelManager,
 		models.DnsRecordSetTrafficPolicyManager,
+		models.CloudimageManager,
 	} {
 		db.RegisterModelManager(manager)
 	}

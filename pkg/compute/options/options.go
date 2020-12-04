@@ -110,6 +110,10 @@ type ComputeOptions struct {
 	ConvertEsxiDefaultTemplate       string `help:"ESXI baremetal convert option"`
 	ConvertKubeletDockerVolumeSize   string `default:"256g" help:"Docker volume size"`
 
+	// cloud image sync
+	SyncCloudImagesDay  int `default:"1" help:"Days auto sync public cloud images data, default 1 day"`
+	SyncCloudImagesHour int `default:"3" help:"What hour start sync public cloud images, default 03:00"`
+
 	DefaultImageCacheDir string `default:"image_cache"`
 
 	SnapshotCreateDiskProtocol string `help:"Snapshot create disk protocol" choices:"url|fuse" default:"fuse"`

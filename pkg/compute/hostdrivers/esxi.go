@@ -116,7 +116,7 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 	}
 	content.Datastore = accessInfo
 
-	if cacheImage.ImageType == cloudprovider.CachedImageTypeSystem {
+	if cloudprovider.TImageType(cacheImage.ImageType) == cloudprovider.ImageTypeSystem {
 		var host *models.SHost
 		if srcHostCacheImage != nil {
 			host, err = srcHostCacheImage.GetHost()

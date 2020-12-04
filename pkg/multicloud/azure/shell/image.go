@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"sort"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/azure"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -27,7 +28,7 @@ func init() {
 		ImageType string `help:"image type" choices:"customized|system|shared|market"`
 	}
 	shellutils.R(&ImageListOptions{}, "image-list", "List images", func(cli *azure.SRegion, args *ImageListOptions) error {
-		images, err := cli.GetImages(args.ImageType)
+		images, err := cli.GetImages(cloudprovider.TImageType(args.ImageType))
 		if err != nil {
 			return err
 		}

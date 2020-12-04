@@ -90,7 +90,7 @@ func (self *SStoragecache) fetchImages() error {
 	return nil
 }
 
-func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
+func (self *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error) {
 	if self.iimages == nil {
 		err := self.fetchImages()
 		if err != nil {
@@ -98,6 +98,10 @@ func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 		}
 	}
 	return self.iimages, nil
+}
+
+func (self *SStoragecache) GetICustomizedCloudImages() ([]cloudprovider.ICloudImage, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {
