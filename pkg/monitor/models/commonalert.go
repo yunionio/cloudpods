@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -990,6 +991,11 @@ func (alert *SCommonAlert) PerformConfig(ctx context.Context, userCred mcclient.
 	})
 	PerformConfigLog(alert, userCred)
 	return jsonutils.Marshal(alert), err
+}
+
+func PerformConfigLog(model db.IModel, userCred mcclient.TokenCredential) {
+	db.OpsLog.LogEvent(model, db.ACT_UPDATE_RULE, "", userCred)
+	logclient.AddSimpleActionLog(model, logclient.ACT_UPDATE_RULE, nil, userCred, true)
 }
 
 func (alert *SCommonAlert) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) bool {
