@@ -15,28 +15,26 @@
 package tokens
 
 import (
+	"context"
 	"encoding/base64"
-	"fmt"
 	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
 	bootstraputil "k8s.io/cluster-bootstrap/token/util"
-	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
-	kubeadmscheme "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm/scheme"
-	kubeadmconstants "k8s.io/kubernetes/cmd/kubeadm/app/constants"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/wait"
 	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/util/k8s/kubeadm"
 )
 
 func GetClusterConfig() (*rest.Config, error) {
@@ -72,29 +70,16 @@ func IsInsideKubernetesCluster() (bool, error) {
 	return true, nil
 }
 
-func UnmarshalClusterConfiguration(data map[string]string) (*kubeadmapi.ClusterConfiguration, error) {
-	key := kubeadmconstants.ClusterConfigurationConfigMapKey
-	clusterConfigData, ok := data[key]
-	if !ok {
-		return nil, errors.Error(fmt.Sprintf("%s key value pair missing", key))
-	}
-	clusterConfig := &kubeadmapi.ClusterConfiguration{}
-	if err := runtime.DecodeInto(kubeadmscheme.Codecs.UniversalDecoder(), []byte(clusterConfigData), clusterConfig); err != nil {
-		return nil, err
-	}
-	return clusterConfig, nil
-}
-
 func GetControlPlaneEndpoint() (string, error) {
 	coreCli, err := GetCoreClient()
 	if err != nil {
 		return "", errors.Wrap(err, "get cluster control plane endpoint")
 	}
-	configMap, err := coreCli.ConfigMaps(metav1.NamespaceSystem).Get(kubeadmconstants.KubeadmConfigConfigMap, metav1.GetOptions{})
+	configMap, err := coreCli.ConfigMaps(metav1.NamespaceSystem).Get(context.Background(), kubeadm.KubeadmConfigConfigMap, metav1.GetOptions{})
 	if err != nil {
 		return "", errors.Wrap(err, "get kubeadm cluster config")
 	}
-	clusterConfig, err := UnmarshalClusterConfiguration(configMap.Data)
+	clusterConfig, err := kubeadm.GetClusterConfigurationFromConfigMap(configMap)
 	if err != nil {
 		return "", errors.Wrap(err, "get kubeadm cluster configuration")
 	}
@@ -119,7 +104,7 @@ func GetImageRegistries() ([]string, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "get k8s client")
 	}
-	nodes, err := cli.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodes, err := cli.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return nil, errors.Wrap(err, "get k8s nodes")
 	}
@@ -236,7 +221,7 @@ func NewBootstrap(client corev1.SecretsGetter, ttl time.Duration) (string, error
 	}
 
 	err = TryRunCommand(func() error {
-		_, err := client.Secrets(secretToken.ObjectMeta.Namespace).Create(secretToken)
+		_, err := client.Secrets(secretToken.ObjectMeta.Namespace).Create(context.Background(), secretToken, metav1.CreateOptions{})
 		log.Errorf("create secrets %s/%s error: %v", secretToken.GetNamespace(), secretToken.GetName(), err)
 		return err
 	}, MaximumRetries)
