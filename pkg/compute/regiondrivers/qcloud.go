@@ -1477,8 +1477,9 @@ func (self *SQcloudRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 
 	// validate password
 	if password, _ := data.GetString("password"); len(password) > 0 {
-		if !seclib2.MeetComplxity(password) {
-			return nil, httperrors.NewWeakPasswordError()
+		err := seclib2.ValidatePassword(password)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -1697,8 +1698,9 @@ func (self *SQcloudRegionDriver) ValidateCreateElasticcacheAccountData(ctx conte
 	}
 
 	passwd, _ := data.GetString("password")
-	if !seclib2.MeetComplxity(passwd) {
-		return nil, httperrors.NewWeakPasswordError()
+	err := seclib2.ValidatePassword(passwd)
+	if err != nil {
+		return nil, err
 	}
 
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateElasticcacheAccountData(ctx, userCred, ownerId, data)

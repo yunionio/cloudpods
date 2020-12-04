@@ -473,9 +473,12 @@ func (self *SElasticcacheAccount) ValidatorResetPasswordData(ctx context.Context
 		}
 	}
 
-	passwd, err := data.GetString("password")
-	if err == nil && !seclib2.MeetComplxity(passwd) {
-		return nil, httperrors.NewWeakPasswordError()
+	passwd, _ := data.GetString("password")
+	if len(passwd) > 0 {
+		err := seclib2.ValidatePassword(passwd)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	privilegeV := validators.NewStringChoicesValidator("account_privilege", choices.NewChoices(api.ELASTIC_CACHE_ACCOUNT_PRIVILEGE_READ, api.ELASTIC_CACHE_ACCOUNT_PRIVILEGE_WRITE, api.ELASTIC_CACHE_ACCOUNT_PRIVILEGE_REPL)).Optional(true)

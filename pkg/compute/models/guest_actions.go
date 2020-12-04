@@ -613,8 +613,9 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 	var resetPasswd bool
 	passwdStr, _ := kwargs.GetString("password")
 	if len(passwdStr) > 0 {
-		if !seclib2.MeetComplxity(passwdStr) {
-			return nil, httperrors.NewWeakPasswordError()
+		err := seclib2.ValidatePassword(passwdStr)
+		if err != nil {
+			return nil, err
 		}
 		resetPasswd = true
 	} else {
@@ -1484,8 +1485,9 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 	}
 	passwd := input.Password
 	if len(passwd) > 0 {
-		if !seclib2.MeetComplxity(passwd) {
-			return nil, httperrors.NewWeakPasswordError()
+		err = seclib2.ValidatePassword(passwd)
+		if err != nil {
+			return nil, err
 		}
 	}
 

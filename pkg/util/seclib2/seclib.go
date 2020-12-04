@@ -21,6 +21,8 @@ import (
 	"strings"
 
 	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 const (
@@ -40,6 +42,7 @@ type PasswordStrength struct {
 	Lowercases int
 	Uppercases int
 	Punctuats  int
+	Invalid    []byte
 }
 
 var WEAK_PASSWORDS []string = []string{
@@ -92,7 +95,7 @@ func randomPassword2(width int) string {
 }
 
 func AnalyzePasswordStrenth(passwd string) PasswordStrength {
-	ps := PasswordStrength{}
+	ps := PasswordStrength{Invalid: []byte{}}
 
 	for i := 0; i < len(passwd); i += 1 {
 		if strings.IndexByte(ALL_DIGITS, passwd[i]) >= 0 {
@@ -103,6 +106,8 @@ func AnalyzePasswordStrenth(passwd string) PasswordStrength {
 			ps.Uppercases += 1
 		} else if strings.IndexByte(PUNC, passwd[i]) >= 0 {
 			ps.Punctuats += 1
+		} else {
+			ps.Invalid = append(ps.Invalid, passwd[i])
 		}
 	}
 	return ps
@@ -118,6 +123,17 @@ func (ps PasswordStrength) MeetComplexity() bool {
 	} else {
 		return false
 	}
+}
+
+func ValidatePassword(passwd string) error {
+	ps := AnalyzePasswordStrenth(passwd)
+	if len(ps.Invalid) > 0 {
+		return httperrors.NewInputParameterError("invalid characters %s", string(ps.Invalid))
+	}
+	if utils.IsInStringArray(passwd, WEAK_PASSWORDS) || !ps.MeetComplexity() {
+		return httperrors.NewWeakPasswordError()
+	}
+	return nil
 }
 
 func MeetComplxity(passwd string) bool {
