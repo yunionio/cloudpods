@@ -308,8 +308,9 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 	}
 
 	if len(input.Password) > 0 {
-		if !seclib2.MeetComplxity(input.Password) {
-			return input, httperrors.NewWeakPasswordError()
+		err := seclib2.ValidatePassword(input.Password)
+		if err != nil {
+			return input, err
 		}
 	}
 	var vpc *SVpc
