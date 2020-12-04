@@ -1628,8 +1628,11 @@ func (self *SQcloudRegionDriver) RequestCreateElasticcache(ctx context.Context, 
 	return nil
 }
 
-func (self *SQcloudRegionDriver) GetSecurityGroupPublicScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+func (self *SQcloudRegionDriver) GetSecurityGroupPublicScope(service string) rbacutils.TRbacScope {
+	if service == "redis" {
+		return rbacutils.ScopeProject
+	}
+	return rbacutils.ScopeSystem
 }
 
 func (self *SQcloudRegionDriver) RequestSyncSecgroupsForElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
@@ -1659,7 +1662,7 @@ func (self *SQcloudRegionDriver) RequestSyncSecgroupsForElasticcache(ctx context
 			}
 
 			for i := range ess {
-				externalId, err := self.RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, ess[i].GetSecGroup(), extProjectId)
+				externalId, err := self.RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, ess[i].GetSecGroup(), extProjectId, "redis")
 				if err != nil {
 					return nil, errors.Wrap(err, "RequestSyncSecurityGroup")
 				}

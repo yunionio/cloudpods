@@ -1522,7 +1522,7 @@ func (self *SManagedVirtualizationRegionDriver) GetSecurityGroupVpcId(ctx contex
 	return region.GetDriver().GetDefaultSecurityGroupVpcId(), nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *models.SVpc, secgroup *models.SSecurityGroup, remoteProjectId string) (string, error) {
+func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *models.SVpc, secgroup *models.SSecurityGroup, remoteProjectId, service string) (string, error) {
 	lockman.LockRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s-%s", secgroup.Id, vpcId, vpc.ManagerId))
 	defer lockman.ReleaseRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s-%s", secgroup.Id, vpcId, vpc.ManagerId))
 
@@ -1531,7 +1531,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx con
 		return "", errors.Wrap(err, "vpc.GetRegon")
 	}
 
-	if region.GetDriver().GetSecurityGroupPublicScope() == rbacutils.ScopeSystem {
+	if region.GetDriver().GetSecurityGroupPublicScope(service) == rbacutils.ScopeSystem {
 		remoteProjectId = ""
 	}
 
@@ -1654,7 +1654,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCacheSecurityGroup(ctx co
 		return errors.Wrap(err, "GetSecurityGroupVpcId")
 	}
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		_, err := self.RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, secgroup, removeProjectId)
+		_, err := self.RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, secgroup, removeProjectId, "")
 		return nil, err
 	})
 	return nil
@@ -1728,7 +1728,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 			if err != nil {
 				return nil, errors.Wrap(err, "GetSecurityGroupVpcId")
 			}
-			secId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, &secgroups[i], desc.ProjectId)
+			secId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, &secgroups[i], desc.ProjectId, "")
 			if err != nil {
 				return nil, errors.Wrap(err, "SyncSecurityGroup")
 			}
@@ -1850,6 +1850,36 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceFromBacku
 			}
 			desc.NetworkId, desc.Address = net.ExternalId, networks[0].IpAddr
 		}
+
+		_cloudprovider := rds.GetCloudprovider()
+		desc.ProjectId, err = _cloudprovider.SyncProject(ctx, userCred, rds.ProjectId)
+		if err != nil {
+			log.Errorf("failed to sync project %s for create %s rds %s error: %v", rds.ProjectId, _cloudprovider.Provider, rds.Name, err)
+		}
+
+		region := rds.GetRegion()
+
+		err = region.GetDriver().InitDBInstanceUser(ctx, rds, task, &desc)
+		if err != nil {
+			return nil, err
+		}
+
+		secgroups, err := rds.GetSecgroups()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetSecgroups")
+		}
+		for i := range secgroups {
+			vpcId, err := region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, false)
+			if err != nil {
+				return nil, errors.Wrap(err, "GetSecurityGroupVpcId")
+			}
+			secId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, &secgroups[i], desc.ProjectId, "")
+			if err != nil {
+				return nil, errors.Wrap(err, "SyncSecurityGroup")
+			}
+			desc.SecgroupIds = append(desc.SecgroupIds, secId)
+		}
+
 		if rds.BillingType == billing_api.BILLING_TYPE_PREPAID {
 			bc, err := billing.ParseBillingCycle(rds.BillingCycle)
 			if err != nil {
