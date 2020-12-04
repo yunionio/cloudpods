@@ -191,4 +191,5 @@ const (
 	ACT_DETACH_ALERTRESOURCE = "detach_alertresoruce"
 
 	ACT_UPDATE_RULE = "update_config"
+	ACT_UPDATE_TAGS = "update_tags"
 )

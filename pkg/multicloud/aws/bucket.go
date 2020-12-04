@@ -678,3 +678,79 @@ func (b *SBucket) DeleteCORS() error {
 	}
 	return nil
 }
+
+func (b *SBucket) GetTags() (map[string]string, error) {
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetS3Client")
+	}
+	tagresult, err := s3cli.GetBucketTagging(&s3.GetBucketTaggingInput{Bucket: &b.Name})
+	if err != nil {
+		if strings.Contains(err.Error(), "NoSuchTagSet") {
+			return nil, nil
+		}
+		return nil, errors.Wrapf(err, "osscli.GetBucketTagging(%s)", b.Name)
+	}
+	if tagresult == nil {
+		return nil, nil
+	}
+	result := map[string]string{}
+	for i := range tagresult.TagSet {
+		if tagresult.TagSet[i].Key != nil && tagresult.TagSet[i].Value != nil {
+			result[*tagresult.TagSet[i].Key] = *tagresult.TagSet[i].Value
+		}
+
+	}
+	return result, nil
+}
+
+func (b *SBucket) SetTags(tags map[string]string) error {
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return errors.Wrap(err, "GetS3Client")
+	}
+
+	input := s3.PutBucketTaggingInput{Tagging: &s3.Tagging{}}
+	input.Bucket = &b.Name
+	apiTagKeys := []string{}
+	apiTagValues := []string{}
+	for k, v := range tags {
+		apiTagKeys = append(apiTagKeys, k)
+		apiTagValues = append(apiTagValues, v)
+
+	}
+	for i := range apiTagKeys {
+		input.Tagging.TagSet = append(input.Tagging.TagSet, &s3.Tag{Key: &apiTagKeys[i], Value: &apiTagValues[i]})
+	}
+
+	_, err = s3cli.PutBucketTagging(&input)
+	if err != nil {
+		return errors.Wrapf(err, "obscli.SetBucketTagging(%s)", jsonutils.Marshal(input))
+	}
+	return nil
+}
+
+func (b *SBucket) DeleteTags() error {
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return errors.Wrap(err, "GetS3Client")
+	}
+	_, err = s3cli.DeleteBucketTagging(&s3.DeleteBucketTaggingInput{Bucket: &b.Name})
+	if err != nil {
+		return errors.Wrapf(err, "osscli.DeleteBucketTagging(%s)", b.Name)
+	}
+	return nil
+}
+
+func (b *SBucket) GetMetadata() *jsonutils.JSONDict {
+	meta := jsonutils.NewDict()
+	tags, err := b.GetTags()
+	if err != nil {
+		log.Errorf("error:%s b.getTags()", err)
+		return meta
+	}
+	for k, v := range tags {
+		meta.Add(jsonutils.NewString(v), k)
+	}
+	return meta
+}

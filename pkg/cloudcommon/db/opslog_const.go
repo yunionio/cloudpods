@@ -269,4 +269,5 @@ const (
 	ACT_SYNC_RECORD_SETS = "sync_record_sets"
 
 	ACT_UPDATE_RULE = "update_config"
+	ACT_UPDATE_TAGS = "update_tags"
 )
