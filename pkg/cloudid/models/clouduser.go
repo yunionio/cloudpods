@@ -445,8 +445,9 @@ func (manager *SClouduserManager) ValidateCreateData(ctx context.Context, userCr
 	}
 
 	if len(input.Password) > 0 {
-		if !seclib2.MeetComplxity(input.Password) {
-			return input, httperrors.NewWeakPasswordError()
+		err = seclib2.ValidatePassword(input.Password)
+		if err != nil {
+			return input, err
 		}
 	}
 
