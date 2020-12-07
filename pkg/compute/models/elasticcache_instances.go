@@ -1314,8 +1314,9 @@ func (self *SElasticcache) ValidatorResetPasswordData(ctx context.Context, userC
 	if password, err := data.GetString("password"); err != nil || len(password) == 0 {
 		return nil, httperrors.NewMissingParameterError("password")
 	} else {
-		if !seclib2.MeetComplxity(password) {
-			return nil, httperrors.NewWeakPasswordError()
+		err := seclib2.ValidatePassword(password)
+		if err != nil {
+			return nil, err
 		}
 	}
 

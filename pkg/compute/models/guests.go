@@ -1112,8 +1112,9 @@ func (manager *SGuestManager) validateCreateData(
 
 	passwd := input.Password
 	if len(passwd) > 0 {
-		if !seclib2.MeetComplxity(passwd) {
-			return nil, httperrors.NewWeakPasswordError()
+		err = seclib2.ValidatePassword(passwd)
+		if err != nil {
+			return nil, err
 		}
 		resetPassword = true
 		input.ResetPassword = &resetPassword

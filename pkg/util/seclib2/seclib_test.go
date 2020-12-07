@@ -18,6 +18,9 @@ import (
 	"math/rand"
 	"testing"
 	"time"
+
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 func TestRandomPassword2(t *testing.T) {
@@ -37,6 +40,35 @@ func TestMeetComplxity(t *testing.T) {
 	for _, c := range cases {
 		if c.want != MeetComplxity(c.in) {
 			t.Errorf("%s != %v", c.in, c.want)
+		}
+	}
+}
+
+func TestPassword(t *testing.T) {
+	cases := []struct {
+		in                string
+		valid             bool
+		errClass          string
+		invalidCharacters []byte
+	}{
+		{in: "123456", valid: false, errClass: httperrors.ErrWeakPassword.Error()},
+		{in: "123abcABC!@#", valid: false, invalidCharacters: []byte{'!', '#'}, errClass: httperrors.ErrInputParameter.Error()},
+		{in: "123abcABC-@=", valid: true},
+	}
+	for _, c := range cases {
+		ap := AnalyzePasswordStrenth(c.in)
+		if string(ap.Invalid) != string(c.invalidCharacters) {
+			t.Fatalf("%s invalid character %s != %s", c.in, string(ap.Invalid), string(c.invalidCharacters))
+		}
+		err := ValidatePassword(c.in)
+		if err != nil {
+			t.Logf("%s -> %v", c.in, err)
+			e := err.(*httputils.JSONClientError)
+			if e.Class != c.errClass {
+				t.Fatalf("%s invalid error class %s != %s", c.in, e.Class, c.errClass)
+			}
+		} else if !c.valid {
+			t.Fatalf("%s should be invalid", c.in)
 		}
 	}
 }

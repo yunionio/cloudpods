@@ -85,7 +85,7 @@ func NewInputParameterError(msg string, params ...interface{}) *httputils.JSONCl
 }
 
 func NewWeakPasswordError() *httputils.JSONClientError {
-	msg := ("password must be 12 chars of at least one digit, letter, uppercase letter and punctuate")
+	msg := ("password must be 12 chars of at least one digit, letter, uppercase letter and punctuate of @^-+=")
 	return httputils.NewJsonClientError(httpErrorCode[ErrWeakPassword], string(ErrWeakPassword), msg)
 }
 
