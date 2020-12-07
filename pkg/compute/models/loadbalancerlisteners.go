@@ -235,7 +235,7 @@ func (man *SLoadbalancerListenerManager) ListItemFilter(
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
 		// {Key: "loadbalancer", ModelKeyword: "loadbalancer", OwnerId: userCred},
 		{Key: "backend_group", ModelKeyword: "loadbalancerbackendgroup", OwnerId: userCred},
-		{Key: "acl", ModelKeyword: "cachedloadbalanceracl", OwnerId: userCred},
+		// {Key: "acl", ModelKeyword: "cachedloadbalanceracl", OwnerId: userCred},
 		// {Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
 		// {Key: "manager", ModelKeyword: "cloudprovider", OwnerId: userCred},
 	})
@@ -263,6 +263,11 @@ func (man *SLoadbalancerListenerManager) ListItemFilter(
 	}
 	if len(query.AclType) > 0 {
 		q = q.In("acl_type", query.AclType)
+	}
+	if len(query.AclId) > 0 {
+		q = q.Equals("acl_id", query.AclId)
+	} else if len(query.Acl) > 0 {
+		q = q.Equals("acl_id", query.Acl)
 	}
 
 	return q, nil
