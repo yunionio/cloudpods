@@ -303,8 +303,9 @@ func (manager *SDBInstanceAccountManager) FilterByUniqValues(q *sqlchemy.SQuery,
 
 func (manager *SDBInstanceAccountManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DBInstanceAccountCreateInput) (*jsonutils.JSONDict, error) {
 	if len(input.Password) > 0 {
-		if !seclib2.MeetComplxity(input.Password) {
-			return nil, httperrors.NewWeakPasswordError()
+		err := seclib2.ValidatePassword(input.Password)
+		if err != nil {
+			return nil, err
 		}
 	} else {
 		input.Password = seclib2.RandomPassword2(12)
@@ -569,8 +570,9 @@ func (self *SDBInstanceAccount) PerformResetPassword(ctx context.Context, userCr
 	}
 	passwdStr, _ := data.GetString("password")
 	if len(passwdStr) > 0 {
-		if !seclib2.MeetComplxity(passwdStr) {
-			return nil, httperrors.NewWeakPasswordError()
+		err = seclib2.ValidatePassword(passwdStr)
+		if err != nil {
+			return nil, err
 		}
 	}
 	err = instance.GetRegion().GetDriver().ValidateResetDBInstancePassword(ctx, userCred, instance, self.Name)
