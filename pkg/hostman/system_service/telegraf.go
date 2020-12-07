@@ -59,7 +59,7 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 	conf += "  precision = \"\"\n"
 	conf += "  debug = false\n"
 	conf += "  quiet = false\n"
-	conf += "  logfile = \"/var/log/telegraf/telegraf.err.log\"\n"
+	// conf += "  logfile = \"/var/log/telegraf/telegraf.err.log\"\n"
 	var hostname string
 	if hn, ok := kwargs["hostname"]; ok {
 		hostname, _ = hn.(string)
@@ -112,7 +112,8 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 	conf += "  report_active = true\n"
 	conf += "\n"
 	conf += "[[inputs.disk]]\n"
-	conf += "  ignore_fs = [\"tmpfs\", \"devtmpfs\", \"overlay\", \"squashfs\", \"iso9660\"]\n"
+	conf += "  ignore_mount_points = [\"/etc/telegraf\", \"/etc/hosts\", \"/etc/hostname\", \"/etc/resolv.conf\", \"/dev/termination-log\"]"
+	conf += "  ignore_fs = [\"tmpfs\", \"devtmpfs\", \"overlay\", \"squashfs\", \"iso9660\", \"rootfs\"]\n"
 	conf += "\n"
 	conf += "[[inputs.diskio]]\n"
 	conf += "  skip_serial_number = false\n"
