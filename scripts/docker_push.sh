@@ -43,23 +43,24 @@ build_bin() {
     local BUILD_CGO=$4
     case "$1" in
         baremetal-agent)
-            GOOS=linux make cmd/$1
+        echo GOOS=linux GIT_BRANCH=$TAG GIT_BRANCH=$TAG make cmd/$1
+            GOOS=linux GIT_BRANCH=$TAG make cmd/$1
             ;;
         climc)
             docker run --rm \
                 -v $SRC_DIR:/root/go/src/yunion.io/x/onecloud \
                 -v $SRC_DIR/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
                 -v $SRC_DIR/_output/alpine-build/_cache:/root/.cache \
-                registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-3 \
-                /bin/sh -c "set -ex; cd /root/go/src/yunion.io/x/onecloud; $BUILD_ARCH $BUILD_CC $BUILD_CGO GOOS=linux make cmd/$1 cmd/*cli; chown -R $(id -u):$(id -g) _output"
+                registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-5 \
+                /bin/sh -c "set -ex; cd /root/go/src/yunion.io/x/onecloud; $BUILD_ARCH $BUILD_CGO GOOS=linux GIT_BRANCH=$TAG make cmd/$1 cmd/*cli; chown -R $(id -u):$(id -g) _output"
             ;;
         *)
             docker run --rm \
                 -v $SRC_DIR:/root/go/src/yunion.io/x/onecloud \
                 -v $SRC_DIR/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
                 -v $SRC_DIR/_output/alpine-build/_cache:/root/.cache \
-                registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-3 \
-                /bin/sh -c "set -ex; cd /root/go/src/yunion.io/x/onecloud; $BUILD_ARCH $BUILD_CC $BUILD_CGO GOOS=linux make cmd/$1; chown -R $(id -u):$(id -g) _output"
+                registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-5 \
+                /bin/sh -c "set -ex; cd /root/go/src/yunion.io/x/onecloud; $BUILD_ARCH $BUILD_CGO GOOS=linux GIT_BRANCH=$TAG make cmd/$1; chown -R $(id -u):$(id -g) _output"
             ;;
     esac
 }
