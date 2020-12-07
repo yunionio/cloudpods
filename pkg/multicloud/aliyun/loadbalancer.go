@@ -479,3 +479,17 @@ func transRegionIdFromEcsRegionId(region *SRegion, service string) string {
 
 	return region.GetId()
 }
+
+func fetchMasterZoneId(zoneId string) string {
+	// cn-shenzhen-finance-1MAZ2(d,e)
+	i := strings.Index(zoneId, "MAZ")
+	if i > 0 {
+		s := strings.Index(zoneId, "(")
+		e := strings.Index(zoneId, ",")
+		if s >= 0 && e >= 0 {
+			return zoneId[0:i] + zoneId[s+1:e]
+		}
+	}
+
+	return zoneId
+}
