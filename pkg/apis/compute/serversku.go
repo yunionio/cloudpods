@@ -134,6 +134,9 @@ type ServerSkuDetails struct {
 
 	SServerSku
 
+	// 云环境
+	CloudEnv string `json:"cloud_env"`
+
 	// 绑定云主机数量
 	TotalGuestCount int `json:"total_guest_count"`
 }
