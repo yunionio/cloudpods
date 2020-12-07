@@ -130,7 +130,11 @@ func (self *SElasticcache) GetId() string {
 }
 
 func (self *SElasticcache) GetName() string {
-	return self.InstanceName
+	if len(self.InstanceName) > 0 {
+		return self.InstanceName
+	}
+
+	return self.InstanceID
 }
 
 func (self *SElasticcache) GetGlobalId() string {
