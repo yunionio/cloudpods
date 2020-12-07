@@ -149,7 +149,7 @@ func (self *SRegion) ResizeDisk(diskId string, sizeGb int32) error {
 	if err != nil {
 		return err
 	}
-	disk.Properties.DiskSizeGB = TAzureInt32(sizeGb)
+	disk.Properties.DiskSizeGB = TAzureInt32(fmt.Sprintf("%d", sizeGb))
 	disk.Properties.ProvisioningState = ""
 	return self.update(jsonutils.Marshal(disk), nil)
 }
