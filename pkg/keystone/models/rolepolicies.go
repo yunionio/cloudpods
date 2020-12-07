@@ -167,7 +167,11 @@ func (manager *SRolePolicyManager) NamespaceScope() rbacutils.TRbacScope {
 }
 
 func (manager *SRolePolicyManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
-	return PolicyManager.FilterByOwner(q, owner, scope)
+	policyQ := PolicyManager.Query()
+	policyQ = PolicyManager.FilterByOwner(policyQ, owner, scope)
+	subq := policyQ.SubQuery()
+	q = q.Join(subq, sqlchemy.Equals(q.Field("policy_id"), subq.Field("id")))
+	return q
 }
 
 func (manager *SRolePolicyManager) ListItemFilter(
