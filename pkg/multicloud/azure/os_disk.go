@@ -119,6 +119,13 @@ func (self *SOsDisk) GetDiskFormat() string {
 }
 
 func (self *SOsDisk) GetDiskSizeMB() int {
+	if self.ManagedDisk != nil {
+		disk, err := self.region.GetDisk(self.ManagedDisk.ID)
+		if err != nil {
+			return 0
+		}
+		return disk.GetDiskSizeMB()
+	}
 	return int(self.DiskSizeGB.Int32()) * 1024
 }
 
