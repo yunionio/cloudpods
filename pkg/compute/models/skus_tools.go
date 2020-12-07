@@ -89,7 +89,7 @@ func (self *SSkuResourcesMeta) GetDBInstanceSkusByRegionExternalId(regionExterna
 		if len(sku.Zone1) > 0 {
 			zoneId := self.getZoneIdBySuffix(zoneMaps, sku.Zone1) // Huawei rds sku zone1 maybe is cn-north-4f
 			if len(zoneId) == 0 {
-				log.Infof("invalid sku %s(%s) %s zone1: %s", sku.Name, sku.Id, sku.CloudregionId, sku.Zone1)
+				log.Warningf("invalid sku %s(%s) %s zone1: %s", sku.Name, sku.Id, sku.CloudregionId, sku.Zone1)
 				continue
 			}
 			sku.Zone1 = zoneId
@@ -98,7 +98,7 @@ func (self *SSkuResourcesMeta) GetDBInstanceSkusByRegionExternalId(regionExterna
 		if len(sku.Zone2) > 0 {
 			zoneId := self.getZoneIdBySuffix(zoneMaps, sku.Zone2)
 			if len(zoneId) == 0 {
-				log.Infof("invalid sku %s(%s) %s zone2: %s", sku.Name, sku.Id, sku.CloudregionId, sku.Zone2)
+				log.Warningf("invalid sku %s(%s) %s zone2: %s", sku.Name, sku.Id, sku.CloudregionId, sku.Zone2)
 				continue
 			}
 			sku.Zone2 = zoneId
@@ -107,7 +107,7 @@ func (self *SSkuResourcesMeta) GetDBInstanceSkusByRegionExternalId(regionExterna
 		if len(sku.Zone3) > 0 {
 			zoneId := self.getZoneIdBySuffix(zoneMaps, sku.Zone3)
 			if len(zoneId) == 0 {
-				log.Infof("invalid sku %s(%s) %s zone3: %s", sku.Name, sku.Id, sku.CloudregionId, sku.Zone3)
+				log.Warningf("invalid sku %s(%s) %s zone3: %s", sku.Name, sku.Id, sku.CloudregionId, sku.Zone3)
 				continue
 			}
 			sku.Zone3 = zoneId
