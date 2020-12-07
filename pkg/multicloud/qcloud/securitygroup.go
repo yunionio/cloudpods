@@ -525,7 +525,7 @@ func (self *SRegion) CreateSecurityGroup(name, projectId, description string) (*
 }
 
 func (self *SSecurityGroup) GetProjectId() string {
-	return ""
+	return self.ProjectId
 }
 
 func (self *SSecurityGroup) Delete() error {
