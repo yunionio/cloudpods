@@ -37,11 +37,11 @@ type LoadbalancerListenerListInput struct {
 	apis.VirtualResourceListInput
 	apis.ExternalizedResourceBaseListInput
 	LoadbalancerFilterListInput
+	// filter by acl
+	LoadbalancerAclResourceInput
 
 	// filter by backend_group
 	BackendGroup string `json:"backend_group"`
-	// filter by acl
-	Acl string `json:"acl"`
 
 	ListenerType []string `json:"listener_type"`
 	ListenerPort []int    `json:"listener_port"`
