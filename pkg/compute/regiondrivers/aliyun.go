@@ -1197,8 +1197,9 @@ func (self *SAliyunRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 
 	// validate password
 	if password, _ := data.GetString("password"); len(password) > 0 {
-		if !seclib2.MeetComplxity(password) {
-			return nil, httperrors.NewWeakPasswordError()
+		err := seclib2.ValidatePassword(password)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -1361,7 +1362,8 @@ func (self *SAliyunRegionDriver) ValidateCreateElasticcacheAccountData(ctx conte
 	}
 
 	passwd, _ := data.GetString("password")
-	if !seclib2.MeetComplxity(passwd) {
+	err := seclib2.ValidatePassword(passwd)
+	if err != nil {
 		return nil, httperrors.NewWeakPasswordError()
 	}
 
