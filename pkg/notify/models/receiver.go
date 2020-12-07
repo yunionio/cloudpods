@@ -286,9 +286,6 @@ func (r *SReceiver) IsEnabledContactType(ct string) (bool, error) {
 	if utils.IsInStringArray(ct, AllOkContactTypes) {
 		return true, nil
 	}
-	if ct == api.WEBCONSOLE {
-		return true, nil
-	}
 	cts, err := r.GetEnabledContactTypes()
 	if err != nil {
 		return false, errors.Wrap(err, "GetEnabledContactTypes")
@@ -324,6 +321,7 @@ func (r *SReceiver) GetEnabledContactTypes() ([]string, error) {
 			ret = append(ret, subct)
 		}
 	}
+	ret = append(ret, api.WEBCONSOLE)
 	return ret, nil
 }
 
@@ -435,6 +433,10 @@ func (r *SReceiver) getVerifiedInfos() ([]api.VerifiedInfo, error) {
 		{
 			ContactType: api.MOBILE,
 			Verified:    r.VerifiedMobile.Bool(),
+		},
+		{
+			ContactType: api.WEBCONSOLE,
+			Verified:    true,
 		},
 	}
 	for subct, subc := range r.subContactCache {
