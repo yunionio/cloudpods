@@ -26,6 +26,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
+	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/oidcutils"
 	"yunion.io/x/onecloud/pkg/util/oidcutils/client"
@@ -47,9 +48,13 @@ func NewOIDCDriver(idpId, idpName, template, targetDomainId string, conf api.TCo
 	if err != nil {
 		return nil, errors.Wrap(err, "NewBaseIdentityDriver")
 	}
+	isDebug := false
+	if options.Options.LogLevel == "debug" {
+		isDebug = true
+	}
 	drv := SOIDCDriver{
 		SBaseIdentityDriver: base,
-		isDebug:             false,
+		isDebug:             isDebug,
 	}
 	drv.SetVirtualObject(&drv)
 	err = drv.prepareConfig()
