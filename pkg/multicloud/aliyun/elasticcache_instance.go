@@ -246,11 +246,13 @@ func (self *SElasticcache) GetVpcId() string {
 }
 
 func (self *SElasticcache) GetZoneId() string {
-	zone, err := self.region.getZoneById(transZoneIdToEcsZoneId(self.region, "redis", self.ZoneID))
+	zoneId := transZoneIdToEcsZoneId(self.region, "redis", self.ZoneID)
+	zone, err := self.region.getZoneById(fetchMasterZoneId(zoneId))
 	if err != nil {
 		log.Errorf("failed to find zone for elasticcache %s error: %v", self.GetId(), err)
 		return ""
 	}
+
 	return zone.GetGlobalId()
 }
 
