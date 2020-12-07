@@ -17,6 +17,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -638,15 +639,16 @@ func _jsonRequest(client *autorest.Client, method, domain, path string, body jso
 	if err != nil {
 		return nil, err
 	}
-	location := func() string {
+	locationFunc := func(head http.Header) string {
 		for _, k := range []string{"Azure-Asyncoperation", "Location"} {
-			link := header.Get(k)
+			link := head.Get(k)
 			if len(link) > 0 {
 				return link
 			}
 		}
 		return ""
-	}()
+	}
+	location := locationFunc(header)
 	if len(location) > 0 {
 		startTime := time.Now()
 		for time.Now().Sub(startTime) < time.Minute*30 {
@@ -680,6 +682,10 @@ func _jsonRequest(client *autorest.Client, method, domain, path string, body jso
 					log.Errorf("Unknow status %s when process %s %s", status, method, path)
 					return nil, fmt.Errorf("Unknow status %s", status)
 				}
+			}
+			location = locationFunc(_header)
+			if len(location) == 0 && _body != nil {
+				return _body, nil
 			}
 			time.Sleep(time.Second * 10)
 		}
