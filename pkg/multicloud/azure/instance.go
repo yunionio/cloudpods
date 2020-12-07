@@ -444,7 +444,7 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, username strin
 			return err
 		}
 	}
-	return self.host.zone.region.DeployVM(ctx, self.ID, name, password, publicKey, deleteKeypair, description)
+	return self.host.zone.region.DeployVM(ctx, self.ID, self.GetOSType(), name, password, publicKey, deleteKeypair, description)
 }
 
 type VirtualMachineExtensionProperties struct {
@@ -490,51 +490,62 @@ func (region *SRegion) resetOvsEnv(instanceId string) error {
 func (region *SRegion) deleteExtension(instanceId, extensionName string) error {
 	return region.del(fmt.Sprintf("%s/extensions/%s", instanceId, extensionName))
 }
-func (region *SRegion) resetLoginInfo(instanceId string, setting map[string]string) error {
-	extension := SVirtualMachineExtension{
-		Location: region.Name,
-		Properties: VirtualMachineExtensionProperties{
-			Publisher:          "Microsoft.OSTCExtensions",
-			Type:               "VMAccessForLinux",
-			TypeHandlerVersion: "1.4",
-			ProtectedSettings:  setting,
-		},
+func (region *SRegion) resetLoginInfo(osType, instanceId string, setting map[string]string) error {
+	properties := map[string]interface{}{
+		"Publisher":          "Microsoft.OSTCExtensions",
+		"Type":               "VMAccessForLinux",
+		"TypeHandlerVersion": "1.4",
+		"Settings":           setting,
+	}
+	if osType == osprofile.OS_TYPE_WINDOWS {
+		properties["TypeHandlerVersion"] = "2.0"
+		properties["Publisher"] = "Microsoft.Compute"
+		properties["Type"] = "VMAccessAgent"
+	}
+	params := map[string]interface{}{
+		"Location":   region.Name,
+		"Properties": properties,
 	}
 	resource := fmt.Sprintf("%s/extensions/enablevmaccess", instanceId)
-	_, err := region.put(resource, jsonutils.Marshal(extension))
+	_, err := region.put(resource, jsonutils.Marshal(params))
 	if err != nil {
-		err = region.deleteExtension(instanceId, "enablevmaccess")
-		if err != nil {
+		switch osType {
+		case osprofile.OS_TYPE_WINDOWS:
+			return err
+		default:
+			err = region.deleteExtension(instanceId, "enablevmaccess")
+			if err != nil {
+				return err
+			}
+			err = region.resetOvsEnv(instanceId)
+			if err != nil {
+				return err
+			}
+			resource := fmt.Sprintf("%s/extensions/enablevmaccess", instanceId)
+			_, err = region.put(resource, jsonutils.Marshal(params))
 			return err
 		}
-		err = region.resetOvsEnv(instanceId)
-		if err != nil {
-			return err
-		}
-		resource := fmt.Sprintf("%s/extensions/enablevmaccess", instanceId)
-		_, err = region.put(resource, jsonutils.Marshal(extension))
-		return err
 	}
 	return nil
 }
 
-func (region *SRegion) resetPublicKey(instanceId string, username, publicKey string) error {
+func (region *SRegion) resetPublicKey(osType, instanceId string, username, publicKey string) error {
 	setting := map[string]string{
 		"username": username,
 		"ssh_key":  publicKey,
 	}
-	return region.resetLoginInfo(instanceId, setting)
+	return region.resetLoginInfo(osType, instanceId, setting)
 }
 
-func (region *SRegion) resetPassword(instanceId, username, password string) error {
+func (region *SRegion) resetPassword(osType, instanceId, username, password string) error {
 	setting := map[string]string{
 		"username": username,
 		"password": password,
 	}
-	return region.resetLoginInfo(instanceId, setting)
+	return region.resetLoginInfo(osType, instanceId, setting)
 }
 
-func (region *SRegion) DeployVM(ctx context.Context, instanceId, name, password, publicKey string, deleteKeypair bool, description string) error {
+func (region *SRegion) DeployVM(ctx context.Context, instanceId, osType, name, password, publicKey string, deleteKeypair bool, description string) error {
 	instance, err := region.GetInstance(instanceId)
 	if err != nil {
 		return err
@@ -543,10 +554,10 @@ func (region *SRegion) DeployVM(ctx context.Context, instanceId, name, password,
 		return nil
 	}
 	if len(publicKey) > 0 {
-		return region.resetPublicKey(instanceId, instance.Properties.OsProfile.AdminUsername, publicKey)
+		return region.resetPublicKey(osType, instanceId, instance.Properties.OsProfile.AdminUsername, publicKey)
 	}
 	if len(password) > 0 {
-		return region.resetPassword(instanceId, instance.Properties.OsProfile.AdminUsername, password)
+		return region.resetPassword(osType, instanceId, instance.Properties.OsProfile.AdminUsername, password)
 	}
 	return nil
 }
