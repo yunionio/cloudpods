@@ -179,12 +179,13 @@ func init() {
 
 	type InstanceDeployOptions struct {
 		ID        string `help:"Instance ID"`
+		OsType    string `help:"Instance Os Type" choices:"Linux|Windows" default:"Linux"`
 		Password  string `help:"Password for instance"`
 		PublicKey string `helo:"Deploy ssh_key for instance"`
 	}
 
 	shellutils.R(&InstanceDeployOptions{}, "instance-reset-password", "Reset intance password", func(cli *azure.SRegion, args *InstanceDeployOptions) error {
-		return cli.DeployVM(context.Background(), args.ID, "", args.Password, args.PublicKey, false, "")
+		return cli.DeployVM(context.Background(), args.ID, args.OsType, "", args.Password, args.PublicKey, false, "")
 	})
 
 	type InstanceSecurityGroupOptions struct {
