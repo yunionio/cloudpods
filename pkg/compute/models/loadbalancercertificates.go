@@ -149,7 +149,7 @@ func (manager *SLoadbalancerCertificateManager) FetchCustomizeColumns(
 	}
 
 	for i := range objs {
-		q := LoadbalancerListenerManager.Query().Equals("certificate_id", objs[i].(*SLoadbalancerCertificate).GetId())
+		q := LoadbalancerListenerManager.Query().IsFalse("pending_deleted").Equals("certificate_id", objs[i].(*SLoadbalancerCertificate).GetId())
 		ownerId, queryScope, err := db.FetchCheckQueryOwnerScope(ctx, userCred, query, LoadbalancerListenerManager, policy.PolicyActionList, true)
 		if err != nil {
 			log.Errorf("FetchCheckQueryOwnerScope error: %v", err)

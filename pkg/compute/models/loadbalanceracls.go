@@ -301,7 +301,7 @@ func (manager *SLoadbalancerAclManager) FetchCustomizeColumns(
 	}
 
 	for i := range objs {
-		q := LoadbalancerListenerManager.Query().Equals("acl_id", objs[i].(*SLoadbalancerAcl).GetId())
+		q := LoadbalancerListenerManager.Query().IsFalse("pending_deleted").Equals("acl_id", objs[i].(*SLoadbalancerAcl).GetId())
 		ownerId, queryScope, err := db.FetchCheckQueryOwnerScope(ctx, userCred, query, LoadbalancerListenerManager, policy.PolicyActionList, true)
 		if err != nil {
 			log.Errorf("FetchCheckQueryOwnerScope error: %v", err)
