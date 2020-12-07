@@ -175,7 +175,7 @@ func (cm *SConfigManager) PerformGetTypes(ctx context.Context, userCred mcclient
 }
 
 var sortedCTypes = []string{
-	api.EMAIL, api.MOBILE, api.DINGTALK, api.FEISHU, api.WORKWX, api.DINGTALK_ROBOT, api.FEISHU_ROBOT, api.WORKWX_ROBOT,
+	api.WEBCONSOLE, api.EMAIL, api.MOBILE, api.DINGTALK, api.FEISHU, api.WORKWX, api.DINGTALK_ROBOT, api.FEISHU_ROBOT, api.WORKWX_ROBOT,
 }
 
 func sortContactType(ctypes []string) []string {
