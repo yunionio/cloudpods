@@ -755,6 +755,56 @@ func (r *SReceiver) IsOwner(userCred mcclient.TokenCredential) bool {
 	return r.Id == userCred.GetUserId()
 }
 
+func (rm *SReceiverManager) AllowPerformIntellijGet(_ context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject) bool {
+	return true
+}
+
+func (rm *SReceiverManager) PerformIntellijGet(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ReceiverIntellijGetInput) (jsonutils.JSONObject, error) {
+	getParam := jsonutils.NewDict()
+	getParam.Set("scope", jsonutils.NewString(input.Scope))
+	// try to get itself
+	s := auth.GetSession(ctx, userCred, "", "")
+	// modules.NotifyReceiver
+	ret, err := modules.NotifyReceiver.Get(s, input.UserId, getParam)
+	if err == nil {
+		return ret, nil
+	}
+	jerr, ok := err.(*httputils.JSONClientError)
+	if !ok {
+		return nil, err
+	}
+	if jerr.Code != 404 {
+		return nil, errors.Wrapf(err, "unable to get NotifyReceiver via id %q", input.UserId)
+	}
+	if input.CreateIfNo == nil || !*input.CreateIfNo {
+		return jsonutils.NewDict(), nil
+	}
+	// create one
+	adminSession := auth.GetAdminSession(ctx, "", "")
+	ret, err = modules.UsersV3.GetById(adminSession, input.UserId, getParam)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable get user from keystone")
+	}
+	id, _ := ret.GetString("id")
+	name, _ := ret.GetString("name")
+	r := &SReceiver{}
+	r.Id = id
+	r.Name = name
+	r.SetModelManager(rm, r)
+	err = rm.TableSpec().InsertOrUpdate(ctx, r)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create receiver")
+	}
+	rets, err := db.FetchCustomizeColumns(rm, ctx, userCred, jsonutils.NewDict(), []interface{}{r}, stringutils2.SSortedStrings{}, false)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to get details of receiver %q", id)
+	}
+	if len(rets) == 0 {
+		return nil, errors.Wrapf(err, "details of receiver %q is empty", id)
+	}
+	return rets[0], nil
+}
+
 func (r *SReceiver) AllowPerformTriggerVerify(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return r.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, r, "trigger_verify")
 }
