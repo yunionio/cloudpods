@@ -163,7 +163,10 @@ func (self *SRegion) _createVM(desc *cloudprovider.SManagedVMCreateConfig, nicId
 			"Name":         fmt.Sprintf("vdisk_%s_%d", desc.Name, time.Now().UnixNano()),
 			"DiskSizeGB":   desc.DataDisks[i].SizeGB,
 			"CreateOption": "Empty",
-			"Lun":          i,
+			"ManagedDisk": map[string]string{
+				"StorageAccountType": desc.DataDisks[i].StorageType,
+			},
+			"Lun": i,
 		})
 		dataDisks.Add(dataDisk)
 	}
