@@ -45,7 +45,6 @@ build_bin() {
     local BUILD_CGO=$3
     case "$1" in
         baremetal-agent)
-        echo GOOS=linux make cmd/$1
             GOOS=linux make cmd/$1
             ;;
         climc)
