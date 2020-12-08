@@ -2565,6 +2565,9 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 		if !options.Options.CloudaccountHealthStatusCheck {
 			status = api.CLOUD_PROVIDER_HEALTH_NORMAL
 		}
+		if len(account.AccountId) == 0 {
+			account.AccountId = manager.GetAccountId()
+		}
 		account.HealthStatus = status
 		account.ProbeAt = timeutils.UtcNow()
 		account.Version = version
