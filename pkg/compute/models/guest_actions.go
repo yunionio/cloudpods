@@ -4461,6 +4461,9 @@ func (self *SGuest) validateForBatchMigrate(ctx context.Context, rescueMode bool
 	if len(guest.BackupHostId) > 0 {
 		return guest, httperrors.NewBadRequestError("guest %s has backup, can't migrate", guest.Name)
 	}
+	if len(guest.GetIsolatedDevices()) > 0 {
+		return guest, httperrors.NewBadRequestError("guest %s has isolated device, can't migrate", guest.Name)
+	}
 	if rescueMode {
 		if !guest.guestDisksStorageTypeIsShared() {
 			return guest, httperrors.NewBadRequestError("can't rescue geust %s with local storage", guest.Name)
