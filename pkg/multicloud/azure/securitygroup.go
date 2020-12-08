@@ -274,7 +274,7 @@ func (self *SSecurityGroup) GetName() string {
 
 func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
 	rules := make([]cloudprovider.SecurityRule, 0)
-	if self.Properties.SecurityRules == nil {
+	if self.Properties == nil || self.Properties.SecurityRules == nil {
 		return rules, nil
 	}
 	for _, _rule := range self.Properties.SecurityRules {
@@ -306,13 +306,13 @@ func (region *SRegion) CreateSecurityGroup(secName string) (*SSecurityGroup, err
 	if secName == "Default" {
 		secName = "Default-copy"
 	}
-	secgroup := SSecurityGroup{
-		region:   region,
-		Name:     secName,
-		Type:     "Microsoft.Network/networkSecurityGroups",
-		Location: region.Name,
+	secgroup := &SSecurityGroup{region: region}
+	params := map[string]string{
+		"Name":     secName,
+		"Type":     "Microsoft.Network/networkSecurityGroups",
+		"Location": region.Name,
 	}
-	return &secgroup, region.create("", jsonutils.Marshal(secgroup), &secgroup)
+	return secgroup, region.create("", jsonutils.Marshal(params), secgroup)
 }
 
 func (region *SRegion) ListSecgroups() ([]SSecurityGroup, error) {
@@ -440,7 +440,7 @@ func (self *SSecurityGroup) GetProjectId() string {
 }
 
 func (self *SSecurityGroup) Delete() error {
-	if self.Properties.NetworkInterfaces != nil {
+	if self.Properties != nil && self.Properties.NetworkInterfaces != nil {
 		for _, nic := range *self.Properties.NetworkInterfaces {
 			nic, err := self.region.GetNetworkInterface(nic.ID)
 			if err != nil {
@@ -469,6 +469,9 @@ func (self *SSecurityGroup) SetRules(rules []cloudprovider.SecurityRule) error {
 			}
 			securityRules = append(securityRules, *rule)
 		}
+	}
+	if self.Properties == nil {
+		self.Properties = &SecurityGroupPropertiesFormat{}
 	}
 	self.Properties.SecurityRules = securityRules
 	self.Properties.ProvisioningState = ""
