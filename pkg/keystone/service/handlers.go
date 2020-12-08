@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/keystone/cronjobs"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/tokens"
 	"yunion.io/x/onecloud/pkg/keystone/usages"
@@ -34,6 +35,7 @@ func InitHandlers(app *appsrv.Application) {
 
 	// add version handler with API_VERSION prefix
 	app.AddDefaultHandler("GET", API_VERSION+"/version", appsrv.VersionHandler, "version")
+	cronjobs.AddRefreshHandler(API_VERSION, app)
 
 	quotas.AddQuotaHandler(&models.IdentityQuotaManager.SQuotaBaseManager, API_VERSION, app)
 

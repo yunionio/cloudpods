@@ -20,14 +20,19 @@ import (
 	"net/http"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/tokens"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -47,10 +52,16 @@ type sServiceEndpoints struct {
 }
 
 func FetchScopeResourceCount(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	err := refreshScopeResourceCount(ctx)
+	if err != nil {
+		log.Errorf("refreshScopeResourceCount error: %v", err)
+	}
+}
+func refreshScopeResourceCount(ctx context.Context) error {
 	log.Debugf("FetchScopeResourceCount")
 	eps, err := models.EndpointManager.FetchAll()
 	if err != nil {
-		return
+		return errors.Wrapf(err, "EndpointManager.FetchAll")
 	}
 	serviceTbl := make(map[string]*sServiceEndpoints)
 	for _, ep := range eps {
@@ -113,6 +124,7 @@ func FetchScopeResourceCount(ctx context.Context, userCred mcclient.TokenCredent
 		}
 		syncScopeResourceCount(ctx, ep.regionId, ep.serviceId, projectResCounts)
 	}
+	return nil
 }
 
 func syncScopeResourceCount(ctx context.Context, regionId string, serviceId string, projResCnt map[string][]db.SScopeResourceCount) {
@@ -184,4 +196,28 @@ func syncScopeResourceCount(ctx context.Context, regionId string, serviceId stri
 			}
 		}
 	}
+}
+
+func AddRefreshHandler(prefix string, app *appsrv.Application) {
+	app.AddHandler2("POST", fmt.Sprintf("%s/scope-resource/refresh", prefix), auth.Authenticate(refreshHandler), nil, "scope_resource_refresh", nil)
+}
+
+func refreshHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	userCred := auth.FetchUserCredential(ctx, nil)
+	if userCred == nil || !db.IsDomainAllowList(userCred, models.DomainManager) {
+		httperrors.ForbiddenError(ctx, w, "not enough privilege")
+		return
+	}
+
+	err := refreshScopeResourceCount(ctx)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	ret := map[string]interface{}{
+		"scope-resource": map[string]string{
+			"status": "ok",
+		},
+	}
+	fmt.Fprintf(w, jsonutils.Marshal(ret).String())
 }
