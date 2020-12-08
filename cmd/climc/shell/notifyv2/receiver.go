@@ -162,4 +162,18 @@ func init() {
 		printObject(ret)
 		return nil
 	})
+	type ReceiverIntellijGetOptions struct {
+		USERID     string `help:"user id in keystone" json:"user_id"`
+		CreateIfNo *bool  `help:"create if receiver with UserId does not exist"`
+		SCOPE      string `help:"scope"`
+	}
+	R(&ReceiverIntellijGetOptions{}, "notify-receiver-intellij-get", "Intellij get receiver", func(s *mcclient.ClientSession, args *ReceiverIntellijGetOptions) error {
+		params := jsonutils.Marshal(args)
+		ret, err := modules.NotifyReceiver.PerformClassAction(s, "intellij-get", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
 }
