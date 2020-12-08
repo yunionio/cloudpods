@@ -53,8 +53,6 @@ func (self *HAGuestStartTask) RequestStartBacking(ctx context.Context, guest *mo
 	} else {
 		if result != nil && jsonutils.QueryBoolean(result, "is_running", false) {
 			self.RequestStart(ctx, guest)
-		} else {
-			self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString("start backup guest failed"))
 		}
 	}
 }
