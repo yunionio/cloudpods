@@ -25,7 +25,7 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
-	"yunion.io/x/onecloud/pkg/hostman/guestman"
+	guestman "yunion.io/x/onecloud/pkg/hostman/guestman/types"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/dhcp"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
@@ -140,14 +140,13 @@ func (s *SGuestDHCPServer) getGuestConfig(guestDesc, guestNic jsonutils.JSONObje
 
 func (s *SGuestDHCPServer) getConfig(pkt dhcp.Packet) *dhcp.ResponseConfig {
 	var (
-		guestmananger = guestman.GetGuestManager()
-		mac           = pkt.CHAddr().String()
-		ip, port      = "", ""
-		isCandidate   = false
+		mac         = pkt.CHAddr().String()
+		ip, port    = "", ""
+		isCandidate = false
 	)
-	guestDesc, guestNic := guestmananger.GetGuestNicDesc(mac, ip, port, s.iface, isCandidate)
+	guestDesc, guestNic := guestman.GuestDescGetter.GetGuestNicDesc(mac, ip, port, s.iface, isCandidate)
 	if guestNic == nil {
-		guestDesc, guestNic = guestmananger.GetGuestNicDesc(mac, ip, port, s.iface, !isCandidate)
+		guestDesc, guestNic = guestman.GuestDescGetter.GetGuestNicDesc(mac, ip, port, s.iface, !isCandidate)
 	}
 	if guestNic != nil && !jsonutils.QueryBoolean(guestNic, "virtual", false) {
 		return s.getGuestConfig(guestDesc, guestNic)

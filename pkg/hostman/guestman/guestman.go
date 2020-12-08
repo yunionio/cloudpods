@@ -878,6 +878,7 @@ func Init(host hostutils.IHost, serversPath string) {
 	if guestManager == nil {
 		guestManager = NewGuestManager(host, serversPath)
 		types.HealthCheckReactor = guestManager
+		types.GuestDescGetter = guestManager
 	}
 }
 
