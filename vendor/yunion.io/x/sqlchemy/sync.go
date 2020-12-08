@@ -276,10 +276,14 @@ func (ts *STableSpec) DropForeignKeySQL() []string {
 	return ret
 }
 
-func (ts *STableSpec) SyncSQL() []string {
+func (ts *STableSpec) Exists() bool {
 	tables := GetTables()
 	in, _ := utils.InStringArray(ts.name, tables)
-	if !in {
+	return in
+}
+
+func (ts *STableSpec) SyncSQL() []string {
+	if !ts.Exists() {
 		log.Debugf("table %s not created yet", ts.name)
 		sql := ts.CreateSQL()
 		return []string{sql}
