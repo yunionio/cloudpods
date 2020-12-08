@@ -34,7 +34,7 @@ func TestMeetComplxity(t *testing.T) {
 		want bool
 	}{
 		{"123456", false},
-		{"123abcABC!@#", false},
+		{"123abcABC!@#", true},
 		{"123abcABC-@=", true},
 	}
 	for _, c := range cases {
@@ -52,7 +52,7 @@ func TestPassword(t *testing.T) {
 		invalidCharacters []byte
 	}{
 		{in: "123456", valid: false, errClass: httperrors.ErrWeakPassword.Error()},
-		{in: "123abcABC!@#", valid: false, invalidCharacters: []byte{'!', '#'}, errClass: httperrors.ErrInputParameter.Error()},
+		{in: "123abcABC!@#", valid: true},
 		{in: "123abcABC-@=", valid: true},
 	}
 	for _, c := range cases {
