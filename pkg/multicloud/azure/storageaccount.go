@@ -549,11 +549,10 @@ func (self *SContainer) SignUrl(method string, key string, expire time.Duration)
 		return "", errors.Wrap(err, "getBlobServiceClient")
 	}
 	containerRef := blobService.GetContainerReference(self.Name)
-	sas := storage.ContainerSASOptions{}
+	sas := storage.BlobSASOptions{}
 	sas.Start = time.Now()
 	sas.Expiry = sas.Start.Add(expire)
 	sas.UseHTTPS = true
-	sas.Identifier = key
 	switch method {
 	case "GET":
 		sas.Read = true
@@ -569,7 +568,8 @@ func (self *SContainer) SignUrl(method string, key string, expire time.Duration)
 	default:
 		return "", errors.Error("unsupport method")
 	}
-	return containerRef.GetSASURI(sas)
+	blobRef := containerRef.GetBlobReference(key)
+	return blobRef.GetSASURI(sas)
 }
 
 func (self *SContainer) UploadFile(filePath string) (string, error) {
