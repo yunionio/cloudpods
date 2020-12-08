@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package pb;
+
+option go_package = "yunion.io/x/onecloud/pkg/hostman/guestman/forwarder/api";
+
+service Forwarder {
+	rpc Open(OpenRequest) returns (OpenResponse);
+	rpc Close(CloseRequest) returns (CloseResponse);
+	rpc ListByRemote(ListByRemoteRequest) returns (ListByRemoteResponse);
+}
+
+message OpenRequest {
+	string netId = 1;
+	string proto = 2;
+	string bindAddr = 3;
+	uint32 bindPort = 4;
+	string remoteAddr = 5;
+	uint32 remotePort = 6;
+}
+
+message OpenResponse {
+	string netId = 1;
+	string proto = 2;
+	string bindAddr = 3;
+	uint32 bindPort = 4;
+	string remoteAddr = 5;
+	uint32 remotePort = 6;
+}
+
+message CloseRequest {
+	string netId = 1;
+	string proto = 2;
+	string bindAddr = 3;
+	uint32 bindPort = 4;
+}
+
+message CloseResponse {
+	string netId = 1;
+	string proto = 2;
+	string bindAddr = 3;
+	uint32 bindPort = 4;
+}
+
+message ListByRemoteRequest {
+	string netId = 1;
+	string proto = 2;
+	string remoteAddr = 3;
+	uint32 remotePort = 4;
+}
+
+message ListByRemoteResponse {
+	repeated OpenResponse Forwards = 1;
+}
