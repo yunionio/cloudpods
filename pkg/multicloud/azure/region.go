@@ -588,6 +588,9 @@ func (self *SRegion) create(resourceGroup string, _body jsonutils.JSONObject, re
 	}
 	info.Location = self.Name
 	body.Update(jsonutils.Marshal(info))
+	body.Remove("location")
+	body.Remove("name")
+	body.Remove("type")
 	return self.client.create(resourceGroup, info.Type, info.Name, body, retVal)
 }
 

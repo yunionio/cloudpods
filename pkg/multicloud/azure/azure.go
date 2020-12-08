@@ -649,47 +649,56 @@ func _jsonRequest(client *autorest.Client, method, domain, path string, body jso
 		return ""
 	}
 	location := locationFunc(header)
-	if len(location) > 0 {
-		startTime := time.Now()
-		for time.Now().Sub(startTime) < time.Minute*30 {
+	if len(location) > 0 && (body == nil || body.IsZero()) {
+		err = cloudprovider.Wait(time.Second*10, time.Minute*30, func() (bool, error) {
 			req := httputils.NewJsonRequest(httputils.GET, location, nil)
 			lae := AzureResponseError{}
 			_header, _body, _err := cli.Send(context.TODO(), req, &lae, debug)
 			if _err != nil {
 				if utils.IsInStringArray(lae.AzureError.Code, []string{"OSProvisioningTimedOut", "OSProvisioningClientError", "OSProvisioningInternalError"}) {
-					return body, nil
+					body = _body
+					return true, nil
 				}
-				return nil, errors.Wrapf(_err, "cli.Send(%s)", location)
+				return false, errors.Wrapf(_err, "cli.Send(%s)", location)
 			}
 			if retryAfter := _header.Get("Retry-After"); len(retryAfter) > 0 {
 				sleepTime, _ := strconv.Atoi(retryAfter)
 				time.Sleep(time.Second * time.Duration(sleepTime))
+				return false, nil
 			}
-			if _body != nil && _body.Contains("status") {
-				status, _ := _body.GetString("status")
-				switch status {
+			if _body != nil {
+				task := struct {
+					Status     string
+					Properties struct {
+						Output *jsonutils.JSONObject
+					}
+				}{}
+				_body.Unmarshal(&task)
+				if len(task.Status) == 0 {
+					body = _body
+					return true, nil
+				}
+				switch task.Status {
 				case "InProgress":
 					log.Debugf("process %s %s InProgress", method, path)
+					return false, nil
 				case "Succeeded":
 					log.Debugf("process %s %s Succeeded", method, path)
-					if _body.Contains("properties", "output") {
-						return _body.Get("properties", "output")
+					if task.Properties.Output != nil {
+						body = *task.Properties.Output
+						return true, nil
 					}
-					return body, nil
 				case "Failed":
-					return nil, fmt.Errorf("%s %s failed", method, path)
+					return false, fmt.Errorf("%s %s failed", method, path)
 				default:
-					log.Errorf("Unknow status %s when process %s %s", status, method, path)
-					return nil, fmt.Errorf("Unknow status %s", status)
+					return false, fmt.Errorf("Unknow status %s %s %s", task.Status, method, path)
 				}
 			}
-			location = locationFunc(_header)
-			if len(location) == 0 && _body != nil {
-				return _body, nil
-			}
-			time.Sleep(time.Second * 10)
+			return false, nil
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "time out for waiting %s %s")
 		}
-		return nil, fmt.Errorf("time out for wait task %s %s", method, path)
 	}
 	return body, nil
 }
