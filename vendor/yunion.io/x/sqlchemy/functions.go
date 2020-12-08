@@ -103,6 +103,10 @@ func MAX(name string, field IQueryField) IQueryField {
 	return NewFunctionField(name, "MAX(%s)", field)
 }
 
+func MIN(name string, field IQueryField) IQueryField {
+	return NewFunctionField(name, "MIN(%s)", field)
+}
+
 func SUM(name string, field IQueryField) IQueryField {
 	return NewFunctionField(name, "SUM(%s)", field)
 }
