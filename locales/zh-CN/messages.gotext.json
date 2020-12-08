@@ -1307,277 +1307,277 @@
             "id": "missing name",
             "message": "missing name",
             "translation": "找不到名称",
-            "position": "pkg/compute/models/buckets.go:429:50"
+            "position": "pkg/compute/models/buckets.go:432:50"
         },
         {
             "id": "invalid bucket name %s: %s",
             "message": "invalid bucket name %s: %s",
             "translation": "无效的桶名%s：%s",
-            "position": "pkg/compute/models/buckets.go:433:50"
+            "position": "pkg/compute/models/buckets.go:436:50"
         },
         {
             "id": "invalid bucket name(%s): %s",
             "message": "invalid bucket name(%s): %s",
             "translation": "无效的桶名%s：%s",
-            "position": "pkg/compute/models/buckets.go:511:51"
+            "position": "pkg/compute/models/buckets.go:514:51"
         },
         {
             "id": "no external bucket",
             "message": "no external bucket",
             "translation": "没有外部桶",
-            "position": "pkg/compute/models/buckets.go:715:50"
+            "position": "pkg/compute/models/buckets.go:723:50"
         },
         {
             "id": "fail to get objects: %s",
             "message": "fail to get objects: %s",
             "translation": "获取对象出错：%s",
-            "position": "pkg/compute/models/buckets.go:738:51"
+            "position": "pkg/compute/models/buckets.go:746:51"
         },
         {
             "id": "missing key",
             "message": "missing key",
             "translation": "未指定key",
-            "position": "pkg/compute/models/buckets.go:785:51"
+            "position": "pkg/compute/models/buckets.go:793:51"
         },
         {
             "id": "fail to generate temp url: %s",
             "message": "fail to generate temp url: %s",
             "translation": "生成临时URL出错：%s",
-            "position": "pkg/compute/models/buckets.go:797:51"
+            "position": "pkg/compute/models/buckets.go:805:51"
         },
         {
             "id": "empty directory name",
             "message": "empty directory name",
             "translation": "空的目录名",
-            "position": "pkg/compute/models/buckets.go:827:48"
+            "position": "pkg/compute/models/buckets.go:835:48"
         },
         {
             "id": "invalid key %s: %s",
             "message": "invalid key %s: %s",
             "translation": "无效的key %s：%s",
-            "position": "pkg/compute/models/buckets.go:832:48"
+            "position": "pkg/compute/models/buckets.go:840:48"
         },
         {
             "id": "GetIObject fail %s",
             "message": "GetIObject fail %s",
             "translation": "GetIObject调用出错：%s",
-            "position": "pkg/compute/models/buckets.go:845:48"
+            "position": "pkg/compute/models/buckets.go:853:48"
         },
         {
             "id": "object count limit exceeds",
             "message": "object count limit exceeds",
             "translation": "对象数量超出限制",
-            "position": "pkg/compute/models/buckets.go:849:44"
+            "position": "pkg/compute/models/buckets.go:857:44"
         },
         {
             "id": "bucket.GetQuotaKeys %s",
             "message": "bucket.GetQuotaKeys %s",
             "translation": "bucket.GetQuotaKeys调用出错：%s",
-            "position": "pkg/compute/models/buckets.go:854:48"
+            "position": "pkg/compute/models/buckets.go:862:48"
         },
         {
             "id": "fail to mkdir: %s",
             "message": "fail to mkdir: %s",
             "translation": "创建目录失败：%s",
-            "position": "pkg/compute/models/buckets.go:863:48"
+            "position": "pkg/compute/models/buckets.go:871:48"
         },
         {
             "id": "empty keys",
             "message": "empty keys",
             "translation": "keys列表为空",
-            "position": "pkg/compute/models/buckets.go:899:48"
+            "position": "pkg/compute/models/buckets.go:907:48"
         },
         {
             "id": "object key should not ends with /",
             "message": "object key should not ends with /",
             "translation": "对象key不应以斜线结尾",
-            "position": "pkg/compute/models/buckets.go:954:48"
+            "position": "pkg/compute/models/buckets.go:962:48"
         },
         {
             "id": "invalid object key: %s",
             "message": "invalid object key: %s",
             "translation": "无效的对象key：%s",
-            "position": "pkg/compute/models/buckets.go:959:48"
+            "position": "pkg/compute/models/buckets.go:967:48"
         },
         {
             "id": "missing Content-Length",
             "message": "missing Content-Length",
             "translation": "找不到Content-Length",
-            "position": "pkg/compute/models/buckets.go:971:48"
+            "position": "pkg/compute/models/buckets.go:979:48"
         },
         {
             "id": "Illegal Content-Length %s",
             "message": "Illegal Content-Length %s",
             "translation": "无效的Content-Length %s",
-            "position": "pkg/compute/models/buckets.go:975:48"
+            "position": "pkg/compute/models/buckets.go:983:48"
         },
         {
             "id": "Content-Length negative %d",
             "message": "Content-Length negative %d",
             "translation": "Content-Length为负值%d",
-            "position": "pkg/compute/models/buckets.go:978:48"
+            "position": "pkg/compute/models/buckets.go:986:48"
         },
         {
             "id": "GetIObject error %s",
             "message": "GetIObject error %s",
             "translation": "GetIObject调用出错：%s",
-            "position": "pkg/compute/models/buckets.go:1007:48"
+            "position": "pkg/compute/models/buckets.go:1015:48"
         },
         {
             "id": "object size limit exceeds",
             "message": "object size limit exceeds",
             "translation": "对象大小超出限制",
-            "position": "pkg/compute/models/buckets.go:1011:44"
+            "position": "pkg/compute/models/buckets.go:1019:44"
         },
         {
             "id": "bucket.GetQuotaKeys fail %s",
             "message": "bucket.GetQuotaKeys fail %s",
             "translation": "bucket.GetQuotaKeys调用出错：%s",
-            "position": "pkg/compute/models/buckets.go:1020:48"
+            "position": "pkg/compute/models/buckets.go:1028:48"
         },
         {
             "id": "put object error %s",
             "message": "put object error %s",
             "translation": "更新对象出错：%s",
-            "position": "pkg/compute/models/buckets.go:1035:48"
+            "position": "pkg/compute/models/buckets.go:1043:48"
         },
         {
             "id": "setAcl error %s",
             "message": "setAcl error %s",
             "translation": "setAcl调用出错：%s",
-            "position": "pkg/compute/models/buckets.go:1088:49"
+            "position": "pkg/compute/models/buckets.go:1096:49"
         },
         {
             "id": "syncWithCloudBucket error %s",
             "message": "syncWithCloudBucket error %s",
             "translation": "syncWithCloudBucket调用出错：%s",
-            "position": "pkg/compute/models/buckets.go:1093:49"
+            "position": "pkg/compute/models/buckets.go:1101:49"
         },
         {
             "id": "Bucket has %d task active, can't sync status",
             "message": "Bucket has %d task active, can't sync status",
             "translation": "桶当前有%d个活跃任务在执行，无法执行同步状态操作",
-            "position": "pkg/compute/models/buckets.go:1140:44"
+            "position": "pkg/compute/models/buckets.go:1148:44"
         },
         {
             "id": "not an empty bucket",
             "message": "not an empty bucket",
             "translation": "桶不为空",
-            "position": "pkg/compute/models/buckets.go:1188:37"
+            "position": "pkg/compute/models/buckets.go:1196:37"
         },
         {
             "id": "object %s not found",
             "message": "object %s not found",
             "translation": "找不到对象%s",
-            "position": "pkg/compute/models/buckets.go:1225:47"
+            "position": "pkg/compute/models/buckets.go:1233:47"
         },
         {
             "id": "iBucket.GetIObjects error %s",
             "message": "iBucket.GetIObjects error %s",
             "translation": "iBucket.GetIObjects调用出错：%s",
-            "position": "pkg/compute/models/buckets.go:1227:53"
+            "position": "pkg/compute/models/buckets.go:1235:53"
         },
         {
             "id": "iBucket.SetWebsite error %s",
             "message": "iBucket.SetWebsite error %s",
             "translation": "",
-            "position": "pkg/compute/models/buckets.go:1275:48"
+            "position": "pkg/compute/models/buckets.go:1283:48"
         },
         {
             "id": "iBucket.DeleteWebSiteConf error %s",
             "message": "iBucket.DeleteWebSiteConf error %s",
             "translation": "",
-            "position": "pkg/compute/models/buckets.go:1302:48"
+            "position": "pkg/compute/models/buckets.go:1310:48"
         },
         {
             "id": "iBucket.GetWebsiteConf error %s",
             "message": "iBucket.GetWebsiteConf error %s",
             "translation": "",
-            "position": "pkg/compute/models/buckets.go:1329:56"
+            "position": "pkg/compute/models/buckets.go:1337:56"
         },
         {
             "id": "cloudprovider.SetBucketCORS error %s",
             "message": "cloudprovider.SetBucketCORS error %s",
             "translation": "",
-            "position": "pkg/compute/models/buckets.go:1385:48"
+            "position": "pkg/compute/models/buckets.go:1393:48"
         },
         {
             "id": "iBucket.DeleteCORS error %s",
             "message": "iBucket.DeleteCORS error %s",
             "translation": "",
-            "position": "pkg/compute/models/buckets.go:1412:48"
+            "position": "pkg/compute/models/buckets.go:1420:48"
         },
         {
             "id": "iBucket.GetCORSRules error %s",
             "message": "iBucket.GetCORSRules error %s",
             "translation": "",
-            "position": "pkg/compute/models/buckets.go:1439:50"
+            "position": "pkg/compute/models/buckets.go:1447:50"
         },
         {
             "id": "iBucket.GetCdnDomains error %s",
             "message": "iBucket.GetCdnDomains error %s",
             "translation": "",
-            "position": "pkg/compute/models/buckets.go:1476:52"
+            "position": "pkg/compute/models/buckets.go:1484:52"
         },
         {
             "id": "iBucket.SetRefer error %s",
             "message": "iBucket.SetRefer error %s",
             "translation": "",
-            "position": "pkg/compute/models/buckets.go:1520:48"
+            "position": "pkg/compute/models/buckets.go:1528:48"
         },
         {
             "id": "iBucket.GetRefer error %s",
             "message": "iBucket.GetRefer error %s",
             "translation": "",
-            "position": "pkg/compute/models/buckets.go:1547:49"
+            "position": "pkg/compute/models/buckets.go:1555:49"
         },
         {
             "id": "iBucket.GetPolicy error %s",
             "message": "iBucket.GetPolicy error %s",
             "translation": "",
-            "position": "pkg/compute/models/buckets.go:1576:51"
+            "position": "pkg/compute/models/buckets.go:1584:51"
         },
         {
             "id": "iBucket.SetPolicy error %s",
             "message": "iBucket.SetPolicy error %s",
             "translation": "",
-            "position": "pkg/compute/models/buckets.go:1627:48"
+            "position": "pkg/compute/models/buckets.go:1635:48"
         },
         {
             "id": "iBucket.DeletePolicy error %s",
             "message": "iBucket.DeletePolicy error %s",
             "translation": "",
-            "position": "pkg/compute/models/buckets.go:1654:48"
+            "position": "pkg/compute/models/buckets.go:1662:48"
         },
         {
             "id": "unmarshal limit error %s",
             "message": "unmarshal limit error %s",
             "translation": "unmarshal limit参数出错：%s",
-            "position": "pkg/compute/models/buckets.go:1719:48"
+            "position": "pkg/compute/models/buckets.go:1727:48"
         },
         {
             "id": "SetLimit error %s",
             "message": "SetLimit error %s",
             "translation": "SetLimit调用出错：%s",
-            "position": "pkg/compute/models/buckets.go:1729:48"
+            "position": "pkg/compute/models/buckets.go:1737:48"
         },
         {
             "id": "Update error %s",
             "message": "Update error %s",
             "translation": "更新出错：%s",
-            "position": "pkg/compute/models/buckets.go:1739:48"
+            "position": "pkg/compute/models/buckets.go:1747:48"
         },
         {
             "id": "missing manager?",
             "message": "missing manager?",
             "translation": "找不到manager",
-            "position": "pkg/compute/models/buckets.go:1768:48"
+            "position": "pkg/compute/models/buckets.go:1776:48"
         },
         {
             "id": "iBucket.GetIObject error %s",
             "message": "iBucket.GetIObject error %s",
             "translation": "iBucket.GetIObject调用出错：%s",
-            "position": "pkg/compute/models/buckets.go:1853:56"
+            "position": "pkg/compute/models/buckets.go:1861:56"
         },
         {
             "id": "ValidateDeleteCondition error %s",
@@ -1652,142 +1652,148 @@
             "position": "pkg/compute/models/cloudaccounts.go:334:52"
         },
         {
+            "id": "valid wire_level_for_vmware, accept vcenter, datacenter, cluster",
+            "message": "valid wire_level_for_vmware, accept vcenter, datacenter, cluster",
+            "translation": "",
+            "position": "pkg/compute/models/cloudaccounts.go:423:48"
+        },
+        {
             "id": "not support for cloudaccount with provider '%s'",
             "message": "not support for cloudaccount with provider '%s'",
             "translation": "不支持provider为%s的云账号",
-            "position": "pkg/compute/models/cloudaccounts.go:367:49"
+            "position": "pkg/compute/models/cloudaccounts.go:435:49"
         },
         {
             "id": "Unsupported provider %s",
             "message": "Unsupported provider %s",
             "translation": "不支持%s",
-            "position": "pkg/compute/models/cloudaccounts.go:979:50"
+            "position": "pkg/compute/models/cloudaccounts.go:1072:50"
         },
         {
             "id": "Project %s(%s) not belong to domain %s(%s)",
             "message": "Project %s(%s) not belong to domain %s(%s)",
             "translation": "项目%s(%s)不属于域%s(%s)",
-            "position": "pkg/compute/models/cloudaccounts.go:995:51"
+            "position": "pkg/compute/models/cloudaccounts.go:1088:51"
         },
         {
             "id": "Not support brand %s, only support %s",
             "message": "Not support brand %s, only support %s",
             "translation": "不支持品牌%s，仅支持%s",
-            "position": "pkg/compute/models/cloudaccounts.go:1031:55"
+            "position": "pkg/compute/models/cloudaccounts.go:1124:55"
         },
         {
             "id": "check uniqness fail %s",
             "message": "check uniqness fail %s",
             "translation": "唯一性检查失败",
-            "position": "pkg/compute/models/cloudaccounts.go:1047:50"
+            "position": "pkg/compute/models/cloudaccounts.go:1140:50"
         },
         {
             "id": "The account has been registered",
             "message": "The account has been registered",
             "translation": "账户已被注册",
-            "position": "pkg/compute/models/cloudaccounts.go:1050:44"
+            "position": "pkg/compute/models/cloudaccounts.go:1143:44"
         },
         {
             "id": "no such provider %s",
             "message": "no such provider %s",
             "translation": "找不到provider %s",
-            "position": "pkg/compute/models/cloudaccounts.go:1076:53"
+            "position": "pkg/compute/models/cloudaccounts.go:1169:53"
         },
         {
             "id": "invalid cloud account info error: %s",
             "message": "invalid cloud account info error: %s",
             "translation": "无效的账号信息：%s",
-            "position": "pkg/compute/models/cloudaccounts.go:1079:50"
+            "position": "pkg/compute/models/cloudaccounts.go:1172:50"
         },
         {
             "id": "check account_id duplication error %s",
             "message": "check account_id duplication error %s",
             "translation": "检查重复account_id出错",
-            "position": "pkg/compute/models/cloudaccounts.go:1086:51"
+            "position": "pkg/compute/models/cloudaccounts.go:1179:51"
         },
         {
             "id": "the account has been registerd %s",
             "message": "the account has been registerd %s",
             "translation": "账号%s已被注册",
-            "position": "pkg/compute/models/cloudaccounts.go:1089:54"
+            "position": "pkg/compute/models/cloudaccounts.go:1182:54"
         },
         {
             "id": "Account disabled",
             "message": "Account disabled",
             "translation": "账号已禁用",
-            "position": "pkg/compute/models/cloudaccounts.go:1173:47"
+            "position": "pkg/compute/models/cloudaccounts.go:1266:47"
         },
         {
             "id": "Account auto sync enabled",
             "message": "Account auto sync enabled",
             "translation": "账号自动同步已启用",
-            "position": "pkg/compute/models/cloudaccounts.go:1176:47"
+            "position": "pkg/compute/models/cloudaccounts.go:1269:47"
         },
         {
             "id": "invalid input %s",
             "message": "invalid input %s",
             "translation": "无效的输入：%s",
-            "position": "pkg/compute/models/cloudaccounts.go:1181:48"
+            "position": "pkg/compute/models/cloudaccounts.go:1274:48"
         },
         {
             "id": "failed to found provider factory error: %v",
             "message": "failed to found provider factory error: %v",
             "translation": "无法找到provider工厂：%v",
-            "position": "pkg/compute/models/cloudaccounts.go:1200:44"
+            "position": "pkg/compute/models/cloudaccounts.go:1293:44"
         },
         {
             "id": "failed to unmarshal input params: %v",
             "message": "failed to unmarshal input params: %v",
             "translation": "unmarshal输入参数出错：%v",
-            "position": "pkg/compute/models/cloudaccounts.go:1240:48"
+            "position": "pkg/compute/models/cloudaccounts.go:1333:48"
         },
         {
             "id": "check uniqueness fail %s",
             "message": "check uniqueness fail %s",
             "translation": "检查唯一性出错：%s",
-            "position": "pkg/compute/models/cloudaccounts.go:1257:49"
+            "position": "pkg/compute/models/cloudaccounts.go:1350:49"
         },
         {
             "id": "account %s conflict",
             "message": "account %s conflict",
             "translation": "账号%s出现冲突",
-            "position": "pkg/compute/models/cloudaccounts.go:1260:43"
+            "position": "pkg/compute/models/cloudaccounts.go:1353:43"
         },
         {
             "id": "inconsistent account_id, previous '%s' and now '%s'",
             "message": "inconsistent account_id, previous '%s' and now '%s'",
             "translation": "account_id不一致，之前为%q，现在为%q",
-            "position": "pkg/compute/models/cloudaccounts.go:1278:42"
+            "position": "pkg/compute/models/cloudaccounts.go:1371:42"
         },
         {
             "id": "project %s not found",
             "message": "project %s not found",
             "translation": "找不到项目%s",
-            "position": "pkg/compute/models/cloudaccounts.go:2074:42"
+            "position": "pkg/compute/models/cloudaccounts.go:2167:42"
         },
         {
             "id": "cannot enable auto sync in status %s",
             "message": "cannot enable auto sync in status %s",
             "translation": "状态为%s时无法启用自动同步",
-            "position": "pkg/compute/models/cloudaccounts.go:2250:47"
+            "position": "pkg/compute/models/cloudaccounts.go:2343:47"
         },
         {
             "id": "provider is shared outside of domain",
             "message": "provider is shared outside of domain",
             "translation": "provider在域间共享",
-            "position": "pkg/compute/models/cloudaccounts.go:2745:43"
+            "position": "pkg/compute/models/cloudaccounts.go:2838:43"
         },
         {
             "id": "%s not support",
             "message": "%s not support",
             "translation": "不支持%s",
-            "position": "pkg/compute/models/cloudaccounts.go:3156:46"
+            "position": "pkg/compute/models/cloudaccounts.go:3249:46"
         },
         {
             "id": "%s not support create subscription",
             "message": "%s not support create subscription",
             "translation": "%s不支持创建订阅",
-            "position": "pkg/compute/models/cloudaccounts.go:3178:46"
+            "position": "pkg/compute/models/cloudaccounts.go:3271:46"
         },
         {
             "id": "not allow to create",
@@ -6887,115 +6893,115 @@
             "id": "zone %s not in cloudregion %s",
             "message": "zone %s not in cloudregion %s",
             "translation": "",
-            "position": "pkg/compute/models/skus.go:339:45"
+            "position": "pkg/compute/models/skus.go:301:45"
         },
         {
             "id": "cpu_core_count should be range of 1~256",
             "message": "cpu_core_count should be range of 1~256",
             "translation": "cpu_core_count应在1～256范围内",
-            "position": "pkg/compute/models/skus.go:344:46"
+            "position": "pkg/compute/models/skus.go:306:46"
         },
         {
             "id": "memory_size_mb, shoud be range of 512~%d",
             "message": "memory_size_mb, shoud be range of 512~%d",
             "translation": "memory_size_mb应在512~%d范围内",
-            "position": "pkg/compute/models/skus.go:348:46"
+            "position": "pkg/compute/models/skus.go:310:46"
         },
         {
             "id": "instance_type_category shoud be one of %s",
             "message": "instance_type_category shoud be one of %s",
             "translation": "instance_type_category应是%s其中之一",
-            "position": "pkg/compute/models/skus.go:356:50"
+            "position": "pkg/compute/models/skus.go:318:50"
         },
         {
             "id": "checkout server sku name duplicate error: %v",
             "message": "checkout server sku name duplicate error: %v",
             "translation": "检查SKU重名时出错：%v",
-            "position": "pkg/compute/models/skus.go:379:51"
+            "position": "pkg/compute/models/skus.go:341:51"
         },
         {
             "id": "Duplicate sku %s",
             "message": "Duplicate sku %s",
             "translation": "重复的SKU %s",
-            "position": "pkg/compute/models/skus.go:382:54"
+            "position": "pkg/compute/models/skus.go:344:54"
         },
         {
             "id": "instance specs list query error",
             "message": "instance specs list query error",
             "translation": "实例规格列表查询出错",
-            "position": "pkg/compute/models/skus.go:593:44"
+            "position": "pkg/compute/models/skus.go:555:44"
         },
         {
             "id": "can not update instance_type for public cloud %s",
             "message": "can not update instance_type for public cloud %s",
             "translation": "无法变更公有云%s SKU的实例类型",
-            "position": "pkg/compute/models/skus.go:643:45"
+            "position": "pkg/compute/models/skus.go:605:45"
         },
         {
             "id": "Cannot change server sku name",
             "message": "Cannot change server sku name",
             "translation": "无法变更SKU名称",
-            "position": "pkg/compute/models/skus.go:647:54"
+            "position": "pkg/compute/models/skus.go:609:54"
         },
         {
             "id": "check instance",
             "message": "check instance",
             "translation": "检查实例出错",
-            "position": "pkg/compute/models/skus.go:693:43"
+            "position": "pkg/compute/models/skus.go:655:43"
         },
         {
             "id": "now allow to delete inuse instance_type.please remove related servers first: %s",
             "message": "now allow to delete inuse instance_type.please remove related servers first: %s",
             "translation": "不允许删除正在使用中的实例类型，请先移除相关的虚机：%s",
-            "position": "pkg/compute/models/skus.go:696:37"
+            "position": "pkg/compute/models/skus.go:658:37"
         },
         {
             "id": "not allow to delete public cloud instance_type: %s",
             "message": "not allow to delete public cloud instance_type: %s",
             "translation": "不允许删除公有云instance_type：%s",
-            "position": "pkg/compute/models/skus.go:700:38"
+            "position": "pkg/compute/models/skus.go:662:38"
         },
         {
             "id": "failed to find cloudregion for zone %s(%s)",
             "message": "failed to find cloudregion for zone %s(%s)",
             "translation": "查找zone %s(%s)所属的cloudregion失败",
-            "position": "pkg/compute/models/skus.go:817:51"
+            "position": "pkg/compute/models/skus.go:779:51"
         },
         {
             "id": "duplicate instanceType %s",
             "message": "duplicate instanceType %s",
             "translation": "实例类型%s重复",
-            "position": "pkg/compute/models/skus.go:951:53"
+            "position": "pkg/compute/models/skus.go:913:53"
         },
         {
             "id": "query sku list failed.",
             "message": "query sku list failed.",
             "translation": "查询SKU列表出错",
-            "position": "pkg/compute/models/skus.go:1025:43"
+            "position": "pkg/compute/models/skus.go:987:43"
         },
         {
             "id": "delete sku %s failed.",
             "message": "delete sku %s failed.",
             "translation": "删除SKU %s失败",
-            "position": "pkg/compute/models/skus.go:1036:44"
+            "position": "pkg/compute/models/skus.go:998:44"
         },
         {
             "id": "Only support cache sku for private cloud",
             "message": "Only support cache sku for private cloud",
             "translation": "仅支持缓存私有云SKU",
-            "position": "pkg/compute/models/skus.go:1055:48"
+            "position": "pkg/compute/models/skus.go:1017:48"
         },
         {
             "id": "failed to get cloudprovider for region %s(%s)",
             "message": "failed to get cloudprovider for region %s(%s)",
             "translation": "获取region %s(%s)所属cloudprovider失败",
-            "position": "pkg/compute/models/skus.go:1060:48"
+            "position": "pkg/compute/models/skus.go:1022:48"
         },
         {
             "id": "cloudprovider %s(%s) disabled",
             "message": "cloudprovider %s(%s) disabled",
             "translation": "cloudprovider %s(%s)已被禁用",
-            "position": "pkg/compute/models/skus.go:1064:48"
+            "position": "pkg/compute/models/skus.go:1026:48"
         },
         {
             "id": "Retention days must in 1~%d or -1",
@@ -8243,7 +8249,7 @@
             "id": "redis version 2.8 not support create account",
             "message": "redis version 2.8 not support create account",
             "translation": "腾讯云Redis 2.8版本不支持创建账号",
-            "position": "pkg/compute/regiondrivers/qcloud.go:1697:46"
+            "position": "pkg/compute/regiondrivers/qcloud.go:1700:46"
         },
         {
             "id": "Empty spec query key",
@@ -8576,9 +8582,9 @@
             "position": "pkg/httperrors/errors.go:52:37"
         },
         {
-            "id": "password must be 12 chars of at least one digit, letter, uppercase letter and punctuate of @^-+=",
-            "message": "password must be 12 chars of at least one digit, letter, uppercase letter and punctuate of @^-+=",
-            "translation": "密码长度至少12个字符，且内容包含数字、大小写字母和标点符号@^-+=",
+            "id": "password must be 12 chars of at least one digit, letter, uppercase letter and punctuate",
+            "message": "密码长度至少12个字符，且内容包含数字、大小写字母和标点符号",
+            "translation": "",
             "position": "pkg/httperrors/errors.go:89:37"
         },
         {
@@ -9455,31 +9461,31 @@
             "id": "Invalid level format: %s",
             "message": "Invalid level format: %s",
             "translation": "",
-            "position": "pkg/monitor/models/commonalert.go:103:49"
+            "position": "pkg/monitor/models/commonalert.go:104:49"
         },
         {
             "id": "Invalid period format: %s",
             "message": "Invalid period format: %s",
             "translation": "",
-            "position": "pkg/monitor/models/commonalert.go:106:49"
+            "position": "pkg/monitor/models/commonalert.go:107:49"
         },
         {
             "id": "the AlertType is illegal:%s",
             "message": "the AlertType is illegal:%s",
             "translation": "",
-            "position": "pkg/monitor/models/commonalert.go:135:50"
+            "position": "pkg/monitor/models/commonalert.go:136:50"
         },
         {
             "id": "Cannot delete system alert",
             "message": "Cannot delete system alert",
             "translation": "",
-            "position": "pkg/monitor/models/commonalert.go:425:42"
+            "position": "pkg/monitor/models/commonalert.go:426:42"
         },
         {
             "id": "threshold:%s should be number type",
             "message": "threshold:%s should be number type",
             "translation": "",
-            "position": "pkg/monitor/models/commonalert.go:970:50"
+            "position": "pkg/monitor/models/commonalert.go:971:50"
         },
         {
             "id": "Default data source not found",
@@ -9542,84 +9548,6 @@
             "position": "pkg/monitor/models/query_signature.go:35:39"
         },
         {
-            "id": "not found res_id %q",
-            "message": "not found res_id %q",
-            "translation": "",
-            "position": "pkg/monitor/models/suggestsysalert.go:200:49"
-        },
-        {
-            "id": "not found type %q",
-            "message": "not found type %q",
-            "translation": "",
-            "position": "pkg/monitor/models/suggestsysalert.go:203:49"
-        },
-        {
-            "id": "type %s rule already exists",
-            "message": "type %s rule already exists",
-            "translation": "",
-            "position": "pkg/monitor/models/suggestsysrule.go:173:53"
-        },
-        {
-            "id": "no found rule setting",
-            "message": "no found rule setting",
-            "translation": "",
-            "position": "pkg/monitor/models/suggestsysrule.go:179:51"
-        },
-        {
-            "id": "Invalid time_from format: %s",
-            "message": "Invalid time_from format: %s",
-            "translation": "",
-            "position": "pkg/monitor/models/suggestsysrule.go:370:50"
-        },
-        {
-            "id": "SuggestSysRuleConfig type is empty",
-            "message": "SuggestSysRuleConfig type is empty",
-            "translation": "",
-            "position": "pkg/monitor/models/suggestsysruleconfig.go:254:48"
-        },
-        {
-            "id": "project or domain is empty",
-            "message": "project or domain is empty",
-            "translation": "",
-            "position": "pkg/monitor/models/suggestsysruleconfig.go:261:48"
-        },
-        {
-            "id": "not found resource_type %q",
-            "message": "not found resource_type %q",
-            "translation": "",
-            "position": "pkg/monitor/models/suggestsysruleconfig.go:332:43"
-        },
-        {
-            "id": "not found driver by type %q",
-            "message": "not found driver by type %q",
-            "translation": "",
-            "position": "pkg/monitor/models/suggestsysruleconfig.go:337:44"
-        },
-        {
-            "id": "resource type %q of driver does not match input %q",
-            "message": "resource type %q of driver does not match input %q",
-            "translation": "",
-            "position": "pkg/monitor/models/suggestsysruleconfig.go:340:49"
-        },
-        {
-            "id": "resource type must provided when resource_id specified",
-            "message": "resource type must provided when resource_id specified",
-            "translation": "",
-            "position": "pkg/monitor/models/suggestsysruleconfig.go:345:47"
-        },
-        {
-            "id": "type or resource_type must provided",
-            "message": "type or resource_type must provided",
-            "translation": "",
-            "position": "pkg/monitor/models/suggestsysruleconfig.go:348:47"
-        },
-        {
-            "id": "not found rule by type %q",
-            "message": "not found rule by type %q",
-            "translation": "",
-            "position": "pkg/monitor/models/suggestsysruleconfig.go:363:42"
-        },
-        {
             "id": "Invalid interval format: %s",
             "message": "Invalid interval format: %s",
             "translation": "",
@@ -9630,12 +9558,6 @@
             "message": "Unsupported notification type",
             "translation": "",
             "position": "pkg/monitor/notifydrivers/drivers.go:29:2"
-        },
-        {
-            "id": "the evalType is illegal",
-            "message": "the evalType is illegal",
-            "translation": "",
-            "position": "pkg/monitor/suggestsysdrivers/influxdbbasedriver.go:58:44"
         },
         {
             "id": "Influxdb invalid status",
@@ -9761,7 +9683,7 @@
             "id": "invalid characters %s",
             "message": "invalid characters %s",
             "translation": "不支持的字符 %s",
-            "position": "pkg/util/seclib2/seclib.go:130:43"
+            "position": "pkg/util/seclib2/seclib.go:131:43"
         },
         {
             "id": "check name duplication fail %s",
