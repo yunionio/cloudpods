@@ -104,7 +104,7 @@ func AnalyzePasswordStrenth(passwd string) PasswordStrength {
 			ps.Lowercases += 1
 		} else if strings.IndexByte(ALL_UPPERS, passwd[i]) >= 0 {
 			ps.Uppercases += 1
-		} else if strings.IndexByte(PUNC, passwd[i]) >= 0 {
+		} else if strings.IndexByte(ALL_PUNC, passwd[i]) >= 0 {
 			ps.Punctuats += 1
 		} else {
 			ps.Invalid = append(ps.Invalid, passwd[i])
