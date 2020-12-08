@@ -39,7 +39,10 @@ type HostState struct {
 type SZone struct {
 	region *SRegion
 
-	ZoneName string
+	ZoneName  string
+	ZoneState ZoneState
+
+	Hosts map[string]jsonutils.JSONObject
 
 	hosts []SHypervisor
 }
@@ -65,7 +68,10 @@ func (zone *SZone) IsEmulated() bool {
 }
 
 func (zone *SZone) GetStatus() string {
-	return api.ZONE_ENABLE
+	if zone.ZoneState.Available {
+		return api.ZONE_ENABLE
+	}
+	return api.ZONE_DISABLE
 }
 
 func (zone *SZone) Refresh() error {
@@ -158,6 +164,9 @@ func (zone *SZone) fetchHosts() error {
 		hypervisor := strings.ToLower(hypervisors[i].HypervisorType)
 		// 过滤vmware的机器
 		if strings.Index(hypervisor, "vmware") != -1 {
+			continue
+		}
+		if _, ok := zone.Hosts[hypervisors[i].GetName()]; !ok {
 			continue
 		}
 		zone.hosts = append(zone.hosts, hypervisors[i])
