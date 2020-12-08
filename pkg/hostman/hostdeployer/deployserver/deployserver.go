@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"regexp"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -29,7 +28,6 @@ import (
 	execlient "yunion.io/x/executor/client"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/stringutils"
 
 	comapi "yunion.io/x/onecloud/pkg/apis/compute"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
@@ -44,8 +42,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 	"yunion.io/x/onecloud/pkg/util/winutils"
 )
-
-const CENTOS_VGNAME = "centos"
 
 type DeployerServer struct{}
 
@@ -354,32 +350,6 @@ func (s *SDeployService) PrepareEnv() error {
 		}
 	} else {
 		winutils.SetChntpwPath(DeployOption.ChntpwPath)
-	}
-
-	output, err = procutils.NewCommand("pvscan").Output()
-	if err != nil {
-		log.Errorf("Failed exec lvm command pvscan: %s", output)
-	}
-	output, err = procutils.NewCommand("vgdisplay").Output()
-	if err == nil {
-		re := regexp.MustCompile(`\s+`)
-		for _, line := range strings.Split(string(output), "\n") {
-			s := strings.TrimSpace(line)
-			if strings.HasPrefix(s, "VG Name") {
-				data := re.Split(s, -1)
-				if len(data) == 3 {
-					vgName := data[2]
-					if vgName == CENTOS_VGNAME {
-						vgNewName := stringutils.UUID4()
-						output, err := procutils.NewCommand("vgrename", vgName, vgNewName).Output()
-						if err != nil {
-							log.Errorf("vg rename failed %s %s", err, output)
-						}
-						log.Infof("vg name %s rename to %s success", vgName, vgNewName)
-					}
-				}
-			}
-		}
 	}
 	return nil
 }
