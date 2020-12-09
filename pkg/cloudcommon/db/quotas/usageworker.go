@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -61,6 +62,12 @@ func isDirty(key string) bool {
 }
 
 func (manager *SQuotaBaseManager) PostUsageJob(keys IQuotaKeys, usageChan chan IQuota, realTime bool) {
+	if !consts.EnableQuotaCheck() {
+		go func() {
+			usageChan <- nil
+		}()
+		return
+	}
 	key := QuotaKeyString(keys)
 	setDirty(key)
 
@@ -105,6 +112,10 @@ func (manager *SQuotaBaseManager) PostUsageJob(keys IQuotaKeys, usageChan chan I
 }
 
 func (manager *SQuotaBaseManager) CalculateQuotaUsages(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	if !consts.EnableQuotaCheck() {
+		return
+	}
+
 	log.Infof("CalculateQuotaUsages")
 	quota := manager.newQuota()
 	keys := quota.GetKeys()

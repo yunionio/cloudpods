@@ -317,22 +317,22 @@ func (used *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
 	sreq := request.(*SQuota)
 	squota := quota.(*SQuota)
 	if quotas.Exceed(used.Count, sreq.Count, squota.Count) {
-		err.Add("count", squota.Count, used.Count, sreq.Count)
+		err.Add(used, "count", squota.Count, used.Count, sreq.Count)
 	}
 	if quotas.Exceed(used.Cpu, sreq.Cpu, squota.Cpu) {
-		err.Add("cpu", squota.Cpu, used.Cpu, sreq.Cpu)
+		err.Add(used, "cpu", squota.Cpu, used.Cpu, sreq.Cpu)
 	}
 	if quotas.Exceed(used.Memory, sreq.Memory, squota.Memory) {
-		err.Add("memory", squota.Memory, used.Memory, sreq.Memory)
+		err.Add(used, "memory", squota.Memory, used.Memory, sreq.Memory)
 	}
 	if quotas.Exceed(used.Storage, sreq.Storage, squota.Storage) {
-		err.Add("storage", squota.Storage, used.Storage, sreq.Storage)
+		err.Add(used, "storage", squota.Storage, used.Storage, sreq.Storage)
 	}
 	if quotas.Exceed(used.Group, sreq.Group, squota.Group) {
-		err.Add("group", squota.Group, used.Group, sreq.Group)
+		err.Add(used, "group", squota.Group, used.Group, sreq.Group)
 	}
 	if quotas.Exceed(used.IsolatedDevice, sreq.IsolatedDevice, squota.IsolatedDevice) {
-		err.Add("isolated_device", squota.IsolatedDevice, used.IsolatedDevice, sreq.IsolatedDevice)
+		err.Add(used, "isolated_device", squota.IsolatedDevice, used.IsolatedDevice, sreq.IsolatedDevice)
 	}
 	if err.IsError() {
 		return err

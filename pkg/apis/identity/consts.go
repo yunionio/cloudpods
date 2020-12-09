@@ -99,6 +99,7 @@ var (
 
 	CommonWhitelistOptionMap = map[string][]string{
 		"default": []string{
+			"enable_quota_check",
 			"default_quota_value",
 			"enable_rbac",
 			"non_default_domain_projects",

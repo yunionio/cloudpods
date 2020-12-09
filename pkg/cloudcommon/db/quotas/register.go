@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -57,6 +58,10 @@ func getQuotaManager(quota IQuota) IQuotaManager {
 }
 
 func CancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, localUsage IQuota, cancelUsage IQuota, save bool) error {
+	if !consts.EnableQuotaCheck() {
+		return nil
+	}
+
 	if localUsage == nil {
 		return nil
 	}
@@ -65,6 +70,10 @@ func CancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, 
 }
 
 func CheckSetPendingQuota(ctx context.Context, userCred mcclient.TokenCredential, quota IQuota) error {
+	if !consts.EnableQuotaCheck() {
+		return nil
+	}
+
 	manager := getQuotaManager(quota)
 	err := manager.checkSetPendingQuota(ctx, userCred, quota)
 	if err != nil {
@@ -75,6 +84,9 @@ func CheckSetPendingQuota(ctx context.Context, userCred mcclient.TokenCredential
 }
 
 func CancelUsages(ctx context.Context, userCred mcclient.TokenCredential, usages []db.IUsage) {
+	if !consts.EnableQuotaCheck() {
+		return
+	}
 	for _, usage := range usages {
 		cancelUsage(ctx, userCred, usage.(IQuota))
 	}
@@ -89,6 +101,9 @@ func cancelUsage(ctx context.Context, userCred mcclient.TokenCredential, usage I
 }
 
 func AddUsages(ctx context.Context, userCred mcclient.TokenCredential, usages []db.IUsage) {
+	if !consts.EnableQuotaCheck() {
+		return
+	}
 	for _, usage := range usages {
 		addUsage(ctx, userCred, usage.(IQuota))
 	}
