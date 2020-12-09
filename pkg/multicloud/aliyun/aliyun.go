@@ -61,6 +61,7 @@ const (
 	ALIYUN_ALIDNS_API_VERSION = "2015-01-09"
 	ALIYUN_CBN_API_VERSION    = "2017-09-12"
 	ALIYUN_CDN_API_VERSION    = "2018-05-10"
+	ALIYUN_IMS_API_VERSION    = "2019-08-15"
 )
 
 var (
@@ -236,6 +237,14 @@ func (self *SAliyunClient) getDefaultClient() (*sdk.Client, error) {
 		},
 	)
 	return client, err
+}
+
+func (self *SAliyunClient) imsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := self.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return jsonRequest(cli, "ims.aliyuncs.com", ALIYUN_IMS_API_VERSION, apiName, params, self.debug)
 }
 
 func (self *SAliyunClient) rmRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -532,6 +541,7 @@ func (region *SAliyunClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_EVENT,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
 		cloudprovider.CLOUD_CAPABILITY_DNSZONE,
+		cloudprovider.CLOUD_CAPABILITY_SAML_AUTH,
 	}
 	return caps
 }
