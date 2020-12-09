@@ -776,7 +776,13 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "region.DeleteVM(%s)", self.InstanceId)
 	}
-	return cloudprovider.WaitDeleted(self, 10*time.Second, 20*time.Minute) // 20minutes
+	if self.GetBillingType() == billing_api.BILLING_TYPE_PREPAID { // 预付费的需要删除两次
+		err := self.host.zone.region.DeleteVM(self.InstanceId)
+		if err != nil {
+			return errors.Wrapf(err, "region.DeleteVM(%s)", self.InstanceId)
+		}
+	}
+	return cloudprovider.WaitDeleted(self, 10*time.Second, 5*time.Minute) // 5minutes
 }
 
 func (self *SRegion) UpdateVM(instanceId string, name, osType string) error {
