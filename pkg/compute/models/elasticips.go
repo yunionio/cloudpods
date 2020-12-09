@@ -800,14 +800,17 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 		}
 		return input, httperrors.NewResourceNotFoundError2("cloudregion", input.CloudregionId)
 	}
-	region := obj.(*SCloudregion)
+	var (
+		region       = obj.(*SCloudregion)
+		regionDriver = region.GetDriver()
+	)
 	input.CloudregionId = region.GetId()
 
 	// publicIp cannot be created standalone
 	input.Mode = api.EIP_MODE_STANDALONE_EIP
 
-	if len(input.ChargeType) == 0 {
-		input.ChargeType = api.EIP_CHARGE_TYPE_DEFAULT
+	if input.ChargeType == "" {
+		input.ChargeType = regionDriver.GetEipDefaultChargeType()
 	}
 
 	if !utils.IsInStringArray(input.ChargeType, []string{api.EIP_CHARGE_TYPE_BY_BANDWIDTH, api.EIP_CHARGE_TYPE_BY_TRAFFIC}) {
@@ -819,7 +822,7 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 		return input, err
 	}
 
-	err = region.GetDriver().ValidateCreateEipData(ctx, userCred, &input)
+	err = regionDriver.ValidateCreateEipData(ctx, userCred, &input)
 	if err != nil {
 		return input, err
 	}
@@ -1219,9 +1222,13 @@ func (self *SElasticip) getMoreDetails(out api.ElasticipDetails) api.ElasticipDe
 func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCred mcclient.TokenCredential, vm *SGuest,
 	host *SHost, bw int, chargeType string, autoDellocate bool, pendingUsage quotas.IQuota) (*SElasticip, error) {
 	region := host.GetRegion()
+	regionDriver := region.GetDriver()
 
-	if len(chargeType) == 0 {
-		chargeType = api.EIP_CHARGE_TYPE_BY_TRAFFIC
+	if chargeType == "" {
+		chargeType = regionDriver.GetEipDefaultChargeType()
+	}
+	if err := regionDriver.ValidateEipChargeType(chargeType); err != nil {
+		return nil, err
 	}
 
 	eip := &SElasticip{}
@@ -1239,7 +1246,9 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 	eip.ManagerId = host.ManagerId
 	eip.CloudregionId = region.Id
 	eip.Name = fmt.Sprintf("eip-for-%s", vm.GetName())
+
 	if host.ManagerId == "" {
+
 		hostq := HostManager.Query().SubQuery()
 		wireq := WireManager.Query().SubQuery()
 		hostwireq := HostwireManager.Query().SubQuery()
