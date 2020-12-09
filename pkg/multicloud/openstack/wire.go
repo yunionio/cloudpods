@@ -87,13 +87,24 @@ func (wire *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, e
 			return networks[i], nil
 		}
 	}
-	return nil, cloudprovider.ErrNotFound
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, netid)
 }
 
 func (wire *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
-	networks, err := wire.vpc.region.GetNetworks(wire.vpc.Id)
+	_networks, err := wire.vpc.region.GetNetworks(wire.vpc.Id)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetNetworks(%s)", wire.vpc.Id)
+	}
+	networks := []SNetwork{}
+	for i := range _networks {
+		pools := _networks[i].AllocationPools
+		for j := range pools {
+			if !pools[j].IsValid() {
+				continue
+			}
+			_networks[i].AllocationPools = []AllocationPool{pools[j]}
+			networks = append(networks, _networks[i])
+		}
 	}
 	inetworks := []cloudprovider.ICloudNetwork{}
 	for i := range networks {
