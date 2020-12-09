@@ -199,7 +199,7 @@ mod:
 	go mod vendor -v
 
 
-DOCKER_CENTOS_BUILD_IMAGE?=registry.cn-beijing.aliyuncs.com/yunionio/centos-build:1.1-1
+DOCKER_CENTOS_BUILD_IMAGE?=registry.cn-beijing.aliyuncs.com/yunionio/centos-build:1.1-2
 
 define dockerCentOSBuildCmd
 set -o xtrace

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package guestfs
+package kvmpart
 
 import (
 	"fmt"
@@ -24,6 +24,8 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/hostman/guestfs"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -37,6 +39,8 @@ type SKVMGuestDiskPartition struct {
 	sourceDev string
 	IsLVMPart bool
 }
+
+var _ fsdriver.IDiskPartition = &SKVMGuestDiskPartition{}
 
 func NewKVMGuestDiskPartition(devPath, sourceDev string, isLVM bool) *SKVMGuestDiskPartition {
 	var res = new(SKVMGuestDiskPartition)
@@ -79,7 +83,7 @@ func (p *SKVMGuestDiskPartition) GetPartDev() string {
 }
 
 func (p *SKVMGuestDiskPartition) IsReadonly() bool {
-	return IsPartitionReadonly(p)
+	return guestfs.IsPartitionReadonly(p)
 }
 
 func (p *SKVMGuestDiskPartition) getFsFormat() string {

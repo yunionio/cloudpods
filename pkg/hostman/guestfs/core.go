@@ -24,7 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 
-	fsdriver "yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
@@ -42,13 +42,13 @@ func testRootfs(d fsdriver.IRootFsDriver) bool {
 	caseInsensitive := d.IsFsCaseInsensitive()
 	for _, rd := range d.RootSignatures() {
 		if !d.GetPartition().Exists(rd, caseInsensitive) {
-			log.Infof("[%s] test root fs: %s not exists", d, rd)
+			log.Debugf("[%s] test root fs: %s not exists", d, rd)
 			return false
 		}
 	}
 	for _, rd := range d.RootExcludeSignatures() {
 		if d.GetPartition().Exists(rd, caseInsensitive) {
-			log.Infof("[%s] test root fs: %s exists, test failed", d, rd)
+			log.Debugf("[%s] test root fs: %s exists, test failed", d, rd)
 			return false
 		}
 	}

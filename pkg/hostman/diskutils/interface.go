@@ -34,14 +34,26 @@ type DiskParams struct {
 	VddkInfo   *apis.VDDKConInfo
 }
 
-func GetIDisk(params DiskParams) IDisk {
+func GetIDisk(params DiskParams, driver string) IDisk {
 	hypervisor := params.Hypervisor
 	switch hypervisor {
 	case comapi.HYPERVISOR_KVM:
-		return NewKVMGuestDisk(params.DiskPath)
+		return NewKVMGuestDisk(params.DiskPath, driver)
 	case comapi.HYPERVISOR_ESXI:
-		return NewVDDKDisk(params.VddkInfo, params.DiskPath)
+		return NewVDDKDisk(params.VddkInfo, params.DiskPath, driver)
 	default:
-		return NewKVMGuestDisk(params.DiskPath)
+		return NewKVMGuestDisk(params.DiskPath, driver)
 	}
+}
+
+type IDeployer interface {
+	Connect() error
+	Disconnect() error
+
+	GetPartitions() []fsdriver.IDiskPartition
+	IsLVMPartition() bool
+	Zerofree()
+	ResizePartition() error
+	FormatPartition(fs, uuid string) error
+	MakePartition(fs string) error
 }

@@ -30,13 +30,14 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	comapi "yunion.io/x/onecloud/pkg/apis/compute"
-	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils"
+	"yunion.io/x/onecloud/pkg/hostman/diskutils/libguestfs"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils/nbd"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/consts"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
@@ -66,7 +67,7 @@ func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployP
 		Hypervisor: req.GuestDesc.Hypervisor,
 		DiskPath:   req.DiskPath,
 		VddkInfo:   req.VddkInfo,
-	})
+	}, DeployOption.ImageDeployDriver)
 	if len(req.GuestDesc.Hypervisor) == 0 {
 		req.GuestDesc.Hypervisor = comapi.HYPERVISOR_KVM
 	}
@@ -109,7 +110,7 @@ func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsPara
 		Hypervisor: req.Hypervisor,
 		DiskPath:   req.DiskPath,
 		VddkInfo:   req.VddkInfo,
-	})
+	}, DeployOption.ImageDeployDriver)
 	defer disk.Disconnect()
 	if err := disk.Connect(); err != nil {
 		return new(deployapi.Empty), errors.Wrap(err, "disk connect failed")
@@ -128,7 +129,7 @@ func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsPara
 
 func (*DeployerServer) FormatFs(ctx context.Context, req *deployapi.FormatFsParams) (*deployapi.Empty, error) {
 	log.Infof("********* Format fs on %s", req.DiskPath)
-	gd := diskutils.NewKVMGuestDisk(req.DiskPath)
+	gd := diskutils.NewKVMGuestDisk(req.DiskPath, DeployOption.ImageDeployDriver)
 	defer gd.Disconnect()
 	if err := gd.Connect(); err == nil {
 		if err := gd.MakePartition(req.FsFormat); err == nil {
@@ -148,7 +149,7 @@ func (*DeployerServer) FormatFs(ctx context.Context, req *deployapi.FormatFsPara
 func (*DeployerServer) SaveToGlance(ctx context.Context, req *deployapi.SaveToGlanceParams) (*deployapi.SaveToGlanceResponse, error) {
 	log.Infof("********* %s save to glance", req.DiskPath)
 	var (
-		kvmDisk = diskutils.NewKVMGuestDisk(req.DiskPath)
+		kvmDisk = diskutils.NewKVMGuestDisk(req.DiskPath, DeployOption.ImageDeployDriver)
 		osInfo  string
 		relInfo *deployapi.ReleaseInfo
 	)
@@ -198,7 +199,7 @@ func getImageInfo(kvmDisk *diskutils.SKVMGuestDisk, rootfs fsdriver.IRootFsDrive
 
 func (*DeployerServer) ProbeImageInfo(ctx context.Context, req *deployapi.ProbeImageInfoPramas) (*deployapi.ImageInfo, error) {
 	log.Infof("********* %s probe image info", req.DiskPath)
-	kvmDisk := diskutils.NewKVMGuestDisk(req.DiskPath)
+	kvmDisk := diskutils.NewKVMGuestDisk(req.DiskPath, DeployOption.ImageDeployDriver)
 	defer kvmDisk.Disconnect()
 	if err := kvmDisk.Connect(); err != nil {
 		log.Infof("Failed to connect kvm disk %s: %s", req.DiskPath, err)
@@ -229,7 +230,7 @@ func (*DeployerServer) ConnectEsxiDisks(
 	)
 	ret.Disks = make([]*deployapi.EsxiDiskInfo, len(req.AccessInfo))
 	for i := 0; i < len(req.AccessInfo); i++ {
-		disk := diskutils.NewVDDKDisk(req.VddkInfo, req.AccessInfo[i].DiskPath)
+		disk := diskutils.NewVDDKDisk(req.VddkInfo, req.AccessInfo[i].DiskPath, DeployOption.ImageDeployDriver)
 		flatFilePath, err = disk.ConnectBlockDevice()
 		if err != nil {
 			err = errors.Wrapf(err, "disk %s connect block device", req.AccessInfo[i].DiskPath)
@@ -355,10 +356,9 @@ func (s *SDeployService) PrepareEnv() error {
 }
 
 func (s *SDeployService) InitService() {
-	common_options.ParseOptions(&DeployOption, os.Args, "host.conf", "deploy-server")
-	log.Infof("exec socket path: %s", DeployOption.ExecSocketPath)
+	log.Infof("exec socket path: %s", DeployOption.ExecutorSocketPath)
 	if DeployOption.EnableRemoteExecutor {
-		execlient.Init(DeployOption.ExecSocketPath)
+		execlient.Init(DeployOption.ExecutorSocketPath)
 		procutils.SetRemoteExecutor()
 	}
 
@@ -367,6 +367,11 @@ func (s *SDeployService) InitService() {
 	}
 	if err := fsdriver.Init(DeployOption.PrivatePrefixes, DeployOption.CloudrootDir); err != nil {
 		log.Fatalln(err)
+	}
+	if DeployOption.ImageDeployDriver == consts.DEPLOY_DRIVER_LIBGUESTFS {
+		if err := libguestfs.Init(3); err != nil {
+			log.Fatalln(err)
+		}
 	}
 	s.O = &DeployOption.BaseOptions
 	if len(DeployOption.DeployServerSocketPath) == 0 {
