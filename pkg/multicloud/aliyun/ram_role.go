@@ -18,7 +18,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type sRoles struct {
@@ -41,6 +44,91 @@ type SRole struct {
 	RoleName    string
 
 	AssumeRolePolicyDocument string
+}
+
+func (self *SRole) GetGlobalId() string {
+	return self.Arn
+}
+
+func (self *SRole) GetName() string {
+	return self.RoleName
+}
+
+func (self *SRole) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	policies, err := self.client.ListPoliciesForRole(self.RoleName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListPoliciesForRole")
+	}
+	ret := []cloudprovider.ICloudpolicy{}
+	for i := range policies {
+		policies[i].client = self.client
+		ret = append(ret, &policies[i])
+	}
+	return ret, nil
+}
+
+func (self *SRole) AttachPolicy(policyName string) error {
+	return self.client.AttachPolicy2Role("System", policyName, self.RoleName)
+}
+
+func (self *SRole) DetachPolicy(policyName string) error {
+	return self.client.DetachPolicyFromRole("System", policyName, self.RoleName)
+}
+
+func (self *SRole) Delete() error {
+	return self.client.DeleteRole(self.RoleName)
+}
+
+func (self *SRole) GetDocument() *jsonutils.JSONDict {
+	role, err := self.client.GetRole(self.RoleName)
+	if err != nil {
+		return nil
+	}
+	documet, err := jsonutils.Parse([]byte(role.AssumeRolePolicyDocument))
+	if err != nil {
+		return nil
+	}
+	return documet.(*jsonutils.JSONDict)
+}
+
+func (self *SRole) GetSAMLProvider() string {
+	document := self.GetDocument()
+	if document != nil {
+		statement, err := document.GetArray("Statement")
+		if err == nil {
+			for i := range statement {
+				if action, _ := statement[i].GetString("Action"); action == "sts:AssumeRole" {
+					sp, _ := statement[i].GetString("Principal", "Federated")
+					if len(sp) > 0 {
+						return sp
+					}
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func (self *SAliyunClient) GetICloudroles() ([]cloudprovider.ICloudrole, error) {
+	roles := []SRole{}
+	marker := ""
+	for {
+		part, err := self.ListRoles(marker, 1000)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ListRoles(%s)", marker)
+		}
+		roles = append(roles, part.Roles.Role...)
+		if len(part.Marker) == 0 {
+			break
+		}
+		marker = part.Marker
+	}
+	ret := []cloudprovider.ICloudrole{}
+	for i := range roles {
+		roles[i].client = self
+		ret = append(ret, &roles[i])
+	}
+	return ret, nil
 }
 
 func (self *SAliyunClient) ListRoles(offset string, limit int) (*SRoles, error) {
@@ -66,7 +154,6 @@ func (self *SAliyunClient) ListRoles(offset string, limit int) (*SRoles, error) 
 	if err != nil {
 		return nil, errors.Wrap(err, "body.Unmarshal(&")
 	}
-
 	return roles, nil
 }
 

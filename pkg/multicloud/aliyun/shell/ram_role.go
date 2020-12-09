@@ -45,6 +45,21 @@ func init() {
 		return nil
 	})
 
+	type RoleCreateOptions struct {
+		NAME     string
+		DOCUMENT string
+		Desc     string
+	}
+
+	shellutils.R(&RoleCreateOptions{}, "cloud-role-create", "Create ram role", func(cli *aliyun.SRegion, args *RoleCreateOptions) error {
+		role, err := cli.GetClient().CreateRole(args.NAME, args.DOCUMENT, args.Desc)
+		if err != nil {
+			return err
+		}
+		printObject(role)
+		return nil
+	})
+
 	type RolePolicyOptions struct {
 		ROLENAME   string
 		POLICYNAME string
