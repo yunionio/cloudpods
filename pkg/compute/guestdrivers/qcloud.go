@@ -264,6 +264,19 @@ func (self *SQcloudGuestDriver) GetInstanceCapability() cloudprovider.SInstanceC
 				Changeable:     false,
 			},
 		},
+		Storages: cloudprovider.Storage{
+			DataDisk: []cloudprovider.StorageInfo{
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_BASIC, MaxSizeGb: 16000, MinSizeGb: 10, StepSizeGb: 10, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_PREMIUM, MaxSizeGb: 16000, MinSizeGb: 50, StepSizeGb: 10, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_SSD, MaxSizeGb: 16000, MinSizeGb: 100, StepSizeGb: 10, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_HSSD, MaxSizeGb: 32000, MinSizeGb: 20, StepSizeGb: 10, Resizable: true},
+			},
+			SysDisk: []cloudprovider.StorageInfo{
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_BASIC, MaxSizeGb: 500, MinSizeGb: 50, StepSizeGb: 10, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_PREMIUM, MaxSizeGb: 1024, MinSizeGb: 50, StepSizeGb: 10, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_SSD, MaxSizeGb: 500, MinSizeGb: 50, StepSizeGb: 10, Resizable: false},
+			},
+		},
 	}
 }
 

@@ -51,9 +51,23 @@ type SDefaultAccount struct {
 	Windows SOsDefaultAccount
 }
 
+type StorageInfo struct {
+	StorageType string
+	MaxSizeGb   int
+	MinSizeGb   int
+	Resizable   bool
+	StepSizeGb  int
+}
+
+type Storage struct {
+	DataDisk []StorageInfo
+	SysDisk  []StorageInfo
+}
+
 type SInstanceCapability struct {
 	Provider   string
 	Hypervisor string
+	Storages   Storage
 
 	DefaultAccount SDefaultAccount
 }
