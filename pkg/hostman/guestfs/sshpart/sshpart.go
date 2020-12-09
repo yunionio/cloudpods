@@ -44,6 +44,8 @@ type SSHPartition struct {
 	part      *disktool.Partition
 }
 
+var _ fsdriver.IDiskPartition = &SSHPartition{}
+
 func NewSSHPartition(term *ssh.Client, part *disktool.Partition) *SSHPartition {
 	p := new(SSHPartition)
 	p.term = term
@@ -198,6 +200,10 @@ func (p *SSHPartition) IsMounted() bool {
 		return false
 	}
 	return true
+}
+
+func (p *SSHPartition) GetPartDev() string {
+	return ""
 }
 
 func (p *SSHPartition) Chmod(sPath string, mode uint32, caseI bool) error {
@@ -527,6 +533,10 @@ func (p *SSHPartition) SupportSerialPorts() bool {
 
 func (p *SSHPartition) Cleandir(dir string, keepdir, caseInsensitive bool) error {
 	return nil
+}
+
+func (p *SSHPartition) Zerofree() {
+	log.Warningf("zerofree should not called in ssh partition")
 }
 
 func MountSSHRootfs(term *ssh.Client, layouts []baremetal.Layout) (*SSHPartition, fsdriver.IRootFsDriver, error) {

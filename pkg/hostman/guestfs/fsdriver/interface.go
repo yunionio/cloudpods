@@ -46,12 +46,15 @@ type IDiskPartition interface {
 	Zerofiles(dir string, caseInsensitive bool) error
 	SupportSerialPorts() bool
 
+	GetPartDev() string
+	IsMounted() bool
 	Mount() bool
 	MountPartReadOnly() bool
 	Umount() bool
 	GetMountPath() string
 	IsReadonly() bool
 	GetPhysicalPartitionType() string
+	Zerofree()
 }
 
 type IRootFsDriver interface {
