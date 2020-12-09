@@ -143,6 +143,10 @@ func (cli *SEtcdClient) GetClient() *clientv3.Client {
 	return cli.client
 }
 
+func (cli *SEtcdClient) SessionLiving() bool {
+	return cli.leaseLiving
+}
+
 func (cli *SEtcdClient) startSession() error {
 	ctx := context.TODO()
 
