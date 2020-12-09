@@ -40,6 +40,9 @@ func OnBaseOptionsChange(oOpts, nOpts interface{}) bool {
 		consts.SetDomainizedNamespace(newOpts.DomainizedNamespace)
 		changed = true
 	}
+	if oldOpts.EnableQuotaCheck != newOpts.EnableQuotaCheck {
+		consts.SetEnableQuotaCheck(newOpts.EnableQuotaCheck)
+	}
 	return changed
 }
 

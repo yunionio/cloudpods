@@ -37,6 +37,8 @@ var (
 	domainizedNamespace = true
 
 	historicalUniqueName = false
+
+	enableQuotaCheck = false
 )
 
 func SetRegion(region string) {
@@ -98,4 +100,12 @@ func DisableHistoricalUniqueName() {
 
 func IsHistoricalUniqueName() bool {
 	return historicalUniqueName
+}
+
+func SetEnableQuotaCheck(val bool) {
+	enableQuotaCheck = val
+}
+
+func EnableQuotaCheck() bool {
+	return enableQuotaCheck
 }

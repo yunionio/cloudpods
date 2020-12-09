@@ -184,7 +184,7 @@ func (used *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
 	sreq := request.(*SQuota)
 	squota := quota.(*SQuota)
 	if quotas.Exceed(used.Image, sreq.Image, squota.Image) {
-		err.Add("image", squota.Image, used.Image, sreq.Image)
+		err.Add(used, "image", squota.Image, used.Image, sreq.Image)
 	}
 	if err.IsError() {
 		return err
