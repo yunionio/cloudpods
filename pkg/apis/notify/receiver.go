@@ -113,3 +113,15 @@ type ReceiverVerifyInput struct {
 	// example: 123456
 	Token string `json:"token"`
 }
+
+type ReceiverIntellijGetInput struct {
+	// description: user id in keystone
+	// required: true
+	UserId string `json:"user_id"`
+	// description: create if receiver with UserId does not exist
+	// required: false
+	CreateIfNo *bool `json:"create_if_no"`
+	// description: scope
+	// required: true
+	Scope string `json:"scope"`
+}
