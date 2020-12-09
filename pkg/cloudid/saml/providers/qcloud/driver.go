@@ -35,7 +35,7 @@ func (d *SQcloudSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCr
 	_account, err := models.CloudaccountManager.FetchById(cloudAccountId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
-			return data, httperrors.NewResourceNotFoundError("cloudaccount", cloudAccountId)
+			return data, httperrors.NewResourceNotFoundError2("cloudaccount", cloudAccountId)
 		}
 		return data, httperrors.NewGeneralError(err)
 	}
