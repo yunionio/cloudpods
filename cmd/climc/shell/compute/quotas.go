@@ -317,7 +317,7 @@ func init() {
 		QuotaSetBaseOptions
 		IdentityQuotaOptions
 	}
-	R(&IdentityQuotaSetOptions{}, "identity-quota-set", "Set identity quota for domain", func(s *mcclient.ClientSession, args *InfrasQuotaSetOptions) error {
+	R(&IdentityQuotaSetOptions{}, "identity-quota-set", "Set identity quota for domain", func(s *mcclient.ClientSession, args *IdentityQuotaSetOptions) error {
 		params := jsonutils.Marshal(args)
 		quotas, e := modules.IdentityQuotas.DoQuotaSet(s, params)
 		if e != nil {

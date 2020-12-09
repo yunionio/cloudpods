@@ -422,43 +422,43 @@ func (used *SRegionQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) err
 	sreq := request.(*SRegionQuota)
 	squota := quota.(*SRegionQuota)
 	if quotas.Exceed(used.Port, sreq.Port, squota.Port) {
-		err.Add("port", squota.Port, used.Port, sreq.Port)
+		err.Add(used, "port", squota.Port, used.Port, sreq.Port)
 	}
 	if quotas.Exceed(used.Eip, sreq.Eip, squota.Eip) {
-		err.Add("eip", squota.Eip, used.Eip, sreq.Eip)
+		err.Add(used, "eip", squota.Eip, used.Eip, sreq.Eip)
 	}
 	if quotas.Exceed(used.Eport, sreq.Eport, squota.Eport) {
-		err.Add("eport", squota.Eport, used.Eport, sreq.Eport)
+		err.Add(used, "eport", squota.Eport, used.Eport, sreq.Eport)
 	}
 	//if quotas.Exceed(used.Bw, sreq.Bw, squota.Bw) {
-	//	err.Add("bw", squota.Bw, used.Bw, sreq.Bw)
+	//	err.Add(used, "bw", squota.Bw, used.Bw, sreq.Bw)
 	//}
 	//if quotas.Exceed(used.Bw, sreq.Ebw, squota.Ebw) {
-	//	err.Add("ebw", squota.Ebw, used.Ebw, sreq.Ebw)
+	//	err.Add(used, "ebw", squota.Ebw, used.Ebw, sreq.Ebw)
 	//}
 	if quotas.Exceed(used.Snapshot, sreq.Snapshot, squota.Snapshot) {
-		err.Add("snapshot", squota.Snapshot, used.Snapshot, sreq.Snapshot)
+		err.Add(used, "snapshot", squota.Snapshot, used.Snapshot, sreq.Snapshot)
 	}
 	if quotas.Exceed(used.InstanceSnapshot, sreq.InstanceSnapshot, squota.InstanceSnapshot) {
-		err.Add("instance_snapshot", squota.InstanceSnapshot, used.InstanceSnapshot, sreq.InstanceSnapshot)
+		err.Add(used, "instance_snapshot", squota.InstanceSnapshot, used.InstanceSnapshot, sreq.InstanceSnapshot)
 	}
 	if quotas.Exceed(used.Bucket, sreq.Bucket, squota.Bucket) {
-		err.Add("bucket", squota.Bucket, used.Bucket, sreq.Bucket)
+		err.Add(used, "bucket", squota.Bucket, used.Bucket, sreq.Bucket)
 	}
 	if quotas.Exceed(used.ObjectGB, sreq.ObjectGB, squota.ObjectGB) {
-		err.Add("object_gb", squota.ObjectGB, used.ObjectGB, sreq.ObjectGB)
+		err.Add(used, "object_gb", squota.ObjectGB, used.ObjectGB, sreq.ObjectGB)
 	}
 	if quotas.Exceed(used.ObjectCnt, sreq.ObjectCnt, squota.ObjectCnt) {
-		err.Add("object_cnt", squota.ObjectCnt, used.ObjectCnt, sreq.ObjectCnt)
+		err.Add(used, "object_cnt", squota.ObjectCnt, used.ObjectCnt, sreq.ObjectCnt)
 	}
 	if quotas.Exceed(used.Rds, sreq.Rds, squota.Rds) {
-		err.Add("rds", squota.Rds, used.Rds, sreq.Rds)
+		err.Add(used, "rds", squota.Rds, used.Rds, sreq.Rds)
 	}
 	if quotas.Exceed(used.Cache, sreq.Cache, squota.Cache) {
-		err.Add("cache", squota.Cache, used.Cache, sreq.Cache)
+		err.Add(used, "cache", squota.Cache, used.Cache, sreq.Cache)
 	}
 	if quotas.Exceed(used.Loadbalancer, sreq.Loadbalancer, squota.Loadbalancer) {
-		err.Add("loadbalancer", squota.Loadbalancer, used.Loadbalancer, sreq.Loadbalancer)
+		err.Add(used, "loadbalancer", squota.Loadbalancer, used.Loadbalancer, sreq.Loadbalancer)
 	}
 	if err.IsError() {
 		return err
