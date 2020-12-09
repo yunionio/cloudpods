@@ -1,659 +1,269 @@
 package dbinit
 
-var MetricDescriptions = `
-[
-	{
-		"measurement": {
-			"name": "cpu",
-			"display_name": "CPU usage",
-			"database":"telegraf",
-			"res_type":"host"
-		},
-		"metric_fields": [
-			{
-				"name":"usage_active",
-				"display_name":"CPU active state utilization rate",
-				"unit":"%"
-			},
-			{
-				"name":"usage_guest",
-				"display_name":"CPU guest usage",
-				"unit":"%"
-			},
-			{
-				"name":"usage_idle",
-				"display_name":"CPU idle state utilization rate",
-				"unit":"%"
-			},
-			{
-				"name":"usage_iowait",
-				"display_name":"CPU IO usage",
-				"unit":"%"
-			},
-			{
-				"name":"usage_irq",
-				"display_name":"CPU IRQ usage",
-				"unit":"%"
-			},
-			{
-				"name":"usage_nice",
-				"display_name":"CPU priority switch utilization",
-				"unit":"%"
-			},
-			{
-				"name":"usage_softirq",
-				"display_name":"CPU softirq usage",
-				"unit":"%"
-			},
-			{
-				"name":"usage_system",
-				"display_name":"CPU system state utilization rate",
-				"unit":"%"
-			},
-			{
-				"name":"usage_user",
-				"display_name":"CPU user mode utilization rate",
-				"unit":"%"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "disk",
-			"display_name": "Disk usage",
-			"database":"telegraf",
-			"res_type":"host"
-		},
-		"metric_fields": [
-			{
-				"name":"free",
-				"display_name":"Free space size",
-				"unit":"byte"
-			},
-			{
-				"name":"inodes_free",
-				"display_name":"Available inode",
-				"unit":"count"
-			},
-			{
-				"name":"inodes_total",
-				"display_name":"Total inodes",
-				"unit":"count"
-			},
-			{
-				"name":"inodes_used",
-				"display_name":"Number of inodes used",
-				"unit":"count"
-			},
-			{
-				"name":"total",
-				"display_name":"Total disk size",
-				"unit":"byte"
-			},
-			{
-				"name":"used",
-				"display_name":"Used disk size",
-				"unit":"byte"
-			},
-			{
-				"name":"used_percent",
-				"display_name":"Percentage of used disks",
-				"unit":"%"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "diskio",
-			"display_name": "Disk traffic and timing",
-			"database":"telegraf",
-			"res_type":"host"
-		},
-		"metric_fields": [
-			{
-				"name":"reads",
-				"display_name":"Number of reads",
-				"unit":"count"
-			},
-			{
-				"name":"writes",
-				"display_name":"Number of writes",
-				"unit":"count"
-			},
-			{
-				"name":"read_bytes",
-				"display_name":"Bytes read",
-				"unit":"byte"
-			},
-			{
-				"name":"write_bytes",
-				"display_name":"Bytes write",
-				"unit":"byte"
-			},
-			{
-				"name":"write_time",
-				"display_name":"Time to wait for write",
-				"unit":"ms"
-			},
-			{
-				"name":"io_time",
-				"display_name":"I / O request queuing time",
-				"unit":"ms"
-			},
-			{
-				"name":"weighted_io_time",
-				"display_name":"I / O request waiting time",
-				"unit":"ms"
-			},
-			{
-				"name":"iops_in_progress",
-				"display_name":"Number of I / O requests issued but not yet completed",
-				"unit":"count"
-			},
-			{
-				"name":"read_bps",
-				"display_name":"Disk read rate",
-				"unit":"bps"
-			},
-			{
-				"name":"write_bps",
-				"display_name":"Disk write rate",
-				"unit":"bps"
-			},
-			{
-				"name":"read_iops",
-				"display_name":"Disk read operate rate",
-				"unit":"count"
-			},
-			{
-				"name":"write_iops",
-				"display_name":"Disk write operate rate",
-				"unit":"count"
-			},
-		]
-	},
-	{
-		"measurement": {
-			"name": "mem",
-			"display_name": "Memory",
-			"database":"telegraf",
-			"res_type":"host"
-		},
-		"metric_fields": [
-			{
-				"name":"active",
-				"display_name":"The amount of active memory",
-				"unit":"byte"
-			},
-			{
-				"name":"available",
-				"display_name":"Available memory",
-				"unit":"byte"
-			},
-			{
-				"name":"available_percent",
-				"display_name":"Available memory rate",
-				"unit":"%"
-			},
-			{
-				"name":"buffered",
-				"display_name":"Buffer memory",
-				"unit":"byte"
-			},
-			{
-				"name":"cached",
-				"display_name":"Cache memory",
-				"unit":"byte"
-			},
-			{
-				"name":"free",
-				"display_name":"Free memory",
-				"unit":"byte"
-			},
-			{
-				"name":"inactive",
-				"display_name":"The amount of inactive memory",
-				"unit":"byte"
-			},
-			{
-				"name":"slab",
-				"display_name":"Number of kernel caches",
-				"unit":"byte"
-			},
-			{
-				"name":"total",
-				"display_name":"Total memory",
-				"unit":"byte"
-			},
-			{
-				"name":"used",
-				"display_name":"Used memory",
-				"unit":"byte"
-			},
-			{
-				"name":"used_percent",
-				"display_name":"Used memory rate",
-				"unit":"%"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "net",
-			"display_name": "Network interface and protocol usage",
-			"database":"telegraf",
-			"res_type":"host"
-		},
-		"metric_fields": [
-			{
-				"name":"bytes_sent",
-				"display_name":"The total number of bytes sent by the network interface",
-				"unit":"byte"
-			},
-			{
-				"name":"bytes_recv",
-				"display_name":"The total number of bytes received by the network interface",
-				"unit":"byte"
-			},
-			{
-				"name":"packets_sent",
-				"display_name":"The total number of packets sent by the network interface",
-				"unit":"count"
-			},
-			{
-				"name":"packets_recv",
-				"display_name":"The total number of packets received by the network interface",
-				"unit":"count"
-			},
-			{
-				"name":"err_in",
-				"display_name":"The total number of receive errors detected by the network interface",
-				"unit":"count"
-			},
-			{
-				"name":"err_out",
-				"display_name":"The total number of transmission errors detected by the network interface",
-				"unit":"count"
-			},
-			{
-				"name":"drop_in",
-				"display_name":"The total number of received packets dropped by the network interface",
-				"unit":"byte"
-			},
-			{
-				"name":"drop_out",
-				"display_name":"The total number of transmission packets dropped by the network interface",
-				"unit":"byte"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "vm_cpu",
-			"display_name": "Guest CPU usage",
-			"res_type": "guest",
-			"database":"telegraf"
-		},
-		"metric_fields": [
-			{
-				"name":"cpu_time_system",
-				"display_name":"CPU system state time",
-				"unit":"ms"
-			},
-			{
-				"name":"cpu_time_user",
-				"display_name":"CPU user state time",
-				"unit":"ms"
-			},
-			{
-				"name":"cpu_usage_idle_pcore",
-				"display_name":"CPU idle rate per core",
-				"unit":"%"
-			},
-			{
-				"name":"cpu_usage_pcore",
-				"display_name":"CPU utilization rate per core",
-				"unit":"%"
-			},
-			{
-				"name":"thread_count",
-				"display_name":"The number of threads used by the process",
-				"unit":"count"
-			},
-			{
-				"name":"usage_active",
-				"display_name":"CPU active state utilization rate",
-				"unit":"%"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "vm_diskio",
-			"display_name": "Guest disk traffic",
-			"res_type": "guest",
-			"database":"telegraf"
-		},
-		"metric_fields": [
-			{
-				"name":"read_bps",
-				"display_name":"Disk read rate",
-				"unit":"Bps"
-			},
-			{
-				"name":"read_bytes",
-				"display_name":"Bytes read",
-				"unit":"byte"
-			},
-			{
-				"name":"read_iops",
-				"display_name":"Disk read operate rate",
-				"unit":"count"
-			},
-			{
-				"name":"write_bps",
-				"display_name":"Disk write rate",
-				"unit":"Bps"
-			},
-			{
-				"name":"write_bytes",
-				"display_name":"Bytes write",
-				"unit":"byte"
-			},
-			{
-				"name":"write_iops",
-				"display_name":"Disk write operate rate",
-				"unit":"count"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "vm_mem",
-			"display_name": "Guest memory",
-			"res_type": "guest",
-			"database":"telegraf"
-		},
-		"metric_fields": [
-			{
-				"name":"used_percent",
-				"display_name":"Used memory rate",
-				"unit":"%"
-			},
-			{
-				"name":"vms",
-				"display_name":"Virtual memory consumption",
-				"unit":"byte"
-			},
-			{
-				"name":"rss",
-				"display_name":"Actual use of physical memory",
-				"unit":"byte"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "oss_latency",
-			"display_name": "Object storage latency",
-			"res_type": "oss",
-			"database":"telegraf"
-		},
-		"metric_fields": [
-			{
-				"name":"req_late",
-				"display_name":"Request average E2E delay",
-				"unit":"ms"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "oss_netio",
-			"display_name": "Object storage network traffic",
-			"res_type": "oss",
-			"database":"telegraf"
-		},
-		"metric_fields": [
-			{
-				"name":"bps_recv",
-				"display_name":"Receive byte",
-				"unit":"byte"
-			},
-			{
-				"name":"bps_sent",
-				"display_name":"Send byte",
-				"unit":"byte"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "oss_req",
-			"display_name": "Object store request",
-			"res_type": "oss",
-			"database":"telegraf"
-		},
-		"metric_fields": [
-			{
-				"name":"req_count",
-				"display_name":"request count",
-				"unit":"count"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "rds_conn",
-			"display_name": "Rds connect",
-			"res_type": "rds",
-			"database":"telegraf"
-		},
-		"metric_fields": [
-			{
-				"name":"used_percent",
-				"display_name":"Connection usage",
-				"unit":"%"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "rds_cpu",
-			"display_name": "Rds CPU usage",
-			"res_type": "rds",
-			"database":"telegraf"
-		},
-		"metric_fields": [
-			{
-				"name":"usage_active",
-				"display_name":"CPU active state utilization rate",
-				"unit":"%"
-			},
-			{
-				"name":"used_percent",
-				"display_name":"Connection usage",
-				"unit":"%"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "rds_mem",
-			"display_name": "Rds memory",
-			"res_type": "rds",
-			"database":"telegraf"
-		},
-		"metric_fields": [
-			{
-				"name":"used_percent",
-				"display_name":"memory usage",
-				"unit":"%"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "rds_netio",
-			"display_name": "Rds network traffic",
-			"res_type": "rds",
-			"database":"telegraf"
-		},
-		"metric_fields": [
-			{
-				"name":"bps_recv",
-				"display_name":"Received traffic per second",
-				"unit":"bps"
-			},
-			{
-				"name":"bps_sent",
-				"display_name":"Send traffic per second",
-				"unit":"bps"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "rds_disk",
-			"display_name": "Rds disk usage",
-			"res_type": "rds",
-			"database":"telegraf"
-		},
-		"metric_fields": [
-			{
-				"name":"used_percent",
-				"display_name":"disk usage",
-				"unit":"%"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "dcs_cpu",
-			"display_name": "Redis CPU usage",
-			"res_type": "redis",
-			"database":"telegraf"
-		},
-		"metric_fields": [
-			{
-				"name":"usage_percent",
-				"display_name":"CPU active state utilization rate",
-				"unit":"%"
-			}
-		]	
-	},
-	{
-		"measurement": {
-			"name": "dcs_mem",
-			"display_name": "Redis memory",
-			"res_type": "redis",
-			"database":"telegraf"
-		},
-		"metric_fields": [
-			{
-				"name":"used_percent",
-				"display_name":"memory usage",
-				"unit":"%"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "dcs_netio",
-			"display_name": "Redis network traffic",
-			"res_type": "redis",
-			"database":"telegraf"
-		},
-		"metric_fields": [
-			{
-				"name":"bps_recv",
-				"display_name":"Received traffic per second",
-				"unit":"bps"
-			},
-			{
-				"name":"bps_sent",
-				"display_name":"Send traffic per second",
-				"unit":"bps"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "dcs_conn",
-			"display_name": "Redis connect",
-			"res_type": "redis",
-			"database":"telegraf"
-		},
-		"metric_fields": [
-			{
-				"name":"used_conn",
-				"display_name":"Connection usage",
-				"unit":"%"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "dcs_instantopt",
-			"display_name": "Redis operator",
-			"res_type": "redis",
-			"database":"telegraf"
-		},
-		"metric_fields": [
-			{
-				"name":"opt_sec",
-				"display_name":"Number of commands processed per second",
-				"unit":"count"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "dcs_cachekeys",
-			"display_name": "Redis keys",
-			"res_type": "redis",
-			"database":"telegraf"
-		},
-		"metric_fields": [
-			{
-				"name":"key_count",
-				"display_name":"Number of cache keys",
-				"unit":"count"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "dcs_datamem",
-			"display_name": "Redis data memory",
-			"res_type": "redis",
-			"database":"telegraf"
-		},
-		"metric_fields": [
-			{
-				"name":"used_byte",
-				"display_name":"Data node memory usage",
-				"unit":"byte"
-			}
-		]
-	},
-	{
-		"measurement": {
-			"name": "cloudaccount_balance",
-			"display_name": "Cloud account balance",
-			"res_type": "cloudaccount",
-			"database":"meter_db"
-		},
-		"metric_fields": [
-			{
-				"name":"balance",
-				"display_name":"balance",
-				"unit":"RMB"
-			}
-		]
+import (
+	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/apis/monitor"
+)
+
+var MetricNeedDeleteDescriptions = []string{}
+var metricInitInputMap map[string]monitor.MetricCreateInput
+
+func RegistryMetricCreateInput(name, displayName, resType, database string,
+	fields []monitor.MetricFieldCreateInput) {
+	if metricInitInputMap == nil {
+		metricInitInputMap = make(map[string]monitor.MetricCreateInput)
 	}
-]
-`
-var MetricNeedDeleteDescriptions = []string{"rds_conn", "rds_cpu", "rds_mem", "rds_netio", "rds_disk", "dcs_cpu",
-	"dcs_mem", "dcs_netio", "dcs_conn", "dcs_instantopt", "dcs_cachekeys", "dcs_datamem", "oss_latency",
-	"oss_netio", "oss_req"}
+	if _, ok := metricInitInputMap[name]; ok {
+		log.Errorf("inputMeasurementName:%s has exist", name)
+		return
+	}
+	metricInitInputMap[name] = monitor.MetricCreateInput{
+		Measurement: monitor.MetricMeasurementCreateInput{
+			StandaloneResourceCreateInput: apis.StandaloneResourceCreateInput{Name: name},
+			ResType:                       resType,
+			DisplayName:                   displayName,
+			Database:                      database,
+		},
+		MetricFields: fields,
+	}
+}
+
+func GetRegistryMetricInput() (metricInitInputs []monitor.MetricCreateInput) {
+	if metricInitInputMap == nil {
+		metricInitInputMap = make(map[string]monitor.MetricCreateInput)
+	}
+	for name, _ := range metricInitInputMap {
+		metricInitInputs = append(metricInitInputs, metricInitInputMap[name])
+	}
+	return
+}
+
+func newMetricFieldCreateInput(name, displayName, unit string, score int) monitor.MetricFieldCreateInput {
+	return monitor.MetricFieldCreateInput{
+		StandaloneResourceCreateInput: apis.StandaloneResourceCreateInput{Name: name},
+		DisplayName:                   displayName,
+		Unit:                          unit,
+		ValueType:                     "",
+		Score:                         score,
+	}
+}
+
+// order by score asc
+// score default:99
+func init() {
+
+	// cpu
+	RegistryMetricCreateInput("cpu", "CPU usage", monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE,
+		[]monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("usage_active", "CPU active state utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("usage_idle", "CPU idle state utilization rate", monitor.METRIC_UNIT_PERCENT, 2),
+			newMetricFieldCreateInput("usage_system", "CPU system state utilization rate", monitor.METRIC_UNIT_PERCENT, 3),
+			newMetricFieldCreateInput("usage_user", "CPU user mode utilization rate", monitor.METRIC_UNIT_PERCENT, 4),
+			newMetricFieldCreateInput("usage_iowait", "CPU IO usage", monitor.METRIC_UNIT_PERCENT, 5),
+			newMetricFieldCreateInput("usage_irq", "CPU IRQ usage", monitor.METRIC_UNIT_PERCENT, 6),
+			newMetricFieldCreateInput("usage_guest", "CPU guest usage", monitor.METRIC_UNIT_PERCENT, 7),
+			newMetricFieldCreateInput("usage_nice", "CPU priority switch utilization", monitor.METRIC_UNIT_PERCENT, 8),
+			newMetricFieldCreateInput("usage_softirq", "CPU softirq usage", monitor.METRIC_UNIT_PERCENT, 9),
+		})
+
+	// disk
+	RegistryMetricCreateInput("disk", "Disk usage", monitor.METRIC_RES_TYPE_HOST,
+		monitor.METRIC_DATABASE_TELE,
+		[]monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("used_percent", "Percentage of used disks", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("free", "Free space size", monitor.METRIC_UNIT_BYTE, 2),
+			newMetricFieldCreateInput("used", "Used disk size", monitor.METRIC_UNIT_BYTE, 3),
+			newMetricFieldCreateInput("total", "Total disk size", monitor.METRIC_UNIT_BYTE, 4),
+			newMetricFieldCreateInput("inodes_free", "Available inode", monitor.METRIC_UNIT_COUNT, 5),
+			newMetricFieldCreateInput("inodes_used", "Number of inodes used", monitor.METRIC_UNIT_COUNT, 6),
+			newMetricFieldCreateInput("inodes_total", "Total inodes", monitor.METRIC_UNIT_COUNT, 7),
+		})
+
+	// diskio
+	RegistryMetricCreateInput("diskio", "Disk traffic and timing",
+		monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("read_bps", "Disk read rate", monitor.METRIC_UNIT_BPS, 1),
+			newMetricFieldCreateInput("write_bps", "Disk write rate", monitor.METRIC_UNIT_BPS, 2),
+			newMetricFieldCreateInput("read_iops", "Disk read operate rate", monitor.METRIC_UNIT_COUNT, 3),
+			newMetricFieldCreateInput("write_iops", "Disk write operate rate", monitor.METRIC_UNIT_COUNT, 4),
+			newMetricFieldCreateInput("reads", "Number of reads", monitor.METRIC_UNIT_COUNT, 5),
+			newMetricFieldCreateInput("writes", "Number of writes", monitor.METRIC_UNIT_COUNT, 6),
+			newMetricFieldCreateInput("read_bytes", "Bytes read", monitor.METRIC_UNIT_BYTE, 7),
+			newMetricFieldCreateInput("write_bytes", "Bytes write", monitor.METRIC_UNIT_BYTE, 8),
+			newMetricFieldCreateInput("write_time", "Time to wait for write", monitor.METRIC_UNIT_MS, 9),
+			newMetricFieldCreateInput("io_time", "I / O request queuing time", monitor.METRIC_UNIT_MS, 10),
+			newMetricFieldCreateInput("weighted_io_time", "I / O request waiting time", monitor.METRIC_UNIT_MS, 11),
+			newMetricFieldCreateInput("iops_in_progress", "Number of I / O requests issued but not yet completed", monitor.METRIC_UNIT_COUNT, 12),
+		})
+
+	// mem
+	RegistryMetricCreateInput("mem", "Memory", monitor.METRIC_RES_TYPE_HOST,
+		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("used_percent", "Used memory rate", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("available_percent", "Available memory rate", monitor.METRIC_UNIT_PERCENT, 2),
+			newMetricFieldCreateInput("used", "Used memory", monitor.METRIC_UNIT_BYTE, 3),
+			newMetricFieldCreateInput("free", "Free memory", monitor.METRIC_UNIT_BYTE, 4),
+			newMetricFieldCreateInput("available", "Available memory", monitor.METRIC_UNIT_BYTE, 4),
+			newMetricFieldCreateInput("active", "The amount of active memory", monitor.METRIC_UNIT_BYTE, 5),
+			newMetricFieldCreateInput("inactive", "The amount of inactive memory", monitor.METRIC_UNIT_BYTE, 6),
+			newMetricFieldCreateInput("cached", "Cache memory", monitor.METRIC_UNIT_BYTE, 7),
+			newMetricFieldCreateInput("buffered", "Buffer memory", monitor.METRIC_UNIT_BYTE, 7),
+			newMetricFieldCreateInput("slab", "Number of kernel caches", monitor.METRIC_UNIT_BYTE, 8),
+			newMetricFieldCreateInput("total", "Total memory", monitor.METRIC_UNIT_BYTE, 9),
+		})
+
+	// net
+	RegistryMetricCreateInput("net", "Network interface and protocol usage",
+		monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("bytes_sent", "The total number of bytes sent by the network interface", monitor.METRIC_UNIT_BYTE, 1),
+			newMetricFieldCreateInput("bytes_recv", "The total number of bytes received by the network interface", monitor.METRIC_UNIT_BYTE, 2),
+			newMetricFieldCreateInput("packets_sent", "The total number of packets sent by the network interface", monitor.METRIC_UNIT_COUNT, 3),
+			newMetricFieldCreateInput("packets_recv", "The total number of packets received by the network interface", monitor.METRIC_UNIT_COUNT, 4),
+			newMetricFieldCreateInput("err_in", "The total number of receive errors detected by the network interface", monitor.METRIC_UNIT_COUNT, 5),
+			newMetricFieldCreateInput("err_out", "The total number of transmission errors detected by the network interface", monitor.METRIC_UNIT_COUNT, 6),
+			newMetricFieldCreateInput("drop_in", "The total number of received packets dropped by the network interface", monitor.METRIC_UNIT_COUNT, 7),
+			newMetricFieldCreateInput("drop_out", "The total number of transmission packets dropped by the network interface", monitor.METRIC_UNIT_COUNT, 8),
+		})
+
+	// vm_cpu
+	RegistryMetricCreateInput("vm_cpu", "Guest CPU usage", monitor.METRIC_RES_TYPE_GUEST,
+		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("usage_active", "CPU active state utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("cpu_usage_pcore", "CPU utilization rate per core", monitor.METRIC_UNIT_PERCENT, 2),
+			newMetricFieldCreateInput("cpu_usage_idle_pcore", "CPU idle rate per core", monitor.METRIC_UNIT_PERCENT, 3),
+			newMetricFieldCreateInput("cpu_time_system", "CPU system state time", monitor.METRIC_UNIT_MS, 4),
+			newMetricFieldCreateInput("cpu_time_user", "CPU user state time", monitor.METRIC_UNIT_MS, 5),
+			newMetricFieldCreateInput("thread_count", "The number of threads used by the process", monitor.METRIC_UNIT_COUNT, 6),
+		})
+
+	// vm_diskio
+	RegistryMetricCreateInput("vm_diskio", "Guest disk traffic", monitor.METRIC_RES_TYPE_GUEST,
+		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("read_bps", "Disk read rate", monitor.METRIC_UNIT_BYTEPS, 1),
+			newMetricFieldCreateInput("write_bps", "Disk write rate", monitor.METRIC_UNIT_BYTEPS, 2),
+			newMetricFieldCreateInput("read_iops", "Disk read operate rate", monitor.METRIC_UNIT_COUNT, 3),
+			newMetricFieldCreateInput("write_iops", "Disk write operate rate", monitor.METRIC_UNIT_COUNT, 4),
+			newMetricFieldCreateInput("read_bytes", "Bytes read", monitor.METRIC_UNIT_BYTE, 5),
+			newMetricFieldCreateInput("write_bytes", "Bytes write", monitor.METRIC_UNIT_BYTE, 6),
+		})
+
+	// vm_mem
+	RegistryMetricCreateInput("vm_mem", "Guest memory", monitor.METRIC_RES_TYPE_GUEST,
+		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("used_percent", "Used memory rate", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("vms", "Virtual memory consumption", monitor.METRIC_UNIT_BYTE, 2),
+			newMetricFieldCreateInput("rss", "Actual use of physical memory", monitor.METRIC_UNIT_BYTE, 3),
+		})
+
+	// vm_netio
+	RegistryMetricCreateInput("vm_netio", "Guest network traffic", monitor.METRIC_RES_TYPE_GUEST,
+		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("bps_recv", "Received traffic per second", monitor.METRIC_UNIT_BPS, 1),
+			newMetricFieldCreateInput("bps_sent", "Send traffic per second", monitor.METRIC_UNIT_BPS, 2),
+		})
+
+	// oss_latency
+	RegistryMetricCreateInput("oss_latency", "Object storage latency",
+		monitor.METRIC_RES_TYPE_OSS, monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("req_late", "Request average E2E delay", monitor.METRIC_UNIT_MS, 1),
+		})
+
+	// oss_netio
+	RegistryMetricCreateInput("oss_netio", "Object storage network traffic",
+		monitor.METRIC_RES_TYPE_OSS, monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("bps_recv", "Receive byte", monitor.METRIC_UNIT_BYTE, 1),
+			newMetricFieldCreateInput("bps_sent", "Send byte", monitor.METRIC_UNIT_BYTE, 2),
+		})
+
+	// oss_req
+	RegistryMetricCreateInput("oss_req", "Object store request", monitor.METRIC_RES_TYPE_OSS,
+		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("req_count", "request count", monitor.METRIC_UNIT_COUNT, 1),
+		})
+
+	// rds_conn
+	RegistryMetricCreateInput("rds_conn", "Rds connect", monitor.METRIC_RES_TYPE_RDS,
+		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("used_percent", "Connection usage", monitor.METRIC_UNIT_PERCENT, 1),
+		})
+
+	// rds_cpu
+	RegistryMetricCreateInput("rds_cpu", "Rds CPU usage", monitor.METRIC_RES_TYPE_RDS,
+		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("used_percent", "Connection usage", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("usage_active", "CPU active state utilization rate", monitor.METRIC_UNIT_PERCENT, 2),
+		})
+
+	// rds_mem
+	RegistryMetricCreateInput("rds_mem", "Rds memory", monitor.METRIC_RES_TYPE_RDS,
+		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("used_percent", "Connection usage", monitor.METRIC_UNIT_PERCENT, 1),
+		})
+
+	// rds_netio
+	RegistryMetricCreateInput("rds_netio", "Rds network traffic", monitor.METRIC_RES_TYPE_RDS,
+		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("bps_recv", "Received traffic per second", monitor.METRIC_UNIT_BPS, 1),
+			newMetricFieldCreateInput("bps_sent", "Send traffic per second", monitor.METRIC_UNIT_BPS, 2),
+		})
+
+	// rds_disk
+	RegistryMetricCreateInput("rds_disk", "Rds disk usage", monitor.METRIC_RES_TYPE_RDS,
+		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("used_percent", "disk usage", monitor.METRIC_UNIT_PERCENT, 1),
+		})
+
+	// dcs_cpu
+	RegistryMetricCreateInput("dcs_cpu", "Redis CPU usage", monitor.METRIC_RES_TYPE_REDIS,
+		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("used_percent", "CPU active state utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
+		})
+
+	// dcs_mem
+	RegistryMetricCreateInput("dcs_mem", "Redis memory", monitor.METRIC_RES_TYPE_REDIS,
+		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("used_percent", "memory usage", monitor.METRIC_UNIT_PERCENT, 1),
+		})
+
+	// dcs_netio
+	RegistryMetricCreateInput("dcs_netio", "Redis network traffic",
+		monitor.METRIC_RES_TYPE_REDIS,
+		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("bps_recv", "Received traffic per second", monitor.METRIC_UNIT_BPS, 1),
+			newMetricFieldCreateInput("bps_sent", "Send traffic per second", monitor.METRIC_UNIT_BPS, 2),
+		})
+
+	// dcs_conn
+	RegistryMetricCreateInput("dcs_conn", "Redis connect", monitor.METRIC_RES_TYPE_REDIS,
+		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("used_percent", "Connection usage", monitor.METRIC_UNIT_PERCENT, 1),
+		})
+
+	// dcs_instantopt
+	RegistryMetricCreateInput("dcs_instantopt", "Redis operator",
+		monitor.METRIC_RES_TYPE_REDIS, monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("opt_sec", "Number of commands processed per second", monitor.METRIC_UNIT_COUNT, 1),
+		})
+
+	// dcs_cachekeys
+	RegistryMetricCreateInput("dcs_cachekeys", "Redis keys", monitor.METRIC_RES_TYPE_REDIS,
+		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("key_count", "Number of cache keys", monitor.METRIC_UNIT_COUNT, 1),
+		})
+
+	// dcs_datamem
+	RegistryMetricCreateInput("dcs_datamem", "Redis keys", monitor.METRIC_RES_TYPE_REDIS,
+		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("used_byte", "Data node memory usage", monitor.METRIC_UNIT_BYTE, 1),
+		})
+
+	// cloudaccount_balance
+	RegistryMetricCreateInput("cloudaccount_balance", "Cloud account balance",
+		monitor.METRIC_RES_TYPE_CLOUDACCOUNT,
+		monitor.METRIC_DATABASE_METER, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("balance", "balance", monitor.METRIC_UNIT_RMB, 1),
+		})
+
+}

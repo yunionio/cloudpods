@@ -33,6 +33,7 @@ type SMetricField struct {
 	DisplayName string `width:"256" list:"user" update:"user"`
 	Unit        string `width:"32" list:"user" update:"user"`
 	ValueType   string `width:"32" list:"user" update:"user"`
+	Score       int    `width:"32" list:"user" update:"user" default:"99"`
 }
 
 var MetricFieldManager *SMetricFieldManager

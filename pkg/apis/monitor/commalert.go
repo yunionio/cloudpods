@@ -49,6 +49,7 @@ type CommonAlertCreateInput struct {
 	ProjectId   string `json:"project_id"`
 	GetPointStr bool   `json:"get_point_str"`
 	MetaName    string `json:"meta_name"`
+	Description string `json:"description"`
 }
 
 type CommonMetricInputQuery struct {

@@ -3,11 +3,12 @@ package monitor
 import "yunion.io/x/onecloud/pkg/apis"
 
 const (
-	METRIC_RES_TYPE_GUEST = "guest"
-	METRIC_RES_TYPE_HOST  = "host"
-	METRIC_RES_TYPE_REDIS = "redis"
-	METRIC_RES_TYPE_OSS   = "oss"
-	METRIC_RES_TYPE_RDS   = "rds"
+	METRIC_RES_TYPE_GUEST        = "guest"
+	METRIC_RES_TYPE_HOST         = "host"
+	METRIC_RES_TYPE_REDIS        = "redis"
+	METRIC_RES_TYPE_OSS          = "oss"
+	METRIC_RES_TYPE_RDS          = "rds"
+	METRIC_RES_TYPE_CLOUDACCOUNT = "cloudaccount"
 
 	METRIC_UNIT_PERCENT = "%"
 	METRIC_UNIT_BPS     = "bps"
@@ -17,10 +18,16 @@ const (
 	METRIC_UNIT_COUNT   = "count"
 	METRIC_UNIT_MS      = "ms"
 	METRIC_UNIT_BYTE    = "byte"
+	METRIC_UNIT_RMB     = "RMB"
+
+	METRIC_DATABASE_TELE  = "telegraf"
+	METRIC_DATABASE_METER = "meter_db"
 )
 
-var MetricResType = []string{METRIC_RES_TYPE_GUEST, METRIC_RES_TYPE_HOST, METRIC_RES_TYPE_REDIS, METRIC_RES_TYPE_OSS, METRIC_RES_TYPE_RDS}
-var MetricUnit = []string{"%", "bps", "Mbps", "Bps", "count/s", "count", "ms", "byte"}
+var MetricResType = []string{METRIC_RES_TYPE_GUEST, METRIC_RES_TYPE_HOST, METRIC_RES_TYPE_REDIS, METRIC_RES_TYPE_OSS,
+	METRIC_RES_TYPE_RDS, METRIC_RES_TYPE_CLOUDACCOUNT}
+var MetricUnit = []string{METRIC_UNIT_PERCENT, METRIC_UNIT_BPS, METRIC_UNIT_MBPS, METRIC_UNIT_BYTEPS, "count/s",
+	METRIC_UNIT_COUNT, METRIC_UNIT_MS, METRIC_UNIT_BYTE, METRIC_UNIT_RMB}
 
 type MetricMeasurementCreateInput struct {
 	apis.StandaloneResourceCreateInput
@@ -53,6 +60,7 @@ type MetricFieldCreateInput struct {
 	DisplayName string `json:"display_name"`
 	Unit        string `json:"unit"`
 	ValueType   string `json:"value_type"`
+	Score       int    `json:"score"`
 }
 
 type MetricFieldUpdateInput struct {
@@ -62,6 +70,7 @@ type MetricFieldUpdateInput struct {
 	DisplayName string `json:"display_name"`
 	Unit        string `json:"unit"`
 	ValueType   string `json:"value_type"`
+	Score       int    `json:"score"`
 }
 
 type MetricFieldListInput struct {
