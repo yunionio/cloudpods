@@ -451,11 +451,14 @@ func (instance *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.
 
 func (instance *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
 	if (len(config.InstanceType) > 0 && instance.GetInstanceType() != config.InstanceType) || instance.GetVcpuCount() != config.Cpu || instance.GetVmemSizeMB() != config.MemoryMB {
-		flavorId, err := instance.host.zone.region.syncFlavor(config.InstanceType, config.Cpu, config.MemoryMB, 40)
+		flavor, err := instance.host.zone.region.syncFlavor(config.InstanceType, config.Cpu, config.MemoryMB, 40)
 		if err != nil {
 			return errors.Wrapf(err, "syncFlavor(%s)", config.InstanceType)
 		}
-		return instance.host.zone.region.ChangeConfig(instance, flavorId)
+		if flavor.Name == instance.Flavor.Name {
+			return nil
+		}
+		return instance.host.zone.region.ChangeConfig(instance, flavor.Id)
 	}
 	return nil
 }
