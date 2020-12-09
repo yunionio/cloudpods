@@ -3005,10 +3005,19 @@ func (self *SGuest) AllowPerformCreateEip(ctx context.Context, userCred mcclient
 }
 
 func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	var bw int64
-	chargeType, _ := data.GetString("charge_type")
-	if len(chargeType) == 0 {
-		chargeType = api.EIP_CHARGE_TYPE_DEFAULT
+	var (
+		host         = self.GetHost()
+		region       = host.GetRegion()
+		regionDriver = region.GetDriver()
+
+		bw            int64
+		chargeType    string
+		bgpType       string
+		autoDellocate bool
+	)
+	chargeType, _ = data.GetString("charge_type")
+	if chargeType == "" {
+		chargeType = regionDriver.GetEipDefaultChargeType()
 	}
 
 	bw, _ = data.Int("bandwidth")
@@ -3017,25 +3026,8 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 			return nil, httperrors.NewMissingParameterError("bandwidth")
 		}
 	}
-	bgpType, _ := data.GetString("bgp_type")
-	autoDellocate, _ := data.Bool("auto_dellocate")
-
-	host := self.GetHost()
-	if host == nil {
-		return nil, httperrors.NewInvalidStatusError("No host???")
-	}
-	{
-		if self.ExternalId != "" {
-			_, err := host.GetDriver()
-			if err != nil {
-				return nil, httperrors.NewInvalidStatusError("No valid cloud provider")
-			}
-		}
-		region := host.GetRegion()
-		if region == nil {
-			return nil, httperrors.NewInvalidStatusError("No cloudregion???")
-		}
-	}
+	bgpType, _ = data.GetString("bgp_type")
+	autoDellocate, _ = data.Bool("auto_dellocate")
 
 	err := self.GetDriver().ValidateCreateEip(ctx, userCred, data)
 	if err != nil {

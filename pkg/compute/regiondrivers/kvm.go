@@ -899,7 +899,21 @@ func (self *SKVMRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcc
 	return nil
 }
 
+func (self *SKVMRegionDriver) GetEipDefaultChargeType() string {
+	return api.EIP_CHARGE_TYPE_BY_BANDWIDTH
+}
+func (self *SKVMRegionDriver) ValidateEipChargeType(chargeType string) error {
+	if chargeType != api.EIP_CHARGE_TYPE_BY_BANDWIDTH {
+		return httperrors.NewInputParameterError("%s only supports eip charge type %q",
+			self.GetProvider(), api.EIP_CHARGE_TYPE_BY_BANDWIDTH)
+	}
+	return nil
+}
+
 func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SElasticipCreateInput) error {
+	if err := self.ValidateEipChargeType(input.ChargeType); err != nil {
+		return err
+	}
 	var network *models.SNetwork
 	if input.NetworkId != "" {
 		_network, err := models.NetworkManager.FetchByIdOrName(userCred, input.NetworkId)
