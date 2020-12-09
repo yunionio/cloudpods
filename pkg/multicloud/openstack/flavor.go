@@ -84,40 +84,42 @@ func (region *SRegion) GetFlavor(flavorId string) (*SFlavor, error) {
 }
 
 func (region *SRegion) SyncFlavor(name string, cpu, memoryMb, diskGB int) (string, error) {
-	return region.syncFlavor(name, cpu, memoryMb, diskGB)
+	flavor, err := region.syncFlavor(name, cpu, memoryMb, diskGB)
+	if err != nil {
+		return "", errors.Wrapf(err, "syncFlavor")
+	}
+	return flavor.Id, nil
 }
 
-func (region *SRegion) syncFlavor(name string, cpu, memoryMb, diskGB int) (string, error) {
+func (region *SRegion) syncFlavor(name string, cpu, memoryMb, diskGB int) (*SFlavor, error) {
 	flavors, err := region.GetFlavors()
 	if err != nil {
-		return "", err
+		return nil, errors.Wrapf(err, "GetFlavors")
 	}
 
 	if cpu == 0 && memoryMb == 0 {
-		return "", fmt.Errorf("failed to find instance type %s", name)
+		return nil, fmt.Errorf("failed to find instance type %s", name)
 	}
 
-	match := false
-	for _, flavor := range flavors {
+	for i := range flavors {
+		flavor := flavors[i]
 		flavorName := flavor.GetName()
-		if (len(name) == 0 || flavorName == name || flavorName == fmt.Sprintf("%s-%d", name, diskGB)) && flavor.GetCpuCoreCount() == cpu && flavor.GetMemorySizeMB() == memoryMb {
-			if diskGB <= flavor.GetSysDiskMaxSizeGB() {
-				return flavor.Id, nil
-			}
-			match = true
+		if (len(name) == 0 || flavorName == name || flavorName == fmt.Sprintf("%s-%d", name, diskGB)) &&
+			flavor.GetCpuCoreCount() == cpu &&
+			flavor.GetMemorySizeMB() == memoryMb &&
+			diskGB <= flavor.GetSysDiskMaxSizeGB() {
+			return &flavor, nil
 		}
 	}
 	if len(name) == 0 {
 		name = fmt.Sprintf("ecs.g1.c%dm%d", cpu, memoryMb/1024)
 	}
-	if match {
-		name = fmt.Sprintf("%s-%d", name, diskGB)
-	}
+	name = fmt.Sprintf("%s-%d", name, diskGB)
 	flavor, err := region.CreateFlavor(name, cpu, memoryMb, diskGB)
 	if err != nil {
-		return "", errors.Wrap(err, "CreateFlavor")
+		return nil, errors.Wrap(err, "CreateFlavor")
 	}
-	return flavor.Id, nil
+	return flavor, nil
 }
 
 func (region *SRegion) CreateISku(name string, vCpu int, memoryMb int) error {
