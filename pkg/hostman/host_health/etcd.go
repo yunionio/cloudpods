@@ -112,8 +112,11 @@ func (c *SEtcdClient) OnKeepaliveFailure() {
 }
 
 func (c *SEtcdClient) Reconnect() {
+	if c.cli.SessionLiving() {
+		return
+	}
 	for {
-		if err := c.cli.RestartSession(); err != nil {
+		if err := c.cli.RestartSession(); err != nil && !c.cli.SessionLiving() {
 			log.Errorf("restart session failed %s", err)
 			time.Sleep(1 * time.Second)
 		} else {
