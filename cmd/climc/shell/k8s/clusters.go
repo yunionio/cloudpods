@@ -18,10 +18,13 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 	o "yunion.io/x/onecloud/pkg/mcclient/options/k8s"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func initKubeCluster() {
@@ -130,14 +133,24 @@ func initKubeCluster() {
 		return nil
 	})
 
-	R(&o.ClusterComponentTypeOptions{}, cmdN("component-setting"), "Get cluster component setting", func(s *mcclient.ClientSession, args *o.ClusterComponentTypeOptions) error {
+	getComponentSetting := func(s *mcclient.ClientSession, args *o.ClusterComponentType, asHelmValues bool) (jsonutils.JSONObject, error) {
 		q := jsonutils.NewDict()
 		q.Add(jsonutils.NewString(args.TYPE), "type")
-		ret, err := k8s.KubeClusters.GetSpecific(s, args.ID, "component-setting", q)
+		q.Add(jsonutils.JSONTrue, "system")
+		q.Add(jsonutils.NewBool(asHelmValues), "as_helm_values")
+		return k8s.KubeClusters.GetSpecific(s, args.ID, "component-setting", q)
+	}
+
+	R(&o.ClusterComponentTypeOptions{}, cmdN("component-setting"), "Get cluster component setting", func(s *mcclient.ClientSession, args *o.ClusterComponentTypeOptions) error {
+		ret, err := getComponentSetting(s, &args.ClusterComponentType, args.AsHelmValues)
 		if err != nil {
 			return err
 		}
-		printObject(ret)
+		if args.AsHelmValues {
+			printObjectYAML(ret)
+		} else {
+			printObject(ret)
+		}
 		return nil
 	})
 
@@ -180,6 +193,32 @@ func initKubeCluster() {
 		return nil
 	})
 
+	R(&o.ClusterEnableComponentMinioOpt{}, cmdN("component-enable-minio"), "Enable cluster minio component", func(s *mcclient.ClientSession, args *o.ClusterEnableComponentMinioOpt) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "enable-component", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
+	R(&o.ClusterEnableComponentThanosOpt{}, cmdN("component-enable-thanos"), "Enable cluster thanos component", func(s *mcclient.ClientSession, args *o.ClusterEnableComponentThanosOpt) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "enable-component", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
 	R(&o.ClusterDisableComponent{}, cmdN("component-disable"), "Enable cluster component", func(s *mcclient.ClientSession, args *o.ClusterDisableComponent) error {
 		params := args.Params()
 		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "disable-component", params)
@@ -200,11 +239,40 @@ func initKubeCluster() {
 		return nil
 	})
 
-	R(&o.ClusterUpdateComponentCephCSIOpt{}, cmdN("component-update-ceph-csi"), "Update cluster component", func(s *mcclient.ClientSession, args *o.ClusterUpdateComponentCephCSIOpt) error {
+	R(&o.ClusterUpdateComponentCephCSIOpt{}, cmdN("component-update-ceph-csi"), "Update cluster component ceph csi", func(s *mcclient.ClientSession, args *o.ClusterUpdateComponentCephCSIOpt) error {
 		params, err := args.Params()
 		if err != nil {
 			return err
 		}
+		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "update-component", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
+	R(&o.ClusterComponentType{}, cmdN("component-update"), "Update cluster component", func(s *mcclient.ClientSession, args *o.ClusterComponentType) error {
+		// 1. get current setting
+		setting, err := getComponentSetting(s, args, false)
+		if err != nil {
+			return errors.Wrap(err, "get component setting")
+		}
+
+		// 2. edit yaml
+		yaml, err := shellutils.Edit(setting.YAMLString())
+		if len(yaml) == 0 {
+			log.Infof("Nothing to update")
+			return nil
+		}
+		nowSetting, err := jsonutils.ParseYAML(yaml)
+		if err != nil {
+			return err
+		}
+		params := args.Params(args.TYPE)
+		params.Update(nowSetting)
+
+		// 3. call update api
 		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "update-component", params)
 		if err != nil {
 			return err

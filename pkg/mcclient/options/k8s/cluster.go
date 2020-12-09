@@ -312,9 +312,14 @@ func (o ClusterComponentOptions) Params(typ string) *jsonutils.JSONDict {
 	return params
 }
 
+type ClusterComponentType struct {
+	ClusterComponentOptions
+	TYPE string `help:"Component type"`
+}
+
 type ClusterComponentTypeOptions struct {
-	IdentOptions
-	TYPE string `help:"component type"`
+	ClusterComponentType
+	AsHelmValues bool `help:"As helm values config" json:"as_helm_values"`
 }
 
 type ClusterEnableComponentCephCSIOpt struct {
@@ -340,7 +345,7 @@ func (o ClusterEnableComponentCephCSIOpt) Params() (*jsonutils.JSONDict, error) 
 	return params, nil
 }
 
-type ClusterComponentMonitorStorage struct {
+type ClusterComponentStorage struct {
 	Enabled   bool   `help:"Enable this storage" json:"enabled"`
 	SizeMB    int    `help:"Persistent storage size MB" json:"sizeMB"`
 	ClassName string `help:"Storage class name" json:"storageClassName"`
@@ -352,20 +357,36 @@ type ClusterComponentMonitorGrafanaTlsOpt struct {
 }
 
 type ClusterComponentMonitorGrafana struct {
-	AdminUser     string                               `help:"Grafana admin user" default:"admin" json:"adminUser"`
-	AdminPassword string                               `help:"Grafana admin user password" json:"adminPassword"`
-	Storage       ClusterComponentMonitorStorage       `help:"Storage setting"`
-	PublicAddress string                               `help:"Grafana expose public IP address or domain hostname" json:"publicAddress"`
-	Host          string                               `help:"Grafana ingress host domain name" json:"host"`
-	Tls           ClusterComponentMonitorGrafanaTlsOpt `help:"TLS setting"`
+	AdminUser         string                               `help:"Grafana admin user" default:"admin" json:"adminUser"`
+	AdminPassword     string                               `help:"Grafana admin user password" json:"adminPassword"`
+	Storage           ClusterComponentStorage              `help:"Storage setting"`
+	PublicAddress     string                               `help:"Grafana expose public IP address or domain hostname" json:"publicAddress"`
+	Host              string                               `help:"Grafana ingress host domain name" json:"host"`
+	Tls               ClusterComponentMonitorGrafanaTlsOpt `help:"TLS setting"`
+	DisableSubpath    bool                                 `help:"Disable grafana subpath" json:"disableSubpath"`
+	EnableThanosQuery bool                                 `help:"Enable thanos query datasource" json:"enableThanosQueryDataSource"`
+}
+
+type ObjectStoreConfig struct {
+	Bucket    string `json:"bucket"`
+	Endpoint  string `json:"endpoint"`
+	AccessKey string `json:"access_key"`
+	SecretKey string `json:"secret_key"`
+	Insecure  bool   `json:"insecure"`
 }
 
 type ClusterComponentMonitorLoki struct {
-	Storage ClusterComponentMonitorStorage `help:"Storage setting"`
+	Storage           ClusterComponentStorage `help:"Storage setting" json:"storage"`
+	ObjectStoreConfig ObjectStoreConfig       `json:"objectStoreConfig"`
+}
+
+type MonitorPrometheusThanosSidecar struct {
+	ObjectStoreConfig ObjectStoreConfig `json:"objectStoreConfig"`
 }
 
 type ClusterComponentMonitorPrometheus struct {
-	Storage ClusterComponentMonitorStorage `help:"Storage setting"`
+	Storage ClusterComponentStorage        `help:"Storage setting" json:"storage"`
+	Thanos  MonitorPrometheusThanosSidecar `json:"thanosSidecar"`
 }
 
 type ClusterComponentMonitorPromtail struct {
@@ -585,5 +606,65 @@ func (o ClusterUpdateComponentCephCSIOpt) Params() (*jsonutils.JSONDict, error) 
 	clusterConfs.Add(clusterConf)
 	conf.Add(clusterConfs, "config")
 	params.Add(conf, "cephCSI")
+	return params, nil
+}
+
+type ClusterComponentMinioSetting struct {
+	Mode          string                  `help:"MinIO mode" choices:"standalone|distributed" json:"mode"`
+	Replicas      int                     `help:"MinIO replicas" default:"1" json:"replicas"`
+	DrivesPerNode int                     `help:"MinIO drives per node" default:"1" json:"drivesPerNode"`
+	AccessKey     string                  `help:"MinIO admin access key" json:"accessKey"`
+	SecretKey     string                  `help:"MinIO admin secret key" json:"secretKey"`
+	MountPath     string                  `help:"MinIO export mount path" json:"mountPath"`
+	Storage       ClusterComponentStorage `help:"Storage setting" json:"storage"`
+}
+
+type ClusterEnableComponentMinioOpt struct {
+	ClusterComponentOptions
+	ClusterComponentMinioSetting
+}
+
+func (o ClusterEnableComponentMinioOpt) Params() (jsonutils.JSONObject, error) {
+	params := o.ClusterComponentOptions.Params("minio")
+	setting := jsonutils.Marshal(o.ClusterComponentMinioSetting)
+	params.Add(setting, "minio")
+	return params, nil
+}
+
+type ComponentThanosDnsDiscovery struct {
+	SidecarsService   string `help:"Sidecars service name to discover them using DNS discovery" default:"prometheus-operated" json:"sidecarsService"`
+	SidecarsNamespace string `help:"Sidecars namespace to discover them using DNS discovery" default:"onecloud-monitoring" json:"sidecarsNamespace"`
+}
+
+type ComponentThanosQuery struct {
+	DnsDiscovery ComponentThanosDnsDiscovery `json:"dnsDiscovery"`
+	Stores       []string                    `help:"Statically configure store APIs to connect with Thanos" json:"stores"`
+}
+
+type ComponentThanosCompactor struct {
+	Storage ClusterComponentStorage `json:"storage"`
+}
+
+type ComponentThanosStoregateway struct {
+	Storage ClusterComponentStorage `json:"storage"`
+}
+
+type ClusterComponentThanosSetting struct {
+	ClusterDomain     string                      `json:"clusterDomain"`
+	ObjectStoreConfig ObjectStoreConfig           `json:"objectStoreConfig"`
+	Query             ComponentThanosQuery        `json:"query"`
+	Store             ComponentThanosStoregateway `json:"store"`
+	Compactor         ComponentThanosCompactor    `json:"compactor"`
+}
+
+type ClusterEnableComponentThanosOpt struct {
+	ClusterComponentOptions
+	ClusterComponentThanosSetting
+}
+
+func (o ClusterEnableComponentThanosOpt) Params() (jsonutils.JSONObject, error) {
+	params := o.ClusterComponentOptions.Params("thanos")
+	setting := jsonutils.Marshal(o.ClusterComponentThanosSetting)
+	params.Add(setting, "thanos")
 	return params, nil
 }
