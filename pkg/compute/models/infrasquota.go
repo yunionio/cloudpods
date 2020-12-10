@@ -207,10 +207,10 @@ func (used *SInfrasQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) err
 	sreq := request.(*SInfrasQuota)
 	squota := quota.(*SInfrasQuota)
 	if quotas.Exceed(used.Host, sreq.Host, squota.Host) {
-		err.Add("host", squota.Host, used.Host, sreq.Host)
+		err.Add(used, "host", squota.Host, used.Host, sreq.Host)
 	}
 	if quotas.Exceed(used.Vpc, sreq.Vpc, squota.Vpc) {
-		err.Add("vpc", squota.Vpc, used.Vpc, sreq.Vpc)
+		err.Add(used, "vpc", squota.Vpc, used.Vpc, sreq.Vpc)
 	}
 	if err.IsError() {
 		return err
