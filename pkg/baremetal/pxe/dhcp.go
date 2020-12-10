@@ -368,7 +368,7 @@ func (req *dhcpRequest) createBaremetal(session *mcclient.ClientSession) (jsonut
 	params := jsonutils.NewDict()
 	mac := req.ClientMac.String()
 	zoneId := req.baremetalManager.GetZoneId()
-	name := fmt.Sprintf("BM%s", strings.Replace(mac, ":", "", -1))
+	name := strings.ToLower(fmt.Sprintf("BM%s", strings.Replace(mac, ":", "", -1)))
 	params.Add(jsonutils.NewString(name), "name")
 	params.Add(jsonutils.NewString(mac), "access_mac")
 	params.Add(jsonutils.NewString("baremetal"), "host_type")
