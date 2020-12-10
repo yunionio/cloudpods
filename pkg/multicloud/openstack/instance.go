@@ -1025,11 +1025,11 @@ func (zone *SZone) CreateVM(hypervisor string, opts *cloudprovider.SManagedVMCre
 		},
 	}
 
-	flavorId, err := region.syncFlavor(opts.InstanceType, opts.Cpu, opts.MemoryMB, opts.SysDisk.SizeGB)
+	flavor, err := region.syncFlavor(opts.InstanceType, opts.Cpu, opts.MemoryMB, opts.SysDisk.SizeGB)
 	if err != nil {
 		return nil, err
 	}
-	params["server"]["flavorRef"] = flavorId
+	params["server"]["flavorRef"] = flavor.Id
 
 	if len(opts.PublicKey) > 0 {
 		keypairName, err := region.syncKeypair(opts.Name, opts.PublicKey)
