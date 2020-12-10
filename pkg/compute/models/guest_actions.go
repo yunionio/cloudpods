@@ -2542,7 +2542,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	}
 
 	// schedulr forecast
-	schedDesc := self.confToSchedDesc(addCpu, addMem, addDisk)
+	schedDesc := self.changeConfToSchedDesc(addCpu, addMem, addDisk)
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 	canChangeConf, err := modules.SchedManager.DoScheduleForecast(s, schedDesc, 1)
 	if err != nil {
@@ -2588,7 +2588,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	return nil, nil
 }
 
-func (self *SGuest) confToSchedDesc(addCpu, addMem, addDisk int) *schedapi.ScheduleInput {
+func (self *SGuest) changeConfToSchedDesc(addCpu, addMem, addDisk int) *schedapi.ScheduleInput {
 	guestDisks := self.GetDisks()
 	diskInfo := guestDisks[0].ToDiskConfig()
 	diskInfo.SizeMb = addDisk
@@ -2605,6 +2605,8 @@ func (self *SGuest) confToSchedDesc(addCpu, addMem, addDisk int) *schedapi.Sched
 			Project: self.ProjectId,
 			Domain:  self.DomainId,
 		},
+		ChangeConfig:      true,
+		HasIsolatedDevice: len(self.GetIsolatedDevices()) > 0,
 	}
 	return desc
 }

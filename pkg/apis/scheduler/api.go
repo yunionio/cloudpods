@@ -86,6 +86,11 @@ type ScheduleInput struct {
 	// we don't need reallocate network
 	ReuseNetwork bool `json:"reuse_network"`
 
+	// Change config
+	ChangeConfig bool
+	// guest who change config has isolated device
+	HasIsolatedDevice bool
+
 	PendingUsages []jsonutils.JSONObject
 }
 
