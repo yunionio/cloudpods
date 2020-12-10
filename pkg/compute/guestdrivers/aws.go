@@ -92,7 +92,7 @@ func (self *SAwsGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapa
 		Provider:   self.GetProvider(),
 		DefaultAccount: cloudprovider.SDefaultAccount{
 			Linux: cloudprovider.SOsDefaultAccount{
-				DefaultAccount: api.VM_DEFAULT_LINUX_LOGIN_USER,
+				DefaultAccount: api.VM_AWS_DEFAULT_LOGIN_USER,
 				Changeable:     false,
 			},
 			Windows: cloudprovider.SOsDefaultAccount{
