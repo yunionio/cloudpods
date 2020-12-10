@@ -787,7 +787,7 @@ func (m *SGuestManager) OnlineResizeDisk(ctx context.Context, sid string, diskId
 // 	if !ok {
 // 		return nil, hostutils.ParamsError
 // 	}
-// 	guest := guestManger.Servers[sid]
+// 	guest := guestManager.Servers[sid]
 // 	port := m.GetFreePortByBase(BUILT_IN_NBD_SERVER_PORT_BASE)
 
 // }
@@ -867,18 +867,18 @@ func (m *SGuestManager) RequestVerifyDirtyServer(s *SKVMGuestInstance) {
 	}
 }
 
-var guestManger *SGuestManager
+var guestManager *SGuestManager
 
 func Stop() {
-	guestManger.ExitGuestCleanup()
+	guestManager.ExitGuestCleanup()
 }
 
 func Init(host hostutils.IHost, serversPath string) {
-	if guestManger == nil {
-		guestManger = NewGuestManager(host, serversPath)
+	if guestManager == nil {
+		guestManager = NewGuestManager(host, serversPath)
 	}
 }
 
 func GetGuestManager() *SGuestManager {
-	return guestManger
+	return guestManager
 }

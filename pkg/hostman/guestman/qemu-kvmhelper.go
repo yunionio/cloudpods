@@ -54,7 +54,7 @@ const (
 )
 
 func (s *SKVMGuestInstance) IsKvmSupport() bool {
-	return guestManger.GetHost().IsKvmSupport()
+	return guestManager.GetHost().IsKvmSupport()
 }
 
 func (s *SKVMGuestInstance) IsVdiSpice() bool {
@@ -218,7 +218,7 @@ func (s *SKVMGuestInstance) getNicDownScriptPath(nic jsonutils.JSONObject) strin
 
 func (s *SKVMGuestInstance) generateNicScripts(nic jsonutils.JSONObject) error {
 	bridge, _ := nic.GetString("bridge")
-	dev := guestManger.GetHost().GetBridgeDev(bridge)
+	dev := guestManager.GetHost().GetBridgeDev(bridge)
 	if dev == nil {
 		return fmt.Errorf("Can't find bridge %s", bridge)
 	}
@@ -440,7 +440,7 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 			}
 		}
 
-		if !guestManger.GetHost().IsNestedVirtualization() {
+		if !guestManager.GetHost().IsNestedVirtualization() {
 			cpuType += ",kvm=off"
 		}
 
