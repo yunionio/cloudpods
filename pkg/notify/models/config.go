@@ -28,6 +28,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -128,6 +129,13 @@ func (c *SConfig) ValidateUpdateData(ctx context.Context, userCred mcclient.Toke
 	return input, nil
 }
 
+func (c *SConfig) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	err := c.StartRepullSubcontactTask(ctx, userCred)
+	if err != nil {
+		log.Errorf("unable to StartRepullSubcontactTask: %v", err)
+	}
+}
+
 func (c *SConfig) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	c.SStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
 	configMap := make(map[string]string)
@@ -137,6 +145,19 @@ func (c *SConfig) PostUpdate(ctx context.Context, userCred mcclient.TokenCredent
 		return
 	}
 	NotifyService.RestartService(ctx, configMap, c.Type)
+	err = c.StartRepullSubcontactTask(ctx, userCred)
+	if err != nil {
+		log.Errorf("unable to StartRepullSubcontactTask: %v", err)
+	}
+}
+
+func (c *SConfig) StartRepullSubcontactTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "RepullSuncontactTask", c, userCred, nil, "", "")
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (cm *SConfigManager) AllowPerformGetTypes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
