@@ -56,14 +56,19 @@ func GetByZone(instanceType, zoneId string) *ServerSku {
 	return skuManager.GetByZone(instanceType, zoneId)
 }
 
+func GetByRegion(instanceType, regionId string) *ServerSku {
+	return skuManager.GetByRegion(instanceType, regionId)
+}
+
 type skuMap struct {
 	*sync.Map
 }
 
 type ServerSku struct {
-	Id     string `json:"id"`
-	Name   string `json:"name"`
-	ZoneId string `json:"zone_id"`
+	Id       string `json:"id"`
+	Name     string `json:"name"`
+	RegionId string `json:"cloudregion_id"`
+	ZoneId   string `json:"zone_id"`
 }
 
 type skuList []*ServerSku
@@ -79,6 +84,15 @@ func (l skuList) Has(newSku *ServerSku) (int, bool) {
 
 func (l skuList) DebugString() string {
 	return fmt.Sprintf("%s", jsonutils.Marshal(l).String())
+}
+
+func (l skuList) GetByRegion(regionId string) *ServerSku {
+	for _, s := range l {
+		if s.RegionId == regionId {
+			return s
+		}
+	}
+	return nil
 }
 
 func (l skuList) GetByZone(zoneId string) *ServerSku {
@@ -124,7 +138,7 @@ func (m *SSkuManager) syncOnce() {
 	startTime := time.Now()
 
 	skus := make([]ServerSku, 0)
-	q := models.ServerSkuManager.Query("id", "name", "zone_id")
+	q := models.ServerSkuManager.Query("id", "name", "cloudregion_id", "zone_id")
 	q = q.Filter(
 		sqlchemy.OR(
 			sqlchemy.Equals(q.Field("prepaid_status"), computeapi.SkuStatusAvailable),
@@ -151,4 +165,12 @@ func (m *SSkuManager) GetByZone(instanceType, zoneId string) *ServerSku {
 		return nil
 	}
 	return l.GetByZone(zoneId)
+}
+
+func (m *SSkuManager) GetByRegion(instanceType, regionId string) *ServerSku {
+	l := m.skuMap.Get(instanceType)
+	if l == nil {
+		return nil
+	}
+	return l.GetByRegion(regionId)
 }
