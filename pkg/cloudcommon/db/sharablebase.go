@@ -472,6 +472,10 @@ func SharablePerformPublic(model ISharableBaseModel, ctx context.Context, userCr
 	if targetScope.HigherThan(allowScope) {
 		return errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require %s allow %s", targetScope, allowScope)
 	}
+	requireScope := model.GetPublicScope()
+	if requireScope.HigherThan(allowScope) {
+		return errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require %s allow %s", requireScope, allowScope)
+	}
 
 	_, err = Update(model, func() error {
 		model.SetShare(targetScope)
