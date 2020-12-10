@@ -106,6 +106,8 @@ var (
 			"domainized_namespace",
 			"api_server",
 			"customized_private_prefixes",
+			"global_http_proxy",
+			"global_https_proxy",
 		},
 	}
 
