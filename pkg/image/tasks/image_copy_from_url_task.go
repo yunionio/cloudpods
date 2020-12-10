@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/image/models"
+	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -45,7 +46,11 @@ func (self *ImageCopyFromUrlTask) OnInit(ctx context.Context, obj db.IStandalone
 	self.SetStage("OnImageImportComplete", nil)
 	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
 		header := http.Header{}
-		resp, err := httputils.Request(httputils.GetTimeoutClient(0), ctx, httputils.GET, copyFrom, header, nil, false)
+		client := httputils.GetTimeoutClient(0)
+		transport := httputils.GetTransport(true)
+		transport.Proxy = options.Options.HttpTransportProxyFunc()
+		client.Transport = transport
+		resp, err := httputils.Request(client, ctx, httputils.GET, copyFrom, header, nil, false)
 		if err != nil {
 			return nil, err
 		}
