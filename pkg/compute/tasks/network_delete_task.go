@@ -37,12 +37,12 @@ func init() {
 	taskman.RegisterTask(NetworkDeleteTask{})
 }
 
-func (self *NetworkDeleteTask) taskFailed(ctx context.Context, network *models.SNetwork, reason jsonutils.JSONObject) {
-	log.Errorf("network delete task fail: %s", reason)
-	network.SetStatus(self.UserCred, api.NETWORK_STATUS_DELETE_FAILED, reason.String())
-	db.OpsLog.LogEvent(network, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, network, logclient.ACT_DELETE, reason, self.UserCred, false)
-	self.SetStageFailed(ctx, reason)
+func (self *NetworkDeleteTask) taskFailed(ctx context.Context, network *models.SNetwork, err error) {
+	log.Errorf("network delete task fail: %v", err)
+	network.SetStatus(self.UserCred, api.NETWORK_STATUS_DELETE_FAILED, err.Error())
+	db.OpsLog.LogEvent(network, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, network, logclient.ACT_DELETE, err, self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *NetworkDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -55,13 +55,13 @@ func (self *NetworkDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	if inet != nil {
 		err = inet.Delete()
 		if err != nil {
-			self.taskFailed(ctx, network, jsonutils.NewString(err.Error()))
+			self.taskFailed(ctx, network, errors.Wrapf(err, "inet.Delete"))
 			return
 		}
 	} else if errors.Cause(err) == cloudprovider.ErrNotFound {
 		// already deleted, do nothing
 	} else {
-		self.taskFailed(ctx, network, jsonutils.NewString(err.Error()))
+		self.taskFailed(ctx, network, errors.Wrapf(err, "network.GetINetwork"))
 		return
 	}
 

@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -94,7 +95,15 @@ func (nic *SInstancePort) GetINetwork() cloudprovider.ICloudNetwork {
 				log.Errorf("failed to found network by %s error: %v", nic.FixedIps[i].SubnetId, err)
 				return nil
 			}
-			return network
+			for _, pool := range network.AllocationPools {
+				start, _ := netutils.NewIPV4Addr(pool.Start)
+				end, _ := netutils.NewIPV4Addr(pool.End)
+				ipPool := netutils.NewIPV4AddrRange(start, end)
+				ip, _ := netutils.NewIPV4Addr(nic.FixedIps[i].IpAddress)
+				ipPool.Contains(ip)
+				network.AllocationPools = []AllocationPool{pool}
+				return network
+			}
 		}
 	}
 	return nil
