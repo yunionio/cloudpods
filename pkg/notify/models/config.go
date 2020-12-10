@@ -111,6 +111,10 @@ func (c *SConfig) ValidateUpdateData(ctx context.Context, userCred mcclient.Toke
 	if err != nil {
 		return input, err
 	}
+	// check if changed
+	if c.Content.Equals(input.Content) {
+		return input, nil
+	}
 	isValid, message, err := NotifyService.ValidateConfig(ctx, c.Type, configs)
 	if err != nil {
 		if errors.Cause(err) == errors.ErrNotImplemented {
