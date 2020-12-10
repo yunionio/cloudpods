@@ -629,11 +629,9 @@ func (r *SReceiver) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 	// set status
 	r.SetStatus(userCred, api.RECEIVER_STATUS_PULLING, "")
 	logclient.AddActionLogWithContext(ctx, r, logclient.ACT_CREATE, nil, userCred, true)
-	task, err := taskman.TaskManager.NewTask(ctx, "SubcontactPullTask", r, userCred, nil, "", "")
+	err := r.StartSubcontactPullTask(ctx, userCred, nil, "")
 	if err != nil {
-		log.Errorf("ContactPullTask newTask error %v", err)
-	} else {
-		task.ScheduleRun(nil)
+		log.Errorf("unable to StartSubcontactPullTask: %v", err)
 	}
 }
 
@@ -727,12 +725,20 @@ func (r *SReceiver) PostUpdate(ctx context.Context, userCred mcclient.TokenCrede
 	// set status
 	r.SetStatus(userCred, api.RECEIVER_STATUS_PULLING, "")
 	logclient.AddActionLogWithContext(ctx, r, logclient.ACT_UPDATE, nil, userCred, true)
-	task, err := taskman.TaskManager.NewTask(ctx, "SubcontactPullTask", r, userCred, nil, "", "")
+	err := r.StartSubcontactPullTask(ctx, userCred, nil, "")
 	if err != nil {
-		log.Errorf("ContactPullTask newTask error %v", err)
-	} else {
-		task.ScheduleRun(nil)
+		log.Errorf("unable to StartSubcontactPullTask: %v", err)
 	}
+
+}
+
+func (r *SReceiver) StartSubcontactPullTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "SubcontactPullTask", r, userCred, params, parentTaskId, "")
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (r *SReceiver) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -768,13 +774,7 @@ func (r *SReceiver) PerformTriggerVerify(ctx context.Context, userCred mcclient.
 		r.SetStatus(userCred, api.RECEIVER_STATUS_PULLING, "")
 		params := jsonutils.NewDict()
 		params.Set("contact_types", jsonutils.NewArray(jsonutils.NewString(input.ContactType)))
-		task, err := taskman.TaskManager.NewTask(ctx, "SubcontactPullTask", r, userCred, params, "", "")
-		if err != nil {
-			log.Errorf("ContactPullTask newTask error %v", err)
-		} else {
-			task.ScheduleRun(nil)
-		}
-		return nil, nil
+		return nil, r.StartSubcontactPullTask(ctx, userCred, params, "")
 	}
 	_, err := VerificationManager.Create(ctx, r.Id, input.ContactType)
 	if err == ErrVerifyFrequently {
