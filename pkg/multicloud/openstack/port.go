@@ -39,6 +39,8 @@ type ExtraDhcpOpt struct {
 }
 
 type SFixedIP struct {
+	port *SPort
+
 	IpAddress string
 	SubnetID  string
 }
@@ -52,7 +54,17 @@ func (fixip *SFixedIP) GetIP() string {
 }
 
 func (fixip *SFixedIP) GetINetworkId() string {
-	return fixip.SubnetID
+	network, err := fixip.port.region.GetNetwork(fixip.SubnetID)
+	if err != nil {
+		return ""
+	}
+	for _, pool := range network.AllocationPools {
+		if pool.Contains(fixip.IpAddress) {
+			network.AllocationPools = []AllocationPool{pool}
+			return network.GetGlobalId()
+		}
+	}
+	return ""
 }
 
 func (fixip *SFixedIP) IsPrimary() bool {
@@ -137,6 +149,7 @@ func (port *SPort) GetStatus() string {
 func (port *SPort) GetICloudInterfaceAddresses() ([]cloudprovider.ICloudInterfaceAddress, error) {
 	address := []cloudprovider.ICloudInterfaceAddress{}
 	for i := 0; i < len(port.FixedIps); i++ {
+		port.FixedIps[i].port = port
 		address = append(address, &port.FixedIps[i])
 	}
 	return address, nil

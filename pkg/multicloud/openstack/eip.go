@@ -215,8 +215,11 @@ func (eip *SEipAddress) GetINetworkId() string {
 		return ""
 	}
 	for _, network := range networks {
-		if network.Contains(eip.FloatingIPAddress) {
-			return network.Id
+		for _, pool := range network.AllocationPools {
+			if pool.Contains(eip.FloatingIPAddress) {
+				network.AllocationPools = []AllocationPool{pool}
+				return network.GetGlobalId()
+			}
 		}
 	}
 	log.Errorf("failed to find eip %s(%s) networkId", eip.FloatingIPAddress, eip.FloatingNetworkId)
@@ -244,6 +247,7 @@ func (eip *SEipAddress) GetProjectId() string {
 }
 
 func (region *SRegion) CreateEip(vpcId, networkId, ip string, projectId string) (*SEipAddress, error) {
+	_, networkId = getNetworkId(networkId)
 	params := map[string]map[string]string{
 		"floatingip": map[string]string{
 			"floating_network_id": vpcId,

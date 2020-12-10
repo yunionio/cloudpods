@@ -17,6 +17,7 @@ package openstack
 import (
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -31,8 +32,38 @@ import (
 )
 
 type AllocationPool struct {
-	Start string
-	End   string
+	Start string `json:"start"`
+	End   string `json:"end"`
+}
+
+func (p AllocationPool) IsValid() bool {
+	for _, ip := range []string{p.Start, p.End} {
+		_, err := netutils.NewIPV4Addr(ip)
+		if err != nil {
+			return false
+		}
+	}
+	return true
+}
+
+func (p AllocationPool) Equals(s AllocationPool) bool {
+	return p.Start == s.Start && p.End == s.End
+}
+
+func (p AllocationPool) Contains(ip string) bool {
+	start, err := netutils.NewIPV4Addr(p.Start)
+	if err != nil {
+		return false
+	}
+	end, err := netutils.NewIPV4Addr(p.End)
+	if err != nil {
+		return false
+	}
+	addr, err := netutils.NewIPV4Addr(ip)
+	if err != nil {
+		return false
+	}
+	return netutils.NewIPV4AddrRange(start, end).Contains(addr)
 }
 
 type SNextLinks []SNextLink
@@ -102,6 +133,9 @@ func (network *SNetwork) GetName() string {
 }
 
 func (network *SNetwork) GetGlobalId() string {
+	if len(network.AllocationPools) > 0 {
+		return fmt.Sprintf("%s|%s-%s", network.Id, network.AllocationPools[0].Start, network.AllocationPools[0].End)
+	}
 	return network.Id
 }
 
@@ -114,7 +148,29 @@ func (network *SNetwork) GetStatus() string {
 }
 
 func (network *SNetwork) Delete() error {
-	return network.wire.zone.region.DeleteNetwork(network.Id)
+	nw, err := network.wire.zone.region.GetNetwork(network.Id)
+	if err != nil {
+		return errors.Wrapf(err, "GetNetwork(%s)", network.Id)
+	}
+	if len(nw.AllocationPools) <= 1 || len(network.AllocationPools) == 0 {
+		return network.wire.zone.region.DeleteNetwork(network.Id)
+	}
+	pools := []AllocationPool{}
+	for i := range nw.AllocationPools {
+		if nw.AllocationPools[i].Equals(network.AllocationPools[0]) {
+			continue
+		}
+		pools = append(pools, nw.AllocationPools[i])
+	}
+
+	params := map[string]interface{}{
+		"subnet": map[string]interface{}{
+			"allocation_pools": pools,
+		},
+	}
+	resource := fmt.Sprintf("/v2.0/subnets/%s", network.Id)
+	_, err = network.wire.zone.region.vpcUpdate(resource, jsonutils.Marshal(params))
+	return err
 }
 
 func (region *SRegion) DeleteNetwork(networkId string) error {
@@ -156,11 +212,12 @@ func (network *SNetwork) GetIPRange() netutils.IPV4AddrRange {
 }
 
 func (network *SNetwork) Contains(ipAddr string) bool {
-	ip, err := netutils.NewIPV4Addr(ipAddr)
-	if err != nil {
-		return false
+	for _, pool := range network.AllocationPools {
+		if pool.Contains(ipAddr) {
+			return true
+		}
 	}
-	return network.GetIPRange().Contains(ip)
+	return false
 }
 
 func (network *SNetwork) GetIpMask() int8 {
@@ -183,7 +240,21 @@ func (network *SNetwork) GetServerType() string {
 	return api.NETWORK_TYPE_GUEST
 }
 
+func getNetworkId(networkId string) (AllocationPool, string) {
+	pool := AllocationPool{}
+	if !strings.Contains(networkId, "|") {
+		return pool, networkId
+	}
+	info := strings.Split(networkId, "|")
+	networkId = info[0]
+	ipInfo := strings.Split(info[1], "-")
+	pool.Start, pool.End = ipInfo[0], ipInfo[1]
+	return pool, networkId
+}
+
 func (region *SRegion) GetNetwork(networkId string) (*SNetwork, error) {
+	var pool AllocationPool
+	pool, networkId = getNetworkId(networkId)
 	resource := fmt.Sprintf("/v2.0/subnets/%s", networkId)
 	resp, err := region.vpcGet(resource)
 	if err != nil {
@@ -194,7 +265,16 @@ func (region *SRegion) GetNetwork(networkId string) (*SNetwork, error) {
 	if err != nil {
 		return nil, err
 	}
-	return network, nil
+	if len(pool.Start) == 0 && len(pool.End) == 0 {
+		return network, nil
+	}
+	for _, _pool := range network.AllocationPools {
+		if _pool.Equals(pool) {
+			network.AllocationPools = []AllocationPool{pool}
+			return network, nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", networkId)
 }
 
 func (region *SRegion) GetNetworks(vpcId string) ([]SNetwork, error) {
