@@ -200,7 +200,7 @@ func (h *PredicateHelper) UseReserved() bool {
 	usable := false
 	data := h.Unit.SchedData()
 	isoDevs := data.IsolatedDevices
-	if len(isoDevs) > 0 {
+	if len(isoDevs) > 0 || (data.ChangeConfig && data.HasIsolatedDevice) {
 		usable = true
 	}
 	return usable
