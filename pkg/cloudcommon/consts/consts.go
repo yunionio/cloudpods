@@ -35,6 +35,8 @@ var (
 	maxPagingLimit     int64 = 2048
 
 	domainizedNamespace = true
+
+	enableQuotaCheck = false
 )
 
 func SetRegion(region string) {
@@ -84,4 +86,12 @@ func SetDomainizedNamespace(domainNS bool) {
 
 func IsDomainizedNamespace() bool {
 	return nonDefaultDomainProjects && domainizedNamespace
+}
+
+func SetEnableQuotaCheck(val bool) {
+	enableQuotaCheck = val
+}
+
+func EnableQuotaCheck() bool {
+	return enableQuotaCheck
 }

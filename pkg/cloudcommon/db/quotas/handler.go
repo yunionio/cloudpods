@@ -132,6 +132,12 @@ func (manager *SQuotaBaseManager) queryQuota(ctx context.Context, quota IQuota, 
 	ret := jsonutils.NewDict()
 
 	keys := quota.GetKeys()
+	ret.Update(jsonutils.Marshal(keys))
+	ret.Update(quota.ToJSON(""))
+
+	if !consts.EnableQuotaCheck() {
+		return ret, nil
+	}
 
 	usage := manager.newQuota()
 	err := manager.usageStore.GetQuota(ctx, keys, usage)
@@ -150,8 +156,6 @@ func (manager *SQuotaBaseManager) queryQuota(ctx context.Context, quota IQuota, 
 		return nil, errors.Wrap(err, "manager.GetPendingUsages")
 	}
 
-	ret.Update(jsonutils.Marshal(keys))
-	ret.Update(quota.ToJSON(""))
 	if usage != nil {
 		ret.Update(usage.ToJSON("usage"))
 	}
