@@ -77,6 +77,9 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			"cancel-block-jobs":    guestCancelBlockJobs,
 			"create-from-libvirt":  guestCreateFromLibvirt,
 			"create-form-esxi":     guestCreateFromEsxi,
+			"open-forward":         guestOpenForward,
+			"list-forward":         guestListForward,
+			"close-forward":        guestCloseForward,
 		} {
 			app.AddHandler("POST",
 				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyWord, action),
