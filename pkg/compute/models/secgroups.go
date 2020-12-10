@@ -1225,7 +1225,7 @@ func (self *SSecurityGroup) PerformImportRules(ctx context.Context, userCred mcc
 	for i := range input.Rules {
 		err := input.Rules[i].Check()
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("rule %d is invalid: %s", i, err)
+			return nil, httperrors.NewInputParameterError("rule %d is invalid: %s", i+1, err)
 		}
 	}
 	for _, r := range input.Rules {
