@@ -191,13 +191,13 @@ func (used *SDomainQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) err
 	sreq := request.(*SDomainQuota)
 	squota := quota.(*SDomainQuota)
 	if quotas.Exceed(used.Globalvpc, sreq.Globalvpc, squota.Globalvpc) {
-		err.Add("globalvpc", squota.Globalvpc, used.Globalvpc, sreq.Globalvpc)
+		err.Add(used, "globalvpc", squota.Globalvpc, used.Globalvpc, sreq.Globalvpc)
 	}
 	if quotas.Exceed(used.Cloudaccount, sreq.Cloudaccount, squota.Cloudaccount) {
-		err.Add("cloudaccount", squota.Cloudaccount, used.Cloudaccount, sreq.Cloudaccount)
+		err.Add(used, "cloudaccount", squota.Cloudaccount, used.Cloudaccount, sreq.Cloudaccount)
 	}
 	if quotas.Exceed(used.DnsZone, sreq.DnsZone, squota.DnsZone) {
-		err.Add("dns_zone", squota.DnsZone, used.DnsZone, sreq.DnsZone)
+		err.Add(used, "dns_zone", squota.DnsZone, used.DnsZone, sreq.DnsZone)
 	}
 	if err.IsError() {
 		return err

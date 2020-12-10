@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type IQuotaKeys interface {
@@ -30,6 +31,8 @@ type IQuotaKeys interface {
 	Compare(IQuotaKeys) int
 
 	OwnerId() mcclient.IIdentityProvider
+
+	Scope() rbacutils.TRbacScope
 }
 
 type IQuota interface {
