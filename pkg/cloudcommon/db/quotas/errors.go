@@ -19,9 +19,11 @@ import (
 	"strings"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SOutOfQuotaError struct {
+	scope   rbacutils.TRbacScope
 	name    string
 	limit   int
 	used    int
@@ -37,7 +39,7 @@ func (e *SOutOfQuotaError) Cause() error {
 }
 
 func (e *SOutOfQuotaError) Error() string {
-	return fmt.Sprintf("%s limit %d used %d request %d", e.name, e.limit, e.used, e.request)
+	return fmt.Sprintf("[%s.%s] limit %d used %d request %d", e.scope, e.name, e.limit, e.used, e.request)
 }
 
 func (es *SOutOfQuotaErrors) Error() string {
@@ -63,8 +65,10 @@ func NewOutOfQuotaError() *SOutOfQuotaErrors {
 	}
 }
 
-func (es *SOutOfQuotaErrors) Add(name string, limit int, used int, request int) {
+func (es *SOutOfQuotaErrors) Add(quota IQuota, name string, limit int, used int, request int) {
+	scope := quota.GetKeys().Scope()
 	e := SOutOfQuotaError{
+		scope:   scope,
 		name:    name,
 		limit:   limit,
 		used:    used,

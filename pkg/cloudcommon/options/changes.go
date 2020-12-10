@@ -50,6 +50,9 @@ func OnBaseOptionsChange(oOpts, nOpts interface{}) bool {
 		netutils.SetPrivatePrefixes(newOpts.CustomizedPrivatePrefixes)
 		log.Debugf("Customized private prefixes: %s", netutils.GetPrivateIPRanges())
 	}
+	if oldOpts.EnableQuotaCheck != newOpts.EnableQuotaCheck {
+		consts.SetEnableQuotaCheck(newOpts.EnableQuotaCheck)
+	}
 	return changed
 }
 

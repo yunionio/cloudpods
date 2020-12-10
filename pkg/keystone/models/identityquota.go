@@ -231,19 +231,19 @@ func (used *SIdentityQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) e
 	sreq := request.(*SIdentityQuota)
 	squota := quota.(*SIdentityQuota)
 	if quotas.Exceed(used.User, sreq.User, squota.User) {
-		err.Add("user", squota.User, used.User, sreq.User)
+		err.Add(used, "user", squota.User, used.User, sreq.User)
 	}
 	if quotas.Exceed(used.Group, sreq.Group, squota.Group) {
-		err.Add("group", squota.Group, used.Group, sreq.Group)
+		err.Add(used, "group", squota.Group, used.Group, sreq.Group)
 	}
 	if quotas.Exceed(used.Project, sreq.Project, squota.Project) {
-		err.Add("project", squota.Project, used.Project, sreq.Project)
+		err.Add(used, "project", squota.Project, used.Project, sreq.Project)
 	}
 	if quotas.Exceed(used.Role, sreq.Role, squota.Role) {
-		err.Add("role", squota.Role, used.Role, sreq.Role)
+		err.Add(used, "role", squota.Role, used.Role, sreq.Role)
 	}
 	if quotas.Exceed(used.Policy, sreq.Policy, squota.Policy) {
-		err.Add("policy", squota.Policy, used.Policy, sreq.Policy)
+		err.Add(used, "policy", squota.Policy, used.Policy, sreq.Policy)
 	}
 	if err.IsError() {
 		return err
