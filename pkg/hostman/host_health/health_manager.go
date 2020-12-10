@@ -23,7 +23,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/hostman/guestman"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/types"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 )
 
@@ -36,10 +36,9 @@ const (
 )
 
 type SHostHealthManager struct {
-	cli          Client
-	status       Status
-	guestManager *guestman.SGuestManager
-	onHostDown   string
+	cli        Client
+	status     Status
+	onHostDown string
 }
 
 const SHUTDOWN_SERVERS = "shutdown-servers"
@@ -65,7 +64,6 @@ func InitHostHealthManager(hostId, onHostDown string) (*SHostHealthManager, erro
 	default:
 		return nil, fmt.Errorf("not support health driver %s", options.HostOptions.HealthDriver)
 	}
-	m.guestManager = guestman.GetGuestManager()
 	m.onHostDown = onHostDown
 	m.cli.SetOnUnhealthy(m.OnUnhealth)
 	if err := m.StartHealthCheck(); err != nil {
@@ -95,7 +93,7 @@ func (m *SHostHealthManager) SetOnHostDown(onHostDown string) {
 
 // shutdown servers used shared storage
 func (m *SHostHealthManager) shutdownServers() {
-	m.guestManager.ShutdownSharedStorageServers()
+	types.HealthCheckReactor.ShutdownSharedStorageServers()
 }
 
 func (m *SHostHealthManager) Stop() error {

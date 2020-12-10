@@ -34,6 +34,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -876,6 +877,7 @@ func Stop() {
 func Init(host hostutils.IHost, serversPath string) {
 	if guestManager == nil {
 		guestManager = NewGuestManager(host, serversPath)
+		types.HealthCheckReactor = guestManager
 	}
 }
 
