@@ -878,3 +878,31 @@ func (region *SRegion) RebuildRoot(instanceId string, imageId string, sysDiskSiz
 	}
 	return disk.GetGlobalId(), nil
 }
+
+func (self *SRegion) SaveImage(diskId string, opts *cloudprovider.SaveImageOptions) (*SImage, error) {
+	params := map[string]interface{}{
+		"name":        opts.Name,
+		"description": opts.Notes,
+		"sourceDisk":  diskId,
+	}
+	image := &SImage{}
+	err := self.Insert("global/images", jsonutils.Marshal(params), image)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Insert")
+	}
+	image.storagecache = self.getStoragecache()
+	return image, nil
+}
+
+func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudprovider.ICloudImage, error) {
+	for i := range self.Disks {
+		if self.Disks[0].Index == 0 {
+			image, err := self.host.zone.region.SaveImage(self.Disks[i].Source, opts)
+			if err != nil {
+				return nil, errors.Wrapf(err, "SaveImage")
+			}
+			return image, nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "no valid system disk found")
+}

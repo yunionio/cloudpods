@@ -1417,3 +1417,51 @@ func updateWindowsUserData(userData string, osVersion string, username, password
 
 	return base64.StdEncoding.EncodeToString([]byte(shells)), nil
 }
+
+func (self *SRegion) SaveImage(instanceId string, opts *cloudprovider.SaveImageOptions) (*SImage, error) {
+	params := map[string]string{
+		"name":        opts.Name,
+		"instance_id": instanceId,
+	}
+	if len(opts.Notes) > 0 {
+		params["description"] = func() string {
+			opts.Notes = strings.ReplaceAll(opts.Notes, "<", "")
+			opts.Notes = strings.ReplaceAll(opts.Notes, ">", "")
+			opts.Notes = strings.ReplaceAll(opts.Notes, "\n", "")
+			if len(opts.Notes) > 1024 {
+				opts.Notes = opts.Notes[:1024]
+			}
+			return opts.Notes
+		}()
+	}
+	resp, err := self.ecsClient.Images.CreateInContextWithSpec(nil, "action", jsonutils.Marshal(params), "")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Images.Create")
+	}
+	jobId, err := resp.GetString("job_id")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.GetString(job_id)")
+	}
+	err = self.waitTaskStatus(self.ecsClient.Images.ServiceType(), jobId, TASK_SUCCESS, 15*time.Second, 10*time.Minute)
+	if err != nil {
+		return nil, errors.Wrapf(err, "waitTaskStatus")
+	}
+	imageId, err := self.GetTaskEntityID(self.ecsClient.Images.ServiceType(), jobId, "image_id")
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetTaskEntityID")
+	}
+	image, err := self.GetImage(imageId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetImage(%s)", imageId)
+	}
+	image.storageCache = self.getStoragecache()
+	return image, nil
+}
+
+func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudprovider.ICloudImage, error) {
+	image, err := self.host.zone.region.SaveImage(self.ID, opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "SaveImage")
+	}
+	return image, nil
+}

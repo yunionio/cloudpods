@@ -50,6 +50,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/userdata"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -178,51 +179,50 @@ func (self *SGuest) AllowPerformSaveImage(ctx context.Context, userCred mcclient
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "save-image")
 }
 
-func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !utils.IsInStringArray(self.Status, []string{api.VM_READY}) {
+func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerSaveImageInput) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return nil, httperrors.NewInputParameterError("Cannot save image in status %s", self.Status)
-	} else if !data.Contains("name") && !data.Contains("generate_name") {
+	}
+	input.Restart = (self.Status == api.VM_RUNNING) || input.AutoStart
+	if len(input.Name) == 0 && len(input.GenerateName) == 0 {
 		return nil, httperrors.NewInputParameterError("Image name is required")
-	} else if disks := self.CategorizeDisks(); disks.Root == nil {
+	}
+	disks := self.CategorizeDisks()
+	if disks.Root == nil {
 		return nil, httperrors.NewInputParameterError("No root image")
-	} else {
-		kwargs := data.(*jsonutils.JSONDict)
-		restart := (self.Status == api.VM_RUNNING) || jsonutils.QueryBoolean(data, "auto_start", false)
-		properties := jsonutils.NewDict()
-		if notes, err := data.GetString("notes"); err != nil && len(notes) > 0 {
-			properties.Add(jsonutils.NewString(notes), "notes")
+	}
+	input.OsType = self.OsType
+	if len(input.OsType) == 0 {
+		input.OsType = "Linux"
+	}
+	input.OsArch = self.OsArch
+	if self.OsArch == api.OS_ARCH_ARM {
+		if osArch := self.GetMetadata("os_arch", nil); len(osArch) == 0 {
+			host := self.GetHost()
+			input.OsArch = host.CpuArchitecture
 		}
-		osType := self.OsType
-		if len(osType) == 0 {
-			osType = "Linux"
-		}
-		properties.Add(jsonutils.NewString(osType), "os_type")
-		if self.OsArch == api.OS_ARCH_ARM {
-			var osArch string
-			if osArch = self.GetMetadata("os_arch", nil); len(osArch) == 0 {
-				host := self.GetHost()
-				osArch = host.CpuArchitecture
-			}
-			properties.Add(jsonutils.NewString(osArch), "os_arch")
-			kwargs.Set("os_arch", jsonutils.NewString(self.OsArch))
-		}
-		kwargs.Add(properties, "properties")
-		kwargs.Add(jsonutils.NewBool(restart), "restart")
+	}
 
+	factory, _ := cloudprovider.GetProviderFactory(self.GetDriver().GetProvider())
+	if factory == nil || factory.IsOnPremise() { // OneCloud or VMware
 		lockman.LockObject(ctx, disks.Root)
 		defer lockman.ReleaseObject(ctx, disks.Root)
 
-		if imageId, err := disks.Root.PrepareSaveImage(ctx, userCred, kwargs); err != nil {
-			return nil, err
-		} else {
-			kwargs.Add(jsonutils.NewString(imageId), "image_id")
+		var err error
+		input.ImageId, err = disks.Root.PrepareSaveImage(ctx, userCred, input)
+		if err != nil {
+			return nil, errors.Wrapf(err, "PrepareSaveImage")
 		}
-		return nil, self.StartGuestSaveImage(ctx, userCred, kwargs, "")
 	}
+	if len(input.Name) == 0 {
+		input.Name = input.GenerateName
+	}
+
+	return nil, self.StartGuestSaveImage(ctx, userCred, input, "")
 }
 
-func (self *SGuest) StartGuestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
-	return self.GetDriver().StartGuestSaveImage(ctx, userCred, self, data, parentTaskId)
+func (self *SGuest) StartGuestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerSaveImageInput, parentTaskId string) error {
+	return self.GetDriver().StartGuestSaveImage(ctx, userCred, self, jsonutils.Marshal(input).(*jsonutils.JSONDict), parentTaskId)
 }
 
 func (self *SGuest) AllowPerformSaveGuestImage(ctx context.Context, userCred mcclient.TokenCredential,

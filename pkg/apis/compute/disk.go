@@ -242,3 +242,11 @@ type DiskUpdateInput struct {
 	// 磁盘类型
 	DiskType string `json:"disk_type"`
 }
+
+type DiskSaveInput struct {
+	Name   string
+	Format string
+
+	// swagger: ignore
+	ImageId string
+}

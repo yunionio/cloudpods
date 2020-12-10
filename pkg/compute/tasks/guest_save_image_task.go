@@ -37,29 +37,33 @@ func init() {
 func (self *GuestSaveImageTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	log.Infof("Saving server image: %s", guest.Name)
-	if restart, _ := self.GetParams().Bool("restart"); restart {
+	restart := jsonutils.QueryBoolean(self.Params, "restart", false)
+	if restart {
 		self.SetStage("OnStopServerComplete", nil)
 		guest.StartGuestStopTask(ctx, self.GetUserCred(), false, false, self.GetTaskId())
-	} else {
-		self.OnStopServerComplete(ctx, guest, nil)
+		return
 	}
+	self.OnStopServerComplete(ctx, guest, nil)
 }
 
 func (self *GuestSaveImageTask) OnStopServerComplete(ctx context.Context, guest *models.SGuest, body jsonutils.JSONObject) {
 	self.SetStage("OnSaveRootImageComplete", nil)
-	disks := guest.CategorizeDisks()
-	if err := disks.Root.StartDiskSaveTask(ctx, self.GetUserCred(), self.GetParams(), self.GetTaskId()); err != nil {
-		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+	err := guest.GetDriver().RequestSaveImage(ctx, self.GetUserCred(), guest, self)
+	if err != nil {
+		self.OnSaveRootImageCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
 	}
 }
 
 func (self *GuestSaveImageTask) OnSaveRootImageComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	if restart, _ := self.GetParams().Bool("restart"); restart {
+	restart := jsonutils.QueryBoolean(self.Params, "restart", false)
+	if restart {
 		self.SetStage("OnStartServerComplete", nil)
 		guest.StartGueststartTask(ctx, self.GetUserCred(), nil, self.GetTaskId())
-	} else {
-		self.SetStageComplete(ctx, nil)
+		return
 	}
+	self.SetStage("OnSyncstatusComplete", nil)
+	guest.StartSyncstatus(ctx, self.GetUserCred(), self.GetTaskId())
 }
 
 func (self *GuestSaveImageTask) OnSaveRootImageCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -73,5 +77,13 @@ func (self *GuestSaveImageTask) OnStartServerComplete(ctx context.Context, guest
 }
 
 func (self *GuestSaveImageTask) OnStartServerCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, nil)
+}
+
+func (self *GuestSaveImageTask) OnSyncstatusComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *GuestSaveImageTask) OnSyncstatusCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, nil)
 }

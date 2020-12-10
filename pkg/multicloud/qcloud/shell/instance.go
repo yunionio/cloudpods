@@ -223,4 +223,22 @@ func init() {
 		return cli.SetInstanceAutoRenew(args.ID, args.AutoRenew)
 	})
 
+	type InstanceSaveImageOptions struct {
+		ID         string `help:"Instance ID"`
+		IMAGE_NAME string `help:"Image name"`
+		Notes      string `hlep:"Image desc"`
+	}
+	shellutils.R(&InstanceSaveImageOptions{}, "instance-save-image", "Save instance to image", func(cli *qcloud.SRegion, args *InstanceSaveImageOptions) error {
+		opts := cloudprovider.SaveImageOptions{
+			Name:  args.IMAGE_NAME,
+			Notes: args.Notes,
+		}
+		image, err := cli.SaveImage(args.ID, &opts)
+		if err != nil {
+			return err
+		}
+		printObject(image)
+		return nil
+	})
+
 }

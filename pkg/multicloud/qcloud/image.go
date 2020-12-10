@@ -74,27 +74,29 @@ func (self *SRegion) GetImages(status string, owner string, imageIds []string, n
 	params["Limit"] = fmt.Sprintf("%d", limit)
 	params["Offset"] = fmt.Sprintf("%d", offset)
 
-	filter := 0
-	if len(status) > 0 {
-		params[fmt.Sprintf("Filters.%d.Name", filter)] = "image-state"
-		params[fmt.Sprintf("Filters.%d.Values.0", filter)] = status
-		filter++
-	}
-	if imageIds != nil && len(imageIds) > 0 {
-		for index, imageId := range imageIds {
-			params[fmt.Sprintf("ImageIds.%d", index)] = imageId
-		}
-	}
-	if len(owner) > 0 {
-		params[fmt.Sprintf("Filters.%d.Name", filter)] = "image-type"
-		params[fmt.Sprintf("Filters.%d.Values.0", filter)] = owner
-		filter++
+	for index, imageId := range imageIds {
+		params[fmt.Sprintf("ImageIds.%d", index)] = imageId
 	}
 
-	if len(name) > 0 {
-		params[fmt.Sprintf("Filters.%d.Name", filter)] = "image-name"
-		params[fmt.Sprintf("Filters.%d.Values.0", filter)] = name
-		filter++
+	if len(imageIds) == 0 { // imageIds 不能和Filter同时查询
+		filter := 0
+		if len(status) > 0 {
+			params[fmt.Sprintf("Filters.%d.Name", filter)] = "image-state"
+			params[fmt.Sprintf("Filters.%d.Values.0", filter)] = status
+			filter++
+		}
+
+		if len(owner) > 0 {
+			params[fmt.Sprintf("Filters.%d.Name", filter)] = "image-type"
+			params[fmt.Sprintf("Filters.%d.Values.0", filter)] = owner
+			filter++
+		}
+
+		if len(name) > 0 {
+			params[fmt.Sprintf("Filters.%d.Name", filter)] = "image-name"
+			params[fmt.Sprintf("Filters.%d.Values.0", filter)] = name
+			filter++
+		}
 	}
 
 	images := make([]SImage, 0)

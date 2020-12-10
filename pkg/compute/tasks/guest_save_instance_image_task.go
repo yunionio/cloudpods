@@ -48,13 +48,15 @@ func (self *GuestSaveGuestImageTask) OnInit(ctx context.Context, obj db.IStandal
 	for index, dataDisk := range disks.Data {
 		params := jsonutils.DeepCopy(self.Params).(*jsonutils.JSONDict)
 		params.Add(imageIds[index], "image_id")
-		if err := dataDisk.StartDiskSaveTask(ctx, self.UserCred, params, self.GetTaskId()); err != nil {
+		opts := api.DiskSaveInput{ImageId: imageIds[index].String()}
+		if err := dataDisk.StartDiskSaveTask(ctx, self.UserCred, opts, self.GetTaskId()); err != nil {
 			self.taskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		}
 	}
 
 	self.Params.Add(imageIds[len(imageIds)-1], "image_id")
-	if err := disks.Root.StartDiskSaveTask(ctx, self.UserCred, self.Params, self.GetTaskId()); err != nil {
+	opts := api.DiskSaveInput{ImageId: imageIds[len(imageIds)-1].String()}
+	if err := disks.Root.StartDiskSaveTask(ctx, self.UserCred, opts, self.GetTaskId()); err != nil {
 		self.taskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}
 }

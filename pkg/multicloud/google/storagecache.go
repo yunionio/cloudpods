@@ -213,7 +213,7 @@ func (region *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, 
 	return []cloudprovider.ICloudStoragecache{cache}, nil
 }
 
-func (region *SRegion) getStoragecache() cloudprovider.ICloudStoragecache {
+func (region *SRegion) getStoragecache() *SStoragecache {
 	return &SStoragecache{region: region}
 }
 
