@@ -166,7 +166,10 @@ func (zone *SZone) fetchHosts() error {
 		if strings.Index(hypervisor, "vmware") != -1 {
 			continue
 		}
-		if _, ok := zone.Hosts[hypervisors[i].GetName()]; !ok {
+
+		_, ok1 := zone.Hosts[hypervisors[i].HypervisorHostname]
+		_, ok2 := zone.Hosts[hypervisors[i].Service.Host]
+		if !ok1 && !ok2 {
 			continue
 		}
 		zone.hosts = append(zone.hosts, hypervisors[i])
