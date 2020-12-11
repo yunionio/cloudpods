@@ -153,6 +153,7 @@ func (self *SBaseHostDriver) FinishConvert(userCred mcclient.TokenCredential, ho
 	bs := host.GetBaremetalstorage().GetStorage()
 	bs.SetStatus(userCred, api.STORAGE_OFFLINE, "")
 	db.Update(host, func() error {
+		host.Name = guest.GetName()
 		host.CpuReserved = 0
 		host.MemReserved = 0
 		host.AccessIp = guest.GetRealIPs()[0]
