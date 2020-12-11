@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 /*
@@ -245,7 +246,12 @@ func (self *SSkuResourcesMeta) _get(url string) ([]jsonutils.JSONObject, error) 
 	userAgent := "vendor/yunion-OneCloud@" + v.Get().GitVersion
 	req.Header.Set("User-Agent", userAgent)
 
-	client := &http.Client{}
+	transport := httputils.GetTransport(true)
+	transport.Proxy = options.Options.HttpTransportProxyFunc()
+	client := &http.Client{
+		Transport: transport,
+	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("SkuResourcesMeta.get.Get %s", err)
