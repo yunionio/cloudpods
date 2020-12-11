@@ -1428,15 +1428,14 @@ func (self *SHost) GetGuestsQuery() *sqlchemy.SQuery {
 	return GuestManager.Query().Equals("host_id", self.Id)
 }
 
-func (self *SHost) GetGuests() []SGuest {
+func (self *SHost) GetGuests() ([]SGuest, error) {
 	q := self.GetGuestsQuery()
 	guests := make([]SGuest, 0)
 	err := db.FetchModelObjects(GuestManager, q, &guests)
 	if err != nil {
-		log.Errorf("GetGuests %s", err)
-		return nil
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
-	return guests
+	return guests, nil
 }
 
 func (self *SHost) GetKvmGuests() []SGuest {
@@ -1679,7 +1678,10 @@ func (self *SHost) syncRemoveCloudHost(ctx context.Context, userCred mcclient.To
 		if err == nil {
 			_, err = self.PerformDisable(ctx, userCred, nil, apis.PerformDisableInput{})
 		}
-		guests := self.GetGuests()
+		guests, err := self.GetGuests()
+		if err != nil {
+			return errors.Wrapf(err, "GetGuests")
+		}
 		for _, guest := range guests {
 			err = guest.SetStatus(userCred, api.VM_UNKNOWN, "sync to delete")
 			if err != nil {
@@ -2266,7 +2268,11 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	syncVMPairs := make([]SGuestSyncResult, 0)
 	syncResult := compare.SyncResult{}
 
-	dbVMs := self.GetGuests()
+	dbVMs, err := self.GetGuests()
+	if err != nil {
+		syncResult.Error(errors.Wrapf(err, "GetGuests"))
+		return nil, syncResult
+	}
 
 	for i := range dbVMs {
 		if taskman.TaskManager.IsInTask(&dbVMs[i]) {
@@ -2280,7 +2286,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	commonext := make([]cloudprovider.ICloudVM, 0)
 	added := make([]cloudprovider.ICloudVM, 0)
 
-	err := compare.CompareSets(dbVMs, vms, &removed, &commondb, &commonext, &added)
+	err = compare.CompareSets(dbVMs, vms, &removed, &commondb, &commonext, &added)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, syncResult
@@ -4736,7 +4742,10 @@ func (self *SHost) PerformUndoConvert(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return nil, httperrors.NewNotAcceptableError("%v", err)
 	}
-	guests := self.GetGuests()
+	guests, err := self.GetGuests()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetGuests"))
+	}
 	if len(guests) > 1 {
 		return nil, httperrors.NewNotAcceptableError("Not an empty host")
 	} else if len(guests) == 1 {
@@ -5022,8 +5031,8 @@ func (self *SHost) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 }
 
 func (self *SHost) MarkGuestUnknown(userCred mcclient.TokenCredential) {
-	log.Errorln(self.GetGuests())
-	for _, guest := range self.GetGuests() {
+	guests, _ := self.GetGuests()
+	for _, guest := range guests {
 		guest.SetStatus(userCred, api.VM_UNKNOWN, "host offline")
 	}
 }
@@ -5237,10 +5246,11 @@ func (host *SHost) migrateOnHostDown(ctx context.Context, userCred mcclient.Toke
 }
 
 func (host *SHost) MigrateSharedStorageServers(ctx context.Context, userCred mcclient.TokenCredential) error {
-	var (
-		guests     = host.GetGuests()
-		hostGuests = []*api.GuestBatchMigrateParams{}
-	)
+	guests, err := host.GetGuests()
+	if err != nil {
+		return errors.Wrapf(err, "host %s(%s) get guests", host.Name, host.Id)
+	}
+	hostGuests := []*api.GuestBatchMigrateParams{}
 
 	for i := 0; i < len(guests); i++ {
 		lockman.LockObject(ctx, &guests[i])
@@ -5516,7 +5526,7 @@ func (host *SHost) PerformChangeOwner(ctx context.Context, userCred mcclient.Tok
 
 func (host *SHost) GetChangeOwnerRequiredDomainIds() []string {
 	requires := stringutils2.SSortedStrings{}
-	guests := host.GetGuests()
+	guests, _ := host.GetGuests()
 	for i := range guests {
 		requires = stringutils2.Append(requires, guests[i].DomainId)
 	}
