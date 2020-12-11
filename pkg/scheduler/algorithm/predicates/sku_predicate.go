@@ -45,13 +45,25 @@ func (p *InstanceTypePredicate) Execute(u *core.Unit, c core.Candidater) (bool, 
 
 	d := u.SchedData()
 
+	regionId := c.Getter().Region().Id
+	regionName := c.Getter().Region().Name
 	zoneId := c.Getter().Zone().Id
 	zoneName := c.Getter().Zone().Name
 	instanceType := d.InstanceType
 
-	sku := skuman.GetByZone(instanceType, zoneId)
-	if sku == nil {
-		h.Exclude(fmt.Sprintf("Not found server sku %s at zone %s", instanceType, zoneName))
+	reqRegion := d.PreferRegion
+	reqZone := d.PreferZone
+
+	if reqRegion != "" && reqZone == "" {
+		sku := skuman.GetByRegion(instanceType, regionId)
+		if sku == nil {
+			h.Exclude(fmt.Sprintf("Not found server sku %s at region %s", instanceType, regionName))
+		}
+	} else {
+		sku := skuman.GetByZone(instanceType, zoneId)
+		if sku == nil {
+			h.Exclude(fmt.Sprintf("Not found server sku %s at zone %s", instanceType, zoneName))
+		}
 	}
 
 	return h.GetResult()
