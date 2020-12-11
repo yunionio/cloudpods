@@ -536,11 +536,6 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 			useRawQuery = true
 		}
 	}
-	if useRawQuery {
-		q = manager.RawQuery()
-	} else {
-		q = manager.Query()
-	}
 
 	queryDict, ok := query.(*jsonutils.JSONDict)
 	if !ok {
@@ -559,17 +554,81 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		return nil, err
 	}
 
+	pagingConf := manager.GetPagingConfig()
+	if pagingConf == nil {
+		if limit <= 0 {
+			limit = consts.GetDefaultPagingLimit()
+		}
+	} else {
+		if limit <= 0 {
+			limit = int64(pagingConf.DefaultLimit)
+		}
+	}
+
+	splitable := manager.GetSplitTable()
+	if splitable != nil {
+		// handle splitable query, query each subtable, then union results
+		metas, err := splitable.GetTableMetas()
+		if err != nil {
+			return nil, errors.Wrap(err, "splitable.GetTableMetas")
+		}
+		var subqs []sqlchemy.IQuery
+		for _, meta := range metas {
+			ts := splitable.GetTableSpec(meta)
+			subq := ts.Query()
+			subq, err = listItemQueryFiltersRaw(manager, ctx, subq, userCred, queryDict, policy.PolicyActionList, true, useRawQuery)
+			if err != nil {
+				return nil, errors.Wrap(err, "listItemQueryFiltersRaw")
+			}
+			if pagingConf != nil {
+				if limit > 0 {
+					subq = subq.Limit(int(limit) + 1)
+				}
+				if len(pagingMarker) > 0 {
+					markers := decodePagingMarker(pagingMarker)
+					for markerIdx, marker := range markers {
+						if markerIdx < len(pagingConf.MarkerFields) {
+							if pagingConf.Order == sqlchemy.SQL_ORDER_ASC {
+								subq = subq.GE(pagingConf.MarkerFields[markerIdx], marker)
+							} else {
+								subq = subq.LE(pagingConf.MarkerFields[markerIdx], marker)
+							}
+						}
+					}
+				}
+				for _, f := range pagingConf.MarkerFields {
+					if pagingConf.Order == sqlchemy.SQL_ORDER_ASC {
+						subq = subq.Asc(f)
+					} else {
+						subq = subq.Desc(f)
+					}
+				}
+			}
+			if limit > 0 {
+				subq = subq.Limit(int(limit) + 1)
+			}
+			subqs = append(subqs, subq)
+		}
+		union, err := sqlchemy.UnionWithError(subqs...)
+		if err != nil {
+			return nil, errors.Wrap(err, "sqlchemy.UnionWithError")
+		}
+		q = union.Query()
+	} else {
+		if useRawQuery {
+			q = manager.RawQuery()
+		} else {
+			q = manager.Query()
+		}
+	}
+
 	q, err = listItemQueryFiltersRaw(manager, ctx, q, userCred, queryDict, policy.PolicyActionList, true, useRawQuery)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "listItemQueryFiltersRaw")
 	}
 
 	var totalCnt int
-	pagingConf := manager.GetPagingConfig()
 	if pagingConf == nil {
-		if limit == 0 {
-			limit = consts.GetDefaultPagingLimit()
-		}
 		totalCnt, err = q.CountWithError()
 		if err != nil {
 			return nil, err
@@ -578,10 +637,6 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		if totalCnt == 0 {
 			emptyList := modulebase.ListResult{Data: []jsonutils.JSONObject{}}
 			return &emptyList, nil
-		}
-	} else {
-		if limit <= 0 {
-			limit = int64(pagingConf.DefaultLimit)
 		}
 	}
 	if int64(totalCnt) > maxLimit && (limit <= 0 || limit > maxLimit) {

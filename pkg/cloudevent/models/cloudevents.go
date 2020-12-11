@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/cloudevent"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -40,11 +41,15 @@ var CloudeventManager *SCloudeventManager
 
 func init() {
 	CloudeventManager = &SCloudeventManager{
-		SModelBaseManager: db.NewModelBaseManager(
+		SModelBaseManager: db.NewModelBaseManagerWithSplitable(
 			SCloudevent{},
 			"cloudevents_tbl",
 			"cloudevent",
 			"cloudevents",
+			"event_id",
+			"created_at",
+			consts.SplitableMaxDuration(),
+			consts.SplitableMaxKeepSegments(),
 		),
 	}
 	CloudeventManager.SetVirtualObject(CloudeventManager)

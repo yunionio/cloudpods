@@ -53,3 +53,7 @@ func GetTables() []string {
 	}
 	return ret
 }
+
+func Exec(sql string, args ...interface{}) (sql.Result, error) {
+	return _db.Exec(sql, args...)
+}

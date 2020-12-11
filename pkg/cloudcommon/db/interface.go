@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/splitable"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -130,6 +131,8 @@ type IModelManager interface {
 	GetPagingConfig() *SPagingConfig
 
 	GetI18N(ctx context.Context, idstr string, resObj jsonutils.JSONObject) *jsonutils.JSONDict
+
+	GetSplitTable() *splitable.SSplitTableSpec
 }
 
 type IModel interface {

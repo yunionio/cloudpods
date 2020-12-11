@@ -65,7 +65,7 @@ type IQueryField interface {
 }
 
 func (tbl *STable) Expression() string {
-	return fmt.Sprintf("`%s`", tbl.spec.name)
+	return tbl.spec.Expression()
 }
 
 func (tbl *STable) Alias() string {
