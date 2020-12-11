@@ -198,23 +198,26 @@ func (service *SService) isCommonService() bool {
 
 func (service *SService) PerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PerformConfigInput) (jsonutils.JSONObject, error) {
 	var err error
+	var changed bool
 	action := input.Action
 	opts := input.Config
 	if service.isCommonService() {
-		err = saveConfigs(userCred, action, service, opts, api.CommonWhitelistOptionMap, nil, nil)
+		changed, err = saveConfigs(userCred, action, service, opts, api.CommonWhitelistOptionMap, nil, nil)
 	} else {
-		err = saveConfigs(userCred, action, service, opts, nil, api.MergeServiceConfigOptions(api.CommonWhitelistOptionMap, api.ServiceBlacklistOptionMap), nil)
+		changed, err = saveConfigs(userCred, action, service, opts, nil, api.MergeServiceConfigOptions(api.CommonWhitelistOptionMap, api.ServiceBlacklistOptionMap), nil)
 	}
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("saveConfig fail %s", err)
 	}
-	diff := SService{ConfigVersion: 1}
-	err = ServiceManager.TableSpec().Increment(ctx, diff, service)
-	if err != nil {
-		return nil, httperrors.NewInternalServerError("update config version fail %s", err)
-	}
-	if service.Type == api.SERVICE_TYPE || service.Type == consts.COMMON_SERVICE {
-		options.OptionManager.SyncOnce()
+	if changed {
+		diff := SService{ConfigVersion: 1}
+		err = ServiceManager.TableSpec().Increment(ctx, diff, service)
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("update config version fail %s", err)
+		}
+		if service.Type == api.SERVICE_TYPE || service.Type == consts.COMMON_SERVICE {
+			options.OptionManager.SyncOnce()
+		}
 	}
 	return service.GetDetailsConfig(ctx, userCred, query)
 }
