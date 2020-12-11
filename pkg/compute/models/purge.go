@@ -86,7 +86,10 @@ func (host *SHost) purge(ctx context.Context, userCred mcclient.TokenCredential)
 		return errors.Wrapf(err, "PerformDisable")
 	}
 
-	guests := host.GetGuests()
+	guests, err := host.GetGuests()
+	if err != nil {
+		return errors.Wrapf(err, "host.GetGuests")
+	}
 	for i := range guests {
 		err := guests[i].purge(ctx, userCred)
 		if err != nil {
