@@ -367,7 +367,7 @@ func GetConfigs(model db.IModel, sensitive bool, whiteList, blackList map[string
 	return config2map(opts), nil
 }
 
-func saveConfigs(userCred mcclient.TokenCredential, action string, model db.IModel, opts api.TConfigs, whiteList map[string][]string, blackList map[string][]string, sensitiveConfs map[string][]string) error {
+func saveConfigs(userCred mcclient.TokenCredential, action string, model db.IModel, opts api.TConfigs, whiteList map[string][]string, blackList map[string][]string, sensitiveConfs map[string][]string) (bool, error) {
 	var err error
 	changed := make([]sChangeOption, 0)
 	changedSensitive := make([]sChangeOption, 0)
@@ -376,29 +376,29 @@ func saveConfigs(userCred mcclient.TokenCredential, action string, model db.IMod
 	if action == "update" {
 		changed, err = WhitelistedConfigManager.updateConfigs(model, whiteListedOpts)
 		if err != nil {
-			return errors.Wrap(err, "WhitelistedConfigManager.updateConfig")
+			return false, errors.Wrap(err, "WhitelistedConfigManager.updateConfig")
 		}
 		changedSensitive, err = SensitiveConfigManager.updateConfigs(model, sensitiveOpts)
 		if err != nil {
-			return errors.Wrap(err, "SensitiveConfigManager.updateConfig")
+			return false, errors.Wrap(err, "SensitiveConfigManager.updateConfig")
 		}
 	} else if action == "remove" {
 		changed, err = WhitelistedConfigManager.removeConfigs(model, whiteListedOpts)
 		if err != nil {
-			return errors.Wrap(err, "WhitelistedConfigManager.updateConfig")
+			return false, errors.Wrap(err, "WhitelistedConfigManager.updateConfig")
 		}
 		changedSensitive, err = SensitiveConfigManager.removeConfigs(model, sensitiveOpts)
 		if err != nil {
-			return errors.Wrap(err, "SensitiveConfigManager.updateConfig")
+			return false, errors.Wrap(err, "SensitiveConfigManager.updateConfig")
 		}
 	} else {
 		changed, err = WhitelistedConfigManager.syncConfigs(model, whiteListedOpts)
 		if err != nil {
-			return errors.Wrap(err, "WhitelistedConfigManager.syncConfig")
+			return false, errors.Wrap(err, "WhitelistedConfigManager.syncConfig")
 		}
 		changedSensitive, err = SensitiveConfigManager.syncConfigs(model, sensitiveOpts)
 		if err != nil {
-			return errors.Wrap(err, "SensitiveConfigManager.syncConfig")
+			return false, errors.Wrap(err, "SensitiveConfigManager.syncConfig")
 		}
 	}
 	maskedValue := jsonutils.NewString("*")
@@ -420,7 +420,7 @@ func saveConfigs(userCred mcclient.TokenCredential, action string, model db.IMod
 		}
 		db.OpsLog.LogEvent(model, db.ACT_CHANGE_CONFIG, notes, userCred)
 	}
-	return nil
+	return len(changed) > 0, nil
 }
 
 type dbServiceConfigSession struct {
@@ -494,9 +494,9 @@ func uploadConfig(service *SService, config jsonutils.JSONObject) {
 		return
 	}
 	if service.isCommonService() {
-		err = saveConfigs(nil, "", service, tconf, api.CommonWhitelistOptionMap, nil, nil)
+		_, err = saveConfigs(nil, "", service, tconf, api.CommonWhitelistOptionMap, nil, nil)
 	} else {
-		err = saveConfigs(nil, "", service, tconf, nil, api.MergeServiceConfigOptions(api.CommonWhitelistOptionMap, api.ServiceBlacklistOptionMap), nil)
+		_, err = saveConfigs(nil, "", service, tconf, nil, api.MergeServiceConfigOptions(api.CommonWhitelistOptionMap, api.ServiceBlacklistOptionMap), nil)
 	}
 	if err != nil {
 		log.Errorf("saveConfigs fail %s", err)
