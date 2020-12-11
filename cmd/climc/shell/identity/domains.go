@@ -156,4 +156,16 @@ func init() {
 		return nil
 	})
 
+	type DomainUnlinkIdpOptions struct {
+		DOMAIN string `help:"ID or name of domain to operate" json:"-"`
+	}
+	R(&DomainUnlinkIdpOptions{}, "domain-unlink-idp", "Unlink domain from an entity in the speicified identity provider", func(s *mcclient.ClientSession, args *DomainUnlinkIdpOptions) error {
+		result, err := modules.Domains.PerformAction(s, args.DOMAIN, "unlink-idp", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 }
