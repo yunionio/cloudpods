@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -65,7 +66,7 @@ func refreshScopeResourceCount(ctx context.Context) error {
 	}
 	serviceTbl := make(map[string]*sServiceEndpoints)
 	for _, ep := range eps {
-		if ep.ServiceType == apis.SERVICE_TYPE_KEYSTONE || ep.ServiceType == apis.SERVICE_TYPE_OFFLINE_CLOUDMETA {
+		if utils.IsInStringArray(ep.ServiceType, apis.NO_RESOURCE_SERVICES) {
 			// skip self and offline cloudmeta
 			continue
 		}
