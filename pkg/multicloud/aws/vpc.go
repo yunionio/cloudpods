@@ -20,6 +20,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 
+	"yunion.io/x/log"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
@@ -218,6 +219,37 @@ func (self *SVpc) fetchSecurityGroups() error {
 	return nil
 }
 
+func (self *SVpc) IsSupportSetExternalAccess() bool {
+	return true
+}
+
+func (self *SVpc) GetExternalAccessMode() string {
+	igws, err := self.region.GetInternetGateways(self.GetId())
+	if err != nil {
+		log.Errorf("GetExternalAccessMode.GetInternetGateways %s", err)
+
+	}
+
+	if len(igws) > 0 {
+		return api.VPC_EXTERNAL_ACCESS_MODE_EIP
+	}
+
+	return api.VPC_EXTERNAL_ACCESS_MODE_NONE
+}
+
+func (self *SVpc) AttachInternetGateway(igwId string) error {
+	input := ec2.AttachInternetGatewayInput{}
+	input.SetInternetGatewayId(igwId)
+	input.SetVpcId(self.GetId())
+
+	_, err := self.region.ec2Client.AttachInternetGateway(&input)
+	if err != nil {
+		return errors.Wrap(err, "AttachInternetGateway")
+	}
+
+	return nil
+}
+
 func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
 	if len(vpcId) == 0 {
 		return nil, fmt.Errorf("GetVpc vpc id should not be empty.")
@@ -324,4 +356,32 @@ func (self *SRegion) GetVpcs(vpcId []string, offset int, limit int) ([]SVpc, int
 	}
 
 	return vpcs, len(vpcs), nil
+}
+
+func (self *SRegion) GetInternetGateways(vpcId string) ([]SInternetGateway, error) {
+	input := ec2.DescribeInternetGatewaysInput{}
+	filters := make([]*ec2.Filter, 0)
+	if len(vpcId) > 0 {
+		filters = AppendSingleValueFilter(filters, "attachment.vpc-id", vpcId)
+	}
+
+	if len(filters) > 0 {
+		input.SetFilters(filters)
+	}
+	output, err := self.ec2Client.DescribeInternetGateways(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "DescribeInternetGateways")
+	}
+
+	igws := make([]SInternetGateway, len(output.InternetGateways))
+	err = unmarshalAwsOutput(output, "InternetGateways", &igws)
+	if err != nil {
+		return nil, errors.Wrap(err, "unmarshalAwsOutput")
+	}
+
+	for i := range igws {
+		igws[i].region = self
+	}
+
+	return igws, nil
 }
