@@ -45,15 +45,13 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/hashcache"
-	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 var Cache *hashcache.Cache
 
 type SServerSkuManager struct {
-	db.SStatusStandaloneResourceBaseManager
+	db.SEnabledStatusStandaloneResourceBaseManager
 	SCloudregionResourceBaseManager
 	SZoneResourceBaseManager
 }
@@ -62,7 +60,7 @@ var ServerSkuManager *SServerSkuManager
 
 func init() {
 	ServerSkuManager = &SServerSkuManager{
-		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
+		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
 			SServerSku{},
 			"serverskus_tbl",
 			"serversku",
@@ -77,12 +75,11 @@ func init() {
 
 // SServerSku 实际对应的是instance type清单. 这里的Sku实际指的是instance type。
 type SServerSku struct {
-	db.SStatusStandaloneResourceBase
+	db.SEnabledStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 	SCloudregionResourceBase
 	SZoneResourceBase
 
-	Enabled bool `nullable:"true" list:"user" create:"optional"`
 	// SkuId       string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`                 // x2.large
 	InstanceTypeFamily   string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`           // x2
 	InstanceTypeCategory string `width:"32" charset:"utf8" nullable:"true" list:"user" create:"admin_optional" update:"admin"`            // 通用型
@@ -255,14 +252,14 @@ func (manager *SServerSkuManager) FetchCustomizeColumns(
 ) []api.ServerSkuDetails {
 	rows := make([]api.ServerSkuDetails, len(objs))
 
-	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	stdRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.ServerSkuDetails{
-			StatusStandaloneResourceDetails: stdRows[i],
-			ZoneResourceInfo:                zoneRows[i],
+			EnabledStatusStandaloneResourceDetails: stdRows[i],
+			ZoneResourceInfo:                       zoneRows[i],
 		}
 		if len(rows[i].Zone) == 0 {
 			rows[i].CloudregionResourceInfo = regRows[i]
@@ -345,7 +342,7 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred 
 		}
 	}
 
-	input.StatusStandaloneResourceCreateInput, err = self.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusStandaloneResourceCreateInput)
+	input.EnabledStatusStandaloneResourceCreateInput, err = self.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusStandaloneResourceCreateInput)
 	if err != nil {
 		return input, err
 	}
@@ -353,7 +350,7 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred 
 }
 
 func (self *SServerSku) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	if self.Provider != api.CLOUD_PROVIDER_ONECLOUD {
 		_, err := db.Update(self, func() error {
 			self.CloudregionId = ""
@@ -610,9 +607,9 @@ func (self *SServerSku) ValidateUpdateData(ctx context.Context, userCred mcclien
 	}
 
 	var err error
-	input.StatusStandaloneResourceBaseUpdateInput, err = self.SStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StatusStandaloneResourceBaseUpdateInput)
+	input.EnabledStatusStandaloneResourceBaseUpdateInput, err = self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusStandaloneResourceBaseUpdateInput)
 	if err != nil {
-		return input, errors.Wrap(err, "SStatusStandaloneResourceBase.ValidateUpdateData")
+		return input, errors.Wrap(err, "SEnabledStatusStandaloneResourceBase.ValidateUpdateData")
 	}
 
 	return input, nil
@@ -629,7 +626,7 @@ func (self *SServerSku) Delete(ctx context.Context, userCred mcclient.TokenCrede
 
 func (self *SServerSku) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	ServerSkuManager.ClearSchedDescCache(true)
-	return self.SStatusStandaloneResourceBase.Delete(ctx, userCred)
+	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
 }
 
 func (self *SServerSku) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -754,9 +751,9 @@ func (manager *SServerSkuManager) ListItemFilter(
 		q = q.Filter(sqlchemy.In(q.Field("brand"), brands))
 	}
 
-	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
 
 	if query.Usable != nil && *query.Usable {
@@ -829,9 +826,9 @@ func (manager *SServerSkuManager) OrderByExtraFields(
 	query api.ServerSkuListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = manager.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields")
 	}
 	q, err = manager.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
 	if err != nil {
@@ -844,7 +841,7 @@ func (manager *SServerSkuManager) OrderByExtraFields(
 func (manager *SServerSkuManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -1118,7 +1115,7 @@ func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred 
 	sku := &SServerSku{Provider: api.CLOUD_PROVIDER_ONECLOUD}
 	sku.SetModelManager(manager, sku)
 	// 第一次同步新建的套餐是启用状态
-	sku.Enabled = true
+	sku.Enabled = tristate.True
 	sku.Status = api.SkuStatusReady
 	sku.constructSku(extSku)
 
@@ -1140,47 +1137,9 @@ func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred 
 }
 
 func (manager *SServerSkuManager) newPublicCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku SServerSku) error {
-	extSku.Enabled = true
+	extSku.Enabled = tristate.True
 	extSku.Status = api.SkuStatusReady
 	return manager.TableSpec().Insert(ctx, &extSku)
-}
-
-func (self *SServerSku) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, self, "enable")
-}
-
-func (self *SServerSku) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !self.Enabled {
-		_, err := db.Update(self, func() error {
-			self.Enabled = true
-			return nil
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "PerformEnable.db.Update()")
-		}
-		db.OpsLog.LogEvent(self, db.ACT_ENABLE, "", userCred)
-		logclient.AddSimpleActionLog(self, logclient.ACT_ENABLE, nil, userCred, true)
-	}
-	return nil, nil
-}
-
-func (self *SServerSku) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, self, "disable")
-}
-
-func (self *SServerSku) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Enabled {
-		_, err := db.Update(self, func() error {
-			self.Enabled = false
-			return nil
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "PerformEnable.db.Update()")
-		}
-		db.OpsLog.LogEvent(self, db.ACT_DISABLE, "", userCred)
-		logclient.AddSimpleActionLog(self, logclient.ACT_DISABLE, nil, userCred, true)
-	}
-	return nil, nil
 }
 
 func (self *SServerSku) syncWithCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku SServerSku) error {
@@ -1397,7 +1356,7 @@ func (manager *SServerSkuManager) initializeSkuEnableField() error {
 	for _, sku := range skus {
 		_, err = db.Update(&sku, func() error {
 			sku.Status = api.SkuStatusReady
-			sku.Enabled = true
+			sku.Enabled = tristate.True
 			return nil
 		})
 		if err != nil {
@@ -1466,7 +1425,7 @@ func (manager *SServerSkuManager) InitializeData() error {
 				sku.CpuCoreCount = item.CPU
 				sku.MemorySizeMB = item.MemMB
 				sku.IsEmulated = false
-				sku.Enabled = true
+				sku.Enabled = tristate.True
 				sku.InstanceTypeCategory = api.SkuCategoryGeneralPurpose
 				sku.LocalCategory = api.SkuCategoryGeneralPurpose
 				sku.InstanceTypeFamily = api.InstanceFamilies[api.SkuCategoryGeneralPurpose]
@@ -1520,9 +1479,9 @@ func (manager *SServerSkuManager) ListItemExportKeys(ctx context.Context,
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemExportKeys")
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemExportKeys")
 	}
 	if keys.ContainsAny(manager.SCloudregionResourceBaseManager.GetExportKeys()...) {
 		q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
