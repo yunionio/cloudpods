@@ -340,12 +340,14 @@ func (ident *SIdentityProvider) PerformConfig(ctx context.Context, userCred mccl
 
 	opts := input.Config
 	action := input.Action
-	err = saveConfigs(userCred, action, ident, opts, nil, nil, api.SensitiveDomainConfigMap)
+	changed, err := saveConfigs(userCred, action, ident, opts, nil, nil, api.SensitiveDomainConfigMap)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("saveConfig fail %s", err)
 	}
-	ident.MarkDisconnected(ctx, userCred, fmt.Errorf("change config"))
-	submitIdpSyncTask(ctx, userCred, ident)
+	if changed {
+		ident.MarkDisconnected(ctx, userCred, fmt.Errorf("change config"))
+		submitIdpSyncTask(ctx, userCred, ident)
+	}
 	return ident.GetDetailsConfig(ctx, userCred, query)
 }
 
@@ -492,7 +494,7 @@ func (ident *SIdentityProvider) PostCreate(ctx context.Context, userCred mcclien
 		log.Errorf("parse config error %s", err)
 		return
 	}
-	err = saveConfigs(userCred, "", ident, opts, nil, nil, api.SensitiveDomainConfigMap)
+	_, err = saveConfigs(userCred, "", ident, opts, nil, nil, api.SensitiveDomainConfigMap)
 	if err != nil {
 		log.Errorf("saveConfig fail %s", err)
 		return
