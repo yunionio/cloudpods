@@ -281,8 +281,11 @@ func newBaseHostDesc(b *baseBuilder, host *computemodels.SHost) (*BaseHostDesc, 
 	if err := desc.fillNetworks(host); err != nil {
 		return nil, fmt.Errorf("Fill networks error: %v", err)
 	}
-	if err := desc.fillOnecloudVpcNetworks(); err != nil {
-		return nil, fmt.Errorf("Fill onecloud vpc networks error: %v", err)
+	// only onecloud host should fill onecloud vpc networks
+	if host.HostType == computeapi.HOST_TYPE_HYPERVISOR {
+		if err := desc.fillOnecloudVpcNetworks(); err != nil {
+			return nil, fmt.Errorf("Fill onecloud vpc networks error: %v", err)
+		}
 	}
 
 	if err := desc.fillZone(host); err != nil {
