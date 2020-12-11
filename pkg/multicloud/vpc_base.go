@@ -17,6 +17,7 @@ package multicloud
 import (
 	"yunion.io/x/pkg/errors"
 
+	apis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -62,4 +63,16 @@ func (self *SVpc) DeleteVpcPeeringConnectionRoute(vpcPeeringConnectionId string)
 
 func (self *SVpc) ProposeJoinICloudInterVpcNetwork(opts *cloudprovider.SVpcJointInterVpcNetworkOption) error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "ProposeJoinICloudInterVpcNetwork")
+}
+
+func (self *SVpc) IsSupportSetExternalAccess() bool {
+	return false
+}
+
+func (self *SVpc) GetExternalAccessMode() string {
+	return apis.VPC_EXTERNAL_ACCESS_MODE_EIP
+}
+
+func (self *SVpc) AttachInternetGateway(igwId string) error {
+	return errors.Wrap(cloudprovider.ErrNotSupported, "AttachInternetGateway")
 }

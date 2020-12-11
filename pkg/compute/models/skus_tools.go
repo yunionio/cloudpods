@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/compare"
 	v "yunion.io/x/pkg/util/version"
 
 	apis "yunion.io/x/onecloud/pkg/apis/compute"
@@ -387,16 +388,28 @@ func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isSt
 }
 
 // 同步指定region sku列表
-func SyncServerSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion) error {
-	meta, err := FetchSkuResourcesMeta()
-	if err != nil {
-		return errors.Wrap(err, "SyncServerSkusByRegion.FetchSkuResourcesMeta")
+func SyncServerSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSkuMeta *SSkuResourcesMeta) compare.SyncResult {
+	result := compare.SyncResult{}
+	var err error
+	if extSkuMeta == nil {
+		extSkuMeta, err = FetchSkuResourcesMeta()
+		if err != nil {
+			result.AddError(errors.Wrap(err, "SyncServerSkusByRegion.FetchSkuResourcesMeta"))
+			return result
+		}
 	}
 
-	result := ServerSkuManager.SyncServerSkus(ctx, userCred, region, meta)
+	result = ServerSkuManager.SyncServerSkus(ctx, userCred, region, extSkuMeta)
 	notes := fmt.Sprintf("SyncServerSkusByRegion %s result: %s", region.Name, result.Result())
 	log.Infof(notes)
-	return nil
+
+	// notfiy sched manager
+	_, err = modules.SchedManager.SyncSku(auth.GetAdminSession(ctx, options.Options.Region, ""), false)
+	if err != nil {
+		log.Errorf("SchedManager SyncSku %s", err)
+	}
+
+	return result
 }
 
 func FetchSkuResourcesMeta() (*SSkuResourcesMeta, error) {

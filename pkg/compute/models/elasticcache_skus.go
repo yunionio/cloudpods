@@ -681,3 +681,19 @@ func (manager *SElasticcacheSkuManager) ListItemExportKeys(ctx context.Context,
 
 	return q, nil
 }
+
+func (manager *SElasticcacheSkuManager) AllowSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, manager, "sync-skus")
+}
+
+func (manager *SElasticcacheSkuManager) PerformSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SkuSyncInput) (jsonutils.JSONObject, error) {
+	return PerformActionSyncSkus(ctx, userCred, manager.Keyword(), input)
+}
+
+func (manager *SElasticcacheSkuManager) AllowGetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGetSpec(userCred, manager, "sync-tasks")
+}
+
+func (manager *SElasticcacheSkuManager) GetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query api.SkuTaskQueryInput) (jsonutils.JSONObject, error) {
+	return GetPropertySkusSyncTasks(ctx, userCred, query)
+}
