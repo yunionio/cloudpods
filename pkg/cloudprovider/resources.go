@@ -77,6 +77,7 @@ type ICloudRegion interface {
 	CreateISecurityGroup(conf *SecurityGroupCreateInput) (ICloudSecurityGroup, error)
 
 	CreateIVpc(name string, desc string, cidr string) (ICloudVpc, error)
+	CreateInternetGateway() (ICloudInternetGateway, error)
 	CreateEIP(eip *SEip) (ICloudEIP, error)
 
 	GetISnapshots() ([]ICloudSnapshot, error)
@@ -491,6 +492,10 @@ type ICloudVpc interface {
 	// GetGlobalId() // 若vpc属于globalvpc,此函数返回格式必须是 'region.GetGlobalId()/vpc.GetGlobalId()'
 	ICloudResource
 
+	IsSupportSetExternalAccess() bool // 是否支持Attach互联网网关.
+	GetExternalAccessMode() string
+	AttachInternetGateway(igwId string) error
+
 	GetRegion() ICloudRegion
 	GetIsDefault() bool
 	GetCidrBlock() string
@@ -514,6 +519,10 @@ type ICloudVpc interface {
 	GetAuthorityOwnerId() string
 
 	ProposeJoinICloudInterVpcNetwork(opts *SVpcJointInterVpcNetworkOption) error
+}
+
+type ICloudInternetGateway interface {
+	ICloudResource
 }
 
 type ICloudWire interface {

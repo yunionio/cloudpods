@@ -143,3 +143,7 @@ func (self *SRegion) GetICloudEvents(start time.Time, end time.Time, withReadEve
 func (self *SRegion) GetICloudQuotas() ([]cloudprovider.ICloudQuota, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudQuotas")
 }
+
+func (self *SRegion) CreateInternetGateway() (cloudprovider.ICloudInternetGateway, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "CreateInternetGateway")
+}

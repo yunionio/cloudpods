@@ -16,6 +16,7 @@ package compute
 
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -31,4 +32,19 @@ func init() {
 	cmd.Update(&options.ServerSkusUpdateOptions{})
 	cmd.PerformWithKeyword("cache", "cache-sku", &options.ServerSkusCacheOptions{})
 	cmd.ClassShow(&options.ServerSkusListOptions{})
+	cmd.PerformClass("sync-skus", &options.SkuSyncOptions{})
+
+	R(&options.SkuTaskQueryOptions{}, "server-sku-sync-task-show", "Show details of skus sync tasks", func(s *mcclient.ClientSession, args *options.SkuTaskQueryOptions) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+
+		result, err := modules.ServerSkus.Get(s, "sync-tasks", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }
