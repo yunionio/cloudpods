@@ -17,12 +17,13 @@ package baremetal
 import (
 	"yunion.io/x/pkg/util/sets"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
 var (
-	ExpectedStatus = sets.NewString("running", "start_convert")
+	ExpectedStatus = sets.NewString(api.BAREMETAL_RUNNING, api.BAREMETAL_START_CONVERT, api.BAREMETAL_CONVERTING)
 )
 
 type StatusPredicate struct {
