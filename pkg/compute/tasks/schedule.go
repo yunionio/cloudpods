@@ -104,19 +104,12 @@ func StartScheduleObjects(
 	doScheduleObjects(ctx, task, schedObjs)
 }
 
-func doScheduleObjects(
+func doScheduleWithInput(
 	ctx context.Context,
 	task IScheduleTask,
-	objs []IScheduleModel,
-) {
-	schedInput, err := task.GetSchedParams()
-	if err != nil {
-		onSchedulerRequestFail(ctx, task, objs, jsonutils.NewString(fmt.Sprintf("GetSchedParams fail: %s", err)))
-		return
-	}
-	//schedInput = models.ApplySchedPolicies(schedInput)
-
-	// fetch pendingUsages
+	schedInput *schedapi.ScheduleInput,
+	count int,
+) (*schedapi.ScheduleOutput, error) {
 	computeUsage := models.SQuota{}
 	task.GetPendingUsage(&computeUsage, 0)
 	regionUsage := models.SRegionQuota{}
@@ -127,11 +120,28 @@ func doScheduleObjects(
 		jsonutils.Marshal(&regionUsage),
 	}
 
-	params := jsonutils.Marshal(schedInput).(*jsonutils.JSONDict)
+	var params *jsonutils.JSONDict
+	if count > 0 {
+		// if object count <=0, don't need update schedule params
+		params = jsonutils.Marshal(schedInput).(*jsonutils.JSONDict)
+	}
 	task.SetStage("OnScheduleComplete", params)
-
 	s := auth.GetSession(ctx, task.GetUserCred(), options.Options.Region, "")
-	output, err := modules.SchedManager.DoSchedule(s, schedInput, len(objs))
+	return modules.SchedManager.DoSchedule(s, schedInput, count)
+}
+
+func doScheduleObjects(
+	ctx context.Context,
+	task IScheduleTask,
+	objs []IScheduleModel,
+) {
+	schedInput, err := task.GetSchedParams()
+	if err != nil {
+		onSchedulerRequestFail(ctx, task, objs, jsonutils.NewString(fmt.Sprintf("GetSchedParams fail: %s", err)))
+		return
+	}
+
+	output, err := doScheduleWithInput(ctx, task, schedInput, len(objs))
 	if err != nil {
 		onSchedulerRequestFail(ctx, task, objs, jsonutils.NewString(err.Error()))
 		return
@@ -186,6 +196,11 @@ func onSchedulerResults(
 	objs []IScheduleModel,
 	results []*schedapi.CandidateResource,
 ) {
+	if len(objs) == 0 {
+		// sched with out object can't clean sched cache immediately
+		task.SaveScheduleResult(ctx, nil, results[0])
+		return
+	}
 	sort.Sort(sortedIScheduleModelList(objs))
 	succCount := 0
 	for idx := 0; idx < len(objs); idx += 1 {
