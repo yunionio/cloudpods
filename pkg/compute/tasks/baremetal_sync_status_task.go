@@ -95,15 +95,11 @@ func (self *BaremetalSyncAllGuestsStatusTask) OnInit(ctx context.Context, obj db
 }
 
 func (self *BaremetalSyncAllGuestsStatusTask) OnGuestSyncStatusComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
-	var guests = make([]models.SGuest, 0)
-	for _, guest := range baremetal.GetGuests() {
-		if guest.Status == api.VM_UNKNOWN && guest.Hypervisor != api.HYPERVISOR_BAREMETAL {
-			guest.SetStatus(self.UserCred, models.SYNC_STATUS, "")
-			guests = append(guests, guest)
-		}
-	}
+	guests, _ := baremetal.GetGuests()
 	for _, guest := range guests {
-		guest.StartSyncstatus(ctx, self.UserCred, "")
+		if guest.Status == api.VM_UNKNOWN && guest.Hypervisor != api.HYPERVISOR_BAREMETAL {
+			guest.StartSyncstatus(ctx, self.GetUserCred(), "")
+		}
 	}
 	log.Infof("All unknown guests syncstatus complete")
 	self.SetStageComplete(ctx, nil)
