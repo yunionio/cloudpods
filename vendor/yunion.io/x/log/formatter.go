@@ -165,13 +165,7 @@ func (f *TextFormatter) printColored(b *bytes.Buffer, entry *logrus.Entry, keys 
 }
 
 func (f *TextFormatter) printNoColored(b *bytes.Buffer, entry *logrus.Entry, keys []string, timestampFormat string) {
-	var levelText string
-
-	if entry.Level != logrus.WarnLevel {
-		levelText = strings.ToUpper(entry.Level.String())
-	} else {
-		levelText = "WARN"
-	}
+	levelText := entry.Level.String()
 
 	prefix := " "
 	message := entry.Message
@@ -193,9 +187,9 @@ func (f *TextFormatter) printNoColored(b *bytes.Buffer, entry *logrus.Entry, key
 	}
 
 	if f.ShortTimestamp {
-		fmt.Fprintf(b, "[%s %04d %s]%s"+messageFormat, levelText[:1], miniTS(), caller, prefix, message)
+		fmt.Fprintf(b, "[%s %04d %s]%s"+messageFormat, levelText, miniTS(), caller, prefix, message)
 	} else {
-		fmt.Fprintf(b, "[%s %s %s]%s"+messageFormat, levelText[:1], entry.Time.Format(timestampFormat), caller, prefix, message)
+		fmt.Fprintf(b, "[%s %s %s]%s"+messageFormat, levelText, entry.Time.Format(timestampFormat), caller, prefix, message)
 	}
 	for _, k := range keys {
 		v := entry.Data[k]
