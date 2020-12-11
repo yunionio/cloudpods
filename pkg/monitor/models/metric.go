@@ -342,6 +342,7 @@ func (measurement *SMetricMeasurement) getMetricField(name string) (*SMetricFiel
 func (measurement *SMetricMeasurement) getFields() ([]SMetricField, error) {
 	fields := make([]SMetricField, 0)
 	q := measurement.getFieldsQuery()
+	q.Asc("score")
 	err := db.FetchModelObjects(MetricFieldManager, q, &fields)
 	if err != nil {
 		return nil, err
@@ -411,15 +412,12 @@ func (man *SMetricMeasurementManager) Run(ctx context.Context) error {
 }
 
 func (manager *SMetricMeasurementManager) initJsonMetricInfo(ctx context.Context) error {
-	metricDescriptions, err := jsonutils.ParseString(dbinit.MetricDescriptions)
-	if err != nil {
-		return errors.Wrap(err, "SMetricMeasurementManager Parse MetricDescriptionstr error")
+	metricInitInputs := dbinit.GetRegistryMetricInput()
+	if len(metricInitInputs) == 0 {
+		log.Infoln("not init anything")
+		return nil
 	}
-	metrics := make([]monitor.MetricCreateInput, 0)
-	if err := metricDescriptions.Unmarshal(&metrics); err != nil {
-		return errors.Wrap(err, "SMetricMeasurementManager Unmarshal MetricDescriptionstr error")
-	}
-	if err := manager.initMetrics(ctx, metrics); err != nil {
+	if err := manager.initMetrics(ctx, metricInitInputs); err != nil {
 		return errors.Wrap(err, "initMetrics")
 	}
 	if err := manager.deleteUnusedMetricDescriptions(); err != nil {
@@ -516,6 +514,9 @@ func (manager *SMetricMeasurementManager) initMeasurementAndFieldInfo(createInpu
 func (manager *SMetricMeasurementManager) getMeasurementByName(names ...string) ([]SMetricMeasurement, error) {
 	userCred := auth.AdminCredential()
 	listInput := new(monitor.MetricListInput)
+	if len(names) == 0 {
+		return []SMetricMeasurement{}, nil
+	}
 	listInput.Measurement.Names = names
 	query, err := MetricMeasurementManager.ListItemFilter(context.Background(), MetricMeasurementManager.Query(), userCred,
 		*listInput)
@@ -567,6 +568,9 @@ func (self *SMetricMeasurement) insertOrUpdateMetric(userCred mcclient.TokenCred
 					}
 					if len(updateFields[upIndex].Unit) != 0 {
 						dbFields[i].Unit = updateFields[upIndex].Unit
+					}
+					if updateFields[upIndex].Score != 0 {
+						dbFields[i].Score = updateFields[upIndex].Score
 					}
 					return nil
 				})
