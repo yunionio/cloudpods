@@ -64,7 +64,7 @@ var SKU_FAMILIES = []string{
 }
 
 type ServerSkuListInput struct {
-	apis.StatusStandaloneResourceListInput
+	apis.EnabledStatusStandaloneResourceListInput
 	apis.DomainizedResourceListInput
 
 	ManagedResourceListInput

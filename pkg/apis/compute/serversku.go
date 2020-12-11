@@ -19,7 +19,7 @@ import (
 )
 
 type ServerSkuCreateInput struct {
-	apis.StatusStandaloneResourceCreateInput
+	apis.EnabledStatusStandaloneResourceCreateInput
 
 	// 区域名称或Id,建议使用Id
 	// default: default
@@ -28,10 +28,6 @@ type ServerSkuCreateInput struct {
 	// 可用区名称或Id, 建议使用Id
 	// required: false
 	ZoneId string `json:"zone_id"`
-
-	// 是否启用
-	// default: true
-	Enabled *bool `json:"enabled"`
 
 	// swagger:ignore
 	InstanceTypeFamily string
@@ -128,7 +124,7 @@ type ServerSkuCreateInput struct {
 }
 
 type ServerSkuDetails struct {
-	apis.StatusStandaloneResourceDetails
+	apis.EnabledStatusStandaloneResourceDetails
 
 	ZoneResourceInfo
 
@@ -142,7 +138,7 @@ type ServerSkuDetails struct {
 }
 
 type ServerSkuUpdateInput struct {
-	apis.StatusStandaloneResourceBaseUpdateInput
+	apis.EnabledStatusStandaloneResourceBaseUpdateInput
 
 	InstanceTypeFamily string `json:"instance_type_family"`
 
