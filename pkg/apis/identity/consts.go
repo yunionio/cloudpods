@@ -166,6 +166,8 @@ var (
 			"etcd_cacert",
 			"etcd_cert",
 			"etcd_key",
+			"splitable_max_duration_hours",
+			"splitable_max_keep_segments",
 
 			// ############################
 			// keystone blacklist options

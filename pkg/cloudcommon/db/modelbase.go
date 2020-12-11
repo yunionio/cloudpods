@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/splitable"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -52,7 +53,11 @@ type SModelBaseManager struct {
 }
 
 func NewModelBaseManager(model interface{}, tableName string, keyword string, keywordPlural string) SModelBaseManager {
-	ts := newTableSpec(model, tableName)
+	return NewModelBaseManagerWithSplitable(model, tableName, keyword, keywordPlural, "", "", 0, 0)
+}
+
+func NewModelBaseManagerWithSplitable(model interface{}, tableName string, keyword string, keywordPlural string, indexField string, dateField string, maxDuration time.Duration, maxSegments int) SModelBaseManager {
+	ts := newTableSpec(model, tableName, indexField, dateField, maxDuration, maxSegments)
 	modelMan := SModelBaseManager{tableSpec: ts, keyword: keyword, keywordPlural: keywordPlural}
 	return modelMan
 }
@@ -80,6 +85,10 @@ func (manager *SModelBaseManager) SetAlias(alias string, aliasPlural string) {
 
 func (manager *SModelBaseManager) TableSpec() ITableSpec {
 	return manager.tableSpec
+}
+
+func (manager *SModelBaseManager) GetSplitTable() *splitable.SSplitTableSpec {
+	return manager.tableSpec.GetSplitTable()
 }
 
 func (manager *SModelBaseManager) Keyword() string {
@@ -431,6 +440,38 @@ func (manager *SModelBaseManager) OnCreateFailed(ctx context.Context, userCred m
 
 func (manager *SModelBaseManager) GetI18N(ctx context.Context, idstr string, resObj jsonutils.JSONObject) *jsonutils.JSONDict {
 	return nil
+}
+
+func (manager *SModelBaseManager) AllowGetPropertySplitable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (manager *SModelBaseManager) GetPropertySplitable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	splitable := manager.GetSplitTable()
+	if splitable == nil {
+		return nil, errors.Wrap(httperrors.ErrNotSupported, "not splitable")
+	}
+	metas, err := splitable.GetTableMetas()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetTableMetas")
+	}
+	return jsonutils.Marshal(metas), nil
+}
+
+func (manager *SModelBaseManager) AllowPerformPurgeSplitable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return true
+}
+
+func (manager *SModelBaseManager) PerformPurgeSplitable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	splitable := manager.GetSplitTable()
+	if splitable == nil {
+		return nil, errors.Wrap(httperrors.ErrNotSupported, "not splitable")
+	}
+	err := splitable.Purge()
+	if err != nil {
+		return nil, errors.Wrap(err, "Purge")
+	}
+	return nil, nil
 }
 
 func (model *SModelBase) GetId() string {

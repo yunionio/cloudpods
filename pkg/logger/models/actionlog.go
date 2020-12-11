@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -59,7 +60,16 @@ func init() {
 	InitActionWhiteList()
 	ActionLog = &SActionlogManager{
 		SOpsLogManager: db.SOpsLogManager{
-			SModelBaseManager: db.NewModelBaseManager(SActionlog{}, "action_tbl", "action", "actions"),
+			SModelBaseManager: db.NewModelBaseManagerWithSplitable(
+				SActionlog{},
+				"action_tbl",
+				"action",
+				"actions",
+				"id",
+				"start_time",
+				consts.SplitableMaxDuration(),
+				consts.SplitableMaxKeepSegments(),
+			),
 		},
 	}
 	ActionLog.SetVirtualObject(ActionLog)
