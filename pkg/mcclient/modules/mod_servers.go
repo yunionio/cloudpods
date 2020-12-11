@@ -64,6 +64,7 @@ func (this *ServerManager) GetLoginInfo(s *mcclient.ClientSession, id string, pa
 			}
 			if params != nil && !gotypes.IsNil(params) {
 				privateKey, _ := params.GetString("private_key")
+				privateKey = strings.TrimSpace(privateKey)
 				if len(privateKey) > 0 {
 					passwd, e = seclib2.DecryptBase64(privateKey, loginKey)
 					if e != nil {
