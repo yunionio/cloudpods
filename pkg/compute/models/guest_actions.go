@@ -2446,7 +2446,6 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	disks := self.GetDisks()
 	var addDisk int
 	var newDiskIdx = 0
-	var diskSizes = make(map[string]int, 0)
 	var newDisks = make([]*api.DiskConfig, 0)
 	var resizeDisks = jsonutils.NewArray()
 
@@ -2457,6 +2456,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		}
 	}
 
+	var schedInputDisks = make([]*api.DiskConfig, 0)
 	var diskIdx = 1
 	for _, diskConf := range inputDisks {
 		diskConf, err = parseDiskInfo(ctx, userCred, diskConf)
@@ -2468,20 +2468,10 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		}
 		if diskConf.SizeMb > 0 {
 			if diskIdx >= len(disks) {
-				// 这里backeend为空时,qcloud有可能会选择local_ssd作为后端存储,会导致报错(主要是climc)
-				storage := host.GetLeastUsedStorage(diskConf.Backend)
-				if storage == nil {
-					return nil, httperrors.NewResourceNotReadyError("host not connect storage %s", diskConf.Backend)
-				}
-				_, ok := diskSizes[storage.Id]
-				if !ok {
-					diskSizes[storage.Id] = 0
-				}
-				diskSizes[storage.Id] = diskSizes[storage.Id] + diskConf.SizeMb
-				diskConf.Storage = storage.Id
 				newDisks = append(newDisks, diskConf)
 				newDiskIdx += 1
 				addDisk += diskConf.SizeMb
+				schedInputDisks = append(schedInputDisks, diskConf)
 			} else {
 				disk := disks[diskIdx].GetDisk()
 				oldSize := disk.DiskSize
@@ -2492,38 +2482,15 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 					resizeDisks.Add(arr)
 					addDisk += diskConf.SizeMb - oldSize
 					storage := disks[diskIdx].GetDisk().GetStorage()
-					_, ok := diskSizes[storage.Id]
-					if !ok {
-						diskSizes[storage.Id] = 0
-					}
-					err = self.ValidateResizeDisk(disk, storage)
-					if err != nil {
-						return nil, httperrors.NewUnsupportOperationError("%v", err)
-					}
-					if !storage.IsEmulated && storage.GetFreeCapacity() < int64(addDisk) {
-						return nil, httperrors.NewInsufficientResourceError("Not enough free space")
-					}
-					diskSizes[storage.Id] = diskSizes[storage.Id] + diskConf.SizeMb - oldSize
+					schedInputDisks = append(schedInputDisks, &api.DiskConfig{
+						SizeMb:  addDisk,
+						Index:   diskConf.Index,
+						Storage: storage.Id,
+					})
 				}
 			}
 		}
 		diskIdx += 1
-	}
-
-	provider, e := self.GetHost().GetProviderFactory()
-	if e != nil || !provider.IsPublicCloud() {
-		for storageId, needSize := range diskSizes {
-			iStorage, err := StorageManager.FetchById(storageId)
-			if err != nil {
-				return nil, httperrors.NewBadRequestError("Fetch storage error: %s", err)
-			}
-			storage := iStorage.(*SStorage)
-			if !storage.IsEmulated && storage.GetFreeCapacity() < int64(needSize) {
-				return nil, httperrors.NewInsufficientResourceError("Not enough free space")
-			}
-		}
-	} else {
-		log.Debugf("Skip storage free capacity validating for public cloud: %s", provider.GetId())
 	}
 
 	if resizeDisks.Length() > 0 {
@@ -2542,7 +2509,8 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	}
 
 	// schedulr forecast
-	schedDesc := self.changeConfToSchedDesc(addCpu, addMem, addDisk)
+	schedDesc := self.changeConfToSchedDesc(addCpu, addMem, schedInputDisks)
+	confs.Set("sched_desc", jsonutils.Marshal(schedDesc))
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 	canChangeConf, err := modules.SchedManager.DoScheduleForecast(s, schedDesc, 1)
 	if err != nil {
@@ -2577,28 +2545,19 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	}
 
 	if len(newDisks) > 0 {
-		err := self.CreateDisksOnHost(ctx, userCred, host, newDisks, pendingUsage, false, false, nil, nil, false)
-		if err != nil {
-			quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage, false)
-			return nil, httperrors.NewBadRequestError("Create disk on host error: %s", err)
-		}
 		confs.Add(jsonutils.Marshal(newDisks), "create")
 	}
 	self.StartChangeConfigTask(ctx, userCred, confs, "", pendingUsage)
 	return nil, nil
 }
 
-func (self *SGuest) changeConfToSchedDesc(addCpu, addMem, addDisk int) *schedapi.ScheduleInput {
-	guestDisks := self.GetDisks()
-	diskInfo := guestDisks[0].ToDiskConfig()
-	diskInfo.SizeMb = addDisk
-
+func (self *SGuest) changeConfToSchedDesc(addCpu, addMem int, schedInputDisks []*api.DiskConfig) *schedapi.ScheduleInput {
 	desc := &schedapi.ScheduleInput{
 		ServerConfig: schedapi.ServerConfig{
 			ServerConfigs: &api.ServerConfigs{
 				Hypervisor: self.Hypervisor,
 				PreferHost: self.HostId,
-				Disks:      []*api.DiskConfig{diskInfo},
+				Disks:      schedInputDisks,
 			},
 			Memory:  addMem,
 			Ncpu:    addCpu,
