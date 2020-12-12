@@ -17,6 +17,9 @@ package multicloud
 import (
 	"fmt"
 
+	"yunion.io/x/pkg/errors"
+
+	apis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -26,4 +29,16 @@ type SVpc struct {
 
 func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
 	return nil, fmt.Errorf("Not Implemented GetNatGateways")
+}
+
+func (self *SVpc) IsSupportSetExternalAccess() bool {
+	return false
+}
+
+func (self *SVpc) GetExternalAccessMode() string {
+	return apis.VPC_EXTERNAL_ACCESS_MODE_EIP
+}
+
+func (self *SVpc) AttachInternetGateway(igwId string) error {
+	return errors.Wrap(cloudprovider.ErrNotSupported, "AttachInternetGateway")
 }

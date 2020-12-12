@@ -22,6 +22,7 @@ const (
 	VPC_EXTERNAL_ACCESS_MODE_DISTGW     = "distgw"     // distgw only
 	VPC_EXTERNAL_ACCESS_MODE_EIP_DISTGW = "eip-distgw" // eip when available, distgw otherwise
 	VPC_EXTERNAL_ACCESS_MODE_EIP        = "eip"        // eip only
+	VPC_EXTERNAL_ACCESS_MODE_NONE       = "none"       // no external access
 )
 
 var (
@@ -29,6 +30,7 @@ var (
 		VPC_EXTERNAL_ACCESS_MODE_DISTGW,
 		VPC_EXTERNAL_ACCESS_MODE_EIP_DISTGW,
 		VPC_EXTERNAL_ACCESS_MODE_EIP,
+		VPC_EXTERNAL_ACCESS_MODE_NONE,
 	}
 )
 

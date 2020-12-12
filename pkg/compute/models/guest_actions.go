@@ -2890,6 +2890,11 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewInvalidStatusError("cannot associate eip in status %s", self.Status)
 	}
 
+	err := ValidateAssociateEip(self)
+	if err != nil {
+		return nil, err
+	}
+
 	eip, err := self.GetEipOrPublicIp()
 	if err != nil {
 		log.Errorf("Fail to get Eip %s", err)
@@ -3015,6 +3020,12 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 		bgpType       string
 		autoDellocate bool
 	)
+
+	err := ValidateAssociateEip(self)
+	if err != nil {
+		return nil, err
+	}
+
 	chargeType, _ = data.GetString("charge_type")
 	if chargeType == "" {
 		chargeType = regionDriver.GetEipDefaultChargeType()
@@ -3029,7 +3040,7 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 	bgpType, _ = data.GetString("bgp_type")
 	autoDellocate, _ = data.Bool("auto_dellocate")
 
-	err := self.GetDriver().ValidateCreateEip(ctx, userCred, data)
+	err = self.GetDriver().ValidateCreateEip(ctx, userCred, data)
 	if err != nil {
 		return nil, err
 	}

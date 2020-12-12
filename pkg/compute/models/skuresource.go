@@ -1,0 +1,109 @@
+package models
+
+import (
+	"context"
+	"database/sql"
+	"strings"
+
+	"github.com/pkg/errors"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
+
+	apis "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+)
+
+func PerformActionSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, resourceKey string, input apis.SkuSyncInput) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(resourceKey, []string{ServerSkuManager.Keyword(), ElasticcacheSkuManager.Keyword(), DBInstanceSkuManager.Keyword()}) {
+		return nil, httperrors.NewUnsupportOperationError("resource %s is not support sync skus", resourceKey)
+	}
+
+	if len(input.Provider) == 0 && len(input.CloudregionIds) == 0 {
+		return nil, httperrors.NewMissingParameterError("must specific one of `provider` or `cloudregionids`")
+	}
+
+	input.Provider = strings.TrimSpace(input.Provider)
+	if len(input.Provider) > 0 {
+		if !utils.IsInStringArray(input.Provider, cloudprovider.GetPublicProviders()) {
+			return nil, httperrors.NewInputParameterError("Unsupported provider %s", input.Provider)
+		}
+	}
+
+	// cloudregions to sync
+	q := CloudregionManager.Query()
+	if len(input.Provider) > 0 {
+		q = q.Equals("provider", input.Provider)
+	} else {
+		q = q.In("provider", cloudprovider.GetPublicProviders())
+	}
+
+	if len(input.CloudregionIds) > 0 {
+		q = q.Filter(sqlchemy.OR(sqlchemy.Equals(q.Field("id"), input.CloudregionIds), sqlchemy.Equals(q.Field("name"), input.CloudregionIds)))
+	}
+
+	regions := []SCloudregion{}
+	err := db.FetchModelObjects(CloudregionManager, q, &regions)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return nil, httperrors.NewGeneralError(err)
+	}
+
+	if len(input.CloudregionIds) > 0 && len(input.CloudregionIds) != len(regions) {
+		return nil, httperrors.NewInputParameterError("input data contains invalid cloudregion id")
+	}
+
+	if len(regions) == 0 {
+		return nil, httperrors.NewInputParameterError("no cloudregion found to sync skus")
+	}
+
+	// start cloudregion skus sync tasks
+	params := jsonutils.NewDict()
+	params.Set("resource", jsonutils.NewString(resourceKey))
+	// replaced with NewParallelTask??
+	ret := jsonutils.NewDict()
+	taskIds := jsonutils.NewArray()
+	for i := range regions {
+		task, err := taskman.TaskManager.NewTask(ctx, "CloudRegionSyncSkusTask", &regions[i], userCred, params, "", "", nil)
+		if err != nil {
+			return nil, errors.Wrapf(err, "CloudRegionSyncSkusTask")
+		}
+
+		task.ScheduleRun(nil)
+		taskIds.Add(jsonutils.NewString(task.GetId()))
+	}
+	ret.Set("tasks", taskIds)
+	return ret, nil
+}
+
+func GetPropertySkusSyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query apis.SkuTaskQueryInput) (jsonutils.JSONObject, error) {
+	tasks := []taskman.STask{}
+	q := taskman.TaskManager.Query()
+	q = q.Equals("obj_name", CloudregionManager.Keyword())
+	q = q.Equals("task_name", "CloudRegionSyncSkusTask")
+	if len(query.TaskIds) > 0 {
+		q = q.In("id", query.TaskIds)
+	} else {
+		q = q.NotIn("stage", []string{taskman.TASK_STAGE_FAILED, taskman.TASK_STAGE_COMPLETE})
+	}
+	err := q.All(&tasks)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+
+	ret := jsonutils.NewDict()
+	items := jsonutils.NewArray()
+	for i := range tasks {
+		item := jsonutils.NewDict()
+		item.Set("id", jsonutils.NewString(tasks[i].GetId()))
+		item.Set("created_at", jsonutils.NewTimeString(tasks[i].GetStartTime()))
+		item.Set("stage", jsonutils.NewString(tasks[i].Stage))
+		items.Add(item)
+	}
+	ret.Set("tasks", items)
+	return ret, nil
+}

@@ -155,3 +155,17 @@ type DBInstanceSkuListInput struct {
 	Zone2 []string `json:"zone2"`
 	Zone3 []string `json:"zone3"`
 }
+
+type SkuSyncInput struct {
+	// 云平台名称
+	// example: Google
+	Provider string `json:"provider,omitempty"`
+
+	// 区域ID
+	CloudregionIds []string `json:"cloudregion_ids"`
+}
+
+type SkuTaskQueryInput struct {
+	// 异步任务ID
+	TaskIds []string `json:"task_ids"`
+}

@@ -1169,6 +1169,19 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateVpc(ctx context.Con
 			return nil, errors.Wrap(err, "cloudprovider.WaitStatus")
 		}
 
+		if ivpc.IsSupportSetExternalAccess() && vpc.ExternalAccessMode == api.VPC_EXTERNAL_ACCESS_MODE_EIP {
+			igw, err := iregion.CreateInternetGateway()
+			if err != nil {
+				return nil, errors.Wrap(err, "vpc.AttachInternetGateway")
+
+			}
+
+			err = ivpc.AttachInternetGateway(igw.GetId())
+			if err != nil {
+				return nil, errors.Wrap(err, "vpc.AttachInternetGateway")
+			}
+		}
+
 		err = vpc.SyncWithCloudVpc(ctx, userCred, ivpc, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "vpc.SyncWithCloudVpc")
