@@ -527,6 +527,7 @@ func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenC
 		self.ExternalId = extVPC.GetGlobalId()
 
 		self.IsEmulated = extVPC.IsEmulated()
+		self.ExternalAccessMode = extVPC.GetExternalAccessMode()
 
 		return nil
 	})
@@ -650,6 +651,47 @@ func (manager *SVpcManager) InitializeData() error {
 		}
 	}
 
+	{
+		// initialize default external access mode for public cloud
+		var vpcs []SVpc
+		q := manager.Query().
+			IsNotEmpty("manager_id").
+			IsNotEmpty("external_id").
+			IsNullOrEmpty("external_access_mode")
+		if err := db.FetchModelObjects(manager, q, &vpcs); err != nil {
+			return errors.Wrap(err, "fetch public cloud vpc with external_access_mode not set")
+		}
+		for i := range vpcs {
+			vpc := &vpcs[i]
+			if _, err := db.Update(vpc, func() error {
+				vpc.ExternalAccessMode = api.VPC_EXTERNAL_ACCESS_MODE_EIP
+				return nil
+			}); err != nil {
+				return errors.Wrap(err, "db set default external_access_mode")
+			}
+		}
+	}
+
+	{
+		vpcs := []SVpc{}
+		q := manager.Query().IsTrue("is_emulated").IsNotEmpty("external_id").NotEquals("name", "-")
+		err := db.FetchModelObjects(manager, q, &vpcs)
+		if err != nil {
+			return errors.Wrapf(err, "db.FetchModelObjects")
+		}
+		for i := range vpcs {
+			if vpcs[i].ExternalId == manager.getVpcExternalIdForClassicNetwork(vpcs[i].CloudregionId, vpcs[i].ManagerId) {
+				_, err = db.Update(&vpcs[i], func() error {
+					vpcs[i].Name = "-"
+					return nil
+				})
+				if err != nil {
+					return errors.Wrapf(err, "db.Update class vpc name")
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -689,16 +731,22 @@ func (manager *SVpcManager) ValidateCreateData(
 			}
 		}
 		input.CloudproviderId = managerObj.GetId()
+		if input.ExternalAccessMode == "" {
+			input.ExternalAccessMode = api.VPC_EXTERNAL_ACCESS_MODE_EIP
+		}
+
 		// data.Add(jsonutils.NewString(managerObj.GetId()), "manager_id")
 	} else {
 		input.Status = api.VPC_STATUS_AVAILABLE
 		if input.ExternalAccessMode == "" {
 			input.ExternalAccessMode = options.Options.DefaultVpcExternalAccessMode
 		}
-		if !utils.IsInStringArray(input.ExternalAccessMode, api.VPC_EXTERNAL_ACCESS_MODES) {
-			return input, httperrors.NewInputParameterError("invalid external_access_mode %q, want %s",
-				input.Status, api.VPC_EXTERNAL_ACCESS_MODES)
-		}
+	}
+
+	// check external access mode
+	if !utils.IsInStringArray(input.ExternalAccessMode, api.VPC_EXTERNAL_ACCESS_MODES) {
+		return input, httperrors.NewInputParameterError("invalid external_access_mode %q, want %s",
+			input.Status, api.VPC_EXTERNAL_ACCESS_MODES)
 	}
 
 	cidrBlock := input.CidrBlock
@@ -1363,4 +1411,12 @@ func (vpc *SVpc) PerformChangeOwner(ctx context.Context, userCred mcclient.Token
 	}
 
 	return nil, nil
+}
+
+func (self *SVpc) IsSupportAssociateEip() bool {
+	if utils.IsInStringArray(self.ExternalAccessMode, []string{api.VPC_EXTERNAL_ACCESS_MODE_EIP_DISTGW, api.VPC_EXTERNAL_ACCESS_MODE_EIP}) {
+		return true
+	}
+
+	return false
 }

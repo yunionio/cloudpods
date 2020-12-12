@@ -93,6 +93,10 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 					if len(fields) == 0 || fields.Contains("vpc_id") {
 						rows[i].VpcId = strings.Join(gvpc.VpcId, ",")
 					}
+
+					if len(fields) == 0 || fields.Contains("external_access_mode") {
+						rows[i].VpcExternalAccessMode = strings.Join(gvpc.ExternalAccessMode, ",")
+					}
 				}
 			}
 		}
@@ -317,9 +321,10 @@ func (self *SGuest) GetRealIPs() []string {
 }
 
 type sGuestVpcsInfo struct {
-	GuestId string
-	Vpc     []string
-	VpcId   []string
+	GuestId            string
+	Vpc                []string
+	VpcId              []string
+	ExternalAccessMode []string
 }
 
 func fetchGuestVpcs(guestIds []string) map[string]sGuestVpcsInfo {
@@ -328,7 +333,7 @@ func fetchGuestVpcs(guestIds []string) map[string]sGuestVpcsInfo {
 	networks := NetworkManager.Query().SubQuery()
 	guestnetworks := GuestnetworkManager.Query().SubQuery()
 
-	q := vpcs.Query(guestnetworks.Field("guest_id"), vpcs.Field("id"), vpcs.Field("name"))
+	q := vpcs.Query(guestnetworks.Field("guest_id"), vpcs.Field("id"), vpcs.Field("name"), vpcs.Field("external_access_mode"))
 	q = q.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
 	q = q.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
 	q = q.Join(guestnetworks, sqlchemy.Equals(networks.Field("id"), guestnetworks.Field("network_id")))
@@ -336,9 +341,10 @@ func fetchGuestVpcs(guestIds []string) map[string]sGuestVpcsInfo {
 	q = q.Distinct()
 
 	type sGuestVpcInfo struct {
-		GuestId string
-		Id      string
-		Name    string
+		GuestId            string
+		Id                 string
+		Name               string
+		ExternalAccessMode string
 	}
 	gvpcs := make([]sGuestVpcInfo, 0)
 	err := q.All(&gvpcs)
@@ -351,13 +357,15 @@ func fetchGuestVpcs(guestIds []string) map[string]sGuestVpcsInfo {
 		gvpc, ok := ret[gvpcs[i].GuestId]
 		if !ok {
 			gvpc = sGuestVpcsInfo{
-				GuestId: gvpcs[i].GuestId,
-				Vpc:     make([]string, 0),
-				VpcId:   make([]string, 0),
+				GuestId:            gvpcs[i].GuestId,
+				Vpc:                make([]string, 0),
+				VpcId:              make([]string, 0),
+				ExternalAccessMode: make([]string, 0),
 			}
 		}
 		gvpc.VpcId = append(gvpc.VpcId, gvpcs[i].Id)
 		gvpc.Vpc = append(gvpc.Vpc, gvpcs[i].Name)
+		gvpc.ExternalAccessMode = append(gvpc.ExternalAccessMode, gvpcs[i].ExternalAccessMode)
 		ret[gvpcs[i].GuestId] = gvpc
 	}
 

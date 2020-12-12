@@ -214,6 +214,8 @@ type ServerDetails struct {
 	Vpc string `json:"vpc"`
 	// 归属VPC ID
 	VpcId string `json:"vpc_id"`
+	// Vpc外网访问模式
+	VpcExternalAccessMode string `json:"vpc_external_access_mode"`
 
 	// 关联安全组列表
 	Secgroups []apis.StandaloneShortDesc `json:"secgroups"`
