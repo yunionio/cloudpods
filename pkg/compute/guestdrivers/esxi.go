@@ -682,3 +682,26 @@ func (self *SESXiGuestDriver) StartDeleteGuestTask(ctx context.Context, userCred
 	params.Add(jsonutils.JSONTrue, "delete_snapshots")
 	return self.SBaseGuestDriver.StartDeleteGuestTask(ctx, userCred, guest, params, parentTaskId)
 }
+
+func (self *SESXiGuestDriver) RequestStopOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		ihost, err := host.GetIHost()
+		if err != nil {
+			return nil, errors.Wrapf(err, "host.GetIHost")
+		}
+		ivm, err := ihost.GetIVMById(guest.ExternalId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ihost.GetIVMById")
+		}
+		opts := &cloudprovider.ServerStopOptions{}
+		task.GetParams().Unmarshal(&opts)
+
+		err = ivm.StopVM(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+		err = cloudprovider.WaitStatus(ivm, api.VM_READY, 2*time.Second, time.Second)
+		return nil, err
+	})
+	return nil
+}
