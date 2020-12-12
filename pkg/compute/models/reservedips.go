@@ -244,10 +244,7 @@ func (manager *SReservedipManager) ListItemFilter(
 	}
 
 	if query.All == nil || *query.All == false {
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.IsNullOrEmpty(q.Field("expired_at")),
-			sqlchemy.GT(q.Field("expired_at"), time.Now().UTC()),
-		))
+		q = filterExpiredReservedIps(q)
 	}
 
 	if len(query.IpAddr) > 0 {
@@ -258,6 +255,13 @@ func (manager *SReservedipManager) ListItemFilter(
 	}
 
 	return q, nil
+}
+
+func filterExpiredReservedIps(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+	return q.Filter(sqlchemy.OR(
+		sqlchemy.IsNullOrEmpty(q.Field("expired_at")),
+		sqlchemy.GT(q.Field("expired_at"), time.Now().UTC()),
+	))
 }
 
 func (manager *SReservedipManager) OrderByExtraFields(
