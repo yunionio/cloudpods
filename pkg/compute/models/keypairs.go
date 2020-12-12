@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"strings"
 
 	"golang.org/x/crypto/ssh"
 
@@ -148,6 +149,7 @@ func (self *SKeypair) GetLinkedGuestsCount() (int, error) {
 }
 
 func (manager *SKeypairManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.KeypairCreateInput) (api.KeypairCreateInput, error) {
+	input.PublicKey = strings.TrimSpace(input.PublicKey)
 	if len(input.PublicKey) == 0 {
 		if len(input.Scheme) == 0 {
 			input.Scheme = api.KEYPAIRE_SCHEME_RSA

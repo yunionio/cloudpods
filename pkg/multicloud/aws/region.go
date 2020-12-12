@@ -1099,3 +1099,20 @@ func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreat
 func (region *SRegion) GetCapabilities() []string {
 	return region.client.GetCapabilities()
 }
+
+func (region *SRegion) CreateInternetGateway() (cloudprovider.ICloudInternetGateway, error) {
+	input := ec2.CreateInternetGatewayInput{}
+	output, err := region.ec2Client.CreateInternetGateway(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "CreateInternetGateway")
+	}
+
+	ret := &SInternetGateway{}
+	ret.region = region
+	err = unmarshalAwsOutput(output, "InternetGateway", ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "unmarshalAwsOutput")
+	}
+
+	return ret, nil
+}
