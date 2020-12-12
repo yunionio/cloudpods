@@ -169,3 +169,11 @@ type SkuTaskQueryInput struct {
 	// 异步任务ID
 	TaskIds []string `json:"task_ids"`
 }
+
+type CloudregionSkuSyncInput struct {
+	SkuSyncInput
+
+	// 同步资源类型
+	// choices: serversku|elasticcachesku|dbinstance_sku
+	Resource string `json:"resource"`
+}
