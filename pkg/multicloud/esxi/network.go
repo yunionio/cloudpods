@@ -15,11 +15,15 @@
 package esxi
 
 import (
+	"fmt"
+	"sync"
+
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 )
 
 type IVMNetwork interface {
@@ -260,4 +264,155 @@ func (net *SDistributedVirtualPortgroup) AddHostToDVS(host *SHost) (err error) {
 		return nil
 	}
 	return err
+}
+
+type SVirtualSwitch struct {
+	Name        string
+	Id          string
+	Distributed bool
+	Hosts       []string
+	Vlans       map[int32]SVirtualLan
+}
+
+type SVirtualLan struct {
+	Vlan int32
+	Ips  []netutils.IPV4Addr
+}
+
+func (h *SHost) getVirtualSwitchs() []SVirtualSwitch {
+	hs := h.getHostSystem()
+	if hs.Config.Network == nil {
+		return nil
+	}
+	vss := make([]SVirtualSwitch, 0, len(hs.Config.Network.Vswitch))
+	vsMap := make(map[string]*SVirtualSwitch)
+	for i := range hs.Config.Network.Vswitch {
+		ivs := hs.Config.Network.Vswitch[i]
+		vsId := fmt.Sprintf("%s-%s", h.GetId(), ivs.Name)
+		vsName := ivs.Name
+		vs := SVirtualSwitch{
+			Name:        vsName,
+			Id:          vsId,
+			Distributed: false,
+		}
+		vss = append(vss, vs)
+		vsMap[ivs.Name] = &vss[len(vss)-1]
+	}
+	for i := range hs.Config.Network.Portgroup {
+		ipg := hs.Config.Network.Portgroup[i]
+		vlan, vsName := ipg.Spec.VlanId, ipg.Spec.VswitchName
+		ivs := vsMap[vsName]
+		ivs.Vlans[vlan] = SVirtualLan{
+			Vlan: vlan,
+		}
+	}
+	return vss
+}
+
+func (cli *SESXiClient) getVPGMap(mohost *mo.HostSystem) sVPGMap {
+	sm := newVPGMap()
+	if mohost.Config.Network == nil {
+		return sm
+	}
+	for i := range mohost.Config.Network.Portgroup {
+		ipg := mohost.Config.Network.Portgroup[i]
+		key := fmt.Sprintf("%s-%s", mohost.Reference().Value, ipg.Spec.Name)
+		vlan := ipg.Spec.VlanId
+		sm.Insert(key, sVPGProc{
+			vlanId: vlan,
+		})
+		// TODO: fill VSId
+	}
+	return sm
+}
+
+func (cli *SESXiClient) getDVPGMap() (sVPGMap, error) {
+	sm := newVPGMap()
+	dvpgs, err := cli.scanAllDvPortgroups()
+	if err != nil {
+		return sm, err
+	}
+	for i := range dvpgs {
+		key := dvpgs[i].getMODVPortgroup().Key
+		vlanid := dvpgs[i].GetVlanId()
+		sm.Insert(key, sVPGProc{
+			vlanId: vlanid,
+		})
+		// TODO: fill VSId
+	}
+	return sm, nil
+}
+
+func (cli *SESXiClient) getVirtualSwitchs() []SVirtualSwitch {
+	// TODO
+	return nil
+}
+
+func newVPGMap() sVPGMap {
+	return sVPGMap{m: &sync.Map{}}
+}
+
+type sVPGMap struct {
+	m *sync.Map
+}
+
+func (vm *sVPGMap) Insert(key string, proc sVPGProc) {
+	vm.m.Store(key, proc)
+}
+
+func (vm *sVPGMap) Get(key string) (sVPGProc, bool) {
+	v, ok := vm.m.Load(key)
+	if !ok {
+		return sVPGProc{}, ok
+	}
+	r := v.(sVPGProc)
+	return r, ok
+}
+
+type sVPGProc struct {
+	vlanId int32
+	dvId   string
+}
+
+type SIPProc struct {
+	VSId   string
+	VlanId int32
+}
+
+type SIPPool struct {
+	p map[netutils.IPV4Addr]SIPProc
+}
+
+func NewIPPool(length ...int) SIPPool {
+	if len(length) > 0 {
+		return SIPPool{p: make(map[netutils.IPV4Addr]SIPProc, length[0])}
+	}
+	return SIPPool{p: make(map[netutils.IPV4Addr]SIPProc)}
+}
+
+func (p *SIPPool) Has(ip netutils.IPV4Addr) bool {
+	_, ok := p.p[ip]
+	return ok
+}
+
+func (p *SIPPool) Get(ip netutils.IPV4Addr) (SIPProc, bool) {
+	r, ok := p.p[ip]
+	return r, ok
+}
+
+func (p *SIPPool) Insert(ip netutils.IPV4Addr, proc SIPProc) {
+	p.p[ip] = proc
+}
+
+func (p *SIPPool) Merge(op *SIPPool) {
+	for ip, proc := range op.p {
+		if p.Has(ip) {
+			continue
+		}
+		p.Insert(ip, proc)
+	}
+}
+
+func (p *SIPPool) Len() int {
+	return len(p.p)
 }
