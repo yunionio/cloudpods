@@ -983,6 +983,11 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 		return nil, httperrors.NewInvalidStatusError("cannot associate server in status %s", server.Status)
 	}
 
+	err = ValidateAssociateEip(server)
+	if err != nil {
+		return nil, err
+	}
+
 	if len(self.NetworkId) > 0 {
 		gns, err := server.GetNetworks("")
 		if err != nil {
@@ -1330,6 +1335,11 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 }
 
 func (eip *SElasticip) AllocateAndAssociateVM(ctx context.Context, userCred mcclient.TokenCredential, vm *SGuest, parentTaskId string) error {
+	err := ValidateAssociateEip(vm)
+	if err != nil {
+		return err
+	}
+
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(vm.ExternalId), "instance_external_id")
 	params.Add(jsonutils.NewString(vm.Id), "instance_id")
