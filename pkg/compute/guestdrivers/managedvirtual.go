@@ -742,19 +742,21 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 
 func (self *SManagedVirtualizedGuestDriver) RequestStopOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		ihost, err := host.GetIHost()
+		ivm, err := guest.GetIVM()
 		if err != nil {
-			return nil, errors.Wrapf(err, "host.GetIHost")
-		}
-		ivm, err := ihost.GetIVMById(guest.ExternalId)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ihost.GetIVMById")
+			return nil, errors.Wrapf(err, "guest.GetIVM")
 		}
 		opts := &cloudprovider.ServerStopOptions{}
-		task.GetParams().Unmarshal(&opts)
-
+		task.GetParams().Unmarshal(opts)
 		err = ivm.StopVM(ctx, opts)
-		return nil, err
+		if err != nil {
+			return nil, errors.Wrapf(err, "ivm.StopVM")
+		}
+		err = cloudprovider.WaitStatus(ivm, api.VM_READY, time.Second*3, time.Minute*5)
+		if err != nil {
+			return nil, errors.Wrapf(err, "wait server stop after 5 miniutes")
+		}
+		return nil, nil
 	})
 	return nil
 }
