@@ -17,13 +17,11 @@ package manager
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
 
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
@@ -355,17 +353,18 @@ func Cleanup(cleanupArgs *api.CleanupArgs) (*api.CleanupResult, error) {
 	return r, nil
 }
 
-func GetHistoryList(historyArgs *api.HistoryArgs) (*api.HistoryResult, error) {
-	offset, limit, all := historyArgs.Offset, historyArgs.Limit, historyArgs.All
+func GetHistoryList(args *api.HistoryArgs) (*api.HistoryResult, error) {
+	offset, limit, all, isSuggestion := args.Offset, args.Limit, args.All, args.IsSuggestion
 	if limit == int64(0) {
 		limit = int64(50)
 	}
 
-	historyItems, total := schedManager.HistoryManager.GetHistoryList(offset, limit, all)
+	historyItems, total := schedManager.HistoryManager.GetHistoryList(offset, limit, all, isSuggestion)
 	items := []*api.HistoryItem{}
 
-	for _, hi := range historyItems {
-		items = append(items, newHistoryItem(hi))
+	for idx := range historyItems {
+		hi := historyItems[idx]
+		items = append(items, hi.ToAPI())
 	}
 
 	return &api.HistoryResult{
@@ -374,53 +373,6 @@ func GetHistoryList(historyArgs *api.HistoryArgs) (*api.HistoryResult, error) {
 		Limit:  int64(len(items)),
 		Total:  total,
 	}, nil
-}
-
-func newHistoryItem(historyItem *HistoryItem) *api.HistoryItem {
-	task := historyItem.Task
-	schedInfo := task.SchedInfo
-
-	tenants := []string{}
-	forGuests := []string{}
-	countDict := make(map[string]int64)
-
-	data := schedInfo
-	tenants = append(tenants, data.Project)
-
-	for _, forGuest := range data.ForGuests {
-		//forGuests = append(forGuests, fmt.Sprintf("%v(%v)", forGuest.ID, forGuest.Name))
-		forGuests = append(forGuests, fmt.Sprintf("%v", forGuest))
-	}
-
-	guestType := data.Hypervisor
-	if c, ok := countDict[guestType]; !ok {
-		countDict[guestType] = int64(data.Count)
-	} else {
-		countDict[guestType] = c + int64(data.Count)
-	}
-
-	counts := []string{}
-	for guestType, count := range countDict {
-		s := ""
-		if count > 1 {
-			s = "s"
-		}
-
-		counts = append(counts, fmt.Sprintf("%v %v%v", count, guestType, s))
-	}
-
-	countStr := strings.Join(counts, ", ")
-
-	return &api.HistoryItem{
-		Time:         historyItem.Time.Local().Format("2006-01-02 15:04:05"),
-		Consuming:    fmt.Sprintf("%s", task.Consuming),
-		SessionID:    task.GetSessionID(),
-		Status:       task.GetStatus(),
-		Tenants:      utils.Distinct(tenants),
-		Guests:       forGuests,
-		Count:        countStr,
-		IsSuggestion: schedInfo.IsSuggestion,
-	}
 }
 
 func GetHistoryDetail(historyDetailArgs *api.HistoryDetailArgs) (*api.HistoryDetailResult, error) {
