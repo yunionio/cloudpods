@@ -953,4 +953,3 @@ func (manager *SCloudregionManager) AllowGetPropertySyncTasks(ctx context.Contex
 func (manager *SCloudregionManager) GetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query api.SkuTaskQueryInput) (jsonutils.JSONObject, error) {
 	return GetPropertySkusSyncTasks(ctx, userCred, query)
 }
-
