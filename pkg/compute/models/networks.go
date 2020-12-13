@@ -147,16 +147,6 @@ func (self *SNetwork) GetNetworkInterfaces() ([]SNetworkInterface, error) {
 	return networkinterfaces, nil
 }
 
-func (self *SNetwork) GetReservedIPs() ([]SReservedip, error) {
-	reservedIps := []SReservedip{}
-	q := ReservedipManager.Query().Equals("network_id", self.Id)
-	err := db.FetchModelObjects(ReservedipManager, q, &reservedIps)
-	if err != nil {
-		return nil, errors.Wrap(err, "db.FetchModelObjects")
-	}
-	return reservedIps, nil
-}
-
 func (self *SNetwork) ValidateDeleteCondition(ctx context.Context) error {
 	cnt, err := self.GetAllocatedNicCount()
 	if err != nil {
@@ -306,7 +296,9 @@ func (self *SNetwork) GetBaremetalNicsCount() (int, error) {
 }
 
 func (self *SNetwork) GetReservedNicsCount() (int, error) {
-	return ReservedipManager.Query().Equals("network_id", self.Id).CountWithError()
+	q := ReservedipManager.Query().Equals("network_id", self.Id)
+	q = filterExpiredReservedIps(q)
+	return q.CountWithError()
 }
 
 func (self *SNetwork) GetLoadbalancerIpsCount() (int, error) {
@@ -1777,10 +1769,7 @@ func (self *SNetwork) RealDelete(ctx context.Context, userCred mcclient.TokenCre
 			return errors.Wrapf(err, "networkinterface.purge %s(%s)", networkinterfaces[i].Name, networkinterfaces[i].Id)
 		}
 	}
-	reservedIps, err := self.GetReservedIPs()
-	if err != nil {
-		return errors.Wrap(err, "GetReservedNicsCount")
-	}
+	reservedIps := ReservedipManager.GetReservedIPs(self)
 	for i := range reservedIps {
 		err = reservedIps[i].Release(ctx, userCred, self)
 		if err != nil {
