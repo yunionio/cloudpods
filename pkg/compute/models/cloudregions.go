@@ -937,3 +937,19 @@ func (manager *SCloudregionManager) FetchDefaultRegion() *SCloudregion {
 func (self *SCloudregion) GetCloudEnv() string {
 	return cloudprovider.GetProviderCloudEnv(self.Provider)
 }
+
+func (manager *SCloudregionManager) AllowSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, manager, "sync-skus")
+}
+
+func (manager *SCloudregionManager) PerformSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudregionSkuSyncInput) (jsonutils.JSONObject, error) {
+	return PerformActionSyncSkus(ctx, userCred, input.Resource, input.SkuSyncInput)
+}
+
+func (manager *SCloudregionManager) AllowGetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGetSpec(userCred, manager, "sync-tasks")
+}
+
+func (manager *SCloudregionManager) GetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query api.SkuTaskQueryInput) (jsonutils.JSONObject, error) {
+	return GetPropertySkusSyncTasks(ctx, userCred, query)
+}
