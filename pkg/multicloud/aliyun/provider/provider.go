@@ -16,6 +16,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -54,6 +55,10 @@ func (self *SAliyunProviderFactory) IsSupportCreateCloudgroup() bool {
 
 func (factory *SAliyunProviderFactory) IsSystemCloudpolicyUnified() bool {
 	return false
+}
+
+func (factory *SAliyunProviderFactory) IsSupportSAMLAuth() bool {
+	return true
 }
 
 func (self *SAliyunProviderFactory) GetSupportedDnsZoneTypes() []cloudprovider.TDnsZoneType {
@@ -446,4 +451,41 @@ func (self *SAliyunProvider) CreateICloudInterVpcNetwork(opts *cloudprovider.SIn
 
 func (self *SAliyunProvider) GetCloudRegionExternalIdPrefix() string {
 	return self.client.GetAccessEnv() + "/"
+}
+
+func (self *SAliyunProvider) GetICloudroles() ([]cloudprovider.ICloudrole, error) {
+	return self.client.GetICloudroles()
+}
+
+func (self *SAliyunProvider) GetICloudroleById(id string) (cloudprovider.ICloudrole, error) {
+	info := strings.Split(id, "role/")
+	if len(info) == 2 {
+		role, err := self.client.GetRole(info[1])
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetRole(%s)", info[1])
+		}
+		return role, nil
+	}
+	return nil, fmt.Errorf("invalid role id %s", id)
+}
+
+func (self *SAliyunProvider) CreateICloudrole(opts *cloudprovider.SRoleCreateOptions) (cloudprovider.ICloudrole, error) {
+	stetement := fmt.Sprintf(`{"Statement":[{"Action":"sts:AssumeRole","Effect":"Allow","Principal":{"Federated":["%s"]},"Condition":{"StringEquals":{"saml:recipient":"https://signin.aliyun.com/saml-role/sso"}}}],"Version":"1"}`, opts.SAMLProvider)
+	role, err := self.client.CreateRole(opts.Name, stetement, opts.Desc)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateRole")
+	}
+	return role, nil
+}
+
+func (self *SAliyunProvider) GetICloudSAMLProviders() ([]cloudprovider.ICloudSAMLProvider, error) {
+	return self.client.GetICloudSAMLProviders()
+}
+
+func (self *SAliyunProvider) CreateICloudSAMLProvider(opts *cloudprovider.SAMLProviderCreateOptions) (cloudprovider.ICloudSAMLProvider, error) {
+	sp, err := self.client.CreateSAMLProvider(opts.Name, opts.Metadata.String(), "")
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateSAMLProvider")
+	}
+	return sp, nil
 }

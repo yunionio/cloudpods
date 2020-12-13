@@ -142,8 +142,11 @@ func (manager *SSamluserManager) ValidateCreateData(ctx context.Context, userCre
 		return input, err
 	}
 	account := _account.(*SCloudaccount)
+	if account.SAMLAuth.IsFalse() {
+		return input, httperrors.NewNotSupportedError("cloudaccount %s not enable saml auth", account.Name)
+	}
 	if account.Provider != group.Provider {
-		return input, httperrors.NewConflictError("account %s and group %s not with same provider %s", account.Name, group.Name)
+		return input, httperrors.NewConflictError("account %s and group %s not with same provider", account.Name, group.Name)
 	}
 	input.Status = api.SAML_USER_STATUS_AVAILABLE
 	return input, nil
