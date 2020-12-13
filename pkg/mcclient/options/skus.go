@@ -33,3 +33,12 @@ func (opts *SkuTaskQueryOptions) Params() (jsonutils.JSONObject, error) {
 	params.Set("task_ids", jsonutils.Marshal(opts.TaskIds))
 	return params, nil
 }
+
+type CloudregionSkuSyncOptions struct {
+	RESOURCE string `help:"Resource of skus" choices:"serversku|elasticcachesku|dbinstance_sku"`
+	SkuSyncOptions
+}
+
+func (opts *CloudregionSkuSyncOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
