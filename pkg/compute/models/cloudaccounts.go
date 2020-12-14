@@ -531,6 +531,30 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		}
 		networks[i] = nets
 	}
+	return scm.parseAndSuggest(sParseAndSuggest{
+		NInfos:      nInfos,
+		AccountName: input.Name,
+		ZoneIds:     zoneids,
+		Wires:       wires,
+		Networks:    networks,
+	}), nil
+}
+
+type sParseAndSuggest struct {
+	NInfos      []sNetworkInfo
+	AccountName string
+	ZoneIds     []string
+	Wires       []SWire
+	Networks    [][]SNetwork
+}
+
+func (scm *SCloudaccountManager) parseAndSuggest(params sParseAndSuggest) api.CloudaccountPerformPrepareNetsOutput {
+	var (
+		output   api.CloudaccountPerformPrepareNetsOutput
+		nInfos   = params.NInfos
+		wires    = params.Wires
+		networks = params.Networks
+	)
 	output.CAWireNets = make([]api.CAWireNet, 0, len(nInfos))
 	for _, ni := range nInfos {
 		var (
@@ -541,18 +565,15 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		// key of ipHosts is host's ip
 		ipHosts := make(map[netutils.IPV4Addr]string, len(hostIps))
 		for name, ip := range hostIps {
-			addr, err := netutils.NewIPV4Addr(ip)
-			if err != nil {
-				return output, err
-			}
-			ipHosts[addr] = name
+			ipHosts[ip] = name
 		}
 		// Find suitable wire and the network containing the Host IP in suitable wire.
 		var (
-			tmpSocre         int
-			maxScore         = len(ipHosts)
-			suitableWire     *SWire
-			suitableNetworks map[netutils.IPV4Addr]*SNetwork
+			tmpSocre          int
+			maxScore          = len(ipHosts)
+			suitableWire      *SWire
+			suitableWireIndex = -1
+			suitableNetworks  map[netutils.IPV4Addr]*SNetwork
 		)
 		for i, nets := range networks {
 			score := 0
@@ -574,6 +595,7 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 			if score > tmpSocre {
 				tmpSocre = score
 				suitableWire = &wires[i]
+				suitableWireIndex = i
 				suitableNetworks = tmpSNs
 			}
 			if tmpSocre == maxScore {
@@ -584,9 +606,9 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 			wireNet.SuitableWire = suitableWire.GetId()
 		} else {
 			wireNet.SuggestedWire = api.CAWireConf{
-				ZoneIds:     zoneids,
+				ZoneIds:     params.ZoneIds,
 				Name:        ni.prefix + "-wire",
-				Description: fmt.Sprintf("Auto created Wire for VMware account %q", input.Name),
+				Description: fmt.Sprintf("Auto created Wire for VMware account %q", params.AccountName),
 			}
 		}
 
@@ -618,10 +640,7 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		// Find the suitable network containing the VM IP, and if not, give the corresponding suggested network configuration in this project.
 		var allNets []SNetwork
 		if suitableWire != nil {
-			allNets, err = suitableWire.getNetworks(userCred, rbacutils.ScopeSystem)
-			if err != nil {
-				return output, err
-			}
+			allNets = networks[suitableWireIndex]
 		}
 		type simpleNet struct {
 			Id   string
@@ -707,7 +726,7 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		}
 		output.CAWireNets = append(output.CAWireNets, wireNet)
 	}
-	return output, nil
+	return output
 }
 
 func (manager *SCloudaccountManager) fetchWires(userCred mcclient.TokenCredential, zoneIds []string, domainId string) ([]SWire, error) {
