@@ -398,3 +398,7 @@ func (self *SBaseGuestDriver) RequestRemoteUpdate(ctx context.Context, guest *mo
 	// nil ops
 	return nil
 }
+
+func (self *SBaseGuestDriver) ValidateDetachNetwork(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
+	return nil
+}
