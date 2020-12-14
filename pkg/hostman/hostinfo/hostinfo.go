@@ -1072,7 +1072,7 @@ func (h *SHostInfo) onUpdateHostInfoSucc(hostbody jsonutils.JSONObject) {
 		return
 	}
 
-	if options.HostOptions.HugepagesOption != "native" {
+	if options.HostOptions.HugepagesOption == "native" {
 		if h.isInit && len(h.IsolatedDeviceMan.Devices) > 0 {
 			meta := jsonutils.NewDict()
 			meta.Set("__enable_hugepages", jsonutils.NewString("true"))
