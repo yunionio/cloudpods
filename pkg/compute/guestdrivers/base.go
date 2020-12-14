@@ -402,3 +402,7 @@ func (self *SBaseGuestDriver) RequestRemoteUpdate(ctx context.Context, guest *mo
 func (self *SBaseGuestDriver) ValidateRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input *api.ServerRebuildRootInput) (*api.ServerRebuildRootInput, error) {
 	return input, nil
 }
+
+func (self *SBaseGuestDriver) ValidateDetachNetwork(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
+	return nil
+}
