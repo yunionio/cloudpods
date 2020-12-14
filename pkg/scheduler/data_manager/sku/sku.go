@@ -56,7 +56,7 @@ func GetByZone(instanceType, zoneId string) *ServerSku {
 	return skuManager.GetByZone(instanceType, zoneId)
 }
 
-func GetByRegion(instanceType, regionId string) *ServerSku {
+func GetByRegion(instanceType, regionId string) []*ServerSku {
 	return skuManager.GetByRegion(instanceType, regionId)
 }
 
@@ -86,13 +86,15 @@ func (l skuList) DebugString() string {
 	return fmt.Sprintf("%s", jsonutils.Marshal(l).String())
 }
 
-func (l skuList) GetByRegion(regionId string) *ServerSku {
-	for _, s := range l {
-		if s.RegionId == regionId {
-			return s
+func (l skuList) GetByRegion(regionId string) []*ServerSku {
+	ret := make([]*ServerSku, 0)
+	for idx := range l {
+		sku := l[idx]
+		if sku.RegionId == regionId {
+			ret = append(ret, sku)
 		}
 	}
-	return nil
+	return ret
 }
 
 func (l skuList) GetByZone(zoneId string) *ServerSku {
@@ -167,7 +169,7 @@ func (m *SSkuManager) GetByZone(instanceType, zoneId string) *ServerSku {
 	return l.GetByZone(zoneId)
 }
 
-func (m *SSkuManager) GetByRegion(instanceType, regionId string) *ServerSku {
+func (m *SSkuManager) GetByRegion(instanceType, regionId string) []*ServerSku {
 	l := m.skuMap.Get(instanceType)
 	if l == nil {
 		return nil
