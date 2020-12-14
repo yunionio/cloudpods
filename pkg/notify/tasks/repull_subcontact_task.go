@@ -72,38 +72,42 @@ func (self *RepullSuncontactTask) OnInit(ctx context.Context, obj db.IStandalone
 	var reasons []string
 	for i := range rs {
 		r := &rs[i]
-		lockman.LockObject(ctx, r)
-		// unverify
-		cts, err := r.GetVerifiedContactTypes()
-		if err != nil {
-			reasons = append(reasons, repullFailedReason{
-				ReceiverId: r.Id,
-				Reason:     fmt.Sprintf("unable to GetVerifiedContactTypes: %v", err),
-			}.String())
-		}
-		ctSets := sets.NewString(cts...)
-		if !ctSets.Has(config.Type) {
-			continue
-		}
-		ctSets.Delete(config.Type)
-		err = r.SetVerifiedContactTypes(ctSets.UnsortedList())
-		if err != nil {
-			reasons = append(reasons, repullFailedReason{
-				ReceiverId: r.Id,
-				Reason:     fmt.Sprintf("unable to SetVerifiedContactTypes: %v", err),
-			}.String())
-		}
-		// pull
-		params := jsonutils.NewDict()
-		params.Set("contact_types", jsonutils.NewArray(jsonutils.NewString(config.Type)))
-		err = r.StartSubcontactPullTask(ctx, self.UserCred, params, self.Id)
-		if err != nil {
-			reasons = append(reasons, repullFailedReason{
-				ReceiverId: r.Id,
-				Reason:     fmt.Sprintf("unable to StartSubcontactPullTask: %v", err),
-			}.String())
-		}
-		lockman.ReleaseObject(ctx, r)
+		func() {
+			lockman.LockObject(ctx, r)
+			defer lockman.ReleaseObject(ctx, r)
+			// unverify
+			cts, err := r.GetVerifiedContactTypes()
+			if err != nil {
+				reasons = append(reasons, repullFailedReason{
+					ReceiverId: r.Id,
+					Reason:     fmt.Sprintf("unable to GetVerifiedContactTypes: %v", err),
+				}.String())
+				return
+			}
+			ctSets := sets.NewString(cts...)
+			if !ctSets.Has(config.Type) {
+				return
+			}
+			ctSets.Delete(config.Type)
+			err = r.SetVerifiedContactTypes(ctSets.UnsortedList())
+			if err != nil {
+				reasons = append(reasons, repullFailedReason{
+					ReceiverId: r.Id,
+					Reason:     fmt.Sprintf("unable to SetVerifiedContactTypes: %v", err),
+				}.String())
+				return
+			}
+			// pull
+			params := jsonutils.NewDict()
+			params.Set("contact_types", jsonutils.NewArray(jsonutils.NewString(config.Type)))
+			err = r.StartSubcontactPullTask(ctx, self.UserCred, params, self.Id)
+			if err != nil {
+				reasons = append(reasons, repullFailedReason{
+					ReceiverId: r.Id,
+					Reason:     fmt.Sprintf("unable to StartSubcontactPullTask: %v", err),
+				}.String())
+			}
+		}()
 	}
 	if len(reasons) > 0 {
 		self.taskFailed(ctx, config, strings.Join(reasons, "; "))
