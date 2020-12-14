@@ -141,6 +141,7 @@ type IGuestDriver interface {
 	IsNeedRestartForResetLoginInfo() bool
 	IsRebuildRootSupportChangeImage() bool
 	IsRebuildRootSupportChangeUEFI() bool
+	ValidateDetachNetwork(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest) error
 
 	IsSupportdDcryptPasswordFromSecretKey() bool
 

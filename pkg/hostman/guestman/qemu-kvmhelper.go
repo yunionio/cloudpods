@@ -281,6 +281,7 @@ func (s *SKVMGuestInstance) getVnicDesc(nic jsonutils.JSONObject) string {
 	bw, _ := nic.Int("bw")
 
 	cmd := fmt.Sprintf(" -device %s", s.getNicDeviceModel(driver))
+	cmd += fmt.Sprintf(",id=netdev-%s", ifname)
 	cmd += fmt.Sprintf(",netdev=%s", ifname)
 	cmd += fmt.Sprintf(",mac=%s", mac)
 
