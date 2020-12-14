@@ -2131,6 +2131,9 @@ func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot detach network in status %s", self.Status)
 	}
+	if err := self.GetDriver().ValidateDetachNetwork(ctx, userCred, self); err != nil {
+		return nil, err
+	}
 	var (
 		reserve   = jsonutils.QueryBoolean(data, "reserve", false)
 		netStr, _ = data.GetString("net_id")

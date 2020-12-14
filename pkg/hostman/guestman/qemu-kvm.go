@@ -404,6 +404,7 @@ func (s *SKVMGuestInstance) onImportGuestMonitorConnected(ctx context.Context) {
 		s.QemuVersion = version
 		meta := jsonutils.NewDict()
 		meta.Set("hotplug_cpu_mem", jsonutils.NewString("disable"))
+		meta.Set("hot_remove_nic", jsonutils.NewString("disable"))
 		meta.Set("__qemu_version", jsonutils.NewString(s.GetQemuVersionStr()))
 		s.SyncMetadata(meta)
 		s.SyncStatus()
@@ -1327,6 +1328,7 @@ func (s *SKVMGuestInstance) OnResumeSyncMetadataInfo() {
 	meta.Set("__qemu_version", jsonutils.NewString(s.GetQemuVersionStr()))
 	meta.Set("__vnc_port", jsonutils.NewInt(int64(s.GetVncPort())))
 	meta.Set("hotplug_cpu_mem", jsonutils.NewString("enable"))
+	meta.Set("hot_remove_nic", jsonutils.NewString("enable"))
 	if len(s.VncPassword) > 0 {
 		meta.Set("__vnc_password", jsonutils.NewString(s.VncPassword))
 	}
