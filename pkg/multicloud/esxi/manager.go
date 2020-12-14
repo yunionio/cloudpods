@@ -759,7 +759,7 @@ func (cli *SESXiClient) HostVmIPsInCluster(ctx context.Context, cluster *SCluste
 }
 
 type SNetworkInfo struct {
-	HostIps map[string]string
+	HostIps map[string]netutils.IPV4Addr
 	VMs     []SSimpleVM
 	VlanIps map[int32][]netutils.IPV4Addr
 	IPPool  SIPPool
@@ -785,11 +785,15 @@ func (cli *SESXiClient) hostVMIPs(ctx context.Context, hosts []mo.HostSystem) (S
 		})
 	}
 
-	hostIps := make(map[string]string, len(hosts))
+	hostIps := make(map[string]netutils.IPV4Addr, len(hosts))
 	for i := range hosts {
 		// find ip
 		host := &SHost{SManagedObject: newManagedObject(cli, &hosts[i], nil)}
-		ip := host.GetAccessIp()
+		ipStr := host.GetAccessIp()
+		ip, err := netutils.NewIPV4Addr(ipStr)
+		if err != nil {
+			return ret, errors.Wrapf(err, "invalid host ip %q", ipStr)
+		}
 		hostIps[host.GetName()] = ip
 	}
 	err = group.Wait()
