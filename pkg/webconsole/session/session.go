@@ -18,11 +18,14 @@ import (
 	"fmt"
 	"math/rand"
 	"net/url"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
 
@@ -127,7 +130,21 @@ func (s SSession) GetConnectParams(params url.Values) (string, error) {
 	if params == nil {
 		params = url.Values(make(map[string][]string))
 	}
-	params.Set("api_server", o.Options.ApiServer)
+
+	apiUrl, err := url.Parse(o.Options.ApiServer)
+	if err != nil {
+		return "", errors.Errorf("invalid api_server url: %s", o.Options.ApiServer)
+	}
+	schemeHost := fmt.Sprintf("%s://%s", apiUrl.Scheme, apiUrl.Host)
+	uPath := filepath.Join(strings.Split(apiUrl.Path, "/")...)
+	var trimUrl string
+	if uPath == "" {
+		trimUrl = schemeHost
+	} else {
+		trimUrl = schemeHost + "/" + uPath
+	}
+
+	params.Set("api_server", trimUrl)
 	params.Set("access_token", s.AccessToken)
 	params.Set("protocol", s.GetProtocol())
 	return params.Encode(), nil
