@@ -15,6 +15,9 @@
 package manager
 
 import (
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager"
@@ -35,6 +38,9 @@ func candidatesByProvider(provider CandidatesProvider, schedData *api.SchedInfo)
 	candidateManager := provider.CandidateManager()
 	if len(schedData.PreferCandidates) >= schedData.RequiredCandidates {
 		hosts, err = candidateManager.GetCandidatesByIds(provider.CandidateType(), schedData.PreferCandidates)
+		if err != nil {
+			err = errors.Wrapf(err, "GetCandidatesByIds %v", schedData.PreferCandidates)
+		}
 	} else {
 		args := data_manager.CandidateGetArgs{
 			ResType:   provider.CandidateType(),
@@ -44,6 +50,11 @@ func candidatesByProvider(provider CandidatesProvider, schedData *api.SchedInfo)
 			HostTypes: schedData.GetCandidateHostTypes(),
 		}
 		hosts, err = candidateManager.GetCandidates(args)
+		if err != nil {
+			err = errors.Wrapf(err, "GetCandidates by args %s", jsonutils.Marshal(args))
+		} else if len(hosts) == 0 {
+			err = errors.Errorf("Scheduler not found candidates by args %s", jsonutils.Marshal(args))
+		}
 	}
 	if err != nil {
 		return nil, err
