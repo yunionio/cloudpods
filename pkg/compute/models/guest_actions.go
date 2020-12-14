@@ -51,6 +51,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/userdata"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	guestdriver_types "yunion.io/x/onecloud/pkg/compute/guestdrivers/types"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -5125,4 +5126,81 @@ func (self *SGuest) PerformRemoteUpdate(ctx context.Context, userCred mcclient.T
 		return nil, errors.Wrap(err, "StartRemoteUpdateTask")
 	}
 	return nil, nil
+}
+
+func (self *SGuest) AllowPerformOpenForward(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "open-forward")
+}
+
+func (self *SGuest) PerformOpenForward(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	req, err := guestdriver_types.NewOpenForwardRequestFromJSON(data)
+	if err != nil {
+		return nil, err
+	}
+	for _, nicDesc := range self.fetchNICShortDesc(ctx) {
+		if nicDesc.VpcId != api.DEFAULT_VPC_ID {
+			req.Addr = nicDesc.IpAddr
+			req.NetworkId = nicDesc.NetworkId
+		}
+	}
+	if req.NetworkId == "" {
+		return nil, httperrors.NewInputParameterError("guest has no vpc ip")
+	}
+
+	resp, err := self.GetDriver().RequestOpenForward(ctx, userCred, self, req)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	return resp.JSON(), nil
+}
+
+func (self *SGuest) AllowPerformCloseForward(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "close-forward")
+}
+
+func (self *SGuest) PerformCloseForward(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	req, err := guestdriver_types.NewCloseForwardRequestFromJSON(data)
+	if err != nil {
+		return nil, err
+	}
+	for _, nicDesc := range self.fetchNICShortDesc(ctx) {
+		if nicDesc.VpcId != api.DEFAULT_VPC_ID {
+			req.NetworkId = nicDesc.NetworkId
+		}
+	}
+	if req.NetworkId == "" {
+		return nil, httperrors.NewInputParameterError("guest has no vpc ip")
+	}
+
+	resp, err := self.GetDriver().RequestCloseForward(ctx, userCred, self, req)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	return resp.JSON(), nil
+}
+
+func (self *SGuest) AllowPerformListForward(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "list-forward")
+}
+
+func (self *SGuest) PerformListForward(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	req, err := guestdriver_types.NewListForwardRequestFromJSON(data)
+	if err != nil {
+		return nil, err
+	}
+	for _, nicDesc := range self.fetchNICShortDesc(ctx) {
+		if nicDesc.VpcId != api.DEFAULT_VPC_ID {
+			req.Addr = nicDesc.IpAddr
+			req.NetworkId = nicDesc.NetworkId
+		}
+	}
+	if req.NetworkId == "" {
+		return nil, httperrors.NewInputParameterError("guest has no vpc ip")
+	}
+
+	resp, err := self.GetDriver().RequestListForward(ctx, userCred, self, req)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	return resp.JSON(), nil
 }
