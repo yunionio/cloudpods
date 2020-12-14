@@ -123,9 +123,10 @@ func init() {
 		})
 
 	type SchedulerHistoryListOptions struct {
-		Limit  int  `default:"50" help:"Page limit"`
-		Offset int  `default:"0" help:"Page offset"`
-		All    bool `help:"Show all histories, including scheduler-test"`
+		Limit        int  `default:"50" help:"Page limit"`
+		Offset       int  `default:"0" help:"Page offset"`
+		All          bool `help:"Show all histories, including scheduler-test"`
+		IsSuggestion bool `help:"Only show forcast suggestion history"`
 	}
 	R(&SchedulerHistoryListOptions{}, "scheduler-history-list", "Show scheduler history list",
 		func(s *mcclient.ClientSession, args *SchedulerHistoryListOptions) error {
@@ -138,17 +139,14 @@ func init() {
 			if args.Offset > 0 {
 				params.Add(jsonutils.NewInt(int64(args.Offset)), "offset")
 			}
-			if args.All {
-				params.Add(jsonutils.JSONTrue, "all")
-			} else {
-				params.Add(jsonutils.JSONFalse, "all")
-			}
+			params.Add(jsonutils.NewBool(args.All), "all")
+			params.Add(jsonutils.NewBool(args.IsSuggestion), "is_suggestion")
 			result, err := modules.SchedManager.HistoryList(s, params)
 			if err != nil {
 				return err
 			}
 			printList(modulebase.JSON2ListResult(result), []string{
-				"session_id", "time", "status", "consuming",
+				"session_id", "time", "status", "consuming", "is_suggestion",
 			})
 			return nil
 		})

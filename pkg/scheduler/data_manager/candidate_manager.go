@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/scheduler/cache"
@@ -195,12 +196,12 @@ type CandidateManager struct {
 func (cm *CandidateManager) GetCandidates(args CandidateGetArgs) ([]core.Candidater, error) {
 	impl, err := cm.getImpl(args.ResType)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetCandidates implement by resource type %s", args.ResType)
 	}
 
-	candidates, err2 := impl.GetCandidates()
-	if err2 != nil {
-		return nil, err2
+	candidates, err := impl.GetCandidates()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetCandidates from implement")
 	}
 
 	result := []core.Candidater{}
