@@ -143,6 +143,7 @@ type IGuestDriver interface {
 	IsRebuildRootSupportChangeUEFI() bool
 
 	ValidateRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, input *api.ServerRebuildRootInput) (*api.ServerRebuildRootInput, error)
+	ValidateDetachNetwork(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest) error
 
 	IsSupportdDcryptPasswordFromSecretKey() bool
 
