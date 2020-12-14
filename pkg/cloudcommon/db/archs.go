@@ -40,11 +40,14 @@ func (manager *SMultiArchResourceBaseManager) ListItemFilter(
 	query apis.MultiArchResourceBaseListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.OsArch) > 0 {
-		osArchs := []string{query.OsArch}
 		if query.OsArch == compute.OS_ARCH_X86 {
-			osArchs = append(osArchs, "")
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.Equals(q.Field("os_arch"), query.OsArch),
+				sqlchemy.IsNullOrEmpty(q.Field("os_arch")),
+			))
+		} else {
+			q = q.Equals("os_arch", query.OsArch)
 		}
-		q = q.In("os_arch", osArchs)
 	}
 	return q, nil
 }
