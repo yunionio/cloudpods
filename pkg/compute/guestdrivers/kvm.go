@@ -647,3 +647,10 @@ func (self *SKVMGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcc
 	}
 	return nil
 }
+
+func (self *SKVMGuestDriver) ValidateDetachNetwork(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
+	if guest.Status == api.VM_RUNNING && guest.GetMetadata("hot_remove_nic", nil) != "enable" {
+		return httperrors.NewBadRequestError("Guest %s can't hot remove nic", guest.GetName())
+	}
+	return nil
+}

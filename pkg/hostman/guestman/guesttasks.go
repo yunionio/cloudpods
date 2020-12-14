@@ -385,7 +385,20 @@ func (n *SGuestNetworkSyncTask) onNetdevDel(nic jsonutils.JSONObject) {
 		log.Errorf("script down nic failed %s", output)
 		n.errors = append(n.errors, err)
 	}
-	n.syncNetworkConf()
+	n.delNicDevice(nic)
+}
+
+func (n *SGuestNetworkSyncTask) delNicDevice(nic jsonutils.JSONObject) {
+	callback := func(res string) {
+		if len(res) > 0 {
+			log.Errorf("network device del failed %s", res)
+			n.errors = append(n.errors, fmt.Errorf("network device del failed %s", res))
+		} else {
+			n.syncNetworkConf()
+		}
+	}
+	ifname, _ := nic.GetString("ifname")
+	n.guest.Monitor.DeviceDel(fmt.Sprintf("netdev-%s", ifname), callback)
 }
 
 func (n *SGuestNetworkSyncTask) addNic(nic jsonutils.JSONObject) {
