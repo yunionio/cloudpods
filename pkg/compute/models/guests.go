@@ -1998,21 +1998,6 @@ func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchem
 		q.AppendField(ipsSubQuery.Field("concat_ip_addr"))
 	}
 
-	if keys.Contains("user_tags") {
-		guestUserTagsQuery := db.Metadata.Query().Startswith("id", "server::").
-			Startswith("key", db.USER_TAG_PREFIX).GroupBy("id")
-		guestUserTagsQuery.AppendField(sqlchemy.SubStr("guest_id", guestUserTagsQuery.Field("id"), len("server::")+1, 0))
-		guestUserTagsQuery.AppendField(
-			sqlchemy.GROUP_CONCAT("user_tags", sqlchemy.CONCAT("",
-				sqlchemy.SubStr("", guestUserTagsQuery.Field("key"), len(db.USER_TAG_PREFIX)+1, 0),
-				sqlchemy.NewStringField(":"),
-				guestUserTagsQuery.Field("value"),
-			)))
-		subQ := guestUserTagsQuery.SubQuery()
-		q.LeftJoin(subQ, sqlchemy.Equals(q.Field("id"), subQ.Field("guest_id")))
-		q.AppendField(subQ.Field("user_tags"))
-	}
-
 	if keys.Contains("disk") {
 		guestDisksQuery := GuestdiskManager.Query("guest_id", "disk_id").GroupBy("guest_id")
 		diskQuery := DiskManager.Query("id", "disk_size").SubQuery()
@@ -2063,9 +2048,6 @@ func (manager *SGuestManager) GetExportExtraKeys(ctx context.Context, keys strin
 	}
 	if manager, ok := rowMap["manager"]; ok && len(manager) > 0 {
 		res.Set("manager", jsonutils.NewString(manager))
-	}
-	if userTags, ok := rowMap["user_tags"]; ok && len(userTags) > 0 {
-		res.Set("user_tags", jsonutils.NewString(userTags))
 	}
 	if keys.Contains("tenant") {
 		if projectId, ok := rowMap["tenant_id"]; ok {

@@ -619,5 +619,29 @@ func (manager *SVirtualResourceBaseManager) ListItemExportKeys(ctx context.Conte
 	if err != nil {
 		return nil, errors.Wrap(err, "SProjectizedResourceBaseManager.ListItemExportKeys")
 	}
+
+	if keys.Contains("user_tags") {
+		guestUserTagsQuery := Metadata.Query().Startswith("id", manager.keyword+"::").
+			Startswith("key", USER_TAG_PREFIX).GroupBy("id")
+		guestUserTagsQuery.AppendField(sqlchemy.SubStr("resource_id", guestUserTagsQuery.Field("id"), len(manager.keyword)+3, 0))
+		guestUserTagsQuery.AppendField(
+			sqlchemy.GROUP_CONCAT("user_tags", sqlchemy.CONCAT("",
+				sqlchemy.SubStr("", guestUserTagsQuery.Field("key"), len(USER_TAG_PREFIX)+1, 0),
+				sqlchemy.NewStringField(":"),
+				guestUserTagsQuery.Field("value"),
+			)))
+		subQ := guestUserTagsQuery.SubQuery()
+		q.LeftJoin(subQ, sqlchemy.Equals(q.Field("id"), subQ.Field("resource_id")))
+		q.AppendField(subQ.Field("user_tags"))
+	}
+
 	return q, nil
+}
+
+func (manager *SVirtualResourceBaseManager) GetExportExtraKeys(ctx context.Context, keys stringutils2.SSortedStrings, rowMap map[string]string) *jsonutils.JSONDict {
+	res := manager.SStatusStandaloneResourceBaseManager.GetExportExtraKeys(ctx, keys, rowMap)
+	if userTags, ok := rowMap["user_tags"]; ok && len(userTags) > 0 {
+		res.Set("user_tags", jsonutils.NewString(userTags))
+	}
+	return res
 }
