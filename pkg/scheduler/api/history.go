@@ -21,9 +21,10 @@ import (
 )
 
 type HistoryArgs struct {
-	Offset int64
-	Limit  int64
-	All    bool
+	Offset       int64
+	Limit        int64
+	All          bool
+	IsSuggestion bool
 }
 
 type HistoryItem struct {
@@ -67,6 +68,10 @@ func NewHistoryArgs(sjson *simplejson.Json) (*HistoryArgs, error) {
 
 	if all, ok := sjson.CheckGet("all"); ok {
 		args.All = all.MustBool()
+	}
+
+	if isSuggestion, ok := sjson.CheckGet("is_suggestion"); ok {
+		args.IsSuggestion = isSuggestion.MustBool()
 	}
 
 	return args, nil

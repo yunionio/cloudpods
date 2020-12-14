@@ -16,6 +16,8 @@ package manager
 
 import (
 	"container/list"
+	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +25,7 @@ import (
 	"yunion.io/x/pkg/util/wait"
 	u "yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/models"
 	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
@@ -36,6 +39,50 @@ func NewHistoryItem(task *Task) *HistoryItem {
 	return &HistoryItem{
 		Task: task,
 		Time: time.Now(),
+	}
+}
+
+func (h *HistoryItem) ToAPI() *api.HistoryItem {
+	task := h.Task
+	schedInfo := task.SchedInfo
+
+	tenants := []string{}
+	forGuests := []string{}
+	countDict := make(map[string]int64)
+
+	tenants = append(tenants, schedInfo.Project)
+	for _, forGuest := range schedInfo.ForGuests {
+		//forGuests = append(forGuests, fmt.Sprintf("%v(%v)", forGuest.ID, forGuest.Name))
+		forGuests = append(forGuests, fmt.Sprintf("%v", forGuest))
+	}
+
+	guestType := schedInfo.Hypervisor
+	if c, ok := countDict[guestType]; !ok {
+		countDict[guestType] = int64(schedInfo.Count)
+	} else {
+		countDict[guestType] = c + int64(schedInfo.Count)
+	}
+	counts := []string{}
+	for guestType, count := range countDict {
+		s := ""
+		if count > 1 {
+			s = "s"
+		}
+
+		counts = append(counts, fmt.Sprintf("%v %v%v", count, guestType, s))
+	}
+
+	countStr := strings.Join(counts, ", ")
+
+	return &api.HistoryItem{
+		Time:         h.Time.Local().Format("2006-01-02 15:04:05"),
+		Consuming:    fmt.Sprintf("%s", task.Consuming),
+		SessionID:    task.GetSessionID(),
+		Status:       task.GetStatus(),
+		Tenants:      u.Distinct(tenants),
+		Guests:       forGuests,
+		Count:        countStr,
+		IsSuggestion: schedInfo.IsSuggestion,
 	}
 }
 
@@ -116,38 +163,46 @@ func (m *HistoryManager) Run() {
 	go wait.Until(m.cleanHistoryMap, u.ToDuration(o.GetOptions().SchedulerHistoryCleanPeriod), m.stopCh)
 }
 
-func (m *HistoryManager) GetHistoryList(offset int64, limit int64, all bool) ([]*HistoryItem, int64) {
+func (m *HistoryManager) GetHistoryList(offset int64, limit int64, all bool, isSuggestion bool) ([]*HistoryItem, int64) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
 	var hList *list.List
-	if all {
+	if all || isSuggestion {
 		hList = m.historyList
 	} else {
 		hList = m.normalHistoryList
 	}
 
-	total := int64(hList.Len())
 	historyItems := []*HistoryItem{}
 	element := hList.Front()
-	for index := int64(0); index < offset; index++ {
-		if element != nil {
-			element = element.Next()
-		} else {
-			return historyItems, total
+
+	for idx := 0; idx < hList.Len(); idx++ {
+		item := element.Value.(*HistoryItem)
+		if isSuggestion {
+			if !item.IsSuggestion() {
+				element = element.Next()
+				continue
+			}
 		}
+		historyItems = append(historyItems, item)
+		element = element.Next()
 	}
 
-	for index := int64(0); index < limit; index++ {
-		if element != nil {
-			historyItems = append(historyItems, element.Value.(*HistoryItem))
-			element = element.Next()
-		} else {
-			break
-		}
+	total := len(historyItems)
+	ret := make([]*HistoryItem, 0)
+
+	if offset <= int64(total) {
+		historyItems = historyItems[offset:]
+	} else {
+		return ret, int64(total)
 	}
 
-	return historyItems, total
+	for index := 0; int64(index) < limit && index < len(historyItems); index++ {
+		ret = append(ret, historyItems[index])
+	}
+
+	return historyItems, int64(total)
 }
 
 func (m *HistoryManager) GetHistory(sessionId string) *HistoryItem {
