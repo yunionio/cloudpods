@@ -284,7 +284,10 @@ type IPerformOpt interface {
 func (cmd ResourceCmd) Perform(action string, args IPerformOpt) {
 	man := cmd.manager
 	callback := func(s *mcclient.ClientSession, args IPerformOpt) error {
-		params := jsonutils.Marshal(args) // .Params()
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
 		ret, err := man.(modulebase.Manager).PerformAction(s, args.GetId(), action, params)
 		if err != nil {
 			return err
