@@ -162,11 +162,24 @@ delete all security groups associated with the VPC (except the default one),
 delete all route tables associated with the VPC (except the default one), and so on.
 */
 func (self *SVpc) Delete() error {
-	err := self.DetachInternetGateway()
+	err := self.DeleteInternetGateways()
 	if err != nil {
-		return errors.Wrap(err, "DetachInternetGateway")
+		return errors.Wrap(err, "DeleteInternetGateways")
 	}
-	// 删除vpc会同步删除关联的安全组
+
+	// 删除路由表. todo: 3.7版本路由表开放之后，需要同步状态到平台
+	rts, err := self.GetIRouteTables()
+	if err != nil {
+		return errors.Wrap(err, "GetIRouteTables")
+	}
+
+	for i := range rts {
+		err = self.region.DeleteRouteTable(rts[i].GetId())
+		if err != nil {
+			return errors.Wrap(err, "DeleteRouteTable")
+		}
+	}
+
 	return self.region.DeleteVpc(self.VpcId)
 }
 
@@ -226,9 +239,13 @@ func (self *SVpc) assignSecurityGroup(secgroupId string, instanceId string) erro
 }
 
 func (self *SVpc) fetchSecurityGroups() error {
+	if len(self.VpcId) == 0 {
+		return fmt.Errorf("fetchSecurityGroups vpc id is empty")
+	}
+
 	secgroups, _, err := self.region.GetSecurityGroups(self.VpcId, "", "", 0, 0)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "GetSecurityGroups")
 	}
 
 	self.secgroups = make([]cloudprovider.ICloudSecurityGroup, len(secgroups))
@@ -425,7 +442,7 @@ func (self *SVpc) AttachInternetGateway(igwId string) error {
 	return nil
 }
 
-func (self *SVpc) DetachInternetGateway() error {
+func (self *SVpc) DetachInternetGateways() error {
 	igws, err := self.region.GetInternetGateways(self.GetId())
 	if err != nil {
 		return errors.Wrap(err, "GetInternetGateways")
@@ -433,13 +450,57 @@ func (self *SVpc) DetachInternetGateway() error {
 
 	if len(igws) > 0 {
 		for i := range igws {
-			input := ec2.DetachInternetGatewayInput{}
-			input.SetInternetGatewayId(igws[i].InternetGatewayID)
-			input.SetVpcId(self.GetId())
-
-			_, err := self.region.ec2Client.DetachInternetGateway(&input)
+			err = self.DetachInternetGateway(igws[i].GetId())
 			if err != nil {
 				return errors.Wrap(err, "DetachInternetGateway")
+			}
+		}
+	}
+
+	return nil
+}
+
+func (self *SVpc) DetachInternetGateway(igwId string) error {
+	input := ec2.DetachInternetGatewayInput{}
+	input.SetInternetGatewayId(igwId)
+	input.SetVpcId(self.GetId())
+
+	_, err := self.region.ec2Client.DetachInternetGateway(&input)
+	if err != nil {
+		return errors.Wrap(err, "DetachInternetGateway")
+	}
+
+	return nil
+}
+
+func (self *SVpc) DeleteInternetGateway(igwId string) error {
+	input := ec2.DeleteInternetGatewayInput{}
+	input.SetInternetGatewayId(igwId)
+
+	_, err := self.region.ec2Client.DeleteInternetGateway(&input)
+	if err != nil {
+		return errors.Wrap(err, "DeleteInternetGateway")
+	}
+
+	return nil
+}
+
+func (self *SVpc) DeleteInternetGateways() error {
+	igws, err := self.region.GetInternetGateways(self.GetId())
+	if err != nil {
+		return errors.Wrap(err, "GetInternetGateways")
+	}
+
+	if len(igws) > 0 {
+		for i := range igws {
+			err = self.DetachInternetGateway(igws[i].GetId())
+			if err != nil {
+				return errors.Wrap(err, "DetachInternetGateway")
+			}
+
+			err = self.DeleteInternetGateway(igws[i].GetId())
+			if err != nil {
+				return errors.Wrap(err, "DeleteInternetGateway")
 			}
 		}
 	}
