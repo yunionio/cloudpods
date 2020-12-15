@@ -174,6 +174,15 @@ func (self *SVpc) Delete() error {
 	}
 
 	for i := range rts {
+		// 主路由表不允许删除
+		rt := rts[i].(*SRouteTable)
+		if len(rt.Associations) > 0 {
+			if rt.Associations[0].Main {
+				log.Debugf("Delete.RouteTable skipped main route table %s(%s)", rt.GetName(), rt.GetId())
+				continue
+			}
+		}
+
 		err = self.region.DeleteRouteTable(rts[i].GetId())
 		if err != nil {
 			return errors.Wrap(err, "DeleteRouteTable")
