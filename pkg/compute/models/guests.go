@@ -401,7 +401,7 @@ func (manager *SGuestManager) ListItemFilter(
 	}
 
 	withEip := (query.WithEip != nil && *query.WithEip)
-	withoutEip := (query.WithoutEip != nil && *query.WithoutEip)
+	withoutEip := (query.WithoutEip != nil && *query.WithoutEip) || (query.EipAssociable != nil && *query.EipAssociable)
 	if withEip || withoutEip {
 		eips := ElasticipManager.Query().SubQuery()
 		sq := eips.Query(eips.Field("associate_id")).Equals("associate_type", api.EIP_ASSOCIATE_TYPE_SERVER)
@@ -413,6 +413,23 @@ func (manager *SGuestManager) ListItemFilter(
 			q = q.NotIn("id", sq)
 		}
 	}
+
+	if query.EipAssociable != nil {
+		sq1 := NetworkManager.Query("id")
+		sq2 := WireManager.Query().SubQuery()
+		sq3 := VpcManager.Query().SubQuery()
+		sq1 = sq1.Join(sq2, sqlchemy.Equals(sq1.Field("wire_id"), sq2.Field("id")))
+		sq1 = sq1.Join(sq3, sqlchemy.Equals(sq2.Field("vpc_id"), sq3.Field("id")))
+		cond1 := []string{api.VPC_EXTERNAL_ACCESS_MODE_EIP, api.VPC_EXTERNAL_ACCESS_MODE_EIP_DISTGW}
+		if *query.EipAssociable {
+			sq1 = sq1.Filter(sqlchemy.In(sq3.Field("external_access_mode"), cond1))
+		} else {
+			sq1 = sq1.Filter(sqlchemy.NotIn(sq3.Field("external_access_mode"), cond1))
+		}
+		sq := GuestnetworkManager.Query("guest_id").In("network_id", sq1)
+		q = q.In("id", sq)
+	}
+
 	if len(query.ServerType) > 0 {
 		var trueVal, falseVal = true, false
 		switch query.ServerType {

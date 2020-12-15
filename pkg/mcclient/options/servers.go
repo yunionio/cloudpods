@@ -50,6 +50,7 @@ type ServerListOptions struct {
 	Vpc                string `help:"Vpc id or name"`
 	UsableServerForEip string `help:"Eip id or name"`
 	WithoutUserMeta    *bool  `help:"Show Servers without user metadata"`
+	EipAssociable      *bool  `help:"Show Servers can associate with eip"`
 	Group              string `help:"Instance Group ID or Name"`
 	HostSn             string `help:"Host SN"`
 	IpAddr             string `help:"Fileter by ip"`
