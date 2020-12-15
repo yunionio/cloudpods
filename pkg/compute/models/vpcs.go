@@ -1142,6 +1142,10 @@ func (manager *SVpcManager) ListItemFilter(
 			),
 		)
 
+		if vpcUsable || usable {
+			q = q.Equals("status", api.VPC_STATUS_AVAILABLE)
+		}
+
 		if usable {
 			wires := WireManager.Query().SubQuery()
 			networks := NetworkManager.Query().SubQuery()
@@ -1151,7 +1155,6 @@ func (manager *SVpcManager) ListItemFilter(
 			)
 
 			q = q.In("id", sq.SubQuery())
-			q = q.Equals("status", api.VPC_STATUS_AVAILABLE)
 		}
 	}
 
