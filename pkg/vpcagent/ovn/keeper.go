@@ -17,6 +17,7 @@ package ovn
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"yunion.io/x/log"
@@ -654,6 +655,7 @@ func (keeper *OVNNorthboundKeeper) ClaimVpcGuestDnsRecords(ctx context.Context, 
 			ocVersion = fmt.Sprintf("%s.%d", vpc.Id, vpc.UpdateVersion)
 		)
 		for name, addrs := range grs {
+			sort.Strings(addrs)
 			grs_[name] = strings.Join(addrs, " ")
 		}
 		dns := &ovn_nb.DNS{
