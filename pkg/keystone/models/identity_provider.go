@@ -1234,13 +1234,13 @@ func (idp *SIdentityProvider) TryUserJoinProject(attrConf api.SIdpAttributeOptio
 	}
 	// update user attributes
 	_, err := db.Update(usr, func() error {
-		if v, ok := attrs[attrConf.UserDisplaynameAttribtue]; ok && len(v) > 0 && len(v[0]) > 0 && len(usr.Displayname) == 0 {
+		if v, ok := attrs[attrConf.UserDisplaynameAttribtue]; ok && len(v) > 0 && len(v[0]) > 0 && usr.Displayname != v[0] {
 			usr.Displayname = v[0]
 		}
-		if v, ok := attrs[attrConf.UserEmailAttribute]; ok && len(v) > 0 && len(v[0]) > 0 && len(usr.Email) == 0 {
+		if v, ok := attrs[attrConf.UserEmailAttribute]; ok && len(v) > 0 && len(v[0]) > 0 && usr.Email != v[0] {
 			usr.Email = v[0]
 		}
-		if v, ok := attrs[attrConf.UserMobileAttribute]; ok && len(v) > 0 && len(v[0]) > 0 && len(usr.Mobile) == 0 {
+		if v, ok := attrs[attrConf.UserMobileAttribute]; ok && len(v) > 0 && len(v[0]) > 0 && usr.Mobile != v[0] {
 			usr.Mobile = v[0]
 		}
 		return nil
