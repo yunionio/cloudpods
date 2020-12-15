@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
@@ -1476,6 +1477,12 @@ func (self *SAwsRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcc
 		}
 
 		for i := range segs {
+			// 默认安全组不需要删除
+			if segs[i].GetName() == "default" {
+				log.Debugf("RequestDeleteVpc delete secgroup skipped default secgroups %s(%s)", segs[i].GetName(), segs[i].GetId())
+				continue
+			}
+
 			err = segs[i].Delete()
 			if err != nil {
 				return nil, errors.Wrap(err, "DeleteSecurityGroup")
