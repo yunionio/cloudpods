@@ -448,7 +448,42 @@ func (self *SVpc) AttachInternetGateway(igwId string) error {
 		return errors.Wrap(err, "AttachInternetGateway")
 	}
 
+	err = self.AddDefaultInternetGatewayRoute(igwId)
+	if err != nil {
+		return errors.Wrap(err, "AddDefaultInternetGatewayRoute")
+	}
+
 	return nil
+}
+
+func (self *SVpc) AddDefaultInternetGatewayRoute(igwId string) error {
+	rt, err := self.GetMainRouteTable()
+	if err != nil {
+		return errors.Wrap(err, "GetMainRouteTable")
+	}
+
+	defaultRoute := cloudprovider.RouteSet{}
+	defaultRoute.NextHop = igwId
+	defaultRoute.Destination = "0.0.0.0/0"
+	err = rt.CreateRoute(defaultRoute)
+	if err != nil {
+		return errors.Wrap(err, "CreateRoute")
+	}
+
+	return nil
+}
+
+func (self *SVpc) GetMainRouteTable() (*SRouteTable, error) {
+	rt, err := self.region.GetRouteTables(self.GetId(), true)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetRouteTables")
+	}
+
+	if len(rt) == 0 {
+		return nil, errors.Wrap(cloudprovider.ErrNotSupported, "GetMainRouteTable")
+	}
+
+	return &rt[0], nil
 }
 
 func (self *SVpc) DetachInternetGateways() error {
