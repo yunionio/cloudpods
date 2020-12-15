@@ -532,6 +532,8 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 
 	// group
 	params.InstanceGroupIds = opts.Group
+	// set description
+	params.Description = opts.Desc
 
 	return params, nil
 }
