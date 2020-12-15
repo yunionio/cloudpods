@@ -408,6 +408,8 @@ func (w *SWindowsRootFs) deployPublicKeyByGuest(uname, passwd string) bool {
 	logPath := w.guestDebugLogPath
 	chksum := stringutils2.GetMD5Hash(passwd + logPath[(len(logPath)-10):])
 
+	// symbol ^ is escape character is batch file.
+	passwd = strings.ReplaceAll(passwd, "^", "^^")
 	chgpwdScript := strings.Join([]string{
 		w.MakeGuestDebugCmd("change password step 1"),
 		strings.Join([]string{
