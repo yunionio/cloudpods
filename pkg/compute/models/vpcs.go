@@ -1041,6 +1041,7 @@ func (manager *SVpcManager) ListItemFilter(
 			)
 
 			q = q.In("id", sq.SubQuery())
+			q = q.Equals("status", api.VPC_STATUS_AVAILABLE)
 		}
 	}
 
