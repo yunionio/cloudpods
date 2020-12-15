@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -74,4 +75,15 @@ func (self *SAzureRegionDriver) GetSecurityGroupRuleMaxPriority() int {
 
 func (self *SAzureRegionDriver) GetSecurityGroupRuleMinPriority() int {
 	return 100
+}
+
+func (self *SAzureRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error) {
+	cidrV := validators.NewIPv4PrefixValidator("cidr_block")
+	if err := cidrV.Validate(jsonutils.Marshal(input).(*jsonutils.JSONDict)); err != nil {
+		return input, err
+	}
+	if cidrV.Value.MaskLen < 8 || cidrV.Value.MaskLen > 29 {
+		return input, httperrors.NewInputParameterError("%s request the mask range should be between 8 and 29", self.GetProvider())
+	}
+	return input, nil
 }

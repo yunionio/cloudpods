@@ -2663,3 +2663,14 @@ func (self *SHuaWeiRegionDriver) GetRdsSupportSecgroupCount() int {
 func (self *SHuaWeiRegionDriver) IsSupportedElasticcacheAutoRenew() bool {
 	return false
 }
+
+func (self *SHuaWeiRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error) {
+	var cidrV = validators.NewIPv4PrefixValidator("cidr_block")
+	if err := cidrV.Validate(jsonutils.Marshal(input).(*jsonutils.JSONDict)); err != nil {
+		return input, err
+	}
+	if cidrV.Value.MaskLen < 16 || cidrV.Value.MaskLen > 29 {
+		return input, httperrors.NewInputParameterError("%s request the mask range should be between 16 and 29", self.GetProvider())
+	}
+	return input, nil
+}

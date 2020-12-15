@@ -1437,3 +1437,14 @@ func (self *SAwsRegionDriver) IsSecurityGroupBelongVpc() bool {
 func (self *SAwsRegionDriver) IsCertificateBelongToRegion() bool {
 	return false
 }
+
+func (self *SAwsRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error) {
+	cidrV := validators.NewIPv4PrefixValidator("cidr_block")
+	if err := cidrV.Validate(jsonutils.Marshal(input).(*jsonutils.JSONDict)); err != nil {
+		return input, err
+	}
+	if cidrV.Value.MaskLen < 16 || cidrV.Value.MaskLen > 28 {
+		return input, httperrors.NewInputParameterError("%s request the mask range should be between 16 and 28", self.GetProvider())
+	}
+	return input, nil
+}
