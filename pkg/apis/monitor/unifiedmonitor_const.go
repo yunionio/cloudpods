@@ -20,6 +20,14 @@ var (
 		"oss":          "oss_name",
 		"cloudaccount": "cloudaccount_name",
 	}
+	MEASUREMENT_TAG_ID = map[string]string{
+		"host":         "host_id",
+		"guest":        "vm_id",
+		"redis":        "redis_id",
+		"rds":          "rds_id",
+		"oss":          "oss_id",
+		"cloudaccount": "cloudaccount_id",
+	}
 	AlertReduceFunc = map[string]string{
 		"avg":          "average value",
 		"sum":          "Summation",

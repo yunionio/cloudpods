@@ -21,7 +21,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/monitor/alerting"
@@ -211,35 +210,20 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb
 	}
 	evalMatch.Unit = alertDetails.FieldDescription.Unit
 	msg := fmt.Sprintf("%s.%s %s %s", alertDetails.Measurement, alertDetails.Field,
-		alertDetails.Comparator, c.RationalizeValueFromUnit(alertDetails.Threshold, evalMatch.Unit, ""))
+		alertDetails.Comparator, alerting.RationalizeValueFromUnit(alertDetails.Threshold, evalMatch.Unit, ""))
 	if len(context.Rule.Message) == 0 {
 		context.Rule.Message = msg
 	}
 	//evalMatch.Condition = c.GenerateFormatCond(meta, queryKeyInfo).String()
 	evalMatch.Tags = c.filterTags(series.Tags, *alertDetails)
 	evalMatch.Value = value
-	evalMatch.ValueStr = c.RationalizeValueFromUnit(*value, alertDetails.FieldDescription.Unit,
+	evalMatch.ValueStr = alerting.RationalizeValueFromUnit(*value, alertDetails.FieldDescription.Unit,
 		alertDetails.FieldOpt)
 	if alertDetails.GetPointStr {
 		evalMatch.ValueStr = c.jointPointStr(series, evalMatch.ValueStr, valStrArr)
 	}
-	c.newRuleDescription(context, alertDetails)
+	//c.newRuleDescription(context, alertDetails)
 	return evalMatch, nil
-}
-
-func (c *QueryCondition) newRuleDescription(context *alerting.EvalContext, alertDetails *monitor.CommonAlertMetricDetails) {
-	ruleDes := alerting.RuleDescription{
-		AlertRecordRule: monitor.AlertRecordRule{
-			Metric:          fmt.Sprintf("%s.%s", alertDetails.Measurement, alertDetails.Field),
-			Measurement:     alertDetails.Measurement,
-			MeasurementDesc: alertDetails.MeasurementDisplayName,
-			Field:           alertDetails.Field,
-			FieldDesc:       alertDetails.FieldDescription.DisplayName,
-			Comparator:      alertDetails.Comparator,
-			Threshold:       c.RationalizeValueFromUnit(alertDetails.Threshold, alertDetails.FieldDescription.Unit, ""),
-		},
-	}
-	context.RuleDescription = &ruleDes
 }
 
 func (c *QueryCondition) jointPointStr(series tsdb.TimeSeries, value string, valStrArr []string) string {
@@ -252,38 +236,6 @@ func (c *QueryCondition) jointPointStr(series tsdb.TimeSeries, value string, val
 		str = fmt.Sprintf("%s,%s=%s", str, series.Columns[i], valStrArr[i])
 	}
 	return str
-}
-
-var fileSize = []string{"bps", "Bps", "byte"}
-
-func (c *QueryCondition) RationalizeValueFromUnit(value float64, unit string, opt string) string {
-	if utils.IsInStringArray(unit, fileSize) {
-		if unit == "byte" {
-			return (formatFileSize(value, unit, float64(1024)))
-		}
-		return formatFileSize(value, unit, float64(1000))
-	}
-	if unit == "%" && monitor.CommonAlertFieldOpt_Division == opt {
-		return fmt.Sprintf("%0.4f%s", value*100, unit)
-	}
-	return fmt.Sprintf("%0.4f%s", value, unit)
-}
-
-// 单位转换 保留四位小数
-func formatFileSize(fileSize float64, unit string, unitsize float64) (size string) {
-	if fileSize < unitsize {
-		return fmt.Sprintf("%.4f%s", fileSize, unit)
-	} else if fileSize < (unitsize * unitsize) {
-		return fmt.Sprintf("%.4fK%s", float64(fileSize)/float64(unitsize), unit)
-	} else if fileSize < (unitsize * unitsize * unitsize) {
-		return fmt.Sprintf("%.4fM%s", float64(fileSize)/float64(unitsize*unitsize), unit)
-	} else if fileSize < (unitsize * unitsize * unitsize * unitsize) {
-		return fmt.Sprintf("%.4fG%s", float64(fileSize)/float64(unitsize*unitsize*unitsize), unit)
-	} else if fileSize < (unitsize * unitsize * unitsize * unitsize * unitsize) {
-		return fmt.Sprintf("%.4fT%s", float64(fileSize)/float64(unitsize*unitsize*unitsize*unitsize), unit)
-	} else { //if fileSize < (1024 * 1024 * 1024 * 1024 * 1024 * 1024)
-		return fmt.Sprintf("%.4fE%s", float64(fileSize)/float64(unitsize*unitsize*unitsize*unitsize*unitsize), unit)
-	}
 }
 
 type queryResult struct {

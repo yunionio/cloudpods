@@ -219,8 +219,8 @@ func InitNotifier(config NotificationConfig) (Notifier, error) {
 
 func newAlertRecordRule(evalCtx *EvalContext) monitor.AlertRecordRule {
 	alertRule := monitor.AlertRecordRule{}
-	if evalCtx.RuleDescription != nil {
-		alertRule = evalCtx.RuleDescription.AlertRecordRule
+	if len(evalCtx.Rule.RuleDescription) != 0 {
+		alertRule = evalCtx.Rule.RuleDescription[0].AlertRecordRule
 	}
 	if evalCtx.Rule.Frequency < 60 {
 		alertRule.Period = fmt.Sprintf("%ds", evalCtx.Rule.Frequency)
