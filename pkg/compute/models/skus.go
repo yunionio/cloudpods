@@ -549,6 +549,7 @@ func (manager *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, 
 	q = q.Asc(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
 	err = db.FetchModelObjects(manager, q, &skus)
 	if err != nil {
+		log.Infof("FetchModelObjects %s", err)
 		return nil, httperrors.NewBadRequestError("instance specs list query error")
 	}
 
