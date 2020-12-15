@@ -126,6 +126,11 @@ clean:
 fmt:
 	@git ls-files --exclude '*' '*.go' \
 		| grep -v '^vendor/' \
+		| while read f; do \
+			if ! grep -m1 -q '^// Code generated .* DO NOT EDIT\.$$' "$$f"; then \
+				echo "$$f"; \
+			fi ; \
+		done \
 		| xargs $(XARGS_FLAGS) gofmt -w
 
 fmt-check: fmt
