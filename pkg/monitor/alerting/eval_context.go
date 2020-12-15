@@ -42,7 +42,7 @@ type EvalContext struct {
 	StartTime          time.Time
 	EndTime            time.Time
 	Rule               *Rule
-	RuleDescription    *RuleDescription
+	//RuleDescription    *RuleDescription
 
 	NoDataFound    bool
 	PrevAlertState monitor.AlertStateType
