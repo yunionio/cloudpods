@@ -66,7 +66,11 @@ func (self *SZone) getHost() *SHost {
 func (self *SZone) getStorageType() {
 	if len(self.storageTypes) == 0 {
 		self.storageTypes = StorageTypes
-		if !utils.IsInStringArray(self.GetId(), []string{"af-south-1", "eu-south-1", "eu-west-3", "sa-east-1", "cn-north-1", "cn-northwest-1"}) {
+		if utils.IsInStringArray(self.region.GetId(), []string{"cn-north-1", "cn-northwest-1"}) {
+			self.storageTypes = append(self.storageTypes, api.STORAGE_GP3_SSD)
+		}
+
+		if !utils.IsInStringArray(self.region.GetId(), []string{"af-south-1", "eu-south-1", "eu-west-3", "sa-east-1", "cn-north-1", "cn-northwest-1"}) {
 			self.storageTypes = append(self.storageTypes, api.STORAGE_IO2_SSD)
 		}
 	}
