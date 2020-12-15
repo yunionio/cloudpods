@@ -155,7 +155,17 @@ func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudR
 	return routeTable, nil
 }
 
+/*
+Deletes the specified VPC. You must detach or delete all gateways and resources that are associated with
+the VPC before you can delete it. For example, you must terminate all instances running in the VPC,
+delete all security groups associated with the VPC (except the default one),
+delete all route tables associated with the VPC (except the default one), and so on.
+*/
 func (self *SVpc) Delete() error {
+	err := self.DetachInternetGateway()
+	if err != nil {
+		return errors.Wrap(err, "DetachInternetGateway")
+	}
 	// 删除vpc会同步删除关联的安全组
 	return self.region.DeleteVpc(self.VpcId)
 }
@@ -410,6 +420,28 @@ func (self *SVpc) AttachInternetGateway(igwId string) error {
 	_, err := self.region.ec2Client.AttachInternetGateway(&input)
 	if err != nil {
 		return errors.Wrap(err, "AttachInternetGateway")
+	}
+
+	return nil
+}
+
+func (self *SVpc) DetachInternetGateway() error {
+	igws, err := self.region.GetInternetGateways(self.GetId())
+	if err != nil {
+		return errors.Wrap(err, "GetInternetGateways")
+	}
+
+	if len(igws) > 0 {
+		for i := range igws {
+			input := ec2.DetachInternetGatewayInput{}
+			input.SetInternetGatewayId(igws[i].InternetGatewayID)
+			input.SetVpcId(self.GetId())
+
+			_, err := self.region.ec2Client.DetachInternetGateway(&input)
+			if err != nil {
+				return errors.Wrap(err, "DetachInternetGateway")
+			}
+		}
 	}
 
 	return nil
