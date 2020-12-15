@@ -92,7 +92,8 @@ type SImage struct {
 	Status     ImageStatusType
 	OwnerType  string
 	// Usage                string
-	RootDevice RootDevice
+	RootDevice     RootDevice
+	RootDeviceName string
 
 	Public             bool
 	Hypervisor         string
@@ -510,6 +511,7 @@ func (self *SRegion) getImages(status ImageStatusType, owners []TImageOwnerType,
 			OwnerType:          *image.ImageOwnerAlias,
 			EnaSupport:         *image.EnaSupport,
 			Platform:           *image.Platform,
+			RootDeviceName:     *image.RootDeviceName,
 			Status:             ImageStatusType(*image.State),
 			CreationTime:       createTime,
 			SizeGB:             size,

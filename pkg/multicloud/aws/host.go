@@ -263,7 +263,7 @@ func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo
 	// 创建实例
 	if len(instanceType) > 0 {
 		log.Debugf("Try instancetype : %s", instanceType)
-		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceType, networkId, secgroupId, self.zone.ZoneId, desc, disks, ipAddr, keypair, userData, tags)
+		vmId, err := self.zone.region.CreateInstance(name, img, instanceType, networkId, secgroupId, self.zone.ZoneId, desc, disks, ipAddr, keypair, userData, tags)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceType, err)
 			return "", fmt.Errorf("Failed to create specification %s.%s", instanceType, err.Error())
