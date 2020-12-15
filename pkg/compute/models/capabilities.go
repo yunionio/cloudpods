@@ -515,7 +515,11 @@ func getStorageTypes(
 			if !ok {
 				sts = make([]string, 0)
 			}
-			sts = append(sts, storageType)
+
+			if !utils.IsInStringArray(storageType, sts) {
+				sts = append(sts, storageType)
+			}
+
 			hypervisorStorageTypes[storageHypervisor] = sts
 		}
 		addStorageInfo = func(storage *StorageInfo, simpleStorage *SimpleStorageInfo) {
