@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -70,4 +71,15 @@ func (self *SUcloudRegionDriver) ValidateCreateLoadbalancerAclData(ctx context.C
 
 func (self *SUcloudRegionDriver) ValidateCreateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return nil, httperrors.NewNotImplementedError("%s does not currently support creating loadbalancer certificate", self.GetProvider())
+}
+
+func (self *SUcloudRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error) {
+	var cidrV = validators.NewIPv4PrefixValidator("cidr_block")
+	if err := cidrV.Validate(jsonutils.Marshal(input).(*jsonutils.JSONDict)); err != nil {
+		return input, err
+	}
+	if cidrV.Value.MaskLen < 16 || cidrV.Value.MaskLen > 29 {
+		return input, httperrors.NewInputParameterError("%s request the mask range should be between 16 and 29", self.GetProvider())
+	}
+	return input, nil
 }

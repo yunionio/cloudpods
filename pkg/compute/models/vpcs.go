@@ -632,6 +632,7 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 	vpc.ExternalId = extVPC.GetGlobalId()
 	vpc.IsDefault = extVPC.GetIsDefault()
 	vpc.CidrBlock = extVPC.GetCidrBlock()
+	vpc.ExternalAccessMode = extVPC.GetExternalAccessMode()
 	vpc.CloudregionId = region.Id
 
 	vpc.ManagerId = provider.Id
@@ -1141,6 +1142,10 @@ func (manager *SVpcManager) ListItemFilter(
 				),
 			),
 		)
+
+		if vpcUsable || usable {
+			q = q.Equals("status", api.VPC_STATUS_AVAILABLE)
+		}
 
 		if usable {
 			wires := WireManager.Query().SubQuery()
