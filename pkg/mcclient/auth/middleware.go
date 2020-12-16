@@ -69,6 +69,7 @@ func AuthenticateWithDelayDecision(f appsrv.FilterHandler, delayDecision bool) a
 					httperrors.UnauthorizedError(ctx, w, "InvalidToken")
 					return
 				}
+				token = &GuestToken
 			}
 		}
 		ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_AUTH_TOKEN, token)
