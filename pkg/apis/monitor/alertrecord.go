@@ -36,6 +36,7 @@ type AlertRecordRule struct {
 	Metric          string `json:"metric"`
 	Measurement     string `json:"measurement"`
 	MeasurementDesc string `json:"measurement_desc"`
+	ResType         string `json:"res_type"`
 	Field           string `json:"field"`
 	FieldDesc       string `json:"field_desc"`
 	// 比较运算符, 比如: >, <, >=, <=

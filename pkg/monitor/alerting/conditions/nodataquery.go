@@ -3,7 +3,6 @@ package conditions
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -50,8 +49,22 @@ func (c *NoDataQueryCondition) Eval(context *alerting.EvalContext) (*alerting.Co
 	normalHostIds := make(map[string]*monitor.EvalMatch, 0)
 serLoop:
 	for _, series := range seriesList {
+		tagId := monitor.MEASUREMENT_TAG_ID[context.Rule.RuleDescription[0].ResType]
+		if len(tagId) == 0 {
+			tagId = "host_id"
+		}
 		for key, val := range series.Tags {
-			if strings.Contains(key, "host_id") {
+			if key == tagId {
+				if len(context.Rule.RuleDescription) == 0 {
+					return &alerting.ConditionResult{
+						Firing:             false,
+						NoDataFound:        true,
+						Operator:           c.Operator,
+						EvalMatches:        matches,
+						AlertOkEvalMatches: alertOkmatches,
+					}, nil
+				}
+
 				reducedValue, valStrArr := c.Reducer.Reduce(series)
 				match, err := c.NewEvalMatch(context, *series, nil, reducedValue, valStrArr)
 				if err != nil {
@@ -62,7 +75,7 @@ serLoop:
 			}
 		}
 	}
-	allHosts, err := c.getOnecloudHosts()
+	allHosts, err := c.getOnecloudResources(context)
 	if err != nil {
 		return nil, errors.Wrap(err, "NoDataQueryCondition getOnecloudHosts error")
 	}
@@ -73,10 +86,10 @@ serLoop:
 			return nil, errors.Wrap(err, "NewNoDataEvalMatch error")
 		}
 		if normalMatch, ok := normalHostIds[id]; !ok {
-			c.createEvalMatchTagFromHostJson(evalMatch, host)
+			c.createEvalMatchTagFromHostJson(context, evalMatch, host)
 			matches = append(matches, evalMatch)
 		} else {
-			c.createEvalMatchTagFromHostJson(normalMatch, host)
+			c.createEvalMatchTagFromHostJson(context, normalMatch, host)
 			alertOkmatches = append(alertOkmatches, normalMatch)
 		}
 	}
@@ -89,15 +102,37 @@ serLoop:
 	}, nil
 }
 
-func (c *NoDataQueryCondition) getOnecloudHosts() ([]jsonutils.JSONObject, error) {
+func (c *NoDataQueryCondition) getOnecloudResources(evalContext *alerting.EvalContext) ([]jsonutils.JSONObject, error) {
+	var err error
+	allResources := make([]jsonutils.JSONObject, 0)
+	if len(evalContext.Rule.RuleDescription) == 0 {
+		return []jsonutils.JSONObject{}, nil
+	}
 	query := jsonutils.NewDict()
-	query.Set("brand", jsonutils.NewString(hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND))
-	query.Set("host-type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
-	allHosts, err := ListAllResources(&mc_mds.Hosts, query)
+	query.Add(jsonutils.NewStringArray([]string{"running", "ready"}), "status")
+	query.Add(jsonutils.NewString("true"), "admin")
+	switch evalContext.Rule.RuleDescription[0].ResType {
+	case monitor.METRIC_RES_TYPE_HOST:
+		query.Set("host-type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
+		allResources, err = ListAllResources(&mc_mds.Hosts, query)
+	case monitor.METRIC_RES_TYPE_GUEST:
+	case monitor.METRIC_RES_TYPE_RDS:
+		allResources, err = ListAllResources(&mc_mds.DBInstance, query)
+	case monitor.METRIC_RES_TYPE_REDIS:
+		allResources, err = ListAllResources(&mc_mds.ElasticCache, query)
+	case monitor.METRIC_RES_TYPE_OSS:
+		allResources, err = ListAllResources(&mc_mds.Buckets, query)
+	default:
+		query := jsonutils.NewDict()
+		query.Set("brand", jsonutils.NewString(hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND))
+		query.Set("host-type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
+		allResources, err = ListAllResources(&mc_mds.Hosts, query)
+	}
+
 	if err != nil {
 		return nil, errors.Wrap(err, "NoDataQueryCondition Host list error")
 	}
-	return allHosts, nil
+	return allResources, nil
 }
 
 func ListAllResources(manager modulebase.Manager, params *jsonutils.JSONDict) ([]jsonutils.JSONObject, error) {
@@ -145,18 +180,17 @@ func (c *NoDataQueryCondition) NewNoDataEvalMatch(context *alerting.EvalContext,
 	}
 	evalMatch.Unit = alertDetails.FieldDescription.Unit
 	msg := fmt.Sprintf("%s.%s %s %s", alertDetails.Measurement, alertDetails.Field,
-		alertDetails.Comparator, c.RationalizeValueFromUnit(alertDetails.Threshold, evalMatch.Unit, ""))
+		alertDetails.Comparator, alerting.RationalizeValueFromUnit(alertDetails.Threshold, evalMatch.Unit, ""))
 	if len(context.Rule.Message) == 0 {
 		context.Rule.Message = msg
 	}
 	//evalMatch.Condition = c.GenerateFormatCond(meta, queryKeyInfo).String()
 	evalMatch.ValueStr = NO_DATA
-	evalMatch.MeasurementDesc = alertDetails.MeasurementDisplayName
-	evalMatch.FieldDesc = alertDetails.FieldDescription.DisplayName
 	return evalMatch, nil
 }
 
-func (c *NoDataQueryCondition) createEvalMatchTagFromHostJson(evalMatch *monitor.EvalMatch, host jsonutils.JSONObject) {
+func (c *NoDataQueryCondition) createEvalMatchTagFromHostJson(evalContext *alerting.EvalContext, evalMatch *monitor.EvalMatch,
+	host jsonutils.JSONObject) {
 	evalMatch.Tags = make(map[string]string, 0)
 
 	ip, _ := host.GetString(HOST_TAG_IP)
@@ -164,11 +198,20 @@ func (c *NoDataQueryCondition) createEvalMatchTagFromHostJson(evalMatch *monitor
 	brand, _ := host.GetString(HOST_TAG_BRAND)
 	evalMatch.Tags["ip"] = ip
 	evalMatch.Tags[HOST_TAG_NAME] = name
-	evalMatch.Tags["host"] = name
 	evalMatch.Tags[HOST_TAG_BRAND] = brand
 
-	evalMatch.Tags[hostconsts.TELEGRAF_TAG_KEY_RES_TYPE] = hostconsts.TELEGRAF_TAG_ONECLOUD_RES_TYPE
-	evalMatch.Tags[hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE] = hostconsts.TELEGRAF_TAG_ONECLOUD_HOST_TYPE_HOST
+	switch evalContext.Rule.RuleDescription[0].ResType {
+	case monitor.METRIC_RES_TYPE_HOST:
+		evalMatch.Tags[hostconsts.TELEGRAF_TAG_KEY_RES_TYPE] = hostconsts.TELEGRAF_TAG_ONECLOUD_RES_TYPE
+		evalMatch.Tags[hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE] = hostconsts.TELEGRAF_TAG_ONECLOUD_HOST_TYPE_HOST
+	case monitor.METRIC_RES_TYPE_GUEST:
+	case monitor.METRIC_RES_TYPE_RDS:
+	case monitor.METRIC_RES_TYPE_REDIS:
+	case monitor.METRIC_RES_TYPE_OSS:
+	default:
+		evalMatch.Tags[hostconsts.TELEGRAF_TAG_KEY_RES_TYPE] = hostconsts.TELEGRAF_TAG_ONECLOUD_RES_TYPE
+		evalMatch.Tags[hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE] = hostconsts.TELEGRAF_TAG_ONECLOUD_HOST_TYPE_HOST
+	}
 }
 
 func newNoDataQueryCondition(model *monitor.AlertCondition, index int) (*NoDataQueryCondition, error) {
