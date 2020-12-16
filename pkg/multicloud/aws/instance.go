@@ -479,7 +479,7 @@ func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SMan
 		userdata = base64.StdEncoding.EncodeToString([]byte(data))
 	}
 
-	diskId, err := self.host.zone.region.ReplaceSystemDisk(ctx, self.InstanceId, desc.ImageId, desc.SysSizeGB, keypairName, userdata)
+	diskId, err := self.host.zone.region.ReplaceSystemDisk(ctx, self.InstanceId, image, desc.SysSizeGB, keypairName, userdata)
 	if err != nil {
 		return "", err
 	}
@@ -707,7 +707,7 @@ func (self *SRegion) GetInstanceIdByImageId(imageId string) (string, error) {
 	return "", fmt.Errorf("instance launch with image %s not found", imageId)
 }
 
-func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, SubnetId string, securityGroupId string,
+func (self *SRegion) CreateInstance(name string, image *SImage, instanceType string, SubnetId string, securityGroupId string,
 	zoneId string, desc string, disks []SDisk, ipAddr string,
 	keypair string, userData string, ntags map[string]string,
 ) (string, error) {
@@ -732,7 +732,11 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 				VolumeType: &disk.Category,
 			}
 
-			deviceName = fmt.Sprintf("/dev/sda1")
+			if len(image.RootDeviceName) > 0 {
+				deviceName = image.RootDeviceName
+			} else {
+				deviceName = fmt.Sprintf("/dev/sda1")
+			}
 		} else {
 			var size int64
 			size = int64(disk.Size)
@@ -789,8 +793,9 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		return "", err
 	}
 
+	imgId := image.GetId()
 	params := ec2.RunInstancesInput{
-		ImageId:             &imageId,
+		ImageId:             &imgId,
 		InstanceType:        &instanceType,
 		MaxCount:            &count,
 		MinCount:            &count,
@@ -952,7 +957,7 @@ func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
 	return fmt.Errorf("aws not support change hostname.")
 }
 
-func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, imageId string, sysDiskSizeGB int, keypair string, userdata string) (string, error) {
+func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, image *SImage, sysDiskSizeGB int, keypair string, userdata string) (string, error) {
 	instance, err := self.GetInstance(instanceId)
 	if err != nil {
 		return "", err
@@ -983,7 +988,7 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 	// create tmp server
 	tempName := fmt.Sprintf("__tmp_%s", instance.GetName())
 	_id, err := self.CreateInstance(tempName,
-		imageId,
+		image,
 		instance.InstanceType,
 		subnetId,
 		"",

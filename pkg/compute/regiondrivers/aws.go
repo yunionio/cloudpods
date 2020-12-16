@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
@@ -1436,4 +1437,73 @@ func (self *SAwsRegionDriver) IsSecurityGroupBelongVpc() bool {
 
 func (self *SAwsRegionDriver) IsCertificateBelongToRegion() bool {
 	return false
+}
+
+func (self *SAwsRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error) {
+	cidrV := validators.NewIPv4PrefixValidator("cidr_block")
+	if err := cidrV.Validate(jsonutils.Marshal(input).(*jsonutils.JSONDict)); err != nil {
+		return input, err
+	}
+	if cidrV.Value.MaskLen < 16 || cidrV.Value.MaskLen > 28 {
+		return input, httperrors.NewInputParameterError("%s request the mask range should be between 16 and 28", self.GetProvider())
+	}
+	return input, nil
+}
+
+func (self *SAwsRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		provider := vpc.GetCloudprovider()
+		if provider == nil {
+			return nil, fmt.Errorf("vpc %s(%s) related provider not  found", vpc.GetName(), vpc.GetName())
+		}
+
+		region, err := vpc.GetIRegion()
+		if err != nil {
+			return nil, errors.Wrap(err, "vpc.GetIRegion")
+		}
+		ivpc, err := region.GetIVpcById(vpc.GetExternalId())
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				// already deleted, do nothing
+				return nil, nil
+			}
+			return nil, errors.Wrap(err, "region.GetIVpcById")
+		}
+
+		// remove related secgroups
+		segs, err := ivpc.GetISecurityGroups()
+		if err != nil {
+			return nil, errors.Wrap(err, "GetISecurityGroups")
+		}
+
+		for i := range segs {
+			// 默认安全组不需要删除
+			if segs[i].GetName() == "default" {
+				log.Debugf("RequestDeleteVpc delete secgroup skipped default secgroups %s(%s)", segs[i].GetName(), segs[i].GetId())
+				continue
+			}
+
+			err = segs[i].Delete()
+			if err != nil {
+				return nil, errors.Wrap(err, "DeleteSecurityGroup")
+			}
+		}
+
+		_, _, result := models.SecurityGroupCacheManager.SyncSecurityGroupCaches(ctx, userCred, provider, []cloudprovider.ICloudSecurityGroup{}, vpc)
+		if result.IsError() {
+			return nil, fmt.Errorf("SyncSecurityGroupCaches %s", result.Result())
+		}
+
+		err = ivpc.Delete()
+		if err != nil {
+			return nil, errors.Wrap(err, "ivpc.Delete")
+		}
+		err = cloudprovider.WaitDeleted(ivpc, 10*time.Second, 300*time.Second)
+		if err != nil {
+			return nil, errors.Wrap(err, "cloudprovider.WaitDeleted")
+		}
+
+		return nil, nil
+	})
+	return nil
 }
