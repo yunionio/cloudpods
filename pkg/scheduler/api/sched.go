@@ -91,11 +91,13 @@ func FetchSchedInfo(req *http.Request) (*SchedInfo, error) {
 		if net.Domain == "" {
 			net.Domain = domainId
 		}
-		netObj, err := models.NetworkManager.FetchByIdOrName(data.UserCred, net.Network)
-		if err != nil {
-			return nil, errors.Wrapf(err, "fetch network %s", net.Network)
+		if net.Network != "" {
+			netObj, err := models.NetworkManager.FetchByIdOrName(data.UserCred, net.Network)
+			if err != nil {
+				return nil, errors.Wrapf(err, "fetch network %s", net.Network)
+			}
+			net.Network = netObj.GetId()
 		}
-		net.Network = netObj.GetId()
 	}
 
 	if data.InstanceGroupIds == nil || len(data.InstanceGroupIds) == 0 {
