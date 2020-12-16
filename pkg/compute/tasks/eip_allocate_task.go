@@ -39,6 +39,7 @@ func init() {
 }
 
 func (self *EipAllocateTask) onFailed(ctx context.Context, eip *models.SElasticip, reason jsonutils.JSONObject) {
+	eip.SetStatus(self.UserCred, api.EIP_STATUS_ALLOCATE_FAIL, reason.String())
 	self.setGuestAllocateEipFailed(eip, reason)
 	self.SetStageFailed(ctx, reason)
 }
