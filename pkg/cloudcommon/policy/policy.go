@@ -134,6 +134,9 @@ func getMaskedLoginIp(userCred mcclient.TokenCredential) string {
 }
 
 func policyKey(userCred mcclient.TokenCredential) string {
+	if userCred == nil || auth.IsGuestToken(userCred) {
+		return auth.GUEST_TOKEN
+	}
 	keys := []string{userCred.GetProjectId()}
 	roles := userCred.GetRoleIds()
 	if len(roles) > 0 {
