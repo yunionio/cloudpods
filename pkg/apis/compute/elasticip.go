@@ -67,6 +67,8 @@ type SElasticipCreateInput struct {
 	// 子网Id
 	// 私有云创建此参数必传,例如Openstack, ZStack
 	NetworkId string `json:"network_id"`
+	// 指定新建EIP的地址
+	IpAddr string `json:"ip_addr"`
 
 	// description: BgpType for the new eip
 	BgpType string `json:"bgp_type"`
