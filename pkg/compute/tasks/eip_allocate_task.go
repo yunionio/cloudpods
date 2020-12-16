@@ -82,7 +82,7 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 			return
 		}
 		network := _network.(*models.SNetwork)
-		reqIp, _ := self.GetParams().GetString("ip")
+		reqIp, _ := self.GetParams().GetString("ip_addr")
 		if reqIp != "" || !eipIsManaged {
 			lockman.LockObject(ctx, network)
 			defer lockman.ReleaseObject(ctx, network)
