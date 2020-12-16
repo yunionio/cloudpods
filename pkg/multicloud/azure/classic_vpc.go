@@ -95,10 +95,6 @@ func (self *SClassicVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, er
 	return rts, nil
 }
 
-func (self *SClassicVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudRouteTable, error) {
-	return nil, cloudprovider.ErrNotSupported
-}
-
 func (self *SClassicVpc) getWire() *SClassicWire {
 	return &SClassicWire{vpc: self, zone: self.region.getZone()}
 }

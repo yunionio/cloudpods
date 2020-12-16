@@ -112,10 +112,6 @@ func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
 	return rts, nil
 }
 
-func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudRouteTable, error) {
-	return nil, cloudprovider.ErrNotSupported
-}
-
 func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
 	wire := self.getWire()
 	if wire.GetGlobalId() != wireId {
