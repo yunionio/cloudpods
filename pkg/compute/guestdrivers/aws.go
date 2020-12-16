@@ -103,6 +103,7 @@ func (self *SAwsGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapa
 		Storages: cloudprovider.Storage{
 			DataDisk: []cloudprovider.StorageInfo{
 				cloudprovider.StorageInfo{StorageType: api.STORAGE_GP2_SSD, MaxSizeGb: 16384, MinSizeGb: 1, StepSizeGb: 1, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_GP3_SSD, MaxSizeGb: 16384, MinSizeGb: 1, StepSizeGb: 1, Resizable: true},
 				cloudprovider.StorageInfo{StorageType: api.STORAGE_IO1_SSD, MaxSizeGb: 16384, MinSizeGb: 4, StepSizeGb: 1, Resizable: true},
 				cloudprovider.StorageInfo{StorageType: api.STORAGE_ST1_HDD, MaxSizeGb: 16384, MinSizeGb: 500, StepSizeGb: 1, Resizable: true},
 				cloudprovider.StorageInfo{StorageType: api.STORAGE_SC1_HDD, MaxSizeGb: 16384, MinSizeGb: 500, StepSizeGb: 1, Resizable: true},
@@ -157,6 +158,7 @@ func (self *SAwsGuestDriver) GetMinimalSysDiskSizeGb() int {
 func (self *SAwsGuestDriver) GetStorageTypes() []string {
 	return []string{
 		api.STORAGE_GP2_SSD,
+		api.STORAGE_GP3_SSD,
 		api.STORAGE_IO1_SSD,
 		api.STORAGE_IO2_SSD,
 		api.STORAGE_ST1_HDD,
@@ -215,10 +217,10 @@ func (self *SAwsGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mode
 	if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
-	if disk.DiskType == api.DISK_TYPE_SYS && !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_IO1_SSD, api.STORAGE_IO2_SSD, api.STORAGE_STANDARD_HDD, api.STORAGE_GP2_SSD}) {
+	if disk.DiskType == api.DISK_TYPE_SYS && !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_IO1_SSD, api.STORAGE_IO2_SSD, api.STORAGE_STANDARD_HDD, api.STORAGE_GP2_SSD, api.STORAGE_GP3_SSD}) {
 		return fmt.Errorf("Cannot resize system disk with unsupported volumes type %s", storage.StorageType)
 	}
-	if !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_GP2_SSD, api.STORAGE_IO1_SSD, api.STORAGE_IO2_SSD, api.STORAGE_ST1_HDD, api.STORAGE_SC1_HDD, api.STORAGE_STANDARD_HDD}) {
+	if !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_GP2_SSD, api.STORAGE_GP3_SSD, api.STORAGE_IO1_SSD, api.STORAGE_IO2_SSD, api.STORAGE_ST1_HDD, api.STORAGE_SC1_HDD, api.STORAGE_STANDARD_HDD}) {
 		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
 	}
 	return nil

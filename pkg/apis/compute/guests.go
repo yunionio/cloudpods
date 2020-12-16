@@ -54,8 +54,10 @@ type ServerListInput struct {
 	Hypervisor []string `json:"hypervisor"`
 	// 列出绑定了弹性IP（EIP）的主机
 	WithEip *bool `json:"with_eip"`
-	// 列出未绑定弹性IP（EIO）的主机
+	// 列出未绑定弹性IP（EIP）的主机
 	WithoutEip *bool `json:"without_eip"`
+	// 列出可绑定弹性IP的主机
+	EipAssociable *bool `json:"eip_associable"`
 	// 列出操作系统为指定值的主机
 	// enum: linux,windows,vmware
 	OsType []string `json:"os_type"`

@@ -322,3 +322,15 @@ func (self *SRegion) GetRouteTable(id string) (*SRouteTable, error) {
 		return nil, errors.ErrDuplicateId
 	}
 }
+
+func (self *SRegion) DeleteRouteTable(rid string) error {
+	input := &ec2.DeleteRouteTableInput{}
+	input.SetRouteTableId(rid)
+
+	_, err := self.ec2Client.DeleteRouteTable(input)
+	if err != nil {
+		return errors.Wrap(err, "DeleteRouteTable")
+	}
+
+	return nil
+}

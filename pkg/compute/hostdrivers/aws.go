@@ -45,7 +45,7 @@ func (self *SAwsHostDriver) GetHypervisor() string {
 }
 
 func (self *SAwsHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
-	if storage.StorageType == api.STORAGE_GP2_SSD {
+	if storage.StorageType == api.STORAGE_GP2_SSD || storage.StorageType == api.STORAGE_GP3_SSD {
 		if sizeGb < 1 || sizeGb > 16384 {
 			return fmt.Errorf("The %s disk size must be in the range of 1G ~ 16384GB", storage.StorageType)
 		}
