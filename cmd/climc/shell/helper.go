@@ -325,7 +325,7 @@ func (cmd ResourceCmd) PerformWithKeyword(keyword, action string, args IPerformO
 		if err != nil {
 			return err
 		}
-		printObject(ret)
+		printObjectRecursive(ret)
 		return nil
 	}
 	cmd.Run(keyword, args, callback)
@@ -342,7 +342,7 @@ func (cmd ResourceCmd) PerformClassWithKeyword(keyword, action string, args IOpt
 		if err != nil {
 			return err
 		}
-		printObject(ret)
+		printObjectRecursive(ret)
 		return nil
 	}
 	cmd.Run(keyword, args, callback)
@@ -363,7 +363,7 @@ func (cmd ResourceCmd) PerformClass(action string, args IOpt) {
 		if err != nil {
 			return err
 		}
-		printObject(ret)
+		printObjectRecursive(ret)
 		return nil
 	}
 	cmd.Run(action, args, callback)
