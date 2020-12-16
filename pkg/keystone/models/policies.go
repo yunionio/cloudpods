@@ -132,7 +132,8 @@ func (manager *SPolicyManager) initializeRolePolicyGroup() error {
 		failed := false
 		if len(policy.Roles) == 0 && len(policy.Projects) == 0 {
 			// match any
-			roles, err := policies[i].fetchMatchableRoles()
+			// ignore this case
+			/* roles, err := policies[i].fetchMatchableRoles()
 			if err != nil {
 				log.Errorf("policy fetchMatchableRoles fail %s", err)
 				failed = true
@@ -144,7 +145,7 @@ func (manager *SPolicyManager) initializeRolePolicyGroup() error {
 						failed = true
 					}
 				}
-			}
+			} */
 		} else if len(policy.Roles) > 0 && len(policy.Projects) == 0 {
 			for _, r := range policy.Roles {
 				role, err := RoleManager.FetchRoleByName(r, policies[i].DomainId, "")
@@ -159,7 +160,8 @@ func (manager *SPolicyManager) initializeRolePolicyGroup() error {
 				}
 			}
 		} else if len(policy.Roles) == 0 && len(policy.Projects) > 0 {
-			for _, p := range policy.Projects {
+			// ignore this case
+			/* for _, p := range policy.Projects {
 				project, err := ProjectManager.FetchProjectByName(p, policies[i].DomainId, "")
 				if err != nil {
 					log.Errorf("fetch porject %s fail %s", p, err)
@@ -178,7 +180,7 @@ func (manager *SPolicyManager) initializeRolePolicyGroup() error {
 						}
 					}
 				}
-			}
+			} */
 		} else if len(policy.Roles) > 0 && len(policy.Projects) > 0 {
 			for _, r := range policy.Roles {
 				role, err := RoleManager.FetchRoleByName(r, policies[i].DomainId, "")
