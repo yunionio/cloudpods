@@ -20,7 +20,7 @@ import (
 )
 
 func (t *SSplitTableSpec) InsertOrUpdate(dt interface{}) error {
-	return errors.ErrNotSupported
+	return t.Insert(dt)
 }
 
 func (t *SSplitTableSpec) Update(dt interface{}, onUpdate func() error) (sqlchemy.UpdateDiffs, error) {
