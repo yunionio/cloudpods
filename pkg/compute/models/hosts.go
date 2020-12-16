@@ -3463,6 +3463,17 @@ func (self *SHost) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 			return
 		}
 	}
+
+	// update baremetal host related server
+	if guest := self.GetBaremetalServer(); guest != nil && self.HostType == api.HOST_TYPE_BAREMETAL {
+		if _, err := db.Update(guest, func() error {
+			guest.VmemSize = self.MemSize
+			guest.VcpuCount = self.CpuCount
+			return nil
+		}); err != nil {
+			log.Errorf("baremetal host %s update related server %s spec error: %v", self.GetName(), guest.GetName(), err)
+		}
+	}
 }
 
 func (self *SHost) UpdateDnsRecords(isAdd bool) {
