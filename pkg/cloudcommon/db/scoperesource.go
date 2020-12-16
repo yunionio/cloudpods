@@ -54,7 +54,6 @@ func (m *SScopedResourceBaseManager) FetchUniqValues(ctx context.Context, data j
 	uniqValues := sUniqValues{}
 	switch parentScope {
 	case rbacutils.ScopeSystem:
-		uniqValues.Scope = scope
 	case rbacutils.ScopeDomain:
 		domain, _ := data.GetString("project_domain")
 		uniqValues.Domain = domain
@@ -62,6 +61,7 @@ func (m *SScopedResourceBaseManager) FetchUniqValues(ctx context.Context, data j
 		project, _ := data.GetString("project")
 		uniqValues.Project = project
 	}
+	uniqValues.Scope = scope
 	return jsonutils.Marshal(uniqValues)
 }
 

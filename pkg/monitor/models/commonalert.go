@@ -89,6 +89,9 @@ func (man *SCommonAlertManager) ValidateCreateData(
 	if data.Period == "" {
 		data.Period = "5m"
 	}
+	if data.AlertDuration == 0 {
+		data.AlertDuration = 1
+	}
 	if data.Name == "" {
 		return data, merrors.NewArgIsEmptyErr("name")
 	}
@@ -478,7 +481,7 @@ func (alert *SCommonAlert) GetMoreDetails(ctx context.Context, out monitor.Commo
 	} else {
 		out.Period = fmt.Sprintf("%dm", alert.Frequency/60)
 	}
-
+	out.AlertDuration = alert.For/alert.Frequency + 1
 	err = alert.getCommonAlertMetricDetails(&out)
 	if err != nil {
 		return out, err
@@ -626,6 +629,9 @@ func getMetricDescriptionDetails(metricDetails *monitor.CommonAlertMetricDetails
 		}
 		if fieldDes, ok := influxdbMeasurements[0].FieldDescriptions[field]; ok {
 			metricDetails.FieldDescription = fieldDes
+			if metricDetails.FieldDescription.Unit == monitor.METRIC_UNIT_COUNT {
+				metricDetails.FieldDescription.Unit = ""
+			}
 			if len(metricDetails.FieldOpt) != 0 {
 				metricDetails.FieldDescription.Name = metricDetails.Field
 				metricDetails.FieldDescription.DisplayName = metricDetails.Field
@@ -661,6 +667,7 @@ func (man *SCommonAlertManager) toAlertCreatInput(input monitor.CommonAlertCreat
 	ret := new(monitor.AlertCreateInput)
 	ret.Name = input.Name
 	ret.Frequency = int64(freq / time.Second)
+	ret.For = ret.Frequency * (input.AlertDuration - 1)
 	ret.Level = input.Level
 	//ret.Settings =monitor.AlertSetting{}
 	for _, metricquery := range input.CommonMetricInputQuery.MetricQuery {
