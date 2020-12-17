@@ -84,6 +84,7 @@ func (self *SRegion) getSdkClient() (*sdk.Client, error) {
 }
 
 func (self *SRegion) productRequest(client *sdk.Client, product, domain, apiVersion, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	params["Product"] = product
 	return jsonRequest(client, domain, apiVersion, apiName, params, debug)
 }
 
@@ -105,8 +106,9 @@ func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonu
 	}
 	endpoint := self.RegionEndpoint
 	if len(endpoint) == 0 {
-		endpoint = self.client.endpoints.EcsEndpoint
+		endpoint = self.client.getDomain(APSARA_PRODUCT_ECS)
 	}
+	params["Product"] = APSARA_PRODUCT_ECS
 	return jsonRequest(client, endpoint, APSARA_API_VERSION, apiName, params, self.client.debug)
 }
 
@@ -115,7 +117,8 @@ func (self *SRegion) rdsRequest(apiName string, params map[string]string) (jsonu
 	if err != nil {
 		return nil, err
 	}
-	return self.productRequest(client, APSARA_PRODUCT_RDS, self.client.endpoints.RdsEndpoint, APSARA_API_VERION_RDS, apiName, params, self.client.debug)
+	domain := self.client.getDomain(APSARA_PRODUCT_RDS)
+	return self.productRequest(client, APSARA_PRODUCT_RDS, domain, APSARA_API_VERION_RDS, apiName, params, self.client.debug)
 }
 
 func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -123,8 +126,8 @@ func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonut
 	if err != nil {
 		return nil, err
 	}
-
-	return self.productRequest(client, APSARA_PRODUCT_VPC, self.client.endpoints.VpcEndpoint, APSARA_API_VERSION_VPC, action, params, self.client.debug)
+	domain := self.client.getDomain(APSARA_PRODUCT_VPC)
+	return self.productRequest(client, APSARA_PRODUCT_VPC, domain, APSARA_API_VERSION_VPC, action, params, self.client.debug)
 }
 
 func (self *SRegion) kvsRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -132,48 +135,23 @@ func (self *SRegion) kvsRequest(action string, params map[string]string) (jsonut
 	if err != nil {
 		return nil, err
 	}
-
-	return self.productRequest(client, APSARA_PRODUCT_KVSTORE, self.client.endpoints.KvsEndpoint, APSARA_API_VERSION_KVS, action, params, self.client.debug)
+	domain := self.client.getDomain(APSARA_PRODUCT_KVSTORE)
+	return self.productRequest(client, APSARA_PRODUCT_KVSTORE, domain, APSARA_API_VERSION_KVS, action, params, self.client.debug)
 }
 
 func (self *SRegion) tagRequest(serviceType string, action string, params map[string]string) (jsonutils.JSONObject, error) {
 	switch serviceType {
-	case "ecs":
+	case APSARA_PRODUCT_ECS:
 		return self.ecsRequest(action, params)
-	case "rds":
+	case APSARA_PRODUCT_RDS:
 		return self.rdsRequest(action, params)
-	case "slb":
+	case APSARA_PRODUCT_SLB:
 		return self.lbRequest(action, params)
-	case "kvs":
+	case APSARA_PRODUCT_KVSTORE:
 		return self.kvsRequest(action, params)
 	default:
-		return nil, errors.Wrapf(errors.ErrNotSupported, "not support %service tag", serviceType)
+		return nil, errors.Wrapf(errors.ErrNotSupported, "not support %s service tag", serviceType)
 	}
-}
-
-type LBRegion struct {
-	RegionEndpoint string
-	RegionId       string
-}
-
-func (self *SRegion) fetchLBRegions(client *sdk.Client) error {
-	if len(self.lbEndpints) > 0 {
-		return nil
-	}
-	params := map[string]string{}
-	result, err := self._lbRequest(client, "DescribeRegions", self.client.endpoints.SlbEndpoint, params)
-	if err != nil {
-		return err
-	}
-	self.lbEndpints = map[string]string{}
-	regions := []LBRegion{}
-	if err := result.Unmarshal(&regions, "Regions", "Region"); err != nil {
-		return err
-	}
-	for _, region := range regions {
-		self.lbEndpints[region.RegionId] = region.RegionEndpoint
-	}
-	return nil
 }
 
 func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -181,24 +159,7 @@ func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonut
 	if err != nil {
 		return nil, err
 	}
-	domain := self.client.endpoints.SlbEndpoint
-	/*
-		if !utils.IsInStringArray(apiName, []string{"DescribeRegions", "DescribeZones"}) {
-			if regionId, ok := params["RegionId"]; ok {
-				if err := self.fetchLBRegions(client); err != nil {
-					return nil, err
-				}
-				endpoint, ok := self.lbEndpints[regionId]
-				if !ok {
-					return nil, fmt.Errorf("failed to find endpoint for lb region %s", regionId)
-				}
-				domain = endpoint
-			}
-		}*/
-	return self._lbRequest(client, apiName, domain, params)
-}
-
-func (self *SRegion) _lbRequest(client *sdk.Client, apiName string, domain string, params map[string]string) (jsonutils.JSONObject, error) {
+	domain := self.client.getDomain(APSARA_PRODUCT_SLB)
 	return self.productRequest(client, APSARA_PRODUCT_SLB, domain, APSARA_API_VERSION_LB, apiName, params, self.client.debug)
 }
 

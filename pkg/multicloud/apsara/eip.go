@@ -257,7 +257,7 @@ func (region *SRegion) GetEips(eipId string, associatedId string, offset int, li
 		}
 	}
 
-	body, err := region.ecsRequest("DescribeEipAddresses", params)
+	body, err := region.vpcRequest("DescribeEipAddresses", params)
 	if err != nil {
 		log.Errorf("DescribeEipAddresses fail %s", err)
 		return nil, 0, err
@@ -295,10 +295,10 @@ func (region *SRegion) AllocateEIP(bwMbps int, chargeType TInternetChargeType, p
 	params["InstanceChargeType"] = "PostPaid"
 	params["ClientToken"] = utils.GenRequestId(20)
 	if len(projectId) > 0 {
-		params["ResourceGroupId"] = projectId
+		params["ResourceGroup"] = projectId
 	}
 
-	body, err := region.ecsRequest("AllocateEipAddress", params)
+	body, err := region.vpcRequest("AllocateEipAddress", params)
 	if err != nil {
 		log.Errorf("AllocateEipAddress fail %s", err)
 		return nil, err
