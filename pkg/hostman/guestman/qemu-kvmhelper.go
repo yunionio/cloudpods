@@ -273,6 +273,7 @@ func (s *SKVMGuestInstance) getNicAddr(index int) int {
 }
 
 func (s *SKVMGuestInstance) getVnicDesc(nic jsonutils.JSONObject) string {
+	bridge, _ := nic.GetString("bridge")
 	ifname, _ := nic.GetString("ifname")
 	driver, _ := nic.GetString("driver")
 	mac, _ := nic.GetString("mac")
@@ -291,6 +292,9 @@ func (s *SKVMGuestInstance) getVnicDesc(nic jsonutils.JSONObject) string {
 			cmd += fmt.Sprintf(",vectors=%d", vectors)
 		}
 		cmd += fmt.Sprintf("$(nic_speed %d)", bw)
+		if bridge == options.HostOptions.OvnIntegrationBridge {
+			cmd += fmt.Sprintf("$(nic_mtu %q)", bridge)
+		}
 	}
 	return cmd
 }
@@ -397,21 +401,32 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 	// cmd += "    fi\n"
 	// cmd += "else\n"
 	cmd += "QEMU_CMD=$DEFAULT_QEMU_CMD\n"
-	// cmd += "fi\n"
-	cmd += "function nic_speed() {\n"
-	cmd += "    $QEMU_CMD "
-
 	if s.IsKvmSupport() {
-		cmd += "-enable-kvm"
+		cmd += "QEMU_CMD_KVM_ARG=-enable-kvm\n"
 	} else {
-		cmd += "-no-kvm"
+		cmd += "QEMU_CMD_KVM_ARG=-no-kvm\n"
 	}
+	// cmd += "fi\n"
+	cmd += `
+function nic_speed() {
+    $QEMU_CMD $QEMU_CMD_KVM_ARG -device virtio-net-pci,help 2>&1 | grep -q "\<speed="
+    if [ "$?" -eq "0" ]; then
+        echo ",speed=$1"
+    fi
+}
 
-	cmd += " -device virtio-net-pci,? 2>&1 | grep .speed= > /dev/null\n"
-	cmd += "    if [ \"$?\" -eq \"0\" ]; then\n"
-	cmd += "        echo \",speed=$1\"\n"
-	cmd += "    fi\n"
-	cmd += "}\n"
+function nic_mtu() {
+    local bridge="$1"; shift
+
+    $QEMU_CMD $QEMU_CMD_KVM_ARG -device virtio-net-pci,help 2>&1 | grep -q '\<host_mtu='
+    if [ "$?" -eq "0" ]; then
+        local origmtu="$(<"/sys/class/net/$bridge/mtu")"
+	if [ -n "$origmtu" -a "$origmtu" -gt 576 ]; then
+                echo ",host_mtu=$(($origmtu - 58))"
+	fi
+    fi
+}
+`
 
 	// Generate Start VM script
 	cmd += `CMD="$QEMU_CMD`
