@@ -210,6 +210,9 @@ func (manager *SDBInstanceSkuManager) FetchCustomizeColumns(
 			EnabledStatusStandaloneResourceDetails: enableRows[i],
 			CloudregionResourceInfo:                regionRows[i],
 		}
+
+		rows[i].CloudEnv = strings.Split(regionRows[i].RegionExternalId, "/")[0]
+
 		sku := objs[i].(*SDBInstanceSku)
 		for _, zoneId := range []string{sku.Zone1, sku.Zone2, sku.Zone3} {
 			if _, ok := zoneIds[zoneId]; !ok {
