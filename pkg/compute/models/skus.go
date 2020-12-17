@@ -265,7 +265,7 @@ func (manager *SServerSkuManager) FetchCustomizeColumns(
 			rows[i].CloudregionResourceInfo = regRows[i]
 		}
 
-		rows[i].CloudEnv = strings.Split(zoneRows[i].RegionExtId, "/")[0]
+		rows[i].CloudEnv = strings.Split(zoneRows[i].RegionExternalId, "/")[0]
 		rows[i].TotalGuestCount = objs[i].(*SServerSku).getTotalGuestCount()
 	}
 

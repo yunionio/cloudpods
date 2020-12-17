@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -144,6 +145,8 @@ func (manager *SElasticcacheSkuManager) FetchCustomizeColumns(
 			ZoneResourceInfoBase:            zoneRows[i].ZoneResourceInfoBase,
 			SlaveZoneResourceInfoBase:       slavezoneRows[i],
 		}
+
+		rows[i].CloudEnv = strings.Split(regRows[i].RegionExternalId, "/")[0]
 	}
 
 	return rows
