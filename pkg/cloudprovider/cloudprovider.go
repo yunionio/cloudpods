@@ -74,7 +74,7 @@ type SCloudaccountCredential struct {
 	// 主机端口 (esxi)
 	Port int `json:"port"`
 
-	// 端点 (s3)
+	// 端点 (s3) 或 Apsara(飞天)
 	Endpoint string `json:"endpoint"`
 
 	// app id (Qcloud)

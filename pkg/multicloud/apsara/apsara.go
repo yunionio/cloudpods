@@ -15,6 +15,7 @@
 package apsara
 
 import (
+	"crypto/tls"
 	"fmt"
 	"strings"
 	"time"
@@ -48,21 +49,21 @@ const (
 
 	APSARA_BSS_API_VERSION = "2017-12-14"
 
-	APSARA_RAM_API_VERSION = "2015-05-01"
-	APSARA_API_VERION_RDS  = "2014-08-15"
-	APSARA_RM_API_VERSION  = "2020-03-31"
-	APSARA_STS_API_VERSION = "2015-04-01"
+	APSARA_RAM_API_VERSION  = "2015-05-01"
+	APSARA_API_VERION_RDS   = "2014-08-15"
+	APSARA_ASCM_API_VERSION = "2019-05-10"
+	APSARA_STS_API_VERSION  = "2015-04-01"
 
-	APSARA_PRODUCT_METRICS          = "metrics"
-	APSARA_PRODUCT_RDS              = "rds"
-	APSARA_PRODUCT_VPC              = "vpc"
-	APSARA_PRODUCT_KVSTORE          = "r-kvstore"
-	APSARA_PRODUCT_SLB              = "slb"
-	APSARA_PRODUCT_ECS              = "ecs"
-	APSARA_PRODUCT_ACTION_TRIAL     = "actiontrail"
-	APSARA_PRODUCT_STS              = "sts"
-	APSARA_PRODUCT_RAM              = "ram"
-	APSARA_PRODUCT_RESOURCE_MANAGER = "resourcemanager"
+	APSARA_PRODUCT_METRICS      = "Cms"
+	APSARA_PRODUCT_RDS          = "Rds"
+	APSARA_PRODUCT_VPC          = "Vpc"
+	APSARA_PRODUCT_KVSTORE      = "R-kvstore"
+	APSARA_PRODUCT_SLB          = "Slb"
+	APSARA_PRODUCT_ECS          = "Ecs"
+	APSARA_PRODUCT_ACTION_TRIAL = "actiontrail"
+	APSARA_PRODUCT_STS          = "Sts"
+	APSARA_PRODUCT_RAM          = "Ram"
+	APSARA_PRODUCT_ASCM         = "ascm"
 )
 
 type ApsaraClientConfig struct {
@@ -73,12 +74,13 @@ type ApsaraClientConfig struct {
 	debug        bool
 }
 
-func NewApsaraClientConfig(accessKey, accessSecret string, endpoints cloudprovider.SApsaraEndpoints) *ApsaraClientConfig {
+func NewApsaraClientConfig(accessKey, accessSecret string, endpoint string, endpoints cloudprovider.SApsaraEndpoints) *ApsaraClientConfig {
 	cfg := &ApsaraClientConfig{
 		accessKey:    accessKey,
 		accessSecret: accessSecret,
 		endpoints:    endpoints,
 	}
+	cfg.cpcfg.URL = endpoint
 	return cfg
 }
 
@@ -114,19 +116,54 @@ func NewApsaraClient(cfg *ApsaraClientConfig) (*SApsaraClient, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchRegions")
 	}
-	if len(client.endpoints.OssEndpoint) > 0 {
+	if len(client.cpcfg.OssEndpoint) > 0 {
 		err = client.fetchBuckets()
 		if err != nil {
 			return nil, errors.Wrapf(err, "fetchBuckets")
 		}
-	}
-	if client.debug {
-		log.Debugf("ClientID: %s ClientName: %s", client.ownerId, client.ownerName)
+		if client.debug {
+			log.Debugf("ClientID: %s ClientName: %s", client.ownerId, client.ownerName)
+		}
 	}
 	return &client, nil
 }
 
+func (self *SApsaraClient) getDomain(product string) string {
+	switch product {
+	case APSARA_PRODUCT_ECS:
+		if len(self.endpoints.EcsEndpoint) > 0 {
+			return self.endpoints.EcsEndpoint
+		}
+	case APSARA_PRODUCT_RAM:
+		if len(self.endpoints.RamEndpoint) > 0 {
+			return self.endpoints.RamEndpoint
+		}
+	case APSARA_PRODUCT_RDS:
+		if len(self.endpoints.RdsEndpoint) > 0 {
+			return self.endpoints.RdsEndpoint
+		}
+	case APSARA_PRODUCT_SLB:
+		if len(self.endpoints.SlbEndpoint) > 0 {
+			return self.endpoints.SlbEndpoint
+		}
+	case APSARA_PRODUCT_STS:
+		if len(self.endpoints.StsEndpoint) > 0 {
+			return self.endpoints.StsEndpoint
+		}
+	case APSARA_PRODUCT_VPC:
+		if len(self.endpoints.VpcEndpoint) > 0 {
+			return self.endpoints.VpcEndpoint
+		}
+	case APSARA_PRODUCT_KVSTORE:
+		if len(self.endpoints.KvsEndpoint) > 0 {
+			return self.endpoints.KvsEndpoint
+		}
+	}
+	return self.cpcfg.URL
+}
+
 func productRequest(client *sdk.Client, product, domain, apiVersion, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	params["Product"] = product
 	return jsonRequest(client, domain, apiVersion, apiName, params, debug)
 }
 
@@ -194,18 +231,15 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 		}
 	}
 	req.Scheme = "http"
-	//req.Scheme = "https"
 	req.GetHeaders()["User-Agent"] = "vendor/yunion-OneCloud@" + v.Get().GitVersion
 
 	resp, err := processCommonRequest(client, req)
 	if err != nil {
-		log.Errorf("request %s error %s with params %s", apiName, err, params)
-		return nil, err
+		return nil, errors.Wrapf(err, "processCommonRequest(%s, %s)", apiName, params)
 	}
 	body, err := jsonutils.Parse(resp.GetHttpContentBytes())
 	if err != nil {
-		log.Errorf("parse json fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "jsonutils.Parse")
 	}
 	//{"Code":"InvalidInstanceType.ValueNotSupported","HostId":"ecs.apsaracs.com","Message":"The specified instanceType beyond the permitted range.","RequestId":"0042EE30-0EDF-48A7-A414-56229D4AD532"}
 	//{"Code":"200","Message":"successful","PageNumber":1,"PageSize":50,"RequestId":"BB4C970C-0E23-48DC-A3B0-EB21FFC70A29","RouterTableList":{"RouterTableListType":[{"CreationTime":"2017-03-19T13:37:40Z","Description":"","ResourceGroupId":"rg-acfmwie3cqoobmi","RouteTableId":"vtb-j6c60lectdi80rk5xz43g","RouteTableName":"","RouteTableType":"System","RouterId":"vrt-j6c00qrol733dg36iq4qj","RouterType":"VRouter","VSwitchIds":{"VSwitchId":["vsw-j6c3gig5ub4fmi2veyrus"]},"VpcId":"vpc-j6c86z3sh8ufhgsxwme0q"}]},"Success":true,"TotalCount":1}
@@ -225,6 +259,7 @@ func (self *SApsaraClient) getDefaultClient() (*sdk.Client, error) {
 	}
 	transport := httputils.GetTransport(true)
 	transport.Proxy = self.cpcfg.ProxyFunc
+	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	client, err := sdk.NewClientWithOptions(
 		regionId,
 		&sdk.Config{
@@ -238,12 +273,12 @@ func (self *SApsaraClient) getDefaultClient() (*sdk.Client, error) {
 	return client, err
 }
 
-func (self *SApsaraClient) rmRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func (self *SApsaraClient) ascmRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	cli, err := self.getDefaultClient()
 	if err != nil {
 		return nil, err
 	}
-	return productRequest(cli, APSARA_PRODUCT_RESOURCE_MANAGER, self.endpoints.ResourcemanagerEndpoint, APSARA_RM_API_VERSION, apiName, params, self.debug)
+	return productRequest(cli, APSARA_PRODUCT_ASCM, self.cpcfg.URL, APSARA_ASCM_API_VERSION, apiName, params, self.debug)
 }
 
 func (self *SApsaraClient) ecsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -251,7 +286,8 @@ func (self *SApsaraClient) ecsRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
-	return productRequest(cli, APSARA_PRODUCT_ECS, self.endpoints.EcsEndpoint, APSARA_API_VERSION, apiName, params, self.debug)
+	domain := self.getDomain(APSARA_PRODUCT_ECS)
+	return productRequest(cli, APSARA_PRODUCT_ECS, domain, APSARA_API_VERSION, apiName, params, self.debug)
 }
 
 func (self *SApsaraClient) trialRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -259,21 +295,20 @@ func (self *SApsaraClient) trialRequest(apiName string, params map[string]string
 	if err != nil {
 		return nil, err
 	}
-	return productRequest(cli, APSARA_PRODUCT_ACTION_TRIAL, self.endpoints.ActionTrailEndpoint, APSARA_API_VERSION_TRIAL, apiName, params, self.debug)
+	domain := self.getDomain(APSARA_PRODUCT_ACTION_TRIAL)
+	return productRequest(cli, APSARA_PRODUCT_ACTION_TRIAL, domain, APSARA_API_VERSION_TRIAL, apiName, params, self.debug)
 }
 
 func (self *SApsaraClient) fetchRegions() error {
 	body, err := self.ecsRequest("DescribeRegions", map[string]string{"AcceptLanguage": "zh-CN"})
 	if err != nil {
-		log.Errorf("fetchRegions fail %s", err)
-		return err
+		return errors.Wrapf(err, "DescribeRegions")
 	}
 
 	regions := make([]SRegion, 0)
 	err = body.Unmarshal(&regions, "Regions", "Region")
 	if err != nil {
-		log.Errorf("unmarshal json error %s", err)
-		return err
+		return errors.Wrapf(err, "body.Unmarshal")
 	}
 	self.iregions = make([]cloudprovider.ICloudRegion, len(regions))
 	for i := 0; i < len(regions); i += 1 {
@@ -298,7 +333,7 @@ func (client *SApsaraClient) getOssClient(regionId string) (*oss.Client, error) 
 	cliOpts := []oss.ClientOption{
 		oss.HTTPClient(httpClient),
 	}
-	cli, err := oss.New(client.endpoints.OssEndpoint, client.accessKey, client.accessSecret, cliOpts...)
+	cli, err := oss.New(client.cpcfg.OssEndpoint, client.accessKey, client.accessSecret, cliOpts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "oss.New")
 	}
@@ -319,7 +354,7 @@ func (self *SApsaraClient) invalidateIBuckets() {
 }
 
 func (self *SApsaraClient) getIBuckets() ([]cloudprovider.ICloudBucket, error) {
-	if len(self.endpoints.OssEndpoint) == 0 {
+	if len(self.cpcfg.OssEndpoint) == 0 {
 		return nil, fmt.Errorf("empty oss endpoint")
 	}
 	if self.iBuckets == nil {
@@ -391,7 +426,7 @@ func (self *SApsaraClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 }
 
 func (self *SApsaraClient) GetAccountId() string {
-	return self.cpcfg.EcsEndpoint
+	return self.cpcfg.URL
 }
 
 func (self *SApsaraClient) GetIRegions() []cloudprovider.ICloudRegion {
