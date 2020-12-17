@@ -405,7 +405,7 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 	// cmd += "fi\n"
 	cmd += `
 function nic_speed() {
-    $QEMU_CMD $QEMU_CMD_KVM_ARG -device virtio-net-pci,? 2>&1 | grep .speed= > /dev/null
+    $QEMU_CMD $QEMU_CMD_KVM_ARG -device virtio-net-pci,help 2>&1 | grep -q "\<speed="
     if [ "$?" -eq "0" ]; then
         echo ",speed=$1"
     fi
