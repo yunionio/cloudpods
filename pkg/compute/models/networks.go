@@ -134,6 +134,21 @@ func (manager *SNetworkManager) AllowCreateItem(ctx context.Context, userCred mc
 	return db.IsAdminAllowCreate(userCred, manager)
 }
 
+func (self *SNetwork) getMtu() int {
+	baseMtu := options.Options.DefaultMtu
+
+	wire := self.GetWire()
+	if wire != nil {
+		baseMtu = wire.Mtu
+		if IsOneCloudVpcResource(wire) {
+			baseMtu -= api.VPC_OVN_ENCAP_COST
+		}
+		return baseMtu
+	}
+
+	return baseMtu
+}
+
 func (self *SNetwork) GetNetworkInterfaces() ([]SNetworkInterface, error) {
 	sq := NetworkinterfacenetworkManager.Query().SubQuery()
 	q := NetworkInterfaceManager.Query()
