@@ -85,7 +85,7 @@ func (self *SApsaraClient) GetResourceGroups(pageNumber int, pageSize int) ([]SR
 		"PageNumber": fmt.Sprintf("%d", pageNumber),
 		"PageSize":   fmt.Sprintf("%d", pageSize),
 	}
-	resp, err := self.rmRequest("ListResourceGroups", params)
+	resp, err := self.ascmRequest("ListResourceGroups", params)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "rmRequest.ListResourceGroups")
 	}
@@ -111,7 +111,7 @@ func (self *SApsaraClient) CreateResourceGroup(name string) (*SResourceGroup, er
 		"DisplayName": name,
 		"Name":        name,
 	}
-	resp, err := self.rmRequest("CreateResourceGroup", params)
+	resp, err := self.ascmRequest("CreateResourceGroup", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateResourceGroup")
 	}
@@ -131,7 +131,7 @@ func (self *SApsaraClient) GetResourceGroup(id string) (*SResourceGroup, error) 
 	params := map[string]string{
 		"ResourceGroupId": id,
 	}
-	resp, err := self.rmRequest("GetResourceGroup", params)
+	resp, err := self.ascmRequest("GetResourceGroup", params)
 	if err != nil {
 		return nil, err
 	}

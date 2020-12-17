@@ -33,6 +33,8 @@ func init() {
 	models.RegisterGuestDriver(&driver)
 }
 
+func (self *SApsaraGuestDriver) DoScheduleSKUFilter() bool { return false }
+
 func (self *SApsaraGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_APSARA
 }
