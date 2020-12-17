@@ -23,4 +23,7 @@ type ElasticcacheSkuDetails struct {
 	SlaveZoneResourceInfoBase
 
 	SElasticcacheSku
+
+	// 云环境
+	CloudEnv string `json:"cloud_env"`
 }
