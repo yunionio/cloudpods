@@ -21,6 +21,10 @@ type DBInstanceSkuDetails struct {
 	CloudregionResourceInfo
 
 	SDBInstanceSku
+
+	// 云环境
+	CloudEnv string `json:"cloud_env"`
+
 	Zone1Name string `json:"zone1_name"`
 	Zone2Name string `json:"zone2_name"`
 	Zone3Name string `json:"zone3_name"`
