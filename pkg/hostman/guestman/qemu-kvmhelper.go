@@ -273,6 +273,7 @@ func (s *SKVMGuestInstance) getNicAddr(index int) int {
 }
 
 func (s *SKVMGuestInstance) getVnicDesc(nic jsonutils.JSONObject) string {
+	bridge, _ := nic.GetString("bridge")
 	ifname, _ := nic.GetString("ifname")
 	driver, _ := nic.GetString("driver")
 	mac, _ := nic.GetString("mac")
@@ -291,6 +292,9 @@ func (s *SKVMGuestInstance) getVnicDesc(nic jsonutils.JSONObject) string {
 			cmd += fmt.Sprintf(",vectors=%d", vectors)
 		}
 		cmd += fmt.Sprintf("$(nic_speed %d)", bw)
+		if bridge == options.HostOptions.OvnIntegrationBridge {
+			cmd += fmt.Sprintf("$(nic_mtu %q)", bridge)
+		}
 	}
 	return cmd
 }
