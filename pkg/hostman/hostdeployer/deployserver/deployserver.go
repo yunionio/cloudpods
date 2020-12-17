@@ -184,20 +184,31 @@ func (*DeployerServer) SaveToGlance(ctx context.Context, req *deployapi.SaveToGl
 	}, nil
 }
 
-func getImageInfo(kvmDisk *diskutils.SKVMGuestDisk, rootfs fsdriver.IRootFsDriver) *deployapi.ImageInfo {
-	partition := rootfs.GetPartition()
-	return &deployapi.ImageInfo{
-		OsInfo:                rootfs.GetReleaseInfo(partition),
-		OsType:                rootfs.GetOs(),
-		IsUefiSupport:         kvmDisk.DetectIsUEFISupport(rootfs),
-		IsLvmPartition:        kvmDisk.IsLVMPartition(),
-		IsReadonly:            partition.IsReadonly(),
-		PhysicalPartitionType: partition.GetPhysicalPartitionType(),
-		IsInstalledCloudInit:  rootfs.IsCloudinitInstall(),
+func (*DeployerServer) getImageInfo(kvmDisk *diskutils.SKVMGuestDisk) (*deployapi.ImageInfo, error) {
+	// Fsck is executed during mount
+	rootfs := kvmDisk.MountKvmRootfs()
+	if rootfs == nil {
+		return new(deployapi.ImageInfo), fmt.Errorf("Failed mounting rootfs for kvm disk")
 	}
+	partition := rootfs.GetPartition()
+	imageInfo := &deployapi.ImageInfo{
+		OsInfo:               rootfs.GetReleaseInfo(partition),
+		OsType:               rootfs.GetOs(),
+		IsLvmPartition:       kvmDisk.IsLVMPartition(),
+		IsReadonly:           partition.IsReadonly(),
+		IsInstalledCloudInit: rootfs.IsCloudinitInstall(),
+	}
+	kvmDisk.UmountKvmRootfs(rootfs)
+
+	// In case of deploy driver is guestfish, we can't mount
+	// multi partition concurrent, so we need umount rootfs first
+	imageInfo.IsUefiSupport = kvmDisk.DetectIsUEFISupport(rootfs)
+	imageInfo.PhysicalPartitionType = partition.GetPhysicalPartitionType()
+	log.Infof("ProbeImageInfo response %s", imageInfo)
+	return imageInfo, nil
 }
 
-func (*DeployerServer) ProbeImageInfo(ctx context.Context, req *deployapi.ProbeImageInfoPramas) (*deployapi.ImageInfo, error) {
+func (s *DeployerServer) ProbeImageInfo(ctx context.Context, req *deployapi.ProbeImageInfoPramas) (*deployapi.ImageInfo, error) {
 	log.Infof("********* %s probe image info", req.DiskPath)
 	kvmDisk := diskutils.NewKVMGuestDisk(req.DiskPath, DeployOption.ImageDeployDriver)
 	defer kvmDisk.Disconnect()
@@ -206,15 +217,7 @@ func (*DeployerServer) ProbeImageInfo(ctx context.Context, req *deployapi.ProbeI
 		return new(deployapi.ImageInfo), errors.Error("Disk connector failed to connect image")
 	}
 
-	// Fsck is executed during mount
-	rootfs := kvmDisk.MountKvmRootfs()
-	if rootfs == nil {
-		return new(deployapi.ImageInfo), fmt.Errorf("Failed mounting rootfs for kvm disk")
-	}
-	defer kvmDisk.UmountKvmRootfs(rootfs)
-	imageInfo := getImageInfo(kvmDisk, rootfs)
-	log.Infof("ProbeImageInfo response %s", imageInfo)
-	return imageInfo, nil
+	return s.getImageInfo(kvmDisk)
 }
 
 var connectedEsxiDisks = map[string]*diskutils.VDDKDisk{}
