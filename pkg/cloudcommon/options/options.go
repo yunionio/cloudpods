@@ -78,7 +78,7 @@ type BaseOptions struct {
 	IsSlaveNode        bool `help:"Slave mode"`
 	CronJobWorkerCount int  `help:"Cron job worker count" default:"4"`
 
-	EnableQuotaCheck  bool   `help:"enable quota check" default:"false"`
+	EnableQuotaCheck  bool   `help:"enable quota check" default:"true"`
 	DefaultQuotaValue string `help:"default quota value" choices:"unlimit|zero|default" default:"default"`
 
 	CalculateQuotaUsageIntervalSeconds int `help:"interval to calculate quota usages, default 30 minutes" default:"900"`
