@@ -655,6 +655,15 @@ func (scm *SCloudaccountManager) parseAndSuggest(params sParseAndSuggest) api.Cl
 			}
 		}
 
+		for i := range wireNet.HostSuggestedNetworks {
+			ipStart, _ := netutils.NewIPV4Addr(wireNet.HostSuggestedNetworks[i].GuestIpStart)
+			ipEnd, _ := netutils.NewIPV4Addr(wireNet.HostSuggestedNetworks[i].GuestIpEnd)
+			existedNetMap[ipStart] = simpleNet{}
+			if ipEnd != ipStart {
+				existedNetMap[ipEnd] = simpleNet{}
+			}
+		}
+
 		guests := make([]api.CAGuestNet, len(ni.VMs))
 		for i := range guests {
 			guests[i].Name = ni.VMs[i].Name
