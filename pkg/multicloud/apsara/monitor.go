@@ -31,6 +31,7 @@ func (r *SRegion) metricsRequest(action string, params map[string]string) (jsonu
 	if err != nil {
 		return nil, errors.Wrap(err, "r.getSdkClient")
 	}
+	params["Product"] = "Cms"
 	return r.productRequest(client, APSARA_PRODUCT_METRICS, r.client.endpoints.MetricsEndpoint, APSARA_API_VERSION_METRICS, action, params, r.client.debug)
 }
 
