@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -32,7 +33,7 @@ import (
 )
 
 type GuestChangeConfigTask struct {
-	SGuestBaseTask
+	SSchedTask
 }
 
 func init() {
@@ -40,12 +41,69 @@ func init() {
 }
 
 func (self *GuestChangeConfigTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	StartScheduleObjects(ctx, self, nil)
+}
+
+func (self *GuestChangeConfigTask) GetSchedParams() (*schedapi.ScheduleInput, error) {
+	schedInput := new(schedapi.ScheduleInput)
+	err := self.Params.Unmarshal(schedInput, "sched_desc")
+	if err != nil {
+		return nil, err
+	}
+	return schedInput, nil
+}
+
+func (self *GuestChangeConfigTask) OnStartSchedule(obj IScheduleModel) {
+	// do nothing
+}
+
+func (self *GuestChangeConfigTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason jsonutils.JSONObject) {
+	// do nothing
+}
+
+func (self *GuestChangeConfigTask) OnScheduleFailed(ctx context.Context, reason jsonutils.JSONObject) {
+	obj := self.GetObject()
+	guest := obj.(*models.SGuest)
+	self.markStageFailed(ctx, guest, reason)
+}
+
+func (self *GuestChangeConfigTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, target *schedapi.CandidateResource) {
+	// must get object from task, because of obj is nil
+	guest := self.GetObject().(*models.SGuest)
+	self.Params.Set("sched_session_id", jsonutils.NewString(target.SessionId))
+	if self.Params.Contains("create") {
+		disks := make([]*api.DiskConfig, 0)
+		err := self.Params.Unmarshal(&disks, "create")
+		if err != nil {
+			self.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+			return
+		}
+		var resizeDisksCount = 0
+		if self.Params.Contains("resize") {
+			iResizeDisks, err := self.Params.Get("resize")
+			if err != nil {
+				self.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+				return
+			}
+			resizeDisksCount = iResizeDisks.(*jsonutils.JSONArray).Length()
+		}
+		for i := 0; i < len(disks); i++ {
+			disks[i].Storage = target.Disks[resizeDisksCount+i].StorageIds[0]
+		}
+		self.Params.Set("create", jsonutils.Marshal(disks))
+	}
+
+	self.SetStage("StartResizeDisks", nil)
+
+	self.StartResizeDisks(ctx, guest, nil)
+}
+
+func (self *GuestChangeConfigTask) StartResizeDisks(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	_, err := self.Params.Get("resize")
 	if err == nil {
 		self.SetStage("OnDisksResizeComplete", nil)
-		self.OnDisksResizeComplete(ctx, obj, data)
+		self.OnDisksResizeComplete(ctx, guest, data)
 	} else {
-		guest := obj.(*models.SGuest)
 		self.DoCreateDisksTask(ctx, guest)
 	}
 }
@@ -116,6 +174,11 @@ func (self *GuestChangeConfigTask) DoCreateDisksTask(ctx context.Context, guest 
 	err := self.Params.Unmarshal(&disks, "create")
 	if err != nil || len(disks) == 0 {
 		self.OnCreateDisksComplete(ctx, guest, nil)
+		return
+	}
+	err = guest.CreateDisksOnHost(ctx, self.UserCred, guest.GetHost(), disks, nil, false, false, nil, nil, false)
+	if err != nil {
+		self.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 	self.SetStage("OnCreateDisksComplete", nil)
@@ -321,4 +384,26 @@ func (self *GuestChangeConfigTask) markStageFailed(ctx context.Context, guest *m
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_CHANGE_FLAVOR, reason, self.UserCred, false)
 	notifyclient.NotifyError(ctx, self.UserCred, guest.GetId(), guest.GetName(), logclient.ACT_VM_CHANGE_FLAVOR, reason.String())
 	self.SetStageFailed(ctx, reason)
+}
+
+func (self *GuestChangeConfigTask) SetStageFailed(ctx context.Context, reason jsonutils.JSONObject) {
+	guest := self.GetObject().(*models.SGuest)
+	hostId := guest.HostId
+	sessionId, _ := self.Params.GetString("sched_session_id")
+	lockman.LockRawObject(ctx, models.HostManager.KeywordPlural(), hostId)
+	defer lockman.ReleaseRawObject(ctx, models.HostManager.KeywordPlural(), hostId)
+	models.HostManager.ClearSchedDescSessionCache(hostId, sessionId)
+
+	self.SSchedTask.SetStageFailed(ctx, reason)
+}
+
+func (self *GuestChangeConfigTask) SetStageComplete(ctx context.Context, data *jsonutils.JSONDict) {
+	guest := self.GetObject().(*models.SGuest)
+	hostId := guest.HostId
+	sessionId, _ := self.Params.GetString("sched_session_id")
+	lockman.LockRawObject(ctx, models.HostManager.KeywordPlural(), hostId)
+	defer lockman.ReleaseRawObject(ctx, models.HostManager.KeywordPlural(), hostId)
+	models.HostManager.ClearSchedDescSessionCache(hostId, sessionId)
+
+	self.SSchedTask.SetStageComplete(ctx, data)
 }
