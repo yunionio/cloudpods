@@ -401,17 +401,14 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 	// cmd += "    fi\n"
 	// cmd += "else\n"
 	cmd += "QEMU_CMD=$DEFAULT_QEMU_CMD\n"
+	if s.IsKvmSupport() {
+		cmd += "QEMU_CMD_KVM_ARG=-enable-kvm\n"
+	} else {
+		cmd += "QEMU_CMD_KVM_ARG=-no-kvm\n"
+	}
 	// cmd += "fi\n"
 	cmd += "function nic_speed() {\n"
-	cmd += "    $QEMU_CMD "
-
-	if s.IsKvmSupport() {
-		cmd += "-enable-kvm"
-	} else {
-		cmd += "-no-kvm"
-	}
-
-	cmd += " -device virtio-net-pci,? 2>&1 | grep .speed= > /dev/null\n"
+	cmd += "    $QEMU_CMD $QEMU_CMD_KVM_ARG -device virtio-net-pci,? 2>&1 | grep .speed= > /dev/null\n"
 	cmd += "    if [ \"$?\" -eq \"0\" ]; then\n"
 	cmd += "        echo \",speed=$1\"\n"
 	cmd += "    fi\n"
