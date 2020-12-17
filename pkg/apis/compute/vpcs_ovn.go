@@ -18,6 +18,8 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 )
 
+const VPC_OVN_ENCAP_COST = 58
+
 const (
 	VPC_EXTERNAL_ACCESS_MODE_DISTGW     = "distgw"     // distgw only
 	VPC_EXTERNAL_ACCESS_MODE_EIP_DISTGW = "eip-distgw" // eip when available, distgw otherwise
