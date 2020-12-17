@@ -414,6 +414,18 @@ function nic_speed() {
         echo ",speed=$1"
     fi
 }
+
+function nic_mtu() {
+    local bridge="$1"; shift
+
+    $QEMU_CMD $QEMU_CMD_KVM_ARG -device virtio-net-pci,help 2>&1 | grep -q '\<host_mtu='
+    if [ "$?" -eq "0" ]; then
+        local origmtu="$(<"/sys/class/net/$bridge/mtu")"
+	if [ -n "$origmtu" -a "$origmtu" -gt 576 ]; then
+                echo ",host_mtu=$(($origmtu - 58))"
+	fi
+    fi
+}
 `
 
 	// Generate Start VM script
