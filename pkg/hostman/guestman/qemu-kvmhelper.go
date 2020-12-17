@@ -407,12 +407,14 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 		cmd += "QEMU_CMD_KVM_ARG=-no-kvm\n"
 	}
 	// cmd += "fi\n"
-	cmd += "function nic_speed() {\n"
-	cmd += "    $QEMU_CMD $QEMU_CMD_KVM_ARG -device virtio-net-pci,? 2>&1 | grep .speed= > /dev/null\n"
-	cmd += "    if [ \"$?\" -eq \"0\" ]; then\n"
-	cmd += "        echo \",speed=$1\"\n"
-	cmd += "    fi\n"
-	cmd += "}\n"
+	cmd += `
+function nic_speed() {
+    $QEMU_CMD $QEMU_CMD_KVM_ARG -device virtio-net-pci,? 2>&1 | grep .speed= > /dev/null
+    if [ "$?" -eq "0" ]; then
+        echo ",speed=$1"
+    fi
+}
+`
 
 	// Generate Start VM script
 	cmd += `CMD="$QEMU_CMD`
