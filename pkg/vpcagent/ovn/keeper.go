@@ -296,7 +296,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 		mdIp, "0.0.0.0",
 		"0.0.0.0/0", network.GuestGateway,
 	}
-	mtu -= 58
+	mtu -= apis.VPC_OVN_ENCAP_COST
 	const (
 		leaseTime  = 86400 * 365 * 3
 		renewTime  = 86400
