@@ -18,7 +18,6 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -81,7 +80,7 @@ func (self *SUcloudRegionDriver) ValidateCreateVpcData(ctx context.Context, user
 	}
 	err := IsInPrivateIpRange(cidrV.Value.ToIPRange())
 	if err != nil {
-		return input, errors.Wrap(err, "IsInPrivateIpRange")
+		return input, err
 	}
 
 	if cidrV.Value.MaskLen > 29 {
