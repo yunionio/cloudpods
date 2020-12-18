@@ -83,7 +83,7 @@ func (backend *SLoadbalancerMasterSlaveBackend) GetBackendId() string {
 }
 
 func (backend *SLoadbalancerMasterSlaveBackend) GetProjectId() string {
-	return ""
+	return backend.lbbg.GetProjectId()
 }
 
 func (backend *SLoadbalancerMasterSlaveBackend) SyncConf(ctx context.Context, port, weight int) error {

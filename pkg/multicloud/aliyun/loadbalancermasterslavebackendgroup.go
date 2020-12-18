@@ -211,5 +211,5 @@ func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) RemoveBackendServer(se
 }
 
 func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetProjectId() string {
-	return ""
+	return backendgroup.lb.GetProjectId()
 }

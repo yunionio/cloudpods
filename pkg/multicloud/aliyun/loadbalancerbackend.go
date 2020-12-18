@@ -102,7 +102,7 @@ func (region *SRegion) GetLoadbalancerBackends(backendgroupId string) ([]SLoadba
 }
 
 func (backend *SLoadbalancerBackend) GetProjectId() string {
-	return ""
+	return backend.lbbg.GetProjectId()
 }
 
 func (backend *SLoadbalancerBackend) SyncConf(ctx context.Context, port, weight int) error {
