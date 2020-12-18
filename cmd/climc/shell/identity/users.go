@@ -174,6 +174,8 @@ func init() {
 
 		IdpId       string `help:"Id of identity provider to link with"`
 		IdpEntityId string `help:"Entity id of identity provider to link with"`
+
+		Lang string `help:"user default language"`
 	}
 	R(&UserCreateOptions{}, "user-create", "Create a user", func(s *mcclient.ClientSession, args *UserCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -224,6 +226,10 @@ func init() {
 			params.Add(jsonutils.NewString(args.IdpEntityId), "idp_entity_id")
 		}
 
+		if len(args.Lang) > 0 {
+			params.Add(jsonutils.NewString(args.Lang), "lang")
+		}
+
 		/*if len(args.DefaultProject) > 0 {
 			projId, err := modules.Projects.GetId(s, args.DefaultProject, nil)
 			if err != nil {
@@ -265,6 +271,8 @@ func init() {
 		// Option []string `help:"User options"`
 
 		SkipPasswordComplexityCheck bool `help:"skip_password_complexity_check"`
+
+		Lang string `help:"update user language"`
 	}
 	R(&UserUpdateOptions{}, "user-update", "Update a user", func(s *mcclient.ClientSession, args *UserUpdateOptions) error {
 		query := jsonutils.NewDict()
@@ -320,6 +328,9 @@ func init() {
 			params.Add(jsonutils.JSONTrue, "enable_mfa")
 		} else if args.DisableMfa {
 			params.Add(jsonutils.JSONFalse, "enable_mfa")
+		}
+		if len(args.Lang) > 0 {
+			params.Add(jsonutils.NewString(args.Lang), "lang")
 		}
 		// if len(args.DefaultProject) > 0 {
 		// 	projId, err := modules.Projects.GetId(s, args.DefaultProject, nil)

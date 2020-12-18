@@ -54,6 +54,8 @@ type IColumnSpec interface {
 	Tags() map[string]string
 
 	IsPointer() bool
+
+	SetDefault(defStr string)
 }
 
 type SBaseColumn struct {
@@ -88,6 +90,10 @@ func (c *SBaseColumn) ColType() string {
 
 func (c *SBaseColumn) Default() string {
 	return c.defaultString
+}
+
+func (c *SBaseColumn) SetDefault(defStr string) {
+	c.defaultString = defStr
 }
 
 func (c *SBaseColumn) IsSupportDefault() bool {
