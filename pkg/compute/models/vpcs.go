@@ -859,7 +859,7 @@ func (manager *SVpcManager) ValidateCreateData(
 
 	input, err = region.GetDriver().ValidateCreateVpcData(ctx, userCred, input)
 	if err != nil {
-		return input, errors.Wrapf(err, "region.GetDriver().ValidateCreateVpcData")
+		return input, err
 	}
 
 	if region.GetDriver().IsVpcCreateNeedInputCidr() && len(input.CidrBlock) == 0 {

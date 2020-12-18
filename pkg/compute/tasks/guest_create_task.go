@@ -119,10 +119,12 @@ func (self *GuestCreateTask) OnDeployGuestDescComplete(ctx context.Context, obj 
 	{
 		eipId, _ := self.Params.GetString("eip")
 		if len(eipId) > 0 {
+			var err error
 			self.SetStage("OnDeployEipComplete", nil)
 			eipObj, err := models.ElasticipManager.FetchById(eipId)
 			if err != nil {
-				log.Errorf("fail to get eip %s %s", eipId, err)
+				msg := fmt.Sprintf("fail to get eip %s %s", eipId, err)
+				self.OnDeployEipCompleteFailed(ctx, obj, jsonutils.NewString(msg))
 				return
 			}
 
@@ -131,10 +133,15 @@ func (self *GuestCreateTask) OnDeployGuestDescComplete(ctx context.Context, obj 
 			eipBw, _ := self.Params.Int("eip_bw")
 			if eipBw > 0 {
 				// newly allocated eip, need allocation and associate
-				eip.AllocateAndAssociateVM(ctx, self.UserCred, guest, self.GetId())
+				err = eip.AllocateAndAssociateVM(ctx, self.UserCred, guest, self.GetId())
 			} else {
 				// existing eip, association only
-				eip.StartEipAssociateInstanceTask(ctx, self.UserCred, guest, self.GetId())
+				err = eip.StartEipAssociateInstanceTask(ctx, self.UserCred, guest, self.GetId())
+			}
+			if err != nil {
+				msg := fmt.Sprintf("fail to asscociate eip %s %s", eipId, err)
+				self.OnDeployEipCompleteFailed(ctx, obj, jsonutils.NewString(msg))
+				return
 			}
 
 			return
