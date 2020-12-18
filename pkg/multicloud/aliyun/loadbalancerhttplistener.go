@@ -367,5 +367,5 @@ func (listerner *SLoadbalancerHTTPListener) Sync(ctx context.Context, lblis *clo
 }
 
 func (listerner *SLoadbalancerHTTPListener) GetProjectId() string {
-	return ""
+	return listerner.lb.GetProjectId()
 }
