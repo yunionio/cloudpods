@@ -1391,6 +1391,9 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		masklen = prefix.MaskLen
 		netAddr = prefix.Address.NetAddr(masklen)
 		input.GuestIpMask = int64(prefix.MaskLen)
+		if masklen >= 30 {
+			return input, httperrors.NewInputParameterError("subnet masklen should be smaller than 30")
+		}
 		// 根据掩码得到合法的GuestIpPrefix
 		input.GuestIpPrefix = prefix.String()
 	} else {
@@ -1487,9 +1490,6 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		// reserve addresses for onecloud vpc networks
 		masklen := int8(input.GuestIpMask)
 		netAddr := ipStart.NetAddr(masklen)
-		if masklen >= 30 {
-			return input, httperrors.NewInputParameterError("subnet masklen should be smaller than 30")
-		}
 		if netAddr != ipEnd.NetAddr(masklen) {
 			return input, httperrors.NewInputParameterError("start and end ip when masked are not in the same cidr subnet")
 		}
