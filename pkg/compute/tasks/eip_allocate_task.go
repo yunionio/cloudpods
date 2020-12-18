@@ -39,6 +39,7 @@ func init() {
 }
 
 func (self *EipAllocateTask) onFailed(ctx context.Context, eip *models.SElasticip, reason jsonutils.JSONObject) {
+	eip.SetStatus(self.UserCred, api.EIP_STATUS_ALLOCATE_FAIL, reason.String())
 	self.setGuestAllocateEipFailed(eip, reason)
 	self.SetStageFailed(ctx, reason)
 }
@@ -82,7 +83,7 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 			return
 		}
 		network := _network.(*models.SNetwork)
-		reqIp, _ := self.GetParams().GetString("ip")
+		reqIp, _ := self.GetParams().GetString("ip_addr")
 		if reqIp != "" || !eipIsManaged {
 			lockman.LockObject(ctx, network)
 			defer lockman.ReleaseObject(ctx, network)

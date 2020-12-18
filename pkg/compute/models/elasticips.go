@@ -85,7 +85,7 @@ type SElasticip struct {
 	Mode string `width:"32" charset:"ascii" get:"user" list:"user" create:"optional"`
 
 	// IP地址
-	IpAddr string `width:"17" charset:"ascii" list:"user" create:"optional"`
+	IpAddr string `width:"17" charset:"ascii" list:"user"`
 
 	// 绑定资源类型
 	AssociateType string `width:"32" charset:"ascii" list:"user"`
