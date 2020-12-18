@@ -725,6 +725,12 @@ func (self *SQcloudRegionDriver) ValidateCreateVpcData(ctx context.Context, user
 	if err := cidrV.Validate(jsonutils.Marshal(input).(*jsonutils.JSONDict)); err != nil {
 		return input, err
 	}
+
+	err := IsInPrivateIpRange(cidrV.Value.ToIPRange())
+	if err != nil {
+		return input, errors.Wrap(err, "IsInPrivateIpRange")
+	}
+
 	if cidrV.Value.MaskLen < 16 || cidrV.Value.MaskLen > 28 {
 		return input, httperrors.NewInputParameterError("%s request the mask range should be between 16 and 28", self.GetProvider())
 	}

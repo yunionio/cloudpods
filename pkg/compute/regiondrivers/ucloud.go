@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -78,8 +79,13 @@ func (self *SUcloudRegionDriver) ValidateCreateVpcData(ctx context.Context, user
 	if err := cidrV.Validate(jsonutils.Marshal(input).(*jsonutils.JSONDict)); err != nil {
 		return input, err
 	}
-	if cidrV.Value.MaskLen < 16 || cidrV.Value.MaskLen > 29 {
-		return input, httperrors.NewInputParameterError("%s request the mask range should be between 16 and 29", self.GetProvider())
+	err := IsInPrivateIpRange(cidrV.Value.ToIPRange())
+	if err != nil {
+		return input, errors.Wrap(err, "IsInPrivateIpRange")
+	}
+
+	if cidrV.Value.MaskLen > 29 {
+		return input, httperrors.NewInputParameterError("%s request the mask range should be less than or equal to 29", self.GetProvider())
 	}
 	return input, nil
 }
