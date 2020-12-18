@@ -126,6 +126,7 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 				err := errors.NewAggregate(errs)
 				msg := errors.Wrapf(err, "disassociate eip %s(%s)", eip.Name, eip.Id).Error()
 				self.TaskFail(ctx, eip, jsonutils.NewString(msg), model)
+				return
 			}
 		}
 
@@ -140,9 +141,11 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		logclient.AddActionLogWithStartable(self, model, logclient.ACT_EIP_DISSOCIATE, nil, self.UserCred, true)
 		logclient.AddActionLogWithStartable(self, eip, logOp, nil, self.UserCred, true)
 
-		switch srv := model.(type) {
-		case *models.SGuest:
-			srv.StartSyncstatus(ctx, self.UserCred, "")
+		if !self.IsSubtask() {
+			switch srv := model.(type) {
+			case *models.SGuest:
+				srv.StartSyncstatus(ctx, self.UserCred, "")
+			}
 		}
 	}
 
