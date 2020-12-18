@@ -177,6 +177,7 @@ func newRuleDescription(rule *Rule, alertDetails *monitor.CommonAlertMetricDetai
 			FieldDesc:       alertDetails.FieldDescription.DisplayName,
 			Comparator:      alertDetails.Comparator,
 			Threshold:       RationalizeValueFromUnit(alertDetails.Threshold, alertDetails.FieldDescription.Unit, ""),
+			ConditionType:   alertDetails.ConditionType,
 		},
 	}
 	rule.RuleDescription = append(rule.RuleDescription, &ruleDes)
