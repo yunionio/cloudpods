@@ -265,6 +265,7 @@ func (lbacl *SCachedLoadbalancerAcl) ValidateDeleteCondition(ctx context.Context
 		Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
 		Equals("domain_id", lbacl.DomainId).
 		Equals("acl_id", lbaclId).
+		Equals("cached_acl_id", lbaclId).
 		CountWithError()
 	if err != nil {
 		return httperrors.NewInternalServerError("get acl count fail %s", err)
