@@ -756,7 +756,7 @@ func (adapter *MegaRaidAdaptor) storcliBuildNoRaid(devs []*baremetal.BaremetalSt
 	if err == nil {
 		return nil
 	}
-	log.Errorf("Try build JBOD fail: %v", err)
+	log.Errorf("Try storcli build JBOD fail: %v", err)
 	labels := []string{}
 	for _, dev := range devs {
 		labels = append(labels, GetSpecString(dev))
@@ -779,7 +779,7 @@ func (adapter *MegaRaidAdaptor) megacliBuildNoRaid(devs []*baremetal.BaremetalSt
 	if err == nil {
 		return nil
 	}
-	log.Errorf("Try build jbod fail: %v", err)
+	log.Errorf("Try megacli build jbod fail: %v", err)
 	cmds := []string{}
 	for _, dev := range devs {
 		cmd := GetCommand("-CfgLdAdd", "-r0", fmt.Sprintf("[%s]", GetSpecString(dev)),
@@ -862,29 +862,42 @@ func (adapter *MegaRaidAdaptor) RemoveLogicVolumes() error {
 	return nil
 }
 
-/*
-def _storcli_clear_jbod_disks(self):
-    cmds = []
-    for dev in self.devs:
-        cmd = self.raid.get_command2(
-                    '/c%d/e%d/s%d' % (self.index, dev.enclosure, dev.slot),
-                    'set', 'good', 'force')
-        cmds.append(cmd)
-    logging.info('%s', cmds)
-    self.raid.term.exec_remote_commands(cmds)
-*/
+func (adapter *MegaRaidAdaptor) storcliClearJBODDisks() error {
+	errs := make([]error, 0)
+	for _, dev := range adapter.devs {
+		cmd := GetCommand2(fmt.Sprintf("/c%d/e%d/s%d", adapter.index, dev.enclosure, dev.slot), "set", "good", "force")
+		if _, err := adapter.remoteRun(cmd); err != nil {
+			err = errors.Wrapf(err, "Set PD good storcli cmd %v", cmd)
+			errs = append(errs, err)
+		}
+	}
+	return errors.NewAggregate(errs)
+}
 
 func (adapter *MegaRaidAdaptor) megacliClearJBODDisks() error {
 	devIds := []string{}
 	for idx, dev := range adapter.devs {
 		devIds = append(devIds, GetSpecString(dev.ToBaremetalStorage(idx)))
 	}
-	cmd := GetCommand("-PDMakeGood", fmt.Sprintf("-PhysDrv[%s]", strings.Join(devIds, ",")), "-Force", fmt.Sprintf("-a%d", adapter.index))
-	_, err := adapter.remoteRun(cmd)
-	return err
+	errs := make([]error, 0)
+	for _, devId := range devIds {
+		cmd := GetCommand("-PDMakeGood", "-PhysDrv", fmt.Sprintf("'[%s]'", devId), "-Force", fmt.Sprintf("-a%d", adapter.index))
+		if _, err := adapter.remoteRun(cmd); err != nil {
+			err = errors.Wrapf(err, "PDMakeGood megacli cmd %v", cmd)
+			errs = append(errs, err)
+		}
+	}
+	return errors.NewAggregate(errs)
 }
 
 func (adapter *MegaRaidAdaptor) clearJBODDisks() {
+	if err := adapter.megacliClearJBODDisks(); err != nil {
+		log.Errorf("megacliClearJBODDisks error: %v", err)
+		log.Infof("try storcliClearJBODDisks")
+		if err := adapter.storcliClearJBODDisks(); err != nil {
+			log.Errorf("storcliClearJBODDisks error: %v", err)
+		}
+	}
 	adapter.megacliEnableJBOD(true)
 	adapter.megacliEnableJBOD(false)
 	adapter.megacliEnableJBOD(true)
