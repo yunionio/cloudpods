@@ -41,11 +41,12 @@ type SAction string
 var (
 	Event SEvent
 
-	ActionCreate       SAction = "create"
-	ActionUpdate       SAction = "update"
-	ActionDelete       SAction = "delete"
-	ActionRebuildRoot  SAction = "rebuild_root"
-	ActionChangeConfig SAction = "change_config"
+	ActionCreate        SAction = "create"
+	ActionUpdate        SAction = "update"
+	ActionDelete        SAction = "delete"
+	ActionPendingDelete SAction = "pending_delete"
+	ActionRebuildRoot   SAction = "rebuild_root"
+	ActionChangeConfig  SAction = "change_config"
 )
 
 type SEvent struct {
