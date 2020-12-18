@@ -2672,7 +2672,7 @@ func (self *SHuaWeiRegionDriver) ValidateCreateVpcData(ctx context.Context, user
 
 	err := IsInPrivateIpRange(cidrV.Value.ToIPRange())
 	if err != nil {
-		return input, errors.Wrap(err, "IsInPrivateIpRange")
+		return input, err
 	}
 
 	if cidrV.Value.MaskLen > 24 {
