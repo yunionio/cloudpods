@@ -99,6 +99,7 @@ func StartService() {
 	go models.CheckImages()
 
 	if len(options.Options.DeployServerSocketPath) > 0 {
+		log.Infof("deploy server socket path: %s", options.Options.DeployServerSocketPath)
 		deployclient.Init(options.Options.DeployServerSocketPath)
 	}
 
