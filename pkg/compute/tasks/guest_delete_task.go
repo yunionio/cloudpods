@@ -337,15 +337,19 @@ func (self *GuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGue
 	// guest.RemoveAllMetadata(ctx, self.UserCred)
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE, nil, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DELOCATE, nil, self.UserCred, true)
-	if !guest.IsSystem && !isPendingDeleted {
-		self.NotifyServerDeleted(ctx, guest)
+	if !guest.IsSystem {
+		if !isPendingDeleted {
+			self.NotifyServerDeleted(ctx, guest)
+		} else {
+			notifyclient.NotifyWebhook(ctx, self.UserCred, guest, notifyclient.ActionDelete)
+		}
 	}
 	models.HostManager.ClearSchedDescCache(guest.HostId)
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *GuestDeleteTask) NotifyServerDeleted(ctx context.Context, guest *models.SGuest) {
-	notifyclient.NotifyWebhook(ctx, self.UserCred, guest, notifyclient.ActionDelete)
+	notifyclient.NotifyWebhook(ctx, self.UserCred, guest, notifyclient.ActionPendingDelete)
 	guest.NotifyServerEvent(
 		ctx,
 		self.UserCred,

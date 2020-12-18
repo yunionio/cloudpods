@@ -2659,6 +2659,7 @@ func (self *SGuest) DoCancelPendingDelete(ctx context.Context, userCred mcclient
 	if err != nil {
 		return err
 	}
+	notifyclient.NotifyWebhook(ctx, userCred, self, notifyclient.ActionCreate)
 	return nil
 }
 
