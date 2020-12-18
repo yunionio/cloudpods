@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
@@ -3197,4 +3198,21 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheSetAutoRenew(
 	}
 
 	return ec.SetAutoRenew(autoRenew)
+}
+
+func IsInPrivateIpRange(ar netutils.IPV4AddrRange) error {
+	iprs := netutils.GetPrivateIPRanges()
+	match := false
+	for _, ipr := range iprs {
+		if ipr.ContainsRange(ar) {
+			match = true
+			break
+		}
+	}
+
+	if !match {
+		return httperrors.NewInputParameterError("invalid cidr range %s", ar.String())
+	}
+
+	return nil
 }
