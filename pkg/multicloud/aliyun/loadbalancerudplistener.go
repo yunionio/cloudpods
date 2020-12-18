@@ -282,5 +282,5 @@ func (listerner *SLoadbalancerUDPListener) Sync(ctx context.Context, lblis *clou
 }
 
 func (listerner *SLoadbalancerUDPListener) GetProjectId() string {
-	return ""
+	return listerner.lb.GetProjectId()
 }

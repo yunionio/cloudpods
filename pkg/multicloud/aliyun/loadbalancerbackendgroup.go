@@ -274,5 +274,5 @@ func (backendgroup *SLoadbalancerBackendGroup) RemoveBackendServer(serverId stri
 }
 
 func (backendgroup *SLoadbalancerBackendGroup) GetProjectId() string {
-	return ""
+	return backendgroup.lb.GetProjectId()
 }
