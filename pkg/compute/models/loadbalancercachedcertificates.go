@@ -101,6 +101,7 @@ func (self *SCachedLoadbalancerCertificate) ValidateDeleteCondition(ctx context.
 		pdF := t.Field("pending_deleted")
 		n, err := t.Query().
 			Equals("certificate_id", lbcertId).
+			Equals("cached_certificate_id", self.GetId()).
 			Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
 			CountWithError()
 		if err != nil {
