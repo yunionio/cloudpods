@@ -59,17 +59,17 @@ func (this *SchedulerManager) DoSchedule(s *mcclient.ClientSession, input *api.S
 	return output, nil
 }
 
-func (this *SchedulerManager) DoScheduleForecast(s *mcclient.ClientSession, params *api.ScheduleInput, count int) (bool, error) {
+func (this *SchedulerManager) DoScheduleForecast(s *mcclient.ClientSession, params *api.ScheduleInput, count int) (bool, jsonutils.JSONObject, error) {
 	if count <= 0 {
 		count = 1
 	}
 	params.Count = count
 	res, err := this.DoForecast(s, params.JSON(params))
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 	canCreate := jsonutils.QueryBoolean(res, "can_create", false)
-	return canCreate, nil
+	return canCreate, res, nil
 }
 
 func newSchedURL(action string) string {

@@ -2515,12 +2515,12 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	schedDesc := self.changeConfToSchedDesc(addCpu, addMem, schedInputDisks)
 	confs.Set("sched_desc", jsonutils.Marshal(schedDesc))
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	canChangeConf, err := modules.SchedManager.DoScheduleForecast(s, schedDesc, 1)
+	canChangeConf, res, err := modules.SchedManager.DoScheduleForecast(s, schedDesc, 1)
 	if err != nil {
 		return nil, err
 	}
 	if !canChangeConf {
-		return nil, httperrors.NewBadRequestError("Host resource is not enough")
+		return nil, httperrors.NewInsufficientResourceError(res.String())
 	}
 
 	log.Debugf("%s", confs.String())
