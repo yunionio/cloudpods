@@ -205,6 +205,10 @@ var (
 			// "status_probe_interval_seconds",
 			// "log_fetch_interval_seconds",
 			// "send_metrics_interval_seconds",
+			// ############################
+			// glance blacklist options
+			// ############################
+			"deploy_server_socket_path",
 		},
 	}
 )
