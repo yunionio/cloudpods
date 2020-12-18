@@ -50,7 +50,7 @@ func init() {
 		Manager    string `help:"cloud provider"`
 		Region     string `help:"cloud region in which EIP is allocated"`
 		Bandwidth  int    `help:"Bandwidth in Mbps"`
-		Ip         string `help:"IP address of the EIP"`
+		IpAddr     string `help:"IP address of the EIP" json:"ip_addr"`
 		Network    string `help:"Network of the EIP"`
 		BgpType    string `help:"BgpType of the EIP" positional:"false"`
 		ChargeType string `help:"bandwidth charge type" choices:"traffic|bandwidth"`
@@ -79,8 +79,8 @@ func init() {
 			params.Add(jsonutils.NewString(args.BgpType), "bgp_type")
 		}
 
-		if len(args.Ip) > 0 {
-			params.Add(jsonutils.NewString(args.Ip), "ip")
+		if len(args.IpAddr) > 0 {
+			params.Add(jsonutils.NewString(args.IpAddr), "ip_addr")
 		}
 
 		result, err := modules.Elasticips.Create(s, params)
