@@ -139,7 +139,7 @@ func (c *EvalContext) GetNewState() monitor.AlertStateType {
 	}
 
 	since := time.Since(c.Rule.LastStateChange)
-	if c.PrevAlertState == monitor.AlertStatePending && since > c.Rule.For {
+	if c.PrevAlertState == monitor.AlertStatePending && since >= c.Rule.For {
 		return monitor.AlertStateAlerting
 	}
 
