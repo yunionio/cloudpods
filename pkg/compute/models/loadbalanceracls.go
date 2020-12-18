@@ -190,12 +190,12 @@ func (man *SLoadbalancerAclManager) ValidateCreateData(ctx context.Context, user
 		return nil, err
 	}
 
-	input := apis.VirtualResourceCreateInput{}
+	input := apis.SharableVirtualResourceCreateInput{}
 	err = data.Unmarshal(&input)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal VirtualResourceCreateInput fail %s", err)
+		return nil, httperrors.NewInternalServerError("unmarshal SharableVirtualResourceCreateInput fail %s", err)
 	}
-	input, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	input, err = man.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
 	if err != nil {
 		return nil, err
 	}
