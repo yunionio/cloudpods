@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -816,7 +817,11 @@ func (self *STask) GetObjects() []db.IStandaloneModel {
 }
 
 func (task *STask) GetTaskRequestHeader() http.Header {
-	header := mcclient.GetTokenHeaders(task.GetUserCred())
+	userCred := task.GetUserCred()
+	if !userCred.IsValid() {
+		userCred = auth.AdminCredential()
+	}
+	header := mcclient.GetTokenHeaders(userCred)
 	header.Set(mcclient.TASK_ID, task.GetTaskId())
 	return header
 }
