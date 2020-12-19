@@ -65,6 +65,23 @@ func (self *SESXiGuestDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_VMWARE
 }
 
+func (self *SESXiGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapability {
+	return cloudprovider.SInstanceCapability{
+		Hypervisor: self.GetHypervisor(),
+		Provider:   self.GetProvider(),
+		DefaultAccount: cloudprovider.SDefaultAccount{
+			Linux: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_LINUX_LOGIN_USER,
+				Changeable:     true,
+			},
+			Windows: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_WINDOWS_LOGIN_USER,
+				Changeable:     false,
+			},
+		},
+	}
+}
+
 func (self *SESXiGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
 	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)

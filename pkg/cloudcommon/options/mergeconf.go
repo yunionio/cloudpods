@@ -66,6 +66,8 @@ type mcclientServiceConfigSession struct {
 	session   *mcclient.ClientSession
 	serviceId string
 	config    *jsonutils.JSONDict
+
+	commonServiceId string
 }
 
 func newServiceConfigSession() IServiceConfigSession {
@@ -88,12 +90,12 @@ func (s *mcclientServiceConfigSession) Merge(opts interface{}, serviceType strin
 			merged = true
 		} else {
 			// not initialized
-			s.Upload()
+			// s.Upload()
 		}
 	}
-	commonServiceId, _ := getServiceIdByType(s.session, consts.COMMON_SERVICE, "")
-	if len(commonServiceId) > 0 {
-		commonConf, err := getServiceConfig(s.session, commonServiceId)
+	s.commonServiceId, _ = getServiceIdByType(s.session, consts.COMMON_SERVICE, "")
+	if len(s.commonServiceId) > 0 {
+		commonConf, err := getServiceConfig(s.session, s.commonServiceId)
 		if err != nil {
 			log.Errorf("getServiceConfig for %s failed: %s", consts.COMMON_SERVICE, err)
 		} else if commonConf != nil {
@@ -122,6 +124,11 @@ func (s *mcclientServiceConfigSession) Upload() {
 		if err != nil {
 			// ignore the error
 			log.Errorf("fail to save config: %s", err)
+		}
+		_, err = modules.ServicesV3.PerformAction(s.session, s.commonServiceId, "config", nconf)
+		if err != nil {
+			// ignore the error
+			log.Errorf("fail to save common config: %s", err)
 		}
 	}
 }
