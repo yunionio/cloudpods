@@ -426,6 +426,8 @@ func saveConfigs(userCred mcclient.TokenCredential, action string, model db.IMod
 type dbServiceConfigSession struct {
 	config  *jsonutils.JSONDict
 	service *SService
+
+	commonService *SService
 }
 
 func NewServiceConfigSession() common_options.IServiceConfigSession {
@@ -446,12 +448,12 @@ func (s *dbServiceConfigSession) Merge(opts interface{}, serviceType string, ser
 			merged = true
 		} else {
 			// not initialized
-			uploadConfig(s.service, s.config)
+			// uploadConfig(s.service, s.config)
 		}
 	}
-	commonService, _ := ServiceManager.fetchServiceByType(consts.COMMON_SERVICE)
-	if commonService != nil {
-		commonConf, err := GetConfigs(commonService, false, nil, nil)
+	s.commonService, _ = ServiceManager.fetchServiceByType(consts.COMMON_SERVICE)
+	if s.commonService != nil {
+		commonConf, err := GetConfigs(s.commonService, false, nil, nil)
 		if err != nil {
 			log.Errorf("GetConfigs for %s fail: %s", consts.COMMON_SERVICE, err)
 		} else if commonConf != nil {
@@ -460,7 +462,7 @@ func (s *dbServiceConfigSession) Merge(opts interface{}, serviceType string, ser
 			merged = true
 		} else {
 			// common not initialized
-			uploadConfig(commonService, s.config)
+			// uploadConfig(commonService, s.config)
 		}
 	}
 	if merged {
@@ -478,6 +480,7 @@ func (s *dbServiceConfigSession) Upload() {
 		return
 	}
 	uploadConfig(s.service, s.config)
+	uploadConfig(s.commonService, s.config)
 }
 
 func (s *dbServiceConfigSession) IsRemote() bool {
