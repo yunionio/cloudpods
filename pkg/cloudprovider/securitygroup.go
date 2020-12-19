@@ -372,3 +372,19 @@ func CompareRules(
 	common = append(inCommon, outCommon...)
 	return
 }
+
+func SortUniqPriority(rules SecurityRuleSet) []SecurityRule {
+	sort.Sort(rules)
+	priMap := map[int]bool{}
+	for i := range rules {
+		for {
+			_, ok := priMap[rules[i].Priority]
+			if !ok {
+				priMap[rules[i].Priority] = true
+				break
+			}
+			rules[i].Priority = rules[i].Priority - 1
+		}
+	}
+	return rules
+}
