@@ -222,6 +222,35 @@ func (self *SAzureGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return api.VM_READY
 }
 
+func (self *SAzureGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapability {
+	return cloudprovider.SInstanceCapability{
+		Hypervisor: self.GetHypervisor(),
+		Provider:   self.GetProvider(),
+		DefaultAccount: cloudprovider.SDefaultAccount{
+			Linux: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_AZURE_DEFAULT_LOGIN_USER,
+				Changeable:     false,
+			},
+			Windows: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_WINDOWS_LOGIN_USER,
+				Changeable:     false,
+			},
+		},
+		Storages: cloudprovider.Storage{
+			DataDisk: []cloudprovider.StorageInfo{
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_STANDARDSSD_LRS, MaxSizeGb: 32767, MinSizeGb: 1, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_STANDARD_LRS, MaxSizeGb: 32767, MinSizeGb: 1, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_PREMIUM_LRS, MaxSizeGb: 32767, MinSizeGb: 1, StepSizeGb: 1, Resizable: false},
+			},
+			SysDisk: []cloudprovider.StorageInfo{
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_STANDARDSSD_LRS, MaxSizeGb: 32767, MinSizeGb: 1, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_STANDARD_LRS, MaxSizeGb: 32767, MinSizeGb: 1, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_PREMIUM_LRS, MaxSizeGb: 32767, MinSizeGb: 1, StepSizeGb: 1, Resizable: false},
+			},
+		},
+	}
+}
+
 func (self *SAzureGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	return api.VM_AZURE_DEFAULT_LOGIN_USER
 }

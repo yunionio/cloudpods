@@ -158,6 +158,21 @@ func (self *SZStackGuestDriver) IsWindowsUserDataTypeNeedEncode() bool {
 	return true
 }
 
+func (self *SZStackGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapability {
+	return cloudprovider.SInstanceCapability{
+		Hypervisor: self.GetHypervisor(),
+		Provider:   self.GetProvider(),
+		DefaultAccount: cloudprovider.SDefaultAccount{
+			Linux: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_LINUX_LOGIN_USER,
+			},
+			Windows: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_WINDOWS_LOGIN_USER,
+			},
+		},
+	}
+}
+
 func (self *SZStackGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	userName := "root"
 	if desc.OsType == "Windows" {

@@ -24,6 +24,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -55,6 +56,13 @@ func (self *SContainerDriver) GetHypervisor() string {
 
 func (self *SContainerDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ONECLOUD
+}
+
+func (self *SContainerDriver) GetInstanceCapability() cloudprovider.SInstanceCapability {
+	return cloudprovider.SInstanceCapability{
+		Hypervisor: self.GetHypervisor(),
+		Provider:   self.GetProvider(),
+	}
 }
 
 // for backward compatibility, deprecated driver

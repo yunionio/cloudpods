@@ -86,6 +86,39 @@ func (self *SAwsGuestDriver) GetWindowsUserDataType() string {
 	return cloudprovider.CLOUD_EC2
 }
 
+func (self *SAwsGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapability {
+	return cloudprovider.SInstanceCapability{
+		Hypervisor: self.GetHypervisor(),
+		Provider:   self.GetProvider(),
+		DefaultAccount: cloudprovider.SDefaultAccount{
+			Linux: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_LINUX_LOGIN_USER,
+				Changeable:     false,
+			},
+			Windows: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_WINDOWS_LOGIN_USER,
+				Changeable:     false,
+			},
+		},
+		Storages: cloudprovider.Storage{
+			DataDisk: []cloudprovider.StorageInfo{
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_GP2_SSD, MaxSizeGb: 16384, MinSizeGb: 1, StepSizeGb: 1, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_IO1_SSD, MaxSizeGb: 16384, MinSizeGb: 4, StepSizeGb: 1, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_ST1_HDD, MaxSizeGb: 16384, MinSizeGb: 500, StepSizeGb: 1, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_SC1_HDD, MaxSizeGb: 16384, MinSizeGb: 500, StepSizeGb: 1, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_STANDARD_HDD, MaxSizeGb: 1024, MinSizeGb: 1, StepSizeGb: 1, Resizable: true},
+			},
+			SysDisk: []cloudprovider.StorageInfo{
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_GP2_SSD, MaxSizeGb: 16384, MinSizeGb: 1, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_IO1_SSD, MaxSizeGb: 16384, MinSizeGb: 4, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_ST1_HDD, MaxSizeGb: 16384, MinSizeGb: 500, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_SC1_HDD, MaxSizeGb: 16384, MinSizeGb: 500, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_STANDARD_HDD, MaxSizeGb: 1024, MinSizeGb: 1, StepSizeGb: 1, Resizable: false},
+			},
+		},
+	}
+}
+
 func (self *SAwsGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	// return fetchAwsUserName(desc)
 	if desc.OsType == "Windows" {
