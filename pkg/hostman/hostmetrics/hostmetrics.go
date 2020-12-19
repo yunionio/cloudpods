@@ -39,7 +39,7 @@ import (
 )
 
 const (
-	TelegrafServer     = "http://localhost:8087/write"
+	TelegrafServer     = "http://127.0.0.1:8087/write"
 	MeasurementsPrefix = "vm_"
 )
 
