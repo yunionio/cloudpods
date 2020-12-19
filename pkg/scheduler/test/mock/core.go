@@ -13,6 +13,7 @@
 package mock
 
 import (
+	"math"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -165,11 +166,11 @@ func (mr *MockCandidatePropertyGetterMockRecorder) GetFreePort(arg0 interface{})
 }
 
 // GetFreeStorageSizeOfType mocks base method
-func (m *MockCandidatePropertyGetter) GetFreeStorageSizeOfType(arg0 string, arg1 bool) int64 {
+func (m *MockCandidatePropertyGetter) GetFreeStorageSizeOfType(arg0 string, arg1 bool) (int64, int64) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFreeStorageSizeOfType", arg0, arg1)
 	ret0, _ := ret[0].(int64)
-	return ret0
+	return ret0, math.MaxInt64
 }
 
 // GetFreeStorageSizeOfType indicates an expected call of GetFreeStorageSizeOfType
