@@ -177,7 +177,7 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 	conf += "  collect_memstats = false\n"
 	conf += "\n"
 	conf += "[[inputs.http_listener]]\n"
-	conf += "  service_address = \"localhost:8087\"\n"
+	conf += "  service_address = \"127.0.0.1:8087\"\n"
 	conf += "\n"
 	return conf
 }
@@ -211,7 +211,7 @@ func (s *STelegraf) BgReloadConf(kwargs map[string]interface{}) {
 
 func (s *STelegraf) ReloadTelegraf() error {
 	log.Infof("Start reolad telegraf...")
-	telegrafReoladUrl := "http://localhost:8087/reload"
+	telegrafReoladUrl := "http://127.0.0.1:8087/reload"
 	_, _, err := httputils.JSONRequest(
 		httputils.GetDefaultClient(), context.Background(),
 		"POST", telegrafReoladUrl, nil, nil, false,
