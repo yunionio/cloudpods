@@ -5200,8 +5200,6 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	// clean some of user input
 	userInput.GenerateName = ""
 	userInput.Description = ""
-	userInput.BillingType = ""
-	userInput.BillingCycle = ""
 	return userInput
 }
 
