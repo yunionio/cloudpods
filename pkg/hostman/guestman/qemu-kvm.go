@@ -806,6 +806,19 @@ func (s *SKVMGuestInstance) SaveDesc(desc jsonutils.JSONObject) error {
 	return nil
 }
 
+func (s *SKVMGuestInstance) GetVpcNIC() jsonutils.JSONObject {
+	nics, _ := s.Desc.GetArray("nics")
+	for _, nic := range nics {
+		vpcProvider, _ := nic.GetString("vpc", "provider")
+		if vpcProvider == compute.VPC_PROVIDER_OVN {
+			if ip, _ := nic.GetString("ip"); ip != "" {
+				return nic
+			}
+		}
+	}
+	return nil
+}
+
 func (s *SKVMGuestInstance) StartGuest(ctx context.Context, params *jsonutils.JSONDict) {
 	if params == nil {
 		params = jsonutils.NewDict()

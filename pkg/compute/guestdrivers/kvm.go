@@ -28,11 +28,13 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	host_api "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	guestdriver_types "yunion.io/x/onecloud/pkg/compute/guestdrivers/types"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -442,6 +444,106 @@ func (self *SKVMGuestDriver) RequestSaveImage(ctx context.Context, userCred mccl
 	opts := api.DiskSaveInput{}
 	task.GetParams().Unmarshal(&opts)
 	return disks.Root.StartDiskSaveTask(ctx, userCred, opts, task.GetTaskId())
+}
+
+func (self *SKVMGuestDriver) RequestOpenForward(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, req *guestdriver_types.OpenForwardRequest) (*guestdriver_types.OpenForwardResponse, error) {
+	var (
+		host       = guest.GetHost()
+		url        = fmt.Sprintf("%s/servers/%s/open-forward", host.ManagerUri, guest.Id)
+		httpClient = httputils.GetDefaultClient()
+		header     = mcclient.GetTokenHeaders(userCred)
+		hostreq    = &host_api.GuestOpenForwardRequest{
+			NetworkId: req.NetworkId,
+			Proto:     req.Proto,
+			Addr:      req.Addr,
+			Port:      req.Port,
+		}
+		body = jsonutils.Marshal(hostreq)
+	)
+	_, respBody, err := httputils.JSONRequest(httpClient, ctx, "POST", url, header, body, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "host request")
+	}
+	hostresp := &host_api.GuestOpenForwardResponse{}
+	if err := respBody.Unmarshal(hostresp); err != nil {
+		return nil, errors.Wrap(err, "unmarshal host response")
+	}
+	resp := &guestdriver_types.OpenForwardResponse{
+		Proto:     hostresp.Proto,
+		ProxyAddr: hostresp.ProxyAddr,
+		ProxyPort: hostresp.ProxyPort,
+		Addr:      hostresp.Addr,
+		Port:      hostresp.Port,
+	}
+	return resp, nil
+}
+
+func (self *SKVMGuestDriver) RequestCloseForward(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, req *guestdriver_types.CloseForwardRequest) (*guestdriver_types.CloseForwardResponse, error) {
+	var (
+		host       = guest.GetHost()
+		url        = fmt.Sprintf("%s/servers/%s/close-forward", host.ManagerUri, guest.Id)
+		httpClient = httputils.GetDefaultClient()
+		header     = mcclient.GetTokenHeaders(userCred)
+		hostreq    = &host_api.GuestCloseForwardRequest{
+			NetworkId: req.NetworkId,
+			Proto:     req.Proto,
+			ProxyAddr: req.ProxyAddr,
+			ProxyPort: req.ProxyPort,
+		}
+		body = jsonutils.Marshal(hostreq)
+	)
+	_, respBody, err := httputils.JSONRequest(httpClient, ctx, "POST", url, header, body, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "host request")
+	}
+	hostresp := &host_api.GuestCloseForwardResponse{}
+	if err := respBody.Unmarshal(hostresp); err != nil {
+		return nil, errors.Wrap(err, "unmarshal host response")
+	}
+	resp := &guestdriver_types.CloseForwardResponse{
+		Proto:     hostresp.Proto,
+		ProxyAddr: hostresp.ProxyAddr,
+		ProxyPort: hostresp.ProxyPort,
+	}
+	return resp, nil
+}
+
+func (self *SKVMGuestDriver) RequestListForward(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, req *guestdriver_types.ListForwardRequest) (*guestdriver_types.ListForwardResponse, error) {
+	var (
+		host       = guest.GetHost()
+		url        = fmt.Sprintf("%s/servers/%s/list-forward", host.ManagerUri, guest.Id)
+		httpClient = httputils.GetDefaultClient()
+		header     = mcclient.GetTokenHeaders(userCred)
+		hostreq    = &host_api.GuestListForwardRequest{
+			NetworkId: req.NetworkId,
+			Proto:     req.Proto,
+			Addr:      req.Addr,
+			Port:      req.Port,
+		}
+		body = jsonutils.Marshal(hostreq)
+	)
+	_, respBody, err := httputils.JSONRequest(httpClient, ctx, "POST", url, header, body, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "host request")
+	}
+	hostresp := &host_api.GuestListForwardResponse{}
+	if err := respBody.Unmarshal(hostresp); err != nil {
+		return nil, errors.Wrap(err, "unmarshal host response")
+	}
+	var respForwards []guestdriver_types.OpenForwardResponse
+	for i := range hostresp.Forwards {
+		respForwards = append(respForwards, guestdriver_types.OpenForwardResponse{
+			Proto:     hostresp.Forwards[i].Proto,
+			ProxyAddr: hostresp.Forwards[i].ProxyAddr,
+			ProxyPort: hostresp.Forwards[i].ProxyPort,
+			Addr:      hostresp.Forwards[i].Addr,
+			Port:      hostresp.Forwards[i].Port,
+		})
+	}
+	resp := &guestdriver_types.ListForwardResponse{
+		Forwards: respForwards,
+	}
+	return resp, nil
 }
 
 func (self *SKVMGuestDriver) GetDetachDiskStatus() ([]string, error) {

@@ -117,7 +117,8 @@ type SHostOptions struct {
 	AllowSwitchVMs bool `help:"allow machines run as switch (spoof mac)" default:"true"`
 	AllowRouterVMs bool `help:"allow machines run as router (spoof ip)" default:"true"`
 
-	SdnPidFile        string `help:"pid file for sdnagent" default:"$SDN_PID_FILE|/var/run/yunion-sdnagent.pid"`
+	SdnPidFile        string `help:"pid file for sdnagent" default:"$SDN_PID_FILE|/var/run/onecloud/sdnagent.pid"`
+	SdnSocketPath     string `help:"sdnagent listen socket path" default:"/var/run/onecloud/sdnagent.sock"`
 	SdnEnableGuestMan bool   `help:"enable guest network manager in sdnagent" default:"$SDN_ENABLE_GUEST_MAN|true"`
 	SdnEnableEipMan   bool   `help:"enable eip network manager in sdnagent" default:"$SDN_ENABLE_EIP_MAN|false"`
 

@@ -33,7 +33,11 @@ import (
 	"yunion.io/x/pkg/util/seclib"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	fwd "yunion.io/x/onecloud/pkg/hostman/guestman/forwarder"
+	fwdpb "yunion.io/x/onecloud/pkg/hostman/guestman/forwarder/api"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -379,6 +383,152 @@ func (m *SGuestManager) Monitor(sid, cmd string, callback func(string)) error {
 	} else {
 		return httperrors.NewNotFoundError("Not found")
 	}
+}
+
+func (m *SGuestManager) sdnClient() (fwdpb.ForwarderClient, error) {
+	sockPath := options.HostOptions.SdnSocketPath
+	if strings.HasPrefix(sockPath, "/") {
+		sockPath = "unix://" + sockPath
+	}
+	cli, err := fwd.NewClient(sockPath)
+	return cli, err
+}
+
+func (m *SGuestManager) OpenForward(ctx context.Context, sid string, req *hostapi.GuestOpenForwardRequest) (*hostapi.GuestOpenForwardResponse, error) {
+	guest, ok := m.GetServer(sid)
+	if !ok {
+		return nil, httperrors.NewNotFoundError("Not found")
+	}
+	if !guest.IsRunning() {
+		return nil, httperrors.NewBadRequestError("Server stopped??")
+	}
+
+	nic := guest.GetVpcNIC()
+	if nic == nil {
+		return nil, httperrors.NewBadRequestError("no vpc nic")
+	}
+
+	netId, _ := nic.GetString("net_id")
+	if netId == "" {
+		return nil, httperrors.NewBadRequestError("no network id")
+	}
+	ip, _ := nic.GetString("ip")
+	if ip == "" {
+		return nil, httperrors.NewBadRequestError("no vpc ip")
+	}
+	pbreq := &fwdpb.OpenRequest{
+		NetId:      netId,
+		Proto:      req.Proto,
+		BindAddr:   m.host.GetMasterIp(),
+		RemoteAddr: ip,
+		RemotePort: uint32(req.Port),
+	}
+	cli, err := m.sdnClient()
+	if err != nil {
+		log.Errorf("new sdn client error: %v", err)
+		return nil, httperrors.NewBadGatewayError("lost sdn connection")
+	}
+	resp, err := cli.Open(ctx, pbreq)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	output := &hostapi.GuestOpenForwardResponse{
+		Proto: resp.Proto,
+		Addr:  resp.RemoteAddr,
+		Port:  int(resp.RemotePort),
+
+		ProxyAddr: resp.BindAddr,
+		ProxyPort: int(resp.BindPort),
+	}
+	return output, nil
+}
+
+func (m *SGuestManager) CloseForward(ctx context.Context, sid string, req *hostapi.GuestCloseForwardRequest) (*hostapi.GuestCloseForwardResponse, error) {
+	guest, ok := m.GetServer(sid)
+	if !ok {
+		return nil, httperrors.NewNotFoundError("Not found")
+	}
+
+	nic := guest.GetVpcNIC()
+	if nic == nil {
+		return nil, httperrors.NewBadRequestError("no vpc nic")
+	}
+
+	netId, _ := nic.GetString("net_id")
+	if netId == "" {
+		return nil, httperrors.NewBadRequestError("no network id")
+	}
+	pbreq := &fwdpb.CloseRequest{
+		NetId:    netId,
+		Proto:    req.Proto,
+		BindAddr: req.ProxyAddr,
+		BindPort: uint32(req.ProxyPort),
+	}
+	cli, err := m.sdnClient()
+	if err != nil {
+		log.Errorf("new sdn client error: %v", err)
+		return nil, httperrors.NewBadGatewayError("lost sdn connection")
+	}
+	resp, err := cli.Close(ctx, pbreq)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	output := &hostapi.GuestCloseForwardResponse{
+		Proto:     resp.Proto,
+		ProxyAddr: resp.BindAddr,
+		ProxyPort: int(resp.BindPort),
+	}
+	return output, nil
+}
+
+func (m *SGuestManager) ListForward(ctx context.Context, sid string, req *hostapi.GuestListForwardRequest) (*hostapi.GuestListForwardResponse, error) {
+	guest, ok := m.GetServer(sid)
+	if !ok {
+		return nil, httperrors.NewNotFoundError("Not found")
+	}
+	if !guest.IsRunning() {
+		return nil, httperrors.NewBadRequestError("Server stopped??")
+	}
+
+	nic := guest.GetVpcNIC()
+	if nic == nil {
+		return nil, httperrors.NewBadRequestError("no vpc nic")
+	}
+
+	netId, _ := nic.GetString("net_id")
+	if netId == "" {
+		return nil, httperrors.NewBadRequestError("no network id")
+	}
+	pbreq := &fwdpb.ListByRemoteRequest{
+		NetId:      netId,
+		Proto:      req.Proto,
+		RemoteAddr: req.Addr,
+		RemotePort: uint32(req.Port),
+	}
+	cli, err := m.sdnClient()
+	if err != nil {
+		log.Errorf("new sdn client error: %v", err)
+		return nil, httperrors.NewBadGatewayError("lost sdn connection")
+	}
+	resp, err := cli.ListByRemote(ctx, pbreq)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	var outputForwards []hostapi.GuestOpenForwardResponse
+	for i := range resp.Forwards {
+		outputForwards = append(outputForwards, hostapi.GuestOpenForwardResponse{
+			Proto: resp.Forwards[i].Proto,
+			Addr:  resp.Forwards[i].RemoteAddr,
+			Port:  int(resp.Forwards[i].RemotePort),
+
+			ProxyAddr: resp.Forwards[i].BindAddr,
+			ProxyPort: int(resp.Forwards[i].BindPort),
+		})
+	}
+	output := &hostapi.GuestListForwardResponse{
+		Forwards: outputForwards,
+	}
+	return output, nil
 }
 
 func (m *SGuestManager) GuestCreate(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
@@ -787,7 +937,7 @@ func (m *SGuestManager) OnlineResizeDisk(ctx context.Context, sid string, diskId
 // 	if !ok {
 // 		return nil, hostutils.ParamsError
 // 	}
-// 	guest := guestManger.Servers[sid]
+// 	guest := guestManager.Servers[sid]
 // 	port := m.GetFreePortByBase(BUILT_IN_NBD_SERVER_PORT_BASE)
 
 // }
@@ -867,18 +1017,20 @@ func (m *SGuestManager) RequestVerifyDirtyServer(s *SKVMGuestInstance) {
 	}
 }
 
-var guestManger *SGuestManager
+var guestManager *SGuestManager
 
 func Stop() {
-	guestManger.ExitGuestCleanup()
+	guestManager.ExitGuestCleanup()
 }
 
 func Init(host hostutils.IHost, serversPath string) {
-	if guestManger == nil {
-		guestManger = NewGuestManager(host, serversPath)
+	if guestManager == nil {
+		guestManager = NewGuestManager(host, serversPath)
+		types.HealthCheckReactor = guestManager
+		types.GuestDescGetter = guestManager
 	}
 }
 
 func GetGuestManager() *SGuestManager {
-	return guestManger
+	return guestManager
 }

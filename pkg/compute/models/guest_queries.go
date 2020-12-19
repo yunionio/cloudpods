@@ -365,6 +365,14 @@ func (self *SGuest) GetRealIPs() []string {
 	return nil
 }
 
+func (self *SGuest) fetchNICShortDesc(ctx context.Context) []api.GuestnetworkShortDesc {
+	nicsMap := fetchGuestNICs(ctx, []string{self.Id}, tristate.False)
+	if nicsMap == nil {
+		return nil
+	}
+	return nicsMap[self.Id]
+}
+
 type sGuestVpcsInfo struct {
 	GuestId            string
 	Vpc                []string
