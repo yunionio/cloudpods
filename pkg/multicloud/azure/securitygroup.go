@@ -479,6 +479,19 @@ func (self *SSecurityGroup) SetRules(rules []cloudprovider.SecurityRule) error {
 }
 
 func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
-	rules := append(common, append(inAdds, outAdds...)...)
+	for i := range common {
+		switch common[i].Direction {
+		case secrules.DIR_IN:
+			inAdds = append(inAdds, common[i])
+		case secrules.DIR_OUT:
+			outAdds = append(outAdds, common[i])
+		default:
+			return fmt.Errorf("invalid rule %s direction %s", common[i].String(), common[i].Direction)
+		}
+	}
+	// Azure 不允许同方向的规则优先级相同
+	inRules := cloudprovider.SortUniqPriority(inAdds)
+	outRules := cloudprovider.SortUniqPriority(outAdds)
+	rules := append(inRules, outRules...)
 	return self.SetRules(rules)
 }
