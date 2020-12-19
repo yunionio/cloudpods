@@ -73,9 +73,9 @@ type BaseOptions struct {
 	NotifyAdminUsers  []string `default:"sysadmin" help:"System administrator user ID or name to notify system events, if domain is not default, specify domain as prefix ending with double backslash, e.g. domain\\\\user"`
 	NotifyAdminGroups []string `help:"System administrator group ID or name to notify system events, if domain is not default, specify domain as prefix ending with double backslash, e.g. domain\\\\group"`
 
-	EnableRbac                  bool `help:"Switch on Role-based Access Control" default:"true"`
-	RbacDebug                   bool `help:"turn on rbac debug log" default:"false"`
-	RbacPolicySyncPeriodSeconds int  `help:"policy sync interval in seconds, default half a minute" default:"30"`
+	EnableRbac                       bool `help:"Switch on Role-based Access Control" default:"true"`
+	RbacDebug                        bool `help:"turn on rbac debug log" default:"false"`
+	RbacPolicyRefreshIntervalSeconds int  `help:"policy refresh interval in seconds, default half a minute" default:"30"`
 	// RbacPolicySyncFailedRetrySeconds int  `help:"seconds to wait after a failed sync, default 30 seconds" default:"30"`
 
 	ConfigSyncPeriodSeconds int `help:"service config sync interval in seconds, default 30 minutes" default:"1800"`
