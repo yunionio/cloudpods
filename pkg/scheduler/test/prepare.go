@@ -169,7 +169,7 @@ func buildGetter(ctrl *gomock.Controller, param sGetterParams) *mock.MockCandida
 	cg.EXPECT().FreeCPUCount(gomock.Any()).AnyTimes().Return(param.FreeCPUCount)
 	cg.EXPECT().TotalMemorySize(gomock.Any()).AnyTimes().Return(param.TotalMemorySize)
 	cg.EXPECT().FreeMemorySize(gomock.Any()).AnyTimes().Return(param.FreeMemorySize)
-	cg.EXPECT().GetFreeStorageSizeOfType(gomock.Any(), gomock.Any()).AnyTimes().Return(param.FreeStorageSizeAnyType)
+	cg.EXPECT().GetFreeStorageSizeOfType(gomock.Any(), gomock.Any()).AnyTimes().Return(param.FreeStorageSizeAnyType, int64(0))
 	cg.EXPECT().GetFreePort(gomock.Any()).AnyTimes().Return(param.FreePort)
 	if param.QuotaKeys != nil {
 		cg.EXPECT().GetQuotaKeys(gomock.Any()).AnyTimes().Return(param.QuotaKeys)
