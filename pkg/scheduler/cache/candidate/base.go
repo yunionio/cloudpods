@@ -207,14 +207,16 @@ func (b baseHostGetter) TotalMemorySize(_ bool) int64 {
 	return int64(b.h.MemSize)
 }
 
-func (b baseHostGetter) GetFreeStorageSizeOfType(storageType string, useRsvd bool) int64 {
+func (b baseHostGetter) GetFreeStorageSizeOfType(storageType string, useRsvd bool) (int64, int64) {
 	var size int64
+	var actualSize int64
 	for _, s := range b.Storages() {
 		if s.StorageType == storageType {
 			size += int64(float32(s.Capacity) * s.Cmtbound)
+			actualSize += s.Capacity - s.ActualCapacityUsed
 		}
 	}
-	return size
+	return size, actualSize
 }
 
 func (b baseHostGetter) GetFreePort(netId string) int {

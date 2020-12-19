@@ -53,7 +53,7 @@ type SchedInfo struct {
 	UserCred mcclient.TokenCredential
 }
 
-func fetchAuthToken(req *http.Request) (mcclient.TokenCredential, error) {
+func FetchAuthToken(req *http.Request) (mcclient.TokenCredential, error) {
 	tokenStr := req.Header.Get(identity.AUTH_TOKEN_HEADER)
 	if tokenStr == "" {
 		return nil, errors.Wrap(httperrors.ErrInvalidCredential, "missing token header")
@@ -65,10 +65,19 @@ func fetchAuthToken(req *http.Request) (mcclient.TokenCredential, error) {
 	return token, nil
 }
 
-func FetchSchedInfo(req *http.Request) (*SchedInfo, error) {
-	token, err := fetchAuthToken(req)
+func FetchUserCred(req *http.Request) (mcclient.TokenCredential, error) {
+	token, err := FetchAuthToken(req)
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchAuthToken")
+	}
+	userCred := policy.FilterPolicyCredential(token)
+	return userCred, nil
+}
+
+func FetchSchedInfo(req *http.Request) (*SchedInfo, error) {
+	userCred, err := FetchUserCred(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "fetch user cred")
 	}
 
 	body, err := appsrv.FetchJSON(req)
@@ -84,7 +93,7 @@ func FetchSchedInfo(req *http.Request) (*SchedInfo, error) {
 	input = models.ApplySchedPolicies(input)
 
 	data := NewSchedInfo(input)
-	data.UserCred = policy.FilterPolicyCredential(token)
+	data.UserCred = userCred
 
 	domainId := data.Domain
 	for _, net := range data.Networks {

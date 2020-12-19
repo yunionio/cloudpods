@@ -72,11 +72,26 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		return false
 	}
 
-	getStorageCapacity := func(backend string, reqMaxSize int64, reqTotalSize int64, useRsvd bool) (int64, int64) {
-		totalFree := getter.GetFreeStorageSizeOfType(backend, useRsvd)
-		capacity := totalFree / utils.Max(reqTotalSize, 1)
+	type storageCapacity struct {
+		capacity int64
+		free     int64
+		isActual bool
+	}
 
-		return capacity, totalFree
+	newStorageCapacity := func(capacity int64, free int64, isActual bool) *storageCapacity {
+		return &storageCapacity{
+			capacity: capacity,
+			free:     free,
+			isActual: isActual,
+		}
+	}
+
+	getStorageCapacity := func(backend string, reqMaxSize int64, reqTotalSize int64, useRsvd bool) (*storageCapacity, *storageCapacity) {
+		totalFree, actualFree := getter.GetFreeStorageSizeOfType(backend, useRsvd)
+		reqTotalSize = utils.Max(reqTotalSize, 1)
+		capacity := totalFree / reqTotalSize
+		actualCapacity := actualFree / reqTotalSize
+		return newStorageCapacity(capacity, totalFree, false), newStorageCapacity(actualCapacity, actualFree, true)
 	}
 
 	getReqSizeStr := func(backend string) string {
@@ -90,15 +105,21 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		return strings.Join(ss, "+")
 	}
 
-	getStorageFreeStr := func(backend string, useRsvd bool) string {
+	getStorageFreeStr := func(backend string, useRsvd bool, isActual bool) string {
 		ss := []string{}
 		for _, s := range getter.Storages() {
 			if s.StorageType == backend {
-				total := int64(float32(s.Capacity) * s.Cmtbound)
-				used := s.GetUsedCapacity(tristate.True)
-				waste := s.GetUsedCapacity(tristate.False)
-				free := total - int64(used) - int64(waste)
-				ss = append(ss, fmt.Sprintf("(%v-%v-%v=%v)", total, used, waste, free))
+				if isActual {
+					total := s.Capacity
+					free := total - s.ActualCapacityUsed
+					ss = append(ss, fmt.Sprintf("actual_total:%d - actual_used:%d = free:%d", total, s.ActualCapacityUsed, free))
+				} else {
+					total := int64(float32(s.Capacity) * s.Cmtbound)
+					used := s.GetUsedCapacity(tristate.True)
+					waste := s.GetUsedCapacity(tristate.False)
+					free := total - int64(used) - int64(waste)
+					ss = append(ss, fmt.Sprintf("total:%d - used:%d - waste:%d = free:%d", total, used, waste, free))
+				}
 			}
 		}
 		return strings.Join(ss, " + ")
@@ -130,14 +151,28 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 
 	useRsvd := h.UseReserved()
 	minCapacity := int64(0xFFFFFFFF)
-	for be, req := range sizeRequest {
-		capacity, totalFree := getStorageCapacity(be, req["max"], req["total"], useRsvd)
-		if capacity == 0 {
-			s := fmt.Sprintf("no enough %q storage, req=%v(%v), free=%v(%v)",
-				be, req["total"], getReqSizeStr(be), totalFree, getStorageFreeStr(be, useRsvd))
-			h.AppendPredicateFailMsg(s)
+
+	appendFailMsg := func(backend string, req map[string]int64, useRsvd bool, capacity *storageCapacity) {
+		reqStr := fmt.Sprintf("no enough %q storage, req=%v(%v)", backend, req["total"], getReqSizeStr(backend))
+		freePrex := "free"
+		isActual := capacity.isActual
+		if isActual {
+			freePrex = "actual_free"
 		}
-		minCapacity = utils.Min(minCapacity, capacity)
+		freeStr := fmt.Sprintf("%s=%v(%v)", freePrex, capacity.free, getStorageFreeStr(backend, useRsvd, isActual))
+		msg := reqStr + ", " + freeStr
+		h.AppendPredicateFailMsg(msg)
+	}
+
+	for be, req := range sizeRequest {
+		capacity, actualCapacity := getStorageCapacity(be, req["max"], req["total"], useRsvd)
+		tmpCap := utils.Min(capacity.capacity, actualCapacity.capacity)
+		if capacity.capacity <= 0 {
+			appendFailMsg(be, req, useRsvd, capacity)
+		} else if actualCapacity.capacity <= 0 {
+			appendFailMsg(be, req, useRsvd, actualCapacity)
+		}
+		minCapacity = utils.Min(minCapacity, tmpCap)
 	}
 
 	h.SetCapacity(minCapacity)
