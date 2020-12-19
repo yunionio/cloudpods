@@ -164,6 +164,39 @@ func (self *SAliyunGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return api.VM_READY
 }
 
+func (self *SAliyunGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapability {
+	return cloudprovider.SInstanceCapability{
+		Hypervisor: self.GetHypervisor(),
+		Provider:   self.GetProvider(),
+		DefaultAccount: cloudprovider.SDefaultAccount{
+			Linux: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_LINUX_LOGIN_USER,
+				Changeable:     false,
+			},
+			Windows: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_WINDOWS_LOGIN_USER,
+				Changeable:     false,
+			},
+		},
+		Storages: cloudprovider.Storage{
+			DataDisk: []cloudprovider.StorageInfo{
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_EFFICIENCY, MaxSizeGb: 32768, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_SSD, MaxSizeGb: 32768, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_ESSD, MaxSizeGb: 32768, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_ESSD_PL2, MaxSizeGb: 32768, MinSizeGb: 461, StepSizeGb: 1, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_ESSD_PL3, MaxSizeGb: 32768, MinSizeGb: 1261, StepSizeGb: 1, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_PUBLIC_CLOUD, MaxSizeGb: 2000, MinSizeGb: 5, StepSizeGb: 1, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_EPHEMERAL_SSD, MaxSizeGb: 800, MinSizeGb: 5, StepSizeGb: 1, Resizable: true},
+			},
+			SysDisk: []cloudprovider.StorageInfo{
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_EFFICIENCY, MaxSizeGb: 500, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_SSD, MaxSizeGb: 500, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_CLOUD_ESSD, MaxSizeGb: 500, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
+			},
+		},
+	}
+}
+
 func (self *SAliyunGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	userName := "root"
 	if desc.OsType == "Windows" {

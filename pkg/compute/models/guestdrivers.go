@@ -95,6 +95,7 @@ type IGuestDriver interface {
 	GetGuestInitialStateAfterCreate() string
 	GetGuestInitialStateAfterRebuild() string
 	GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string
+	GetInstanceCapability() cloudprovider.SInstanceCapability
 
 	OnGuestDeployTaskDataReceived(ctx context.Context, guest *SGuest, task taskman.ITask, data jsonutils.JSONObject) error
 
