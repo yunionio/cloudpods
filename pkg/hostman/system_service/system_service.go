@@ -100,6 +100,8 @@ func (s *SBaseSystemService) reloadConf(conf, conFile string) (bool, error) {
 	oldConf := string(output)
 	if strings.TrimSpace(conf) != strings.TrimSpace(oldConf) {
 		log.Debugf("Reload service %s ...", s.name)
+		log.Debugf("oldConf: [%s]", oldConf)
+		log.Debugf("newConf: [%s]", conf)
 		err := procutils.NewRemoteCommandAsFarAsPossible("rm", "-f", conFile).Run()
 		if err != nil {
 			return false, err
