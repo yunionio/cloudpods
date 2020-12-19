@@ -65,6 +65,33 @@ func (self *SGoogleGuestDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_GOOGLE
 }
 
+func (self *SGoogleGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapability {
+	return cloudprovider.SInstanceCapability{
+		Hypervisor: self.GetHypervisor(),
+		Provider:   self.GetProvider(),
+		DefaultAccount: cloudprovider.SDefaultAccount{
+			Linux: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_LINUX_LOGIN_USER,
+			},
+			Windows: cloudprovider.SOsDefaultAccount{
+				DefaultAccount: api.VM_DEFAULT_WINDOWS_LOGIN_USER,
+			},
+		},
+		Storages: cloudprovider.Storage{
+			DataDisk: []cloudprovider.StorageInfo{
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_GOOGLE_PD_SSD, MaxSizeGb: 65536, MinSizeGb: 10, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_GOOGLE_PD_STANDARD, MaxSizeGb: 65536, MinSizeGb: 10, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_GOOGLE_PD_BALANCED, MaxSizeGb: 65536, MinSizeGb: 10, StepSizeGb: 1, Resizable: false},
+			},
+			SysDisk: []cloudprovider.StorageInfo{
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_GOOGLE_PD_SSD, MaxSizeGb: 65536, MinSizeGb: 10, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_GOOGLE_PD_STANDARD, MaxSizeGb: 65536, MinSizeGb: 10, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_GOOGLE_PD_BALANCED, MaxSizeGb: 65536, MinSizeGb: 10, StepSizeGb: 1, Resizable: false},
+			},
+		},
+	}
+}
+
 func (self *SGoogleGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_GOOGLE_PD_STANDARD
 }

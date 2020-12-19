@@ -249,6 +249,8 @@ var HOSTTYPE_HYPERVISOR = map[string]string{
 }
 
 const (
+	VM_DEFAULT_WINDOWS_LOGIN_USER     = "Administrator"
+	VM_DEFAULT_LINUX_LOGIN_USER       = "root"
 	VM_AWS_DEFAULT_LOGIN_USER         = "ec2user"
 	VM_AWS_DEFAULT_WINDOWS_LOGIN_USER = "Administrator"
 	VM_AZURE_DEFAULT_LOGIN_USER       = "toor"
