@@ -649,7 +649,7 @@ func _jsonRequest(client *autorest.Client, method, domain, path string, body jso
 		return ""
 	}
 	location := locationFunc(header)
-	if len(location) > 0 && (body == nil || body.IsZero()) {
+	if len(location) > 0 && (body == nil || body.IsZero() || !body.Contains("id")) {
 		err = cloudprovider.Wait(time.Second*10, time.Minute*30, func() (bool, error) {
 			req := httputils.NewJsonRequest(httputils.GET, location, nil)
 			lae := AzureResponseError{}
@@ -670,7 +670,7 @@ func _jsonRequest(client *autorest.Client, method, domain, path string, body jso
 				task := struct {
 					Status     string
 					Properties struct {
-						Output *jsonutils.JSONObject
+						Output *jsonutils.JSONDict
 					}
 				}{}
 				_body.Unmarshal(&task)
@@ -685,9 +685,9 @@ func _jsonRequest(client *autorest.Client, method, domain, path string, body jso
 				case "Succeeded":
 					log.Debugf("process %s %s Succeeded", method, path)
 					if task.Properties.Output != nil {
-						body = *task.Properties.Output
-						return true, nil
+						body = task.Properties.Output
 					}
+					return true, nil
 				case "Failed":
 					return false, fmt.Errorf("%s %s failed", method, path)
 				default:
@@ -697,7 +697,7 @@ func _jsonRequest(client *autorest.Client, method, domain, path string, body jso
 			return false, nil
 		})
 		if err != nil {
-			return nil, errors.Wrapf(err, "time out for waiting %s %s")
+			return nil, errors.Wrapf(err, "time out for waiting %s %s", method, url)
 		}
 	}
 	return body, nil
