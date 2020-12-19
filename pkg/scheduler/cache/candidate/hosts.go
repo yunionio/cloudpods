@@ -85,7 +85,7 @@ func (h *hostGetter) StorageInfo() []*baremetal.BaremetalStorage {
 	return nil
 }
 
-func (h *hostGetter) GetFreeStorageSizeOfType(storageType string, useRsvd bool) int64 {
+func (h *hostGetter) GetFreeStorageSizeOfType(storageType string, useRsvd bool) (int64, int64) {
 	return h.h.GetFreeStorageSizeOfType(storageType, useRsvd)
 }
 
@@ -317,15 +317,18 @@ func (h *HostDesc) freeStorageSize(onlyLocal, useRsvd bool) int64 {
 	return total
 }
 
-func (h *HostDesc) GetFreeStorageSizeOfType(sType string, useRsvd bool) int64 {
+func (h *HostDesc) GetFreeStorageSizeOfType(sType string, useRsvd bool) (int64, int64) {
 	return h.freeStorageSizeOfType(sType, useRsvd)
 }
 
-func (h *HostDesc) freeStorageSizeOfType(storageType string, useRsvd bool) int64 {
+func (h *HostDesc) freeStorageSizeOfType(storageType string, useRsvd bool) (int64, int64) {
 	var total int64
+	var actualTotal int64
+
 	for _, storage := range h.Storages {
 		if storage.StorageType == storageType {
 			total += int64(storage.GetFreeCapacity())
+			actualTotal += storage.Capacity - storage.ActualCapacityUsed
 		}
 	}
 	if utils.IsLocalStorage(storageType) {
@@ -336,10 +339,10 @@ func (h *HostDesc) freeStorageSizeOfType(storageType string, useRsvd bool) int64
 		}
 	}
 	if useRsvd {
-		return reservedResourceAddCal(total, h.GuestReservedStorageSizeFree(), useRsvd)
+		return reservedResourceAddCal(total, h.GuestReservedStorageSizeFree(), useRsvd), actualTotal
 	}
 
-	return total - int64(h.GetPendingUsage().DiskUsage.Get(storageType))
+	return total - int64(h.GetPendingUsage().DiskUsage.Get(storageType)), actualTotal
 }
 
 func (h *HostDesc) GetFreePort(netId string) int {
