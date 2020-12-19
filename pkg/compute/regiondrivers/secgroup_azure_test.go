@@ -233,3 +233,39 @@ func TestAzureRuleSync(t *testing.T) {
 		check(t, "outDels", outDels, d.OutDels)
 	}
 }
+
+func TestAzureUniqPriorityRuleSync(t *testing.T) {
+	cases := []struct {
+		in  cloudprovider.SecurityRuleSet
+		out cloudprovider.SecurityRuleSet
+	}{
+		{
+			in: cloudprovider.SecurityRuleSet{
+				remoteRuleWithName("", "out:allow icmp", 99),
+				remoteRuleWithName("", "out:allow tcp 100-200", 99),
+				remoteRuleWithName("", "out:allow udp 200-300", 99),
+			},
+			out: cloudprovider.SecurityRuleSet{
+				remoteRuleWithName("", "out:allow icmp", 99),
+				remoteRuleWithName("", "out:allow tcp 100-200", 98),
+				remoteRuleWithName("", "out:allow udp 200-300", 97),
+			},
+		},
+	}
+
+	for _, c := range cases {
+		rules := cloudprovider.SortUniqPriority(c.in)
+		if len(c.out) != len(rules) {
+			t.Fatalf("invalid output")
+		}
+		for i := range rules {
+			if rules[i].String() != c.out[i].String() {
+				t.Fatalf("rule shoud be %s not %s", c.out[i].String(), rules[i].String())
+			}
+			if rules[i].Priority != c.out[i].Priority {
+				t.Fatalf("rule %s priority should be %d not %d", rules[i].String(), c.out[i].Priority, rules[i].Priority)
+			}
+		}
+	}
+
+}
