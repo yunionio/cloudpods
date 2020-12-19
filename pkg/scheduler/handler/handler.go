@@ -162,7 +162,13 @@ func doCandidateList(c *gin.Context) {
 }
 
 func doCandidateDetail(c *gin.Context, id string) {
-	hs, err := computemodels.HostManager.FetchById(id)
+	userCred, err := api.FetchUserCred(c.Request)
+	if err != nil {
+		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
+	hs, err := computemodels.HostManager.FetchByIdOrName(userCred, id)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
@@ -176,7 +182,7 @@ func doCandidateDetail(c *gin.Context, id string) {
 	host := hs.(*computemodels.SHost)
 
 	args := new(api.CandidateDetailArgs)
-	args.ID = id
+	args.ID = host.GetId()
 	if host.HostType == computeapi.HOST_TYPE_BAREMETAL {
 		args.Type = api.HostTypeBaremetal
 	} else {

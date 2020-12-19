@@ -61,7 +61,7 @@ func init() {
 		ID                    string  `help:"ID or Name of storage to update"`
 		Name                  string  `help:"New Name of storage"`
 		Desc                  string  `help:"Description"`
-		CommitBound           float64 `help:"Upper bound of storage overcommit rate"`
+		CommitBound           float64 `help:"Upper bound of storage overcommit rate" json:"cmtbound"`
 		MediumType            string  `help:"Medium type" choices:"ssd|rotate"`
 		RbdRadosMonOpTimeout  int64   `help:"ceph rados_mon_op_timeout"`
 		RbdRadosOsdOpTimeout  int64   `help:"ceph rados_osd_op_timeout"`
