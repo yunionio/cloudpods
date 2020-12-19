@@ -450,6 +450,8 @@ type UserUpdateInput struct {
 	Password string `json:"password"`
 
 	SkipPasswordComplexityCheck *bool `json:"skip_password_complexity_check"`
+
+	Lang string `json:"lang"`
 }
 
 type UserCreateInput struct {
@@ -474,6 +476,8 @@ type UserCreateInput struct {
 	IdpId string `json:"idp_id"`
 
 	IdpEntityId string `json:"idp_entity_id"`
+
+	Lang string `json:"lang"`
 }
 
 type ProjectCreateInput struct {

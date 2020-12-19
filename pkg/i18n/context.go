@@ -13,6 +13,10 @@ const (
 	ctxLangKey = ctxLang(0)
 )
 
+var (
+	defaultLang = language.English
+)
+
 func WithLangTag(ctx context.Context, tag language.Tag) context.Context {
 	return context.WithValue(ctx, ctxLangKey, tag)
 }
@@ -20,7 +24,7 @@ func WithLangTag(ctx context.Context, tag language.Tag) context.Context {
 func WithLang(ctx context.Context, lang string) context.Context {
 	tag, err := language.Parse(lang)
 	if err != nil {
-		tag = language.English
+		tag = defaultLang
 	}
 	return WithLangTag(ctx, tag)
 }
@@ -35,7 +39,7 @@ func WithRequestLang(ctx context.Context, req *http.Request) context.Context {
 	if cookie, err := req.Cookie("lang"); err == nil {
 		return WithLang(ctx, cookie.Value)
 	}
-	return WithLangTag(ctx, language.English)
+	return WithLangTag(ctx, defaultLang)
 }
 
 func Lang(ctx context.Context) language.Tag {
@@ -46,7 +50,7 @@ func Lang(ctx context.Context) language.Tag {
 	if langv != nil {
 		lang = langv.(language.Tag)
 	} else {
-		lang = language.English
+		lang = defaultLang
 	}
 	return lang
 }
