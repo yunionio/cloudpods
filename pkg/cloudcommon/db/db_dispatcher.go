@@ -611,7 +611,12 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		}
 		union, err := sqlchemy.UnionWithError(subqs...)
 		if err != nil {
-			return nil, errors.Wrap(err, "sqlchemy.UnionWithError")
+			if errors.Cause(err) == sql.ErrNoRows {
+				emptyList := modulebase.ListResult{Data: []jsonutils.JSONObject{}}
+				return &emptyList, nil
+			} else {
+				return nil, errors.Wrap(err, "sqlchemy.UnionWithError")
+			}
 		}
 		q = union.Query()
 	} else {
