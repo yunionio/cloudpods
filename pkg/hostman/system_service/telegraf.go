@@ -15,8 +15,13 @@
 package system_service
 
 import (
+	"context"
 	"fmt"
 	"strings"
+
+	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type STelegraf struct {
@@ -162,7 +167,7 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 	conf += "  collect_memstats = false\n"
 	conf += "\n"
 	conf += "[[inputs.http_listener]]\n"
-	conf += "  service_address = \"localhost:8087\"\n"
+	conf += "  service_address = \"127.0.0.1:8087\"\n"
 	conf += "\n"
 	return conf
 }
@@ -180,5 +185,26 @@ func (s *STelegraf) BgReload(kwargs map[string]interface{}) {
 }
 
 func (s *STelegraf) BgReloadConf(kwargs map[string]interface{}) {
-	go s.reloadConf(s.GetConfig(kwargs), s.GetConfigFile())
+	go func() {
+		reload, err := s.reloadConf(s.GetConfig(kwargs), s.GetConfigFile())
+		if err != nil {
+			log.Errorf("Failed reload conf: %s", err)
+		}
+		if reload {
+			err := s.ReloadTelegraf()
+			if err != nil {
+				log.Errorf("failed reload telegraf: %s", err)
+			}
+		}
+	}()
+}
+
+func (s *STelegraf) ReloadTelegraf() error {
+	log.Infof("Start reolad telegraf...")
+	telegrafReoladUrl := "http://127.0.0.1:8087/reload"
+	_, _, err := httputils.JSONRequest(
+		httputils.GetDefaultClient(), context.Background(),
+		"POST", telegrafReoladUrl, nil, nil, false,
+	)
+	return err
 }
