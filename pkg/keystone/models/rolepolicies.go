@@ -417,6 +417,9 @@ func (manager *SRolePolicyManager) GetPolicyGroupByIds(policyIds []string, nameO
 	for _, id := range policyIds {
 		policyObj, err := PolicyManager.FetchById(id)
 		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				continue
+			}
 			return nil, nil, errors.Wrapf(err, "FetchPolicy %s", id)
 		}
 		policy := policyObj.(*SPolicy)
