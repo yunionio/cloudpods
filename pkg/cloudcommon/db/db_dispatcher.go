@@ -576,7 +576,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		for _, meta := range metas {
 			ts := splitable.GetTableSpec(meta)
 			subq := ts.Query()
-			subq, err = listItemQueryFiltersRaw(manager, ctx, subq, userCred, queryDict, policy.PolicyActionList, true, useRawQuery)
+			subq, err = listItemQueryFiltersRaw(manager, ctx, subq, userCred, queryDict.Copy(), policy.PolicyActionList, true, useRawQuery)
 			if err != nil {
 				return nil, errors.Wrap(err, "listItemQueryFiltersRaw")
 			}
