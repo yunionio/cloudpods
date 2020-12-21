@@ -4323,7 +4323,17 @@ func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCrede
 	} else if net.WireId != wire.Id {
 		return fmt.Errorf("conflict??? candiate net is not on wire")
 	}
-	bn, err = self.Attach2Network(ctx, userCred, netif, net, ipAddr, allocDir, reserve, requireDesignatedIp)
+
+	attachOpt := &hostAttachNetworkOption{
+		netif:               netif,
+		net:                 net,
+		ipAddr:              ipAddr,
+		allocDir:            allocDir,
+		reserved:            reserve,
+		requireDesignatedIp: requireDesignatedIp,
+	}
+
+	bn, err = self.Attach2Network(ctx, userCred, attachOpt)
 	if err != nil {
 		return errors.Wrap(err, "self.Attach2Network")
 	}
@@ -4379,11 +4389,79 @@ func (self *SHost) DisableNetif(ctx context.Context, userCred mcclient.TokenCred
 	return err
 }
 
-func (self *SHost) Attach2Network(ctx context.Context, userCred mcclient.TokenCredential, netif *SNetInterface, net *SNetwork, ipAddr, allocDir string, reserved, requireDesignatedIp bool) (*SHostnetwork, error) {
+type hostAttachNetworkOption struct {
+	netif               *SNetInterface
+	net                 *SNetwork
+	ipAddr              string
+	allocDir            string
+	reserved            bool
+	requireDesignatedIp bool
+}
+
+func (self *SHost) IsIpAddrWithinConvertedGuest(ctx context.Context, userCred mcclient.TokenCredential, ipAddr string, netif *SNetInterface) error {
+	if !self.IsBaremetal {
+		return httperrors.NewNotAcceptableError("Not a baremetal")
+	}
+
+	if self.HostType == api.HOST_TYPE_KVM {
+		return httperrors.NewNotAcceptableError("Not being convert to hypervisor")
+	}
+
+	bmServer := self.GetBaremetalServer()
+	if bmServer == nil {
+		return httperrors.NewNotAcceptableError("Not found baremetal server record")
+	}
+
+	guestNics, err := bmServer.GetNetworks("")
+	if err != nil {
+		return errors.Wrap(err, "Get guest networks")
+	}
+	var findNic *SGuestnetwork
+	for idx := range guestNics {
+		nic := guestNics[idx]
+		if nic.MacAddr == netif.Mac {
+			findNic = &nic
+			break
+		}
+	}
+	if findNic == nil {
+		return httperrors.NewNotFoundError("Not found guest nic by mac %s", netif.Mac)
+	}
+
+	if findNic.IpAddr != ipAddr {
+		return httperrors.NewNotAcceptableError("Guest nic ip addr %s not equal %s", findNic.IpAddr, ipAddr)
+	}
+
+	return nil
+}
+
+func (self *SHost) Attach2Network(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	opt *hostAttachNetworkOption,
+) (*SHostnetwork, error) {
+	netif := opt.netif
+	net := opt.net
+	ipAddr := opt.ipAddr
+	allocDir := opt.allocDir
+	reserved := opt.reserved
+	requireDesignatedIp := opt.requireDesignatedIp
+
 	lockman.LockObject(ctx, net)
 	defer lockman.ReleaseObject(ctx, net)
 
-	freeIp, err := net.GetFreeIP(ctx, userCred, nil, nil, ipAddr, api.IPAllocationDirection(allocDir), reserved)
+	usedAddrs := net.GetUsedAddresses()
+	if ipAddr != "" {
+		// converted baremetal can resuse related guest network ip
+		if err := self.IsIpAddrWithinConvertedGuest(ctx, userCred, ipAddr, netif); err == nil {
+			// force remove used server addr for reuse
+			delete(usedAddrs, ipAddr)
+		} else {
+			log.Warningf("check IsIpAddrWithinConvertedGuest: %v", err)
+		}
+	}
+
+	freeIp, err := net.GetFreeIP(ctx, userCred, usedAddrs, nil, ipAddr, api.IPAllocationDirection(allocDir), reserved)
 	if err != nil {
 		return nil, errors.Wrap(err, "net.GetFreeIP")
 	}
