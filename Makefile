@@ -211,7 +211,6 @@ set -o xtrace
 set -o errexit
 set -o pipefail
 cd /root/onecloud
-export GOFLAGS=-mod=vendor
 make $(1)
 chown -R $(shell id -u):$(shell id -g) _output
 endef
@@ -244,7 +243,6 @@ set -o xtrace
 set -o errexit
 set -o pipefail
 cd /root/go/src/yunion.io/x/onecloud
-export GOFLAGS=-mod=vendor
 make $(1)
 chown -R $(shell id -u):$(shell id -g) _output
 endef
