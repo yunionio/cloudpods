@@ -804,12 +804,28 @@ func chooseNetworkByAddressCount(nets []*SNetwork) (*SNetwork, *SNetwork) {
 }
 
 func ChooseCandidateNetworks(nets []SNetwork, isExit bool, serverTypes []string) *SNetwork {
+	matchingNets := make([]*SNetwork, 0)
+	notMatchingNets := make([]*SNetwork, 0)
+
 	for _, s := range serverTypes {
 		net := chooseCandidateNetworksByNetworkType(nets, isExit, s)
 		if net != nil {
-			return net
+			if utils.IsInStringArray(net.ServerType, serverTypes) {
+				matchingNets = append(matchingNets, net)
+			} else {
+				notMatchingNets = append(notMatchingNets, net)
+			}
 		}
 	}
+
+	if len(matchingNets) >= 1 {
+		return matchingNets[0]
+	}
+
+	if len(notMatchingNets) >= 1 {
+		return notMatchingNets[0]
+	}
+
 	return nil
 }
 
