@@ -77,6 +77,9 @@ func lbGetInfluxdbByLbId(lbId string) (*influxdb.SInfluxdb, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+	if len(lbagents) == 0 {
+		return nil, "", errors.Wrapf(errors.ErrNotFound, "lbcluster %s has no agent", lb.ClusterId)
+	}
 	var (
 		dbUrl  string
 		dbName string
@@ -98,7 +101,7 @@ func lbGetInfluxdbByLbId(lbId string) (*influxdb.SInfluxdb, string, error) {
 		}
 	}
 	if dbUrl == "" || dbName == "" {
-		return nil, "", fmt.Errorf("no influxdb url or db name")
+		return nil, "", errors.Wrap(errors.ErrNotFound, "no lbagent has influxdb url or db name")
 	}
 	dbinst := influxdb.NewInfluxdb(dbUrl)
 	return dbinst, dbName, nil
