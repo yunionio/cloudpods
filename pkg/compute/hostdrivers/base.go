@@ -16,10 +16,12 @@ package hostdrivers
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -141,18 +143,21 @@ func (self *SBaseHostDriver) FinishConvert(userCred mcclient.TokenCredential, ho
 		return nil
 	})
 	if err != nil {
-		return err
+		return errors.Wrap(err, "update guest vcpu and vmem")
 	}
 	for _, guestdisk := range guest.GetDisks() {
 		disk := guestdisk.GetDisk()
-		db.Update(disk, func() error {
+		_, err = db.Update(disk, func() error {
 			disk.DiskSize = 0
 			return nil
 		})
+		if err != nil {
+			return errors.Wrap(err, "update guestdisk size")
+		}
 	}
 	bs := host.GetBaremetalstorage().GetStorage()
 	bs.SetStatus(userCred, api.STORAGE_OFFLINE, "")
-	db.Update(host, func() error {
+	_, err = db.Update(host, func() error {
 		host.Name = guest.GetName()
 		host.CpuReserved = 0
 		host.MemReserved = 0
@@ -163,6 +168,30 @@ func (self *SBaseHostDriver) FinishConvert(userCred mcclient.TokenCredential, ho
 		host.IsBaremetal = true
 		return nil
 	})
+	if err != nil {
+		return errors.Wrap(err, "update host")
+	}
+	// find hostnetwork and update ip addr
+	{
+		var hostNetwork = new(models.SHostnetwork)
+		guestNetworkQ := models.GuestnetworkManager.Query("mac_addr").
+			Equals("ip_addr", host.AccessIp).SubQuery()
+		err := models.HostnetworkManager.Query().
+			In("mac_addr", guestNetworkQ.Field("mac_addr")).First(hostNetwork)
+		if err != nil && err != sql.ErrNoRows {
+			return err
+		} else if err == nil {
+			hostNetwork.SetModelManager(models.HostnetworkManager, hostNetwork)
+			_, err = db.Update(hostNetwork, func() error {
+				hostNetwork.IpAddr = host.AccessIp
+				return nil
+			})
+			if err != nil {
+				return errors.Wrap(err, "update host network")
+			}
+		}
+	}
+
 	self.CleanSchedCache(host)
 	return nil
 }
