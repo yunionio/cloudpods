@@ -35,7 +35,7 @@ popd > /dev/null
 DOCKER_DIR="$SRC_DIR/build/docker"
 
 # https://docs.docker.com/develop/develop-images/build_enhancements/
-DOCKER_BUILDKIT=1
+export DOCKER_BUILDKIT=1
 
 REGISTRY=${REGISTRY:-docker.io/yunion}
 TAG=${TAG:-latest}
