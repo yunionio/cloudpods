@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -38,9 +39,14 @@ func init() {
 func (self *BaremetalUnconvertHypervisorTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	baremetal := obj.(*models.SHost)
 	baremetal.SetStatus(self.UserCred, api.BAREMETAL_CONVERTING, "")
-	guests := baremetal.GetGuests()
+	guests, err := baremetal.GetGuests()
+	if err != nil {
+		self.SetStageFailed(ctx, jsonutils.NewString(errors.Wrapf(err, "baremetal.GetGuests").Error()))
+		return
+	}
 	if len(guests) > 1 {
 		self.SetStageFailed(ctx, jsonutils.NewString("Host guest conut > 1"))
+		return
 	}
 	if len(guests) == 1 {
 		guest := guests[0]
