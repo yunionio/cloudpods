@@ -203,8 +203,6 @@ mod:
 	go mod tidy
 	go mod vendor -v
 
-include $(CURDIR)/Makefile.common.mk
-
 define helpText
 Build with docker
 
@@ -264,3 +262,6 @@ image:
 
 %:
 	@:
+
+ModName:=yunion.io/x/onecloud
+include $(CURDIR)/Makefile.common.mk
