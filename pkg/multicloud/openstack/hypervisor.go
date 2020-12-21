@@ -94,7 +94,19 @@ func (host *SHypervisor) GetGlobalId() string {
 }
 
 func (host *SHypervisor) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return host.zone.GetIWires()
+	vpcs, err := host.zone.region.GetIVpcs()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIVpc")
+	}
+	ret := []cloudprovider.ICloudWire{}
+	for i := range vpcs {
+		iwires, err := vpcs[i].GetIWires()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetIWires")
+		}
+		ret = append(ret, iwires...)
+	}
+	return ret, nil
 }
 
 func (host *SHypervisor) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
