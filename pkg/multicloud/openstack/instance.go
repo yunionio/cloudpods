@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/osprofile"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -78,11 +79,6 @@ type Resource struct {
 	Links []Link
 }
 
-type Image struct {
-	Id    string
-	Links []Link
-}
-
 type VolumesAttached struct {
 	Id                  string
 	DeleteOnTermination bool
@@ -126,7 +122,7 @@ type SInstance struct {
 	HostId                   string
 	HostStatus               string
 	Id                       string
-	image                    Image //有可能是字符串
+	Image                    jsonutils.JSONObject `json:"image"` //有可能是字符串
 	KeyName                  string
 	Links                    []Link
 	Locked                   bool
@@ -329,11 +325,22 @@ func (instance *SInstance) GetVdi() string {
 }
 
 func (instance *SInstance) GetOSType() string {
-	return "Linux"
+	if instance.Image != nil {
+		imageId, _ := instance.Image.GetString("id")
+		if len(imageId) > 0 {
+			image, err := instance.host.zone.region.GetImage(imageId)
+			if err != nil {
+				log.Errorf("GetImage %s", imageId)
+				return osprofile.OS_TYPE_LINUX
+			}
+			return image.GetOsType()
+		}
+	}
+	return osprofile.OS_TYPE_LINUX
 }
 
 func (instance *SInstance) GetOSName() string {
-	return "Linux"
+	return ""
 }
 
 func (instance *SInstance) GetBios() string {
