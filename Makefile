@@ -203,6 +203,7 @@ mod:
 	go mod tidy
 	go mod vendor -v
 
+EnvIf=$(if $($(1)),$(1)=$($(1)))
 
 DOCKER_CENTOS_BUILD_IMAGE?=registry.cn-beijing.aliyuncs.com/yunionio/centos-build:1.1-3
 
@@ -211,7 +212,11 @@ set -o xtrace
 set -o errexit
 set -o pipefail
 cd /root/onecloud
-make $(1)
+env \
+	$(call EnvIf,GOARCH) \
+	$(call EnvIf,GOOS) \
+	$(call EnvIf,CGO_ENABLED) \
+	make $(1)
 chown -R $(shell id -u):$(shell id -g) _output
 endef
 
@@ -243,7 +248,11 @@ set -o xtrace
 set -o errexit
 set -o pipefail
 cd /root/go/src/yunion.io/x/onecloud
-make $(1)
+env \
+	$(call EnvIf,GOARCH) \
+	$(call EnvIf,GOOS) \
+	$(call EnvIf,CGO_ENABLED) \
+	make $(1)
 chown -R $(shell id -u):$(shell id -g) _output
 endef
 
