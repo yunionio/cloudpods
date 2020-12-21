@@ -146,12 +146,12 @@ func (network *SNetwork) GetStatus() string {
 }
 
 func (network *SNetwork) Delete() error {
-	nw, err := network.wire.zone.region.GetNetwork(network.Id)
+	nw, err := network.wire.vpc.region.GetNetwork(network.Id)
 	if err != nil {
 		return errors.Wrapf(err, "GetNetwork(%s)", network.Id)
 	}
 	if len(nw.AllocationPools) <= 1 || len(network.AllocationPools) == 0 {
-		return network.wire.zone.region.DeleteNetwork(network.Id)
+		return network.wire.vpc.region.DeleteNetwork(network.Id)
 	}
 	pools := []AllocationPool{}
 	for i := range nw.AllocationPools {
@@ -167,7 +167,7 @@ func (network *SNetwork) Delete() error {
 		},
 	}
 	resource := fmt.Sprintf("/v2.0/subnets/%s", network.Id)
-	_, err = network.wire.zone.region.vpcUpdate(resource, jsonutils.Marshal(params))
+	_, err = network.wire.vpc.region.vpcUpdate(resource, jsonutils.Marshal(params))
 	return err
 }
 
@@ -309,7 +309,7 @@ func (region *SRegion) GetNetworks(vpcId string) ([]SNetwork, error) {
 }
 
 func (network *SNetwork) Refresh() error {
-	_network, err := network.wire.zone.region.GetNetwork(network.Id)
+	_network, err := network.wire.vpc.region.GetNetwork(network.Id)
 	if err != nil {
 		return err
 	}

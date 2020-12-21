@@ -87,19 +87,6 @@ func (zone *SZone) GetIRegion() cloudprovider.ICloudRegion {
 	return zone.region
 }
 
-func (zone *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	err := zone.region.fetchVpcs()
-	if err != nil {
-		return nil, errors.Wrap(err, "fetchVpcs")
-	}
-	iwires := []cloudprovider.ICloudWire{}
-	for i := range zone.region.vpcs {
-		wire := &SWire{zone: zone, vpc: &zone.region.vpcs[i]}
-		iwires = append(iwires, wire)
-	}
-	return iwires, nil
-}
-
 func (zone *SZone) getStorageByCategory(category, host string) (*SStorage, error) {
 	storages, err := zone.region.GetStorageTypes()
 	if err != nil {
@@ -208,7 +195,7 @@ func (zone *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (region *SRegion) GetZones() ([]SZone, error) {
+func (region *SRegion) getZones() ([]SZone, error) {
 	zones := []SZone{}
 	resp, err := region.ecsList("os-availability-zone/detail", nil)
 	if err != nil {
