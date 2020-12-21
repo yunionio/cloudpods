@@ -1,6 +1,6 @@
 公有云子账号创建成功
-主账号：{{ .account }}
-名称：{{ .name }}
-密码：{{ .password }}
-登录地址: {{ .iam_login_url }}
-资源ID: {{ .id }}
+主账号：{{ .account }}<br>
+名称：{{ .name }}<br>
+密码：{{ .password }}<br>
+登录地址: {{ .iam_login_url }}<br>
+资源ID: {{ .id }}<br>
