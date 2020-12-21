@@ -30,8 +30,14 @@ function push_to_codecov() {
 covermode=${COVERMODE:-atomic}
 coverdir=$(mktemp -d /tmp/coverage.XXXXXXXXXX)
 profile="${coverdir}/profile.out"
+
+cwd="$PWD"
+if [ -s "$cwd/go.mod" -a -d "$cwd/vendor" ]; then
+	mod_args=(-mod vendor)
+fi
+
 if [ -z "$pkgs" ]; then
-	pkgs="$(go list -mod vendor -test ./... | grep '\.test$' | sed -e 's/\.test$//')"
+	pkgs="$(go list "${mod_args[@]}" -test ./... | grep '\.test$' | sed -e 's/\.test$//')"
 	pkgs="$(echo "$pkgs" | grep -vE 'host-image|hostimage')"
 fi
 if type circleci &>/dev/null; then
@@ -44,7 +50,7 @@ echo "$pkgs" | xargs -n 8 --no-run-if-empty echo \
 		go test -v \
 			-coverprofile="$profile.tmp" \
 			-covermode="$covermode" \
-			-mod vendor \
+			"${mod_args[@]}" \
 			-ldflags '-w' \
 			$batch; \
 		tail -n +2 "$profile.tmp" >>"$profile"; \
