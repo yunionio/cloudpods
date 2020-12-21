@@ -211,7 +211,7 @@ define dockerCentOSBuildCmd
 set -o xtrace
 set -o errexit
 set -o pipefail
-cd /root/onecloud
+cd /root/go/src/yunion.io/x/onecloud
 env \
 	$(call EnvIf,GOARCH) \
 	$(call EnvIf,GOOS) \
@@ -222,16 +222,16 @@ endef
 
 docker-centos-build: export dockerCentOSBuildCmd:=$(call dockerCentOSBuildCmd,$(F))
 docker-centos-build:
-	docker rm --force onecloud-ci-build &>/dev/null || true
+	docker rm --force onecloud-docker-centos-build &>/dev/null || true
 	docker run \
-		--name onecloud-docker-centos-build \
 		--rm \
-		--volume $(CURDIR):/root/onecloud \
-		--volume $(CURDIR)/_output/_cache:/root/.cache \
+		--name onecloud-docker-centos-build \
+		-v $(CURDIR):/root/go/src/yunion.io/x/onecloud \
+		-v $(CURDIR)/_output/centos-build:/root/go/src/yunion.io/x/onecloud/_output \
+		-v $(CURDIR)/_output/centos-build/_cache:/root/.cache \
 		$(DOCKER_CENTOS_BUILD_IMAGE) \
 		/bin/bash -c "$$dockerCentOSBuildCmd"
-	chown -R $$(id -u):$$(id -g) _output
-	ls -lh _output/bin
+	ls -lh _output/centos-build/bin
 
 # NOTE we need a way to stop and remove the container started by docker-build.
 # No --tty, --stop-signal won't work
@@ -259,7 +259,8 @@ endef
 docker-alpine-build: export dockerAlpineBuildCmd:=$(call dockerAlpineBuildCmd,$(F))
 docker-alpine-build:
 	docker rm --force onecloud-docker-alpine-build &>/dev/null || true
-	docker run --rm \
+	docker run \
+		--rm \
 		--name onecloud-docker-alpine-build \
 		-v $(CURDIR):/root/go/src/yunion.io/x/onecloud \
 		-v $(CURDIR)/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
