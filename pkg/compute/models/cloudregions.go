@@ -41,6 +41,7 @@ import (
 type SCloudregionManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
 	db.SExternalizedResourceBaseManager
+	SI18nResourceBaseManager
 }
 
 var CloudregionManager *SCloudregionManager
@@ -59,6 +60,7 @@ func init() {
 
 type SCloudregion struct {
 	db.SEnabledStatusStandaloneResourceBase
+	SI18nResourceBase
 	SManagedResourceBase
 	db.SExternalizedResourceBase
 
@@ -445,12 +447,17 @@ func (self *SCloudregion) syncRemoveCloudRegion(ctx context.Context, userCred mc
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
+	err := self.RemoveI18ns(ctx, userCred, self)
+	if err != nil {
+		return err
+	}
+
 	// err := self.ValidateDeleteCondition(ctx)
 	// if err == nil {
 	// 	err = self.Delete(ctx, userCred)
 	// }
 
-	err := self.SetStatus(userCred, api.CLOUD_REGION_STATUS_OUTOFSERVICE, "Out of sync")
+	err = self.SetStatus(userCred, api.CLOUD_REGION_STATUS_OUTOFSERVICE, "Out of sync")
 	if err == nil {
 		_, err = self.PerformDisable(ctx, userCred, nil, apis.PerformDisableInput{})
 	}
@@ -467,6 +474,11 @@ func (self *SCloudregion) syncRemoveCloudRegion(ctx context.Context, userCred mc
 }
 
 func (self *SCloudregion) syncWithCloudRegion(ctx context.Context, userCred mcclient.TokenCredential, cloudRegion cloudprovider.ICloudRegion, provider *SCloudprovider) error {
+	err := CloudregionManager.SyncI18ns(ctx, userCred, self, cloudRegion.GetI18n())
+	if err != nil {
+		return errors.Wrap(err, "SyncI18ns")
+	}
+
 	factory, err := provider.GetProviderFactory()
 	if err != nil {
 		return err
@@ -529,6 +541,12 @@ func (manager *SCloudregionManager) newFromCloudRegion(ctx context.Context, user
 		log.Errorf("newFromCloudRegion fail %s", err)
 		return nil, err
 	}
+
+	err = manager.SyncI18ns(ctx, userCred, &region, cloudRegion.GetI18n())
+	if err != nil {
+		return nil, errors.Wrap(err, "SyncI18ns")
+	}
+
 	db.OpsLog.LogEvent(&region, db.ACT_CREATE, region.GetShortDesc(ctx), userCred)
 	return &region, nil
 }
@@ -872,7 +890,12 @@ func (self *SCloudregion) GetRegionCloudenvInfo() api.CloudenvResourceInfo {
 	return info
 }
 
-func (self *SCloudregion) GetRegionInfo() api.CloudregionResourceInfo {
+func (self *SCloudregion) GetI18N(ctx context.Context) *jsonutils.JSONDict {
+	return self.GetModelI18N(ctx, self)
+}
+
+func (self *SCloudregion) GetRegionInfo(ctx context.Context) api.CloudregionResourceInfo {
+	// name := self.nameI18nLookup(ctx)
 	return api.CloudregionResourceInfo{
 		Region:           self.Name,
 		Cloudregion:      self.Name,

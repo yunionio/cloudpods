@@ -1146,6 +1146,7 @@ func (manager *SServerSkuManager) newPublicCloudSku(ctx context.Context, userCre
 func (self *SServerSku) syncWithCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku SServerSku) error {
 	_, err := db.Update(self, func() error {
 		self.ZoneId = extSku.ZoneId
+		self.InstanceTypeCategory = extSku.InstanceTypeCategory
 		self.PrepaidStatus = extSku.PrepaidStatus
 		self.PostpaidStatus = extSku.PostpaidStatus
 		self.SysDiskType = extSku.SysDiskType

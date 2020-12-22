@@ -6,6 +6,13 @@ import (
 	"golang.org/x/text/language"
 )
 
+type Tag = language.Tag
+
+var (
+	I18N_TAG_CHINESE Tag = Tag(language.Chinese)
+	I18N_TAG_ENGLISH Tag = Tag(language.English)
+)
+
 type ITable interface {
 	Lookup(ctx context.Context, key string) string
 }
@@ -27,6 +34,14 @@ func (te TableEntry) EN(v string) TableEntry {
 	return te
 }
 
+func (te TableEntry) Lookup(ctx context.Context) (string, bool) {
+	lang := Lang(ctx)
+	lang = tableLangMatch(lang)
+
+	v, ok := te[lang]
+	return v, ok
+}
+
 func (tbl Table) Set(k string, te TableEntry) {
 	tbl[k] = te
 }
@@ -36,12 +51,14 @@ func (tbl Table) Lookup(ctx context.Context, key string) string {
 	if !ok {
 		return key
 	}
+
 	lang := Lang(ctx)
 	lang = tableLangMatch(lang)
 	v, ok := te[lang]
 	if !ok {
 		return key
 	}
+
 	return v
 }
 

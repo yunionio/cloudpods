@@ -166,6 +166,12 @@ func (cli *SObjectStoreClient) GetIBucketProvider() IBucketProvider {
 	return cli.GetVirtualObject().(IBucketProvider)
 }
 
+func (cli *SObjectStoreClient) GetI18n() cloudprovider.SModelI18nTable {
+	table := cloudprovider.SModelI18nTable{}
+	table["name"] = cloudprovider.NewSModelI18nEntry(cli.GetName()).CN(cli.GetName())
+	return table
+}
+
 func (cli *SObjectStoreClient) GetVersion() string {
 	return ""
 }
