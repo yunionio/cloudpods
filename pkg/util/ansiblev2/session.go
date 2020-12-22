@@ -90,6 +90,11 @@ func (sess *Session) OutputWriter(w io.Writer) *Session {
 	return sess
 }
 
+func (sess *Session) KeepTmpdir(keep bool) *Session {
+	sess.keepTmpdir = keep
+	return sess
+}
+
 func (sess *Session) Run(ctx context.Context) (err error) {
 	var (
 		tmpdir string
