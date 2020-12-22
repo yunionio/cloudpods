@@ -235,8 +235,25 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string) bool {
 					defer zlibRC.Close()
 					reader = zlibRC
 				}
-
+				var finishChan = make(chan struct{})
+				go func() {
+					defer recover()
+					for {
+						select {
+						case <-time.After(10 * time.Second):
+							info, err := fi.Stat()
+							if err != nil {
+								log.Errorf("failed stat file %s", r.tmpPath)
+								return
+							}
+							log.Infof("written file %s size %dM", r.tmpPath, info.Size()/1024/1024)
+						case <-finishChan:
+							return
+						}
+					}
+				}()
 				_, err = io.Copy(fi, reader)
+				close(finishChan)
 				if err != nil {
 					log.Errorln(err)
 					return false
