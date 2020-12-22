@@ -37,6 +37,9 @@ func InitHandlers(app *appsrv.Application) {
 	}
 
 	for _, manager := range []db.IModelManager{
+		db.OpsLog,
+		db.Metadata,
+
 		models.CronjobManager,
 		models.DevtoolTemplateManager,
 	} {
