@@ -19,3 +19,11 @@ type SServerSku struct {
 	CpuCoreCount int
 	MemorySizeMB int
 }
+
+type SServerSkuCreateOption struct {
+	Name             string
+	CpuCount         int
+	VmemSizeMb       int
+	SysDiskMinSizeGb int
+	SysDiskMaxSizeGb int
+}

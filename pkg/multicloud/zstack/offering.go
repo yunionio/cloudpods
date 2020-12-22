@@ -58,9 +58,12 @@ func (region *SRegion) GetInstanceOfferingByType(instanceType string) (*SInstanc
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (region *SRegion) CreateISku(name string, vCpu int, memoryMb int) error {
-	_, err := region.CreateInstanceOffering(name, vCpu, memoryMb, "UserVm")
-	return err
+func (region *SRegion) CreateISku(opts *cloudprovider.SServerSkuCreateOption) (cloudprovider.ICloudSku, error) {
+	sku, err := region.CreateInstanceOffering(opts.Name, opts.CpuCount, opts.VmemSizeMb, "UserVm")
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateISku")
+	}
+	return sku, nil
 }
 
 func (region *SRegion) CreateInstanceOffering(name string, cpu int, memoryMb int, offeringType string) (*SInstanceOffering, error) {

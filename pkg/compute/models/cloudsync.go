@@ -792,20 +792,20 @@ func syncVMSecgroups(ctx context.Context, userCred mcclient.TokenCredential, pro
 	return localVM.SyncVMSecgroups(ctx, userCred, secgroupIds)
 }
 
-func syncSkusFromPrivateCloud(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, remoteRegion cloudprovider.ICloudRegion) {
+func syncSkusFromPrivateCloud(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, region *SCloudregion, remoteRegion cloudprovider.ICloudRegion) {
 	skus, err := remoteRegion.GetISkus()
 	if err != nil {
-		msg := fmt.Sprintf("GetISkus for provider %s(%s) failed %v", provider.Name, provider.Id, err)
+		msg := fmt.Sprintf("GetISkus for region %s(%s) failed %v", region.Name, region.Id, err)
 		log.Errorf(msg)
 		return
 	}
 
-	result := ServerSkuManager.SyncPrivateCloudSkus(ctx, userCred, provider, skus)
+	result := ServerSkuManager.SyncPrivateCloudSkus(ctx, userCred, region, skus)
 
 	syncResults.Add(ServerSkuManager, result)
 
 	msg := result.Result()
-	log.Infof("SyncCloudSkusByRegion for provider %s result: %s", provider.Name, msg)
+	log.Infof("SyncCloudSkusByRegion for region %s result: %s", region.Name, msg)
 	if result.IsError() {
 		return
 	}
@@ -1143,7 +1143,7 @@ func syncPublicCloudProviderInfo(
 		syncRegionSkus(ctx, userCred, localRegion)
 		SyncRegionDBInstanceSkus(ctx, userCred, localRegion.Id, true)
 	} else {
-		syncSkusFromPrivateCloud(ctx, userCred, syncResults, provider, remoteRegion)
+		syncSkusFromPrivateCloud(ctx, userCred, syncResults, localRegion, remoteRegion)
 	}
 
 	// no need to lock public cloud region as cloud region for public cloud is readonly

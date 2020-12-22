@@ -352,8 +352,8 @@ func (cli *SObjectStoreClient) GetISkus() ([]cloudprovider.ICloudSku, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (cli *SObjectStoreClient) CreateISku(name string, vCpu int, memoryMb int) error {
-	return cloudprovider.ErrNotSupported
+func (cli *SObjectStoreClient) CreateISku(opts *cloudprovider.SServerSkuCreateOption) (cloudprovider.ICloudSku, error) {
+	return nil, cloudprovider.ErrNotSupported
 }
 
 ////////////////////////////////// S3 API ///////////////////////////////////
