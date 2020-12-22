@@ -116,6 +116,19 @@ type SServerSku struct {
 	Provider string `width:"64" charset:"ascii" nullable:"true" list:"user" default:"OneCloud" create:"admin_optional"`
 }
 
+func (manager *SServerSkuManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
+	regionId, _ := data.GetString("cloudregion_id")
+	return jsonutils.Marshal(map[string]string{"cloudregion_id": regionId})
+}
+
+func (manager *SServerSkuManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {
+	regionId, _ := values.GetString("cloudregion_id")
+	if len(regionId) > 0 {
+		q = q.Equals("cloudregion_id", regionId)
+	}
+	return q
+}
+
 type SInstanceSpecQueryParams struct {
 	Provider       string
 	PublicCloud    bool
@@ -277,12 +290,13 @@ func (manager *SServerSkuManager) AllowCreateItem(ctx context.Context, userCred 
 }
 
 func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ServerSkuCreateInput) (api.ServerSkuCreateInput, error) {
-	var err error
+	var region *SCloudregion
 	if len(input.CloudregionId) > 0 {
-		_, err = validators.ValidateModel(userCred, CloudregionManager, &input.CloudregionId)
+		_region, err := validators.ValidateModel(userCred, CloudregionManager, &input.CloudregionId)
 		if err != nil {
 			return input, err
 		}
+		region = _region.(*SCloudregion)
 	}
 
 	if len(input.ZoneId) > 0 {
@@ -297,6 +311,7 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred 
 		if input.CloudregionId != zone.CloudregionId {
 			return input, httperrors.NewConflictError("zone %s not in cloudregion %s", zone.Name, input.CloudregionId)
 		}
+		region = zone.GetRegion()
 	}
 
 	if input.CpuCoreCount < 1 || input.CpuCoreCount > 256 {
@@ -322,10 +337,20 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred 
 
 	input.Provider = api.CLOUD_PROVIDER_ONECLOUD
 	input.Status = api.SkuStatusReady
+	if region != nil {
+		input.Provider = region.Provider
+	}
+	if input.Provider == api.CLOUD_PROVIDER_ONECLOUD {
+	} else if utils.IsInStringArray(input.Provider, api.PRIVATE_CLOUD_PROVIDERS) {
+		input.Status = api.SkuStatusCreating
+	} else {
+		return input, httperrors.NewUnsupportOperationError("Not support create public cloud sku")
+	}
 
 	input.LocalCategory = input.InstanceTypeCategory
 	input.InstanceTypeFamily = api.InstanceFamilies[input.InstanceTypeCategory]
 
+	var err error
 	if len(input.Name) == 0 {
 		// 格式 ecs.g1.c1m1
 		input.Name, err = genInstanceType(input.InstanceTypeFamily, input.CpuCoreCount, input.MemorySizeMB)
@@ -333,6 +358,9 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred 
 			return input, httperrors.NewInputParameterError("%v", err)
 		}
 		q := self.Query().Equals("name", input.Name)
+		if len(input.CloudregionId) > 0 {
+			q = q.Equals("cloudregion_id", input.CloudregionId)
+		}
 		count, err := q.CountWithError()
 		if err != nil {
 			return input, httperrors.NewInternalServerError("checkout server sku name duplicate error: %v", err)
@@ -352,15 +380,17 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred 
 func (self *SServerSku) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	if self.Provider != api.CLOUD_PROVIDER_ONECLOUD {
-		_, err := db.Update(self, func() error {
-			self.CloudregionId = ""
-			self.ZoneId = ""
-			return nil
-		})
-		if err != nil {
-			log.Warningf("failed to update %s sku %s cloudregion and zone info: %v", self.Provider, self.Name, err)
-		}
+		self.StartSkuCreateTask(ctx, userCred)
 	}
+}
+
+func (self *SServerSku) StartSkuCreateTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "ServerSkuCreateTask", self, userCred, nil, "", "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (self *SServerSku) GetPrivateCloudproviders() ([]SCloudprovider, error) {
@@ -1000,67 +1030,65 @@ func (manager *SServerSkuManager) PendingDeleteInvalidSku() error {
 	return nil
 }
 
-func (self *SServerSku) AllowPerformCacheSku(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "cache-sku")
-}
-
-func (self *SServerSku) PerformCacheSku(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	cloudregionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", nil)
-	err := cloudregionV.Validate(data.(*jsonutils.JSONDict))
-	if err != nil {
-		return nil, err
-	}
-	cloudregion := cloudregionV.Model.(*SCloudregion)
-	if len(cloudregion.ManagerId) == 0 {
-		return nil, httperrors.NewInputParameterError("Only support cache sku for private cloud")
-	}
-
-	cloudprovider := cloudregion.GetCloudprovider()
-	if cloudprovider == nil {
-		return nil, httperrors.NewInputParameterError("failed to get cloudprovider for region %s(%s)", cloudregion.Name, cloudregion.Id)
-	}
-
-	if !cloudprovider.GetEnabled() {
-		return nil, httperrors.NewInputParameterError("cloudprovider %s(%s) disabled", cloudprovider.Name, cloudprovider.Id)
-	}
-
-	return nil, self.StartServerSkuCacheTask(ctx, userCred, cloudregion.Id, "")
-}
-
-func (self *SServerSku) StartServerSkuCacheTask(ctx context.Context, userCred mcclient.TokenCredential, cloudregionId string, parentTaskId string) error {
-	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewString(cloudregionId), "cloudregion_id")
-	task, err := taskman.TaskManager.NewTask(ctx, "ServerSkuCacheTask", self, userCred, params, parentTaskId, "", nil)
-	if err != nil {
-		return err
-	}
-	task.ScheduleRun(nil)
-	return nil
-}
-
-func (manager *SServerSkuManager) SyncPrivateCloudSkus(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, skus []cloudprovider.ICloudSku) compare.SyncResult {
+func (manager *SServerSkuManager) SyncPrivateCloudSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, skus []cloudprovider.ICloudSku) compare.SyncResult {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
-	syncResult := compare.SyncResult{}
-	localskus, err := manager.GetOneCloudSkus()
+	result := compare.SyncResult{}
+
+	dbSkus, err := region.GetServerSkus()
 	if err != nil {
-		syncResult.Error(err)
-		return syncResult
+		result.Error(errors.Wrapf(err, "GetServerSkus"))
+		return result
 	}
 
-	for _, sku := range skus {
-		if !utils.IsInStringArray(fmt.Sprintf("%d/%d", sku.GetCpuCoreCount(), sku.GetMemorySizeMB()), localskus) {
-			err := manager.newFromCloudSku(ctx, userCred, sku)
-			if err != nil {
-				syncResult.AddError(err)
-			} else {
-				syncResult.Add()
-			}
+	removed := make([]SServerSku, 0)
+	commondb := make([]SServerSku, 0)
+	commonext := make([]cloudprovider.ICloudSku, 0)
+	added := make([]cloudprovider.ICloudSku, 0)
+
+	err = compare.CompareSets(dbSkus, skus, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(errors.Wrapf(err, "CompareSets"))
+		return result
+	}
+
+	for i := 0; i < len(removed); i += 1 {
+		err = removed[i].RealDelete(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
 		}
+		result.Delete()
 	}
 
-	return syncResult
+	for i := 0; i < len(commondb); i += 1 {
+		err = commondb[i].SyncWithPrivateCloudSku(ctx, userCred, commonext[i])
+		if err != nil {
+			result.UpdateError(err)
+		}
+		result.Update()
+	}
+
+	for i := 0; i < len(added); i += 1 {
+		err := manager.newFromCloudSku(ctx, userCred, region, added[i])
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		result.Add()
+	}
+
+	return result
+}
+
+func (self *SServerSku) SyncWithPrivateCloudSku(ctx context.Context, userCred mcclient.TokenCredential, sku cloudprovider.ICloudSku) error {
+	_, err := db.Update(self, func() error {
+		self.Status = api.SkuStatusAvailable
+		self.constructSku(sku)
+		return nil
+	})
+	return err
 }
 
 func (self *SServerSku) constructSku(extSku cloudprovider.ICloudSku) {
@@ -1112,23 +1140,17 @@ func (self *SServerSku) setPrepaidPostpaidStatus(userCred mcclient.TokenCredenti
 	return nil
 }
 
-func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku cloudprovider.ICloudSku) error {
-	sku := &SServerSku{Provider: api.CLOUD_PROVIDER_ONECLOUD}
+func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSku cloudprovider.ICloudSku) error {
+	sku := &SServerSku{Provider: region.Provider}
 	sku.SetModelManager(manager, sku)
 	// 第一次同步新建的套餐是启用状态
 	sku.Enabled = tristate.True
 	sku.Status = api.SkuStatusReady
 	sku.constructSku(extSku)
 
-	var err error
-	sku.Name, err = db.GenerateName(manager, userCred, extSku.GetName())
-	if err != nil {
-		return errors.Wrap(err, "db.GenerateName")
-	}
-
-	sku.CloudregionId = api.DEFAULT_REGION_ID
+	sku.CloudregionId = region.Id
 	sku.SetModelManager(manager, sku)
-	err = manager.TableSpec().Insert(ctx, sku)
+	err := manager.TableSpec().Insert(ctx, sku)
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudSku.Insert")
 	}
@@ -1303,31 +1325,6 @@ func (manager *SServerSkuManager) FetchAllAvailableSkuIdByZoneId(zoneId string) 
 	return ids, nil
 }
 
-func (manager *SServerSkuManager) initializeSkuProvider() error {
-	skus := []SServerSku{}
-	q := manager.Query()
-	q = q.Filter(sqlchemy.OR(
-		sqlchemy.In(q.Field("provider"), CloudproviderManager.GetPrivateProviderProvidersQuery()),
-		sqlchemy.IsNullOrEmpty(q.Field("provider")),
-	))
-	err := db.FetchModelObjects(manager, q, &skus)
-	if err != nil {
-		return errors.Wrapf(err, "initializeSkuProvider.FetchModelObjects")
-	}
-	for _, sku := range skus {
-		_, err = db.Update(&sku, func() error {
-			sku.Provider = api.CLOUD_PROVIDER_ONECLOUD
-			sku.CloudregionId = api.DEFAULT_REGION_ID
-			sku.ZoneId = ""
-			return nil
-		})
-		if err != nil {
-			return errors.Wrapf(err, "sku.Update")
-		}
-	}
-	return nil
-}
-
 func (manager *SServerSkuManager) initializeSkuStatus() error {
 	skus := []SServerSku{}
 	q := manager.Query().NotEquals("status", api.SkuStatusReady)
@@ -1347,101 +1344,44 @@ func (manager *SServerSkuManager) initializeSkuStatus() error {
 	return nil
 }
 
-func (manager *SServerSkuManager) initializeSkuEnableField() error {
-	skus := []SServerSku{}
-	q := manager.Query().IsNull("enabled")
-	err := db.FetchModelObjects(manager, q, &skus)
-	if err != nil {
-		return errors.Wrapf(err, "FetchModelObjects")
-	}
-	for _, sku := range skus {
-		_, err = db.Update(&sku, func() error {
-			sku.Status = api.SkuStatusReady
-			sku.Enabled = tristate.True
-			return nil
-		})
-		if err != nil {
-			return errors.Wrapf(err, "sku.Update")
-		}
-	}
-	return nil
-}
-
 func (manager *SServerSkuManager) InitializeData() error {
 	count, err := manager.Query().Equals("cloudregion_id", api.DEFAULT_REGION_ID).IsNullOrEmpty("zone_id").CountWithError()
-	if err == nil {
-		if count == 0 {
-			type Item struct {
-				CPU   int
-				MemMB int
-			}
+	if err != nil {
+		return errors.Wrapf(err, "fetch default region skus")
+	}
+	if count == 0 {
+		skus := []struct {
+			cpu   int
+			memGb int
+		}{
+			{1, 1}, {1, 2}, {1, 4}, {1, 8},
+			{2, 2}, {2, 4}, {2, 8}, {2, 12}, {2, 16},
+			{4, 4}, {4, 12}, {4, 16}, {4, 24}, {4, 32},
+			{8, 8}, {8, 16}, {8, 24}, {8, 32}, {8, 64},
+			{12, 12}, {12, 16}, {12, 24}, {12, 32}, {12, 64},
+			{16, 16}, {16, 24}, {16, 32}, {16, 48}, {16, 64},
+			{24, 24}, {24, 32}, {24, 48}, {24, 64}, {24, 128},
+			{32, 32}, {32, 48}, {32, 64}, {32, 128},
+		}
 
-			items := []Item{
-				{1, 1 * 1024},
-				{1, 2 * 1024},
-				{1, 4 * 1024},
-				{1, 8 * 1024},
-				{2, 2 * 1024},
-				{2, 4 * 1024},
-				{2, 8 * 1024},
-				{2, 12 * 1024},
-				{2, 16 * 1024},
-				{4, 4 * 1024},
-				{4, 8 * 1024},
-				{4, 12 * 1024},
-				{4, 16 * 1024},
-				{4, 24 * 1024},
-				{4, 32 * 1024},
-				{8, 8 * 1024},
-				{8, 12 * 1024},
-				{8, 16 * 1024},
-				{8, 24 * 1024},
-				{8, 32 * 1024},
-				{8, 64 * 1024},
-				{12, 12 * 1024},
-				{12, 16 * 1024},
-				{12, 24 * 1024},
-				{12, 32 * 1024},
-				{12, 64 * 1024},
-				{16, 16 * 1024},
-				{16, 24 * 1024},
-				{16, 32 * 1024},
-				{16, 48 * 1024},
-				{16, 64 * 1024},
-				{24, 24 * 1024},
-				{24, 32 * 1024},
-				{24, 48 * 1024},
-				{24, 64 * 1024},
-				{24, 128 * 1024},
-				{32, 32 * 1024},
-				{32, 48 * 1024},
-				{32, 64 * 1024},
-				{32, 128 * 1024},
-			}
-
-			for i := range items {
-				item := items[i]
-				sku := &SServerSku{}
-				sku.CloudregionId = api.DEFAULT_REGION_ID
-				sku.CpuCoreCount = item.CPU
-				sku.MemorySizeMB = item.MemMB
-				sku.IsEmulated = false
-				sku.Enabled = tristate.True
-				sku.InstanceTypeCategory = api.SkuCategoryGeneralPurpose
-				sku.LocalCategory = api.SkuCategoryGeneralPurpose
-				sku.InstanceTypeFamily = api.InstanceFamilies[api.SkuCategoryGeneralPurpose]
-				name, _ := genInstanceType(sku.InstanceTypeFamily, int64(item.CPU), int64(item.MemMB))
-				sku.Name = name
-				sku.PrepaidStatus = api.SkuStatusAvailable
-				sku.PostpaidStatus = api.SkuStatusAvailable
-				err := manager.TableSpec().Insert(context.TODO(), sku)
-				if err != nil {
-					log.Errorf("ServerSkuManager Initialize local sku %s", err)
-				}
+		for _, item := range skus {
+			sku := &SServerSku{}
+			sku.CloudregionId = api.DEFAULT_REGION_ID
+			sku.CpuCoreCount = item.cpu
+			sku.MemorySizeMB = item.memGb * 1024
+			sku.IsEmulated = false
+			sku.Enabled = tristate.True
+			sku.InstanceTypeCategory = api.SkuCategoryGeneralPurpose
+			sku.LocalCategory = api.SkuCategoryGeneralPurpose
+			sku.InstanceTypeFamily = api.InstanceFamilies[api.SkuCategoryGeneralPurpose]
+			sku.Name, _ = genInstanceType(sku.InstanceTypeFamily, int64(item.cpu), int64(item.memGb*1024))
+			sku.PrepaidStatus = api.SkuStatusAvailable
+			sku.PostpaidStatus = api.SkuStatusAvailable
+			err := manager.TableSpec().Insert(context.TODO(), sku)
+			if err != nil {
+				log.Errorf("ServerSkuManager Initialize local sku %s", err)
 			}
 		}
-	} else {
-		log.Errorf("ServerSkuManager InitializeData %s", err)
 	}
 
 	privateSkus := make([]SServerSku, 0)
@@ -1458,16 +1398,6 @@ func (manager *SServerSkuManager) InitializeData() error {
 		if err != nil {
 			return err
 		}
-	}
-
-	err = manager.initializeSkuEnableField()
-	if err != nil {
-		return errors.Wrap(err, "initializeSkuEnableField")
-	}
-
-	err = manager.initializeSkuProvider()
-	if err != nil {
-		return errors.Wrap(err, "InitializeProvider")
 	}
 
 	return manager.initializeSkuStatus()
@@ -1514,4 +1444,39 @@ func (manager *SServerSkuManager) AllowGetPropertySyncTasks(ctx context.Context,
 
 func (manager *SServerSkuManager) GetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query api.SkuTaskQueryInput) (jsonutils.JSONObject, error) {
 	return GetPropertySkusSyncTasks(ctx, userCred, query)
+}
+
+func (self *SServerSku) GetICloudSku() (cloudprovider.ICloudSku, error) {
+	region, err := self.GetRegion()
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetRegion")
+		}
+		return nil, errors.Wrapf(err, "GetRegion")
+	}
+	provider, err := region.GetCloudprovider()
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetCloudprovider")
+		}
+		return nil, errors.Wrapf(err, "GetCloudprovider")
+	}
+	driver, err := provider.GetProvider()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDriver()")
+	}
+	iRegion, err := driver.GetIRegionById(region.ExternalId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIRegionById(%s)", region.ExternalId)
+	}
+	skus, err := iRegion.GetISkus()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetICloudSku")
+	}
+	for i := range skus {
+		if skus[i].GetGlobalId() == self.ExternalId {
+			return skus[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
 }

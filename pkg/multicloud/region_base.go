@@ -96,8 +96,8 @@ func (self *SRegion) GetISkus() ([]cloudprovider.ICloudSku, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "GetISkus")
 }
 
-func (self *SRegion) CreateISku(name string, vCpu int, memoryMb int) error {
-	return errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateISku")
+func (self *SRegion) CreateISku(opts *cloudprovider.SServerSkuCreateOption) (cloudprovider.ICloudSku, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateISku")
 }
 
 func (self *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInterface, error) {

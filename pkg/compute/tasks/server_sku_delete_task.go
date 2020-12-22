@@ -20,11 +20,12 @@ import (
 	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -37,55 +38,41 @@ func init() {
 	taskman.RegisterTask(ServerSkuDeleteTask{})
 }
 
-func (self *ServerSkuDeleteTask) taskFail(ctx context.Context, sku *models.SServerSku, msg jsonutils.JSONObject) {
-	sku.SetStatus(self.UserCred, api.SkuStatusDeleteFailed, msg.String())
-	db.OpsLog.LogEvent(sku, db.ACT_DELOCATE, msg, self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, sku, logclient.ACT_DELETE, msg, self.UserCred, false)
-	self.SetStageFailed(ctx, msg)
+func (self *ServerSkuDeleteTask) taskFail(ctx context.Context, sku *models.SServerSku, err error) {
+	sku.SetStatus(self.UserCred, api.SkuStatusDeleteFailed, err.Error())
+	db.OpsLog.LogEvent(sku, db.ACT_DELOCATE, err, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, sku, logclient.ACT_DELETE, err, self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+}
+
+func (self *ServerSkuDeleteTask) taskComplete(ctx context.Context, sku *models.SServerSku) {
+	err := sku.RealDelete(ctx, self.UserCred)
+	if err != nil {
+		self.taskFail(ctx, sku, errors.Wrapf(err, "RealDelete"))
+		return
+	}
+	logclient.AddActionLogWithStartable(self, sku, logclient.ACT_DELETE, nil, self.UserCred, true)
+	self.SetStageComplete(ctx, nil)
 }
 
 func (self *ServerSkuDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	sku := obj.(*models.SServerSku)
-
-	if !jsonutils.QueryBoolean(self.Params, "purge", false) {
-		cloudproviders, err := sku.GetPrivateCloudproviders()
+	purge := jsonutils.QueryBoolean(self.GetParams(), "purge", false)
+	if !purge && utils.IsInStringArray(sku.Provider, api.PRIVATE_CLOUD_PROVIDERS) {
+		iSku, err := sku.GetICloudSku()
 		if err != nil {
-			self.taskFail(ctx, sku, jsonutils.NewString(err.Error()))
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				self.taskComplete(ctx, sku)
+				return
+			}
+			self.taskFail(ctx, sku, errors.Wrapf(err, "GetICloudSku"))
 			return
 		}
-
-		for _, cloudprovider := range cloudproviders {
-			provider, err := cloudprovider.GetProvider()
-			if err != nil {
-				log.Warningf("failed to get provider for cloudprovider %s error: %v", cloudprovider.Name, err)
-				continue
-			}
-			regions := provider.GetIRegions()
-			for _, region := range regions {
-				iskus, err := region.GetISkus()
-				if err != nil {
-					log.Warningf("failed to get region %s skus", region.GetName())
-					continue
-				}
-				for _, isku := range iskus {
-					if isku.GetName() == sku.Name && isku.GetCpuCoreCount() == sku.CpuCoreCount && isku.GetMemorySizeMB() == sku.MemorySizeMB {
-						err = isku.Delete()
-						if err != nil {
-							log.Warningf("failed to delete sku %s %dC%dM", sku.Name, sku.CpuCoreCount, sku.MemorySizeMB)
-						}
-					}
-				}
-			}
+		err = iSku.Delete()
+		if err != nil {
+			self.taskFail(ctx, sku, errors.Wrapf(err, "iSku.Delete"))
+			return
 		}
 	}
-
-	err := sku.RealDelete(ctx, self.UserCred)
-	if err != nil {
-		err = errors.Wrapf(err, "sku.RealDelete")
-		self.taskFail(ctx, sku, jsonutils.NewString(err.Error()))
-		return
-	}
-
-	logclient.AddActionLogWithStartable(self, sku, logclient.ACT_DELETE, nil, self.UserCred, true)
-	self.SetStageComplete(ctx, nil)
+	self.taskComplete(ctx, sku)
 }

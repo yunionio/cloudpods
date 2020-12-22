@@ -114,7 +114,7 @@ type ICloudRegion interface {
 	CreateILoadBalancerCertificate(cert *SLoadbalancerCertificate) (ICloudLoadbalancerCertificate, error)
 
 	GetISkus() ([]ICloudSku, error)
-	CreateISku(name string, vCpu int, memoryMb int) error
+	CreateISku(opts *SServerSkuCreateOption) (ICloudSku, error)
 
 	GetINetworkInterfaces() ([]ICloudNetworkInterface, error)
 
