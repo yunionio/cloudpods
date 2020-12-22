@@ -127,11 +127,13 @@ func (self *SHuaweiGuestDriver) GetInstanceCapability() cloudprovider.SInstanceC
 				cloudprovider.StorageInfo{StorageType: api.STORAGE_HUAWEI_SSD, MaxSizeGb: 32768, MinSizeGb: 10, StepSizeGb: 1, Resizable: true},
 				cloudprovider.StorageInfo{StorageType: api.STORAGE_HUAWEI_SATA, MaxSizeGb: 32768, MinSizeGb: 10, StepSizeGb: 1, Resizable: true},
 				cloudprovider.StorageInfo{StorageType: api.STORAGE_HUAWEI_SAS, MaxSizeGb: 32768, MinSizeGb: 10, StepSizeGb: 1, Resizable: true},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_HUAWEI_GPSSD, MaxSizeGb: 32768, MinSizeGb: 10, StepSizeGb: 1, Resizable: true},
 			},
 			SysDisk: []cloudprovider.StorageInfo{
 				cloudprovider.StorageInfo{StorageType: api.STORAGE_HUAWEI_SSD, MaxSizeGb: 1024, MinSizeGb: 40, StepSizeGb: 1, Resizable: false},
 				cloudprovider.StorageInfo{StorageType: api.STORAGE_HUAWEI_SATA, MaxSizeGb: 1024, MinSizeGb: 40, StepSizeGb: 1, Resizable: false},
 				cloudprovider.StorageInfo{StorageType: api.STORAGE_HUAWEI_SAS, MaxSizeGb: 1024, MinSizeGb: 40, StepSizeGb: 1, Resizable: false},
+				cloudprovider.StorageInfo{StorageType: api.STORAGE_HUAWEI_GPSSD, MaxSizeGb: 1024, MinSizeGb: 40, StepSizeGb: 1, Resizable: false},
 			},
 		},
 	}
