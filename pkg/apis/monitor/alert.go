@@ -117,6 +117,7 @@ type AlertCreateInput struct {
 	NoDataState string `json:"no_data_state"`
 	// 报警执行错误将当前报警状态设置为对应的状态
 	ExecutionErrorState string `json:"execution_error_state"`
+	UsedBy              string `json:"used_by"`
 }
 
 type AlertUpdateInput struct {
