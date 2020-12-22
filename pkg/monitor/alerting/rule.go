@@ -170,6 +170,7 @@ func NewRuleFromDBAlert(ruleDef *models.SAlert) (*Rule, error) {
 func newRuleDescription(rule *Rule, alertDetails *monitor.CommonAlertMetricDetails) {
 	ruleDes := RuleDescription{
 		AlertRecordRule: monitor.AlertRecordRule{
+			ResType:         alertDetails.ResType,
 			Metric:          fmt.Sprintf("%s.%s", alertDetails.Measurement, alertDetails.Field),
 			Measurement:     alertDetails.Measurement,
 			MeasurementDesc: alertDetails.MeasurementDisplayName,

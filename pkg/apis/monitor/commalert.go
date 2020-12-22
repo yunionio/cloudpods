@@ -82,7 +82,8 @@ type CommonAlertListInput struct {
 	// 监控指标名称
 	Metric string `json:"metric"`
 
-	Level string `json:"level"`
+	Level   string   `json:"level"`
+	ResType []string `json:"res_type"`
 }
 
 type CommonAlertUpdateInput struct {

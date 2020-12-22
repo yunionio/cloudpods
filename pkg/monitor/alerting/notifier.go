@@ -168,6 +168,7 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext) 
 		EvalData:  matches,
 		AlertRule: newAlertRecordRule(evalCtx),
 	}
+	recordCreateInput.ResType = recordCreateInput.AlertRule.ResType
 	createData := recordCreateInput.JSON(recordCreateInput)
 	record, err := db.DoCreate(models.AlertRecordManager, evalCtx.Ctx, evalCtx.UserCred, jsonutils.NewDict(), createData, evalCtx.UserCred)
 	if err != nil {
