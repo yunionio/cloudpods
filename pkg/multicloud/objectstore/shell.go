@@ -669,6 +669,19 @@ func S3Shell() {
 		return nil
 	})
 
+	type BucketGetUploads struct {
+		BUCKET string `help:"name of bucket to put object"`
+	}
+	shellutils.R(&BucketGetUploads{}, "bucket-get-uploads", "get bucket uploads", func(cli cloudprovider.ICloudRegion, args *BucketGetUploads) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		uplaods, err := bucket.ListMultipartUploads()
+		printList(uplaods, len(uplaods), 0, len(uplaods), nil)
+		return nil
+	})
+
 	type BucketObjectDownloadOptions struct {
 		BUCKET string `help:"name of bucket"`
 		KEY    string `help:"Key of object"`

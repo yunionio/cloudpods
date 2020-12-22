@@ -754,3 +754,59 @@ func (b *SBucket) GetMetadata() *jsonutils.JSONDict {
 	}
 	return meta
 }
+
+func (b *SBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUploads, error) {
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetS3Client")
+	}
+	result := []cloudprovider.SBucketMultipartUploads{}
+
+	input := s3.ListMultipartUploadsInput{}
+	input.SetBucket(b.Name)
+	keyMarker := ""
+	uploadIDMarker := ""
+	for {
+		if len(keyMarker) > 0 {
+			input.SetKeyMarker(keyMarker)
+		}
+		if len(uploadIDMarker) > 0 {
+			input.SetUploadIdMarker(uploadIDMarker)
+		}
+		output, err := s3cli.ListMultipartUploads(&input)
+		if err != nil {
+			return nil, errors.Wrap(err, " coscli.Bucket.ListMultipartUploads(context.Background(), &input)")
+		}
+		if output == nil {
+			return nil, nil
+		}
+		for i := range output.Uploads {
+			temp := cloudprovider.SBucketMultipartUploads{}
+			if output.Uploads[i].Key != nil {
+				temp.ObjectName = *output.Uploads[i].Key
+			}
+			if output.Uploads[i].Initiator != nil {
+				temp.Initiator = *output.Uploads[i].Initiator.DisplayName
+			}
+			if output.Uploads[i].Initiated != nil {
+				temp.Initiated = *output.Uploads[i].Initiated
+			}
+			if output.Uploads[i].UploadId != nil {
+				temp.UploadID = *output.Uploads[i].UploadId
+			}
+			result = append(result, temp)
+		}
+		if output.NextKeyMarker != nil {
+			keyMarker = *output.NextKeyMarker
+		}
+		if output.NextUploadIdMarker != nil {
+			uploadIDMarker = *output.NextUploadIdMarker
+		}
+
+		if output.IsTruncated == nil || !*output.IsTruncated {
+			break
+		}
+	}
+
+	return result, nil
+}
