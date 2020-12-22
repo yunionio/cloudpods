@@ -59,6 +59,19 @@ func (self *SRegion) GetName() string {
 	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_UCLOUD_CN, self.GetId())
 }
 
+func (self *SRegion) GetI18n() cloudprovider.SModelI18nTable {
+	var en string
+	if name, exist := UCLOUD_REGION_NAMES_EN[self.GetId()]; exist {
+		en = fmt.Sprintf("%s %s", CLOUD_PROVIDER_UCLOUD, name)
+	} else {
+		en = fmt.Sprintf("%s %s", CLOUD_PROVIDER_UCLOUD, self.GetId())
+	}
+
+	table := cloudprovider.SModelI18nTable{}
+	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName()).EN(en)
+	return table
+}
+
 func (self *SRegion) GetGlobalId() string {
 	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_UCLOUD, self.GetId())
 }

@@ -110,6 +110,13 @@ func (self *SRegion) GetName() string {
 	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_AZURE_CN, self.DisplayName)
 }
 
+func (self *SRegion) GetI18n() cloudprovider.SModelI18nTable {
+	en := fmt.Sprintf("%s %s", CLOUD_PROVIDER_AZURE_EN, self.DisplayName)
+	table := cloudprovider.SModelI18nTable{}
+	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName()).EN(en)
+	return table
+}
+
 func (self *SRegion) GetGlobalId() string {
 	return fmt.Sprintf("%s/%s", self.client.GetAccessEnv(), self.Name)
 }

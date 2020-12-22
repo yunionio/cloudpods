@@ -39,6 +39,7 @@ const (
 	CTYUN_API_HOST          = "https://api.ctyun.cn"
 	CLOUD_PROVIDER_CTYUN    = api.CLOUD_PROVIDER_CTYUN
 	CLOUD_PROVIDER_CTYUN_CN = "天翼云"
+	CLOUD_PROVIDER_CTYUN_EN = "Ctyun"
 	CTYUN_DEFAULT_REGION    = "cn-bj4"
 
 	CTYUN_API_VERSION = "2019-11-22"
