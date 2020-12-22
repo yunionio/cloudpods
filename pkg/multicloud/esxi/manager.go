@@ -247,6 +247,12 @@ func (cli *SESXiClient) GetAccountId() string {
 	return fmt.Sprintf("%s@%s:%d", cli.account, cli.host, cli.port)
 }
 
+func (cli *SESXiClient) GetI18n() cloudprovider.SModelI18nTable {
+	table := cloudprovider.SModelI18nTable{}
+	table["name"] = cloudprovider.NewSModelI18nEntry(cli.GetName()).CN(cli.GetName())
+	return table
+}
+
 func (cli *SESXiClient) GetVersion() string {
 	return cli.client.ServiceContent.About.Version
 }
