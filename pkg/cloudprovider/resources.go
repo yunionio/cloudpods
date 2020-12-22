@@ -59,8 +59,13 @@ type IBillingResource interface {
 	IsAutoRenew() bool
 }
 
+type ICloudI18nResource interface {
+	GetI18n() SModelI18nTable
+}
+
 type ICloudRegion interface {
 	ICloudResource
+	ICloudI18nResource
 
 	// GetLatitude() float32
 	// GetLongitude() float32
@@ -152,6 +157,7 @@ type ICloudRegion interface {
 
 type ICloudZone interface {
 	ICloudResource
+	ICloudI18nResource
 
 	GetIRegion() ICloudRegion
 

@@ -58,6 +58,12 @@ func (self *SZone) GetName() string {
 	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_CTYUN_CN, self.ZoneID)
 }
 
+func (self *SZone) GetI18n() cloudprovider.SModelI18nTable {
+	table := cloudprovider.SModelI18nTable{}
+	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName()).EN(self.ZoneID)
+	return table
+}
+
 func (self *SZone) GetGlobalId() string {
 	return getZoneGlobalId(self.region, self.GetId())
 }

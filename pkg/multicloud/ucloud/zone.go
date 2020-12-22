@@ -91,6 +91,19 @@ func (self *SZone) GetName() string {
 	return self.GetId()
 }
 
+func (self *SZone) GetI18n() cloudprovider.SModelI18nTable {
+	var en string
+	if name, exists := UCLOUD_ZONE_NAMES_EN[self.GetId()]; exists {
+		en = name
+	} else {
+		en = self.GetId()
+	}
+
+	table := cloudprovider.SModelI18nTable{}
+	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName()).EN(en)
+	return table
+}
+
 func (self *SZone) GetGlobalId() string {
 	return fmt.Sprintf("%s/%s", self.region.GetGlobalId(), self.GetId())
 }

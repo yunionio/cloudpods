@@ -37,6 +37,10 @@ func (self *SZone) GetName() string {
 	return self.region.GetName()
 }
 
+func (self *SZone) GetI18n() cloudprovider.SModelI18nTable {
+	return self.region.GetI18n()
+}
+
 func (self *SZone) GetGlobalId() string {
 	return self.region.GetGlobalId()
 }
