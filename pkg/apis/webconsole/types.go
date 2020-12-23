@@ -15,6 +15,9 @@
 package webconsole
 
 import (
+	"encoding/base64"
+	"net/url"
+
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
@@ -23,4 +26,28 @@ type ServerRemoteConsoleResponse struct {
 	Session       string `json:"session,omitempty"`
 
 	apis.Meta
+}
+
+func (resp *ServerRemoteConsoleResponse) GetConnectParams() string {
+	params := resp.ConnectParams
+	if data, err := base64.StdEncoding.DecodeString(params); err == nil {
+		params = string(data)
+	}
+	return params
+}
+
+func (resp *ServerRemoteConsoleResponse) GetConnectProtocol() (string, error) {
+	var (
+		params = resp.GetConnectParams()
+		query  url.Values
+	)
+	if uri, err := url.ParseRequestURI(params); err == nil {
+		query = uri.Query()
+	} else if q, err := url.ParseQuery(params); err == nil {
+		query = q
+	} else {
+		return "", err
+	}
+	protocol := query.Get("protocol")
+	return protocol, nil
 }
