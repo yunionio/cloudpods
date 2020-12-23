@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	webconsole_api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -214,14 +215,15 @@ func handleServerRemoteConsole(ctx context.Context, w http.ResponseWriter, r *ht
 }
 
 func responsePublicCloudConsole(ctx context.Context, info *session.RemoteConsoleInfo, w http.ResponseWriter) {
-	data := jsonutils.NewDict()
 	params, err := info.GetConnectParams()
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	data.Add(jsonutils.NewString(params), "connect_params")
-	sendJSON(w, data)
+	resp := webconsole_api.ServerRemoteConsoleResponse{
+		ConnectParams: params,
+	}
+	sendJSON(w, resp.JSON(resp))
 }
 
 func handleDataSession(ctx context.Context, sData session.ISessionData, w http.ResponseWriter, connParams url.Values, b64Encode bool) {
@@ -230,7 +232,6 @@ func handleDataSession(ctx context.Context, sData session.ISessionData, w http.R
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	data := jsonutils.NewDict()
 	params, err := s.GetConnectParams(connParams)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
@@ -239,9 +240,11 @@ func handleDataSession(ctx context.Context, sData session.ISessionData, w http.R
 	if b64Encode {
 		params = base64.StdEncoding.EncodeToString([]byte(params))
 	}
-	data.Add(jsonutils.NewString(params), "connect_params")
-	data.Add(jsonutils.NewString(s.Id), "session")
-	sendJSON(w, data)
+	resp := webconsole_api.ServerRemoteConsoleResponse{
+		ConnectParams: params,
+		Session:       s.Id,
+	}
+	sendJSON(w, resp.JSON(resp))
 }
 
 func handleCommandSession(ctx context.Context, cmd command.ICommand, w http.ResponseWriter) {
