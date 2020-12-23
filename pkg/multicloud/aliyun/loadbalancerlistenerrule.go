@@ -98,6 +98,12 @@ func (lbr *SLoadbalancerListenerRule) GetPath() string {
 }
 
 func (lbr *SLoadbalancerListenerRule) GetProjectId() string {
+	if lbr.httpListener != nil {
+		return lbr.httpListener.GetProjectId()
+	} else if lbr.httpsListener != nil {
+		return lbr.httpsListener.GetProjectId()
+	}
+
 	return ""
 }
 

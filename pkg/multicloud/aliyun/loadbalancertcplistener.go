@@ -356,5 +356,5 @@ func (listerner *SLoadbalancerTCPListener) Sync(ctx context.Context, lblis *clou
 }
 
 func (listerner *SLoadbalancerTCPListener) GetProjectId() string {
-	return ""
+	return listerner.lb.GetProjectId()
 }
