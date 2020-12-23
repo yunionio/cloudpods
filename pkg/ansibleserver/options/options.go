@@ -19,6 +19,7 @@ import common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 type AnsibleServerOptions struct {
 	common_options.CommonOptions
 	common_options.DBOptions
+	KeepTmpdir bool `help:"Whether to save the tmp directory" json:"keep_tmpdir"`
 }
 
 var (

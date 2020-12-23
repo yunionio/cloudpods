@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/ansibleserver/options"
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/ansible"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -199,7 +200,8 @@ func (apb *SAnsiblePlaybookV2) runPlaybook(ctx context.Context, userCred mcclien
 		PrivateKey(privateKey).
 		Requirements(apb.Requirements).
 		Files(files).
-		OutputWriter(&ansiblePlaybookOutputWriter{apb})
+		OutputWriter(&ansiblePlaybookOutputWriter{apb}).
+		KeepTmpdir(options.Options.KeepTmpdir)
 	man.sessions.Add(apb.Id, sess)
 
 	// NOTE host state check? run only on online hosts and running guests, skip others
