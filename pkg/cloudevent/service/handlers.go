@@ -55,6 +55,8 @@ func InitHandlers(app *appsrv.Application) {
 
 	for _, manager := range []db.IModelManager{
 		db.OpsLog,
+		db.Metadata,
+
 		proxy.ProxySettingManager,
 		models.CloudeventManager,
 	} {
