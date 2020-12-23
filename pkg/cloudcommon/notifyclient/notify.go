@@ -25,8 +25,12 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/text/language"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -64,12 +68,8 @@ func init() {
 	notifyclientI18nTable.Set(SUFFIX, i18n.NewTableEntry().EN("en").CN("cn"))
 }
 
-func getLangSuffix(ctx context.Context) string {
-	return notifyclientI18nTable.Lookup(ctx, SUFFIX)
-}
-
-func getTemplateString(ctx context.Context, topic string, contType string, channel npk.TNotifyChannel) ([]byte, error) {
-	contType = contType + "@" + getLangSuffix(ctx)
+func getTemplateString(suffix string, topic string, contType string, channel npk.TNotifyChannel) ([]byte, error) {
+	contType = contType + "@" + suffix
 	if len(channel) > 0 {
 		path := filepath.Join(consts.NotifyTemplateDir, consts.GetServiceType(), contType, fmt.Sprintf("%s.%s", topic, string(channel)))
 		cont, err := ioutil.ReadFile(path)
@@ -81,13 +81,13 @@ func getTemplateString(ctx context.Context, topic string, contType string, chann
 	return ioutil.ReadFile(path)
 }
 
-func getTemplate(ctx context.Context, topic string, contType string, channel npk.TNotifyChannel) (*template.Template, error) {
-	key := fmt.Sprintf("%s.%s.%s@%s", topic, contType, channel, getLangSuffix(ctx))
+func getTemplate(suffix string, topic string, contType string, channel npk.TNotifyChannel) (*template.Template, error) {
+	key := fmt.Sprintf("%s.%s.%s@%s", topic, contType, channel, suffix)
 	templatesTableLock.Lock()
 	defer templatesTableLock.Unlock()
 
 	if _, ok := templatesTable[key]; !ok {
-		cont, err := getTemplateString(ctx, topic, contType, channel)
+		cont, err := getTemplateString(suffix, topic, contType, channel)
 		if err != nil {
 			return nil, err
 		}
@@ -106,11 +106,11 @@ func unescaped(str string) template.HTML {
 	return template.HTML(str)
 }
 
-func getContent(ctx context.Context, topic string, contType string, channel npk.TNotifyChannel, data jsonutils.JSONObject) (string, error) {
+func getContent(suffix string, topic string, contType string, channel npk.TNotifyChannel, data jsonutils.JSONObject) (string, error) {
 	if channel == npk.NotifyByWebhook {
 		return "", nil
 	}
-	tmpl, err := getTemplate(ctx, topic, contType, channel)
+	tmpl, err := getTemplate(suffix, topic, contType, channel)
 	if err != nil {
 		return "", err
 	}
@@ -210,64 +210,181 @@ const noSuchReceiver = `no such receiver whose uid is '(.*)'`
 
 var noSuchReceiverRegexp = regexp.MustCompile(noSuchReceiver)
 
-func intelliNotify(ctx context.Context, p sNotifyParams) {
-	log.Infof("notify %s event %s priority %s", p.recipientId, p.event, p.priority)
-	msg := npk.SNotifyMessage{}
-	if p.isGroup {
-		msg.Gid = p.recipientId
-	} else {
-		msg.Uid = p.recipientId
-	}
-	msg.Priority = p.priority
-	msg.Contacts = p.contacts
-	msg.ContactType = p.channel
-	topic, _ := getContent(ctx, p.event, "title", p.channel, p.data)
-	if len(topic) == 0 {
-		topic = p.event
-	}
-	msg.Topic = topic
-	body, _ := getContent(ctx, p.event, "content", p.channel, p.data)
-	if len(body) == 0 {
-		body, _ = p.data.GetString()
-	}
-	msg.Msg = body
-	// log.Debugf("send notification %s %s", topic, body)
-	notifyClientWorkerMan.Run(func() {
-		s := auth.GetAdminSession(context.Background(), consts.GetRegion(), "")
-		for {
-			err := npk.Notifications.Send(s, msg)
-			if err == nil {
-				break
-			}
-			if !p.createReceiver {
-				log.Errorf("unable to send notification: %v", err)
-				break
-			}
-			jerr, ok := err.(*httputils.JSONClientError)
-			if !ok {
-				log.Errorf("unable to send notification: %v", err)
-				break
-			}
-			if jerr.Code > 500 {
-				log.Errorf("unable to send notification: %v", err)
-				break
-			}
-			match := noSuchReceiverRegexp.FindStringSubmatch(jerr.Details)
-			if match == nil || len(match) <= 1 {
-				log.Errorf("unable to send notification: %v", err)
-				break
-			}
-			receiverId := match[1]
-			createData := jsonutils.NewDict()
-			createData.Set("uid", jsonutils.NewString(receiverId))
-			_, err = modules.NotifyReceiver.Create(s, createData)
-			if err != nil {
-				log.Errorf("try to create receiver %q, but failed: %v", receiverId, err)
-				break
-			}
-			log.Infof("create receiver %q successfully", receiverId)
+type sTarget struct {
+	reIds    []string
+	contacts []string
+}
+
+func lang(ctx context.Context, contactType npk.TNotifyChannel, reIds []string, contacts []string) (map[language.Tag]*sTarget, error) {
+	contextLang := i18n.Lang(ctx)
+	s := auth.GetAdminSession(context.Background(), consts.GetRegion(), "")
+	langMap := make(map[language.Tag]*sTarget)
+	insertReid := func(lang language.Tag, id string) {
+		t := langMap[lang]
+		if t == nil {
+			t = &sTarget{}
+			langMap[lang] = t
 		}
-	}, nil, nil)
+		t.reIds = append(t.reIds, id)
+	}
+	insertContact := func(lang language.Tag, id string) {
+		t := langMap[lang]
+		if t == nil {
+			t = &sTarget{}
+			langMap[lang] = t
+		}
+		t.contacts = append(t.contacts, id)
+	}
+
+	uids := append([]string{}, reIds...)
+	if contactType == npk.NotifyByWebConsole {
+		uids = append(uids, contacts...)
+	}
+
+	uidLang := make(map[string]string)
+	if len(uids) > 0 {
+		params := jsonutils.NewDict()
+		params.Set("filter", jsonutils.NewString(fmt.Sprintf("id.in(%s)", strings.Join(uids, ","))))
+		params.Set("details", jsonutils.JSONFalse)
+		params.Set("scope", jsonutils.NewString("system"))
+		params.Set("system", jsonutils.JSONTrue)
+		ret, err := modules.UsersV3.List(s, params)
+		if err != nil {
+			return nil, err
+		}
+		for i := range ret.Data {
+			id, _ := ret.Data[i].GetString("id")
+			langStr, _ := ret.Data[i].GetString("lang")
+			uidLang[id] = langStr
+		}
+	}
+	insert := func(id string, insertFunc func(language.Tag, string)) {
+		langStr := uidLang[id]
+		if len(langStr) == 0 {
+			insertFunc(contextLang, id)
+			return
+		}
+		lang, err := language.Parse(langStr)
+		if err != nil {
+			log.Errorf("can't parse %s to language.Tag: %v", langStr, err)
+			insertFunc(contextLang, id)
+			return
+		}
+		insertFunc(lang, id)
+	}
+	for _, reid := range reIds {
+		insert(reid, insertReid)
+	}
+	if contactType == npk.NotifyByWebConsole {
+		for _, contact := range contacts {
+			insert(contact, insertContact)
+		}
+	} else {
+		for _, cs := range contacts {
+			insertContact(contextLang, cs)
+		}
+	}
+	return langMap, nil
+}
+
+func genMsgViaLang(ctx context.Context, p sNotifyParams) ([]npk.SNotifyMessage, error) {
+	reIds := make([]string, 0)
+	s := auth.GetAdminSession(context.Background(), consts.GetRegion(), "")
+	if p.isGroup {
+		// fetch uid
+		uidSet := sets.NewString()
+		for _, gid := range p.recipientId {
+			users, err := modules.Groups.GetUsers(s, gid, nil)
+			if err != nil {
+				return nil, errors.Wrapf(err, "Groups.GetUsers for group %q", gid)
+			}
+			for i := range users.Data {
+				id, _ := users.Data[i].GetString("id")
+				uidSet.Insert(id)
+			}
+		}
+		for _, uid := range uidSet.UnsortedList() {
+			reIds = append(reIds, uid)
+		}
+	} else {
+		reIds = p.recipientId
+	}
+
+	langMap, err := lang(ctx, p.channel, reIds, p.contacts)
+	if err != nil {
+		return nil, err
+	}
+
+	msgs := make([]npk.SNotifyMessage, 0, len(langMap))
+	for lang, t := range langMap {
+		suffix := notifyclientI18nTable.LookupByLang(lang, SUFFIX)
+		msg := npk.SNotifyMessage{}
+		msg.Uid = t.reIds
+		msg.Priority = p.priority
+		msg.Contacts = t.contacts
+		msg.ContactType = p.channel
+		topic, _ := getContent(suffix, p.event, "title", p.channel, p.data)
+		if len(topic) == 0 {
+			topic = p.event
+		}
+		msg.Topic = topic
+		body, _ := getContent(suffix, p.event, "content", p.channel, p.data)
+		if len(body) == 0 {
+			body, _ = p.data.GetString()
+		}
+		msg.Msg = body
+		msgs = append(msgs, msg)
+	}
+	return msgs, nil
+}
+
+func intelliNotify(ctx context.Context, p sNotifyParams) {
+	log.Infof("recipientId: %v, contacts: %v, event %s priority %s", p.recipientId, p.contacts, p.event, p.priority)
+	msgs, err := genMsgViaLang(ctx, p)
+	if err != nil {
+		log.Errorf("unable send notification: %v", err)
+	}
+	for i := range msgs {
+		msg := msgs[i]
+		notifyClientWorkerMan.Run(func() {
+			s := auth.GetAdminSession(context.Background(), consts.GetRegion(), "")
+			for {
+				err := npk.Notifications.Send(s, msg)
+				if err == nil {
+					break
+				}
+				if !p.createReceiver {
+					log.Errorf("unable to send notification: %v", err)
+					break
+				}
+				jerr, ok := err.(*httputils.JSONClientError)
+				if !ok {
+					log.Errorf("unable to send notification: %v", err)
+					break
+				}
+				if jerr.Code > 500 {
+					log.Errorf("unable to send notification: %v", err)
+					break
+				}
+				match := noSuchReceiverRegexp.FindStringSubmatch(jerr.Details)
+				if match == nil || len(match) <= 1 {
+					log.Errorf("unable to send notification: %v", err)
+					break
+				}
+				receiverId := match[1]
+				createData := jsonutils.NewDict()
+				createData.Set("uid", jsonutils.NewString(receiverId))
+				_, err = modules.NotifyReceiver.Create(s, createData)
+				if err != nil {
+					log.Errorf("try to create receiver %q, but failed: %v", receiverId, err)
+					break
+				}
+				log.Infof("create receiver %q successfully", receiverId)
+			}
+		}, nil, nil)
+
+	}
+	// log.Debugf("send notification %s %s", topic, body)
 }
 
 type sNotifyParams struct {
