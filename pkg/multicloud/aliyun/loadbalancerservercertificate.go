@@ -137,5 +137,5 @@ func (region *SRegion) GetLoadbalancerServerCertificates() ([]SLoadbalancerServe
 }
 
 func (certificate *SLoadbalancerServerCertificate) GetProjectId() string {
-	return ""
+	return certificate.ResourceGroupId
 }

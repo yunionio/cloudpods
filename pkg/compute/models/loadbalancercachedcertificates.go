@@ -102,6 +102,7 @@ func (self *SCachedLoadbalancerCertificate) ValidateDeleteCondition(ctx context.
 		n, err := t.Query().
 			Equals("domain_id", self.DomainId).
 			Equals("certificate_id", lbcertId).
+			Equals("cached_certificate_id", self.GetId()).
 			Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
 			CountWithError()
 		if err != nil {
