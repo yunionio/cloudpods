@@ -1135,3 +1135,39 @@ func (b *SBucket) GetMetadata() *jsonutils.JSONDict {
 	}
 	return meta
 }
+
+func (b *SBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUploads, error) {
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		log.Errorf("GetCosClient fail %s", err)
+		return nil, errors.Wrap(err, "b.region.GetCosClient(b)")
+	}
+	result := []cloudprovider.SBucketMultipartUploads{}
+	input := cos.ListMultipartUploadsOptions{}
+	keyMarker := ""
+	uploadIDMarker := ""
+	for {
+		input.KeyMarker = keyMarker
+		input.UploadIDMarker = uploadIDMarker
+		output, _, err := coscli.Bucket.ListMultipartUploads(context.Background(), &input)
+		if err != nil {
+			return nil, errors.Wrap(err, " coscli.Bucket.ListMultipartUploads(context.Background(), &input)")
+		}
+		for i := range output.Uploads {
+			temp := cloudprovider.SBucketMultipartUploads{
+				ObjectName: output.Uploads[i].Key,
+				UploadID:   output.Uploads[i].UploadID,
+				Initiator:  output.Uploads[i].Initiator.DisplayName,
+			}
+			temp.Initiated, _ = timeutils.ParseTimeStr(output.Uploads[i].Initiated)
+			result = append(result, temp)
+		}
+		keyMarker = output.NextKeyMarker
+		uploadIDMarker = output.NextUploadIDMarker
+		if !output.IsTruncated {
+			break
+		}
+	}
+
+	return result, nil
+}

@@ -133,3 +133,7 @@ func (b *SBaseBucket) SetTags(tags map[string]string) error {
 func (b *SBaseBucket) DeleteTags() error {
 	return cloudprovider.ErrNotImplemented
 }
+
+func (b *SBaseBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUploads, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}

@@ -778,3 +778,40 @@ func (b *SBucket) GetMetadata() *jsonutils.JSONDict {
 	}
 	return meta
 }
+
+func (b *SBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUploads, error) {
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetOssClient")
+	}
+	result := []cloudprovider.SBucketMultipartUploads{}
+
+	ossBucket, err := osscli.Bucket(b.Name)
+	if err != nil {
+		return nil, errors.Wrap(err, "osscli.Bucket(b.Name)")
+	}
+
+	keyMarker := oss.KeyMarker("")
+	uploadIDMarker := oss.UploadIDMarker("")
+	for {
+		output, err := ossBucket.ListMultipartUploads(keyMarker, uploadIDMarker)
+		if err != nil {
+			return nil, errors.Wrap(err, " coscli.Bucket.ListMultipartUploads(context.Background(), &input)")
+		}
+		for i := range output.Uploads {
+			temp := cloudprovider.SBucketMultipartUploads{
+				ObjectName: output.Uploads[i].Key,
+				UploadID:   output.Uploads[i].UploadID,
+				Initiated:  output.Uploads[i].Initiated,
+			}
+			result = append(result, temp)
+		}
+		keyMarker = oss.KeyMarker(output.NextKeyMarker)
+		uploadIDMarker = oss.UploadIDMarker(output.NextUploadIDMarker)
+		if !output.IsTruncated {
+			break
+		}
+	}
+
+	return result, nil
+}

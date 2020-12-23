@@ -154,6 +154,16 @@ type SBucketPolicyStatementInput struct {
 	IpNotEquals []string
 }
 
+type SBucketMultipartUploads struct {
+	// object name
+	ObjectName string
+	UploadID   string
+	// 发起人
+	Initiator string
+	// 发起时间
+	Initiated time.Time
+}
+
 type SBaseCloudObject struct {
 	Key          string
 	SizeBytes    int64
@@ -264,6 +274,8 @@ type ICloudBucket interface {
 	GetTags() (map[string]string, error)
 	SetTags(tags map[string]string) error
 	DeleteTags() error
+
+	ListMultipartUploads() ([]SBucketMultipartUploads, error)
 }
 
 type ICloudObject interface {
