@@ -90,6 +90,11 @@ func (sess *Session) OutputWriter(w io.Writer) *Session {
 	return sess
 }
 
+func (sess *Session) KeepTmpdir(keep bool) *Session {
+	sess.keepTmpdir = keep
+	return sess
+}
+
 func (sess *Session) Run(ctx context.Context) (err error) {
 	var (
 		tmpdir string
@@ -187,7 +192,7 @@ func (sess *Session) Run(ctx context.Context) (err error) {
 	// install required roles
 	if len(requirements) > 0 {
 		args := []string{
-			"install", "-r", requirements,
+			"install", "-r", requirements, "-p", tmpdir,
 		}
 		cmd := exec.CommandContext(ctx, "ansible-galaxy", args...)
 		stdout, _ := cmd.StdoutPipe()
