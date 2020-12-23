@@ -96,7 +96,7 @@ func (self *SRegion) GetMonitorData(name string, ns string, resourceId string, s
 	if !since.IsZero() && !until.IsZero() {
 		params.Set("timespan", since.UTC().Format(time.RFC3339)+"/"+until.UTC().Format(time.RFC3339))
 	}
-	resource := fmt.Sprintf("%s/provider/microsoft.insights/metrics", resourceId)
+	resource := fmt.Sprintf("%s/providers/microsoft.insights/metrics", resourceId)
 	elements := ResponseMetirc{}
 	err := self.get(resource, params, &elements)
 	if err != nil {
