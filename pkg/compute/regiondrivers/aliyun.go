@@ -1545,6 +1545,10 @@ func (self *SAliyunRegionDriver) IsSupportedDBInstance() bool {
 	return true
 }
 
+func (self *SAliyunRegionDriver) GetRdsSupportSecgroupCount() int {
+	return 3
+}
+
 func (self *SAliyunRegionDriver) IsSupportedDBInstanceAutoRenew() bool {
 	return true
 }

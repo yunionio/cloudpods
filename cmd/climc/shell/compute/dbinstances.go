@@ -15,262 +15,34 @@
 package compute
 
 import (
-	"fmt"
-	"strings"
-
-	"yunion.io/x/jsonutils"
-
-	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
-	type DBInstanceListOptions struct {
-		options.BaseListOptions
-		BillingType string `help:"billing type" choices:"postpaid|prepaid"`
-	}
-	R(&DBInstanceListOptions{}, "dbinstance-list", "List DB instance", func(s *mcclient.ClientSession, opts *DBInstanceListOptions) error {
-		params, err := options.ListStructToParams(opts)
-		if err != nil {
-			return err
-		}
-
-		result, err := modules.DBInstance.List(s, params)
-		if err != nil {
-			return err
-		}
-
-		if len(opts.ExportFile) > 0 {
-			exportList(result, opts.ExportFile, opts.ExportKeys, opts.ExportTexts, modules.DBInstance.GetColumns(s))
-		} else {
-			printList(result, modules.DBInstance.GetColumns(s))
-		}
-		return nil
-	})
-
-	R(&options.DBInstanceCreateOptions{}, "dbinstance-create", "Create DB instance", func(s *mcclient.ClientSession, opts *options.DBInstanceCreateOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		if opts.AllowDelete != nil && *opts.AllowDelete {
-			params.Add(jsonutils.JSONFalse, "disable_delete")
-		}
-		result, err := modules.DBInstance.Create(s, params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	type DBInstanceRenewOptions struct {
-		ID       string `help:"ID or name of server to renew"`
-		DURATION string `help:"Duration of renew, ADMIN only command"`
-	}
-	R(&DBInstanceRenewOptions{}, "dbinstance-renew", "Renew a dbinstance", func(s *mcclient.ClientSession, args *DBInstanceRenewOptions) error {
-		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.DURATION), "duration")
-		result, err := modules.DBInstance.PerformAction(s, args.ID, "renew", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	type DBInstanceUpdateOptions struct {
-		ID          string `help:"ID or name of server to renew"`
-		Name        string
-		Description string
-		Delete      string `help:"Lock or not lock dbinstance" choices:"enable|disable"`
-	}
-	R(&DBInstanceUpdateOptions{}, "dbinstance-update", "Update a dbinstance", func(s *mcclient.ClientSession, args *DBInstanceUpdateOptions) error {
-		params, err := options.StructToParams(args)
-		if err != nil {
-			return err
-		}
-		if len(args.Delete) > 0 {
-			if args.Delete == "disable" {
-				params.Add(jsonutils.JSONTrue, "disable_delete")
-			} else {
-				params.Add(jsonutils.JSONFalse, "disable_delete")
-			}
-		}
-		result, err := modules.DBInstance.Update(s, args.ID, params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	type DBInstanceChangeConfigOptions struct {
-		ID           string `help:"ID or name of server to renew"`
-		DiskSizeGb   int64  `help:"Change DBInstance storage size"`
-		VcpuCount    int64  `help:"Change DBInstance vcpu count"`
-		VmemSizeMb   int64  `help:"Change DBInstance vmem size mb"`
-		InstanceType string `help:"Change DBInstance instanceType"`
-		Category     string `help:"Change DBInstance category"`
-	}
-	R(&DBInstanceChangeConfigOptions{}, "dbinstance-change-config", "ChangeConfig a dbinstance", func(s *mcclient.ClientSession, args *DBInstanceChangeConfigOptions) error {
-		params := jsonutils.NewDict()
-		if len(args.Category) > 0 {
-			params.Add(jsonutils.NewString(args.Category), "category")
-		}
-		if len(args.InstanceType) > 0 {
-			params.Add(jsonutils.NewString(args.InstanceType), "instance_type")
-		}
-		if args.DiskSizeGb > 0 {
-			params.Add(jsonutils.NewInt(args.DiskSizeGb), "disk_size_gb")
-		}
-		if args.VcpuCount > 0 {
-			params.Add(jsonutils.NewInt(args.VcpuCount), "vcpu_count")
-		}
-		if args.VmemSizeMb > 0 {
-			params.Add(jsonutils.NewInt(args.VmemSizeMb), "vmeme_size_mb")
-		}
-		result, err := modules.DBInstance.PerformAction(s, args.ID, "change-config", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	type DBInstanceIdOptions struct {
-		ID string `help:"ID of dbinstance"`
-	}
-
-	R(&DBInstanceIdOptions{}, "dbinstance-open-public-connection", "Open DB instance public connection", func(s *mcclient.ClientSession, opts *DBInstanceIdOptions) error {
-		params := jsonutils.NewDict()
-		params.Add(jsonutils.JSONTrue, "open")
-		result, err := modules.DBInstance.PerformAction(s, opts.ID, "public-connection", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&DBInstanceIdOptions{}, "dbinstance-close-public-connection", "Close DB instance public connection", func(s *mcclient.ClientSession, opts *DBInstanceIdOptions) error {
-		params := jsonutils.NewDict()
-		params.Add(jsonutils.JSONFalse, "open")
-		result, err := modules.DBInstance.PerformAction(s, opts.ID, "public-connection", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	type DBInstanceRecoveryOptions struct {
-		ID        string
-		BACKUP    string
-		Databases []string
-	}
-
-	R(&DBInstanceRecoveryOptions{}, "dbinstance-recovery", "Recovery DB instance database from backup", func(s *mcclient.ClientSession, opts *DBInstanceRecoveryOptions) error {
-		params := jsonutils.NewDict()
-		params.Set("dbinstancebackup", jsonutils.NewString(opts.BACKUP))
-		dbs := jsonutils.NewDict()
-		for _, database := range opts.Databases {
-			if len(database) > 0 {
-				dbInfo := strings.Split(database, ":")
-				if len(dbInfo) == 1 {
-					dbs.Add(jsonutils.NewString(dbInfo[0]), dbInfo[0])
-				} else if len(dbInfo) == 2 {
-					dbs.Add(jsonutils.NewString(dbInfo[1]), dbInfo[0])
-				} else {
-					return fmt.Errorf("Invalid dbinfo: %s", database)
-				}
-			}
-		}
-		if dbs.Length() > 0 {
-			params.Add(dbs, "databases")
-		}
-		result, err := modules.DBInstance.PerformAction(s, opts.ID, "recovery", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&DBInstanceIdOptions{}, "dbinstance-show", "Show DB instance", func(s *mcclient.ClientSession, opts *DBInstanceIdOptions) error {
-		result, err := modules.DBInstance.Get(s, opts.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&DBInstanceIdOptions{}, "dbinstance-reboot", "Reboot DB instance", func(s *mcclient.ClientSession, opts *DBInstanceIdOptions) error {
-		result, err := modules.DBInstance.PerformAction(s, opts.ID, "reboot", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	type DBInstanceDeleteOptions struct {
-		ID         string `help:"DBInstance Id or name"`
-		KeepBackup bool   `help:"Keep dbinstance manual backup after delete dbinstance"`
-	}
-
-	R(&DBInstanceDeleteOptions{}, "dbinstance-delete", "Delete DB instance", func(s *mcclient.ClientSession, opts *DBInstanceDeleteOptions) error {
-		params := jsonutils.NewDict()
-		if opts.KeepBackup {
-			params.Add(jsonutils.JSONTrue, "keep_backup")
-		}
-		result, err := modules.DBInstance.Delete(s, opts.ID, params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&DBInstanceIdOptions{}, "dbinstance-purge", "Purge DB instance", func(s *mcclient.ClientSession, opts *DBInstanceIdOptions) error {
-		result, err := modules.DBInstance.PerformAction(s, opts.ID, "purge", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&DBInstanceIdOptions{}, "dbinstance-syncstatus", "Sync status for DB instance", func(s *mcclient.ClientSession, opts *DBInstanceIdOptions) error {
-		result, err := modules.DBInstance.PerformAction(s, opts.ID, "syncstatus", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&DBInstanceIdOptions{}, "dbinstance-sync", "Sync conf from cloud dbinstance", func(s *mcclient.ClientSession, opts *DBInstanceIdOptions) error {
-		result, err := modules.DBInstance.PerformAction(s, opts.ID, "sync", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&DBInstanceIdOptions{}, "dbinstance-sync-status", "Sync status for DB instance", func(s *mcclient.ClientSession, opts *DBInstanceIdOptions) error {
-		result, err := modules.DBInstance.PerformAction(s, opts.ID, "sync-status", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
+	cmd := shell.NewResourceCmd(&modules.DBInstance) //.WithContextManager(&modules.Networks)
+	cmd.List(&compute.DBInstanceListOptions{})
+	cmd.Create(&compute.DBInstanceCreateOptions{})
+	cmd.Update(&compute.DBInstanceUpdateOptions{})
+	cmd.Show(&compute.DBInstanceIdOptions{})
+	cmd.Delete(&compute.DBInstanceDeleteOptions{})
+	cmd.Perform("renew", &compute.DBInstanceRenewOptions{})
+	cmd.Perform("change-config", &compute.DBInstanceChangeConfigOptions{})
+	cmd.Perform("public-connection", &compute.DBInstancePublicConnectionOptions{})
+	cmd.Perform("recovery", &compute.DBInstanceRecoveryOptions{})
+	cmd.Perform("reboot", &compute.DBInstanceIdOptions{})
+	cmd.Perform("purge", &compute.DBInstanceIdOptions{})
+	cmd.Perform("syncstatus", &compute.DBInstanceIdOptions{})
+	cmd.Perform("sync", &compute.DBInstanceIdOptions{})
+	cmd.Perform("change-owner", &compute.DBInstanceChangeOwnerOptions{})
+	cmd.PerformWithKeyword("add-tag", "user-metadata", &options.ResourceMetadataOptions{})
+	cmd.PerformWithKeyword("set-tag", "set-user-metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("remote-update", &compute.DBInstanceRemoteUpdateOptions{})
+	cmd.Perform("set-secgroup", &compute.DBInstanceSetSecgroupOptions{})
 
 	type DBInstanceNetworkListOptions struct {
 		options.BaseListOptions
@@ -336,64 +108,4 @@ func init() {
 		return nil
 	})
 
-	type DBInstanceChangeOwnerOptions struct {
-		ID      string `help:"DBInstance to change owner" json:"-"`
-		PROJECT string `help:"Project ID or change" json:"tenant"`
-	}
-	R(&DBInstanceChangeOwnerOptions{}, "dbinstance-change-owner", "Change owner porject of a dbinstance", func(s *mcclient.ClientSession, opts *DBInstanceChangeOwnerOptions) error {
-		params, err := options.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		result, err := modules.DBInstance.PerformAction(s, opts.ID, "change-owner", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&options.ResourceMetadataOptions{}, "dbinstance-add-tag", "Set tag of a dbinstance", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		result, err := modules.DBInstance.PerformAction(s, opts.ID, "user-metadata", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&options.ResourceMetadataOptions{}, "dbinstance-set-tag", "Set tag of a dbinstance", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		result, err := modules.DBInstance.PerformAction(s, opts.ID, "set-user-metadata", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	type DBInstanceRemoteUpdateOptions struct {
-		ID string `json:"-"`
-		computeapi.DBInstanceRemoteUpdateInput
-	}
-
-	R(&DBInstanceRemoteUpdateOptions{}, "dbinstance-remote-update", "Change owner porject of a dbinstance", func(s *mcclient.ClientSession, opts *DBInstanceRemoteUpdateOptions) error {
-		params, err := options.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		result, err := modules.DBInstance.PerformAction(s, opts.ID, "remote-update", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
 }
