@@ -201,14 +201,12 @@ func (c *NoDataQueryCondition) createEvalMatchTagFromHostJson(evalContext *alert
 	evalMatch.Tags[HOST_TAG_BRAND] = brand
 
 	switch evalContext.Rule.RuleDescription[0].ResType {
-	case monitor.METRIC_RES_TYPE_HOST:
-		evalMatch.Tags[hostconsts.TELEGRAF_TAG_KEY_RES_TYPE] = hostconsts.TELEGRAF_TAG_ONECLOUD_RES_TYPE
-		evalMatch.Tags[hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE] = hostconsts.TELEGRAF_TAG_ONECLOUD_HOST_TYPE_HOST
 	case monitor.METRIC_RES_TYPE_GUEST:
 	case monitor.METRIC_RES_TYPE_RDS:
 	case monitor.METRIC_RES_TYPE_REDIS:
 	case monitor.METRIC_RES_TYPE_OSS:
 	default:
+		evalMatch.Tags["host"] = name
 		evalMatch.Tags[hostconsts.TELEGRAF_TAG_KEY_RES_TYPE] = hostconsts.TELEGRAF_TAG_ONECLOUD_RES_TYPE
 		evalMatch.Tags[hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE] = hostconsts.TELEGRAF_TAG_ONECLOUD_HOST_TYPE_HOST
 	}
