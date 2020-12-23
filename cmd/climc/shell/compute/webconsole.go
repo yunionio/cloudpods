@@ -42,34 +42,24 @@ func init() {
 		if err != nil {
 			return err
 		}
-		connParams, err := obj.GetString("connect_params")
-		if err != nil {
+
+		resp := &webconsole_api.ServerRemoteConsoleResponse{}
+		if err := obj.Unmarshal(resp); err != nil {
 			return err
 		}
-		if decodeStr, err := base64.StdEncoding.DecodeString(connParams); err == nil {
-			connParams = string(decodeStr)
-		}
-		var query url.Values
-		connUrl, err := url.ParseRequestURI(connParams)
-		if err == nil {
-			query = connUrl.Query()
-		} else {
-			query, err = url.ParseQuery(connParams)
-			if err != nil {
-				return err
-			}
-		}
-		protocol := query.Get("protocol")
-		if !utils.IsInStringArray(protocol, []string{
+		connectParams := resp.GetConnectParams()
+		if protocol, err := resp.GetConnectProtocol(); err != nil {
+			return err
+		} else if !utils.IsInStringArray(protocol, []string{
 			command.PROTOCOL_TTY, webconsole_api.VNC,
 			webconsole_api.SPICE, webconsole_api.WMKS,
 		}) {
-			fmt.Println(connParams)
+			fmt.Println(connectParams)
 			return nil
 		}
 
-		newQuery := url.Values(make(map[string][]string))
-		newQuery.Set("data", base64.StdEncoding.EncodeToString([]byte(connParams)))
+		newQuery := url.Values{}
+		newQuery.Set("data", base64.StdEncoding.EncodeToString([]byte(connectParams)))
 		u.RawQuery = newQuery.Encode()
 		fmt.Println(u.String())
 		return nil
