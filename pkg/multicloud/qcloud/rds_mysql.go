@@ -257,6 +257,21 @@ func (self *SMySQLInstance) GetSecurityGroupIds() ([]string, error) {
 	return ids, nil
 }
 
+func (self *SMySQLInstance) SetSecurityGroups(ids []string) error {
+	return self.region.ModifyMySQLInstanceSecurityGroups(self.InstanceId, ids)
+}
+
+func (self *SRegion) ModifyMySQLInstanceSecurityGroups(rdsId string, secIds []string) error {
+	params := map[string]string{
+		"InstanceId": rdsId,
+	}
+	for idx, id := range secIds {
+		params[fmt.Sprintf("SecurityGroupIds.%d", idx)] = id
+	}
+	_, err := self.cdbRequest("ModifyDBInstanceSecurityGroups", params)
+	return err
+}
+
 func (self *SMySQLInstance) Renew(bc billing.SBillingCycle) error {
 	month := bc.GetMonths()
 	return self.region.RenewMySQLDBInstance(self.InstanceId, month)
