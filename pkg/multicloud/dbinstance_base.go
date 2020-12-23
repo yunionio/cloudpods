@@ -80,6 +80,10 @@ func (instance *SDBInstanceBase) GetSecurityGroupIds() ([]string, error) {
 	return []string{}, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetSecurityGroupIds")
 }
 
+func (self *SDBInstanceBase) SetSecurityGroups(ids []string) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "SetSecurityGroups")
+}
+
 func (instance *SDBInstanceBase) Renew(bc billing.SBillingCycle) error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "Renew")
 }
