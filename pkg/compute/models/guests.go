@@ -5408,6 +5408,7 @@ func (self *SGuest) ToNetworksConfig() []*api.NetworkConfig {
 
 		// XXX: same wire
 		netConf.Wire = network.WireId
+		netConf.Network = network.Id
 		netConf.Exit = guestNetwork.IsExit()
 		// netConf.Private
 		// netConf.Reserved
