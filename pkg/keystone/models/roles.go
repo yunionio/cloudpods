@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/keystone/locale"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -726,4 +727,11 @@ func (role *SRole) PerformRemovePolicy(ctx context.Context, userCred mcclient.To
 
 func (role *SRole) GetChangeOwnerCandidateDomainIds() []string {
 	return db.ISharableChangeOwnerCandidateDomainIds(role)
+}
+
+func (role *SRole) GetI18N(ctx context.Context) *jsonutils.JSONDict {
+	r := jsonutils.NewDict()
+	act18 := locale.PredefinedRoleI18nTable.Lookup(ctx, role.Description)
+	r.Set("description", jsonutils.NewString(act18))
+	return r
 }

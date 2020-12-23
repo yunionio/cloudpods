@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	policyman "yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/keystone/locale"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -629,4 +630,11 @@ func (policy *SPolicy) PerformBindRole(ctx context.Context, userCred mcclient.To
 		return nil, errors.Wrap(err, "newRecord")
 	}
 	return nil, nil
+}
+
+func (policy *SPolicy) GetI18N(ctx context.Context) *jsonutils.JSONDict {
+	r := jsonutils.NewDict()
+	act18 := locale.PredefinedPolicyI18nTable.Lookup(ctx, policy.Description)
+	r.Set("description", jsonutils.NewString(act18))
+	return r
 }
