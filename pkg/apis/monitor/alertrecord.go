@@ -9,16 +9,18 @@ type AlertRecordListInput struct {
 	apis.EnabledResourceBaseListInput
 	apis.StatusStandaloneResourceListInput
 
-	AlertId string `json:"alert_id"`
-	Level   string `json:"level"`
-	State   string `json:"state"`
+	AlertId string   `json:"alert_id"`
+	Level   string   `json:"level"`
+	State   string   `json:"state"`
+	ResType []string `json:"res_type"`
 }
 
 type AlertRecordDetails struct {
 	apis.StatusStandaloneResourceDetails
 	apis.ScopedResourceBaseInfo
 
-	ResNum int64 `json:"res_num"`
+	ResNum    int64  `json:"res_num"`
+	AlertName string `json:"alert_name"`
 }
 
 type AlertRecordCreateInput struct {
@@ -28,6 +30,7 @@ type AlertRecordCreateInput struct {
 	// 报警级别
 	Level     string       `json:"level"`
 	State     string       `json:"state"`
+	ResType   string       `json:"res_type"`
 	EvalData  []*EvalMatch `json:"eval_data"`
 	AlertRule AlertRecordRule
 }
