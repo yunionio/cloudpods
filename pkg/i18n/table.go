@@ -32,11 +32,15 @@ func (tbl Table) Set(k string, te TableEntry) {
 }
 
 func (tbl Table) Lookup(ctx context.Context, key string) string {
+	lang := Lang(ctx)
+	return tbl.LookupByLang(lang, key)
+}
+
+func (tbl Table) LookupByLang(lang language.Tag, key string) string {
 	te, ok := tbl[key]
 	if !ok {
 		return key
 	}
-	lang := Lang(ctx)
 	lang = tableLangMatch(lang)
 	v, ok := te[lang]
 	if !ok {
