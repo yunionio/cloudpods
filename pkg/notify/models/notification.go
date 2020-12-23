@@ -78,7 +78,7 @@ const (
 
 func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.NotificationCreateInput) (api.NotificationCreateInput, error) {
 	// compatible
-	if len(input.Receivers) == 0 && input.ContactType == api.WEBCONSOLE {
+	if len(input.Receivers) != 0 && input.ContactType == api.WEBCONSOLE {
 		input.Contacts = input.Receivers
 		input.Receivers = []string{}
 	}
