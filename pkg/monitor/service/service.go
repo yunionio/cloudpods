@@ -64,6 +64,8 @@ func StartService() {
 
 	cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount)
 	cron.AddJobAtIntervalsWithStartRun("InitAlertResourceAdminRoleUsers", time.Duration(opts.InitAlertResourceAdminRoleUsersIntervalSeconds)*time.Second, models.GetAlertResourceManager().GetAdminRoleUsers, true)
+	cron.AddJobEveryFewDays("DeleteRecordsOfThirtyDaysAgoRecords", 1, 0, 0, 0,
+		models.AlertRecordManager.DeleteRecordsOfThirtyDaysAgo, false)
 	cron.Start()
 	defer cron.Stop()
 

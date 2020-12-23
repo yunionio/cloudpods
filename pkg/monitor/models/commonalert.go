@@ -859,7 +859,37 @@ func (alert *SCommonAlert) CustomizeDelete(
 		alert.SetStatus(userCred, monitor.ALERT_STATUS_DELETE_FAIL, "")
 		return errors.Wrap(err, "customizeDeleteNotis")
 	}
+	alert.StartDeleteTask(ctx, userCred)
 	return alert.SAlert.CustomizeDelete(ctx, userCred, query, data)
+}
+
+func (alert *SCommonAlert) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return alert.SStandaloneResourceBase.Delete(ctx, userCred)
+}
+
+func (self *SCommonAlert) StartDeleteTask(
+	ctx context.Context, userCred mcclient.TokenCredential) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "DeleteAlertRecordTask", self, userCred, jsonutils.NewDict(), "", "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SCommonAlert) DeleteAttachAlertRecords(ctx context.Context, userCred mcclient.TokenCredential) (errs []error) {
+	records, err := AlertRecordManager.GetAlertRecordsByAlertId(self.GetId())
+	if err != nil {
+		errs = append(errs, errors.Wrap(err, "GetAlertRecordsByAlertId error"))
+		return
+	}
+	for i, _ := range records {
+		err := records[i].Delete(ctx, userCred)
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "delete attach record:%s error", records[i].GetId()))
+		}
+	}
+	return
 }
 
 func (alert *SCommonAlert) customizeDeleteNotis(
@@ -890,7 +920,7 @@ func (alert *SCommonAlert) customizeDeleteNotis(
 func (alert *SCommonAlert) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	CommonAlertManager.DeleteSubscriptionAlert(alert)
 
-	return alert.SAlert.Delete(ctx, userCred)
+	return nil
 }
 
 func (self *SCommonAlertManager) GetSystemAlerts() ([]SCommonAlert, error) {
@@ -948,6 +978,9 @@ func (manager *SCommonAlertManager) QueryDistinctExtraField(q *sqlchemy.SQuery, 
 	case "status":
 		q.AppendField(sqlchemy.DISTINCT(field, q.Field("status"))).Distinct()
 		return q, nil
+	case "res_type":
+		resTypeQuery := MetricMeasurementManager.Query("res_type").Distinct()
+		return resTypeQuery, nil
 	}
 	return q, httperrors.ErrNotFound
 }

@@ -3,14 +3,18 @@ package models
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -37,6 +41,7 @@ type SAlertRecord struct {
 	State     string               `width:"36" charset:"ascii" nullable:"false" default:"unknown" list:"user" update:"user"`
 	EvalData  jsonutils.JSONObject `list:"user" update:"user"`
 	AlertRule jsonutils.JSONObject `list:"user" update:"user"`
+	ResType   string               `width:"36" list:"user" update:"user"`
 }
 
 func init() {
@@ -97,8 +102,81 @@ func (manager *SAlertRecordManager) ListItemFilter(
 	}
 	if len(query.AlertId) != 0 {
 		q = q.Equals("alert_id", query.AlertId)
+	} else {
+		q = q.IsNotEmpty("res_type").IsNotNull("res_type")
 	}
 	return q, nil
+}
+
+func (man *SAlertRecordManager) CustomizeFilterList(
+	ctx context.Context, q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential, query jsonutils.JSONObject) (
+	*db.CustomizeListFilters, error) {
+	filters := db.NewCustomizeListFilters()
+	input := new(monitor.AlertRecordListInput)
+	if err := query.Unmarshal(input); err != nil {
+		return nil, err
+	}
+	wrapF := func(f func(obj *SAlertRecord) (bool, error)) func(object jsonutils.JSONObject) (bool, error) {
+		return func(data jsonutils.JSONObject) (bool, error) {
+			id, err := data.GetString("id")
+			if err != nil {
+				return false, err
+			}
+			obj, err := man.GetAlertRecord(id)
+			if err != nil {
+				return false, err
+			}
+			return f(obj)
+		}
+	}
+
+	if len(input.ResType) != 0 {
+		mF := func(obj *SAlertRecord) (bool, error) {
+			rule := new(monitor.AlertRecordRule)
+			if err := obj.AlertRule.Unmarshal(rule); err != nil {
+				return false, errors.Wrapf(err, "alert %s unmarshal", obj.GetId())
+			}
+			if ok, _ := utils.InStringArray(rule.ResType, input.ResType); ok {
+				return true, nil
+			}
+			return false, nil
+		}
+		filters.Append(wrapF(mF))
+	}
+	return filters, nil
+}
+
+func (man *SAlertRecordManager) GetAlertRecord(id string) (*SAlertRecord, error) {
+	obj, err := man.FetchById(id)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*SAlertRecord), nil
+}
+
+func (man *SAlertRecordManager) GetAlertRecordsByAlertId(id string) ([]SAlertRecord, error) {
+	records := make([]SAlertRecord, 0)
+	query := man.Query()
+	query = query.Equals("alert_id", id)
+	err := db.FetchModelObjects(man, query, &records)
+	if err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
+func (manager *SAlertRecordManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	if field == "res_type" {
+		resTypeQuery := MetricMeasurementManager.Query("res_type").Distinct()
+		return resTypeQuery, nil
+	}
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
 }
 
 func (man *SAlertRecordManager) OrderByExtraFields(
@@ -150,7 +228,8 @@ func (record *SAlertRecord) GetMoreDetails(out monitor.AlertRecordDetails) (moni
 		}
 		out.ResNum = int64(len(evalMatchs))
 	}
-
+	commonAlert, _ := CommonAlertManager.GetAlert(record.AlertId)
+	out.AlertName = commonAlert.GetName()
 	return out, nil
 }
 
@@ -232,4 +311,24 @@ func (record *SAlertRecord) PostCreate(ctx context.Context, userCred mcclient.To
 
 func (record *SAlertRecord) GetState() monitor.AlertStateType {
 	return monitor.AlertStateType(record.State)
+}
+
+func (manager *SAlertRecordManager) DeleteRecordsOfThirtyDaysAgo(ctx context.Context, userCred mcclient.TokenCredential,
+	isStart bool) {
+	records := make([]SAlertRecord, 0)
+	query := manager.Query()
+	query = query.LE("created_at", timeutils.MysqlTime(time.Now().Add(-time.Hour*24*30)))
+	log.Errorf("query:%s", query.String())
+	err := db.FetchModelObjects(manager, query, &records)
+	if err != nil {
+		log.Errorf("fetch records ofthirty days ago err:%v", err)
+		return
+	}
+	for i, _ := range records {
+		err := db.DeleteModel(ctx, userCred, &records[i])
+		if err != nil {
+			log.Errorf("delete expire record:%s err:%v", records[i].GetId(), err)
+		}
+	}
+
 }
