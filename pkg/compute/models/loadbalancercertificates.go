@@ -30,6 +30,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
@@ -338,6 +339,23 @@ func (man *SLoadbalancerCertificateManager) ValidateCreateData(ctx context.Conte
 	data.Remove("cloudregion_id")
 	data.Remove("manager_id")
 	return data, nil
+}
+
+func (lbcert *SLoadbalancerCertificate) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if !data.Contains("public_scope") {
+		if db.IsAdminAllowPerform(userCred, lbcert, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
+			lbcert.SetShare(rbacutils.ScopeSystem)
+		} else if db.IsDomainAllowPerform(userCred, lbcert, "public") && ownerId.GetProjectId() == userCred.GetProjectId() && consts.GetNonDefaultDomainProjects() {
+			// only if non_default_domain_projects turned on, share to domain
+			lbcert.SetShare(rbacutils.ScopeDomain)
+		} else {
+			lbcert.SetShare(rbacutils.ScopeNone)
+		}
+
+		data.(*jsonutils.JSONDict).Set("public_scope", jsonutils.NewString(lbcert.PublicScope))
+	}
+
+	return lbcert.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (man *SLoadbalancerCertificateManager) InitializeData() error {

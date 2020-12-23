@@ -33,6 +33,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
@@ -40,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -190,12 +192,12 @@ func (man *SLoadbalancerAclManager) ValidateCreateData(ctx context.Context, user
 		return nil, err
 	}
 
-	input := apis.VirtualResourceCreateInput{}
+	input := apis.SharableVirtualResourceCreateInput{}
 	err = data.Unmarshal(&input)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal VirtualResourceCreateInput fail %s", err)
+		return nil, httperrors.NewInternalServerError("unmarshal SharableVirtualResourceCreateInput fail %s", err)
 	}
-	input, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	input, err = man.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
 	if err != nil {
 		return nil, err
 	}
@@ -214,6 +216,23 @@ func (man *SLoadbalancerAclManager) ValidateCreateData(ctx context.Context, user
 	}
 	region := regionV.Model.(*SCloudregion)
 	return region.GetDriver().ValidateCreateLoadbalancerAclData(ctx, userCred, data)
+}
+
+func (lbacl *SLoadbalancerAcl) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if !data.Contains("public_scope") {
+		if db.IsAdminAllowPerform(userCred, lbacl, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
+			lbacl.SetShare(rbacutils.ScopeSystem)
+		} else if db.IsDomainAllowPerform(userCred, lbacl, "public") && ownerId.GetProjectId() == userCred.GetProjectId() && consts.GetNonDefaultDomainProjects() {
+			// only if non_default_domain_projects turned on, share to domain
+			lbacl.SetShare(rbacutils.ScopeDomain)
+		} else {
+			lbacl.SetShare(rbacutils.ScopeNone)
+		}
+
+		data.(*jsonutils.JSONDict).Set("public_scope", jsonutils.NewString(lbacl.PublicScope))
+	}
+
+	return lbacl.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (lbacl *SLoadbalancerAcl) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
