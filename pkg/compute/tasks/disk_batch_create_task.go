@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type DiskBatchCreateTask struct {
@@ -126,8 +127,9 @@ func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj ISc
 
 	onError := func(err error) {
 		self.clearPendingUsage(ctx, disk)
-		disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, err.Error())
-		self.SetStageFailed(ctx, jsonutils.Marshal(err))
+		disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, "")
+		logclient.AddActionLogWithStartable(self, disk, logclient.ACT_ALLOCATE, err, self.UserCred, false)
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 		notifyclient.NotifySystemErrorWithCtx(ctx, disk.Id, disk.Name, api.DISK_ALLOC_FAILED, err.Error())
 	}
