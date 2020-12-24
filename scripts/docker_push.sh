@@ -47,6 +47,8 @@ build_bin() {
     local BUILD_CGO=$3
     case "$1" in
         baremetal-agent)
+            rm -vf _output/bin/$1
+            rm -rvf _output/bin/bundles/$1
             GOOS=linux make cmd/$1
             ;;
         climc)
@@ -75,7 +77,7 @@ build_image() {
     local tag=$1
     local file=$2
     local path=$3
-    docker build -t "$tag" -f "$2" "$3"
+    docker buildx build -t "$tag" -f "$2" "$3"
 }
 
 buildx_and_push() {
@@ -191,7 +193,9 @@ for component in $COMPONENTS; do
             done
             ;;
         *)
-            general_build $component $ARCH
+            if [ -e "$DOCKER_DIR/Dockerfile.$component" ]; then
+                general_build $component $ARCH
+            fi
             ;;
     esac
 done
