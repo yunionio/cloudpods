@@ -173,10 +173,52 @@ vet-check:
 	./scripts/vet.sh chk
 .PHONY: vet-check
 
+comma:=,
+space:=$(space) $(space)
+# NOTE: keep y18n-packages in alphabetical order
+y18n-src-lang := en-US
+y18n-lang     := en-US,zh-CN
+y18n-packages := \
+		yunion.io/x/onecloud/cmd/keystone \
+		yunion.io/x/onecloud/cmd/monitor \
+		yunion.io/x/onecloud/cmd/region \
+		yunion.io/x/onecloud/cmd/yunionconf \
+
+define y18n-gen
+	set -o errexit; \
+	set -o pipefail; \
+	export GO111MODULE=off; \
+	y18n \
+		-chdir $(CURDIR) \
+		-dir ./locales/ \
+		-out ./locales/locales.go \
+		-lang $(y18n-lang) \
+		$(y18n-packages) \
+		; \
+	$(foreach lang,$(filter-out $(y18n-src-lang),$(subst $(comma), ,$(y18n-lang))),cp ./locales/$(lang)/{out,messages}.gotext.json;) \
+
+endef
+
+y18n-gen:
+	$(y18n-gen)
+	$(y18n-gen)
+
+.PHONY: y18n-gen
+
+y18n-check:
+	$(y18n-gen)
+	if git status --short ./locales | sed 's/^/$@: /' | grep .; then \
+		echo "$@: Locales content needs care" >&2 ; \
+		false; \
+	fi
+
+.PHONY: y18n-check
+
 check: fmt-check
 check: gendocgo-check
 check: goimports-check
 check: vet-check
+check: y18n-check
 .PHONY: check
 
 
