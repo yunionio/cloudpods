@@ -8,7 +8,7 @@ ModBaseName:=$(notdir $(ModName))
 
 DockerImageRegistry?=registry.cn-beijing.aliyuncs.com
 DockerImageAlpineBuild?=$(DockerImageRegistry)/yunionio/alpine-build:1.0-5
-DockerImageCentOSBuild?=$(DockerImageRegistry)/yunionio/centos-build:1.1-3
+DockerImageCentOSBuild?=$(DockerImageRegistry)/yunionio/centos-build:1.1-4
 
 
 EnvIf=$(if $($(1)),$(1)=$($(1)))
