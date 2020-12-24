@@ -30,7 +30,6 @@ func init() {
 	cmd.Perform("disable", &options.ServerSkusIdOptions{})
 	cmd.Create(&options.ServerSkusCreateOptions{})
 	cmd.Update(&options.ServerSkusUpdateOptions{})
-	cmd.PerformWithKeyword("cache", "cache-sku", &options.ServerSkusCacheOptions{})
 	cmd.ClassShow(&options.ServerSkusListOptions{})
 	cmd.PerformClass("sync-skus", &options.SkuSyncOptions{})
 

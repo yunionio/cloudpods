@@ -59,7 +59,7 @@ type ServerSkusCreateOptions struct {
 	InstanceTypeCategory *string `help:"instance type category" choices:"general_purpose|compute_optimized|memory_optimized|storage_optimized|hardware_accelerated|high_memory|high_storage"`
 
 	SysDiskResizable *bool   `help:"system disk is resizable"`
-	SysDiskType      *string `help:"system disk type" default:"local" choices:"local"`
+	SysDiskType      *string `help:"system disk type" choices:"local"`
 	SysDiskMaxSizeGB *int    `help:"system disk maximal size in gb"`
 
 	AttachedDiskType   *string `help:"attached data disk type"`
@@ -75,10 +75,10 @@ type ServerSkusCreateOptions struct {
 	GPUCount      *int    `help:"GPU count"`
 	GPUAttachable *bool   `help:"Allow attach GPU"`
 
-	Zone        *string `help:"Zone ID or name"`
-	Cloudregion *string `help:"Cloudregion ID or name"`
-	Provider    string  `help:"provider"`
-	Brand       string  `help:"brand"`
+	ZoneId        string `help:"Zone ID or name"`
+	CloudregionId string `help:"Cloudregion ID or name"`
+	Provider      string `help:"provider"`
+	Brand         string `help:"brand"`
 }
 
 func (opts *ServerSkusCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -117,13 +117,4 @@ type ServerSkusUpdateOptions struct {
 
 func (opts *ServerSkusUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	return StructToParams(opts)
-}
-
-type ServerSkusCacheOptions struct {
-	ServerSkusIdOptions
-	REGION string `help:"Private cloud region"`
-}
-
-func (opts *ServerSkusCacheOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(map[string]string{"cloudregion": opts.REGION}), nil
 }

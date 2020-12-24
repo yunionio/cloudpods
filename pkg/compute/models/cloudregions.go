@@ -323,7 +323,7 @@ func (manager *SCloudregionManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (self *SCloudregion) GetSkus() ([]SServerSku, error) {
+func (self *SCloudregion) GetServerSkus() ([]SServerSku, error) {
 	skus := []SServerSku{}
 	q := ServerSkuManager.Query().Equals("cloudregion_id", self.Id)
 	err := db.FetchModelObjects(ServerSkuManager, q, &skus)
@@ -985,4 +985,15 @@ func (manager *SCloudregionManager) AllowGetPropertySyncTasks(ctx context.Contex
 
 func (manager *SCloudregionManager) GetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query api.SkuTaskQueryInput) (jsonutils.JSONObject, error) {
 	return GetPropertySkusSyncTasks(ctx, userCred, query)
+}
+
+func (self *SCloudregion) GetCloudprovider() (*SCloudprovider, error) {
+	if len(self.ManagerId) == 0 {
+		return nil, sql.ErrNoRows
+	}
+	provider, err := CloudproviderManager.FetchById(self.ManagerId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "FetchByI(%s)", self.ManagerId)
+	}
+	return provider.(*SCloudprovider), nil
 }
