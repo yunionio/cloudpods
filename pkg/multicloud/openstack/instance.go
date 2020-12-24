@@ -462,7 +462,8 @@ func (instance *SInstance) ChangeConfig(ctx context.Context, config *cloudprovid
 		if err != nil {
 			return errors.Wrapf(err, "syncFlavor(%s)", config.InstanceType)
 		}
-		if flavor.Name == instance.Flavor.Name {
+		// When resizing, instances must change flavor!
+		if flavor.Name == instance.Flavor.OriginalName {
 			return nil
 		}
 		return instance.host.zone.region.ChangeConfig(instance, flavor.Id)
