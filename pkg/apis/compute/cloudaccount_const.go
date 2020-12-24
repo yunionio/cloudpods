@@ -123,4 +123,37 @@ var (
 		CLOUD_ACCOUNT_SHARE_MODE_SYSTEM,
 		CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN,
 	}
+
+	CLOUD_ENV_MAP = map[string]map[string]string{
+		CLOUD_PROVIDER_AZURE: map[string]string{
+			"AzureGermanCloud":       CLOUD_ACCESS_ENV_AZURE_GERMAN,
+			"AzureChinaCloud":        CLOUD_ACCESS_ENV_AZURE_CHINA,
+			"AzureUSGovernmentCloud": CLOUD_ACCESS_ENV_AZURE_US_GOVERNMENT,
+			"AzurePublicCloud":       CLOUD_ACCESS_ENV_AZURE_GLOBAL,
+		},
+		CLOUD_PROVIDER_AWS: map[string]string{
+			"InternationalCloud": CLOUD_ACCESS_ENV_AWS_GLOBAL,
+			"ChinaCloud":         CLOUD_ACCESS_ENV_AWS_CHINA,
+		},
+		CLOUD_PROVIDER_HUAWEI: map[string]string{
+			"InternationalCloud": CLOUD_ACCESS_ENV_HUAWEI_GLOBAL,
+			"ChinaCloud":         CLOUD_ACCESS_ENV_HUAWEI_CHINA,
+		},
+		CLOUD_PROVIDER_ALIYUN: map[string]string{
+			"InternationalCloud": CLOUD_PROVIDER_ALIYUN,
+			"FinanceCloud":       CLOUD_ACCESS_ENV_ALIYUN_FINANCE,
+		},
+	}
 )
+
+func GetCloudEnv(provider, accessUrl string) string {
+	envMap, ok := CLOUD_ENV_MAP[provider]
+	if !ok {
+		return provider
+	}
+	env, ok := envMap[accessUrl]
+	if !ok {
+		return provider
+	}
+	return env
+}
