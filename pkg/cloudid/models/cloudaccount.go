@@ -76,6 +76,8 @@ type SCloudaccount struct {
 	Brand       string            `width:"64" charset:"utf8" nullable:"true" list:"domain"`
 	IamLoginUrl string            `width:"512" charset:"ascii"`
 	SAMLAuth    tristate.TriState `nullable:"false" list:"domain" default:"false"`
+
+	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SCloudaccountManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
@@ -197,6 +199,7 @@ func (manager *SCloudaccountManager) syncCloudaccounts(ctx context.Context, user
 			result.AddError(err)
 			continue
 		}
+		account.StartSyncSamlProvidersTask(ctx, userCred, "")
 		account.StartSyncCloudIdResourcesTask(ctx, userCred, "")
 		account.StartSystemCloudpolicySyncTask(ctx, userCred, false, "") // 避免新加账号未能及时同步策略
 		localAccounts = append(localAccounts, *account)
@@ -346,10 +349,6 @@ func (manager *SCloudaccountManager) newFromICloudaccount(ctx context.Context, u
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert")
 	}
-	if account.SAMLAuth.IsTrue() {
-		account.StartSAMLProviderCreateTask(ctx, userCred)
-	}
-
 	return account, nil
 }
 
@@ -361,6 +360,7 @@ func (self *SCloudaccount) syncWithICloudaccount(ctx context.Context, userCred m
 		self.IamLoginUrl = account.IamLoginUrl
 		self.SAMLAuth = account.SAMLAuth
 		self.AccountId = account.AccountId
+		self.AccessUrl = account.AccessUrl
 		return nil
 	})
 	if err != nil {
@@ -773,7 +773,7 @@ func (self *SCloudaccount) newCustomPolicy(ctx context.Context, userCred mcclien
 			return &policies[i], nil
 		}
 	}
-	policy, err := self.newCloudpolicy(ctx, userCred, iPolicy, api.CLOUD_POLICY_TYPE_CUSTOM)
+	policy, err := self.newCustomCloudpolicy(ctx, userCred, iPolicy)
 	if err != nil {
 		return nil, errors.Wrap(err, "newFromCloudpolicy")
 	}
@@ -800,55 +800,40 @@ func (self *SCloudaccount) SyncSystemCloudpoliciesFromCloud(ctx context.Context,
 		return nil
 	}
 
-	factory, err := self.GetProviderFactory()
+	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+	transport := httputils.GetTransport(true)
+	transport.Proxy = options.Options.HttpTransportProxyFunc()
+	client := &http.Client{Transport: transport}
+	meta, err := modules.OfflineCloudmeta.GetSkuSourcesMeta(s, client)
 	if err != nil {
-		return errors.Wrapf(err, "GetProviderFactory")
+		return errors.Wrap(err, "GetSkuSourcesMeta")
 	}
-	iPolicies := []cloudprovider.ICloudpolicy{}
-	if !factory.IsSystemCloudpolicyUnified() {
-		accounts, err := self.GetCloudaccountByProvider(self.Provider)
-		if err != nil {
-			return errors.Wrapf(err, "GetCloudaccountByProvider")
-		}
-		policyMaps := map[string]bool{}
-		for i := range accounts {
-			provider, err := accounts[i].GetProvider()
-			if err != nil {
-				return errors.Wrapf(err, "GetProvider for account %s(%s)", accounts[i].Name, accounts[i].Provider)
-			}
-			policies, err := provider.GetISystemCloudpolicies()
-			if err != nil {
-				return errors.Wrapf(err, "GetISystemCloudpolicies for account %s(%s)", accounts[i].Name, accounts[i].Provider)
-			}
-			log.Debugf("Get %d System cloudpolicy from account %s(%s)", len(policies), accounts[i].Name, accounts[i].Provider)
-			for i := range policies {
-				_, ok := policyMaps[policies[i].GetGlobalId()]
-				if !ok {
-					policyMaps[policies[i].GetGlobalId()] = true
-					iPolicies = append(iPolicies, policies[i])
-				}
-			}
-		}
-	} else {
-		provider, err := self.GetProvider()
-		if err != nil {
-			return errors.Wrapf(err, "GetProvider for account %s(%s)", self.Name, self.Provider)
-		}
-		iPolicies, err = provider.GetISystemCloudpolicies()
-		if err != nil {
-			return errors.Wrapf(err, "GetISystemCloudpolicies for account %s(%s)", self.Name, self.Provider)
-		}
+	policyBase, err := meta.GetString("cloudpolicy_base")
+	if err != nil {
+		return errors.Wrapf(err, "missing policy base url")
 	}
+
+	policyUrl := strings.TrimSuffix(policyBase, "/") + fmt.Sprintf("/%s.json", self.Provider)
+	_, body, err := httputils.JSONRequest(client, ctx, httputils.GET, policyUrl, nil, nil, false)
+	if err != nil {
+		return errors.Wrapf(err, "JSONRequest(%s)", policyUrl)
+	}
+	iPolicies := []SCloudpolicy{}
+	err = body.Unmarshal(&iPolicies)
+	if err != nil {
+		return errors.Wrapf(err, "body.Unmarshal")
+	}
+
 	return self.syncSystemCloudpoliciesFromCloud(ctx, userCred, iPolicies, dbPolicies)
 }
 
-func (self *SCloudaccount) syncSystemCloudpoliciesFromCloud(ctx context.Context, userCred mcclient.TokenCredential, iPolicies []cloudprovider.ICloudpolicy, dbPolicies []SCloudpolicy) error {
+func (self *SCloudaccount) syncSystemCloudpoliciesFromCloud(ctx context.Context, userCred mcclient.TokenCredential, iPolicies []SCloudpolicy, dbPolicies []SCloudpolicy) error {
 	result := compare.SyncResult{}
 
 	removed := make([]SCloudpolicy, 0)
 	commondb := make([]SCloudpolicy, 0)
-	commonext := make([]cloudprovider.ICloudpolicy, 0)
-	added := make([]cloudprovider.ICloudpolicy, 0)
+	commonext := make([]SCloudpolicy, 0)
+	added := make([]SCloudpolicy, 0)
 
 	err := compare.CompareSets(dbPolicies, iPolicies, &removed, &commondb, &commonext, &added)
 	if err != nil {
@@ -874,7 +859,7 @@ func (self *SCloudaccount) syncSystemCloudpoliciesFromCloud(ctx context.Context,
 	}
 
 	for i := 0; i < len(added); i++ {
-		_, err := self.newCloudpolicy(ctx, userCred, added[i], api.CLOUD_POLICY_TYPE_SYSTEM)
+		_, err := self.newSystemCloudpolicy(ctx, userCred, added[i])
 		if err != nil {
 			result.AddError(err)
 			continue
@@ -886,7 +871,7 @@ func (self *SCloudaccount) syncSystemCloudpoliciesFromCloud(ctx context.Context,
 	return nil
 }
 
-func (self *SCloudaccount) newCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy cloudprovider.ICloudpolicy, policyType string) (*SCloudpolicy, error) {
+func (self *SCloudaccount) newCustomCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy cloudprovider.ICloudpolicy) (*SCloudpolicy, error) {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
@@ -899,15 +884,30 @@ func (self *SCloudaccount) newCloudpolicy(ctx context.Context, userCred mcclient
 	}
 	policy.Name = iPolicy.GetName()
 	policy.Status = api.CLOUD_POLICY_STATUS_AVAILABLE
-	policy.PolicyType = policyType
-	if policy.PolicyType == api.CLOUD_POLICY_TYPE_SYSTEM {
-		policy.IsPublic = true
-	} else {
-		policy.DomainId = self.DomainId
-	}
+	policy.PolicyType = api.CLOUD_POLICY_TYPE_CUSTOM
+	policy.DomainId = self.DomainId
 	policy.Provider = self.Provider
 	policy.ExternalId = iPolicy.GetGlobalId()
 	policy.Description = iPolicy.GetDescription()
+	return policy, CloudpolicyManager.TableSpec().Insert(ctx, policy)
+}
+
+func (self *SCloudaccount) newSystemCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy SCloudpolicy) (*SCloudpolicy, error) {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	policy := &SCloudpolicy{}
+	policy.SetModelManager(CloudpolicyManager, policy)
+	policy.Document = iPolicy.Document
+	policy.Name = iPolicy.GetName()
+	policy.Status = api.CLOUD_POLICY_STATUS_AVAILABLE
+	policy.PolicyType = api.CLOUD_POLICY_TYPE_SYSTEM
+	policy.IsPublic = true
+	policy.Provider = self.Provider
+	policy.ExternalId = iPolicy.ExternalId
+	policy.Description = iPolicy.Description
+	policy.CloudEnv = iPolicy.CloudEnv
+	policy.Id = ""
 	return policy, CloudpolicyManager.TableSpec().Insert(ctx, policy)
 }
 
@@ -1056,11 +1056,6 @@ func (manager *SCloudaccountManager) SyncCloudidSystemPolicies(ctx context.Conte
 	}
 	providers := []string{}
 	for i := range accounts {
-		_, err := accounts[i].GetProvider() // 检查账号是否可以正常连接
-		if err != nil {
-			log.Errorf("GetProvider for account %s(%s) error: %v", accounts[i].Name, accounts[i].Provider, err)
-			continue
-		}
 		if utils.IsInStringArray(accounts[i].Provider, providers) {
 			continue
 		}

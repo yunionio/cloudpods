@@ -81,6 +81,12 @@ type SCloudpolicy struct {
 
 	// 是否锁定, 若锁定后, 此策略不允许被绑定到用户或权限组, 仅管理员可以设置是否锁定
 	Locked tristate.TriState `nullable:"false" get:"user" create:"optional" list:"user" default:"false"`
+
+	CloudEnv string `width:"64" charset:"ascii" list:"domain" create:"domain_required"`
+}
+
+func (self SCloudpolicy) GetGlobalId() string {
+	return self.ExternalId
 }
 
 func (manager *SCloudpolicyManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -460,18 +466,16 @@ func (self *SCloudpolicy) AllowDeleteItem(ctx context.Context, userCred mcclient
 	return db.IsDomainAllowDelete(userCred, self)
 }
 
-func (self *SCloudpolicy) SyncWithCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy cloudprovider.ICloudpolicy) error {
+func (self *SCloudpolicy) SyncWithCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy SCloudpolicy) error {
 	_, err := db.Update(self, func() error {
 		self.Name = iPolicy.GetName()
-		self.Description = iPolicy.GetDescription()
+		self.Description = iPolicy.Description
 		self.Status = api.CLOUD_POLICY_STATUS_AVAILABLE
 		if self.PolicyType == api.CLOUD_POLICY_TYPE_SYSTEM {
 			self.IsPublic = true
 		}
-		document, _ := iPolicy.GetDocument()
-		if document != nil {
-			self.Document = document
-		}
+		self.CloudEnv = iPolicy.CloudEnv
+		self.Document = iPolicy.Document
 		return nil
 	})
 	if err != nil {
