@@ -917,3 +917,18 @@ func (self *SInstance) GetProjectId() string {
 func (self *SInstance) GetError() error {
 	return nil
 }
+
+func (self *SInstance) SetMetadata(tags map[string]string, replace bool) error {
+	if !replace {
+		for k, v := range self.Tags {
+			if _, ok := tags[k]; !ok {
+				tags[k] = v
+			}
+		}
+	}
+	_, err := self.host.zone.region.client.SetTags(self.ID, tags)
+	if err != nil {
+		return errors.Wrapf(err, "self.host.zone.region.client.SetTags(%s,%s)", self.ID, jsonutils.Marshal(tags).String())
+	}
+	return nil
+}

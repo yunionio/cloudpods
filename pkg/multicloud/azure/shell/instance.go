@@ -17,6 +17,7 @@ package shell
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/onecloud/pkg/multicloud/azure"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -196,4 +197,34 @@ func init() {
 	shellutils.R(&InstanceSecurityGroupOptions{}, "instance-set-secgrp", "Attach a disk to intance", func(cli *azure.SRegion, args *InstanceSecurityGroupOptions) error {
 		return cli.SetSecurityGroup(args.ID, args.SecurityGroup)
 	})
+
+	shellutils.R(&InstanceOptions{}, "instance-get-tags", "get intance tags", func(cli *azure.SRegion, args *InstanceOptions) error {
+		tags, err := cli.GetClient().GetTags(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(tags)
+		return nil
+	})
+
+	type InstanceSetTagsOptions struct {
+		ID   string `help:"Instance ID"`
+		Tags []string
+	}
+	shellutils.R(&InstanceSetTagsOptions{}, "instance-set-tags", "get intance metadata", func(cli *azure.SRegion, args *InstanceSetTagsOptions) error {
+		tags := map[string]string{}
+		for i := range args.Tags {
+			splited := strings.Split(args.Tags[i], "=")
+			if len(splited) == 2 {
+				tags[splited[0]] = splited[1]
+			}
+		}
+		result, err := cli.GetClient().SetTags(args.ID, tags)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 }
