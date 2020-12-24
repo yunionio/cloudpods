@@ -156,6 +156,9 @@ func (self *SRegion) _createVM(desc *cloudprovider.SManagedVMCreateConfig, nicId
 		}
 		params.Add(jsonutils.Marshal(linuxConfiguration), "Properties", "OsProfile", "LinuxConfiguration")
 	}
+	if len(desc.Tags) > 0 {
+		params.Add(jsonutils.Marshal(desc.Tags), "tags")
+	}
 
 	dataDisks := jsonutils.NewArray()
 	for i := 0; i < len(desc.DataDisks); i++ {

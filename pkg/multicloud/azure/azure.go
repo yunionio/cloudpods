@@ -373,6 +373,9 @@ func (self *SAzureClient) _apiVersion(resource string, params url.Values) string
 	}
 	info := strings.Split(strings.ToLower(resource), "/")
 	if utils.IsInStringArray("microsoft.compute", info) {
+		if utils.IsInStringArray("tags", info) {
+			return "2020-06-01"
+		}
 		if utils.IsInStringArray("publishers", info) {
 			return "2020-06-01"
 		}
@@ -897,4 +900,35 @@ func (self *SAzureClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
 	}
 	return caps
+}
+
+type TagParams struct {
+	Properties TagProperties `json:"properties"`
+}
+
+type TagProperties struct {
+	Tags map[string]string `json:"tags"`
+}
+
+func (self *SAzureClient) GetTags(resourceId string) (map[string]string, error) {
+	path := fmt.Sprintf("/%s/providers/Microsoft.Resources/tags/default", resourceId)
+	tags := &TagParams{}
+	err := self.get(path, nil, tags)
+	if err != nil {
+		return nil, errors.Wrap(err, "self.get(path, nil, tags)")
+	}
+	return tags.Properties.Tags, nil
+}
+
+func (self *SAzureClient) SetTags(resourceId string, tags map[string]string) (jsonutils.JSONObject, error) {
+	//reserved prefix 'microsoft', 'azure', 'windows'.
+	for k := range tags {
+		if strings.HasPrefix(k, "microsoft") || strings.HasPrefix(k, "azure") || strings.HasPrefix(k, "windows") {
+			return nil, errors.Wrap(cloudprovider.ErrNotSupported, "reserved prefix microsoft, azure, windows")
+		}
+	}
+	path := fmt.Sprintf("/%s/providers/Microsoft.Resources/tags/default", resourceId)
+	input := TagParams{}
+	input.Properties.Tags = tags
+	return self.put(path, jsonutils.Marshal(input))
 }
