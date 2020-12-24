@@ -15,16 +15,16 @@
 package modules
 
 import (
+	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SkusManager struct {
@@ -90,28 +90,12 @@ func (self *SkusManager) GetSkus(s *mcclient.ClientSession, providerId, regionId
 	return ret, nil
 }
 
-func (self *OfflineCloudmetaManager) GetSkuSourcesMeta(s *mcclient.ClientSession) (jsonutils.JSONObject, error) {
+func (self *OfflineCloudmetaManager) GetSkuSourcesMeta(s *mcclient.ClientSession, client *http.Client) (jsonutils.JSONObject, error) {
 	baseUrl, err := s.GetServiceVersionURL(self.ServiceType(), self.EndpointType(), self.GetApiVersion())
 	if err != nil {
 		return nil, err
 	}
-	baseUrl = strings.TrimLeft(baseUrl, "/")
-	metaUrl := strings.Join([]string{baseUrl, "sku.meta"}, "/")
-	resp, err := http.Get(metaUrl)
-	if err != nil {
-		return nil, errors.Wrap(err, "OfflineCloudmetaManager.GetSkuSourcesMeta.Get")
-	}
-
-	defer resp.Body.Close()
-	content, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, errors.Wrap(err, "OfflineCloudmetaManager.GetSkuSourcesMeta.ReadAll")
-	}
-
-	meta, err := jsonutils.Parse(content)
-	if err != nil {
-		return nil, errors.Wrap(err, "OfflineCloudmetaManager.GetSkuSourcesMeta.Parse")
-	}
-
-	return meta, nil
+	url := strings.TrimSuffix(baseUrl, "/") + "/sku.meta"
+	_, body, err := httputils.JSONRequest(client, context.TODO(), "GET", url, nil, nil, false)
+	return body, err
 }
