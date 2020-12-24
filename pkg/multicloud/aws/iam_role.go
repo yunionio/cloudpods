@@ -110,6 +110,7 @@ func (self *SRole) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
+		policies[i].client = self.client
 		ret = append(ret, &policies[i])
 	}
 	return ret, nil
@@ -179,6 +180,7 @@ func (self *SAwsClient) GetICloudroles() ([]cloudprovider.ICloudrole, error) {
 	}
 	ret := []cloudprovider.ICloudrole{}
 	for i := range roles {
+		roles[i].client = self
 		ret = append(ret, &roles[i])
 	}
 	return ret, nil
