@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -183,6 +184,7 @@ func init() {
 	type PolicyShowOptions struct {
 		ID     string `help:"ID of policy"`
 		Format string `help:"policy format, default yaml" default:"yaml" choices:"yaml|json"`
+		Save   string `help:"save policy data into a file"`
 	}
 	R(&PolicyShowOptions{}, "policy-show", "Show policy", func(s *mcclient.ClientSession, args *PolicyShowOptions) error {
 		query := jsonutils.NewDict()
@@ -192,6 +194,15 @@ func init() {
 			return err
 		}
 		printObject(result)
+		if len(args.Save) > 0 {
+			if args.Format == "yaml" {
+				yaml, _ := result.GetString("policy")
+				fileutils2.FilePutContents(args.Save, yaml, false)
+			} else {
+				p, _ := result.Get("policy")
+				fileutils2.FilePutContents(args.Save, p.PrettyString(), false)
+			}
+		}
 		return nil
 	})
 
