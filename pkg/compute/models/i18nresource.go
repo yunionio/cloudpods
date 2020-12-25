@@ -62,3 +62,17 @@ func (self *SI18nResourceBase) GetModelI18N(ctx context.Context, model db.IModel
 
 	return _i18n
 }
+
+func (self *SI18nResourceBase) GetModelKeyI18N(ctx context.Context, model db.IModel, keyName string) (string, bool) {
+	entries, err := db.I18nManager.GetModelKeyI18N(ctx, model, keyName)
+	if err != nil {
+		log.Infof("GetModelKeyI18N %s", err)
+		return "", false
+	}
+
+	if len(entries) > 0 {
+		return entries[0].Lookup(ctx), true
+	}
+
+	return "", false
+}
