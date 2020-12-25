@@ -625,7 +625,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	}
 
 	if len(tags) > 0 {
-		tagIdx := 0
+		tagIdx := 1
 		for k, v := range tags {
 			params[fmt.Sprintf("Tag.%d.Key", tagIdx)] = k
 			params[fmt.Sprintf("Tag.%d.Value", tagIdx)] = v
