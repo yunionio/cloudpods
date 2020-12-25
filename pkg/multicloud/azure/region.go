@@ -338,22 +338,17 @@ func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 	return ret, nil
 }
 
-func (self *SRegion) CreateInstanceSimple(name string, imgId, osType string, cpu int, memMb int, sysDiskSizeGB int, storageType string, dataDiskSizesGB []int, networkId string, passwd string, publicKey string) (*SInstance, error) {
-	network, err := self.GetNetwork(networkId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetNetwork(%s)", networkId)
-	}
+func (self *SRegion) CreateInstanceSimple(name string, imgId, osType string, cpu int, memMb int, sysDiskSizeGB int, storageType string, dataDiskSizesGB []int, nicId string, passwd string, publicKey string) (*SInstance, error) {
 	desc := &cloudprovider.SManagedVMCreateConfig{
-		Name:              name,
-		ExternalImageId:   imgId,
-		SysDisk:           cloudprovider.SDiskInfo{SizeGB: sysDiskSizeGB, StorageType: storageType},
-		Cpu:               cpu,
-		MemoryMB:          memMb,
-		ExternalNetworkId: networkId,
-		Password:          passwd,
-		DataDisks:         []cloudprovider.SDiskInfo{},
-		PublicKey:         publicKey,
-		OsType:            osType,
+		Name:            name,
+		ExternalImageId: imgId,
+		SysDisk:         cloudprovider.SDiskInfo{SizeGB: sysDiskSizeGB, StorageType: storageType},
+		Cpu:             cpu,
+		MemoryMB:        memMb,
+		Password:        passwd,
+		DataDisks:       []cloudprovider.SDiskInfo{},
+		PublicKey:       publicKey,
+		OsType:          osType,
 	}
 	if len(passwd) > 0 {
 		desc.Password = passwd
@@ -361,7 +356,7 @@ func (self *SRegion) CreateInstanceSimple(name string, imgId, osType string, cpu
 	for _, sizeGB := range dataDiskSizesGB {
 		desc.DataDisks = append(desc.DataDisks, cloudprovider.SDiskInfo{SizeGB: sizeGB, StorageType: storageType})
 	}
-	return self._createVM(desc, network.ID)
+	return self._createVM(desc, nicId)
 }
 
 func (region *SRegion) GetEips() ([]SEipAddress, error) {

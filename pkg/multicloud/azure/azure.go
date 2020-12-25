@@ -572,7 +572,7 @@ func (self *SAzureClient) CheckNameAvailability(resourceType, name string) (bool
 }
 
 func (self *SAzureClient) update(body jsonutils.JSONObject, retVal interface{}) error {
-	id, _ := body.GetString("id")
+	id := jsonutils.GetAnyString(body, []string{"Id", "id", "ID"})
 	if len(id) == 0 {
 		return fmt.Errorf("failed to found id for update operation")
 	}
