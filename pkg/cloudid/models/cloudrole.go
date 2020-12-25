@@ -24,9 +24,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -215,8 +217,19 @@ func (self *SCloudrole) SyncRoles() error {
 	if err != nil {
 		return errors.Wrapf(err, "GetICloudpolicies")
 	}
+	account, err := self.GetCloudaccount()
+	if err != nil {
+		if err != nil {
+			return errors.Wrapf(err, "GetCloudaccount")
+		}
+	}
+	cloudEnv := computeapi.GetCloudEnv(account.Provider, account.AccessUrl)
 	local := set.New(set.ThreadSafe)
 	for i := range policies {
+		envs := strings.Split(policies[i].CloudEnv, ",")
+		if !utils.IsInStringArray(cloudEnv, envs) {
+			continue
+		}
 		if policies[i].PolicyType == api.CLOUD_POLICY_TYPE_SYSTEM {
 			local.Add(policies[i].ExternalId)
 		} else {
