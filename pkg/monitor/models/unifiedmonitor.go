@@ -190,7 +190,9 @@ func (self *SUnifiedMonitorManager) AllowPerformQuery(ctx context.Context, userC
 }
 
 func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if err := ValidateQuerySignature(data); err != nil {
+	tmp := jsonutils.DeepCopy(data)
+	self.handleDataPreSignature(tmp)
+	if err := ValidateQuerySignature(tmp); err != nil {
 		return nil, errors.Wrap(err, "ValidateQuerySignature")
 	}
 	inputQuery := new(monitor.MetricInputQuery)
@@ -231,6 +233,25 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 	setSerieRowName(&rtn.Series, groupByTag)
 	fillSerieTags(&rtn.Series)
 	return jsonutils.Marshal(rtn), nil
+}
+
+func (self *SUnifiedMonitorManager) handleDataPreSignature(data jsonutils.JSONObject) {
+	scope, _ := data.GetString("scope")
+	switch scope {
+	case "system":
+	case "domain":
+		domain, err := data.GetString("project_domain")
+		if err == nil {
+			data.(*jsonutils.JSONDict).Remove("project_domain")
+			data.(*jsonutils.JSONDict).Set("domain_id", jsonutils.NewString(domain))
+		}
+	default:
+		project, err := data.GetString("project")
+		if err == nil {
+			data.(*jsonutils.JSONDict).Remove("project")
+			data.(*jsonutils.JSONDict).Set("project_id", jsonutils.NewString(project))
+		}
+	}
 }
 
 func doQuery(query monitor.MetricInputQuery) (*mq.Metrics, error) {
