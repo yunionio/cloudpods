@@ -218,7 +218,7 @@ check: fmt-check
 check: gendocgo-check
 check: goimports-check
 check: vet-check
-check: y18n-check
+#check: y18n-check
 .PHONY: check
 
 
