@@ -237,29 +237,39 @@ func (self *SInstance) GetInstanceType() string {
 	return self.Properties.HardwareProfile.VMSize
 }
 
+func (self *SInstance) WaitVMAgentReady() error {
+	status := ""
+	err := cloudprovider.Wait(time.Second*5, time.Minute*5, func() (bool, error) {
+		if self.Properties.InstanceView == nil {
+			self.Refresh()
+			return false, nil
+		}
+
+		for _, vmAgent := range self.Properties.InstanceView.VMAgent.Statuses {
+			status = vmAgent.DisplayStatus
+			if status == "Ready" {
+				break
+			}
+			log.Debugf("vmAgent %s status: %s waite for ready", self.Properties.InstanceView.VMAgent.VmAgentVersion, vmAgent.DisplayStatus)
+		}
+		if status == "Ready" {
+			return true, nil
+		}
+		return false, self.Refresh()
+	})
+	if err != nil {
+		return errors.Wrapf(err, "waitting vmAgent ready, current status: %s", status)
+	}
+	return nil
+
+}
+
 func (self *SInstance) WaitEnableVMAccessReady() error {
 	if self.Properties.InstanceView == nil {
 		return fmt.Errorf("instance may not install VMAgent or VMAgent not running")
 	}
 	if len(self.Properties.InstanceView.VMAgent.VmAgentVersion) > 0 {
-		status := ""
-		err := cloudprovider.Wait(time.Second*5, time.Minute*5, func() (bool, error) {
-			for _, vmAgent := range self.Properties.InstanceView.VMAgent.Statuses {
-				status = vmAgent.DisplayStatus
-				if status == "Ready" {
-					break
-				}
-				log.Debugf("vmAgent %s status: %s waite for ready", self.Properties.InstanceView.VMAgent.VmAgentVersion, vmAgent.DisplayStatus)
-			}
-			if status == "Ready" {
-				return true, nil
-			}
-			return false, self.Refresh()
-		})
-		if err != nil {
-			return errors.Wrapf(err, "waitting vmAgent ready, current status: %s", status)
-		}
-		return nil
+		return self.WaitVMAgentReady()
 	}
 
 	for _, extension := range self.Properties.InstanceView.Extensions {
@@ -582,67 +592,99 @@ func (region *SRegion) ReplaceSystemDisk(instance *SInstance, cpu int, memoryMb 
 		}
 		storageType = _disk.Sku.Name
 	}
-	if len(instance.Properties.NetworkProfile.NetworkInterfaces) == 0 {
-		return "", fmt.Errorf("failed to find network for instance: %s", instance.Name)
-	}
-	nicId := instance.Properties.NetworkProfile.NetworkInterfaces[0].ID
-	nic, err := region.GetNetworkInterface(nicId)
-	if err != nil {
-		log.Errorf("failed to find nic %s error: %v", nicId, err)
-		return "", err
-	}
-	if len(nic.Properties.IPConfigurations) == 0 {
-		return "", fmt.Errorf("failed to find networkId for nic %s", nicId)
-	}
-	if instance.Properties.StorageProfile.OsDisk.DiskSizeGB.Int32() > int32(sysSizeGB) {
-		sysSizeGB = int(instance.Properties.StorageProfile.OsDisk.DiskSizeGB.Int32())
-	}
 	image, err := region.GetImageById(imageId)
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "GetImageById(%s)", imageId)
 	}
 	if minOsDiskSizeGB := image.GetMinOsDiskSizeGb(); minOsDiskSizeGB > sysSizeGB {
 		sysSizeGB = minOsDiskSizeGB
 	}
-
-	networkId := nic.Properties.IPConfigurations[0].Properties.Subnet.ID
 	osType := instance.Properties.StorageProfile.OsDisk.OsType
-
 	// https://support.microsoft.com/zh-cn/help/4018933/the-default-size-of-windows-server-images-in-azure-is-changed-from-128
 	// windows默认系统盘是128G, 若重装系统时，系统盘小于128G，则会出现 {"error":{"code":"ResizeDiskError","message":"Disk size reduction is not supported. Current size is 137438953472 bytes, requested size is 33285996544 bytes.","target":"osDisk.diskSizeGB"}} 错误
 	if osType == osprofile.OS_TYPE_WINDOWS && sysSizeGB < 128 {
 		sysSizeGB = 128
 	}
-
-	newInstance, err := region.CreateInstanceSimple(instance.Name, imageId, osType, cpu, memoryMb, sysSizeGB, storageType, []int{}, networkId, passwd, publicKey)
+	nicId := instance.Properties.NetworkProfile.NetworkInterfaces[0].ID
+	nic, err := region.GetNetworkInterface(nicId)
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "GetNetworkInterface(%s)", nicId)
 	}
+	if len(nic.Properties.IPConfigurations) == 0 {
+		return "", fmt.Errorf("failed to find networkId for nic %s", nicId)
+	}
+	networkId := nic.Properties.IPConfigurations[0].Properties.Subnet.ID
+
+	nic, err = region.CreateNetworkInterface("", fmt.Sprintf("%s-temp-ifconfig", instance.Name), "", networkId, "")
+	if err != nil {
+		return "", errors.Wrapf(err, "CreateNetworkInterface")
+	}
+
+	newInstance, err := region.CreateInstanceSimple(instance.Name+"-rebuild", imageId, osType, cpu, memoryMb, sysSizeGB, storageType, []int{}, nic.ID, passwd, publicKey)
+	newInstance.host = instance.host
+	cloudprovider.Wait(time.Second*10, time.Minute*5, func() (bool, error) {
+		err = newInstance.WaitVMAgentReady()
+		if err != nil {
+			log.Warningf("WaitVMAgentReady for %s error: %v", newInstance.Name, err)
+			return false, nil
+		}
+		return true, nil
+	})
 
 	opts := &cloudprovider.ServerStopOptions{
 		IsForce: true,
 	}
 	newInstance.StopVM(context.Background(), opts)
-	cloudprovider.WaitStatus(newInstance, api.VM_READY, time.Second*5, time.Minute*5)
 
-	newInstance.deleteVM(context.Background(), true)
+	pruneDiskId := instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID
+	newDiskId := newInstance.Properties.StorageProfile.OsDisk.ManagedDisk.ID
+
+	err = newInstance.deleteVM(context.TODO(), true)
+	if err != nil {
+		log.Warningf("delete vm %s error: %v", newInstance.ID, err)
+	}
+
+	defer func() {
+		if len(pruneDiskId) > 0 {
+			err := cloudprovider.Wait(time.Second*3, time.Minute, func() (bool, error) {
+				err = region.DeleteDisk(pruneDiskId)
+				if err != nil {
+					log.Errorf("delete prune disk %s error: %v", pruneDiskId, err)
+					return false, nil
+				}
+				return true, nil
+			})
+			if err != nil {
+				log.Errorf("timeout for delete prune disk %s", pruneDiskId)
+			}
+		}
+	}()
 
 	//交换系统盘
-	instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID, newInstance.Properties.StorageProfile.OsDisk.ManagedDisk.ID = newInstance.Properties.StorageProfile.OsDisk.ManagedDisk.ID, instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID
-	instance.Properties.StorageProfile.OsDisk.DiskSizeGB = newInstance.Properties.StorageProfile.OsDisk.DiskSizeGB
-	instance.Properties.StorageProfile.OsDisk.Name = ""
-	instance.Properties.ProvisioningState = ""
-	instance.Properties.InstanceView = nil
-	instance.Properties.VmId = ""
-	err = region.update(jsonutils.Marshal(instance), nil)
-	if err != nil {
-		// 更新失败，需要删除之前交换过的系统盘
-		region.DeleteDisk(instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID)
-		return "", err
+	params := map[string]interface{}{
+		"Id":       instance.ID,
+		"Location": instance.Location,
+		"Properties": map[string]interface{}{
+			"StorageProfile": map[string]interface{}{
+				"OsDisk": map[string]interface{}{
+					"createOption": "FromImage",
+					"ManagedDisk": map[string]interface{}{
+						"Id":                 newDiskId,
+						"storageAccountType": nil,
+					},
+					"osType":     osType,
+					"DiskSizeGB": nil,
+				},
+			},
+		},
 	}
-	// 交换成功需要删掉旧的系统盘
-	region.DeleteDisk(newInstance.Properties.StorageProfile.OsDisk.ManagedDisk.ID)
-	return strings.ToLower(instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID), nil
+	err = region.update(jsonutils.Marshal(params), nil)
+	if err != nil {
+		// 更新失败，需要删除新建的系统盘
+		pruneDiskId = newDiskId
+		return "", errors.Wrapf(err, "region.update")
+	}
+	return strings.ToLower(newDiskId), nil
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
