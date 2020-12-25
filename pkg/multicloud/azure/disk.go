@@ -83,7 +83,7 @@ type SDisk struct {
 	Tags map[string]string `json:"tags,omitempty"`
 }
 
-func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, desc string, imageId, snapshotId, resourceGroup string) (*SDisk, error) {
+func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, imageId, snapshotId, resourceGroup string) (*SDisk, error) {
 	params := jsonutils.Marshal(map[string]interface{}{
 		"Name":     name,
 		"Location": self.Name,
@@ -305,7 +305,7 @@ func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error)
 	if self.Properties.DiskState != "Unattached" {
 		return "", fmt.Errorf("Azure reset disk needs to be done in the Unattached state, current status: %s", self.Properties.DiskState)
 	}
-	disk, err := self.storage.zone.region.CreateDisk(self.Sku.Name, self.Name, 0, "", "", snapshotId, self.GetProjectId())
+	disk, err := self.storage.zone.region.CreateDisk(self.Sku.Name, self.Name, 0, "", snapshotId, self.GetProjectId())
 	if err != nil {
 		return "", errors.Wrap(err, "CreateDisk")
 	}
