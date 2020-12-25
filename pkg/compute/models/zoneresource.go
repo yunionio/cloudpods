@@ -91,7 +91,12 @@ func (manager *SZoneResourceBaseManager) FetchCustomizeColumns(
 	for i := range rows {
 		rows[i] = api.ZoneResourceInfo{}
 		if _, ok := zones[zoneIds[i]]; ok {
-			rows[i].Zone = zones[zoneIds[i]].Name
+			z := zones[zoneIds[i]]
+			name := z.Name
+			if v, ok := z.GetModelKeyI18N(ctx, &z, "name"); ok {
+				name = v
+			}
+			rows[i].Zone = name
 			rows[i].ZoneExtId = fetchExternalId(zones[zoneIds[i]].ExternalId)
 			rows[i].CloudregionId = zones[zoneIds[i]].CloudregionId
 		}

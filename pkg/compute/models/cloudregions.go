@@ -895,10 +895,14 @@ func (self *SCloudregion) GetI18N(ctx context.Context) *jsonutils.JSONDict {
 }
 
 func (self *SCloudregion) GetRegionInfo(ctx context.Context) api.CloudregionResourceInfo {
-	// name := self.nameI18nLookup(ctx)
+	name := self.Name
+	if v, ok := self.GetModelKeyI18N(ctx, self, "name"); ok {
+		name = v
+	}
+
 	return api.CloudregionResourceInfo{
-		Region:           self.Name,
-		Cloudregion:      self.Name,
+		Region:           name,
+		Cloudregion:      name,
 		RegionId:         self.Id,
 		RegionExtId:      fetchExternalId(self.ExternalId),
 		RegionExternalId: self.ExternalId,
