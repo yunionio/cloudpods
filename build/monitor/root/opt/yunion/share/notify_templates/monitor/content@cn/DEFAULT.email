@@ -92,7 +92,7 @@
   </table>
   <table class="table" style="padding-top: 6px; padding-bottom: 10px;">
     <tr>
-      <td style="padding-left: 20px; font-size: 14px;">若要查看详情信息，<a class="link" target="_blank" href="{{.web_url}}/commonalerts
+      <td style="padding-left: 20px; font-size: 14px;">若要查看详情信息，<a class="link" target="_blank" href="{{.web_url}}
 ">请登录平台进行查看</a></td>
     </tr>
   </table>

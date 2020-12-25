@@ -32,6 +32,7 @@ func ValidateQuerySignature(input jsonutils.JSONObject) error {
 		return errors.Wrap(err, "get signature")
 	}
 	if signature != digestQuerySignature(data) {
+
 		return httperrors.NewBadRequestError("signature error")
 	}
 	return nil
