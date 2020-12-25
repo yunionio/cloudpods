@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"golang.org/x/text/language"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
@@ -127,20 +126,20 @@ func init() {
 	I18nManager.SetVirtualObject(I18nManager)
 }
 
-var tableLangSupported = []language.Tag{
-	language.English,
-	language.Chinese,
-}
-var tableLangMatcher = language.NewMatcher(tableLangSupported)
-
-func tableLangMatch(tag language.Tag) language.Tag {
-	_, i, _ := tableLangMatcher.Match(tag)
-	return tableLangSupported[i]
-}
-
 func (manager *SModelBaseManager) GetModelI18N(ctx context.Context, model IModel) ([]SI18n, error) {
 	ret := []SI18n{}
 	q := manager.Query().Equals("obj_type", model.Keyword()).Equals("obj_id", model.GetId())
+	err := FetchModelObjects(manager, q, &ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+
+	return ret, err
+}
+
+func (manager *SModelBaseManager) GetModelKeyI18N(ctx context.Context, model IModel, keyName string) ([]SI18n, error) {
+	ret := []SI18n{}
+	q := manager.Query().Equals("obj_type", model.Keyword()).Equals("obj_id", model.GetId()).Equals("key_name", keyName)
 	err := FetchModelObjects(manager, q, &ret)
 	if err != nil {
 		return nil, errors.Wrap(err, "FetchModelObjects")
@@ -161,7 +160,8 @@ func (manager *SI18nManager) getExternalI18nItems(ctx context.Context, table IMo
 
 func (manager *SI18nManager) RemoveI18ns(ctx context.Context, userCred mcclient.TokenCredential, model IModel) error {
 	dbItems := []SI18n{}
-	err := manager.Query().Equals("obj_type", model.Keyword()).Equals("obj_id", model.GetId()).All(&dbItems)
+	q := manager.Query().Equals("obj_type", model.Keyword()).Equals("obj_id", model.GetId())
+	err := FetchModelObjects(manager, q, &dbItems)
 	if err != nil {
 		return err
 	}
