@@ -14,7 +14,6 @@ type SInternetGateway struct {
 	Attachments       []InternetGatewayAttachment `json:"Attachments"`
 	InternetGatewayID string                      `json:"InternetGatewayId"`
 	OwnerID           string                      `json:"OwnerId"`
-	Tags              []interface{}               `json:"Tags"`
 }
 
 type InternetGatewayAttachment struct {
