@@ -286,6 +286,9 @@ func (self SI18n) GetExternalId() string {
 
 func (self *SI18n) Lookup(ctx context.Context) string {
 	entry := i18n.NewTableEntry().CN(self.Cn).EN(self.En)
-	v, _ := entry.Lookup(ctx)
-	return v
+	if v, ok := entry.Lookup(ctx); ok {
+		return v
+	}
+
+	return self.KeyValue
 }
