@@ -22,6 +22,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type Rule struct {
@@ -50,6 +51,7 @@ type AssociatedObjects struct {
 }
 
 type SLoadbalancerBackendGroup struct {
+	multicloud.SResourceBase
 	lb *SLoadbalancer
 
 	VServerGroupId    string
@@ -103,10 +105,6 @@ func (backendgroup *SLoadbalancerBackendGroup) IsDefault() bool {
 
 func (backendgroup *SLoadbalancerBackendGroup) GetType() string {
 	return api.LB_BACKENDGROUP_TYPE_NORMAL
-}
-
-func (backendgroup *SLoadbalancerBackendGroup) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (backendgroup *SLoadbalancerBackendGroup) IsEmulated() bool {

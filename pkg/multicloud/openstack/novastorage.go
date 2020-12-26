@@ -21,15 +21,13 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SNovaStorage struct {
+	multicloud.SResourceBase
 	host *SHypervisor
 	zone *SZone
-}
-
-func (storage *SNovaStorage) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (storage *SNovaStorage) GetId() string {

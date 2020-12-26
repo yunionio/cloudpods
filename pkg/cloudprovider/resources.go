@@ -38,7 +38,11 @@ type ICloudResource interface {
 	Refresh() error
 
 	IsEmulated() bool
-	GetMetadata() *jsonutils.JSONDict
+	//	GetMetadata() *jsonutils.JSONDict
+
+	GetSysTags() map[string]string
+	GetTags() (map[string]string, error)
+	SetTags(tags map[string]string, replace bool) error
 }
 
 type IVirtualResource interface {
@@ -325,8 +329,6 @@ type ICloudVM interface {
 
 	GetError() error
 
-	SetMetadata(tags map[string]string, replace bool) error
-
 	CreateInstanceSnapshot(ctx context.Context, name string, desc string) (ICloudInstanceSnapshot, error)
 	GetInstanceSnapshot(idStr string) (ICloudInstanceSnapshot, error)
 	GetInstanceSnapshots() ([]ICloudInstanceSnapshot, error)
@@ -604,8 +606,6 @@ type ICloudLoadbalancer interface {
 
 	CreateILoadBalancerListener(ctx context.Context, listener *SLoadbalancerListener) (ICloudLoadbalancerListener, error)
 	GetILoadBalancerListenerById(listenerId string) (ICloudLoadbalancerListener, error)
-
-	SetMetadata(tags map[string]string, replace bool) error
 }
 
 type ICloudLoadbalancerListener interface {
@@ -879,8 +879,6 @@ type ICloudDBInstance interface {
 	RecoveryFromBackup(conf *SDBInstanceRecoveryConfig) error
 
 	Delete() error
-
-	SetMetadata(tags map[string]string, replace bool) error
 }
 
 type ICloudDBInstanceParameter interface {
@@ -991,7 +989,6 @@ type ICloudElasticcache interface {
 	UpdateBackupPolicy(config SCloudElasticCacheBackupPolicyUpdateInput) error
 	Renew(bc billing.SBillingCycle) error
 
-	SetMetadata(tags map[string]string, replace bool) error
 	UpdateSecurityGroups(secgroupIds []string) error
 }
 

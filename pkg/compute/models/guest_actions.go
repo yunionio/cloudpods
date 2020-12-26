@@ -3206,7 +3206,7 @@ func (manager *SGuestManager) getUserMetadata(data jsonutils.JSONObject) (map[st
 	}
 	dictStore := map[string]interface{}{}
 	for k, v := range metadata {
-		dictStore["user:"+k], _ = v.GetString()
+		dictStore[db.USER_TAG_PREFIX+k], _ = v.GetString()
 	}
 	return dictStore, nil
 }

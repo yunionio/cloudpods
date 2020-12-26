@@ -178,10 +178,6 @@ func (region *SRegion) GetDBInstance(instanceId string) (*SDBInstance, error) {
 	return &instance, nil
 }
 
-func (self *SDBInstance) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (rds *SDBInstance) GetName() string {
 	return rds.Name
 }

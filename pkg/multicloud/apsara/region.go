@@ -68,10 +68,6 @@ func (self *SRegion) GetClient() *SApsaraClient {
 	return self.client
 }
 
-func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (self *SRegion) getSdkClient() (*sdk.Client, error) {
 	if self.sdkClient == nil {
 		cli, err := sdk.NewClientWithAccessKey(self.RegionId, self.client.accessKey, self.client.accessSecret)

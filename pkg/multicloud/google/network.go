@@ -59,10 +59,6 @@ func (region *SRegion) GetNetwork(id string) (*SNetwork, error) {
 	return network, region.Get(id, network)
 }
 
-func (network *SNetwork) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (network *SNetwork) GetProjectId() string {
 	return network.wire.vpc.region.GetProjectId()
 }

@@ -24,10 +24,12 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 // 华为云的子网有点特殊。子网在整个region可用。
 type SWire struct {
+	multicloud.SResourceBase
 	region *SRegion
 	vpc    *SVpc
 
@@ -56,10 +58,6 @@ func (self *SWire) Refresh() error {
 
 func (self *SWire) IsEmulated() bool {
 	return true
-}
-
-func (self *SWire) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SWire) GetIVpc() cloudprovider.ICloudVpc {

@@ -100,10 +100,6 @@ func (self *SClassicEipAddress) GetIpAddr() string {
 	return self.Properties.IpAddress
 }
 
-func (self *SClassicEipAddress) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (self *SClassicEipAddress) GetMode() string {
 	// TODO
 	if self.instanceId == self.ID {

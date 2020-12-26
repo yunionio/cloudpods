@@ -131,6 +131,12 @@ func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SDisk) GetSysTags() map[string]string {
+	data := map[string]string{}
+	data["hypervisor"] = api.HYPERVISOR_AWS
+	return data
+}
+
 func (self *SDisk) GetBillingType() string {
 	// todo: implement me
 	return billing.BILLING_TYPE_POSTPAID

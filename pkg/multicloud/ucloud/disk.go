@@ -123,6 +123,13 @@ func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SDisk) GetSysTags() map[string]string {
+	data := map[string]string{}
+	data["hypervisor"] = api.HYPERVISOR_UCLOUD
+
+	return data
+}
+
 // Year,Month,Dynamic,Trial
 func (self *SDisk) GetBillingType() string {
 	switch self.ChargeType {

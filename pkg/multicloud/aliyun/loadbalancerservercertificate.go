@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SubjectAlternativeNames struct {
@@ -27,6 +27,7 @@ type SubjectAlternativeNames struct {
 }
 
 type SLoadbalancerServerCertificate struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	ServerCertificateId     string                  //	服务器证书ID。
@@ -67,10 +68,6 @@ func (certificate *SLoadbalancerServerCertificate) GetGlobalId() string {
 
 func (certificate *SLoadbalancerServerCertificate) GetStatus() string {
 	return ""
-}
-
-func (certificate *SLoadbalancerServerCertificate) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (certificate *SLoadbalancerServerCertificate) IsEmulated() bool {

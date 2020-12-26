@@ -69,10 +69,6 @@ func (self *SRegion) GetClient() *SAliyunClient {
 	return self.client
 }
 
-func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (self *SRegion) getSdkClient() (*sdk.Client, error) {
 	if self.sdkClient == nil {
 		cli, err := self.client.getSdkClient(self.RegionId)

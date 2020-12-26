@@ -897,6 +897,17 @@ func (self *SMySQLInstance) GetMetadata() *jsonutils.JSONDict {
 	return meta
 }
 
-func (self *SMySQLInstance) SetMetadata(tags map[string]string, replace bool) error {
+func (self *SMySQLInstance) GetTags() (map[string]string, error) {
+	tags, err := self.region.FetchResourceTags("cdb", "instanceId", []string{self.GetId()})
+	if err != nil {
+		return nil, errors.Wrap(err, "self.region.FetchResourceTags")
+	}
+	if _, ok := tags[self.GetId()]; !ok {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return *tags[self.GetId()], nil
+}
+
+func (self *SMySQLInstance) SetTags(tags map[string]string, replace bool) error {
 	return self.region.SetResourceTags("cdb", "instanceId", []string{self.InstanceId}, tags, replace)
 }

@@ -21,13 +21,14 @@ import (
 	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/types"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SVirtualMachineSnapshot struct {
+	multicloud.SResourceBase
 	snapshotTree types.VirtualMachineSnapshotTree
 	vm           *SVirtualMachine
 }
@@ -64,10 +65,6 @@ func (s *SVirtualMachineSnapshot) Refresh() error {
 
 func (s *SVirtualMachineSnapshot) IsEmulated() bool {
 	return false
-}
-
-func (s *SVirtualMachineSnapshot) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (s *SVirtualMachineSnapshot) GetProjectId() string {

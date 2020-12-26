@@ -63,10 +63,6 @@ func (storage *SStorage) IsEmulated() bool {
 	return true
 }
 
-func (storage *SStorage) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (storage *SStorage) Refresh() error {
 	_storage, err := storage.zone.region.GetStorage(storage.SelfLink)
 	if err != nil {

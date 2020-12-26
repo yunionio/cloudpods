@@ -21,14 +21,15 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SLBBackendGroup struct {
+	multicloud.SResourceBase
 	lb       *SLoadbalancer   // 必须不能为nil
 	listener *SLBListener     // 可能为nil
 	rule     *SLBListenerRule // tcp、udp、tcp_ssl监听rule 为nil
@@ -353,10 +354,6 @@ func (self *SLBBackendGroup) Refresh() error {
 // note: model没有更新这个字段？
 func (self *SLBBackendGroup) IsEmulated() bool {
 	return true
-}
-
-func (self *SLBBackendGroup) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SLBBackendGroup) IsDefault() bool {

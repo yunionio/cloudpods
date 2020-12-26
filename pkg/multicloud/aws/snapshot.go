@@ -25,6 +25,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SnapshotStatusType string
@@ -36,6 +37,7 @@ const (
 )
 
 type SSnapshot struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	Progress       string
@@ -93,10 +95,6 @@ func (self *SSnapshot) Refresh() error {
 
 func (self *SSnapshot) IsEmulated() bool {
 	return false
-}
-
-func (self *SSnapshot) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SSnapshot) GetSizeMb() int32 {

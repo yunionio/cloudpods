@@ -16,6 +16,7 @@ package aws
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,10 +28,12 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SNetwork struct {
+	multicloud.SResourceBase
 	wire *SWire
 
 	AvailableIpAddressCount int
@@ -101,6 +104,26 @@ func (self *SNetwork) GetMetadata() *jsonutils.JSONDict {
 
 	meta.Set("support_eip", jsonutils.NewBool(support_eip))
 	return meta
+}
+
+func (self *SNetwork) GetSysTags() map[string]string {
+	data := map[string]string{}
+	routes, _ := self.wire.vpc.region.GetRouteTablesByNetworkId(self.GetId())
+	if len(routes) == 0 {
+		routes, _ = self.wire.vpc.region.GetRouteTables(self.VpcId, true)
+	}
+
+	support_eip := false
+	if len(routes) >= 1 {
+		for i := range routes[0].Routes {
+			route := routes[0].Routes[i]
+			if route.GetNextHopType() == api.Next_HOP_TYPE_INTERNET {
+				support_eip = true
+			}
+		}
+	}
+	data["support_eip"] = strconv.FormatBool(support_eip)
+	return data
 }
 
 func (self *SNetwork) GetIWire() cloudprovider.ICloudWire {

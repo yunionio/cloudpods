@@ -22,6 +22,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SLoadbalancerHealthmonitorCreateParams struct {
@@ -57,6 +58,7 @@ type SLoadbalancerHealthmonitorUpdateParams struct {
 }
 
 type SLoadbalancerHealthmonitor struct {
+	multicloud.SResourceBase
 	region             *SRegion
 	ProjectID          string    `json:"project_id"`
 	Name               string    `json:"name"`
@@ -220,7 +222,4 @@ func (healthmonitor *SLoadbalancerHealthmonitor) Refresh() error {
 
 func (healthmonitor *SLoadbalancerHealthmonitor) IsEmulated() bool {
 	return false
-}
-func (healthmonitor *SLoadbalancerHealthmonitor) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }

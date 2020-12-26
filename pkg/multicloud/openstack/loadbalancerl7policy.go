@@ -22,6 +22,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SLoadbalancerL7PolicyCreateParams struct {
@@ -39,6 +40,7 @@ type SLoadbalancerL7PolicyCreateParams struct {
 }
 
 type SLoadbalancerL7Policy struct {
+	multicloud.SResourceBase
 	region             *SRegion
 	l7rules            []SLoadbalancerL7Rule
 	ListenerID         string      `json:"listener_id"`
@@ -163,7 +165,4 @@ func (L7policy *SLoadbalancerL7Policy) Refresh() error {
 
 func (L7policy *SLoadbalancerL7Policy) IsEmulated() bool {
 	return false
-}
-func (L7policy *SLoadbalancerL7Policy) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }

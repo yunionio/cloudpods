@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 const (
@@ -33,6 +34,7 @@ const (
 )
 
 type SDatastoreImageCache struct {
+	multicloud.SResourceBase
 	datastore *SDatastore
 	host      *SHost
 }
@@ -85,10 +87,6 @@ func (self *SDatastoreImageCache) Refresh() error {
 
 func (self *SDatastoreImageCache) IsEmulated() bool {
 	return false
-}
-
-func (self *SDatastoreImageCache) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SDatastoreImageCache) GetPath() string {

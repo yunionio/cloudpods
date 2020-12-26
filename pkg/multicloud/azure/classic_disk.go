@@ -59,6 +59,12 @@ func (self *SClassicDisk) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SClassicDisk) GetSysTags() map[string]string {
+	data := map[string]string{}
+	data["hypervisor"] = api.HYPERVISOR_AZURE
+	return data
+}
+
 func (self *SClassicDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
 	return nil, cloudprovider.ErrNotSupported
 }

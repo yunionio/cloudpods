@@ -162,10 +162,6 @@ func (lb *SLoadbalancer) GetStatus() string {
 	}
 }
 
-func (lb *SLoadbalancer) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (lb *SLoadbalancer) GetAddress() string {
 	return lb.VipAddress
 }
@@ -492,6 +488,6 @@ func (lb *SLoadbalancer) GetProjectId() string {
 	return lb.ProjectID
 }
 
-func (self *SLoadbalancer) SetMetadata(tags map[string]string, replace bool) error {
+func (self *SLoadbalancer) SetTags(tags map[string]string, replace bool) error {
 	return cloudprovider.ErrNotSupported
 }

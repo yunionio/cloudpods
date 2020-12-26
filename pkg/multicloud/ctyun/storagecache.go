@@ -24,9 +24,11 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SStoragecache struct {
+	multicloud.SResourceBase
 	region *SRegion
 }
 
@@ -73,10 +75,6 @@ func (self *SStoragecache) Refresh() error {
 
 func (self *SStoragecache) IsEmulated() bool {
 	return false
-}
-
-func (self *SStoragecache) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error) {

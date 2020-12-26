@@ -22,7 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/s3cli"
@@ -53,10 +52,6 @@ func (bucket *SBucket) GetId() string {
 
 func (bucket *SBucket) GetStatus() string {
 	return api.BUCKET_STATUS_READY
-}
-
-func (bucket *SBucket) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (bucket *SBucket) GetProjectId() string {

@@ -19,11 +19,11 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 // {"CreationTime":"2017-03-19T13:37:40Z","RouteEntrys":{"RouteEntry":[{"DestinationCidrBlock":"172.31.32.0/20","InstanceId":"","NextHopType":"local","NextHops":{"NextHop":[]},"RouteTableId":"vtb-j6c60lectdi80rk5xz43g","Status":"Available","Type":"System"},{"DestinationCidrBlock":"100.64.0.0/10","InstanceId":"","NextHopType":"service","NextHops":{"NextHop":[]},"RouteTableId":"vtb-j6c60lectdi80rk5xz43g","Status":"Available","Type":"System"}]},"RouteTableId":"vtb-j6c60lectdi80rk5xz43g","RouteTableType":"System","VRouterId":"vrt-j6c00qrol733dg36iq4qj"}
@@ -33,6 +33,7 @@ type SNextHops struct {
 }
 
 type SRouteEntry struct {
+	multicloud.SResourceBase
 	routeTable *SRouteTable
 
 	RouteTableId         string
@@ -67,10 +68,6 @@ func (route *SRouteEntry) Refresh() error {
 
 func (route *SRouteEntry) IsEmulated() bool {
 	return false
-}
-
-func (route *SRouteEntry) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 // Custom：自定义路由。 System：系统路由。
@@ -116,6 +113,7 @@ type SRouteEntrys struct {
 }
 
 type SRouteTable struct {
+	multicloud.SResourceBase
 	region *SRegion
 	vpc    *SVpc
 	routes []cloudprovider.ICloudRoute
@@ -161,10 +159,6 @@ func (self *SRouteTable) GetGlobalId() string {
 
 func (self *SRouteTable) GetName() string {
 	return self.RouteTableName
-}
-
-func (self *SRouteTable) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SRouteTable) GetRegionId() string {

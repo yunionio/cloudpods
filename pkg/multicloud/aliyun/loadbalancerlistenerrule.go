@@ -22,9 +22,11 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SLoadbalancerListenerRule struct {
+	multicloud.SResourceBase
 	httpListener  *SLoadbalancerHTTPListener
 	httpsListener *SLoadbalancerHTTPSListener
 
@@ -50,10 +52,6 @@ func (lbr *SLoadbalancerListenerRule) GetGlobalId() string {
 
 func (lbr *SLoadbalancerListenerRule) GetStatus() string {
 	return api.LB_STATUS_ENABLED
-}
-
-func (lbr *SLoadbalancerListenerRule) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SLoadbalancerListenerRule) IsDefault() bool {

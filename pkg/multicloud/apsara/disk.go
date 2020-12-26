@@ -38,6 +38,7 @@ type STags struct {
 }
 
 type SDisk struct {
+	multicloud.SResourceBase
 	storage *SStorage
 	multicloud.SDisk
 
@@ -82,6 +83,16 @@ func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 	data.Add(jsonutils.NewString(priceKey), "price_key")
 
 	data.Add(jsonutils.NewString(api.HYPERVISOR_APSARA), "hypervisor")
+
+	return data
+}
+
+func (self *SDisk) GetSysTags() map[string]string {
+	data := map[string]string{}
+	// The pricingInfo key structure is 'RegionId::DiskCategory::DiskType
+	priceKey := fmt.Sprintf("%s::%s::%s", self.RegionId, self.Category, self.Type)
+	data["price_key"] = priceKey
+	data["hypervisor"] = api.HYPERVISOR_APSARA
 
 	return data
 }

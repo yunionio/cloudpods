@@ -19,14 +19,15 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SProject struct {
+	multicloud.SResourceBase
 	client *SQcloudClient
 
 	ProjectName string    `json:"projectName"`
@@ -49,10 +50,6 @@ func (p *SProject) GetId() string {
 
 func (p *SProject) GetGlobalId() string {
 	return p.GetId()
-}
-
-func (p *SProject) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (p *SProject) GetName() string {

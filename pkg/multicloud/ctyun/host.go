@@ -58,10 +58,6 @@ func (self *SHost) IsEmulated() bool {
 	return true
 }
 
-func (self *SHost) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 // http://ctyun-api-url/apiproxy/v3/ondemand/queryVMs
 func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 	vms, err := self.zone.region.GetVMs()

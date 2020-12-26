@@ -101,6 +101,17 @@ func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SSecurityGroup) GetTags() (map[string]string, error) {
+	if len(self.Tags.Tag) == 0 {
+		return nil, nil
+	}
+	tags := map[string]string{}
+	for _, value := range self.Tags.Tag {
+		tags[value.TagKey] = value.TagValue
+	}
+	return tags, nil
+}
+
 func (self *SSecurityGroup) GetId() string {
 	return self.SecurityGroupId
 }

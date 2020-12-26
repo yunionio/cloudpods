@@ -333,7 +333,7 @@ func (instance *SInstance) AssignSecurityGroup(id string) error {
 				tag := strings.ToLower(secgroup)
 				if !utils.IsInStringArray(tag, instance.Tags.Items) {
 					instance.Tags.Items = append(instance.Tags.Items, tag)
-					return instance.host.zone.region.SetTags(instance.SelfLink, instance.Tags)
+					return instance.host.zone.region.SetResourceTags(instance.SelfLink, instance.Tags)
 				}
 			case SECGROUP_TYPE_SERVICE_ACCOUNT:
 				if len(instance.ServiceAccounts) > 0 {
@@ -408,7 +408,7 @@ func (instance *SInstance) SetSecurityGroups(ids []string) error {
 				instance.Tags.Items = append(instance.Tags.Items, tag)
 			}
 		}
-		err := instance.host.zone.region.SetTags(instance.SelfLink, instance.Tags)
+		err := instance.host.zone.region.SetResourceTags(instance.SelfLink, instance.Tags)
 		if err != nil {
 			return errors.Wrap(err, "SetTags")
 		}
@@ -801,7 +801,7 @@ func (region *SRegion) SetMetadata(id string, metadata SMetadata) error {
 	return region.Do(id, "setMetadata", nil, jsonutils.Marshal(metadata))
 }
 
-func (region *SRegion) SetTags(id string, tags SInstanceTag) error {
+func (region *SRegion) SetResourceTags(id string, tags SInstanceTag) error {
 	return region.Do(id, "setTags", nil, jsonutils.Marshal(tags))
 }
 
