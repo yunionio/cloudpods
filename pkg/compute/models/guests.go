@@ -4715,6 +4715,7 @@ func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, u
 	if guests == nil {
 		return
 	}
+	deteleSnapshot := options.Options.DeleteSnapshotExpiredRelease
 	for i := 0; i < len(guests); i += 1 {
 		// fake delete expired prepaid servers
 		if len(guests[i].ExternalId) > 0 {
@@ -4724,7 +4725,7 @@ func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, u
 			}
 		}
 		guests[i].SetDisableDelete(userCred, false)
-		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, false, false)
+		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, false, deteleSnapshot)
 	}
 }
 
