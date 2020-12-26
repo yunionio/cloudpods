@@ -424,3 +424,7 @@ func (self *SBaseRegionDriver) IsSupportedElasticcacheAutoRenew() bool {
 func (self *SBaseRegionDriver) RequestElasticcacheSetAutoRenew(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, autoRenew bool, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestElasticcacheSetAutoRenew")
 }
+
+func (self *SBaseRegionDriver) RequestSyncRdsSecurityGroups(ctx context.Context, userCred mcclient.TokenCredential, rds *models.SDBInstance, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestSyncRdsSecurityGroups")
+}

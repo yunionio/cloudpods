@@ -368,3 +368,7 @@ type DBInstanceAutoRenewInput struct {
 	// 是否自动续费
 	AutoRenew bool `json:"auto_renew"`
 }
+
+type DBInstanceSetSecgroupInput struct {
+	SecgroupIds []string `json:"secgroup_ids"`
+}

@@ -2017,3 +2017,65 @@ func (self *SDBInstance) OnMetadataUpdated(ctx context.Context, userCred mcclien
 		log.Errorf("StartRemoteUpdateTask fail: %s", err)
 	}
 }
+
+func (self *SDBInstance) AllowPerformSetSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "set-secgroup")
+}
+
+func (self *SDBInstance) PerformSetSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DBInstanceSetSecgroupInput) (jsonutils.JSONObject, error) {
+	if self.Status != api.DBINSTANCE_RUNNING {
+		return nil, httperrors.NewInvalidStatusError("this operation requires rds state to be %s", api.DBINSTANCE_RUNNING)
+	}
+	if len(input.SecgroupIds) == 0 {
+		return nil, httperrors.NewMissingParameterError("secgroup_ids")
+	}
+	for i := range input.SecgroupIds {
+		_, err := validators.ValidateModel(userCred, SecurityGroupManager, &input.SecgroupIds[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	driver, err := self.GetRegionDriver()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetRegionDriver"))
+	}
+	max := driver.GetRdsSupportSecgroupCount()
+	if len(input.SecgroupIds) > max {
+		return nil, httperrors.NewUnsupportOperationError("%s supported secgroup count is %d", driver.GetProvider(), max)
+	}
+
+	secgroups, err := self.GetSecgroups()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetSecgroups"))
+	}
+	secMaps := map[string]bool{}
+	for i := range secgroups {
+		if !utils.IsInStringArray(secgroups[i].Id, input.SecgroupIds) {
+			err := self.RevokeSecgroup(ctx, userCred, secgroups[i].Id)
+			if err != nil {
+				return nil, httperrors.NewGeneralError(errors.Wrapf(err, "RevokeSecgroup(%s)", secgroups[i].Id))
+			}
+		}
+		secMaps[secgroups[i].Id] = true
+	}
+	for _, id := range input.SecgroupIds {
+		if _, ok := secMaps[id]; !ok {
+			err = self.AssignSecgroup(ctx, userCred, id)
+			if err != nil {
+				return nil, httperrors.NewGeneralError(errors.Wrapf(err, "AssignSecgroup(%s)", id))
+			}
+		}
+	}
+
+	return nil, self.StartSyncSecgroupsTask(ctx, userCred, "")
+}
+
+func (self *SDBInstance) StartSyncSecgroupsTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceSyncSecgroupsTask", self, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	self.SetStatus(userCred, api.DBINSTANCE_DEPLOYING, "sync secgroups")
+	task.ScheduleRun(nil)
+	return nil
+}
