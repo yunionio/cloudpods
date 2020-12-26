@@ -428,7 +428,6 @@ func (self *SVpc) GetExternalAccessMode() string {
 	igws, err := self.region.GetInternetGateways(self.GetId())
 	if err != nil {
 		log.Errorf("GetExternalAccessMode.GetInternetGateways %s", err)
-
 	}
 
 	if len(igws) > 0 {
