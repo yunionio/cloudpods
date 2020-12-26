@@ -28,9 +28,11 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SElbListenerRule struct {
+	multicloud.SResourceBase
 	listener *SElbListener
 	region   *SRegion
 

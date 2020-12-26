@@ -14,10 +14,15 @@
 
 package ucloud
 
-import "yunion.io/x/jsonutils"
+import (
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/multicloud"
+)
 
 // https://docs.ucloud.cn/api/summary/get_project_list
 type SProject struct {
+	multicloud.SResourceBase
 	ProjectID     string `json:"ProjectId"`
 	ProjectName   string `json:"ProjectName"`
 	ParentID      string `json:"ParentId"`

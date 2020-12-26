@@ -3,12 +3,12 @@ package aws
 import (
 	"github.com/pkg/errors"
 
-	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SInternetGateway struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	Attachments       []InternetGatewayAttachment `json:"Attachments"`
@@ -44,8 +44,4 @@ func (i *SInternetGateway) Refresh() error {
 
 func (i *SInternetGateway) IsEmulated() bool {
 	return false
-}
-
-func (i *SInternetGateway) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }

@@ -21,9 +21,11 @@ import (
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SLoadbalancerDefaultBackend struct {
+	multicloud.SResourceBase
 	lbbg *SLoadbalancerDefaultBackendGroup
 
 	ServerId string
@@ -44,10 +46,6 @@ func (backend *SLoadbalancerDefaultBackend) GetGlobalId() string {
 
 func (backend *SLoadbalancerDefaultBackend) GetStatus() string {
 	return api.LB_STATUS_ENABLED
-}
-
-func (backend *SLoadbalancerDefaultBackend) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (backend *SLoadbalancerDefaultBackend) IsEmulated() bool {

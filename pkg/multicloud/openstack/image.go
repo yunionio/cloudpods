@@ -131,10 +131,6 @@ func (region *SRegion) GetImages(name string, status string, imageId string) ([]
 	return images, nil
 }
 
-func (image *SImage) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (image *SImage) GetId() string {
 	return image.Id
 }

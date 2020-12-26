@@ -24,6 +24,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SLoadbalancerL7RuleCreateParams struct {
@@ -36,6 +37,7 @@ type SLoadbalancerL7RuleCreateParams struct {
 }
 
 type SLoadbalancerL7Rule struct {
+	multicloud.SResourceBase
 	policy             *SLoadbalancerL7Policy
 	CreatedAt          string   `json:"created_at"`
 	CompareType        string   `json:"compare_type"`
@@ -149,10 +151,6 @@ func (l7r *SLoadbalancerL7Rule) GetStatus() string {
 	default:
 		return api.LB_STATUS_UNKNOWN
 	}
-}
-
-func (l7r *SLoadbalancerL7Rule) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SLoadbalancerL7Rule) IsDefault() bool {

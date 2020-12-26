@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SCenRouteEntries struct {
@@ -56,6 +57,7 @@ type Conflict struct {
 }
 
 type SCenRouteEntry struct {
+	multicloud.SResourceBase
 	ChildInstance        *SCenChildInstance
 	NextHopInstanceID    string             `json:"NextHopInstanceId,omitempty"`
 	Status               string             `json:"Status"`
@@ -170,10 +172,6 @@ func (self *SCenRouteEntry) Refresh() error {
 
 func (self *SCenRouteEntry) IsEmulated() bool {
 	return false
-}
-
-func (self *SCenRouteEntry) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SCenRouteEntry) GetCidr() string {

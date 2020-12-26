@@ -19,8 +19,6 @@ import (
 	"fmt"
 	"time"
 
-	"yunion.io/x/jsonutils"
-
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -33,10 +31,6 @@ type SNovaDisk struct {
 	region  *SRegion
 
 	instanceId string
-}
-
-func (disk *SNovaDisk) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (disk *SNovaDisk) GetId() string {

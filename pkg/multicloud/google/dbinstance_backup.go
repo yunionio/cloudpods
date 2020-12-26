@@ -76,10 +76,6 @@ func (region *SRegion) GetDBInstanceBackup(backupId string) (*SDBInstanceBackup,
 	return &backup, nil
 }
 
-func (backup *SDBInstanceBackup) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (backup *SDBInstanceBackup) GetName() string {
 	return backup.Id
 }

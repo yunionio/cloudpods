@@ -17,13 +17,13 @@ package azure
 import (
 	"fmt"
 
-	"yunion.io/x/jsonutils"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SClassicSnapshot struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	Name     string
@@ -38,10 +38,6 @@ func (self *SClassicSnapshot) GetId() string {
 
 func (self *SClassicSnapshot) GetGlobalId() string {
 	return self.GetId()
-}
-
-func (self *SClassicSnapshot) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SClassicSnapshot) GetName() string {

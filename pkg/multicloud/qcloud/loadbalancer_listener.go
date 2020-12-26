@@ -26,6 +26,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 var HTTP_CODES = []string{
@@ -68,6 +69,7 @@ type healthCheck struct {
 }
 
 type SLBListener struct {
+	multicloud.SResourceBase
 	lb *SLoadbalancer
 
 	Protocol          string            `json:"Protocol"` // 监听器协议类型，取值 TCP | UDP | HTTP | HTTPS | TCP_SSL
@@ -276,10 +278,6 @@ func (self *SLBListener) IsEmulated() bool {
 
 func (self *SLBListener) GetEgressMbps() int {
 	return 0
-}
-
-func (self *SLBListener) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SLBListener) GetListenerType() string {

@@ -22,9 +22,11 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SLoadbalancerMasterSlaveBackendGroup struct {
+	multicloud.SResourceBase
 	lb *SLoadbalancer
 
 	MasterSlaveServerGroupId   string
@@ -65,10 +67,6 @@ func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetGlobalId() string {
 
 func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetStatus() string {
 	return api.LB_STATUS_ENABLED
-}
-
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) IsEmulated() bool {

@@ -27,9 +27,11 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SElbBackendGroup struct {
+	multicloud.SResourceBase
 	region *SRegion
 	lb     *SElb
 
@@ -107,6 +109,15 @@ func (self *SElbBackendGroup) GetMetadata() *jsonutils.JSONDict {
 	metadata.Add(jsonutils.NewString(strings.ToLower(self.HealthCheckProtocol)), "health_check_protocol")
 	metadata.Add(jsonutils.NewInt(int64(self.HealthCheckIntervalSeconds)), "health_check_interval")
 	return metadata
+}
+
+func (self *SElbBackendGroup) GetSysTags() map[string]string {
+	data := map[string]string{}
+	data["port"] = strconv.FormatInt(self.Port, 10)
+	data["target_type"] = self.TargetType
+	data["health_check_protocol"] = strings.ToLower(self.HealthCheckProtocol)
+	data["health_check_interval"] = strconv.Itoa(self.HealthCheckIntervalSeconds)
+	return data
 }
 
 func (self *SElbBackendGroup) GetProjectId() string {

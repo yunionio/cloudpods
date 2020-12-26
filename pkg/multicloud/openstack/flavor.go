@@ -164,10 +164,6 @@ func (flavor *SFlavor) Delete() error {
 	return flavor.region.DeleteFlavor(flavor.Id)
 }
 
-func (flavor *SFlavor) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (flavor *SFlavor) IsEmulated() bool {
 	return false
 }

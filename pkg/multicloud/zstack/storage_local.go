@@ -24,9 +24,11 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SLocalStorage struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	primaryStorageID          string
@@ -83,10 +85,6 @@ func (region *SRegion) getILocalStorages(storageId, hostId string) ([]cloudprovi
 	return istorage, nil
 }
 
-func (storage *SLocalStorage) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (storage *SLocalStorage) GetId() string {
 	return storage.primaryStorageID
 }
@@ -125,7 +123,7 @@ func (storage *SLocalStorage) GetIZone() cloudprovider.ICloudZone {
 }
 
 func (storage *SLocalStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	tags, err := storage.region.GetSysTags("", "VolumeVO", "", "localStorage::hostUuid::"+storage.HostUUID)
+	tags, err := storage.region.GetResourceSysTags("", "VolumeVO", "", "localStorage::hostUuid::"+storage.HostUUID)
 	if err != nil {
 		return nil, err
 	}

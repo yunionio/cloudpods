@@ -50,10 +50,6 @@ func (region *SRegion) GetClient() *SGoogleClient {
 	return region.client
 }
 
-func (region *SRegion) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (region *SRegion) GetName() string {
 	if name, ok := RegionNames[region.Name]; ok {
 		return fmt.Sprintf("%s %s", CLOUD_PROVIDER_GOOGLE_CN, name)

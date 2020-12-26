@@ -117,10 +117,6 @@ func (region *SRegion) GetSecurityGroups(projectId, name string) ([]SSecurityGro
 	return secgroups, nil
 }
 
-func (secgroup *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (secgroup *SSecurityGroup) GetVpcId() string {
 	return "normal"
 }

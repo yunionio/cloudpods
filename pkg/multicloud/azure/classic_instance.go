@@ -163,6 +163,14 @@ func (self *SClassicInstance) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SClassicInstance) GetSysTags() map[string]string {
+	data := map[string]string{}
+	priceKey := fmt.Sprintf("%s::%s", self.Properties.HardwareProfile.Size, self.host.zone.region.Name)
+	data["price_key"] = priceKey
+	data["zone_ext_id"] = self.host.zone.GetGlobalId()
+	return data
+}
+
 func (self *SClassicInstance) GetHypervisor() string {
 	return api.HYPERVISOR_AZURE
 }

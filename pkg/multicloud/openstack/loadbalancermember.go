@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SLoadbalancerMemberCreateParams struct {
@@ -40,6 +41,7 @@ type SLoadbalancerMemberCreateParams struct {
 }
 
 type SLoadbalancerMember struct {
+	multicloud.SResourceBase
 	poolID             string
 	region             *SRegion
 	MonitorPort        int      `json:"monitor_port"`
@@ -87,10 +89,6 @@ func (member *SLoadbalancerMember) GetStatus() string {
 	default:
 		return api.LB_STATUS_UNKNOWN
 	}
-}
-
-func (member *SLoadbalancerMember) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (member *SLoadbalancerMember) IsEmulated() bool {

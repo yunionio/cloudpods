@@ -39,7 +39,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go/service/s3"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -435,10 +434,6 @@ func (self *SRegion) Refresh() error {
 
 func (self *SRegion) IsEmulated() bool {
 	return false
-}
-
-func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {

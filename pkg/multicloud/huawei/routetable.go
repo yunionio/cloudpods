@@ -22,6 +22,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 // date: 2019.07.15
@@ -37,6 +38,7 @@ const (
 )
 
 type SRouteEntry struct {
+	multicloud.SResourceBase
 	routeTable *SRouteTable
 
 	ID          string // route ID
@@ -72,10 +74,6 @@ func (route *SRouteEntry) IsEmulated() bool {
 	return false
 }
 
-func (route *SRouteEntry) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (route *SRouteEntry) GetType() string {
 	if route.Type == ROUTE_TYPE_PEER {
 		return api.ROUTE_ENTRY_TYPE_CUSTOM
@@ -104,6 +102,7 @@ func (route *SRouteEntry) GetNextHop() string {
 // SRouteTable has no ID and Name because there is no id or name of route table in huawei cloud.
 // And some method such as GetId and GetName of ICloudRouteTable has no practical meaning
 type SRouteTable struct {
+	multicloud.SResourceBase
 	region *SRegion
 	vpc    *SVpc
 
@@ -145,10 +144,6 @@ func (self *SRouteTable) Refresh() error {
 
 func (self *SRouteTable) IsEmulated() bool {
 	return false
-}
-
-func (self *SRouteTable) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SRouteTable) GetDescription() string {

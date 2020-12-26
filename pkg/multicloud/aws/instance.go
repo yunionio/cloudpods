@@ -240,6 +240,41 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SInstance) GetSysTags() map[string]string {
+	data := map[string]string{}
+	priceKey := fmt.Sprintf("%s::%s::%s::NA::NA::shared::boxusage", self.RegionId, self.InstanceType, strings.ToLower(self.OSType))
+	data["price_key"] = priceKey
+	data["zone_ext_id"] = self.host.zone.GetGlobalId()
+	if strings.Contains(strings.ToLower(self.OSType), "window") {
+		if loginKey, err := self.host.zone.region.getPasswordData(self.GetId()); err == nil {
+			data["login_key"] = loginKey
+		}
+	}
+	// Name tag
+	tags, err := FetchTags(self.host.zone.region.ec2Client, self.InstanceId)
+	if err == nil {
+		name, err := tags.GetString("Name")
+		if err == nil {
+			data["Name"] = name
+		}
+	}
+	return data
+}
+
+func (self *SInstance) GetTags() (map[string]string, error) {
+	tags, err := FetchTags(self.host.zone.region.ec2Client, self.InstanceId)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchTags(self.host.zone.region.ec2Client, self.InstanceId)")
+	}
+	data := map[string]string{}
+	err = tags.Unmarshal(&data)
+	if err != nil {
+		return nil, errors.Wrap(err, "tags.Unmarshal")
+	}
+	delete(data, "Name")
+	return data, nil
+}
+
 func (self *SInstance) GetBillingType() string {
 	// todo: implement me
 	return billing_api.BILLING_TYPE_POSTPAID
@@ -1169,7 +1204,8 @@ func (self *SInstance) GetError() error {
 	return nil
 }
 
-func (self *SInstance) SetMetadata(tags map[string]string, replace bool) error {
+func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
+	delete(tags, "Name")
 	oldTagsJson, err := FetchTags(self.host.zone.region.ec2Client, self.InstanceId)
 	if err != nil {
 		return errors.Wrapf(err, "FetchTags(self.host.zone.region.ec2Client, %s)", self.InstanceId)

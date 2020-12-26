@@ -22,10 +22,12 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 // https://docs.ucloud.cn/api/udisk-api/describe_udisk_snapshot
 type SSnapshot struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	Comment          string `json:"Comment"`
@@ -98,10 +100,6 @@ func (self *SSnapshot) Refresh() error {
 
 func (self *SSnapshot) IsEmulated() bool {
 	return false
-}
-
-func (self *SSnapshot) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SSnapshot) GetSizeMb() int32 {

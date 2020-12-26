@@ -22,9 +22,11 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SCcnRouteSet struct {
+	multicloud.SResourceBase
 	RouteID              string `json:"RouteId"`
 	DestinationCidrBlock string `json:"DestinationCidrBlock"`
 	InstanceType         string `json:"InstanceType"`
@@ -130,10 +132,6 @@ func (self *SCcnRouteSet) Refresh() error {
 
 func (self *SCcnRouteSet) IsEmulated() bool {
 	return false
-}
-
-func (self *SCcnRouteSet) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SCcnRouteSet) GetInstanceId() string {

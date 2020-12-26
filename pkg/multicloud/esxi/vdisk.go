@@ -24,7 +24,6 @@ import (
 
 	"github.com/vmware/govmomi/vim25/types"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -328,10 +327,6 @@ func (disk *SVirtualDisk) Refresh() error {
 
 func (disk *SVirtualDisk) IsEmulated() bool {
 	return false
-}
-
-func (disk *SVirtualDisk) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (disk *SVirtualDisk) GetDiskSizeMB() int {

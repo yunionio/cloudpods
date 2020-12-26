@@ -594,10 +594,6 @@ func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	return cloudprovider.SGeographicInfo{}
 }
 
-func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (self *SRegion) GetStatus() string {
 	if self.RegionState == "AVAILABLE" {
 		return api.CLOUD_REGION_STATUS_INSERVER

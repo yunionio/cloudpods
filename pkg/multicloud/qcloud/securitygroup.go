@@ -103,10 +103,6 @@ func (self *SRegion) GetSecurityGroups(ids []string, vpcId string, name string, 
 	return secgrps, int(total), nil
 }
 
-func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (self *SSecurityGroup) GetVpcId() string {
 	//腾讯云安全组未与vpc关联，统一使用normal
 	return "normal"

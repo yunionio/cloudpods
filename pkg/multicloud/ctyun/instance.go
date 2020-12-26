@@ -201,6 +201,27 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SInstance) GetSysTags() map[string]string {
+	data := map[string]string{}
+	lowerOs := self.GetOSType()
+	if strings.HasPrefix(lowerOs, "win") {
+		lowerOs = "win"
+	}
+	priceKey := fmt.Sprintf("%s::%s::%s", self.host.zone.region.GetId(), self.GetInstanceType(), lowerOs)
+	data["price_key"] = priceKey
+	data["zone_ext_id"] = self.host.zone.GetGlobalId()
+
+	image, _ := self.GetImage()
+	if image != nil {
+		meta := image.GetSysTags()
+		for k, v := range meta {
+			data[k] = v
+		}
+	}
+
+	return data
+}
+
 func (self *SInstance) GetProjectId() string {
 	return ""
 }

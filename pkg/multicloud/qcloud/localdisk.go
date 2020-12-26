@@ -41,6 +41,12 @@ func (self *SLocalDisk) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SLocalDisk) GetSysTags() map[string]string {
+	data := map[string]string{}
+	data["hypervisor"] = api.HYPERVISOR_QCLOUD
+	return data
+}
+
 func (self *SLocalDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
 	return nil, cloudprovider.ErrNotSupported
 }

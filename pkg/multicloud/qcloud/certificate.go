@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type projectInfo struct {
@@ -39,6 +40,7 @@ type projectInfo struct {
 
 // https://cloud.tencent.com/document/api/400/13675
 type SCertificate struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	CertificateID       string      `json:"CertificateId"`
@@ -132,10 +134,6 @@ func (self *SCertificate) Refresh() error {
 
 func (self *SCertificate) IsEmulated() bool {
 	return false
-}
-
-func (self *SCertificate) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SCertificate) GetCommonName() string {

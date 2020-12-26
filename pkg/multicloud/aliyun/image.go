@@ -98,6 +98,15 @@ func (self *SImage) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SImage) GetSysTags() map[string]string {
+	data := map[string]string{}
+	data["os_arch"] = self.Architecture
+	data["os_name"] = self.GetOsType()
+	data["os_distribution"] = self.Platform
+	data["os_version"] = self.OSName
+	return data
+}
+
 func (self *SImage) GetId() string {
 	return self.ImageId
 }

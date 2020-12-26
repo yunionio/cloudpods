@@ -17,8 +17,6 @@ package zstack
 import (
 	"fmt"
 
-	"yunion.io/x/jsonutils"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -30,10 +28,6 @@ type SVpc struct {
 	region *SRegion
 
 	iwires []cloudprovider.ICloudWire
-}
-
-func (vpc *SVpc) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (vpc *SVpc) GetId() string {

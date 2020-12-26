@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type AclEntrys struct {
@@ -35,6 +36,7 @@ type AclEntry struct {
 }
 
 type SLoadbalancerAcl struct {
+	multicloud.SResourceBase
 	listener *SLoadbalancerListener
 }
 
@@ -56,10 +58,6 @@ func (acl *SLoadbalancerAcl) GetGlobalId() string {
 
 func (acl *SLoadbalancerAcl) GetStatus() string {
 	return ""
-}
-
-func (acl *SLoadbalancerAcl) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (acl *SLoadbalancerAcl) IsEmulated() bool {

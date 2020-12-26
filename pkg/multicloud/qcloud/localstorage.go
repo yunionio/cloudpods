@@ -22,6 +22,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 var QCLOUD_LOCAL_STORAGE_TYPES = []string{
@@ -32,13 +33,10 @@ var QCLOUD_LOCAL_STORAGE_TYPES = []string{
 }
 
 type SLocalStorage struct {
+	multicloud.SResourceBase
 	zone        *SZone
 	storageType string
 	available   bool
-}
-
-func (self *SLocalStorage) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SLocalStorage) GetId() string {

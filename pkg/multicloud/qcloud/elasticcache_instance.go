@@ -14,10 +14,12 @@ import (
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SElasticcache struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	MaintenanceTime  *MaintenanceTime `json:"maintenance_time"`
@@ -59,7 +61,7 @@ type SElasticcache struct {
 	ZoneID           int              `json:"ZoneId"`
 }
 
-func (self *SElasticcache) SetMetadata(tags map[string]string, replace bool) error {
+func (self *SElasticcache) SetTags(tags map[string]string, replace bool) error {
 	return self.region.SetResourceTags("redis", "instance", []string{self.InstanceID}, tags, replace)
 }
 
@@ -237,6 +239,17 @@ func (self *SElasticcache) GetMetadata() *jsonutils.JSONDict {
 		}
 	}
 	return meta
+}
+
+func (self *SElasticcache) GetTags() (map[string]string, error) {
+	tags, err := self.region.FetchResourceTags("redis", "instance", []string{self.GetId()})
+	if err != nil {
+		return nil, errors.Wrap(err, "self.region.FetchResourceTags")
+	}
+	if _, ok := tags[self.GetId()]; !ok {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return *tags[self.GetId()], nil
 }
 
 func (self *SElasticcache) GetProjectId() string {

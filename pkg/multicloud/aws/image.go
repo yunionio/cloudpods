@@ -60,6 +60,7 @@ var (
 )
 
 type ImageImportTask struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	ImageId  string
@@ -146,10 +147,6 @@ func (self *ImageImportTask) Refresh() error {
 
 func (self *ImageImportTask) IsEmulated() bool {
 	return true
-}
-
-func (self *ImageImportTask) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *ImageImportTask) GetStatus() string {
@@ -271,6 +268,15 @@ func (self *SImage) GetMetadata() *jsonutils.JSONDict {
 	if len(self.OSVersion) > 0 {
 		data.Add(jsonutils.NewString(self.OSVersion), "os_version")
 	}
+	return data
+}
+
+func (self *SImage) GetSysTags() map[string]string {
+	data := map[string]string{}
+	data["os_arch"] = self.Architecture
+	data["os_name"] = self.OSType
+	data["os_distribution"] = self.OSDist
+	data["os_version"] = self.OSVersion
 	return data
 }
 

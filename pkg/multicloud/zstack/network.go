@@ -23,10 +23,12 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SNetwork struct {
+	multicloud.SResourceBase
 	wire *SWire
 
 	ZStackBasic
@@ -115,10 +117,6 @@ func (region *SRegion) GetNetworks(zoneId string, wireId string, l3Id string, ne
 		}
 	}
 	return networks, nil
-}
-
-func (network *SNetwork) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (network *SNetwork) GetId() string {

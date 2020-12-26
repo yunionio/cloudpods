@@ -39,10 +39,11 @@ import (
 )
 
 const (
-	SYSTEM_ADMIN_PREFIX = "__sys_"
-	SYS_TAG_PREFIX      = "__"
-	CLOUD_TAG_PREFIX    = "ext:"
-	USER_TAG_PREFIX     = "user:"
+	SYSTEM_ADMIN_PREFIX  = "__sys_"
+	SYS_TAG_PREFIX       = "__"
+	CLOUD_TAG_PREFIX     = "ext:"
+	USER_TAG_PREFIX      = "user:"
+	SYS_CLOUD_TAG_PREFIX = "sys:"
 
 	// TAG_DELETE_RANGE_USER  = "user"
 	// TAG_DELETE_RANGE_CLOUD = CLOUD_TAG_PREFIX // "cloud"
@@ -568,6 +569,8 @@ func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store m
 		q = q.Like("key", USER_TAG_PREFIX+"%")
 	case CLOUD_TAG_PREFIX:
 		q = q.Like("key", CLOUD_TAG_PREFIX+"%")
+	case SYS_CLOUD_TAG_PREFIX:
+		q = q.Like("key", SYS_CLOUD_TAG_PREFIX+"%")
 	}
 	q = q.Filter(sqlchemy.NOT(sqlchemy.In(q.Field("key"), keys)))
 	if err := FetchModelObjects(manager, q, &records); err != nil {

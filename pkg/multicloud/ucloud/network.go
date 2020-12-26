@@ -23,11 +23,13 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 // https://docs.ucloud.cn/api/vpc2.0-api/describe_subnet
 type SNetwork struct {
+	multicloud.SResourceBase
 	wire *SWire
 
 	CreateTime   int64  `json:"CreateTime"`
@@ -83,10 +85,6 @@ func (self *SNetwork) Refresh() error {
 
 func (self *SNetwork) IsEmulated() bool {
 	return false
-}
-
-func (self *SNetwork) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SNetwork) GetIWire() cloudprovider.ICloudWire {

@@ -26,6 +26,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SLoadbalancerPoolCreateParams struct {
@@ -67,6 +68,7 @@ type SSessionPersistence struct {
 }
 
 type SLoadbalancerPool struct {
+	multicloud.SResourceBase
 	region             *SRegion
 	members            []SLoadbalancerMember
 	healthmonitor      *SLoadbalancerHealthmonitor
@@ -253,10 +255,6 @@ func (pool *SLoadbalancerPool) IsDefault() bool {
 
 func (pool *SLoadbalancerPool) GetType() string {
 	return api.LB_BACKENDGROUP_TYPE_NORMAL
-}
-
-func (pool *SLoadbalancerPool) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (pool *SLoadbalancerPool) IsEmulated() bool {

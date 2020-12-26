@@ -639,7 +639,7 @@ func S3Shell() {
 		if err != nil {
 			return err
 		}
-		meta := bucket.GetMetadata()
+		meta, _ := bucket.GetTags()
 		printObject(meta)
 		return nil
 	})

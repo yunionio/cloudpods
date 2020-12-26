@@ -68,10 +68,6 @@ func (instance *SDBInstanceBase) Delete() error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "Delete")
 }
 
-func (instance *SDBInstanceBase) SetMetadata(tags map[string]string, replace bool) error {
-	return cloudprovider.ErrNotImplemented
-}
-
 func (instance *SDBInstanceBase) GetMasterInstanceId() string {
 	return ""
 }

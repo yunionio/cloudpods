@@ -18,16 +18,17 @@ import (
 	"fmt"
 	"net/url"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SProject struct {
+	multicloud.SResourceBase
 	client      *SOpenStackClient
 	Description string
 	Enabled     bool
@@ -41,10 +42,6 @@ func (p *SProject) GetId() string {
 
 func (p *SProject) GetGlobalId() string {
 	return p.GetId()
-}
-
-func (p *SProject) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (p *SProject) GetName() string {

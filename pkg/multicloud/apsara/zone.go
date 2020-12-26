@@ -17,13 +17,13 @@ package apsara
 import (
 	"fmt"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type TChargeType string
@@ -107,6 +107,7 @@ type SDedicatedHostTypes struct {
 }
 
 type SZone struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	iwires []cloudprovider.ICloudWire
@@ -128,10 +129,6 @@ type SZone struct {
 	/* 支持的磁盘种类集合 */
 	AvailableDiskCategories     SDiskCategories
 	AvailableDedicatedHostTypes SDedicatedHostTypes
-}
-
-func (self *SZone) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SZone) GetId() string {

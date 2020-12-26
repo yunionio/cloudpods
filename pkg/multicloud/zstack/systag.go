@@ -26,7 +26,7 @@ type SSysTag struct {
 	UUID         string `json:"uuid"`
 }
 
-func (region *SRegion) GetSysTags(tagId string, resourceType string, resourceId string, tag string) ([]SSysTag, error) {
+func (region *SRegion) GetResourceSysTags(tagId string, resourceType string, resourceId string, tag string) ([]SSysTag, error) {
 	tags := []SSysTag{}
 	params := url.Values{}
 	if len(tagId) > 0 {

@@ -23,9 +23,11 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SLBBackend struct {
+	multicloud.SResourceBase
 	group *SLBBackendGroup
 
 	PublicIPAddresses  []string `json:"PublicIpAddresses"`
@@ -90,10 +92,6 @@ func (self *SLBBackend) Refresh() error {
 
 func (self *SLBBackend) IsEmulated() bool {
 	return false
-}
-
-func (self *SLBBackend) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SLBBackend) GetWeight() int {

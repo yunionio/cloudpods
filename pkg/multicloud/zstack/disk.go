@@ -90,7 +90,7 @@ func (region *SRegion) GetDiskWithStorage(diskId string) (*SDisk, error) {
 			disk.localStorage = &SLocalStorage{region: region, primaryStorageID: storage.UUID, HostUUID: hostId}
 			return disk, nil
 		}
-		tags, err := region.GetSysTags("", "VolumeVO", disk.UUID, "")
+		tags, err := region.GetResourceSysTags("", "VolumeVO", disk.UUID, "")
 		if err != nil {
 			log.Errorf("get disk tag error: %v", err)
 			return nil, err
@@ -139,6 +139,12 @@ func (disk *SDisk) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 
 	data.Add(jsonutils.NewString(api.HYPERVISOR_ZSTACK), "hypervisor")
+	return data
+}
+
+func (disk *SDisk) GetSysTags() map[string]string {
+	data := map[string]string{}
+	data["hypervisor"] = api.HYPERVISOR_ZSTACK
 	return data
 }
 

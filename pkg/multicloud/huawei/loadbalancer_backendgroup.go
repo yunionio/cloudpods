@@ -25,9 +25,11 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SElbBackendGroup struct {
+	multicloud.SResourceBase
 	lb     *SLoadbalancer
 	region *SRegion
 
@@ -206,10 +208,6 @@ func (self *SElbBackendGroup) Refresh() error {
 
 func (self *SElbBackendGroup) IsEmulated() bool {
 	return false
-}
-
-func (self *SElbBackendGroup) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SElbBackendGroup) GetProjectId() string {

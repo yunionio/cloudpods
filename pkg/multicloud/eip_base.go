@@ -15,5 +15,6 @@
 package multicloud
 
 type SEipBase struct {
+	SResourceBase
 	SBillingBase
 }

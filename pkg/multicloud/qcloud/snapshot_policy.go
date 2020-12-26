@@ -23,6 +23,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 const (
@@ -36,6 +37,7 @@ type SSnapshotDatePolicy struct {
 }
 
 type SSnapshotPolicy struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	AutoSnapshotPolicyName  string
@@ -79,10 +81,6 @@ func (self *SSnapshotPolicy) Refresh() error {
 
 func (self *SSnapshotPolicy) IsEmulated() bool {
 	return false
-}
-
-func (self *SSnapshotPolicy) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SSnapshotPolicy) GetProjectId() string {

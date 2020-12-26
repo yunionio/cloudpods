@@ -113,10 +113,6 @@ func (region *SRegion) GetInstanceOfferings(offerId string, name string, cpu int
 	return offerings, nil
 }
 
-func (offering *SInstanceOffering) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (offering *SInstanceOffering) IsEmulated() bool {
 	return false
 }

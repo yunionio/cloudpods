@@ -371,10 +371,6 @@ func (self *SRegion) IsEmulated() bool {
 	return false
 }
 
-func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (self *SRegion) GetLatitude() float32 {
 	if locationInfo, ok := LatitudeAndLongitude[self.ID]; ok {
 		return locationInfo.Latitude

@@ -21,6 +21,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/modules"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -31,6 +32,7 @@ Subnets
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090590.html
 type SNetwork struct {
+	multicloud.SResourceBase
 	wire *SWire
 
 	AvailabilityZone string   `json:"availability_zone"`
@@ -88,10 +90,6 @@ func (self *SNetwork) Refresh() error {
 
 func (self *SNetwork) IsEmulated() bool {
 	return false
-}
-
-func (self *SNetwork) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SNetwork) GetIWire() cloudprovider.ICloudWire {

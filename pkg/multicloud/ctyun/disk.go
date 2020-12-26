@@ -193,6 +193,12 @@ func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SDisk) GetSysTags() map[string]string {
+	data := map[string]string{}
+	data["hypervisor"] = api.HYPERVISOR_CTYUN
+	return data
+}
+
 func (self *SDisk) GetProjectId() string {
 	return ""
 }

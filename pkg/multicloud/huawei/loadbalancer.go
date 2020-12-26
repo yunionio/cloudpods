@@ -24,6 +24,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 var LB_ALGORITHM_MAP = map[string]string{
@@ -58,6 +59,7 @@ var LB_HEALTHCHECK_TYPE_MAP = map[string]string{
 }
 
 type SLoadbalancer struct {
+	multicloud.SResourceBase
 	region *SRegion
 	subnet *SNetwork
 	eip    *SEipAddress
@@ -551,6 +553,6 @@ func (self *SRegion) DeleteLoadbalancerHealthCheck(healthCheckID string) error {
 	return DoDelete(self.ecsClient.ElbHealthCheck.Delete, healthCheckID, nil, nil)
 }
 
-func (self *SLoadbalancer) SetMetadata(tags map[string]string, replace bool) error {
+func (self *SLoadbalancer) SetTags(tags map[string]string, replace bool) error {
 	return cloudprovider.ErrNotSupported
 }

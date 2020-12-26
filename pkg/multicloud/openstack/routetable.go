@@ -15,13 +15,13 @@
 package openstack
 
 import (
-	"yunion.io/x/jsonutils"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SRouteEntry struct {
+	multicloud.SResourceBase
 	Destination string `json:"destination"`
 	Nexthop     string `json:"nexthop"`
 }
@@ -48,10 +48,6 @@ func (route *SRouteEntry) IsEmulated() bool {
 	return false
 }
 
-func (route *SRouteEntry) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (route *SRouteEntry) GetType() string {
 	return api.ROUTE_ENTRY_TYPE_CUSTOM
 }
@@ -69,6 +65,7 @@ func (route *SRouteEntry) GetNextHop() string {
 }
 
 type SRouteTable struct {
+	multicloud.SResourceBase
 	vpc     *SVpc
 	entries []SRouteEntry
 	router  *SRouter
@@ -88,10 +85,6 @@ func (self *SRouteTable) GetGlobalId() string {
 
 func (self *SRouteTable) GetName() string {
 	return self.router.Name
-}
-
-func (self *SRouteTable) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SRouteTable) GetRegionId() string {

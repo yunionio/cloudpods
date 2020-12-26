@@ -79,10 +79,6 @@ func (addr *SAddress) GetProjectId() string {
 	return addr.region.GetProjectId()
 }
 
-func (addr *SAddress) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (addr *SAddress) IsEmulated() bool {
 	if addr.Id == addr.SelfLink {
 		return true

@@ -109,7 +109,16 @@ func (self *SImage) GetMetadata() *jsonutils.JSONDict {
 	if len(osType) > 0 {
 		data.Add(jsonutils.NewString(osType), "os_name")
 	}
-	return nil
+	return data
+}
+
+func (self *SImage) GetSysTags() map[string]string {
+	data := map[string]string{}
+	osType := string(self.Properties.StorageProfile.OsDisk.OsType)
+	if len(osType) > 0 {
+		data["os_name"] = osType
+	}
+	return data
 }
 
 func (self *SImage) GetId() string {

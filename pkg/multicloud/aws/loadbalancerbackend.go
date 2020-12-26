@@ -21,9 +21,11 @@ import (
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SElbBackend struct {
+	multicloud.SResourceBase
 	region *SRegion
 	group  *SElbBackendGroup
 
