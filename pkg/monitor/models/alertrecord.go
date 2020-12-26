@@ -9,7 +9,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/timeutils"
-	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
@@ -106,45 +105,6 @@ func (manager *SAlertRecordManager) ListItemFilter(
 		q = q.IsNotEmpty("res_type").IsNotNull("res_type")
 	}
 	return q, nil
-}
-
-func (man *SAlertRecordManager) CustomizeFilterList(
-	ctx context.Context, q *sqlchemy.SQuery,
-	userCred mcclient.TokenCredential, query jsonutils.JSONObject) (
-	*db.CustomizeListFilters, error) {
-	filters := db.NewCustomizeListFilters()
-	input := new(monitor.AlertRecordListInput)
-	if err := query.Unmarshal(input); err != nil {
-		return nil, err
-	}
-	wrapF := func(f func(obj *SAlertRecord) (bool, error)) func(object jsonutils.JSONObject) (bool, error) {
-		return func(data jsonutils.JSONObject) (bool, error) {
-			id, err := data.GetString("id")
-			if err != nil {
-				return false, err
-			}
-			obj, err := man.GetAlertRecord(id)
-			if err != nil {
-				return false, err
-			}
-			return f(obj)
-		}
-	}
-
-	if len(input.ResType) != 0 {
-		mF := func(obj *SAlertRecord) (bool, error) {
-			rule := new(monitor.AlertRecordRule)
-			if err := obj.AlertRule.Unmarshal(rule); err != nil {
-				return false, errors.Wrapf(err, "alert %s unmarshal", obj.GetId())
-			}
-			if ok, _ := utils.InStringArray(rule.ResType, input.ResType); ok {
-				return true, nil
-			}
-			return false, nil
-		}
-		filters.Append(wrapF(mF))
-	}
-	return filters, nil
 }
 
 func (man *SAlertRecordManager) GetAlertRecord(id string) (*SAlertRecord, error) {
@@ -251,6 +211,10 @@ func (record *SAlertRecord) CustomizeCreate(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) error {
+	err := record.SMonitorScopedResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	if err != nil {
+		return err
+	}
 	obj, err := db.NewModelObject(AlertRecordManager)
 	if err != nil {
 		return errors.Wrapf(err, "NewModelObject %s", AlertRecordManager.Keyword())
