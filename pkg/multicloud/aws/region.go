@@ -907,7 +907,10 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 			Value: &values[i],
 		})
 	}
-	params.SetTags(tagInput)
+	if len(loadbalancer.Tags) > 0 {
+		params.SetTags(tagInput)
+	}
+
 	ret, err := client.CreateLoadBalancer(params)
 	if err != nil {
 		return nil, err
