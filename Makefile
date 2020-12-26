@@ -173,10 +173,52 @@ vet-check:
 	./scripts/vet.sh chk
 .PHONY: vet-check
 
+comma:=,
+space:=$(space) $(space)
+# NOTE: keep y18n-packages in alphabetical order
+y18n-src-lang := en-US
+y18n-lang     := en-US,zh-CN
+y18n-packages := \
+		yunion.io/x/onecloud/cmd/keystone \
+		yunion.io/x/onecloud/cmd/monitor \
+		yunion.io/x/onecloud/cmd/region \
+		yunion.io/x/onecloud/cmd/yunionconf \
+
+define y18n-gen
+	set -o errexit; \
+	set -o pipefail; \
+	export GO111MODULE=off; \
+	y18n \
+		-chdir $(CURDIR) \
+		-dir ./locales/ \
+		-out ./locales/locales.go \
+		-lang $(y18n-lang) \
+		$(y18n-packages) \
+		; \
+	$(foreach lang,$(filter-out $(y18n-src-lang),$(subst $(comma), ,$(y18n-lang))),cp ./locales/$(lang)/{out,messages}.gotext.json;) \
+
+endef
+
+y18n-gen:
+	$(y18n-gen)
+	$(y18n-gen)
+
+.PHONY: y18n-gen
+
+y18n-check:
+	$(y18n-gen)
+	if git status --short ./locales | sed 's/^/$@: /' | grep .; then \
+		echo "$@: Locales content needs care" >&2 ; \
+		false; \
+	fi
+
+.PHONY: y18n-check
+
 check: fmt-check
 check: gendocgo-check
 check: goimports-check
 check: vet-check
+#check: y18n-check
 .PHONY: check
 
 
@@ -202,70 +244,6 @@ mod:
 	go get -d $(patsubst %,%@master,$(shell GO111MODULE=on go mod edit -print  | sed -n -e 's|.*\(yunion.io/x/[a-z].*\) v.*|\1|p'))
 	go mod tidy
 	go mod vendor -v
-
-
-DOCKER_CENTOS_BUILD_IMAGE?=registry.cn-beijing.aliyuncs.com/yunionio/centos-build:1.1-3
-
-define dockerCentOSBuildCmd
-set -o xtrace
-set -o errexit
-set -o pipefail
-cd /root/onecloud
-export GOFLAGS=-mod=vendor
-make $(1)
-chown -R $(shell id -u):$(shell id -g) _output
-endef
-
-docker-centos-build: export dockerCentOSBuildCmd:=$(call dockerCentOSBuildCmd,$(F))
-docker-centos-build:
-	docker rm --force onecloud-ci-build &>/dev/null || true
-	docker run \
-		--name onecloud-docker-centos-build \
-		--rm \
-		--volume $(CURDIR):/root/onecloud \
-		--volume $(CURDIR)/_output/_cache:/root/.cache \
-		$(DOCKER_CENTOS_BUILD_IMAGE) \
-		/bin/bash -c "$$dockerCentOSBuildCmd"
-	chown -R $$(id -u):$$(id -g) _output
-	ls -lh _output/bin
-
-# NOTE we need a way to stop and remove the container started by docker-build.
-# No --tty, --stop-signal won't work
-docker-centos-build-stop:
-	docker stop --time 0 onecloud-docker-centos-build || true
-
-.PHONY: docker-centos-build
-.PHONY: docker-centos-build-stop
-
-DOCKER_ALPINE_BUILD_IMAGE?=registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-5
-
-define dockerAlpineBuildCmd
-set -o xtrace
-set -o errexit
-set -o pipefail
-cd /root/go/src/yunion.io/x/onecloud
-export GOFLAGS=-mod=vendor
-make $(1)
-chown -R $(shell id -u):$(shell id -g) _output
-endef
-
-docker-alpine-build: export dockerAlpineBuildCmd:=$(call dockerAlpineBuildCmd,$(F))
-docker-alpine-build:
-	docker rm --force onecloud-docker-alpine-build &>/dev/null || true
-	docker run --rm \
-		--name onecloud-docker-alpine-build \
-		-v $(CURDIR):/root/go/src/yunion.io/x/onecloud \
-		-v $(CURDIR)/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
-		-v $(CURDIR)/_output/alpine-build/_cache:/root/.cache \
-		$(DOCKER_ALPINE_BUILD_IMAGE) \
-		/bin/sh -c "$$dockerAlpineBuildCmd"
-	ls -lh _output/alpine-build/bin
-
-docker-alpine-build-stop:
-	docker stop --time 0 onecloud-docker-alpine-build || true
-
-.PHONY: docker-alpine-build
-.PHONY: docker-alpine-build-stop
 
 define helpText
 Build with docker
@@ -326,3 +304,6 @@ image:
 
 %:
 	@:
+
+ModName:=yunion.io/x/onecloud
+include $(CURDIR)/Makefile.common.mk

@@ -5,10 +5,10 @@ version: 2
 jobs:
   check:
     docker:
-      - image: yunionio/centos-build:1.0-1
+      - image: yunionio/centos-build:1.1-4
         environment:
           ONECLOUD_CI_BUILD: "1"
-    working_directory: /root/go/onecloud
+    working_directory: /root/go/src/yunion.io/x/onecloud
     steps:
       - checkout
       - run:
@@ -18,7 +18,7 @@ jobs:
     requires:
       - check
     docker:
-      - image: yunionio/centos-build:1.0-1
+      - image: yunionio/centos-build:1.1-4
         environment:
           ONECLOUD_CI_BUILD: "1"
 
@@ -26,7 +26,7 @@ jobs:
     #### expecting it in the form of
     ####   /go/src/github.com/circleci/go-tool
     ####   /go/src/bitbucket.org/circleci/go-tool
-    working_directory: /root/go/onecloud
+    working_directory: /root/go/src/yunion.io/x/onecloud
     parallelism: 4
     steps:
       - checkout
@@ -51,10 +51,10 @@ jobs:
     requires:
       - check
     docker:
-      - image: yunionio/centos-build:1.0-1
+      - image: yunionio/centos-build:1.1-4
         environment:
-          GO111MODULE: "on"
-    working_directory: /root/go/onecloud
+          ONECLOUD_CI_BUILD: "1"
+    working_directory: /root/go/src/yunion.io/x/onecloud
     parallelism: 4
     steps:
       - checkout
