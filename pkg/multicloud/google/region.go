@@ -57,6 +57,13 @@ func (region *SRegion) GetName() string {
 	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_GOOGLE_CN, region.Name)
 }
 
+func (self *SRegion) GetI18n() cloudprovider.SModelI18nTable {
+	en := fmt.Sprintf("%s %s", CLOUD_PROVIDER_GOOGLE, self.Name)
+	table := cloudprovider.SModelI18nTable{}
+	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName()).EN(en)
+	return table
+}
+
 func (region *SRegion) GetId() string {
 	return region.Name
 }

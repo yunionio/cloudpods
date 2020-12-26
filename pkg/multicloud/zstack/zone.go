@@ -50,6 +50,12 @@ func (zone *SZone) GetName() string {
 	return zone.Name
 }
 
+func (zone *SZone) GetI18n() cloudprovider.SModelI18nTable {
+	table := cloudprovider.SModelI18nTable{}
+	table["name"] = cloudprovider.NewSModelI18nEntry(zone.GetName()).CN(zone.GetName())
+	return table
+}
+
 func (zone *SZone) GetGlobalId() string {
 	return zone.GetId()
 }
