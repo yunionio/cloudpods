@@ -892,20 +892,28 @@ func (b *SBucket) GetPolicy() ([]cloudprovider.SBucketPolicyStatement, error) {
 	policyOptions := []cloudprovider.SBucketPolicyStatement{}
 	coscli, err := b.region.GetCosClient(b)
 	if err != nil {
-		log.Errorf("GetCosClient fail %s", err)
-		return nil, errors.Wrap(err, "b.region.GetCosClient(b)")
+		return nil, errors.Wrap(err, "GetCosClient")
 	}
 	result, _, err := coscli.Bucket.GetPolicy(context.Background())
 	if err != nil {
 		if strings.Contains(err.Error(), "404") {
 			return nil, nil
 		}
-		log.Errorf("coscli.Bucket.GetACL fail %s", err)
-		return nil, errors.Wrap(err, "coscli.Bucket.GetPolicy(context.Background())")
+		return nil, errors.Wrap(err, "GetPolicy")
+	}
+
+	users, err := b.region.client.GetICloudusers()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetICloudusers")
+	}
+
+	userMaps := map[string]string{}
+	for i := range users {
+		userMaps[fmt.Sprintf("%s:%s", b.region.client.ownerName, users[i].GetGlobalId())] = users[i].GetName()
 	}
 
 	for i := range result.Statement {
-		policyOptions = append(policyOptions, cloudprovider.SBucketPolicyStatement{
+		policyOption := cloudprovider.SBucketPolicyStatement{
 			Principal: result.Statement[i].Principal,
 			Action:    result.Statement[i].Action,
 			Effect:    result.Statement[i].Effect,
@@ -916,7 +924,15 @@ func (b *SBucket) GetPolicy() ([]cloudprovider.SBucketPolicyStatement, error) {
 			CannedAction: getCannedAction(result.Statement[i].Action),
 			ResourcePath: getQcsResourcePath(result.Statement[i].Resource),
 			Id:           strconv.Itoa(i),
-		})
+		}
+		policyOption.PrincipalNames = func() map[string]string {
+			ret := map[string]string{}
+			for _, id := range policyOption.PrincipalId {
+				ret[id], _ = userMaps[id]
+			}
+			return ret
+		}()
+		policyOptions = append(policyOptions, policyOption)
 	}
 	return policyOptions, nil
 }
@@ -924,16 +940,14 @@ func (b *SBucket) GetPolicy() ([]cloudprovider.SBucketPolicyStatement, error) {
 func (b *SBucket) SetPolicy(policy cloudprovider.SBucketPolicyStatementInput) error {
 	coscli, err := b.region.GetCosClient(b)
 	if err != nil {
-		log.Errorf("GetCosClient fail %s", err)
-		return nil
+		return errors.Wrapf(err, "GetCosClient")
 	}
 	opts := cos.BucketPutPolicyOptions{}
 	opts.Version = "2.0"
 	oldOpts, _, err := coscli.Bucket.GetPolicy(context.Background())
 	if err != nil {
 		if !strings.Contains(err.Error(), "404") {
-			log.Errorf("coscli.Bucket.GetACL fail %s", err)
-			return errors.Wrap(err, "coscli.Bucket.GetPolicy(context.Background())")
+			return errors.Wrap(err, "GetPolicy")
 		}
 	}
 	if len(oldOpts.Statement) > 0 {
@@ -1000,7 +1014,7 @@ func (b *SBucket) SetPolicy(policy cloudprovider.SBucketPolicyStatementInput) er
 	if policy.CannedAction == "ReadWrite" {
 		newStatement.Action = cannedReadWriteActions[:]
 	}
-	opts.Statement = append(opts.Statement, newStatement)
+	opts.Statement = append([]cos.BucketStatement{newStatement}, opts.Statement...)
 
 	_, err = coscli.Bucket.PutPolicy(context.Background(), &opts)
 	if err != nil {
