@@ -24,6 +24,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type TStorageType string
@@ -53,6 +54,7 @@ type SPool struct {
 }
 
 type SStorage struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	ZStackBasic
@@ -140,10 +142,6 @@ func (storage *SStorage) GetStatus() string {
 		return api.STORAGE_ONLINE
 	}
 	return api.STORAGE_OFFLINE
-}
-
-func (storage *SStorage) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (storage *SStorage) GetId() string {

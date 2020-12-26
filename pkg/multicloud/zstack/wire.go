@@ -19,12 +19,12 @@ import (
 	"net/url"
 	"strings"
 
-	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SWire struct {
+	multicloud.SResourceBase
 	vpc *SVpc
 
 	inetworks []cloudprovider.ICloudNetwork
@@ -68,10 +68,6 @@ func (region *SRegion) GetWires(zoneId string, wireId string, clusterId string) 
 		wires[i].vpc = region.GetVpc()
 	}
 	return wires, nil
-}
-
-func (wire *SWire) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (wire *SWire) GetId() string {

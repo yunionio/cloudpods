@@ -22,9 +22,11 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SRouteSet struct {
+	multicloud.SResourceBase
 	RouteID                  int    `json:"RouteId"`
 	RouteItemID              string `json:"RouteItemId"`
 	DestinationIpv6CidrBlock string `json:"DestinationIpv6CidrBlock,omitempty"`
@@ -35,6 +37,7 @@ type SRouteSet struct {
 	RouteType                string `json:"RouteType"`
 }
 type SRouteTableSet struct {
+	multicloud.SResourceBase
 	vpc            *SVpc
 	VpcID          string                     `json:"VpcId"`
 	RouteTableID   string                     `json:"RouteTableId"`
@@ -118,10 +121,6 @@ func (self *SRouteTableSet) IsEmulated() bool {
 	return false
 }
 
-func (self *SRouteTableSet) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (self *SRouteTableSet) GetAssociations() []cloudprovider.RouteTableAssociation {
 	result := []cloudprovider.RouteTableAssociation{}
 	for i := range self.AssociationSet {
@@ -195,10 +194,6 @@ func (self *SRouteSet) Refresh() error {
 
 func (self *SRouteSet) IsEmulated() bool {
 	return false
-}
-
-func (self *SRouteSet) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SRouteSet) GetType() string {

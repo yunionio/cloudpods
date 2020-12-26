@@ -48,12 +48,14 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/vmdkutils"
 )
 
 var DATASTORE_PROPS = []string{"name", "parent", "info", "summary", "host", "vm"}
 
 type SDatastore struct {
+	multicloud.SResourceBase
 	SManagedObject
 
 	// vms []cloudprovider.ICloudVM
@@ -65,10 +67,6 @@ type SDatastore struct {
 
 func NewDatastore(manager *SESXiClient, ds *mo.Datastore, dc *SDatacenter) *SDatastore {
 	return &SDatastore{SManagedObject: newManagedObject(manager, ds, dc)}
-}
-
-func (self *SDatastore) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SDatastore) getDatastore() *mo.Datastore {

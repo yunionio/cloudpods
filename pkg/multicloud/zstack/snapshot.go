@@ -22,9 +22,11 @@ import (
 	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SSnapshot struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	ZStackBasic
@@ -114,10 +116,6 @@ func (region *SRegion) GetSnapshots(snapshotId string, diskId string) ([]SSnapsh
 
 func (snapshot *SSnapshot) Delete() error {
 	return snapshot.region.DeleteSnapshot(snapshot.UUID)
-}
-
-func (snapshot *SSnapshot) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (region *SRegion) DeleteSnapshot(snapshotId string) error {

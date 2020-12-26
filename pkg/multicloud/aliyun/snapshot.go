@@ -24,6 +24,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SnapshotStatusType string
@@ -38,6 +39,7 @@ const (
 )
 
 type SSnapshot struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	Progress        string
@@ -134,10 +136,6 @@ func (self *SSnapshot) Delete() error {
 		return err
 	}
 	return self.region.DeleteSnapshot(self.SnapshotId)
-}
-
-func (self *SSnapshot) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName string, snapshotIds []string, offset int, limit int) ([]SSnapshot, int, error) {

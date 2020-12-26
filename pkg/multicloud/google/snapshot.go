@@ -73,10 +73,6 @@ func (snapshot *SSnapshot) GetStatus() string {
 	}
 }
 
-func (snapshot *SSnapshot) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (snapshot *SSnapshot) IsEmulated() bool {
 	return false
 }

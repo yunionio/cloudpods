@@ -98,10 +98,6 @@ func (disk *SDisk) Refresh() error {
 	return jsonutils.Update(disk, _disk)
 }
 
-func (disk *SDisk) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (disk *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
 	return disk.storage, nil
 }

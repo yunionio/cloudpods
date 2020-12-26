@@ -268,6 +268,29 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SInstance) GetSysTags() map[string]string {
+	data := map[string]string{}
+	// cn-north-1::et2.2xlarge.16::win
+	lowerOs := self.GetOSType()
+	if strings.HasPrefix(lowerOs, "win") {
+		lowerOs = "win"
+	}
+	priceKey := fmt.Sprintf("%s::%s::%s", self.host.zone.region.GetId(), self.GetInstanceType(), lowerOs)
+	data["price_key"] = priceKey
+	data["zone_ext_id"] = self.host.zone.GetGlobalId()
+	if len(self.Metadata.MeteringImageID) > 0 {
+		if image, err := self.host.zone.region.GetImage(self.Metadata.MeteringImageID); err != nil {
+			log.Errorf("Failed to find image %s for instance %s zone %s", self.Metadata.MeteringImageID, self.GetId(), self.OSEXTAZAvailabilityZone)
+		} else {
+			meta := image.GetSysTags()
+			for k, v := range meta {
+				data[k] = v
+			}
+		}
+	}
+	return data
+}
+
 func (self *SInstance) GetBillingType() string {
 	// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0094148849.html
 	// charging_mode “0”：按需计费    “1”：按包年包月计费

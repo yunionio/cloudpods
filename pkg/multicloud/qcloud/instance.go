@@ -192,6 +192,37 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SInstance) GetSysTags() map[string]string {
+	data := map[string]string{}
+	if self.image == nil {
+		image, err := self.host.zone.region.GetImage(self.ImageId)
+		if err == nil {
+			self.image = image
+		}
+	}
+
+	if self.image != nil {
+		data["os_distribution"] = self.image.OsName
+	}
+
+	priceKey := fmt.Sprintf("%s::%s", self.host.zone.Zone, self.InstanceType)
+	data["price_key"] = priceKey
+
+	data["zone_ext_id"] = self.host.zone.GetGlobalId()
+	return data
+}
+
+func (self *SInstance) GetTags() (map[string]string, error) {
+	mtags, err := self.host.zone.region.FetchResourceTags("cvm", "instance", []string{self.InstanceId})
+	if err != nil {
+		return nil, errors.Wrap(err, "self.host.zone.region.FetchResourceTags")
+	}
+	if tags, ok := mtags[self.InstanceId]; ok {
+		return *tags, nil
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
 func (self *SInstance) getCloudMetadata() (map[string]string, error) {
 	mtags, err := self.host.zone.region.FetchResourceTags("cvm", "instance", []string{self.InstanceId})
 	if err != nil {
@@ -1012,7 +1043,7 @@ func (self *SInstance) SetAutoRenew(autoRenew bool) error {
 	return self.host.zone.region.SetInstanceAutoRenew(self.InstanceId, autoRenew)
 }
 
-func (self *SInstance) SetMetadata(tags map[string]string, replace bool) error {
+func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
 	return self.host.zone.region.SetResourceTags("cvm", "instance", []string{self.InstanceId}, tags, replace)
 }
 

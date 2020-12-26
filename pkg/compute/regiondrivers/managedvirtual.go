@@ -335,11 +335,12 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateLoadbalancer(
 		if err != nil {
 			log.Errorf("GetAllUserMetadata fail %s", err)
 		} else {
-			err := iLoadbalancer.SetMetadata(tags, replaceTags)
+			err := iLoadbalancer.SetTags(tags, replaceTags)
 			if err != nil {
 				return nil, errors.Wrap(err, "iLoadbalancer.SetMetadata")
 			}
 			// sync back cloud metadata
+			iLoadbalancer.Refresh()
 			err = models.SyncVirtualResourceMetadata(ctx, userCred, lb, iLoadbalancer)
 			if err != nil {
 				return nil, errors.Wrap(err, "syncVirtualResourceMetadata")
@@ -2729,11 +2730,12 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateDBInstance(ct
 		if err != nil {
 			log.Errorf("GetAllUserMetadata fail %s", err)
 		} else {
-			err := iRds.SetMetadata(tags, replaceTags)
+			err := iRds.SetTags(tags, replaceTags)
 			if err != nil {
 				return nil, errors.Wrap(err, "iRds.SetMetadata")
 			}
 			// sync back cloud metadata
+			iRds.Refresh()
 			err = models.SyncVirtualResourceMetadata(ctx, userCred, instance, iRds)
 			if err != nil {
 				return nil, errors.Wrap(err, "syncVirtualResourceMetadata")
@@ -3127,11 +3129,12 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateElasticcache(
 		if err != nil {
 			log.Errorf("GetAllUserMetadata fail %s", err)
 		} else {
-			err := iElasticcache.SetMetadata(tags, replaceTags)
+			err := iElasticcache.SetTags(tags, replaceTags)
 			if err != nil {
 				return nil, errors.Wrap(err, "iElasticcache.SetMetadata")
 			}
 			// sync back cloud metadata
+			iElasticcache.Refresh()
 			err = models.SyncVirtualResourceMetadata(ctx, userCred, elasticcache, iElasticcache)
 			if err != nil {
 				return nil, errors.Wrap(err, "syncVirtualResourceMetadata")

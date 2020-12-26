@@ -190,10 +190,6 @@ func (secgroup *SSecurityGroup) GetName() string {
 	return secgroup.vpc.globalnetwork.Name
 }
 
-func (secgroup *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (secgroup *SSecurityGroup) GetStatus() string {
 	return ""
 }

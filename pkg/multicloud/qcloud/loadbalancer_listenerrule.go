@@ -24,9 +24,11 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SLBListenerRule struct {
+	multicloud.SResourceBase
 	listener *SLBListener
 
 	Domain            string      `json:"Domain"`
@@ -89,10 +91,6 @@ func (self *SLBListenerRule) IsDefault() bool {
 
 func (self *SLBListenerRule) IsEmulated() bool {
 	return false
-}
-
-func (self *SLBListenerRule) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SLBListenerRule) GetDomain() string {

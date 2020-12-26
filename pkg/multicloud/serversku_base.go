@@ -18,7 +18,9 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
-type SServerSku struct{}
+type SServerSku struct {
+	SResourceBase
+}
 
 func (self *SServerSku) GetStatus() string {
 	return api.SkuStatusReady

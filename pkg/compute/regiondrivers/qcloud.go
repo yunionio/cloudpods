@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strconv"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -1261,19 +1262,23 @@ func (self *SQcloudRegionDriver) RequestPullRegionLoadbalancerBackendGroup(ctx c
 }
 
 func (self *SQcloudRegionDriver) RequestPullLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, syncResults models.SSyncResultSet, provider *models.SCloudprovider, localLoadbalancer *models.SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *models.SSyncRange) error {
-	meta := remoteLoadbalancer.GetMetadata()
+	meta := remoteLoadbalancer.GetSysTags()
 	if meta == nil {
 		return fmt.Errorf("")
 
 	}
 
 	// 经典型负载均衡只有一个后端服务器组，全局共享
-	if forward, _ := meta.Int("Forward"); forward == 1 {
-		models.SyncQcloudLoadbalancerBackendgroups(ctx, userCred, syncResults, provider, localLoadbalancer, remoteLoadbalancer, syncRange)
-		return nil
-	} else {
-		return self.SManagedVirtualizationRegionDriver.RequestPullLoadbalancerBackendGroup(ctx, userCred, syncResults, provider, localLoadbalancer, remoteLoadbalancer, syncRange)
+
+	if forward, ok := meta["Forward"]; ok {
+		forwardNum, err := strconv.Atoi(forward)
+		if err == nil && forwardNum == 1 {
+			models.SyncQcloudLoadbalancerBackendgroups(ctx, userCred, syncResults, provider, localLoadbalancer, remoteLoadbalancer, syncRange)
+			return nil
+		}
 	}
+
+	return self.SManagedVirtualizationRegionDriver.RequestPullLoadbalancerBackendGroup(ctx, userCred, syncResults, provider, localLoadbalancer, remoteLoadbalancer, syncRange)
 }
 
 func (self *SQcloudRegionDriver) RequestPreSnapshotPolicyApply(ctx context.Context, userCred mcclient.

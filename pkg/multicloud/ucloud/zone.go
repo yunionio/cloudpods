@@ -17,11 +17,11 @@ package ucloud
 import (
 	"fmt"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 // https://docs.ucloud.cn/api/udisk-api/create_udisk
@@ -34,6 +34,7 @@ var StorageTypes = []string{
 }
 
 type SZone struct {
+	multicloud.SResourceBase
 	region *SRegion
 	host   *SHost
 
@@ -104,10 +105,6 @@ func (self *SZone) Refresh() error {
 
 func (self *SZone) IsEmulated() bool {
 	return false
-}
-
-func (self *SZone) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {

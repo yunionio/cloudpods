@@ -98,10 +98,6 @@ func (self *SRegion) getVMSize(name string) (*SVMSize, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
 }
 
-func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (self *SRegion) GetId() string {
 	return self.Name
 }

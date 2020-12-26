@@ -24,6 +24,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SnapshotStatusType string
@@ -35,6 +36,7 @@ const (
 )
 
 type SSnapshot struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	SnapshotId       string             //	快照ID。
@@ -163,10 +165,6 @@ func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 		ret[i] = &snapshots[i]
 	}
 	return ret, nil
-}
-
-func (self *SSnapshot) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SSnapshot) GetRegionId() string {

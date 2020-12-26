@@ -23,6 +23,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type InsertHeaders struct {
@@ -34,6 +35,7 @@ type Loadbalancer struct {
 }
 
 type SElbListener struct {
+	multicloud.SResourceBase
 	lb           *SLoadbalancer
 	acl          *SElbACL
 	backendgroup *SElbBackendGroup
@@ -90,10 +92,6 @@ func (self *SElbListener) Refresh() error {
 
 func (self *SElbListener) IsEmulated() bool {
 	return false
-}
-
-func (self *SElbListener) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SElbListener) GetProjectId() string {

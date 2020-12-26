@@ -19,13 +19,13 @@ import (
 	"fmt"
 	"strings"
 
-	"yunion.io/x/jsonutils"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SLoadbalancerMasterSlaveBackend struct {
+	multicloud.SResourceBase
 	lbbg *SLoadbalancerMasterSlaveBackendGroup
 
 	ServerId   string
@@ -48,10 +48,6 @@ func (backend *SLoadbalancerMasterSlaveBackend) GetGlobalId() string {
 
 func (backend *SLoadbalancerMasterSlaveBackend) GetStatus() string {
 	return api.LB_STATUS_ENABLED
-}
-
-func (backend *SLoadbalancerMasterSlaveBackend) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (backend *SLoadbalancerMasterSlaveBackend) IsEmulated() bool {

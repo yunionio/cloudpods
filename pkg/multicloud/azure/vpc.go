@@ -55,10 +55,6 @@ type SVpc struct {
 	Properties VirtualNetworkPropertiesFormat `json:"properties,omitempty"`
 }
 
-func (self *SVpc) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (self *SVpc) GetId() string {
 	return self.ID
 }

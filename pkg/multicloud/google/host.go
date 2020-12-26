@@ -31,10 +31,6 @@ type SHost struct {
 	zone *SZone
 }
 
-func (self *SHost) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (host *SHost) GetId() string {
 	return host.zone.GetGlobalId()
 }

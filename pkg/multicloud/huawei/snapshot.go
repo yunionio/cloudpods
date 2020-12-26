@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 /*
@@ -47,6 +48,7 @@ type Metadata struct {
 
 // https://support.huaweicloud.com/api-evs/zh-cn_topic_0051408624.html
 type SSnapshot struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	Metadata                              Metadata `json:"metadata"`
@@ -106,10 +108,6 @@ func (self *SSnapshot) Refresh() error {
 
 func (self *SSnapshot) IsEmulated() bool {
 	return false
-}
-
-func (self *SSnapshot) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SSnapshot) GetSizeMb() int32 {

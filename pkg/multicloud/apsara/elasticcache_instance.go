@@ -937,7 +937,18 @@ func (instance *SElasticcache) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
-func (instance *SElasticcache) SetMetadata(tags map[string]string, replace bool) error {
+func (instance *SElasticcache) GetTags() (map[string]string, error) {
+	tags, err := instance.region.ListResourceTags("kvs", "INSTANCE", []string{instance.GetId()})
+	if err != nil {
+		return nil, errors.Wrap(err, "instance.region.ListResourceTags")
+	}
+	if _, ok := tags[instance.GetId()]; !ok {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return *tags[instance.GetId()], nil
+}
+
+func (instance *SElasticcache) SetTags(tags map[string]string, replace bool) error {
 	return instance.region.SetResourceTags(APSARA_PRODUCT_KVSTORE, "INSTANCE", []string{instance.GetId()}, tags, replace)
 }
 

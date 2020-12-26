@@ -1271,11 +1271,12 @@ func (self *SManagedVirtualizedGuestDriver) RequestRemoteUpdate(ctx context.Cont
 	if err != nil {
 		log.Errorf("GetAllUserMetadata fail %s", err)
 	} else {
-		err := iVM.SetMetadata(tags, replaceTags)
+		err := iVM.SetTags(tags, replaceTags)
 		if err != nil {
 			return errors.Wrap(err, "iVM.SetMetadata")
 		}
 		// sync back cloud metadata
+		iVM.Refresh()
 		err = models.SyncVirtualResourceMetadata(ctx, userCred, guest, iVM)
 		if err != nil {
 			return errors.Wrap(err, "syncVirtualResourceMetadata")

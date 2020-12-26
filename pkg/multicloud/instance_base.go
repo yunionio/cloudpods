@@ -47,10 +47,6 @@ func (instance *SInstanceBase) LiveMigrateVM(hostId string) error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (instance *SInstanceBase) SetMetadata(tags map[string]string, replace bool) error {
-	return cloudprovider.ErrNotImplemented
-}
-
 func (instance *SInstanceBase) GetInstanceSnapshot(idStr string) (cloudprovider.ICloudInstanceSnapshot, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }

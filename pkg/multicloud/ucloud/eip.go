@@ -123,10 +123,6 @@ func (self *SEip) IsEmulated() bool {
 	return false
 }
 
-func (self *SEip) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 // 付费方式, 枚举值为: Year, 按年付费; Month, 按月付费; Dynamic, 按小时付费; Trial, 试用. 按小时付费和试用这两种付费模式需要开通权限.
 func (self *SEip) GetBillingType() string {
 	switch self.ChargeType {

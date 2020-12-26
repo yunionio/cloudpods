@@ -86,6 +86,14 @@ func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SDisk) GetSysTags() map[string]string {
+	priceKey := fmt.Sprintf("%s::%s::%s", self.RegionId, self.Category, self.Type)
+	data := map[string]string{}
+	data["price_key"] = priceKey
+	data["hypervisor"] = api.HYPERVISOR_ALIYUN
+	return data
+}
+
 func (self *SRegion) GetDisks(instanceId string, zoneId string, category string, diskIds []string, offset int, limit int) ([]SDisk, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50

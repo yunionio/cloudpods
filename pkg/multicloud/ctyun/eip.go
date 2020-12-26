@@ -113,10 +113,6 @@ func (self *SEip) IsEmulated() bool {
 	return false
 }
 
-func (self *SEip) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (self *SEip) GetProjectId() string {
 	return ""
 }

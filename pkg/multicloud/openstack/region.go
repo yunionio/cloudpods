@@ -59,10 +59,6 @@ func (region *SRegion) GetClient() *SOpenStackClient {
 	return region.client
 }
 
-func (region *SRegion) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (region *SRegion) GetId() string {
 	return region.Name
 }

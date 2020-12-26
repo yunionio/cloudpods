@@ -17,12 +17,12 @@ package google
 import (
 	"fmt"
 
-	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SWire struct {
+	multicloud.SResourceBase
 	vpc *SVpc
 }
 
@@ -82,10 +82,6 @@ func (wire *SWire) GetINetworkById(id string) (cloudprovider.ICloudNetwork, erro
 
 func (wire *SWire) GetBandwidth() int {
 	return 0
-}
-
-func (wire *SWire) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (wire *SWire) GetStatus() string {

@@ -17,13 +17,13 @@ package aws
 import (
 	"fmt"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 var StorageTypes = []string{
@@ -35,6 +35,7 @@ var StorageTypes = []string{
 }
 
 type SZone struct {
+	multicloud.SResourceBase
 	region *SRegion
 	host   *SHost
 
@@ -130,10 +131,6 @@ func (self *SZone) Refresh() error {
 
 func (self *SZone) IsEmulated() bool {
 	return false
-}
-
-func (self *SZone) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {

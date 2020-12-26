@@ -17,19 +17,16 @@ package openstack
 import (
 	"fmt"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SWire struct {
+	multicloud.SResourceBase
 	zone *SZone
 	vpc  *SVpc
-}
-
-func (wire *SWire) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (wire *SWire) GetId() string {

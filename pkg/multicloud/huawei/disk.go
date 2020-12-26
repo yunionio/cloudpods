@@ -192,6 +192,13 @@ func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SDisk) GetSysTags() map[string]string {
+	data := map[string]string{}
+	data["hypervisor"] = api.HYPERVISOR_HUAWEI
+
+	return data
+}
+
 func (self *SDisk) getResourceDetails() *SResourceDetail {
 	if self.details != nil {
 		return self.details

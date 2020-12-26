@@ -19,13 +19,13 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type InstanceChargeType string
@@ -38,6 +38,7 @@ const (
 )
 
 type SZone struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	iwires []cloudprovider.ICloudWire
@@ -54,10 +55,6 @@ type SZone struct {
 	Zone      string
 	ZoneName  string
 	ZoneState string
-}
-
-func (self *SZone) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SZone) GetId() string {

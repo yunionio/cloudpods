@@ -86,10 +86,6 @@ func (self *SVPC) IsEmulated() bool {
 	return false
 }
 
-func (self *SVPC) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (self *SVPC) GetRegion() cloudprovider.ICloudRegion {
 	return self.region
 }

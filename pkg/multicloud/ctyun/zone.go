@@ -17,13 +17,14 @@ package ctyun
 import (
 	"fmt"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SZone struct {
+	multicloud.SResourceBase
 	region *SRegion
 	host   *SHost
 
@@ -71,10 +72,6 @@ func (self *SZone) Refresh() error {
 
 func (self *SZone) IsEmulated() bool {
 	return false
-}
-
-func (self *SZone) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {

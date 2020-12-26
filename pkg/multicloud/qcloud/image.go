@@ -115,10 +115,6 @@ func (self *SRegion) GetImages(status string, owner string, imageIds []string, n
 	return images, int(total), nil
 }
 
-func (self *SImage) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (self *SImage) GetId() string {
 	return self.ImageId
 }

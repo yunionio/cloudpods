@@ -27,7 +27,7 @@ func init() {
 		Tag          string
 	}
 	shellutils.R(&TagListOptions{}, "system-tag-list", "List system tags", func(cli *zstack.SRegion, args *TagListOptions) error {
-		tags, err := cli.GetSysTags(args.TagId, args.ResourceType, args.ResourceId, args.Tag)
+		tags, err := cli.GetResourceSysTags(args.TagId, args.ResourceType, args.ResourceId, args.Tag)
 		if err != nil {
 			return err
 		}

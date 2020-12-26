@@ -293,6 +293,14 @@ func (model *SStandaloneAnonResourceBase) SetCloudMetadataAll(ctx context.Contex
 	return nil
 }
 
+func (model *SStandaloneAnonResourceBase) SetSysCloudMetadataAll(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
+	err := Metadata.SetAll(ctx, model, dictstore, userCred, SYS_CLOUD_TAG_PREFIX)
+	if err != nil {
+		return errors.Wrap(err, "SetAll")
+	}
+	return nil
+}
+
 func (model *SStandaloneAnonResourceBase) RemoveMetadata(ctx context.Context, key string, userCred mcclient.TokenCredential) error {
 	err := Metadata.SetValue(ctx, model, key, "", userCred)
 	if err != nil {

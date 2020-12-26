@@ -21,9 +21,11 @@ import (
 	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SElbListenerPolicy struct {
+	multicloud.SResourceBase
 	region   *SRegion
 	lb       *SLoadbalancer
 	listener *SElbListener
@@ -102,10 +104,6 @@ func (self *SElbListenerPolicy) IsDefault() bool {
 
 func (self *SElbListenerPolicy) IsEmulated() bool {
 	return false
-}
-
-func (self *SElbListenerPolicy) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SElbListenerPolicy) GetProjectId() string {

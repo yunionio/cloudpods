@@ -25,9 +25,11 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SRouteTable struct {
+	multicloud.SResourceBase
 	region *SRegion
 	vpc    *SVpc
 
@@ -79,10 +81,6 @@ func (self *SRouteTable) Refresh() error {
 
 func (self *SRouteTable) IsEmulated() bool {
 	return false
-}
-
-func (self *SRouteTable) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SRouteTable) GetDescription() string {

@@ -97,10 +97,6 @@ func (self *SEipAddress) IsEmulated() bool {
 	return false
 }
 
-func (self *SEipAddress) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (self *SEipAddress) GetIpAddr() string {
 	return self.IpAddress
 }

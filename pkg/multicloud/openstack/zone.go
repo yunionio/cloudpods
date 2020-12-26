@@ -24,6 +24,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type ZoneState struct {
@@ -37,6 +38,7 @@ type HostState struct {
 }
 
 type SZone struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	ZoneName  string
@@ -45,10 +47,6 @@ type SZone struct {
 	Hosts map[string]jsonutils.JSONObject
 
 	hosts []SHypervisor
-}
-
-func (zone *SZone) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (zone *SZone) GetId() string {
