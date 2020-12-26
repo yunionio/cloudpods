@@ -1096,6 +1096,20 @@ func (zone *SZone) Purge(ctx context.Context, userCred mcclient.TokenCredential)
 	return zone.Delete(ctx, userCred)
 }
 
+func (self *SCloudregion) purgeSkus(ctx context.Context, userCred mcclient.TokenCredential) error {
+	skus, err := self.GetServerSkus()
+	if err != nil {
+		return errors.Wrapf(err, "GetServerSkus")
+	}
+	for i := range skus {
+		err = skus[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (region *SCloudregion) purgeZones(ctx context.Context, userCred mcclient.TokenCredential) error {
 	zones, err := region.GetZones()
 	if err != nil {
@@ -1114,7 +1128,12 @@ func (region *SCloudregion) purge(ctx context.Context, userCred mcclient.TokenCr
 	lockman.LockObject(ctx, region)
 	defer lockman.ReleaseObject(ctx, region)
 
-	err := region.purgeZones(ctx, userCred)
+	err := region.purgeSkus(ctx, userCred)
+	if err != nil {
+		return errors.Wrapf(err, "purgeSkus")
+	}
+
+	err = region.purgeZones(ctx, userCred)
 	if err != nil {
 		return err
 	}
