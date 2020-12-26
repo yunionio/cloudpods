@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -1858,6 +1859,14 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 		if err != nil {
 			return nil, errors.Wrapf(err, "cloudprovider.WaitStatus runing")
 		}
+
+		secgroupIds, err := iRds.GetSecurityGroupIds()
+		if err == nil && len(secgroupIds) != len(desc.SecgroupIds) {
+			err = iRds.SetSecurityGroups(desc.SecgroupIds)
+			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+				logclient.AddSimpleActionLog(dbinstance, logclient.ACT_SYNC_CONF, map[string][]string{"secgroup_ids": desc.SecgroupIds}, userCred, false)
+			}
+		}
 		return nil, nil
 	})
 
@@ -3214,5 +3223,36 @@ func IsInPrivateIpRange(ar netutils.IPV4AddrRange) error {
 		return httperrors.NewInputParameterError("invalid cidr range %s", ar.String())
 	}
 
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestSyncRdsSecurityGroups(ctx context.Context, userCred mcclient.TokenCredential, rds *models.SDBInstance, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		vpc, err := rds.GetVpc()
+		if err != nil {
+			return nil, errors.Wrapf(err, "rds.GetVpc")
+		}
+		secgroups, err := rds.GetSecgroups()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetSecgroups")
+		}
+		iRds, err := rds.GetIDBInstance()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetIDBInstance")
+		}
+		secgroupIds := []string{}
+		for i := range secgroups {
+			secgroupId, err := self.RequestSyncSecurityGroup(ctx, userCred, vpc.ExternalId, vpc, &secgroups[i], iRds.GetProjectId(), "rds")
+			if err != nil {
+				return nil, errors.Wrapf(err, "RequestSyncSecurityGroup")
+			}
+			secgroupIds = append(secgroupIds, secgroupId)
+		}
+		err = iRds.SetSecurityGroups(secgroupIds)
+		if err != nil {
+			return nil, errors.Wrapf(err, "SetSecurityGroups")
+		}
+		return nil, nil
+	})
 	return nil
 }

@@ -509,6 +509,50 @@ func (rds *SDBInstance) GetIDBInstanceParameters() ([]cloudprovider.ICloudDBInst
 	return iparameters, nil
 }
 
+func (self *SDBInstance) GetSecurityGroupIds() ([]string, error) {
+	return self.region.GetRdsSecgroupIds(self.DBInstanceId)
+}
+
+func (self *SDBInstance) SetSecurityGroups(ids []string) error {
+	return self.region.SetRdsSecgroups(self.DBInstanceId, ids)
+}
+
+func (self *SRegion) SetRdsSecgroups(rdsId string, secIds []string) error {
+	params := map[string]string{
+		"DBInstanceId":    rdsId,
+		"SecurityGroupId": strings.Join(secIds, ","),
+	}
+	_, err := self.rdsRequest("ModifySecurityGroupConfiguration", params)
+	if err != nil {
+		return errors.Wrapf(err, "ModifySecurityGroupConfiguration")
+	}
+	return nil
+}
+
+func (self *SRegion) GetRdsSecgroupIds(rdsId string) ([]string, error) {
+	params := map[string]string{
+		"DBInstanceId": rdsId,
+	}
+	resp, err := self.rdsRequest("DescribeSecurityGroupConfiguration", params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "DescribeSecurityGroupConfiguration")
+	}
+	items := []struct {
+		NetworkType     string
+		SecurityGroupId string
+		RegionId        string
+	}{}
+	err = resp.Unmarshal(&items, "Items", "EcsSecurityGroupRelation")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	ids := []string{}
+	for _, item := range items {
+		ids = append(ids, item.SecurityGroupId)
+	}
+	return ids, nil
+}
+
 func (region *SRegion) GetIDBInstanceBackupById(backupId string) (cloudprovider.ICloudDBInstanceBackup, error) {
 	backups, err := region.GetIDBInstanceBackups()
 	if err != nil {

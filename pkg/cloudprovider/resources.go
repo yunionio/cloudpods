@@ -831,6 +831,7 @@ type ICloudDBInstance interface {
 
 	GetMasterInstanceId() string
 	GetSecurityGroupIds() ([]string, error)
+	SetSecurityGroups(ids []string) error
 	GetPort() int
 	GetEngine() string
 	GetEngineVersion() string
