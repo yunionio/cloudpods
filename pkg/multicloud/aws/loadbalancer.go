@@ -30,6 +30,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 /*
@@ -37,6 +38,7 @@ https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/Welcome.htm
 */
 
 type SElb struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	Type                  string             `json:"Type"`
@@ -135,6 +137,29 @@ func (self *SElb) GetMetadata() *jsonutils.JSONDict {
 	}
 
 	return metadata
+}
+
+func (self *SElb) GetSysTags() map[string]string {
+	data := map[string]string{}
+	data["loadbalance_type"] = self.Type
+	attrs, err := self.region.getElbAttributesById(self.GetId())
+	if err != nil {
+		log.Errorf("SElb GetSysTags %s", err)
+		return data
+	}
+
+	for k, v := range attrs {
+		data[k] = v
+	}
+	return data
+}
+
+func (self *SElb) GetTags() (map[string]string, error) {
+	tags, err := self.region.FetchElbTags(self.LoadBalancerArn)
+	if err != nil {
+		return nil, errors.Wrap(err, "self.region.FetchElbTags")
+	}
+	return tags, nil
 }
 
 func (self *SElb) GetProjectId() string {
@@ -479,7 +504,7 @@ func (self *SRegion) CreateElbBackendgroup(group *cloudprovider.SLoadbalancerBac
 	return nil, fmt.Errorf("CreateElbBackendgroup error: %#v", backendgroups)
 }
 
-func (self *SElb) SetMetadata(tags map[string]string, replace bool) error {
+func (self *SElb) SetTags(tags map[string]string, replace bool) error {
 	oldTags, err := self.region.FetchElbTags(self.LoadBalancerArn)
 	if err != nil {
 		return errors.Wrapf(err, "self.region.FetchElbTags(%s)", self.LoadBalancerArn)

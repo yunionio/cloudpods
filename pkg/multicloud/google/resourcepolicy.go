@@ -118,10 +118,6 @@ func (policy *SResourcePolicy) IsEmulated() bool {
 	return false
 }
 
-func (policy *SResourcePolicy) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (policy *SResourcePolicy) GetProjectId() string {
 	return policy.region.GetProjectId()
 }

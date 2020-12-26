@@ -17,15 +17,16 @@ package zstack
 import (
 	"strconv"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/fileutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SZone struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	ZStackBasic
@@ -39,10 +40,6 @@ type SZone struct {
 	istorages []cloudprovider.ICloudStorage
 
 	ihosts []cloudprovider.ICloudHost
-}
-
-func (zone *SZone) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (zone *SZone) GetId() string {

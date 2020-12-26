@@ -20,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -108,10 +107,6 @@ func (t *SVMTemplate) Refresh() error {
 
 func (t *SVMTemplate) IsEmulated() bool {
 	return false
-}
-
-func (t *SVMTemplate) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (t *SVMTemplate) Delete(ctx context.Context) error {

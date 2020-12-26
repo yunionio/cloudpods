@@ -17,13 +17,14 @@ package google
 import (
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SProject struct {
+	multicloud.SResourceBase
 	Name           string
 	CreateTime     time.Time
 	LifecycleState string
@@ -94,8 +95,4 @@ func (p *SProject) Refresh() error {
 
 func (p *SProject) IsEmulated() bool {
 	return false
-}
-
-func (p *SProject) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }

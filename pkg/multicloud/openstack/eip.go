@@ -157,10 +157,6 @@ func (eip *SEipAddress) IsEmulated() bool {
 	return false
 }
 
-func (eip *SEipAddress) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (eip *SEipAddress) GetIpAddr() string {
 	return eip.FloatingIPAddress
 }

@@ -19,10 +19,13 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 // 腾讯云没有LB ACL
-type SLBACL struct{}
+type SLBACL struct {
+	multicloud.SResourceBase
+}
 
 func (self *SLBACL) GetAclListenerID() string {
 	return ""
@@ -58,10 +61,6 @@ func (self *SLBACL) Refresh() error {
 
 func (self *SLBACL) IsEmulated() bool {
 	return false
-}
-
-func (self *SLBACL) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SLBACL) GetAclEntries() *jsonutils.JSONArray {

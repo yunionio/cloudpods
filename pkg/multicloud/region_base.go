@@ -22,7 +22,9 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
-type SRegion struct{}
+type SRegion struct {
+	SResourceBase
+}
 
 func (r *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIDiskById")

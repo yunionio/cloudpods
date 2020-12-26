@@ -19,7 +19,6 @@ import (
 	"net/url"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -46,10 +45,6 @@ func (region *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLo
 
 func (region *SRegion) GetClient() *SZStackClient {
 	return region.client
-}
-
-func (region *SRegion) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (region *SRegion) GetId() string {

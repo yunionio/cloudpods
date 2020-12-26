@@ -128,6 +128,10 @@ func (self *SClassicSecurityGroup) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SClassicSecurityGroup) GetTags() (map[string]string, error) {
+	return self.Tags, nil
+}
+
 func (self *SClassicSecurityGroup) GetId() string {
 	return self.ID
 }

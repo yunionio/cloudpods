@@ -22,9 +22,11 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SLoadbalancerHTTPListener struct {
+	multicloud.SResourceBase
 	lb *SLoadbalancer
 
 	ListenerPort      int    //	负载均衡实例前端使用的端口。
@@ -100,10 +102,6 @@ func (listerner *SLoadbalancerHTTPListener) GetStatus() string {
 	default:
 		return api.LB_STATUS_UNKNOWN
 	}
-}
-
-func (listerner *SLoadbalancerHTTPListener) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (listerner *SLoadbalancerHTTPListener) IsEmulated() bool {

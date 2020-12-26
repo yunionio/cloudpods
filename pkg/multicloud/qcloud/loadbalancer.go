@@ -295,6 +295,15 @@ func (self *SLoadbalancer) GetMetadata() *jsonutils.JSONDict {
 	return meta
 }
 
+func (self *SLoadbalancer) GetSysTags() map[string]string {
+	meta := map[string]string{}
+	meta["Forward"] = strconv.FormatInt(int64(self.Forward), 10)
+	meta["OpenBGP"] = strconv.FormatInt(self.OpenBGP, 10)
+	meta["Domain"] = self.Domain
+	meta["ProjectID"] = strconv.FormatInt(self.ProjectID, 10)
+	return meta
+}
+
 // 腾讯云当前不支持一个LB绑定多个ip，每个LB只支持绑定一个ip
 func (self *SLoadbalancer) GetAddress() string {
 	return self.LoadBalancerVips[0]
@@ -716,6 +725,6 @@ func (self *SLoadbalancer) GetProjectId() string {
 	return strconv.Itoa(int(self.ProjectID))
 }
 
-func (self *SLoadbalancer) SetMetadata(tags map[string]string, replace bool) error {
+func (self *SLoadbalancer) SetTags(tags map[string]string, replace bool) error {
 	return self.region.SetResourceTags("clb", "clb", []string{self.LoadBalancerID}, tags, replace)
 }

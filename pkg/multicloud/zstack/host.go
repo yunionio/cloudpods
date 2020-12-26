@@ -80,10 +80,6 @@ func (region *SRegion) GetHost(hostId string) (*SHost, error) {
 	return host, nil
 }
 
-func (host *SHost) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (host *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
 	wires, err := host.zone.region.GetWires(host.ZoneUUID, "", host.ClusterUUID)
 	if err != nil {

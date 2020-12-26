@@ -17,12 +17,12 @@ package aws
 import (
 	"strings"
 
-	"yunion.io/x/jsonutils"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SRoute struct {
+	multicloud.SResourceBase
 	routetable *SRouteTable
 
 	DestinationCIDRBlock string `json:"DestinationCidrBlock"`
@@ -63,10 +63,6 @@ func (self *SRoute) Refresh() error {
 
 func (self *SRoute) IsEmulated() bool {
 	return false
-}
-
-func (self *SRoute) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SRoute) GetType() string {

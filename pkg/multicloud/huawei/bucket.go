@@ -694,7 +694,10 @@ func (b *SBucket) GetTags() (map[string]string, error) {
 	return result, nil
 }
 
-func (b *SBucket) SetTags(tags map[string]string) error {
+func (b *SBucket) SetTags(tags map[string]string, replace bool) error {
+	if !replace {
+		return cloudprovider.ErrNotSupported
+	}
 	obscli, err := b.region.getOBSClient()
 	if err != nil {
 		return errors.Wrap(err, "GetOBSClient")

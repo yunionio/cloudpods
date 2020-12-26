@@ -118,6 +118,27 @@ func (self *SVirtualMachine) GetMetadata() *jsonutils.JSONDict {
 	return meta
 }
 
+func (self *SVirtualMachine) GetSysTags() map[string]string {
+	meta := map[string]string{}
+	meta["datacenter"] = self.GetDatacenterPathString()
+	rp, _ := self.getResourcePool()
+	if rp != nil {
+		rpPath := rp.GetPath()
+		rpOffset := -1
+		for i := range rpPath {
+			if rpPath[i] == "Resources" {
+				if i > 0 {
+					meta["cluster"] = rpPath[i-1]
+					rpOffset = i
+				}
+			} else if rpOffset >= 0 && i > rpOffset {
+				meta[fmt.Sprintf("pool%d", i-rpOffset-1)] = rpPath[i]
+			}
+		}
+	}
+	return meta
+}
+
 func (self *SVirtualMachine) getVirtualMachine() *mo.VirtualMachine {
 	return self.object.(*mo.VirtualMachine)
 }

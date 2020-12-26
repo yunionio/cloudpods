@@ -22,9 +22,11 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SDiskBacupPolicy struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	PolicyResourceCount int64           `json:"policy_resource_count"`
@@ -76,10 +78,6 @@ func (self *SDiskBacupPolicy) Refresh() error {
 
 func (self *SDiskBacupPolicy) IsEmulated() bool {
 	return false
-}
-
-func (self *SDiskBacupPolicy) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SDiskBacupPolicy) GetProjectId() string {

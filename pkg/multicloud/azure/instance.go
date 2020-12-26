@@ -229,6 +229,27 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SInstance) GetSysTags() map[string]string {
+	data := map[string]string{}
+	if osDistribution := self.Properties.StorageProfile.ImageReference.Publisher; len(osDistribution) > 0 {
+		data["os_distribution"] = osDistribution
+	}
+	if loginAccount := self.Properties.OsProfile.AdminUsername; len(loginAccount) > 0 {
+		data["login_account"] = loginAccount
+	}
+	if loginKey := self.Properties.OsProfile.AdminPassword; len(loginKey) > 0 {
+		data["login_key"] = loginKey
+	}
+	data["zone_ext_id"] = self.host.zone.GetGlobalId()
+	priceKey := fmt.Sprintf("%s::%s", self.Properties.HardwareProfile.VMSize, self.host.zone.region.Name)
+	data["price_key"] = priceKey
+	return data
+}
+
+func (self *SInstance) GetTags() (map[string]string, error) {
+	return self.Tags, nil
+}
+
 func (self *SInstance) GetHypervisor() string {
 	return api.HYPERVISOR_AZURE
 }
@@ -996,7 +1017,7 @@ func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudpro
 	return image, nil
 }
 
-func (self *SInstance) SetMetadata(tags map[string]string, replace bool) error {
+func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
 	if !replace {
 		for k, v := range self.Tags {
 			if _, ok := tags[k]; !ok {

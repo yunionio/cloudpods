@@ -54,10 +54,6 @@ func (self *SHost) IsEmulated() bool {
 	return true
 }
 
-func (self *SHost) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 	vms := make([]SInstance, 0)
 	vms, _, err := self.zone.region.GetInstances(self.zone.ZoneId, nil, len(vms), 50)

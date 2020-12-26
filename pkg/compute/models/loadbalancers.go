@@ -986,8 +986,8 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 		}
 	}
 
-	if extLb.GetMetadata() != nil {
-		lb.LBInfo = extLb.GetMetadata()
+	if extLb.GetSysTags() != nil {
+		lb.LBInfo = jsonutils.Marshal(extLb.GetSysTags())
 	}
 
 	if err := man.TableSpec().Insert(ctx, &lb); err != nil {
@@ -1150,8 +1150,8 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 		lb.ManagerId = provider.Id
 		lbNetworkIds := getExtLbNetworkIds(extLb, lb.ManagerId)
 		lb.NetworkId = strings.Join(lbNetworkIds, ",")
-		if extLb.GetMetadata() != nil {
-			lb.LBInfo = extLb.GetMetadata()
+		if extLb.GetSysTags() != nil {
+			lb.LBInfo = jsonutils.Marshal(extLb.GetSysTags())
 		}
 		syncVirtualResourceMetadata(ctx, userCred, lb, extLb)
 

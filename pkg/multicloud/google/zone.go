@@ -17,13 +17,13 @@ package google
 import (
 	"fmt"
 
-	"yunion.io/x/jsonutils"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SZone struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	Description           string
@@ -103,10 +103,6 @@ func (zone *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 		istorages = append(istorages, &storages[i])
 	}
 	return istorages, nil
-}
-
-func (zone *SZone) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (zone *SZone) IsEmulated() bool {

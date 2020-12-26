@@ -23,6 +23,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 const (
@@ -38,6 +39,7 @@ const (
 )
 
 type SSnapshot struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	Id       string
@@ -141,10 +143,6 @@ func (region *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 		isnapshots = append(isnapshots, &snapshots[i])
 	}
 	return isnapshots, nil
-}
-
-func (snapshot *SSnapshot) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (snapshot *SSnapshot) GetSizeMb() int32 {

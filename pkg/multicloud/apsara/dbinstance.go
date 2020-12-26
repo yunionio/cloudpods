@@ -792,6 +792,17 @@ func (rds *SDBInstance) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
-func (rds *SDBInstance) SetMetadata(tags map[string]string, replace bool) error {
+func (rds *SDBInstance) GetTags() (map[string]string, error) {
+	tags, err := rds.region.ListResourceTags("rds", "INSTANCE", []string{rds.GetId()})
+	if err != nil {
+		return nil, errors.Wrap(err, "rds.region.ListResourceTags")
+	}
+	if _, ok := tags[rds.GetId()]; !ok {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return *tags[rds.GetId()], nil
+}
+
+func (rds *SDBInstance) SetTags(tags map[string]string, replace bool) error {
 	return rds.region.SetResourceTags("rds", "INSTANCE", []string{rds.GetId()}, tags, replace)
 }

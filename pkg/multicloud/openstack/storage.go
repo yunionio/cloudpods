@@ -26,6 +26,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 const (
@@ -37,14 +38,11 @@ type SExtraSpecs struct {
 }
 
 type SStorage struct {
+	multicloud.SResourceBase
 	zone       *SZone
 	Name       string
 	ExtraSpecs SExtraSpecs
 	ID         string
-}
-
-func (storage *SStorage) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (storage *SStorage) GetId() string {

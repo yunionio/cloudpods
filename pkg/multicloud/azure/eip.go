@@ -209,10 +209,6 @@ func (self *SEipAddress) GetIpAddr() string {
 	return self.Properties.IPAddress
 }
 
-func (self *SEipAddress) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (self *SEipAddress) GetMode() string {
 	if self.IsEmulated() {
 		return api.EIP_MODE_INSTANCE_PUBLICIP

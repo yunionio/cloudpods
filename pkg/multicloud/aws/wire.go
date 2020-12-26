@@ -17,13 +17,14 @@ package aws
 import (
 	"fmt"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SWire struct {
+	multicloud.SResourceBase
 	zone *SZone
 	vpc  *SVpc
 
@@ -52,10 +53,6 @@ func (self *SWire) Refresh() error {
 
 func (self *SWire) IsEmulated() bool {
 	return true
-}
-
-func (self *SWire) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SWire) GetIVpc() cloudprovider.ICloudVpc {

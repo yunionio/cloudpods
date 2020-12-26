@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SSqlserverDatabaseDetails struct {
@@ -29,6 +30,7 @@ type SSqlserverDatabaseDetails struct {
 }
 
 type SDBInstanceDatabase struct {
+	multicloud.SResourceBase
 	rds                      *SDBInstance
 	Kind                     string
 	Collation                string
@@ -70,10 +72,6 @@ func (database *SDBInstanceDatabase) GetGlobalId() string {
 
 func (database *SDBInstanceDatabase) GetId() string {
 	return database.SelfLink
-}
-
-func (database *SDBInstanceDatabase) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (database *SDBInstanceDatabase) GetName() string {

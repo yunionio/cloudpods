@@ -111,10 +111,6 @@ func (region *SRegion) GetImage(id string) (*SImage, error) {
 	return image, region.Get(id, image)
 }
 
-func (image *SImage) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (image *SImage) GetMinRamSizeMb() int {
 	return 0
 }

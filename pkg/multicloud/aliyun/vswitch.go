@@ -26,6 +26,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -41,6 +42,7 @@ type SCloudResources struct {
 }
 
 type SVSwitch struct {
+	multicloud.SResourceBase
 	wire *SWire
 
 	AvailableIpAddressCount int
@@ -59,10 +61,6 @@ type SVSwitch struct {
 	CloudResources  SCloudResources
 	ResourceGroupId string
 	RouteTable      SRouteTable
-}
-
-func (self *SVSwitch) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SVSwitch) GetId() string {

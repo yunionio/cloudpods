@@ -250,6 +250,42 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SInstance) GetSysTags() map[string]string {
+	data := map[string]string{}
+	// The pricingInfo key structure is 'RegionId::InstanceType::NetworkType::OSType::IoOptimized'
+	optimized := "optimized"
+	if !self.IoOptimized {
+		optimized = "none"
+	}
+	priceKey := fmt.Sprintf("%s::%s::%s::%s::%s", self.RegionId, self.InstanceType, self.InstanceNetworkType, self.OSType, optimized)
+	data["price_key"] = priceKey
+	data["zone_ext_id"] = self.host.zone.GetGlobalId()
+	if len(self.ImageId) > 0 {
+		if image, err := self.host.zone.region.GetImage(self.ImageId); err != nil {
+			log.Errorf("Failed to find image %s for instance %s", self.ImageId, self.GetName())
+		} else {
+			imageSysTags := image.GetSysTags()
+			for k, v := range imageSysTags {
+				data[k] = v
+			}
+		}
+	}
+	return data
+}
+
+func (self *SInstance) GetTags() (map[string]string, error) {
+	tags, err := self.host.zone.region.fetchTags("instance", self.InstanceId)
+	if err != nil {
+		return nil, errors.Wrap(err, "self.host.zone.region.fetchTags")
+	}
+	data := map[string]string{}
+	err = tags.Unmarshal(&data)
+	if err != nil {
+		return nil, errors.Wrap(err, "tags.Unmarshal")
+	}
+	return data, nil
+}
+
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
 	return self.host
 }
@@ -1084,6 +1120,6 @@ func (self *SInstance) SetAutoRenew(autoRenew bool) error {
 	return self.host.zone.region.SetInstanceAutoRenew(self.InstanceId, autoRenew)
 }
 
-func (self *SInstance) SetMetadata(tags map[string]string, replace bool) error {
+func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
 	return self.host.zone.region.SetResourceTags("ecs", "instance", []string{self.InstanceId}, tags, replace)
 }

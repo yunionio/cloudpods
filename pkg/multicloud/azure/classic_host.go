@@ -30,10 +30,6 @@ type SClassicHost struct {
 	zone *SZone
 }
 
-func (self *SClassicHost) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
 func (self *SClassicHost) GetId() string {
 	return fmt.Sprintf("%s-%s-classic", self.zone.region.client.cpcfg.Id, self.zone.GetId())
 }

@@ -22,9 +22,11 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SDiskBackup struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	Status           string `json:"status"`
@@ -83,10 +85,6 @@ func (self *SDiskBackup) Refresh() error {
 
 func (self *SDiskBackup) IsEmulated() bool {
 	return false
-}
-
-func (self *SDiskBackup) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SDiskBackup) GetProjectId() string {

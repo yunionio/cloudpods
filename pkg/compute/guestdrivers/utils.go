@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
@@ -97,15 +98,15 @@ func fetchIVMinfo(desc cloudprovider.SManagedVMCreateConfig, iVM cloudprovider.I
 			dinfo.FsFromat = idisks[i].GetFsFormat()
 			dinfo.ExpiredAt = idisks[i].GetExpiredAt()
 			dinfo.StorageExternalId = idisks[i].GetIStorageId()
-			if metaData := idisks[i].GetMetadata(); metaData != nil {
+			diskSysTags := idisks[i].GetSysTags()
+			diskTags, _ := idisks[i].GetTags()
+			if diskSysTags != nil || diskTags != nil {
 				dinfo.Metadata = make(map[string]string, 0)
-				metadata := map[string]string{}
-				if err := metaData.Unmarshal(&metadata); err != nil {
-					log.Errorf("Get disk %s metadata info error: %v", idisks[i].GetName(), err)
-				} else {
-					for k, v := range metadata {
-						dinfo.Metadata["ext:"+k] = v
-					}
+				for k, v := range diskSysTags {
+					dinfo.Metadata[db.SYS_CLOUD_TAG_PREFIX+k] = v
+				}
+				for k, v := range diskTags {
+					dinfo.Metadata[db.CLOUD_TAG_PREFIX+k] = v
 				}
 			}
 			diskInfo[i] = dinfo
@@ -114,13 +115,14 @@ func fetchIVMinfo(desc cloudprovider.SManagedVMCreateConfig, iVM cloudprovider.I
 	}
 
 	data.Add(jsonutils.NewString(iVM.GetGlobalId()), "uuid")
-	metadata := map[string]string{}
-	if _metadata := iVM.GetMetadata(); _metadata != nil {
-		_metadata.Unmarshal(&metadata)
-	}
+	sysTags := iVM.GetSysTags()
+	tags, _ := iVM.GetTags()
 	metadataDict := jsonutils.NewDict()
-	for k, v := range metadata {
-		metadataDict.Add(jsonutils.NewString(v), "ext:"+k)
+	for k, v := range sysTags {
+		metadataDict.Add(jsonutils.NewString(v), db.SYS_CLOUD_TAG_PREFIX+k)
+	}
+	for k, v := range tags {
+		metadataDict.Add(jsonutils.NewString(v), db.CLOUD_TAG_PREFIX+k)
 	}
 	data.Add(metadataDict, "metadata")
 

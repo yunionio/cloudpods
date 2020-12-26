@@ -23,9 +23,11 @@ import (
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SElbCert struct {
+	multicloud.SResourceBase
 	region *SRegion
 
 	Certificate  string    `json:"certificate"`
@@ -83,10 +85,6 @@ func (self *SElbCert) Refresh() error {
 
 func (self *SElbCert) IsEmulated() bool {
 	return false
-}
-
-func (self *SElbCert) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SElbCert) GetProjectId() string {

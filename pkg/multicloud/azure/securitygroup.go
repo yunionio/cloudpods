@@ -86,6 +86,10 @@ func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SSecurityGroup) GetTags() (map[string]string, error) {
+	return self.Tags, nil
+}
+
 func parseCIDR(cidr string) (*net.IPNet, error) {
 	if cidr == "*" || strings.ToLower(cidr) == "internet" {
 		cidr = "0.0.0.0/0"

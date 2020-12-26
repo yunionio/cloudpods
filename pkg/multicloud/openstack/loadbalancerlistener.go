@@ -28,6 +28,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SLoadbalancerListenerCreateParams struct {
@@ -83,6 +84,7 @@ type SInsertHeaders struct {
 }
 
 type SLoadbalancerListener struct {
+	multicloud.SResourceBase
 	region                  *SRegion
 	l7policies              []SLoadbalancerL7Policy
 	pools                   []SLoadbalancerPool
@@ -149,10 +151,6 @@ func (listener *SLoadbalancerListener) GetStatus() string {
 	default:
 		return api.LB_STATUS_UNKNOWN
 	}
-}
-
-func (listener *SLoadbalancerListener) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (listener *SLoadbalancerListener) IsEmulated() bool {

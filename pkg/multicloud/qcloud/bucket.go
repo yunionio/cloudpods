@@ -1091,7 +1091,10 @@ func (b *SBucket) GetTags() (map[string]string, error) {
 	return result, nil
 }
 
-func (b *SBucket) SetTags(tags map[string]string) error {
+func (b *SBucket) SetTags(tags map[string]string, replace bool) error {
+	if !replace {
+		return cloudprovider.ErrNotSupported
+	}
 	coscli, err := b.region.GetCosClient(b)
 	if err != nil {
 		log.Errorf("GetCosClient fail %s", err)

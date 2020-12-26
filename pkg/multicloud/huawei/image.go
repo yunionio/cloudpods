@@ -213,6 +213,23 @@ func (self *SImage) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SImage) GetSysTags() map[string]string {
+	data := map[string]string{}
+	if len(self.OSBit) > 0 {
+		data["os_arch"] = self.GetOsArch()
+	}
+	if len(self.OSType) > 0 {
+		data["os_name"] = self.GetOsType()
+	}
+	if len(self.Platform) > 0 {
+		data["os_distribution"] = self.GetOsDist()
+	}
+	if len(self.OSVersion) > 0 {
+		data["os_version"] = self.GetOsVersion()
+	}
+	return data
+}
+
 func (self *SImage) Delete(ctx context.Context) error {
 	return self.storageCache.region.DeleteImage(self.GetId())
 }

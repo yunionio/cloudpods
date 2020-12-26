@@ -117,6 +117,17 @@ func (lb *SLoadbalancer) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (lb *SLoadbalancer) GetTags() (map[string]string, error) {
+	tags, err := lb.region.ListResourceTags("slb", "instance", []string{lb.GetId()})
+	if err != nil {
+		return nil, errors.Wrap(err, "lb.region.ListResourceTags")
+	}
+	if _, ok := tags[lb.GetId()]; !ok {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return *tags[lb.GetId()], nil
+}
+
 func (lb *SLoadbalancer) GetAddress() string {
 	return lb.Address
 }
@@ -412,7 +423,7 @@ func (lb *SLoadbalancer) GetProjectId() string {
 	return lb.ResourceGroupId
 }
 
-func (lb *SLoadbalancer) SetMetadata(tags map[string]string, replace bool) error {
+func (lb *SLoadbalancer) SetTags(tags map[string]string, replace bool) error {
 	return lb.region.SetResourceTags("slb", "instance", []string{lb.LoadBalancerId}, tags, replace)
 }
 

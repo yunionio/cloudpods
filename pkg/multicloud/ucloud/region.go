@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
@@ -73,10 +72,6 @@ func (self *SRegion) Refresh() error {
 
 func (self *SRegion) IsEmulated() bool {
 	return false
-}
-
-func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
