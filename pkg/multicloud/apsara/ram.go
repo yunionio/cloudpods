@@ -23,5 +23,6 @@ func (self *SApsaraClient) ramRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
-	return productRequest(cli, APSARA_PRODUCT_RAM, self.endpoints.RamEndpoint, APSARA_RAM_API_VERSION, apiName, params, self.debug)
+	domain := self.getDomain(APSARA_PRODUCT_RAM)
+	return productRequest(cli, APSARA_PRODUCT_RAM, domain, APSARA_RAM_API_VERSION, apiName, params, self.debug)
 }
