@@ -20,9 +20,7 @@ import (
 )
 
 var (
-	cloudeventSystemResources = []string{
-		"cloudevents",
-	}
+	cloudeventSystemResources = []string{}
 	cloudeventDomainResources = []string{}
 	cloudeventUserResources   = []string{}
 )
