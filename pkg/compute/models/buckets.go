@@ -1585,15 +1585,16 @@ func (bucket *SBucket) GetDetailsPolicy(
 	}
 	for i := range policyStatements {
 		policy.Data = append(policy.Data, api.BucketPolicyStatement{
-			Principal:    policyStatements[i].Principal,
-			Action:       policyStatements[i].Action,
-			Effect:       policyStatements[i].Effect,
-			Resource:     policyStatements[i].Resource,
-			Condition:    policyStatements[i].Condition,
-			PrincipalId:  policyStatements[i].PrincipalId,
-			CannedAction: policyStatements[i].CannedAction,
-			ResourcePath: policyStatements[i].ResourcePath,
-			Id:           policyStatements[i].Id,
+			Principal:      policyStatements[i].Principal,
+			Action:         policyStatements[i].Action,
+			Effect:         policyStatements[i].Effect,
+			Resource:       policyStatements[i].Resource,
+			Condition:      policyStatements[i].Condition,
+			PrincipalId:    policyStatements[i].PrincipalId,
+			PrincipalNames: policyStatements[i].PrincipalNames,
+			CannedAction:   policyStatements[i].CannedAction,
+			ResourcePath:   policyStatements[i].ResourcePath,
+			Id:             policyStatements[i].Id,
 		})
 	}
 	return policy, nil
