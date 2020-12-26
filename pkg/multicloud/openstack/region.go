@@ -67,6 +67,12 @@ func (region *SRegion) GetName() string {
 	return fmt.Sprintf("%s-%s", region.client.cpcfg.Name, region.Name)
 }
 
+func (region *SRegion) GetI18n() cloudprovider.SModelI18nTable {
+	table := cloudprovider.SModelI18nTable{}
+	table["name"] = cloudprovider.NewSModelI18nEntry(region.GetName()).CN(region.GetName())
+	return table
+}
+
 func (region *SRegion) GetGlobalId() string {
 	return fmt.Sprintf("%s/%s/%s", CLOUD_PROVIDER_OPENSTACK, region.client.cpcfg.Id, region.Name)
 }

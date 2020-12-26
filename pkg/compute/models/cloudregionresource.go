@@ -96,7 +96,7 @@ func (manager *SCloudregionResourceBaseManager) FetchCustomizeColumns(
 	}
 	for i := range rows {
 		if region, ok := regions[regionIds[i]]; ok {
-			rows[i] = region.GetRegionInfo()
+			rows[i] = region.GetRegionInfo(ctx)
 		} else {
 			rows[i] = api.CloudregionResourceInfo{}
 		}

@@ -39,6 +39,7 @@ import (
 type SZoneManager struct {
 	db.SStatusStandaloneResourceBaseManager
 	db.SExternalizedResourceBaseManager
+	SI18nResourceBaseManager
 	SCloudregionResourceBaseManager
 }
 
@@ -60,6 +61,7 @@ func init() {
 type SZone struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
+	SI18nResourceBase
 	SCloudregionResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
 
 	Location   string `width:"256" charset:"utf8" get:"user" list:"user" update:"admin"`
@@ -184,6 +186,10 @@ func (zone *SZone) GetCloudRegionId() string {
 	}
 }
 
+func (zone *SZone) GetI18N(ctx context.Context) *jsonutils.JSONDict {
+	return zone.GetModelI18N(ctx, zone)
+}
+
 func (manager *SZoneManager) SyncZones(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, zones []cloudprovider.ICloudZone) ([]SZone, []cloudprovider.ICloudZone, compare.SyncResult) {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
@@ -247,7 +253,12 @@ func (self *SZone) syncRemoveCloudZone(ctx context.Context, userCred mcclient.To
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.RemoveI18ns(ctx, userCred, self)
+	if err != nil {
+		return err
+	}
+
+	err = self.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete
 		err = self.SetStatus(userCred, api.ZONE_DISABLE, "sync to delete")
 	} else {
@@ -257,12 +268,16 @@ func (self *SZone) syncRemoveCloudZone(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SZone) syncWithCloudZone(ctx context.Context, userCred mcclient.TokenCredential, extZone cloudprovider.ICloudZone, region *SCloudregion) error {
+	err := ZoneManager.SyncI18ns(ctx, userCred, self, extZone.GetI18n())
+	if err != nil {
+		return errors.Wrap(err, "SyncI18ns")
+	}
+
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Name = extZone.GetName()
 		self.Status = extZone.GetStatus()
 
 		self.IsEmulated = extZone.IsEmulated()
-
 		self.CloudregionId = region.Id
 
 		return nil
@@ -296,6 +311,12 @@ func (manager *SZoneManager) newFromCloudZone(ctx context.Context, userCred mccl
 		log.Errorf("newFromCloudZone fail %s", err)
 		return nil, err
 	}
+
+	err = manager.SyncI18ns(ctx, userCred, &zone, extZone.GetI18n())
+	if err != nil {
+		return nil, errors.Wrap(err, "SyncI18ns")
+	}
+
 	db.OpsLog.LogEvent(&zone, db.ACT_CREATE, zone.GetShortDesc(ctx), userCred)
 	return &zone, nil
 }
