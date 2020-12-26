@@ -178,6 +178,7 @@ type IDBInstanceDriver interface {
 	ValidateDBInstanceRecovery(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, backup *SDBInstanceBackup, input api.SDBInstanceRecoveryConfigInput) error
 
 	RequestRemoteUpdateDBInstance(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, replaceTags bool, task taskman.ITask) error
+	RequestSyncRdsSecurityGroups(ctx context.Context, userCred mcclient.TokenCredential, rds *SDBInstance, task taskman.ITask) error
 }
 
 type IElasticcacheDriver interface {

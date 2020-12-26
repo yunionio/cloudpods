@@ -36,6 +36,7 @@ const (
 	DBINSTANCE_SET_AUTO_RENEW        = "set_auto_renew"        //设置自动续费中
 	DBINSTANCE_SET_AUTO_RENEW_FAILED = "set_auto_renew_failed" //设置自动续费失败
 	DBINSTANCE_UNKNOWN               = "unknown"
+	DBINSTANCE_SYNC_SECGROUP_FAILED  = "sync_secgroup_failed" // 同步安全组失败
 
 	DBINSTANCE_CHANGE_CONFIG        = "change_config"        //调整配置
 	DBINSTANCE_CHANGE_CONFIG_FAILED = "change_config_failed" //调整配置失败
