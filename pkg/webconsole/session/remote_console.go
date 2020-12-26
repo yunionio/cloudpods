@@ -22,6 +22,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/webconsole/options"
 )
 
 const (
@@ -35,6 +36,7 @@ const (
 	ZSTACK    = api.ZSTACK
 	CTYUN     = api.CTYUN
 	HUAWEI    = api.HUAWEI
+	APSARA    = api.APSARA
 )
 
 type RemoteConsoleInfo struct {
@@ -120,6 +122,8 @@ func (info *RemoteConsoleInfo) GetConnectParams() (string, error) {
 	switch info.Protocol {
 	case ALIYUN:
 		return info.getAliyunURL()
+	case APSARA:
+		return info.getApsaraURL()
 	case QCLOUD:
 		return info.getQcloudURL()
 	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI:
@@ -167,4 +171,18 @@ func (info *RemoteConsoleInfo) getAliyunURL() (string, error) {
 		"password":   {info.Password},
 	}
 	return info.getConnParamsURL(base, params), nil
+}
+
+func (info *RemoteConsoleInfo) getApsaraURL() (string, error) {
+	isWindows := "False"
+	if info.OsName == "Windows" {
+		isWindows = "True"
+	}
+	params := url.Values{
+		"vncUrl":     {info.Url},
+		"instanceId": {info.InstanceId},
+		"isWindows":  {isWindows},
+		"password":   {info.Password},
+	}
+	return info.getConnParamsURL(options.Options.ApsaraConsoleAddr, params), nil
 }

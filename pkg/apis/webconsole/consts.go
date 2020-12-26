@@ -30,4 +30,5 @@ const (
 	ZSTACK    = "zstack"
 	CTYUN     = "ctyun"
 	HUAWEI    = "huawei"
+	APSARA    = "apsara"
 )
