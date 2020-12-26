@@ -4752,6 +4752,7 @@ func (manager *SGuestManager) DeleteExpiredPostpaidServers(ctx context.Context, 
 		log.Infof("No expired postpaid guest")
 		return
 	}
+	deleteSnapshot := options.Options.DeleteSnapshotExpiredRelease
 	for i := 0; i < len(guests); i++ {
 		if len(guests[i].ExternalId) > 0 {
 			err := guests[i].doExternalSync(ctx, userCred)
@@ -4760,7 +4761,7 @@ func (manager *SGuestManager) DeleteExpiredPostpaidServers(ctx context.Context, 
 			}
 		}
 		guests[i].SetDisableDelete(userCred, false)
-		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, false, false)
+		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, false, deleteSnapshot)
 	}
 }
 
