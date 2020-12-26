@@ -170,9 +170,22 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext) 
 	}
 	recordCreateInput.ResType = recordCreateInput.AlertRule.ResType
 	createData := recordCreateInput.JSON(recordCreateInput)
-	record, err := db.DoCreate(models.AlertRecordManager, evalCtx.Ctx, evalCtx.UserCred, jsonutils.NewDict(), createData, evalCtx.UserCred)
+	alert, _ := models.CommonAlertManager.GetAlert(evalCtx.Rule.Id)
+	log.Errorf("alert:%v", jsonutils.Marshal(alert))
+	record, err := db.DoCreate(models.AlertRecordManager, evalCtx.Ctx, evalCtx.UserCred, jsonutils.NewDict(),
+		createData, evalCtx.UserCred)
 	if err != nil {
 		log.Errorf("create alert record err:%v", err)
+	}
+	alertData := jsonutils.Marshal(alert)
+	alertData.(*jsonutils.JSONDict).Set("project_id", jsonutils.NewString(alert.GetProjectId()))
+	db.PerformSetScope(evalCtx.Ctx, record.(*models.SAlertRecord), evalCtx.UserCred, alertData)
+	dbMatches, _ := record.(*models.SAlertRecord).GetEvalData()
+	if !evalCtx.Firing {
+		evalCtx.AlertOkEvalMatches = make([]*monitor.EvalMatch, len(dbMatches))
+		for i, _ := range dbMatches {
+			evalCtx.AlertOkEvalMatches[i] = &dbMatches[i]
+		}
 	}
 	record.PostCreate(evalCtx.Ctx, evalCtx.UserCred, evalCtx.UserCred, nil, createData)
 }

@@ -17,7 +17,9 @@ package notifiers
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/text/language"
 
 	"yunion.io/x/jsonutils"
@@ -32,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/monitor/alerting"
 	"yunion.io/x/onecloud/pkg/monitor/alerting/notifiers/templates"
@@ -39,7 +42,18 @@ import (
 	"yunion.io/x/onecloud/pkg/monitor/options"
 )
 
+const (
+	SUFFIX = "onecloudNotifier"
+)
+
+var (
+	i18nTable = i18n.Table{}
+	i18nEnTry = i18n.NewTableEntry().EN("en").CN("cn")
+)
+
 func init() {
+	i18nTable.Set(SUFFIX, i18nEnTry)
+
 	alerting.RegisterNotifier(&alerting.NotifierPlugin{
 		Type:    monitor.AlertNotificationTypeOneCloud,
 		Factory: newOneCloudNotifier,
@@ -153,16 +167,42 @@ func GetNotifyTemplateConfigOfEN(ctx *alerting.EvalContext) monitor.Notification
 // Notify sends the alert notification.
 func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONObject) error {
 	log.Infof("Sending alert notification %s to onecloud", ctx.GetRuleTitle())
-	oc.Ctx = i18n.WithLangTag(oc.Ctx, language.Chinese)
+	langIdsMap, err := GetUserLangIdsMap(oc.Setting.UserIds)
+	if err != nil {
+		return errors.Wrapf(err, "OneCloudNotifier getIds:%s userLang err", oc.Setting.UserIds)
+	}
+	langNotifyGroup, _ := errgroup.WithContext(ctx.Ctx)
+	for lang, _ := range langIdsMap {
+		ids := langIdsMap[lang]
+		langTag, _ := language.Parse(lang)
+		langStr := i18nTable.LookupByLang(langTag, SUFFIX)
+		langContext := i18n.WithLangTag(context.Background(), getLangBystr(langStr))
+		langNotifyGroup.Go(func() error {
+			return oc.notifyByContextLang(langContext, ctx, ids)
+		})
+	}
+	return langNotifyGroup.Wait()
+}
+
+func getLangBystr(str string) language.Tag {
+	for lang, val := range i18nEnTry {
+		if val == str {
+			return lang
+		}
+	}
+	return language.English
+}
+
+func (oc *OneCloudNotifier) notifyByContextLang(ctx context.Context, evalCtx *alerting.EvalContext, uids []string) error {
 	var config monitor.NotificationTemplateConfig
-	lang := i18n.Lang(oc.Ctx)
+	lang := i18n.Lang(ctx)
 	switch lang {
 	case language.English:
-		config = GetNotifyTemplateConfigOfEN(ctx)
+		config = GetNotifyTemplateConfigOfEN(evalCtx)
 	default:
-		config = GetNotifyTemplateConfig(ctx)
+		config = GetNotifyTemplateConfig(evalCtx)
 	}
-	oc.filterMatchTagsForConfig(&config)
+	oc.filterMatchTagsForConfig(&config, ctx)
 
 	contentConfig := oc.buildContent(config)
 
@@ -179,7 +219,7 @@ func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONOb
 	}
 
 	msg := notify.SNotifyMessage{
-		Uid:         oc.Setting.UserIds,
+		Uid:         uids,
 		ContactType: notify.TNotifyChannel(oc.Setting.Channel),
 		Topic:       config.Title,
 		Priority:    notify.TNotifyPriority(config.Priority),
@@ -192,12 +232,36 @@ func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONOb
 	return sendImp.send()
 }
 
+func GetUserLangIdsMap(ids []string) (map[string][]string, error) {
+	session := auth.GetAdminSession(context.Background(), "", "")
+	langIdsMap := make(map[string][]string)
+	params := jsonutils.NewDict()
+	params.Set("filter", jsonutils.NewString(fmt.Sprintf("id.in(%s)", strings.Join(ids, ","))))
+	params.Set("details", jsonutils.JSONFalse)
+	params.Set("scope", jsonutils.NewString("system"))
+	params.Set("system", jsonutils.JSONTrue)
+	ret, err := modules.UsersV3.List(session, params)
+	if err != nil {
+		return nil, err
+	}
+	for i := range ret.Data {
+		id, _ := ret.Data[i].GetString("id")
+		langStr, _ := ret.Data[i].GetString("lang")
+		if _, ok := langIdsMap[langStr]; ok {
+			langIdsMap[langStr] = append(langIdsMap[langStr], id)
+			continue
+		}
+		langIdsMap[langStr] = []string{id}
+	}
+	return langIdsMap, nil
+}
+
 var (
 	companyInfo models.SCompanyInfo
 )
 
-func (oc *OneCloudNotifier) filterMatchTagsForConfig(config *monitor.NotificationTemplateConfig) {
-	sCompanyInfo, err := models.GetCompanyInfo(oc.Ctx)
+func (oc *OneCloudNotifier) filterMatchTagsForConfig(config *monitor.NotificationTemplateConfig, ctx context.Context) {
+	sCompanyInfo, err := models.GetCompanyInfo(ctx)
 	if err != nil {
 		log.Errorf("GetCompanyInfo error:%#v", err)
 		return

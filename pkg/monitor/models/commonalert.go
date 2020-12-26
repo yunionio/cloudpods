@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/text/language"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -20,6 +22,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -36,7 +39,7 @@ const (
 	CommonAlertMetadataPointStr  = "point_str"
 	CommonAlertMetadataName      = "meta_name"
 
-	COMPANY_COPYRIGHT_ONECLOUD = "北京云联万维技术有限公司"
+	COMPANY_COPYRIGHT_ONECLOUD = "云联"
 	BRAND_ONECLOUD_NAME_CN     = "云联壹云"
 	BRAND_ONECLOUD_NAME_EN     = "YunionCloud"
 )
@@ -1101,13 +1104,13 @@ func GetCompanyInfo(ctx context.Context) (SCompanyInfo, error) {
 		return SCompanyInfo{}, err
 	}
 	if strings.Contains(info.Copyright, COMPANY_COPYRIGHT_ONECLOUD) {
-		//lang := i18n.Lang(ctx)
-		//switch lang {
-		//case language.English:
-		//	info.Name = BRAND_ONECLOUD_NAME_EN
-		//default:
-		//}
-		info.Name = BRAND_ONECLOUD_NAME_CN
+		lang := i18n.Lang(ctx)
+		switch lang {
+		case language.English:
+			info.Name = BRAND_ONECLOUD_NAME_EN
+		default:
+			info.Name = BRAND_ONECLOUD_NAME_CN
+		}
 	}
 	return info, nil
 }

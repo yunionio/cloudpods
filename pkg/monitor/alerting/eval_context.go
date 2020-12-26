@@ -128,7 +128,7 @@ func (c *EvalContext) GetCallbackURLPrefix() string {
 		return ""
 	}
 	url, _ := config.GetString("config", "default", "api_server")
-	return url
+	return url + "/alertrecord"
 }
 
 // GetNewState returns the new state from the alert rule evaluation.
@@ -207,7 +207,11 @@ func (c *EvalContext) GetNotificationTemplateConfig() monitor.NotificationTempla
 
 func (c *EvalContext) GetEvalMatches() []monitor.EvalMatch {
 	ret := make([]monitor.EvalMatch, 0)
-	for _, c := range c.EvalMatches {
+	matches := c.EvalMatches
+	if !c.Firing {
+		matches = c.AlertOkEvalMatches
+	}
+	for _, c := range matches {
 		ret = append(ret, monitor.EvalMatch{
 			Condition: c.Condition,
 			Value:     c.Value,

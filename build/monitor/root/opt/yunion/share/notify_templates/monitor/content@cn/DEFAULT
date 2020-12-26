@@ -6,4 +6,4 @@
 资源数量：{{len .matches}}
 资源名称：{{.resource_name}}
 
-详情地址: {{.web_url}}/commonalerts
+详情地址: {{.web_url}}
