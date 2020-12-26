@@ -6,4 +6,4 @@ TriggerCondition: {{.description | unescaped}}
 ResourceCount: {{len .matches}}
 ResourceName: {{.resource_name}}
 
-WebUrl: {{.web_url}}/commonalerts
+WebUrl: {{.web_url}}
