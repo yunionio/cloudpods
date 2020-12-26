@@ -417,7 +417,7 @@ func (scm *SCloudaccountManager) hostVMIPsPrepareNets(ctx context.Context, clien
 			}
 		}
 	default:
-		return nil, httperrors.NewInputParameterError("valid wire_level_for_vmware, accept vcenter, datacenter, cluster")
+		return nil, httperrors.NewInputParameterError("invalid wire_level_for_vmware %q, accept %s", wireLevel, api.CLOUD_ACCOUNT_WIRE_LEVELS)
 	}
 	return ret, nil
 }

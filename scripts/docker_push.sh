@@ -1,4 +1,6 @@
 #!/bin/bash
+#
+# vi: expandtab tabstop=4 shiftwidth=0
 
 set -o errexit
 set -o pipefail
@@ -45,31 +47,18 @@ build_bin() {
     local BUILD_CGO=$3
     case "$1" in
         baremetal-agent)
+            rm -vf _output/bin/$1
+            rm -rvf _output/bin/bundles/$1
             GOOS=linux make cmd/$1
             ;;
         climc)
-            docker run --rm \
-                -v $SRC_DIR:/root/go/src/yunion.io/x/onecloud \
-                -v $SRC_DIR/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
-                -v $SRC_DIR/_output/alpine-build/_cache:/root/.cache \
-                registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-5 \
-                /bin/sh -c "set -ex; cd /root/go/src/yunion.io/x/onecloud; $BUILD_ARCH $BUILD_CGO GOOS=linux make cmd/$1 cmd/*cli; chown -R $(id -u):$(id -g) _output"
+            env $BUILD_ARCH $BUILD_CGO make -C "$SRC_DIR" docker-alpine-build F="cmd/$1 cmd/*cli"
             ;;
         host-deployer)
-            docker run --rm \
-                -v $SRC_DIR:/root/go/src/yunion.io/x/onecloud \
-                -v $SRC_DIR/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
-                -v $SRC_DIR/_output/alpine-build/_cache:/root/.cache \
-                registry.cn-beijing.aliyuncs.com/yunionio/centos-build:1.1-3 \
-                /bin/sh -c "set -ex; cd /root/go/src/yunion.io/x/onecloud; $BUILD_ARCH $BUILD_CGO GOOS=linux make cmd/$1; chown -R $(id -u):$(id -g) _output"
+            env $BUILD_ARCH $BUILD_CGO make -C "$SRC_DIR" docker-centos-build F="cmd/$1"
             ;;
         *)
-            docker run --rm \
-                -v $SRC_DIR:/root/go/src/yunion.io/x/onecloud \
-                -v $SRC_DIR/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
-                -v $SRC_DIR/_output/alpine-build/_cache:/root/.cache \
-                registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-5 \
-                /bin/sh -c "set -ex; cd /root/go/src/yunion.io/x/onecloud; $BUILD_ARCH $BUILD_CGO GOOS=linux make cmd/$1; chown -R $(id -u):$(id -g) _output"
+            env $BUILD_ARCH $BUILD_CGO make -C "$SRC_DIR" docker-alpine-build F="cmd/$1"
             ;;
     esac
 }
@@ -88,7 +77,7 @@ build_image() {
     local tag=$1
     local file=$2
     local path=$3
-    docker build -t "$tag" -f "$2" "$3"
+    docker buildx build -t "$tag" -f "$2" "$3"
 }
 
 buildx_and_push() {
@@ -204,7 +193,9 @@ for component in $COMPONENTS; do
             done
             ;;
         *)
-            general_build $component $ARCH
+            if [ -e "$DOCKER_DIR/Dockerfile.$component" ]; then
+                general_build $component $ARCH
+            fi
             ;;
     esac
 done

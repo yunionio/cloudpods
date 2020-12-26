@@ -6,4 +6,4 @@ ENV TZ Asia/Shanghai
 
 RUN mkdir -p /opt/yunion/bin
 
-ADD ./_output/alpine-build/bin/host-deployer /opt/yunion/bin/host-deployer
+ADD ./_output/centos-build/bin/host-deployer /opt/yunion/bin/host-deployer

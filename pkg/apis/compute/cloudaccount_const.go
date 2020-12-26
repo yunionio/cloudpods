@@ -17,6 +17,7 @@ package compute
 import (
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/choices"
 )
 
 const (
@@ -65,6 +66,12 @@ const (
 	CLOUD_ACCOUNT_WIRE_LEVEL_VCENTER    = "vcenter"
 	CLOUD_ACCOUNT_WIRE_LEVEL_DATACENTER = "datacenter"
 	CLOUD_ACCOUNT_WIRE_LEVEL_CLUSTER    = "cluster"
+)
+
+var CLOUD_ACCOUNT_WIRE_LEVELS = choices.NewChoices(
+	CLOUD_ACCOUNT_WIRE_LEVEL_VCENTER,
+	CLOUD_ACCOUNT_WIRE_LEVEL_DATACENTER,
+	CLOUD_ACCOUNT_WIRE_LEVEL_CLUSTER,
 )
 
 const (
