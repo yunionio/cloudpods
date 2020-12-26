@@ -132,6 +132,8 @@ type SBucketPolicyStatement struct {
 
 	// 解析字段，主账号id:子账号id
 	PrincipalId []string
+	// map[主账号id:子账号id]子账号名称
+	PrincipalNames map[string]string
 	// Read|ReadWrite|FullControl
 	CannedAction string
 	// 资源路径
