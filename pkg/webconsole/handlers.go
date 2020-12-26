@@ -205,7 +205,7 @@ func handleServerRemoteConsole(ctx context.Context, w http.ResponseWriter, r *ht
 		return
 	}
 	switch info.Protocol {
-	case session.ALIYUN, session.QCLOUD, session.OPENSTACK, session.VMRC, session.ZSTACK, session.CTYUN, session.HUAWEI:
+	case session.ALIYUN, session.QCLOUD, session.OPENSTACK, session.VMRC, session.ZSTACK, session.CTYUN, session.HUAWEI, session.APSARA:
 		responsePublicCloudConsole(ctx, info, w)
 	case session.VNC, session.SPICE, session.WMKS:
 		handleDataSession(ctx, info, w, url.Values{"password": {info.GetPassword()}}, true)

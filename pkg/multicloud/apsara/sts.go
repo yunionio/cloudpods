@@ -23,7 +23,8 @@ func (self *SApsaraClient) stsRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
-	return productRequest(cli, APSARA_PRODUCT_STS, self.endpoints.StsEndpoint, APSARA_STS_API_VERSION, apiName, params, self.debug)
+	domain := self.getDomain(APSARA_PRODUCT_STS)
+	return productRequest(cli, APSARA_PRODUCT_STS, domain, APSARA_STS_API_VERSION, apiName, params, self.debug)
 }
 
 type SCallerIdentity struct {

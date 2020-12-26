@@ -925,7 +925,7 @@ func (self *SElasticcache) GetICloudElasticcacheBackup(backupId string) (cloudpr
 
 func (instance *SElasticcache) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
-	tags, err := instance.region.ListResourceTags("kvs", "INSTANCE", []string{instance.GetId()})
+	tags, err := instance.region.ListResourceTags(APSARA_PRODUCT_KVSTORE, "INSTANCE", []string{instance.GetId()})
 	if err != nil {
 		log.Errorf(`[err:%s]instance.region.FetchResourceTags("kvs", "instance", []string{instance.GetId()})`, err.Error())
 		return nil
@@ -938,7 +938,7 @@ func (instance *SElasticcache) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (instance *SElasticcache) SetMetadata(tags map[string]string, replace bool) error {
-	return instance.region.SetResourceTags("kvs", "INSTANCE", []string{instance.GetId()}, tags, replace)
+	return instance.region.SetResourceTags(APSARA_PRODUCT_KVSTORE, "INSTANCE", []string{instance.GetId()}, tags, replace)
 }
 
 func (self *SElasticcache) UpdateSecurityGroups(secgroupIds []string) error {

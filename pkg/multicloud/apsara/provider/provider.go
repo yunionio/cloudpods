@@ -49,11 +49,8 @@ func (self *SApsaraProviderFactory) ValidateCreateCloudaccountData(ctx context.C
 	}
 	output.Account = input.AccessKeyId
 	output.Secret = input.AccessKeySecret
-	if input.SApsaraEndpoints == nil || len(input.EcsEndpoint) == 0 {
-		return output, httperrors.NewMissingParameterError("ecs_endpoint")
-	}
-	if input.SApsaraEndpoints == nil || len(input.VpcEndpoint) == 0 {
-		return output, httperrors.NewMissingParameterError("vpc_endpoint")
+	if len(input.Endpoint) == 0 {
+		return output, httperrors.NewMissingParameterError("endpoint")
 	}
 	return output, nil
 }
@@ -78,6 +75,7 @@ func (self *SApsaraProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig
 		apsara.NewApsaraClientConfig(
 			cfg.Account,
 			cfg.Secret,
+			cfg.URL,
 			cfg.SApsaraEndpoints,
 		).CloudproviderConfig(cfg),
 	)
@@ -94,6 +92,7 @@ func (self *SApsaraProviderFactory) GetClientRC(info cloudprovider.SProviderInfo
 	return map[string]string{
 		"APSARA_ACCESS_KEY": info.Account,
 		"APSARA_SECRET":     info.Secret,
+		"APSARA_ENDPOINT":   info.Url,
 		"APSARA_REGION":     "",
 	}, nil
 }

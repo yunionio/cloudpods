@@ -59,4 +59,26 @@ func init() {
 		return nil
 	})
 
+	type OrganizationListOptions struct {
+		Id int
+	}
+
+	shellutils.R(&OrganizationListOptions{}, "organization-list", "List organization tree", func(cli *apsara.SRegion, args *OrganizationListOptions) error {
+		org, err := cli.GetClient().GetOrganizationTree(args.Id)
+		if err != nil {
+			return err
+		}
+		printObject(org)
+		return nil
+	})
+
+	shellutils.R(&OrganizationListOptions{}, "organization-project-list", "List organization tree", func(cli *apsara.SRegion, args *OrganizationListOptions) error {
+		org, err := cli.GetClient().GetOrganizationTree(args.Id)
+		if err != nil {
+			return err
+		}
+		printList(org.ListProjects(), 0, 0, 0, nil)
+		return nil
+	})
+
 }
