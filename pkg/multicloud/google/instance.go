@@ -104,6 +104,7 @@ type SInstance struct {
 	ServiceAccounts    []ServiceAccount
 	Scheduling         map[string]interface{}
 	CpuPlatform        string
+	Labels             map[string]string
 	LabelFingerprint   string
 	StartRestricted    bool
 	DeletionProtection bool
@@ -665,6 +666,11 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 		},
 		"disks": disks,
 	}
+
+	if len(desc.Tags) > 0 {
+		params["labels"] = desc.Tags
+	}
+
 	if tags, ok := secgroups[SECGROUP_TYPE_TAG]; ok && len(tags) > 0 {
 		for i := range tags {
 			tags[i] = strings.ToLower(tags[i])
@@ -905,4 +911,45 @@ func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudpro
 		}
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "no valid system disk found")
+}
+
+func (self *SInstance) GetTags() (map[string]string, error) {
+	return self.Labels, nil
+}
+
+func (self *SInstance) GetSysTags() map[string]string {
+	data := map[string]string{}
+	data["SecurityGroup"] = strings.Join(self.Tags.Items, ",")
+	return data
+}
+
+func (region *SRegion) SetLabels(id string, labels map[string]string, labelFingerprint string) error {
+	params := map[string]interface{}{
+		"labels":           labels,
+		"labelFingerprint": labelFingerprint,
+	}
+	err := region.Do(id, "setLabels", nil, jsonutils.Marshal(params))
+	if err != nil {
+		return errors.Wrapf(err, `region.Do(%s, "setLabels", nil, %s)`, id, jsonutils.Marshal(params).String())
+	}
+	return nil
+}
+
+func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
+	if !replace {
+		for k, v := range self.Labels {
+			if _, ok := tags[k]; !ok {
+				tags[k] = v
+			}
+		}
+	}
+	err := self.Refresh()
+	if err != nil {
+		return errors.Wrap(err, "self.Refresh()")
+	}
+	err = self.host.zone.region.SetLabels(self.GetId(), tags, self.LabelFingerprint)
+	if err != nil {
+		return errors.Wrapf(err, ` self.host.zone.region.SsetLabels()`)
+	}
+	return nil
 }
