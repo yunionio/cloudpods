@@ -531,6 +531,8 @@ func (rm *SReceiverManager) FetchOwnerId(ctx context.Context, data jsonutils.JSO
 			return nil, errors.Wrap(err, "UserCacheManager.FetchUserByIdOrName")
 		}
 		ownerId := db.SOwnerId{
+			DomainId:     u.DomainId,
+			Domain:       u.Domain,
 			UserDomain:   u.Domain,
 			UserDomainId: u.DomainId,
 			UserId:       u.Id,
