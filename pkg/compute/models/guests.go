@@ -5701,7 +5701,7 @@ func (guest *SGuest) StartRemoteUpdateTask(ctx context.Context, userCred mcclien
 }
 
 func (guest *SGuest) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
-	err := guest.StartRemoteUpdateTask(ctx, userCred, false, "")
+	err := guest.StartRemoteUpdateTask(ctx, userCred, true, "")
 	if err != nil {
 		log.Errorf("StartRemoteUpdateTask fail: %s", err)
 	}

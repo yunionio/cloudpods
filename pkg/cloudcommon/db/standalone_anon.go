@@ -16,6 +16,7 @@ package db
 
 import (
 	"context"
+	"reflect"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -281,7 +282,26 @@ func (model *SStandaloneAnonResourceBase) SetUserMetadataAll(ctx context.Context
 	if err != nil {
 		return errors.Wrap(err, "SetAll")
 	}
+	userTags, err := model.GetAllUserMetadata()
+	if err != nil {
+		return errors.Wrap(err, "model.GetAllUserMetadata()")
+	}
+	cloudTags, err := model.GetAllCloudMetadata()
+	if err != nil {
+		return errors.Wrap(err, "model.GetAllCloudMetadata()")
+	}
+	if reflect.DeepEqual(userTags, cloudTags) {
+		return nil
+	}
 	model.GetIStandaloneModel().OnMetadataUpdated(ctx, userCred)
+	return nil
+}
+
+func (model *SStandaloneAnonResourceBase) SetSyncedUserMetadataAll(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
+	err := Metadata.SetAll(ctx, model, dictstore, userCred, USER_TAG_PREFIX)
+	if err != nil {
+		return errors.Wrap(err, "SetAll")
+	}
 	return nil
 }
 
@@ -329,6 +349,18 @@ func (model *SStandaloneAnonResourceBase) GetAllUserMetadata() (map[string]strin
 	ret := make(map[string]string)
 	for k, v := range meta {
 		ret[k[len(USER_TAG_PREFIX):]] = v
+	}
+	return ret, nil
+}
+
+func (model *SStandaloneAnonResourceBase) GetAllCloudMetadata() (map[string]string, error) {
+	meta, err := Metadata.GetAll(model, nil, CLOUD_TAG_PREFIX, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "Metadata.GetAll")
+	}
+	ret := make(map[string]string)
+	for k, v := range meta {
+		ret[k[len(CLOUD_TAG_PREFIX):]] = v
 	}
 	return ret, nil
 }
