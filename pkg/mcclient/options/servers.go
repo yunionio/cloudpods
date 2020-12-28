@@ -614,6 +614,8 @@ type ServerDeleteOptions struct {
 	ServerIdsOptions
 	OverridePendingDelete *bool `help:"Delete server directly instead of pending delete" short-token:"f"`
 	DeleteSnapshots       *bool `help:"Delete server snapshots"`
+	DeleteDisks           *bool `help:"Delete server disks"`
+	DeleteEip             *bool `help:"Delete eip"`
 }
 
 func (o *ServerDeleteOptions) QueryParams() (jsonutils.JSONObject, error) {
