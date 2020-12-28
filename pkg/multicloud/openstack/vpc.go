@@ -21,7 +21,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -186,19 +185,7 @@ func (vpc *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
 }
 
 func (vpc *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	err := vpc.region.fetchZones()
-	if err != nil {
-		return nil, errors.Wrap(err, "fetchZones")
-	}
-	iwire := []cloudprovider.ICloudWire{}
-	for i := range vpc.region.zones {
-		if !utils.IsInStringArray(vpc.region.zones[i].ZoneName, vpc.AvailabilityZones) {
-			continue
-		}
-		wire := &SWire{vpc: vpc, zone: &vpc.region.zones[i]}
-		iwire = append(iwire, wire)
-	}
-	return iwire, nil
+	return []cloudprovider.ICloudWire{&SWire{vpc: vpc}}, nil
 }
 
 func (vpc *SVpc) GetRegion() cloudprovider.ICloudRegion {
