@@ -16,6 +16,7 @@ package shell
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/pkg/errors"
 
@@ -200,6 +201,29 @@ func init() {
 			return err
 		}
 		printObject(image)
+		return nil
+	})
+
+	type InstanceSetTagsOptions struct {
+		ID   string `help:"Instance ID"`
+		Tags []string
+	}
+	shellutils.R(&InstanceSetTagsOptions{}, "instance-set-tags", "get intance metadata", func(cli *google.SRegion, args *InstanceSetTagsOptions) error {
+		tags := map[string]string{}
+		for i := range args.Tags {
+			splited := strings.Split(args.Tags[i], "=")
+			if len(splited) == 2 {
+				tags[splited[0]] = splited[1]
+			}
+		}
+		instance, err := cli.GetInstance(args.ID)
+		if err != nil {
+			return errors.Wrap(err, "cli.GetInstance")
+		}
+		err = cli.SetLabels(args.ID, tags, instance.LabelFingerprint)
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 

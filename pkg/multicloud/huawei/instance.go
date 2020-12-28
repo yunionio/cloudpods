@@ -291,6 +291,79 @@ func (self *SInstance) GetSysTags() map[string]string {
 	return data
 }
 
+func (self *SInstance) GetTags() (map[string]string, error) {
+	tags := map[string]string{}
+	for _, kv := range self.Tags {
+		splited := strings.Split(kv, "=")
+		if len(splited) == 2 {
+			tags[splited[0]] = splited[1]
+		}
+	}
+	return tags, nil
+}
+
+// https://support.huaweicloud.com/api-ecs/ecs_02_1002.html
+// key 相同时value不会替换
+func (self *SRegion) CreateServerTags(instanceId string, tags map[string]string) error {
+	params := map[string]interface{}{
+		"action": "create",
+	}
+
+	tagsObj := []map[string]string{}
+	for k, v := range tags {
+		tagsObj = append(tagsObj, map[string]string{"key": k, "value": v})
+	}
+	params["tags"] = tagsObj
+
+	_, err := self.ecsClient.Servers.PerformAction2("tags/action", instanceId, jsonutils.Marshal(params), "")
+	return err
+}
+
+// https://support.huaweicloud.com/api-ecs/ecs_02_1003.html
+func (self *SRegion) DeleteServerTags(instanceId string, tagsKey []string) error {
+	params := map[string]interface{}{
+		"action": "delete",
+	}
+	tagsObj := []map[string]string{}
+	for _, k := range tagsKey {
+		tagsObj = append(tagsObj, map[string]string{"key": k})
+	}
+	params["tags"] = tagsObj
+
+	_, err := self.ecsClient.Servers.PerformAction2("tags/action", instanceId, jsonutils.Marshal(params), "")
+	return err
+}
+
+func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
+	existedTags, err := self.GetTags()
+	if err != nil {
+		return errors.Wrap(err, "self.GetTags()")
+	}
+	deleteTagsKey := []string{}
+	for k := range existedTags {
+		if replace {
+			deleteTagsKey = append(deleteTagsKey, k)
+		} else {
+			if _, ok := tags[k]; ok {
+				deleteTagsKey = append(deleteTagsKey, k)
+			}
+		}
+	}
+	if len(deleteTagsKey) > 0 {
+		err := self.host.zone.region.DeleteServerTags(self.GetId(), deleteTagsKey)
+		if err != nil {
+			return errors.Wrapf(err, "self.host.zone.region.DeleteServerTags(%s,%s)", self.GetId(), deleteTagsKey)
+		}
+	}
+	if len(tags) > 0 {
+		err := self.host.zone.region.CreateServerTags(self.GetId(), tags)
+		if err != nil {
+			return errors.Wrapf(err, "self.host.zone.region.CreateServerTags(%s,%s)", self.GetId(), jsonutils.Marshal(tags).String())
+		}
+	}
+	return nil
+}
+
 func (self *SInstance) GetBillingType() string {
 	// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0094148849.html
 	// charging_mode “0”：按需计费    “1”：按包年包月计费
@@ -824,7 +897,7 @@ type ServerTag struct {
 */
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, SubnetId string,
 	securityGroupId string, vpcId string, zoneId string, desc string, disks []SDisk, ipAddr string,
-	keypair string, publicKey string, passwd string, userData string, bc *billing.SBillingCycle, projectId string) (string, error) {
+	keypair string, publicKey string, passwd string, userData string, bc *billing.SBillingCycle, projectId string, tags map[string]string) (string, error) {
 	params := SServerCreate{}
 	params.AvailabilityZone = zoneId
 	params.Name = name
@@ -883,6 +956,14 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 
 	if len(userData) > 0 {
 		params.UserData = userData
+	}
+
+	if len(tags) > 0 {
+		serverTags := []ServerTag{}
+		for k, v := range tags {
+			serverTags = append(serverTags, ServerTag{Key: k, Value: v})
+		}
+		params.ServerTags = serverTags
 	}
 
 	serverObj := jsonutils.Marshal(params)
