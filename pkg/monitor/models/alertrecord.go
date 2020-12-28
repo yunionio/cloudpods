@@ -104,6 +104,9 @@ func (manager *SAlertRecordManager) ListItemFilter(
 	} else {
 		q = q.IsNotEmpty("res_type").IsNotNull("res_type")
 	}
+	if len(query.ResType) != 0 {
+		q = q.Equals("res_type", query.ResType)
+	}
 	return q, nil
 }
 
