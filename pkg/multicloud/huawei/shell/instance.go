@@ -17,6 +17,7 @@ package shell
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei"
@@ -190,4 +191,35 @@ func init() {
 		return nil
 	})
 
+	type InstanceSetTagsOptions struct {
+		ID   string `help:"Instance ID"`
+		Tags []string
+	}
+	shellutils.R(&InstanceSetTagsOptions{}, "instance-set-tags", "get intance metadata", func(cli *huawei.SRegion, args *InstanceSetTagsOptions) error {
+		tags := map[string]string{}
+		for i := range args.Tags {
+			splited := strings.Split(args.Tags[i], "=")
+			if len(splited) == 2 {
+				tags[splited[0]] = splited[1]
+			}
+		}
+		err := cli.CreateServerTags(args.ID, tags)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	type InstanceDelTagsOptions struct {
+		ID   string `help:"Instance ID"`
+		Tags []string
+	}
+	shellutils.R(&InstanceDelTagsOptions{}, "instance-del-tags", "del intance metadata", func(cli *huawei.SRegion, args *InstanceDelTagsOptions) error {
+
+		err := cli.DeleteServerTags(args.ID, args.Tags)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 }
