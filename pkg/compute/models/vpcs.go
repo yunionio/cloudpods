@@ -774,7 +774,7 @@ func (manager *SVpcManager) ValidateCreateData(
 		return input, httperrors.NewMissingParameterError("cidr")
 	}
 
-	keys := GetVpcQuotaKeysFromCreateInput(input)
+	keys := GetVpcQuotaKeysFromCreateInput(ownerId, input)
 	quota := &SInfrasQuota{Vpc: 1}
 	quota.SetKeys(keys)
 	err = quotas.CheckSetPendingQuota(ctx, userCred, quota)
@@ -792,7 +792,7 @@ func (self *SVpc) PostCreate(ctx context.Context, userCred mcclient.TokenCredent
 		log.Errorf("input unmarshal error %s", err)
 	} else {
 		pendingUsage := &SInfrasQuota{Vpc: 1}
-		keys := GetVpcQuotaKeysFromCreateInput(input)
+		keys := GetVpcQuotaKeysFromCreateInput(ownerId, input)
 		pendingUsage.SetKeys(keys)
 		quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage, true)
 	}
@@ -1171,8 +1171,8 @@ func (self *SVpc) initWire(ctx context.Context, zone *SZone) (*SWire, error) {
 	return wire, nil
 }
 
-func GetVpcQuotaKeysFromCreateInput(input api.VpcCreateInput) quotas.SDomainRegionalCloudResourceKeys {
-	ownerId := &db.SOwnerId{DomainId: input.ProjectDomainId}
+func GetVpcQuotaKeysFromCreateInput(owner mcclient.IIdentityProvider, input api.VpcCreateInput) quotas.SDomainRegionalCloudResourceKeys {
+	ownerId := &db.SOwnerId{DomainId: owner.GetProjectDomainId()}
 	var region *SCloudregion
 	if len(input.CloudregionId) > 0 {
 		region = CloudregionManager.FetchRegionById(input.CloudregionId)

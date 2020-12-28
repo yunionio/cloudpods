@@ -3085,7 +3085,7 @@ func (self *SHost) PostCreate(
 		}
 	}
 
-	keys := GetHostQuotaKeysFromCreateInput(input)
+	keys := GetHostQuotaKeysFromCreateInput(ownerId, input)
 	quota := SInfrasQuota{Host: 1}
 	quota.SetKeys(keys)
 	err = quotas.CancelPendingUsage(ctx, userCred, &quota, &quota, true)
@@ -3379,7 +3379,7 @@ func (manager *SHostManager) ValidateCreateData(
 		return input, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ValidateCreateData")
 	}
 
-	keys := GetHostQuotaKeysFromCreateInput(input)
+	keys := GetHostQuotaKeysFromCreateInput(ownerId, input)
 	quota := SInfrasQuota{Host: 1}
 	quota.SetKeys(keys)
 	err = quotas.CheckSetPendingQuota(ctx, userCred, &quota)
@@ -5612,8 +5612,8 @@ func (host *SHost) GetChangeOwnerRequiredDomainIds() []string {
 	return requires
 }
 
-func GetHostQuotaKeysFromCreateInput(input api.HostCreateInput) quotas.SDomainRegionalCloudResourceKeys {
-	ownerId := &db.SOwnerId{DomainId: input.ProjectDomainId}
+func GetHostQuotaKeysFromCreateInput(owner mcclient.IIdentityProvider, input api.HostCreateInput) quotas.SDomainRegionalCloudResourceKeys {
+	ownerId := &db.SOwnerId{DomainId: owner.GetProjectDomainId()}
 	var zone *SZone
 	if len(input.ZoneId) > 0 {
 		zone = ZoneManager.FetchZoneById(input.ZoneId)
