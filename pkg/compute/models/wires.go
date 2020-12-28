@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
@@ -361,6 +362,17 @@ func (self *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.Toke
 
 		self.IsEmulated = extWire.IsEmulated()
 
+		vpc := self.GetVpc()
+		if vpc != nil {
+			region, err := vpc.GetRegion()
+			if err != nil {
+				return errors.Wrapf(err, "vpc.GetRegion")
+			}
+			if utils.IsInStringArray(region.Provider, api.REGIONAL_NETWORK_PROVIDERS) {
+				self.ZoneId = ""
+			}
+		}
+
 		if self.IsEmulated {
 			self.DomainId = vpc.DomainId
 			// self.IsPublic = vpc.IsPublic
@@ -408,8 +420,15 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 	wire.ExternalId = extWire.GetGlobalId()
 	wire.Bandwidth = extWire.GetBandwidth()
 	wire.VpcId = vpc.Id
-	izone := extWire.GetIZone()
-	if izone != nil {
+	region, err := vpc.GetRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegion for vpc %s(%s)", vpc.Name, vpc.Id)
+	}
+	if !utils.IsInStringArray(region.Provider, api.REGIONAL_NETWORK_PROVIDERS) {
+		izone := extWire.GetIZone()
+		if gotypes.IsNil(izone) {
+			return nil, fmt.Errorf("missing zone for wire %s(%s)", wire.Name, wire.ExternalId)
+		}
 		zone, err := vpc.getZoneByExternalId(izone.GetGlobalId())
 		if err != nil {
 			return nil, errors.Wrapf(err, "newFromCloudWire.getZoneByExternalId")

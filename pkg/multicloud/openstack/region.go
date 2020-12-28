@@ -36,8 +36,7 @@ type SRegion struct {
 
 	Name string
 
-	zones []SZone
-	vpcs  []SVpc
+	vpcs []SVpc
 
 	storageCache *SStoragecache
 	routers      []SRouter
@@ -239,23 +238,20 @@ func (region *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error)
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (region *SRegion) fetchZones() error {
-	if len(region.zones) > 0 {
-		return nil
-	}
-	zones, err := region.GetZones()
+func (region *SRegion) GetZones() ([]SZone, error) {
+	zones, err := region.getZones()
 	if err != nil {
-		return errors.Wrap(err, "GetZones")
+		return nil, errors.Wrap(err, "getZones")
 	}
-	region.zones = []SZone{}
+	ret := []SZone{}
 	for i := 0; i < len(zones); i++ {
 		if zones[i].ZoneName == "internal" {
 			continue
 		}
 		zones[i].region = region
-		region.zones = append(region.zones, zones[i])
+		ret = append(ret, zones[i])
 	}
-	return nil
+	return ret, nil
 }
 
 func (region *SRegion) fetchVpcs() error {
@@ -392,15 +388,15 @@ func (region *SRegion) ProjectId() string {
 }
 
 func (region *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
-	err := region.fetchZones()
+	zones, err := region.GetZones()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetZones")
 	}
-	izones := []cloudprovider.ICloudZone{}
-	for i := range region.zones {
-		izones = append(izones, &region.zones[i])
+	ret := []cloudprovider.ICloudZone{}
+	for i := range zones {
+		ret = append(ret, &zones[i])
 	}
-	return izones, nil
+	return ret, nil
 }
 
 func (region *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {

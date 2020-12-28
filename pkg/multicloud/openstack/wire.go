@@ -15,8 +15,6 @@
 package openstack
 
 import (
-	"fmt"
-
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -25,12 +23,12 @@ import (
 
 type SWire struct {
 	multicloud.SResourceBase
-	zone *SZone
-	vpc  *SVpc
+
+	vpc *SVpc
 }
 
 func (wire *SWire) GetId() string {
-	return fmt.Sprintf("%s-%s", wire.vpc.GetId(), wire.zone.GetId())
+	return wire.vpc.GetId()
 }
 
 func (wire *SWire) GetName() string {
@@ -50,7 +48,7 @@ func (wire *SWire) Refresh() error {
 }
 
 func (wire *SWire) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s", wire.vpc.GetGlobalId(), wire.zone.GetGlobalId())
+	return wire.vpc.GetGlobalId()
 }
 
 func (wire *SWire) GetIVpc() cloudprovider.ICloudVpc {
@@ -58,7 +56,7 @@ func (wire *SWire) GetIVpc() cloudprovider.ICloudVpc {
 }
 
 func (wire *SWire) GetIZone() cloudprovider.ICloudZone {
-	return wire.zone
+	return nil
 }
 
 func (wire *SWire) GetBandwidth() int {
@@ -66,7 +64,7 @@ func (wire *SWire) GetBandwidth() int {
 }
 
 func (wire *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
-	network, err := wire.zone.region.CreateNetwork(wire.vpc.Id, opts.ProjectId, opts.Name, opts.Cidr, opts.Desc)
+	network, err := wire.vpc.region.CreateNetwork(wire.vpc.Id, opts.ProjectId, opts.Name, opts.Cidr, opts.Desc)
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateNetwork")
 	}

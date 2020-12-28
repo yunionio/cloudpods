@@ -68,6 +68,7 @@ func init() {
 		RbdClientMountTimeout int64   `help:"ceph client_mount_timeout"`
 		RbdKey                string  `help:"ceph rbd key"`
 		Reserved              string  `help:"Reserved storage space"`
+		Capacity              int     `help:"Capacity for storage"`
 	}
 	R(&StorageUpdateOptions{}, "storage-update", "Update a storage", func(s *mcclient.ClientSession, args *StorageUpdateOptions) error {
 		params, err := options.StructToParams(args)
