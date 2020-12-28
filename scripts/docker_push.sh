@@ -77,7 +77,8 @@ build_image() {
     local tag=$1
     local file=$2
     local path=$3
-    docker buildx build -t "$tag" -f "$2" "$3"
+    docker buildx build -t "$tag" -f "$2" "$3" --push
+    docker pull "$tag"
 }
 
 buildx_and_push() {
@@ -87,11 +88,6 @@ buildx_and_push() {
     local arch=$4
     docker buildx build -t "$tag" --platform "linux/$arch" -f "$2" "$3" --push
     docker pull "$tag"
-}
-
-push_image() {
-    local tag=$1
-    docker push "$tag"
 }
 
 build_process() {
@@ -105,7 +101,6 @@ build_process() {
     fi
 
     build_image $img_name $DOCKER_DIR/Dockerfile.$component $SRC_DIR
-    push_image "$img_name"
 }
 
 build_process_with_buildx() {
