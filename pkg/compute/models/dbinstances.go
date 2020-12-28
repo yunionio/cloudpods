@@ -2052,7 +2052,7 @@ func (self *SDBInstance) OnMetadataUpdated(ctx context.Context, userCred mcclien
 	if len(self.ExternalId) == 0 {
 		return
 	}
-	err := self.StartRemoteUpdateTask(ctx, userCred, false, "")
+	err := self.StartRemoteUpdateTask(ctx, userCred, true, "")
 	if err != nil {
 		log.Errorf("StartRemoteUpdateTask fail: %s", err)
 	}
