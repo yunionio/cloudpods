@@ -482,3 +482,25 @@ type ServerSaveImageInput struct {
 	// swagger: ignore
 	ImageId string
 }
+
+type ServerDeleteInput struct {
+	// 是否越过回收站直接删除
+	// default: false
+	OverridePendingDelete bool
+
+	// 是否仅删除本地资源
+	// default: false
+	Purge bool
+
+	// 是否删除快照
+	// default: false
+	DeleteSnapshots bool
+
+	// 是否删除关联的EIP
+	// default: false
+	DeleteEip bool
+
+	// 是否删除关联的数据盘
+	// default: false
+	DeleteDisks bool
+}

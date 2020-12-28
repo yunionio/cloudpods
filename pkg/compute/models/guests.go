@@ -3823,18 +3823,9 @@ func (self *SGuest) AllowDeleteItem(ctx context.Context, userCred mcclient.Token
 	return self.IsOwner(userCred) || db.IsAdminAllowDelete(userCred, self)
 }
 
-func (self *SGuest) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	var (
-		overridePendingDelete = false
-		purge                 = false
-		deleteSnapshots       = false
-	)
-	if query != nil {
-		overridePendingDelete = jsonutils.QueryBoolean(query, "override_pending_delete", false)
-		purge = jsonutils.QueryBoolean(query, "purge", false)
-		deleteSnapshots = jsonutils.QueryBoolean(query, "delete_snapshots", false)
-	}
-	return self.StartDeleteGuestTask(ctx, userCred, "", purge, overridePendingDelete, deleteSnapshots)
+// 删除虚拟机
+func (self *SGuest) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query api.ServerDeleteInput, data jsonutils.JSONObject) error {
+	return self.StartDeleteGuestTask(ctx, userCred, "", query)
 }
 
 func (self *SGuest) DeleteAllDisksInDB(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -4644,7 +4635,10 @@ func (manager *SGuestManager) CleanPendingDeleteServers(ctx context.Context, use
 		return
 	}
 	for i := 0; i < len(guests); i += 1 {
-		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, true, false)
+		opts := api.ServerDeleteInput{
+			OverridePendingDelete: true,
+		}
+		guests[i].StartDeleteGuestTask(ctx, userCred, "", opts)
 	}
 }
 
@@ -4715,7 +4709,7 @@ func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, u
 	if guests == nil {
 		return
 	}
-	deteleSnapshot := options.Options.DeleteSnapshotExpiredRelease
+	deleteSnapshot := options.Options.DeleteSnapshotExpiredRelease
 	for i := 0; i < len(guests); i += 1 {
 		// fake delete expired prepaid servers
 		if len(guests[i].ExternalId) > 0 {
@@ -4725,7 +4719,10 @@ func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, u
 			}
 		}
 		guests[i].SetDisableDelete(userCred, false)
-		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, false, deteleSnapshot)
+		opts := api.ServerDeleteInput{
+			DeleteSnapshots: deleteSnapshot,
+		}
+		guests[i].StartDeleteGuestTask(ctx, userCred, "", opts)
 	}
 }
 
@@ -4761,7 +4758,8 @@ func (manager *SGuestManager) DeleteExpiredPostpaidServers(ctx context.Context, 
 			}
 		}
 		guests[i].SetDisableDelete(userCred, false)
-		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, false, deleteSnapshot)
+		opts := api.ServerDeleteInput{DeleteSnapshots: deleteSnapshot}
+		guests[i].StartDeleteGuestTask(ctx, userCred, "", opts)
 	}
 }
 

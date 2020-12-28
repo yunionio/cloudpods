@@ -319,3 +319,7 @@ type EnabledStatusInfrasResourceBaseListInput struct {
 type MultiArchResourceBaseListInput struct {
 	OsArch string `json:"os_arch"`
 }
+
+type AutoDeleteResourceBaseListInput struct {
+	AutoDelete *bool
+}
