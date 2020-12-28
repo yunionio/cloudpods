@@ -832,9 +832,9 @@ func (self *SStoragecache) unlinkCloudimages(ctx context.Context, userCred mccli
 		return errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	for i := range scis {
-		err = scis[i].Detach(ctx, userCred)
+		err = scis[i].Delete(ctx, userCred)
 		if err != nil {
-			return errors.Wrapf(err, "scis[i].Detach")
+			log.Warningf("detach image %v error: %v", scis[i].GetCachedimage(), err)
 		}
 	}
 	if len(scis) > 0 {
