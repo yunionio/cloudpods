@@ -24,10 +24,20 @@ const (
 	METRIC_DATABASE_METER = "meter_db"
 )
 
-var MetricResType = []string{METRIC_RES_TYPE_GUEST, METRIC_RES_TYPE_HOST, METRIC_RES_TYPE_REDIS, METRIC_RES_TYPE_OSS,
-	METRIC_RES_TYPE_RDS, METRIC_RES_TYPE_CLOUDACCOUNT}
-var MetricUnit = []string{METRIC_UNIT_PERCENT, METRIC_UNIT_BPS, METRIC_UNIT_MBPS, METRIC_UNIT_BYTEPS, "count/s",
-	METRIC_UNIT_COUNT, METRIC_UNIT_MS, METRIC_UNIT_BYTE, METRIC_UNIT_RMB}
+var (
+	MetricResType = []string{METRIC_RES_TYPE_GUEST, METRIC_RES_TYPE_HOST, METRIC_RES_TYPE_REDIS, METRIC_RES_TYPE_OSS,
+		METRIC_RES_TYPE_RDS, METRIC_RES_TYPE_CLOUDACCOUNT}
+	MetricUnit = []string{METRIC_UNIT_PERCENT, METRIC_UNIT_BPS, METRIC_UNIT_MBPS, METRIC_UNIT_BYTEPS, "count/s",
+		METRIC_UNIT_COUNT, METRIC_UNIT_MS, METRIC_UNIT_BYTE, METRIC_UNIT_RMB}
+	ResTypeScoreMap = map[string]int{
+		METRIC_RES_TYPE_HOST:         1,
+		METRIC_RES_TYPE_GUEST:        2,
+		METRIC_RES_TYPE_OSS:          3,
+		METRIC_RES_TYPE_RDS:          4,
+		METRIC_RES_TYPE_REDIS:        5,
+		METRIC_RES_TYPE_CLOUDACCOUNT: 6,
+	}
+)
 
 type MetricMeasurementCreateInput struct {
 	apis.StandaloneResourceCreateInput
@@ -36,6 +46,7 @@ type MetricMeasurementCreateInput struct {
 	ResType     string `json:"res_type"`
 	DisplayName string `json:"display_name"`
 	Database    string `json:"database"`
+	Score       int    `json:"score"`
 }
 
 type MetricMeasurementUpdateInput struct {

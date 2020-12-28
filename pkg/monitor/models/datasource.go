@@ -283,11 +283,6 @@ func (self *SDataSourceManager) GetMeasurementsWithDescriptionInfos(query jsonut
 		rtnMeasurements = append(rtnMeasurements, filterMeasurements...)
 	}
 
-	sort.Slice(rtnMeasurements, func(i, j int) bool {
-		m1 := rtnMeasurements[i]
-		m2 := rtnMeasurements[j]
-		return strings.Compare(m1.Measurement, m2.Measurement) < 0
-	})
 	ret.Add(jsonutils.Marshal(&rtnMeasurements), "measurements")
 	resTypeMap := make(map[string][]monitor.InfluxMeasurement, 0)
 	resTypes := make([]string, 0)
@@ -298,6 +293,16 @@ func (self *SDataSourceManager) GetMeasurementsWithDescriptionInfos(query jsonut
 		}
 		resTypes = append(resTypes, measurement.ResType)
 		resTypeMap[measurement.ResType] = []monitor.InfluxMeasurement{measurement}
+	}
+	sort.Slice(resTypes, func(i, j int) bool {
+		r1 := resTypes[i]
+		r2 := resTypes[j]
+		return monitor.ResTypeScoreMap[r1] < monitor.ResTypeScoreMap[r2]
+	})
+	for _, measures := range resTypeMap {
+		sort.Slice(measures, func(i, j int) bool {
+			return measures[i].Score < measures[j].Score
+		})
 	}
 	ret.Add(jsonutils.Marshal(&resTypes), "res_types")
 	ret.Add(jsonutils.Marshal(&resTypeMap), "res_type_measurements")
@@ -381,6 +386,9 @@ func (self *SDataSourceManager) getMetricDescriptions(influxdbMeasurements []mon
 					}
 					if len(measureDes.ResType) != 0 {
 						influxdbMeasurements[j].ResType = measureDes.ResType
+					}
+					if measureDes.Score != 0 {
+						influxdbMeasurements[j].Score = measureDes.Score
 					}
 					fieldDesMap := make(map[string]monitor.MetricFieldDetail, 0)
 					fields := make([]string, 0)
