@@ -15,8 +15,9 @@
 package compute
 
 const (
-	SECGROUP_STATUS_READY    = "ready"
-	SECGROUP_STATUS_DELETING = "deleting"
+	SECGROUP_STATUS_READY      = "ready"
+	SECGROUP_STATUS_DELETING   = "deleting"   // 删除中
+	SECGROUP_STATUS_SYNC_RULES = "sync_rules" // 同步规则中
 
 	SECGROUP_DEFAULT_ID = "default"
 )

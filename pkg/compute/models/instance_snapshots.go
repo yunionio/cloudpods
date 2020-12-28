@@ -430,7 +430,8 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 		inputSecgs := make([]string, 0)
 		self.SecGroups.Unmarshal(&secGroups)
 		for i := 0; i < len(secGroups); i++ {
-			if secGrp := SecurityGroupManager.FetchSecgroupById(secGroups[i]); secGrp != nil {
+			_, err := SecurityGroupManager.FetchSecgroupById(secGroups[i])
+			if err == nil {
 				inputSecgs = append(inputSecgs, secGroups[i])
 			}
 		}
