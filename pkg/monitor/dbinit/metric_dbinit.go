@@ -10,7 +10,7 @@ import (
 var MetricNeedDeleteDescriptions = []string{}
 var metricInitInputMap map[string]monitor.MetricCreateInput
 
-func RegistryMetricCreateInput(name, displayName, resType, database string,
+func RegistryMetricCreateInput(name, displayName, resType, database string, score int,
 	fields []monitor.MetricFieldCreateInput) {
 	if metricInitInputMap == nil {
 		metricInitInputMap = make(map[string]monitor.MetricCreateInput)
@@ -25,6 +25,7 @@ func RegistryMetricCreateInput(name, displayName, resType, database string,
 			ResType:                       resType,
 			DisplayName:                   displayName,
 			Database:                      database,
+			Score:                         score,
 		},
 		MetricFields: fields,
 	}
@@ -55,7 +56,7 @@ func newMetricFieldCreateInput(name, displayName, unit string, score int) monito
 func init() {
 
 	// cpu
-	RegistryMetricCreateInput("cpu", "CPU usage", monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE,
+	RegistryMetricCreateInput("cpu", "CPU usage", monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE, 1,
 		[]monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("usage_active", "CPU active state utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
 			newMetricFieldCreateInput("usage_idle", "CPU idle state utilization rate", monitor.METRIC_UNIT_PERCENT, 2),
@@ -70,7 +71,7 @@ func init() {
 
 	// disk
 	RegistryMetricCreateInput("disk", "Disk usage", monitor.METRIC_RES_TYPE_HOST,
-		monitor.METRIC_DATABASE_TELE,
+		monitor.METRIC_DATABASE_TELE, 3,
 		[]monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("used_percent", "Percentage of used disks", monitor.METRIC_UNIT_PERCENT, 1),
 			newMetricFieldCreateInput("free", "Free space size", monitor.METRIC_UNIT_BYTE, 2),
@@ -83,7 +84,7 @@ func init() {
 
 	// diskio
 	RegistryMetricCreateInput("diskio", "Disk traffic and timing",
-		monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE, 4, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("read_bps", "Disk read rate", monitor.METRIC_UNIT_BPS, 1),
 			newMetricFieldCreateInput("write_bps", "Disk write rate", monitor.METRIC_UNIT_BPS, 2),
 			newMetricFieldCreateInput("read_iops", "Disk read operate rate", monitor.METRIC_UNIT_COUNT, 3),
@@ -100,7 +101,7 @@ func init() {
 
 	// mem
 	RegistryMetricCreateInput("mem", "Memory", monitor.METRIC_RES_TYPE_HOST,
-		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("used_percent", "Used memory rate", monitor.METRIC_UNIT_PERCENT, 1),
 			newMetricFieldCreateInput("available_percent", "Available memory rate", monitor.METRIC_UNIT_PERCENT, 2),
 			newMetricFieldCreateInput("used", "Used memory", monitor.METRIC_UNIT_BYTE, 3),
@@ -116,7 +117,7 @@ func init() {
 
 	// net
 	RegistryMetricCreateInput("net", "Network interface and protocol usage",
-		monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE, 5, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("bytes_sent", "The total number of bytes sent by the network interface", monitor.METRIC_UNIT_BYTE, 1),
 			newMetricFieldCreateInput("bytes_recv", "The total number of bytes received by the network interface", monitor.METRIC_UNIT_BYTE, 2),
 			newMetricFieldCreateInput("packets_sent", "The total number of packets sent by the network interface", monitor.METRIC_UNIT_COUNT, 3),
@@ -129,7 +130,7 @@ func init() {
 
 	// vm_cpu
 	RegistryMetricCreateInput("vm_cpu", "Guest CPU usage", monitor.METRIC_RES_TYPE_GUEST,
-		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("usage_active", "CPU active state utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
 			newMetricFieldCreateInput("cpu_usage_pcore", "CPU utilization rate per core", monitor.METRIC_UNIT_PERCENT, 2),
 			newMetricFieldCreateInput("cpu_usage_idle_pcore", "CPU idle rate per core", monitor.METRIC_UNIT_PERCENT, 3),
@@ -140,7 +141,7 @@ func init() {
 
 	// vm_diskio
 	RegistryMetricCreateInput("vm_diskio", "Guest disk traffic", monitor.METRIC_RES_TYPE_GUEST,
-		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("read_bps", "Disk read rate", monitor.METRIC_UNIT_BYTEPS, 1),
 			newMetricFieldCreateInput("write_bps", "Disk write rate", monitor.METRIC_UNIT_BYTEPS, 2),
 			newMetricFieldCreateInput("read_iops", "Disk read operate rate", monitor.METRIC_UNIT_COUNT, 3),
@@ -151,7 +152,7 @@ func init() {
 
 	// vm_mem
 	RegistryMetricCreateInput("vm_mem", "Guest memory", monitor.METRIC_RES_TYPE_GUEST,
-		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_DATABASE_TELE, 2, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("used_percent", "Used memory rate", monitor.METRIC_UNIT_PERCENT, 1),
 			newMetricFieldCreateInput("vms", "Virtual memory consumption", monitor.METRIC_UNIT_BYTE, 2),
 			newMetricFieldCreateInput("rss", "Actual use of physical memory", monitor.METRIC_UNIT_BYTE, 3),
@@ -159,110 +160,110 @@ func init() {
 
 	// vm_netio
 	RegistryMetricCreateInput("vm_netio", "Guest network traffic", monitor.METRIC_RES_TYPE_GUEST,
-		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_DATABASE_TELE, 4, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("bps_recv", "Received traffic per second", monitor.METRIC_UNIT_BPS, 1),
 			newMetricFieldCreateInput("bps_sent", "Send traffic per second", monitor.METRIC_UNIT_BPS, 2),
 		})
 
 	// oss_latency
 	RegistryMetricCreateInput("oss_latency", "Object storage latency",
-		monitor.METRIC_RES_TYPE_OSS, monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_RES_TYPE_OSS, monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("req_late", "Request average E2E delay", monitor.METRIC_UNIT_MS, 1),
 		})
 
 	// oss_netio
 	RegistryMetricCreateInput("oss_netio", "Object storage network traffic",
-		monitor.METRIC_RES_TYPE_OSS, monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_RES_TYPE_OSS, monitor.METRIC_DATABASE_TELE, 2, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("bps_recv", "Receive byte", monitor.METRIC_UNIT_BYTE, 1),
 			newMetricFieldCreateInput("bps_sent", "Send byte", monitor.METRIC_UNIT_BYTE, 2),
 		})
 
 	// oss_req
 	RegistryMetricCreateInput("oss_req", "Object store request", monitor.METRIC_RES_TYPE_OSS,
-		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("req_count", "request count", monitor.METRIC_UNIT_COUNT, 1),
 		})
 
 	// rds_conn
 	RegistryMetricCreateInput("rds_conn", "Rds connect", monitor.METRIC_RES_TYPE_RDS,
-		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_DATABASE_TELE, 5, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("used_percent", "Connection usage", monitor.METRIC_UNIT_PERCENT, 1),
 		})
 
 	// rds_cpu
 	RegistryMetricCreateInput("rds_cpu", "Rds CPU usage", monitor.METRIC_RES_TYPE_RDS,
-		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("used_percent", "Connection usage", monitor.METRIC_UNIT_PERCENT, 1),
 			newMetricFieldCreateInput("usage_active", "CPU active state utilization rate", monitor.METRIC_UNIT_PERCENT, 2),
 		})
 
 	// rds_mem
 	RegistryMetricCreateInput("rds_mem", "Rds memory", monitor.METRIC_RES_TYPE_RDS,
-		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_DATABASE_TELE, 2, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("used_percent", "Connection usage", monitor.METRIC_UNIT_PERCENT, 1),
 		})
 
 	// rds_netio
 	RegistryMetricCreateInput("rds_netio", "Rds network traffic", monitor.METRIC_RES_TYPE_RDS,
-		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_DATABASE_TELE, 4, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("bps_recv", "Received traffic per second", monitor.METRIC_UNIT_BPS, 1),
 			newMetricFieldCreateInput("bps_sent", "Send traffic per second", monitor.METRIC_UNIT_BPS, 2),
 		})
 
 	// rds_disk
 	RegistryMetricCreateInput("rds_disk", "Rds disk usage", monitor.METRIC_RES_TYPE_RDS,
-		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
-			newMetricFieldCreateInput("used_percent", "disk usage", monitor.METRIC_UNIT_PERCENT, 1),
+		monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("used_percent", "Percentage of used disks", monitor.METRIC_UNIT_PERCENT, 1),
 		})
 
 	// dcs_cpu
 	RegistryMetricCreateInput("dcs_cpu", "Redis CPU usage", monitor.METRIC_RES_TYPE_REDIS,
-		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("used_percent", "CPU active state utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
 		})
 
 	// dcs_mem
 	RegistryMetricCreateInput("dcs_mem", "Redis memory", monitor.METRIC_RES_TYPE_REDIS,
-		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_DATABASE_TELE, 2, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("used_percent", "memory usage", monitor.METRIC_UNIT_PERCENT, 1),
 		})
 
 	// dcs_netio
 	RegistryMetricCreateInput("dcs_netio", "Redis network traffic",
 		monitor.METRIC_RES_TYPE_REDIS,
-		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_DATABASE_TELE, 4, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("bps_recv", "Received traffic per second", monitor.METRIC_UNIT_BPS, 1),
 			newMetricFieldCreateInput("bps_sent", "Send traffic per second", monitor.METRIC_UNIT_BPS, 2),
 		})
 
 	// dcs_conn
 	RegistryMetricCreateInput("dcs_conn", "Redis connect", monitor.METRIC_RES_TYPE_REDIS,
-		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_DATABASE_TELE, 5, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("used_percent", "Connection usage", monitor.METRIC_UNIT_PERCENT, 1),
 		})
 
 	// dcs_instantopt
 	RegistryMetricCreateInput("dcs_instantopt", "Redis operator",
-		monitor.METRIC_RES_TYPE_REDIS, monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_RES_TYPE_REDIS, monitor.METRIC_DATABASE_TELE, 5, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("opt_sec", "Number of commands processed per second", monitor.METRIC_UNIT_COUNT, 1),
 		})
 
 	// dcs_cachekeys
 	RegistryMetricCreateInput("dcs_cachekeys", "Redis keys", monitor.METRIC_RES_TYPE_REDIS,
-		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_DATABASE_TELE, 6, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("key_count", "Number of cache keys", monitor.METRIC_UNIT_COUNT, 1),
 		})
 
 	// dcs_datamem
-	RegistryMetricCreateInput("dcs_datamem", "Redis keys", monitor.METRIC_RES_TYPE_REDIS,
-		monitor.METRIC_DATABASE_TELE, []monitor.MetricFieldCreateInput{
+	RegistryMetricCreateInput("dcs_datamem", "Redis data memory", monitor.METRIC_RES_TYPE_REDIS,
+		monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("used_byte", "Data node memory usage", monitor.METRIC_UNIT_BYTE, 1),
 		})
 
 	// cloudaccount_balance
 	RegistryMetricCreateInput("cloudaccount_balance", "Cloud account balance",
 		monitor.METRIC_RES_TYPE_CLOUDACCOUNT,
-		monitor.METRIC_DATABASE_METER, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_DATABASE_METER, 1, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("balance", "balance", monitor.METRIC_UNIT_RMB, 1),
 		})
 
