@@ -140,7 +140,7 @@ func NewSplitTableSpec(s interface{}, name string, indexField string, dateField 
 
 	metaSpec := sqlchemy.NewTableSpecFromStruct(&STableMetadata{}, fmt.Sprintf("%s_metadata", name))
 
-	return &SSplitTableSpec{
+	sts := &SSplitTableSpec{
 		indexField:  indexField,
 		dateField:   dateField,
 		tableName:   name,
@@ -148,5 +148,7 @@ func NewSplitTableSpec(s interface{}, name string, indexField string, dateField 
 		metaSpec:    metaSpec,
 		maxDuration: maxDuration,
 		maxSegments: maxSegments,
-	}, nil
+	}
+
+	return sts, nil
 }
