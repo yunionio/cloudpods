@@ -205,6 +205,8 @@ type PerformStatusInput struct {
 	// 更改的目标状态值
 	// required:true
 	Status string `json:"status"`
+	// swagger:ignore
+	BlockJobsCount int `json:"block_jobs_count"`
 
 	// 更改状态的原因描述
 	// required:false
