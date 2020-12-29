@@ -68,8 +68,13 @@ func (self *GuestSyncstatusTask) OnGetStatusSucc(ctx context.Context, guest *mod
 	default:
 		statusStr = api.VM_UNKNOWN
 	}
+	blockJobsCount, err := body.Int("block_jobs_count")
+	if err != nil {
+		blockJobsCount = -1
+	}
 	input := apis.PerformStatusInput{
-		Status: statusStr,
+		Status:         statusStr,
+		BlockJobsCount: int(blockJobsCount),
 	}
 	guest.PerformStatus(ctx, self.UserCred, nil, input)
 	self.SetStageComplete(ctx, nil)
