@@ -24,7 +24,7 @@ func init() {
 	Reservations = NewMeterManager("reservation", "reservations",
 		[]string{"cloudaccount_id", "resource_type", "reservation_years", "lookback_days", "payment_option",
 			"offering_class", "category", "spec", "instance_amount", "monthly_savings_amount",
-			"monthly_usage_percentage", "monthly_cost", "currency", "details"},
+			"monthly_usage_percentage", "monthly_cost", "prepaid_cost", "cost", "currency", "details"},
 		[]string{},
 	)
 	register(&Reservations)
