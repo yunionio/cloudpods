@@ -47,6 +47,7 @@ type InfluxMeasurement struct {
 	Measurement            string
 	MeasurementDisplayName string
 	ResType                string
+	Score                  int
 	TagKey                 []string
 	TagValue               map[string][]string
 	FieldKey               []string
