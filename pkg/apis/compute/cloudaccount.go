@@ -195,6 +195,9 @@ type CloudaccountCreateInput struct {
 	// 是否启用SAML认证
 	// default: false
 	SAMLAuth *bool `json:"saml_auth"`
+
+	// VMware 账号有zone属性
+	Zone string `json:"zone"`
 }
 
 type CloudaccountShareModeInput struct {
@@ -335,12 +338,43 @@ type CloudaccountPerformPublicInput struct {
 type CloudaccountPerformPrepareNetsInput struct {
 	CloudaccountCreateInput
 
-	// enum: vcenter,datacenter,cluster
 	WireLevelForVmware string `json:"wire_level_for_vmware"`
+	Dvs                bool   `json:"dvs"`
 }
 
 type CloudaccountPerformPrepareNetsOutput struct {
-	CAWireNets []CAWireNet `json:"wire_networks"`
+	CAWireNets []CAWireNet  `json:"wire_networks"`
+	Hosts      []CAGuestNet `json:"hosts"`
+	Guests     []CAGuestNet `json:"guests"`
+	Wires      []CAPWire    `json:"wires"`
+	VSwitchs   []VSwitch    `json:"vswitchs"`
+}
+
+type CloudaccountSyncVMwareNetworkInput struct {
+	Zone string `help:"zone Id or Name" json:"zone"`
+}
+
+type CAPWire struct {
+	Id            string       `json:"id"`
+	Name          string       `json:"name"`
+	Distributed   bool         `json:"distributed"`
+	Hosts         []SimpleHost `json:"hosts"`
+	HostNetworks  []CANetConf  `json:"host_networks"`
+	GuestNetworks []CANetConf  `json:"guest_networks"`
+}
+
+type VSwitch struct {
+	Id            string       `json:"id"`
+	Name          string       `json:"name"`
+	Distributed   bool         `json:"distributed"`
+	Hosts         []SimpleHost `json:"hosts"`
+	HostNetworks  []CANetConf  `json:"host_networks"`
+	GuestNetworks []CANetConf  `json:"guest_networks"`
+}
+
+type SimpleHost struct {
+	Id   string
+	Name string
 }
 
 type CAWireNet struct {

@@ -17,7 +17,7 @@ func TestParseAndSuggest(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	out := CloudaccountManager.parseAndSuggest(param)
+	out := CloudaccountManager.parseAndSuggestSingleWire(param)
 	for _, net := range out.CAWireNets[0].GuestSuggestedNetworks {
 		ips, _ := netutils.NewIPV4Addr(net.GuestIpStart)
 		ipe, _ := netutils.NewIPV4Addr(net.GuestIpEnd)
@@ -80,8 +80,9 @@ func structureTestData() (sParseAndSuggest, error) {
 		ZoneIds: []string{
 			"zone_test",
 		},
-		Wires:    []SWire{},
-		Networks: [][]SNetwork{},
+		Wires:         []SWire{},
+		Networks:      [][]SNetwork{},
+		ExistedIpPool: newIPPool(),
 	}, nil
 }
 

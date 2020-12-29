@@ -198,4 +198,8 @@ const (
 	ACT_UPDATE_TAGS = "update_tags"
 
 	ACT_SET_ALERT = "set_alert"
+
+	ACT_CLOUDACCOUNT_SYNC_NETWORK = "sync_network"
+
+	ACT_MERGE_NETWORK = "merge_network"
 )
