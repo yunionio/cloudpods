@@ -273,6 +273,7 @@ func (self *SNetInterface) GetCandidateNetworkForIp(ownerId mcclient.IIdentityPr
 	if wire == nil {
 		return nil, nil
 	}
+	log.Infof("ipAddr: %s, netiName: %s, wire: %s", ipAddr, self.GetName(), wire.GetName())
 	return wire.GetCandidateNetworkForIp(ownerId, scope, ipAddr)
 }
 
