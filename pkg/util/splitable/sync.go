@@ -59,6 +59,11 @@ func (spec *SSplitTableSpec) Sync() error {
 			if err != nil {
 				return errors.Wrap(err, "insert init metadata")
 			}
+		} else {
+			_, err := spec.newTable(-1, time.Time{})
+			if err != nil {
+				return errors.Wrap(err, "spec.newTable")
+			}
 		}
 	} else {
 		for i := range metas {
@@ -81,11 +86,15 @@ func (spec *SSplitTableSpec) CheckSync() error {
 	if err != nil {
 		return errors.Wrap(err, "GetTableMetas")
 	}
-	for i := range metas {
-		subSpec := spec.GetTableSpec(metas[i])
-		err := subSpec.CheckSync()
-		if err != nil {
-			return errors.Wrap(err, "GetTableSpec")
+	if len(metas) == 0 {
+		return errors.Wrap(err, "empty metadata")
+	} else {
+		for i := range metas {
+			subSpec := spec.GetTableSpec(metas[i])
+			err := subSpec.CheckSync()
+			if err != nil {
+				return errors.Wrap(err, "GetTableSpec")
+			}
 		}
 	}
 	return nil
@@ -93,6 +102,8 @@ func (spec *SSplitTableSpec) CheckSync() error {
 
 func (spec *SSplitTableSpec) SyncSQL() []string {
 	sqls := spec.metaSpec.SyncSQL()
+	zeroMeta := false
+
 	if spec.metaSpec.Exists() {
 		metas, err := spec.GetTableMetas()
 		if err != nil {
@@ -105,7 +116,30 @@ func (spec *SSplitTableSpec) SyncSQL() []string {
 				sqls = append(sqls, nsql...)
 			}
 			return sqls
+		} else { // len(metas) == 0
+			zeroMeta = true
 		}
+	} else {
+		nsql := spec.metaSpec.SyncSQL()
+		sqls = append(sqls, nsql...)
+		zeroMeta = true
+	}
+
+	if zeroMeta {
+		indexCol := spec.tableSpec.ColumnSpec(spec.indexField)
+		now := time.Now()
+		meta := STableMetadata{
+			Table: fmt.Sprintf("%s_%d", spec.tableName, now.Unix()),
+			Start: indexCol.(*sqlchemy.SIntegerColumn).AutoIncrementOffset,
+		}
+		// insert the first meta
+		sql := fmt.Sprintf("INSERT INTO `%s`(`table`, `deleted`, `created_at`) VALUES('%s', 0, '%s')", spec.metaSpec.Name(), meta.Table, timeutils.MysqlTime(now))
+		sqls = append(sqls, sql)
+		// create the first table
+		newtable := spec.GetTableSpec(meta)
+		nsql := newtable.SyncSQL()
+		sqls = append(sqls, nsql...)
+		return sqls
 	}
 
 	fakeMeta := STableMetadata{
