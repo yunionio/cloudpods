@@ -407,12 +407,14 @@ func init() {
 	})
 
 	type HostAddNetIfOptions struct {
-		ID     string `help:"ID or Name of host"`
-		WIRE   string `help:"ID or Name of wire to attach"`
-		MAC    string `help:"Mac address of NIC"`
-		INDEX  int64  `help:"nic index"`
-		Type   string `help:"Nic type" choices:"admin|ipmi"`
-		IpAddr string `help:"IP address"`
+		ID        string `help:"ID or Name of host"`
+		WIRE      string `help:"ID or Name of wire to attach"`
+		MAC       string `help:"Mac address of NIC"`
+		INDEX     int64  `help:"nic index"`
+		Type      string `help:"Nic type" choices:"admin|ipmi"`
+		IpAddr    string `help:"IP address"`
+		Bridge    string `help:"Bridge of hostwire"`
+		Interface string `help:"Interface name, eg:eth0, en0"`
 	}
 	R(&HostAddNetIfOptions{}, "host-add-netif", "Host add a NIC", func(s *mcclient.ClientSession, args *HostAddNetIfOptions) error {
 		params := jsonutils.NewDict()
@@ -425,6 +427,12 @@ func init() {
 		}
 		if len(args.IpAddr) > 0 {
 			params.Add(jsonutils.NewString(args.IpAddr), "ip_addr")
+		}
+		if len(args.Bridge) > 0 {
+			params.Add(jsonutils.NewString(args.Bridge), "bridge")
+		}
+		if len(args.Interface) > 0 {
+			params.Add(jsonutils.NewString(args.Interface), "interface")
 		}
 		result, err := modules.Hosts.PerformAction(s, args.ID, "add-netif", params)
 		if err != nil {
