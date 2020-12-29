@@ -178,6 +178,7 @@ func FileGetContents(file string) (string, error) {
 func GetFsFormat(diskPath string) string {
 	ret, err := procutils.NewCommand("blkid", "-o", "value", "-s", "TYPE", diskPath).Output()
 	if err != nil {
+		log.Errorf("failed exec blkid of dev %s: %s, %s", diskPath, err, ret)
 		return ""
 	}
 	var res string

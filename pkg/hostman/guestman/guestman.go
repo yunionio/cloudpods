@@ -475,6 +475,19 @@ func (m *SGuestManager) Status(sid string) string {
 	return status
 }
 
+func (m *SGuestManager) StatusWithBlockJobsCount(sid string) (string, int) {
+	status := m.GetStatus(sid)
+	blockJobsCount := 0
+	if status == GUEST_RUNNING {
+		guest, _ := m.GetServer(sid)
+		if guest.Monitor == nil && !guest.IsStopping() {
+			guest.StartMonitor(context.Background())
+		}
+		blockJobsCount = guest.BlockJobsCount()
+	}
+	return status, blockJobsCount
+}
+
 func (m *SGuestManager) GetStatus(sid string) string {
 	if guest, ok := m.GetServer(sid); ok {
 		if guest.IsRunning() && guest.Monitor != nil && guest.IsMaster() {
