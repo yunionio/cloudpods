@@ -58,6 +58,7 @@ type SMetricMeasurement struct {
 	ResType     string `width:"32" list:"user" update:"user"`
 	Database    string `width:"32" list:"user" update:"user"`
 	DisplayName string `width:"256" list:"user" update:"user"`
+	Score       int    `width:"32" list:"user" update:"user" default:"99"`
 }
 
 type IMetricMeasurementCache interface {
@@ -546,6 +547,9 @@ func (self *SMetricMeasurement) insertOrUpdateMetric(userCred mcclient.TokenCred
 		}
 		if len(createInput.Measurement.Database) != 0 {
 			self.Database = createInput.Measurement.Database
+		}
+		if createInput.Measurement.Score != 0 {
+			self.Score = createInput.Measurement.Score
 		}
 		return nil
 	})
