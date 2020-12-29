@@ -2753,7 +2753,7 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 	}
 
 	status := input.Status
-	if len(self.BackupHostId) > 0 && status == api.VM_RUNNING {
+	if len(self.BackupHostId) > 0 && status == api.VM_RUNNING && input.BlockJobsCount > 0 {
 		if len(self.GetMetadata("__mirror_job_status", userCred)) == 0 {
 			self.SetMetadata(ctx, "__mirror_job_status", "ready", userCred)
 		}
