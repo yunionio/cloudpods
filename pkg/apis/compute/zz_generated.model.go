@@ -2068,7 +2068,6 @@ type SScheduledTask struct {
 	apis.SEnabledResourceBase
 	ScheduledType string `json:"scheduled_type"`
 	STimer
-	TimerDesc    string `json:"timer_desc"`
 	ResourceType string `json:"resource_type"`
 	Operation    string `json:"operation"`
 	LabelType    string `json:"label_type"`
