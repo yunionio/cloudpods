@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -45,6 +46,8 @@ import (
 type SWireManager struct {
 	db.SInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager
+	db.SStatusResourceBaseManager
+	SManagedResourceBaseManager
 	SVpcResourceBaseManager
 	SZoneResourceBaseManager
 }
@@ -66,7 +69,9 @@ func init() {
 type SWire struct {
 	db.SInfrasResourceBase
 	db.SExternalizedResourceBase
+	db.SStatusResourceBase
 
+	// SManagedResourceBase
 	SVpcResourceBase  `wdith:"36" charset:"ascii" nullable:"false" list:"domain" create:"domain_required" update:""`
 	SZoneResourceBase `width:"36" charset:"ascii" nullable:"true" list:"domain" create:"domain_required" update:""`
 
@@ -137,6 +142,10 @@ func (manager *SWireManager) ValidateCreateData(
 		return input, err
 	}
 	return input, nil
+}
+
+func (wire *SWire) SetStatus(userCred mcclient.TokenCredential, status string, reason string) error {
+	return db.StatusBaseSetStatus(wire, userCred, status, reason)
 }
 
 func (wire *SWire) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.WireUpdateInput) (api.WireUpdateInput, error) {
@@ -704,6 +713,10 @@ func (self *SWire) getNetworkQuery(ownerId mcclient.IIdentityProvider, scope rba
 	return q
 }
 
+func (self *SWire) GetNetworks(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) ([]SNetwork, error) {
+	return self.getNetworks(ownerId, scope)
+}
+
 func (self *SWire) getNetworks(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) ([]SNetwork, error) {
 	q := self.getNetworkQuery(ownerId, scope)
 	nets := make([]SNetwork, 0)
@@ -877,17 +890,21 @@ func chooseCandidateNetworksByNetworkType(nets []SNetwork, isExit bool, serverTy
 func (manager *SWireManager) InitializeData() error {
 	wires := make([]SWire, 0)
 	q := manager.Query()
+	q.Filter(sqlchemy.OR(sqlchemy.IsEmpty(q.Field("vpc_id")), sqlchemy.IsEmpty(q.Field("status"))))
 	err := db.FetchModelObjects(manager, q, &wires)
 	if err != nil {
 		return err
 	}
 	for _, w := range wires {
-		if len(w.VpcId) == 0 {
-			db.Update(&w, func() error {
+		db.Update(&w, func() error {
+			if len(w.VpcId) == 0 {
 				w.VpcId = api.DEFAULT_VPC_ID
-				return nil
-			})
-		}
+			}
+			if len(w.Status) == 0 {
+				w.Status = api.WIRE_STATUS_READY
+			}
+			return nil
+		})
 	}
 	return nil
 }
@@ -968,6 +985,89 @@ func (manager *SWireManager) GetOnPremiseWireOfIp(ipAddr string) (*SWire, error)
 	} else {
 		return nil, fmt.Errorf("Wire not found")
 	}
+}
+
+func (w *SWire) AllowPerformMergeNetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return w.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, w, "merge-network")
+}
+
+func (w *SWire) PerformMergeNetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.WireMergeNetworkInput) (jsonutils.JSONObject, error) {
+	return nil, w.StartMergeNetwork(ctx, userCred, "")
+}
+
+func (w *SWire) AllowPerformMerge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return w.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, w, "merge")
+}
+
+func (w *SWire) PerformMerge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.WireMergeInput) (ret jsonutils.JSONObject, err error) {
+	if len(input.Target) == 0 {
+		return nil, httperrors.NewMissingParameterError("target")
+	}
+	defer func() {
+		if err != nil {
+			logclient.AddActionLogWithContext(ctx, w, logclient.ACT_MERGE, err.Error(), userCred, false)
+		}
+	}()
+	iw, err := WireManager.FetchByIdOrName(userCred, input.Target)
+	if err == sql.ErrNoRows {
+		err = httperrors.NewNotFoundError("Wire %q", input.Target)
+		return
+	}
+	if err != nil {
+		return
+	}
+
+	tw := iw.(*SWire)
+	lockman.LockClass(ctx, WireManager, db.GetLockClassKey(WireManager, userCred))
+	defer lockman.ReleaseClass(ctx, WireManager, db.GetLockClassKey(WireManager, userCred))
+
+	err = WireManager.handleWireIdChange(ctx, &wireIdChangeArgs{
+		oldWire: w,
+		newWire: tw,
+	})
+	if err != nil {
+		return
+	}
+	logclient.AddActionLogWithContext(ctx, w, logclient.ACT_MERGE, "", userCred, true)
+	if err = w.Delete(ctx, userCred); err != nil {
+		return nil, err
+	}
+	if input.MergeNetwork {
+		err = w.StartMergeNetwork(ctx, userCred, "")
+		if err != nil {
+			return nil, errors.Wrap(err, "unableto StartMergeNetwork")
+		}
+	}
+	return
+}
+
+func (w *SWire) StartMergeNetwork(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "NetworksUnderWireMergeTask", w, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (wm *SWireManager) handleWireIdChange(ctx context.Context, args *wireIdChangeArgs) error {
+	handlers := []wireIdChangeHandler{
+		HostwireManager,
+		NetworkManager,
+		LoadbalancerClusterManager,
+	}
+
+	errs := []error{}
+	for _, h := range handlers {
+		if err := h.handleWireIdChange(ctx, args); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		err := errors.NewAggregate(errs)
+		return httperrors.NewGeneralError(err)
+	}
+	return nil
 }
 
 // 二层网络列表
@@ -1146,6 +1246,7 @@ func (model *SWire) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 		}
 		data.(*jsonutils.JSONDict).Set("public_scope", jsonutils.NewString(model.PublicScope))
 	}
+	model.Status = api.WIRE_STATUS_READY
 	return model.SInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 

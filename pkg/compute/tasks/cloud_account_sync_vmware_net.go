@@ -290,6 +290,7 @@ func (self *CloudAccountSyncVMwareNetworkTask) createWire(ctx context.Context, c
 	wire.Name = wireName
 	wire.DomainId = cloudaccount.GetOwnerId().GetDomainId()
 	wire.Description = desc
+	wire.Status = api.WIRE_STATUS_READY
 	wire.SetModelManager(models.WireManager, wire)
 	err := models.WireManager.TableSpec().Insert(ctx, wire)
 	if err != nil {

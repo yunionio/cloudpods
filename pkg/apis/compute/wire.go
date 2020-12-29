@@ -90,3 +90,16 @@ type WireListInput struct {
 
 	Bandwidth *int `json:"bandwidth"`
 }
+
+type WireMergeInput struct {
+	// description: wire id or name to be merged
+	// required: true
+	// example: test-wire
+	Target string `json:"target"`
+	// description: if merge networks under wire
+	// required: false
+	MergeNetwork bool `json:"merge_network"`
+}
+
+type WireMergeNetworkInput struct {
+}
