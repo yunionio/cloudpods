@@ -72,7 +72,6 @@ type SScheduledTask struct {
 
 	STimer
 
-	TimerDesc    string `width:"128" charset:"utf8" list:"user" get:"user"`
 	ResourceType string `width:"32" charset:"ascii" create:"required" list:"user" get:"user"`
 	Operation    string `width:"32" charset:"ascii" create:"required" list:"user" get:"user"`
 	LabelType    string `width:"4" charset:"ascii" create:"required" list:"user" get:"user"`
@@ -139,6 +138,7 @@ func (st *SScheduledTask) getMoreDetails(ctx context.Context, userCred mcclient.
 	case api.ST_TYPE_CYCLE:
 		out.CycleTimer = st.STimer.CycleTimerDetails()
 	}
+	out.TimerDesc = st.Description(ctx)
 	// fill label
 	stLabels, err := st.STLabels()
 	if err != nil {
@@ -182,36 +182,6 @@ func (stm *SScheduledTaskManager) ValidateCreateData(ctx context.Context, userCr
 		return input, httperrors.NewInputParameterError("%v", err)
 	}
 	return input, nil
-}
-
-var wdsCN = []string{"", "一", "二", "三", "四", "五", "六", "日"}
-var zone = time.FixedZone("GMT", 8*3600)
-
-func (st *SScheduledTask) TimerDescription() string {
-	format := "2006-01-02 15:04:05"
-	var prefix string
-	timer := st.STimer
-	switch timer.Type {
-	case api.TIMER_TYPE_ONCE:
-		return fmt.Sprintf("单次 %s触发", timer.StartTime.In(zone).Format(format))
-	case api.TIMER_TYPE_DAY:
-		prefix = "每天"
-	case api.TIMER_TYPE_WEEK:
-		wds := timer.GetWeekDays()
-		weekDays := make([]string, len(wds))
-		for i := range wds {
-			weekDays[i] = fmt.Sprintf("星期%s", wdsCN[wds[i]])
-		}
-		prefix = fmt.Sprintf("每周 【%s】", strings.Join(weekDays, "｜"))
-	case api.TIMER_TYPE_MONTH:
-		mns := timer.GetMonthDays()
-		monthDays := make([]string, len(mns))
-		for i := range mns {
-			monthDays[i] = fmt.Sprintf("%d号", mns[i])
-		}
-		prefix = fmt.Sprintf("每月 【%s】", strings.Join(monthDays, "｜"))
-	}
-	return fmt.Sprintf("%s %02d:%02d触发 有效时间为%s至%s", prefix, timer.Hour, timer.Minute, timer.StartTime.In(zone).Format(format), timer.EndTime.In(zone).Format(format))
 }
 
 func (st *SScheduledTask) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential,
@@ -288,7 +258,7 @@ func (st *SScheduledTask) PostCreate(ctx context.Context, userCred mcclient.Toke
 	st.Update(time.Time{})
 	st.Status = api.ST_STATUS_READY
 	st.Enabled = tristate.True
-	st.TimerDesc = st.TimerDescription()
+	// st.TimerDesc = st.Description(ctx)
 	err = st.GetModelManager().TableSpec().InsertOrUpdate(ctx, st)
 	if err != nil {
 		createFailed("update itself")

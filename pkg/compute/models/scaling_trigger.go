@@ -18,8 +18,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -205,17 +203,7 @@ func (st *SScalingTimer) TriggerId() string {
 var cstSh, _ = time.LoadLocation("Asia/Shanghai")
 
 func (st *SScalingTimer) TriggerDescription() string {
-	var detail string
-	switch st.Type {
-	case api.TIMER_TYPE_ONCE:
-		detail = st.EndTime.In(cstSh).Format("2006-01-02 15:04:05")
-	case api.TIMER_TYPE_DAY:
-		detail = fmt.Sprintf("%d:%d every day", st.Hour, st.Minute)
-	case api.TIMER_TYPE_WEEK:
-		detail = st.WeekDaysDesc()
-	case api.TIMER_TYPE_MONTH:
-		detail = st.MonthDaysDesc()
-	}
+	detail := st.descEnglish()
 	name := st.ScalingPolicyId
 	sp, _ := st.ScalingPolicy()
 	if sp != nil {
@@ -441,62 +429,4 @@ var units = map[string]string{
 	api.INDICATOR_DISK_WRITE: "kB/s",
 	api.INDICATOR_FLOW_INTO:  "KB/s",
 	api.INDICATOR_FLOW_OUT:   "KB/s",
-}
-
-var weekDays = []string{"", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
-
-func (st *SScalingTimer) WeekDaysDesc() string {
-	if st.WeekDays == 0 {
-		return ""
-	}
-	var desc strings.Builder
-	wds := st.GetWeekDays()
-	i := 0
-	desc.WriteString(fmt.Sprintf("%d:%d every %s", st.Hour, st.Minute, weekDays[wds[i]]))
-	for i++; i < len(wds)-1; i++ {
-		desc.WriteString(", ")
-		desc.WriteString(weekDays[wds[i]])
-	}
-	if i == len(wds)-1 {
-		desc.WriteString(" and ")
-		desc.WriteString(weekDays[wds[i]])
-	}
-	return desc.String()
-}
-
-func (st *SScalingTimer) MonthDaysDesc() string {
-	if st.MonthDays == 0 {
-		return ""
-	}
-	var desc strings.Builder
-	mds := st.GetMonthDays()
-	i := 0
-	desc.WriteString(fmt.Sprintf("%d:%d on the %d%s", st.Hour, st.Minute, mds[i], dateSuffix(mds[i])))
-	for i++; i < len(mds)-1; i++ {
-		desc.WriteString(", ")
-		desc.WriteString(strconv.Itoa(mds[i]))
-		desc.WriteString(dateSuffix(mds[i]))
-	}
-	if i == len(mds)-1 {
-		desc.WriteString(" and ")
-		desc.WriteString(strconv.Itoa(mds[i]))
-		desc.WriteString(dateSuffix(mds[i]))
-	}
-	desc.WriteString(" of each month")
-	return desc.String()
-}
-
-func dateSuffix(date int) string {
-	var ret string
-	switch date {
-	case 1:
-		ret = "st"
-	case 2:
-		ret = "nd"
-	case 3:
-		ret = "rd"
-	default:
-		ret = "th"
-	}
-	return ret
 }
