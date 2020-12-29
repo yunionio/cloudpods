@@ -23,6 +23,9 @@ import (
 type ScheduledTaskDetails struct {
 	apis.VirtualResourceDetails
 	SScheduledTask
+
+	// 描述
+	TimerDesc string `json:"timer_desc"`
 	// 定时方式触发
 	Timer TimerDetails `json:"timer"`
 	// 周期方式触发
