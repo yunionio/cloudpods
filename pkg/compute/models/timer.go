@@ -15,13 +15,17 @@
 package models
 
 import (
+	"context"
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/util/bitmap"
 )
 
@@ -157,6 +161,134 @@ func checkTimerCreateInput(in api.TimerCreateInput) (api.TimerCreateInput, error
 		return in, fmt.Errorf("exec_time is earlier than now")
 	}
 	return in, nil
+}
+
+var (
+	timerDescTable = i18n.Table{}
+	TIMERLANG      = "timerLang"
+)
+
+func init() {
+	timerDescTable.Set("timerLang", i18n.NewTableEntry().EN("en").CN("cn"))
+}
+
+func (st *STimer) Description(ctx context.Context) string {
+	lang := timerDescTable.Lookup(ctx, TIMERLANG)
+	switch lang {
+	case "en":
+		return st.descEnglish()
+	case "cn":
+		return st.descChinese()
+	}
+	return ""
+}
+
+var (
+	wdsCN = []string{"", "一", "二", "三", "四", "五", "六", "日"}
+	wdsEN = []string{"", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
+	zone  = time.Now().Local().Location()
+	//zone  = time.FixedZone("GMT", 8*3600)
+)
+
+func (st *STimer) descChinese() string {
+	format := "2006-01-02 15:04:05"
+	var prefix string
+	switch st.Type {
+	case api.TIMER_TYPE_ONCE:
+		return fmt.Sprintf("单次 %s触发", st.StartTime.In(zone).Format(format))
+	case api.TIMER_TYPE_DAY:
+		prefix = "每天"
+	case api.TIMER_TYPE_WEEK:
+		wds := st.GetWeekDays()
+		weekDays := make([]string, len(wds))
+		for i := range wds {
+			weekDays[i] = fmt.Sprintf("星期%s", wdsCN[wds[i]])
+		}
+		prefix = fmt.Sprintf("每周 【%s】", strings.Join(weekDays, "｜"))
+	case api.TIMER_TYPE_MONTH:
+		mns := st.GetMonthDays()
+		monthDays := make([]string, len(mns))
+		for i := range mns {
+			monthDays[i] = fmt.Sprintf("%d号", mns[i])
+		}
+		prefix = fmt.Sprintf("每月 【%s】", strings.Join(monthDays, "｜"))
+	}
+	return fmt.Sprintf("%s %02d:%02d触发 有效时间为%s至%s", prefix, st.Hour, st.Minute, st.StartTime.In(zone).Format(format), st.EndTime.In(zone).Format(format))
+}
+
+func (st *STimer) descEnglish() string {
+	var detail string
+	format := "2006-01-02 15:04:05"
+	switch st.Type {
+	case api.TIMER_TYPE_ONCE:
+		return st.EndTime.In(zone).Format(format)
+	case api.TIMER_TYPE_DAY:
+		detail = fmt.Sprintf("%d:%d every day", st.Hour, st.Minute)
+	case api.TIMER_TYPE_WEEK:
+		detail = st.weekDaysDesc()
+	case api.TIMER_TYPE_MONTH:
+		detail = st.monthDaysDesc()
+	}
+	if st.EndTime.IsZero() {
+		return detail
+	}
+	return fmt.Sprintf("%s, from %s to %s", detail, st.StartTime.In(zone).Format(format), st.EndTime.In(zone).Format(format))
+}
+
+func (st *STimer) weekDaysDesc() string {
+	if st.WeekDays == 0 {
+		return ""
+	}
+	var desc strings.Builder
+	wds := st.GetWeekDays()
+	i := 0
+	desc.WriteString(fmt.Sprintf("%d:%d every %s", st.Hour, st.Minute, wdsEN[wds[i]]))
+	for i++; i < len(wds)-1; i++ {
+		desc.WriteString(", ")
+		desc.WriteString(wdsEN[wds[i]])
+	}
+	if i == len(wds)-1 {
+		desc.WriteString(" and ")
+		desc.WriteString(wdsEN[wds[i]])
+	}
+	return desc.String()
+}
+
+func (st *STimer) monthDaysDesc() string {
+	if st.MonthDays == 0 {
+		return ""
+	}
+	var desc strings.Builder
+	mds := st.GetMonthDays()
+	i := 0
+	desc.WriteString(fmt.Sprintf("%d:%d on the %d%s", st.Hour, st.Minute, mds[i], st.dateSuffix(mds[i])))
+	for i++; i < len(mds)-1; i++ {
+		desc.WriteString(", ")
+		desc.WriteString(strconv.Itoa(mds[i]))
+		desc.WriteString(st.dateSuffix(mds[i]))
+	}
+	if i == len(mds)-1 {
+		desc.WriteString(" and ")
+		desc.WriteString(strconv.Itoa(mds[i]))
+		desc.WriteString(st.dateSuffix(mds[i]))
+	}
+	desc.WriteString(" of each month")
+	return desc.String()
+}
+
+func (st *STimer) dateSuffix(date int) string {
+	var ret string
+	switch date {
+	case 1:
+		ret = "st"
+	case 2:
+		ret = "nd"
+	case 3:
+		ret = "rd"
+	default:
+		ret = "th"
+	}
+	return ret
 }
 
 func checkCycleTimerCreateInput(in api.CycleTimerCreateInput) (api.CycleTimerCreateInput, error) {
