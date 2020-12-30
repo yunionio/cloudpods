@@ -25,8 +25,20 @@ type SuggestSysAlertListOptions struct {
 	Type string `help:"Type of suggest rule" choices:"EIP_UNUSED|"`
 }
 
+func (o *SuggestSysAlertListOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(o)
+}
+
 type SSuggestAlertShowOptions struct {
 	ID string `help:"ID or name of the alert" json:"-"`
+}
+
+func (o *SSuggestAlertShowOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
+
+func (o *SSuggestAlertShowOptions) GetId() string {
+	return o.ID
 }
 
 type SuggestAlertIgnoreOptions struct {
@@ -36,6 +48,10 @@ type SuggestAlertIgnoreOptions struct {
 	Project string `help:"'Owner project ID or Name" json:"project"`
 }
 
-func (opt *SuggestAlertIgnoreOptions) Params() (*jsonutils.JSONDict, error) {
+func (opt *SuggestAlertIgnoreOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(opt)
+}
+
+func (o *SuggestAlertIgnoreOptions) GetId() string {
+	return o.ID
 }
