@@ -788,6 +788,16 @@ func (self *SGuest) AllowPerformStart(ctx context.Context,
 func (self *SGuest) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
 	data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_START_FAILED, api.VM_SAVE_DISK_FAILED, api.VM_SUSPEND}) {
+		if !self.guestDisksStorageTypeIsShared() {
+			host := self.GetHost()
+			guestsMem, err := host.GetNotReadyGuestsMemorySize()
+			if err != nil {
+				return nil, err
+			}
+			if float32(guestsMem+self.VmemSize) > host.GetVirtualMemorySize() {
+				return nil, httperrors.NewInsufficientResourceError("host virtual memory not enough")
+			}
+		}
 		if self.isAllDisksReady() {
 			var kwargs *jsonutils.JSONDict
 			if data != nil {
