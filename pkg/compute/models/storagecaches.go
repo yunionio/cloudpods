@@ -618,7 +618,7 @@ func (self *SStoragecache) SyncCloudImages(
 
 	result := compare.SyncResult{}
 
-	driver, err := cloudprovider.GetProviderFactory(region.Provider)
+	driver, err := self.GetProviderFactory()
 	if err != nil {
 		result.Error(errors.Wrapf(err, "GetProviderFactory(%s)", region.Provider))
 		return result
