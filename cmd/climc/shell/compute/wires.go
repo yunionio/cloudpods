@@ -30,6 +30,6 @@ func init() {
 	cmd.Perform("public", new(options.WirePublicOptions))
 	cmd.Perform("private", new(options.WireOptions))
 	cmd.Perform("change-owner-candidate-domains", new(options.WireOptions))
-	cmd.Perform("merge", new(options.WireMergeOptions))
+	cmd.PerformWithKeyword("merge", "merge-from", new(options.WireMergeOptions))
 	cmd.Perform("merge-network", new(options.WireOptions))
 }

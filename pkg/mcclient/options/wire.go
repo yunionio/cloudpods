@@ -91,13 +91,13 @@ func (wo *WirePublicOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type WireMergeOptions struct {
-	FROM         string `help:"ID or name of merge wire from"`
-	TARGET       string `help:"ID or name of merge wire target"`
-	MergeNetwork bool   `help:"whether to merge network under wire"`
+	Froms        []string `help:"IDs or names of merge wire from" json:"sources"`
+	TARGET       string   `help:"ID or name of merge wire target"`
+	MergeNetwork bool     `help:"whether to merge network under wire"`
 }
 
 func (wo *WireMergeOptions) GetId() string {
-	return wo.FROM
+	return wo.TARGET
 }
 
 func (wo *WireMergeOptions) Params() (jsonutils.JSONObject, error) {
