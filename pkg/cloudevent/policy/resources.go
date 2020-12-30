@@ -21,8 +21,10 @@ import (
 
 var (
 	cloudeventSystemResources = []string{}
-	cloudeventDomainResources = []string{}
-	cloudeventUserResources   = []string{}
+	cloudeventDomainResources = []string{
+		"cloudevent",
+	}
+	cloudeventUserResources = []string{}
 )
 
 func init() {

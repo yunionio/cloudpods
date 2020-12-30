@@ -34,7 +34,7 @@ import (
 
 type SCloudeventManager struct {
 	db.SModelBaseManager
-	db.SProjectizedResourceBaseManager
+	db.SDomainizedResourceBaseManager
 }
 
 var CloudeventManager *SCloudeventManager
@@ -57,7 +57,7 @@ func init() {
 
 type SCloudevent struct {
 	db.SModelBase
-	db.SProjectizedResourceBase
+	db.SDomainizedResourceBase
 
 	EventId      int64                `primary:"true" auto_increment:"true" list:"user"`
 	Name         string               `width:"128" charset:"utf8" nullable:"false" index:"true" list:"user"`
@@ -76,6 +76,10 @@ type SCloudevent struct {
 	Brand           string `width:"64" charset:"ascii" list:"domain"`
 }
 
+func (self *SCloudeventManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsDomainAllowList(userCred, self)
+}
+
 func (self *SCloudeventManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return false
 }
@@ -88,6 +92,10 @@ func (self *SCloudevent) AllowUpdateItem(ctx context.Context, userCred mcclient.
 	return false
 }
 
+func (self *SCloudevent) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsDomainAllowGet(userCred, self)
+}
+
 // 云平台操作日志列表
 func (manager *SCloudeventManager) ListItemFilter(
 	ctx context.Context,
@@ -97,7 +105,11 @@ func (manager *SCloudeventManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	q, err := manager.SModelBaseManager.ListItemFilter(ctx, q, userCred, input.ModelBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SModelBaseManager.ListItemFilter")
+	}
+	q, err = manager.SDomainizedResourceBaseManager.ListItemFilter(ctx, q, userCred, input.DomainizedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDomainizedResourceBaseManager.ListItemFilter")
 	}
 
 	if len(input.Providers) > 0 {
@@ -153,37 +165,45 @@ func (manager *SCloudeventManager) FetchCustomizeColumns(
 ) []api.CloudeventDetails {
 	rows := make([]api.CloudeventDetails, len(objs))
 	base := manager.SModelBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-	projRows := manager.SProjectizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	domainRows := manager.SDomainizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i].ModelBaseDetails = base[i]
-		rows[i].ProjectizedResourceInfo = projRows[i]
+		rows[i].DomainizedResourceInfo = domainRows[i]
 	}
 	return rows
 }
 
+func (self *SCloudevent) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	return self.SModelBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+}
+
+func (manager *SCloudeventManager) NamespaceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeDomain
+}
+
 func (manager *SCloudeventManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+	return rbacutils.ScopeDomain
 }
 
 func (self *SCloudevent) GetOwnerId() mcclient.IIdentityProvider {
-	owner := db.SOwnerId{DomainId: self.DomainId, ProjectId: self.ProjectId}
+	owner := db.SOwnerId{DomainId: self.DomainId}
 	return &owner
 }
 
 func (manager *SCloudeventManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
-	return manager.SProjectizedResourceBaseManager.FilterByOwner(q, owner, scope)
+	return manager.SDomainizedResourceBaseManager.FilterByOwner(q, owner, scope)
 }
 
 func (manager *SCloudeventManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	return manager.SProjectizedResourceBaseManager.FetchOwnerId(ctx, data)
+	return manager.SDomainizedResourceBaseManager.FetchOwnerId(ctx, data)
 }
 
 func (manager *SCloudeventManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
-	return manager.SProjectizedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	return manager.SDomainizedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 }
 
 func (manager *SCloudeventManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
-	return manager.SProjectizedResourceBaseManager.QueryDistinctExtraField(q, field)
+	return manager.SDomainizedResourceBaseManager.QueryDistinctExtraField(q, field)
 }
 
 func (manager *SCloudeventManager) OrderByExtraFields(
@@ -192,7 +212,7 @@ func (manager *SCloudeventManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.CloudeventListInput,
 ) (*sqlchemy.SQuery, error) {
-	return manager.SProjectizedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ProjectizedResourceListInput)
+	return manager.SDomainizedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.DomainizedResourceListInput)
 }
 
 func (manager *SCloudeventManager) SyncCloudevent(ctx context.Context, userCred mcclient.TokenCredential, cloudprovider *SCloudprovider, iEvents []cloudprovider.ICloudEvent) int {
@@ -213,7 +233,6 @@ func (manager *SCloudeventManager) SyncCloudevent(ctx context.Context, userCred 
 			CloudproviderId: cloudprovider.Id,
 		}
 		event.DomainId = cloudprovider.DomainId
-		event.ProjectId = cloudprovider.ProjectId
 		if len(event.Brand) == 0 {
 			event.Brand = event.Provider
 		}
