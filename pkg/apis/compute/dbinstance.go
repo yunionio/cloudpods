@@ -294,6 +294,8 @@ type DBInstanceDetails struct {
 
 	SDBInstance
 
+	Secgroups []apis.StandaloneShortDesc `json:"secgroups"`
+
 	// 安全组名称
 	// example: Default
 	Secgroup string `json:"secgroup"`
