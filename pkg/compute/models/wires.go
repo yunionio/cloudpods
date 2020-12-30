@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -995,11 +996,87 @@ func (w *SWire) PerformMergeNetwork(ctx context.Context, userCred mcclient.Token
 	return nil, w.StartMergeNetwork(ctx, userCred, "")
 }
 
-func (w *SWire) AllowPerformMerge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return w.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, w, "merge")
+func (sm *SWireManager) FetchByIdsOrNames(idOrNames []string) ([]SWire, error) {
+	if len(idOrNames) == 0 {
+		return nil, nil
+	}
+	q := sm.Query("")
+	if len(idOrNames) == 1 {
+		q.Filter(sqlchemy.OR(sqlchemy.Equals(q.Field("id"), idOrNames[0]), sqlchemy.Equals(q.Field("name"), idOrNames[0])))
+	} else {
+		q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("id"), idOrNames[0]), sqlchemy.In(q.Field("name"), idOrNames[0])))
+	}
+	ret := make([]SWire, 0, len(idOrNames))
+	err := db.FetchModelObjects(sm, q, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
-func (w *SWire) PerformMerge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.WireMergeInput) (ret jsonutils.JSONObject, err error) {
+func (w *SWire) AllowPerformMergeFrom(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return w.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, w, "merge-from")
+}
+
+func (w *SWire) PerformMergeFrom(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.WireMergeFromInput) (ret jsonutils.JSONObject, err error) {
+	if len(input.Sources) == 0 {
+		return nil, httperrors.NewMissingParameterError("sources")
+	}
+	defer func() {
+		if err != nil {
+			logclient.AddActionLogWithContext(ctx, w, logclient.ACT_MERGE, err.Error(), userCred, false)
+		}
+	}()
+
+	wires, err := WireManager.FetchByIdsOrNames(input.Sources)
+	if err != nil {
+		return
+	}
+	wireIdOrNameSet := sets.NewString(input.Sources...)
+	for i := range wires {
+		id, name := wires[i].GetId(), wires[i].GetName()
+		if wireIdOrNameSet.Has(id) {
+			wireIdOrNameSet.Delete(id)
+			continue
+		}
+		if wireIdOrNameSet.Has(name) {
+			wireIdOrNameSet.Delete(name)
+		}
+	}
+	if wireIdOrNameSet.Len() > 0 {
+		return nil, httperrors.NewInputParameterError("invalid wire id or name %v", wireIdOrNameSet.UnsortedList())
+	}
+
+	lockman.LockClass(ctx, WireManager, db.GetLockClassKey(WireManager, userCred))
+	defer lockman.ReleaseClass(ctx, WireManager, db.GetLockClassKey(WireManager, userCred))
+
+	for _, tw := range wires {
+		err = WireManager.handleWireIdChange(ctx, &wireIdChangeArgs{
+			oldWire: &tw,
+			newWire: w,
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to merge wire %s to %s", tw.GetId(), w.GetId())
+		}
+		if err = tw.Delete(ctx, userCred); err != nil {
+			return nil, err
+		}
+	}
+	logclient.AddActionLogWithContext(ctx, w, logclient.ACT_MERGE_FROM, "", userCred, true)
+	if input.MergeNetwork {
+		err = w.StartMergeNetwork(ctx, userCred, "")
+		if err != nil {
+			return nil, errors.Wrap(err, "unableto StartMergeNetwork")
+		}
+	}
+	return
+}
+
+func (w *SWire) AllowPerformMergeTo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return w.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, w, "merge-to")
+}
+
+func (w *SWire) PerformMergeTo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.WireMergeInput) (ret jsonutils.JSONObject, err error) {
 	if len(input.Target) == 0 {
 		return nil, httperrors.NewMissingParameterError("target")
 	}
@@ -1033,7 +1110,7 @@ func (w *SWire) PerformMerge(ctx context.Context, userCred mcclient.TokenCredent
 		return nil, err
 	}
 	if input.MergeNetwork {
-		err = w.StartMergeNetwork(ctx, userCred, "")
+		err = tw.StartMergeNetwork(ctx, userCred, "")
 		if err != nil {
 			return nil, errors.Wrap(err, "unableto StartMergeNetwork")
 		}

@@ -101,5 +101,14 @@ type WireMergeInput struct {
 	MergeNetwork bool `json:"merge_network"`
 }
 
+type WireMergeFromInput struct {
+	// description: wire ids or names to be merged from
+	// required: true
+	Sources []string `json:"sources"`
+	// description: if merge networks under wire
+	// required: false
+	MergeNetwork bool `json:"merge_network"`
+}
+
 type WireMergeNetworkInput struct {
 }
