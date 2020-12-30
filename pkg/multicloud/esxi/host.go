@@ -969,6 +969,7 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 					Device:    dev,
 				})
 			}
+			nicIndex += 1
 		}
 	}
 
