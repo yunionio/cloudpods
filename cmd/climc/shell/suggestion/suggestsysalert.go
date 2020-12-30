@@ -12,22 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package monitor
+package suggestion
 
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 	options "yunion.io/x/onecloud/pkg/mcclient/options/monitor"
 )
 
 func init() {
-
-	cmd := shell.NewResourceCmd(modules.SuggestSysRuleManager)
-	cmd.List(new(options.SuggestRuleListOptions))
-	cmd.Show(new(options.SuggestRuleShowOptions))
-	cmd.Perform("enable", new(options.SuggestRuleShowOptions))
-	cmd.Perform("disable", new(options.SuggestRuleShowOptions))
-	cmd.BatchDelete(new(options.CommonAlertDeleteOptions))
-	cmd.Perform("config", new(options.SuggestRuleConfigOptions))
-
+	cmd := shell.NewResourceCmd(monitor.SuggestSysAlertManager)
+	cmd.List(new(options.SuggestSysAlertListOptions))
+	cmd.Show(new(options.SSuggestAlertShowOptions))
+	cmd.Perform("ignore", new(options.SuggestAlertIgnoreOptions))
 }
