@@ -23,7 +23,7 @@ import (
 
 type CloudeventListInput struct {
 	apis.ModelBaseListInput
-	apis.ProjectizedResourceListInput
+	apis.DomainizedResourceListInput
 
 	compute.CloudenvResourceListInput
 
@@ -47,6 +47,6 @@ type CloudeventListInput struct {
 
 type CloudeventDetails struct {
 	apis.ModelBaseDetails
-	apis.ProjectizedResourceInfo
+	apis.DomainizedResourceInfo
 	SCloudevent
 }
