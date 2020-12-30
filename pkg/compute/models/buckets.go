@@ -1875,9 +1875,10 @@ func (bucket *SBucket) OnMetadataUpdated(ctx context.Context, userCred mcclient.
 		return
 	}
 	tags, _ := bucket.GetAllUserMetadata()
-	err = cloudprovider.SetBucketMetadata(iBucket, tags, true)
+	err = cloudprovider.SetBucketMetadata(iBucket, tags, false)
 	if err != nil {
 		log.Errorf("iBucket.SetMetadata failed: %s", err)
+		return
 	}
 	syncMetadata(ctx, userCred, bucket, iBucket)
 	db.OpsLog.LogEvent(bucket, db.ACT_UPDATE_TAGS, tags, userCred)
