@@ -282,6 +282,15 @@ func (model *SStandaloneAnonResourceBase) SetUserMetadataAll(ctx context.Context
 	if err != nil {
 		return errors.Wrap(err, "SetAll")
 	}
+	model.GetIStandaloneModel().OnMetadataUpdated(ctx, userCred)
+	return nil
+}
+
+func (model *SStandaloneAnonResourceBase) SetCloudMetadataAll(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
+	err := Metadata.SetAll(ctx, model, dictstore, userCred, CLOUD_TAG_PREFIX)
+	if err != nil {
+		return errors.Wrap(err, "SetAll")
+	}
 	userTags, err := model.GetAllUserMetadata()
 	if err != nil {
 		return errors.Wrap(err, "model.GetAllUserMetadata()")
@@ -290,25 +299,12 @@ func (model *SStandaloneAnonResourceBase) SetUserMetadataAll(ctx context.Context
 	if err != nil {
 		return errors.Wrap(err, "model.GetAllCloudMetadata()")
 	}
-	if reflect.DeepEqual(userTags, cloudTags) {
-		return nil
-	}
-	model.GetIStandaloneModel().OnMetadataUpdated(ctx, userCred)
-	return nil
-}
-
-func (model *SStandaloneAnonResourceBase) SetSyncedUserMetadataAll(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
-	err := Metadata.SetAll(ctx, model, dictstore, userCred, USER_TAG_PREFIX)
-	if err != nil {
-		return errors.Wrap(err, "SetAll")
-	}
-	return nil
-}
-
-func (model *SStandaloneAnonResourceBase) SetCloudMetadataAll(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
-	err := Metadata.SetAll(ctx, model, dictstore, userCred, CLOUD_TAG_PREFIX)
-	if err != nil {
-		return errors.Wrap(err, "SetAll")
+	if !reflect.DeepEqual(userTags, cloudTags) {
+		cloudTags2 := make(map[string]interface{})
+		for k, v := range cloudTags {
+			cloudTags2[USER_TAG_PREFIX+k] = v
+		}
+		return model.SetUserMetadataAll(ctx, cloudTags2, userCred)
 	}
 	return nil
 }

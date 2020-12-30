@@ -28,7 +28,6 @@ import (
 type IMetadataSetter interface {
 	SetCloudMetadataAll(ctx context.Context, meta map[string]interface{}, userCred mcclient.TokenCredential) error
 	SetSysCloudMetadataAll(ctx context.Context, meta map[string]interface{}, userCred mcclient.TokenCredential) error
-	SetSyncedUserMetadataAll(ctx context.Context, meta map[string]interface{}, userCred mcclient.TokenCredential) error
 	Keyword() string
 	GetName() string
 	GetCloudproviderId() string
@@ -45,13 +44,10 @@ func syncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model 
 	tags, err := remote.GetTags()
 	if err == nil || errors.Cause(err) == cloudprovider.ErrNotFound {
 		store := make(map[string]interface{}, 0)
-		userStore := make(map[string]interface{}, 0)
 		for key, value := range tags {
 			store[db.CLOUD_TAG_PREFIX+key] = value
-			userStore[db.USER_TAG_PREFIX+key] = value
 		}
 		model.SetCloudMetadataAll(ctx, store, userCred)
-		model.SetSyncedUserMetadataAll(ctx, userStore, userCred)
 	}
 	return nil
 }
@@ -77,13 +73,10 @@ func syncVirtualResourceMetadata(ctx context.Context, userCred mcclient.TokenCre
 	tags, err := remote.GetTags()
 	if err == nil || errors.Cause(err) == cloudprovider.ErrNotFound {
 		store := make(map[string]interface{}, 0)
-		userStore := make(map[string]interface{}, 0)
 		for key, value := range tags {
 			store[db.CLOUD_TAG_PREFIX+key] = value
-			userStore[db.USER_TAG_PREFIX+key] = value
 		}
 		model.SetCloudMetadataAll(ctx, store, userCred)
-		model.SetSyncedUserMetadataAll(ctx, userStore, userCred)
 	}
 	return nil
 }

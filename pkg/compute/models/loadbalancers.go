@@ -1397,7 +1397,7 @@ func (self *SLoadbalancer) OnMetadataUpdated(ctx context.Context, userCred mccli
 	if len(self.ExternalId) == 0 {
 		return
 	}
-	err := self.StartRemoteUpdateTask(ctx, userCred, true, "")
+	err := self.StartRemoteUpdateTask(ctx, userCred, false, "")
 	if err != nil {
 		log.Errorf("StartRemoteUpdateTask fail: %s", err)
 	}
