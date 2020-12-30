@@ -193,14 +193,13 @@ func init() {
 	// rds_cpu
 	RegistryMetricCreateInput("rds_cpu", "Rds CPU usage", monitor.METRIC_RES_TYPE_RDS,
 		monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
-			newMetricFieldCreateInput("used_percent", "Connection usage", monitor.METRIC_UNIT_PERCENT, 1),
 			newMetricFieldCreateInput("usage_active", "CPU active state utilization rate", monitor.METRIC_UNIT_PERCENT, 2),
 		})
 
 	// rds_mem
 	RegistryMetricCreateInput("rds_mem", "Rds memory", monitor.METRIC_RES_TYPE_RDS,
 		monitor.METRIC_DATABASE_TELE, 2, []monitor.MetricFieldCreateInput{
-			newMetricFieldCreateInput("used_percent", "Connection usage", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("used_percent", "Used memory rate", monitor.METRIC_UNIT_PERCENT, 1),
 		})
 
 	// rds_netio
@@ -219,13 +218,13 @@ func init() {
 	// dcs_cpu
 	RegistryMetricCreateInput("dcs_cpu", "Redis CPU usage", monitor.METRIC_RES_TYPE_REDIS,
 		monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
-			newMetricFieldCreateInput("used_percent", "CPU active state utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("usage_percent", "CPU active state utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
 		})
 
 	// dcs_mem
 	RegistryMetricCreateInput("dcs_mem", "Redis memory", monitor.METRIC_RES_TYPE_REDIS,
 		monitor.METRIC_DATABASE_TELE, 2, []monitor.MetricFieldCreateInput{
-			newMetricFieldCreateInput("used_percent", "memory usage", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("used_percent", "Used memory rate", monitor.METRIC_UNIT_PERCENT, 1),
 		})
 
 	// dcs_netio
