@@ -29,3 +29,16 @@ func (o *AlertRecordShowOptions) Params() (jsonutils.JSONObject, error) {
 func (o *AlertRecordShowOptions) GetId() string {
 	return o.ID
 }
+
+type AlertRecordTotalOptions struct {
+	ID string `help:"total-alert" json:"-"`
+	options.BaseListOptions
+}
+
+func (o *AlertRecordTotalOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(o)
+}
+
+func (o *AlertRecordTotalOptions) GetId() string {
+	return o.ID
+}

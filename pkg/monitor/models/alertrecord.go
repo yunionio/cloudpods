@@ -297,5 +297,50 @@ func (manager *SAlertRecordManager) DeleteRecordsOfThirtyDaysAgo(ctx context.Con
 			log.Errorf("delete expire record:%s err:%v", records[i].GetId(), err)
 		}
 	}
+}
 
+func (manager *SAlertRecordManager) AllowGetPropertyTotalAlert(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (manager *SAlertRecordManager) GetPropertyTotalAlert(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+
+	alertRecords, err := manager.getNowAlertingRecord(ctx, userCred, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "getNowAlertingRecord error")
+	}
+	alertCountMap := jsonutils.NewDict()
+	for _, record := range alertRecords {
+		evalMatches, err := record.GetEvalData()
+		if err != nil {
+			return nil, errors.Wrapf(err, "get record:%s evalData error", record.GetId())
+		}
+		count := int64(len(evalMatches))
+		if alertCountMap.Contains(record.ResType) {
+			resTypeCount, _ := alertCountMap.Int(record.ResType)
+			count = count + resTypeCount
+		}
+		alertCountMap.Set(record.ResType, jsonutils.NewInt(count))
+	}
+	return alertCountMap, nil
+}
+
+func (manager *SAlertRecordManager) getNowAlertingRecord(ctx context.Context, userCred mcclient.TokenCredential,
+	param jsonutils.JSONObject) ([]SAlertRecord, error) {
+	now := time.Now()
+	startTime := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 1, now.Location())
+	query := manager.Query()
+	scope, _ := param.GetString("scope")
+	query = manager.FilterByOwner(query, userCred, rbacutils.String2Scope(scope))
+	query = query.GE("created_at", startTime.UTC().Format(timeutils.MysqlTimeFormat))
+	sQuery := CommonAlertManager.Query("id").Equals("state", monitor.AlertStateAlerting).IsNull("used_by").SubQuery()
+	query = query.In("alert_id", sQuery).IsNotNull("res_type").IsNotEmpty("res_type").GroupBy("alert_id")
+	records := make([]SAlertRecord, 0)
+	err := db.FetchModelObjects(manager, query, &records)
+	if err != nil {
+		return nil, err
+	}
+	return records, nil
 }
