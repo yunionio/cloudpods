@@ -95,6 +95,7 @@ func init() {
 	renders["last"] = QueryDefinition{Renderer: functionRenderer}
 	renders["max"] = QueryDefinition{Renderer: functionRenderer}
 	renders["min"] = QueryDefinition{Renderer: functionRenderer}
+	renders["abs"] = QueryDefinition{Renderer: functionRenderer}
 	renders["percentile"] = QueryDefinition{
 		Renderer: functionRenderer,
 		Params:   []DefinitionParameters{{Name: "nth", Type: "int"}},

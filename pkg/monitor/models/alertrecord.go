@@ -335,6 +335,7 @@ func (manager *SAlertRecordManager) getNowAlertingRecord(ctx context.Context, us
 	scope, _ := param.GetString("scope")
 	query = manager.FilterByOwner(query, userCred, rbacutils.String2Scope(scope))
 	query = query.GE("created_at", startTime.UTC().Format(timeutils.MysqlTimeFormat))
+	query = query.Equals("state", monitor.AlertStateAlerting)
 	sQuery := CommonAlertManager.Query("id").Equals("state", monitor.AlertStateAlerting).IsNull("used_by").SubQuery()
 	query = query.In("alert_id", sQuery).IsNotNull("res_type").IsNotEmpty("res_type").GroupBy("alert_id")
 	records := make([]SAlertRecord, 0)
