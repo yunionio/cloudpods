@@ -2770,6 +2770,27 @@ func (self *SGuest) PerformStop(ctx context.Context, userCred mcclient.TokenCred
 	return nil, httperrors.NewInvalidStatusError("Cannot stop server in status %s", self.Status)
 }
 
+func (self *SGuest) PerformFreeze(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformFreezeInput) (jsonutils.JSONObject, error) {
+	if self.Freezed {
+		return nil, httperrors.NewBadRequestError("virtual resource already freezed")
+	}
+	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED}) {
+		return nil, self.StartGuestStopAndFreezeTask(ctx, userCred)
+	} else {
+		return self.SVirtualResourceBase.PerformFreeze(ctx, userCred, query, input)
+	}
+}
+
+func (self *SGuest) StartGuestStopAndFreezeTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	self.SetStatus(userCred, api.VM_START_STOP, "")
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestStopAndFreezeTask", self, userCred, nil, "", "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
 func (self *SGuest) AllowPerformRestart(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
