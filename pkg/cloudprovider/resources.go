@@ -341,6 +341,8 @@ type ICloudVM interface {
 	ResetToInstanceSnapshot(ctx context.Context, idStr string) error
 
 	SaveImage(opts *SaveImageOptions) (ICloudImage, error)
+
+	AllocatePublicIpAddress() (string, error)
 }
 
 type ICloudNic interface {
