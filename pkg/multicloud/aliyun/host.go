@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -178,16 +179,15 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB,
 		desc.InstanceType, desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Password,
 		desc.DataDisks, desc.PublicKey, desc.ExternalSecgroupId, desc.UserData, desc.BillingCycle,
-		desc.ProjectId, desc.OsType, desc.Tags)
+		desc.ProjectId, desc.OsType, desc.Tags, desc.SPublicIpInfo)
 	if err != nil {
 		return nil, err
 	}
 	vm, err := self.GetInstanceById(vmId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetInstanceById")
 	}
-	// err = vm.waitStatus(InstanceStatusStopped, time.Second*10, time.Second*1800)
-	return vm, err
+	return vm, nil
 }
 
 func (self *SHost) _createVM(name string, imgId string,
@@ -195,7 +195,7 @@ func (self *SHost) _createVM(name string, imgId string,
 	vswitchId string, ipAddr string, desc string, passwd string,
 	dataDisks []cloudprovider.SDiskInfo, publicKey string, secgroupId string,
 	userData string, bc *billing.SBillingCycle, projectId, osType string,
-	tags map[string]string,
+	tags map[string]string, publicIp cloudprovider.SPublicIpInfo,
 ) (string, error) {
 	net := self.zone.getNetworkById(vswitchId)
 	if net == nil {
@@ -251,7 +251,7 @@ func (self *SHost) _createVM(name string, imgId string,
 
 	if len(instanceType) > 0 {
 		log.Debugf("Try instancetype : %s", instanceType)
-		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceType, secgroupId, self.zone.ZoneId, desc, passwd, disks, vswitchId, ipAddr, keypair, userData, bc, projectId, osType, tags)
+		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceType, secgroupId, self.zone.ZoneId, desc, passwd, disks, vswitchId, ipAddr, keypair, userData, bc, projectId, osType, tags, publicIp)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceType, err)
 			return "", fmt.Errorf("Failed to create specification %s.%s", instanceType, err.Error())
@@ -271,7 +271,7 @@ func (self *SHost) _createVM(name string, imgId string,
 	for _, instType := range instanceTypes {
 		instanceTypeId := instType.InstanceTypeId
 		log.Debugf("Try instancetype : %s", instanceTypeId)
-		vmId, err = self.zone.region.CreateInstance(name, imgId, instanceTypeId, secgroupId, self.zone.ZoneId, desc, passwd, disks, vswitchId, ipAddr, keypair, userData, bc, projectId, osType, tags)
+		vmId, err = self.zone.region.CreateInstance(name, imgId, instanceTypeId, secgroupId, self.zone.ZoneId, desc, passwd, disks, vswitchId, ipAddr, keypair, userData, bc, projectId, osType, tags, publicIp)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceTypeId, err)
 		} else {
