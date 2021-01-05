@@ -1205,7 +1205,6 @@ func (self *SInstance) GetError() error {
 }
 
 func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
-	delete(tags, "Name")
 	oldTagsJson, err := FetchTags(self.host.zone.region.ec2Client, self.InstanceId)
 	if err != nil {
 		return errors.Wrapf(err, "FetchTags(self.host.zone.region.ec2Client, %s)", self.InstanceId)
@@ -1232,7 +1231,7 @@ func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
 	if replace {
 		for k := range oldTags {
 			if _, ok := tags[k]; !ok {
-				if !strings.HasPrefix(k, "aws:") {
+				if !strings.HasPrefix(k, "aws:") && k != "Name" {
 					delTags = append(delTags, k)
 				}
 			}
@@ -1243,6 +1242,7 @@ func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
 	if err != nil {
 		return errors.Wrapf(err, "self.host.zone.region.UntagResources([]string{%s}, %s)", Arn, jsonutils.Marshal(delTags).String())
 	}
+	delete(addTags, "Name")
 	err = self.host.zone.region.TagResources([]string{Arn}, addTags)
 	if err != nil {
 		return errors.Wrapf(err, "self.host.zone.region.TagResources([]string{%s}, %s)", Arn, jsonutils.Marshal(addTags).String())
