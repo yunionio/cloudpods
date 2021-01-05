@@ -66,3 +66,7 @@ func (instance *SInstanceBase) ResetToInstanceSnapshot(ctx context.Context, idSt
 func (self *SInstanceBase) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudprovider.ICloudImage, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "SaveImage")
 }
+
+func (self *SInstanceBase) AllocatePublicIpAddress() (string, error) {
+	return "", errors.Wrapf(cloudprovider.ErrNotImplemented, "AllocatePublicIpAddress")
+}
