@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -33,6 +34,7 @@ type GuestStopTask struct {
 
 func init() {
 	taskman.RegisterTask(GuestStopTask{})
+	taskman.RegisterTask(GuestStopAndFreezeTask{})
 }
 
 func (self *GuestStopTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -79,4 +81,41 @@ func (self *GuestStopTask) OnGuestStopTaskCompleteFailed(ctx context.Context, gu
 	db.OpsLog.LogEvent(guest, db.ACT_STOP_FAIL, reason.String(), self.UserCred)
 	self.SetStageFailed(ctx, reason)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP, reason.String(), self.UserCred, false)
+}
+
+type GuestStopAndFreezeTask struct {
+	SGuestBaseTask
+}
+
+func (self *GuestStopAndFreezeTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	self.SetStage("OnStopGuest", nil)
+	err := guest.StartGuestStopTask(ctx, self.UserCred, false, false, self.GetTaskId())
+	if err != nil {
+		self.OnStopGuestFailed(ctx, guest, jsonutils.NewString(err.Error()))
+	}
+}
+
+func (self *GuestStopAndFreezeTask) OnStopGuestFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
+	db.OpsLog.LogEvent(guest, db.ACT_FREEZE_FAIL, reason.String(), self.UserCred)
+	self.SetStageFailed(ctx, reason)
+}
+
+func (self *GuestStopAndFreezeTask) OnStopGuest(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStage("OnSyncStatus", nil)
+	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
+}
+
+func (self *GuestStopAndFreezeTask) OnSyncStatus(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	_, err := guest.SVirtualResourceBase.PerformFreeze(ctx, self.UserCred, nil, apis.PerformFreezeInput{})
+	if err != nil {
+		self.OnStopGuestFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	self.SetStageComplete(ctx, nil)
+}
+
+func (self *GuestStopAndFreezeTask) OnSyncStatusFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
+	db.OpsLog.LogEvent(guest, db.ACT_FREEZE_FAIL, reason.String(), self.UserCred)
+	self.SetStageFailed(ctx, reason)
 }
