@@ -200,16 +200,20 @@ func (self *SAzureClient) jsonRequest(method, path string, body jsonutils.JSONOb
 			if ae, ok := err.(*AzureResponseError); ok {
 				switch ae.AzureError.Code {
 				case "SubscriptionNotRegistered":
-					err = self.ServiceRegister("Microsoft.Network")
-					if err != nil {
-						return nil, errors.Wrapf(err, "self.registerService(Microsoft.Network)")
+					service := self.getService(path)
+					if len(service) == 0 {
+						return nil, err
+					}
+					re := self.ServiceRegister("Microsoft.Network")
+					if re != nil {
+						return nil, errors.Wrapf(re, "self.registerService(Microsoft.Network)")
 					}
 					continue
 				case "MissingSubscriptionRegistration":
 					for _, serviceType := range ae.AzureError.Details {
-						err = self.ServiceRegister(serviceType.Target)
+						re := self.ServiceRegister(serviceType.Target)
 						if err != nil {
-							return nil, errors.Wrapf(err, "self.registerService(%s)", serviceType.Target)
+							return nil, errors.Wrapf(re, "self.registerService(%s)", serviceType.Target)
 						}
 					}
 					continue
@@ -365,6 +369,25 @@ func (self *SAzureClient) list(resource string, params url.Values, retVal interf
 		params.Set(key, skipToken)
 	}
 	return jsonutils.Update(retVal, result)
+}
+
+func (self *SAzureClient) getService(path string) string {
+	for _, service := range []string{
+		"microsoft.compute",
+		"microsoft.classiccompute",
+		"microsoft.network",
+		"microsoft.classicnetwork",
+		"microsoft.storage",
+		"microsoft.classicstorage",
+		"microsoft.billing",
+		"microsoft.insights",
+		"microsoft.authorization",
+	} {
+		if strings.Contains(strings.ToLower(path), service) {
+			return service
+		}
+	}
+	return ""
 }
 
 func (self *SAzureClient) _apiVersion(resource string, params url.Values) string {
