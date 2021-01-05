@@ -90,3 +90,18 @@ func (self *SCloudimage) syncRemove(ctx context.Context, userCred mcclient.Token
 
 	return self.Delete(ctx, userCred)
 }
+
+func (self *SCloudimage) syncWithImage(ctx context.Context, userCred mcclient.TokenCredential, image SCachedimage) error {
+	_cachedImage, err := db.FetchByExternalId(CachedimageManager, image.GetGlobalId())
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchByExternalId(%s)", image.GetGlobalId())
+	}
+	cachedImage := _cachedImage.(*SCachedimage)
+	_, err = db.Update(cachedImage, func() error {
+		cachedImage.Info = image.Info
+		cachedImage.Size = image.Size
+		cachedImage.UEFI = image.UEFI
+		return nil
+	})
+	return err
+}
