@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -27,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -227,4 +230,19 @@ func (self *SAliyunGuestDriver) IsSupportPublicipToEip() bool {
 
 func (self *SAliyunGuestDriver) IsSupportSetAutoRenew() bool {
 	return true
+}
+
+func (self *SAliyunGuestDriver) IsSupportPublicIp() bool {
+	return true
+}
+
+func (self *SAliyunGuestDriver) RemoteActionAfterGuestCreated(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, iVM cloudprovider.ICloudVM, desc *cloudprovider.SManagedVMCreateConfig) {
+	if desc.PublicIpBw > 0 {
+		publicIp, err := iVM.AllocatePublicIpAddress()
+		if err != nil {
+			logclient.AddSimpleActionLog(guest, logclient.ACT_ALLOCATE, errors.Wrapf(err, "iVM.AllocatePublicIpAddress"), userCred, false)
+			return
+		}
+		log.Infof("AllocatePublicIpAddress for instance %s %s", guest.Name, publicIp)
+	}
 }

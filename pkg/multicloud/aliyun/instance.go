@@ -594,7 +594,7 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
 	zoneId string, desc string, passwd string, disks []SDisk, vSwitchId string, ipAddr string,
 	keypair string, userData string, bc *billing.SBillingCycle, projectId, osType string,
-	tags map[string]string,
+	tags map[string]string, publicIp cloudprovider.SPublicIpInfo,
 ) (string, error) {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
@@ -607,6 +607,10 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	params["InternetChargeType"] = "PayByTraffic"
 	params["InternetMaxBandwidthIn"] = "200"
 	params["InternetMaxBandwidthOut"] = "100"
+	if publicIp.PublicIpBw > 0 && publicIp.PublicIpChargeType == cloudprovider.ElasticipChargeTypeByBandwidth {
+		params["InternetChargeType"] = "PayByBandwidth"
+		params["InternetMaxBandwidthOut"] = fmt.Sprintf("%d", publicIp.PublicIpBw)
+	}
 	params["HostName"] = stringutils2.GenerateHostName(name, osType)
 	if len(passwd) > 0 {
 		params["Password"] = passwd
@@ -695,6 +699,21 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	}
 	instanceId, _ := body.GetString("InstanceId")
 	return instanceId, nil
+}
+
+func (self *SRegion) AllocatePublicIpAddress(instanceId string) (string, error) {
+	params := map[string]string{
+		"InstanceId": instanceId,
+	}
+	resp, err := self.ecsRequest("AllocatePublicIpAddress", params)
+	if err != nil {
+		return "", errors.Wrapf(err, "AllocatePublicIpAddress")
+	}
+	return resp.GetString("IpAddress")
+}
+
+func (self *SInstance) AllocatePublicIpAddress() (string, error) {
+	return self.host.zone.region.AllocatePublicIpAddress(self.InstanceId)
 }
 
 func (self *SRegion) doStartVM(instanceId string) error {
