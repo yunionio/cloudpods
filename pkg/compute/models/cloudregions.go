@@ -1038,7 +1038,6 @@ func (self *SCloudregion) SyncCloudImages(ctx context.Context, userCred mcclient
 	}
 
 	result := compare.SyncResult{}
-	result.UpdateCnt = len(commondb)
 
 	for i := 0; i < len(removed); i++ {
 		err := removed[i].syncRemove(ctx, userCred)
@@ -1047,6 +1046,15 @@ func (self *SCloudregion) SyncCloudImages(ctx context.Context, userCred mcclient
 			continue
 		}
 		result.Delete()
+	}
+
+	for i := 0; i < len(commonext); i++ {
+		err := commondb[i].syncWithImage(ctx, userCred, commonext[i])
+		if err != nil {
+			result.UpdateError(errors.Wrapf(err, "updateCachedImage"))
+			continue
+		}
+		result.Update()
 	}
 
 	for i := 0; i < len(added); i++ {
