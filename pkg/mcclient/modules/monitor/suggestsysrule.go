@@ -24,6 +24,7 @@ var (
 	SuggestSysAlertManager      *SSuggestSysAlertManager
 	SuggestSysRuleConfigManager *SSuggestSysRuleConfigManager
 	InfluxdbShemaManager        *SInfluxdbShemaManager
+	SuggestSysAlertCostManager  *SSuggestSysAlertManager
 )
 
 func init() {
@@ -31,6 +32,7 @@ func init() {
 	SuggestSysAlertManager = NewSuggestSysAlertManager()
 	SuggestSysRuleConfigManager = NewSuggestSysRuleConfigManager()
 	InfluxdbShemaManager = NewInfluxdbShemaManager()
+	SuggestSysAlertCostManager = NewSuggestSysAlertCostManager()
 	for _, m := range []modulebase.IBaseManager{
 		SuggestSysRuleManager,
 		SuggestSysAlertManager,
@@ -69,6 +71,15 @@ func NewSuggestSysRuleManager() *SSuggestSysRuleManager {
 func NewSuggestSysAlertManager() *SSuggestSysAlertManager {
 	man := modules.NewSuggestionManager("suggestsysalert", "suggestsysalerts",
 		[]string{"id", "name", "type", "res_id", "monitor_config"},
+		[]string{})
+	return &SSuggestSysAlertManager{
+		ResourceManager: &man,
+	}
+}
+
+func NewSuggestSysAlertCostManager() *SSuggestSysAlertManager {
+	man := modules.NewSuggestionManager("suggestsysalert", "suggestsysalerts",
+		[]string{},
 		[]string{})
 	return &SSuggestSysAlertManager{
 		ResourceManager: &man,
