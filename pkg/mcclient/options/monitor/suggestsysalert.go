@@ -22,7 +22,8 @@ import (
 
 type SuggestSysAlertListOptions struct {
 	options.BaseListOptions
-	Type string `help:"Type of suggest rule" choices:"EIP_UNUSED|"`
+	Type     string `help:"Type of suggest rule"`
+	Currency string `json:"currency"`
 }
 
 func (o *SuggestSysAlertListOptions) Params() (jsonutils.JSONObject, error) {
@@ -53,5 +54,19 @@ func (opt *SuggestAlertIgnoreOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 func (o *SuggestAlertIgnoreOptions) GetId() string {
+	return o.ID
+}
+
+type SuggestAlertCostOptions struct {
+	ID string `help:"ID or name of the alert" json:"-"`
+	options.BaseListOptions
+	Currency string `json:"currency"`
+}
+
+func (o *SuggestAlertCostOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(o)
+}
+
+func (o *SuggestAlertCostOptions) GetId() string {
 	return o.ID
 }

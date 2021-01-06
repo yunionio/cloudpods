@@ -22,7 +22,7 @@ type AlertResourceType string
 
 const (
 	// AlertResourceTypeNode means onecloud system infrastructure controller or host node
-	AlertResourceTypeNode AlertResourceType = "node"
+	AlertResourceTypeNode AlertResourceType = "host"
 	// AlertResourceTypeCloudaccount means cloudaccount resource
 	AlertResourceTypeCloudaccount AlertResourceType = "cloudaccount"
 	// AlertResourceTypeVM means virtual machine guest resource

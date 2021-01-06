@@ -226,7 +226,7 @@ func (m *SAlertResourceManager) createOrUpdateFromRecord(
 	if res == nil {
 		return m.createFromRecord(ctx, userCred, ownerId, drv, record, match)
 	} else {
-		return res.updateFromRecord(ctx, userCred, record, match)
+		return res.updateFromRecord(ctx, userCred, drv, record, match)
 	}
 }
 
@@ -297,7 +297,8 @@ func (res *SAlertResource) getAttachedAlerts() ([]SCommonAlert, error) {
 	return alerts, nil
 }
 
-func (res *SAlertResource) updateFromRecord(ctx context.Context, userCred mcclient.TokenCredential, record *SAlertRecord, match monitor.EvalMatch) error {
+func (res *SAlertResource) updateFromRecord(ctx context.Context, userCred mcclient.TokenCredential,
+	drv IAlertResourceDriver, record *SAlertRecord, match monitor.EvalMatch) error {
 	jObj, err := res.GetJointAlert(record.AlertId)
 	if err != nil {
 		return errors.Wrapf(err, "get joint alert by id %s", record.AlertId)
@@ -309,6 +310,12 @@ func (res *SAlertResource) updateFromRecord(ctx context.Context, userCred mcclie
 	} else {
 		if err := jObj.UpdateData(record, &match); err != nil {
 			return errors.Wrapf(err, "update joint object by matches %v", match)
+		}
+		if _, err := db.Update(res, func() error {
+			res.Type = string(drv.GetType())
+			return nil
+		}); err != nil {
+			return err
 		}
 	}
 	return nil

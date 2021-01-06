@@ -101,18 +101,18 @@ func init() {
 
 	// mem
 	RegistryMetricCreateInput("mem", "Memory", monitor.METRIC_RES_TYPE_HOST,
-		monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
+		monitor.METRIC_DATABASE_TELE, 2, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("used_percent", "Used memory rate", monitor.METRIC_UNIT_PERCENT, 1),
 			newMetricFieldCreateInput("available_percent", "Available memory rate", monitor.METRIC_UNIT_PERCENT, 2),
 			newMetricFieldCreateInput("used", "Used memory", monitor.METRIC_UNIT_BYTE, 3),
 			newMetricFieldCreateInput("free", "Free memory", monitor.METRIC_UNIT_BYTE, 4),
-			newMetricFieldCreateInput("available", "Available memory", monitor.METRIC_UNIT_BYTE, 4),
 			newMetricFieldCreateInput("active", "The amount of active memory", monitor.METRIC_UNIT_BYTE, 5),
 			newMetricFieldCreateInput("inactive", "The amount of inactive memory", monitor.METRIC_UNIT_BYTE, 6),
 			newMetricFieldCreateInput("cached", "Cache memory", monitor.METRIC_UNIT_BYTE, 7),
 			newMetricFieldCreateInput("buffered", "Buffer memory", monitor.METRIC_UNIT_BYTE, 7),
 			newMetricFieldCreateInput("slab", "Number of kernel caches", monitor.METRIC_UNIT_BYTE, 8),
-			newMetricFieldCreateInput("total", "Total memory", monitor.METRIC_UNIT_BYTE, 9),
+			newMetricFieldCreateInput("available", "Available memory", monitor.METRIC_UNIT_BYTE, 9),
+			newMetricFieldCreateInput("total", "Total memory", monitor.METRIC_UNIT_BYTE, 10),
 		})
 
 	// net
