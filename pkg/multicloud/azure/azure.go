@@ -142,7 +142,7 @@ func (self *SAzureClient) getClient(resource TAzureResource) (*autorest.Client, 
 		return nil, errors.Wrapf(err, "azureenv.EnvironmentFromName(%s)", self.envName)
 	}
 
-	httpClient := self.cpcfg.HttpClient()
+	httpClient := self.cpcfg.AdaptiveTimeoutHttpClient()
 	client.Sender = httpClient
 
 	self.env = env
