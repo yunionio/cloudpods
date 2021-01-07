@@ -39,6 +39,14 @@ func (user *SUser) GetGlobalId() string {
 	return fmt.Sprintf("%d", user.Uin)
 }
 
+func (self *SUser) GetEmailAddr() string {
+	return self.Email
+}
+
+func (self *SUser) GetInviteUrl() string {
+	return ""
+}
+
 func (user *SUser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	policies := []SPolicy{}
 	offset := 1

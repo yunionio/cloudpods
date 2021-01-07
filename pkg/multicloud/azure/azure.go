@@ -27,6 +27,7 @@ import (
 	azureenv "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/pkg/errors"
+	"golang.org/x/oauth2/clientcredentials"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -658,8 +659,8 @@ func (ae *AzureResponseError) ParseErrorFromJsonResponse(statusCode int, body js
 }
 
 func _jsonRequest(client *autorest.Client, method, domain, path string, body jsonutils.JSONObject, params url.Values, debug bool) (jsonutils.JSONObject, error) {
-	url := fmt.Sprintf("%s/%s?%s", strings.TrimSuffix(domain, "/"), strings.TrimPrefix(path, "/"), params.Encode())
-	req := httputils.NewJsonRequest(httputils.THttpMethod(method), url, body)
+	uri := fmt.Sprintf("%s/%s?%s", strings.TrimSuffix(domain, "/"), strings.TrimPrefix(path, "/"), params.Encode())
+	req := httputils.NewJsonRequest(httputils.THttpMethod(method), uri, body)
 	ae := AzureResponseError{}
 	cli := httputils.NewJsonClient(client)
 	header, body, err := cli.Send(context.TODO(), req, &ae, debug)
@@ -678,7 +679,16 @@ func _jsonRequest(client *autorest.Client, method, domain, path string, body jso
 	location := locationFunc(header)
 	if len(location) > 0 && (body == nil || body.IsZero() || !body.Contains("id")) {
 		err = cloudprovider.Wait(time.Second*10, time.Minute*30, func() (bool, error) {
-			req := httputils.NewJsonRequest(httputils.GET, location, nil)
+			locationUrl, err := url.Parse(location)
+			if err != nil {
+				return false, errors.Wrapf(err, "url.Parse(%s)", location)
+			}
+			if len(locationUrl.Query().Get("api-version")) == 0 {
+				q, _ := url.ParseQuery(locationUrl.RawQuery)
+				q.Set("api-version", params.Get("api-version"))
+				locationUrl.RawQuery = q.Encode()
+			}
+			req := httputils.NewJsonRequest(httputils.GET, locationUrl.String(), nil)
 			lae := AzureResponseError{}
 			_header, _body, _err := cli.Send(context.TODO(), req, &lae, debug)
 			if _err != nil {
@@ -724,7 +734,7 @@ func _jsonRequest(client *autorest.Client, method, domain, path string, body jso
 			return false, nil
 		})
 		if err != nil {
-			return nil, errors.Wrapf(err, "time out for waiting %s %s", method, url)
+			return nil, errors.Wrapf(err, "time out for waiting %s %s", method, uri)
 		}
 	}
 	return body, nil
@@ -922,6 +932,7 @@ func (self *SAzureClient) GetCapabilities() []string {
 		// cloudprovider.CLOUD_CAPABILITY_CACHE,
 		cloudprovider.CLOUD_CAPABILITY_EVENT,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
+		cloudprovider.CLOUD_CAPABILITY_SAML_AUTH,
 	}
 	return caps
 }
@@ -960,4 +971,41 @@ func (self *SAzureClient) SetTags(resourceId string, tags map[string]string) (js
 		return nil, self.del(path)
 	}
 	return self.patch(path, jsonutils.Marshal(input))
+}
+
+func (self *SAzureClient) msGraphClient() *http.Client {
+	conf := clientcredentials.Config{
+		ClientID:     self.clientId,
+		ClientSecret: self.clientSecret,
+
+		TokenURL: fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", self.tenantId),
+		Scopes:   []string{"https://graph.microsoft.com/.default"},
+	}
+	return conf.Client(context.TODO())
+}
+
+func (self *SAzureClient) ListGraphUsers() ([]SClouduser, error) {
+	resp, err := self.msGraphRequest("GET", "users", nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "msGraphRequest.users")
+	}
+	users := []SClouduser{}
+	err = resp.Unmarshal(&users, "value")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	return users, nil
+}
+
+func (self *SAzureClient) msGraphRequest(method string, resource string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	client := self.msGraphClient()
+	url := fmt.Sprintf("https://graph.microsoft.com/v1.0/%s", resource)
+	req := httputils.NewJsonRequest(httputils.THttpMethod(method), url, body)
+	ae := AzureResponseError{}
+	cli := httputils.NewJsonClient(client)
+	_, body, err := cli.Send(context.TODO(), req, &ae, self.debug)
+	if err != nil {
+		return nil, err
+	}
+	return body, nil
 }
