@@ -177,3 +177,6 @@ type CloudregionSkuSyncInput struct {
 	// choices: serversku|elasticcachesku|dbinstance_sku
 	Resource string `json:"resource"`
 }
+
+type SyncImagesInput struct {
+}
