@@ -106,7 +106,7 @@ func (self *GuestDeployTask) OnDeployGuestComplete(ctx context.Context, obj db.I
 	}
 	if !_log {
 		// 如果 deploy 有其他事件，统一记在这里。
-		logclient.AddActionLogWithStartable(self, guest, "misc部署", "", self.UserCred, true)
+		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_DEPLOY, action, self.UserCred, true)
 	}
 
 	if self.HasParentTask() {
