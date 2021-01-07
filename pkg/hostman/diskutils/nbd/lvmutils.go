@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/stringutils"
@@ -132,13 +133,11 @@ func (p *SKVMGuestLVMPartition) FindPartitions() []*kvmpart.SKVMGuestDiskPartiti
 	if !p.isVgActive() {
 		return nil
 	}
-
 	files, err := ioutil.ReadDir("/dev/" + p.vgname)
 	if err != nil {
 		log.Errorln(err)
 		return nil
 	}
-
 	parts := []*kvmpart.SKVMGuestDiskPartition{}
 	for _, f := range files {
 		partPath := fmt.Sprintf("/dev/%s/%s", p.vgname, f.Name())
@@ -168,11 +167,15 @@ func (p *SKVMGuestLVMPartition) PutdownDevice() bool {
 }
 
 func (p *SKVMGuestLVMPartition) isVgActive() bool {
-	if fileutils2.Exists("/dev/" + p.vgname) {
-		return true
-	} else {
-		return false
+	for i := 0; i < 3; i++ {
+		if fileutils2.Exists("/dev/" + p.vgname) {
+			log.Infof("vg %s is active", p.vgname)
+			return true
+		}
+		time.Sleep(time.Second * 1)
 	}
+	log.Infof("vg %s is not active", p.vgname)
+	return false
 }
 
 func (p *SKVMGuestLVMPartition) vgActivate(activate bool) bool {
@@ -184,6 +187,9 @@ func (p *SKVMGuestLVMPartition) vgActivate(activate bool) bool {
 	if err != nil {
 		log.Errorf("%s", output)
 		return false
+	}
+	if out, err := procutils.NewCommand("vgchange", "--refresh").Output(); err != nil {
+		log.Errorf("vgchange refresh failed: %s, %s", out, err)
 	}
 	return true
 }
