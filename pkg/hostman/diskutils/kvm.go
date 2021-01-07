@@ -88,6 +88,7 @@ func (d *SKVMGuestDisk) MountKvmRootfs() fsdriver.IRootFsDriver {
 func (d *SKVMGuestDisk) mountKvmRootfs(readonly bool) fsdriver.IRootFsDriver {
 	partitions := d.deployer.GetPartitions()
 	for i := 0; i < len(partitions); i++ {
+		log.Infof("detect partition %s", partitions[i].GetPartDev())
 		mountFunc := partitions[i].Mount
 		if readonly {
 			mountFunc = partitions[i].MountPartReadOnly
