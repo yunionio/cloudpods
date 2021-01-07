@@ -164,6 +164,7 @@ func (d *NBDDriver) setupLVMS() (bool, error) {
 	for _, part := range d.partitions {
 		vgname := d.findLVMPartitions(part.GetPartDev())
 		if len(vgname) > 0 {
+			log.Infof("find vg %s from %s", vgname, part.GetPartDev())
 			lvm := NewKVMGuestLVMPartition(part.GetPartDev(), vgname)
 			d.lvms = append(d.lvms, lvm)
 			if lvm.SetupDevice() {
