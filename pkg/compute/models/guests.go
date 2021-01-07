@@ -1324,6 +1324,13 @@ func (manager *SGuestManager) validateCreateData(
 		}
 		log.Debugf("ROOT DISK: %#v", rootDiskConfig)
 		input.Disks[0] = rootDiskConfig
+		if sku != nil  {
+			if len(rootDiskConfig.OsArch) >= 0 && len(sku.CpuArch) >= 0 {
+				if rootDiskConfig.OsArch != sku.CpuArch {
+					return nil, httperrors.NewConflictError("root disk image(%s) and sku(%s) architecture mismatch")
+				}
+			}
+		}
 		//data.Set("disk.0", jsonutils.Marshal(rootDiskConfig))
 
 		for i := 0; i < len(dataDiskDefs); i += 1 {
