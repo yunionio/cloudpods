@@ -29,6 +29,7 @@ import (
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Cloudregions).WithKeyword("cloud-region")
 	cmd.PerformClass("sync-skus", &options.CloudregionSkuSyncOptions{})
+	cmd.Perform("sync-images", &options.CloudregionIdOptions{})
 
 	R(&options.SkuTaskQueryOptions{}, "cloud-region-sync-task-show", "Show details of skus sync tasks", func(s *mcclient.ClientSession, args *options.SkuTaskQueryOptions) error {
 		params, err := args.Params()

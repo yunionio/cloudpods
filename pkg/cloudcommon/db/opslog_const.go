@@ -201,6 +201,7 @@ const (
 	ACT_SYNC_CLOUD_DISK          = "sync_cloud_disk"
 	ACT_SYNC_CLOUD_SERVER        = "sync_cloud_server"
 	ACT_SYNC_CLOUD_SKUS          = "sync_cloud_skus"
+	ACT_SYNC_CLOUD_IMAGES        = "sync_cloud_images"
 	ACT_SYNC_CLOUD_EIP           = "sync_cloud_eip"
 	ACT_SYNC_CLOUD_PROJECT       = "sync_cloud_project"
 	ACT_SYNC_CLOUD_ELASTIC_CACHE = "sync_cloud_elastic_cache"
