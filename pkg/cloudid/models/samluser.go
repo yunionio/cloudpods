@@ -24,13 +24,17 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudid/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SSamluserManager struct {
 	db.SStatusDomainLevelUserResourceBaseManager
+	db.SExternalizedResourceBaseManager
+
 	SCloudgroupResourceBaseManager
 	SCloudaccountResourceBaseManager
 }
@@ -51,8 +55,12 @@ func init() {
 
 type SSamluser struct {
 	db.SStatusDomainLevelUserResourceBase
+	db.SExternalizedResourceBase
 	SCloudgroupResourceBase
 	SCloudaccountResourceBase
+
+	// 邮箱地址
+	Email string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"domain_optional"`
 }
 
 func (manager *SSamluserManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
@@ -172,4 +180,39 @@ func (manager *SSamluserManager) FetchCustomizeColumns(
 		}
 	}
 	return rows
+}
+
+func (self *SSamluser) SyncAzureGroup() error {
+	group, err := self.GetCloudgroup()
+	if err != nil {
+		return errors.Wrapf(err, "GetCloudgroup")
+	}
+	account, err := self.GetCloudaccount()
+	if err != nil {
+		return errors.Wrapf(err, "GetCloudaccount")
+	}
+	cache, err := CloudgroupcacheManager.Register(group, account)
+	if err != nil {
+		return errors.Wrapf(err, "group cache Register")
+	}
+	if len(cache.ExternalId) == 0 {
+		s := auth.GetAdminSession(context.TODO(), options.Options.Region, "")
+		_, err = cache.GetOrCreateICloudgroup(context.TODO(), s.GetToken())
+		if err != nil {
+			return errors.Wrapf(err, "GetOrCreateICloudgroup")
+		}
+		cache, err = CloudgroupcacheManager.Register(group, account)
+		if err != nil {
+			return errors.Wrapf(err, "group cache Register")
+		}
+	}
+	iGroup, err := cache.GetICloudgroup()
+	if err != nil {
+		return errors.Wrapf(err, "GetICloudgroup")
+	}
+	err = iGroup.AddUser(self.ExternalId)
+	if err != nil {
+		return errors.Wrapf(err, "iGroup.AddUser")
+	}
+	return nil
 }

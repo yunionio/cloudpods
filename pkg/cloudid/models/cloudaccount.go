@@ -557,6 +557,9 @@ func (self *SCloudaccount) GetCloudusers() ([]SClouduser, error) {
 }
 
 func (self *SCloudaccount) SyncCloudusers(ctx context.Context, userCred mcclient.TokenCredential, iUsers []cloudprovider.IClouduser) ([]SClouduser, []cloudprovider.IClouduser, compare.SyncResult) {
+	lockman.LockRawObject(ctx, "cloudusers", self.Id)
+	defer lockman.ReleaseRawObject(ctx, "cloudusers", self.Id)
+
 	result := compare.SyncResult{}
 	dbUsers, err := self.GetCloudusers()
 	if err != nil {
@@ -1147,7 +1150,10 @@ func (self *SCloudaccount) StartSAMLProviderCreateTask(ctx context.Context, user
 		}
 		return nil
 	}
-	return sp.StartSAMLProviderCreateTask(ctx, userCred, "")
+	if sp != nil {
+		return sp.StartSAMLProviderCreateTask(ctx, userCred, "")
+	}
+	return nil
 }
 
 func (manager *SCloudaccountManager) SyncSAMLProviders(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
@@ -1804,4 +1810,40 @@ func (self *SCloudaccount) GetUserCloudgroups(userId string) ([]string, error) {
 		}
 	}
 	return ret, nil
+}
+
+func (self *SCloudaccount) InviteAzureUser(ctx context.Context, userCred mcclient.TokenCredential, domain string) (string, error) {
+	samlUsers, err := self.GetSamlusers()
+	if err != nil {
+		return "", errors.Wrapf(err, "GetSamlusers")
+	}
+	for i := range samlUsers {
+		if samlUsers[i].OwnerId == userCred.GetUserId() {
+			if len(samlUsers[i].Email) == 0 {
+				_, err := db.Update(&samlUsers[i], func() error {
+					samlUsers[i].Email = fmt.Sprintf("%s@%s", userCred.GetUserName(), domain)
+					return nil
+				})
+				if err != nil {
+					return "", errors.Wrapf(err, "db.Update")
+				}
+			}
+			provider, err := self.GetProvider()
+			if err != nil {
+				return "", errors.Wrapf(err, "self.GetProvider")
+			}
+			conf := cloudprovider.SClouduserCreateConfig{
+				Name:     userCred.GetUserName(),
+				Email:    samlUsers[i].Email,
+				UserType: "Guest",
+			}
+			iUser, err := provider.CreateIClouduser(&conf)
+			if err != nil {
+				return "", errors.Wrapf(err, "CreateIClouduser")
+			}
+			db.SetExternalId(&samlUsers[i], userCred, iUser.GetName())
+			return iUser.GetInviteUrl(), nil
+		}
+	}
+	return "", fmt.Errorf("not found any saml user for %s", userCred.GetUserName())
 }

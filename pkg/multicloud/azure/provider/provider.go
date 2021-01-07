@@ -54,6 +54,10 @@ func (self *SAzureProviderFactory) IsCloudeventRegional() bool {
 	return false
 }
 
+func (self *SAzureProviderFactory) IsSupportSAMLAuth() bool {
+	return true
+}
+
 func (self *SAzureProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
 	return fmt.Errorf("Changing %s bandwidth is not supported", azure.CLOUD_PROVIDER_AZURE)
 }
@@ -270,4 +274,13 @@ func (self *SAzureProvider) GetICustomCloudpolicies() ([]cloudprovider.ICloudpol
 
 func (self *SAzureProvider) CreateSubscription(input cloudprovider.SubscriptionCreateInput) error {
 	return self.client.CreateSubscription(input.Name, input.EnrollmentAccountId, input.OfferType)
+}
+
+// fake func
+func (self *SAzureProvider) CreateICloudSAMLProvider(opts *cloudprovider.SAMLProviderCreateOptions) (cloudprovider.ICloudSAMLProvider, error) {
+	return self.client.CreateSAMLProvider(opts)
+}
+
+func (self *SAzureProvider) GetSamlEntityId() string {
+	return cloudprovider.SAML_ENTITY_ID_AZURE
 }
