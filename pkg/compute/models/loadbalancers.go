@@ -790,11 +790,9 @@ func (lb *SLoadbalancer) Delete(ctx context.Context, userCred mcclient.TokenCred
 
 func (man *SLoadbalancerManager) getLoadbalancersByRegion(region *SCloudregion, provider *SCloudprovider) ([]SLoadbalancer, error) {
 	lbs := []SLoadbalancer{}
-	vpcs := VpcManager.Query().SubQuery()
 	q := man.Query()
-	q = q.Join(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
-	q = q.Filter(sqlchemy.Equals(vpcs.Field("cloudregion_id"), region.Id))
-	q = q.Filter(sqlchemy.Equals(vpcs.Field("manager_id"), provider.Id))
+	q = q.Equals("manager_id", provider.Id)
+	q = q.Equals("cloudregion_id", region.Id)
 	q = q.IsFalse("pending_deleted")
 	if err := db.FetchModelObjects(man, q, &lbs); err != nil {
 		log.Errorf("failed to get lbs for region: %v provider: %v error: %v", region, provider, err)
@@ -816,6 +814,12 @@ func (man *SLoadbalancerManager) getLoadbalancersByExternalIds(externalIds []str
 }
 
 func (man *SLoadbalancerManager) getLocalLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, lbs []cloudprovider.ICloudLoadbalancer) ([]SLoadbalancer, error) {
+	// current external ID
+	extIds := []string{}
+	for i := range lbs {
+		extIds = append(extIds, lbs[i].GetGlobalId())
+	}
+
 	part1, err := man.getLoadbalancersByRegion(region, provider)
 	if err != nil {
 		return nil, err
@@ -824,15 +828,13 @@ func (man *SLoadbalancerManager) getLocalLoadbalancers(ctx context.Context, user
 	localLbs := map[string]SLoadbalancer{}
 	for i := range part1 {
 		localLbs[part1[i].Id] = part1[i]
+		if len(part1[i].GetExternalId()) > 0 {
+			extIds = append(extIds, part1[i].GetExternalId())
+		}
 	}
 
-	externalIds := []string{}
-	for i := range lbs {
-		externalIds = append(externalIds, lbs[i].GetGlobalId())
-	}
-
-	if len(externalIds) > 0 {
-		part2, err := man.getLoadbalancersByExternalIds(externalIds)
+	if len(extIds) > 0 {
+		part2, err := man.getLoadbalancersByExternalIds(extIds)
 		if err != nil {
 			return nil, err
 		}
@@ -842,7 +844,7 @@ func (man *SLoadbalancerManager) getLocalLoadbalancers(ctx context.Context, user
 		}
 	}
 
-	ret := []SLoadbalancer{}
+	ret := make([]SLoadbalancer, 0)
 	for id, _ := range localLbs {
 		ret = append(ret, localLbs[id])
 	}
@@ -860,7 +862,7 @@ func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred
 	remoteLbs := []cloudprovider.ICloudLoadbalancer{}
 	syncResult := compare.SyncResult{}
 
-	dbLbs, err := man.getLocalLoadbalancers(ctx, userCred, provider, region, remoteLbs)
+	dbLbs, err := man.getLocalLoadbalancers(ctx, userCred, provider, region, lbs)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
