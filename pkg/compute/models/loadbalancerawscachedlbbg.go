@@ -184,9 +184,9 @@ func (man *SAwsCachedLbbgManager) GetCachedBackendGroups(backendGroupId string) 
 	return ret, nil
 }
 
-func (man *SAwsCachedLbbgManager) getLoadbalancerBackendgroupsByRegion(regionId string) ([]SAwsCachedLbbg, error) {
+func (man *SAwsCachedLbbgManager) getLoadbalancerBackendgroupsByRegion(managerId string, regionId string) ([]SAwsCachedLbbg, error) {
 	lbbgs := []SAwsCachedLbbg{}
-	q := man.Query().Equals("cloudregion_id", regionId).IsFalse("pending_deleted")
+	q := man.Query().Equals("cloudregion_id", regionId).Equals("manager_id", managerId).IsFalse("pending_deleted")
 	if err := db.FetchModelObjects(man, q, &lbbgs); err != nil {
 		log.Errorf("failed to get lbbgs for region: %s error: %v", regionId, err)
 		return nil, err
@@ -204,7 +204,7 @@ func (man *SAwsCachedLbbgManager) SyncLoadbalancerBackendgroups(ctx context.Cont
 	remoteLbbgs := []cloudprovider.ICloudLoadbalancerBackendGroup{}
 	syncResult := compare.SyncResult{}
 
-	dbLbbgs, err := man.getLoadbalancerBackendgroupsByRegion(region.GetId())
+	dbLbbgs, err := man.getLoadbalancerBackendgroupsByRegion(provider.GetId(), region.GetId())
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
