@@ -808,6 +808,20 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 		return errors.Wrapf(err, "region.DeleteVM(%s)", self.InstanceId)
 	}
 	if self.GetBillingType() == billing_api.BILLING_TYPE_PREPAID { // 预付费的需要删除两次
+		cloudprovider.Wait(time.Second*10, time.Minute*5, func() (bool, error) {
+			err = self.Refresh()
+			if err != nil {
+				log.Warningf("refresh instance %s(%s) error: %v", self.InstanceName, self.InstanceId, err)
+				return false, nil
+			}
+			// 需要等待第一次删除后，状态变为SHUTDOWN，才可以进行第二次删除，否则会报:
+			// Code=OperationDenied.InstanceOperationInProgress, Message=该实例`['ins-mxqturgj']`
+			if self.InstanceState == "SHUTDOWN" {
+				return true, nil
+			}
+			log.Debugf("wait %s(%s) status be SHUTDOWN, current is %s", self.InstanceName, self.InstanceId, self.InstanceState)
+			return false, nil
+		})
 		err := self.host.zone.region.DeleteVM(self.InstanceId)
 		if err != nil {
 			return errors.Wrapf(err, "region.DeleteVM(%s)", self.InstanceId)
