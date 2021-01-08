@@ -61,6 +61,7 @@ type SAwsCachedLbbg struct {
 	SManagedResourceBase
 	SCloudregionResourceBase
 
+	CloudproviderId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	LoadbalancerId      string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	BackendGroupId      string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	TargetType          string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"` // 后端服务器类型
@@ -184,9 +185,9 @@ func (man *SAwsCachedLbbgManager) GetCachedBackendGroups(backendGroupId string) 
 	return ret, nil
 }
 
-func (man *SAwsCachedLbbgManager) getLoadbalancerBackendgroupsByRegion(regionId string) ([]SAwsCachedLbbg, error) {
+func (man *SAwsCachedLbbgManager) getLoadbalancerBackendgroupsByRegion(cloudproviderId string, regionId string) ([]SAwsCachedLbbg, error) {
 	lbbgs := []SAwsCachedLbbg{}
-	q := man.Query().Equals("cloudregion_id", regionId).IsFalse("pending_deleted")
+	q := man.Query().Equals("cloudregion_id", regionId).Equals("cloudproviderId", cloudproviderId).IsFalse("pending_deleted")
 	if err := db.FetchModelObjects(man, q, &lbbgs); err != nil {
 		log.Errorf("failed to get lbbgs for region: %s error: %v", regionId, err)
 		return nil, err
@@ -204,7 +205,7 @@ func (man *SAwsCachedLbbgManager) SyncLoadbalancerBackendgroups(ctx context.Cont
 	remoteLbbgs := []cloudprovider.ICloudLoadbalancerBackendGroup{}
 	syncResult := compare.SyncResult{}
 
-	dbLbbgs, err := man.getLoadbalancerBackendgroupsByRegion(region.GetId())
+	dbLbbgs, err := man.getLoadbalancerBackendgroupsByRegion(provider.GetId(), region.GetId())
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
@@ -395,6 +396,7 @@ func (man *SAwsCachedLbbgManager) newFromCloudLoadbalancerBackendgroup(ctx conte
 	lbbg.ManagerId = lb.ManagerId
 	lbbg.CloudregionId = lb.CloudregionId
 	lbbg.LoadbalancerId = lb.Id
+	lbbg.CloudproviderId = provider.GetId()
 	lbbg.BackendGroupId = LocalLbbg.GetId()
 	lbbg.ExternalId = extLoadbalancerBackendgroup.GetGlobalId()
 	lbbg.ProtocolType = extLoadbalancerBackendgroup.GetProtocolType()
