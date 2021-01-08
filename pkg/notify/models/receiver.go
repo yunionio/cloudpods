@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"regexp"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -276,11 +277,13 @@ func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcc
 		return input, httperrors.NewInputParameterError("invalid email")
 	}
 	// validate mobile
-	if ok := regutils.MatchMobile(input.Mobile); len(input.Mobile) > 0 && !ok {
+	if ok := LaxMobileRegexp.MatchString(input.Mobile); len(input.Mobile) > 0 && !ok {
 		return input, httperrors.NewInputParameterError("invalid mobile")
 	}
 	return input, nil
 }
+
+var LaxMobileRegexp = regexp.MustCompile(`[0-9]{6,14}`)
 
 func (r *SReceiver) IsEnabledContactType(ct string) (bool, error) {
 	if utils.IsInStringArray(ct, AllOkContactTypes) {
