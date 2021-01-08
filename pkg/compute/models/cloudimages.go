@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -70,7 +71,7 @@ func SyncPublicCloudImages(ctx context.Context, userCred mcclient.TokenCredentia
 		for j := range storagecaches {
 			err = storagecaches[j].CheckCloudimages(ctx, userCred, regions[i].Name, regions[i].Id)
 			if err != nil {
-				log.Errorf("CheckCloudimages for region %s(%s) storagecache %s error: %v", regions[i].Name, regions[i].Id, storagecaches[j].Name, err)
+				log.Errorf("SyncSystemImages for region %s(%s) storagecache %s error: %v", regions[i].Name, regions[i].Id, storagecaches[j].Name, err)
 			}
 		}
 	}
@@ -94,7 +95,19 @@ func (self *SCloudimage) syncRemove(ctx context.Context, userCred mcclient.Token
 func (self *SCloudimage) syncWithImage(ctx context.Context, userCred mcclient.TokenCredential, image SCachedimage) error {
 	_cachedImage, err := db.FetchByExternalId(CachedimageManager, image.GetGlobalId())
 	if err != nil {
-		return errors.Wrapf(err, "db.FetchByExternalId(%s)", image.GetGlobalId())
+		if errors.Cause(err) != sql.ErrNoRows {
+			return errors.Wrapf(err, "db.FetchByExternalId(%s)", image.GetGlobalId())
+		}
+		image := &image
+		image.Id = ""
+		image.IsPublic = true
+		image.ProjectId = "system"
+		image.SetModelManager(CachedimageManager, image)
+		err = CachedimageManager.TableSpec().Insert(ctx, image)
+		if err != nil {
+			return errors.Wrapf(err, "Insert cachedimage")
+		}
+		return nil
 	}
 	cachedImage := _cachedImage.(*SCachedimage)
 	_, err = db.Update(cachedImage, func() error {
