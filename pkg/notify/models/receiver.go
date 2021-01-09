@@ -681,7 +681,7 @@ func (r *SReceiver) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		return input, httperrors.NewInputParameterError("invalid email")
 	}
 	// validate mobile
-	if ok := len(input.Mobile) == 0 || regutils.MatchMobile(input.Mobile); !ok {
+	if ok := len(input.Mobile) == 0 || LaxMobileRegexp.MatchString(input.Mobile); !ok {
 		return input, httperrors.NewInputParameterError("invalid mobile")
 	}
 	return input, nil
