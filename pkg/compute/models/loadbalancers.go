@@ -716,15 +716,24 @@ func (lb *SLoadbalancer) getMoreDetails(out api.LoadbalancerDetails) (api.Loadba
 }
 
 func (lb *SLoadbalancer) ValidateDeleteCondition(ctx context.Context) error {
+	err := lb.validatePurgeCondition(ctx)
+	if err != nil {
+		return err
+	}
+
+	if lb.DisableDelete.IsTrue() {
+		return httperrors.NewInvalidStatusError("loadbalancer is locked, cannot delete")
+	}
+
+	return nil
+}
+
+func (lb *SLoadbalancer) validatePurgeCondition(ctx context.Context) error {
 	region := lb.GetRegion()
 	if region != nil {
 		if err := region.GetDriver().ValidateDeleteLoadbalancerCondition(ctx, lb); err != nil {
 			return err
 		}
-	}
-
-	if lb.DisableDelete.IsTrue() {
-		return httperrors.NewInvalidStatusError("loadbalancer is locked, cannot delete")
 	}
 
 	return lb.SModelBase.ValidateDeleteCondition(ctx)
@@ -1007,7 +1016,7 @@ func (lb *SLoadbalancer) syncRemoveCloudLoadbalancer(ctx context.Context, userCr
 	lockman.LockObject(ctx, lb)
 	defer lockman.ReleaseObject(ctx, lb)
 
-	err := lb.ValidateDeleteCondition(ctx)
+	err := lb.validatePurgeCondition(ctx)
 	if err != nil { // cannot delete
 		return lb.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
