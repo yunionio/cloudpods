@@ -226,9 +226,7 @@ func (alert *SCommonAlert) CustomizeCreate(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) error {
-	if err := alert.SAlert.CustomizeCreate(ctx, userCred, ownerId, query, data); err != nil {
-		return err
-	}
+	alert.State = string(monitor.AlertStateUnknown)
 	input := new(monitor.CommonAlertCreateInput)
 	if err := data.Unmarshal(input); err != nil {
 		return err
