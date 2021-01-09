@@ -1008,15 +1008,26 @@ func (self *SCloudregion) GetCloudimages() ([]SCloudimage, error) {
 	return images, nil
 }
 
+func (self *SCloudregion) GetSystemImageCount() (int, error) {
+	sq := CloudimageManager.Query("external_id").Equals("cloudregion_id", self.Id)
+	q := CachedimageManager.Query().Equals("image_type", cloudprovider.ImageTypeSystem).In("external_id", sq.SubQuery())
+	return q.CountWithError()
+}
+
 func (self *SCloudregion) SyncCloudImages(ctx context.Context, userCred mcclient.TokenCredential, refresh bool) error {
 	lockman.LockRawObject(ctx, "cloudimages", self.Id)
 	defer lockman.ReleaseRawObject(ctx, "cloudimages", self.Id)
+
+	systemImageCount, err := self.GetSystemImageCount()
+	if err != nil {
+		return errors.Wrapf(err, "GetSystemImageCount")
+	}
 
 	dbImages, err := self.GetCloudimages()
 	if err != nil {
 		return errors.Wrapf(err, "GetCloudimages")
 	}
-	if len(dbImages) > 0 && !refresh {
+	if len(dbImages) > 0 && systemImageCount > 0 && !refresh {
 		return nil
 	}
 	meta, err := FetchSkuResourcesMeta()

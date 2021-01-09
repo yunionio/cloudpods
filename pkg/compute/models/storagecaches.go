@@ -796,14 +796,14 @@ func (manager *SStoragecacheManager) ListItemExportKeys(ctx context.Context,
 	return q, nil
 }
 
-func (self *SStoragecache) linkCloudimages(ctx context.Context, regionName, regionId string) error {
+func (self *SStoragecache) linkCloudimages(ctx context.Context, regionName, regionId string) (int, error) {
 	cloudimages := CloudimageManager.Query("external_id").Equals("cloudregion_id", regionId).SubQuery()
 	sq := StoragecachedimageManager.Query("cachedimage_id").Equals("storagecache_id", self.Id).SubQuery()
-	q := CachedimageManager.Query().Equals("image_type", "system").In("external_id", cloudimages).NotIn("id", sq)
+	q := CachedimageManager.Query().Equals("image_type", cloudprovider.ImageTypeSystem).In("external_id", cloudimages).NotIn("id", sq)
 	images := []SCachedimage{}
 	err := db.FetchModelObjects(CachedimageManager, q, &images)
 	if err != nil {
-		return errors.Wrapf(err, "db.FetchModelObjects")
+		return 0, errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	for i := range images {
 		sci := &SStoragecachedimage{}
@@ -813,23 +813,20 @@ func (self *SStoragecache) linkCloudimages(ctx context.Context, regionName, regi
 		sci.Status = api.CACHED_IMAGE_STATUS_ACTIVE
 		err = StoragecachedimageManager.TableSpec().Insert(ctx, sci)
 		if err != nil {
-			return errors.Wrapf(err, "Insert")
+			return 0, errors.Wrapf(err, "Insert")
 		}
 	}
-	if len(images) > 0 {
-		log.Infof("link new %d cloud image for region %s(%s) storagecache %s", len(images), regionName, regionId, self.Name)
-	}
-	return nil
+	return len(images), nil
 }
 
-func (self *SStoragecache) unlinkCloudimages(ctx context.Context, userCred mcclient.TokenCredential, regionName, regionId string) error {
+func (self *SStoragecache) unlinkCloudimages(ctx context.Context, userCred mcclient.TokenCredential, regionName, regionId string) (int, error) {
 	cloudimages := CloudimageManager.Query("external_id").Equals("cloudregion_id", regionId).SubQuery()
-	sq := CachedimageManager.Query("id").Equals("image_type", "system").NotIn("external_id", cloudimages).SubQuery()
+	sq := CachedimageManager.Query("id").Equals("image_type", cloudprovider.ImageTypeSystem).NotIn("external_id", cloudimages).SubQuery()
 	q := StoragecachedimageManager.Query().Equals("storagecache_id", self.Id).In("cachedimage_id", sq)
 	scis := []SStoragecachedimage{}
 	err := db.FetchModelObjects(StoragecachedimageManager, q, &scis)
 	if err != nil {
-		return errors.Wrapf(err, "db.FetchModelObjects")
+		return 0, errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	for i := range scis {
 		err = scis[i].Delete(ctx, userCred)
@@ -837,19 +834,34 @@ func (self *SStoragecache) unlinkCloudimages(ctx context.Context, userCred mccli
 			log.Warningf("detach image %v error: %v", scis[i].GetCachedimage(), err)
 		}
 	}
-	if len(scis) > 0 {
-		log.Infof("unlink %d cloud image for region %s(%s) storagecache %s", len(scis), regionName, regionId, self.Name)
-	}
-	return nil
+	return len(scis), nil
+}
+
+func (self *SStoragecache) getSystemImageCount() (int, error) {
+	sq := StoragecachedimageManager.Query("cachedimage_id").Equals("storagecache_id", self.Id)
+	q := CachedimageManager.Query().Equals("image_type", cloudprovider.ImageTypeSystem).In("id", sq.SubQuery())
+	return q.CountWithError()
 }
 
 func (self *SStoragecache) CheckCloudimages(ctx context.Context, userCred mcclient.TokenCredential, regionName, regionId string) error {
 	lockman.LockRawObject(ctx, "cachedimages", regionId)
 	defer lockman.ReleaseRawObject(ctx, "cachedimages", regionId)
 
-	err := self.unlinkCloudimages(ctx, userCred, regionName, regionId)
+	result := compare.SyncResult{}
+
+	var err error
+	result.DelCnt, err = self.unlinkCloudimages(ctx, userCred, regionName, regionId)
 	if err != nil {
 		return errors.Wrapf(err, "unlinkCloudimages")
 	}
-	return self.linkCloudimages(ctx, regionName, regionId)
+	result.UpdateCnt, err = self.getSystemImageCount()
+	if err != nil {
+		log.Errorf("getSystemImageCount error: %v", err)
+	}
+	result.AddCnt, err = self.linkCloudimages(ctx, regionName, regionId)
+	if err != nil {
+		return errors.Wrapf(err, "linkCloudimages")
+	}
+	log.Infof("SycSystemImages for region %s(%s) storagecache %s result: %s", regionName, regionId, self.Name, result.Result())
+	return nil
 }
