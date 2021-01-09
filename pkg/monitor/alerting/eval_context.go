@@ -128,7 +128,17 @@ func (c *EvalContext) GetCallbackURLPrefix() string {
 		return ""
 	}
 	url, _ := config.GetString("config", "default", "api_server")
-	return url + "/alertrecord"
+	defaultWebUri := "alertrecord"
+	matchTag := map[string]string{}
+	if c.Firing {
+		matchTag = c.EvalMatches[0].Tags
+	} else {
+		matchTag = c.AlertOkEvalMatches[0].Tags
+	}
+	if uri, ok := matchTag["web_url"]; ok {
+		defaultWebUri = uri
+	}
+	return fmt.Sprintf("%s/%s", url, defaultWebUri)
 }
 
 // GetNewState returns the new state from the alert rule evaluation.
