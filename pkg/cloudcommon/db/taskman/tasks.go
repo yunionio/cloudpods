@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"reflect"
 	"runtime/debug"
 	"strconv"
@@ -826,7 +827,17 @@ func (task *STask) GetTaskRequestHeader() http.Header {
 	}
 	header := mcclient.GetTokenHeaders(userCred)
 	header.Set(mcclient.TASK_ID, task.GetTaskId())
+	if len(serviceUrl) > 0 {
+		notifyUrl := filepath.Join(serviceUrl, "tasks", task.GetTaskId())
+		header.Set(mcclient.TASK_NOTIFY_URL, notifyUrl)
+	}
 	return header
+}
+
+var serviceUrl string
+
+func SetServiceUrl(url string) {
+	serviceUrl = url
 }
 
 func (task *STask) GetStartTime() time.Time {
