@@ -1,0 +1,22 @@
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.2
+
+MAINTAINER "Rain Zheng <zhengyu@yunion.com>"
+
+# openssh-client, for ansible ssh connection
+# git, ca-certificates, for fetching ansible roles
+RUN set -x \
+	&& apk update \
+	&& apk add git \
+	&& rm -rf /var/cache/apk/*
+
+# install default playbook and install pkg
+Run mkdir -p /opt/yunion/ansible-install-pkg
+Run wget https://dl.influxdata.com/telegraf/releases/telegraf-1.17.0-1.x86_64.rpm -P /opt/yunion/ansible-install-pkg
+Run wget https://dl.influxdata.com/telegraf/releases/telegraf-1.17.0-1.aarch64.rpm -P /opt/yunion/ansible-install-pkg
+Run wget https://dl.influxdata.com/telegraf/releases/telegraf-1.17.0_windows_amd64.zip -P /opt/yunion/ansible-install-pkg
+Run wget https://dl.influxdata.com/telegraf/releases/telegraf_1.17.0-1_amd64.deb -P /opt/yunion/ansible-install-pkg
+Run wget https://dl.influxdata.com/telegraf/releases/telegraf_1.17.0-1_arm64.deb -P /opt/yunion/ansible-install-pkg
+
+Run mkdir -p /opt/yunion/playbook
+Run mkdir /opt/yunion/playbook/monitor-agent
+Run git clone https://github.com/yunionio/monitor-agent.git /opt/yunion/playbook/monitor-agent --recurse-submodules
