@@ -128,7 +128,11 @@ func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred
 	if len(input.Topic) < 10 {
 		length = len(input.Topic)
 	}
-	input.Name = fmt.Sprintf("%s-%s-%s", input.Topic[:length], input.ContactType, nowStr)
+	name := fmt.Sprintf("%s-%s-%s", input.Topic[:length], input.ContactType, nowStr)
+	input.Name, err = db.GenerateName(nm, ownerId, name)
+	if err != nil {
+		return input, errors.Wrapf(err, "unable to generate name for %s", name)
+	}
 	return input, nil
 }
 
