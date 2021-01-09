@@ -661,4 +661,8 @@ func init() {
 		EN("Update Tags").
 		CN("修改标签"),
 	)
+	t.Set(ACT_SET_ALERT, i18n.NewTableEntry().
+		EN("Set Alert").
+		CN("配置报警"),
+	)
 }
