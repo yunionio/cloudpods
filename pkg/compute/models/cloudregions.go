@@ -30,6 +30,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -1134,6 +1135,23 @@ func (manager *SCloudregionManager) AllowGetPropertySyncTasks(ctx context.Contex
 
 func (manager *SCloudregionManager) GetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query api.SkuTaskQueryInput) (jsonutils.JSONObject, error) {
 	return GetPropertySkusSyncTasks(ctx, userCred, query)
+}
+
+func (self *SCloudregion) AllowSyncImages(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "sync-images")
+}
+
+func (self *SCloudregion) PerformSyncImages(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SyncImagesInput) (jsonutils.JSONObject, error) {
+	return nil, self.StartSyncImagesTask(ctx, userCred, "")
+}
+
+func (self *SCloudregion) StartSyncImagesTask(ctx context.Context, userCred mcclient.TokenCredential, parentId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "CloudregionSyncImagesTask", self, userCred, nil, "", "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (self *SCloudregion) GetCloudprovider() (*SCloudprovider, error) {
