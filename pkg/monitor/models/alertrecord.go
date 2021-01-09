@@ -336,12 +336,27 @@ func (manager *SAlertRecordManager) getNowAlertingRecord(ctx context.Context, us
 	query = manager.FilterByOwner(query, userCred, rbacutils.String2Scope(scope))
 	query = query.GE("created_at", startTime.UTC().Format(timeutils.MysqlTimeFormat))
 	query = query.Equals("state", monitor.AlertStateAlerting)
-	sQuery := CommonAlertManager.Query("id").Equals("state", monitor.AlertStateAlerting).IsNull("used_by").SubQuery()
-	query = query.In("alert_id", sQuery).IsNotNull("res_type").IsNotEmpty("res_type").GroupBy("alert_id")
+	query = query.IsNotNull("res_type").IsNotEmpty("res_type").Desc("created_at")
+
+	alertsQuery := CommonAlertManager.Query("id").Equals("state", monitor.AlertStateAlerting).IsNull("used_by")
+	alertsQuery = CommonAlertManager.FilterByOwner(alertsQuery, userCred, rbacutils.String2Scope(scope))
+	alerts := make([]SCommonAlert, 0)
 	records := make([]SAlertRecord, 0)
-	err := db.FetchModelObjects(manager, query, &records)
+	err := db.FetchModelObjects(CommonAlertManager, alertsQuery, &alerts)
 	if err != nil {
 		return nil, err
+	}
+	for _, alert := range alerts {
+		tmp := *query
+		recordModel, err := db.NewModelObject(manager)
+		if err != nil {
+			return nil, err
+		}
+		if err := (&tmp).Equals("alert_id", alert.GetId()).First(recordModel); err == nil {
+			records = append(records, *(recordModel.(*SAlertRecord)))
+		} else {
+			return nil, errors.Wrapf(err, "getRecordByAlertId:%s error", alert.GetId())
+		}
 	}
 	return records, nil
 }

@@ -111,11 +111,18 @@ func (c *NoDataQueryCondition) getOnecloudResources(evalContext *alerting.EvalCo
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewStringArray([]string{"running", "ready"}), "status")
 	query.Add(jsonutils.NewString("true"), "admin")
+	if len(c.Query.Model.Tags) != 0 {
+		query, err = c.convertTagsQuery(evalContext, query)
+		if err != nil {
+			return nil, errors.Wrap(err, "NoDataQueryCondition convertTagsQuery error")
+		}
+	}
 	switch evalContext.Rule.RuleDescription[0].ResType {
 	case monitor.METRIC_RES_TYPE_HOST:
 		query.Set("host-type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
 		allResources, err = ListAllResources(&mc_mds.Hosts, query)
 	case monitor.METRIC_RES_TYPE_GUEST:
+		allResources, err = ListAllResources(&mc_mds.Servers, query)
 	case monitor.METRIC_RES_TYPE_RDS:
 		allResources, err = ListAllResources(&mc_mds.DBInstance, query)
 	case monitor.METRIC_RES_TYPE_REDIS:
@@ -133,6 +140,29 @@ func (c *NoDataQueryCondition) getOnecloudResources(evalContext *alerting.EvalCo
 		return nil, errors.Wrap(err, "NoDataQueryCondition Host list error")
 	}
 	return allResources, nil
+}
+
+func (c *NoDataQueryCondition) convertTagsQuery(evalContext *alerting.EvalContext,
+	query *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	alertDetails, err := c.GetCommonAlertDetails(evalContext)
+	if err != nil {
+		return nil, err
+	}
+	for i, _ := range c.Query.Model.Tags {
+		filterCount := 0
+		if c.Query.Model.Tags[i].Operator == "=" {
+			if tag, ok := monitor.MEASUREMENT_TAG_KEYWORD[alertDetails.ResType]; ok {
+				if c.Query.Model.Tags[i].Key == tag {
+					query.Set("name", jsonutils.NewString(c.Query.Model.Tags[i].Value))
+					continue
+				}
+			}
+		}
+		query.Set(fmt.Sprintf("filter.%d", filterCount),
+			jsonutils.NewString(fmt.Sprintf("%s.notin(%s)", c.Query.Model.Tags[i].Key, c.Query.Model.Tags[i].Value)))
+		filterCount++
+	}
+	return query, nil
 }
 
 func ListAllResources(manager modulebase.Manager, params *jsonutils.JSONDict) ([]jsonutils.JSONObject, error) {

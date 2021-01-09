@@ -194,12 +194,10 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb.TimeSeries,
 	meta *tsdb.QueryResultMeta, value *float64, valStrArr []string) (*monitor.EvalMatch, error) {
 	evalMatch := new(monitor.EvalMatch)
-	alert, err := models.CommonAlertManager.GetAlert(context.Rule.Id)
+	alertDetails, err := c.GetCommonAlertDetails(context)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetAlert to NewEvalMatch error")
 	}
-	settings, _ := alert.GetSettings()
-	alertDetails := alert.GetCommonAlertMetricDetailsFromAlertCondition(c.Index, &settings.Conditions[c.Index])
 	evalMatch.Metric = fmt.Sprintf("%s.%s", alertDetails.Measurement, alertDetails.Field)
 	queryKeyInfo := ""
 	if len(alertDetails.MeasurementDisplayName) > 0 && len(alertDetails.FieldDescription.DisplayName) > 0 {
@@ -224,6 +222,16 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb
 	}
 	//c.newRuleDescription(context, alertDetails)
 	return evalMatch, nil
+}
+
+func (c *QueryCondition) GetCommonAlertDetails(context *alerting.EvalContext) (*monitor.CommonAlertMetricDetails, error) {
+	alert, err := models.CommonAlertManager.GetAlert(context.Rule.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetAlert to NewEvalMatch error")
+	}
+	settings, _ := alert.GetSettings()
+	alertDetails := alert.GetCommonAlertMetricDetailsFromAlertCondition(c.Index, &settings.Conditions[c.Index])
+	return alertDetails, nil
 }
 
 func (c *QueryCondition) jointPointStr(series tsdb.TimeSeries, value string, valStrArr []string) string {
