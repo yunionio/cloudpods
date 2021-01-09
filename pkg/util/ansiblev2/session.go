@@ -17,34 +17,20 @@ package ansiblev2
 import (
 	"context"
 	"io"
-	"io/ioutil"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"sync"
-
-	"github.com/pkg/errors"
-
-	yerrors "yunion.io/x/pkg/util/errors"
 )
 
 type Session struct {
-	privateKey   string
+	PlaybookSessionBase
+
 	playbook     string
-	inventory    string
 	requirements string
 	files        map[string][]byte
-
-	outputWriter io.Writer
-	stateMux     *sync.Mutex
-	isRunning    bool
-	keepTmpdir   bool
 }
 
 func NewSession() *Session {
 	sess := &Session{
-		stateMux: &sync.Mutex{},
-		files:    map[string][]byte{},
+		PlaybookSessionBase: NewPlaybookSessionBase(),
+		files:               map[string][]byte{},
 	}
 	return sess
 }
@@ -95,149 +81,18 @@ func (sess *Session) KeepTmpdir(keep bool) *Session {
 	return sess
 }
 
+func (sess *Session) GetPlaybook() string {
+	return sess.playbook
+}
+
+func (sess *Session) GetRequirements() string {
+	return sess.requirements
+}
+
+func (sess *Session) GetFile() map[string][]byte {
+	return sess.files
+}
+
 func (sess *Session) Run(ctx context.Context) (err error) {
-	var (
-		tmpdir string
-	)
-
-	sess.stateMux.Lock()
-	if sess.isRunning {
-		return errors.Errorf("playbook is already running")
-	}
-	sess.isRunning = true
-	sess.stateMux.Unlock()
-	defer func() {
-		sess.stateMux.Lock()
-		sess.isRunning = false
-		sess.stateMux.Unlock()
-	}()
-
-	// make tmpdir
-	tmpdir, err = ioutil.TempDir("", "onecloud-ansiblev2")
-	if err != nil {
-		err = errors.WithMessage(err, "making tmp dir")
-		return
-	}
-	defer func() {
-		if sess.keepTmpdir {
-			return
-		}
-		if err1 := os.RemoveAll(tmpdir); err1 != nil {
-			err = errors.WithMessagef(err1, "removing %q", tmpdir)
-		}
-	}()
-
-	// write out inventory
-	inventory := filepath.Join(tmpdir, "inventory")
-	err = ioutil.WriteFile(inventory, []byte(sess.inventory), os.FileMode(0600))
-	if err != nil {
-		err = errors.WithMessagef(err, "writing inventory %s", inventory)
-		return
-	}
-
-	// write out playbook
-	playbook := filepath.Join(tmpdir, "playbook")
-	err = ioutil.WriteFile(playbook, []byte(sess.playbook), os.FileMode(0600))
-	if err != nil {
-		err = errors.WithMessagef(err, "writing playbook %s", playbook)
-		return
-	}
-
-	// write out private key
-	var privateKey string
-	if len(sess.privateKey) > 0 {
-		privateKey = filepath.Join(tmpdir, "private_key")
-		err = ioutil.WriteFile(privateKey, []byte(sess.privateKey), os.FileMode(0600))
-		if err != nil {
-			err = errors.WithMessagef(err, "writing private key %s", privateKey)
-			return
-		}
-	}
-
-	// write out requirements
-	var requirements string
-	if len(sess.requirements) > 0 {
-		requirements = filepath.Join(tmpdir, "requirements.yml")
-		err = ioutil.WriteFile(requirements, []byte(sess.requirements), os.FileMode(0600))
-		if err != nil {
-			err = errors.WithMessagef(err, "writing requirements %s", requirements)
-			return
-		}
-	}
-
-	// write out files
-	for name, content := range sess.files {
-		path := filepath.Join(tmpdir, name)
-		dir := filepath.Dir(path)
-		err = os.MkdirAll(dir, os.FileMode(0700))
-		if err != nil {
-			err = errors.WithMessagef(err, "mkdir -p %s", dir)
-			return
-		}
-		err = ioutil.WriteFile(path, content, os.FileMode(0600))
-		if err != nil {
-			err = errors.WithMessagef(err, "writing file %s", name)
-			return
-		}
-	}
-
-	// run modules one by one
-	var errs []error
-	defer func() {
-		if len(errs) > 0 {
-			err = yerrors.NewAggregate(errs)
-		}
-	}()
-
-	// install required roles
-	if len(requirements) > 0 {
-		args := []string{
-			"install", "-r", requirements, "-p", tmpdir,
-		}
-		cmd := exec.CommandContext(ctx, "ansible-galaxy", args...)
-		stdout, _ := cmd.StdoutPipe()
-		stderr, _ := cmd.StderrPipe()
-		if err1 := cmd.Start(); err1 != nil {
-			errs = append(errs, errors.WithMessage(err1, "start ansible-galaxy install roles"))
-			return
-		}
-		// Mix stdout, stderr
-		if sess.outputWriter != nil {
-			go io.Copy(sess.outputWriter, stdout)
-			go io.Copy(sess.outputWriter, stderr)
-		}
-		if err1 := cmd.Wait(); err1 != nil {
-			errs = append(errs, errors.WithMessage(err1, "wait ansible-galaxy install roles"))
-		}
-	}
-
-	// run playbook
-	{
-		args := []string{
-			"--inventory", inventory,
-		}
-		if privateKey != "" {
-			args = append(args, "--private-key", privateKey)
-		}
-		args = append(args, playbook)
-		cmd := exec.CommandContext(ctx, "ansible-playbook", args...)
-		cmd.Dir = tmpdir
-		cmd.Env = os.Environ()
-		cmd.Env = append(cmd.Env, "ANSIBLE_HOST_KEY_CHECKING=False")
-		stdout, _ := cmd.StdoutPipe()
-		stderr, _ := cmd.StderrPipe()
-		if err1 := cmd.Start(); err1 != nil {
-			errs = append(errs, errors.WithMessagef(err1, "start playbook %s", playbook))
-			return
-		}
-		// Mix stdout, stderr
-		if sess.outputWriter != nil {
-			go io.Copy(sess.outputWriter, stdout)
-			go io.Copy(sess.outputWriter, stderr)
-		}
-		if err1 := cmd.Wait(); err1 != nil {
-			errs = append(errs, errors.WithMessagef(err1, "wait playbook %s", playbook))
-		}
-	}
-	return nil
+	return runnable{sess}.Run(ctx)
 }
