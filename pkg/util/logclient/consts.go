@@ -196,4 +196,6 @@ const (
 
 	ACT_UPDATE_RULE = "update_config"
 	ACT_UPDATE_TAGS = "update_tags"
+
+	ACT_SET_ALERT = "set_alert"
 )
