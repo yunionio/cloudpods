@@ -127,16 +127,6 @@ func (manager *SSamluserManager) ValidateCreateData(ctx context.Context, userCre
 		return input, err
 	}
 	group := _group.(*SCloudgroup)
-	sq := CloudgroupManager.Query("id").Equals("provider", group.Provider).SubQuery()
-	q := manager.Query().Equals("owner_id", input.OwnerId).In("cloudgroup_id", sq)
-	groups := []SCloudgroup{}
-	err = db.FetchModelObjects(CloudgroupManager, q, &groups)
-	if err != nil {
-		return input, httperrors.NewGeneralError(errors.Wrapf(err, "db.FetchModelObjects"))
-	}
-	if len(groups) > 0 {
-		return input, httperrors.NewConflictError("user %s has already in other %s group", input.Name, group.Provider)
-	}
 	_account, err := validators.ValidateModel(userCred, CloudaccountManager, &input.CloudaccountId)
 	if err != nil {
 		return input, err
@@ -147,6 +137,17 @@ func (manager *SSamluserManager) ValidateCreateData(ctx context.Context, userCre
 	}
 	if account.Provider != group.Provider {
 		return input, httperrors.NewConflictError("account %s and group %s not with same provider", account.Name, group.Name)
+	}
+
+	sq := CloudgroupManager.Query("id").Equals("provider", group.Provider).SubQuery()
+	q := manager.Query().Equals("owner_id", input.OwnerId).Equals("cloudaccount_id", account.Id).In("cloudgroup_id", sq)
+	groups := []SCloudgroup{}
+	err = db.FetchModelObjects(CloudgroupManager, q, &groups)
+	if err != nil {
+		return input, httperrors.NewGeneralError(errors.Wrapf(err, "db.FetchModelObjects"))
+	}
+	if len(groups) > 0 {
+		return input, httperrors.NewConflictError("user %s has already in other %s group", input.Name, group.Provider)
 	}
 	input.Status = api.SAML_USER_STATUS_AVAILABLE
 	return input, nil
