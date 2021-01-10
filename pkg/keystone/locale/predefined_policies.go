@@ -21,11 +21,15 @@ import (
 const (
 	RoleAdmin         = "admin"
 	RoleFA            = "fa"
+	RoleDomainFA      = "domainfa"
+	RoleProjectFA     = "projectfa"
 	RoleSA            = "sa"
 	RoleProjectOwner  = "project_owner"
-	RoleMember        = "member"
 	RoleDomainAdmin   = "domainadmin"
 	RoleProjectEditor = "project_editor"
+	RoleProjectViewer = "project_viewer"
+
+	RoleMember = "member"
 )
 
 type sPolicyDefinition struct {
@@ -42,6 +46,7 @@ type SRoleDefiniton struct {
 	Description string
 	Policies    []string
 	Project     string
+	IsPublic    bool
 
 	DescriptionCN string
 }
@@ -287,7 +292,8 @@ var (
 			Desc:   "resources of metering and billing service",
 			Scope:  rbacutils.ScopeProject,
 			Services: map[string][]string{
-				"meter": nil,
+				"meter":      nil,
+				"suggestion": nil,
 				"notify": {
 					"receivers",
 				},
@@ -423,7 +429,8 @@ var (
 			Policies: []string{
 				"sysadmin",
 			},
-			Project: "system",
+			Project:  "system",
+			IsPublic: false,
 		},
 		{
 			Name:          RoleDomainAdmin,
@@ -432,6 +439,7 @@ var (
 			Policies: []string{
 				"domainadmin",
 			},
+			IsPublic: true,
 		},
 		{
 			Name:          RoleProjectOwner,
@@ -440,24 +448,37 @@ var (
 			Policies: []string{
 				"projectadmin",
 			},
+			IsPublic: true,
 		},
 		{
 			Name:          RoleFA,
-			DescriptionCN: "财务管理员",
+			DescriptionCN: "系统财务管理员",
 			Description:   "System finance administrator",
 			Policies: []string{
 				"sysmeteradmin",
 				"sysdashboard",
 			},
+			IsPublic: false,
 		},
 		{
-			Name:          RoleMember,
-			DescriptionCN: "项目只读成员",
-			Description:   "Project read-only member",
+			Name:          RoleDomainFA,
+			DescriptionCN: "域财务管理员",
+			Description:   "Domain finance administrator",
 			Policies: []string{
-				"projectviewer",
+				"domainmeteradmin",
+				"domaindashboard",
+			},
+			IsPublic: true,
+		},
+		{
+			Name:          RoleProjectFA,
+			DescriptionCN: "项目财务管理员",
+			Description:   "Project finance administrator",
+			Policies: []string{
+				"projectmeteradmin",
 				"projectdashboard",
 			},
+			IsPublic: true,
 		},
 		{
 			Name:          RoleProjectEditor,
@@ -467,6 +488,17 @@ var (
 				"projecteditor",
 				"projectdashboard",
 			},
+			IsPublic: true,
+		},
+		{
+			Name:          RoleProjectViewer,
+			DescriptionCN: "项目只读成员",
+			Description:   "Project read-only member",
+			Policies: []string{
+				"projectviewer",
+				"projectdashboard",
+			},
+			IsPublic: true,
 		},
 	}
 )
