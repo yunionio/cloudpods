@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/notify"
 	notifyv2 "yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/models"
 	"yunion.io/x/onecloud/pkg/notify/rpc/apis"
@@ -107,22 +108,22 @@ func (self *SRpcService) StopAll() {
 }
 
 // Send call the corresponding rpc server to send messager.
-func (self *SRpcService) Send(ctx context.Context, contactType, contact, topic, msg, priority string) error {
+func (self *SRpcService) Send(ctx context.Context, p notify.SSendParams) error {
 
-	args, err := self.templateStore.NotifyFilter(contactType, topic, msg)
+	args, err := self.templateStore.NotifyFilter(p.ContactType, p.Topic, p.Message, p.Lang)
 	if err != nil {
 		return errors.Wrap(err, "templateStore.NotifyFilter")
 	}
 
-	args.Contact = contact
-	args.Priority = priority
+	args.Contact = p.Contact
+	args.Priority = p.Priority
 
 	f := func(service *apis.SendNotificationClient) (interface{}, error) {
 		log.Debugf("send one")
 		return service.Send(ctx, &args)
 	}
 
-	_, err = self.execute(ctx, f, contactType)
+	_, err = self.execute(ctx, f, p.ContactType)
 	if err != nil {
 		s, ok := status.FromError(err)
 		if !ok {
@@ -133,14 +134,14 @@ func (self *SRpcService) Send(ctx context.Context, contactType, contact, topic, 
 	return nil
 }
 
-func (self *SRpcService) BatchSend(ctx context.Context, contacts []string, contactType, topic, message, priority string) ([]*apis.FailedRecord, error) {
-	args, err := self.templateStore.NotifyFilter(contactType, topic, message)
+func (self *SRpcService) BatchSend(ctx context.Context, p notify.SBatchSendParams) ([]*apis.FailedRecord, error) {
+	args, err := self.templateStore.NotifyFilter(p.ContactType, p.Topic, p.Message, p.Lang)
 	if err != nil {
 		return nil, errors.Wrap(err, "templateStore.NotifyFilter")
 	}
 
 	batchSendParams := apis.BatchSendParams{
-		Contacts:       contacts,
+		Contacts:       p.Contacts,
 		Title:          args.Title,
 		Message:        args.Message,
 		Priority:       args.Priority,
@@ -151,7 +152,7 @@ func (self *SRpcService) BatchSend(ctx context.Context, contacts []string, conta
 		return service.BatchSend(ctx, &batchSendParams)
 	}
 
-	ret, err := self.execute(ctx, f, contactType)
+	ret, err := self.execute(ctx, f, p.ContactType)
 	if err != nil {
 		s, ok := status.FromError(err)
 		if !ok {
