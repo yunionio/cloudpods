@@ -286,7 +286,7 @@ func (domain *SDomain) ValidatePurgeCondition(ctx context.Context) error {
 	}
 	groupCnt, _ := domain.GetGroupCount()
 	if groupCnt > 0 {
-		return httperrors.NewInvalidStatusError("group is in use by group")
+		return httperrors.NewInvalidStatusError("domain is in use by group")
 	}
 	projCnt, _ := domain.GetProjectCount()
 	if projCnt > 0 {
