@@ -20,6 +20,8 @@ import (
 	"regexp"
 	"time"
 
+	"golang.org/x/text/language"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -97,6 +99,7 @@ type SReceiver struct {
 
 	Email  string `width:"64" nullable:"false" create:"optional" update:"user" get:"user" list:"user"`
 	Mobile string `width:"16" nullable:"false" create:"optional" update:"user" get:"user" list:"user"`
+	Lang   string `width:"8" charset:"ascii" nullable:"false" list:"user" update:"user"`
 
 	// swagger:ignore
 	EnabledEmail tristate.TriState `nullable:"false" default:"false" update:"user"`
@@ -908,6 +911,51 @@ func (r *SReceiver) PerformDisable(ctx context.Context, userCred mcclient.TokenC
 		return nil, errors.Wrap(err, "EnabledPerformEnable")
 	}
 	return nil, nil
+}
+
+func (r *SReceiver) Sync(ctx context.Context) error {
+	session := auth.GetAdminSessionWithInternal(ctx, "", "")
+	params := jsonutils.NewDict()
+	params.Set("scope", jsonutils.NewString("system"))
+	params.Set("system", jsonutils.JSONTrue)
+	data, err := modules.UsersV3.GetById(session, r.Id, params)
+	if err != nil {
+		jerr := err.(*httputils.JSONClientError)
+		if jerr.Code == 404 {
+			err := r.Delete(ctx, session.GetToken())
+			if err != nil {
+				return errors.Wrapf(err, "unable to delete receiver %s", r.Id)
+			}
+			return errors.Wrapf(errors.ErrNotFound, "no such receiver %s", r.Id)
+		}
+		return err
+	}
+	uname, _ := data.GetString("name")
+	domainId, _ := data.GetString("domain_id")
+	lang, _ := data.GetString("lang")
+	_, err = db.Update(r, func() error {
+		r.Name = uname
+		r.DomainId = domainId
+		r.Lang = lang
+		return nil
+	})
+	return errors.Wrap(err, "unable to update")
+}
+
+func (r *SReceiver) GetTemplateLang(ctx context.Context) (string, error) {
+	if len(r.Lang) == 0 {
+		err := r.Sync(ctx)
+		if err != nil {
+			return "", err
+		}
+	}
+	log.Infof("lang: %s", r.Lang)
+	lang, err := language.Parse(r.Lang)
+	if err != nil {
+		return "", errors.Wrapf(err, "unable to prase language %q", r.Lang)
+	}
+	tLang := notifyclientI18nTable.LookupByLang(lang, tempalteLang)
+	return tLang, nil
 }
 
 // Implemente interface EventHandler

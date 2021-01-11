@@ -28,10 +28,28 @@ type INotifyService interface {
 	StopAll()
 	UpdateServices(ctx context.Context, userCred mcclient.TokenCredential, isStart bool)
 	RestartService(ctx context.Context, config SConfig, serviceName string)
-	Send(ctx context.Context, contactType, contact, topic, msg, priority string) error
+	Send(ctx context.Context, p SSendParams) error
 	ContactByMobile(ctx context.Context, mobile, serviceName string) (string, error)
-	BatchSend(ctx context.Context, contacts []string, contactType, topic, message, priority string) ([]*apis.FailedRecord, error)
+	BatchSend(ctx context.Context, p SBatchSendParams) ([]*apis.FailedRecord, error)
 	ValidateConfig(ctx context.Context, cType string, configs map[string]string) (isValid bool, message string, err error)
+}
+
+type SSendParams struct {
+	ContactType string
+	Contact     string
+	Topic       string
+	Message     string
+	Priority    string
+	Lang        string
+}
+
+type SBatchSendParams struct {
+	ContactType string
+	Contacts    []string
+	Topic       string
+	Message     string
+	Priority    string
+	Lang        string
 }
 
 type IServiceConfigStore interface {
@@ -40,7 +58,7 @@ type IServiceConfigStore interface {
 }
 
 type ITemplateStore interface {
-	NotifyFilter(contactType, topic, msg string) (params apis.SendParams, err error)
+	NotifyFilter(contactType, topic, msg, lang string) (params apis.SendParams, err error)
 }
 
 type SConfig map[string]string
