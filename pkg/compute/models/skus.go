@@ -835,7 +835,7 @@ func (manager *SServerSkuManager) ListItemFilter(
 			conditions = append(
 				conditions,
 				sqlchemy.AND(
-					sqlchemy.GE(q.Field("memory_size_mb"), s),
+					sqlchemy.GT(q.Field("memory_size_mb"), s),
 					sqlchemy.LE(q.Field("memory_size_mb"), e),
 				),
 			)
