@@ -42,6 +42,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
+const contentTypeSpreadsheet = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
 const (
 	HOST_MAC                    = "*MAC地址"
 	HOST_NAME                   = "*名称"
@@ -154,8 +156,8 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 
 	fileHeader := hostfiles[0].Header
 	contentType := fileHeader.Get("Content-Type")
-	if contentType != "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" {
-		e := httperrors.NewInputParameterError("Wrong content type %s, required application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", contentType)
+	if contentType != contentTypeSpreadsheet {
+		e := httperrors.NewInputParameterError("Wrong content type %s, want %s", contentType, contentTypeSpreadsheet)
 		httperrors.JsonClientError(ctx, w, e)
 		return
 	}
@@ -199,7 +201,7 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 	}
 
 	if !titlesOk {
-		httperrors.InputParameterError(ctx, w, "template file is invalid.please check.")
+		httperrors.InputParameterError(ctx, w, "template file is invalid. please check.")
 		return
 	}
 
@@ -302,8 +304,8 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 
 	fileHeader := userfiles[0].Header
 	contentType := fileHeader.Get("Content-Type")
-	if contentType != "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" {
-		e := httperrors.NewInputParameterError("Wrong content type %s, required application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", contentType)
+	if contentType != contentTypeSpreadsheet {
+		e := httperrors.NewInputParameterError("Wrong content type %s, want %s", contentType, contentTypeSpreadsheet)
 		httperrors.JsonClientError(ctx, w, e)
 		return
 	}
@@ -328,7 +330,7 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 	// skipped header row
 	rows := xlsx.GetRows("users")
 	if len(rows) <= 1 {
-		e := httperrors.NewInputParameterError("empty file")
+		e := httperrors.NewInputParameterError("empty file content")
 		httperrors.JsonClientError(ctx, w, e)
 		return
 	} else if len(rows) > BATCH_USER_REGISTER_QUANTITY_LIMITATION {
@@ -431,7 +433,7 @@ func (mh *MiscHandler) getDownloadsHandler(ctx context.Context, w http.ResponseW
 	params := appctx.AppContextParams(ctx)
 	template, ok := params["<template_id>"]
 	if !ok || len(template) == 0 {
-		httperrors.InvalidInputError(ctx, w, "not found")
+		httperrors.InvalidInputError(ctx, w, "template_id")
 		return
 	}
 

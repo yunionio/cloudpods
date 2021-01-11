@@ -170,7 +170,7 @@ func (h *AuthHandlers) handleSsoLogin(ctx context.Context, w http.ResponseWriter
 	case "POST":
 		formData, err := appsrv.Fetch(req)
 		if err != nil {
-			httperrors.InputParameterError(ctx, w, "fetch formdata error: %s", err)
+			httperrors.InputParameterError(ctx, w, "fetch form data error: %s", err)
 		}
 		body, err = jsonutils.ParseQueryString(string(formData))
 		if err != nil {

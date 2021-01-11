@@ -205,7 +205,7 @@ func validateTotpRecoverySecrets(s *mcclient.ClientSession, uid string, question
 func initTotpSecrets(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	t, authToken, err := fetchAuthInfo(ctx, req)
 	if err != nil {
-		httperrors.InvalidCredentialError(ctx, w, "fetchAuthInfo fail %s", err)
+		httperrors.InvalidCredentialError(ctx, w, "fetchAuthInfo fail: %s", err)
 		return
 	}
 	if authToken.IsTotpInitialized() {
@@ -232,14 +232,14 @@ func initTotpSecrets(ctx context.Context, w http.ResponseWriter, req *http.Reque
 func validatePasscodeHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	t, authToken, err := fetchAuthInfo(ctx, req)
 	if err != nil {
-		httperrors.InvalidCredentialError(ctx, w, "fetchAuthInfo fail %s", err)
+		httperrors.InvalidCredentialError(ctx, w, "fetchAuthInfo fail: %s", err)
 		return
 	}
 
 	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 	_, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
-		httperrors.InvalidInputError(ctx, w, "body is empty")
+		httperrors.InvalidInputError(ctx, w, "request body is empty")
 		return
 	}
 
@@ -271,14 +271,14 @@ func validatePasscodeHandler(ctx context.Context, w http.ResponseWriter, req *ht
 func resetTotpSecrets(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	t, _, err := fetchAuthInfo(ctx, req)
 	if err != nil {
-		httperrors.InvalidCredentialError(ctx, w, "fetchAuthInfo fail %s", err)
+		httperrors.InvalidCredentialError(ctx, w, "fetchAuthInfo fail: %s", err)
 		return
 	}
 
 	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 	_, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
-		httperrors.InvalidInputError(ctx, w, "body is empty")
+		httperrors.InvalidInputError(ctx, w, "request body is empty")
 		return
 	}
 
@@ -309,7 +309,7 @@ func resetTotpSecrets(ctx context.Context, w http.ResponseWriter, req *http.Requ
 func listTotpRecoveryQuestions(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	t, _, err := fetchAuthInfo(ctx, req)
 	if err != nil {
-		httperrors.InvalidCredentialError(ctx, w, "fetchAuthInfo fail %s", err)
+		httperrors.InvalidCredentialError(ctx, w, "fetchAuthInfo fail: %s", err)
 		return
 	}
 
@@ -335,14 +335,14 @@ func listTotpRecoveryQuestions(ctx context.Context, w http.ResponseWriter, req *
 func resetTotpRecoveryQuestions(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	t, _, err := fetchAuthInfo(ctx, req)
 	if err != nil {
-		httperrors.InvalidCredentialError(ctx, w, "fetchAuthInfo fail %s", err)
+		httperrors.InvalidCredentialError(ctx, w, "fetchAuthInfo fail: %s", err)
 		return
 	}
 
 	s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 	_, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
-		httperrors.InvalidInputError(ctx, w, "body is empty")
+		httperrors.InvalidInputError(ctx, w, "request body is empty")
 		return
 	}
 
