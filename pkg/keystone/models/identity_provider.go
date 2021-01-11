@@ -344,7 +344,7 @@ func (ident *SIdentityProvider) PerformConfig(ctx context.Context, userCred mccl
 	action := input.Action
 	changed, err := saveConfigs(userCred, action, ident, opts, nil, nil, api.SensitiveDomainConfigMap)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("saveConfig fail %s", err)
+		return nil, httperrors.NewInternalServerError("saveConfigs fail %s", err)
 	}
 	if changed {
 		ident.MarkDisconnected(ctx, userCred, fmt.Errorf("change config"))
