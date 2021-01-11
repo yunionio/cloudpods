@@ -142,11 +142,11 @@ func fetchIdList(ctx context.Context, query jsonutils.JSONObject, w http.Respons
 	if e == nil && len(idlist) > 0 {
 		queryDict := query.(*jsonutils.JSONDict)
 		queryDict.Remove("id")
-		log.Debugf("Get idlist: %s", idlist)
+		log.Debugf("Get id list: %s", idlist)
 		return jsonutils.JSONArray2StringArray(idlist)
 	} else {
-		log.Debugf("Cannot find idlist in query: %s", query)
-		httperrors.InvalidInputError(ctx, w, "No idlist found")
+		log.Debugf("Cannot find id list in query: %s", query)
+		httperrors.InvalidInputError(ctx, w, "No id list found")
 		return nil
 	}
 }

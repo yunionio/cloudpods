@@ -43,2226 +43,2342 @@ func init() {
 }
 
 var messageKeyToIndex = map[string]int{
-	"%s %s %s not found":                                                 41,
-	"%s %s %s not support %s":                                            415,
-	"%s %s not found":                                                    462,
-	"%s %s not support policy value %s":                                  421,
-	"%s %s not supported dns type %s":                                    413,
-	"%s %s not supported policy type %s":                                 414,
-	"%s allow %s %s not found":                                           47,
-	"%s backend group not support change port":                           1253,
-	"%s backend group not support change port or weight":                 1254,
-	"%s cannot be set to 0":                                              1271,
-	"%s disk cannot exceed 8":                                            152,
-	"%s does not currently support creating loadbalancer":                1310,
-	"%s does not currently support creating loadbalancer acl":            1306,
-	"%s does not currently support creating loadbalancer certificate":    1307,
-	"%s does not support creating loadbalancer":                          1313,
-	"%s does not support creating loadbalancer acl":                      1314,
-	"%s does not support creating loadbalancer certificate":              1315,
-	"%s for %s features are not compatible for creating instance":        153,
-	"%s is not modifiable":                                               495,
-	"%s is not mount point %s":                                           199,
-	"%s is out of network IP ranges":                                     818,
-	"%s is reserved for aliyun %s, please use another":                   1290,
-	"%s length must less 500 letters":                                    1262,
-	"%s listener port %d is already taken by listener %s(%s)":            984,
-	"%s method not found":                                                19,
-	"%s method params length not match, expected %d, input %d":           20,
-	"%s not allow to %s %s":                                              48,
-	"%s not allow to get property %s":                                    38,
-	"%s not allow to get spec %s":                                        42,
-	"%s not support":                                                     298,
-	"%s not support cdrom params":                                        162,
-	"%s not support close tcp or udp loadbalancer listener health check": 1272,
-	"%s not support create account":                                      1342,
-	"%s not support create eip":                                          146,
-	"%s not support create eip, it only support bind eip":                163,
-	"%s not support create subscription":                                 299,
-	"%s not support create virtual machine with eip":                     164,
-	"%s not support policy type %s":                                      420,
-	"%s not support rebuild root with a different image":                 572,
-	"%s not support recovery":                                            1335,
-	"%s not support saml auth":                                           274,
-	"%s not support this operation":                                      358,
-	"%s only support aliyun %s":                                          1294,
-	"%s only support aliyun %s or %s":                                    1293,
-	"%s rds Support up to %d security groups":                            343,
-	"%s rds not support secgroup":                                        342,
-	"%s request the mask range should be between 16 and 28":              1369,
-	"%s require disk size must in 40 ~ 4000 GB":                          1323,
-	"%s requires that the eip bandwidth must be less than 100Mbps":       129,
-	"%s requires the virtual machine state to be %s before it can be added backendgroup, but current state of the virtual machine is %s": 958,
-	"%s reset disk required guest status is running or ready":                                                                            191,
-	"%s shall bind up to %d security groups":                                                                                             768,
-	"%s(%s) not allow to delete":                                                                                                         51,
-	"%s: %s cannot be ip address: %s":                                                                                                    451,
-	"%s: %s must be domain name: %s":                                                                                                     450,
-	"%s: Invalid IP address %s":                                                                                                          1040,
-	"%s: bad base64 encoded string: %s":                                                                                                  923,
-	"%s: bad template: %s":                                                                                                               924,
-	"%s: invalid domain name: %s":                                                                                                        444,
-	"%s: name cannot be ip address: %s":                                                                                                  447,
-	"%s: new time is in the future: %s > %s":                                                                                             929,
-	"%s: time error: %s":                                                                                                                 928,
-	"%s: unknown record type":                                                                                                            452,
-	"A: record value must be ipv4 address: %s":                                                                                           448,
-	"AAAA: record value must be ipv6 address: %s":                                                                                        449,
-	"Access address located in different zone than specified":                                                                            823,
-	"Access ip %s has been used":                                                                                                         821,
-	"Access network has no zone???":                                                                                                      822,
-	"Account %s(%s) does not have database %s(%s) permissions":                                                                           328,
-	"Account auto sync enabled":                                                                                                          288,
-	"Account disabled":                                                                                                                   287,
-	"Account status is not %s current status is %s":                                                                                      325,
-	"Action %s not found":                                                                                                                59,
-	"ActionNotFoundError":                                                                                                                1397,
-	"Active download session not expired":                                                                                                1193,
-	"Address %s has been used":                                                                                                           1024,
-	"Address %s not in network":                                                                                                          1028,
-	"Address %s not in range":                                                                                                            1021,
-	"Address %s not reserved":                                                                                                            1023,
-	"Address been assigned out of new range":                                                                                             1053,
-	"Alert is already paused":                                                                                                            1567,
-	"Alert is already un-paused":                                                                                                         1566,
-	"Alert is missing conditions":                                                                                                        1601,
-	"Alert notification used by %d alert":                                                                                                1589,
-	"Alert resource driver duplicate match":                                                                                              1577,
-	"Alert resource driver not found":                                                                                                    1576,
-	"Aliyun %s not support recovery":                                                                                                     1274,
-	"Aliyun %s only 8.0 and 5.7 high_availability local_ssd or 5.6 high_availability support recovery from it self backups": 1276,
-	"Aliyun %s only support recover from it self backups":                                                                   1275,
-	"Aliyun DBInstance account name length shoud be 2~16 characters":                                                        1289,
-	"Aliyun instance weight must be in the range of 0 ~ 100":                                                                1249,
-	"Aliyun not allow to change certificate":                                                                                1245,
-	"Aliyun reset disk required guest status is running or ready":                                                           181,
-	"Already have backup server":                                                                                            645,
-	"At least two networks are required under vpc %s(%s) with aliyun %s(%s)":                                                1287,
-	"Attach nfs storage require host status is online":                                                                      198,
-	"Attach rbd storage require host status is online":                                                                      195,
-	"Aws not support reset disk, you can create new disk with snapshot":                                                     182,
-	"Azure Mv2-series instance sku only support UEFI image":                                                                 132,
-	"Azure UEFI image %s not support this instance sku":                                                                     133,
-	"Azure not support reset disk, you can create new disk with snapshot":                                                   184,
-	"Backup host is offline":                                                                                                653,
-	"Backup only support hypervisor kvm":                                                                                    647,
-	"BadGateway":                                                                                                            1390,
-	"BadRequestError":                                                                                                       1413,
-	"Bandwidth limit cannot exceed %dMbps":                                                                                  1025,
-	"Bandwidth must be non-negative":                                                                                        604,
-	"Baremetal %s is not ready":                                                                                             139,
-	"Baremetal %s is occupied":                                                                                              140,
-	"Baremetal %s not enabled":                                                                                              787,
-	"Baremetal agent not found":                                                                                             210,
-	"Baremetal host is aleady occupied":                                                                                     865,
-	"Baremetal package not prepared":                                                                                        211,
-	"BgpType attribute is only useful for eip network":                                                                      1074,
-	"Bucket has %d task active, can't sync status":                                                                          243,
-	"CD-ROM not empty, please eject first":                                                                                  553,
-	"CNAME cannot mix with other types":                                                                                     442,
-	"CPU core count must be 1 ~ %d":                                                                                         746,
-	"Can not delete disk snapshots, have manual snapshot":                                                                   1189,
-	"Can not get disk snapshot":                                                                                             380,
-	"Can not rebuild root with with diff uefi image":                                                                        570,
-	"Can't clone guest with backup guest":                                                                                   536,
-	"Can't do instance snapshot with backup guest":                                                                          702,
-	"Can't trigger scaling policy without status 'ready'":                                                                   1107,
-	"Cannot Delete disk %s snapshots, disk exist":                                                                           1187,
-	"Cannot add security groups for hypervisor %s":                                                                          557,
-	"Cannot add security groups in status %s":                                                                               484,
-	"Cannot assign security rules in status %s":                                                                             562,
-	"Cannot attach network in status %s":                                                                                    602,
-	"Cannot cache image with no checksum":                                                                                   862,
-	"Cannot change bandwidth in status %s":                                                                                  603,
-	"Cannot change config for baremtal":                                                                                     135,
-	"Cannot change config in %s":                                                                                            608,
-	"Cannot change config in status %s":                                                                                     359,
-	"Cannot change config with different instance family":                                                                   609,
-	"Cannot change network ip_addr in status %s":                                                                            597,
-	"Cannot change server sku name":                                                                                         1158,
-	"Cannot change setting in status %s":                                                                                    605,
-	"Cannot change state on pause alert":                                                                                    1564,
-	"Cannot clone VM in status %s":                                                                                          538,
-	"Cannot create backup with isolated device":                                                                             764,
-	"Cannot create backup with isolated devices":                                                                            648,
-	"Cannot create backup with shared storage":                                                                              646,
-	"Cannot create backup with snapshot":                                                                                    650,
-	"Cannot create disk with disabled storage[%s]":                                                                          373,
-	"Cannot create disk with offline storage[%s]":                                                                           374,
-	"Cannot delete keypair used by servers":                                                                                 909,
-	"Cannot delete server disk %s must not have snapshots.":                                                                 744,
-	"Cannot delete server on disabled host":                                                                                 742,
-	"Cannot delete server on offline host":                                                                                  743,
-	"Cannot delete snapshot in status %s":                                                                                   1182,
-	"Cannot delete snapshot on disk reset":                                                                                  1185,
-	"Cannot delete system alert":                                                                                            1581,
-	"Cannot delete the last cache":                                                                                          1194,
-	"Cannot deploy in status %s":                                                                                            540,
-	"Cannot detach network in status %s":                                                                                    601,
-	"Cannot detach sys disk":                                                                                                581,
-	"Cannot do Ipmi-probe in status %s":                                                                                     840,
-	"Cannot do eject-iso in status %s":                                                                                      881,
-	"Cannot do initialization in status %s":                                                                                 841,
-	"Cannot do insert-iso in status %s":                                                                                     880,
-	"Cannot do io throttle in status %s":                                                                                    688,
-	"Cannot do live migrate, too low qemu version":                                                                          161,
-	"Cannot do maintenance in status %s":                                                                                    832,
-	"Cannot do maintenance while guest status %s":                                                                           833,
-	"Cannot do reboot dbinstance in status %s":                                                                              350,
-	"Cannot do recovery dbinstance in status %s required status %s":                                                         344,
-	"Cannot do renew dbinstance in status %s required status %s":                                                            352,
-	"Cannot do restart elasticcache instance in status %s":                                                                  467,
-	"Cannot do restart server in status %s":                                                                                 624,
-	"Cannot do snapshot when VM in status %s":                                                                               1386,
-	"Cannot do start server in status %s":                                                                                   552,
-	"Cannot do unmaintenance in status %s":                                                                                  834,
-	"Cannot enable deleting account":                                                                                        273,
-	"Cannot keep detached disk":                                                                                             582,
-	"Cannot live migrate in status %s":                                                                                      535,
-	"Cannot live migrate with cdrom":                                                                                        159,
-	"Cannot live migrate with isolated devices":                                                                             160,
-	"Cannot migrate with isolated devices":                                                                                  158,
-	"Cannot mix different types of records, %s != %s":                                                                       456,
-	"Cannot modify Memory and CPU in status %s":                                                                             747,
-	"Cannot modify memory for baremetal":                                                                                    748,
-	"Cannot normal migrate guest in status %s, try rescue mode or server-live-migrate?":                                     156,
-	"Cannot perform cache image in status %s":                                                                               860,
-	"Cannot prepare baremetal in server status %s":                                                                          839,
-	"Cannot prepare baremetal in status %s":                                                                                 838,
-	"Cannot purge elastic_ip on enabled cloud provider":                                                                     520,
-	"Cannot purge network on enabled cloud provider":                                                                        1057,
-	"Cannot purge route_table on enabled cloud provider":                                                                    1081,
-	"Cannot purge server on enabled host":                                                                                   565,
-	"Cannot purge snapshot on enabled cloud provider":                                                                       1190,
-	"Cannot purge vpc on enabled cloud provider":                                                                            1228,
-	"Cannot reduce disk size":                                                                                               617,
-	"Cannot reset VM in status %s":                                                                                          621,
-	"Cannot reset baremetal in status %s":                                                                                   858,
-	"Cannot reset baremetal with active guest":                                                                              859,
-	"Cannot reset disk %s(%s),Snapshot is belong to disk %s":                                                                385,
-	"Cannot reset disk in status %s":                                                                                        383,
-	"Cannot reset disk with snapshot in status %s":                                                                          384,
-	"Cannot reset root in status %s":                                                                                        573,
-	"Cannot resize disk for baremtal":                                                                                       136,
-	"Cannot resume VM in status %s":                                                                                         550,
-	"Cannot revoke security groups in status %s":                                                                            560,
-	"Cannot save image for baremtal":                                                                                        141,
-	"Cannot save image in status %s":                                                                                        531,
-	"Cannot send command in status %s":                                                                                      529,
-	"Cannot send keys in status %s":                                                                                         625,
-	"Cannot set default strategy of %s":                                                                                     1122,
-	"Cannot set security group for this guest %s":                                                                           564,
-	"Cannot set security rules in status %s":                                                                                563,
-	"Cannot start a non-baremetal host":                                                                                     827,
-	"Cannot start baremetal with active guest":                                                                              828,
-	"Cannot stop a non-baremetal host":                                                                                      829,
-	"Cannot stop baremetal with active guest":                                                                               831,
-	"Cannot stop baremetal with non-active guest":                                                                           830,
-	"Cannot stop server in status %s":                                                                                       623,
-	"Cannot suspend VM in status %s":                                                                                        549,
-	"Cannot switch OS between %s-%s":                                                                                        569,
-	"Cannot swith to backup when guest in status %s":                                                                        638,
-	"Cannot sync config a non-baremetal host":                                                                               882,
-	"Cannot sync in status %s":                                                                                              534,
-	"Cannot sync status a non-baremetal host":                                                                               857,
-	"Cannot uncache in status %s":                                                                                           1195,
-	"Cannot unconvert in status %s":                                                                                         874,
-	"Cannot update external resource":                                                                                       317,
-	"Check input guests is exist":                                                                                           700,
-	"Check set pending quota error %s":                                                                                      680,
-	"Cloudaccount disabled":                                                                                                 307,
-	"Cloudprovider disabled":                                                                                                306,
-	"Condition is missing the threshold parameter":                                                                          1597,
-	"Condition is missing the type parameter":                                                                               1598,
-	"Conflict address space with existing networks":                                                                         1052,
-	"Conflict address space with existing networks in vpc %q":                                                               1050,
-	"Conflict manager_uri %s":                                                                                               213,
-	"ConflictError":                                                                                                         1421,
-	"Connot convert hypervisor in status %s":                                                                                866,
-	"Container not support %s":                                                                                              145,
-	"Content-Length negative %d":                                                                                            236,
-	"Convert error: %s":                                                                                                     870,
-	"Couldn't delete snapshot policy binding to disks":                                                                      1175,
-	"Create disk on host error: %s":                                                                                         620,
-	"Currently only kvm platform supports creating wire":                                                                    1235,
-	"DBInstance %s(%s) status is %s require status is %s":                                                                   320,
-	"DBInstance backup has %d task active, can't sync status":                                                               330,
-	"DBInstance has %d task active, can't sync status":                                                                      351,
-	"DBInstance has opened the outer network connection":                                                                    356,
-	"DBInstance is locked, cannot delete":                                                                                   362,
-	"DBinstance has not valid cloudprovider":                                                                                329,
-	"DIRECT setting cannot be changed":                                                                                      65,
-	"DIRECT setting cannot be deleted":                                                                                      66,
-	"DISK Index %d has been occupied":                                                                                       730,
-	"Data disk size must be an integer multiple of 10G":                                                                     171,
-	"Database status is not %s current is %s":                                                                               327,
-	"Default data source not found":                                                                                         1583,
-	"Default quota %s not allow to delete":                                                                                  71,
-	"Description can not start with http:// or https://":                                                                    1288,
-	"Directly creating cloudprovider is not supported, create cloudaccount instead":                                         303,
-	"Disk %s and guest not belong to the same account":                                                                      541,
-	"Disk %s and guest not belong to the same zone":                                                                         542,
-	"Disk %s don't need convert snapshots":                                                                                  379,
-	"Disk %s dose not have snapshot":                                                                                        1188,
-	"Disk %s dosen't attach guest ?":                                                                                        1384,
-	"Disk %s has been attached":                                                                                             544,
-	"Disk %s not attached":                                                                                                  584,
-	"Disk %s not belong the guest's host":                                                                                   545,
-	"Disk %s not found":                                                                                                     548,
-	"Disk %s snapshot full, cannot take any more":                                                                           1388,
-	"Disk attach muti guests":                                                                                               200,
-	"Disk attached Guest has backup, Can't create snapshot":                                                                 1385,
-	"Disk attached guest status must be ready":                                                                              201,
-	"Disk cannot be thrink":                                                                                                 387,
-	"Disk dosen't attach guest":                                                                                             202,
-	"Disk has %d task active, can't sync status":                                                                            407,
-	"Disk in %s not able to attach":                                                                                         546,
-	"Disk must be detached":                                                                                                 193,
-	"Disk must be dettached":                                                                                                190,
-	"Diskinfo index %d: both imageID and size are absent":                                                                   403,
-	"Do not need to update":                                                                                                 1174,
-	"Duplicate ID %s %s":                                                                                                    1435,
-	"Duplicate image name %s":                                                                                               392,
-	"Duplicate manager_uri %s":                                                                                              214,
-	"Duplicate name %s":                                                                                                     1065,
-	"Duplicate name %s %s":                                                                                                  1434,
-	"Duplicate sku %s":                                                                                                      1155,
-	"DuplicateIdError":                                                                                                      119,
-	"DuplicateNameError":                                                                                                    1419,
-	"DuplicateResourceError":                                                                                                1420,
-	"Duration %s invalid":                                                                                                   1026,
-	"Eject ISO not allowed in status %s":                                                                                    556,
-	"Elastic cache is locked, cannot delete":                                                                                468,
-	"Elastic cache is not expired, cannot delete":                                                                           469,
-	"Elasticcache has %d task active, can't sync status":                                                                    481,
-	"Empty import disks":                                                                                                    665,
-	"Empty import nics":                                                                                                     662,
-	"Empty record":                                                                                                          453,
-	"Empty spec query key":                                                                                                  1377,
-	"EmptyRequestError":                                                                                                     1414,
-	"ErrAddressCountExceed":                                                                                                 126,
-	"Fail to mark cache status: %s":                                                                                         1200,
-	"Failed fetching secgroup %s":                                                                                           1138,
-	"Failed to found database %s for dbinstance %s(%s): %v":                                                                 323,
-	"Failed to unmarshal input: %v":                                                                                         1137,
-	"Fetch guest error %s":                                                                                                  644,
-	"Fetch instance snapshot error %s":                                                                                      1183,
-	"Fetch netif error %s":                                                                                                  856,
-	"Fetch snapshot count failed %s":                                                                                        378,
-	"Fetch storage error: %s":                                                                                               618,
-	"FetchCustomizeColumns return incorrect number of results":                                                              31,
-	"FetchCustomizeColumns returns incorrect results":                                                                       35,
-	"For default vpc, only system level sharing can be set":                                                                 1230,
-	"ForbiddenError":                                                                                                        1417,
-	"General error: general error for %q: %s":                                                                               103,
-	"Generate ifname hint failed %s":                                                                                        1067,
-	"Generate snapshot name failed %s":                                                                                      710,
-	"Generate xml failed: %s":                                                                                               674,
-	"GenerateName fail %s":                                                                                                  1066,
-	"Get convert snapshot failed: %s":                                                                                       381,
-	"Get object error: %v":                                                                                                  1379,
-	"GetAllocatedNicCount fail %s":                                                                                          1010,
-	"GetDiskCount fail %s":                                                                                                  808,
-	"GetGuestCount fail %s":                                                                                                 179,
-	"GetGuestDiskCount fail %s":                                                                                             894,
-	"GetGuestDiskCount for disk %s fail %s":                                                                                 400,
-	"GetGuestnicsCount fail %s":                                                                                             895,
-	"GetGuestsCount fail %s":                                                                                                1144,
-	"GetHostCount fail %s":                                                                                                  1205,
-	"GetIObject error %s":                                                                                                   237,
-	"GetIObject fail %s":                                                                                                    227,
-	"GetLinkedGuestsCount failed %s":                                                                                        908,
-	"GetNatgatewayCount fail %v":                                                                                            1223,
-	"GetNetworkCount fail %s":                                                                                               1221,
-	"GetObjectCount fail %s":                                                                                                1123,
-	"GetRequesterVpcPeeringConnections fail %v":                                                                             1225,
-	"GetRuningGuestCount fail %s":                                                                                           394,
-	"GetSnapshotCount fail %s":                                                                                              408,
-	"GetVpcCount fail %s":                                                                                                   313,
-	"GetZoneCount fail %s":                                                                                                  312,
-	"Google dbinstance not support prepaid billing type":                                                                    1316,
-	"Guest %s not found":                                                                                                    643,
-	"Guest %s not support attach disk in status %s":                                                                         547,
-	"Guest '%s' don't belong to ScalingGroup '%s'":                                                                          1101,
-	"Guest Insert error: %s":                                                                                                843,
-	"Guest backup host not found":                                                                                           652,
-	"Guest can't switch to backup, mirror job not ready":                                                                    640,
-	"Guest has %d task active, can't sync status":                                                                           622,
-	"Guest have backup not allow to change config":                                                                          607,
-	"Guest have backup, can't migrate":                                                                                      155,
-	"Guest hypervisor %s does not support clone":                                                                            537,
-	"Guest no backup host":                                                                                                  639,
-	"Guest without backup":                                                                                                  651,
-	"GuestDisksHasSnapshot fail %s":                                                                                         649,
-	"Handler not found":                                                                                                     13,
-	"Host %s already have mount point %s with other storage":                                                                197,
-	"Host %s can't migrate guests %s in status %s":                                                                          879,
-	"Host %s is not a baremetal":                                                                                            138,
-	"Host %s is not online":                                                                                                 178,
-	"Host %s not found":                                                                                                     154,
-	"Host is a converted baremetal, should be unconverted before delete":                                                    804,
-	"Host is not disabled":                                                                                                  805,
-	"Host missing":                                                                                                          527,
-	"Host resource is not enough":                                                                                           619,
-	"Host should be disabled":                                                                                               873,
-	"HostCount fail %s":                                                                                                     1236,
-	"Huawei %s rds not support recovery from it self rds backup":                                                            1336,
-	"Huawei DBInstance Disk cannot be thrink":                                                                               1330,
-	"Huawei DBInstance backup name length shoud be 4~64 characters":                                                         1328,
-	"Huawei DBInstance category cannot change":                                                                              1331,
-	"Huawei DBInstance storage type cannot change":                                                                          1332,
-	"Huawei current not support reset dbinstance account password":                                                          1333,
-	"Huawei dbinstance name length shoud be 4~64 characters":                                                                1322,
-	"Huawei only %s engine support databases recovery":                                                                      1337,
-	"Huawei only supports specified databases with %s":                                                                      1329,
-	"Huawei rds password cannot be in the same reverse order as the account":                                                1326,
-	"Hypervisor %s can't do io throttle":                                                                                    687,
-	"Hypervisor %s can't generate libvirt xml":                                                                              673,
-	"Hypervisor %s not supported":                                                                                           792,
-	"IP %s not attach to any wire":                                                                                          849,
-	"IP %s not attach to wire %s":                                                                                           848,
-	"IPMI address located in different zone than specified":                                                                 820,
-	"IPMI has no password information":                                                                                      812,
-	"IPMI infomation not configured":                                                                                        842,
-	"IPMI network has no zone???":                                                                                           819,
-	"IPMI network has not zone???":                                                                                          825,
-	"Illegal Content-Length %s":                                                                                             235,
-	"Image %s not found":                                                                                                    1431,
-	"Image is in use":                                                                                                       1192,
-	"Image name is required":                                                                                                396,
-	"Image status is not active":                                                                                            406,
-	"ImageNotFoundError":                                                                                                    1394,
-	"Inconsistent: local storage is not empty???":                                                                           810,
-	"Incontinuity Network for %s and %s":                                                                                    1060,
-	"Influxdb invalid status":                                                                                               1595,
-	"InformerBackend not init":                                                                                              98,
-	"InputParameterError":                                                                                                   1402,
-	"Insert ISO not allowed in status %s":                                                                                   554,
-	"Insert shared resource failed %s":                                                                                      85,
-	"Instance sanpshot not ready":                                                                                           707,
-	"Instance snapshot not ready":                                                                                           752,
-	"Instance status is not %s current status is %s":                                                                        326,
-	"InsufficientResourceError":                                                                                             1405,
-	"Interface %s not exist":                                                                                                852,
-	"Interface %s not exists":                                                                                               854,
-	"Internal server error":                                                                                                 11,
-	"Internal server error: %s":                                                                                             10,
-	"InternalServerError":                                                                                                   1391,
-	"Invaild mac address":                                                                                                   844,
-	"Invald %s return value":                                                                                                37,
-	"Invald CustomizeDelete return value":                                                                                   29,
-	"Invald ListItemFilter return value count %d":                                                                           22,
-	"Invald OrderByExtraFields return value count %d":                                                                       23,
-	"Invald ValidateCreateData return value":                                                                                21,
-	"Invald ValidateUpdateData return value":                                                                                28,
-	"Invalid FetchCustomizeColumns return value count %d":                                                                   25,
-	"Invalid FetchCustomizeColumns return value type, not a slice!":                                                         26,
-	"Invalid FetchCustomizeColumns return value, inconsistent obj count: input %d != output %d": 27,
-	"Invalid GetExtraDetails return value count %d":                                             24,
-	"Invalid IP %s": 1062,
-	"Invalid Target Network %s: inconsist %s":                           1059,
-	"Invalid bandwidth":                                                 519,
-	"Invalid choice error: invalid %q, want %s, got %s":                 105,
-	"Invalid condition evaluator type":                                  1599,
-	"Invalid data JSONObject":                                           49,
-	"Invalid default stragegy %s":                                       1121,
-	"Invalid desc: %s":                                                  658,
-	"Invalid handler %s":                                                12,
-	"Invalid host ip %s":                                                669,
-	"Invalid interval format: %s":                                       1593,
-	"Invalid length error: %q too long, got %d, max %d":                 107,
-	"Invalid length error: %q too short, got %d, min %d":                106,
-	"Invalid level format: %s":                                          1578,
-	"Invalid mac address":                                               855,
-	"Invalid masklen %d":                                                1036,
-	"Invalid medium type %s":                                            1203,
-	"Invalid period format: %s":                                         1579,
-	"Invalid raid config: %v":                                           137,
-	"Invalid refresh format: %s":                                        1568,
-	"Invalid request header: %v":                                        15,
-	"Invalid root image: %s":                                            756,
-	"Invalid schedtag %s":                                               1120,
-	"Invalid server ip address %s":                                      671,
-	"Invalid server mac address %s":                                     670,
-	"Invalid server_type: %s":                                           1032,
-	"Invalid start ip: %s %s":                                           1037,
-	"Invalid storage type %s":                                           1202,
-	"Invalid type error: expecting %s type for %q: %s":                  104,
-	"Invalid userdata: %v":                                              769,
-	"Invalid value error: invalid %q: ":                                 111,
-	"Invalid value error: invalid %q: %s":                               109,
-	"Invalid value error: invalid %q: %v":                               110,
-	"InvalidCredentialError":                                            1416,
-	"InvalidFormatError":                                                1401,
-	"InvalidProvider":                                                   124,
-	"InvalidStatusError":                                                120,
-	"InvalidToken":                                                      1534,
-	"Ip %s not in network %s(%s) range":                                 335,
-	"Isolated device %s not found":                                      587,
-	"Isolated device already attached to another guest: %s":             904,
-	"Isolated device is not attached to this guest":                     588,
-	"Isolated device used by server":                                    902,
-	"Isolated device used by server: %s":                                905,
-	"IsolatedDevice %s not found":                                       903,
-	"Keypair %s not found":                                              766,
-	"Kvm snapshot missing storage ??":                                   1361,
-	"Loadbalancer's manager %s does not match vpc's(%s(%s)) (%s)":       1300,
-	"Loadbalancer's manager (%s(%s)) does not match vpc's(%s(%s)) (%s)": 1244,
-	"Local host storage is not empty???":                                809,
-	"Master dbinstance memory <64GB, up to 5 read-only instances are allowed to be created":  1286,
-	"Master dbinstance memory ≥64GB, up to 10 read-only instances are allowed to be created": 1285,
-	"Memory size must be 8MB ~ %d GB":                           745,
-	"Memory size must be number[+unit], like 256M, 1G or 256":   611,
-	"Miss operating system???":                                  759,
-	"Missing isolated device":                                   586,
-	"Missing key error: missing %q":                             102,
-	"Missing name or generate_name":                             45,
-	"Missing parameter %s":                                      1433,
-	"MissingParameterError":                                     1404,
-	"Model manager error: failed getting model manager for %q":  112,
-	"Model not found error: cannot find %q with id/name %q":     113,
-	"Model not found error: cannot find %q with id/name %q: %s": 114,
-	"Must be a baremetal host":                                  864,
-	"NIC Index %d has been occupied":                            733,
-	"Name %s not found":                                         1535,
-	"Nat gateway has %d task active, can't sync status":         996,
-	"Network %s not found":                                      1058,
-	"Network %s not found: %v":                                  1020,
-	"Network not found":                                         209,
-	"Network not in range of VPC cidrblock %s":                  1048,
-	"NetworkCount fail %s":                                      1238,
-	"New IPMI address located in another zone!":                 826,
-	"New databases name can not be one of %s":                   1338,
-	"NewTask error: %s":                                         672,
-	"No Disk Info Provided":                                     575,
-	"No ISO to eject":                                           555,
-	"No cloudregion???":                                         636,
-	"No context manager":                                        32,
-	"No disk information provided":                              755,
-	"No eip to dissociate":                                      633,
-	"No host for server":                                        530,
-	"No host???":                                                634,
-	"No ipmi information was found for host %s":                 811,
-	"No login key: %s":                                          1550,
-	"No login secret found":                                     1536,
-	"No need to grant or revoke privilege for admin account":    1334,
-	"No password found":                                         1540,
-	"No previous deployment info available":                     944,
-	"No request key: %s":                                        14,
-	"No return value, so why query?":                            39,
-	"No root image":                                             532,
-	"No ssh password: %s":                                       1541,
-	"No such context %s(%s)":                                    33,
-	"No such eip":                                               995,
-	"No template for root disk, cannot rebuild root":            571,
-	"No valid cloud provider":                                   635,
-	"No valid host":                                             576,
-	"No valid storage on current host":                          577,
-	"No zone for this disk":                                     391,
-	"NoBalancePermission":                                       125,
-	"NoProjectError":                                            1425,
-	"Not Implement RequestAttachStorage":                        188,
-	"Not Implement RequestDetachStorage":                        189,
-	"Not Implement ValidateAttachStorage":                       187,
-	"Not Implement ValidateCreateEip":                           142,
-	"Not Implement ValidateResetDisk":                           186,
-	"Not Implemented":                                           333,
-	"Not Implemented GetProvider":                               117,
-	"Not a baremetal":                                           871,
-	"Not a prepaid recycle host":                                800,
-	"Not allow empty records":                                   17,
-	"Not allow for hypervisor %s":                               143,
-	"Not allow set scope to domain %s":                          82,
-	"Not allow set scope to project %s":                         83,
-	"Not allow set scope to system":                             81,
-	"Not allow to attach":                                       52,
-	"Not allow to change config":                                606,
-	"Not allow to create item":                                  43,
-	"Not allow to get details":                                  40,
-	"Not allow to update item":                                  50,
-	"Not an converted hypervisor":                               875,
-	"Not an empty host":                                         807,
-	"Not being convert to hypervisor":                           872,
-	"Not enough free space":                                     377,
-	"Not eough storage space on current host":                   578,
-	"Not find executor for data source":                         1596,
-	"Not found key in query: %v":                                1552,
-	"Not found kind in query: %v":                               1551,
-	"Not found network by ip %s":                                664,
-	"Not in range error: invalid %q: %d, want [%d,%d]":          108,
-	"Not support":                                               422,
-	"Not support %s for account %s, supported %s":               425,
-	"Not support %s for vpc %s, supported %s":                   424,
-	"Not support associate type %s, only support %s":            497,
-	"Not support brand %s, only support %s":                     280,
-	"Not support cache classic security group":                  1141,
-	"Not support create %s storage":                             1204,
-	"Not support create Qcloud databases":                       1375,
-	"Not support create account for huawei cloud %s instance":   1325,
-	"Not support create database for huawei cloud %s instance":  1327,
-	"Not support create local storage disks":                    175,
-	"Not support create read-only dbinstance for %s":            1321,
-	"Not support create readonly dbinstance for MySQL %s":       1281,
-	"Not support create readonly dbinstance for MySQL %s %s":    1279,
-	"Not support create readonly dbinstance for MySQL %s %s with storage type %s, only support %s": 1280,
-	"Not support create readonly dbinstance with master dbinstance engine %s":                      1284,
-	"Not support modify routetable for provider %s":                                                1080,
-	"Not support resource %s tag filter":                                                           58,
-	"Not support resource_type %s":                                                                 1116,
-	"Not supported, please use kubectl":                                                            144,
-	"NotAcceptableError":                                                                           1418,
-	"NotEmptyError":                                                                                1412,
-	"NotFoundError":                                                                                118,
-	"NotImplementedError":                                                                          122,
-	"NotSufficientPrivilegeError":                                                                  1410,
-	"NotSupportedError":                                                                            123,
-	"Object %s %s has attached %s %s":                                                              53,
-	"Only %s dbinstance support this operation":                                                    355,
-	"Only %s elastic cache support renew operation":                                                494,
-	"Only %s elastic cache support set auto renew operation":                                       492,
-	"Only %s guest support this operation":                                                         720,
-	"Only %s support cache for account":                                                            430,
-	"Only ADMIN and IPMI nic can be enable":                                                        853,
-	"Only allowed to attach isolated device when guest is ready":                                   585,
-	"Only one of that sourceCIDR and netword_id is needed":                                         997,
-	"Only support cache sku for private cloud":                                                     1166,
-	"Only support on premise network":                                                              1070,
-	"Only support server type %s":                                                                  1069,
-	"Only system admin allowed to use reserved ip":                                                 1022,
-	"Only system admin can assign host":                                                            889,
-	"OpenStack not support reset disk, you can create new disk with snapshot":                      203,
-	"Out of IP address":                                                                            1018,
-	"Out of eip quota: %s":                                                                         637,
-	"OutOfLimit":                                                                                   1409,
-	"OutOfQuotaError":                                                                              1407,
-	"OutOfRange":                                                                                   1408,
-	"OutOfResource":                                                                                1406,
-	"PTR cannot mix with other types":                                                              443,
-	"PTR: invalid ptr record name: %s":                                                             446,
-	"Params vcpu_count parse error":                                                                610,
-	"Params vmem_size parse error":                                                                 612,
-	"Parse Ip Failed":                                                                              1056,
-	"Parse disk info error: %s":                                                                    615,
-	"Parse remote ip error %s":                                                                     208,
-	"Parse spec key %s error: %v":                                                                  1378,
-	"PaymentError":                                                                                 1393,
-	"Please disable this ScalingGroup firstly":                                                     1098,
-	"Please input new disk backend type":                                                           176,
-	"PolicyDefinitionError":                                                                        1430,
-	"Port value error":                                                                             991,
-	"Prohibit making default vpc private":                                                          1231,
-	"Project %s(%s) not belong to domain %s(%s)":                                                   279,
-	"ProtectedResourceError":                                                                       1424,
-	"Qcloud Basic MySQL instance not support create backup":                                        1374,
-	"Qcloud reset disk required guest status is running or read":                                   204,
-	"Query database error %s":                                                                      62,
-	"Query host storage error %s":                                                                  196,
-	"Quota %s not found":                                                                           70,
-	"Records limit exceeded.":                                                                      18,
-	"Region %s not found":                                                                          304,
-	"RequireLicenseError":                                                                          1423,
-	"Rescue mode requires all disk store in shared storages":                                       157,
-	"Resize disk when disk is READY":                                                               386,
-	"Resource %s %s not found":                                                                     1130,
-	"Resource type %s not support":                                                                 460,
-	"ResourceBusyError":                                                                            1422,
-	"ResourceNotFoundError":                                                                        1395,
-	"ResourceNotReadyError":                                                                        1392,
-	"ResourceType %q not support":                                                                  1114,
-	"Retention days must in 1~%d or -1":                                                            1169,
-	"Retention days must in 1~65535 or -1":                                                         1173,
-	"SQL Server cannot have more than seven read-only dbinstances":                                 1283,
-	"SQL Server only support create readonly dbinstance for 2017_ent":                              1282,
-	"SRV cannot mix with other types":                                                              441,
-	"SRV: insufficient param: %s":                                                                  435,
-	"SRV: invalid port number: %s":                                                                 436,
-	"SRV: invalid priority number: %s":                                                             439,
-	"SRV: invalid srv record name: %s":                                                             445,
-	"SRV: invalid weight number: %s":                                                               437,
-	"SRV: priority number %d not in range [0,65535]":                                               440,
-	"SRV: weight number %d not in range [0,65535]":                                                 438,
-	"Save disk when disk is READY":                                                                 393,
-	"Save disk when not being USED":                                                                395,
-	"ScalingGroup should have some networks":                                                       1087,
-	"Schedtag %s":                                                                                  1117,
-	"Schedtag %s ResourceType is %s, not match %s":                                                 1129,
-	"Schedtag %s not found":                                                                        802,
-	"Schedtag %s resource_type mismatch: %s != %s":                                                 1118,
-	"Secgroup %s not found":                                                                        767,
-	"Server %s already exists":                                                                     661,
-	"Server %s must in status ready":                                                               192,
-	"Server Id is empty":                                                                           659,
-	"Server Name is empty":                                                                         660,
-	"Server in %s not able to detach disk":                                                         583,
-	"ServerStatusError":                                                                            1400,
-	"SetLimit error %s":                                                                            260,
-	"Snapshot %s dose not have convert snapshot":                                                   382,
-	"Snapshot %s not found":                                                                        404,
-	"Snapshot %s storage %s not found, is public cloud?":                                           405,
-	"Snapshot error: disk index %d > 0 but disk type is %s":                                        761,
-	"Snapshot for %s name can't start with auto, http:// or https://":                              1273,
-	"Snapshot has %d task active, can't sync status":                                               1186,
-	"Snapshot reference(by disk) count > 0, can not delete":                                        1382,
-	"Some disk not ready":                                                                          551,
-	"Some host config missing host ip":                                                             668,
-	"Some host config missing xml_file_path":                                                       667,
-	"SpecNotFoundError":                                                                            1396,
-	"Split IP %s is the start ip":                                                                  1063,
-	"Split IP %s out of range":                                                                     1064,
-	"Storage %s not found":                                                                         370,
-	"Storage type[%s] not match backend %s":                                                        375,
-	"StorageInUse":                                                                                 890,
-	"Storage[%s] must attach to a host":                                                            376,
-	"Support only by KVM Hypervisor":                                                               533,
-	"System disk does not support %s disk":                                                         151,
-	"System disk does not support iso image, please consider using cdrom parameter": 757,
-	"Tag is associated with %s":                                                     1124,
-	"TenantNotFoundError":                                                           1398,
-	"The %s disk size must be in the range of %dGB ~ %dGB":                          128,
-	"The %s disk size must be in the range of 100GB ~ 16000GB":                      168,
-	"The %s disk size must be in the range of 10GB ~ 16000GB":                       166,
-	"The %s disk size must be in the range of 20GB ~ 32000GB":                       169,
-	"The %s disk size must be in the range of 50GB ~ 16000GB":                       167,
-	"The %s guest not support public ip to eip operation":                           719,
-	"The account %s(%s) has permission %s to the database %s(%s)":                   324,
-	"The account has been registered":                                               282,
-	"The backend %s is already registered on port %d":                               1309,
-	"The dbinstance status need be %s, current is %s":                               354,
-	"The disk is locally stored and does not support detach":                        177,
-	"The disk_size_gb must be an integer multiple of 10":                            1324,
-	"The elastic cache status need be %s, current is %s":                            491,
-	"The extranet connection is not open":                                           357,
-	"The guest %s does not have any public IP":                                      717,
-	"The guest status need be %s or %s, current is %s":                              718,
-	"The image has been cached on storages":                                         265,
-	"The secgroup name %s does not meet the requirements, please change the name":   489,
-	"The specified Scheduler %s is invalid for performance sharing loadbalancer":    1267,
-	"The system disk is locally stored and does not support changing configuration": 174,
-	"There are some guests in this ScalingGroup, please delete them firstly":        1099,
-	"This RBD Storage[%s/%s] has already exist":                                     1389,
-	"This scheduled task is being executed now, please try later":                   1135,
-	"TimeoutError":          121,
-	"TooLargeEntity":        1426,
-	"TooManyFailedAttempts": 1427,
-	"TooManyRequests":       1428,
-	"Ucloud only support data disk reset operation":             206,
-	"Ucloud reset disk operation required disk not be attached": 205,
-	"Unauthorized":                                                                      1533,
-	"UnauthorizedError":                                                                 1415,
-	"Unavailable IP %s: occupied":                                                       684,
-	"Unknown alert condition":                                                           1600,
-	"Unknown backend group type %s":                                                     1255,
-	"Unknown google storage type %s":                                                    150,
-	"Unknown privilege %s":                                                              1295,
-	"Unknown sticky_session_type, only support %s or %s":                                1265,
-	"Unkown alert condition type: %s":                                                   1608,
-	"Unkown operator %s":                                                                1603,
-	"Unmarshal data error %s":                                                           666,
-	"Unmarshal disks configure error %s":                                                614,
-	"Unmarshal input error %s":                                                          539,
-	"Unmarshal input error: %v":                                                         360,
-	"Unmarshal input failed %s":                                                         990,
-	"Unmarshel input failed %s":                                                         1172,
-	"Unreachable IP %s: %s":                                                             683,
-	"Unsupport attach %s storage for %s host":                                           194,
-	"Unsupport backendgorup type %s":                                                    1247,
-	"Unsupport driver type %s":                                                          868,
-	"UnsupportOperationError":                                                           1411,
-	"Unsupported %s":                                                                    502,
-	"Unsupported notification type":                                                     1594,
-	"Unsupported provider %s":                                                           278,
-	"Unsupported scheme %s":                                                             906,
-	"UnsupportedProtocol":                                                               1429,
-	"Update error %s":                                                                   261,
-	"UserNotFoundError":                                                                 1399,
-	"VPC %s not found":                                                                  316,
-	"VPC not empty, please delete nat gateway first":                                    1224,
-	"VPC not empty, please delete network first":                                        1222,
-	"VPC not ready":                                                                     1044,
-	"VPC peering not empty, please delete vpc peering first":                            1226,
-	"ValidateDeleteCondition error %s":                                                  264,
-	"Virtual disk %s(%s) used by virtual servers":                                       401,
-	"Virtual resource freezed, can't do %s":                                             94,
-	"Virtual resource type %s not support":                                              461,
-	"Virtual server is locked, cannot delete":                                           740,
-	"WeakPasswordError":                                                                 1403,
-	"Wire %s not found":                                                                 791,
-	"Wrong guest status %s":                                                             835,
-	"ZStack reset disk operation requried guest status is ready":                        207,
-	"Zone %s not found":                                                                 305,
-	"a recycle host shoud not allocate more than 1 guest":                               798,
-	"account %s conflict":                                                               293,
-	"account %s has been cached":                                                        431,
-	"account %s not enable saml auth":                                                   269,
-	"account %s not share for domain %s":                                                521,
-	"account is enabled":                                                                270,
-	"account is not idle":                                                               271,
-	"account name '%s' is not allowed":                                                  1365,
-	"account name can not start or end with _":                                          1292,
-	"account_privilege %s only support redis version 4.0":                               1297,
-	"acl %s is still referred to by %d %s":                                              916,
-	"acl cidr duplicate %s":                                                             914,
-	"address %s is already occupied":                                                    1014,
-	"address %s is not in the range of network %s(%s)":                                  1012,
-	"alert already attached to notification":                                            1565,
-	"alert condition type is empty":                                                     1607,
-	"all networks should in the same vpc. (%s).":                                        1301,
-	"allocate ip addr: %v":                                                              1008,
-	"allow only internal zone, got %s(%s)":                                              972,
-	"already associate with eip":                                                        627,
-	"already has one network in the zone %s. (%s).":                                     1302,
-	"app_id is empty":                                                                   1557,
-	"app_secret is empty":                                                               1558,
-	"attach devices is not string array":                                                592,
-	"auth mode aready in status %s":                                                     475,
-	"authenticate error: %v":                                                            941,
-	"back and instance not in same cloudaccount":                                        347,
-	"backend group %s is default backend group":                                         955,
-	"backend group %s is still referred by %d %s":                                       957,
-	"backend group %s(%s) belongs to loadbalancer %s instead of %s":                     1257,
-	"backend group %s(%s) belongs to loadbalancer %s, not %s":                           986,
-	"backend group type must be normal":                                                 1258,
-	"backend_group argument is missing":                                                 1353,
-	"backendgroup %s not support this operation":                                        1251,
-	"backup %s(%s) not contain database %s":                                             345,
-	"backup and instance not in same cloudregion":                                       348,
-	"bad gateway ip: %v":                                                                1041,
-	"bad ip":                                                                            1614,
-	"bad network type %q, want %q":                                                      1358,
-	"bandwidth must be greater than 0":                                                  1233,
-	"batch create is not supported for external resources":                              1004,
-	"beyond security group quantity limit, max items %d.":                               488,
-	"body is not a json?":                                                               44,
-	"bps must > 0":                                                                      689,
-	"bucket.GetQuotaKeys %s":                                                            229,
-	"bucket.GetQuotaKeys fail %s":                                                       239,
-	"can not bind guest from disabled guest":                                            523,
-	"can not bind or unbind disabled instance group":                                    716,
-	"can not change specification in status %s":                                         474,
-	"can not find dashboard:%s":                                                         1572,
-	"can not make backup in status %s":                                                  1366,
-	"can not recover data from diff rds engine":                                         349,
-	"can not sync record sets in %s":                                                    428,
-	"can not unbind guest from disabled guest":                                          524,
-	"can not update instance_type for public cloud %s":                                  1157,
-	"can't delete instance snapshot with wrong status":                                  897,
-	"can't detach host in status online":                                                1211,
-	"can't find instance snapshot %s":                                                   750,
-	"can't get string field":                                                            60,
-	"can't rebuild root for a guest with instance snapshots":                            149,
-	"can't rescue geust %s with local storage":                                          694,
-	"can't resize disk for guest with instance snapshots":                               147,
-	"can't restore elastic cache in status %s":                                          463,
-	"candidate %s out of range":                                                         1017,
-	"cannot allocate ifname":                                                            731,
-	"cannot alter name of role":                                                         1490,
-	"cannot alter sysadmin user name":                                                   1501,
-	"cannot alter system project name":                                                  1487,
-	"cannot associate eip and instance in different provider":                           632,
-	"cannot associate eip and instance in different region":                             630,
-	"cannot associate eip and instance in different zone":                               631,
-	"cannot associate eip in status %s":                                                 626,
-	"cannot associate eip with same network":                                            506,
-	"cannot associate pending delete server":                                            503,
-	"cannot associate server in status %s":                                              505,
-	"cannot assoicate with eip %s: different cloudprovider":                             782,
-	"cannot assoicate with eip %s: different region":                                    783,
-	"cannot change CPU/Memory spec in status %s":                                        613,
-	"cannot change bandwidth in status %s":                                              518,
-	"cannot change loadbalancer listener listener_port":                                 1364,
-	"cannot change loadbalancer listener listener_type":                                 1363,
-	"cannot change mac when guest is running":                                           598,
-	"cannot change to a different domain from a private cloud account":                  309,
-	"cannot create prepaid server on prepaid resource type":                             762,
-	"cannot delete a recycle host without active instance":                              797,
-	"cannot delete default SQL identity provider":                                       1472,
-	"cannot delete default domain":                                                      1449,
-	"cannot delete enabled idp":                                                         1473,
-	"cannot delete enabled policy":                                                      1482,
-	"cannot delete non-local user":                                                      1503,
-	"cannot delete system policy":                                                       1481,
-	"cannot delete system project":                                                      1483,
-	"cannot delete system role":                                                         1491,
-	"cannot delete system user":                                                         1505,
-	"cannot derive valid ifname hint: %v":                                               1034,
-	"cannot enable auto sync in status %s":                                              296,
-	"cannot fetch network of guestnetwork %d":                                           1003,
-	"cannot find region info":                                                           985,
-	"cannot join read-only group":                                                       1507,
-	"cannot join user and group in differnt domain":                                     1506,
-	"cannot leave read-only group":                                                      1508,
-	"cannot migrate with cdrom":                                                         697,
-	"cannot recycle in status %s":                                                       793,
-	"cannot remove current user from current project":                                   1443,
-	"cannot run hypervisor %s on specified host with type %s":                           788,
-	"cannot support change azure disk name":                                             183,
-	"cannot support change azure instance name":                                         134,
-	"cannot support more than 1 nic":                                                    127,
-	"cannot uncache non-customized images":                                              1198,
-	"cannot undo a recycle host with pending_deleted guest":                             799,
-	"cannot undo recycle in status %s":                                                  794,
-	"cannot update config when enabled and connected":                                   1465,
-	"cannot update config when not idle":                                                1466,
-	"cannot update in sync status":                                                      1476,
-	"certificate %s is still referred to by %d %s":                                      967,
-	"channel is empty":                                                                  1559,
-	"charge type %s not supported":                                                      498,
-	"check %s duplication fail %s":                                                      813,
-	"check access_mac duplication fail %s":                                              816,
-	"check account_id duplication error %s":                                             285,
-	"check agent uniqness fail %s":                                                      212,
-	"check disk index uniqueness fail %s":                                               729,
-	"check disk snapshot count fail %s":                                                 1387,
-	"check instance":                                                                    1159,
-	"check isAttach2Disk fail %s":                                                       580,
-	"check mac uniqueness fail %s":                                                      599,
-	"check name duplication error: %s":                                                  56,
-	"check name duplication fail %s":                                                    1617,
-	"check uniqness fail %s":                                                            281,
-	"check uniqueness fail %s":                                                          292,
-	"checkout guestdisk count fail %s":                                                  737,
-	"checkout nic index uniqueness fail %s":                                             732,
-	"checkout server sku name duplicate error: %v":                                      1154,
-	"cidr %s is not in range vpc %s":                                                    998,
-	"cloud account %s is not available":                                                 398,
-	"cloud provider %s is not available":                                                397,
-	"cloudprovider %s %s %s %s %s not supported CrossCloud vpcpeering":                  1216,
-	"cloudprovider %s %s %s %s %s not supported CrossRegion vpcpeering":                 1217,
-	"cloudprovider %s not available":                                                    371,
-	"cloudprovider %s(%s) disabled":                                                     1168,
-	"cloudprovider %s(%s) is not available":                                             336,
-	"cloudprovider.SetBucketCORS error %s":                                              250,
-	"cloudregion %s not support create %s rds":                                          340,
-	"cloudregion %s not support create rds":                                             339,
-	"cloudregion %s(%s) not support %s scheduler":                                       1269,
-	"cluster wire affiliation does not match network's: %s != %s":                       988,
-	"cluster zone %s does not match network zone %s ":                                   987,
-	"comment contains non-printable char: %v":                                           913,
-	"comment too long (%d>=%d)":                                                         912,
-	"condition values limit (5 per rule). %d given.":                                    980,
-	"conflict database %s for instance %s(%s)":                                          346,
-	"conflict with lbagent %s(%s): %v":                                                  926,
-	"count must > 0":                                                                    709,
-	"cpu_core_count should be range of 1~256":                                           1151,
-	"create instance snapshot failed: %s":                                               705,
-	"dashboard_id is empty":                                                             1571,
-	"data disk not support storage type %s":                                             165,
-	"dbinstance billing type %s not support cancel expire":                              364,
-	"dbinstance billing type is %s":                                                     363,
-	"default domain is protected":                                                       1458,
-	"delete sku %s failed.":                                                             1165,
-	"desire_instance_number should between min_instance_number and max_instance_number": 1085,
-	"detach devices is not string array":                                                593,
-	"disabled user":                                                                     1440,
-	"disk %s has too many snapshot policy attached":                                     1178,
-	"disk %s not attached to server":                                                    686,
-	"disk %s not found":                                                                 736,
-	"disk and snapshotpolicy should have same domain":                                   1311,
-	"disk and snapshotpolicy should have same project":                                  1312,
-	"disk has no valid storage":                                                         388,
-	"disk need at least one of snapshot as backing file":                                1383,
-	"disk size gb must in range 10 ~ 30720 Gb":                                          1317,
-	"disk.GetQuotaKeys fail %s":                                                         389,
-	"dns zone can not cache in status %s":                                               429,
-	"dns zone can not uncache in status %s":                                             432,
-	"domain contains external resources":                                                1456,
-	"domain is disabled":                                                                1477,
-	"domain is enabled":                                                                 1450,
-	"domain is in use by policy":                                                        1455,
-	"domain is in use by project":                                                       1453,
-	"domain is in use by role":                                                          1454,
-	"domain is in use by user":                                                          1451,
-	"driver %s already exists":                                                          1471,
-	"driver %s not supported":                                                           1470,
-	"duplicate %s %s":                                                                   814,
-	"duplicate access_mac %s":                                                           817,
-	"duplicate instanceType %s":                                                         1163,
-	"duplicate route cidr %s":                                                           9,
-	"duplicate username":                                                                1523,
-	"duplicated dnsrecord with existed dnsrecord can not distinguish by %s policy":      418,
-	"duplicated dnsrecord with existed dnsrecord not support":                           419,
-	"duplicated with CNAME dnsrecord name not support":                                  417,
-	"eip %s has been associated":                                                        781,
-	"eip %s not found":                                                                  628,
-	"eip %s status invalid %s":                                                          780,
-	"eip and server are not in the same region":                                         509,
-	"eip and server are not in the same zone":                                           510,
-	"eip cannot associate in status %s":                                                 500,
-	"eip cannot dissociate in status %s":                                                513,
-	"eip has been associated":                                                           629,
-	"eip has been associated with instance":                                             499,
-	"eip has been binding to another instance":                                          993,
-	"eip has been binding to dnat rules":                                                999,
-	"eip has been binding to snat rules":                                                994,
-	"eip network can only exist in default vpc, got %s(%s)":                             1045,
-	"eip not supported for %s":                                                          779,
-	"eip region is not found???":                                                        508,
-	"eip's manager (%s(%s)) does not match vpc's(%s(%s)) (%s)":                          1318,
-	"elastic cache no related region found":                                             493,
-	"elastic cache sku zone (%s) and subnet zone (%s) mismatch":                         1340,
-	"elasticcache billing type %s not support cancel expire":                            483,
-	"elasticcache billing type is %s":                                                   482,
-	"empty DN":                                                                          1437,
-	"empty auth request":                                                                1516,
-	"empty directory name":                                                              225,
-	"empty host %s field":                                                               940,
-	"empty host name":                                                                   932,
-	"empty id":                                                                          1438,
-	"empty ip list":                                                                     682,
-	"empty keys":                                                                        231,
-	"empty name":                                                                        1439,
-	"empty project_id/tenant_id":                                                        1380,
-	"enabled domain %s cannot be deleted":                                               1475,
-	"encrypt error %s":                                                                  1448,
-	"endpoint is enabled":                                                               1460,
-	"engine version mismatch: instance version %s, sku version %s":                      473,
-	"error getting host of guest %s":                                                    1349,
-	"error loadbalancer of backend group %s":                                            1350,
-	"esxi guest migrate require prefer_host":                                            148,
-	"every scaling policy belong to a scaling group":                                    1102,
-	"exceed address count limit: %v":                                                    1009,
-	"expire time is before current expire at":                                           216,
-	"expired access key":                                                                1519,
-	"expired token":                                                                     1512,
-	"fail to GetNetworks of vpc: %v":                                                    1049,
-	"fail to decode body":                                                               69,
-	"fail to decode policy data":                                                        1480,
-	"fail to decode request body":                                                       1522,
-	"fail to fetch hostwire by mac %s: %s":                                              851,
-	"fail to fetch netif by mac %s: %s":                                                 850,
-	"fail to find storage for disk %s":                                                  390,
-	"fail to generate temp url: %s":                                                     224,
-	"fail to get http response writer from context":                                     34,
-	"fail to get objects: %s":                                                           222,
-	"fail to get provider driver %s":                                                    310,
-	"fail to mkdir: %s":                                                                 230,
-	"fail to parse icon url '%s'":                                                       1148,
-	"failed getting guest %s":                                                           960,
-	"failed parsing url %q: %v":                                                         1613,
-	"failed to find %s":                                                                 566,
-	"failed to find %s %s":                                                              1362,
-	"failed to find SecurityGroup %s":                                                   1610,
-	"failed to find cloudregion for zone %s(%s)":                                        1162,
-	"failed to find disk %s":                                                            579,
-	"failed to find guest %s":                                                           948,
-	"failed to find host %s":                                                            950,
-	"failed to find host %s to attach storage":                                          892,
-	"failed to find host for storage %s with disk %s":                                   369,
-	"failed to find loadbalancer's %s(%s) region":                                       1266,
-	"failed to find region for loadbalancer %s":                                         953,
-	"failed to find region for loadbalancer listener %s":                                982,
-	"failed to find region for loadbalancer listener rule %s":                           983,
-	"failed to find storage %s to attach host":                                          891,
-	"failed to find storage for disk %s":                                                368,
-	"failed to find subformat vhd for image %s, please append 'vhd' for glance options(target_image_formats)": 131,
-	"failed to found backendgroup for backend %s(%s)":                                                         964,
-	"failed to found cloudregion %s":                                                                          1241,
-	"failed to found dbinstance %s":                                                                           319,
-	"failed to found dbinstance %s(%s) account %s: %v":                                                        332,
-	"failed to found dbinstance %s(%s) database %s: %v":                                                       322,
-	"failed to found disk %s":                                                                                 1180,
-	"failed to found guest %s":                                                                                641,
-	"failed to found loadbalancer for listener %s(%s)":                                                        1268,
-	"failed to found provider factory error: %v":                                                              290,
-	"failed to found region for dbinstance %s(%s)":                                                            321,
-	"failed to found region for disk's storage %s(%s)":                                                        1181,
-	"failed to found region for loadbalancer backend %s":                                                      963,
-	"failed to found storage for disk %s(%s)":                                                                 173,
-	"failed to found storagecache %s":                                                                         267,
-	"failed to found system disk error: %v":                                                                   172,
-	"failed to found vpc for network %s(%s)":                                                                  1359,
-	"failed to get cloudprovider for region %s(%s)":                                                           1167,
-	"failed to match any skus for change config":                                                              361,
-	"failed to match any skus in the network %s(%s) zone %s(%s)":                                              1278,
-	"failed to unmarshal input params: %v":                                                                    291,
-	"fetch disk size failed":                                                                                  784,
-	"fetch gpu failed %s":                                                                                     590,
-	"fetch guest %s: %v":                                                                                      1001,
-	"fetch guest nic: %v":                                                                                     1002,
-	"fetch instance snapshot error %s":                                                                        751,
-	"fetch lbagents of other clusters: %v":                                                                    925,
-	"field %s is readonly":                                                                                    1459,
-	"find Wire %s error: %s":                                                                                  845,
-	"find guest %s: %v":                                                                                       935,
-	"find host %s: %v":                                                                                        933,
-	"find listener of listener rule %s(%s)":                                                                   910,
-	"fixed eip cannot be associated":                                                                          501,
-	"fixed eip cannot sync status":                                                                            517,
-	"fixed public eip cannot be dissociated":                                                                  514,
-	"forbidden":                                                                                               92,
-	"found %d wires for zone %s and vpc %s":                                                                   1030,
-	"gateway ip must be in the same subnet as start, end ip":                                                  1042,
-	"get %s service %s url: %v":                                                                               943,
-	"get acl count fail %s":                                                                                   915,
-	"get certificate refcount fail %s":                                                                        966,
-	"get isDefault fail %s":                                                                                   954,
-	"get lbcluster refcount fail %v":                                                                          975,
-	"get proxysetting refcount fail %s":                                                                       67,
-	"get refCount fail %s":                                                                                    956,
-	"get reserved ip error":                                                                                   1029,
-	"get sensitive config requires admin priviliges":                                                          1464,
-	"getDynamicSchedtagCount fail %s":                                                                         1125,
-	"getFreeAddressCount fail %s":                                                                             1015,
-	"getGuestCount fail %s":                                                                                   806,
-	"getReferenceCount fail %s":                                                                               1191,
-	"getSchedPoliciesCount fail %s":                                                                           1127,
-	"got unknown parent type %q, expect %s":                                                                   1007,
-	"got unknown type %q, expect %s":                                                                          1006,
-	"group %s not found":                                                                                      739,
-	"group and guest should belong to same project":                                                           715,
-	"group is in use by group":                                                                                1452,
-	"guest %q not found":                                                                                      365,
-	"guest %s band to up to %d security groups":                                                               558,
-	"guest %s has backup, can't migrate":                                                                      692,
-	"guest %s has isolated device, can't migrate":                                                             693,
-	"guest %s host %s isolated device not enough":                                                             591,
-	"guest %s hypervisor %s can't migrate":                                                                    691,
-	"guest %s not found":                                                                                      1179,
-	"guest %s status %s can't migrate":                                                                        695,
-	"guest %s status %s can't migrate with local storage":                                                     698,
-	"guest %s status %s has isolated device, can't do migrate":                                                696,
-	"guest %s unsupport postpaid expire":                                                                      657,
-	"guest %s(%s) is already in the backendgroup %s(%s)":                                                      962,
-	"guest %s(%s) vpc %s(%s) not same as loadbalancer vpc %s":                                                 959,
-	"guest %s(%s) vpc %s(%s) not same as vpc %s(%s)":                                                          961,
-	"guest and instance group should belong to same project":                                                  526,
-	"guest attach gpu count must > 0":                                                                         589,
-	"guest billing type %s not support cancel expire":                                                         655,
-	"guest billing type is %s":                                                                                656,
-	"guest can't do snapshot in status %s":                                                                    703,
-	"guest doesn't need reconcile backup":                                                                     654,
-	"guest has been converted":                                                                                677,
-	"guest hypervisor %s can't create instance snapshot":                                                      701,
-	"guest on the host are using networks on this wire":                                                       896,
-	"guest status must be ready":                                                                              679,
-	"guest template %s used by scalig group %s":                                                               728,
-	"guest template %s used by service catalog %s":                                                            727,
-	"guests disk %d snapshot full, can't take anymore":                                                        704,
-	"health_check_domain must be in the range of 1 ~ 80":                                                      1261,
-	"host %s can't reserve %d cpu for each isolated device, not enough":                                       886,
-	"host %s can't reserve %dM memory for each isolated device, not enough":                                   887,
-	"host %s can't reserve %dM storage for each isolated device, not enough":                                  888,
-	"host %s has no access ip":                                                                                1348,
-	"host %s is not kvm host":                                                                                 678,
-	"host %s not found":                                                                                       734,
-	"host %s storage %s not found":                                                                            1212,
-	"host has been occupied":                                                                                  180,
-	"host is not a baremetal":                                                                                 713,
-	"host is not a prepaid recycle host":                                                                      796,
-	"host missing %s field":                                                                                   939,
-	"host not connect storage %s":                                                                             616,
-	"host not found???":                                                                                       681,
-	"host should be disabled":                                                                                 795,
-	"host status %s and enabled %v, can't do server %s":                                                       528,
-	"host status %s can't exit maintenance":                                                                   876,
-	"host type %s can't do host maintenance":                                                                  877,
-	"host_type must be specified":                                                                             863,
-	"http or https listener only supportd default or normal backendgroup":                                     1260,
-	"huawei %s mode elastic not support create backup":                                                        1343,
-	"iBucket.DeleteCORS error %s":                                                                             251,
-	"iBucket.DeletePolicy error %s":                                                                           258,
-	"iBucket.DeleteWebSiteConf error %s":                                                                      248,
-	"iBucket.GetCORSRules error %s":                                                                           252,
-	"iBucket.GetCdnDomains error %s":                                                                          253,
-	"iBucket.GetIObject error %s":                                                                             263,
-	"iBucket.GetIObjects error %s":                                                                            246,
-	"iBucket.GetPolicy error %s":                                                                              256,
-	"iBucket.GetRefer error %s":                                                                               255,
-	"iBucket.GetWebsiteConf error %s":                                                                         249,
-	"iBucket.SetPolicy error %s":                                                                              257,
-	"iBucket.SetRefer error %s":                                                                               254,
-	"iBucket.SetWebsite error %s":                                                                             247,
-	"identity provider with projects":                                                                         1474,
-	"image %s do not belong to guest image %s":                                                                785,
-	"image %s not found":                                                                                      861,
-	"image size exceeds root disk size":                                                                       568,
-	"inconsistent account_id, previous '%s' and now '%s'":                                                     294,
-	"inconsistent domain for project and roles":                                                               1496,
-	"input condition is empty":                                                                                1602,
-	"input data not key value dict":                                                                           642,
-	"input key too long > %d":                                                                                 89,
-	"input not json dict":                                                                                     1590,
-	"input value too long > %d":                                                                               90,
-	"instance is already associated with eip":                                                                 504,
-	"instance specs list query error":                                                                         1156,
-	"instance_type_category shoud be one of %s":                                                               1153,
-	"internal error: unexpected backend type %s":                                                              1250,
-	"internal server error %s":                                                                                1527,
-	"intranet loadbalancer not support bandwidth charge type":                                                 1243,
-	"invalid %s,required int":                                                                                 1270,
-	"invalid CannedAction %s ":                                                                                0,
-	"invalid Effect %s ":                                                                                      1,
-	"invalid access key id":                                                                                   1518,
-	"invalid addr %s":                                                                                         911,
-	"invalid address: %s":                                                                                     334,
-	"invalid aggregate_strategy: %s":                                                                          790,
-	"invalid any_mac address":                                                                                 801,
-	"invalid auth methods":                                                                                    1514,
-	"invalid billing_cycle %s":                                                                                465,
-	"invalid bucket name %s: %s":                                                                              219,
-	"invalid bucket name(%s): %s":                                                                             220,
-	"invalid category %s for policy definition %s(%s)":                                                        776,
-	"invalid cert pubkey algorithm: %s, want %s":                                                              115,
-	"invalid character %s for account name":                                                                   1291,
-	"invalid characters %s":                                                                                   1616,
-	"invalid cidr %s":                                                                                         1077,
-	"invalid cidr_block %s":                                                                                   1227,
-	"invalid cloud account info error: %s":                                                                    284,
-	"invalid condition":                                                                                       457,
-	"invalid conditions format,required json":                                                                 978,
-	"invalid conditions fromat,required json array":                                                           979,
-	"invalid domain":                                                                                          1528,
-	"invalid domain %s for CNAME record":                                                                      8,
-	"invalid domain %s for MX record":                                                                         5,
-	"invalid domain name %s":                                                                                  423,
-	"invalid duration %s":                                                                                     337,
-	"invalid duration %s: %s":                                                                                 217,
-	"invalid end ip: %s %s":                                                                                   1038,
-	"invalid external_access_mode %q, want %s":                                                                1219,
-	"invalid fernet token":                                                                                    1513,
-	"invalid format":                                                                                          99,
-	"invalid guest %s":                                                                                        1248,
-	"invalid input %s":                                                                                        289,
-	"invalid input format":                                                                                    101,
-	"invalid internal ip address: %s":                                                                         992,
-	"invalid ip address: %s":                                                                                  1142,
-	"invalid ipaddr %s":                                                                                       846,
-	"invalid ipv4 %s ":                                                                                        2,
-	"invalid ipv4 %s for A record":                                                                            6,
-	"invalid ipv6 %s for AAAA record":                                                                         7,
-	"invalid joint resources %s":                                                                              30,
-	"invalid key %s: %s":                                                                                      226,
-	"invalid loadbalancer backend port '%d'":                                                                  1096,
-	"invalid loadbalancer backend weight '%d'":                                                                1097,
-	"invalid loadbalancer_spec %s":                                                                            1305,
-	"invalid local certificate, certificate is empty.":                                                        969,
-	"invalid local certificate, private key is empty.":                                                        968,
-	"invalid macAddr %s":                                                                                      815,
-	"invalid object key: %s":                                                                                  233,
-	"invalid parameter backendgroup %s":                                                                       1304,
-	"invalid parameter format. json dict required":                                                            480,
-	"invalid parameter loadbalancer_spec %s":                                                                  1303,
-	"invalid parameters for policy definition %s":                                                             770,
-	"invalid password: %s":                                                                                    1502,
-	"invalid policy definition %s(%s) condition %s":                                                           773,
-	"invalid project":                                                                                         1526,
-	"invalid proxy setting %s":                                                                                275,
-	"invalid public error: %v":                                                                                907,
-	"invalid public_ip_charge_type %s":                                                                        778,
-	"invalid record name %s":                                                                                  416,
-	"invalid resources format":                                                                                1542,
-	"invalid scope %s":                                                                                        79,
-	"invalid share_mode %s":                                                                                   3,
-	"invalid status %s":                                                                                       1073,
-	"invalid strategy %s":                                                                                     1113,
-	"invalid template":                                                                                        1468,
-	"invalid token":                                                                                           1530,
-	"invalid token %s":                                                                                        1531,
-	"invalid ttl: %d":                                                                                         455,
-	"invalid ttl: %s":                                                                                         454,
-	"invalid url: %v":                                                                                         1555,
-	"invalid user":                                                                                            1525,
-	"invalid vrrp advert_int %d: want [1,255]":                                                                921,
-	"invalid vrrp authentication pass size: %d, want [1,8]":                                                   918,
-	"invalid vrrp interface %q":                                                                               917,
-	"invalid vrrp priority %d: want [1,255]":                                                                  919,
-	"invalid vrrp virtual_router_id %d: want [1,255]":                                                         920,
-	"invlid image":                                                                                            567,
-	"iops must > 0":                                                                                           690,
-	"ip":                                                                                                      1068,
-	"ip %s not found":                                                                                         594,
-	"ip %s or mac %s has been registered":                                                                     663,
-	"ip_prefix error: %s":                                                                                     1035,
-	"ipv4 range overlap":                                                                                      1215,
-	"isAddressUsed fail %s":                                                                                   1013,
-	"isAlterNameUnique fail %s":                                                                               869,
-	"isAttached check failed %s":                                                                              543,
-	"join group into project of default domain or identical domain":                                           1444,
-	"join user into project of default domain or identical domain":                                            1441,
-	"keypair %s not found":                                                                                    574,
-	"lbagent cannot be deployed on managed host":                                                              934,
-	"lbagent cannot be deployed on public guests":                                                             936,
-	"lbcluster %s(%s) already has virtual_router_id %d":                                                       927,
-	"lbcluster %s(%s) is still referred to by %d %s":                                                          976,
-	"lbclusters %s(%s) and %s(%s) has conflict virtual_router_id: %d ":                                        977,
-	"listener type must be http/https, got %s":                                                                1256,
-	"loadbalancer aready associated with fourth layer listener %s":                                            1370,
-	"loadbalancer backendgroup aready associate with other %s listener":                                       1368,
-	"loadbalancer is locked, cannot delete":                                                                   989,
-	"loadbalancer is using by %d backendgroup.":                                                               1320,
-	"loadbalancer is using by %d listener.":                                                                   1319,
-	"loadbalancer listener %s is already updating":                                                            1367,
-	"loadbalancer listener %s related loadbalancer %s not found":                                              1308,
-	"loadbalancerlistenerrule %s(%s): fetching listener %s failed":                                            1259,
-	"login_account is longer than 32 chars":                                                                   754,
-	"mac %s not found":                                                                                        595,
-	"mac addr %s has been occupied":                                                                           600,
-	"maintain time has no change":                                                                             477,
-	"managed network cannot change status":                                                                    1072,
-	"mapped ip exhausted":                                                                                     1232,
-	"master slave backendgorup must contain two backend":                                                      1246,
-	"memory_size_mb, shoud be range of 512~%d":                                                                1152,
-	"metdata must less then 20":                                                                               753,
-	"metric %s is invalid format, usage <measurement>.<field>":                                                1563,
-	"min_instance_number should not be bigger than max_instance_number":                                       1084,
-	"min_instance_number should not be smaller than 0":                                                        1083,
-	"mismatched alarm id":                                                                                     1108,
-	"miss some subimage of guest image":                                                                       786,
-	"missing Content-Length":                                                                                  234,
-	"missing access_mac and uuid in no_probe mode":                                                            824,
-	"missing driver":                                                                                          1469,
-	"missing duration/expire_time":                                                                            215,
-	"missing guest id":                                                                                        699,
-	"missing image id or name":                                                                                1201,
-	"missing input feild type":                                                                                1446,
-	"missing input field blob":                                                                                1447,
-	"missing input field id":                                                                                  1489,
-	"missing input field interface":                                                                           1461,
-	"missing input field service/service_id":                                                                  1462,
-	"missing input field type":                                                                                1479,
-	"missing key":                                                                                             223,
-	"missing manager?":                                                                                        262,
-	"missing name":                                                                                            218,
-	"missing new domain":                                                                                      55,
-	"missing new project/tenant":                                                                              97,
-	"missing pid in pids":                                                                                     1546,
-	"missing pids":                                                                                            1545,
-	"missing rid":                                                                                             1548,
-	"missing rid in pids":                                                                                     1547,
-	"missing uid":                                                                                             1544,
-	"missong duration":                                                                                        353,
-	"model has no field %s":                                                                                   61,
-	"mtu must be range of 0~1000000":                                                                          1234,
-	"mx_priority range limited to [1,50]":                                                                     4,
-	"name is too short":                                                                                       749,
-	"name longer than %d":                                                                                     87,
-	"name starts with letter, and contains letter, number and - only":                                         63,
-	"name starts with letter, and contains letter, number and ._@- only":                                      86,
-	"need scheduled task":                                                                                     1136,
-	"need valid access_mac and uuid to do prepare":                                                            837,
-	"network %s associated route table has no internet gateway attached.":                                     130,
-	"network %s related vpc not found":                                                                        1296,
-	"network %s(%s) does not belong to %s":                                                                    1360,
-	"network %s(%s) has no free addresses":                                                                    1016,
-	"network '%s' not in vpc '%s'":                                                                            1089,
-	"network server_type %s not support auto alloc":                                                           1055,
-	"no admin account found for elastic cache %s":                                                             476,
-	"no allow to access network %s":                                                                           1019,
-	"no available eip network":                                                                                1357,
-	"no either ip_addr or mac specified":                                                                      596,
-	"no external bucket":                                                                                      221,
-	"no networks on wire %s":                                                                                  847,
-	"no recovery secrets for %s":                                                                              1538,
-	"no such ScalingGroup '%s'":                                                                               1100,
-	"no such cloud region %s":                                                                                 1086,
-	"no such disk %s":                                                                                         1176,
-	"no such driver":                                                                                          1436,
-	"no such group %s":                                                                                        714,
-	"no such guest template":                                                                                  1147,
-	"no such guest template %s":                                                                               1090,
-	"no such guest_template %s":                                                                               1149,
-	"no such loadbalancer backend group '%s'":                                                                 1095,
-	"no such model %s":                                                                                        525,
-	"no such network":                                                                                         1000,
-	"no such provider":                                                                                        116,
-	"no such provider %s":                                                                                     283,
-	"no such scaling group %s":                                                                                1103,
-	"no such snapshotpolicy %s":                                                                               412,
-	"no support for instance snapshot in guest template for now":                                              721,
-	"no totp for %s":                                                                                          1537,
-	"no valid endpoint":                                                                                       1611,
-	"no valid host":                                                                                           712,
-	"no valid storage on host":                                                                                789,
-	"no viable lbcluster":                                                                                     1347,
-	"non http listener must have backend group set":                                                           1356,
-	"non redirect lblistener rule must have backend_group set":                                                1354,
-	"non-admin user not allowed to create system object":                                                      93,
-	"not a baremetal":                                                                                         836,
-	"not a baremetal server":                                                                                  711,
-	"not a valid ip address %s: %s":                                                                           1027,
-	"not allow create %s in scope %s":                                                                         80,
-	"not allow to auth":                                                                                       1529,
-	"not allow to change project across domain":                                                               308,
-	"not allow to create":                                                                                     300,
-	"not allow to delete %s disk with snapshots":                                                              411,
-	"not allow to delete default cloud region":                                                                315,
-	"not allow to delete default security group":                                                              1146,
-	"not allow to delete default vpc":                                                                         1220,
-	"not allow to delete log":                                                                                 64,
-	"not allow to delete prepaid disk in valid status":                                                        402,
-	"not allow to delete prepaid server in valid status":                                                      741,
-	"not allow to delete public cloud instance_type: %s":                                                      1161,
-	"not allow to delete. Virtual disk must not have snapshots":                                               410,
-	"not allow to get usage":                                                                                  1532,
-	"not allow to list domain quotas":                                                                         73,
-	"not allow to list project quotas":                                                                        75,
-	"not allow to perform %s":                                                                                 46,
-	"not allow to purge. Virtual disk must not have snapshots":                                                409,
-	"not allow to query system capability":                                                                    268,
-	"not allow to set system key, please remove the underscore at the beginning":                              88,
-	"not allow update rds account name":                                                                       318,
-	"not allow update rds database name":                                                                      331,
-	"not allowed update content of certificate":                                                               971,
-	"not an empty bucket":                                                                                     244,
-	"not an empty network %s":                                                                                 1011,
-	"not empty cloud region":                                                                                  314,
-	"not empty zone":                                                                                          1240,
-	"not enough privilege":                                                                                    1078,
-	"not enough privilege (require:%s,allow:%s)":                                                              78,
-	"not enough privilege (require:%s,allow:%s,query:%s)":                                                     57,
-	"not enough privilege (require:%s,allow:%s:resource:%s)":                                                  77,
-	"not enough privilleges":                                                                                  72,
-	"not find alert %s":                                                                                       1569,
-	"not find notification %s":                                                                                1570,
-	"not found alert notification used by %s":                                                                 1587,
-	"not found cert %s":                                                                                       1463,
-	"not found signature":                                                                                     1591,
-	"not implement":                                                                                           185,
-	"not match any dbinstance sku":                                                                            341,
-	"not support %s":                                                                                          676,
-	"not support create":                                                                                      1075,
-	"not support create %s zone":                                                                              1242,
-	"not support create definition":                                                                           1076,
-	"not support database":                                                                                    1584,
-	"not support for cloudaccount with provider '%s'":                                                         277,
-	"not support hypervisor %s":                                                                               675,
-	"not support type %q":                                                                                     1585,
-	"not support update disk_type %s":                                                                         367,
-	"not supported bind security group":                                                                       487,
-	"not supported hypervisor %s":                                                                             803,
-	"not supported next hop type":                                                                             1079,
-	"not supported secondary update context %s":                                                               1497,
-	"not supported update context":                                                                            1494,
-	"not supported update context %s":                                                                         1495,
-	"now allow to delete inuse instance_type.please remove related servers first: %s": 1160,
-	"object %s not found":                        245,
-	"object count limit exceeds":                 228,
-	"object key should not ends with /":          232,
-	"object size limit exceeds":                  238,
-	"on-premise network cannot sync status":      1071,
-	"on-premise vpc cannot sync status":          1229,
-	"only on premise support this operation":     1061,
-	"only sysadmin can specify host as backend":  949,
-	"operation not allowed":                      100,
-	"out of privileges":                          74,
-	"parameter %s is empty":                      1560,
-	"parse cdrom device info error %s":           758,
-	"parse disk description error %s":            760,
-	"parse isolated device description error %s": 765,
-	"parse network description error %s":         763,
-	"password must be 12 chars of at least one digit, letter, uppercase letter and punctuate": 1432,
-	"path can not be emtpy":                                         1371,
-	"peer lbagent %s(%s) already has vrrp priority %d":              930,
-	"please retry after unbind all guests in group":                 522,
-	"policy definition %s require cloudregion in %s":                771,
-	"policy definition %s require cloudregion not in %s":            772,
-	"policy definition %s require except tag %s":                    775,
-	"policy definition %s require must contains tag %s":             774,
-	"policy is referenced":                                          1618,
-	"port %d not support, only support range 1 ~ 65535":             947,
-	"project %s not found":                                          295,
-	"project contains external resources":                           1484,
-	"project contains group":                                        1486,
-	"project contains user":                                         1485,
-	"project disabled":                                              1510,
-	"project in non-default domain is prohibited":                   54,
-	"project is not found":                                          1549,
-	"provider %s: %v":                                               272,
-	"provider is enabled":                                           301,
-	"provider is not idle":                                          302,
-	"provider is shared outside of domain":                          297,
-	"provider mismatch: %s instance can't use %s sku":               470,
-	"proxysetting %s is still referred to by %d %s":                 68,
-	"public connection aready allocated":                            478,
-	"public ip not supported for %s":                                777,
-	"put object error %s":                                           240,
-	"query all networks fail":                                       1051,
-	"query backend group releated resource failed.":                 945,
-	"query duration `to` err: %s":                                   1606,
-	"query duration err: from: %s, to:%s":                           1605,
-	"query error %s":                                                1445,
-	"query quotas %s":                                               76,
-	"query sku list failed.":                                        1164,
-	"readonly":                                                      1457,
-	"redirect can only be enabled for http/https listener":          1355,
-	"redirect must have at least one of scheme, host, path changed": 1352,
-	"redis version 2.8 not support create account":                  1376,
-	"referered by storages":                                         1197,
-	"reflect call %s fail %s":                                       36,
-	"region":                                                        485,
-	"region contains endpoints":                                     1488,
-	"region mismatch: instance region %s, sku region %s":            471,
-	"region of backend %d does not match that of lb's":              952,
-	"region of host %q (%s) != region of loadbalancer %q (%s)":      1351,
-	"region of host %q (%s) != region of loadbalancer %q (%s))":     1252,
-	"regiondriver":                                                  486,
-	"release public connection aready released":                     479,
-	"repeat_weekdays only contains %d days at most":                 1170,
-	"request process timeout":                                       16,
-	"require system previleges to convert host in other domain":     867,
-	"require validated qcloud cross region vpcPeering bandwidth values:[10, 20, 50, 100, 200, 500, 1000],unit Mbps": 1612,
-	"required at least %d subnet with at least 8 free ip.":                                                          1299,
-	"required at least %d subnet.":                                         1298,
-	"reserved cpu must >= 0":                                               883,
-	"reserved memory must >= 0":                                            884,
-	"reserved storage must >= 0":                                           885,
-	"resource is enabled":                                                  1478,
-	"role is being assigned to group":                                      1493,
-	"role is being assigned to user":                                       1492,
-	"rule %d is invalid: %s":                                               1139,
-	"rule %s/%s already occupied by rule %s(%s)":                           981,
-	"saveConfig fail %s":                                                   1467,
-	"schedtag %s not found":                                                458,
-	"schedtag_id not provide":                                              1115,
-	"secgroup %s not found":                                                735,
-	"secgroup %s rules not equals %s rules":                                1143,
-	"secgroups will be empty after update.":                                490,
-	"security group %s has already been assigned to guest %s":              559,
-	"security group %s not assigned to guest %s":                           561,
-	"security group id should not be empty":                                1609,
-	"select for nothing in query":                                          1604,
-	"server %s not found":                                                  496,
-	"server %s with port %d already in used":                               1372,
-	"server %s with port %d aready used by other %s listener":              1373,
-	"server and eip are not managed by the same provider":                  512,
-	"server host is not found???":                                          511,
-	"server is in %q state, want %q":                                       937,
-	"server region is not found???":                                        507,
-	"service %s not found error: %v":                                       1543,
-	"service contains endpoints":                                           1498,
-	"service is enabled":                                                   1499,
-	"setAcl error %s":                                                      241,
-	"sharing is limited to domains %s":                                     84,
-	"signature error":                                                      1592,
-	"sku %s is soldout":                                                    1341,
-	"slave dbinstance not support prepaid billing type":                    1277,
-	"snapshot referenced by instance snapshot":                             1184,
-	"snapshotpolicy %s not found: %s":                                      366,
-	"snapshotpolicy disk has been exist":                                   1177,
-	"some disk missing!!!":                                                 685,
-	"some networks not exist":                                              1088,
-	"start and end ip not in the same subnet":                              1039,
-	"start and end ip when masked are not in the same cidr subnet":         1047,
-	"start create snapshot task failed: %s":                                706,
-	"start snapshot reset failed %s":                                       708,
-	"start, end ip must be in the same subnet":                             1054,
-	"sticky_session_cookie can only contain letters, Numbers, '_' and '-'": 1264,
-	"sticky_session_cookie length must within 1~200":                       1263,
-	"storage %s can not be data disk":                                      170,
-	"storage %s(%s) need online and attach host for create disk":           372,
-	"storage cache is missing":                                             1209,
-	"storage cache not empty":                                              1196,
-	"storage classes not supported":                                        311,
-	"storage has associate hosts":                                          1206,
-	"storage has disks":                                                    1207,
-	"storage has snapshots":                                                1208,
-	"storage is enabled":                                                   1210,
-	"storage not cache image":                                              1199,
-	"storage of disk %s no valid host":                                     399,
-	"subnet masklen should be smaller than 30":                             1046,
-	"syncWithCloudBucket error %s":                                         242,
-	"sysadmin is protected":                                                1442,
-	"tag has dynamic rules":                                                1126,
-	"tag is associate with sched policies":                                 1128,
-	"telegraf params: invalid influxdb url: %s":                            922,
-	"tenant/project %s not found":                                          1381,
-	"the %s %q in guest template is not a public resource":                 724,
-	"the %s %q in guest template is not a public resource in %s scope":     726,
-	"the %s in guest template is not a public resource":                    723,
-	"the %s in guest template is not a public resource in %s scope":        725,
-	"the AlertType is illegal:%s":                                          1580,
-	"the Comparator is illegal: %s":                                        1573,
-	"the account has been registerd %s":                                    286,
-	"the acl cache in region %s aready exists.":                            965,
-	"the associated natgateway has corresponding dnat rules with eip %s, please delete them firstly": 516,
-	"the associated natgateway has corresponding snat rules with eip %s, please delete them firstly": 515,
-	"the certificate cache in region %s aready exists.":                                              970,
-	"the guest template %s is not valid in cloudregion %s, reason: %s":                               1091,
-	"the image reference session has not been expired!":                                              266,
-	"the min value of cycle in alarm is 300":                                                         1112,
-	"the reduce is illegal %s":                                                                       1574,
-	"the reduce is illegal: %s":                                                                      1575,
-	"the security group is in use":                                                                   1145,
-	"there is no such secgroup %s descripted by guest template":                                      722,
-	"threshold:%s should be number type":                                                             1582,
-	"time_points only contains %d points at most":                                                    1171,
-	"top level public domain name %s not support":                                                    426,
-	"totp secret exists":                                                                             1539,
-	"unauthorized %s":                                                                                1521,
-	"unexpected backend type %s":                                                                     951,
-	"unknown parent object id spec":                                                                  1005,
-	"unknown server type %s":                                                                         738,
-	"unknown zone type %s":                                                                           427,
-	"unkown expansion principle %s":                                                                  1092,
-	"unkown health check mode %s":                                                                    1094,
-	"unkown indicator in alarm %s":                                                                   1110,
-	"unkown label type '%s'":                                                                         1134,
-	"unkown operator in alarm %s":                                                                    1109,
-	"unkown resource operation '%s'":                                                                 1133,
-	"unkown resource type '%s'":                                                                      1132,
-	"unkown scaling policy action %s":                                                                1105,
-	"unkown scaling policy unit %s":                                                                  1106,
-	"unkown scheduled type '%s'":                                                                     1131,
-	"unkown shrink principle %s":                                                                     1093,
-	"unkown trigger type %s":                                                                         1104,
-	"unkown wrapper in alarm %s":                                                                     1111,
-	"unmarshal JoinResourceBaseCreateInput fail %s":                                                  893,
-	"unmarshal JointResourceCreateInput fail %s":                                                     1119,
-	"unmarshal StandaloneResourceCreateInput fail %s":                                                459,
-	"unmarshal VirtualResourceCreateInput fail %s":                                                   466,
-	"unmarshal input fail %s":                                                                        1615,
-	"unmarshal input: %v":                                                                            938,
-	"unmarshal limit error %s":                                                                       259,
-	"unmarshaling cidrs failed: %s":                                                                  1082,
-	"unrecognized input %s":                                                                          1520,
-	"unsupport delete %s backups":                                                                    464,
-	"unsupport on host status %s":                                                                    878,
-	"unsupport type: %s":                                                                             1556,
-	"unsupported action %s":                                                                          1553,
-	"unsupported duration %s":                                                                        338,
-	"unsupported execution_error_state %s":                                                           1562,
-	"unsupported no_data_state %s":                                                                   1561,
-	"unsupported notification type %s":                                                               1588,
-	"unsupported resource type %s":                                                                   1586,
-	"update config version fail %s":                                                                  1500,
-	"url is empty":                                                                                   1554,
-	"use yum requires valid repo_base_url":                                                           931,
-	"user %s not found":                                                                              91,
-	"user contains external resources":                                                               1504,
-	"user disabled":                                                                                  1511,
-	"user must have system admin privileges":                                                         942,
-	"user not found":                                                                                 1515,
-	"user not found or not enabled":                                                                  1524,
-	"user not in project":                                                                            1517,
-	"valid vlan id":                                                                                  1033,
-	"valid wire_level_for_vmware, accept vcenter, datacenter, cluster":                               276,
-	"version mismatch":                                                                               1509,
-	"virtual resource already freezed":                                                               95,
-	"virtual resource not freezed":                                                                   96,
-	"vpc %s already connected to a interVpcNetwork":                                                  900,
-	"vpc %s and vpc %s have already connected":                                                       1218,
-	"vpc %s has already in this dns zone":                                                            433,
-	"vpc %s is not connected to this interVpcNetwork":                                                901,
-	"vpc %s not in dns zone":                                                                         434,
-	"vpc %s(%s) is not a managed resouce":                                                            1140,
-	"vpc joint interVpcNetwork on different cloudEnv is not supported":                               899,
-	"vpc joint interVpcNetwork on different cloudprovider is not supported":                          898,
-	"vpc lb is not allowed for now":                                                                  1345,
-	"vpc on different cloudprovider peering is not supported":                                        1214,
-	"vpc_id": 1213,
-	"weight %d not support, only support range 0 ~ 256":        946,
-	"wire contains hosts":                                      1237,
-	"wire contains networks":                                   1239,
-	"wire not found for zone %s and vpc %s":                    1031,
-	"wire zone must match zone parameter, got %s, want %s(%s)": 973,
-	"zone %s not in cloudregion %s":                            1150,
-	"zone %s(%s) has no lbcluster":                             1346,
-	"zone and vpc info required when wire is absent":           1043,
-	"zone info missing":                                        1344,
-	"zone mismatch, elastic cache sku zone %s != %s":           1339,
-	"zone mismatch: instance zone %s, sku zone %s":             472,
-	"zone of wire must be %s, got %s":                          974,
+	"%s %s %s not found":                                                 105,
+	"%s %s %s not support %s":                                            482,
+	"%s %s not found":                                                    529,
+	"%s %s not support policy value %s":                                  488,
+	"%s %s not supported dns type %s":                                    480,
+	"%s %s not supported policy type %s":                                 481,
+	"%s allow %s %s not found":                                           111,
+	"%s answer is incorrect":                                             19,
+	"%s backend group not support change port":                           1321,
+	"%s backend group not support change port or weight":                 1322,
+	"%s cannot be set to 0":                                              1339,
+	"%s disk cannot exceed 8":                                            216,
+	"%s does not currently support creating loadbalancer":                1380,
+	"%s does not currently support creating loadbalancer acl":            1375,
+	"%s does not currently support creating loadbalancer certificate":    1376,
+	"%s does not support creating loadbalancer":                          1384,
+	"%s does not support creating loadbalancer acl":                      1385,
+	"%s does not support creating loadbalancer certificate":              1386,
+	"%s for %s features are not compatible for creating instance":        217,
+	"%s is not modifiable":                                               562,
+	"%s is not mount point %s":                                           264,
+	"%s is out of network IP ranges":                                     881,
+	"%s is reserved for aliyun %s, please use another":                   1358,
+	"%s length must less 500 letters":                                    1330,
+	"%s listener port %d is already taken by listener %s(%s)":            1051,
+	"%s method not found":                                                83,
+	"%s method params length not match, expected %d, input %d":           84,
+	"%s not allow to %s %s":                                              112,
+	"%s not allow to get property %s":                                    102,
+	"%s not allow to get spec %s":                                        106,
+	"%s not support":                                                     363,
+	"%s not support cdrom params":                                        227,
+	"%s not support close tcp or udp loadbalancer listener health check": 1340,
+	"%s not support create account":                                      1413,
+	"%s not support create eip":                                          210,
+	"%s not support create eip, it only support bind eip":                228,
+	"%s not support create subscription":                                 364,
+	"%s not support create virtual machine with eip":                     229,
+	"%s not support policy type %s":                                      487,
+	"%s not support rebuild root with a different image":                 641,
+	"%s not support recovery":                                            1406,
+	"%s not support saml auth":                                           339,
+	"%s not support this operation":                                      423,
+	"%s only support aliyun %s":                                          1362,
+	"%s only support aliyun %s or %s":                                    1361,
+	"%s only supports eip charge type %q":                                1428,
+	"%s rds Support up to %d security groups":                            408,
+	"%s rds not support secgroup":                                        407,
+	"%s request the mask range should be between 16 and 28":              1379,
+	"%s request the mask range should be between 8 and 29":               1381,
+	"%s request the mask range should be less than or equal to 29":       1449,
+	"%s require disk size must in 40 ~ 4000 GB":                          1394,
+	"%s requires that the eip bandwidth must be less than 100Mbps":       193,
+	"%s requires the virtual machine state to be %s before it can be added backendgroup, but current state of the virtual machine is %s": 1025,
+	"%s reset disk required guest status is running or ready":                                                                            256,
+	"%s shall bind up to %d security groups":                                                                                             831,
+	"%s supported secgroup count is %d":                                                                                                  431,
+	"%s(%s) not allow to delete":                                                                                                         115,
+	"%s: %s cannot be ip address: %s":                                                                                                    518,
+	"%s: %s must be domain name: %s":                                                                                                     517,
+	"%s: Invalid IP address %s":                                                                                                          1108,
+	"%s: bad base64 encoded string: %s":                                                                                                  990,
+	"%s: bad template: %s":                                                                                                               991,
+	"%s: invalid domain name: %s":                                                                                                        511,
+	"%s: name cannot be ip address: %s":                                                                                                  514,
+	"%s: new time is in the future: %s > %s":                                                                                             996,
+	"%s: time error: %s":                                                                                                                 995,
+	"%s: unknown record type":                                                                                                            519,
+	"A: record value must be ipv4 address: %s":                                                                                           515,
+	"AAAA: record value must be ipv6 address: %s":                                                                                        516,
+	"Access address located in different zone than specified":                                                                            886,
+	"Access ip %s has been used":                                                                                                         884,
+	"Access network has no zone???":                                                                                                      885,
+	"Account %s(%s) does not have database %s(%s) permissions":                                                                           393,
+	"Account auto sync enabled":                                                                                                          353,
+	"Account disabled":                                                                                                                   352,
+	"Account status is not %s current status is %s":                                                                                      390,
+	"Action %s not found":                                                                                                                123,
+	"ActionNotFoundError":                                                                                                                1470,
+	"Active download session not expired":                                                                                                1261,
+	"Address %s has been used":                                                                                                           1091,
+	"Address %s not in network":                                                                                                          1095,
+	"Address %s not in range":                                                                                                            1088,
+	"Address %s not reserved":                                                                                                            1090,
+	"Address been assigned out of new range":                                                                                             1120,
+	"Alert is already paused":                                                                                                            1639,
+	"Alert is already un-paused":                                                                                                         1638,
+	"Alert is missing conditions":                                                                                                        1673,
+	"Alert notification used by %d alert":                                                                                                1661,
+	"Alert resource driver duplicate match":                                                                                              1649,
+	"Alert resource driver not found":                                                                                                    1648,
+	"Aliyun %s not support recovery":                                                                                                     1342,
+	"Aliyun %s only 8.0 and 5.7 high_availability local_ssd or 5.6 high_availability support recovery from it self backups": 1344,
+	"Aliyun %s only support recover from it self backups":                                                                   1343,
+	"Aliyun DBInstance account name length shoud be 2~16 characters":                                                        1357,
+	"Aliyun instance weight must be in the range of 0 ~ 100":                                                                1317,
+	"Aliyun not allow to change certificate":                                                                                1313,
+	"Aliyun reset disk required guest status is running or ready":                                                           246,
+	"Already have backup server":                                                                                            707,
+	"At least two networks are required under vpc %s(%s) with aliyun %s(%s)":                                                1355,
+	"Attach nfs storage require host status is online":                                                                      263,
+	"Attach rbd storage require host status is online":                                                                      260,
+	"Aws not support reset disk, you can create new disk with snapshot":                                                     247,
+	"Azure Mv2-series instance sku only support UEFI image":                                                                 196,
+	"Azure UEFI image %s not support this instance sku":                                                                     197,
+	"Azure not support reset disk, you can create new disk with snapshot":                                                   249,
+	"Backup host is offline":                                                                                                715,
+	"Backup only support hypervisor kvm":                                                                                    709,
+	"BadGateway":                                                                                                            1463,
+	"BadRequestError":                                                                                                       1486,
+	"Bandwidth limit cannot exceed %dMbps":                                                                                  1092,
+	"Bandwidth must be non-negative":                                                                                        673,
+	"Baremetal %s is not ready":                                                                                             203,
+	"Baremetal %s is occupied":                                                                                              204,
+	"Baremetal %s not enabled":                                                                                              850,
+	"Baremetal agent not found":                                                                                             275,
+	"Baremetal host is aleady occupied":                                                                                     933,
+	"Baremetal package not prepared":                                                                                        276,
+	"BgpType attribute is only useful for eip network":                                                                      1141,
+	"Bucket has %d task active, can't sync status":                                                                          308,
+	"CD-ROM not empty, please eject first":                                                                                  622,
+	"CNAME cannot mix with other types":                                                                                     509,
+	"CPU core count must be 1 ~ %d":                                                                                         808,
+	"Can not delete disk snapshots, have manual snapshot":                                                                   1257,
+	"Can not get disk snapshot":                                                                                             447,
+	"Can not rebuild root with with diff uefi image":                                                                        639,
+	"Can't clone guest with backup guest":                                                                                   604,
+	"Can't do instance snapshot with backup guest":                                                                          764,
+	"Can't trigger scaling policy without status 'ready'":                                                                   1174,
+	"Cannot Delete disk %s snapshots, disk exist":                                                                           1255,
+	"Cannot add security groups for hypervisor %s":                                                                          626,
+	"Cannot add security groups in status %s":                                                                               551,
+	"Cannot assign security rules in status %s":                                                                             631,
+	"Cannot attach network in status %s":                                                                                    671,
+	"Cannot cache image with no checksum":                                                                                   930,
+	"Cannot change bandwidth in status %s":                                                                                  672,
+	"Cannot change config for baremtal":                                                                                     199,
+	"Cannot change config in %s":                                                                                            677,
+	"Cannot change config in status %s":                                                                                     424,
+	"Cannot change config with different instance family":                                                                   678,
+	"Cannot change network ip_addr in status %s":                                                                            666,
+	"Cannot change server sku name":                                                                                         1229,
+	"Cannot change setting in status %s":                                                                                    674,
+	"Cannot change state on pause alert":                                                                                    1636,
+	"Cannot clone VM in status %s":                                                                                          606,
+	"Cannot create backup with isolated device":                                                                             827,
+	"Cannot create backup with isolated devices":                                                                            710,
+	"Cannot create backup with shared storage":                                                                              708,
+	"Cannot create backup with snapshot":                                                                                    712,
+	"Cannot create disk with disabled storage[%s]":                                                                          440,
+	"Cannot create disk with offline storage[%s]":                                                                           441,
+	"Cannot delete keypair used by servers":                                                                                 975,
+	"Cannot delete server disk %s must not have snapshots.":                                                                 806,
+	"Cannot delete server on disabled host":                                                                                 804,
+	"Cannot delete server on offline host":                                                                                  805,
+	"Cannot delete snapshot in status %s":                                                                                   1250,
+	"Cannot delete snapshot on disk reset":                                                                                  1253,
+	"Cannot delete system alert":                                                                                            1653,
+	"Cannot delete the last cache":                                                                                          1262,
+	"Cannot deploy in status %s":                                                                                            608,
+	"Cannot detach network in status %s":                                                                                    670,
+	"Cannot detach sys disk":                                                                                                650,
+	"Cannot do Ipmi-probe in status %s":                                                                                     903,
+	"Cannot do eject-iso in status %s":                                                                                      947,
+	"Cannot do initialization in status %s":                                                                                 904,
+	"Cannot do insert-iso in status %s":                                                                                     946,
+	"Cannot do io throttle in status %s":                                                                                    750,
+	"Cannot do live migrate, too low qemu version":                                                                          225,
+	"Cannot do maintenance in status %s":                                                                                    895,
+	"Cannot do maintenance while guest status %s":                                                                           896,
+	"Cannot do reboot dbinstance in status %s":                                                                              415,
+	"Cannot do recovery dbinstance in status %s required status %s":                                                         409,
+	"Cannot do renew dbinstance in status %s required status %s":                                                            417,
+	"Cannot do restart elasticcache instance in status %s":                                                                  534,
+	"Cannot do restart server in status %s":                                                                                 689,
+	"Cannot do snapshot when VM in status %s":                                                                               1459,
+	"Cannot do start server in status %s":                                                                                   621,
+	"Cannot do unmaintenance in status %s":                                                                                  897,
+	"Cannot enable deleting account":                                                                                        338,
+	"Cannot keep detached disk":                                                                                             651,
+	"Cannot live migrate in status %s":                                                                                      603,
+	"Cannot live migrate with cdrom":                                                                                        223,
+	"Cannot live migrate with isolated devices":                                                                             224,
+	"Cannot migrate with isolated devices":                                                                                  222,
+	"Cannot mix different types of records, %s != %s":                                                                       523,
+	"Cannot modify Memory and CPU in status %s":                                                                             809,
+	"Cannot modify memory for baremetal":                                                                                    810,
+	"Cannot normal migrate guest in status %s, try rescue mode or server-live-migrate?":                                     220,
+	"Cannot perform cache image in status %s":                                                                               928,
+	"Cannot prepare baremetal in server status %s":                                                                          902,
+	"Cannot prepare baremetal in status %s":                                                                                 901,
+	"Cannot purge elastic_ip on enabled cloud provider":                                                                     588,
+	"Cannot purge network on enabled cloud provider":                                                                        1124,
+	"Cannot purge route_table on enabled cloud provider":                                                                    1148,
+	"Cannot purge server on enabled host":                                                                                   634,
+	"Cannot purge snapshot on enabled cloud provider":                                                                       1258,
+	"Cannot purge vpc on enabled cloud provider":                                                                            1296,
+	"Cannot reduce disk size":                                                                                               685,
+	"Cannot reset VM in status %s":                                                                                          686,
+	"Cannot reset baremetal in status %s":                                                                                   926,
+	"Cannot reset baremetal with active guest":                                                                              927,
+	"Cannot reset disk %s(%s),Snapshot is belong to disk %s":                                                                452,
+	"Cannot reset disk in status %s":                                                                                        450,
+	"Cannot reset disk with snapshot in status %s":                                                                          451,
+	"Cannot reset root in status %s":                                                                                        642,
+	"Cannot resize disk for baremtal":                                                                                       200,
+	"Cannot resume VM in status %s":                                                                                         618,
+	"Cannot revoke security groups in status %s":                                                                            629,
+	"Cannot save image for baremtal":                                                                                        205,
+	"Cannot save image in status %s":                                                                                        599,
+	"Cannot send command in status %s":                                                                                      597,
+	"Cannot send keys in status %s":                                                                                         690,
+	"Cannot set default strategy of %s":                                                                                     1189,
+	"Cannot set security group for this guest %s":                                                                           633,
+	"Cannot set security rules in status %s":                                                                                632,
+	"Cannot start a non-baremetal host":                                                                                     890,
+	"Cannot start baremetal with active guest":                                                                              891,
+	"Cannot stop a non-baremetal host":                                                                                      892,
+	"Cannot stop baremetal with active guest":                                                                               894,
+	"Cannot stop baremetal with non-active guest":                                                                           893,
+	"Cannot stop server in status %s":                                                                                       688,
+	"Cannot suspend VM in status %s":                                                                                        617,
+	"Cannot switch OS between %s-%s":                                                                                        638,
+	"Cannot swith to backup when guest in status %s":                                                                        700,
+	"Cannot sync config a non-baremetal host":                                                                               948,
+	"Cannot sync in status %s":                                                                                              602,
+	"Cannot sync status a non-baremetal host":                                                                               925,
+	"Cannot uncache in status %s":                                                                                           1263,
+	"Cannot unconvert in status %s":                                                                                         940,
+	"Cannot update external resource":                                                                                       382,
+	"Check input guests is exist":                                                                                           762,
+	"Check set pending quota error %s":                                                                                      742,
+	"Cloudaccount disabled":                                                                                                 372,
+	"Cloudprovider disabled":                                                                                                371,
+	"Condition is missing the threshold parameter":                                                                          1669,
+	"Condition is missing the type parameter":                                                                               1670,
+	"Conflict address space with existing networks":                                                                         1119,
+	"Conflict address space with existing networks in vpc %q":                                                               1117,
+	"Conflict manager_uri %s":                                                                                               278,
+	"ConflictError":                                                                                                         1494,
+	"Connot convert hypervisor in status %s":                                                                                934,
+	"Container not support %s":                                                                                              209,
+	"Content-Length negative %d":                                                                                            301,
+	"Convert error: %s":                                                                                                     938,
+	"Couldn't delete snapshot policy binding to disks":                                                                      1243,
+	"Currently only kvm platform supports creating wire":                                                                    1303,
+	"DBInstance %s(%s) status is %s require status is %s":                                                                   385,
+	"DBInstance backup has %d task active, can't sync status":                                                               395,
+	"DBInstance has %d task active, can't sync status":                                                                      416,
+	"DBInstance has opened the outer network connection":                                                                    421,
+	"DBInstance is locked, cannot delete":                                                                                   427,
+	"DBinstance has not valid cloudprovider":                                                                                394,
+	"DIRECT setting cannot be changed":                                                                                      129,
+	"DIRECT setting cannot be deleted":                                                                                      130,
+	"DISK Index %d has been occupied":                                                                                       792,
+	"Data disk size must be an integer multiple of 10G":                                                                     236,
+	"Database status is not %s current is %s":                                                                               392,
+	"Default data source not found":                                                                                         1655,
+	"Default quota %s not allow to delete":                                                                                  135,
+	"Description can not start with http:// or https://":                                                                    1356,
+	"Directly creating cloudprovider is not supported, create cloudaccount instead":                                         368,
+	"Disk %s and guest not belong to the same account":                                                                      609,
+	"Disk %s and guest not belong to the same zone":                                                                         610,
+	"Disk %s don't need convert snapshots":                                                                                  446,
+	"Disk %s dose not have snapshot":                                                                                        1256,
+	"Disk %s dosen't attach guest ?":                                                                                        1457,
+	"Disk %s has been attached":                                                                                             612,
+	"Disk %s not attached":                                                                                                  653,
+	"Disk %s not belong the guest's host":                                                                                   613,
+	"Disk %s not found":                                                                                                     616,
+	"Disk %s snapshot full, cannot take any more":                                                                           1461,
+	"Disk attach muti guests":                                                                                               265,
+	"Disk attached Guest has backup, Can't create snapshot":                                                                 1458,
+	"Disk attached guest status must be ready":                                                                              266,
+	"Disk cannot be thrink":                                                                                                 454,
+	"Disk dosen't attach guest":                                                                                             267,
+	"Disk has %d task active, can't sync status":                                                                            474,
+	"Disk in %s not able to attach":                                                                                         614,
+	"Disk must be detached":                                                                                                 258,
+	"Disk must be dettached":                                                                                                255,
+	"Diskinfo index %d: both imageID and size are absent":                                                                   470,
+	"Do not need to update":                                                                                                 1242,
+	"Duplicate ID %s %s":                                                                                                    1507,
+	"Duplicate image name %s":                                                                                               459,
+	"Duplicate manager_uri %s":                                                                                              279,
+	"Duplicate name %s":                                                                                                     1132,
+	"Duplicate name %s %s":                                                                                                  1506,
+	"Duplicate sku %s":                                                                                                      1226,
+	"DuplicateIdError":                                                                                                      183,
+	"DuplicateNameError":                                                                                                    1492,
+	"DuplicateResourceError":                                                                                                1493,
+	"Duration %s invalid":                                                                                                   1093,
+	"Eject ISO not allowed in status %s":                                                                                    625,
+	"Elastic cache is locked, cannot delete":                                                                                535,
+	"Elastic cache is not expired, cannot delete":                                                                           536,
+	"Elasticcache has %d task active, can't sync status":                                                                    548,
+	"Empty import disks":                                                                                                    727,
+	"Empty import nics":                                                                                                     724,
+	"Empty record":                                                                                                          520,
+	"Empty spec query key":                                                                                                  1450,
+	"EmptyRequestError":                                                                                                     1487,
+	"ErrAddressCountExceed":                                                                                                 190,
+	"Fail to mark cache status: %s":                                                                                         1268,
+	"Failed fetching secgroup %s":                                                                                           1205,
+	"Failed to found database %s for dbinstance %s(%s): %v":                                                                 388,
+	"Failed to unmarshal input: %v":                                                                                         1204,
+	"Fetch guest error %s":                                                                                                  706,
+	"Fetch instance snapshot error %s":                                                                                      1251,
+	"Fetch netif error %s":                                                                                                  924,
+	"Fetch snapshot count failed %s":                                                                                        445,
+	"FetchCustomizeColumns return incorrect number of results":                                                              95,
+	"FetchCustomizeColumns returns incorrect results":                                                                       99,
+	"For default vpc, only system level sharing can be set":                                                                 1298,
+	"ForbiddenError":                                                                                                        1490,
+	"General error: general error for %q: %s":                                                                               167,
+	"Generate ifname hint failed %s":                                                                                        1134,
+	"Generate snapshot name failed %s":                                                                                      772,
+	"Generate xml failed: %s":                                                                                               736,
+	"GenerateName fail %s":                                                                                                  1133,
+	"Get convert snapshot failed: %s":                                                                                       448,
+	"Get object error: %v":                                                                                                  1452,
+	"GetAllocatedNicCount fail %s":                                                                                          1077,
+	"GetDiskCount fail %s":                                                                                                  871,
+	"GetGuestCount fail %s":                                                                                                 244,
+	"GetGuestDiskCount fail %s":                                                                                             960,
+	"GetGuestDiskCount for disk %s fail %s":                                                                                 467,
+	"GetGuestnicsCount fail %s":                                                                                             961,
+	"GetGuestsCount fail %s":                                                                                                1211,
+	"GetHostCount fail %s":                                                                                                  1273,
+	"GetIObject error %s":                                                                                                   302,
+	"GetIObject fail %s":                                                                                                    292,
+	"GetLinkedGuestsCount failed %s":                                                                                        974,
+	"GetNatgatewayCount fail %v":                                                                                            1291,
+	"GetNetworkCount fail %s":                                                                                               1289,
+	"GetObjectCount fail %s":                                                                                                1190,
+	"GetRequesterVpcPeeringConnections fail %v":                                                                             1293,
+	"GetRuningGuestCount fail %s":                                                                                           461,
+	"GetSnapshotCount fail %s":                                                                                              475,
+	"GetVpcCount fail %s":                                                                                                   378,
+	"GetZoneCount fail %s":                                                                                                  377,
+	"Google dbinstance not support prepaid billing type":                                                                    1387,
+	"Guest %s can't hot remove nic":                                                                                         226,
+	"Guest %s not found":                                                                                                    705,
+	"Guest %s not support attach disk in status %s":                                                                         615,
+	"Guest '%s' don't belong to ScalingGroup '%s'":                                                                          1168,
+	"Guest Insert error: %s":                                                                                                906,
+	"Guest backup host not found":                                                                                           714,
+	"Guest can't switch to backup, mirror job not ready":                                                                    702,
+	"Guest has %d task active, can't sync status":                                                                           687,
+	"Guest have backup not allow to change config":                                                                          676,
+	"Guest have backup, can't migrate":                                                                                      219,
+	"Guest hypervisor %s does not support clone":                                                                            605,
+	"Guest nic ip addr %s not equal %s":                                                                                     922,
+	"Guest no backup host":                                                                                                  701,
+	"Guest without backup":                                                                                                  713,
+	"GuestDisksHasSnapshot fail %s":                                                                                         711,
+	"Handler not found":                                                                                                     77,
+	"Host %s already have mount point %s with other storage":                                                                262,
+	"Host %s can't migrate guests %s in status %s":                                                                          945,
+	"Host %s is not a baremetal":                                                                                            202,
+	"Host %s is not online":                                                                                                 243,
+	"Host %s not found":                                                                                                     218,
+	"Host is a converted baremetal, should be unconverted before delete":                                                    867,
+	"Host is not disabled":                                                                                                  868,
+	"Host missing":                                                                                                          595,
+	"Host should be disabled":                                                                                               939,
+	"HostCount fail %s":                                                                                                     1304,
+	"Huawei %s rds not support recovery from it self rds backup":                                                            1407,
+	"Huawei DBInstance Disk cannot be thrink":                                                                               1401,
+	"Huawei DBInstance backup name length shoud be 4~64 characters":                                                         1399,
+	"Huawei DBInstance category cannot change":                                                                              1402,
+	"Huawei DBInstance storage type cannot change":                                                                          1403,
+	"Huawei current not support reset dbinstance account password":                                                          1404,
+	"Huawei dbinstance name length shoud be 4~64 characters":                                                                1393,
+	"Huawei only %s engine support databases recovery":                                                                      1408,
+	"Huawei only supports specified databases with %s":                                                                      1400,
+	"Huawei rds password cannot be in the same reverse order as the account":                                                1397,
+	"Hypervisor %s can't do io throttle":                                                                                    749,
+	"Hypervisor %s can't generate libvirt xml":                                                                              735,
+	"Hypervisor %s not supported":                                                                                           855,
+	"IP %s not attach to any wire":                                                                                          912,
+	"IP %s not attach to wire %s":                                                                                           911,
+	"IPMI address located in different zone than specified":                                                                 883,
+	"IPMI has no password information":                                                                                      875,
+	"IPMI infomation not configured":                                                                                        905,
+	"IPMI network has no zone???":                                                                                           882,
+	"IPMI network has not zone???":                                                                                          888,
+	"Illegal Content-Length %s":                                                                                             300,
+	"Image %s not found":                                                                                                    1504,
+	"Image is in use":                                                                                                       1260,
+	"Image name is required":                                                                                                463,
+	"Image status is not active":                                                                                            473,
+	"ImageNotFoundError":                                                                                                    1467,
+	"Inconsistent: local storage is not empty???":                                                                           873,
+	"Incontinuity Network for %s and %s":                                                                                    1127,
+	"Influxdb invalid status":                                                                                               1667,
+	"InformerBackend not init":                                                                                              162,
+	"InputParameterError":                                                                                                   1475,
+	"Insert ISO not allowed in status %s":                                                                                   623,
+	"Insert shared resource failed %s":                                                                                      149,
+	"Instance sanpshot not ready":                                                                                           769,
+	"Instance snapshot not ready":                                                                                           814,
+	"Instance status is not %s current status is %s":                                                                        391,
+	"InsufficientResourceError":                                                                                             1478,
+	"Interface %s not exist":                                                                                                915,
+	"Interface %s not exists":                                                                                               917,
+	"Internal server error":                                                                                                 75,
+	"Internal server error: %s":                                                                                             74,
+	"InternalServerError":                                                                                                   1464,
+	"Invaild mac address":                                                                                                   907,
+	"Invald %s return value":                                                                                                101,
+	"Invald CustomizeDelete return value":                                                                                   93,
+	"Invald ListItemFilter return value count %d":                                                                           86,
+	"Invald OrderByExtraFields return value count %d":                                                                       87,
+	"Invald ValidateCreateData return value":                                                                                85,
+	"Invald ValidateUpdateData return value":                                                                                92,
+	"Invalid FetchCustomizeColumns return value count %d":                                                                   89,
+	"Invalid FetchCustomizeColumns return value type, not a slice!":                                                         90,
+	"Invalid FetchCustomizeColumns return value, inconsistent obj count: input %d != output %d": 91,
+	"Invalid GetExtraDetails return value count %d":                                             88,
+	"Invalid IP %s": 1129,
+	"Invalid Target Network %s: inconsist %s":                           1126,
+	"Invalid bandwidth":                                                 587,
+	"Invalid choice error: invalid %q, want %s, got %s":                 169,
+	"Invalid condition evaluator type":                                  1671,
+	"Invalid data JSONObject":                                           113,
+	"Invalid default stragegy %s":                                       1188,
+	"Invalid desc: %s":                                                  720,
+	"Invalid handler %s":                                                76,
+	"Invalid host ip %s":                                                731,
+	"Invalid interval format: %s":                                       1665,
+	"Invalid length error: %q too long, got %d, max %d":                 171,
+	"Invalid length error: %q too short, got %d, min %d":                170,
+	"Invalid level format: %s":                                          1650,
+	"Invalid mac address":                                               923,
+	"Invalid masklen %d":                                                1104,
+	"Invalid medium type %s":                                            1271,
+	"Invalid period format: %s":                                         1651,
+	"Invalid raid config: %v":                                           201,
+	"Invalid refresh format: %s":                                        1640,
+	"Invalid request header: %v":                                        79,
+	"Invalid root image: %s":                                            818,
+	"Invalid schedtag %s":                                               1187,
+	"Invalid server ip address %s":                                      733,
+	"Invalid server mac address %s":                                     732,
+	"Invalid server_type: %s":                                           1099,
+	"Invalid start ip: %s %s":                                           1105,
+	"Invalid storage type %s":                                           1270,
+	"Invalid type error: expecting %s type for %q: %s":                  168,
+	"Invalid userdata: %v":                                              832,
+	"Invalid value error: invalid %q: ":                                 175,
+	"Invalid value error: invalid %q: %s":                               173,
+	"Invalid value error: invalid %q: %v":                               174,
+	"InvalidCredentialError":                                            1489,
+	"InvalidFormatError":                                                1474,
+	"InvalidProvider":                                                   188,
+	"InvalidStatusError":                                                184,
+	"InvalidToken":                                                      1605,
+	"Ip %s not in network %s(%s) range":                                 400,
+	"Isolated device %s not found":                                      656,
+	"Isolated device already attached to another guest: %s":             970,
+	"Isolated device is not attached to this guest":                     657,
+	"Isolated device used by server":                                    968,
+	"Isolated device used by server: %s":                                971,
+	"IsolatedDevice %s not found":                                       969,
+	"Keypair %s not found":                                              829,
+	"Kvm snapshot missing storage ??":                                   1433,
+	"Loadbalancer's manager %s does not match vpc's(%s(%s)) (%s)":       1369,
+	"Loadbalancer's manager (%s(%s)) does not match vpc's(%s(%s)) (%s)": 1312,
+	"Local host storage is not empty???":                                872,
+	"Master dbinstance memory <64GB, up to 5 read-only instances are allowed to be created":  1354,
+	"Master dbinstance memory ≥64GB, up to 10 read-only instances are allowed to be created": 1353,
+	"Memory size must be 8MB ~ %d GB":                           807,
+	"Memory size must be number[+unit], like 256M, 1G or 256":   680,
+	"Miss operating system???":                                  821,
+	"Missing isolated device":                                   655,
+	"Missing key error: missing %q":                             166,
+	"Missing name or generate_name":                             109,
+	"Missing parameter %s":                                      40,
+	"MissingParameterError":                                     1477,
+	"Model manager error: failed getting model manager for %q":  176,
+	"Model not found error: cannot find %q with id/name %q":     177,
+	"Model not found error: cannot find %q with id/name %q: %s": 178,
+	"Must be a baremetal host":                                  932,
+	"NIC Index %d has been occupied":                            795,
+	"Name %s not found":                                         1606,
+	"Nat gateway has %d task active, can't sync status":         1063,
+	"Network %s not found":                                      1125,
+	"Network %s not found: %v":                                  1087,
+	"Network not found":                                         274,
+	"Network not in range of VPC cidrblock %s":                  1115,
+	"NetworkCount fail %s":                                      1306,
+	"New IPMI address located in another zone!":                 889,
+	"New databases name can not be one of %s":                   1409,
+	"NewTask error: %s":                                         734,
+	"No Disk Info Provided":                                     644,
+	"No ISO to eject":                                           624,
+	"No context manager":                                        96,
+	"No disk information provided":                              817,
+	"No eip to dissociate":                                      698,
+	"No host for server":                                        598,
+	"No id list found":                                          60,
+	"No ipmi information was found for host %s":                 874,
+	"No login key: %s":                                          1621,
+	"No login secret found":                                     1607,
+	"No need to grant or revoke privilege for admin account":    1405,
+	"No password found":                                         1611,
+	"No previous deployment info available":                     1011,
+	"No request key: %s":                                        78,
+	"No return value, so why query?":                            103,
+	"No root image":                                             600,
+	"No ssh password: %s":                                       1612,
+	"No such context %s(%s)":                                    97,
+	"No such eip":                                               1062,
+	"No template for root disk, cannot rebuild root":            640,
+	"No token in header":                                        56,
+	"No token in header: %v":                                    39,
+	"No valid host":                                             645,
+	"No valid storage on current host":                          646,
+	"No zone for this disk":                                     458,
+	"NoBalancePermission":                                       189,
+	"NoProjectError":                                            1498,
+	"Not Implement RequestAttachStorage":                        253,
+	"Not Implement RequestDetachStorage":                        254,
+	"Not Implement ValidateAttachStorage":                       252,
+	"Not Implement ValidateCreateEip":                           206,
+	"Not Implement ValidateResetDisk":                           251,
+	"Not Implemented":                                           398,
+	"Not Implemented GetProvider":                               181,
+	"Not a baremetal":                                           918,
+	"Not a prepaid recycle host":                                863,
+	"Not allow empty records":                                   81,
+	"Not allow for hypervisor %s":                               207,
+	"Not allow set scope to domain %s":                          146,
+	"Not allow set scope to project %s":                         147,
+	"Not allow set scope to system":                             145,
+	"Not allow to attach":                                       116,
+	"Not allow to change config":                                675,
+	"Not allow to create item":                                  107,
+	"Not allow to get details":                                  104,
+	"Not allow to update item":                                  114,
+	"Not an converted hypervisor":                               941,
+	"Not an empty host":                                         870,
+	"Not being convert to hypervisor":                           919,
+	"Not enough free space":                                     444,
+	"Not eough storage space on current host":                   647,
+	"Not find executor for data source":                         1668,
+	"Not found baremetal server record":                         920,
+	"Not found guest nic by mac %s":                             921,
+	"Not found key in query: %v":                                1623,
+	"Not found kind in query: %v":                               1622,
+	"Not found network by ip %s":                                726,
+	"Not in range error: invalid %q: %d, want [%d,%d]":          172,
+	"Not support":                                               489,
+	"Not support %s for account %s, supported %s":               492,
+	"Not support %s for vpc %s, supported %s":                   491,
+	"Not support associate type %s, only support %s":            565,
+	"Not support brand %s, only support %s":                     345,
+	"Not support cache classic security group":                  1208,
+	"Not support create %s storage":                             1272,
+	"Not support create Qcloud databases":                       1447,
+	"Not support create account for huawei cloud %s instance":   1396,
+	"Not support create database for huawei cloud %s instance":  1398,
+	"Not support create local storage disks":                    240,
+	"Not support create public cloud sku":                       1224,
+	"Not support create read-only dbinstance for %s":            1392,
+	"Not support create readonly dbinstance for MySQL %s":       1349,
+	"Not support create readonly dbinstance for MySQL %s %s":    1347,
+	"Not support create readonly dbinstance for MySQL %s %s with storage type %s, only support %s": 1348,
+	"Not support create readonly dbinstance with master dbinstance engine %s":                      1352,
+	"Not support modify routetable for provider %s":                                                1147,
+	"Not support resource %s tag filter":                                                           122,
+	"Not support resource_type %s":                                                                 1183,
+	"Not supported, please use kubectl":                                                            208,
+	"NotAcceptableError":                                                                           1491,
+	"NotEmptyError":                                                                                1485,
+	"NotFoundError":                                                                                182,
+	"NotImplementedError":                                                                          186,
+	"NotSufficientPrivilegeError":                                                                  1483,
+	"NotSupportedError":                                                                            187,
+	"Object %s %s has attached %s %s":                                                              117,
+	"Only %s dbinstance support this operation":                                                    420,
+	"Only %s elastic cache support renew operation":                                                561,
+	"Only %s elastic cache support set auto renew operation":                                       559,
+	"Only %s guest support this operation":                                                         782,
+	"Only %s support cache for account":                                                            497,
+	"Only ADMIN and IPMI nic can be enable":                                                        916,
+	"Only allowed to attach isolated device when guest is ready":                                   654,
+	"Only one of that sourceCIDR and netword_id is needed":                                         1064,
+	"Only support on premise network":                                                              1137,
+	"Only support server type %s":                                                                  1136,
+	"Only system admin allowed to use reserved ip":                                                 1089,
+	"Only system admin can assign host":                                                            955,
+	"OpenStack not support reset disk, you can create new disk with snapshot":                      268,
+	"Out of IP address":                                                                            1085,
+	"Out of eip quota: %s":                                                                         699,
+	"OutOfLimit":                                                                                   1482,
+	"OutOfQuotaError":                                                                              1480,
+	"OutOfRange":                                                                                   1481,
+	"OutOfResource":                                                                                1479,
+	"PTR cannot mix with other types":                                                              510,
+	"PTR: invalid ptr record name: %s":                                                             513,
+	"Params vcpu_count parse error":                                                                679,
+	"Params vmem_size parse error":                                                                 681,
+	"Parse Ip Failed":                                                                              1123,
+	"Parse disk info error: %s":                                                                    684,
+	"Parse query: %v":                                                                              38,
+	"Parse remote ip error %s":                                                                     273,
+	"Parse spec key %s error: %v":                                                                  1451,
+	"PaymentError":                                                                                 1466,
+	"Please disable this ScalingGroup firstly":                                                     1165,
+	"Please input new disk backend type":                                                           241,
+	"PolicyDefinitionError":                                                                        1503,
+	"Port value error":                                                                             1058,
+	"Prohibit making default vpc private":                                                          1299,
+	"Project %s(%s) not belong to domain %s(%s)":                                                   344,
+	"ProtectedResourceError":                                                                       1497,
+	"Qcloud Basic MySQL instance not support create backup":                                        1446,
+	"Qcloud reset disk required guest status is running or read":                                   269,
+	"Query database error %s":                                                                      126,
+	"Query host storage error %s":                                                                  261,
+	"Quota %s not found":                                                                           134,
+	"Records limit exceeded.":                                                                      82,
+	"Region %s not found":                                                                          369,
+	"RequireLicenseError":                                                                          1496,
+	"Rescue mode requires all disk store in shared storages":                                       221,
+	"Resize disk when disk is READY":                                                               453,
+	"Resource %s %s not found":                                                                     1197,
+	"Resource type %s not support":                                                                 527,
+	"ResourceBusyError":                                                                            1495,
+	"ResourceNotFoundError":                                                                        1468,
+	"ResourceNotReadyError":                                                                        1465,
+	"ResourceType %q not support":                                                                  1181,
+	"Retention days must in 1~%d or -1":                                                            1237,
+	"Retention days must in 1~65535 or -1":                                                         1241,
+	"SQL Server cannot have more than seven read-only dbinstances":                                 1351,
+	"SQL Server only support create readonly dbinstance for 2017_ent":                              1350,
+	"SRV cannot mix with other types":                                                              508,
+	"SRV: insufficient param: %s":                                                                  502,
+	"SRV: invalid port number: %s":                                                                 503,
+	"SRV: invalid priority number: %s":                                                             506,
+	"SRV: invalid srv record name: %s":                                                             512,
+	"SRV: invalid weight number: %s":                                                               504,
+	"SRV: priority number %d not in range [0,65535]":                                               507,
+	"SRV: weight number %d not in range [0,65535]":                                                 505,
+	"Save disk when disk is READY":                                                                 460,
+	"Save disk when not being USED":                                                                462,
+	"ScalingGroup should have some networks":                                                       1154,
+	"Schedtag %s":                                                                                  1184,
+	"Schedtag %s ResourceType is %s, not match %s":                                                 1196,
+	"Schedtag %s not found":                                                                        865,
+	"Schedtag %s resource_type mismatch: %s != %s":                                                 1185,
+	"Secgroup %s not found":                                                                        830,
+	"Server %s already exists":                                                                     723,
+	"Server %s must in status ready":                                                               257,
+	"Server Id is empty":                                                                           721,
+	"Server Name is empty":                                                                         722,
+	"Server in %s not able to detach disk":                                                         652,
+	"ServerStatusError":                                                                            1473,
+	"SetLimit error %s":                                                                            325,
+	"Snapshot %s dose not have convert snapshot":                                                   449,
+	"Snapshot %s not found":                                                                        471,
+	"Snapshot %s storage %s not found, is public cloud?":                                           472,
+	"Snapshot error: disk index %d > 0 but disk type is %s":                                        824,
+	"Snapshot for %s name can't start with auto, http:// or https://":                              1341,
+	"Snapshot has %d task active, can't sync status":                                               1254,
+	"Snapshot reference(by disk) count > 0, can not delete":                                        1455,
+	"Some disk not ready":                                                                          620,
+	"Some host config missing host ip":                                                             730,
+	"Some host config missing xml_file_path":                                                       729,
+	"SpecNotFoundError":                                                                            1469,
+	"Split IP %s is the start ip":                                                                  1130,
+	"Split IP %s out of range":                                                                     1131,
+	"Storage %s not found":                                                                         437,
+	"Storage type[%s] not match backend %s":                                                        442,
+	"StorageInUse":                                                                                 956,
+	"Storage[%s] must attach to a host":                                                            443,
+	"Support only by KVM Hypervisor":                                                               601,
+	"System disk does not support %s disk":                                                         215,
+	"System disk does not support iso image, please consider using cdrom parameter": 819,
+	"TOTP recovery questions do not exist":                                          17,
+	"Tag is associated with %s":                                                     1191,
+	"TenantNotFoundError":                                                           1471,
+	"The %s disk size must be in the range of %dGB ~ %dGB":                          192,
+	"The %s disk size must be in the range of 100GB ~ 16000GB":                      233,
+	"The %s disk size must be in the range of 10GB ~ 16000GB":                       231,
+	"The %s disk size must be in the range of 20GB ~ 32000GB":                       234,
+	"The %s disk size must be in the range of 50GB ~ 16000GB":                       232,
+	"The %s guest not support public ip to eip operation":                           781,
+	"The account %s(%s) has permission %s to the database %s(%s)":                   389,
+	"The account has been registered":                                               347,
+	"The backend %s is already registered on port %d":                               1378,
+	"The dbinstance status need be %s, current is %s":                               419,
+	"The disk is locally stored and does not support detach":                        242,
+	"The disk_size_gb must be an integer multiple of 10":                            1395,
+	"The elastic cache status need be %s, current is %s":                            558,
+	"The extranet connection is not open":                                           422,
+	"The guest %s does not have any public IP":                                      779,
+	"The guest status need be %s or %s, current is %s":                              780,
+	"The image has been cached on storages":                                         330,
+	"The secgroup name %s does not meet the requirements, please change the name":   556,
+	"The specified Scheduler %s is invalid for performance sharing loadbalancer":    1335,
+	"The system disk is locally stored and does not support changing configuration": 239,
+	"There are some guests in this ScalingGroup, please delete them firstly":        1166,
+	"This RBD Storage[%s/%s] has already exist":                                     1462,
+	"This scheduled task is being executed now, please try later":                   1202,
+	"TimeoutError":            185,
+	"Token expired":           58,
+	"Token in header invalid": 57,
+	"TooLargeEntity":          1499,
+	"TooManyFailedAttempts":   1500,
+	"TooManyRequests":         1501,
+	"Ucloud only support data disk reset operation":             271,
+	"Ucloud reset disk operation required disk not be attached": 270,
+	"Unauthorized":                                                                      1604,
+	"UnauthorizedError":                                                                 1488,
+	"Unavailable IP %s: occupied":                                                       746,
+	"Unknown alert condition":                                                           1672,
+	"Unknown backend group type %s":                                                     1323,
+	"Unknown google storage type %s":                                                    214,
+	"Unknown privilege %s":                                                              1363,
+	"Unknown sticky_session_type, only support %s or %s":                                1333,
+	"Unkown alert condition type: %s":                                                   1680,
+	"Unkown operator %s":                                                                1675,
+	"Unmarshal data error %s":                                                           728,
+	"Unmarshal disks configure error %s":                                                683,
+	"Unmarshal input error %s":                                                          607,
+	"Unmarshal input error: %v":                                                         425,
+	"Unmarshal input failed %s":                                                         1057,
+	"Unmarshel input failed %s":                                                         1240,
+	"Unreachable IP %s: %s":                                                             745,
+	"Unsupport attach %s storage for %s host":                                           259,
+	"Unsupport backendgorup type %s":                                                    1315,
+	"Unsupport driver type %s":                                                          936,
+	"UnsupportOperationError":                                                           1484,
+	"Unsupported %s":                                                                    570,
+	"Unsupported action %s":                                                             41,
+	"Unsupported notification type":                                                     1666,
+	"Unsupported provider %s":                                                           343,
+	"Unsupported scheme %s":                                                             972,
+	"UnsupportedProtocol":                                                               1502,
+	"Update error %s":                                                                   326,
+	"UserNotFoundError":                                                                 1472,
+	"VPC %s not found":                                                                  381,
+	"VPC not empty, please delete nat gateway first":                                    1292,
+	"VPC not empty, please delete network first":                                        1290,
+	"VPC not ready":                                                                     1112,
+	"VPC peering not empty, please delete vpc peering first":                            1294,
+	"ValidateDeleteCondition error %s":                                                  329,
+	"Virtual disk %s(%s) used by virtual servers":                                       468,
+	"Virtual resource freezed, can't do %s":                                             158,
+	"Virtual resource type %s not support":                                              528,
+	"Virtual server is locked, cannot delete":                                           802,
+	"WeakPasswordError":                                                                 1476,
+	"Wire %s not found":                                                                 854,
+	"Wrong content type %s, want %s":                                                    42,
+	"Wrong guest status %s":                                                             898,
+	"ZStack reset disk operation requried guest status is ready":                        272,
+	"Zone %s not found":                                                                 370,
+	"a recycle host shoud not allocate more than 1 guest":                               861,
+	"account %s conflict":                                                               358,
+	"account %s has been cached":                                                        498,
+	"account %s not enable saml auth":                                                   334,
+	"account %s not share for domain %s":                                                589,
+	"account is enabled":                                                                335,
+	"account is not idle":                                                               336,
+	"account name '%s' is not allowed":                                                  1437,
+	"account name can not start or end with _":                                          1360,
+	"account_privilege %s only support redis version 4.0":                               1365,
+	"acl %s is still referred to by %d %s":                                              983,
+	"acl cidr duplicate %s":                                                             980,
+	"address %s is already occupied":                                                    1081,
+	"address %s is not in the range of network %s(%s)":                                  1079,
+	"alert already attached to notification":                                            1637,
+	"alert condition type is empty":                                                     1679,
+	"all networks should in the same vpc. (%s).":                                        1370,
+	"allocate ip addr: %v":                                                              1075,
+	"allow only internal zone, got %s(%s)":                                              1039,
+	"already associate with eip":                                                        692,
+	"already has one network in the zone %s. (%s).":                                     1371,
+	"app_id is empty":                                                                   1629,
+	"app_secret is empty":                                                               1630,
+	"attach devices is not string array":                                                661,
+	"auth mode aready in status %s":                                                     542,
+	"authenticate error: %v":                                                            1008,
+	"back and instance not in same cloudaccount":                                        412,
+	"backend group %s is default backend group":                                         1022,
+	"backend group %s is still referred by %d %s":                                       1024,
+	"backend group %s(%s) belongs to loadbalancer %s instead of %s":                     1325,
+	"backend group %s(%s) belongs to loadbalancer %s, not %s":                           1053,
+	"backend group type must be normal":                                                 1326,
+	"backend_group argument is missing":                                                 1424,
+	"backendgroup %s not support this operation":                                        1319,
+	"backup %s(%s) not contain database %s":                                             410,
+	"backup and instance not in same cloudregion":                                       413,
+	"bad gateway ip: %v":                                                                1109,
+	"bad ip":                                                                            1686,
+	"bad network type %q, want %q":                                                      1430,
+	"bandwidth must be greater than 0":                                                  1301,
+	"batch create is not supported for external resources":                              1071,
+	"beyond security group quantity limit, max items %d.":                               555,
+	"body is not a json?":                                                               108,
+	"bps must > 0":                                                                      751,
+	"bucket.GetQuotaKeys %s":                                                            294,
+	"bucket.GetQuotaKeys fail %s":                                                       304,
+	"can not bind guest from disabled guest":                                            591,
+	"can not bind or unbind disabled instance group":                                    778,
+	"can not change specification in status %s":                                         541,
+	"can not find dashboard:%s":                                                         1644,
+	"can not make backup in status %s":                                                  1438,
+	"can not recover data from diff rds engine":                                         414,
+	"can not sync record sets in %s":                                                    495,
+	"can not unbind guest from disabled guest":                                          592,
+	"can not update instance_type for public cloud %s":                                  1228,
+	"can't delete instance snapshot with wrong status":                                  963,
+	"can't detach host in status online":                                                1279,
+	"can't find instance snapshot %s":                                                   812,
+	"can't get string field":                                                            124,
+	"can't open file":                                                                   43,
+	"can't parse file":                                                                  44,
+	"can't rebuild root for a guest with instance snapshots":                            213,
+	"can't rescue geust %s with local storage":                                          756,
+	"can't resize disk for guest with instance snapshots":                               211,
+	"can't restore elastic cache in status %s":                                          530,
+	"candidate %s out of range":                                                         1084,
+	"cannot allocate ifname":                                                            793,
+	"cannot alter name of role":                                                         1561,
+	"cannot alter sysadmin user name":                                                   1572,
+	"cannot alter system project name":                                                  1558,
+	"cannot associate eip and instance in different provider":                           697,
+	"cannot associate eip and instance in different region":                             695,
+	"cannot associate eip and instance in different zone":                               696,
+	"cannot associate eip in status %s":                                                 691,
+	"cannot associate eip with same network":                                            574,
+	"cannot associate pending delete server":                                            571,
+	"cannot associate server in status %s":                                              573,
+	"cannot assoicate with eip %s: different cloudprovider":                             845,
+	"cannot assoicate with eip %s: different region":                                    846,
+	"cannot change CPU/Memory spec in status %s":                                        682,
+	"cannot change bandwidth in status %s":                                              586,
+	"cannot change loadbalancer listener listener_port":                                 1436,
+	"cannot change loadbalancer listener listener_type":                                 1435,
+	"cannot change mac when guest is running":                                           667,
+	"cannot change to a different domain from a private cloud account":                  374,
+	"cannot create prepaid server on prepaid resource type":                             825,
+	"cannot delete a recycle host without active instance":                              860,
+	"cannot delete default SQL identity provider":                                       1544,
+	"cannot delete default domain":                                                      1521,
+	"cannot delete enabled idp":                                                         1545,
+	"cannot delete enabled policy":                                                      1553,
+	"cannot delete non-local user":                                                      1574,
+	"cannot delete system policy":                                                       1552,
+	"cannot delete system project":                                                      1554,
+	"cannot delete system role":                                                         1562,
+	"cannot delete system user":                                                         1576,
+	"cannot derive valid ifname hint: %v":                                               1101,
+	"cannot enable auto sync in status %s":                                              361,
+	"cannot fetch network of guestnetwork %d":                                           1070,
+	"cannot find region info":                                                           1052,
+	"cannot join read-only group":                                                       1578,
+	"cannot join user and group in differnt domain":                                     1577,
+	"cannot leave read-only group":                                                      1579,
+	"cannot migrate with cdrom":                                                         759,
+	"cannot recycle in status %s":                                                       856,
+	"cannot remove current user from current project":                                   1515,
+	"cannot run hypervisor %s on specified host with type %s":                           851,
+	"cannot support change azure disk name":                                             248,
+	"cannot support change azure instance name":                                         198,
+	"cannot support more than 1 nic":                                                    191,
+	"cannot uncache non-customized images":                                              1266,
+	"cannot undo a recycle host with pending_deleted guest":                             862,
+	"cannot undo recycle in status %s":                                                  857,
+	"cannot update config when enabled and connected":                                   1537,
+	"cannot update config when not idle":                                                1538,
+	"cannot update in sync status":                                                      1548,
+	"certificate %s is still referred to by %d %s":                                      1034,
+	"channel is empty":                                                                  1631,
+	"charge type %s not supported":                                                      566,
+	"check %s duplication fail %s":                                                      876,
+	"check access_mac duplication fail %s":                                              879,
+	"check account_id duplication error %s":                                             350,
+	"check agent uniqness fail %s":                                                      277,
+	"check disk index uniqueness fail %s":                                               791,
+	"check disk snapshot count fail %s":                                                 1460,
+	"check instance":                                                                    1230,
+	"check isAttach2Disk fail %s":                                                       649,
+	"check mac uniqueness fail %s":                                                      668,
+	"check name duplication error: %s":                                                  120,
+	"check name duplication fail %s":                                                    1689,
+	"check uniqness fail %s":                                                            346,
+	"check uniqueness fail %s":                                                          357,
+	"checkout guestdisk count fail %s":                                                  799,
+	"checkout nic index uniqueness fail %s":                                             794,
+	"checkout server sku name duplicate error: %v":                                      1225,
+	"cidr %s is not in range vpc %s":                                                    1065,
+	"cloud account %s is not available":                                                 465,
+	"cloud provider %s is not available":                                                464,
+	"cloudprovider %s %s %s %s %s not supported CrossCloud vpcpeering":                  1284,
+	"cloudprovider %s %s %s %s %s not supported CrossRegion vpcpeering":                 1285,
+	"cloudprovider %s not available":                                                    438,
+	"cloudprovider %s(%s) is not available":                                             401,
+	"cloudprovider.SetBucketCORS error %s":                                              315,
+	"cloudregion %s not support create %s rds":                                          405,
+	"cloudregion %s not support create rds":                                             404,
+	"cloudregion %s(%s) not support %s scheduler":                                       1337,
+	"cluster wire affiliation does not match network's: %s != %s":                       1055,
+	"cluster zone %s does not match network zone %s ":                                   1054,
+	"comment contains non-printable char: %v":                                           979,
+	"comment too long (%d>=%d)":                                                         978,
+	"condition values limit (5 per rule). %d given.":                                    1047,
+	"conflict database %s for instance %s(%s)":                                          411,
+	"conflict with lbagent %s(%s): %v":                                                  993,
+	"count must > 0":                                                                    771,
+	"cpu_core_count should be range of 1~256":                                           1221,
+	"create instance snapshot failed: %s":                                               767,
+	"dashboard_id is empty":                                                             1643,
+	"data disk not support storage type %s":                                             230,
+	"dbinstance billing type %s not support cancel expire":                              429,
+	"dbinstance billing type is %s":                                                     428,
+	"default domain is protected":                                                       1530,
+	"delete sku %s failed.":                                                             1236,
+	"desire_instance_number should between min_instance_number and max_instance_number": 1152,
+	"detach devices is not string array":                                                662,
+	"disabled user":                                                                     1512,
+	"disk %s has too many snapshot policy attached":                                     1246,
+	"disk %s not attached to server":                                                    748,
+	"disk %s not found":                                                                 798,
+	"disk and snapshotpolicy should have same domain":                                   1382,
+	"disk and snapshotpolicy should have same project":                                  1383,
+	"disk has no valid storage":                                                         455,
+	"disk need at least one of snapshot as backing file":                                1456,
+	"disk size gb must in range 10 ~ 30720 Gb":                                          1388,
+	"disk.GetQuotaKeys fail %s":                                                         456,
+	"dns zone can not cache in status %s":                                               496,
+	"dns zone can not uncache in status %s":                                             499,
+	"domain contains external resources":                                                1528,
+	"domain is disabled":                                                                1549,
+	"domain is enabled":                                                                 1522,
+	"domain is in use by group":                                                         1524,
+	"domain is in use by policy":                                                        1527,
+	"domain is in use by project":                                                       1525,
+	"domain is in use by role":                                                          1526,
+	"domain is in use by user":                                                          1523,
+	"driver %s already exists":                                                          1543,
+	"driver %s not supported":                                                           1542,
+	"duplicate %s %s":                                                                   877,
+	"duplicate access_mac %s":                                                           880,
+	"duplicate instanceType %s":                                                         1234,
+	"duplicate route cidr %s":                                                           73,
+	"duplicate username":                                                                1594,
+	"duplicated dnsrecord with existed dnsrecord can not distinguish by %s policy":      485,
+	"duplicated dnsrecord with existed dnsrecord not support":                           486,
+	"duplicated with CNAME dnsrecord name not support":                                  484,
+	"eip %s has been associated":                                                        844,
+	"eip %s not found":                                                                  693,
+	"eip %s status invalid %s":                                                          843,
+	"eip and server are not in the same region":                                         577,
+	"eip and server are not in the same zone":                                           578,
+	"eip cannot associate in status %s":                                                 568,
+	"eip cannot dissociate in status %s":                                                581,
+	"eip has been associated":                                                           694,
+	"eip has been associated with instance":                                             567,
+	"eip has been binding to another instance":                                          1060,
+	"eip has been binding to dnat rules":                                                1066,
+	"eip has been binding to snat rules":                                                1061,
+	"eip network can only exist in default vpc, got %s(%s)":                             1113,
+	"eip not supported for %s":                                                          842,
+	"eip region is not found???":                                                        576,
+	"eip's manager (%s(%s)) does not match vpc's(%s(%s)) (%s)":                          1389,
+	"elastic cache no related region found":                                             560,
+	"elastic cache sku zone (%s) and subnet zone (%s) mismatch":                         1411,
+	"elasticcache billing type %s not support cancel expire":                            550,
+	"elasticcache billing type is %s":                                                   549,
+	"empty DN":                                                                          1509,
+	"empty auth request":                                                                1587,
+	"empty directory name":                                                              290,
+	"empty external user id":                                                            32,
+	"empty file content":                                                                46,
+	"empty host %s field":                                                               1007,
+	"empty host name":                                                                   999,
+	"empty id":                                                                          1510,
+	"empty idp_id or idp_entity_id":                                                     33,
+	"empty ip list":                                                                     744,
+	"empty keys":                                                                        296,
+	"empty name":                                                                        1511,
+	"empty project_id/tenant_id":                                                        1453,
+	"enabled domain %s cannot be deleted":                                               1547,
+	"encrypt error %s":                                                                  1520,
+	"endpoint is enabled":                                                               1532,
+	"engine version mismatch: instance version %s, sku version %s":                      540,
+	"error getting host of guest %s":                                                    1420,
+	"error loadbalancer of backend group %s":                                            1421,
+	"esxi guest migrate require prefer_host":                                            212,
+	"every scaling policy belong to a scaling group":                                    1169,
+	"exceed address count limit: %v":                                                    1076,
+	"expire time is before current expire at":                                           281,
+	"expired access key":                                                                1590,
+	"expired token":                                                                     1583,
+	"fail to GetNetworks of vpc: %v":                                                    1116,
+	"fail to decode body":                                                               133,
+	"fail to decode policy data":                                                        1551,
+	"fail to decode request body":                                                       1593,
+	"fail to fetch hostwire by mac %s: %s":                                              914,
+	"fail to fetch netif by mac %s: %s":                                                 913,
+	"fail to find storage for disk %s":                                                  457,
+	"fail to generate temp url: %s":                                                     289,
+	"fail to get http response writer from context":                                     98,
+	"fail to get objects: %s":                                                           287,
+	"fail to get provider driver %s":                                                    375,
+	"fail to mkdir: %s":                                                                 295,
+	"fail to parse icon url '%s'":                                                       1215,
+	"failed getting guest %s":                                                           1027,
+	"failed parsing url %q: %v":                                                         1685,
+	"failed to change project":                                                          1,
+	"failed to find %s":                                                                 635,
+	"failed to find %s %s":                                                              1434,
+	"failed to find SecurityGroup %s":                                                   1682,
+	"failed to find cloudregion for zone %s(%s)":                                        1233,
+	"failed to find disk %s":                                                            648,
+	"failed to find guest %s":                                                           1015,
+	"failed to find host %s":                                                            1017,
+	"failed to find host %s to attach storage":                                          958,
+	"failed to find host for storage %s with disk %s":                                   436,
+	"failed to find loadbalancer's %s(%s) region":                                       1334,
+	"failed to find region for loadbalancer %s":                                         1020,
+	"failed to find region for loadbalancer listener %s":                                1049,
+	"failed to find region for loadbalancer listener rule %s":                           1050,
+	"failed to find storage %s to attach host":                                          957,
+	"failed to find storage for disk %s":                                                435,
+	"failed to find subformat vhd for image %s, please append 'vhd' for glance options(target_image_formats)": 195,
+	"failed to found backendgroup for backend %s(%s)":                                                         1031,
+	"failed to found cloudregion %s":                                                                          1309,
+	"failed to found dbinstance %s":                                                                           384,
+	"failed to found dbinstance %s(%s) account %s: %v":                                                        397,
+	"failed to found dbinstance %s(%s) database %s: %v":                                                       387,
+	"failed to found disk %s":                                                                                 1248,
+	"failed to found guest %s":                                                                                703,
+	"failed to found loadbalancer for listener %s(%s)":                                                        1336,
+	"failed to found provider factory error: %v":                                                              355,
+	"failed to found region for dbinstance %s(%s)":                                                            386,
+	"failed to found region for disk's storage %s(%s)":                                                        1249,
+	"failed to found region for loadbalancer backend %s":                                                      1030,
+	"failed to found storage for disk %s(%s)":                                                                 238,
+	"failed to found storagecache %s":                                                                         332,
+	"failed to found system disk error: %v":                                                                   237,
+	"failed to found vpc for network %s(%s)":                                                                  1431,
+	"failed to match any skus for change config":                                                              426,
+	"failed to match any skus in the network %s(%s) zone %s(%s)":                                              1346,
+	"failed to unmarshal input params: %v":                                                                    356,
+	"fetch disk size failed":                                                                                  847,
+	"fetch form data error: %s":                                                                               29,
+	"fetch gpu failed %s":                                                                                     659,
+	"fetch guest %s: %v":                                                                                      1068,
+	"fetch guest nic: %v":                                                                                     1069,
+	"fetch instance snapshot error %s":                                                                        813,
+	"fetch json for request: %v":                                                                              6,
+	"fetch lbagents of other clusters: %v":                                                                    992,
+	"fetchAuthInfo fail: %s":                                                                                  9,
+	"field %s is readonly":                                                                                    1531,
+	"find Wire %s error: %s":                                                                                  908,
+	"find guest %s: %v":                                                                                       1002,
+	"find host %s: %v":                                                                                        1000,
+	"find listener of listener rule %s(%s)":                                                                   976,
+	"fixed eip cannot be associated":                                                                          569,
+	"fixed eip cannot sync status":                                                                            585,
+	"fixed public eip cannot be dissociated":                                                                  582,
+	"forbidden":                                                                                               156,
+	"found %d wires for zone %s and vpc %s":                                                                   1097,
+	"gateway ip must be in the same subnet as start, end ip":                                                  1110,
+	"generate totp qrcode failed":                                                                             14,
+	"get %s service %s url: %v":                                                                               1010,
+	"get acl count fail %s":                                                                                   982,
+	"get admin credential is nil":                                                                             24,
+	"get certificate refcount fail %s":                                                                        1033,
+	"get isDefault fail %s":                                                                                   1021,
+	"get lbcluster refcount fail %v":                                                                          1042,
+	"get password in body":                                                                                    2,
+	"get proxysetting refcount fail %s":                                                                       131,
+	"get refCount fail %s":                                                                                    1023,
+	"get reserved ip error":                                                                                   1096,
+	"get sensitive config requires admin priviliges":                                                          1536,
+	"getDynamicSchedtagCount fail %s":                                                                         1192,
+	"getFreeAddressCount fail %s":                                                                             1082,
+	"getGuestCount fail %s":                                                                                   869,
+	"getReferenceCount fail %s":                                                                               1259,
+	"getSchedPoliciesCount fail %s":                                                                           1194,
+	"global-settings not found":                                                                               1625,
+	"got unknown parent type %q, expect %s":                                                                   1074,
+	"got unknown type %q, expect %s":                                                                          1073,
+	"group %s not found":                                                                                      801,
+	"group and guest should belong to same project":                                                           777,
+	"guest %q not found":                                                                                      432,
+	"guest %s band to up to %d security groups":                                                               627,
+	"guest %s has backup, can't migrate":                                                                      754,
+	"guest %s has isolated device, can't migrate":                                                             755,
+	"guest %s host %s isolated device not enough":                                                             660,
+	"guest %s hypervisor %s can't migrate":                                                                    753,
+	"guest %s not found":                                                                                      1247,
+	"guest %s status %s can't migrate":                                                                        757,
+	"guest %s status %s can't migrate with local storage":                                                     760,
+	"guest %s status %s has isolated device, can't do migrate":                                                758,
+	"guest %s unsupport postpaid expire":                                                                      719,
+	"guest %s(%s) is already in the backendgroup %s(%s)":                                                      1029,
+	"guest %s(%s) vpc %s(%s) not same as loadbalancer vpc %s":                                                 1026,
+	"guest %s(%s) vpc %s(%s) not same as vpc %s(%s)":                                                          1028,
+	"guest and instance group should belong to same project":                                                  594,
+	"guest attach gpu count must > 0":                                                                         658,
+	"guest billing type %s not support cancel expire":                                                         717,
+	"guest billing type is %s":                                                                                718,
+	"guest can't do snapshot in status %s":                                                                    765,
+	"guest doesn't need reconcile backup":                                                                     716,
+	"guest has been converted":                                                                                739,
+	"guest hypervisor %s can't create instance snapshot":                                                      763,
+	"guest on the host are using networks on this wire":                                                       962,
+	"guest status must be ready":                                                                              741,
+	"guest template %s used by scalig group %s":                                                               790,
+	"guest template %s used by service catalog %s":                                                            789,
+	"guests disk %d snapshot full, can't take anymore":                                                        766,
+	"health_check_domain must be in the range of 1 ~ 80":                                                      1329,
+	"host %s can't reserve %d cpu for each isolated device, not enough":                                       952,
+	"host %s can't reserve %dM memory for each isolated device, not enough":                                   953,
+	"host %s can't reserve %dM storage for each isolated device, not enough":                                  954,
+	"host %s has no access ip":                                                                                1419,
+	"host %s is not kvm host":                                                                                 740,
+	"host %s not found":                                                                                       796,
+	"host %s storage %s not found":                                                                            1280,
+	"host has been occupied":                                                                                  245,
+	"host is not a baremetal":                                                                                 775,
+	"host is not a prepaid recycle host":                                                                      859,
+	"host missing %s field":                                                                                   1006,
+	"host not found???":                                                                                       743,
+	"host should be disabled":                                                                                 858,
+	"host status %s and enabled %v, can't do server %s":                                                       596,
+	"host status %s can't exit maintenance":                                                                   942,
+	"host type %s can't do host maintenance":                                                                  943,
+	"host virtual memory not enough":                                                                          619,
+	"host_type must be specified":                                                                             931,
+	"http or https listener only supportd default or normal backendgroup":                                     1328,
+	"huawei %s mode elastic not support create backup":                                                        1414,
+	"iBucket.DeleteCORS error %s":                                                                             316,
+	"iBucket.DeletePolicy error %s":                                                                           323,
+	"iBucket.DeleteWebSiteConf error %s":                                                                      313,
+	"iBucket.GetCORSRules error %s":                                                                           317,
+	"iBucket.GetCdnDomains error %s":                                                                          318,
+	"iBucket.GetIObject error %s":                                                                             328,
+	"iBucket.GetIObjects error %s":                                                                            311,
+	"iBucket.GetPolicy error %s":                                                                              321,
+	"iBucket.GetRefer error %s":                                                                               320,
+	"iBucket.GetWebsiteConf error %s":                                                                         314,
+	"iBucket.SetPolicy error %s":                                                                              322,
+	"iBucket.SetRefer error %s":                                                                               319,
+	"iBucket.SetWebsite error %s":                                                                             312,
+	"identity provider with projects":                                                                         1546,
+	"illegal region %s, please contact admin":                                                                 26,
+	"image %s do not belong to guest image %s":                                                                848,
+	"image %s not found":                                                                                      929,
+	"image size exceeds root disk size":                                                                       637,
+	"inconsistent account_id, previous '%s' and now '%s'":                                                     359,
+	"inconsistent domain for project and roles":                                                               1567,
+	"inconsistent export keys and texts":                                                                      62,
+	"input condition is empty":                                                                                1674,
+	"input data contains invalid cloudregion id":                                                              1218,
+	"input data not key value dict":                                                                           704,
+	"input key too long > %d":                                                                                 153,
+	"input not json dict":                                                                                     1662,
+	"input parameter error":                                                                                   16,
+	"input value too long > %d":                                                                               154,
+	"instance is already associated with eip":                                                                 572,
+	"instance specs list query error":                                                                         1227,
+	"instance_type_category shoud be one of %s":                                                               1223,
+	"internal error: unexpected backend type %s":                                                              1318,
+	"internal server error":                                                                                   51,
+	"internal server error %s":                                                                                1598,
+	"intranet loadbalancer not support bandwidth charge type":                                                 1311,
+	"invalid %s,required int":                                                                                 1338,
+	"invalid CannedAction %s ":                                                                                64,
+	"invalid Effect %s ":                                                                                      65,
+	"invalid access key id":                                                                                   1589,
+	"invalid addr %s":                                                                                         977,
+	"invalid address: %s":                                                                                     399,
+	"invalid aggregate_strategy: %s":                                                                          853,
+	"invalid any_mac address":                                                                                 864,
+	"invalid auth methods":                                                                                    1585,
+	"invalid billing_cycle %s":                                                                                532,
+	"invalid bucket name %s: %s":                                                                              284,
+	"invalid bucket name(%s): %s":                                                                             285,
+	"invalid category %s for policy definition %s(%s)":                                                        839,
+	"invalid cert pubkey algorithm: %s, want %s":                                                              179,
+	"invalid character %s for account name":                                                                   1359,
+	"invalid characters %s":                                                                                   1688,
+	"invalid cidr %s":                                                                                         1144,
+	"invalid cidr range %s":                                                                                   1439,
+	"invalid cidr range %s, mask length should less than or equal to 24":                                      1366,
+	"invalid cidr_block %s":                                                                                   1295,
+	"invalid cloud account info error: %s":                                                                    349,
+	"invalid condition":                                                                                       524,
+	"invalid conditions format,required json":                                                                 1045,
+	"invalid conditions fromat,required json array":                                                           1046,
+	"invalid content_length %s":                                                                               55,
+	"invalid credential":                                                                                      5,
+	"invalid domain":                                                                                          1599,
+	"invalid domain %s for CNAME record":                                                                      72,
+	"invalid domain %s for MX record":                                                                         69,
+	"invalid domain name %s":                                                                                  490,
+	"invalid duration %s":                                                                                     402,
+	"invalid duration %s: %s":                                                                                 282,
+	"invalid end ip: %s %s":                                                                                   1106,
+	"invalid external_access_mode %q, want %s":                                                                1287,
+	"invalid fernet token":                                                                                    1584,
+	"invalid form":                                                                                            34,
+	"invalid format":                                                                                          163,
+	"invalid guest %s":                                                                                        1316,
+	"invalid image size":                                                                                      37,
+	"invalid input %s":                                                                                        354,
+	"invalid input format":                                                                                    165,
+	"invalid internal ip address: %s":                                                                         1059,
+	"invalid ip address: %s":                                                                                  1209,
+	"invalid ipaddr %s":                                                                                       909,
+	"invalid ipv4 %s ":                                                                                        66,
+	"invalid ipv4 %s for A record":                                                                            70,
+	"invalid ipv6 %s for AAAA record":                                                                         71,
+	"invalid joint resources %s":                                                                              94,
+	"invalid key %s: %s":                                                                                      291,
+	"invalid loadbalancer backend port '%d'":                                                                  1163,
+	"invalid loadbalancer backend weight '%d'":                                                                1164,
+	"invalid loadbalancer_spec %s":                                                                            1374,
+	"invalid local certificate, certificate is empty.":                                                        1036,
+	"invalid local certificate, private key is empty.":                                                        1035,
+	"invalid macAddr %s":                                                                                      878,
+	"invalid multipart form":                                                                                  54,
+	"invalid object key: %s":                                                                                  298,
+	"invalid parameter backendgroup %s":                                                                       1373,
+	"invalid parameter format. json dict required":                                                            547,
+	"invalid parameter loadbalancer_spec %s":                                                                  1372,
+	"invalid parameters for policy definition %s":                                                             833,
+	"invalid passcode":                                                                                        13,
+	"invalid passcode: %v":                                                                                    21,
+	"invalid password: %s":                                                                                    1573,
+	"invalid policy definition %s(%s) condition %s":                                                           836,
+	"invalid project":                                                                                         1597,
+	"invalid proxy setting %s":                                                                                340,
+	"invalid public error: %v":                                                                                973,
+	"invalid public_ip_charge_type %s":                                                                        841,
+	"invalid record name %s":                                                                                  483,
+	"invalid request":                                                                                         31,
+	"invalid resources format":                                                                                1613,
+	"invalid scope %s":                                                                                        143,
+	"invalid share_mode %s":                                                                                   67,
+	"invalid status %s":                                                                                       1140,
+	"invalid strategy %s":                                                                                     1180,
+	"invalid template":                                                                                        1540,
+	"invalid token":                                                                                           1601,
+	"invalid token %s":                                                                                        1602,
+	"invalid ttl: %d":                                                                                         522,
+	"invalid ttl: %s":                                                                                         521,
+	"invalid url: %v":                                                                                         1627,
+	"invalid user":                                                                                            1596,
+	"invalid vrrp advert_int %d: want [1,255]":                                                                988,
+	"invalid vrrp authentication pass size: %d, want [1,8]":                                                   985,
+	"invalid vrrp interface %q":                                                                               984,
+	"invalid vrrp priority %d: want [1,255]":                                                                  986,
+	"invalid vrrp virtual_router_id %d: want [1,255]":                                                         987,
+	"invlid image":                                                                                            636,
+	"iops must > 0":                                                                                           752,
+	"ip":                                                                                                      1135,
+	"ip %s not found":                                                                                         663,
+	"ip %s or mac %s has been registered":                                                                     725,
+	"ip_prefix error: %s":                                                                                     1102,
+	"ipv4 range overlap":                                                                                      1283,
+	"isAddressUsed fail %s":                                                                                   1080,
+	"isAlterNameUnique fail %s":                                                                               937,
+	"isAttached check failed %s":                                                                              611,
+	"join group into project of default domain or identical domain":                                           1516,
+	"join user into project of default domain or identical domain":                                            1513,
+	"keypair %s not found":                                                                                    643,
+	"lbagent cannot be deployed on managed host":                                                              1001,
+	"lbagent cannot be deployed on public guests":                                                             1003,
+	"lbcluster %s(%s) already has virtual_router_id %d":                                                       994,
+	"lbcluster %s(%s) is still referred to by %d %s":                                                          1043,
+	"lbclusters %s(%s) and %s(%s) has conflict virtual_router_id: %d ":                                        1044,
+	"listener type must be http/https, got %s":                                                                1324,
+	"loadbalancer aready associated with fourth layer listener %s":                                            1442,
+	"loadbalancer backendgroup aready associate with other %s listener":                                       1441,
+	"loadbalancer is locked, cannot delete":                                                                   1056,
+	"loadbalancer is using by %d backendgroup.":                                                               1391,
+	"loadbalancer is using by %d listener.":                                                                   1390,
+	"loadbalancer listener %s is already updating":                                                            1440,
+	"loadbalancer listener %s related loadbalancer %s not found":                                              1377,
+	"loadbalancerlistenerrule %s(%s): fetching listener %s failed":                                            1327,
+	"login_account is longer than 32 chars":                                                                   816,
+	"mac %s not found":                                                                                        664,
+	"mac addr %s has been occupied":                                                                           669,
+	"maintain time has no change":                                                                             544,
+	"managed network cannot change status":                                                                    1139,
+	"mapped ip exhausted":                                                                                     1300,
+	"master slave backendgorup must contain two backend":                                                      1314,
+	"memory_size_mb, shoud be range of 512~%d":                                                                1222,
+	"metdata must less then 20":                                                                               815,
+	"metric %s is invalid format, usage <measurement>.<field>":                                                1635,
+	"min_instance_number should not be bigger than max_instance_number":                                       1151,
+	"min_instance_number should not be smaller than 0":                                                        1150,
+	"mismatched alarm id":                                                                                     1175,
+	"miss some subimage of guest image":                                                                       849,
+	"missing Content-Length":                                                                                  299,
+	"missing access_mac and uuid in no_probe mode":                                                            887,
+	"missing credential":                                                                                      4,
+	"missing driver":                                                                                          1541,
+	"missing duration/expire_time":                                                                            280,
+	"missing export keys":                                                                                     61,
+	"missing guest id":                                                                                        761,
+	"missing id":                                                                                              8,
+	"missing image id or name":                                                                                1269,
+	"missing image name":                                                                                      35,
+	"missing image size":                                                                                      36,
+	"missing input field blob":                                                                                1519,
+	"missing input field id":                                                                                  1560,
+	"missing input field interface":                                                                           1533,
+	"missing input field service/service_id":                                                                  1534,
+	"missing input field type":                                                                                1518,
+	"missing key":                                                                                             288,
+	"missing manager?":                                                                                        327,
+	"missing name":                                                                                            283,
+	"missing new domain":                                                                                      119,
+	"missing new project/tenant":                                                                              161,
+	"missing pid in pids":                                                                                     1617,
+	"missing pids":                                                                                            1616,
+	"missing rid":                                                                                             1619,
+	"missing rid in pids":                                                                                     1618,
+	"missing uid":                                                                                             1615,
+	"missong duration":                                                                                        418,
+	"model has no field %s":                                                                                   125,
+	"mtu must be range of 0~1000000":                                                                          1302,
+	"mx_priority range limited to [1,50]":                                                                     68,
+	"name is too short":                                                                                       811,
+	"name longer than %d":                                                                                     151,
+	"name starts with letter, and contains letter, number and - only":                                         127,
+	"name starts with letter, and contains letter, number and ._@- only":                                      150,
+	"need scheduled task":                                                                                     1203,
+	"need valid access_mac and uuid to do prepare":                                                            900,
+	"network %s associated route table has no internet gateway attached.":                                     194,
+	"network %s related vpc not found":                                                                        1364,
+	"network %s(%s) does not belong to %s":                                                                    1432,
+	"network %s(%s) has no free addresses":                                                                    1083,
+	"network '%s' not in vpc '%s'":                                                                            1156,
+	"network server_type %s not support auto alloc":                                                           1122,
+	"new password mismatch":                                                                                   10,
+	"no admin account found for elastic cache %s":                                                             543,
+	"no allow to access network %s":                                                                           1086,
+	"no available eip network":                                                                                1429,
+	"no cloudregion found to sync skus":                                                                       1219,
+	"no either ip_addr or mac specified":                                                                      665,
+	"no external bucket":                                                                                      286,
+	"no networks on wire %s":                                                                                  910,
+	"no recovery secrets for %s":                                                                              1609,
+	"no revocery questions.":                                                                                  22,
+	"no such ScalingGroup '%s'":                                                                               1167,
+	"no such cloud region %s":                                                                                 1153,
+	"no such disk %s":                                                                                         1244,
+	"no such driver":                                                                                          1508,
+	"no such group %s":                                                                                        776,
+	"no such guest template":                                                                                  1214,
+	"no such guest template %s":                                                                               1157,
+	"no such guest_template %s":                                                                               1216,
+	"no such loadbalancer backend group '%s'":                                                                 1162,
+	"no such model %s":                                                                                        593,
+	"no such network":                                                                                         1067,
+	"no such provider":                                                                                        180,
+	"no such provider %s":                                                                                     348,
+	"no such scaling group %s":                                                                                1170,
+	"no such snapshotpolicy %s":                                                                               479,
+	"no support for instance snapshot in guest template for now":                                              783,
+	"no totp for %s":                                                                                          1608,
+	"no usable regions, please contact admin":                                                                 25,
+	"no valid endpoint":                                                                                       1683,
+	"no valid host":                                                                                           774,
+	"no valid storage on host":                                                                                852,
+	"no viable lbcluster":                                                                                     1418,
+	"non http listener must have backend group set":                                                           1427,
+	"non redirect lblistener rule must have backend_group set":                                                1425,
+	"non-admin user not allowed to create system object":                                                      157,
+	"not a baremetal":                                                                                         899,
+	"not a baremetal server":                                                                                  773,
+	"not a valid ip address %s: %s":                                                                           1094,
+	"not allow create %s in scope %s":                                                                         144,
+	"not allow to auth":                                                                                       1600,
+	"not allow to change project across domain":                                                               373,
+	"not allow to create":                                                                                     365,
+	"not allow to delete %s disk with snapshots":                                                              478,
+	"not allow to delete default cloud region":                                                                380,
+	"not allow to delete default security group":                                                              1213,
+	"not allow to delete default vpc":                                                                         1288,
+	"not allow to delete log":                                                                                 128,
+	"not allow to delete prepaid disk in valid status":                                                        469,
+	"not allow to delete prepaid server in valid status":                                                      803,
+	"not allow to delete public cloud instance_type: %s":                                                      1232,
+	"not allow to delete. Virtual disk must not have snapshots":                                               477,
+	"not allow to get usage":                                                                                  1603,
+	"not allow to list domain quotas":                                                                         137,
+	"not allow to list project quotas":                                                                        139,
+	"not allow to perform %s":                                                                                 110,
+	"not allow to purge. Virtual disk must not have snapshots":                                                476,
+	"not allow to query system capability":                                                                    333,
+	"not allow to set system key, please remove the underscore at the beginning": 152,
+	"not allow update rds account name":                                          383,
+	"not allow update rds database name":                                         396,
+	"not allowed update content of certificate":                                  1038,
+	"not an empty bucket":                                                        309,
+	"not an empty network %s":                                                    1078,
+	"not empty cloud region":                                                     379,
+	"not empty zone":                                                             1308,
+	"not enough privilege":                                                       1145,
+	"not enough privilege (require:%s,allow:%s)":                                 142,
+	"not enough privilege (require:%s,allow:%s,query:%s)":                        121,
+	"not enough privilege (require:%s,allow:%s:resource:%s)":                     141,
+	"not enough privilleges":                                                     136,
+	"not find alert %s":                                                          1641,
+	"not find notification %s":                                                   1642,
+	"not found alert notification used by %s":                                    1659,
+	"not found cert %s":                                                          1535,
+	"not found signature":                                                        1663,
+	"not found tenantId in body":                                                 0,
+	"not implement":                                                              250,
+	"not match any dbinstance sku":                                               406,
+	"not support %s":                                                             738,
+	"not support create":                                                         1142,
+	"not support create %s zone":                                                 1310,
+	"not support create definition":                                              1143,
+	"not support database":                                                       1656,
+	"not support for cloudaccount with provider '%s'":                            342,
+	"not support hypervisor %s":                                                  737,
+	"not support reset user password":                                            11,
+	"not support type %q":                                                        1657,
+	"not support update disk_type %s":                                            434,
+	"not supported bind security group":                                          554,
+	"not supported hypervisor %s":                                                866,
+	"not supported next hop type":                                                1146,
+	"not supported secondary update context %s":                                  1568,
+	"not supported update context":                                               1565,
+	"not supported update context %s":                                            1566,
+	"now allow to delete inuse instance_type.please remove related servers first: %s": 1231,
+	"object %s not found":                        310,
+	"object count limit exceeds":                 293,
+	"object key should not ends with /":          297,
+	"object size limit exceeds":                  303,
+	"on-premise network cannot sync status":      1138,
+	"on-premise vpc cannot sync status":          1297,
+	"only on premise support this operation":     1128,
+	"only sysadmin can specify host as backend":  1016,
+	"operation not allowed":                      164,
+	"out of privileges":                          138,
+	"parameter %s is empty":                      1632,
+	"parse cdrom device info error %s":           820,
+	"parse disk description error %s":            823,
+	"parse form data error: %s":                  30,
+	"parse isolated device description error %s": 828,
+	"parse network description error %s":         826,
+	"parse query string error: %s":               28,
+	"passcode is a 6-digits string":              20,
+	"password must be 12 chars of at least one digit, letter, uppercase letter and punctuate": 1505,
+	"path can not be emtpy":                                         1443,
+	"peer lbagent %s(%s) already has vrrp priority %d":              997,
+	"please retry after unbind all guests in group":                 590,
+	"policy definition %s require cloudregion in %s":                834,
+	"policy definition %s require cloudregion not in %s":            835,
+	"policy definition %s require except tag %s":                    838,
+	"policy definition %s require must contains tag %s":             837,
+	"policy is referenced":                                          1690,
+	"port %d not support, only support range 1 ~ 65535":             1014,
+	"project %s not found":                                          360,
+	"project contains external resources":                           1555,
+	"project contains group":                                        1557,
+	"project contains user":                                         1556,
+	"project disabled":                                              1581,
+	"project in non-default domain is prohibited":                   118,
+	"project is not found":                                          1620,
+	"provider %s: %v":                                               337,
+	"provider is enabled":                                           366,
+	"provider is not idle":                                          367,
+	"provider is shared outside of domain":                          362,
+	"provider mismatch: %s instance can't use %s sku":               537,
+	"proxysetting %s is still referred to by %d %s":                 132,
+	"public connection aready allocated":                            545,
+	"public ip not supported for %s":                                840,
+	"put object error %s":                                           305,
+	"query all networks fail":                                       1118,
+	"query backend group releated resource failed.":                 1012,
+	"query duration `to` err: %s":                                   1678,
+	"query duration err: from: %s, to:%s":                           1677,
+	"query error %s":                                                1517,
+	"query quotas %s":                                               140,
+	"query sku list failed.":                                        1235,
+	"questions not found":                                           18,
+	"readonly":                                                      1529,
+	"recv invalid data":                                             63,
+	"redirect can only be enabled for http/https listener":          1426,
+	"redirect must have at least one of scheme, host, path changed": 1423,
+	"redis version 2.8 not support create account":                  1448,
+	"referered by storages":                                         1265,
+	"reflect call %s fail %s":                                       100,
+	"region":                                                        552,
+	"region contains endpoints":                                     1559,
+	"region mismatch: instance region %s, sku region %s":            538,
+	"region of backend %d does not match that of lb's":              1019,
+	"region of host %q (%s) != region of loadbalancer %q (%s)":      1422,
+	"region of host %q (%s) != region of loadbalancer %q (%s))":     1320,
+	"regiondriver":                                                  553,
+	"release public connection aready released":                     546,
+	"repeat_weekdays only contains %d days at most":                 1238,
+	"request body is empty":                                         7,
+	"request body is too large.":                                    53,
+	"request process timeout":                                       80,
+	"require system previleges to convert host in other domain":     935,
+	"require validated qcloud cross region vpcPeering bandwidth values:[10, 20, 50, 100, 200, 500, 1000],unit Mbps": 1684,
+	"required at least %d subnet with at least 8 free ip.":                                                          1368,
+	"required at least %d subnet.": 1367,
+	"reserved cpu must >= 0":       949,
+	"reserved memory must >= 0":    950,
+	"reserved storage must >= 0":   951,
+	"resource %s in vpc %s external access mode %s is not support accociate eip": 563,
+	"resource %s is not support sync skus":                                       1217,
+	"resource %s module not exists":                                              59,
+	"resource is enabled":                                                        1550,
+	"role is being assigned to group":                                            1564,
+	"role is being assigned to user":                                             1563,
+	"root disk image(%s) and sku(%s) architecture mismatch":                      822,
+	"row %d domain is empty":                                                     48,
+	"row %d duplicate name %s":                                                   49,
+	"row %d name is empty":                                                       47,
+	"rule %d is invalid: %s":                                                     1206,
+	"rule %s/%s already occupied by rule %s(%s)":                                 1048,
+	"saveConfigs fail %s":                                                        1539,
+	"schedtag %s not found":                                                      525,
+	"schedtag_id not provide":                                                    1182,
+	"secgroup %s not found":                                                      797,
+	"secgroup %s rules not equals %s rules":                                      1210,
+	"secgroups will be empty after update.":                                      557,
+	"security group %s has already been assigned to guest %s":                    628,
+	"security group %s not assigned to guest %s":                                 630,
+	"security group id should not be empty":                                      1681,
+	"select for nothing in query":                                                1676,
+	"server %s not found":                                                        564,
+	"server %s with port %d already in used":                                     1444,
+	"server %s with port %d aready used by other %s listener":                    1445,
+	"server and eip are not managed by the same provider":                        580,
+	"server host is not found???":                                                579,
+	"server is in %q state, want %q":                                             1004,
+	"server region is not found???":                                              575,
+	"service %s not found error: %v":                                             1614,
+	"service contains endpoints":                                                 1569,
+	"service is enabled":                                                         1570,
+	"session expires, missing %s":                                                27,
+	"setAcl error %s":                                                            306,
+	"sharing is limited to domains %s":                                           148,
+	"signature error":                                                            1664,
+	"sku %s is soldout":                                                          1412,
+	"slave dbinstance not support prepaid billing type":                          1345,
+	"snapshot referenced by instance snapshot":                                   1252,
+	"snapshotpolicy %s not found: %s":                                            433,
+	"snapshotpolicy disk has been exist":                                         1245,
+	"some disk missing!!!":                                                       747,
+	"some networks not exist":                                                    1155,
+	"start and end ip not in the same subnet":                                    1107,
+	"start and end ip when masked are not in the same cidr subnet":               1114,
+	"start create snapshot task failed: %s":                                      768,
+	"start snapshot reset failed %s":                                             770,
+	"start, end ip must be in the same subnet":                                   1121,
+	"sticky_session_cookie can only contain letters, Numbers, '_' and '-'":       1332,
+	"sticky_session_cookie length must within 1~200":                             1331,
+	"storage %s can not be data disk":                                            235,
+	"storage %s(%s) need online and attach host for create disk":                 439,
+	"storage cache is missing":                                                   1277,
+	"storage cache not empty":                                                    1264,
+	"storage classes not supported":                                              376,
+	"storage has associate hosts":                                                1274,
+	"storage has disks":                                                          1275,
+	"storage has snapshots":                                                      1276,
+	"storage is enabled":                                                         1278,
+	"storage not cache image":                                                    1267,
+	"storage of disk %s no valid host":                                           466,
+	"subnet masklen should be smaller than 30":                                   1103,
+	"syncWithCloudBucket error %s":                                               307,
+	"sysadmin is protected":                                                      1514,
+	"tag has dynamic rules":                                                      1193,
+	"tag is associate with sched policies":                                       1195,
+	"telegraf params: invalid influxdb url: %s":                                  989,
+	"template file is invalid. please check.":                                    45,
+	"template not found %s":                                                      52,
+	"template_id":                                                                50,
+	"tenant/project %s not found":                                                1454,
+	"the %s %q in guest template is not a public resource":                       786,
+	"the %s %q in guest template is not a public resource in %s scope":           788,
+	"the %s in guest template is not a public resource":                          785,
+	"the %s in guest template is not a public resource in %s scope":              787,
+	"the AlertType is illegal:%s":                                                1652,
+	"the Comparator is illegal: %s":                                              1645,
+	"the account has been registerd %s":                                          351,
+	"the acl cache in region %s aready exists.":                                  1032,
+	"the associated natgateway has corresponding dnat rules with eip %s, please delete them firstly": 584,
+	"the associated natgateway has corresponding snat rules with eip %s, please delete them firstly": 583,
+	"the certificate cache in region %s aready exists.":                                              1037,
+	"the guest template %s is not valid in cloudregion %s, reason: %s":                               1158,
+	"the image reference session has not been expired!":                                              331,
+	"the min value of cycle in alarm is 300":                                                         1179,
+	"the reduce is illegal %s":                                                                       1646,
+	"the reduce is illegal: %s":                                                                      1647,
+	"the security group is in use":                                                                   1212,
+	"there is no such secgroup %s descripted by guest template":                                      784,
+	"this operation requires rds state to be %s":                                                     430,
+	"threshold:%s should be number type":                                                             1654,
+	"time_points only contains %d points at most":                                                    1239,
+	"top level public domain name %s not support":                                                    493,
+	"totp secret exists":                                                                             1610,
+	"uid is empty":                                                                                   15,
+	"unauthorized %s":                                                                                1592,
+	"unexpected backend type %s":                                                                     1018,
+	"unknown parent object id spec":                                                                  1072,
+	"unknown server type %s":                                                                         800,
+	"unknown zone type %s":                                                                           494,
+	"unkown expansion principle %s":                                                                  1159,
+	"unkown health check mode %s":                                                                    1161,
+	"unkown indicator in alarm %s":                                                                   1177,
+	"unkown label type '%s'":                                                                         1201,
+	"unkown operator in alarm %s":                                                                    1176,
+	"unkown resource operation '%s'":                                                                 1200,
+	"unkown resource type '%s'":                                                                      1199,
+	"unkown scaling policy action %s":                                                                1172,
+	"unkown scaling policy unit %s":                                                                  1173,
+	"unkown scheduled type '%s'":                                                                     1198,
+	"unkown shrink principle %s":                                                                     1160,
+	"unkown trigger type %s":                                                                         1171,
+	"unkown wrapper in alarm %s":                                                                     1178,
+	"unmarshal JoinResourceBaseCreateInput fail %s":                                                  959,
+	"unmarshal JointResourceCreateInput fail %s":                                                     1186,
+	"unmarshal SharableVirtualResourceCreateInput fail %s":                                           981,
+	"unmarshal StandaloneResourceCreateInput fail %s":                                                526,
+	"unmarshal VirtualResourceCreateInput fail %s":                                                   533,
+	"unmarshal input fail %s":                                                                        1687,
+	"unmarshal input: %v":                                                                            1005,
+	"unmarshal limit error %s":                                                                       324,
+	"unmarshal questions: %v":                                                                        23,
+	"unmarshaling cidrs failed: %s":                                                                  1149,
+	"unrecognized input %s":                                                                          1591,
+	"unsupport delete %s backups":                                                                    531,
+	"unsupport on host status %s":                                                                    944,
+	"unsupport type: %s":                                                                             1628,
+	"unsupported action %s":                                                                          1624,
+	"unsupported duration %s":                                                                        403,
+	"unsupported execution_error_state %s":                                                           1634,
+	"unsupported no_data_state %s":                                                                   1633,
+	"unsupported notification type %s":                                                               1660,
+	"unsupported resource type %s":                                                                   1658,
+	"update config version fail %s":                                                                  1571,
+	"url is empty":                                                                                   1626,
+	"use yum requires valid repo_base_url":                                                           998,
+	"user %s not found":                                                                              155,
+	"user contains external resources":                                                               1575,
+	"user disabled":                                                                                  1582,
+	"user must have system admin privileges":                                                         1009,
+	"user not found":                                                                                 1586,
+	"user not found or not enabled":                                                                  1595,
+	"user not in project":                                                                            1588,
+	"username or password is empty":                                                                  3,
+	"valid vlan id":                                                                                  1100,
+	"valid wire_level_for_vmware, accept vcenter, datacenter, cluster":                               341,
+	"version mismatch":                                                                               1580,
+	"virtual resource already freezed":                                                               159,
+	"virtual resource not freezed":                                                                   160,
+	"vpc %s already connected to a interVpcNetwork":                                                  966,
+	"vpc %s and vpc %s have already connected":                                                       1286,
+	"vpc %s has already in this dns zone":                                                            500,
+	"vpc %s is not connected to this interVpcNetwork":                                                967,
+	"vpc %s not in dns zone":                                                                         501,
+	"vpc %s(%s) is not a managed resouce":                                                            1207,
+	"vpc joint interVpcNetwork on different cloudEnv is not supported":                               965,
+	"vpc joint interVpcNetwork on different cloudprovider is not supported":                          964,
+	"vpc lb is not allowed for now":                                                                  1416,
+	"vpc on different cloudprovider peering is not supported":                                        1282,
+	"vpc_id": 1281,
+	"weight %d not support, only support range 0 ~ 256":        1013,
+	"wire contains hosts":                                      1305,
+	"wire contains networks":                                   1307,
+	"wire not found for zone %s and vpc %s":                    1098,
+	"wire zone must match zone parameter, got %s, want %s(%s)": 1040,
+	"wrong password":                                           12,
+	"zone %s not in cloudregion %s":                            1220,
+	"zone %s(%s) has no lbcluster":                             1417,
+	"zone and vpc info required when wire is absent":           1111,
+	"zone info missing":                                        1415,
+	"zone mismatch, elastic cache sku zone %s != %s":           1410,
+	"zone mismatch: instance zone %s, sku zone %s":             539,
+	"zone of wire must be %s, got %s":                          1041,
 }
 
-var en_USIndex = []uint32{ // 1620 elements
+var en_USIndex = []uint32{ // 1692 elements
 	// Entry 0 - 1F
-	0x00000000, 0x0000001e, 0x00000036, 0x0000004c,
-	0x00000062, 0x00000086, 0x000000a6, 0x000000c3,
-	0x000000e3, 0x00000106, 0x0000011e, 0x00000138,
-	0x0000014e, 0x00000161, 0x00000173, 0x00000186,
-	0x000001a1, 0x000001b9, 0x000001d1, 0x000001e9,
-	0x000001fd, 0x00000236, 0x0000025d, 0x00000289,
-	0x000002b9, 0x000002e7, 0x0000031b, 0x00000359,
-	0x000003b3, 0x000003da, 0x000003fe, 0x00000419,
+	0x00000000, 0x0000001b, 0x00000034, 0x00000049,
+	0x00000067, 0x0000007a, 0x0000008d, 0x000000a8,
+	0x000000be, 0x000000c9, 0x000000e0, 0x000000f6,
+	0x00000116, 0x00000125, 0x00000136, 0x00000152,
+	0x0000015f, 0x00000175, 0x0000019a, 0x000001ae,
+	0x000001c5, 0x000001e3, 0x000001f8, 0x0000020f,
+	0x00000227, 0x00000243, 0x0000026b, 0x00000293,
+	0x000002af, 0x000002cc, 0x000002e6, 0x00000300,
 	// Entry 20 - 3F
-	0x00000452, 0x00000465, 0x0000047c, 0x000004aa,
-	0x000004da, 0x000004f2, 0x00000509, 0x00000529,
-	0x00000548, 0x00000561, 0x00000574, 0x00000590,
-	0x000005a9, 0x000005bd, 0x000005db, 0x000005f3,
-	0x0000060c, 0x00000622, 0x0000063a, 0x00000653,
-	0x0000066e, 0x00000682, 0x000006a2, 0x000006ce,
-	0x000006e1, 0x00000702, 0x00000736, 0x00000759,
-	0x0000076d, 0x00000784, 0x0000079a, 0x000007b2,
+	0x00000310, 0x00000327, 0x00000345, 0x00000352,
+	0x00000365, 0x00000378, 0x0000038b, 0x0000039b,
+	0x000003b2, 0x000003c7, 0x000003dd, 0x000003fc,
+	0x0000040c, 0x0000041d, 0x00000445, 0x00000458,
+	0x0000046d, 0x00000484, 0x0000049d, 0x000004a9,
+	0x000004bf, 0x000004d5, 0x000004f0, 0x00000507,
+	0x00000521, 0x00000534, 0x0000054c, 0x0000055a,
+	0x00000578, 0x00000589, 0x0000059d, 0x000005c0,
 	// Entry 40 - 5F
-	0x000007f2, 0x0000080a, 0x0000082b, 0x0000084c,
-	0x0000086e, 0x0000089c, 0x000008b0, 0x000008c3,
-	0x000008e8, 0x000008ff, 0x0000091f, 0x00000931,
-	0x00000952, 0x00000962, 0x00000999, 0x000009c4,
-	0x000009d5, 0x000009f5, 0x00000a13, 0x00000a34,
-	0x00000a56, 0x00000a77, 0x00000a98, 0x00000adb,
-	0x00000aef, 0x00000b3a, 0x00000b52, 0x00000b6c,
-	0x00000b7e, 0x00000b88, 0x00000bbb, 0x00000be1,
+	0x000005d2, 0x000005f0, 0x00000608, 0x0000061e,
+	0x00000634, 0x00000658, 0x00000678, 0x00000695,
+	0x000006b5, 0x000006d8, 0x000006f0, 0x0000070a,
+	0x00000720, 0x00000733, 0x00000745, 0x00000758,
+	0x00000773, 0x0000078b, 0x000007a3, 0x000007bb,
+	0x000007cf, 0x00000808, 0x0000082f, 0x0000085b,
+	0x0000088b, 0x000008b9, 0x000008ed, 0x0000092b,
+	0x00000985, 0x000009ac, 0x000009d0, 0x000009eb,
 	// Entry 60 - 7F
-	0x00000c02, 0x00000c1f, 0x00000c3a, 0x00000c53,
-	0x00000c62, 0x00000c78, 0x00000c8d, 0x00000cab,
-	0x00000cd3, 0x00000d04, 0x00000d36, 0x00000d69,
-	0x00000d9b, 0x00000dcc, 0x00000df0, 0x00000e14,
-	0x00000e3b, 0x00000e74, 0x00000eaa, 0x00000ee4,
-	0x00000f0f, 0x00000f20, 0x00000f3c, 0x00000f4a,
-	0x00000f5b, 0x00000f6e, 0x00000f7b, 0x00000f8f,
-	0x00000fa1, 0x00000fb1, 0x00000fc5, 0x00000fdb,
+	0x00000a24, 0x00000a37, 0x00000a4e, 0x00000a7c,
+	0x00000aac, 0x00000ac4, 0x00000adb, 0x00000afb,
+	0x00000b1a, 0x00000b33, 0x00000b46, 0x00000b62,
+	0x00000b7b, 0x00000b8f, 0x00000bad, 0x00000bc5,
+	0x00000bde, 0x00000bf4, 0x00000c0c, 0x00000c25,
+	0x00000c40, 0x00000c54, 0x00000c74, 0x00000ca0,
+	0x00000cb3, 0x00000cd4, 0x00000d08, 0x00000d2b,
+	0x00000d3f, 0x00000d56, 0x00000d6c, 0x00000d84,
 	// Entry 80 - 9F
-	0x00000ffa, 0x0000102f, 0x0000106c, 0x000010b0,
-	0x00001118, 0x0000114e, 0x00001180, 0x000011aa,
-	0x000011cc, 0x000011ec, 0x00001204, 0x0000121f,
-	0x00001239, 0x00001252, 0x00001271, 0x00001291,
-	0x000012ad, 0x000012cf, 0x000012e8, 0x00001302,
-	0x00001336, 0x0000135d, 0x00001394, 0x000013b3,
-	0x000013d8, 0x000013f0, 0x0000142c, 0x0000143e,
-	0x0000145f, 0x000014b1, 0x000014e8, 0x0000150d,
+	0x00000dc4, 0x00000ddc, 0x00000dfd, 0x00000e1e,
+	0x00000e40, 0x00000e6e, 0x00000e82, 0x00000e95,
+	0x00000eba, 0x00000ed1, 0x00000ef1, 0x00000f03,
+	0x00000f24, 0x00000f34, 0x00000f6b, 0x00000f96,
+	0x00000fa7, 0x00000fc7, 0x00000fe5, 0x00001006,
+	0x00001028, 0x00001049, 0x0000106a, 0x000010ad,
+	0x000010c1, 0x0000110c, 0x00001124, 0x0000113e,
+	0x00001150, 0x0000115a, 0x0000118d, 0x000011b3,
 	// Entry A0 - BF
-	0x0000152c, 0x00001556, 0x00001583, 0x0000159f,
-	0x000015d3, 0x00001602, 0x00001628, 0x00001660,
-	0x00001698, 0x000016d1, 0x00001709, 0x00001729,
-	0x0000175b, 0x00001781, 0x000017a9, 0x000017f7,
-	0x0000181e, 0x00001841, 0x00001878, 0x0000188e,
-	0x000018a4, 0x000018bb, 0x000018f7, 0x00001939,
-	0x0000195f, 0x000019a3, 0x000019b1, 0x000019d1,
-	0x000019f5, 0x00001a18, 0x00001a3b, 0x00001a52,
+	0x000011d4, 0x000011f1, 0x0000120c, 0x00001225,
+	0x00001234, 0x0000124a, 0x0000125f, 0x0000127d,
+	0x000012a5, 0x000012d6, 0x00001308, 0x0000133b,
+	0x0000136d, 0x0000139e, 0x000013c2, 0x000013e6,
+	0x0000140d, 0x00001446, 0x0000147c, 0x000014b6,
+	0x000014e1, 0x000014f2, 0x0000150e, 0x0000151c,
+	0x0000152d, 0x00001540, 0x0000154d, 0x00001561,
+	0x00001573, 0x00001583, 0x00001597, 0x000015ad,
 	// Entry C0 - DF
-	0x00001a8a, 0x00001aa9, 0x00001abf, 0x00001ae7,
-	0x00001b18, 0x00001b34, 0x00001b6b, 0x00001b9c,
-	0x00001bb5, 0x00001bcd, 0x00001bf6, 0x00001c10,
-	0x00001c58, 0x00001c93, 0x00001ccd, 0x00001cfb,
-	0x00001d36, 0x00001d4f, 0x00001d61, 0x00001d7b,
-	0x00001d9a, 0x00001db7, 0x00001dcf, 0x00001de8,
-	0x00001e05, 0x00001e2d, 0x00001e45, 0x00001e52,
-	0x00001e6d, 0x00001e89, 0x00001e9c, 0x00001eb4,
+	0x000015cc, 0x00001601, 0x0000163e, 0x00001682,
+	0x000016ea, 0x00001720, 0x00001752, 0x0000177c,
+	0x0000179e, 0x000017be, 0x000017d6, 0x000017f1,
+	0x0000180b, 0x00001824, 0x00001843, 0x00001863,
+	0x0000187f, 0x000018a1, 0x000018ba, 0x000018d4,
+	0x00001908, 0x0000192f, 0x00001966, 0x00001985,
+	0x000019aa, 0x000019c2, 0x000019fe, 0x00001a10,
+	0x00001a31, 0x00001a83, 0x00001aba, 0x00001adf,
 	// Entry E0 - FF
-	0x00001ec0, 0x00001ede, 0x00001ef3, 0x00001f06,
-	0x00001f19, 0x00001f34, 0x00001f4b, 0x00001f5d,
-	0x00001f68, 0x00001f8a, 0x00001fa1, 0x00001fb8,
-	0x00001fd2, 0x00001fed, 0x00002001, 0x0000201b,
-	0x00002037, 0x0000204b, 0x0000205b, 0x00002078,
-	0x000020a5, 0x000020b9, 0x000020cd, 0x000020ea,
-	0x00002106, 0x00002129, 0x00002149, 0x0000216e,
-	0x0000218a, 0x000021a8, 0x000021c7, 0x000021e1,
+	0x00001afe, 0x00001b28, 0x00001b55, 0x00001b73,
+	0x00001b8f, 0x00001bc3, 0x00001bf2, 0x00001c18,
+	0x00001c50, 0x00001c88, 0x00001cc1, 0x00001cf9,
+	0x00001d19, 0x00001d4b, 0x00001d71, 0x00001d99,
+	0x00001de7, 0x00001e0e, 0x00001e31, 0x00001e68,
+	0x00001e7e, 0x00001e94, 0x00001eab, 0x00001ee7,
+	0x00001f29, 0x00001f4f, 0x00001f93, 0x00001fa1,
+	0x00001fc1, 0x00001fe5, 0x00002008, 0x0000202b,
 	// Entry 100 - 11F
-	0x000021fb, 0x00002216, 0x00002231, 0x0000224f,
-	0x00002268, 0x0000227a, 0x0000228a, 0x0000229b,
-	0x000022b7, 0x000022d8, 0x000022fe, 0x00002330,
-	0x00002350, 0x00002375, 0x00002395, 0x000023a8,
-	0x000023bc, 0x000023cc, 0x000023eb, 0x00002404,
-	0x0000241d, 0x0000245e, 0x0000248e, 0x000024a6,
-	0x000024d1, 0x000024f7, 0x0000250e, 0x0000252e,
-	0x00002542, 0x00002567, 0x0000258d, 0x000025af,
+	0x00002042, 0x0000207a, 0x00002099, 0x000020af,
+	0x000020d7, 0x00002108, 0x00002124, 0x0000215b,
+	0x0000218c, 0x000021a5, 0x000021bd, 0x000021e6,
+	0x00002200, 0x00002248, 0x00002283, 0x000022bd,
+	0x000022eb, 0x00002326, 0x0000233f, 0x00002351,
+	0x0000236b, 0x0000238a, 0x000023a7, 0x000023bf,
+	0x000023d8, 0x000023f5, 0x0000241d, 0x00002435,
+	0x00002442, 0x0000245d, 0x00002479, 0x0000248c,
 	// Entry 120 - 13F
-	0x000025c0, 0x000025da, 0x000025eb, 0x00002616,
-	0x0000263b, 0x00002654, 0x00002668, 0x0000269c,
-	0x000026b1, 0x000026d6, 0x000026fb, 0x0000270a,
-	0x0000272d, 0x00002741, 0x00002755, 0x0000276a,
-	0x000027b8, 0x000027cc, 0x000027de, 0x000027f5,
-	0x0000280b, 0x00002835, 0x00002876, 0x00002895,
-	0x000028b3, 0x000028c8, 0x000028dc, 0x000028f3,
-	0x0000291c, 0x0000292d, 0x0000294d, 0x0000296f,
+	0x000024a4, 0x000024b0, 0x000024ce, 0x000024e3,
+	0x000024f6, 0x00002509, 0x00002524, 0x0000253b,
+	0x0000254d, 0x00002558, 0x0000257a, 0x00002591,
+	0x000025a8, 0x000025c2, 0x000025dd, 0x000025f1,
+	0x0000260b, 0x00002627, 0x0000263b, 0x0000264b,
+	0x00002668, 0x00002695, 0x000026a9, 0x000026bd,
+	0x000026da, 0x000026f6, 0x00002719, 0x00002739,
+	0x0000275e, 0x0000277a, 0x00002798, 0x000027b7,
 	// Entry 140 - 15F
-	0x0000298d, 0x000029c1, 0x000029ee, 0x00002a20,
-	0x00002a56, 0x00002a92, 0x00002ac0, 0x00002aef,
-	0x00002b17, 0x00002b50, 0x00002b77, 0x00002baf,
-	0x00002bd2, 0x00002c03, 0x00002c13, 0x00002c27,
-	0x00002c49, 0x00002c6f, 0x00002c83, 0x00002c9b,
-	0x00002cc1, 0x00002cea, 0x00002d07, 0x00002d23,
-	0x00002d4b, 0x00002d89, 0x00002daf, 0x00002dd8,
-	0x00002e03, 0x00002e2f, 0x00002e59, 0x00002e82,
+	0x000027d1, 0x000027eb, 0x00002806, 0x00002821,
+	0x0000283f, 0x00002858, 0x0000286a, 0x0000287a,
+	0x0000288b, 0x000028a7, 0x000028c8, 0x000028ee,
+	0x00002920, 0x00002940, 0x00002965, 0x00002985,
+	0x00002998, 0x000029ac, 0x000029bc, 0x000029db,
+	0x000029f4, 0x00002a0d, 0x00002a4e, 0x00002a7e,
+	0x00002a96, 0x00002ac1, 0x00002ae7, 0x00002afe,
+	0x00002b1e, 0x00002b32, 0x00002b57, 0x00002b7d,
 	// Entry 160 - 17F
-	0x00002eb3, 0x00002eee, 0x00002eff, 0x00002f2f,
-	0x00002f59, 0x00002f8c, 0x00002fb0, 0x00002fce,
-	0x00002ff0, 0x0000300a, 0x00003035, 0x00003059,
-	0x00003077, 0x000030ac, 0x000030bf, 0x000030df,
-	0x000030ff, 0x00003122, 0x00003152, 0x00003167,
-	0x00003186, 0x000031c1, 0x000031ee, 0x0000321a,
-	0x00003240, 0x00003262, 0x00003278, 0x00003297,
-	0x000032bc, 0x000032d6, 0x000032f6, 0x00003321,
+	0x00002b9f, 0x00002bb0, 0x00002bca, 0x00002bdb,
+	0x00002c06, 0x00002c2b, 0x00002c44, 0x00002c58,
+	0x00002c8c, 0x00002ca1, 0x00002cc6, 0x00002ceb,
+	0x00002cfa, 0x00002d1d, 0x00002d31, 0x00002d45,
+	0x00002d5a, 0x00002da8, 0x00002dbc, 0x00002dce,
+	0x00002de5, 0x00002dfb, 0x00002e25, 0x00002e66,
+	0x00002e85, 0x00002ea3, 0x00002eb8, 0x00002ecc,
+	0x00002ee3, 0x00002f0c, 0x00002f1d, 0x00002f3d,
 	// Entry 180 - 19F
-	0x00003340, 0x0000336d, 0x000033a4, 0x000033c3,
-	0x000033d9, 0x000033f3, 0x0000340d, 0x0000342e,
-	0x00003444, 0x0000345c, 0x00003479, 0x00003495,
-	0x000034b3, 0x000034ca, 0x000034ed, 0x0000350f,
-	0x00003530, 0x00003556, 0x00003582, 0x000035b3,
-	0x000035e7, 0x000035fd, 0x00003630, 0x0000364b,
-	0x00003676, 0x0000368f, 0x000036c8, 0x00003702,
-	0x0000372d, 0x00003747, 0x00003767, 0x0000378a,
+	0x00002f5f, 0x00002f7d, 0x00002fb1, 0x00002fde,
+	0x00003010, 0x00003046, 0x00003082, 0x000030b0,
+	0x000030df, 0x00003107, 0x00003140, 0x00003167,
+	0x0000319f, 0x000031c2, 0x000031f3, 0x00003203,
+	0x00003217, 0x00003239, 0x0000325f, 0x00003273,
+	0x0000328b, 0x000032b1, 0x000032da, 0x000032f7,
+	0x00003313, 0x0000333b, 0x00003379, 0x0000339f,
+	0x000033c8, 0x000033f3, 0x0000341f, 0x00003449,
 	// Entry 1A0 - 1BF
-	0x000037a2, 0x000037b9, 0x000037ea, 0x00003837,
-	0x0000386f, 0x0000388d, 0x000038af, 0x000038bb,
-	0x000038d2, 0x000038fa, 0x00003926, 0x00003952,
-	0x00003967, 0x00003986, 0x000039aa, 0x000039cc,
-	0x000039e7, 0x00003a0d, 0x00003a31, 0x00003a48,
-	0x00003a64, 0x00003a81, 0x00003aa0, 0x00003acd,
-	0x00003aee, 0x00003b1d, 0x00003b3d, 0x00003b5f,
-	0x00003b7f, 0x00003b9b, 0x00003bbc, 0x00003bdd,
+	0x00003472, 0x000034a3, 0x000034de, 0x000034ef,
+	0x0000351f, 0x00003549, 0x0000357c, 0x000035a0,
+	0x000035be, 0x000035e0, 0x000035fa, 0x00003625,
+	0x00003649, 0x00003667, 0x0000369c, 0x000036c7,
+	0x000036e9, 0x000036fc, 0x0000371c, 0x0000373c,
+	0x0000375f, 0x0000378f, 0x000037a4, 0x000037c3,
+	0x000037fe, 0x0000382b, 0x00003857, 0x0000387d,
+	0x0000389f, 0x000038b5, 0x000038d4, 0x000038f9,
 	// Entry 1C0 - 1DF
-	0x00003bff, 0x00003c28, 0x00003c54, 0x00003c73,
-	0x00003c93, 0x00003cab, 0x00003cb8, 0x00003cc8,
-	0x00003cd8, 0x00003d08, 0x00003d1a, 0x00003d30,
-	0x00003d60, 0x00003d7d, 0x00003da2, 0x00003db2,
-	0x00003ddb, 0x00003df7, 0x00003e10, 0x00003e3d,
-	0x00003e72, 0x00003e99, 0x00003ec5, 0x00003ef5,
-	0x00003f28, 0x00003f55, 0x00003f92, 0x00003fbc,
-	0x00003fda, 0x00004006, 0x00004022, 0x00004045,
+	0x00003913, 0x00003933, 0x0000395e, 0x0000397d,
+	0x000039aa, 0x000039e1, 0x00003a00, 0x00003a16,
+	0x00003a30, 0x00003a4a, 0x00003a6b, 0x00003a81,
+	0x00003a99, 0x00003ab6, 0x00003ad2, 0x00003af0,
+	0x00003b07, 0x00003b2a, 0x00003b4c, 0x00003b6d,
+	0x00003b93, 0x00003bbf, 0x00003bf0, 0x00003c24,
+	0x00003c3a, 0x00003c6d, 0x00003c88, 0x00003cb3,
+	0x00003ccc, 0x00003d05, 0x00003d3f, 0x00003d6a,
 	// Entry 1E0 - 1FF
-	0x0000406f, 0x0000409c, 0x000040cf, 0x000040ef,
-	0x00004126, 0x0000414e, 0x00004155, 0x00004162,
-	0x00004184, 0x000041b8, 0x00004204, 0x0000422a,
-	0x0000425d, 0x00004294, 0x000042ba, 0x000042e8,
-	0x000042fd, 0x00004311, 0x00004340, 0x0000435d,
-	0x00004383, 0x000043a5, 0x000043c4, 0x000043d3,
-	0x000043fa, 0x00004422, 0x00004447, 0x0000446e,
-	0x0000448c, 0x000044a7, 0x000044d1, 0x000044f9,
+	0x00003d84, 0x00003da4, 0x00003dc7, 0x00003ddf,
+	0x00003df6, 0x00003e27, 0x00003e74, 0x00003eac,
+	0x00003eca, 0x00003eec, 0x00003ef8, 0x00003f0f,
+	0x00003f37, 0x00003f63, 0x00003f8f, 0x00003fa4,
+	0x00003fc3, 0x00003fe7, 0x00004009, 0x00004024,
+	0x0000404a, 0x0000406e, 0x00004085, 0x000040a1,
+	0x000040be, 0x000040dd, 0x0000410a, 0x0000412b,
+	0x0000415a, 0x0000417a, 0x0000419c, 0x000041bc,
 	// Entry 200 - 21F
-	0x00004515, 0x00004549, 0x0000456c, 0x00004593,
-	0x000045f2, 0x00004651, 0x0000466e, 0x00004693,
-	0x000046a5, 0x000046d7, 0x000046fa, 0x00004728,
-	0x0000474f, 0x00004778, 0x00004789, 0x000047c0,
-	0x000047cd, 0x000047ff, 0x00004820, 0x00004833,
-	0x00004852, 0x00004860, 0x0000487f, 0x00004898,
-	0x000048b9, 0x000048dd, 0x00004908, 0x00004925,
-	0x0000493e, 0x00004959, 0x0000498a, 0x000049b8,
+	0x000041d8, 0x000041f9, 0x0000421a, 0x0000423c,
+	0x00004265, 0x00004291, 0x000042b0, 0x000042d0,
+	0x000042e8, 0x000042f5, 0x00004305, 0x00004315,
+	0x00004345, 0x00004357, 0x0000436d, 0x0000439d,
+	0x000043ba, 0x000043df, 0x000043ef, 0x00004418,
+	0x00004434, 0x0000444d, 0x0000447a, 0x000044af,
+	0x000044d6, 0x00004502, 0x00004532, 0x00004565,
+	0x00004592, 0x000045cf, 0x000045f9, 0x00004617,
 	// Entry 220 - 23F
-	0x000049d3, 0x000049ed, 0x00004a11, 0x00004a2f,
-	0x00004a5d, 0x00004a6f, 0x00004a8e, 0x00004aac,
-	0x00004ac0, 0x00004ae4, 0x00004b09, 0x00004b2d,
-	0x00004b3d, 0x00004b60, 0x00004b8d, 0x00004bb7,
-	0x00004bef, 0x00004c1a, 0x00004c45, 0x00004c6f,
-	0x00004c96, 0x00004cc2, 0x00004ce6, 0x00004cf8,
-	0x00004d05, 0x00004d27, 0x00004d46, 0x00004d75,
-	0x00004da4, 0x00004dd7, 0x00004df6, 0x00004e0b,
+	0x00004643, 0x0000465f, 0x00004682, 0x000046ac,
+	0x000046d9, 0x0000470c, 0x0000472c, 0x00004763,
+	0x0000478b, 0x00004792, 0x0000479f, 0x000047c1,
+	0x000047f5, 0x00004841, 0x00004867, 0x0000489a,
+	0x000048d1, 0x000048f7, 0x00004925, 0x0000493a,
+	0x00004985, 0x00004999, 0x000049c8, 0x000049e5,
+	0x00004a0b, 0x00004a2d, 0x00004a4c, 0x00004a5b,
+	0x00004a82, 0x00004aaa, 0x00004acf, 0x00004af6,
 	// Entry 240 - 25F
-	0x00004e21, 0x00004e2f, 0x00004e50, 0x00004e78,
-	0x00004e8f, 0x00004eab, 0x00004ec2, 0x00004edc,
-	0x00004f01, 0x00004f16, 0x00004f51, 0x00004f69,
-	0x00004f86, 0x00004fb4, 0x00004fd4, 0x00004fe8,
-	0x00005014, 0x00005037, 0x0000505a, 0x0000506a,
-	0x0000507b, 0x0000509e, 0x000050c9, 0x000050f1,
-	0x0000510e, 0x0000512c, 0x0000514f, 0x00005172,
-	0x00005197, 0x000051b6, 0x000051d9, 0x000051f4,
+	0x00004b14, 0x00004b2f, 0x00004b59, 0x00004b81,
+	0x00004b9d, 0x00004bd1, 0x00004bf4, 0x00004c1b,
+	0x00004c7a, 0x00004cd9, 0x00004cf6, 0x00004d1b,
+	0x00004d2d, 0x00004d5f, 0x00004d82, 0x00004db0,
+	0x00004dd7, 0x00004e00, 0x00004e11, 0x00004e48,
+	0x00004e55, 0x00004e87, 0x00004ea8, 0x00004ebb,
+	0x00004eda, 0x00004ee8, 0x00004f07, 0x00004f20,
+	0x00004f41, 0x00004f65, 0x00004f90, 0x00004fad,
 	// Entry 260 - 27F
-	0x00005221, 0x0000523c, 0x00005270, 0x0000528e,
-	0x000052c6, 0x000052e3, 0x0000530e, 0x00005331,
-	0x0000534b, 0x00005367, 0x0000537f, 0x00005397,
-	0x000053b3, 0x000053d1, 0x000053ee, 0x0000541a,
-	0x0000543a, 0x00005460, 0x0000547e, 0x000054a0,
-	0x000054bb, 0x000054cc, 0x000054e4, 0x0000551a,
-	0x0000554e, 0x00005586, 0x0000559b, 0x000055a6,
-	0x000055be, 0x000055d0, 0x000055e5, 0x00005614,
+	0x00004fc6, 0x00004fe1, 0x00005012, 0x00005040,
+	0x0000505b, 0x00005075, 0x00005099, 0x000050b7,
+	0x000050e5, 0x000050f7, 0x00005116, 0x00005134,
+	0x00005153, 0x00005167, 0x0000518b, 0x000051b0,
+	0x000051d4, 0x000051e4, 0x00005207, 0x00005234,
+	0x0000525e, 0x00005296, 0x000052c1, 0x000052ec,
+	0x00005316, 0x0000533d, 0x00005369, 0x0000538d,
+	0x0000539f, 0x000053ac, 0x000053ce, 0x000053ed,
 	// Entry 280 - 29F
-	0x00005629, 0x0000565c, 0x00005675, 0x00005693,
-	0x000056a6, 0x000056bb, 0x000056d6, 0x000056ff,
-	0x00005722, 0x0000574d, 0x0000576b, 0x0000578e,
-	0x000057a3, 0x000057bf, 0x000057d6, 0x000057fa,
-	0x0000582a, 0x00005843, 0x00005866, 0x00005877,
-	0x0000588a, 0x0000589f, 0x000058b8, 0x000058ca,
-	0x000058ee, 0x00005909, 0x0000591c, 0x00005934,
-	0x0000595b, 0x0000597c, 0x0000598f, 0x000059ad,
+	0x0000541c, 0x0000544b, 0x0000547e, 0x0000549d,
+	0x000054b2, 0x000054c8, 0x000054d6, 0x000054f7,
+	0x0000551f, 0x00005536, 0x00005552, 0x00005569,
+	0x00005583, 0x000055a8, 0x000055bd, 0x000055f8,
+	0x00005610, 0x0000562d, 0x0000565b, 0x0000567b,
+	0x0000568f, 0x000056bb, 0x000056de, 0x00005701,
+	0x00005711, 0x00005722, 0x00005745, 0x00005770,
+	0x00005798, 0x000057b5, 0x000057d3, 0x000057f6,
 	// Entry 2A0 - 2BF
-	0x000059ca, 0x000059dc, 0x00005a05, 0x00005a1d,
-	0x00005a37, 0x00005a46, 0x00005a5f, 0x00005a77,
-	0x00005a92, 0x00005ab3, 0x00005ac5, 0x00005ad3,
-	0x00005ae9, 0x00005b05, 0x00005b1a, 0x00005b39,
-	0x00005b5c, 0x00005b7f, 0x00005b8c, 0x00005b9a,
-	0x00005bbf, 0x00005be2, 0x00005c0e, 0x00005c37,
-	0x00005c58, 0x00005c91, 0x00005cab, 0x00005cdf,
-	0x00005cf0, 0x00005d0c, 0x00005d3f, 0x00005d6c,
+	0x00005819, 0x0000583e, 0x0000585d, 0x00005880,
+	0x0000589b, 0x000058c8, 0x000058e3, 0x00005917,
+	0x00005935, 0x0000596d, 0x0000598a, 0x000059b5,
+	0x000059d8, 0x000059f2, 0x00005a0a, 0x00005a27,
+	0x00005a53, 0x00005a73, 0x00005a99, 0x00005ab7,
+	0x00005ad9, 0x00005af4, 0x00005b05, 0x00005b1d,
+	0x00005b53, 0x00005b87, 0x00005bbf, 0x00005bd4,
+	0x00005be9, 0x00005c18, 0x00005c2d, 0x00005c60,
 	// Entry 2C0 - 2DF
-	0x00005d91, 0x00005dc2, 0x00005de6, 0x00005e0c,
-	0x00005e28, 0x00005e47, 0x00005e56, 0x00005e77,
-	0x00005e8e, 0x00005e9c, 0x00005eb4, 0x00005ec5,
-	0x00005ef3, 0x00005f22, 0x00005f4b, 0x00005f7c,
-	0x00005fb0, 0x00005fd5, 0x00006010, 0x0000604a,
-	0x0000607c, 0x000060b1, 0x000060ef, 0x00006130,
-	0x0000615d, 0x00006187, 0x000061ab, 0x000061cb,
-	0x000061e2, 0x00006208, 0x00006227, 0x00006239,
+	0x00005c79, 0x00005c97, 0x00005caa, 0x00005cbf,
+	0x00005cda, 0x00005d03, 0x00005d26, 0x00005d51,
+	0x00005d6f, 0x00005d92, 0x00005da7, 0x00005dc3,
+	0x00005dda, 0x00005dfe, 0x00005e2e, 0x00005e47,
+	0x00005e6a, 0x00005e7b, 0x00005e8e, 0x00005ea3,
+	0x00005ebc, 0x00005ece, 0x00005ef2, 0x00005f0d,
+	0x00005f20, 0x00005f38, 0x00005f5f, 0x00005f80,
+	0x00005f93, 0x00005fb1, 0x00005fce, 0x00005fe0,
 	// Entry 2E0 - 2FF
-	0x0000624f, 0x00006261, 0x00006282, 0x00006299,
-	0x000062ac, 0x000062d4, 0x00006307, 0x0000632d,
-	0x00006352, 0x00006388, 0x000063a8, 0x000063c6,
-	0x000063f0, 0x00006413, 0x00006425, 0x00006445,
-	0x00006466, 0x00006482, 0x0000649c, 0x000064c2,
-	0x000064df, 0x000064f6, 0x00006544, 0x00006565,
-	0x0000657e, 0x0000659e, 0x000065d4, 0x0000660a,
-	0x0000662d, 0x00006657, 0x00006682, 0x00006697,
+	0x00006009, 0x00006021, 0x0000603b, 0x0000604a,
+	0x00006063, 0x0000607b, 0x00006096, 0x000060b7,
+	0x000060c9, 0x000060d7, 0x000060ed, 0x00006109,
+	0x0000611e, 0x0000613d, 0x00006160, 0x00006183,
+	0x00006190, 0x0000619e, 0x000061c3, 0x000061e6,
+	0x00006212, 0x0000623b, 0x0000625c, 0x00006295,
+	0x000062af, 0x000062e3, 0x000062f4, 0x00006310,
+	0x00006343, 0x00006370, 0x00006395, 0x000063c6,
 	// Entry 300 - 31F
-	0x000066ad, 0x000066d4, 0x000066e9, 0x00006715,
-	0x00006744, 0x00006777, 0x000067a5, 0x000067d7,
-	0x00006802, 0x00006833, 0x00006852, 0x00006873,
-	0x0000688c, 0x000068a5, 0x000068c0, 0x000068f6,
-	0x00006925, 0x0000693c, 0x00006965, 0x00006987,
-	0x000069a0, 0x000069d8, 0x000069f1, 0x00006a10,
-	0x00006a22, 0x00006a3e, 0x00006a5a, 0x00006a7b,
-	0x00006a93, 0x00006ab6, 0x00006aeb, 0x00006b1f,
+	0x000063ea, 0x00006410, 0x0000642c, 0x0000644b,
+	0x0000645a, 0x0000647b, 0x00006492, 0x000064a0,
+	0x000064b8, 0x000064c9, 0x000064f7, 0x00006526,
+	0x0000654f, 0x00006580, 0x000065b4, 0x000065d9,
+	0x00006614, 0x0000664e, 0x00006680, 0x000066b5,
+	0x000066f3, 0x00006734, 0x00006761, 0x0000678b,
+	0x000067af, 0x000067cf, 0x000067e6, 0x0000680c,
+	0x0000682b, 0x0000683d, 0x00006853, 0x00006865,
 	// Entry 320 - 33F
-	0x00006b55, 0x00006b70, 0x00006b88, 0x00006b9e,
-	0x00006bba, 0x00006bfd, 0x00006c12, 0x00006c28,
-	0x00006c3a, 0x00006c4f, 0x00006c72, 0x00006c9e,
-	0x00006cc8, 0x00006ce9, 0x00006d06, 0x00006d16,
-	0x00006d29, 0x00006d4e, 0x00006d66, 0x00006d85,
-	0x00006da1, 0x00006dd7, 0x00006df2, 0x00006e10,
-	0x00006e48, 0x00006e75, 0x00006e92, 0x00006ebc,
-	0x00006ede, 0x00006f07, 0x00006f28, 0x00006f54,
+	0x00006886, 0x0000689d, 0x000068b0, 0x000068d8,
+	0x0000690b, 0x00006931, 0x00006956, 0x0000698c,
+	0x000069ac, 0x000069ca, 0x000069f4, 0x00006a17,
+	0x00006a29, 0x00006a49, 0x00006a6a, 0x00006a86,
+	0x00006aa0, 0x00006ac6, 0x00006ae3, 0x00006afa,
+	0x00006b48, 0x00006b69, 0x00006b82, 0x00006bb8,
+	0x00006bd8, 0x00006c0e, 0x00006c44, 0x00006c67,
+	0x00006c91, 0x00006cbc, 0x00006cd1, 0x00006ce7,
 	// Entry 340 - 35F
-	0x00006f7c, 0x00006f9f, 0x00006fcb, 0x00006ff0,
-	0x00007006, 0x00007016, 0x00007043, 0x00007069,
-	0x00007096, 0x000070b8, 0x000070de, 0x000070fd,
-	0x00007114, 0x00007128, 0x0000713f, 0x00007151,
-	0x00007168, 0x00007184, 0x000071a1, 0x000071c3,
-	0x000071e8, 0x000071ff, 0x00007225, 0x0000723d,
-	0x00007251, 0x00007266, 0x0000728e, 0x000072b2,
-	0x000072db, 0x00007303, 0x00007316, 0x0000733a,
+	0x00006d0e, 0x00006d23, 0x00006d4f, 0x00006d7e,
+	0x00006db1, 0x00006ddf, 0x00006e11, 0x00006e3c,
+	0x00006e6d, 0x00006e8c, 0x00006ead, 0x00006ec6,
+	0x00006edf, 0x00006efa, 0x00006f30, 0x00006f5f,
+	0x00006f76, 0x00006f9f, 0x00006fc1, 0x00006fda,
+	0x00007012, 0x0000702b, 0x0000704a, 0x0000705c,
+	0x00007078, 0x00007094, 0x000070b5, 0x000070cd,
+	0x000070f0, 0x00007125, 0x00007159, 0x0000718f,
 	// Entry 360 - 37F
-	0x00007356, 0x0000736f, 0x00007391, 0x000073b8,
-	0x000073f2, 0x0000740b, 0x00007425, 0x00007437,
-	0x00007447, 0x00007467, 0x0000747f, 0x0000749d,
-	0x000074b9, 0x000074df, 0x00007506, 0x00007522,
-	0x0000754f, 0x00007571, 0x00007592, 0x000075ba,
-	0x000075d1, 0x000075eb, 0x00007606, 0x00007648,
-	0x0000768e, 0x000076d5, 0x000076f7, 0x00007704,
-	0x0000772d, 0x00007756, 0x00007784, 0x0000779e,
+	0x000071aa, 0x000071c2, 0x000071d8, 0x000071f4,
+	0x00007237, 0x0000724c, 0x00007262, 0x00007274,
+	0x00007289, 0x000072ac, 0x000072d8, 0x00007302,
+	0x00007323, 0x00007340, 0x00007350, 0x00007363,
+	0x00007388, 0x000073a0, 0x000073bf, 0x000073db,
+	0x00007411, 0x0000742c, 0x0000744a, 0x00007482,
+	0x000074af, 0x000074cc, 0x000074f6, 0x00007518,
+	0x00007541, 0x00007562, 0x0000758e, 0x000075b6,
 	// Entry 380 - 39F
-	0x000077b8, 0x000077ea, 0x0000781b, 0x00007861,
-	0x000078a2, 0x000078d0, 0x00007900, 0x0000791f,
-	0x0000793b, 0x00007971, 0x00007994, 0x000079aa,
-	0x000079c3, 0x000079e2, 0x00007a08, 0x00007a2e,
-	0x00007a3e, 0x00007a58, 0x00007a80, 0x00007a96,
-	0x00007aac, 0x00007ad1, 0x00007aeb, 0x00007b21,
-	0x00007b48, 0x00007b78, 0x00007ba1, 0x00007bcb,
-	0x00007bed, 0x00007c02, 0x00007c27, 0x00007c48,
+	0x000075d9, 0x00007605, 0x0000762a, 0x00007640,
+	0x00007650, 0x0000767d, 0x000076a3, 0x000076d0,
+	0x000076f2, 0x00007718, 0x00007737, 0x0000774e,
+	0x00007762, 0x00007779, 0x0000778b, 0x000077a2,
+	0x000077be, 0x000077db, 0x000077fd, 0x00007822,
+	0x00007839, 0x0000785f, 0x00007877, 0x00007887,
+	0x000078a7, 0x000078c9, 0x000078e7, 0x00007909,
+	0x0000791d, 0x00007932, 0x0000795a, 0x0000797e,
 	// Entry 3A0 - 3BF
-	0x00007c7a, 0x00007c8d, 0x00007cb4, 0x00007ce5,
-	0x00007d0a, 0x00007d1a, 0x00007d2b, 0x00007d56,
-	0x00007d68, 0x00007d94, 0x00007db3, 0x00007dc7,
-	0x00007ddd, 0x00007df1, 0x00007e08, 0x00007e2f,
-	0x00007e49, 0x00007e6f, 0x00007e9d, 0x00007ecf,
-	0x00007f01, 0x00007f19, 0x00007f43, 0x00007f5a,
-	0x00007f75, 0x00007fa6, 0x00007fd0, 0x00007fe6,
-	0x00008010, 0x00008025, 0x00008051, 0x000080d4,
+	0x000079a7, 0x000079cf, 0x000079e2, 0x00007a06,
+	0x00007a22, 0x00007a3b, 0x00007a5d, 0x00007a84,
+	0x00007abe, 0x00007ad7, 0x00007af1, 0x00007b03,
+	0x00007b1b, 0x00007b39, 0x00007b55, 0x00007b7b,
+	0x00007ba2, 0x00007bbe, 0x00007beb, 0x00007c0d,
+	0x00007c2e, 0x00007c56, 0x00007c6d, 0x00007c87,
+	0x00007ca2, 0x00007ce4, 0x00007d2a, 0x00007d71,
+	0x00007d93, 0x00007da0, 0x00007dc9, 0x00007df2,
 	// Entry 3C0 - 3DF
-	0x0000810c, 0x00008124, 0x00008153, 0x00008186,
-	0x000081b9, 0x000081e9, 0x00008213, 0x00008234,
-	0x00008261, 0x00008292, 0x000082c3, 0x000082f5,
-	0x0000831f, 0x00008344, 0x0000837d, 0x0000839d,
-	0x000083bc, 0x000083eb, 0x00008431, 0x00008459,
-	0x00008487, 0x000084b6, 0x000084e1, 0x00008514,
-	0x0000854c, 0x00008584, 0x0000859c, 0x000085d4,
-	0x00008609, 0x00008645, 0x0000866b, 0x00008685,
+	0x00007e20, 0x00007e3a, 0x00007e54, 0x00007e86,
+	0x00007eb7, 0x00007efd, 0x00007f3e, 0x00007f6c,
+	0x00007f9c, 0x00007fbb, 0x00007fd7, 0x0000800d,
+	0x00008030, 0x00008046, 0x0000805f, 0x0000807e,
+	0x000080a4, 0x000080ca, 0x000080da, 0x000080f4,
+	0x0000811c, 0x00008132, 0x00008167, 0x0000817d,
+	0x000081a2, 0x000081bc, 0x000081f2, 0x00008219,
+	0x00008249, 0x00008272, 0x0000829c, 0x000082be,
 	// Entry 3E0 - 3FF
-	0x00008696, 0x000086b6, 0x000086df, 0x00008702,
-	0x0000870e, 0x00008740, 0x00008775, 0x00008794,
-	0x000087b7, 0x000087c7, 0x000087da, 0x000087ee,
-	0x00008816, 0x0000884b, 0x00008869, 0x00008888,
-	0x000088ae, 0x000088c3, 0x000088e2, 0x000088ff,
-	0x00008917, 0x00008948, 0x0000895e, 0x0000897d,
-	0x00008999, 0x000089be, 0x000089d8, 0x000089ea,
-	0x00008a08, 0x00008a21, 0x00008a39, 0x00008a66,
+	0x000082d3, 0x000082f8, 0x00008319, 0x0000834b,
+	0x0000835e, 0x00008385, 0x000083b6, 0x000083db,
+	0x000083eb, 0x000083fc, 0x00008427, 0x00008439,
+	0x00008465, 0x00008484, 0x00008498, 0x000084ae,
+	0x000084c2, 0x000084d9, 0x00008500, 0x0000851a,
+	0x00008540, 0x0000856e, 0x000085a0, 0x000085d2,
+	0x000085ea, 0x00008614, 0x0000862b, 0x00008646,
+	0x00008677, 0x000086a1, 0x000086b7, 0x000086e1,
 	// Entry 400 - 41F
-	0x00008a7e, 0x00008a97, 0x00008abc, 0x00008ad0,
-	0x00008aee, 0x00008b08, 0x00008b1e, 0x00008b44,
-	0x00008b6a, 0x00008b82, 0x00008b90, 0x00008bb4,
-	0x00008bc8, 0x00008bdb, 0x00008bf3, 0x00008c09,
-	0x00008c31, 0x00008c4b, 0x00008c5e, 0x00008c95,
-	0x00008cc4, 0x00008cd2, 0x00008d08, 0x00008d31,
-	0x00008d6e, 0x00008d97, 0x00008db6, 0x00008dee,
-	0x00008e06, 0x00008e34, 0x00008e5b, 0x00008e84,
+	0x000086f6, 0x00008722, 0x000087a5, 0x000087dd,
+	0x000087f5, 0x00008824, 0x00008857, 0x0000888a,
+	0x000088ba, 0x000088e4, 0x00008905, 0x00008932,
+	0x00008963, 0x00008994, 0x000089c6, 0x000089f0,
+	0x00008a15, 0x00008a4e, 0x00008a6e, 0x00008a8d,
+	0x00008abc, 0x00008b02, 0x00008b2a, 0x00008b58,
+	0x00008b87, 0x00008bb2, 0x00008be5, 0x00008c1d,
+	0x00008c55, 0x00008c6d, 0x00008ca5, 0x00008cda,
 	// Entry 420 - 43F
-	0x00008eb2, 0x00008ec2, 0x00008ef1, 0x00008f06,
-	0x00008f2e, 0x00008f51, 0x00008f78, 0x00008f86,
-	0x00008fa2, 0x00008fbb, 0x00008fcd, 0x00008fe2,
-	0x00009001, 0x00009004, 0x00009020, 0x00009040,
-	0x00009066, 0x0000908b, 0x0000909d, 0x000090ce,
-	0x000090e1, 0x000090ff, 0x0000910f, 0x00009124,
-	0x00009140, 0x0000916e, 0x000091a1, 0x000091bf,
-	0x000091f0, 0x00009232, 0x00009284, 0x0000929c,
+	0x00008d16, 0x00008d3c, 0x00008d56, 0x00008d67,
+	0x00008d87, 0x00008db0, 0x00008dd3, 0x00008ddf,
+	0x00008e11, 0x00008e46, 0x00008e65, 0x00008e88,
+	0x00008e98, 0x00008eab, 0x00008ebf, 0x00008ee7,
+	0x00008f1c, 0x00008f3a, 0x00008f59, 0x00008f7f,
+	0x00008f94, 0x00008fb3, 0x00008fd0, 0x00008fe8,
+	0x00009019, 0x0000902f, 0x0000904e, 0x0000906a,
+	0x0000908f, 0x000090a9, 0x000090bb, 0x000090d9,
 	// Entry 440 - 45F
-	0x000092c3, 0x000092db, 0x000092f8, 0x00009312,
-	0x00009353, 0x00009371, 0x0000938c, 0x000093a8,
-	0x000093d0, 0x000093f7, 0x00009420, 0x00009449,
-	0x00009490, 0x000094aa, 0x000094d7, 0x00009506,
-	0x0000951f, 0x00009536, 0x00009556, 0x00009574,
-	0x000095a8, 0x000095bc, 0x000095d8, 0x000095f5,
-	0x00009610, 0x00009637, 0x0000964b, 0x00009667,
-	0x0000967f, 0x0000969c, 0x000096a8, 0x000096d5,
+	0x000090f2, 0x0000910a, 0x00009137, 0x0000914f,
+	0x00009168, 0x0000918d, 0x000091a1, 0x000091bf,
+	0x000091d9, 0x000091ef, 0x00009215, 0x0000923b,
+	0x00009253, 0x00009261, 0x00009285, 0x00009299,
+	0x000092c2, 0x000092d5, 0x000092ed, 0x00009303,
+	0x0000932b, 0x00009345, 0x00009358, 0x0000938f,
+	0x000093be, 0x000093cc, 0x00009402, 0x0000943f,
+	0x00009468, 0x00009487, 0x000094bf, 0x000094d7,
 	// Entry 460 - 47F
-	0x00009700, 0x00009714, 0x00009730, 0x00009752,
-	0x00009769, 0x00009783, 0x000097a3, 0x000097b9,
-	0x000097d7, 0x000097fc, 0x00009829, 0x00009842,
-	0x0000985d, 0x00009877, 0x00009896, 0x000098ad,
-	0x000098e9, 0x000098fd, 0x0000991b, 0x00009937,
-	0x0000994e, 0x00009972, 0x0000999b, 0x000099b2,
-	0x000099d8, 0x000099ef, 0x00009a0c, 0x00009a37,
-	0x00009a4e, 0x00009a6a, 0x00009a84, 0x00009aa2,
+	0x00009505, 0x0000952c, 0x00009555, 0x00009583,
+	0x00009593, 0x000095c2, 0x000095d7, 0x000095ff,
+	0x00009622, 0x00009649, 0x00009657, 0x00009673,
+	0x0000968c, 0x0000969e, 0x000096b3, 0x000096d2,
+	0x000096d5, 0x000096f1, 0x00009711, 0x00009737,
+	0x0000975c, 0x0000976e, 0x0000979f, 0x000097b2,
+	0x000097d0, 0x000097e0, 0x000097f5, 0x00009811,
+	0x0000983f, 0x00009872, 0x00009890, 0x000098c1,
 	// Entry 480 - 49F
-	0x00009aca, 0x00009af3, 0x00009b1d, 0x00009b4a,
-	0x00009b5b, 0x00009b7b, 0x00009bac, 0x00009bca,
-	0x00009bd9, 0x00009c29, 0x00009c5c, 0x00009c87,
-	0x00009ca1, 0x00009cb8, 0x00009cce, 0x00009cf7,
-	0x00009d25, 0x00009d43, 0x00009d65, 0x00009d93,
-	0x00009dbf, 0x00009dd9, 0x00009dfe, 0x00009e14,
-	0x00009e45, 0x00009e55, 0x00009e78, 0x00009ea6,
-	0x00009eb9, 0x00009ed1, 0x00009f02, 0x00009f26,
+	0x00009903, 0x00009955, 0x0000996d, 0x00009994,
+	0x000099ac, 0x000099c9, 0x000099e3, 0x00009a24,
+	0x00009a42, 0x00009a5d, 0x00009a79, 0x00009aa1,
+	0x00009ac8, 0x00009af1, 0x00009b1a, 0x00009b61,
+	0x00009b7b, 0x00009ba8, 0x00009bd7, 0x00009bf0,
+	0x00009c07, 0x00009c27, 0x00009c45, 0x00009c79,
+	0x00009c8d, 0x00009ca9, 0x00009cc6, 0x00009ce1,
+	0x00009d08, 0x00009d1c, 0x00009d38, 0x00009d50,
 	// Entry 4A0 - 4BF
-	0x00009f47, 0x00009f70, 0x00009f95, 0x00009fc4,
-	0x00009ff0, 0x0000a00f, 0x0000a043, 0x0000a073,
-	0x0000a08d, 0x0000a09d, 0x0000a0c1, 0x0000a0de,
-	0x0000a0fa, 0x0000a112, 0x0000a128, 0x0000a14d,
-	0x0000a165, 0x0000a183, 0x0000a19c, 0x0000a1b4,
-	0x0000a1cb, 0x0000a1e9, 0x0000a1fe, 0x0000a21a,
-	0x0000a22c, 0x0000a242, 0x0000a25b, 0x0000a26e,
-	0x0000a291, 0x0000a2ae, 0x0000a2b5, 0x0000a2ed,
+	0x00009d6d, 0x00009d79, 0x00009da6, 0x00009dd1,
+	0x00009de5, 0x00009e01, 0x00009e23, 0x00009e3a,
+	0x00009e54, 0x00009e74, 0x00009e8a, 0x00009ea8,
+	0x00009ecd, 0x00009efa, 0x00009f13, 0x00009f2e,
+	0x00009f48, 0x00009f67, 0x00009f7e, 0x00009fba,
+	0x00009fce, 0x00009fec, 0x0000a008, 0x0000a01f,
+	0x0000a043, 0x0000a06c, 0x0000a083, 0x0000a0a9,
+	0x0000a0c0, 0x0000a0dd, 0x0000a108, 0x0000a11f,
 	// Entry 4C0 - 4DF
-	0x0000a300, 0x0000a341, 0x0000a383, 0x0000a3ac,
-	0x0000a3d5, 0x0000a3f5, 0x0000a40d, 0x0000a438,
-	0x0000a453, 0x0000a482, 0x0000a4ac, 0x0000a4e3,
-	0x0000a4f9, 0x0000a524, 0x0000a546, 0x0000a57c,
-	0x0000a5a0, 0x0000a5b4, 0x0000a5d5, 0x0000a5f4,
-	0x0000a627, 0x0000a639, 0x0000a64d, 0x0000a662,
-	0x0000a679, 0x0000a688, 0x0000a6a7, 0x0000a6c2,
-	0x0000a6fa, 0x0000a73c, 0x0000a763, 0x0000a796,
+	0x0000a13b, 0x0000a155, 0x0000a17a, 0x0000a1a5,
+	0x0000a1c7, 0x0000a1e5, 0x0000a20d, 0x0000a236,
+	0x0000a260, 0x0000a284, 0x0000a2b1, 0x0000a2c2,
+	0x0000a2e2, 0x0000a313, 0x0000a331, 0x0000a340,
+	0x0000a390, 0x0000a3c3, 0x0000a3ee, 0x0000a408,
+	0x0000a41f, 0x0000a435, 0x0000a457, 0x0000a485,
+	0x0000a4b1, 0x0000a4cb, 0x0000a4f0, 0x0000a506,
+	0x0000a537, 0x0000a547, 0x0000a56a, 0x0000a598,
 	// Entry 4E0 - 4FF
-	0x0000a7b5, 0x0000a7c6, 0x0000a7fd, 0x0000a828,
-	0x0000a853, 0x0000a88d, 0x0000a8b6, 0x0000a8e9,
-	0x0000a907, 0x0000a930, 0x0000a96e, 0x0000a990,
-	0x0000a9cd, 0x0000aa11, 0x0000aa44, 0x0000aa64,
-	0x0000aa93, 0x0000aad8, 0x0000ab0b, 0x0000ab37,
-	0x0000ab82, 0x0000abb3, 0x0000abdf, 0x0000abf7,
-	0x0000ac0d, 0x0000ac50, 0x0000ac90, 0x0000acaf,
-	0x0000ace3, 0x0000ad59, 0x0000ad8b, 0x0000adc6,
+	0x0000a5ab, 0x0000a5c3, 0x0000a5f4, 0x0000a618,
+	0x0000a639, 0x0000a662, 0x0000a687, 0x0000a6b6,
+	0x0000a6e2, 0x0000a701, 0x0000a735, 0x0000a765,
+	0x0000a77f, 0x0000a78f, 0x0000a7b3, 0x0000a7d0,
+	0x0000a7ec, 0x0000a804, 0x0000a81a, 0x0000a83f,
+	0x0000a857, 0x0000a875, 0x0000a88e, 0x0000a8a6,
+	0x0000a8bd, 0x0000a8db, 0x0000a8f0, 0x0000a90c,
+	0x0000a91e, 0x0000a934, 0x0000a94d, 0x0000a960,
 	// Entry 500 - 51F
-	0x0000adfd, 0x0000ae5a, 0x0000ae8e, 0x0000aece,
-	0x0000af0b, 0x0000af53, 0x0000afac, 0x0000b002,
-	0x0000b049, 0x0000b07c, 0x0000b0bb, 0x0000b0ec,
-	0x0000b112, 0x0000b13b, 0x0000b15b, 0x0000b175,
-	0x0000b18a, 0x0000b1ab, 0x0000b1df, 0x0000b1fc,
-	0x0000b231, 0x0000b26d, 0x0000b298, 0x0000b2c6,
-	0x0000b2ed, 0x0000b30f, 0x0000b32c, 0x0000b364,
-	0x0000b3a4, 0x0000b3df, 0x0000b40f, 0x0000b443,
+	0x0000a983, 0x0000a9a0, 0x0000a9a7, 0x0000a9df,
+	0x0000a9f2, 0x0000aa33, 0x0000aa75, 0x0000aa9e,
+	0x0000aac7, 0x0000aae7, 0x0000aaff, 0x0000ab2a,
+	0x0000ab45, 0x0000ab74, 0x0000ab9e, 0x0000abd5,
+	0x0000abeb, 0x0000ac16, 0x0000ac38, 0x0000ac6e,
+	0x0000ac92, 0x0000aca6, 0x0000acc7, 0x0000ace6,
+	0x0000ad19, 0x0000ad2b, 0x0000ad3f, 0x0000ad54,
+	0x0000ad6b, 0x0000ad7a, 0x0000ad99, 0x0000adb4,
 	// Entry 520 - 53F
-	0x0000b473, 0x0000b4a4, 0x0000b4ce, 0x0000b4fc,
-	0x0000b532, 0x0000b565, 0x0000b58e, 0x0000b5c7,
-	0x0000b5ed, 0x0000b617, 0x0000b646, 0x0000b67d,
-	0x0000b6a7, 0x0000b6da, 0x0000b712, 0x0000b759,
-	0x0000b792, 0x0000b7d0, 0x0000b801, 0x0000b829,
-	0x0000b852, 0x0000b87f, 0x0000b8bc, 0x0000b8f3,
-	0x0000b90b, 0x0000b946, 0x0000b977, 0x0000b99f,
-	0x0000b9ce, 0x0000ba08, 0x0000ba1a, 0x0000ba38,
+	0x0000adec, 0x0000ae2e, 0x0000ae55, 0x0000ae88,
+	0x0000aea7, 0x0000aeb8, 0x0000aeef, 0x0000af1a,
+	0x0000af45, 0x0000af7f, 0x0000afa8, 0x0000afdb,
+	0x0000aff9, 0x0000b022, 0x0000b060, 0x0000b082,
+	0x0000b0bf, 0x0000b103, 0x0000b136, 0x0000b156,
+	0x0000b185, 0x0000b1ca, 0x0000b1fd, 0x0000b229,
+	0x0000b274, 0x0000b2a5, 0x0000b2d1, 0x0000b2e9,
+	0x0000b2ff, 0x0000b342, 0x0000b382, 0x0000b3a1,
 	// Entry 540 - 55F
-	0x0000ba69, 0x0000ba7b, 0x0000ba99, 0x0000bab6,
-	0x0000baca, 0x0000bae3, 0x0000bb02, 0x0000bb29,
-	0x0000bb62, 0x0000bba0, 0x0000bbc2, 0x0000bbfb,
-	0x0000bc30, 0x0000bc5e, 0x0000bc77, 0x0000bc94,
-	0x0000bcbb, 0x0000bce0, 0x0000bd00, 0x0000bd15,
-	0x0000bd47, 0x0000bd79, 0x0000bd9a, 0x0000bdbb,
-	0x0000bde8, 0x0000be2a, 0x0000be60, 0x0000be9d,
-	0x0000beb3, 0x0000beda, 0x0000bf12, 0x0000bf48,
+	0x0000b3d5, 0x0000b44b, 0x0000b47d, 0x0000b4b8,
+	0x0000b4ef, 0x0000b54c, 0x0000b580, 0x0000b5c0,
+	0x0000b5fd, 0x0000b645, 0x0000b69e, 0x0000b6f4,
+	0x0000b73b, 0x0000b76e, 0x0000b7ad, 0x0000b7de,
+	0x0000b804, 0x0000b82d, 0x0000b84d, 0x0000b867,
+	0x0000b87c, 0x0000b89d, 0x0000b8d1, 0x0000b914,
+	0x0000b931, 0x0000b966, 0x0000b9a2, 0x0000b9cd,
+	0x0000b9fb, 0x0000ba22, 0x0000ba44, 0x0000ba61,
 	// Entry 560 - 57F
-	0x0000bf6c, 0x0000bf99, 0x0000bfae, 0x0000bfca,
-	0x0000bfdf, 0x0000bffa, 0x0000c016, 0x0000c04c,
-	0x0000c07f, 0x0000c09e, 0x0000c0d4, 0x0000c0fc,
-	0x0000c11e, 0x0000c14a, 0x0000c174, 0x0000c17f,
-	0x0000c193, 0x0000c1a9, 0x0000c1b6, 0x0000c1c9,
-	0x0000c1df, 0x0000c1f1, 0x0000c205, 0x0000c219,
-	0x0000c22b, 0x0000c23d, 0x0000c250, 0x0000c264,
-	0x0000c276, 0x0000c28c, 0x0000c2a6, 0x0000c2b4,
+	0x0000ba99, 0x0000bad9, 0x0000bb14, 0x0000bb44,
+	0x0000bb7a, 0x0000bbae, 0x0000bbe3, 0x0000bc13,
+	0x0000bc44, 0x0000bc6e, 0x0000bc9c, 0x0000bcd2,
+	0x0000bd05, 0x0000bd2e, 0x0000bd67, 0x0000bd8d,
+	0x0000bdb7, 0x0000bde6, 0x0000be1d, 0x0000be47,
+	0x0000be7a, 0x0000beb2, 0x0000bef9, 0x0000bf32,
+	0x0000bf70, 0x0000bfa1, 0x0000bfc9, 0x0000bff2,
+	0x0000c01f, 0x0000c05c, 0x0000c093, 0x0000c0ab,
 	// Entry 580 - 59F
-	0x0000c2c4, 0x0000c2cf, 0x0000c2da, 0x0000c2f6,
-	0x0000c30e, 0x0000c31c, 0x0000c32c, 0x0000c33e,
-	0x0000c350, 0x0000c367, 0x0000c376, 0x0000c389,
-	0x0000c39c, 0x0000c3b3, 0x0000c3c1, 0x0000c3d3,
-	0x0000c3e7, 0x0000c3fe, 0x0000c40d, 0x0000c41c,
-	0x0000c432, 0x0000c442, 0x0000c456, 0x0000c46c,
-	0x0000c47f, 0x0000c4d7, 0x0000c4ec, 0x0000c501,
-	0x0000c514, 0x0000c523, 0x0000c52c, 0x0000c535,
+	0x0000c0e6, 0x0000c117, 0x0000c13f, 0x0000c16e,
+	0x0000c1a8, 0x0000c1ba, 0x0000c1d8, 0x0000c209,
+	0x0000c21b, 0x0000c239, 0x0000c256, 0x0000c26a,
+	0x0000c283, 0x0000c2a2, 0x0000c2c9, 0x0000c302,
+	0x0000c340, 0x0000c362, 0x0000c39b, 0x0000c3d0,
+	0x0000c3fe, 0x0000c422, 0x0000c43b, 0x0000c458,
+	0x0000c47f, 0x0000c4a4, 0x0000c4c4, 0x0000c4d9,
+	0x0000c50b, 0x0000c53d, 0x0000c55e, 0x0000c57f,
 	// Entry 5A0 - 5BF
-	0x0000c540, 0x0000c54e, 0x0000c58b, 0x0000c5a1,
-	0x0000c5d1, 0x0000c60f, 0x0000c61e, 0x0000c637,
-	0x0000c650, 0x0000c661, 0x0000c67e, 0x0000c690,
-	0x0000c6a9, 0x0000c6c2, 0x0000c6de, 0x0000c6f7,
-	0x0000c712, 0x0000c735, 0x0000c73e, 0x0000c75a,
-	0x0000c76f, 0x0000c783, 0x0000c7a1, 0x0000c7c8,
-	0x0000c7da, 0x0000c809, 0x0000c839, 0x0000c85c,
-	0x0000c86f, 0x0000c880, 0x0000c88f, 0x0000c8a7,
+	0x0000c595, 0x0000c5c2, 0x0000c604, 0x0000c641,
+	0x0000c657, 0x0000c67e, 0x0000c6b6, 0x0000c6ec,
+	0x0000c710, 0x0000c73d, 0x0000c77a, 0x0000c78f,
+	0x0000c7ab, 0x0000c7c0, 0x0000c7db, 0x0000c7f7,
+	0x0000c82d, 0x0000c860, 0x0000c87f, 0x0000c8b5,
+	0x0000c8dd, 0x0000c8ff, 0x0000c92b, 0x0000c955,
+	0x0000c960, 0x0000c974, 0x0000c98a, 0x0000c997,
+	0x0000c9aa, 0x0000c9c0, 0x0000c9d2, 0x0000c9e6,
 	// Entry 5C0 - 5DF
-	0x0000c8c0, 0x0000c8ec, 0x0000c906, 0x0000c926,
-	0x0000c94a, 0x0000c967, 0x0000c97a, 0x0000c98e,
-	0x0000c9a7, 0x0000c9c2, 0x0000c9de, 0x0000c9fb,
-	0x0000ca18, 0x0000ca3c, 0x0000ca52, 0x0000ca69,
-	0x0000ca8a, 0x0000caa4, 0x0000cabb, 0x0000cad5,
-	0x0000caef, 0x0000cb0e, 0x0000cb2e, 0x0000cb4b,
-	0x0000cb6b, 0x0000cb95, 0x0000cbbf, 0x0000cbda,
-	0x0000cbed, 0x0000cc0b, 0x0000cc2b, 0x0000cc40,
+	0x0000c9fa, 0x0000ca0c, 0x0000ca1e, 0x0000ca31,
+	0x0000ca45, 0x0000ca57, 0x0000ca6d, 0x0000ca87,
+	0x0000ca95, 0x0000caa5, 0x0000cab0, 0x0000cabb,
+	0x0000cad7, 0x0000caef, 0x0000cafd, 0x0000cb0d,
+	0x0000cb1f, 0x0000cb31, 0x0000cb48, 0x0000cb57,
+	0x0000cb6a, 0x0000cb7d, 0x0000cb94, 0x0000cba2,
+	0x0000cbb4, 0x0000cbc8, 0x0000cbdf, 0x0000cbee,
+	0x0000cbfd, 0x0000cc13, 0x0000cc23, 0x0000cc37,
 	// Entry 5E0 - 5FF
-	0x0000cc5d, 0x0000cc7e, 0x0000cc98, 0x0000ccc6,
-	0x0000cce2, 0x0000ccff, 0x0000cd10, 0x0000cd21,
-	0x0000cd2f, 0x0000cd3d, 0x0000cd52, 0x0000cd67,
-	0x0000cd76, 0x0000cd89, 0x0000cd9d, 0x0000cdb3,
-	0x0000cdc6, 0x0000cddc, 0x0000cdec, 0x0000ce08,
-	0x0000ce1b, 0x0000ce39, 0x0000ce46, 0x0000ce56,
-	0x0000ce6f, 0x0000ce7e, 0x0000ce90, 0x0000ce9e,
-	0x0000ceaf, 0x0000cec6, 0x0000ced3, 0x0000cee0,
+	0x0000cc4d, 0x0000cc60, 0x0000ccb8, 0x0000cccd,
+	0x0000cce0, 0x0000ccef, 0x0000ccf8, 0x0000cd01,
+	0x0000cd0c, 0x0000cd1a, 0x0000cd57, 0x0000cd6d,
+	0x0000cd9d, 0x0000cddb, 0x0000cdea, 0x0000ce03,
+	0x0000ce1c, 0x0000ce2d, 0x0000ce4a, 0x0000ce5c,
+	0x0000ce75, 0x0000ce8f, 0x0000ceab, 0x0000cec4,
+	0x0000cedf, 0x0000cf02, 0x0000cf0b, 0x0000cf27,
+	0x0000cf3c, 0x0000cf50, 0x0000cf6e, 0x0000cf95,
 	// Entry 600 - 61F
-	0x0000cef2, 0x0000cf08, 0x0000cf17, 0x0000cf32,
-	0x0000cf45, 0x0000cf57, 0x0000cf6b, 0x0000cf84,
-	0x0000cfa3, 0x0000cfaf, 0x0000cfbc, 0x0000cfd0,
-	0x0000cfe4, 0x0000cff0, 0x0000d005, 0x0000d016,
-	0x0000d032, 0x0000d04d, 0x0000d063, 0x0000d070,
-	0x0000d080, 0x0000d093, 0x0000d0a3, 0x0000d0b7,
-	0x0000d0c8, 0x0000d0de, 0x0000d0fb, 0x0000d120,
-	0x0000d159, 0x0000d17c, 0x0000d1a3, 0x0000d1be,
+	0x0000cfa7, 0x0000cfd6, 0x0000d006, 0x0000d029,
+	0x0000d03d, 0x0000d04e, 0x0000d05d, 0x0000d075,
+	0x0000d08e, 0x0000d0ba, 0x0000d0d4, 0x0000d0f4,
+	0x0000d118, 0x0000d135, 0x0000d148, 0x0000d15c,
+	0x0000d177, 0x0000d193, 0x0000d1b0, 0x0000d1cd,
+	0x0000d1f1, 0x0000d207, 0x0000d21e, 0x0000d23f,
+	0x0000d259, 0x0000d270, 0x0000d28a, 0x0000d2a4,
+	0x0000d2c3, 0x0000d2e3, 0x0000d300, 0x0000d320,
 	// Entry 620 - 63F
-	0x0000d1d6, 0x0000d1f1, 0x0000d203, 0x0000d21c,
-	0x0000d232, 0x0000d24c, 0x0000d26a, 0x0000d283,
-	0x0000d29d, 0x0000d2bd, 0x0000d2e3, 0x0000d2fc,
-	0x0000d316, 0x0000d332, 0x0000d34d, 0x0000d370,
-	0x0000d38e, 0x0000d3a3, 0x0000d3b7, 0x0000d3d4,
-	0x0000d3fc, 0x0000d41d, 0x0000d441, 0x0000d455,
-	0x0000d469, 0x0000d479, 0x0000d495, 0x0000d4b3,
-	0x0000d4cb, 0x0000d4ed, 0x0000d51a, 0x0000d542,
+	0x0000d34a, 0x0000d374, 0x0000d38f, 0x0000d3a2,
+	0x0000d3c0, 0x0000d3e0, 0x0000d3f5, 0x0000d412,
+	0x0000d433, 0x0000d44d, 0x0000d47b, 0x0000d497,
+	0x0000d4b4, 0x0000d4c5, 0x0000d4d6, 0x0000d4e4,
+	0x0000d4f2, 0x0000d507, 0x0000d51c, 0x0000d52b,
+	0x0000d53e, 0x0000d552, 0x0000d568, 0x0000d57b,
+	0x0000d591, 0x0000d5a1, 0x0000d5bd, 0x0000d5d0,
+	0x0000d5ee, 0x0000d5fb, 0x0000d60b, 0x0000d624,
 	// Entry 640 - 65F
-	0x0000d563, 0x0000d57b, 0x0000d597, 0x0000d5b0,
-	0x0000d5c3, 0x0000d5df, 0x0000d603, 0x0000d61f,
-	0x0000d63d, 0x0000d65d, 0x0000d683, 0x0000d6a3,
-	0x0000d6b5, 0x0000d723, 0x0000d73d, 0x0000d744,
-	0x0000d75c, 0x0000d772, 0x0000d791, 0x0000d7a6,
-} // Size: 6504 bytes
+	0x0000d633, 0x0000d645, 0x0000d653, 0x0000d664,
+	0x0000d67b, 0x0000d688, 0x0000d695, 0x0000d6a7,
+	0x0000d6bd, 0x0000d6cc, 0x0000d6e7, 0x0000d6fa,
+	0x0000d70c, 0x0000d720, 0x0000d739, 0x0000d758,
+	0x0000d764, 0x0000d771, 0x0000d785, 0x0000d799,
+	0x0000d7a5, 0x0000d7ba, 0x0000d7cb, 0x0000d7e7,
+	0x0000d802, 0x0000d818, 0x0000d832, 0x0000d83f,
+	0x0000d84f, 0x0000d862, 0x0000d872, 0x0000d886,
+	// Entry 660 - 67F
+	0x0000d897, 0x0000d8ad, 0x0000d8ca, 0x0000d8ef,
+	0x0000d928, 0x0000d94b, 0x0000d972, 0x0000d98d,
+	0x0000d9a5, 0x0000d9c0, 0x0000d9d2, 0x0000d9eb,
+	0x0000da01, 0x0000da1b, 0x0000da39, 0x0000da52,
+	0x0000da6c, 0x0000da8c, 0x0000dab2, 0x0000dacb,
+	0x0000dae5, 0x0000db01, 0x0000db1c, 0x0000db3f,
+	0x0000db5d, 0x0000db72, 0x0000db86, 0x0000dba3,
+	0x0000dbcb, 0x0000dbec, 0x0000dc10, 0x0000dc24,
+	// Entry 680 - 69F
+	0x0000dc38, 0x0000dc48, 0x0000dc64, 0x0000dc82,
+	0x0000dc9a, 0x0000dcbc, 0x0000dce9, 0x0000dd11,
+	0x0000dd32, 0x0000dd4a, 0x0000dd66, 0x0000dd7f,
+	0x0000dd92, 0x0000ddae, 0x0000ddd2, 0x0000ddee,
+	0x0000de0c, 0x0000de2c, 0x0000de52, 0x0000de72,
+	0x0000de84, 0x0000def2, 0x0000df0c, 0x0000df13,
+	0x0000df2b, 0x0000df41, 0x0000df60, 0x0000df75,
+} // Size: 6792 bytes
 
-const en_USData string = "" + // Size: 55206 bytes
-	"\x04\x00\x01 \x19\x02invalid CannedAction %s \x04\x00\x01 \x13\x02invali" +
-	"d Effect %s \x04\x00\x01 \x11\x02invalid ipv4 %s \x02invalid share_mode " +
-	"%s\x02mx_priority range limited to [1,50]\x02invalid domain %s for MX re" +
-	"cord\x02invalid ipv4 %s for A record\x02invalid ipv6 %s for AAAA record" +
-	"\x02invalid domain %s for CNAME record\x02duplicate route cidr %s\x02Int" +
-	"ernal server error: %s\x02Internal server error\x02Invalid handler %s" +
-	"\x02Handler not found\x02No request key: %s\x02Invalid request header: %" +
-	"v\x02request process timeout\x02Not allow empty records\x02Records limit" +
-	" exceeded.\x02%s method not found\x02%s method params length not match, " +
-	"expected %d, input %d\x02Invald ValidateCreateData return value\x02Inval" +
-	"d ListItemFilter return value count %d\x02Invald OrderByExtraFields retu" +
-	"rn value count %d\x02Invalid GetExtraDetails return value count %d\x02In" +
-	"valid FetchCustomizeColumns return value count %d\x02Invalid FetchCustom" +
-	"izeColumns return value type, not a slice!\x02Invalid FetchCustomizeColu" +
-	"mns return value, inconsistent obj count: input %d != output %d\x02Inval" +
-	"d ValidateUpdateData return value\x02Invald CustomizeDelete return value" +
-	"\x02invalid joint resources %s\x02FetchCustomizeColumns return incorrect" +
-	" number of results\x02No context manager\x02No such context %s(%s)\x02fa" +
-	"il to get http response writer from context\x02FetchCustomizeColumns ret" +
-	"urns incorrect results\x02reflect call %s fail %s\x02Invald %s return va" +
-	"lue\x02%s not allow to get property %s\x02No return value, so why query?" +
-	"\x02Not allow to get details\x02%s %s %s not found\x02%s not allow to ge" +
-	"t spec %s\x02Not allow to create item\x02body is not a json?\x02Missing " +
-	"name or generate_name\x02not allow to perform %s\x02%s allow %s %s not f" +
-	"ound\x02%s not allow to %s %s\x02Invalid data JSONObject\x02Not allow to" +
-	" update item\x02%s(%s) not allow to delete\x02Not allow to attach\x02Obj" +
-	"ect %s %s has attached %s %s\x02project in non-default domain is prohibi" +
-	"ted\x02missing new domain\x02check name duplication error: %s\x02not eno" +
-	"ugh privilege (require:%s,allow:%s,query:%s)\x02Not support resource %s " +
-	"tag filter\x02Action %s not found\x02can't get string field\x02model has" +
-	" no field %s\x02Query database error %s\x02name starts with letter, and " +
-	"contains letter, number and - only\x02not allow to delete log\x02DIRECT " +
-	"setting cannot be changed\x02DIRECT setting cannot be deleted\x02get pro" +
-	"xysetting refcount fail %s\x02proxysetting %s is still referred to by %d" +
-	" %s\x02fail to decode body\x02Quota %s not found\x02Default quota %s not" +
-	" allow to delete\x02not enough privilleges\x02not allow to list domain q" +
-	"uotas\x02out of privileges\x02not allow to list project quotas\x02query " +
-	"quotas %s\x02not enough privilege (require:%s,allow:%s:resource:%s)\x02n" +
-	"ot enough privilege (require:%s,allow:%s)\x02invalid scope %s\x02not all" +
-	"ow create %s in scope %s\x02Not allow set scope to system\x02Not allow s" +
-	"et scope to domain %s\x02Not allow set scope to project %s\x02sharing is" +
-	" limited to domains %s\x02Insert shared resource failed %s\x02name start" +
-	"s with letter, and contains letter, number and ._@- only\x02name longer " +
-	"than %d\x02not allow to set system key, please remove the underscore at " +
-	"the beginning\x02input key too long > %d\x02input value too long > %d" +
-	"\x02user %s not found\x02forbidden\x02non-admin user not allowed to crea" +
-	"te system object\x02Virtual resource freezed, can't do %s\x02virtual res" +
-	"ource already freezed\x02virtual resource not freezed\x02missing new pro" +
-	"ject/tenant\x02InformerBackend not init\x02invalid format\x02operation n" +
-	"ot allowed\x02invalid input format\x02Missing key error: missing %q\x02G" +
-	"eneral error: general error for %q: %s\x02Invalid type error: expecting " +
-	"%s type for %q: %s\x02Invalid choice error: invalid %q, want %s, got %s" +
-	"\x02Invalid length error: %q too short, got %d, min %d\x02Invalid length" +
-	" error: %q too long, got %d, max %d\x02Not in range error: invalid %q: %" +
-	"d, want [%d,%d]\x02Invalid value error: invalid %q: %s\x02Invalid value " +
-	"error: invalid %q: %v\x04\x00\x01 \x22\x02Invalid value error: invalid %" +
-	"q: \x02Model manager error: failed getting model manager for %q\x02Model" +
-	" not found error: cannot find %q with id/name %q\x02Model not found erro" +
-	"r: cannot find %q with id/name %q: %s\x02invalid cert pubkey algorithm: " +
-	"%s, want %s\x02no such provider\x02Not Implemented GetProvider\x02NotFou" +
-	"ndError\x02DuplicateIdError\x02InvalidStatusError\x02TimeoutError\x02Not" +
-	"ImplementedError\x02NotSupportedError\x02InvalidProvider\x02NoBalancePer" +
-	"mission\x02ErrAddressCountExceed\x02cannot support more than 1 nic\x02Th" +
-	"e %s disk size must be in the range of %dGB ~ %dGB\x02%s requires that t" +
-	"he eip bandwidth must be less than 100Mbps\x02network %s associated rout" +
-	"e table has no internet gateway attached.\x02failed to find subformat vh" +
-	"d for image %s, please append 'vhd' for glance options(target_image_form" +
-	"ats)\x02Azure Mv2-series instance sku only support UEFI image\x02Azure U" +
-	"EFI image %s not support this instance sku\x02cannot support change azur" +
-	"e instance name\x02Cannot change config for baremtal\x02Cannot resize di" +
-	"sk for baremtal\x02Invalid raid config: %v\x02Host %s is not a baremetal" +
-	"\x02Baremetal %s is not ready\x02Baremetal %s is occupied\x02Cannot save" +
-	" image for baremtal\x02Not Implement ValidateCreateEip\x02Not allow for " +
-	"hypervisor %s\x02Not supported, please use kubectl\x02Container not supp" +
-	"ort %s\x02%s not support create eip\x02can't resize disk for guest with " +
-	"instance snapshots\x02esxi guest migrate require prefer_host\x02can't re" +
-	"build root for a guest with instance snapshots\x02Unknown google storage" +
-	" type %s\x02System disk does not support %s disk\x02%s disk cannot excee" +
-	"d 8\x02%s for %s features are not compatible for creating instance\x02Ho" +
-	"st %s not found\x02Guest have backup, can't migrate\x02Cannot normal mig" +
-	"rate guest in status %s, try rescue mode or server-live-migrate?\x02Resc" +
-	"ue mode requires all disk store in shared storages\x02Cannot migrate wit" +
-	"h isolated devices\x02Cannot live migrate with cdrom\x02Cannot live migr" +
-	"ate with isolated devices\x02Cannot do live migrate, too low qemu versio" +
-	"n\x02%s not support cdrom params\x02%s not support create eip, it only s" +
-	"upport bind eip\x02%s not support create virtual machine with eip\x02dat" +
-	"a disk not support storage type %s\x02The %s disk size must be in the ra" +
-	"nge of 10GB ~ 16000GB\x02The %s disk size must be in the range of 50GB ~" +
-	" 16000GB\x02The %s disk size must be in the range of 100GB ~ 16000GB\x02" +
-	"The %s disk size must be in the range of 20GB ~ 32000GB\x02storage %s ca" +
-	"n not be data disk\x02Data disk size must be an integer multiple of 10G" +
-	"\x02failed to found system disk error: %v\x02failed to found storage for" +
-	" disk %s(%s)\x02The system disk is locally stored and does not support c" +
-	"hanging configuration\x02Not support create local storage disks\x02Pleas" +
-	"e input new disk backend type\x02The disk is locally stored and does not" +
-	" support detach\x02Host %s is not online\x02GetGuestCount fail %s\x02hos" +
-	"t has been occupied\x02Aliyun reset disk required guest status is runnin" +
-	"g or ready\x02Aws not support reset disk, you can create new disk with s" +
-	"napshot\x02cannot support change azure disk name\x02Azure not support re" +
-	"set disk, you can create new disk with snapshot\x02not implement\x02Not " +
-	"Implement ValidateResetDisk\x02Not Implement ValidateAttachStorage\x02No" +
-	"t Implement RequestAttachStorage\x02Not Implement RequestDetachStorage" +
-	"\x02Disk must be dettached\x02%s reset disk required guest status is run" +
-	"ning or ready\x02Server %s must in status ready\x02Disk must be detached" +
-	"\x02Unsupport attach %s storage for %s host\x02Attach rbd storage requir" +
-	"e host status is online\x02Query host storage error %s\x02Host %s alread" +
-	"y have mount point %s with other storage\x02Attach nfs storage require h" +
-	"ost status is online\x02%s is not mount point %s\x02Disk attach muti gue" +
-	"sts\x02Disk attached guest status must be ready\x02Disk dosen't attach g" +
-	"uest\x02OpenStack not support reset disk, you can create new disk with s" +
-	"napshot\x02Qcloud reset disk required guest status is running or read" +
-	"\x02Ucloud reset disk operation required disk not be attached\x02Ucloud " +
-	"only support data disk reset operation\x02ZStack reset disk operation re" +
-	"quried guest status is ready\x02Parse remote ip error %s\x02Network not " +
-	"found\x02Baremetal agent not found\x02Baremetal package not prepared\x02" +
-	"check agent uniqness fail %s\x02Conflict manager_uri %s\x02Duplicate man" +
-	"ager_uri %s\x02missing duration/expire_time\x02expire time is before cur" +
-	"rent expire at\x02invalid duration %s: %s\x02missing name\x02invalid buc" +
-	"ket name %s: %s\x02invalid bucket name(%s): %s\x02no external bucket\x02" +
-	"fail to get objects: %s\x02missing key\x02fail to generate temp url: %s" +
-	"\x02empty directory name\x02invalid key %s: %s\x02GetIObject fail %s\x02" +
-	"object count limit exceeds\x02bucket.GetQuotaKeys %s\x02fail to mkdir: %" +
-	"s\x02empty keys\x02object key should not ends with /\x02invalid object k" +
-	"ey: %s\x02missing Content-Length\x02Illegal Content-Length %s\x02Content" +
-	"-Length negative %d\x02GetIObject error %s\x02object size limit exceeds" +
-	"\x02bucket.GetQuotaKeys fail %s\x02put object error %s\x02setAcl error %" +
-	"s\x02syncWithCloudBucket error %s\x02Bucket has %d task active, can't sy" +
-	"nc status\x02not an empty bucket\x02object %s not found\x02iBucket.GetIO" +
-	"bjects error %s\x02iBucket.SetWebsite error %s\x02iBucket.DeleteWebSiteC" +
-	"onf error %s\x02iBucket.GetWebsiteConf error %s\x02cloudprovider.SetBuck" +
-	"etCORS error %s\x02iBucket.DeleteCORS error %s\x02iBucket.GetCORSRules e" +
-	"rror %s\x02iBucket.GetCdnDomains error %s\x02iBucket.SetRefer error %s" +
-	"\x02iBucket.GetRefer error %s\x02iBucket.GetPolicy error %s\x02iBucket.S" +
-	"etPolicy error %s\x02iBucket.DeletePolicy error %s\x02unmarshal limit er" +
-	"ror %s\x02SetLimit error %s\x02Update error %s\x02missing manager?\x02iB" +
-	"ucket.GetIObject error %s\x02ValidateDeleteCondition error %s\x02The ima" +
-	"ge has been cached on storages\x02the image reference session has not be" +
-	"en expired!\x02failed to found storagecache %s\x02not allow to query sys" +
-	"tem capability\x02account %s not enable saml auth\x02account is enabled" +
+const en_USData string = "" + // Size: 57205 bytes
+	"\x02not found tenantId in body\x02failed to change project\x02get passwo" +
+	"rd in body\x02username or password is empty\x02missing credential\x02inv" +
+	"alid credential\x02fetch json for request: %v\x02request body is empty" +
+	"\x02missing id\x02fetchAuthInfo fail: %s\x02new password mismatch\x02not" +
+	" support reset user password\x02wrong password\x02invalid passcode\x02ge" +
+	"nerate totp qrcode failed\x02uid is empty\x02input parameter error\x02TO" +
+	"TP recovery questions do not exist\x02questions not found\x02%s answer i" +
+	"s incorrect\x02passcode is a 6-digits string\x02invalid passcode: %v\x02" +
+	"no revocery questions.\x02unmarshal questions: %v\x02get admin credentia" +
+	"l is nil\x02no usable regions, please contact admin\x02illegal region %s" +
+	", please contact admin\x02session expires, missing %s\x02parse query str" +
+	"ing error: %s\x02fetch form data error: %s\x02parse form data error: %s" +
+	"\x02invalid request\x02empty external user id\x02empty idp_id or idp_ent" +
+	"ity_id\x02invalid form\x02missing image name\x02missing image size\x02in" +
+	"valid image size\x02Parse query: %v\x02No token in header: %v\x02Missing" +
+	" parameter %s\x02Unsupported action %s\x02Wrong content type %s, want %s" +
+	"\x02can't open file\x02can't parse file\x02template file is invalid. ple" +
+	"ase check.\x02empty file content\x02row %d name is empty\x02row %d domai" +
+	"n is empty\x02row %d duplicate name %s\x02template_id\x02internal server" +
+	" error\x02template not found %s\x02request body is too large.\x02invalid" +
+	" multipart form\x02invalid content_length %s\x02No token in header\x02To" +
+	"ken in header invalid\x02Token expired\x02resource %s module not exists" +
+	"\x02No id list found\x02missing export keys\x02inconsistent export keys " +
+	"and texts\x02recv invalid data\x04\x00\x01 \x19\x02invalid CannedAction " +
+	"%s \x04\x00\x01 \x13\x02invalid Effect %s \x04\x00\x01 \x11\x02invalid i" +
+	"pv4 %s \x02invalid share_mode %s\x02mx_priority range limited to [1,50]" +
+	"\x02invalid domain %s for MX record\x02invalid ipv4 %s for A record\x02i" +
+	"nvalid ipv6 %s for AAAA record\x02invalid domain %s for CNAME record\x02" +
+	"duplicate route cidr %s\x02Internal server error: %s\x02Internal server " +
+	"error\x02Invalid handler %s\x02Handler not found\x02No request key: %s" +
+	"\x02Invalid request header: %v\x02request process timeout\x02Not allow e" +
+	"mpty records\x02Records limit exceeded.\x02%s method not found\x02%s met" +
+	"hod params length not match, expected %d, input %d\x02Invald ValidateCre" +
+	"ateData return value\x02Invald ListItemFilter return value count %d\x02I" +
+	"nvald OrderByExtraFields return value count %d\x02Invalid GetExtraDetail" +
+	"s return value count %d\x02Invalid FetchCustomizeColumns return value co" +
+	"unt %d\x02Invalid FetchCustomizeColumns return value type, not a slice!" +
+	"\x02Invalid FetchCustomizeColumns return value, inconsistent obj count: " +
+	"input %d != output %d\x02Invald ValidateUpdateData return value\x02Inval" +
+	"d CustomizeDelete return value\x02invalid joint resources %s\x02FetchCus" +
+	"tomizeColumns return incorrect number of results\x02No context manager" +
+	"\x02No such context %s(%s)\x02fail to get http response writer from cont" +
+	"ext\x02FetchCustomizeColumns returns incorrect results\x02reflect call %" +
+	"s fail %s\x02Invald %s return value\x02%s not allow to get property %s" +
+	"\x02No return value, so why query?\x02Not allow to get details\x02%s %s " +
+	"%s not found\x02%s not allow to get spec %s\x02Not allow to create item" +
+	"\x02body is not a json?\x02Missing name or generate_name\x02not allow to" +
+	" perform %s\x02%s allow %s %s not found\x02%s not allow to %s %s\x02Inva" +
+	"lid data JSONObject\x02Not allow to update item\x02%s(%s) not allow to d" +
+	"elete\x02Not allow to attach\x02Object %s %s has attached %s %s\x02proje" +
+	"ct in non-default domain is prohibited\x02missing new domain\x02check na" +
+	"me duplication error: %s\x02not enough privilege (require:%s,allow:%s,qu" +
+	"ery:%s)\x02Not support resource %s tag filter\x02Action %s not found\x02" +
+	"can't get string field\x02model has no field %s\x02Query database error " +
+	"%s\x02name starts with letter, and contains letter, number and - only" +
+	"\x02not allow to delete log\x02DIRECT setting cannot be changed\x02DIREC" +
+	"T setting cannot be deleted\x02get proxysetting refcount fail %s\x02prox" +
+	"ysetting %s is still referred to by %d %s\x02fail to decode body\x02Quot" +
+	"a %s not found\x02Default quota %s not allow to delete\x02not enough pri" +
+	"villeges\x02not allow to list domain quotas\x02out of privileges\x02not " +
+	"allow to list project quotas\x02query quotas %s\x02not enough privilege " +
+	"(require:%s,allow:%s:resource:%s)\x02not enough privilege (require:%s,al" +
+	"low:%s)\x02invalid scope %s\x02not allow create %s in scope %s\x02Not al" +
+	"low set scope to system\x02Not allow set scope to domain %s\x02Not allow" +
+	" set scope to project %s\x02sharing is limited to domains %s\x02Insert s" +
+	"hared resource failed %s\x02name starts with letter, and contains letter" +
+	", number and ._@- only\x02name longer than %d\x02not allow to set system" +
+	" key, please remove the underscore at the beginning\x02input key too lon" +
+	"g > %d\x02input value too long > %d\x02user %s not found\x02forbidden" +
+	"\x02non-admin user not allowed to create system object\x02Virtual resour" +
+	"ce freezed, can't do %s\x02virtual resource already freezed\x02virtual r" +
+	"esource not freezed\x02missing new project/tenant\x02InformerBackend not" +
+	" init\x02invalid format\x02operation not allowed\x02invalid input format" +
+	"\x02Missing key error: missing %q\x02General error: general error for %q" +
+	": %s\x02Invalid type error: expecting %s type for %q: %s\x02Invalid choi" +
+	"ce error: invalid %q, want %s, got %s\x02Invalid length error: %q too sh" +
+	"ort, got %d, min %d\x02Invalid length error: %q too long, got %d, max %d" +
+	"\x02Not in range error: invalid %q: %d, want [%d,%d]\x02Invalid value er" +
+	"ror: invalid %q: %s\x02Invalid value error: invalid %q: %v\x04\x00\x01 " +
+	"\x22\x02Invalid value error: invalid %q: \x02Model manager error: failed" +
+	" getting model manager for %q\x02Model not found error: cannot find %q w" +
+	"ith id/name %q\x02Model not found error: cannot find %q with id/name %q:" +
+	" %s\x02invalid cert pubkey algorithm: %s, want %s\x02no such provider" +
+	"\x02Not Implemented GetProvider\x02NotFoundError\x02DuplicateIdError\x02" +
+	"InvalidStatusError\x02TimeoutError\x02NotImplementedError\x02NotSupporte" +
+	"dError\x02InvalidProvider\x02NoBalancePermission\x02ErrAddressCountExcee" +
+	"d\x02cannot support more than 1 nic\x02The %s disk size must be in the r" +
+	"ange of %dGB ~ %dGB\x02%s requires that the eip bandwidth must be less t" +
+	"han 100Mbps\x02network %s associated route table has no internet gateway" +
+	" attached.\x02failed to find subformat vhd for image %s, please append '" +
+	"vhd' for glance options(target_image_formats)\x02Azure Mv2-series instan" +
+	"ce sku only support UEFI image\x02Azure UEFI image %s not support this i" +
+	"nstance sku\x02cannot support change azure instance name\x02Cannot chang" +
+	"e config for baremtal\x02Cannot resize disk for baremtal\x02Invalid raid" +
+	" config: %v\x02Host %s is not a baremetal\x02Baremetal %s is not ready" +
+	"\x02Baremetal %s is occupied\x02Cannot save image for baremtal\x02Not Im" +
+	"plement ValidateCreateEip\x02Not allow for hypervisor %s\x02Not supporte" +
+	"d, please use kubectl\x02Container not support %s\x02%s not support crea" +
+	"te eip\x02can't resize disk for guest with instance snapshots\x02esxi gu" +
+	"est migrate require prefer_host\x02can't rebuild root for a guest with i" +
+	"nstance snapshots\x02Unknown google storage type %s\x02System disk does " +
+	"not support %s disk\x02%s disk cannot exceed 8\x02%s for %s features are" +
+	" not compatible for creating instance\x02Host %s not found\x02Guest have" +
+	" backup, can't migrate\x02Cannot normal migrate guest in status %s, try " +
+	"rescue mode or server-live-migrate?\x02Rescue mode requires all disk sto" +
+	"re in shared storages\x02Cannot migrate with isolated devices\x02Cannot " +
+	"live migrate with cdrom\x02Cannot live migrate with isolated devices\x02" +
+	"Cannot do live migrate, too low qemu version\x02Guest %s can't hot remov" +
+	"e nic\x02%s not support cdrom params\x02%s not support create eip, it on" +
+	"ly support bind eip\x02%s not support create virtual machine with eip" +
+	"\x02data disk not support storage type %s\x02The %s disk size must be in" +
+	" the range of 10GB ~ 16000GB\x02The %s disk size must be in the range of" +
+	" 50GB ~ 16000GB\x02The %s disk size must be in the range of 100GB ~ 1600" +
+	"0GB\x02The %s disk size must be in the range of 20GB ~ 32000GB\x02storag" +
+	"e %s can not be data disk\x02Data disk size must be an integer multiple " +
+	"of 10G\x02failed to found system disk error: %v\x02failed to found stora" +
+	"ge for disk %s(%s)\x02The system disk is locally stored and does not sup" +
+	"port changing configuration\x02Not support create local storage disks" +
+	"\x02Please input new disk backend type\x02The disk is locally stored and" +
+	" does not support detach\x02Host %s is not online\x02GetGuestCount fail " +
+	"%s\x02host has been occupied\x02Aliyun reset disk required guest status " +
+	"is running or ready\x02Aws not support reset disk, you can create new di" +
+	"sk with snapshot\x02cannot support change azure disk name\x02Azure not s" +
+	"upport reset disk, you can create new disk with snapshot\x02not implemen" +
+	"t\x02Not Implement ValidateResetDisk\x02Not Implement ValidateAttachStor" +
+	"age\x02Not Implement RequestAttachStorage\x02Not Implement RequestDetach" +
+	"Storage\x02Disk must be dettached\x02%s reset disk required guest status" +
+	" is running or ready\x02Server %s must in status ready\x02Disk must be d" +
+	"etached\x02Unsupport attach %s storage for %s host\x02Attach rbd storage" +
+	" require host status is online\x02Query host storage error %s\x02Host %s" +
+	" already have mount point %s with other storage\x02Attach nfs storage re" +
+	"quire host status is online\x02%s is not mount point %s\x02Disk attach m" +
+	"uti guests\x02Disk attached guest status must be ready\x02Disk dosen't a" +
+	"ttach guest\x02OpenStack not support reset disk, you can create new disk" +
+	" with snapshot\x02Qcloud reset disk required guest status is running or " +
+	"read\x02Ucloud reset disk operation required disk not be attached\x02Ucl" +
+	"oud only support data disk reset operation\x02ZStack reset disk operatio" +
+	"n requried guest status is ready\x02Parse remote ip error %s\x02Network " +
+	"not found\x02Baremetal agent not found\x02Baremetal package not prepared" +
+	"\x02check agent uniqness fail %s\x02Conflict manager_uri %s\x02Duplicate" +
+	" manager_uri %s\x02missing duration/expire_time\x02expire time is before" +
+	" current expire at\x02invalid duration %s: %s\x02missing name\x02invalid" +
+	" bucket name %s: %s\x02invalid bucket name(%s): %s\x02no external bucket" +
+	"\x02fail to get objects: %s\x02missing key\x02fail to generate temp url:" +
+	" %s\x02empty directory name\x02invalid key %s: %s\x02GetIObject fail %s" +
+	"\x02object count limit exceeds\x02bucket.GetQuotaKeys %s\x02fail to mkdi" +
+	"r: %s\x02empty keys\x02object key should not ends with /\x02invalid obje" +
+	"ct key: %s\x02missing Content-Length\x02Illegal Content-Length %s\x02Con" +
+	"tent-Length negative %d\x02GetIObject error %s\x02object size limit exce" +
+	"eds\x02bucket.GetQuotaKeys fail %s\x02put object error %s\x02setAcl erro" +
+	"r %s\x02syncWithCloudBucket error %s\x02Bucket has %d task active, can't" +
+	" sync status\x02not an empty bucket\x02object %s not found\x02iBucket.Ge" +
+	"tIObjects error %s\x02iBucket.SetWebsite error %s\x02iBucket.DeleteWebSi" +
+	"teConf error %s\x02iBucket.GetWebsiteConf error %s\x02cloudprovider.SetB" +
+	"ucketCORS error %s\x02iBucket.DeleteCORS error %s\x02iBucket.GetCORSRule" +
+	"s error %s\x02iBucket.GetCdnDomains error %s\x02iBucket.SetRefer error %" +
+	"s\x02iBucket.GetRefer error %s\x02iBucket.GetPolicy error %s\x02iBucket." +
+	"SetPolicy error %s\x02iBucket.DeletePolicy error %s\x02unmarshal limit e" +
+	"rror %s\x02SetLimit error %s\x02Update error %s\x02missing manager?\x02i" +
+	"Bucket.GetIObject error %s\x02ValidateDeleteCondition error %s\x02The im" +
+	"age has been cached on storages\x02the image reference session has not b" +
+	"een expired!\x02failed to found storagecache %s\x02not allow to query sy" +
+	"stem capability\x02account %s not enable saml auth\x02account is enabled" +
 	"\x02account is not idle\x02provider %s: %v\x02Cannot enable deleting acc" +
 	"ount\x02%s not support saml auth\x02invalid proxy setting %s\x02valid wi" +
 	"re_level_for_vmware, accept vcenter, datacenter, cluster\x02not support " +
@@ -2313,171 +2429,171 @@ const en_USData string = "" + // Size: 55206 bytes
 	"Cannot change config in status %s\x02Unmarshal input error: %v\x02failed" +
 	" to match any skus for change config\x02DBInstance is locked, cannot del" +
 	"ete\x02dbinstance billing type is %s\x02dbinstance billing type %s not s" +
-	"upport cancel expire\x02guest %q not found\x02snapshotpolicy %s not foun" +
-	"d: %s\x02not support update disk_type %s\x02failed to find storage for d" +
-	"isk %s\x02failed to find host for storage %s with disk %s\x02Storage %s " +
-	"not found\x02cloudprovider %s not available\x02storage %s(%s) need onlin" +
-	"e and attach host for create disk\x02Cannot create disk with disabled st" +
-	"orage[%s]\x02Cannot create disk with offline storage[%s]\x02Storage type" +
-	"[%s] not match backend %s\x02Storage[%s] must attach to a host\x02Not en" +
-	"ough free space\x02Fetch snapshot count failed %s\x02Disk %s don't need " +
-	"convert snapshots\x02Can not get disk snapshot\x02Get convert snapshot f" +
-	"ailed: %s\x02Snapshot %s dose not have convert snapshot\x02Cannot reset " +
-	"disk in status %s\x02Cannot reset disk with snapshot in status %s\x02Can" +
-	"not reset disk %s(%s),Snapshot is belong to disk %s\x02Resize disk when " +
-	"disk is READY\x02Disk cannot be thrink\x02disk has no valid storage\x02d" +
-	"isk.GetQuotaKeys fail %s\x02fail to find storage for disk %s\x02No zone " +
-	"for this disk\x02Duplicate image name %s\x02Save disk when disk is READY" +
-	"\x02GetRuningGuestCount fail %s\x02Save disk when not being USED\x02Imag" +
-	"e name is required\x02cloud provider %s is not available\x02cloud accoun" +
-	"t %s is not available\x02storage of disk %s no valid host\x02GetGuestDis" +
-	"kCount for disk %s fail %s\x02Virtual disk %s(%s) used by virtual server" +
-	"s\x02not allow to delete prepaid disk in valid status\x02Diskinfo index " +
-	"%d: both imageID and size are absent\x02Snapshot %s not found\x02Snapsho" +
-	"t %s storage %s not found, is public cloud?\x02Image status is not activ" +
-	"e\x02Disk has %d task active, can't sync status\x02GetSnapshotCount fail" +
-	" %s\x02not allow to purge. Virtual disk must not have snapshots\x02not a" +
-	"llow to delete. Virtual disk must not have snapshots\x02not allow to del" +
-	"ete %s disk with snapshots\x02no such snapshotpolicy %s\x02%s %s not sup" +
-	"ported dns type %s\x02%s %s not supported policy type %s\x02%s %s %s not" +
-	" support %s\x02invalid record name %s\x02duplicated with CNAME dnsrecord" +
-	" name not support\x02duplicated dnsrecord with existed dnsrecord can not" +
-	" distinguish by %s policy\x02duplicated dnsrecord with existed dnsrecord" +
-	" not support\x02%s not support policy type %s\x02%s %s not support polic" +
-	"y value %s\x02Not support\x02invalid domain name %s\x02Not support %s fo" +
-	"r vpc %s, supported %s\x02Not support %s for account %s, supported %s" +
-	"\x02top level public domain name %s not support\x02unknown zone type %s" +
-	"\x02can not sync record sets in %s\x02dns zone can not cache in status %" +
-	"s\x02Only %s support cache for account\x02account %s has been cached\x02" +
-	"dns zone can not uncache in status %s\x02vpc %s has already in this dns " +
-	"zone\x02vpc %s not in dns zone\x02SRV: insufficient param: %s\x02SRV: in" +
-	"valid port number: %s\x02SRV: invalid weight number: %s\x02SRV: weight n" +
-	"umber %d not in range [0,65535]\x02SRV: invalid priority number: %s\x02S" +
-	"RV: priority number %d not in range [0,65535]\x02SRV cannot mix with oth" +
-	"er types\x02CNAME cannot mix with other types\x02PTR cannot mix with oth" +
-	"er types\x02%s: invalid domain name: %s\x02SRV: invalid srv record name:" +
-	" %s\x02PTR: invalid ptr record name: %s\x02%s: name cannot be ip address" +
-	": %s\x02A: record value must be ipv4 address: %s\x02AAAA: record value m" +
-	"ust be ipv6 address: %s\x02%s: %s must be domain name: %s\x02%s: %s cann" +
-	"ot be ip address: %s\x02%s: unknown record type\x02Empty record\x02inval" +
-	"id ttl: %s\x02invalid ttl: %d\x02Cannot mix different types of records, " +
-	"%s != %s\x02invalid condition\x02schedtag %s not found\x02unmarshal Stan" +
-	"daloneResourceCreateInput fail %s\x02Resource type %s not support\x02Vir" +
-	"tual resource type %s not support\x02%s %s not found\x02can't restore el" +
-	"astic cache in status %s\x02unsupport delete %s backups\x02invalid billi" +
-	"ng_cycle %s\x02unmarshal VirtualResourceCreateInput fail %s\x02Cannot do" +
-	" restart elasticcache instance in status %s\x02Elastic cache is locked, " +
-	"cannot delete\x02Elastic cache is not expired, cannot delete\x02provider" +
-	" mismatch: %s instance can't use %s sku\x02region mismatch: instance reg" +
-	"ion %s, sku region %s\x02zone mismatch: instance zone %s, sku zone %s" +
-	"\x02engine version mismatch: instance version %s, sku version %s\x02can " +
-	"not change specification in status %s\x02auth mode aready in status %s" +
-	"\x02no admin account found for elastic cache %s\x02maintain time has no " +
-	"change\x02public connection aready allocated\x02release public connectio" +
-	"n aready released\x02invalid parameter format. json dict required\x02Ela" +
-	"sticcache has %d task active, can't sync status\x02elasticcache billing " +
-	"type is %s\x02elasticcache billing type %s not support cancel expire\x02" +
-	"Cannot add security groups in status %s\x02region\x02regiondriver\x02not" +
-	" supported bind security group\x02beyond security group quantity limit, " +
-	"max items %d.\x02The secgroup name %s does not meet the requirements, pl" +
-	"ease change the name\x02secgroups will be empty after update.\x02The ela" +
-	"stic cache status need be %s, current is %s\x02Only %s elastic cache sup" +
-	"port set auto renew operation\x02elastic cache no related region found" +
-	"\x02Only %s elastic cache support renew operation\x02%s is not modifiabl" +
-	"e\x02server %s not found\x02Not support associate type %s, only support " +
-	"%s\x02charge type %s not supported\x02eip has been associated with insta" +
-	"nce\x02eip cannot associate in status %s\x02fixed eip cannot be associat" +
-	"ed\x02Unsupported %s\x02cannot associate pending delete server\x02instan" +
-	"ce is already associated with eip\x02cannot associate server in status %" +
-	"s\x02cannot associate eip with same network\x02server region is not foun" +
-	"d???\x02eip region is not found???\x02eip and server are not in the same" +
-	" region\x02eip and server are not in the same zone\x02server host is not" +
-	" found???\x02server and eip are not managed by the same provider\x02eip " +
-	"cannot dissociate in status %s\x02fixed public eip cannot be dissociated" +
-	"\x02the associated natgateway has corresponding snat rules with eip %s, " +
-	"please delete them firstly\x02the associated natgateway has correspondin" +
-	"g dnat rules with eip %s, please delete them firstly\x02fixed eip cannot" +
-	" sync status\x02cannot change bandwidth in status %s\x02Invalid bandwidt" +
-	"h\x02Cannot purge elastic_ip on enabled cloud provider\x02account %s not" +
-	" share for domain %s\x02please retry after unbind all guests in group" +
-	"\x02can not bind guest from disabled guest\x02can not unbind guest from " +
-	"disabled guest\x02no such model %s\x02guest and instance group should be" +
-	"long to same project\x02Host missing\x02host status %s and enabled %v, c" +
-	"an't do server %s\x02Cannot send command in status %s\x02No host for ser" +
-	"ver\x02Cannot save image in status %s\x02No root image\x02Support only b" +
-	"y KVM Hypervisor\x02Cannot sync in status %s\x02Cannot live migrate in s" +
-	"tatus %s\x02Can't clone guest with backup guest\x02Guest hypervisor %s d" +
-	"oes not support clone\x02Cannot clone VM in status %s\x02Unmarshal input" +
-	" error %s\x02Cannot deploy in status %s\x02Disk %s and guest not belong " +
-	"to the same account\x02Disk %s and guest not belong to the same zone\x02" +
-	"isAttached check failed %s\x02Disk %s has been attached\x02Disk %s not b" +
-	"elong the guest's host\x02Disk in %s not able to attach\x02Guest %s not " +
-	"support attach disk in status %s\x02Disk %s not found\x02Cannot suspend " +
-	"VM in status %s\x02Cannot resume VM in status %s\x02Some disk not ready" +
-	"\x02Cannot do start server in status %s\x02CD-ROM not empty, please ejec" +
-	"t first\x02Insert ISO not allowed in status %s\x02No ISO to eject\x02Eje" +
-	"ct ISO not allowed in status %s\x02Cannot add security groups for hyperv" +
-	"isor %s\x02guest %s band to up to %d security groups\x02security group %" +
-	"s has already been assigned to guest %s\x02Cannot revoke security groups" +
-	" in status %s\x02security group %s not assigned to guest %s\x02Cannot as" +
-	"sign security rules in status %s\x02Cannot set security rules in status " +
-	"%s\x02Cannot set security group for this guest %s\x02Cannot purge server" +
-	" on enabled host\x02failed to find %s\x02invlid image\x02image size exce" +
-	"eds root disk size\x02Cannot switch OS between %s-%s\x02Can not rebuild " +
-	"root with with diff uefi image\x02No template for root disk, cannot rebu" +
-	"ild root\x02%s not support rebuild root with a different image\x02Cannot" +
-	" reset root in status %s\x02keypair %s not found\x02No Disk Info Provide" +
-	"d\x02No valid host\x02No valid storage on current host\x02Not eough stor" +
-	"age space on current host\x02failed to find disk %s\x02check isAttach2Di" +
-	"sk fail %s\x02Cannot detach sys disk\x02Cannot keep detached disk\x02Ser" +
-	"ver in %s not able to detach disk\x02Disk %s not attached\x02Only allowe" +
-	"d to attach isolated device when guest is ready\x02Missing isolated devi" +
-	"ce\x02Isolated device %s not found\x02Isolated device is not attached to" +
-	" this guest\x02guest attach gpu count must > 0\x02fetch gpu failed %s" +
-	"\x02guest %s host %s isolated device not enough\x02attach devices is not" +
-	" string array\x02detach devices is not string array\x02ip %s not found" +
-	"\x02mac %s not found\x02no either ip_addr or mac specified\x02Cannot cha" +
-	"nge network ip_addr in status %s\x02cannot change mac when guest is runn" +
-	"ing\x02check mac uniqueness fail %s\x02mac addr %s has been occupied\x02" +
-	"Cannot detach network in status %s\x02Cannot attach network in status %s" +
-	"\x02Cannot change bandwidth in status %s\x02Bandwidth must be non-negati" +
-	"ve\x02Cannot change setting in status %s\x02Not allow to change config" +
-	"\x02Guest have backup not allow to change config\x02Cannot change config" +
-	" in %s\x02Cannot change config with different instance family\x02Params " +
-	"vcpu_count parse error\x02Memory size must be number[+unit], like 256M, " +
-	"1G or 256\x02Params vmem_size parse error\x02cannot change CPU/Memory sp" +
-	"ec in status %s\x02Unmarshal disks configure error %s\x02Parse disk info" +
-	" error: %s\x02host not connect storage %s\x02Cannot reduce disk size\x02" +
-	"Fetch storage error: %s\x02Host resource is not enough\x02Create disk on" +
-	" host error: %s\x02Cannot reset VM in status %s\x02Guest has %d task act" +
+	"upport cancel expire\x02this operation requires rds state to be %s\x02%s" +
+	" supported secgroup count is %d\x02guest %q not found\x02snapshotpolicy " +
+	"%s not found: %s\x02not support update disk_type %s\x02failed to find st" +
+	"orage for disk %s\x02failed to find host for storage %s with disk %s\x02" +
+	"Storage %s not found\x02cloudprovider %s not available\x02storage %s(%s)" +
+	" need online and attach host for create disk\x02Cannot create disk with " +
+	"disabled storage[%s]\x02Cannot create disk with offline storage[%s]\x02S" +
+	"torage type[%s] not match backend %s\x02Storage[%s] must attach to a hos" +
+	"t\x02Not enough free space\x02Fetch snapshot count failed %s\x02Disk %s " +
+	"don't need convert snapshots\x02Can not get disk snapshot\x02Get convert" +
+	" snapshot failed: %s\x02Snapshot %s dose not have convert snapshot\x02Ca" +
+	"nnot reset disk in status %s\x02Cannot reset disk with snapshot in statu" +
+	"s %s\x02Cannot reset disk %s(%s),Snapshot is belong to disk %s\x02Resize" +
+	" disk when disk is READY\x02Disk cannot be thrink\x02disk has no valid s" +
+	"torage\x02disk.GetQuotaKeys fail %s\x02fail to find storage for disk %s" +
+	"\x02No zone for this disk\x02Duplicate image name %s\x02Save disk when d" +
+	"isk is READY\x02GetRuningGuestCount fail %s\x02Save disk when not being " +
+	"USED\x02Image name is required\x02cloud provider %s is not available\x02" +
+	"cloud account %s is not available\x02storage of disk %s no valid host" +
+	"\x02GetGuestDiskCount for disk %s fail %s\x02Virtual disk %s(%s) used by" +
+	" virtual servers\x02not allow to delete prepaid disk in valid status\x02" +
+	"Diskinfo index %d: both imageID and size are absent\x02Snapshot %s not f" +
+	"ound\x02Snapshot %s storage %s not found, is public cloud?\x02Image stat" +
+	"us is not active\x02Disk has %d task active, can't sync status\x02GetSna" +
+	"pshotCount fail %s\x02not allow to purge. Virtual disk must not have sna" +
+	"pshots\x02not allow to delete. Virtual disk must not have snapshots\x02n" +
+	"ot allow to delete %s disk with snapshots\x02no such snapshotpolicy %s" +
+	"\x02%s %s not supported dns type %s\x02%s %s not supported policy type %" +
+	"s\x02%s %s %s not support %s\x02invalid record name %s\x02duplicated wit" +
+	"h CNAME dnsrecord name not support\x02duplicated dnsrecord with existed " +
+	"dnsrecord can not distinguish by %s policy\x02duplicated dnsrecord with " +
+	"existed dnsrecord not support\x02%s not support policy type %s\x02%s %s " +
+	"not support policy value %s\x02Not support\x02invalid domain name %s\x02" +
+	"Not support %s for vpc %s, supported %s\x02Not support %s for account %s" +
+	", supported %s\x02top level public domain name %s not support\x02unknown" +
+	" zone type %s\x02can not sync record sets in %s\x02dns zone can not cach" +
+	"e in status %s\x02Only %s support cache for account\x02account %s has be" +
+	"en cached\x02dns zone can not uncache in status %s\x02vpc %s has already" +
+	" in this dns zone\x02vpc %s not in dns zone\x02SRV: insufficient param: " +
+	"%s\x02SRV: invalid port number: %s\x02SRV: invalid weight number: %s\x02" +
+	"SRV: weight number %d not in range [0,65535]\x02SRV: invalid priority nu" +
+	"mber: %s\x02SRV: priority number %d not in range [0,65535]\x02SRV cannot" +
+	" mix with other types\x02CNAME cannot mix with other types\x02PTR cannot" +
+	" mix with other types\x02%s: invalid domain name: %s\x02SRV: invalid srv" +
+	" record name: %s\x02PTR: invalid ptr record name: %s\x02%s: name cannot " +
+	"be ip address: %s\x02A: record value must be ipv4 address: %s\x02AAAA: r" +
+	"ecord value must be ipv6 address: %s\x02%s: %s must be domain name: %s" +
+	"\x02%s: %s cannot be ip address: %s\x02%s: unknown record type\x02Empty " +
+	"record\x02invalid ttl: %s\x02invalid ttl: %d\x02Cannot mix different typ" +
+	"es of records, %s != %s\x02invalid condition\x02schedtag %s not found" +
+	"\x02unmarshal StandaloneResourceCreateInput fail %s\x02Resource type %s " +
+	"not support\x02Virtual resource type %s not support\x02%s %s not found" +
+	"\x02can't restore elastic cache in status %s\x02unsupport delete %s back" +
+	"ups\x02invalid billing_cycle %s\x02unmarshal VirtualResourceCreateInput " +
+	"fail %s\x02Cannot do restart elasticcache instance in status %s\x02Elast" +
+	"ic cache is locked, cannot delete\x02Elastic cache is not expired, canno" +
+	"t delete\x02provider mismatch: %s instance can't use %s sku\x02region mi" +
+	"smatch: instance region %s, sku region %s\x02zone mismatch: instance zon" +
+	"e %s, sku zone %s\x02engine version mismatch: instance version %s, sku v" +
+	"ersion %s\x02can not change specification in status %s\x02auth mode area" +
+	"dy in status %s\x02no admin account found for elastic cache %s\x02mainta" +
+	"in time has no change\x02public connection aready allocated\x02release p" +
+	"ublic connection aready released\x02invalid parameter format. json dict " +
+	"required\x02Elasticcache has %d task active, can't sync status\x02elasti" +
+	"ccache billing type is %s\x02elasticcache billing type %s not support ca" +
+	"ncel expire\x02Cannot add security groups in status %s\x02region\x02regi" +
+	"ondriver\x02not supported bind security group\x02beyond security group q" +
+	"uantity limit, max items %d.\x02The secgroup name %s does not meet the r" +
+	"equirements, please change the name\x02secgroups will be empty after upd" +
+	"ate.\x02The elastic cache status need be %s, current is %s\x02Only %s el" +
+	"astic cache support set auto renew operation\x02elastic cache no related" +
+	" region found\x02Only %s elastic cache support renew operation\x02%s is " +
+	"not modifiable\x02resource %s in vpc %s external access mode %s is not s" +
+	"upport accociate eip\x02server %s not found\x02Not support associate typ" +
+	"e %s, only support %s\x02charge type %s not supported\x02eip has been as" +
+	"sociated with instance\x02eip cannot associate in status %s\x02fixed eip" +
+	" cannot be associated\x02Unsupported %s\x02cannot associate pending dele" +
+	"te server\x02instance is already associated with eip\x02cannot associate" +
+	" server in status %s\x02cannot associate eip with same network\x02server" +
+	" region is not found???\x02eip region is not found???\x02eip and server " +
+	"are not in the same region\x02eip and server are not in the same zone" +
+	"\x02server host is not found???\x02server and eip are not managed by the" +
+	" same provider\x02eip cannot dissociate in status %s\x02fixed public eip" +
+	" cannot be dissociated\x02the associated natgateway has corresponding sn" +
+	"at rules with eip %s, please delete them firstly\x02the associated natga" +
+	"teway has corresponding dnat rules with eip %s, please delete them first" +
+	"ly\x02fixed eip cannot sync status\x02cannot change bandwidth in status " +
+	"%s\x02Invalid bandwidth\x02Cannot purge elastic_ip on enabled cloud prov" +
+	"ider\x02account %s not share for domain %s\x02please retry after unbind " +
+	"all guests in group\x02can not bind guest from disabled guest\x02can not" +
+	" unbind guest from disabled guest\x02no such model %s\x02guest and insta" +
+	"nce group should belong to same project\x02Host missing\x02host status %" +
+	"s and enabled %v, can't do server %s\x02Cannot send command in status %s" +
+	"\x02No host for server\x02Cannot save image in status %s\x02No root imag" +
+	"e\x02Support only by KVM Hypervisor\x02Cannot sync in status %s\x02Canno" +
+	"t live migrate in status %s\x02Can't clone guest with backup guest\x02Gu" +
+	"est hypervisor %s does not support clone\x02Cannot clone VM in status %s" +
+	"\x02Unmarshal input error %s\x02Cannot deploy in status %s\x02Disk %s an" +
+	"d guest not belong to the same account\x02Disk %s and guest not belong t" +
+	"o the same zone\x02isAttached check failed %s\x02Disk %s has been attach" +
+	"ed\x02Disk %s not belong the guest's host\x02Disk in %s not able to atta" +
+	"ch\x02Guest %s not support attach disk in status %s\x02Disk %s not found" +
+	"\x02Cannot suspend VM in status %s\x02Cannot resume VM in status %s\x02h" +
+	"ost virtual memory not enough\x02Some disk not ready\x02Cannot do start " +
+	"server in status %s\x02CD-ROM not empty, please eject first\x02Insert IS" +
+	"O not allowed in status %s\x02No ISO to eject\x02Eject ISO not allowed i" +
+	"n status %s\x02Cannot add security groups for hypervisor %s\x02guest %s " +
+	"band to up to %d security groups\x02security group %s has already been a" +
+	"ssigned to guest %s\x02Cannot revoke security groups in status %s\x02sec" +
+	"urity group %s not assigned to guest %s\x02Cannot assign security rules " +
+	"in status %s\x02Cannot set security rules in status %s\x02Cannot set sec" +
+	"urity group for this guest %s\x02Cannot purge server on enabled host\x02" +
+	"failed to find %s\x02invlid image\x02image size exceeds root disk size" +
+	"\x02Cannot switch OS between %s-%s\x02Can not rebuild root with with dif" +
+	"f uefi image\x02No template for root disk, cannot rebuild root\x02%s not" +
+	" support rebuild root with a different image\x02Cannot reset root in sta" +
+	"tus %s\x02keypair %s not found\x02No Disk Info Provided\x02No valid host" +
+	"\x02No valid storage on current host\x02Not eough storage space on curre" +
+	"nt host\x02failed to find disk %s\x02check isAttach2Disk fail %s\x02Cann" +
+	"ot detach sys disk\x02Cannot keep detached disk\x02Server in %s not able" +
+	" to detach disk\x02Disk %s not attached\x02Only allowed to attach isolat" +
+	"ed device when guest is ready\x02Missing isolated device\x02Isolated dev" +
+	"ice %s not found\x02Isolated device is not attached to this guest\x02gue" +
+	"st attach gpu count must > 0\x02fetch gpu failed %s\x02guest %s host %s " +
+	"isolated device not enough\x02attach devices is not string array\x02deta" +
+	"ch devices is not string array\x02ip %s not found\x02mac %s not found" +
+	"\x02no either ip_addr or mac specified\x02Cannot change network ip_addr " +
+	"in status %s\x02cannot change mac when guest is running\x02check mac uni" +
+	"queness fail %s\x02mac addr %s has been occupied\x02Cannot detach networ" +
+	"k in status %s\x02Cannot attach network in status %s\x02Cannot change ba" +
+	"ndwidth in status %s\x02Bandwidth must be non-negative\x02Cannot change " +
+	"setting in status %s\x02Not allow to change config\x02Guest have backup " +
+	"not allow to change config\x02Cannot change config in %s\x02Cannot chang" +
+	"e config with different instance family\x02Params vcpu_count parse error" +
+	"\x02Memory size must be number[+unit], like 256M, 1G or 256\x02Params vm" +
+	"em_size parse error\x02cannot change CPU/Memory spec in status %s\x02Unm" +
+	"arshal disks configure error %s\x02Parse disk info error: %s\x02Cannot r" +
+	"educe disk size\x02Cannot reset VM in status %s\x02Guest has %d task act" +
 	"ive, can't sync status\x02Cannot stop server in status %s\x02Cannot do r" +
 	"estart server in status %s\x02Cannot send keys in status %s\x02cannot as" +
 	"sociate eip in status %s\x02already associate with eip\x02eip %s not fou" +
 	"nd\x02eip has been associated\x02cannot associate eip and instance in di" +
 	"fferent region\x02cannot associate eip and instance in different zone" +
 	"\x02cannot associate eip and instance in different provider\x02No eip to" +
-	" dissociate\x02No host???\x02No valid cloud provider\x02No cloudregion??" +
-	"?\x02Out of eip quota: %s\x02Cannot swith to backup when guest in status" +
-	" %s\x02Guest no backup host\x02Guest can't switch to backup, mirror job " +
-	"not ready\x02failed to found guest %s\x02input data not key value dict" +
-	"\x02Guest %s not found\x02Fetch guest error %s\x02Already have backup se" +
-	"rver\x02Cannot create backup with shared storage\x02Backup only support " +
-	"hypervisor kvm\x02Cannot create backup with isolated devices\x02GuestDis" +
-	"ksHasSnapshot fail %s\x02Cannot create backup with snapshot\x02Guest wit" +
-	"hout backup\x02Guest backup host not found\x02Backup host is offline\x02" +
-	"guest doesn't need reconcile backup\x02guest billing type %s not support" +
-	" cancel expire\x02guest billing type is %s\x02guest %s unsupport postpai" +
-	"d expire\x02Invalid desc: %s\x02Server Id is empty\x02Server Name is emp" +
-	"ty\x02Server %s already exists\x02Empty import nics\x02ip %s or mac %s h" +
-	"as been registered\x02Not found network by ip %s\x02Empty import disks" +
-	"\x02Unmarshal data error %s\x02Some host config missing xml_file_path" +
-	"\x02Some host config missing host ip\x02Invalid host ip %s\x02Invalid se" +
-	"rver mac address %s\x02Invalid server ip address %s\x02NewTask error: %s" +
-	"\x02Hypervisor %s can't generate libvirt xml\x02Generate xml failed: %s" +
-	"\x02not support hypervisor %s\x02not support %s\x02guest has been conver" +
-	"ted\x02host %s is not kvm host\x02guest status must be ready\x02Check se" +
-	"t pending quota error %s\x02host not found???\x02empty ip list\x02Unreac" +
-	"hable IP %s: %s\x02Unavailable IP %s: occupied\x02some disk missing!!!" +
+	" dissociate\x02Out of eip quota: %s\x02Cannot swith to backup when guest" +
+	" in status %s\x02Guest no backup host\x02Guest can't switch to backup, m" +
+	"irror job not ready\x02failed to found guest %s\x02input data not key va" +
+	"lue dict\x02Guest %s not found\x02Fetch guest error %s\x02Already have b" +
+	"ackup server\x02Cannot create backup with shared storage\x02Backup only " +
+	"support hypervisor kvm\x02Cannot create backup with isolated devices\x02" +
+	"GuestDisksHasSnapshot fail %s\x02Cannot create backup with snapshot\x02G" +
+	"uest without backup\x02Guest backup host not found\x02Backup host is off" +
+	"line\x02guest doesn't need reconcile backup\x02guest billing type %s not" +
+	" support cancel expire\x02guest billing type is %s\x02guest %s unsupport" +
+	" postpaid expire\x02Invalid desc: %s\x02Server Id is empty\x02Server Nam" +
+	"e is empty\x02Server %s already exists\x02Empty import nics\x02ip %s or " +
+	"mac %s has been registered\x02Not found network by ip %s\x02Empty import" +
+	" disks\x02Unmarshal data error %s\x02Some host config missing xml_file_p" +
+	"ath\x02Some host config missing host ip\x02Invalid host ip %s\x02Invalid" +
+	" server mac address %s\x02Invalid server ip address %s\x02NewTask error:" +
+	" %s\x02Hypervisor %s can't generate libvirt xml\x02Generate xml failed: " +
+	"%s\x02not support hypervisor %s\x02not support %s\x02guest has been conv" +
+	"erted\x02host %s is not kvm host\x02guest status must be ready\x02Check " +
+	"set pending quota error %s\x02host not found???\x02empty ip list\x02Unre" +
+	"achable IP %s: %s\x02Unavailable IP %s: occupied\x02some disk missing!!!" +
 	"\x02disk %s not attached to server\x02Hypervisor %s can't do io throttle" +
 	"\x02Cannot do io throttle in status %s\x02bps must > 0\x02iops must > 0" +
 	"\x02guest %s hypervisor %s can't migrate\x02guest %s has backup, can't m" +
@@ -2518,108 +2634,111 @@ const en_USData string = "" + // Size: 55206 bytes
 	" longer than 32 chars\x02No disk information provided\x02Invalid root im" +
 	"age: %s\x02System disk does not support iso image, please consider using" +
 	" cdrom parameter\x02parse cdrom device info error %s\x02Miss operating s" +
-	"ystem???\x02parse disk description error %s\x02Snapshot error: disk inde" +
-	"x %d > 0 but disk type is %s\x02cannot create prepaid server on prepaid " +
-	"resource type\x02parse network description error %s\x02Cannot create bac" +
-	"kup with isolated device\x02parse isolated device description error %s" +
-	"\x02Keypair %s not found\x02Secgroup %s not found\x02%s shall bind up to" +
-	" %d security groups\x02Invalid userdata: %v\x02invalid parameters for po" +
-	"licy definition %s\x02policy definition %s require cloudregion in %s\x02" +
-	"policy definition %s require cloudregion not in %s\x02invalid policy def" +
-	"inition %s(%s) condition %s\x02policy definition %s require must contain" +
-	"s tag %s\x02policy definition %s require except tag %s\x02invalid catego" +
-	"ry %s for policy definition %s(%s)\x02public ip not supported for %s\x02" +
-	"invalid public_ip_charge_type %s\x02eip not supported for %s\x02eip %s s" +
-	"tatus invalid %s\x02eip %s has been associated\x02cannot assoicate with " +
-	"eip %s: different cloudprovider\x02cannot assoicate with eip %s: differe" +
-	"nt region\x02fetch disk size failed\x02image %s do not belong to guest i" +
-	"mage %s\x02miss some subimage of guest image\x02Baremetal %s not enabled" +
-	"\x02cannot run hypervisor %s on specified host with type %s\x02no valid " +
-	"storage on host\x02invalid aggregate_strategy: %s\x02Wire %s not found" +
-	"\x02Hypervisor %s not supported\x02cannot recycle in status %s\x02cannot" +
-	" undo recycle in status %s\x02host should be disabled\x02host is not a p" +
-	"repaid recycle host\x02cannot delete a recycle host without active insta" +
-	"nce\x02a recycle host shoud not allocate more than 1 guest\x02cannot und" +
-	"o a recycle host with pending_deleted guest\x02Not a prepaid recycle hos" +
-	"t\x02invalid any_mac address\x02Schedtag %s not found\x02not supported h" +
-	"ypervisor %s\x02Host is a converted baremetal, should be unconverted bef" +
-	"ore delete\x02Host is not disabled\x02getGuestCount fail %s\x02Not an em" +
-	"pty host\x02GetDiskCount fail %s\x02Local host storage is not empty???" +
-	"\x02Inconsistent: local storage is not empty???\x02No ipmi information w" +
-	"as found for host %s\x02IPMI has no password information\x02check %s dup" +
-	"lication fail %s\x02duplicate %s %s\x02invalid macAddr %s\x02check acces" +
-	"s_mac duplication fail %s\x02duplicate access_mac %s\x02%s is out of net" +
-	"work IP ranges\x02IPMI network has no zone???\x02IPMI address located in" +
-	" different zone than specified\x02Access ip %s has been used\x02Access n" +
-	"etwork has no zone???\x02Access address located in different zone than s" +
-	"pecified\x02missing access_mac and uuid in no_probe mode\x02IPMI network" +
-	" has not zone???\x02New IPMI address located in another zone!\x02Cannot " +
-	"start a non-baremetal host\x02Cannot start baremetal with active guest" +
-	"\x02Cannot stop a non-baremetal host\x02Cannot stop baremetal with non-a" +
-	"ctive guest\x02Cannot stop baremetal with active guest\x02Cannot do main" +
-	"tenance in status %s\x02Cannot do maintenance while guest status %s\x02C" +
-	"annot do unmaintenance in status %s\x02Wrong guest status %s\x02not a ba" +
-	"remetal\x02need valid access_mac and uuid to do prepare\x02Cannot prepar" +
-	"e baremetal in status %s\x02Cannot prepare baremetal in server status %s" +
-	"\x02Cannot do Ipmi-probe in status %s\x02Cannot do initialization in sta" +
-	"tus %s\x02IPMI infomation not configured\x02Guest Insert error: %s\x02In" +
-	"vaild mac address\x02find Wire %s error: %s\x02invalid ipaddr %s\x02no n" +
-	"etworks on wire %s\x02IP %s not attach to wire %s\x02IP %s not attach to" +
-	" any wire\x02fail to fetch netif by mac %s: %s\x02fail to fetch hostwire" +
-	" by mac %s: %s\x02Interface %s not exist\x02Only ADMIN and IPMI nic can " +
-	"be enable\x02Interface %s not exists\x02Invalid mac address\x02Fetch net" +
-	"if error %s\x02Cannot sync status a non-baremetal host\x02Cannot reset b" +
-	"aremetal in status %s\x02Cannot reset baremetal with active guest\x02Can" +
-	"not perform cache image in status %s\x02image %s not found\x02Cannot cac" +
-	"he image with no checksum\x02host_type must be specified\x02Must be a ba" +
-	"remetal host\x02Baremetal host is aleady occupied\x02Connot convert hype" +
-	"rvisor in status %s\x02require system previleges to convert host in othe" +
-	"r domain\x02Unsupport driver type %s\x02isAlterNameUnique fail %s\x02Con" +
-	"vert error: %s\x02Not a baremetal\x02Not being convert to hypervisor\x02" +
-	"Host should be disabled\x02Cannot unconvert in status %s\x02Not an conve" +
-	"rted hypervisor\x02host status %s can't exit maintenance\x02host type %s" +
-	" can't do host maintenance\x02unsupport on host status %s\x02Host %s can" +
-	"'t migrate guests %s in status %s\x02Cannot do insert-iso in status %s" +
-	"\x02Cannot do eject-iso in status %s\x02Cannot sync config a non-baremet" +
-	"al host\x02reserved cpu must >= 0\x02reserved memory must >= 0\x02reserv" +
-	"ed storage must >= 0\x02host %s can't reserve %d cpu for each isolated d" +
-	"evice, not enough\x02host %s can't reserve %dM memory for each isolated " +
-	"device, not enough\x02host %s can't reserve %dM storage for each isolate" +
-	"d device, not enough\x02Only system admin can assign host\x02StorageInUs" +
-	"e\x02failed to find storage %s to attach host\x02failed to find host %s " +
-	"to attach storage\x02unmarshal JoinResourceBaseCreateInput fail %s\x02Ge" +
-	"tGuestDiskCount fail %s\x02GetGuestnicsCount fail %s\x02guest on the hos" +
-	"t are using networks on this wire\x02can't delete instance snapshot with" +
-	" wrong status\x02vpc joint interVpcNetwork on different cloudprovider is" +
-	" not supported\x02vpc joint interVpcNetwork on different cloudEnv is not" +
-	" supported\x02vpc %s already connected to a interVpcNetwork\x02vpc %s is" +
-	" not connected to this interVpcNetwork\x02Isolated device used by server" +
-	"\x02IsolatedDevice %s not found\x02Isolated device already attached to a" +
-	"nother guest: %s\x02Isolated device used by server: %s\x02Unsupported sc" +
-	"heme %s\x02invalid public error: %v\x02GetLinkedGuestsCount failed %s" +
-	"\x02Cannot delete keypair used by servers\x02find listener of listener r" +
-	"ule %s(%s)\x02invalid addr %s\x02comment too long (%d>=%d)\x02comment co" +
-	"ntains non-printable char: %v\x02acl cidr duplicate %s\x02get acl count " +
-	"fail %s\x02acl %s is still referred to by %d %s\x02invalid vrrp interfac" +
-	"e %q\x02invalid vrrp authentication pass size: %d, want [1,8]\x02invalid" +
-	" vrrp priority %d: want [1,255]\x02invalid vrrp virtual_router_id %d: wa" +
-	"nt [1,255]\x02invalid vrrp advert_int %d: want [1,255]\x02telegraf param" +
-	"s: invalid influxdb url: %s\x02%s: bad base64 encoded string: %s\x02%s: " +
-	"bad template: %s\x02fetch lbagents of other clusters: %v\x02conflict wit" +
-	"h lbagent %s(%s): %v\x02lbcluster %s(%s) already has virtual_router_id %" +
-	"d\x02%s: time error: %s\x02%s: new time is in the future: %s > %s\x02pee" +
-	"r lbagent %s(%s) already has vrrp priority %d\x02use yum requires valid " +
-	"repo_base_url\x02empty host name\x02find host %s: %v\x02lbagent cannot b" +
-	"e deployed on managed host\x02find guest %s: %v\x02lbagent cannot be dep" +
-	"loyed on public guests\x02server is in %q state, want %q\x02unmarshal in" +
-	"put: %v\x02host missing %s field\x02empty host %s field\x02authenticate " +
-	"error: %v\x02user must have system admin privileges\x02get %s service %s" +
-	" url: %v\x02No previous deployment info available\x02query backend group" +
-	" releated resource failed.\x02weight %d not support, only support range " +
-	"0 ~ 256\x02port %d not support, only support range 1 ~ 65535\x02failed t" +
-	"o find guest %s\x02only sysadmin can specify host as backend\x02failed t" +
-	"o find host %s\x02unexpected backend type %s\x02region of backend %d doe" +
-	"s not match that of lb's\x02failed to find region for loadbalancer %s" +
+	"ystem???\x02root disk image(%s) and sku(%s) architecture mismatch\x02par" +
+	"se disk description error %s\x02Snapshot error: disk index %d > 0 but di" +
+	"sk type is %s\x02cannot create prepaid server on prepaid resource type" +
+	"\x02parse network description error %s\x02Cannot create backup with isol" +
+	"ated device\x02parse isolated device description error %s\x02Keypair %s " +
+	"not found\x02Secgroup %s not found\x02%s shall bind up to %d security gr" +
+	"oups\x02Invalid userdata: %v\x02invalid parameters for policy definition" +
+	" %s\x02policy definition %s require cloudregion in %s\x02policy definiti" +
+	"on %s require cloudregion not in %s\x02invalid policy definition %s(%s) " +
+	"condition %s\x02policy definition %s require must contains tag %s\x02pol" +
+	"icy definition %s require except tag %s\x02invalid category %s for polic" +
+	"y definition %s(%s)\x02public ip not supported for %s\x02invalid public_" +
+	"ip_charge_type %s\x02eip not supported for %s\x02eip %s status invalid %" +
+	"s\x02eip %s has been associated\x02cannot assoicate with eip %s: differe" +
+	"nt cloudprovider\x02cannot assoicate with eip %s: different region\x02fe" +
+	"tch disk size failed\x02image %s do not belong to guest image %s\x02miss" +
+	" some subimage of guest image\x02Baremetal %s not enabled\x02cannot run " +
+	"hypervisor %s on specified host with type %s\x02no valid storage on host" +
+	"\x02invalid aggregate_strategy: %s\x02Wire %s not found\x02Hypervisor %s" +
+	" not supported\x02cannot recycle in status %s\x02cannot undo recycle in " +
+	"status %s\x02host should be disabled\x02host is not a prepaid recycle ho" +
+	"st\x02cannot delete a recycle host without active instance\x02a recycle " +
+	"host shoud not allocate more than 1 guest\x02cannot undo a recycle host " +
+	"with pending_deleted guest\x02Not a prepaid recycle host\x02invalid any_" +
+	"mac address\x02Schedtag %s not found\x02not supported hypervisor %s\x02H" +
+	"ost is a converted baremetal, should be unconverted before delete\x02Hos" +
+	"t is not disabled\x02getGuestCount fail %s\x02Not an empty host\x02GetDi" +
+	"skCount fail %s\x02Local host storage is not empty???\x02Inconsistent: l" +
+	"ocal storage is not empty???\x02No ipmi information was found for host %" +
+	"s\x02IPMI has no password information\x02check %s duplication fail %s" +
+	"\x02duplicate %s %s\x02invalid macAddr %s\x02check access_mac duplicatio" +
+	"n fail %s\x02duplicate access_mac %s\x02%s is out of network IP ranges" +
+	"\x02IPMI network has no zone???\x02IPMI address located in different zon" +
+	"e than specified\x02Access ip %s has been used\x02Access network has no " +
+	"zone???\x02Access address located in different zone than specified\x02mi" +
+	"ssing access_mac and uuid in no_probe mode\x02IPMI network has not zone?" +
+	"??\x02New IPMI address located in another zone!\x02Cannot start a non-ba" +
+	"remetal host\x02Cannot start baremetal with active guest\x02Cannot stop " +
+	"a non-baremetal host\x02Cannot stop baremetal with non-active guest\x02C" +
+	"annot stop baremetal with active guest\x02Cannot do maintenance in statu" +
+	"s %s\x02Cannot do maintenance while guest status %s\x02Cannot do unmaint" +
+	"enance in status %s\x02Wrong guest status %s\x02not a baremetal\x02need " +
+	"valid access_mac and uuid to do prepare\x02Cannot prepare baremetal in s" +
+	"tatus %s\x02Cannot prepare baremetal in server status %s\x02Cannot do Ip" +
+	"mi-probe in status %s\x02Cannot do initialization in status %s\x02IPMI i" +
+	"nfomation not configured\x02Guest Insert error: %s\x02Invaild mac addres" +
+	"s\x02find Wire %s error: %s\x02invalid ipaddr %s\x02no networks on wire " +
+	"%s\x02IP %s not attach to wire %s\x02IP %s not attach to any wire\x02fai" +
+	"l to fetch netif by mac %s: %s\x02fail to fetch hostwire by mac %s: %s" +
+	"\x02Interface %s not exist\x02Only ADMIN and IPMI nic can be enable\x02I" +
+	"nterface %s not exists\x02Not a baremetal\x02Not being convert to hyperv" +
+	"isor\x02Not found baremetal server record\x02Not found guest nic by mac " +
+	"%s\x02Guest nic ip addr %s not equal %s\x02Invalid mac address\x02Fetch " +
+	"netif error %s\x02Cannot sync status a non-baremetal host\x02Cannot rese" +
+	"t baremetal in status %s\x02Cannot reset baremetal with active guest\x02" +
+	"Cannot perform cache image in status %s\x02image %s not found\x02Cannot " +
+	"cache image with no checksum\x02host_type must be specified\x02Must be a" +
+	" baremetal host\x02Baremetal host is aleady occupied\x02Connot convert h" +
+	"ypervisor in status %s\x02require system previleges to convert host in o" +
+	"ther domain\x02Unsupport driver type %s\x02isAlterNameUnique fail %s\x02" +
+	"Convert error: %s\x02Host should be disabled\x02Cannot unconvert in stat" +
+	"us %s\x02Not an converted hypervisor\x02host status %s can't exit mainte" +
+	"nance\x02host type %s can't do host maintenance\x02unsupport on host sta" +
+	"tus %s\x02Host %s can't migrate guests %s in status %s\x02Cannot do inse" +
+	"rt-iso in status %s\x02Cannot do eject-iso in status %s\x02Cannot sync c" +
+	"onfig a non-baremetal host\x02reserved cpu must >= 0\x02reserved memory " +
+	"must >= 0\x02reserved storage must >= 0\x02host %s can't reserve %d cpu " +
+	"for each isolated device, not enough\x02host %s can't reserve %dM memory" +
+	" for each isolated device, not enough\x02host %s can't reserve %dM stora" +
+	"ge for each isolated device, not enough\x02Only system admin can assign " +
+	"host\x02StorageInUse\x02failed to find storage %s to attach host\x02fail" +
+	"ed to find host %s to attach storage\x02unmarshal JoinResourceBaseCreate" +
+	"Input fail %s\x02GetGuestDiskCount fail %s\x02GetGuestnicsCount fail %s" +
+	"\x02guest on the host are using networks on this wire\x02can't delete in" +
+	"stance snapshot with wrong status\x02vpc joint interVpcNetwork on differ" +
+	"ent cloudprovider is not supported\x02vpc joint interVpcNetwork on diffe" +
+	"rent cloudEnv is not supported\x02vpc %s already connected to a interVpc" +
+	"Network\x02vpc %s is not connected to this interVpcNetwork\x02Isolated d" +
+	"evice used by server\x02IsolatedDevice %s not found\x02Isolated device a" +
+	"lready attached to another guest: %s\x02Isolated device used by server: " +
+	"%s\x02Unsupported scheme %s\x02invalid public error: %v\x02GetLinkedGues" +
+	"tsCount failed %s\x02Cannot delete keypair used by servers\x02find liste" +
+	"ner of listener rule %s(%s)\x02invalid addr %s\x02comment too long (%d>=" +
+	"%d)\x02comment contains non-printable char: %v\x02acl cidr duplicate %s" +
+	"\x02unmarshal SharableVirtualResourceCreateInput fail %s\x02get acl coun" +
+	"t fail %s\x02acl %s is still referred to by %d %s\x02invalid vrrp interf" +
+	"ace %q\x02invalid vrrp authentication pass size: %d, want [1,8]\x02inval" +
+	"id vrrp priority %d: want [1,255]\x02invalid vrrp virtual_router_id %d: " +
+	"want [1,255]\x02invalid vrrp advert_int %d: want [1,255]\x02telegraf par" +
+	"ams: invalid influxdb url: %s\x02%s: bad base64 encoded string: %s\x02%s" +
+	": bad template: %s\x02fetch lbagents of other clusters: %v\x02conflict w" +
+	"ith lbagent %s(%s): %v\x02lbcluster %s(%s) already has virtual_router_id" +
+	" %d\x02%s: time error: %s\x02%s: new time is in the future: %s > %s\x02p" +
+	"eer lbagent %s(%s) already has vrrp priority %d\x02use yum requires vali" +
+	"d repo_base_url\x02empty host name\x02find host %s: %v\x02lbagent cannot" +
+	" be deployed on managed host\x02find guest %s: %v\x02lbagent cannot be d" +
+	"eployed on public guests\x02server is in %q state, want %q\x02unmarshal " +
+	"input: %v\x02host missing %s field\x02empty host %s field\x02authenticat" +
+	"e error: %v\x02user must have system admin privileges\x02get %s service " +
+	"%s url: %v\x02No previous deployment info available\x02query backend gro" +
+	"up releated resource failed.\x02weight %d not support, only support rang" +
+	"e 0 ~ 256\x02port %d not support, only support range 1 ~ 65535\x02failed" +
+	" to find guest %s\x02only sysadmin can specify host as backend\x02failed" +
+	" to find host %s\x02unexpected backend type %s\x02region of backend %d d" +
+	"oes not match that of lb's\x02failed to find region for loadbalancer %s" +
 	"\x02get isDefault fail %s\x02backend group %s is default backend group" +
 	"\x02get refCount fail %s\x02backend group %s is still referred by %d %s" +
 	"\x02%s requires the virtual machine state to be %s before it can be adde" +
@@ -2666,12 +2785,12 @@ const en_USData string = "" + // Size: 55206 bytes
 	"%s\x02Address %s not in network\x02get reserved ip error\x02found %d wir" +
 	"es for zone %s and vpc %s\x02wire not found for zone %s and vpc %s\x02In" +
 	"valid server_type: %s\x02valid vlan id\x02cannot derive valid ifname hin" +
-	"t: %v\x02ip_prefix error: %s\x02Invalid masklen %d\x02Invalid start ip: " +
-	"%s %s\x02invalid end ip: %s %s\x02start and end ip not in the same subne" +
-	"t\x02%s: Invalid IP address %s\x02bad gateway ip: %v\x02gateway ip must " +
-	"be in the same subnet as start, end ip\x02zone and vpc info required whe" +
-	"n wire is absent\x02VPC not ready\x02eip network can only exist in defau" +
-	"lt vpc, got %s(%s)\x02subnet masklen should be smaller than 30\x02start " +
+	"t: %v\x02ip_prefix error: %s\x02subnet masklen should be smaller than 30" +
+	"\x02Invalid masklen %d\x02Invalid start ip: %s %s\x02invalid end ip: %s " +
+	"%s\x02start and end ip not in the same subnet\x02%s: Invalid IP address " +
+	"%s\x02bad gateway ip: %v\x02gateway ip must be in the same subnet as sta" +
+	"rt, end ip\x02zone and vpc info required when wire is absent\x02VPC not " +
+	"ready\x02eip network can only exist in default vpc, got %s(%s)\x02start " +
 	"and end ip when masked are not in the same cidr subnet\x02Network not in" +
 	" range of VPC cidrblock %s\x02fail to GetNetworks of vpc: %v\x02Conflict" +
 	" address space with existing networks in vpc %q\x02query all networks fa" +
@@ -2723,1069 +2842,1122 @@ const en_USData string = "" + // Size: 55206 bytes
 	"\x02invalid ip address: %s\x02secgroup %s rules not equals %s rules\x02G" +
 	"etGuestsCount fail %s\x02the security group is in use\x02not allow to de" +
 	"lete default security group\x02no such guest template\x02fail to parse i" +
-	"con url '%s'\x02no such guest_template %s\x02zone %s not in cloudregion " +
-	"%s\x02cpu_core_count should be range of 1~256\x02memory_size_mb, shoud b" +
-	"e range of 512~%d\x02instance_type_category shoud be one of %s\x02checko" +
-	"ut server sku name duplicate error: %v\x02Duplicate sku %s\x02instance s" +
-	"pecs list query error\x02can not update instance_type for public cloud %" +
-	"s\x02Cannot change server sku name\x02check instance\x02now allow to del" +
-	"ete inuse instance_type.please remove related servers first: %s\x02not a" +
-	"llow to delete public cloud instance_type: %s\x02failed to find cloudreg" +
-	"ion for zone %s(%s)\x02duplicate instanceType %s\x02query sku list faile" +
-	"d.\x02delete sku %s failed.\x02Only support cache sku for private cloud" +
-	"\x02failed to get cloudprovider for region %s(%s)\x02cloudprovider %s(%s" +
-	") disabled\x02Retention days must in 1~%d or -1\x02repeat_weekdays only " +
-	"contains %d days at most\x02time_points only contains %d points at most" +
-	"\x02Unmarshel input failed %s\x02Retention days must in 1~65535 or -1" +
-	"\x02Do not need to update\x02Couldn't delete snapshot policy binding to " +
-	"disks\x02no such disk %s\x02snapshotpolicy disk has been exist\x02disk %" +
-	"s has too many snapshot policy attached\x02guest %s not found\x02failed " +
-	"to found disk %s\x02failed to found region for disk's storage %s(%s)\x02" +
-	"Cannot delete snapshot in status %s\x02Fetch instance snapshot error %s" +
-	"\x02snapshot referenced by instance snapshot\x02Cannot delete snapshot o" +
-	"n disk reset\x02Snapshot has %d task active, can't sync status\x02Cannot" +
-	" Delete disk %s snapshots, disk exist\x02Disk %s dose not have snapshot" +
-	"\x02Can not delete disk snapshots, have manual snapshot\x02Cannot purge " +
-	"snapshot on enabled cloud provider\x02getReferenceCount fail %s\x02Image" +
-	" is in use\x02Active download session not expired\x02Cannot delete the l" +
-	"ast cache\x02Cannot uncache in status %s\x02storage cache not empty\x02r" +
-	"eferered by storages\x02cannot uncache non-customized images\x02storage " +
-	"not cache image\x02Fail to mark cache status: %s\x02missing image id or " +
-	"name\x02Invalid storage type %s\x02Invalid medium type %s\x02Not support" +
-	" create %s storage\x02GetHostCount fail %s\x02storage has associate host" +
-	"s\x02storage has disks\x02storage has snapshots\x02storage cache is miss" +
-	"ing\x02storage is enabled\x02can't detach host in status online\x02host " +
-	"%s storage %s not found\x02vpc_id\x02vpc on different cloudprovider peer" +
-	"ing is not supported\x02ipv4 range overlap\x02cloudprovider %s %s %s %s " +
-	"%s not supported CrossCloud vpcpeering\x02cloudprovider %s %s %s %s %s n" +
-	"ot supported CrossRegion vpcpeering\x02vpc %s and vpc %s have already co" +
-	"nnected\x02invalid external_access_mode %q, want %s\x02not allow to dele" +
-	"te default vpc\x02GetNetworkCount fail %s\x02VPC not empty, please delet" +
-	"e network first\x02GetNatgatewayCount fail %v\x02VPC not empty, please d" +
-	"elete nat gateway first\x02GetRequesterVpcPeeringConnections fail %v\x02" +
-	"VPC peering not empty, please delete vpc peering first\x02invalid cidr_b" +
-	"lock %s\x02Cannot purge vpc on enabled cloud provider\x02on-premise vpc " +
-	"cannot sync status\x02For default vpc, only system level sharing can be " +
-	"set\x02Prohibit making default vpc private\x02mapped ip exhausted\x02ban" +
-	"dwidth must be greater than 0\x02mtu must be range of 0~1000000\x02Curre" +
-	"ntly only kvm platform supports creating wire\x02HostCount fail %s\x02wi" +
-	"re contains hosts\x02NetworkCount fail %s\x02wire contains networks\x02n" +
-	"ot empty zone\x02failed to found cloudregion %s\x02not support create %s" +
-	" zone\x02intranet loadbalancer not support bandwidth charge type\x02Load" +
-	"balancer's manager (%s(%s)) does not match vpc's(%s(%s)) (%s)\x02Aliyun " +
-	"not allow to change certificate\x02master slave backendgorup must contai" +
-	"n two backend\x02Unsupport backendgorup type %s\x02invalid guest %s\x02A" +
-	"liyun instance weight must be in the range of 0 ~ 100\x02internal error:" +
-	" unexpected backend type %s\x02backendgroup %s not support this operatio" +
-	"n\x02region of host %q (%s) != region of loadbalancer %q (%s))\x02%s bac" +
-	"kend group not support change port\x02%s backend group not support chang" +
-	"e port or weight\x02Unknown backend group type %s\x02listener type must " +
-	"be http/https, got %s\x02backend group %s(%s) belongs to loadbalancer %s" +
-	" instead of %s\x02backend group type must be normal\x02loadbalancerliste" +
-	"nerrule %s(%s): fetching listener %s failed\x02http or https listener on" +
-	"ly supportd default or normal backendgroup\x02health_check_domain must b" +
-	"e in the range of 1 ~ 80\x02%s length must less 500 letters\x02sticky_se" +
-	"ssion_cookie length must within 1~200\x02sticky_session_cookie can only " +
-	"contain letters, Numbers, '_' and '-'\x02Unknown sticky_session_type, on" +
-	"ly support %s or %s\x02failed to find loadbalancer's %s(%s) region\x02Th" +
-	"e specified Scheduler %s is invalid for performance sharing loadbalancer" +
-	"\x02failed to found loadbalancer for listener %s(%s)\x02cloudregion %s(%" +
-	"s) not support %s scheduler\x02invalid %s,required int\x02%s cannot be s" +
-	"et to 0\x02%s not support close tcp or udp loadbalancer listener health " +
-	"check\x02Snapshot for %s name can't start with auto, http:// or https://" +
-	"\x02Aliyun %s not support recovery\x02Aliyun %s only support recover fro" +
-	"m it self backups\x02Aliyun %s only 8.0 and 5.7 high_availability local_" +
-	"ssd or 5.6 high_availability support recovery from it self backups\x02sl" +
-	"ave dbinstance not support prepaid billing type\x02failed to match any s" +
-	"kus in the network %s(%s) zone %s(%s)\x02Not support create readonly dbi" +
-	"nstance for MySQL %s %s\x02Not support create readonly dbinstance for My" +
-	"SQL %s %s with storage type %s, only support %s\x02Not support create re" +
-	"adonly dbinstance for MySQL %s\x02SQL Server only support create readonl" +
-	"y dbinstance for 2017_ent\x02SQL Server cannot have more than seven read" +
-	"-only dbinstances\x02Not support create readonly dbinstance with master " +
-	"dbinstance engine %s\x02Master dbinstance memory ≥64GB, up to 10 read-on" +
-	"ly instances are allowed to be created\x02Master dbinstance memory <64GB" +
-	", up to 5 read-only instances are allowed to be created\x02At least two " +
-	"networks are required under vpc %s(%s) with aliyun %s(%s)\x02Description" +
-	" can not start with http:// or https://\x02Aliyun DBInstance account nam" +
-	"e length shoud be 2~16 characters\x02%s is reserved for aliyun %s, pleas" +
-	"e use another\x02invalid character %s for account name\x02account name c" +
-	"an not start or end with _\x02%s only support aliyun %s or %s\x02%s only" +
-	" support aliyun %s\x02Unknown privilege %s\x02network %s related vpc not" +
-	" found\x02account_privilege %s only support redis version 4.0\x02require" +
-	"d at least %d subnet.\x02required at least %d subnet with at least 8 fre" +
-	"e ip.\x02Loadbalancer's manager %s does not match vpc's(%s(%s)) (%s)\x02" +
-	"all networks should in the same vpc. (%s).\x02already has one network in" +
-	" the zone %s. (%s).\x02invalid parameter loadbalancer_spec %s\x02invalid" +
-	" parameter backendgroup %s\x02invalid loadbalancer_spec %s\x02%s does no" +
-	"t currently support creating loadbalancer acl\x02%s does not currently s" +
-	"upport creating loadbalancer certificate\x02loadbalancer listener %s rel" +
-	"ated loadbalancer %s not found\x02The backend %s is already registered o" +
-	"n port %d\x02%s does not currently support creating loadbalancer\x02disk" +
-	" and snapshotpolicy should have same domain\x02disk and snapshotpolicy s" +
-	"hould have same project\x02%s does not support creating loadbalancer\x02" +
-	"%s does not support creating loadbalancer acl\x02%s does not support cre" +
-	"ating loadbalancer certificate\x02Google dbinstance not support prepaid " +
-	"billing type\x02disk size gb must in range 10 ~ 30720 Gb\x02eip's manage" +
-	"r (%s(%s)) does not match vpc's(%s(%s)) (%s)\x02loadbalancer is using by" +
-	" %d listener.\x02loadbalancer is using by %d backendgroup.\x02Not suppor" +
-	"t create read-only dbinstance for %s\x02Huawei dbinstance name length sh" +
-	"oud be 4~64 characters\x02%s require disk size must in 40 ~ 4000 GB\x02T" +
-	"he disk_size_gb must be an integer multiple of 10\x02Not support create " +
-	"account for huawei cloud %s instance\x02Huawei rds password cannot be in" +
-	" the same reverse order as the account\x02Not support create database fo" +
-	"r huawei cloud %s instance\x02Huawei DBInstance backup name length shoud" +
-	" be 4~64 characters\x02Huawei only supports specified databases with %s" +
-	"\x02Huawei DBInstance Disk cannot be thrink\x02Huawei DBInstance categor" +
-	"y cannot change\x02Huawei DBInstance storage type cannot change\x02Huawe" +
-	"i current not support reset dbinstance account password\x02No need to gr" +
-	"ant or revoke privilege for admin account\x02%s not support recovery\x02" +
-	"Huawei %s rds not support recovery from it self rds backup\x02Huawei onl" +
-	"y %s engine support databases recovery\x02New databases name can not be " +
-	"one of %s\x02zone mismatch, elastic cache sku zone %s != %s\x02elastic c" +
-	"ache sku zone (%s) and subnet zone (%s) mismatch\x02sku %s is soldout" +
-	"\x02%s not support create account\x02huawei %s mode elastic not support " +
-	"create backup\x02zone info missing\x02vpc lb is not allowed for now\x02z" +
-	"one %s(%s) has no lbcluster\x02no viable lbcluster\x02host %s has no acc" +
-	"ess ip\x02error getting host of guest %s\x02error loadbalancer of backen" +
-	"d group %s\x02region of host %q (%s) != region of loadbalancer %q (%s)" +
-	"\x02redirect must have at least one of scheme, host, path changed\x02bac" +
-	"kend_group argument is missing\x02non redirect lblistener rule must have" +
-	" backend_group set\x02redirect can only be enabled for http/https listen" +
-	"er\x02non http listener must have backend group set\x02no available eip " +
-	"network\x02bad network type %q, want %q\x02failed to found vpc for netwo" +
-	"rk %s(%s)\x02network %s(%s) does not belong to %s\x02Kvm snapshot missin" +
-	"g storage ??\x02failed to find %s %s\x02cannot change loadbalancer liste" +
-	"ner listener_type\x02cannot change loadbalancer listener listener_port" +
-	"\x02account name '%s' is not allowed\x02can not make backup in status %s" +
+	"con url '%s'\x02no such guest_template %s\x02resource %s is not support " +
+	"sync skus\x02input data contains invalid cloudregion id\x02no cloudregio" +
+	"n found to sync skus\x02zone %s not in cloudregion %s\x02cpu_core_count " +
+	"should be range of 1~256\x02memory_size_mb, shoud be range of 512~%d\x02" +
+	"instance_type_category shoud be one of %s\x02Not support create public c" +
+	"loud sku\x02checkout server sku name duplicate error: %v\x02Duplicate sk" +
+	"u %s\x02instance specs list query error\x02can not update instance_type " +
+	"for public cloud %s\x02Cannot change server sku name\x02check instance" +
+	"\x02now allow to delete inuse instance_type.please remove related server" +
+	"s first: %s\x02not allow to delete public cloud instance_type: %s\x02fai" +
+	"led to find cloudregion for zone %s(%s)\x02duplicate instanceType %s\x02" +
+	"query sku list failed.\x02delete sku %s failed.\x02Retention days must i" +
+	"n 1~%d or -1\x02repeat_weekdays only contains %d days at most\x02time_po" +
+	"ints only contains %d points at most\x02Unmarshel input failed %s\x02Ret" +
+	"ention days must in 1~65535 or -1\x02Do not need to update\x02Couldn't d" +
+	"elete snapshot policy binding to disks\x02no such disk %s\x02snapshotpol" +
+	"icy disk has been exist\x02disk %s has too many snapshot policy attached" +
+	"\x02guest %s not found\x02failed to found disk %s\x02failed to found reg" +
+	"ion for disk's storage %s(%s)\x02Cannot delete snapshot in status %s\x02" +
+	"Fetch instance snapshot error %s\x02snapshot referenced by instance snap" +
+	"shot\x02Cannot delete snapshot on disk reset\x02Snapshot has %d task act" +
+	"ive, can't sync status\x02Cannot Delete disk %s snapshots, disk exist" +
+	"\x02Disk %s dose not have snapshot\x02Can not delete disk snapshots, hav" +
+	"e manual snapshot\x02Cannot purge snapshot on enabled cloud provider\x02" +
+	"getReferenceCount fail %s\x02Image is in use\x02Active download session " +
+	"not expired\x02Cannot delete the last cache\x02Cannot uncache in status " +
+	"%s\x02storage cache not empty\x02referered by storages\x02cannot uncache" +
+	" non-customized images\x02storage not cache image\x02Fail to mark cache " +
+	"status: %s\x02missing image id or name\x02Invalid storage type %s\x02Inv" +
+	"alid medium type %s\x02Not support create %s storage\x02GetHostCount fai" +
+	"l %s\x02storage has associate hosts\x02storage has disks\x02storage has " +
+	"snapshots\x02storage cache is missing\x02storage is enabled\x02can't det" +
+	"ach host in status online\x02host %s storage %s not found\x02vpc_id\x02v" +
+	"pc on different cloudprovider peering is not supported\x02ipv4 range ove" +
+	"rlap\x02cloudprovider %s %s %s %s %s not supported CrossCloud vpcpeering" +
+	"\x02cloudprovider %s %s %s %s %s not supported CrossRegion vpcpeering" +
+	"\x02vpc %s and vpc %s have already connected\x02invalid external_access_" +
+	"mode %q, want %s\x02not allow to delete default vpc\x02GetNetworkCount f" +
+	"ail %s\x02VPC not empty, please delete network first\x02GetNatgatewayCou" +
+	"nt fail %v\x02VPC not empty, please delete nat gateway first\x02GetReque" +
+	"sterVpcPeeringConnections fail %v\x02VPC peering not empty, please delet" +
+	"e vpc peering first\x02invalid cidr_block %s\x02Cannot purge vpc on enab" +
+	"led cloud provider\x02on-premise vpc cannot sync status\x02For default v" +
+	"pc, only system level sharing can be set\x02Prohibit making default vpc " +
+	"private\x02mapped ip exhausted\x02bandwidth must be greater than 0\x02mt" +
+	"u must be range of 0~1000000\x02Currently only kvm platform supports cre" +
+	"ating wire\x02HostCount fail %s\x02wire contains hosts\x02NetworkCount f" +
+	"ail %s\x02wire contains networks\x02not empty zone\x02failed to found cl" +
+	"oudregion %s\x02not support create %s zone\x02intranet loadbalancer not " +
+	"support bandwidth charge type\x02Loadbalancer's manager (%s(%s)) does no" +
+	"t match vpc's(%s(%s)) (%s)\x02Aliyun not allow to change certificate\x02" +
+	"master slave backendgorup must contain two backend\x02Unsupport backendg" +
+	"orup type %s\x02invalid guest %s\x02Aliyun instance weight must be in th" +
+	"e range of 0 ~ 100\x02internal error: unexpected backend type %s\x02back" +
+	"endgroup %s not support this operation\x02region of host %q (%s) != regi" +
+	"on of loadbalancer %q (%s))\x02%s backend group not support change port" +
+	"\x02%s backend group not support change port or weight\x02Unknown backen" +
+	"d group type %s\x02listener type must be http/https, got %s\x02backend g" +
+	"roup %s(%s) belongs to loadbalancer %s instead of %s\x02backend group ty" +
+	"pe must be normal\x02loadbalancerlistenerrule %s(%s): fetching listener " +
+	"%s failed\x02http or https listener only supportd default or normal back" +
+	"endgroup\x02health_check_domain must be in the range of 1 ~ 80\x02%s len" +
+	"gth must less 500 letters\x02sticky_session_cookie length must within 1~" +
+	"200\x02sticky_session_cookie can only contain letters, Numbers, '_' and " +
+	"'-'\x02Unknown sticky_session_type, only support %s or %s\x02failed to f" +
+	"ind loadbalancer's %s(%s) region\x02The specified Scheduler %s is invali" +
+	"d for performance sharing loadbalancer\x02failed to found loadbalancer f" +
+	"or listener %s(%s)\x02cloudregion %s(%s) not support %s scheduler\x02inv" +
+	"alid %s,required int\x02%s cannot be set to 0\x02%s not support close tc" +
+	"p or udp loadbalancer listener health check\x02Snapshot for %s name can'" +
+	"t start with auto, http:// or https://\x02Aliyun %s not support recovery" +
+	"\x02Aliyun %s only support recover from it self backups\x02Aliyun %s onl" +
+	"y 8.0 and 5.7 high_availability local_ssd or 5.6 high_availability suppo" +
+	"rt recovery from it self backups\x02slave dbinstance not support prepaid" +
+	" billing type\x02failed to match any skus in the network %s(%s) zone %s(" +
+	"%s)\x02Not support create readonly dbinstance for MySQL %s %s\x02Not sup" +
+	"port create readonly dbinstance for MySQL %s %s with storage type %s, on" +
+	"ly support %s\x02Not support create readonly dbinstance for MySQL %s\x02" +
+	"SQL Server only support create readonly dbinstance for 2017_ent\x02SQL S" +
+	"erver cannot have more than seven read-only dbinstances\x02Not support c" +
+	"reate readonly dbinstance with master dbinstance engine %s\x02Master dbi" +
+	"nstance memory ≥64GB, up to 10 read-only instances are allowed to be cre" +
+	"ated\x02Master dbinstance memory <64GB, up to 5 read-only instances are " +
+	"allowed to be created\x02At least two networks are required under vpc %s" +
+	"(%s) with aliyun %s(%s)\x02Description can not start with http:// or htt" +
+	"ps://\x02Aliyun DBInstance account name length shoud be 2~16 characters" +
+	"\x02%s is reserved for aliyun %s, please use another\x02invalid characte" +
+	"r %s for account name\x02account name can not start or end with _\x02%s " +
+	"only support aliyun %s or %s\x02%s only support aliyun %s\x02Unknown pri" +
+	"vilege %s\x02network %s related vpc not found\x02account_privilege %s on" +
+	"ly support redis version 4.0\x02invalid cidr range %s, mask length shoul" +
+	"d less than or equal to 24\x02required at least %d subnet.\x02required a" +
+	"t least %d subnet with at least 8 free ip.\x02Loadbalancer's manager %s " +
+	"does not match vpc's(%s(%s)) (%s)\x02all networks should in the same vpc" +
+	". (%s).\x02already has one network in the zone %s. (%s).\x02invalid para" +
+	"meter loadbalancer_spec %s\x02invalid parameter backendgroup %s\x02inval" +
+	"id loadbalancer_spec %s\x02%s does not currently support creating loadba" +
+	"lancer acl\x02%s does not currently support creating loadbalancer certif" +
+	"icate\x02loadbalancer listener %s related loadbalancer %s not found\x02T" +
+	"he backend %s is already registered on port %d\x02%s request the mask ra" +
+	"nge should be between 16 and 28\x02%s does not currently support creatin" +
+	"g loadbalancer\x02%s request the mask range should be between 8 and 29" +
+	"\x02disk and snapshotpolicy should have same domain\x02disk and snapshot" +
+	"policy should have same project\x02%s does not support creating loadbala" +
+	"ncer\x02%s does not support creating loadbalancer acl\x02%s does not sup" +
+	"port creating loadbalancer certificate\x02Google dbinstance not support " +
+	"prepaid billing type\x02disk size gb must in range 10 ~ 30720 Gb\x02eip'" +
+	"s manager (%s(%s)) does not match vpc's(%s(%s)) (%s)\x02loadbalancer is " +
+	"using by %d listener.\x02loadbalancer is using by %d backendgroup.\x02No" +
+	"t support create read-only dbinstance for %s\x02Huawei dbinstance name l" +
+	"ength shoud be 4~64 characters\x02%s require disk size must in 40 ~ 4000" +
+	" GB\x02The disk_size_gb must be an integer multiple of 10\x02Not support" +
+	" create account for huawei cloud %s instance\x02Huawei rds password cann" +
+	"ot be in the same reverse order as the account\x02Not support create dat" +
+	"abase for huawei cloud %s instance\x02Huawei DBInstance backup name leng" +
+	"th shoud be 4~64 characters\x02Huawei only supports specified databases " +
+	"with %s\x02Huawei DBInstance Disk cannot be thrink\x02Huawei DBInstance " +
+	"category cannot change\x02Huawei DBInstance storage type cannot change" +
+	"\x02Huawei current not support reset dbinstance account password\x02No n" +
+	"eed to grant or revoke privilege for admin account\x02%s not support rec" +
+	"overy\x02Huawei %s rds not support recovery from it self rds backup\x02H" +
+	"uawei only %s engine support databases recovery\x02New databases name ca" +
+	"n not be one of %s\x02zone mismatch, elastic cache sku zone %s != %s\x02" +
+	"elastic cache sku zone (%s) and subnet zone (%s) mismatch\x02sku %s is s" +
+	"oldout\x02%s not support create account\x02huawei %s mode elastic not su" +
+	"pport create backup\x02zone info missing\x02vpc lb is not allowed for no" +
+	"w\x02zone %s(%s) has no lbcluster\x02no viable lbcluster\x02host %s has " +
+	"no access ip\x02error getting host of guest %s\x02error loadbalancer of " +
+	"backend group %s\x02region of host %q (%s) != region of loadbalancer %q " +
+	"(%s)\x02redirect must have at least one of scheme, host, path changed" +
+	"\x02backend_group argument is missing\x02non redirect lblistener rule mu" +
+	"st have backend_group set\x02redirect can only be enabled for http/https" +
+	" listener\x02non http listener must have backend group set\x02%s only su" +
+	"pports eip charge type %q\x02no available eip network\x02bad network typ" +
+	"e %q, want %q\x02failed to found vpc for network %s(%s)\x02network %s(%s" +
+	") does not belong to %s\x02Kvm snapshot missing storage ??\x02failed to " +
+	"find %s %s\x02cannot change loadbalancer listener listener_type\x02canno" +
+	"t change loadbalancer listener listener_port\x02account name '%s' is not" +
+	" allowed\x02can not make backup in status %s\x02invalid cidr range %s" +
 	"\x02loadbalancer listener %s is already updating\x02loadbalancer backend" +
-	"group aready associate with other %s listener\x02%s request the mask ran" +
-	"ge should be between 16 and 28\x02loadbalancer aready associated with fo" +
-	"urth layer listener %s\x02path can not be emtpy\x02server %s with port %" +
-	"d already in used\x02server %s with port %d aready used by other %s list" +
-	"ener\x02Qcloud Basic MySQL instance not support create backup\x02Not sup" +
-	"port create Qcloud databases\x02redis version 2.8 not support create acc" +
-	"ount\x02Empty spec query key\x02Parse spec key %s error: %v\x02Get objec" +
-	"t error: %v\x02empty project_id/tenant_id\x02tenant/project %s not found" +
-	"\x02Snapshot reference(by disk) count > 0, can not delete\x02disk need a" +
-	"t least one of snapshot as backing file\x02Disk %s dosen't attach guest " +
-	"?\x02Disk attached Guest has backup, Can't create snapshot\x02Cannot do " +
-	"snapshot when VM in status %s\x02check disk snapshot count fail %s\x02Di" +
-	"sk %s snapshot full, cannot take any more\x02This RBD Storage[%s/%s] has" +
-	" already exist\x02BadGateway\x02InternalServerError\x02ResourceNotReadyE" +
-	"rror\x02PaymentError\x02ImageNotFoundError\x02ResourceNotFoundError\x02S" +
-	"pecNotFoundError\x02ActionNotFoundError\x02TenantNotFoundError\x02UserNo" +
-	"tFoundError\x02ServerStatusError\x02InvalidFormatError\x02InputParameter" +
-	"Error\x02WeakPasswordError\x02MissingParameterError\x02InsufficientResou" +
-	"rceError\x02OutOfResource\x02OutOfQuotaError\x02OutOfRange\x02OutOfLimit" +
-	"\x02NotSufficientPrivilegeError\x02UnsupportOperationError\x02NotEmptyEr" +
-	"ror\x02BadRequestError\x02EmptyRequestError\x02UnauthorizedError\x02Inva" +
-	"lidCredentialError\x02ForbiddenError\x02NotAcceptableError\x02DuplicateN" +
-	"ameError\x02DuplicateResourceError\x02ConflictError\x02ResourceBusyError" +
-	"\x02RequireLicenseError\x02ProtectedResourceError\x02NoProjectError\x02T" +
-	"ooLargeEntity\x02TooManyFailedAttempts\x02TooManyRequests\x02Unsupported" +
-	"Protocol\x02PolicyDefinitionError\x02Image %s not found\x02password must" +
-	" be 12 chars of at least one digit, letter, uppercase letter and punctua" +
-	"te\x02Missing parameter %s\x02Duplicate name %s %s\x02Duplicate ID %s %s" +
-	"\x02no such driver\x02empty DN\x02empty id\x02empty name\x02disabled use" +
-	"r\x02join user into project of default domain or identical domain\x02sys" +
-	"admin is protected\x02cannot remove current user from current project" +
-	"\x02join group into project of default domain or identical domain\x02que" +
-	"ry error %s\x02missing input feild type\x02missing input field blob\x02e" +
-	"ncrypt error %s\x02cannot delete default domain\x02domain is enabled\x02" +
-	"domain is in use by user\x02group is in use by group\x02domain is in use" +
-	" by project\x02domain is in use by role\x02domain is in use by policy" +
-	"\x02domain contains external resources\x02readonly\x02default domain is " +
-	"protected\x02field %s is readonly\x02endpoint is enabled\x02missing inpu" +
-	"t field interface\x02missing input field service/service_id\x02not found" +
-	" cert %s\x02get sensitive config requires admin priviliges\x02cannot upd" +
-	"ate config when enabled and connected\x02cannot update config when not i" +
-	"dle\x02saveConfig fail %s\x02invalid template\x02missing driver\x02drive" +
-	"r %s not supported\x02driver %s already exists\x02cannot delete default " +
-	"SQL identity provider\x02cannot delete enabled idp\x02identity provider " +
-	"with projects\x02enabled domain %s cannot be deleted\x02cannot update in" +
-	" sync status\x02domain is disabled\x02resource is enabled\x02missing inp" +
-	"ut field type\x02fail to decode policy data\x02cannot delete system poli" +
-	"cy\x02cannot delete enabled policy\x02cannot delete system project\x02pr" +
-	"oject contains external resources\x02project contains user\x02project co" +
-	"ntains group\x02cannot alter system project name\x02region contains endp" +
-	"oints\x02missing input field id\x02cannot alter name of role\x02cannot d" +
-	"elete system role\x02role is being assigned to user\x02role is being ass" +
-	"igned to group\x02not supported update context\x02not supported update c" +
-	"ontext %s\x02inconsistent domain for project and roles\x02not supported " +
-	"secondary update context %s\x02service contains endpoints\x02service is " +
-	"enabled\x02update config version fail %s\x02cannot alter sysadmin user n" +
-	"ame\x02invalid password: %s\x02cannot delete non-local user\x02user cont" +
-	"ains external resources\x02cannot delete system user\x02cannot join user" +
-	" and group in differnt domain\x02cannot join read-only group\x02cannot l" +
-	"eave read-only group\x02version mismatch\x02project disabled\x02user dis" +
-	"abled\x02expired token\x02invalid fernet token\x02invalid auth methods" +
-	"\x02user not found\x02empty auth request\x02user not in project\x02inval" +
-	"id access key id\x02expired access key\x02unrecognized input %s\x02unaut" +
-	"horized %s\x02fail to decode request body\x02duplicate username\x02user " +
-	"not found or not enabled\x02invalid user\x02invalid project\x02internal " +
-	"server error %s\x02invalid domain\x02not allow to auth\x02invalid token" +
-	"\x02invalid token %s\x02not allow to get usage\x02Unauthorized\x02Invali" +
-	"dToken\x02Name %s not found\x02No login secret found\x02no totp for %s" +
-	"\x02no recovery secrets for %s\x02totp secret exists\x02No password foun" +
-	"d\x02No ssh password: %s\x02invalid resources format\x02service %s not f" +
-	"ound error: %v\x02missing uid\x02missing pids\x02missing pid in pids\x02" +
-	"missing rid in pids\x02missing rid\x02project is not found\x02No login k" +
-	"ey: %s\x02Not found kind in query: %v\x02Not found key in query: %v\x02u" +
-	"nsupported action %s\x02url is empty\x02invalid url: %v\x02unsupport typ" +
-	"e: %s\x02app_id is empty\x02app_secret is empty\x02channel is empty\x02p" +
-	"arameter %s is empty\x02unsupported no_data_state %s\x02unsupported exec" +
-	"ution_error_state %s\x02metric %s is invalid format, usage <measurement>" +
-	".<field>\x02Cannot change state on pause alert\x02alert already attached" +
-	" to notification\x02Alert is already un-paused\x02Alert is already pause" +
-	"d\x02Invalid refresh format: %s\x02not find alert %s\x02not find notific" +
-	"ation %s\x02dashboard_id is empty\x02can not find dashboard:%s\x02the Co" +
-	"mparator is illegal: %s\x02the reduce is illegal %s\x02the reduce is ill" +
-	"egal: %s\x02Alert resource driver not found\x02Alert resource driver dup" +
-	"licate match\x02Invalid level format: %s\x02Invalid period format: %s" +
-	"\x02the AlertType is illegal:%s\x02Cannot delete system alert\x02thresho" +
-	"ld:%s should be number type\x02Default data source not found\x02not supp" +
-	"ort database\x02not support type %q\x02unsupported resource type %s\x02n" +
-	"ot found alert notification used by %s\x02unsupported notification type " +
-	"%s\x02Alert notification used by %d alert\x02input not json dict\x02not " +
-	"found signature\x02signature error\x02Invalid interval format: %s\x02Uns" +
-	"upported notification type\x02Influxdb invalid status\x02Not find execut" +
-	"or for data source\x02Condition is missing the threshold parameter\x02Co" +
-	"ndition is missing the type parameter\x02Invalid condition evaluator typ" +
-	"e\x02Unknown alert condition\x02Alert is missing conditions\x02input con" +
-	"dition is empty\x02Unkown operator %s\x02select for nothing in query\x02" +
-	"query duration err: from: %s, to:%s\x02query duration `to` err: %s\x02al" +
-	"ert condition type is empty\x02Unkown alert condition type: %s\x02securi" +
-	"ty group id should not be empty\x02failed to find SecurityGroup %s\x02no" +
-	" valid endpoint\x02require validated qcloud cross region vpcPeering band" +
-	"width values:[10, 20, 50, 100, 200, 500, 1000],unit Mbps\x02failed parsi" +
-	"ng url %q: %v\x02bad ip\x02unmarshal input fail %s\x02invalid characters" +
-	" %s\x02check name duplication fail %s\x02policy is referenced"
+	"group aready associate with other %s listener\x02loadbalancer aready ass" +
+	"ociated with fourth layer listener %s\x02path can not be emtpy\x02server" +
+	" %s with port %d already in used\x02server %s with port %d aready used b" +
+	"y other %s listener\x02Qcloud Basic MySQL instance not support create ba" +
+	"ckup\x02Not support create Qcloud databases\x02redis version 2.8 not sup" +
+	"port create account\x02%s request the mask range should be less than or " +
+	"equal to 29\x02Empty spec query key\x02Parse spec key %s error: %v\x02Ge" +
+	"t object error: %v\x02empty project_id/tenant_id\x02tenant/project %s no" +
+	"t found\x02Snapshot reference(by disk) count > 0, can not delete\x02disk" +
+	" need at least one of snapshot as backing file\x02Disk %s dosen't attach" +
+	" guest ?\x02Disk attached Guest has backup, Can't create snapshot\x02Can" +
+	"not do snapshot when VM in status %s\x02check disk snapshot count fail %" +
+	"s\x02Disk %s snapshot full, cannot take any more\x02This RBD Storage[%s/" +
+	"%s] has already exist\x02BadGateway\x02InternalServerError\x02ResourceNo" +
+	"tReadyError\x02PaymentError\x02ImageNotFoundError\x02ResourceNotFoundErr" +
+	"or\x02SpecNotFoundError\x02ActionNotFoundError\x02TenantNotFoundError" +
+	"\x02UserNotFoundError\x02ServerStatusError\x02InvalidFormatError\x02Inpu" +
+	"tParameterError\x02WeakPasswordError\x02MissingParameterError\x02Insuffi" +
+	"cientResourceError\x02OutOfResource\x02OutOfQuotaError\x02OutOfRange\x02" +
+	"OutOfLimit\x02NotSufficientPrivilegeError\x02UnsupportOperationError\x02" +
+	"NotEmptyError\x02BadRequestError\x02EmptyRequestError\x02UnauthorizedErr" +
+	"or\x02InvalidCredentialError\x02ForbiddenError\x02NotAcceptableError\x02" +
+	"DuplicateNameError\x02DuplicateResourceError\x02ConflictError\x02Resourc" +
+	"eBusyError\x02RequireLicenseError\x02ProtectedResourceError\x02NoProject" +
+	"Error\x02TooLargeEntity\x02TooManyFailedAttempts\x02TooManyRequests\x02U" +
+	"nsupportedProtocol\x02PolicyDefinitionError\x02Image %s not found\x02pas" +
+	"sword must be 12 chars of at least one digit, letter, uppercase letter a" +
+	"nd punctuate\x02Duplicate name %s %s\x02Duplicate ID %s %s\x02no such dr" +
+	"iver\x02empty DN\x02empty id\x02empty name\x02disabled user\x02join user" +
+	" into project of default domain or identical domain\x02sysadmin is prote" +
+	"cted\x02cannot remove current user from current project\x02join group in" +
+	"to project of default domain or identical domain\x02query error %s\x02mi" +
+	"ssing input field type\x02missing input field blob\x02encrypt error %s" +
+	"\x02cannot delete default domain\x02domain is enabled\x02domain is in us" +
+	"e by user\x02domain is in use by group\x02domain is in use by project" +
+	"\x02domain is in use by role\x02domain is in use by policy\x02domain con" +
+	"tains external resources\x02readonly\x02default domain is protected\x02f" +
+	"ield %s is readonly\x02endpoint is enabled\x02missing input field interf" +
+	"ace\x02missing input field service/service_id\x02not found cert %s\x02ge" +
+	"t sensitive config requires admin priviliges\x02cannot update config whe" +
+	"n enabled and connected\x02cannot update config when not idle\x02saveCon" +
+	"figs fail %s\x02invalid template\x02missing driver\x02driver %s not supp" +
+	"orted\x02driver %s already exists\x02cannot delete default SQL identity " +
+	"provider\x02cannot delete enabled idp\x02identity provider with projects" +
+	"\x02enabled domain %s cannot be deleted\x02cannot update in sync status" +
+	"\x02domain is disabled\x02resource is enabled\x02fail to decode policy d" +
+	"ata\x02cannot delete system policy\x02cannot delete enabled policy\x02ca" +
+	"nnot delete system project\x02project contains external resources\x02pro" +
+	"ject contains user\x02project contains group\x02cannot alter system proj" +
+	"ect name\x02region contains endpoints\x02missing input field id\x02canno" +
+	"t alter name of role\x02cannot delete system role\x02role is being assig" +
+	"ned to user\x02role is being assigned to group\x02not supported update c" +
+	"ontext\x02not supported update context %s\x02inconsistent domain for pro" +
+	"ject and roles\x02not supported secondary update context %s\x02service c" +
+	"ontains endpoints\x02service is enabled\x02update config version fail %s" +
+	"\x02cannot alter sysadmin user name\x02invalid password: %s\x02cannot de" +
+	"lete non-local user\x02user contains external resources\x02cannot delete" +
+	" system user\x02cannot join user and group in differnt domain\x02cannot " +
+	"join read-only group\x02cannot leave read-only group\x02version mismatch" +
+	"\x02project disabled\x02user disabled\x02expired token\x02invalid fernet" +
+	" token\x02invalid auth methods\x02user not found\x02empty auth request" +
+	"\x02user not in project\x02invalid access key id\x02expired access key" +
+	"\x02unrecognized input %s\x02unauthorized %s\x02fail to decode request b" +
+	"ody\x02duplicate username\x02user not found or not enabled\x02invalid us" +
+	"er\x02invalid project\x02internal server error %s\x02invalid domain\x02n" +
+	"ot allow to auth\x02invalid token\x02invalid token %s\x02not allow to ge" +
+	"t usage\x02Unauthorized\x02InvalidToken\x02Name %s not found\x02No login" +
+	" secret found\x02no totp for %s\x02no recovery secrets for %s\x02totp se" +
+	"cret exists\x02No password found\x02No ssh password: %s\x02invalid resou" +
+	"rces format\x02service %s not found error: %v\x02missing uid\x02missing " +
+	"pids\x02missing pid in pids\x02missing rid in pids\x02missing rid\x02pro" +
+	"ject is not found\x02No login key: %s\x02Not found kind in query: %v\x02" +
+	"Not found key in query: %v\x02unsupported action %s\x02global-settings n" +
+	"ot found\x02url is empty\x02invalid url: %v\x02unsupport type: %s\x02app" +
+	"_id is empty\x02app_secret is empty\x02channel is empty\x02parameter %s " +
+	"is empty\x02unsupported no_data_state %s\x02unsupported execution_error_" +
+	"state %s\x02metric %s is invalid format, usage <measurement>.<field>\x02" +
+	"Cannot change state on pause alert\x02alert already attached to notifica" +
+	"tion\x02Alert is already un-paused\x02Alert is already paused\x02Invalid" +
+	" refresh format: %s\x02not find alert %s\x02not find notification %s\x02" +
+	"dashboard_id is empty\x02can not find dashboard:%s\x02the Comparator is " +
+	"illegal: %s\x02the reduce is illegal %s\x02the reduce is illegal: %s\x02" +
+	"Alert resource driver not found\x02Alert resource driver duplicate match" +
+	"\x02Invalid level format: %s\x02Invalid period format: %s\x02the AlertTy" +
+	"pe is illegal:%s\x02Cannot delete system alert\x02threshold:%s should be" +
+	" number type\x02Default data source not found\x02not support database" +
+	"\x02not support type %q\x02unsupported resource type %s\x02not found ale" +
+	"rt notification used by %s\x02unsupported notification type %s\x02Alert " +
+	"notification used by %d alert\x02input not json dict\x02not found signat" +
+	"ure\x02signature error\x02Invalid interval format: %s\x02Unsupported not" +
+	"ification type\x02Influxdb invalid status\x02Not find executor for data " +
+	"source\x02Condition is missing the threshold parameter\x02Condition is m" +
+	"issing the type parameter\x02Invalid condition evaluator type\x02Unknown" +
+	" alert condition\x02Alert is missing conditions\x02input condition is em" +
+	"pty\x02Unkown operator %s\x02select for nothing in query\x02query durati" +
+	"on err: from: %s, to:%s\x02query duration `to` err: %s\x02alert conditio" +
+	"n type is empty\x02Unkown alert condition type: %s\x02security group id " +
+	"should not be empty\x02failed to find SecurityGroup %s\x02no valid endpo" +
+	"int\x02require validated qcloud cross region vpcPeering bandwidth values" +
+	":[10, 20, 50, 100, 200, 500, 1000],unit Mbps\x02failed parsing url %q: %" +
+	"v\x02bad ip\x02unmarshal input fail %s\x02invalid characters %s\x02check" +
+	" name duplication fail %s\x02policy is referenced"
 
-var zh_CNIndex = []uint32{ // 1620 elements
+var zh_CNIndex = []uint32{ // 1692 elements
 	// Entry 0 - 1F
-	0x00000000, 0x0000001b, 0x00000038, 0x00000051,
-	0x00000069, 0x00000087, 0x000000ad, 0x000000d6,
-	0x00000102, 0x0000012b, 0x00000142, 0x0000015d,
-	0x00000173, 0x00000189, 0x0000019a, 0x000001b5,
-	0x000001d0, 0x000001e3, 0x000001ff, 0x00000215,
-	0x00000227, 0x0000025e, 0x00000283, 0x000002a9,
-	0x000002d3, 0x000002fa, 0x00000327, 0x00000360,
-	0x000003b3, 0x000003d5, 0x000003f4, 0x0000040c,
+	0x00000000, 0x0000001b, 0x0000002e, 0x00000049,
+	0x00000062, 0x00000075, 0x0000008b, 0x000000b0,
+	0x000000c3, 0x000000d2, 0x000000f1, 0x0000010a,
+	0x00000126, 0x00000133, 0x00000146, 0x00000160,
+	0x0000016a, 0x0000017d, 0x000001a6, 0x000001c2,
+	0x000001d7, 0x000001f1, 0x00000206, 0x00000225,
+	0x00000243, 0x00000265, 0x00000290, 0x000002ba,
+	0x000002d2, 0x000002f0, 0x000002f0, 0x0000030e,
 	// Entry 20 - 3F
-	0x0000043d, 0x00000459, 0x00000472, 0x0000049e,
-	0x000004c6, 0x000004e0, 0x000004f2, 0x0000050c,
-	0x0000051c, 0x00000532, 0x00000544, 0x00000558,
-	0x0000056e, 0x0000058b, 0x000005ac, 0x000005be,
-	0x000005dc, 0x000005ed, 0x00000601, 0x00000617,
-	0x0000062d, 0x0000063d, 0x00000654, 0x0000067c,
-	0x0000068c, 0x000006ad, 0x000006de, 0x00000702,
-	0x00000714, 0x00000730, 0x00000745, 0x00000760,
+	0x0000031e, 0x00000333, 0x00000350, 0x00000360,
+	0x00000379, 0x00000392, 0x000003ae, 0x000003c6,
+	0x000003e0, 0x000003f2, 0x00000404, 0x00000427,
+	0x0000043a, 0x0000044d, 0x0000046c, 0x0000047c,
+	0x00000497, 0x000004b2, 0x000004cf, 0x000004cf,
+	0x000004e2, 0x000004f7, 0x00000507, 0x00000520,
+	0x00000538, 0x0000054d, 0x00000565, 0x00000574,
+	0x00000595, 0x000005a7, 0x000005ba, 0x000005d9,
 	// Entry 40 - 5F
-	0x000007af, 0x000007c5, 0x000007e7, 0x00000803,
-	0x0000082d, 0x0000084f, 0x00000865, 0x00000877,
-	0x00000895, 0x000008a2, 0x000008bb, 0x000008c8,
-	0x000008e4, 0x000008f6, 0x00000930, 0x0000095c,
-	0x0000096b, 0x00000988, 0x000009ad, 0x000009d1,
-	0x000009f8, 0x00000a15, 0x00000a33, 0x00000a74,
-	0x00000a89, 0x00000acc, 0x00000ae7, 0x00000b02,
-	0x00000b14, 0x00000b1b, 0x00000b49, 0x00000b75,
+	0x000005ec, 0x00000607, 0x00000624, 0x0000063d,
+	0x00000655, 0x00000673, 0x00000699, 0x000006c2,
+	0x000006ee, 0x00000717, 0x0000072e, 0x00000749,
+	0x0000075f, 0x00000775, 0x00000786, 0x000007a1,
+	0x000007bc, 0x000007cf, 0x000007eb, 0x00000801,
+	0x00000813, 0x0000084a, 0x0000086f, 0x00000895,
+	0x000008bf, 0x000008e6, 0x00000913, 0x0000094c,
+	0x0000099f, 0x000009c1, 0x000009e0, 0x000009f8,
 	// Entry 60 - 7F
-	0x00000b8e, 0x00000ba4, 0x00000bb4, 0x00000bcf,
-	0x00000bdf, 0x00000bef, 0x00000c05, 0x00000c1d,
-	0x00000c34, 0x00000c6b, 0x00000c99, 0x00000cbb,
-	0x00000cdd, 0x00000d04, 0x00000d18, 0x00000d2f,
-	0x00000d46, 0x00000d6d, 0x00000d95, 0x00000dc2,
-	0x00000deb, 0x00000dfd, 0x00000e12, 0x00000e1c,
-	0x00000e25, 0x00000e35, 0x00000e3c, 0x00000e46,
-	0x00000e50, 0x00000e62, 0x00000e7e, 0x00000e9d,
+	0x00000a29, 0x00000a45, 0x00000a5e, 0x00000a8a,
+	0x00000ab2, 0x00000acc, 0x00000ade, 0x00000af8,
+	0x00000b08, 0x00000b1e, 0x00000b30, 0x00000b44,
+	0x00000b5a, 0x00000b77, 0x00000b98, 0x00000baa,
+	0x00000bc8, 0x00000bd9, 0x00000bed, 0x00000c03,
+	0x00000c19, 0x00000c29, 0x00000c40, 0x00000c68,
+	0x00000c78, 0x00000c99, 0x00000cca, 0x00000cee,
+	0x00000d00, 0x00000d1c, 0x00000d31, 0x00000d4c,
 	// Entry 80 - 9F
-	0x00000eb0, 0x00000edc, 0x00000f01, 0x00000f34,
-	0x00000f9d, 0x00000fc3, 0x00000fe5, 0x00001006,
-	0x00001025, 0x0000104a, 0x00001063, 0x0000108d,
-	0x000010b1, 0x000010d2, 0x000010fa, 0x00001115,
-	0x00001135, 0x0000115b, 0x0000116d, 0x00001182,
-	0x000011b9, 0x000011e1, 0x00001212, 0x0000122e,
-	0x00001249, 0x00001262, 0x0000128b, 0x000012a0,
-	0x000012b6, 0x00001311, 0x00001345, 0x0000136a,
+	0x00000d9b, 0x00000db1, 0x00000dd3, 0x00000def,
+	0x00000e19, 0x00000e3b, 0x00000e51, 0x00000e63,
+	0x00000e81, 0x00000e8e, 0x00000ea7, 0x00000eb4,
+	0x00000ed0, 0x00000ee2, 0x00000f1c, 0x00000f48,
+	0x00000f57, 0x00000f74, 0x00000f99, 0x00000fbd,
+	0x00000fe4, 0x00001001, 0x0000101f, 0x00001060,
+	0x00001075, 0x000010b8, 0x000010d3, 0x000010ee,
+	0x00001100, 0x00001107, 0x00001135, 0x00001161,
 	// Entry A0 - BF
-	0x0000138b, 0x000013b3, 0x000013d9, 0x000013f6,
-	0x00001426, 0x00001450, 0x00001471, 0x000014a0,
-	0x000014cf, 0x000014ff, 0x0000152d, 0x0000154b,
-	0x00001574, 0x0000158c, 0x000015b1, 0x000015e2,
-	0x000015fb, 0x00001617, 0x0000163f, 0x00001654,
-	0x00001673, 0x00001689, 0x000016c9, 0x00001709,
-	0x0000172a, 0x00001769, 0x00001773, 0x0000178e,
-	0x000017ad, 0x000017cb, 0x000017e9, 0x000017ff,
+	0x0000117a, 0x00001190, 0x000011a0, 0x000011bb,
+	0x000011cb, 0x000011db, 0x000011f1, 0x00001209,
+	0x00001220, 0x00001257, 0x00001285, 0x000012a7,
+	0x000012c9, 0x000012f0, 0x00001304, 0x0000131b,
+	0x00001332, 0x00001359, 0x00001381, 0x000013ae,
+	0x000013d7, 0x000013e9, 0x000013fe, 0x00001408,
+	0x00001411, 0x00001421, 0x00001428, 0x00001432,
+	0x0000143c, 0x0000144e, 0x0000146a, 0x00001489,
 	// Entry C0 - DF
-	0x00001841, 0x00001862, 0x00001878, 0x0000189e,
-	0x000018c3, 0x000018e1, 0x0000190a, 0x0000192f,
-	0x0000194c, 0x00001968, 0x00001993, 0x000019ac,
-	0x000019ec, 0x00001a2f, 0x00001a63, 0x00001a88,
-	0x00001ab9, 0x00001ad9, 0x00001ae9, 0x00001b0a,
-	0x00001b30, 0x00001b50, 0x00001b67, 0x00001b7e,
-	0x00001b9c, 0x00001bbe, 0x00001bd7, 0x00001be7,
-	0x00001bfe, 0x00001c15, 0x00001c25, 0x00001c3d,
+	0x0000149c, 0x000014c8, 0x000014ed, 0x00001520,
+	0x00001589, 0x000015af, 0x000015d1, 0x000015f2,
+	0x00001611, 0x00001636, 0x0000164f, 0x00001679,
+	0x0000169d, 0x000016be, 0x000016e6, 0x00001701,
+	0x00001721, 0x00001747, 0x00001759, 0x0000176e,
+	0x000017a5, 0x000017cd, 0x000017fe, 0x0000181a,
+	0x00001835, 0x0000184e, 0x00001877, 0x0000188c,
+	0x000018a2, 0x000018fd, 0x00001931, 0x00001956,
 	// Entry E0 - FF
-	0x00001c4a, 0x00001c65, 0x00001c75, 0x00001c8a,
-	0x00001ca6, 0x00001cbf, 0x00001ce4, 0x00001cfc,
-	0x00001d0d, 0x00001d2c, 0x00001d44, 0x00001d5c,
-	0x00001d77, 0x00001d91, 0x00001dad, 0x00001dc6,
-	0x00001deb, 0x00001e03, 0x00001e1b, 0x00001e40,
-	0x00001e88, 0x00001e95, 0x00001ea7, 0x00001ecc,
-	0x00001ecc, 0x00001ecc, 0x00001ecc, 0x00001ecc,
-	0x00001ecc, 0x00001ecc, 0x00001ecc, 0x00001ecc,
+	0x00001977, 0x0000199f, 0x000019c5, 0x000019c5,
+	0x000019e2, 0x00001a12, 0x00001a3c, 0x00001a5d,
+	0x00001a8c, 0x00001abb, 0x00001aeb, 0x00001b19,
+	0x00001b37, 0x00001b60, 0x00001b78, 0x00001b9d,
+	0x00001bce, 0x00001be7, 0x00001c03, 0x00001c2b,
+	0x00001c40, 0x00001c5f, 0x00001c75, 0x00001cb5,
+	0x00001cf5, 0x00001d16, 0x00001d55, 0x00001d5f,
+	0x00001d7a, 0x00001d99, 0x00001db7, 0x00001dd5,
 	// Entry 100 - 11F
-	0x00001ecc, 0x00001ecc, 0x00001ecc, 0x00001ecc,
-	0x00001eed, 0x00001f07, 0x00001f19, 0x00001f2a,
-	0x00001f4e, 0x00001f71, 0x00001f8d, 0x00001fac,
-	0x00001fc4, 0x00001fe0, 0x00001fe0, 0x00001ff6,
-	0x00002006, 0x00002016, 0x0000203b, 0x0000203b,
-	0x00002053, 0x00002053, 0x00002076, 0x00002082,
-	0x000020a1, 0x000020c1, 0x000020d7, 0x000020ea,
-	0x000020ff, 0x0000211a, 0x00002137, 0x0000214c,
+	0x00001deb, 0x00001e2d, 0x00001e4e, 0x00001e64,
+	0x00001e8a, 0x00001eaf, 0x00001ecd, 0x00001ef6,
+	0x00001f1b, 0x00001f38, 0x00001f54, 0x00001f7f,
+	0x00001f98, 0x00001fd8, 0x0000201b, 0x0000204f,
+	0x00002074, 0x000020a5, 0x000020c5, 0x000020d5,
+	0x000020f6, 0x0000211c, 0x0000213c, 0x00002153,
+	0x0000216a, 0x00002188, 0x000021aa, 0x000021c3,
+	0x000021d3, 0x000021ea, 0x00002201, 0x00002211,
 	// Entry 120 - 13F
-	0x0000215c, 0x00002178, 0x0000218d, 0x000021ad,
-	0x000021ce, 0x000021e9, 0x000021fe, 0x0000222e,
-	0x00002240, 0x00002267, 0x0000227f, 0x0000228b,
-	0x000022a3, 0x000022b3, 0x000022d1, 0x000022f2,
-	0x0000232d, 0x00002340, 0x00002351, 0x00002371,
-	0x0000238d, 0x000023af, 0x000023da, 0x000023fa,
-	0x00002410, 0x00002429, 0x00002441, 0x00002456,
-	0x00002477, 0x00002487, 0x000024a3, 0x000024c5,
+	0x00002229, 0x00002236, 0x00002251, 0x00002261,
+	0x00002276, 0x00002292, 0x000022ab, 0x000022d0,
+	0x000022e8, 0x000022f9, 0x00002318, 0x00002330,
+	0x00002348, 0x00002363, 0x0000237d, 0x00002399,
+	0x000023b2, 0x000023d7, 0x000023ef, 0x00002407,
+	0x0000242c, 0x00002474, 0x00002481, 0x00002493,
+	0x000024b8, 0x000024b8, 0x000024b8, 0x000024b8,
+	0x000024b8, 0x000024b8, 0x000024b8, 0x000024b8,
 	// Entry 140 - 15F
-	0x000024e6, 0x00002521, 0x0000254f, 0x00002581,
-	0x000025bf, 0x000025ef, 0x00002618, 0x00002641,
-	0x0000266d, 0x00002698, 0x000026c4, 0x00002721,
-	0x0000274c, 0x0000277b, 0x00002785, 0x00002797,
-	0x000027b8, 0x000027d6, 0x000027ee, 0x00002809,
-	0x00002826, 0x0000284d, 0x0000286e, 0x00002887,
-	0x000028b0, 0x000028eb, 0x0000290f, 0x00002930,
-	0x00002964, 0x00002997, 0x000029c2, 0x000029ec,
+	0x000024b8, 0x000024b8, 0x000024b8, 0x000024b8,
+	0x000024b8, 0x000024d9, 0x000024f3, 0x00002505,
+	0x00002516, 0x0000253a, 0x0000255d, 0x00002579,
+	0x00002598, 0x000025b0, 0x000025cc, 0x000025cc,
+	0x000025e2, 0x000025f2, 0x00002602, 0x00002627,
+	0x00002627, 0x0000263f, 0x0000263f, 0x00002662,
+	0x0000266e, 0x0000268d, 0x000026ad, 0x000026c3,
+	0x000026d6, 0x000026eb, 0x00002706, 0x00002723,
 	// Entry 160 - 17F
-	0x00002a31, 0x00002a7e, 0x00002a93, 0x00002a93,
-	0x00002a93, 0x00002ab8, 0x00002ace, 0x00002ae3,
-	0x00002b10, 0x00002b37, 0x00002b5c, 0x00002b84,
-	0x00002ba5, 0x00002bde, 0x00002bf0, 0x00002c0d,
-	0x00002c2e, 0x00002c4f, 0x00002c87, 0x00002c99,
-	0x00002cb0, 0x00002ce4, 0x00002d11, 0x00002d38,
-	0x00002d5b, 0x00002d82, 0x00002d95, 0x00002db0,
-	0x00002dce, 0x00002de7, 0x00002e0b, 0x00002e2c,
+	0x00002738, 0x00002748, 0x00002764, 0x00002779,
+	0x00002799, 0x000027ba, 0x000027d5, 0x000027ea,
+	0x0000281a, 0x0000282c, 0x00002853, 0x0000286b,
+	0x00002877, 0x0000288f, 0x0000289f, 0x000028bd,
+	0x000028de, 0x00002919, 0x0000292c, 0x0000293d,
+	0x0000295d, 0x00002979, 0x0000299b, 0x000029c6,
+	0x000029e6, 0x000029fc, 0x00002a15, 0x00002a2d,
+	0x00002a42, 0x00002a63, 0x00002a73, 0x00002a8f,
 	// Entry 180 - 19F
-	0x00002e4d, 0x00002e74, 0x00002ea7, 0x00002ed4,
-	0x00002ee7, 0x00002f12, 0x00002f2f, 0x00002f53,
-	0x00002f6d, 0x00002f82, 0x00002fb2, 0x00002fd7,
-	0x00003008, 0x00003024, 0x0000303e, 0x00003053,
-	0x00003083, 0x000030b1, 0x000030d0, 0x000030fb,
-	0x0000312c, 0x0000313e, 0x0000317c, 0x00003195,
-	0x000031d7, 0x000031f3, 0x00003229, 0x00003260,
-	0x00003293, 0x000032ab, 0x000032c5, 0x000032e2,
+	0x00002ab1, 0x00002ad2, 0x00002b0d, 0x00002b3b,
+	0x00002b6d, 0x00002bab, 0x00002bdb, 0x00002c04,
+	0x00002c2d, 0x00002c59, 0x00002c84, 0x00002cb0,
+	0x00002d0d, 0x00002d38, 0x00002d67, 0x00002d71,
+	0x00002d83, 0x00002da4, 0x00002dc2, 0x00002dda,
+	0x00002df5, 0x00002e12, 0x00002e39, 0x00002e5a,
+	0x00002e73, 0x00002e9c, 0x00002ed7, 0x00002efb,
+	0x00002f1c, 0x00002f50, 0x00002f83, 0x00002fae,
 	// Entry 1A0 - 1BF
-	0x000032f3, 0x000032f3, 0x000032f3, 0x000032f3,
-	0x000032f3, 0x0000330d, 0x00003327, 0x00003331,
-	0x00003343, 0x00003360, 0x0000337f, 0x000033a5,
-	0x000033be, 0x000033e5, 0x0000340c, 0x00003427,
-	0x00003439, 0x00003466, 0x00003484, 0x0000349c,
-	0x000034b4, 0x000034cf, 0x000034ea, 0x00003517,
-	0x00003532, 0x00003559, 0x0000358a, 0x000035bd,
-	0x000035ee, 0x00003608, 0x00003629, 0x0000364a,
+	0x00002fd8, 0x0000301d, 0x0000306a, 0x0000307f,
+	0x0000307f, 0x0000307f, 0x000030a4, 0x000030ba,
+	0x000030cf, 0x000030fc, 0x00003123, 0x00003148,
+	0x00003170, 0x00003191, 0x000031ca, 0x000031ca,
+	0x000031ca, 0x000031dc, 0x000031f9, 0x0000321a,
+	0x0000323b, 0x00003273, 0x00003285, 0x0000329c,
+	0x000032d0, 0x000032fd, 0x00003324, 0x00003347,
+	0x0000336e, 0x00003381, 0x0000339c, 0x000033ba,
 	// Entry 1C0 - 1DF
-	0x0000366f, 0x00003695, 0x000036be, 0x000036da,
-	0x000036fb, 0x00003716, 0x00003720, 0x00003735,
-	0x0000374a, 0x0000377a, 0x00003790, 0x000037a8,
-	0x000037db, 0x000037f3, 0x00003811, 0x00003825,
-	0x0000384c, 0x00003876, 0x0000388e, 0x000038be,
-	0x000038eb, 0x00003910, 0x00003935, 0x0000396a,
-	0x0000399c, 0x000039c8, 0x000039fd, 0x00003a2d,
-	0x00003a4b, 0x00003a4b, 0x00003a6a, 0x00003a80,
+	0x000033d3, 0x000033f7, 0x00003418, 0x00003439,
+	0x00003460, 0x00003493, 0x000034c0, 0x000034d3,
+	0x000034fe, 0x0000351b, 0x0000353f, 0x00003559,
+	0x0000356e, 0x0000359e, 0x000035c3, 0x000035f4,
+	0x00003610, 0x0000362a, 0x0000363f, 0x0000366f,
+	0x0000369d, 0x000036bc, 0x000036e7, 0x00003718,
+	0x0000372a, 0x00003768, 0x00003781, 0x000037c3,
+	0x000037df, 0x00003815, 0x0000384c, 0x0000387f,
 	// Entry 1E0 - 1FF
-	0x00003a96, 0x00003ac0, 0x00003b08, 0x00003b29,
-	0x00003b62, 0x00003b92, 0x00003b92, 0x00003b92,
-	0x00003bab, 0x00003be3, 0x00003c04, 0x00003c04,
-	0x00003c04, 0x00003c04, 0x00003c04, 0x00003c04,
-	0x00003c19, 0x00003c2b, 0x00003c51, 0x00003c69,
-	0x00003c85, 0x00003ca0, 0x00003cbc, 0x00003cc8,
-	0x00003cf3, 0x00003d0f, 0x00003d39, 0x00003d64,
-	0x00003d80, 0x00003d99, 0x00003db8, 0x00003dd8,
+	0x00003897, 0x000038b1, 0x000038ce, 0x000038df,
+	0x000038df, 0x000038df, 0x000038df, 0x000038df,
+	0x000038f9, 0x00003913, 0x0000391d, 0x0000392f,
+	0x0000394c, 0x0000396b, 0x00003991, 0x000039aa,
+	0x000039d1, 0x000039f8, 0x00003a13, 0x00003a25,
+	0x00003a52, 0x00003a70, 0x00003a88, 0x00003aa0,
+	0x00003abb, 0x00003ad6, 0x00003b03, 0x00003b1e,
+	0x00003b45, 0x00003b76, 0x00003ba9, 0x00003bda,
 	// Entry 200 - 21F
-	0x00003df7, 0x00003e1d, 0x00003e44, 0x00003e62,
-	0x00003ea0, 0x00003ede, 0x00003f0b, 0x00003f2c,
-	0x00003f3c, 0x00003f7c, 0x00003f7c, 0x00003fa1,
-	0x00003fc0, 0x00003fdf, 0x00003ff1, 0x00004019,
-	0x0000402c, 0x00004075, 0x00004096, 0x000040b8,
-	0x000040d9, 0x000040ec, 0x00004108, 0x00004132,
-	0x00004156, 0x00004175, 0x000041a3, 0x000041d0,
-	0x000041f1, 0x0000421e, 0x00004248, 0x00004270,
+	0x00003bf4, 0x00003c15, 0x00003c36, 0x00003c5b,
+	0x00003c81, 0x00003caa, 0x00003cc6, 0x00003ce7,
+	0x00003d02, 0x00003d0c, 0x00003d21, 0x00003d36,
+	0x00003d66, 0x00003d7c, 0x00003d94, 0x00003dc7,
+	0x00003ddf, 0x00003dfd, 0x00003e11, 0x00003e38,
+	0x00003e62, 0x00003e7a, 0x00003eaa, 0x00003ed7,
+	0x00003efc, 0x00003f21, 0x00003f56, 0x00003f88,
+	0x00003fb4, 0x00003fe9, 0x00004019, 0x00004037,
 	// Entry 220 - 23F
-	0x0000428c, 0x000042a1, 0x000042c8, 0x000042e9,
-	0x00004312, 0x00004324, 0x00004351, 0x0000437e,
-	0x00004397, 0x000043b8, 0x000043e9, 0x00004416,
-	0x00004429, 0x00004450, 0x00004476, 0x0000449c,
-	0x000044bc, 0x000044e3, 0x00004503, 0x0000452a,
-	0x00004551, 0x00004572, 0x000045b1, 0x000045bd,
-	0x000045cd, 0x000045ef, 0x00004610, 0x00004639,
-	0x0000465e, 0x0000468c, 0x000046ad, 0x000046c2,
+	0x00004037, 0x00004056, 0x0000406c, 0x00004082,
+	0x000040ac, 0x000040f4, 0x00004115, 0x0000414e,
+	0x0000417e, 0x0000417e, 0x0000417e, 0x00004197,
+	0x000041cf, 0x000041f0, 0x000041f0, 0x000041f0,
+	0x000041f0, 0x000041f0, 0x000041f0, 0x00004205,
+	0x00004205, 0x00004217, 0x0000423d, 0x00004255,
+	0x00004271, 0x0000428c, 0x000042a8, 0x000042b4,
+	0x000042df, 0x000042fb, 0x00004325, 0x00004350,
 	// Entry 240 - 25F
-	0x000046d5, 0x000046e8, 0x00004707, 0x00004729,
-	0x00004741, 0x0000475a, 0x00004770, 0x0000478f,
-	0x000047b3, 0x000047c5, 0x000047fc, 0x00004812,
-	0x0000482a, 0x0000484c, 0x00004863, 0x00004878,
-	0x000048a4, 0x000048d8, 0x0000490c, 0x0000491b,
-	0x0000492b, 0x00004942, 0x00004962, 0x00004987,
-	0x000049a6, 0x000049be, 0x000049eb, 0x00004a18,
-	0x00004a3f, 0x00004a55, 0x00004a76, 0x00004a8c,
+	0x0000436c, 0x00004385, 0x000043a4, 0x000043c4,
+	0x000043e3, 0x00004409, 0x00004430, 0x0000444e,
+	0x0000448c, 0x000044ca, 0x000044f7, 0x00004518,
+	0x00004528, 0x00004568, 0x00004568, 0x0000458d,
+	0x000045ac, 0x000045cb, 0x000045dd, 0x00004605,
+	0x00004618, 0x00004661, 0x00004682, 0x000046a4,
+	0x000046c5, 0x000046d8, 0x000046f4, 0x0000471e,
+	0x00004742, 0x00004761, 0x0000478f, 0x000047bc,
 	// Entry 260 - 27F
-	0x00004aab, 0x00004acf, 0x00004ae8, 0x00004b05,
-	0x00004b36, 0x00004b52, 0x00004b80, 0x00004ba1,
-	0x00004bbf, 0x00004bda, 0x00004bf3, 0x00004c0b,
-	0x00004c21, 0x00004c48, 0x00004c6c, 0x00004cb4,
-	0x00004cdb, 0x00004d02, 0x00004d29, 0x00004d47,
-	0x00004d5a, 0x00004d6a, 0x00004d7a, 0x00004da5,
-	0x00004dd4, 0x00004e04, 0x00004e1d, 0x00004e30,
-	0x00004e4a, 0x00004e5f, 0x00004e74, 0x00004e9e,
+	0x000047dd, 0x0000480a, 0x00004834, 0x0000485c,
+	0x00004878, 0x0000488d, 0x000048b4, 0x000048d5,
+	0x000048fe, 0x00004910, 0x0000493d, 0x0000496a,
+	0x0000496a, 0x00004983, 0x000049a4, 0x000049d5,
+	0x00004a02, 0x00004a15, 0x00004a3c, 0x00004a62,
+	0x00004a88, 0x00004aa8, 0x00004acf, 0x00004aef,
+	0x00004b16, 0x00004b3d, 0x00004b5e, 0x00004b9d,
+	0x00004ba9, 0x00004bb9, 0x00004bdb, 0x00004bfc,
 	// Entry 280 - 29F
-	0x00004eba, 0x00004ef1, 0x00004f03, 0x00004f22,
-	0x00004f34, 0x00004f4c, 0x00004f62, 0x00004f87,
-	0x00004fa9, 0x00004fce, 0x00004fef, 0x0000500b,
-	0x0000501b, 0x0000503a, 0x00005056, 0x00005078,
-	0x000050ab, 0x000050c6, 0x000050ed, 0x00005101,
-	0x00005110, 0x00005120, 0x00005132, 0x0000514b,
-	0x00005166, 0x00005184, 0x0000519d, 0x000051b8,
-	0x000051e1, 0x00005203, 0x0000521b, 0x00005233,
+	0x00004c25, 0x00004c4a, 0x00004c78, 0x00004c99,
+	0x00004cae, 0x00004cc1, 0x00004cd4, 0x00004cf3,
+	0x00004d15, 0x00004d2d, 0x00004d46, 0x00004d5c,
+	0x00004d7b, 0x00004d9f, 0x00004db1, 0x00004de8,
+	0x00004dfe, 0x00004e16, 0x00004e38, 0x00004e4f,
+	0x00004e64, 0x00004e90, 0x00004ec4, 0x00004ef8,
+	0x00004f07, 0x00004f17, 0x00004f2e, 0x00004f4e,
+	0x00004f73, 0x00004f92, 0x00004faa, 0x00004fd7,
 	// Entry 2A0 - 2BF
-	0x0000524e, 0x00005266, 0x0000528b, 0x000052a0,
-	0x000052b7, 0x000052c3, 0x000052d9, 0x000052f4,
-	0x00005310, 0x0000533d, 0x00005350, 0x0000535f,
-	0x00005373, 0x00005391, 0x000053a7, 0x000053c2,
-	0x000053e4, 0x00005407, 0x00005418, 0x0000542a,
-	0x00005450, 0x00005471, 0x00005471, 0x000054a1,
-	0x000054c1, 0x000054f6, 0x00005511, 0x00005543,
-	0x00005555, 0x00005574, 0x000055a0, 0x000055bc,
+	0x00005004, 0x0000502b, 0x00005041, 0x00005062,
+	0x00005078, 0x00005097, 0x000050bb, 0x000050d4,
+	0x000050f1, 0x00005122, 0x0000513e, 0x0000516c,
+	0x0000518d, 0x000051ab, 0x000051c4, 0x000051e8,
+	0x00005230, 0x00005257, 0x0000527e, 0x000052a5,
+	0x000052c3, 0x000052d6, 0x000052e6, 0x000052f6,
+	0x00005321, 0x00005350, 0x00005380, 0x00005399,
+	0x000053ae, 0x000053d8, 0x000053f4, 0x0000542b,
 	// Entry 2C0 - 2DF
-	0x000055dd, 0x00005616, 0x0000562e, 0x0000564c,
-	0x0000565f, 0x0000567a, 0x0000568d, 0x000056ab,
-	0x000056c4, 0x000056d7, 0x000056f0, 0x00005705,
-	0x00005730, 0x0000575e, 0x00005773, 0x000057a4,
-	0x000057ca, 0x000057e5, 0x0000580a, 0x00005834,
-	0x0000585b, 0x00005885, 0x000058ba, 0x000058f2,
-	0x0000591b, 0x00005941, 0x00005968, 0x00005983,
-	0x00005999, 0x000059c0, 0x000059db, 0x000059f0,
+	0x0000543d, 0x0000545c, 0x0000546e, 0x00005486,
+	0x0000549c, 0x000054c1, 0x000054e3, 0x00005508,
+	0x00005529, 0x00005545, 0x00005555, 0x00005574,
+	0x00005590, 0x000055b2, 0x000055e5, 0x00005600,
+	0x00005627, 0x0000563b, 0x0000564a, 0x0000565a,
+	0x0000566c, 0x00005685, 0x000056a0, 0x000056be,
+	0x000056d7, 0x000056f2, 0x0000571b, 0x0000573d,
+	0x00005755, 0x0000576d, 0x00005788, 0x000057a0,
 	// Entry 2E0 - 2FF
-	0x00005a05, 0x00005a17, 0x00005a3b, 0x00005a3b,
-	0x00005a50, 0x00005a6f, 0x00005a9d, 0x00005acb,
-	0x00005af3, 0x00005b27, 0x00005b50, 0x00005b72,
-	0x00005ba2, 0x00005bc7, 0x00005bd4, 0x00005bec,
-	0x00005c0a, 0x00005c23, 0x00005c43, 0x00005c68,
-	0x00005c7e, 0x00005c98, 0x00005ccb, 0x00005cf1,
-	0x00005d10, 0x00005d34, 0x00005d67, 0x00005da4,
-	0x00005dc8, 0x00005df3, 0x00005e1d, 0x00005e32,
+	0x000057c5, 0x000057da, 0x000057f1, 0x000057fd,
+	0x00005813, 0x0000582e, 0x0000584a, 0x00005877,
+	0x0000588a, 0x00005899, 0x000058ad, 0x000058cb,
+	0x000058e1, 0x000058fc, 0x0000591e, 0x00005941,
+	0x00005952, 0x00005964, 0x0000598a, 0x000059ab,
+	0x000059ab, 0x000059db, 0x000059fb, 0x00005a30,
+	0x00005a4b, 0x00005a7d, 0x00005a8f, 0x00005aae,
+	0x00005ada, 0x00005af6, 0x00005b17, 0x00005b50,
 	// Entry 300 - 31F
-	0x00005e47, 0x00005e67, 0x00005e7e, 0x00005ea2,
-	0x00005ed0, 0x00005f01, 0x00005f2b, 0x00005f54,
-	0x00005f7a, 0x00005fa1, 0x00005fbc, 0x00005fdd,
-	0x00005fec, 0x00006001, 0x00006014, 0x00006043,
-	0x0000606e, 0x00006087, 0x000060a7, 0x000060cf,
-	0x000060e4, 0x0000610a, 0x00006129, 0x00006149,
-	0x00006161, 0x00006178, 0x000061a2, 0x000061cc,
-	0x000061eb, 0x00006213, 0x00006244, 0x0000627c,
+	0x00005b68, 0x00005b86, 0x00005b99, 0x00005bb4,
+	0x00005bc7, 0x00005be5, 0x00005bfe, 0x00005c11,
+	0x00005c2a, 0x00005c3f, 0x00005c6a, 0x00005c98,
+	0x00005cad, 0x00005cde, 0x00005d04, 0x00005d1f,
+	0x00005d44, 0x00005d6e, 0x00005d95, 0x00005dbf,
+	0x00005df4, 0x00005e2c, 0x00005e55, 0x00005e7b,
+	0x00005ea2, 0x00005ebd, 0x00005ed3, 0x00005efa,
+	0x00005f15, 0x00005f2a, 0x00005f3f, 0x00005f51,
 	// Entry 320 - 33F
-	0x000062ad, 0x000062cf, 0x000062e6, 0x000062fc,
-	0x00006313, 0x00006368, 0x00006381, 0x000063a0,
-	0x000063b0, 0x000063ce, 0x000063ed, 0x0000640c,
-	0x0000642e, 0x00006448, 0x00006462, 0x0000646e,
-	0x0000647f, 0x000064a1, 0x000064b8, 0x000064cd,
-	0x000064eb, 0x0000650c, 0x00006527, 0x00006550,
-	0x0000656f, 0x0000659b, 0x000065b6, 0x000065da,
-	0x00006602, 0x0000663c, 0x00006664, 0x000066a1,
+	0x00005f75, 0x00005f75, 0x00005f8a, 0x00005fa9,
+	0x00005fd7, 0x00006005, 0x0000602d, 0x00006061,
+	0x0000608a, 0x000060ac, 0x000060dc, 0x00006101,
+	0x0000610e, 0x00006126, 0x00006144, 0x0000615d,
+	0x0000617d, 0x000061a2, 0x000061b8, 0x000061d2,
+	0x00006205, 0x0000622b, 0x0000624a, 0x0000624a,
+	0x0000626e, 0x000062a1, 0x000062de, 0x00006302,
+	0x0000632d, 0x00006357, 0x0000636c, 0x00006381,
 	// Entry 340 - 35F
-	0x000066db, 0x000066ff, 0x00006729, 0x0000674d,
-	0x00006765, 0x00006784, 0x000067bd, 0x000067ea,
-	0x00006814, 0x0000683c, 0x00006863, 0x00006877,
-	0x00006895, 0x000068a5, 0x000068c5, 0x000068d6,
-	0x000068fa, 0x00006917, 0x00006938, 0x00006961,
-	0x0000698a, 0x0000699c, 0x000069c6, 0x000069d8,
-	0x000069eb, 0x00006a03, 0x00006a37, 0x00006a6d,
-	0x00006ab3, 0x00006add, 0x00006aef, 0x00006b1d,
+	0x000063a1, 0x000063b8, 0x000063dc, 0x0000640a,
+	0x0000643b, 0x00006465, 0x0000648e, 0x000064b4,
+	0x000064db, 0x000064f6, 0x00006517, 0x00006526,
+	0x0000653b, 0x0000654e, 0x0000657d, 0x000065a8,
+	0x000065c1, 0x000065e1, 0x00006609, 0x0000661e,
+	0x00006644, 0x00006663, 0x00006683, 0x0000669b,
+	0x000066b2, 0x000066dc, 0x00006706, 0x00006725,
+	0x0000674d, 0x0000677e, 0x000067b6, 0x000067e7,
 	// Entry 360 - 37F
-	0x00006b39, 0x00006b5b, 0x00006b7a, 0x00006ba2,
-	0x00006bd0, 0x00006be2, 0x00006c05, 0x00006c17,
-	0x00006c36, 0x00006c53, 0x00006c6f, 0x00006c93,
-	0x00006cb6, 0x00006ce0, 0x00006d0a, 0x00006d31,
-	0x00006d68, 0x00006d93, 0x00006dbd, 0x00006df4,
-	0x00006e16, 0x00006e3e, 0x00006e60, 0x00006ea7,
-	0x00006eef, 0x00006f37, 0x00006f5c, 0x00006f6f,
-	0x00006f84, 0x00006f9c, 0x00006fcd, 0x00006fea,
+	0x00006809, 0x00006820, 0x00006836, 0x0000684d,
+	0x000068a2, 0x000068bb, 0x000068da, 0x000068ea,
+	0x00006908, 0x00006927, 0x00006946, 0x00006968,
+	0x00006982, 0x0000699c, 0x000069a8, 0x000069b9,
+	0x000069db, 0x000069f2, 0x00006a07, 0x00006a25,
+	0x00006a46, 0x00006a61, 0x00006a8a, 0x00006aa9,
+	0x00006ad5, 0x00006af0, 0x00006b14, 0x00006b3c,
+	0x00006b76, 0x00006b9e, 0x00006bdb, 0x00006c15,
 	// Entry 380 - 39F
-	0x0000700d, 0x0000704a, 0x0000704a, 0x0000704a,
-	0x0000704a, 0x0000704a, 0x0000704a, 0x00007069,
-	0x00007081, 0x000070ae, 0x000070cf, 0x000070e1,
-	0x000070f6, 0x00007116, 0x0000713e, 0x00007169,
-	0x0000717b, 0x0000719a, 0x000071c4, 0x000071e7,
-	0x0000720b, 0x0000722d, 0x0000724c, 0x0000727f,
-	0x000072a8, 0x000072db, 0x00007307, 0x00007333,
-	0x00007356, 0x00007370, 0x0000739d, 0x000073be,
+	0x00006c39, 0x00006c63, 0x00006c87, 0x00006c9f,
+	0x00006cbe, 0x00006cf7, 0x00006d24, 0x00006d4e,
+	0x00006d76, 0x00006d9d, 0x00006db1, 0x00006dcf,
+	0x00006ddf, 0x00006dff, 0x00006e10, 0x00006e34,
+	0x00006e51, 0x00006e72, 0x00006e9b, 0x00006ec4,
+	0x00006ed6, 0x00006f00, 0x00006f12, 0x00006f31,
+	0x00006f4e, 0x00006f4e, 0x00006f4e, 0x00006f4e,
+	0x00006f61, 0x00006f79, 0x00006fad, 0x00006fe3,
 	// Entry 3A0 - 3BF
-	0x000073ee, 0x00007405, 0x0000742d, 0x0000745e,
-	0x00007496, 0x000074a6, 0x000074c3, 0x000074f4,
-	0x0000750e, 0x0000753c, 0x00007562, 0x00007582,
-	0x00007597, 0x000075ac, 0x000075be, 0x000075e3,
-	0x00007603, 0x00007622, 0x00007647, 0x00007672,
-	0x0000769d, 0x000076af, 0x000076e0, 0x000076f5,
-	0x00007710, 0x00007745, 0x0000776f, 0x0000778a,
-	0x000077ab, 0x000077c5, 0x000077e4, 0x00007830,
+	0x00007029, 0x00007053, 0x00007065, 0x00007093,
+	0x000070af, 0x000070d1, 0x000070f0, 0x00007118,
+	0x00007146, 0x00007158, 0x0000717b, 0x0000718d,
+	0x000071a9, 0x000071cd, 0x000071f0, 0x0000721a,
+	0x00007244, 0x0000726b, 0x000072a2, 0x000072cd,
+	0x000072f7, 0x0000732e, 0x00007350, 0x00007378,
+	0x0000739a, 0x000073e1, 0x00007429, 0x00007471,
+	0x00007496, 0x000074a9, 0x000074be, 0x000074d6,
 	// Entry 3C0 - 3DF
-	0x00007871, 0x00007886, 0x000078af, 0x000078d7,
-	0x00007904, 0x00007932, 0x0000795a, 0x0000797b,
-	0x00007997, 0x000079bc, 0x000079e7, 0x00007a09,
-	0x00007a25, 0x00007a56, 0x00007a93, 0x00007abb,
-	0x00007aeb, 0x00007b11, 0x00007b60, 0x00007b86,
-	0x00007bb5, 0x00007be6, 0x00007c04, 0x00007c34,
-	0x00007c5e, 0x00007c84, 0x00007c9d, 0x00007cde,
-	0x00007d1c, 0x00007d60, 0x00007d8b, 0x00007dac,
+	0x00007507, 0x00007524, 0x00007547, 0x00007584,
+	0x00007584, 0x00007584, 0x00007584, 0x00007584,
+	0x00007584, 0x000075a3, 0x000075bb, 0x000075e8,
+	0x00007609, 0x0000761b, 0x00007630, 0x00007650,
+	0x00007678, 0x000076a3, 0x000076b5, 0x000076d4,
+	0x000076fe, 0x00007721, 0x00007721, 0x00007745,
+	0x00007767, 0x00007786, 0x000077b9, 0x000077e2,
+	0x00007815, 0x00007841, 0x0000786d, 0x00007890,
 	// Entry 3E0 - 3FF
-	0x00007dbc, 0x00007dd9, 0x00007df5, 0x00007e0f,
-	0x00007e1c, 0x00007e67, 0x00007e9a, 0x00007ebc,
-	0x00007ed6, 0x00007ee6, 0x00007ee6, 0x00007ee6,
-	0x00007ee6, 0x00007ee6, 0x00007ee6, 0x00007ee6,
-	0x00007ee6, 0x00007ee6, 0x00007ee6, 0x00007f06,
-	0x00007f2d, 0x00007f51, 0x00007f70, 0x00007f85,
-	0x00007faa, 0x00007fcc, 0x00007fe7, 0x00007fff,
-	0x00008017, 0x00008031, 0x00008049, 0x00008079,
+	0x000078aa, 0x000078d7, 0x000078f8, 0x00007928,
+	0x0000793f, 0x00007967, 0x00007998, 0x000079d0,
+	0x000079e0, 0x000079fd, 0x00007a2e, 0x00007a48,
+	0x00007a76, 0x00007a9c, 0x00007abc, 0x00007ad1,
+	0x00007ae6, 0x00007af8, 0x00007b1d, 0x00007b3d,
+	0x00007b5c, 0x00007b81, 0x00007bac, 0x00007bd7,
+	0x00007be9, 0x00007c1a, 0x00007c2f, 0x00007c4a,
+	0x00007c7f, 0x00007ca9, 0x00007cc4, 0x00007ce5,
 	// Entry 400 - 41F
-	0x0000808e, 0x000080a3, 0x000080c2, 0x000080da,
-	0x000080f3, 0x0000810b, 0x00008124, 0x00008152,
-	0x00008176, 0x00008196, 0x000081a6, 0x000081d0,
-	0x000081e5, 0x000081f9, 0x00008213, 0x0000822d,
-	0x00008254, 0x0000826c, 0x00008283, 0x000082b8,
-	0x000082e8, 0x000082f8, 0x00008335, 0x00008353,
-	0x00008390, 0x000083b6, 0x000083d7, 0x000083fc,
-	0x00008418, 0x00008434, 0x00008462, 0x00008489,
+	0x00007cff, 0x00007d1e, 0x00007d6a, 0x00007dab,
+	0x00007dc0, 0x00007de9, 0x00007e11, 0x00007e3e,
+	0x00007e6c, 0x00007e94, 0x00007eb5, 0x00007ed1,
+	0x00007ef6, 0x00007f21, 0x00007f43, 0x00007f5f,
+	0x00007f90, 0x00007fcd, 0x00007ff5, 0x00008025,
+	0x0000804b, 0x0000809a, 0x000080c0, 0x000080ef,
+	0x00008120, 0x0000813e, 0x0000816e, 0x00008198,
+	0x000081be, 0x000081d7, 0x00008218, 0x00008256,
 	// Entry 420 - 43F
-	0x000084b3, 0x000084c8, 0x0000850b, 0x0000851d,
-	0x00008547, 0x00008564, 0x00008580, 0x0000858f,
-	0x000085ac, 0x000085c4, 0x000085d1, 0x000085ef,
-	0x00008610, 0x00008613, 0x0000862b, 0x00008647,
-	0x00008675, 0x00008697, 0x000086a9, 0x000086da,
-	0x000086ea, 0x00008706, 0x00008706, 0x00008713,
-	0x00008713, 0x00008713, 0x00008759, 0x00008779,
-	0x0000879a, 0x000087cd, 0x0000881c, 0x00008834,
+	0x0000829a, 0x000082c5, 0x000082e6, 0x000082f6,
+	0x00008313, 0x0000832f, 0x00008349, 0x00008356,
+	0x000083a1, 0x000083d4, 0x000083f6, 0x00008410,
+	0x00008420, 0x00008420, 0x00008420, 0x00008420,
+	0x00008420, 0x00008420, 0x00008420, 0x00008420,
+	0x00008420, 0x00008420, 0x00008440, 0x00008467,
+	0x0000848b, 0x000084aa, 0x000084bf, 0x000084e4,
+	0x00008506, 0x00008521, 0x00008539, 0x00008551,
 	// Entry 440 - 45F
-	0x00008856, 0x0000886c, 0x00008884, 0x0000889c,
-	0x000088d3, 0x000088ee, 0x00008909, 0x00008927,
-	0x00008948, 0x0000896c, 0x00008990, 0x000089a9,
-	0x000089e0, 0x000089f8, 0x00008a15, 0x00008a3a,
-	0x00008a4f, 0x00008a67, 0x00008a85, 0x00008aa9,
-	0x00008adc, 0x00008aee, 0x00008b12, 0x00008b36,
-	0x00008b5d, 0x00008b7c, 0x00008b8e, 0x00008ba6,
-	0x00008bbe, 0x00008bd6, 0x00008be5, 0x00008c17,
+	0x0000856b, 0x00008583, 0x000085b3, 0x000085c8,
+	0x000085dd, 0x000085fc, 0x00008614, 0x0000862d,
+	0x00008645, 0x0000865e, 0x0000868c, 0x000086b0,
+	0x000086d0, 0x000086e0, 0x0000870a, 0x0000871f,
+	0x0000873d, 0x00008751, 0x0000876b, 0x00008785,
+	0x000087ac, 0x000087c4, 0x000087db, 0x00008810,
+	0x00008840, 0x00008850, 0x0000888d, 0x000088ca,
+	0x000088f0, 0x00008911, 0x00008936, 0x00008952,
 	// Entry 460 - 47F
-	0x00008c45, 0x00008c5d, 0x00008c75, 0x00008c96,
-	0x00008cb6, 0x00008ccb, 0x00008cf4, 0x00008d0d,
-	0x00008d34, 0x00008d53, 0x00008d87, 0x00008d87,
-	0x00008d9f, 0x00008db7, 0x00008dc9, 0x00008de1,
-	0x00008e0c, 0x00008e25, 0x00008e46, 0x00008e5e,
-	0x00008e78, 0x00008e9b, 0x00008eba, 0x00008ed1,
-	0x00008ef4, 0x00008f13, 0x00008f29, 0x00008f4b,
-	0x00008f61, 0x00008f7c, 0x00008f94, 0x00008f94,
+	0x0000896e, 0x0000899c, 0x000089c3, 0x000089ed,
+	0x00008a02, 0x00008a45, 0x00008a57, 0x00008a81,
+	0x00008a9e, 0x00008aba, 0x00008ac9, 0x00008ae6,
+	0x00008afe, 0x00008b0b, 0x00008b29, 0x00008b4a,
+	0x00008b4d, 0x00008b65, 0x00008b81, 0x00008baf,
+	0x00008bd1, 0x00008be3, 0x00008c14, 0x00008c24,
+	0x00008c40, 0x00008c40, 0x00008c4d, 0x00008c4d,
+	0x00008c4d, 0x00008c93, 0x00008cb3, 0x00008cd4,
 	// Entry 480 - 49F
-	0x00008fb9, 0x00008fdd, 0x00009008, 0x00009026,
-	0x00009036, 0x00009055, 0x00009080, 0x00009096,
-	0x000090a9, 0x000090fa, 0x00009125, 0x00009151,
-	0x00009166, 0x0000917c, 0x0000918f, 0x000091ab,
-	0x000091d8, 0x000091f9, 0x00009224, 0x0000924b,
-	0x00009277, 0x00009298, 0x000092ce, 0x000092db,
-	0x00009309, 0x0000931b, 0x00009337, 0x0000935e,
-	0x00009370, 0x00009385, 0x000093aa, 0x000093cb,
+	0x00008d07, 0x00008d56, 0x00008d6e, 0x00008d90,
+	0x00008da6, 0x00008dbe, 0x00008dd6, 0x00008e0d,
+	0x00008e28, 0x00008e43, 0x00008e61, 0x00008e82,
+	0x00008ea6, 0x00008eca, 0x00008ee3, 0x00008f1a,
+	0x00008f32, 0x00008f4f, 0x00008f74, 0x00008f89,
+	0x00008fa1, 0x00008fbf, 0x00008fe3, 0x00009016,
+	0x00009028, 0x0000904c, 0x00009070, 0x00009097,
+	0x000090b6, 0x000090c8, 0x000090e0, 0x000090f8,
 	// Entry 4A0 - 4BF
-	0x000093e9, 0x00009408, 0x0000942a, 0x0000946c,
-	0x00009499, 0x000094ae, 0x000094df, 0x00009522,
-	0x00009545, 0x00009558, 0x00009571, 0x0000958d,
-	0x000095ab, 0x000095be, 0x000095d1, 0x000095f6,
-	0x00009612, 0x00009630, 0x0000964b, 0x00009663,
-	0x0000967b, 0x00009693, 0x000096b1, 0x000096ca,
-	0x000096e0, 0x000096f6, 0x0000970c, 0x00009725,
-	0x00009747, 0x00009764, 0x00009764, 0x00009764,
+	0x00009110, 0x0000911f, 0x00009151, 0x0000917f,
+	0x00009197, 0x000091af, 0x000091d0, 0x000091f0,
+	0x00009205, 0x0000922e, 0x00009247, 0x0000926e,
+	0x0000928d, 0x000092c1, 0x000092c1, 0x000092d9,
+	0x000092f1, 0x00009303, 0x0000931b, 0x00009346,
+	0x0000935f, 0x00009380, 0x00009398, 0x000093b2,
+	0x000093d5, 0x000093f4, 0x0000940b, 0x0000942e,
+	0x0000944d, 0x00009463, 0x00009485, 0x0000949b,
 	// Entry 4C0 - 4DF
-	0x00009764, 0x00009764, 0x00009764, 0x00009764,
-	0x00009790, 0x000097a9, 0x000097ca, 0x000097f5,
-	0x00009819, 0x00009847, 0x00009847, 0x00009847,
-	0x0000985e, 0x0000989e, 0x000098c7, 0x00009901,
-	0x00009923, 0x00009932, 0x00009949, 0x0000996d,
-	0x00009998, 0x000099b3, 0x000099d2, 0x000099f0,
-	0x00009a09, 0x00009a17, 0x00009a2f, 0x00009a48,
-	0x00009a76, 0x00009ab2, 0x00009ad1, 0x00009af9,
+	0x000094b6, 0x000094ce, 0x000094ce, 0x000094ce,
+	0x000094ce, 0x000094ce, 0x000094f3, 0x00009517,
+	0x00009542, 0x00009542, 0x00009560, 0x00009570,
+	0x0000958f, 0x000095ba, 0x000095d0, 0x000095e3,
+	0x00009634, 0x0000965f, 0x0000968b, 0x000096a0,
+	0x000096b6, 0x000096c9, 0x000096f4, 0x0000971b,
+	0x00009747, 0x00009768, 0x0000979e, 0x000097ab,
+	0x000097d9, 0x000097eb, 0x00009807, 0x0000982e,
 	// Entry 4E0 - 4FF
-	0x00009b14, 0x00009b29, 0x00009b58, 0x00009b7f,
-	0x00009b9d, 0x00009bde, 0x00009bff, 0x00009c29,
-	0x00009c44, 0x00009c72, 0x00009ca4, 0x00009cc3,
-	0x00009cf3, 0x00009d27, 0x00009d59, 0x00009d7d,
-	0x00009db2, 0x00009dfe, 0x00009e2e, 0x00009e59,
-	0x00009e98, 0x00009ec9, 0x00009ef0, 0x00009f0b,
-	0x00009f1e, 0x00009f4e, 0x00009f85, 0x00009fa0,
-	0x00009fd1, 0x0000a033, 0x0000a05e, 0x0000a098,
+	0x00009840, 0x00009855, 0x0000987a, 0x0000989b,
+	0x000098b9, 0x000098d8, 0x000098fa, 0x0000993c,
+	0x00009969, 0x0000997e, 0x000099af, 0x000099f2,
+	0x00009a15, 0x00009a28, 0x00009a41, 0x00009a5d,
+	0x00009a7b, 0x00009a8e, 0x00009aa1, 0x00009ac6,
+	0x00009ae2, 0x00009b00, 0x00009b1b, 0x00009b33,
+	0x00009b4b, 0x00009b63, 0x00009b81, 0x00009b9a,
+	0x00009bb0, 0x00009bc6, 0x00009bdc, 0x00009bf5,
 	// Entry 500 - 51F
-	0x0000a0c7, 0x0000a116, 0x0000a143, 0x0000a17d,
-	0x0000a1b3, 0x0000a1e6, 0x0000a229, 0x0000a265,
-	0x0000a29e, 0x0000a2c6, 0x0000a300, 0x0000a320,
-	0x0000a347, 0x0000a375, 0x0000a394, 0x0000a3ae,
-	0x0000a3c0, 0x0000a3de, 0x0000a40a, 0x0000a41f,
-	0x0000a44f, 0x0000a48d, 0x0000a4b4, 0x0000a4da,
-	0x0000a500, 0x0000a521, 0x0000a547, 0x0000a57d,
-	0x0000a5a7, 0x0000a5d6, 0x0000a5f6, 0x0000a620,
+	0x00009c17, 0x00009c34, 0x00009c34, 0x00009c34,
+	0x00009c34, 0x00009c34, 0x00009c34, 0x00009c34,
+	0x00009c60, 0x00009c79, 0x00009c9a, 0x00009cc5,
+	0x00009ce9, 0x00009d17, 0x00009d17, 0x00009d17,
+	0x00009d2e, 0x00009d6e, 0x00009d97, 0x00009dd1,
+	0x00009df3, 0x00009e02, 0x00009e19, 0x00009e3d,
+	0x00009e68, 0x00009e83, 0x00009ea2, 0x00009ec0,
+	0x00009ed9, 0x00009ee7, 0x00009eff, 0x00009f18,
 	// Entry 520 - 53F
-	0x0000a648, 0x0000a673, 0x0000a697, 0x0000a6c7,
-	0x0000a6eb, 0x0000a71f, 0x0000a74a, 0x0000a77d,
-	0x0000a7a7, 0x0000a7d4, 0x0000a80d, 0x0000a84a,
-	0x0000a87c, 0x0000a8a0, 0x0000a8ca, 0x0000a8fb,
-	0x0000a92b, 0x0000a96b, 0x0000a998, 0x0000a9c6,
-	0x0000a9f4, 0x0000aa28, 0x0000aa65, 0x0000aa93,
-	0x0000aaa5, 0x0000aadc, 0x0000ab06, 0x0000ab27,
-	0x0000ab57, 0x0000ab57, 0x0000ab67, 0x0000ab7f,
+	0x00009f46, 0x00009f82, 0x00009fa1, 0x00009fc9,
+	0x00009fe4, 0x00009ff9, 0x0000a028, 0x0000a04f,
+	0x0000a06d, 0x0000a0ae, 0x0000a0cf, 0x0000a0f9,
+	0x0000a114, 0x0000a142, 0x0000a174, 0x0000a193,
+	0x0000a1c3, 0x0000a1f7, 0x0000a229, 0x0000a24d,
+	0x0000a282, 0x0000a2ce, 0x0000a2fe, 0x0000a329,
+	0x0000a368, 0x0000a399, 0x0000a3c0, 0x0000a3db,
+	0x0000a3ee, 0x0000a41e, 0x0000a455, 0x0000a470,
 	// Entry 540 - 55F
-	0x0000abb2, 0x0000abc6, 0x0000abe8, 0x0000ac18,
-	0x0000ac40, 0x0000ac60, 0x0000ac84, 0x0000acb7,
-	0x0000ad03, 0x0000ad37, 0x0000ad54, 0x0000ad89,
-	0x0000adb2, 0x0000add5, 0x0000add5, 0x0000adf8,
-	0x0000ae20, 0x0000ae38, 0x0000ae5a, 0x0000ae5a,
-	0x0000ae89, 0x0000aeb8, 0x0000aeb8, 0x0000aed9,
-	0x0000aefd, 0x0000af27, 0x0000af4f, 0x0000af7c,
-	0x0000af8f, 0x0000afac, 0x0000afd4, 0x0000b00a,
+	0x0000a4a1, 0x0000a503, 0x0000a52e, 0x0000a568,
+	0x0000a597, 0x0000a5e6, 0x0000a613, 0x0000a64d,
+	0x0000a683, 0x0000a6b6, 0x0000a6f9, 0x0000a735,
+	0x0000a76e, 0x0000a796, 0x0000a7d0, 0x0000a7f0,
+	0x0000a817, 0x0000a845, 0x0000a864, 0x0000a87e,
+	0x0000a890, 0x0000a8ae, 0x0000a8da, 0x0000a8da,
+	0x0000a8ef, 0x0000a91f, 0x0000a95d, 0x0000a984,
+	0x0000a9aa, 0x0000a9d0, 0x0000a9f1, 0x0000aa17,
 	// Entry 560 - 57F
-	0x0000b02c, 0x0000b05a, 0x0000b076, 0x0000b096,
-	0x0000b0ae, 0x0000b0c9, 0x0000b0db, 0x0000b103,
-	0x0000b132, 0x0000b150, 0x0000b187, 0x0000b1ae,
-	0x0000b1d2, 0x0000b1f9, 0x0000b212, 0x0000b21f,
-	0x0000b235, 0x0000b24e, 0x0000b25e, 0x0000b26e,
-	0x0000b27e, 0x0000b28c, 0x0000b29c, 0x0000b2ac,
-	0x0000b2bc, 0x0000b2d2, 0x0000b2e2, 0x0000b2f5,
-	0x0000b2ff, 0x0000b30f, 0x0000b31c, 0x0000b329,
+	0x0000aa4d, 0x0000aa77, 0x0000aaa6, 0x0000aac6,
+	0x0000aaee, 0x0000ab18, 0x0000ab18, 0x0000ab40,
+	0x0000ab6b, 0x0000ab8f, 0x0000abbf, 0x0000abe3,
+	0x0000ac17, 0x0000ac42, 0x0000ac75, 0x0000ac9f,
+	0x0000accc, 0x0000ad05, 0x0000ad42, 0x0000ad74,
+	0x0000ad98, 0x0000adc2, 0x0000adf3, 0x0000ae23,
+	0x0000ae63, 0x0000ae90, 0x0000aebe, 0x0000aeec,
+	0x0000af20, 0x0000af5d, 0x0000af8b, 0x0000af9d,
 	// Entry 580 - 59F
-	0x0000b336, 0x0000b343, 0x0000b350, 0x0000b35d,
-	0x0000b370, 0x0000b37d, 0x0000b38d, 0x0000b39a,
-	0x0000b3a4, 0x0000b3b4, 0x0000b3bb, 0x0000b3c8,
-	0x0000b3d5, 0x0000b3e2, 0x0000b3e9, 0x0000b3f3,
-	0x0000b401, 0x0000b414, 0x0000b421, 0x0000b42e,
-	0x0000b447, 0x0000b457, 0x0000b46a, 0x0000b47d,
-	0x0000b48f, 0x0000b48f, 0x0000b4a1, 0x0000b4b5,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
+	0x0000afd4, 0x0000affe, 0x0000b01f, 0x0000b04f,
+	0x0000b04f, 0x0000b05f, 0x0000b077, 0x0000b0aa,
+	0x0000b0be, 0x0000b0e0, 0x0000b110, 0x0000b138,
+	0x0000b158, 0x0000b17c, 0x0000b1af, 0x0000b1fb,
+	0x0000b22f, 0x0000b24c, 0x0000b281, 0x0000b2aa,
+	0x0000b2cd, 0x0000b2cd, 0x0000b2cd, 0x0000b2f0,
+	0x0000b318, 0x0000b330, 0x0000b352, 0x0000b352,
+	0x0000b381, 0x0000b3b0, 0x0000b3b0, 0x0000b3d1,
 	// Entry 5A0 - 5BF
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
+	0x0000b3d1, 0x0000b3f5, 0x0000b41f, 0x0000b44c,
+	0x0000b45f, 0x0000b47c, 0x0000b4a4, 0x0000b4da,
+	0x0000b4fc, 0x0000b52a, 0x0000b52a, 0x0000b546,
+	0x0000b566, 0x0000b57e, 0x0000b599, 0x0000b5ab,
+	0x0000b5d3, 0x0000b602, 0x0000b620, 0x0000b657,
+	0x0000b67e, 0x0000b6a2, 0x0000b6c9, 0x0000b6e2,
+	0x0000b6ef, 0x0000b705, 0x0000b71e, 0x0000b72e,
+	0x0000b73e, 0x0000b74e, 0x0000b75c, 0x0000b76c,
 	// Entry 5C0 - 5DF
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
+	0x0000b77c, 0x0000b78c, 0x0000b7a2, 0x0000b7b2,
+	0x0000b7c5, 0x0000b7cf, 0x0000b7df, 0x0000b7ec,
+	0x0000b7f9, 0x0000b806, 0x0000b813, 0x0000b820,
+	0x0000b82d, 0x0000b840, 0x0000b84d, 0x0000b85d,
+	0x0000b86a, 0x0000b874, 0x0000b884, 0x0000b88b,
+	0x0000b898, 0x0000b8a5, 0x0000b8b2, 0x0000b8b9,
+	0x0000b8c3, 0x0000b8d1, 0x0000b8e4, 0x0000b8f1,
+	0x0000b8fe, 0x0000b917, 0x0000b927, 0x0000b93a,
 	// Entry 5E0 - 5FF
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4cb, 0x0000b4cb,
-	0x0000b4cb, 0x0000b4cb, 0x0000b4d5, 0x0000b4e4,
+	0x0000b94d, 0x0000b95f, 0x0000b95f, 0x0000b973,
+	0x0000b989, 0x0000b999, 0x0000b9a2, 0x0000b9ab,
+	0x0000b9b8, 0x0000b9c8, 0x0000b9f9, 0x0000ba0e,
+	0x0000ba3c, 0x0000ba6a, 0x0000ba7c, 0x0000ba9c,
+	0x0000bab9, 0x0000bacb, 0x0000bae1, 0x0000baf7,
+	0x0000bb0a, 0x0000bb1a, 0x0000bb2d, 0x0000bb40,
+	0x0000bb59, 0x0000bb72, 0x0000bb79, 0x0000bb8f,
+	0x0000bba1, 0x0000bbb9, 0x0000bbd5, 0x0000bbfa,
 	// Entry 600 - 61F
-	0x0000b4f6, 0x0000b512, 0x0000b52b, 0x0000b54c,
-	0x0000b560, 0x0000b570, 0x0000b588, 0x0000b59e,
-	0x0000b5b5, 0x0000b5c2, 0x0000b5d0, 0x0000b5e4,
-	0x0000b5f8, 0x0000b605, 0x0000b615, 0x0000b62e,
-	0x0000b64a, 0x0000b665, 0x0000b67a, 0x0000b67a,
-	0x0000b67a, 0x0000b67a, 0x0000b67a, 0x0000b67a,
-	0x0000b67a, 0x0000b67a, 0x0000b67a, 0x0000b67a,
-	0x0000b67a, 0x0000b67a, 0x0000b67a, 0x0000b67a,
+	0x0000bc0c, 0x0000bc34, 0x0000bc62, 0x0000bc8a,
+	0x0000bca7, 0x0000bcb7, 0x0000bcc4, 0x0000bcd7,
+	0x0000bcea, 0x0000bd0c, 0x0000bd2e, 0x0000bd47,
+	0x0000bd65, 0x0000bd81, 0x0000bd8e, 0x0000bd9e,
+	0x0000bdb7, 0x0000bdd6, 0x0000bdf8, 0x0000be11,
+	0x0000be2d, 0x0000be43, 0x0000be56, 0x0000be72,
+	0x0000be8a, 0x0000be9f, 0x0000bebb, 0x0000bed4,
+	0x0000bef0, 0x0000bf09, 0x0000bf3a, 0x0000bf70,
 	// Entry 620 - 63F
-	0x0000b67a, 0x0000b67a, 0x0000b67a, 0x0000b67a,
-	0x0000b67a, 0x0000b67a, 0x0000b67a, 0x0000b67a,
-	0x0000b67a, 0x0000b67a, 0x0000b67a, 0x0000b67a,
-	0x0000b67a, 0x0000b67a, 0x0000b67a, 0x0000b67a,
-	0x0000b67a, 0x0000b67a, 0x0000b67a, 0x0000b67a,
-	0x0000b67a, 0x0000b67a, 0x0000b67a, 0x0000b67a,
-	0x0000b67a, 0x0000b67a, 0x0000b67a, 0x0000b67a,
-	0x0000b67a, 0x0000b69f, 0x0000b69f, 0x0000b69f,
+	0x0000bf92, 0x0000bfd2, 0x0000bfed, 0x0000bffd,
+	0x0000c01b, 0x0000c03c, 0x0000c051, 0x0000c076,
+	0x0000c08f, 0x0000c0a8, 0x0000c0cd, 0x0000c0e3,
+	0x0000c0f9, 0x0000c109, 0x0000c119, 0x0000c129,
+	0x0000c138, 0x0000c14e, 0x0000c164, 0x0000c174,
+	0x0000c187, 0x0000c19d, 0x0000c1b1, 0x0000c1c5,
+	0x0000c1dd, 0x0000c1ec, 0x0000c202, 0x0000c212,
+	0x0000c237, 0x0000c247, 0x0000c257, 0x0000c26f,
 	// Entry 640 - 65F
-	0x0000b69f, 0x0000b69f, 0x0000b69f, 0x0000b69f,
-	0x0000b69f, 0x0000b69f, 0x0000b69f, 0x0000b69f,
-	0x0000b69f, 0x0000b69f, 0x0000b6b7, 0x0000b6cc,
-	0x0000b6df, 0x0000b6df, 0x0000b6f7, 0x0000b6f7,
-	0x0000b6f7, 0x0000b70d, 0x0000b70d, 0x0000b70d,
-} // Size: 6504 bytes
+	0x0000c27c, 0x0000c28c, 0x0000c29b, 0x0000c2af,
+	0x0000c2c8, 0x0000c2d2, 0x0000c2e1, 0x0000c2f3,
+	0x0000c30f, 0x0000c328, 0x0000c349, 0x0000c35d,
+	0x0000c36d, 0x0000c385, 0x0000c39b, 0x0000c3b2,
+	0x0000c3bf, 0x0000c3cd, 0x0000c3e1, 0x0000c3f5,
+	0x0000c402, 0x0000c412, 0x0000c42b, 0x0000c447,
+	0x0000c462, 0x0000c477, 0x0000c490, 0x0000c490,
+	0x0000c490, 0x0000c490, 0x0000c490, 0x0000c490,
+	// Entry 660 - 67F
+	0x0000c490, 0x0000c490, 0x0000c490, 0x0000c490,
+	0x0000c490, 0x0000c490, 0x0000c490, 0x0000c490,
+	0x0000c490, 0x0000c490, 0x0000c490, 0x0000c490,
+	0x0000c490, 0x0000c490, 0x0000c490, 0x0000c490,
+	0x0000c490, 0x0000c490, 0x0000c490, 0x0000c490,
+	0x0000c490, 0x0000c490, 0x0000c490, 0x0000c490,
+	0x0000c490, 0x0000c490, 0x0000c490, 0x0000c490,
+	0x0000c490, 0x0000c490, 0x0000c490, 0x0000c490,
+	// Entry 680 - 69F
+	0x0000c490, 0x0000c490, 0x0000c490, 0x0000c490,
+	0x0000c490, 0x0000c4b5, 0x0000c4b5, 0x0000c4b5,
+	0x0000c4b5, 0x0000c4b5, 0x0000c4b5, 0x0000c4b5,
+	0x0000c4b5, 0x0000c4b5, 0x0000c4b5, 0x0000c4b5,
+	0x0000c4b5, 0x0000c4b5, 0x0000c4cd, 0x0000c4e2,
+	0x0000c4f5, 0x0000c4f5, 0x0000c50d, 0x0000c50d,
+	0x0000c50d, 0x0000c523, 0x0000c541, 0x0000c55a,
+} // Size: 6792 bytes
 
-const zh_CNData string = "" + // Size: 46861 bytes
-	"\x04\x00\x01 \x16\x02无效的预置操作\x04\x00\x01 \x18\x02无效的权限(Effect)\x04\x00" +
-	"\x01 \x14\x02无效的IPv4地址\x02无效的shared_mode %s\x02mx_priority应在[1,50]范围\x02" +
-	"无效的MX记录：无效的域名%s\x02无效的A记录：无效的IPv4地址%s\x02无效的AAAA记录：无效的IPv6地址%s\x02无效的C" +
-	"NAME记录：无效的域名%s\x02无效的路由CIDR %s\x02服务器内部错误：%s\x02服务器内部错误\x02无效的handler：%s" +
-	"\x02未找到handler\x02找不到请求的键：%s\x02无效的请求头部：%v\x02请求处理超时\x02不允许记录列表为空\x02记录条" +
-	"目数过多\x02找不到%s方法\x02%s方法参数长度不匹配，期望数%d，实际%d\x02无效的ValidateCreateData返回值" +
-	"\x02ListItemFilter返回无效的计数%d\x02OrderByExtraFields返回无效的计数%d\x02GetExtraDe" +
-	"tails返回无效的计数%d\x02FetchCustomizeColumns返回无效的计数%d\x02FetchCustomizeColumn" +
-	"s返回类型无数（不是slice）\x02FetchCustomizeColumns返回值无效，对象数目不匹配，输入%d，输出%d\x02Vali" +
-	"dateUpdateData返回值无效\x02CustomizeDelete返回值无效\x02无效的联合资源%s\x02FetchCustomi" +
-	"zeColumns返回的结果数不正确\x02找不到上下文管理器\x02没有此上下文%s(%s)\x02从上下文中获取HTTP响应Writer失败" +
-	"\x02FetchCustomizeColumns返回值不正确\x02反射调用%s出错：%s\x02%s返回值无效\x02%s不允许获取%s属性" +
-	"\x02没有返回值\x02不允许获取详情\x02%s %s %s找不到\x02%s不允许获取%s\x02不允许创建对象\x02请求体不是JSON" +
-	"对象？\x02未指定name或者generate_name\x02不允许执行%s\x02找不到%s Allow %s %s方法\x02%s不" +
-	"允许%s %s\x02无效的JSON对象\x02不允许更新对象\x02不允许删除%s(%s)\x02不允许绑定\x02%s %s已与%s %" +
-	"s绑定\x02非默认域中的项目是被禁止的\x02新域未指定\x02检查名称重复时出错：%s\x02权限不足（要求%s，允许%s，实际%s）" +
-	"\x02不支持%s资源使用标签过滤\x02找不到动作%s\x02无法获取字符串字段\x02模型没有%s字段\x02数据库查询出错：%s\x02名" +
-	"称必须以字母开头，内容仅包含字母、数字或英语破折号\x02不允许删除日志\x02不允许变更直连模式配置\x02不允许删除直连模式\x02获取" +
-	"代理设置的使用数出错：%s\x02代理设置%s仍被%d个%s使用\x02请求体解析失败\x02找不到%s配额\x02%s默认配额不允许删除" +
-	"\x02权限不足\x02不允许列出域配额\x02权限不足\x02不允许列出项目配额\x02查询配额：%s\x02权限不足（要求：%s，允许：%s" +
-	"：资源：%s）\x02权限不足（要求：%s，允许：%s）\x02无效范围%s\x02不允许创建%s，范围%s\x02不允许设置范围为整个系统" +
-	"\x02不允许设置范围为整个%s域\x02不允许设置范围为整个%s项目\x02只能共享给指定域: %s\x02插入共享资源出错：%s\x02名称" +
-	"需以字母开头，包含字母、数字，或“._@-”\x02名字长度超过%d\x02不允许使用系统保留键，请移除键名起始的下划线\x02输入键名长度" +
-	"超过%d\x02输入键值长度超过%d\x02找不到用户%s\x02禁止\x02非管理员不允许创建系统级别资源\x02该资源被锁定，无法执行 " +
-	"%s 操作\x02该资源已经被锁定\x02该资源未被锁定\x02未指定项目\x02Informer后端未初始化\x02无效的格式\x02操作不允" +
-	"许\x02无效的输入格式\x02缺少输入参数：%q\x02%q：常规错误：%s\x02类型错误：期望类型%s，%q的实际类型为%s\x02%" +
-	"q：错误的枚举值：期望%s，实际%s\x02%q：长度%d太短，最小为%d\x02%q：长度%d太长，最长为%d\x02%q：%d不在范围内，应" +
-	"为[%d,%d]\x02%q：无效的值%s\x02%q：无效的值：%v\x04\x00\x01 \x12\x02%q：无效的值\x02无法找" +
-	"到%q对应的模型管理器\x02无法通过名称或ID找到%q（%q）\x02无法通过名称或ID找到%q（%q）：%s\x02无效的证书算法：%s" +
-	"，要求为%s\x02找不到provider\x02未实现GetProvider\x02未找到\x02Id重复\x02无效的状态\x02超时" +
-	"\x02未实现\x02不支持\x02无效的Provider\x02没有查询余额的权限\x02地址分配数量达到上线\x02不支持多网卡\x02%s" +
-	"磁盘大小必须在%dGB到%dGB范围内\x02%s要求EIP带宽必须小于100Mbps\x02与路由表关联的网络%s没有因特网网关\x02无" +
-	"法找到镜像%s的subformats中找到vhd，请尝试为glance target_image_formats选项添加'vhd'\x02A" +
-	"zure Mv2系列SKU仅支持UEFI镜像\x02Azure UEFI镜像%s不支持此SKU\x02不支持变更Azure实例名称\x02不能变" +
-	"更裸金属的配置\x02不能变更裸金属的磁盘大小\x02无效的RAID配置：%v\x02宿主机%s不是一个裸金属服务器\x02裸金属服务器%s" +
-	"没有准备好\x02裸金属服务器%s已被占用\x02无法为裸金属服务器保存镜像\x02未实现ValidateCreateEip\x02hype" +
-	"rvisor %s不允许此操作\x02不支持此操作，请使用kubectl\x02容器不支持%s\x02%s不支持创建EIP\x02无法为有主机快" +
-	"照的虚拟机调整磁盘大小\x02ESXi虚机迁移需要指定prefer_host\x02无法为有主机快照的虚拟机重装系统\x02未知的Googl" +
-	"e存储类型\x02系统盘不支持%s磁盘\x02%s磁盘数量超过8个\x02%s和%s特性创建实例时互不兼容\x02找不到宿主机%s\x02主备机" +
-	"不可迁移\x02无法为状态为%s的虚机执行迁移操作，尝试救援模式或server-live-migrate\x02救援模式要求所有磁盘都使用共" +
-	"享存储\x02使用透传设备时不支持迁移\x02使用cdrom时无法在线迁移\x02使用透传设备时无法在线迁移\x02QEMU版本太低，无法在" +
-	"线迁移\x02%s不支持指定CDROM参数\x02%s不支持创建EIP，仅支持绑定已有EIP\x02%s不支持创建虚机时同时创建EIP" +
-	"\x02数据盘不支持存储类型%s\x02%s盘的大小必须在10GB到16000GB范围内\x02%s盘的大小必须在50GB到16000GB范围内" +
-	"\x02%s盘的大小必须在100GB到16000GB范围内\x02磁盘 %s 的大小必须介于20GB ~ 32000GB\x02%s存储不能作为" +
-	"数据盘\x02数据盘大小必须是10GB的整数倍\x02找不到系统盘：%v\x02找不到磁盘%s(%s)所属的存储\x02系统盘存储在本地，不" +
-	"支持变更配置\x02不支持创建本地盘\x02请指定新的磁盘类型\x02磁盘存储在本地，不支持解绑\x02宿主机%s不在线\x02GetGue" +
-	"stCount调用出错：%s\x02宿主机已被占用\x02阿里支重置磁盘要求虚机状态为运行中或已关机\x02AWS不支持重置磁盘，您可以使用快照" +
-	"来创建新盘\x02不支持变更Azure磁盘名称\x02Azure不支持重置磁盘，您可以使用快照创建新盘\x02未实现\x02Validate" +
-	"ResetDisk未实现\x02ValidateAttachStorage未实现\x02RequestAttachStorage未实现\x02R" +
-	"equestDetachStorage未实现\x02磁盘必须已解绑\x02%s重置磁盘时要求虚机状态必须是运行中或已关机\x02主机%s必须处于" +
-	"关机状态\x02磁盘必须已解绑\x02不支持挂载%s存储到%s宿主机\x02挂载rbd存储要求宿主机在线\x02查询主机磁盘出错：%s" +
-	"\x02宿主机%s挂载点%s已有其它存储\x02挂载NFS存储要求宿主机在线\x02%s不是一个挂解点：%s\x02磁盘挂载到多个虚机\x02磁" +
-	"盘所在虚机必须是已关机状态\x02磁盘未挂载到虚机\x02OpenStack不支持重置磁盘，您可以从快照创建新盘\x02Qcloud重置磁盘" +
-	"要求虚机状态必须是运行中或已关机\x02Ucloud重置磁盘要求磁盘处于未挂载状态\x02Ucloud仅支持数据盘重置操作\x02ZStac" +
-	"k重置磁盘要求虚机处于关机状态\x02解析远端IP地址出错：%s\x02子网未找到\x02裸金属服务器Agent未找到\x02裸金属服务器pac" +
-	"kage未准备好\x02检查agent唯一性失败：%s\x02manager_url冲突：%s\x02manager_url重复：%s\x02未" +
-	"指定duration/expire_time\x02新的过期时间先于当前值\x02无效的duration %s: %s\x02找不到名称" +
-	"\x02无效的桶名%s：%s\x02无效的桶名%s：%s\x02没有外部桶\x02获取对象出错：%s\x02未指定key\x02生成临时URL出" +
-	"错：%s\x02空的目录名\x02无效的key %s：%s\x02GetIObject调用出错：%s\x02对象数量超出限制\x02buck" +
-	"et.GetQuotaKeys调用出错：%s\x02创建目录失败：%s\x02keys列表为空\x02对象key不应以斜线结尾\x02无效的对象" +
-	"key：%s\x02找不到Content-Length\x02无效的Content-Length %s\x02Content-Length为负值" +
-	"%d\x02GetIObject调用出错：%s\x02对象大小超出限制\x02bucket.GetQuotaKeys调用出错：%s\x02更新对" +
-	"象出错：%s\x02setAcl调用出错：%s\x02syncWithCloudBucket调用出错：%s\x02桶当前有%d个活跃任务在执" +
-	"行，无法执行同步状态操作\x02桶不为空\x02找不到对象%s\x02iBucket.GetIObjects调用出错：%s\x02unmar" +
-	"shal limit参数出错：%s\x02SetLimit调用出错：%s\x02更新出错：%s\x02找不到manager\x02iBucket" +
-	".GetIObject调用出错：%s\x02ValidateDeleteCondition出错：%s\x02镜像已被缓存到磁盘\x02镜像引用会" +
-	"话还未过期\x02找不到存储缓存%s\x02不允许查询系统能力\x02账号为启用状态\x02账号不空闲\x02%s provider: %v" +
-	"\x02无法启用正在删除中的账号\x02无效的代理设备%s\x02不支持provider为%s的云账号\x02不支持%s\x02项目%s(%s)" +
-	"不属于域%s(%s)\x02不支持品牌%s，仅支持%s\x02唯一性检查失败\x02账户已被注册\x02找不到provider %s\x02" +
-	"无效的账号信息：%s\x02检查重复account_id出错\x02账号%s已被注册\x02账号已禁用\x02账号自动同步已启用\x02无效" +
-	"的输入：%s\x02无法找到provider工厂：%v\x02unmarshal输入参数出错：%v\x02检查唯一性出错：%s\x02账号%" +
-	"s出现冲突\x02account_id不一致，之前为%q，现在为%q\x02找不到项目%s\x02状态为%s时无法启用自动同步\x02provi" +
-	"der在域间共享\x02不支持%s\x02%s不支持创建订阅\x02不允许创建\x02provider当前是启用状态\x02provider当前" +
-	"不是空闲状态\x02不支持直接创建cloudprovider，请先创建云账号\x02找不到region %s\x02找不到zone %s" +
-	"\x02cloudprovider是已禁用状态\x02云账号是已禁用状态\x02不允许跨域变更项目属性\x02不允许变更为私有云另外一个域" +
-	"\x02获取provider驱动失败：%s\x02不支持存储类型\x02GetZoneCount调用失败\x02GetVpcCount调用失败" +
-	"\x02cloudregion不为空\x02不允许删除默认cloudregion\x02找不到VPC %s\x02不允许更新外部资源\x02禁止" +
-	"允许更改RDS账号名称\x02查找数据库实例出错：%s\x02数据库实例%s(%s)当前状态为%s，要求状态为%s\x02找不到数据库实例%" +
-	"s(%s)所属的region\x02在数据库实例%s(%s)中查找%s库失败：%v\x02查找数据库%s失败，在实例%s(%s)中查找出错：%v" +
-	"\x02账号%s(%s)已有权限%s访问数据库%s(%s)\x02账号状态不是%s，当前状态为%s\x02实例状态不是%s，当前状态为%s" +
-	"\x02数据库状态不是%s，当前状态为%s\x02账号%s(%s)没有数据库%s(%s)的权限\x02数据库实例没有有效的cloudprovid" +
-	"er\x02数据库实例的备份当前有%d个活跃任务执行中，无法执行同步状态操作\x02禁止不允许更改RDS的数据据名称\x02找不到数据库实例%s" +
-	"(%s)的账号%s：%v\x02未实现\x02无效地址：%s\x02%s不在子网%s(%s)的范围中\x02云订阅 %s(%s) 无法使用" +
-	"\x02无效的时间长度%s\x02不支持的时间长度%s\x02区域 %s 不支持创建RDS\x02区域 %s 不支持创建 %s 类型RDS" +
-	"\x02找不到匹配的dbinstance sku\x02%s RDS不支持安全组\x02%s RDS支持绑定最多 %d 个安全组\x02不可在%" +
-	"s状态做恢复操作，要求状态必须为%s\x02备份%s(%s)中不包含数据库%s\x02数据库%s与实例%s(%s)冲突\x02备份与数据库实例不" +
-	"属于同一个云账号\x02备份与数据库实例不在同一个cloudregion\x02无法从不同的rds引擎中恢复数据\x02无法重启状态为%s的" +
-	"数据库实例\x02数据库实例已有%d个活跃任务在执行，无法同步状态\x02无法为状态为%s的数据库实例执行刷新操作，要求状态为%s\x02缺" +
-	"少duration参数\x02数据库实例已开启外网访问\x02外网连接未开放\x02%s不支持此操作\x02处于状态%s无法执行变更配置操作" +
-	"\x02Unmarshal输入参数产生错误：%v\x02执行变更操作时无法找到sku\x02数据库实例已锁定，无法删除\x02数据库实例计费类型" +
-	"为%s\x02数据库实例计费类型%s不支持取消过期时间\x02找不到虚机%q\x02快照策略%s未找到：%s\x02不支持变更磁盘类型为%s" +
-	"\x02找不到磁盘%s对应的存储\x02无法为存储%s和磁盘%s找不到对应的宿主机\x02找不到存储%s\x02云订阅 %s 不可用\x02存储" +
-	"%s(%s)需挂载到宿主机达到在线状态\x02无法使用已禁用的存储%s创建磁盘\x02无法使用离线存储%s创建磁盘\x02存储类型%s与后端%s" +
-	"不匹配\x02存储%s必须绑定到一个宿主机\x02空闲空间不够\x02获取快照数失败：%s\x02磁盘%s不需要转换快照\x02无法获得磁盘" +
-	"快照\x02获取转换快照对象失败：%s\x02快照%s没有转换快照对象\x02无法重置状态为%s的磁盘\x02无法重置快照状态为%s的磁盘" +
-	"\x02无法重置磁盘%s(%s)，因快照属于磁盘%s\x02磁盘状态为READY时方可调整其大小\x02磁盘不可缩容\x02无法找到磁盘所归属的" +
-	"存储资源\x02disk.GetQuotaKeys失败：%s\x02无法找到磁盘%s所属的存储\x02该磁盘没有zone信息\x02重复的镜" +
-	"像名%s\x02磁盘状态为READY时方可执行保存操作\x02GetRuningGuestCount调用失败：%s\x02当磁盘未被使用时才" +
-	"可执行保存操作\x02镜像名称是必选参数\x02cloudprovider %s不可用\x02云账号%s不可用\x02磁盘%s所在的存储资源" +
-	"找不到宿主机\x02磁盘%s调用GetGuestDiskCount时出错：%s\x02磁盘%s(%s)正被虚机使用\x02无法删除状态正常的" +
-	"预付费磁盘\x02Diskinfo下标%d：镜像id和尺寸都未指定\x02未找到快照%s\x02快照%s归属的存储%s未找到，它是公有云资源" +
-	"吗\x02镜像不在活跃状态\x02磁盘有%d个任务正在执行，无法执行同步状态操作\x02GetSnapshotCount失败：%s\x02无" +
-	"法执行purge操作，磁盘必须不能有快照\x02无法执行删除操作，磁盘必须不能有快照\x02存储类型为%s的磁盘若有快照不可删除\x02找不" +
-	"到快照策略%s\x02%s %s不支持DNS类型%s\x02%s %s不支持策略类型%s\x02%s %s不支持%s\x02%s不支持策略类" +
-	"型%s\x02%s %s不支持策略值%s\x02不支持\x02无效的域名%s\x02不支持%s，vpc %s支持%s\x02不支持%s，账号" +
-	"%s支持%s\x02不支持配置顶级公共域名 %s \x02不识别的zone类型%s\x02当前状态%s无法执行同步操作\x02当前状态%s无法执" +
-	"行缓存操作\x02仅%s支持为账号缓存\x02账号%s已缓存\x02当前状态%s无法执行解除缓存操作\x02vpc %s已经在这个DNS z" +
-	"one\x02vpc %s不在此DNS zone\x02SRV：参数不够：%s\x02SRV：无效端口号：%s\x02SRV：无效权重值：%s" +
-	"\x02SRV：权限值%d不在范围[0,65535]范围\x02SRV：无效优先组：%s\x02SRV：优先级%d不在[0,65535]范围" +
-	"\x02SRV记录不可与其它类型记录同时存在\x02CNAME记录不可与其它类型记录同时存在\x02PTR记录不可与其它类型记录同时存在\x02" +
-	"%s：无效的域名：%s\x02SRV：无效的srv记录名：%s\x02PTR：无效的ptr记录名：%s\x02%s：名字不可以是IP地址：%s" +
-	"\x02A：记录值必须是IPv4地址：%s\x02AAAA：记录值必须是IPv6地址：%s\x02%s：%s必须是域名：%s\x02%s：%s不" +
-	"可以是IP地址：%s\x02%s：未知的记录类型\x02空记录\x02无效的TTL值：%s\x02无效的TTL值：%d\x02不可以混合不同" +
-	"类型的记录：%s != %s\x02条件表达式无效\x02找不到调度标签%s\x02unmarshal StandaloneResource" +
-	"CreateInput失败：%s\x02不支持资源类型%s\x02不支持虚拟资源类型%s\x02找不到%s资源%s\x02无法恢复状态为%s的弹" +
-	"性缓存\x02不支持删除%s弹性弹性缓存备份\x02无效的计费周期%s\x02unmarshal VirtualResourceCreate" +
-	"Input失败：%s\x02无法重启状态为%s的弹性缓存实例\x02弹性缓存已锁定，不可删除\x02弹性缓存未过期，不可删除\x02provid" +
-	"er不匹配：%s缓存实例不可使用%s sku\x02region不匹配：实例region %s，sku region %s\x02zone不匹配" +
-	"：实例zone %s，sku zone %s\x02引擎版本不匹配：实例版本%s，sku版本%s\x02无法为状态为%s的缓存实例变更配置" +
-	"\x02认证模式的状态已为%s\x02运维时间参数没有变化\x02公网连接已分配\x02公网连接已释放\x02无效参数格式：必须为JSON Ob" +
-	"ject\x02弹性缓存已有%d个任务在执行，无法执行同步状态操作\x02弹性缓存的计费类型为%s\x02弹性缓存的计费类型%s不支持取消过期时" +
-	"间\x02虚机状态%s不可执行添加安全组操作\x02不支持绑定安全组\x02超过可绑定的安全组数量限制，最多 %d 个\x02安全组名称%s" +
-	"不符合要求\x02参数%s不可变更\x02找不到虚机%s\x02不支持绑定类型%s，仅支持%s\x02不支持付费类型%s\x02EIP已绑定" +
-	"到其它实例\x02EIP状态为%s无法绑定\x02固定EIP不可再被关联\x02不支持%s\x02无法与正在删除的虚机进行绑定\x02实例已" +
-	"与其它EIP绑定\x02虚机状态%s无法进行EIP绑定操作\x02虚机与EIP在同一子网下不可关联\x02找不到虚机所属region\x02" +
-	"找不到EIP所属region\x02EIP的虚机不在同一region\x02EIP和虚机不在同一个zone\x02虚机所在宿主机找不到" +
-	"\x02虚机和EIP分属不同cloudprovider\x02EIP状态为%s无法执行解绑操作\x02固定的公网IP无法解绑\x02EIP %s" +
-	"正被NAT网关的SNAT规则使用，请先删除它们\x02EIP %s正被NAT网关的DNAT规则使用，请先删除它们\x02固定公网IP无法执行" +
-	"同步状态操作\x02EIP状态为%s无法变更带宽\x02无效的带宽\x02EIP所属cloudprovider为启用状态，无法执行purge" +
-	"操作\x02请解绑组中所有虚机后再试\x02无法绑定已禁用的虚机\x02无法解绑已禁用的虚机\x02找不到实例%s\x02虚机和实例组应属于" +
-	"同一项目\x02找不到宿主机\x02宿主机状态为%s，启用状态为%s，无法对虚机执行%s操作\x02状态为%s时无法发送命令\x02无法找到" +
-	"虚机所在宿主机\x02状态为%s时不可保持镜像\x02找不到根镜像\x02仅KVM虚机支持此操作\x02状态为%s无法执行同步状态操作" +
-	"\x02状态为%s无法执行在线迁移\x02主备机不支持克隆操作\x02hypervisor为%s的虚机不支持克隆操作\x02状态为%s的虚机不可" +
-	"执行克隆操作\x02unmarshal输入参数错误：%s\x02状态为%s的虚机无法执行部署操作\x02磁盘%s和虚机不属于同一个账号" +
-	"\x02磁盘%s和虚机不属于同一个zone\x02isAttached检查失败：%s\x02磁盘%s已被占用\x02磁盘%s和虚机不在同一宿主机" +
-	"\x02磁盘状态为%s，无法挂载\x02虚机%s的状态%s不支持挂载磁盘\x02找不到磁盘%s\x02状态为%s的虚机无法执行挂起操作\x02状" +
-	"态为%s的虚机无法执行恢复操作\x02部分磁盘未准备好\x02不可启动状态为%s的虚机\x02CD-ROM当前使用中，请先执行弹出操作" +
-	"\x02虚机状态%s不允许执行插入ISO操作\x02没有ISO可弹出\x02虚机状态%s不允许弹出ISO操作\x02无法为hypervisor " +
-	"%s添加安全组\x02虚机%s最多可关联%d个安全组\x02安全组%s已被虚机%s使用\x02虚机状态为%s无法解除安全组\x02安全组%s未与" +
-	"虚机%s关联\x02虚机状态为%s无法关联安全组\x02虚机状态为%s无法设定安全组\x02无法为虚机%s设定安全组\x02虚机所在宿主机为" +
-	"启用状态，不可执行purge操作\x02找不到%s\x02无效的镜像\x02镜像大小超过系统盘大小\x02无法切换操作系统：%s-%s" +
-	"\x02镜像uefi状态不同重装操作系统\x02找不到模板，无法重装系统\x02不支持使用另外一个镜像重装系统\x02状态为%s不支持重装系统" +
-	"\x02找不到密钥对%s\x02未提供Disk Info\x02找不到宿主机\x02所在宿主机无可用存储\x02所在宿主机存储空间不足\x02查" +
-	"找磁盘错误：%s\x02isAttach2Disk失败：%s\x02不可解绑系统盘\x02无法保留已解绑的磁盘\x02虚机状态%s不支持解绑" +
-	"磁盘\x02磁盘%s未挂载\x02仅当虚机为关机状态时才可挂载透传设备\x02未指定透传设备\x02找不到透传设备%s\x02透传设备未挂载" +
-	"到此虚机\x02GPU数量必须大于1\x02获取GPU失败：%s\x02虚机%s所在宿主机%s透传设备不足\x02挂载设备列表参数类型不是字" +
-	"符串数组\x02卸载设备列表参数类型不是字符串数组\x02找不到IP %s\x02找不到MAC %s\x02未指定ip_addr或mac" +
-	"\x02状态为%s无法变更IP地址\x02虚机运行中无法变更MAC地址\x02MAC地址唯一性检查失败\x02MAC地址%s已被占用\x02虚机" +
-	"状态%s无法执行解绑网络操作\x02虚机状态%s无法执行绑定网络操作\x02虚机状态%s无法变更带宽大小\x02带宽值必须非负\x02虚机状" +
-	"态%s不可变更配置\x02不允许变更配置\x02主备机不允许变更配置\x02虚机状态为%s不可变更配置\x02不可变更套餐类型\x02参数v" +
-	"cpu_count解析出错\x02内存大小参数错误，如256M，1G，或256\x02参数vmem_size解析出错\x02虚机状态为%s无法变" +
-	"更CPU/内存配置\x02Unmarshal磁盘配置出错：%s\x02解析磁盘信息出错：%s\x02宿主机未连接存储%s\x02不可缩小磁盘" +
-	"大小\x02获取存储出错：%s\x02宿主机资源不足\x02在宿主机上创建磁盘出错：%s\x02虚机状态为%s无法重装系统\x02虚机已有%" +
-	"d个活跃任务执行中，无法执行同步状态操作\x02虚机状态%s无法执行关机操作\x02虚机状态%s无法执行重启操作\x02虚机状态%s无法发送键盘" +
-	"指令\x02虚机状态%s无法关联EIP\x02虚机已关联EIP\x02找不到EIP %s\x02EIP已被关联\x02虚机与EIP不在同一r" +
-	"egion无法关联\x02虚机与EIP不在同一个zone下无法关联\x02虚机与EIP不属于同一provider无法关联\x02没有可解关联的E" +
-	"IP\x02找不到宿主机\x02无可用的cloudprovider\x02找不到cloudregion\x02EIP配额不足：%s\x02虚机状" +
-	"态为%s时无法切换到备机\x02虚机没有备用宿主机\x02虚机无法切换到备机，因镜像任务未结束\x02找不到虚机%s\x02输入数据不是键值" +
-	"字典\x02找不到虚机%s\x02查找虚机失败：%s\x02虚机已有备用机\x02使用共享存储不可创建备机\x02仅KVM虚机支持创建主备机" +
-	"\x02使用透传设备无法创建备机\x02GuestDisksHasSnapshot失败：%s\x02无法从快照创建备机\x02虚机无备机\x02" +
-	"备机所在宿主机找不到\x02备机所在宿主机离线\x02虚机不需要做reconcile操作\x02虚机的计费类型%s不支持取消过期时间\x02" +
-	"虚机的计费类型为%s\x02虚机%s不支持后付费自动过期\x02无效的desc内容\x02虚机Id为空\x02虚机名为空\x02虚机%s已存" +
-	"在\x02导入网卡列表为空\x02IP %s或MAC %s已被注册\x02无法通过IP %s找到网络\x02导入磁盘列表为空\x02Unma" +
-	"rshal数据失败：%s\x02部分宿主机配置缺少xml_file_path\x02部分宿主机缺少HostIp字段\x02无效的宿主机IP %s" +
-	"\x02无效虚机MAC地址%s\x02无效的虚机IP地址 %s\x02创建任务失败：%s\x02Hypervisor %s无法创建libvirt" +
-	" XML\x02生成XML失败：%s\x02不支持hypervisor %s\x02不支持%s\x02虚机已被转换过\x02宿主机%s不是KVM" +
-	"类型\x02虚机必须为关机状态\x02检查并设置待使用配置时出错：%s\x02找不到宿主机\x02空的IP列表\x02IP %s不可达：%s" +
-	"\x02IP %s不可用：已被占用\x02部分磁盘找不到\x02磁盘%s未挂载到虚机\x02Hypervisor %s无法实现io限速\x02虚" +
-	"机状态%s无法设定io限速\x02bps必须大于0\x02iops必须大于0\x02虚机%s hypervisor %s不支持迁移\x02虚" +
-	"机%s有备机，不可迁移\x02虚机%s使用本地存储不支持救援模式\x02虚机%s状态为%s不可迁移\x02虚机%s状态为%s，有透传设备，无" +
-	"法迁移\x02虚机有cdrom不可迁移\x02虚机%s状态%s因使用本地存储无法迁移\x02未指定虚机Id\x02部分指定的虚机不存在" +
-	"\x02虚机hypervisor %s无法创建实例快照\x02备份机无法创建快照\x02虚机状态为%s无法做快照\x02虚机%d号磁盘快照数达到" +
-	"上限，不可再创建\x02创建快照失败：%s\x02创建快照任务失败：%s\x02快照未准备好\x02从快照恢复失败：%s\x02count必" +
-	"须大于0\x02生成快照名称失败：%s\x02不是裸金属服务器\x02找不到宿主机\x02宿主机不是裸金属\x02找不到主机组%s\x02主" +
-	"机组与虚机应属于同一个项目\x02无法关联或解关联已禁用的主机组\x02虚机没有公网IP\x02虚机状态要求为%s或%s，当前状态为%s" +
-	"\x02%s虚机不支持转发公网IP为EIP\x02仅%s虚机支持此操作\x02虚机模板暂不支持实例快照\x02找不到虚机模板指定的安全组%s" +
-	"\x02虚机模板中的%s不是共享资源\x02虚机模板中的%s %q不是共享资源\x02虚机模板中的%s在范围%s内不是共享资源\x02虚机模板中" +
-	"的%s %q在范围%s内不是共享资源\x02虚机模板%s正被服务目录%s使用\x02虚机模板%s正被伸缩组%s使用\x02检查磁盘序号唯一性" +
-	"失败：%s\x02磁盘序号%d已被占用\x02无法分配网卡名\x02检查网卡序号唯一性失败：%s\x02网卡序号%d已被占用\x02找不到宿" +
-	"主机%s\x02找不到安全组%s\x02找不到磁盘%s\x02检查虚机磁盘数量失败：%s\x02找不到主机组%s\x02虚机已锁定，无法删除" +
-	"\x02不允许删除有效状态的预付费虚机\x02不允许删除已禁用宿主机上的虚机\x02无法删除离线宿主机上的虚机\x02虚机磁盘存在快照，无法执行" +
-	"删除操作\x02内存大小必须在8MB〜%dGB范围内\x02CPU核数必须在范围1〜%d内\x02虚机状态为%s无法变更内存和CPU配置" +
-	"\x02无法为裸金属变更内存配置\x02名称太短\x02找不到实例快照%s\x02获取实例快照出错：%s\x02实例快照未准备好\x02meta" +
-	"data条目数不可超过20\x02login_account长度已超过32字节\x02未提供磁盘信息\x02无效的系统镜像: %s\x02系统盘" +
-	"不支持ISO镜像，请使用cdrom参数\x02解析cdrom设备信息出错误：%s\x02未指定操作系统镜像？\x02解析磁盘描述信息出错：%" +
-	"s\x02快照错误：序号%d大于0的磁盘类型为%s\x02无法在预付费的资源类型上创建预付费的虚机\x02解析网络描述信息出错：%s\x02无法" +
-	"创建带有透传设备的主备机\x02解析透传设备描述信息出错：%s\x02找不到密钥对%s\x02找不到安全组%s\x02%s最多可关联%d个安" +
-	"全组\x02无效的userdata：%v\x02策略定义中有无效参数：%s\x02策略定义%s要求cloudregion在%s范围中\x02" +
-	"策略定义%s要求cloudregion不在%s范围中\x02策略定义%s(%s)包含无效的条件%s\x02策略定义%s要求必须包含%s标签" +
-	"\x02策略定义%s要求不可有%s标签\x02类别%s在策略定义%s(%s)中无效\x02%s 不支持静态公网IP\x02无效的静态公网IP类型" +
-	" %s\x02%s不支持EIP\x02EIP %s状态无效%s\x02EIP %s已被占用\x02EIP %s属于不同cloudprovider" +
-	"，无法绑定\x02EIP %s属于不同的region，无法绑定\x02获取磁盘大小失败\x02镜像%s不在虚机镜像%s中\x02部分虚机镜像" +
-	"的子镜像未指定\x02裸金属%s未启用\x02无法运行%s，宿主机类型为%s\x02宿主机上没有可用存储\x02无效的aggregate_s" +
-	"trategy: %s\x02找不到二层网络%s\x02不支持hypervisor %s\x02虚机状态为%s无法执行回收操作\x02虚机状态为" +
-	"%s无法从回收站恢复\x02宿主机应为已禁用状态\x02宿主机不是预付费资源池类型\x02预付费资源池宿主机没有可用的虚机\x02预付费资源池宿" +
-	"主机不可拥有超过1个虚机\x02无法从资源池中恢复已伪删除的虚机\x02不是预付费资源池宿主机\x02无效的any_mac参数\x02找不到" +
-	"调度标签\x02不支持hypervisor %s\x02宿主机是一个裸金属，请先恢复到转换之前状态再执行删除操作\x02宿主机还未被禁用" +
-	"\x02getGuestCount调用失败：%s\x02宿主机非空\x02调用GetDiskCount失败：%s\x02宿主机本地存储非空？" +
-	"\x02不一致：本地存储非空\x02找不到宿主机%s的IPMI信息\x02IPMI信息中缺少密码\x02检查重复%s出错：%s\x02%s %s" +
-	"重复\x02无效的macAddr\x02检查重复access_mac出错：%s\x02重复的access_mac %s\x02%s不在子网范" +
-	"围\x02IPMI子网没有zone信息？\x02IPMI地址不在所指定的zone\x02宿主机IP %s已被注册\x02宿主机所属子网没有z" +
-	"one信息？\x02宿主机IP不在指定的zone\x02no_probe模式缺少access_mac和uuid信息\x02IPMI子网没有zon" +
-	"e信息\x02新的IPMI地址在另外一个zone\x02不能启动一个非裸金属服务器\x02因裸金属服务器还有活跃的虚机，不可启动\x02不可停止" +
-	"一个非裸金属服务器\x02因裸金属服务器还有非活跃的虚机，不可停止\x02因裸金属服务器还有活跃的虚机，不可停止\x02状态为%s无法进入维" +
-	"护模式\x02虚机状态为%s无法进入维护模式\x02状态为%s无法解除维护模式\x02错误的虚机状态%s\x02不是一个裸金属服务器\x02" +
-	"执行准备操作需要有效的access_mac和uuid参数\x02裸金属状态为%s无法执行准备操作\x02虚机状态为%s无法执行准备操作" +
-	"\x02状态为%s无法执行IPMI探测操作\x02状态为%s无法执行初始化操作\x02IPMI信息未配置\x02虚机插入操作出错：%s\x02无" +
-	"效MAC地址\x02查找二层网络%s出错：%s\x02无效IP地址%s\x02二层网络%s中没有可用子网\x02IP %s不在二层网络%s中" +
-	"\x02IP %s不属于任何二层网络\x02无法通过MAC地址%s找到网卡：%s\x02无法通过MAC地址找到hostwire：%s\x02网卡" +
-	"%s不存在\x02仅admin, ipmi类型网卡可以被启用\x02网卡%s不存在\x02无效的MAC地址\x02获取网卡出错：%s\x02非裸" +
-	"金属服务器无法执行同步状态操作\x02裸金属服务器状态为%s无法执行重启操作\x02裸金属服务器上存在活跃的虚机，无法执行重启操作\x02状" +
-	"态为%s无法执行镜像缓存操作\x02找不到镜像%s\x02镜像没有校验值无法执行缓存操作\x02必须指定host_type参数\x02要求必" +
-	"须为裸金属服务器\x02裸金属服务器已被占用\x02hypervisor状态为%s无法执行转换\x02转换其它域的宿主机需要系统权限\x02" +
-	"不支持驱动%s\x02isAlterNameUnique调用失败：%s\x02转换出错：%s\x02不是一个裸金属服务器\x02没有在转换为" +
-	"hypervisor\x02宿主机应为禁用状态\x02当前状态为%s无法取消转换\x02不是一个转换后的hypervisor\x02宿主机状态%" +
-	"s无法退出维护模式\x02宿主机类型%s无法进入维护模式\x02宿主机状态为%s不支持此操作\x02宿主机%s无法迁移虚机%s，因虚机状态为%s" +
-	"\x02因状态为%s无法执行insert-iso指令\x02因状态为%s无法执行eject-iso指令\x02非裸金属服务器中无法执行同步配置操" +
-	"作\x02预留CPU数必须为非负整数\x02预留内存大小必须为非负整数\x02预留存储必须为非负整数\x02宿主机%s无法为每个透传设备预留" +
-	"%d个CPU，因资源不够\x02宿主机%s无法为每个透传设备预留%dM内存，因资源不够\x02宿主机%s无法为每个透传设备预留%dM存储，因资源" +
-	"不够\x02仅系统管理员可指定宿主机\x02存储正使用中\x02查找存储%s失败\x02查找宿主机%s失败\x02unmarshal Joi" +
-	"nResourceBaseCreateInput出错：%s\x02GetGuestDiskCount失败：%s\x02GetGuestnicsC" +
-	"ount调用出错：%s\x02宿主机上的虚机正在使用此二层网络中的子网\x02透传设备正被虚机使用\x02找不到透传设备%s\x02透传设备已被" +
-	"另外一台虚机%s使用\x02透传设备已被虚机%s使用\x02不支持格式%s\x02无效的公钥：%v\x02GetLinkedGuestsCo" +
-	"unt失败：%s\x02密钥对正被虚机使用无法删除\x02找不到转发策略%s(%s)所属的监听\x02无效的地址%s\x02描述文本过长（%d>" +
-	"=%d）\x02描述文本包含不可打印字符：%v\x02访问控制包含重复的CIDR %s\x02获取访问控制数量失败：%s\x02访问控制%s仍被" +
-	"%d个%s使用\x02无效的VRRP网络接口名%q\x02无效的VRRP认证密钥长度：%d，要求[1,8]\x02无效的VRRP优先级%d，要求" +
-	"[1,255]\x02无效的VRRP virtual_router_id %d：要求[1,255]\x02无效的VRRP advert_int " +
-	"%d：要求[1,255]\x02telegraf参数：无效的influxdb URL：%s\x02%s：无效的base64编码串：%s\x02%" +
-	"s：无效的模板：%s\x02获取其它集群的转发节点失败：%v\x02与转发节点%s(%s)冲突：%v\x02转发集群%s(%s)已占用virtu" +
-	"al_router_id %d\x02%s：时间错误：%s\x02%s：新指定时间在未来：%s > %s\x02集群中已有节点%s(%s)使用V" +
-	"RRP优先级%d\x02使用yum模式需要提供有效的repo_base_url参数\x02主机名为空\x02查找宿主机%s出错：%v\x02转发" +
-	"节点不能部署到纳管的宿主机上\x02查找虚机%s出错：%v\x02转发节点不能部署到公有云虚机上\x02虚机当前状态为%q，要求为%q" +
-	"\x02unmarshal输入参数出错: %v\x02主机缺少%s字段\x02主机缺少%s字段\x02认证出错：%v\x02用户必须有系统管理员" +
-	"权限\x02获取%s %s服务URL出错：%v\x02上次部署的信息不可用\x02查找后端组相关的资源出错\x02无效的权重%d，要求在0～" +
-	"256范围\x02无效的端口%d，要求在1~65535范围\x02找不到虚机%s\x02仅系统管理员可指定宿主机作为后端\x02找不到宿主机%s" +
-	"\x02未识别的后端类型%s\x02第%d个后端所属的region与lb的region不匹配\x02查找负载均衡所属region失败：%s" +
-	"\x02调用isDefault出错：%s\x02后端服务器组%s是默认组\x02调用refCount出错：%s\x02后端组%s仍被%d个%s使" +
-	"用\x02%s要求添加到后端组中的虚机状态为%s，当前虚机状态为%s\x02虚机%s(%s)所处VPC %s(%s)和负载均衡所处VPC %" +
-	"s不一致\x02获取虚机%s出错\x02虚机%s(%s)所属VPC %s(%s)不是%s(%s)\x02虚机%s(%s)已存在于后端组%s(%s" +
-	")\x02查找负载均衡后端%s的region时出错\x02查找后端%s(%s)所属的后端组时出错\x02访问控制缓存已在region %s存在" +
-	"\x02获取证书使用数失败：%s\x02证书%s仍被%d个%s使用\x02无效的本地证书：私钥为空\x02无效的本地证书：证书内容为空\x02证" +
-	"书缓存已在region %s存在\x02不允许变更证书内容\x02zone %s(%s)不合法：仅允许本地IDC的zone\x02二层网络所" +
-	"属zone %s与参数中的zone %s(%s)冲突，\x02wire所属zone必须为%s，实际为%s\x02获取负载均衡集群引用次数失败" +
-	"：%v\x02负载均衡集群仍被%d个%s使用\x04\x00\x01 J\x02负载均衡集群%s(%s)和%s(%s)两者virtual_r" +
-	"outer_id参数冲突：%d\x02无效的条件格式，要求为JSON\x02无效的表达式格式，要求为JSON数组\x02触及条件数目上限（5），" +
-	"已指定%d个\x02规则%s/%s已被%s(%s)使用\x02查找负载均衡监听所属region失败：%s\x02查找负载均衡转发策略失败：%" +
-	"s\x02%s监听的端口%d已被%s(%s)占用\x02无法找到region信息\x02后端服务器组%s(%s)属于负载均衡实例%s，而不是%s" +
-	"\x04\x00\x01 9\x02负载均衡集群所属zone %s与子网zone %s不匹配\x02负载均衡集群所属wire与子网所属wire不" +
-	"匹配：%s != %s\x02负载均衡已经被锁定，无法删除\x02Unmarshal输入参数失败：%s\x02端口值错误\x02无效的内网I" +
-	"P地址：%s\x02EIP已绑定到其它实例\x02EIP已绑定到SNAT规则\x02找不到EIP\x02NAT网关已有%d个活跃任务在执行，无法" +
-	"执行同步状态操作\x02sourceCIDR和network_id仅允许指定其中一个\x02CIDR %s不在VPC允许范围%s内\x02E" +
-	"IP已绑定到DNAT规则\x02找不到子网\x02GetAllocatedNicCount失败：%s\x02IP子网 %s 包含已分配的IP地址" +
-	"\x02地址%s不在子网%s(%s)范围内\x02isAddressUsed调用失败：%s\x02地址%s已被占用\x02getFreeAddr" +
-	"essCount调用失败：%s\x02子网%s(%s)已没有可用地址\x02候选IP %s不在范围内\x02找不到可用IP地址\x02不允许使用" +
-	"网络%s\x02查找网络%s失败：%v\x02地址%s不在范围内\x02仅系统管理员允许使用预留的IP地址\x02地址%s未被预留\x02地" +
-	"址%s已被使用\x02带宽限速不可超过%dMbps\x02无效的时间长度%s\x02无效的IP地址%s：%s\x02地址%s不在子网中" +
-	"\x02获取预留地址出错\x02找到%d个二层网络（zone %s，vpc %s）\x02找不到wire（zone %s，vpc %s）\x02" +
-	"无效的server_type参数：%s\x02无效的VlanID\x02无法生成有效的网卡名指引：%v\x02ip_prefix错误：%s" +
-	"\x02无效的masklen %d\x02无效的起始IP %s：%s\x02无效的终止IP %s：%s\x02起始和终止IP不在同一个子网" +
-	"\x02%s: 无效的IP地址%s\x02无效的网关IP：%v\x02网关IP必须与起始、终止IP在同一个子网\x02当wire未指定时必须指定" +
-	"zone和vpc信息\x02VPC未准备好\x02EIP子网仅能存在于经典网络vpc中，实际为%s(%s)\x02子网掩码长度需小于30\x02" +
-	"起始、终止IP使用掩码后不属于同一个CIDR子网\x02子网不在VPC cidrblock %s范围内\x02调用vpc GetNetwor" +
-	"ks失败：%v\x02与vpc %q中已有子网地址冲突\x02查询所有子网时失败\x02与已有子网地址冲突\x02已存在分配了的地址在新范围以外" +
-	"\x02起始、终止IP必须在同一子网\x02子网server_type %s不支持自动分配\x02解析IP地址失败\x02子网所属cloudpr" +
-	"ovider为启用状态，无法执行purge操作\x02找不到子网%s\x02无效的目标IP子网 %s：%s 不一致\x02子网%s和%s地址不连" +
-	"续\x02仅本地IDC支持此操作\x02无效的IP %s\x02分割IP %s是子网起始IP\x02分割IP %s不在范围\x02名称重复" +
-	"\x02GenerateName调用失败：%s\x02生成网卡名指引失败：%s\x02ip\x02仅支持服务类型%s\x02仅支持本地IDC的子" +
-	"网\x02本地IDC子网无法执行同步状态操作\x02无法变更纳管子网的状态\x02无效的状态%s\x02BgpType字段只对EIP类型的I" +
-	"P子网有意义\x02不支持创建\x02不支持创建策略定义\x02权限不足\x02路由表所属cloudprovider为启用状态，无法执行purg" +
-	"e操作\x02unmarshal CIDR列表失败：%s\x02min_instance_number不应小于0\x02min_instance" +
-	"_number不应大于max_instance_number\x02desire_instance_number应在min_instance_n" +
-	"umber和max_instance_number范围内\x02找不到cloudregion %s\x02伸缩组需要指定网络参数\x02部分子网" +
-	"不存在\x02子网%s不在vpc %s中\x02找不到虚机模板%s\x02虚机模板%s在cloudregion %s中无效，原因：%s" +
-	"\x02未知的扩容原则：%s\x02未知的缩容原则：%s\x02未知的健康检查模式%s\x02找不到负载均衡后端组%s\x02找不到负载均衡后端" +
-	"端口%d\x02无效的负载均衡后端权重%d\x02请先禁用此伸缩组\x02此伸缩组中还存在虚机，请先将它们删除\x02找不到此伸缩组%s" +
-	"\x02虚机%s不属于伸缩组%s\x02伸缩策略必须属于某伸缩组\x02找不到伸缩组%s\x02未知的触发类型%s\x02未知的伸缩策略动作%s" +
-	"\x02未知的伸缩策略计量单位%s\x02除非状态ready，否则无法触发伸缩策略\x02报警id不匹配\x02告警%s中包含未知的操作符" +
-	"\x02告警%s中存在未知的指示器\x02告警%s中存在未知的聚合函数\x02告警周期的最小值为300\x02无效的策略%s\x02不支持资源类" +
-	"型%q\x02无效schedtag_id参数\x02不支持资源类型%s\x02调度标签%s\x02调度标签%s的资源类型不匹配：%s != " +
-	"%s\x02unmarshal JointResourceCreateInput出错：%s\x02无效的调度标签%s\x02无效的默认策略%s" +
-	"\x02无法设定%s作为默认策略\x02GetObjectCount调用出错：%s\x02标签已关联至%s\x02getDynamicSched" +
-	"tagCount调用出错：%s\x02标签已有动态规则\x02getSchedPoliciesCount调用出错：%s\x02标签已与调度策略绑" +
-	"定\x02调度标签%s的资源类型为%s，与%s不匹配\x02未知的调度类型%q\x02未知的资源类型%q\x02未知的操作%q\x02未知的" +
-	"标签类型%q\x02调度任务正执行中，请稍后尝试\x02需要指定调度任务\x02unmarshal输入参数出错：%v\x02获取安全组%s失" +
-	"败\x02第%d条规则无效：%s\x02vpc %s(%s)不是一个纳管资源\x02不支持缓存经典安全组\x02无效的IP地址：%s\x02" +
-	"安全组%s的规则与%s不相等\x02GetGuestCount调用出错：%s\x02安全组正使用中\x02不允许删除默认的安全组\x02找不" +
-	"到虚机模板\x02解析图标URL出错：%s\x02找不到虚机模板%s\x02cpu_core_count应在1～256范围内\x02memo" +
-	"ry_size_mb应在512~%d范围内\x02instance_type_category应是%s其中之一\x02检查SKU重名时出错：%v" +
-	"\x02重复的SKU %s\x02实例规格列表查询出错\x02无法变更公有云%s SKU的实例类型\x02无法变更SKU名称\x02检查实例出错" +
-	"\x02不允许删除正在使用中的实例类型，请先移除相关的虚机：%s\x02不允许删除公有云instance_type：%s\x02查找zone %" +
-	"s(%s)所属的cloudregion失败\x02实例类型%s重复\x02查询SKU列表出错\x02删除SKU %s失败\x02仅支持缓存私有云" +
-	"SKU\x02获取region %s(%s)所属cloudprovider失败\x02cloudprovider %s(%s)已被禁用\x02保" +
-	"留天数须在范围1~%d内，或为-1\x02repeat_weekdays最多只能包含%d天\x02time_points最多只能包含%d个时" +
-	"间点\x02Unmarshal输入参数出错：%s\x02保持日期数必须在1～65535范围内，或为-1\x02无需更新\x02无法删除已绑定" +
-	"到磁盘的快照策略\x02找不到磁盘%s\x02磁盘快照策略已存在\x02磁盘%s绑定了过多的快照策略\x02找不到虚机%s\x02删除磁盘%" +
-	"s失败\x02找不到存储%s(%s)所属的region\x02无法删除状态为%s的快照\x02获取实例快照出错：%s\x02快照仍被实例快照引用" +
-	"\x02磁盘重置时无法删除快照\x02快照有%d个任务自执行中，无法执行同步状态操作\x02因磁盘%s仍存在，无法删除其快照\x02磁盘%s没有" +
-	"快照\x02无法删除磁盘快照，因存在手工快照\x02快照所属cloudprovider为启用状态，无法执行purge操作\x02getRef" +
-	"erenceCount调用出错：%s\x02镜像正使用中\x02下载会话还未过期\x02无法删除最后的缓存\x02状态为%s无法取消缓存\x02" +
-	"存储缓存非空\x02仍被存储引用\x02无法取消非定义镜像的缓存\x02镜像不在缓存存储中\x02标记缓存状态出错：%s\x02镜像Id或名" +
-	"称未指定\x02无效的存储类型%s\x02无效的介质类型%s\x02不支持创建%s存储\x02GetHostCount调用失败：%s\x02" +
-	"存储已关联宿主机\x02存储上还有磁盘\x02存储上还有快照\x02找不到存储缓存\x02存储是已启用状态\x02宿主机在线状态无法解绑" +
-	"\x02宿主机%s找不到存储%s\x02无效的external_access_mode %q，要求%s\x02不允许删除默认VPC\x02Get" +
-	"NetworkCount调用出错：%s\x02VPC不为空，请先删除其中的网络\x02GetNatgatewayCount调用出错：%v\x02" +
-	"VPC不为空，请先删除其中的NAT网关\x02无效的cidr_block %s\x02VPC所属cloudprovider为启用状态，无法执行p" +
-	"urge操作\x02本地IDC VPC不支持同步状态操作\x02对于经典网络，仅可设置为系统级别的共享\x02禁止将经典网络设为私有\x02映射" +
-	"IP枯竭\x02带宽值必须大于0\x02MTU值必须在0～1000000范围内\x02当前仅KVM平台支持创建二层网络\x02HostCount" +
-	"调用出错：%s\x02二层网络中包含宿主机\x02NetworkCount调用出错：%s\x02二层网络包含子网\x02zone不为空" +
-	"\x02找不到cloudregion %s\x02不支持为%s创建zone\x02内网负载均衡实例不支持带宽计费\x02负载均衡实例的manag" +
-	"er %s(%s)与VPC的%s(%s)不匹配\x02阿里云不支持变更证书\x02主备后端组必须包含两个后端\x02不支持后端组类型%s\x02" +
-	"无效的虚机机%s\x02阿里云实例权限必须在0～100范围内\x02内部错误：未知的后端类型%s\x02后端组%s不支持此操作\x02宿主机" +
-	"的region %q(%s)与负载均衡实例的%q(%s)不相符\x02%s后端组不支持变更端口\x02%s后端组不支持变更端口和权限\x02" +
-	"未知的后端组类型%s\x02监听类型必须为http/https，输入为%s\x02后端组%s(%s)属于负载均衡%s，而不是%s\x02后端" +
-	"组必须为普通类型\x02转发规则%s(%s)：获取归属监听%s失败\x02HTTP、HTTPS监听仅支持默认和普通后端组\x02health" +
-	"_check_domain长度必须在1～80范围内\x02%s长度必须在500个字母以内\x02sticky_session_cookie长度必" +
-	"须在1～200范围内\x02sticky_session_cookie仅允许包含字母、数字、下划线和破折号\x02未知的sticky_ses" +
-	"sion_type，仅支持%s或%s\x02找不到负载均衡实例%s(%s)的region\x02调度算法%s对于性能共享性负载均衡实例不可用" +
-	"\x02找不到监听%s(%s)所属的负载均衡实例\x02cloudregion %s(%s)不支持%s调度器\x02无效%s，要求为整数\x02" +
-	"%s不能被置为0\x02%s不支持关闭tcp或udp监听的健康检查\x02%s快照名称不可以auto，http://，https://开头" +
-	"\x02阿里云%s不支持恢复\x02阿里云仅支持从它自己的备份中恢复\x02阿里云%s 5.7/8.0支持local_ssd+high_avai" +
-	"lability，5.6仅支持从它自己的备份中恢复\x02备份实例不支持预付费计费类型\x02无法在子网%s(%s)和区域%s(%s)中找到匹配" +
-	"的SKU\x02%s %s不支持创建只读MySQL数据库实例\x02不支持创建只读MySQL %s %s实例：不支持%s存储类型，仅支持%s" +
-	"\x02不支持创建只读MySQL %s数据库实例\x02SQL Server只支持创建2017_ent型只读数据库实例\x02不可创建超过7个只" +
-	"读SQL Server数据库实例\x02不支持创建引擎为%s的只读数据库实例\x02主实例内在大于等于64GB，最多可创建10个只读实例" +
-	"\x02主实例内在小于64GB，最多可创建5个只读实例\x02VPC %s(%s)至少需要2个子网来使用阿里云%s(%s)\x02描述不可以ht" +
-	"tp://、https://开头\x02阿里云数据库实例账号名称长度应在2～16内\x02%s是阿里云%s的保留名称\x02账号名称中包含无效字" +
-	"符：%s\x02账号名称不可以下划线开头或结尾\x02%s仅对阿里云%s或%s有效\x02%s仅对阿里云%s有效\x02未知的权限%s" +
-	"\x02子网%s所属的VPC未找到\x02account_privilege %s仅支持Redis版本4.0\x02要求至少%d子网\x02要求" +
-	"至少有%d个包含8个可用IP的子网\x02负载均衡实例的manager %s与VPC %s(%s)的不匹配：%s\x02所有子网应属于同一个" +
-	"VPC：%s\x02已经有一个子网在区域%s：%s\x02无效的loadbalancer_spec参数：%s\x02无效的backendgrou" +
-	"p参数：%s\x02无效的loadbalancer_spec参数：%s\x02%s当前不支持创建负载均衡访问控制规则\x02%s当前不支持创建负" +
-	"载均衡证书\x02监听%s所属的负载均衡实例%s找不到\x02后端%s已经以端口%d注册\x02%s当前不支持创建负载均衡实例\x02磁盘和" +
-	"快照策略应在相同的域\x02磁盘和快照策略应在相同的项目\x02%s不支持创建负载均衡实例\x02%s不支持创建负载均衡访问控制规则\x02" +
-	"%s不支持创建负载均衡证书\x02Google数据库实例不支持预付费计费类型\x02磁盘尺寸必须在10～30720GB范围内\x02EIP %s" +
-	"(%s)与vpc %s(%s)的manager id (%s)不匹配\x02负载均衡实例正被%d个监听使用\x02负载均衡实例正被%d个后端组使" +
-	"用\x02不支持创建引擎类型为%s的只读数据库实例\x02华为云数据库实例名称长度必须在4～64范围内\x02%s要求磁盘大小必须在40～4" +
-	"000GB范围内\x02disk_size_gb必须是10的整数倍\x02不支持为华为云%s实例创建账号\x02华为云RDS密码不允许是账号名的" +
-	"反转\x02不支持创建华为云%s实例创建数据库\x02华为云数据库实例备份名称长度应在4～64范围内\x02华为云仅支持使用%s时指定数据库" +
-	"\x02华为云数据库实例的磁盘不可缩容\x02华为云数据库实例的种类不可变更\x02华为云数据库实例的存储类型不可变更\x02华为云当前不支持重" +
-	"置数据库实例的账号密码\x02无需为管理员账号授予或收回权限\x02%s不支持恢复\x02华为云%s RDS不支持从它自己的备份中恢复" +
-	"\x02华为云仅%s引擎支持数据库恢复\x02新数据库名称不允许是%s\x02zone不匹配，弹性缓存SKU的zone %s != %s\x02" +
-	"SKU %s已售罄\x02%s不支持创建账号\x02华为云%s类型弹性缓存不支持创建备份\x02zone信息未指定\x02VPC中的负载均衡暂不" +
-	"支持\x02zone %s(%s)没有可用负载均衡转发集群\x02没有可用的负载均衡转发集群\x02宿主机%s没有可访问的IP\x02查找虚" +
-	"机%s所在宿主机出错\x02查找负载均衡后端组%s所属的实例出错\x02宿主机%q(%s)所属的region与负载均衡实例所属的%q(%s)" +
-	"不一致\x02跳转应至少变更scheme, host, path中的一项\x02未指定backend_group参数\x02非跳转类型监听必" +
-	"须指定backend_group参数\x02仅http/https监听可启用跳转功能\x02非http监听必须指定后端组\x02无效的子网类" +
-	"型%q，期望%q\x02查找子网%s(%s)所属的VPC时出错\x02子网%s(%s)不属于%s\x02KVM快照找不到所属的存储\x02不" +
-	"可变更负载均衡监听的listener_type\x02不可变更负载均衡监听的listener_port\x02无法在状态%s时创建备份" +
-	"\x02负载均衡监听%s正在变更中\x02负载均衡后端组已与监听%s绑定\x02%s要求掩码大小在16到28范围内\x02负载均衡实例已与四层监" +
-	"听%s关联\x02路径不可为空\x02虚机%s、端口%d已注册\x02虚机%s、端口%d正被监听%s使用\x02腾讯云基础类型MySQL实例" +
-	"不支持创建备份\x02腾讯云不支持创建数据库\x02腾讯云Redis 2.8版本不支持创建账号\x02未指定规格查询参数\x02解析规格参数" +
-	"%s出错：%v\x02获取对象出错：%v\x02空的project_id/tenant_id\x02找不到项目%s\x02快照正被磁盘使用，无法" +
-	"删除\x02磁盘需要至少1个快照作为后备文件\x02磁盘%s没有挂载到虚机\x02磁盘所挂载的虚机有备机，无法创建快照\x02虚机状态为%s" +
-	"时无法创建快照\x02检查磁盘快照数时出错：%s\x02磁盘%s快照数满，不可再创建\x02RBD存储%s(%s)已存在\x02无效网关" +
-	"\x02服务器内部错误\x02资源不在可用状态\x02支付类错误\x02镜像未找到\x02找不到资源\x02找不到Spec\x02找不到动作" +
-	"\x02找不到租户\x02找不到用户\x02服务器状态错误\x02无效的格式\x02输入参数错误\x02弱密码\x02参数不存在\x02资源不足" +
-	"\x02资源不足\x02配置不足\x02超出范围\x02超出上限\x02权限不足\x02不支持的操作\x02内容非空\x02无效的请求\x02空" +
-	"的请求\x02未授权\x02无效的凭证\x02禁止\x02不可接受\x02名称重复\x02资源重复\x02冲突\x02资源忙\x02需要Li" +
-	"cense\x02被保护的资源\x02没有项目\x02实体太大\x02尝试失败次数过多\x02请求数过多\x02不支持的协议\x02策略定义错误" +
-	"\x02找不到镜像%s\x02找不到参数%s\x02%s资源重名：%s\x02%s资源id重复：%s\x02未授权\x02无效的Token" +
-	"\x02找不到名字%s\x02找不到登录密文信息\x02找不到%s的TOTP信息\x02找不到%s的密文恢复信息\x02TOTP密文已存在" +
-	"\x02找不到密码\x02找不到SSH密码：%s\x02无效的资源格式\x02服务%s找不到：%v\x02未指定uid\x02未指定pids" +
-	"\x02pids中未指定pid\x02pids中未指定rid\x02未指定rid\x02找不到项目\x02找不到登录login_key\x02查" +
-	"询中找不到kind：%v\x02查询中找不到key：%v\x02不支持的动作%s\x02找不到数据源对应的执行器\x02安全组id不应为空" +
-	"\x02找不到安全组%s\x02无效的服务点\x02解析URL %q出错：%v\x02不支持的字符 %s"
+const zh_CNData string = "" + // Size: 50522 bytes
+	"\x02获取tenantId参数失败\x02切换项目失败\x02获取password参数失败\x02用户名或密码为空\x02缺少认证信息\x02" +
+	"无效的认证信息\x02获取请求的JSON内容失败：%v\x02请求内容为空\x02缺少id参数\x02fetchAuthInfo调用失败：%" +
+	"s\x02新密码相互不匹配\x02不支持重置用户密码\x02密码错误\x02无效的验证码\x02生成TOTP二维码失败\x02uid为空\x02" +
+	"输入参数错误\x02未设置TOTP找回密码的提示问题\x02未找到密码提示问题\x02%s：答案不正确\x02验证码应为6个数字\x02验证" +
+	"码无效：%v\x02没有密码找到提示问题\x02解析提示问题失败：%v\x02获取管理员鉴权信息失败\x02没有可用的region，请联系管" +
+	"理员\x02无效的可用区%s，请联系管理员\x02会话过期，缺少%s\x02解析请求参数出错：%s\x02获取表单数据出错：%s\x02无效" +
+	"的请求\x02外部用户ID为空\x02idp_id或idp_entity_id为空\x02无效的表单\x02缺少镜像名称参数\x02缺少镜像" +
+	"大小参数\x02无效的镜像大小参数\x02解析查询失败：%v\x02头部中没有token：%v\x02找不到参数%s\x02不支持动作%s" +
+	"\x02Content-Type错误，%s，应为%s\x02打开文件出错\x02解析文件出错\x02模板文件无效，请检查\x02文件内容空" +
+	"\x02第%d行，用户名为空\x02第%d行，域名称为空\x02第%d行，名称重复：%s\x02内部服务错误\x02找不到模板：%s\x02请求" +
+	"体太大\x02无效的multipart表单\x02无效的content_length\x02头部中没有token\x02头部中的token无" +
+	"效\x02token已过期\x02找不到资源%s对应的module\x02找不到id列表\x02缺少导出键名\x02导出键名与文本不一致" +
+	"\x02收到无效数据\x04\x00\x01 \x16\x02无效的预置操作\x04\x00\x01 \x18\x02无效的权限(Effect)" +
+	"\x04\x00\x01 \x14\x02无效的IPv4地址\x02无效的shared_mode %s\x02mx_priority应在[1,5" +
+	"0]范围\x02无效的MX记录：无效的域名%s\x02无效的A记录：无效的IPv4地址%s\x02无效的AAAA记录：无效的IPv6地址%s" +
+	"\x02无效的CNAME记录：无效的域名%s\x02无效的路由CIDR %s\x02服务器内部错误：%s\x02服务器内部错误\x02无效的ha" +
+	"ndler：%s\x02未找到handler\x02找不到请求的键：%s\x02无效的请求头部：%v\x02请求处理超时\x02不允许记录列表为" +
+	"空\x02记录条目数过多\x02找不到%s方法\x02%s方法参数长度不匹配，期望数%d，实际%d\x02无效的ValidateCreate" +
+	"Data返回值\x02ListItemFilter返回无效的计数%d\x02OrderByExtraFields返回无效的计数%d\x02Get" +
+	"ExtraDetails返回无效的计数%d\x02FetchCustomizeColumns返回无效的计数%d\x02FetchCustomiz" +
+	"eColumns返回类型无数（不是slice）\x02FetchCustomizeColumns返回值无效，对象数目不匹配，输入%d，输出%d" +
+	"\x02ValidateUpdateData返回值无效\x02CustomizeDelete返回值无效\x02无效的联合资源%s\x02Fetc" +
+	"hCustomizeColumns返回的结果数不正确\x02找不到上下文管理器\x02没有此上下文%s(%s)\x02从上下文中获取HTTP响应" +
+	"Writer失败\x02FetchCustomizeColumns返回值不正确\x02反射调用%s出错：%s\x02%s返回值无效\x02%s不" +
+	"允许获取%s属性\x02没有返回值\x02不允许获取详情\x02%s %s %s找不到\x02%s不允许获取%s\x02不允许创建对象" +
+	"\x02请求体不是JSON对象？\x02未指定name或者generate_name\x02不允许执行%s\x02找不到%s Allow %s " +
+	"%s方法\x02%s不允许%s %s\x02无效的JSON对象\x02不允许更新对象\x02不允许删除%s(%s)\x02不允许绑定\x02%s" +
+	" %s已与%s %s绑定\x02非默认域中的项目是被禁止的\x02新域未指定\x02检查名称重复时出错：%s\x02权限不足（要求%s，允许%s" +
+	"，实际%s）\x02不支持%s资源使用标签过滤\x02找不到动作%s\x02无法获取字符串字段\x02模型没有%s字段\x02数据库查询出错" +
+	"：%s\x02名称必须以字母开头，内容仅包含字母、数字或英语破折号\x02不允许删除日志\x02不允许变更直连模式配置\x02不允许删除直连" +
+	"模式\x02获取代理设置的使用数出错：%s\x02代理设置%s仍被%d个%s使用\x02请求体解析失败\x02找不到%s配额\x02%s默认" +
+	"配额不允许删除\x02权限不足\x02不允许列出域配额\x02权限不足\x02不允许列出项目配额\x02查询配额：%s\x02权限不足（要求" +
+	"：%s，允许：%s：资源：%s）\x02权限不足（要求：%s，允许：%s）\x02无效范围%s\x02不允许创建%s，范围%s\x02不允许" +
+	"设置范围为整个系统\x02不允许设置范围为整个%s域\x02不允许设置范围为整个%s项目\x02只能共享给指定域: %s\x02插入共享资源" +
+	"出错：%s\x02名称需以字母开头，包含字母、数字，或“._@-”\x02名字长度超过%d\x02不允许使用系统保留键，请移除键名起始的下划" +
+	"线\x02输入键名长度超过%d\x02输入键值长度超过%d\x02找不到用户%s\x02禁止\x02非管理员不允许创建系统级别资源\x02该" +
+	"资源被锁定，无法执行 %s 操作\x02该资源已经被锁定\x02该资源未被锁定\x02未指定项目\x02Informer后端未初始化\x02" +
+	"无效的格式\x02操作不允许\x02无效的输入格式\x02缺少输入参数：%q\x02%q：常规错误：%s\x02类型错误：期望类型%s，%q" +
+	"的实际类型为%s\x02%q：错误的枚举值：期望%s，实际%s\x02%q：长度%d太短，最小为%d\x02%q：长度%d太长，最长为%d" +
+	"\x02%q：%d不在范围内，应为[%d,%d]\x02%q：无效的值%s\x02%q：无效的值：%v\x04\x00\x01 \x12\x02" +
+	"%q：无效的值\x02无法找到%q对应的模型管理器\x02无法通过名称或ID找到%q（%q）\x02无法通过名称或ID找到%q（%q）：%s" +
+	"\x02无效的证书算法：%s，要求为%s\x02找不到provider\x02未实现GetProvider\x02未找到\x02Id重复\x02" +
+	"无效的状态\x02超时\x02未实现\x02不支持\x02无效的Provider\x02没有查询余额的权限\x02地址分配数量达到上线" +
+	"\x02不支持多网卡\x02%s磁盘大小必须在%dGB到%dGB范围内\x02%s要求EIP带宽必须小于100Mbps\x02与路由表关联的网络" +
+	"%s没有因特网网关\x02无法找到镜像%s的subformats中找到vhd，请尝试为glance target_image_formats选项" +
+	"添加'vhd'\x02Azure Mv2系列SKU仅支持UEFI镜像\x02Azure UEFI镜像%s不支持此SKU\x02不支持变更Az" +
+	"ure实例名称\x02不能变更裸金属的配置\x02不能变更裸金属的磁盘大小\x02无效的RAID配置：%v\x02宿主机%s不是一个裸金属服务器" +
+	"\x02裸金属服务器%s没有准备好\x02裸金属服务器%s已被占用\x02无法为裸金属服务器保存镜像\x02未实现ValidateCreateE" +
+	"ip\x02hypervisor %s不允许此操作\x02不支持此操作，请使用kubectl\x02容器不支持%s\x02%s不支持创建EIP" +
+	"\x02无法为有主机快照的虚拟机调整磁盘大小\x02ESXi虚机迁移需要指定prefer_host\x02无法为有主机快照的虚拟机重装系统" +
+	"\x02未知的Google存储类型\x02系统盘不支持%s磁盘\x02%s磁盘数量超过8个\x02%s和%s特性创建实例时互不兼容\x02找不到" +
+	"宿主机%s\x02主备机不可迁移\x02无法为状态为%s的虚机执行迁移操作，尝试救援模式或server-live-migrate\x02救援" +
+	"模式要求所有磁盘都使用共享存储\x02使用透传设备时不支持迁移\x02使用cdrom时无法在线迁移\x02使用透传设备时无法在线迁移\x02" +
+	"QEMU版本太低，无法在线迁移\x02%s不支持指定CDROM参数\x02%s不支持创建EIP，仅支持绑定已有EIP\x02%s不支持创建虚机时" +
+	"同时创建EIP\x02数据盘不支持存储类型%s\x02%s盘的大小必须在10GB到16000GB范围内\x02%s盘的大小必须在50GB到1" +
+	"6000GB范围内\x02%s盘的大小必须在100GB到16000GB范围内\x02磁盘 %s 的大小必须介于20GB ~ 32000GB" +
+	"\x02%s存储不能作为数据盘\x02数据盘大小必须是10GB的整数倍\x02找不到系统盘：%v\x02找不到磁盘%s(%s)所属的存储\x02" +
+	"系统盘存储在本地，不支持变更配置\x02不支持创建本地盘\x02请指定新的磁盘类型\x02磁盘存储在本地，不支持解绑\x02宿主机%s不在线" +
+	"\x02GetGuestCount调用出错：%s\x02宿主机已被占用\x02阿里支重置磁盘要求虚机状态为运行中或已关机\x02AWS不支持重置" +
+	"磁盘，您可以使用快照来创建新盘\x02不支持变更Azure磁盘名称\x02Azure不支持重置磁盘，您可以使用快照创建新盘\x02未实现" +
+	"\x02ValidateResetDisk未实现\x02ValidateAttachStorage未实现\x02RequestAttachSto" +
+	"rage未实现\x02RequestDetachStorage未实现\x02磁盘必须已解绑\x02%s重置磁盘时要求虚机状态必须是运行中或已关机" +
+	"\x02主机%s必须处于关机状态\x02磁盘必须已解绑\x02不支持挂载%s存储到%s宿主机\x02挂载rbd存储要求宿主机在线\x02查询主机" +
+	"磁盘出错：%s\x02宿主机%s挂载点%s已有其它存储\x02挂载NFS存储要求宿主机在线\x02%s不是一个挂解点：%s\x02磁盘挂载到" +
+	"多个虚机\x02磁盘所在虚机必须是已关机状态\x02磁盘未挂载到虚机\x02OpenStack不支持重置磁盘，您可以从快照创建新盘\x02Q" +
+	"cloud重置磁盘要求虚机状态必须是运行中或已关机\x02Ucloud重置磁盘要求磁盘处于未挂载状态\x02Ucloud仅支持数据盘重置操作" +
+	"\x02ZStack重置磁盘要求虚机处于关机状态\x02解析远端IP地址出错：%s\x02子网未找到\x02裸金属服务器Agent未找到\x02" +
+	"裸金属服务器package未准备好\x02检查agent唯一性失败：%s\x02manager_url冲突：%s\x02manager_ur" +
+	"l重复：%s\x02未指定duration/expire_time\x02新的过期时间先于当前值\x02无效的duration %s: %s" +
+	"\x02找不到名称\x02无效的桶名%s：%s\x02无效的桶名%s：%s\x02没有外部桶\x02获取对象出错：%s\x02未指定key" +
+	"\x02生成临时URL出错：%s\x02空的目录名\x02无效的key %s：%s\x02GetIObject调用出错：%s\x02对象数量超出" +
+	"限制\x02bucket.GetQuotaKeys调用出错：%s\x02创建目录失败：%s\x02keys列表为空\x02对象key不应以斜" +
+	"线结尾\x02无效的对象key：%s\x02找不到Content-Length\x02无效的Content-Length %s\x02Con" +
+	"tent-Length为负值%d\x02GetIObject调用出错：%s\x02对象大小超出限制\x02bucket.GetQuotaKeys" +
+	"调用出错：%s\x02更新对象出错：%s\x02setAcl调用出错：%s\x02syncWithCloudBucket调用出错：%s" +
+	"\x02桶当前有%d个活跃任务在执行，无法执行同步状态操作\x02桶不为空\x02找不到对象%s\x02iBucket.GetIObjects调" +
+	"用出错：%s\x02unmarshal limit参数出错：%s\x02SetLimit调用出错：%s\x02更新出错：%s\x02找不到m" +
+	"anager\x02iBucket.GetIObject调用出错：%s\x02ValidateDeleteCondition出错：%s\x02镜" +
+	"像已被缓存到磁盘\x02镜像引用会话还未过期\x02找不到存储缓存%s\x02不允许查询系统能力\x02账号为启用状态\x02账号不空闲" +
+	"\x02%s provider: %v\x02无法启用正在删除中的账号\x02无效的代理设备%s\x02不支持provider为%s的云账号" +
+	"\x02不支持%s\x02项目%s(%s)不属于域%s(%s)\x02不支持品牌%s，仅支持%s\x02唯一性检查失败\x02账户已被注册" +
+	"\x02找不到provider %s\x02无效的账号信息：%s\x02检查重复account_id出错\x02账号%s已被注册\x02账号已禁" +
+	"用\x02账号自动同步已启用\x02无效的输入：%s\x02无法找到provider工厂：%v\x02unmarshal输入参数出错：%v" +
+	"\x02检查唯一性出错：%s\x02账号%s出现冲突\x02account_id不一致，之前为%q，现在为%q\x02找不到项目%s\x02状态" +
+	"为%s时无法启用自动同步\x02provider在域间共享\x02不支持%s\x02%s不支持创建订阅\x02不允许创建\x02provid" +
+	"er当前是启用状态\x02provider当前不是空闲状态\x02不支持直接创建cloudprovider，请先创建云账号\x02找不到regi" +
+	"on %s\x02找不到zone %s\x02cloudprovider是已禁用状态\x02云账号是已禁用状态\x02不允许跨域变更项目属性" +
+	"\x02不允许变更为私有云另外一个域\x02获取provider驱动失败：%s\x02不支持存储类型\x02GetZoneCount调用失败" +
+	"\x02GetVpcCount调用失败\x02cloudregion不为空\x02不允许删除默认cloudregion\x02找不到VPC %s" +
+	"\x02不允许更新外部资源\x02禁止允许更改RDS账号名称\x02查找数据库实例出错：%s\x02数据库实例%s(%s)当前状态为%s，要求状" +
+	"态为%s\x02找不到数据库实例%s(%s)所属的region\x02在数据库实例%s(%s)中查找%s库失败：%v\x02查找数据库%s失" +
+	"败，在实例%s(%s)中查找出错：%v\x02账号%s(%s)已有权限%s访问数据库%s(%s)\x02账号状态不是%s，当前状态为%s" +
+	"\x02实例状态不是%s，当前状态为%s\x02数据库状态不是%s，当前状态为%s\x02账号%s(%s)没有数据库%s(%s)的权限\x02数" +
+	"据库实例没有有效的cloudprovider\x02数据库实例的备份当前有%d个活跃任务执行中，无法执行同步状态操作\x02禁止不允许更改R" +
+	"DS的数据据名称\x02找不到数据库实例%s(%s)的账号%s：%v\x02未实现\x02无效地址：%s\x02%s不在子网%s(%s)的范围中" +
+	"\x02云订阅 %s(%s) 无法使用\x02无效的时间长度%s\x02不支持的时间长度%s\x02区域 %s 不支持创建RDS\x02区域 %" +
+	"s 不支持创建 %s 类型RDS\x02找不到匹配的dbinstance sku\x02%s RDS不支持安全组\x02%s RDS支持绑定最多" +
+	" %d 个安全组\x02不可在%s状态做恢复操作，要求状态必须为%s\x02备份%s(%s)中不包含数据库%s\x02数据库%s与实例%s(%s" +
+	")冲突\x02备份与数据库实例不属于同一个云账号\x02备份与数据库实例不在同一个cloudregion\x02无法从不同的rds引擎中恢复数据" +
+	"\x02无法重启状态为%s的数据库实例\x02数据库实例已有%d个活跃任务在执行，无法同步状态\x02无法为状态为%s的数据库实例执行刷新操作，" +
+	"要求状态为%s\x02缺少duration参数\x02数据库实例已开启外网访问\x02外网连接未开放\x02%s不支持此操作\x02处于状态" +
+	"%s无法执行变更配置操作\x02Unmarshal输入参数产生错误：%v\x02执行变更操作时无法找到sku\x02数据库实例已锁定，无法删除" +
+	"\x02数据库实例计费类型为%s\x02数据库实例计费类型%s不支持取消过期时间\x02找不到虚机%q\x02快照策略%s未找到：%s\x02不" +
+	"支持变更磁盘类型为%s\x02找不到磁盘%s对应的存储\x02无法为存储%s和磁盘%s找不到对应的宿主机\x02找不到存储%s\x02云订阅" +
+	" %s 不可用\x02存储%s(%s)需挂载到宿主机达到在线状态\x02无法使用已禁用的存储%s创建磁盘\x02无法使用离线存储%s创建磁盘" +
+	"\x02存储类型%s与后端%s不匹配\x02存储%s必须绑定到一个宿主机\x02空闲空间不够\x02获取快照数失败：%s\x02磁盘%s不需要转" +
+	"换快照\x02无法获得磁盘快照\x02获取转换快照对象失败：%s\x02快照%s没有转换快照对象\x02无法重置状态为%s的磁盘\x02无法" +
+	"重置快照状态为%s的磁盘\x02无法重置磁盘%s(%s)，因快照属于磁盘%s\x02磁盘状态为READY时方可调整其大小\x02磁盘不可缩容" +
+	"\x02无法找到磁盘所归属的存储资源\x02disk.GetQuotaKeys失败：%s\x02无法找到磁盘%s所属的存储\x02该磁盘没有zo" +
+	"ne信息\x02重复的镜像名%s\x02磁盘状态为READY时方可执行保存操作\x02GetRuningGuestCount调用失败：%s" +
+	"\x02当磁盘未被使用时才可执行保存操作\x02镜像名称是必选参数\x02cloudprovider %s不可用\x02云账号%s不可用\x02" +
+	"磁盘%s所在的存储资源找不到宿主机\x02磁盘%s调用GetGuestDiskCount时出错：%s\x02磁盘%s(%s)正被虚机使用" +
+	"\x02无法删除状态正常的预付费磁盘\x02Diskinfo下标%d：镜像id和尺寸都未指定\x02未找到快照%s\x02快照%s归属的存储%s" +
+	"未找到，它是公有云资源吗\x02镜像不在活跃状态\x02磁盘有%d个任务正在执行，无法执行同步状态操作\x02GetSnapshotCoun" +
+	"t失败：%s\x02无法执行purge操作，磁盘必须不能有快照\x02无法执行删除操作，磁盘必须不能有快照\x02存储类型为%s的磁盘若有快照不" +
+	"可删除\x02找不到快照策略%s\x02%s %s不支持DNS类型%s\x02%s %s不支持策略类型%s\x02%s %s不支持%s" +
+	"\x02%s不支持策略类型%s\x02%s %s不支持策略值%s\x02不支持\x02无效的域名%s\x02不支持%s，vpc %s支持%s" +
+	"\x02不支持%s，账号%s支持%s\x02不支持配置顶级公共域名 %s \x02不识别的zone类型%s\x02当前状态%s无法执行同步操作" +
+	"\x02当前状态%s无法执行缓存操作\x02仅%s支持为账号缓存\x02账号%s已缓存\x02当前状态%s无法执行解除缓存操作\x02vpc %" +
+	"s已经在这个DNS zone\x02vpc %s不在此DNS zone\x02SRV：参数不够：%s\x02SRV：无效端口号：%s\x02SR" +
+	"V：无效权重值：%s\x02SRV：权限值%d不在范围[0,65535]范围\x02SRV：无效优先组：%s\x02SRV：优先级%d不在[0," +
+	"65535]范围\x02SRV记录不可与其它类型记录同时存在\x02CNAME记录不可与其它类型记录同时存在\x02PTR记录不可与其它类型记录" +
+	"同时存在\x02%s：无效的域名：%s\x02SRV：无效的srv记录名：%s\x02PTR：无效的ptr记录名：%s\x02%s：名字不可" +
+	"以是IP地址：%s\x02A：记录值必须是IPv4地址：%s\x02AAAA：记录值必须是IPv6地址：%s\x02%s：%s必须是域名：%" +
+	"s\x02%s：%s不可以是IP地址：%s\x02%s：未知的记录类型\x02空记录\x02无效的TTL值：%s\x02无效的TTL值：%d" +
+	"\x02不可以混合不同类型的记录：%s != %s\x02条件表达式无效\x02找不到调度标签%s\x02unmarshal Standalon" +
+	"eResourceCreateInput失败：%s\x02不支持资源类型%s\x02不支持虚拟资源类型%s\x02找不到%s资源%s\x02无法" +
+	"恢复状态为%s的弹性缓存\x02不支持删除%s弹性弹性缓存备份\x02无效的计费周期%s\x02unmarshal VirtualResou" +
+	"rceCreateInput失败：%s\x02无法重启状态为%s的弹性缓存实例\x02弹性缓存已锁定，不可删除\x02弹性缓存未过期，不可删除" +
+	"\x02provider不匹配：%s缓存实例不可使用%s sku\x02region不匹配：实例region %s，sku region %s" +
+	"\x02zone不匹配：实例zone %s，sku zone %s\x02引擎版本不匹配：实例版本%s，sku版本%s\x02无法为状态为%s的" +
+	"缓存实例变更配置\x02认证模式的状态已为%s\x02运维时间参数没有变化\x02公网连接已分配\x02公网连接已释放\x02无效参数格式：" +
+	"必须为JSON Object\x02弹性缓存已有%d个任务在执行，无法执行同步状态操作\x02弹性缓存的计费类型为%s\x02弹性缓存的计费" +
+	"类型%s不支持取消过期时间\x02虚机状态%s不可执行添加安全组操作\x02不支持绑定安全组\x02超过可绑定的安全组数量限制，最多 %d " +
+	"个\x02安全组名称%s不符合要求\x02参数%s不可变更\x02找不到虚机%s\x02不支持绑定类型%s，仅支持%s\x02不支持付费类型" +
+	"%s\x02EIP已绑定到其它实例\x02EIP状态为%s无法绑定\x02固定EIP不可再被关联\x02不支持%s\x02无法与正在删除的虚机进" +
+	"行绑定\x02实例已与其它EIP绑定\x02虚机状态%s无法进行EIP绑定操作\x02虚机与EIP在同一子网下不可关联\x02找不到虚机所属" +
+	"region\x02找不到EIP所属region\x02EIP的虚机不在同一region\x02EIP和虚机不在同一个zone\x02虚机所在宿" +
+	"主机找不到\x02虚机和EIP分属不同cloudprovider\x02EIP状态为%s无法执行解绑操作\x02固定的公网IP无法解绑" +
+	"\x02EIP %s正被NAT网关的SNAT规则使用，请先删除它们\x02EIP %s正被NAT网关的DNAT规则使用，请先删除它们\x02固定" +
+	"公网IP无法执行同步状态操作\x02EIP状态为%s无法变更带宽\x02无效的带宽\x02EIP所属cloudprovider为启用状态，无" +
+	"法执行purge操作\x02请解绑组中所有虚机后再试\x02无法绑定已禁用的虚机\x02无法解绑已禁用的虚机\x02找不到实例%s\x02虚" +
+	"机和实例组应属于同一项目\x02找不到宿主机\x02宿主机状态为%s，启用状态为%s，无法对虚机执行%s操作\x02状态为%s时无法发送命令" +
+	"\x02无法找到虚机所在宿主机\x02状态为%s时不可保持镜像\x02找不到根镜像\x02仅KVM虚机支持此操作\x02状态为%s无法执行同步状" +
+	"态操作\x02状态为%s无法执行在线迁移\x02主备机不支持克隆操作\x02hypervisor为%s的虚机不支持克隆操作\x02状态为%s" +
+	"的虚机不可执行克隆操作\x02unmarshal输入参数错误：%s\x02状态为%s的虚机无法执行部署操作\x02磁盘%s和虚机不属于同一个" +
+	"账号\x02磁盘%s和虚机不属于同一个zone\x02isAttached检查失败：%s\x02磁盘%s已被占用\x02磁盘%s和虚机不在同" +
+	"一宿主机\x02磁盘状态为%s，无法挂载\x02虚机%s的状态%s不支持挂载磁盘\x02找不到磁盘%s\x02状态为%s的虚机无法执行挂起操" +
+	"作\x02状态为%s的虚机无法执行恢复操作\x02部分磁盘未准备好\x02不可启动状态为%s的虚机\x02CD-ROM当前使用中，请先执行弹" +
+	"出操作\x02虚机状态%s不允许执行插入ISO操作\x02没有ISO可弹出\x02虚机状态%s不允许弹出ISO操作\x02无法为hyperv" +
+	"isor %s添加安全组\x02虚机%s最多可关联%d个安全组\x02安全组%s已被虚机%s使用\x02虚机状态为%s无法解除安全组\x02安全" +
+	"组%s未与虚机%s关联\x02虚机状态为%s无法关联安全组\x02虚机状态为%s无法设定安全组\x02无法为虚机%s设定安全组\x02虚机所" +
+	"在宿主机为启用状态，不可执行purge操作\x02找不到%s\x02无效的镜像\x02镜像大小超过系统盘大小\x02无法切换操作系统：%s-" +
+	"%s\x02镜像uefi状态不同重装操作系统\x02找不到模板，无法重装系统\x02不支持使用另外一个镜像重装系统\x02状态为%s不支持重装系" +
+	"统\x02找不到密钥对%s\x02未提供Disk Info\x02找不到宿主机\x02所在宿主机无可用存储\x02所在宿主机存储空间不足" +
+	"\x02查找磁盘错误：%s\x02isAttach2Disk失败：%s\x02不可解绑系统盘\x02无法保留已解绑的磁盘\x02虚机状态%s不支" +
+	"持解绑磁盘\x02磁盘%s未挂载\x02仅当虚机为关机状态时才可挂载透传设备\x02未指定透传设备\x02找不到透传设备%s\x02透传设备" +
+	"未挂载到此虚机\x02GPU数量必须大于1\x02获取GPU失败：%s\x02虚机%s所在宿主机%s透传设备不足\x02挂载设备列表参数类型" +
+	"不是字符串数组\x02卸载设备列表参数类型不是字符串数组\x02找不到IP %s\x02找不到MAC %s\x02未指定ip_addr或ma" +
+	"c\x02状态为%s无法变更IP地址\x02虚机运行中无法变更MAC地址\x02MAC地址唯一性检查失败\x02MAC地址%s已被占用\x02虚" +
+	"机状态%s无法执行解绑网络操作\x02虚机状态%s无法执行绑定网络操作\x02虚机状态%s无法变更带宽大小\x02带宽值必须非负\x02虚机" +
+	"状态%s不可变更配置\x02不允许变更配置\x02主备机不允许变更配置\x02虚机状态为%s不可变更配置\x02不可变更套餐类型\x02参数" +
+	"vcpu_count解析出错\x02内存大小参数错误，如256M，1G，或256\x02参数vmem_size解析出错\x02虚机状态为%s无法" +
+	"变更CPU/内存配置\x02Unmarshal磁盘配置出错：%s\x02解析磁盘信息出错：%s\x02不可缩小磁盘大小\x02虚机状态为%s" +
+	"无法重装系统\x02虚机已有%d个活跃任务执行中，无法执行同步状态操作\x02虚机状态%s无法执行关机操作\x02虚机状态%s无法执行重启操" +
+	"作\x02虚机状态%s无法发送键盘指令\x02虚机状态%s无法关联EIP\x02虚机已关联EIP\x02找不到EIP %s\x02EIP已被" +
+	"关联\x02虚机与EIP不在同一region无法关联\x02虚机与EIP不在同一个zone下无法关联\x02虚机与EIP不属于同一provi" +
+	"der无法关联\x02没有可解关联的EIP\x02EIP配额不足：%s\x02虚机状态为%s时无法切换到备机\x02虚机没有备用宿主机\x02虚" +
+	"机无法切换到备机，因镜像任务未结束\x02找不到虚机%s\x02输入数据不是键值字典\x02找不到虚机%s\x02查找虚机失败：%s\x02" +
+	"虚机已有备用机\x02使用共享存储不可创建备机\x02仅KVM虚机支持创建主备机\x02使用透传设备无法创建备机\x02GuestDisks" +
+	"HasSnapshot失败：%s\x02无法从快照创建备机\x02虚机无备机\x02备机所在宿主机找不到\x02备机所在宿主机离线\x02虚机不" +
+	"需要做reconcile操作\x02虚机的计费类型%s不支持取消过期时间\x02虚机的计费类型为%s\x02虚机%s不支持后付费自动过期" +
+	"\x02无效的desc内容\x02虚机Id为空\x02虚机名为空\x02虚机%s已存在\x02导入网卡列表为空\x02IP %s或MAC %s已" +
+	"被注册\x02无法通过IP %s找到网络\x02导入磁盘列表为空\x02Unmarshal数据失败：%s\x02部分宿主机配置缺少xml_f" +
+	"ile_path\x02部分宿主机缺少HostIp字段\x02无效的宿主机IP %s\x02无效虚机MAC地址%s\x02无效的虚机IP地址 %" +
+	"s\x02创建任务失败：%s\x02Hypervisor %s无法创建libvirt XML\x02生成XML失败：%s\x02不支持hyper" +
+	"visor %s\x02不支持%s\x02虚机已被转换过\x02宿主机%s不是KVM类型\x02虚机必须为关机状态\x02检查并设置待使用配置时" +
+	"出错：%s\x02找不到宿主机\x02空的IP列表\x02IP %s不可达：%s\x02IP %s不可用：已被占用\x02部分磁盘找不到" +
+	"\x02磁盘%s未挂载到虚机\x02Hypervisor %s无法实现io限速\x02虚机状态%s无法设定io限速\x02bps必须大于0" +
+	"\x02iops必须大于0\x02虚机%s hypervisor %s不支持迁移\x02虚机%s有备机，不可迁移\x02虚机%s使用本地存储不支" +
+	"持救援模式\x02虚机%s状态为%s不可迁移\x02虚机%s状态为%s，有透传设备，无法迁移\x02虚机有cdrom不可迁移\x02虚机%s" +
+	"状态%s因使用本地存储无法迁移\x02未指定虚机Id\x02部分指定的虚机不存在\x02虚机hypervisor %s无法创建实例快照" +
+	"\x02备份机无法创建快照\x02虚机状态为%s无法做快照\x02虚机%d号磁盘快照数达到上限，不可再创建\x02创建快照失败：%s\x02创建" +
+	"快照任务失败：%s\x02快照未准备好\x02从快照恢复失败：%s\x02count必须大于0\x02生成快照名称失败：%s\x02不是裸金" +
+	"属服务器\x02找不到宿主机\x02宿主机不是裸金属\x02找不到主机组%s\x02主机组与虚机应属于同一个项目\x02无法关联或解关联已禁" +
+	"用的主机组\x02虚机没有公网IP\x02虚机状态要求为%s或%s，当前状态为%s\x02%s虚机不支持转发公网IP为EIP\x02仅%s虚" +
+	"机支持此操作\x02虚机模板暂不支持实例快照\x02找不到虚机模板指定的安全组%s\x02虚机模板中的%s不是共享资源\x02虚机模板中的%" +
+	"s %q不是共享资源\x02虚机模板中的%s在范围%s内不是共享资源\x02虚机模板中的%s %q在范围%s内不是共享资源\x02虚机模板%s正" +
+	"被服务目录%s使用\x02虚机模板%s正被伸缩组%s使用\x02检查磁盘序号唯一性失败：%s\x02磁盘序号%d已被占用\x02无法分配网卡" +
+	"名\x02检查网卡序号唯一性失败：%s\x02网卡序号%d已被占用\x02找不到宿主机%s\x02找不到安全组%s\x02找不到磁盘%s" +
+	"\x02检查虚机磁盘数量失败：%s\x02找不到主机组%s\x02虚机已锁定，无法删除\x02不允许删除有效状态的预付费虚机\x02不允许删除已" +
+	"禁用宿主机上的虚机\x02无法删除离线宿主机上的虚机\x02虚机磁盘存在快照，无法执行删除操作\x02内存大小必须在8MB〜%dGB范围内" +
+	"\x02CPU核数必须在范围1〜%d内\x02虚机状态为%s无法变更内存和CPU配置\x02无法为裸金属变更内存配置\x02名称太短\x02找不" +
+	"到实例快照%s\x02获取实例快照出错：%s\x02实例快照未准备好\x02metadata条目数不可超过20\x02login_accou" +
+	"nt长度已超过32字节\x02未提供磁盘信息\x02无效的系统镜像: %s\x02系统盘不支持ISO镜像，请使用cdrom参数\x02解析cdr" +
+	"om设备信息出错误：%s\x02未指定操作系统镜像？\x02解析磁盘描述信息出错：%s\x02快照错误：序号%d大于0的磁盘类型为%s\x02无" +
+	"法在预付费的资源类型上创建预付费的虚机\x02解析网络描述信息出错：%s\x02无法创建带有透传设备的主备机\x02解析透传设备描述信息出错" +
+	"：%s\x02找不到密钥对%s\x02找不到安全组%s\x02%s最多可关联%d个安全组\x02无效的userdata：%v\x02策略定义" +
+	"中有无效参数：%s\x02策略定义%s要求cloudregion在%s范围中\x02策略定义%s要求cloudregion不在%s范围中" +
+	"\x02策略定义%s(%s)包含无效的条件%s\x02策略定义%s要求必须包含%s标签\x02策略定义%s要求不可有%s标签\x02类别%s在策" +
+	"略定义%s(%s)中无效\x02%s 不支持静态公网IP\x02无效的静态公网IP类型 %s\x02%s不支持EIP\x02EIP %s状态" +
+	"无效%s\x02EIP %s已被占用\x02EIP %s属于不同cloudprovider，无法绑定\x02EIP %s属于不同的regio" +
+	"n，无法绑定\x02获取磁盘大小失败\x02镜像%s不在虚机镜像%s中\x02部分虚机镜像的子镜像未指定\x02裸金属%s未启用\x02无法运行" +
+	"%s，宿主机类型为%s\x02宿主机上没有可用存储\x02无效的aggregate_strategy: %s\x02找不到二层网络%s\x02不" +
+	"支持hypervisor %s\x02虚机状态为%s无法执行回收操作\x02虚机状态为%s无法从回收站恢复\x02宿主机应为已禁用状态" +
+	"\x02宿主机不是预付费资源池类型\x02预付费资源池宿主机没有可用的虚机\x02预付费资源池宿主机不可拥有超过1个虚机\x02无法从资源池中恢" +
+	"复已伪删除的虚机\x02不是预付费资源池宿主机\x02无效的any_mac参数\x02找不到调度标签\x02不支持hypervisor %s" +
+	"\x02宿主机是一个裸金属，请先恢复到转换之前状态再执行删除操作\x02宿主机还未被禁用\x02getGuestCount调用失败：%s\x02" +
+	"宿主机非空\x02调用GetDiskCount失败：%s\x02宿主机本地存储非空？\x02不一致：本地存储非空\x02找不到宿主机%s的I" +
+	"PMI信息\x02IPMI信息中缺少密码\x02检查重复%s出错：%s\x02%s %s重复\x02无效的macAddr\x02检查重复acce" +
+	"ss_mac出错：%s\x02重复的access_mac %s\x02%s不在子网范围\x02IPMI子网没有zone信息？\x02IPMI地址" +
+	"不在所指定的zone\x02宿主机IP %s已被注册\x02宿主机所属子网没有zone信息？\x02宿主机IP不在指定的zone\x02no" +
+	"_probe模式缺少access_mac和uuid信息\x02IPMI子网没有zone信息\x02新的IPMI地址在另外一个zone\x02不能" +
+	"启动一个非裸金属服务器\x02因裸金属服务器还有活跃的虚机，不可启动\x02不可停止一个非裸金属服务器\x02因裸金属服务器还有非活跃的虚机" +
+	"，不可停止\x02因裸金属服务器还有活跃的虚机，不可停止\x02状态为%s无法进入维护模式\x02虚机状态为%s无法进入维护模式\x02状态" +
+	"为%s无法解除维护模式\x02错误的虚机状态%s\x02不是一个裸金属服务器\x02执行准备操作需要有效的access_mac和uuid参数" +
+	"\x02裸金属状态为%s无法执行准备操作\x02虚机状态为%s无法执行准备操作\x02状态为%s无法执行IPMI探测操作\x02状态为%s无法执" +
+	"行初始化操作\x02IPMI信息未配置\x02虚机插入操作出错：%s\x02无效MAC地址\x02查找二层网络%s出错：%s\x02无效IP" +
+	"地址%s\x02二层网络%s中没有可用子网\x02IP %s不在二层网络%s中\x02IP %s不属于任何二层网络\x02无法通过MAC地址" +
+	"%s找到网卡：%s\x02无法通过MAC地址找到hostwire：%s\x02网卡%s不存在\x02仅admin, ipmi类型网卡可以被启用" +
+	"\x02网卡%s不存在\x02不是一个裸金属服务器\x02没有在转换为hypervisor\x02无效的MAC地址\x02获取网卡出错：%s" +
+	"\x02非裸金属服务器无法执行同步状态操作\x02裸金属服务器状态为%s无法执行重启操作\x02裸金属服务器上存在活跃的虚机，无法执行重启操作" +
+	"\x02状态为%s无法执行镜像缓存操作\x02找不到镜像%s\x02镜像没有校验值无法执行缓存操作\x02必须指定host_type参数\x02" +
+	"要求必须为裸金属服务器\x02裸金属服务器已被占用\x02hypervisor状态为%s无法执行转换\x02转换其它域的宿主机需要系统权限" +
+	"\x02不支持驱动%s\x02isAlterNameUnique调用失败：%s\x02转换出错：%s\x02宿主机应为禁用状态\x02当前状态为" +
+	"%s无法取消转换\x02不是一个转换后的hypervisor\x02宿主机状态%s无法退出维护模式\x02宿主机类型%s无法进入维护模式\x02" +
+	"宿主机状态为%s不支持此操作\x02宿主机%s无法迁移虚机%s，因虚机状态为%s\x02因状态为%s无法执行insert-iso指令\x02" +
+	"因状态为%s无法执行eject-iso指令\x02非裸金属服务器中无法执行同步配置操作\x02预留CPU数必须为非负整数\x02预留内存大小" +
+	"必须为非负整数\x02预留存储必须为非负整数\x02宿主机%s无法为每个透传设备预留%d个CPU，因资源不够\x02宿主机%s无法为每个透传" +
+	"设备预留%dM内存，因资源不够\x02宿主机%s无法为每个透传设备预留%dM存储，因资源不够\x02仅系统管理员可指定宿主机\x02存储正使" +
+	"用中\x02查找存储%s失败\x02查找宿主机%s失败\x02unmarshal JoinResourceBaseCreateInput出错" +
+	"：%s\x02GetGuestDiskCount失败：%s\x02GetGuestnicsCount调用出错：%s\x02宿主机上的虚机正在" +
+	"使用此二层网络中的子网\x02透传设备正被虚机使用\x02找不到透传设备%s\x02透传设备已被另外一台虚机%s使用\x02透传设备已被虚机" +
+	"%s使用\x02不支持格式%s\x02无效的公钥：%v\x02GetLinkedGuestsCount失败：%s\x02密钥对正被虚机使用无法删" +
+	"除\x02找不到转发策略%s(%s)所属的监听\x02无效的地址%s\x02描述文本过长（%d>=%d）\x02描述文本包含不可打印字符：%" +
+	"v\x02访问控制包含重复的CIDR %s\x02获取访问控制数量失败：%s\x02访问控制%s仍被%d个%s使用\x02无效的VRRP网络接口" +
+	"名%q\x02无效的VRRP认证密钥长度：%d，要求[1,8]\x02无效的VRRP优先级%d，要求[1,255]\x02无效的VRRP v" +
+	"irtual_router_id %d：要求[1,255]\x02无效的VRRP advert_int %d：要求[1,255]\x02tele" +
+	"graf参数：无效的influxdb URL：%s\x02%s：无效的base64编码串：%s\x02%s：无效的模板：%s\x02获取其它集群" +
+	"的转发节点失败：%v\x02与转发节点%s(%s)冲突：%v\x02转发集群%s(%s)已占用virtual_router_id %d" +
+	"\x02%s：时间错误：%s\x02%s：新指定时间在未来：%s > %s\x02集群中已有节点%s(%s)使用VRRP优先级%d\x02使用y" +
+	"um模式需要提供有效的repo_base_url参数\x02主机名为空\x02查找宿主机%s出错：%v\x02转发节点不能部署到纳管的宿主机上" +
+	"\x02查找虚机%s出错：%v\x02转发节点不能部署到公有云虚机上\x02虚机当前状态为%q，要求为%q\x02unmarshal输入参数出错" +
+	": %v\x02主机缺少%s字段\x02主机缺少%s字段\x02认证出错：%v\x02用户必须有系统管理员权限\x02获取%s %s服务URL出" +
+	"错：%v\x02上次部署的信息不可用\x02查找后端组相关的资源出错\x02无效的权重%d，要求在0～256范围\x02无效的端口%d，要求" +
+	"在1~65535范围\x02找不到虚机%s\x02仅系统管理员可指定宿主机作为后端\x02找不到宿主机%s\x02未识别的后端类型%s" +
+	"\x02第%d个后端所属的region与lb的region不匹配\x02查找负载均衡所属region失败：%s\x02调用isDefault出错" +
+	"：%s\x02后端服务器组%s是默认组\x02调用refCount出错：%s\x02后端组%s仍被%d个%s使用\x02%s要求添加到后端组" +
+	"中的虚机状态为%s，当前虚机状态为%s\x02虚机%s(%s)所处VPC %s(%s)和负载均衡所处VPC %s不一致\x02获取虚机%s出" +
+	"错\x02虚机%s(%s)所属VPC %s(%s)不是%s(%s)\x02虚机%s(%s)已存在于后端组%s(%s)\x02查找负载均衡后端" +
+	"%s的region时出错\x02查找后端%s(%s)所属的后端组时出错\x02访问控制缓存已在region %s存在\x02获取证书使用数失败：" +
+	"%s\x02证书%s仍被%d个%s使用\x02无效的本地证书：私钥为空\x02无效的本地证书：证书内容为空\x02证书缓存已在region %s" +
+	"存在\x02不允许变更证书内容\x02zone %s(%s)不合法：仅允许本地IDC的zone\x02二层网络所属zone %s与参数中的z" +
+	"one %s(%s)冲突，\x02wire所属zone必须为%s，实际为%s\x02获取负载均衡集群引用次数失败：%v\x02负载均衡集群仍被%" +
+	"d个%s使用\x04\x00\x01 J\x02负载均衡集群%s(%s)和%s(%s)两者virtual_router_id参数冲突：%d" +
+	"\x02无效的条件格式，要求为JSON\x02无效的表达式格式，要求为JSON数组\x02触及条件数目上限（5），已指定%d个\x02规则%s/" +
+	"%s已被%s(%s)使用\x02查找负载均衡监听所属region失败：%s\x02查找负载均衡转发策略失败：%s\x02%s监听的端口%d已被%" +
+	"s(%s)占用\x02无法找到region信息\x02后端服务器组%s(%s)属于负载均衡实例%s，而不是%s\x04\x00\x01 9" +
+	"\x02负载均衡集群所属zone %s与子网zone %s不匹配\x02负载均衡集群所属wire与子网所属wire不匹配：%s != %s" +
+	"\x02负载均衡已经被锁定，无法删除\x02Unmarshal输入参数失败：%s\x02端口值错误\x02无效的内网IP地址：%s\x02EIP" +
+	"已绑定到其它实例\x02EIP已绑定到SNAT规则\x02找不到EIP\x02NAT网关已有%d个活跃任务在执行，无法执行同步状态操作" +
+	"\x02sourceCIDR和network_id仅允许指定其中一个\x02CIDR %s不在VPC允许范围%s内\x02EIP已绑定到DNAT" +
+	"规则\x02找不到子网\x02GetAllocatedNicCount失败：%s\x02IP子网 %s 包含已分配的IP地址\x02地址%s" +
+	"不在子网%s(%s)范围内\x02isAddressUsed调用失败：%s\x02地址%s已被占用\x02getFreeAddressCou" +
+	"nt调用失败：%s\x02子网%s(%s)已没有可用地址\x02候选IP %s不在范围内\x02找不到可用IP地址\x02不允许使用网络%s" +
+	"\x02查找网络%s失败：%v\x02地址%s不在范围内\x02仅系统管理员允许使用预留的IP地址\x02地址%s未被预留\x02地址%s已被使" +
+	"用\x02带宽限速不可超过%dMbps\x02无效的时间长度%s\x02无效的IP地址%s：%s\x02地址%s不在子网中\x02获取预留地" +
+	"址出错\x02找到%d个二层网络（zone %s，vpc %s）\x02找不到wire（zone %s，vpc %s）\x02无效的serv" +
+	"er_type参数：%s\x02无效的VlanID\x02无法生成有效的网卡名指引：%v\x02ip_prefix错误：%s\x02子网掩码长度" +
+	"需小于30\x02无效的masklen %d\x02无效的起始IP %s：%s\x02无效的终止IP %s：%s\x02起始和终止IP不在同" +
+	"一个子网\x02%s: 无效的IP地址%s\x02无效的网关IP：%v\x02网关IP必须与起始、终止IP在同一个子网\x02当wire未指" +
+	"定时必须指定zone和vpc信息\x02VPC未准备好\x02EIP子网仅能存在于经典网络vpc中，实际为%s(%s)\x02起始、终止IP" +
+	"使用掩码后不属于同一个CIDR子网\x02子网不在VPC cidrblock %s范围内\x02调用vpc GetNetworks失败：%v" +
+	"\x02与vpc %q中已有子网地址冲突\x02查询所有子网时失败\x02与已有子网地址冲突\x02已存在分配了的地址在新范围以外\x02起始、" +
+	"终止IP必须在同一子网\x02子网server_type %s不支持自动分配\x02解析IP地址失败\x02子网所属cloudprovide" +
+	"r为启用状态，无法执行purge操作\x02找不到子网%s\x02无效的目标IP子网 %s：%s 不一致\x02子网%s和%s地址不连续\x02" +
+	"仅本地IDC支持此操作\x02无效的IP %s\x02分割IP %s是子网起始IP\x02分割IP %s不在范围\x02名称重复\x02Ge" +
+	"nerateName调用失败：%s\x02生成网卡名指引失败：%s\x02ip\x02仅支持服务类型%s\x02仅支持本地IDC的子网\x02本" +
+	"地IDC子网无法执行同步状态操作\x02无法变更纳管子网的状态\x02无效的状态%s\x02BgpType字段只对EIP类型的IP子网有意义" +
+	"\x02不支持创建\x02不支持创建策略定义\x02权限不足\x02路由表所属cloudprovider为启用状态，无法执行purge操作" +
+	"\x02unmarshal CIDR列表失败：%s\x02min_instance_number不应小于0\x02min_instance_nu" +
+	"mber不应大于max_instance_number\x02desire_instance_number应在min_instance_numb" +
+	"er和max_instance_number范围内\x02找不到cloudregion %s\x02伸缩组需要指定网络参数\x02部分子网不存在" +
+	"\x02子网%s不在vpc %s中\x02找不到虚机模板%s\x02虚机模板%s在cloudregion %s中无效，原因：%s\x02未知的扩" +
+	"容原则：%s\x02未知的缩容原则：%s\x02未知的健康检查模式%s\x02找不到负载均衡后端组%s\x02找不到负载均衡后端端口%d" +
+	"\x02无效的负载均衡后端权重%d\x02请先禁用此伸缩组\x02此伸缩组中还存在虚机，请先将它们删除\x02找不到此伸缩组%s\x02虚机%s" +
+	"不属于伸缩组%s\x02伸缩策略必须属于某伸缩组\x02找不到伸缩组%s\x02未知的触发类型%s\x02未知的伸缩策略动作%s\x02未知" +
+	"的伸缩策略计量单位%s\x02除非状态ready，否则无法触发伸缩策略\x02报警id不匹配\x02告警%s中包含未知的操作符\x02告警%" +
+	"s中存在未知的指示器\x02告警%s中存在未知的聚合函数\x02告警周期的最小值为300\x02无效的策略%s\x02不支持资源类型%q\x02" +
+	"无效schedtag_id参数\x02不支持资源类型%s\x02调度标签%s\x02调度标签%s的资源类型不匹配：%s != %s\x02u" +
+	"nmarshal JointResourceCreateInput出错：%s\x02无效的调度标签%s\x02无效的默认策略%s\x02无法设定" +
+	"%s作为默认策略\x02GetObjectCount调用出错：%s\x02标签已关联至%s\x02getDynamicSchedtagCount" +
+	"调用出错：%s\x02标签已有动态规则\x02getSchedPoliciesCount调用出错：%s\x02标签已与调度策略绑定\x02调" +
+	"度标签%s的资源类型为%s，与%s不匹配\x02未知的调度类型%q\x02未知的资源类型%q\x02未知的操作%q\x02未知的标签类型%q" +
+	"\x02调度任务正执行中，请稍后尝试\x02需要指定调度任务\x02unmarshal输入参数出错：%v\x02获取安全组%s失败\x02第%d" +
+	"条规则无效：%s\x02vpc %s(%s)不是一个纳管资源\x02不支持缓存经典安全组\x02无效的IP地址：%s\x02安全组%s的规则" +
+	"与%s不相等\x02GetGuestCount调用出错：%s\x02安全组正使用中\x02不允许删除默认的安全组\x02找不到虚机模板" +
+	"\x02解析图标URL出错：%s\x02找不到虚机模板%s\x02cpu_core_count应在1～256范围内\x02memory_size" +
+	"_mb应在512~%d范围内\x02instance_type_category应是%s其中之一\x02检查SKU重名时出错：%v\x02重复的" +
+	"SKU %s\x02实例规格列表查询出错\x02无法变更公有云%s SKU的实例类型\x02无法变更SKU名称\x02检查实例出错\x02不允许" +
+	"删除正在使用中的实例类型，请先移除相关的虚机：%s\x02不允许删除公有云instance_type：%s\x02查找zone %s(%s)" +
+	"所属的cloudregion失败\x02实例类型%s重复\x02查询SKU列表出错\x02删除SKU %s失败\x02保留天数须在范围1~%" +
+	"d内，或为-1\x02repeat_weekdays最多只能包含%d天\x02time_points最多只能包含%d个时间点\x02Unmars" +
+	"hal输入参数出错：%s\x02保持日期数必须在1～65535范围内，或为-1\x02无需更新\x02无法删除已绑定到磁盘的快照策略\x02找不" +
+	"到磁盘%s\x02磁盘快照策略已存在\x02磁盘%s绑定了过多的快照策略\x02找不到虚机%s\x02删除磁盘%s失败\x02找不到存储%s" +
+	"(%s)所属的region\x02无法删除状态为%s的快照\x02获取实例快照出错：%s\x02快照仍被实例快照引用\x02磁盘重置时无法删除快" +
+	"照\x02快照有%d个任务自执行中，无法执行同步状态操作\x02因磁盘%s仍存在，无法删除其快照\x02磁盘%s没有快照\x02无法删除磁盘" +
+	"快照，因存在手工快照\x02快照所属cloudprovider为启用状态，无法执行purge操作\x02getReferenceCount调" +
+	"用出错：%s\x02镜像正使用中\x02下载会话还未过期\x02无法删除最后的缓存\x02状态为%s无法取消缓存\x02存储缓存非空\x02" +
+	"仍被存储引用\x02无法取消非定义镜像的缓存\x02镜像不在缓存存储中\x02标记缓存状态出错：%s\x02镜像Id或名称未指定\x02无效" +
+	"的存储类型%s\x02无效的介质类型%s\x02不支持创建%s存储\x02GetHostCount调用失败：%s\x02存储已关联宿主机" +
+	"\x02存储上还有磁盘\x02存储上还有快照\x02找不到存储缓存\x02存储是已启用状态\x02宿主机在线状态无法解绑\x02宿主机%s找不到" +
+	"存储%s\x02无效的external_access_mode %q，要求%s\x02不允许删除默认VPC\x02GetNetworkCou" +
+	"nt调用出错：%s\x02VPC不为空，请先删除其中的网络\x02GetNatgatewayCount调用出错：%v\x02VPC不为空，请先删" +
+	"除其中的NAT网关\x02无效的cidr_block %s\x02VPC所属cloudprovider为启用状态，无法执行purge操作" +
+	"\x02本地IDC VPC不支持同步状态操作\x02对于经典网络，仅可设置为系统级别的共享\x02禁止将经典网络设为私有\x02映射IP枯竭" +
+	"\x02带宽值必须大于0\x02MTU值必须在0～1000000范围内\x02当前仅KVM平台支持创建二层网络\x02HostCount调用出错" +
+	"：%s\x02二层网络中包含宿主机\x02NetworkCount调用出错：%s\x02二层网络包含子网\x02zone不为空\x02找不到" +
+	"cloudregion %s\x02不支持为%s创建zone\x02内网负载均衡实例不支持带宽计费\x02负载均衡实例的manager %s(%" +
+	"s)与VPC的%s(%s)不匹配\x02阿里云不支持变更证书\x02主备后端组必须包含两个后端\x02不支持后端组类型%s\x02无效的虚机机%" +
+	"s\x02阿里云实例权限必须在0～100范围内\x02内部错误：未知的后端类型%s\x02后端组%s不支持此操作\x02宿主机的region %" +
+	"q(%s)与负载均衡实例的%q(%s)不相符\x02%s后端组不支持变更端口\x02%s后端组不支持变更端口和权限\x02未知的后端组类型%s" +
+	"\x02监听类型必须为http/https，输入为%s\x02后端组%s(%s)属于负载均衡%s，而不是%s\x02后端组必须为普通类型\x02" +
+	"转发规则%s(%s)：获取归属监听%s失败\x02HTTP、HTTPS监听仅支持默认和普通后端组\x02health_check_domai" +
+	"n长度必须在1～80范围内\x02%s长度必须在500个字母以内\x02sticky_session_cookie长度必须在1～200范围内" +
+	"\x02sticky_session_cookie仅允许包含字母、数字、下划线和破折号\x02未知的sticky_session_type，仅支" +
+	"持%s或%s\x02找不到负载均衡实例%s(%s)的region\x02调度算法%s对于性能共享性负载均衡实例不可用\x02找不到监听%s(" +
+	"%s)所属的负载均衡实例\x02cloudregion %s(%s)不支持%s调度器\x02无效%s，要求为整数\x02%s不能被置为0\x02" +
+	"%s不支持关闭tcp或udp监听的健康检查\x02%s快照名称不可以auto，http://，https://开头\x02阿里云%s不支持恢复" +
+	"\x02阿里云仅支持从它自己的备份中恢复\x02阿里云%s 5.7/8.0支持local_ssd+high_availability，5.6仅支" +
+	"持从它自己的备份中恢复\x02备份实例不支持预付费计费类型\x02无法在子网%s(%s)和区域%s(%s)中找到匹配的SKU\x02%s %" +
+	"s不支持创建只读MySQL数据库实例\x02不支持创建只读MySQL %s %s实例：不支持%s存储类型，仅支持%s\x02不支持创建只读MyS" +
+	"QL %s数据库实例\x02SQL Server只支持创建2017_ent型只读数据库实例\x02不可创建超过7个只读SQL Server数据库" +
+	"实例\x02不支持创建引擎为%s的只读数据库实例\x02主实例内在大于等于64GB，最多可创建10个只读实例\x02主实例内在小于64GB，" +
+	"最多可创建5个只读实例\x02VPC %s(%s)至少需要2个子网来使用阿里云%s(%s)\x02描述不可以http://、https://" +
+	"开头\x02阿里云数据库实例账号名称长度应在2～16内\x02%s是阿里云%s的保留名称\x02账号名称中包含无效字符：%s\x02账号名称" +
+	"不可以下划线开头或结尾\x02%s仅对阿里云%s或%s有效\x02%s仅对阿里云%s有效\x02未知的权限%s\x02子网%s所属的VPC未" +
+	"找到\x02account_privilege %s仅支持Redis版本4.0\x02要求至少%d子网\x02要求至少有%d个包含8个可用I" +
+	"P的子网\x02负载均衡实例的manager %s与VPC %s(%s)的不匹配：%s\x02所有子网应属于同一个VPC：%s\x02已经有一个" +
+	"子网在区域%s：%s\x02无效的loadbalancer_spec参数：%s\x02无效的backendgroup参数：%s\x02无效的" +
+	"loadbalancer_spec参数：%s\x02%s当前不支持创建负载均衡访问控制规则\x02%s当前不支持创建负载均衡证书\x02监听%s" +
+	"所属的负载均衡实例%s找不到\x02后端%s已经以端口%d注册\x02%s要求掩码大小在16到28范围内\x02%s当前不支持创建负载均衡实" +
+	"例\x02磁盘和快照策略应在相同的域\x02磁盘和快照策略应在相同的项目\x02%s不支持创建负载均衡实例\x02%s不支持创建负载均衡访问" +
+	"控制规则\x02%s不支持创建负载均衡证书\x02Google数据库实例不支持预付费计费类型\x02磁盘尺寸必须在10～30720GB范围内" +
+	"\x02EIP %s(%s)与vpc %s(%s)的manager id (%s)不匹配\x02负载均衡实例正被%d个监听使用\x02负载均衡实" +
+	"例正被%d个后端组使用\x02不支持创建引擎类型为%s的只读数据库实例\x02华为云数据库实例名称长度必须在4～64范围内\x02%s要求磁" +
+	"盘大小必须在40～4000GB范围内\x02disk_size_gb必须是10的整数倍\x02不支持为华为云%s实例创建账号\x02华为云R" +
+	"DS密码不允许是账号名的反转\x02不支持创建华为云%s实例创建数据库\x02华为云数据库实例备份名称长度应在4～64范围内\x02华为云仅支持" +
+	"使用%s时指定数据库\x02华为云数据库实例的磁盘不可缩容\x02华为云数据库实例的种类不可变更\x02华为云数据库实例的存储类型不可变更" +
+	"\x02华为云当前不支持重置数据库实例的账号密码\x02无需为管理员账号授予或收回权限\x02%s不支持恢复\x02华为云%s RDS不支持从它" +
+	"自己的备份中恢复\x02华为云仅%s引擎支持数据库恢复\x02新数据库名称不允许是%s\x02zone不匹配，弹性缓存SKU的zone %s" +
+	" != %s\x02SKU %s已售罄\x02%s不支持创建账号\x02华为云%s类型弹性缓存不支持创建备份\x02zone信息未指定\x02V" +
+	"PC中的负载均衡暂不支持\x02zone %s(%s)没有可用负载均衡转发集群\x02没有可用的负载均衡转发集群\x02宿主机%s没有可访问的I" +
+	"P\x02查找虚机%s所在宿主机出错\x02查找负载均衡后端组%s所属的实例出错\x02宿主机%q(%s)所属的region与负载均衡实例所属的" +
+	"%q(%s)不一致\x02跳转应至少变更scheme, host, path中的一项\x02未指定backend_group参数\x02非跳转类" +
+	"型监听必须指定backend_group参数\x02仅http/https监听可启用跳转功能\x02非http监听必须指定后端组\x02无效" +
+	"的子网类型%q，期望%q\x02查找子网%s(%s)所属的VPC时出错\x02子网%s(%s)不属于%s\x02KVM快照找不到所属的存储" +
+	"\x02不可变更负载均衡监听的listener_type\x02不可变更负载均衡监听的listener_port\x02无法在状态%s时创建备份" +
+	"\x02负载均衡监听%s正在变更中\x02负载均衡后端组已与监听%s绑定\x02负载均衡实例已与四层监听%s关联\x02路径不可为空\x02虚机" +
+	"%s、端口%d已注册\x02虚机%s、端口%d正被监听%s使用\x02腾讯云基础类型MySQL实例不支持创建备份\x02腾讯云不支持创建数据库" +
+	"\x02腾讯云Redis 2.8版本不支持创建账号\x02未指定规格查询参数\x02解析规格参数%s出错：%v\x02获取对象出错：%v\x02" +
+	"空的project_id/tenant_id\x02找不到项目%s\x02快照正被磁盘使用，无法删除\x02磁盘需要至少1个快照作为后备文件" +
+	"\x02磁盘%s没有挂载到虚机\x02磁盘所挂载的虚机有备机，无法创建快照\x02虚机状态为%s时无法创建快照\x02检查磁盘快照数时出错：%s" +
+	"\x02磁盘%s快照数满，不可再创建\x02RBD存储%s(%s)已存在\x02无效网关\x02服务器内部错误\x02资源不在可用状态\x02支" +
+	"付类错误\x02镜像未找到\x02找不到资源\x02找不到Spec\x02找不到动作\x02找不到租户\x02找不到用户\x02服务器状态错" +
+	"误\x02无效的格式\x02输入参数错误\x02弱密码\x02参数不存在\x02资源不足\x02资源不足\x02配置不足\x02超出范围" +
+	"\x02超出上限\x02权限不足\x02不支持的操作\x02内容非空\x02无效的请求\x02空的请求\x02未授权\x02无效的凭证\x02禁" +
+	"止\x02不可接受\x02名称重复\x02资源重复\x02冲突\x02资源忙\x02需要License\x02被保护的资源\x02没有项目" +
+	"\x02实体太大\x02尝试失败次数过多\x02请求数过多\x02不支持的协议\x02策略定义错误\x02找不到镜像%s\x02%s资源重名：%" +
+	"s\x02%s资源id重复：%s\x02没有此driver\x02DN为空\x02id为空\x02名称为空\x02用户已禁用\x02仅允许加入默" +
+	"认域或当前域下的项目\x02sysadmin受到保护\x02无法将当前用户从当前项目中移除\x02仅允许加入默认域或当前域下的组\x02查询" +
+	"出错：%s\x02输入参数未指定type字段\x02输入参数缺少blob字段\x02加密出错：%s\x02不可删除默认域\x02域仍为启用状" +
+	"态\x02域中仍有用户\x02域中仍有组\x02域中仍有项目\x02域中仍有角色\x02域中仍有权限定义\x02域中包含外部资源\x02只读" +
+	"\x02默认域受到保护\x02字段%s为只读\x02endpoint为启用状态\x02缺少输入字段interface\x02缺少输入字段serv" +
+	"ice/service_id\x02找不到证书%s\x02获取敏感配置需要管理员权限\x02状态为启用、已连接无法更新配置\x02状态不为空闲时" +
+	"无法更新配置\x02saveConfigs调用失败：%s\x02无效的模板\x02缺少driver\x02不支持driver %s\x02d" +
+	"river %s已存在\x02不可删除默认的SQL认证源\x02不可删除已启用的认证源\x02认证源中仍有项目\x02已启用的域%s不可删除" +
+	"\x02同步状态中不可更新\x02域已禁用\x02资源已启用\x02解析权限定义失败\x02不可删除系统权限定义\x02不可删除已启用权限定义" +
+	"\x02不可删除system项目\x02项目中包含外部资源\x02项目中包含用户\x02项目中包含组\x02不可变更system项目名\x02区" +
+	"域中包含endpoint\x02缺少输入删除id\x02不可变更角色的名称\x02不可删除系统角色\x02角色已被赋予给用户\x02角色已被" +
+	"赋予给组\x02不支持在指定上下文中执行更新操作\x02不支持在指定上下文中执行更新操作：%s\x02项目和角色不在同一个域\x02不支持在" +
+	"指定的第2个上下文中执行更新操作：%s\x02服务还有endpoint定义\x02服务已启用\x02更新配置版本失败：%s\x02不可变更s" +
+	"ysadmin的用户名\x02无效的密码：%s\x02不可删除来源非本地的用户\x02用户仍有外部资源\x02不可删除系统用户\x02用户和组的" +
+	"域归属必须相同\x02不可加入只读组\x02不可离开只读组\x02版本不匹配\x02项目已禁用\x02用户已禁用\x02token已过期" +
+	"\x02无效的fernet token\x02无效的认证方法\x02找不到用户\x02空的认证请求\x02用户不在项目中\x02无效的acces" +
+	"s key\x02过期的access key\x02输入无法识别：%s\x02未鉴权：%s\x02解析请求体失败\x02用户名重复\x02找不到" +
+	"用户，或用户未启用\x02无效的用户\x02无效的项目\x02内部服务错误：%s\x02无效的域\x02不允许认证\x02无效的token" +
+	"\x02无效的token：%s\x02不允许获取使用量\x02未授权\x02无效的Token\x02找不到名字%s\x02找不到登录密文信息" +
+	"\x02找不到%s的TOTP信息\x02找不到%s的密文恢复信息\x02TOTP密文已存在\x02找不到密码\x02找不到SSH密码：%s" +
+	"\x02无效的资源格式\x02服务%s找不到：%v\x02未指定uid\x02未指定pids\x02pids中未指定pid\x02pids中未指" +
+	"定rid\x02未指定rid\x02找不到项目\x02找不到登录login_key\x02查询中找不到kind：%v\x02查询中找不到ke" +
+	"y：%v\x02不支持的动作%s\x02找不到global-settings\x02找不到数据源对应的执行器\x02安全组id不应为空\x02找" +
+	"不到安全组%s\x02无效的服务点\x02解析URL %q出错：%v\x02不支持的字符 %s\x02检查重复名称失败：%s\x02权限定义" +
+	"正被使用"
 
-	// Total table size 115075 bytes (112KiB); checksum: D021826A
+	// Total table size 121311 bytes (118KiB); checksum: 847AE1D8
