@@ -996,7 +996,7 @@ func (h *AuthHandlers) getPermissionDetails(ctx context.Context, w http.Response
 
 	_, query, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
-		httperrors.InvalidInputError(ctx, w, "body is empty")
+		httperrors.InvalidInputError(ctx, w, "request body is empty")
 		return
 	}
 	var name string
@@ -1030,7 +1030,7 @@ func (h *AuthHandlers) doCreatePolicies(ctx context.Context, w http.ResponseWrit
 	// }
 	_, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
-		httperrors.InvalidInputError(ctx, w, "body is empty")
+		httperrors.InvalidInputError(ctx, w, "request body is empty")
 		return
 	}
 	s := auth.GetSession(ctx, t, FetchRegion(req), "")
@@ -1114,7 +1114,7 @@ func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWri
 
 	_, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
-		httperrors.InvalidInputError(ctx, w, "body is empty")
+		httperrors.InvalidInputError(ctx, w, "request body is empty")
 		return
 	}
 
@@ -1150,7 +1150,7 @@ func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWri
 				return
 			}
 		}
-		httperrors.InputParameterError(ctx, w, "密码错误")
+		httperrors.InputParameterError(ctx, w, "wrong password")
 		return
 	}
 
