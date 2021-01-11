@@ -501,34 +501,34 @@ func (h *AuthHandlers) doLogin(ctx context.Context, w http.ResponseWriter, req *
 	if body.Contains("tenantId") { // switch project
 		token, authToken, err = doTenantLogin(ctx, req, body)
 		if err != nil {
-			return errors.Wrap(err, "doTenantLogin")
+			return err
 		}
 		userInfo, err = fetchUserInfoFromToken(ctx, req, token)
 		if err != nil {
-			return errors.Wrap(err, "fetchUserInfoFromToken")
+			return err
 		}
 	} else {
 		// user/password authenticate
 		// SSO authentication
 		token, err = h.doCredentialLogin(ctx, req, body)
 		if err != nil {
-			return errors.Wrap(err, "doCredentialLogin")
+			return err
 		}
 		userInfo, err = fetchUserInfoFromToken(ctx, req, token)
 		if err != nil {
-			return errors.Wrap(err, "fetchUserInfoFromToken")
+			return err
 		}
 		s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 		isTotpInit, err := isUserTotpCredInitialed(s, token.GetUserId())
 		if err != nil {
-			return errors.Wrap(err, "isUserTotpCredInitialed")
+			return err
 		}
 		isIdpLogin := body.Contains("idp_driver")
 		authToken = clientman.NewAuthToken(token.GetTokenString(), isUserEnableTotp(userInfo), isTotpInit, isIdpLogin)
 	}
 
 	if !isUserAllowWebconsole(userInfo) {
-		return errors.Wrap(httperrors.ErrForbidden, "user forbidden login from web")
+		return httperrors.NewForbiddenError("user forbidden login from web")
 	}
 
 	saveAuthCookie(w, authToken, token)
