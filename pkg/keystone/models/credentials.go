@@ -113,7 +113,7 @@ func (manager *SCredentialManager) InitializeData() error {
 
 func (manager *SCredentialManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	if !data.Contains("type") {
-		return nil, httperrors.NewInputParameterError("missing input feild type")
+		return nil, httperrors.NewInputParameterError("missing input field type")
 	}
 	projectId, _ := data.GetString("project_id")
 	userId := ownerId.GetUserId()

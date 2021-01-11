@@ -207,7 +207,7 @@ func (service *SService) PerformConfig(ctx context.Context, userCred mcclient.To
 		changed, err = saveConfigs(userCred, action, service, opts, nil, api.MergeServiceConfigOptions(api.CommonWhitelistOptionMap, api.ServiceBlacklistOptionMap), nil)
 	}
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("saveConfig fail %s", err)
+		return nil, httperrors.NewInternalServerError("saveConfigs fail %s", err)
 	}
 	if changed {
 		diff := SService{ConfigVersion: 1}
