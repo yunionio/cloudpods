@@ -231,7 +231,7 @@ func (n *SNotification) ReceiveDetails() ([]api.ReceiveDetail, error) {
 
 func (n *SNotification) getMoreDetails(ctx context.Context, query jsonutils.JSONObject, out api.NotificationDetails) (api.NotificationDetails, error) {
 	// get title adn content
-	p, err := TemplateManager.NotifyFilter(n.ContactType, n.Topic, n.Message)
+	p, err := TemplateManager.NotifyFilter(n.ContactType, n.Topic, n.Message, getTemplateLangFromCtx(ctx))
 	if err != nil {
 		return out, err
 	}

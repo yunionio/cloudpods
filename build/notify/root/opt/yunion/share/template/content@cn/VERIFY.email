@@ -47,7 +47,7 @@
 	  				</td>
 	  			</tr>
 	  			<tr>
-                    <td style="padding-bottom: 10px;">您正在验证邮箱，请在验证码输入框中输入：{{.code}}，已完成验证。</td>
+                    <td style="padding-bottom: 10px;">您正在验证邮箱，请在验证码输入框中输入：{{.code}}，以完成验证。</td>
 	  			</tr>
 	  		</table>
   		</td>
