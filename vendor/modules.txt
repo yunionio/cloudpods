@@ -162,6 +162,7 @@ github.com/aws/aws-sdk-go/private/protocol/rest
 github.com/aws/aws-sdk-go/private/protocol/restxml
 github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
 github.com/aws/aws-sdk-go/service/acm
+github.com/aws/aws-sdk-go/service/cloudtrail
 github.com/aws/aws-sdk-go/service/cloudwatch
 github.com/aws/aws-sdk-go/service/ec2
 github.com/aws/aws-sdk-go/service/elbv2
@@ -1105,7 +1106,7 @@ k8s.io/utils/integer
 sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
-# yunion.io/x/executor v0.0.0-20201201131200-44fa553abd9e
+# yunion.io/x/executor v0.0.0-20201231064744-df32f32165a9
 yunion.io/x/executor/apis
 yunion.io/x/executor/client
 yunion.io/x/executor/server
@@ -1118,7 +1119,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v0.0.0-20201123083159-ca3aea986ff2
+# yunion.io/x/pkg v0.0.0-20210109071527-7e72daf56747
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
 yunion.io/x/pkg/prettytable

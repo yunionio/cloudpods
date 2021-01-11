@@ -141,11 +141,11 @@ require (
 	k8s.io/apimachinery v0.19.3
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
-	yunion.io/x/executor v0.0.0-20201201131200-44fa553abd9e
+	yunion.io/x/executor v0.0.0-20201231064744-df32f32165a9
 	yunion.io/x/jsonutils v0.0.0-20201110084044-3e4e1cb49769
 	yunion.io/x/log v0.0.0-20201210064738-43181789dc74
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
-	yunion.io/x/pkg v0.0.0-20201123083159-ca3aea986ff2
+	yunion.io/x/pkg v0.0.0-20210109071527-7e72daf56747
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v0.0.0-20201219153152-2d901261898c
 	yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
