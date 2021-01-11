@@ -354,8 +354,6 @@ func (manager *SAlertRecordManager) getNowAlertingRecord(ctx context.Context, us
 		}
 		if err := (&tmp).Equals("alert_id", alert.GetId()).First(recordModel); err == nil {
 			records = append(records, *(recordModel.(*SAlertRecord)))
-		} else {
-			return nil, errors.Wrapf(err, "getRecordByAlertId:%s error", alert.GetId())
 		}
 	}
 	return records, nil
