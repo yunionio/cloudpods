@@ -116,6 +116,9 @@ const (
 	CLOUDWATCH_SERVICE_NAME = "monitoring"
 	CLOUDWATCH_SERVICE_ID   = "CloudWatch"
 
+	CLOUD_TRAIL_SERVICE_NAME = "CloudTrail"
+	CLOUD_TRAIL_SERVICE_ID   = "cloudtrail"
+
 	ROUTE53_SERVICE_NAME = "route53"
 )
 
