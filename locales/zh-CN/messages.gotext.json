@@ -2,6 +2,390 @@
     "language": "zh-CN",
     "messages": [
         {
+            "id": "not found tenantId in body",
+            "message": "not found tenantId in body",
+            "translation": "获取tenantId参数失败",
+            "position": "pkg/apigateway/handler/auth.go:233:53"
+        },
+        {
+            "id": "failed to change project",
+            "message": "failed to change project",
+            "translation": "切换项目失败",
+            "position": "pkg/apigateway/handler/auth.go:245:56"
+        },
+        {
+            "id": "get password in body",
+            "message": "get password in body",
+            "translation": "获取password参数失败",
+            "position": "pkg/apigateway/handler/auth.go:287:49"
+        },
+        {
+            "id": "username or password is empty",
+            "message": "username or password is empty",
+            "translation": "用户名或密码为空",
+            "position": "pkg/apigateway/handler/auth.go:294:49"
+        },
+        {
+            "id": "missing credential",
+            "message": "missing credential",
+            "translation": "缺少认证信息",
+            "position": "pkg/apigateway/handler/auth.go:307:48"
+        },
+        {
+            "id": "invalid credential",
+            "message": "invalid credential",
+            "translation": "无效的认证信息",
+            "position": "pkg/apigateway/handler/auth.go:316:51"
+        },
+        {
+            "id": "fetch json for request: %v",
+            "message": "fetch json for request: %v",
+            "translation": "获取请求的JSON内容失败：%v",
+            "position": "pkg/apigateway/handler/auth.go:484:31"
+        },
+        {
+            "id": "request body is empty",
+            "message": "request body is empty",
+            "translation": "请求内容为空",
+            "position": "pkg/apigateway/handler/auth.go:999:31"
+        },
+        {
+            "id": "missing id",
+            "message": "missing id",
+            "translation": "缺少id参数",
+            "position": "pkg/apigateway/handler/auth.go:1076:31"
+        },
+        {
+            "id": "fetchAuthInfo fail: %s",
+            "message": "fetchAuthInfo fail: %s",
+            "translation": "fetchAuthInfo调用失败：%s",
+            "position": "pkg/apigateway/handler/auth.go:1111:36"
+        },
+        {
+            "id": "new password mismatch",
+            "message": "new password mismatch",
+            "translation": "新密码相互不匹配",
+            "position": "pkg/apigateway/handler/auth.go:1133:33"
+        },
+        {
+            "id": "not support reset user password",
+            "message": "not support reset user password",
+            "translation": "不支持重置用户密码",
+            "position": "pkg/apigateway/handler/auth.go:1139:28"
+        },
+        {
+            "id": "wrong password",
+            "message": "wrong password",
+            "translation": "密码错误",
+            "position": "pkg/apigateway/handler/auth.go:1153:33"
+        },
+        {
+            "id": "invalid passcode",
+            "message": "invalid passcode",
+            "translation": "无效的验证码",
+            "position": "pkg/apigateway/handler/auth.go:1162:34"
+        },
+        {
+            "id": "generate totp qrcode failed",
+            "message": "generate totp qrcode failed",
+            "translation": "生成TOTP二维码失败",
+            "position": "pkg/apigateway/handler/auth_totp.go:57:47"
+        },
+        {
+            "id": "uid is empty",
+            "message": "uid is empty",
+            "translation": "uid为空",
+            "position": "pkg/apigateway/handler/auth_totp.go:95:41"
+        },
+        {
+            "id": "input parameter error",
+            "message": "input parameter error",
+            "translation": "输入参数错误",
+            "position": "pkg/apigateway/handler/auth_totp.go:174:43"
+        },
+        {
+            "id": "TOTP recovery questions do not exist",
+            "message": "TOTP recovery questions do not exist",
+            "translation": "未设置TOTP找回密码的提示问题",
+            "position": "pkg/apigateway/handler/auth_totp.go:188:37"
+        },
+        {
+            "id": "questions not found",
+            "message": "questions not found",
+            "translation": "未找到密码提示问题",
+            "position": "pkg/apigateway/handler/auth_totp.go:193:44"
+        },
+        {
+            "id": "%s answer is incorrect",
+            "message": "%s answer is incorrect",
+            "translation": "%s：答案不正确",
+            "position": "pkg/apigateway/handler/auth_totp.go:196:45"
+        },
+        {
+            "id": "passcode is a 6-digits string",
+            "message": "passcode is a 6-digits string",
+            "translation": "验证码应为6个数字",
+            "position": "pkg/apigateway/handler/auth_totp.go:253:33"
+        },
+        {
+            "id": "invalid passcode: %v",
+            "message": "invalid passcode: %v",
+            "translation": "验证码无效：%v",
+            "position": "pkg/apigateway/handler/auth_totp.go:263:36"
+        },
+        {
+            "id": "no revocery questions.",
+            "message": "no revocery questions.",
+            "translation": "没有密码找到提示问题",
+            "position": "pkg/apigateway/handler/auth_totp.go:321:27"
+        },
+        {
+            "id": "unmarshal questions: %v",
+            "message": "unmarshal questions: %v",
+            "translation": "解析提示问题失败：%v",
+            "position": "pkg/apigateway/handler/auth_totp.go:352:31"
+        },
+        {
+            "id": "get admin credential is nil",
+            "message": "get admin credential is nil",
+            "translation": "获取管理员鉴权信息失败",
+            "position": "pkg/apigateway/handler/csrfexempt.go:50:27"
+        },
+        {
+            "id": "no usable regions, please contact admin",
+            "message": "no usable regions, please contact admin",
+            "translation": "没有可用的region，请联系管理员",
+            "position": "pkg/apigateway/handler/csrfexempt.go:56:27"
+        },
+        {
+            "id": "illegal region %s, please contact admin",
+            "message": "illegal region %s, please contact admin",
+            "translation": "无效的可用区%s，请联系管理员",
+            "position": "pkg/apigateway/handler/csrfexempt.go:61:27"
+        },
+        {
+            "id": "session expires, missing %s",
+            "message": "session expires, missing %s",
+            "translation": "会话过期，缺少%s",
+            "position": "pkg/apigateway/handler/idp.go:153:26"
+        },
+        {
+            "id": "parse query string error: %s",
+            "message": "parse query string error: %s",
+            "translation": "解析请求参数出错：%s",
+            "position": "pkg/apigateway/handler/idp.go:167:34"
+        },
+        {
+            "id": "fetch form data error: %s",
+            "message": "fetch form data error: %s",
+            "translation": "",
+            "position": "pkg/apigateway/handler/idp.go:173:34"
+        },
+        {
+            "id": "parse form data error: %s",
+            "message": "parse form data error: %s",
+            "translation": "获取表单数据出错：%s",
+            "position": "pkg/apigateway/handler/idp.go:177:34"
+        },
+        {
+            "id": "invalid request",
+            "message": "invalid request",
+            "translation": "无效的请求",
+            "position": "pkg/apigateway/handler/idp.go:181:33"
+        },
+        {
+            "id": "empty external user id",
+            "message": "empty external user id",
+            "translation": "外部用户ID为空",
+            "position": "pkg/apigateway/handler/idp.go:204:40"
+        },
+        {
+            "id": "empty idp_id or idp_entity_id",
+            "message": "empty idp_id or idp_entity_id",
+            "translation": "idp_id或idp_entity_id为空",
+            "position": "pkg/apigateway/handler/idp.go:367:33"
+        },
+        {
+            "id": "invalid form",
+            "message": "invalid form",
+            "translation": "无效的表单",
+            "position": "pkg/apigateway/handler/imageutils.go:73:31"
+        },
+        {
+            "id": "missing image name",
+            "message": "missing image name",
+            "translation": "缺少镜像名称参数",
+            "position": "pkg/apigateway/handler/imageutils.go:87:31"
+        },
+        {
+            "id": "missing image size",
+            "message": "missing image size",
+            "translation": "缺少镜像大小参数",
+            "position": "pkg/apigateway/handler/imageutils.go:94:31"
+        },
+        {
+            "id": "invalid image size",
+            "message": "invalid image size",
+            "translation": "无效的镜像大小参数",
+            "position": "pkg/apigateway/handler/imageutils.go:99:31"
+        },
+        {
+            "id": "Parse query: %v",
+            "message": "Parse query: %v",
+            "translation": "解析查询失败：%v",
+            "position": "pkg/apigateway/handler/k8s.go:74:48"
+        },
+        {
+            "id": "No token in header: %v",
+            "message": "No token in header: %v",
+            "translation": "头部中没有token：%v",
+            "position": "pkg/apigateway/handler/middleware.go:132:37"
+        },
+        {
+            "id": "Missing parameter %s",
+            "message": "Missing parameter %s",
+            "translation": "找不到参数%s",
+            "position": "pkg/apigateway/handler/misc.go:126:43"
+        },
+        {
+            "id": "Unsupported action %s",
+            "message": "Unsupported action %s",
+            "translation": "不支持动作%s",
+            "position": "pkg/apigateway/handler/misc.go:141:43"
+        },
+        {
+            "id": "Wrong content type %s, want %s",
+            "message": "Wrong content type %s, want %s",
+            "translation": "Content-Type错误，%s，应为%s",
+            "position": "pkg/apigateway/handler/misc.go:160:41"
+        },
+        {
+            "id": "can't open file",
+            "message": "can't open file",
+            "translation": "打开文件出错",
+            "position": "pkg/apigateway/handler/misc.go:169:41"
+        },
+        {
+            "id": "can't parse file",
+            "message": "can't parse file",
+            "translation": "解析文件出错",
+            "position": "pkg/apigateway/handler/misc.go:177:41"
+        },
+        {
+            "id": "template file is invalid. please check.",
+            "message": "template file is invalid. please check.",
+            "translation": "模板文件无效，请检查",
+            "position": "pkg/apigateway/handler/misc.go:204:33"
+        },
+        {
+            "id": "empty file content",
+            "message": "empty file content",
+            "translation": "文件内容空",
+            "position": "pkg/apigateway/handler/misc.go:228:42"
+        },
+        {
+            "id": "row %d name is empty",
+            "message": "row %d name is empty",
+            "translation": "第%d行，用户名为空",
+            "position": "pkg/apigateway/handler/misc.go:359:34"
+        },
+        {
+            "id": "row %d domain is empty",
+            "message": "row %d domain is empty",
+            "translation": "第%d行，域名称为空",
+            "position": "pkg/apigateway/handler/misc.go:367:35"
+        },
+        {
+            "id": "row %d duplicate name %s",
+            "message": "row %d duplicate name %s",
+            "translation": "第%d行，名称重复：%s",
+            "position": "pkg/apigateway/handler/misc.go:383:34"
+        },
+        {
+            "id": "template_id",
+            "message": "template_id",
+            "translation": "",
+            "position": "pkg/apigateway/handler/misc.go:436:31"
+        },
+        {
+            "id": "internal server error",
+            "message": "internal server error",
+            "translation": "内部服务错误",
+            "position": "pkg/apigateway/handler/misc.go:447:34"
+        },
+        {
+            "id": "template not found %s",
+            "message": "template not found %s",
+            "translation": "找不到模板：%s",
+            "position": "pkg/apigateway/handler/misc.go:486:33"
+        },
+        {
+            "id": "request body is too large.",
+            "message": "request body is too large.",
+            "translation": "请求体太大",
+            "position": "pkg/apigateway/handler/misc.go:500:31"
+        },
+        {
+            "id": "invalid multipart form",
+            "message": "invalid multipart form",
+            "translation": "无效的multipart表单",
+            "position": "pkg/apigateway/handler/misc.go:505:31"
+        },
+        {
+            "id": "invalid content_length %s",
+            "message": "invalid content_length %s",
+            "translation": "无效的content_length",
+            "position": "pkg/apigateway/handler/misc.go:557:31"
+        },
+        {
+            "id": "No token in header",
+            "message": "No token in header",
+            "translation": "头部中没有token",
+            "position": "pkg/apigateway/handler/oidc.go:390:36"
+        },
+        {
+            "id": "Token in header invalid",
+            "message": "Token in header invalid",
+            "translation": "头部中的token无效",
+            "position": "pkg/apigateway/handler/oidc.go:396:36"
+        },
+        {
+            "id": "Token expired",
+            "message": "Token expired",
+            "translation": "token已过期",
+            "position": "pkg/apigateway/handler/oidc.go:400:36"
+        },
+        {
+            "id": "resource %s module not exists",
+            "message": "resource %s module not exists",
+            "translation": "找不到资源%s对应的module",
+            "position": "pkg/apigateway/handler/request.go:149:42"
+        },
+        {
+            "id": "No id list found",
+            "message": "No id list found",
+            "translation": "找不到id列表",
+            "position": "pkg/apigateway/handler/resource.go:149:31"
+        },
+        {
+            "id": "missing export keys",
+            "message": "missing export keys",
+            "translation": "缺少导出键名",
+            "position": "pkg/apigateway/handler/resource.go:204:32"
+        },
+        {
+            "id": "inconsistent export keys and texts",
+            "message": "inconsistent export keys and texts",
+            "translation": "导出键名与文本不一致",
+            "position": "pkg/apigateway/handler/resource.go:210:33"
+        },
+        {
+            "id": "recv invalid data",
+            "message": "recv invalid data",
+            "translation": "收到无效数据",
+            "position": "pkg/apigateway/handler/rpc.go:130:29"
+        },
+        {
             "id": "invalid CannedAction %s ",
             "message": "invalid CannedAction %s ",
             "translation": "无效的预置操作",
@@ -8654,12 +9038,6 @@
             "position": "pkg/httperrors/errors.go:89:37"
         },
         {
-            "id": "Missing parameter %s",
-            "message": "Missing parameter %s",
-            "translation": "找不到参数%s",
-            "position": "pkg/httperrors/errors.go:94:37"
-        },
-        {
             "id": "Duplicate name %s %s",
             "message": "Duplicate name %s %s",
             "translation": "%s资源重名：%s",
@@ -8674,577 +9052,577 @@
         {
             "id": "no such driver",
             "message": "no such driver",
-            "translation": "",
+            "translation": "没有此driver",
             "position": "pkg/keystone/driver/errors.go:24:2"
         },
         {
             "id": "empty DN",
             "message": "empty DN",
-            "translation": "",
+            "translation": "DN为空",
             "position": "pkg/keystone/driver/ldap/info.go:22:2"
         },
         {
             "id": "empty id",
             "message": "empty id",
-            "translation": "",
+            "translation": "id为空",
             "position": "pkg/keystone/driver/ldap/info.go:23:2"
         },
         {
             "id": "empty name",
             "message": "empty name",
-            "translation": "",
+            "translation": "名称为空",
             "position": "pkg/keystone/driver/ldap/info.go:24:2"
         },
         {
             "id": "disabled user",
             "message": "disabled user",
-            "translation": "",
+            "translation": "用户已禁用",
             "position": "pkg/keystone/driver/ldap/info.go:25:2"
         },
         {
             "id": "join user into project of default domain or identical domain",
             "message": "join user into project of default domain or identical domain",
-            "translation": "",
+            "translation": "仅允许加入默认域或当前域下的项目",
             "position": "pkg/keystone/models/assignments.go:253:44"
         },
         {
             "id": "sysadmin is protected",
             "message": "sysadmin is protected",
-            "translation": "",
+            "translation": "sysadmin受到保护",
             "position": "pkg/keystone/models/assignments.go:295:38"
         },
         {
             "id": "cannot remove current user from current project",
             "message": "cannot remove current user from current project",
-            "translation": "",
+            "translation": "无法将当前用户从当前项目中移除",
             "position": "pkg/keystone/models/assignments.go:298:38"
         },
         {
             "id": "join group into project of default domain or identical domain",
             "message": "join group into project of default domain or identical domain",
-            "translation": "",
+            "translation": "仅允许加入默认域或当前域下的组",
             "position": "pkg/keystone/models/assignments.go:353:44"
         },
         {
             "id": "query error %s",
             "message": "query error %s",
-            "translation": "",
+            "translation": "查询出错：%s",
             "position": "pkg/keystone/models/assignments.go:702:52"
         },
         {
             "id": "missing input field type",
             "message": "missing input field type",
-            "translation": "",
+            "translation": "输入参数未指定type字段",
             "position": "pkg/keystone/models/credentials.go:116:48"
         },
         {
             "id": "missing input field blob",
             "message": "missing input field blob",
-            "translation": "",
+            "translation": "输入参数缺少blob字段",
             "position": "pkg/keystone/models/credentials.go:145:48"
         },
         {
             "id": "encrypt error %s",
             "message": "encrypt error %s",
-            "translation": "",
+            "translation": "加密出错：%s",
             "position": "pkg/keystone/models/credentials.go:149:48"
         },
         {
             "id": "cannot delete default domain",
             "message": "cannot delete default domain",
-            "translation": "",
+            "translation": "不可删除默认域",
             "position": "pkg/keystone/models/domains.go:278:38"
         },
         {
             "id": "domain is enabled",
             "message": "domain is enabled",
-            "translation": "",
+            "translation": "域仍为启用状态",
             "position": "pkg/keystone/models/domains.go:281:42"
         },
         {
             "id": "domain is in use by user",
             "message": "domain is in use by user",
-            "translation": "",
+            "translation": "域中仍有用户",
             "position": "pkg/keystone/models/domains.go:285:42"
         },
         {
             "id": "domain is in use by group",
             "message": "domain is in use by group",
-            "translation": "",
+            "translation": "域中仍有组",
             "position": "pkg/keystone/models/domains.go:289:42"
         },
         {
             "id": "domain is in use by project",
             "message": "domain is in use by project",
-            "translation": "",
+            "translation": "域中仍有项目",
             "position": "pkg/keystone/models/domains.go:293:37"
         },
         {
             "id": "domain is in use by role",
             "message": "domain is in use by role",
-            "translation": "",
+            "translation": "域中仍有角色",
             "position": "pkg/keystone/models/domains.go:297:37"
         },
         {
             "id": "domain is in use by policy",
             "message": "domain is in use by policy",
-            "translation": "",
+            "translation": "域中仍有权限定义",
             "position": "pkg/keystone/models/domains.go:301:37"
         },
         {
             "id": "domain contains external resources",
             "message": "domain contains external resources",
-            "translation": "",
+            "translation": "域中包含外部资源",
             "position": "pkg/keystone/models/domains.go:305:37"
         },
         {
             "id": "readonly",
             "message": "readonly",
-            "translation": "",
+            "translation": "只读",
             "position": "pkg/keystone/models/domains.go:312:38"
         },
         {
             "id": "default domain is protected",
             "message": "default domain is protected",
-            "translation": "",
+            "translation": "默认域受到保护",
             "position": "pkg/keystone/models/domains.go:323:38"
         },
         {
             "id": "field %s is readonly",
             "message": "field %s is readonly",
-            "translation": "",
+            "translation": "字段%s为只读",
             "position": "pkg/keystone/models/domains.go:335:47"
         },
         {
             "id": "endpoint is enabled",
             "message": "endpoint is enabled",
-            "translation": "",
+            "translation": "endpoint为启用状态",
             "position": "pkg/keystone/models/endpoints.go:484:42"
         },
         {
             "id": "missing input field interface",
             "message": "missing input field interface",
-            "translation": "",
+            "translation": "缺少输入字段interface",
             "position": "pkg/keystone/models/endpoints.go:495:48"
         },
         {
             "id": "missing input field service/service_id",
             "message": "missing input field service/service_id",
-            "translation": "",
+            "translation": "缺少输入字段service/service_id",
             "position": "pkg/keystone/models/endpoints.go:513:48"
         },
         {
             "id": "not found cert %s",
             "message": "not found cert %s",
-            "translation": "",
+            "translation": "找不到证书%s",
             "position": "pkg/keystone/models/endpoints.go:518:43"
         },
         {
             "id": "get sensitive config requires admin priviliges",
             "message": "get sensitive config requires admin priviliges",
-            "translation": "",
+            "translation": "获取敏感配置需要管理员权限",
             "position": "pkg/keystone/models/identity_provider.go:307:57"
         },
         {
             "id": "cannot update config when enabled and connected",
             "message": "cannot update config when enabled and connected",
-            "translation": "",
+            "translation": "状态为启用、已连接无法更新配置",
             "position": "pkg/keystone/models/identity_provider.go:331:47"
         },
         {
             "id": "cannot update config when not idle",
             "message": "cannot update config when not idle",
-            "translation": "",
+            "translation": "状态不为空闲时无法更新配置",
             "position": "pkg/keystone/models/identity_provider.go:334:47"
         },
         {
             "id": "saveConfigs fail %s",
             "message": "saveConfigs fail %s",
-            "translation": "",
+            "translation": "saveConfigs调用失败：%s",
             "position": "pkg/keystone/models/identity_provider.go:347:48"
         },
         {
             "id": "invalid template",
             "message": "invalid template",
-            "translation": "",
+            "translation": "无效的模板",
             "position": "pkg/keystone/models/identity_provider.go:372:51"
         },
         {
             "id": "missing driver",
             "message": "missing driver",
-            "translation": "",
+            "translation": "缺少driver",
             "position": "pkg/keystone/models/identity_provider.go:379:51"
         },
         {
             "id": "driver %s not supported",
             "message": "driver %s not supported",
-            "translation": "",
+            "translation": "不支持driver %s",
             "position": "pkg/keystone/models/identity_provider.go:385:50"
         },
         {
             "id": "driver %s already exists",
             "message": "driver %s already exists",
-            "translation": "",
+            "translation": "driver %s已存在",
             "position": "pkg/keystone/models/identity_provider.go:394:45"
         },
         {
             "id": "cannot delete default SQL identity provider",
             "message": "cannot delete default SQL identity provider",
-            "translation": "",
+            "translation": "不可删除默认的SQL认证源",
             "position": "pkg/keystone/models/identity_provider.go:795:38"
         },
         {
             "id": "cannot delete enabled idp",
             "message": "cannot delete enabled idp",
-            "translation": "",
+            "translation": "不可删除已启用的认证源",
             "position": "pkg/keystone/models/identity_provider.go:798:42"
         },
         {
             "id": "identity provider with projects",
             "message": "identity provider with projects",
-            "translation": "",
+            "translation": "认证源中仍有项目",
             "position": "pkg/keystone/models/identity_provider.go:806:38"
         },
         {
             "id": "enabled domain %s cannot be deleted",
             "message": "enabled domain %s cannot be deleted",
-            "translation": "",
+            "translation": "已启用的域%s不可删除",
             "position": "pkg/keystone/models/identity_provider.go:814:44"
         },
         {
             "id": "cannot update in sync status",
             "message": "cannot update in sync status",
-            "translation": "",
+            "translation": "同步状态中不可更新",
             "position": "pkg/keystone/models/identity_provider.go:823:37"
         },
         {
             "id": "domain is disabled",
             "message": "domain is disabled",
-            "translation": "",
+            "translation": "域已禁用",
             "position": "pkg/keystone/models/identitybase.go:253:49"
         },
         {
             "id": "resource is enabled",
             "message": "resource is enabled",
-            "translation": "",
+            "translation": "资源已启用",
             "position": "pkg/keystone/models/identitybase.go:418:41"
         },
         {
             "id": "fail to decode policy data",
             "message": "fail to decode policy data",
-            "translation": "",
+            "translation": "解析权限定义失败",
             "position": "pkg/keystone/models/policies.go:279:50"
         },
         {
             "id": "cannot delete system policy",
             "message": "cannot delete system policy",
-            "translation": "",
+            "translation": "不可删除系统权限定义",
             "position": "pkg/keystone/models/policies.go:446:38"
         },
         {
             "id": "cannot delete enabled policy",
             "message": "cannot delete enabled policy",
-            "translation": "",
+            "translation": "不可删除已启用权限定义",
             "position": "pkg/keystone/models/policies.go:449:42"
         },
         {
             "id": "cannot delete system project",
             "message": "cannot delete system project",
-            "translation": "",
+            "translation": "不可删除system项目",
             "position": "pkg/keystone/models/projects.go:320:38"
         },
         {
             "id": "project contains external resources",
             "message": "project contains external resources",
-            "translation": "",
+            "translation": "项目中包含外部资源",
             "position": "pkg/keystone/models/projects.go:324:37"
         },
         {
             "id": "project contains user",
             "message": "project contains user",
-            "translation": "",
+            "translation": "项目中包含用户",
             "position": "pkg/keystone/models/projects.go:328:37"
         },
         {
             "id": "project contains group",
             "message": "project contains group",
-            "translation": "",
+            "translation": "项目中包含组",
             "position": "pkg/keystone/models/projects.go:332:37"
         },
         {
             "id": "cannot alter system project name",
             "message": "cannot alter system project name",
-            "translation": "",
+            "translation": "不可变更system项目名",
             "position": "pkg/keystone/models/projects.go:344:46"
         },
         {
             "id": "region contains endpoints",
             "message": "region contains endpoints",
-            "translation": "",
+            "translation": "区域中包含endpoint",
             "position": "pkg/keystone/models/regions.go:102:37"
         },
         {
             "id": "missing input field id",
             "message": "missing input field id",
-            "translation": "",
+            "translation": "缺少输入删除id",
             "position": "pkg/keystone/models/regions.go:138:48"
         },
         {
             "id": "cannot alter name of role",
             "message": "cannot alter name of role",
-            "translation": "",
+            "translation": "不可变更角色的名称",
             "position": "pkg/keystone/models/roles.go:183:45"
         },
         {
             "id": "cannot delete system role",
             "message": "cannot delete system role",
-            "translation": "",
+            "translation": "不可删除系统角色",
             "position": "pkg/keystone/models/roles.go:203:38"
         },
         {
             "id": "role is being assigned to user",
             "message": "role is being assigned to user",
-            "translation": "",
+            "translation": "角色已被赋予给用户",
             "position": "pkg/keystone/models/roles.go:207:37"
         },
         {
             "id": "role is being assigned to group",
             "message": "role is being assigned to group",
-            "translation": "",
+            "translation": "角色已被赋予给组",
             "position": "pkg/keystone/models/roles.go:211:37"
         },
         {
             "id": "not supported update context",
             "message": "not supported update context",
-            "translation": "",
+            "translation": "不支持在指定上下文中执行更新操作",
             "position": "pkg/keystone/models/roles.go:351:48"
         },
         {
             "id": "not supported update context %s",
             "message": "not supported update context %s",
-            "translation": "",
+            "translation": "不支持在指定上下文中执行更新操作：%s",
             "position": "pkg/keystone/models/roles.go:355:48"
         },
         {
             "id": "inconsistent domain for project and roles",
             "message": "inconsistent domain for project and roles",
-            "translation": "",
+            "translation": "项目和角色不在同一个域",
             "position": "pkg/keystone/models/roles.go:363:49"
         },
         {
             "id": "not supported secondary update context %s",
             "message": "not supported secondary update context %s",
-            "translation": "",
+            "translation": "不支持在指定的第2个上下文中执行更新操作：%s",
             "position": "pkg/keystone/models/roles.go:376:48"
         },
         {
             "id": "service contains endpoints",
             "message": "service contains endpoints",
-            "translation": "",
+            "translation": "服务还有endpoint定义",
             "position": "pkg/keystone/models/services.go:111:37"
         },
         {
             "id": "service is enabled",
             "message": "service is enabled",
-            "translation": "",
+            "translation": "服务已启用",
             "position": "pkg/keystone/models/services.go:114:42"
         },
         {
             "id": "update config version fail %s",
             "message": "update config version fail %s",
-            "translation": "",
+            "translation": "更新配置版本失败：%s",
             "position": "pkg/keystone/models/services.go:216:49"
         },
         {
             "id": "cannot alter sysadmin user name",
             "message": "cannot alter sysadmin user name",
-            "translation": "",
+            "translation": "不可变更sysadmin的用户名",
             "position": "pkg/keystone/models/users.go:513:46"
         },
         {
             "id": "invalid password: %s",
             "message": "invalid password: %s",
-            "translation": "",
+            "translation": "无效的密码：%s",
             "position": "pkg/keystone/models/users.go:545:51"
         },
         {
             "id": "cannot delete non-local user",
             "message": "cannot delete non-local user",
-            "translation": "",
+            "translation": "不可删除来源非本地的用户",
             "position": "pkg/keystone/models/users.go:746:38"
         },
         {
             "id": "user contains external resources",
             "message": "user contains external resources",
-            "translation": "",
+            "translation": "用户仍有外部资源",
             "position": "pkg/keystone/models/users.go:758:37"
         },
         {
             "id": "cannot delete system user",
             "message": "cannot delete system user",
-            "translation": "",
+            "translation": "不可删除系统用户",
             "position": "pkg/keystone/models/users.go:761:38"
         },
         {
             "id": "cannot join user and group in differnt domain",
             "message": "cannot join user and group in differnt domain",
-            "translation": "",
+            "translation": "用户和组的域归属必须相同",
             "position": "pkg/keystone/models/users.go:810:48"
         },
         {
             "id": "cannot join read-only group",
             "message": "cannot join read-only group",
-            "translation": "",
+            "translation": "不可加入只读组",
             "position": "pkg/keystone/models/users.go:813:43"
         },
         {
             "id": "cannot leave read-only group",
             "message": "cannot leave read-only group",
-            "translation": "",
+            "translation": "不可离开只读组",
             "position": "pkg/keystone/models/users.go:827:43"
         },
         {
             "id": "version mismatch",
             "message": "version mismatch",
-            "translation": "",
+            "translation": "版本不匹配",
             "position": "pkg/keystone/tokens/errors.go:20:2"
         },
         {
             "id": "project disabled",
             "message": "project disabled",
-            "translation": "",
+            "translation": "项目已禁用",
             "position": "pkg/keystone/tokens/errors.go:21:2"
         },
         {
             "id": "user disabled",
             "message": "user disabled",
-            "translation": "",
+            "translation": "用户已禁用",
             "position": "pkg/keystone/tokens/errors.go:22:2"
         },
         {
             "id": "expired token",
             "message": "expired token",
-            "translation": "",
+            "translation": "token已过期",
             "position": "pkg/keystone/tokens/errors.go:23:2"
         },
         {
             "id": "invalid fernet token",
             "message": "invalid fernet token",
-            "translation": "",
+            "translation": "无效的fernet token",
             "position": "pkg/keystone/tokens/errors.go:24:2"
         },
         {
             "id": "invalid auth methods",
             "message": "invalid auth methods",
-            "translation": "",
+            "translation": "无效的认证方法",
             "position": "pkg/keystone/tokens/errors.go:25:2"
         },
         {
             "id": "user not found",
             "message": "user not found",
-            "translation": "",
+            "translation": "找不到用户",
             "position": "pkg/keystone/tokens/errors.go:26:2"
         },
         {
             "id": "empty auth request",
             "message": "empty auth request",
-            "translation": "",
+            "translation": "空的认证请求",
             "position": "pkg/keystone/tokens/errors.go:28:2"
         },
         {
             "id": "user not in project",
             "message": "user not in project",
-            "translation": "",
+            "translation": "用户不在项目中",
             "position": "pkg/keystone/tokens/errors.go:29:2"
         },
         {
             "id": "invalid access key id",
             "message": "invalid access key id",
-            "translation": "",
+            "translation": "无效的access key",
             "position": "pkg/keystone/tokens/errors.go:30:2"
         },
         {
             "id": "expired access key",
             "message": "expired access key",
-            "translation": "",
+            "translation": "过期的access key",
             "position": "pkg/keystone/tokens/errors.go:31:2"
         },
         {
             "id": "unrecognized input %s",
             "message": "unrecognized input %s",
-            "translation": "",
+            "translation": "输入无法识别：%s",
             "position": "pkg/keystone/tokens/handlers.go:60:31"
         },
         {
             "id": "unauthorized %s",
             "message": "unauthorized %s",
-            "translation": "",
+            "translation": "未鉴权：%s",
             "position": "pkg/keystone/tokens/handlers.go:66:31"
         },
         {
             "id": "fail to decode request body",
             "message": "fail to decode request body",
-            "translation": "",
+            "translation": "解析请求体失败",
             "position": "pkg/keystone/tokens/handlers.go:77:31"
         },
         {
             "id": "duplicate username",
             "message": "duplicate username",
-            "translation": "",
+            "translation": "用户名重复",
             "position": "pkg/keystone/tokens/handlers.go:91:28"
         },
         {
             "id": "user not found or not enabled",
             "message": "user not found or not enabled",
-            "translation": "",
+            "translation": "找不到用户，或用户未启用",
             "position": "pkg/keystone/tokens/handlers.go:100:31"
         },
         {
             "id": "invalid user",
             "message": "invalid user",
-            "translation": "",
+            "translation": "无效的用户",
             "position": "pkg/keystone/tokens/handlers.go:136:36"
         },
         {
             "id": "invalid project",
             "message": "invalid project",
-            "translation": "",
+            "translation": "无效的项目",
             "position": "pkg/keystone/tokens/handlers.go:141:36"
         },
         {
             "id": "internal server error %s",
             "message": "internal server error %s",
-            "translation": "",
+            "translation": "内部服务错误：%s",
             "position": "pkg/keystone/tokens/handlers.go:151:33"
         },
         {
             "id": "invalid domain",
             "message": "invalid domain",
-            "translation": "",
+            "translation": "无效的域",
             "position": "pkg/keystone/tokens/handlers.go:204:37"
         },
         {
             "id": "not allow to auth",
             "message": "not allow to auth",
-            "translation": "",
+            "translation": "不允许认证",
             "position": "pkg/keystone/tokens/handlers.go:222:43"
         },
         {
             "id": "invalid token",
             "message": "invalid token",
-            "translation": "",
+            "translation": "无效的token",
             "position": "pkg/keystone/tokens/handlers.go:228:51"
         },
         {
             "id": "invalid token %s",
             "message": "invalid token %s",
-            "translation": "",
+            "translation": "无效的token：%s",
             "position": "pkg/keystone/tokens/verify.go:30:51"
         },
         {
             "id": "not allow to get usage",
             "message": "not allow to get usage",
-            "translation": "",
+            "translation": "不允许获取使用量",
             "position": "pkg/keystone/usages/handler.go:77:28"
         },
         {
@@ -9372,6 +9750,12 @@
             "message": "unsupported action %s",
             "translation": "不支持的动作%s",
             "position": "pkg/mcclient/modules/mod_users.go:139:48"
+        },
+        {
+            "id": "global-settings not found",
+            "message": "global-settings not found",
+            "translation": "找不到global-settings",
+            "position": "pkg/mcclient/modules/yunionconf/mod_parameters.go:56:42"
         },
         {
             "id": "url is empty",
@@ -9754,13 +10138,13 @@
         {
             "id": "check name duplication fail %s",
             "message": "check name duplication fail %s",
-            "translation": "",
+            "translation": "检查重复名称失败：%s",
             "position": "pkg/yunionconf/models/parameters.go:209:48"
         },
         {
             "id": "policy is referenced",
             "message": "policy is referenced",
-            "translation": "",
+            "translation": "权限定义正被使用",
             "position": "pkg/yunionconf/models/scopedpolicies.go:98:37"
         }
     ]
