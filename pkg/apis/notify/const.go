@@ -62,6 +62,9 @@ const (
 	TEMPLATE_TYPE_CONTENT = "content"
 	TEMPLATE_TYPE_REMOTE  = "remote"
 
+	TEMPLATE_LANG_EN = "en"
+	TEMPLATE_LANG_CN = "cn"
+
 	CTYPE_ROBOT_YES  = "yes"
 	CTYPE_ROBOT_ONLY = "only"
 )
