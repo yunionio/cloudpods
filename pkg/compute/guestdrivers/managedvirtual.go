@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/cloudinit"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SManagedVirtualizedGuestDriver struct {
@@ -1267,14 +1268,21 @@ func (self *SManagedVirtualizedGuestDriver) RequestRemoteUpdate(ctx context.Cont
 	if err != nil {
 		return errors.Wrap(err, "guest.GetIVM")
 	}
+	oldTags, err := iVM.GetTags()
+	if err != nil {
+		return errors.Wrap(err, "iVM.GetTags()")
+	}
 	tags, err := guest.GetAllUserMetadata()
 	if err != nil {
 		log.Errorf("GetAllUserMetadata fail %s", err)
 	} else {
+		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
 		err := iVM.SetTags(tags, replaceTags)
 		if err != nil {
+			logclient.AddSimpleActionLog(guest, logclient.ACT_UPDATE_TAGS, err, userCred, false)
 			return errors.Wrap(err, "iVM.SetMetadata")
 		}
+		logclient.AddSimpleActionLog(guest, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
 		// sync back cloud metadata
 		iVM.Refresh()
 		err = models.SyncVirtualResourceMetadata(ctx, userCred, guest, iVM)
@@ -1282,9 +1290,13 @@ func (self *SManagedVirtualizedGuestDriver) RequestRemoteUpdate(ctx context.Cont
 			return errors.Wrap(err, "syncVirtualResourceMetadata")
 		}
 	}
+
 	err = iVM.UpdateVM(ctx, guest.Name)
 	if err != nil {
-		return errors.Wrap(err, "iVM.UpdateVM")
+		if errors.Cause(err) != cloudprovider.ErrNotSupported {
+			return errors.Wrap(err, "iVM.UpdateVM")
+		}
 	}
+
 	return nil
 }

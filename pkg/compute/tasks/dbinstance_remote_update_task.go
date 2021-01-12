@@ -19,10 +19,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type DBInstanceRemoteUpdateTask struct {
@@ -34,7 +34,7 @@ func init() {
 }
 
 func (self *DBInstanceRemoteUpdateTask) taskFail(ctx context.Context, dbinstance *models.SDBInstance, reason jsonutils.JSONObject) {
-	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_UPDATE_TAGS, reason, self.UserCred, false)
+	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_UPDATE_TAGS_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
