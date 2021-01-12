@@ -291,6 +291,16 @@ func (self *SSecurityGroup) GetGuests() []SGuest {
 	return guests
 }
 
+func (self *SSecurityGroup) GetKvmGuests() ([]SGuest, error) {
+	guests := []SGuest{}
+	q := self.GetGuestsQuery().Equals("hypervisor", api.HYPERVISOR_KVM)
+	err := db.FetchModelObjects(GuestManager, q, &guests)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return guests, nil
+}
+
 func (self *SSecurityGroup) GetSecgroupCacheQuery() *sqlchemy.SQuery {
 	return SecurityGroupCacheManager.Query().Equals("secgroup_id", self.Id)
 }
@@ -529,14 +539,12 @@ func (self *SSecurityGroup) PostCreate(ctx context.Context, userCred mcclient.To
 	}
 }
 
-func (manager *SSecurityGroupManager) FetchSecgroupById(secId string) *SSecurityGroup {
-	if len(secId) > 0 {
-		secgrp, _ := manager.FetchById(secId)
-		if secgrp != nil {
-			return secgrp.(*SSecurityGroup)
-		}
+func (manager *SSecurityGroupManager) FetchSecgroupById(secId string) (*SSecurityGroup, error) {
+	secgrp, err := manager.FetchById(secId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "FetchById(%s)", secId)
 	}
-	return nil
+	return secgrp.(*SSecurityGroup), nil
 }
 
 func (self *SSecurityGroup) getSecurityRules(direction string) (rules []SSecurityGroupRule) {
@@ -1027,33 +1035,49 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 	return &secgroup, nil
 }
 
-func (manager *SSecurityGroupManager) DelaySync(ctx context.Context, userCred mcclient.TokenCredential, idStr string) {
-	if secgrp := manager.FetchSecgroupById(idStr); secgrp == nil {
-		log.Errorf("DelaySync secgroup failed")
-	} else {
-		needSync := false
+func (manager *SSecurityGroupManager) DelaySync(ctx context.Context, userCred mcclient.TokenCredential, idStr string) error {
+	secgrp, err := manager.FetchSecgroupById(idStr)
+	if err != nil {
+		return errors.Wrapf(err, "FetchSecgroupById(%s)", idStr)
+	}
+	needSync := false
 
-		func() {
-			lockman.LockObject(ctx, secgrp)
-			defer lockman.ReleaseObject(ctx, secgrp)
+	func() {
+		lockman.LockObject(ctx, secgrp)
+		defer lockman.ReleaseObject(ctx, secgrp)
 
-			if secgrp.IsDirty {
-				if _, err := db.Update(secgrp, func() error {
-					secgrp.IsDirty = false
-					return nil
-				}); err != nil {
-					log.Errorf("Update Security Group error: %s", err.Error())
-				}
-				needSync = true
+		if secgrp.IsDirty {
+			if _, err := db.Update(secgrp, func() error {
+				secgrp.IsDirty = false
+				return nil
+			}); err != nil {
+				log.Errorf("Update Security Group error: %s", err.Error())
 			}
-		}()
+			needSync = true
+		}
+	}()
 
-		if needSync {
-			for _, guest := range secgrp.GetGuests() {
-				guest.StartSyncTask(ctx, userCred, true, "")
-			}
+	if needSync {
+		guests, err := secgrp.GetKvmGuests()
+		if err != nil {
+			return errors.Wrapf(err, "GetKvmGuests")
+		}
+		for _, guest := range guests {
+			guest.StartSyncTask(ctx, userCred, true, "")
 		}
 	}
+	return secgrp.StartSecurityGroupSyncRulesTask(ctx, userCred, "")
+}
+
+func (self *SSecurityGroup) StartSecurityGroupSyncRulesTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	task, err := taskman.TaskManager.NewTask(ctx, "SecurityGroupSyncRulesTask", self, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
+	}
+	self.SetStatus(userCred, api.SECGROUP_STATUS_SYNC_RULES, "")
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (self *SSecurityGroup) DoSync(ctx context.Context, userCred mcclient.TokenCredential) {

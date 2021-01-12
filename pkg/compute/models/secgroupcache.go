@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -629,4 +630,41 @@ func (self *SSecurityGroupCache) GetISecurityGroup() (cloudprovider.ICloudSecuri
 		return nil, errors.Wrapf(err, "GetIRegion")
 	}
 	return iRegion.GetISecurityGroupById(self.ExternalId)
+}
+
+func (self *SSecurityGroupCache) SyncRules() error {
+	region := self.GetRegion()
+	if region == nil {
+		return fmt.Errorf("failed to get region for secgroupcache %s(%s)", self.Name, self.Id)
+	}
+	iSecgroup, err := self.GetISecurityGroup()
+	if err != nil {
+		return errors.Wrapf(err, "GetISecurityGroup")
+	}
+	secgroup, err := self.GetSecgroup()
+	if err != nil {
+		return errors.Wrapf(err, "GetSecgroup")
+	}
+
+	rules, err := iSecgroup.GetRules()
+	if err != nil {
+		return errors.Wrapf(err, "iSecgroup.GetRules")
+	}
+
+	maxPriority := region.GetDriver().GetSecurityGroupRuleMaxPriority()
+	minPriority := region.GetDriver().GetSecurityGroupRuleMinPriority()
+
+	defaultInRule := region.GetDriver().GetDefaultSecurityGroupInRule()
+	defaultOutRule := region.GetDriver().GetDefaultSecurityGroupOutRule()
+	order := region.GetDriver().GetSecurityGroupRuleOrder()
+	onlyAllowRules := region.GetDriver().IsOnlySupportAllowRules()
+
+	localRules := secrules.SecurityRuleSet(secgroup.GetSecRules(""))
+
+	common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, order, localRules, rules, defaultInRule, defaultOutRule, onlyAllowRules, false)
+
+	if len(inAdds) == 0 && len(inDels) == 0 && len(outAdds) == 0 && len(outDels) == 0 {
+		return nil
+	}
+	return iSecgroup.SyncRules(common, inAdds, outAdds, inDels, outDels)
 }
