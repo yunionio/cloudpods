@@ -272,6 +272,7 @@ func (self *SInstance) GetTags() (map[string]string, error) {
 		return nil, errors.Wrap(err, "tags.Unmarshal")
 	}
 	delete(data, "Name")
+	delete(data, "Description")
 	return data, nil
 }
 
@@ -1004,7 +1005,7 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 
 func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
 	// https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/set-hostname.html
-	return fmt.Errorf("aws not support change hostname.")
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, image *SImage, sysDiskSizeGB int, keypair string, userdata string) (string, error) {

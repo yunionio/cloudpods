@@ -327,7 +327,12 @@ func (self *SInstance) Refresh() error {
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(self, instance)
+	err = jsonutils.Update(self, instance)
+	if err != nil {
+		return err
+	}
+	self.Tags = instance.Tags
+	return nil
 }
 
 func (self *SInstance) GetStatus() string {

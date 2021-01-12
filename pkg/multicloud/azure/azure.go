@@ -928,6 +928,7 @@ func (self *SAzureClient) GetCapabilities() []string {
 
 type TagParams struct {
 	Properties TagProperties `json:"properties"`
+	Operation  string        `json:"operation"`
 }
 
 type TagProperties struct {
@@ -953,6 +954,10 @@ func (self *SAzureClient) SetTags(resourceId string, tags map[string]string) (js
 	}
 	path := fmt.Sprintf("/%s/providers/Microsoft.Resources/tags/default", resourceId)
 	input := TagParams{}
+	input.Operation = "replace"
 	input.Properties.Tags = tags
-	return self.put(path, jsonutils.Marshal(input))
+	if len(tags) == 0 {
+		return nil, self.del(path)
+	}
+	return self.patch(path, jsonutils.Marshal(input))
 }

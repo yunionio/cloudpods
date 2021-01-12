@@ -1869,19 +1869,31 @@ func (bucket *SBucket) processObjectsActionInput(input api.BucketObjectsActionIn
 }
 
 func (bucket *SBucket) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
+	if len(bucket.ExternalId) == 0 {
+		return
+	}
 	iBucket, err := bucket.GetIBucket()
 	if err != nil {
 		log.Errorf("bucket.GetIBucket() failed: %s", err)
 		return
 	}
+	oldTags, err := iBucket.GetTags()
+	if err != nil {
+		logclient.AddSimpleActionLog(bucket, logclient.ACT_UPDATE_TAGS, err, userCred, false)
+		log.Errorf("iBucket.GetTags failed: %s", err)
+		return
+	}
 	tags, _ := bucket.GetAllUserMetadata()
+	tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
+
 	err = cloudprovider.SetBucketMetadata(iBucket, tags, true)
 	if err != nil {
+		logclient.AddSimpleActionLog(bucket, logclient.ACT_UPDATE_TAGS, err, userCred, false)
 		log.Errorf("iBucket.SetMetadata failed: %s", err)
 		return
 	}
 	syncMetadata(ctx, userCred, bucket, iBucket)
-	db.OpsLog.LogEvent(bucket, db.ACT_UPDATE_TAGS, tags, userCred)
+	logclient.AddSimpleActionLog(bucket, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
 }
 
 func (manager *SBucketManager) ListItemExportKeys(ctx context.Context,

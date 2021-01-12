@@ -18,13 +18,12 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type GuestRemoteUpdateTask struct {
@@ -37,13 +36,11 @@ func init() {
 
 func (self *GuestRemoteUpdateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF, nil, self.UserCred)
 	self.SetStage("OnRemoteUpdateComplete", nil)
 	replaceTags := jsonutils.QueryBoolean(self.Params, "replace_tags", false)
 	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
-		if err := guest.GetDriver().RequestRemoteUpdate(ctx, guest, self.UserCred, replaceTags); err != nil {
-			logclient.AddActionLogWithStartable(self, guest, logclient.ACT_UPDATE, err, self.UserCred, false)
-			log.Errorf("RequestRemoteUpdate faled %v", err)
+		err := guest.GetDriver().RequestRemoteUpdate(ctx, guest, self.UserCred, replaceTags)
+		if err != nil {
 			return nil, errors.Wrap(err, "RequestRemoteUpdate")
 		}
 		return nil, nil
@@ -51,6 +48,20 @@ func (self *GuestRemoteUpdateTask) OnInit(ctx context.Context, obj db.IStandalon
 
 }
 
-func (self *GuestRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (self *GuestRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStage("OnSyncStatusComplete", nil)
+	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
+}
+
+func (self *GuestRemoteUpdateTask) OnRemoteUpdateCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	guest.SetStatus(self.UserCred, api.VM_UPDATE_TAGS_FAILED, data.String())
+	self.SetStageFailed(ctx, data)
+}
+
+func (self *GuestRemoteUpdateTask) OnSyncStatusComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *GuestRemoteUpdateTask) OnSyncStatusCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, data)
 }
