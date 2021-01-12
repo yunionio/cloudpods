@@ -249,6 +249,15 @@ func (client *SAwsClient) getAwsRoute53Session() (*session.Session, error) {
 	return session, nil
 }
 
+func (client *SAwsClient) getAwsCloudtrailSession() (*session.Session, error) {
+	session, err := client.getDefaultSession()
+	if err != nil {
+		return nil, errors.Wrap(err, "client.getDefaultSession()")
+	}
+	session.ClientConfig(CLOUD_TRAIL_SERVICE_NAME)
+	return session, nil
+}
+
 func (self *SAwsClient) invalidateIBuckets() {
 	self.iBuckets = nil
 }
