@@ -233,7 +233,12 @@ func (self *SInstance) Refresh() error {
 		return cloudprovider.ErrNotFound
 	}
 
-	return jsonutils.Update(self, new)
+	err = jsonutils.Update(self, new)
+	if err != nil {
+		return err
+	}
+	self.Tags = new.Tags
+	return nil
 }
 
 func (self *SInstance) IsEmulated() bool {
@@ -1169,14 +1174,11 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 
 func (self *SRegion) UpdateVM(instanceId, name string) error {
 	params := jsonutils.NewDict()
-	serversObj := jsonutils.NewArray()
 	serverObj := jsonutils.NewDict()
-	serverObj.Add(jsonutils.NewString(instanceId), "id")
-	serversObj.Add(serverObj)
-	params.Add(serversObj, "servers")
-	params.Add(jsonutils.NewString(name), "name")
+	serverObj.Add(jsonutils.NewString(name), "name")
+	params.Add(serverObj, "server")
 
-	_, err := self.ecsClient.Servers.PerformAction2("server-name", "", params, "")
+	_, err := self.ecsClient.Servers.Update(instanceId, params)
 	return err
 }
 

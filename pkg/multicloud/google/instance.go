@@ -153,7 +153,12 @@ func (instance *SInstance) Refresh() error {
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(instance, _instance)
+	err = jsonutils.Update(instance, _instance)
+	if err != nil {
+		return err
+	}
+	instance.Labels = _instance.Labels
+	return nil
 }
 
 //PROVISIONING, STAGING, RUNNING, STOPPING, STOPPED, SUSPENDING, SUSPENDED, and TERMINATED.

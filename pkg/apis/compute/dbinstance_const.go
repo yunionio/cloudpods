@@ -51,6 +51,9 @@ const (
 
 	DBINSTANCE_FAILE = "failed" //操作失败
 
+	DBINSTANCE_UPDATE_TAGS        = "update_tags"
+	DBINSTANCE_UPDATE_TAGS_FAILED = "update_tags_fail"
+
 	//备份状态
 	DBINSTANCE_BACKUP_READY         = "ready"         //正常
 	DBINSTANCE_BACKUP_CREATING      = "creating"      //创建中
