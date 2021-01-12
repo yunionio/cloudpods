@@ -19,6 +19,8 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+
+	"yunion.io/x/pkg/errors"
 )
 
 type valueElement struct {
@@ -78,6 +80,19 @@ func CompareSets(dbSet interface{}, extSet interface{}, removed interface{}, com
 	}
 	sort.Sort(valueSet(dbSetArray))
 	sort.Sort(valueSet(extSetArray))
+
+	dupCheck := map[string][]reflect.Value{}
+	for i := range extSetArray {
+		_, ok := dupCheck[extSetArray[i].key]
+		if !ok {
+			dupCheck[extSetArray[i].key] = []reflect.Value{}
+		}
+		dupCheck[extSetArray[i].key] = append(dupCheck[extSetArray[i].key], extSetArray[i].value)
+
+		if len(dupCheck[extSetArray[i].key]) > 1 {
+			return errors.Wrapf(errors.ErrDuplicateId, "duplicated id: %s", extSetArray[i].key)
+		}
+	}
 
 	removedValue := reflect.Indirect(reflect.ValueOf(removed))
 	commonDBValue := reflect.Indirect(reflect.ValueOf(commonDB))

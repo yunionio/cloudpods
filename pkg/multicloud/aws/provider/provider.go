@@ -39,6 +39,18 @@ func (self *SAwsProviderFactory) GetName() string {
 	return aws.CLOUD_PROVIDER_AWS_CN
 }
 
+func (self *SAwsProviderFactory) IsCloudeventRegional() bool {
+	return true
+}
+
+func (self *SAwsProviderFactory) GetMaxCloudEventSyncDays() int {
+	return 1
+}
+
+func (self *SAwsProviderFactory) GetMaxCloudEventKeepDays() int {
+	return 90
+}
+
 func (self *SAwsProviderFactory) IsSupportPrepaidResources() bool {
 	return false
 }
