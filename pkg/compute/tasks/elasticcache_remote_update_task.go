@@ -20,10 +20,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type ElasticcacheRemoteUpdateTask struct {
@@ -35,7 +35,7 @@ func init() {
 }
 
 func (self *ElasticcacheRemoteUpdateTask) taskFail(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
-	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_UPDATE_TAGS, reason, self.UserCred, false)
+	elasticcache.SetStatus(self.UserCred, api.ELASTIC_CACHE_UPDATE_TAGS_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 

@@ -140,6 +140,9 @@ const (
 	VM_TEMPLATE_SAVING      = "tempalte_saving"
 	VM_TEMPLATE_SAVE_FAILED = "template_save_failed"
 
+	VM_UPDATE_TAGS        = "update_tags"
+	VM_UPDATE_TAGS_FAILED = "update_tags_fail"
+
 	SHUTDOWN_STOP      = "stop"
 	SHUTDOWN_TERMINATE = "terminate"
 

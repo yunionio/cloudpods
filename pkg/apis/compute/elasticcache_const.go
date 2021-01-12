@@ -61,6 +61,11 @@ const (
 )
 
 const (
+	ELASTIC_CACHE_UPDATE_TAGS        = "update_tags"
+	ELASTIC_CACHE_UPDATE_TAGS_FAILED = "update_tags_fail"
+)
+
+const (
 	ELASTIC_CACHE_ACCOUNT_TYPE_NORMAL = "normal" // 普通账号
 	ELASTIC_CACHE_ACCOUNT_TYPE_ADMIN  = "admin"  // 管理账号
 )

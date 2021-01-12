@@ -20,10 +20,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type LoadbalancerRemoteUpdateTask struct {
@@ -35,7 +35,7 @@ func init() {
 }
 
 func (self *LoadbalancerRemoteUpdateTask) taskFail(ctx context.Context, lb *models.SLoadbalancer, reason jsonutils.JSONObject) {
-	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_UPDATE_TAGS, reason, self.UserCred, false)
+	lb.SetStatus(self.UserCred, api.LB_UPDATE_TAGS_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,7 +48,6 @@ func (self *LoadbalancerRemoteUpdateTask) OnInit(ctx context.Context, obj db.ISt
 	}
 	self.SetStage("OnRemoteUpdateComplete", nil)
 	replaceTags := jsonutils.QueryBoolean(self.Params, "replace_tags", false)
-
 	if err := region.GetDriver().RequestRemoteUpdateLoadbalancer(ctx, self.GetUserCred(), lb, replaceTags, self); err != nil {
 		self.taskFail(ctx, lb, jsonutils.NewString(err.Error()))
 	}

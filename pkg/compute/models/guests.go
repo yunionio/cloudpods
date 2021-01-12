@@ -5702,12 +5702,16 @@ func (guest *SGuest) StartRemoteUpdateTask(ctx context.Context, userCred mcclien
 		log.Errorln(err)
 		return errors.Wrap(err, "Start GuestRemoteUpdateTask")
 	} else {
+		guest.SetStatus(userCred, api.VM_UPDATE_TAGS, "StartRemoteUpdateTask")
 		task.ScheduleRun(nil)
 	}
 	return nil
 }
 
 func (guest *SGuest) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
+	if len(guest.ExternalId) == 0 {
+		return
+	}
 	err := guest.StartRemoteUpdateTask(ctx, userCred, true, "")
 	if err != nil {
 		log.Errorf("StartRemoteUpdateTask fail: %s", err)
