@@ -70,6 +70,7 @@ type SNotification struct {
 	Message    string    `create:"required"`
 	ReceivedAt time.Time `nullable:"true" list:"user" get:"user"`
 	SendTimes  int
+	Tag        string `width:"16" nullable:"true" index:"true" create:"optional"`
 }
 
 const (
@@ -77,6 +78,9 @@ const (
 )
 
 func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.NotificationCreateInput) (api.NotificationCreateInput, error) {
+	if len(input.Tag) == 0 && utils.IsInStringArray(input.Tag, []string{api.NOTIFICATION_TAG_ALERT}) {
+		return input, httperrors.NewInputParameterError("invalid tag")
+	}
 	// compatible
 	if len(input.Receivers) != 0 && input.ContactType == api.WEBCONSOLE {
 		input.Contacts = input.Receivers
@@ -115,9 +119,14 @@ func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred
 			if idSet.Has(re) || nameSet.Has(re) {
 				continue
 			}
-			return input, httperrors.NewInputParameterError("no such receiver whose uid is %q", re)
+			if !input.IgnoreNonexistentReceiver {
+				return input, httperrors.NewInputParameterError("no such receiver whose uid is %q", re)
+			}
 		}
 		input.Receivers = idSet.UnsortedList()
+		if len(input.Receivers)+len(input.Contacts) == 0 {
+			return input, httperrors.NewInputParameterError("no valid receiver or contact")
+		}
 	}
 	nowStr := time.Now().Format("2006-01-02 15:04:05")
 	if len(input.Priority) == 0 {
@@ -160,6 +169,15 @@ func (n *SNotification) CustomizeCreate(ctx context.Context, userCred mcclient.T
 }
 
 func (n *SNotification) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	if data.Contains("metadata") {
+		metadata := make(map[string]interface{})
+		err := data.Unmarshal(&metadata, "metadata")
+		if err != nil {
+			log.Errorf("unable to unmarshal to metadata: %v", err)
+		} else {
+			n.SetAllMetadata(ctx, metadata, userCred)
+		}
+	}
 	n.SetStatus(userCred, api.NOTIFICATION_STATUS_RECEIVED, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "NotificationSendTask", n, userCred, nil, "", "")
 	if err != nil {
@@ -441,6 +459,9 @@ func (nm *SNotificationManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	if len(input.ReceiverId) > 0 {
 		subq := ReceiverNotificationManager.Query("notification_id").Equals("receiver_id", input.ReceiverId).SubQuery()
 		q = q.Join(subq, sqlchemy.Equals(q.Field("id"), subq.Field("notification_id")))
+	}
+	if len(input.Tag) > 0 {
+		q = q.Equals("tag", input.Tag)
 	}
 	return q, nil
 }
