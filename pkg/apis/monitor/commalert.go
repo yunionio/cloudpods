@@ -120,10 +120,11 @@ type CommonAlertDetails struct {
 }
 
 type CommonAlertMetricDetails struct {
-	Comparator    string  `json:"comparator"`
-	Threshold     float64 `json:"threshold"`
-	ConditionType string  `json:"condition_type"`
-	ThresholdStr  string  `json:"threshold_str"`
+	Comparator    string    `json:"comparator"`
+	Threshold     float64   `json:"threshold"`
+	WithinRange   []float64 `json:"within_range"`
+	ConditionType string    `json:"condition_type"`
+	ThresholdStr  string    `json:"threshold_str"`
 	// metric points'value的运算方式
 	Reduce                 string           `json:"reduce"`
 	DB                     string           `json:"db"`
