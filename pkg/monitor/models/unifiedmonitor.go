@@ -191,7 +191,7 @@ func (self *SUnifiedMonitorManager) AllowPerformQuery(ctx context.Context, userC
 
 func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	tmp := jsonutils.DeepCopy(data)
-	self.handleDataPreSignature(tmp)
+	self.handleDataPreSignature(ctx, tmp)
 	if err := ValidateQuerySignature(tmp); err != nil {
 		return nil, errors.Wrap(err, "ValidateQuerySignature")
 	}
@@ -235,19 +235,28 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 	return jsonutils.Marshal(rtn), nil
 }
 
-func (self *SUnifiedMonitorManager) handleDataPreSignature(data jsonutils.JSONObject) {
+func (self *SUnifiedMonitorManager) handleDataPreSignature(ctx context.Context, data jsonutils.JSONObject) {
 	scope, _ := data.GetString("scope")
+	isIdentityName, _ := data.Bool("identity_name")
 	switch scope {
 	case "system":
 	case "domain":
 		domain, err := data.GetString("project_domain")
 		if err == nil {
+			domainObj, _ := db.DefaultDomainFetcher(ctx, domain)
+			if isIdentityName {
+				domain = domainObj.Name
+			}
 			data.(*jsonutils.JSONDict).Remove("project_domain")
 			data.(*jsonutils.JSONDict).Set("domain_id", jsonutils.NewString(domain))
 		}
 	default:
 		project, err := data.GetString("project")
 		if err == nil {
+			tenant, _ := db.DefaultProjectFetcher(ctx, project)
+			if isIdentityName {
+				project = tenant.Name
+			}
 			data.(*jsonutils.JSONDict).Remove("project")
 			data.(*jsonutils.JSONDict).Set("project_id", jsonutils.NewString(project))
 		}
