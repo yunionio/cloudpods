@@ -14,7 +14,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/models"
-	rpcapi "yunion.io/x/onecloud/pkg/notify/rpc/apis"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -138,18 +137,14 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		contactMap[rnsWithoutReceiver[i].Contact] = rnsWithoutReceiver[i]
 	}
 
-	var (
-		ret        []*rpcapi.FailedRecord
-		contactLen int
-	)
-
+	var contactLen int
 	for lang, contactMap := range map[string]map[string]*models.SReceiverNotification{
 		"":                    contactMap,
 		apis.TEMPLATE_LANG_CN: contactmapCn,
 		apis.TEMPLATE_LANG_EN: contactMapEn,
 	} {
 		if len(contactMap) == 0 {
-			return
+			continue
 		}
 		// set status before send
 		now := time.Now()
@@ -173,24 +168,20 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		fds, err := models.NotifyService.BatchSend(ctx, p)
 		if err != nil {
 			for _, rn := range contactMap {
-				rn.AfterSend(ctx, false, err.Error())
+				sendFail(rn, err.Error())
 			}
-			failedRecord = append(failedRecord, fmt.Sprintf("others: %s", err.Error()))
-			self.taskFailed(ctx, notification, strings.Join(failedRecord, "; "), true)
-			return
+			continue
 		}
-		ret = append(ret, fds...)
-	}
-	// check result
-	for _, fd := range ret {
-		rn := contactMap[fd.Contact]
-		rn.AfterSend(ctx, false, fd.Reason)
-		failedRecord = append(failedRecord, fmt.Sprintf("%s: %s", rn.ReceiverID, fd.Reason))
-		delete(contactMap, fd.Contact)
-	}
-	// after send for successful notify
-	for _, rn := range contactMap {
-		rn.AfterSend(ctx, true, "")
+		// check result
+		for _, fd := range fds {
+			rn := contactMap[fd.Contact]
+			sendFail(rn, err.Error())
+			delete(contactMap, fd.Contact)
+		}
+		// after send for successful notify
+		for _, rn := range contactMap {
+			rn.AfterSend(ctx, true, "")
+		}
 	}
 	if len(failedRecord) > 0 && len(failedRecord) == contactLen {
 		self.taskFailed(ctx, notification, strings.Join(failedRecord, "; "), true)
