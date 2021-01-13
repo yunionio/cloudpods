@@ -27,7 +27,7 @@ import (
 )
 
 type ElasticcacheRemoteUpdateTask struct {
-	SGuestBaseTask
+	taskman.STask
 }
 
 func init() {
@@ -54,6 +54,19 @@ func (self *ElasticcacheRemoteUpdateTask) OnInit(ctx context.Context, obj db.ISt
 	}
 }
 
-func (self *ElasticcacheRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (self *ElasticcacheRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
+	self.SetStage("OnSyncStatusComplete", nil)
+	models.StartResourceSyncStatusTask(ctx, self.UserCred, elasticcache, "ElasticcacheSyncstatusTask", self.GetTaskId())
+}
+
+func (self *ElasticcacheRemoteUpdateTask) OnRemoteUpdateCompleteFailed(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
+	self.taskFail(ctx, elasticcache, data)
+}
+
+func (self *ElasticcacheRemoteUpdateTask) OnSyncStatusComplete(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *ElasticcacheRemoteUpdateTask) OnSyncStatusCompleteFailed(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, data)
 }

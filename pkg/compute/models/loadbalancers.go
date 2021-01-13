@@ -1399,6 +1399,7 @@ func (self *SLoadbalancer) StartRemoteUpdateTask(ctx context.Context, userCred m
 		log.Errorln(err)
 		return errors.Wrap(err, "Start LoadbalancerRemoteUpdateTask")
 	} else {
+		self.SetStatus(userCred, api.LB_UPDATE_TAGS, "StartRemoteUpdateTask")
 		task.ScheduleRun(nil)
 	}
 	return nil
