@@ -27,7 +27,7 @@ import (
 )
 
 type LoadbalancerRemoteUpdateTask struct {
-	SGuestBaseTask
+	taskman.STask
 }
 
 func init() {
@@ -53,6 +53,19 @@ func (self *LoadbalancerRemoteUpdateTask) OnInit(ctx context.Context, obj db.ISt
 	}
 }
 
-func (self *LoadbalancerRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (self *LoadbalancerRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
+	self.SetStage("OnSyncStatusComplete", nil)
+	models.StartResourceSyncStatusTask(ctx, self.UserCred, lb, "LoadbalancerSyncstatusTask", self.GetTaskId())
+}
+
+func (self *LoadbalancerRemoteUpdateTask) OnRemoteUpdateCompleteFailed(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
+	self.taskFail(ctx, lb, data)
+}
+
+func (self *LoadbalancerRemoteUpdateTask) OnSyncStatusComplete(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *LoadbalancerRemoteUpdateTask) OnSyncStatusCompleteFailed(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, data)
 }

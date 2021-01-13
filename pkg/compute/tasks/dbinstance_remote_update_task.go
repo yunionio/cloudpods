@@ -26,7 +26,7 @@ import (
 )
 
 type DBInstanceRemoteUpdateTask struct {
-	SGuestBaseTask
+	taskman.STask
 }
 
 func init() {
@@ -48,6 +48,19 @@ func (self *DBInstanceRemoteUpdateTask) OnInit(ctx context.Context, obj db.IStan
 	}
 }
 
-func (self *DBInstanceRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (self *DBInstanceRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Context, dbinstance *models.SDBInstance, data jsonutils.JSONObject) {
+	self.SetStage("OnSyncStatusComplete", nil)
+	models.StartResourceSyncStatusTask(ctx, self.UserCred, dbinstance, "DBInstanceSyncStatusTask", self.GetTaskId())
+}
+
+func (self *DBInstanceRemoteUpdateTask) OnRemoteUpdateCompleteFailed(ctx context.Context, dbinstance *models.SDBInstance, data jsonutils.JSONObject) {
+	self.taskFail(ctx, dbinstance, data)
+}
+
+func (self *DBInstanceRemoteUpdateTask) OnSyncStatusComplete(ctx context.Context, dbinstance *models.SDBInstance, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *DBInstanceRemoteUpdateTask) OnSyncStatusCompleteFailed(ctx context.Context, dbinstance *models.SDBInstance, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, data)
 }
