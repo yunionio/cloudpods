@@ -342,16 +342,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateLoadbalancer(
 		} else {
 			err := iLoadbalancer.SetTags(tags, replaceTags)
 			if err != nil {
-				logclient.AddActionLogWithStartable(task, lb, logclient.ACT_UPDATE, tagsUpdateInfo, userCred, false)
+				logclient.AddActionLogWithStartable(task, lb, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, false)
 				return nil, errors.Wrap(err, "iLoadbalancer.SetMetadata")
 			}
-			logclient.AddActionLogWithStartable(task, lb, logclient.ACT_UPDATE, tagsUpdateInfo, userCred, true)
-			// sync back cloud metadata
-			iLoadbalancer.Refresh()
-			err = models.SyncVirtualResourceMetadata(ctx, userCred, lb, iLoadbalancer)
-			if err != nil {
-				return nil, errors.Wrap(err, "syncVirtualResourceMetadata")
-			}
+			logclient.AddActionLogWithStartable(task, lb, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
 		}
 		return nil, nil
 	})
@@ -2743,16 +2737,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateDBInstance(ct
 		} else {
 			err := iRds.SetTags(tags, replaceTags)
 			if err != nil {
-				logclient.AddActionLogWithStartable(task, instance, logclient.ACT_UPDATE, tagsUpdateInfo, userCred, false)
+				logclient.AddActionLogWithStartable(task, instance, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, false)
 				return nil, errors.Wrap(err, "iRds.SetMetadata")
 			}
-			logclient.AddActionLogWithStartable(task, instance, logclient.ACT_UPDATE, tagsUpdateInfo, userCred, true)
-			// sync back cloud metadata
-			iRds.Refresh()
-			err = models.SyncVirtualResourceMetadata(ctx, userCred, instance, iRds)
-			if err != nil {
-				return nil, errors.Wrap(err, "syncVirtualResourceMetadata")
-			}
+			logclient.AddActionLogWithStartable(task, instance, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
 		}
 		return nil, nil
 	})
@@ -3148,16 +3136,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateElasticcache(
 		} else {
 			err := iElasticcache.SetTags(tags, replaceTags)
 			if err != nil {
-				logclient.AddActionLogWithStartable(task, elasticcache, logclient.ACT_UPDATE, tagsUpdateInfo, userCred, false)
+				logclient.AddActionLogWithStartable(task, elasticcache, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, false)
 				return nil, errors.Wrap(err, "iElasticcache.SetMetadata")
 			}
-			logclient.AddActionLogWithStartable(task, elasticcache, logclient.ACT_UPDATE, tagsUpdateInfo, userCred, true)
-			// sync back cloud metadata
-			iElasticcache.Refresh()
-			err = models.SyncVirtualResourceMetadata(ctx, userCred, elasticcache, iElasticcache)
-			if err != nil {
-				return nil, errors.Wrap(err, "syncVirtualResourceMetadata")
-			}
+			logclient.AddActionLogWithStartable(task, elasticcache, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
 		}
 		return nil, nil
 	})
