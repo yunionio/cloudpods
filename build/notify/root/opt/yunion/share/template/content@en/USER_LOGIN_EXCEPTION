@@ -1,0 +1,5 @@
+{{- if .admin -}}
+The account {{ .user }} in domain {{ .domain }} has been locked due to abnormal login. Please verify the situation and, if you need to unlock this account, enable it in the user list.
+{{- else -}}
+The account {{ .user }} has been locked due to abnormal login. Please contact the administrator to unlock your account.
+{{- end -}}
