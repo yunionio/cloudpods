@@ -85,6 +85,7 @@ func (rn *SReceiverNotification) Receiver() (*SReceiver, error) {
 	if err != nil {
 		return nil, err
 	}
+	receiver.SetModelManager(ReceiverManager, &receiver)
 	return &receiver, nil
 }
 
