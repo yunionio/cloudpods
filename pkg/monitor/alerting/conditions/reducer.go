@@ -134,6 +134,20 @@ func (s *queryReducer) Reduce(series *tsdb.TimeSeries) (*float64, []string) {
 		if value > 0 {
 			allNull = false
 		}
+	case "P95":
+		var values []float64
+		for _, v := range series.Points {
+			if v.IsValid() {
+				allNull = false
+				values = append(values, v.Value())
+			}
+		}
+		if len(values) >= 1 {
+			sort.Float64s(values)
+			length := len(values)
+			index := math.Floor(float64(length) * 0.95)
+			value = values[int64(index)]
+		}
 	}
 
 	if allNull {
