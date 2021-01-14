@@ -58,6 +58,8 @@ const (
 	NOTIFICATION_STATUS_OK       = "ok"
 	NOTIFICATION_STATUS_PART_OK  = "part_ok"
 
+	NOTIFICATION_TAG_ALERT = "alert"
+
 	TEMPLATE_TYPE_TITLE   = "title"
 	TEMPLATE_TYPE_CONTENT = "content"
 	TEMPLATE_TYPE_REMOTE  = "remote"
