@@ -175,7 +175,7 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		// check result
 		for _, fd := range fds {
 			rn := contactMap[fd.Contact]
-			sendFail(rn, err.Error())
+			sendFail(rn, fd.Reason)
 			delete(contactMap, fd.Contact)
 		}
 		// after send for successful notify
