@@ -27,6 +27,7 @@ type CloudroleListInput struct {
 	apis.StatusInfrasResourceBaseListInput
 
 	CloudaccountResourceListInput
+	CloudgroupResourceListInput
 }
 
 type CloudroleDetails struct {
