@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	dbapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
@@ -41,9 +42,9 @@ import (
 const (
 	SYSTEM_ADMIN_PREFIX  = "__sys_"
 	SYS_TAG_PREFIX       = "__"
-	CLOUD_TAG_PREFIX     = "ext:"
-	USER_TAG_PREFIX      = "user:"
-	SYS_CLOUD_TAG_PREFIX = "sys:"
+	CLOUD_TAG_PREFIX     = dbapi.CLOUD_TAG_PREFIX
+	USER_TAG_PREFIX      = dbapi.USER_TAG_PREFIX
+	SYS_CLOUD_TAG_PREFIX = dbapi.SYS_CLOUD_TAG_PREFIX
 
 	// TAG_DELETE_RANGE_USER  = "user"
 	// TAG_DELETE_RANGE_CLOUD = CLOUD_TAG_PREFIX // "cloud"

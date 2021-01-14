@@ -24,7 +24,7 @@ import (
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	dbapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/db"
 )
 
 // Int returns a pointer to int type with the same value as the argument.  This
@@ -288,14 +288,14 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 		tagIdx++
 	}
 	for _, tag := range opts.UserTags {
-		err = opts.addTag(db.USER_TAG_PREFIX, tag, tagIdx, params)
+		err = opts.addTag(dbapi.USER_TAG_PREFIX, tag, tagIdx, params)
 		if err != nil {
 			return nil, err
 		}
 		tagIdx++
 	}
 	for _, tag := range opts.CloudTags {
-		err = opts.addTag(db.CLOUD_TAG_PREFIX, tag, tagIdx, params)
+		err = opts.addTag(dbapi.CLOUD_TAG_PREFIX, tag, tagIdx, params)
 		if err != nil {
 			return nil, err
 		}
