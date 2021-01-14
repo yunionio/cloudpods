@@ -977,12 +977,14 @@ func (rm *SReceiverManager) OnUpdate(oldObj, newObj *jsonutils.JSONDict) {
 	receiver := &receivers[0]
 	uname, _ := newObj.GetString("name")
 	domainId, _ := newObj.GetString("domain_id")
-	if receiver.Name == uname && receiver.DomainId == domainId {
+	lang, _ := newObj.GetString("lang")
+	if receiver.Name == uname && receiver.DomainId == domainId && receiver.Lang == lang {
 		return
 	}
 	_, err = db.Update(receiver, func() error {
 		receiver.Name = uname
 		receiver.DomainId = domainId
+		receiver.Lang = lang
 		return nil
 	})
 	if err != nil {

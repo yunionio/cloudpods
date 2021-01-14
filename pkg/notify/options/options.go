@@ -31,7 +31,7 @@ type NotifyOption struct {
 	InitNotificationScope int `help:"initialize data of notification with in InitNotificationScope hours" default:"100"`
 	MaxSyncNotification   int `help:"The max number of notification sync from old data source" default:"1000"`
 
-	VerifyExpireInterval int `help:"expire interval of verify message; minutes" default:"5"`
+	VerifyExpireInterval int `help:"expire interval of verify message; minutes" default:"2"`
 	VerifyValidInterval  int `help:"valid interval of verify message; miniutes" default:"20"`
 }
 
