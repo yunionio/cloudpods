@@ -294,10 +294,11 @@ func (nm *SNotificationManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient
 	case rbacutils.ScopeDomain:
 		subRq := ReceiverManager.Query("id").Equals("domain_id", owner.GetDomainId()).SubQuery()
 		RNq := ReceiverNotificationManager.Query("notification_id", "receiver_id")
-		subRNq := RNq.Join(subRq, sqlchemy.Equals(RNq.Field("receiver_id"), subRq.Field("id"))).SubQuery()
+		subRNq := RNq.Join(subRq, sqlchemy.OR(sqlchemy.Equals(RNq.Field("receiver_id"), subRq.Field("id")), sqlchemy.Equals(RNq.Field("contact"), subRq.Field("id")))).SubQuery()
 		q = q.Join(subRNq, sqlchemy.Equals(q.Field("id"), subRNq.Field("notification_id")))
 	case rbacutils.ScopeProject, rbacutils.ScopeUser:
-		subq := ReceiverNotificationManager.Query("notification_id").Equals("receiver_id", owner.GetUserId()).SubQuery()
+		sq := ReceiverNotificationManager.Query("notification_id")
+		subq := sq.Filter(sqlchemy.OR(sqlchemy.Equals(sq.Field("receiver_id"), owner.GetUserId()), sqlchemy.Equals(sq.Field("contact"), owner.GetUserId()))).SubQuery()
 		q = q.Join(subq, sqlchemy.Equals(q.Field("id"), subq.Field("notification_id")))
 	}
 	return q
