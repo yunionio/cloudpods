@@ -30,8 +30,8 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"asia-southeast2":      {Latitude: -6.175110, Longitude: 106.865036, City: api.CITY_JAKARTA, CountryCode: api.COUNTRY_CODE_ID},
 	"australia-southeast1": {Latitude: -33.8688197, Longitude: 151.2092955, City: api.CITY_SYDNEY, CountryCode: api.COUNTRY_CODE_AU},
 
-	"europe-north1": {Latitude: 39.904202, Longitude: 116.407394, City: api.CITY_FINLAND, CountryCode: api.COUNTRY_CODE_CN},
-	"europe-west1":  {Latitude: 39.904202, Longitude: 116.407394, City: api.CITY_BELGIUM, CountryCode: api.COUNTRY_CODE_CN},
+	"europe-north1": {Latitude: 64.8255731, Longitude: 21.5432837, City: api.CITY_FINLAND, CountryCode: api.COUNTRY_CODE_CN},
+	"europe-west1":  {Latitude: 50.499734, Longitude: 3.9057517, City: api.CITY_BELGIUM, CountryCode: api.COUNTRY_CODE_CN},
 	"europe-west2":  {Latitude: 51.507351, Longitude: -0.127758, City: api.CITY_LONDON, CountryCode: api.COUNTRY_CODE_GB},
 	"europe-west3":  {Latitude: 51.165691, Longitude: 10.451526, City: api.CITY_FRANKFURT, CountryCode: api.COUNTRY_CODE_DE},
 	"europe-west4":  {Latitude: 52.2076831, Longitude: 4.1585786, City: api.CITY_HOLLAND, CountryCode: api.COUNTRY_CODE_NL},
