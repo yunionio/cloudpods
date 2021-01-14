@@ -1225,6 +1225,43 @@ func (manager *SVpcManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SGlobalVpcResourceBaseManager.OrderByExtraFields")
 	}
+
+	if db.NeedOrderQuery([]string{query.OrderByNetworkCount}) {
+		var (
+			wireq = WireManager.Query().SubQuery()
+			netq  = NetworkManager.Query().SubQuery()
+			vpcq  = VpcManager.Query().SubQuery()
+		)
+		countq := vpcq.Query(
+			vpcq.Field("id"),
+			sqlchemy.COUNT("network_count", netq.Field("id")),
+		)
+		countq = countq.Join(wireq, sqlchemy.OR(
+			sqlchemy.Equals(countq.Field("id"), wireq.Field("vpc_id")),
+			sqlchemy.AND(
+				sqlchemy.Equals(countq.Field("id"), api.DEFAULT_VPC_ID),
+				sqlchemy.IsNullOrEmpty(wireq.Field("vpc_id")),
+			),
+		))
+		countq = countq.Join(netq, sqlchemy.Equals(
+			netq.Field("wire_id"), wireq.Field("id"),
+		))
+		countq = countq.GroupBy(vpcq.Field("id"))
+		countSubq := countq.SubQuery()
+		q = q.LeftJoin(countSubq, sqlchemy.Equals(
+			q.Field("id"), countSubq.Field("id"),
+		))
+		q.AppendField(q.QueryFields()...)
+		q = q.AppendField(countSubq.Field("network_count"))
+		q = db.OrderByFields(q,
+			[]string{
+				query.OrderByNetworkCount,
+			},
+			[]sqlchemy.IQueryField{
+				countSubq.Field("network_count"),
+			},
+		)
+	}
 	return q, nil
 }
 
