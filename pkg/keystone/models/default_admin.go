@@ -30,7 +30,7 @@ var (
 	defaultClient *mcclient.Client = nil
 )
 
-func getDefaultClient() *mcclient.Client {
+func GetDefaultClient() *mcclient.Client {
 	if defaultClient == nil {
 		defaultClient = mcclient.NewClient("", 300, options.Options.DebugClient, true, "", "")
 		refreshDefaultClientServiceCatalog()
@@ -53,7 +53,11 @@ func GetDefaultAdminCred() mcclient.TokenCredential {
 	return defaultAdminCred
 }
 
-func getDefaultAdminCred() mcclient.TokenCredential {
+func GetDefaultAdminSSimpleToken() *mcclient.SSimpleToken {
+	return getDefaultAdminCred()
+}
+
+func getDefaultAdminCred() *mcclient.SSimpleToken {
 	token := mcclient.SSimpleToken{}
 	usr, _ := UserManager.FetchUserExtended("", api.SystemAdminUser, api.DEFAULT_DOMAIN_ID, "")
 	token.UserId = usr.Id
@@ -72,5 +76,5 @@ func getDefaultAdminCred() mcclient.TokenCredential {
 }
 
 func GetDefaultClientSession(ctx context.Context, token mcclient.TokenCredential, region, apiVersion string) *mcclient.ClientSession {
-	return getDefaultClient().NewSession(ctx, region, "", "", token, apiVersion)
+	return GetDefaultClient().NewSession(ctx, region, "", "", token, apiVersion)
 }

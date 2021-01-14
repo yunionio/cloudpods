@@ -1167,3 +1167,27 @@ func (user *SUser) PerformUnlinkIdp(
 	}
 	return nil, nil
 }
+
+func GetUserLangForKeyStone(uids []string) (map[string]string, error) {
+	simpleUsers := make([]struct {
+		Id   string
+		Lang string
+	}, 0, len(uids))
+	q := UserManager.Query()
+	if len(uids) == 0 {
+		return nil, nil
+	} else if len(uids) == 1 {
+		q = q.Equals("id", uids[0])
+	} else {
+		q = q.In("id", uids)
+	}
+	err := q.All(&simpleUsers)
+	if err != nil {
+		return nil, err
+	}
+	ret := make(map[string]string, len(simpleUsers))
+	for i := range simpleUsers {
+		ret[simpleUsers[i].Id] = simpleUsers[i].Lang
+	}
+	return ret, nil
+}

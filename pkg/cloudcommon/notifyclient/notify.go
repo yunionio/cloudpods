@@ -53,8 +53,42 @@ var (
 	notifyAdminUsers  []string
 	notifyAdminGroups []string
 
-	notifyclientI18nTable = i18n.Table{}
+	notifyclientI18nTable                        = i18n.Table{}
+	AdminSessionGenerator SAdminSessionGenerator = getAdminSesion
+	UserLangFetcher       SUserLangFetcher       = getUserLang
 )
+
+type SAdminSessionGenerator func(ctx context.Context, region string, apiVersion string) (*mcclient.ClientSession, error)
+type SUserLangFetcher func(uids []string) (map[string]string, error)
+
+func getAdminSesion(ctx context.Context, region string, apiVersion string) (*mcclient.ClientSession, error) {
+	return auth.GetAdminSession(ctx, region, apiVersion), nil
+}
+
+func getUserLang(uids []string) (map[string]string, error) {
+	s, err := AdminSessionGenerator(context.Background(), consts.GetRegion(), "")
+	if err != nil {
+		return nil, err
+	}
+	uidLang := make(map[string]string)
+	if len(uids) > 0 {
+		params := jsonutils.NewDict()
+		params.Set("filter", jsonutils.NewString(fmt.Sprintf("id.in(%s)", strings.Join(uids, ","))))
+		params.Set("details", jsonutils.JSONFalse)
+		params.Set("scope", jsonutils.NewString("system"))
+		params.Set("system", jsonutils.JSONTrue)
+		ret, err := modules.UsersV3.List(s, params)
+		if err != nil {
+			return nil, err
+		}
+		for i := range ret.Data {
+			id, _ := ret.Data[i].GetString("id")
+			langStr, _ := ret.Data[i].GetString("lang")
+			uidLang[id] = langStr
+		}
+	}
+	return uidLang, nil
+}
 
 const (
 	SUFFIX = "suffix"
@@ -149,6 +183,37 @@ func Notify(recipientId []string, isGroup bool, priority npk.TNotifyPriority, ev
 	notify(context.Background(), recipientId, isGroup, priority, event, data)
 }
 
+func NotifyWithTag(ctx context.Context, params SNotifyParams) {
+	p := sNotifyParams{
+		recipientId:               params.RecipientId,
+		isGroup:                   params.IsGroup,
+		event:                     params.Event,
+		data:                      params.Data,
+		priority:                  params.Priority,
+		tag:                       params.Tag,
+		metadata:                  params.Metadata,
+		ignoreNonexistentReceiver: params.IgnoreNonexistentReceiver,
+	}
+	notifyWithChannel(ctx, p,
+		npk.NotifyByEmail,
+		npk.NotifyByDingTalk,
+		npk.NotifyByFeishu,
+		npk.NotifyByWorkwx,
+		npk.NotifyByWebConsole,
+	)
+}
+
+type SNotifyParams struct {
+	RecipientId               []string
+	IsGroup                   bool
+	Priority                  npk.TNotifyPriority
+	Event                     string
+	Data                      jsonutils.JSONObject
+	Tag                       string
+	Metadata                  map[string]interface{}
+	IgnoreNonexistentReceiver bool
+}
+
 func NotifyWithContact(ctx context.Context, contacts []string, channel npk.TNotifyChannel, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
 	p := sNotifyParams{
 		contacts: contacts,
@@ -217,7 +282,6 @@ type sTarget struct {
 
 func lang(ctx context.Context, contactType npk.TNotifyChannel, reIds []string, contacts []string) (map[language.Tag]*sTarget, error) {
 	contextLang := i18n.Lang(ctx)
-	s := auth.GetAdminSession(context.Background(), consts.GetRegion(), "")
 	langMap := make(map[language.Tag]*sTarget)
 	insertReid := func(lang language.Tag, id string) {
 		t := langMap[lang]
@@ -241,22 +305,9 @@ func lang(ctx context.Context, contactType npk.TNotifyChannel, reIds []string, c
 		uids = append(uids, contacts...)
 	}
 
-	uidLang := make(map[string]string)
-	if len(uids) > 0 {
-		params := jsonutils.NewDict()
-		params.Set("filter", jsonutils.NewString(fmt.Sprintf("id.in(%s)", strings.Join(uids, ","))))
-		params.Set("details", jsonutils.JSONFalse)
-		params.Set("scope", jsonutils.NewString("system"))
-		params.Set("system", jsonutils.JSONTrue)
-		ret, err := modules.UsersV3.List(s, params)
-		if err != nil {
-			return nil, err
-		}
-		for i := range ret.Data {
-			id, _ := ret.Data[i].GetString("id")
-			langStr, _ := ret.Data[i].GetString("lang")
-			uidLang[id] = langStr
-		}
+	uidLang, err := UserLangFetcher(uids)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to feth UserLang")
 	}
 	insert := func(id string, insertFunc func(language.Tag, string)) {
 		langStr := uidLang[id]
@@ -289,7 +340,10 @@ func lang(ctx context.Context, contactType npk.TNotifyChannel, reIds []string, c
 
 func genMsgViaLang(ctx context.Context, p sNotifyParams) ([]npk.SNotifyMessage, error) {
 	reIds := make([]string, 0)
-	s := auth.GetAdminSession(context.Background(), consts.GetRegion(), "")
+	s, err := AdminSessionGenerator(context.Background(), consts.GetRegion(), "")
+	if err != nil {
+		return nil, err
+	}
 	if p.isGroup {
 		// fetch uid
 		uidSet := sets.NewString()
@@ -333,6 +387,9 @@ func genMsgViaLang(ctx context.Context, p sNotifyParams) ([]npk.SNotifyMessage, 
 			body, _ = p.data.GetString()
 		}
 		msg.Msg = body
+		msg.Tag = p.tag
+		msg.Metadata = p.metadata
+		msg.IgnoreNonexistentReceiver = p.ignoreNonexistentReceiver
 		msgs = append(msgs, msg)
 	}
 	return msgs, nil
@@ -346,8 +403,12 @@ func intelliNotify(ctx context.Context, p sNotifyParams) {
 	}
 	for i := range msgs {
 		msg := msgs[i]
+		log.Infof("msg: %s", jsonutils.Marshal(msg))
 		notifyClientWorkerMan.Run(func() {
-			s := auth.GetAdminSession(context.Background(), consts.GetRegion(), "")
+			s, err := AdminSessionGenerator(context.Background(), consts.GetRegion(), "")
+			if err != nil {
+				log.Errorf("fail to get session: %v", err)
+			}
 			for {
 				err := npk.Notifications.Send(s, msg)
 				if err == nil {
@@ -388,14 +449,17 @@ func intelliNotify(ctx context.Context, p sNotifyParams) {
 }
 
 type sNotifyParams struct {
-	recipientId    []string
-	isGroup        bool
-	contacts       []string
-	channel        npk.TNotifyChannel
-	priority       npk.TNotifyPriority
-	event          string
-	data           jsonutils.JSONObject
-	createReceiver bool
+	recipientId               []string
+	isGroup                   bool
+	contacts                  []string
+	channel                   npk.TNotifyChannel
+	priority                  npk.TNotifyPriority
+	event                     string
+	data                      jsonutils.JSONObject
+	createReceiver            bool
+	tag                       string
+	metadata                  map[string]interface{}
+	ignoreNonexistentReceiver bool
 }
 
 func rawNotify(ctx context.Context, p sNotifyParams) {
@@ -516,7 +580,10 @@ func NotifyRobotWithCtx(ctx context.Context, recipientId []string, isGroup bool,
 }
 
 func notifyRobot(ctx context.Context, robot string, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
-	s := auth.GetAdminSession(ctx, consts.GetRegion(), "")
+	s, err := AdminSessionGenerator(ctx, consts.GetRegion(), "")
+	if err != nil {
+		return err
+	}
 	params := jsonutils.NewDict()
 	params.Set("robot", jsonutils.NewString(robot))
 	result, err := modules.NotifyConfig.PerformClassAction(s, "get-types", params)
@@ -656,7 +723,10 @@ func getIdentityId(s *mcclient.ClientSession, idName string, manager modulebase.
 }
 
 func FetchNotifyAdminRecipients(ctx context.Context, region string, users []string, groups []string) {
-	s := auth.GetAdminSession(ctx, region, "v1")
+	s, err := AdminSessionGenerator(ctx, region, "v1")
+	if err != nil {
+		log.Errorf("unable to get admin session: %v", err)
+	}
 
 	notifyAdminUsers = make([]string, 0)
 	for _, u := range users {

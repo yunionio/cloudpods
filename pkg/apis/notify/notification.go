@@ -46,6 +46,12 @@ type NotificationCreateInput struct {
 	// description: message content or jsonobject
 	// required: ture
 	Message string `json:"message"`
+	// description: notification tag
+	// required: false
+	// example: alert
+	Tag                       string                 `json:"tag"`
+	Metadata                  map[string]interface{} `json:"metadata"`
+	IgnoreNonexistentReceiver bool                   `json:"ignore_nonexistent_receiver"`
 }
 
 type ReceiveDetail struct {
@@ -73,4 +79,5 @@ type NotificationListInput struct {
 
 	ContactType string
 	ReceiverId  string
+	Tag         string
 }
