@@ -51,7 +51,7 @@ func (d *SAWSCNSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCre
 		return data, httperrors.NewResourceNotReadyError("SAMLProvider for account %s not ready", account.Id)
 	}
 
-	role, err := account.SyncRole(userCred.GetUserId())
+	roles, err := account.SyncRoles(userCred.GetUserId(), true)
 	if err != nil {
 		return data, httperrors.NewGeneralError(errors.Wrapf(err, "SyncRole"))
 	}
@@ -67,7 +67,7 @@ func (d *SAWSCNSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCre
 		{
 			name:         "https://aws.amazon.com/SAML/Attributes/Role",
 			friendlyName: "RoleEntitlement",
-			value:        fmt.Sprintf("%s,%s", role.ExternalId, SAMLProvider.ExternalId),
+			value:        fmt.Sprintf("%s,%s", roles[0].ExternalId, SAMLProvider.ExternalId),
 		},
 		{
 			name:         "https://aws.amazon.com/SAML/Attributes/RoleSessionName",
