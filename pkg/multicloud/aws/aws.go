@@ -54,6 +54,8 @@ const (
 
 	AWS_GLOBAL_ARN_PREFIX = "arn:aws:iam::aws:policy/"
 	AWS_CHINA_ARN_PREFIX  = "arn:aws-cn:iam::aws:policy/"
+
+	DEFAULT_S3_REGION_ID = "us-east-1"
 )
 
 var (
@@ -313,6 +315,11 @@ func (client *SAwsClient) fetchBuckets() error {
 		}
 
 		location := *output.LocationConstraint
+		if len(location) == 0 {
+			// https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketLocation.html
+			// Buckets in Region us-east-1 have a LocationConstraint of null.
+			location = DEFAULT_S3_REGION_ID
+		}
 		region, err := client.getIRegionByRegionId(location)
 		if err != nil {
 			log.Errorf("client.getIRegionByRegionId %s fail %s", location, err)
