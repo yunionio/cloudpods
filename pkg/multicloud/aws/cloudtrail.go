@@ -22,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudtrail"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -158,9 +159,19 @@ func (self *SAwsClient) LookupEvents(start, end time.Time) ([]SEvent, error) {
 }
 
 func (self *SRegion) GetICloudEvents(start time.Time, end time.Time, withReadEvent bool) ([]cloudprovider.ICloudEvent, error) {
-	events, err := self.client.LookupEvents(start, end)
-	if err != nil {
-		return nil, errors.Wrapf(err, "LookupEvents(%s, %s)", start, end)
+	var events []SEvent
+	var err error
+	for {
+		events, err = self.client.LookupEvents(start, end)
+		if err != nil {
+			if strings.Contains(err.Error(), "ThrottlingException") {
+				log.Warningf("LookupEvents ThrottlingException, try after 3 seconds")
+				time.Sleep(time.Second * 3)
+				continue
+			}
+			return nil, errors.Wrapf(err, "LookupEvents(%s, %s)", start, end)
+		}
+		break
 	}
 	ret := []cloudprovider.ICloudEvent{}
 	for i := range events {
