@@ -70,6 +70,8 @@ type VpcListInput struct {
 	// CIDR地址段
 	// example: 192.168.222.0/24
 	CidrBlock []string `json:"cidr_block"`
+
+	OrderByNetworkCount string `json:"order_by_network_count"`
 }
 
 const (
