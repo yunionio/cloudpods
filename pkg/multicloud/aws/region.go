@@ -990,8 +990,11 @@ func (region *SRegion) CreateIBucket(name string, storageClassStr string, acl st
 	}
 	input := &s3.CreateBucketInput{}
 	input.SetBucket(name)
-	input.CreateBucketConfiguration = &s3.CreateBucketConfiguration{}
-	input.CreateBucketConfiguration.SetLocationConstraint(region.GetId())
+	if region.GetId() != DEFAULT_S3_REGION_ID {
+		location := region.GetId()
+		input.CreateBucketConfiguration = &s3.CreateBucketConfiguration{}
+		input.CreateBucketConfiguration.SetLocationConstraint(location)
+	}
 	_, err = s3cli.CreateBucket(input)
 	if err != nil {
 		return errors.Wrap(err, "CreateBucket")
