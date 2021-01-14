@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -56,6 +57,8 @@ var (
 	notifyclientI18nTable                        = i18n.Table{}
 	AdminSessionGenerator SAdminSessionGenerator = getAdminSesion
 	UserLangFetcher       SUserLangFetcher       = getUserLang
+	topicWithTemplateSet                         = &sync.Map{}
+	checkTemplates        bool
 )
 
 type SAdminSessionGenerator func(ctx context.Context, region string, apiVersion string) (*mcclient.ClientSession, error)
@@ -100,6 +103,29 @@ func init() {
 	templatesTable = make(map[string]*template.Template)
 
 	notifyclientI18nTable.Set(SUFFIX, i18n.NewTableEntry().EN("en").CN("cn"))
+}
+
+func hasTemplateOfTopic(topic string) bool {
+	if checkTemplates {
+		_, ok := topicWithTemplateSet.Load(topic)
+		return ok
+	}
+	path := filepath.Join(consts.NotifyTemplateDir, consts.GetServiceType(), "content@cn")
+	fileInfoList, err := ioutil.ReadDir(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			checkTemplates = true
+			return false
+		}
+		log.Errorf("unable to read dir %s", path)
+		return false
+	}
+	for i := range fileInfoList {
+		topicWithTemplateSet.Store(fileInfoList[i].Name(), nil)
+	}
+	checkTemplates = true
+	_, ok := topicWithTemplateSet.Load(topic)
+	return ok
 }
 
 func getTemplateString(suffix string, topic string, contType string, channel npk.TNotifyChannel) ([]byte, error) {
@@ -364,6 +390,20 @@ func genMsgViaLang(ctx context.Context, p sNotifyParams) ([]npk.SNotifyMessage, 
 		reIds = p.recipientId
 	}
 
+	if !hasTemplateOfTopic(p.event) {
+		msg := npk.SNotifyMessage{}
+		msg.Uid = reIds
+		msg.Priority = p.priority
+		msg.Contacts = p.contacts
+		msg.ContactType = p.channel
+		msg.Topic = p.event
+		msg.Msg = p.data.String()
+		msg.Tag = p.tag
+		msg.Metadata = p.metadata
+		msg.IgnoreNonexistentReceiver = p.ignoreNonexistentReceiver
+		return []npk.SNotifyMessage{msg}, nil
+	}
+
 	langMap, err := lang(ctx, p.channel, reIds, p.contacts)
 	if err != nil {
 		return nil, err
@@ -403,7 +443,6 @@ func intelliNotify(ctx context.Context, p sNotifyParams) {
 	}
 	for i := range msgs {
 		msg := msgs[i]
-		log.Infof("msg: %s", jsonutils.Marshal(msg))
 		notifyClientWorkerMan.Run(func() {
 			s, err := AdminSessionGenerator(context.Background(), consts.GetRegion(), "")
 			if err != nil {
