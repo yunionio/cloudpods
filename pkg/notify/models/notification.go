@@ -201,7 +201,7 @@ func (nm *SNotificationManager) FetchCustomizeColumns(
 
 	var err error
 	for i := range rows {
-		rows[i], err = objs[i].(*SNotification).getMoreDetails(ctx, query, rows[i])
+		rows[i], err = objs[i].(*SNotification).getMoreDetails(ctx, userCred, query, rows[i])
 		if err != nil {
 			log.Errorf("Notification.getMoreDetails: %v", err)
 		}
@@ -233,11 +233,25 @@ func (n *SNotification) ReceiverNotificationsNotOK() ([]SReceiverNotification, e
 	return rns, nil
 }
 
-func (n *SNotification) ReceiveDetails() ([]api.ReceiveDetail, error) {
-	subRQ := ReceiverManager.Query("id", "name").SubQuery()
+func (n *SNotification) ReceiveDetails(userCred mcclient.TokenCredential, scope string) ([]api.ReceiveDetail, error) {
+	RQ := ReceiverManager.Query("id", "name")
 	q := ReceiverNotificationManager.Query("receiver_id", "notification_id", "contact", "send_at", "send_by", "status", "failed_reason").Equals("notification_id", n.Id)
-	q.AppendField(subRQ.Field("name", "receiver_name"))
-	q = q.LeftJoin(subRQ, sqlchemy.OR(sqlchemy.Equals(q.Field("receiver_id"), subRQ.Field("id")), sqlchemy.Equals(q.Field("contact"), subRQ.Field("id"))))
+	s := rbacutils.TRbacScope(scope)
+
+	switch s {
+	case rbacutils.ScopeSystem:
+		subRQ := RQ.SubQuery()
+		q.AppendField(subRQ.Field("name", "receiver_name"))
+		q = q.LeftJoin(subRQ, sqlchemy.OR(sqlchemy.Equals(q.Field("receiver_id"), subRQ.Field("id")), sqlchemy.Equals(q.Field("contact"), subRQ.Field("id"))))
+	case rbacutils.ScopeDomain:
+		subRQ := RQ.Equals("domain_id", userCred.GetDomainId()).SubQuery()
+		q.AppendField(subRQ.Field("name", "receiver_name"))
+		q = q.Join(subRQ, sqlchemy.OR(sqlchemy.Equals(q.Field("receiver_id"), subRQ.Field("id")), sqlchemy.Equals(q.Field("contact"), subRQ.Field("id"))))
+	default:
+		subRQ := RQ.Equals("id", userCred.GetUserId()).SubQuery()
+		q.AppendField(subRQ.Field("name", "receiver_name"))
+		q = q.Join(subRQ, sqlchemy.OR(sqlchemy.Equals(q.Field("receiver_id"), subRQ.Field("id")), sqlchemy.Equals(q.Field("contact"), subRQ.Field("id"))))
+	}
 	ret := make([]api.ReceiveDetail, 0, 2)
 	err := q.All(&ret)
 	if err != nil && errors.Cause(err) != sql.ErrNoRows {
@@ -247,7 +261,7 @@ func (n *SNotification) ReceiveDetails() ([]api.ReceiveDetail, error) {
 	return ret, nil
 }
 
-func (n *SNotification) getMoreDetails(ctx context.Context, query jsonutils.JSONObject, out api.NotificationDetails) (api.NotificationDetails, error) {
+func (n *SNotification) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, out api.NotificationDetails) (api.NotificationDetails, error) {
 	// get title adn content
 	p, err := TemplateManager.NotifyFilter(n.ContactType, n.Topic, n.Message, getTemplateLangFromCtx(ctx))
 	if err != nil {
@@ -255,8 +269,10 @@ func (n *SNotification) getMoreDetails(ctx context.Context, query jsonutils.JSON
 	}
 	out.Title = p.Title
 	out.Content = p.Message
+
+	scope, _ := query.GetString("scope")
 	// get receive details
-	out.ReceiveDetails, err = n.ReceiveDetails()
+	out.ReceiveDetails, err = n.ReceiveDetails(userCred, scope)
 	if err != nil {
 		return out, err
 	}
