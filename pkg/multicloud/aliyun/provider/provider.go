@@ -478,6 +478,14 @@ func (self *SAliyunProvider) CreateICloudrole(opts *cloudprovider.SRoleCreateOpt
 	return role, nil
 }
 
+func (self *SAliyunProvider) GetICloudroleByName(name string) (cloudprovider.ICloudrole, error) {
+	role, err := self.client.GetRole(name)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRole(%s)", name)
+	}
+	return role, nil
+}
+
 func (self *SAliyunProvider) GetICloudSAMLProviders() ([]cloudprovider.ICloudSAMLProvider, error) {
 	return self.client.GetICloudSAMLProviders()
 }
