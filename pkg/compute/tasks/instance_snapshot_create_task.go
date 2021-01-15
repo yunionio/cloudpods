@@ -76,6 +76,10 @@ func (self *InstanceSnapshotCreateTask) taskComplete(
 
 	db.OpsLog.LogEvent(isp, db.ACT_ALLOCATE, "instance snapshot create success", self.UserCred)
 	logclient.AddActionLogWithStartable(self, isp, logclient.ACT_CREATE, "", self.UserCred, true)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    isp,
+		Action: notifyclient.ActionCreate,
+	})
 	self.SetStageComplete(ctx, nil)
 }
 

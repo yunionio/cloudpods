@@ -2321,6 +2321,7 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 			disk.CleanOverdueSnapshots(ctx, userCred, snapshotPolicy, now)
 		}
 		db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SNAPSHOT, "disk auto snapshot "+snapshotName, userCred)
+		snapshotPolicy.ExecuteNotify(ctx, userCred, disk.GetName())
 		continue
 	onFail:
 		db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SNAPSHOT_FAIL, err.Error(), userCred)
