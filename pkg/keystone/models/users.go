@@ -735,6 +735,19 @@ func (user *SUser) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 		}
 		logclient.AddActionLogWithContext(ctx, user, logclient.ACT_UPDATE_PASSWORD, nil, userCred, true)
 	}
+	if enabled, _ := data.Bool("enabled"); enabled {
+		localUser, err := LocalUserManager.fetchLocalUser(user.Id, user.DomainId, 0)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return
+			}
+			log.Errorf("unable to fetch localUser of user %q in domain %q: %v", user.Id, user.DomainId, err)
+			return
+		}
+		if err = localUser.ClearFailedAuth(); err != nil {
+			log.Errorf("unable to clear failed auth: %v", err)
+		}
+	}
 }
 
 func (user *SUser) ValidateDeleteCondition(ctx context.Context) error {

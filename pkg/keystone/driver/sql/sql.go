@@ -82,7 +82,25 @@ func (sql *SSQLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthent
 }
 
 func (sql *SSQLDriver) alertNotify(ctx context.Context, uext *api.SUserExtended, triggerTime time.Time) {
-	// get all users
+	// users
+	data := jsonutils.NewDict()
+	data.Set("user", jsonutils.NewString(uext.Name))
+	data.Set("domain", jsonutils.NewString(uext.DomainName))
+	metadata := map[string]interface{}{
+		"trigger_time": triggerTime,
+	}
+	p := notifyclient.SNotifyParams{
+		RecipientId:               []string{uext.Id},
+		Priority:                  notify.NotifyPriorityCritical,
+		Event:                     notifyclient.USER_LOGIN_EXCEPTION,
+		Data:                      data,
+		Tag:                       noapi.NOTIFICATION_TAG_ALERT,
+		Metadata:                  metadata,
+		IgnoreNonexistentReceiver: true,
+	}
+	notifyclient.NotifyWithTag(ctx, p)
+
+	// admin user
 	daUserIds, err := getDomainAdminUserIds(uext.DomainName)
 	if err != nil {
 		log.Errorf("unable to get user with role domainadmin in domain %s: %v", uext.DomainName, err)
@@ -94,23 +112,9 @@ func (sql *SSQLDriver) alertNotify(ctx context.Context, uext *api.SUserExtended,
 	userSet := sets.NewString(daUserIds...)
 	userSet.Insert(aUserIds...)
 	userSet.Insert(uext.Id)
-
-	data := jsonutils.NewDict()
-	data.Set("user", jsonutils.NewString(uext.Name))
-	data.Set("domain", jsonutils.NewString(uext.DomainName))
-	metadata := map[string]interface{}{
-		"trigger_time": triggerTime,
-	}
-	// user
-	p := notifyclient.SNotifyParams{
-		RecipientId:               userSet.UnsortedList(),
-		Priority:                  notify.NotifyPriorityCritical,
-		Event:                     notifyclient.USER_LOGIN_EXCEPTION,
-		Data:                      data,
-		Tag:                       noapi.NOTIFICATION_TAG_ALERT,
-		Metadata:                  metadata,
-		IgnoreNonexistentReceiver: true,
-	}
+	data.Set("admin", jsonutils.JSONTrue)
+	p.RecipientId = userSet.UnsortedList()
+	p.Data = data
 	notifyclient.NotifyWithTag(ctx, p)
 }
 
