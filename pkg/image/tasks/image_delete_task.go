@@ -62,9 +62,9 @@ func (self *ImageDeleteTask) startPendingDeleteImage(ctx context.Context, image 
 }
 
 func (self *ImageDeleteTask) startDeleteImage(ctx context.Context, image *models.SImage) {
-	err := image.RemoveFiles()
+	err := image.Remove()
 	if err != nil {
-		msg := fmt.Sprintf("fail to remove %s %s", image.GetPath(""), err)
+		msg := fmt.Sprintf("fail to remove %s %s", image.Name, err)
 		log.Errorf(msg)
 		self.SetStageFailed(ctx, jsonutils.NewString(msg))
 		return
