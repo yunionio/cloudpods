@@ -1,0 +1,2 @@
+{{- $d := .resource_details -}}
+{{ .advance_days }} days notice before {{ .resource_type }} {{ $d.name }} {{ if $d.project -}} in project {{ $d.project }} {{ end -}} expiration
