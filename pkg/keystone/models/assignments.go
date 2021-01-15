@@ -458,7 +458,7 @@ func roleAssignmentHandler(ctx context.Context, w http.ResponseWriter, r *http.R
 		input.Role.Id,
 		input.Scope.Domain.Id,
 		input.Scope.Project.Id,
-		"",
+		input.ProjectDomainId,
 		input.Users,
 		input.Groups,
 		input.Roles,
