@@ -69,4 +69,32 @@ const (
 
 	CTYPE_ROBOT_YES  = "yes"
 	CTYPE_ROBOT_ONLY = "only"
+
+	SUBSCRIPTION_RESOURCE_CREATE_DELETE      = "resource create delete"
+	SUBSCRIPTION_RESOURCE_CHANGECONFIG       = "resource change config"
+	SUBSCRIPTION_RESOURCE_UPDATE             = "resource udpate"
+	SUBSCRIPTION_RESOURCE_EXPIRED_RELEASE    = "resource expired release"
+	SUBSCRIPTION_AUTOMATED_PROCESS_EXECUTION = "automated process execution"
+
+	SUBSCRIPTION_TYPE_RESOURCE          = "resource"
+	SUBSCRIPTION_TYPE_AUTOMATED_PROCESS = "automated_process"
+
+	SUBSCRIPTION_RESOURCE_SERVER                  = "server"
+	SUBSCRIPTION_RESOURCE_SCALINGGROUP            = "scalinggroup"
+	SUBSCRIPTION_RESOURCE_SCALINGPOLICY           = "scalingpolicy"
+	SUBSCRIPTION_RESOURCE_IMAGE                   = "image"
+	SUBSCRIPTION_RESOURCE_DISK                    = "disk"
+	SUBSCRIPTION_RESOURCE_SNAPSHOT                = "snapshot"
+	SUBSCRIPTION_RESOURCE_INSTANCESNAPSHOT        = "instance_snapshot"
+	SUBSCRIPTION_RESOURCE_SNAPSHOTPOLICY          = "snapshotpolicy"
+	SUBSCRIPTION_RESOURCE_NETWORK                 = "network"
+	SUBSCRIPTION_RESOURCE_EIP                     = "eip"
+	SUBSCRIPTION_RESOURCE_SECGROUP                = "secgroup"
+	SUBSCRIPTION_RESOURCE_LOADBALANCER            = "loadbalancer"
+	SUBSCRIPTION_RESOURCE_LOADBALANCERACL         = "loadbalanceracl"
+	SUBSCRIPTION_RESOURCE_LOADBALANCERCERTIFICATE = "loadbalancercertificate"
+	SUBSCRIPTION_RESOURCE_BUCKET                  = "bucket"
+	SUBSCRIPTION_RESOURCE_DBINSTANCE              = "dbinstance"
+	SUBSCRIPTION_RESOURCE_ELASTICCACHE            = "elasticcache"
+	SUBSCRIPTION_RESOURCE_SCHEDULEDTASK           = "scheduledtask"
 )

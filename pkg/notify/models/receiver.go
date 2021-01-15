@@ -988,6 +988,7 @@ func (rm *SReceiverManager) OnAdd(obj *jsonutils.JSONDict) {
 
 func (rm *SReceiverManager) OnUpdate(oldObj, newObj *jsonutils.JSONDict) {
 	userId, _ := newObj.GetString("id")
+	log.Infof("receiver delete event for user %q", userId)
 	receivers, err := rm.FetchByIDs(context.Background(), userId)
 	if err != nil {
 		log.Errorf("fail to FetchByIDs: %v", err)
@@ -1016,6 +1017,7 @@ func (rm *SReceiverManager) OnUpdate(oldObj, newObj *jsonutils.JSONDict) {
 
 func (rm *SReceiverManager) OnDelete(obj *jsonutils.JSONDict) {
 	userId, _ := obj.GetString("id")
+	log.Infof("receiver delete event for user %q", userId)
 	receivers, err := rm.FetchByIDs(context.Background(), userId)
 	if err != nil {
 		log.Errorf("fail to FetchByIDs: %v", err)
