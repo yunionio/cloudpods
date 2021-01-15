@@ -383,6 +383,10 @@ func (manager *SCloudaccountManager) SyncCloudaccounts(ctx context.Context, user
 }
 
 func (self *SCloudaccount) StartSyncSamlProvidersTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	if self.SAMLAuth.IsFalse() {
+		log.Debugf("cloudaccount %s(%s) not enable saml auth, skip sycing saml provider", self.Name, self.Provider)
+		return nil
+	}
 	params := jsonutils.NewDict()
 	task, err := taskman.TaskManager.NewTask(ctx, "SyncSAMLProvidersTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
@@ -1635,9 +1639,14 @@ func (self *SCloudaccount) SyncSystemCloudpoliciesForCloud(ctx context.Context, 
 	return nil
 }
 
-func (self *SCloudaccount) GetLocalUserCloudroles(userId, spId string) ([]SCloudrole, error) {
+func (self *SCloudaccount) GetLocalCloudroles(userId, groupId string, spId string, grouped bool) ([]SCloudrole, error) {
 	roles := []SCloudrole{}
-	q := CloudroleManager.Query().Equals("cloudaccount_id", self.Id).Equals("owner_id", userId).Equals("saml_provider_id", spId)
+	q := CloudroleManager.Query().Equals("cloudaccount_id", self.Id).Equals("saml_provider_id", spId)
+	if grouped {
+		q = q.Equals("cloudgroup_id", groupId)
+	} else {
+		q = q.Equals("owner_id", userId)
+	}
 	err := db.FetchModelObjects(CloudroleManager, q, &roles)
 	if err != nil {
 		return nil, errors.Wrapf(err, "db.FetchModelObjects")
@@ -1645,55 +1654,90 @@ func (self *SCloudaccount) GetLocalUserCloudroles(userId, spId string) ([]SCloud
 	return roles, nil
 }
 
-func (self *SCloudaccount) RegisterCloudrole(userId, spId string) (*SCloudrole, error) {
-	roles, err := self.GetLocalUserCloudroles(userId, spId)
+func (self *SCloudaccount) RegisterCloudroles(userId string, grouped bool, spId string) ([]SCloudrole, error) {
+	samlUsers, err := self.GetSamlusers()
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetLocalUserCloudroles")
+		return nil, errors.Wrapf(err, "GetSamlusers")
 	}
-	if len(roles) > 0 {
-		return &roles[0], nil
+	ret := []SCloudrole{}
+	roleIds := []string{}
+	for i := range samlUsers {
+		if samlUsers[i].OwnerId == userId {
+			roles, err := self.GetLocalCloudroles(userId, samlUsers[i].CloudgroupId, spId, grouped)
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetLocalUserCloudroles")
+			}
+			for i := range roles {
+				if !utils.IsInStringArray(roles[i].Id, roleIds) {
+					ret = append(ret, roles[i])
+					break
+				}
+			}
+			if len(roles) == 0 {
+				role := SCloudrole{}
+				role.SetModelManager(CloudroleManager, &role)
+				role.CloudaccountId = self.Id
+				role.SAMLProviderId = spId
+				if grouped {
+					group, err := CloudgroupManager.FetchById(samlUsers[i].CloudgroupId)
+					if err != nil {
+						return nil, errors.Wrapf(err, "CloudgroupManager.FetchById(%s)", samlUsers[i].CloudgroupId)
+					}
+					role.Name = stringutils2.GenerateRoleName(group.GetName())
+					role.CloudgroupId = group.GetId()
+				} else {
+					user, err := db.UserCacheManager.FetchById(userId)
+					if err != nil {
+						return nil, errors.Wrapf(err, "UserCacheManager.FetchById(%s)", userId)
+					}
+					role.Name = stringutils2.GenerateRoleName(user.GetName())
+					role.OwnerId = userId
+				}
+				role.Status = api.CLOUD_ROLE_STATUS_CREATING
+				role.DomainId = self.DomainId
+				err = CloudroleManager.TableSpec().Insert(context.TODO(), &role)
+				if err != nil {
+					return nil, errors.Wrapf(err, "Insert role")
+				}
+				ret = append(ret, role)
+			}
+		}
 	}
-	user, err := db.UserCacheManager.FetchById(userId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "UserCacheManager.FetchById(%s)", userId)
-	}
-	role := &SCloudrole{}
-	role.SetModelManager(CloudroleManager, role)
-	role.CloudaccountId = self.Id
-	role.OwnerId = userId
-	role.SAMLProviderId = spId
-	role.Name = stringutils2.GenerateRoleName(user.GetName())
-	role.Status = api.CLOUD_ROLE_STATUS_CREATING
-	role.DomainId = self.DomainId
-	return role, CloudroleManager.TableSpec().Insert(context.TODO(), role)
+	return ret, nil
 }
 
-func (self *SCloudaccount) GetCloudrole(userId string) (*SCloudrole, error) {
+func (self *SCloudaccount) getCloudrolesForSync(userId string, grouped bool) ([]SCloudrole, error) {
 	sp, valid := self.IsSAMLProviderValid()
 	if !valid {
 		return nil, fmt.Errorf("SAMLProvider for account %s not ready", self.Id)
 	}
 
-	return self.RegisterCloudrole(userId, sp.Id)
+	return self.RegisterCloudroles(userId, grouped, sp.Id)
 }
 
-func (self *SCloudaccount) SyncRole(userId string) (*SCloudrole, error) {
-	role, err := self.GetCloudrole(userId)
+func (self *SCloudaccount) SyncRoles(userId string, grouped bool) ([]SCloudrole, error) {
+	roles, err := self.getCloudrolesForSync(userId, grouped)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetCloudrole")
 	}
 
-	err = role.SyncRoles()
-	if err != nil {
-		return nil, errors.Wrapf(err, "SyncRoles")
+	for i := range roles {
+		err = roles[i].SyncRoles()
+		if err != nil {
+			return nil, errors.Wrapf(err, "SyncRoles")
+		}
 	}
 
-	return role, nil
+	if len(roles) == 0 {
+		return nil, fmt.Errorf("not found any available roles")
+	}
+
+	return roles, nil
 }
 
 func (self *SCloudaccount) GetCloudroles() ([]SCloudrole, error) {
 	roles := []SCloudrole{}
-	q := CloudroleManager.Query()
+	q := CloudroleManager.Query().Equals("cloudaccount_id", self.Id)
 	err := db.FetchModelObjects(CloudroleManager, q, &roles)
 	if err != nil {
 		return nil, errors.Wrapf(err, "db.FetchModelObjects")

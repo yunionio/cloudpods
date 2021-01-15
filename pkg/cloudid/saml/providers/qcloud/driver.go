@@ -52,14 +52,14 @@ func (d *SQcloudSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCr
 		return data, httperrors.NewResourceNotReadyError("SAMLProvider for account %s not ready", account.Id)
 	}
 
-	role, err := account.SyncRole(userCred.GetUserId())
+	roles, err := account.SyncRoles(userCred.GetUserId(), true)
 	if err != nil {
 		return data, httperrors.NewGeneralError(errors.Wrapf(err, "SyncRole"))
 	}
 
-	roleStr := fmt.Sprintf("qcs::cam::uin/%s:roleName/%s,qcs::cam::uin/%s:saml-provider/%s", account.AccountId, role.ExternalId, account.AccountId, SAMLProvider.ExternalId)
+	roleStr := fmt.Sprintf("qcs::cam::uin/%s:roleName/%s,qcs::cam::uin/%s:saml-provider/%s", account.AccountId, roles[0].ExternalId, account.AccountId, SAMLProvider.ExternalId)
 
-	data.NameId = role.Name
+	data.NameId = roles[0].Name
 	data.NameIdFormat = samlutils.NAME_ID_FORMAT_TRANSIENT
 	data.AudienceRestriction = "https://cloud.tencent.com"
 	for _, v := range []struct {
@@ -75,7 +75,7 @@ func (d *SQcloudSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCr
 		{
 			name:         "https://cloud.tencent.com/SAML/Attributes/RoleSessionName",
 			friendlyName: "RoleSessionName",
-			value:        role.Name,
+			value:        roles[0].Name,
 		},
 	} {
 		data.Attributes = append(data.Attributes, samlutils.SSAMLResponseAttribute{
@@ -94,7 +94,7 @@ func (d *SQcloudSAMLDriver) GetSpInitiatedLoginData(ctx context.Context, userCre
 	_account, err := models.CloudaccountManager.FetchById(cloudAccountId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
-			return data, httperrors.NewResourceNotFoundError("cloudaccount", cloudAccountId)
+			return data, httperrors.NewResourceNotFoundError2("cloudaccount", cloudAccountId)
 		}
 		return data, httperrors.NewGeneralError(err)
 	}
@@ -111,14 +111,14 @@ func (d *SQcloudSAMLDriver) GetSpInitiatedLoginData(ctx context.Context, userCre
 		return data, httperrors.NewResourceNotReadyError("SAMLProvider for account %s not ready", account.Id)
 	}
 
-	role, err := account.SyncRole(userCred.GetUserId())
+	roles, err := account.SyncRoles(userCred.GetUserId(), true)
 	if err != nil {
 		return data, httperrors.NewGeneralError(errors.Wrapf(err, "SyncRole"))
 	}
 
-	roleStr := fmt.Sprintf("qcs::cam::uin/%s:roleName/%s,qcs::cam::uin/%s:saml-provider/%s", account.AccountId, role.ExternalId, account.AccountId, SAMLProvider.ExternalId)
+	roleStr := fmt.Sprintf("qcs::cam::uin/%s:roleName/%s,qcs::cam::uin/%s:saml-provider/%s", account.AccountId, roles[0].ExternalId, account.AccountId, SAMLProvider.ExternalId)
 
-	data.NameId = role.Name
+	data.NameId = roles[0].Name
 	data.NameIdFormat = samlutils.NAME_ID_FORMAT_TRANSIENT
 	data.AudienceRestriction = "https://cloud.tencent.com"
 	for _, v := range []struct {
@@ -134,7 +134,7 @@ func (d *SQcloudSAMLDriver) GetSpInitiatedLoginData(ctx context.Context, userCre
 		{
 			name:         "https://cloud.tencent.com/SAML/Attributes/RoleSessionName",
 			friendlyName: "RoleSessionName",
-			value:        role.Name,
+			value:        roles[0].Name,
 		},
 	} {
 		data.Attributes = append(data.Attributes, samlutils.SSAMLResponseAttribute{
