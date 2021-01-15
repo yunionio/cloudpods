@@ -41,6 +41,7 @@ type SCloudroleManager struct {
 	db.SExternalizedResourceBaseManager
 	SCloudaccountResourceBaseManager
 	SAMLProviderResourceBaseManager
+	SCloudgroupResourceBaseManager
 }
 
 var CloudroleManager *SCloudroleManager
@@ -62,6 +63,7 @@ type SCloudrole struct {
 	db.SExternalizedResourceBase
 	SCloudaccountResourceBase
 	SAMLProviderResourceBase
+	SCloudgroupResourceBase
 
 	Document *jsonutils.JSONDict `length:"long" charset:"ascii" list:"domain" update:"domain" create:"domain_required"`
 	OwnerId  string              `width:"128" charset:"ascii" index:"true" list:"user" nullable:"false" create:"optional"`
@@ -76,6 +78,11 @@ func (manager *SCloudroleManager) ListItemFilter(ctx context.Context, q *sqlchem
 	}
 
 	q, err = manager.SCloudaccountResourceBaseManager.ListItemFilter(ctx, q, userCred, query.CloudaccountResourceListInput)
+	if err != nil {
+		return nil, err
+	}
+
+	q, err = manager.SCloudgroupResourceBaseManager.ListItemFilter(ctx, q, userCred, query.CloudgroupResourceListInput)
 	if err != nil {
 		return nil, err
 	}
@@ -161,10 +168,13 @@ func (self *SCloudrole) GetICloudrole() (cloudprovider.ICloudrole, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetSAMLProvider")
 	}
-	for i := 0; i < 10; i++ {
+	for {
 		_, err := provider.GetICloudroleByName(self.Name)
-		if err != nil && errors.Cause(err) == cloudprovider.ErrNotFound {
-			break
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				break
+			}
+			return nil, errors.Wrapf(err, "GetICloudroleByName(%s)", self.Name)
 		}
 		info := strings.Split(self.Name, "-")
 		num, err := strconv.Atoi(info[len(info)-1])
