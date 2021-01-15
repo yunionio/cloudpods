@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -354,13 +353,5 @@ func (self *GuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGue
 }
 
 func (self *GuestDeleteTask) NotifyServerDeleted(ctx context.Context, guest *models.SGuest) {
-	notifyclient.NotifyWebhook(ctx, self.UserCred, guest, notifyclient.ActionPendingDelete)
-	guest.NotifyServerEvent(
-		ctx,
-		self.UserCred,
-		notifyclient.SERVER_DELETED,
-		notify.NotifyPriorityImportant,
-		false, nil, false,
-	)
-	guest.NotifyAdminServerEvent(ctx, notifyclient.SERVER_DELETED_ADMIN, notify.NotifyPriorityImportant)
+	guest.EventNotify(ctx, self.UserCred, notifyclient.ActionPendingDelete)
 }

@@ -41,6 +41,7 @@ import (
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
+	noapi "yunion.io/x/onecloud/pkg/apis/notify"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -851,6 +852,46 @@ func (self *SGuest) StartGuestDeployTask(
 	}
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (self *SGuest) EventNotify(ctx context.Context, userCred mcclient.TokenCredential, action noapi.SAction) {
+
+	detailsDecro := func(ctx context.Context, details *jsonutils.JSONDict) {
+		if action != notifyclient.ActionCreate && action != notifyclient.ActionRebuildRoot && action != notifyclient.ActionResetPassword {
+			return
+		}
+		meta, err := self.GetAllMetadata(nil)
+		if err != nil {
+			return
+		}
+		details.Add(jsonutils.NewString(self.getNotifyIps()), "ips")
+		osName := meta[api.VM_METADATA_OS_NAME]
+		if osName == "Windows" {
+			details.Add(jsonutils.JSONTrue, "windows")
+		}
+		loginAccount := meta[api.VM_METADATA_LOGIN_ACCOUNT]
+		if len(loginAccount) > 0 {
+			details.Add(jsonutils.NewString(loginAccount), "account")
+		}
+		keypair := self.getKeypairName()
+		if len(keypair) > 0 {
+			details.Add(jsonutils.NewString(keypair), "keypair")
+		} else {
+			loginKey := meta[api.VM_METADATA_LOGIN_KEY]
+			if len(loginKey) > 0 {
+				passwd, err := utils.DescryptAESBase64(self.Id, loginKey)
+				if err == nil {
+					details.Add(jsonutils.NewString(passwd), "password")
+				}
+			}
+		}
+	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:                 self,
+		Action:              action,
+		ObjDetailsDecorator: detailsDecro,
+		AdvanceDays:         0,
+	})
 }
 
 func (self *SGuest) NotifyServerEvent(

@@ -22,6 +22,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -50,6 +51,10 @@ func (self *SnapshotCreateTask) TaskComplete(ctx context.Context, snapshot *mode
 	snapshot.SetStatus(self.UserCred, api.SNAPSHOT_READY, "")
 	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_DONE, snapshot.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_CREATE, snapshot.GetShortDesc(ctx), self.UserCred, true)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    snapshot,
+		Action: notifyclient.ActionCreate,
+	})
 	self.SetStageComplete(ctx, nil)
 }
 

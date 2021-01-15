@@ -24,6 +24,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -143,6 +144,10 @@ func (self *SnapshotDeleteTask) OnReloadDiskSnapshot(ctx context.Context, snapsh
 func (self *SnapshotDeleteTask) TaskComplete(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_DELETE, snapshot.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_DELOCATE, nil, self.UserCred, true)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    snapshot,
+		Action: notifyclient.ActionDelete,
+	})
 	self.SetStageComplete(ctx, nil)
 	guest, err := snapshot.GetGuest()
 	if err != nil {

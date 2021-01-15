@@ -27,7 +27,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -152,12 +151,8 @@ func (self *GuestCreateTask) OnDeployGuestDescComplete(ctx context.Context, obj 
 }
 
 func (self *GuestCreateTask) notifyServerCreated(ctx context.Context, guest *models.SGuest) {
-	notifyclient.NotifyWebhook(ctx, self.UserCred, guest, notifyclient.ActionCreate)
-	guest.NotifyServerEvent(
-		ctx, self.UserCred, notifyclient.SERVER_CREATED,
-		notify.NotifyPriorityImportant, true, nil, false,
-	)
-	guest.NotifyAdminServerEvent(ctx, notifyclient.SERVER_CREATED_ADMIN, notify.NotifyPriorityImportant)
+	// notifyclient.NotifyWebhook(ctx, self.UserCred, guest, notifyclient.ActionCreate)
+	guest.EventNotify(ctx, self.UserCred, notifyclient.ActionCreate)
 }
 
 func (self *GuestCreateTask) OnDeployGuestDescCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

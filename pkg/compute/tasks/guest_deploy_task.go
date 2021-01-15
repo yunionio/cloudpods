@@ -24,6 +24,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -101,6 +102,7 @@ func (self *GuestDeployTask) OnDeployGuestComplete(ctx context.Context, obj db.I
 
 		} else if reset_password {
 			logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_RESET_PSWD, "", self.UserCred, true)
+			guest.EventNotify(ctx, self.UserCred, notifyclient.ActionResetPassword)
 			_log = true
 		}
 	}

@@ -32,11 +32,13 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/bitmap"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/onecloud/pkg/util/validate"
 )
@@ -222,6 +224,12 @@ func (manager *SSnapshotPolicyManager) OnCreateComplete(ctx context.Context, ite
 			sp.Status = api.SNAPSHOT_POLICY_READY
 			return nil
 		})
+		db.OpsLog.LogEvent(sp, db.ACT_DELETE, sp.GetShortDesc(ctx), userCred)
+		logclient.AddActionLogWithContext(ctx, sp, logclient.ACT_DELOCATE, nil, userCred, true)
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    sp,
+			Action: notifyclient.ActionDelete,
+		})
 	}
 }
 
@@ -368,6 +376,16 @@ func (sp *SSnapshotPolicy) GetExtraDetails(
 	isList bool,
 ) (api.SnapshotPolicyDetails, error) {
 	return api.SnapshotPolicyDetails{}, nil
+}
+
+func (sp *SSnapshotPolicy) ExecuteNotify(ctx context.Context, userCred mcclient.TokenCredential, diskName string) {
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    sp,
+		Action: notifyclient.ActionExecute,
+		ObjDetailsDecorator: func(ctx context.Context, details *jsonutils.JSONDict) {
+			details.Set("disk", jsonutils.NewString(diskName))
+		},
+	})
 }
 
 func (sp *SSnapshotPolicy) getMoreDetails(out api.SnapshotPolicyDetails) api.SnapshotPolicyDetails {
