@@ -146,8 +146,9 @@ func (tm *STemplateManager) GetCompanyInfo(ctx context.Context) (SCompanyInfo, e
 }
 
 var (
-	ForceInitType = []string{
-		api.EMAIL,
+	forceInitTopic = []string{
+		"VERIFY",
+		"USER_LOGIN_EXCEPTION",
 	}
 	notifyclientI18nTable = i18n.Table{}
 	defaultLang           = api.TEMPLATE_LANG_CN
@@ -187,7 +188,7 @@ func (tm *STemplateManager) InitializeData() error {
 	for _, template := range templates {
 		q := tm.Query().Equals("contact_type", template.ContactType).Equals("topic", template.Topic).Equals("template_type", template.TemplateType).Equals("lang", template.Lang)
 		count, _ := q.CountWithError()
-		if count > 0 && !utils.IsInStringArray(template.ContactType, ForceInitType) {
+		if count > 0 && !utils.IsInStringArray(template.Topic, forceInitTopic) {
 			continue
 		}
 		if count == 0 {
