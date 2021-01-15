@@ -509,6 +509,8 @@ func init() {
 		notify.ActionDelete,
 		notify.ActionPendingDelete,
 		notify.ActionUpdate,
+		notify.ActionRebuildRoot,
+		notify.ActionResetPassword,
 		notify.ActionChangeConfig,
 		notify.ActionExpiredRelease,
 		notify.ActionExecute,

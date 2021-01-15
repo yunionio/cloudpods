@@ -63,11 +63,6 @@ func StartService() {
 		log.Logger().Panic(err.Error())
 	}
 
-	err = db.RoleCacheManager.StartWatchRoleInKeystone()
-	if err != nil {
-		log.Fatalf("unable to StartWatchRoleInKeystone: %v", err)
-	}
-
 	// init notify service
 	models.NotifyService = rpc.NewSRpcService(opts.SocketFileDir, models.ConfigManager, models.TemplateManager)
 	models.NotifyService.InitAll()

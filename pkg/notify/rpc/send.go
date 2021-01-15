@@ -33,7 +33,6 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/notify"
 	notifyv2 "yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/models"
 	"yunion.io/x/onecloud/pkg/notify/rpc/apis"
@@ -109,22 +108,14 @@ func (self *SRpcService) StopAll() {
 }
 
 // Send call the corresponding rpc server to send messager.
-func (self *SRpcService) Send(ctx context.Context, p notify.SSendParams) error {
-
-	args, err := self.templateStore.NotifyFilter(p.ContactType, p.Topic, p.Message, p.Lang)
-	if err != nil {
-		return errors.Wrap(err, "templateStore.NotifyFilter")
-	}
-
-	args.Contact = p.Contact
-	args.Priority = p.Priority
-
+func (self *SRpcService) Send(ctx context.Context, contactType string, args apis.SendParams) error {
+	var err error
 	f := func(service *apis.SendNotificationClient) (interface{}, error) {
 		log.Debugf("send one")
 		return service.Send(ctx, &args)
 	}
 
-	_, err = self.execute(ctx, f, p.ContactType)
+	_, err = self.execute(ctx, f, contactType)
 	if err != nil {
 		s, ok := status.FromError(err)
 		if !ok {
@@ -135,25 +126,12 @@ func (self *SRpcService) Send(ctx context.Context, p notify.SSendParams) error {
 	return nil
 }
 
-func (self *SRpcService) BatchSend(ctx context.Context, p notify.SBatchSendParams) ([]*apis.FailedRecord, error) {
-	args, err := self.templateStore.NotifyFilter(p.ContactType, p.Topic, p.Message, p.Lang)
-	if err != nil {
-		return nil, errors.Wrap(err, "templateStore.NotifyFilter")
-	}
-
-	batchSendParams := apis.BatchSendParams{
-		Contacts:       p.Contacts,
-		Title:          args.Title,
-		Message:        args.Message,
-		Priority:       args.Priority,
-		RemoteTemplate: args.RemoteTemplate,
-	}
-
+func (self *SRpcService) BatchSend(ctx context.Context, contactType string, args apis.BatchSendParams) ([]*apis.FailedRecord, error) {
 	f := func(service *apis.SendNotificationClient) (interface{}, error) {
-		return service.BatchSend(ctx, &batchSendParams)
+		return service.BatchSend(ctx, &args)
 	}
 
-	ret, err := self.execute(ctx, f, p.ContactType)
+	ret, err := self.execute(ctx, f, contactType)
 	if err != nil {
 		s, ok := status.FromError(err)
 		if !ok {
