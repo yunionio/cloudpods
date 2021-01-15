@@ -1,0 +1,2 @@
+{{- $d := .resource_details -}}
+Your {{ if $d.brand -}} {{ $d.brand }} {{ end -}} {{ .resource_type_display }} {{ $d.name }} {{ if $d.project -}} in project {{ $d.project }} {{ end -}} has been {{ .action_display }} successfully

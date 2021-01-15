@@ -1,0 +1,54 @@
+{{- $d := .resource_details }}
+{{- $consoleServiceType := list "loadbalancer" "dbinstance" "elasticcache" -}}
+Your {{ if $d.brand -}} {{ $d.brand }} {{ end -}} {{ .resource_type_display }} {{ $d.name }} {{ if $d.project -}} in project {{ $d.project }} {{ end -}} has been created successfully
+{{- if $d.private_dns -}}
+, the intranet address is {{ $d.private_dns }}:{{ $d.private_connect_port }}
+{{- end -}}
+
+{{- if $d.public_dns -}}
+, the internet address is {{ $d.public_dns }}:{{ $d.public_connect_port }}
+{{- end -}}
+
+{{- if and $d.address_type $d.address -}}
+, the service address is {{ $d.address_type }}{{ $d.address }}
+{{- end -}}
+
+{{- if $d.ips -}}
+, the IP address is {{ $d.ips }}
+{{- end -}}
+
+{{- if and $d.guest_ip_start $d.guest_ip_end -}}
+, the IP range is {{ $d.guest_ip_start }}-{{ $d.guest_ip_end }}
+{{- end -}}
+
+{{- if $d.ip_addr -}}
+, the IP address is {{ $d.ip_addr }}
+{{- end -}}
+
+{{- if $d.account -}}
+, the initial account is {{ $d.account }}
+{{- end -}}
+
+{{- if $d.password -}}
+, the initial password is {{ $d.password }}
+{{- end -}}
+
+{{- if $d.keypair -}}
+, the access ssh key is {{ $d.keypair }}
+{{- end -}}
+
+{{- if $d.common_name -}}
+, the certificate domain name is {{ $d.common_name }}
+{{- end -}}
+
+{{- if $d.not_after -}}
+, the expiration is {{ $d.not_after }}
+{{- end -}}
+
+{{- if eq .resource_type "server" -}}
+, and please use {{ if $d.windows -}} Remote Desktop Connector (RDC) {{ else -}} SSH {{ end -}} or the control panel console to access the VM.
+{{- end -}}
+
+{{- if has .resource_type $consoleServiceType -}}
+. For more information, please go to the console to view
+{{- end -}}
