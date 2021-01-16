@@ -13,8 +13,13 @@ import (
 type mathReducer struct {
 	// Type is how the timeseries should be reduced.
 	// Ex: avg, sum, max, min, count
-	Type string
-	Opt  string
+	Type   string
+	Opt    string
+	Params []float64
+}
+
+func (s *mathReducer) GetParams() []float64 {
+	return s.Params
 }
 
 func (s *mathReducer) GetType() string {
@@ -169,8 +174,9 @@ func (reducer *mathReducer) mathValue(values []float64) (float64, error) {
 
 func newMathReducer(cond *monitor.Condition) (*mathReducer, error) {
 	return &mathReducer{
-		Type: cond.Type,
-		Opt:  cond.Operators[0],
+		Type:   cond.Type,
+		Opt:    cond.Operators[0],
+		Params: cond.Params,
 	}, nil
 
 }
