@@ -131,7 +131,7 @@ func fetchRoleId(name string) (string, error) {
 }
 
 func getAdminUserIds() ([]string, error) {
-	return getUserIdsWithRole("admin", "")
+	return getUserIdsWithRole(o.Options.AdminRoleToNotify, "")
 }
 
 func getUserIdsWithRole(roleName string, domainId string) ([]string, error) {
@@ -152,7 +152,7 @@ func getUserIdsWithRole(roleName string, domainId string) ([]string, error) {
 }
 
 func getDomainAdminUserIds(domainId string) ([]string, error) {
-	return getUserIdsWithRole("domainadmin", domainId)
+	return getUserIdsWithRole(o.Options.DomainAdminRoleToNotify, domainId)
 }
 
 func (sql *SSQLDriver) Sync(ctx context.Context) error {
