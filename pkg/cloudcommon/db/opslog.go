@@ -117,7 +117,8 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 	if !consts.OpsLogEnabled() {
 		return
 	}
-	if len(model.GetId()) == 0 || len(model.GetName()) == 0 {
+	if len(model.GetId()) == 0 {
+		log.Errorf("logevent for an object without ID???")
 		return
 	}
 	if action == ACT_UPDATE {
