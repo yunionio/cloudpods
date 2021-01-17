@@ -237,7 +237,14 @@ func (tm *STemplateManager) NotifyFilter(contactType, topic, msg, lang string) (
 		return
 	}
 	templates := make([]STemplate, 0, 3)
-	q := tm.Query().Equals("topic", strings.ToUpper(topic)).Equals("lang", lang).In("contact_type", []string{CONTACTTYPE_ALL, contactType})
+	var q *sqlchemy.SQuery
+	if contactType == api.MOBILE {
+		// hack
+		// ingore lang when contactType is mobile
+		q = tm.Query().Equals("topic", strings.ToUpper(topic)).In("contact_type", []string{CONTACTTYPE_ALL, contactType})
+	} else {
+		q = tm.Query().Equals("topic", strings.ToUpper(topic)).Equals("lang", lang).In("contact_type", []string{CONTACTTYPE_ALL, contactType})
+	}
 	err = db.FetchModelObjects(tm, q, &templates)
 	if errors.Cause(err) == sql.ErrNoRows || len(templates) == 0 {
 		// no such template, return as is
