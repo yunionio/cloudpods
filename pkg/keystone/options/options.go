@@ -56,6 +56,9 @@ type SKeystoneOptions struct {
 	AllowJoinProjectsAcrossDomains bool `help:"allow users/groups to join projects across domains" default:"false"`
 
 	DefaultUserLanguage string `help:"default user language, default to zh-CN" default:"zh-CN"`
+
+	DomainAdminRoleToNotify string `help:"domain admin role to notify" default:"domainadmin"`
+	AdminRoleToNotify       string `help:"admin role to notify" default:"admin"`
 }
 
 var (
