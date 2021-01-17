@@ -403,15 +403,26 @@ func (region *SRegion) AttachDisk(instanceId, diskId string) error {
 	if err != nil {
 		return errors.Wrapf(err, "GetInstance(%s)", instanceId)
 	}
+	lunMaps := map[int32]bool{}
 	dataDisks := jsonutils.NewArray()
 	for _, disk := range instance.Properties.StorageProfile.DataDisks {
 		if disk.ManagedDisk != nil && strings.ToLower(disk.ManagedDisk.ID) == strings.ToLower(diskId) {
 			return nil
 		}
+		lunMaps[disk.Lun] = true
 		dataDisks.Add(jsonutils.Marshal(disk))
 	}
+	lun := func() int32 {
+		idx := int32(0)
+		for {
+			if _, ok := lunMaps[idx]; !ok {
+				return idx
+			}
+			idx++
+		}
+	}()
 	dataDisks.Add(jsonutils.Marshal(map[string]interface{}{
-		"Lun":          len(instance.Properties.StorageProfile.DataDisks),
+		"Lun":          lun,
 		"CreateOption": "Attach",
 		"ManagedDisk": map[string]string{
 			"Id": diskId,
@@ -433,17 +444,19 @@ func (region *SRegion) DetachDisk(instanceId, diskId string) error {
 	if err != nil {
 		return errors.Wrapf(err, "GetInstance(%s)", instanceId)
 	}
-	find := false
+	diskMaps := map[string]bool{}
 	dataDisks := jsonutils.NewArray()
 	for _, disk := range instance.Properties.StorageProfile.DataDisks {
-		if disk.ManagedDisk != nil && strings.ToLower(disk.ManagedDisk.ID) == strings.ToLower(diskId) {
-			find = true
-			continue
+		if disk.ManagedDisk != nil {
+			diskMaps[strings.ToLower(disk.ManagedDisk.ID)] = true
+			if strings.ToLower(disk.ManagedDisk.ID) == strings.ToLower(diskId) {
+				continue
+			}
 		}
-		disk.Lun = int32(dataDisks.Length())
 		dataDisks.Add(jsonutils.Marshal(disk))
 	}
-	if !find {
+	if _, ok := diskMaps[strings.ToLower(diskId)]; !ok {
+		log.Warningf("not find disk %s with instance %s", diskId, instance.Name)
 		return nil
 	}
 	params := jsonutils.NewDict()
