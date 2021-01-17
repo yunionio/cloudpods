@@ -139,7 +139,7 @@ func getUserIdsWithRole(roleName string, domainId string) ([]string, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to fetch roleid of %s", roleName)
 	}
-	ras, _, err := models.AssignmentManager.FetchAll("", "", roleId, "", "", domainId, []string{}, []string{}, []string{}, []string{}, []string{}, []string{}, false, true, false, false, false, 0, 0)
+	ras, _, err := models.AssignmentManager.FetchAll("", "", roleId, "", "", "", []string{}, []string{}, []string{}, []string{}, []string{}, []string{domainId}, false, true, false, false, false, 0, 0)
 	if err != nil {
 		return nil, err
 	}
