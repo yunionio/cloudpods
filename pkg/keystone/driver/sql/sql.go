@@ -131,7 +131,7 @@ func fetchRoleId(name string) (string, error) {
 }
 
 func getAdminUserIds() ([]string, error) {
-	return getUserIdsWithRole("admin", "")
+	return getUserIdsWithRole(o.Options.AdminRoleToNotify, "")
 }
 
 func getUserIdsWithRole(roleName string, domainId string) ([]string, error) {
@@ -139,7 +139,7 @@ func getUserIdsWithRole(roleName string, domainId string) ([]string, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to fetch roleid of %s", roleName)
 	}
-	ras, _, err := models.AssignmentManager.FetchAll("", "", roleId, "", "", domainId, []string{}, []string{}, []string{}, []string{}, []string{}, []string{}, false, true, false, false, false, 0, 0)
+	ras, _, err := models.AssignmentManager.FetchAll("", "", roleId, "", "", "", []string{}, []string{}, []string{}, []string{}, []string{}, []string{domainId}, false, true, false, false, false, 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func getUserIdsWithRole(roleName string, domainId string) ([]string, error) {
 }
 
 func getDomainAdminUserIds(domainId string) ([]string, error) {
-	return getUserIdsWithRole("domainadmin", domainId)
+	return getUserIdsWithRole(o.Options.DomainAdminRoleToNotify, domainId)
 }
 
 func (sql *SSQLDriver) Sync(ctx context.Context) error {
