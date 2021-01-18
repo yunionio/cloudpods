@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/image/policy"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/monitor/models"
 	notifyv2 "yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/oldmodels"
 	"yunion.io/x/onecloud/pkg/notify/options"
@@ -319,6 +320,23 @@ func (self *SNotificationManager) singleRowLineQuery(sqlStr string, dest ...inte
 }
 
 func (self *SNotificationManager) InitializeData() error {
+	now := time.Now()
+	monthsDaysAgo := now.AddDate(0, -1, 0).Format("2006-01-02 15:04:05")
+	sqlStr := fmt.Sprintf(
+		"update %s set deleted = 1 where deleted = 0 and created_at < '%s'",
+		models.NotificationManager.TableSpec().Name(),
+		monthsDaysAgo,
+	)
+	q := sqlchemy.NewRawQuery(sqlStr)
+	_, err := q.Rows()
+	if err != nil {
+		return errors.Wrap(err, "unable to delete expired notification")
+	}
+	log.Infof("delete expired notification successfully")
+	return nil
+}
+
+func (self *SNotificationManager) dataMigration() error {
 	// check
 	sqlStr := fmt.Sprintf(
 		"select count(*) as total from (select cluster_id from %s where status='%s' and contact_type='webconsole' group by cluster_id) as cluster",
@@ -446,13 +464,15 @@ func (nm *SNotificationManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 }
 
 func (nm *SNotificationManager) ReSend(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	q := nm.Query().NotEquals("status", api.NOTIFICATION_STATUS_OK).LT("send_times", options.Options.MaxSendTimes)
+	timeLimit := time.Now().Add(-time.Duration(options.Options.ReSendScope) * time.Second * 2).Format("2006-01-02 15:04:05")
+	q := nm.Query().GT("created_at", timeLimit).In("status", []string{api.NOTIFICATION_STATUS_FAILED, api.NOTIFICATION_STATUS_PART_OK}).LT("send_times", options.Options.MaxSendTimes)
 	ns := make([]SNotification, 0, 2)
 	err := db.FetchModelObjects(nm, q, &ns)
 	if err != nil {
 		log.Errorf("fail to FetchModelObjects: %v", err)
 		return
 	}
+	log.Infof("need to resend total %d notifications", len(ns))
 	for i := range ns {
 		task, err := taskman.TaskManager.NewTask(ctx, "NotificationSendTask", &ns[i], userCred, nil, "", "")
 		if err != nil {
