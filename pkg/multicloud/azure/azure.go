@@ -472,7 +472,7 @@ func (self *SAzureClient) _list(resource string, params url.Values) (jsonutils.J
 		if len(subId) == 0 {
 			return nil, fmt.Errorf("no avaiable subscriptions")
 		}
-		path = fmt.Sprintf("subscriptions/%s/providers/%s", self.subscriptionId, resource)
+		path = fmt.Sprintf("subscriptions/%s/providers/%s", subId, resource)
 	}
 	params.Set("api-version", self._apiVersion(resource, params))
 	return self.jsonRequest("GET", path, nil, params, true)
