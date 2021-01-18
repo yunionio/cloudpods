@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/pkg/errors"
 
@@ -95,7 +96,7 @@ func (d *SAzureSAMLDriver) GetSpInitiatedLoginData(ctx context.Context, userCred
 	}
 
 	for i := range samlUsers {
-		if samlUsers[i].OwnerId == userCred.GetUserId() && samlUsers[i].Email == sp.Username {
+		if samlUsers[i].OwnerId == userCred.GetUserId() && strings.ToLower(samlUsers[i].Email) == strings.ToLower(sp.Username) {
 
 			err := samlUsers[i].SyncAzureGroup()
 			if err != nil {
