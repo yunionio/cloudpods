@@ -51,19 +51,33 @@ func (c noCancel) Value(key interface{}) interface{} {
 	return c.ctx.Value(key)
 }*/
 
+type informerTask struct {
+	be IInformerBackend
+	f  func(ctx context.Context, be IInformerBackend) error
+}
+
+func (t *informerTask) Run() {
+	nopanic.Run(func() {
+		// outside context ignored cause of run in worker
+		if err := t.f(context.Background(), t.be); err != nil {
+			log.Errorf("run informer error: %v", err)
+		}
+	})
+}
+
+func (t *informerTask) Dump() string {
+	return ""
+}
+
 func run(ctx context.Context, f func(ctx context.Context, be IInformerBackend) error) error {
 	be := GetDefaultBackend()
 	if be == nil {
 		return ErrBackendNotInit
 	}
-	wf := func() {
-		nopanic.Run(func() {
-			// outside context ignored cause of run in worker
-			if err := f(context.Background(), be); err != nil {
-				log.Errorf("run informer error: %v", err)
-			}
-		})
+	task := informerTask{
+		f:  f,
+		be: be,
 	}
-	informerWorkerMan.Run(wf, nil, nil)
+	informerWorkerMan.Run(&task, nil, nil)
 	return nil
 }

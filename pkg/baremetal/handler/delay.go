@@ -15,6 +15,8 @@
 package handler
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -37,6 +39,21 @@ type delayTask struct {
 	data    jsonutils.JSONObject
 }
 
+func (t *delayTask) Run() {
+	ret, err := t.process(t.data)
+	if err != nil {
+		modules.ComputeTasks.TaskFailed(t.session, t.taskId, err)
+		return
+	}
+	if len(t.taskId) > 0 {
+		modules.ComputeTasks.TaskComplete(t.session, t.taskId, ret)
+	}
+}
+
+func (t *delayTask) Dump() string {
+	return fmt.Sprintf("taskId: %s data: %v", t.taskId, t.data)
+}
+
 func newDelayTask(process ProcessFunc, session *mcclient.ClientSession, taskId string, data jsonutils.JSONObject) *delayTask {
 	return &delayTask{
 		process: process,
@@ -47,18 +64,11 @@ func newDelayTask(process ProcessFunc, session *mcclient.ClientSession, taskId s
 }
 
 func DelayProcess(process ProcessFunc, session *mcclient.ClientSession, taskId string, data jsonutils.JSONObject) {
-	delayTaskWorkerMan.Run(func() {
-		executeDelayProcess(newDelayTask(process, session, taskId, data))
-	}, nil, nil)
-}
-
-func executeDelayProcess(task *delayTask) {
-	ret, err := task.process(task.data)
-	if err != nil {
-		modules.ComputeTasks.TaskFailed(task.session, task.taskId, err)
-		return
+	task := &delayTask{
+		process: process,
+		taskId:  taskId,
+		session: session,
+		data:    data,
 	}
-	if len(task.taskId) > 0 {
-		modules.ComputeTasks.TaskComplete(task.session, task.taskId, ret)
-	}
+	delayTaskWorkerMan.Run(task, nil, nil)
 }

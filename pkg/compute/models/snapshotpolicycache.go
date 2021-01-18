@@ -401,6 +401,32 @@ func (spcm *SSnapshotPolicyCacheManager) UpdateCloudSnapshotPolicy(snapshotPolic
 	return fmt.Errorf("Not implement")
 }
 
+type snapshotPolicyTask struct {
+	ctx      context.Context
+	userCred mcclient.TokenCredential
+	spc      SSnapshotPolicyCache
+	retChan  chan sOperaResult
+}
+
+func (t *snapshotPolicyTask) Run() {
+	err := t.spc.DeleteCloudSnapshotPolicy()
+	if err != nil {
+		t.retChan <- sOperaResult{err, t.spc.GetId()}
+		return
+	}
+	err = t.spc.RealDetele(t.ctx, t.userCred)
+	if err != nil {
+		t.retChan <- sOperaResult{errors.Wrap(err, "delete cache in database failed"), t.spc.GetId()}
+		return
+	}
+	t.retChan <- sOperaResult{nil, t.spc.GetId()}
+
+}
+
+func (t *snapshotPolicyTask) Dump() string {
+	return ""
+}
+
 func (spcm *SSnapshotPolicyCacheManager) DeleteCloudSnapshotPolices(ctx context.Context,
 	userCred mcclient.TokenCredential, snapshotPolicyId string) error {
 
@@ -414,30 +440,23 @@ func (spcm *SSnapshotPolicyCacheManager) DeleteCloudSnapshotPolices(ctx context.
 	}
 
 	wm := appsrv.NewWorkerManager("delete-cloud-snapshotpolices", len(spCaches), 1, false)
-	retChan := make(chan sOperaResult)
+
+	task := &snapshotPolicyTask{
+		ctx:      ctx,
+		userCred: userCred,
+		retChan:  make(chan sOperaResult),
+	}
 
 	for i := range spCaches {
-		spc := spCaches[i]
-		wm.Run(func() {
-			err := spc.DeleteCloudSnapshotPolicy()
-			if err != nil {
-				retChan <- sOperaResult{err, spc.GetId()}
-				return
-			}
-			err = spc.RealDetele(ctx, userCred)
-			if err != nil {
-				retChan <- sOperaResult{errors.Wrap(err, "delete cache in database failed"), spc.GetId()}
-				return
-			}
-			retChan <- sOperaResult{nil, spc.GetId()}
-		}, nil, func(e error) {
-			retChan <- sOperaResult{e, spc.GetId()}
+		task.spc = spCaches[i]
+		wm.Run(task, nil, func(e error) {
+			task.retChan <- sOperaResult{e, task.spc.GetId()}
 		})
 	}
 
 	failedRecord := make([]string, 0)
 	for i := 0; i < len(spCaches); i++ {
-		ret := <-retChan
+		ret := <-task.retChan
 		if ret.err != nil {
 			failedRecord = append(failedRecord, fmt.Sprintf("%s failed because that %s", ret.snapshotPolicyId,
 				ret.err.Error()))

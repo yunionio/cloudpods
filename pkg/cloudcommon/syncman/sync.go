@@ -63,13 +63,26 @@ func (manager *SSyncManager) syncByInterval() error {
 	return err
 }
 
+type SyncTask struct {
+	manager *SSyncManager
+}
+
+func (t *SyncTask) Run() {
+	atomic.StoreInt32(&t.manager.syncOnce, 0)
+	t.manager.syncByInterval()
+}
+
+func (t *SyncTask) Dump() string {
+	return ""
+}
+
 func (manager *SSyncManager) SyncOnce() {
 	log.Debugf("[%s] SyncOnce", manager.Name())
 	if atomic.CompareAndSwapInt32(&manager.syncOnce, 0, 1) {
-		manager.syncWorkerManager.Run(func() {
-			atomic.StoreInt32(&manager.syncOnce, 0)
-			manager.syncByInterval()
-		}, nil, nil)
+		task := SyncTask{
+			manager: manager,
+		}
+		manager.syncWorkerManager.Run(&task, nil, nil)
 	}
 }
 

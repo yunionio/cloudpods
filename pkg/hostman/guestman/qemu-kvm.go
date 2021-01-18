@@ -279,14 +279,13 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		s.syncMeta = s.CleanImportMetadata()
 		s.StartMonitor(ctx)
 		return nil, nil
-	} else {
-		log.Infof("Async start server %s failed: %s!!!", s.GetName(), err)
-		if ctx != nil && len(appctx.AppContextTaskId(ctx)) >= 0 {
-			hostutils.TaskFailed(ctx, fmt.Sprintf("Async start server failed: %s", err))
-		}
-		s.SyncStatus()
-		return nil, err
 	}
+	log.Infof("Async start server %s failed: %s!!!", s.GetName(), err)
+	if ctx != nil && len(appctx.AppContextTaskId(ctx)) >= 0 {
+		hostutils.TaskFailed(ctx, fmt.Sprintf("Async start server failed: %s", err))
+	}
+	s.SyncStatus()
+	return nil, nil
 }
 
 func (s *SKVMGuestInstance) saveScripts(data *jsonutils.JSONDict) error {
@@ -819,12 +818,28 @@ func (s *SKVMGuestInstance) GetVpcNIC() jsonutils.JSONObject {
 	return nil
 }
 
+type guestStartTask struct {
+	s *SKVMGuestInstance
+
+	ctx    context.Context
+	params *jsonutils.JSONDict
+}
+
+func (t *guestStartTask) Run() {
+	t.s.asyncScriptStart(t.ctx, t.params)
+}
+
+func (t *guestStartTask) Dump() string {
+	return fmt.Sprintf("guest %s params: %v", t.s.Id, t.params)
+}
+
 func (s *SKVMGuestInstance) StartGuest(ctx context.Context, params *jsonutils.JSONDict) {
-	if params == nil {
-		params = jsonutils.NewDict()
+	task := &guestStartTask{
+		s:      s,
+		ctx:    ctx,
+		params: params,
 	}
-	s.manager.GuestStartWorker.Run(
-		func() { s.asyncScriptStart(ctx, params) }, nil, nil)
+	s.manager.GuestStartWorker.Run(task, nil, nil)
 }
 
 func (s *SKVMGuestInstance) DeployFs(deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {

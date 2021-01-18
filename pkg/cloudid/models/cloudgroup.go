@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"gopkg.in/fatih/set.v0"
 
@@ -71,6 +72,8 @@ func (manager *SCloudgroupManager) ListItemFilter(ctx context.Context, q *sqlche
 	if err != nil {
 		return nil, err
 	}
+
+	time.Sleep(time.Minute)
 
 	if len(query.Provider) > 0 {
 		q = q.In("provider", query.Provider)

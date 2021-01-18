@@ -57,6 +57,50 @@ func (w *SWorkManager) DelayTaskWithWorker(
 	w.delayTask(ctx, task, params, worker)
 }
 
+type workerTask struct {
+	ctx    context.Context
+	w      *SWorkManager
+	task   DelayTaskFunc
+	params interface{}
+}
+
+func (t *workerTask) Run() {
+	defer t.w.done()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("DelayTask panic: %s", r)
+			debug.PrintStack()
+			switch val := r.(type) {
+			case string:
+				t.w.onFailed(t.ctx, val)
+			case error:
+				t.w.onFailed(t.ctx, val.Error())
+			default:
+				t.w.onFailed(t.ctx, "Unknown panic")
+			}
+		}
+	}()
+
+	// HACK: callback only
+	if t.task == nil {
+		t.w.onCompleted(t.ctx, nil)
+		return
+	}
+
+	res, err := t.task(t.ctx, t.params)
+	if err != nil {
+		log.Infof("DelayTask failed: %s", err)
+		t.w.onFailed(t.ctx, err.Error())
+	} else {
+		log.Infof("DelayTask complete: %v", res)
+		t.w.onCompleted(t.ctx, res)
+	}
+}
+
+func (t *workerTask) Dump() string {
+	return ""
+}
+
 // If delay task is not panic and task func return err is nil
 // task complete will be called, otherwise called task failed
 // Params is interface for receive any type, task func should do type assertion
@@ -68,43 +112,48 @@ func (w *SWorkManager) delayTask(ctx context.Context, task DelayTaskFunc, params
 		// delayTask should have a new context.Context with value 'taskid'
 		ctx = context.WithValue(context.Background(), appctx.APP_CONTEXT_KEY_TASK_ID, ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID))
 		w.add()
-		worker.Run(func() {
-			defer w.done()
-			defer func() {
-				if r := recover(); r != nil {
-					log.Errorf("DelayTask panic: %s", r)
-					debug.PrintStack()
-					switch val := r.(type) {
-					case string:
-						w.onFailed(ctx, val)
-					case error:
-						w.onFailed(ctx, val.Error())
-					default:
-						w.onFailed(ctx, "Unknown panic")
-					}
-				}
-			}()
-
-			// HACK: callback only
-			if task == nil {
-				w.onCompleted(ctx, nil)
-				return
-			}
-
-			res, err := task(ctx, params)
-			if err != nil {
-				log.Infof("DelayTask failed: %s", err)
-				w.onFailed(ctx, err.Error())
-			} else {
-				log.Infof("DelayTask complete: %v", res)
-				w.onCompleted(ctx, res)
-			}
-		}, nil, nil)
+		t := workerTask{
+			ctx:    ctx,
+			w:      w,
+			task:   task,
+			params: params,
+		}
+		worker.Run(&t, nil, nil)
 	}
 }
 
 func (w *SWorkManager) DelayTaskWithoutReqctx(ctx context.Context, task DelayTaskFunc, params interface{}) {
 	w.delayTaskWithoutReqctx(ctx, task, params, w.worker)
+}
+
+type delayWorkerTask struct {
+	w      *SWorkManager
+	task   DelayTaskFunc
+	ctx    context.Context
+	params interface{}
+}
+
+func (t *delayWorkerTask) Run() {
+	defer t.w.done()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorln("DelayTaskWithoutReqctx panic: ", r)
+			debug.PrintStack()
+		}
+	}()
+
+	if t.task == nil {
+		return
+	}
+
+	if _, err := t.task(t.ctx, t.params); err != nil {
+		log.Errorln("DelayTaskWithoutReqctx error: ", err)
+		t.w.onFailed(t.ctx, err.Error())
+	}
+}
+
+func (t *delayWorkerTask) Dump() string {
+	return ""
 }
 
 // response task by self, did not callback
@@ -118,24 +167,13 @@ func (w *SWorkManager) delayTaskWithoutReqctx(
 	}
 	ctx = newCtx
 	w.add()
-	w.worker.Run(func() {
-		defer w.done()
-		defer func() {
-			if r := recover(); r != nil {
-				log.Errorln("DelayTaskWithoutReqctx panic: ", r)
-				debug.PrintStack()
-			}
-		}()
-
-		if task == nil {
-			return
-		}
-
-		if _, err := task(ctx, params); err != nil {
-			log.Errorln("DelayTaskWithoutReqctx error: ", err)
-			w.onFailed(ctx, err.Error())
-		}
-	}, nil, nil)
+	t := delayWorkerTask{
+		w:      w,
+		task:   task,
+		ctx:    ctx,
+		params: params,
+	}
+	w.worker.Run(&t, nil, nil)
 }
 
 func (w *SWorkManager) Stop() {

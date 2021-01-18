@@ -2,6 +2,7 @@ package notifyclient
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -301,6 +302,57 @@ const noSuchReceiver = `no such receiver whose uid is '(.*)'`
 
 var noSuchReceiverRegexp = regexp.MustCompile(noSuchReceiver)
 
+type notifyTask struct {
+	ctx            context.Context
+	msg            npk.SNotifyMessage
+	createReceiver bool
+}
+
+func (t *notifyTask) Dump() string {
+	return fmt.Sprintf("msg: %v createReceiver: %v", t.msg, t.createReceiver)
+}
+
+func (t *notifyTask) Run() {
+	s, err := AdminSessionGenerator(t.ctx, consts.GetRegion(), "")
+	if err != nil {
+		log.Errorf("fail to get session: %v", err)
+	}
+	for {
+		err := npk.Notifications.Send(s, t.msg)
+		if err == nil {
+			break
+		}
+		if !t.createReceiver {
+			log.Errorf("unable to send notification: %v", err)
+			break
+		}
+		jerr, ok := err.(*httputils.JSONClientError)
+		if !ok {
+			log.Errorf("unable to send notification: %v", err)
+			break
+		}
+		if jerr.Code > 500 {
+			log.Errorf("unable to send notification: %v", err)
+			break
+		}
+		match := noSuchReceiverRegexp.FindStringSubmatch(jerr.Details)
+		if match == nil || len(match) <= 1 {
+			log.Errorf("unable to send notification: %v", err)
+			break
+		}
+		receiverId := match[1]
+		createData := jsonutils.NewDict()
+		createData.Set("uid", jsonutils.NewString(receiverId))
+		_, err = modules.NotifyReceiver.Create(s, createData)
+		if err != nil {
+			log.Errorf("try to create receiver %q, but failed: %v", receiverId, err)
+			break
+		}
+		log.Infof("create receiver %q successfully", receiverId)
+	}
+	return
+}
+
 func intelliNotify(ctx context.Context, p sNotifyParams) {
 	log.Infof("recipientId: %v, contacts: %v, event %s priority %s", p.recipientId, p.contacts, p.event, p.priority)
 	msgs, err := genMsgViaLang(ctx, p)
@@ -308,47 +360,12 @@ func intelliNotify(ctx context.Context, p sNotifyParams) {
 		log.Errorf("unable send notification: %v", err)
 	}
 	for i := range msgs {
-		msg := msgs[i]
-		notifyClientWorkerMan.Run(func() {
-			s, err := AdminSessionGenerator(context.Background(), consts.GetRegion(), "")
-			if err != nil {
-				log.Errorf("fail to get session: %v", err)
-			}
-			for {
-				err := npk.Notifications.Send(s, msg)
-				if err == nil {
-					break
-				}
-				if !p.createReceiver {
-					log.Errorf("unable to send notification: %v", err)
-					break
-				}
-				jerr, ok := err.(*httputils.JSONClientError)
-				if !ok {
-					log.Errorf("unable to send notification: %v", err)
-					break
-				}
-				if jerr.Code > 500 {
-					log.Errorf("unable to send notification: %v", err)
-					break
-				}
-				match := noSuchReceiverRegexp.FindStringSubmatch(jerr.Details)
-				if match == nil || len(match) <= 1 {
-					log.Errorf("unable to send notification: %v", err)
-					break
-				}
-				receiverId := match[1]
-				createData := jsonutils.NewDict()
-				createData.Set("uid", jsonutils.NewString(receiverId))
-				_, err = modules.NotifyReceiver.Create(s, createData)
-				if err != nil {
-					log.Errorf("try to create receiver %q, but failed: %v", receiverId, err)
-					break
-				}
-				log.Infof("create receiver %q successfully", receiverId)
-			}
-		}, nil, nil)
-
+		t := notifyTask{
+			ctx:            context.Background(),
+			createReceiver: p.createReceiver,
+			msg:            msgs[i],
+		}
+		notifyClientWorkerMan.Run(&t, nil, nil)
 	}
 	// log.Debugf("send notification %s %s", topic, body)
 }

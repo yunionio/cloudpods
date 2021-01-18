@@ -16,7 +16,9 @@ package models
 
 import (
 	"context"
+	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -38,38 +40,54 @@ func InitSyncWorkers() {
 	)
 }
 
+type syncTask struct {
+	ctx      context.Context
+	userCred mcclient.TokenCredential
+	idp      *SIdentityProvider
+}
+
+func (t *syncTask) Run() {
+	t.idp.SetSyncStatus(t.ctx, t.userCred, api.IdentitySyncStatusSyncing)
+	defer t.idp.SetSyncStatus(t.ctx, t.userCred, api.IdentitySyncStatusIdle)
+
+	conf, err := GetConfigs(t.idp, true, nil, nil)
+	if err != nil {
+		log.Errorf("GetConfig for idp %s fail %s", t.idp.Name, err)
+		t.idp.MarkDisconnected(t.ctx, t.userCred, err)
+		return
+	}
+	driver, err := driver.GetDriver(t.idp.Driver, t.idp.Id, t.idp.Name, t.idp.Template, t.idp.TargetDomainId, conf)
+	if err != nil {
+		log.Errorf("GetDriver for idp %s fail %s", t.idp.Name, err)
+		t.idp.MarkDisconnected(t.ctx, t.userCred, err)
+		return
+	}
+	err = driver.Probe(t.ctx)
+	if err != nil {
+		log.Errorf("Probe for idp %s fail %s", t.idp.Name, err)
+		t.idp.MarkDisconnected(t.ctx, t.userCred, err)
+		return
+	}
+
+	t.idp.MarkConnected(t.ctx, t.userCred)
+
+	err = driver.Sync(t.ctx)
+	if err != nil {
+		log.Errorf("Sync for idp %s fail %s", t.idp.Name, err)
+		return
+	}
+}
+
+func (t *syncTask) Dump() string {
+	return fmt.Sprintf("idp %s", jsonutils.Marshal(t.idp).String())
+}
+
 func submitIdpSyncTask(ctx context.Context, userCred mcclient.TokenCredential, idp *SIdentityProvider) {
 	idp.SetSyncStatus(ctx, userCred, api.IdentitySyncStatusQueued)
-	syncWorker.Run(func() {
-		idp.SetSyncStatus(ctx, userCred, api.IdentitySyncStatusSyncing)
-		defer idp.SetSyncStatus(ctx, userCred, api.IdentitySyncStatusIdle)
-
-		conf, err := GetConfigs(idp, true, nil, nil)
-		if err != nil {
-			log.Errorf("GetConfig for idp %s fail %s", idp.Name, err)
-			idp.MarkDisconnected(ctx, userCred, err)
-			return
-		}
-		driver, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, conf)
-		if err != nil {
-			log.Errorf("GetDriver for idp %s fail %s", idp.Name, err)
-			idp.MarkDisconnected(ctx, userCred, err)
-			return
-		}
-		err = driver.Probe(ctx)
-		if err != nil {
-			log.Errorf("Probe for idp %s fail %s", idp.Name, err)
-			idp.MarkDisconnected(ctx, userCred, err)
-			return
-		}
-
-		idp.MarkConnected(ctx, userCred)
-
-		err = driver.Sync(ctx)
-		if err != nil {
-			log.Errorf("Sync for idp %s fail %s", idp.Name, err)
-			return
-		}
-
-	}, nil, nil)
+	task := &syncTask{
+		ctx:      ctx,
+		userCred: userCred,
+		idp:      idp,
+	}
+	syncWorker.Run(task, nil, nil)
 }

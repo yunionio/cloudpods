@@ -69,14 +69,31 @@ func GetTrackers() []string {
 	return urls
 }
 
+type torrentTask struct {
+	torrentpath string
+	imageId     string
+	format      string
+}
+
+func (t *torrentTask) Run() {
+	log.Infof("Start seed %s ...", t.torrentpath)
+	err := seedTorrent(t.torrentpath, t.imageId, t.format)
+	if err == nil {
+		time.Sleep(10 * time.Second)
+	}
+}
+
+func (t *torrentTask) Dump() string {
+	return fmt.Sprintf("torrentpath: %s imageId: %s.%s", t.torrentpath, t.imageId, t.format)
+}
+
 func SeedTorrent(torrentpath string, imageId, format string) error {
-	seedTaskWorkerMan.Run(func() {
-		log.Infof("Start seed %s ...", torrentpath)
-		err := seedTorrent(torrentpath, imageId, format)
-		if err == nil {
-			time.Sleep(10 * time.Second)
-		}
-	}, nil, nil)
+	task := &torrentTask{
+		torrentpath: torrentpath,
+		imageId:     imageId,
+		format:      format,
+	}
+	seedTaskWorkerMan.Run(task, nil, nil)
 	return nil
 }
 

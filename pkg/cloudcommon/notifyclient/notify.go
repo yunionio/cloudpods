@@ -16,6 +16,7 @@ package notifyclient
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -218,6 +219,26 @@ type SEventNotifyParam struct {
 	AdvanceDays         int
 }
 
+type eventTask struct {
+	params api.NotificationManagerEventNotifyInput
+}
+
+func (t *eventTask) Dump() string {
+	return fmt.Sprintf("eventTask params: %v", t.params)
+}
+
+func (t *eventTask) Run() {
+	s, err := AdminSessionGenerator(context.Background(), "", "")
+	if err != nil {
+		log.Errorf("unable to get admin session: %v", err)
+		return
+	}
+	_, err = modules.Notification.PerformClassAction(s, "event-notify", jsonutils.Marshal(t.params))
+	if err != nil {
+		log.Errorf("unable to EventNotify: %s", err)
+	}
+}
+
 func EventNotify(ctx context.Context, userCred mcclient.TokenCredential, ep SEventNotifyParam) {
 	ret, err := db.FetchCustomizeColumns(ep.Obj.GetModelManager(), ctx, userCred, jsonutils.NewDict(), []interface{}{ep.Obj}, stringutils2.SSortedStrings{}, false)
 	if err != nil {
@@ -249,17 +270,10 @@ func EventNotify(ctx context.Context, userCred mcclient.TokenCredential, ep SEve
 		ProjectId:       projectId,
 		ProjectDomainId: projectDomainId,
 	}
-	notifyClientWorkerMan.Run(func() {
-		s, err := AdminSessionGenerator(context.Background(), "", "")
-		if err != nil {
-			log.Errorf("unable to get admin session: %v", err)
-			return
-		}
-		_, err = modules.Notification.PerformClassAction(s, "event-notify", jsonutils.Marshal(params))
-		if err != nil {
-			log.Errorf("unable to EventNotify: %s", err)
-		}
-	}, nil, nil)
+	t := eventTask{
+		params: params,
+	}
+	notifyClientWorkerMan.Run(&t, nil, nil)
 }
 
 func RawNotifyWithCtx(ctx context.Context, recipientId []string, isGroup bool, channel npk.TNotifyChannel, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {

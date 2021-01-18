@@ -37,27 +37,40 @@ func Error2TaskData(err error) jsonutils.JSONObject {
 	return errJson
 }
 
-func LocalTaskRunWithWorkers(task ITask, proc func() (jsonutils.JSONObject, error), wm *appsrv.SWorkerManager) {
-	wm.Run(func() {
+type localTask struct {
+	task ITask
+	proc func() (jsonutils.JSONObject, error)
+}
 
-		log.Debugf("XXXXXXXXXXXXXXXXXXLOCAL TASK RUN STARTXXXXXXXXXXXXXXXXX")
-		defer log.Debugf("XXXXXXXXXXXXXXXXXXLOCAL TASK RUN END  XXXXXXXXXXXXXXXXX")
+func (t *localTask) Run() {
+	log.Debugf("XXXXXXXXXXXXXXXXXXLOCAL TASK RUN STARTXXXXXXXXXXXXXXXXX")
+	defer log.Debugf("XXXXXXXXXXXXXXXXXXLOCAL TASK RUN END  XXXXXXXXXXXXXXXXX")
 
-		defer func() {
-			if r := recover(); r != nil {
-				log.Errorf("LocalTaskRun error: %s", r)
-				debug.PrintStack()
-				task.ScheduleRun(Error2TaskData(fmt.Errorf("LocalTaskRun error: %s", r)))
-			}
-		}()
-		data, err := proc()
-		if err != nil {
-			task.ScheduleRun(Error2TaskData(err))
-		} else {
-			task.ScheduleRun(data)
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("LocalTaskRun error: %s", r)
+			debug.PrintStack()
+			t.task.ScheduleRun(Error2TaskData(fmt.Errorf("LocalTaskRun error: %s", r)))
 		}
+	}()
+	data, err := t.proc()
+	if err != nil {
+		t.task.ScheduleRun(Error2TaskData(err))
+	} else {
+		t.task.ScheduleRun(data)
+	}
+}
 
-	}, nil, nil)
+func (t *localTask) Dump() string {
+	return fmt.Sprintf("StartTime: %s TaskId: %s Params: %s", t.task.GetStartTime(), t.task.GetTaskId(), t.task.GetParams())
+}
+
+func LocalTaskRunWithWorkers(task ITask, proc func() (jsonutils.JSONObject, error), wm *appsrv.SWorkerManager) {
+	t := localTask{
+		task: task,
+		proc: proc,
+	}
+	wm.Run(&t, nil, nil)
 }
 
 func LocalTaskRun(task ITask, proc func() (jsonutils.JSONObject, error)) {

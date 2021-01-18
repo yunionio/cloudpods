@@ -377,10 +377,17 @@ func (self *SCronJobManager) runJobs(now time.Time) {
 	}
 }
 
+func (job *SCronJob) Run() {
+	job.runJobInWorker(job.StartRun)
+}
+
+func (job *SCronJob) Dump() string {
+	return ""
+}
+
 func (job *SCronJob) runJob(isStart bool) {
-	manager.workers.Run(func() {
-		job.runJobInWorker(isStart)
-	}, nil, nil)
+	job.StartRun = isStart
+	manager.workers.Run(job, nil, nil)
 }
 
 func (job *SCronJob) runJobInWorker(isStart bool) {

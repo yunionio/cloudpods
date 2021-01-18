@@ -32,6 +32,19 @@ func init() {
 	taskWorkerTable = make(map[string]*appsrv.SWorkerManager)
 }
 
+type taskTask struct {
+	taskId string
+	data   jsonutils.JSONObject
+}
+
+func (t *taskTask) Run() {
+	TaskManager.execTask(t.taskId, t.data)
+}
+
+func (t *taskTask) Dump() string {
+	return jsonutils.Marshal(t).PrettyString()
+}
+
 func runTask(taskId string, data jsonutils.JSONObject) error {
 	taskName := TaskManager.getTaskName(taskId)
 	if len(taskName) == 0 {
@@ -41,9 +54,13 @@ func runTask(taskId string, data jsonutils.JSONObject) error {
 	if workerMan, ok := taskWorkerTable[taskName]; ok {
 		worker = workerMan
 	}
-	isOk := worker.Run(func() {
-		TaskManager.execTask(taskId, data)
-	}, nil, func(err error) {
+
+	task := &taskTask{
+		taskId: taskId,
+		data:   data,
+	}
+
+	isOk := worker.Run(task, nil, func(err error) {
 		panicutils.SendPanicMessage(context.TODO(), err)
 	})
 	if !isOk {

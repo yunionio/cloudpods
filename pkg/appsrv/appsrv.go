@@ -252,6 +252,49 @@ func (app *Application) handleCORS(w http.ResponseWriter, r *http.Request) bool 
 	}
 }
 
+type appTask struct {
+	ctx       context.Context
+	hand      *SHandlerInfo
+	rid       string
+	params    map[string]string
+	appParams *SAppParams
+	app       *Application
+	fw        responseWriterChannel
+	r         *http.Request
+	segs      []string
+	to        time.Duration
+	cancel    context.CancelFunc
+}
+
+func (t *appTask) Run() {
+	if t.ctx.Err() == nil {
+		t.ctx = context.WithValue(t.ctx, appctx.APP_CONTEXT_KEY_REQUEST_ID, t.rid)
+		t.ctx = context.WithValue(t.ctx, appctx.APP_CONTEXT_KEY_CUR_ROOT, t.hand.path)
+		t.ctx = context.WithValue(t.ctx, appctx.APP_CONTEXT_KEY_CUR_PATH, t.segs[len(t.hand.path):])
+		t.ctx = context.WithValue(t.ctx, appctx.APP_CONTEXT_KEY_PARAMS, t.params)
+		t.ctx = context.WithValue(t.ctx, appctx.APP_CONTEXT_KEY_START_TIME, time.Now().UTC())
+		if t.hand.metadata != nil {
+			t.ctx = context.WithValue(t.ctx, appctx.APP_CONTEXT_KEY_METADATA, t.hand.metadata)
+		}
+		t.ctx = context.WithValue(t.ctx, APP_CONTEXT_KEY_APP_PARAMS, t.appParams)
+		func() {
+			span := trace.StartServerTrace(&t.fw, t.r, t.appParams.Name, t.app.GetName(), t.hand.GetTags())
+			defer func() {
+				if !t.appParams.SkipTrace {
+					span.EndTrace()
+				}
+			}()
+			t.ctx = context.WithValue(t.ctx, appctx.APP_CONTEXT_KEY_TRACE, span)
+			t.hand.handler(t.ctx, &t.fw, t.r)
+		}()
+	} // otherwise, the task has been timeout
+	t.fw.closeChannels()
+}
+
+func (t *appTask) Dump() string {
+	return fmt.Sprintf("%s %s", t.r.Method, t.r.URL.String())
+}
+
 func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, rid string) (*SHandlerInfo, *SAppParams) {
 	segs := SplitPath(r.URL.EscapedPath())
 	for i := range segs {
@@ -268,24 +311,30 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 		// log.Print("Found handler", params)
 		hand, ok := handler.(*SHandlerInfo)
 		if ok {
-			fw := newResponseWriterChannel(w)
-			currentWorker := make(chan *SWorker, 1) // make it a buffered channel
-			to := hand.FetchProcessTimeout(r)
-			if to == 0 {
-				to = app.processTimeout
+			task := &appTask{
+				ctx:    app.context,
+				hand:   hand,
+				rid:    rid,
+				params: params,
+				app:    app,
+				fw:     newResponseWriterChannel(w),
+				r:      r,
+				segs:   segs,
+				to:     hand.FetchProcessTimeout(r),
+				cancel: nil,
 			}
-			var (
-				ctx = app.context
 
-				cancel context.CancelFunc = nil
-			)
-			if to > 0 {
-				ctx, cancel = context.WithTimeout(app.context, to)
+			currentWorker := make(chan *SWorker, 1) // make it a buffered channel
+			if task.to == 0 {
+				task.to = app.processTimeout
 			}
-			if cancel != nil {
-				defer cancel()
+			if task.to > 0 {
+				task.ctx, task.cancel = context.WithTimeout(task.ctx, task.to)
 			}
-			ctx = i18n.WithRequestLang(ctx, r)
+			if task.cancel != nil {
+				defer task.cancel()
+			}
+			task.ctx = i18n.WithRequestLang(task.ctx, r)
 			session := hand.workerMan
 			if session == nil {
 				if r.Method == "GET" || r.Method == "HEAD" {
@@ -294,52 +343,29 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 					session = app.session
 				}
 			}
-			appParams := hand.GetAppParams(params, segs)
-			appParams.Request = r
-			appParams.Response = w
+			task.appParams = hand.GetAppParams(params, segs)
+			task.appParams.Request = r
+			task.appParams.Response = w
 			session.Run(
-				func() {
-					if ctx.Err() == nil {
-						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_REQUEST_ID, rid)
-						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_CUR_ROOT, hand.path)
-						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_CUR_PATH, segs[len(hand.path):])
-						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_PARAMS, params)
-						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_START_TIME, time.Now().UTC())
-						if hand.metadata != nil {
-							ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_METADATA, hand.metadata)
-						}
-						ctx = context.WithValue(ctx, APP_CONTEXT_KEY_APP_PARAMS, appParams)
-						func() {
-							span := trace.StartServerTrace(&fw, r, appParams.Name, app.GetName(), hand.GetTags())
-							defer func() {
-								if !appParams.SkipTrace {
-									span.EndTrace()
-								}
-							}()
-							ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_TRACE, span)
-							hand.handler(ctx, &fw, r)
-						}()
-					} // otherwise, the task has been timeout
-					fw.closeChannels()
-				},
+				task,
 				currentWorker,
 				func(err error) {
-					httperrors.InternalServerError(ctx, &fw, "Internal server error: %s", err)
-					fw.closeChannels()
+					httperrors.InternalServerError(task.ctx, &task.fw, "Internal server error: %s", err)
+					task.fw.closeChannels()
 				},
 			)
-			runErr := fw.wait(ctx, currentWorker)
+			runErr := task.fw.wait(task.ctx, currentWorker)
 			if runErr != nil {
 				switch runErr.(type) {
 				case *httputils.JSONClientError:
 					je := runErr.(*httputils.JSONClientError)
-					httperrors.GeneralServerError(ctx, w, je)
+					httperrors.GeneralServerError(task.ctx, w, je)
 				default:
-					httperrors.InternalServerError(ctx, w, "Internal server error")
+					httperrors.InternalServerError(task.ctx, w, "Internal server error")
 				}
 			}
-			fw.closeChannels()
-			return hand, appParams
+			task.fw.closeChannels()
+			return hand, task.appParams
 		} else {
 			ctx := i18n.WithRequestLang(context.TODO(), r)
 			httperrors.InternalServerError(ctx, w, "Invalid handler %s", r.URL)

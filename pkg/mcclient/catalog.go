@@ -27,22 +27,50 @@ type IServiceCatalogChangeListener interface {
 	OnServiceCatalogChange(catalog IServiceCatalog)
 }
 
+type cliTask struct {
+	cli     *Client
+	l       IServiceCatalogChangeListener
+	catalog IServiceCatalog
+
+	taskType string
+}
+
+func (t *cliTask) Run() {
+	switch t.taskType {
+	case "GetServiceCatalog":
+		t.l.OnServiceCatalogChange(t.cli.GetServiceCatalog())
+	case "OnServiceCatalogChange":
+		for i := range t.cli.catalogListeners {
+			t.cli.catalogListeners[i].OnServiceCatalogChange(t.catalog)
+		}
+	}
+}
+
+func (t *cliTask) Dump() string {
+	return ""
+}
+
 func (cli *Client) RegisterCatalogListener(l IServiceCatalogChangeListener) {
 	cli.catalogListeners = append(cli.catalogListeners, l)
+	task := &cliTask{
+		cli:      cli,
+		l:        l,
+		taskType: "GetServiceCatalog",
+	}
 	if cli.GetServiceCatalog() != nil {
-		listenerWorker.Run(func() {
-			l.OnServiceCatalogChange(cli.GetServiceCatalog())
-		}, nil, nil)
+		listenerWorker.Run(task, nil, nil)
 	}
 }
 
 func (cli *Client) SetServiceCatalog(catalog IServiceCatalog) {
 	cli._serviceCatalog = catalog
-	listenerWorker.Run(func() {
-		for i := range cli.catalogListeners {
-			cli.catalogListeners[i].OnServiceCatalogChange(catalog)
-		}
-	}, nil, nil)
+	task := &cliTask{
+		cli:      cli,
+		catalog:  catalog,
+		taskType: "OnServiceCatalogChange",
+	}
+
+	listenerWorker.Run(task, nil, nil)
 }
 
 func (this *Client) GetServiceCatalog() IServiceCatalog {

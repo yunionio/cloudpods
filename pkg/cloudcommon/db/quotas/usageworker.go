@@ -61,6 +61,49 @@ func isDirty(key string) bool {
 	return false
 }
 
+type quotaTask struct {
+	manager   *SQuotaBaseManager
+	keys      IQuotaKeys
+	usageChan chan IQuota
+	key       string
+}
+
+func (t *quotaTask) Run() {
+	ctx := context.Background()
+
+	usage := t.manager.newQuota()
+
+	if !isDirty(t.key) {
+		if t.usageChan != nil {
+			t.manager.usageStore.GetQuota(ctx, t.keys, usage)
+			t.usageChan <- usage
+		}
+		return
+	}
+
+	usage.SetKeys(t.keys)
+	err := usage.FetchUsage(ctx)
+	if err != nil {
+		log.Debugf("usage.FetchUsage fail %s", err)
+		if t.usageChan != nil {
+			t.usageChan <- nil
+		}
+		return
+	}
+
+	t.manager.usageStore.SetQuota(ctx, nil, usage)
+
+	clearDirty(t.key)
+
+	if t.usageChan != nil {
+		t.usageChan <- usage
+	}
+}
+
+func (t *quotaTask) Dump() string {
+	return ""
+}
+
 func (manager *SQuotaBaseManager) PostUsageJob(keys IQuotaKeys, usageChan chan IQuota, realTime bool) {
 	if !consts.EnableQuotaCheck() {
 		go func() {
@@ -78,37 +121,14 @@ func (manager *SQuotaBaseManager) PostUsageJob(keys IQuotaKeys, usageChan chan I
 		worker = usageCalculateWorker
 	}
 
-	worker.Run(func() {
-		ctx := context.Background()
+	task := quotaTask{
+		manager:   manager,
+		keys:      keys,
+		usageChan: usageChan,
+		key:       key,
+	}
 
-		usage := manager.newQuota()
-
-		if !isDirty(key) {
-			if usageChan != nil {
-				manager.usageStore.GetQuota(ctx, keys, usage)
-				usageChan <- usage
-			}
-			return
-		}
-
-		usage.SetKeys(keys)
-		err := usage.FetchUsage(ctx)
-		if err != nil {
-			log.Debugf("usage.FetchUsage fail %s", err)
-			if usageChan != nil {
-				usageChan <- nil
-			}
-			return
-		}
-
-		manager.usageStore.SetQuota(ctx, nil, usage)
-
-		clearDirty(key)
-
-		if usageChan != nil {
-			usageChan <- usage
-		}
-	}, nil, nil)
+	worker.Run(&task, nil, nil)
 }
 
 func (manager *SQuotaBaseManager) CalculateQuotaUsages(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
