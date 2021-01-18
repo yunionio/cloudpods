@@ -111,7 +111,6 @@ func (sql *SSQLDriver) alertNotify(ctx context.Context, uext *api.SUserExtended,
 	}
 	userSet := sets.NewString(daUserIds...)
 	userSet.Insert(aUserIds...)
-	userSet.Insert(uext.Id)
 	data.Set("admin", jsonutils.JSONTrue)
 	p.RecipientId = userSet.UnsortedList()
 	p.Data = data
