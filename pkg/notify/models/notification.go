@@ -464,13 +464,15 @@ func (nm *SNotificationManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 }
 
 func (nm *SNotificationManager) ReSend(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	q := nm.Query().NotEquals("status", api.NOTIFICATION_STATUS_OK).LT("send_times", options.Options.MaxSendTimes)
+	timeLimit := time.Now().Add(-time.Duration(options.Options.ReSendScope) * time.Second * 2).Format("2006-01-02 15:04:05")
+	q := nm.Query().GT("created_at", timeLimit).In("status", []string{api.NOTIFICATION_STATUS_FAILED, api.NOTIFICATION_STATUS_PART_OK}).LT("send_times", options.Options.MaxSendTimes)
 	ns := make([]SNotification, 0, 2)
 	err := db.FetchModelObjects(nm, q, &ns)
 	if err != nil {
 		log.Errorf("fail to FetchModelObjects: %v", err)
 		return
 	}
+	log.Infof("need to resend total %d notifications", len(ns))
 	for i := range ns {
 		task, err := taskman.TaskManager.NewTask(ctx, "NotificationSendTask", &ns[i], userCred, nil, "", "")
 		if err != nil {
