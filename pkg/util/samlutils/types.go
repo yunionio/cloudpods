@@ -250,6 +250,8 @@ type SIdpRedirectLoginInput struct {
 	RelayState  string `json:"RelayState,ignoreempty"`
 	SigAlg      string `json:"SigAlg,ignoreempty"`
 	Signature   string `json:"Signature,ignoreempty"`
+
+	Username string `json:"username,ignoreempty"`
 }
 
 type SIdpInitiatedLoginInput struct {

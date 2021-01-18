@@ -1072,6 +1072,9 @@ type IClouduser interface {
 	GetGlobalId() string
 	GetName() string
 
+	GetEmailAddr() string
+	GetInviteUrl() string
+
 	GetICloudgroups() ([]ICloudgroup, error)
 
 	GetISystemCloudpolicies() ([]ICloudpolicy, error)

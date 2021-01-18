@@ -34,7 +34,7 @@ func (opts *CloudgroupListOptions) Params() (jsonutils.JSONObject, error) {
 
 type CloudgroupCreateOptions struct {
 	NAME           string   `json:"name"`
-	PROVIDER       string   `json:"provider" choices:"Google|Aliyun|Aws|Huawei|Qcloud"`
+	PROVIDER       string   `json:"provider" choices:"Google|Aliyun|Aws|Huawei|Qcloud|Azure"`
 	CloudpolicyIds []string `json:"cloudpolicy_ids"`
 	Desc           string   `json:"description"`
 }

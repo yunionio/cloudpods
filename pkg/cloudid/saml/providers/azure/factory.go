@@ -12,29 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cloudprovider
+package azure
 
-import "yunion.io/x/jsonutils"
+import (
+	"yunion.io/x/onecloud/pkg/cloudid/models"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+)
 
-type SClouduserCreateConfig struct {
-	Name              string
-	Desc              string
-	Password          string
-	IsConsoleLogin    bool
-	Email             string
-	MobilePhone       string
-	ExternalPolicyIds []string
-	UserType          string
+type SAzureSAMLDriver struct{}
+
+func (d *SAzureSAMLDriver) GetEntityID() string {
+	return cloudprovider.SAML_ENTITY_ID_AZURE
 }
 
-type SCloudpolicyPermission struct {
-	Name     string
-	Action   string
-	Category string
+func (d *SAzureSAMLDriver) GetMetadataFilename() string {
+	return "azure.xml"
 }
 
-type SCloudpolicyCreateOptions struct {
-	Name     string
-	Desc     string
-	Document *jsonutils.JSONDict
+func (d *SAzureSAMLDriver) GetMetadataUrl() string {
+	return "https://nexus.microsoftonline-p.com/federationmetadata/saml20/federationmetadata.xml"
+}
+
+func init() {
+	models.Register(&SAzureSAMLDriver{})
 }

@@ -51,6 +51,14 @@ func (user *SClouduser) GetName() string {
 	return user.Name
 }
 
+func (user *SClouduser) GetEmailAddr() string {
+	return ""
+}
+
+func (user *SClouduser) GetInviteUrl() string {
+	return ""
+}
+
 func (user *SClouduser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	return []cloudprovider.ICloudpolicy{}, nil
 }

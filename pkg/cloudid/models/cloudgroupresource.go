@@ -38,7 +38,7 @@ type SCloudgroupResourceBase struct {
 	CloudgroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
 
-func (self *SCloudgroupJointsBase) GetCloudgroup() (*SCloudgroup, error) {
+func (self *SCloudgroupResourceBase) GetCloudgroup() (*SCloudgroup, error) {
 	group, err := CloudgroupManager.FetchById(self.CloudgroupId)
 	if err != nil {
 		return nil, errors.Wrap(err, "FetchById")

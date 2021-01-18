@@ -25,6 +25,7 @@ import (
 
 	"github.com/ma314smith/signedxml"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 )
@@ -72,11 +73,15 @@ func SAMLDecode(input string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "base64.StdEncoding.DecodeString")
 	}
-	plainText, err := decompress(reqBytes)
-	if err != nil {
-		return nil, errors.Wrap(err, "decompress")
-	}
-	return plainText, nil
+	return func() []byte {
+		// Azure no need to decompress
+		plainText, err := decompress(reqBytes)
+		if err != nil {
+			log.Warningf("decompress %s error: %v", string(reqBytes), err)
+			return reqBytes
+		}
+		return plainText
+	}(), nil
 }
 
 func SAMLEncode(input []byte) (string, error) {

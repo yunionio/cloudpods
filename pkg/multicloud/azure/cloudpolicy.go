@@ -134,9 +134,8 @@ func (cli *SAzureClient) AssignPolicy(objectId, roleName, subscriptionId string)
 			"principalId":      objectId,
 		},
 	}
-	subscriptionIds := []string{subscriptionId}
+	subscriptionIds := []string{}
 	if len(subscriptionId) == 0 {
-		subscriptionIds = []string{}
 		for _, subscription := range cli.subscriptions {
 			subscriptionIds = append(subscriptionIds, subscription.SubscriptionId)
 		}

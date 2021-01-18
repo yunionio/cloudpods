@@ -194,6 +194,27 @@ func prepareServer() error {
 					Values:       []string{v.value},
 				})
 			}
+		case "urn:federation:MicrosoftOnline":
+			data.NameId = sp.Username
+			data.NameIdFormat = samlutils.NAME_ID_FORMAT_PERSISTENT
+			data.AudienceRestriction = sp.GetEntityId()
+			for _, v := range []struct {
+				name         string
+				friendlyName string
+				value        string
+			}{
+				{
+					name:  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress",
+					value: data.NameId,
+				},
+			} {
+				data.Attributes = append(data.Attributes, samlutils.SSAMLResponseAttribute{
+					Name:         v.name,
+					FriendlyName: v.friendlyName,
+					Values:       []string{v.value},
+				})
+			}
+			return data, nil
 		case "google.com/a/yunion-hk.com":
 			data.NameId = "qiujian"
 			data.NameIdFormat = samlutils.NAME_ID_FORMAT_TRANSIENT
@@ -405,6 +426,10 @@ func prepareServer() error {
 			{
 				name: "Google cloud SSO",
 				url:  "https://www.google.com/a/yunion-hk.com/ServiceLogin?continue=https://console.cloud.google.com",
+			},
+			{
+				name: "Azure cloud SSO",
+				url:  "https://login.microsoftonline.com/redeem?rd=https%3a%2f%2finvitations.microsoft.com%2fredeem%2f%3ftenant%3d17493ddf-fa90-4f95-8576-5df011c126e5%26user%3d3bc1c055-aa14-4795-aef0-5970b00d03c7%26ticket%3d0GDu%252bZ7nLbg01rYL5u%252b401%252bOLyZjxPewSBJIAZZ7E0U%253d%26ver%3d2.0",
 			},
 		} {
 			htmlBuf.WriteString(fmt.Sprintf(`<li><a href="%s">%s (SP-Initiated)</a></li>`, v.url, v.name))

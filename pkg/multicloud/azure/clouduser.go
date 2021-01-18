@@ -80,6 +80,8 @@ type SClouduser struct {
 	UserState                        string
 	UserStateChangedOn               string
 	UserType                         string
+
+	inviteRedeemUrl string
 }
 
 func (user *SClouduser) GetName() string {
@@ -88,6 +90,14 @@ func (user *SClouduser) GetName() string {
 
 func (user *SClouduser) GetGlobalId() string {
 	return user.ObjectId
+}
+
+func (user *SClouduser) GetEmailAddr() string {
+	return user.Mail
+}
+
+func (user *SClouduser) GetInviteUrl() string {
+	return user.inviteRedeemUrl
 }
 
 func (user *SClouduser) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
@@ -250,6 +260,9 @@ func (self *SAzureClient) GetIClouduserByName(name string) (cloudprovider.ICloud
 }
 
 func (self *SAzureClient) CreateIClouduser(conf *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {
+	if conf.UserType == "Guest" {
+		return self.InviteUser(conf.Email)
+	}
 	return self.CreateClouduser(conf.Name, conf.Password)
 }
 
