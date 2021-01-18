@@ -505,18 +505,71 @@ func isJsonContentType(r *http.Request) bool {
 	return false
 }
 
+func isFormContentType(r *http.Request) bool {
+	contType := strings.ToLower(r.Header.Get("Content-Type"))
+	if strings.HasPrefix(contType, "application/json") {
+		return true
+	}
+	return false
+}
+
+type TContentType string
+
+const (
+	ContentTypeJson    = TContentType("Json")
+	ContentTypeForm    = TContentType("Form")
+	ContentTypeUnknown = TContentType("Unknown")
+)
+
+func getContentType(r *http.Request) TContentType {
+	contType := func() string {
+		for _, k := range []string{"Content-Type", "content-type"} {
+			contentType := r.Header.Get(k)
+			if len(contentType) > 0 {
+				return strings.ToLower(contentType)
+			}
+		}
+		return ""
+	}()
+	for k, v := range map[string]TContentType{
+		"application/json":                  ContentTypeJson,
+		"application/x-www-form-urlencoded": ContentTypeForm,
+	} {
+		if strings.HasPrefix(contType, k) {
+			return v
+		}
+	}
+	return ContentTypeUnknown
+}
+
 func FetchEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (params map[string]string, query jsonutils.JSONObject, body jsonutils.JSONObject) {
 	var err error
 	params = appctx.AppContextParams(ctx)
 	query, err = jsonutils.ParseQueryString(r.URL.RawQuery)
 	if err != nil {
-		log.Errorf("Parse query string %s failed: %s", r.URL.RawQuery, err)
+		log.Errorf("Parse query string %s failed: %v", r.URL.RawQuery, err)
 	}
 	//var body jsonutils.JSONObject = nil
-	if (r.Method == "PUT" || r.Method == "POST" || r.Method == "DELETE" || r.Method == "PATCH") && r.ContentLength > 0 && isJsonContentType(r) {
-		body, err = FetchJSON(r)
-		if err != nil {
-			log.Errorf("Fail to decode JSON request body: %s", err)
+	if r.Method == "PUT" || r.Method == "POST" || r.Method == "DELETE" || r.Method == "PATCH" {
+		switch getContentType(r) {
+		case ContentTypeJson:
+			if r.ContentLength > 0 {
+				body, err = FetchJSON(r)
+				if err != nil {
+					log.Warningf("Fail to decode JSON request body: %v", err)
+				}
+			}
+		case ContentTypeForm:
+			err := r.ParseForm()
+			if err != nil {
+				log.Warningf("ParseForm %s error: %v", r.URL.String(), err)
+			}
+			query, err = jsonutils.ParseQueryString(r.PostForm.Encode())
+			if err != nil {
+				log.Warningf("Parse query string %s failed: %v", r.PostForm.Encode(), err)
+			}
+		default:
+			log.Warningf("%s invalid contentType with header %v", r.URL.String(), r.Header)
 		}
 	}
 	return params, query, body

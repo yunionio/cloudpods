@@ -12,29 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cloudprovider
-
-import "yunion.io/x/jsonutils"
-
-type SClouduserCreateConfig struct {
-	Name              string
-	Desc              string
-	Password          string
-	IsConsoleLogin    bool
-	Email             string
-	MobilePhone       string
-	ExternalPolicyIds []string
-	UserType          string
-}
-
-type SCloudpolicyPermission struct {
-	Name     string
-	Action   string
-	Category string
-}
-
-type SCloudpolicyCreateOptions struct {
-	Name     string
-	Desc     string
-	Document *jsonutils.JSONDict
-}
+package azure // import "yunion.io/x/onecloud/pkg/cloudid/saml/providers/azure"

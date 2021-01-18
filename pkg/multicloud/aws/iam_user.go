@@ -41,6 +41,14 @@ type SUser struct {
 	PasswordLastUsed time.Time `xml:"PasswordLastUsed"`
 }
 
+func (user *SUser) GetEmailAddr() string {
+	return ""
+}
+
+func (user *SUser) GetInviteUrl() string {
+	return ""
+}
+
 func (user *SUser) AttachSystemPolicy(policyArn string) error {
 	return user.client.AttachUserPolicy(user.UserName, user.client.getIamArn(policyArn))
 }

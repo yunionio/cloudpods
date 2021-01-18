@@ -46,6 +46,14 @@ type SUser struct {
 	UserName    string
 }
 
+func (user *SUser) GetEmailAddr() string {
+	return ""
+}
+
+func (user *SUser) GetInviteUrl() string {
+	return ""
+}
+
 func (user *SUser) GetGlobalId() string {
 	if len(user.UserId) > 0 {
 		return user.UserId

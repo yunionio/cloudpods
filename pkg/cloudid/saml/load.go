@@ -18,6 +18,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/aliyun"
 	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/aws"
 	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/awscn"
+	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/azure"
 	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/google"
 	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/huawei"
 	_ "yunion.io/x/onecloud/pkg/cloudid/saml/providers/qcloud"

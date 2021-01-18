@@ -23,6 +23,8 @@ import (
 
 type SSAMLServiceProvider struct {
 	desc samlutils.EntityDescriptor
+
+	Username string
 }
 
 func (sp *SSAMLServiceProvider) GetEntityId() string {
