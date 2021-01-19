@@ -1152,13 +1152,21 @@ func (manager *SIdentityProviderManager) ListItemFilter(
 		if strings.EqualFold(query.SsoDomain, "all") {
 			q = q.IsNullOrEmpty("domain_id")
 		} else if len(query.SsoDomain) > 0 {
+			ssoDomain, err := DomainManager.FetchDomainByIdOrName(query.SsoDomain)
+			if err != nil {
+				if errors.Cause(err) == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), query.SsoDomain)
+				} else {
+					return nil, errors.Wrap(err, "FetchDomainByIdOrName")
+				}
+			}
 			q = q.Filter(sqlchemy.OR(
 				sqlchemy.IsNullOrEmpty(q.Field("domain_id")),
-				sqlchemy.Equals(q.Field("domain_id"), query.SsoDomain),
+				sqlchemy.Equals(q.Field("domain_id"), ssoDomain.Id),
 			))
 			q = q.Filter(sqlchemy.OR(
 				sqlchemy.IsNullOrEmpty(q.Field("target_domain_id")),
-				sqlchemy.Equals(q.Field("target_domain_id"), query.SsoDomain),
+				sqlchemy.Equals(q.Field("target_domain_id"), ssoDomain.Id),
 			))
 		}
 	}
@@ -1550,8 +1558,15 @@ func (idp *SIdentityProvider) PerformDefaultSso(
 	if input.Enable != nil {
 		if *input.Enable {
 			// enable
-			// first disable any other idp
+			// first disable any other idp in the same domain
 			q := IdentityProviderManager.Query().IsTrue("is_sso").IsTrue("is_default").NotEquals("id", idp.Id)
+			if len(idp.DomainId) > 0 {
+				// a domain specific IDP
+				q = q.Equals("domain_id", idp.DomainId)
+			} else {
+				// a system IDP
+				q = q.IsNullOrEmpty("domain_id")
+			}
 			idps := make([]SIdentityProvider, 0)
 			err := db.FetchModelObjects(IdentityProviderManager, q, &idps)
 			if err != nil && errors.Cause(err) != sql.ErrNoRows {
