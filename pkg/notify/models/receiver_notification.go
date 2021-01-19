@@ -49,6 +49,10 @@ type SReceiverNotification struct {
 	FailedReason string    `width:"1024"`
 }
 
+func (self *SReceiverNotificationManager) InitializeData() error {
+	return dataCleaning(self.TableSpec().Name())
+}
+
 func (rnm *SReceiverNotificationManager) Create(ctx context.Context, userCred mcclient.TokenCredential, receiverID, notificationID string) (*SReceiverNotification, error) {
 	rn := &SReceiverNotification{
 		ReceiverID:     receiverID,
