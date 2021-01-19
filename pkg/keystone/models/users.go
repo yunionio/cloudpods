@@ -254,6 +254,7 @@ func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domai
 		users.Field("is_system_account"),
 		localUsers.Field("id", "local_id"),
 		localUsers.Field("name", "local_name"),
+		localUsers.Field("failed_auth_count", "local_failed_auth_count"),
 		domains.Field("name", "domain_name"),
 		domains.Field("enabled", "domain_enabled"),
 		// idmappings.Field("domain_id", "idp_id"),
