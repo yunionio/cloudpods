@@ -33,7 +33,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/image/policy"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/monitor/models"
 	notifyv2 "yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/oldmodels"
 	"yunion.io/x/onecloud/pkg/notify/options"
@@ -355,19 +354,23 @@ func (self *SNotificationManager) singleRowLineQuery(sqlStr string, dest ...inte
 }
 
 func (self *SNotificationManager) InitializeData() error {
+	return dataCleaning(self.TableSpec().Name())
+}
+
+func dataCleaning(tableName string) error {
 	now := time.Now()
 	monthsDaysAgo := now.AddDate(0, -1, 0).Format("2006-01-02 15:04:05")
 	sqlStr := fmt.Sprintf(
 		"update %s set deleted = 1 where deleted = 0 and created_at < '%s'",
-		models.NotificationManager.TableSpec().Name(),
+		tableName,
 		monthsDaysAgo,
 	)
 	q := sqlchemy.NewRawQuery(sqlStr)
 	_, err := q.Rows()
 	if err != nil {
-		return errors.Wrap(err, "unable to delete expired notification")
+		return errors.Wrapf(err, "unable to delete expired data in %q", tableName)
 	}
-	log.Infof("delete expired notification successfully")
+	log.Infof("delete expired data in %q successfully", tableName)
 	return nil
 }
 
