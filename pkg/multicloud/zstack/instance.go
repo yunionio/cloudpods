@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/utils"
 
@@ -470,7 +471,23 @@ func (region *SRegion) DetachDisk(instanceId, diskId string) error {
 }
 
 func (instance *SInstance) DeleteVM(ctx context.Context) error {
-	return instance.host.zone.region.DeleteVM(instance.UUID)
+	disks, err := instance.GetIDisks()
+	if err != nil {
+		return errors.Wrapf(err, "GetIDisks")
+	}
+	err = instance.host.zone.region.DeleteVM(instance.UUID)
+	if err != nil {
+		return errors.Wrapf(err, "DeleteVM")
+	}
+	for i := range disks {
+		if disks[i].GetDiskType() != api.DISK_TYPE_SYS && disks[i].GetIsAutoDelete() {
+			err = disks[i].Delete(ctx)
+			if err != nil {
+				log.Warningf("delete disk %s failed %s", disks[i].GetId(), err)
+			}
+		}
+	}
+	return nil
 }
 
 func (region *SRegion) DeleteVM(instanceId string) error {
@@ -482,7 +499,10 @@ func (region *SRegion) DeleteVM(instanceId string) error {
 		"expungeVmInstance": jsonutils.NewDict(),
 	}
 	_, err = region.client.put("vm-instances", instanceId, jsonutils.Marshal(params))
-	return err
+	if err != nil {
+		return errors.Wrapf(err, "expungeVmInstance")
+	}
+	return nil
 }
 
 func (instance *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
