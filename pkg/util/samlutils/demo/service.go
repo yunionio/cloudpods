@@ -371,7 +371,7 @@ func prepareServer() error {
 		}
 	}
 	idpInst.AddHandlers(app, "SAML/idp", nil)
-	idpInst.SetHtmlTemplate(`<!DOCTYPE html><html lang="zh_CN"><head><meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body><h1>正在跳转到云控制台，请等待。。。</h1>$FORM$</body></html>`)
+	idpInst.SetHtmlTemplate("zh-CN", `<!DOCTYPE html><html lang="zh_CN"><head><meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body><h1>正在跳转到云控制台，请等待。。。</h1>$FORM$</body></html>`)
 
 	app.AddHandler("GET", "SAML/idp", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		idpInitUrl := httputils.JoinPath(options.Entity, "SAML/idp/sso")
