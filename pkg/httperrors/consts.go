@@ -84,6 +84,9 @@ const (
 	ErrTooManyAttempts = errors.Error("TooManyFailedAttempts")
 	ErrTooManyRequests = errors.Error("TooManyRequests")
 
+	ErrUserLocked   = errors.Error("User Locked")
+	ErrUserDisabled = errors.Error("User Disabled")
+
 	ErrUnsupportedProtocol = errors.Error("UnsupportedProtocol")
 
 	ErrPolicyDefinition = errors.Error("PolicyDefinitionError")
@@ -159,6 +162,9 @@ var (
 
 		ErrTooManyAttempts: 429,
 		ErrTooManyRequests: 429,
+
+		ErrUserLocked:   423,
+		ErrUserDisabled: 423,
 
 		ErrPolicyDefinition: 409,
 	}

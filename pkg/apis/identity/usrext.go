@@ -31,11 +31,12 @@ type SUserExtended struct {
 	Email       string
 	Mobile      string
 
-	LocalId       int
-	LocalName     string
-	DomainName    string
-	DomainEnabled bool
-	IsLocal       bool
+	LocalId              int
+	LocalName            string
+	LocalFailedAuthCount int
+	DomainName           string
+	DomainEnabled        bool
+	IsLocal              bool
 	// IdpId         string
 	// IdpName       string
 }
