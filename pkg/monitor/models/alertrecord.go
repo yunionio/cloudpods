@@ -93,21 +93,40 @@ func (manager *SAlertRecordManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SScopedResourceBaseManager.ListItemFilter")
 	}
+	if query.Alerting {
+		alertingQuery := manager.getAlertingRecordQuery().SubQuery()
+
+		q.Join(alertingQuery, sqlchemy.Equals(q.Field("alert_id"), alertingQuery.Field("alert_id"))).Filter(
+			sqlchemy.Equals(q.Field("created_at"), alertingQuery.Field("max_created_at")))
+	}
 	if len(query.Level) != 0 {
-		q = q.Equals("level", query.Level)
+		q.Filter(sqlchemy.Equals(q.Field("level"), query.Level))
 	}
 	if len(query.State) != 0 {
-		q = q.Equals("state", query.State)
+		q.Filter(sqlchemy.Equals(q.Field("state"), query.State))
 	}
 	if len(query.AlertId) != 0 {
-		q = q.Equals("alert_id", query.AlertId)
+		q.Filter(sqlchemy.Equals(q.Field("alert_id"), query.AlertId))
 	} else {
 		q = q.IsNotEmpty("res_type").IsNotNull("res_type")
 	}
-	if len(query.ResType) != 0 {
-		q = q.Equals("res_type", query.ResType)
+	if len(query.ResTypes) != 0 {
+		q.Filter(sqlchemy.In(q.Field("res_type"), query.ResTypes))
 	}
 	return q, nil
+}
+
+func (man *SAlertRecordManager) getAlertingRecordQuery() *sqlchemy.SQuery {
+	alertsQuery := CommonAlertManager.Query("id").Equals("state", monitor.AlertStateAlerting).IsTrue("enabled").IsNull("used_by").SubQuery()
+	recordSub := man.Query().SubQuery()
+
+	recordQuery := recordSub.Query(recordSub.Field("alert_id"), sqlchemy.MAX("max_created_at", recordSub.Field("created_at")))
+	recordQuery.Equals("state", monitor.AlertStateAlerting)
+	recordQuery.In("alert_id", alertsQuery)
+	recordQuery.IsNotNull("res_type").IsNotEmpty("res_type")
+	recordQuery.GroupBy("alert_id")
+	return recordQuery
+
 }
 
 func (man *SAlertRecordManager) GetAlertRecord(id string) (*SAlertRecord, error) {
@@ -306,10 +325,17 @@ func (manager *SAlertRecordManager) AllowGetPropertyTotalAlert(ctx context.Conte
 
 func (manager *SAlertRecordManager) GetPropertyTotalAlert(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-
-	alertRecords, err := manager.getNowAlertingRecord(ctx, userCred, query)
+	input := new(monitor.AlertRecordListInput)
+	err := query.Unmarshal(input)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal AlertRecordListInput error")
+	}
+	alertRecords, err := manager.getNowAlertingRecord(ctx, userCred, *input)
 	if err != nil {
 		return nil, errors.Wrap(err, "getNowAlertingRecord error")
+	}
+	if input.Details != nil && *input.Details {
+
 	}
 	alertCountMap := jsonutils.NewDict()
 	for _, record := range alertRecords {
@@ -328,18 +354,22 @@ func (manager *SAlertRecordManager) GetPropertyTotalAlert(ctx context.Context, u
 }
 
 func (manager *SAlertRecordManager) getNowAlertingRecord(ctx context.Context, userCred mcclient.TokenCredential,
-	param jsonutils.JSONObject) ([]SAlertRecord, error) {
-	now := time.Now()
-	startTime := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 1, now.Location())
+	input monitor.AlertRecordListInput) ([]SAlertRecord, error) {
+	//now := time.Now()
+	//startTime := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 1, now.Location())
 	query := manager.Query()
-	scope, _ := param.GetString("scope")
-	query = manager.FilterByOwner(query, userCred, rbacutils.String2Scope(scope))
-	query = query.GE("created_at", startTime.UTC().Format(timeutils.MysqlTimeFormat))
+	query = manager.FilterByOwner(query, userCred, rbacutils.String2Scope(input.Scope))
+	//query = query.GE("created_at", startTime.UTC().Format(timeutils.MysqlTimeFormat))
 	query = query.Equals("state", monitor.AlertStateAlerting)
 	query = query.IsNotNull("res_type").IsNotEmpty("res_type").Desc("created_at")
 
-	alertsQuery := CommonAlertManager.Query("id").Equals("state", monitor.AlertStateAlerting).IsNull("used_by")
-	alertsQuery = CommonAlertManager.FilterByOwner(alertsQuery, userCred, rbacutils.String2Scope(scope))
+	if len(input.ResTypes) != 0 {
+		query = query.In("res_type", input.ResTypes)
+	}
+
+	alertsQuery := CommonAlertManager.Query("id").Equals("state", monitor.AlertStateAlerting).IsTrue("enabled").
+		IsNull("used_by")
+	alertsQuery = CommonAlertManager.FilterByOwner(alertsQuery, userCred, rbacutils.String2Scope(input.Scope))
 	alerts := make([]SCommonAlert, 0)
 	records := make([]SAlertRecord, 0)
 	err := db.FetchModelObjects(CommonAlertManager, alertsQuery, &alerts)
