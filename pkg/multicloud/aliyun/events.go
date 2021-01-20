@@ -21,6 +21,7 @@ import (
 	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -64,6 +65,7 @@ type SEvent struct {
 	UserAgent           string
 	UserIdentity        SUserIdentity
 	ResponseElements    map[string]string
+	IsGlobal            bool
 }
 
 func (event *SEvent) GetCreatedAt() time.Time {
@@ -120,7 +122,7 @@ func (region *SRegion) GetICloudEvents(start time.Time, end time.Time, withReadE
 
 	eventRW = "Write"
 	if withReadEvent {
-		eventRW = "All"
+		eventRW = ""
 	}
 
 	for {
@@ -135,10 +137,11 @@ func (region *SRegion) GetICloudEvents(start time.Time, end time.Time, withReadE
 	}
 
 	for i := range events {
-		if !withReadEvent {
-			if strings.HasPrefix(events[i].EventName, "Query") {
-				continue
-			}
+		if events[i].IsGlobal && region.RegionId != ALIYUN_DEFAULT_REGION {
+			continue
+		}
+		if !withReadEvent && strings.HasPrefix(events[i].EventName, "Query") { // QueryInstanceBill QueryBill
+			continue
 		}
 		iEvents = append(iEvents, &events[i])
 	}
@@ -146,10 +149,6 @@ func (region *SRegion) GetICloudEvents(start time.Time, end time.Time, withReadE
 }
 
 func (region *SRegion) GetEvents(start time.Time, end time.Time, token string, eventRW string, requestId string) ([]SEvent, string, error) {
-	if region.RegionId != EVENT_REGION_HANGZHOU {
-		return []SEvent{}, "", nil
-	}
-
 	params := map[string]string{
 		"RegionId": region.RegionId,
 	}
@@ -159,8 +158,9 @@ func (region *SRegion) GetEvents(start time.Time, end time.Time, token string, e
 	if !end.IsZero() {
 		params["EndTime"] = end.Format("2006-01-02T15:04:05Z")
 	}
-	if len(eventRW) > 0 {
-		params["EventRW"] = eventRW
+	if utils.IsInStringArray(eventRW, []string{"Read", "Write"}) {
+		params["LookupAttribute.1.Key"] = "EventRW"
+		params["LookupAttribute.1.Value"] = eventRW
 	}
 	if len(token) > 0 {
 		params["NextToken"] = token
@@ -168,8 +168,11 @@ func (region *SRegion) GetEvents(start time.Time, end time.Time, token string, e
 	if len(requestId) > 0 {
 		params["Request"] = requestId
 	}
-	resp, err := region.client.trialRequest("LookupEvents", params)
+	resp, err := region.trialRequest("LookupEvents", params)
 	if err != nil {
+		if strings.Contains(err.Error(), "no such host") { // cn-wulanchabu not support
+			return []SEvent{}, "", nil
+		}
 		return nil, "", err
 	}
 
