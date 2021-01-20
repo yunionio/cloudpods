@@ -1167,3 +1167,12 @@ func (self *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, er
 func (region *SRegion) GetCapabilities() []string {
 	return region.client.GetCapabilities()
 }
+
+func (self *SRegion) trialRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	client, err := self.getSdkClient()
+	if err != nil {
+		return nil, err
+	}
+	domain := fmt.Sprintf("actiontrail.%s.aliyuncs.com", self.RegionId)
+	return jsonRequest(client, domain, ALIYUN_API_VERSION_TRIAL, apiName, params, self.client.debug)
+}
