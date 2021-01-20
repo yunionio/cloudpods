@@ -17,9 +17,9 @@ func (opt *CostReportListOptions) Params() (jsonutils.JSONObject, error) {
 type CostReportCreateOptions struct {
 	Scope string `help:"scope of cost report" json:"scope"`
 
-	PeriodType string   `help:"period of cost report send, example:"month/week/day" json:"period_type"`
+	PeriodType string   `help:"period of cost report send, e.g. month, week, day" json:"period_type"`
 	Day        int      `help:"day of cost report send" json:"day"`
-	ColonTimer string   `help:"hour and minute of cost report send, example:"HH:mm" json:"colon_timer"`
+	ColonTimer string   `help:"hour and minute of cost report send, e.g. HH:mm" json:"colon_timer"`
 	Emails     []string `help:"emails of cost report send" json:"emails"`
 	StartRun   bool     `help:"whether cost report sends instantly" json:"start_run"`
 }
@@ -31,9 +31,9 @@ func (opt *CostReportCreateOptions) Params() (jsonutils.JSONObject, error) {
 type CostReportUpdateOptions struct {
 	ID string `help:"ID of cost report" json:"-"`
 
-	PeriodType string   `help:"period of cost report send, example:"month/week/day" json:"period_type"`
+	PeriodType string   `help:"period of cost report send, e.g. month, week, day" json:"period_type"`
 	Day        int      `help:"day of cost report send" json:"day"`
-	ColonTimer string   `help:"hour and minute of cost report send, example:"HH:mm" json:"colon_timer"`
+	ColonTimer string   `help:"hour and minute of cost report send, e.g. HH:mm" json:"colon_timer"`
 	Emails     []string `help:"emails of cost report send" json:"emails"`
 	StartRun   bool     `help:"whether cost report sends instantly" json:"start_run"`
 }
