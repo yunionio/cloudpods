@@ -17,8 +17,6 @@ package regiondrivers
 import (
 	"testing"
 
-	"yunion.io/x/pkg/util/secrules"
-
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -29,13 +27,12 @@ func TestOpenStackRuleSync(t *testing.T) {
 
 	defaultInRule := driver.GetDefaultSecurityGroupInRule()
 	defaultOutRule := driver.GetDefaultSecurityGroupOutRule()
-	order := driver.GetSecurityGroupRuleOrder()
 	isOnlyAllowRules := driver.IsOnlySupportAllowRules()
 
 	data := []TestData{
 		{
 			Name: "Test deny rules",
-			LocalRules: secrules.SecurityRuleSet{
+			LocalRules: cloudprovider.LocalSecurityRuleSet{
 				localRuleWithPriority("in:deny any", 100),
 				localRuleWithPriority("in:allow any", 99),
 				localRuleWithPriority("out:allow any", 100),
@@ -57,7 +54,7 @@ func TestOpenStackRuleSync(t *testing.T) {
 
 	for _, d := range data {
 		t.Logf("check %s", d.Name)
-		common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, order, d.LocalRules, d.RemoteRules, defaultInRule, defaultOutRule, isOnlyAllowRules, true)
+		common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, d.LocalRules, d.RemoteRules, defaultInRule, defaultOutRule, isOnlyAllowRules, true, false)
 		check(t, "common", common, d.Common)
 		check(t, "inAdds", inAdds, d.InAdds)
 		check(t, "outAdds", outAdds, d.OutAdds)
