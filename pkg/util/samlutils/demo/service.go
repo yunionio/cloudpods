@@ -29,6 +29,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/samlutils"
@@ -371,7 +372,7 @@ func prepareServer() error {
 		}
 	}
 	idpInst.AddHandlers(app, "SAML/idp", nil)
-	idpInst.SetHtmlTemplate("zh-CN", `<!DOCTYPE html><html lang="zh_CN"><head><meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body><h1>正在跳转到云控制台，请等待。。。</h1>$FORM$</body></html>`)
+	idpInst.SetHtmlTemplate(i18n.NewTableEntry().CN(`<!DOCTYPE html><html lang="zh_CN"><head><meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body><h1>正在跳转到云控制台，请等待。。。</h1>$FORM$</body></html>`))
 
 	app.AddHandler("GET", "SAML/idp", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		idpInitUrl := httputils.JoinPath(options.Entity, "SAML/idp/sso")

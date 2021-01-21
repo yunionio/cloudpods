@@ -28,12 +28,15 @@ import (
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/samlutils"
 )
 
 const (
 	IDP_ID_KEY = "<idp_id>"
+
+	langTemplateKey = "lang_template_key"
 )
 
 type OnSpInitiatedLogin func(ctx context.Context, idpId string, sp *SSAMLServiceProvider) (samlutils.SSAMLSpInitiatedLoginData, error)
@@ -54,7 +57,7 @@ type SSAMLIdpInstance struct {
 	onIdpInitiatedLogin OnIdpInitiatedLogin
 	onLogout            OnLogout
 
-	htmlTemplate map[string]string
+	htmlTemplate i18n.Table
 }
 
 func NewIdpInstance(saml *samlutils.SSAMLInstance, spLoginFunc OnSpInitiatedLogin, idpLoginFunc OnIdpInitiatedLogin, logoutFunc OnLogout) *SSAMLIdpInstance {
@@ -63,7 +66,7 @@ func NewIdpInstance(saml *samlutils.SSAMLInstance, spLoginFunc OnSpInitiatedLogi
 		onSpInitiatedLogin:  spLoginFunc,
 		onIdpInitiatedLogin: idpLoginFunc,
 		onLogout:            logoutFunc,
-		htmlTemplate:        map[string]string{},
+		htmlTemplate:        i18n.Table{},
 	}
 }
 
@@ -97,11 +100,13 @@ func (idp *SSAMLIdpInstance) AddHandlers(app *appsrv.Application, prefix string,
 	log.Infof("IDP initated SSO: %s", idp.getIdpInitiatedSSOUrl())
 }
 
-func (idp *SSAMLIdpInstance) SetHtmlTemplate(lang, tmp string) error {
-	if strings.Index(tmp, samlutils.HTML_SAML_FORM_TOKEN) < 0 {
-		return errors.Wrapf(httperrors.ErrInvalidFormat, "no %s found", samlutils.HTML_SAML_FORM_TOKEN)
+func (idp *SSAMLIdpInstance) SetHtmlTemplate(entry i18n.TableEntry) error {
+	for _, tmp := range entry {
+		if strings.Index(tmp, samlutils.HTML_SAML_FORM_TOKEN) < 0 {
+			return errors.Wrapf(httperrors.ErrInvalidFormat, "no %s found", samlutils.HTML_SAML_FORM_TOKEN)
+		}
 	}
-	idp.htmlTemplate[lang] = tmp
+	idp.htmlTemplate.Set(langTemplateKey, entry)
 	return nil
 }
 
@@ -263,10 +268,9 @@ func (idp *SSAMLIdpInstance) samlResponse2Form(ctx context.Context, url string, 
 		"RelayState":   state,
 	})
 	template := samlutils.DEFAULT_HTML_TEMPLATE
-	if len(idp.htmlTemplate) > 0 {
-		if _temp, ok := idp.htmlTemplate[appctx.AppContextLang(ctx)]; ok {
-			template = _temp
-		}
+	_temp := idp.htmlTemplate.Lookup(ctx, langTemplateKey)
+	if _temp != langTemplateKey {
+		template = _temp
 	}
 	form = strings.Replace(template, samlutils.HTML_SAML_FORM_TOKEN, form, 1)
 	return form, nil
