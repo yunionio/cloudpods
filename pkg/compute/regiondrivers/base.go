@@ -263,10 +263,6 @@ func (self *SBaseRegionDriver) RequestSyncSecurityGroup(ctx context.Context, use
 	return "", fmt.Errorf("Not Implemented RequestSyncSecurityGroup")
 }
 
-func (self *SBaseRegionDriver) GetSecurityGroupRuleOrder() cloudprovider.TPriorityOrder {
-	return cloudprovider.PriorityOrderByDesc
-}
-
 func (self *SBaseRegionDriver) IsOnlySupportAllowRules() bool {
 	return false
 }

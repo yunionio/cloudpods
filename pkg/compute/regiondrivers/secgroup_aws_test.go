@@ -17,8 +17,6 @@ package regiondrivers
 import (
 	"testing"
 
-	"yunion.io/x/pkg/util/secrules"
-
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -29,13 +27,12 @@ func TestAwsRuleSync(t *testing.T) {
 
 	defaultInRule := driver.GetDefaultSecurityGroupInRule()
 	defaultOutRule := driver.GetDefaultSecurityGroupOutRule()
-	order := driver.GetSecurityGroupRuleOrder()
 	isOnlyAllowRules := driver.IsOnlySupportAllowRules()
 
 	data := []TestData{
 		{
 			Name: "Test remove out allow rules",
-			LocalRules: secrules.SecurityRuleSet{
+			LocalRules: cloudprovider.LocalSecurityRuleSet{
 				localRuleWithPriority("out:deny any", 1),
 			},
 			RemoteRules: []cloudprovider.SecurityRule{
@@ -51,7 +48,7 @@ func TestAwsRuleSync(t *testing.T) {
 		},
 		{
 			Name: "Test out deny rules",
-			LocalRules: secrules.SecurityRuleSet{
+			LocalRules: cloudprovider.LocalSecurityRuleSet{
 				localRuleWithPriority("out:deny any", 1),
 			},
 			RemoteRules: []cloudprovider.SecurityRule{},
@@ -63,7 +60,7 @@ func TestAwsRuleSync(t *testing.T) {
 		},
 		{
 			Name:        "Test out allow rules",
-			LocalRules:  secrules.SecurityRuleSet{},
+			LocalRules:  cloudprovider.LocalSecurityRuleSet{},
 			RemoteRules: []cloudprovider.SecurityRule{},
 			Common:      []cloudprovider.SecurityRule{},
 			InAdds:      []cloudprovider.SecurityRule{},
@@ -77,7 +74,7 @@ func TestAwsRuleSync(t *testing.T) {
 
 	for _, d := range data {
 		t.Logf("check %s", d.Name)
-		common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, order, d.LocalRules, d.RemoteRules, defaultInRule, defaultOutRule, isOnlyAllowRules, true)
+		common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, d.LocalRules, d.RemoteRules, defaultInRule, defaultOutRule, isOnlyAllowRules, true, false)
 		check(t, "common", common, d.Common)
 		check(t, "inAdds", inAdds, d.InAdds)
 		check(t, "outAdds", outAdds, d.OutAdds)

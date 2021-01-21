@@ -32,7 +32,6 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/regutils"
-	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -2341,31 +2340,6 @@ func (self *SGuest) getAdminSecgroupName() string {
 	return ""
 }
 
-func (self *SGuest) GetSecRules() []secrules.SecurityRule {
-	return self.getSecRules()
-}
-
-func (self *SGuest) getSecRules() []secrules.SecurityRule {
-	if secgrp := self.getSecgroup(); secgrp != nil {
-		return secgrp.GetSecRules("")
-	}
-	if rule, err := secrules.ParseSecurityRule(options.Options.DefaultSecurityRules); err == nil {
-		return []secrules.SecurityRule{*rule}
-	} else {
-		log.Errorf("Default SecurityRules error: %v", err)
-	}
-	return []secrules.SecurityRule{}
-}
-
-func (self *SGuest) getSecurityRules() string {
-	secgrp := self.getSecgroup()
-	if secgrp != nil {
-		return secgrp.getSecurityRuleString("")
-	} else {
-		return options.Options.DefaultSecurityRules
-	}
-}
-
 //获取多个安全组规则，优先级降序排序
 func (self *SGuest) getSecurityGroupsRules() string {
 	secgroups, _ := self.GetSecgroups()
@@ -2390,7 +2364,8 @@ func (self *SGuest) getSecurityGroupsRules() string {
 func (self *SGuest) getAdminSecurityRules() string {
 	secgrp := self.getAdminSecgroup()
 	if secgrp != nil {
-		return secgrp.getSecurityRuleString("")
+		ret, _ := secgrp.getSecurityRuleString()
+		return ret
 	} else {
 		return options.Options.DefaultAdminSecurityRules
 	}
