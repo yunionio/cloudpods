@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -409,10 +408,7 @@ func (self *SSecurityGroupCache) syncWithCloudSecurityGroup(ctx context.Context,
 	if err != nil {
 		return errors.Wrapf(err, "getRuleInfo")
 	}
-	err = secgroup.SyncSecurityGroupRules(ctx, userCred, info)
-	if err != nil {
-		return errors.Wrapf(err, "SyncSecurityGroupRules")
-	}
+	secgroup.SyncSecurityGroupRules(ctx, userCred, info)
 	return nil
 }
 
@@ -656,12 +652,14 @@ func (self *SSecurityGroupCache) SyncRules() error {
 
 	defaultInRule := region.GetDriver().GetDefaultSecurityGroupInRule()
 	defaultOutRule := region.GetDriver().GetDefaultSecurityGroupOutRule()
-	order := region.GetDriver().GetSecurityGroupRuleOrder()
 	onlyAllowRules := region.GetDriver().IsOnlySupportAllowRules()
 
-	localRules := secrules.SecurityRuleSet(secgroup.GetSecRules(""))
+	localRules, err := secgroup.GetSecuritRuleSet()
+	if err != nil {
+		return errors.Wrapf(err, "GetSecuritRuleSet")
+	}
 
-	common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, order, localRules, rules, defaultInRule, defaultOutRule, onlyAllowRules, false)
+	common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, localRules, rules, defaultInRule, defaultOutRule, onlyAllowRules, false, false)
 
 	if len(inAdds) == 0 && len(inDels) == 0 && len(outAdds) == 0 && len(outDels) == 0 {
 		return nil
