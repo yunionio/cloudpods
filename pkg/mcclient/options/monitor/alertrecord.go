@@ -9,9 +9,11 @@ import (
 type AlertRecordListOptions struct {
 	options.BaseListOptions
 
-	AlertId string `help:"id of alert"`
-	Level   string `help:"alert level"`
-	State   string `help:"alert state"`
+	AlertId  string   `help:"id of alert"`
+	Level    string   `help:"alert level"`
+	State    string   `help:"alert state"`
+	ResTypes []string `json:"res_types"`
+	Alerting bool     `json:"alerting"`
 }
 
 func (o *AlertRecordListOptions) Params() (jsonutils.JSONObject, error) {
