@@ -256,7 +256,7 @@ func (tm *STemplateManager) NotifyFilter(contactType, topic, msg, lang string) (
 		err = errors.Wrap(err, "db.FetchModelObjects")
 		return
 	}
-	for _, template := range templates {
+	for _, template := range tm.chooseTemplate(contactType, templates) {
 		var title, content string
 		switch template.TemplateType {
 		case api.TEMPLATE_TYPE_TITLE:
@@ -280,6 +280,39 @@ func (tm *STemplateManager) NotifyFilter(contactType, topic, msg, lang string) (
 		}
 	}
 	return
+}
+
+func (tm *STemplateManager) chooseTemplate(contactType string, tempaltes []STemplate) []*STemplate {
+	var titleTemplate, contentTemplate *STemplate
+	// contactType first
+	for i := range tempaltes {
+		switch tempaltes[i].TemplateType {
+		case api.TEMPLATE_TYPE_REMOTE:
+			if tempaltes[i].ContactType == contactType {
+				return []*STemplate{&tempaltes[i]}
+			}
+		case api.TEMPLATE_TYPE_TITLE:
+			if tempaltes[i].ContactType == contactType {
+				titleTemplate = &tempaltes[i]
+			} else if titleTemplate == nil {
+				titleTemplate = &tempaltes[i]
+			}
+		case api.TEMPLATE_TYPE_CONTENT:
+			if tempaltes[i].ContactType == contactType {
+				contentTemplate = &tempaltes[i]
+			} else if contentTemplate == nil {
+				contentTemplate = &tempaltes[i]
+			}
+		}
+	}
+	ret := make([]*STemplate, 0, 2)
+	if titleTemplate != nil {
+		ret = append(ret, titleTemplate)
+	}
+	if contentTemplate != nil {
+		ret = append(ret, contentTemplate)
+	}
+	return ret
 }
 
 func (tm *STemplate) Execute(str string) (string, error) {
