@@ -77,11 +77,6 @@ const (
 )
 
 func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.NotificationCreateInput) (api.NotificationCreateInput, error) {
-	// compatible
-	if len(input.Receivers) != 0 && input.ContactType == api.WEBCONSOLE {
-		input.Contacts = input.Receivers
-		input.Receivers = []string{}
-	}
 	if len(input.Receivers) == 0 {
 		if !userCred.IsAllow(rbacutils.ScopeSystem, api.SERVICE_TYPE, nm.KeywordPlural(), policy.PolicyActionPerform, SendByContact) {
 			return input, httperrors.NewForbiddenError("can't send notification by contact, need receiver")
@@ -114,6 +109,9 @@ func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred
 		for _, re := range input.Receivers {
 			if idSet.Has(re) || nameSet.Has(re) {
 				continue
+			}
+			if input.ContactType == api.WEBCONSOLE {
+				input.Contacts = append(input.Contacts, re)
 			}
 			return input, httperrors.NewInputParameterError("no such receiver whose uid is %q", re)
 		}

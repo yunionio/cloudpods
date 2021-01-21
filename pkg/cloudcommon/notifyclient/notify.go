@@ -433,14 +433,9 @@ func notifyWithChannel(ctx context.Context, p sNotifyParams, channels ...npk.TNo
 		p.recipientId = []string{}
 		p.contacts = []string{}
 		p.channel = c
-		if c == npk.NotifyByWebConsole {
-			p.contacts = reps
-		} else {
-			p.recipientId = reps
-		}
+		p.recipientId = reps
 		rawNotify(ctx, p)
 	}
-
 }
 
 func NotifyImportant(recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
