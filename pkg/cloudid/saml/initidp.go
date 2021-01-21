@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
 	"yunion.io/x/onecloud/pkg/cloudid/options"
@@ -74,7 +75,12 @@ func initSAMLIdp(app *appsrv.Application, prefix string) error {
 	}
 
 	logoutFunc := func(ctx context.Context, idpId string) string {
-		return fmt.Sprintf(`<!DOCTYPE html><html lang="zh_CN"><head><meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body><h1>成功退出登录，<a href="%s">重新登录</a></h1></body></html>`, options.Options.ApiServer)
+		switch appctx.AppContextLang(ctx) {
+		case "zh-CN":
+			return fmt.Sprintf(`<!DOCTYPE html><html lang="zh_CN"><head><meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body><h1>成功退出登录，<a href="%s">重新登录</a></h1></body></html>`, options.Options.ApiServer)
+		default:
+			return fmt.Sprintf(`<!DOCTYPE html><html lang="zh_CN"><head><meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body><h1>Log out successfully，<a href="%s">Login again</a></h1></body></html>`, options.Options.ApiServer)
+		}
 	}
 
 	idpInst := idp.NewIdpInstance(saml, spFunc, idpFunc, logoutFunc)
@@ -105,7 +111,8 @@ func initSAMLIdp(app *appsrv.Application, prefix string) error {
 	}
 
 	idpInst.AddHandlers(app, prefix, auth.Authenticate)
-	idpInst.SetHtmlTemplate(`<!DOCTYPE html><html lang="zh_CN"><head><meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body><h1>正在跳转到云控制台，请等待。。。</h1>$FORM$</body></html>`)
+	idpInst.SetHtmlTemplate("zh-CN", `<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body><h1>正在跳转到云控制台，请等待。。。</h1>$FORM$</body></html>`)
+	idpInst.SetHtmlTemplate("en", `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body><h1>Jumping to the console, please wait。。。</h1>$FORM$</body></html>`)
 
 	idpInstance = idpInst
 
