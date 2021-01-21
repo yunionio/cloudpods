@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudid/models"
 	"yunion.io/x/onecloud/pkg/cloudid/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/samlutils"
@@ -111,8 +112,7 @@ func initSAMLIdp(app *appsrv.Application, prefix string) error {
 	}
 
 	idpInst.AddHandlers(app, prefix, auth.Authenticate)
-	idpInst.SetHtmlTemplate("zh-CN", `<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body><h1>正在跳转到云控制台，请等待。。。</h1>$FORM$</body></html>`)
-	idpInst.SetHtmlTemplate("en", `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body><h1>Jumping to the console, please wait。。。</h1>$FORM$</body></html>`)
+	idpInst.SetHtmlTemplate(i18n.NewTableEntry().CN(`<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body><h1>正在跳转到云控制台，请等待。。。</h1>$FORM$</body></html>`).EN(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body><h1>Login into to the cloud console, please wait。。。</h1>$FORM$</body></html>`))
 
 	idpInstance = idpInst
 
