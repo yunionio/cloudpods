@@ -2548,7 +2548,7 @@ func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCre
 	cloudaccountPendingSyncs[account.Id] = struct{}{}
 
 	RunSyncCloudAccountTask(func() {
-		func() {
+		defer func() {
 			cloudaccountPendingSyncsMutex.Lock()
 			defer cloudaccountPendingSyncsMutex.Unlock()
 			delete(cloudaccountPendingSyncs, account.Id)
