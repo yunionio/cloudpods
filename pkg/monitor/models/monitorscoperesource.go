@@ -33,6 +33,22 @@ func (m *SMonitorScopedResourceManager) FilterByOwner(q *sqlchemy.SQuery, userCr
 	return q
 }
 
+func (s *SMonitorScopedResource) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	scope, _ := data.GetString("scope")
+	switch rbacutils.TRbacScope(scope) {
+	case rbacutils.ScopeSystem:
+		s.DomainId = ""
+		s.ProjectId = ""
+	case rbacutils.ScopeDomain:
+		s.DomainId = ownerId.GetProjectDomainId()
+		s.ProjectId = ""
+	case rbacutils.ScopeProject:
+		s.DomainId = ownerId.GetProjectDomainId()
+		s.ProjectId = ownerId.GetProjectId()
+	}
+	return nil
+}
+
 func (manager *SMonitorScopedResourceManager) ResourceScope() rbacutils.TRbacScope {
 	return manager.SScopedResourceBaseManager.ResourceScope()
 }
