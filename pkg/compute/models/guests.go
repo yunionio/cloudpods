@@ -2353,7 +2353,8 @@ func (self *SGuest) getSecurityGroupsRules() string {
 func (self *SGuest) getAdminSecurityRules() string {
 	secgrp := self.getAdminSecgroup()
 	if secgrp != nil {
-		return secgrp.getSecurityRuleString("")
+		ret, _ := secgrp.getSecurityRuleString()
+		return ret
 	} else {
 		return options.Options.DefaultAdminSecurityRules
 	}

@@ -21,8 +21,8 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
-func TestCtyunRuleSync(t *testing.T) {
-	driver := SCtyunRegionDriver{}
+func TestAliyunRuleSync(t *testing.T) {
+	driver := SAliyunRegionDriver{}
 	maxPriority := driver.GetSecurityGroupRuleMaxPriority()
 	minPriority := driver.GetSecurityGroupRuleMinPriority()
 
@@ -32,19 +32,24 @@ func TestCtyunRuleSync(t *testing.T) {
 
 	data := []TestData{
 		{
-			Name: "Test out deny rules",
+			Name: "Test out rules",
 			LocalRules: cloudprovider.LocalSecurityRuleSet{
-				localRuleWithPriority("out:deny tcp 200", 1),
+				localRuleWithPriority("in:allow tcp 1212", 52),
+				localRuleWithPriority("in:allow tcp 22", 51),
+				localRuleWithPriority("in:allow tcp 3389", 50),
+				localRuleWithPriority("in:allow udp 1231", 49),
+				localRuleWithPriority("in:deny tcp 443", 48),
 			},
-			RemoteRules: []cloudprovider.SecurityRule{},
-			Common:      []cloudprovider.SecurityRule{},
-			InAdds:      []cloudprovider.SecurityRule{},
-			OutAdds: []cloudprovider.SecurityRule{
-				remoteRuleWithName("", "out:allow icmp", 0),
-				remoteRuleWithName("", "out:allow tcp 1-199", 0),
-				remoteRuleWithName("", "out:allow tcp 201-65535", 0),
-				remoteRuleWithName("", "out:allow udp", 0),
+			RemoteRules: []cloudprovider.SecurityRule{
+				remoteRuleWithName("", "in:deny tcp 443", 1),
+				remoteRuleWithName("", "in:allow udp 1231", 1),
+				remoteRuleWithName("", "in:allow tcp 3389", 100),
+				remoteRuleWithName("", "in:allow tcp 22", 100),
+				remoteRuleWithName("", "in:allow tcp 1212", 100),
 			},
+			Common:  []cloudprovider.SecurityRule{},
+			InAdds:  []cloudprovider.SecurityRule{},
+			OutAdds: []cloudprovider.SecurityRule{},
 			InDels:  []cloudprovider.SecurityRule{},
 			OutDels: []cloudprovider.SecurityRule{},
 		},
@@ -52,7 +57,7 @@ func TestCtyunRuleSync(t *testing.T) {
 
 	for _, d := range data {
 		t.Logf("check %s", d.Name)
-		common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, d.LocalRules, d.RemoteRules, defaultInRule, defaultOutRule, isOnlyAllowRules, true, false)
+		common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, d.LocalRules, d.RemoteRules, defaultInRule, defaultOutRule, isOnlyAllowRules, true, true)
 		sort.Sort(cloudprovider.SecurityRuleSet(common))
 		sort.Sort(cloudprovider.SecurityRuleSet(inAdds))
 		sort.Sort(cloudprovider.SecurityRuleSet(outAdds))

@@ -26,7 +26,7 @@ import (
 
 type TestData struct {
 	Name        string
-	LocalRules  secrules.SecurityRuleSet
+	LocalRules  cloudprovider.LocalSecurityRuleSet
 	RemoteRules cloudprovider.SecurityRuleSet
 	Common      cloudprovider.SecurityRuleSet
 	InAdds      cloudprovider.SecurityRuleSet
@@ -35,20 +35,20 @@ type TestData struct {
 	OutDels     cloudprovider.SecurityRuleSet
 }
 
-var localRuleWithPriority = func(ruleStr string, priority int) secrules.SecurityRule {
+var localRuleWithPriority = func(ruleStr string, priority int) cloudprovider.LocalSecurityRule {
 	rule := secrules.MustParseSecurityRule(ruleStr)
 	if rule == nil {
 		log.Errorf("invalid rule str %s", ruleStr)
-		return secrules.SecurityRule{}
+		return cloudprovider.LocalSecurityRule{}
 	}
 	rule.Priority = priority
-	return *rule
+	return cloudprovider.LocalSecurityRule{SecurityRule: *rule}
 }
 
 var remoteRuleWithName = func(name, ruleStr string, priority int) cloudprovider.SecurityRule {
 	return cloudprovider.SecurityRule{
 		Name:         name,
-		SecurityRule: localRuleWithPriority(ruleStr, priority),
+		SecurityRule: localRuleWithPriority(ruleStr, priority).SecurityRule,
 	}
 }
 
