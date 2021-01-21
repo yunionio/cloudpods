@@ -54,7 +54,7 @@ type SSAMLIdpInstance struct {
 	onIdpInitiatedLogin OnIdpInitiatedLogin
 	onLogout            OnLogout
 
-	htmlTemplate string
+	htmlTemplate map[string]string
 }
 
 func NewIdpInstance(saml *samlutils.SSAMLInstance, spLoginFunc OnSpInitiatedLogin, idpLoginFunc OnIdpInitiatedLogin, logoutFunc OnLogout) *SSAMLIdpInstance {
@@ -63,6 +63,7 @@ func NewIdpInstance(saml *samlutils.SSAMLInstance, spLoginFunc OnSpInitiatedLogi
 		onSpInitiatedLogin:  spLoginFunc,
 		onIdpInitiatedLogin: idpLoginFunc,
 		onLogout:            logoutFunc,
+		htmlTemplate:        map[string]string{},
 	}
 }
 
@@ -96,11 +97,11 @@ func (idp *SSAMLIdpInstance) AddHandlers(app *appsrv.Application, prefix string,
 	log.Infof("IDP initated SSO: %s", idp.getIdpInitiatedSSOUrl())
 }
 
-func (idp *SSAMLIdpInstance) SetHtmlTemplate(tmp string) error {
+func (idp *SSAMLIdpInstance) SetHtmlTemplate(lang, tmp string) error {
 	if strings.Index(tmp, samlutils.HTML_SAML_FORM_TOKEN) < 0 {
 		return errors.Wrapf(httperrors.ErrInvalidFormat, "no %s found", samlutils.HTML_SAML_FORM_TOKEN)
 	}
-	idp.htmlTemplate = tmp
+	idp.htmlTemplate[lang] = tmp
 	return nil
 }
 
@@ -235,7 +236,7 @@ func (idp *SSAMLIdpInstance) processLoginRequest(ctx context.Context, idpId stri
 		return "", errors.Wrap(err, "getLoginResponse")
 	}
 
-	form, err := idp.samlResponse2Form(sp.GetPostAssertionConsumerServiceUrl(), resp, input.RelayState)
+	form, err := idp.samlResponse2Form(ctx, sp.GetPostAssertionConsumerServiceUrl(), resp, input.RelayState)
 	if err != nil {
 		return "", errors.Wrap(err, "samlResponse2Form")
 	}
@@ -243,7 +244,7 @@ func (idp *SSAMLIdpInstance) processLoginRequest(ctx context.Context, idpId stri
 	return form, nil
 }
 
-func (idp *SSAMLIdpInstance) samlResponse2Form(url string, resp *samlutils.Response, state string) (string, error) {
+func (idp *SSAMLIdpInstance) samlResponse2Form(ctx context.Context, url string, resp *samlutils.Response, state string) (string, error) {
 	respXml, err := xml.Marshal(resp)
 	if err != nil {
 		return "", errors.Wrap(err, "xml.Marshal")
@@ -263,7 +264,9 @@ func (idp *SSAMLIdpInstance) samlResponse2Form(url string, resp *samlutils.Respo
 	})
 	template := samlutils.DEFAULT_HTML_TEMPLATE
 	if len(idp.htmlTemplate) > 0 {
-		template = idp.htmlTemplate
+		if _temp, ok := idp.htmlTemplate[appctx.AppContextLang(ctx)]; ok {
+			template = _temp
+		}
 	}
 	form = strings.Replace(template, samlutils.HTML_SAML_FORM_TOKEN, form, 1)
 	return form, nil
@@ -316,7 +319,7 @@ func (idp *SSAMLIdpInstance) processIdpInitiatedLogin(ctx context.Context, input
 		SSAMLSpInitiatedLoginData:   data.SSAMLSpInitiatedLoginData,
 	}
 	resp := samlutils.NewResponse(respInput)
-	form, err := idp.samlResponse2Form(sp.GetPostAssertionConsumerServiceUrl(), &resp, data.RelayState)
+	form, err := idp.samlResponse2Form(ctx, sp.GetPostAssertionConsumerServiceUrl(), &resp, data.RelayState)
 	if err != nil {
 		return "", errors.Wrap(err, "samlResponse2Form")
 	}
