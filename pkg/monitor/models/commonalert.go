@@ -121,6 +121,9 @@ func (man *SCommonAlertManager) ValidateCreateData(
 		return data, merrors.NewArgIsEmptyErr("metric_query")
 	} else {
 		for _, query := range data.CommonMetricInputQuery.MetricQuery {
+			if query.ConditionType == monitor.METRIC_QUERY_TYPE_NO_DATA {
+				query.Comparator = "=="
+			}
 			if !utils.IsInStringArray(getQueryEvalType(query.Comparator), validators.EvaluatorDefaultTypes) {
 				return data, httperrors.NewInputParameterError("the Comparator is illegal: %s", query.Comparator)
 			}
@@ -226,6 +229,10 @@ func (alert *SCommonAlert) CustomizeCreate(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) error {
+	err := alert.SMonitorScopedResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	if err != nil {
+		return err
+	}
 	alert.State = string(monitor.AlertStateUnknown)
 	input := new(monitor.CommonAlertCreateInput)
 	if err := data.Unmarshal(input); err != nil {
@@ -554,6 +561,7 @@ func getCommonAlertMetricDetailsFromCondition(cond *monitor.AlertCondition,
 	metricDetails.ConditionType = cond.Type
 	if metricDetails.ConditionType == monitor.METRIC_QUERY_TYPE_NO_DATA {
 		metricDetails.ThresholdStr = monitor.METRIC_QUERY_NO_DATA_THESHOLD
+		metricDetails.Comparator = monitor.METRIC_QUERY_NO_DATA_THESHOLD
 	}
 
 	q := cond.Query
@@ -747,6 +755,9 @@ func (alert *SCommonAlert) ValidateUpdateData(
 			err := metric_query[i].Unmarshal(query)
 			if err != nil {
 				return data, errors.Wrap(err, "metric_query Unmarshal error")
+			}
+			if query.ConditionType == monitor.METRIC_QUERY_TYPE_NO_DATA {
+				query.Comparator = "=="
 			}
 			if !utils.IsInStringArray(getQueryEvalType(query.Comparator), validators.EvaluatorDefaultTypes) {
 				return data, httperrors.NewInputParameterError("the Comparator is illegal: %s", query.Comparator)
