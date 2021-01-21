@@ -52,10 +52,6 @@ func init() {
 	models.RegisterRegionDriver(&driver)
 }
 
-func (self *SAwsRegionDriver) GetSecurityGroupRuleOrder() cloudprovider.TPriorityOrder {
-	return cloudprovider.PriorityOrderByAsc
-}
-
 func (self *SAwsRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
 	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
 }

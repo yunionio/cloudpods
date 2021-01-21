@@ -37,10 +37,6 @@ func init() {
 	models.RegisterRegionDriver(&driver)
 }
 
-func (self *SCtyunRegionDriver) GetSecurityGroupRuleOrder() cloudprovider.TPriorityOrder {
-	return cloudprovider.PriorityOrderByAsc
-}
-
 func (self *SCtyunRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
 	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
 }

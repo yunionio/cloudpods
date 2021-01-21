@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
-	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -1655,7 +1654,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx con
 					Desc:      secgroup.Description,
 					VpcId:     vpcId,
 					ProjectId: remoteProjectId,
-					Rules:     secgroup.GetSecRules(""),
+				}
+				conf.Rules, err = secgroup.GetSecRules()
+				if err != nil {
+					return errors.Wrapf(err, "GetSecRules")
 				}
 				iSecgroup, err = iRegion.CreateISecurityGroup(conf)
 				if err != nil {
@@ -1684,12 +1686,14 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx con
 
 			defaultInRule := region.GetDriver().GetDefaultSecurityGroupInRule()
 			defaultOutRule := region.GetDriver().GetDefaultSecurityGroupOutRule()
-			order := region.GetDriver().GetSecurityGroupRuleOrder()
 			onlyAllowRules := region.GetDriver().IsOnlySupportAllowRules()
 
-			localRules := secrules.SecurityRuleSet(secgroup.GetSecRules(""))
+			localRules, err := secgroup.GetSecuritRuleSet()
+			if err != nil {
+				return errors.Wrapf(err, "GetSecuritRuleSet")
+			}
 
-			common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, order, localRules, rules, defaultInRule, defaultOutRule, onlyAllowRules, false)
+			common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, localRules, rules, defaultInRule, defaultOutRule, onlyAllowRules, false, false)
 
 			if len(inAdds) == 0 && len(inDels) == 0 && len(outAdds) == 0 && len(outDels) == 0 {
 				return nil
