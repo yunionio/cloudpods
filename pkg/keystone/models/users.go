@@ -757,7 +757,15 @@ func (user *SUser) ValidateDeleteCondition(ctx context.Context) error {
 		return errors.Wrap(err, "getIdmappings")
 	}
 	if !user.IsLocal() && len(idMappings) > 0 {
-		return httperrors.NewForbiddenError("cannot delete non-local user")
+		for _, idmaping := range idMappings {
+			idp, err := IdentityProviderManager.FetchIdentityProviderById(idmaping.IdpId)
+			if err != nil && errors.Cause(err) == sql.ErrNoRows {
+				return errors.Wrap(err, "IdentityProviderManager.FetchIdentityProviderById")
+			}
+			if idp != nil && idp.IsSso.IsFalse() {
+				return httperrors.NewForbiddenError("cannot delete non-local non-sso user")
+			}
+		}
 	}
 	err = user.ValidatePurgeCondition(ctx)
 	if err != nil {
