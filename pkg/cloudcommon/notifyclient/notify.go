@@ -222,6 +222,7 @@ func NotifyWithTag(ctx context.Context, params SNotifyParams) {
 	}
 	notifyWithChannel(ctx, p,
 		npk.NotifyByEmail,
+		npk.NotifyByMobile,
 		npk.NotifyByDingTalk,
 		npk.NotifyByFeishu,
 		npk.NotifyByWorkwx,
