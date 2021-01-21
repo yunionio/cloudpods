@@ -18,8 +18,6 @@ import (
 	"sort"
 	"testing"
 
-	"yunion.io/x/pkg/util/secrules"
-
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -30,41 +28,24 @@ func TestAzureRuleSync(t *testing.T) {
 
 	defaultInRule := driver.GetDefaultSecurityGroupInRule()
 	defaultOutRule := driver.GetDefaultSecurityGroupOutRule()
-	order := driver.GetSecurityGroupRuleOrder()
 	isOnlyAllowRules := driver.IsOnlySupportAllowRules()
 
 	data := []TestData{
 		{
 			Name:        "Test empty rules",
-			LocalRules:  secrules.SecurityRuleSet{},
+			LocalRules:  cloudprovider.LocalSecurityRuleSet{},
 			RemoteRules: []cloudprovider.SecurityRule{},
 			Common:      []cloudprovider.SecurityRule{},
 			InAdds:      []cloudprovider.SecurityRule{},
 			OutAdds: []cloudprovider.SecurityRule{
-				remoteRuleWithName("", "out:allow any", 2097),
+				remoteRuleWithName("", "out:allow any", 2099),
 			},
 			InDels:  []cloudprovider.SecurityRule{},
 			OutDels: []cloudprovider.SecurityRule{},
 		},
 		{
-			Name:       "Test remove rules",
-			LocalRules: secrules.SecurityRuleSet{},
-			RemoteRules: []cloudprovider.SecurityRule{
-				remoteRuleWithName("test-name", "out:allow any", 1000),
-			},
-			Common: []cloudprovider.SecurityRule{},
-			InAdds: []cloudprovider.SecurityRule{},
-			OutAdds: []cloudprovider.SecurityRule{
-				remoteRuleWithName("", "out:allow any", 2097),
-			},
-			InDels: []cloudprovider.SecurityRule{},
-			OutDels: []cloudprovider.SecurityRule{
-				remoteRuleWithName("test-name", "out:allow any", 1000),
-			},
-		},
-		{
 			Name: "Test diff rules",
-			LocalRules: secrules.SecurityRuleSet{
+			LocalRules: cloudprovider.LocalSecurityRuleSet{
 				localRuleWithPriority("out:allow tcp 100-200", 99),
 				localRuleWithPriority("out:allow udp 200-300", 98),
 			},
@@ -78,14 +59,14 @@ func TestAzureRuleSync(t *testing.T) {
 			},
 			InAdds: []cloudprovider.SecurityRule{},
 			OutAdds: []cloudprovider.SecurityRule{
-				remoteRuleWithName("", "out:allow any", 2097),
+				remoteRuleWithName("", "out:allow any", 2099),
 			},
 			InDels:  []cloudprovider.SecurityRule{},
 			OutDels: []cloudprovider.SecurityRule{},
 		},
 		{
 			Name: "Test add rules",
-			LocalRules: secrules.SecurityRuleSet{
+			LocalRules: cloudprovider.LocalSecurityRuleSet{
 				localRuleWithPriority("in:allow tcp", 100),
 				localRuleWithPriority("in:allow udp", 99),
 				localRuleWithPriority("out:deny any", 1),
@@ -95,8 +76,8 @@ func TestAzureRuleSync(t *testing.T) {
 			},
 			Common: []cloudprovider.SecurityRule{},
 			InAdds: []cloudprovider.SecurityRule{
-				remoteRuleWithName("", "in:allow tcp", 2097),
-				remoteRuleWithName("", "in:allow udp", 2097),
+				remoteRuleWithName("", "in:allow tcp", 2099),
+				remoteRuleWithName("", "in:allow udp", 2099),
 			},
 			OutAdds: []cloudprovider.SecurityRule{},
 			InDels: []cloudprovider.SecurityRule{
@@ -106,7 +87,7 @@ func TestAzureRuleSync(t *testing.T) {
 		},
 		{
 			Name: "Test insert rules",
-			LocalRules: secrules.SecurityRuleSet{
+			LocalRules: cloudprovider.LocalSecurityRuleSet{
 				localRuleWithPriority("in:allow tcp", 100),
 				localRuleWithPriority("in:allow udp", 99),
 				localRuleWithPriority("in:allow icmp", 98),
@@ -121,7 +102,7 @@ func TestAzureRuleSync(t *testing.T) {
 				remoteRuleWithName("allow-icmp", "in:allow icmp", 400),
 			},
 			InAdds: []cloudprovider.SecurityRule{
-				remoteRuleWithName("", "in:allow udp", 2097),
+				remoteRuleWithName("", "in:allow udp", 2099),
 			},
 			OutAdds: []cloudprovider.SecurityRule{},
 			InDels:  []cloudprovider.SecurityRule{},
@@ -129,7 +110,7 @@ func TestAzureRuleSync(t *testing.T) {
 		},
 		{
 			Name: "Test icmp rules",
-			LocalRules: secrules.SecurityRuleSet{
+			LocalRules: cloudprovider.LocalSecurityRuleSet{
 				localRuleWithPriority("in:allow tcp 33", 10),
 				localRuleWithPriority("in:allow tcp 22", 1),
 				localRuleWithPriority("out:deny any", 1),
@@ -141,7 +122,7 @@ func TestAzureRuleSync(t *testing.T) {
 				remoteRuleWithName("allow-tcp-22", "in:allow tcp 22", 300),
 			},
 			InAdds: []cloudprovider.SecurityRule{
-				remoteRuleWithName("", "in:allow tcp 33", 299),
+				remoteRuleWithName("", "in:allow tcp 33", 301),
 			},
 			OutAdds: []cloudprovider.SecurityRule{},
 			InDels:  []cloudprovider.SecurityRule{},
@@ -149,7 +130,7 @@ func TestAzureRuleSync(t *testing.T) {
 		},
 		{
 			Name: "Test a rules",
-			LocalRules: secrules.SecurityRuleSet{
+			LocalRules: cloudprovider.LocalSecurityRuleSet{
 				localRuleWithPriority("in:allow tcp 1050", 5),
 				localRuleWithPriority("in:allow tcp 1011", 4),
 				localRuleWithPriority("in:allow tcp 1002", 3),
@@ -171,7 +152,7 @@ func TestAzureRuleSync(t *testing.T) {
 				remoteRuleWithName("in_allow_udp_55_4014", "in:allow udp 55", 4014),
 			},
 			InAdds: []cloudprovider.SecurityRule{
-				remoteRuleWithName("", "in:allow tcp 1011", 4011),
+				remoteRuleWithName("", "in:allow tcp 1011", 4013),
 			},
 			OutAdds: []cloudprovider.SecurityRule{},
 			InDels: []cloudprovider.SecurityRule{
@@ -181,7 +162,7 @@ func TestAzureRuleSync(t *testing.T) {
 		},
 		{
 			Name: "Test b rules",
-			LocalRules: secrules.SecurityRuleSet{
+			LocalRules: cloudprovider.LocalSecurityRuleSet{
 				localRuleWithPriority("in:allow udp 1055", 20),
 				localRuleWithPriority("in:allow icmp", 15),
 				localRuleWithPriority("in:allow tcp 1050", 5),
@@ -207,8 +188,8 @@ func TestAzureRuleSync(t *testing.T) {
 				remoteRuleWithName("in_allow_udp_55_4014", "in:allow udp 55", 4014),
 			},
 			InAdds: []cloudprovider.SecurityRule{
-				remoteRuleWithName("", "in:allow icmp", 2097),
-				remoteRuleWithName("", "in:allow udp 1055", 4013),
+				remoteRuleWithName("", "in:allow icmp", 2099),
+				remoteRuleWithName("", "in:allow udp 1055", 4015),
 			},
 			OutAdds: []cloudprovider.SecurityRule{},
 			InDels: []cloudprovider.SecurityRule{
@@ -220,7 +201,7 @@ func TestAzureRuleSync(t *testing.T) {
 
 	for _, d := range data {
 		t.Logf("check %s", d.Name)
-		common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, order, d.LocalRules, d.RemoteRules, defaultInRule, defaultOutRule, isOnlyAllowRules, true)
+		common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, d.LocalRules, d.RemoteRules, defaultInRule, defaultOutRule, isOnlyAllowRules, true, false)
 		sort.Sort(cloudprovider.SecurityRuleSet(common))
 		sort.Sort(cloudprovider.SecurityRuleSet(inAdds))
 		sort.Sort(cloudprovider.SecurityRuleSet(outAdds))

@@ -18,8 +18,6 @@ import (
 	"sort"
 	"testing"
 
-	"yunion.io/x/pkg/util/secrules"
-
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -30,13 +28,12 @@ func TestQcloudRuleSync(t *testing.T) {
 
 	defaultInRule := driver.GetDefaultSecurityGroupInRule()
 	defaultOutRule := driver.GetDefaultSecurityGroupOutRule()
-	order := driver.GetSecurityGroupRuleOrder()
 	isOnlyAllowRules := driver.IsOnlySupportAllowRules()
 
 	data := []TestData{
 		{
 			Name: "Test out rules",
-			LocalRules: secrules.SecurityRuleSet{
+			LocalRules: cloudprovider.LocalSecurityRuleSet{
 				localRuleWithPriority("out:allow any", 11),
 				localRuleWithPriority("out:deny any", 10),
 			},
@@ -44,7 +41,7 @@ func TestQcloudRuleSync(t *testing.T) {
 			Common:      []cloudprovider.SecurityRule{},
 			InAdds:      []cloudprovider.SecurityRule{},
 			OutAdds: []cloudprovider.SecurityRule{
-				remoteRuleWithName("", "out:allow any", 100),
+				remoteRuleWithName("", "out:allow any", 49),
 			},
 			InDels:  []cloudprovider.SecurityRule{},
 			OutDels: []cloudprovider.SecurityRule{},
@@ -53,7 +50,7 @@ func TestQcloudRuleSync(t *testing.T) {
 
 	for _, d := range data {
 		t.Logf("check %s", d.Name)
-		common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, order, d.LocalRules, d.RemoteRules, defaultInRule, defaultOutRule, isOnlyAllowRules, true)
+		common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, d.LocalRules, d.RemoteRules, defaultInRule, defaultOutRule, isOnlyAllowRules, true, false)
 		sort.Sort(cloudprovider.SecurityRuleSet(common))
 		sort.Sort(cloudprovider.SecurityRuleSet(inAdds))
 		sort.Sort(cloudprovider.SecurityRuleSet(outAdds))

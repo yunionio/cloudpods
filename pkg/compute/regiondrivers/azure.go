@@ -56,10 +56,6 @@ func (self *SAzureRegionDriver) IsSupportClassicSecurityGroup() bool {
 	return true
 }
 
-func (self *SAzureRegionDriver) GetSecurityGroupRuleOrder() cloudprovider.TPriorityOrder {
-	return cloudprovider.PriorityOrderByAsc
-}
-
 func (self *SAzureRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
 	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
 }

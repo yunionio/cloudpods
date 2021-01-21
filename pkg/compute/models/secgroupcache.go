@@ -408,10 +408,7 @@ func (self *SSecurityGroupCache) syncWithCloudSecurityGroup(ctx context.Context,
 	if err != nil {
 		return errors.Wrapf(err, "getRuleInfo")
 	}
-	err = secgroup.SyncSecurityGroupRules(ctx, userCred, info)
-	if err != nil {
-		return errors.Wrapf(err, "SyncSecurityGroupRules")
-	}
+	secgroup.SyncSecurityGroupRules(ctx, userCred, info)
 	return nil
 }
 
