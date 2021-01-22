@@ -2,6 +2,390 @@
     "language": "zh-CN",
     "messages": [
         {
+            "id": "not found tenantId in body",
+            "message": "not found tenantId in body",
+            "translation": "获取tenantId参数失败",
+            "position": "pkg/apigateway/handler/auth.go:233:53"
+        },
+        {
+            "id": "failed to change project",
+            "message": "failed to change project",
+            "translation": "切换项目失败",
+            "position": "pkg/apigateway/handler/auth.go:245:56"
+        },
+        {
+            "id": "get password in body",
+            "message": "get password in body",
+            "translation": "获取password参数失败",
+            "position": "pkg/apigateway/handler/auth.go:287:49"
+        },
+        {
+            "id": "username or password is empty",
+            "message": "username or password is empty",
+            "translation": "用户名或密码为空",
+            "position": "pkg/apigateway/handler/auth.go:294:49"
+        },
+        {
+            "id": "missing credential",
+            "message": "missing credential",
+            "translation": "缺少认证信息",
+            "position": "pkg/apigateway/handler/auth.go:307:48"
+        },
+        {
+            "id": "invalid credential",
+            "message": "invalid credential",
+            "translation": "无效的认证信息",
+            "position": "pkg/apigateway/handler/auth.go:316:51"
+        },
+        {
+            "id": "fetch json for request: %v",
+            "message": "fetch json for request: %v",
+            "translation": "获取请求的JSON内容失败：%v",
+            "position": "pkg/apigateway/handler/auth.go:484:31"
+        },
+        {
+            "id": "request body is empty",
+            "message": "request body is empty",
+            "translation": "请求内容为空",
+            "position": "pkg/apigateway/handler/auth.go:999:31"
+        },
+        {
+            "id": "missing id",
+            "message": "missing id",
+            "translation": "缺少id参数",
+            "position": "pkg/apigateway/handler/auth.go:1076:31"
+        },
+        {
+            "id": "fetchAuthInfo fail: %s",
+            "message": "fetchAuthInfo fail: %s",
+            "translation": "fetchAuthInfo调用失败：%s",
+            "position": "pkg/apigateway/handler/auth.go:1111:36"
+        },
+        {
+            "id": "new password mismatch",
+            "message": "new password mismatch",
+            "translation": "新密码相互不匹配",
+            "position": "pkg/apigateway/handler/auth.go:1133:33"
+        },
+        {
+            "id": "not support reset user password",
+            "message": "not support reset user password",
+            "translation": "不支持重置用户密码",
+            "position": "pkg/apigateway/handler/auth.go:1139:28"
+        },
+        {
+            "id": "wrong password",
+            "message": "wrong password",
+            "translation": "密码错误",
+            "position": "pkg/apigateway/handler/auth.go:1153:33"
+        },
+        {
+            "id": "invalid passcode",
+            "message": "invalid passcode",
+            "translation": "无效的验证码",
+            "position": "pkg/apigateway/handler/auth.go:1162:34"
+        },
+        {
+            "id": "generate totp qrcode failed",
+            "message": "generate totp qrcode failed",
+            "translation": "生成TOTP二维码失败",
+            "position": "pkg/apigateway/handler/auth_totp.go:57:47"
+        },
+        {
+            "id": "uid is empty",
+            "message": "uid is empty",
+            "translation": "uid为空",
+            "position": "pkg/apigateway/handler/auth_totp.go:95:41"
+        },
+        {
+            "id": "input parameter error",
+            "message": "input parameter error",
+            "translation": "输入参数错误",
+            "position": "pkg/apigateway/handler/auth_totp.go:174:43"
+        },
+        {
+            "id": "TOTP recovery questions do not exist",
+            "message": "TOTP recovery questions do not exist",
+            "translation": "未设置TOTP找回密码的提示问题",
+            "position": "pkg/apigateway/handler/auth_totp.go:188:37"
+        },
+        {
+            "id": "questions not found",
+            "message": "questions not found",
+            "translation": "未找到密码提示问题",
+            "position": "pkg/apigateway/handler/auth_totp.go:193:44"
+        },
+        {
+            "id": "%s answer is incorrect",
+            "message": "%s answer is incorrect",
+            "translation": "%s：答案不正确",
+            "position": "pkg/apigateway/handler/auth_totp.go:196:45"
+        },
+        {
+            "id": "passcode is a 6-digits string",
+            "message": "passcode is a 6-digits string",
+            "translation": "验证码应为6个数字",
+            "position": "pkg/apigateway/handler/auth_totp.go:253:33"
+        },
+        {
+            "id": "invalid passcode: %v",
+            "message": "invalid passcode: %v",
+            "translation": "验证码无效：%v",
+            "position": "pkg/apigateway/handler/auth_totp.go:263:36"
+        },
+        {
+            "id": "no revocery questions.",
+            "message": "no revocery questions.",
+            "translation": "没有密码找到提示问题",
+            "position": "pkg/apigateway/handler/auth_totp.go:321:27"
+        },
+        {
+            "id": "unmarshal questions: %v",
+            "message": "unmarshal questions: %v",
+            "translation": "解析提示问题失败：%v",
+            "position": "pkg/apigateway/handler/auth_totp.go:352:31"
+        },
+        {
+            "id": "get admin credential is nil",
+            "message": "get admin credential is nil",
+            "translation": "获取管理员鉴权信息失败",
+            "position": "pkg/apigateway/handler/csrfexempt.go:50:27"
+        },
+        {
+            "id": "no usable regions, please contact admin",
+            "message": "no usable regions, please contact admin",
+            "translation": "没有可用的region，请联系管理员",
+            "position": "pkg/apigateway/handler/csrfexempt.go:56:27"
+        },
+        {
+            "id": "illegal region %s, please contact admin",
+            "message": "illegal region %s, please contact admin",
+            "translation": "无效的可用区%s，请联系管理员",
+            "position": "pkg/apigateway/handler/csrfexempt.go:61:27"
+        },
+        {
+            "id": "session expires, missing %s",
+            "message": "session expires, missing %s",
+            "translation": "会话过期，缺少%s",
+            "position": "pkg/apigateway/handler/idp.go:153:26"
+        },
+        {
+            "id": "parse query string error: %s",
+            "message": "parse query string error: %s",
+            "translation": "解析请求参数出错：%s",
+            "position": "pkg/apigateway/handler/idp.go:167:34"
+        },
+        {
+            "id": "fetch form data error: %s",
+            "message": "fetch form data error: %s",
+            "translation": "获取表单数据错误：%s",
+            "position": "pkg/apigateway/handler/idp.go:173:34"
+        },
+        {
+            "id": "parse form data error: %s",
+            "message": "parse form data error: %s",
+            "translation": "解析表单数据出错：%s",
+            "position": "pkg/apigateway/handler/idp.go:177:34"
+        },
+        {
+            "id": "invalid request",
+            "message": "invalid request",
+            "translation": "无效的请求",
+            "position": "pkg/apigateway/handler/idp.go:181:33"
+        },
+        {
+            "id": "empty external user id",
+            "message": "empty external user id",
+            "translation": "外部用户ID为空",
+            "position": "pkg/apigateway/handler/idp.go:204:40"
+        },
+        {
+            "id": "empty idp_id or idp_entity_id",
+            "message": "empty idp_id or idp_entity_id",
+            "translation": "idp_id或idp_entity_id为空",
+            "position": "pkg/apigateway/handler/idp.go:367:33"
+        },
+        {
+            "id": "invalid form",
+            "message": "invalid form",
+            "translation": "无效的表单",
+            "position": "pkg/apigateway/handler/imageutils.go:73:31"
+        },
+        {
+            "id": "missing image name",
+            "message": "missing image name",
+            "translation": "缺少镜像名称参数",
+            "position": "pkg/apigateway/handler/imageutils.go:87:31"
+        },
+        {
+            "id": "missing image size",
+            "message": "missing image size",
+            "translation": "缺少镜像大小参数",
+            "position": "pkg/apigateway/handler/imageutils.go:94:31"
+        },
+        {
+            "id": "invalid image size",
+            "message": "invalid image size",
+            "translation": "无效的镜像大小参数",
+            "position": "pkg/apigateway/handler/imageutils.go:99:31"
+        },
+        {
+            "id": "Parse query: %v",
+            "message": "Parse query: %v",
+            "translation": "解析查询失败：%v",
+            "position": "pkg/apigateway/handler/k8s.go:74:48"
+        },
+        {
+            "id": "No token in header: %v",
+            "message": "No token in header: %v",
+            "translation": "头部中没有token：%v",
+            "position": "pkg/apigateway/handler/middleware.go:132:37"
+        },
+        {
+            "id": "Missing parameter %s",
+            "message": "Missing parameter %s",
+            "translation": "找不到参数%s",
+            "position": "pkg/apigateway/handler/misc.go:126:43"
+        },
+        {
+            "id": "Unsupported action %s",
+            "message": "Unsupported action %s",
+            "translation": "不支持动作%s",
+            "position": "pkg/apigateway/handler/misc.go:141:43"
+        },
+        {
+            "id": "Wrong content type %s, want %s",
+            "message": "Wrong content type %s, want %s",
+            "translation": "Content-Type错误，%s，应为%s",
+            "position": "pkg/apigateway/handler/misc.go:160:41"
+        },
+        {
+            "id": "can't open file",
+            "message": "can't open file",
+            "translation": "打开文件出错",
+            "position": "pkg/apigateway/handler/misc.go:169:41"
+        },
+        {
+            "id": "can't parse file",
+            "message": "can't parse file",
+            "translation": "解析文件出错",
+            "position": "pkg/apigateway/handler/misc.go:177:41"
+        },
+        {
+            "id": "template file is invalid. please check.",
+            "message": "template file is invalid. please check.",
+            "translation": "模板文件无效，请检查",
+            "position": "pkg/apigateway/handler/misc.go:204:33"
+        },
+        {
+            "id": "empty file content",
+            "message": "empty file content",
+            "translation": "文件内容空",
+            "position": "pkg/apigateway/handler/misc.go:228:42"
+        },
+        {
+            "id": "row %d name is empty",
+            "message": "row %d name is empty",
+            "translation": "第%d行，用户名为空",
+            "position": "pkg/apigateway/handler/misc.go:359:34"
+        },
+        {
+            "id": "row %d domain is empty",
+            "message": "row %d domain is empty",
+            "translation": "第%d行，域名称为空",
+            "position": "pkg/apigateway/handler/misc.go:367:35"
+        },
+        {
+            "id": "row %d duplicate name %s",
+            "message": "row %d duplicate name %s",
+            "translation": "第%d行，名称重复：%s",
+            "position": "pkg/apigateway/handler/misc.go:383:34"
+        },
+        {
+            "id": "template_id",
+            "message": "template_id",
+            "translation": "",
+            "position": "pkg/apigateway/handler/misc.go:436:31"
+        },
+        {
+            "id": "internal server error",
+            "message": "internal server error",
+            "translation": "内部服务错误",
+            "position": "pkg/apigateway/handler/misc.go:447:34"
+        },
+        {
+            "id": "template not found %s",
+            "message": "template not found %s",
+            "translation": "找不到模板：%s",
+            "position": "pkg/apigateway/handler/misc.go:486:33"
+        },
+        {
+            "id": "request body is too large.",
+            "message": "request body is too large.",
+            "translation": "请求体太大",
+            "position": "pkg/apigateway/handler/misc.go:500:31"
+        },
+        {
+            "id": "invalid multipart form",
+            "message": "invalid multipart form",
+            "translation": "无效的multipart表单",
+            "position": "pkg/apigateway/handler/misc.go:505:31"
+        },
+        {
+            "id": "invalid content_length %s",
+            "message": "invalid content_length %s",
+            "translation": "无效的content_length",
+            "position": "pkg/apigateway/handler/misc.go:557:31"
+        },
+        {
+            "id": "No token in header",
+            "message": "No token in header",
+            "translation": "头部中没有token",
+            "position": "pkg/apigateway/handler/oidc.go:390:36"
+        },
+        {
+            "id": "Token in header invalid",
+            "message": "Token in header invalid",
+            "translation": "头部中的token无效",
+            "position": "pkg/apigateway/handler/oidc.go:396:36"
+        },
+        {
+            "id": "Token expired",
+            "message": "Token expired",
+            "translation": "token已过期",
+            "position": "pkg/apigateway/handler/oidc.go:400:36"
+        },
+        {
+            "id": "resource %s module not exists",
+            "message": "resource %s module not exists",
+            "translation": "找不到资源%s对应的module",
+            "position": "pkg/apigateway/handler/request.go:149:42"
+        },
+        {
+            "id": "No id list found",
+            "message": "No id list found",
+            "translation": "找不到id列表",
+            "position": "pkg/apigateway/handler/resource.go:149:31"
+        },
+        {
+            "id": "missing export keys",
+            "message": "missing export keys",
+            "translation": "缺少导出键名",
+            "position": "pkg/apigateway/handler/resource.go:204:32"
+        },
+        {
+            "id": "inconsistent export keys and texts",
+            "message": "inconsistent export keys and texts",
+            "translation": "导出键名与文本不一致",
+            "position": "pkg/apigateway/handler/resource.go:210:33"
+        },
+        {
+            "id": "recv invalid data",
+            "message": "recv invalid data",
+            "translation": "收到无效数据",
+            "position": "pkg/apigateway/handler/rpc.go:130:29"
+        },
+        {
             "id": "invalid CannedAction %s ",
             "message": "invalid CannedAction %s ",
             "translation": "无效的预置操作",
