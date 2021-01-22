@@ -182,6 +182,8 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 
 	resp.Add(jsonutils.NewArray(retIdps...), "idps")
 
+	resp.Add(jsonutils.NewString(options.Options.ApiServer), "api_server")
+
 	return resp, nil
 }
 
