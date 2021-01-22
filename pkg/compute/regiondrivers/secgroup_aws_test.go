@@ -21,51 +21,43 @@ import (
 )
 
 func TestAwsRuleSync(t *testing.T) {
-	driver := SAwsRegionDriver{}
-	maxPriority := driver.GetSecurityGroupRuleMaxPriority()
-	minPriority := driver.GetSecurityGroupRuleMinPriority()
-
-	defaultInRule := driver.GetDefaultSecurityGroupInRule()
-	defaultOutRule := driver.GetDefaultSecurityGroupOutRule()
-	isOnlyAllowRules := driver.IsOnlySupportAllowRules()
-
 	data := []TestData{
 		{
 			Name: "Test remove out allow rules",
-			LocalRules: cloudprovider.LocalSecurityRuleSet{
-				localRuleWithPriority("out:deny any", 1),
+			SrcRules: cloudprovider.SecurityRuleSet{
+				ruleWithPriority("out:deny any", 1),
 			},
-			RemoteRules: []cloudprovider.SecurityRule{
-				remoteRuleWithName("", "out:allow any", 1),
+			DestRules: []cloudprovider.SecurityRule{
+				ruleWithName("test-allow any", "out:allow any", 1),
 			},
 			Common:  []cloudprovider.SecurityRule{},
 			InAdds:  []cloudprovider.SecurityRule{},
 			OutAdds: []cloudprovider.SecurityRule{},
 			InDels:  []cloudprovider.SecurityRule{},
 			OutDels: []cloudprovider.SecurityRule{
-				remoteRuleWithName("", "out:allow any", 1),
+				ruleWithName("test-allow any", "out:allow any", 1),
 			},
 		},
 		{
 			Name: "Test out deny rules",
-			LocalRules: cloudprovider.LocalSecurityRuleSet{
-				localRuleWithPriority("out:deny any", 1),
+			SrcRules: cloudprovider.SecurityRuleSet{
+				ruleWithPriority("out:deny any", 1),
 			},
-			RemoteRules: []cloudprovider.SecurityRule{},
-			Common:      []cloudprovider.SecurityRule{},
-			InAdds:      []cloudprovider.SecurityRule{},
-			OutAdds:     []cloudprovider.SecurityRule{},
-			InDels:      []cloudprovider.SecurityRule{},
-			OutDels:     []cloudprovider.SecurityRule{},
+			DestRules: []cloudprovider.SecurityRule{},
+			Common:    []cloudprovider.SecurityRule{},
+			InAdds:    []cloudprovider.SecurityRule{},
+			OutAdds:   []cloudprovider.SecurityRule{},
+			InDels:    []cloudprovider.SecurityRule{},
+			OutDels:   []cloudprovider.SecurityRule{},
 		},
 		{
-			Name:        "Test out allow rules",
-			LocalRules:  cloudprovider.LocalSecurityRuleSet{},
-			RemoteRules: []cloudprovider.SecurityRule{},
-			Common:      []cloudprovider.SecurityRule{},
-			InAdds:      []cloudprovider.SecurityRule{},
+			Name:      "Test out allow rules",
+			SrcRules:  cloudprovider.SecurityRuleSet{},
+			DestRules: []cloudprovider.SecurityRule{},
+			Common:    []cloudprovider.SecurityRule{},
+			InAdds:    []cloudprovider.SecurityRule{},
 			OutAdds: []cloudprovider.SecurityRule{
-				remoteRuleWithName("", "out:allow any", 0),
+				ruleWithName("", "out:allow any", 0),
 			},
 			InDels:  []cloudprovider.SecurityRule{},
 			OutDels: []cloudprovider.SecurityRule{},
@@ -73,12 +65,6 @@ func TestAwsRuleSync(t *testing.T) {
 	}
 
 	for _, d := range data {
-		t.Logf("check %s", d.Name)
-		common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, d.LocalRules, d.RemoteRules, defaultInRule, defaultOutRule, isOnlyAllowRules, true, false)
-		check(t, "common", common, d.Common)
-		check(t, "inAdds", inAdds, d.InAdds)
-		check(t, "outAdds", outAdds, d.OutAdds)
-		check(t, "inDels", inDels, d.InDels)
-		check(t, "outDels", outDels, d.OutDels)
+		d.Test(t, &SKVMRegionDriver{}, &SAwsRegionDriver{})
 	}
 }

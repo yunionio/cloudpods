@@ -469,7 +469,7 @@ func (self *SSecurityGroup) newFromCloudSecurityGroupRule(ctx context.Context, u
 		cidr = rule.IPNet.String()
 	}
 
-	rule.Priority = rule.LocalRulePrority
+	rule.Priority = rule.SrcPrority
 
 	err := rule.ValidateRule()
 	if err != nil {
@@ -477,7 +477,7 @@ func (self *SSecurityGroup) newFromCloudSecurityGroupRule(ctx context.Context, u
 	}
 
 	secrule := &SSecurityGroupRule{
-		Priority:    int64(rule.LocalRulePrority),
+		Priority:    int64(rule.Priority),
 		Protocol:    protocol,
 		Ports:       rule.GetPortsString(),
 		Direction:   string(rule.Direction),

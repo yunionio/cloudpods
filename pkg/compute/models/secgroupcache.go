@@ -404,11 +404,12 @@ func (self *SSecurityGroupCache) syncWithCloudSecurityGroup(ctx context.Context,
 	if cacheCount > 1 {
 		return nil
 	}
-	info, err := SecurityGroupManager.getRuleInfo(provider, ext)
+	dest := cloudprovider.NewSecRuleInfo(GetRegionDriver(provider.Provider))
+	dest.Rules, err = ext.GetRules()
 	if err != nil {
-		return errors.Wrapf(err, "getRuleInfo")
+		return errors.Wrapf(err, "GetRules")
 	}
-	secgroup.SyncSecurityGroupRules(ctx, userCred, info)
+	secgroup.SyncSecurityGroupRules(ctx, userCred, dest)
 	return nil
 }
 
@@ -647,19 +648,18 @@ func (self *SSecurityGroupCache) SyncRules() error {
 		return errors.Wrapf(err, "iSecgroup.GetRules")
 	}
 
-	maxPriority := region.GetDriver().GetSecurityGroupRuleMaxPriority()
-	minPriority := region.GetDriver().GetSecurityGroupRuleMinPriority()
-
-	defaultInRule := region.GetDriver().GetDefaultSecurityGroupInRule()
-	defaultOutRule := region.GetDriver().GetDefaultSecurityGroupOutRule()
-	onlyAllowRules := region.GetDriver().IsOnlySupportAllowRules()
-
 	localRules, err := secgroup.GetSecuritRuleSet()
 	if err != nil {
 		return errors.Wrapf(err, "GetSecuritRuleSet")
 	}
 
-	common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, localRules, rules, defaultInRule, defaultOutRule, onlyAllowRules, false, false)
+	src := cloudprovider.NewSecRuleInfo(GetRegionDriver(api.CLOUD_PROVIDER_ONECLOUD))
+	src.Rules = localRules
+
+	dest := cloudprovider.NewSecRuleInfo(GetRegionDriver(region.Provider))
+	dest.Rules = rules
+
+	common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(src, dest, false)
 
 	if len(inAdds) == 0 && len(inDels) == 0 && len(outAdds) == 0 && len(outDels) == 0 {
 		return nil
