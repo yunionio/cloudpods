@@ -630,6 +630,15 @@ func (lb *SLoadbalancer) getMoreDetails(out api.LoadbalancerDetails) (api.Loadba
 }
 
 func (lb *SLoadbalancer) ValidateDeleteCondition(ctx context.Context) error {
+	err := lb.validatePurgeCondition(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (lb *SLoadbalancer) validatePurgeCondition(ctx context.Context) error {
 	region := lb.GetRegion()
 	if region != nil {
 		if err := region.GetDriver().ValidateDeleteLoadbalancerCondition(ctx, lb); err != nil {
@@ -700,17 +709,66 @@ func (lb *SLoadbalancer) Delete(ctx context.Context, userCred mcclient.TokenCred
 
 func (man *SLoadbalancerManager) getLoadbalancersByRegion(region *SCloudregion, provider *SCloudprovider) ([]SLoadbalancer, error) {
 	lbs := []SLoadbalancer{}
-	vpcs := VpcManager.Query().SubQuery()
 	q := man.Query()
-	q = q.Join(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
-	q = q.Filter(sqlchemy.Equals(vpcs.Field("cloudregion_id"), region.Id))
-	q = q.Filter(sqlchemy.Equals(vpcs.Field("manager_id"), provider.Id))
+	q = q.Equals("manager_id", provider.Id)
+	q = q.Equals("cloudregion_id", region.Id)
 	q = q.IsFalse("pending_deleted")
 	if err := db.FetchModelObjects(man, q, &lbs); err != nil {
 		log.Errorf("failed to get lbs for region: %v provider: %v error: %v", region, provider, err)
 		return nil, err
 	}
 	return lbs, nil
+}
+
+func (man *SLoadbalancerManager) getLoadbalancersByExternalIds(externalIds []string) ([]SLoadbalancer, error) {
+	lbs := []SLoadbalancer{}
+	q := man.Query()
+	q = q.In("external_id", externalIds)
+	q = q.IsFalse("pending_deleted")
+	if err := db.FetchModelObjects(man, q, &lbs); err != nil {
+		log.Errorf("failed to get lbs for region: %#v error: %v", externalIds, err)
+		return nil, err
+	}
+	return lbs, nil
+}
+
+func (man *SLoadbalancerManager) getLocalLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, lbs []cloudprovider.ICloudLoadbalancer) ([]SLoadbalancer, error) {
+	// current external ID
+	extIds := []string{}
+	for i := range lbs {
+		extIds = append(extIds, lbs[i].GetGlobalId())
+	}
+
+	part1, err := man.getLoadbalancersByRegion(region, provider)
+	if err != nil {
+		return nil, err
+	}
+
+	localLbs := map[string]SLoadbalancer{}
+	for i := range part1 {
+		localLbs[part1[i].Id] = part1[i]
+		if len(part1[i].GetExternalId()) > 0 {
+			extIds = append(extIds, part1[i].GetExternalId())
+		}
+	}
+
+	if len(extIds) > 0 {
+		part2, err := man.getLoadbalancersByExternalIds(extIds)
+		if err != nil {
+			return nil, err
+		}
+
+		for i := range part2 {
+			localLbs[part2[i].Id] = part2[i]
+		}
+	}
+
+	ret := make([]SLoadbalancer, 0)
+	for id, _ := range localLbs {
+		ret = append(ret, localLbs[id])
+	}
+
+	return ret, nil
 }
 
 func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, lbs []cloudprovider.ICloudLoadbalancer, syncRange *SSyncRange) ([]SLoadbalancer, []cloudprovider.ICloudLoadbalancer, compare.SyncResult) {
@@ -723,7 +781,7 @@ func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred
 	remoteLbs := []cloudprovider.ICloudLoadbalancer{}
 	syncResult := compare.SyncResult{}
 
-	dbLbs, err := man.getLoadbalancersByRegion(region, provider)
+	dbLbs, err := man.getLocalLoadbalancers(ctx, userCred, provider, region, lbs)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
@@ -856,7 +914,7 @@ func (lb *SLoadbalancer) syncRemoveCloudLoadbalancer(ctx context.Context, userCr
 	lockman.LockObject(ctx, lb)
 	defer lockman.ReleaseObject(ctx, lb)
 
-	err := lb.ValidateDeleteCondition(ctx)
+	err := lb.validatePurgeCondition(ctx)
 	if err != nil { // cannot delete
 		return lb.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
