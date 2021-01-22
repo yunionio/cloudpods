@@ -97,8 +97,9 @@ type SReceiver struct {
 	db.SDomainizedResourceBase
 	db.SEnabledResourceBase
 
-	Email  string `width:"64" nullable:"false" create:"optional" update:"user" get:"user" list:"user"`
-	Mobile string `width:"16" nullable:"false" create:"optional" update:"user" get:"user" list:"user"`
+	Email string `width:"64" nullable:"false" create:"optional" update:"user" get:"user" list:"user"`
+	// swagger:ignore
+	Mobile string `width:"32" nullable:"false" create:"optional"`
 	Lang   string `width:"8" charset:"ascii" nullable:"false" list:"user" update:"user"`
 
 	// swagger:ignore
@@ -280,7 +281,7 @@ func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcc
 		return input, httperrors.NewInputParameterError("invalid email")
 	}
 	// validate mobile
-	if ok := LaxMobileRegexp.MatchString(input.Mobile); len(input.Mobile) > 0 && !ok {
+	if ok := LaxMobileRegexp.MatchString(input.InternationalMobile.Mobile); len(input.InternationalMobile.Mobile) > 0 && !ok {
 		return input, httperrors.NewInputParameterError("invalid mobile")
 	}
 	return input, nil
@@ -601,6 +602,7 @@ func (rm *SReceiverManager) FetchCustomizeColumns(ctx context.Context, userCred 
 		rows[i].StatusStandaloneResourceDetails = sRows[i]
 		rows[i].DomainizedResourceInfo = dRows[i]
 		user := objs[i].(*SReceiver)
+		rows[i].InternationalMobile = api.ParseInternationalMobile(user.Mobile)
 		if enabledCTs, err := user.GetEnabledContactTypes(); err != nil {
 			log.Errorf("GetEnabledContactTypes: %v", err)
 		} else {
@@ -662,6 +664,7 @@ func (r *SReceiver) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 	if input.Enabled == nil {
 		r.Enabled = tristate.True
 	}
+	r.Mobile = input.InternationalMobile.String()
 	err = r.SetEnabledContactTypes(input.EnabledContactTypes)
 	if err != nil {
 		return errors.Wrap(err, "SetEnabledContactTypes")
@@ -684,7 +687,7 @@ func (r *SReceiver) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		return input, httperrors.NewInputParameterError("invalid email")
 	}
 	// validate mobile
-	if ok := len(input.Mobile) == 0 || LaxMobileRegexp.MatchString(input.Mobile); !ok {
+	if ok := len(input.InternationalMobile.Mobile) == 0 || LaxMobileRegexp.MatchString(input.InternationalMobile.Mobile); !ok {
 		return input, httperrors.NewInputParameterError("invalid mobile")
 	}
 	return input, nil
@@ -702,6 +705,9 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 		log.Errorf("PullCache: %v", err)
 	}
 	err = r.SetEnabledContactTypes(input.EnabledContactTypes)
+	if err != nil {
+		log.Errorf("unable to SetEnabledContactTypes")
+	}
 	if len(input.Email) != 0 && input.Email != r.Email {
 		r.VerifiedEmail = tristate.False
 		for _, c := range r.subContactCache {
@@ -711,8 +717,10 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 			}
 		}
 	}
-	if len(input.Mobile) != 0 && input.Mobile != r.Mobile {
+	mobile := input.InternationalMobile.String()
+	if len(mobile) != 0 && mobile != r.Mobile {
 		r.VerifiedMobile = tristate.False
+		r.Mobile = mobile
 		for _, c := range r.subContactCache {
 			if c.ParentContactType == api.MOBILE {
 				c.Verified = tristate.False

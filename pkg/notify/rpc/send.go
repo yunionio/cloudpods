@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/notify"
 	notifyv2 "yunion.io/x/onecloud/pkg/notify"
@@ -176,6 +177,11 @@ func (self *SRpcService) RestartService(ctx context.Context, config notifyv2.SCo
 
 func (self *SRpcService) ContactByMobile(ctx context.Context, mobile, serviceName string) (string, error) {
 
+	iMobile := api.ParseInternationalMobile(mobile)
+	// compatible
+	if iMobile.AreaCode == "86" {
+		mobile = iMobile.Mobile
+	}
 	args := apis.UseridByMobileParams{}
 	args.Mobile = mobile
 
