@@ -121,7 +121,7 @@ func (manager *SVpcPeeringConnectionManager) ValidateCreateData(
 		return input, err
 	}
 	if len(input.VpcId) == 0 {
-		return input, httperrors.NewInputParameterError("vpc_id")
+		return input, httperrors.NewMissingParameterError("vpc_id")
 	}
 
 	// get vpc ,peerVpc
@@ -188,10 +188,10 @@ func (manager *SVpcPeeringConnectionManager) ValidateCreateData(
 	CrossCloudEnv := account.AccessUrl != peerAccount.AccessUrl
 	CrossRegion := vpc.CloudregionId != peerVpc.CloudregionId
 	if CrossCloudEnv && !factory.IsSupportCrossCloudEnvVpcPeering() {
-		return input, httperrors.NewNotSupportedError("cloudprovider %s %s %s %s %s not supported CrossCloud vpcpeering", account.Provider, account.AccessUrl, vpc.CloudregionId, peerAccount.AccessUrl, peerVpc.CloudregionId)
+		return input, httperrors.NewNotSupportedError("cloudprovider %s not supported CrossCloud vpcpeering", account.Provider)
 	}
 	if CrossRegion && !factory.IsSupportCrossRegionVpcPeering() {
-		return input, httperrors.NewNotSupportedError("cloudprovider %s %s %s %s %s not supported CrossRegion vpcpeering", account.Provider, account.AccessUrl, vpc.CloudregionId, peerAccount.AccessUrl, peerVpc.CloudregionId)
+		return input, httperrors.NewNotSupportedError("cloudprovider %s not supported CrossRegion vpcpeering", account.Provider)
 	}
 	if CrossRegion {
 		err := factory.ValidateCrossRegionVpcPeeringBandWidth(input.Bandwidth)
