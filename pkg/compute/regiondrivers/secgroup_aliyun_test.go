@@ -15,37 +15,28 @@
 package regiondrivers
 
 import (
-	"sort"
 	"testing"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 func TestAliyunRuleSync(t *testing.T) {
-	driver := SAliyunRegionDriver{}
-	maxPriority := driver.GetSecurityGroupRuleMaxPriority()
-	minPriority := driver.GetSecurityGroupRuleMinPriority()
-
-	defaultInRule := driver.GetDefaultSecurityGroupInRule()
-	defaultOutRule := driver.GetDefaultSecurityGroupOutRule()
-	isOnlyAllowRules := driver.IsOnlySupportAllowRules()
-
 	data := []TestData{
 		{
 			Name: "Test out rules",
-			LocalRules: cloudprovider.LocalSecurityRuleSet{
-				localRuleWithPriority("in:allow tcp 1212", 52),
-				localRuleWithPriority("in:allow tcp 22", 51),
-				localRuleWithPriority("in:allow tcp 3389", 50),
-				localRuleWithPriority("in:allow udp 1231", 49),
-				localRuleWithPriority("in:deny tcp 443", 48),
+			SrcRules: cloudprovider.SecurityRuleSet{
+				ruleWithPriority("in:allow tcp 1212", 52),
+				ruleWithPriority("in:allow tcp 22", 51),
+				ruleWithPriority("in:allow tcp 3389", 50),
+				ruleWithPriority("in:allow udp 1231", 49),
+				ruleWithPriority("in:deny tcp 443", 48),
 			},
-			RemoteRules: []cloudprovider.SecurityRule{
-				remoteRuleWithName("", "in:deny tcp 443", 1),
-				remoteRuleWithName("", "in:allow udp 1231", 1),
-				remoteRuleWithName("", "in:allow tcp 3389", 100),
-				remoteRuleWithName("", "in:allow tcp 22", 100),
-				remoteRuleWithName("", "in:allow tcp 1212", 100),
+			DestRules: []cloudprovider.SecurityRule{
+				ruleWithName("", "in:deny tcp 443", 1),
+				ruleWithName("", "in:allow udp 1231", 1),
+				ruleWithName("", "in:allow tcp 3389", 100),
+				ruleWithName("", "in:allow tcp 22", 100),
+				ruleWithName("", "in:allow tcp 1212", 100),
 			},
 			Common:  []cloudprovider.SecurityRule{},
 			InAdds:  []cloudprovider.SecurityRule{},
@@ -53,20 +44,23 @@ func TestAliyunRuleSync(t *testing.T) {
 			InDels:  []cloudprovider.SecurityRule{},
 			OutDels: []cloudprovider.SecurityRule{},
 		},
+		{
+			Name: "Test tcp rules",
+			SrcRules: cloudprovider.SecurityRuleSet{
+				ruleWithPriority("out:deny tcp 443", 48),
+			},
+			DestRules: []cloudprovider.SecurityRule{},
+			Common:    []cloudprovider.SecurityRule{},
+			InAdds:    []cloudprovider.SecurityRule{},
+			OutAdds: []cloudprovider.SecurityRule{
+				ruleWithName("", "out:deny tcp 443", 49),
+			},
+			InDels:  []cloudprovider.SecurityRule{},
+			OutDels: []cloudprovider.SecurityRule{},
+		},
 	}
 
 	for _, d := range data {
-		t.Logf("check %s", d.Name)
-		common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, d.LocalRules, d.RemoteRules, defaultInRule, defaultOutRule, isOnlyAllowRules, true, true)
-		sort.Sort(cloudprovider.SecurityRuleSet(common))
-		sort.Sort(cloudprovider.SecurityRuleSet(inAdds))
-		sort.Sort(cloudprovider.SecurityRuleSet(outAdds))
-		sort.Sort(cloudprovider.SecurityRuleSet(inDels))
-		sort.Sort(cloudprovider.SecurityRuleSet(outDels))
-		check(t, "common", common, d.Common)
-		check(t, "inAdds", inAdds, d.InAdds)
-		check(t, "outAdds", outAdds, d.OutAdds)
-		check(t, "inDels", inDels, d.InDels)
-		check(t, "outDels", outDels, d.OutDels)
+		d.Test(t, &SKVMRegionDriver{}, &SAliyunRegionDriver{})
 	}
 }
