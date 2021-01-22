@@ -21,44 +21,49 @@ import (
 )
 
 func TestOpenStackRuleSync(t *testing.T) {
-	driver := SOpenStackRegionDriver{}
-	maxPriority := driver.GetSecurityGroupRuleMaxPriority()
-	minPriority := driver.GetSecurityGroupRuleMinPriority()
-
-	defaultInRule := driver.GetDefaultSecurityGroupInRule()
-	defaultOutRule := driver.GetDefaultSecurityGroupOutRule()
-	isOnlyAllowRules := driver.IsOnlySupportAllowRules()
-
 	data := []TestData{
 		{
 			Name: "Test deny rules",
-			LocalRules: cloudprovider.LocalSecurityRuleSet{
-				localRuleWithPriority("in:deny any", 100),
-				localRuleWithPriority("in:allow any", 99),
-				localRuleWithPriority("out:allow any", 100),
+			SrcRules: cloudprovider.SecurityRuleSet{
+				ruleWithPriority("in:deny any", 100),
+				ruleWithPriority("in:allow any", 99),
+				ruleWithPriority("out:allow any", 100),
 			},
-			RemoteRules: []cloudprovider.SecurityRule{
-				remoteRuleWithName("", "in:allow any", 1),
+			DestRules: []cloudprovider.SecurityRule{
+				ruleWithName("", "in:allow any", 1),
 			},
 			Common: []cloudprovider.SecurityRule{},
 			InAdds: []cloudprovider.SecurityRule{},
 			OutAdds: []cloudprovider.SecurityRule{
-				remoteRuleWithName("", "out:allow any", 0),
+				ruleWithName("", "out:allow any", 0),
 			},
 			InDels: []cloudprovider.SecurityRule{
-				remoteRuleWithName("", "in:allow any", 1),
+				ruleWithName("", "in:allow any", 1),
+			},
+			OutDels: []cloudprovider.SecurityRule{},
+		},
+		{
+			Name: "Test deny rules",
+			SrcRules: cloudprovider.SecurityRuleSet{
+				ruleWithPriority("in:deny any", 100),
+				ruleWithPriority("in:allow any", 99),
+				ruleWithPriority("out:allow any", 100),
+			},
+			DestRules: []cloudprovider.SecurityRule{
+				ruleWithName("", "in:allow any", 0),
+				ruleWithName("", "out:allow any", 0),
+			},
+			Common:  []cloudprovider.SecurityRule{},
+			InAdds:  []cloudprovider.SecurityRule{},
+			OutAdds: []cloudprovider.SecurityRule{},
+			InDels: []cloudprovider.SecurityRule{
+				ruleWithName("", "in:allow any", 0),
 			},
 			OutDels: []cloudprovider.SecurityRule{},
 		},
 	}
 
 	for _, d := range data {
-		t.Logf("check %s", d.Name)
-		common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, d.LocalRules, d.RemoteRules, defaultInRule, defaultOutRule, isOnlyAllowRules, true, false)
-		check(t, "common", common, d.Common)
-		check(t, "inAdds", inAdds, d.InAdds)
-		check(t, "outAdds", outAdds, d.OutAdds)
-		check(t, "inDels", inDels, d.InDels)
-		check(t, "outDels", outDels, d.OutDels)
+		d.Test(t, &SKVMRegionDriver{}, &SOpenStackRegionDriver{})
 	}
 }
