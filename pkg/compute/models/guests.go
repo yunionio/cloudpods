@@ -5247,8 +5247,11 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	userInput.KeypairId = genInput.KeypairId
 	userInput.EipBw = genInput.EipBw
 	userInput.EipChargeType = genInput.EipChargeType
-	userInput.PublicIpBw = genInput.PublicIpBw
-	userInput.PublicIpChargeType = genInput.PublicIpChargeType
+	provider := self.GetDriver()
+	if provider.IsSupportPublicIp() {
+		userInput.PublicIpBw = genInput.PublicIpBw
+		userInput.PublicIpChargeType = genInput.PublicIpChargeType
+	}
 	userInput.AutoRenew = genInput.AutoRenew
 	// cloned server should belongs to the project creating it
 	userInput.ProjectId = userCred.GetProjectId()
@@ -5318,8 +5321,10 @@ func (self *SGuest) toCreateInput() *api.ServerCreateInput {
 			r.EipBw = eip.Bandwidth
 			r.EipChargeType = eip.ChargeType
 		case api.EIP_MODE_INSTANCE_PUBLICIP:
-			r.PublicIpBw = eip.Bandwidth
-			r.PublicIpChargeType = eip.ChargeType
+			if driver := self.GetDriver(); driver.IsSupportPublicIp() {
+				r.PublicIpBw = eip.Bandwidth
+				r.PublicIpChargeType = eip.ChargeType
+			}
 		}
 	}
 	if zone := self.getZone(); zone != nil {
