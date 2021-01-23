@@ -298,10 +298,10 @@ func VerifyPassword(user *api.SUserExtended, passwd string) error {
 func localUserVerifyPassword(user *api.SUserExtended, passwd string) error {
 	passes, err := PasswordManager.fetchByLocaluserId(user.LocalId)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "fetchPassword")
 	}
 	if len(passes) == 0 {
-		return nil
+		return errors.Error("no valid password")
 	}
 	// password expiration check skip system account
 	if passes[0].IsExpired() && !user.IsSystemAccount {
