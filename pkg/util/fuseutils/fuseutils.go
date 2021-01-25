@@ -79,11 +79,13 @@ func MountFusefs(fetcherfsPath, url, tmpdir, token, mntpath string, blocksize in
 
 	var mounted = false
 	for i := 0; i < 3; i++ {
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 		if f, err := os.OpenFile(metaPath, os.O_RDONLY, 0644); err == nil {
 			f.Close()
 			mounted = true
 			break
+		} else {
+			log.Warningf("failed open metaPath %s: %s", metaPath, err)
 		}
 	}
 	if !mounted {
