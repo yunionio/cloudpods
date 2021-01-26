@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -66,7 +67,7 @@ func (self *SAMLProviderDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 		return
 	}
 	samls, err := provider.GetICloudSAMLProviders()
-	if err != nil {
+	if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
 		self.taskFailed(ctx, saml, errors.Wrapf(err, "GetICloudSAMLProviders"))
 		return
 	}
