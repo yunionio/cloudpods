@@ -502,8 +502,8 @@ func (self *SSecurityGroup) getSecurityRules() ([]SSecurityGroupRule, error) {
 	return rules, nil
 }
 
-func (self *SSecurityGroup) GetSecuritRuleSet() (cloudprovider.LocalSecurityRuleSet, error) {
-	ruleSet := cloudprovider.LocalSecurityRuleSet{}
+func (self *SSecurityGroup) GetSecuritRuleSet() (cloudprovider.SecurityRuleSet, error) {
+	ruleSet := cloudprovider.SecurityRuleSet{}
 	rules, err := self.getSecurityRules()
 	if err != nil {
 		return ruleSet, errors.Wrapf(err, "getSecurityRules")
@@ -514,7 +514,7 @@ func (self *SSecurityGroup) GetSecuritRuleSet() (cloudprovider.LocalSecurityRule
 		if err != nil {
 			return nil, errors.Wrapf(err, "toRule")
 		}
-		ruleSet = append(ruleSet, cloudprovider.LocalSecurityRule{SecurityRule: *rule, ExternalId: rules[i].Id})
+		ruleSet = append(ruleSet, cloudprovider.SecurityRule{SecurityRule: *rule, ExternalId: rules[i].Id})
 	}
 	return ruleSet, nil
 }
@@ -871,14 +871,18 @@ func (self *SSecurityGroup) removeRules(ruleIds []string, result *compare.SyncRe
 	}
 }
 
-func (self *SSecurityGroup) SyncSecurityGroupRules(ctx context.Context, userCred mcclient.TokenCredential, info *sRuleInfo) compare.SyncResult {
+func (self *SSecurityGroup) SyncSecurityGroupRules(ctx context.Context, userCred mcclient.TokenCredential, src cloudprovider.SecRuleInfo) compare.SyncResult {
 	result := compare.SyncResult{}
 	localRules, err := self.GetSecuritRuleSet()
 	if err != nil {
 		result.Error(errors.Wrapf(err, "GetSecuritRuleSet"))
 		return result
 	}
-	_, inDels, outDels, inAdds, outAdds := cloudprovider.CompareRules(info.minPriority, info.maxPriority, localRules, info.rules, info.defaultInRule, info.defaultOutRule, info.onlyAllowRules, false, true)
+
+	dest := cloudprovider.NewSecRuleInfo(GetRegionDriver(api.CLOUD_PROVIDER_ONECLOUD))
+	dest.Rules = localRules
+
+	_, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(src, dest, false)
 	if len(inAdds)+len(inDels)+len(outAdds)+len(outDels) == 0 {
 		return result
 	}
@@ -909,54 +913,14 @@ func (self *SSecurityGroup) SyncSecurityGroupRules(ctx context.Context, userCred
 	return result
 }
 
-type sRuleInfo struct {
-	rules          []cloudprovider.SecurityRule
-	inRules        []cloudprovider.SecurityRule
-	outRules       []cloudprovider.SecurityRule
-	defaultInRule  cloudprovider.SecurityRule
-	defaultOutRule cloudprovider.SecurityRule
-	onlyAllowRules bool
-	maxPriority    int
-	minPriority    int
-}
-
-func (manager *SSecurityGroupManager) getRuleInfo(provider *SCloudprovider, extSec cloudprovider.ICloudSecurityGroup) (*sRuleInfo, error) {
-	regionDriver, err := provider.GetRegionDriver()
-	if err != nil {
-		return nil, errors.Wrap(err, "provider.GetRegionDriver")
-	}
-
-	rules, err := extSec.GetRules()
-	if err != nil {
-		return nil, errors.Wrap(err, "extSec.GetRules")
-	}
-
-	info := &sRuleInfo{
-		rules:          rules,
-		inRules:        []cloudprovider.SecurityRule{},
-		outRules:       []cloudprovider.SecurityRule{},
-		defaultInRule:  regionDriver.GetDefaultSecurityGroupInRule(),
-		defaultOutRule: regionDriver.GetDefaultSecurityGroupOutRule(),
-		onlyAllowRules: regionDriver.IsOnlySupportAllowRules(),
-		maxPriority:    regionDriver.GetSecurityGroupRuleMaxPriority(),
-		minPriority:    regionDriver.GetSecurityGroupRuleMinPriority(),
-	}
-
-	for i := range rules {
-		if rules[i].Direction == secrules.DIR_IN {
-			info.inRules = append(info.inRules, rules[i])
-		} else {
-			info.outRules = append(info.outRules, rules[i])
-		}
-	}
-	return info, nil
-}
-
 func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extSec cloudprovider.ICloudSecurityGroup) (*SSecurityGroup, error) {
-	info, err := manager.getRuleInfo(provider, extSec)
+	dest := cloudprovider.NewSecRuleInfo(GetRegionDriver(provider.Provider))
+	var err error
+	dest.Rules, err = extSec.GetRules()
 	if err != nil {
-		return nil, errors.Wrapf(err, "getRuleInfo")
+		return nil, errors.Wrapf(err, "extSec.GetRules")
 	}
+	src := cloudprovider.NewSecRuleInfo(GetRegionDriver(api.CLOUD_PROVIDER_ONECLOUD))
 
 	if options.Options.EnableAutoMergeSecurityGroup {
 		// 查询与provider在同域的安全组，比对寻找一个与云上安全组规则相同的安全组
@@ -967,12 +931,12 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 			return nil, errors.Wrap(err, "db.FetchModelObjects")
 		}
 		for i := range secgroups {
-			localRules, err := secgroups[i].GetSecuritRuleSet()
+			src.Rules, err = secgroups[i].GetSecuritRuleSet()
 			if err != nil {
 				log.Warningf("GetSecuritRuleSet %s(%s) error: %v", secgroups[i].Name, secgroups[i].Id, err)
 				continue
 			}
-			_, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(info.minPriority, info.maxPriority, localRules, info.rules, info.defaultInRule, info.defaultOutRule, info.onlyAllowRules, false, false)
+			_, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(src, dest, false)
 			if len(inAdds) == 0 && len(outAdds) == 0 && len(inDels) == 0 && len(outDels) == 0 {
 				return &secgroups[i], nil
 			}
@@ -999,7 +963,7 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 		return nil, errors.Wrapf(err, "Insert")
 	}
 
-	secgroup.SyncSecurityGroupRules(ctx, userCred, info)
+	secgroup.SyncSecurityGroupRules(ctx, userCred, dest)
 
 	db.OpsLog.LogEvent(&secgroup, db.ACT_CREATE, secgroup.GetShortDesc(ctx), userCred)
 	return &secgroup, nil

@@ -404,11 +404,12 @@ func (self *SSecurityGroupCache) syncWithCloudSecurityGroup(ctx context.Context,
 	if cacheCount > 1 {
 		return nil
 	}
-	info, err := SecurityGroupManager.getRuleInfo(provider, ext)
+	dest := cloudprovider.NewSecRuleInfo(GetRegionDriver(provider.Provider))
+	dest.Rules, err = ext.GetRules()
 	if err != nil {
-		return errors.Wrapf(err, "getRuleInfo")
+		return errors.Wrapf(err, "GetRules")
 	}
-	secgroup.SyncSecurityGroupRules(ctx, userCred, info)
+	secgroup.SyncSecurityGroupRules(ctx, userCred, dest)
 	return nil
 }
 

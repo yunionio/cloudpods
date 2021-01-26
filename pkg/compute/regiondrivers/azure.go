@@ -65,9 +65,9 @@ func (self *SAzureRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.S
 }
 
 func (self *SAzureRegionDriver) GetSecurityGroupRuleMaxPriority() int {
-	return 4096
+	return 100
 }
 
 func (self *SAzureRegionDriver) GetSecurityGroupRuleMinPriority() int {
-	return 100
+	return 4096
 }
