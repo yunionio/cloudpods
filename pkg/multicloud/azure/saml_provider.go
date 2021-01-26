@@ -90,7 +90,7 @@ func (self *SAzureClient) ListSAMLProviders() ([]SAMLProvider, error) {
 func (self *SAzureClient) InviteUser(email string) (*SClouduser, error) {
 	body := jsonutils.Marshal(map[string]string{
 		"invitedUserEmailAddress": email,
-		"inviteRedirectUrl":       fmt.Sprintf("https://portal.azure.com/%s", self.tenantId),
+		"inviteRedirectUrl":       fmt.Sprintf("https://portal.azure.com/%s?login_hint=%s", self.tenantId, email),
 	})
 	resp, err := self.msGraphRequest("POST", "invitations", body)
 	if err != nil {
