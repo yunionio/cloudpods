@@ -565,9 +565,7 @@ func (manager *SAssignmentManager) queryAll(
 		q = q.In("project_id", subq.SubQuery()).In("type", []string{api.AssignmentUserProject, api.AssignmentGroupProject})
 	}
 	if len(projectDomainId) > 0 {
-		subq := ProjectManager.Query("id")
-		domainQ := DomainManager.Query("id", "name").Equals("id", projectDomainId).SubQuery()
-		subq = subq.Join(domainQ, sqlchemy.Equals(subq.Field("domain_id"), domainQ.Field("id")))
+		subq := ProjectManager.Query("id").Equals("domain_id", projectDomainId)
 		q = q.In("project_id", subq.SubQuery()).In("type", []string{api.AssignmentUserProject, api.AssignmentGroupProject})
 	}
 	if len(projectDomains) > 0 {
