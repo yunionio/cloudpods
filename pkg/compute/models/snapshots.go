@@ -621,6 +621,10 @@ func (self *SSnapshot) ValidateDeleteCondition(ctx context.Context) error {
 	if self.Status == api.SNAPSHOT_DELETING {
 		return httperrors.NewBadRequestError("Cannot delete snapshot in status %s", self.Status)
 	}
+	return self.ValidatePurgeCondition(ctx)
+}
+
+func (self *SSnapshot) ValidatePurgeCondition(ctx context.Context) error {
 	count, err := InstanceSnapshotJointManager.Query().Equals("snapshot_id", self.Id).CountWithError()
 	if err != nil {
 		return httperrors.NewInternalServerError("Fetch instance snapshot error %s", err)
