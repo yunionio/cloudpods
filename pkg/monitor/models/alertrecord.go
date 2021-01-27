@@ -110,8 +110,8 @@ func (manager *SAlertRecordManager) ListItemFilter(
 	} else {
 		q = q.IsNotEmpty("res_type").IsNotNull("res_type")
 	}
-	if len(query.ResTypes) != 0 {
-		q.Filter(sqlchemy.In(q.Field("res_type"), query.ResTypes))
+	if len(query.ResType) != 0 {
+		q.Filter(sqlchemy.Equals(q.Field("res_type"), query.ResType))
 	}
 	return q, nil
 }
@@ -363,8 +363,8 @@ func (manager *SAlertRecordManager) getNowAlertingRecord(ctx context.Context, us
 	query = query.Equals("state", monitor.AlertStateAlerting)
 	query = query.IsNotNull("res_type").IsNotEmpty("res_type").Desc("created_at")
 
-	if len(input.ResTypes) != 0 {
-		query = query.In("res_type", input.ResTypes)
+	if len(input.ResType) != 0 {
+		query = query.Equals("res_type", input.ResType)
 	}
 
 	alertsQuery := CommonAlertManager.Query("id").Equals("state", monitor.AlertStateAlerting).IsTrue("enabled").
