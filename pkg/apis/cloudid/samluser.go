@@ -28,6 +28,8 @@ type SamluserCreateInput struct {
 
 	// 权限组和账号必须是同一平台
 	CloudaccountId string `json:"cloudaccount_id"`
+
+	Email string `json:"email"`
 }
 
 type SamluserListInput struct {

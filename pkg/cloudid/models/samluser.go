@@ -16,12 +16,15 @@ package models
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
+	compute_api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudid/options"
@@ -146,7 +149,12 @@ func (manager *SSamluserManager) ValidateCreateData(ctx context.Context, userCre
 	if account.Provider != group.Provider {
 		return input, httperrors.NewConflictError("account %s and group %s not with same provider", account.Name, group.Name)
 	}
-
+	if account.Provider == compute_api.CLOUD_PROVIDER_AZURE {
+		if info := strings.Split(options.Options.ApiServer, ":"); len(info) > 1 {
+			domain := strings.TrimPrefix(info[1], "//")
+			input.Email = fmt.Sprintf("%s@%s", input.Name, domain)
+		}
+	}
 	sq := CloudgroupManager.Query("id").Equals("provider", group.Provider).SubQuery()
 	q := manager.Query().Equals("owner_id", input.OwnerId).Equals("cloudaccount_id", account.Id).In("cloudgroup_id", sq)
 	groups := []SCloudgroup{}
