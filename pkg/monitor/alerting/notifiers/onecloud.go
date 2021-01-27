@@ -44,6 +44,9 @@ import (
 
 const (
 	SUFFIX = "onecloudNotifier"
+
+	MOBILE_TOPIC_CN = "monitor-cn"
+	MOBILE_TOPIC_EN = "monitor-en"
 )
 
 var (
@@ -211,6 +214,8 @@ func (oc *OneCloudNotifier) notifyByContextLang(ctx context.Context, evalCtx *al
 	switch oc.Setting.Channel {
 	case string(notify.NotifyByEmail):
 		content, err = contentConfig.GenerateEmailMarkdown()
+	case string(notify.NotifyByMobile):
+		content = oc.newRemoteMobileContent(&config, evalCtx, lang)
 	default:
 		content, err = contentConfig.GenerateMarkdown()
 	}
@@ -230,6 +235,19 @@ func (oc *OneCloudNotifier) notifyByContextLang(ctx context.Context, evalCtx *al
 	sendImp := factory.newSendnotify(oc, msg, config)
 
 	return sendImp.send()
+}
+
+func (oc *OneCloudNotifier) newRemoteMobileContent(config *monitor.NotificationTemplateConfig,
+	evalCtx *alerting.EvalContext, lang language.Tag) string {
+	switch lang {
+	case language.English:
+		config.Title = MOBILE_TOPIC_EN
+	default:
+		config.Title = MOBILE_TOPIC_CN
+	}
+	content := jsonutils.NewDict()
+	content.Set("alert_name", jsonutils.NewString(evalCtx.Rule.Name))
+	return content.String()
 }
 
 func GetUserLangIdsMap(ids []string) (map[string][]string, error) {
@@ -298,6 +316,10 @@ func (f *sendBodyFactory) newSendnotify(notifier *OneCloudNotifier, message noti
 		user := new(sendUserImpl)
 		user.sendnotifyBase = def
 		return user
+	case string(notify.NotifyByMobile):
+		mobile := new(sendMobileImpl)
+		mobile.sendnotifyBase = def
+		return mobile
 	default:
 		return def
 	}
@@ -338,5 +360,21 @@ type sendSysImpl struct {
 func (s *sendSysImpl) send() error {
 	notifyclient.SystemNotifyWithCtx(s.Ctx, notify.TNotifyPriority(s.msg.Priority), "DEFAULT",
 		jsonutils.Marshal(&s.config))
+	return nil
+}
+
+type sendMobileImpl struct {
+	*sendnotifyBase
+}
+
+func (s *sendMobileImpl) send() error {
+	msgObj, err := jsonutils.ParseString(s.msg.Msg)
+	if err != nil {
+		return err
+	}
+	notifyclient.RawNotifyWithCtx(s.Ctx, s.msg.Uid, false, notify.TNotifyChannel(s.Setting.Channel),
+		notify.TNotifyPriority(s.msg.Priority),
+		s.msg.Topic,
+		msgObj)
 	return nil
 }
