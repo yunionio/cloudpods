@@ -1012,6 +1012,10 @@ func (manager *SWireManager) ListItemFilter(
 		q = q.Filter(sqlchemy.In(q.Field("id"), sq.SubQuery()))
 	}
 
+	if query.Bandwidth != nil {
+		q = q.Equals("bandwidth", *query.Bandwidth)
+	}
+
 	return q, nil
 }
 

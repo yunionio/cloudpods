@@ -27,6 +27,8 @@ func init() {
 	type WireListOptions struct {
 		options.BaseListOptions
 
+		Bandwidth *int `help:"List wires by bandwidth"`
+
 		Region string `help:"List wires in region"`
 		Zone   string `help:"list wires in zone" json:"-"`
 		Vpc    string `help:"List wires in vpc"`
