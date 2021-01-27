@@ -129,7 +129,7 @@ func (manager *SRouteTableRouteSetManager) ValidateCreateData(
 	}
 
 	if input.NextHopType != api.Next_HOP_TYPE_VPCPEERING {
-		return input, httperrors.NewNotSupportedError("not supported next hop type")
+		return input, httperrors.NewNotSupportedError("not supported next hop type %s", input.NextHopType)
 	}
 	if input.NextHopType == api.Next_HOP_TYPE_VPCPEERING {
 		_vpcPeer, err := VpcPeeringConnectionManager.FetchByIdOrName(userCred, input.NextHopId)
@@ -207,7 +207,7 @@ func (self *SRouteTableRouteSet) ValidateUpdateData(
 	}
 
 	if input.NextHopType != api.Next_HOP_TYPE_VPCPEERING {
-		return input, httperrors.NewNotSupportedError("not supported next hop type")
+		return input, httperrors.NewNotSupportedError("not supported next hop type %s", input.NextHopType)
 	}
 	if input.NextHopType == api.Next_HOP_TYPE_VPCPEERING {
 		_vpcPeer, err := VpcPeeringConnectionManager.FetchByIdOrName(userCred, input.NextHopId)
