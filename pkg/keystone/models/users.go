@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -282,6 +281,9 @@ func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domai
 	extUser := api.SUserExtended{}
 	err := q.First(&extUser)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.ErrUserNotFound
+		}
 		return nil, errors.Wrap(err, "query")
 	}
 
@@ -312,7 +314,7 @@ func localUserVerifyPassword(user *api.SUserExtended, passwd string) error {
 	if err == nil {
 		return nil
 	}
-	return errors.Error(fmt.Sprintf("invalid password: %v", err))
+	return httperrors.ErrWrongPassword
 }
 
 // 用户列表
