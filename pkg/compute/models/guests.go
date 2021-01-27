@@ -1888,7 +1888,13 @@ func (manager *SGuestManager) OnCreateComplete(ctx context.Context, items []db.I
 		manager.SetPropertiesWithInstanceSnapshot(ctx, userCred, input.InstanceSnapshotId, items)
 	}
 	pendingUsage, pendingRegionUsage := getGuestResourceRequirements(ctx, userCred, input, ownerId, len(items), input.Backup)
-	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, pendingRegionUsage, "GuestBatchCreateTask", input.ParentTaskId)
+	err := RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, pendingRegionUsage, "GuestBatchCreateTask", input.ParentTaskId)
+	if err != nil {
+		for i := range items {
+			guest := items[i].(*SGuest)
+			guest.SetStatus(userCred, api.VM_CREATE_FAILED, err.Error())
+		}
+	}
 }
 
 func (guest *SGuest) GetGroups() []SGroupguest {
