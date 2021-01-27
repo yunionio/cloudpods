@@ -207,3 +207,11 @@ func NewUnclassifiedError(msg string, params ...interface{}) *httputils.JSONClie
 func NewTooLargeEntityError(msg string, params ...interface{}) *httputils.JSONClientError {
 	return httputils.NewJsonClientError(httpErrorCode[ErrTooLarge], string(ErrTooLarge), msg, params...)
 }
+
+func NewJsonClientError(err errors.Error, msg string, params ...interface{}) *httputils.JSONClientError {
+	code, ok := httpErrorCode[err]
+	if !ok {
+		code = 500
+	}
+	return httputils.NewJsonClientError(code, string(err), msg, params...)
+}
