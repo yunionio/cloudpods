@@ -87,4 +87,6 @@ type WireListInput struct {
 	ZonalFilterListBase
 
 	HostResourceInput
+
+	Bandwidth *int `json:"bandwidth"`
 }
