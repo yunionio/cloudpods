@@ -19,7 +19,6 @@ import (
 	"database/sql"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
@@ -39,7 +38,7 @@ func RunBatchCreateTask(
 	pendingRegionUsage SRegionQuota,
 	taskName string,
 	parentTaskId string,
-) {
+) error {
 	taskItems := make([]db.IStandaloneModel, len(items))
 	for i, t := range items {
 		taskItems[i] = t.(db.IStandaloneModel)
@@ -47,10 +46,9 @@ func RunBatchCreateTask(
 	params := data.(*jsonutils.JSONDict)
 	task, err := taskman.TaskManager.NewParallelTask(ctx, taskName, taskItems, userCred, params, parentTaskId, "", &pendingUsage, &pendingRegionUsage)
 	if err != nil {
-		log.Errorf("%s newTask error %s", taskName, err)
-	} else {
-		task.ScheduleRun(nil)
+		return errors.Wrapf(err, "NewParallelTask %s", taskName)
 	}
+	return task.ScheduleRun(nil)
 }
 
 func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput, hypervisor string) (*api.ServerCreateInput, error) {

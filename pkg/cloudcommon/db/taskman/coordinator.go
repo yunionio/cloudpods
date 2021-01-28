@@ -32,12 +32,12 @@ type BatchTaskStageFunc func(ctx context.Context, objs []db.IStandaloneModel, bo
 
 type IBatchTask interface {
 	OnInit(ctx context.Context, objs []db.IStandaloneModel, body jsonutils.JSONObject)
-	ScheduleRun(data jsonutils.JSONObject)
+	ScheduleRun(data jsonutils.JSONObject) error
 }
 
 type ISingleTask interface {
 	OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject)
-	ScheduleRun(data jsonutils.JSONObject)
+	ScheduleRun(data jsonutils.JSONObject) error
 }
 
 var ITaskType reflect.Type
