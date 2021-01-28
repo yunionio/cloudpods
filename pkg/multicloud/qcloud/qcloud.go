@@ -507,7 +507,7 @@ func (client *SQcloudClient) getDefaultClient() (*common.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	httpClient := client.cpcfg.HttpClient()
+	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
 	cli.WithHttpTransport(httpClient.Transport)
 	return cli, nil
 }

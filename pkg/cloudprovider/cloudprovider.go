@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -156,12 +155,6 @@ type ProviderConfig struct {
 	AccountId string
 
 	ProxyFunc httputils.TransportProxyFunc
-}
-
-func (cp *ProviderConfig) HttpClient() *http.Client {
-	client := httputils.GetClient(true, 15*time.Second)
-	httputils.SetClientProxyFunc(client, cp.ProxyFunc)
-	return client
 }
 
 func (cp *ProviderConfig) AdaptiveTimeoutHttpClient() *http.Client {
