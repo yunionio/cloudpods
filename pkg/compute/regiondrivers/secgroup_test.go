@@ -101,7 +101,6 @@ var ruleWithPriority = func(ruleStr string, priority int) cloudprovider.Security
 	rule := secrules.MustParseSecurityRule(ruleStr)
 	if rule == nil {
 		panic(fmt.Sprintf("invalid rule str %s", ruleStr))
-		return cloudprovider.SecurityRule{}
 	}
 	rule.Priority = priority
 	return cloudprovider.SecurityRule{SecurityRule: *rule, Id: stringutils.UUID4()}
