@@ -114,6 +114,15 @@ var ruleWithName = func(name, ruleStr string, priority int) cloudprovider.Securi
 	}
 }
 
+var ruleWithPeerSecgroup = func(name, ruleStr string, priority int, peerSecgroup string) cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{
+		Name:           name,
+		ExternalId:     name,
+		PeerSecgroupId: peerSecgroup,
+		SecurityRule:   ruleWithPriority(ruleStr, priority).SecurityRule,
+	}
+}
+
 var check = func(t *testing.T, name string, ret, expect []cloudprovider.SecurityRule, min, max int) {
 	var show = func(info string, rules []cloudprovider.SecurityRule) {
 		t.Logf("%s: %d\n", info, len(rules))

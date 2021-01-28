@@ -69,6 +69,10 @@ func (self *SAliyunRegionDriver) GetSecurityGroupRuleMinPriority() int {
 	return 100
 }
 
+func (self *SAliyunRegionDriver) IsSupportPeerSecgroup() bool {
+	return true
+}
+
 func (self *SAliyunRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ALIYUN
 }

@@ -75,6 +75,22 @@ func TestKvmRuleSync(t *testing.T) {
 			},
 			OutDels: []cloudprovider.SecurityRule{},
 		},
+		{
+			Name: "Test aliyun peer rules",
+			SrcRules: cloudprovider.SecurityRuleSet{
+				ruleWithPeerSecgroup("allow tcp 443", "in:allow tcp 443", 1, "peer1"),
+				ruleWithName("deny tcp 1521", "in:deny tcp 1521", 12),
+			},
+			DestRules: []cloudprovider.SecurityRule{},
+			Common:    []cloudprovider.SecurityRule{},
+			InAdds: []cloudprovider.SecurityRule{
+				ruleWithPeerSecgroup("allow tcp 443", "in:allow tcp 443", 51, "peer1"),
+				ruleWithName("deny tcp 1521", "in:deny tcp 1521", 51),
+			},
+			OutAdds: []cloudprovider.SecurityRule{},
+			InDels:  []cloudprovider.SecurityRule{},
+			OutDels: []cloudprovider.SecurityRule{},
+		},
 	}
 
 	for _, d := range aliyun {
