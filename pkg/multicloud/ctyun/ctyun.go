@@ -86,7 +86,7 @@ type SCtyunClient struct {
 }
 
 func NewSCtyunClient(cfg *CtyunClientConfig) (*SCtyunClient, error) {
-	httpClient := cfg.cpcfg.HttpClient()
+	httpClient := cfg.cpcfg.AdaptiveTimeoutHttpClient()
 	client := &SCtyunClient{
 		CtyunClientConfig: cfg,
 		httpClient:        httpClient,
