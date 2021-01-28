@@ -32,64 +32,82 @@
             "position": "pkg/apigateway/handler/auth.go:309:48"
         },
         {
+            "id": "incorrect username or password",
+            "message": "incorrect username or password",
+            "translation": "用户名或者密码不正确",
+            "position": "pkg/apigateway/handler/auth.go:322:58"
+        },
+        {
+            "id": "The user has been locked, please contact the administrator",
+            "message": "The user has been locked, please contact the administrator",
+            "translation": "用户已经被锁定，请联系管理员",
+            "position": "pkg/apigateway/handler/auth.go:324:58"
+        },
+        {
+            "id": "The user has been disabled, please contact the administrator",
+            "message": "The user has been disabled, please contact the administrator",
+            "translation": "用户已经被禁用，请联系管理员",
+            "position": "pkg/apigateway/handler/auth.go:326:58"
+        },
+        {
             "id": "invalid credential",
             "message": "invalid credential",
             "translation": "无效的认证信息",
-            "position": "pkg/apigateway/handler/auth.go:318:51"
+            "position": "pkg/apigateway/handler/auth.go:329:51"
         },
         {
             "id": "fetch json for request: %v",
             "message": "fetch json for request: %v",
             "translation": "获取请求的JSON内容失败：%v",
-            "position": "pkg/apigateway/handler/auth.go:486:31"
+            "position": "pkg/apigateway/handler/auth.go:497:31"
         },
         {
             "id": "user forbidden login from web",
             "message": "user forbidden login from web",
-            "translation": "",
-            "position": "pkg/apigateway/handler/auth.go:533:38"
+            "translation": "此用户禁止从Web控制台登录",
+            "position": "pkg/apigateway/handler/auth.go:544:38"
         },
         {
             "id": "request body is empty",
             "message": "request body is empty",
             "translation": "请求内容为空",
-            "position": "pkg/apigateway/handler/auth.go:1001:31"
+            "position": "pkg/apigateway/handler/auth.go:1012:31"
         },
         {
             "id": "missing id",
             "message": "missing id",
             "translation": "缺少id参数",
-            "position": "pkg/apigateway/handler/auth.go:1078:31"
+            "position": "pkg/apigateway/handler/auth.go:1089:31"
         },
         {
             "id": "fetchAuthInfo fail: %s",
             "message": "fetchAuthInfo fail: %s",
             "translation": "fetchAuthInfo调用失败：%s",
-            "position": "pkg/apigateway/handler/auth.go:1113:36"
+            "position": "pkg/apigateway/handler/auth.go:1124:36"
         },
         {
             "id": "new password mismatch",
             "message": "new password mismatch",
             "translation": "新密码相互不匹配",
-            "position": "pkg/apigateway/handler/auth.go:1135:33"
+            "position": "pkg/apigateway/handler/auth.go:1146:33"
         },
         {
             "id": "not support reset user password",
             "message": "not support reset user password",
             "translation": "不支持重置用户密码",
-            "position": "pkg/apigateway/handler/auth.go:1141:28"
+            "position": "pkg/apigateway/handler/auth.go:1152:28"
         },
         {
             "id": "wrong password",
             "message": "wrong password",
             "translation": "密码错误",
-            "position": "pkg/apigateway/handler/auth.go:1155:33"
+            "position": "pkg/apigateway/handler/auth.go:1166:33"
         },
         {
             "id": "invalid passcode",
             "message": "invalid passcode",
             "translation": "无效的验证码",
-            "position": "pkg/apigateway/handler/auth.go:1164:34"
+            "position": "pkg/apigateway/handler/auth.go:1175:34"
         },
         {
             "id": "generate totp qrcode failed",
@@ -5099,19 +5117,19 @@
             "id": "fetch disk size failed",
             "message": "fetch disk size failed",
             "translation": "获取磁盘大小失败",
-            "position": "pkg/compute/models/guests.go:5492:63"
+            "position": "pkg/compute/models/guests.go:5497:63"
         },
         {
             "id": "image %s do not belong to guest image %s",
             "message": "image %s do not belong to guest image %s",
             "translation": "镜像%s不在虚机镜像%s中",
-            "position": "pkg/compute/models/guests.go:5558:41"
+            "position": "pkg/compute/models/guests.go:5563:41"
         },
         {
             "id": "miss some subimage of guest image",
             "message": "miss some subimage of guest image",
             "translation": "部分虚机镜像的子镜像未指定",
-            "position": "pkg/compute/models/guests.go:5564:39"
+            "position": "pkg/compute/models/guests.go:5569:39"
         },
         {
             "id": "Baremetal %s not enabled",
@@ -7283,19 +7301,19 @@
             "id": "GetGuestsCount fail %s",
             "message": "GetGuestsCount fail %s",
             "translation": "GetGuestCount调用出错：%s",
-            "position": "pkg/compute/models/secgroups.go:1210:43"
+            "position": "pkg/compute/models/secgroups.go:1174:43"
         },
         {
             "id": "the security group is in use",
             "message": "the security group is in use",
             "translation": "安全组正使用中",
-            "position": "pkg/compute/models/secgroups.go:1213:37"
+            "position": "pkg/compute/models/secgroups.go:1177:37"
         },
         {
             "id": "not allow to delete default security group",
             "message": "not allow to delete default security group",
             "translation": "不允许删除默认的安全组",
-            "position": "pkg/compute/models/secgroups.go:1216:46"
+            "position": "pkg/compute/models/secgroups.go:1180:46"
         },
         {
             "id": "no such guest template",
@@ -7523,49 +7541,49 @@
             "id": "Fetch instance snapshot error %s",
             "message": "Fetch instance snapshot error %s",
             "translation": "获取实例快照出错：%s",
-            "position": "pkg/compute/models/snapshots.go:626:43"
+            "position": "pkg/compute/models/snapshots.go:630:43"
         },
         {
             "id": "snapshot referenced by instance snapshot",
             "message": "snapshot referenced by instance snapshot",
             "translation": "快照仍被实例快照引用",
-            "position": "pkg/compute/models/snapshots.go:629:39"
+            "position": "pkg/compute/models/snapshots.go:633:39"
         },
         {
             "id": "Cannot delete snapshot on disk reset",
             "message": "Cannot delete snapshot on disk reset",
             "translation": "磁盘重置时无法删除快照",
-            "position": "pkg/compute/models/snapshots.go:633:40"
+            "position": "pkg/compute/models/snapshots.go:637:40"
         },
         {
             "id": "Snapshot has %d task active, can't sync status",
             "message": "Snapshot has %d task active, can't sync status",
             "translation": "快照有%d个任务自执行中，无法执行同步状态操作",
-            "position": "pkg/compute/models/snapshots.go:694:44"
+            "position": "pkg/compute/models/snapshots.go:698:44"
         },
         {
             "id": "Cannot Delete disk %s snapshots, disk exist",
             "message": "Cannot Delete disk %s snapshots, disk exist",
             "translation": "因磁盘%s仍存在，无法删除其快照",
-            "position": "pkg/compute/models/snapshots.go:735:44"
+            "position": "pkg/compute/models/snapshots.go:739:44"
         },
         {
             "id": "Disk %s dose not have snapshot",
             "message": "Disk %s dose not have snapshot",
             "translation": "磁盘%s没有快照",
-            "position": "pkg/compute/models/snapshots.go:739:42"
+            "position": "pkg/compute/models/snapshots.go:743:42"
         },
         {
             "id": "Can not delete disk snapshots, have manual snapshot",
             "message": "Can not delete disk snapshots, have manual snapshot",
             "translation": "无法删除磁盘快照，因存在手工快照",
-            "position": "pkg/compute/models/snapshots.go:743:45"
+            "position": "pkg/compute/models/snapshots.go:747:45"
         },
         {
             "id": "Cannot purge snapshot on enabled cloud provider",
             "message": "Cannot purge snapshot on enabled cloud provider",
             "translation": "快照所属cloudprovider为启用状态，无法执行purge操作",
-            "position": "pkg/compute/models/snapshots.go:1040:48"
+            "position": "pkg/compute/models/snapshots.go:1044:48"
         },
         {
             "id": "getReferenceCount fail %s",
@@ -8501,115 +8519,115 @@
             "id": "zone info missing",
             "message": "zone info missing",
             "translation": "zone信息未指定",
-            "position": "pkg/compute/regiondrivers/kvm.go:90:48"
+            "position": "pkg/compute/regiondrivers/kvm.go:111:48"
         },
         {
             "id": "vpc lb is not allowed for now",
             "message": "vpc lb is not allowed for now",
             "translation": "VPC中的负载均衡暂不支持",
-            "position": "pkg/compute/regiondrivers/kvm.go:93:48"
+            "position": "pkg/compute/regiondrivers/kvm.go:114:48"
         },
         {
             "id": "zone %s(%s) has no lbcluster",
             "message": "zone %s(%s) has no lbcluster",
             "translation": "zone %s(%s)没有可用负载均衡转发集群",
-            "position": "pkg/compute/regiondrivers/kvm.go:99:49"
+            "position": "pkg/compute/regiondrivers/kvm.go:120:49"
         },
         {
             "id": "no viable lbcluster",
             "message": "no viable lbcluster",
             "translation": "没有可用的负载均衡转发集群",
-            "position": "pkg/compute/regiondrivers/kvm.go:121:49"
+            "position": "pkg/compute/regiondrivers/kvm.go:142:49"
         },
         {
             "id": "host %s has no access ip",
             "message": "host %s has no access ip",
             "translation": "宿主机%s没有可访问的IP",
-            "position": "pkg/compute/regiondrivers/kvm.go:201:50"
+            "position": "pkg/compute/regiondrivers/kvm.go:222:50"
         },
         {
             "id": "error getting host of guest %s",
             "message": "error getting host of guest %s",
             "translation": "查找虚机%s所在宿主机出错",
-            "position": "pkg/compute/regiondrivers/kvm.go:232:50"
+            "position": "pkg/compute/regiondrivers/kvm.go:253:50"
         },
         {
             "id": "error loadbalancer of backend group %s",
             "message": "error loadbalancer of backend group %s",
             "translation": "查找负载均衡后端组%s所属的实例出错",
-            "position": "pkg/compute/regiondrivers/kvm.go:235:50"
+            "position": "pkg/compute/regiondrivers/kvm.go:256:50"
         },
         {
             "id": "region of host %q (%s) != region of loadbalancer %q (%s)",
             "message": "region of host %q (%s) != region of loadbalancer %q (%s)",
             "translation": "宿主机%q(%s)所属的region与负载均衡实例所属的%q(%s)不一致",
-            "position": "pkg/compute/regiondrivers/kvm.go:242:50"
+            "position": "pkg/compute/regiondrivers/kvm.go:263:50"
         },
         {
             "id": "redirect must have at least one of scheme, host, path changed",
             "message": "redirect must have at least one of scheme, host, path changed",
             "translation": "跳转应至少变更scheme, host, path中的一项",
-            "position": "pkg/compute/regiondrivers/kvm.go:327:50"
+            "position": "pkg/compute/regiondrivers/kvm.go:348:50"
         },
         {
             "id": "backend_group argument is missing",
             "message": "backend_group argument is missing",
             "translation": "未指定backend_group参数",
-            "position": "pkg/compute/regiondrivers/kvm.go:335:50"
+            "position": "pkg/compute/regiondrivers/kvm.go:356:50"
         },
         {
             "id": "non redirect lblistener rule must have backend_group set",
             "message": "non redirect lblistener rule must have backend_group set",
             "translation": "非跳转类型监听必须指定backend_group参数",
-            "position": "pkg/compute/regiondrivers/kvm.go:418:48"
+            "position": "pkg/compute/regiondrivers/kvm.go:439:48"
         },
         {
             "id": "redirect can only be enabled for http/https listener",
             "message": "redirect can only be enabled for http/https listener",
             "translation": "仅http/https监听可启用跳转功能",
-            "position": "pkg/compute/regiondrivers/kvm.go:501:49"
+            "position": "pkg/compute/regiondrivers/kvm.go:522:49"
         },
         {
             "id": "non http listener must have backend group set",
             "message": "non http listener must have backend group set",
             "translation": "非http监听必须指定后端组",
-            "position": "pkg/compute/regiondrivers/kvm.go:679:50"
+            "position": "pkg/compute/regiondrivers/kvm.go:700:50"
         },
         {
             "id": "%s only supports eip charge type %q",
             "message": "%s only supports eip charge type %q",
             "translation": "",
-            "position": "pkg/compute/regiondrivers/kvm.go:907:43"
+            "position": "pkg/compute/regiondrivers/kvm.go:928:43"
         },
         {
             "id": "no available eip network",
             "message": "no available eip network",
             "translation": "",
-            "position": "pkg/compute/regiondrivers/kvm.go:946:38"
+            "position": "pkg/compute/regiondrivers/kvm.go:967:38"
         },
         {
             "id": "bad network type %q, want %q",
             "message": "bad network type %q, want %q",
             "translation": "无效的子网类型%q，期望%q",
-            "position": "pkg/compute/regiondrivers/kvm.go:950:43"
+            "position": "pkg/compute/regiondrivers/kvm.go:971:43"
         },
         {
             "id": "failed to found vpc for network %s(%s)",
             "message": "failed to found vpc for network %s(%s)",
             "translation": "查找子网%s(%s)所属的VPC时出错",
-            "position": "pkg/compute/regiondrivers/kvm.go:956:43"
+            "position": "pkg/compute/regiondrivers/kvm.go:977:43"
         },
         {
             "id": "network %s(%s) does not belong to %s",
             "message": "network %s(%s) does not belong to %s",
             "translation": "子网%s(%s)不属于%s",
-            "position": "pkg/compute/regiondrivers/kvm.go:963:47"
+            "position": "pkg/compute/regiondrivers/kvm.go:984:47"
         },
         {
             "id": "Kvm snapshot missing storage ??",
             "message": "Kvm snapshot missing storage ??",
             "translation": "KVM快照找不到所属的存储",
-            "position": "pkg/compute/regiondrivers/kvm.go:971:43"
+            "position": "pkg/compute/regiondrivers/kvm.go:992:43"
         },
         {
             "id": "failed to find %s %s",
@@ -8633,19 +8651,19 @@
             "id": "account name '%s' is not allowed",
             "message": "account name '%s' is not allowed",
             "translation": "",
-            "position": "pkg/compute/regiondrivers/managedvirtual.go:2471:42"
+            "position": "pkg/compute/regiondrivers/managedvirtual.go:2470:42"
         },
         {
             "id": "can not make backup in status %s",
             "message": "can not make backup in status %s",
             "translation": "无法在状态%s时创建备份",
-            "position": "pkg/compute/regiondrivers/managedvirtual.go:2520:48"
+            "position": "pkg/compute/regiondrivers/managedvirtual.go:2519:48"
         },
         {
             "id": "invalid cidr range %s",
             "message": "invalid cidr range %s",
             "translation": "",
-            "position": "pkg/compute/regiondrivers/managedvirtual.go:3230:43"
+            "position": "pkg/compute/regiondrivers/managedvirtual.go:3229:43"
         },
         {
             "id": "loadbalancer listener %s is already updating",
@@ -8840,208 +8858,220 @@
             "position": "pkg/httperrors/consts.go:32:2"
         },
         {
-            "id": "UserNotFoundError",
-            "message": "UserNotFoundError",
-            "translation": "找不到用户",
-            "position": "pkg/httperrors/consts.go:33:2"
-        },
-        {
             "id": "ServerStatusError",
             "message": "ServerStatusError",
             "translation": "服务器状态错误",
-            "position": "pkg/httperrors/consts.go:35:2"
+            "position": "pkg/httperrors/consts.go:34:2"
         },
         {
             "id": "InvalidFormatError",
             "message": "InvalidFormatError",
             "translation": "无效的格式",
-            "position": "pkg/httperrors/consts.go:37:2"
+            "position": "pkg/httperrors/consts.go:36:2"
         },
         {
             "id": "InputParameterError",
             "message": "InputParameterError",
             "translation": "输入参数错误",
-            "position": "pkg/httperrors/consts.go:39:2"
+            "position": "pkg/httperrors/consts.go:38:2"
         },
         {
             "id": "WeakPasswordError",
             "message": "WeakPasswordError",
             "translation": "弱密码",
-            "position": "pkg/httperrors/consts.go:40:2"
+            "position": "pkg/httperrors/consts.go:39:2"
         },
         {
             "id": "MissingParameterError",
             "message": "MissingParameterError",
             "translation": "参数不存在",
-            "position": "pkg/httperrors/consts.go:41:2"
+            "position": "pkg/httperrors/consts.go:40:2"
         },
         {
             "id": "InsufficientResourceError",
             "message": "InsufficientResourceError",
             "translation": "资源不足",
-            "position": "pkg/httperrors/consts.go:43:2"
+            "position": "pkg/httperrors/consts.go:42:2"
         },
         {
             "id": "OutOfResource",
             "message": "OutOfResource",
             "translation": "资源不足",
-            "position": "pkg/httperrors/consts.go:44:2"
+            "position": "pkg/httperrors/consts.go:43:2"
         },
         {
             "id": "OutOfQuotaError",
             "message": "OutOfQuotaError",
             "translation": "配置不足",
-            "position": "pkg/httperrors/consts.go:45:2"
+            "position": "pkg/httperrors/consts.go:44:2"
         },
         {
             "id": "OutOfRange",
             "message": "OutOfRange",
             "translation": "超出范围",
-            "position": "pkg/httperrors/consts.go:46:2"
+            "position": "pkg/httperrors/consts.go:45:2"
         },
         {
             "id": "OutOfLimit",
             "message": "OutOfLimit",
             "translation": "超出上限",
-            "position": "pkg/httperrors/consts.go:47:2"
+            "position": "pkg/httperrors/consts.go:46:2"
         },
         {
             "id": "NotSufficientPrivilegeError",
             "message": "NotSufficientPrivilegeError",
             "translation": "权限不足",
-            "position": "pkg/httperrors/consts.go:49:2"
+            "position": "pkg/httperrors/consts.go:48:2"
         },
         {
             "id": "UnsupportOperationError",
             "message": "UnsupportOperationError",
             "translation": "不支持的操作",
-            "position": "pkg/httperrors/consts.go:51:2"
+            "position": "pkg/httperrors/consts.go:50:2"
         },
         {
             "id": "NotEmptyError",
             "message": "NotEmptyError",
             "translation": "内容非空",
-            "position": "pkg/httperrors/consts.go:54:2"
+            "position": "pkg/httperrors/consts.go:53:2"
         },
         {
             "id": "BadRequestError",
             "message": "BadRequestError",
             "translation": "无效的请求",
-            "position": "pkg/httperrors/consts.go:55:2"
+            "position": "pkg/httperrors/consts.go:54:2"
         },
         {
             "id": "EmptyRequestError",
             "message": "EmptyRequestError",
             "translation": "空的请求",
-            "position": "pkg/httperrors/consts.go:56:2"
+            "position": "pkg/httperrors/consts.go:55:2"
         },
         {
             "id": "UnauthorizedError",
             "message": "UnauthorizedError",
             "translation": "未授权",
-            "position": "pkg/httperrors/consts.go:58:2"
+            "position": "pkg/httperrors/consts.go:57:2"
         },
         {
             "id": "InvalidCredentialError",
             "message": "InvalidCredentialError",
             "translation": "无效的凭证",
-            "position": "pkg/httperrors/consts.go:59:2"
+            "position": "pkg/httperrors/consts.go:58:2"
         },
         {
             "id": "ForbiddenError",
             "message": "ForbiddenError",
             "translation": "禁止",
-            "position": "pkg/httperrors/consts.go:61:2"
+            "position": "pkg/httperrors/consts.go:60:2"
         },
         {
             "id": "NotAcceptableError",
             "message": "NotAcceptableError",
             "translation": "不可接受",
-            "position": "pkg/httperrors/consts.go:65:2"
+            "position": "pkg/httperrors/consts.go:64:2"
         },
         {
             "id": "DuplicateNameError",
             "message": "DuplicateNameError",
             "translation": "名称重复",
-            "position": "pkg/httperrors/consts.go:67:2"
+            "position": "pkg/httperrors/consts.go:66:2"
         },
         {
             "id": "DuplicateResourceError",
             "message": "DuplicateResourceError",
             "translation": "资源重复",
-            "position": "pkg/httperrors/consts.go:68:2"
+            "position": "pkg/httperrors/consts.go:67:2"
         },
         {
             "id": "ConflictError",
             "message": "ConflictError",
             "translation": "冲突",
-            "position": "pkg/httperrors/consts.go:69:2"
+            "position": "pkg/httperrors/consts.go:68:2"
         },
         {
             "id": "ResourceBusyError",
             "message": "ResourceBusyError",
             "translation": "资源忙",
-            "position": "pkg/httperrors/consts.go:72:2"
+            "position": "pkg/httperrors/consts.go:71:2"
         },
         {
             "id": "RequireLicenseError",
             "message": "RequireLicenseError",
             "translation": "需要License",
-            "position": "pkg/httperrors/consts.go:73:2"
+            "position": "pkg/httperrors/consts.go:72:2"
         },
         {
             "id": "ProtectedResourceError",
             "message": "ProtectedResourceError",
             "translation": "被保护的资源",
-            "position": "pkg/httperrors/consts.go:76:2"
+            "position": "pkg/httperrors/consts.go:75:2"
         },
         {
             "id": "NoProjectError",
             "message": "NoProjectError",
             "translation": "没有项目",
-            "position": "pkg/httperrors/consts.go:77:2"
+            "position": "pkg/httperrors/consts.go:76:2"
         },
         {
             "id": "TooLargeEntity",
             "message": "TooLargeEntity",
             "translation": "实体太大",
-            "position": "pkg/httperrors/consts.go:82:2"
+            "position": "pkg/httperrors/consts.go:81:2"
         },
         {
             "id": "TooManyFailedAttempts",
             "message": "TooManyFailedAttempts",
             "translation": "尝试失败次数过多",
-            "position": "pkg/httperrors/consts.go:84:2"
+            "position": "pkg/httperrors/consts.go:83:2"
         },
         {
             "id": "TooManyRequests",
             "message": "TooManyRequests",
             "translation": "请求数过多",
-            "position": "pkg/httperrors/consts.go:85:2"
-        },
-        {
-            "id": "User Locked",
-            "message": "User Locked",
-            "translation": "用户被锁住",
-            "position": "pkg/httperrors/consts.go:87:2"
-        },
-        {
-            "id": "User Disabled",
-            "message": "User Disabled",
-            "translation": "用户被禁用",
-            "position": "pkg/httperrors/consts.go:88:2"
+            "position": "pkg/httperrors/consts.go:84:2"
         },
         {
             "id": "UnsupportedProtocol",
             "message": "UnsupportedProtocol",
             "translation": "不支持的协议",
-            "position": "pkg/httperrors/consts.go:90:2"
+            "position": "pkg/httperrors/consts.go:86:2"
         },
         {
             "id": "PolicyDefinitionError",
             "message": "PolicyDefinitionError",
             "translation": "策略定义错误",
+            "position": "pkg/httperrors/consts.go:88:2"
+        },
+        {
+            "id": "UserNotFound",
+            "message": "UserNotFound",
+            "translation": "用户不存在",
+            "position": "pkg/httperrors/consts.go:90:2"
+        },
+        {
+            "id": "UserLocked",
+            "message": "UserLocked",
+            "translation": "用户被锁定",
+            "position": "pkg/httperrors/consts.go:91:2"
+        },
+        {
+            "id": "UserDisabled",
+            "message": "UserDisabled",
+            "translation": "用户被禁用",
             "position": "pkg/httperrors/consts.go:92:2"
+        },
+        {
+            "id": "WrongPassword",
+            "message": "WrongPassword",
+            "translation": "密码错误",
+            "position": "pkg/httperrors/consts.go:93:2"
+        },
+        {
+            "id": "IncorrectUsernameOrPassword",
+            "message": "IncorrectUsernameOrPassword",
+            "translation": "用户名或者密码不正确",
+            "position": "pkg/httperrors/consts.go:94:2"
         },
         {
             "id": "Image %s not found",
@@ -9455,49 +9485,49 @@
             "id": "cannot alter sysadmin user name",
             "message": "cannot alter sysadmin user name",
             "translation": "不可变更sysadmin的用户名",
-            "position": "pkg/keystone/models/users.go:514:46"
+            "position": "pkg/keystone/models/users.go:513:46"
         },
         {
             "id": "invalid password: %s",
             "message": "invalid password: %s",
             "translation": "无效的密码：%s",
-            "position": "pkg/keystone/models/users.go:546:51"
+            "position": "pkg/keystone/models/users.go:545:51"
         },
         {
             "id": "cannot delete non-local non-sso user",
             "message": "cannot delete non-local non-sso user",
             "translation": "无法删除非本地的非SSO用户",
-            "position": "pkg/keystone/models/users.go:766:40"
+            "position": "pkg/keystone/models/users.go:765:40"
         },
         {
             "id": "user contains external resources",
             "message": "user contains external resources",
             "translation": "用户仍有外部资源",
-            "position": "pkg/keystone/models/users.go:780:37"
+            "position": "pkg/keystone/models/users.go:779:37"
         },
         {
             "id": "cannot delete system user",
             "message": "cannot delete system user",
             "translation": "不可删除系统用户",
-            "position": "pkg/keystone/models/users.go:783:38"
+            "position": "pkg/keystone/models/users.go:782:38"
         },
         {
             "id": "cannot join user and group in differnt domain",
             "message": "cannot join user and group in differnt domain",
             "translation": "用户和组的域归属必须相同",
-            "position": "pkg/keystone/models/users.go:832:48"
+            "position": "pkg/keystone/models/users.go:831:48"
         },
         {
             "id": "cannot join read-only group",
             "message": "cannot join read-only group",
             "translation": "不可加入只读组",
-            "position": "pkg/keystone/models/users.go:835:43"
+            "position": "pkg/keystone/models/users.go:834:43"
         },
         {
             "id": "cannot leave read-only group",
             "message": "cannot leave read-only group",
             "translation": "不可离开只读组",
-            "position": "pkg/keystone/models/users.go:849:43"
+            "position": "pkg/keystone/models/users.go:848:43"
         },
         {
             "id": "version mismatch",

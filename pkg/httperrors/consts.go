@@ -30,7 +30,6 @@ const (
 	ErrSpecNotFound     = errors.Error("SpecNotFoundError")
 	ErrActionNotFound   = errors.Error("ActionNotFoundError")
 	ErrTenantNotFound   = errors.Error("TenantNotFoundError")
-	ErrUserNotFound     = errors.Error("UserNotFoundError")
 
 	ErrServerStatus  = errors.Error("ServerStatusError")
 	ErrInvalidStatus = errors.ErrInvalidStatus
@@ -84,12 +83,15 @@ const (
 	ErrTooManyAttempts = errors.Error("TooManyFailedAttempts")
 	ErrTooManyRequests = errors.Error("TooManyRequests")
 
-	ErrUserLocked   = errors.Error("User Locked")
-	ErrUserDisabled = errors.Error("User Disabled")
-
 	ErrUnsupportedProtocol = errors.Error("UnsupportedProtocol")
 
 	ErrPolicyDefinition = errors.Error("PolicyDefinitionError")
+
+	ErrUserNotFound                = errors.Error("UserNotFound")
+	ErrUserLocked                  = errors.Error("UserLocked")
+	ErrUserDisabled                = errors.Error("UserDisabled")
+	ErrWrongPassword               = errors.Error("WrongPassword")
+	ErrIncorrectUsernameOrPassword = errors.Error("IncorrectUsernameOrPassword")
 )
 
 var (
@@ -165,6 +167,9 @@ var (
 
 		ErrUserLocked:   423,
 		ErrUserDisabled: 423,
+
+		ErrWrongPassword:               401,
+		ErrIncorrectUsernameOrPassword: 401,
 
 		ErrPolicyDefinition: 409,
 	}
