@@ -379,16 +379,24 @@ type EnabledStatusCreateOptions struct {
 	Enabled *bool `help:"turn on enabled flag"`
 }
 
+type BaseIdOptions struct {
+	ID string `json:"-"`
+}
+
+func (o *BaseIdOptions) GetId() string {
+	return o.ID
+}
+
+func (o *BaseIdOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
 type BaseShowOptions struct {
-	ID             string `json:"-"`
-	WithMeta       *bool  `help:"With meta data"`
-	ShowFailReason *bool  `help:"show fail reason fields"`
+	BaseIdOptions
+	WithMeta       *bool `help:"With meta data"`
+	ShowFailReason *bool `help:"show fail reason fields"`
 }
 
 func (o BaseShowOptions) Params() (jsonutils.JSONObject, error) {
 	return StructToParams(o)
-}
-
-func (o BaseShowOptions) GetId() string {
-	return o.ID
 }

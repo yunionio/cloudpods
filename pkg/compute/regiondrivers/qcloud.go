@@ -68,6 +68,14 @@ func (self *SQcloudRegionDriver) GetSecurityGroupRuleMinPriority() int {
 	return 100
 }
 
+func (self *SQcloudRegionDriver) IsSupportPeerSecgroup() bool {
+	return true
+}
+
+func (self *SQcloudRegionDriver) IsPeerSecgroupWithSameProject() bool {
+	return true
+}
+
 func (self *SQcloudRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_QCLOUD
 }
