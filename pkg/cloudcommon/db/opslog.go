@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -126,10 +127,29 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 	if !consts.OpsLogEnabled() {
 		return
 	}
-	if len(model.GetId()) == 0 {
-		log.Errorf("logevent for an object without ID???")
-		return
+
+	var (
+		objId   = model.GetId()
+		objName = model.GetName()
+	)
+	if objId == "" {
+		if joint, ok := model.(IJointModel); ok {
+			var (
+				mm = JointMaster(joint)
+				ms = JointSlave(joint)
+			)
+			if mm == nil || ms == nil {
+				log.Errorf("logevent for jointmodel with nil sides %v/%v\n%s", mm, ms, debug.Stack())
+				return
+			}
+			objId = mm.GetId() + "/" + ms.GetId()
+			objName = mm.GetName() + "/" + ms.GetName()
+		} else {
+			log.Errorf("logevent for an object without ID: %T\n%s", model, debug.Stack())
+			return
+		}
 	}
+
 	if action == ACT_UPDATE {
 		// skip empty diff
 		if notes == nil {
@@ -142,8 +162,8 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 	opslog := &SOpsLog{
 		OpsTime: time.Now().UTC(),
 		ObjType: model.Keyword(),
-		ObjId:   model.GetId(),
-		ObjName: model.GetName(),
+		ObjId:   objId,
+		ObjName: objName,
 		Action:  action,
 		Notes:   stringutils.Interface2String(notes),
 
