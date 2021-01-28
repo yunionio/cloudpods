@@ -171,13 +171,12 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 		filters.Add(jsonutils.JSONFalse, "auto_create_user")
 	}
 	idps, err := modules.IdentityProviders.List(s, filters)
-	if err != nil {
-		return nil, errors.Wrap(err, "list idp")
-	}
 	retIdps := make([]jsonutils.JSONObject, 0)
-	for i := range idps.Data {
-		retIdp := idps.Data[i].(*jsonutils.JSONDict).CopyIncludes("id", "name", "driver", "template", "icon_uri", "is_default")
-		retIdps = append(retIdps, retIdp)
+	if err == nil {
+		for i := range idps.Data {
+			retIdp := idps.Data[i].(*jsonutils.JSONDict).CopyIncludes("id", "name", "driver", "template", "icon_uri", "is_default")
+			retIdps = append(retIdps, retIdp)
+		}
 	}
 
 	resp.Add(jsonutils.NewArray(retIdps...), "idps")
