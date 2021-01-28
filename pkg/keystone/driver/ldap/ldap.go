@@ -294,6 +294,12 @@ func (self *SLDAPDriver) Authenticate(ctx context.Context, ident mcclient.SAuthe
 	)
 	if err != nil {
 		log.Errorf("LDAP AUTH error: %s", err)
+		if errors.Cause(err) == ldaputils.ErrUserNotFound {
+			return nil, httperrors.ErrUserNotFound
+		}
+		if errors.Cause(err) == ldaputils.ErrUserBadCredential {
+			return nil, httperrors.ErrWrongPassword
+		}
 		return nil, errors.Wrap(err, "Authenticate error")
 	}
 

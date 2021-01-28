@@ -309,8 +309,19 @@ func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request,
 	if err != nil {
 		switch httperr := err.(type) {
 		case *httputils.JSONClientError:
-			if httperr.Code == 409 || httperr.Code == 429 || httperr.Code == 423 {
+			if httperr.Code >= 500 {
 				return nil, err
+			}
+			if httperr.Code == 409 || httperr.Code == 429 {
+				return nil, err
+			}
+			switch httperr.Class {
+			case "UserNotFound", "WrongPassword":
+				return nil, httperrors.NewJsonClientError(httperrors.ErrIncorrectUsernameOrPassword, "incorrect username or password")
+			case "UserLocked":
+				return nil, httperrors.NewJsonClientError(httperrors.ErrUserLocked, "The user has been locked, please contact the administrator")
+			case "UserDisabled":
+				return nil, httperrors.NewJsonClientError(httperrors.ErrUserDisabled, "The user has been disabled, please contact the administrator")
 			}
 		}
 		return nil, httperrors.NewInvalidCredentialError("invalid credential")
