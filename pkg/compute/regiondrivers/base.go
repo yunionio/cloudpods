@@ -267,6 +267,14 @@ func (self *SBaseRegionDriver) IsOnlySupportAllowRules() bool {
 	return false
 }
 
+func (self *SBaseRegionDriver) IsSupportPeerSecgroup() bool {
+	return false
+}
+
+func (self *SBaseRegionDriver) IsPeerSecgroupWithSameProject() bool {
+	return false
+}
+
 func (self *SBaseRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
 	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
 }

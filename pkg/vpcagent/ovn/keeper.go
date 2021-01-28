@@ -578,6 +578,10 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 	{
 		sgrs := guest.OrderedSecurityGroupRules()
 		for _, sgr := range sgrs {
+			// kvm not support peer secgroup
+			if len(sgr.PeerSecgroupId) > 0 {
+				continue
+			}
 			acl, err := ruleToAcl(lportName, sgr)
 			if err != nil {
 				log.Errorf("converting security group rule to acl: %v", err)

@@ -527,7 +527,7 @@ func (self *SSecurityGroup) PostCreate(ctx context.Context, userCred mcclient.To
 
 	for _, r := range input.Rules {
 		rule := &SSecurityGroupRule{
-			Priority:    int64(r.Priority),
+			Priority:    int64(*r.Priority),
 			Protocol:    r.Protocol,
 			Ports:       r.Ports,
 			Direction:   r.Direction,
@@ -944,12 +944,12 @@ func (self *SSecurityGroup) removeRules(ruleIds []string, result *compare.SyncRe
 	}
 }
 
-func (self *SSecurityGroup) SyncSecurityGroupRules(ctx context.Context, userCred mcclient.TokenCredential, src cloudprovider.SecRuleInfo) compare.SyncResult {
+func (self *SSecurityGroup) SyncSecurityGroupRules(ctx context.Context, userCred mcclient.TokenCredential, src cloudprovider.SecRuleInfo) ([]SSecurityGroupRule, compare.SyncResult) {
 	result := compare.SyncResult{}
 	localRules, err := self.GetSecuritRuleSet()
 	if err != nil {
 		result.Error(errors.Wrapf(err, "GetSecuritRuleSet"))
-		return result
+		return nil, result
 	}
 
 	dest := cloudprovider.NewSecRuleInfo(GetRegionDriver(api.CLOUD_PROVIDER_ONECLOUD))
@@ -957,7 +957,7 @@ func (self *SSecurityGroup) SyncSecurityGroupRules(ctx context.Context, userCred
 
 	_, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(src, dest, false)
 	if len(inAdds)+len(inDels)+len(outAdds)+len(outDels) == 0 {
-		return result
+		return nil, result
 	}
 
 	ruleIds := []string{}
@@ -971,27 +971,31 @@ func (self *SSecurityGroup) SyncSecurityGroupRules(ctx context.Context, userCred
 
 	self.removeRules(ruleIds, &result)
 
+	rules := []SSecurityGroupRule{}
 	for _, adds := range [][]cloudprovider.SecurityRule{inAdds, outAdds} {
 		for i := range adds {
-			_, err := self.newFromCloudSecurityGroupRule(ctx, userCred, adds[i])
+			rule, isNeedFix, err := self.newFromCloudSecurityGroupRule(ctx, userCred, adds[i])
 			if err != nil {
 				result.AddError(errors.Wrapf(err, "newFromCloudSecurityGroupRule"))
 				continue
+			}
+			if isNeedFix && rule != nil {
+				rules = append(rules, *rule)
 			}
 			result.Add()
 		}
 	}
 
 	log.Infof("Sync Rules for Secgroup %s(%s) result: %s", self.Name, self.Id, result.Result())
-	return result
+	return rules, result
 }
 
-func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extSec cloudprovider.ICloudSecurityGroup) (*SSecurityGroup, error) {
+func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extSec cloudprovider.ICloudSecurityGroup) (*SSecurityGroup, []SSecurityGroupRule, error) {
 	dest := cloudprovider.NewSecRuleInfo(GetRegionDriver(provider.Provider))
 	var err error
 	dest.Rules, err = extSec.GetRules()
 	if err != nil {
-		return nil, errors.Wrapf(err, "extSec.GetRules")
+		return nil, nil, errors.Wrapf(err, "extSec.GetRules")
 	}
 	src := cloudprovider.NewSecRuleInfo(GetRegionDriver(api.CLOUD_PROVIDER_ONECLOUD))
 
@@ -1001,7 +1005,7 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 		q := manager.Query().Equals("domain_id", provider.DomainId)
 		err = db.FetchModelObjects(manager, q, &secgroups)
 		if err != nil {
-			return nil, errors.Wrap(err, "db.FetchModelObjects")
+			return nil, nil, errors.Wrap(err, "db.FetchModelObjects")
 		}
 		for i := range secgroups {
 			src.Rules, err = secgroups[i].GetSecuritRuleSet()
@@ -1011,7 +1015,7 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 			}
 			_, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(src, dest, false)
 			if len(inAdds) == 0 && len(outAdds) == 0 && len(inDels) == 0 && len(outDels) == 0 {
-				return &secgroups[i], nil
+				return &secgroups[i], nil, nil
 			}
 		}
 	}
@@ -1023,7 +1027,7 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 	secgroup.SetModelManager(manager, &secgroup)
 	secgroup.Name, err = db.GenerateName(manager, userCred, extSec.GetName())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	secgroup.Status = api.SECGROUP_STATUS_READY
@@ -1033,13 +1037,13 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 
 	err = manager.TableSpec().Insert(ctx, &secgroup)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Insert")
+		return nil, nil, errors.Wrapf(err, "Insert")
 	}
 
-	secgroup.SyncSecurityGroupRules(ctx, userCred, dest)
+	rules, _ := secgroup.SyncSecurityGroupRules(ctx, userCred, dest)
 
 	db.OpsLog.LogEvent(&secgroup, db.ACT_CREATE, secgroup.GetShortDesc(ctx), userCred)
-	return &secgroup, nil
+	return &secgroup, rules, nil
 }
 
 func (manager *SSecurityGroupManager) DelaySync(ctx context.Context, userCred mcclient.TokenCredential, idStr string) error {
@@ -1254,6 +1258,9 @@ func (self *SSecurityGroup) AllowPerformImportRules(ctx context.Context, userCre
 
 func (self *SSecurityGroup) PerformImportRules(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SecgroupImportRulesInput) (jsonutils.JSONObject, error) {
 	for i := range input.Rules {
+		if input.Rules[i].Priority == nil {
+			return nil, httperrors.NewMissingParameterError("priority")
+		}
 		err := input.Rules[i].Check()
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("rule %d is invalid: %s", i+1, err)
@@ -1261,7 +1268,7 @@ func (self *SSecurityGroup) PerformImportRules(ctx context.Context, userCred mcc
 	}
 	for _, r := range input.Rules {
 		rule := &SSecurityGroupRule{
-			Priority:    int64(r.Priority),
+			Priority:    int64(*r.Priority),
 			Protocol:    r.Protocol,
 			Ports:       r.Ports,
 			Direction:   r.Direction,

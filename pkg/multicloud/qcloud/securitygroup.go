@@ -212,6 +212,9 @@ func (self *SecurityGroupPolicy) toRules() []cloudprovider.SecurityRule {
 			return nil
 		}
 		result = append(result, rules...)
+	} else if len(self.SecurityGroupId) > 0 {
+		rule.PeerSecgroupId = self.SecurityGroupId
+		result = append(result, rule)
 	} else if len(self.CidrBlock) > 0 {
 		rule.ParseCIDR(self.CidrBlock)
 		result = append(result, rule)
@@ -367,7 +370,11 @@ func (self *SRegion) AddRule(secgroupId string, policyIndex int, rule cloudprovi
 	params[fmt.Sprintf("SecurityGroupPolicySet.%s.0.Action", direction)] = action
 	params[fmt.Sprintf("SecurityGroupPolicySet.%s.0.PolicyDescription", direction)] = rule.Description
 	params[fmt.Sprintf("SecurityGroupPolicySet.%s.0.Protocol", direction)] = protocol
-	params[fmt.Sprintf("SecurityGroupPolicySet.%s.0.CidrBlock", direction)] = rule.IPNet.String()
+	if len(rule.PeerSecgroupId) > 0 {
+		params[fmt.Sprintf("SecurityGroupPolicySet.%s.0.SecurityGroupId", direction)] = rule.PeerSecgroupId
+	} else {
+		params[fmt.Sprintf("SecurityGroupPolicySet.%s.0.CidrBlock", direction)] = rule.IPNet.String()
+	}
 	if rule.Protocol == secrules.PROTO_TCP || rule.Protocol == secrules.PROTO_UDP {
 		port := "ALL"
 		if rule.PortEnd > 0 && rule.PortStart > 0 {
