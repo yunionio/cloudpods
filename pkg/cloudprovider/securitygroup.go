@@ -15,6 +15,7 @@
 package cloudprovider
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -31,6 +32,7 @@ type SecDriver interface {
 	GetSecurityGroupRuleMaxPriority() int
 	GetSecurityGroupRuleMinPriority() int
 	IsOnlySupportAllowRules() bool
+	IsSupportPeerSecgroup() bool
 }
 
 func NewSecRuleInfo(driver SecDriver) SecRuleInfo {
@@ -40,6 +42,7 @@ func NewSecRuleInfo(driver SecDriver) SecRuleInfo {
 		MinPriority:             driver.GetSecurityGroupRuleMinPriority(),
 		MaxPriority:             driver.GetSecurityGroupRuleMaxPriority(),
 		IsOnlySupportAllowRules: driver.IsOnlySupportAllowRules(),
+		IsSupportPeerSecgroup:   driver.IsSupportPeerSecgroup(),
 	}
 }
 
@@ -53,6 +56,7 @@ type SecRuleInfo struct {
 	MinPriority             int
 	MaxPriority             int
 	IsOnlySupportAllowRules bool
+	IsSupportPeerSecgroup   bool
 }
 
 func (r SecRuleInfo) AddDefaultRule(d SecRuleInfo, inRules, outRules []SecurityRule, isSrc bool) ([]SecurityRule, []SecurityRule) {
@@ -96,16 +100,28 @@ type SecurityRule struct {
 	Name       string
 	ExternalId string
 	Id         string
+
+	PeerSecgroupId string
 }
 
 func (r SecurityRule) String() string {
-	return r.SecurityRule.String()
+	if len(r.PeerSecgroupId) == 0 {
+		return r.SecurityRule.String()
+	}
+	return fmt.Sprintf("%s-%s", r.SecurityRule.String(), r.PeerSecgroupId)
 }
 
 type SecurityRuleSet []SecurityRule
 
-func (rules SecurityRuleSet) Split() (in, out SecurityRuleSet) {
+func (rules SecurityRuleSet) Split(isSupportPeerSecgroup bool) (in, out SecurityRuleSet, isStandardRules bool) {
+	isStandardRules = true
 	for i := 0; i < len(rules); i++ {
+		if len(rules[i].PeerSecgroupId) > 0 {
+			isStandardRules = false
+		}
+		if !isSupportPeerSecgroup && len(rules[i].PeerSecgroupId) > 0 {
+			continue
+		}
 		if rules[i].Direction == secrules.DIR_IN {
 			in = append(in, rules[i])
 		} else {
@@ -163,8 +179,8 @@ func isAllowListEqual(src, dest secrules.SecurityRuleSet) bool {
 }
 
 func CompareRules(src, dest SecRuleInfo, debug bool) (common, inAdds, outAdds, inDels, outDels SecurityRuleSet) {
-	srcInRules, srcOutRules := src.Rules.Split()
-	destInRules, destOutRules := dest.Rules.Split()
+	srcInRules, srcOutRules, isSrcStandardRules := src.Rules.Split(src.IsSupportPeerSecgroup)
+	destInRules, destOutRules, isDestStandardRules := dest.Rules.Split(dest.IsSupportPeerSecgroup)
 
 	srcInRules, srcOutRules = src.AddDefaultRule(dest, srcInRules, srcOutRules, true)
 	destInRules, destOutRules = dest.AddDefaultRule(src, destInRules, destOutRules, false)
@@ -174,59 +190,61 @@ func CompareRules(src, dest SecRuleInfo, debug bool) (common, inAdds, outAdds, i
 		srcInRules.Debug()
 	}
 
-	// AllowList 需要优先级从高到低排序
-	SortSecurityRule(srcInRules, src.MaxPriority, src.MinPriority, false, src.IsOnlySupportAllowRules)
-	SortSecurityRule(srcOutRules, src.MaxPriority, src.MinPriority, false, src.IsOnlySupportAllowRules)
+	if (isSrcStandardRules && isDestStandardRules) || (!src.IsSupportPeerSecgroup && !dest.IsSupportPeerSecgroup) {
+		// AllowList 需要优先级从高到低排序
+		SortSecurityRule(srcInRules, src.MaxPriority, src.MinPriority, false, src.IsOnlySupportAllowRules)
+		SortSecurityRule(srcOutRules, src.MaxPriority, src.MinPriority, false, src.IsOnlySupportAllowRules)
 
-	SortSecurityRule(destInRules, dest.MaxPriority, dest.MinPriority, false, dest.IsOnlySupportAllowRules)
-	SortSecurityRule(destOutRules, dest.MaxPriority, dest.MinPriority, false, dest.IsOnlySupportAllowRules)
+		SortSecurityRule(destInRules, dest.MaxPriority, dest.MinPriority, false, dest.IsOnlySupportAllowRules)
+		SortSecurityRule(destOutRules, dest.MaxPriority, dest.MinPriority, false, dest.IsOnlySupportAllowRules)
 
-	srcInAllowList := srcInRules.AllowList()
-	srcOutAllowList := srcOutRules.AllowList()
+		srcInAllowList := srcInRules.AllowList()
+		srcOutAllowList := srcOutRules.AllowList()
 
-	destInAllowList := destInRules.AllowList()
-	destOutAllowList := destOutRules.AllowList()
-	inEquals, outEquals := isAllowListEqual(srcInAllowList, destInAllowList), isAllowListEqual(srcOutAllowList, destOutAllowList)
+		destInAllowList := destInRules.AllowList()
+		destOutAllowList := destOutRules.AllowList()
+		inEquals, outEquals := isAllowListEqual(srcInAllowList, destInAllowList), isAllowListEqual(srcOutAllowList, destOutAllowList)
 
-	if inEquals && outEquals {
-		return
-	}
-
-	if debug {
-		log.Debugf("In: src: %s dest: %s result: %v", srcInAllowList.String(), destInAllowList.String(), inEquals)
-		log.Debugf("Out: src: %s dest: %s result: %v", srcOutAllowList.String(), destOutAllowList.String(), outEquals)
-	}
-
-	var tryUseAllowList = func(defaultRule SecurityRule, allowList secrules.SecurityRuleSet, rules SecurityRuleSet, isOnlyAllowList bool) SecurityRuleSet {
-		if len(allowList) < len(rules) || isOnlyAllowList {
-			rules = SecurityRuleSet{}
-			for i := range allowList {
-				rule := SecurityRule{}
-				rule.SecurityRule = allowList[i]
-				rules = append(rules, rule)
-			}
-
-			if !utils.IsInStringArray(allowList.String(), []string{
-				"",
-				"in:allow any",
-				"out:allow any",
-				"in:deny any",
-				"out:deny any",
-			}) && strings.HasSuffix(defaultRule.SecurityRule.String(), "deny any") {
-				rules = append(rules, defaultRule)
-			}
+		if inEquals && outEquals {
+			return
 		}
-		return rules
-	}
 
-	srcInRules = tryUseAllowList(src.InDefaultRule, srcInAllowList, srcInRules, dest.IsOnlySupportAllowRules)
-	srcOutRules = tryUseAllowList(src.OutDefaultRule, srcOutAllowList, srcOutRules, dest.IsOnlySupportAllowRules)
+		if debug {
+			log.Debugf("In: src: %s dest: %s result: %v", srcInAllowList.String(), destInAllowList.String(), inEquals)
+			log.Debugf("Out: src: %s dest: %s result: %v", srcOutAllowList.String(), destOutAllowList.String(), outEquals)
+		}
 
-	if inEquals {
-		srcInRules, destInRules = []SecurityRule{}, []SecurityRule{}
-	}
-	if outEquals {
-		srcOutRules, destOutRules = []SecurityRule{}, []SecurityRule{}
+		var tryUseAllowList = func(defaultRule SecurityRule, allowList secrules.SecurityRuleSet, rules SecurityRuleSet, isOnlyAllowList bool) SecurityRuleSet {
+			if len(allowList) < len(rules) || isOnlyAllowList {
+				rules = SecurityRuleSet{}
+				for i := range allowList {
+					rule := SecurityRule{}
+					rule.SecurityRule = allowList[i]
+					rules = append(rules, rule)
+				}
+
+				if !utils.IsInStringArray(allowList.String(), []string{
+					"",
+					"in:allow any",
+					"out:allow any",
+					"in:deny any",
+					"out:deny any",
+				}) && strings.HasSuffix(defaultRule.SecurityRule.String(), "deny any") {
+					rules = append(rules, defaultRule)
+				}
+			}
+			return rules
+		}
+
+		srcInRules = tryUseAllowList(src.InDefaultRule, srcInAllowList, srcInRules, dest.IsOnlySupportAllowRules)
+		srcOutRules = tryUseAllowList(src.OutDefaultRule, srcOutAllowList, srcOutRules, dest.IsOnlySupportAllowRules)
+
+		if inEquals {
+			srcInRules, destInRules = []SecurityRule{}, []SecurityRule{}
+		}
+		if outEquals {
+			srcOutRules, destOutRules = []SecurityRule{}, []SecurityRule{}
+		}
 	}
 
 	if debug {

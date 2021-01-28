@@ -26,10 +26,9 @@ import (
 )
 
 var (
-	syncSecgroupWorker *appsrv.SWorkerManager
-	syncAccountWorker  *appsrv.SWorkerManager
-	syncWorkers        []*appsrv.SWorkerManager
-	syncWorkerRing     *hashring.HashRing
+	syncAccountWorker *appsrv.SWorkerManager
+	syncWorkers       []*appsrv.SWorkerManager
+	syncWorkerRing    *hashring.HashRing
 )
 
 func InitSyncWorkers(count int) {
@@ -51,12 +50,6 @@ func InitSyncWorkers(count int) {
 		2048,
 		true,
 	)
-	syncSecgroupWorker = appsrv.NewWorkerManager(
-		"syncSecgroupProbeWorkerManager",
-		1,
-		2048,
-		true,
-	)
 }
 
 func RunSyncCloudproviderRegionTask(key string, syncFunc func()) {
@@ -68,8 +61,4 @@ func RunSyncCloudproviderRegionTask(key string, syncFunc func()) {
 
 func RunSyncCloudAccountTask(probeFunc func()) {
 	syncAccountWorker.Run(probeFunc, nil, nil)
-}
-
-func RunSyncSecgroupTask(syncFunc func()) {
-	syncSecgroupWorker.Run(syncFunc, nil, nil)
 }

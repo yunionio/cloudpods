@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -33,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -330,18 +332,22 @@ func (manager *SSecurityGroupCacheManager) NewCache(ctx context.Context, userCre
 		return nil, errors.Wrapf(err, "SecurityGroupManager.FetchById(%s)", secgroupId)
 	}
 
+	return manager.newCache(ctx, secgroupId, secgroup.GetName(), vpcId, regionId, providerId, projectId)
+}
+
+func (manager *SSecurityGroupCacheManager) newCache(ctx context.Context, secgroupId, secgroupName, vpcId, regionId string, providerId string, projectId string) (*SSecurityGroupCache, error) {
 	secgroupCache := &SSecurityGroupCache{}
 	secgroupCache.SecgroupId = secgroupId
 	secgroupCache.VpcId = vpcId
 	secgroupCache.ManagerId = providerId
 	secgroupCache.Status = api.SECGROUP_CACHE_STATUS_CACHING
 	secgroupCache.CloudregionId = regionId
-	secgroupCache.Name = secgroup.GetName()
+	secgroupCache.Name = secgroupName
 	secgroupCache.ExternalProjectId = projectId
 	secgroupCache.SetModelManager(manager, secgroupCache)
-	if err := manager.TableSpec().Insert(ctx, secgroupCache); err != nil {
-		log.Errorf("insert secgroupcache error: %v", err)
-		return nil, err
+	err := manager.TableSpec().Insert(ctx, secgroupCache)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Insert")
 	}
 	return secgroupCache, nil
 }
@@ -382,7 +388,7 @@ func (self *SSecurityGroupCache) GetSecgroup() (*SSecurityGroup, error) {
 	return model.(*SSecurityGroup), nil
 }
 
-func (self *SSecurityGroupCache) syncWithCloudSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudSecurityGroup) error {
+func (self *SSecurityGroupCache) syncWithCloudSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudSecurityGroup) ([]SSecurityGroupRule, error) {
 	_, err := db.Update(self, func() error {
 		self.Status = api.SECGROUP_CACHE_STATUS_READY
 		self.Name = ext.GetName()
@@ -391,26 +397,26 @@ func (self *SSecurityGroupCache) syncWithCloudSecurityGroup(ctx context.Context,
 		return nil
 	})
 	if err != nil {
-		return errors.Wrapf(err, "db.Update")
+		return nil, errors.Wrapf(err, "db.Update")
 	}
 	secgroup, err := self.GetSecgroup()
 	if err != nil {
-		return errors.Wrapf(err, "GetSecurity")
+		return nil, errors.Wrapf(err, "GetSecurity")
 	}
 	cacheCount, err := secgroup.GetSecgroupCacheCount()
 	if err != nil {
-		return errors.Wrapf(err, "GetSecgroupCacheCount")
+		return nil, errors.Wrapf(err, "GetSecgroupCacheCount")
 	}
 	if cacheCount > 1 {
-		return nil
+		return nil, nil
 	}
 	dest := cloudprovider.NewSecRuleInfo(GetRegionDriver(provider.Provider))
 	dest.Rules, err = ext.GetRules()
 	if err != nil {
-		return errors.Wrapf(err, "GetRules")
+		return nil, errors.Wrapf(err, "GetRules")
 	}
-	secgroup.SyncSecurityGroupRules(ctx, userCred, dest)
-	return nil
+	rules, _ := secgroup.SyncSecurityGroupRules(ctx, userCred, dest)
+	return rules, nil
 }
 
 func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, secgroups []cloudprovider.ICloudSecurityGroup, vpc *SVpc) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
@@ -472,21 +478,25 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 		}
 	}
 
+	rules := []SSecurityGroupRule{}
+
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].syncWithCloudSecurityGroup(ctx, userCred, provider, commonext[i])
+		_rules, err := commondb[i].syncWithCloudSecurityGroup(ctx, userCred, provider, commonext[i])
 		if err != nil {
 			syncResult.UpdateError(errors.Wrapf(err, "syncWithCloudSecurityGroup"))
 			continue
 		}
+		rules = append(rules, _rules...)
 		syncResult.Update()
 	}
 
 	for i := 0; i < len(added); i++ {
-		secgroup, err := SecurityGroupManager.newFromCloudSecgroup(ctx, userCred, provider, added[i])
+		secgroup, _rules, err := SecurityGroupManager.newFromCloudSecgroup(ctx, userCred, provider, added[i])
 		if err != nil {
 			syncResult.AddError(errors.Wrapf(err, "newFromCloudSecgroup"))
 			continue
 		}
+		rules = append(rules, _rules...)
 		if secgroup.ProjectId != provider.ProjectId {
 			_, err = secgroup.PerformPublic(ctx, userCred, nil,
 				apis.PerformPublicProjectInput{
@@ -518,6 +528,17 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 		localSecgroups = append(localSecgroups, *secgroup)
 		remoteSecgroups = append(remoteSecgroups, added[i])
 		syncResult.Add()
+	}
+	for i := range rules {
+		if len(rules[i].PeerSecgroupId) > 0 {
+			cache, _ := db.FetchByExternalId(SecurityGroupCacheManager, rules[i].PeerSecgroupId)
+			if cache != nil {
+				db.Update(&rules[i], func() error {
+					rules[i].PeerSecgroupId = cache.(*SSecurityGroupCache).SecgroupId
+					return nil
+				})
+			}
+		}
 	}
 	return localSecgroups, remoteSecgroups, syncResult
 }
@@ -614,7 +635,7 @@ func (manager *SSecurityGroupCacheManager) ListItemExportKeys(ctx context.Contex
 
 func (self *SSecurityGroupCache) GetISecurityGroup() (cloudprovider.ICloudSecurityGroup, error) {
 	if len(self.ExternalId) == 0 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty externalId")
+		return self.CreateISecurityGroup()
 	}
 
 	manager := self.GetCloudprovider()
@@ -626,5 +647,165 @@ func (self *SSecurityGroupCache) GetISecurityGroup() (cloudprovider.ICloudSecuri
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetIRegion")
 	}
-	return iRegion.GetISecurityGroupById(self.ExternalId)
+	iSecgroup, err := iRegion.GetISecurityGroupById(self.ExternalId)
+	if err != nil {
+		if errors.Cause(err) != cloudprovider.ErrNotFound {
+			return nil, errors.Wrap(err, "iRegion.GetSecurityGroupById")
+		}
+		return self.CreateISecurityGroup()
+	}
+	return iSecgroup, nil
+}
+
+func (self *SSecurityGroupCache) CreateISecurityGroup() (cloudprovider.ICloudSecurityGroup, error) {
+	iRegion, err := self.GetIRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "self.GetIRegion")
+	}
+
+	if strings.ToLower(self.Name) == "default" { //避免有些云不支持default关键字
+		self.Name = "DefaultGroup"
+	}
+	// 避免有的云不支持重名安全组
+	randomString := func(prefix string, length int) string {
+		return fmt.Sprintf("%s-%s", prefix, rand.String(length))
+	}
+	opts := &cloudprovider.SecurityGroupFilterOptions{
+		Name:      randomString(self.Name, 1),
+		VpcId:     self.VpcId,
+		ProjectId: self.ExternalProjectId,
+	}
+	for i := 2; i < 30; i++ {
+		_, err := iRegion.GetISecurityGroupByName(opts)
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				break
+			}
+			if errors.Cause(err) != cloudprovider.ErrDuplicateId {
+				return nil, errors.Wrapf(err, "GetISecurityGroupByName")
+			}
+		}
+		opts.Name = randomString(self.Name, i)
+	}
+	conf := &cloudprovider.SecurityGroupCreateInput{
+		Name:      opts.Name,
+		Desc:      self.Description,
+		VpcId:     self.VpcId,
+		ProjectId: self.ExternalProjectId,
+	}
+	iSecgroup, err := iRegion.CreateISecurityGroup(conf)
+	if err != nil {
+		return nil, errors.Wrapf(err, "iRegion.CreateISecurityGroup")
+	}
+	_, err = db.Update(self, func() error {
+		self.ExternalId = iSecgroup.GetGlobalId()
+		self.Name = iSecgroup.GetName()
+		self.Status = api.SECGROUP_CACHE_STATUS_READY
+		return nil
+	})
+	return iSecgroup, nil
+}
+
+func (self *SSecurityGroupCache) GetSecuritRuleSet() (cloudprovider.SecurityRuleSet, []SSecurityGroupCache, error) {
+	ruleSet := cloudprovider.SecurityRuleSet{}
+	secgroup, err := self.GetSecgroup()
+	if err != nil {
+		return ruleSet, nil, errors.Wrapf(err, "GetSecgroup")
+	}
+	rules, err := secgroup.getSecurityRules()
+	if err != nil {
+		return ruleSet, nil, errors.Wrapf(err, "getSecurityRules")
+	}
+
+	caches := []SSecurityGroupCache{}
+
+	driver := GetRegionDriver(self.GetProviderName())
+	for i := range rules {
+		if !driver.IsSupportPeerSecgroup() && len(rules[i].PeerSecgroupId) > 0 {
+			continue
+		}
+		//这里没必要拆分为单个单个的端口,到公有云那边适配
+		rule, err := rules[i].toRule()
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "toRule")
+		}
+		peerId := ""
+		if len(rules[i].PeerSecgroupId) > 0 {
+			_peerSecgroup, err := SecurityGroupManager.FetchById(rules[i].PeerSecgroupId)
+			if err != nil {
+				return nil, nil, errors.Wrapf(err, "SecurityGroupManager.FetchById(%s)", rules[i].PeerSecgroupId)
+			}
+			peerSecgroup := _peerSecgroup.(*SSecurityGroup)
+			peerCaches, err := peerSecgroup.GetSecurityGroupCaches()
+			if err != nil {
+				return nil, nil, errors.Wrapf(err, "peerSecgroup.GetSecurityGroupCaches")
+			}
+
+			for _, cache := range peerCaches {
+				if cache.ManagerId == self.ManagerId && cache.VpcId == self.VpcId && len(cache.ExternalId) > 0 && (!driver.IsPeerSecgroupWithSameProject() || cache.ExternalProjectId == self.ExternalProjectId) {
+					peerId = cache.ExternalId
+					break
+				}
+			}
+
+			if len(peerId) == 0 {
+				cache, err := SecurityGroupCacheManager.newCache(context.TODO(), peerSecgroup.Id, peerSecgroup.Name, self.VpcId, self.CloudregionId, self.ManagerId, self.ExternalProjectId)
+				if err != nil {
+					return nil, nil, errors.Wrapf(err, "SecurityGroupCacheManager.newCache")
+				}
+				iSecgroup, err := cache.CreateISecurityGroup()
+				if err != nil {
+					return nil, nil, errors.Wrapf(err, "cache.CreateISecurityGroup")
+				}
+				peerId = iSecgroup.GetGlobalId()
+				caches = append(caches, *cache)
+			}
+		}
+		ruleSet = append(ruleSet, cloudprovider.SecurityRule{SecurityRule: *rule, ExternalId: rules[i].Id, PeerSecgroupId: peerId})
+	}
+	return ruleSet, caches, nil
+}
+
+func (self *SSecurityGroupCache) SyncRules() error {
+	region := self.GetRegion()
+	if region == nil {
+		return fmt.Errorf("failed to get region for secgroupcache %s(%s)", self.Name, self.Id)
+	}
+	iSecgroup, err := self.GetISecurityGroup()
+	if err != nil {
+		return errors.Wrapf(err, "GetISecurityGroup")
+	}
+
+	rules, err := iSecgroup.GetRules()
+	if err != nil {
+		return errors.Wrapf(err, "iSecgroup.GetRules")
+	}
+
+	localRules, caches, err := self.GetSecuritRuleSet()
+	if err != nil {
+		return errors.Wrapf(err, "GetSecuritRuleSet")
+	}
+
+	src := cloudprovider.NewSecRuleInfo(GetRegionDriver(api.CLOUD_PROVIDER_ONECLOUD))
+	src.Rules = localRules
+
+	dest := cloudprovider.NewSecRuleInfo(GetRegionDriver(region.Provider))
+	dest.Rules = rules
+
+	common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(src, dest, false)
+
+	if len(inAdds) == 0 && len(inDels) == 0 && len(outAdds) == 0 && len(outDels) == 0 {
+		return nil
+	}
+	err = iSecgroup.SyncRules(common, inAdds, outAdds, inDels, outDels)
+	if err != nil {
+		return errors.Wrapf(err, "iSecgroup.SyncRules")
+	}
+	for i := range caches {
+		err = caches[i].SyncRules()
+		if err != nil {
+			return errors.Wrapf(err, "SyncRules for caches %s(%s)", caches[i].Name, caches[i].Id)
+		}
+	}
+	return nil
 }

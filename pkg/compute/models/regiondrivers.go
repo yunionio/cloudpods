@@ -127,6 +127,8 @@ type IRegionDriver interface {
 	GetSecurityGroupRuleMaxPriority() int
 	GetSecurityGroupRuleMinPriority() int
 	IsOnlySupportAllowRules() bool
+	IsPeerSecgroupWithSameProject() bool
+	IsSupportPeerSecgroup() bool
 	IsSupportClassicSecurityGroup() bool
 	IsSecurityGroupBelongVpc() bool
 	IsVpcBelongGlobalVpc() bool
