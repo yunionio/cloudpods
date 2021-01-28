@@ -222,7 +222,7 @@ func (self *SAwsClient) fetchRegions() error {
 }
 
 func (client *SAwsClient) getAwsSession(regionId string) (*session.Session, error) {
-	httpClient := client.cpcfg.HttpClient()
+	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
 	s, err := session.NewSession(&sdk.Config{
 		Region: sdk.String(regionId),
 		Credentials: credentials.NewStaticCredentials(
