@@ -45,8 +45,7 @@ type SReceiver struct {
 	apis.SStatusStandaloneResourceBase
 	apis.SDomainizedResourceBase
 	apis.SEnabledResourceBase
-	Email  string `json:"email"`
-	Mobile string `json:"mobile"`
+	Email string `json:"email"`
 	// swagger:ignore
 	EnabledEmail *bool `json:"enabled_email,omitempty"`
 	// swagger:ignore
