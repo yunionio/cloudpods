@@ -87,14 +87,12 @@ func (self *SAliyunClient) QueryCashCoupons() ([]SCashCoupon, error) {
 	params["EffectiveOrNot"] = "True"
 	body, err := self.businessRequest("QueryCashCoupons", params)
 	if err != nil {
-		log.Errorf("QueryCashCoupons fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "QueryCashCoupons")
 	}
 	coupons := make([]SCashCoupon, 0)
 	err = body.Unmarshal(&coupons, "Data", "CashCoupon")
 	if err != nil {
-		log.Errorf("Unmarshal fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "body.Unmarshal")
 	}
 	return coupons, nil
 }
@@ -104,14 +102,12 @@ func (self *SAliyunClient) QueryPrepaidCards() ([]SPrepaidCard, error) {
 	params["EffectiveOrNot"] = "True"
 	body, err := self.businessRequest("QueryPrepaidCards", params)
 	if err != nil {
-		log.Errorf("QueryPrepaidCards fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "QueryPrepaidCards")
 	}
 	cards := make([]SPrepaidCard, 0)
 	err = body.Unmarshal(&cards, "Data", "PrepaidCard")
 	if err != nil {
-		log.Errorf("Unmarshal fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "body.Unmarshal")
 	}
 	return cards, nil
 }
@@ -123,7 +119,6 @@ func (self *SAliyunClient) SubscribeBillToOSS(bucket string) error {
 	params["SubscribeType.1"] = "InstanceDetailForBillingPeriod"
 	body, err := self.businessRequest("SubscribeBillToOSS", params)
 	if err != nil {
-		log.Errorf("SubscribeBillToOSS fail %s", err)
 		return errors.Wrap(err, "SubscribeBillToOSS")
 	}
 	log.Debugf("%s", body)
