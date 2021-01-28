@@ -83,7 +83,7 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 			return nil, sqlchemy.ErrDuplicateEntry
 		} else if usrCnt == 0 {
 			log.Errorf("find no user with name %s", ident.Password.User.Name)
-			return nil, sqlchemy.ErrEmptyQuery
+			return nil, httperrors.ErrUserNotFound
 		} else {
 			// userCnt == 1
 			usr := models.SUser{}
@@ -99,20 +99,11 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 
 	usrExt, err := models.UserManager.FetchUserExtended(ident.Password.User.Id, ident.Password.User.Name,
 		ident.Password.User.Domain.Id, ident.Password.User.Domain.Name)
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && errors.Cause(err) != httperrors.ErrUserNotFound {
 		return nil, errors.Wrap(err, "UserManager.FetchUserExtended")
 	}
-	// checn enable
-	if !usrExt.Enabled {
-		if usrExt.IsLocal && usrExt.LocalFailedAuthCount > o.Options.PasswordErrorLockCount {
-			// user locked
-			return nil, errors.Wrap(httperrors.ErrUserLocked, "please contact the administrator")
-		}
-		// user disabled
-		return nil, errors.Wrap(httperrors.ErrUserLocked, "please contact the administrator")
-	}
 
-	if err == sql.ErrNoRows {
+	if err != nil {
 		// no such user locally, query domain idp
 		domain, err := models.DomainManager.FetchDomain(ident.Password.User.Domain.Id, ident.Password.User.Domain.Name)
 		if err != nil {
@@ -124,6 +115,15 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 		}
 		idpId = mapping.IdpId
 	} else {
+		// check enable
+		if !usrExt.Enabled {
+			if usrExt.IsLocal && usrExt.LocalFailedAuthCount > o.Options.PasswordErrorLockCount {
+				// user locked
+				return nil, httperrors.ErrUserLocked
+			}
+			// user disabled
+			return nil, httperrors.ErrUserLocked
+		}
 		// user exists, query user's idp
 		idps, err := models.IdentityProviderManager.FetchIdentityProvidersByUserId(usrExt.Id, api.PASSWORD_PROTECTED_IDPS)
 		if err != nil {
