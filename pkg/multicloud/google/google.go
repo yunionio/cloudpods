@@ -138,7 +138,7 @@ func NewGoogleClient(cfg *GoogleClientConfig) (*SGoogleClient, error) {
 		TokenURL: google.JWTTokenURL,
 	}
 
-	httpClient := cfg.cpcfg.HttpClient()
+	httpClient := cfg.cpcfg.AdaptiveTimeoutHttpClient()
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, httpClient)
 
