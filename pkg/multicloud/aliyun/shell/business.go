@@ -33,13 +33,17 @@ func init() {
 		if err != nil {
 			return err
 		}
-		printList(result2, len(result2), 0, 0, nil)
+		if len(result2) > 0 {
+			printList(result2, len(result2), 0, 0, nil)
+		}
 
 		result3, err := cli.GetClient().QueryPrepaidCards()
 		if err != nil {
 			return err
 		}
-		printList(result3, len(result3), 0, 0, nil)
+		if len(result3) > 0 {
+			printList(result3, len(result3), 0, 0, nil)
+		}
 		return nil
 	})
 
