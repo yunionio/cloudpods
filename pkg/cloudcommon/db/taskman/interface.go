@@ -28,7 +28,7 @@ import (
 type ITask interface {
 	cloudcommon.IStartable
 
-	ScheduleRun(data jsonutils.JSONObject)
+	ScheduleRun(data jsonutils.JSONObject) error
 	GetParams() *jsonutils.JSONDict
 	GetUserCred() mcclient.TokenCredential
 	GetTaskId() string

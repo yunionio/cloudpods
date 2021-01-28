@@ -121,7 +121,10 @@ func (manager *STaskManager) AllowPerformAction(ctx context.Context, userCred mc
 }
 
 func (manager *STaskManager) PerformAction(ctx context.Context, userCred mcclient.TokenCredential, taskId string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	runTask(taskId, data)
+	err := runTask(taskId, data)
+	if err != nil {
+		return nil, errors.Wrapf(err, "runTask")
+	}
 	resp := jsonutils.NewDict()
 	// 'result': 'ok'
 	resp.Add(jsonutils.NewString("ok"), "result")
@@ -552,8 +555,8 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 	saveRequestContextFuncValue.Call([]reflect.Value{reflect.ValueOf(&ctxData)})
 }
 
-func (task *STask) ScheduleRun(data jsonutils.JSONObject) {
-	runTask(task.Id, data)
+func (task *STask) ScheduleRun(data jsonutils.JSONObject) error {
+	return runTask(task.Id, data)
 }
 
 func (self *STask) IsSubtask() bool {
