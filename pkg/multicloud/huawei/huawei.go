@@ -156,7 +156,7 @@ func (self *SHuaweiClient) newRegionAPIClient(regionId string) (*client.Client, 
 		return nil, err
 	}
 
-	httpClient := self.cpcfg.HttpClient()
+	httpClient := self.cpcfg.AdaptiveTimeoutHttpClient()
 	cli.SetHttpClient(httpClient)
 
 	return cli, nil
@@ -168,7 +168,7 @@ func (self *SHuaweiClient) newGeneralAPIClient() (*client.Client, error) {
 		return nil, err
 	}
 
-	httpClient := self.cpcfg.HttpClient()
+	httpClient := self.cpcfg.AdaptiveTimeoutHttpClient()
 	cli.SetHttpClient(httpClient)
 
 	return cli, nil

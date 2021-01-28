@@ -522,7 +522,7 @@ func (client *SQcloudClient) getSdkClient(regionId string) (*common.Client, erro
 	if err != nil {
 		return nil, err
 	}
-	httpClient := client.cpcfg.HttpClient()
+	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
 	cli.WithHttpTransport(httpClient.Transport)
 	return cli, nil
 }
