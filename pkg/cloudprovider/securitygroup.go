@@ -96,7 +96,6 @@ type SecurityRule struct {
 	Name       string
 	ExternalId string
 	Id         string
-	SrcPrority int
 }
 
 func (r SecurityRule) String() string {
@@ -257,7 +256,7 @@ func CompareRules(src, dest SecRuleInfo, debug bool) (common, inAdds, outAdds, i
 	}
 
 	var _compare = func(srcRules SecurityRuleSet, destRules SecurityRuleSet) (common, add, del SecurityRuleSet) {
-		i, j, destPriority, srcPrority := 0, 0, (dest.MinPriority-1+dest.MaxPriority)/2, (src.MinPriority-1+src.MaxPriority)/2
+		i, j, priority := 0, 0, (dest.MinPriority-1+dest.MaxPriority)/2
 		for i < len(srcRules) || j < len(destRules) {
 			if i < len(srcRules) && j < len(destRules) {
 				destRuleStr := destRules[j].String()
@@ -269,34 +268,28 @@ func CompareRules(src, dest SecRuleInfo, debug bool) (common, inAdds, outAdds, i
 				}
 				cmp := strings.Compare(destRuleStr, srcRuleStr)
 				if cmp == 0 {
-					destRules[j].SrcPrority = srcRules[i].Priority
 					destRules[j].Id = srcRules[i].Id
 					common = append(common, destRules[j])
-					if srcRules[i].Id != DEFAULT_SRC_RULE_ID {
-						srcPrority = srcRules[i].Priority
-					}
 					if destRules[j].ExternalId != DEFAULT_DEST_RULE_ID {
-						destPriority = destRules[j].Priority
+						priority = destRules[j].Priority
 					}
 					i++
 					j++
 				} else if cmp < 0 {
-					destRules[j].SrcPrority = srcPrority
-					srcPrority = addPriority(srcPrority, src.MinPriority, src.MaxPriority, src.IsOnlySupportAllowRules)
 					del = append(del, destRules[j])
 					j++
 				} else {
-					srcRules[i].Priority = addPriority(destPriority, dest.MinPriority, dest.MaxPriority, dest.IsOnlySupportAllowRules)
+					priority = addPriority(priority, dest.MinPriority, dest.MaxPriority, dest.IsOnlySupportAllowRules)
+					srcRules[i].Priority = priority
 					add = append(add, srcRules[i])
 					i++
 				}
 			} else if i >= len(srcRules) {
-				destRules[j].SrcPrority = srcPrority
-				srcPrority = addPriority(srcPrority, src.MinPriority, src.MaxPriority, false)
 				del = append(del, destRules[j])
 				j++
 			} else if j >= len(destRules) {
-				srcRules[i].Priority = addPriority(destPriority, dest.MinPriority, dest.MaxPriority, dest.IsOnlySupportAllowRules)
+				priority = addPriority(priority, dest.MinPriority, dest.MaxPriority, dest.IsOnlySupportAllowRules)
+				srcRules[i].Priority = priority
 				add = append(add, srcRules[i])
 				i++
 			}
