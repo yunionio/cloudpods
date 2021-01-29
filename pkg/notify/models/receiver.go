@@ -592,6 +592,20 @@ func (rm *SReceiverManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 	return q, nil
 }
 
+func (r *SReceiverManager) AllowPerformGetTypes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (cm *SReceiverManager) PerformGetTypes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ConfigManagerGetTypesInput) (api.ConfigManagerGetTypesOutput, error) {
+	output := api.ConfigManagerGetTypesOutput{}
+	allContactType, err := ConfigManager.allContactType()
+	if err != nil {
+		return output, err
+	}
+	output.Types = sortContactType(ConfigManager.filterContactType(allContactType, input.Robot))
+	return output, nil
+}
+
 func (rm *SReceiverManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []interface{}, fields stringutils2.SSortedStrings, isList bool) []api.ReceiverDetails {
 	sRows := rm.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	dRows := rm.SDomainizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
