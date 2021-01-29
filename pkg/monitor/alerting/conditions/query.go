@@ -99,6 +99,9 @@ func (c *QueryCondition) filterTags(tags map[string]string, details monitor.Comm
 	if _, ok := ret["ip"]; !ok {
 		ret["ip"] = tags["host_ip"]
 	}
+	if _, ok := ret["name"]; !ok {
+		ret["name"] = tags["host"]
+	}
 	for _, tag := range []string{"brand", "platform", "hypervisor"} {
 		if val, ok := ret[tag]; ok {
 			ret["brand"] = val
