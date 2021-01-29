@@ -336,7 +336,7 @@ type sendnotifyBase struct {
 }
 
 func (s *sendnotifyBase) send() error {
-	notifyclient.RawNotifyWithCtx(s.Ctx, s.Setting.UserIds, false, notify.TNotifyChannel(s.Setting.Channel),
+	notifyclient.RawNotifyWithCtx(s.Ctx, s.msg.Uid, false, notify.TNotifyChannel(s.Setting.Channel),
 		notify.TNotifyPriority(s.msg.Priority),
 		"DEFAULT",
 		jsonutils.Marshal(&s.config))
@@ -349,7 +349,7 @@ type sendUserImpl struct {
 }
 
 func (s *sendUserImpl) send() error {
-	return notifyclient.NotifyAllWithoutRobotWithCtx(s.Ctx, s.Setting.UserIds, false, notify.TNotifyPriority(s.msg.Priority),
+	return notifyclient.NotifyAllWithoutRobotWithCtx(s.Ctx, s.msg.Uid, false, notify.TNotifyPriority(s.msg.Priority),
 		"DEFAULT", jsonutils.Marshal(&s.config))
 }
 
