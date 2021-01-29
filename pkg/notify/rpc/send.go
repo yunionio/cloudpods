@@ -109,6 +109,10 @@ func (self *SRpcService) StopAll() {
 
 // Send call the corresponding rpc server to send messager.
 func (self *SRpcService) Send(ctx context.Context, contactType string, args apis.SendParams) error {
+	// Stop sending that must fail early
+	if len(args.RemoteTemplate) == 0 && contactType == api.MOBILE {
+		return fmt.Errorf("empty remote template for mobile type notification")
+	}
 	var err error
 	f := func(service *apis.SendNotificationClient) (interface{}, error) {
 		log.Debugf("send one")
@@ -127,6 +131,10 @@ func (self *SRpcService) Send(ctx context.Context, contactType string, args apis
 }
 
 func (self *SRpcService) BatchSend(ctx context.Context, contactType string, args apis.BatchSendParams) ([]*apis.FailedRecord, error) {
+	// Stop sending that must fail early
+	if len(args.RemoteTemplate) == 0 && contactType == api.MOBILE {
+		return nil, fmt.Errorf("empty remote template for mobile type notification")
+	}
 	f := func(service *apis.SendNotificationClient) (interface{}, error) {
 		return service.BatchSend(ctx, &args)
 	}
