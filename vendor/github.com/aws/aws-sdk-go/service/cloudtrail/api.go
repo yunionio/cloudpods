@@ -255,8 +255,9 @@ func (c *CloudTrail) CreateTrailRequest(input *CreateTrailInput) (req *request.R
 //   valid.
 //
 //   * KmsKeyNotFoundException
-//   This exception is thrown when the KMS key does not exist, or when the S3
-//   bucket and the KMS key are not in the same region.
+//   This exception is thrown when the KMS key does not exist, when the S3 bucket
+//   and the KMS key are not in the same region, or when the KMS key associated
+//   with the SNS topic either does not exist or is not in the same region.
 //
 //   * KmsKeyDisabledException
 //   This exception is no longer in use.
@@ -312,6 +313,11 @@ func (c *CloudTrail) CreateTrailRequest(input *CreateTrailInput) (req *request.R
 //   all features. All features must be enabled in AWS Organization to support
 //   creating an organization trail. For more information, see Prepare For Creating
 //   a Trail For Your Organization (https://docs.aws.amazon.com/awscloudtrail/latest/userguide/creating-an-organizational-trail-prepare.html).
+//
+//   * CloudTrailInvalidClientTokenIdException
+//   This exception is thrown when a call results in the InvalidClientTokenId
+//   error code. This can occur when you are creating or updating a trail to send
+//   notifications to an Amazon SNS topic that is in a suspended AWS account.
 //
 // See also, https://docs.aws.amazon.com/goto/WebAPI/cloudtrail-2013-11-01/CreateTrail
 func (c *CloudTrail) CreateTrail(input *CreateTrailInput) (*CreateTrailOutput, error) {
@@ -1535,8 +1541,8 @@ func (c *CloudTrail) LookupEventsRequest(input *LookupEventsInput) (req *request
 // with a maximum of 50 possible. The response includes a token that you can
 // use to get the next page of results.
 //
-// The rate of lookup requests is limited to two per second per account. If
-// this limit is exceeded, a throttling error occurs.
+// The rate of lookup requests is limited to two per second, per account, per
+// region. If this limit is exceeded, a throttling error occurs.
 //
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
 // with awserr.Error's Code and Message methods to get detailed information about
@@ -1688,15 +1694,16 @@ func (c *CloudTrail) PutEventSelectorsRequest(input *PutEventSelectorsInput) (re
 
 // PutEventSelectors API operation for AWS CloudTrail.
 //
-// Configures an event selector for your trail. Use event selectors to further
-// specify the management and data event settings for your trail. By default,
-// trails created without specific event selectors will be configured to log
-// all read and write management events, and no data events.
+// Configures an event selector or advanced event selectors for your trail.
+// Use event selectors or advanced event selectors to specify management and
+// data event settings for your trail. By default, trails created without specific
+// event selectors are configured to log all read and write management events,
+// and no data events.
 //
 // When an event occurs in your account, CloudTrail evaluates the event selectors
-// in all trails. For each trail, if the event matches any event selector, the
-// trail processes and logs the event. If the event doesn't match any event
-// selector, the trail doesn't log the event.
+// or advanced event selectors in all trails. For each trail, if the event matches
+// any event selector, the trail processes and logs the event. If the event
+// doesn't match any event selector, the trail doesn't log the event.
 //
 // Example
 //
@@ -1710,15 +1717,24 @@ func (c *CloudTrail) PutEventSelectorsRequest(input *PutEventSelectorsInput) (re
 // The RunInstances is a write-only event and it matches your event selector.
 // The trail logs the event.
 //
-// The GetConsoleOutput is a read-only event but it doesn't match your event
-// selector. The trail doesn't log the event.
+// The GetConsoleOutput is a read-only event that doesn't match your event selector.
+// The trail doesn't log the event.
 //
 // The PutEventSelectors operation must be called from the region in which the
-// trail was created; otherwise, an InvalidHomeRegionException is thrown.
+// trail was created; otherwise, an InvalidHomeRegionException exception is
+// thrown.
 //
 // You can configure up to five event selectors for each trail. For more information,
-// see Logging Data and Management Events for Trails (https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-management-and-data-events-with-cloudtrail.html)
-// and Limits in AWS CloudTrail (https://docs.aws.amazon.com/awscloudtrail/latest/userguide/WhatIsCloudTrail-Limits.html)
+// see Logging data and management events for trails (https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-management-and-data-events-with-cloudtrail.html)
+// and Quotas in AWS CloudTrail (https://docs.aws.amazon.com/awscloudtrail/latest/userguide/WhatIsCloudTrail-Limits.html)
+// in the AWS CloudTrail User Guide.
+//
+// You can add advanced event selectors, and conditions for your advanced event
+// selectors, up to a maximum of 500 values for all conditions and selectors
+// on a trail. You can use either AdvancedEventSelectors or EventSelectors,
+// but not both. If you apply AdvancedEventSelectors to a trail, any existing
+// EventSelectors are overwritten. For more information about advanced event
+// selectors, see Logging data events for trails (https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html)
 // in the AWS CloudTrail User Guide.
 //
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
@@ -1754,11 +1770,13 @@ func (c *CloudTrail) PutEventSelectorsRequest(input *PutEventSelectorsInput) (re
 //
 //   * InvalidEventSelectorsException
 //   This exception is thrown when the PutEventSelectors operation is called with
-//   a number of event selectors or data resources that is not valid. The combination
-//   of event selectors and data resources is not valid. A trail can have up to
-//   5 event selectors. A trail is limited to 250 data resources. These data resources
-//   can be distributed across event selectors, but the overall total cannot exceed
-//   250.
+//   a number of event selectors, advanced event selectors, or data resources
+//   that is not valid. The combination of event selectors or advanced event selectors
+//   and data resources is not valid. A trail can have up to 5 event selectors.
+//   If a trail uses advanced event selectors, a maximum of 500 total values for
+//   all conditions in all advanced event selectors is allowed. A trail is limited
+//   to 250 data resources. These data resources can be distributed across event
+//   selectors, but the overall total cannot exceed 250.
 //
 //   You can:
 //
@@ -1769,6 +1787,9 @@ func (c *CloudTrail) PutEventSelectorsRequest(input *PutEventSelectorsInput) (re
 //      up to 250. However, this upper limit is allowed only if the total number
 //      of data resources does not exceed 250 across all event selectors for a
 //      trail.
+//
+//      * Specify up to 500 values for all conditions in all advanced event selectors
+//      for a trail.
 //
 //      * Specify a valid value for a parameter. For example, specifying the ReadWriteType
 //      parameter with a value of read-only is invalid.
@@ -2415,11 +2436,13 @@ func (c *CloudTrail) UpdateTrailRequest(input *UpdateTrailInput) (req *request.R
 //
 //   * InvalidEventSelectorsException
 //   This exception is thrown when the PutEventSelectors operation is called with
-//   a number of event selectors or data resources that is not valid. The combination
-//   of event selectors and data resources is not valid. A trail can have up to
-//   5 event selectors. A trail is limited to 250 data resources. These data resources
-//   can be distributed across event selectors, but the overall total cannot exceed
-//   250.
+//   a number of event selectors, advanced event selectors, or data resources
+//   that is not valid. The combination of event selectors or advanced event selectors
+//   and data resources is not valid. A trail can have up to 5 event selectors.
+//   If a trail uses advanced event selectors, a maximum of 500 total values for
+//   all conditions in all advanced event selectors is allowed. A trail is limited
+//   to 250 data resources. These data resources can be distributed across event
+//   selectors, but the overall total cannot exceed 250.
 //
 //   You can:
 //
@@ -2430,6 +2453,9 @@ func (c *CloudTrail) UpdateTrailRequest(input *UpdateTrailInput) (req *request.R
 //      up to 250. However, this upper limit is allowed only if the total number
 //      of data resources does not exceed 250 across all event selectors for a
 //      trail.
+//
+//      * Specify up to 500 values for all conditions in all advanced event selectors
+//      for a trail.
 //
 //      * Specify a valid value for a parameter. For example, specifying the ReadWriteType
 //      parameter with a value of read-only is invalid.
@@ -2443,8 +2469,9 @@ func (c *CloudTrail) UpdateTrailRequest(input *UpdateTrailInput) (req *request.R
 //   other than the region in which the trail was created.
 //
 //   * KmsKeyNotFoundException
-//   This exception is thrown when the KMS key does not exist, or when the S3
-//   bucket and the KMS key are not in the same region.
+//   This exception is thrown when the KMS key does not exist, when the S3 bucket
+//   and the KMS key are not in the same region, or when the KMS key associated
+//   with the SNS topic either does not exist or is not in the same region.
 //
 //   * KmsKeyDisabledException
 //   This exception is no longer in use.
@@ -2496,6 +2523,11 @@ func (c *CloudTrail) UpdateTrailRequest(input *UpdateTrailInput) (req *request.R
 //   all features. All features must be enabled in AWS Organization to support
 //   creating an organization trail. For more information, see Prepare For Creating
 //   a Trail For Your Organization (https://docs.aws.amazon.com/awscloudtrail/latest/userguide/creating-an-organizational-trail-prepare.html).
+//
+//   * CloudTrailInvalidClientTokenIdException
+//   This exception is thrown when a call results in the InvalidClientTokenId
+//   error code. This can occur when you are creating or updating a trail to send
+//   notifications to an Amazon SNS topic that is in a suspended AWS account.
 //
 // See also, https://docs.aws.amazon.com/goto/WebAPI/cloudtrail-2013-11-01/UpdateTrail
 func (c *CloudTrail) UpdateTrail(input *UpdateTrailInput) (*UpdateTrailOutput, error) {
@@ -2712,6 +2744,295 @@ func (s AddTagsOutput) String() string {
 // GoString returns the string representation
 func (s AddTagsOutput) GoString() string {
 	return s.String()
+}
+
+// Advanced event selectors let you create fine-grained selectors for the following
+// AWS CloudTrail event record ﬁelds. They help you control costs by logging
+// only those events that are important to you. For more information about advanced
+// event selectors, see Logging data events for trails (https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html)
+// in the AWS CloudTrail User Guide.
+//
+//    * readOnly
+//
+//    * eventSource
+//
+//    * eventName
+//
+//    * eventCategory
+//
+//    * resources.type
+//
+//    * resources.ARN
+//
+// You cannot apply both event selectors and advanced event selectors to a trail.
+type AdvancedEventSelector struct {
+	_ struct{} `type:"structure"`
+
+	// Contains all selector statements in an advanced event selector.
+	//
+	// FieldSelectors is a required field
+	FieldSelectors []*AdvancedFieldSelector `min:"1" type:"list" required:"true"`
+
+	// An optional, descriptive name for an advanced event selector, such as "Log
+	// data events for only two S3 buckets".
+	Name *string `type:"string"`
+}
+
+// String returns the string representation
+func (s AdvancedEventSelector) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AdvancedEventSelector) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *AdvancedEventSelector) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "AdvancedEventSelector"}
+	if s.FieldSelectors == nil {
+		invalidParams.Add(request.NewErrParamRequired("FieldSelectors"))
+	}
+	if s.FieldSelectors != nil && len(s.FieldSelectors) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("FieldSelectors", 1))
+	}
+	if s.FieldSelectors != nil {
+		for i, v := range s.FieldSelectors {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "FieldSelectors", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetFieldSelectors sets the FieldSelectors field's value.
+func (s *AdvancedEventSelector) SetFieldSelectors(v []*AdvancedFieldSelector) *AdvancedEventSelector {
+	s.FieldSelectors = v
+	return s
+}
+
+// SetName sets the Name field's value.
+func (s *AdvancedEventSelector) SetName(v string) *AdvancedEventSelector {
+	s.Name = &v
+	return s
+}
+
+// A single selector statement in an advanced event selector.
+type AdvancedFieldSelector struct {
+	_ struct{} `type:"structure"`
+
+	// An operator that includes events that match the last few characters of the
+	// event record field specified as the value of Field.
+	EndsWith []*string `min:"1" type:"list"`
+
+	// An operator that includes events that match the exact value of the event
+	// record field specified as the value of Field. This is the only valid operator
+	// that you can use with the readOnly, eventCategory, and resources.type fields.
+	Equals []*string `min:"1" type:"list"`
+
+	// A field in an event record on which to filter events to be logged. Supported
+	// fields include readOnly, eventCategory, eventSource (for management events),
+	// eventName, resources.type, and resources.ARN.
+	//
+	//    * readOnly - Optional. Can be set to Equals a value of true or false.
+	//    A value of false logs both read and write events.
+	//
+	//    * eventSource - For filtering management events only. This can be set
+	//    only to NotEquals kms.amazonaws.com.
+	//
+	//    * eventName - Can use any operator. You can use it to ﬁlter in or ﬁlter
+	//    out any data event logged to CloudTrail, such as PutBucket. You can have
+	//    multiple values for this ﬁeld, separated by commas.
+	//
+	//    * eventCategory - This is required. It must be set to Equals, and the
+	//    value must be Management or Data.
+	//
+	//    * resources.type - This ﬁeld is required. resources.type can only use
+	//    the Equals operator, and the value can be one of the following: AWS::S3::Object
+	//    or AWS::Lambda::Function. You can have only one resources.type ﬁeld
+	//    per selector. To log data events on more than one resource type, add another
+	//    selector.
+	//
+	//    * resources.ARN - You can use any operator with resources.ARN, but if
+	//    you use Equals or NotEquals, the value must exactly match the ARN of a
+	//    valid resource of the type you've speciﬁed in the template as the value
+	//    of resources.type. For example, if resources.type equals AWS::S3::Object,
+	//    the ARN must be in one of the following formats. The trailing slash is
+	//    intentional; do not exclude it. arn:partition:s3:::bucket_name/ arn:partition:s3:::bucket_name/object_or_file_name/
+	//    When resources.type equals AWS::Lambda::Function, and the operator is
+	//    set to Equals or NotEquals, the ARN must be in the following format: arn:partition:lambda:region:account_ID:function:function_name
+	//
+	// Field is a required field
+	Field *string `min:"1" type:"string" required:"true"`
+
+	// An operator that excludes events that match the last few characters of the
+	// event record field specified as the value of Field.
+	NotEndsWith []*string `min:"1" type:"list"`
+
+	// An operator that excludes events that match the exact value of the event
+	// record field specified as the value of Field.
+	NotEquals []*string `min:"1" type:"list"`
+
+	// An operator that excludes events that match the first few characters of the
+	// event record field specified as the value of Field.
+	NotStartsWith []*string `min:"1" type:"list"`
+
+	// An operator that includes events that match the first few characters of the
+	// event record field specified as the value of Field.
+	StartsWith []*string `min:"1" type:"list"`
+}
+
+// String returns the string representation
+func (s AdvancedFieldSelector) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AdvancedFieldSelector) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *AdvancedFieldSelector) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "AdvancedFieldSelector"}
+	if s.EndsWith != nil && len(s.EndsWith) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("EndsWith", 1))
+	}
+	if s.Equals != nil && len(s.Equals) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("Equals", 1))
+	}
+	if s.Field == nil {
+		invalidParams.Add(request.NewErrParamRequired("Field"))
+	}
+	if s.Field != nil && len(*s.Field) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("Field", 1))
+	}
+	if s.NotEndsWith != nil && len(s.NotEndsWith) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("NotEndsWith", 1))
+	}
+	if s.NotEquals != nil && len(s.NotEquals) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("NotEquals", 1))
+	}
+	if s.NotStartsWith != nil && len(s.NotStartsWith) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("NotStartsWith", 1))
+	}
+	if s.StartsWith != nil && len(s.StartsWith) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("StartsWith", 1))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetEndsWith sets the EndsWith field's value.
+func (s *AdvancedFieldSelector) SetEndsWith(v []*string) *AdvancedFieldSelector {
+	s.EndsWith = v
+	return s
+}
+
+// SetEquals sets the Equals field's value.
+func (s *AdvancedFieldSelector) SetEquals(v []*string) *AdvancedFieldSelector {
+	s.Equals = v
+	return s
+}
+
+// SetField sets the Field field's value.
+func (s *AdvancedFieldSelector) SetField(v string) *AdvancedFieldSelector {
+	s.Field = &v
+	return s
+}
+
+// SetNotEndsWith sets the NotEndsWith field's value.
+func (s *AdvancedFieldSelector) SetNotEndsWith(v []*string) *AdvancedFieldSelector {
+	s.NotEndsWith = v
+	return s
+}
+
+// SetNotEquals sets the NotEquals field's value.
+func (s *AdvancedFieldSelector) SetNotEquals(v []*string) *AdvancedFieldSelector {
+	s.NotEquals = v
+	return s
+}
+
+// SetNotStartsWith sets the NotStartsWith field's value.
+func (s *AdvancedFieldSelector) SetNotStartsWith(v []*string) *AdvancedFieldSelector {
+	s.NotStartsWith = v
+	return s
+}
+
+// SetStartsWith sets the StartsWith field's value.
+func (s *AdvancedFieldSelector) SetStartsWith(v []*string) *AdvancedFieldSelector {
+	s.StartsWith = v
+	return s
+}
+
+// This exception is thrown when a call results in the InvalidClientTokenId
+// error code. This can occur when you are creating or updating a trail to send
+// notifications to an Amazon SNS topic that is in a suspended AWS account.
+type CloudTrailInvalidClientTokenIdException struct {
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
+
+	Message_ *string `locationName:"message" type:"string"`
+}
+
+// String returns the string representation
+func (s CloudTrailInvalidClientTokenIdException) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CloudTrailInvalidClientTokenIdException) GoString() string {
+	return s.String()
+}
+
+func newErrorCloudTrailInvalidClientTokenIdException(v protocol.ResponseMetadata) error {
+	return &CloudTrailInvalidClientTokenIdException{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *CloudTrailInvalidClientTokenIdException) Code() string {
+	return "CloudTrailInvalidClientTokenIdException"
+}
+
+// Message returns the exception's message.
+func (s *CloudTrailInvalidClientTokenIdException) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *CloudTrailInvalidClientTokenIdException) OrigErr() error {
+	return nil
+}
+
+func (s *CloudTrailInvalidClientTokenIdException) Error() string {
+	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *CloudTrailInvalidClientTokenIdException) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *CloudTrailInvalidClientTokenIdException) RequestID() string {
+	return s.RespMetadata.RequestID
 }
 
 // Cannot set a CloudWatch Logs delivery for this region.
@@ -3132,6 +3453,10 @@ func (s *CreateTrailOutput) SetTrailARN(v string) *CreateTrailOutput {
 // between 1 and 5 event selectors, but the total cannot exceed 250 across all
 // selectors.
 //
+// If you are using advanced event selectors, the maximum total number of values
+// for all conditions, across all advanced event selectors for the trail, is
+// 500.
+//
 // The following example demonstrates how logging works when you configure logging
 // of all data events for an S3 bucket named bucket-1. In this example, the
 // CloudTrail user specified an empty prefix, and the option to log both Read
@@ -3475,6 +3800,8 @@ func (s *Event) SetUsername(v string) *Event {
 // selector, the trail doesn't log the event.
 //
 // You can configure up to five event selectors for a trail.
+//
+// You cannot apply both event selectors and advanced event selectors to a trail.
 type EventSelector struct {
 	_ struct{} `type:"structure"`
 
@@ -3504,6 +3831,11 @@ type EventSelector struct {
 	// in the AWS CloudTrail User Guide.
 	//
 	// By default, the value is true.
+	//
+	// The first copy of management events is free. You are charged for additional
+	// copies of management events that you are logging on any subsequent trail
+	// in the same region. For more information about CloudTrail pricing, see AWS
+	// CloudTrail Pricing (http://aws.amazon.com/cloudtrail/pricing/).
 	IncludeManagementEvents *bool `type:"boolean"`
 
 	// Specify if you want your trail to log read-only events, write-only events,
@@ -3606,6 +3938,9 @@ func (s *GetEventSelectorsInput) SetTrailName(v string) *GetEventSelectorsInput 
 type GetEventSelectorsOutput struct {
 	_ struct{} `type:"structure"`
 
+	// The advanced event selectors that are configured for the trail.
+	AdvancedEventSelectors []*AdvancedEventSelector `type:"list"`
+
 	// The event selectors that are configured for the trail.
 	EventSelectors []*EventSelector `type:"list"`
 
@@ -3621,6 +3956,12 @@ func (s GetEventSelectorsOutput) String() string {
 // GoString returns the string representation
 func (s GetEventSelectorsOutput) GoString() string {
 	return s.String()
+}
+
+// SetAdvancedEventSelectors sets the AdvancedEventSelectors field's value.
+func (s *GetEventSelectorsOutput) SetAdvancedEventSelectors(v []*AdvancedEventSelector) *GetEventSelectorsOutput {
+	s.AdvancedEventSelectors = v
+	return s
 }
 
 // SetEventSelectors sets the EventSelectors field's value.
@@ -4504,11 +4845,13 @@ func (s *InvalidEventCategoryException) RequestID() string {
 }
 
 // This exception is thrown when the PutEventSelectors operation is called with
-// a number of event selectors or data resources that is not valid. The combination
-// of event selectors and data resources is not valid. A trail can have up to
-// 5 event selectors. A trail is limited to 250 data resources. These data resources
-// can be distributed across event selectors, but the overall total cannot exceed
-// 250.
+// a number of event selectors, advanced event selectors, or data resources
+// that is not valid. The combination of event selectors or advanced event selectors
+// and data resources is not valid. A trail can have up to 5 event selectors.
+// If a trail uses advanced event selectors, a maximum of 500 total values for
+// all conditions in all advanced event selectors is allowed. A trail is limited
+// to 250 data resources. These data resources can be distributed across event
+// selectors, but the overall total cannot exceed 250.
 //
 // You can:
 //
@@ -4519,6 +4862,9 @@ func (s *InvalidEventCategoryException) RequestID() string {
 //    up to 250. However, this upper limit is allowed only if the total number
 //    of data resources does not exceed 250 across all event selectors for a
 //    trail.
+//
+//    * Specify up to 500 values for all conditions in all advanced event selectors
+//    for a trail.
 //
 //    * Specify a valid value for a parameter. For example, specifying the ReadWriteType
 //    parameter with a value of read-only is invalid.
@@ -5496,8 +5842,9 @@ func (s *KmsKeyDisabledException) RequestID() string {
 	return s.RespMetadata.RequestID
 }
 
-// This exception is thrown when the KMS key does not exist, or when the S3
-// bucket and the KMS key are not in the same region.
+// This exception is thrown when the KMS key does not exist, when the S3 bucket
+// and the KMS key are not in the same region, or when the KMS key associated
+// with the SNS topic either does not exist or is not in the same region.
 type KmsKeyNotFoundException struct {
 	_            struct{}                  `type:"structure"`
 	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
@@ -6323,11 +6670,21 @@ func (s *PublicKey) SetValue(v []byte) *PublicKey {
 type PutEventSelectorsInput struct {
 	_ struct{} `type:"structure"`
 
+	// Specifies the settings for advanced event selectors. You can add advanced
+	// event selectors, and conditions for your advanced event selectors, up to
+	// a maximum of 500 values for all conditions and selectors on a trail. You
+	// can use either AdvancedEventSelectors or EventSelectors, but not both. If
+	// you apply AdvancedEventSelectors to a trail, any existing EventSelectors
+	// are overwritten. For more information about advanced event selectors, see
+	// Logging data events for trails (https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html)
+	// in the AWS CloudTrail User Guide.
+	AdvancedEventSelectors []*AdvancedEventSelector `type:"list"`
+
 	// Specifies the settings for your event selectors. You can configure up to
-	// five event selectors for a trail.
-	//
-	// EventSelectors is a required field
-	EventSelectors []*EventSelector `type:"list" required:"true"`
+	// five event selectors for a trail. You can use either EventSelectors or AdvancedEventSelectors
+	// in a PutEventSelectors request, but not both. If you apply EventSelectors
+	// to a trail, any existing AdvancedEventSelectors are overwritten.
+	EventSelectors []*EventSelector `type:"list"`
 
 	// Specifies the name of the trail or trail ARN. If you specify a trail name,
 	// the string must meet the following requirements:
@@ -6365,17 +6722,30 @@ func (s PutEventSelectorsInput) GoString() string {
 // Validate inspects the fields of the type to determine if they are valid.
 func (s *PutEventSelectorsInput) Validate() error {
 	invalidParams := request.ErrInvalidParams{Context: "PutEventSelectorsInput"}
-	if s.EventSelectors == nil {
-		invalidParams.Add(request.NewErrParamRequired("EventSelectors"))
-	}
 	if s.TrailName == nil {
 		invalidParams.Add(request.NewErrParamRequired("TrailName"))
+	}
+	if s.AdvancedEventSelectors != nil {
+		for i, v := range s.AdvancedEventSelectors {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "AdvancedEventSelectors", i), err.(request.ErrInvalidParams))
+			}
+		}
 	}
 
 	if invalidParams.Len() > 0 {
 		return invalidParams
 	}
 	return nil
+}
+
+// SetAdvancedEventSelectors sets the AdvancedEventSelectors field's value.
+func (s *PutEventSelectorsInput) SetAdvancedEventSelectors(v []*AdvancedEventSelector) *PutEventSelectorsInput {
+	s.AdvancedEventSelectors = v
+	return s
 }
 
 // SetEventSelectors sets the EventSelectors field's value.
@@ -6392,6 +6762,9 @@ func (s *PutEventSelectorsInput) SetTrailName(v string) *PutEventSelectorsInput 
 
 type PutEventSelectorsOutput struct {
 	_ struct{} `type:"structure"`
+
+	// Specifies the advanced event selectors configured for your trail.
+	AdvancedEventSelectors []*AdvancedEventSelector `type:"list"`
 
 	// Specifies the event selectors configured for your trail.
 	EventSelectors []*EventSelector `type:"list"`
@@ -6411,6 +6784,12 @@ func (s PutEventSelectorsOutput) String() string {
 // GoString returns the string representation
 func (s PutEventSelectorsOutput) GoString() string {
 	return s.String()
+}
+
+// SetAdvancedEventSelectors sets the AdvancedEventSelectors field's value.
+func (s *PutEventSelectorsOutput) SetAdvancedEventSelectors(v []*AdvancedEventSelector) *PutEventSelectorsOutput {
+	s.AdvancedEventSelectors = v
+	return s
 }
 
 // SetEventSelectors sets the EventSelectors field's value.
@@ -7845,10 +8224,24 @@ const (
 	EventCategoryInsight = "insight"
 )
 
+// EventCategory_Values returns all elements of the EventCategory enum
+func EventCategory_Values() []string {
+	return []string{
+		EventCategoryInsight,
+	}
+}
+
 const (
 	// InsightTypeApiCallRateInsight is a InsightType enum value
 	InsightTypeApiCallRateInsight = "ApiCallRateInsight"
 )
+
+// InsightType_Values returns all elements of the InsightType enum
+func InsightType_Values() []string {
+	return []string{
+		InsightTypeApiCallRateInsight,
+	}
+}
 
 const (
 	// LookupAttributeKeyEventId is a LookupAttributeKey enum value
@@ -7876,6 +8269,20 @@ const (
 	LookupAttributeKeyAccessKeyId = "AccessKeyId"
 )
 
+// LookupAttributeKey_Values returns all elements of the LookupAttributeKey enum
+func LookupAttributeKey_Values() []string {
+	return []string{
+		LookupAttributeKeyEventId,
+		LookupAttributeKeyEventName,
+		LookupAttributeKeyReadOnly,
+		LookupAttributeKeyUsername,
+		LookupAttributeKeyResourceType,
+		LookupAttributeKeyResourceName,
+		LookupAttributeKeyEventSource,
+		LookupAttributeKeyAccessKeyId,
+	}
+}
+
 const (
 	// ReadWriteTypeReadOnly is a ReadWriteType enum value
 	ReadWriteTypeReadOnly = "ReadOnly"
@@ -7886,3 +8293,12 @@ const (
 	// ReadWriteTypeAll is a ReadWriteType enum value
 	ReadWriteTypeAll = "All"
 )
+
+// ReadWriteType_Values returns all elements of the ReadWriteType enum
+func ReadWriteType_Values() []string {
+	return []string{
+		ReadWriteTypeReadOnly,
+		ReadWriteTypeWriteOnly,
+		ReadWriteTypeAll,
+	}
+}
