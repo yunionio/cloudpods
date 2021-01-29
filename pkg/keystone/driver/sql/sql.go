@@ -112,6 +112,8 @@ func (sql *SSQLDriver) alertNotify(ctx context.Context, uext *api.SUserExtended,
 	userSet := sets.NewString(daUserIds...)
 	userSet.Insert(aUserIds...)
 	data.Set("admin", jsonutils.JSONTrue)
+	// prevent duplicate messages
+	userSet.Delete(uext.Id)
 	p.RecipientId = userSet.UnsortedList()
 	p.Data = data
 	notifyclient.NotifyWithTag(ctx, p)
