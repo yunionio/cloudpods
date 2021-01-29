@@ -31,6 +31,7 @@ import (
 	"github.com/aws/aws-sdk-go/private/protocol/query"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/elasticache"
 	"github.com/aws/aws-sdk-go/service/s3"
 
 	"yunion.io/x/log"
@@ -240,6 +241,15 @@ func (client *SAwsClient) getAwsSession(regionId string) (*session.Session, erro
 		s.Config.LogLevel = &logLevel
 	}
 	return s, nil
+}
+
+func (region *SRegion) getAwsElasticacheClient() (*elasticache.ElastiCache, error) {
+	session, err := region.getAwsSession()
+	if err != nil {
+		return nil, errors.Wrap(err, "client.getDefaultSession")
+	}
+	session.ClientConfig(ELASTICACHE_SERVICE_NAME)
+	return elasticache.New(session), nil
 }
 
 func (client *SAwsClient) getAwsRoute53Session() (*session.Session, error) {
@@ -526,7 +536,7 @@ func (self *SAwsClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
 		cloudprovider.CLOUD_CAPABILITY_RDS,
-		// cloudprovider.CLOUD_CAPABILITY_CACHE,
+		cloudprovider.CLOUD_CAPABILITY_CACHE,
 		// cloudprovider.CLOUD_CAPABILITY_EVENT,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
 		cloudprovider.CLOUD_CAPABILITY_DNSZONE,
