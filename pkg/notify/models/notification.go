@@ -707,7 +707,7 @@ func (nm *SNotificationManager) ReSend(ctx context.Context, userCred mcclient.To
 }
 
 func (n *SNotification) TemplateStore() notifyv2.ITemplateStore {
-	if len(n.Event) == 0 {
+	if len(n.Event) == 0 || n.ContactType == api.MOBILE {
 		return TemplateManager
 	}
 	return LocalTemplateManager
