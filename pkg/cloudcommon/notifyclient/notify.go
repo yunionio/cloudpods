@@ -514,7 +514,7 @@ func notifyRobot(ctx context.Context, robot string, recipientId []string, isGrou
 	s := auth.GetAdminSession(ctx, consts.GetRegion(), "")
 	params := jsonutils.NewDict()
 	params.Set("robot", jsonutils.NewString(robot))
-	result, err := modules.NotifyConfig.PerformClassAction(s, "get-types", params)
+	result, err := modules.NotifyReceiver.PerformClassAction(s, "get-types", params)
 	if err != nil {
 		return err
 	}
