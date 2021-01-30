@@ -54,13 +54,17 @@ type SInternationalMobile struct {
 	AreaCode string `json:"area_code"`
 }
 
-var pareser = regexp.MustCompile(`\+(\d*) (.*)`)
+var (
+	defaultAreaCode = "86"
+	pareser         = regexp.MustCompile(`\+(\d*) (.*)`)
+)
 
 func ParseInternationalMobile(mobile string) SInternationalMobile {
 	matchs := pareser.FindStringSubmatch(mobile)
 	if len(matchs) == 0 {
 		return SInternationalMobile{
-			Mobile: mobile,
+			AreaCode: defaultAreaCode,
+			Mobile:   mobile,
 		}
 	}
 	return SInternationalMobile{
