@@ -490,7 +490,11 @@ func (alert *SCommonAlert) GetMoreDetails(ctx context.Context, out monitor.Commo
 	} else {
 		out.Period = fmt.Sprintf("%dm", alert.Frequency/60)
 	}
-	out.AlertDuration = alert.For/alert.Frequency + 1
+	out.AlertDuration = alert.For / alert.Frequency
+	if out.AlertDuration == 0 {
+		out.AlertDuration = 1
+	}
+
 	err = alert.getCommonAlertMetricDetails(&out)
 	if err != nil {
 		return out, err
@@ -677,7 +681,9 @@ func (man *SCommonAlertManager) toAlertCreatInput(input monitor.CommonAlertCreat
 	ret := new(monitor.AlertCreateInput)
 	ret.Name = input.Name
 	ret.Frequency = int64(freq / time.Second)
-	ret.For = ret.Frequency * (input.AlertDuration - 1)
+	if input.AlertDuration != 1 {
+		ret.For = ret.Frequency * input.AlertDuration
+	}
 	ret.Level = input.Level
 	//ret.Settings =monitor.AlertSetting{}
 	for _, metricquery := range input.CommonMetricInputQuery.MetricQuery {

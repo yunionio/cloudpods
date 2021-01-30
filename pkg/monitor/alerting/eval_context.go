@@ -153,7 +153,7 @@ func (c *EvalContext) GetNewState() monitor.AlertStateType {
 		return monitor.AlertStateAlerting
 	}
 
-	if c.PrevAlertState == monitor.AlertStateAlerting {
+	if c.PrevAlertState == monitor.AlertStateAlerting && since >= c.Rule.For {
 		return monitor.AlertStateAlerting
 	}
 
