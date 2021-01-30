@@ -1071,11 +1071,15 @@ func (self *SIdentityProvider) SyncOrCreateUser(ctx context.Context, extId strin
 	if err == nil {
 		// update
 		log.Debugf("find user %s", extName)
-		_, err := db.Update(user, func() error {
+		newName, err := db.GenerateAlterName(user, extName)
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.GenerateAlterName %s", extName)
+		}
+		_, err = db.Update(user, func() error {
 			if syncUserInfo != nil {
 				syncUserInfo(user)
 			}
-			user.Name = extName
+			user.Name = newName
 			user.DomainId = domainId
 			if user.Deleted {
 				user.MarkUnDelete()
@@ -1099,8 +1103,13 @@ func (self *SIdentityProvider) SyncOrCreateUser(ctx context.Context, extId strin
 		} else {
 			user.Enabled = tristate.False
 		}
+		domainOwnerId := &db.SOwnerId{DomainId: domainId}
+		newName, err := db.GenerateName(UserManager, domainOwnerId, extName)
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.GenerateName %s", extName)
+		}
 		user.Id = userId
-		user.Name = extName
+		user.Name = newName
 		user.DomainId = domainId
 		err = UserManager.TableSpec().Insert(ctx, user)
 		if err != nil {
