@@ -103,9 +103,10 @@ func (man *SCommonAlertManager) ValidateCreateData(
 	}
 	if len(data.Channel) == 0 {
 		data.Channel = []string{monitor.DEFAULT_SEND_NOTIFY_CHANNEL}
-	} else {
-		data.Channel = append(data.Channel, monitor.DEFAULT_SEND_NOTIFY_CHANNEL)
 	}
+	//else {
+	//	data.Channel = append(data.Channel, monitor.DEFAULT_SEND_NOTIFY_CHANNEL)
+	//}
 	if !utils.IsInStringArray(data.Level, monitor.CommonAlertLevels) {
 		return data, httperrors.NewInputParameterError("Invalid level format: %s", data.Level)
 	}
@@ -738,16 +739,16 @@ func (alert *SCommonAlert) ValidateUpdateData(
 			data.Set("frequency", jsonutils.NewInt(freqSpec))
 		}
 	}
-	if recipients, _ := data.GetArray("recipients"); len(recipients) > 0 {
-		channelStr, _ := data.GetString("channel")
-		channel, _ := data.GetArray("channel")
-		if !strings.Contains(channelStr, monitor.DEFAULT_SEND_NOTIFY_CHANNEL) {
-			channels := jsonutils.NewArray()
-			channels.Add(channel...)
-			channels.Add(jsonutils.NewString(monitor.DEFAULT_SEND_NOTIFY_CHANNEL))
-			data.Set("channel", channels)
-		}
-	}
+	//if recipients, _ := data.GetArray("recipients"); len(recipients) > 0 {
+	//	channelStr, _ := data.GetString("channel")
+	//	channel, _ := data.GetArray("channel")
+	//	if !strings.Contains(channelStr, monitor.DEFAULT_SEND_NOTIFY_CHANNEL) {
+	//		channels := jsonutils.NewArray()
+	//		channels.Add(channel...)
+	//		channels.Add(jsonutils.NewString(monitor.DEFAULT_SEND_NOTIFY_CHANNEL))
+	//		data.Set("channel", channels)
+	//	}
+	//}
 	tmp := jsonutils.NewArray()
 	if metric_query, _ := data.GetArray("metric_query"); len(metric_query) > 0 {
 		for i := range metric_query {
