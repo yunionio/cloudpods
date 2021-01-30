@@ -95,12 +95,12 @@ func (n *NotifierBase) ShouldNotify(_ context.Context, evalCtx *alerting.EvalCon
 	}
 
 	// Do not notify when we become OK from pending
-	if prevState == monitor.AlertStatePending && newState == monitor.AlertStateOK {
+	if prevState == monitor.AlertStatePending && okOrPending {
 		return false
 	}
 
 	// Do not notify when we OK -> Pending
-	if prevState == monitor.AlertStateOK && newState == monitor.AlertStatePending {
+	if prevState == monitor.AlertStateOK && okOrPending {
 		return false
 	}
 
