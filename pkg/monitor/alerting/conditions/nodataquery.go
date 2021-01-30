@@ -209,11 +209,10 @@ func (c *NoDataQueryCondition) NewNoDataEvalMatch(context *alerting.EvalContext,
 		queryKeyInfo = evalMatch.Metric
 	}
 	evalMatch.Unit = alertDetails.FieldDescription.Unit
-	msg := fmt.Sprintf("%s.%s %s %s", alertDetails.Measurement, alertDetails.Field,
-		alertDetails.Comparator, alerting.RationalizeValueFromUnit(alertDetails.Threshold, evalMatch.Unit, ""))
-	if len(context.Rule.Message) == 0 {
-		context.Rule.Message = msg
-	}
+	msg := fmt.Sprintf("%s.%s %s ", alertDetails.Measurement, alertDetails.Field,
+		alertDetails.Comparator)
+	context.Rule.Message = msg
+
 	//evalMatch.Condition = c.GenerateFormatCond(meta, queryKeyInfo).String()
 	evalMatch.ValueStr = NO_DATA
 	return evalMatch, nil
