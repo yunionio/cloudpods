@@ -21,11 +21,12 @@ import (
 )
 
 const (
-	PolicyActionGet    = common_policy.PolicyActionGet
-	PolicyActionList   = common_policy.PolicyActionList
-	PolicyActionCreate = common_policy.PolicyActionCreate
-	PolicyActionUpdate = common_policy.PolicyActionUpdate
-	PolicyActionDelete = common_policy.PolicyActionDelete
+	PolicyActionPerform = common_policy.PolicyActionPerform
+	PolicyActionGet     = common_policy.PolicyActionGet
+	PolicyActionList    = common_policy.PolicyActionList
+	PolicyActionCreate  = common_policy.PolicyActionCreate
+	PolicyActionUpdate  = common_policy.PolicyActionUpdate
+	PolicyActionDelete  = common_policy.PolicyActionDelete
 )
 
 var (
@@ -36,26 +37,38 @@ var (
 			Rules: []rbacutils.SRbacRule{
 				{
 					Service:  api.SERVICE_TYPE,
-					Resource: "contacts",
+					Resource: "receivers",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "receivers",
 					Action:   PolicyActionList,
 					Result:   rbacutils.Allow,
 				},
 				{
 					Service:  api.SERVICE_TYPE,
-					Resource: "contacts",
+					Resource: "receivers",
 					Action:   PolicyActionCreate,
 					Result:   rbacutils.Allow,
 				},
 				{
 					Service:  api.SERVICE_TYPE,
-					Resource: "contacts",
+					Resource: "receivers",
 					Action:   PolicyActionUpdate,
 					Result:   rbacutils.Allow,
 				},
 				{
 					Service:  api.SERVICE_TYPE,
-					Resource: "contacts",
+					Resource: "receivers",
 					Action:   PolicyActionDelete,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "receivers",
+					Action:   PolicyActionPerform,
 					Result:   rbacutils.Allow,
 				},
 			},

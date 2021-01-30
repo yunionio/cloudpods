@@ -621,7 +621,7 @@ func notifyRobot(ctx context.Context, robot string, recipientId []string, isGrou
 	}
 	params := jsonutils.NewDict()
 	params.Set("robot", jsonutils.NewString(robot))
-	result, err := modules.NotifyConfig.PerformClassAction(s, "get-types", params)
+	result, err := modules.NotifyReceiver.PerformClassAction(s, "get-types", params)
 	if err != nil {
 		return err
 	}

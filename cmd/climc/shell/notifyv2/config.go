@@ -111,7 +111,7 @@ func init() {
 	}
 	R(&ConfigGetTypesOptions{}, "notify-config-get-types", "Get all Config types", func(s *mcclient.ClientSession, args *ConfigGetTypesOptions) error {
 		param := jsonutils.Marshal(args)
-		result, err := modules.NotifyConfig.PerformClassAction(s, "get-types", param)
+		result, err := modules.NotifyReceiver.PerformClassAction(s, "get-types", param)
 		if err != nil {
 			return err
 		}
