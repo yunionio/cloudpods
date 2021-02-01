@@ -38,6 +38,7 @@ const (
 	ImageTypeISO      = TImageType("iso")
 
 	LocalFilePrefix = "file://"
+	S3Prefix        = "s3://"
 
 	// image properties
 	IMAGE_OS_ARCH             = "os_arch"
