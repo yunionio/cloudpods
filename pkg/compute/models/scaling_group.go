@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -136,7 +137,7 @@ func (sgm *SScalingGroupManager) ValidateCreateData(ctx context.Context, userCre
 	input.CloudregionId = cloudregion.GetId()
 
 	// check vpc
-	_, input.VpcResourceInput, err = ValidateVpcResourceInput(userCred, input.VpcResourceInput)
+	_, err = validators.ValidateModel(userCred, VpcManager, &input.VpcId)
 	if err != nil {
 		return input, err
 	}
