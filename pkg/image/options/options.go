@@ -41,6 +41,15 @@ type SImageOptions struct {
 	TorrentClientPath string `help:"path to torrent executable" default:"/opt/yunion/bin/torrent"`
 
 	DeployServerSocketPath string `help:"Deploy server listen socket path" default:"/var/run/onecloud/deploy.sock"`
+
+	StorageDriver string `help:"image backend storage" default:"local" choices:"s3|local"`
+
+	S3AccessKey  string `help:"s3 access key"`
+	S3SecretKey  string `help:"s3 secret key"`
+	S3Endpoint   string `help:"s3 endpoint"`
+	S3UseSSL     bool   `help:"s3 access use ssl"`
+	S3BucketName string `help:"s3 bucket name" default:"onecloud-images"`
+	S3MountPoint string `help:"s3fs mount point" default:"/opt/cloud/workspace/data/glance/s3images"`
 }
 
 var (

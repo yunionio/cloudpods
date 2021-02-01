@@ -15,6 +15,7 @@
 package service
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -30,12 +31,14 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
+	"yunion.io/x/onecloud/pkg/image/drivers/s3"
 	"yunion.io/x/onecloud/pkg/image/models"
 	"yunion.io/x/onecloud/pkg/image/options"
 	_ "yunion.io/x/onecloud/pkg/image/policy"
 	_ "yunion.io/x/onecloud/pkg/image/tasks"
 	"yunion.io/x/onecloud/pkg/image/torrent"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 func StartService() {
@@ -97,6 +100,10 @@ func StartService() {
 	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
 	go models.CheckImages()
+	models.Init(options.Options.StorageDriver)
+	if options.Options.StorageDriver == "s3" {
+		initS3()
+	}
 
 	if len(options.Options.DeployServerSocketPath) > 0 {
 		log.Infof("deploy server socket path: %s", options.Options.DeployServerSocketPath)
@@ -121,5 +128,50 @@ func StartService() {
 		if options.Options.EnableTorrentService {
 			torrent.StopTorrents()
 		}
+		if options.Options.StorageDriver == "s3" {
+			procutils.NewCommand("umount", options.Options.S3MountPoint).Run()
+		}
 	})
+}
+
+func initS3() {
+	err := s3.Init(
+		options.Options.S3Endpoint,
+		options.Options.S3AccessKey,
+		options.Options.S3SecretKey,
+		options.Options.S3BucketName,
+		options.Options.S3UseSSL,
+	)
+	if err != nil {
+		log.Fatalf("failed init s3 client %s", err)
+	}
+	func() {
+		fd, err := os.OpenFile("/tmp/s3-pass", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		if err != nil {
+			log.Fatalf("failed open s3 pass file %s", err)
+		}
+		defer fd.Close()
+		_, err = fd.WriteString(fmt.Sprintf("%s:%s", options.Options.S3AccessKey, options.Options.S3SecretKey))
+		if err != nil {
+			log.Fatalf("failed write s3 pass file")
+		}
+	}()
+	if !fileutils2.Exists(options.Options.S3MountPoint) {
+		err := os.MkdirAll(options.Options.S3MountPoint, 0755)
+		if err != nil {
+			log.Fatalf("fail to create %s: %s", options.Options.S3MountPoint, err)
+		}
+	}
+
+	prefix := "http://"
+	if options.Options.S3UseSSL {
+		prefix = "https://"
+	}
+	url := prefix + options.Options.S3Endpoint
+	out, err := procutils.NewCommand("s3fs",
+		options.Options.S3BucketName, options.Options.S3MountPoint,
+		"-o", fmt.Sprintf("passwd_file=/tmp/s3-pass,use_path_request_style,url=%s", url)).Output()
+	if err != nil {
+		log.Fatalf("failed mount s3fs %s %s", err, out)
+	}
 }
