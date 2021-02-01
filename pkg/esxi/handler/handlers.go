@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -94,7 +95,11 @@ func deployHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 func deleteHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, _ := appsrv.FetchEnv(ctx, w, r)
 	diskId := params["<disk_id>"]
-	disk := esxi.EsxiAgent.AgentStorage.GetDiskById(diskId)
+	disk, err := esxi.EsxiAgent.AgentStorage.GetDiskById(diskId)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, errors.Wrapf(err, "GetDiskById(%s)", diskId))
+		return
+	}
 	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId == nil {
 		if disk != nil {
 			_, err := disk.Delete(ctx, nil)
@@ -171,9 +176,9 @@ func fetchHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 func diskAndDiskInfo(ctx context.Context, w http.ResponseWriter, r *http.Request) (storageman.IDisk, jsonutils.JSONObject, error) {
 	params, _, body := appsrv.FetchEnv(ctx, w, r)
 	diskId := params["<disk_id>"]
-	disk := esxi.EsxiAgent.AgentStorage.GetDiskById(diskId)
-	if disk == nil {
-		return nil, nil, httperrors.NewNotFoundError("disk '%s'", diskId)
+	disk, err := esxi.EsxiAgent.AgentStorage.GetDiskById(diskId)
+	if err != nil {
+		return nil, nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetDiskById(%s)", diskId))
 	}
 	diskInfo, err := body.Get("disk")
 	if err != nil {
