@@ -33,6 +33,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -595,23 +596,27 @@ func (s *SRbdStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	return modules.Storages.Get(hostutils.GetComputeSession(context.Background()), s.StorageName, jsonutils.Marshal(content))
 }
 
-func (s *SRbdStorage) GetDiskById(diskId string) IDisk {
+func (s *SRbdStorage) GetDiskById(diskId string) (IDisk, error) {
 	s.DiskLock.Lock()
 	defer s.DiskLock.Unlock()
 	for i := 0; i < len(s.Disks); i++ {
 		if s.Disks[i].GetId() == diskId {
-			if s.Disks[i].Probe() == nil {
-				return s.Disks[i]
+			err := s.Disks[i].Probe()
+			if err != nil {
+				if errors.Cause(err) == rbd.RbdErrorNotFound {
+					return nil, cloudprovider.ErrNotFound
+				}
+				return nil, errors.Wrapf(err, "disk.Prob")
 			}
+			return s.Disks[i], nil
 		}
 	}
 	var disk = NewRBDDisk(s, diskId)
 	if disk.Probe() == nil {
 		s.Disks = append(s.Disks, disk)
-		return disk
-	} else {
-		return nil
+		return disk, nil
 	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (s *SRbdStorage) CreateDisk(diskId string) IDisk {

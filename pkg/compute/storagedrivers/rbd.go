@@ -220,7 +220,7 @@ func (self *SRbdStorageDriver) RequestDeleteSnapshot(ctx context.Context, snapsh
 	params.Set("snapshot_id", jsonutils.NewString(snapshot.Id))
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, params, false)
 	if err != nil {
-		return errors.Wrap(err, "request create snapshot")
+		return errors.Wrap(err, "request delete snapshot")
 	}
 	return nil
 }
