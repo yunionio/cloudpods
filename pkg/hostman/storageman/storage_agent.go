@@ -54,8 +54,8 @@ func NewAgentStorage(manager *SStorageManager, agent iagent.IAgent, path string)
 	return s
 }
 
-func (as *SAgentStorage) GetDiskById(diskId string) IDisk {
-	return NewAgentDisk(as, diskId)
+func (as *SAgentStorage) GetDiskById(diskId string) (IDisk, error) {
+	return NewAgentDisk(as, diskId), nil
 }
 
 func (as *SAgentStorage) CreateDiskByDiskInfo(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
@@ -74,7 +74,10 @@ func (as *SAgentStorage) CreateDiskByDiskInfo(ctx context.Context, params interf
 	if err != nil {
 		return nil, errors.Wrap(err, "as.SLocalStorage.CreateDiskByDiskinfo")
 	}
-	disk := as.GetDiskById(createParams.DiskId)
+	disk, err := as.GetDiskById(createParams.DiskId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDiskById(%s)", createParams.DiskId)
+	}
 
 	_, ds, err := as.getHostAndDatastore(ctx, hd)
 	if err != nil {
