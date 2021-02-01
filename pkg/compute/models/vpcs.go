@@ -287,7 +287,7 @@ func (manager *SVpcManager) GetOrCreateVpcForClassicNetwork(ctx context.Context,
 	vpc.IsDefault = false
 	vpc.CloudregionId = region.Id
 	vpc.SetModelManager(manager, vpc)
-	vpc.Name = "-"
+	vpc.Name = api.CLASSIC_VPC_NAME
 	vpc.IsEmulated = true
 	vpc.SetEnabled(false)
 	vpc.Status = api.VPC_STATUS_UNAVAILABLE

@@ -113,11 +113,11 @@ func (manager *SWireManager) ValidateCreateData(
 		input.VpcId = api.DEFAULT_VPC_ID
 	}
 
-	var vpc *SVpc
-	vpc, input.VpcResourceInput, err = ValidateVpcResourceInput(userCred, input.VpcResourceInput)
+	_vpc, err := validators.ValidateModel(userCred, VpcManager, &input.VpcId)
 	if err != nil {
-		return input, errors.Wrap(err, "ValidateVpcResourceInput")
+		return input, err
 	}
+	vpc := _vpc.(*SVpc)
 
 	if len(vpc.ManagerId) > 0 {
 		return input, httperrors.NewNotSupportedError("Currently only kvm platform supports creating wire")

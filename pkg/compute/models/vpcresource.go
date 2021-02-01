@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -26,6 +25,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -44,19 +44,6 @@ type SVpcResourceBase struct {
 type SVpcResourceBaseManager struct {
 	SCloudregionResourceBaseManager
 	SManagedResourceBaseManager
-}
-
-func ValidateVpcResourceInput(userCred mcclient.TokenCredential, input api.VpcResourceInput) (*SVpc, api.VpcResourceInput, error) {
-	vpcObj, err := VpcManager.FetchByIdOrName(userCred, input.VpcId)
-	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, input, httperrors.NewResourceNotFoundError2(VpcManager.Keyword(), input.VpcId)
-		} else {
-			return nil, input, errors.Wrap(err, "VpcManager.FetchByIdOrName")
-		}
-	}
-	input.VpcId = vpcObj.GetId()
-	return vpcObj.(*SVpc), input, nil
 }
 
 func (self *SVpcResourceBase) GetVpc() *SVpc {
@@ -180,11 +167,16 @@ func (manager *SVpcResourceBaseManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 	if len(query.VpcId) > 0 {
-		vpcObj, _, err := ValidateVpcResourceInput(userCred, query.VpcResourceInput)
-		if err != nil {
-			return nil, errors.Wrap(err, "ValidateVpcResourceInput")
+		switch query.VpcId {
+		case api.CLASSIC_VPC_NAME:
+			q = q.Equals("name", api.CLASSIC_VPC_NAME)
+		default:
+			_, err := validators.ValidateModel(userCred, VpcManager, &query.VpcId)
+			if err != nil {
+				return nil, err
+			}
+			q = q.Equals("vpc_id", query.VpcId)
 		}
-		q = q.Equals("vpc_id", vpcObj.GetId())
 	}
 	subq := VpcManager.Query("id").Snapshot()
 	subq, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, subq, userCred, query.RegionalFilterListInput)
