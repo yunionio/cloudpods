@@ -17,6 +17,7 @@ package monitor
 import (
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -118,6 +119,14 @@ type AlertCreateInput struct {
 	// 报警执行错误将当前报警状态设置为对应的状态
 	ExecutionErrorState string `json:"execution_error_state"`
 	UsedBy              string `json:"used_by"`
+	// customize info
+	CustomizeConfig jsonutils.JSONObject `json:"customize_config"`
+}
+
+type MeterCustomizeConfig struct {
+	UnitDesc string
+	Name     string
+	Currency string
 }
 
 type AlertUpdateInput struct {

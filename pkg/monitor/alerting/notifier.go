@@ -80,7 +80,10 @@ func (n *notificationService) sendAndMarkAsComplete(evalCtx *EvalContext, state 
 	if evalCtx.IsTestRun {
 		return nil
 	}
-
+	err := state.state.UpdateSendTime()
+	if err != nil {
+		return errors.Wrap(err, "notifierState UpdateSendTime err")
+	}
 	return state.state.SetToCompleted()
 }
 
