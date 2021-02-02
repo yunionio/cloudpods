@@ -395,6 +395,15 @@ func (p *SIPPool) Has(ip netutils.IPV4Addr) bool {
 	return ok
 }
 
+func (p *SIPPool) FillVsId(vsId string) {
+	for k, v := range p.p {
+		p.p[k] = SIPProc{
+			VlanId: v.VlanId,
+			VSId:   vsId,
+		}
+	}
+}
+
 func (p *SIPPool) Get(ip netutils.IPV4Addr) (SIPProc, bool) {
 	r, ok := p.p[ip]
 	return r, ok
