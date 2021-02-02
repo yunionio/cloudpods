@@ -6,12 +6,12 @@
 </head>
 <body>
   <table style="width: 650px; margin-bottom: 20px;" border="0" cellpadding="0" cellspacing="0" align="center">
-  	<tr style="height: 50px; background: #333; overflow: hidden;">
+  	<tr style="height: 50px; background: #C2DEF2; overflow: hidden;">
   		<td>
   			<table style="margin-left: 20px;">
   				<tr>
   					<td>
-  						<img src="data:{{.login_logo_format}};base64,{{.login_logo}}" alt="" style="color: #fff; height: 32px; vertical-align: middle;">
+                        <img src="data:{{.login_logo_format}};base64,{{.login_logo}}" alt="{{.name}}" style="color: #333; height: 32px; vertical-align: middle;">
   					</td>
   				</tr>
   			</table>
@@ -43,7 +43,7 @@
   			<table style="padding: 20px 10px; width: 100%;">
 	  			<tr>
 	  				<td style="padding-bottom: 13px;">
-                        Dear {{.name}}：
+                        Dear {{.receiver_name}}：
 	  				</td>
 	  			</tr>
 	  			<tr>
@@ -56,10 +56,10 @@
   		</td>
   	</tr>
   	<tr style="width: 96%;">
-        <td colspan="2" style="border-top: 1px dashed #ccc; color: #333; font-size: 12px; padding-bottom: 10px; font-weight: 100;">If you are not operating by yourself, please log in to the platform in time and change your password to ensure the security of your account.</td>
+        <td colspan="2" style="border-top: 1px dashed #ccc; color: #333; font-size: 12px; padding-bottom: 10px; font-weight: 100; padding-left: 10px;">If you are not operating by yourself, please log in to the platform in time and change your password to ensure the security of your account.</td>
 	</tr>
 	<tr>
-		<td colspan="2" style="background: #333; text-align: right; padding-right: 20px; font-size: 12px; color: #fff; height: 50px;">Copyrights © {{.copyright}}. All rights reserved.</td>
+		<td colspan="2" style="background: #C2DEF2; text-align: right; padding-right: 20px; font-size: 12px; color: #333; height: 50px;">Copyrights © {{.copyright}}. All rights reserved.</td>
 	</tr>
   </table>
 </body>

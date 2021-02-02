@@ -54,10 +54,10 @@ func (self *VerificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		}
 		data := struct {
 			models.SCompanyInfo
-			Name string
-			Code string
+			ReceiverName string
+			Code         string
 		}{
-			Name:         receiver.Name,
+			ReceiverName: receiver.Name,
 			Code:         verification.Token,
 			SCompanyInfo: info,
 		}
