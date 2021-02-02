@@ -242,7 +242,7 @@ func getSystemGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.I
 	count.Add("all.cpu_commit_rate.running", runningCpuCmtRate)
 
 	count.Include(
-		VpcUsage("", providers, brands, cloudEnv, nil, rbacutils.ScopeSystem, rangeObjs),
+		VpcUsage("all", providers, brands, cloudEnv, nil, rbacutils.ScopeSystem, rangeObjs),
 
 		DnsZoneUsage("", nil, rbacutils.ScopeSystem),
 
