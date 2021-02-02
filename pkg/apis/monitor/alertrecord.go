@@ -38,6 +38,7 @@ type AlertRecordCreateInput struct {
 
 type AlertRecordRule struct {
 	Metric          string `json:"metric"`
+	Database        string `json:"database"`
 	Measurement     string `json:"measurement"`
 	MeasurementDesc string `json:"measurement_desc"`
 	ResType         string `json:"res_type"`

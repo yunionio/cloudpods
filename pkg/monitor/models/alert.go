@@ -137,6 +137,7 @@ type SAlert struct {
 	ExecutionErrorState string               `width:"36" charset:"ascii" nullable:"false" default:"alerting" create:"optional" list:"user" update:"user"`
 	LastStateChange     time.Time            `list:"user"`
 	StateChanges        int                  `default:"0" nullable:"false" list:"user"`
+	CustomizeConfig     jsonutils.JSONObject `list:"user" create:"optional" update:"user"`
 }
 
 func (alert *SAlert) IsEnable() bool {
@@ -449,21 +450,21 @@ func (alert *SAlert) GetState() monitor.AlertStateType {
 }
 
 type AlertSetStateInput struct {
-	State          monitor.AlertStateType
-	EvalData       jsonutils.JSONObject
-	ExecutionError string
+	State           monitor.AlertStateType
+	EvalData        jsonutils.JSONObject
+	UpdateStateTime time.Time
+	ExecutionError  string
 }
 
 func (alert *SAlert) SetState(input AlertSetStateInput) error {
 	if alert.State == string(monitor.AlertStatePaused) {
 		return ErrAlertChannotChangeStateOnPaused
 	}
-	if alert.State == string(input.State) {
-		return nil
-	}
 	_, err := db.Update(alert, func() error {
 		alert.State = string(input.State)
-		alert.LastStateChange = time.Now()
+		if input.State != monitor.AlertStatePending {
+			alert.LastStateChange = input.UpdateStateTime
+		}
 		alert.EvalData = input.EvalData
 		alert.ExecutionError = input.ExecutionError
 		alert.StateChanges = alert.StateChanges + 1

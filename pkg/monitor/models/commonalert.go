@@ -235,6 +235,7 @@ func (alert *SCommonAlert) CustomizeCreate(
 		return err
 	}
 	alert.State = string(monitor.AlertStateUnknown)
+	alert.LastStateChange = time.Now()
 	input := new(monitor.CommonAlertCreateInput)
 	if err := data.Unmarshal(input); err != nil {
 		return err

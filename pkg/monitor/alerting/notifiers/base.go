@@ -18,6 +18,8 @@ import (
 	"context"
 	"time"
 
+	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/monitor/alerting"
 	"yunion.io/x/onecloud/pkg/monitor/models"
@@ -59,8 +61,17 @@ func (n *NotifierBase) ShouldNotify(_ context.Context, evalCtx *alerting.EvalCon
 		return false
 	}
 
+	if newState == monitor.AlertStatePending {
+		return false
+	}
+
 	if newState == monitor.AlertStateAlerting {
-		return true
+		send, err := state.ShouldSendNotification()
+		if err != nil {
+			log.Errorf("Alertnotification ShouldSendNotification exec err:%v", err)
+			return false
+		}
+		return send
 	}
 
 	// Only notify on state change

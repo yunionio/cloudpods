@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
@@ -33,6 +34,7 @@ func init() {
 	alerting.RegisterCondition("query", func(model *monitor.AlertCondition, index int) (alerting.Condition, error) {
 		return newQueryCondition(model, index)
 	})
+	RestryFetchImp(monitor.METRIC_DATABASE_METER, &meterFetchImp{})
 }
 
 // QueryCondition is responsible for issue and query. reduce the
@@ -60,6 +62,27 @@ type FormatCond struct {
 	QueryKeyInfo string
 	Reducer      string
 	Evaluator    AlertEvaluator
+}
+
+type iEvalMatchFetch interface {
+	FetchCustomizeEvalMatch(context *alerting.EvalContext, evalMatch *monitor.EvalMatch,
+		alertDetails *monitor.CommonAlertMetricDetails) error
+}
+
+var iFetchImp map[string]iEvalMatchFetch
+
+func RestryFetchImp(db string, imp iEvalMatchFetch) {
+	if iFetchImp == nil {
+		iFetchImp = make(map[string]iEvalMatchFetch)
+	}
+	iFetchImp[db] = imp
+}
+
+func GetFetchImpByDb(db string) iEvalMatchFetch {
+	if iFetchImp == nil {
+		return nil
+	}
+	return iFetchImp[db]
 }
 
 func (c *QueryCondition) GenerateFormatCond(meta *tsdb.QueryResultMeta, metric string) *FormatCond {
@@ -225,6 +248,31 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb
 	}
 	//c.newRuleDescription(context, alertDetails)
 	return evalMatch, nil
+}
+
+func (c *QueryCondition) FetchCustomizeEvalMatch(context *alerting.EvalContext, evalMatch *monitor.EvalMatch,
+	alertDetails *monitor.CommonAlertMetricDetails) {
+	imp := GetFetchImpByDb(alertDetails.DB)
+	if imp != nil {
+		err := imp.FetchCustomizeEvalMatch(context, evalMatch, alertDetails)
+		if err != nil {
+			log.Errorf("%s FetchCustomizeEvalMatch err:%v", alertDetails.DB, err)
+		}
+	}
+}
+
+type meterFetchImp struct {
+}
+
+func (m *meterFetchImp) FetchCustomizeEvalMatch(context *alerting.EvalContext, evalMatch *monitor.EvalMatch,
+	alertDetails *monitor.CommonAlertMetricDetails) error {
+	meterCustomizeConfig := new(monitor.MeterCustomizeConfig)
+	err := context.Rule.CustomizeConfig.Unmarshal(meterCustomizeConfig)
+	if err != nil {
+		return err
+	}
+	evalMatch.ValueStr = evalMatch.ValueStr + " " + meterCustomizeConfig.UnitDesc
+	return nil
 }
 
 func (c *QueryCondition) GetCommonAlertDetails(context *alerting.EvalContext) (*monitor.CommonAlertMetricDetails, error) {
