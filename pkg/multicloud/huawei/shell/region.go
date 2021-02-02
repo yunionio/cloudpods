@@ -53,4 +53,14 @@ func init() {
 		fmt.Println(capabilities)
 		return nil
 	})
+
+	shellutils.R(&RegionListOptions{}, "subaccount-list", "List account", func(cli *huawei.SRegion, args *RegionListOptions) error {
+		accounts, err := cli.GetClient().GetSubAccounts()
+		if err != nil {
+			return err
+		}
+		printList(accounts, 0, 0, 0, nil)
+		return nil
+	})
+
 }
