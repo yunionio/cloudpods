@@ -128,6 +128,7 @@ type SCompanyInfo struct {
 	LoginLogo       string `json:"login_logo"`
 	LoginLogoFormat string `json:"login_logo_format"`
 	Copyright       string `json:"copyright"`
+	Name            string `json:"name"`
 }
 
 func (tm *STemplateManager) GetCompanyInfo(ctx context.Context) (SCompanyInfo, error) {
