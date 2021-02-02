@@ -153,7 +153,8 @@ type ComputeOptions struct {
 	SyncStorageCapacityUsedIntervalMinutes int  `help:"interval sync storage capacity used" default:"20"`
 	LockStorageFromCachedimage             bool `help:"must use storage in where selected cachedimage when creating vm"`
 
-	SyncExtDiskSnapshotIntervalMinutes int `help:"sync snapshot for external disk" default:"20"`
+	SyncExtDiskSnapshotIntervalMinutes int  `help:"sync snapshot for external disk" default:"20"`
+	AutoReconcileBackupServers         bool `help:"auto reconcile backup servers" default:"false"`
 
 	SCapabilityOptions
 	SASControllerOptions
