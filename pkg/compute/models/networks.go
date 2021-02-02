@@ -298,6 +298,16 @@ func (self *SNetwork) ValidateElbNetwork(ipAddr net.IP) (*SCloudregion, *SZone, 
 	return region, zone, vpc, wire, nil
 }
 
+func (self *SNetwork) GetGuestnetworks() ([]SGuestnetwork, error) {
+	q := GuestnetworkManager.Query().Equals("network_id", self.Id)
+	gns := []SGuestnetwork{}
+	err := db.FetchModelObjects(GuestnetworkManager, q, &gns)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return gns, nil
+}
+
 func (self *SNetwork) GetGuestnicsCount() (int, error) {
 	return GuestnetworkManager.Query().Equals("network_id", self.Id).IsFalse("virtual").CountWithError()
 }
@@ -1789,6 +1799,16 @@ func (self *SNetwork) RealDelete(ctx context.Context, userCred mcclient.TokenCre
 		err = reservedIps[i].Release(ctx, userCred, self)
 		if err != nil {
 			return errors.Wrapf(err, "reservedIps.Release %s(%d)", reservedIps[i].IpAddr, reservedIps[i].Id)
+		}
+	}
+	gns, err := self.GetGuestnetworks() // delete virtual nics
+	if err != nil {
+		return errors.Wrapf(err, "GetGuestnetworks")
+	}
+	for i := range gns {
+		err = gns[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "delete virtual nic %s(%d)", gns[i].Ifname, gns[i].RowId)
 		}
 	}
 	if err := self.SSharableVirtualResourceBase.Delete(ctx, userCred); err != nil {
