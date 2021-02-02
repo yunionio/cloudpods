@@ -99,7 +99,7 @@ func (c *EvalContext) GetStateModel() *StateDescription {
 }
 
 func (c *EvalContext) shouldUpdateAlertState() bool {
-	return c.Rule.State != c.PrevAlertState
+	return c.Rule.State != c.PrevAlertState || c.Rule.State == monitor.AlertStateAlerting
 }
 
 // GetDurationMs returns the duration of the alert evaluation.
@@ -149,11 +149,14 @@ func (c *EvalContext) GetNewState() monitor.AlertStateType {
 	}
 
 	since := time.Since(c.Rule.LastStateChange)
-	if c.PrevAlertState == monitor.AlertStatePending && since >= c.Rule.For {
+	if c.PrevAlertState == monitor.AlertStatePending && since/time.Second >= c.Rule.For {
 		return monitor.AlertStateAlerting
 	}
 
-	if c.PrevAlertState == monitor.AlertStateAlerting && since >= c.Rule.For {
+	if c.Rule.For != 0 {
+		log.Errorf("ruleName:%s,since:%d,for:%d", c.Rule.Name, since/time.Second, c.Rule.For)
+	}
+	if ns == monitor.AlertStateAlerting && since/time.Second >= c.Rule.For {
 		return monitor.AlertStateAlerting
 	}
 

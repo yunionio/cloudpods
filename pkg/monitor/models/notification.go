@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -65,12 +66,14 @@ func NewNotificationManager() *SNotificationManager {
 type SNotification struct {
 	db.SVirtualResourceBase
 
-	Type                  string               `nullable:"false" list:"user" create:"required"`
-	IsDefault             bool                 `nullable:"false" default:"false" list:"user" create:"optional" update:"user"`
-	SendReminder          bool                 `nullable:"false" default:"false" list:"user" create:"optional" update:"user"`
-	DisableResolveMessage bool                 `nullable:"false" default:"false" list:"user" create:"optional" update:"user"`
-	Frequency             int64                `nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
-	Settings              jsonutils.JSONObject `nullable:"false" list:"user" create:"required" update:"user"`
+	Type                  string `nullable:"false" list:"user" create:"required"`
+	IsDefault             bool   `nullable:"false" default:"false" list:"user" create:"optional" update:"user"`
+	SendReminder          bool   `nullable:"false" default:"false" list:"user" create:"optional" update:"user"`
+	DisableResolveMessage bool   `nullable:"false" default:"false" list:"user" create:"optional" update:"user"`
+	// unit is second
+	Frequency            int64                `nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
+	Settings             jsonutils.JSONObject `nullable:"false" list:"user" create:"required" update:"user"`
+	LastSendNotification time.Time            `list:"user" create:"optional" update:"user"`
 }
 
 func (man *SNotificationManager) GetPlugin(typ string) (*notifydrivers.NotifierPlugin, error) {
@@ -216,4 +219,22 @@ func (n *SNotification) ValidateDeleteCondition(ctx context.Context) error {
 		return httperrors.NewNotEmptyError("Alert notification used by %d alert", cnt)
 	}
 	return n.SVirtualResourceBase.ValidateDeleteCondition(ctx)
+}
+
+func (n *SNotification) ShouldSendNotification() bool {
+	if n.Frequency == 0 {
+		return true
+	}
+	if int64(time.Now().Sub(n.LastSendNotification)/time.Second) >= n.Frequency {
+		return true
+	}
+	return false
+}
+
+func (n *SNotification) UpdateSendTime() error {
+	_, err := db.Update(n, func() error {
+		n.LastSendNotification = time.Now()
+		return nil
+	})
+	return err
 }

@@ -45,8 +45,11 @@ import (
 const (
 	SUFFIX = "onecloudNotifier"
 
-	MOBILE_TOPIC_CN = "monitor-cn"
-	MOBILE_TOPIC_EN = "monitor-en"
+	MOBILE_DEFAULT_TOPIC_CN = "monitor-cn"
+	MOBILE_DEFAULT_TOPIC_EN = "monitor-en"
+
+	MOBILE_METER_TOPIC_CN = "meter-cn"
+	MOBILE_METER_TOPIC_EN = "meter-en"
 )
 
 var (
@@ -239,14 +242,51 @@ func (oc *OneCloudNotifier) notifyByContextLang(ctx context.Context, evalCtx *al
 
 func (oc *OneCloudNotifier) newRemoteMobileContent(config *monitor.NotificationTemplateConfig,
 	evalCtx *alerting.EvalContext, lang language.Tag) string {
+	db := monitor.METRIC_DATABASE_TELE
+	if len(evalCtx.Rule.RuleDescription) != 0 {
+		db = evalCtx.Rule.RuleDescription[0].Database
+	}
+	switch db {
+	case monitor.METRIC_DATABASE_METER:
+		return oc.newMeterRemoteMobileContent(config, evalCtx, lang)
+	default:
+		return oc.newDefaultRemoteMobileContent(config, evalCtx, lang)
+	}
+}
+
+func (oc *OneCloudNotifier) newDefaultRemoteMobileContent(config *monitor.NotificationTemplateConfig,
+	evalCtx *alerting.EvalContext, lang language.Tag) string {
+	typ := ""
 	switch lang {
 	case language.English:
-		config.Title = MOBILE_TOPIC_EN
+		typ = "policy"
+		config.Title = MOBILE_DEFAULT_TOPIC_EN
 	default:
-		config.Title = MOBILE_TOPIC_CN
+		typ = "告警策略"
+		config.Title = MOBILE_DEFAULT_TOPIC_CN
 	}
 	content := jsonutils.NewDict()
 	content.Set("alert_name", jsonutils.NewString(evalCtx.Rule.Name))
+	content.Set("type", jsonutils.NewString(typ))
+	return content.String()
+}
+
+func (oc *OneCloudNotifier) newMeterRemoteMobileContent(config *monitor.NotificationTemplateConfig,
+	evalCtx *alerting.EvalContext, lang language.Tag) string {
+	typ := ""
+	switch lang {
+	case language.English:
+		config.Title = MOBILE_DEFAULT_TOPIC_EN
+		typ = "budget"
+	default:
+		typ = "预算"
+		config.Title = MOBILE_DEFAULT_TOPIC_CN
+	}
+	customizeConfig := new(monitor.MeterCustomizeConfig)
+	evalCtx.Rule.CustomizeConfig.Unmarshal(customizeConfig)
+	content := jsonutils.NewDict()
+	content.Set("alert_name", jsonutils.NewString(customizeConfig.Name))
+	content.Set("type", jsonutils.NewString(typ))
 	return content.String()
 }
 

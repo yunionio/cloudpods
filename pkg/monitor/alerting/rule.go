@@ -62,6 +62,8 @@ type Rule struct {
 	RuleDescription []*RuleDescription
 
 	StateChanges int
+
+	CustomizeConfig jsonutils.JSONObject
 }
 
 var (
@@ -125,7 +127,7 @@ func NewRuleFromDBAlert(ruleDef *models.SAlert) (*Rule, error) {
 	if model.Frequency == 0 {
 		model.Frequency = 60
 	}
-
+	model.CustomizeConfig = ruleDef.CustomizeConfig
 	settings, err := ruleDef.GetSettings()
 	if err != nil {
 		return nil, err
@@ -173,6 +175,7 @@ func newRuleDescription(rule *Rule, alertDetails *monitor.CommonAlertMetricDetai
 			ResType:         alertDetails.ResType,
 			Metric:          fmt.Sprintf("%s.%s", alertDetails.Measurement, alertDetails.Field),
 			Measurement:     alertDetails.Measurement,
+			Database:        alertDetails.DB,
 			MeasurementDesc: alertDetails.MeasurementDisplayName,
 			Field:           alertDetails.Field,
 			FieldDesc:       alertDetails.FieldDescription.DisplayName,
