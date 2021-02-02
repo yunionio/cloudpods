@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/timeutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -95,8 +96,9 @@ type SHuaweiClient struct {
 
 	isMainProject bool // whether the project is the main project in the region
 
-	ownerId   string
-	ownerName string
+	ownerId         string
+	ownerName       string
+	ownerCreateTime time.Time
 
 	iregions []cloudprovider.ICloudRegion
 	iBuckets []cloudprovider.ICloudBucket
@@ -323,6 +325,11 @@ func (self *SHuaweiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 		if strings.ToLower(project.Name) == "mos" {
 			continue
 		}
+		// https://www.huaweicloud.com/notice/2018/20190618171312411.html
+		expiredAt, _ := timeutils.ParseTimeStr("2020-09-16 00:00:00")
+		if !self.ownerCreateTime.IsZero() && self.ownerCreateTime.After(expiredAt) && strings.ToLower(project.Name) == "cn-north-1" {
+			continue
+		}
 		s := cloudprovider.SSubAccount{
 			Name:         fmt.Sprintf("%s-%s", self.cpcfg.Name, project.Name),
 			State:        api.CLOUD_PROVIDER_CONNECTED,
@@ -539,8 +546,9 @@ func (self *SHuaweiClient) GetOwnerId() (string, error) {
 	}
 
 	type user struct {
-		DomainId string `json:"domain_id"`
-		Name     string `json:"name"`
+		DomainId   string `json:"domain_id"`
+		Name       string `json:"name"`
+		CreateTime string
 	}
 
 	ret := &user{}
@@ -549,6 +557,8 @@ func (self *SHuaweiClient) GetOwnerId() (string, error) {
 		return "", errors.Wrap(err, "SHuaweiClient.GetOwnerId.DoGet")
 	}
 	self.ownerName = ret.Name
+	// 2021-02-02 02:43:28.0
+	self.ownerCreateTime, _ = timeutils.ParseTimeStr(strings.TrimSuffix(ret.CreateTime, ".0"))
 	return ret.DomainId, nil
 }
 
