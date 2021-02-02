@@ -359,7 +359,8 @@ func (scm *SCloudaccountManager) AllowPerformPrepareNets(_ context.Context, user
 
 type sNetworkInfo struct {
 	esxi.SNetworkInfo
-	prefix string
+	prefix   string
+	fakeVsId string
 }
 
 func (scm *SCloudaccountManager) hostVMIPsPrepareNets(ctx context.Context, client *esxi.SESXiClient,
@@ -376,9 +377,11 @@ func (scm *SCloudaccountManager) hostVMIPsPrepareNets(ctx context.Context, clien
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to fetch ips of hosts and vms")
 		}
+		nInfo.IPPool.FillVsId(caName)
 		ret = append(ret, sNetworkInfo{
 			SNetworkInfo: nInfo,
 			prefix:       caName,
+			fakeVsId:     caName,
 		})
 	case api.CLOUD_ACCOUNT_WIRE_LEVEL_DATACENTER:
 		dcs, err := client.GetDatacenters()
@@ -390,9 +393,12 @@ func (scm *SCloudaccountManager) hostVMIPsPrepareNets(ctx context.Context, clien
 			if err != nil {
 				return ret, errors.Wrapf(err, "unable to fetch ips of hosts and vms for dc %q", dc.GetName())
 			}
+			prefix := fmt.Sprintf("%s/%s", caName, dc.GetName())
+			nInfo.IPPool.FillVsId(prefix)
 			ret = append(ret, sNetworkInfo{
 				SNetworkInfo: nInfo,
-				prefix:       fmt.Sprintf("%s/%s", caName, dc.GetName()),
+				prefix:       prefix,
+				fakeVsId:     prefix,
 			})
 		}
 	case api.CLOUD_ACCOUNT_WIRE_LEVEL_CLUSTER:
@@ -410,9 +416,12 @@ func (scm *SCloudaccountManager) hostVMIPsPrepareNets(ctx context.Context, clien
 				if err != nil {
 					return ret, errors.Wrapf(err, "unable to fetch ips of hosts and vms for dc %q cluster %q", dc.GetName(), cluster.GetName())
 				}
+				prefix := fmt.Sprintf("%s/%s/%s", caName, dc.GetName(), cluster.GetName())
+				nInfo.IPPool.FillVsId(prefix)
 				ret = append(ret, sNetworkInfo{
 					SNetworkInfo: nInfo,
-					prefix:       fmt.Sprintf("%s/%s/%s", caName, dc.GetName(), cluster.GetName()),
+					prefix:       prefix,
+					fakeVsId:     prefix,
 				})
 			}
 		}
@@ -555,6 +564,33 @@ func (scm *SCloudaccountManager) parseAndSuggest(params sParseAndSuggest) api.Cl
 		wires    = params.Wires
 		networks = params.Networks
 	)
+	// build global existedNetMap and IPPool
+	netNum := 0
+	for i := range networks {
+		netNum += len(networks[i])
+	}
+	existedNets := newIPPool(netNum)
+	for _, nets := range networks {
+		for i := range nets {
+			startIp, _ := netutils.NewIPV4Addr(nets[i].GuestIpStart)
+			endIp, _ := netutils.NewIPV4Addr(nets[i].GuestIpEnd)
+			existedNets.Insert(startIp, sSimpleNet{
+				Diff:   endIp - startIp,
+				Vlan:   int32(nets[i].VlanId),
+				Id:     nets[i].Id,
+				WireId: nets[i].WireId,
+			})
+
+		}
+	}
+	ipPoolLen := 0
+	for i := range nInfos {
+		ipPoolLen += nInfos[i].IPPool.Len()
+	}
+	ipPool := esxi.NewIPPool(ipPoolLen)
+	for i := range nInfos {
+		ipPool.Merge(&nInfos[i].IPPool)
+	}
 	output.CAWireNets = make([]api.CAWireNet, 0, len(nInfos))
 	for _, ni := range nInfos {
 		var (
@@ -569,11 +605,10 @@ func (scm *SCloudaccountManager) parseAndSuggest(params sParseAndSuggest) api.Cl
 		}
 		// Find suitable wire and the network containing the Host IP in suitable wire.
 		var (
-			tmpSocre          int
-			maxScore          = len(ipHosts)
-			suitableWire      *SWire
-			suitableWireIndex = -1
-			suitableNetworks  map[netutils.IPV4Addr]*SNetwork
+			tmpSocre         int
+			maxScore         = len(ipHosts)
+			suitableWire     *SWire
+			suitableNetworks map[netutils.IPV4Addr]*SNetwork
 		)
 		for i, nets := range networks {
 			score := 0
@@ -595,7 +630,6 @@ func (scm *SCloudaccountManager) parseAndSuggest(params sParseAndSuggest) api.Cl
 			if score > tmpSocre {
 				tmpSocre = score
 				suitableWire = &wires[i]
-				suitableWireIndex = i
 				suitableNetworks = tmpSNs
 			}
 			if tmpSocre == maxScore {
@@ -638,30 +672,12 @@ func (scm *SCloudaccountManager) parseAndSuggest(params sParseAndSuggest) api.Cl
 		}
 
 		// Find the suitable network containing the VM IP, and if not, give the corresponding suggested network configuration in this project.
-		var allNets []SNetwork
-		if suitableWire != nil {
-			allNets = networks[suitableWireIndex]
-		}
-		type simpleNet struct {
-			Id   string
-			Vlan int32
-		}
-		existedNetMap := make(map[netutils.IPV4Addr]simpleNet, len(allNets))
-		for i := range allNets {
-			ipStart, _ := netutils.NewIPV4Addr(allNets[i].GuestIpStart)
-			ipEnd, _ := netutils.NewIPV4Addr(allNets[i].GuestIpEnd)
-			for ip := ipStart; ip <= ipEnd; ip++ {
-				existedNetMap[ip] = simpleNet{Id: allNets[i].Id, Vlan: int32(allNets[i].VlanId)}
-			}
-		}
-
 		for i := range wireNet.HostSuggestedNetworks {
 			ipStart, _ := netutils.NewIPV4Addr(wireNet.HostSuggestedNetworks[i].GuestIpStart)
 			ipEnd, _ := netutils.NewIPV4Addr(wireNet.HostSuggestedNetworks[i].GuestIpEnd)
-			existedNetMap[ipStart] = simpleNet{}
-			if ipEnd != ipStart {
-				existedNetMap[ipEnd] = simpleNet{}
-			}
+			existedNets.Insert(ipStart, sSimpleNet{
+				Diff: ipEnd - ipStart,
+			})
 		}
 
 		guests := make([]api.CAGuestNet, len(ni.VMs))
@@ -669,7 +685,7 @@ func (scm *SCloudaccountManager) parseAndSuggest(params sParseAndSuggest) api.Cl
 			guests[i].Name = ni.VMs[i].Name
 			for _, ipvlan := range ni.VMs[i].IPVlans {
 				var suitableNetId string
-				sn, ok := existedNetMap[ipvlan.IP]
+				sn, ok := existedNets.Get(ipvlan.IP)
 				if ok {
 					suitableNetId = sn.Id
 				}
@@ -685,7 +701,7 @@ func (scm *SCloudaccountManager) parseAndSuggest(params sParseAndSuggest) api.Cl
 		for vlan, ips := range ni.VlanIps {
 			for i := 0; i < len(ips); i++ {
 				ip := ips[i]
-				if _, ok := existedNetMap[ip]; ok {
+				if _, ok := existedNets.Get(ip); ok {
 					continue
 				}
 				net := ip.NetAddr(24)
@@ -694,20 +710,20 @@ func (scm *SCloudaccountManager) parseAndSuggest(params sParseAndSuggest) api.Cl
 				// find startip
 				startIp := ip - 1
 				for ; startIp >= netLimitLow; startIp-- {
-					if _, ok := existedNetMap[startIp]; ok {
+					if _, ok := existedNets.Get(startIp); ok {
 						break
 					}
-					if _, ok := ni.IPPool.Get(startIp); ok {
+					if _, ok := ipPool.Get(startIp); ok {
 						break
 					}
 				}
 				endIp := ip + 1
 				for ; endIp <= netLimitUp; endIp++ {
-					if _, ok := existedNetMap[endIp]; ok {
+					if _, ok := existedNets.Get(endIp); ok {
 						break
 					}
-					if proc, ok := ni.IPPool.Get(endIp); ok {
-						if proc.VlanId == vlan {
+					if proc, ok := ipPool.Get(endIp); ok {
+						if proc.VlanId == vlan && proc.VSId == ni.fakeVsId {
 							// find one in ips
 							i++
 							continue
@@ -729,8 +745,9 @@ func (scm *SCloudaccountManager) parseAndSuggest(params sParseAndSuggest) api.Cl
 					},
 				})
 				// Avoid assigning already assigned ip subnet
-				existedNetMap[startIp+1] = simpleNet{}
-				existedNetMap[endIp-1] = simpleNet{}
+				existedNets.Insert(startIp+1, sSimpleNet{
+					Diff: endIp - startIp - 2,
+				})
 			}
 		}
 		output.CAWireNets = append(output.CAWireNets, wireNet)
@@ -822,6 +839,64 @@ func (manager *SCloudaccountManager) suggestHostNetworks(ips []netutils.IPV4Addr
 		GuestGateway: gatewayIp.String(),
 	})
 	return ret
+}
+
+type sIPPool struct {
+	netranges    []netutils.IPV4Addr
+	simpleNetMap map[netutils.IPV4Addr]sSimpleNet
+}
+
+func newIPPool(length ...int) *sIPPool {
+	initLen := 0
+	if len(length) > 0 {
+		initLen = length[0]
+	}
+	return &sIPPool{
+		netranges:    make([]netutils.IPV4Addr, 0, initLen),
+		simpleNetMap: make(map[netutils.IPV4Addr]sSimpleNet, initLen),
+	}
+}
+
+type sSimpleNet struct {
+	Diff   netutils.IPV4Addr
+	Id     string
+	Vlan   int32
+	WireId string
+}
+
+func (pl *sIPPool) Insert(startIp netutils.IPV4Addr, sNet sSimpleNet) {
+	// TODO:check
+	index := pl.getIndex(startIp)
+	pl.netranges = append(pl.netranges, 0)
+	pl.netranges = append(pl.netranges[:index+1], pl.netranges[index:len(pl.netranges)-1]...)
+	pl.netranges[index] = startIp
+	pl.simpleNetMap[startIp] = sNet
+}
+
+func (pl *sIPPool) getIndex(ip netutils.IPV4Addr) int {
+	index := sort.Search(len(pl.netranges), func(n int) bool {
+		return pl.netranges[n] >= ip
+	})
+	return index
+}
+
+func (pl *sIPPool) Get(ip netutils.IPV4Addr) (sSimpleNet, bool) {
+	index := pl.getIndex(ip)
+	if index > len(pl.netranges) || index < 0 {
+		return sSimpleNet{}, false
+	}
+	if index < len(pl.netranges) && pl.netranges[index] == ip {
+		return pl.simpleNetMap[ip], true
+	}
+	if index == 0 {
+		return sSimpleNet{}, false
+	}
+	startIp := pl.netranges[index-1]
+	simpleNet := pl.simpleNetMap[startIp]
+	if ip-startIp <= simpleNet.Diff {
+		return simpleNet, true
+	}
+	return sSimpleNet{}, false
 }
 
 // The suggestVMNetworks give the suggest config of network that contain the IP in 'ips' and does not intersect with the network segment described in 'excludes'.
