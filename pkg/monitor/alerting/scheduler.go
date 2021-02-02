@@ -15,7 +15,6 @@
 package alerting
 
 import (
-	"math"
 	"time"
 
 	"yunion.io/x/log"
@@ -36,10 +35,11 @@ func newScheduler() scheduler {
 
 func (s *schedulerImpl) Update(rules []*Rule) {
 	log.Debugf("Scheduling update, rule count %d", len(rules))
+	log.Errorf("Scheduling update, rule count %d", len(rules))
 
 	jobs := make(map[string]*Job)
 
-	for i, rule := range rules {
+	for _, rule := range rules {
 		var job *Job
 		if s.jobs[rule.Id] != nil {
 			job = s.jobs[rule.Id]
@@ -50,8 +50,9 @@ func (s *schedulerImpl) Update(rules []*Rule) {
 
 		job.Rule = rule
 
-		offset := ((rule.Frequency * 1000) / int64(len(rules))) * int64(i)
-		job.Offset = int64(math.Floor(float64(offset) / 1000))
+		//offset := ((rule.Frequency * 1000) / int64(len(rules))) * int64(i)
+		//job.Offset = int64(math.Floor(float64(offset) / 1000))
+
 		if job.Offset == 0 {
 			// zero offset causes division with 0 panics
 			job.Offset = 1
