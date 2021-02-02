@@ -594,7 +594,7 @@ func (manager *SWireManager) totalCountQ(
 	netifNicSQ := netifNicQ.GroupBy(netifNics.Field("network_id")).SubQuery()
 	dbNicSQ := dbNicQ.GroupBy(dbNics.Field("network_id")).SubQuery()
 
-	networks := NetworkManager.Query().SubQuery()
+	networks := filterByScopeOwnerId(NetworkManager.Query(), scope, ownerId).SubQuery()
 	netQ := networks.Query(
 		networks.Field("wire_id"),
 		sqlchemy.COUNT("id").Label("net_count"),

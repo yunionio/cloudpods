@@ -242,7 +242,7 @@ func getSystemGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.I
 	count.Add("all.cpu_commit_rate.running", runningCpuCmtRate)
 
 	count.Include(
-		VpcUsage("", providers, brands, cloudEnv, nil, rbacutils.ScopeSystem, rangeObjs),
+		VpcUsage("all", providers, brands, cloudEnv, nil, rbacutils.ScopeSystem, rangeObjs),
 
 		DnsZoneUsage("", nil, rbacutils.ScopeSystem),
 
@@ -285,8 +285,7 @@ func getSystemGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.I
 		IsolatedDeviceUsage("prepaid_pool", rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
 		IsolatedDeviceUsage("any_pool", rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
 
-		WireUsage(rangeObjs, hostTypes, providers, brands, cloudEnv),
-
+		WireUsage(rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, providers, brands, cloudEnv),
 		NetworkUsage("all", rbacutils.ScopeSystem, nil, providers, brands, cloudEnv, rangeObjs),
 
 		EipUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
@@ -371,6 +370,7 @@ func getDomainGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 		GuestReadyUsage(getKey(scope, "ready_servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
 		GuestReadyUsage(getKey(scope, "ready_servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
 
+		WireUsage(scope, cred, rangeObjs, hostTypes, providers, brands, cloudEnv),
 		NetworkUsage(getKey(scope, ""), scope, cred, providers, brands, cloudEnv, rangeObjs),
 
 		EipUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
@@ -410,6 +410,7 @@ func getProjectGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityP
 		GuestReadyUsage(getKey(scope, "ready_servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
 		GuestReadyUsage(getKey(scope, "ready_servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
 
+		WireUsage(scope, cred, rangeObjs, hostTypes, providers, brands, cloudEnv),
 		NetworkUsage(getKey(scope, ""), scope, cred, providers, brands, cloudEnv, rangeObjs),
 
 		EipUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
@@ -624,23 +625,23 @@ func DisksUsage(
 	return count
 }
 
-func WireUsage(rangeObjs []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) Usage {
+func WireUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) Usage {
 	count := make(map[string]interface{})
-	result := models.WireManager.TotalCount(rangeObjs, hostTypes, providers, brands, cloudEnv, rbacutils.ScopeSystem, nil)
-	count["wires"] = result.WiresCount - result.EmulatedWiresCount
-	count["networks"] = result.NetCount
+	result := models.WireManager.TotalCount(rangeObjs, hostTypes, providers, brands, cloudEnv, scope, userCred)
+	count[getKey(scope, "wires")] = result.WiresCount - result.EmulatedWiresCount
+	count[getKey(scope, "networks")] = result.NetCount
 	// include nics for pending_deleted guests
-	count["all.nics.guest"] = result.GuestNicCount
+	count[getKey(scope, "nics.guest")] = result.GuestNicCount
 	// nics for pending_deleted guests
-	count["all.nics.guest.pending_delete"] = result.PendingDeletedGuestNicCount
-	count["all.nics.host"] = result.HostNicCount
-	count["all.nics.reserve"] = result.ReservedCount
-	count["all.nics.group"] = result.GroupNicCount
-	count["all.nics.lb"] = result.LbNicCount
-	count["all.nics.eip"] = result.EipNicCount
-	count["all.nics.netif"] = result.NetifNicCount
-	count["all.nics.db"] = result.DbNicCount
-	count["all.nics"] = result.NicCount()
+	count[getKey(scope, "nics.guest.pending_delete")] = result.PendingDeletedGuestNicCount
+	count[getKey(scope, "nics.host")] = result.HostNicCount
+	count[getKey(scope, "nics.reserve")] = result.ReservedCount
+	count[getKey(scope, "nics.group")] = result.GroupNicCount
+	count[getKey(scope, "nics.lb")] = result.LbNicCount
+	count[getKey(scope, "nics.eip")] = result.EipNicCount
+	count[getKey(scope, "nics.netif")] = result.NetifNicCount
+	count[getKey(scope, "nics.db")] = result.DbNicCount
+	count[getKey(scope, "nics")] = result.NicCount()
 
 	return count
 }
