@@ -98,7 +98,11 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 	content.HostId = host.Id
 	content.HostIp = host.AccessIp
 	// format force VMDK
-	content.Format = "vmdk" // cacheImage.GetFormat()
+	format := cacheImage.GetFormat()
+	if format == "qcow2" {
+		format = "vmdk"
+	}
+	content.Format = format
 
 	content.ImageType = cacheImage.ImageType
 	content.ImageExternalId = cacheImage.ExternalId
