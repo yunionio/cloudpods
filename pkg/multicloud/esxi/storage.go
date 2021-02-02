@@ -793,7 +793,10 @@ func (self *SDatastore) CheckVmdk(ctx context.Context, remotePath string) error 
 }
 
 func (self *SDatastore) getDatastoreObj() *object.Datastore {
-	return object.NewDatastore(self.manager.client.Client, self.getDatastore().Self)
+	od := object.NewDatastore(self.manager.client.Client, self.getDatastore().Self)
+	od.DatacenterPath = self.GetDatacenterPathString()
+	od.InventoryPath = fmt.Sprintf("%s/%s", od.DatacenterPath, self.SManagedObject.GetName())
+	return od
 }
 
 func (self *SDatastore) MakeDir(remotePath string) error {
@@ -897,6 +900,12 @@ func (self *SDatastore) ImportVMDK(ctx context.Context, diskFile, remotePath str
 	// if image_cache not exist
 	return fm.Move(ctx, fmt.Sprintf("[%s] %s/%s.vmdk", self.GetRelName(), name, name), fmt.Sprintf("[%s] %s",
 		self.GetRelName(), remotePath))
+}
+
+func (self *SDatastore) ImportISO(ctx context.Context, isoFile, remotePath string, host *SHost) error {
+	p := soap.DefaultUpload
+	ds := self.getDatastoreObj()
+	return ds.UploadFile(ctx, isoFile, remotePath, &p)
 }
 
 var (
