@@ -155,9 +155,9 @@ func (man *SRouteTableManager) ValidateCreateData(
 	if err != nil {
 		return input, errors.Wrap(err, "validateRoutes")
 	}
-	_, input.VpcResourceInput, err = ValidateVpcResourceInput(userCred, input.VpcResourceInput)
+	_, err = validators.ValidateModel(userCred, VpcManager, &input.VpcId)
 	if err != nil {
-		return input, errors.Wrap(err, "ValidateVpcResourceInput")
+		return input, err
 	}
 	input.StatusInfrasResourceBaseCreateInput, err = man.SStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusInfrasResourceBaseCreateInput)
 	if err != nil {
