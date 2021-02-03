@@ -1283,6 +1283,7 @@ func (manager *SWireManager) FetchCustomizeColumns(
 		}
 		wire := objs[i].(*SWire)
 		rows[i].Networks, _ = wire.NetworkCount()
+		rows[i].HostCount, _ = wire.HostCount()
 	}
 
 	return rows
