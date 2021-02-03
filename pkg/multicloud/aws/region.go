@@ -120,6 +120,8 @@ const (
 	CLOUD_TRAIL_SERVICE_ID   = "cloudtrail"
 
 	ROUTE53_SERVICE_NAME = "route53"
+
+	ELASTICACHE_SERVICE_NAME = "elasticache"
 )
 
 type SRegion struct {
