@@ -66,6 +66,9 @@ func (n *NotifierBase) ShouldNotify(_ context.Context, evalCtx *alerting.EvalCon
 	}
 
 	if newState == monitor.AlertStateAlerting {
+		if prevState == monitor.AlertStateOK {
+			return true
+		}
 		send, err := state.ShouldSendNotification()
 		if err != nil {
 			log.Errorf("Alertnotification ShouldSendNotification exec err:%v", err)

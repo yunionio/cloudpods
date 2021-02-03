@@ -2,6 +2,11 @@ package monitor
 
 import "yunion.io/x/onecloud/pkg/apis"
 
+const (
+	SEND_STATE_OK     = "ok"
+	SEND_STATE_SILENT = "silent"
+)
+
 type AlertRecordListInput struct {
 	apis.Meta
 
@@ -31,6 +36,7 @@ type AlertRecordCreateInput struct {
 	// 报警级别
 	Level     string       `json:"level"`
 	State     string       `json:"state"`
+	SendState string       `json:"send_state"`
 	ResType   string       `json:"res_type"`
 	EvalData  []*EvalMatch `json:"eval_data"`
 	AlertRule AlertRecordRule

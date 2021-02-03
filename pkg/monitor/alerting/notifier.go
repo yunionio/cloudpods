@@ -144,8 +144,8 @@ func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalCon
 			})
 		}
 	}
-	if shouldNotify {
-		n.createAlertRecordWhenNotify(evalCtx)
+	if shouldNotify || evalCtx.Rule.State == monitor.AlertStateAlerting {
+		n.createAlertRecordWhenNotify(evalCtx, shouldNotify)
 	}
 	if !shouldNotify && evalCtx.shouldUpdateAlertState() && evalCtx.NoDataFound {
 		n.detachAlertResourceWhenNodata(evalCtx)
@@ -154,7 +154,7 @@ func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalCon
 	return result, nil
 }
 
-func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext) {
+func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, shouldNotify bool) {
 	var matches []*monitor.EvalMatch
 	if evalCtx.Firing {
 		matches = evalCtx.EvalMatches
@@ -168,8 +168,12 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext) 
 		AlertId:   evalCtx.Rule.Id,
 		Level:     evalCtx.Rule.Level,
 		State:     string(evalCtx.Rule.State),
+		SendState: monitor.SEND_STATE_OK,
 		EvalData:  matches,
 		AlertRule: newAlertRecordRule(evalCtx),
+	}
+	if !shouldNotify {
+		recordCreateInput.SendState = monitor.SEND_STATE_SILENT
 	}
 	recordCreateInput.ResType = recordCreateInput.AlertRule.ResType
 	createData := recordCreateInput.JSON(recordCreateInput)

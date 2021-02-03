@@ -113,6 +113,11 @@ func (man *SCommonAlertManager) ValidateCreateData(
 	if _, err := time.ParseDuration(data.Period); err != nil {
 		return data, httperrors.NewInputParameterError("Invalid period format: %s", data.Period)
 	}
+	if data.SilentPeriod != "" {
+		if _, err := time.ParseDuration(data.SilentPeriod); err != nil {
+			return data, httperrors.NewInputParameterError("Invalid silent_period format: %s", data.SilentPeriod)
+		}
+	}
 	// 默认的系统配置Recipients=commonalert-default
 	if data.AlertType != monitor.CommonAlertSystemAlertType && len(data.Recipients) == 0 {
 		return data, merrors.NewArgIsEmptyErr("recipients")
@@ -253,10 +258,10 @@ func (alert *SCommonAlert) customizeCreateNotis(ctx context.Context, userCred mc
 	}
 	//user_by 弃用
 	if input.AlertType == monitor.CommonAlertSystemAlertType {
-		return alert.createAlertNoti(ctx, userCred, input.Name, "webconsole", []string{}, true)
+		return alert.createAlertNoti(ctx, userCred, input.Name, "webconsole", []string{}, input.SilentPeriod, true)
 	}
 	for _, channel := range input.Channel {
-		err := alert.createAlertNoti(ctx, userCred, input.Name, channel, input.Recipients, false)
+		err := alert.createAlertNoti(ctx, userCred, input.Name, channel, input.Recipients, input.SilentPeriod, false)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("create notify[channel is %s]error", channel))
 		}
@@ -265,8 +270,8 @@ func (alert *SCommonAlert) customizeCreateNotis(ctx context.Context, userCred mc
 }
 
 func (alert *SCommonAlert) createAlertNoti(ctx context.Context, userCred mcclient.TokenCredential,
-	notiName, channel string, userIds []string, isSysNoti bool) error {
-	noti, err := NotificationManager.CreateOneCloudNotification(ctx, userCred, notiName, channel, userIds)
+	notiName, channel string, userIds []string, silentPeriod string, isSysNoti bool) error {
+	noti, err := NotificationManager.CreateOneCloudNotification(ctx, userCred, notiName, channel, userIds, silentPeriod)
 	if err != nil {
 		return errors.Wrap(err, "create notification")
 	}
@@ -744,6 +749,11 @@ func (alert *SCommonAlert) ValidateUpdateData(
 			frep, _ := time.ParseDuration(period)
 			freqSpec := int64(frep / time.Second)
 			data.Set("frequency", jsonutils.NewInt(freqSpec))
+		}
+	}
+	if silentPeriod, _ := data.GetString("silent_period"); len(silentPeriod) > 0 {
+		if _, err := time.ParseDuration(silentPeriod); err != nil {
+			return data, httperrors.NewInputParameterError("Invalid silent_period format: %s", silentPeriod)
 		}
 	}
 	//if recipients, _ := data.GetArray("recipients"); len(recipients) > 0 {
