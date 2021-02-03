@@ -44,7 +44,9 @@ type WireDetails struct {
 	// IP子网数量
 	// example: 1
 	Networks int `json:"networks"`
-	// VPC名称
+	// Host数量
+	// example: 1
+	HostCount int `json:"host_count"`
 }
 
 type WireResourceInfoBase struct {
