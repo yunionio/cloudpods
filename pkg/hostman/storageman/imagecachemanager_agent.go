@@ -148,7 +148,6 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByCopy(ctx context.Context, 
 func (c *SAgentImageCacheManager) prefetchImageCacheByUpload(ctx context.Context, data *sImageCacheData,
 	origin *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
 
-	format := "vmdk"
 	localImage, err := c.imageCacheManger.PrefetchImageCache(ctx, origin)
 	if err != nil {
 		return nil, err
@@ -168,9 +167,13 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByUpload(ctx context.Context
 	if err != nil {
 		return nil, errors.Wrap(err, "SHost.FindDataStoreById")
 	}
-	remotePath := fmt.Sprintf("image_cache/%s.%s", data.ImageId, format)
 
-	// check if dst vmdk is exist
+	format, _ := origin.GetString("format")
+	if format == "" {
+		format = "vmdk"
+	}
+	remotePath := fmt.Sprintf("image_cache/%s.%s", data.ImageId, format)
+	// check if dst image is exist
 	exists := false
 	if format == "vmdk" {
 		err = ds.CheckVmdk(ctx, remotePath)
@@ -192,10 +195,16 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByUpload(ctx context.Context
 	}
 	log.Debugf("exist: %t, remotePath: %s", exists, remotePath)
 	if !exists || data.IsForce {
-		err := ds.ImportVMDK(ctx, localImgPath, remotePath, host)
-		//err := ds.ImportVMDK(ctx, localImgPath, host)
-		if err != nil {
-			return nil, errors.Wrap(err, "SDatastore.ImportTemplate")
+		if format == "iso" {
+			err := ds.ImportISO(ctx, localImgPath, remotePath, host)
+			if err != nil {
+				return nil, errors.Wrap(err, "SDatastore.ImportISO")
+			}
+		} else {
+			err := ds.ImportVMDK(ctx, localImgPath, remotePath, host)
+			if err != nil {
+				return nil, errors.Wrap(err, "SDatastore.ImportTemplate")
+			}
 		}
 	}
 	remotePath = ds.GetFullPath(remotePath)
