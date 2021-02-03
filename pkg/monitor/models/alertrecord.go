@@ -38,6 +38,7 @@ type SAlertRecord struct {
 	AlertId   string               `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	Level     string               `charset:"ascii" width:"36" nullable:"false" default:"normal" list:"user" update:"user"`
 	State     string               `width:"36" charset:"ascii" nullable:"false" default:"unknown" list:"user" update:"user"`
+	SendState string               `width:"36" charset:"ascii" default:"ok" list:"user" update:"user"`
 	EvalData  jsonutils.JSONObject `list:"user" update:"user"`
 	AlertRule jsonutils.JSONObject `list:"user" update:"user"`
 	ResType   string               `width:"36" list:"user" update:"user"`
