@@ -39,6 +39,12 @@ type CloudeventListInput struct {
 	// 操作类型
 	Action []string `json:"action"`
 
+	// 资源类别
+	ResourceType []string `json:"resource_type"`
+
+	// 执行状态
+	Success *bool `json:"success"`
+
 	// 操作日志起始时间
 	Since time.Time `json:"since"`
 	// 操作日志截止时间
