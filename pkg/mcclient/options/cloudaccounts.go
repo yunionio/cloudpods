@@ -755,6 +755,7 @@ type SVMwareCloudAccountPrepareNetsOptions struct {
 	Project       string `help:"project for this account"`
 	ProjectDomain string `help:"domain for this account"`
 	WireLevel     string `help:"wire level for this account" choices:"vcenter|datacenter|cluster" json:"wire_level_for_vmware"`
+	Dvs           bool   `help:"whether to enable dvs corresponding wire"`
 	NAME          string `help:"name for this account"`
 }
 
