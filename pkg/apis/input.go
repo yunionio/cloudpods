@@ -345,3 +345,8 @@ type GetMetadataInput struct {
 
 // 获取资源标签（元数据）输出
 type GetMetadataOutput map[string]string
+
+type DistinctFieldInput struct {
+	Field      []string
+	ExtraField []string
+}
