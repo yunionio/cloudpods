@@ -165,7 +165,7 @@ func (man *SNotificationManager) CreateOneCloudNotification(
 	userCred mcclient.TokenCredential,
 	alertName string,
 	channel string,
-	userIds []string) (*SNotification, error) {
+	userIds []string, silentPeriod string) (*SNotification, error) {
 	settings := &monitor.NotificationSettingOneCloud{
 		Channel: channel,
 		UserIds: userIds,
@@ -178,6 +178,10 @@ func (man *SNotificationManager) CreateOneCloudNotification(
 		Name:     newName,
 		Type:     monitor.AlertNotificationTypeOneCloud,
 		Settings: jsonutils.Marshal(settings),
+	}
+	if silentPeriod != "" {
+		duration, _ := time.ParseDuration(silentPeriod)
+		input.Frequency = duration / time.Second
 	}
 	obj, err := db.DoCreate(man, ctx, userCred, nil, input.JSON(input), userCred)
 	if err != nil {

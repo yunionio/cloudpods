@@ -50,7 +50,7 @@ type NotificationCreateInput struct {
 	SendReminder *bool `json:"send_reminder"`
 	// 是否禁用报警恢复提醒
 	DisableResolveMessage *bool `json:"disable_resolve_message"`
-	// 发送频率
+	// 发送频率 单位：s
 	Frequency time.Duration `json:"frequency"`
 	// 通知配置
 	Settings jsonutils.JSONObject `json:"settings"`
