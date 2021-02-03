@@ -1267,6 +1267,7 @@ func syncOnPremiseCloudProviderInfo(
 				storageCachePairs = append(storageCachePairs, newCachePairs...)
 			}
 			syncHostNics(ctx, userCred, provider, &localHosts[i], remoteHosts[i])
+			syncOnPremiseHostWires(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i])
 			syncHostVMs(ctx, userCred, syncResults, provider, driver, &localHosts[i], remoteHosts[i], syncRange)
 		}
 	}
@@ -1285,6 +1286,27 @@ func syncOnPremiseCloudProviderInfo(
 	}
 
 	return nil
+}
+
+func syncOnPremiseHostWires(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localHost *SHost, remoteHost cloudprovider.ICloudHost) {
+	log.Infof("start to sync OnPremeseHostWires")
+	if provider.Provider != api.CLOUD_PROVIDER_VMWARE {
+		return
+	}
+	result := localHost.SyncEsxiHostWires(ctx, userCred, remoteHost)
+	if syncResults != nil {
+		syncResults.Add(HostManager, result)
+	}
+
+	msg := result.Result()
+	notes := fmt.Sprintf("SyncEsxiHostWires for host %s result: %s", localHost.Name, msg)
+	if result.IsError() {
+		log.Errorf(notes)
+		return
+	} else {
+		log.Infof(notes)
+	}
+	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 }
 
 func syncHostNics(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localHost *SHost, remoteHost cloudprovider.ICloudHost) {

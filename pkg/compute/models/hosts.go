@@ -53,6 +53,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/multicloud/esxi"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -1396,6 +1397,16 @@ func (self *SHost) GetMasterWire() *SWire {
 		return nil
 	}
 	return &wire
+}
+
+func (self *SHost) getHostwires() ([]SHostwire, error) {
+	hostwires := make([]SHostwire, 0)
+	q := self.GetWiresQuery()
+	err := db.FetchModelObjects(HostwireManager, q, &hostwires)
+	if err != nil {
+		return nil, err
+	}
+	return hostwires, nil
 }
 
 func (self *SHost) getHostwiresOfId(wireId string) []SHostwire {
@@ -4908,6 +4919,93 @@ func (self *SHost) UpdateDiskConfig(userCred mcclient.TokenCredential, layouts [
 	return nil
 }
 
+// TODO: support multithreaded operation
+func (host *SHost) SyncEsxiHostWires(ctx context.Context, userCred mcclient.TokenCredential, remoteHost cloudprovider.ICloudHost) compare.SyncResult {
+	lockman.LockObject(ctx, host)
+	defer lockman.ReleaseObject(ctx, host)
+
+	result := compare.SyncResult{}
+	ca := host.GetCloudaccount()
+	host2wires, err := ca.GetHost2Wire(ctx, userCred)
+	if err != nil {
+		result.Error(errors.Wrap(err, "unable to GetHost2Wire"))
+		return result
+	}
+	log.Infof("host2wires: %s", jsonutils.Marshal(host2wires))
+	ihost := remoteHost.(*esxi.SHost)
+	remoteHostId := ihost.GetId()
+	vsWires := host2wires[remoteHostId]
+
+	log.Infof("vsWires: %s", jsonutils.Marshal(vsWires))
+	netIfs := host.GetNetInterfaces()
+	hostwires, err := host.getHostwires()
+	if err != nil {
+		result.Error(errors.Wrapf(err, "unable to getHostwires of host %s", host.GetId()))
+		return result
+	}
+
+	for i := range vsWires {
+		vsWire := vsWires[i]
+		if vsWire.SyncTimes > 0 {
+			continue
+		}
+		netif := host.findNetIfs(netIfs, vsWire.Mac)
+		if netif == nil {
+			// do nothing
+			continue
+		}
+		hostwire := host.findHostwire(hostwires, vsWire.WireId, vsWire.Mac)
+		if hostwire == nil {
+			hostwire = &SHostwire{
+				Bridge:  vsWire.VsId,
+				MacAddr: vsWire.Mac,
+				HostId:  host.GetId(),
+				WireId:  vsWire.WireId,
+			}
+			hostwire.MacAddr = vsWire.Mac
+			err := HostwireManager.TableSpec().Insert(ctx, hostwire)
+			if err != nil {
+				result.Error(errors.Wrapf(err, "unable to create hostwire for host %q", host.GetId()))
+				continue
+			}
+		}
+		if hostwire.Bridge != vsWire.VsId {
+			db.Update(hostwire, func() error {
+				hostwire.Bridge = vsWire.VsId
+				return nil
+			})
+		}
+		if len(netif.WireId) == 0 {
+			db.Update(netif, func() error {
+				netif.WireId = vsWire.WireId
+				return nil
+			})
+		}
+		vsWires[i].SyncTimes += 1
+	}
+	log.Infof("after sync: %s", jsonutils.Marshal(host2wires))
+	ca.SetHost2Wire(ctx, userCred, host2wires)
+	return result
+}
+
+func (host *SHost) findHostwire(hostwires []SHostwire, wireId string, mac string) *SHostwire {
+	for i := range hostwires {
+		if hostwires[i].WireId == wireId && hostwires[i].MacAddr == mac {
+			return &hostwires[i]
+		}
+	}
+	return nil
+}
+
+func (host *SHost) findNetIfs(netIfs []SNetInterface, mac string) *SNetInterface {
+	for i := range netIfs {
+		if netIfs[i].Mac == mac {
+			return &netIfs[i]
+		}
+	}
+	return nil
+}
+
 func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.TokenCredential, ihost cloudprovider.ICloudHost) compare.SyncResult {
 	result := compare.SyncResult{}
 
@@ -4960,7 +5058,7 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 					if hw != nil && (hw.Bridge != extNics[i].GetBridge() || hw.Interface != extNics[i].GetDevice()) {
 						db.Update(hw, func() error {
 							hw.Interface = extNics[i].GetDevice()
-							hw.Bridge = extNics[i].GetBridge()
+							// hw.Bridge = extNics[i].GetBridge()
 							return nil
 						})
 					}
