@@ -15,7 +15,7 @@
 package compute
 
 const (
-	WIRE_STATUS_READY                = "ready"
+	WIRE_STATUS_AVAILABLE            = "available"
 	WIRE_STATUS_MERGE_NETWORK        = "merge_network"
 	WIRE_STATUS_MERGE_NETWORK_FAILED = "merge_network_failed"
 )
