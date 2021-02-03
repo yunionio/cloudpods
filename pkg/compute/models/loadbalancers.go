@@ -303,11 +303,11 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 
 	var region *SCloudregion
 	if len(input.VpcId) > 0 {
-		var vpc *SVpc
-		vpc, input.VpcResourceInput, err = ValidateVpcResourceInput(userCred, input.VpcResourceInput)
+		_vpc, err := validators.ValidateModel(userCred, VpcManager, &input.VpcId)
 		if err != nil {
-			return nil, errors.Wrap(err, "ValidateVpcResourceInput")
+			return nil, err
 		}
+		vpc := _vpc.(*SVpc)
 		region, _ = vpc.GetRegion()
 	} else if len(input.ZoneId) > 0 {
 		var zone *SZone
