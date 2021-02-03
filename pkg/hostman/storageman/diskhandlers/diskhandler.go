@@ -227,10 +227,15 @@ func perfomrDiskActions(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	disk, err := storage.GetDiskById(diskId)
-	if err != nil {
-		hostutils.Response(ctx, w, httperrors.NewGeneralError(errors.Wrapf(err, "GetDiskById(%s)", diskId)))
-		return
+	var disk storageman.IDisk
+	var err error
+
+	if action != "create" {
+		disk, err = storage.GetDiskById(diskId)
+		if err != nil {
+			hostutils.Response(ctx, w, httperrors.NewGeneralError(errors.Wrapf(err, "GetDiskById(%s)", diskId)))
+			return
+		}
 	}
 
 	f, ok := actionFuncs[action]
