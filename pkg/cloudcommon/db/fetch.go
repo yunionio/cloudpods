@@ -515,3 +515,26 @@ func FetchQueryObjectsByIds(q *sqlchemy.SQuery, fieldName string, ids []string, 
 func FetchStandaloneObjectsByIds(modelManager IModelManager, ids []string, targets interface{}) error {
 	return FetchModelObjectsByIds(modelManager, "id", ids, targets)
 }
+
+func FetchDistinctField(modelManager IModelManager, field string) ([]string, error) {
+	q := modelManager.Query(field).Distinct()
+	rows, err := q.Rows()
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, errors.Wrapf(err, "q.Rows")
+	}
+	defer rows.Close()
+
+	values := []string{}
+	for rows.Next() {
+		var value string
+		err := rows.Scan(&value)
+		if err != nil {
+			return values, errors.Wrap(err, "rows.Scan")
+		}
+		values = append(values, value)
+	}
+	return values, nil
+}

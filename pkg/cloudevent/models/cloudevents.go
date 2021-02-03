@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/cloudevent"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -136,6 +137,14 @@ func (manager *SCloudeventManager) ListItemFilter(
 		q = q.In("action", input.Action)
 	}
 
+	if len(input.ResourceType) > 0 {
+		q = q.In("resource_type", input.ResourceType)
+	}
+
+	if input.Success != nil {
+		q = q.Equals("success", *input.Success)
+	}
+
 	if !input.Since.IsZero() {
 		q = q.GT("created_at", input.Since)
 	}
@@ -237,6 +246,18 @@ func (manager *SCloudeventManager) SyncCloudevent(ctx context.Context, userCred 
 			event.Brand = event.Provider
 		}
 
+		for k, v := range map[string]string{
+			"service":       event.Service,
+			"resoruce_type": event.ResourceType,
+			"action":        event.Action,
+			"account":       event.Account,
+			"manager":       event.Manager,
+			"provider":      event.Provider,
+			"brand":         event.Brand,
+		} {
+			db.DistinctFieldManager.InsertOrUpdate(ctx, manager, k, v)
+		}
+
 		event.CreatedAt = iEvent.GetCreatedAt()
 		event.SetModelManager(manager, event)
 		err := manager.TableSpec().Insert(ctx, event)
@@ -257,6 +278,51 @@ func (manager *SCloudeventManager) GetPagingConfig() *db.SPagingConfig {
 	}
 }
 
+func (manager *SCloudeventManager) GetPropertyDistinctField(ctx context.Context, userCred mcclient.TokenCredential, input apis.DistinctFieldInput) (jsonutils.JSONObject, error) {
+	fields, err := db.DistinctFieldManager.GetObjectDistinctFields(manager.Keyword())
+	if err != nil {
+		return nil, errors.Wrapf(err, "DistinctFieldManager.GetObjectDistinctFields")
+	}
+	fieldMaps := map[string][]string{}
+	for _, field := range fields {
+		_, ok := fieldMaps[field.Key]
+		if !ok {
+			fieldMaps[field.Key] = []string{}
+		}
+		fieldMaps[field.Key] = append(fieldMaps[field.Key], field.Value)
+	}
+	ret := map[string][]string{}
+	for _, key := range input.Field {
+		ret[key], _ = fieldMaps[key]
+	}
+	return jsonutils.Marshal(ret), nil
+}
+
+func (manager *SCloudeventManager) initDistinctField() error {
+	fileds, err := db.DistinctFieldManager.GetObjectDistinctFields(manager.Keyword())
+	if err != nil {
+		return errors.Wrapf(err, "GetObjectDistinctFields")
+	}
+	if len(fileds) > 0 {
+		return nil
+	}
+	for _, key := range []string{"service", "resource_type", "action", "account", "manager", "provider", "brand"} {
+		values, err := db.FetchDistinctField(manager, key)
+		if err != nil {
+			return errors.Wrapf(err, "db.FetchDistinctField")
+		}
+		for _, value := range values {
+			if len(value) > 0 {
+				err = db.DistinctFieldManager.InsertOrUpdate(nil, manager, key, value)
+				if err != nil {
+					return errors.Wrapf(err, "DistinctFieldManager.InsertOrUpdate(%s, %s)", key, value)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (manager *SCloudeventManager) InitializeData() error {
 	events := []SCloudevent{}
 	q := manager.Query().IsNullOrEmpty("brand")
@@ -273,5 +339,5 @@ func (manager *SCloudeventManager) InitializeData() error {
 			return err
 		}
 	}
-	return nil
+	return manager.initDistinctField()
 }

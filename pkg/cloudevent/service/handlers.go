@@ -48,6 +48,7 @@ func InitHandlers(app *appsrv.Application) {
 		taskman.TaskObjectManager,
 		db.UserCacheManager,
 		db.TenantCacheManager,
+		db.DistinctFieldManager,
 		models.CloudproviderManager,
 	} {
 		db.RegisterModelManager(manager)
