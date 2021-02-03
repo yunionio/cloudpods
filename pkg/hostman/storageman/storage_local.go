@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/util/timeutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -127,25 +128,20 @@ func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	return res, err
 }
 
-func (s *SLocalStorage) GetDiskById(diskId string) IDisk {
+func (s *SLocalStorage) GetDiskById(diskId string) (IDisk, error) {
 	s.DiskLock.Lock()
 	defer s.DiskLock.Unlock()
 	for i := 0; i < len(s.Disks); i++ {
 		if s.Disks[i].GetId() == diskId {
-			if s.Disks[i].Probe() == nil {
-				return s.Disks[i]
-			} else {
-				return nil
-			}
+			return s.Disks[i], s.Disks[i].Probe()
 		}
 	}
 	var disk = NewLocalDisk(s, diskId)
 	if disk.Probe() == nil {
 		s.Disks = append(s.Disks, disk)
-		return disk
-	} else {
-		return nil
+		return disk, nil
 	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (s *SLocalStorage) CreateDisk(diskId string) IDisk {
