@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -117,9 +119,9 @@ func diskPrecheck(
 	if storage == nil {
 		return nil, httperrors.NewNotFoundError("Storage %s not found", storageId)
 	}
-	disk := storage.GetDiskById(diskId)
-	if disk == nil {
-		return nil, httperrors.NewNotFoundError("Disk %s not found", diskId)
+	disk, err := storage.GetDiskById(diskId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDiskById(%s)", diskId)
 	}
 	return disk, nil
 }

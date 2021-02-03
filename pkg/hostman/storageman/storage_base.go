@@ -104,7 +104,7 @@ type IStorage interface {
 	GetCapacity() int
 
 	// Find owner disks first, if not found, call create disk
-	GetDiskById(diskId string) IDisk
+	GetDiskById(diskId string) (IDisk, error)
 	CreateDisk(diskId string) IDisk
 	RemoveDisk(IDisk)
 

@@ -188,7 +188,8 @@ func (s *SStorageManager) GetStorage(storageId string) IStorage {
 
 func (s *SStorageManager) GetStorageDisk(storageId, diskId string) IDisk {
 	if storage := s.GetStorage(storageId); storage != nil {
-		return storage.GetDiskById(diskId)
+		disk, _ := storage.GetDiskById(diskId)
+		return disk
 	}
 	return nil
 }
@@ -212,7 +213,8 @@ func (s *SStorageManager) GetDiskByPath(diskPath string) IDisk {
 	}
 	storage := s.GetStorageByPath(sPath)
 	if storage != nil {
-		return storage.GetDiskById(diskId)
+		disk, _ := storage.GetDiskById(diskId)
+		return disk
 	}
 	return nil
 }
