@@ -31,6 +31,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -291,7 +292,14 @@ func (self *SKVMHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, hos
 	url := fmt.Sprintf("/disks/%s/delete/%s", storage.Id, disk.Id)
 	body := jsonutils.NewDict()
 	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, body)
-	return err
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			task.ScheduleRun(nil)
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func (driver *SKVMHostDriver) RequestDeallocateBackupDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
