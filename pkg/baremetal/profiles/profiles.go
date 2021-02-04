@@ -84,14 +84,24 @@ func QemuProfile() IPMIProfile {
 	}
 }
 
+func H3CProfile() IPMIProfile {
+	return IPMIProfile{
+		LanChannel: []int{8, 1},
+		RootName:   "root",
+		RootId:     2,
+		StrongPass: true,
+	}
+}
+
 var (
 	PROFILES map[string]IPMIProfile = map[string]IPMIProfile{
-		"inspur":  InspurProfile(),
-		"lenovo":  LenovoProfile(),
-		"hp":      HpProfile(),
-		"huawei":  HuaweiProfile(),
-		"foxconn": FoxconnProfile(),
-		"qemu":    QemuProfile(),
+		types.OEM_NAME_INSPUR:  InspurProfile(),
+		types.OEM_NAME_LENOVO:  LenovoProfile(),
+		types.OEM_NAME_HP:      HpProfile(),
+		types.OEM_NAME_HUAWEI:  HuaweiProfile(),
+		types.OEM_NAME_FOXCONN: FoxconnProfile(),
+		types.OEM_NAME_QEMU:    QemuProfile(),
+		types.OEM_NAME_H3C:     H3CProfile(),
 	}
 )
 
