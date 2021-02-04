@@ -12,27 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package logger
+package models
 
 import (
-	"time"
+	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
-type BaremetalEventListInput struct {
-	apis.ModelBaseListInput
-
-	// since
-	Since time.Time `json:"since"`
-	// until
-	Until time.Time `json:"until"`
-}
-
-type ActionLogListInput struct {
-	apis.OpsLogListInput
-
-	Service []string `json:"service"`
-
-	Success *bool `json:"success"`
+func InitDB() error {
+	for _, manager := range []db.IModelManager{
+		/*
+		 * Important!!!
+		 * initialization order matters, do not change the order
+		 */
+		ActionLog,
+	} {
+		err := manager.InitializeData()
+		if err != nil {
+			log.Errorf("Manager %s initializeData fail %s", manager.Keyword(), err)
+		}
+	}
+	return nil
 }
