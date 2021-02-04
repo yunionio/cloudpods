@@ -89,7 +89,6 @@ require (
 	github.com/mholt/caddy v0.10.11
 	github.com/miekg/dns v1.1.4
 	github.com/minio/minio-go v6.0.14+incompatible
-	github.com/minio/minio-go/v6 v6.0.33
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/moul/http2curl v1.0.0
 	github.com/mozillazg/go-pinyin v0.15.0
@@ -149,7 +148,7 @@ require (
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
 	yunion.io/x/pkg v0.0.0-20210109071527-7e72daf56747
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v0.0.0-20201219153152-2d901261898c
+	yunion.io/x/sqlchemy v0.0.0-20210204013753-dbac29c9cedb
 	yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
 )
 
