@@ -335,6 +335,15 @@ type CloudaccountPerformPublicInput struct {
 type CloudaccountPerformPrepareNetsInput struct {
 	CloudaccountCreateInput
 
+	// description: Recommended network subnet mask
+	// example: 24
+	NetworkBits *int8 `json:"network_bits"`
+	// description: The upper limit of host number
+	// example: 254
+	HostNumberUpperLimit *int `json:"host_number_upper_limit"`
+	// description: The lower limit of host number
+	// example: 2
+	HostNumberLowerLimit *int `json:"host_number_lower_limit"`
 	// enum: vcenter,datacenter,cluster
 	WireLevelForVmware string `json:"wire_level_for_vmware"`
 }
