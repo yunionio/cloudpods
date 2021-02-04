@@ -24,6 +24,7 @@ import (
 
 type IFunction interface {
 	expression() string
+	variables() []interface{}
 }
 
 type SFunctionFieldBase struct {
@@ -65,6 +66,10 @@ func (ff *SFunctionFieldBase) Label(label string) IQueryField {
 	return ff
 }
 
+func (ff *SFunctionFieldBase) Variables() []interface{} {
+	return ff.variables()
+}
+
 type SExprFunction struct {
 	fields   []IQueryField
 	function string
@@ -76,6 +81,15 @@ func (ff *SExprFunction) expression() string {
 		fieldRefs = append(fieldRefs, f.Reference())
 	}
 	return fmt.Sprintf(ff.function, fieldRefs...)
+}
+
+func (ff *SExprFunction) variables() []interface{} {
+	vars := make([]interface{}, 0)
+	for _, f := range ff.fields {
+		fromVars := f.Variables()
+		vars = append(vars, fromVars...)
+	}
+	return vars
 }
 
 func NewFunctionField(name string, funcexp string, fields ...IQueryField) IQueryField {
@@ -123,6 +137,38 @@ func REPLACE(name string, field IQueryField, old string, new string) IQueryField
 	return NewFunctionField(name, fmt.Sprintf(`REPLACE(%s, "%s", "%s")`, "%s", old, new), field)
 }
 
+type SConstField struct {
+	constVar interface{}
+	alias    string
+}
+
+func (s *SConstField) Expression() string {
+	return fmt.Sprintf("%s AS `%s`", s.Reference(), s.Name())
+}
+
+func (s *SConstField) Name() string {
+	return s.alias
+}
+
+func (s *SConstField) Reference() string {
+	return getQuoteStringValue(s.constVar)
+}
+
+func (s *SConstField) Label(label string) IQueryField {
+	if len(label) > 0 {
+		s.alias = label
+	}
+	return s
+}
+
+func (s *SConstField) Variables() []interface{} {
+	return nil
+}
+
+func NewConstField(variable interface{}) *SConstField {
+	return &SConstField{constVar: variable}
+}
+
 type SStringField struct {
 	strConst string
 	alias    string
@@ -145,6 +191,10 @@ func (s *SStringField) Label(label string) IQueryField {
 		s.alias = label
 	}
 	return s
+}
+
+func (s *SStringField) Variables() []interface{} {
+	return nil
 }
 
 func NewStringField(name string) *SStringField {

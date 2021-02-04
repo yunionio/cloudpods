@@ -34,6 +34,10 @@ func (rqf *SRawQueryField) Label(label string) IQueryField {
 	return rqf
 }
 
+func (rqf *SRawQueryField) Variables() []interface{} {
+	return nil
+}
+
 func NewRawQuery(sqlStr string, fields ...string) *SQuery {
 	qfs := make([]IQueryField, len(fields))
 	for i, f := range fields {
