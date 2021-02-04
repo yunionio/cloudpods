@@ -487,7 +487,6 @@ github.com/minio/minio-go/pkg/set
 # github.com/minio/minio-go/v6 v6.0.33
 github.com/minio/minio-go/v6/pkg/credentials
 github.com/minio/minio-go/v6/pkg/encrypt
-github.com/minio/minio-go/v6/pkg/policy
 github.com/minio/minio-go/v6/pkg/s3signer
 github.com/minio/minio-go/v6/pkg/s3utils
 github.com/minio/minio-go/v6/pkg/set
@@ -1165,7 +1164,7 @@ yunion.io/x/pkg/util/workqueue
 yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v0.0.0-20201219153152-2d901261898c
+# yunion.io/x/sqlchemy v0.0.0-20210204013753-dbac29c9cedb
 yunion.io/x/sqlchemy
 # yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
 yunion.io/x/structarg

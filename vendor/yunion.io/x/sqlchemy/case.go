@@ -66,3 +66,16 @@ func (cf *SCaseFunction) expression() string {
 	buf.WriteString(" END")
 	return buf.String()
 }
+
+func (cf *SCaseFunction) variables() []interface{} {
+	vars := make([]interface{}, 0)
+	for i := range cf.branches {
+		fromvars := cf.branches[i].whenCondition.Variables()
+		vars = append(vars, fromvars...)
+		fromvars = cf.branches[i].thenField.Variables()
+		vars = append(vars, fromvars...)
+	}
+	fromvars := cf.elseField.Variables()
+	vars = append(vars, fromvars...)
+	return vars
+}
