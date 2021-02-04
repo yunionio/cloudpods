@@ -156,6 +156,9 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 			}
 		}
 		resp.Add(domains, "domains")
+		resp.Add(jsonutils.JSONTrue, "return_full_domains")
+	} else {
+		resp.Add(jsonutils.JSONFalse, "return_full_domains")
 	}
 
 	filters := jsonutils.NewDict()
@@ -960,6 +963,12 @@ func getUserInfo2(s *mcclient.ClientSession, uid string, pid string, loginIp str
 		data.Add(jsonutils.JSONTrue, "non_default_domain_projects")
 	} else {
 		data.Add(jsonutils.JSONFalse, "non_default_domain_projects")
+	}
+
+	if options.Options.EnableQuotaCheck {
+		data.Add(jsonutils.JSONTrue, "enable_quota_check")
+	} else {
+		data.Add(jsonutils.JSONFalse, "enable_quota_check")
 	}
 
 	data.Add(jsonutils.NewString(getSsoCallbackUrl()), "sso_callback_url")
