@@ -891,7 +891,7 @@ func chooseCandidateNetworksByNetworkType(nets []SNetwork, isExit bool, serverTy
 func (manager *SWireManager) InitializeData() error {
 	wires := make([]SWire, 0)
 	q := manager.Query()
-	q.Filter(sqlchemy.OR(sqlchemy.IsEmpty(q.Field("vpc_id")), sqlchemy.IsEmpty(q.Field("status")), sqlchemy.Equals(q.Field("status"), "init"), sqlchemy.Equals(q.Field("status"), "ready")))
+	q.Filter(sqlchemy.OR(sqlchemy.IsEmpty(q.Field("vpc_id")), sqlchemy.IsEmpty(q.Field("status")), sqlchemy.Equals(q.Field("status"), "init"), sqlchemy.Equals(q.Field("status"), api.WIRE_STATUS_READY_DEPRECATED)))
 	err := db.FetchModelObjects(manager, q, &wires)
 	if err != nil {
 		return err
@@ -901,7 +901,7 @@ func (manager *SWireManager) InitializeData() error {
 			if len(w.VpcId) == 0 {
 				w.VpcId = api.DEFAULT_VPC_ID
 			}
-			if len(w.Status) == 0 || w.Status == "init" || w.Status == "ready" {
+			if len(w.Status) == 0 || w.Status == "init" || w.Status == api.WIRE_STATUS_READY_DEPRECATED {
 				w.Status = api.WIRE_STATUS_AVAILABLE
 			}
 			return nil
@@ -1004,7 +1004,7 @@ func (sm *SWireManager) FetchByIdsOrNames(idOrNames []string) ([]SWire, error) {
 	if len(idOrNames) == 1 {
 		q.Filter(sqlchemy.OR(sqlchemy.Equals(q.Field("id"), idOrNames[0]), sqlchemy.Equals(q.Field("name"), idOrNames[0])))
 	} else {
-		q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("id"), idOrNames[0]), sqlchemy.In(q.Field("name"), idOrNames[0])))
+		q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("id"), idOrNames), sqlchemy.In(q.Field("name"), idOrNames)))
 	}
 	ret := make([]SWire, 0, len(idOrNames))
 	err := db.FetchModelObjects(sm, q, &ret)
