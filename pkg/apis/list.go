@@ -14,6 +14,8 @@
 
 package apis
 
+import "time"
+
 type ScopedResourceInput struct {
 	// 指定查询的权限范围，可能值为project, domain or system
 	Scope string `json:"scope"`
@@ -322,4 +324,28 @@ type MultiArchResourceBaseListInput struct {
 
 type AutoDeleteResourceBaseListInput struct {
 	AutoDelete *bool
+}
+
+type OpsLogListInput struct {
+	OwnerProjectIds []string `json:"owner_project_ids"`
+	OwnerDomainIds  []string `json:"owner_domain_ids"`
+
+	// filter by obj type
+	ObjTypes []string `json:"obj_type"`
+
+	// filter by obj name or obj id
+	Objs []string `json:"obj"`
+
+	// filter by obj ids
+	ObjIds []string `json:"obj_id"`
+
+	// filter by obj name
+	ObjNames []string `json:"obj_name"`
+
+	// filter by action
+	Actions []string `json:"action"`
+
+	Since time.Time `json:"since"`
+
+	Until time.Time `json:"until"`
 }

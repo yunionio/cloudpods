@@ -15,13 +15,18 @@
 package logclient
 
 import (
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/i18n"
 )
 
 var OpsActionI18nTable = i18n.Table{}
+var OpsServiceI18nTable = i18n.Table{}
+var OpsObjTypeI18nTable = i18n.Table{}
 
 func init() {
 	t := OpsActionI18nTable
+	s := OpsServiceI18nTable
+	o := OpsObjTypeI18nTable
 
 	t.Set(ACT_ADDTAG, i18n.NewTableEntry().
 		EN("Addtag").
@@ -665,4 +670,627 @@ func init() {
 		EN("Set Alert").
 		CN("配置报警"),
 	)
+
+	s.Set(apis.SERVICE_TYPE_MONITOR, i18n.NewTableEntry().
+		EN("Monitor").
+		CN("监控"),
+	)
+	s.Set(apis.SERVICE_TYPE_REGION, i18n.NewTableEntry().
+		EN("Compute").
+		CN("计算"),
+	)
+	s.Set(apis.SERVICE_TYPE_IMAGE, i18n.NewTableEntry().
+		EN("Image").
+		CN("镜像"),
+	)
+	s.Set(apis.SERVICE_TYPE_CLOUDID, i18n.NewTableEntry().
+		EN("Cloud SSO").
+		CN("多云统一认证"),
+	)
+	s.Set(apis.SERVICE_TYPE_DEVTOOL, i18n.NewTableEntry().
+		EN("Dev Tools").
+		CN("运维工具"),
+	)
+	s.Set(apis.SERVICE_TYPE_ANSIBLE, i18n.NewTableEntry().
+		EN("Ansible").
+		CN("Ansible"),
+	)
+	s.Set(apis.SERVICE_TYPE_KEYSTONE, i18n.NewTableEntry().
+		EN("Keystone").
+		CN("认证服务"),
+	)
+	s.Set(apis.SERVICE_TYPE_NOTIFY, i18n.NewTableEntry().
+		EN("Notify").
+		CN("通知服务"),
+	)
+	s.Set(apis.SERVICE_TYPE_SUGGESTION, i18n.NewTableEntry().
+		EN("Suggestion").
+		CN("优化建议"),
+	)
+	s.Set(apis.SERVICE_TYPE_METER, i18n.NewTableEntry().
+		EN("Suggestion").
+		CN("计费服务"),
+	)
+	s.Set("k8s", i18n.NewTableEntry().
+		EN("Kubernetes").
+		CN("容器服务"),
+	)
+
+	o.Set("domain", i18n.NewTableEntry().
+		EN("Domain").
+		CN("域"),
+	)
+	o.Set("kubemachine", i18n.NewTableEntry().
+		EN("Kube Machine").
+		CN("Kube Machine"),
+	)
+	o.Set("clouduser", i18n.NewTableEntry().
+		EN("Cloud user").
+		CN("云上用户"),
+	)
+	o.Set("x509keypair", i18n.NewTableEntry().
+		EN("x509 Keypair").
+		CN("x509 Keypair"),
+	)
+	o.Set("kubecluster", i18n.NewTableEntry().
+		EN("Kube Cluster").
+		CN("Kube Cluster"),
+	)
+	o.Set("role", i18n.NewTableEntry().
+		EN("Role").
+		CN("角色"),
+	)
+	o.Set("notifyconfig", i18n.NewTableEntry().
+		EN("Notify Config").
+		CN("通知配置"),
+	)
+	o.Set("wire", i18n.NewTableEntry().
+		EN("Wire").
+		CN("二层网络"),
+	)
+	o.Set("loadbalancerlistenerrule", i18n.NewTableEntry().
+		EN("Loadbalancer Listener Rule").
+		CN("负载均衡监听规则"),
+	)
+	o.Set("loadbalancerlistener", i18n.NewTableEntry().
+		EN("Loadbalancer Listener").
+		CN("负载均衡监听器"),
+	)
+	o.Set("elasticcache", i18n.NewTableEntry().
+		EN("Elastic Cache").
+		CN("弹性缓存"),
+	)
+	o.Set("notifytemplate", i18n.NewTableEntry().
+		EN("Notify Templete").
+		CN("通知模板"),
+	)
+	o.Set("policy", i18n.NewTableEntry().
+		EN("Policy").
+		CN("Policy"),
+	)
+	o.Set("scheduledtask", i18n.NewTableEntry().
+		EN("Scheduled Task").
+		CN("Scheduled Task"),
+	)
+	o.Set("saml_provider", i18n.NewTableEntry().
+		EN("SAML Provider").
+		CN("SAML 身份提供商"),
+	)
+	o.Set("daemonset", i18n.NewTableEntry().
+		EN("Daemonset").
+		CN("Daemonset"),
+	)
+	o.Set("network", i18n.NewTableEntry().
+		EN("Network").
+		CN("IP子网"),
+	)
+	o.Set("vpc", i18n.NewTableEntry().
+		EN("VPC").
+		CN("VPC"),
+	)
+	o.Set("dbinstancebackup", i18n.NewTableEntry().
+		EN("RDS Backup").
+		CN("关系型数据库备份"),
+	)
+	o.Set("host", i18n.NewTableEntry().
+		EN("Host").
+		CN("宿主机"),
+	)
+	o.Set("identity_provider", i18n.NewTableEntry().
+		EN("Identity Provider").
+		CN("身份提供商"),
+	)
+	o.Set("commonalert", i18n.NewTableEntry().
+		EN("Common Alert").
+		CN("Common Alert"),
+	)
+	o.Set("loadbalanceragent", i18n.NewTableEntry().
+		EN("Loadbalancer Agent").
+		CN("负载均衡Agent"),
+	)
+	o.Set("loadbalancer", i18n.NewTableEntry().
+		EN("Loadbalancer").
+		CN("负载均衡"),
+	)
+	o.Set("cloudgroup", i18n.NewTableEntry().
+		EN("Cloud Group").
+		CN("权限组"),
+	)
+	o.Set("cloudgroupcache", i18n.NewTableEntry().
+		EN("Cloud group cache").
+		CN("权限组缓存"),
+	)
+	o.Set("samluser", i18n.NewTableEntry().
+		EN("SAML User").
+		CN("免密用户"),
+	)
+	o.Set("project", i18n.NewTableEntry().
+		EN("Project").
+		CN("项目"),
+	)
+	o.Set("keypair", i18n.NewTableEntry().
+		EN("Keypair").
+		CN("秘钥对"),
+	)
+	o.Set("loadbalancerbackendgroup", i18n.NewTableEntry().
+		EN("Loadbalancer Backendgroup").
+		CN("后端服务器组"),
+	)
+	o.Set("statefulset", i18n.NewTableEntry().
+		EN("State Fulset").
+		CN("State Fulset"),
+	)
+	o.Set("bucket", i18n.NewTableEntry().
+		EN("Bucket").
+		CN("存储桶"),
+	)
+	o.Set("receiver", i18n.NewTableEntry().
+		EN("Receiver").
+		CN("接收者"),
+	)
+	o.Set("suggestsysrule", i18n.NewTableEntry().
+		EN("Suggest sysrule").
+		CN("建议规则"),
+	)
+	o.Set("dbinstance", i18n.NewTableEntry().
+		EN("RDS").
+		CN("关系型数据库"),
+	)
+	o.Set("storagecachedimage", i18n.NewTableEntry().
+		EN("Storage Cached Image").
+		CN("存储镜像缓存"),
+	)
+	o.Set("image", i18n.NewTableEntry().
+		EN("Image").
+		CN("镜像"),
+	)
+	o.Set("itsm", i18n.NewTableEntry().
+		EN("ITSM").
+		CN("ITSM"),
+	)
+	o.Set("disk", i18n.NewTableEntry().
+		EN("Disk").
+		CN("磁盘"),
+	)
+	o.Set("eip", i18n.NewTableEntry().
+		EN("Elastic Ip").
+		CN("弹性公网IP"),
+	)
+	o.Set("alert", i18n.NewTableEntry().
+		EN("Alert").
+		CN("报警"),
+	)
+	o.Set("budget", i18n.NewTableEntry().
+		EN("Budget").
+		CN("预算"),
+	)
+	o.Set("costalert", i18n.NewTableEntry().
+		EN("Cost Alert").
+		CN("Cost Alert"),
+	)
+	o.Set("alert_notification", i18n.NewTableEntry().
+		EN("Alert Notification").
+		CN("Alert Notification"),
+	)
+	o.Set("servertemplate", i18n.NewTableEntry().
+		EN("Instance Templete").
+		CN("主机模板"),
+	)
+	o.Set("cachedimage", i18n.NewTableEntry().
+		EN("Cached Image").
+		CN("镜像缓存"),
+	)
+	o.Set("suggestsysalert", i18n.NewTableEntry().
+		EN("Suggest Sys Alert").
+		CN("建议预警"),
+	)
+	o.Set("cloudaccount", i18n.NewTableEntry().
+		EN("Cloud Account").
+		CN("云账号"),
+	)
+	o.Set("cloudprovider", i18n.NewTableEntry().
+		EN("Subscription").
+		CN("订阅"),
+	)
+	o.Set("snapshot", i18n.NewTableEntry().
+		EN("Snapshot").
+		CN("快照"),
+	)
+	o.Set("costreport", i18n.NewTableEntry().
+		EN("Cost Report").
+		CN("消费报告"),
+	)
+	o.Set("deployment", i18n.NewTableEntry().
+		EN("Deployment").
+		CN("Deployment"),
+	)
+	o.Set("storage", i18n.NewTableEntry().
+		EN("Storage").
+		CN("块存储"),
+	)
+	o.Set("server", i18n.NewTableEntry().
+		EN("Server").
+		CN("虚拟机"),
+	)
+	o.Set("notification", i18n.NewTableEntry().
+		EN("Notification").
+		CN("通知"),
+	)
+	o.Set("secgroup", i18n.NewTableEntry().
+		EN("Security Group").
+		CN("安全组"),
+	)
+	o.Set("endpoint", i18n.NewTableEntry().
+		EN("Endpoint").
+		CN("端点"),
+	)
+	o.Set("service", i18n.NewTableEntry().
+		EN("Service").
+		CN("服务"),
+	)
+	o.Set("user", i18n.NewTableEntry().
+		EN("User").
+		CN("用户"),
+	)
+	o.Set("instance_snapshot", i18n.NewTableEntry().
+		EN("Instance Snapshot").
+		CN("主机快照"),
+	)
+	o.Set("guestimage", i18n.NewTableEntry().
+		EN("Instance Image").
+		CN("主机镜像"),
+	)
+	o.Set("instancegroup", i18n.NewTableEntry().
+		EN("Instance Group").
+		CN("反亲和组"),
+	)
+	o.Set("dbinstanceaccount", i18n.NewTableEntry().
+		EN("RDS Account").
+		CN("关系型数据库账号"),
+	)
+	o.Set("elasticcacheaccount", i18n.NewTableEntry().
+		EN("Elastic Cache Account").
+		CN("弹性缓存账号"),
+	)
+	o.Set("dbinstancedatabase", i18n.NewTableEntry().
+		EN("RDS Database").
+		CN("数据库"),
+	)
+	o.Set("devtool_template", i18n.NewTableEntry().
+		EN("DevTool Template").
+		CN("DevTool Templete"),
+	)
+	o.Set("devtool_cronjob", i18n.NewTableEntry().
+		EN("DevTool Cronjob").
+		CN("DevTool Cronjob"),
+	)
+	o.Set("elasticcachebackup", i18n.NewTableEntry().
+		EN("Elastic Cache Backup").
+		CN("弹性缓存备份"),
+	)
+	o.Set("kubecomponent", i18n.NewTableEntry().
+		EN("Kube Component").
+		CN("Kube Component"),
+	)
+	o.Set("scalinggroup", i18n.NewTableEntry().
+		EN("Scaling Group").
+		CN("弹性伸缩组"),
+	)
+	o.Set("scalingpolicy", i18n.NewTableEntry().
+		EN("Scaling Policy").
+		CN("弹性伸缩策略"),
+	)
+	o.Set("proxysetting", i18n.NewTableEntry().
+		EN("Proxy Setting").
+		CN("代理"),
+	)
+	o.Set("credential", i18n.NewTableEntry().
+		EN("Credential").
+		CN("Credential"),
+	)
+	o.Set("cloudproviderquota", i18n.NewTableEntry().
+		EN("Subscription Quota").
+		CN("订阅配额"),
+	)
+	o.Set("nodealert", i18n.NewTableEntry().
+		EN("Node Alert").
+		CN("Node Alert"),
+	)
+	o.Set("globalvpc", i18n.NewTableEntry().
+		EN("Gloal VPC").
+		CN("全局VPC"),
+	)
+	o.Set("contact", i18n.NewTableEntry().
+		EN("Contact").
+		CN("Contact"),
+	)
+	o.Set("schedpolicy", i18n.NewTableEntry().
+		EN("Scheduler Policy").
+		CN("调度策略"),
+	)
+	o.Set("config", i18n.NewTableEntry().
+		EN("Config").
+		CN("配置"),
+	)
+	o.Set("namespace", i18n.NewTableEntry().
+		EN("Namespace").
+		CN("Namespace"),
+	)
+	o.Set("repo", i18n.NewTableEntry().
+		EN("Repo").
+		CN("Repo"),
+	)
+	o.Set("release", i18n.NewTableEntry().
+		EN("Release").
+		CN("Release"),
+	)
+	o.Set("servicecertificate", i18n.NewTableEntry().
+		EN("Service Certificate").
+		CN("Service Certificate"),
+	)
+	o.Set("pod", i18n.NewTableEntry().
+		EN("Pod").
+		CN("Pod"),
+	)
+	o.Set("elasticcacheacl", i18n.NewTableEntry().
+		EN("Elastic Cache Acl").
+		CN("弹性缓存ACL"),
+	)
+	o.Set("metricmeasurement", i18n.NewTableEntry().
+		EN("Metric Measurement").
+		CN("Metric Measurement"),
+	)
+	o.Set("alertdashboard", i18n.NewTableEntry().
+		EN("Alert Dashboard").
+		CN("Alert Dashboard"),
+	)
+	o.Set("dns_zone", i18n.NewTableEntry().
+		EN("DNS Zone").
+		CN("DNS Zone"),
+	)
+	o.Set("dns_recordset", i18n.NewTableEntry().
+		EN("DNS Records").
+		CN("DNS Records"),
+	)
+	o.Set("dns_zonecache", i18n.NewTableEntry().
+		EN("DNS Zone Cache").
+		CN("DNS Zone Cache"),
+	)
+	o.Set("federatednamespace", i18n.NewTableEntry().
+		EN("Federated Namespace").
+		CN("Federated Namespace"),
+	)
+	o.Set("ingress", i18n.NewTableEntry().
+		EN("Ingress").
+		CN("Ingress"),
+	)
+	o.Set("cronjob", i18n.NewTableEntry().
+		EN("Cronjob").
+		CN("定时任务"),
+	)
+	o.Set("federatedrole", i18n.NewTableEntry().
+		EN("Federated Role").
+		CN("Federated Role"),
+	)
+	o.Set("federatedclusterrole", i18n.NewTableEntry().
+		EN("Federated Cluster Role").
+		CN("Federated Cluster Role"),
+	)
+	o.Set("rbacclusterrole", i18n.NewTableEntry().
+		EN("RBAC Cluster Role").
+		CN("RBAC Cluster Role"),
+	)
+	o.Set("job", i18n.NewTableEntry().
+		EN("Job").
+		CN("Job"),
+	)
+	o.Set("rbacrole", i18n.NewTableEntry().
+		EN("RBAC Role").
+		CN("RBAC Role"),
+	)
+	o.Set("federatedrolebinding", i18n.NewTableEntry().
+		EN("Federated Role Binding").
+		CN("Federated Role Binding"),
+	)
+	o.Set("scopedpolicy", i18n.NewTableEntry().
+		EN("Scoped Policy").
+		CN("Scoped Policy"),
+	)
+	o.Set("alertpanel", i18n.NewTableEntry().
+		EN("Alert Panel").
+		CN("监控面板"),
+	)
+	o.Set("networkaddress", i18n.NewTableEntry().
+		EN("Network Address").
+		CN("网卡地址"),
+	)
+	o.Set("networkaddress", i18n.NewTableEntry().
+		EN("Network Address").
+		CN("网卡地址"),
+	)
+	o.Set("baremetalagent", i18n.NewTableEntry().
+		EN("Baremetal Agent").
+		CN("Baremetal Agent"),
+	)
+	o.Set("notice", i18n.NewTableEntry().
+		EN("Notice").
+		CN("Notice"),
+	)
+	o.Set("hostwire", i18n.NewTableEntry().
+		EN("Host Wire").
+		CN("宿主机网络"),
+	)
+	o.Set("storagecache", i18n.NewTableEntry().
+		EN("Storage Cache").
+		CN("存储缓存"),
+	)
+	o.Set("isolated_device", i18n.NewTableEntry().
+		EN("Isolated Device").
+		CN("透传设备"),
+	)
+	o.Set("guestdisk", i18n.NewTableEntry().
+		EN("Server Disk").
+		CN("虚拟机磁盘"),
+	)
+	o.Set("guestnetwork", i18n.NewTableEntry().
+		EN("Server Network").
+		CN("虚拟机网络"),
+	)
+	o.Set("kube_node", i18n.NewTableEntry().
+		EN("Kube Node").
+		CN("Kube Node"),
+	)
+	o.Set("secgrouprule", i18n.NewTableEntry().
+		EN("Security Group Rule").
+		CN("安全组规则"),
+	)
+	o.Set("kube_node", i18n.NewTableEntry().
+		EN("Kube Node").
+		CN("Kube Node"),
+	)
+	o.Set("kube_cluster", i18n.NewTableEntry().
+		EN("Kube Cluster").
+		CN("Kube Cluster"),
+	)
+	o.Set("hoststorage", i18n.NewTableEntry().
+		EN("Host Storage").
+		CN("宿主机存储"),
+	)
+	o.Set("servicetree", i18n.NewTableEntry().
+		EN("Service Tree").
+		CN("服务目录"),
+	)
+	o.Set("baremetalnetwork", i18n.NewTableEntry().
+		EN("Baremetal Network").
+		CN("裸金属服务器网络"),
+	)
+	o.Set("guestsecgroup", i18n.NewTableEntry().
+		EN("Server Security Group").
+		CN("虚拟机安全组"),
+	)
+	o.Set("schedtaghost", i18n.NewTableEntry().
+		EN("Schedtag Host").
+		CN("Schedtag Host"),
+	)
+	o.Set("loadbalancernetwork", i18n.NewTableEntry().
+		EN("Loadbalancer Network").
+		CN("负载均衡网络"),
+	)
+	o.Set("infos", i18n.NewTableEntry().
+		EN("Infos").
+		CN("通知"),
+	)
+	o.Set("finance-alert", i18n.NewTableEntry().
+		EN("Finance Alert").
+		CN(""),
+	)
+	o.Set("group", i18n.NewTableEntry().
+		EN("Group").
+		CN("Group"),
+	)
+	o.Set("readmark", i18n.NewTableEntry().
+		EN("Readmark").
+		CN("Readmark"),
+	)
+	o.Set("meteralert", i18n.NewTableEntry().
+		EN("Meter Alert").
+		CN("Meter Alert"),
+	)
+	o.Set("reservedip", i18n.NewTableEntry().
+		EN("Reserve IP").
+		CN("预留IP"),
+	)
+	o.Set("cloudregion", i18n.NewTableEntry().
+		EN("Cloudregion").
+		CN("区域"),
+	)
+	o.Set("meter_vm", i18n.NewTableEntry().
+		EN("Meter VM").
+		CN("Meter VM"),
+	)
+	o.Set("route_table", i18n.NewTableEntry().
+		EN("Route Table").
+		CN("路由表"),
+	)
+	o.Set("externalproject", i18n.NewTableEntry().
+		EN("Cloud Project").
+		CN("云上项目"),
+	)
+	o.Set("cloudproviderregion", i18n.NewTableEntry().
+		EN("Cloudprovider Region").
+		CN("订阅区域"),
+	)
+	o.Set("metadata", i18n.NewTableEntry().
+		EN("Tag").
+		CN("标签"),
+	)
+	o.Set("ansibleplaybook", i18n.NewTableEntry().
+		EN("Ansible Playbook").
+		CN("Ansible Playbook"),
+	)
+	o.Set("natdentry", i18n.NewTableEntry().
+		EN("NAT D Entry").
+		CN("NAT D Entry"),
+	)
+	o.Set("natsentry", i18n.NewTableEntry().
+		EN("NAT S Entry").
+		CN("NAT S Entry"),
+	)
+	o.Set("snapshotpolicy", i18n.NewTableEntry().
+		EN("Snapshot Policy").
+		CN("快照策略"),
+	)
+	o.Set("meshnetwork_member", i18n.NewTableEntry().
+		EN("Meshnetwork Member").
+		CN("Meshnetwork Member"),
+	)
+	o.Set("ifacepeer", i18n.NewTableEntry().
+		EN("Iface Peer").
+		CN("Iface Peer"),
+	)
+	o.Set("iface", i18n.NewTableEntry().
+		EN("Iface").
+		CN("Iface"),
+	)
+	o.Set("router", i18n.NewTableEntry().
+		EN("Router").
+		CN("路由"),
+	)
+	o.Set("zone", i18n.NewTableEntry().
+		EN("Zone").
+		CN("可用区"),
+	)
+	o.Set("schedtag", i18n.NewTableEntry().
+		EN("Sched Tag").
+		CN("调度标签"),
+	)
+	o.Set("dynamicschedtag", i18n.NewTableEntry().
+		EN("Dynamic Sched Tag").
+		CN("动态调度标签"),
+	)
+	o.Set("serversku", i18n.NewTableEntry().
+		EN("Server Sku").
+		CN("虚拟机套餐"),
+	)
+
 }
