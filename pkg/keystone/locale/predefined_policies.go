@@ -95,6 +95,9 @@ var (
 					},
 				},
 				"monitor": {
+					"alertrecords": {
+						"list",
+					},
 					"alertresources": {
 						"list",
 					},
