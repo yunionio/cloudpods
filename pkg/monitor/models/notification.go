@@ -229,7 +229,7 @@ func (n *SNotification) ShouldSendNotification() bool {
 	if n.Frequency == 0 {
 		return true
 	}
-	if int64(time.Now().Sub(n.LastSendNotification)/time.Second) >= n.Frequency {
+	if int64(time.Now().Sub(n.LastSendNotification)/time.Second)+int64(time.Second*60) >= n.Frequency {
 		return true
 	}
 	return false

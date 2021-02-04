@@ -3,6 +3,7 @@ package conditions
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -20,9 +21,10 @@ import (
 const (
 	NO_DATA = "nodata"
 
-	HOST_TAG_NAME  = "name"
-	HOST_TAG_IP    = "access_ip"
-	HOST_TAG_BRAND = "brand"
+	HOST_TAG_NAME   = "name"
+	HOST_TAG_IP     = "access_ip"
+	RESOURCE_TAG_IP = "ips"
+	HOST_TAG_BRAND  = "brand"
 )
 
 func init() {
@@ -76,6 +78,7 @@ serLoop:
 		}
 	}
 	allHosts, err := c.getOnecloudResources(context)
+	allHosts = c.filterAllResources(context, allHosts)
 	if err != nil {
 		return nil, errors.Wrap(err, "NoDataQueryCondition getOnecloudHosts error")
 	}
@@ -102,6 +105,128 @@ serLoop:
 	}, nil
 }
 
+func (c *NoDataQueryCondition) filterAllResources(context *alerting.EvalContext,
+	resources []jsonutils.JSONObject) []jsonutils.JSONObject {
+	if len(c.Query.Model.Tags) == 0 {
+		return resources
+	}
+	filterIdMap := make(map[string]jsonutils.JSONObject)
+	filterQuery := c.getFilterQuery()
+	intKey := make([]int, 0)
+	if len(filterQuery) != 0 {
+		for key, _ := range filterQuery {
+			intKey = append(intKey, key)
+		}
+		sort.Ints(intKey)
+		minKey := intKey[0]
+		if minKey != 0 {
+			filterQuery[0] = minKey - 1
+		}
+	} else {
+		filterQuery[0] = len(c.Query.Model.Tags) - 1
+	}
+	for start, end := range filterQuery {
+		filterResources := c.getFilterResources(context, start, end, resources)
+		filterIdMap = c.fillFilterRes(filterResources, filterIdMap)
+	}
+	filterRes := make([]jsonutils.JSONObject, 0)
+	for _, obj := range filterIdMap {
+		filterRes = append(filterRes, obj)
+	}
+	return filterRes
+}
+
+func (c *NoDataQueryCondition) fillFilterRes(filterRes []jsonutils.JSONObject,
+	filterIdMap map[string]jsonutils.JSONObject) map[string]jsonutils.JSONObject {
+	for _, res := range filterRes {
+		id, _ := res.GetString("id")
+		if _, ok := filterIdMap[id]; !ok {
+			filterIdMap[id] = res
+		}
+	}
+	return filterIdMap
+}
+
+func (c *NoDataQueryCondition) getFilterQuery() map[int]int {
+	length := len(c.Query.Model.Tags)
+	tagIndexMap := make(map[int]int)
+	for i := 0; i < length; i++ {
+		if c.Query.Model.Tags[i].Condition == "OR" {
+			andIndex := c.getTheAndOfConditionor(i + 1)
+			if andIndex == i+1 {
+				tagIndexMap[i] = i
+				continue
+			}
+			if andIndex == length {
+				for j := i; j < length; j++ {
+					tagIndexMap[j] = j
+				}
+				break
+			}
+			tagIndexMap[i] = andIndex
+			i = andIndex
+		}
+	}
+	return tagIndexMap
+}
+
+func (c *NoDataQueryCondition) getTheAndOfConditionor(start int) int {
+	for i := start; i < len(c.Query.Model.Tags); i++ {
+		if c.Query.Model.Tags[i].Condition != "AND" {
+			return i
+		}
+	}
+	return len(c.Query.Model.Tags)
+}
+
+func (c *NoDataQueryCondition) getFilterResources(evalContext *alerting.EvalContext, start int, end int,
+	resources []jsonutils.JSONObject) []jsonutils.JSONObject {
+	relationMap := c.getTagKeyRelationMap(evalContext)
+	tmp := resources
+	for i := start; i <= end; i++ {
+		tag := c.Query.Model.Tags[i]
+		relationKey := relationMap[tag.Key]
+		filterObj := make([]jsonutils.JSONObject, 0)
+		for _, res := range tmp {
+			val, _ := res.GetString(relationKey)
+			if c.Query.Model.Tags[i].Operator == "=" {
+				if val == c.Query.Model.Tags[i].Value {
+					filterObj = append(filterObj, res)
+				}
+			}
+			if c.Query.Model.Tags[i].Operator == "!=" {
+				if val != c.Query.Model.Tags[i].Value {
+					filterObj = append(filterObj, res)
+				}
+			}
+		}
+		tmp = filterObj
+		if len(tmp) == 0 {
+			return tmp
+		}
+	}
+	return tmp
+}
+
+func (c *NoDataQueryCondition) getTagKeyRelationMap(evalContext *alerting.EvalContext) map[string]string {
+	relationMap := make(map[string]string)
+	switch evalContext.Rule.RuleDescription[0].ResType {
+	case monitor.METRIC_RES_TYPE_HOST:
+		relationMap = HostTags
+	case monitor.METRIC_RES_TYPE_GUEST:
+		relationMap = ServerTags
+	case monitor.METRIC_RES_TYPE_RDS:
+		relationMap = RdsTags
+	case monitor.METRIC_RES_TYPE_REDIS:
+		relationMap = RedisTags
+	case monitor.METRIC_RES_TYPE_OSS:
+		relationMap = OssTags
+	default:
+		relationMap = HostTags
+	}
+	return relationMap
+}
+
 func (c *NoDataQueryCondition) getOnecloudResources(evalContext *alerting.EvalContext) ([]jsonutils.JSONObject, error) {
 	var err error
 	allResources := make([]jsonutils.JSONObject, 0)
@@ -111,12 +236,12 @@ func (c *NoDataQueryCondition) getOnecloudResources(evalContext *alerting.EvalCo
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewStringArray([]string{"running", "ready"}), "status")
 	query.Add(jsonutils.NewString("true"), "admin")
-	if len(c.Query.Model.Tags) != 0 {
-		query, err = c.convertTagsQuery(evalContext, query)
-		if err != nil {
-			return nil, errors.Wrap(err, "NoDataQueryCondition convertTagsQuery error")
-		}
-	}
+	//if len(c.Query.Model.Tags) != 0 {
+	//	query, err = c.convertTagsQuery(evalContext, query)
+	//	if err != nil {
+	//		return nil, errors.Wrap(err, "NoDataQueryCondition convertTagsQuery error")
+	//	}
+	//}
 	switch evalContext.Rule.RuleDescription[0].ResType {
 	case monitor.METRIC_RES_TYPE_HOST:
 		query.Set("host-type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
@@ -171,6 +296,7 @@ func ListAllResources(manager modulebase.Manager, params *jsonutils.JSONDict) ([
 	}
 	params.Add(jsonutils.NewString("system"), "scope")
 	params.Add(jsonutils.NewInt(0), "limit")
+	params.Add(jsonutils.NewBool(true), "details")
 	var count int
 	session := auth.GetAdminSession(context.Background(), "", "")
 	objs := make([]jsonutils.JSONObject, 0)
@@ -223,6 +349,9 @@ func (c *NoDataQueryCondition) createEvalMatchTagFromHostJson(evalContext *alert
 	evalMatch.Tags = make(map[string]string, 0)
 
 	ip, _ := host.GetString(HOST_TAG_IP)
+	if ip == "" {
+		ip, _ = host.GetString(RESOURCE_TAG_IP)
+	}
 	name, _ := host.GetString(HOST_TAG_NAME)
 	brand, _ := host.GetString(HOST_TAG_BRAND)
 	evalMatch.Tags["ip"] = ip
@@ -250,3 +379,138 @@ func newNoDataQueryCondition(model *monitor.AlertCondition, index int) (*NoDataQ
 	condition.QueryCondition = queryCondition
 	return condition, nil
 }
+
+var (
+	ServerTags = map[string]string{
+		"host":             "host",
+		"host_id":          "host_id",
+		"vm_id":            "id",
+		"vm_ip":            "ips",
+		"vm_name":          "name",
+		"zone":             "zone",
+		"zone_id":          "zone_id",
+		"zone_ext_id":      "zone_ext_id",
+		"os_type":          "os_type",
+		"status":           "status",
+		"cloudregion":      "cloudregion",
+		"cloudregion_id":   "cloudregion_id",
+		"region_ext_id":    "region_ext_id",
+		"tenant":           "tenant",
+		"tenant_id":        "tenant_id",
+		"brand":            "brand",
+		"scaling_group_id": "vm_scaling_group_id",
+		"domain_id":        "domain_id",
+		"project_domain":   "project_domain",
+	}
+
+	HostTags = map[string]string{
+		"host_id":        "id",
+		"host_ip":        "ips",
+		"host":           "name",
+		"zone":           "zone",
+		"zone_id":        "zone_id",
+		"zone_ext_id":    "zone_ext_id",
+		"os_type":        "os_type",
+		"status":         "status",
+		"cloudregion":    "cloudregion",
+		"cloudregion_id": "cloudregion_id",
+		"region_ext_id":  "region_ext_id",
+		"tenant":         "tenant",
+		"tenant_id":      "tenant_id",
+		"brand":          "brand",
+		"domain_id":      "domain_id",
+		"project_domain": "project_domain",
+	}
+
+	RdsTags = map[string]string{
+		"host":           "host",
+		"host_id":        "host_id",
+		"rds_id":         "id",
+		"rds_ip":         "ips",
+		"rds_name":       "name",
+		"zone":           "zone",
+		"zone_id":        "zone_id",
+		"zone_ext_id":    "zone_ext_id",
+		"os_type":        "os_type",
+		"status":         "status",
+		"cloudregion":    "cloudregion",
+		"cloudregion_id": "cloudregion_id",
+		"region_ext_id":  "region_ext_id",
+		"tenant":         "tenant",
+		"tenant_id":      "tenant_id",
+		"brand":          "brand",
+		"domain_id":      "domain_id",
+		"project_domain": "project_domain",
+	}
+
+	RedisTags = map[string]string{
+		"host":           "host",
+		"host_id":        "host_id",
+		"redis_id":       "id",
+		"redis_ip":       "ips",
+		"redis_name":     "name",
+		"zone":           "zone",
+		"zone_id":        "zone_id",
+		"zone_ext_id":    "zone_ext_id",
+		"os_type":        "os_type",
+		"status":         "status",
+		"cloudregion":    "cloudregion",
+		"cloudregion_id": "cloudregion_id",
+		"region_ext_id":  "region_ext_id",
+		"tenant":         "tenant",
+		"tenant_id":      "tenant_id",
+		"brand":          "brand",
+		"domain_id":      "domain_id",
+		"project_domain": "project_domain",
+	}
+
+	OssTags = map[string]string{
+		"host":           "host",
+		"host_id":        "host_id",
+		"oss_id":         "id",
+		"oss_ip":         "ips",
+		"oss_name":       "name",
+		"zone":           "zone",
+		"zone_id":        "zone_id",
+		"zone_ext_id":    "zone_ext_id",
+		"os_type":        "os_type",
+		"status":         "status",
+		"cloudregion":    "cloudregion",
+		"cloudregion_id": "cloudregion_id",
+		"region_ext_id":  "region_ext_id",
+		"tenant":         "tenant",
+		"tenant_id":      "tenant_id",
+		"brand":          "brand",
+		"domain_id":      "domain_id",
+		"project_domain": "project_domain",
+	}
+
+	ElbTags = map[string]string{
+		"host":           "host",
+		"host_id":        "host_id",
+		"elb_id":         "id",
+		"elb_ip":         "ips",
+		"elb_name":       "name",
+		"zone":           "zone",
+		"zone_id":        "zone_id",
+		"zone_ext_id":    "zone_ext_id",
+		"os_type":        "os_type",
+		"status":         "status",
+		"region":         "region",
+		"cloudregion":    "cloudregion",
+		"cloudregion_id": "cloudregion_id",
+		"tenant":         "tenant",
+		"tenant_id":      "tenant_id",
+		"brand":          "brand",
+		"domain_id":      "domain_id",
+		"project_domain": "project_domain",
+	}
+
+	CloudAccountTags = map[string]string{
+		"cloudaccount_id":   "id",
+		"cloudaccount_name": "name",
+		"brand":             "brand",
+		"domain_id":         "domain_id",
+		"project_domain":    "project_domain",
+	}
+)
