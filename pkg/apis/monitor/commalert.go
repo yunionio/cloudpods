@@ -117,7 +117,9 @@ type CommonAlertDetails struct {
 	NotifierId    string   `json:"notifier_id"`
 	Channel       []string `json:"channel"`
 	Recipients    []string `json:"recipients"`
-	Status        string   `json:"status"`
+	// 静默期
+	SilentPeriod string `json:"silent_period"`
+	Status       string `json:"status"`
 	// 报警类型
 	AlertType                string                      `json:"alert_type"`
 	CommonAlertMetricDetails []*CommonAlertMetricDetails `json:"common_alert_metric_details"`

@@ -358,8 +358,15 @@ func (manager *SAlertRecordManager) getNowAlertingRecord(ctx context.Context, us
 	input monitor.AlertRecordListInput) ([]SAlertRecord, error) {
 	//now := time.Now()
 	//startTime := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 1, now.Location())
+	ownerId, err := manager.FetchOwnerId(context.Background(), jsonutils.Marshal(&input))
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchOwnerId error")
+	}
+	if ownerId == nil {
+		ownerId = userCred
+	}
 	query := manager.Query()
-	query = manager.FilterByOwner(query, userCred, rbacutils.String2Scope(input.Scope))
+	query = manager.FilterByOwner(query, ownerId, rbacutils.String2Scope(input.Scope))
 	//query = query.GE("created_at", startTime.UTC().Format(timeutils.MysqlTimeFormat))
 	query = query.Equals("state", monitor.AlertStateAlerting)
 	query = query.IsNotNull("res_type").IsNotEmpty("res_type").Desc("created_at")
@@ -373,7 +380,7 @@ func (manager *SAlertRecordManager) getNowAlertingRecord(ctx context.Context, us
 	alertsQuery = CommonAlertManager.FilterByOwner(alertsQuery, userCred, rbacutils.String2Scope(input.Scope))
 	alerts := make([]SCommonAlert, 0)
 	records := make([]SAlertRecord, 0)
-	err := db.FetchModelObjects(CommonAlertManager, alertsQuery, &alerts)
+	err = db.FetchModelObjects(CommonAlertManager, alertsQuery, &alerts)
 	if err != nil {
 		return nil, err
 	}

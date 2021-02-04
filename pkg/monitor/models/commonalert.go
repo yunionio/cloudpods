@@ -487,6 +487,9 @@ func (alert *SCommonAlert) GetMoreDetails(ctx context.Context, out monitor.Commo
 		if settings.Channel != monitor.DEFAULT_SEND_NOTIFY_CHANNEL {
 			channel.Insert(settings.Channel)
 		}
+		if noti.Frequency != 0 {
+			out.SilentPeriod = fmt.Sprintf("%dm", noti.Frequency/60)
+		}
 	}
 	out.Channel = channel.List()
 	out.Status = alert.GetStatus()
@@ -937,10 +940,10 @@ func (alert *SCommonAlert) customizeDeleteNotis(
 		if err := conf.CustomizeDelete(ctx, userCred, query, data); err != nil {
 			return err
 		}
-		if err := conf.Delete(ctx, userCred); err != nil {
+		if err := noti.Detach(ctx, userCred); err != nil {
 			return err
 		}
-		if err := noti.Detach(ctx, userCred); err != nil {
+		if err := conf.Delete(ctx, userCred); err != nil {
 			return err
 		}
 	}
