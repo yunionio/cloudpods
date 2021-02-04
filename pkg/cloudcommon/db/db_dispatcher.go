@@ -1818,7 +1818,7 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 	err = CustomizeDelete(model, ctx, userCred, query, data)
 	if err != nil {
 		log.Errorf("customize delete error: %s", err)
-		return nil, httperrors.NewNotAcceptableError("%v", err)
+		return nil, httperrors.NewGeneralError(err)
 	}
 
 	details, err := getItemDetails(manager, model, ctx, userCred, query)
