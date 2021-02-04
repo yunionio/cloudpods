@@ -220,3 +220,7 @@ func (c *STableField) Label(label string) IQueryField {
 	}
 	return c
 }
+
+func (c *STableField) Variables() []interface{} {
+	return nil
+}

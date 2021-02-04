@@ -52,6 +52,10 @@ func (sqf *SUnionQueryField) Label(label string) IQueryField {
 	return sqf
 }
 
+func (sqf *SUnionQueryField) Variables() []interface{} {
+	return nil
+}
+
 type SUnion struct {
 	alias   string
 	queries []IQuery

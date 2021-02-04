@@ -62,6 +62,8 @@ type IQueryField interface {
 	Reference() string
 	// give this field an alias name
 	Label(label string) IQueryField
+	// return variables
+	Variables() []interface{}
 }
 
 func (tbl *STable) Expression() string {
@@ -147,6 +149,10 @@ func (sqf *SSubQueryField) Label(label string) IQueryField {
 		sqf.alias = label
 	}
 	return sqf
+}
+
+func (sqf *SSubQueryField) Variables() []interface{} {
+	return nil
 }
 
 func (sq *SSubQuery) Expression() string {
@@ -417,6 +423,11 @@ func (tq *SQuery) _join(from IQuerySource, on ICondition, joinType QueryJoinType
 func (tq *SQuery) Variables() []interface{} {
 	vars := make([]interface{}, 0)
 	var fromvars []interface{}
+	fields := tq.fields
+	for i := range fields {
+		fromvars = fields[i].Variables()
+		vars = append(vars, fromvars...)
+	}
 	if tq.from != nil {
 		fromvars = tq.from.Variables()
 		vars = append(vars, fromvars...)
