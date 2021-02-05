@@ -206,10 +206,16 @@ func (self *SCloudrole) GetICloudrole() (cloudprovider.ICloudrole, error) {
 
 func (self *SCloudrole) GetCloudpolicies() ([]SCloudpolicy, error) {
 	q := CloudpolicyManager.Query()
-	samlUsers := SamluserManager.Query("cloudgroup_id").Equals("owner_id", self.OwnerId).Equals("cloudaccount_id", self.CloudaccountId).SubQuery()
-	groups := CloudgroupManager.Query("id").In("id", samlUsers)
-	gp := CloudgroupPolicyManager.Query("cloudpolicy_id").In("cloudgroup_id", groups).SubQuery()
-	q = q.In("id", gp)
+	var sq *sqlchemy.SSubQuery
+	if len(self.OwnerId) > 0 {
+		su := SamluserManager.Query("cloudgroup_id").Equals("owner_id", self.OwnerId).Equals("cloudaccount_id", self.CloudaccountId).SubQuery()
+		sq = CloudgroupPolicyManager.Query("cloudpolicy_id").In("cloudgroup_id", su).SubQuery()
+	} else if len(self.CloudgroupId) > 0 {
+		sq = CloudgroupPolicyManager.Query("cloudpolicy_id").Equals("cloudgroup_id", self.CloudgroupId).SubQuery()
+	} else {
+		return nil, fmt.Errorf("empty owner id or cloudgroup id")
+	}
+	q = q.In("id", sq)
 	policies := []SCloudpolicy{}
 	err := db.FetchModelObjects(CloudpolicyManager, q, &policies)
 	if err != nil {

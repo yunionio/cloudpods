@@ -15,6 +15,10 @@
 package shell
 
 import (
+	"fmt"
+
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/aws"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -48,6 +52,25 @@ func init() {
 		document := role.GetDocument()
 		if document != nil {
 			printObject(document)
+		}
+		return nil
+	})
+
+	type RoleAttachPolicyListOptions struct {
+		ROLE       string
+		Marker     string
+		MaxItems   int
+		PathPrefix string
+	}
+
+	shellutils.R(&RoleAttachPolicyListOptions{}, "cloud-role-attach-policy-list", "List Role attach policy", func(cli *aws.SRegion, args *RoleAttachPolicyListOptions) error {
+		policy, err := cli.GetClient().ListAttachedRolePolicies(args.ROLE, args.Marker, args.MaxItems, args.PathPrefix)
+		if err != nil {
+			return errors.Wrapf(err, "ListAttachedRolePolicies")
+		}
+		printList(policy.AttachedPolicies, 0, 0, 0, nil)
+		if len(policy.Marker) > 0 {
+			fmt.Println("marker: ", policy.Marker)
 		}
 		return nil
 	})
