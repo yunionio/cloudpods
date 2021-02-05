@@ -907,7 +907,7 @@ func (manager *SServerSkuManager) GetMatchedSku(regionId string, cpu int64, memM
 }
 
 func (manager *SServerSkuManager) FetchSkuByNameAndProvider(name string, provider string, checkConsistency bool) (*SServerSku, error) {
-	q := manager.Query()
+	q := manager.Query().IsTrue("enabled")
 	q = q.Equals("name", name)
 	if utils.IsInStringArray(provider, []string{api.CLOUD_PROVIDER_ONECLOUD, api.CLOUD_PROVIDER_VMWARE}) {
 		q = q.Filter(
