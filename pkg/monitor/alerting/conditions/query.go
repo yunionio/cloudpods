@@ -233,12 +233,6 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb
 		queryKeyInfo = evalMatch.Metric
 	}
 	evalMatch.Unit = alertDetails.FieldDescription.Unit
-	msg := fmt.Sprintf("%s.%s %s %s", alertDetails.Measurement, alertDetails.Field,
-		alertDetails.Comparator, alerting.RationalizeValueFromUnit(alertDetails.Threshold, evalMatch.Unit, ""))
-	if len(context.Rule.Message) == 0 {
-		context.Rule.Message = msg
-	}
-	//evalMatch.Condition = c.GenerateFormatCond(meta, queryKeyInfo).String()
 	evalMatch.Tags = c.filterTags(series.Tags, *alertDetails)
 	evalMatch.Value = value
 	evalMatch.ValueStr = alerting.RationalizeValueFromUnit(*value, alertDetails.FieldDescription.Unit,
@@ -246,7 +240,14 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb
 	if alertDetails.GetPointStr {
 		evalMatch.ValueStr = c.jointPointStr(series, evalMatch.ValueStr, valStrArr)
 	}
+	c.FetchCustomizeEvalMatch(context, evalMatch, alertDetails)
 	//c.newRuleDescription(context, alertDetails)
+	//evalMatch.Condition = c.GenerateFormatCond(meta, queryKeyInfo).String()
+	msg := fmt.Sprintf("%s.%s %s %s", alertDetails.Measurement, alertDetails.Field,
+		alertDetails.Comparator, alerting.RationalizeValueFromUnit(alertDetails.Threshold, evalMatch.Unit, ""))
+	if len(context.Rule.Message) == 0 {
+		context.Rule.Message = msg
+	}
 	return evalMatch, nil
 }
 
@@ -271,7 +272,8 @@ func (m *meterFetchImp) FetchCustomizeEvalMatch(context *alerting.EvalContext, e
 	if err != nil {
 		return err
 	}
-	evalMatch.ValueStr = evalMatch.ValueStr + " " + meterCustomizeConfig.UnitDesc
+	//evalMatch.ValueStr = evalMatch.ValueStr + " " + meterCustomizeConfig.UnitDesc
+	evalMatch.Unit = meterCustomizeConfig.UnitDesc
 	return nil
 }
 
