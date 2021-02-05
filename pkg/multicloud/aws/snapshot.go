@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -86,7 +87,7 @@ func (self *SSnapshot) Refresh() error {
 	if snapshots, total, err := self.region.GetSnapshots("", "", "", []string{self.SnapshotId}, 0, 1); err != nil {
 		return err
 	} else if total != 1 {
-		return ErrorNotFound()
+		return errors.Wrap(cloudprovider.ErrNotFound, "GetSnapshots")
 	} else if err := jsonutils.Update(self, snapshots[0]); err != nil {
 		return err
 	}
@@ -139,7 +140,7 @@ func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName
 	err = parseNotFoundError(err)
 	if err != nil {
 		if strings.Contains(err.Error(), "InvalidSnapshot.NotFound") {
-			return nil, 0, ErrorNotFound()
+			return nil, 0, errors.Wrap(cloudprovider.ErrNotFound, "parseNotFoundError")
 		}
 
 		return nil, 0, err
@@ -172,9 +173,9 @@ func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName
 
 func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
 	if snapshots, total, err := self.GetSnapshots("", "", "", []string{snapshotId}, 0, 1); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetSnapshots")
 	} else if total != 1 {
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetSnapshots")
 	} else {
 		return &snapshots[0], nil
 	}

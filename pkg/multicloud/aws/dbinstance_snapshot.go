@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -124,7 +125,7 @@ func (region *SRegion) GetDBInstanceSnapshots(instanceId string) ([]SDBInstanceS
 
 	err := region.rdsRequest("DescribeDBSnapshots", params, &snapshots)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "DescribeDBSnapshots")
 	}
 	return snapshots.Snapshots, nil
 }
@@ -132,7 +133,7 @@ func (region *SRegion) GetDBInstanceSnapshots(instanceId string) ([]SDBInstanceS
 func (region *SRegion) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanceBackup, error) {
 	snapshots, err := region.GetDBInstanceSnapshots("")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetDBInstanceSnapshots")
 	}
 	isnapshots := []cloudprovider.ICloudDBInstanceBackup{}
 	for i := 0; i < len(snapshots); i++ {

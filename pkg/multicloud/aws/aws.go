@@ -163,7 +163,7 @@ func (self *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	// todo: implement me
 	err := self.fetchRegions()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "fetchRegions")
 	}
 	subAccount := cloudprovider.SSubAccount{}
 	subAccount.Name = self.cpcfg.Name
@@ -234,7 +234,7 @@ func (client *SAwsClient) getAwsSession(regionId string) (*session.Session, erro
 		CredentialsChainVerboseErrors: sdk.Bool(true),
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getAwsSession.NewSession")
 	}
 	if client.debug {
 		logLevel := aws.LogLevelType(uint(aws.LogDebugWithRequestErrors) + uint(aws.LogDebugWithHTTPBody) + uint(aws.LogDebugWithSigning))
@@ -387,7 +387,7 @@ func (self *SAwsClient) getIRegionByRegionId(id string) (cloudprovider.ICloudReg
 			return self.iregions[i], nil
 		}
 	}
-	return nil, ErrorNotFound()
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "getIRegionByRegionId")
 }
 
 func (self *SAwsClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
@@ -396,7 +396,7 @@ func (self *SAwsClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, e
 			return self.iregions[i], nil
 		}
 	}
-	return nil, ErrorNotFound()
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetIRegionById")
 }
 
 func (self *SAwsClient) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
@@ -405,10 +405,11 @@ func (self *SAwsClient) GetIHostById(id string) (cloudprovider.ICloudHost, error
 		if err == nil {
 			return ihost, nil
 		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
-			return nil, err
+			log.Errorf("GetIHostById %s: %s", id, err)
+			return nil, errors.Wrap(err, "GetIHostById")
 		}
 	}
-	return nil, ErrorNotFound()
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetIHostById")
 }
 
 func (self *SAwsClient) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
@@ -417,10 +418,11 @@ func (self *SAwsClient) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) 
 		if err == nil {
 			return ihost, nil
 		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
-			return nil, err
+			log.Errorf("GetIVpcById %s: %s", id, err)
+			return nil, errors.Wrap(err, "GetIVpcById")
 		}
 	}
-	return nil, ErrorNotFound()
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetIVpcById")
 }
 
 func (self *SAwsClient) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
@@ -429,10 +431,11 @@ func (self *SAwsClient) GetIStorageById(id string) (cloudprovider.ICloudStorage,
 		if err == nil {
 			return ihost, nil
 		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
-			return nil, err
+			log.Errorf("GetIStorageById %s: %s", id, err)
+			return nil, errors.Wrap(err, "GetIStorageById")
 		}
 	}
-	return nil, ErrorNotFound()
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetIStorageById")
 }
 
 type SAccountBalance struct {

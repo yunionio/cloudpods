@@ -14,6 +14,8 @@
 
 package aws
 
+import "yunion.io/x/pkg/errors"
+
 type SDBInstanceParameter struct {
 	instance *SDBInstance
 
@@ -53,7 +55,7 @@ func (region *SRegion) GetDBInstanceParameters(name string) ([]SDBInstanceParame
 	parameters := SDBInstanceParameters{}
 	err := region.rdsRequest("DescribeDBParameters", param, &parameters)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "DescribeDBParameters")
 	}
 	return parameters.Parameters, nil
 }

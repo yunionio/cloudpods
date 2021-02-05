@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -67,7 +68,7 @@ func (self *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
 	if self.inetworks == nil {
 		err := self.vpc.fetchNetworks()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "fetchNetworks")
 		}
 	}
 	return self.inetworks, nil
@@ -80,27 +81,27 @@ func (self *SWire) GetBandwidth() int {
 func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, error) {
 	networks, err := self.GetINetworks()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetINetworks")
 	}
 	for i := 0; i < len(networks); i += 1 {
 		if networks[i].GetGlobalId() == netid {
 			return networks[i], nil
 		}
 	}
-	return nil, ErrorNotFound()
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetINetworkById")
 }
 
 func (self *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
 	networkId, err := self.zone.region.createNetwork(self.zone.ZoneId, self.vpc.VpcId, opts.Name, opts.Cidr, opts.Desc)
 	if err != nil {
 		log.Errorf("createNetwork error %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "createNetwork")
 	}
 	self.inetworks = nil
 	network := self.getNetworkById(networkId)
 	if network == nil {
 		log.Errorf("cannot find network after create????")
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "getNetworkById")
 	}
 	return network, nil
 }

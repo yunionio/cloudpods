@@ -90,7 +90,8 @@ func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImag
 
 	part, err := self.region.GetImage(extId)
 	if err != nil {
-		return nil, err
+		log.Errorf("GetImage %s %s", extId, err)
+		return nil, errors.Wrap(err, "GetImage")
 	}
 	part.storageCache = self
 	return part, nil
@@ -103,18 +104,20 @@ func (self *SStoragecache) GetPath() string {
 func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
 	imageId, err := self.region.createIImage(snapshotId, imageName, imageDesc)
 	if err != nil {
-		return nil, err
+		log.Errorf("createIImage %s %s %s: %s", snapshotId, imageName, imageDesc, err)
+		return nil, errors.Wrap(err, "createIImage")
 	}
 	image, err := self.region.GetImage(imageId)
 	if err != nil {
-		return nil, err
+		log.Errorf("GetImage %s: %s", imageId, err)
+		return nil, errors.Wrap(err, "GetImage")
 	}
 	image.storageCache = self
 	iimage := make([]cloudprovider.ICloudImage, 1)
 	iimage[0] = image
 	//todo : implement me
 	if err := cloudprovider.WaitStatus(iimage[0], "avaliable", 15*time.Second, 3600*time.Second); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "WaitStatus.iimage")
 	}
 	return iimage[0], nil
 }
@@ -239,28 +242,32 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 	// aws 导出镜像限制比较多。https://docs.aws.amazon.com/zh_cn/vm-import/latest/userguide/vmexport.html
 	bucketName := GetBucketName(self.region.GetId(), imageId)
 	if err := self.region.checkBucket(bucketName); err != nil {
-		return nil, err
+		log.Errorf("checkBucket %s: %s", bucketName, err)
+		return nil, errors.Wrap(err, "checkBucket")
 	}
 
 	instanceId, err := self.region.GetInstanceIdByImageId(extId)
 	if err != nil {
-		return nil, err
+		log.Errorf("GetInstanceIdByImageId %s: %s", extId, err)
+		return nil, errors.Wrap(err, "GetInstanceIdByImageId")
 	}
 
 	task, err := self.region.ExportImage(instanceId, imageId)
 	if err != nil {
-		return nil, err
+		log.Errorf("ExportImage %s %s: %s", instanceId, imageId, err)
+		return nil, errors.Wrap(err, "ExportImage")
 	}
 
 	taskParams := &ec2.DescribeExportTasksInput{}
 	taskParams.SetExportTaskIds([]*string{&task.TaskId})
 	if err := self.region.ec2Client.WaitUntilExportTaskCompleted(taskParams); err != nil {
-		return nil, err
+		log.Errorf("WaitUntilExportTaskCompleted %#v %s", taskParams, err)
+		return nil, errors.Wrap(err, "WaitUntilExportTaskCompleted")
 	}
 
 	s3Client, err := self.region.GetS3Client()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetS3Client")
 	}
 
 	i := &s3.GetObjectInput{}
@@ -268,13 +275,14 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 	i.SetKey(fmt.Sprintf("%s.%s", task.TaskId, "ova"))
 	ret, err := s3Client.GetObject(i)
 	if err != nil {
-		return nil, err
+		log.Errorf("GetObject %#v: %s", i, err)
+		return nil, errors.Wrap(err, "GetObject")
 	}
 
 	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
 	params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
 	if result, err := modules.Images.Upload(s, params, ret.Body, IntVal(ret.ContentLength)); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Images.Images")
 	} else {
 		return result, nil
 	}
@@ -287,7 +295,8 @@ func (self *SRegion) CheckBucket(bucketName string) error {
 func (self *SRegion) checkBucket(bucketName string) error {
 	exists, err := self.IsBucketExist(bucketName)
 	if err != nil {
-		return err
+		log.Errorf("IsBucketExist %s: %s", bucketName, err)
+		return errors.Wrap(err, "IsBucketExist")
 	}
 
 	if !exists {
@@ -301,13 +310,13 @@ func (self *SRegion) checkBucket(bucketName string) error {
 func (self *SRegion) IsBucketExist(bucketName string) (bool, error) {
 	s3Client, err := self.GetS3Client()
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "IsBucketExist.GetS3Client")
 	}
 
 	params := &s3.ListBucketsInput{}
 	ret, err := s3Client.ListBuckets(params)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "ListBuckets")
 	}
 
 	for _, bucket := range ret.Buckets {
