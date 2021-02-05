@@ -529,12 +529,14 @@ func FetchDistinctField(modelManager IModelManager, field string) ([]string, err
 
 	values := []string{}
 	for rows.Next() {
-		var value string
+		var value sql.NullString
 		err := rows.Scan(&value)
 		if err != nil {
 			return values, errors.Wrap(err, "rows.Scan")
 		}
-		values = append(values, value)
+		if value.Valid {
+			values = append(values, value.String)
+		}
 	}
 	return values, nil
 }

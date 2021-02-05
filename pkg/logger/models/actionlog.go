@@ -20,7 +20,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/logger"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -84,10 +88,71 @@ func (action *SActionlog) CustomizeCreate(ctx context.Context, userCred mcclient
 	return action.SOpsLog.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
+func (self *SActionlog) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	for k, v := range map[string]string{
+		"service":  self.Service,
+		"action":   self.Action,
+		"obj_type": self.ObjType,
+	} {
+		db.DistinctFieldManager.InsertOrUpdate(ctx, ActionLog, k, v)
+	}
+}
+
+// 操作日志列表
+func (manager *SActionlogManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.ActionLogListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SOpsLogManager.ListItemFilter(ctx, q, userCred, input.OpsLogListInput)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListItemFilter")
+	}
+
+	if len(input.Service) > 0 {
+		if len(input.Service) == 1 {
+			q = q.Equals("service", input.Service[0])
+		} else {
+			q = q.In("service", input.Service)
+		}
+	}
+
+	if input.Success != nil {
+		q = q.Equals("success", *input.Success)
+	}
+	return q, nil
+}
+
+func (manager *SActionlogManager) GetPropertyDistinctField(ctx context.Context, userCred mcclient.TokenCredential, input apis.DistinctFieldInput) (jsonutils.JSONObject, error) {
+	fields, err := db.DistinctFieldManager.GetObjectDistinctFields(manager.Keyword())
+	if err != nil {
+		return nil, errors.Wrapf(err, "DistinctFieldManager.GetObjectDistinctFields")
+	}
+	fieldMaps := map[string][]string{}
+	for _, field := range fields {
+		_, ok := fieldMaps[field.Key]
+		if !ok {
+			fieldMaps[field.Key] = []string{}
+		}
+		fieldMaps[field.Key] = append(fieldMaps[field.Key], field.Value)
+	}
+	ret := map[string][]string{}
+	for _, key := range input.Field {
+		ret[key], _ = fieldMaps[key]
+	}
+	return jsonutils.Marshal(ret), nil
+}
+
 func (action *SActionlog) GetI18N(ctx context.Context) *jsonutils.JSONDict {
 	r := jsonutils.NewDict()
 	act18 := logclient.OpsActionI18nTable.Lookup(ctx, action.Action)
+	ser18 := logclient.OpsServiceI18nTable.Lookup(ctx, action.Service)
+	obj18 := logclient.OpsObjTypeI18nTable.Lookup(ctx, action.ObjType)
 	r.Set("action", jsonutils.NewString(act18))
+	r.Set("service", jsonutils.NewString(ser18))
+	r.Set("obj_type", jsonutils.NewString(obj18))
 	return r
 }
 
@@ -96,7 +161,9 @@ func (man *SActionlogManager) GetI18N(ctx context.Context, idstr string, resObj 
 		return nil
 	}
 	res := &struct {
-		Action []string `json:"action"`
+		Action  []string `json:"action"`
+		Service []string `json:"service"`
+		ObjType []string `json:"obj_type"`
 	}{}
 	if err := resObj.Unmarshal(res); err != nil {
 		return nil
@@ -104,6 +171,14 @@ func (man *SActionlogManager) GetI18N(ctx context.Context, idstr string, resObj 
 	for i, act := range res.Action {
 		act18 := logclient.OpsActionI18nTable.Lookup(ctx, act)
 		res.Action[i] = act18
+	}
+	for i, ser := range res.Service {
+		ser18 := logclient.OpsServiceI18nTable.Lookup(ctx, ser)
+		res.Service[i] = ser18
+	}
+	for i, obj := range res.ObjType {
+		obj18 := logclient.OpsObjTypeI18nTable.Lookup(ctx, obj)
+		res.ObjType[i] = obj18
 	}
 	robj := jsonutils.Marshal(res)
 	rdict := robj.(*jsonutils.JSONDict)
@@ -136,4 +211,29 @@ func StartNotifyToWebsocketWorker() {
 			}
 		}
 	}()
+}
+
+func (manager *SActionlogManager) InitializeData() error {
+	fileds, err := db.DistinctFieldManager.GetObjectDistinctFields(manager.Keyword())
+	if err != nil {
+		return errors.Wrapf(err, "GetObjectDistinctFields")
+	}
+	if len(fileds) > 0 {
+		return nil
+	}
+	for _, key := range []string{"service", "obj_type", "action"} {
+		values, err := db.FetchDistinctField(manager, key)
+		if err != nil {
+			return errors.Wrapf(err, "db.FetchDistinctField")
+		}
+		for _, value := range values {
+			if len(value) > 0 {
+				err = db.DistinctFieldManager.InsertOrUpdate(context.TODO(), manager, key, value)
+				if err != nil {
+					return errors.Wrapf(err, "DistinctFieldManager.InsertOrUpdate(%s, %s)", key, value)
+				}
+			}
+		}
+	}
+	return nil
 }
