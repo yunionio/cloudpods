@@ -251,5 +251,8 @@ func newAlertRecordRule(evalCtx *EvalContext) monitor.AlertRecordRule {
 
 	alertRule.AlertDuration = int64(evalCtx.Rule.For)/evalCtx.Rule.Frequency + 1
 
+	if evalCtx.Rule.SilentPeriod != 0 {
+		alertRule.SilentPeriod = fmt.Sprintf("%dm", evalCtx.Rule.SilentPeriod/60)
+	}
 	return alertRule
 }
