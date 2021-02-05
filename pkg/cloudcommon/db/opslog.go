@@ -248,78 +248,69 @@ func (manager *SOpsLogManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
+	input apis.OpsLogListInput,
 ) (*sqlchemy.SQuery, error) {
-	projStrs := jsonutils.GetQueryStringArray(query, "owner_project_ids")
-	if len(projStrs) > 0 {
-		for i := range projStrs {
-			projObj, err := DefaultProjectFetcher(ctx, projStrs[i])
-			if err != nil {
-				if err == sql.ErrNoRows {
-					return nil, httperrors.NewResourceNotFoundError2("project", projStrs[i])
-				} else {
-					return nil, httperrors.NewGeneralError(err)
-				}
+	for idx, projectId := range input.OwnerProjectIds {
+		projObj, err := DefaultProjectFetcher(ctx, projectId)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("project", projectId)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
 			}
-			projStrs[i] = projObj.GetId()
 		}
-		q = q.Filter(sqlchemy.In(q.Field("owner_tenant_id"), projStrs))
+		input.OwnerProjectIds[idx] = projObj.GetId()
 	}
-	domainStrs := jsonutils.GetQueryStringArray(query, "owner_domain_ids")
-	if len(domainStrs) > 0 {
-		for i := range domainStrs {
-			domainObj, err := DefaultDomainFetcher(ctx, domainStrs[i])
-			if err != nil {
-				if err == sql.ErrNoRows {
-					return nil, httperrors.NewResourceNotFoundError2("domain", domainStrs[i])
-				} else {
-					return nil, httperrors.NewGeneralError(err)
-				}
+	if len(input.OwnerProjectIds) > 0 {
+		q = q.Filter(sqlchemy.In(q.Field("owner_tenant_id"), input.OwnerProjectIds))
+	}
+	for idx, domainId := range input.OwnerDomainIds {
+		domainObj, err := DefaultDomainFetcher(ctx, domainId)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("domain", domainId)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
 			}
-			domainStrs[i] = domainObj.GetId()
 		}
-		q = q.Filter(sqlchemy.In(q.Field("owner_domain_id"), domainStrs))
+		input.OwnerDomainIds[idx] = domainObj.GetId()
 	}
-	objTypes := jsonutils.GetQueryStringArray(query, "obj_type")
-	if len(objTypes) > 0 {
-		if len(objTypes) == 1 {
-			q = q.Filter(sqlchemy.Equals(q.Field("obj_type"), objTypes[0]))
-		} else {
-			q = q.Filter(sqlchemy.In(q.Field("obj_type"), objTypes))
-		}
+	if len(input.OwnerDomainIds) > 0 {
+		q = q.Filter(sqlchemy.In(q.Field("owner_domain_id"), input.OwnerDomainIds))
 	}
-	objs := jsonutils.GetQueryStringArray(query, "obj")
-	if len(objs) > 0 {
-		if len(objs) == 1 {
-			q = q.Filter(sqlchemy.OR(sqlchemy.Equals(q.Field("obj_id"), objs[0]), sqlchemy.Equals(q.Field("obj_name"), objs[0])))
+	if len(input.ObjTypes) > 0 {
+		if len(input.ObjTypes) == 1 {
+			q = q.Filter(sqlchemy.Equals(q.Field("obj_type"), input.ObjTypes[0]))
 		} else {
-			q = q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("obj_id"), objs), sqlchemy.In(q.Field("obj_name"), objs)))
+			q = q.Filter(sqlchemy.In(q.Field("obj_type"), input.ObjTypes))
 		}
 	}
-	objIds := jsonutils.GetQueryStringArray(query, "obj_id")
-	if len(objIds) > 0 {
-		if len(objIds) == 1 {
-			q = q.Filter(sqlchemy.Equals(q.Field("obj_id"), objIds[0]))
+	if len(input.Objs) > 0 {
+		if len(input.Objs) == 1 {
+			q = q.Filter(sqlchemy.OR(sqlchemy.Equals(q.Field("obj_id"), input.Objs[0]), sqlchemy.Equals(q.Field("obj_name"), input.Objs[0])))
 		} else {
-			q = q.Filter(sqlchemy.In(q.Field("obj_id"), objIds))
+			q = q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("obj_id"), input.Objs), sqlchemy.In(q.Field("obj_name"), input.Objs)))
 		}
 	}
-	objNames := jsonutils.GetQueryStringArray(query, "obj_name")
-	if len(objNames) > 0 {
-		if len(objNames) == 1 {
-			q = q.Filter(sqlchemy.Equals(q.Field("obj_name"), objNames[0]))
+	if len(input.ObjIds) > 0 {
+		if len(input.ObjIds) == 1 {
+			q = q.Filter(sqlchemy.Equals(q.Field("obj_id"), input.ObjIds[0]))
 		} else {
-			q = q.Filter(sqlchemy.In(q.Field("obj_name"), objNames))
+			q = q.Filter(sqlchemy.In(q.Field("obj_id"), input.ObjIds))
 		}
 	}
-	queryDict := query.(*jsonutils.JSONDict)
-	queryDict.Remove("obj_id")
-	action := jsonutils.GetQueryStringArray(query, "action")
-	if action != nil && len(action) > 0 {
-		if len(action) == 1 {
-			q = q.Filter(sqlchemy.Equals(q.Field("action"), action[0]))
+	if len(input.ObjNames) > 0 {
+		if len(input.ObjNames) == 1 {
+			q = q.Filter(sqlchemy.Equals(q.Field("obj_name"), input.ObjNames[0]))
 		} else {
-			q = q.Filter(sqlchemy.In(q.Field("action"), action))
+			q = q.Filter(sqlchemy.In(q.Field("obj_name"), input.ObjNames))
+		}
+	}
+	if len(input.Actions) > 0 {
+		if len(input.Actions) == 1 {
+			q = q.Filter(sqlchemy.Equals(q.Field("action"), input.Actions[0]))
+		} else {
+			q = q.Filter(sqlchemy.In(q.Field("action"), input.Actions))
 		}
 	}
 	//if !IsAdminAllowList(userCred, manager) {
@@ -328,13 +319,11 @@ func (manager *SOpsLogManager) ListItemFilter(
 	//		sqlchemy.Equals(q.Field("tenant_id"), manager.GetOwnerId(userCred)),
 	//	))
 	//}
-	since, _ := query.GetTime("since")
-	if !since.IsZero() {
-		q = q.GT("ops_time", since)
+	if !input.Since.IsZero() {
+		q = q.GT("ops_time", input.Since)
 	}
-	until, _ := query.GetTime("until")
-	if !until.IsZero() {
-		q = q.LE("ops_time", until)
+	if !input.Until.IsZero() {
+		q = q.LE("ops_time", input.Until)
 	}
 	return q, nil
 }

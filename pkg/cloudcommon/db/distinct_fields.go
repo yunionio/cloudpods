@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 )
 
 type SDistinctFieldManager struct {
@@ -84,5 +85,12 @@ func (manager *SDistinctFieldManager) InsertOrUpdate(ctx context.Context, modelM
 		Id:      modelManager.Keyword() + DISTINCT_FIELD_SEP + key + DISTINCT_FIELD_SEP + value,
 	}
 	distinct.SetModelManager(manager, distinct)
-	return manager.TableSpec().InsertOrUpdate(ctx, distinct)
+	err := manager.TableSpec().InsertOrUpdate(ctx, distinct)
+	if err != nil {
+		if errors.Cause(err) == sqlchemy.ErrUnexpectRowCount {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
