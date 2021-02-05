@@ -27,7 +27,7 @@ type IPMIProfile struct {
 
 func DefaultProfile() IPMIProfile {
 	return IPMIProfile{
-		LanChannel: []int{1},
+		LanChannel: []int{1, 2, 8},
 		RootName:   "root",
 		RootId:     2,
 	}
