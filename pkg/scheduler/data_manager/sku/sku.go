@@ -140,7 +140,7 @@ func (m *SSkuManager) syncOnce() {
 	startTime := time.Now()
 
 	skus := make([]ServerSku, 0)
-	q := models.ServerSkuManager.Query("id", "name", "cloudregion_id", "zone_id")
+	q := models.ServerSkuManager.Query("id", "name", "cloudregion_id", "zone_id").IsTrue("enabled")
 	q = q.Filter(
 		sqlchemy.OR(
 			sqlchemy.Equals(q.Field("prepaid_status"), computeapi.SkuStatusAvailable),
