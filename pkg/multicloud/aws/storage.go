@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -69,7 +70,7 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		parts, total, err := self.zone.region.GetDisks("", self.zone.GetId(), self.storageType, nil, len(disks), 50)
 		if err != nil {
 			log.Errorf("GetDisks fail %s", err)
-			return nil, err
+			return nil, errors.Wrap(err, "GetDisks")
 		}
 		disks = append(disks, parts...)
 		if len(disks) >= total {
@@ -117,12 +118,12 @@ func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudpr
 	diskId, err := self.zone.region.CreateDisk(self.zone.ZoneId, self.storageType, conf.Name, conf.SizeGb, "", conf.Desc)
 	if err != nil {
 		log.Errorf("createDisk fail %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "CreateDisk")
 	}
 	disk, err := self.zone.region.GetDisk(diskId)
 	if err != nil {
-		log.Errorf("getDisk fail %s", err)
-		return nil, err
+		log.Errorf("getDisk  %s fail %s", diskId, err)
+		return nil, errors.Wrap(err, "GetDisk")
 	}
 	disk.storage = self
 	return disk, nil
@@ -130,7 +131,8 @@ func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudpr
 
 func (self *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
 	if disk, err := self.zone.region.GetDisk(idStr); err != nil {
-		return nil, err
+		log.Errorf("GetDisk %s: %s", idStr, err)
+		return nil, errors.Wrap(err, "GetDisk")
 	} else {
 		disk.storage = self
 		return disk, nil

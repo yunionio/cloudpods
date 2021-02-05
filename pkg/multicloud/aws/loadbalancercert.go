@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -161,7 +162,7 @@ func (self *SElbCertificate) ParsePublicKey() (*x509.Certificate, error) {
 	block, _ := pem.Decode([]byte(publicKey))
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ParseCertificate")
 	}
 
 	self.cert = cert

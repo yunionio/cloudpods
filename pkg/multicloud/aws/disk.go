@@ -205,13 +205,14 @@ func (self *SDisk) Delete(ctx context.Context) error {
 func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
 	if snapshotId, err := self.storage.zone.region.CreateSnapshot(self.DiskId, name, desc); err != nil {
 		log.Errorf("createSnapshot fail %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "CreateSnapshot")
 	} else if snapshot, err := self.getSnapshot(snapshotId); err != nil {
-		return nil, err
+		log.Errorf("getSnapshot %s", snapshotId)
+		return nil, errors.Wrap(err, "getSnapshot")
 	} else {
 		snapshot.region = self.storage.zone.region
 		if err := cloudprovider.WaitStatus(snapshot, api.SNAPSHOT_READY, 15*time.Second, 3600*time.Second); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "WaitStatus.snapshot")
 		}
 		return snapshot, nil
 	}
@@ -219,7 +220,7 @@ func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string
 
 func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
 	if snapshot, err := self.getSnapshot(snapshotId); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getSnapshot")
 	} else {
 		snapshot.region = self.storage.zone.region
 		return snapshot, nil
@@ -230,8 +231,8 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	snapshots := make([]SSnapshot, 0)
 	for {
 		if parts, total, err := self.storage.zone.region.GetSnapshots("", self.DiskId, "", []string{}, 0, 20); err != nil {
-			log.Errorf("GetDisks fail %s", err)
-			return nil, err
+			log.Errorf("GetSnapshots fail %s", err)
+			return nil, errors.Wrap(err, "GetSnapshots")
 		} else {
 			snapshots = append(snapshots, parts...)
 			if len(snapshots) >= total {
@@ -266,9 +267,9 @@ func (self *SDisk) getSnapshot(snapshotId string) (*SSnapshot, error) {
 	}
 
 	if snapshots, total, err := self.storage.zone.region.GetSnapshots("", "", "", []string{snapshotId}, 0, 1); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetSnapshots")
 	} else if total != 1 {
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetSnapshots")
 	} else {
 		return &snapshots[0], nil
 	}
@@ -371,18 +372,18 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	if len(diskId) == 0 {
 		// return nil, fmt.Errorf("GetDisk diskId should not be empty.")
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetDisk")
 	}
 	disks, total, err := self.GetDisks("", "", "", []string{diskId}, 0, 1)
 	if err != nil {
 		if strings.Contains(err.Error(), "InvalidVolume.NotFound") {
-			return nil, ErrorNotFound()
+			return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetDisks")
 		} else {
-			return nil, err
+			return nil, errors.Wrap(err, "GetDisks")
 		}
 	}
 	if total != 1 {
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetDisk")
 	}
 	return &disks[0], nil
 }

@@ -131,7 +131,7 @@ func (self *SSecurityGroup) GetDescription() string {
 func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
 	secgrp, err := self.vpc.region.GetSecurityGroupDetails(self.SecurityGroupId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetSecurityGroupDetails")
 	}
 	return secgrp.Permissions, nil
 }
@@ -309,7 +309,7 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 	ret, err := self.ec2Client.DescribeSecurityGroups(params)
 	err = parseNotFoundError(err)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "DescribeSecurityGroups")
 	}
 
 	if len(ret.SecurityGroups) == 1 {
@@ -342,7 +342,8 @@ func (self *SRegion) getSecurityGroupById(vpcId, secgroupId string) (*SSecurityG
 
 	secgroups, total, err := self.GetSecurityGroups(vpcId, "", secgroupId, 0, 0)
 	if err != nil {
-		return nil, err
+		log.Errorf("GetSecurityGroups vpc %s secgroupId %s: %s", vpcId, secgroupId, err)
+		return nil, errors.Wrap(err, "GetSecurityGroups")
 	}
 
 	if total != 1 {

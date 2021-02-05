@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	billing "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -214,7 +215,7 @@ func (rds *SDBInstance) Refresh() error {
 func (region *SRegion) GetDBInstance(instanceId string) (*SDBInstance, error) {
 	instances, err := region.GetDBInstances(instanceId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetDBInstances")
 	}
 
 	if len(instances) == 1 {
@@ -279,7 +280,7 @@ func (rds *SDBInstance) GetConnectionStr() string {
 func (rds *SDBInstance) GetIDBInstanceParameters() ([]cloudprovider.ICloudDBInstanceParameter, error) {
 	parameters, err := rds.region.GetDBInstanceParameters(rds.DBParameterGroups[0].DBParameterGroupName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetDBInstanceParameters")
 	}
 	iparams := []cloudprovider.ICloudDBInstanceParameter{}
 	for i := 0; i < len(parameters); i++ {
@@ -308,7 +309,7 @@ func (region *SRegion) GetDBInstances(instanceId string) ([]SDBInstance, error) 
 	}
 	err := region.rdsRequest("DescribeDBInstances", map[string]string{}, &instances)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "DescribeDBInstances")
 	}
 	return instances.DBInstances, nil
 }
@@ -316,7 +317,7 @@ func (region *SRegion) GetDBInstances(instanceId string) ([]SDBInstance, error) 
 func (region *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, error) {
 	instances, err := region.GetDBInstances("")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetDBInstances")
 	}
 	idbinstances := []cloudprovider.ICloudDBInstance{}
 	for i := 0; i < len(instances); i++ {

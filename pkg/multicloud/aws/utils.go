@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -494,12 +495,8 @@ func parseNotFoundError(err error) error {
 	}
 
 	if strings.Contains(err.Error(), ".NotFound") {
-		return ErrorNotFound()
+		return errors.Wrap(cloudprovider.ErrNotFound, "parseNotFoundError")
 	} else {
 		return err
 	}
-}
-
-func ErrorNotFound() error {
-	return cloudprovider.ErrNotFound
 }
