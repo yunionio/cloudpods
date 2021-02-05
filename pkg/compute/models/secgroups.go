@@ -691,6 +691,7 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 
 	secgroup.Name = name
 	secgroup.Description, _ = data.GetString("description")
+	secgroup.Status = api.SECGROUP_STATUS_READY
 	secgroup.ProjectId = userCred.GetProjectId()
 	secgroup.DomainId = userCred.GetProjectDomainId()
 
