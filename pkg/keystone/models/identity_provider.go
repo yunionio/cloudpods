@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/saml"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/samlutils/sp"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -1267,7 +1268,11 @@ func (idp *SIdentityProvider) TryUserJoinProject(attrConf api.SIdpAttributeOptio
 	if len(attrConf.ProjectAttribute) > 0 {
 		projName := fetchAttribute(attrs, attrConf.ProjectAttribute)
 		if len(projName) > 0 {
-			targetProject, err = ProjectManager.FetchProject("", projName, domainId, "")
+			projDomainId := ""
+			if ProjectManager.NamespaceScope() == rbacutils.ScopeDomain {
+				projDomainId = domainId
+			}
+			targetProject, err = ProjectManager.FetchProject("", projName, projDomainId, "")
 			if err != nil {
 				log.Errorf("fetch project %s fail %s", projName, err)
 				if errors.Cause(err) == sql.ErrNoRows && idp.AutoCreateProject.IsTrue() {
