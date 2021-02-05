@@ -12,18 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package misc
-
-import (
-	"yunion.io/x/onecloud/cmd/climc/shell"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	options "yunion.io/x/onecloud/pkg/mcclient/options/yunionagent"
-)
-
-func init() {
-	cmd := shell.NewResourceCmd(&modules.Notice).WithKeyword("notice")
-	cmd.List(&options.NoticeListOptions{})
-	cmd.Create(&options.NoticeCreateOptions{})
-	cmd.Update(&options.NoticesUpdateOptions{})
-	cmd.Delete(&options.NoticeOptions{})
-}
+package yunionagent // import "yunion.io/x/onecloud/pkg/mcclient/options/yunionagent"
