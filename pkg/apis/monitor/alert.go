@@ -136,6 +136,8 @@ type AlertUpdateInput struct {
 
 	// 报警执行频率
 	Frequency *int64 `json:"frequency"`
+	// 报警持续时间
+	For int64 `json:"for"`
 	// 报警设置
 	Settings *AlertSetting `json:"settings"`
 	// 启用报警
