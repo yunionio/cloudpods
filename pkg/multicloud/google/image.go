@@ -44,6 +44,9 @@ type SImage struct {
 	storagecache *SStoragecache
 	SResourceBase
 
+	// normalized image info
+	imgInfo *imagetools.ImageInfo
+
 	Id                string
 	CreationTimestamp time.Time
 	Description       string
@@ -161,20 +164,29 @@ func (image *SImage) GetSizeByte() int64 {
 	return image.ArchiveSizeBytes
 }
 
+func (image *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
+	if image.imgInfo == nil {
+		imgInfo := imagetools.NormalizeImageInfo(image.Name, "", "", "", "")
+		image.imgInfo = &imgInfo
+	}
+
+	return image.imgInfo
+}
+
 func (image *SImage) GetOsType() string {
-	return imagetools.NormalizeImageInfo(image.Name, "", "", "", "").OsType
+	return image.getNormalizedImageInfo().OsType
 }
 
 func (image *SImage) GetOsDist() string {
-	return imagetools.NormalizeImageInfo(image.Name, "", "", "", "").OsDistro
+	return image.getNormalizedImageInfo().OsDistro
 }
 
 func (image *SImage) GetOsVersion() string {
-	return imagetools.NormalizeImageInfo(image.Name, "", "", "", "").OsVersion
+	return image.getNormalizedImageInfo().OsVersion
 }
 
 func (image *SImage) GetOsArch() string {
-	return imagetools.NormalizeImageInfo(image.Name, "", "", "", "").OsArch
+	return image.getNormalizedImageInfo().OsArch
 }
 
 func (image *SImage) GetMinOsDiskSizeGb() int {

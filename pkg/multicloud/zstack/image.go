@@ -48,6 +48,9 @@ type SImage struct {
 	multicloud.SImageBase
 	storageCache *SStoragecache
 
+	// normalized image info
+	imgInfo *imagetools.ImageInfo
+
 	BackupStorageRefs []SBackupStorageRef `json:"backupStorageRefs"`
 	ActualSize        int                 `json:"actualSize"`
 	CreateDate        time.Time           `json:"createDate"`
@@ -156,20 +159,25 @@ func (image *SImage) GetSizeByte() int64 {
 	return int64(image.Size)
 }
 
+func (self *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
+	if self.imgInfo == nil {
+		imgInfo := imagetools.NormalizeImageInfo(self.URL, "", self.Platform, self.Platform, "")
+		self.imgInfo = &imgInfo
+	}
+
+	return self.imgInfo
+}
+
 func (image *SImage) GetOsType() string {
-	return image.Platform
+	return image.getNormalizedImageInfo().OsType
 }
 
 func (image *SImage) GetOsDist() string {
-	osDist := imagetools.NormalizeImageInfo(image.URL, "", "", "", "").OsDistro
-	if len(osDist) > 0 {
-		return osDist
-	}
-	return image.Platform
+	return image.getNormalizedImageInfo().OsDistro
 }
 
 func (image *SImage) GetOsVersion() string {
-	return imagetools.NormalizeImageInfo(image.Name, "", "", "", "").OsVersion
+	return image.getNormalizedImageInfo().OsVersion
 }
 
 func (image *SImage) GetOsArch() string {
