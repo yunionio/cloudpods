@@ -64,6 +64,8 @@ type Rule struct {
 	StateChanges int
 
 	CustomizeConfig jsonutils.JSONObject
+	// 静默期
+	SilentPeriod int64
 }
 
 var (
@@ -140,6 +142,10 @@ func NewRuleFromDBAlert(ruleDef *models.SAlert) (*Rule, error) {
 		return nil, err
 	}
 	for _, n := range notis {
+		noti, _ := n.GetNotification()
+		if noti.Frequency != 0 {
+			model.SilentPeriod = noti.Frequency
+		}
 		nIds = append(nIds, n.NotificationId)
 	}
 	model.Notifications = nIds
