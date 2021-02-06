@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -216,10 +217,11 @@ func (self *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 
 	eips, total, err := self.GetEips(eipId, "", 0, 0)
 	if err != nil {
-		return nil, err
+		log.Errorf("GetEips %s: %s", eipId, err)
+		return nil, errors.Wrap(err, "GetEips")
 	}
 	if total != 1 {
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetEips")
 	}
 	return &eips[0], nil
 }
@@ -227,11 +229,12 @@ func (self *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 func (self *SRegion) GetEipByIpAddress(eipAddress string) (*SEipAddress, error) {
 	eips, total, err := self.GetEips("", eipAddress, 0, 0)
 	if err != nil {
-		return nil, err
+		log.Errorf("GetEips %s: %s", eipAddress, err)
+		return nil, errors.Wrap(err, "GetEips")
 	}
 
 	if total != 1 {
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetEips")
 	}
 	return &eips[0], nil
 }
@@ -242,12 +245,12 @@ func (self *SRegion) AllocateEIP(domainType string) (*SEipAddress, error) {
 	eip, err := self.ec2Client.AllocateAddress(params)
 	if err != nil {
 		log.Errorf("AllocateEipAddress fail %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "AllocateAddress")
 	}
 
 	err = self.fetchInfrastructure()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "fetchInfrastructure")
 	}
 	return self.GetEip(*eip.AllocationId)
 }

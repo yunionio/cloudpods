@@ -297,14 +297,14 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	disks, _, err := self.host.zone.region.GetDisks(self.InstanceId, "", "", nil, 0, 0)
 	if err != nil {
 		log.Errorf("fetchDisks fail %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "GetDisks")
 	}
 
 	idisks := make([]cloudprovider.ICloudDisk, len(disks))
 	for i := 0; i < len(disks); i += 1 {
 		store, err := self.host.zone.getStorageByCategory(disks[i].Category)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "getStorageByCategory")
 		}
 		disks[i].storage = store
 		idisks[i] = &disks[i]
@@ -598,7 +598,7 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 	res, err := self.ec2Client.DescribeInstances(params)
 	if err != nil {
 		if strings.Contains(err.Error(), "InvalidInstanceID.NotFound") {
-			return nil, 0, ErrorNotFound()
+			return nil, 0, errors.Wrap(cloudprovider.ErrNotFound, "DescribeInstances")
 		} else {
 			return nil, 0, err
 		}
@@ -732,10 +732,11 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 
 	instances, _, err := self.GetInstances("", []string{instanceId}, 0, 1)
 	if err != nil {
-		return nil, err
+		log.Errorf("GetInstances %s: %s", instanceId, err)
+		return nil, errors.Wrap(err, "GetInstances")
 	}
 	if len(instances) == 0 {
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetInstances")
 	}
 	return &instances[0], nil
 }

@@ -111,7 +111,7 @@ func (self *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
 	if self.iwires == nil {
 		err := self.fetchNetworks()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "fetchNetworks")
 		}
 	}
 	return self.iwires, nil
@@ -121,7 +121,7 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 	if self.secgroups == nil {
 		err := self.fetchSecurityGroups()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "fetchSecurityGroups")
 		}
 	}
 	return self.secgroups, nil
@@ -192,7 +192,7 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 	if self.iwires == nil {
 		err := self.fetchNetworks()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "fetchNetworks")
 		}
 	}
 	for i := 0; i < len(self.iwires); i += 1 {
@@ -200,7 +200,7 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 			return self.iwires[i], nil
 		}
 	}
-	return nil, ErrorNotFound()
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetIWireById")
 }
 
 func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
@@ -554,10 +554,11 @@ func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
 
 	vpcs, total, err := self.GetVpcs([]string{vpcId}, 0, 1)
 	if err != nil {
-		return nil, err
+		log.Errorf("GetVpcs %s: %s", vpcId, err)
+		return nil, errors.Wrap(err, "GetVpcs")
 	}
 	if total != 1 {
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "getVpc")
 	}
 	vpcs[0].region = self
 	return &vpcs[0], nil

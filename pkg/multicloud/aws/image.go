@@ -306,7 +306,7 @@ func (self *SRegion) ImportImage(name string, osArch string, osType string, osDi
 	params.SetLicenseType("BYOL") // todo: AWS?
 	ret, err := self.ec2Client.ImportImage(params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ImportImage")
 	}
 	log.Debugf("ImportImage task: %s", ret.String())
 	return &ImageImportTask{ImageId: StrVal(ret.ImageId), RegionId: self.RegionId, TaskId: *ret.ImportTaskId, Status: StrVal(ret.Status), region: self}, nil
@@ -330,7 +330,7 @@ func (self *SRegion) ExportImage(instanceId string, imageId string) (*ImageExpor
 	params.SetExportToS3Task(spec)
 	ret, err := self.ec2Client.CreateInstanceExportTask(params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "CreateInstanceExportTask")
 	}
 
 	return &ImageExportTask{ImageId: imageId, RegionId: self.RegionId, TaskId: *ret.ExportTask.ExportTaskId}, nil
@@ -343,10 +343,10 @@ func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 
 	images, err := self.getImages("", ImageOwnerAll, []string{imageId}, "", "", nil, "")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getImages")
 	}
 	if len(images) == 0 {
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "getImages")
 	}
 	return &images[0], nil
 }
@@ -358,10 +358,10 @@ func (self *SRegion) GetImageByName(name string, owners []TImageOwnerType) (*SIm
 
 	images, err := self.getImages("", owners, nil, name, "hvm", nil, "")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getImages")
 	}
 	if len(images) == 0 {
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "getImages")
 	}
 
 	log.Debugf("%d image found match name %s", len(images), name)
@@ -401,7 +401,7 @@ func getLatestImage(images []SImage) SImage {
 func (self *SRegion) GetImages(status ImageStatusType, owners []TImageOwnerType, imageId []string, name string, virtualizationType string, ownerIds []string, volumeType string, latest bool) ([]SImage, error) {
 	images, err := self.getImages(status, owners, imageId, name, virtualizationType, ownerIds, volumeType)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getImages")
 	}
 	if !latest {
 		return images, err
@@ -461,7 +461,7 @@ func (self *SRegion) getImages(status ImageStatusType, owners []TImageOwnerType,
 	ret, err := self.ec2Client.DescribeImages(params)
 	err = parseNotFoundError(err)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "parseNotFoundError")
 	}
 
 	images := []SImage{}
@@ -469,7 +469,7 @@ func (self *SRegion) getImages(status ImageStatusType, owners []TImageOwnerType,
 		image := ret.Images[i]
 
 		if err := FillZero(image); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "FillZero.image")
 		}
 
 		tagspec := TagSpec{}

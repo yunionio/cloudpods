@@ -187,7 +187,7 @@ func (self *SRegion) DeleteElbListenerRule(ruleId string) error {
 func (self *SRegion) CreateElbListenerRule(listenerId string, config *cloudprovider.SLoadbalancerListenerRule) (*SElbListenerRule, error) {
 	client, err := self.GetElbV2Client()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbV2Client")
 	}
 
 	forward := "forward"
@@ -198,7 +198,7 @@ func (self *SRegion) CreateElbListenerRule(listenerId string, config *cloudprovi
 
 	condtions, err := parseConditions(config.Condition)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "parseConditions")
 	}
 
 	params := &elbv2.CreateRuleInput{}
@@ -208,7 +208,7 @@ func (self *SRegion) CreateElbListenerRule(listenerId string, config *cloudprovi
 	params.SetPriority(int64(1))
 	ret, err := client.CreateRule(params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "CreateRule")
 	}
 
 	if len(ret.Rules) == 0 {
@@ -218,7 +218,7 @@ func (self *SRegion) CreateElbListenerRule(listenerId string, config *cloudprovi
 	rule := SElbListenerRule{}
 	err = unmarshalAwsOutput(ret.Rules[0], "", &rule)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unmarshalAwsOutput.rule")
 	}
 
 	rule.region = self
@@ -228,7 +228,7 @@ func (self *SRegion) CreateElbListenerRule(listenerId string, config *cloudprovi
 func parseConditions(conditions string) ([]*elbv2.RuleCondition, error) {
 	obj, err := jsonutils.ParseString(conditions)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ParseString.conditions")
 	}
 
 	conditionArray, ok := obj.(*jsonutils.JSONArray)
@@ -241,7 +241,7 @@ func parseConditions(conditions string) ([]*elbv2.RuleCondition, error) {
 	for i := range cs {
 		c, err := parseCondition(cs[i])
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "parseCondition")
 		}
 
 		ret = append(ret, c)
@@ -287,7 +287,7 @@ func parseHttpHeaderCondition(conditon *jsonutils.JSONDict) (*elbv2.RuleConditio
 
 	values, err := conditon.GetMap("httpHeaderConfig")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetMap")
 	}
 
 	name, ok := values["HttpHeaderName"]
@@ -311,7 +311,7 @@ func parseHttpHeaderCondition(conditon *jsonutils.JSONDict) (*elbv2.RuleConditio
 
 	_vs, err := parseConditionStringArrayValues(vs)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "parseConditionStringArrayValues")
 	}
 	config.SetValues(_vs)
 	ret.SetHttpHeaderConfig(config)
@@ -324,7 +324,7 @@ func parsePathPatternCondition(condition *jsonutils.JSONDict) (*elbv2.RuleCondit
 
 	values, err := condition.GetMap("pathPatternConfig")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetMap")
 	}
 
 	config := &elbv2.PathPatternConditionConfig{}
@@ -335,7 +335,7 @@ func parsePathPatternCondition(condition *jsonutils.JSONDict) (*elbv2.RuleCondit
 
 	_vs, err := parseConditionStringArrayValues(vs)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "parseConditionStringArrayValues")
 	}
 	config.SetValues(_vs)
 	ret.SetPathPatternConfig(config)
@@ -349,7 +349,7 @@ func parseRequestModthdCondition(condition *jsonutils.JSONDict) (*elbv2.RuleCond
 
 	values, err := condition.GetMap("httpRequestMethodConfig")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetMap.httpRequestMethodConfig")
 	}
 
 	config := &elbv2.HttpRequestMethodConditionConfig{}
@@ -360,7 +360,7 @@ func parseRequestModthdCondition(condition *jsonutils.JSONDict) (*elbv2.RuleCond
 
 	_vs, err := parseConditionStringArrayValues(vs)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "parseConditionStringArrayValues")
 	}
 	config.SetValues(_vs)
 	return ret, nil
@@ -372,7 +372,7 @@ func parseHostHeaderCondition(condition *jsonutils.JSONDict) (*elbv2.RuleConditi
 
 	values, err := condition.GetMap("hostHeaderConfig")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetMap.hostHeaderConfig")
 	}
 
 	config := &elbv2.HostHeaderConditionConfig{}
@@ -383,7 +383,7 @@ func parseHostHeaderCondition(condition *jsonutils.JSONDict) (*elbv2.RuleConditi
 
 	_vs, err := parseConditionStringArrayValues(vs)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "parseConditionStringArrayValues")
 	}
 	config.SetValues(_vs)
 	ret.SetHostHeaderConfig(config)
@@ -396,7 +396,7 @@ func parseQueryStringCondition(condition *jsonutils.JSONDict) (*elbv2.RuleCondit
 
 	values, err := condition.GetMap("queryStringConfig")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetMap.queryStringConfig")
 	}
 
 	config := &elbv2.QueryStringConditionConfig{}
@@ -407,7 +407,7 @@ func parseQueryStringCondition(condition *jsonutils.JSONDict) (*elbv2.RuleCondit
 
 	_vs, err := parseConditionDictArrayValues(vs)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "parseConditionDictArrayValues")
 	}
 	config.SetValues(_vs)
 	ret.SetQueryStringConfig(config)
@@ -420,7 +420,7 @@ func parseSourceIpCondition(condition *jsonutils.JSONDict) (*elbv2.RuleCondition
 
 	values, err := condition.GetMap("sourceIpConfig")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetMap.sourceIpConfig")
 	}
 
 	config := &elbv2.SourceIpConditionConfig{}
@@ -431,7 +431,7 @@ func parseSourceIpCondition(condition *jsonutils.JSONDict) (*elbv2.RuleCondition
 
 	_vs, err := parseConditionStringArrayValues(vs)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "parseConditionStringArrayValues")
 	}
 	config.SetValues(_vs)
 	return ret, nil
@@ -474,12 +474,12 @@ func parseConditionDictArrayValues(values jsonutils.JSONObject) ([]*elbv2.QueryS
 
 		key, err := v.GetString("key")
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "GetString.key")
 		}
 
 		value, err := v.GetString("value")
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "GetString.value")
 		}
 
 		pair := &elbv2.QueryStringKeyValuePair{}

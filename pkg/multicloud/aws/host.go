@@ -17,6 +17,8 @@ package aws
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
@@ -58,7 +60,7 @@ func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 	vms := make([]SInstance, 0)
 	vms, _, err := self.zone.region.GetInstances(self.zone.ZoneId, nil, len(vms), 50)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetInstances")
 	}
 
 	ivms := make([]cloudprovider.ICloudVM, len(vms))
@@ -72,15 +74,15 @@ func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 func (self *SHost) GetIVMById(gid string) (cloudprovider.ICloudVM, error) {
 	if len(gid) == 0 {
 		log.Errorf("GetIVMById guest id is empty")
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetIVMById")
 	}
 
 	ivms, _, err := self.zone.region.GetInstances(self.zone.ZoneId, []string{gid}, 0, 1)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetInstances")
 	}
 	if len(ivms) == 0 {
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetInstances")
 	}
 	if len(ivms) > 1 {
 		return nil, cloudprovider.ErrDuplicateId
@@ -162,7 +164,8 @@ func (self *SHost) GetHostType() string {
 func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 	inst, err := self.zone.region.GetInstance(instanceId)
 	if err != nil {
-		return nil, err
+		log.Errorf("GetInstance %s: %s", instanceId, err)
+		return nil, errors.Wrap(err, "GetInstance")
 	}
 	inst.host = self
 	return inst, nil
@@ -173,12 +176,13 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Password, desc.DataDisks,
 		desc.PublicKey, desc.ExternalSecgroupId, desc.UserData, desc.Tags)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "_createVM")
 	}
 
 	vm, err := self.GetInstanceById(vmId)
 	if err != nil {
-		return nil, err
+		log.Errorf("GetInstanceById %s: %s", vmId, err)
+		return nil, errors.Wrap(err, "GetInstanceById")
 	}
 
 	return vm, err
