@@ -59,6 +59,16 @@ type Server struct {
 
 	// Derived attributes
 	Networks string
+	Eip      string
+	Nics     ServerNics
+}
+
+type ServerNics []ServerNic
+type ServerNic struct {
+	IpAddr    string `json:"ip_addr"`
+	Mac       string `json:"mac"`
+	NetworkId string `json:"network_id"`
+	VpcId     string `json:"VpcId"`
 }
 
 type ServerNetworks []ServerNetwork
