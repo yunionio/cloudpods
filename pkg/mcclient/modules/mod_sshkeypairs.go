@@ -15,11 +15,15 @@
 package modules
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/models"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
@@ -40,6 +44,34 @@ func (this *SSshkeypairManager) List(s *mcclient.ClientSession, params jsonutils
 	}
 	result := modulebase.ListResult{Data: []jsonutils.JSONObject{body}}
 	return &result, nil
+}
+
+func (this *SSshkeypairManager) FetchPrivateKey(ctx context.Context, userCred mcclient.TokenCredential) (string, error) {
+	s := auth.GetSession(ctx, userCred, "", "")
+	jd := jsonutils.NewDict()
+	var jr jsonutils.JSONObject
+	if userCred.HasSystemAdminPrivilege() {
+		jd.Set("admin", jsonutils.JSONTrue)
+		r, err := Sshkeypairs.List(s, jd)
+		if err != nil {
+			return "", errors.Wrap(err, "get admin ssh key")
+		}
+		jr = r.Data[0]
+	} else {
+		r, err := Sshkeypairs.GetById(s, userCred.GetProjectId(), jd)
+		if err != nil {
+			return "", errors.Wrap(err, "get project ssh key")
+		}
+		jr = r
+	}
+	kp := &models.SshKeypair{}
+	if err := jr.Unmarshal(kp); err != nil {
+		return "", errors.Wrap(err, "unmarshal ssh key")
+	}
+	if kp.PrivateKey == "" {
+		return "", errors.Error("empty ssh key")
+	}
+	return kp.PrivateKey, nil
 }
 
 var (
