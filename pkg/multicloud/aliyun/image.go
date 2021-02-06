@@ -24,7 +24,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -60,6 +59,9 @@ const (
 type SImage struct {
 	multicloud.SImageBase
 	storageCache *SStoragecache
+
+	// normalized image info
+	imgInfo *imagetools.ImageInfo
 
 	Architecture         string
 	CreationTime         time.Time
@@ -193,19 +195,28 @@ func (self *SImage) GetSizeByte() int64 {
 }
 
 func (self *SImage) GetOsType() string {
-	return utils.Capitalize(self.OSType)
+	return self.getNormalizedImageInfo().OsType
 }
 
 func (self *SImage) GetOsDist() string {
-	return self.Platform
+	return self.getNormalizedImageInfo().OsDistro
+}
+
+func (self *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
+	if self.imgInfo == nil {
+		imgInfo := imagetools.NormalizeImageInfo(self.OSName, self.Architecture, self.OSType, self.Platform, "")
+		self.imgInfo = &imgInfo
+	}
+
+	return self.imgInfo
 }
 
 func (self *SImage) GetOsVersion() string {
-	return imagetools.NormalizeImageInfo(self.OSName, "", "", "", "").OsVersion
+	return self.getNormalizedImageInfo().OsVersion
 }
 
 func (self *SImage) GetOsArch() string {
-	return self.Architecture
+	return self.getNormalizedImageInfo().OsArch
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {

@@ -31,6 +31,9 @@ type SImage struct {
 	multicloud.SImageBase
 	storageCache *SStoragecache
 
+	// normalized image info
+	imgInfo *imagetools.ImageInfo
+
 	Zone             string `json:"Zone"`
 	ImageDescription string `json:"ImageDescription"`
 	OSName           string `json:"OsName"`
@@ -164,24 +167,29 @@ func (self *SImage) GetImageStatus() string {
 	}
 }
 
+func (self *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
+	if self.imgInfo == nil {
+		imgInfo := imagetools.NormalizeImageInfo(self.ImageName, self.ImageName, self.ImageName, "", "")
+		self.imgInfo = &imgInfo
+	}
+
+	return self.imgInfo
+}
+
 func (self *SImage) GetOsType() string {
-	imageInfo := imagetools.NormalizeImageInfo(self.ImageName, "", "", "", "")
-	return imageInfo.OsType
+	return self.getNormalizedImageInfo().OsType
 }
 
 func (self *SImage) GetOsDist() string {
-	imageInfo := imagetools.NormalizeImageInfo(self.ImageName, "", "", "", "")
-	return imageInfo.OsDistro
+	return self.getNormalizedImageInfo().OsDistro
 }
 
 func (self *SImage) GetOsVersion() string {
-	imageInfo := imagetools.NormalizeImageInfo(self.ImageName, "", "", "", "")
-	return imageInfo.OsVersion
+	return self.getNormalizedImageInfo().OsVersion
 }
 
 func (self *SImage) GetOsArch() string {
-	imageInfo := imagetools.NormalizeImageInfo(self.ImageName, "", "", "", "")
-	return imageInfo.OsArch
+	return self.getNormalizedImageInfo().OsArch
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {
