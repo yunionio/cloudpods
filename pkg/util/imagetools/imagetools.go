@@ -14,14 +14,23 @@
 
 package imagetools
 
-import "strings"
+import (
+	"strings"
+
+	api "yunion.io/x/onecloud/pkg/apis/image"
+)
 
 func normalizeOsArch(osArch string, osType string, osDist string) string {
 	if len(osArch) > 0 {
-		if strings.ToLower(osArch) == "x86_64" {
-			return "x86_64"
-		} else {
-			return "i386"
+		switch strings.ToLower(osArch) {
+		case "x86_64", "64":
+			return api.IMAGE_OS_ARCH_X86_64
+		case "x86", "x86_32", "32":
+			return api.IMAGE_OS_ARCH_X86
+		case "arm", "arm64", "aarch", "aarch64":
+			return api.IMAGE_OS_ARCH_ARM
+		default:
+			return osArch
 		}
 	} else {
 		if osType == "linux" {

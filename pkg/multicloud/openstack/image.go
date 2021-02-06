@@ -25,7 +25,6 @@ import (
 	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/util/osprofile"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -50,6 +49,9 @@ const (
 type SImage struct {
 	multicloud.SImageBase
 	storageCache *SStoragecache
+
+	// normalized image info
+	imgInfo *imagetools.ImageInfo
 
 	Status          string
 	Name            string
@@ -208,30 +210,21 @@ func (image *SImage) GetSizeByte() int64 {
 	return int64(image.Size)
 }
 
-func (image *SImage) GetOsType() string {
-	switch image.OsType {
-	case "linux":
-		return osprofile.OS_TYPE_LINUX
-	case "windows":
-		return osprofile.OS_TYPE_WINDOWS
-	default:
-		osType := imagetools.NormalizeImageInfo(image.Name, "", "", "", "").OsType
-		if len(osType) > 0 {
-			return osType
-		}
+func (self *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
+	if self.imgInfo == nil {
+		imgInfo := imagetools.NormalizeImageInfo(self.Name, "", self.OsType, "", "")
+		self.imgInfo = &imgInfo
 	}
-	return "Linux"
+
+	return self.imgInfo
+}
+
+func (image *SImage) GetOsType() string {
+	return image.getNormalizedImageInfo().OsType
 }
 
 func (image *SImage) GetOsDist() string {
-	if len(image.OsDistro) > 0 {
-		return image.OsDistro
-	}
-	osDist := imagetools.NormalizeImageInfo(image.Name, "", "", "", "").OsDistro
-	if len(osDist) > 0 {
-		return osDist
-	}
-	return "Linux"
+	return image.getNormalizedImageInfo().OsDistro
 }
 
 func (image *SImage) GetOsVersion() string {
