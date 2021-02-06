@@ -1169,14 +1169,7 @@ func (manager *SIdentityProviderManager) ListItemFilter(
 					return nil, errors.Wrap(err, "FetchDomainByIdOrName")
 				}
 			}
-			q = q.Filter(sqlchemy.OR(
-				sqlchemy.IsNullOrEmpty(q.Field("domain_id")),
-				sqlchemy.Equals(q.Field("domain_id"), ssoDomain.Id),
-			))
-			q = q.Filter(sqlchemy.OR(
-				sqlchemy.IsNullOrEmpty(q.Field("target_domain_id")),
-				sqlchemy.Equals(q.Field("target_domain_id"), ssoDomain.Id),
-			))
+			q = q.Equals("domain_id", ssoDomain.Id)
 		}
 	}
 	if query.AutoCreateProject != nil {
