@@ -27,6 +27,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"golang.org/x/crypto/ssh"
 
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -113,7 +115,7 @@ func (self *SRegion) ImportKeypair(name string, pubKey string) (*SKeypair, error
 	params.SetPublicKeyMaterial([]byte(pubKey))
 	ret, err := self.ec2Client.ImportKeyPair(params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ImportKeyPair")
 	} else {
 		return &SKeypair{StrVal(ret.KeyFingerprint), StrVal(ret.KeyName)}, nil
 	}

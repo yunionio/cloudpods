@@ -14,7 +14,11 @@
 
 package aws
 
-import "time"
+import (
+	"time"
+
+	"yunion.io/x/pkg/errors"
+)
 
 type SGroupSet struct {
 	GroupId   string `xml:"groupId"`
@@ -65,7 +69,7 @@ func (region *SRegion) GetNetworkInterfaces() ([]SNetworkInterface, error) {
 	interfaces := SNetworkInterfaces{}
 	err := region.ec2Request("DescribeNetworkInterfaces", params, &interfaces)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "DescribeNetworkInterfaces")
 	}
 	return interfaces.NetworkInterface, nil
 }

@@ -153,7 +153,7 @@ func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 	if host.GetGlobalId() == id {
 		return host, nil
 	}
-	return nil, ErrorNotFound()
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetIHostById")
 }
 
 func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
@@ -184,7 +184,7 @@ func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 func (self *SZone) getStorageByCategory(category string) (*SStorage, error) {
 	storages, err := self.GetIStorages()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetIStorages")
 	}
 	for i := 0; i < len(storages); i += 1 {
 		storage := storages[i].(*SStorage)
@@ -198,7 +198,7 @@ func (self *SZone) getStorageByCategory(category string) (*SStorage, error) {
 func (self *SRegion) getZoneById(id string) (*SZone, error) {
 	izones, err := self.GetIZones()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetIZones")
 	}
 	for i := 0; i < len(izones); i += 1 {
 		zone := izones[i].(*SZone)

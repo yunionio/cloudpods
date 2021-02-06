@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -211,10 +212,11 @@ func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
 	}
 	networks, total, err := self.GetNetwroks([]string{networkId}, "", 0, 0)
 	if err != nil {
-		return nil, err
+		log.Errorf("GetNetwroks %s: %s", networkId, err)
+		return nil, errors.Wrap(err, "GetNetwroks")
 	}
 	if total != 1 {
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "getNetwork")
 	}
 	return &networks[0], nil
 }

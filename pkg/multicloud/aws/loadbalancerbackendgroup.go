@@ -21,8 +21,10 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -135,7 +137,7 @@ func (self *SElbBackendGroup) GetType() string {
 func (self *SElbBackendGroup) GetILoadbalancerBackends() ([]cloudprovider.ICloudLoadbalancerBackend, error) {
 	backends, err := self.region.GetELbBackends(self.GetId())
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetELbBackends")
 	}
 
 	ibackends := make([]cloudprovider.ICloudLoadbalancerBackend, len(backends))
@@ -151,7 +153,7 @@ func (self *SElbBackendGroup) GetILoadbalancerBackends() ([]cloudprovider.ICloud
 func (self *SElbBackendGroup) GetILoadbalancerBackendById(backendId string) (cloudprovider.ICloudLoadbalancerBackend, error) {
 	backend, err := self.region.GetELbBackend(backendId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetELbBackend")
 	}
 
 	backend.group = self
@@ -195,7 +197,7 @@ func (self *SElbBackendGroup) GetHealthCheck() (*cloudprovider.SLoadbalancerHeal
 func (self *SElbBackendGroup) GetStickySession() (*cloudprovider.SLoadbalancerStickySession, error) {
 	attrs, err := self.region.GetElbBackendgroupAttributesById(self.GetId())
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbBackendgroupAttributesById")
 	}
 
 	cookieTime := 0
@@ -216,7 +218,7 @@ func (self *SElbBackendGroup) GetStickySession() (*cloudprovider.SLoadbalancerSt
 func (self *SElbBackendGroup) AddBackendServer(serverId string, weight int, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
 	backend, err := self.region.AddElbBackend(self.GetId(), serverId, weight, port)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "AddElbBackend")
 	}
 
 	backend.region = self.region
@@ -239,25 +241,25 @@ func (self *SElbBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLo
 func (self *SRegion) GetELbBackends(backendgroupId string) ([]SElbBackend, error) {
 	client, err := self.GetElbV2Client()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbV2Client")
 	}
 
 	group, err := self.GetElbBackendgroup(backendgroupId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbBackendgroup")
 	}
 
 	params := &elbv2.DescribeTargetHealthInput{}
 	params.SetTargetGroupArn(backendgroupId)
 	output, err := client.DescribeTargetHealth(params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "DescribeTargetHealth")
 	}
 
 	backends := []SElbBackend{}
 	err = unmarshalAwsOutput(output, "TargetHealthDescriptions", &backends)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unmarshalAwsOutput.TargetHealthDescriptions")
 	}
 
 	ret := []SElbBackend{}
@@ -275,12 +277,13 @@ func (self *SRegion) GetELbBackends(backendgroupId string) ([]SElbBackend, error
 func (self *SRegion) GetELbBackend(backendId string) (*SElbBackend, error) {
 	client, err := self.GetElbV2Client()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbV2Client")
 	}
 
 	groupId, instanceId, port, err := parseElbBackendId(backendId)
 	if err != nil {
-		return nil, err
+		log.Errorf("parseElbBackendId %s: %s", backendId, err)
+		return nil, errors.Wrap(err, "parseElbBackendId")
 	}
 
 	params := &elbv2.DescribeTargetHealthInput{}
@@ -291,13 +294,13 @@ func (self *SRegion) GetELbBackend(backendId string) (*SElbBackend, error) {
 	params.SetTargetGroupArn(groupId)
 	ret, err := client.DescribeTargetHealth(params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "DescribeTargetHealth")
 	}
 
 	backends := []SElbBackend{}
 	err = unmarshalAwsOutput(ret, "TargetHealthDescriptions", &backends)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unmarshalAwsOutput.TargetHealthDescriptions")
 	}
 
 	if len(backends) == 1 {
@@ -305,7 +308,7 @@ func (self *SRegion) GetELbBackend(backendId string) (*SElbBackend, error) {
 		return &backends[0], nil
 	}
 
-	return nil, ErrorNotFound()
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetELbBackend")
 }
 
 func parseElbBackendId(id string) (string, string, int, error) {
@@ -329,7 +332,7 @@ func genElbBackendId(backendgroupId string, serverId string, port int) string {
 func (self *SRegion) AddElbBackend(backendgroupId, serverId string, weight int, port int) (*SElbBackend, error) {
 	client, err := self.GetElbV2Client()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbV2Client")
 	}
 
 	params := &elbv2.RegisterTargetsInput{}
@@ -340,7 +343,7 @@ func (self *SRegion) AddElbBackend(backendgroupId, serverId string, weight int, 
 	params.SetTargets([]*elbv2.TargetDescription{desc})
 	_, err = client.RegisterTargets(params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "RegisterTargets")
 	}
 
 	return self.GetELbBackend(genElbBackendId(backendgroupId, serverId, port))
@@ -349,7 +352,7 @@ func (self *SRegion) AddElbBackend(backendgroupId, serverId string, weight int, 
 func (self *SRegion) RemoveElbBackend(backendgroupId, serverId string, weight int, port int) error {
 	client, err := self.GetElbV2Client()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "GetElbV2Client")
 	}
 
 	params := &elbv2.DeregisterTargetsInput{}
@@ -360,7 +363,7 @@ func (self *SRegion) RemoveElbBackend(backendgroupId, serverId string, weight in
 	params.SetTargets([]*elbv2.TargetDescription{desc})
 	_, err = client.DeregisterTargets(params)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "DeregisterTargets")
 	}
 
 	return nil
@@ -369,14 +372,14 @@ func (self *SRegion) RemoveElbBackend(backendgroupId, serverId string, weight in
 func (self *SRegion) DeleteElbBackendGroup(backendgroupId string) error {
 	client, err := self.GetElbV2Client()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "GetElbV2Client")
 	}
 
 	params := &elbv2.DeleteTargetGroupInput{}
 	params.SetTargetGroupArn(backendgroupId)
 	_, err = client.DeleteTargetGroup(params)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "DeleteTargetGroup")
 	}
 
 	return nil
@@ -385,12 +388,13 @@ func (self *SRegion) DeleteElbBackendGroup(backendgroupId string) error {
 func (self *SRegion) SyncELbBackendGroup(backendgroupId string, group *cloudprovider.SLoadbalancerBackendGroup) error {
 	err := self.modifyELbBackendGroup(backendgroupId, group.HealthCheck)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "modifyELbBackendGroup")
 	}
 
 	err = self.RemoveElbBackends(backendgroupId)
 	if err != nil {
-		return err
+		log.Errorf("RemoveElbBackends %s: %s", backendgroupId, err)
+		return errors.Wrap(err, "RemoveElbBackends")
 	}
 
 	return self.AddElbBackends(backendgroupId, group.Backends)
@@ -425,7 +429,7 @@ func (self *SRegion) modifyELbBackendGroup(backendgroupId string, healthCheck *c
 
 	_, err = client.ModifyTargetGroup(params)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "ModifyTargetGroup")
 	}
 
 	return nil
@@ -439,7 +443,7 @@ func (self *SRegion) RemoveElbBackends(backendgroupId string) error {
 
 	backends, err := self.GetELbBackends(backendgroupId)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "GetELbBackends")
 	}
 
 	if len(backends) == 0 {
@@ -459,7 +463,7 @@ func (self *SRegion) RemoveElbBackends(backendgroupId string) error {
 	params.SetTargets(targets)
 	_, err = client.DeregisterTargets(params)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "DeregisterTargets")
 	}
 
 	return nil
@@ -488,7 +492,7 @@ func (self *SRegion) AddElbBackends(backendgroupId string, backends []cloudprovi
 	params.SetTargets(targets)
 	_, err = client.RegisterTargets(params)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "RegisterTargets")
 	}
 
 	return nil
@@ -497,7 +501,7 @@ func (self *SRegion) AddElbBackends(backendgroupId string, backends []cloudprovi
 func (self *SRegion) GetElbBackendgroupAttributesById(backendgroupId string) (map[string]string, error) {
 	client, err := self.GetElbV2Client()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbV2Client")
 	}
 
 	params := &elbv2.DescribeTargetGroupAttributesInput{}
@@ -505,13 +509,13 @@ func (self *SRegion) GetElbBackendgroupAttributesById(backendgroupId string) (ma
 
 	output, err := client.DescribeTargetGroupAttributes(params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "DescribeTargetGroupAttributes")
 	}
 
 	attrs := []map[string]string{}
 	err = unmarshalAwsOutput(output, "Attributes", &attrs)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unmarshalAwsOutput.Attributes")
 	}
 
 	ret := map[string]string{}

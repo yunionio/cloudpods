@@ -194,7 +194,7 @@ func (self *SAwsProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (
 		).CloudproviderConfig(cfg),
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "NewAwsClient")
 	}
 	return &SAwsProvider{
 		SBaseProvider: cloudprovider.NewBaseProvider(self),
