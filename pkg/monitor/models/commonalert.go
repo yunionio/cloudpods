@@ -827,6 +827,7 @@ func (alert *SCommonAlert) ValidateUpdateData(
 		if err != nil {
 			return data, errors.Wrap(err, "SAlert.ValidateUpdateData")
 		}
+		updataInput.For = alertCreateInput.For
 		data.Update(jsonutils.Marshal(updataInput))
 	}
 	return data, nil
@@ -878,6 +879,7 @@ func (alert *SCommonAlert) getUpdateAlertInput(updateInput monitor.CommonAlertUp
 	input := monitor.CommonAlertCreateInput{
 		CommonMetricInputQuery: updateInput.CommonMetricInputQuery,
 		Period:                 updateInput.Period,
+		AlertDuration:          updateInput.AlertDuration,
 	}
 	alertCreateInput := CommonAlertManager.toAlertCreatInput(input)
 	return alertCreateInput
