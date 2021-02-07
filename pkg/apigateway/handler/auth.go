@@ -88,6 +88,7 @@ func (h *AuthHandlers) AddMethods() {
 	// auth middleware handler
 	h.AddByMethod(GET, FetchAuthToken,
 		NewHP(h.getUser, "user"),
+		NewHP(h.getStats, "stats"),
 		NewHP(h.getPermissionDetails, "permissions"),
 		NewHP(h.getAdminResources, "admin_resources"),
 		NewHP(h.getResources, "scoped_resources"),
@@ -200,6 +201,42 @@ func (h *AuthHandlers) getRegions(ctx context.Context, w http.ResponseWriter, re
 
 func (h *AuthHandlers) getUser(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	data, err := getUserInfo(ctx, req)
+	if err != nil {
+		httperrors.NotFoundError(ctx, w, err.Error())
+		return
+	}
+	body := jsonutils.NewDict()
+	body.Add(data, "data")
+
+	appsrv.SendJSON(w, body)
+}
+
+func getStatsInfo(ctx context.Context, req *http.Request) (jsonutils.JSONObject, error) {
+	token := AppContextToken(ctx)
+	s := auth.GetSession(ctx, token, FetchRegion(req), "")
+	params, _ := jsonutils.ParseQueryString(req.URL.RawQuery)
+
+	if params == nil {
+		params = jsonutils.NewDict()
+	}
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewInt(1), "limit")
+
+	ret := struct {
+		Cloudaccounts int
+	}{}
+
+	accounts, err := modules.Cloudaccounts.List(s, params)
+	if err != nil {
+		return nil, err
+	}
+
+	ret.Cloudaccounts = accounts.Total
+
+	return jsonutils.Marshal(ret), nil
+}
+
+func (h *AuthHandlers) getStats(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+	data, err := getStatsInfo(ctx, req)
 	if err != nil {
 		httperrors.NotFoundError(ctx, w, err.Error())
 		return
