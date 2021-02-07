@@ -85,11 +85,15 @@ func (query *Query) renderTags() []string {
 				textValue = fmt.Sprintf("'%s'", strings.Replace(tag.Value, `\`, `\\`, -1))
 			}
 		}
-
+		textValue = query.renderTagValue(textValue)
 		res = append(res, fmt.Sprintf(`%s"%s" %s %s`, str, tag.Key, tag.Operator, textValue))
 	}
 
 	return res
+}
+
+func (query *Query) renderTagValue(val string) string {
+	return strings.ReplaceAll(val, " ", "+")
 }
 
 func (query *Query) renderTimeFilter(queryCtx *tsdb.TsdbQuery) string {

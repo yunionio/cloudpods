@@ -94,11 +94,16 @@ func (rp *ResponseParser) transformRowsV2(rows []Row, queryResult *tsdb.QueryRes
 				points = append(points, point)
 			}
 		}
+		tags := make(map[string]string)
+		for key, val := range row.Tags {
+			val_ := strings.ReplaceAll(val, "+", " ")
+			tags[key] = val_
+		}
 		result = append(result, &tsdb.TimeSeries{
 			Name:    rp.formatSerieName(row, col, query),
 			Columns: columns,
 			Points:  points,
-			Tags:    row.Tags,
+			Tags:    tags,
 		})
 	}
 
