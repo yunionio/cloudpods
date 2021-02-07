@@ -289,7 +289,7 @@ func (s *SGuestMonitorCollector) addTelegrafLine(
 
 	var tagArr = []string{}
 	for k, v := range tags {
-		tagArr = append(tagArr, fmt.Sprintf("%s=%s", k, v))
+		tagArr = append(tagArr, fmt.Sprintf("%s=%s", k, strings.ReplaceAll(v, " ", "+")))
 	}
 	tagStr := strings.Join(tagArr, ",")
 
