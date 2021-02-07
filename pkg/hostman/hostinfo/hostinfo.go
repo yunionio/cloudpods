@@ -926,7 +926,7 @@ func (h *SHostInfo) getDomainInfo(hostId string) {
 	domain_id, _ := host.GetString("domain_id")
 	project_domain, _ := host.GetString("project_domain")
 	h.Domain_id = domain_id
-	h.Project_domain = project_domain
+	h.Project_domain = strings.ReplaceAll(project_domain, " ", "+")
 }
 
 func (h *SHostInfo) setHostname(name string) {
