@@ -885,6 +885,7 @@ func (self *SDataSourceManager) getFilterMeasurementTagValue(tagValueChan *influ
 				tagMap, _ := rtn[rtnIndex][serieIndex].Tags.GetMap()
 				for key, valObj := range tagMap {
 					valStr, _ := valObj.GetString()
+					valStr = self._renderTagVal(valStr)
 					if len(valStr) == 0 || valStr == "null" || filterTagValue(valStr) {
 						continue
 					}
@@ -908,6 +909,9 @@ func (self *SDataSourceManager) getFilterMeasurementTagValue(tagValueChan *influ
 	return nil
 }
 
+func (self *SDataSourceManager) _renderTagVal(val string) string {
+	return strings.ReplaceAll(val, "+", " ")
+}
 func floatEquals(a, b float64) bool {
 	eps := 0.000000001
 	if math.Abs(a-b) < eps {
