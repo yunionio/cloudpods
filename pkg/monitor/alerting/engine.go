@@ -174,7 +174,6 @@ func (e *AlertEngine) processJob(attemptID int, attemptChan chan int, cancelChan
 
 	evalContext := NewEvalContext(alertCtx, auth.AdminCredential(), job.Rule)
 	evalContext.Ctx = alertCtx
-
 	go func() {
 		defer func() {
 			if err := recover(); err != nil {
@@ -207,7 +206,8 @@ func (e *AlertEngine) processJob(attemptID int, attemptChan chan int, cancelChan
 			*/
 			if attemptID < options.Options.AlertingMaxAttempts {
 				// span.Finish(
-				log.Debugf("Job Execution attempt triggered retry, timeMs: %v, alertId: %d", evalContext.GetDurationMs(), attemptID)
+				log.Warningf("Job Execution attempt triggered retry, timeMs: %v, alertId: %d",
+					evalContext.GetDurationMs(), attemptID)
 				attemptChan <- (attemptID + 1)
 				return
 			}
@@ -223,11 +223,14 @@ func (e *AlertEngine) processJob(attemptID int, attemptChan chan int, cancelChan
 		// don't reuse the evalContext and get its own context.
 		evalContext.Ctx = resultHandleCtx
 		evalContext.Rule.State = evalContext.GetNewState()
+		if evalContext.Rule.Name == "cloudaccount_balance.balance" {
+			log.Errorf("cloudaccount_balance.balance newState:%s", string(evalContext.Rule.State))
+		}
 		if err := e.resultHandler.handle(evalContext); err != nil {
 			if xerrors.Is(err, context.Canceled) {
-				log.Debugf("Result handler returned context.Canceled")
+				log.Warningf("Result handler returned context.Canceled")
 			} else if xerrors.Is(err, context.DeadlineExceeded) {
-				log.Debugf("Result handler returned context.DeadlineExceeded")
+				log.Warningf("Result handler returned context.DeadlineExceeded")
 			} else {
 				log.Errorf("Failed to handle result: %v", err)
 			}

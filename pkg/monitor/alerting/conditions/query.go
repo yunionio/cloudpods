@@ -268,6 +268,9 @@ type meterFetchImp struct {
 func (m *meterFetchImp) FetchCustomizeEvalMatch(context *alerting.EvalContext, evalMatch *monitor.EvalMatch,
 	alertDetails *monitor.CommonAlertMetricDetails) error {
 	meterCustomizeConfig := new(monitor.MeterCustomizeConfig)
+	if context.Rule.CustomizeConfig == nil {
+		return nil
+	}
 	err := context.Rule.CustomizeConfig.Unmarshal(meterCustomizeConfig)
 	if err != nil {
 		return err
@@ -348,7 +351,7 @@ func (c *QueryCondition) executeQuery(context *alerting.EvalContext, timeRange *
 		})
 	}
 
-	resp, err := c.HandleRequest(context.Ctx, ds.ToTSDBDataSource(""), req)
+	resp, err := c.HandleRequest(context.Ctx, ds.ToTSDBDataSource(c.Query.Model.Database), req)
 	if err != nil {
 		if err == gocontext.DeadlineExceeded {
 			return nil, errors.Error("Alert execution exceeded the timeout")
