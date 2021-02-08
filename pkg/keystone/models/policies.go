@@ -547,7 +547,14 @@ func (policy *SPolicy) GetUsages() []db.IUsage {
 }
 
 func (manager *SPolicyManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
-	return db.SharableManagerFilterByOwner(manager, q, owner, scope)
+	q = db.SharableManagerFilterByOwner(manager, q, owner, scope)
+	switch scope {
+	case rbacutils.ScopeProject:
+		q = q.Equals("scope", rbacutils.ScopeProject)
+	case rbacutils.ScopeDomain:
+		q = q.NotEquals("scope", rbacutils.ScopeSystem)
+	}
+	return q
 }
 
 func (policy *SPolicy) GetSharableTargetDomainIds() []string {
