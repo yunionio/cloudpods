@@ -116,7 +116,7 @@ func (p *DiskSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidat
 		}
 	}
 	if len(d.Medium) != 0 {
-		if storage.MediumType != d.Medium {
+		if !computeapi.IsDiskTypeMatch(storage.MediumType, d.Medium) {
 			return &FailReason{
 				fmt.Sprintf("Storage %s medium %s != %s", storage.Name, storage.MediumType, d.Medium),
 				StorageMedium,
