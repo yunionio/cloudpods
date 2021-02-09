@@ -118,7 +118,11 @@ func (manager *SAlertRecordManager) ListItemFilter(
 }
 
 func (man *SAlertRecordManager) getAlertingRecordQuery() *sqlchemy.SQuery {
-	alertsQuery := CommonAlertManager.Query("id").Equals("state", monitor.AlertStateAlerting).IsTrue("enabled").IsNull("used_by").SubQuery()
+	q := CommonAlertManager.Query("id").IsTrue("enabled").IsNull("used_by")
+	q = q.Filter(sqlchemy.OR(sqlchemy.Equals(q.Field("state"), monitor.AlertStateAlerting),
+		sqlchemy.Equals(q.Field("state"), monitor.AlertStatePending)))
+
+	alertsQuery := q.SubQuery()
 	recordSub := man.Query().SubQuery()
 
 	recordQuery := recordSub.Query(recordSub.Field("alert_id"), sqlchemy.MAX("max_created_at", recordSub.Field("created_at")))
@@ -222,6 +226,9 @@ func (man *SAlertRecordManager) ValidateCreateData(ctx context.Context, userCred
 
 func (record *SAlertRecord) GetEvalData() ([]monitor.EvalMatch, error) {
 	ret := make([]monitor.EvalMatch, 0)
+	if record.EvalData == nil {
+		return ret, nil
+	}
 	if err := record.EvalData.Unmarshal(&ret); err != nil {
 		return nil, errors.Wrap(err, "unmarshal evalMatchs error")
 	}
