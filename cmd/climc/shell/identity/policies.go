@@ -138,7 +138,9 @@ func init() {
 		Enabled  bool   `help:"update policy enabled"`
 		Disabled bool   `help:"update policy disabled"`
 		Desc     string `help:"Description"`
-		IsSystem *bool  `help:"is_system"`
+		IsSystem bool   `help:"is_system"`
+
+		IsNotSystem bool `help:"negative is_system"`
 	}
 	updateFunc := func(s *mcclient.ClientSession, args *PolicyPatchOptions) error {
 		policyId, err := modules.Policies.GetId(s, args.ID, nil)
@@ -164,14 +166,13 @@ func init() {
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
 		}
-		if args.IsSystem != nil {
-			if *args.IsSystem {
-				params.Add(jsonutils.JSONTrue, "is_system")
-			} else {
-				params.Add(jsonutils.JSONFalse, "is_system")
-			}
+		if args.IsSystem {
+			params.Add(jsonutils.JSONTrue, "is_system")
 		}
-		result, err := modules.Policies.Patch(s, policyId, params)
+		if args.IsNotSystem {
+			params.Add(jsonutils.JSONFalse, "is_system")
+		}
+		result, err := modules.Policies.Update(s, policyId, params)
 		if err != nil {
 			return err
 		}
