@@ -252,6 +252,14 @@ func (manager *SHostManager) ListItemFilter(
 			q = q.Equals("access_mac", anyMac)
 		}
 	}
+	if len(query.AnyIp) > 0 {
+		hn := HostnetworkManager.Query("baremetal_id").Contains("ip_addr", query.AnyIp).SubQuery()
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.Contains(q.Field("access_ip"), query.AnyIp),
+			sqlchemy.Contains(q.Field("ipmi_ip"), query.AnyIp),
+			sqlchemy.In(q.Field("id"), hn),
+		))
+	}
 	// var scopeQuery *sqlchemy.SSubQuery
 
 	schedTagStr := query.SchedtagId
