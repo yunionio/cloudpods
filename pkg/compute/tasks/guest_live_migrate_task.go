@@ -76,6 +76,8 @@ func (self *GuestMigrateTask) GetSchedParams() (*schedapi.ScheduleInput, error) 
 		} else {
 			schedDesc.CpuMode = api.CPU_MODE_QEMU
 		}
+		skipCpuCheck := jsonutils.QueryBoolean(self.Params, "skip_cpu_check", false)
+		schedDesc.SkipCpuCheck = &skipCpuCheck
 	}
 	schedDesc.ReuseNetwork = true
 	return schedDesc, nil
