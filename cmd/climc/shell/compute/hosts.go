@@ -42,6 +42,7 @@ func init() {
 		Disabled  bool   `help:"Show disabled host only" json:"-"`
 		HostType  string `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv|aliyun|azure|qcloud|aws|huawei|ucloud|google|ctyun"`
 		AnyMac    string `help:"Mac matches one of the host's interface"`
+		AnyIp     string `help:"IP matches one of the host's interface"`
 
 		IsBaremetal *bool `help:"filter host list by is_baremetal=true|false"`
 
