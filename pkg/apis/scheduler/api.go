@@ -82,6 +82,8 @@ type ScheduleInput struct {
 	CpuMode      string `json:"cpu_mode"`
 	OsArch       string `json:"os_arch"`
 
+	SkipCpuCheck *bool `json:"skip_cpu_check"`
+
 	// In the migrate and create backup cases
 	// we don't need reallocate network
 	ReuseNetwork bool `json:"reuse_network"`
