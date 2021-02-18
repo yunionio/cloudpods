@@ -72,6 +72,8 @@ type HostListInput struct {
 	ResourceType string `json:"resource_type"`
 	// filter by mac of any network interface
 	AnyMac string `json:"any_mac"`
+	// filter by ip of any network interface
+	AnyIp string `json:"any_ip"`
 	// filter storages not attached to this host
 	StorageNotAttached *bool `json:"storage_not_attached"`
 	// filter by Hypervisor
