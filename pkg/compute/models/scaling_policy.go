@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -423,7 +424,15 @@ func (sp *SScalingPolicy) PerformTrigger(ctx context.Context, userCred mcclient.
 	if err != nil {
 		return nil, errors.Wrap(err, "ScalingPolicy.Scale")
 	}
+	sp.EventNotify(ctx, userCred)
 	return nil, err
+}
+
+func (sp *SScalingPolicy) EventNotify(ctx context.Context, userCred mcclient.TokenCredential) {
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    sp,
+		Action: notifyclient.ActionExecute,
+	})
 }
 
 func (sp *SScalingPolicy) ScalingGroup() (*SScalingGroup, error) {

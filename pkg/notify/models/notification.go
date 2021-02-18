@@ -67,10 +67,12 @@ type SNotification struct {
 	Topic    string `width:"128" nullable:"true" create:"required" search:"user"`
 	Priority string `width:"16" nullable:"true" create:"optional" list:"user" get:"user"`
 	// swagger:ignore
-	Message    string    `create:"required"`
-	ReceivedAt time.Time `nullable:"true" list:"user" get:"user"`
-	SendTimes  int
-	Tag        string `width:"16" nullable:"true" index:"true" create:"optional"`
+	Message     string    `create:"required"`
+	ReceivedAt  time.Time `nullable:"true" list:"user" get:"user"`
+	Event       string    `width:"32" nullable:"true" create:"optional"`
+	AdvanceDays int
+	SendTimes   int
+	Tag         string `width:"16" nullable:"true" index:"true" create:"optional"`
 }
 
 const (
@@ -84,9 +86,6 @@ func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred
 	if len(input.Receivers) == 0 {
 		if !userCred.IsAllow(rbacutils.ScopeSystem, api.SERVICE_TYPE, nm.KeywordPlural(), policy.PolicyActionPerform, SendByContact) {
 			return input, httperrors.NewForbiddenError("can't send notification by contact, need receiver")
-		}
-		if len(input.Contacts) == 0 {
-			input.Contacts = []string{""}
 		}
 	}
 
@@ -185,6 +184,180 @@ func (n *SNotification) PostCreate(ctx context.Context, userCred mcclient.TokenC
 	}
 }
 
+func (nm *SNotificationManager) AllowPerformEventNotify(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, nm, "event-notify")
+}
+
+// TODO: support project and domain
+func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.NotificationManagerEventNotifyInput) (api.NotificationManagerEventNotifyOutput, error) {
+	var output api.NotificationManagerEventNotifyOutput
+	// contact type
+	contactTypes := input.ContactTypes
+	cts, err := ConfigManager.allContactType()
+	if err != nil {
+		return output, errors.Wrap(err, "unable to fetch allContactType")
+	}
+	if len(contactTypes) == 0 {
+		contactTypes = intersection(cts, PersonalConfigContactTypes)
+	}
+
+	// receiver
+	subscriptions, err := SubscriptionManager.SubsciptionByEvent(input.Event, input.AdvanceDays)
+	if err != nil {
+		return output, errors.Wrapf(err, "unable fetch subscriptions by event %q", input.Event)
+	}
+	if len(subscriptions) == 0 {
+		return output, nil
+	}
+	var receiverIds []string
+	for i := range subscriptions {
+		receiverIds1, err := SubscriptionReceiverManager.getReceivers(ctx, subscriptions[i].Id, input.ProjectDomainId, input.ProjectId)
+		if err != nil {
+			return output, errors.Wrap(err, "unable to get receive")
+		}
+		receiverIds = append(receiverIds, receiverIds1...)
+	}
+	// deduplication
+	receiverIds = sets.NewString(receiverIds...).UnsortedList()
+
+	// robot
+	var robots []string
+	for i := range subscriptions {
+		robot, err := SubscriptionReceiverManager.robot(subscriptions[i].Id)
+		if err != nil {
+			if errors.Cause(err) != errors.ErrNotFound {
+				return output, errors.Wrapf(err, "unable fetch robot of subscription %q", subscriptions[i].Id)
+			}
+		} else {
+			robots = append(robots, robot)
+		}
+	}
+	robots = intersection(robots, intersection(cts, RobotContactTypes))
+	if len(robots) > 0 {
+		robots = sets.NewString(robots...).UnsortedList()
+	}
+
+	// webhook
+	var webhooks []string
+	for i := range subscriptions {
+		webhook, err := SubscriptionReceiverManager.webhook(subscriptions[i].Id)
+		if err != nil {
+			if errors.Cause(err) != errors.ErrNotFound {
+				return output, errors.Wrapf(err, "unable to fetch webhook of subscription %q", subscriptions[i].Id)
+			}
+		} else {
+			webhooks = append(webhooks, webhook)
+		}
+	}
+	if len(webhooks) > 0 {
+		webhooks = sets.NewString(webhooks...).UnsortedList()
+	}
+
+	message := jsonutils.Marshal(input.ResourceDetails).String()
+
+	// fillter non-existed receiver
+	receivers, err := ReceiverManager.FetchByIdOrNames(ctx, receiverIds...)
+	if err != nil {
+		return output, errors.Wrap(err, "unable to fetch receivers by ids")
+	}
+	webconsoleContacts := make([]string, 0)
+	idSet := sets.NewString()
+	for i := range receivers {
+		idSet.Insert(receivers[i].Id)
+	}
+	for _, re := range receiverIds {
+		if idSet.Has(re) {
+			continue
+		}
+		webconsoleContacts = append(webconsoleContacts, re)
+	}
+	receiverIds = idSet.UnsortedList()
+
+	// webconsole
+	err = nm.create(ctx, userCred, api.WEBCONSOLE, receiverIds, webconsoleContacts, input.Priority, "", message, input.Event, input.AdvanceDays)
+	if err != nil {
+		output.FailedList = append(output.FailedList, api.FailedElem{
+			ContactType: api.WEBCONSOLE,
+			Reason:      err.Error(),
+		})
+	}
+	// normal contact type
+	for _, ct := range contactTypes {
+		err := nm.create(ctx, userCred, ct, receiverIds, []string{}, input.Priority, "", message, input.Event, input.AdvanceDays)
+		if err != nil {
+			output.FailedList = append(output.FailedList, api.FailedElem{
+				ContactType: ct,
+				Reason:      err.Error(),
+			})
+		}
+
+	}
+	// robot
+	for _, robot := range robots {
+		err := nm.create(ctx, userCred, robot, []string{}, []string{}, input.Priority, "", message, input.Event, input.AdvanceDays)
+		if err != nil {
+			output.FailedList = append(output.FailedList, api.FailedElem{
+				ContactType: robot,
+				Reason:      err.Error(),
+			})
+		}
+	}
+	// webhook
+	for _, webhook := range webhooks {
+		err := nm.create(ctx, userCred, webhook, []string{}, []string{}, input.Priority, "", message, input.Event, input.AdvanceDays)
+		if err != nil {
+			output.FailedList = append(output.FailedList, api.FailedElem{
+				ContactType: webhook,
+				Reason:      err.Error(),
+			})
+		}
+	}
+
+	return output, nil
+}
+
+func (nm *SNotificationManager) create(ctx context.Context, userCred mcclient.TokenCredential, contactType string, receiverIds, contacts []string, priority, topic, message, event string, advanceDays int) error {
+	if len(receiverIds)+len(contacts) == 0 {
+		log.Infof("%s: no send", contactType)
+		return nil
+	}
+
+	n := &SNotification{
+		ContactType: contactType,
+		Message:     message,
+		Priority:    priority,
+		ReceivedAt:  time.Now(),
+		Event:       event,
+		AdvanceDays: advanceDays,
+	}
+	n.Id = db.DefaultUUIDGenerator()
+	err := nm.TableSpec().Insert(ctx, n)
+	if err != nil {
+		return errors.Wrap(err, "unable to insert Notification")
+	}
+	for i := range receiverIds {
+		_, err := ReceiverNotificationManager.Create(ctx, userCred, receiverIds[i], n.Id)
+		if err != nil {
+			return errors.Wrap(err, "ReceiverNotificationManager.Create")
+		}
+	}
+	for i := range contacts {
+		_, err := ReceiverNotificationManager.CreateWithoutReceiver(ctx, userCred, contacts[i], n.Id)
+		if err != nil {
+			return errors.Wrap(err, "ReceiverNotificationManager.Create")
+		}
+	}
+	log.Infof("start NotificationSendTask for %s", contactType)
+	n.SetModelManager(nm, n)
+	task, err := taskman.TaskManager.NewTask(ctx, "NotificationSendTask", n, userCred, nil, "", "")
+	if err != nil {
+		log.Errorf("NotificationSendTask newTask error %v", err)
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
 func (nm *SNotificationManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -261,7 +434,8 @@ func (n *SNotification) ReceiveDetails(userCred mcclient.TokenCredential, scope 
 
 func (n *SNotification) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, out api.NotificationDetails) (api.NotificationDetails, error) {
 	// get title adn content
-	p, err := TemplateManager.NotifyFilter(n.ContactType, n.Topic, n.Message, getTemplateLangFromCtx(ctx))
+	lang := getLangSuffix(ctx)
+	p, err := n.TemplateStore().FillWithTemplate(ctx, lang, n.Notification())
 	if err != nil {
 		return out, err
 	}
@@ -275,6 +449,16 @@ func (n *SNotification) getMoreDetails(ctx context.Context, userCred mcclient.To
 		return out, err
 	}
 	return out, nil
+}
+
+func (n *SNotification) Notification() notifyv2.SNotification {
+	return notifyv2.SNotification{
+		ContactType: n.ContactType,
+		Topic:       n.Topic,
+		Message:     n.Message,
+		Event:       n.Event,
+		AdvanceDays: n.AdvanceDays,
+	}
 }
 
 func (nm *SNotificationManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -520,4 +704,11 @@ func (nm *SNotificationManager) ReSend(ctx context.Context, userCred mcclient.To
 			task.ScheduleRun(nil)
 		}
 	}
+}
+
+func (n *SNotification) TemplateStore() notifyv2.ITemplateStore {
+	if len(n.Event) == 0 || n.ContactType == api.MOBILE {
+		return TemplateManager
+	}
+	return LocalTemplateManager
 }

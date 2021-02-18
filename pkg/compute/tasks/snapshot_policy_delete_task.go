@@ -56,6 +56,10 @@ func (self *SnapshotPolicyDeleteTask) OnInit(ctx context.Context, obj db.IStanda
 func (self *SnapshotPolicyDeleteTask) OnSnapshotPolicyDeleteComplete(ctx context.Context, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(sp, db.ACT_DELETE, sp.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, sp, logclient.ACT_DELOCATE, nil, self.UserCred, true)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    sp,
+		Action: notifyclient.ActionDelete,
+	})
 	sp.RealDelete(ctx, self.UserCred)
 	self.SetStageComplete(ctx, nil)
 }

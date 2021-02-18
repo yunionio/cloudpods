@@ -1,6 +1,6 @@
 module yunion.io/x/onecloud
 
-go 1.12
+go 1.13
 
 require (
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
@@ -12,6 +12,9 @@ require (
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/DataDog/dd-trace-go v0.6.1 // indirect
 	github.com/DataDog/zstd v1.3.4 // indirect
+	github.com/Masterminds/goutils v1.1.0 // indirect
+	github.com/Masterminds/semver v1.5.0 // indirect
+	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/Microsoft/azure-vhd-utils v0.0.0-20181115010904-44cbada2ece3
 	github.com/RoaringBitmap/roaring v0.4.16 // indirect
 	github.com/Shopify/sarama v1.20.0 // indirect
@@ -89,6 +92,7 @@ require (
 	github.com/mholt/caddy v0.10.11
 	github.com/miekg/dns v1.1.4
 	github.com/minio/minio-go v6.0.14+incompatible
+	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/moul/http2curl v1.0.0
 	github.com/mozillazg/go-pinyin v0.15.0

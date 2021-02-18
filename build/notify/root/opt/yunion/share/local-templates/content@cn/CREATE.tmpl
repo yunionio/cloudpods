@@ -1,0 +1,64 @@
+{{- $d := .resource_details }}
+{{- $consoleServiceType := list "loadbalancer" "dbinstance" "elasticcache" -}}
+您在{{ $d.project }}项目的
+{{- if $d.brand -}}
+{{ $d.brand }}平台
+{{- end -}}
+{{ .resource_type_display }}{{ $d.name }}已经创建成功
+{{- if $d.private_dns -}}
+，内网地址为{{ $d.private_dns }}:{{ $d.private_connect_port }}
+{{- end -}}
+
+{{- if $d.public_dns -}}
+，外网地址为{{ $d.public_dns }}:{{ $d.public_connect_port }}
+{{- end -}}
+
+{{- if and $d.address_type $d.address -}}
+，服务地址为{{ $d.address_type }}{{ $d.address }}
+{{- end -}}
+
+{{- if $d.ips -}}
+，IP地址为{{ $d.ips }}
+{{- end -}}
+
+{{- if and $d.guest_ip_start $d.guest_ip_end -}}
+，IP范围为{{ $d.guest_ip_start }}-{{ $d.guest_ip_end }}
+{{- end -}}
+
+{{- if $d.ip_addr -}}
+，IP地址为{{ $d.ip_addr }}
+{{- end -}}
+
+{{- if $d.account -}}
+，初始帐号为{{ $d.account }}
+{{- end -}}
+
+{{- if $d.password -}}
+，初始密码为{{ $d.password }}
+{{- end -}}
+
+{{- if $d.keypair -}}
+，访问ssh密钥为{{ $d.keypair }}
+{{- end -}}
+
+{{- if $d.common_name -}}
+，证书域名为{{ $d.common_name }}
+{{- end -}}
+
+{{- if $d.not_after -}}
+，过期时间为{{ $d.not_after }}
+{{- end -}}
+
+{{- if eq .resource_type "server" -}}
+，请使用
+{{- if $d.windows -}}
+远程桌面连接器(RDC)
+{{- else -}}
+SSH
+{{- end -}}
+或控制面板控制台访问虚拟机。
+{{- end -}}
+
+{{- if has .resource_type $consoleServiceType -}}
+，更多信息请前往控制台查看。
+{{- end -}}

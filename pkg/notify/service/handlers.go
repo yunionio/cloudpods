@@ -35,8 +35,10 @@ func InitHandlers(app *appsrv.Application) {
 
 		db.UserCacheManager,
 		db.TenantCacheManager,
+		db.RoleCacheManager,
 		models.SubContactManager,
 		models.VerificationManager,
+		models.SubscriptionReceiverManager,
 	} {
 		db.RegisterModelManager(manager)
 	}
@@ -48,6 +50,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.NotificationManager,
 		models.ConfigManager,
 		models.TemplateManager,
+		models.SubscriptionManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

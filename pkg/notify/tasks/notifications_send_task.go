@@ -12,8 +12,8 @@ import (
 	apis "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/models"
+	rpcapi "yunion.io/x/onecloud/pkg/notify/rpc/apis"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -146,6 +146,12 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		if len(contactMap) == 0 {
 			continue
 		}
+
+		// send
+		p, err := notification.TemplateStore().FillWithTemplate(ctx, lang, notification.Notification())
+		if err != nil {
+			self.taskFailed(ctx, notification, err.Error(), false)
+		}
 		// set status before send
 		now := time.Now()
 		contacts := make([]string, 0, len(contactMap))
@@ -156,16 +162,14 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 
 		contactLen += len(contacts)
 
-		p := notify.SBatchSendParams{
-			Contacts:    contacts,
-			ContactType: notification.ContactType,
-			Topic:       notification.Topic,
-			Message:     notification.Message,
-			Priority:    notification.Priority,
-			Lang:        lang,
-		}
 		// send
-		fds, err := models.NotifyService.BatchSend(ctx, p)
+		fds, err := models.NotifyService.BatchSend(ctx, notification.ContactType, rpcapi.BatchSendParams{
+			Contacts:       contacts,
+			Title:          p.Title,
+			Message:        p.Message,
+			Priority:       p.Priority,
+			RemoteTemplate: p.RemoteTemplate,
+		})
 		if err != nil {
 			for _, rn := range contactMap {
 				sendFail(rn, err.Error())

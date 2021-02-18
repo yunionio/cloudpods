@@ -365,6 +365,7 @@ func (self *GuestChangeConfigTask) OnSyncStatusComplete(ctx context.Context, obj
 		self.SetStageComplete(ctx, dt)
 	}
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_CHANGE_FLAVOR, "", self.UserCred, true)
+	guest.EventNotify(ctx, self.UserCred, notifyclient.ActionChangeConfig)
 }
 
 func (self *GuestChangeConfigTask) OnGuestStartComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

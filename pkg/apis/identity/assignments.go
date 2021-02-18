@@ -86,7 +86,8 @@ type RoleAssignmentsInput struct {
 	Projects []string `json:"projects"`
 	Domains  []string `json:"domains"`
 
-	ProjectDomains []string `json:"project_domains"`
+	ProjectDomainId string   `json:"project_domain_id"`
+	ProjectDomains  []string `json:"project_domains"`
 
 	IncludeNames    *bool `json:"include_names"`
 	Effective       *bool `json:"effective"`
