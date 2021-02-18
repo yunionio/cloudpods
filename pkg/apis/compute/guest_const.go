@@ -175,8 +175,8 @@ const (
 )
 
 const (
-	OS_ARCH_X86 = "x86"
-	OS_ARCH_ARM = "arm"
+	OS_ARCH_X86     = "x86"
+	OS_ARCH_AARCH64 = "aarch64"
 )
 
 var VM_RUNNING_STATUS = []string{VM_START_START, VM_STARTING, VM_RUNNING, VM_BLOCK_STREAM, VM_BLOCK_STREAM_FAIL}

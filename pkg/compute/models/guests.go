@@ -1216,7 +1216,7 @@ func (manager *SGuestManager) validateCreateData(
 		}
 
 		if arch := imgProperties["os_arch"]; strings.Contains(arch, "aarch") {
-			input.OsArch = api.OS_ARCH_ARM
+			input.OsArch = api.OS_ARCH_AARCH64
 		}
 
 		if len(imgProperties) == 0 {
