@@ -49,24 +49,20 @@ import (
 )
 
 var (
-	AllContactTypes = []string{
+	PersonalConfigContactTypes = []string{
 		api.EMAIL,
 		api.MOBILE,
 		api.DINGTALK,
 		api.FEISHU,
 		api.WORKWX,
 	}
-	AllSubContactTypes = []string{
-		api.DINGTALK,
-		api.FEISHU,
-		api.WORKWX,
-	}
-	AllRobotContactTypes = []string{
+	RobotContactTypes = []string{
 		api.FEISHU_ROBOT,
 		api.DINGTALK_ROBOT,
 		api.WORKWX_ROBOT,
 	}
-	AllOkContactTypes = append(AllRobotContactTypes,
+	SystemConfigContactTypes = append(
+		RobotContactTypes,
 		api.WEBCONSOLE,
 		api.WEBHOOK,
 	)
@@ -290,7 +286,7 @@ func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcc
 var LaxMobileRegexp = regexp.MustCompile(`[0-9]{6,14}`)
 
 func (r *SReceiver) IsEnabledContactType(ct string) (bool, error) {
-	if utils.IsInStringArray(ct, AllOkContactTypes) {
+	if utils.IsInStringArray(ct, SystemConfigContactTypes) {
 		return true, nil
 	}
 	cts, err := r.GetEnabledContactTypes()
@@ -301,7 +297,7 @@ func (r *SReceiver) IsEnabledContactType(ct string) (bool, error) {
 }
 
 func (r *SReceiver) IsVerifiedContactType(ct string) (bool, error) {
-	if utils.IsInStringArray(ct, AllOkContactTypes) {
+	if utils.IsInStringArray(ct, SystemConfigContactTypes) {
 		return true, nil
 	}
 	cts, err := r.GetVerifiedContactTypes()
@@ -358,7 +354,7 @@ func (r *SReceiver) SetEnabledContactTypes(contactTypes []string) error {
 		return err
 	}
 	ctSet := sets.NewString(contactTypes...)
-	for _, ct := range AllContactTypes {
+	for _, ct := range PersonalConfigContactTypes {
 		if ctSet.Has(ct) {
 			r.setEnabledContactType(ct, true)
 		} else {
@@ -481,7 +477,7 @@ func (r *SReceiver) SetVerifiedContactTypes(contactTypes []string) error {
 		return err
 	}
 	ctSet := sets.NewString(contactTypes...)
-	for _, ct := range AllContactTypes {
+	for _, ct := range PersonalConfigContactTypes {
 		if ctSet.Has(ct) {
 			r.setVerifiedContactType(ct, true)
 		} else {
@@ -1016,6 +1012,7 @@ func (rm *SReceiverManager) OnUpdate(oldObj, newObj *jsonutils.JSONDict) {
 
 func (rm *SReceiverManager) OnDelete(obj *jsonutils.JSONDict) {
 	userId, _ := obj.GetString("id")
+	log.Infof("receiver delete event for user %q", userId)
 	receivers, err := rm.FetchByIDs(context.Background(), userId)
 	if err != nil {
 		log.Errorf("fail to FetchByIDs: %v", err)
@@ -1122,7 +1119,7 @@ func (r *SReceiver) GetContact(cType string) (string, error) {
 		return r.Mobile, nil
 	case cType == api.WEBCONSOLE:
 		return r.Id, nil
-	case utils.IsInStringArray(cType, AllRobotContactTypes):
+	case utils.IsInStringArray(cType, RobotContactTypes):
 		return r.Mobile, nil
 	default:
 		if sc, ok := r.subContactCache[cType]; ok {

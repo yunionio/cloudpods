@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	cop "yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -393,6 +394,17 @@ func (st *SScheduledTask) Action(ctx context.Context, userCred mcclient.TokenCre
 	return Action.ResourceOperation(st.ResourceOperation()).Session(session)
 }
 
+func (st *SScheduledTask) ExecuteNotify(ctx context.Context, userCred mcclient.TokenCredential, name string) {
+	log.Infof("scheduledtask %s exec for resource %s", st.Name, name)
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    st,
+		Action: notifyclient.ActionExecute,
+		ObjDetailsDecorator: func(ctx context.Context, details *jsonutils.JSONDict) {
+			details.Set("resource_name", jsonutils.NewString(name))
+		},
+	})
+}
+
 func (st *SScheduledTask) Execute(ctx context.Context, userCred mcclient.TokenCredential) (err error) {
 	exec, err := st.IsExecuted()
 	if err != nil {
@@ -419,26 +431,34 @@ func (st *SScheduledTask) Execute(ctx context.Context, userCred mcclient.TokenCr
 		return err
 	}
 
-	var ids []string
+	var (
+		ids   []string
+		opts  options.BaseListOptions
+		f     bool
+		limit int
+	)
 	switch st.LabelType {
 	case api.ST_LABEL_TAG:
-		f := false
-		limit := 1000
-		opts := options.BaseListOptions{
+		opts = options.BaseListOptions{
 			Details: &f,
 			Limit:   &limit,
 			Scope:   "system",
 			Tags:    labels,
 		}
-		res, err := action.List(&WrapperListOptions{opts})
-		if err != nil {
-			return err
-		}
-		for id := range res {
-			ids = append(ids, id)
-		}
 	case api.ST_LABEL_ID:
-		ids = labels
+		opts = options.BaseListOptions{
+			Details: &f,
+			Limit:   &limit,
+			Scope:   "system",
+			Filter:  []string{fmt.Sprintf("id.in(%s)", strings.Join(labels, ","))},
+		}
+	}
+	res, err := action.List(&WrapperListOptions{opts})
+	if err != nil {
+		return err
+	}
+	for id := range res {
+		ids = append(ids, id)
 	}
 
 	maxLimit := 20
@@ -449,10 +469,15 @@ func (st *SScheduledTask) Execute(ctx context.Context, userCred mcclient.TokenCr
 	}
 	workerQueue := make(chan struct{}, maxLimit)
 	results := make([]result, len(ids))
+	log.Infof("servers to scheduledtask: %v", ids)
 	for i, id := range ids {
 		workerQueue <- struct{}{}
 		go func(n int, id string) {
 			ok, reason := action.Apply(id)
+			log.Infof("exec successfully: %t, reason: %s", ok, reason)
+			if ok {
+				st.ExecuteNotify(ctx, userCred, res[id])
+			}
 			results[n] = result{id, ok, reason}
 			<-workerQueue
 		}(i, id)

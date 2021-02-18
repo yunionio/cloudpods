@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -161,28 +160,14 @@ func (c *SConfig) StartRepullSubcontactTask(ctx context.Context, userCred mcclie
 }
 
 func (cm *SConfigManager) filterContactType(cTypes []string, robot string) []string {
-	var judge func(string) bool
-	ret := make([]string, 0, len(cTypes)/2)
 	switch robot {
 	case api.CTYPE_ROBOT_ONLY:
-		judge = func(ctype string) bool {
-			return strings.Contains(ctype, "robot")
-		}
+		return intersection(cTypes, RobotContactTypes)
 	case api.CTYPE_ROBOT_YES:
-		judge = func(ctype string) bool {
-			return true
-		}
+		return cTypes
 	default:
-		judge = func(ctype string) bool {
-			return !strings.Contains(ctype, "robot")
-		}
+		return difference(cTypes, RobotContactTypes)
 	}
-	for _, ctype := range cTypes {
-		if judge(ctype) {
-			ret = append(ret, ctype)
-		}
-	}
-	return ret
 }
 
 var sortedCTypes = []string{
@@ -444,4 +429,22 @@ func (self *SConfigManager) SetConfig(contactType string, config notifyv2.SConfi
 		Content: content,
 	}
 	return self.TableSpec().InsertOrUpdate(context.Background(), sConfig)
+}
+
+func intersection(sa1, sa2 []string) []string {
+	set1 := sets.NewString(sa1...)
+	set2 := sets.NewString(sa2...)
+	return set1.Intersection(set2).UnsortedList()
+}
+
+func difference(sa1, sa2 []string) []string {
+	set1 := sets.NewString(sa1...)
+	set2 := sets.NewString(sa2...)
+	return set1.Difference(set2).UnsortedList()
+}
+
+func union(sa1, sa2 []string) []string {
+	set1 := sets.NewString(sa1...)
+	set2 := sets.NewString(sa2...)
+	return set1.Union(set2).UnsortedList()
 }

@@ -43,7 +43,8 @@ func init() {
 		Projects      []string `help:"fitler by project id or name"`
 		Domains       []string `help:"fitler by domain id or name"`
 
-		ProjectDomains []string `help:"filter by project's domain id or name"`
+		ProjectDomainId string
+		ProjectDomains  []string `help:"filter by project's domain id or name"`
 	}
 	R(&RoleAssignmentsOptions{}, "role-assignments", "List all role assignments", func(s *mcclient.ClientSession, args *RoleAssignmentsOptions) error {
 		query := jsonutils.NewDict()
@@ -70,6 +71,9 @@ func init() {
 				return err
 			}
 			query.Add(jsonutils.NewString(pid), "scope", "project", "id")
+		}
+		if len(args.ProjectDomainId) > 0 {
+			query.Add(jsonutils.NewString(args.ProjectDomainId), "project_domain_id")
 		}
 		if len(args.User) > 0 {
 			uid, err := getUserId(s, args.User, args.UserDomain)
