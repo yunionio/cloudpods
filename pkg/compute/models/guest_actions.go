@@ -198,7 +198,7 @@ func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.Toke
 		input.OsType = "Linux"
 	}
 	input.OsArch = self.OsArch
-	if self.OsArch == api.OS_ARCH_ARM {
+	if self.OsArch == api.OS_ARCH_AARCH64 {
 		if osArch := self.GetMetadata("os_arch", nil); len(osArch) == 0 {
 			host := self.GetHost()
 			input.OsArch = host.CpuArchitecture
@@ -274,7 +274,7 @@ func (self *SGuest) PerformSaveGuestImage(ctx context.Context, userCred mcclient
 		osType = "Linux"
 	}
 	properties.Add(jsonutils.NewString(osType), "os_type")
-	if self.OsArch == api.OS_ARCH_ARM {
+	if self.OsArch == api.OS_ARCH_AARCH64 {
 		var osArch string
 		if osArch = self.GetMetadata("os_arch", nil); len(osArch) == 0 {
 			host := self.GetHost()
