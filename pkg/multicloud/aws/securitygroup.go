@@ -151,6 +151,11 @@ func (self *SRegion) addSecurityGroupRules(secGrpId string, rule cloudprovider.S
 }
 
 func (self *SRegion) addSecurityGroupRule(secGrpId string, rule cloudprovider.SecurityRule) error {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+
 	ipPermissions, err := YunionSecRuleToAws(rule)
 	log.Debugf("Aws security group rule: %s", ipPermissions)
 	if err != nil {
@@ -161,14 +166,14 @@ func (self *SRegion) addSecurityGroupRule(secGrpId string, rule cloudprovider.Se
 		params := &ec2.AuthorizeSecurityGroupIngressInput{}
 		params.SetGroupId(secGrpId)
 		params.SetIpPermissions(ipPermissions)
-		_, err = self.ec2Client.AuthorizeSecurityGroupIngress(params)
+		_, err = ec2Client.AuthorizeSecurityGroupIngress(params)
 	}
 
 	if rule.Direction == secrules.SecurityRuleEgress {
 		params := &ec2.AuthorizeSecurityGroupEgressInput{}
 		params.SetGroupId(secGrpId)
 		params.SetIpPermissions(ipPermissions)
-		_, err = self.ec2Client.AuthorizeSecurityGroupEgress(params)
+		_, err = ec2Client.AuthorizeSecurityGroupEgress(params)
 	}
 
 	if err != nil && strings.Contains(err.Error(), "InvalidPermission.Duplicate") {
@@ -180,6 +185,11 @@ func (self *SRegion) addSecurityGroupRule(secGrpId string, rule cloudprovider.Se
 }
 
 func (self *SRegion) DelSecurityGroupRule(secGrpId string, rule cloudprovider.SecurityRule) error {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+
 	ipPermissions, err := YunionSecRuleToAws(rule)
 	if err != nil {
 		return err
@@ -189,14 +199,14 @@ func (self *SRegion) DelSecurityGroupRule(secGrpId string, rule cloudprovider.Se
 		params := &ec2.RevokeSecurityGroupIngressInput{}
 		params.SetGroupId(secGrpId)
 		params.SetIpPermissions(ipPermissions)
-		_, err = self.ec2Client.RevokeSecurityGroupIngress(params)
+		_, err = ec2Client.RevokeSecurityGroupIngress(params)
 	}
 
 	if rule.Direction == secrules.SecurityRuleEgress {
 		params := &ec2.RevokeSecurityGroupEgressInput{}
 		params.SetGroupId(secGrpId)
 		params.SetIpPermissions(ipPermissions)
-		_, err = self.ec2Client.RevokeSecurityGroupEgress(params)
+		_, err = ec2Client.RevokeSecurityGroupEgress(params)
 	}
 
 	if err != nil {
@@ -212,11 +222,16 @@ func (self *SRegion) updateSecurityGroupRuleDescription(secGrpId string, rule cl
 		return err
 	}
 
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+
 	if rule.Direction == secrules.SecurityRuleIngress {
 		params := &ec2.UpdateSecurityGroupRuleDescriptionsIngressInput{}
 		params.SetGroupId(secGrpId)
 		params.SetIpPermissions(ipPermissions)
-		ret, err := self.ec2Client.UpdateSecurityGroupRuleDescriptionsIngress(params)
+		ret, err := ec2Client.UpdateSecurityGroupRuleDescriptionsIngress(params)
 		if err != nil {
 			return err
 		} else if ret.Return != nil && *ret.Return == false {
@@ -228,7 +243,7 @@ func (self *SRegion) updateSecurityGroupRuleDescription(secGrpId string, rule cl
 		params := &ec2.UpdateSecurityGroupRuleDescriptionsEgressInput{}
 		params.SetGroupId(secGrpId)
 		params.SetIpPermissions(ipPermissions)
-		ret, err := self.ec2Client.UpdateSecurityGroupRuleDescriptionsEgress(params)
+		ret, err := ec2Client.UpdateSecurityGroupRuleDescriptionsEgress(params)
 		if err != nil {
 			return err
 		} else if ret.Return != nil && *ret.Return == false {
@@ -239,6 +254,11 @@ func (self *SRegion) updateSecurityGroupRuleDescription(secGrpId string, rule cl
 }
 
 func (self *SRegion) CreateSecurityGroup(vpcId string, name string, secgroupIdTag string, desc string) (string, error) {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return "", errors.Wrap(err, "getEc2Client")
+	}
+
 	params := &ec2.CreateSecurityGroupInput{}
 	params.SetVpcId(vpcId)
 	// 这里的描述aws 上层代码拼接的描述。并非用户提交的描述，用户描述放置在Yunion本地数据库中。）
@@ -251,7 +271,7 @@ func (self *SRegion) CreateSecurityGroup(vpcId string, name string, secgroupIdTa
 	}
 	params.SetGroupName(name)
 
-	group, err := self.ec2Client.CreateSecurityGroup(params)
+	group, err := ec2Client.CreateSecurityGroup(params)
 	if err != nil {
 		return "", err
 	}
@@ -266,7 +286,7 @@ func (self *SRegion) CreateSecurityGroup(vpcId string, name string, secgroupIdTa
 	tagParams := &ec2.CreateTagsInput{}
 	tagParams.SetResources([]*string{group.GroupId})
 	tagParams.SetTags(tags.Tags)
-	_, err = self.ec2Client.CreateTags(tagParams)
+	_, err = ec2Client.CreateTags(tagParams)
 	if err != nil {
 		return "", err
 	}
@@ -306,7 +326,11 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 	params := &ec2.DescribeSecurityGroupsInput{}
 	params.SetGroupIds([]*string{&secGroupId})
 
-	ret, err := self.ec2Client.DescribeSecurityGroups(params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.DescribeSecurityGroups(params)
 	err = parseNotFoundError(err)
 	if err != nil {
 		return nil, errors.Wrap(err, "DescribeSecurityGroups")
@@ -366,9 +390,13 @@ func (self *SRegion) modifySecurityGroup(secGrpId string, name string, desc stri
 	params.SetTags(ec2Tags.Tags)
 	params.SetResources([]*string{&secGrpId})
 
-	_, err := self.ec2Client.CreateTags(params)
+	ec2Client, err := self.getEc2Client()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "getEc2Client")
+	}
+	_, err = ec2Client.CreateTags(params)
+	if err != nil {
+		return errors.Wrap(err, "CreateTags")
 	}
 
 	return nil
@@ -420,7 +448,11 @@ func (self *SRegion) GetSecurityGroups(vpcId string, name string, secgroupId str
 		params.SetFilters(filters)
 	}
 
-	ret, err := self.ec2Client.DescribeSecurityGroups(params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.DescribeSecurityGroups(params)
 	err = parseNotFoundError(err)
 	if err != nil {
 		return nil, 0, err

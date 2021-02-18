@@ -15,6 +15,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -86,8 +87,9 @@ type FibonacciRetrier struct {
 // If RetryFunc returns with done being true.  err will also be what RetryFunc returns
 //
 // Otherwise Start will return with done being false and err of type
-// FibonacciRetrierError with last err returned by RetryFunc wrapped in
-func (fibr *FibonacciRetrier) Start() (done bool, err error) {
+// FibonacciRetrierError with last err returned by RetryFunc wrapped in, or
+// ctx.Err() if it's done
+func (fibr *FibonacciRetrier) Start(ctx context.Context) (done bool, err error) {
 	fibr.tried = 0
 	fibr.startTime = time.Now()
 	defer func() {
@@ -110,7 +112,11 @@ func (fibr *FibonacciRetrier) Start() (done bool, err error) {
 		// maxTries	1	2	3	4	5	6	7
 		// T0			1	2	3	5	8	13
 		// Elapse	0	1	3	6	11	19	32
-		time.Sleep(fibr.T0)
+		select {
+		case <-time.After(fibr.T0):
+		case <-ctx.Done():
+			return false, ctx.Err()
+		}
 	}
 }
 

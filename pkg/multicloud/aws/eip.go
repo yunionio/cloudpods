@@ -168,7 +168,11 @@ func (self *SRegion) GetEips(eipId string, eipAddress string, offset int, limit 
 		params.SetPublicIps([]*string{&eipAddress})
 	}
 
-	res, err := self.ec2Client.DescribeAddresses(&params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "getEc2Client")
+	}
+	res, err := ec2Client.DescribeAddresses(&params)
 	err = parseNotFoundError(err)
 	if err != nil {
 		log.Errorf("DescribeEipAddresses fail %s", err)
@@ -242,7 +246,12 @@ func (self *SRegion) GetEipByIpAddress(eipAddress string) (*SEipAddress, error) 
 func (self *SRegion) AllocateEIP(domainType string) (*SEipAddress, error) {
 	params := &ec2.AllocateAddressInput{}
 	params.SetDomain(domainType)
-	eip, err := self.ec2Client.AllocateAddress(params)
+
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+	eip, err := ec2Client.AllocateAddress(params)
 	if err != nil {
 		log.Errorf("AllocateEipAddress fail %s", err)
 		return nil, errors.Wrap(err, "AllocateAddress")
@@ -256,6 +265,10 @@ func (self *SRegion) AllocateEIP(domainType string) (*SEipAddress, error) {
 }
 
 func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
 	// todo: aws 不支持指定bwMbps, chargeType ？
 	log.Debugf("CreateEip: aws not support specific params name/bwMbps/chargeType.")
 	ieip, err := self.AllocateEIP("vpc")
@@ -268,7 +281,7 @@ func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP
 		params.SetTags([]*ec2.Tag{nameTag})
 
 		// name 创建成功与否不影响eip的正常使用
-		if _, e := self.ec2Client.CreateTags(params); e != nil {
+		if _, e := ec2Client.CreateTags(params); e != nil {
 			log.Infof("CreateEIP create name tag failed: %s", e)
 		}
 	}
@@ -277,18 +290,26 @@ func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP
 }
 
 func (self *SRegion) DeallocateEIP(eipId string) error {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
 	params := &ec2.ReleaseAddressInput{}
 	params.SetAllocationId(eipId)
-	_, err := self.ec2Client.ReleaseAddress(params)
-	return err
+	_, err = ec2Client.ReleaseAddress(params)
+	return errors.Wrap(err, "ReleaseAddress")
 }
 
 func (self *SRegion) AssociateEip(eipId string, instanceId string) error {
 	params := &ec2.AssociateAddressInput{}
 	params.SetAllocationId(eipId)
 	params.SetInstanceId(instanceId)
-	_, err := self.ec2Client.AssociateAddress(params)
-	return err
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+	_, err = ec2Client.AssociateAddress(params)
+	return errors.Wrap(err, "AssociateAddress")
 }
 
 func (self *SRegion) DissociateEip(eipId string, instanceId string) error {
@@ -308,8 +329,14 @@ func (self *SRegion) DissociateEip(eipId string, instanceId string) error {
 
 	params := &ec2.DisassociateAddressInput{}
 	params.SetAssociationId(eip.AssociationId)
-	_, err = self.ec2Client.DisassociateAddress(params)
-	return err
+
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+
+	_, err = ec2Client.DisassociateAddress(params)
+	return errors.Wrap(err, "DisassociateAddress")
 }
 
 func (self *SRegion) UpdateEipBandwidth(eipId string, bw int) error {
