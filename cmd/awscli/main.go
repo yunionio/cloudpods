@@ -32,6 +32,7 @@ type BaseOptions struct {
 	AccessKey  string `help:"Access key" default:"$AWS_ACCESS_KEY" metavar:"AWS_ACCESS_KEY"`
 	Secret     string `help:"Secret" default:"$AWS_SECRET" metavar:"AWS_SECRET"`
 	RegionId   string `help:"RegionId" default:"$AWS_REGION" metavar:"AWS_REGION"`
+	AccountId  string `help:"Subaccount ID" default:"$AWS_ACCOUNT_ID" metavar:"AWS_ACCOUNT_ID"`
 	SUBCOMMAND string `help:"awscli subcommand" subcommand:"true"`
 }
 
@@ -90,6 +91,7 @@ func newClient(options *BaseOptions) (*aws.SRegion, error) {
 			options.AccessUrl,
 			options.AccessKey,
 			options.Secret,
+			options.AccountId,
 		).Debug(options.Debug),
 	)
 	if err != nil {

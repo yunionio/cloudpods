@@ -36,6 +36,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/organizations"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go/service/s3"
 
@@ -133,6 +134,7 @@ type SRegion struct {
 	s3Client               *s3.S3
 	elbv2Client            *elbv2.ELBV2
 	acmClient              *acm.ACM
+	organizationClient     *organizations.Organizations
 	resourceGroupTagClient *resourcegroupstaggingapi.ResourceGroupsTaggingAPI
 
 	izones []cloudprovider.ICloudZone
@@ -163,7 +165,6 @@ func (self *SRegion) getEc2Client() (*ec2.EC2, error) {
 		}
 
 		self.ec2Client = ec2.New(s)
-		return self.ec2Client, nil
 	}
 
 	return self.ec2Client, nil
@@ -192,6 +193,17 @@ func (self *SRegion) GetS3Client() (*s3.S3, error) {
 		self.s3Client = s3.New(s)
 	}
 	return self.s3Client, nil
+}
+
+func (r *SRegion) getOrganizationClient() (*organizations.Organizations, error) {
+	if r.organizationClient == nil {
+		s, err := r.getAwsSession()
+		if err != nil {
+			return nil, errors.Wrap(err, "getAwsSession")
+		}
+		r.organizationClient = organizations.New(s)
+	}
+	return r.organizationClient, nil
 }
 
 func (self *SRegion) getResourceGroupTagClient() (*resourcegroupstaggingapi.ResourceGroupsTaggingAPI, error) {
@@ -360,10 +372,14 @@ func (self *SRegion) GetElbV2Client() (*elbv2.ELBV2, error) {
 
 /////////////////////////////////////////////////////////////////////////////
 func (self *SRegion) fetchZones() error {
-	// todo: 这里将过滤出指定region下全部的zones。是否只过滤出可用的zone即可？ The state of the Availability Zone (available | information | impaired | unavailable)
-	zones, err := self.ec2Client.DescribeAvailabilityZones(&ec2.DescribeAvailabilityZonesInput{})
+	ec2Client, err := self.getEc2Client()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "getEc2Client")
+	}
+	// todo: 这里将过滤出指定region下全部的zones。是否只过滤出可用的zone即可？ The state of the Availability Zone (available | information | impaired | unavailable)
+	zones, err := ec2Client.DescribeAvailabilityZones(&ec2.DescribeAvailabilityZonesInput{})
+	if err != nil {
+		return errors.Wrap(err, "DescribeAvailabilityZones")
 	}
 	err = FillZero(zones)
 	if err != nil {
@@ -379,7 +395,12 @@ func (self *SRegion) fetchZones() error {
 }
 
 func (self *SRegion) fetchIVpcs() error {
-	vpcs, err := self.ec2Client.DescribeVpcs(&ec2.DescribeVpcsInput{})
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+
+	vpcs, err := ec2Client.DescribeVpcs(&ec2.DescribeVpcsInput{})
 	if err != nil {
 		return err
 	}
@@ -671,14 +692,19 @@ func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudpro
 		return nil, errors.Wrap(err, "GetTagSpecifications")
 	}
 
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+
 	// start create vpc
-	vpc, err := self.ec2Client.CreateVpc(&ec2.CreateVpcInput{CidrBlock: &cidr})
+	vpc, err := ec2Client.CreateVpc(&ec2.CreateVpcInput{CidrBlock: &cidr})
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateVpc")
 	}
 
 	tagsParams := &ec2.CreateTagsInput{Resources: []*string{vpc.Vpc.VpcId}, Tags: spec.Tags}
-	_, err = self.ec2Client.CreateTags(tagsParams)
+	_, err = ec2Client.CreateTags(tagsParams)
 	if err != nil {
 		log.Debugf("CreateIVpc add tag failed %s", err.Error())
 	}
@@ -1150,8 +1176,12 @@ func (region *SRegion) GetCapabilities() []string {
 }
 
 func (region *SRegion) CreateInternetGateway() (cloudprovider.ICloudInternetGateway, error) {
+	ec2Client, err := region.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
 	input := ec2.CreateInternetGatewayInput{}
-	output, err := region.ec2Client.CreateInternetGateway(&input)
+	output, err := ec2Client.CreateInternetGateway(&input)
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateInternetGateway")
 	}

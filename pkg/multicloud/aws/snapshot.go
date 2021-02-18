@@ -136,7 +136,11 @@ func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName
 		params.SetSnapshotIds(ConvertedList(snapshotIds))
 	}
 
-	ret, err := self.ec2Client.DescribeSnapshots(params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.DescribeSnapshots(params)
 	err = parseNotFoundError(err)
 	if err != nil {
 		if strings.Contains(err.Error(), "InvalidSnapshot.NotFound") {
@@ -200,15 +204,27 @@ func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
 
 	params.SetDescription(desc)
 	log.Debugf("CreateSnapshots with params %s", params)
-	ret, err := self.ec2Client.CreateSnapshot(params)
-	return StrVal(ret.SnapshotId), err
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return "", errors.Wrap(err, "getEc2Client")
+	}
+
+	ret, err := ec2Client.CreateSnapshot(params)
+	if err != nil {
+		return "", errors.Wrap(err, "CreateSnapshot")
+	}
+	return StrVal(ret.SnapshotId), nil
 }
 
 func (self *SRegion) DeleteSnapshot(snapshotId string) error {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
 	params := &ec2.DeleteSnapshotInput{}
 	params.SetSnapshotId(snapshotId)
-	_, err := self.ec2Client.DeleteSnapshot(params)
-	return err
+	_, err = ec2Client.DeleteSnapshot(params)
+	return errors.Wrap(err, "DeleteSnapshot")
 }
 
 func (self *SSnapshot) GetProjectId() string {
