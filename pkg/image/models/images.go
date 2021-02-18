@@ -562,7 +562,7 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 				dict.Set(api.IMAGE_OS_ARCH, jsonutils.NewString(osArch))
 			}
 			db.Update(self, func() error {
-				self.OsArch = compute.OS_ARCH_ARM
+				self.OsArch = compute.OS_ARCH_AARCH64
 				return nil
 			})
 		}
