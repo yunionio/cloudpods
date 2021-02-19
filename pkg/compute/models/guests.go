@@ -1257,7 +1257,7 @@ func (manager *SGuestManager) validateCreateData(
 		skuName := input.InstanceType
 		if len(skuName) > 0 {
 			provider := GetDriver(input.Hypervisor).GetProvider()
-			sku, err := ServerSkuManager.FetchSkuByNameAndProvider(skuName, provider, true)
+			sku, err = ServerSkuManager.FetchSkuByNameAndProvider(skuName, provider, true)
 			if err != nil {
 				return nil, err
 			}
@@ -1322,7 +1322,7 @@ func (manager *SGuestManager) validateCreateData(
 		log.Debugf("ROOT DISK: %#v", rootDiskConfig)
 		input.Disks[0] = rootDiskConfig
 		if sku != nil {
-			if len(rootDiskConfig.OsArch) >= 0 && len(sku.CpuArch) >= 0 {
+			if len(rootDiskConfig.OsArch) > 0 && len(sku.CpuArch) > 0 {
 				if strings.Contains(rootDiskConfig.OsArch, sku.CpuArch) {
 					return nil, httperrors.NewConflictError("root disk image(%s) and sku(%s) architecture mismatch", rootDiskConfig.OsArch, sku.CpuArch)
 				}
