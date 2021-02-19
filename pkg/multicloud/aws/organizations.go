@@ -78,12 +78,11 @@ func (r *SRegion) ListAccounts() ([]SAccount, error) {
 }
 
 func (self *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
-	// todo: implement me
-	err := self.fetchRegions()
-	if err != nil {
-		return nil, errors.Wrap(err, "fetchRegions")
+	defRegion := self.getDefaultRegion()
+	if defRegion == nil {
+		return nil, errors.Wrap(errors.ErrInvalidStatus, "no valid default region")
 	}
-	accounts, err := self.getDefaultRegion().ListAccounts()
+	accounts, err := defRegion.ListAccounts()
 	if err != nil {
 		// find errors
 		if strings.Contains(err.Error(), "AWSOrganizationsNotInUseException") || strings.Contains(err.Error(), "AccessDeniedException") {

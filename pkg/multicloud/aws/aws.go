@@ -198,7 +198,7 @@ func (self *SAwsClient) fetchRegions() error {
 		return nil
 	}
 
-	if describeRegionResult == nil || time.Now().After(describeRegionResultCacheAt.Add(time.Second*3600*describeRegionExpireHours)) {
+	if describeRegionResult == nil || describeRegionResultCacheAt.IsZero() || time.Now().After(describeRegionResultCacheAt.Add(time.Hour*describeRegionExpireHours)) {
 		s, err := self.getDefaultSession()
 		if err != nil {
 			return errors.Wrap(err, "getDefaultSession")
@@ -397,6 +397,12 @@ func (client *SAwsClient) fetchBuckets() error {
 
 // 只是使用fetchRegions初始化好的self.iregions. 本身并不从云服务器厂商拉取region信息
 func (self *SAwsClient) GetRegions() []SRegion {
+	err := self.fetchRegions()
+	if err != nil {
+		log.Errorf("fetchRegions fail %s", err)
+		return nil
+	}
+
 	regions := make([]SRegion, len(self.iregions))
 	for i := 0; i < len(regions); i += 1 {
 		region := self.iregions[i].(*SRegion)
@@ -410,6 +416,12 @@ func (self *SAwsClient) GetIRegions() []cloudprovider.ICloudRegion {
 }
 
 func (self *SAwsClient) GetRegion(regionId string) *SRegion {
+	err := self.fetchRegions()
+	if err != nil {
+		log.Errorf("fetchRegions fail %s", err)
+		return nil
+	}
+
 	if len(regionId) == 0 {
 		regionId = AWS_INTERNATIONAL_DEFAULT_REGION
 		switch self.accessUrl {
