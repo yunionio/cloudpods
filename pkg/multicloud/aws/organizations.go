@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/organizations"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -28,6 +29,127 @@ type SAccount struct {
 	JoinedTimestamp time.Time `json:"joined_timestamp"`
 
 	IsMaster bool `json:"is_master"`
+}
+
+/*
+ * {
+ *   Arn: "arn:aws:organizations::031871565791:policy/o-gn75phg8ge/service_control_policy/p-4l9recev",
+ *   AwsManaged: false,
+ *   Description: "Create Preventive SCP Guardrails",
+ *   Id: "p-4l9recev",
+ *   Name: "SCP-PREVENTIVE-GUARDRAILS",
+ *   Type: "SERVICE_CONTROL_POLICY"
+ * }
+ */
+type SOrgPolicy struct {
+	Arn         string `json:"arn"`
+	AwsManaged  bool   `json:"aws_managed"`
+	Description string `json:"description"`
+	Id          string `json:"id"`
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+}
+
+const (
+	SERVICE_CONTROL_POLICY    = "SERVICE_CONTROL_POLICY"
+	TAG_POLICY                = "TAG_POLICY"
+	BACKUP_POLICY             = "BACKUP_POLICY"
+	AISERVICES_OPT_OUT_POLICY = "AISERVICES_OPT_OUT_POLICY"
+)
+
+func (r *SRegion) ListPolicies(filter string) ([]SOrgPolicy, error) {
+	orgCli, err := r.getOrganizationClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetOrganizationClient")
+	}
+	var nextToken *string
+	policies := make([]SOrgPolicy, 0)
+
+	for {
+		input := organizations.ListPoliciesInput{}
+		input.SetFilter(filter)
+		if nextToken != nil {
+			input.SetNextToken(*nextToken)
+		}
+		parts, err := orgCli.ListPolicies(&input)
+		if err != nil {
+			return nil, errors.Wrap(err, "ListPolicies")
+		}
+		for _, pPtr := range parts.Policies {
+			p := SOrgPolicy{
+				Arn:         *pPtr.Arn,
+				AwsManaged:  *pPtr.AwsManaged,
+				Description: *pPtr.Description,
+				Id:          *pPtr.Id,
+				Name:        *pPtr.Name,
+				Type:        *pPtr.Type,
+			}
+			policies = append(policies, p)
+		}
+		if parts.NextToken == nil || len(*parts.NextToken) == 0 {
+			break
+		} else {
+			nextToken = parts.NextToken
+		}
+	}
+	return policies, nil
+}
+
+func (r *SRegion) ListPoliciesForTarget(filter string, targetId string) ([]SOrgPolicy, error) {
+	orgCli, err := r.getOrganizationClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetOrganizationClient")
+	}
+	var nextToken *string
+	policies := make([]SOrgPolicy, 0)
+
+	for {
+		input := organizations.ListPoliciesForTargetInput{}
+		input.SetFilter(filter)
+		input.SetTargetId(targetId)
+		if nextToken != nil {
+			input.SetNextToken(*nextToken)
+		}
+		parts, err := orgCli.ListPoliciesForTarget(&input)
+		if err != nil {
+			return nil, errors.Wrap(err, "ListPoliciesForTarget")
+		}
+		for _, pPtr := range parts.Policies {
+			p := SOrgPolicy{
+				Arn:         *pPtr.Arn,
+				AwsManaged:  *pPtr.AwsManaged,
+				Description: *pPtr.Description,
+				Id:          *pPtr.Id,
+				Name:        *pPtr.Name,
+				Type:        *pPtr.Type,
+			}
+			policies = append(policies, p)
+		}
+		if parts.NextToken == nil || len(*parts.NextToken) == 0 {
+			break
+		} else {
+			nextToken = parts.NextToken
+		}
+	}
+	return policies, nil
+}
+
+func (r *SRegion) DescribeOrgPolicy(pId string) (jsonutils.JSONObject, error) {
+	orgCli, err := r.getOrganizationClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetOrganizationClient")
+	}
+	input := organizations.DescribePolicyInput{}
+	input.SetPolicyId(pId)
+	output, err := orgCli.DescribePolicy(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "DescribePolicy")
+	}
+	content, err := jsonutils.ParseString(*output.Policy.Content)
+	if err != nil {
+		return nil, errors.Wrap(err, "ParseJSON")
+	}
+	return content, nil
 }
 
 func (r *SRegion) ListAccounts() ([]SAccount, error) {
@@ -127,4 +249,34 @@ func (self *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 		}
 		return subAccounts, nil
 	}
+}
+
+func (r *SRegion) ListParents(childId string) error {
+	orgCli, err := r.getOrganizationClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOrganizationClient")
+	}
+	input := organizations.ListParentsInput{}
+	input.SetChildId(childId)
+	parents, err := orgCli.ListParents(&input)
+	if err != nil {
+		return errors.Wrap(err, "ListParents")
+	}
+	log.Debugf("%#v", parents)
+	return nil
+}
+
+func (r *SRegion) DescribeOrganizationalUnit(ouId string) error {
+	orgCli, err := r.getOrganizationClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOrganizationClient")
+	}
+	input := organizations.DescribeOrganizationalUnitInput{}
+	input.SetOrganizationalUnitId(ouId)
+	output, err := orgCli.DescribeOrganizationalUnit(&input)
+	if err != nil {
+		return errors.Wrap(err, "DescribeOrganizationUnit")
+	}
+	log.Debugf("%#v", output)
+	return nil
 }
