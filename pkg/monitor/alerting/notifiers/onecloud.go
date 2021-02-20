@@ -235,7 +235,7 @@ func (oc *OneCloudNotifier) notifyByContextLang(ctx context.Context, evalCtx *al
 	}
 
 	factory := new(sendBodyFactory)
-	sendImp := factory.newSendnotify(oc, msg, config)
+	sendImp := factory.newSendnotify(evalCtx, oc, msg, config)
 
 	return sendImp.send()
 }
@@ -340,10 +340,12 @@ func (oc *OneCloudNotifier) buildContent(config monitor.NotificationTemplateConf
 type sendBodyFactory struct {
 }
 
-func (f *sendBodyFactory) newSendnotify(notifier *OneCloudNotifier, message notify.SNotifyMessage,
+func (f *sendBodyFactory) newSendnotify(evalCtx *alerting.EvalContext, notifier *OneCloudNotifier,
+	message notify.SNotifyMessage,
 	config monitor.NotificationTemplateConfig) Isendnotify {
 	def := new(sendnotifyBase)
 	def.OneCloudNotifier = notifier
+	def.evalCtx = *evalCtx
 	def.msg = message
 	def.config = config
 	if len(notifier.Setting.UserIds) == 0 {
@@ -367,21 +369,27 @@ func (f *sendBodyFactory) newSendnotify(notifier *OneCloudNotifier, message noti
 
 type Isendnotify interface {
 	send() error
+	execNotifyFunc() error
 }
 
 type sendnotifyBase struct {
 	*OneCloudNotifier
-	msg    notify.SNotifyMessage
-	config monitor.NotificationTemplateConfig
+	evalCtx alerting.EvalContext
+	msg     notify.SNotifyMessage
+	config  monitor.NotificationTemplateConfig
 }
 
 func (s *sendnotifyBase) send() error {
+	return SendNotifyInfo(s, s)
+	//return notify.Notifications.Send(s.session, s.msg)
+}
+
+func (s *sendnotifyBase) execNotifyFunc() error {
 	notifyclient.RawNotifyWithCtx(s.Ctx, s.msg.Uid, false, notify.TNotifyChannel(s.Setting.Channel),
 		notify.TNotifyPriority(s.msg.Priority),
 		"DEFAULT",
 		jsonutils.Marshal(&s.config))
 	return nil
-	//return notify.Notifications.Send(s.session, s.msg)
 }
 
 type sendUserImpl struct {
@@ -389,6 +397,10 @@ type sendUserImpl struct {
 }
 
 func (s *sendUserImpl) send() error {
+	return SendNotifyInfo(s.sendnotifyBase, s)
+}
+
+func (s *sendUserImpl) execNotifyFunc() error {
 	return notifyclient.NotifyAllWithoutRobotWithCtx(s.Ctx, s.msg.Uid, false, notify.TNotifyPriority(s.msg.Priority),
 		"DEFAULT", jsonutils.Marshal(&s.config))
 }
@@ -398,6 +410,10 @@ type sendSysImpl struct {
 }
 
 func (s *sendSysImpl) send() error {
+	return SendNotifyInfo(s.sendnotifyBase, s)
+}
+
+func (s *sendSysImpl) execNotifyFunc() error {
 	notifyclient.SystemNotifyWithCtx(s.Ctx, notify.TNotifyPriority(s.msg.Priority), "DEFAULT",
 		jsonutils.Marshal(&s.config))
 	return nil
@@ -416,5 +432,23 @@ func (s *sendMobileImpl) send() error {
 		notify.TNotifyPriority(s.msg.Priority),
 		s.msg.Topic,
 		msgObj)
+	return nil
+}
+
+func SendNotifyInfo(base *sendnotifyBase, imp Isendnotify) error {
+	tmpMatches := base.config.Matches
+	for i := 0; i < len(tmpMatches); i += 10 {
+		split := i + 5
+		if split > len(tmpMatches) {
+			split = len(tmpMatches)
+		}
+		base.config.Matches = tmpMatches[i:split]
+		base.config.ResourceName = base.evalCtx.GetResourceNameOfMathes(base.config.Matches)
+		err := imp.execNotifyFunc()
+		if err != nil {
+			return err
+		}
+
+	}
 	return nil
 }
