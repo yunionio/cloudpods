@@ -207,7 +207,7 @@ func (c *EvalContext) GetNotificationTemplateConfig() monitor.NotificationTempla
 	return monitor.NotificationTemplateConfig{
 		Title:        c.GetNotificationTitle(),
 		Name:         c.Rule.Name,
-		ResourceName: c.GetResourceNameOfMathes(),
+		ResourceName: c.GetResourceNameOfMathes(nil),
 		Matches:      c.GetEvalMatches(),
 		StartTime:    c.StartTime.Format("2006-01-02 15:04:05"),
 		EndTime:      c.EndTime.Format("2006-01-02 15:04:05"),
@@ -236,12 +236,15 @@ func (c *EvalContext) GetEvalMatches() []monitor.EvalMatch {
 	return ret
 }
 
-func (c *EvalContext) GetResourceNameOfMathes() string {
+func (c *EvalContext) GetResourceNameOfMathes(matches []monitor.EvalMatch) string {
 	names := strings.Builder{}
-	matches := c.GetEvalMatches()
+	if matches == nil {
+		matches = c.GetEvalMatches()
+	}
 	for i, match := range matches {
 		if name, ok := match.Tags["name"]; ok {
 			names.WriteString(name)
+			names.WriteString(fmt.Sprintf("(%s)", match.ValueStr))
 			if i < len(matches)-1 {
 				names.WriteString("、")
 			}
