@@ -21,7 +21,7 @@ import (
 
 func init() {
 	type ImageListOptions struct {
-		Status             string   `help:"image status type" choices:"Creating|Available|UnAvailable|CreateFailed"`
+		State              string   `help:"image status type" choices:"available|pending|failed"`
 		Owner              string   `help:"Owner type, e.g. self, system or all" choices:"self|system|all"`
 		VirtualizationType string   `help:"virtualization type" choices:"hvm|paravirtual"`
 		Id                 []string `help:"Image ID"`
@@ -38,7 +38,7 @@ func init() {
 		case "system":
 			owners = aws.ImageOwnerSystem
 		}
-		images, e := cli.GetImages(aws.ImageStatusType(args.Status), owners, args.Id, args.Name, args.VirtualizationType, args.RawOwner, args.VolumeType, args.Latest)
+		images, e := cli.GetImages(aws.ImageStatusType(args.State), owners, args.Id, args.Name, args.VirtualizationType, args.RawOwner, args.VolumeType, args.Latest)
 		if e != nil {
 			return e
 		}

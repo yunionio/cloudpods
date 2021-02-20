@@ -128,8 +128,10 @@ var centos = SAWSImagePublisherInfo{
 	GetOSDist: func(image SImage) string {
 		if strings.Index(image.ImageName, "Atomic") > 0 {
 			return "CentOS Atomic"
-		} else {
+		} else if strings.Index(strings.ToLower(image.ImageName), "centos") >= 0 {
 			return "CentOS"
+		} else {
+			return ""
 		}
 	},
 	GetOSVersion: func(image SImage) string {
@@ -142,8 +144,16 @@ var centos = SAWSImagePublisherInfo{
 			}
 		} else if strings.HasPrefix(image.ImageName, "CentOS Linux ") {
 			return parts[2]
-		} else {
+		} else if len(parts) > 1 {
 			return parts[1]
+		} else {
+			parts = strings.Split(image.ImageName, "-")
+			if len(parts) > 1 && parts[0] == "centos" {
+				if regutils.MatchInteger(parts[1]) {
+					return parts[1]
+				}
+			}
+			return ""
 		}
 	},
 	GetOSBuildID: func(image SImage) string {
@@ -521,6 +531,7 @@ var awsImagePublishers = map[string]SAWSImagePublisherInfo{
 	"379101102735": debian,        // international
 	"718707510307": centos,        // china
 	"410186602215": centos,        // international
+	"161831738826": centos,        // internalional hk
 	"837727238323": ubuntu,        // china
 	"099720109477": ubuntu,        // internaltional
 	"841869936221": suse,          // china
