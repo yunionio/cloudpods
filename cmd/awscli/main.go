@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/structarg"
 
 	"yunion.io/x/onecloud/pkg/multicloud/aws"
@@ -98,9 +99,9 @@ func newClient(options *BaseOptions) (*aws.SRegion, error) {
 		return nil, err
 	}
 
-	region := cli.GetRegion(options.RegionId)
-	if region == nil {
-		return nil, fmt.Errorf("No such region %s", options.RegionId)
+	region, err := cli.GetRegion(options.RegionId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegion(%s)", options.RegionId)
 	}
 
 	return region, nil

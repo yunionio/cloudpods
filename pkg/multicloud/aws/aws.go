@@ -113,7 +113,7 @@ func NewAwsClient(cfg *AwsClientConfig) (*SAwsClient, error) {
 	client := SAwsClient{
 		AwsClientConfig: cfg,
 	}
-	err := client.fetchRegions()
+	_, err := client.fetchRegions()
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchRegions")
 	}
@@ -184,8 +184,8 @@ func (self *SAwsClient) UpdateAccount(accessKey, secret string) error {
 
 var (
 	// cache for describeRegions
-	describeRegionResult        *ec2.DescribeRegionsOutput
-	describeRegionResultCacheAt time.Time
+	describeRegionResult        map[string]*ec2.DescribeRegionsOutput = map[string]*ec2.DescribeRegionsOutput{}
+	describeRegionResultCacheAt map[string]time.Time                  = map[string]time.Time{}
 )
 
 const (
@@ -193,28 +193,26 @@ const (
 )
 
 // 用于初始化region信息
-func (self *SAwsClient) fetchRegions() error {
-	if self.iregions != nil {
-		return nil
-	}
-
-	if describeRegionResult == nil || describeRegionResultCacheAt.IsZero() || time.Now().After(describeRegionResultCacheAt.Add(time.Hour*describeRegionExpireHours)) {
+func (self *SAwsClient) fetchRegions() ([]SRegion, error) {
+	cacheTime, _ := describeRegionResultCacheAt[self.accessUrl]
+	if _, ok := describeRegionResult[self.accessUrl]; !ok || cacheTime.IsZero() || time.Now().After(cacheTime.Add(time.Hour*describeRegionExpireHours)) {
 		s, err := self.getDefaultSession()
 		if err != nil {
-			return errors.Wrap(err, "getDefaultSession")
+			return nil, errors.Wrap(err, "getDefaultSession")
 		}
 		svc := ec2.New(s)
 		// https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.DescribeRegions
 		result, err := svc.DescribeRegions(&ec2.DescribeRegionsInput{})
 		if err != nil {
-			return errors.Wrap(err, "DescribeRegions")
+			return nil, errors.Wrap(err, "DescribeRegions")
 		}
-		describeRegionResult = result
-		describeRegionResultCacheAt = time.Now()
+		describeRegionResult[self.accessUrl] = result
+		describeRegionResultCacheAt[self.accessUrl] = time.Now()
 	}
 
+	self.iregions = []cloudprovider.ICloudRegion{}
 	regions := make([]SRegion, 0)
-	for _, region := range describeRegionResult.Regions {
+	for _, region := range describeRegionResult[self.accessUrl].Regions {
 		name := *region.RegionName
 		endpoint := *region.Endpoint
 		sregion := SRegion{client: self, RegionId: name, RegionEndpoint: endpoint}
@@ -224,7 +222,7 @@ func (self *SAwsClient) fetchRegions() error {
 		self.iregions = append(self.iregions, &sregion)
 	}
 
-	return nil
+	return regions, nil
 }
 
 func (client *SAwsClient) getAwsSession(regionId string) (*session.Session, error) {
@@ -396,30 +394,18 @@ func (client *SAwsClient) fetchBuckets() error {
 }
 
 // 只是使用fetchRegions初始化好的self.iregions. 本身并不从云服务器厂商拉取region信息
-func (self *SAwsClient) GetRegions() []SRegion {
-	err := self.fetchRegions()
-	if err != nil {
-		log.Errorf("fetchRegions fail %s", err)
-		return nil
-	}
-
-	regions := make([]SRegion, len(self.iregions))
-	for i := 0; i < len(regions); i += 1 {
-		region := self.iregions[i].(*SRegion)
-		regions[i] = *region
-	}
-	return regions
+func (self *SAwsClient) GetRegions() ([]SRegion, error) {
+	return self.fetchRegions()
 }
 
 func (self *SAwsClient) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.iregions
 }
 
-func (self *SAwsClient) GetRegion(regionId string) *SRegion {
-	err := self.fetchRegions()
+func (self *SAwsClient) GetRegion(regionId string) (*SRegion, error) {
+	regions, err := self.fetchRegions()
 	if err != nil {
-		log.Errorf("fetchRegions fail %s", err)
-		return nil
+		return nil, errors.Wrapf(err, "fetchRegions")
 	}
 
 	if len(regionId) == 0 {
@@ -431,15 +417,15 @@ func (self *SAwsClient) GetRegion(regionId string) *SRegion {
 			regionId = AWS_CHINA_DEFAULT_REGION
 		}
 	}
-	for i := 0; i < len(self.iregions); i += 1 {
-		if self.iregions[i].GetId() == regionId {
-			return self.iregions[i].(*SRegion)
+	for i := 0; i < len(regions); i += 1 {
+		if regions[i].GetId() == regionId {
+			return &regions[i], nil
 		}
 	}
-	return nil
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, regionId)
 }
 
-func (self *SAwsClient) getDefaultRegion() *SRegion {
+func (self *SAwsClient) getDefaultRegion() (*SRegion, error) {
 	return self.GetRegion("")
 }
 
