@@ -1750,7 +1750,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 			return nil, errors.Wrapf(err, "db.SetExternalId")
 		}
 
-		err = cloudprovider.WaitStatus(iRds, api.DBINSTANCE_RUNNING, time.Second*5, time.Hour*1)
+		err = cloudprovider.WaitStatus(iRds, api.DBINSTANCE_RUNNING, time.Second*10, time.Hour*1)
 		if err != nil {
 			return nil, errors.Wrapf(err, "cloudprovider.WaitStatus runing")
 		}
@@ -2621,21 +2621,20 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateDBInstance(ct
 			return nil, errors.Wrap(err, "instance.GetIDBInstance")
 		}
 		oldTags, err := iRds.GetTags()
-		if err != nil {
+		if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
 			return nil, errors.Wrap(err, "iRds.GetTags()")
 		}
 		tags, err := instance.GetAllUserMetadata()
-		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
 		if err != nil {
-			log.Errorf("GetAllUserMetadata fail %s", err)
-		} else {
-			err := iRds.SetTags(tags, replaceTags)
-			if err != nil {
-				logclient.AddActionLogWithStartable(task, instance, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, false)
-				return nil, errors.Wrap(err, "iRds.SetMetadata")
-			}
-			logclient.AddActionLogWithStartable(task, instance, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
+			return nil, errors.Wrapf(err, "instance.GetAllUserMetadata")
 		}
+		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
+		err = iRds.SetTags(tags, replaceTags)
+		if err != nil {
+			logclient.AddActionLogWithStartable(task, instance, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, false)
+			return nil, errors.Wrap(err, "iRds.SetMetadata")
+		}
+		logclient.AddActionLogWithStartable(task, instance, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
 		return nil, nil
 	})
 	return nil

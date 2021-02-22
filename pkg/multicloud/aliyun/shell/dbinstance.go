@@ -49,6 +49,15 @@ func init() {
 		return nil
 	})
 
+	shellutils.R(&DBInstanceIdOptions{}, "dbinstance-secgroup-list", "List dbintance secgroup", func(cli *aliyun.SRegion, args *DBInstanceIdOptions) error {
+		secgroupIds, err := cli.GetRdsSecgroupIds(args.ID)
+		if err != nil {
+			return err
+		}
+		fmt.Println(secgroupIds)
+		return nil
+	})
+
 	shellutils.R(&DBInstanceIdOptions{}, "dbinstance-open-public-connection", "Open dbintance public connection", func(cli *aliyun.SRegion, args *DBInstanceIdOptions) error {
 		return cli.OpenPublicConnection(args.ID)
 	})
