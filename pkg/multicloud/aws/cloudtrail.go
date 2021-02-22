@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudtrail"
 
 	"yunion.io/x/jsonutils"
@@ -112,18 +113,35 @@ func (self *SEvent) GetCreatedAt() time.Time {
 	return self.EventTime
 }
 
-func (self *SAwsClient) LookupEvents(start, end time.Time) ([]SEvent, error) {
+func (self *SRegion) getAwsCloudtrailSession() (*session.Session, error) {
+	session, err := self.getAwsSession()
+	if err != nil {
+		return nil, errors.Wrap(err, "client.getDefaultSession()")
+	}
+	session.ClientConfig(CLOUD_TRAIL_SERVICE_NAME)
+	return session, nil
+}
+
+func (self *SRegion) LookupEvents(start, end time.Time, withReadEvent bool) ([]SEvent, error) {
 	s, err := self.getAwsCloudtrailSession()
 	if err != nil {
 		return nil, errors.Wrapf(err, "getAwsCloudtrailSession")
 	}
 	client := cloudtrail.New(s)
-	input := &cloudtrail.LookupEventsInput{}
+	input := &cloudtrail.LookupEventsInput{LookupAttributes: []*cloudtrail.LookupAttribute{}}
 	if !start.IsZero() {
 		input.SetStartTime(start)
 	}
 	if !end.IsZero() {
 		input.SetEndTime(end)
+	}
+	if !withReadEvent {
+		readonly := "ReadOnly"
+		val := "false"
+		input.LookupAttributes = append(input.LookupAttributes, &cloudtrail.LookupAttribute{
+			AttributeKey:   &readonly,
+			AttributeValue: &val,
+		})
 	}
 	events := []SEvent{}
 	nextToken := ""
@@ -131,9 +149,18 @@ func (self *SAwsClient) LookupEvents(start, end time.Time) ([]SEvent, error) {
 		if len(nextToken) > 0 {
 			input.SetNextToken(nextToken)
 		}
-		output, err := client.LookupEvents(input)
-		if err != nil {
-			return nil, errors.Wrapf(err, "LookupEvents")
+		var output *cloudtrail.LookupEventsOutput = nil
+		for {
+			output, err = client.LookupEvents(input)
+			if err != nil {
+				if strings.Contains(err.Error(), "ThrottlingException") {
+					log.Warningf("LookupEvents ThrottlingException, try after 3 seconds")
+					time.Sleep(time.Second * 3)
+					continue
+				}
+				return nil, errors.Wrapf(err, "LookupEvents(%s, %s)", start, end)
+			}
+			break
 		}
 		for i := range output.Events {
 			err := FillZero(output.Events[i])
@@ -144,6 +171,9 @@ func (self *SAwsClient) LookupEvents(start, end time.Time) ([]SEvent, error) {
 			err = jsonutils.Update(&event, jsonutils.Marshal(output.Events[i]))
 			if err != nil {
 				return nil, errors.Wrapf(err, "jsonutils.Update")
+			}
+			if strings.Contains(event.CloudTrailEvent, "awsRegion") && !strings.Contains(event.CloudTrailEvent, fmt.Sprintf(`"awsRegion":"%s"`, self.RegionId)) {
+				continue
 			}
 			events = append(events, event)
 		}
@@ -159,25 +189,12 @@ func (self *SAwsClient) LookupEvents(start, end time.Time) ([]SEvent, error) {
 }
 
 func (self *SRegion) GetICloudEvents(start time.Time, end time.Time, withReadEvent bool) ([]cloudprovider.ICloudEvent, error) {
-	var events []SEvent
-	var err error
-	for {
-		events, err = self.client.LookupEvents(start, end)
-		if err != nil {
-			if strings.Contains(err.Error(), "ThrottlingException") {
-				log.Warningf("LookupEvents ThrottlingException, try after 3 seconds")
-				time.Sleep(time.Second * 3)
-				continue
-			}
-			return nil, errors.Wrapf(err, "LookupEvents(%s, %s)", start, end)
-		}
-		break
+	events, err := self.LookupEvents(start, end, withReadEvent)
+	if err != nil {
+		return nil, errors.Wrapf(err, "LookupEvents(%s, %s)", start, end)
 	}
 	ret := []cloudprovider.ICloudEvent{}
 	for i := range events {
-		if !withReadEvent && events[i].ReadOnly == "true" {
-			continue
-		}
 		ret = append(ret, &events[i])
 	}
 	return ret, nil
