@@ -99,6 +99,8 @@ type SImage struct {
 	// Usage                string
 	RootDevice     RootDevice
 	RootDeviceName string
+	// devices
+	BlockDevicesNames []string
 
 	Public             bool
 	Hypervisor         string
@@ -512,12 +514,15 @@ func (self *SRegion) getImages(status ImageStatusType, owners []TImageOwnerType,
 		}
 
 		var rootDevice RootDevice
+		devicesName := []string{}
 		for _, block := range image.BlockDeviceMappings {
 			if len(*image.RootDeviceName) > 0 && *block.DeviceName == *image.RootDeviceName {
 				rootDevice.SnapshotId = *block.Ebs.SnapshotId
 				rootDevice.Category = *block.Ebs.VolumeType
 				rootDevice.Size = int(*block.Ebs.VolumeSize)
 			}
+
+			devicesName = append(devicesName, *block.DeviceName)
 		}
 
 		osType := ""
@@ -547,6 +552,7 @@ func (self *SRegion) getImages(status ImageStatusType, owners []TImageOwnerType,
 			EnaSupport:         *image.EnaSupport,
 			Platform:           *image.Platform,
 			RootDeviceName:     *image.RootDeviceName,
+			BlockDevicesNames:  devicesName,
 			Status:             ImageStatusType(*image.State),
 			CreationTime:       createTime,
 			SizeGB:             size,
