@@ -99,9 +99,9 @@ func (qs *QuotaSet) GetCurrentQuotaUsedCount() int {
 
 func (region *SRegion) GetQuota(action string) ([]QuotaSet, error) {
 	params := map[string]string{}
-	resp, err := region.vpcRequest("DescribeAddressQuota", params)
+	resp, err := region.vpcRequest(action, params)
 	if err != nil {
-		return nil, errors.Wrap(err, "DescribeAddressQuota")
+		return nil, errors.Wrap(err, action)
 	}
 	quotas := []QuotaSet{}
 	err = resp.Unmarshal(&quotas, "QuotaSet")
