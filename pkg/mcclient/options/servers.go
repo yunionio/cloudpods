@@ -1078,3 +1078,14 @@ type ServerRemoteUpdateOptions struct {
 	ServerIdOptions
 	computeapi.ServerRemoteUpdateInput
 }
+
+type ServerCreateEipOptions struct {
+	BaseIdOptions
+	Bandwidth  int     `help:"EIP bandwidth in Mbps" default:"5"`
+	BgpType    *string `help:"desired BGP type"`
+	ChargeType *string `help:"bandwidth charge type" choices:"traffic|bandwidth"`
+}
+
+func (opts *ServerCreateEipOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}

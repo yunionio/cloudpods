@@ -16,17 +16,14 @@ package compute
 
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
-	cmd := shell.NewResourceCmd(&modules.NatGateways).WithKeyword("nat")
-
-	cmd.List(&compute.NatGatewayListOptions{})
-	cmd.Create(&api.NatgatewayCreateInput{})
-	cmd.Show(&compute.NatGatewayIdOptions{})
-	cmd.Delete(&compute.NatGatewayDeleteOption{})
-	cmd.Perform("syncstauts", &compute.NatGatewayIdOptions{})
+	cmd := shell.NewResourceCmd(&modules.NatSkus).WithKeyword("nat-sku")
+	cmd.List(&compute.NatSkuListOption{})
+	cmd.Show(&compute.NatSkuIdOption{})
+	cmd.PerformClass("sync-skus", &options.SkuSyncOptions{})
 }

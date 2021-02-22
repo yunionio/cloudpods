@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -129,17 +130,24 @@ func (self *GuestCreateTask) OnDeployGuestDescComplete(ctx context.Context, obj 
 
 			eip := eipObj.(*models.SElasticip)
 
+			input := api.ElasticipAssociateInput{
+				InstanceId:         guest.Id,
+				InstanceExternalId: guest.ExternalId,
+				InstanceType:       api.EIP_ASSOCIATE_TYPE_SERVER,
+			}
+
 			eipBw, _ := self.Params.Int("eip_bw")
 			if eipBw > 0 {
 				// newly allocated eip, need allocation and associate
-				err = eip.AllocateAndAssociateVM(ctx, self.UserCred, guest, self.GetId())
+				err = eip.AllocateAndAssociateInstance(ctx, self.UserCred, guest, input, self.GetId())
+				err = errors.Wrapf(err, "eip.AllocateAndAssociateInstance")
 			} else {
 				// existing eip, association only
-				err = eip.StartEipAssociateInstanceTask(ctx, self.UserCred, guest, self.GetId())
+				err = eip.StartEipAssociateInstanceTask(ctx, self.UserCred, input, self.GetId())
+				err = errors.Wrapf(err, "eip.StartEipAssociateInstanceTask")
 			}
 			if err != nil {
-				msg := fmt.Sprintf("fail to asscociate eip %s %s", eipId, err)
-				self.OnDeployEipCompleteFailed(ctx, obj, jsonutils.NewString(msg))
+				self.OnDeployEipCompleteFailed(ctx, obj, jsonutils.NewString(err.Error()))
 				return
 			}
 
@@ -198,10 +206,10 @@ func (self *GuestCreateTask) OnDeployEipComplete(ctx context.Context, obj db.ISt
 
 func (self *GuestCreateTask) OnDeployEipCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, api.VM_ASSOCIATE_EIP_FAILED, "deploy_failed")
+	guest.SetStatus(self.UserCred, api.INSTANCE_ASSOCIATE_EIP_FAILED, "deploy_failed")
 	db.OpsLog.LogEvent(guest, db.ACT_EIP_ATTACH, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_EIP_ASSOCIATE, data, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, guest.Id, guest.Name, api.VM_ASSOCIATE_EIP_FAILED, data.String())
+	notifyclient.NotifySystemErrorWithCtx(ctx, guest.Id, guest.Name, api.INSTANCE_ASSOCIATE_EIP_FAILED, data.String())
 	self.SetStageFailed(ctx, data)
 }
 

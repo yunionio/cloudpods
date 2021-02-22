@@ -1228,12 +1228,14 @@ func (nat *SNatGateway) purge(ctx context.Context, userCred mcclient.TokenCreden
 		return err
 	}
 
+	nat.DeletePreventionOff(nat, userCred)
+
 	err = nat.ValidateDeleteCondition(ctx)
 	if err != nil {
 		return err
 	}
 
-	return nat.Delete(ctx, userCred)
+	return nat.RealDelete(ctx, userCred)
 }
 
 func (manager *SNatGatewayManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {

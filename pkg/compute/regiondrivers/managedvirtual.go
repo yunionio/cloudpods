@@ -3157,3 +3157,41 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncRdsSecurityGroups(ctx
 	})
 	return nil
 }
+
+func (self *SManagedVirtualizationRegionDriver) RequestAssociatEip(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iEip, err := eip.GetIEip()
+		if err != nil {
+			return nil, errors.Wrapf(err, "eip.GetIEip")
+		}
+
+		conf := &cloudprovider.AssociateConfig{
+			InstanceId:    input.InstanceExternalId,
+			Bandwidth:     eip.Bandwidth,
+			AssociateType: input.InstanceType,
+		}
+
+		err = iEip.Associate(conf)
+		if err != nil {
+			return nil, errors.Wrapf(err, "extEip.Associate")
+		}
+
+		err = cloudprovider.WaitStatus(iEip, api.EIP_STATUS_READY, 3*time.Second, 60*time.Second)
+		if err != nil {
+			return nil, errors.Wrap(err, "cloudprovider.WaitStatus")
+		}
+
+		if obj.GetStatus() != api.INSTANCE_ASSOCIATE_EIP {
+			db.StatusBaseSetStatus(obj, userCred, api.INSTANCE_ASSOCIATE_EIP, "associate eip")
+		}
+
+		err = eip.AssociateInstance(ctx, userCred, input.InstanceType, obj)
+		if err != nil {
+			return nil, errors.Wrapf(err, "eip.AssociateVM")
+		}
+
+		eip.SetStatus(userCred, api.EIP_STATUS_READY, api.EIP_STATUS_ASSOCIATE)
+		return nil, nil
+	})
+	return nil
+}

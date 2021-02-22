@@ -541,6 +541,7 @@ func (region *SAliyunClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_DNSZONE,
 		cloudprovider.CLOUD_CAPABILITY_INTERVPCNETWORK,
 		cloudprovider.CLOUD_CAPABILITY_SAML_AUTH,
+		cloudprovider.CLOUD_CAPABILITY_NAT,
 	}
 	return caps
 }

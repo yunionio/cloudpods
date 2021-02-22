@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -431,4 +432,20 @@ func (self *SBaseRegionDriver) RequestElasticcacheSetAutoRenew(ctx context.Conte
 
 func (self *SBaseRegionDriver) RequestSyncRdsSecurityGroups(ctx context.Context, userCred mcclient.TokenCredential, rds *models.SDBInstance, task taskman.ITask) error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestSyncRdsSecurityGroups")
+}
+
+func (self *SBaseRegionDriver) IsSupportedNatGateway() bool {
+	return false
+}
+
+func (self *SBaseRegionDriver) ValidateCreateNatGateway(ctx context.Context, userCred mcclient.TokenCredential, input api.NatgatewayCreateInput) (api.NatgatewayCreateInput, error) {
+	return input, httperrors.NewNotImplementedError("ValidateCreateNatGateway")
+}
+
+func (self *SBaseRegionDriver) IsSupportedNatAutoRenew() bool {
+	return true
+}
+
+func (self *SBaseRegionDriver) RequestAssociatEip(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {
+	return httperrors.NewNotImplementedError("RequestAssociatEip")
 }

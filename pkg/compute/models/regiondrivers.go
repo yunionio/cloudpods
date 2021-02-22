@@ -180,6 +180,16 @@ type IDBInstanceDriver interface {
 
 	RequestRemoteUpdateDBInstance(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, replaceTags bool, task taskman.ITask) error
 	RequestSyncRdsSecurityGroups(ctx context.Context, userCred mcclient.TokenCredential, rds *SDBInstance, task taskman.ITask) error
+
+	INatGatewayDriver
+
+	IElasticIpDriver
+}
+
+type INatGatewayDriver interface {
+	IsSupportedNatGateway() bool
+	IsSupportedNatAutoRenew() bool
+	ValidateCreateNatGateway(ctx context.Context, userCred mcclient.TokenCredential, input api.NatgatewayCreateInput) (api.NatgatewayCreateInput, error)
 }
 
 type IElasticcacheDriver interface {
@@ -234,6 +244,10 @@ type IElasticcacheAcl interface {
 
 type IElasticcacheBackup interface {
 	RequestElasticcacheBackupRestoreInstance(ctx context.Context, userCred mcclient.TokenCredential, ea *SElasticcacheBackup, task taskman.ITask) error
+}
+
+type IElasticIpDriver interface {
+	RequestAssociatEip(ctx context.Context, userCred mcclient.TokenCredential, eip *SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error
 }
 
 var regionDrivers map[string]IRegionDriver

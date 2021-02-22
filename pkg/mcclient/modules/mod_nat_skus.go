@@ -12,21 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package modules
 
-import (
-	"yunion.io/x/onecloud/cmd/climc/shell"
-	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
+type NatSkusManager struct {
+	modulebase.ResourceManager
+}
+
+var (
+	NatSkus NatSkusManager
 )
 
 func init() {
-	cmd := shell.NewResourceCmd(&modules.NatGateways).WithKeyword("nat")
+	NatSkus = NatSkusManager{NewComputeManager("nat_sku", "nat_skus",
+		[]string{},
+		[]string{})}
 
-	cmd.List(&compute.NatGatewayListOptions{})
-	cmd.Create(&api.NatgatewayCreateInput{})
-	cmd.Show(&compute.NatGatewayIdOptions{})
-	cmd.Delete(&compute.NatGatewayDeleteOption{})
-	cmd.Perform("syncstauts", &compute.NatGatewayIdOptions{})
+	registerCompute(&NatSkus)
 }

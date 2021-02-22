@@ -19,7 +19,7 @@ import (
 )
 
 func PerformActionSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, resourceKey string, input apis.SkuSyncInput) (jsonutils.JSONObject, error) {
-	if !utils.IsInStringArray(resourceKey, []string{ServerSkuManager.Keyword(), ElasticcacheSkuManager.Keyword(), DBInstanceSkuManager.Keyword()}) {
+	if !utils.IsInStringArray(resourceKey, []string{ServerSkuManager.Keyword(), ElasticcacheSkuManager.Keyword(), DBInstanceSkuManager.Keyword(), NatSkuManager.Keyword()}) {
 		return nil, httperrors.NewUnsupportOperationError("resource %s is not support sync skus", resourceKey)
 	}
 

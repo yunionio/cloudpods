@@ -294,10 +294,6 @@ func (self *SBaseGuestDriver) IsSupportPublicIp() bool {
 	return false
 }
 
-func (self *SBaseGuestDriver) RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, eip *models.SElasticip, task taskman.ITask) error {
-	return fmt.Errorf("SBaseGuestDriver: Not Implement RequestAssociateEip")
-}
-
 func (self *SBaseGuestDriver) NeedStopForChangeSpec(guest *models.SGuest, cpuChanged, memChanged bool) bool {
 	return false
 }

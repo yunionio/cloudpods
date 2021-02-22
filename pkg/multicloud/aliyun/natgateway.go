@@ -18,8 +18,10 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -85,7 +87,10 @@ func (nat *SNatGetway) GetStatus() string {
 	default:
 		return api.NAT_STATUS_UNKNOWN
 	}
+}
 
+func (self *SNatGetway) Delete() error {
+	return self.vpc.region.DeleteNatGateway(self.NatGatewayId, false)
 }
 
 func (nat *SNatGetway) GetBillingType() string {
@@ -93,7 +98,24 @@ func (nat *SNatGetway) GetBillingType() string {
 }
 
 func (nat *SNatGetway) GetNatSpec() string {
+	if len(nat.Spec) == 0 {
+		return api.ALIYUN_NAT_SKU_DEFAULT
+	}
 	return nat.Spec
+}
+
+func (self *SNatGetway) Refresh() error {
+	nat, total, err := self.vpc.region.GetNatGateways("", self.NatGatewayId, 0, 1)
+	if err != nil {
+		return errors.Wrapf(err, "GetNatGateways")
+	}
+	if total > 1 {
+		return errors.Wrapf(cloudprovider.ErrDuplicateId, "get %d natgateways by id %s", total, self.NatGatewayId)
+	}
+	if total == 0 {
+		return errors.Wrapf(cloudprovider.ErrNotFound, self.NatGatewayId)
+	}
+	return jsonutils.Update(self, nat[0])
 }
 
 func (nat *SNatGetway) GetCreatedAt() time.Time {
@@ -203,8 +225,7 @@ func (self *SRegion) GetNatGateways(vpcId string, natGwId string, offset, limit 
 
 	body, err := self.vpcRequest("DescribeNatGateways", params)
 	if err != nil {
-		log.Errorf("GetVSwitches fail %s", err)
-		return nil, 0, err
+		return nil, 0, errors.Wrapf(err, "DescribeNatGateways")
 	}
 
 	if self.client.debug {
@@ -214,9 +235,96 @@ func (self *SRegion) GetNatGateways(vpcId string, natGwId string, offset, limit 
 	gateways := make([]SNatGetway, 0)
 	err = body.Unmarshal(&gateways, "NatGateways", "NatGateway")
 	if err != nil {
-		log.Errorf("Unmarshal gateways fail %s", err)
-		return nil, 0, err
+		return nil, 0, errors.Wrapf(err, "body.Unmarshal")
 	}
 	total, _ := body.Int("TotalCount")
 	return gateways, int(total), nil
+}
+
+func (self *SVpc) CreateINatGateway(opts *cloudprovider.NatGatewayCreateOptions) (cloudprovider.ICloudNatGateway, error) {
+	nat, err := self.region.CreateNatGateway(opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateNatGateway")
+	}
+	nat.vpc = self
+	return nat, nil
+}
+
+func (self *SRegion) CreateNatGateway(opts *cloudprovider.NatGatewayCreateOptions) (*SNatGetway, error) {
+	params := map[string]string{
+		"RegionId":           self.RegionId,
+		"VpcId":              opts.VpcId,
+		"VSwitchId":          opts.NetworkId,
+		"NatType":            "Enhanced",
+		"Name":               opts.Name,
+		"Description":        opts.Desc,
+		"ClientToken":        utils.GenRequestId(20),
+		"InstanceChargeType": "PostPaid",
+		"InternetChargeType": "PayBySpec",
+	}
+	if len(opts.NatSpec) == 0 || opts.NatSpec == api.ALIYUN_NAT_SKU_DEFAULT {
+		params["InternetChargeType"] = "PayByLcu"
+	} else {
+		params["Spec"] = opts.NatSpec
+	}
+
+	if opts.BillingCycle != nil {
+		params["InstanceChargeType"] = "PrePaid"
+		params["PricingCycle"] = "Month"
+		params["AutoPay"] = "false"
+		if opts.BillingCycle.GetYears() > 0 {
+			params["PricingCycle"] = "Year"
+			params["Duration"] = fmt.Sprintf("%d", opts.BillingCycle.GetYears())
+		} else if opts.BillingCycle.GetMonths() > 0 {
+			params["PricingCycle"] = "Year"
+			params["Duration"] = fmt.Sprintf("%d", opts.BillingCycle.GetMonths())
+		}
+		if opts.BillingCycle.AutoRenew {
+			params["AutoPay"] = "true"
+		}
+	}
+	resp, err := self.vpcRequest("CreateNatGateway", params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateNatGateway")
+	}
+	natId, err := resp.GetString("NatGatewayId")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Get(NatGatewayId)")
+	}
+	if len(natId) == 0 {
+		return nil, errors.Errorf("empty NatGatewayId after created")
+	}
+
+	var nat *SNatGetway = nil
+	err = cloudprovider.Wait(time.Second*5, time.Minute*15, func() (bool, error) {
+		nats, total, err := self.GetNatGateways("", natId, 0, 1)
+		if err != nil {
+			return false, errors.Wrapf(err, "GetNatGateways(%s)", natId)
+		}
+		if total > 1 {
+			return false, errors.Wrapf(cloudprovider.ErrDuplicateId, "get %d nats", total)
+		}
+		if total == 0 {
+			return false, errors.Wrapf(cloudprovider.ErrNotFound, "search %s after %s created", opts.Name, natId)
+		}
+		nat = &nats[0]
+		return true, nil
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "cloudprovider.Wait")
+	}
+
+	return nat, nil
+}
+
+func (self *SRegion) DeleteNatGateway(natId string, isForce bool) error {
+	params := map[string]string{
+		"RegionId":     self.RegionId,
+		"NatGatewayId": natId,
+	}
+	if isForce {
+		params["Force"] = "true"
+	}
+	_, err := self.vpcRequest("DeleteNatGateway", params)
+	return errors.Wrapf(err, "DeleteNatGateway")
 }

@@ -14,19 +14,27 @@
 
 package compute
 
-import (
-	"yunion.io/x/onecloud/cmd/climc/shell"
-	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
+import "yunion.io/x/onecloud/pkg/apis"
+
+const (
+	NAT_SKU_AVAILABLE = "available"
+	NAT_SKU_SOLDOUT   = "soldout"
+
+	ALIYUN_NAT_SKU_DEFAULT = "Default"
 )
 
-func init() {
-	cmd := shell.NewResourceCmd(&modules.NatGateways).WithKeyword("nat")
+type NatSkuListInput struct {
+	apis.EnabledStatusStandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
-	cmd.List(&compute.NatGatewayListOptions{})
-	cmd.Create(&api.NatgatewayCreateInput{})
-	cmd.Show(&compute.NatGatewayIdOptions{})
-	cmd.Delete(&compute.NatGatewayDeleteOption{})
-	cmd.Perform("syncstauts", &compute.NatGatewayIdOptions{})
+	RegionalFilterListInput
+
+	PostpaidStatus string `json:"postpaid_stauts"`
+	PrepaidStatus  string `json:"prepaid_status"`
+}
+
+type NatSkuDetails struct {
+	apis.EnabledStatusStandaloneResourceDetails
+
+	CloudregionResourceInfo
 }

@@ -203,6 +203,8 @@ func InitHandlers(app *appsrv.Application) {
 
 		models.VpcPeeringConnectionManager,
 		models.InterVpcNetworkManager,
+
+		models.NatSkuManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
