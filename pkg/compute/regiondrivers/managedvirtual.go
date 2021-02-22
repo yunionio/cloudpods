@@ -1486,10 +1486,6 @@ func (self *SManagedVirtualizationRegionDriver) OnSnapshotDelete(ctx context.Con
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) DealNatGatewaySpec(spec string) string {
-	return spec
-}
-
 func (self *SManagedVirtualizationRegionDriver) RequestBindIPToNatgateway(ctx context.Context, task taskman.ITask,
 	natgateway *models.SNatGateway, eipId string) error {
 
@@ -2962,14 +2958,15 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSnapshotStatus(ctx co
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestSyncNatGatewayStatus(ctx context.Context, userCred mcclient.TokenCredential, natgateway *models.SNatGateway, task taskman.ITask) error {
+func (self *SManagedVirtualizationRegionDriver) RequestSyncNatGatewayStatus(ctx context.Context, userCred mcclient.TokenCredential, nat *models.SNatGateway, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iNat, err := natgateway.GetINatGateway()
+
+		iNat, err := nat.GetINatGateway()
 		if err != nil {
-			return nil, errors.Wrap(err, "natgateway.GetINatGateway")
+			return nil, errors.Wrap(err, "nat.GetINatGateway")
 		}
 
-		return nil, natgateway.SetStatus(userCred, iNat.GetStatus(), "syncstatus")
+		return nil, nat.SyncWithCloudNatGateway(ctx, userCred, nat.GetCloudprovider(), iNat)
 	})
 	return nil
 }

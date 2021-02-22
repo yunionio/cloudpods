@@ -1234,9 +1234,6 @@ func (self *SKVMRegionDriver) RequestSyncSnapshotStatus(ctx context.Context, use
 	return nil
 }
 
-func (self *SKVMRegionDriver) DealNatGatewaySpec(spec string) string {
-	return spec
-}
 func (self *SKVMRegionDriver) RequestBindIPToNatgateway(ctx context.Context, task taskman.ITask, natgateway *models.SNatGateway,
 	eipId string) error {
 

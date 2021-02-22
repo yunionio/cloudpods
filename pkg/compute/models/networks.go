@@ -199,6 +199,7 @@ type sNicCount struct {
 	LoadbalancerNicCount int
 	DBInstanceNicCount   int
 	EipNicCount          int
+	NatNicCount          int
 	Total                int
 }
 
@@ -235,6 +236,11 @@ func (self *SNetwork) GetAllocatedNicCount() (*sNicCount, error) {
 		return nil, errors.Wrapf(err, "GetEipsCount")
 	}
 	cnt.Total += cnt.EipNicCount
+	cnt.NatNicCount, err = self.GetNatGatewayIpsCount()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetNatGatewayIpsCount")
+	}
+	cnt.Total += cnt.NatNicCount
 	return cnt, nil
 }
 
@@ -342,6 +348,10 @@ func (self *SNetwork) GetDBInstanceNetworks() ([]SDBInstanceNetwork, error) {
 
 func (self *SNetwork) GetDBInstanceIpsCount() (int, error) {
 	return DBInstanceNetworkManager.Query().Equals("network_id", self.Id).CountWithError()
+}
+
+func (self *SNetwork) GetNatGatewayIpsCount() (int, error) {
+	return NatGatewayManager.Query().Equals("network_id", self.Id).IsNotEmpty("ip_addr").CountWithError()
 }
 
 func (self *SNetwork) GetEipsCount() (int, error) {
