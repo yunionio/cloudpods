@@ -44,6 +44,7 @@ type MachineCreateOptions struct {
 	Cpu        int    `help:"VM cpu count"`
 	Memory     string `help:"VM memory size, e.g. 1G"`
 	Hypervisor string `help:"VM hypervisor"`
+	Sku        string `help:"VM sku (instance type), e.g. 'ecs.c6.large'"`
 }
 
 func (o MachineCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -90,6 +91,24 @@ func (o MachineCreateOptions) Params() (jsonutils.JSONObject, error) {
 		vmConfig.Add(jsonutils.NewInt(int64(o.Cpu)), "vcpu_count")
 	}
 	vmConfig.Add(jsonutils.NewString(o.Hypervisor), "hypervisor")
+	vmConfig.Add(jsonutils.NewString(o.Sku), "instance_type")
 	params.Add(vmConfig, "config", "vm")
+	return params, nil
+}
+
+type MachineListNetworkAddressOptions struct {
+	IdentOptions
+}
+
+type MachineAttachNetworkAddressOptions struct {
+	IdentOptions
+	IPAddr string `help:"preferred ip address"`
+}
+
+func (o MachineAttachNetworkAddressOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	if o.IPAddr != "" {
+		params.Add(jsonutils.NewString(o.IPAddr), "ip_addr")
+	}
 	return params, nil
 }
