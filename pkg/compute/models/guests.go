@@ -1323,7 +1323,7 @@ func (manager *SGuestManager) validateCreateData(
 		input.Disks[0] = rootDiskConfig
 		if sku != nil {
 			if len(rootDiskConfig.OsArch) > 0 && len(sku.CpuArch) > 0 {
-				if strings.Contains(rootDiskConfig.OsArch, sku.CpuArch) {
+				if !strings.Contains(rootDiskConfig.OsArch, sku.CpuArch) {
 					return nil, httperrors.NewConflictError("root disk image(%s) and sku(%s) architecture mismatch", rootDiskConfig.OsArch, sku.CpuArch)
 				}
 			}
