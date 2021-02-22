@@ -829,6 +829,9 @@ var ValidateModel = func(userCred mcclient.TokenCredential, manager db.IStandalo
 		if errors.Cause(err) == sql.ErrNoRows {
 			return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), *id)
 		}
+		if errors.Cause(err) == sqlchemy.ErrDuplicateEntry {
+			return nil, httperrors.NewDuplicateResourceError(manager.Keyword(), *id)
+		}
 		return nil, httperrors.NewGeneralError(err)
 	}
 	*id = model.GetId()

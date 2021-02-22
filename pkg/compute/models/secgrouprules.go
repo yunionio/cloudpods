@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"net"
-	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -27,7 +26,6 @@ import (
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -63,38 +61,19 @@ type SSecurityGroupRule struct {
 	db.SResourceBase
 	SSecurityGroupResourceBase `create:"required"`
 
-	Id          string `width:"128" charset:"ascii" primary:"true" list:"user"`
-	Priority    int64  `default:"1" list:"user" update:"user" list:"user"`
-	Protocol    string `width:"5" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
-	Ports       string `width:"256" charset:"ascii" list:"user" update:"user" create:"optional"`
-	Direction   string `width:"3" charset:"ascii" list:"user" create:"required"`
-	CIDR        string `width:"256" charset:"ascii" list:"user" update:"user" create:"required"`
-	Action      string `width:"5" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
-	Description string `width:"256" charset:"utf8" list:"user" update:"user" create:"optional"`
-	// SecgroupID  string `width:"128" charset:"ascii" create:"required"`
+	Id             string `width:"128" charset:"ascii" primary:"true" list:"user"`
+	Priority       int64  `default:"1" list:"user" update:"user" list:"user"`
+	Protocol       string `width:"5" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
+	Ports          string `width:"256" charset:"ascii" list:"user" update:"user" create:"optional"`
+	Direction      string `width:"3" charset:"ascii" list:"user" create:"required"`
+	CIDR           string `width:"256" charset:"ascii" list:"user" update:"user" create:"optional"`
+	Action         string `width:"5" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
+	Description    string `width:"256" charset:"utf8" list:"user" update:"user" create:"optional"`
+	PeerSecgroupId string `width:"128" charset:"ascii" create:"optional" list:"user" update:"user"`
 }
 
 func (self *SSecurityGroupRule) GetId() string {
 	return self.Id
-}
-
-type SecurityGroupRuleSet []SSecurityGroupRule
-
-func (v SecurityGroupRuleSet) Len() int {
-	return len(v)
-}
-
-func (v SecurityGroupRuleSet) Swap(i, j int) {
-	v[i], v[j] = v[j], v[i]
-}
-
-func (v SecurityGroupRuleSet) Less(i, j int) bool {
-	if v[i].Priority < v[j].Priority {
-		return true
-	} else if v[i].Priority == v[j].Priority {
-		return strings.Compare(v[i].String(), v[j].String()) <= 0
-	}
-	return false
 }
 
 func (manager *SSecurityGroupRuleManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
@@ -219,6 +198,7 @@ func (manager *SSecurityGroupRuleManager) FetchCustomizeColumns(
 	bRows := manager.SResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	secRows := manager.SSecurityGroupResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	secIds := make([]string, len(objs))
+	peerIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.SecgroupRuleDetails{
 			ResourceBaseDetails:       bRows[i],
@@ -226,12 +206,19 @@ func (manager *SSecurityGroupRuleManager) FetchCustomizeColumns(
 		}
 		rule := objs[i].(*SSecurityGroupRule)
 		secIds[i] = rule.SecgroupId
+		peerIds[i] = rule.PeerSecgroupId
 	}
 
 	secgroups := make(map[string]SSecurityGroup)
 	err := db.FetchStandaloneObjectsByIds(SecurityGroupManager, secIds, &secgroups)
 	if err != nil {
 		log.Errorf("FetchStandaloneObjectsByIds fail: %v", err)
+		return rows
+	}
+
+	peerMaps, err := db.FetchIdNameMap2(SecurityGroupManager, peerIds)
+	if err != nil {
+		log.Errorf("db.FetchIdNameMap2 fail: %v", err)
 		return rows
 	}
 
@@ -246,6 +233,7 @@ func (manager *SSecurityGroupRuleManager) FetchCustomizeColumns(
 	projRows := SecurityGroupManager.SProjectizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, virObjs, fields, isList)
 	for i := range rows {
 		rows[i].ProjectizedResourceInfo = projRows[i]
+		rows[i].PeerSecgroup, _ = peerMaps[peerIds[i]]
 	}
 
 	return rows
@@ -297,30 +285,32 @@ func (self *SSecurityGroupRule) BeforeInsert() {
 }
 
 func (manager *SSecurityGroupRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.SSecgroupRuleCreateInput) (api.SSecgroupRuleCreateInput, error) {
-	data := jsonutils.Marshal(input).(*jsonutils.JSONDict)
+	if input.Priority == nil {
+		return input, httperrors.NewMissingParameterError("priority")
+	}
+	if *input.Priority < 1 || *input.Priority > 100 {
+		return input, httperrors.NewOutOfRangeError("Invalid priority %d, must be in range or 1 ~ 100", input.Priority)
+	}
 
-	priorityV := validators.NewRangeValidator("priority", 1, 100)
-	priorityV.Optional(true)
-	err := priorityV.Validate(data)
+	_secgroup, err := validators.ValidateModel(userCred, SecurityGroupManager, &input.SecgroupId)
 	if err != nil {
 		return input, err
 	}
 
-	secgroupV := validators.NewModelIdOrNameValidator("secgroup", "secgroup", ownerId)
-	err = secgroupV.Validate(data)
-	if err != nil {
-		return input, err
-	}
-
-	secgroup := secgroupV.Model.(*SSecurityGroup)
+	secgroup := _secgroup.(*SSecurityGroup)
 
 	if !secgroup.IsOwner(userCred) && !userCred.HasSystemAdminPrivilege() {
 		return input, httperrors.NewForbiddenError("not enough privilege")
 	}
 
-	err = data.Unmarshal(&input)
-	if err != nil {
-		return input, httperrors.NewInputParameterError("Failed to unmarshal input: %v", err)
+	if len(input.PeerSecgroupId) > 0 {
+		_, err = validators.ValidateModel(userCred, SecurityGroupManager, &input.PeerSecgroupId)
+		if err != nil {
+			return input, err
+		}
+		if input.PeerSecgroupId == input.SecgroupId {
+			return input, httperrors.NewInputParameterError("peer_secgroup_id can not point to secgroup self")
+		}
 	}
 
 	err = input.Check()
@@ -335,48 +325,47 @@ func (manager *SSecurityGroupRuleManager) ValidateCreateData(ctx context.Context
 	return input, nil
 }
 
-func (self *SSecurityGroupRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	priorityV := validators.NewRangeValidator("priority", 1, 100)
-	priorityV.Optional(true)
-	err := priorityV.Validate(data)
+func (self *SSecurityGroupRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SSecgroupRuleUpdateInput) (api.SSecgroupRuleUpdateInput, error) {
+	priority := int(self.Priority)
+	output := api.SSecgroupRuleUpdateInput{
+		SSecgroupRuleResource: api.SSecgroupRuleResource{
+			Priority:       &priority,
+			Protocol:       self.Protocol,
+			Ports:          self.Ports,
+			Direction:      self.Direction,
+			CIDR:           self.CIDR,
+			Action:         self.Action,
+			Description:    self.Description,
+			PeerSecgroupId: self.PeerSecgroupId,
+		},
+	}
+	jsonutils.Update(&output, input)
+
+	if *output.Priority < 1 || *output.Priority > 100 {
+		return output, httperrors.NewOutOfRangeError("Invalid priority %d, must be in range or 1 ~ 100", input.Priority)
+	}
+
+	if len(input.PeerSecgroupId) > 0 {
+		_, err := validators.ValidateModel(userCred, SecurityGroupManager, &input.PeerSecgroupId)
+		if err != nil {
+			return output, err
+		}
+		if input.PeerSecgroupId == self.Id {
+			return output, httperrors.NewInputParameterError("peer_secgroup_id can not point to secgroup self")
+		}
+	}
+
+	err := output.Check()
 	if err != nil {
-		return nil, err
+		return output, err
 	}
 
-	input := &api.SSecgroupRuleCreateInput{
-		Direction: self.Direction,
-		Action:    self.Action,
-		CIDR:      self.CIDR,
-		Protocol:  self.Protocol,
-		Ports:     self.Ports,
-		Priority:  int(self.Priority),
-	}
-
-	err = jsonutils.Update(input, data)
+	output.ResourceBaseUpdateInput, err = self.SResourceBase.ValidateUpdateData(ctx, userCred, query, input.ResourceBaseUpdateInput)
 	if err != nil {
-		return nil, err
+		return output, errors.Wrap(err, "SResourceBase.ValidateUpdateData")
 	}
 
-	err = input.Check()
-	if err != nil {
-		return nil, err
-	}
-
-	// 更新操作日志: 对比可以知道改了原有规则哪些内容
-	data.Add(jsonutils.Marshal(self), "origin")
-
-	rinput := apis.ResourceBaseUpdateInput{}
-	err = data.Unmarshal(&rinput)
-	if err != nil {
-		return nil, errors.Wrap(err, "Unmarshal")
-	}
-	rinput, err = self.SResourceBase.ValidateUpdateData(ctx, userCred, query, rinput)
-	if err != nil {
-		return nil, errors.Wrap(err, "SResourceBase.ValidateUpdateData")
-	}
-	data.Update(jsonutils.Marshal(rinput))
-
-	return data, nil
+	return output, nil
 }
 
 func (self *SSecurityGroupRule) String() string {
@@ -420,6 +409,13 @@ func (self *SSecurityGroupRule) toRule() (*secrules.SecurityRule, error) {
 func (self *SSecurityGroupRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
+	if len(self.PeerSecgroupId) > 0 {
+		db.Update(self, func() error {
+			self.CIDR = ""
+			return nil
+		})
+	}
+
 	log.Debugf("POST Create %s", data)
 	if secgroup := self.GetSecGroup(); secgroup != nil {
 		logclient.AddSimpleActionLog(secgroup, logclient.ACT_ALLOCATE, data, userCred, true)
@@ -439,6 +435,13 @@ func (self *SSecurityGroupRule) PreDelete(ctx context.Context, userCred mcclient
 func (self *SSecurityGroupRule) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SResourceBase.PostUpdate(ctx, userCred, query, data)
 
+	if len(self.PeerSecgroupId) > 0 {
+		db.Update(self, func() error {
+			self.CIDR = ""
+			return nil
+		})
+	}
+
 	log.Debugf("POST Update %s", data)
 	if secgroup := self.GetSecGroup(); secgroup != nil {
 		logclient.AddSimpleActionLog(secgroup, logclient.ACT_UPDATE, data, userCred, true)
@@ -455,9 +458,11 @@ func (manager *SSecurityGroupRuleManager) getRulesBySecurityGroup(secgroup *SSec
 	return rules, nil
 }
 
-func (self *SSecurityGroup) newFromCloudSecurityGroupRule(ctx context.Context, userCred mcclient.TokenCredential, rule cloudprovider.SecurityRule) (*SSecurityGroupRule, error) {
+func (self *SSecurityGroup) newFromCloudSecurityGroupRule(ctx context.Context, userCred mcclient.TokenCredential, rule cloudprovider.SecurityRule) (*SSecurityGroupRule, bool, error) {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
+
+	isNeedFix := false
 
 	protocol := rule.Protocol
 	if len(protocol) == 0 {
@@ -469,28 +474,38 @@ func (self *SSecurityGroup) newFromCloudSecurityGroupRule(ctx context.Context, u
 		cidr = rule.IPNet.String()
 	}
 
+	if len(rule.PeerSecgroupId) > 0 {
+		cidr = ""
+		cache, _ := db.FetchByExternalId(SecurityGroupCacheManager, rule.PeerSecgroupId)
+		if cache != nil {
+			rule.PeerSecgroupId = cache.(*SSecurityGroupCache).SecgroupId
+		}
+		isNeedFix = true
+	}
+
 	err := rule.ValidateRule()
 	if err != nil {
-		return nil, errors.Wrapf(err, "ValidateRule")
+		return nil, isNeedFix, errors.Wrapf(err, "ValidateRule %s ", jsonutils.Marshal(rule).String())
 	}
 
 	secrule := &SSecurityGroupRule{
-		Priority:    int64(rule.Priority),
-		Protocol:    protocol,
-		Ports:       rule.GetPortsString(),
-		Direction:   string(rule.Direction),
-		CIDR:        cidr,
-		Action:      string(rule.Action),
-		Description: rule.Description,
+		Priority:       int64(rule.Priority),
+		Protocol:       protocol,
+		Ports:          rule.GetPortsString(),
+		Direction:      string(rule.Direction),
+		CIDR:           cidr,
+		Action:         string(rule.Action),
+		Description:    rule.Description,
+		PeerSecgroupId: rule.PeerSecgroupId,
 	}
 	secrule.SetModelManager(SecurityGroupRuleManager, secrule)
 	secrule.SecgroupId = self.Id
 
 	err = SecurityGroupRuleManager.TableSpec().Insert(ctx, secrule)
 	if err != nil {
-		return nil, errors.Wrapf(err, "SecurityGroupRuleManager.Insert")
+		return nil, isNeedFix, errors.Wrapf(err, "SecurityGroupRuleManager.Insert")
 	}
-	return secrule, nil
+	return secrule, isNeedFix, nil
 }
 
 func (self *SSecurityGroupRule) GetOwnerId() mcclient.IIdentityProvider {
