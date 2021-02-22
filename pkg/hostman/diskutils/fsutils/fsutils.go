@@ -274,7 +274,7 @@ func FsckExtFs(fpath string) bool {
 	log.Debugf("Exec command: %v", []string{"e2fsck", "-f", "-p", fpath})
 	cmd := procutils.NewCommand("e2fsck", "-f", "-p", fpath)
 	if err := cmd.Start(); err != nil {
-		log.Errorln(err)
+		log.Errorf("e2fsck start failed: %s", err)
 		return false
 	} else {
 		err = cmd.Wait()
@@ -292,11 +292,17 @@ func FsckExtFs(fpath string) bool {
 	}
 }
 
+// https://bugs.launchpad.net/ubuntu/+source/xfsprogs/+bug/1718244
+// use xfs_repair -n instead
 func FsckXfsFs(fpath string) bool {
 	if output, err := procutils.NewCommand("xfs_check", fpath).Output(); err != nil {
-		log.Errorf("xfs_check failed: %s, %s", err, output)
-		procutils.NewCommand("xfs_repair", fpath).Output()
-		return false
+		log.Errorf("xfs_check failed: %s, %s, try xfs_repair -n <dev> instead", err, output)
+		if output, err := procutils.NewCommand("xfs_repair", "-n", fpath).Output(); err != nil {
+			log.Errorf("xfs_repair -n dev failed: %s, %s", err, output)
+			// repair the xfs
+			procutils.NewCommand("xfs_repair", fpath).Output()
+			return false
+		}
 	}
 	return true
 }

@@ -15,7 +15,9 @@
 package kvmpart
 
 import (
+	"context"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -173,8 +175,22 @@ func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
 			}()
 		}
 	}
-	output, err := procutils.NewCommand(cmds[0], cmds[1:]...).Output()
-	return errors.Wrapf(err, "mount failed: %s", output)
+
+	retrier := func(utils.FibonacciRetrier) (bool, error) {
+		output, err := procutils.NewCommand(cmds[0], cmds[1:]...).Output()
+		if err == nil {
+			return true, nil
+		} else {
+			log.Errorf("mount fail: %s %s", err, output)
+			time.Sleep(time.Millisecond * time.Duration(100+rand.Intn(400)))
+			return false, errors.Wrap(err, "")
+		}
+	}
+	_, err = utils.NewFibonacciRetrierMaxTries(3, retrier).Start(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "mount failed")
+	}
+	return nil // errors.Wrapf(err, "mount failed: %s", output)
 }
 
 func (p *SKVMGuestDiskPartition) fsck() error {
