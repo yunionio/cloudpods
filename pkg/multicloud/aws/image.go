@@ -125,7 +125,11 @@ func (self *ImageImportTask) GetGlobalId() string {
 }
 
 func (self *ImageImportTask) Refresh() error {
-	ret, err := self.region.ec2Client.DescribeImportImageTasks(&ec2.DescribeImportImageTasksInput{ImportTaskIds: []*string{&self.TaskId}})
+	ec2Client, err := self.region.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.DescribeImportImageTasks(&ec2.DescribeImportImageTasksInput{ImportTaskIds: []*string{&self.TaskId}})
 	if err != nil {
 		log.Errorf("DescribeImportImageTasks %s", err)
 		return errors.Wrap(err, "ImageImportTask.Refresh.DescribeImportImageTasks")
@@ -317,7 +321,11 @@ func (self *SRegion) ImportImage(name string, osArch string, osType string, osDi
 	container.SetUserBucket(bkt)
 	params.SetDiskContainers([]*ec2.ImageDiskContainer{container})
 	params.SetLicenseType("BYOL") // todo: AWS?
-	ret, err := self.ec2Client.ImportImage(params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.ImportImage(params)
 	if err != nil {
 		return nil, errors.Wrap(err, "ImportImage")
 	}
@@ -341,7 +349,11 @@ func (self *SRegion) ExportImage(instanceId string, imageId string) (*ImageExpor
 	spec.SetDiskImageFormat("RAW")
 	spec.SetS3Bucket("imgcache-onecloud")
 	params.SetExportToS3Task(spec)
-	ret, err := self.ec2Client.CreateInstanceExportTask(params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.CreateInstanceExportTask(params)
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateInstanceExportTask")
 	}
@@ -471,7 +483,11 @@ func (self *SRegion) getImages(status ImageStatusType, owners []TImageOwnerType,
 		params.SetFilters(filters)
 	}
 
-	ret, err := self.ec2Client.DescribeImages(params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.DescribeImages(params)
 	err = parseNotFoundError(err)
 	if err != nil {
 		return nil, errors.Wrap(err, "parseNotFoundError")
@@ -554,8 +570,12 @@ func (self *SRegion) getImages(status ImageStatusType, owners []TImageOwnerType,
 func (self *SRegion) DeleteImage(imageId string) error {
 	params := &ec2.DeregisterImageInput{}
 	params.SetImageId(imageId)
-	_, err := self.ec2Client.DeregisterImage(params)
-	return err
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+	_, err = ec2Client.DeregisterImage(params)
+	return errors.Wrap(err, "DeregisterImage")
 }
 
 func (self *SRegion) addTags(resId string, key string, value string) error {
@@ -565,9 +585,13 @@ func (self *SRegion) addTags(resId string, key string, value string) error {
 	tag.Key = &key
 	tag.Value = &value
 	input.SetTags([]*ec2.Tag{&tag})
-	_, err := self.ec2Client.CreateTags(input)
+	ec2Client, err := self.getEc2Client()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "getEc2Client")
+	}
+	_, err = ec2Client.CreateTags(input)
+	if err != nil {
+		return errors.Wrap(err, "CreateTags")
 	}
 	return nil
 }

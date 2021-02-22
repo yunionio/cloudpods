@@ -41,6 +41,11 @@ func (self *SRegion) DescribeVpcPeeringConnections(vpcId string) ([]*ec2.VpcPeer
 }
 
 func (self *SRegion) DescribeRequesterVpcPeeringConnections(vpcId string) ([]*ec2.VpcPeeringConnection, error) {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+
 	params := ec2.DescribeVpcPeeringConnectionsInput{}
 	result := []*ec2.VpcPeeringConnection{}
 	var maxResult int64 = 20
@@ -53,7 +58,7 @@ func (self *SRegion) DescribeRequesterVpcPeeringConnections(vpcId string) ([]*ec
 	filter.Name = &filterName
 	params.Filters = []*ec2.Filter{&filter}
 	for {
-		ret, err := self.ec2Client.DescribeVpcPeeringConnections(&params)
+		ret, err := ec2Client.DescribeVpcPeeringConnections(&params)
 		if err != nil {
 			return nil, errors.Wrapf(err, "self.ec2Client.DescribeVpcPeeringConnections(%s)", jsonutils.Marshal(params).String())
 		}
@@ -67,6 +72,11 @@ func (self *SRegion) DescribeRequesterVpcPeeringConnections(vpcId string) ([]*ec
 }
 
 func (self *SRegion) DescribeAccepterVpcPeeringConnections(vpcId string) ([]*ec2.VpcPeeringConnection, error) {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+
 	params := ec2.DescribeVpcPeeringConnectionsInput{}
 	result := []*ec2.VpcPeeringConnection{}
 	var maxResult int64 = 20
@@ -78,7 +88,7 @@ func (self *SRegion) DescribeAccepterVpcPeeringConnections(vpcId string) ([]*ec2
 	filter.Name = &filterName
 	params.Filters = []*ec2.Filter{&filter}
 	for {
-		ret, err := self.ec2Client.DescribeVpcPeeringConnections(&params)
+		ret, err := ec2Client.DescribeVpcPeeringConnections(&params)
 		if err != nil {
 			return nil, errors.Wrapf(err, "self.ec2Client.DescribeVpcPeeringConnections(%s)", jsonutils.Marshal(params).String())
 		}
@@ -92,6 +102,11 @@ func (self *SRegion) DescribeAccepterVpcPeeringConnections(vpcId string) ([]*ec2
 }
 
 func (self *SRegion) GetVpcPeeringConnectionById(Id string) (*ec2.VpcPeeringConnection, error) {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+
 	params := ec2.DescribeVpcPeeringConnectionsInput{}
 	result := []*ec2.VpcPeeringConnection{}
 	var maxResult int64 = 20
@@ -102,7 +117,7 @@ func (self *SRegion) GetVpcPeeringConnectionById(Id string) (*ec2.VpcPeeringConn
 	filter.Name = &filterName
 	params.Filters = []*ec2.Filter{&filter}
 	for {
-		ret, err := self.ec2Client.DescribeVpcPeeringConnections(&params)
+		ret, err := ec2Client.DescribeVpcPeeringConnections(&params)
 		if err != nil {
 			return nil, errors.Wrapf(err, "self.ec2Client.DescribeVpcPeeringConnections(%s)", jsonutils.Marshal(params).String())
 		}
@@ -122,12 +137,17 @@ func (self *SRegion) GetVpcPeeringConnectionById(Id string) (*ec2.VpcPeeringConn
 }
 
 func (self *SRegion) CreateVpcPeeringConnection(vpcId string, opts *cloudprovider.VpcPeeringConnectionCreateOptions) (*ec2.VpcPeeringConnection, error) {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+
 	params := ec2.CreateVpcPeeringConnectionInput{}
 	params.VpcId = &vpcId
 	params.PeerVpcId = &opts.PeerVpcId
 	params.PeerRegion = &opts.PeerRegionId
 	params.PeerOwnerId = &opts.PeerAccountId
-	ret, err := self.ec2Client.CreateVpcPeeringConnection(&params)
+	ret, err := ec2Client.CreateVpcPeeringConnection(&params)
 	if err != nil {
 		return nil, errors.Wrapf(err, "self.ec2Client.CreateVpcPeeringConnection(%s)", jsonutils.Marshal(params).String())
 	}
@@ -137,7 +157,7 @@ func (self *SRegion) CreateVpcPeeringConnection(vpcId string, opts *cloudprovide
 	nametag := "Name"
 	desctag := "Description"
 	tagParams.Tags = []*ec2.Tag{{Key: &nametag, Value: &opts.Name}, {Key: &desctag, Value: &opts.Desc}}
-	_, err = self.ec2Client.CreateTags(&tagParams)
+	_, err = ec2Client.CreateTags(&tagParams)
 	if err != nil {
 		return nil, errors.Wrapf(err, "self.ec2Client.CreateTags(%s)", jsonutils.Marshal(tagParams).String())
 	}
@@ -146,9 +166,14 @@ func (self *SRegion) CreateVpcPeeringConnection(vpcId string, opts *cloudprovide
 }
 
 func (self *SRegion) DeleteVpcPeeringConnection(vpcPeeringConnectionId string) error {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+
 	params := ec2.DeleteVpcPeeringConnectionInput{}
 	params.VpcPeeringConnectionId = &vpcPeeringConnectionId
-	_, err := self.ec2Client.DeleteVpcPeeringConnection(&params)
+	_, err = ec2Client.DeleteVpcPeeringConnection(&params)
 	if err != nil {
 		return errors.Wrapf(err, "self.ec2Client.DeleteVpcPeeringConnection(%s)", jsonutils.Marshal(params).String())
 	}
@@ -156,9 +181,14 @@ func (self *SRegion) DeleteVpcPeeringConnection(vpcPeeringConnectionId string) e
 }
 
 func (self *SRegion) AcceptVpcPeeringConnection(vpcPeeringConnectionId string) (*ec2.VpcPeeringConnection, error) {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+
 	params := ec2.AcceptVpcPeeringConnectionInput{}
 	params.VpcPeeringConnectionId = &vpcPeeringConnectionId
-	ret, err := self.ec2Client.AcceptVpcPeeringConnection(&params)
+	ret, err := ec2Client.AcceptVpcPeeringConnection(&params)
 	if err != nil {
 		return nil, errors.Wrapf(err, "self.ec2Client.AcceptVpcPeeringConnection(%s)", jsonutils.Marshal(params).String())
 	}
@@ -166,6 +196,11 @@ func (self *SRegion) AcceptVpcPeeringConnection(vpcPeeringConnectionId string) (
 }
 
 func (self *SRegion) DeleteVpcPeeringConnectionRoute(vpcPeeringConnectionId string) error {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+
 	input := &ec2.DescribeRouteTablesInput{}
 	filters := make([]*ec2.Filter, 0)
 	filters = AppendSingleValueFilter(filters, "association.main", "true")
@@ -173,7 +208,7 @@ func (self *SRegion) DeleteVpcPeeringConnectionRoute(vpcPeeringConnectionId stri
 	input.SetFilters(filters)
 	routeTables := []*ec2.RouteTable{}
 	for {
-		ret, err := self.ec2Client.DescribeRouteTables(input)
+		ret, err := ec2Client.DescribeRouteTables(input)
 		if err != nil {
 			return errors.Wrap(err, "SRegion.GetRouteTables.DescribeRouteTables")
 		}

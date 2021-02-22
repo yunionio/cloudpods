@@ -23,7 +23,7 @@ import (
 
 var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"us-east-2":      {Latitude: 40.4172871, Longitude: -82.90712300000001, City: api.CITY_OHIO, CountryCode: api.COUNTRY_CODE_US},
-	"us-east-1":      {Latitude: 37.4315734, Longitude: -78.6568942, City: api.CITY_N_VIRGINIA, CountryCode: api.COUNTRY_CODE_US},
+	"us-east-1":      {Latitude: 37.4315734, Longitude: -78.6568942, City: api.CITY_VIRGINIA, CountryCode: api.COUNTRY_CODE_US},
 	"us-west-1":      {Latitude: 38.8375215, Longitude: -120.8958242, City: api.CITY_N_CALIFORNIA, CountryCode: api.COUNTRY_CODE_US},
 	"us-west-2":      {Latitude: 43.8041334, Longitude: -120.5542012, City: api.CITY_OREGON, CountryCode: api.COUNTRY_CODE_US},
 	"ap-south-1":     {Latitude: 19.0759837, Longitude: 72.8776559, City: api.CITY_MUMBAI, CountryCode: api.COUNTRY_CODE_IN},
