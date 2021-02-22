@@ -434,17 +434,20 @@ func (self *SGuest) PerformLiveMigrate(ctx context.Context, userCred mcclient.To
 			host := iHost.(*SHost)
 			preferHostId = host.Id
 		}
-		err := self.StartGuestLiveMigrateTask(ctx, userCred, self.Status, preferHostId, "")
+		err := self.StartGuestLiveMigrateTask(ctx, userCred, self.Status, preferHostId, input.SkipCpuCheck, "")
 		return nil, err
 	}
 	return nil, httperrors.NewBadRequestError("Cannot live migrate in status %s", self.Status)
 }
 
-func (self *SGuest) StartGuestLiveMigrateTask(ctx context.Context, userCred mcclient.TokenCredential, guestStatus, preferHostId, parentTaskId string) error {
+func (self *SGuest) StartGuestLiveMigrateTask(ctx context.Context, userCred mcclient.TokenCredential, guestStatus, preferHostId string, skipCpuCheck *bool, parentTaskId string) error {
 	self.SetStatus(userCred, api.VM_START_MIGRATE, "")
 	data := jsonutils.NewDict()
 	if len(preferHostId) > 0 {
 		data.Set("prefer_host_id", jsonutils.NewString(preferHostId))
+	}
+	if skipCpuCheck != nil {
+		data.Set("skip_cpu_check", jsonutils.NewBool(*skipCpuCheck))
 	}
 	data.Set("guest_status", jsonutils.NewString(guestStatus))
 	dedicateMigrateTask := "GuestLiveMigrateTask"
