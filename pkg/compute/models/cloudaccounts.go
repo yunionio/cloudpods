@@ -946,7 +946,7 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		if err != nil {
 			return nil, isNew, err
 		}
-		provider.markProviderConnected(ctx, userCred, self.HealthStatus)
+		provider.markProviderConnected(ctx, userCred, subAccount.HealthStatus)
 		return provider, isNew, nil
 	}
 	// not found, create a new cloudprovider
@@ -966,12 +966,17 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		newCloudprovider.CloudaccountId = self.Id
 		newCloudprovider.Provider = self.Provider
 		newCloudprovider.AccessUrl = self.AccessUrl
-		newCloudprovider.SetEnabled(true)
-		newCloudprovider.Status = api.CLOUD_PROVIDER_CONNECTED
+		newCloudprovider.HealthStatus = subAccount.HealthStatus
 		if !options.Options.CloudaccountHealthStatusCheck {
-			self.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
+			newCloudprovider.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 		}
-		newCloudprovider.HealthStatus = self.HealthStatus
+		if newCloudprovider.HealthStatus == api.CLOUD_PROVIDER_HEALTH_NORMAL {
+			newCloudprovider.SetEnabled(true)
+			newCloudprovider.Status = api.CLOUD_PROVIDER_CONNECTED
+		} else {
+			newCloudprovider.SetEnabled(false)
+			newCloudprovider.Status = api.CLOUD_PROVIDER_DISCONNECTED
+		}
 		newCloudprovider.Name = newName
 		if !self.AutoCreateProject || len(self.ProjectId) > 0 {
 			ownerId := self.GetOwnerId()
@@ -1926,9 +1931,9 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 		if !options.Options.CloudaccountHealthStatusCheck {
 			status = api.CLOUD_PROVIDER_HEALTH_NORMAL
 		}
-		if len(account.AccountId) == 0 {
-			account.AccountId = manager.GetAccountId()
-		}
+		// if len(account.AccountId) == 0 || account.AccountId != manager.GetAccountId() {
+		account.AccountId = manager.GetAccountId()
+		// }
 		account.HealthStatus = status
 		account.ProbeAt = timeutils.UtcNow()
 		account.Version = version

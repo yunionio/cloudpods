@@ -91,7 +91,11 @@ func (self *SRegion) GetKeypairs(finger string, name string, offset int, limit i
 		params.SetFilters(filters)
 	}
 
-	ret, err := self.ec2Client.DescribeKeyPairs(params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.DescribeKeyPairs(params)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -113,7 +117,11 @@ func (self *SRegion) ImportKeypair(name string, pubKey string) (*SKeypair, error
 	params := &ec2.ImportKeyPairInput{}
 	params.SetKeyName(name)
 	params.SetPublicKeyMaterial([]byte(pubKey))
-	ret, err := self.ec2Client.ImportKeyPair(params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.ImportKeyPair(params)
 	if err != nil {
 		return nil, errors.Wrap(err, "ImportKeyPair")
 	} else {

@@ -298,9 +298,13 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 		params.SetVolumeIds(ConvertedList(diskIds))
 	}
 
-	ret, err := self.ec2Client.DescribeVolumes(params)
+	ec2Client, err := self.getEc2Client()
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.DescribeVolumes(params)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "DescribeVolumes")
 	}
 
 	disks := []SDisk{}
@@ -404,7 +408,11 @@ func (self *SRegion) DeleteDisk(diskId string) error {
 
 	params.SetVolumeId(diskId)
 	log.Debugf("DeleteDisk with params: %s", params.String())
-	_, err = self.ec2Client.DeleteVolume(params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+	_, err = ec2Client.DeleteVolume(params)
 	return err
 }
 
@@ -426,7 +434,12 @@ func (self *SRegion) resizeDisk(diskId string, sizeMb int64) error {
 	} else {
 		params.SetVolumeId(diskId)
 	}
-	_, err := self.ec2Client.ModifyVolume(params)
+
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+	_, err = ec2Client.ModifyVolume(params)
 	return err
 }
 
@@ -447,7 +460,12 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) (string, error) {
 	params.SetAvailabilityZone(disk.ZoneId)
 	tags, _ := disk.Tags.GetTagSpecifications()
 	params.SetTagSpecifications([]*ec2.TagSpecification{tags})
-	ret, err := self.ec2Client.CreateVolume(params)
+
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return "", errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.CreateVolume(params)
 	if err != nil {
 		log.Debugf("resetDisk %s: %s", params.String(), err.Error())
 		return "", err
@@ -461,7 +479,7 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) (string, error) {
 			return "", err
 		}
 
-		err = self.ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&diskId}})
+		err = ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&diskId}})
 		if err != nil {
 			log.Debugf("resetDisk :%s", err.Error())
 			return "", err
@@ -498,14 +516,18 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 
 	params.SetTagSpecifications([]*ec2.TagSpecification{ec2Tags})
 
-	ret, err := self.ec2Client.CreateVolume(params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return "", errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.CreateVolume(params)
 	if err != nil {
 		return "", err
 	}
 
 	paramsWait := &ec2.DescribeVolumesInput{}
 	paramsWait.SetVolumeIds([]*string{ret.VolumeId})
-	err = self.ec2Client.WaitUntilVolumeAvailable(paramsWait)
+	err = ec2Client.WaitUntilVolumeAvailable(paramsWait)
 	if err != nil {
 		return "", err
 	}

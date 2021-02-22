@@ -252,6 +252,11 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 		return nil, errors.Wrap(err, "GetInstanceIdByImageId")
 	}
 
+	ec2Client, err := self.region.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+
 	task, err := self.region.ExportImage(instanceId, imageId)
 	if err != nil {
 		log.Errorf("ExportImage %s %s: %s", instanceId, imageId, err)
@@ -260,7 +265,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 
 	taskParams := &ec2.DescribeExportTasksInput{}
 	taskParams.SetExportTaskIds([]*string{&task.TaskId})
-	if err := self.region.ec2Client.WaitUntilExportTaskCompleted(taskParams); err != nil {
+	if err := ec2Client.WaitUntilExportTaskCompleted(taskParams); err != nil {
 		log.Errorf("WaitUntilExportTaskCompleted %#v %s", taskParams, err)
 		return nil, errors.Wrap(err, "WaitUntilExportTaskCompleted")
 	}
@@ -476,7 +481,11 @@ func (self *SRegion) createIImage(snapshotId, imageName, imageDesc string) (stri
 	blockList := []*ec2.BlockDeviceMapping{block}
 	params.SetBlockDeviceMappings(blockList)
 
-	ret, err := self.ec2Client.CreateImage(params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return "", errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.CreateImage(params)
 	if err != nil {
 		return "", err
 	}
