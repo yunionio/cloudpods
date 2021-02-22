@@ -27,7 +27,7 @@ import (
 
 type SSNATTableEntry struct {
 	multicloud.SResourceBase
-	nat *SNatGetway
+	nat *SNatGateway
 
 	SnatEntryId     string
 	SnatEntryName   string
@@ -166,7 +166,7 @@ func (region *SRegion) DeleteSnatEntry(tableId string, entryId string) error {
 	return err
 }
 
-func (nat *SNatGetway) getSnatEntriesForTable(tblId string) ([]SSNATTableEntry, error) {
+func (nat *SNatGateway) getSnatEntriesForTable(tblId string) ([]SSNATTableEntry, error) {
 	entries := make([]SSNATTableEntry, 0)
 	entryTotal := -1
 	for entryTotal < 0 || len(entries) < entryTotal {
@@ -182,7 +182,7 @@ func (nat *SNatGetway) getSnatEntriesForTable(tblId string) ([]SSNATTableEntry, 
 	return entries, nil
 }
 
-func (nat *SNatGetway) getSnatEntries() ([]SSNATTableEntry, error) {
+func (nat *SNatGateway) getSnatEntries() ([]SSNATTableEntry, error) {
 	entries := make([]SSNATTableEntry, 0)
 	for i := range nat.SnatTableIds.SnatTableId {
 		sentries, err := nat.getSnatEntriesForTable(nat.SnatTableIds.SnatTableId[i])
@@ -194,7 +194,7 @@ func (nat *SNatGetway) getSnatEntries() ([]SSNATTableEntry, error) {
 	return entries, nil
 }
 
-func (nat *SNatGetway) dissociateWithVswitch(vswitchId string) error {
+func (nat *SNatGateway) dissociateWithVswitch(vswitchId string) error {
 	entries, err := nat.getSnatEntries()
 	if err != nil {
 		return err

@@ -71,5 +71,5 @@ type NatgatewayDetails struct {
 
 	SNatGateway
 
-	NatSpec string `json:"nat_spec"`
+	Network string `json:"network"`
 }

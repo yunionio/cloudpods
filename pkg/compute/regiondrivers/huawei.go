@@ -2134,21 +2134,6 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListenerRule(ctx conte
 	return nil
 }
 
-func (self *SHuaWeiRegionDriver) DealNatGatewaySpec(spec string) string {
-	switch spec {
-	case "1":
-		return api.NAT_SPEC_SMALL
-	case "2":
-		return api.NAT_SPEC_MIDDLE
-	case "3":
-		return api.NAT_SPEC_LARGE
-	case "4":
-		return api.NAT_SPEC_XLARGE
-	}
-	// can't arrive
-	return ""
-}
-
 func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (api.DBInstanceCreateInput, error) {
 	if len(input.MasterInstanceId) > 0 && input.Engine == api.DBINSTANCE_TYPE_SQLSERVER {
 		return input, httperrors.NewInputParameterError("Not support create read-only dbinstance for %s", input.Engine)
@@ -2673,6 +2658,13 @@ func (self *SHuaWeiRegionDriver) ValidateCreateVpcData(ctx context.Context, user
 
 	if cidrV.Value.MaskLen > 24 {
 		return input, httperrors.NewInputParameterError("invalid cidr range %s, mask length should less than or equal to 24", cidrV.Value.String())
+	}
+	return input, nil
+}
+
+func (self *SHuaWeiRegionDriver) ValidateCreateNatGateway(ctx context.Context, userCred mcclient.TokenCredential, input api.NatgatewayCreateInput) (api.NatgatewayCreateInput, error) {
+	if len(input.Eip) > 0 || input.EipBw > 0 {
+		return input, httperrors.NewInputParameterError("Huawei nat not support associate eip")
 	}
 	return input, nil
 }

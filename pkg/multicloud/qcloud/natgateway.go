@@ -57,6 +57,10 @@ func (nat *SNatGateway) GetGlobalId() string {
 	return nat.NatId
 }
 
+func (self *SNatGateway) GetINetworkId() string {
+	return ""
+}
+
 func (nat *SNatGateway) GetStatus() string {
 	// NAT网关状态，0:运行中, 1:不可用, 2:欠费停服
 	switch int(nat.State) {
