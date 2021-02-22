@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/osprofile"
+	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -65,6 +66,7 @@ type SInstance struct {
 	multicloud.SInstanceBase
 
 	host       *SHost
+	img        *SImage
 	RegionId   string
 	ZoneId     string
 	InstanceId string
@@ -582,7 +584,33 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
+func (self *SInstance) GetImage() (*SImage, error) {
+	if self.img != nil {
+		return self.img, nil
+	}
+
+	img, err := self.host.zone.region.GetImage(self.ImageId)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetImage")
+	}
+
+	self.img = img
+	return self.img, nil
+}
+
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
+	img, err := self.GetImage()
+	if err != nil {
+		return errors.Wrap(err, "GetImage")
+	}
+
+	// mix in image block device names
+	for i := range img.BlockDevicesNames {
+		if !utils.IsInStringArray(img.BlockDevicesNames[i], self.DeviceNames) {
+			self.DeviceNames = append(self.DeviceNames, img.BlockDevicesNames[i])
+		}
+	}
+
 	name, err := NextDeviceName(self.DeviceNames)
 	if err != nil {
 		return err
@@ -803,6 +831,7 @@ func (self *SRegion) CreateInstance(name string, image *SImage, instanceType str
 	for i := range disks {
 		var ebs ec2.EbsBlockDevice
 		var deviceName string
+		var err error
 		disk := disks[i]
 
 		if i == 0 {
@@ -832,9 +861,11 @@ func (self *SRegion) CreateInstance(name string, image *SImage, instanceType str
 				VolumeSize:          &size,
 				VolumeType:          &disk.Category,
 			}
-			// todo: generator device name
-			// todo: 这里还需要测试预置硬盘的实例。deviceName是否会冲突。
-			deviceName = fmt.Sprintf("/dev/sd%s", string(98+i))
+
+			deviceName, err = NextDeviceName(image.BlockDevicesNames)
+			if err != nil {
+				return "", errors.Wrap(err, "NextDeviceName")
+			}
 		}
 
 		// io1类型的卷需要指定IOPS参数。这里根据aws网站的建议值进行设置
