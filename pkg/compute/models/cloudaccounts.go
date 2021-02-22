@@ -3362,7 +3362,7 @@ func (self *SCloudaccount) SyncAccountResources(ctx context.Context, userCred mc
 		return errors.Wrapf(err, "GetProvider")
 	}
 	if cloudprovider.IsSupportProject(provider) {
-		return func() error {
+		err = func() error {
 			lockman.LockRawObject(ctx, "projects", self.Id)
 			defer lockman.ReleaseRawObject(ctx, "projects", self.Id)
 
@@ -3374,10 +3374,13 @@ func (self *SCloudaccount) SyncAccountResources(ctx context.Context, userCred mc
 			log.Infof("Sync project for cloudaccount %s result: %s", self.Name, result.Result())
 			return nil
 		}()
+		if err != nil {
+			log.Errorf("sync project for account %s error: %v", self.Name, err)
+		}
 	}
 
 	if cloudprovider.IsSupportDnsZone(provider) {
-		return func() error {
+		err = func() error {
 			lockman.LockRawObject(ctx, "dns_zones", self.Id)
 			defer lockman.ReleaseRawObject(ctx, "dns_zones", self.Id)
 
@@ -3402,6 +3405,9 @@ func (self *SCloudaccount) SyncAccountResources(ctx context.Context, userCred mc
 			}
 			return nil
 		}()
+		if err != nil {
+			log.Errorf("sync dns zone for account %s error: %v", self.Name, err)
+		}
 	}
 
 	return nil
