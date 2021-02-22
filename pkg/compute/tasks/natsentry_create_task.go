@@ -39,7 +39,7 @@ func init() {
 }
 
 func (self *SNatSEntryCreateTask) TaskFailed(ctx context.Context, snatEntry models.INatHelper, reason jsonutils.JSONObject) {
-	snatEntry.SetStatus(self.UserCred, api.NAT_STATUS_FAILED, reason.String())
+	snatEntry.SetStatus(self.UserCred, api.NAT_STATUS_CREATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(snatEntry, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	natgateway, err := snatEntry.GetNatgateway()
 	if err == nil {

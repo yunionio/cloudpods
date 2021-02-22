@@ -20,11 +20,12 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
 
-	R(&options.NatDTableListOptions{}, "dnat-list", "List DNAT entries", func(s *mcclient.ClientSession, opts *options.NatDTableListOptions) error {
+	R(&compute.NatDTableListOptions{}, "dnat-list", "List DNAT entries", func(s *mcclient.ClientSession, opts *compute.NatDTableListOptions) error {
 		params, err := options.ListStructToParams(opts)
 		if err != nil {
 			return err
@@ -36,7 +37,7 @@ func init() {
 		printList(result, modules.NatDTable.GetColumns(s))
 		return nil
 	})
-	R(&options.NatDDeleteShowOptions{}, "dnat-delete", "Delete a DNAT", func(s *mcclient.ClientSession, args *options.NatDDeleteShowOptions) error {
+	R(&compute.NatDDeleteShowOptions{}, "dnat-delete", "Delete a DNAT", func(s *mcclient.ClientSession, args *compute.NatDDeleteShowOptions) error {
 		results, err := modules.NatDTable.Delete(s, args.ID, nil)
 		if err != nil {
 			return err
@@ -44,7 +45,7 @@ func init() {
 		printObject(results)
 		return nil
 	})
-	R(&options.NatDDeleteShowOptions{}, "dnat-show", "Show a DNAT", func(s *mcclient.ClientSession, args *options.NatDDeleteShowOptions) error {
+	R(&compute.NatDDeleteShowOptions{}, "dnat-show", "Show a DNAT", func(s *mcclient.ClientSession, args *compute.NatDDeleteShowOptions) error {
 		results, err := modules.NatDTable.Get(s, args.ID, nil)
 		if err != nil {
 			return err
@@ -53,7 +54,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.NatDCreateOptions{}, "dnat-create", "Create a DNAT", func(s *mcclient.ClientSession, args *options.NatDCreateOptions) error {
+	R(&compute.NatDCreateOptions{}, "dnat-create", "Create a DNAT", func(s *mcclient.ClientSession, args *compute.NatDCreateOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.NAME), "name")
 		params.Add(jsonutils.NewString(args.NATGATEWAYID), "natgateway_id")

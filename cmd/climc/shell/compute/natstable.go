@@ -20,11 +20,12 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
 
-	R(&options.NatSTableListOptions{}, "snat-list", "List SNAT entries", func(s *mcclient.ClientSession, opts *options.NatSTableListOptions) error {
+	R(&compute.NatSTableListOptions{}, "snat-list", "List SNAT entries", func(s *mcclient.ClientSession, opts *compute.NatSTableListOptions) error {
 		params, err := options.ListStructToParams(opts)
 		if err != nil {
 			return err
@@ -36,7 +37,7 @@ func init() {
 		printList(result, modules.NatSTable.GetColumns(s))
 		return nil
 	})
-	R(&options.NatSDeleteShowOptions{}, "snat-delete", "Delete a SNAT", func(s *mcclient.ClientSession, args *options.NatSDeleteShowOptions) error {
+	R(&compute.NatSDeleteShowOptions{}, "snat-delete", "Delete a SNAT", func(s *mcclient.ClientSession, args *compute.NatSDeleteShowOptions) error {
 		results, err := modules.NatSTable.Delete(s, args.ID, nil)
 		if err != nil {
 			return err
@@ -45,7 +46,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.NatSDeleteShowOptions{}, "snat-show", "Show a SNAT", func(s *mcclient.ClientSession, args *options.NatSDeleteShowOptions) error {
+	R(&compute.NatSDeleteShowOptions{}, "snat-show", "Show a SNAT", func(s *mcclient.ClientSession, args *compute.NatSDeleteShowOptions) error {
 		results, err := modules.NatSTable.Get(s, args.ID, nil)
 		if err != nil {
 			return err
@@ -54,7 +55,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.NatSCreateOptions{}, "snat-create", "Create a SNAT", func(s *mcclient.ClientSession, args *options.NatSCreateOptions) error {
+	R(&compute.NatSCreateOptions{}, "snat-create", "Create a SNAT", func(s *mcclient.ClientSession, args *compute.NatSCreateOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.NAME), "name")
 		params.Add(jsonutils.NewString(args.NATGATEWAYID), "natgateway_id")

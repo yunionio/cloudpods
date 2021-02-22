@@ -18,16 +18,13 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -236,59 +233,4 @@ func (self *SAwsGuestDriver) GetGuestInitialStateAfterRebuild() string {
 
 func (self *SAwsGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {
 	return false
-}
-
-func (self *SAwsGuestDriver) RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, server *models.SGuest, eip *models.SElasticip, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		if server.Status != api.VM_ASSOCIATE_EIP {
-			server.SetStatus(userCred, api.VM_ASSOCIATE_EIP, "associate eip")
-		}
-
-		extEip, err := eip.GetIEip()
-		if err != nil {
-			return nil, fmt.Errorf("SAwsGuestDriver.RequestAssociateEip fail to find iEIP for eip %s", err)
-		}
-
-		conf := &cloudprovider.AssociateConfig{
-			InstanceId:    server.ExternalId,
-			Bandwidth:     eip.Bandwidth,
-			AssociateType: api.EIP_ASSOCIATE_TYPE_SERVER,
-		}
-
-		err = extEip.Associate(conf)
-		if err != nil {
-			return nil, fmt.Errorf("SAwsGuestDriver.RequestAssociateEip fail to remote associate EIP %s", err)
-		}
-
-		err = cloudprovider.WaitStatus(extEip, api.EIP_STATUS_READY, 3*time.Second, 60*time.Second)
-		if err != nil {
-			return nil, errors.Wrap(err, "SAwsGuestDriver.RequestAssociateEip.WaitStatus")
-		}
-
-		err = eip.AssociateVM(ctx, userCred, server)
-		if err != nil {
-			return nil, fmt.Errorf("SAwsGuestDriver.RequestAssociateEip fail to local associate EIP %s", err)
-		}
-
-		eip.SetStatus(userCred, api.EIP_STATUS_READY, "associate")
-
-		// 如果aws已经绑定了EIP，则要把多余的公有IP删除
-		if extEip.GetMode() == api.EIP_MODE_STANDALONE_EIP {
-			publicIP, err := server.GetPublicIp()
-			if err != nil {
-				return nil, errors.Wrap(err, "AwsGuestDriver.GetPublicIp")
-			}
-
-			if publicIP != nil {
-				err = db.DeleteModel(ctx, userCred, publicIP)
-				if err != nil {
-					return nil, errors.Wrap(err, "AwsGuestDriver.DeletePublicIp")
-				}
-			}
-		}
-
-		return nil, nil
-	})
-
-	return nil
 }

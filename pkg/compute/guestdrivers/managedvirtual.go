@@ -1103,45 +1103,6 @@ func (self *SManagedVirtualizedGuestDriver) IsSupportEip() bool {
 	return true
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, server *models.SGuest, eip *models.SElasticip, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		if server.Status != api.VM_ASSOCIATE_EIP {
-			server.SetStatus(userCred, api.VM_ASSOCIATE_EIP, "associate eip")
-		}
-
-		extEip, err := eip.GetIEip()
-		if err != nil {
-			return nil, fmt.Errorf("ManagedVirtualizedGuestDriver.RequestAssociateEip fail to find iEIP for eip %s", err)
-		}
-
-		conf := &cloudprovider.AssociateConfig{
-			InstanceId:    server.ExternalId,
-			Bandwidth:     eip.Bandwidth,
-			AssociateType: api.EIP_ASSOCIATE_TYPE_SERVER,
-		}
-
-		err = extEip.Associate(conf)
-		if err != nil {
-			return nil, fmt.Errorf("ManagedVirtualizedGuestDriver.RequestAssociateEip fail to remote associate EIP %s", err)
-		}
-
-		err = cloudprovider.WaitStatus(extEip, api.EIP_STATUS_READY, 3*time.Second, 60*time.Second)
-		if err != nil {
-			return nil, errors.Wrap(err, "ManagedVirtualizedGuestDriver.RequestAssociateEip.WaitStatus")
-		}
-
-		err = eip.AssociateVM(ctx, userCred, server)
-		if err != nil {
-			return nil, fmt.Errorf("ManagedVirtualizedGuestDriver.RequestAssociateEip fail to local associate EIP %s", err)
-		}
-
-		eip.SetStatus(userCred, api.EIP_STATUS_READY, api.EIP_STATUS_ASSOCIATE)
-		return nil, nil
-	})
-
-	return nil
-}
-
 func (self *SManagedVirtualizedGuestDriver) chooseHostStorage(
 	drv models.IGuestDriver,
 	host *models.SHost,

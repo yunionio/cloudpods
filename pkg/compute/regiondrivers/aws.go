@@ -1503,3 +1503,59 @@ func (self *SAwsRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcc
 	})
 	return nil
 }
+
+func (self *SAwsRegionDriver) RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iEip, err := eip.GetIEip()
+		if err != nil {
+			return nil, errors.Wrapf(err, "eip.GetIEip")
+		}
+
+		conf := &cloudprovider.AssociateConfig{
+			InstanceId:    input.InstanceExternalId,
+			Bandwidth:     eip.Bandwidth,
+			AssociateType: api.EIP_ASSOCIATE_TYPE_SERVER,
+		}
+
+		err = iEip.Associate(conf)
+		if err != nil {
+			return nil, errors.Wrapf(err, "iEip.Associate")
+		}
+
+		err = cloudprovider.WaitStatus(iEip, api.EIP_STATUS_READY, 3*time.Second, 60*time.Second)
+		if err != nil {
+			return nil, errors.Wrap(err, "cloudprovider.WaitStatus")
+		}
+
+		if obj.GetStatus() != api.INSTANCE_ASSOCIATE_EIP {
+			db.StatusBaseSetStatus(obj, userCred, api.INSTANCE_ASSOCIATE_EIP, "associate eip")
+		}
+
+		err = eip.AssociateInstance(ctx, userCred, input.InstanceType, obj)
+		if err != nil {
+			return nil, errors.Wrapf(err, "eip.AssociateVM")
+		}
+
+		if input.InstanceType == api.EIP_ASSOCIATE_TYPE_SERVER {
+			// 如果aws已经绑定了EIP，则要把多余的公有IP删除
+			if iEip.GetMode() == api.EIP_MODE_STANDALONE_EIP {
+				server := obj.(*models.SGuest)
+				publicIP, err := server.GetPublicIp()
+				if err != nil {
+					return nil, errors.Wrap(err, "AwsGuestDriver.GetPublicIp")
+				}
+
+				if publicIP != nil {
+					err = db.DeleteModel(ctx, userCred, publicIP)
+					if err != nil {
+						return nil, errors.Wrap(err, "AwsGuestDriver.DeletePublicIp")
+					}
+				}
+			}
+		}
+
+		eip.SetStatus(userCred, api.EIP_STATUS_READY, "associate")
+		return nil, nil
+	})
+	return nil
+}

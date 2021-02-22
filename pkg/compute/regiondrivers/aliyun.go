@@ -1091,7 +1091,7 @@ func (self *SAliyunRegionDriver) ValidateCreateDBInstanceData(ctx context.Contex
 
 func (self *SAliyunRegionDriver) IsSupportedBillingCycle(bc billing.SBillingCycle, resource string) bool {
 	switch resource {
-	case models.DBInstanceManager.KeywordPlural(), models.ElasticcacheManager.KeywordPlural():
+	case models.DBInstanceManager.KeywordPlural(), models.ElasticcacheManager.KeywordPlural(), models.NatGatewayManager.KeywordPlural():
 		years := bc.GetYears()
 		months := bc.GetMonths()
 		if (years >= 1 && years <= 3) || (months >= 1 && months <= 9) {
@@ -1581,4 +1581,12 @@ func (self *SAliyunRegionDriver) ValidateCreateVpcData(ctx context.Context, user
 	}
 
 	return input, nil
+}
+
+func (self *SAliyunRegionDriver) ValidateCreateNatGateway(ctx context.Context, userCred mcclient.TokenCredential, input api.NatgatewayCreateInput) (api.NatgatewayCreateInput, error) {
+	return input, nil
+}
+
+func (self *SAliyunRegionDriver) IsSupportedNatGateway() bool {
+	return true
 }

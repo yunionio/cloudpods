@@ -109,10 +109,10 @@ const (
 	VM_RESTORE_STATE      = "restore_state"
 	VM_RESTORE_FAILED     = "restore_failed"
 
-	VM_ASSOCIATE_EIP         = "associate_eip"
-	VM_ASSOCIATE_EIP_FAILED  = "associate_eip_failed"
-	VM_DISSOCIATE_EIP        = "dissociate_eip"
-	VM_DISSOCIATE_EIP_FAILED = "dissociate_eip_failed"
+	VM_ASSOCIATE_EIP         = INSTANCE_ASSOCIATE_EIP
+	VM_ASSOCIATE_EIP_FAILED  = INSTANCE_ASSOCIATE_EIP_FAILED
+	VM_DISSOCIATE_EIP        = INSTANCE_DISSOCIATE_EIP
+	VM_DISSOCIATE_EIP_FAILED = INSTANCE_DISSOCIATE_EIP_FAILED
 
 	// 公网IP转换Eip中(EIP转换中)
 	VM_START_EIP_CONVERT  = "start_eip_convert"

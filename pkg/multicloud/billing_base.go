@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SBillingBase struct{}
@@ -42,4 +43,8 @@ func (self *SBillingBase) SetAutoRenew(autoRenew bool) error {
 
 func (self *SBillingBase) IsAutoRenew() bool {
 	return false
+}
+
+func (self *SBillingBase) Renew(bc billing.SBillingCycle) error {
+	return errors.Wrap(cloudprovider.ErrNotImplemented, "Renew")
 }

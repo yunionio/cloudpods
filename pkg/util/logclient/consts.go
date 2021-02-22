@@ -151,6 +151,7 @@ const (
 
 	ACT_VM_ASSOCIATE            = "vm_associate"
 	ACT_VM_DISSOCIATE           = "vm_dissociate"
+	ACT_NATGATEWAY_ASSOCIATE    = "natgateway_associate"
 	ACT_NATGATEWAY_DISSOCIATE   = "natgateway_dissociate"
 	ACT_LOADBALANCER_DISSOCIATE = "loadbalancer_dissociate"
 

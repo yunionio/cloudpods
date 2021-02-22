@@ -1,13 +1,16 @@
 package models
 
-import "yunion.io/x/onecloud/pkg/httperrors"
+import (
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
+)
 
-type IGetVpc interface {
-	GetName() string
+type IEipAssociateInstance interface {
+	db.IStatusStandaloneModel
 	GetVpc() (*SVpc, error)
 }
 
-func ValidateAssociateEip(obj IGetVpc) error {
+func ValidateAssociateEip(obj IEipAssociateInstance) error {
 	vpc, err := obj.GetVpc()
 	if err != nil {
 		return httperrors.NewGeneralError(err)

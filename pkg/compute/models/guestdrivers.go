@@ -178,7 +178,6 @@ type IGuestDriver interface {
 	IsSupportEip() bool
 	IsSupportPublicIp() bool
 	ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error
-	RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, eip *SElasticip, task taskman.ITask) error
 
 	NeedStopForChangeSpec(guest *SGuest, cpuChanged, memChanged bool) bool
 
