@@ -16,6 +16,9 @@ package k8s
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -36,9 +39,10 @@ func initKubeCluster() {
 	cmd.ShowEvent()
 	cmd.List(new(o.ClusterListOptions))
 	cmd.Show(new(o.IdentOptions))
-	cmd.Create(new(o.KubeClusterCreateOptions))
+	cmd.Create(new(o.K8SClusterCreateOptions))
 	cmd.Perform("sync", new(o.ClusterSyncOptions))
 	cmd.Perform("syncstatus", new(o.IdentOptions))
+	cmd.Perform("deploy", new(o.IdentOptions))
 	cmd.Get("components-status", new(o.IdentOptions))
 	cmd.Get("api-resources", new(o.IdentOptions))
 	cmd.Get("cluster-users", new(o.IdentOptions))
@@ -80,8 +84,12 @@ func initKubeCluster() {
 		return nil
 	})
 
-	R(&o.IdentOptions{}, cmdN("addons"), "Get addon manifest of a cluster", func(s *mcclient.ClientSession, args *o.IdentOptions) error {
-		ret, err := k8s.KubeClusters.GetSpecific(s, args.ID, "addons", nil)
+	R(&o.ClusterGetAddonsOpt{}, cmdN("addons"), "Get addon manifest of a cluster", func(s *mcclient.ClientSession, args *o.ClusterGetAddonsOpt) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := k8s.KubeClusters.GetSpecific(s, args.ID, "addons", params)
 		if err != nil {
 			return err
 		}
@@ -278,6 +286,68 @@ func initKubeCluster() {
 			return err
 		}
 		printObject(ret)
+		return nil
+	})
+
+	type GetKubesprayConfigOpt struct {
+		o.IdentOptions
+		OUTPUT string `help:"Output directory to store config files"`
+	}
+
+	R(&GetKubesprayConfigOpt{}, cmdN("kubespray-config"), "Get cluster kubespray config", func(s *mcclient.ClientSession, args *GetKubesprayConfigOpt) error {
+		conf, err := k8s.KubeClusters.GetSpecific(s, args.ID, "kubespray-config", nil)
+		if err != nil {
+			return err
+		}
+
+		inventoryContent, err := conf.GetString("inventory_content")
+		if err != nil {
+			return errors.Wrap(err, "get inventory content")
+		}
+
+		vars, err := conf.Get("vars")
+		if err != nil {
+			return errors.Wrap(err, "get variables")
+		}
+
+		privateKey, err := conf.GetString("private_key")
+		if err != nil {
+			return errors.Wrap(err, "get private key")
+		}
+
+		if err := os.MkdirAll(args.OUTPUT, 0755); err != nil {
+			return errors.Wrap(err, "mkdir")
+		}
+
+		writeFile := func(name, content string) error {
+			fp := filepath.Join(args.OUTPUT, name)
+			log.Infof("Write file: %s", fp)
+			if err := ioutil.WriteFile(fp, []byte(content), 0644); err != nil {
+				return errors.Wrap(err, "write file")
+			}
+			if err := os.Chmod(fp, 0600); err != nil {
+				return errors.Wrap(err, "chmod")
+			}
+			return nil
+		}
+
+		iPath := filepath.Join(args.OUTPUT, "hosts.ini")
+		vPath := filepath.Join(args.OUTPUT, "vars.json")
+		kPath := filepath.Join(args.OUTPUT, "private_key")
+
+		for fPath, content := range map[string]string{
+			iPath: inventoryContent,
+			vPath: vars.PrettyString(),
+			kPath: privateKey,
+		} {
+			name := filepath.Base(fPath)
+			if err := writeFile(name, content); err != nil {
+				return errors.Wrapf(err, "write file %s", name)
+			}
+		}
+
+		fmt.Printf("try cmd:\nansible-playbook -i %s cluster.yml -b -v --private-key %s --extra-vars @%s\n", iPath, kPath, vPath)
+
 		return nil
 	})
 }

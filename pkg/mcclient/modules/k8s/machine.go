@@ -24,7 +24,7 @@ var (
 
 func init() {
 	KubeMachines = NewResourceManager("kubemachine", "kubemachines",
-		NewResourceCols("role", "first_node", "cluster", "provider", "resource_type", "resource_id", "status", "address", "hypervisor"),
+		NewResourceCols("Role", "First_Node", "Cluster", "Provider", "Resource_Type", "Resource_Id", "Status", "Address", "Hypervisor", "Zone_Id", "Network_Id"),
 		NewColumns())
 	modules.Register(KubeMachines)
 }

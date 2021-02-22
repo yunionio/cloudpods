@@ -54,27 +54,40 @@ type AddMachineOptions struct {
 	MachineDisk       string   `help:"Machine root disk size, e.g. 100G"`
 	MachineCpu        int      `help:"Machine cpu count"`
 	MachineMemory     string   `help:"Machine memory size, e.g. 1G"`
+	MachineSku        string   `help:"Machine sku, e.g. 'ecs.c6.large'"`
 	MachineHypervisor string   `help:"Machine hypervisor, e.g. kvm, openstack"`
 }
 
-type KubeClusterCreateOptions struct {
-	NAME              string `help:"Name of cluster"`
-	ClusterType       string `help:"Cluster cluster type" choices:"default|serverless"`
-	ResourceType      string `help:"Cluster cluster type" choices:"host|guest"`
-	CloudType         string `help:"Cluster cloud type" choices:"private|public|hybrid"`
-	Mode              string `help:"Cluster mode type" choices:"customize|managed|import"`
-	Provider          string `help:"Cluster provider" choices:"onecloud|aws|aliyun|azure|qcloud|system"`
+type K8SClusterCreateOptions struct {
+	NAME string `help:"Name of cluster"`
+	// ClusterType  string `help:"Cluster cluster type" choices:"default|serverless"`
+	ResourceType string `help:"Cluster cluster type" choices:"host|guest"`
+	// CloudType         string `help:"Cluster cloud type" choices:"private|public|hybrid"`
+	Mode              string `help:"Cluster mode type" choices:"customize|import"`
+	Provider          string `help:"Cluster provider" choices:"onecloud|system"`
 	ServiceCidr       string `help:"Cluster service CIDR, e.g. 10.43.0.0/16"`
 	ServiceDomain     string `help:"Cluster service domain, e.g. cluster.local"`
 	Vip               string `help:"Cluster api server static loadbalancer vip"`
 	Version           string `help:"Cluster kubernetes version"`
 	ImageRepo         string `help:"Image repository, e.g. registry-1.docker.io/yunion"`
 	ImageRepoInsecure bool   `help:"Image repostiory is insecure"`
+	Vpc               string `help:"Cluster nodes network vpc"`
 
+	// AddMachineOptions include create machine options
 	AddMachineOptions
+	// Addons options
+	EnableNativeIPAlloc bool `help:"Calico CNI plugin enable native ip allocation"`
 }
 
-func parseMachineDesc(desc string, disk string, netConf string, ncpu int, memorySize string, hypervisor string) (*MachineCreateOptions, error) {
+func parseMachineDesc(
+	desc string,
+	disk string,
+	netConf string,
+	ncpu int,
+	memorySize string,
+	sku string,
+	hypervisor string,
+) (*MachineCreateOptions, error) {
 	matchType := func(p string) bool {
 		switch p {
 		case "baremetal", "vm":
@@ -111,23 +124,45 @@ func parseMachineDesc(desc string, disk string, netConf string, ncpu int, memory
 	mo.Disk = disk
 	mo.Cpu = ncpu
 	mo.Memory = memorySize
+	mo.Sku = sku
 	mo.Net = netConf
 	mo.Hypervisor = hypervisor
 	return mo, nil
 }
 
-func (o KubeClusterCreateOptions) Params() (jsonutils.JSONObject, error) {
+type K8SClusterAddonNetworkConfig struct {
+	EnableNativeIPAlloc bool `json:"enable_native_ip_alloc"`
+}
+
+type K8SClusterAddonConfig struct {
+	Network K8SClusterAddonNetworkConfig `json:"network"`
+}
+
+func (o K8SClusterCreateOptions) getAddonsConfig() (jsonutils.JSONObject, error) {
+	conf := &K8SClusterAddonConfig{
+		Network: K8SClusterAddonNetworkConfig{
+			EnableNativeIPAlloc: o.EnableNativeIPAlloc,
+		},
+	}
+	return jsonutils.Marshal(conf), nil
+}
+
+func (o K8SClusterCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(o.NAME), "name")
-	if o.ClusterType != "" {
-		params.Add(jsonutils.NewString(o.ClusterType), "cluster_type")
-	}
+	/*
+	 * if o.ClusterType != "" {
+	 *     params.Add(jsonutils.NewString(o.ClusterType), "cluster_type")
+	 * }
+	 */
 	if o.ResourceType != "" {
 		params.Add(jsonutils.NewString(o.ResourceType), "resource_type")
 	}
-	if o.CloudType != "" {
-		params.Add(jsonutils.NewString(o.CloudType), "cloud_type")
-	}
+	/*
+	 * if o.CloudType != "" {
+	 *     params.Add(jsonutils.NewString(o.CloudType), "cloud_type")
+	 * }
+	 */
 	if o.Mode != "" {
 		params.Add(jsonutils.NewString(o.Mode), "mode")
 	}
@@ -143,6 +178,9 @@ func (o KubeClusterCreateOptions) Params() (jsonutils.JSONObject, error) {
 	if o.Vip != "" {
 		params.Add(jsonutils.NewString(o.Vip), "vip")
 	}
+	if o.Vpc != "" {
+		params.Add(jsonutils.NewString(o.Vpc), "vpc_id")
+	}
 	imageRepo := jsonutils.NewDict()
 	if o.ImageRepo != "" {
 		imageRepo.Add(jsonutils.NewString(o.ImageRepo), "url")
@@ -156,6 +194,12 @@ func (o KubeClusterCreateOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	params.Add(machineObjs, "machines")
 	params.Add(imageRepo, "image_repository")
+
+	addonsConf, err := o.getAddonsConfig()
+	if err != nil {
+		return nil, errors.Wrap(err, "get addons config")
+	}
+	params.Add(addonsConf, "addons_config")
 	return params, nil
 }
 
@@ -264,7 +308,7 @@ func (o AddMachineOptions) Params() (jsonutils.JSONObject, error) {
 		return machineObjs, nil
 	}
 	for _, m := range o.Machine {
-		machine, err := parseMachineDesc(m, o.MachineDisk, o.MachineNet, o.MachineCpu, o.MachineMemory, o.MachineHypervisor)
+		machine, err := parseMachineDesc(m, o.MachineDisk, o.MachineNet, o.MachineCpu, o.MachineMemory, o.MachineSku, o.MachineHypervisor)
 		if err != nil {
 			return nil, err
 		}
@@ -666,5 +710,17 @@ func (o ClusterEnableComponentThanosOpt) Params() (jsonutils.JSONObject, error) 
 	params := o.ClusterComponentOptions.Params("thanos")
 	setting := jsonutils.Marshal(o.ClusterComponentThanosSetting)
 	params.Add(setting, "thanos")
+	return params, nil
+}
+
+type ClusterGetAddonsOpt struct {
+	IdentOptions
+	EnableNativeIPAlloc bool `json:"enable_native_ip_alloc"`
+}
+
+func (o ClusterGetAddonsOpt) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewBool(o.EnableNativeIPAlloc), "enable_native_ip_alloc")
+
 	return params, nil
 }

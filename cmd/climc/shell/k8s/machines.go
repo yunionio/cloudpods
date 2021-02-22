@@ -29,4 +29,6 @@ func initKubeMachine() {
 	cmd.BatchDelete(new(o.IdentsOptions))
 	cmd.Perform("recreate", new(o.IdentOptions))
 	cmd.Perform("terminate", new(o.IdentOptions))
+	cmd.Get("networkaddress", new(o.MachineListNetworkAddressOptions))
+	cmd.Perform("attach-networkaddress", new(o.MachineAttachNetworkAddressOptions))
 }
