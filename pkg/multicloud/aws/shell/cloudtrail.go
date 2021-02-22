@@ -23,11 +23,12 @@ import (
 
 func init() {
 	type EventListOptions struct {
-		Start time.Time
-		End   time.Time
+		Start        time.Time
+		End          time.Time
+		WithReadOnly bool
 	}
 	shellutils.R(&EventListOptions{}, "event-list", "List events", func(cli *aws.SRegion, args *EventListOptions) error {
-		events, err := cli.GetClient().LookupEvents(args.Start, args.End)
+		events, err := cli.LookupEvents(args.Start, args.End, args.WithReadOnly)
 		if err != nil {
 			return err
 		}
