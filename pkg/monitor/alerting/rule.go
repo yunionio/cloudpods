@@ -62,6 +62,10 @@ type Rule struct {
 	RuleDescription []*RuleDescription
 
 	StateChanges int
+
+	CustomizeConfig jsonutils.JSONObject
+	// 静默期
+	SilentPeriod int64
 }
 
 var (
@@ -125,7 +129,7 @@ func NewRuleFromDBAlert(ruleDef *models.SAlert) (*Rule, error) {
 	if model.Frequency == 0 {
 		model.Frequency = 60
 	}
-
+	model.CustomizeConfig = ruleDef.CustomizeConfig
 	settings, err := ruleDef.GetSettings()
 	if err != nil {
 		return nil, err
@@ -138,6 +142,10 @@ func NewRuleFromDBAlert(ruleDef *models.SAlert) (*Rule, error) {
 		return nil, err
 	}
 	for _, n := range notis {
+		noti, _ := n.GetNotification()
+		if noti.Frequency != 0 {
+			model.SilentPeriod = noti.Frequency
+		}
 		nIds = append(nIds, n.NotificationId)
 	}
 	model.Notifications = nIds
@@ -173,6 +181,7 @@ func newRuleDescription(rule *Rule, alertDetails *monitor.CommonAlertMetricDetai
 			ResType:         alertDetails.ResType,
 			Metric:          fmt.Sprintf("%s.%s", alertDetails.Measurement, alertDetails.Field),
 			Measurement:     alertDetails.Measurement,
+			Database:        alertDetails.DB,
 			MeasurementDesc: alertDetails.MeasurementDisplayName,
 			Field:           alertDetails.Field,
 			FieldDesc:       alertDetails.FieldDescription.DisplayName,

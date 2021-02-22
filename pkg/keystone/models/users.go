@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -254,6 +253,7 @@ func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domai
 		users.Field("is_system_account"),
 		localUsers.Field("id", "local_id"),
 		localUsers.Field("name", "local_name"),
+		localUsers.Field("failed_auth_count", "local_failed_auth_count"),
 		domains.Field("name", "domain_name"),
 		domains.Field("enabled", "domain_enabled"),
 		// idmappings.Field("domain_id", "idp_id"),
@@ -281,6 +281,9 @@ func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domai
 	extUser := api.SUserExtended{}
 	err := q.First(&extUser)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.ErrUserNotFound
+		}
 		return nil, errors.Wrap(err, "query")
 	}
 
@@ -298,10 +301,10 @@ func VerifyPassword(user *api.SUserExtended, passwd string) error {
 func localUserVerifyPassword(user *api.SUserExtended, passwd string) error {
 	passes, err := PasswordManager.fetchByLocaluserId(user.LocalId)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "fetchPassword")
 	}
 	if len(passes) == 0 {
-		return nil
+		return errors.Error("no valid password")
 	}
 	// password expiration check skip system account
 	if passes[0].IsExpired() && !user.IsSystemAccount {
@@ -311,7 +314,7 @@ func localUserVerifyPassword(user *api.SUserExtended, passwd string) error {
 	if err == nil {
 		return nil
 	}
-	return errors.Error(fmt.Sprintf("invalid password: %v", err))
+	return httperrors.ErrWrongPassword
 }
 
 // 用户列表
@@ -735,6 +738,19 @@ func (user *SUser) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 		}
 		logclient.AddActionLogWithContext(ctx, user, logclient.ACT_UPDATE_PASSWORD, nil, userCred, true)
 	}
+	if enabled, _ := data.Bool("enabled"); enabled {
+		localUser, err := LocalUserManager.fetchLocalUser(user.Id, user.DomainId, 0)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return
+			}
+			log.Errorf("unable to fetch localUser of user %q in domain %q: %v", user.Id, user.DomainId, err)
+			return
+		}
+		if err = localUser.ClearFailedAuth(); err != nil {
+			log.Errorf("unable to clear failed auth: %v", err)
+		}
+	}
 }
 
 func (user *SUser) ValidateDeleteCondition(ctx context.Context) error {
@@ -743,7 +759,15 @@ func (user *SUser) ValidateDeleteCondition(ctx context.Context) error {
 		return errors.Wrap(err, "getIdmappings")
 	}
 	if !user.IsLocal() && len(idMappings) > 0 {
-		return httperrors.NewForbiddenError("cannot delete non-local user")
+		for _, idmaping := range idMappings {
+			idp, err := IdentityProviderManager.FetchIdentityProviderById(idmaping.IdpId)
+			if err != nil && errors.Cause(err) == sql.ErrNoRows {
+				return errors.Wrap(err, "IdentityProviderManager.FetchIdentityProviderById")
+			}
+			if idp != nil && idp.IsSso.IsFalse() {
+				return httperrors.NewForbiddenError("cannot delete non-local non-sso user")
+			}
+		}
 	}
 	err = user.ValidatePurgeCondition(ctx)
 	if err != nil {
@@ -1166,4 +1190,28 @@ func (user *SUser) PerformUnlinkIdp(
 		return nil, errors.Wrap(err, "IdmappingManager.deleteAny")
 	}
 	return nil, nil
+}
+
+func GetUserLangForKeyStone(uids []string) (map[string]string, error) {
+	simpleUsers := make([]struct {
+		Id   string
+		Lang string
+	}, 0, len(uids))
+	q := UserManager.Query()
+	if len(uids) == 0 {
+		return nil, nil
+	} else if len(uids) == 1 {
+		q = q.Equals("id", uids[0])
+	} else {
+		q = q.In("id", uids)
+	}
+	err := q.All(&simpleUsers)
+	if err != nil {
+		return nil, err
+	}
+	ret := make(map[string]string, len(simpleUsers))
+	for i := range simpleUsers {
+		ret[simpleUsers[i].Id] = simpleUsers[i].Lang
+	}
+	return ret, nil
 }

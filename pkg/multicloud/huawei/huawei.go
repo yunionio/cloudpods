@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/timeutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -96,8 +97,9 @@ type SHuaweiClient struct {
 
 	isMainProject bool // whether the project is the main project in the region
 
-	ownerId   string
-	ownerName string
+	ownerId         string
+	ownerName       string
+	ownerCreateTime time.Time
 
 	iregions []cloudprovider.ICloudRegion
 	iBuckets []cloudprovider.ICloudBucket
@@ -156,7 +158,7 @@ func (self *SHuaweiClient) newRegionAPIClient(regionId string) (*client.Client, 
 		return nil, err
 	}
 
-	httpClient := self.cpcfg.HttpClient()
+	httpClient := self.cpcfg.AdaptiveTimeoutHttpClient()
 	cli.SetHttpClient(httpClient)
 
 	return cli, nil
@@ -168,7 +170,7 @@ func (self *SHuaweiClient) newGeneralAPIClient() (*client.Client, error) {
 		return nil, err
 	}
 
-	httpClient := self.cpcfg.HttpClient()
+	httpClient := self.cpcfg.AdaptiveTimeoutHttpClient()
 	cli.SetHttpClient(httpClient)
 
 	return cli, nil
@@ -324,6 +326,11 @@ func (self *SHuaweiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 		if strings.ToLower(project.Name) == "mos" {
 			continue
 		}
+		// https://www.huaweicloud.com/notice/2018/20190618171312411.html
+		expiredAt, _ := timeutils.ParseTimeStr("2020-09-16 00:00:00")
+		if !self.ownerCreateTime.IsZero() && self.ownerCreateTime.After(expiredAt) && strings.ToLower(project.Name) == "cn-north-1" {
+			continue
+		}
 		s := cloudprovider.SSubAccount{
 			Name:         fmt.Sprintf("%s-%s", self.cpcfg.Name, project.Name),
 			State:        api.CLOUD_PROVIDER_CONNECTED,
@@ -418,7 +425,9 @@ func (self *SHuaweiClient) GetIStorageById(id string) (cloudprovider.ICloudStora
 
 // 总账户余额
 type SAccountBalance struct {
-	AvailableAmount float64
+	AvailableAmount  float64
+	CreditAmount     float64
+	DesignatedAmount float64
 }
 
 // 账户余额
@@ -428,8 +437,8 @@ type SBalance struct {
 	Currency         string  `json:"currency"`
 	AccountID        string  `json:"account_id"`
 	AccountType      int64   `json:"account_type"`
-	DesignatedAmount *int64  `json:"designated_amount,omitempty"`
-	CreditAmount     *int64  `json:"credit_amount,omitempty"`
+	DesignatedAmount float64 `json:"designated_amount,omitempty"`
+	CreditAmount     float64 `json:"credit_amount,omitempty"`
 	MeasureUnit      int64   `json:"measure_unit"`
 }
 
@@ -440,35 +449,33 @@ func (self *SHuaweiClient) QueryAccountBalance() (*SAccountBalance, error) {
 		return nil, err
 	}
 
-	amount := float64(0)
+	result := &SAccountBalance{}
 	for _, domain := range domains {
-		v, err := self.queryDomainBalance(domain.ID)
+		balances, err := self.queryDomainBalances(domain.ID)
 		if err != nil {
 			return nil, err
 		}
-
-		amount += v
+		for _, balance := range balances {
+			result.AvailableAmount += balance.Amount
+			result.CreditAmount += balance.CreditAmount
+			result.DesignatedAmount += balance.DesignatedAmount
+		}
 	}
 
-	return &SAccountBalance{AvailableAmount: amount}, nil
+	return result, nil
 }
 
 // https://support.huaweicloud.com/api-bpconsole/zh-cn_topic_0075213309.html
-func (self *SHuaweiClient) queryDomainBalance(domainId string) (float64, error) {
+func (self *SHuaweiClient) queryDomainBalances(domainId string) ([]SBalance, error) {
 	huawei, _ := self.newGeneralAPIClient()
 	huawei.Balances.SetDomainId(domainId)
 	balances := make([]SBalance, 0)
 	err := doListAll(huawei.Balances.List, nil, &balances)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	amount := float64(0)
-	for _, balance := range balances {
-		amount += balance.Amount
-	}
-
-	return amount, nil
+	return balances, nil
 }
 
 func (self *SHuaweiClient) GetVersion() string {
@@ -540,8 +547,9 @@ func (self *SHuaweiClient) GetOwnerId() (string, error) {
 	}
 
 	type user struct {
-		DomainId string `json:"domain_id"`
-		Name     string `json:"name"`
+		DomainId   string `json:"domain_id"`
+		Name       string `json:"name"`
+		CreateTime string
 	}
 
 	ret := &user{}
@@ -550,6 +558,8 @@ func (self *SHuaweiClient) GetOwnerId() (string, error) {
 		return "", errors.Wrap(err, "SHuaweiClient.GetOwnerId.DoGet")
 	}
 	self.ownerName = ret.Name
+	// 2021-02-02 02:43:28.0
+	self.ownerCreateTime, _ = timeutils.ParseTimeStr(strings.TrimSuffix(ret.CreateTime, ".0"))
 	return ret.DomainId, nil
 }
 

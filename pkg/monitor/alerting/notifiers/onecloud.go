@@ -44,6 +44,12 @@ import (
 
 const (
 	SUFFIX = "onecloudNotifier"
+
+	MOBILE_DEFAULT_TOPIC_CN = "monitor-cn"
+	MOBILE_DEFAULT_TOPIC_EN = "monitor-en"
+
+	MOBILE_METER_TOPIC_CN = "meter-cn"
+	MOBILE_METER_TOPIC_EN = "meter-en"
 )
 
 var (
@@ -211,6 +217,8 @@ func (oc *OneCloudNotifier) notifyByContextLang(ctx context.Context, evalCtx *al
 	switch oc.Setting.Channel {
 	case string(notify.NotifyByEmail):
 		content, err = contentConfig.GenerateEmailMarkdown()
+	case string(notify.NotifyByMobile):
+		content = oc.newRemoteMobileContent(&config, evalCtx, lang)
 	default:
 		content, err = contentConfig.GenerateMarkdown()
 	}
@@ -227,9 +235,59 @@ func (oc *OneCloudNotifier) notifyByContextLang(ctx context.Context, evalCtx *al
 	}
 
 	factory := new(sendBodyFactory)
-	sendImp := factory.newSendnotify(oc, msg, config)
+	sendImp := factory.newSendnotify(evalCtx, oc, msg, config)
 
 	return sendImp.send()
+}
+
+func (oc *OneCloudNotifier) newRemoteMobileContent(config *monitor.NotificationTemplateConfig,
+	evalCtx *alerting.EvalContext, lang language.Tag) string {
+	db := monitor.METRIC_DATABASE_TELE
+	if len(evalCtx.Rule.RuleDescription) != 0 {
+		db = evalCtx.Rule.RuleDescription[0].Database
+	}
+	switch db {
+	case monitor.METRIC_DATABASE_METER:
+		return oc.newMeterRemoteMobileContent(config, evalCtx, lang)
+	default:
+		return oc.newDefaultRemoteMobileContent(config, evalCtx, lang)
+	}
+}
+
+func (oc *OneCloudNotifier) newDefaultRemoteMobileContent(config *monitor.NotificationTemplateConfig,
+	evalCtx *alerting.EvalContext, lang language.Tag) string {
+	typ := ""
+	switch lang {
+	case language.English:
+		typ = "policy"
+		config.Title = MOBILE_DEFAULT_TOPIC_EN
+	default:
+		typ = "告警策略"
+		config.Title = MOBILE_DEFAULT_TOPIC_CN
+	}
+	content := jsonutils.NewDict()
+	content.Set("alert_name", jsonutils.NewString(evalCtx.Rule.Name))
+	content.Set("type", jsonutils.NewString(typ))
+	return content.String()
+}
+
+func (oc *OneCloudNotifier) newMeterRemoteMobileContent(config *monitor.NotificationTemplateConfig,
+	evalCtx *alerting.EvalContext, lang language.Tag) string {
+	typ := ""
+	switch lang {
+	case language.English:
+		config.Title = MOBILE_DEFAULT_TOPIC_EN
+		typ = "budget"
+	default:
+		typ = "预算"
+		config.Title = MOBILE_DEFAULT_TOPIC_CN
+	}
+	customizeConfig := new(monitor.MeterCustomizeConfig)
+	evalCtx.Rule.CustomizeConfig.Unmarshal(customizeConfig)
+	content := jsonutils.NewDict()
+	content.Set("alert_name", jsonutils.NewString(customizeConfig.Name))
+	content.Set("type", jsonutils.NewString(typ))
+	return content.String()
 }
 
 func GetUserLangIdsMap(ids []string) (map[string][]string, error) {
@@ -282,10 +340,12 @@ func (oc *OneCloudNotifier) buildContent(config monitor.NotificationTemplateConf
 type sendBodyFactory struct {
 }
 
-func (f *sendBodyFactory) newSendnotify(notifier *OneCloudNotifier, message notify.SNotifyMessage,
+func (f *sendBodyFactory) newSendnotify(evalCtx *alerting.EvalContext, notifier *OneCloudNotifier,
+	message notify.SNotifyMessage,
 	config monitor.NotificationTemplateConfig) Isendnotify {
 	def := new(sendnotifyBase)
 	def.OneCloudNotifier = notifier
+	def.evalCtx = *evalCtx
 	def.msg = message
 	def.config = config
 	if len(notifier.Setting.UserIds) == 0 {
@@ -298,6 +358,10 @@ func (f *sendBodyFactory) newSendnotify(notifier *OneCloudNotifier, message noti
 		user := new(sendUserImpl)
 		user.sendnotifyBase = def
 		return user
+	case string(notify.NotifyByMobile):
+		mobile := new(sendMobileImpl)
+		mobile.sendnotifyBase = def
+		return mobile
 	default:
 		return def
 	}
@@ -305,21 +369,27 @@ func (f *sendBodyFactory) newSendnotify(notifier *OneCloudNotifier, message noti
 
 type Isendnotify interface {
 	send() error
+	execNotifyFunc() error
 }
 
 type sendnotifyBase struct {
 	*OneCloudNotifier
-	msg    notify.SNotifyMessage
-	config monitor.NotificationTemplateConfig
+	evalCtx alerting.EvalContext
+	msg     notify.SNotifyMessage
+	config  monitor.NotificationTemplateConfig
 }
 
 func (s *sendnotifyBase) send() error {
-	notifyclient.RawNotifyWithCtx(s.Ctx, s.Setting.UserIds, false, notify.TNotifyChannel(s.Setting.Channel),
+	return SendNotifyInfo(s, s)
+	//return notify.Notifications.Send(s.session, s.msg)
+}
+
+func (s *sendnotifyBase) execNotifyFunc() error {
+	notifyclient.RawNotifyWithCtx(s.Ctx, s.msg.Uid, false, notify.TNotifyChannel(s.Setting.Channel),
 		notify.TNotifyPriority(s.msg.Priority),
 		"DEFAULT",
 		jsonutils.Marshal(&s.config))
 	return nil
-	//return notify.Notifications.Send(s.session, s.msg)
 }
 
 type sendUserImpl struct {
@@ -327,7 +397,11 @@ type sendUserImpl struct {
 }
 
 func (s *sendUserImpl) send() error {
-	return notifyclient.NotifyAllWithoutRobotWithCtx(s.Ctx, s.Setting.UserIds, false, notify.TNotifyPriority(s.msg.Priority),
+	return SendNotifyInfo(s.sendnotifyBase, s)
+}
+
+func (s *sendUserImpl) execNotifyFunc() error {
+	return notifyclient.NotifyAllWithoutRobotWithCtx(s.Ctx, s.msg.Uid, false, notify.TNotifyPriority(s.msg.Priority),
 		"DEFAULT", jsonutils.Marshal(&s.config))
 }
 
@@ -336,7 +410,45 @@ type sendSysImpl struct {
 }
 
 func (s *sendSysImpl) send() error {
+	return SendNotifyInfo(s.sendnotifyBase, s)
+}
+
+func (s *sendSysImpl) execNotifyFunc() error {
 	notifyclient.SystemNotifyWithCtx(s.Ctx, notify.TNotifyPriority(s.msg.Priority), "DEFAULT",
 		jsonutils.Marshal(&s.config))
+	return nil
+}
+
+type sendMobileImpl struct {
+	*sendnotifyBase
+}
+
+func (s *sendMobileImpl) send() error {
+	msgObj, err := jsonutils.ParseString(s.msg.Msg)
+	if err != nil {
+		return err
+	}
+	notifyclient.RawNotifyWithCtx(s.Ctx, s.msg.Uid, false, notify.TNotifyChannel(s.Setting.Channel),
+		notify.TNotifyPriority(s.msg.Priority),
+		s.msg.Topic,
+		msgObj)
+	return nil
+}
+
+func SendNotifyInfo(base *sendnotifyBase, imp Isendnotify) error {
+	tmpMatches := base.config.Matches
+	for i := 0; i < len(tmpMatches); i += 10 {
+		split := i + 5
+		if split > len(tmpMatches) {
+			split = len(tmpMatches)
+		}
+		base.config.Matches = tmpMatches[i:split]
+		base.config.ResourceName = base.evalCtx.GetResourceNameOfMathes(base.config.Matches)
+		err := imp.execNotifyFunc()
+		if err != nil {
+			return err
+		}
+
+	}
 	return nil
 }

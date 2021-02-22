@@ -15,36 +15,24 @@
 package regiondrivers
 
 import (
-	"sort"
 	"testing"
-
-	"yunion.io/x/pkg/util/secrules"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 func TestQcloudRuleSync(t *testing.T) {
-	driver := SQcloudRegionDriver{}
-	maxPriority := driver.GetSecurityGroupRuleMaxPriority()
-	minPriority := driver.GetSecurityGroupRuleMinPriority()
-
-	defaultInRule := driver.GetDefaultSecurityGroupInRule()
-	defaultOutRule := driver.GetDefaultSecurityGroupOutRule()
-	order := driver.GetSecurityGroupRuleOrder()
-	isOnlyAllowRules := driver.IsOnlySupportAllowRules()
-
 	data := []TestData{
 		{
 			Name: "Test out rules",
-			LocalRules: secrules.SecurityRuleSet{
-				localRuleWithPriority("out:allow any", 11),
-				localRuleWithPriority("out:deny any", 10),
+			SrcRules: cloudprovider.SecurityRuleSet{
+				ruleWithPriority("out:allow any", 11),
+				ruleWithPriority("out:deny any", 10),
 			},
-			RemoteRules: []cloudprovider.SecurityRule{},
-			Common:      []cloudprovider.SecurityRule{},
-			InAdds:      []cloudprovider.SecurityRule{},
+			DestRules: []cloudprovider.SecurityRule{},
+			Common:    []cloudprovider.SecurityRule{},
+			InAdds:    []cloudprovider.SecurityRule{},
 			OutAdds: []cloudprovider.SecurityRule{
-				remoteRuleWithName("", "out:allow any", 100),
+				ruleWithName("", "out:allow any", 48),
 			},
 			InDels:  []cloudprovider.SecurityRule{},
 			OutDels: []cloudprovider.SecurityRule{},
@@ -52,17 +40,6 @@ func TestQcloudRuleSync(t *testing.T) {
 	}
 
 	for _, d := range data {
-		t.Logf("check %s", d.Name)
-		common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, order, d.LocalRules, d.RemoteRules, defaultInRule, defaultOutRule, isOnlyAllowRules, true)
-		sort.Sort(cloudprovider.SecurityRuleSet(common))
-		sort.Sort(cloudprovider.SecurityRuleSet(inAdds))
-		sort.Sort(cloudprovider.SecurityRuleSet(outAdds))
-		sort.Sort(cloudprovider.SecurityRuleSet(inDels))
-		sort.Sort(cloudprovider.SecurityRuleSet(outDels))
-		check(t, "common", common, d.Common)
-		check(t, "inAdds", inAdds, d.InAdds)
-		check(t, "outAdds", outAdds, d.OutAdds)
-		check(t, "inDels", inDels, d.InDels)
-		check(t, "outDels", outDels, d.OutDels)
+		d.Test(t, &SKVMRegionDriver{}, &SQcloudRegionDriver{})
 	}
 }

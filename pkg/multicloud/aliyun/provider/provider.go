@@ -282,10 +282,12 @@ func (self *SAliyunProvider) GetBalance() (float64, string, error) {
 		return 0.0, api.CLOUD_PROVIDER_HEALTH_UNKNOWN, err
 	}
 	status := api.CLOUD_PROVIDER_HEALTH_NORMAL
-	if balance.AvailableAmount <= 0 {
-		status = api.CLOUD_PROVIDER_HEALTH_ARREARS
-	} else if balance.AvailableAmount < 100 {
-		status = api.CLOUD_PROVIDER_HEALTH_INSUFFICIENT
+	if balance.CreditAmount+balance.MybankCreditAmount <= 0 {
+		if balance.AvailableAmount <= 0 {
+			status = api.CLOUD_PROVIDER_HEALTH_ARREARS
+		} else if balance.AvailableAmount < 100 {
+			status = api.CLOUD_PROVIDER_HEALTH_INSUFFICIENT
+		}
 	}
 	return balance.AvailableAmount, status, nil
 }
@@ -474,6 +476,14 @@ func (self *SAliyunProvider) CreateICloudrole(opts *cloudprovider.SRoleCreateOpt
 	role, err := self.client.CreateRole(opts.Name, stetement, opts.Desc)
 	if err != nil {
 		return nil, errors.Wrapf(err, "CreateRole")
+	}
+	return role, nil
+}
+
+func (self *SAliyunProvider) GetICloudroleByName(name string) (cloudprovider.ICloudrole, error) {
+	role, err := self.client.GetRole(name)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRole(%s)", name)
 	}
 	return role, nil
 }

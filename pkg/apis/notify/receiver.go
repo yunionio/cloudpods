@@ -15,6 +15,9 @@
 package notify
 
 import (
+	"fmt"
+	"regexp"
+
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
@@ -35,13 +38,46 @@ type ReceiverCreateInput struct {
 	// example: example@gmail.com
 	Email string `json:"email"`
 
-	// description: user mobile
-	// example: 17812345678
-	Mobile string `json:"mobile"`
+	InternationalMobile SInternationalMobile `json:"international_mobile"`
 
 	// description: enabled contact types for user
 	// example: {"email", "mobile", "feishu", "dingtalk", "workwx"}
 	EnabledContactTypes []string `json:"enabled_contact_types"`
+}
+
+type SInternationalMobile struct {
+	// description: user mobile
+	// example: 17812345678
+	Mobile string `json:"mobile"`
+	// description: area code of mobile
+	// example: 86
+	AreaCode string `json:"area_code"`
+}
+
+var (
+	defaultAreaCode = "86"
+	pareser         = regexp.MustCompile(`\+(\d*) (.*)`)
+)
+
+func ParseInternationalMobile(mobile string) SInternationalMobile {
+	matchs := pareser.FindStringSubmatch(mobile)
+	if len(matchs) == 0 {
+		return SInternationalMobile{
+			AreaCode: defaultAreaCode,
+			Mobile:   mobile,
+		}
+	}
+	return SInternationalMobile{
+		Mobile:   matchs[2],
+		AreaCode: matchs[1],
+	}
+}
+
+func (im SInternationalMobile) String() string {
+	if im.AreaCode == "" {
+		return im.Mobile
+	}
+	return fmt.Sprintf("+%s %s", im.AreaCode, im.Mobile)
 }
 
 type ReceiverDetails struct {
@@ -49,6 +85,7 @@ type ReceiverDetails struct {
 	apis.DomainizedResourceInfo
 
 	SReceiver
+	InternationalMobile SInternationalMobile `json:"international_mobile"`
 
 	// description: enabled contact types for user
 	// example: eamil, mobile, feishu, dingtalk, workwx
@@ -85,9 +122,7 @@ type ReceiverUpdateInput struct {
 	// example: example@gmail.com
 	Email string `json:"email"`
 
-	// description: user mobile
-	// example: 17812345678
-	Mobile string `json:"mobile"`
+	InternationalMobile SInternationalMobile `json:"international_mobile"`
 
 	// description: enabled contacts for user
 	// example: {"email", "mobile", "feishu", "dingtalk", "workwx"}

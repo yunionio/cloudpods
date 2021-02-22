@@ -73,7 +73,11 @@ func (self *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
 }
 
 func (self *SInstanceNic) getEc2Client() *ec2.EC2 {
-	return self.instance.host.zone.region.ec2Client
+	ec2Client, err := self.instance.host.zone.region.getEc2Client()
+	if err != nil {
+		return nil
+	}
+	return ec2Client
 }
 
 func (self *SInstanceNic) GetSubAddress() ([]string, error) {

@@ -18,6 +18,8 @@ import (
 	"context"
 	"time"
 
+	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/monitor/alerting"
 	"yunion.io/x/onecloud/pkg/monitor/models"
@@ -59,8 +61,20 @@ func (n *NotifierBase) ShouldNotify(_ context.Context, evalCtx *alerting.EvalCon
 		return false
 	}
 
+	if newState == monitor.AlertStatePending {
+		return false
+	}
+
 	if newState == monitor.AlertStateAlerting {
-		return true
+		if prevState == monitor.AlertStateOK {
+			return true
+		}
+		send, err := state.ShouldSendNotification()
+		if err != nil {
+			log.Errorf("Alertnotification ShouldSendNotification exec err:%v", err)
+			return false
+		}
+		return send
 	}
 
 	// Only notify on state change
@@ -89,18 +103,13 @@ func (n *NotifierBase) ShouldNotify(_ context.Context, evalCtx *alerting.EvalCon
 		return false
 	}
 
-	// Do not notify when we become Pending for the first
-	if prevState == monitor.AlertStatePending && newState == monitor.AlertStatePending {
-		return false
-	}
-
 	// Do not notify when we become OK from pending
-	if prevState == monitor.AlertStatePending && newState == monitor.AlertStateOK {
+	if prevState == monitor.AlertStatePending && okOrPending {
 		return false
 	}
 
 	// Do not notify when we OK -> Pending
-	if prevState == monitor.AlertStateOK && newState == monitor.AlertStatePending {
+	if prevState == monitor.AlertStateOK && okOrPending {
 		return false
 	}
 

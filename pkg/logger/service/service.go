@@ -49,7 +49,7 @@ func StartService() {
 	app := app_common.InitApp(baseOpts, true)
 	initHandlers(app)
 
-	db.EnsureAppInitSyncDB(app, dbOpts, nil)
+	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
 	models.StartNotifyToWebsocketWorker()

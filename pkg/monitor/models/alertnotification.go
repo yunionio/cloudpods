@@ -178,6 +178,14 @@ func (joint *SAlertnotification) GetNotification() (*SNotification, error) {
 	return noti, nil
 }
 
+func (join *SAlertnotification) ShouldSendNotification() (bool, error) {
+	notification, err := join.GetNotification()
+	if err != nil {
+		return false, errors.Wrap(err, "Alertnotification GetNotification err")
+	}
+	return notification.ShouldSendNotification(), nil
+}
+
 func (joint *SAlertnotification) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DeleteModel(ctx, userCred, joint)
 }
@@ -212,4 +220,12 @@ func (state *SAlertnotification) GetState() monitor.AlertNotificationStateType {
 
 func (state *SAlertnotification) GetParams() jsonutils.JSONObject {
 	return state.Params
+}
+
+func (joint *SAlertnotification) UpdateSendTime() error {
+	notification, err := joint.GetNotification()
+	if err != nil {
+		return errors.Wrap(err, "GetNotification err")
+	}
+	return notification.UpdateSendTime()
 }

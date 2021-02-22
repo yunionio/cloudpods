@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/version"
 )
 
 const (
@@ -155,6 +156,23 @@ type VirtualMachineProperties struct {
 	VmId              string                      `json:"vmId,omitempty"`
 }
 
+type SExtensionResourceProperties struct {
+	AutoUpgradeMinorVersion bool
+	ProvisioningState       string
+	Publisher               string
+	Type                    string
+	TypeHandlerVersion      string
+}
+
+type SExtensionResource struct {
+	Id       string
+	Name     string
+	Type     string
+	Location string
+
+	Properties SExtensionResourceProperties
+}
+
 type SInstance struct {
 	multicloud.SInstanceBase
 	host *SHost
@@ -166,6 +184,8 @@ type SInstance struct {
 	Location   string
 	vmSize     *SVMSize
 	Tags       map[string]string
+
+	Resources []SExtensionResource
 }
 
 func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
@@ -327,7 +347,12 @@ func (self *SInstance) Refresh() error {
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(self, instance)
+	err = jsonutils.Update(self, instance)
+	if err != nil {
+		return err
+	}
+	self.Tags = instance.Tags
+	return nil
 }
 
 func (self *SInstance) GetStatus() string {
@@ -378,15 +403,26 @@ func (region *SRegion) AttachDisk(instanceId, diskId string) error {
 	if err != nil {
 		return errors.Wrapf(err, "GetInstance(%s)", instanceId)
 	}
+	lunMaps := map[int32]bool{}
 	dataDisks := jsonutils.NewArray()
 	for _, disk := range instance.Properties.StorageProfile.DataDisks {
 		if disk.ManagedDisk != nil && strings.ToLower(disk.ManagedDisk.ID) == strings.ToLower(diskId) {
 			return nil
 		}
+		lunMaps[disk.Lun] = true
 		dataDisks.Add(jsonutils.Marshal(disk))
 	}
+	lun := func() int32 {
+		idx := int32(0)
+		for {
+			if _, ok := lunMaps[idx]; !ok {
+				return idx
+			}
+			idx++
+		}
+	}()
 	dataDisks.Add(jsonutils.Marshal(map[string]interface{}{
-		"Lun":          len(instance.Properties.StorageProfile.DataDisks),
+		"Lun":          lun,
 		"CreateOption": "Attach",
 		"ManagedDisk": map[string]string{
 			"Id": diskId,
@@ -408,17 +444,19 @@ func (region *SRegion) DetachDisk(instanceId, diskId string) error {
 	if err != nil {
 		return errors.Wrapf(err, "GetInstance(%s)", instanceId)
 	}
-	find := false
+	diskMaps := map[string]bool{}
 	dataDisks := jsonutils.NewArray()
 	for _, disk := range instance.Properties.StorageProfile.DataDisks {
-		if disk.ManagedDisk != nil && strings.ToLower(disk.ManagedDisk.ID) == strings.ToLower(diskId) {
-			find = true
-			continue
+		if disk.ManagedDisk != nil {
+			diskMaps[strings.ToLower(disk.ManagedDisk.ID)] = true
+			if strings.ToLower(disk.ManagedDisk.ID) == strings.ToLower(diskId) {
+				continue
+			}
 		}
-		disk.Lun = int32(dataDisks.Length())
 		dataDisks.Add(jsonutils.Marshal(disk))
 	}
-	if !find {
+	if _, ok := diskMaps[strings.ToLower(diskId)]; !ok {
+		log.Warningf("not find disk %s with instance %s", diskId, instance.Name)
 		return nil
 	}
 	params := jsonutils.NewDict()
@@ -521,15 +559,22 @@ func (region *SRegion) resetOvsEnv(instanceId string) error {
 func (region *SRegion) deleteExtension(instanceId, extensionName string) error {
 	return region.del(fmt.Sprintf("%s/extensions/%s", instanceId, extensionName))
 }
-func (region *SRegion) resetLoginInfo(osType, instanceId string, setting map[string]string) error {
+func (region *SRegion) resetLoginInfo(osType, instanceId string, setting map[string]interface{}) error {
+	// https://github.com/Azure/azure-linux-extensions/blob/master/VMAccess/README.md
+	handlerVersion := "1.5"
 	properties := map[string]interface{}{
 		"Publisher":          "Microsoft.OSTCExtensions",
 		"Type":               "VMAccessForLinux",
-		"TypeHandlerVersion": "1.4",
-		"Settings":           setting,
+		"TypeHandlerVersion": handlerVersion,
+		"Settings":           map[string]string{},
+		"protectedSettings":  setting,
+
+		"autoUpgradeMinorVersion": true,
 	}
 	if osType == osprofile.OS_TYPE_WINDOWS {
-		properties["TypeHandlerVersion"] = "2.0"
+		// https://github.com/Azure/azure-cli/blob/dev/src/azure-cli/azure/cli/command_modules/vm/custom.py
+		handlerVersion = "2.4"
+		properties["TypeHandlerVersion"] = handlerVersion
 		properties["Publisher"] = "Microsoft.Compute"
 		properties["Type"] = "VMAccessAgent"
 	}
@@ -537,8 +582,20 @@ func (region *SRegion) resetLoginInfo(osType, instanceId string, setting map[str
 		"Location":   region.Name,
 		"Properties": properties,
 	}
+	instance, err := region.GetInstance(instanceId)
+	if err != nil {
+		return errors.Wrapf(err, "GetInstance(%s)", instanceId)
+	}
+	for _, extension := range instance.Resources {
+		if extension.Name == "enablevmaccess" {
+			if version.GT(extension.Properties.TypeHandlerVersion, handlerVersion) {
+				properties["TypeHandlerVersion"] = extension.Properties.TypeHandlerVersion
+				break
+			}
+		}
+	}
 	resource := fmt.Sprintf("%s/extensions/enablevmaccess", instanceId)
-	_, err := region.put(resource, jsonutils.Marshal(params))
+	_, err = region.put(resource, jsonutils.Marshal(params))
 	if err != nil {
 		switch osType {
 		case osprofile.OS_TYPE_WINDOWS:
@@ -557,11 +614,39 @@ func (region *SRegion) resetLoginInfo(osType, instanceId string, setting map[str
 			return err
 		}
 	}
+	err = cloudprovider.Wait(time.Second*5, time.Minute*5, func() (bool, error) {
+		instance, err := region.GetInstance(instanceId)
+		if err != nil {
+			return false, errors.Wrapf(err, "GetInstance(%s)", instanceId)
+		}
+		for _, extension := range instance.Resources {
+			if extension.Name == "enablevmaccess" {
+				if extension.Properties.ProvisioningState == "Succeeded" {
+					return true, nil
+				}
+				log.Debugf("enablevmaccess status %s expect Succeeded", extension.Properties.ProvisioningState)
+				if extension.Properties.ProvisioningState == "Failed" {
+					if instance.Properties.InstanceView != nil {
+						for _, info := range instance.Properties.InstanceView.Extensions {
+							if info.Name == "enablevmaccess" && len(info.Statuses) > 0 {
+								return false, fmt.Errorf("details: %s", jsonutils.Marshal(info.Statuses))
+							}
+						}
+					}
+					return false, fmt.Errorf("reset passwod failed")
+				}
+			}
+		}
+		return false, nil
+	})
+	if err != nil {
+		return errors.Wrapf(err, "wait for enablevmaccess error: %v", err)
+	}
 	return nil
 }
 
 func (region *SRegion) resetPublicKey(osType, instanceId string, username, publicKey string) error {
-	setting := map[string]string{
+	setting := map[string]interface{}{
 		"username": username,
 		"ssh_key":  publicKey,
 	}
@@ -569,7 +654,7 @@ func (region *SRegion) resetPublicKey(osType, instanceId string, username, publi
 }
 
 func (region *SRegion) resetPassword(osType, instanceId, username, password string) error {
-	setting := map[string]string{
+	setting := map[string]interface{}{
 		"username": username,
 		"password": password,
 	}

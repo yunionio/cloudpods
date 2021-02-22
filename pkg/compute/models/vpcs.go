@@ -287,7 +287,7 @@ func (manager *SVpcManager) GetOrCreateVpcForClassicNetwork(ctx context.Context,
 	vpc.IsDefault = false
 	vpc.CloudregionId = region.Id
 	vpc.SetModelManager(manager, vpc)
-	vpc.Name = "-"
+	vpc.Name = api.CLASSIC_VPC_NAME
 	vpc.IsEmulated = true
 	vpc.SetEnabled(false)
 	vpc.Status = api.VPC_STATUS_UNAVAILABLE
@@ -1225,6 +1225,43 @@ func (manager *SVpcManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SGlobalVpcResourceBaseManager.OrderByExtraFields")
 	}
+
+	if db.NeedOrderQuery([]string{query.OrderByNetworkCount}) {
+		var (
+			wireq = WireManager.Query().SubQuery()
+			netq  = NetworkManager.Query().SubQuery()
+			vpcq  = VpcManager.Query().SubQuery()
+		)
+		countq := vpcq.Query(
+			vpcq.Field("id"),
+			sqlchemy.COUNT("network_count", netq.Field("id")),
+		)
+		countq = countq.Join(wireq, sqlchemy.OR(
+			sqlchemy.Equals(countq.Field("id"), wireq.Field("vpc_id")),
+			sqlchemy.AND(
+				sqlchemy.Equals(countq.Field("id"), api.DEFAULT_VPC_ID),
+				sqlchemy.IsNullOrEmpty(wireq.Field("vpc_id")),
+			),
+		))
+		countq = countq.Join(netq, sqlchemy.Equals(
+			netq.Field("wire_id"), wireq.Field("id"),
+		))
+		countq = countq.GroupBy(vpcq.Field("id"))
+		countSubq := countq.SubQuery()
+		q = q.LeftJoin(countSubq, sqlchemy.Equals(
+			q.Field("id"), countSubq.Field("id"),
+		))
+		q.AppendField(q.QueryFields()...)
+		q = q.AppendField(countSubq.Field("network_count"))
+		q = db.OrderByFields(q,
+			[]string{
+				query.OrderByNetworkCount,
+			},
+			[]sqlchemy.IQueryField{
+				countSubq.Field("network_count"),
+			},
+		)
+	}
 	return q, nil
 }
 
@@ -1417,7 +1454,7 @@ func (manager *SVpcManager) ListItemExportKeys(ctx context.Context,
 	if keys.Contains("wire_count") {
 		wires := WireManager.Query("vpc_id").SubQuery()
 		subq := wires.Query(sqlchemy.COUNT("wire_count"), wires.Field("vpc_id")).GroupBy(wires.Field("vpc_id")).SubQuery()
-		q = q.Join(subq, sqlchemy.Equals(q.Field("id"), subq.Field("vpc_id")))
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("id"), subq.Field("vpc_id")))
 		q = q.AppendField(subq.Field("wire_count"))
 	}
 
@@ -1425,10 +1462,10 @@ func (manager *SVpcManager) ListItemExportKeys(ctx context.Context,
 		wires := WireManager.Query("id", "vpc_id").SubQuery()
 		networks := NetworkManager.Query("wire_id").SubQuery()
 		subq := networks.Query(sqlchemy.COUNT("network_count"), wires.Field("vpc_id"))
-		subq = subq.Join(wires, sqlchemy.Equals(networks.Field("wire_id"), wires.Field("id")))
+		subq = subq.LeftJoin(wires, sqlchemy.Equals(networks.Field("wire_id"), wires.Field("id")))
 		subq = subq.GroupBy(wires.Field("vpc_id"))
 		subqQ := subq.SubQuery()
-		q = q.Join(subqQ, sqlchemy.Equals(q.Field("id"), subqQ.Field("vpc_id")))
+		q = q.LeftJoin(subqQ, sqlchemy.Equals(q.Field("id"), subqQ.Field("vpc_id")))
 		q = q.AppendField(subqQ.Field("network_count"))
 	}
 

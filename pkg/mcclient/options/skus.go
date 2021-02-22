@@ -42,3 +42,15 @@ type CloudregionSkuSyncOptions struct {
 func (opts *CloudregionSkuSyncOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
+
+type CloudregionIdOptions struct {
+	ID string `help:"Cloudregion Id"`
+}
+
+func (opts *CloudregionIdOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *CloudregionIdOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}

@@ -29,13 +29,19 @@ import (
 type Reducer interface {
 	Reduce(series *tsdb.TimeSeries) (*float64, []string)
 	GetType() string
+	GetParams() []float64
 }
 
 // queryReducer reduces an timeseries to a float
 type queryReducer struct {
 	// Type is how the timeseries should be reduced.
 	// Ex: avg, sum, max, min, count
-	Type string
+	Type   string
+	Params []float64
+}
+
+func (s *queryReducer) GetParams() []float64 {
+	return s.Params
 }
 
 func (s *queryReducer) GetType() string {
@@ -134,6 +140,24 @@ func (s *queryReducer) Reduce(series *tsdb.TimeSeries) (*float64, []string) {
 		if value > 0 {
 			allNull = false
 		}
+	case "percentile":
+		var values []float64
+		for _, v := range series.Points {
+			if v.IsValid() {
+				allNull = false
+				values = append(values, v.Value())
+			}
+		}
+		pNum := float64(95)
+		if len(s.Params) != 0 {
+			pNum = s.Params[0]
+		}
+		if len(values) >= 1 {
+			sort.Float64s(values)
+			length := len(values)
+			index := math.Floor(float64(length) * pNum / float64(100))
+			value = values[int64(index)]
+		}
 	}
 
 	if allNull {
@@ -143,8 +167,18 @@ func (s *queryReducer) Reduce(series *tsdb.TimeSeries) (*float64, []string) {
 	return &value, valArr
 }
 
-func newSimpleReducer(t string) *queryReducer {
-	return &queryReducer{Type: t}
+func newSimpleReducer(cond *monitor.Condition) *queryReducer {
+	return &queryReducer{
+		Type:   cond.Type,
+		Params: cond.Params,
+	}
+}
+
+func newSimpleReducerByType(typ string) *queryReducer {
+	return &queryReducer{
+		Type:   typ,
+		Params: []float64{},
+	}
 }
 
 func calculateDiff(series *tsdb.TimeSeries, allNull bool, value float64, fn func(float64, float64) float64) (bool, float64) {
@@ -185,7 +219,7 @@ var percentDiff = func(newest, oldest float64) float64 {
 
 func NewAlertReducer(cond *monitor.Condition) (Reducer, error) {
 	if len(cond.Operators) == 0 {
-		return newSimpleReducer(cond.Type), nil
+		return newSimpleReducer(cond), nil
 	}
 
 	if utils.IsInStringArray(cond.Operators[0], validators.CommonAlertReducerFieldOpts) {

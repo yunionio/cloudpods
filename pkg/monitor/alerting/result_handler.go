@@ -59,9 +59,10 @@ func (handler *defaultResultHandler) handle(evalCtx *EvalContext) error {
 			return errors.Wrapf(err, "result get alert %s", evalCtx.Rule.Id)
 		}
 		input := models.AlertSetStateInput{
-			State:          evalCtx.Rule.State,
-			ExecutionError: execErr,
-			EvalData:       annotationData,
+			State:           evalCtx.Rule.State,
+			UpdateStateTime: evalCtx.StartTime,
+			ExecutionError:  execErr,
+			EvalData:        annotationData,
 		}
 		if err := alert.SetState(input); err != nil {
 			log.Errorf("Failed to set alert %s state: %v", evalCtx.Rule.Name, err)

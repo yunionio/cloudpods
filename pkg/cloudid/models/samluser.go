@@ -16,21 +16,28 @@ package models
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
+	compute_api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudid/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SSamluserManager struct {
 	db.SStatusDomainLevelUserResourceBaseManager
+	db.SExternalizedResourceBaseManager
+
 	SCloudgroupResourceBaseManager
 	SCloudaccountResourceBaseManager
 }
@@ -51,8 +58,12 @@ func init() {
 
 type SSamluser struct {
 	db.SStatusDomainLevelUserResourceBase
+	db.SExternalizedResourceBase
 	SCloudgroupResourceBase
 	SCloudaccountResourceBase
+
+	// 邮箱地址
+	Email string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"domain_optional"`
 }
 
 func (manager *SSamluserManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
@@ -127,16 +138,6 @@ func (manager *SSamluserManager) ValidateCreateData(ctx context.Context, userCre
 		return input, err
 	}
 	group := _group.(*SCloudgroup)
-	sq := CloudgroupManager.Query("id").Equals("provider", group.Provider).SubQuery()
-	q := manager.Query().Equals("owner_id", input.OwnerId).In("cloudgroup_id", sq)
-	groups := []SCloudgroup{}
-	err = db.FetchModelObjects(CloudgroupManager, q, &groups)
-	if err != nil {
-		return input, httperrors.NewGeneralError(errors.Wrapf(err, "db.FetchModelObjects"))
-	}
-	if len(groups) > 0 {
-		return input, httperrors.NewConflictError("user %s has already in other %s group", input.Name, group.Provider)
-	}
 	_account, err := validators.ValidateModel(userCred, CloudaccountManager, &input.CloudaccountId)
 	if err != nil {
 		return input, err
@@ -147,6 +148,22 @@ func (manager *SSamluserManager) ValidateCreateData(ctx context.Context, userCre
 	}
 	if account.Provider != group.Provider {
 		return input, httperrors.NewConflictError("account %s and group %s not with same provider", account.Name, group.Name)
+	}
+	if account.Provider == compute_api.CLOUD_PROVIDER_AZURE {
+		if info := strings.Split(options.Options.ApiServer, ":"); len(info) > 1 {
+			domain := strings.TrimPrefix(info[1], "//")
+			input.Email = fmt.Sprintf("%s@%s", input.Name, domain)
+		}
+	}
+	sq := CloudgroupManager.Query("id").Equals("provider", group.Provider).SubQuery()
+	q := manager.Query().Equals("owner_id", input.OwnerId).Equals("cloudaccount_id", account.Id).In("cloudgroup_id", sq)
+	groups := []SCloudgroup{}
+	err = db.FetchModelObjects(CloudgroupManager, q, &groups)
+	if err != nil {
+		return input, httperrors.NewGeneralError(errors.Wrapf(err, "db.FetchModelObjects"))
+	}
+	if len(groups) > 0 {
+		return input, httperrors.NewConflictError("user %s has already in other %s group", input.Name, group.Provider)
 	}
 	input.Status = api.SAML_USER_STATUS_AVAILABLE
 	return input, nil
@@ -172,4 +189,39 @@ func (manager *SSamluserManager) FetchCustomizeColumns(
 		}
 	}
 	return rows
+}
+
+func (self *SSamluser) SyncAzureGroup() error {
+	group, err := self.GetCloudgroup()
+	if err != nil {
+		return errors.Wrapf(err, "GetCloudgroup")
+	}
+	account, err := self.GetCloudaccount()
+	if err != nil {
+		return errors.Wrapf(err, "GetCloudaccount")
+	}
+	cache, err := CloudgroupcacheManager.Register(group, account)
+	if err != nil {
+		return errors.Wrapf(err, "group cache Register")
+	}
+	if len(cache.ExternalId) == 0 {
+		s := auth.GetAdminSession(context.TODO(), options.Options.Region, "")
+		_, err = cache.GetOrCreateICloudgroup(context.TODO(), s.GetToken())
+		if err != nil {
+			return errors.Wrapf(err, "GetOrCreateICloudgroup")
+		}
+		cache, err = CloudgroupcacheManager.Register(group, account)
+		if err != nil {
+			return errors.Wrapf(err, "group cache Register")
+		}
+	}
+	iGroup, err := cache.GetICloudgroup()
+	if err != nil {
+		return errors.Wrapf(err, "GetICloudgroup")
+	}
+	err = iGroup.AddUser(self.ExternalId)
+	if err != nil {
+		return errors.Wrapf(err, "iGroup.AddUser")
+	}
+	return nil
 }

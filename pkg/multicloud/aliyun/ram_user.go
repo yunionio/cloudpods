@@ -61,6 +61,14 @@ func (user *SUser) GetName() string {
 	return user.UserName
 }
 
+func (user *SUser) GetEmailAddr() string {
+	return user.Email
+}
+
+func (user *SUser) GetInviteUrl() string {
+	return ""
+}
+
 func (user *SUser) Delete() error {
 	groups, err := user.client.ListGroupsForUser(user.UserName)
 	if err != nil {

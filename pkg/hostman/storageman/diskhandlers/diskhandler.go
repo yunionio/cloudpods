@@ -21,11 +21,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
@@ -140,8 +142,12 @@ func getDiskStatus(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	ret := jsonutils.NewDict()
-	disk := storage.GetDiskById(diskId)
-	if disk == nil {
+	_, err := storage.GetDiskById(diskId)
+	if err != nil {
+		if errors.Cause(err) != cloudprovider.ErrNotFound {
+			hostutils.Response(ctx, w, httperrors.NewGeneralError(errors.Wrapf(err, "GetDiskById(%s)", diskId)))
+			return
+		}
 		ret.Set("status", jsonutils.NewString(compute.DISK_NOT_EXIST))
 	} else {
 		// Note: the statuses of disk on host are either exist or not exist
@@ -220,20 +226,33 @@ func perfomrDiskActions(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Storage %s not found", storageId))
 		return
 	}
-	disk := storage.GetDiskById(diskId)
 
-	if f, ok := actionFuncs[action]; !ok {
-		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Not found"))
-	} else {
-		res, err := f(ctx, storage, diskId, disk, body)
+	var disk storageman.IDisk
+	var err error
+
+	if action != "create" {
+		disk, err = storage.GetDiskById(diskId)
 		if err != nil {
-			hostutils.Response(ctx, w, err)
-		} else if res != nil {
-			hostutils.Response(ctx, w, res)
-		} else {
-			hostutils.ResponseOk(ctx, w)
+			hostutils.Response(ctx, w, httperrors.NewGeneralError(errors.Wrapf(err, "GetDiskById(%s)", diskId)))
+			return
 		}
 	}
+
+	f, ok := actionFuncs[action]
+	if !ok {
+		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Action %s Not found", action))
+		return
+	}
+	res, err := f(ctx, storage, diskId, disk, body)
+	if err != nil {
+		hostutils.Response(ctx, w, err)
+		return
+	}
+	if res != nil {
+		hostutils.Response(ctx, w, res)
+		return
+	}
+	hostutils.ResponseOk(ctx, w)
 }
 
 func diskCreate(ctx context.Context, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {

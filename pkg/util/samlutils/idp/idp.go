@@ -28,12 +28,15 @@ import (
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/samlutils"
 )
 
 const (
 	IDP_ID_KEY = "<idp_id>"
+
+	langTemplateKey = "lang_template_key"
 )
 
 type OnSpInitiatedLogin func(ctx context.Context, idpId string, sp *SSAMLServiceProvider) (samlutils.SSAMLSpInitiatedLoginData, error)
@@ -54,7 +57,7 @@ type SSAMLIdpInstance struct {
 	onIdpInitiatedLogin OnIdpInitiatedLogin
 	onLogout            OnLogout
 
-	htmlTemplate string
+	htmlTemplate i18n.Table
 }
 
 func NewIdpInstance(saml *samlutils.SSAMLInstance, spLoginFunc OnSpInitiatedLogin, idpLoginFunc OnIdpInitiatedLogin, logoutFunc OnLogout) *SSAMLIdpInstance {
@@ -63,6 +66,7 @@ func NewIdpInstance(saml *samlutils.SSAMLInstance, spLoginFunc OnSpInitiatedLogi
 		onSpInitiatedLogin:  spLoginFunc,
 		onIdpInitiatedLogin: idpLoginFunc,
 		onLogout:            logoutFunc,
+		htmlTemplate:        i18n.Table{},
 	}
 }
 
@@ -77,6 +81,7 @@ func (idp *SSAMLIdpInstance) AddHandlers(app *appsrv.Application, prefix string,
 	if middleware != nil {
 		handler = middleware(handler)
 	}
+	app.AddHandler("POST", idp.redirectLoginPath, handler)
 	app.AddHandler("GET", idp.redirectLoginPath, handler)
 	handler = idp.redirectLogoutHandler
 	if middleware != nil {
@@ -95,11 +100,13 @@ func (idp *SSAMLIdpInstance) AddHandlers(app *appsrv.Application, prefix string,
 	log.Infof("IDP initated SSO: %s", idp.getIdpInitiatedSSOUrl())
 }
 
-func (idp *SSAMLIdpInstance) SetHtmlTemplate(tmp string) error {
-	if strings.Index(tmp, samlutils.HTML_SAML_FORM_TOKEN) < 0 {
-		return errors.Wrapf(httperrors.ErrInvalidFormat, "no %s found", samlutils.HTML_SAML_FORM_TOKEN)
+func (idp *SSAMLIdpInstance) SetHtmlTemplate(entry i18n.TableEntry) error {
+	for _, tmp := range entry {
+		if strings.Index(tmp, samlutils.HTML_SAML_FORM_TOKEN) < 0 {
+			return errors.Wrapf(httperrors.ErrInvalidFormat, "no %s found", samlutils.HTML_SAML_FORM_TOKEN)
+		}
 	}
-	idp.htmlTemplate = tmp
+	idp.htmlTemplate.Set(langTemplateKey, entry)
 	return nil
 }
 
@@ -224,16 +231,17 @@ func (idp *SSAMLIdpInstance) processLoginRequest(ctx context.Context, idpId stri
 		return "", errors.Wrapf(httperrors.ErrInputParameter, "Destination not match: get %s want %s", authReq.Destination, idp.getRedirectLoginUrl(idpId))
 	}
 
-	if authReq.AssertionConsumerServiceURL != sp.GetPostAssertionConsumerServiceUrl() {
+	if len(authReq.AssertionConsumerServiceURL) > 0 && authReq.AssertionConsumerServiceURL != sp.GetPostAssertionConsumerServiceUrl() {
 		return "", errors.Wrapf(httperrors.ErrInputParameter, "AssertionConsumerServiceURL not match: get %s want %s", authReq.AssertionConsumerServiceURL, sp.GetPostAssertionConsumerServiceUrl())
 	}
 
+	sp.Username = input.Username
 	resp, err := idp.getLoginResponse(ctx, authReq, idpId, sp)
 	if err != nil {
 		return "", errors.Wrap(err, "getLoginResponse")
 	}
 
-	form, err := idp.samlResponse2Form(authReq.AssertionConsumerServiceURL, resp, input.RelayState)
+	form, err := idp.samlResponse2Form(ctx, sp.GetPostAssertionConsumerServiceUrl(), resp, input.RelayState)
 	if err != nil {
 		return "", errors.Wrap(err, "samlResponse2Form")
 	}
@@ -241,12 +249,11 @@ func (idp *SSAMLIdpInstance) processLoginRequest(ctx context.Context, idpId stri
 	return form, nil
 }
 
-func (idp *SSAMLIdpInstance) samlResponse2Form(url string, resp *samlutils.Response, state string) (string, error) {
+func (idp *SSAMLIdpInstance) samlResponse2Form(ctx context.Context, url string, resp *samlutils.Response, state string) (string, error) {
 	respXml, err := xml.Marshal(resp)
 	if err != nil {
 		return "", errors.Wrap(err, "xml.Marshal")
 	}
-
 	signed, err := idp.saml.SignXML(string(respXml))
 	if err != nil {
 		return "", errors.Wrap(err, "saml.SignXML")
@@ -261,8 +268,9 @@ func (idp *SSAMLIdpInstance) samlResponse2Form(url string, resp *samlutils.Respo
 		"RelayState":   state,
 	})
 	template := samlutils.DEFAULT_HTML_TEMPLATE
-	if len(idp.htmlTemplate) > 0 {
-		template = idp.htmlTemplate
+	_temp := idp.htmlTemplate.Lookup(ctx, langTemplateKey)
+	if _temp != langTemplateKey {
+		template = _temp
 	}
 	form = strings.Replace(template, samlutils.HTML_SAML_FORM_TOKEN, form, 1)
 	return form, nil
@@ -287,7 +295,7 @@ func (idp *SSAMLIdpInstance) getLoginResponse(ctx context.Context, req samlutils
 		IssuerEntityId:              idp.saml.GetEntityId(),
 		RequestID:                   req.ID,
 		RequestEntityId:             req.Issuer.Issuer,
-		AssertionConsumerServiceURL: req.AssertionConsumerServiceURL,
+		AssertionConsumerServiceURL: sp.GetPostAssertionConsumerServiceUrl(),
 		SSAMLSpInitiatedLoginData:   data,
 	}
 	resp := samlutils.NewResponse(input)
@@ -303,6 +311,9 @@ func (idp *SSAMLIdpInstance) processIdpInitiatedLogin(ctx context.Context, input
 	if err != nil {
 		return "", errors.Wrap(err, "idp.onIdpInitiatedLogin")
 	}
+	if len(data.Form) > 0 {
+		return data.Form, nil
+	}
 	respInput := samlutils.SSAMLResponseInput{
 		IssuerCertString:            idp.saml.GetCertString(),
 		IssuerEntityId:              idp.saml.GetEntityId(),
@@ -312,7 +323,7 @@ func (idp *SSAMLIdpInstance) processIdpInitiatedLogin(ctx context.Context, input
 		SSAMLSpInitiatedLoginData:   data.SSAMLSpInitiatedLoginData,
 	}
 	resp := samlutils.NewResponse(respInput)
-	form, err := idp.samlResponse2Form(sp.GetPostAssertionConsumerServiceUrl(), &resp, data.RelayState)
+	form, err := idp.samlResponse2Form(ctx, sp.GetPostAssertionConsumerServiceUrl(), &resp, data.RelayState)
 	if err != nil {
 		return "", errors.Wrap(err, "samlResponse2Form")
 	}

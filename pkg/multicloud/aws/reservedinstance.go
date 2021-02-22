@@ -18,11 +18,16 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 )
 
 func (self *SRegion) GetReservedInstance() error {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
 	params := &ec2.DescribeReservedInstancesInput{}
-	res, err := self.ec2Client.DescribeReservedInstances(params)
+	res, err := ec2Client.DescribeReservedInstances(params)
 	if err != nil {
 		log.Errorf("DescribeReservedInstances fail %s", err)
 		return err
@@ -41,7 +46,11 @@ type SReservedHostOffering struct {
 }
 
 func (self *SRegion) GetReservedHostOfferings() error {
-	res, err := self.ec2Client.DescribeHostReservationOfferings(nil)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+	res, err := ec2Client.DescribeHostReservationOfferings(nil)
 	if err != nil {
 		log.Errorf("DescribeHostReservationOfferings fail %s", err)
 		return err

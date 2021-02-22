@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
@@ -33,6 +34,7 @@ func init() {
 	alerting.RegisterCondition("query", func(model *monitor.AlertCondition, index int) (alerting.Condition, error) {
 		return newQueryCondition(model, index)
 	})
+	RestryFetchImp(monitor.METRIC_DATABASE_METER, &meterFetchImp{})
 }
 
 // QueryCondition is responsible for issue and query. reduce the
@@ -60,6 +62,27 @@ type FormatCond struct {
 	QueryKeyInfo string
 	Reducer      string
 	Evaluator    AlertEvaluator
+}
+
+type iEvalMatchFetch interface {
+	FetchCustomizeEvalMatch(context *alerting.EvalContext, evalMatch *monitor.EvalMatch,
+		alertDetails *monitor.CommonAlertMetricDetails) error
+}
+
+var iFetchImp map[string]iEvalMatchFetch
+
+func RestryFetchImp(db string, imp iEvalMatchFetch) {
+	if iFetchImp == nil {
+		iFetchImp = make(map[string]iEvalMatchFetch)
+	}
+	iFetchImp[db] = imp
+}
+
+func GetFetchImpByDb(db string) iEvalMatchFetch {
+	if iFetchImp == nil {
+		return nil
+	}
+	return iFetchImp[db]
 }
 
 func (c *QueryCondition) GenerateFormatCond(meta *tsdb.QueryResultMeta, metric string) *FormatCond {
@@ -98,6 +121,9 @@ func (c *QueryCondition) filterTags(tags map[string]string, details monitor.Comm
 	}
 	if _, ok := ret["ip"]; !ok {
 		ret["ip"] = tags["host_ip"]
+	}
+	if _, ok := ret["name"]; !ok {
+		ret["name"] = tags["host"]
 	}
 	for _, tag := range []string{"brand", "platform", "hypervisor"} {
 		if val, ok := ret[tag]; ok {
@@ -194,12 +220,10 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb.TimeSeries,
 	meta *tsdb.QueryResultMeta, value *float64, valStrArr []string) (*monitor.EvalMatch, error) {
 	evalMatch := new(monitor.EvalMatch)
-	alert, err := models.CommonAlertManager.GetAlert(context.Rule.Id)
+	alertDetails, err := c.GetCommonAlertDetails(context)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetAlert to NewEvalMatch error")
 	}
-	settings, _ := alert.GetSettings()
-	alertDetails := alert.GetCommonAlertMetricDetailsFromAlertCondition(c.Index, &settings.Conditions[c.Index])
 	evalMatch.Metric = fmt.Sprintf("%s.%s", alertDetails.Measurement, alertDetails.Field)
 	queryKeyInfo := ""
 	if len(alertDetails.MeasurementDisplayName) > 0 && len(alertDetails.FieldDescription.DisplayName) > 0 {
@@ -209,12 +233,6 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb
 		queryKeyInfo = evalMatch.Metric
 	}
 	evalMatch.Unit = alertDetails.FieldDescription.Unit
-	msg := fmt.Sprintf("%s.%s %s %s", alertDetails.Measurement, alertDetails.Field,
-		alertDetails.Comparator, alerting.RationalizeValueFromUnit(alertDetails.Threshold, evalMatch.Unit, ""))
-	if len(context.Rule.Message) == 0 {
-		context.Rule.Message = msg
-	}
-	//evalMatch.Condition = c.GenerateFormatCond(meta, queryKeyInfo).String()
 	evalMatch.Tags = c.filterTags(series.Tags, *alertDetails)
 	evalMatch.Value = value
 	evalMatch.ValueStr = alerting.RationalizeValueFromUnit(*value, alertDetails.FieldDescription.Unit,
@@ -222,8 +240,54 @@ func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb
 	if alertDetails.GetPointStr {
 		evalMatch.ValueStr = c.jointPointStr(series, evalMatch.ValueStr, valStrArr)
 	}
+	c.FetchCustomizeEvalMatch(context, evalMatch, alertDetails)
 	//c.newRuleDescription(context, alertDetails)
+	//evalMatch.Condition = c.GenerateFormatCond(meta, queryKeyInfo).String()
+	msg := fmt.Sprintf("%s.%s %s %s", alertDetails.Measurement, alertDetails.Field,
+		alertDetails.Comparator, alerting.RationalizeValueFromUnit(alertDetails.Threshold, evalMatch.Unit, ""))
+	if len(context.Rule.Message) == 0 {
+		context.Rule.Message = msg
+	}
 	return evalMatch, nil
+}
+
+func (c *QueryCondition) FetchCustomizeEvalMatch(context *alerting.EvalContext, evalMatch *monitor.EvalMatch,
+	alertDetails *monitor.CommonAlertMetricDetails) {
+	imp := GetFetchImpByDb(alertDetails.DB)
+	if imp != nil {
+		err := imp.FetchCustomizeEvalMatch(context, evalMatch, alertDetails)
+		if err != nil {
+			log.Errorf("%s FetchCustomizeEvalMatch err:%v", alertDetails.DB, err)
+		}
+	}
+}
+
+type meterFetchImp struct {
+}
+
+func (m *meterFetchImp) FetchCustomizeEvalMatch(context *alerting.EvalContext, evalMatch *monitor.EvalMatch,
+	alertDetails *monitor.CommonAlertMetricDetails) error {
+	meterCustomizeConfig := new(monitor.MeterCustomizeConfig)
+	if context.Rule.CustomizeConfig == nil {
+		return nil
+	}
+	err := context.Rule.CustomizeConfig.Unmarshal(meterCustomizeConfig)
+	if err != nil {
+		return err
+	}
+	//evalMatch.ValueStr = evalMatch.ValueStr + " " + meterCustomizeConfig.UnitDesc
+	evalMatch.Unit = meterCustomizeConfig.UnitDesc
+	return nil
+}
+
+func (c *QueryCondition) GetCommonAlertDetails(context *alerting.EvalContext) (*monitor.CommonAlertMetricDetails, error) {
+	alert, err := models.CommonAlertManager.GetAlert(context.Rule.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetAlert to NewEvalMatch error")
+	}
+	settings, _ := alert.GetSettings()
+	alertDetails := alert.GetCommonAlertMetricDetailsFromAlertCondition(c.Index, &settings.Conditions[c.Index])
+	return alertDetails, nil
 }
 
 func (c *QueryCondition) jointPointStr(series tsdb.TimeSeries, value string, valStrArr []string) string {
@@ -287,7 +351,7 @@ func (c *QueryCondition) executeQuery(context *alerting.EvalContext, timeRange *
 		})
 	}
 
-	resp, err := c.HandleRequest(context.Ctx, ds.ToTSDBDataSource(""), req)
+	resp, err := c.HandleRequest(context.Ctx, ds.ToTSDBDataSource(c.Query.Model.Database), req)
 	if err != nil {
 		if err == gocontext.DeadlineExceeded {
 			return nil, errors.Error("Alert execution exceeded the timeout")

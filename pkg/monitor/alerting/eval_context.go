@@ -99,7 +99,7 @@ func (c *EvalContext) GetStateModel() *StateDescription {
 }
 
 func (c *EvalContext) shouldUpdateAlertState() bool {
-	return c.Rule.State != c.PrevAlertState
+	return c.Rule.State != c.PrevAlertState || c.Rule.State == monitor.AlertStateAlerting
 }
 
 // GetDurationMs returns the duration of the alert evaluation.
@@ -128,7 +128,17 @@ func (c *EvalContext) GetCallbackURLPrefix() string {
 		return ""
 	}
 	url, _ := config.GetString("config", "default", "api_server")
-	return url + "/alertrecord"
+	defaultWebUri := "alertrecord"
+	matchTag := map[string]string{}
+	if c.Firing {
+		matchTag = c.EvalMatches[0].Tags
+	} else {
+		matchTag = c.AlertOkEvalMatches[0].Tags
+	}
+	if uri, ok := matchTag["web_url"]; ok {
+		defaultWebUri = uri
+	}
+	return fmt.Sprintf("%s/%s", url, defaultWebUri)
 }
 
 // GetNewState returns the new state from the alert rule evaluation.
@@ -139,11 +149,14 @@ func (c *EvalContext) GetNewState() monitor.AlertStateType {
 	}
 
 	since := time.Since(c.Rule.LastStateChange)
-	if c.PrevAlertState == monitor.AlertStatePending && since >= c.Rule.For {
+	if c.PrevAlertState == monitor.AlertStatePending && since/time.Second >= c.Rule.For {
 		return monitor.AlertStateAlerting
 	}
 
-	if c.PrevAlertState == monitor.AlertStateAlerting {
+	if c.Rule.For != 0 {
+		log.Errorf("ruleName:%s,since:%d,for:%d", c.Rule.Name, since/time.Second, c.Rule.For)
+	}
+	if ns == monitor.AlertStateAlerting && since/time.Second >= c.Rule.For {
 		return monitor.AlertStateAlerting
 	}
 
@@ -194,7 +207,7 @@ func (c *EvalContext) GetNotificationTemplateConfig() monitor.NotificationTempla
 	return monitor.NotificationTemplateConfig{
 		Title:        c.GetNotificationTitle(),
 		Name:         c.Rule.Name,
-		ResourceName: c.GetResourceNameOfMathes(),
+		ResourceName: c.GetResourceNameOfMathes(nil),
 		Matches:      c.GetEvalMatches(),
 		StartTime:    c.StartTime.Format("2006-01-02 15:04:05"),
 		EndTime:      c.EndTime.Format("2006-01-02 15:04:05"),
@@ -223,12 +236,15 @@ func (c *EvalContext) GetEvalMatches() []monitor.EvalMatch {
 	return ret
 }
 
-func (c *EvalContext) GetResourceNameOfMathes() string {
+func (c *EvalContext) GetResourceNameOfMathes(matches []monitor.EvalMatch) string {
 	names := strings.Builder{}
-	matches := c.GetEvalMatches()
+	if matches == nil {
+		matches = c.GetEvalMatches()
+	}
 	for i, match := range matches {
 		if name, ok := match.Tags["name"]; ok {
 			names.WriteString(name)
+			names.WriteString(fmt.Sprintf("(%s)", match.ValueStr))
 			if i < len(matches)-1 {
 				names.WriteString("、")
 			}

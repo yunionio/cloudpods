@@ -17,7 +17,7 @@ func init() {
 
 func NewAlertRecordManager() *SAlertRecordManager {
 	man := NewMonitorV2Manager("alertrecord", "alertrecords",
-		[]string{"id", "alert_id", "level", "state", "eval_data"},
+		[]string{"id", "alert_name", "res_type", "level", "state", "res_num", "eval_data"},
 		[]string{})
 	return &SAlertRecordManager{
 		ResourceManager: &man,

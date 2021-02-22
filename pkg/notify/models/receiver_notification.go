@@ -39,14 +39,18 @@ const (
 type SReceiverNotification struct {
 	db.SJointResourceBase
 
-	ReceiverID     string `width:"128" charset:"ascii" nullable:"false"`
-	NotificationID string `width:"128" charset:"ascii" nullable:"false"`
+	ReceiverID     string `width:"128" charset:"ascii" nullable:"false" index:"true"`
+	NotificationID string `width:"128" charset:"ascii" nullable:"false" index:"true"`
 	// ignore if ReceiverID is not empty or default
-	Contact      string    `width:"128" nullable:"false"`
+	Contact      string    `width:"128" nullable:"false" index:"true"`
 	SendAt       time.Time `nullable:"false"`
 	SendBy       string    `width:"128" nullable:"false"`
 	Status       string    `width:"36" charset:"ascii"`
 	FailedReason string    `width:"1024"`
+}
+
+func (self *SReceiverNotificationManager) InitializeData() error {
+	return dataCleaning(self.TableSpec().Name())
 }
 
 func (rnm *SReceiverNotificationManager) Create(ctx context.Context, userCred mcclient.TokenCredential, receiverID, notificationID string) (*SReceiverNotification, error) {
@@ -85,6 +89,7 @@ func (rn *SReceiverNotification) Receiver() (*SReceiver, error) {
 	if err != nil {
 		return nil, err
 	}
+	receiver.SetModelManager(ReceiverManager, &receiver)
 	return &receiver, nil
 }
 

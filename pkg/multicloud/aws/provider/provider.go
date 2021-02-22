@@ -16,6 +16,7 @@ package provider
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -37,6 +38,18 @@ func (self *SAwsProviderFactory) GetId() string {
 
 func (self *SAwsProviderFactory) GetName() string {
 	return aws.CLOUD_PROVIDER_AWS_CN
+}
+
+func (self *SAwsProviderFactory) IsCloudeventRegional() bool {
+	return true
+}
+
+func (self *SAwsProviderFactory) GetMaxCloudEventSyncDays() int {
+	return 1
+}
+
+func (self *SAwsProviderFactory) GetMaxCloudEventKeepDays() int {
+	return 90
 }
 
 func (self *SAwsProviderFactory) IsSupportPrepaidResources() bool {
@@ -175,14 +188,27 @@ func (self *SAwsProviderFactory) ValidateUpdateCloudaccountCredential(ctx contex
 	return output, nil
 }
 
+func parseAccount(account, secret string) (accessKey string, secretKey string, accountId string) {
+	slash := strings.Index(account, "/")
+	if slash > 0 {
+		accessKey = account[:slash]
+		accountId = account[slash+1:]
+	} else {
+		accessKey = account
+	}
+	secretKey = secret
+	return
+}
+
 func (self *SAwsProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	accessKey, secret, accountId := parseAccount(cfg.Account, cfg.Secret)
 	client, err := aws.NewAwsClient(
 		aws.NewAwsClientConfig(
-			cfg.URL, cfg.Account, cfg.Secret,
+			cfg.URL, accessKey, secret, accountId,
 		).CloudproviderConfig(cfg),
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "NewAwsClient")
 	}
 	return &SAwsProvider{
 		SBaseProvider: cloudprovider.NewBaseProvider(self),
@@ -191,11 +217,13 @@ func (self *SAwsProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (
 }
 
 func (self *SAwsProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
+	accessKey, secret, accountId := parseAccount(info.Account, info.Secret)
 	return map[string]string{
 		"AWS_ACCESS_URL": info.Url,
-		"AWS_ACCESS_KEY": info.Account,
-		"AWS_SECRET":     info.Secret,
+		"AWS_ACCESS_KEY": accessKey,
+		"AWS_SECRET":     secret,
 		"AWS_REGION":     aws.GetDefaultRegionId(info.Url),
+		"AWS_ACCOUNT_ID": accountId,
 	}, nil
 }
 

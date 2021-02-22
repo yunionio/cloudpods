@@ -171,6 +171,11 @@ func (self *SRouteTable) GetIRoutes() ([]cloudprovider.ICloudRoute, error) {
 }
 
 func (self *SRegion) GetRouteTables(vpcId string, mainRouteOnly bool) ([]SRouteTable, error) {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+
 	input := &ec2.DescribeRouteTablesInput{}
 	filters := make([]*ec2.Filter, 0)
 	filters = AppendSingleValueFilter(filters, "vpc-id", vpcId)
@@ -180,7 +185,7 @@ func (self *SRegion) GetRouteTables(vpcId string, mainRouteOnly bool) ([]SRouteT
 
 	input.SetFilters(filters)
 
-	ret, err := self.ec2Client.DescribeRouteTables(input)
+	ret, err := ec2Client.DescribeRouteTables(input)
 	if err != nil {
 		return nil, errors.Wrap(err, "SRegion.GetRouteTables.DescribeRouteTables")
 	}
@@ -222,7 +227,11 @@ func (self *SRegion) CreateRoute(routeTableId string, DestinationCIDRBlock strin
 	default:
 		return fmt.Errorf("invalid aws vpc targetid:%s", targetId)
 	}
-	_, err := self.ec2Client.CreateRoute(input)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+	_, err = ec2Client.CreateRoute(input)
 	if err != nil {
 		return errors.Wrapf(err, "self.ec2Client.CreateRoute(%s)", jsonutils.Marshal(input).String())
 	}
@@ -253,7 +262,11 @@ func (self *SRegion) ReplaceRoute(routeTableId string, DestinationCIDRBlock stri
 	default:
 		return fmt.Errorf("invalid aws vpc targetid:%s", targetId)
 	}
-	_, err := self.ec2Client.ReplaceRoute(input)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+	_, err = ec2Client.ReplaceRoute(input)
 	if err != nil {
 		return errors.Wrapf(err, "self.ec2Client.ReplaceRouteInput(%s)", jsonutils.Marshal(input).String())
 	}
@@ -261,10 +274,14 @@ func (self *SRegion) ReplaceRoute(routeTableId string, DestinationCIDRBlock stri
 }
 
 func (self *SRegion) RemoveRoute(routeTableId string, DestinationCIDRBlock string) error {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
 	input := &ec2.DeleteRouteInput{}
 	input.RouteTableId = &routeTableId
 	input.DestinationCidrBlock = &DestinationCIDRBlock
-	_, err := self.ec2Client.DeleteRoute(input)
+	_, err = ec2Client.DeleteRoute(input)
 	if err != nil {
 		return errors.Wrapf(err, "self.ec2Client.DeleteRoute(%s)", jsonutils.Marshal(input).String())
 	}
@@ -272,13 +289,18 @@ func (self *SRegion) RemoveRoute(routeTableId string, DestinationCIDRBlock strin
 }
 
 func (self *SRegion) GetRouteTablesByNetworkId(netId string) ([]SRouteTable, error) {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+
 	input := &ec2.DescribeRouteTablesInput{}
 	filter := &ec2.Filter{}
 	filter.SetName("association.subnet-id")
 	filter.SetValues([]*string{&netId})
 	input.SetFilters([]*ec2.Filter{filter})
 
-	ret, err := self.ec2Client.DescribeRouteTables(input)
+	ret, err := ec2Client.DescribeRouteTables(input)
 	if err != nil {
 		return nil, errors.Wrap(err, "SRegion.GetRouteTables.DescribeRouteTables")
 	}
@@ -297,10 +319,14 @@ func (self *SRegion) GetRouteTablesByNetworkId(netId string) ([]SRouteTable, err
 }
 
 func (self *SRegion) GetRouteTable(id string) (*SRouteTable, error) {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+
 	input := &ec2.DescribeRouteTablesInput{}
 	input.RouteTableIds = []*string{&id}
-
-	ret, err := self.ec2Client.DescribeRouteTables(input)
+	ret, err := ec2Client.DescribeRouteTables(input)
 	if err != nil {
 		return nil, errors.Wrap(err, "SRegion.GetRouteTables.DescribeRouteTables")
 	}
@@ -325,7 +351,11 @@ func (self *SRegion) DeleteRouteTable(rid string) error {
 	input := &ec2.DeleteRouteTableInput{}
 	input.SetRouteTableId(rid)
 
-	_, err := self.ec2Client.DeleteRouteTable(input)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+	_, err = ec2Client.DeleteRouteTable(input)
 	if err != nil {
 		return errors.Wrap(err, "DeleteRouteTable")
 	}

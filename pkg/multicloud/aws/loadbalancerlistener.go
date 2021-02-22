@@ -165,7 +165,7 @@ func (self *SElbListener) getBackendGroup() (*SElbBackendGroup, error) {
 
 	lbbg, err := self.region.GetElbBackendgroup(self.DefaultActions[0].TargetGroupArn)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbBackendgroup")
 	}
 
 	self.group = lbbg
@@ -323,16 +323,16 @@ func (self *SElbListener) GetHealthCheckCode() string {
 func (self *SElbListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SLoadbalancerListenerRule) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
 	rules, err := self.GetILoadbalancerListenerRules()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetILoadbalancerListenerRules")
 	} else {
 		if err := self.region.UpdateRulesPriority(rules); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "UpdateRulesPriority")
 		}
 	}
 
 	ret, err := self.region.CreateElbListenerRule(self.GetId(), rule)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "CreateElbListenerRule")
 	}
 
 	ret.listener = self
@@ -343,7 +343,7 @@ func (self *SElbListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SL
 func (self *SElbListener) GetILoadBalancerListenerRuleById(ruleId string) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
 	rule, err := self.region.GetElbListenerRuleById(ruleId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbListenerRuleById")
 	}
 
 	rule.listener = self
@@ -353,7 +353,7 @@ func (self *SElbListener) GetILoadBalancerListenerRuleById(ruleId string) (cloud
 func (self *SElbListener) GetILoadbalancerListenerRules() ([]cloudprovider.ICloudLoadbalancerListenerRule, error) {
 	rules, err := self.region.GetElbListenerRules(self.GetId(), "")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbListenerRules")
 	}
 
 	irules := make([]cloudprovider.ICloudLoadbalancerListenerRule, len(rules))
@@ -464,20 +464,20 @@ func (self *SElbListener) Delete(ctx context.Context) error {
 func (self *SRegion) GetElbListeners(elbId string) ([]SElbListener, error) {
 	client, err := self.GetElbV2Client()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbV2Client")
 	}
 
 	params := &elbv2.DescribeListenersInput{}
 	params.SetLoadBalancerArn(elbId)
 	ret, err := client.DescribeListeners(params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "DescribeListeners")
 	}
 
 	listeners := []SElbListener{}
 	err = unmarshalAwsOutput(ret, "Listeners", &listeners)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unmarshalAwsOutput.Listeners")
 	}
 
 	for i := range listeners {
@@ -516,20 +516,20 @@ func unmarshalAwsOutput(output interface{}, respKey string, result interface{}) 
 func (self *SRegion) GetElbListener(listenerId string) (*SElbListener, error) {
 	client, err := self.GetElbV2Client()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbV2Client")
 	}
 
 	params := &elbv2.DescribeListenersInput{}
 	params.SetListenerArns([]*string{&listenerId})
 	ret, err := client.DescribeListeners(params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "DescribeListeners")
 	}
 
 	listeners := []SElbListener{}
 	err = unmarshalAwsOutput(ret, "Listeners", &listeners)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unmarshalAwsOutput.Listeners")
 	}
 
 	if len(listeners) == 1 {
@@ -537,13 +537,13 @@ func (self *SRegion) GetElbListener(listenerId string) (*SElbListener, error) {
 		return &listeners[0], nil
 	}
 
-	return nil, ErrorNotFound()
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetElbListener")
 }
 
 func (self *SRegion) CreateElbListener(listener *cloudprovider.SLoadbalancerListener) (*SElbListener, error) {
 	client, err := self.GetElbV2Client()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbV2Client")
 	}
 
 	listenerType := strings.ToUpper(listener.ListenerType)
@@ -581,7 +581,7 @@ func (self *SRegion) CreateElbListener(listener *cloudprovider.SLoadbalancerList
 	listeners := []SElbListener{}
 	err = unmarshalAwsOutput(ret, "Listeners", &listeners)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unmarshalAwsOutput.Listeners")
 	}
 
 	if len(listeners) == 1 {
@@ -595,7 +595,7 @@ func (self *SRegion) CreateElbListener(listener *cloudprovider.SLoadbalancerList
 func (self *SRegion) GetElbListenerRules(listenerId string, ruleId string) ([]SElbListenerRule, error) {
 	client, err := self.GetElbV2Client()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbV2Client")
 	}
 
 	params := &elbv2.DescribeRulesInput{}
@@ -609,13 +609,13 @@ func (self *SRegion) GetElbListenerRules(listenerId string, ruleId string) ([]SE
 
 	ret, err := client.DescribeRules(params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "DescribeRules")
 	}
 
 	rules := []SElbListenerRule{}
 	err = unmarshalAwsOutput(ret, "Rules", &rules)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unmarshalAwsOutput.Rules")
 	}
 
 	for i := range rules {
@@ -628,7 +628,7 @@ func (self *SRegion) GetElbListenerRules(listenerId string, ruleId string) ([]SE
 func (self *SRegion) GetElbListenerRuleById(ruleId string) (*SElbListenerRule, error) {
 	client, err := self.GetElbV2Client()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbV2Client")
 	}
 
 	params := &elbv2.DescribeRulesInput{}
@@ -638,13 +638,13 @@ func (self *SRegion) GetElbListenerRuleById(ruleId string) (*SElbListenerRule, e
 
 	ret, err := client.DescribeRules(params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "DescribeRules")
 	}
 
 	rules := []SElbListenerRule{}
 	err = unmarshalAwsOutput(ret, "Rules", &rules)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unmarshalAwsOutput.Rules")
 	}
 
 	if len(rules) == 1 {
@@ -652,7 +652,7 @@ func (self *SRegion) GetElbListenerRuleById(ruleId string) (*SElbListenerRule, e
 		return &rules[0], nil
 	} else {
 		log.Errorf("GetElbListenerRuleById %s %d found", ruleId, len(rules))
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetElbListenerRuleById")
 	}
 }
 

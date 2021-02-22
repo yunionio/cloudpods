@@ -24,6 +24,7 @@ type SClouduserCreateConfig struct {
 	Email             string
 	MobilePhone       string
 	ExternalPolicyIds []string
+	UserType          string
 }
 
 type SCloudpolicyPermission struct {

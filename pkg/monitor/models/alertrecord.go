@@ -38,6 +38,7 @@ type SAlertRecord struct {
 	AlertId   string               `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	Level     string               `charset:"ascii" width:"36" nullable:"false" default:"normal" list:"user" update:"user"`
 	State     string               `width:"36" charset:"ascii" nullable:"false" default:"unknown" list:"user" update:"user"`
+	SendState string               `width:"36" charset:"ascii" default:"ok" list:"user" update:"user"`
 	EvalData  jsonutils.JSONObject `list:"user" update:"user"`
 	AlertRule jsonutils.JSONObject `list:"user" update:"user"`
 	ResType   string               `width:"36" list:"user" update:"user"`
@@ -93,21 +94,44 @@ func (manager *SAlertRecordManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SScopedResourceBaseManager.ListItemFilter")
 	}
+	if query.Alerting {
+		alertingQuery := manager.getAlertingRecordQuery().SubQuery()
+
+		q.Join(alertingQuery, sqlchemy.Equals(q.Field("alert_id"), alertingQuery.Field("alert_id"))).Filter(
+			sqlchemy.Equals(q.Field("created_at"), alertingQuery.Field("max_created_at")))
+	}
 	if len(query.Level) != 0 {
-		q = q.Equals("level", query.Level)
+		q.Filter(sqlchemy.Equals(q.Field("level"), query.Level))
 	}
 	if len(query.State) != 0 {
-		q = q.Equals("state", query.State)
+		q.Filter(sqlchemy.Equals(q.Field("state"), query.State))
 	}
 	if len(query.AlertId) != 0 {
-		q = q.Equals("alert_id", query.AlertId)
+		q.Filter(sqlchemy.Equals(q.Field("alert_id"), query.AlertId))
 	} else {
 		q = q.IsNotEmpty("res_type").IsNotNull("res_type")
 	}
 	if len(query.ResType) != 0 {
-		q = q.Equals("res_type", query.ResType)
+		q.Filter(sqlchemy.Equals(q.Field("res_type"), query.ResType))
 	}
 	return q, nil
+}
+
+func (man *SAlertRecordManager) getAlertingRecordQuery() *sqlchemy.SQuery {
+	q := CommonAlertManager.Query("id").IsTrue("enabled").IsNull("used_by")
+	q = q.Filter(sqlchemy.OR(sqlchemy.Equals(q.Field("state"), monitor.AlertStateAlerting),
+		sqlchemy.Equals(q.Field("state"), monitor.AlertStatePending)))
+
+	alertsQuery := q.SubQuery()
+	recordSub := man.Query().SubQuery()
+
+	recordQuery := recordSub.Query(recordSub.Field("alert_id"), sqlchemy.MAX("max_created_at", recordSub.Field("created_at")))
+	recordQuery.Equals("state", monitor.AlertStateAlerting)
+	recordQuery.In("alert_id", alertsQuery)
+	recordQuery.IsNotNull("res_type").IsNotEmpty("res_type")
+	recordQuery.GroupBy("alert_id")
+	return recordQuery
+
 }
 
 func (man *SAlertRecordManager) GetAlertRecord(id string) (*SAlertRecord, error) {
@@ -202,6 +226,9 @@ func (man *SAlertRecordManager) ValidateCreateData(ctx context.Context, userCred
 
 func (record *SAlertRecord) GetEvalData() ([]monitor.EvalMatch, error) {
 	ret := make([]monitor.EvalMatch, 0)
+	if record.EvalData == nil {
+		return ret, nil
+	}
 	if err := record.EvalData.Unmarshal(&ret); err != nil {
 		return nil, errors.Wrap(err, "unmarshal evalMatchs error")
 	}
@@ -306,10 +333,17 @@ func (manager *SAlertRecordManager) AllowGetPropertyTotalAlert(ctx context.Conte
 
 func (manager *SAlertRecordManager) GetPropertyTotalAlert(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-
-	alertRecords, err := manager.getNowAlertingRecord(ctx, userCred, query)
+	input := new(monitor.AlertRecordListInput)
+	err := query.Unmarshal(input)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal AlertRecordListInput error")
+	}
+	alertRecords, err := manager.getNowAlertingRecord(ctx, userCred, *input)
 	if err != nil {
 		return nil, errors.Wrap(err, "getNowAlertingRecord error")
+	}
+	if input.Details != nil && *input.Details {
+
 	}
 	alertCountMap := jsonutils.NewDict()
 	for _, record := range alertRecords {
@@ -328,20 +362,44 @@ func (manager *SAlertRecordManager) GetPropertyTotalAlert(ctx context.Context, u
 }
 
 func (manager *SAlertRecordManager) getNowAlertingRecord(ctx context.Context, userCred mcclient.TokenCredential,
-	param jsonutils.JSONObject) ([]SAlertRecord, error) {
-	now := time.Now()
-	startTime := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 1, now.Location())
+	input monitor.AlertRecordListInput) ([]SAlertRecord, error) {
+	//now := time.Now()
+	//startTime := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 1, now.Location())
+	ownerId, err := manager.FetchOwnerId(context.Background(), jsonutils.Marshal(&input))
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchOwnerId error")
+	}
+	if ownerId == nil {
+		ownerId = userCred
+	}
 	query := manager.Query()
-	scope, _ := param.GetString("scope")
-	query = manager.FilterByOwner(query, userCred, rbacutils.String2Scope(scope))
-	query = query.GE("created_at", startTime.UTC().Format(timeutils.MysqlTimeFormat))
+	query = manager.FilterByOwner(query, ownerId, rbacutils.String2Scope(input.Scope))
+	//query = query.GE("created_at", startTime.UTC().Format(timeutils.MysqlTimeFormat))
 	query = query.Equals("state", monitor.AlertStateAlerting)
-	sQuery := CommonAlertManager.Query("id").Equals("state", monitor.AlertStateAlerting).IsNull("used_by").SubQuery()
-	query = query.In("alert_id", sQuery).IsNotNull("res_type").IsNotEmpty("res_type").GroupBy("alert_id")
+	query = query.IsNotNull("res_type").IsNotEmpty("res_type").Desc("created_at")
+
+	if len(input.ResType) != 0 {
+		query = query.Equals("res_type", input.ResType)
+	}
+
+	alertsQuery := CommonAlertManager.Query("id").Equals("state", monitor.AlertStateAlerting).IsTrue("enabled").
+		IsNull("used_by")
+	alertsQuery = CommonAlertManager.FilterByOwner(alertsQuery, userCred, rbacutils.String2Scope(input.Scope))
+	alerts := make([]SCommonAlert, 0)
 	records := make([]SAlertRecord, 0)
-	err := db.FetchModelObjects(manager, query, &records)
+	err = db.FetchModelObjects(CommonAlertManager, alertsQuery, &alerts)
 	if err != nil {
 		return nil, err
+	}
+	for _, alert := range alerts {
+		tmp := *query
+		recordModel, err := db.NewModelObject(manager)
+		if err != nil {
+			return nil, err
+		}
+		if err := (&tmp).Equals("alert_id", alert.GetId()).First(recordModel); err == nil {
+			records = append(records, *(recordModel.(*SAlertRecord)))
+		}
 	}
 	return records, nil
 }

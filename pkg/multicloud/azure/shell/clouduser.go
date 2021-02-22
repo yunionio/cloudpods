@@ -84,4 +84,16 @@ func init() {
 		return nil
 	})
 
+	type GroupUserList struct {
+	}
+
+	shellutils.R(&GroupUserList{}, "graph-user-list", "List graph users", func(cli *azure.SRegion, args *GroupUserList) error {
+		users, err := cli.GetClient().ListGraphUsers()
+		if err != nil {
+			return err
+		}
+		printObject(users)
+		return nil
+	})
+
 }

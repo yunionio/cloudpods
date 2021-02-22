@@ -19,10 +19,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -72,7 +75,12 @@ func (self *SnapshotDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 	regionDriver := snapshot.GetRegionDriver()
 
 	self.SetStage("OnRequestSnapshot", nil)
-	if err := regionDriver.RequestDeleteSnapshot(ctx, snapshot, self); err != nil {
+	err := regionDriver.RequestDeleteSnapshot(ctx, snapshot, self)
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			self.ScheduleRun(jsonutils.Marshal(map[string]bool{"deleted": true}))
+			return
+		}
 		self.TaskFailed(ctx, snapshot, jsonutils.NewString(err.Error()))
 	}
 }
@@ -136,6 +144,10 @@ func (self *SnapshotDeleteTask) OnReloadDiskSnapshot(ctx context.Context, snapsh
 func (self *SnapshotDeleteTask) TaskComplete(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_DELETE, snapshot.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_DELOCATE, nil, self.UserCred, true)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    snapshot,
+		Action: notifyclient.ActionDelete,
+	})
 	self.SetStageComplete(ctx, nil)
 	guest, err := snapshot.GetGuest()
 	if err != nil {
@@ -146,9 +158,7 @@ func (self *SnapshotDeleteTask) TaskComplete(ctx context.Context, snapshot *mode
 }
 
 func (self *SnapshotDeleteTask) TaskFailed(ctx context.Context, snapshot *models.SSnapshot, reason jsonutils.JSONObject) {
-	if snapshot.Status == api.SNAPSHOT_DELETING {
-		snapshot.SetStatus(self.UserCred, api.SNAPSHOT_READY, "On SnapshotDeleteTask TaskFailed")
-	}
+	snapshot.SetStatus(self.UserCred, api.SNAPSHOT_DELETE_FAILED, reason.String())
 	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_DELETE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_DELOCATE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)

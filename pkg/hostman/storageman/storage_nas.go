@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
@@ -58,25 +59,20 @@ func (s *SNasStorage) CreateDisk(diskId string) IDisk {
 	return disk
 }
 
-func (s *SNasStorage) GetDiskById(diskId string) IDisk {
+func (s *SNasStorage) GetDiskById(diskId string) (IDisk, error) {
 	s.DiskLock.Lock()
 	defer s.DiskLock.Unlock()
 	for i := 0; i < len(s.Disks); i++ {
 		if s.Disks[i].GetId() == diskId {
-			if s.Disks[i].Probe() == nil {
-				return s.Disks[i]
-			} else {
-				return nil
-			}
+			return s.Disks[i], s.Disks[i].Probe()
 		}
 	}
 	var disk = s.ins.newDisk(diskId)
 	if disk.Probe() == nil {
 		s.Disks = append(s.Disks, disk)
-		return disk
-	} else {
-		return nil
+		return disk, nil
 	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (s *SNasStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {

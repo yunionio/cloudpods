@@ -25,6 +25,7 @@ import (
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/keystone/cronjobs"
@@ -34,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/saml"
 	_ "yunion.io/x/onecloud/pkg/keystone/tasks"
 	"yunion.io/x/onecloud/pkg/keystone/tokens"
+	"yunion.io/x/onecloud/pkg/keystone/util"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -50,6 +52,8 @@ func StartService() {
 	policy.DefaultPolicyFetcher = localPolicyFetcher
 	logclient.DefaultSessionGenerator = models.GetDefaultClientSession
 	cronman.DefaultAdminSessionGenerator = models.GetDefaultAdminCred
+	notifyclient.AdminSessionGenerator = util.GetDefaulAdminSession
+	notifyclient.UserLangFetcher = models.GetUserLangForKeyStone
 
 	models.InitSyncWorkers()
 

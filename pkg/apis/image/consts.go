@@ -38,6 +38,7 @@ const (
 	ImageTypeISO      = TImageType("iso")
 
 	LocalFilePrefix = "file://"
+	S3Prefix        = "s3://"
 
 	// image properties
 	IMAGE_OS_ARCH             = "os_arch"
@@ -53,6 +54,12 @@ const (
 	IMAGE_DISABLE_USB_KBD     = "disable_usb_kbd"
 
 	IMAGE_STATUS_UPDATING = "updating"
+)
+
+const (
+	IMAGE_OS_ARCH_X86    = "x86"     // x86 32位
+	IMAGE_OS_ARCH_X86_64 = "x86_64"  //
+	IMAGE_OS_ARCH_ARM    = "aarch64" // arm 64位 little endian
 )
 
 var (

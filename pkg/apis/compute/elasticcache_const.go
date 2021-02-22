@@ -42,22 +42,31 @@ const (
 	ELASTIC_CACHE_STATUS_SSLMODIFYING          = "sslmodifying"          //（SSL变更中）
 	ELASTIC_CACHE_STATUS_MAJORVERSIONUPGRADING = "majorversionupgrading" //（大版本升级中，可正常访问）
 	ELASTIC_CACHE_STATUS_UNKNOWN               = "unknown"               //（未知状态）
+	ELASTIC_CACHE_STATUS_DELETING              = "deleting"              // (删除)
+	ELASTIC_CACHE_STATUS_SNAPSHOTTING          = "snapshotting"          //（快照）
 	ELASTIC_CACHE_STATUS_SYNCING               = "syncing"               //（同步中）
 	ELASTIC_CACHE_STATUS_SYNC_FAILED           = "sync_failed"           //（同步失败）
 	ELASTIC_CACHE_RENEWING                     = "renewing"              //（续费中）
 	ELASTIC_CACHE_RENEW_FAILED                 = "renew_failed"          //（续费失败）
 	ELASTIC_CACHE_SET_AUTO_RENEW               = "set_auto_renew"        //（设置自动续费）
 	ELASTIC_CACHE_SET_AUTO_RENEW_FAILED        = "set_auto_renew_failed" //（设置自动续费失败）
+
 )
 
 const (
 	ELASTIC_CACHE_ACCOUNT_STATUS_AVAILABLE     = "available"     // 正常可用
 	ELASTIC_CACHE_ACCOUNT_STATUS_UNAVAILABLE   = "unavailable"   // 不可用
 	ELASTIC_CACHE_ACCOUNT_STATUS_CREATING      = "creating"      // 创建中
+	ELASTIC_CACHE_ACCOUNT_STATUS_MODIFYING     = "modifying"     // 修改中
 	ELASTIC_CACHE_ACCOUNT_STATUS_CREATE_FAILED = "create_failed" //（创建失败）
 	ELASTIC_CACHE_ACCOUNT_STATUS_DELETING      = "deleting"      // 删除中
 	ELASTIC_CACHE_ACCOUNT_STATUS_DELETE_FAILED = "delete_failed" // 删除失败
 	ELASTIC_CACHE_ACCOUNT_STATUS_DELETED       = "deleted"       // 已删除
+)
+
+const (
+	ELASTIC_CACHE_UPDATE_TAGS        = "update_tags"
+	ELASTIC_CACHE_UPDATE_TAGS_FAILED = "update_tags_fail"
 )
 
 const (
@@ -73,11 +82,14 @@ const (
 
 const (
 	ELASTIC_CACHE_BACKUP_STATUS_CREATING       = "creating" // 备份中
+	ELASTIC_CACHE_BACKUP_STATUS_RESTORING      = "restoring"
+	ELASTIC_CACHE_BACKUP_STATUS_COPYING        = "copying"
 	ELASTIC_CACHE_BACKUP_STATUS_CREATE_EXPIRED = "expired"  //（备份文件已过期）
 	ELASTIC_CACHE_BACKUP_STATUS_CREATE_DELETED = "deleted"  //（备份文件已删除）
 	ELASTIC_CACHE_BACKUP_STATUS_DELETING       = "deleting" // 删除中
 	ELASTIC_CACHE_BACKUP_STATUS_SUCCESS        = "success"  // 备份成功
 	ELASTIC_CACHE_BACKUP_STATUS_FAILED         = "failed"   // 备份失败
+	ELASTIC_CACHE_BACKUP_STATUS_UNKNOWN        = "unknown"  // 未知
 )
 
 const (
@@ -111,6 +123,15 @@ const (
 	ELASTIC_CACHE_ARCH_TYPE_MASTER  = "master"  // 主备
 	ELASTIC_CACHE_ARCH_TYPE_CLUSTER = "cluster" // 集群
 	ELASTIC_CACHE_ARCH_TYPE_RWSPLIT = "rwsplit" // 读写分离
+)
+
+const (
+	ELASTIC_CACHE_NODE_TYPE_SINGLE = "single"
+	ELASTIC_CACHE_NODE_TYPE_DOUBLE = "double"
+	ELASTIC_CACHE_NODE_TYPE_THREE  = "three"
+	ELASTIC_CACHE_NODE_TYPE_FOUR   = "four"
+	ELASTIC_CACHE_NODE_TYPE_FIVE   = "five"
+	ELASTIC_CACHE_NODE_TYPE_SIX    = "six"
 )
 
 type ElasticcacheListInput struct {

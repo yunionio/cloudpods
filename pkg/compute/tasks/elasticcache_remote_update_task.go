@@ -20,14 +20,14 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type ElasticcacheRemoteUpdateTask struct {
-	SGuestBaseTask
+	taskman.STask
 }
 
 func init() {
@@ -35,7 +35,7 @@ func init() {
 }
 
 func (self *ElasticcacheRemoteUpdateTask) taskFail(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
-	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_UPDATE_TAGS, reason, self.UserCred, false)
+	elasticcache.SetStatus(self.UserCred, api.ELASTIC_CACHE_UPDATE_TAGS_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -54,6 +54,19 @@ func (self *ElasticcacheRemoteUpdateTask) OnInit(ctx context.Context, obj db.ISt
 	}
 }
 
-func (self *ElasticcacheRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (self *ElasticcacheRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
+	self.SetStage("OnSyncStatusComplete", nil)
+	models.StartResourceSyncStatusTask(ctx, self.UserCred, elasticcache, "ElasticcacheSyncstatusTask", self.GetTaskId())
+}
+
+func (self *ElasticcacheRemoteUpdateTask) OnRemoteUpdateCompleteFailed(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
+	self.taskFail(ctx, elasticcache, data)
+}
+
+func (self *ElasticcacheRemoteUpdateTask) OnSyncStatusComplete(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *ElasticcacheRemoteUpdateTask) OnSyncStatusCompleteFailed(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, data)
 }

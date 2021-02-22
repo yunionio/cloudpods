@@ -140,6 +140,14 @@ type SClouduser struct {
 	Roles  []string
 }
 
+func (self *SClouduser) GetEmailAddr() string {
+	return ""
+}
+
+func (self *SClouduser) GetInviteUrl() string {
+	return ""
+}
+
 func (self *SGoogleClient) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	roles, err := self.GetRoles("")
 	if err != nil {

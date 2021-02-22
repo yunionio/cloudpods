@@ -103,7 +103,7 @@ func getSignUrl(uri string) (string, error) {
 }
 
 func NewZStackClient(cfg *ZstackClientConfig) (*SZStackClient, error) {
-	httpClient := cfg.cpcfg.HttpClient()
+	httpClient := cfg.cpcfg.AdaptiveTimeoutHttpClient()
 	cli := &SZStackClient{
 		ZstackClientConfig: cfg,
 		httpClient:         httpClient,

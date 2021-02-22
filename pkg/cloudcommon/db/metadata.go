@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	dbapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
@@ -41,9 +42,9 @@ import (
 const (
 	SYSTEM_ADMIN_PREFIX  = "__sys_"
 	SYS_TAG_PREFIX       = "__"
-	CLOUD_TAG_PREFIX     = "ext:"
-	USER_TAG_PREFIX      = "user:"
-	SYS_CLOUD_TAG_PREFIX = "sys:"
+	CLOUD_TAG_PREFIX     = dbapi.CLOUD_TAG_PREFIX
+	USER_TAG_PREFIX      = dbapi.USER_TAG_PREFIX
+	SYS_CLOUD_TAG_PREFIX = dbapi.SYS_CLOUD_TAG_PREFIX
 
 	// TAG_DELETE_RANGE_USER  = "user"
 	// TAG_DELETE_RANGE_CLOUD = CLOUD_TAG_PREFIX // "cloud"
@@ -460,17 +461,17 @@ func (manager *SMetadataManager) SetValue(ctx context.Context, obj IModel, key s
 }
 
 func (manager *SMetadataManager) SetValuesWithLog(ctx context.Context, obj IModel, store map[string]interface{}, userCred mcclient.TokenCredential) error {
-	changes, err := manager.SetValues(ctx, obj, store, userCred)
+	changes, err := manager.setValues(ctx, obj, store, userCred)
 	if err != nil {
 		return err
 	}
 	if len(changes) > 0 {
-		OpsLog.LogEvent(obj, ACT_SET_METADATA, jsonutils.Marshal(changes), userCred)
+		OpsLog.LogEvent(obj.GetIModel(), ACT_SET_METADATA, jsonutils.Marshal(changes), userCred)
 	}
 	return nil
 }
 
-func (manager *SMetadataManager) SetValues(ctx context.Context, obj IModel, store map[string]interface{}, userCred mcclient.TokenCredential) ([]sMetadataChange, error) {
+func (manager *SMetadataManager) setValues(ctx context.Context, obj IModel, store map[string]interface{}, userCred mcclient.TokenCredential) ([]sMetadataChange, error) {
 	idStr := GetObjectIdstr(obj)
 
 	// no need to lock
@@ -547,9 +548,9 @@ func (manager *SMetadataManager) SetValues(ctx context.Context, obj IModel, stor
 }
 
 func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store map[string]interface{}, userCred mcclient.TokenCredential, delRange string) error {
-	changes, err := manager.SetValues(ctx, obj, store, userCred)
+	changes, err := manager.setValues(ctx, obj, store, userCred)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "setValues")
 	}
 
 	idStr := GetObjectIdstr(obj)
@@ -566,11 +567,11 @@ func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store m
 	q := manager.Query().Equals("id", idStr).NotLike("key", `\_\_%`) //避免删除系统内置的metadata, _ 在mysql里面有特殊含义,需要转义
 	switch delRange {
 	case USER_TAG_PREFIX:
-		q = q.Like("key", USER_TAG_PREFIX+"%")
+		q = q.Startswith("key", USER_TAG_PREFIX)
 	case CLOUD_TAG_PREFIX:
-		q = q.Like("key", CLOUD_TAG_PREFIX+"%")
+		q = q.Startswith("key", CLOUD_TAG_PREFIX)
 	case SYS_CLOUD_TAG_PREFIX:
-		q = q.Like("key", SYS_CLOUD_TAG_PREFIX+"%")
+		q = q.Startswith("key", SYS_CLOUD_TAG_PREFIX)
 	}
 	q = q.Filter(sqlchemy.NOT(sqlchemy.In(q.Field("key"), keys)))
 	if err := FetchModelObjects(manager, q, &records); err != nil {
@@ -584,7 +585,7 @@ func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store m
 		changes = append(changes, sMetadataChange{Key: rec.Key, OValue: rec.Value})
 	}
 	if len(changes) > 0 {
-		OpsLog.LogEvent(obj, ACT_SET_METADATA, jsonutils.Marshal(changes), userCred)
+		OpsLog.LogEvent(obj.GetIModel(), ACT_SET_METADATA, jsonutils.Marshal(changes), userCred)
 	}
 	return nil
 }
@@ -606,7 +607,7 @@ func (manager *SMetadataManager) GetAll(obj IModel, keys []string, keyPrefix str
 	ret := make(map[string]string)
 	for _, rec := range records {
 		if len(rec.Value) > 0 || strings.HasPrefix(rec.Key, USER_TAG_PREFIX) || strings.HasPrefix(rec.Key, CLOUD_TAG_PREFIX) {
-			ret[rec.Key] = rec.Value
+			ret[strings.ToLower(rec.Key)] = rec.Value
 		}
 	}
 	return ret, nil

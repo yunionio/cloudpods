@@ -28,10 +28,28 @@ type INotifyService interface {
 	StopAll()
 	UpdateServices(ctx context.Context, userCred mcclient.TokenCredential, isStart bool)
 	RestartService(ctx context.Context, config SConfig, serviceName string)
-	Send(ctx context.Context, contactType, contact, topic, msg, priority string) error
+	Send(ctx context.Context, contactType string, args apis.SendParams) error
 	ContactByMobile(ctx context.Context, mobile, serviceName string) (string, error)
-	BatchSend(ctx context.Context, contacts []string, contactType, topic, message, priority string) ([]*apis.FailedRecord, error)
+	BatchSend(ctx context.Context, contactType string, args apis.BatchSendParams) ([]*apis.FailedRecord, error)
 	ValidateConfig(ctx context.Context, cType string, configs map[string]string) (isValid bool, message string, err error)
+}
+
+type SSendParams struct {
+	ContactType string
+	Contact     string
+	Topic       string
+	Message     string
+	Priority    string
+	Lang        string
+}
+
+type SBatchSendParams struct {
+	ContactType string
+	Contacts    []string
+	Topic       string
+	Message     string
+	Priority    string
+	Lang        string
 }
 
 type IServiceConfigStore interface {
@@ -39,8 +57,17 @@ type IServiceConfigStore interface {
 	SetConfig(serviceName string, config SConfig) error
 }
 
+type SNotification struct {
+	ContactType string
+	Topic       string
+	Message     string
+	Event       string
+	AdvanceDays int
+}
+
 type ITemplateStore interface {
-	NotifyFilter(contactType, topic, msg string) (params apis.SendParams, err error)
+	// NotifyFilter(contactType, topic, msg, lang string) (params apis.SendParams, err error)
+	FillWithTemplate(ctx context.Context, lang string, notification SNotification) (params apis.SendParams, err error)
 }
 
 type SConfig map[string]string

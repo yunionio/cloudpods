@@ -55,6 +55,9 @@ const (
 	LB_STATUS_START_FAILED = "start_failed"
 	LB_STATUS_STOP_FAILED  = "stop_failed"
 
+	LB_UPDATE_TAGS        = "update_tags"
+	LB_UPDATE_TAGS_FAILED = "update_tags_fail"
+
 	LB_STATUS_UNKNOWN = "unknown"
 )
 

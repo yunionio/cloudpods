@@ -231,7 +231,7 @@ func init() {
 		ID   string `help:"Instance ID"`
 		Tags []string
 	}
-	shellutils.R(&InstanceSetTagsOptions{}, "instance-set-tags", "get intance metadata", func(cli *azure.SRegion, args *InstanceSetTagsOptions) error {
+	shellutils.R(&InstanceSetTagsOptions{}, "instance-set-tags", "set intance metadata", func(cli *azure.SRegion, args *InstanceSetTagsOptions) error {
 		tags := map[string]string{}
 		for i := range args.Tags {
 			splited := strings.Split(args.Tags[i], "=")

@@ -103,14 +103,20 @@ func (man *SCommonAlertManager) ValidateCreateData(
 	}
 	if len(data.Channel) == 0 {
 		data.Channel = []string{monitor.DEFAULT_SEND_NOTIFY_CHANNEL}
-	} else {
-		data.Channel = append(data.Channel, monitor.DEFAULT_SEND_NOTIFY_CHANNEL)
 	}
+	//else {
+	//	data.Channel = append(data.Channel, monitor.DEFAULT_SEND_NOTIFY_CHANNEL)
+	//}
 	if !utils.IsInStringArray(data.Level, monitor.CommonAlertLevels) {
 		return data, httperrors.NewInputParameterError("Invalid level format: %s", data.Level)
 	}
 	if _, err := time.ParseDuration(data.Period); err != nil {
 		return data, httperrors.NewInputParameterError("Invalid period format: %s", data.Period)
+	}
+	if data.SilentPeriod != "" {
+		if _, err := time.ParseDuration(data.SilentPeriod); err != nil {
+			return data, httperrors.NewInputParameterError("Invalid silent_period format: %s", data.SilentPeriod)
+		}
 	}
 	// 默认的系统配置Recipients=commonalert-default
 	if data.AlertType != monitor.CommonAlertSystemAlertType && len(data.Recipients) == 0 {
@@ -121,6 +127,9 @@ func (man *SCommonAlertManager) ValidateCreateData(
 		return data, merrors.NewArgIsEmptyErr("metric_query")
 	} else {
 		for _, query := range data.CommonMetricInputQuery.MetricQuery {
+			if query.ConditionType == monitor.METRIC_QUERY_TYPE_NO_DATA {
+				query.Comparator = "=="
+			}
 			if !utils.IsInStringArray(getQueryEvalType(query.Comparator), validators.EvaluatorDefaultTypes) {
 				return data, httperrors.NewInputParameterError("the Comparator is illegal: %s", query.Comparator)
 			}
@@ -226,9 +235,12 @@ func (alert *SCommonAlert) CustomizeCreate(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) error {
-	if err := alert.SAlert.CustomizeCreate(ctx, userCred, ownerId, query, data); err != nil {
+	err := alert.SMonitorScopedResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	if err != nil {
 		return err
 	}
+	alert.State = string(monitor.AlertStateUnknown)
+	alert.LastStateChange = time.Now()
 	input := new(monitor.CommonAlertCreateInput)
 	if err := data.Unmarshal(input); err != nil {
 		return err
@@ -246,10 +258,10 @@ func (alert *SCommonAlert) customizeCreateNotis(ctx context.Context, userCred mc
 	}
 	//user_by 弃用
 	if input.AlertType == monitor.CommonAlertSystemAlertType {
-		return alert.createAlertNoti(ctx, userCred, input.Name, "webconsole", []string{}, true)
+		return alert.createAlertNoti(ctx, userCred, input.Name, "webconsole", []string{}, input.SilentPeriod, true)
 	}
 	for _, channel := range input.Channel {
-		err := alert.createAlertNoti(ctx, userCred, input.Name, channel, input.Recipients, false)
+		err := alert.createAlertNoti(ctx, userCred, input.Name, channel, input.Recipients, input.SilentPeriod, false)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("create notify[channel is %s]error", channel))
 		}
@@ -258,8 +270,8 @@ func (alert *SCommonAlert) customizeCreateNotis(ctx context.Context, userCred mc
 }
 
 func (alert *SCommonAlert) createAlertNoti(ctx context.Context, userCred mcclient.TokenCredential,
-	notiName, channel string, userIds []string, isSysNoti bool) error {
-	noti, err := NotificationManager.CreateOneCloudNotification(ctx, userCred, notiName, channel, userIds)
+	notiName, channel string, userIds []string, silentPeriod string, isSysNoti bool) error {
+	noti, err := NotificationManager.CreateOneCloudNotification(ctx, userCred, notiName, channel, userIds, silentPeriod)
 	if err != nil {
 		return errors.Wrap(err, "create notification")
 	}
@@ -475,6 +487,9 @@ func (alert *SCommonAlert) GetMoreDetails(ctx context.Context, out monitor.Commo
 		if settings.Channel != monitor.DEFAULT_SEND_NOTIFY_CHANNEL {
 			channel.Insert(settings.Channel)
 		}
+		if noti.Frequency != 0 {
+			out.SilentPeriod = fmt.Sprintf("%dm", noti.Frequency/60)
+		}
 	}
 	out.Channel = channel.List()
 	out.Status = alert.GetStatus()
@@ -484,7 +499,11 @@ func (alert *SCommonAlert) GetMoreDetails(ctx context.Context, out monitor.Commo
 	} else {
 		out.Period = fmt.Sprintf("%dm", alert.Frequency/60)
 	}
-	out.AlertDuration = alert.For/alert.Frequency + 1
+	out.AlertDuration = alert.For / alert.Frequency
+	if out.AlertDuration == 0 {
+		out.AlertDuration = 1
+	}
+
 	err = alert.getCommonAlertMetricDetails(&out)
 	if err != nil {
 		return out, err
@@ -556,6 +575,7 @@ func getCommonAlertMetricDetailsFromCondition(cond *monitor.AlertCondition,
 	metricDetails.ConditionType = cond.Type
 	if metricDetails.ConditionType == monitor.METRIC_QUERY_TYPE_NO_DATA {
 		metricDetails.ThresholdStr = monitor.METRIC_QUERY_NO_DATA_THESHOLD
+		metricDetails.Comparator = monitor.METRIC_QUERY_NO_DATA_THESHOLD
 	}
 
 	q := cond.Query
@@ -670,7 +690,9 @@ func (man *SCommonAlertManager) toAlertCreatInput(input monitor.CommonAlertCreat
 	ret := new(monitor.AlertCreateInput)
 	ret.Name = input.Name
 	ret.Frequency = int64(freq / time.Second)
-	ret.For = ret.Frequency * (input.AlertDuration - 1)
+	if input.AlertDuration != 1 {
+		ret.For = ret.Frequency * input.AlertDuration
+	}
 	ret.Level = input.Level
 	//ret.Settings =monitor.AlertSetting{}
 	for _, metricquery := range input.CommonMetricInputQuery.MetricQuery {
@@ -732,16 +754,21 @@ func (alert *SCommonAlert) ValidateUpdateData(
 			data.Set("frequency", jsonutils.NewInt(freqSpec))
 		}
 	}
-	if recipients, _ := data.GetArray("recipients"); len(recipients) > 0 {
-		channelStr, _ := data.GetString("channel")
-		channel, _ := data.GetArray("channel")
-		if !strings.Contains(channelStr, monitor.DEFAULT_SEND_NOTIFY_CHANNEL) {
-			channels := jsonutils.NewArray()
-			channels.Add(channel...)
-			channels.Add(jsonutils.NewString(monitor.DEFAULT_SEND_NOTIFY_CHANNEL))
-			data.Set("channel", channels)
+	if silentPeriod, _ := data.GetString("silent_period"); len(silentPeriod) > 0 {
+		if _, err := time.ParseDuration(silentPeriod); err != nil {
+			return data, httperrors.NewInputParameterError("Invalid silent_period format: %s", silentPeriod)
 		}
 	}
+	//if recipients, _ := data.GetArray("recipients"); len(recipients) > 0 {
+	//	channelStr, _ := data.GetString("channel")
+	//	channel, _ := data.GetArray("channel")
+	//	if !strings.Contains(channelStr, monitor.DEFAULT_SEND_NOTIFY_CHANNEL) {
+	//		channels := jsonutils.NewArray()
+	//		channels.Add(channel...)
+	//		channels.Add(jsonutils.NewString(monitor.DEFAULT_SEND_NOTIFY_CHANNEL))
+	//		data.Set("channel", channels)
+	//	}
+	//}
 	tmp := jsonutils.NewArray()
 	if metric_query, _ := data.GetArray("metric_query"); len(metric_query) > 0 {
 		for i := range metric_query {
@@ -749,6 +776,9 @@ func (alert *SCommonAlert) ValidateUpdateData(
 			err := metric_query[i].Unmarshal(query)
 			if err != nil {
 				return data, errors.Wrap(err, "metric_query Unmarshal error")
+			}
+			if query.ConditionType == monitor.METRIC_QUERY_TYPE_NO_DATA {
+				query.Comparator = "=="
 			}
 			if !utils.IsInStringArray(getQueryEvalType(query.Comparator), validators.EvaluatorDefaultTypes) {
 				return data, httperrors.NewInputParameterError("the Comparator is illegal: %s", query.Comparator)
@@ -797,6 +827,7 @@ func (alert *SCommonAlert) ValidateUpdateData(
 		if err != nil {
 			return data, errors.Wrap(err, "SAlert.ValidateUpdateData")
 		}
+		updataInput.For = alertCreateInput.For
 		data.Update(jsonutils.Marshal(updataInput))
 	}
 	return data, nil
@@ -848,6 +879,7 @@ func (alert *SCommonAlert) getUpdateAlertInput(updateInput monitor.CommonAlertUp
 	input := monitor.CommonAlertCreateInput{
 		CommonMetricInputQuery: updateInput.CommonMetricInputQuery,
 		Period:                 updateInput.Period,
+		AlertDuration:          updateInput.AlertDuration,
 	}
 	alertCreateInput := CommonAlertManager.toAlertCreatInput(input)
 	return alertCreateInput
@@ -910,10 +942,10 @@ func (alert *SCommonAlert) customizeDeleteNotis(
 		if err := conf.CustomizeDelete(ctx, userCred, query, data); err != nil {
 			return err
 		}
-		if err := conf.Delete(ctx, userCred); err != nil {
+		if err := noti.Detach(ctx, userCred); err != nil {
 			return err
 		}
-		if err := noti.Detach(ctx, userCred); err != nil {
+		if err := conf.Delete(ctx, userCred); err != nil {
 			return err
 		}
 	}

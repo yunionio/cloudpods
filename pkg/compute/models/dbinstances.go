@@ -2043,6 +2043,7 @@ func (self *SDBInstance) StartRemoteUpdateTask(ctx context.Context, userCred mcc
 		log.Errorln(err)
 		return errors.Wrap(err, "Start ElasticcacheRemoteUpdateTask")
 	} else {
+		self.SetStatus(userCred, api.DBINSTANCE_UPDATE_TAGS, "StartRemoteUpdateTask")
 		task.ScheduleRun(nil)
 	}
 	return nil

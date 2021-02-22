@@ -172,16 +172,7 @@ func (self *ImageProbeTask) OnProbeFailed(ctx context.Context, image *models.SIm
 	db.OpsLog.LogEvent(image, db.ACT_PROBE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, image, logclient.ACT_IMAGE_PROBE, reason, self.UserCred, false)
 
-	if jsonutils.QueryBoolean(self.Params, "do_convert", false) {
-		self.SetStage("OnConvertComplete", nil)
-		if err := image.StartImageConvertTask(ctx, self.UserCred, self.GetId()); err != nil {
-			image.SetStatus(self.UserCred, api.IMAGE_STATUS_ACTIVE, "")
-			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
-		}
-	} else {
-		image.SetStatus(self.UserCred, api.IMAGE_STATUS_ACTIVE, "")
-		self.SetStageFailed(ctx, reason)
-	}
+	self.OnProbe(ctx, image)
 }
 
 func (self *ImageProbeTask) OnProbeSuccess(ctx context.Context, image *models.SImage) {
@@ -190,15 +181,24 @@ func (self *ImageProbeTask) OnProbeSuccess(ctx context.Context, image *models.SI
 	logclient.AddActionLogWithContext(
 		ctx, image, logclient.ACT_IMAGE_PROBE, "Image Probe Success", self.UserCred, true)
 
+	self.OnProbe(ctx, image)
+}
+
+func (self *ImageProbeTask) OnProbe(ctx context.Context, image *models.SImage) {
+	self.SetStage("OnConvertComplete", nil)
 	if jsonutils.QueryBoolean(self.Params, "do_convert", false) {
-		self.SetStage("OnConvertComplete", nil)
 		if err := image.StartImageConvertTask(ctx, self.UserCred, self.GetId()); err != nil {
-			image.SetStatus(self.UserCred, api.IMAGE_STATUS_ACTIVE, "")
-			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+			log.Errorf("start image convert task failed %s", err)
+			if err := image.StartPutImageTask(ctx, self.UserCred, self.GetId()); err != nil {
+				image.SetStatus(self.UserCred, api.IMAGE_STATUS_KILLED, err.Error())
+				self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+			}
 		}
 	} else {
-		image.SetStatus(self.UserCred, api.IMAGE_STATUS_ACTIVE, "")
-		self.SetStageComplete(ctx, nil)
+		if err := image.StartPutImageTask(ctx, self.UserCred, self.GetId()); err != nil {
+			image.SetStatus(self.UserCred, api.IMAGE_STATUS_KILLED, err.Error())
+			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		}
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/notify/models"
+	rpcapi "yunion.io/x/onecloud/pkg/notify/rpc/apis"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -71,6 +72,8 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 
 	// build contactMap
 	contactMap := make(map[string]*models.SReceiverNotification)
+	contactMapEn := make(map[string]*models.SReceiverNotification)
+	contactmapCn := make(map[string]*models.SReceiverNotification)
 	for i := range rnsWithReceiver {
 		if len(rnsWithReceiver[i].ReceiverID) == 0 {
 			contactMap[rnsWithReceiver[i].Contact] = rnsWithReceiver[i]
@@ -114,44 +117,77 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 			sendFail(rnsWithReceiver[i], reason)
 			continue
 		}
-		contactMap[contact] = rnsWithReceiver[i]
+		lang, err := receiver.GetTemplateLang(ctx)
+		if err != nil {
+			reason := fmt.Sprintf("fail to GetTemplateLang: %s", err.Error())
+			sendFail(rnsWithReceiver[i], reason)
+			continue
+		}
+		switch lang {
+		case "":
+			contactMap[contact] = rnsWithReceiver[i]
+		case apis.TEMPLATE_LANG_EN:
+			contactMapEn[contact] = rnsWithReceiver[i]
+		case apis.TEMPLATE_LANG_CN:
+			contactmapCn[contact] = rnsWithReceiver[i]
+		}
 	}
 
 	for i := range rnsWithoutReceiver {
 		contactMap[rnsWithoutReceiver[i].Contact] = rnsWithoutReceiver[i]
 	}
 
-	// set status before send
-	now := time.Now()
-	contacts := make([]string, 0, len(contactMap))
-	for c, rn := range contactMap {
-		rn.BeforeSend(ctx, now)
-		contacts = append(contacts, c)
-	}
-
-	// send
-	ret, err := models.NotifyService.BatchSend(ctx, contacts, notification.ContactType, notification.Topic, notification.Message, notification.Priority)
-	if err != nil {
-		for _, rn := range contactMap {
-			rn.AfterSend(ctx, false, err.Error())
+	var contactLen int
+	for lang, contactMap := range map[string]map[string]*models.SReceiverNotification{
+		"":                    contactMap,
+		apis.TEMPLATE_LANG_CN: contactmapCn,
+		apis.TEMPLATE_LANG_EN: contactMapEn,
+	} {
+		if len(contactMap) == 0 {
+			continue
 		}
-		failedRecord = append(failedRecord, fmt.Sprintf("others: %s", err.Error()))
-		self.taskFailed(ctx, notification, strings.Join(failedRecord, "; "), true)
-		return
-	}
 
-	// check result
-	for _, fd := range ret {
-		rn := contactMap[fd.Contact]
-		rn.AfterSend(ctx, false, fd.Reason)
-		failedRecord = append(failedRecord, fmt.Sprintf("%s: %s", rn.ReceiverID, fd.Reason))
-		delete(contactMap, fd.Contact)
+		// send
+		p, err := notification.TemplateStore().FillWithTemplate(ctx, lang, notification.Notification())
+		if err != nil {
+			self.taskFailed(ctx, notification, err.Error(), false)
+		}
+		// set status before send
+		now := time.Now()
+		contacts := make([]string, 0, len(contactMap))
+		for c, rn := range contactMap {
+			rn.BeforeSend(ctx, now)
+			contacts = append(contacts, c)
+		}
+
+		contactLen += len(contacts)
+
+		// send
+		fds, err := models.NotifyService.BatchSend(ctx, notification.ContactType, rpcapi.BatchSendParams{
+			Contacts:       contacts,
+			Title:          p.Title,
+			Message:        p.Message,
+			Priority:       p.Priority,
+			RemoteTemplate: p.RemoteTemplate,
+		})
+		if err != nil {
+			for _, rn := range contactMap {
+				sendFail(rn, err.Error())
+			}
+			continue
+		}
+		// check result
+		for _, fd := range fds {
+			rn := contactMap[fd.Contact]
+			sendFail(rn, fd.Reason)
+			delete(contactMap, fd.Contact)
+		}
+		// after send for successful notify
+		for _, rn := range contactMap {
+			rn.AfterSend(ctx, true, "")
+		}
 	}
-	// after send for successful notify
-	for _, rn := range contactMap {
-		rn.AfterSend(ctx, true, "")
-	}
-	if len(failedRecord) > 0 && len(failedRecord) == len(contacts) {
+	if len(failedRecord) > 0 && len(failedRecord) == contactLen {
 		self.taskFailed(ctx, notification, strings.Join(failedRecord, "; "), true)
 		return
 	}

@@ -16,47 +16,109 @@ package regiondrivers
 
 import (
 	"fmt"
+	"sort"
 	"testing"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/pkg/util/stringutils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type TestData struct {
-	Name        string
-	LocalRules  secrules.SecurityRuleSet
-	RemoteRules cloudprovider.SecurityRuleSet
-	Common      cloudprovider.SecurityRuleSet
-	InAdds      cloudprovider.SecurityRuleSet
-	OutAdds     cloudprovider.SecurityRuleSet
-	InDels      cloudprovider.SecurityRuleSet
-	OutDels     cloudprovider.SecurityRuleSet
+	Name      string
+	SrcRules  cloudprovider.SecurityRuleSet
+	DestRules cloudprovider.SecurityRuleSet
+	Common    cloudprovider.SecurityRuleSet
+	InAdds    cloudprovider.SecurityRuleSet
+	OutAdds   cloudprovider.SecurityRuleSet
+	InDels    cloudprovider.SecurityRuleSet
+	OutDels   cloudprovider.SecurityRuleSet
 }
 
-var localRuleWithPriority = func(ruleStr string, priority int) secrules.SecurityRule {
+func (d TestData) Clone() TestData {
+	return TestData{
+		Name:      d.Name,
+		SrcRules:  d.SrcRules,
+		DestRules: d.DestRules,
+		Common:    cloudprovider.SecurityRuleSet{},
+		InAdds:    cloudprovider.SecurityRuleSet{},
+		OutAdds:   cloudprovider.SecurityRuleSet{},
+		InDels:    cloudprovider.SecurityRuleSet{},
+		OutDels:   cloudprovider.SecurityRuleSet{},
+	}
+}
+
+func (d TestData) Test(t *testing.T, srcD, destD cloudprovider.SecDriver) {
+	t.Logf("check %s", d.Name)
+	src, dest := cloudprovider.NewSecRuleInfo(srcD), cloudprovider.NewSecRuleInfo(destD)
+	src.Rules, dest.Rules = d.SrcRules, d.DestRules
+	common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(src, dest, true)
+	check(t, "common", common, d.Common, 0, 0)
+	check(t, "inAdds", inAdds, d.InAdds, dest.MinPriority, dest.MaxPriority)
+	check(t, "outAdds", outAdds, d.OutAdds, dest.MinPriority, dest.MaxPriority)
+	check(t, "inDels", inDels, d.InDels, 0, 0)
+	check(t, "outDels", outDels, d.OutDels, 0, 0)
+
+	t.Logf("check %s reverse", d.Name)
+
+	rd := d.Clone()
+	dest.Rules = append(dest.Rules, inAdds...)
+	dest.Rules = append(dest.Rules, outAdds...)
+	externalIds := []string{}
+	for i := range inDels {
+		if len(inDels[i].ExternalId) > 0 {
+			externalIds = append(externalIds, inDels[i].ExternalId)
+		} else {
+			externalIds = append(externalIds, fmt.Sprintf("%s-%d", inDels[i].String(), inDels[i].Priority))
+		}
+	}
+	for i := range outDels {
+		if len(outDels[i].ExternalId) > 0 {
+			externalIds = append(externalIds, outDels[i].ExternalId)
+		} else {
+			externalIds = append(externalIds, fmt.Sprintf("%s-%d", outDels[i].String(), outDels[i].Priority))
+		}
+	}
+	destRules := cloudprovider.SecurityRuleSet{}
+	for i := range dest.Rules {
+		if utils.IsInStringArray(dest.Rules[i].ExternalId, externalIds) || utils.IsInStringArray(fmt.Sprintf("%s-%d", dest.Rules[i].String(), dest.Rules[i].Priority), externalIds) {
+			continue
+		}
+		destRules = append(destRules, dest.Rules[i])
+	}
+	dest.Rules = destRules
+	_, inAdds, outAdds, inDels, outDels = cloudprovider.CompareRules(src, dest, true)
+	//check(t, "common", common, rd.Common)
+	check(t, "inAdds", inAdds, rd.InAdds, dest.MinPriority, dest.MaxPriority)
+	check(t, "outAdds", outAdds, rd.OutAdds, dest.MinPriority, dest.MaxPriority)
+	check(t, "inDels", inDels, rd.InDels, 0, 0)
+	check(t, "outDels", outDels, rd.OutDels, 0, 0)
+}
+
+var ruleWithPriority = func(ruleStr string, priority int) cloudprovider.SecurityRule {
 	rule := secrules.MustParseSecurityRule(ruleStr)
 	if rule == nil {
-		log.Errorf("invalid rule str %s", ruleStr)
-		return secrules.SecurityRule{}
+		panic(fmt.Sprintf("invalid rule str %s", ruleStr))
 	}
 	rule.Priority = priority
-	return *rule
+	return cloudprovider.SecurityRule{SecurityRule: *rule, Id: stringutils.UUID4()}
 }
 
-var remoteRuleWithName = func(name, ruleStr string, priority int) cloudprovider.SecurityRule {
+var ruleWithName = func(name, ruleStr string, priority int) cloudprovider.SecurityRule {
 	return cloudprovider.SecurityRule{
 		Name:         name,
-		SecurityRule: localRuleWithPriority(ruleStr, priority),
+		ExternalId:   name,
+		SecurityRule: ruleWithPriority(ruleStr, priority).SecurityRule,
 	}
 }
 
-var check = func(t *testing.T, name string, ret, expect []cloudprovider.SecurityRule) {
+var check = func(t *testing.T, name string, ret, expect []cloudprovider.SecurityRule, min, max int) {
 	var show = func(info string, rules []cloudprovider.SecurityRule) {
 		t.Logf("%s: %d\n", info, len(rules))
 		for _, r := range rules {
-			t.Logf("Name: %s priority: %d %s\n", r.Name, r.Priority, r.String())
+			t.Logf("Name: %s id: %s external id: %s priority: %d %s\n", r.Name, r.Id, r.ExternalId, r.Priority, r.String())
 		}
 	}
 	if len(ret) != len(expect) {
@@ -64,21 +126,31 @@ var check = func(t *testing.T, name string, ret, expect []cloudprovider.Security
 		show(fmt.Sprintf("%s expect", name), expect)
 		t.Fatalf("invalid rules for %s current is %d expect %d", name, len(ret), len(expect))
 	}
+	sort.Sort(cloudprovider.SecurityRuleSet(ret))
+	sort.Sort(cloudprovider.SecurityRuleSet(expect))
+	if max < min {
+		max, min = min, max
+	}
 	for i := range ret {
 		if ret[i].Name != expect[i].Name {
 			show(fmt.Sprintf("%s rule", name), ret)
 			show(fmt.Sprintf("%s expect", name), expect)
 			t.Fatalf("invalid index(%d) %s rule name %s expect %s", i, name, ret[i].Name, expect[i].Name)
 		}
-		if ret[i].Priority != expect[i].Priority {
-			show(fmt.Sprintf("%s rule", name), ret)
-			show(fmt.Sprintf("%s expect", name), expect)
-			t.Fatalf("invalid index(%d) %s rule priority %d expect %d", i, name, ret[i].Priority, expect[i].Priority)
+		// if ret[i].Priority != expect[i].Priority {
+		// 	show(fmt.Sprintf("%s rule", name), ret)
+		// 	show(fmt.Sprintf("%s expect", name), expect)
+		// 	t.Fatalf("invalid index(%d) %s rule priority %d expect %d", i, name, ret[i].Priority, expect[i].Priority)
+		// }
+		if max != min && (ret[i].Priority < min || ret[i].Priority > max) {
+			t.Fatalf("invalid index(%d) %s rules %s priority should be in [%d, %d] current is %d", i, name, ret[i].String(), min, max, ret[i].Priority)
 		}
+
 		if ret[i].String() != expect[i].String() {
 			show(fmt.Sprintf("%s rule", name), ret)
 			show(fmt.Sprintf("%s expect", name), expect)
 			t.Fatalf("invalid index(%d) %s rules %s expect %s", i, name, ret[i].String(), expect[i].String())
 		}
+
 	}
 }

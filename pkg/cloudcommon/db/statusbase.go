@@ -54,6 +54,10 @@ func (model SStatusResourceBase) GetStatus() string {
 	return model.Status
 }
 
+func StatusBaseSetStatus(model IStatusBaseModel, userCred mcclient.TokenCredential, status string, reason string) error {
+	return statusBaseSetStatus(model, userCred, status, reason)
+}
+
 func statusBaseSetStatus(model IStatusBaseModel, userCred mcclient.TokenCredential, status string, reason string) error {
 	if model.GetStatus() == status {
 		return nil

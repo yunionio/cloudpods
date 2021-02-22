@@ -249,7 +249,7 @@ func (self *SElb) Stop() error {
 func (self *SElb) GetILoadBalancerListeners() ([]cloudprovider.ICloudLoadbalancerListener, error) {
 	listeners, err := self.region.GetElbListeners(self.GetId())
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbListeners")
 	}
 
 	ret := make([]cloudprovider.ICloudLoadbalancerListener, len(listeners))
@@ -264,7 +264,7 @@ func (self *SElb) GetILoadBalancerListeners() ([]cloudprovider.ICloudLoadbalance
 func (self *SElb) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
 	backendgroups, err := self.region.GetElbBackendgroups(self.GetId(), nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbBackendgroups")
 	}
 
 	ibackendgroups := make([]cloudprovider.ICloudLoadbalancerBackendGroup, len(backendgroups))
@@ -279,7 +279,7 @@ func (self *SElb) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbal
 func (self *SElb) CreateILoadBalancerBackendGroup(group *cloudprovider.SLoadbalancerBackendGroup) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
 	backendgroup, err := self.region.CreateElbBackendgroup(group)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "CreateElbBackendgroup")
 	}
 
 	backendgroup.lb = self
@@ -293,7 +293,7 @@ func (self *SElb) GetILoadBalancerBackendGroupById(groupId string) (cloudprovide
 func (self *SElb) CreateILoadBalancerListener(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
 	ret, err := self.region.CreateElbListener(listener)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "CreateElbListener")
 	}
 
 	ret.lb = self
@@ -302,7 +302,7 @@ func (self *SElb) CreateILoadBalancerListener(ctx context.Context, listener *clo
 
 func (self *SElb) GetILoadBalancerListenerById(listenerId string) (cloudprovider.ICloudLoadbalancerListener, error) {
 	if listenerId == "" {
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetILoadBalancerListenerById")
 	}
 
 	return self.region.GetElbListener(listenerId)
@@ -315,14 +315,14 @@ func (self *SElb) GetIEIP() (cloudprovider.ICloudEIP, error) {
 func (self *SRegion) DeleteElb(elbId string) error {
 	client, err := self.GetElbV2Client()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "GetElbV2Client")
 	}
 
 	params := &elbv2.DeleteLoadBalancerInput{}
 	params.SetLoadBalancerArn(elbId)
 	_, err = client.DeleteLoadBalancer(params)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "DeleteLoadBalancer")
 	}
 
 	return nil
@@ -331,7 +331,7 @@ func (self *SRegion) DeleteElb(elbId string) error {
 func (self *SRegion) GetElbBackendgroups(elbId string, backendgroupIds []string) ([]SElbBackendGroup, error) {
 	client, err := self.GetElbV2Client()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbV2Client")
 	}
 
 	params := &elbv2.DescribeTargetGroupsInput{}
@@ -350,13 +350,13 @@ func (self *SRegion) GetElbBackendgroups(elbId string, backendgroupIds []string)
 
 	ret, err := client.DescribeTargetGroups(params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "DescribeTargetGroups")
 	}
 
 	backendgroups := []SElbBackendGroup{}
 	err = unmarshalAwsOutput(ret, "TargetGroups", &backendgroups)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unmarshalAwsOutput.TargetGroups")
 	}
 
 	for i := range backendgroups {
@@ -369,7 +369,7 @@ func (self *SRegion) GetElbBackendgroups(elbId string, backendgroupIds []string)
 func (self *SRegion) GetElbBackendgroup(backendgroupId string) (*SElbBackendGroup, error) {
 	client, err := self.GetElbV2Client()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbV2Client")
 	}
 
 	params := &elbv2.DescribeTargetGroupsInput{}
@@ -380,13 +380,13 @@ func (self *SRegion) GetElbBackendgroup(backendgroupId string) (*SElbBackendGrou
 		if strings.Contains(err.Error(), "TargetGroupNotFound") {
 			return nil, cloudprovider.ErrNotFound
 		}
-		return nil, err
+		return nil, errors.Wrap(err, "DescribeTargetGroups")
 	}
 
 	backendgroups := []SElbBackendGroup{}
 	err = unmarshalAwsOutput(ret, "TargetGroups", &backendgroups)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unmarshalAwsOutput.TargetGroups")
 	}
 
 	if len(backendgroups) == 1 {
@@ -394,7 +394,7 @@ func (self *SRegion) GetElbBackendgroup(backendgroupId string) (*SElbBackendGrou
 		return &backendgroups[0], nil
 	}
 
-	return nil, ErrorNotFound()
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetElbBackendgroup")
 }
 
 func ToAwsHealthCode(s string) string {
@@ -482,18 +482,18 @@ func (self *SRegion) CreateElbBackendgroup(group *cloudprovider.SLoadbalancerBac
 
 	client, err := self.GetElbV2Client()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbV2Client")
 	}
 
 	ret, err := client.CreateTargetGroup(params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "CreateTargetGroup")
 	}
 
 	backendgroups := []SElbBackendGroup{}
 	err = unmarshalAwsOutput(ret, "TargetGroups", &backendgroups)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unmarshalAwsOutput.TargetGroups")
 	}
 
 	if len(backendgroups) == 1 {
@@ -519,7 +519,7 @@ func (self *SElb) SetTags(tags map[string]string, replace bool) error {
 func (self *SRegion) FetchElbTags(arn string) (map[string]string, error) {
 	client, err := self.GetElbV2Client()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetElbV2Client")
 	}
 	params := elbv2.DescribeTagsInput{}
 	params.SetResourceArns([]*string{&arn})

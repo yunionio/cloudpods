@@ -24,6 +24,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/image/models"
 	"yunion.io/x/onecloud/pkg/image/options"
 )
@@ -62,9 +63,9 @@ func (self *ImageDeleteTask) startPendingDeleteImage(ctx context.Context, image 
 }
 
 func (self *ImageDeleteTask) startDeleteImage(ctx context.Context, image *models.SImage) {
-	err := image.RemoveFiles()
+	err := image.Remove()
 	if err != nil {
-		msg := fmt.Sprintf("fail to remove %s %s", image.GetPath(""), err)
+		msg := fmt.Sprintf("fail to remove %s %s", image.Name, err)
 		log.Errorf(msg)
 		self.SetStageFailed(ctx, jsonutils.NewString(msg))
 		return
@@ -75,4 +76,8 @@ func (self *ImageDeleteTask) startDeleteImage(ctx context.Context, image *models
 	image.RealDelete(ctx, self.UserCred)
 
 	self.SetStageComplete(ctx, nil)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    image,
+		Action: notifyclient.ActionDelete,
+	})
 }

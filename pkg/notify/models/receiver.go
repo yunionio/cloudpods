@@ -20,6 +20,8 @@ import (
 	"regexp"
 	"time"
 
+	"golang.org/x/text/language"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -47,24 +49,20 @@ import (
 )
 
 var (
-	AllContactTypes = []string{
+	PersonalConfigContactTypes = []string{
 		api.EMAIL,
 		api.MOBILE,
 		api.DINGTALK,
 		api.FEISHU,
 		api.WORKWX,
 	}
-	AllSubContactTypes = []string{
-		api.DINGTALK,
-		api.FEISHU,
-		api.WORKWX,
-	}
-	AllRobotContactTypes = []string{
+	RobotContactTypes = []string{
 		api.FEISHU_ROBOT,
 		api.DINGTALK_ROBOT,
 		api.WORKWX_ROBOT,
 	}
-	AllOkContactTypes = append(AllRobotContactTypes,
+	SystemConfigContactTypes = append(
+		RobotContactTypes,
 		api.WEBCONSOLE,
 		api.WEBHOOK,
 	)
@@ -95,8 +93,10 @@ type SReceiver struct {
 	db.SDomainizedResourceBase
 	db.SEnabledResourceBase
 
-	Email  string `width:"64" nullable:"false" create:"optional" update:"user" get:"user" list:"user"`
-	Mobile string `width:"16" nullable:"false" create:"optional" update:"user" get:"user" list:"user"`
+	Email string `width:"64" nullable:"false" create:"optional" update:"user" get:"user" list:"user"`
+	// swagger:ignore
+	Mobile string `width:"32" nullable:"false" create:"optional"`
+	Lang   string `width:"8" charset:"ascii" nullable:"false" list:"user" update:"user"`
 
 	// swagger:ignore
 	EnabledEmail tristate.TriState `nullable:"false" default:"false" update:"user"`
@@ -277,7 +277,7 @@ func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcc
 		return input, httperrors.NewInputParameterError("invalid email")
 	}
 	// validate mobile
-	if ok := LaxMobileRegexp.MatchString(input.Mobile); len(input.Mobile) > 0 && !ok {
+	if ok := LaxMobileRegexp.MatchString(input.InternationalMobile.Mobile); len(input.InternationalMobile.Mobile) > 0 && !ok {
 		return input, httperrors.NewInputParameterError("invalid mobile")
 	}
 	return input, nil
@@ -286,7 +286,7 @@ func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcc
 var LaxMobileRegexp = regexp.MustCompile(`[0-9]{6,14}`)
 
 func (r *SReceiver) IsEnabledContactType(ct string) (bool, error) {
-	if utils.IsInStringArray(ct, AllOkContactTypes) {
+	if utils.IsInStringArray(ct, SystemConfigContactTypes) {
 		return true, nil
 	}
 	cts, err := r.GetEnabledContactTypes()
@@ -297,7 +297,7 @@ func (r *SReceiver) IsEnabledContactType(ct string) (bool, error) {
 }
 
 func (r *SReceiver) IsVerifiedContactType(ct string) (bool, error) {
-	if utils.IsInStringArray(ct, AllOkContactTypes) {
+	if utils.IsInStringArray(ct, SystemConfigContactTypes) {
 		return true, nil
 	}
 	cts, err := r.GetVerifiedContactTypes()
@@ -354,7 +354,7 @@ func (r *SReceiver) SetEnabledContactTypes(contactTypes []string) error {
 		return err
 	}
 	ctSet := sets.NewString(contactTypes...)
-	for _, ct := range AllContactTypes {
+	for _, ct := range PersonalConfigContactTypes {
 		if ctSet.Has(ct) {
 			r.setEnabledContactType(ct, true)
 		} else {
@@ -477,7 +477,7 @@ func (r *SReceiver) SetVerifiedContactTypes(contactTypes []string) error {
 		return err
 	}
 	ctSet := sets.NewString(contactTypes...)
-	for _, ct := range AllContactTypes {
+	for _, ct := range PersonalConfigContactTypes {
 		if ctSet.Has(ct) {
 			r.setVerifiedContactType(ct, true)
 		} else {
@@ -589,6 +589,20 @@ func (rm *SReceiverManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 	return q, nil
 }
 
+func (r *SReceiverManager) AllowPerformGetTypes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (cm *SReceiverManager) PerformGetTypes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ConfigManagerGetTypesInput) (api.ConfigManagerGetTypesOutput, error) {
+	output := api.ConfigManagerGetTypesOutput{}
+	allContactType, err := ConfigManager.allContactType()
+	if err != nil {
+		return output, err
+	}
+	output.Types = sortContactType(ConfigManager.filterContactType(allContactType, input.Robot))
+	return output, nil
+}
+
 func (rm *SReceiverManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []interface{}, fields stringutils2.SSortedStrings, isList bool) []api.ReceiverDetails {
 	sRows := rm.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	dRows := rm.SDomainizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
@@ -598,6 +612,7 @@ func (rm *SReceiverManager) FetchCustomizeColumns(ctx context.Context, userCred 
 		rows[i].StatusStandaloneResourceDetails = sRows[i]
 		rows[i].DomainizedResourceInfo = dRows[i]
 		user := objs[i].(*SReceiver)
+		rows[i].InternationalMobile = api.ParseInternationalMobile(user.Mobile)
 		if enabledCTs, err := user.GetEnabledContactTypes(); err != nil {
 			log.Errorf("GetEnabledContactTypes: %v", err)
 		} else {
@@ -659,6 +674,7 @@ func (r *SReceiver) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 	if input.Enabled == nil {
 		r.Enabled = tristate.True
 	}
+	r.Mobile = input.InternationalMobile.String()
 	err = r.SetEnabledContactTypes(input.EnabledContactTypes)
 	if err != nil {
 		return errors.Wrap(err, "SetEnabledContactTypes")
@@ -681,7 +697,7 @@ func (r *SReceiver) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		return input, httperrors.NewInputParameterError("invalid email")
 	}
 	// validate mobile
-	if ok := len(input.Mobile) == 0 || regutils.MatchMobile(input.Mobile); !ok {
+	if ok := len(input.InternationalMobile.Mobile) == 0 || LaxMobileRegexp.MatchString(input.InternationalMobile.Mobile); !ok {
 		return input, httperrors.NewInputParameterError("invalid mobile")
 	}
 	return input, nil
@@ -699,6 +715,9 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 		log.Errorf("PullCache: %v", err)
 	}
 	err = r.SetEnabledContactTypes(input.EnabledContactTypes)
+	if err != nil {
+		log.Errorf("unable to SetEnabledContactTypes")
+	}
 	if len(input.Email) != 0 && input.Email != r.Email {
 		r.VerifiedEmail = tristate.False
 		for _, c := range r.subContactCache {
@@ -708,8 +727,10 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 			}
 		}
 	}
-	if len(input.Mobile) != 0 && input.Mobile != r.Mobile {
+	mobile := input.InternationalMobile.String()
+	if len(mobile) != 0 && mobile != r.Mobile {
 		r.VerifiedMobile = tristate.False
+		r.Mobile = mobile
 		for _, c := range r.subContactCache {
 			if c.ParentContactType == api.MOBILE {
 				c.Verified = tristate.False
@@ -910,6 +931,51 @@ func (r *SReceiver) PerformDisable(ctx context.Context, userCred mcclient.TokenC
 	return nil, nil
 }
 
+func (r *SReceiver) Sync(ctx context.Context) error {
+	session := auth.GetAdminSessionWithInternal(ctx, "", "")
+	params := jsonutils.NewDict()
+	params.Set("scope", jsonutils.NewString("system"))
+	params.Set("system", jsonutils.JSONTrue)
+	data, err := modules.UsersV3.GetById(session, r.Id, params)
+	if err != nil {
+		jerr := err.(*httputils.JSONClientError)
+		if jerr.Code == 404 {
+			err := r.Delete(ctx, session.GetToken())
+			if err != nil {
+				return errors.Wrapf(err, "unable to delete receiver %s", r.Id)
+			}
+			return errors.Wrapf(errors.ErrNotFound, "no such receiver %s", r.Id)
+		}
+		return err
+	}
+	uname, _ := data.GetString("name")
+	domainId, _ := data.GetString("domain_id")
+	lang, _ := data.GetString("lang")
+	_, err = db.Update(r, func() error {
+		r.Name = uname
+		r.DomainId = domainId
+		r.Lang = lang
+		return nil
+	})
+	return errors.Wrap(err, "unable to update")
+}
+
+func (r *SReceiver) GetTemplateLang(ctx context.Context) (string, error) {
+	if len(r.Lang) == 0 {
+		err := r.Sync(ctx)
+		if err != nil {
+			return "", err
+		}
+	}
+	log.Infof("lang: %s", r.Lang)
+	lang, err := language.Parse(r.Lang)
+	if err != nil {
+		return "", errors.Wrapf(err, "unable to prase language %q", r.Lang)
+	}
+	tLang := notifyclientI18nTable.LookupByLang(lang, tempalteLang)
+	return tLang, nil
+}
+
 // Implemente interface EventHandler
 func (rm *SReceiverManager) OnAdd(obj *jsonutils.JSONDict) {
 	// do nothing
@@ -929,12 +995,14 @@ func (rm *SReceiverManager) OnUpdate(oldObj, newObj *jsonutils.JSONDict) {
 	receiver := &receivers[0]
 	uname, _ := newObj.GetString("name")
 	domainId, _ := newObj.GetString("domain_id")
-	if receiver.Name == uname && receiver.DomainId == domainId {
+	lang, _ := newObj.GetString("lang")
+	if receiver.Name == uname && receiver.DomainId == domainId && receiver.Lang == lang {
 		return
 	}
 	_, err = db.Update(receiver, func() error {
 		receiver.Name = uname
 		receiver.DomainId = domainId
+		receiver.Lang = lang
 		return nil
 	})
 	if err != nil {
@@ -944,6 +1012,7 @@ func (rm *SReceiverManager) OnUpdate(oldObj, newObj *jsonutils.JSONDict) {
 
 func (rm *SReceiverManager) OnDelete(obj *jsonutils.JSONDict) {
 	userId, _ := obj.GetString("id")
+	log.Infof("receiver delete event for user %q", userId)
 	receivers, err := rm.FetchByIDs(context.Background(), userId)
 	if err != nil {
 		log.Errorf("fail to FetchByIDs: %v", err)
@@ -1050,7 +1119,7 @@ func (r *SReceiver) GetContact(cType string) (string, error) {
 		return r.Mobile, nil
 	case cType == api.WEBCONSOLE:
 		return r.Id, nil
-	case utils.IsInStringArray(cType, AllRobotContactTypes):
+	case utils.IsInStringArray(cType, RobotContactTypes):
 		return r.Mobile, nil
 	default:
 		if sc, ok := r.subContactCache[cType]; ok {

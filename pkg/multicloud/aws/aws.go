@@ -17,6 +17,7 @@ package aws
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	sdk "github.com/aws/aws-sdk-go/aws"
@@ -25,12 +26,14 @@ import (
 	"github.com/aws/aws-sdk-go/aws/client/metadata"
 	"github.com/aws/aws-sdk-go/aws/corehandlers"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
 	"github.com/aws/aws-sdk-go/private/protocol/query"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/elasticache"
 	"github.com/aws/aws-sdk-go/service/s3"
 
 	"yunion.io/x/log"
@@ -54,6 +57,8 @@ const (
 
 	AWS_GLOBAL_ARN_PREFIX = "arn:aws:iam::aws:policy/"
 	AWS_CHINA_ARN_PREFIX  = "arn:aws-cn:iam::aws:policy/"
+
+	DEFAULT_S3_REGION_ID = "us-east-1"
 )
 
 var (
@@ -66,15 +71,17 @@ type AwsClientConfig struct {
 	accessUrl    string // 服务区域 ChinaCloud | InternationalCloud
 	accessKey    string
 	accessSecret string
+	accountId    string
 
 	debug bool
 }
 
-func NewAwsClientConfig(accessUrl, accessKey, accessSecret string) *AwsClientConfig {
+func NewAwsClientConfig(accessUrl, accessKey, accessSecret, accountId string) *AwsClientConfig {
 	cfg := &AwsClientConfig{
 		accessUrl:    accessUrl,
 		accessKey:    accessKey,
 		accessSecret: accessSecret,
+		accountId:    accountId,
 	}
 	return cfg
 }
@@ -98,6 +105,8 @@ type SAwsClient struct {
 
 	iregions []cloudprovider.ICloudRegion
 	iBuckets []cloudprovider.ICloudBucket
+
+	sessions map[string]*session.Session
 }
 
 func NewAwsClient(cfg *AwsClientConfig) (*SAwsClient, error) {
@@ -108,9 +117,9 @@ func NewAwsClient(cfg *AwsClientConfig) (*SAwsClient, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchRegions")
 	}
-	err = client.fetchBuckets()
+	err = client.fetchOwnerId()
 	if err != nil {
-		return nil, errors.Wrap(err, "fetchBuckets")
+		return nil, errors.Wrap(err, "fetchOwnerId")
 	}
 	if client.debug {
 		log.Debugf("ownerId: %s ownerName: %s", client.ownerId, client.ownerName)
@@ -156,23 +165,11 @@ func (client *SAwsClient) getDefaultSession() (*session.Session, error) {
 	return client.getAwsSession(client.getDefaultRegionId())
 }
 
-func (self *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
-	// todo: implement me
-	err := self.fetchRegions()
-	if err != nil {
-		return nil, err
-	}
-	subAccount := cloudprovider.SSubAccount{}
-	subAccount.Name = self.cpcfg.Name
-	subAccount.Account = self.accessKey
-	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
-	return []cloudprovider.SSubAccount{subAccount}, nil
-}
-
 func (client *SAwsClient) GetAccountId() string {
 	return client.ownerId
 }
 
+/*
 func (self *SAwsClient) UpdateAccount(accessKey, secret string) error {
 	if self.accessKey != accessKey || self.accessSecret != secret {
 		self.accessKey = accessKey
@@ -183,35 +180,46 @@ func (self *SAwsClient) UpdateAccount(accessKey, secret string) error {
 		return nil
 	}
 }
+*/
+
+var (
+	// cache for describeRegions
+	describeRegionResult        *ec2.DescribeRegionsOutput
+	describeRegionResultCacheAt time.Time
+)
+
+const (
+	describeRegionExpireHours = 2
+)
 
 // 用于初始化region信息
 func (self *SAwsClient) fetchRegions() error {
 	if self.iregions != nil {
 		return nil
 	}
-	s, err := self.getDefaultSession()
-	if err != nil {
-		return err
-	}
-	svc := ec2.New(s)
-	// https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.DescribeRegions
-	result, err := svc.DescribeRegions(&ec2.DescribeRegionsInput{})
-	if err != nil {
-		return err
+
+	if describeRegionResult == nil || describeRegionResultCacheAt.IsZero() || time.Now().After(describeRegionResultCacheAt.Add(time.Hour*describeRegionExpireHours)) {
+		s, err := self.getDefaultSession()
+		if err != nil {
+			return errors.Wrap(err, "getDefaultSession")
+		}
+		svc := ec2.New(s)
+		// https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.DescribeRegions
+		result, err := svc.DescribeRegions(&ec2.DescribeRegionsInput{})
+		if err != nil {
+			return errors.Wrap(err, "DescribeRegions")
+		}
+		describeRegionResult = result
+		describeRegionResultCacheAt = time.Now()
 	}
 
 	regions := make([]SRegion, 0)
-	// empty iregions
-	// if self.iregions != nil {
-	// 	self.iregions = self.iregions[:0]
-	// }
-
-	for _, region := range result.Regions {
+	for _, region := range describeRegionResult.Regions {
 		name := *region.RegionName
 		endpoint := *region.Endpoint
 		sregion := SRegion{client: self, RegionId: name, RegionEndpoint: endpoint}
 		// 初始化region client
-		sregion.getEc2Client()
+		// sregion.getEc2Client()
 		regions = append(regions, sregion)
 		self.iregions = append(self.iregions, &sregion)
 	}
@@ -220,7 +228,13 @@ func (self *SAwsClient) fetchRegions() error {
 }
 
 func (client *SAwsClient) getAwsSession(regionId string) (*session.Session, error) {
-	httpClient := client.cpcfg.HttpClient()
+	if client.sessions == nil {
+		client.sessions = make(map[string]*session.Session)
+	}
+	if sess, ok := client.sessions[regionId]; ok {
+		return sess, nil
+	}
+	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
 	s, err := session.NewSession(&sdk.Config{
 		Region: sdk.String(regionId),
 		Credentials: credentials.NewStaticCredentials(
@@ -231,13 +245,37 @@ func (client *SAwsClient) getAwsSession(regionId string) (*session.Session, erro
 		CredentialsChainVerboseErrors: sdk.Bool(true),
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getAwsSession.NewSession")
+	}
+	if len(client.accountId) > 0 {
+		// need to assumeRole
+		var env string
+		switch client.GetAccessEnv() {
+		case api.CLOUD_ACCESS_ENV_AWS_GLOBAL:
+			env = "aws"
+		default:
+			env = "aws-cn"
+		}
+		roleARN := fmt.Sprintf("arn:%s:iam::%s:role/OrganizationAccountAccessRole", env, client.accountId)
+		creds := stscreds.NewCredentials(s, roleARN)
+		s = s.Copy(&aws.Config{Credentials: creds})
 	}
 	if client.debug {
 		logLevel := aws.LogLevelType(uint(aws.LogDebugWithRequestErrors) + uint(aws.LogDebugWithHTTPBody) + uint(aws.LogDebugWithSigning))
 		s.Config.LogLevel = &logLevel
 	}
-	return s, nil
+
+	client.sessions[regionId] = s
+	return client.sessions[regionId], nil
+}
+
+func (region *SRegion) getAwsElasticacheClient() (*elasticache.ElastiCache, error) {
+	session, err := region.getAwsSession()
+	if err != nil {
+		return nil, errors.Wrap(err, "client.getDefaultSession")
+	}
+	session.ClientConfig(ELASTICACHE_SERVICE_NAME)
+	return elasticache.New(session), nil
 }
 
 func (client *SAwsClient) getAwsRoute53Session() (*session.Session, error) {
@@ -246,6 +284,15 @@ func (client *SAwsClient) getAwsRoute53Session() (*session.Session, error) {
 		return nil, errors.Wrap(err, "client.getDefaultSession()")
 	}
 	session.ClientConfig(ROUTE53_SERVICE_NAME)
+	return session, nil
+}
+
+func (client *SAwsClient) getAwsCloudtrailSession() (*session.Session, error) {
+	session, err := client.getDefaultSession()
+	if err != nil {
+		return nil, errors.Wrap(err, "client.getDefaultSession()")
+	}
+	session.ClientConfig(CLOUD_TRAIL_SERVICE_NAME)
 	return session, nil
 }
 
@@ -263,8 +310,14 @@ func (self *SAwsClient) getIBuckets() ([]cloudprovider.ICloudBucket, error) {
 	return self.iBuckets, nil
 }
 
-func (client *SAwsClient) fetchBuckets() error {
-	s, err := client.getDefaultSession()
+func (client *SAwsClient) fetchOwnerId() error {
+	ident, err := client.GetCallerIdentity()
+	if err != nil {
+		return errors.Wrap(err, "GetCallerIdentity")
+	}
+	client.ownerId = ident.Account
+
+	/* s, err := client.getDefaultSession()
 	if err != nil {
 		return errors.Wrap(err, "getDefaultSession")
 	}
@@ -281,6 +334,20 @@ func (client *SAwsClient) fetchBuckets() error {
 		if output.Owner.DisplayName != nil {
 			client.ownerName = *output.Owner.DisplayName
 		}
+	} */
+
+	return nil
+}
+
+func (client *SAwsClient) fetchBuckets() error {
+	s, err := client.getDefaultSession()
+	if err != nil {
+		return errors.Wrap(err, "getDefaultSession")
+	}
+	s3cli := s3.New(s)
+	output, err := s3cli.ListBuckets(&s3.ListBucketsInput{})
+	if err != nil {
+		return errors.Wrap(err, "ListBuckets")
 	}
 
 	ret := make([]cloudprovider.ICloudBucket, 0)
@@ -304,6 +371,11 @@ func (client *SAwsClient) fetchBuckets() error {
 		}
 
 		location := *output.LocationConstraint
+		if len(location) == 0 {
+			// https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketLocation.html
+			// Buckets in Region us-east-1 have a LocationConstraint of null.
+			location = DEFAULT_S3_REGION_ID
+		}
 		region, err := client.getIRegionByRegionId(location)
 		if err != nil {
 			log.Errorf("client.getIRegionByRegionId %s fail %s", location, err)
@@ -325,6 +397,12 @@ func (client *SAwsClient) fetchBuckets() error {
 
 // 只是使用fetchRegions初始化好的self.iregions. 本身并不从云服务器厂商拉取region信息
 func (self *SAwsClient) GetRegions() []SRegion {
+	err := self.fetchRegions()
+	if err != nil {
+		log.Errorf("fetchRegions fail %s", err)
+		return nil
+	}
+
 	regions := make([]SRegion, len(self.iregions))
 	for i := 0; i < len(regions); i += 1 {
 		region := self.iregions[i].(*SRegion)
@@ -338,6 +416,12 @@ func (self *SAwsClient) GetIRegions() []cloudprovider.ICloudRegion {
 }
 
 func (self *SAwsClient) GetRegion(regionId string) *SRegion {
+	err := self.fetchRegions()
+	if err != nil {
+		log.Errorf("fetchRegions fail %s", err)
+		return nil
+	}
+
 	if len(regionId) == 0 {
 		regionId = AWS_INTERNATIONAL_DEFAULT_REGION
 		switch self.accessUrl {
@@ -355,13 +439,17 @@ func (self *SAwsClient) GetRegion(regionId string) *SRegion {
 	return nil
 }
 
+func (self *SAwsClient) getDefaultRegion() *SRegion {
+	return self.GetRegion("")
+}
+
 func (self *SAwsClient) getIRegionByRegionId(id string) (cloudprovider.ICloudRegion, error) {
 	for i := 0; i < len(self.iregions); i += 1 {
 		if self.iregions[i].GetId() == id {
 			return self.iregions[i], nil
 		}
 	}
-	return nil, ErrorNotFound()
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "getIRegionByRegionId")
 }
 
 func (self *SAwsClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
@@ -370,7 +458,7 @@ func (self *SAwsClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, e
 			return self.iregions[i], nil
 		}
 	}
-	return nil, ErrorNotFound()
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetIRegionById")
 }
 
 func (self *SAwsClient) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
@@ -379,10 +467,11 @@ func (self *SAwsClient) GetIHostById(id string) (cloudprovider.ICloudHost, error
 		if err == nil {
 			return ihost, nil
 		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
-			return nil, err
+			log.Errorf("GetIHostById %s: %s", id, err)
+			return nil, errors.Wrap(err, "GetIHostById")
 		}
 	}
-	return nil, ErrorNotFound()
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetIHostById")
 }
 
 func (self *SAwsClient) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
@@ -391,10 +480,11 @@ func (self *SAwsClient) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) 
 		if err == nil {
 			return ihost, nil
 		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
-			return nil, err
+			log.Errorf("GetIVpcById %s: %s", id, err)
+			return nil, errors.Wrap(err, "GetIVpcById")
 		}
 	}
-	return nil, ErrorNotFound()
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetIVpcById")
 }
 
 func (self *SAwsClient) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
@@ -403,10 +493,11 @@ func (self *SAwsClient) GetIStorageById(id string) (cloudprovider.ICloudStorage,
 		if err == nil {
 			return ihost, nil
 		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
-			return nil, err
+			log.Errorf("GetIStorageById %s: %s", id, err)
+			return nil, errors.Wrap(err, "GetIStorageById")
 		}
 	}
-	return nil, ErrorNotFound()
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetIStorageById")
 }
 
 type SAccountBalance struct {
@@ -510,7 +601,7 @@ func (self *SAwsClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
 		cloudprovider.CLOUD_CAPABILITY_RDS,
-		// cloudprovider.CLOUD_CAPABILITY_CACHE,
+		cloudprovider.CLOUD_CAPABILITY_CACHE,
 		// cloudprovider.CLOUD_CAPABILITY_EVENT,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
 		cloudprovider.CLOUD_CAPABILITY_DNSZONE,

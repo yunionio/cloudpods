@@ -617,7 +617,7 @@ func (self *SRegion) list(resource string, params url.Values, retVal interface{}
 	ret := []jsonutils.JSONObject{}
 	for i := range result {
 		location, _ := result[i].GetString("location")
-		if len(location) == 0 || strings.ToLower(self.Name) == strings.ToLower(location) {
+		if len(location) == 0 || strings.ToLower(self.Name) == strings.ToLower(strings.Replace(location, " ", "", -1)) {
 			ret = append(ret, result[i])
 		}
 	}

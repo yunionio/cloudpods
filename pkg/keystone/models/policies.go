@@ -28,6 +28,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	policyman "yunion.io/x/onecloud/pkg/cloudcommon/policy"
@@ -476,6 +477,15 @@ func (manager *SPolicyManager) ListItemFilter(
 			q = q.IsFalse("is_system")
 		}
 	}
+	if len(query.Scope) == 0 {
+		query.Scope = string(policyman.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policyman.PolicyActionList))
+	}
+	switch query.Scope {
+	case string(rbacutils.ScopeProject):
+		q = q.Equals("scope", rbacutils.ScopeProject)
+	case string(rbacutils.ScopeDomain):
+		q = q.NotEquals("scope", rbacutils.ScopeSystem)
+	}
 	return q, nil
 }
 
@@ -547,7 +557,8 @@ func (policy *SPolicy) GetUsages() []db.IUsage {
 }
 
 func (manager *SPolicyManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
-	return db.SharableManagerFilterByOwner(manager, q, owner, scope)
+	q = db.SharableManagerFilterByOwner(manager, q, owner, scope)
+	return q
 }
 
 func (policy *SPolicy) GetSharableTargetDomainIds() []string {

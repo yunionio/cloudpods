@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
-	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -331,24 +330,24 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateLoadbalancer(
 		if err != nil {
 			return nil, err
 		}
+		oldTags, err := iLoadbalancer.GetTags()
+		if err != nil {
+			return nil, errors.Wrap(err, "iLoadbalancer.GetTags()")
+		}
 		tags, err := lb.GetAllUserMetadata()
+		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
 		if err != nil {
 			log.Errorf("GetAllUserMetadata fail %s", err)
 		} else {
 			err := iLoadbalancer.SetTags(tags, replaceTags)
 			if err != nil {
+				logclient.AddActionLogWithStartable(task, lb, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, false)
 				return nil, errors.Wrap(err, "iLoadbalancer.SetMetadata")
 			}
-			// sync back cloud metadata
-			iLoadbalancer.Refresh()
-			err = models.SyncVirtualResourceMetadata(ctx, userCred, lb, iLoadbalancer)
-			if err != nil {
-				return nil, errors.Wrap(err, "syncVirtualResourceMetadata")
-			}
+			logclient.AddActionLogWithStartable(task, lb, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
 		}
 		return nil, nil
 	})
-	// nil ops
 	return nil
 }
 
@@ -1656,7 +1655,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx con
 					Desc:      secgroup.Description,
 					VpcId:     vpcId,
 					ProjectId: remoteProjectId,
-					Rules:     secgroup.GetSecRules(""),
+				}
+				conf.Rules, err = secgroup.GetSecRules()
+				if err != nil {
+					return errors.Wrapf(err, "GetSecRules")
 				}
 				iSecgroup, err = iRegion.CreateISecurityGroup(conf)
 				if err != nil {
@@ -1680,17 +1682,18 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx con
 				return errors.Wrapf(err, "iSecgroup.GetRules")
 			}
 
-			maxPriority := region.GetDriver().GetSecurityGroupRuleMaxPriority()
-			minPriority := region.GetDriver().GetSecurityGroupRuleMinPriority()
+			localRules, err := secgroup.GetSecuritRuleSet()
+			if err != nil {
+				return errors.Wrapf(err, "GetSecuritRuleSet")
+			}
 
-			defaultInRule := region.GetDriver().GetDefaultSecurityGroupInRule()
-			defaultOutRule := region.GetDriver().GetDefaultSecurityGroupOutRule()
-			order := region.GetDriver().GetSecurityGroupRuleOrder()
-			onlyAllowRules := region.GetDriver().IsOnlySupportAllowRules()
+			src := cloudprovider.NewSecRuleInfo(&SKVMRegionDriver{})
+			src.Rules = localRules
 
-			localRules := secrules.SecurityRuleSet(secgroup.GetSecRules(""))
+			dest := cloudprovider.NewSecRuleInfo(region.GetDriver())
+			dest.Rules = rules
 
-			common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(minPriority, maxPriority, order, localRules, rules, defaultInRule, defaultOutRule, onlyAllowRules, false)
+			common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(src, dest, false)
 
 			if len(inAdds) == 0 && len(inDels) == 0 && len(outAdds) == 0 && len(outDels) == 0 {
 				return nil
@@ -2726,24 +2729,24 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateDBInstance(ct
 		if err != nil {
 			return nil, errors.Wrap(err, "instance.GetIDBInstance")
 		}
+		oldTags, err := iRds.GetTags()
+		if err != nil {
+			return nil, errors.Wrap(err, "iRds.GetTags()")
+		}
 		tags, err := instance.GetAllUserMetadata()
+		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
 		if err != nil {
 			log.Errorf("GetAllUserMetadata fail %s", err)
 		} else {
 			err := iRds.SetTags(tags, replaceTags)
 			if err != nil {
+				logclient.AddActionLogWithStartable(task, instance, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, false)
 				return nil, errors.Wrap(err, "iRds.SetMetadata")
 			}
-			// sync back cloud metadata
-			iRds.Refresh()
-			err = models.SyncVirtualResourceMetadata(ctx, userCred, instance, iRds)
-			if err != nil {
-				return nil, errors.Wrap(err, "syncVirtualResourceMetadata")
-			}
+			logclient.AddActionLogWithStartable(task, instance, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
 		}
 		return nil, nil
 	})
-	// nil ops
 	return nil
 }
 
@@ -3125,24 +3128,24 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateElasticcache(
 		}
 
 		iElasticcache, err := iRegion.GetIElasticcacheById(elasticcache.ExternalId)
+		oldTags, err := iElasticcache.GetTags()
+		if err != nil {
+			return nil, errors.Wrap(err, "iElasticcache.GetTags()")
+		}
 		tags, err := elasticcache.GetAllUserMetadata()
+		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
 		if err != nil {
 			log.Errorf("GetAllUserMetadata fail %s", err)
 		} else {
 			err := iElasticcache.SetTags(tags, replaceTags)
 			if err != nil {
+				logclient.AddActionLogWithStartable(task, elasticcache, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, false)
 				return nil, errors.Wrap(err, "iElasticcache.SetMetadata")
 			}
-			// sync back cloud metadata
-			iElasticcache.Refresh()
-			err = models.SyncVirtualResourceMetadata(ctx, userCred, elasticcache, iElasticcache)
-			if err != nil {
-				return nil, errors.Wrap(err, "syncVirtualResourceMetadata")
-			}
+			logclient.AddActionLogWithStartable(task, elasticcache, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
 		}
 		return nil, nil
 	})
-	// nil ops
 	return nil
 }
 

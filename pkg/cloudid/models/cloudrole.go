@@ -41,6 +41,7 @@ type SCloudroleManager struct {
 	db.SExternalizedResourceBaseManager
 	SCloudaccountResourceBaseManager
 	SAMLProviderResourceBaseManager
+	SCloudgroupResourceBaseManager
 }
 
 var CloudroleManager *SCloudroleManager
@@ -62,6 +63,7 @@ type SCloudrole struct {
 	db.SExternalizedResourceBase
 	SCloudaccountResourceBase
 	SAMLProviderResourceBase
+	SCloudgroupResourceBase
 
 	Document *jsonutils.JSONDict `length:"long" charset:"ascii" list:"domain" update:"domain" create:"domain_required"`
 	OwnerId  string              `width:"128" charset:"ascii" index:"true" list:"user" nullable:"false" create:"optional"`
@@ -76,6 +78,11 @@ func (manager *SCloudroleManager) ListItemFilter(ctx context.Context, q *sqlchem
 	}
 
 	q, err = manager.SCloudaccountResourceBaseManager.ListItemFilter(ctx, q, userCred, query.CloudaccountResourceListInput)
+	if err != nil {
+		return nil, err
+	}
+
+	q, err = manager.SCloudgroupResourceBaseManager.ListItemFilter(ctx, q, userCred, query.CloudgroupResourceListInput)
 	if err != nil {
 		return nil, err
 	}
@@ -161,10 +168,13 @@ func (self *SCloudrole) GetICloudrole() (cloudprovider.ICloudrole, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetSAMLProvider")
 	}
-	for i := 0; i < 10; i++ {
+	for {
 		_, err := provider.GetICloudroleByName(self.Name)
-		if err != nil && errors.Cause(err) == cloudprovider.ErrNotFound {
-			break
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				break
+			}
+			return nil, errors.Wrapf(err, "GetICloudroleByName(%s)", self.Name)
 		}
 		info := strings.Split(self.Name, "-")
 		num, err := strconv.Atoi(info[len(info)-1])
@@ -196,10 +206,16 @@ func (self *SCloudrole) GetICloudrole() (cloudprovider.ICloudrole, error) {
 
 func (self *SCloudrole) GetCloudpolicies() ([]SCloudpolicy, error) {
 	q := CloudpolicyManager.Query()
-	samlUsers := SamluserManager.Query("cloudgroup_id").Equals("owner_id", self.OwnerId).Equals("cloudaccount_id", self.CloudaccountId).SubQuery()
-	groups := CloudgroupManager.Query("id").In("id", samlUsers)
-	gp := CloudgroupPolicyManager.Query("cloudpolicy_id").In("cloudgroup_id", groups).SubQuery()
-	q = q.In("id", gp)
+	var sq *sqlchemy.SSubQuery
+	if len(self.OwnerId) > 0 {
+		su := SamluserManager.Query("cloudgroup_id").Equals("owner_id", self.OwnerId).Equals("cloudaccount_id", self.CloudaccountId).SubQuery()
+		sq = CloudgroupPolicyManager.Query("cloudpolicy_id").In("cloudgroup_id", su).SubQuery()
+	} else if len(self.CloudgroupId) > 0 {
+		sq = CloudgroupPolicyManager.Query("cloudpolicy_id").Equals("cloudgroup_id", self.CloudgroupId).SubQuery()
+	} else {
+		return nil, fmt.Errorf("empty owner id or cloudgroup id")
+	}
+	q = q.In("id", sq)
 	policies := []SCloudpolicy{}
 	err := db.FetchModelObjects(CloudpolicyManager, q, &policies)
 	if err != nil {

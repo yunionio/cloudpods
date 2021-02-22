@@ -6,6 +6,7 @@ ROOT_DIR := $(CURDIR)
 BUILD_DIR := $(ROOT_DIR)/_output
 BIN_DIR := $(BUILD_DIR)/bin
 BUILD_SCRIPT := $(ROOT_DIR)/build/build.sh
+DEB_BUILD_SCRIPT := $(ROOT_DIR)/build/build_deb.sh
 
 ifeq ($(ONECLOUD_CI_BUILD),)
 	GIT_COMMIT := $(shell git rev-parse --short HEAD)
@@ -64,6 +65,7 @@ endif
 
 cmdTargets:=$(filter-out cmd/host-image,$(wildcard cmd/*))
 rpmTargets:=$(foreach b,$(patsubst cmd/%,%,$(cmdTargets)),$(if $(shell [ -f "$(CURDIR)/build/$(b)/vars" ] && echo 1),rpm/$(b)))
+debTargets:=$(foreach b,$(patsubst cmd/%,%,$(cmdTargets)),$(if $(shell [ -f "$(CURDIR)/build/$(b)/vars" ] && echo 1),deb/$(b)))
 
 all: build
 
@@ -93,6 +95,9 @@ cmd/%: prepare_dir
 rpm/%: cmd/%
 	$(BUILD_SCRIPT) $*
 
+deb/%: cmd/%
+	$(DEB_BUILD_SCRIPT) $*
+
 pkg/%: prepare_dir
 	$(GO_INSTALL) $(REPO_PREFIX)/$@
 
@@ -101,6 +106,9 @@ build:
 
 rpm:
 	$(MAKE) $(rpmTargets)
+
+deb:
+	$(MAKE) $(debTargets)
 
 rpmclean:
 	rm -fr $(BUILD_DIR)/rpms
@@ -179,6 +187,7 @@ space:=$(space) $(space)
 y18n-src-lang := en-US
 y18n-lang     := en-US,zh-CN
 y18n-packages := \
+		yunion.io/x/onecloud/cmd/apigateway \
 		yunion.io/x/onecloud/cmd/keystone \
 		yunion.io/x/onecloud/cmd/monitor \
 		yunion.io/x/onecloud/cmd/region \

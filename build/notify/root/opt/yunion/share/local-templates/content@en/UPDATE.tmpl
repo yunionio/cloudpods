@@ -1,0 +1,10 @@
+{{- $d := .resource_details -}}
+Your {{ if $d.brand -}} {{ $d.brand }} {{ end -}} {{ .resource_type }} {{ $d.name }} {{ if $d.project -}} in project {{ $d.project }} {{ end -}} has been {{ .action_display }} successfully
+{{- if $d.account -}}
+, the acount is {{ $d.account }}
+{{- end -}}
+
+{{- if $d.password -}}
+, the password is {{ $d.password }}
+{{- end -}}
+, and please go to the console to view more information

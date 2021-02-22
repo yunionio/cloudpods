@@ -16,9 +16,9 @@ package taskman
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/util/panicutils"
@@ -32,19 +32,22 @@ func init() {
 	taskWorkerTable = make(map[string]*appsrv.SWorkerManager)
 }
 
-func runTask(taskId string, data jsonutils.JSONObject) {
+func runTask(taskId string, data jsonutils.JSONObject) error {
 	taskName := TaskManager.getTaskName(taskId)
 	if len(taskName) == 0 {
-		log.Errorf("no such task??? task_id=%s", taskId)
-		return
+		return fmt.Errorf("no such task??? task_id=%s", taskId)
 	}
 	worker := taskWorkMan
 	if workerMan, ok := taskWorkerTable[taskName]; ok {
 		worker = workerMan
 	}
-	worker.Run(func() {
+	isOk := worker.Run(func() {
 		TaskManager.execTask(taskId, data)
 	}, nil, func(err error) {
 		panicutils.SendPanicMessage(context.TODO(), err)
 	})
+	if !isOk {
+		return fmt.Errorf("worker %s(%s) not running may be droped", taskName, taskId)
+	}
+	return nil
 }

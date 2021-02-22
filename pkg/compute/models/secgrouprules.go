@@ -150,13 +150,6 @@ func (self *SSecurityGroupRule) AllowDeleteItem(ctx context.Context, userCred mc
 	return false
 }
 
-/*func (self *SSecurityGroupRule) GetSecGroup() *SSecurityGroup {
-	if secgroup, _ := SecurityGroupManager.FetchById(self.SecgroupI); secgroup != nil {
-		return secgroup.(*SSecurityGroup)
-	}
-	return nil
-}*/
-
 func (manager *SSecurityGroupRuleManager) FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
 	return q.Equals("id", idStr)
 }
@@ -462,23 +455,6 @@ func (manager *SSecurityGroupRuleManager) getRulesBySecurityGroup(secgroup *SSec
 	return rules, nil
 }
 
-func (self *SSecurityGroup) SyncRules(ctx context.Context, userCred mcclient.TokenCredential, rules cloudprovider.SecurityRuleSet) error {
-	priority, prePriority := 10, 0
-	for i := 0; i < len(rules); i++ {
-		// 这里避免了Rule规则优先级在 1-100之外的问题,ext.GetRules()不需要进行优先级转换
-		if prePriority != 0 && rules[i].Priority != prePriority && priority < 100 {
-			priority++
-		}
-		prePriority = rules[i].Priority
-		rules[i].Priority = priority
-		_, err := self.newFromCloudSecurityGroupRule(ctx, userCred, rules[i])
-		if err != nil {
-			return errors.Wrapf(err, "newFromCloudSecurityGroupRule")
-		}
-	}
-	return nil
-}
-
 func (self *SSecurityGroup) newFromCloudSecurityGroupRule(ctx context.Context, userCred mcclient.TokenCredential, rule cloudprovider.SecurityRule) (*SSecurityGroupRule, error) {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
@@ -493,6 +469,11 @@ func (self *SSecurityGroup) newFromCloudSecurityGroupRule(ctx context.Context, u
 		cidr = rule.IPNet.String()
 	}
 
+	err := rule.ValidateRule()
+	if err != nil {
+		return nil, errors.Wrapf(err, "ValidateRule")
+	}
+
 	secrule := &SSecurityGroupRule{
 		Priority:    int64(rule.Priority),
 		Protocol:    protocol,
@@ -505,7 +486,7 @@ func (self *SSecurityGroup) newFromCloudSecurityGroupRule(ctx context.Context, u
 	secrule.SetModelManager(SecurityGroupRuleManager, secrule)
 	secrule.SecgroupId = self.Id
 
-	err := SecurityGroupRuleManager.TableSpec().Insert(ctx, secrule)
+	err = SecurityGroupRuleManager.TableSpec().Insert(ctx, secrule)
 	if err != nil {
 		return nil, errors.Wrapf(err, "SecurityGroupRuleManager.Insert")
 	}

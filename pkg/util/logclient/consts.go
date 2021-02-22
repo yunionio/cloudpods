@@ -35,6 +35,7 @@ const (
 	ACT_GUEST_ATTACH_ISOLATED_DEVICE = "guest_attach_isolated_device"
 	ACT_GUEST_DETACH_ISOLATED_DEVICE = "guest_detach_isolated_device"
 	ACT_MERGE                        = "merge"
+	ACT_MERGE_FROM                   = "merge_from"
 	ACT_OFFLINE                      = "offline"
 	ACT_ONLINE                       = "online"
 	ACT_PRIVATE                      = "private"
@@ -196,4 +197,10 @@ const (
 
 	ACT_UPDATE_RULE = "update_config"
 	ACT_UPDATE_TAGS = "update_tags"
+
+	ACT_SET_ALERT = "set_alert"
+
+	ACT_CLOUDACCOUNT_SYNC_NETWORK = "sync_network"
+
+	ACT_MERGE_NETWORK = "merge_network"
 )

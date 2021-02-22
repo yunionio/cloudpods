@@ -36,6 +36,8 @@ type SSAMLSpInitiatedLoginData struct {
 	AudienceRestriction string
 
 	Attributes []SSAMLResponseAttribute
+
+	Form string
 }
 
 type SSAMLIdpInitiatedLoginData struct {
@@ -59,7 +61,7 @@ type SSAMLResponseInput struct {
 
 func NewResponse(input SSAMLResponseInput) Response {
 	// since := timeutils.IsoTime(time.Now().UTC().Add(-time.Minute * 60 * 24))
-	until := timeutils.IsoTime(time.Now().UTC().Add(time.Minute * 60 * 24))
+	until := timeutils.IsoTime(time.Now().UTC().Add(time.Minute * 5))
 
 	respId := GenerateSAMLId()
 	assertId := GenerateSAMLId()
@@ -251,6 +253,7 @@ func NewResponse(input SSAMLResponseInput) Response {
 					Space: XMLNS_ASSERT,
 					Local: "Conditions",
 				},
+				NotBefore:            &now,
 				NotOnOrAfter:         until,
 				AudienceRestrictions: []AudienceRestriction{},
 			},

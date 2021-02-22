@@ -695,7 +695,7 @@ type SCreateVMParam struct {
 	Cpu                  int
 	Mem                  int
 	Bios                 string
-	Cdrom                jsonutils.JSONObject
+	Cdrom                SCdromInfo
 	Disks                []SDiskInfo
 	Nics                 []jsonutils.JSONObject
 	ResourcePool         string
@@ -705,6 +705,13 @@ type SCreateVMParam struct {
 type SEsxiInstanceSnapshotInfo struct {
 	InstanceSnapshotId string
 	InstanceId         string
+}
+
+type SCdromInfo struct {
+	ImageId string
+	Path    string
+	Name    string
+	Size    string
 }
 
 type SDiskInfo struct {
@@ -735,17 +742,17 @@ func (self *SHost) CreateVM2(ctx context.Context, ds *SDatastore, params SCreate
 		return self.CloneVM(ctx, temvm, &sp.snapshotTree.Snapshot, ds, params)
 	}
 	if len(params.Disks) == 0 {
-		return self.DoCreateVM(ctx, ds, params)
+		return nil, errors.Error("empty disk config")
 	}
 	imageInfo := params.Disks[0].ImageInfo
-	if imageInfo.ImageType != string(cloudprovider.ImageTypeSystem) {
-		return self.DoCreateVM(ctx, ds, params)
+	if imageInfo.ImageType == string(cloudprovider.ImageTypeSystem) {
+		temvm, err := self.manager.SearchTemplateVM(imageInfo.ImageExternalId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "SEsxiClient.SearchTemplateVM for image %q", imageInfo.ImageExternalId)
+		}
+		return self.CloneVM(ctx, temvm, nil, ds, params)
 	}
-	temvm, err := self.manager.SearchTemplateVM(imageInfo.ImageExternalId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "SEsxiClient.SearchTemplateVM for image %q", imageInfo.ImageExternalId)
-	}
-	return self.CloneVM(ctx, temvm, nil, ds, params)
+	return self.DoCreateVM(ctx, ds, params)
 }
 
 func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreateVMParam) (*SVirtualMachine, error) {
@@ -803,15 +810,12 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 		}
 		deviceChange = append(deviceChange, addDevSpec(NewSCSIDev(1000, 100, driver)))
 	}
-	cdromPath := ""
-	if params.Cdrom != nil {
-		cdromPath, _ = params.Cdrom.GetString("path")
-	}
 	var err error
-	if len(cdromPath) != 0 && !strings.HasPrefix(cdromPath, "[") {
+	cdromPath := params.Cdrom.Path
+	if len(cdromPath) > 0 {
 		cdromPath, err = self.FileUrlPathToDsPath(cdromPath)
 		if err != nil {
-			return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath")
+			return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath for cdrom path")
 		}
 	}
 	deviceChange = append(deviceChange, addDevSpec(NewCDROMDev(cdromPath, 16000, 201)))

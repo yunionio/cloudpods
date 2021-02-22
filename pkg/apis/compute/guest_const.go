@@ -140,6 +140,9 @@ const (
 	VM_TEMPLATE_SAVING      = "tempalte_saving"
 	VM_TEMPLATE_SAVE_FAILED = "template_save_failed"
 
+	VM_UPDATE_TAGS        = "update_tags"
+	VM_UPDATE_TAGS_FAILED = "update_tags_fail"
+
 	SHUTDOWN_STOP      = "stop"
 	SHUTDOWN_TERMINATE = "terminate"
 
@@ -172,8 +175,8 @@ const (
 )
 
 const (
-	OS_ARCH_X86 = "x86"
-	OS_ARCH_ARM = "arm"
+	OS_ARCH_X86     = "x86"
+	OS_ARCH_AARCH64 = "aarch64"
 )
 
 var VM_RUNNING_STATUS = []string{VM_START_START, VM_STARTING, VM_RUNNING, VM_BLOCK_STREAM, VM_BLOCK_STREAM_FAIL}

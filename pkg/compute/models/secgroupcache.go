@@ -404,14 +404,12 @@ func (self *SSecurityGroupCache) syncWithCloudSecurityGroup(ctx context.Context,
 	if cacheCount > 1 {
 		return nil
 	}
-	info, err := SecurityGroupManager.getRuleInfo(provider, ext)
+	dest := cloudprovider.NewSecRuleInfo(GetRegionDriver(provider.Provider))
+	dest.Rules, err = ext.GetRules()
 	if err != nil {
-		return errors.Wrapf(err, "getRuleInfo")
+		return errors.Wrapf(err, "GetRules")
 	}
-	err = secgroup.SyncSecurityGroupRules(ctx, userCred, info)
-	if err != nil {
-		return errors.Wrapf(err, "SyncSecurityGroupRules")
-	}
+	secgroup.SyncSecurityGroupRules(ctx, userCred, dest)
 	return nil
 }
 
@@ -629,4 +627,42 @@ func (self *SSecurityGroupCache) GetISecurityGroup() (cloudprovider.ICloudSecuri
 		return nil, errors.Wrapf(err, "GetIRegion")
 	}
 	return iRegion.GetISecurityGroupById(self.ExternalId)
+}
+
+func (self *SSecurityGroupCache) SyncRules() error {
+	region := self.GetRegion()
+	if region == nil {
+		return fmt.Errorf("failed to get region for secgroupcache %s(%s)", self.Name, self.Id)
+	}
+	iSecgroup, err := self.GetISecurityGroup()
+	if err != nil {
+		return errors.Wrapf(err, "GetISecurityGroup")
+	}
+	secgroup, err := self.GetSecgroup()
+	if err != nil {
+		return errors.Wrapf(err, "GetSecgroup")
+	}
+
+	rules, err := iSecgroup.GetRules()
+	if err != nil {
+		return errors.Wrapf(err, "iSecgroup.GetRules")
+	}
+
+	localRules, err := secgroup.GetSecuritRuleSet()
+	if err != nil {
+		return errors.Wrapf(err, "GetSecuritRuleSet")
+	}
+
+	src := cloudprovider.NewSecRuleInfo(GetRegionDriver(api.CLOUD_PROVIDER_ONECLOUD))
+	src.Rules = localRules
+
+	dest := cloudprovider.NewSecRuleInfo(GetRegionDriver(region.Provider))
+	dest.Rules = rules
+
+	common, inAdds, outAdds, inDels, outDels := cloudprovider.CompareRules(src, dest, false)
+
+	if len(inAdds) == 0 && len(inDels) == 0 && len(outAdds) == 0 && len(outDels) == 0 {
+		return nil
+	}
+	return iSecgroup.SyncRules(common, inAdds, outAdds, inDels, outDels)
 }

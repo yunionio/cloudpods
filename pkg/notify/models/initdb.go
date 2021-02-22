@@ -31,6 +31,8 @@ func InitDB() error {
 		NotificationManager,
 		ConfigManager,
 		TemplateManager,
+		ReceiverNotificationManager,
+		SubscriptionManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {

@@ -23,6 +23,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -72,6 +73,10 @@ func (self *SecurityGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandal
 		caches[i].RealDelete(ctx, self.GetUserCred())
 	}
 
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    secgroup,
+		Action: notifyclient.ActionDelete,
+	})
 	secgroup.RealDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }

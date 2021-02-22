@@ -16,11 +16,20 @@ package bitmap
 
 // Uint2IntArray transfer bitmap displayed as n to int array
 func Uint2IntArray(n uint32) []int {
+	return Uint64ToIntArray(uint64(n))
+}
+
+// IntArray2Uint transfer int array nums to bitmap number
+func IntArray2Uint(nums []int) uint32 {
+	return uint32(IntArrayToUint64(nums))
+}
+
+func Uint64ToIntArray(n uint64) []int {
 	ret := make([]int, 0, 2)
 	var i uint = 0
 	for n != 0 {
 		if n&(1<<i) != 0 {
-			n &= uint32(^(1 << i))
+			n &= uint64(^(1 << i))
 			ret = append(ret, int(i))
 		}
 		i++
@@ -28,9 +37,8 @@ func Uint2IntArray(n uint32) []int {
 	return ret
 }
 
-// IntArray2Uint transfer int array nums to bitmap number
-func IntArray2Uint(nums []int) uint32 {
-	var ret uint32 = 0
+func IntArrayToUint64(nums []int) uint64 {
+	var ret uint64 = 0
 	for _, i := range nums {
 		ret |= (1 << uint(i))
 	}

@@ -46,6 +46,9 @@ type SImage struct {
 	multicloud.SImageBase
 	storageCache *SStoragecache
 
+	// normalized image info
+	imgInfo *imagetools.ImageInfo
+
 	ImageId            string          //	镜像ID
 	OsName             string          //	镜像操作系统
 	ImageType          string          //	镜像类型
@@ -182,25 +185,29 @@ func (self *SImage) GetSizeByte() int64 {
 	return int64(self.ImageSize) * 1024 * 1024 * 1024
 }
 
-func (self *SImage) GetOsType() string {
-	switch self.Platform {
-	case "Windows", "FreeBSD":
-		return self.Platform
-	default:
-		return "Linux"
+func (self *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
+	if self.imgInfo == nil {
+		imgInfo := imagetools.NormalizeImageInfo(self.OsName, self.Architecture, self.Platform, self.Platform, "")
+		self.imgInfo = &imgInfo
 	}
+
+	return self.imgInfo
+}
+
+func (self *SImage) GetOsType() string {
+	return self.getNormalizedImageInfo().OsType
 }
 
 func (self *SImage) GetOsDist() string {
-	return self.Platform
+	return self.getNormalizedImageInfo().OsDistro
 }
 
 func (self *SImage) GetOsVersion() string {
-	return imagetools.NormalizeImageInfo(self.OsName, "", "", "", "").OsVersion
+	return self.getNormalizedImageInfo().OsVersion
 }
 
 func (self *SImage) GetOsArch() string {
-	return self.Architecture
+	return self.getNormalizedImageInfo().OsArch
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {

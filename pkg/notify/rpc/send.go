@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	notifyv2 "yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/models"
@@ -107,16 +108,12 @@ func (self *SRpcService) StopAll() {
 }
 
 // Send call the corresponding rpc server to send messager.
-func (self *SRpcService) Send(ctx context.Context, contactType, contact, topic, msg, priority string) error {
-
-	args, err := self.templateStore.NotifyFilter(contactType, topic, msg)
-	if err != nil {
-		return errors.Wrap(err, "templateStore.NotifyFilter")
+func (self *SRpcService) Send(ctx context.Context, contactType string, args apis.SendParams) error {
+	// Stop sending that must fail early
+	if len(args.RemoteTemplate) == 0 && contactType == api.MOBILE {
+		return fmt.Errorf("empty remote template for mobile type notification")
 	}
-
-	args.Contact = contact
-	args.Priority = priority
-
+	var err error
 	f := func(service *apis.SendNotificationClient) (interface{}, error) {
 		log.Debugf("send one")
 		return service.Send(ctx, &args)
@@ -133,22 +130,13 @@ func (self *SRpcService) Send(ctx context.Context, contactType, contact, topic, 
 	return nil
 }
 
-func (self *SRpcService) BatchSend(ctx context.Context, contacts []string, contactType, topic, message, priority string) ([]*apis.FailedRecord, error) {
-	args, err := self.templateStore.NotifyFilter(contactType, topic, message)
-	if err != nil {
-		return nil, errors.Wrap(err, "templateStore.NotifyFilter")
+func (self *SRpcService) BatchSend(ctx context.Context, contactType string, args apis.BatchSendParams) ([]*apis.FailedRecord, error) {
+	// Stop sending that must fail early
+	if len(args.RemoteTemplate) == 0 && contactType == api.MOBILE {
+		return nil, fmt.Errorf("empty remote template for mobile type notification")
 	}
-
-	batchSendParams := apis.BatchSendParams{
-		Contacts:       contacts,
-		Title:          args.Title,
-		Message:        args.Message,
-		Priority:       args.Priority,
-		RemoteTemplate: args.RemoteTemplate,
-	}
-
 	f := func(service *apis.SendNotificationClient) (interface{}, error) {
-		return service.BatchSend(ctx, &batchSendParams)
+		return service.BatchSend(ctx, &args)
 	}
 
 	ret, err := self.execute(ctx, f, contactType)
@@ -175,6 +163,11 @@ func (self *SRpcService) RestartService(ctx context.Context, config notifyv2.SCo
 
 func (self *SRpcService) ContactByMobile(ctx context.Context, mobile, serviceName string) (string, error) {
 
+	iMobile := api.ParseInternationalMobile(mobile)
+	// compatible
+	if iMobile.AreaCode == "86" {
+		mobile = iMobile.Mobile
+	}
 	args := apis.UseridByMobileParams{}
 	args.Mobile = mobile
 

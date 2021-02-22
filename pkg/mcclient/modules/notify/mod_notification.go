@@ -29,24 +29,30 @@ var (
 )
 
 type SNotifyMessage struct {
-	Uid         []string        `json:"uid,omitempty"`
-	Gid         []string        `json:"gid,omitempty"`
-	ContactType TNotifyChannel  `json:"contact_type,omitempty"`
-	Contacts    []string        `json:"contracts"`
-	Topic       string          `json:"topic,omitempty"`
-	Priority    TNotifyPriority `json:"priority,omitempty"`
-	Msg         string          `json:"msg,omitempty"`
-	Remark      string          `json:"remark,omitempty"`
-	Broadcast   bool            `json:"broadcast,omitempty"`
+	Uid                       []string               `json:"uid,omitempty"`
+	Gid                       []string               `json:"gid,omitempty"`
+	ContactType               TNotifyChannel         `json:"contact_type,omitempty"`
+	Contacts                  []string               `json:"contracts"`
+	Topic                     string                 `json:"topic,omitempty"`
+	Priority                  TNotifyPriority        `json:"priority,omitempty"`
+	Msg                       string                 `json:"msg,omitempty"`
+	Remark                    string                 `json:"remark,omitempty"`
+	Broadcast                 bool                   `json:"broadcast,omitempty"`
+	Tag                       string                 `json:"tag"`
+	Metadata                  map[string]interface{} `json:"metadata"`
+	IgnoreNonexistentReceiver bool                   `json:"ignore_nonexistent_receiver"`
 }
 
 type SNotifyV2Message struct {
-	Receivers   []string `json:"receivers"`
-	Contacts    []string `json:"contacts"`
-	ContactType string   `json:"contact_type"`
-	Topic       string   `json:"topic"`
-	Priority    string   `json:"priority"`
-	Message     string   `json:"message"`
+	Receivers                 []string               `json:"receivers"`
+	Contacts                  []string               `json:"contacts"`
+	ContactType               string                 `json:"contact_type"`
+	Topic                     string                 `json:"topic"`
+	Priority                  string                 `json:"priority"`
+	Message                   string                 `json:"message"`
+	Tag                       string                 `json:"tag"`
+	Metadata                  map[string]interface{} `json:"metadata"`
+	IgnoreNonexistentReceiver bool                   `json:"ignore_nonexistent_receiver"`
 }
 
 type NotificationManager struct {
@@ -75,12 +81,15 @@ func (manager *NotificationManager) Send(s *mcclient.ClientSession, msg SNotifyM
 	receiverIds = append(receiverIds, msg.Uid...)
 
 	v2msg := SNotifyV2Message{
-		Receivers:   receiverIds,
-		Contacts:    msg.Contacts,
-		ContactType: string(msg.ContactType),
-		Topic:       msg.Topic,
-		Priority:    string(msg.Priority),
-		Message:     msg.Msg,
+		Receivers:                 receiverIds,
+		Contacts:                  msg.Contacts,
+		ContactType:               string(msg.ContactType),
+		Topic:                     msg.Topic,
+		Priority:                  string(msg.Priority),
+		Message:                   msg.Msg,
+		Tag:                       msg.Tag,
+		Metadata:                  msg.Metadata,
+		IgnoreNonexistentReceiver: msg.IgnoreNonexistentReceiver,
 	}
 	params := jsonutils.Marshal(&v2msg)
 

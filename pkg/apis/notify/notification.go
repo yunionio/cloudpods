@@ -17,6 +17,8 @@ package notify
 import (
 	"time"
 
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
@@ -46,6 +48,12 @@ type NotificationCreateInput struct {
 	// description: message content or jsonobject
 	// required: ture
 	Message string `json:"message"`
+	// description: notification tag
+	// required: false
+	// example: alert
+	Tag                       string                 `json:"tag"`
+	Metadata                  map[string]interface{} `json:"metadata"`
+	IgnoreNonexistentReceiver bool                   `json:"ignore_nonexistent_receiver"`
 }
 
 type ReceiveDetail struct {
@@ -73,4 +81,52 @@ type NotificationListInput struct {
 
 	ContactType string
 	ReceiverId  string
+	Tag         string
+}
+
+type NotificationManagerEventNotifyInput struct {
+	// description: ids or names of receiver
+	// required: false
+	// example: {"adfb720ccdd34c638346ea4fa7a713a8", "zhangsan"}
+	Receivers []string `json:"receivers"`
+	// description: direct contact, admin privileges required
+	// required: false
+	Contacts []string `json:"contacts"`
+	// description: contact types
+	// required: false
+	// example: email
+	ContactTypes []string `json:"contact_type"`
+	// description: notification priority
+	// required: false
+	// enum: fatal,important,nomal
+	// example: normal
+	Priority string `json:"priority"`
+	// description: resource details
+	// required: ture
+	ResourceDetails *jsonutils.JSONDict `json:"resource_details"`
+	// description: event trigger sending notification
+	// required: true
+	// example: SERVER_DELETE
+	Event string `json:"event"`
+	// description: day left before the event
+	// required: false
+	// example: 0
+	AdvanceDays int `json:"advance_days"`
+	// description: domainId of the resource that triggered the event notification
+	// required: false
+	// example: default
+	ProjectDomainId string
+	// description: projectId of the resource that triggered the event notification
+	// required: false
+	// example: f627e09f038645f08ce6880c8d9cb8fd
+	ProjectId string `json:"project_id"`
+}
+
+type NotificationManagerEventNotifyOutput struct {
+	FailedList []FailedElem
+}
+
+type FailedElem struct {
+	ContactType string
+	Reason      string
 }

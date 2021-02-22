@@ -32,7 +32,6 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/regutils"
-	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -365,11 +364,9 @@ func (manager *SGuestManager) ListItemFilter(
 	if len(query.IpAddr) > 0 {
 		gn := GuestnetworkManager.Query("guest_id").Contains("ip_addr", query.IpAddr).SubQuery()
 		guestEip := ElasticipManager.Query("associate_id").Equals("associate_type", api.EIP_ASSOCIATE_TYPE_SERVER).Contains("ip_addr", query.IpAddr).SubQuery()
-		q = q.LeftJoin(gn, sqlchemy.Equals(q.Field("id"), gn.Field("guest_id")))
-		q = q.LeftJoin(guestEip, sqlchemy.Equals(q.Field("id"), guestEip.Field("associate_id")))
 		q = q.Filter(sqlchemy.OR(
-			sqlchemy.IsNotNull(gn.Field("guest_id")),
-			sqlchemy.IsNotNull(guestEip.Field("associate_id")),
+			sqlchemy.In(q.Field("id"), gn),
+			sqlchemy.In(q.Field("id"), guestEip),
 		))
 	}
 
@@ -1217,7 +1214,7 @@ func (manager *SGuestManager) validateCreateData(
 		}
 
 		if arch := imgProperties["os_arch"]; strings.Contains(arch, "aarch") {
-			input.OsArch = api.OS_ARCH_ARM
+			input.OsArch = api.OS_ARCH_AARCH64
 		}
 
 		if len(imgProperties) == 0 {
@@ -1260,7 +1257,7 @@ func (manager *SGuestManager) validateCreateData(
 		skuName := input.InstanceType
 		if len(skuName) > 0 {
 			provider := GetDriver(input.Hypervisor).GetProvider()
-			sku, err := ServerSkuManager.FetchSkuByNameAndProvider(skuName, provider, true)
+			sku, err = ServerSkuManager.FetchSkuByNameAndProvider(skuName, provider, true)
 			if err != nil {
 				return nil, err
 			}
@@ -1324,10 +1321,10 @@ func (manager *SGuestManager) validateCreateData(
 		}
 		log.Debugf("ROOT DISK: %#v", rootDiskConfig)
 		input.Disks[0] = rootDiskConfig
-		if sku != nil  {
-			if len(rootDiskConfig.OsArch) >= 0 && len(sku.CpuArch) >= 0 {
-				if rootDiskConfig.OsArch != sku.CpuArch {
-					return nil, httperrors.NewConflictError("root disk image(%s) and sku(%s) architecture mismatch")
+		if sku != nil {
+			if len(rootDiskConfig.OsArch) > 0 && len(sku.CpuArch) > 0 {
+				if strings.Contains(rootDiskConfig.OsArch, sku.CpuArch) {
+					return nil, httperrors.NewConflictError("root disk image(%s) and sku(%s) architecture mismatch", rootDiskConfig.OsArch, sku.CpuArch)
 				}
 			}
 		}
@@ -1889,7 +1886,13 @@ func (manager *SGuestManager) OnCreateComplete(ctx context.Context, items []db.I
 		manager.SetPropertiesWithInstanceSnapshot(ctx, userCred, input.InstanceSnapshotId, items)
 	}
 	pendingUsage, pendingRegionUsage := getGuestResourceRequirements(ctx, userCred, input, ownerId, len(items), input.Backup)
-	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, pendingRegionUsage, "GuestBatchCreateTask", input.ParentTaskId)
+	err := RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, pendingRegionUsage, "GuestBatchCreateTask", input.ParentTaskId)
+	if err != nil {
+		for i := range items {
+			guest := items[i].(*SGuest)
+			guest.SetStatus(userCred, api.VM_CREATE_FAILED, err.Error())
+		}
+	}
 }
 
 func (guest *SGuest) GetGroups() []SGroupguest {
@@ -2317,20 +2320,9 @@ func (self *SGuest) GetSecgroups() ([]SSecurityGroup, error) {
 	return secgroups, nil
 }
 
-func (self *SGuest) getSecgroup() *SSecurityGroup {
-	return SecurityGroupManager.FetchSecgroupById(self.SecgrpId)
-}
-
 func (self *SGuest) getAdminSecgroup() *SSecurityGroup {
-	return SecurityGroupManager.FetchSecgroupById(self.AdminSecgrpId)
-}
-
-func (self *SGuest) GetSecgroupName() string {
-	secgrp := self.getSecgroup()
-	if secgrp != nil {
-		return secgrp.GetName()
-	}
-	return ""
+	secGrp, _ := SecurityGroupManager.FetchSecgroupById(self.AdminSecgrpId)
+	return secGrp
 }
 
 func (self *SGuest) getAdminSecgroupName() string {
@@ -2339,31 +2331,6 @@ func (self *SGuest) getAdminSecgroupName() string {
 		return secgrp.GetName()
 	}
 	return ""
-}
-
-func (self *SGuest) GetSecRules() []secrules.SecurityRule {
-	return self.getSecRules()
-}
-
-func (self *SGuest) getSecRules() []secrules.SecurityRule {
-	if secgrp := self.getSecgroup(); secgrp != nil {
-		return secgrp.GetSecRules("")
-	}
-	if rule, err := secrules.ParseSecurityRule(options.Options.DefaultSecurityRules); err == nil {
-		return []secrules.SecurityRule{*rule}
-	} else {
-		log.Errorf("Default SecurityRules error: %v", err)
-	}
-	return []secrules.SecurityRule{}
-}
-
-func (self *SGuest) getSecurityRules() string {
-	secgrp := self.getSecgroup()
-	if secgrp != nil {
-		return secgrp.getSecurityRuleString("")
-	} else {
-		return options.Options.DefaultSecurityRules
-	}
 }
 
 //获取多个安全组规则，优先级降序排序
@@ -2390,7 +2357,8 @@ func (self *SGuest) getSecurityGroupsRules() string {
 func (self *SGuest) getAdminSecurityRules() string {
 	secgrp := self.getAdminSecgroup()
 	if secgrp != nil {
-		return secgrp.getSecurityRuleString("")
+		ret, _ := secgrp.getSecurityRuleString()
+		return ret
 	} else {
 		return options.Options.DefaultAdminSecurityRules
 	}
@@ -4089,10 +4057,12 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 		desc.Add(jsonutils.NewStringArray(netRoles), "network_roles")
 	}
 
-	secGrp := self.getSecgroup()
-	if secGrp != nil {
-		desc.Add(jsonutils.NewString(secGrp.Name), "secgroup")
-	}
+	/*
+		secGrp := self.getSecgroup()
+		if secGrp != nil {
+			desc.Add(jsonutils.NewString(secGrp.Name), "secgroup")
+		}
+	*/
 
 	secgroups, _ := self.getSecgroupJson()
 	if secgroups != nil {
@@ -5281,8 +5251,11 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	userInput.KeypairId = genInput.KeypairId
 	userInput.EipBw = genInput.EipBw
 	userInput.EipChargeType = genInput.EipChargeType
-	userInput.PublicIpBw = genInput.PublicIpBw
-	userInput.PublicIpChargeType = genInput.PublicIpChargeType
+	provider := self.GetDriver()
+	if provider.IsSupportPublicIp() {
+		userInput.PublicIpBw = genInput.PublicIpBw
+		userInput.PublicIpChargeType = genInput.PublicIpChargeType
+	}
 	userInput.AutoRenew = genInput.AutoRenew
 	// cloned server should belongs to the project creating it
 	userInput.ProjectId = userCred.GetProjectId()
@@ -5352,8 +5325,10 @@ func (self *SGuest) toCreateInput() *api.ServerCreateInput {
 			r.EipBw = eip.Bandwidth
 			r.EipChargeType = eip.ChargeType
 		case api.EIP_MODE_INSTANCE_PUBLICIP:
-			r.PublicIpBw = eip.Bandwidth
-			r.PublicIpChargeType = eip.ChargeType
+			if driver := self.GetDriver(); driver.IsSupportPublicIp() {
+				r.PublicIpBw = eip.Bandwidth
+				r.PublicIpChargeType = eip.ChargeType
+			}
 		}
 	}
 	if zone := self.getZone(); zone != nil {
@@ -5702,12 +5677,16 @@ func (guest *SGuest) StartRemoteUpdateTask(ctx context.Context, userCred mcclien
 		log.Errorln(err)
 		return errors.Wrap(err, "Start GuestRemoteUpdateTask")
 	} else {
+		guest.SetStatus(userCred, api.VM_UPDATE_TAGS, "StartRemoteUpdateTask")
 		task.ScheduleRun(nil)
 	}
 	return nil
 }
 
 func (guest *SGuest) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
+	if len(guest.ExternalId) == 0 {
+		return
+	}
 	err := guest.StartRemoteUpdateTask(ctx, userCred, true, "")
 	if err != nil {
 		log.Errorf("StartRemoteUpdateTask fail: %s", err)

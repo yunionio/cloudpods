@@ -46,7 +46,7 @@ func (p *MigratePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		return h.GetResult()
 	}
 
-	if schedData.LiveMigrate && schedData.CpuMode != compute.CPU_MODE_QEMU {
+	if schedData.LiveMigrate && schedData.CpuMode != compute.CPU_MODE_QEMU && (schedData.SkipCpuCheck == nil || *schedData.SkipCpuCheck == false) {
 		host := c.Getter().Host()
 		if schedData.CpuDesc != host.CpuDesc {
 			h.Exclude(predicates.ErrHostCpuModelIsNotMatchForLiveMigrate)

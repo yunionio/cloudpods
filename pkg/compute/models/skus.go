@@ -89,8 +89,8 @@ type SServerSku struct {
 	PostpaidStatus string `width:"32" charset:"utf8" nullable:"true" list:"user" create:"admin_optional" default:"available"` // 按需付费资源状态  available|soldout
 
 	CpuArch      string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"` // CPU 架构 x86|xarm
-	CpuCoreCount int `nullable:"false" list:"user" create:"admin_required"`
-	MemorySizeMB int `nullable:"false" list:"user" create:"admin_required"`
+	CpuCoreCount int    `nullable:"false" list:"user" create:"admin_required"`
+	MemorySizeMB int    `nullable:"false" list:"user" create:"admin_required"`
 
 	OsName string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin" default:"Any"` // Windows|Linux|Any
 
@@ -835,7 +835,7 @@ func (manager *SServerSkuManager) ListItemFilter(
 			conditions = append(
 				conditions,
 				sqlchemy.AND(
-					sqlchemy.GE(q.Field("memory_size_mb"), s),
+					sqlchemy.GT(q.Field("memory_size_mb"), s),
 					sqlchemy.LE(q.Field("memory_size_mb"), e),
 				),
 			)
@@ -907,7 +907,7 @@ func (manager *SServerSkuManager) GetMatchedSku(regionId string, cpu int64, memM
 }
 
 func (manager *SServerSkuManager) FetchSkuByNameAndProvider(name string, provider string, checkConsistency bool) (*SServerSku, error) {
-	q := manager.Query()
+	q := manager.Query().IsTrue("enabled")
 	q = q.Equals("name", name)
 	if utils.IsInStringArray(provider, []string{api.CLOUD_PROVIDER_ONECLOUD, api.CLOUD_PROVIDER_VMWARE}) {
 		q = q.Filter(

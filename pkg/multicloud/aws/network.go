@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -186,7 +187,11 @@ func (self *SRegion) createNetwork(zoneId string, vpcId string, name string, cid
 	params.SetVpcId(vpcId)
 	params.SetCidrBlock(cidr)
 
-	ret, err := self.ec2Client.CreateSubnet(params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return "", errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.CreateSubnet(params)
 	if err != nil {
 		return "", err
 	} else {
@@ -197,7 +202,7 @@ func (self *SRegion) createNetwork(zoneId string, vpcId string, name string, cid
 		ec2Tag, _ := tagspec.GetTagSpecifications()
 		paramsTags.SetResources([]*string{ret.Subnet.SubnetId})
 		paramsTags.SetTags(ec2Tag.Tags)
-		_, err := self.ec2Client.CreateTags(paramsTags)
+		_, err := ec2Client.CreateTags(paramsTags)
 		if err != nil {
 			log.Infof("createNetwork write tags failed:%s", err)
 		}
@@ -211,10 +216,11 @@ func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
 	}
 	networks, total, err := self.GetNetwroks([]string{networkId}, "", 0, 0)
 	if err != nil {
-		return nil, err
+		log.Errorf("GetNetwroks %s: %s", networkId, err)
+		return nil, errors.Wrap(err, "GetNetwroks")
 	}
 	if total != 1 {
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "getNetwork")
 	}
 	return &networks[0], nil
 }
@@ -222,8 +228,12 @@ func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
 func (self *SRegion) deleteNetwork(networkId string) error {
 	params := &ec2.DeleteSubnetInput{}
 	params.SetSubnetId(networkId)
-	_, err := self.ec2Client.DeleteSubnet(params)
-	return err
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+	_, err = ec2Client.DeleteSubnet(params)
+	return errors.Wrap(err, "DeleteSubnet")
 }
 
 func (self *SRegion) GetNetwroks(ids []string, vpcId string, limit int, offset int) ([]SNetwork, int, error) {
@@ -245,7 +255,12 @@ func (self *SRegion) GetNetwroks(ids []string, vpcId string, limit int, offset i
 		params.SetFilters(filters)
 	}
 
-	ret, err := self.ec2Client.DescribeSubnets(params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "getEc2Client")
+	}
+
+	ret, err := ec2Client.DescribeSubnets(params)
 	err = parseNotFoundError(err)
 	if err != nil {
 		return nil, 0, err

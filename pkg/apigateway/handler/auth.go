@@ -88,6 +88,7 @@ func (h *AuthHandlers) AddMethods() {
 	// auth middleware handler
 	h.AddByMethod(GET, FetchAuthToken,
 		NewHP(h.getUser, "user"),
+		NewHP(h.getStats, "stats"),
 		NewHP(h.getPermissionDetails, "permissions"),
 		NewHP(h.getAdminResources, "admin_resources"),
 		NewHP(h.getResources, "scoped_resources"),
@@ -157,6 +158,9 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 			}
 		}
 		resp.Add(domains, "domains")
+		resp.Add(jsonutils.JSONTrue, "return_full_domains")
+	} else {
+		resp.Add(jsonutils.JSONFalse, "return_full_domains")
 	}
 
 	filters := jsonutils.NewDict()
@@ -171,16 +175,17 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 		filters.Add(jsonutils.JSONFalse, "auto_create_user")
 	}
 	idps, err := modules.IdentityProviders.List(s, filters)
-	if err != nil {
-		return nil, errors.Wrap(err, "list idp")
-	}
 	retIdps := make([]jsonutils.JSONObject, 0)
-	for i := range idps.Data {
-		retIdp := idps.Data[i].(*jsonutils.JSONDict).CopyIncludes("id", "name", "driver", "template", "icon_uri", "is_default")
-		retIdps = append(retIdps, retIdp)
+	if err == nil {
+		for i := range idps.Data {
+			retIdp := idps.Data[i].(*jsonutils.JSONDict).CopyIncludes("id", "name", "driver", "template", "icon_uri", "is_default")
+			retIdps = append(retIdps, retIdp)
+		}
 	}
 
 	resp.Add(jsonutils.NewArray(retIdps...), "idps")
+
+	resp.Add(jsonutils.NewString(options.Options.ApiServer), "api_server")
 
 	return resp, nil
 }
@@ -196,6 +201,42 @@ func (h *AuthHandlers) getRegions(ctx context.Context, w http.ResponseWriter, re
 
 func (h *AuthHandlers) getUser(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	data, err := getUserInfo(ctx, req)
+	if err != nil {
+		httperrors.NotFoundError(ctx, w, err.Error())
+		return
+	}
+	body := jsonutils.NewDict()
+	body.Add(data, "data")
+
+	appsrv.SendJSON(w, body)
+}
+
+func getStatsInfo(ctx context.Context, req *http.Request) (jsonutils.JSONObject, error) {
+	token := AppContextToken(ctx)
+	s := auth.GetSession(ctx, token, FetchRegion(req), "")
+	params, _ := jsonutils.ParseQueryString(req.URL.RawQuery)
+
+	if params == nil {
+		params = jsonutils.NewDict()
+	}
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewInt(1), "limit")
+
+	ret := struct {
+		Cloudaccounts int
+	}{}
+
+	accounts, err := modules.Cloudaccounts.List(s, params)
+	if err != nil {
+		return nil, err
+	}
+
+	ret.Cloudaccounts = accounts.Total
+
+	return jsonutils.Marshal(ret), nil
+}
+
+func (h *AuthHandlers) getStats(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+	data, err := getStatsInfo(ctx, req)
 	if err != nil {
 		httperrors.NotFoundError(ctx, w, err.Error())
 		return
@@ -309,8 +350,19 @@ func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request,
 	if err != nil {
 		switch httperr := err.(type) {
 		case *httputils.JSONClientError:
+			if httperr.Code >= 500 {
+				return nil, err
+			}
 			if httperr.Code == 409 || httperr.Code == 429 {
 				return nil, err
+			}
+			switch httperr.Class {
+			case "UserNotFound", "WrongPassword":
+				return nil, httperrors.NewJsonClientError(httperrors.ErrIncorrectUsernameOrPassword, "incorrect username or password")
+			case "UserLocked":
+				return nil, httperrors.NewJsonClientError(httperrors.ErrUserLocked, "The user has been locked, please contact the administrator")
+			case "UserDisabled":
+				return nil, httperrors.NewJsonClientError(httperrors.ErrUserDisabled, "The user has been disabled, please contact the administrator")
 			}
 		}
 		return nil, httperrors.NewInvalidCredentialError("invalid credential")
@@ -501,34 +553,34 @@ func (h *AuthHandlers) doLogin(ctx context.Context, w http.ResponseWriter, req *
 	if body.Contains("tenantId") { // switch project
 		token, authToken, err = doTenantLogin(ctx, req, body)
 		if err != nil {
-			return errors.Wrap(err, "doTenantLogin")
+			return err
 		}
 		userInfo, err = fetchUserInfoFromToken(ctx, req, token)
 		if err != nil {
-			return errors.Wrap(err, "fetchUserInfoFromToken")
+			return err
 		}
 	} else {
 		// user/password authenticate
 		// SSO authentication
 		token, err = h.doCredentialLogin(ctx, req, body)
 		if err != nil {
-			return errors.Wrap(err, "doCredentialLogin")
+			return err
 		}
 		userInfo, err = fetchUserInfoFromToken(ctx, req, token)
 		if err != nil {
-			return errors.Wrap(err, "fetchUserInfoFromToken")
+			return err
 		}
 		s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 		isTotpInit, err := isUserTotpCredInitialed(s, token.GetUserId())
 		if err != nil {
-			return errors.Wrap(err, "isUserTotpCredInitialed")
+			return err
 		}
 		isIdpLogin := body.Contains("idp_driver")
 		authToken = clientman.NewAuthToken(token.GetTokenString(), isUserEnableTotp(userInfo), isTotpInit, isIdpLogin)
 	}
 
 	if !isUserAllowWebconsole(userInfo) {
-		return errors.Wrap(httperrors.ErrForbidden, "user forbidden login from web")
+		return httperrors.NewForbiddenError("user forbidden login from web")
 	}
 
 	saveAuthCookie(w, authToken, token)
@@ -986,6 +1038,12 @@ func getUserInfo2(s *mcclient.ClientSession, uid string, pid string, loginIp str
 		data.Add(jsonutils.JSONFalse, "non_default_domain_projects")
 	}
 
+	if options.Options.EnableQuotaCheck {
+		data.Add(jsonutils.JSONTrue, "enable_quota_check")
+	} else {
+		data.Add(jsonutils.JSONFalse, "enable_quota_check")
+	}
+
 	data.Add(jsonutils.NewString(getSsoCallbackUrl()), "sso_callback_url")
 
 	return data, nil
@@ -996,7 +1054,7 @@ func (h *AuthHandlers) getPermissionDetails(ctx context.Context, w http.Response
 
 	_, query, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
-		httperrors.InvalidInputError(ctx, w, "body is empty")
+		httperrors.InvalidInputError(ctx, w, "request body is empty")
 		return
 	}
 	var name string
@@ -1030,7 +1088,7 @@ func (h *AuthHandlers) doCreatePolicies(ctx context.Context, w http.ResponseWrit
 	// }
 	_, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
-		httperrors.InvalidInputError(ctx, w, "body is empty")
+		httperrors.InvalidInputError(ctx, w, "request body is empty")
 		return
 	}
 	s := auth.GetSession(ctx, t, FetchRegion(req), "")
@@ -1114,7 +1172,7 @@ func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWri
 
 	_, _, body := appsrv.FetchEnv(ctx, w, req)
 	if body == nil {
-		httperrors.InvalidInputError(ctx, w, "body is empty")
+		httperrors.InvalidInputError(ctx, w, "request body is empty")
 		return
 	}
 
@@ -1150,7 +1208,7 @@ func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWri
 				return
 			}
 		}
-		httperrors.InputParameterError(ctx, w, "密码错误")
+		httperrors.InputParameterError(ctx, w, "wrong password")
 		return
 	}
 

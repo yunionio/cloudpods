@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -144,4 +145,10 @@ func (self *ScalingGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 	if err != nil {
 		self.taskFailed(ctx, sg, jsonutils.NewString(fmt.Sprintf("ScalingGroup.RealDelete: %s", err.Error())))
 	}
+	db.OpsLog.LogEvent(sg, db.ACT_DELETE, "", self.UserCred)
+	logclient.AddActionLogWithStartable(self, sg, logclient.ACT_DELETE, "", self.UserCred, true)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    sg,
+		Action: notifyclient.ActionDelete,
+	})
 }

@@ -52,7 +52,7 @@ func (d *SAliyunSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCr
 		return data, httperrors.NewResourceNotReadyError("SAMLProvider for account %s not ready", account.Id)
 	}
 
-	role, err := account.SyncRole(userCred.GetUserId())
+	roles, err := account.SyncRoles(userCred.GetUserId(), true)
 	if err != nil {
 		return data, httperrors.NewGeneralError(errors.Wrapf(err, "SyncRole"))
 	}
@@ -61,7 +61,7 @@ func (d *SAliyunSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCr
 	data.NameIdFormat = samlutils.NAME_ID_FORMAT_PERSISTENT
 	data.AudienceRestriction = sp.GetEntityId()
 	for k, v := range map[string]string{
-		"https://www.aliyun.com/SAML-Role/Attributes/Role":            fmt.Sprintf("%s,%s", role.ExternalId, SAMLProvider.ExternalId),
+		"https://www.aliyun.com/SAML-Role/Attributes/Role":            fmt.Sprintf("%s,%s", roles[0].ExternalId, SAMLProvider.ExternalId),
 		"https://www.aliyun.com/SAML-Role/Attributes/RoleSessionName": userCred.GetUserId(),
 		"https://www.aliyun.com/SAML-Role/Attributes/SessionDuration": "1800",
 	} {

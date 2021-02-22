@@ -234,7 +234,7 @@ func (disk *SDisk) GetDiskSizeMB() int {
 }
 
 func (disk *SDisk) GetIsAutoDelete() bool {
-	return false
+	return disk.GetDiskType() == api.DISK_TYPE_SYS || disk.localStorage != nil
 }
 
 func (disk *SDisk) GetTemplateId() string {

@@ -29,6 +29,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/util/imagetools"
 )
 
 type ImageStatusType string
@@ -79,6 +80,9 @@ type SImage struct {
 	multicloud.SImageBase
 	storageCache *SStoragecache
 
+	// normalized image info
+	imgInfo *imagetools.ImageInfo
+
 	Architecture string
 	CreationTime time.Time
 	Description  string
@@ -121,7 +125,11 @@ func (self *ImageImportTask) GetGlobalId() string {
 }
 
 func (self *ImageImportTask) Refresh() error {
-	ret, err := self.region.ec2Client.DescribeImportImageTasks(&ec2.DescribeImportImageTasksInput{ImportTaskIds: []*string{&self.TaskId}})
+	ec2Client, err := self.region.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.DescribeImportImageTasks(&ec2.DescribeImportImageTasksInput{ImportTaskIds: []*string{&self.TaskId}})
 	if err != nil {
 		log.Errorf("DescribeImportImageTasks %s", err)
 		return errors.Wrap(err, "ImageImportTask.Refresh.DescribeImportImageTasks")
@@ -222,20 +230,29 @@ func (self *SImage) GetSizeByte() int64 {
 	return int64(self.SizeGB) * 1024 * 1024 * 1024
 }
 
+func (self *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
+	if self.imgInfo == nil {
+		imgInfo := imagetools.NormalizeImageInfo("", self.Architecture, self.OSType, self.OSDist, self.OSVersion)
+		self.imgInfo = &imgInfo
+	}
+
+	return self.imgInfo
+}
+
 func (self *SImage) GetOsType() string {
-	return self.OSType
+	return self.getNormalizedImageInfo().OsType
 }
 
 func (self *SImage) GetOsArch() string {
-	return self.Architecture
+	return self.getNormalizedImageInfo().OsArch
 }
 
 func (self *SImage) GetOsDist() string {
-	return self.OSDist
+	return self.getNormalizedImageInfo().OsDistro
 }
 
 func (self *SImage) GetOsVersion() string {
-	return self.OSVersion
+	return self.getNormalizedImageInfo().OsVersion
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {
@@ -304,9 +321,13 @@ func (self *SRegion) ImportImage(name string, osArch string, osType string, osDi
 	container.SetUserBucket(bkt)
 	params.SetDiskContainers([]*ec2.ImageDiskContainer{container})
 	params.SetLicenseType("BYOL") // todo: AWS?
-	ret, err := self.ec2Client.ImportImage(params)
+	ec2Client, err := self.getEc2Client()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.ImportImage(params)
+	if err != nil {
+		return nil, errors.Wrap(err, "ImportImage")
 	}
 	log.Debugf("ImportImage task: %s", ret.String())
 	return &ImageImportTask{ImageId: StrVal(ret.ImageId), RegionId: self.RegionId, TaskId: *ret.ImportTaskId, Status: StrVal(ret.Status), region: self}, nil
@@ -328,9 +349,13 @@ func (self *SRegion) ExportImage(instanceId string, imageId string) (*ImageExpor
 	spec.SetDiskImageFormat("RAW")
 	spec.SetS3Bucket("imgcache-onecloud")
 	params.SetExportToS3Task(spec)
-	ret, err := self.ec2Client.CreateInstanceExportTask(params)
+	ec2Client, err := self.getEc2Client()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.CreateInstanceExportTask(params)
+	if err != nil {
+		return nil, errors.Wrap(err, "CreateInstanceExportTask")
 	}
 
 	return &ImageExportTask{ImageId: imageId, RegionId: self.RegionId, TaskId: *ret.ExportTask.ExportTaskId}, nil
@@ -343,10 +368,10 @@ func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 
 	images, err := self.getImages("", ImageOwnerAll, []string{imageId}, "", "", nil, "")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getImages")
 	}
 	if len(images) == 0 {
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "getImages")
 	}
 	return &images[0], nil
 }
@@ -358,10 +383,10 @@ func (self *SRegion) GetImageByName(name string, owners []TImageOwnerType) (*SIm
 
 	images, err := self.getImages("", owners, nil, name, "hvm", nil, "")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getImages")
 	}
 	if len(images) == 0 {
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "getImages")
 	}
 
 	log.Debugf("%d image found match name %s", len(images), name)
@@ -401,7 +426,7 @@ func getLatestImage(images []SImage) SImage {
 func (self *SRegion) GetImages(status ImageStatusType, owners []TImageOwnerType, imageId []string, name string, virtualizationType string, ownerIds []string, volumeType string, latest bool) ([]SImage, error) {
 	images, err := self.getImages(status, owners, imageId, name, virtualizationType, ownerIds, volumeType)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getImages")
 	}
 	if !latest {
 		return images, err
@@ -458,10 +483,14 @@ func (self *SRegion) getImages(status ImageStatusType, owners []TImageOwnerType,
 		params.SetFilters(filters)
 	}
 
-	ret, err := self.ec2Client.DescribeImages(params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.DescribeImages(params)
 	err = parseNotFoundError(err)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "parseNotFoundError")
 	}
 
 	images := []SImage{}
@@ -469,7 +498,7 @@ func (self *SRegion) getImages(status ImageStatusType, owners []TImageOwnerType,
 		image := ret.Images[i]
 
 		if err := FillZero(image); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "FillZero.image")
 		}
 
 		tagspec := TagSpec{}
@@ -541,8 +570,12 @@ func (self *SRegion) getImages(status ImageStatusType, owners []TImageOwnerType,
 func (self *SRegion) DeleteImage(imageId string) error {
 	params := &ec2.DeregisterImageInput{}
 	params.SetImageId(imageId)
-	_, err := self.ec2Client.DeregisterImage(params)
-	return err
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+	_, err = ec2Client.DeregisterImage(params)
+	return errors.Wrap(err, "DeregisterImage")
 }
 
 func (self *SRegion) addTags(resId string, key string, value string) error {
@@ -552,9 +585,13 @@ func (self *SRegion) addTags(resId string, key string, value string) error {
 	tag.Key = &key
 	tag.Value = &value
 	input.SetTags([]*ec2.Tag{&tag})
-	_, err := self.ec2Client.CreateTags(input)
+	ec2Client, err := self.getEc2Client()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "getEc2Client")
+	}
+	_, err = ec2Client.CreateTags(input)
+	if err != nil {
+		return errors.Wrap(err, "CreateTags")
 	}
 	return nil
 }

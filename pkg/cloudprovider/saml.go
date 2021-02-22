@@ -23,6 +23,7 @@ const (
 	SAML_ENTITY_ID_QCLOUD       = "cloud.tencent.com"
 	SAML_ENTITY_ID_HUAWEI_CLOUD = "https://auth.huaweicloud.com/"
 	SAML_ENTITY_ID_GOOGLE       = "google.com"
+	SAML_ENTITY_ID_AZURE        = "urn:federation:MicrosoftOnline"
 )
 
 type SAMLProviderCreateOptions struct {

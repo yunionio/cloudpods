@@ -22,11 +22,18 @@ type ReceiverCreateOptions struct {
 	UID                 string   `help:"user id in keystone"`
 	Email               string   `help:"email of receiver"`
 	Mobile              string   `help:"mobile of receiver"`
+	MobileAreaCode      string   `help:"area code of mobile"`
 	EnabledContactTypes []string `help:"enabled contact type"`
 }
 
 func (rc *ReceiverCreateOptions) Params() (jsonutils.JSONObject, error) {
-	return options.StructToParams(rc)
+	d := jsonutils.NewDict()
+	d.Set("uid", jsonutils.NewString(rc.UID))
+	d.Set("email", jsonutils.NewString(rc.Email))
+	d.Set("enabled_contact_type", jsonutils.NewStringArray(rc.EnabledContactTypes))
+	d.Add(jsonutils.NewString(rc.Mobile), "international_mobile", "mobile")
+	d.Add(jsonutils.NewString(rc.MobileAreaCode), "international_mobile", "area_code")
+	return d, nil
 }
 
 type ReceiverOptions struct {
@@ -43,44 +50,54 @@ func (r *ReceiverOptions) Params() (jsonutils.JSONObject, error) {
 
 type ReceiverUpdateOptions struct {
 	ReceiverOptions
-	receiverUpdateOptions
+	SreceiverUpdateOptions
 }
 
-type receiverUpdateOptions struct {
+type SreceiverUpdateOptions struct {
 	Email              string   `help:"email of receiver"`
 	Mobile             string   `help:"mobile of receiver"`
+	MobileAreaCode     string   `help:"area code of mobile"`
 	EnabledContactType []string `help:"enabled contact type"`
 }
 
 func (ru *ReceiverUpdateOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(ru.receiverUpdateOptions), nil
+	d := jsonutils.NewDict()
+	if len(ru.Email) > 0 {
+		d.Set("email", jsonutils.NewString(ru.Email))
+	}
+	d.Set("enabled_contact_types", jsonutils.NewStringArray(ru.EnabledContactType))
+	if len(ru.Mobile) > 0 {
+		d.Add(jsonutils.NewString(ru.Mobile), "international_mobile", "mobile")
+		d.Add(jsonutils.NewString(ru.MobileAreaCode), "international_mobile", "area_code")
+	}
+	return d, nil
 }
 
 type ReceiverTriggerVerifyOptions struct {
 	ReceiverOptions
-	receiverTriggerVerifyOptions
+	SreceiverTriggerVerifyOptions
 }
 
-type receiverTriggerVerifyOptions struct {
+type SreceiverTriggerVerifyOptions struct {
 	ContactType string `help:"Contact type to trigger verify" choices:"email|mobile"`
 }
 
 func (rt *ReceiverTriggerVerifyOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(rt.receiverTriggerVerifyOptions), nil
+	return jsonutils.Marshal(rt.SreceiverTriggerVerifyOptions), nil
 }
 
 type ReceiverVerifyOptions struct {
 	ReceiverOptions
-	receiverVerifyOptions
+	SreceiverVerifyOptions
 }
 
-type receiverVerifyOptions struct {
+type SreceiverVerifyOptions struct {
 	ContactType string `help:"Contact type to trigger verify" choices:"email|mobile"`
 	Token       string `help:"Token from verify message sent to you"`
 }
 
 func (rv *ReceiverVerifyOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(rv.receiverVerifyOptions), nil
+	return jsonutils.Marshal(rv.SreceiverVerifyOptions), nil
 }
 
 type ReceiverIntellijGetOptions struct {

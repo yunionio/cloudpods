@@ -111,7 +111,7 @@ func (self *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
 	if self.iwires == nil {
 		err := self.fetchNetworks()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "fetchNetworks")
 		}
 	}
 	return self.iwires, nil
@@ -121,7 +121,7 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 	if self.secgroups == nil {
 		err := self.fetchSecurityGroups()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "fetchSecurityGroups")
 		}
 	}
 	return self.secgroups, nil
@@ -192,7 +192,7 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 	if self.iwires == nil {
 		err := self.fetchNetworks()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "fetchNetworks")
 		}
 	}
 	for i := 0; i < len(self.iwires); i += 1 {
@@ -200,7 +200,7 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 			return self.iwires[i], nil
 		}
 	}
-	return nil, ErrorNotFound()
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetIWireById")
 }
 
 func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
@@ -434,11 +434,16 @@ func (self *SVpc) GetExternalAccessMode() string {
 }
 
 func (self *SVpc) AttachInternetGateway(igwId string) error {
+	ec2Client, err := self.region.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+
 	input := ec2.AttachInternetGatewayInput{}
 	input.SetInternetGatewayId(igwId)
 	input.SetVpcId(self.GetId())
 
-	_, err := self.region.ec2Client.AttachInternetGateway(&input)
+	_, err = ec2Client.AttachInternetGateway(&input)
 	if err != nil {
 		return errors.Wrap(err, "AttachInternetGateway")
 	}
@@ -500,11 +505,16 @@ func (self *SVpc) DetachInternetGateways() error {
 }
 
 func (self *SVpc) DetachInternetGateway(igwId string) error {
+	ec2Client, err := self.region.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+
 	input := ec2.DetachInternetGatewayInput{}
 	input.SetInternetGatewayId(igwId)
 	input.SetVpcId(self.GetId())
 
-	_, err := self.region.ec2Client.DetachInternetGateway(&input)
+	_, err = ec2Client.DetachInternetGateway(&input)
 	if err != nil {
 		return errors.Wrap(err, "DetachInternetGateway")
 	}
@@ -513,10 +523,15 @@ func (self *SVpc) DetachInternetGateway(igwId string) error {
 }
 
 func (self *SVpc) DeleteInternetGateway(igwId string) error {
+	ec2Client, err := self.region.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+
 	input := ec2.DeleteInternetGatewayInput{}
 	input.SetInternetGatewayId(igwId)
 
-	_, err := self.region.ec2Client.DeleteInternetGateway(&input)
+	_, err = ec2Client.DeleteInternetGateway(&input)
 	if err != nil {
 		return errors.Wrap(err, "DeleteInternetGateway")
 	}
@@ -554,10 +569,11 @@ func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
 
 	vpcs, total, err := self.GetVpcs([]string{vpcId}, 0, 1)
 	if err != nil {
-		return nil, err
+		log.Errorf("GetVpcs %s: %s", vpcId, err)
+		return nil, errors.Wrap(err, "GetVpcs")
 	}
 	if total != 1 {
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "getVpc")
 	}
 	vpcs[0].region = self
 	return &vpcs[0], nil
@@ -575,7 +591,12 @@ func (self *SRegion) assignSecurityGroup(secgroupId, instanceId string) error {
 func (self *SRegion) assignSecurityGroups(secgroupIds []*string, instanceId string) error {
 	instance, err := self.GetInstance(instanceId)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "GetInstance")
+	}
+
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
 	}
 
 	for _, eth := range instance.NetworkInterfaces.NetworkInterface {
@@ -583,7 +604,7 @@ func (self *SRegion) assignSecurityGroups(secgroupIds []*string, instanceId stri
 		params.SetNetworkInterfaceId(eth.NetworkInterfaceId)
 		params.SetGroups(secgroupIds)
 
-		_, err := self.ec2Client.ModifyNetworkInterfaceAttribute(params)
+		_, err := ec2Client.ModifyNetworkInterfaceAttribute(params)
 		if err != nil {
 			return err
 		}
@@ -593,28 +614,43 @@ func (self *SRegion) assignSecurityGroups(secgroupIds []*string, instanceId stri
 }
 
 func (self *SRegion) DeleteSecurityGroup(secGrpId string) error {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+
 	params := &ec2.DeleteSecurityGroupInput{}
 	params.SetGroupId(secGrpId)
 
-	_, err := self.ec2Client.DeleteSecurityGroup(params)
-	return err
+	_, err = ec2Client.DeleteSecurityGroup(params)
+	return errors.Wrap(err, "DeleteSecurityGroup")
 }
 
 func (self *SRegion) DeleteVpc(vpcId string) error {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+
 	params := &ec2.DeleteVpcInput{}
 	params.SetVpcId(vpcId)
 
-	_, err := self.ec2Client.DeleteVpc(params)
-	return err
+	_, err = ec2Client.DeleteVpc(params)
+	return errors.Wrap(err, "DeleteVpc")
 }
 
 func (self *SRegion) GetVpcs(vpcId []string, offset int, limit int) ([]SVpc, int, error) {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "getEc2Client")
+	}
+
 	params := &ec2.DescribeVpcsInput{}
 	if len(vpcId) > 0 {
 		params.SetVpcIds(ConvertedList(vpcId))
 	}
 
-	ret, err := self.ec2Client.DescribeVpcs(params)
+	ret, err := ec2Client.DescribeVpcs(params)
 	err = parseNotFoundError(err)
 	if err != nil {
 		return nil, 0, err
@@ -656,6 +692,11 @@ func (self *SRegion) GetVpcs(vpcId []string, offset int, limit int) ([]SVpc, int
 }
 
 func (self *SRegion) GetInternetGateways(vpcId string) ([]SInternetGateway, error) {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+
 	input := ec2.DescribeInternetGatewaysInput{}
 	filters := make([]*ec2.Filter, 0)
 	if len(vpcId) > 0 {
@@ -665,7 +706,7 @@ func (self *SRegion) GetInternetGateways(vpcId string) ([]SInternetGateway, erro
 	if len(filters) > 0 {
 		input.SetFilters(filters)
 	}
-	output, err := self.ec2Client.DescribeInternetGateways(&input)
+	output, err := ec2Client.DescribeInternetGateways(&input)
 	if err != nil {
 		return nil, errors.Wrap(err, "DescribeInternetGateways")
 	}

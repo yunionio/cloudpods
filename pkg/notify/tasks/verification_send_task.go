@@ -10,6 +10,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	notifyv2 "yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -53,10 +54,10 @@ func (self *VerificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		}
 		data := struct {
 			models.SCompanyInfo
-			Name string
-			Code string
+			ReceiverName string
+			Code         string
 		}{
-			Name:         receiver.Name,
+			ReceiverName: receiver.Name,
 			Code:         verification.Token,
 			SCompanyInfo: info,
 		}
@@ -66,7 +67,22 @@ func (self *VerificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 	default:
 		// no way
 	}
-	err = models.NotifyService.Send(ctx, contactType, contact, "verify", message, "")
+	tLang, err := receiver.GetTemplateLang(ctx)
+	if err != nil {
+		self.taskFailed(ctx, receiver, fmt.Sprintf("unable to GetTemplateLang for receiver %q: %v", receiver.Id, err))
+	}
+
+	param, err := models.TemplateManager.FillWithTemplate(ctx, tLang, notifyv2.SNotification{
+		ContactType: contactType,
+		Topic:       "VERIFY",
+		Message:     message,
+	})
+	if err != nil {
+		self.taskFailed(ctx, receiver, err.Error())
+		return
+	}
+	param.Contact = contact
+	err = models.NotifyService.Send(ctx, contactType, param)
 	if err != nil {
 		self.taskFailed(ctx, receiver, err.Error())
 		return

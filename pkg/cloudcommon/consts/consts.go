@@ -29,6 +29,8 @@ var (
 
 	tenantCacheExpireSeconds = 900
 
+	roleCacheExpireHours = 24
+
 	nonDefaultDomainProjects = false
 
 	defaultPagingLimit int64 = 2048
@@ -63,6 +65,14 @@ func SetTenantCacheExpireSeconds(sec int) {
 
 func GetTenantCacheExpireSeconds() time.Duration {
 	return time.Duration(tenantCacheExpireSeconds) * time.Second
+}
+
+func SetRoleCacheExpireHours(h int) {
+	roleCacheExpireHours = h
+}
+
+func GetRoleCacheExpireHours() time.Duration {
+	return time.Duration(roleCacheExpireHours) * time.Hour
 }
 
 func SetNonDefaultDomainProjects(val bool) {

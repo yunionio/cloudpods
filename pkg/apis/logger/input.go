@@ -28,3 +28,11 @@ type BaremetalEventListInput struct {
 	// until
 	Until time.Time `json:"until"`
 }
+
+type ActionLogListInput struct {
+	apis.OpsLogListInput
+
+	Service []string `json:"service"`
+
+	Success *bool `json:"success"`
+}

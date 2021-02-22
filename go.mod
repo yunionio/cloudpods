@@ -1,6 +1,6 @@
 module yunion.io/x/onecloud
 
-go 1.12
+go 1.13
 
 require (
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
@@ -12,6 +12,9 @@ require (
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/DataDog/dd-trace-go v0.6.1 // indirect
 	github.com/DataDog/zstd v1.3.4 // indirect
+	github.com/Masterminds/goutils v1.1.0 // indirect
+	github.com/Masterminds/semver v1.5.0 // indirect
+	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/Microsoft/azure-vhd-utils v0.0.0-20181115010904-44cbada2ece3
 	github.com/RoaringBitmap/roaring v0.4.16 // indirect
 	github.com/Shopify/sarama v1.20.0 // indirect
@@ -26,7 +29,7 @@ require (
 	github.com/anacrolix/torrent v0.0.0-20181129073333-cc531b8c4a80
 	github.com/aokoli/goutils v1.0.1
 	github.com/apache/thrift v0.12.0 // indirect
-	github.com/aws/aws-sdk-go v1.30.29
+	github.com/aws/aws-sdk-go v1.36.31
 	github.com/baiyubin/aliyun-sts-go-sdk v0.0.0-20180326062324-cfa1a18b161f // indirect
 	github.com/beevik/etree v1.1.0 // indirect
 	github.com/benbjohnson/clock v1.0.0
@@ -51,6 +54,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/gin-gonic/gin v1.5.0
 	github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2 // indirect
+	github.com/go-ini/ini v1.62.0 // indirect
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/go-ole/go-ole v1.2.2 // indirect
 	github.com/go-sql-driver/mysql v1.5.0
@@ -88,6 +92,7 @@ require (
 	github.com/mholt/caddy v0.10.11
 	github.com/miekg/dns v1.1.4
 	github.com/minio/minio-go v6.0.14+incompatible
+	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/moul/http2curl v1.0.0
 	github.com/mozillazg/go-pinyin v0.15.0
@@ -120,10 +125,10 @@ require (
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20200819165624-17cef6e3e9d5
 	go.uber.org/atomic v1.4.0 // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/net v0.0.0-20200707034311-ab3426394381
+	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20200622214017-ed371f2e16b4
+	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f
 	golang.org/x/text v0.3.3
 	golang.org/x/tools v0.0.0-20200515220128-d3bf790afa53 // indirect
 	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
@@ -141,13 +146,13 @@ require (
 	k8s.io/apimachinery v0.19.3
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
-	yunion.io/x/executor v0.0.0-20201201131200-44fa553abd9e
+	yunion.io/x/executor v0.0.0-20201231064744-df32f32165a9
 	yunion.io/x/jsonutils v0.0.0-20201110084044-3e4e1cb49769
 	yunion.io/x/log v0.0.0-20201210064738-43181789dc74
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
-	yunion.io/x/pkg v0.0.0-20201123083159-ca3aea986ff2
+	yunion.io/x/pkg v0.0.0-20210218105412-13a69f60034c
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v0.0.0-20201219153152-2d901261898c
+	yunion.io/x/sqlchemy v0.0.0-20210204030051-4fb14f92a88f
 	yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
 )
 

@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/saml"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/samlutils/sp"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -344,7 +345,7 @@ func (ident *SIdentityProvider) PerformConfig(ctx context.Context, userCred mccl
 	action := input.Action
 	changed, err := saveConfigs(userCred, action, ident, opts, nil, nil, api.SensitiveDomainConfigMap)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("saveConfig fail %s", err)
+		return nil, httperrors.NewInternalServerError("saveConfigs fail %s", err)
 	}
 	if changed {
 		ident.MarkDisconnected(ctx, userCred, fmt.Errorf("change config"))
@@ -1071,11 +1072,15 @@ func (self *SIdentityProvider) SyncOrCreateUser(ctx context.Context, extId strin
 	if err == nil {
 		// update
 		log.Debugf("find user %s", extName)
-		_, err := db.Update(user, func() error {
+		newName, err := db.GenerateAlterName(user, extName)
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.GenerateAlterName %s", extName)
+		}
+		_, err = db.Update(user, func() error {
 			if syncUserInfo != nil {
 				syncUserInfo(user)
 			}
-			user.Name = extName
+			user.Name = newName
 			user.DomainId = domainId
 			if user.Deleted {
 				user.MarkUnDelete()
@@ -1099,8 +1104,13 @@ func (self *SIdentityProvider) SyncOrCreateUser(ctx context.Context, extId strin
 		} else {
 			user.Enabled = tristate.False
 		}
+		domainOwnerId := &db.SOwnerId{DomainId: domainId}
+		newName, err := db.GenerateName(UserManager, domainOwnerId, extName)
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.GenerateName %s", extName)
+		}
 		user.Id = userId
-		user.Name = extName
+		user.Name = newName
 		user.DomainId = domainId
 		err = UserManager.TableSpec().Insert(ctx, user)
 		if err != nil {
@@ -1152,14 +1162,15 @@ func (manager *SIdentityProviderManager) ListItemFilter(
 		if strings.EqualFold(query.SsoDomain, "all") {
 			q = q.IsNullOrEmpty("domain_id")
 		} else if len(query.SsoDomain) > 0 {
-			q = q.Filter(sqlchemy.OR(
-				sqlchemy.IsNullOrEmpty(q.Field("domain_id")),
-				sqlchemy.Equals(q.Field("domain_id"), query.SsoDomain),
-			))
-			q = q.Filter(sqlchemy.OR(
-				sqlchemy.IsNullOrEmpty(q.Field("target_domain_id")),
-				sqlchemy.Equals(q.Field("target_domain_id"), query.SsoDomain),
-			))
+			ssoDomain, err := DomainManager.FetchDomainByIdOrName(query.SsoDomain)
+			if err != nil {
+				if errors.Cause(err) == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), query.SsoDomain)
+				} else {
+					return nil, errors.Wrap(err, "FetchDomainByIdOrName")
+				}
+			}
+			q = q.Equals("domain_id", ssoDomain.Id)
 		}
 	}
 	if query.AutoCreateProject != nil {
@@ -1258,7 +1269,11 @@ func (idp *SIdentityProvider) TryUserJoinProject(attrConf api.SIdpAttributeOptio
 	if len(attrConf.ProjectAttribute) > 0 {
 		projName := fetchAttribute(attrs, attrConf.ProjectAttribute)
 		if len(projName) > 0 {
-			targetProject, err = ProjectManager.FetchProject("", projName, domainId, "")
+			projDomainId := ""
+			if ProjectManager.NamespaceScope() == rbacutils.ScopeDomain {
+				projDomainId = domainId
+			}
+			targetProject, err = ProjectManager.FetchProject("", projName, projDomainId, "")
 			if err != nil {
 				log.Errorf("fetch project %s fail %s", projName, err)
 				if errors.Cause(err) == sql.ErrNoRows && idp.AutoCreateProject.IsTrue() {
@@ -1550,8 +1565,15 @@ func (idp *SIdentityProvider) PerformDefaultSso(
 	if input.Enable != nil {
 		if *input.Enable {
 			// enable
-			// first disable any other idp
+			// first disable any other idp in the same domain
 			q := IdentityProviderManager.Query().IsTrue("is_sso").IsTrue("is_default").NotEquals("id", idp.Id)
+			if len(idp.DomainId) > 0 {
+				// a domain specific IDP
+				q = q.Equals("domain_id", idp.DomainId)
+			} else {
+				// a system IDP
+				q = q.IsNullOrEmpty("domain_id")
+			}
 			idps := make([]SIdentityProvider, 0)
 			err := db.FetchModelObjects(IdentityProviderManager, q, &idps)
 			if err != nil && errors.Cause(err) != sql.ErrNoRows {

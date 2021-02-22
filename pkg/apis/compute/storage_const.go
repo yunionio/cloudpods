@@ -39,9 +39,11 @@ const (
 	STORAGE_EPHEMERAL_SSD    = "ephemeral_ssd"  //单块本地SSD盘, 容量最大不能超过800 GiB
 
 	//Azure hdd and ssd storagetype
-	STORAGE_STANDARD_LRS    = "standard_lrs"
-	STORAGE_STANDARDSSD_LRS = "standardssd_lrs"
-	STORAGE_PREMIUM_LRS     = "premium_lrs"
+	STORAGE_STANDARD_LRS          = "standard_lrs"
+	STORAGE_STANDARDSSD_LRS       = "standardssd_lrs"
+	STORAGE_PREMIUM_LRS           = "premium_lrs"
+	STORAGE_AZURE_BASIC           = "basic_storage"
+	STORAGE_AZURE_GENERAL_PURPOSE = "general_purpose_storage"
 
 	// aws storage type
 	STORAGE_GP2_SSD      = "gp2"      // aws general purpose ssd
@@ -145,6 +147,25 @@ var (
 	// 目前来说只支持这些
 	SHARED_STORAGE = []string{STORAGE_NFS, STORAGE_GPFS, STORAGE_RBD}
 )
+
+func IsDiskTypeMatch(t1, t2 string) bool {
+	switch t1 {
+	case DISK_TYPE_ROTATE:
+		if t2 == DISK_TYPE_SSD {
+			return false
+		} else {
+			return true
+		}
+	case DISK_TYPE_SSD:
+		if t2 == DISK_TYPE_ROTATE {
+			return false
+		} else {
+			return true
+		}
+	default:
+		return true
+	}
+}
 
 type StorageResourceInput struct {
 	// 存储（ID或Name）

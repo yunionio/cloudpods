@@ -19,7 +19,6 @@ import (
 	"database/sql"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
@@ -30,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
+	o "yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/keystone/saml"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/s3auth"
@@ -73,7 +73,7 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 	}
 	if len(ident.Password.User.Name) > 0 && len(ident.Password.User.Id) == 0 && len(ident.Password.User.Domain.Id) == 0 && len(ident.Password.User.Domain.Name) == 0 {
 		// no user domain specified, try to find user domain
-		q := models.UserManager.Query().Equals("name", ident.Password.User.Name).IsTrue("enabled")
+		q := models.UserManager.Query().Equals("name", ident.Password.User.Name)
 		usrCnt, err := q.CountWithError()
 		if err != nil {
 			return nil, errors.Wrap(err, "Query user by name")
@@ -83,7 +83,7 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 			return nil, sqlchemy.ErrDuplicateEntry
 		} else if usrCnt == 0 {
 			log.Errorf("find no user with name %s", ident.Password.User.Name)
-			return nil, sqlchemy.ErrEmptyQuery
+			return nil, httperrors.ErrUserNotFound
 		} else {
 			// userCnt == 1
 			usr := models.SUser{}
@@ -93,51 +93,48 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 				return nil, errors.Wrap(err, "Query user")
 			}
 			ident.Password.User.Domain.Id = usr.DomainId
-			idps, err := models.IdentityProviderManager.FetchIdentityProvidersByUserId(usr.Id, api.PASSWORD_PROTECTED_IDPS)
-			if err != nil {
-				return nil, errors.Wrap(err, "IdentityProviderManager.FetchIdentityProvidersByUserId")
-			}
-			log.Debugf("user %s idps: %s", ident.Password.User.Name, jsonutils.Marshal(idps))
-			if len(idps) == 0 {
-				idpId = api.DEFAULT_IDP_ID
-			} else if len(idps) == 1 {
-				idpId = idps[0].Id
-			} else {
-				log.Errorf("find %d password idps for user %s", len(idps), ident.Password.User.Name)
-				return nil, sqlchemy.ErrDuplicateEntry
-			}
+			ident.Password.User.Id = usr.Id
 		}
-	} else {
-		usrExt, err := models.UserManager.FetchUserExtended(ident.Password.User.Id, ident.Password.User.Name,
-			ident.Password.User.Domain.Id, ident.Password.User.Domain.Name)
-		if err != nil && err != sql.ErrNoRows {
-			return nil, errors.Wrap(err, "UserManager.FetchUserExtended")
-		}
+	}
 
-		if err == sql.ErrNoRows {
-			// no such user locally, query domain idp
-			domain, err := models.DomainManager.FetchDomain(ident.Password.User.Domain.Id, ident.Password.User.Domain.Name)
-			if err != nil {
-				return nil, errors.Wrap(err, "DomainManager.FetchDomain")
+	usrExt, err := models.UserManager.FetchUserExtended(ident.Password.User.Id, ident.Password.User.Name,
+		ident.Password.User.Domain.Id, ident.Password.User.Domain.Name)
+	if err != nil && errors.Cause(err) != httperrors.ErrUserNotFound {
+		return nil, errors.Wrap(err, "UserManager.FetchUserExtended")
+	}
+
+	if err != nil {
+		// no such user locally, query domain idp
+		domain, err := models.DomainManager.FetchDomain(ident.Password.User.Domain.Id, ident.Password.User.Domain.Name)
+		if err != nil {
+			return nil, errors.Wrap(err, "DomainManager.FetchDomain")
+		}
+		mapping, err := models.IdmappingManager.FetchFirstEntity(domain.Id, api.IdMappingEntityDomain)
+		if err != nil {
+			return nil, errors.Wrap(err, "IdmappingManager.FetchEntity")
+		}
+		idpId = mapping.IdpId
+	} else {
+		// check enable
+		if !usrExt.Enabled {
+			if usrExt.IsLocal && usrExt.LocalFailedAuthCount > o.Options.PasswordErrorLockCount {
+				// user locked
+				return nil, httperrors.ErrUserLocked
 			}
-			mapping, err := models.IdmappingManager.FetchFirstEntity(domain.Id, api.IdMappingEntityDomain)
-			if err != nil {
-				return nil, errors.Wrap(err, "IdmappingManager.FetchEntity")
-			}
-			idpId = mapping.IdpId
+			// user disabled
+			return nil, httperrors.ErrUserLocked
+		}
+		// user exists, query user's idp
+		idps, err := models.IdentityProviderManager.FetchIdentityProvidersByUserId(usrExt.Id, api.PASSWORD_PROTECTED_IDPS)
+		if err != nil {
+			return nil, errors.Wrap(err, "IdentityProviderManager.FetchIdentityProvidersByUserId")
+		}
+		if len(idps) == 0 {
+			idpId = api.DEFAULT_IDP_ID
+		} else if len(idps) == 1 {
+			idpId = idps[0].Id
 		} else {
-			// user exists, query user's idp
-			idps, err := models.IdentityProviderManager.FetchIdentityProvidersByUserId(usrExt.Id, api.PASSWORD_PROTECTED_IDPS)
-			if err != nil {
-				return nil, errors.Wrap(err, "IdentityProviderManager.FetchIdentityProvidersByUserId")
-			}
-			if len(idps) == 0 {
-				idpId = api.DEFAULT_IDP_ID
-			} else if len(idps) == 1 {
-				idpId = idps[0].Id
-			} else {
-				return nil, sqlchemy.ErrDuplicateEntry
-			}
+			return nil, sqlchemy.ErrDuplicateEntry
 		}
 	}
 
@@ -177,7 +174,6 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 	if idp.Status == api.IdentityDriverStatusDisconnected {
 		idp.MarkConnected(ctx, models.GetDefaultAdminCred())
 	}
-
 	return usr, nil
 }
 
@@ -429,7 +425,7 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 		// auth by other methods, e.g. password , etc...
 		user, err = authUserByIdentityV3(ctx, input)
 		if err != nil {
-			return nil, errors.Wrap(err, "authUserByIdentityV3")
+			return nil, err
 		}
 	}
 

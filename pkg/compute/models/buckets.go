@@ -1690,13 +1690,30 @@ type SBucketUsages struct {
 func (manager *SBucketManager) TotalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) SBucketUsages {
 	usage := SBucketUsages{}
 	buckets := manager.Query().SubQuery()
+	bucketsQ := buckets.Query(
+		sqlchemy.NewFunction(
+			sqlchemy.NewCase().When(
+				sqlchemy.GE(buckets.Field("object_cnt"), 0),
+				buckets.Field("object_cnt"),
+			).Else(sqlchemy.NewConstField(0)),
+			"object_cnt1",
+		),
+		sqlchemy.NewFunction(
+			sqlchemy.NewCase().When(
+				sqlchemy.GE(buckets.Field("size_bytes"), 0),
+				buckets.Field("size_bytes"),
+			).Else(sqlchemy.NewConstField(0)),
+			"size_bytes1",
+		),
+	)
+	bucketsQ = manager.usageQ(bucketsQ, rangeObjs, providers, brands, cloudEnv)
+	bucketsQ = scopeOwnerIdFilter(bucketsQ, scope, ownerId)
+	buckets = bucketsQ.SubQuery()
 	q := buckets.Query(
 		sqlchemy.COUNT("buckets"),
-		sqlchemy.SUM("objects", buckets.Field("object_cnt")),
-		sqlchemy.SUM("bytes", buckets.Field("size_bytes")),
+		sqlchemy.SUM("objects", buckets.Field("object_cnt1")),
+		sqlchemy.SUM("bytes", buckets.Field("size_bytes1")),
 	)
-	q = manager.usageQ(q, rangeObjs, providers, brands, cloudEnv)
-	q = scopeOwnerIdFilter(q, scope, ownerId)
 	err := q.First(&usage)
 	if err != nil {
 		log.Errorf("Query bucket usage error %s", err)
@@ -1869,19 +1886,31 @@ func (bucket *SBucket) processObjectsActionInput(input api.BucketObjectsActionIn
 }
 
 func (bucket *SBucket) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
+	if len(bucket.ExternalId) == 0 {
+		return
+	}
 	iBucket, err := bucket.GetIBucket()
 	if err != nil {
 		log.Errorf("bucket.GetIBucket() failed: %s", err)
 		return
 	}
+	oldTags, err := iBucket.GetTags()
+	if err != nil {
+		logclient.AddSimpleActionLog(bucket, logclient.ACT_UPDATE_TAGS, err, userCred, false)
+		log.Errorf("iBucket.GetTags failed: %s", err)
+		return
+	}
 	tags, _ := bucket.GetAllUserMetadata()
+	tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
+
 	err = cloudprovider.SetBucketMetadata(iBucket, tags, true)
 	if err != nil {
+		logclient.AddSimpleActionLog(bucket, logclient.ACT_UPDATE_TAGS, err, userCred, false)
 		log.Errorf("iBucket.SetMetadata failed: %s", err)
 		return
 	}
 	syncMetadata(ctx, userCred, bucket, iBucket)
-	db.OpsLog.LogEvent(bucket, db.ACT_UPDATE_TAGS, tags, userCred)
+	logclient.AddSimpleActionLog(bucket, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
 }
 
 func (manager *SBucketManager) ListItemExportKeys(ctx context.Context,

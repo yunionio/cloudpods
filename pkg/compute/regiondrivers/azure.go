@@ -57,10 +57,6 @@ func (self *SAzureRegionDriver) IsSupportClassicSecurityGroup() bool {
 	return true
 }
 
-func (self *SAzureRegionDriver) GetSecurityGroupRuleOrder() cloudprovider.TPriorityOrder {
-	return cloudprovider.PriorityOrderByAsc
-}
-
 func (self *SAzureRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
 	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
 }
@@ -70,11 +66,11 @@ func (self *SAzureRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.S
 }
 
 func (self *SAzureRegionDriver) GetSecurityGroupRuleMaxPriority() int {
-	return 4096
+	return 100
 }
 
 func (self *SAzureRegionDriver) GetSecurityGroupRuleMinPriority() int {
-	return 100
+	return 4096
 }
 
 func (self *SAzureRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error) {

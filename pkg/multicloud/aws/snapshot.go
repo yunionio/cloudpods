@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -86,7 +87,7 @@ func (self *SSnapshot) Refresh() error {
 	if snapshots, total, err := self.region.GetSnapshots("", "", "", []string{self.SnapshotId}, 0, 1); err != nil {
 		return err
 	} else if total != 1 {
-		return ErrorNotFound()
+		return errors.Wrap(cloudprovider.ErrNotFound, "GetSnapshots")
 	} else if err := jsonutils.Update(self, snapshots[0]); err != nil {
 		return err
 	}
@@ -135,11 +136,15 @@ func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName
 		params.SetSnapshotIds(ConvertedList(snapshotIds))
 	}
 
-	ret, err := self.ec2Client.DescribeSnapshots(params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.DescribeSnapshots(params)
 	err = parseNotFoundError(err)
 	if err != nil {
 		if strings.Contains(err.Error(), "InvalidSnapshot.NotFound") {
-			return nil, 0, ErrorNotFound()
+			return nil, 0, errors.Wrap(cloudprovider.ErrNotFound, "parseNotFoundError")
 		}
 
 		return nil, 0, err
@@ -172,9 +177,9 @@ func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName
 
 func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
 	if snapshots, total, err := self.GetSnapshots("", "", "", []string{snapshotId}, 0, 1); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetSnapshots")
 	} else if total != 1 {
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetSnapshots")
 	} else {
 		return &snapshots[0], nil
 	}
@@ -199,15 +204,27 @@ func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
 
 	params.SetDescription(desc)
 	log.Debugf("CreateSnapshots with params %s", params)
-	ret, err := self.ec2Client.CreateSnapshot(params)
-	return StrVal(ret.SnapshotId), err
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return "", errors.Wrap(err, "getEc2Client")
+	}
+
+	ret, err := ec2Client.CreateSnapshot(params)
+	if err != nil {
+		return "", errors.Wrap(err, "CreateSnapshot")
+	}
+	return StrVal(ret.SnapshotId), nil
 }
 
 func (self *SRegion) DeleteSnapshot(snapshotId string) error {
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
 	params := &ec2.DeleteSnapshotInput{}
 	params.SetSnapshotId(snapshotId)
-	_, err := self.ec2Client.DeleteSnapshot(params)
-	return err
+	_, err = ec2Client.DeleteSnapshot(params)
+	return errors.Wrap(err, "DeleteSnapshot")
 }
 
 func (self *SSnapshot) GetProjectId() string {

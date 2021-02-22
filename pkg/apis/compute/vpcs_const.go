@@ -33,6 +33,8 @@ const (
 
 	DEFAULT_VPC_ID = "default"
 	NORMAL_VPC_ID  = "normal" // 没有关联VPC的安全组，统一使用normal
+
+	CLASSIC_VPC_NAME = "-"
 )
 
 type UsableResourceListInput struct {
@@ -70,6 +72,8 @@ type VpcListInput struct {
 	// CIDR地址段
 	// example: 192.168.222.0/24
 	CidrBlock []string `json:"cidr_block"`
+
+	OrderByNetworkCount string `json:"order_by_network_count"`
 }
 
 const (

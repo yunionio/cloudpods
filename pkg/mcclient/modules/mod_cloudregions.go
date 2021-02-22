@@ -18,7 +18,9 @@ import (
 	"sort"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
@@ -34,6 +36,7 @@ var (
 type sNameCounter struct {
 	Name  string
 	Count int
+	cloudprovider.SGeographicInfo
 }
 
 type tNameCounters []sNameCounter
@@ -59,25 +62,31 @@ func (this *SCloudregionManager) getRegionAttributeList(session *mcclient.Client
 		return nil, err
 	}
 
-	cities := make(map[string]int)
+	cities := map[string]*sNameCounter{}
 	for i := range listResult.Data {
 		cityStr, _ := listResult.Data[i].GetString(attr)
 		if len(cityStr) == 0 && attr == "city" {
 			cityStr = "Other"
 		}
 		if len(cityStr) > 0 {
-			if _, ok := cities[cityStr]; ok {
-				cities[cityStr] += 1
-			} else {
-				cities[cityStr] = 1
+			_, ok := cities[cityStr]
+			if !ok {
+				cities[cityStr] = &sNameCounter{
+					Name:  cityStr,
+					Count: 0,
+				}
+				if attr == "city" {
+					listResult.Data[i].Unmarshal(&cities[cityStr].SGeographicInfo)
+				}
 			}
+			cities[cityStr].Count += 1
 		}
 	}
 
 	cityList := make([]sNameCounter, len(cities))
 	i := 0
 	for k, v := range cities {
-		cityList[i] = sNameCounter{Name: k, Count: v}
+		cityList[i] = sNameCounter{Name: k, Count: v.Count, SGeographicInfo: v.SGeographicInfo}
 		i += 1
 	}
 
@@ -92,6 +101,31 @@ func (this *SCloudregionManager) GetRegionCities(session *mcclient.ClientSession
 
 func (this *SCloudregionManager) GetRegionProviders(session *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return this.getRegionAttributeList(session, params, "provider")
+}
+
+func (this *SCloudregionManager) GetCityServers(session *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	objs, err := this.GetRegionCities(session, params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegionCities")
+	}
+	cities := []sNameCounter{}
+	err = objs.Unmarshal(&cities)
+	if err != nil {
+		return nil, errors.Wrapf(err, "objs.Unmarshal")
+	}
+	_params := params.(*jsonutils.JSONDict)
+	_params.Set("limit", jsonutils.NewInt(1))
+	_params.Set("details", jsonutils.NewBool(false))
+	for i := range cities {
+		_params.Set("city", jsonutils.NewString(cities[i].Name))
+		resp, err := Servers.List(session, _params)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Servers.List")
+		}
+		cities[i].Count = resp.Total
+	}
+	sort.Sort(tNameCounters(cities))
+	return jsonutils.Marshal(cities), nil
 }
 
 func init() {

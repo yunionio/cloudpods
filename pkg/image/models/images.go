@@ -21,7 +21,7 @@ import (
 	"math"
 	"net/http"
 	"os"
-	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -50,6 +50,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/streamutils"
@@ -57,7 +58,7 @@ import (
 )
 
 const (
-	LocalFilePrefix = "file://"
+	LocalFilePrefix = api.LocalFilePrefix
 )
 
 type SImageManager struct {
@@ -204,7 +205,7 @@ func (manager *SImageManager) IsCustomizedGetDetailsBody() bool {
 }
 
 func (self *SImage) CustomizedGetDetailsBody(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	filePath := self.getLocalLocation()
+	filePath := self.Location
 	status := self.Status
 
 	if self.IsGuestImage.IsFalse() {
@@ -212,13 +213,18 @@ func (self *SImage) CustomizedGetDetailsBody(ctx context.Context, userCred mccli
 		if len(formatStr) > 0 {
 			subimg := ImageSubformatManager.FetchSubImage(self.Id, formatStr)
 			if subimg != nil {
-				isTorrent := jsonutils.QueryBoolean(query, "torrent", false)
-				if !isTorrent {
-					filePath = subimg.getLocalLocation()
-					status = subimg.Status
+				if strings.HasPrefix(subimg.Location, api.LocalFilePrefix) {
+					isTorrent := jsonutils.QueryBoolean(query, "torrent", false)
+					if !isTorrent {
+						filePath = subimg.Location
+						status = subimg.Status
+					} else {
+						filePath = subimg.getLocalTorrentLocation()
+						status = subimg.TorrentStatus
+					}
 				} else {
-					filePath = subimg.getLocalTorrentLocation()
-					status = subimg.TorrentStatus
+					filePath = subimg.Location
+					status = subimg.Status
 				}
 			} else {
 				return nil, httperrors.NewNotFoundError("format %s not found", formatStr)
@@ -234,22 +240,16 @@ func (self *SImage) CustomizedGetDetailsBody(ctx context.Context, userCred mccli
 		return nil, httperrors.NewInvalidStatusError("empty file path")
 	}
 
+	size, rc, err := GetImage(filePath)
+	if err != nil {
+		return nil, errors.Wrap(err, "get image")
+	}
+	defer rc.Close()
+
 	appParams := appsrv.AppContextGetParams(ctx)
+	appParams.Response.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 
-	fstat, err := os.Stat(filePath)
-	if err != nil {
-		return nil, errors.Wrap(err, "os.Stat")
-	}
-
-	appParams.Response.Header().Set("Content-Length", strconv.FormatInt(fstat.Size(), 10))
-
-	fp, err := os.Open(filePath)
-	if err != nil {
-		return nil, errors.Wrap(err, "os.Open")
-	}
-	defer fp.Close()
-
-	_, err = streamutils.StreamPipe(fp, appParams.Response, false, nil)
+	_, err = streamutils.StreamPipe(rc, appParams.Response, false, nil)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -516,7 +516,7 @@ func (self *SImage) SaveImageFromStream(reader io.Reader, calChecksum bool) erro
 		}
 	}
 
-	db.Update(self, func() error {
+	_, err = db.Update(self, func() error {
 		self.Size = sp.Size
 		if calChecksum {
 			self.Checksum = sp.CheckSum
@@ -531,6 +531,9 @@ func (self *SImage) SaveImageFromStream(reader io.Reader, calChecksum bool) erro
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -559,7 +562,7 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 				dict.Set(api.IMAGE_OS_ARCH, jsonutils.NewString(osArch))
 			}
 			db.Update(self, func() error {
-				self.OsArch = compute.OS_ARCH_ARM
+				self.OsArch = compute.OS_ARCH_AARCH64
 				return nil
 			})
 		}
@@ -621,7 +624,7 @@ func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 			return nil, httperrors.NewInvalidStatusError("cannot upload in status %s", self.Status)
 		}
 		if minDiskSize, err := data.Int("min_disk"); err == nil {
-			img, err := qemuimg.NewQemuImage(self.getLocalLocation())
+			img, err := qemuimg.NewQemuImage(self.GetLocalLocation())
 			if err != nil {
 				return nil, errors.Wrap(err, "open image")
 			}
@@ -818,6 +821,15 @@ func (self *SImage) StartImageConvertTask(ctx context.Context, userCred mcclient
 	return nil
 }
 
+func (self *SImage) StartPutImageTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "PutImageTask", self, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
 func (self *SImage) AllowPerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowPerform(userCred, self, "cancel-delete") && self.IsGuestImage.IsFalse()
 }
@@ -993,7 +1005,7 @@ func (self *SImage) GetImageType() api.TImageType {
 	}
 }
 
-func (self *SImage) newSubformat(ctx context.Context, format qemuimg.TImageFormat, migrate bool) error {
+func (self *SImage) NewSubformat(ctx context.Context, format qemuimg.TImageFormat, migrate bool) error {
 	subformat := &SImageSubformat{}
 	subformat.SetModelManager(ImageSubformatManager, subformat)
 
@@ -1004,7 +1016,7 @@ func (self *SImage) newSubformat(ctx context.Context, format qemuimg.TImageForma
 		subformat.Size = self.Size
 		subformat.Checksum = self.Checksum
 		subformat.FastHash = self.FastHash
-		subformat.Status = api.IMAGE_STATUS_ACTIVE
+		subformat.Status = self.Status
 		subformat.Location = self.Location
 	} else {
 		subformat.Status = api.IMAGE_STATUS_QUEUED
@@ -1037,25 +1049,24 @@ func (self *SImage) MigrateSubImage(ctx context.Context) error {
 	}
 	if self.GetImageType() != api.ImageTypeISO && imgInst.IsSparse() && utils.IsInStringArray(self.DiskFormat, options.Options.TargetImageFormats) {
 		// need to convert again
-		return self.newSubformat(ctx, qemuimg.String2ImageFormat(self.DiskFormat), false)
+		return self.NewSubformat(ctx, qemuimg.String2ImageFormat(self.DiskFormat), false)
 	} else {
-		localPath := self.getLocalLocation()
+		localPath := self.GetLocalLocation()
 		if !strings.HasSuffix(localPath, fmt.Sprintf(".%s", self.DiskFormat)) {
 			newLocalpath := fmt.Sprintf("%s.%s", localPath, self.DiskFormat)
-			cmd := exec.Command("mv", "-f", localPath, newLocalpath)
-			err := cmd.Run()
+			out, err := procutils.NewCommand("mv", "-f", localPath, newLocalpath).Output()
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "rename file failed %s", out)
 			}
 			_, err = db.Update(self, func() error {
-				self.Location = fmt.Sprintf("%s%s", LocalFilePrefix, newLocalpath)
+				self.Location = self.GetNewLocation(newLocalpath)
 				return nil
 			})
 			if err != nil {
 				return err
 			}
 		}
-		return self.newSubformat(ctx, qemuimg.String2ImageFormat(self.DiskFormat), true)
+		return self.NewSubformat(ctx, qemuimg.String2ImageFormat(self.DiskFormat), true)
 	}
 }
 
@@ -1072,7 +1083,7 @@ func (self *SImage) MakeSubImages(ctx context.Context) error {
 			// need to create a record
 			subformat := ImageSubformatManager.FetchSubImage(self.Id, format)
 			if subformat == nil {
-				err := self.newSubformat(ctx, qemuimg.String2ImageFormat(format), false)
+				err := self.NewSubformat(ctx, qemuimg.String2ImageFormat(format), false)
 				if err != nil {
 					return err
 				}
@@ -1088,6 +1099,9 @@ func (self *SImage) ConvertAllSubformats() error {
 		if !utils.IsInStringArray(subimgs[i].Format, options.Options.TargetImageFormats) {
 			continue
 		}
+		if self.DiskFormat == subimgs[i].Format {
+			continue
+		}
 		err := subimgs[i].DoConvert(self)
 		if err != nil {
 			return err
@@ -1096,15 +1110,36 @@ func (self *SImage) ConvertAllSubformats() error {
 	return nil
 }
 
-func (self *SImage) getLocalLocation() string {
-	if len(self.Location) > len(LocalFilePrefix) {
-		return self.Location[len(LocalFilePrefix):]
+func (self *SImage) GetLocalLocation() string {
+	if strings.HasPrefix(self.Location, api.LocalFilePrefix) {
+		return self.Location[len(api.LocalFilePrefix):]
+	} else if strings.HasPrefix(self.Location, api.S3Prefix) {
+		return path.Join(options.Options.S3MountPoint, self.Location[len(api.S3Prefix):])
+	} else {
+		return ""
 	}
-	return ""
+}
+
+func (self *SImage) GetPrefix() string {
+	if strings.HasPrefix(self.Location, api.LocalFilePrefix) {
+		return api.LocalFilePrefix
+	} else if strings.HasPrefix(self.Location, api.S3Prefix) {
+		return api.S3Prefix
+	} else {
+		return api.LocalFilePrefix
+	}
+}
+
+func (self *SImage) GetNewLocation(newLocalPath string) string {
+	if strings.HasPrefix(self.Location, api.S3Prefix) {
+		return api.S3Prefix + path.Base(newLocalPath)
+	} else {
+		return api.LocalFilePrefix + newLocalPath
+	}
 }
 
 func (self *SImage) getQemuImage() (*qemuimg.SQemuImage, error) {
-	return qemuimg.NewQemuImageWithIOLevel(self.getLocalLocation(), qemuimg.IONiceIdle)
+	return qemuimg.NewQemuImageWithIOLevel(self.GetLocalLocation(), qemuimg.IONiceIdle)
 }
 
 func (self *SImage) StopTorrents() {
@@ -1121,16 +1156,8 @@ func (self *SImage) seedTorrents() {
 	}
 }
 
-func (self *SImage) RemoveFiles() error {
-	subimgs := ImageSubformatManager.GetAllSubImages(self.Id)
-	for i := 0; i < len(subimgs); i += 1 {
-		subimgs[i].StopTorrent()
-		err := subimgs[i].RemoveFiles()
-		if err != nil {
-			return err
-		}
-	}
-	filePath := self.getLocalLocation()
+func (self *SImage) RemoveFile() error {
+	filePath := self.GetLocalLocation()
 	if len(filePath) == 0 {
 		filePath = self.GetPath("")
 	}
@@ -1138,6 +1165,22 @@ func (self *SImage) RemoveFiles() error {
 		return os.Remove(filePath)
 	}
 	return nil
+}
+
+func (self *SImage) Remove() error {
+	subimgs := ImageSubformatManager.GetAllSubImages(self.Id)
+	for i := 0; i < len(subimgs); i += 1 {
+		err := subimgs[i].RemoveFiles()
+		if err != nil {
+			return err
+		}
+	}
+	if strings.HasPrefix(self.Location, LocalFilePrefix) {
+		return self.RemoveFile()
+	} else {
+		return RemoveImage(self.Location)
+	}
+
 }
 
 func (manager *SImageManager) getAllAliveImages() []SImage {
@@ -1302,54 +1345,57 @@ func (self *SImage) IsIso() (error, bool) {
 }
 
 func (self *SImage) isActive(useFast bool) bool {
-	return isActive(self.getLocalLocation(), self.Size, self.Checksum, self.FastHash, useFast)
+	return isActive(self.GetLocalLocation(), self.Size, self.Checksum, self.FastHash, useFast)
 }
 
 func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCredential, useFast bool) {
 	if utils.IsInStringArray(self.Status, api.ImageDeadStatus) {
 		return
 	}
-	if self.isActive(useFast) {
-		if self.Status != api.IMAGE_STATUS_ACTIVE {
-			self.SetStatus(userCred, api.IMAGE_STATUS_ACTIVE, "check active")
-		}
-		if len(self.FastHash) == 0 {
-			fastHash, err := fileutils2.FastCheckSum(self.getLocalLocation())
-			if err != nil {
-				log.Errorf("DoCheckStatus fileutils2.FastChecksum fail %s", err)
-			} else {
-				_, err := db.Update(self, func() error {
-					self.FastHash = fastHash
-					return nil
-				})
+	if IsCheckStatusEnabled(self) {
+		if self.isActive(useFast) {
+			if self.Status != api.IMAGE_STATUS_ACTIVE {
+				self.SetStatus(userCred, api.IMAGE_STATUS_ACTIVE, "check active")
+			}
+			if len(self.FastHash) == 0 {
+				fastHash, err := fileutils2.FastCheckSum(self.GetLocalLocation())
 				if err != nil {
-					log.Errorf("DoCheckStatus save FastHash fail %s", err)
+					log.Errorf("DoCheckStatus fileutils2.FastChecksum fail %s", err)
+				} else {
+					_, err := db.Update(self, func() error {
+						self.FastHash = fastHash
+						return nil
+					})
+					if err != nil {
+						log.Errorf("DoCheckStatus save FastHash fail %s", err)
+					}
 				}
 			}
-		}
-		img, err := qemuimg.NewQemuImage(self.getLocalLocation())
-		if err == nil {
-			format := string(img.Format)
-			virtualSizeMB := int32(img.SizeBytes / 1024 / 1024)
-			if (len(format) > 0 && self.DiskFormat != format) || (virtualSizeMB > 0 && self.MinDiskMB != virtualSizeMB) {
-				db.Update(self, func() error {
-					if len(format) > 0 {
-						self.DiskFormat = format
-					}
-					if virtualSizeMB > 0 && self.MinDiskMB < virtualSizeMB {
-						self.MinDiskMB = virtualSizeMB
-					}
-					return nil
-				})
+			img, err := qemuimg.NewQemuImage(self.GetLocalLocation())
+			if err == nil {
+				format := string(img.Format)
+				virtualSizeMB := int32(img.SizeBytes / 1024 / 1024)
+				if (len(format) > 0 && self.DiskFormat != format) || (virtualSizeMB > 0 && self.MinDiskMB != virtualSizeMB) {
+					db.Update(self, func() error {
+						if len(format) > 0 {
+							self.DiskFormat = format
+						}
+						if virtualSizeMB > 0 && self.MinDiskMB < virtualSizeMB {
+							self.MinDiskMB = virtualSizeMB
+						}
+						return nil
+					})
+				}
+			} else {
+				log.Warningf("fail to check image size of %s(%s)", self.Id, self.Name)
 			}
 		} else {
-			log.Warningf("fail to check image size of %s(%s)", self.Id, self.Name)
-		}
-	} else {
-		if self.Status != api.IMAGE_STATUS_QUEUED {
-			self.SetStatus(userCred, api.IMAGE_STATUS_QUEUED, "check inactive")
+			if self.Status != api.IMAGE_STATUS_QUEUED {
+				self.SetStatus(userCred, api.IMAGE_STATUS_QUEUED, "check inactive")
+			}
 		}
 	}
+
 	needConvert := false
 	subimgs := ImageSubformatManager.GetAllSubImages(self.Id)
 	// for image the part of a guest image, convert is not necessary.
@@ -1358,7 +1404,7 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 	}
 	for i := 0; i < len(subimgs); i += 1 {
 		subimgs[i].checkStatus(useFast)
-		if (subimgs[i].Status != api.IMAGE_STATUS_ACTIVE || subimgs[i].TorrentStatus != api.IMAGE_STATUS_ACTIVE) && utils.IsInStringArray(subimgs[i].Format, options.Options.TargetImageFormats) {
+		if subimgs[i].Status != api.IMAGE_STATUS_ACTIVE && utils.IsInStringArray(subimgs[i].Format, options.Options.TargetImageFormats) {
 			needConvert = true
 		}
 	}
@@ -1368,6 +1414,9 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 			self.StartImageConvertTask(ctx, userCred, "")
 		} else if options.Options.EnableTorrentService {
 			self.seedTorrents()
+		} else {
+			log.Infof("Image %s put to specific storage", self.Name)
+			self.StartPutImageTask(ctx, userCred, "")
 		}
 	}
 }

@@ -123,9 +123,13 @@ func (self *SInstance) UpdateUserData(userData string) error {
 	input := &ec2.ModifyInstanceAttributeInput{}
 	input.SetUserData(udata)
 	input.SetInstanceId(self.GetId())
-	_, err := self.host.zone.region.ec2Client.ModifyInstanceAttribute(input)
+	ec2Client, err := self.host.zone.region.getEc2Client()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "getEc2Client")
+	}
+	_, err = ec2Client.ModifyInstanceAttribute(input)
+	if err != nil {
+		return errors.Wrap(err, "ModifyInstanceAttribute")
 	}
 
 	return nil
@@ -135,7 +139,11 @@ func (self *SInstance) GetUserData() (string, error) {
 	input := &ec2.DescribeInstanceAttributeInput{}
 	input.SetInstanceId(self.GetId())
 	input.SetAttribute("userData")
-	ret, err := self.host.zone.region.ec2Client.DescribeInstanceAttribute(input)
+	ec2Client, err := self.host.zone.region.getEc2Client()
+	if err != nil {
+		return "", errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.DescribeInstanceAttribute(input)
 	if err != nil {
 		return "", err
 	}
@@ -208,7 +216,11 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	// 注意：除了空用大写NA.其他一律用小写格式
 	priceKey := fmt.Sprintf("%s::%s::%s::NA::NA::shared::boxusage", self.RegionId, self.InstanceType, strings.ToLower(self.OSType))
 	data.Add(jsonutils.NewString(priceKey), "price_key")
-	tags, err := FetchTags(self.host.zone.region.ec2Client, self.InstanceId)
+	ec2Client, err := self.host.zone.region.getEc2Client()
+	if err != nil {
+		return data
+	}
+	tags, err := FetchTags(ec2Client, self.InstanceId)
 	if err != nil {
 		log.Errorln(err)
 	} else {
@@ -250,8 +262,12 @@ func (self *SInstance) GetSysTags() map[string]string {
 			data["login_key"] = loginKey
 		}
 	}
+	ec2Client, err := self.host.zone.region.getEc2Client()
+	if err != nil {
+		return data
+	}
 	// Name tag
-	tags, err := FetchTags(self.host.zone.region.ec2Client, self.InstanceId)
+	tags, err := FetchTags(ec2Client, self.InstanceId)
 	if err == nil {
 		name, err := tags.GetString("Name")
 		if err == nil {
@@ -262,7 +278,11 @@ func (self *SInstance) GetSysTags() map[string]string {
 }
 
 func (self *SInstance) GetTags() (map[string]string, error) {
-	tags, err := FetchTags(self.host.zone.region.ec2Client, self.InstanceId)
+	ec2Client, err := self.host.zone.region.getEc2Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "getEc2Client")
+	}
+	tags, err := FetchTags(ec2Client, self.InstanceId)
 	if err != nil {
 		return nil, errors.Wrap(err, "FetchTags(self.host.zone.region.ec2Client, self.InstanceId)")
 	}
@@ -272,6 +292,7 @@ func (self *SInstance) GetTags() (map[string]string, error) {
 		return nil, errors.Wrap(err, "tags.Unmarshal")
 	}
 	delete(data, "Name")
+	delete(data, "Description")
 	return data, nil
 }
 
@@ -296,14 +317,14 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	disks, _, err := self.host.zone.region.GetDisks(self.InstanceId, "", "", nil, 0, 0)
 	if err != nil {
 		log.Errorf("fetchDisks fail %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "GetDisks")
 	}
 
 	idisks := make([]cloudprovider.ICloudDisk, len(disks))
 	for i := 0; i < len(disks); i += 1 {
 		store, err := self.host.zone.getStorageByCategory(disks[i].Category)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "getStorageByCategory")
 		}
 		disks[i].storage = store
 		idisks[i] = &disks[i]
@@ -440,7 +461,12 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 	}
 
 	params := &ec2.DescribeInstancesInput{InstanceIds: []*string{&self.InstanceId}}
-	return self.host.zone.region.ec2Client.WaitUntilInstanceTerminated(params)
+	ec2Client, err := self.host.zone.region.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+
+	return ec2Client.WaitUntilInstanceTerminated(params)
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
@@ -594,10 +620,14 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 		params = params.SetFilters(filters)
 	}
 
-	res, err := self.ec2Client.DescribeInstances(params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "getEc2Client")
+	}
+	res, err := ec2Client.DescribeInstances(params)
 	if err != nil {
 		if strings.Contains(err.Error(), "InvalidInstanceID.NotFound") {
-			return nil, 0, ErrorNotFound()
+			return nil, 0, errors.Wrap(cloudprovider.ErrNotFound, "DescribeInstances")
 		} else {
 			return nil, 0, err
 		}
@@ -731,10 +761,11 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 
 	instances, _, err := self.GetInstances("", []string{instanceId}, 0, 1)
 	if err != nil {
-		return nil, err
+		log.Errorf("GetInstances %s: %s", instanceId, err)
+		return nil, errors.Wrap(err, "GetInstances")
 	}
 	if len(instances) == 0 {
-		return nil, ErrorNotFound()
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetInstances")
 	}
 	return &instances[0], nil
 }
@@ -744,7 +775,12 @@ func (self *SRegion) GetInstanceIdByImageId(imageId string) (string, error) {
 	filters := []*ec2.Filter{}
 	filters = AppendSingleValueFilter(filters, "image-id", imageId)
 	params.SetFilters(filters)
-	ret, err := self.ec2Client.DescribeInstances(params)
+
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return "", errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.DescribeInstances(params)
 	if err != nil {
 		return "", err
 	}
@@ -879,7 +915,11 @@ func (self *SRegion) CreateInstance(name string, image *SImage, instanceType str
 		params.SetSecurityGroupIds([]*string{&securityGroupId})
 	}
 
-	res, err := self.ec2Client.RunInstances(&params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return "", errors.Wrap(err, "getEc2Client")
+	}
+	res, err := ec2Client.RunInstances(&params)
 	if err != nil {
 		log.Errorf("CreateInstance fail %s", err)
 		return "", err
@@ -923,8 +963,12 @@ func (self *SRegion) StartVM(instanceId string) error {
 
 	params := &ec2.StartInstancesInput{}
 	params.SetInstanceIds([]*string{&instanceId})
-	_, err := self.ec2Client.StartInstances(params)
-	return err
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+	_, err = ec2Client.StartInstances(params)
+	return errors.Wrap(err, "StartInstances")
 }
 
 func (self *SRegion) StopVM(instanceId string, isForce bool) error {
@@ -934,8 +978,12 @@ func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 
 	params := &ec2.StopInstancesInput{}
 	params.SetInstanceIds([]*string{&instanceId})
-	_, err := self.ec2Client.StopInstances(params)
-	return err
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+	_, err = ec2Client.StopInstances(params)
+	return errors.Wrap(err, "StopInstances")
 }
 
 func (self *SRegion) DeleteVM(instanceId string) error {
@@ -959,8 +1007,12 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 
 	params := &ec2.TerminateInstancesInput{}
 	params.SetInstanceIds([]*string{&instanceId})
-	_, err = self.ec2Client.TerminateInstances(params)
-	return err
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+	_, err = ec2Client.TerminateInstances(params)
+	return errors.Wrap(err, "TerminateInstances")
 }
 
 func (self *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, deleteKeypair bool, description string) error {
@@ -988,10 +1040,15 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 		tagspec.SetDescTag(description)
 	}
 
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+
 	ec2Tag, _ := tagspec.GetTagSpecifications()
 	if len(ec2Tag.Tags) > 0 {
 		params.SetTags(ec2Tag.Tags)
-		_, err := self.ec2Client.CreateTags(params)
+		_, err := ec2Client.CreateTags(params)
 		if err != nil {
 			return err
 		}
@@ -1004,7 +1061,7 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 
 func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
 	// https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/set-hostname.html
-	return fmt.Errorf("aws not support change hostname.")
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, image *SImage, sysDiskSizeGB int, keypair string, userdata string) (string, error) {
@@ -1057,13 +1114,18 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 		return "", fmt.Errorf("ReplaceSystemDisk create temp server failed.")
 	}
 
-	self.ec2Client.WaitUntilInstanceRunning(&ec2.DescribeInstancesInput{InstanceIds: []*string{&_id}})
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return "", errors.Wrap(err, "getEc2Client")
+	}
+
+	ec2Client.WaitUntilInstanceRunning(&ec2.DescribeInstancesInput{InstanceIds: []*string{&_id}})
 	err = self.StopVM(_id, true)
 	if err != nil {
 		log.Debugf("ReplaceSystemDisk stop temp server failed %s", err)
 		return "", fmt.Errorf("ReplaceSystemDisk stop temp server failed")
 	}
-	self.ec2Client.WaitUntilInstanceStopped(&ec2.DescribeInstancesInput{InstanceIds: []*string{&_id}})
+	ec2Client.WaitUntilInstanceStopped(&ec2.DescribeInstancesInput{InstanceIds: []*string{&_id}})
 
 	// detach disks
 	tempInstance, err := self.GetInstance(_id)
@@ -1083,16 +1145,16 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 		log.Debugf("ReplaceSystemDisk detach disk %s: %s", tempInstance.Disks[0], err)
 		return "", err
 	}
-	self.ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&rootDisk.DiskId}})
-	self.ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&tempInstance.Disks[0]}})
+	ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&rootDisk.DiskId}})
+	ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&tempInstance.Disks[0]}})
 
 	err = self.AttachDisk(instance.GetId(), tempInstance.Disks[0], rootDisk.Device)
 	if err != nil {
 		log.Debugf("ReplaceSystemDisk attach disk %s: %s", tempInstance.Disks[0], err)
 		return "", err
 	}
-	self.ec2Client.WaitUntilInstanceStopped(&ec2.DescribeInstancesInput{InstanceIds: []*string{&instanceId}})
-	self.ec2Client.WaitUntilVolumeInUse(&ec2.DescribeVolumesInput{VolumeIds: []*string{&tempInstance.Disks[0]}})
+	ec2Client.WaitUntilInstanceStopped(&ec2.DescribeInstancesInput{InstanceIds: []*string{&instanceId}})
+	ec2Client.WaitUntilVolumeInUse(&ec2.DescribeVolumesInput{VolumeIds: []*string{&tempInstance.Disks[0]}})
 
 	userdataText, err := base64.StdEncoding.DecodeString(userdata)
 	if err != nil {
@@ -1118,7 +1180,11 @@ func (self *SRegion) ChangeVMConfig2(zoneId string, instanceId string, instanceT
 	t := &ec2.AttributeValue{Value: &instanceType}
 	params.SetInstanceType(t)
 
-	_, err := self.ec2Client.ModifyInstanceAttribute(params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+	_, err = ec2Client.ModifyInstanceAttribute(params)
 	if err != nil {
 		return fmt.Errorf("Failed to change vm config, specification not supported. %s", err.Error())
 	} else {
@@ -1131,7 +1197,13 @@ func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
 	params.SetInstanceId(instanceId)
 	params.SetVolumeId(diskId)
 	log.Debugf("DetachDisk %s", params.String())
-	_, err := self.ec2Client.DetachVolume(params)
+
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+
+	_, err = ec2Client.DetachVolume(params)
 	if err != nil {
 		if strings.Contains(err.Error(), fmt.Sprintf("'%s'is in the 'available' state", diskId)) {
 			return nil
@@ -1151,15 +1223,23 @@ func (self *SRegion) AttachDisk(instanceId string, diskId string, deviceName str
 	params.SetVolumeId(diskId)
 	params.SetDevice(deviceName)
 	log.Debugf("AttachDisk %s", params.String())
-	_, err := self.ec2Client.AttachVolume(params)
-	return err
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+	_, err = ec2Client.AttachVolume(params)
+	return errors.Wrap(err, "AttachVolume")
 }
 
 func (self *SRegion) deleteProtectStatusVM(instanceId string) (bool, error) {
 	p := &ec2.DescribeInstanceAttributeInput{}
 	p.SetInstanceId(instanceId)
 	p.SetAttribute("disableApiTermination")
-	ret, err := self.ec2Client.DescribeInstanceAttribute(p)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return false, errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.DescribeInstanceAttribute(p)
 	if err != nil {
 		return false, err
 	}
@@ -1172,15 +1252,23 @@ func (self *SRegion) deleteProtectVM(instanceId string, disableDelete bool) erro
 		DisableApiTermination: &ec2.AttributeBooleanValue{Value: &disableDelete},
 		InstanceId:            &instanceId,
 	}
-	_, err := self.ec2Client.ModifyInstanceAttribute(p2)
-	return err
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+	_, err = ec2Client.ModifyInstanceAttribute(p2)
+	return errors.Wrap(err, "ModifyInstanceAttribute")
 }
 
 func (self *SRegion) getPasswordData(instanceId string) (string, error) {
 	params := &ec2.GetPasswordDataInput{}
 	params.SetInstanceId(instanceId)
 
-	ret, err := self.ec2Client.GetPasswordData(params)
+	ec2Client, err := self.getEc2Client()
+	if err != nil {
+		return "", errors.Wrap(err, "getEc2Client")
+	}
+	ret, err := ec2Client.GetPasswordData(params)
 	if err != nil {
 		return "", err
 	}
@@ -1205,7 +1293,11 @@ func (self *SInstance) GetError() error {
 }
 
 func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
-	oldTagsJson, err := FetchTags(self.host.zone.region.ec2Client, self.InstanceId)
+	ec2Client, err := self.host.zone.region.getEc2Client()
+	if err != nil {
+		return errors.Wrap(err, "getEc2Client")
+	}
+	oldTagsJson, err := FetchTags(ec2Client, self.InstanceId)
 	if err != nil {
 		return errors.Wrapf(err, "FetchTags(self.host.zone.region.ec2Client, %s)", self.InstanceId)
 	}

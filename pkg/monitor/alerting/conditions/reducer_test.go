@@ -66,7 +66,7 @@ func TestSimpleReducer(t *testing.T) {
 		})
 
 		Convey("median should ignore null values", func() {
-			reducer := newSimpleReducer("median")
+			reducer := newSimpleReducerByType("median")
 			series := &tsdb.TimeSeries{
 				Name: "test time series",
 			}
@@ -90,7 +90,7 @@ func TestSimpleReducer(t *testing.T) {
 
 		Convey("count_non_null", func() {
 			Convey("with null values and real values", func() {
-				reducer := newSimpleReducer("count_non_null")
+				reducer := newSimpleReducerByType("count_non_null")
 				series := &tsdb.TimeSeries{
 					Name: "test time series",
 				}
@@ -105,7 +105,7 @@ func TestSimpleReducer(t *testing.T) {
 			})
 
 			Convey("with null values", func() {
-				reducer := newSimpleReducer("count_non_null")
+				reducer := newSimpleReducerByType("count_non_null")
 				series := &tsdb.TimeSeries{
 					Name: "test time series",
 				}
@@ -118,7 +118,7 @@ func TestSimpleReducer(t *testing.T) {
 		})
 
 		Convey("avg of number values and null values should ignore nulls", func() {
-			reduer := newSimpleReducer("avg")
+			reduer := newSimpleReducerByType("avg")
 			series := &tsdb.TimeSeries{
 				Name: "test time series",
 			}
@@ -147,7 +147,7 @@ func TestSimpleReducer(t *testing.T) {
 		})
 
 		Convey("diff with only nulls", func() {
-			reducer := newSimpleReducer("diff")
+			reducer := newSimpleReducerByType("diff")
 			series := &tsdb.TimeSeries{
 				Name: "test time serie",
 			}
@@ -174,7 +174,7 @@ func TestSimpleReducer(t *testing.T) {
 		})
 
 		Convey("percent_diff with only nulls", func() {
-			reducer := newSimpleReducer("percent_diff")
+			reducer := newSimpleReducerByType("percent_diff")
 			series := &tsdb.TimeSeries{
 				Name: "test time serie",
 			}
@@ -188,7 +188,7 @@ func TestSimpleReducer(t *testing.T) {
 }
 
 func testReducer(reducerType string, datapoints ...float64) float64 {
-	reducer := newSimpleReducer(reducerType)
+	reducer := newSimpleReducerByType(reducerType)
 	serires := &tsdb.TimeSeries{
 		Name: "test time series",
 	}

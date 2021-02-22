@@ -19,14 +19,14 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type DBInstanceRemoteUpdateTask struct {
-	SGuestBaseTask
+	taskman.STask
 }
 
 func init() {
@@ -34,7 +34,7 @@ func init() {
 }
 
 func (self *DBInstanceRemoteUpdateTask) taskFail(ctx context.Context, dbinstance *models.SDBInstance, reason jsonutils.JSONObject) {
-	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_UPDATE_TAGS, reason, self.UserCred, false)
+	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_UPDATE_TAGS_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -48,6 +48,19 @@ func (self *DBInstanceRemoteUpdateTask) OnInit(ctx context.Context, obj db.IStan
 	}
 }
 
-func (self *DBInstanceRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (self *DBInstanceRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Context, dbinstance *models.SDBInstance, data jsonutils.JSONObject) {
+	self.SetStage("OnSyncStatusComplete", nil)
+	models.StartResourceSyncStatusTask(ctx, self.UserCred, dbinstance, "DBInstanceSyncStatusTask", self.GetTaskId())
+}
+
+func (self *DBInstanceRemoteUpdateTask) OnRemoteUpdateCompleteFailed(ctx context.Context, dbinstance *models.SDBInstance, data jsonutils.JSONObject) {
+	self.taskFail(ctx, dbinstance, data)
+}
+
+func (self *DBInstanceRemoteUpdateTask) OnSyncStatusComplete(ctx context.Context, dbinstance *models.SDBInstance, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *DBInstanceRemoteUpdateTask) OnSyncStatusCompleteFailed(ctx context.Context, dbinstance *models.SDBInstance, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, data)
 }

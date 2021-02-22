@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -65,12 +66,14 @@ func NewNotificationManager() *SNotificationManager {
 type SNotification struct {
 	db.SVirtualResourceBase
 
-	Type                  string               `nullable:"false" list:"user" create:"required"`
-	IsDefault             bool                 `nullable:"false" default:"false" list:"user" create:"optional" update:"user"`
-	SendReminder          bool                 `nullable:"false" default:"false" list:"user" create:"optional" update:"user"`
-	DisableResolveMessage bool                 `nullable:"false" default:"false" list:"user" create:"optional" update:"user"`
-	Frequency             int64                `nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
-	Settings              jsonutils.JSONObject `nullable:"false" list:"user" create:"required" update:"user"`
+	Type                  string `nullable:"false" list:"user" create:"required"`
+	IsDefault             bool   `nullable:"false" default:"false" list:"user" create:"optional" update:"user"`
+	SendReminder          bool   `nullable:"false" default:"false" list:"user" create:"optional" update:"user"`
+	DisableResolveMessage bool   `nullable:"false" default:"false" list:"user" create:"optional" update:"user"`
+	// unit is second
+	Frequency            int64                `nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
+	Settings             jsonutils.JSONObject `nullable:"false" list:"user" create:"required" update:"user"`
+	LastSendNotification time.Time            `list:"user" create:"optional" update:"user"`
 }
 
 func (man *SNotificationManager) GetPlugin(typ string) (*notifydrivers.NotifierPlugin, error) {
@@ -162,7 +165,7 @@ func (man *SNotificationManager) CreateOneCloudNotification(
 	userCred mcclient.TokenCredential,
 	alertName string,
 	channel string,
-	userIds []string) (*SNotification, error) {
+	userIds []string, silentPeriod string) (*SNotification, error) {
 	settings := &monitor.NotificationSettingOneCloud{
 		Channel: channel,
 		UserIds: userIds,
@@ -175,6 +178,10 @@ func (man *SNotificationManager) CreateOneCloudNotification(
 		Name:     newName,
 		Type:     monitor.AlertNotificationTypeOneCloud,
 		Settings: jsonutils.Marshal(settings),
+	}
+	if silentPeriod != "" {
+		duration, _ := time.ParseDuration(silentPeriod)
+		input.Frequency = duration / time.Second
 	}
 	obj, err := db.DoCreate(man, ctx, userCred, nil, input.JSON(input), userCred)
 	if err != nil {
@@ -216,4 +223,22 @@ func (n *SNotification) ValidateDeleteCondition(ctx context.Context) error {
 		return httperrors.NewNotEmptyError("Alert notification used by %d alert", cnt)
 	}
 	return n.SVirtualResourceBase.ValidateDeleteCondition(ctx)
+}
+
+func (n *SNotification) ShouldSendNotification() bool {
+	if n.Frequency == 0 {
+		return true
+	}
+	if int64(time.Now().Sub(n.LastSendNotification)/time.Second)+int64(60) >= n.Frequency {
+		return true
+	}
+	return false
+}
+
+func (n *SNotification) UpdateSendTime() error {
+	_, err := db.Update(n, func() error {
+		n.LastSendNotification = time.Now()
+		return nil
+	})
+	return err
 }

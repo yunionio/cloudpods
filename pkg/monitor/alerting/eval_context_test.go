@@ -97,7 +97,7 @@ func TestGetStateFromEvalContext(t *testing.T) {
 				ec.PrevAlertState = monitor.AlertStatePending
 				ec.Firing = true
 				ec.Rule.LastStateChange = time.Now().Add(-(time.Hour * 5))
-				ec.Rule.For = time.Minute * 2
+				ec.Rule.For = time.Minute * 2 / time.Second
 			},
 		},
 		{
@@ -107,7 +107,7 @@ func TestGetStateFromEvalContext(t *testing.T) {
 				ec.PrevAlertState = monitor.AlertStateAlerting
 				ec.Firing = true
 				ec.Rule.LastStateChange = time.Now().Add(-time.Minute * 5)
-				ec.Rule.For = time.Minute * 2
+				ec.Rule.For = time.Minute * 2 / time.Second
 			},
 		},
 		{
@@ -116,7 +116,7 @@ func TestGetStateFromEvalContext(t *testing.T) {
 			applyFn: func(ec *EvalContext) {
 				ec.PrevAlertState = monitor.AlertStateOK
 				ec.Rule.LastStateChange = time.Now().Add(-time.Minute * 5)
-				ec.Rule.For = time.Minute * 2
+				ec.Rule.For = time.Minute * 2 / time.Second
 			},
 		},
 		{
@@ -171,7 +171,7 @@ func TestGetStateFromEvalContext(t *testing.T) {
 				ec.PrevAlertState = monitor.AlertStatePending
 				ec.Rule.NoDataState = monitor.NoDataSetAlerting
 				ec.NoDataFound = true
-				ec.Rule.For = time.Minute * 5
+				ec.Rule.For = time.Minute * 5 / time.Second
 				ec.Rule.LastStateChange = time.Now().Add(-time.Minute * 2)
 			},
 		},
@@ -182,7 +182,7 @@ func TestGetStateFromEvalContext(t *testing.T) {
 				ec.PrevAlertState = monitor.AlertStatePending
 				ec.Rule.NoDataState = monitor.NoDataSetAlerting
 				ec.NoDataFound = true
-				ec.Rule.For = time.Minute * 2
+				ec.Rule.For = time.Minute * 2 / time.Second
 				ec.Rule.LastStateChange = time.Now().Add(-time.Minute * 5)
 			},
 		},
@@ -193,7 +193,7 @@ func TestGetStateFromEvalContext(t *testing.T) {
 				ec.PrevAlertState = monitor.AlertStatePending
 				ec.Rule.ExecutionErrorState = monitor.ExecutionErrorSetAlerting
 				ec.Error = errors.New("test error")
-				ec.Rule.For = time.Minute * 5
+				ec.Rule.For = time.Minute * 5 / time.Second
 				ec.Rule.LastStateChange = time.Now().Add(-time.Minute * 2)
 			},
 		},
@@ -204,7 +204,7 @@ func TestGetStateFromEvalContext(t *testing.T) {
 				ec.PrevAlertState = monitor.AlertStatePending
 				ec.Rule.ExecutionErrorState = monitor.ExecutionErrorSetAlerting
 				ec.Error = errors.New("test error")
-				ec.Rule.For = time.Minute * 2
+				ec.Rule.For = time.Minute * 2 / time.Second
 				ec.Rule.LastStateChange = time.Now().Add(-time.Minute * 5)
 			},
 		},

@@ -35,6 +35,7 @@ const (
 	OEM_NAME_FOXCONN    = "foxconn"
 	OEM_NAME_QEMU       = "qemu"
 	OEM_NAME_SUPERMICRO = "supermicro"
+	OEM_NAME_H3C        = "h3c"
 )
 
 var (
@@ -48,6 +49,7 @@ var (
 		OEM_NAME_FOXCONN,
 		OEM_NAME_QEMU,
 		OEM_NAME_SUPERMICRO,
+		OEM_NAME_H3C,
 	}
 )
 

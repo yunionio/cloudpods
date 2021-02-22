@@ -29,6 +29,7 @@ import (
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Cloudregions).WithKeyword("cloud-region")
 	cmd.PerformClass("sync-skus", &options.CloudregionSkuSyncOptions{})
+	cmd.Perform("sync-images", &options.CloudregionIdOptions{})
 
 	R(&options.SkuTaskQueryOptions{}, "cloud-region-sync-task-show", "Show details of skus sync tasks", func(s *mcclient.ClientSession, args *options.SkuTaskQueryOptions) error {
 		params, err := args.Params()
@@ -118,6 +119,24 @@ func init() {
 			return err
 		}
 		results, err := modules.Cloudregions.GetRegionProviders(s, params)
+		if err != nil {
+			return err
+		}
+		listResult := modulebase.ListResult{}
+		listResult.Data, err = results.GetArray()
+		if err != nil {
+			return err
+		}
+		printList(&listResult, nil)
+		return nil
+	})
+
+	R(&CloudregionCityListOptions{}, "cloud-city-servers", "List cities where cloud region resides", func(s *mcclient.ClientSession, args *CloudregionCityListOptions) error {
+		params, err := options.StructToParams(args)
+		if err != nil {
+			return err
+		}
+		results, err := modules.Cloudregions.GetCityServers(s, params)
 		if err != nil {
 			return err
 		}

@@ -1,0 +1,6 @@
+{{- $d := .resource_details -}}
+您在{{ $d.project }}项目的
+{{- if $d.brand -}}
+{{ $d.brand }}平台
+{{- end -}}
+{{ .resource_type_display }}{{ $d.name }}还有{{ .advance_days }}天就要到期释放，如需续期使用，请尽快前往控制台处理
