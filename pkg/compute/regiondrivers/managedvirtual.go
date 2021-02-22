@@ -2044,7 +2044,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestRestartElasticcache(ctx c
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestRestartElasticcache.Restart")
 	}
 
-	err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 300*time.Second)
+	err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 1800*time.Second)
 	if err != nil {
 		return err
 	}
