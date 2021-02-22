@@ -200,9 +200,9 @@ func (r *SRegion) ListAccounts() ([]SAccount, error) {
 }
 
 func (self *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
-	defRegion := self.getDefaultRegion()
-	if defRegion == nil {
-		return nil, errors.Wrap(errors.ErrInvalidStatus, "no valid default region")
+	defRegion, err := self.getDefaultRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "getDefaultRegion")
 	}
 	accounts, err := defRegion.ListAccounts()
 	if err != nil {
