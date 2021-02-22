@@ -300,7 +300,7 @@ func (self *SRegion) modifySecurityGroup(secGrpId string, name string, desc stri
 	return err
 }
 
-func (self *SRegion) AddSecurityGroupRules(secGrpId string, rule secrules.SecurityRule) error {
+func (self *SRegion) AddSecurityGroupRules(secGrpId string, rule cloudprovider.SecurityRule) error {
 	if len(rule.Ports) != 0 {
 		for _, port := range rule.Ports {
 			rule.PortStart, rule.PortEnd = port, port
@@ -314,7 +314,7 @@ func (self *SRegion) AddSecurityGroupRules(secGrpId string, rule secrules.Securi
 	return self.addSecurityGroupRule(secGrpId, rule)
 }
 
-func (self *SRegion) addSecurityGroupRule(secGrpId string, rule secrules.SecurityRule) error {
+func (self *SRegion) addSecurityGroupRule(secGrpId string, rule cloudprovider.SecurityRule) error {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["SecurityGroupId"] = secGrpId
@@ -340,13 +340,15 @@ func (self *SRegion) addSecurityGroupRule(secGrpId string, rule secrules.Securit
 	}
 
 	// 忽略地址为0.0.0.0/32这样的阿里云规则
-	if rule.IPNet.IP.String() == "0.0.0.0" && rule.IPNet.String() != "0.0.0.0/0" {
+	if rule.IPNet.IP.String() == "0.0.0.0" && rule.IPNet.String() != "0.0.0.0/0" && len(rule.PeerSecgroupId) == 0 {
 		return nil
 	}
 
 	params["Priority"] = fmt.Sprintf("%d", rule.Priority)
 	if rule.Direction == secrules.SecurityRuleIngress {
-		if rule.IPNet != nil {
+		if len(rule.PeerSecgroupId) > 0 {
+			params["SourceGroupId"] = rule.PeerSecgroupId
+		} else if rule.IPNet != nil {
 			params["SourceCidrIp"] = rule.IPNet.String()
 		} else {
 			params["SourceCidrIp"] = "0.0.0.0/0"
@@ -354,7 +356,9 @@ func (self *SRegion) addSecurityGroupRule(secGrpId string, rule secrules.Securit
 		_, err := self.ecsRequest("AuthorizeSecurityGroup", params)
 		return err
 	} else { // rule.Direction == secrules.SecurityRuleEgress {
-		if rule.IPNet != nil {
+		if len(rule.PeerSecgroupId) > 0 {
+			params["DestGroupId"] = rule.PeerSecgroupId
+		} else if rule.IPNet != nil {
 			params["DestCidrIp"] = rule.IPNet.String()
 		} else {
 			params["DestCidrIp"] = "0.0.0.0/0"
@@ -364,7 +368,7 @@ func (self *SRegion) addSecurityGroupRule(secGrpId string, rule secrules.Securit
 	}
 }
 
-func (self *SRegion) DelSecurityGroupRule(secGrpId string, rule secrules.SecurityRule) error {
+func (self *SRegion) DelSecurityGroupRule(secGrpId string, rule cloudprovider.SecurityRule) error {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["SecurityGroupId"] = secGrpId
@@ -389,7 +393,9 @@ func (self *SRegion) DelSecurityGroupRule(secGrpId string, rule secrules.Securit
 	}
 	params["Priority"] = fmt.Sprintf("%d", rule.Priority)
 	if rule.Direction == secrules.SecurityRuleIngress {
-		if rule.IPNet != nil {
+		if len(rule.PeerSecgroupId) > 0 {
+			params["SourceGroupId"] = rule.PeerSecgroupId
+		} else if rule.IPNet != nil {
 			params["SourceCidrIp"] = rule.IPNet.String()
 		} else {
 			params["SourceCidrIp"] = "0.0.0.0/0"
@@ -397,7 +403,9 @@ func (self *SRegion) DelSecurityGroupRule(secGrpId string, rule secrules.Securit
 		_, err := self.ecsRequest("RevokeSecurityGroup", params)
 		return err
 	} else { // rule.Direction == secrules.SecurityRuleEgress {
-		if rule.IPNet != nil {
+		if len(rule.PeerSecgroupId) > 0 {
+			params["DestGroupId"] = rule.PeerSecgroupId
+		} else if rule.IPNet != nil {
 			params["DestCidrIp"] = rule.IPNet.String()
 		} else {
 			params["DestCidrIp"] = "0.0.0.0/0"
@@ -409,6 +417,7 @@ func (self *SRegion) DelSecurityGroupRule(secGrpId string, rule secrules.Securit
 
 func (self *SPermission) toRule() (cloudprovider.SecurityRule, error) {
 	rule := cloudprovider.SecurityRule{
+		PeerSecgroupId: self.SourceGroupId,
 		SecurityRule: secrules.SecurityRule{
 			Action:      secrules.SecurityRuleDeny,
 			Direction:   secrules.DIR_IN,
@@ -426,6 +435,7 @@ func (self *SPermission) toRule() (cloudprovider.SecurityRule, error) {
 	if self.Direction == "egress" {
 		rule.Direction = secrules.DIR_OUT
 		cidr = self.DestCidrIp
+		rule.PeerSecgroupId = self.DestGroupId
 	}
 
 	rule.ParseCIDR(cidr)
@@ -508,13 +518,13 @@ func (self *SSecurityGroup) GetProjectId() string {
 
 func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
 	for _, rule := range append(inDels, outDels...) {
-		err := self.vpc.region.DelSecurityGroupRule(self.SecurityGroupId, rule.SecurityRule)
+		err := self.vpc.region.DelSecurityGroupRule(self.SecurityGroupId, rule)
 		if err != nil {
 			return errors.Wrapf(err, "DelSecurityGroupRule(Name:%s priority: %d %s)", rule.Name, rule.Priority, rule.String())
 		}
 	}
 	for _, rule := range append(inAdds, outAdds...) {
-		err := self.vpc.region.AddSecurityGroupRules(self.SecurityGroupId, rule.SecurityRule)
+		err := self.vpc.region.AddSecurityGroupRules(self.SecurityGroupId, rule)
 		if err != nil {
 			return errors.Wrapf(err, "AddSecurityGroupRules(priority: %d %s)", rule.Priority, rule.String())
 		}
