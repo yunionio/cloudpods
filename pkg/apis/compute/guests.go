@@ -372,7 +372,10 @@ type GuestMigrateInput struct {
 }
 
 type GuestLiveMigrateInput struct {
+	// 指定期望的迁移目标宿主机
 	PreferHost string `json:"prefer_host"`
+	// 是否跳过CPU检查，默认要做CPU检查
+	SkipCpuCheck *bool `json:"skip_cpu_check"`
 }
 
 type GuestSetSecgroupInput struct {
