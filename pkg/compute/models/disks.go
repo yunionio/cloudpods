@@ -1749,6 +1749,8 @@ func fillDiskConfigByImage(ctx context.Context, userCred mcclient.TokenCredentia
 		}
 		if strings.Contains(image.Properties["os_arch"], "aarch") {
 			diskConfig.OsArch = api.OS_ARCH_AARCH64
+		} else {
+			diskConfig.OsArch = image.Properties["os_arch"]
 		}
 	}
 	return nil
