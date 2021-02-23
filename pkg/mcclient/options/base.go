@@ -371,7 +371,7 @@ func (opts *BasePublicOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type BaseCreateOptions struct {
-	NAME string `help:"Resource Name"`
+	NAME string `json:"name" help:"Resource Name"`
 	Desc string `metavar:"<DESCRIPTION>" help:"Description" json:"description"`
 }
 
