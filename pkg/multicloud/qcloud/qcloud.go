@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -459,30 +460,46 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 			break
 		}
 		needRetry := false
-		for _, msg := range []string{
-			"EOF",
-			"TLS handshake timeout",
-			"Code=InternalError",
-			"try later",
-			"Code=MutexOperation.TaskRunning",   // Code=DesOperation.MutexTaskRunning, Message=Mutex task is running, please try later
-			"Code=InvalidInstance.NotSupported", // Code=InvalidInstance.NotSupported, Message=The request does not support the instances `ins-bg54517v` which are in operation or in a special state., 重装系统后立即关机有可能会引发 Code=InvalidInstance.NotSupported 错误, 重试可以避免任务失败
-			"i/o timeout",
-			"Code=InvalidAddressId.StatusNotPermit", // Code=InvalidAddressId.StatusNotPermit, Message=The status `"UNBINDING"` for AddressId `"eip-m3kix9kx"` is not permit to do this operation., EIP删除需要重试
-			"Code=RequestLimitExceeded",
-		} {
-			if strings.Contains(err.Error(), msg) {
+		e, ok := err.(*sdkerrors.TencentCloudSDKError)
+		if ok {
+			if utils.IsInStringArray(e.Code, []string{
+				"InvalidParameter.RoleNotExist",
+				"ResourceNotFound",
+				"FailedOperation.CertificateNotFound",
+			}) {
+				return nil, errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
+			}
+
+			if e.Code == "UnsupportedRegion" {
+				return nil, cloudprovider.ErrNotSupported
+			}
+
+			if utils.IsInStringArray(e.Code, []string{
+				"InternalError",
+				"MutexOperation.TaskRunning",       // Code=DesOperation.MutexTaskRunning, Message=Mutex task is running, please try later
+				"InvalidInstance.NotSupported",     // Code=InvalidInstance.NotSupported, Message=The request does not support the instances `ins-bg54517v` which are in operation or in a special state., 重装系统后立即关机有可能会引发 Code=InvalidInstance.NotSupported 错误, 重试可以避免任务失败
+				"InvalidAddressId.StatusNotPermit", // Code=InvalidAddressId.StatusNotPermit, Message=The status `"UNBINDING"` for AddressId `"eip-m3kix9kx"` is not permit to do this operation., EIP删除需要重试
+				"RequestLimitExceeded",
+				"OperationDenied.InstanceOperationInProgress", // 调整配置后开机 Code=OperationDenied.InstanceOperationInProgress, Message=实例`['ins-nksicizg']`操作进行中，请等待, RequestId=c9951005-b22c-43c1-84aa-d923d49addcf
+			}) {
 				needRetry = true
-				break
 			}
 		}
-		for _, code := range []string{"InvalidParameter.RoleNotExist", "Code=ResourceNotFound", "FailedOperation.CertificateNotFound"} {
-			if strings.Contains(err.Error(), code) {
-				return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
+
+		if !needRetry {
+			for _, msg := range []string{
+				"EOF",
+				"TLS handshake timeout",
+				"try later",
+				"i/o timeout",
+			} {
+				if strings.Contains(err.Error(), msg) {
+					needRetry = true
+					break
+				}
 			}
 		}
-		if strings.Contains(err.Error(), "Code=UnsupportedRegion") {
-			return nil, cloudprovider.ErrNotSupported
-		}
+
 		if needRetry {
 			log.Errorf("request url %s\nparams: %s\nerror: %v\ntry after %d seconds", req.GetDomain(), jsonutils.Marshal(req.GetParams()).PrettyString(), err, i*10)
 			time.Sleep(time.Second * time.Duration(i*10))
