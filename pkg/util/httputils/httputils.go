@@ -301,6 +301,10 @@ func GetTransport(insecure bool) *http.Transport {
 	return getTransport(insecure, false)
 }
 
+func GetAdaptiveTransport(insecure bool) *http.Transport {
+	return getTransport(insecure, true)
+}
+
 func adptiveDial(ctx context.Context, network, addr string) (net.Conn, error) {
 	conn, err := net.DialTimeout(network, addr, 10*time.Second)
 	if err != nil {
