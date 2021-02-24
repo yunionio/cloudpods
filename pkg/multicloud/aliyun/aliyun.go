@@ -161,6 +161,7 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 				"EOF",
 				"i/o timeout",
 				"TLS handshake timeout",
+				"Client.Timeout exceeded while awaiting headers",
 				"connection reset by peer",
 				"server misbehaving",
 				"SignatureNonceUsed",
@@ -229,7 +230,7 @@ func (self *SAliyunClient) getDefaultClient() (*sdk.Client, error) {
 }
 
 func (self *SAliyunClient) getSdkClient(regionId string) (*sdk.Client, error) {
-	transport := httputils.GetTransport(true)
+	transport := httputils.GetAdaptiveTransport(true)
 	transport.Proxy = self.cpcfg.ProxyFunc
 	client, err := sdk.NewClientWithOptions(
 		regionId,
