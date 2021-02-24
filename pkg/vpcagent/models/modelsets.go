@@ -17,7 +17,7 @@ package models
 import (
 	"time"
 
-	"yunion.io/x/onecloud/pkg/vpcagent/apihelper"
+	"yunion.io/x/onecloud/pkg/apihelper"
 )
 
 type ModelSetsMaxUpdatedAt struct {

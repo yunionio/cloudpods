@@ -576,9 +576,13 @@ func (v *ValidatorModelIdOrName) Validate(data *jsonutils.JSONDict) error {
 	if v.Model != nil {
 		val = v.Model.GetId()
 	}
-	if len(v.modelIdKey) > 0 && data.Contains(v.Key) {
-		data.Remove(v.Key)
-		data.Set(v.modelIdKey, jsonutils.NewString(val))
+	if v.modelIdKey != "" {
+		if data.Contains(v.Key) {
+			data.Remove(v.Key)
+		}
+		if val != "" {
+			data.Set(v.modelIdKey, jsonutils.NewString(val))
+		}
 	}
 	return nil
 }
