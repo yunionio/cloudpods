@@ -20,12 +20,14 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/printutils"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 	"yunion.io/x/onecloud/pkg/util/streamutils"
@@ -269,29 +271,59 @@ func S3Shell() {
 		if err != nil {
 			return err
 		}
-		var input io.ReadSeeker
-		var fSize int64
-		if len(args.Path) > 0 {
-			finfo, err := os.Stat(args.Path)
-			if err != nil {
-				return errors.Wrap(err, "os.Stat")
-			}
-			fSize = finfo.Size()
-			file, err := os.Open(args.Path)
-			if err != nil {
-				return errors.Wrap(err, "os.Open")
-			}
-			defer file.Close()
 
-			input = file
-		} else {
-			input = os.Stdout
-		}
 		meta := args.ObjectHeaderOptions.Options2Header()
-		err = cloudprovider.UploadObject(context.Background(), bucket, args.KEY, args.BlockSize*1000*1000, input, fSize, cloudprovider.TBucketACLType(args.Acl), args.StorageClass, meta, true)
-		if err != nil {
-			return err
+
+		if len(args.Path) > 0 {
+			uploadFile := func(key, path string) error {
+				finfo, err := os.Stat(path)
+				if err != nil {
+					return errors.Wrap(err, "os.Stat")
+				}
+				fSize := finfo.Size()
+				file, err := os.Open(path)
+				if err != nil {
+					return errors.Wrap(err, "os.Open")
+				}
+				defer file.Close()
+
+				err = cloudprovider.UploadObject(context.Background(), bucket, key, args.BlockSize*1000*1000, file, fSize, cloudprovider.TBucketACLType(args.Acl), args.StorageClass, meta, true)
+				if err != nil {
+					return err
+				}
+
+				return nil
+			}
+			if fileutils2.IsFile(args.Path) {
+				err := uploadFile(args.KEY, args.Path)
+				if err != nil {
+					return errors.Wrap(err, "uploadFile")
+				}
+			} else if fileutils2.IsDir(args.Path) {
+				return filepath.Walk(args.Path, func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					if info.Mode().IsRegular() {
+						rel, _ := filepath.Rel(args.Path, path)
+						src := path
+						dst := filepath.Join(args.KEY, rel)
+						fmt.Println("upload", src, "to", dst)
+						uploadErr := uploadFile(dst, src)
+						if uploadErr != nil {
+							return uploadErr
+						}
+					}
+					return nil
+				})
+			}
+		} else {
+			err = cloudprovider.UploadObject(context.Background(), bucket, args.KEY, args.BlockSize*1000*1000, os.Stdin, 0, cloudprovider.TBucketACLType(args.Acl), args.StorageClass, meta, true)
+			if err != nil {
+				return err
+			}
 		}
+
 		fmt.Printf("Upload success\n")
 		return nil
 	})
