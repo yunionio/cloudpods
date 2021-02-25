@@ -150,6 +150,9 @@ func (manager *SDomainManager) FetchDomain(domainId string, domainName string) (
 }
 
 func (manager *SDomainManager) FetchDomainByIdOrName(domain string) (*SDomain, error) {
+	if stringutils2.IsUtf8(domain) {
+		return manager.FetchDomainByName(domain)
+	}
 	obj, err := db.NewModelObject(manager)
 	if err != nil {
 		return nil, err
