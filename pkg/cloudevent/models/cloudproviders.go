@@ -262,23 +262,12 @@ func (self *SCloudprovider) GetNextTimeRange() (time.Time, time.Time, error) {
 	if err != nil {
 		return start, end, errors.Wrap(err, "self.GetProviderFactory")
 	}
-	q := CloudeventManager.Query().Equals("cloudprovider_id", self.Id).Desc("created_at")
-	count, err := q.CountWithError()
-	if err != nil {
-		return start, end, errors.Wrap(err, "q.CountWithError")
-	}
 	if !self.LastSyncTimeAt.IsZero() {
 		start = self.LastSyncTimeAt
-	} else if count == 0 {
-		start = time.Now().AddDate(0, 0, -1*factory.GetMaxCloudEventKeepDays())
 	} else {
-		event := &SCloudevent{}
-		err = q.First(event)
-		if err != nil {
-			return start, end, errors.Wrap(err, "q.First")
-		}
-		start = event.CreatedAt
+		start = time.Now().AddDate(0, 0, -1*factory.GetMaxCloudEventKeepDays())
 	}
+
 	// 避免cloudevent过长时间未运行，再次运行时记录的最后一条时间距离现在间隔太长
 	if start.Before(time.Now().AddDate(0, 0, factory.GetMaxCloudEventKeepDays()*-1)) {
 		start = time.Now().AddDate(0, 0, factory.GetMaxCloudEventKeepDays()*-1)
