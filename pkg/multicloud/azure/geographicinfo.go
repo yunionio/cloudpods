@@ -60,6 +60,8 @@ var AzureGeographicInfo = map[string]cloudprovider.SGeographicInfo{
 	"norwayeast":         {City: api.CITY_OSLO, CountryCode: api.COUNTRY_CODE_NO},        // 奥斯陆
 	"germanywestcentral": {City: api.CITY_FRANKFURT, CountryCode: api.COUNTRY_CODE_DE},   // 法兰克福
 	"germanynorth":       {City: api.CITY_DELMENHORST, CountryCode: api.COUNTRY_CODE_DE}, // 代尔门霍斯特
+	"westus3":            {City: api.CITY_PHOENIX, CountryCode: api.COUNTRY_CODE_US},
+	"brazilsoutheast":    {City: api.CITY_RIO_DE_JANEIRO, CountryCode: api.COUNTRY_CODE_BR},
 
 	"chinaeast":   {City: api.CITY_SHANG_HAI, CountryCode: api.COUNTRY_CODE_CN},
 	"chinaeast2":  {City: api.CITY_SHANG_HAI, CountryCode: api.COUNTRY_CODE_CN},
