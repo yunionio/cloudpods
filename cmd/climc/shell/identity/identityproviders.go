@@ -32,6 +32,7 @@ import (
 func init() {
 	type IdentityProviderListOptions struct {
 		options.BaseListOptions
+		SsoDomain string `help:"Filter SSO IDP by domain" json:"sso_domain"`
 	}
 	R(&IdentityProviderListOptions{}, "idp-list", "List all identity provider", func(s *mcclient.ClientSession, args *IdentityProviderListOptions) error {
 		params, err := options.ListStructToParams(args)

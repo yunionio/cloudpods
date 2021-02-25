@@ -1063,16 +1063,17 @@ func (rm *SReceiverManager) FetchByIdOrNames(ctx context.Context, idOrNames ...s
 	}
 	var err error
 	q := rm.Query()
-	if len(idOrNames) == 1 {
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.Equals(q.Field("id"), idOrNames[0]),
-			sqlchemy.Equals(q.Field("name"), idOrNames[0]),
-		))
-	} else {
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.In(q.Field("id"), idOrNames),
-			sqlchemy.In(q.Field("name"), idOrNames),
-		))
+	var conds []sqlchemy.ICondition
+	for _, idOrName := range idOrNames {
+		conds = append(conds, sqlchemy.Equals(q.Field("name"), idOrName))
+		if !stringutils2.IsUtf8(idOrName) {
+			conds = append(conds, sqlchemy.Equals(q.Field("id"), idOrName))
+		}
+	}
+	if len(conds) == 1 {
+		q = q.Filter(conds[0])
+	} else if len(conds) > 1 {
+		q = q.Filter(sqlchemy.OR(conds...))
 	}
 	receivers := make([]SReceiver, 0, len(idOrNames))
 	err = db.FetchModelObjects(rm, q, &receivers)
