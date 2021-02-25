@@ -114,6 +114,7 @@ const (
 	CITY_SOUTH_CAROLINA = "South Carolina" //南卡罗来纳州
 	CITY_SALT_LAKE_CITY = "Salt Lake City" //盐湖城
 	CITY_LAS_VEGAS      = "Las Vegas"      //拉斯维加斯
+	CITY_PHOENIX        = "Phoenix"        //菲尼克斯
 
 	// 英国
 	CITY_LONDON      = "London"      //伦敦
@@ -150,7 +151,8 @@ const (
 	CITY_STOCKHOLM = "Stockholm" //斯德哥尔摩
 
 	// 巴西
-	CITY_SAO_PAULO = "Sao Paulo" //圣保罗
+	CITY_SAO_PAULO      = "Sao Paulo"      //圣保罗
+	CITY_RIO_DE_JANEIRO = "Rio de Janeiro" // 里约热内卢
 
 	// 智利
 	CITY_SANTIAGO = "Santiago" // 圣地亚哥
