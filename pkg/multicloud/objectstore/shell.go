@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -272,10 +273,15 @@ func S3Shell() {
 			return err
 		}
 
-		meta := args.ObjectHeaderOptions.Options2Header()
+		originMeta := args.ObjectHeaderOptions.Options2Header()
 
 		if len(args.Path) > 0 {
 			uploadFile := func(key, path string) error {
+				meta := http.Header{}
+				for k, v := range originMeta {
+					meta[k] = v
+				}
+
 				finfo, err := os.Stat(path)
 				if err != nil {
 					return errors.Wrap(err, "os.Stat")
@@ -286,6 +292,19 @@ func S3Shell() {
 					return errors.Wrap(err, "os.Open")
 				}
 				defer file.Close()
+
+				if contTypes, ok := meta[cloudprovider.META_HEADER_CONTENT_TYPE]; !ok || len(contTypes) == 0 {
+					var ext string
+					lastSlashPos := strings.LastIndex(path, "/")
+					lastExtPos := strings.LastIndex(path, ".")
+					if lastExtPos >= 0 && lastExtPos > lastSlashPos {
+						ext = path[lastExtPos:]
+					}
+					if len(ext) > 0 {
+						contType := mime.TypeByExtension(ext)
+						meta.Set(cloudprovider.META_HEADER_CONTENT_TYPE, contType)
+					}
+				}
 
 				err = cloudprovider.UploadObject(context.Background(), bucket, key, args.BlockSize*1000*1000, file, fSize, cloudprovider.TBucketACLType(args.Acl), args.StorageClass, meta, true)
 				if err != nil {
@@ -318,7 +337,7 @@ func S3Shell() {
 				})
 			}
 		} else {
-			err = cloudprovider.UploadObject(context.Background(), bucket, args.KEY, args.BlockSize*1000*1000, os.Stdin, 0, cloudprovider.TBucketACLType(args.Acl), args.StorageClass, meta, true)
+			err = cloudprovider.UploadObject(context.Background(), bucket, args.KEY, args.BlockSize*1000*1000, os.Stdin, 0, cloudprovider.TBucketACLType(args.Acl), args.StorageClass, originMeta, true)
 			if err != nil {
 				return err
 			}
