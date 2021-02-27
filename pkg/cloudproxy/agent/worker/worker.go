@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vishvananda/netlink"
+
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
@@ -94,23 +96,46 @@ func (w *Worker) initProxyAgent_(ctx context.Context) error {
 		w.proxyAgentId = agentDetail.Id
 	}
 
-	var bindAddr = agentDetail.BindAddr
-	if bindAddr == "" {
+	bindAddrExist := func(addr string) bool {
+		as, err := netlink.AddrList(nil, netlink.FAMILY_ALL)
+		if err != nil {
+			log.Fatalf("list system available addresses: %v", err)
+		}
+		for _, a := range as {
+			ipstr := a.IPNet.IP.String()
+			if addr == ipstr {
+				return true
+			}
+		}
+		return false
+	}
+
+	var (
+		bindAddr            string
+		advertiseAddr       string
+		bindAddrUpdate      = false
+		advertiseAddrUpdate = false
+	)
+	if agentDetail.BindAddr == "" || !bindAddrExist(bindAddr) {
 		var err error
 		bindAddr, err = netutils2.MyIP()
 		if err != nil {
 			return errors.Wrap(err, "find bind Addr")
 		}
+		bindAddrUpdate = true
+	} else {
+		bindAddr = agentDetail.BindAddr
 	}
 	w.bindAddr = bindAddr
 
-	if agentDetail.BindAddr == "" || agentDetail.AdvertiseAddr == "" {
-		var advertiseAddr = agentDetail.AdvertiseAddr
-		if advertiseAddr == "" {
-			if true { //TODO, fetch clusterIP from k8s environ
-				advertiseAddr = bindAddr
-			}
-		}
+	if agentDetail.AdvertiseAddr == "" || (bindAddrUpdate && agentDetail.AdvertiseAddr == agentDetail.BindAddr) {
+		advertiseAddr = bindAddr
+		advertiseAddrUpdate = true
+	} else {
+		advertiseAddr = agentDetail.AdvertiseAddr
+	}
+
+	if bindAddrUpdate || advertiseAddrUpdate {
 		req := api.ProxyAgentUpdateInput{
 			BindAddr:      bindAddr,
 			AdvertiseAddr: advertiseAddr,
