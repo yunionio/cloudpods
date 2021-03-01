@@ -2352,7 +2352,7 @@ func (self *SNetwork) CheckInvalidToMerge(ctx context.Context, net *SNetwork, al
 	var wireNets []SNetwork
 	if allNets == nil {
 		q := NetworkManager.Query().Equals("wire_id", self.WireId).NotEquals("id", self.Id).NotEquals("id", net.Id)
-		err := db.FetchModelObjects(NetworkManager, q, &allNets)
+		err := db.FetchModelObjects(NetworkManager, q, &wireNets)
 		if err != nil && errors.Cause(err) != sql.ErrNoRows {
 			return "", "", errors.Wrap(err, "Query nets of same wire")
 		}
