@@ -162,10 +162,10 @@ func (p *SSHPartition) Mount() bool {
 	return true
 }
 
-func (p *SSHPartition) Umount() bool {
+func (p *SSHPartition) Umount() error {
 	if !p.IsMounted() {
-		log.Errorf("%s is not mounted", p.mountPath)
-		return false
+		log.Warningf("%s is not mounted", p.mountPath)
+		return nil
 	}
 	var err error
 	for tries := 0; tries < 10; tries++ {
@@ -182,13 +182,12 @@ func (p *SSHPartition) Umount() bool {
 			time.Sleep(1 * time.Second)
 		} else {
 			if err := p.osRmDir(p.mountPath); err != nil {
-				log.Errorf("remove mount path %s: %v", p.mountPath, err)
-				return false
+				log.Warningf("remove mount path %s: %v", p.mountPath, err)
 			}
-			return true
+			return nil
 		}
 	}
-	return err == nil
+	return err
 }
 
 func (p *SSHPartition) IsMounted() bool {

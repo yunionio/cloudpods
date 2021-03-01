@@ -110,17 +110,18 @@ func (d *SKVMGuestDisk) MountKvmRootfsReadOnly() fsdriver.IRootFsDriver {
 	return d.mountKvmRootfs(true)
 }
 
-func (d *SKVMGuestDisk) UmountKvmRootfs(fd fsdriver.IRootFsDriver) {
+func (d *SKVMGuestDisk) UmountKvmRootfs(fd fsdriver.IRootFsDriver) error {
 	if part := fd.GetPartition(); part != nil {
-		part.Umount()
+		return part.Umount()
 	}
+	return nil
 }
 
-func (d *SKVMGuestDisk) UmountRootfs(fd fsdriver.IRootFsDriver) {
+func (d *SKVMGuestDisk) UmountRootfs(fd fsdriver.IRootFsDriver) error {
 	if fd == nil {
-		return
+		return nil
 	}
-	d.UmountKvmRootfs(fd)
+	return d.UmountKvmRootfs(fd)
 }
 
 func (d *SKVMGuestDisk) MakePartition(fs string) error {
