@@ -162,11 +162,11 @@ func (vd *VDDKDisk) MountRootfs() fsdriver.IRootFsDriver {
 	return vd.kvmDisk.MountRootfs()
 }
 
-func (vd *VDDKDisk) UmountRootfs(fd fsdriver.IRootFsDriver) {
+func (vd *VDDKDisk) UmountRootfs(fd fsdriver.IRootFsDriver) error {
 	if vd.kvmDisk == nil {
-		return
+		return nil
 	}
-	vd.kvmDisk.UmountRootfs(fd)
+	return vd.kvmDisk.UmountRootfs(fd)
 }
 
 func (vd *VDDKDisk) ParsePartitions(buf string) error {
@@ -435,18 +435,18 @@ type VDDKPartition struct {
 }
 
 func (vp *VDDKPartition) Mount() bool {
-	log.Debugf("VDDKPartition.Mount not implement")
+	log.Warningf("VDDKPartition.Mount not implement")
 	return true
 }
 
 func (vp *VDDKPartition) MountPartReadOnly() bool {
-	log.Debugf("VDDKPartition.MountPartReadOnly not implement")
+	log.Warningf("VDDKPartition.MountPartReadOnly not implement")
 	return true
 }
 
-func (vp *VDDKPartition) Umount() bool {
-	log.Debugf("VDDKPartition.Umount not implement")
-	return true
+func (vp *VDDKPartition) Umount() error {
+	log.Warningf("VDDKPartition.Umount not implement")
+	return nil
 }
 
 func (vp *VDDKPartition) IsReadonly() bool {
@@ -454,7 +454,7 @@ func (vp *VDDKPartition) IsReadonly() bool {
 }
 
 func (vp *VDDKPartition) GetPhysicalPartitionType() string {
-	log.Debugf("VDDKPartition.GetPhysicalPartitionType not implement")
+	log.Warningf("VDDKPartition.GetPhysicalPartitionType not implement")
 	return ""
 }
 

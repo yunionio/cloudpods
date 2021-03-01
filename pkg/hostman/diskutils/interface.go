@@ -24,7 +24,7 @@ type IDisk interface {
 	Connect() error
 	Disconnect() error
 	MountRootfs() fsdriver.IRootFsDriver
-	UmountRootfs(driver fsdriver.IRootFsDriver)
+	UmountRootfs(driver fsdriver.IRootFsDriver) error
 	ResizePartition() error
 }
 
