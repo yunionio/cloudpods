@@ -316,10 +316,6 @@ type NetworkUpdateInput struct {
 
 	VlanId *int `json:"vlan_id"`
 
-	// 服务器类型
-	// example: server
-	ServerType string `json:"server_type"`
-
 	// 分配策略
 	AllocPolicy string `json:"alloc_policy"`
 
