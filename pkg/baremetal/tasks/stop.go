@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
@@ -47,7 +48,7 @@ func NewBaremetalServerStopTask(
 func (task *SBaremetalServerStopTask) DoStop(ctx context.Context, args interface{}) error {
 	task.SetStage(task.WaitForStop)
 	if err := task.Baremetal.DoPowerShutdown(true); err != nil {
-		return errors.Wrap(err, "Do power shutdown error")
+		log.Errorf("Do power shutdown error: %s", err)
 	}
 	task.startTime = time.Now()
 	ExecuteTask(task, nil)
@@ -73,7 +74,7 @@ func (self *SBaremetalServerStopTask) WaitForStop(ctx context.Context, args inte
 		isSoft = false
 	}
 	if err := self.Baremetal.DoPowerShutdown(isSoft); err != nil {
-		return errors.Wrap(err, "DoPowerShutdown")
+		log.Errorf("DoPowerShutdown soft=%v error: %s", isSoft, err)
 	}
 	time.Sleep(10 * time.Second)
 	ExecuteTask(self, nil)
