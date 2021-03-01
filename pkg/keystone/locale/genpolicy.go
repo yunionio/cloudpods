@@ -15,7 +15,6 @@
 package locale
 
 import (
-	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -197,7 +196,20 @@ func generatePolicies(scope rbacutils.TRbacScope, def sPolicyDefinition) []SPoli
 
 	ret := make([]SPolicyData, 0)
 	for _, role := range roleConfs {
-		name := fmt.Sprintf("%s%s%s", level, def.Name, role.name)
+		nameSegs := make([]string, 0)
+		if len(level) > 0 {
+			nameSegs = append(nameSegs, level)
+		}
+		if len(def.Name) > 0 {
+			nameSegs = append(nameSegs, def.Name)
+		}
+		if len(role.name) > 0 {
+			nameSegs = append(nameSegs, role.name)
+		}
+		name := strings.Join(nameSegs, "-")
+		if name == "sys-admin" {
+			name = "sysadmin"
+		}
 		var policy jsonutils.JSONObject
 		if def.Services != nil {
 			policy = role.policyFunc(def.Services)
