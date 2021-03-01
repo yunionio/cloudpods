@@ -58,7 +58,6 @@ func (opts *NetworkListOptions) Params() (jsonutils.JSONObject, error) {
 type NetworkUpdateOptions struct {
 	BaseUpdateOptions
 
-	ServerType  string `help:"server type," choices:"baremetal|container|eip|guest|ipmi|pxe"`
 	StartIp     string `help:"Start ip"`
 	EndIp       string `help:"end ip"`
 	NetMask     int64  `help:"Netmask"`
@@ -79,9 +78,6 @@ func (opts *NetworkUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	if len(opts.Desc) > 0 {
 		params.Add(jsonutils.NewString(opts.Desc), "description")
-	}
-	if len(opts.ServerType) > 0 {
-		params.Add(jsonutils.NewString(opts.ServerType), "server_type")
 	}
 	if len(opts.StartIp) > 0 {
 		params.Add(jsonutils.NewString(opts.StartIp), "guest_ip_start")
