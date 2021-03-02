@@ -425,9 +425,6 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 					extraResults[i].Update(jsonDict)
 					jsonDict = extraResults[i]
 				}
-				if len(exportKeys) > 0 {
-					jsonDict = jsonDict.CopyIncludes(exportKeys...)
-				}
 				if len(fieldFilter) > 0 {
 					jsonDict = jsonDict.CopyIncludes(fieldFilter...)
 				}
@@ -791,6 +788,9 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	if len(retList) != retCount {
 		totalCnt = len(retList)
 	}
+	if query.Contains("export_keys") {
+		retList = getExportCols(query, retList)
+	}
 	paginate := false
 	if !customizeFilters.IsEmpty() {
 		// query not use Limit and Offset, do manual pagination
@@ -820,6 +820,18 @@ func calculateListResult(data []jsonutils.JSONObject, total, limit, offset int64
 	retResult := modulebase.ListResult{Data: data, Total: int(total), Limit: int(limit), Offset: int(offset)}
 
 	return &retResult
+}
+
+func getExportCols(query jsonutils.JSONObject, retList []jsonutils.JSONObject) []jsonutils.JSONObject {
+	var exportKeys stringutils2.SSortedStrings
+	exportKeyStr, _ := query.GetString("export_keys")
+	exportKeys = stringutils2.NewSortedStrings(strings.Split(exportKeyStr, ","))
+	for i := range retList {
+		if len(exportKeys) > 0 {
+			retList[i] = retList[i].(*jsonutils.JSONDict).CopyIncludes(exportKeys...)
+		}
+	}
+	return retList
 }
 
 func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (*modulebase.ListResult, error) {
