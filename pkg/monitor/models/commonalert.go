@@ -348,6 +348,25 @@ func (man *SCommonAlertManager) ListItemFilter(
 	return q, nil
 }
 
+func (manager *SCommonAlertManager) GetExportExtraKeys(ctx context.Context, keys stringutils2.SSortedStrings, rowMap map[string]string) *jsonutils.JSONDict {
+	res := manager.SResourceBaseManager.GetExportExtraKeys(ctx, keys, rowMap)
+	if keys.Contains("tenant") {
+		if projectId, ok := rowMap["tenant_id"]; ok && projectId != "" {
+			tenant, err := db.TenantCacheManager.FetchTenantById(ctx, projectId)
+			if err == nil {
+				res.Set("tenant", jsonutils.NewString(fmt.Sprintf("%s/%s", tenant.GetName(),
+					tenant.GetProjectDomain())))
+			}
+		} else {
+			tenant, err := db.TenantCacheManager.FetchTenantById(ctx, rowMap["domain_id"])
+			if err == nil {
+				res.Set("tenant", jsonutils.NewString(tenant.GetProjectDomain()))
+			}
+		}
+	}
+	return res
+}
+
 func (man *SCommonAlertManager) CustomizeFilterList(
 	ctx context.Context, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential, query jsonutils.JSONObject) (
@@ -364,7 +383,7 @@ func (man *SCommonAlertManager) CustomizeFilterList(
 		return func(data jsonutils.JSONObject) (bool, error) {
 			id, err := data.GetString("id")
 			if err != nil {
-				return false, err
+				return true, nil
 			}
 			obj, err := man.GetAlert(id)
 			if err != nil {
