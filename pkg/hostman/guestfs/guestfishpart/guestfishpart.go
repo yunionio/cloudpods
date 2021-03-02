@@ -156,22 +156,25 @@ func (d *SGuestfishDiskPartition) MountPartReadOnly() bool {
 	return true
 }
 
-func (d *SGuestfishDiskPartition) Umount() bool {
-	if d.IsMounted() {
-		var tries = 0
-		for tries < 10 {
-			tries += 1
-			output, err := procutils.NewCommand("umount", d.GetMountPath()).Output()
-			if err != nil {
-				log.Errorf("failed umount %s: %s %s", d.GetMountPath(), output, err)
-				time.Sleep(time.Second * 1)
-			} else {
-				d.mounted = false
-				return true
-			}
+func (d *SGuestfishDiskPartition) Umount() error {
+	if !d.IsMounted() {
+		return nil
+	}
+
+	var tries = 0
+	var err error
+	for tries < 10 {
+		tries += 1
+		output, err := procutils.NewCommand("umount", d.GetMountPath()).Output()
+		if err != nil {
+			err = errors.Wrapf(err, "failed umount %s: %s %s", d.GetMountPath(), output, err)
+			time.Sleep(time.Second * 1)
+		} else {
+			d.mounted = false
+			return nil
 		}
 	}
-	return false
+	return err
 }
 
 func (d *SGuestfishDiskPartition) IsReadonly() bool {

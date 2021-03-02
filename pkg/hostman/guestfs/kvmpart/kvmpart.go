@@ -134,7 +134,7 @@ func (p *SKVMGuestDiskPartition) Mount() bool {
 			p.readonly = true
 		}
 	}
-	log.Infof("mount fs %s on %s success", p.fs, p.partDev)
+	log.Infof("mount fs %s on %s successfully", p.fs, p.partDev)
 	return true
 }
 
@@ -245,29 +245,37 @@ func (p *SKVMGuestDiskPartition) IsMounted() bool {
 	}
 }
 
-func (p *SKVMGuestDiskPartition) Umount() bool {
-	if p.IsMounted() {
-		var tries = 0
-		for tries < 10 {
-			tries += 1
-			_, err := procutils.NewCommand("umount", p.mountPath).Output()
-			if err == nil {
-				if p.fs == "xfs" {
-					uuids := fileutils2.GetDevUuid(p.partDev)
-					uuid := uuids["UUID"]
-					if len(uuid) > 0 {
-						UnlockXfsPartition(uuid)
-					}
+func (p *SKVMGuestDiskPartition) Umount() error {
+	if !p.IsMounted() {
+		return nil
+	}
+
+	var tries = 0
+	var err error
+	for tries < 10 {
+		tries += 1
+		_, err = procutils.NewCommand("umount", p.mountPath).Output()
+		if err == nil {
+			if p.fs == "xfs" {
+				uuids := fileutils2.GetDevUuid(p.partDev)
+				uuid := uuids["UUID"]
+				if len(uuid) > 0 {
+					UnlockXfsPartition(uuid)
 				}
-				procutils.NewCommand("blockdev", "--flushbufs", p.partDev).Output()
-				os.Remove(p.mountPath)
-				return true
-			} else {
-				time.Sleep(time.Second * 1)
 			}
+			if _, err := procutils.NewCommand("blockdev", "--flushbufs", p.partDev).Output(); err != nil {
+				log.Warningf("blockdev --flushbufs %s error: %v", p.partDev, err)
+			}
+			if err := os.Remove(p.mountPath); err != nil {
+				log.Warningf("remove mount path %s error: %v", p.mountPath)
+			}
+			log.Infof("umount %s successfully", p.partDev)
+			return nil
+		} else {
+			time.Sleep(time.Second * 1)
 		}
 	}
-	return false
+	return errors.Wrapf(err, "umount %s", p.mountPath)
 }
 
 func (p *SKVMGuestDiskPartition) Zerofree() {

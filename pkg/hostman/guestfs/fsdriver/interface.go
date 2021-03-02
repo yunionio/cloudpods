@@ -50,7 +50,7 @@ type IDiskPartition interface {
 	IsMounted() bool
 	Mount() bool
 	MountPartReadOnly() bool
-	Umount() bool
+	Umount() error
 	GetMountPath() string
 	IsReadonly() bool
 	GetPhysicalPartitionType() string

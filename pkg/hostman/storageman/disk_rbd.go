@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -124,7 +125,10 @@ func (d *SRBDDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JS
 		return nil, err
 	}
 
-	d.ResizeFs(d.GetPath())
+	if err := d.ResizeFs(d.GetPath()); err != nil {
+		return nil, errors.Wrapf(err, "resize fs %s", d.GetPath())
+	}
+
 	return d.GetDiskDesc(), nil
 }
 
