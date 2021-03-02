@@ -945,6 +945,7 @@ func (instance *SElasticcache) GetTags() (map[string]string, error) {
 		return nil, errors.Wrap(err, "instance.region.ListResourceTags")
 	}
 	if _, ok := tags[instance.GetId()]; !ok {
+		log.Debugf("SElasticcache.GetTags %s, tags %#v", instance.GetId(), tags)
 		return nil, cloudprovider.ErrNotFound
 	}
 	return *tags[instance.GetId()], nil
