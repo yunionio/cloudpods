@@ -116,15 +116,29 @@ func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsPara
 		return new(deployapi.Empty), errors.Wrap(err, "disk connect failed")
 	}
 
+	unmount := func(root fsdriver.IRootFsDriver) error {
+		if err := disk.UmountRootfs(root); err != nil {
+			return errors.Wrap(err, "unmount rootfs")
+		}
+		return nil
+	}
+
 	root := disk.MountRootfs()
 	if root != nil && !root.IsResizeFsPartitionSupport() {
+		if err := unmount(root); err != nil {
+			return new(deployapi.Empty), err
+		}
 		return new(deployapi.Empty), errors.ErrNotSupported
 	}
 
 	// must umount rootfs before resize partition
-	disk.UmountRootfs(root)
-	err = disk.ResizePartition()
-	return new(deployapi.Empty), err
+	if err := unmount(root); err != nil {
+		return new(deployapi.Empty), err
+	}
+	if err := disk.ResizePartition(); err != nil {
+		return new(deployapi.Empty), errors.Wrap(err, "resize disk partition")
+	}
+	return new(deployapi.Empty), nil
 }
 
 func (*DeployerServer) FormatFs(ctx context.Context, req *deployapi.FormatFsParams) (*deployapi.Empty, error) {
