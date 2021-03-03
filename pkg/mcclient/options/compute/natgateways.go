@@ -12,26 +12,56 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
+
+import (
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient/options"
+)
 
 type NatGatewayListOptions struct {
+	options.BaseListOptions
 	Vpc         string `help:"vpc id or name"`
 	Cloudregion string `help:"cloudreigon id or name"`
+}
 
-	BaseListOptions
+func (opts *NatGatewayListOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(opts)
+}
+
+type NatGatewayIdOptions struct {
+	ID string `help:"ID of Nat Gateway"`
+}
+
+func (opts *NatGatewayIdOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *NatGatewayIdOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
+type NatGatewayDeleteOption struct {
+	NatGatewayIdOptions
+	Force bool
+}
+
+func (opts *NatGatewayDeleteOption) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(map[string]bool{"force": opts.Force}), nil
 }
 
 type NatDTableListOptions struct {
 	Natgateway string `help:"Natgateway name or id"`
 
-	BaseListOptions
+	options.BaseListOptions
 }
 
 type NatSTableListOptions struct {
 	Natgateway string `help:"Natgateway name or id"`
 	Network    string `help:"Network id or name"`
 
-	BaseListOptions
+	options.BaseListOptions
 }
 
 type NatDDeleteShowOptions struct {
@@ -40,10 +70,6 @@ type NatDDeleteShowOptions struct {
 
 type NatSDeleteShowOptions struct {
 	ID string `help:"ID of the SNat"`
-}
-
-type NatGatewayIdOptions struct {
-	ID string `help:"ID of Nat Gateway"`
 }
 
 type NatDCreateOptions struct {

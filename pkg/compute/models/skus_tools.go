@@ -47,6 +47,7 @@ type SSkuResourcesMeta struct {
 	ServerBase       string `json:"server_base"`
 	ElasticCacheBase string `json:"elastic_cache_base"`
 	ImageBase        string `json:"image_base"`
+	NatBase          string `json:"nat_base"`
 }
 
 func (self *SSkuResourcesMeta) getZoneIdBySuffix(zoneMaps map[string]string, suffix string) string {
@@ -115,6 +116,43 @@ func (self *SSkuResourcesMeta) GetDBInstanceSkusByRegionExternalId(regionExterna
 			sku.Zone3 = zoneId
 		}
 
+		sku.Id = ""
+		sku.CloudregionId = regionId
+
+		result = append(result, sku)
+	}
+	return result, nil
+}
+
+func (self *SSkuResourcesMeta) GetNatSkusByRegionExternalId(regionExternalId string) ([]SNatSku, error) {
+	regionId, zoneMaps, err := self.GetRegionIdAndZoneMaps(regionExternalId)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetRegionIdAndZoneMaps")
+	}
+	result := []SNatSku{}
+	objs, err := self.getObjsByRegion(self.NatBase, regionExternalId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "getSkusByRegion")
+	}
+	for _, obj := range objs {
+		sku := SNatSku{}
+		sku.SetModelManager(NatSkuManager, &sku)
+		err = obj.Unmarshal(&sku)
+		if err != nil {
+			return nil, errors.Wrapf(err, "obj.Unmarshal")
+		}
+		if len(sku.ZoneIds) > 0 {
+			zoneIds := []string{}
+			for _, zoneExtId := range strings.Split(sku.ZoneIds, ",") {
+				zoneId := self.getZoneIdBySuffix(zoneMaps, zoneExtId) // Huawei rds sku zone1 maybe is cn-north-4f
+				if len(zoneId) == 0 {
+					log.Warningf("invalid nat sku %s(%s) %s zone: %s", sku.Name, sku.Id, sku.CloudregionId, zoneExtId)
+					continue
+				}
+				zoneIds = append(zoneIds, zoneId)
+			}
+			sku.ZoneIds = strings.Join(zoneIds, ",")
+		}
 		sku.Id = ""
 		sku.CloudregionId = regionId
 

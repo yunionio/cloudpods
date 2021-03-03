@@ -2676,3 +2676,7 @@ func (self *SHuaWeiRegionDriver) ValidateCreateVpcData(ctx context.Context, user
 	}
 	return input, nil
 }
+
+func (self *SHuaWeiRegionDriver) IsSupportedNatGateway() bool {
+	return true
+}

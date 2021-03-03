@@ -15,7 +15,7 @@
 package multicloud
 
 import (
-	"fmt"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -26,13 +26,17 @@ type SNatGatewayBase struct {
 }
 
 func (nat *SNatGatewayBase) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	return nil, fmt.Errorf("Not Implemented GetIEips")
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIEips")
 }
 
 func (nat *SNatGatewayBase) GetIDNatEntries() ([]cloudprovider.ICloudNatDEntry, error) {
-	return nil, fmt.Errorf("Not Implemented GetINatDTable")
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIDNatEntries")
 }
 
 func (nat *SNatGatewayBase) GetISNatEntries() ([]cloudprovider.ICloudNatSEntry, error) {
-	return nil, fmt.Errorf("Not Implemented GetINatSTable")
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetISNatEntries")
+}
+
+func (nat *SNatGatewayBase) Delete() error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "Delete")
 }

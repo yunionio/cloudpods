@@ -14,6 +14,8 @@
 
 package apis
 
+import "time"
+
 type DomainizedResourceInput struct {
 	// 指定项目归属域名称或ID
 	// required: false
@@ -349,4 +351,18 @@ type GetMetadataOutput map[string]string
 type DistinctFieldInput struct {
 	Field      []string
 	ExtraField []string
+}
+
+type PostpaidExpireInput struct {
+	Duration   string    `json:"duration"`
+	ExpireTime time.Time `json:"expireType"`
+}
+
+type AutoRenewInput struct {
+	// 是否自动续费
+	AutoRenew bool `json:"auto_renew"`
+}
+
+type RenewInput struct {
+	Duration string `json:"duration"`
 }

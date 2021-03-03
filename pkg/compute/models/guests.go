@@ -354,7 +354,10 @@ func (manager *SGuestManager) ListItemFilter(
 		} else {
 			hostQ = hostQ.IsNullOrEmpty("manager_id")
 		}
-		region := eip.GetRegion()
+		region, err := eip.GetRegion()
+		if err != nil {
+			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "eip.GetRegion"))
+		}
 		regionTable := CloudregionManager.Query().SubQuery()
 		sq := hostQ.Join(regionTable, sqlchemy.Equals(zoneTable.Field("cloudregion_id"), regionTable.Field("id"))).
 			Filter(sqlchemy.Equals(regionTable.Field("id"), region.GetId())).SubQuery()
@@ -1638,7 +1641,10 @@ func (manager *SGuestManager) validateEip(userCred mcclient.TokenCredential, inp
 			}
 			input.PreferManager = eipCloudprovider.Id
 
-			eipRegion := eip.GetRegion()
+			eipRegion, err := eip.GetRegion()
+			if err != nil {
+				return httperrors.NewGeneralError(errors.Wrapf(err, "eip.GetRegion"))
+			}
 			// preferRegionId, _ := data.GetString("prefer_region_id")
 			if len(preferRegionId) > 0 && preferRegionId != eipRegion.Id {
 				return httperrors.NewConflictError("cannot assoicate with eip %s: different region", eipStr)
@@ -4879,7 +4885,7 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 			log.Errorf("getEipByExtEip error %v", err)
 			result.AddError(err)
 		} else {
-			err = neip.AssociateVM(ctx, userCred, self)
+			err = neip.AssociateInstance(ctx, userCred, api.EIP_ASSOCIATE_TYPE_SERVER, self)
 			if err != nil {
 				log.Errorf("AssociateVM error %v", err)
 				result.AddError(err)
@@ -4909,7 +4915,7 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 				if err != nil {
 					result.AddError(err)
 				} else {
-					err = neip.AssociateVM(ctx, userCred, self)
+					err = neip.AssociateInstance(ctx, userCred, api.EIP_ASSOCIATE_TYPE_SERVER, self)
 					if err != nil {
 						result.AddError(err)
 					} else {

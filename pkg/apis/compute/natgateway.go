@@ -15,18 +15,26 @@
 package compute
 
 import (
+	"time"
+
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
 const (
-	NAT_STAUTS_AVAILABLE     = "available"     //可用
-	NAT_STATUS_ALLOCATE      = "allocate"      //创建中
-	NAT_STATUS_DEPLOYING     = "deploying"     //配置中
-	NAT_STATUS_UNKNOWN       = "unknown"       //未知状态
-	NAT_STATUS_FAILED        = "failed"        //创建失败
-	NAT_STATUS_DELETED       = "deleted"       //删除
-	NAT_STATUS_DELETING      = "deleting"      //删除中
-	NAT_STATUS_DELETE_FAILED = "delete_failed" //删除失败
+	NAT_STAUTS_AVAILABLE             = "available"             // 可用
+	NAT_STATUS_ALLOCATE              = "allocate"              // 创建中
+	NAT_STATUS_DEPLOYING             = "deploying"             // 配置中
+	NAT_STATUS_UNKNOWN               = "unknown"               // 未知状态
+	NAT_STATUS_CREATE_FAILED         = "create_failed"         // 创建失败
+	NAT_STATUS_DELETED               = "deleted"               // 删除
+	NAT_STATUS_DELETING              = "deleting"              // 删除中
+	NAT_STATUS_DELETE_FAILED         = "delete_failed"         // 删除失败
+	NAT_STATUS_SET_AUTO_RENEW        = "set_auto_renew"        // 设置自动续费中
+	NAT_STATUS_SET_AUTO_RENEW_FAILED = "set_auto_renew_failed" // 设置自动续费失败
+	NAT_STATUS_RENEWING              = "renewing"              // 续费中
+	NAT_STATUS_RENEW_FAILED          = "renew_failed"          // 续费失败
 
 	NAT_SPEC_SMALL  = "small"  //小型
 	NAT_SPEC_MIDDLE = "middle" //中型
@@ -41,17 +49,15 @@ const (
 type NatGetewayListInput struct {
 	apis.StatusInfrasResourceBaseListInput
 	apis.ExternalizedResourceBaseListInput
+	apis.DeletePreventableResourceBaseListInput
 
 	VpcFilterListInput
-	RegionalFilterListInput
-	ManagedResourceListInput
 }
 
 type NatEntryListInput struct {
 	apis.StatusInfrasResourceBaseListInput
 	apis.ExternalizedResourceBaseListInput
 	NatGatewayFilterListInput
-	ManagedResourceListInput
 }
 
 type NatDEntryListInput struct {
@@ -110,4 +116,50 @@ type NatEntryDetails struct {
 }
 
 type NatGatewaySyncstatusInput struct {
+}
+
+type NatgatewayCreateInput struct {
+	apis.StatusInfrasResourceBaseCreateInput
+
+	// 包年包月时间周期
+	Duration string `json:"duration"`
+
+	// 是否自动续费(仅包年包月时生效)
+	// default: false
+	AutoRenew bool `json:"auto_renew"`
+
+	// 到期释放时间，仅后付费支持
+	ExpiredAt time.Time `json:"expired_at"`
+
+	// 计费方式
+	// enum: postpaid, prepaid
+	BillingType string `json:"billing_type"`
+	// swagger:ignore
+	BillingCycle string `json:"billing_cycle"`
+
+	NetworkId string `json:"network_id"`
+
+	// swagger:ignore
+	VpcId string `json:"vpc_id"`
+
+	// 绑定已有弹性公网IP，要求EIP必须和Vpc在同一区域
+	Eip string `json:"eip"`
+
+	// 绑定新建弹性公网IP
+	EipBw int `json:"eip_bw,omitzero"`
+
+	// 弹性公网IP计费类型
+	// enum: bandwidth, traffic
+	// default: traffic
+	EipChargeType    string `json:"eip_charge_type,omitempty"`
+	EipBgpType       string `json:"eip_bgp_type"`
+	EipAutoDellocate bool   `json:"eip_auto_dellocate"`
+}
+
+func (opts *NatgatewayCreateInput) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
+type NatgatewayDeleteInput struct {
+	Force bool `json:"force"`
 }
