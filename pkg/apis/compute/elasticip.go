@@ -87,3 +87,18 @@ type ElasticipDetails struct {
 
 type ElasticipSyncstatusInput struct {
 }
+
+type ElasticipAssociateInput struct {
+	// 待绑定实例Id
+	InstanceId string `json:"instance_id"`
+	// swagger:ignore
+	InstanceExternalId string `json:"instance_external_id"`
+
+	// swagger:ignore
+	Instance string `json:"instance" yunion-deprecated-by:"instance_id"`
+
+	// 实例类型
+	// enmu: server, natgateway
+	// default: server
+	InstanceType string `json:"instance_type"`
+}

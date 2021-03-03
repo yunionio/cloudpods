@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -1404,4 +1405,61 @@ func (self *SKVMRegionDriver) IsSupportedElasticcacheSecgroup() bool {
 
 func (self *SKVMRegionDriver) GetMaxElasticcacheSecurityGroupCount() int {
 	return 0
+}
+
+func (self *SKVMRegionDriver) RequestAssociatEip(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		if input.InstanceType != api.EIP_ASSOCIATE_TYPE_SERVER {
+			return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "instance type %s", input.InstanceType)
+		}
+
+		guest := obj.(*models.SGuest)
+
+		if guest.GetHypervisor() != api.HYPERVISOR_KVM {
+			return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "not support associate eip for hypervisor %s", guest.GetHypervisor())
+		}
+
+		lockman.LockObject(ctx, guest)
+		defer lockman.ReleaseObject(ctx, guest)
+
+		var guestnics []models.SGuestnetwork
+		{
+			netq := models.NetworkManager.Query().SubQuery()
+			wirq := models.WireManager.Query().SubQuery()
+			vpcq := models.VpcManager.Query().SubQuery()
+			gneq := models.GuestnetworkManager.Query()
+			q := gneq.Equals("guest_id", guest.Id).
+				IsNullOrEmpty("eip_id")
+			q = q.Join(netq, sqlchemy.Equals(netq.Field("id"), gneq.Field("network_id")))
+			q = q.Join(wirq, sqlchemy.Equals(wirq.Field("id"), netq.Field("wire_id")))
+			q = q.Join(vpcq, sqlchemy.Equals(vpcq.Field("id"), wirq.Field("vpc_id")))
+			q = q.Filter(sqlchemy.NotEquals(vpcq.Field("id"), api.DEFAULT_VPC_ID))
+			if err := db.FetchModelObjects(models.GuestnetworkManager, q, &guestnics); err != nil {
+				return nil, errors.Wrapf(err, "db.FetchModelObjects")
+			}
+			if len(guestnics) == 0 {
+				return nil, errors.Errorf("guest has no nics to associate eip")
+			}
+		}
+
+		guestnic := &guestnics[0]
+		lockman.LockObject(ctx, guestnic)
+		defer lockman.ReleaseObject(ctx, guestnic)
+		if _, err := db.Update(guestnic, func() error {
+			guestnic.EipId = eip.Id
+			return nil
+		}); err != nil {
+			return nil, errors.Wrapf(err, "set associated eip for guestnic %s (guest:%s, network:%s)",
+				guestnic.Ifname, guestnic.GuestId, guestnic.NetworkId)
+		}
+
+		if err := eip.AssociateInstance(ctx, userCred, api.EIP_ASSOCIATE_TYPE_SERVER, guest); err != nil {
+			return nil, errors.Wrapf(err, "associate eip %s(%s) to vm %s(%s)", eip.Name, eip.Id, guest.Name, guest.Id)
+		}
+		if err := eip.SetStatus(userCred, api.EIP_STATUS_READY, api.EIP_STATUS_ASSOCIATE); err != nil {
+			return nil, errors.Wrapf(err, "set eip status to %s", api.EIP_STATUS_ALLOCATE)
+		}
+		return nil, nil
+	})
+	return nil
 }

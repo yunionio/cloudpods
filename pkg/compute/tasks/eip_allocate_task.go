@@ -58,7 +58,7 @@ func (self *EipAllocateTask) setGuestAllocateEipFailed(eip *models.SElasticip, r
 			return
 		}
 		guest := instance.(*models.SGuest)
-		guest.SetStatus(self.UserCred, api.VM_ASSOCIATE_EIP_FAILED, reason.String())
+		guest.SetStatus(self.UserCred, api.INSTANCE_ASSOCIATE_EIP_FAILED, reason.String())
 	}
 }
 

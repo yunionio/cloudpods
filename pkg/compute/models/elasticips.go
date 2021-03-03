@@ -248,8 +248,12 @@ func (manager *SElasticipManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 	return q, httperrors.ErrNotFound
 }
 
-func (self *SElasticip) GetRegion() *SCloudregion {
-	return CloudregionManager.FetchRegionById(self.CloudregionId)
+func (self *SElasticip) GetRegion() (*SCloudregion, error) {
+	region, err := CloudregionManager.FetchById(self.CloudregionId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CloudregionManager.FetchById")
+	}
+	return region.(*SCloudregion), nil
 }
 
 func (self *SElasticip) GetNetwork() (*SNetwork, error) {
@@ -423,22 +427,11 @@ func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred m
 			return q
 		})
 		if err != nil {
-			log.Errorf("fail to find vm by external ID %s", vmExtId)
-			return err
+			return errors.Wrapf(err, "db.FetchByExternalIdAndManagerId %s %s", ext.GetAssociationType(), vmExtId)
 		}
-		switch newRes := extRes.(type) {
-		case *SGuest:
-			err = self.AssociateVM(ctx, userCred, newRes)
-		case *SLoadbalancer:
-			err = self.AssociateLoadbalancer(ctx, userCred, newRes)
-		case *SNatGateway:
-			err = self.AssociateNatGateway(ctx, userCred, newRes)
-		default:
-			return errors.Error("unsupported association type")
-		}
+		err = self.AssociateInstance(ctx, userCred, ext.GetAssociationType(), extRes.(db.IStatusStandaloneModel))
 		if err != nil {
-			log.Errorf("fail to associate with new vm %s", err)
-			return err
+			return errors.Wrapf(err, "AssociateInstance")
 		}
 	}
 
@@ -720,29 +713,32 @@ func (self *SElasticip) AssociateLoadbalancer(ctx context.Context, userCred mccl
 	return nil
 }
 
-func (self *SElasticip) AssociateVM(ctx context.Context, userCred mcclient.TokenCredential, vm *SGuest) error {
-	if vm.PendingDeleted || vm.Deleted {
-		return fmt.Errorf("vm is deleted")
-	}
-	if len(self.AssociateType) > 0 && len(self.AssociateId) > 0 {
-		if self.AssociateType == api.EIP_ASSOCIATE_TYPE_SERVER && self.AssociateId == vm.Id {
-			return nil
-		} else {
-			return fmt.Errorf("EIP has been associated!!")
+func (self *SElasticip) AssociateInstance(ctx context.Context, userCred mcclient.TokenCredential, insType string, ins db.IStatusStandaloneModel) error {
+	switch insType {
+	case api.EIP_ASSOCIATE_TYPE_SERVER:
+		vm := ins.(*SGuest)
+		if vm.PendingDeleted || vm.Deleted {
+			return fmt.Errorf("vm is deleted")
 		}
 	}
+	if len(self.AssociateType) > 0 && len(self.AssociateId) > 0 {
+		if self.AssociateType == insType && self.AssociateId == ins.GetId() {
+			return nil
+		}
+		return fmt.Errorf("EIP has been associated!!")
+	}
 	_, err := db.Update(self, func() error {
-		self.AssociateType = api.EIP_ASSOCIATE_TYPE_SERVER
-		self.AssociateId = vm.Id
+		self.AssociateType = insType
+		self.AssociateId = ins.GetId()
 		return nil
 	})
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "db.Update")
 	}
 
-	db.OpsLog.LogAttachEvent(ctx, vm, self, userCred, self.GetShortDesc(ctx))
-	db.OpsLog.LogEvent(self, db.ACT_EIP_ATTACH, vm.GetShortDesc(ctx), userCred)
-	db.OpsLog.LogEvent(vm, db.ACT_EIP_ATTACH, self.GetShortDesc(ctx), userCred)
+	db.OpsLog.LogAttachEvent(ctx, ins, self, userCred, self.GetShortDesc(ctx))
+	db.OpsLog.LogEvent(self, db.ACT_EIP_ATTACH, ins.GetShortDesc(ctx), userCred)
+	db.OpsLog.LogEvent(ins, db.ACT_EIP_ATTACH, self.GetShortDesc(ctx), userCred)
 
 	return nil
 }
@@ -852,9 +848,9 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 }
 
 func (eip *SElasticip) GetQuotaKeys() (quotas.IQuotaKeys, error) {
-	region := eip.GetRegion()
+	region, err := eip.GetRegion()
 	if region == nil {
-		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid region")
+		return nil, errors.Wrapf(err, "eip.GetRegion")
 	}
 	return fetchRegionalQuotaKeys(
 		rbacutils.ScopeProject,
@@ -885,12 +881,10 @@ func (self *SElasticip) PostCreate(ctx context.Context, userCred mcclient.TokenC
 func (self *SElasticip) startEipAllocateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "EipAllocateTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
-		log.Errorf("newtask EipAllocateTask fail %s", err)
-		return err
+		return errors.Wrapf(err, "NewTask")
 	}
 	self.SetStatus(userCred, api.EIP_STATUS_ALLOCATE, "start allocate")
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (self *SElasticip) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -928,131 +922,122 @@ func (self *SElasticip) AllowPerformAssociate(ctx context.Context, userCred mccl
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "associate")
 }
 
-func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ElasticipAssociateInput) (api.ElasticipAssociateInput, error) {
 	if self.IsAssociated() {
-		return nil, httperrors.NewConflictError("eip has been associated with instance")
+		return input, httperrors.NewConflictError("eip has been associated with instance")
 	}
 
 	if self.Status != api.EIP_STATUS_READY {
-		return nil, httperrors.NewInvalidStatusError("eip cannot associate in status %s", self.Status)
+		return input, httperrors.NewInvalidStatusError("eip cannot associate in status %s", self.Status)
 	}
 
 	if self.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
-		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot be associated")
+		return input, httperrors.NewUnsupportOperationError("fixed eip cannot be associated")
 	}
 
-	instanceId := jsonutils.GetAnyString(data, []string{"instance", "instance_id"})
-	if len(instanceId) == 0 {
-		return nil, httperrors.NewMissingParameterError("instance_id")
+	if len(input.InstanceId) == 0 {
+		return input, httperrors.NewMissingParameterError("instance_id")
 	}
-	instanceType := jsonutils.GetAnyString(data, []string{"instance_type"})
-	if len(instanceType) == 0 {
-		instanceType = api.EIP_ASSOCIATE_TYPE_SERVER
+	if len(input.InstanceType) == 0 {
+		input.InstanceType = api.EIP_ASSOCIATE_TYPE_SERVER
 	}
 
-	if instanceType != api.EIP_ASSOCIATE_TYPE_SERVER {
-		return nil, httperrors.NewInputParameterError("Unsupported %s", instanceType)
+	if !utils.IsInStringArray(input.InstanceType, api.EIP_ASSOCIATE_VALID_TYPES) {
+		return input, httperrors.NewUnsupportOperationError("Unsupported instance type %s", input.InstanceType)
 	}
 
-	vmObj, err := GuestManager.FetchByIdOrName(userCred, instanceId)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError("server %s not found", instanceId)
-		} else {
-			return nil, httperrors.NewGeneralError(err)
-		}
-	}
-
-	server := vmObj.(*SGuest)
-
-	lockman.LockObject(ctx, server)
-	defer lockman.ReleaseObject(ctx, server)
-
-	if server.PendingDeleted {
-		return nil, httperrors.NewInvalidStatusError("cannot associate pending delete server")
-	}
-
-	// IMPORTANT: this serves as a guard against a guest to have multiple
-	// associated elastic_ips
-	seip, _ := server.GetEipOrPublicIp()
-	if seip != nil {
-		return nil, httperrors.NewInvalidStatusError("instance is already associated with eip")
-	}
-
-	if ok, _ := utils.InStringArray(server.Status, []string{api.VM_READY, api.VM_RUNNING}); !ok {
-		return nil, httperrors.NewInvalidStatusError("cannot associate server in status %s", server.Status)
-	}
-
-	err = ValidateAssociateEip(server)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(self.NetworkId) > 0 {
-		gns, err := server.GetNetworks("")
+	switch input.InstanceType {
+	case api.EIP_ASSOCIATE_TYPE_SERVER:
+		vmObj, err := GuestManager.FetchByIdOrName(userCred, input.InstanceId)
 		if err != nil {
-			return nil, httperrors.NewGeneralError(errors.Wrap(err, "GetNetworks"))
+			if errors.Cause(err) == sql.ErrNoRows {
+				return input, httperrors.NewResourceNotFoundError("server %s not found", input.InstanceId)
+			}
+			return input, httperrors.NewGeneralError(err)
 		}
-		for _, gn := range gns {
-			if gn.NetworkId == self.NetworkId {
-				return nil, httperrors.NewInputParameterError("cannot associate eip with same network")
+		server := vmObj.(*SGuest)
+
+		lockman.LockObject(ctx, server)
+		defer lockman.ReleaseObject(ctx, server)
+
+		if server.PendingDeleted {
+			return input, httperrors.NewInvalidStatusError("cannot associate pending delete server")
+		}
+		// IMPORTANT: this serves as a guard against a guest to have multiple
+		// associated elastic_ips
+		seip, _ := server.GetEipOrPublicIp()
+		if seip != nil {
+			return input, httperrors.NewInvalidStatusError("instance is already associated with eip")
+		}
+
+		if ok, _ := utils.InStringArray(server.Status, []string{api.VM_READY, api.VM_RUNNING}); !ok {
+			return input, httperrors.NewInvalidStatusError("cannot associate server in status %s", server.Status)
+		}
+
+		err = ValidateAssociateEip(server)
+		if err != nil {
+			return input, err
+		}
+
+		if len(self.NetworkId) > 0 {
+			gns, err := server.GetNetworks("")
+			if err != nil {
+				return input, httperrors.NewGeneralError(errors.Wrap(err, "GetNetworks"))
+			}
+			for _, gn := range gns {
+				if gn.NetworkId == self.NetworkId {
+					return input, httperrors.NewInputParameterError("cannot associate eip with same network")
+				}
 			}
 		}
-	}
-
-	serverRegion := server.getRegion()
-	if serverRegion == nil {
-		return nil, httperrors.NewInputParameterError("server region is not found???")
-	}
-
-	eipRegion := self.GetRegion()
-	if eipRegion == nil {
-		return nil, httperrors.NewInputParameterError("eip region is not found???")
-	}
-
-	if serverRegion.Id != eipRegion.Id {
-		return nil, httperrors.NewInputParameterError("eip and server are not in the same region")
-	}
-
-	eipZone := self.GetZone()
-	if eipZone != nil {
-		serverZone := server.getZone()
-		if serverZone.Id != eipZone.Id {
-			return nil, httperrors.NewInputParameterError("eip and server are not in the same zone")
+		serverRegion := server.getRegion()
+		if serverRegion == nil {
+			return input, httperrors.NewInputParameterError("server region is not found???")
 		}
+
+		eipRegion, err := self.GetRegion()
+		if err != nil {
+			return input, httperrors.NewGeneralError(errors.Wrapf(err, "GetRegion"))
+		}
+
+		if serverRegion.Id != eipRegion.Id {
+			return input, httperrors.NewInputParameterError("eip and server are not in the same region")
+		}
+		eipZone := self.GetZone()
+		if eipZone != nil {
+			serverZone := server.getZone()
+			if serverZone.Id != eipZone.Id {
+				return input, httperrors.NewInputParameterError("eip and server are not in the same zone")
+			}
+		}
+
+		srvHost := server.GetHost()
+		if srvHost == nil {
+			return input, httperrors.NewInputParameterError("server host is not found???")
+		}
+
+		if srvHost.ManagerId != self.ManagerId {
+			return input, httperrors.NewInputParameterError("server and eip are not managed by the same provider")
+		}
+		input.InstanceExternalId = server.ExternalId
+	case api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY:
 	}
 
-	srvHost := server.GetHost()
-	if srvHost == nil {
-		return nil, httperrors.NewInputParameterError("server host is not found???")
-	}
-
-	if srvHost.ManagerId != self.ManagerId {
-		return nil, httperrors.NewInputParameterError("server and eip are not managed by the same provider")
-	}
-
-	err = self.StartEipAssociateInstanceTask(ctx, userCred, server, "")
-	return nil, err
+	return input, self.StartEipAssociateInstanceTask(ctx, userCred, input, "")
 }
 
-func (self *SElasticip) StartEipAssociateInstanceTask(ctx context.Context, userCred mcclient.TokenCredential, server *SGuest, parentTaskId string) error {
-	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewString(server.ExternalId), "instance_external_id")
-	params.Add(jsonutils.NewString(server.Id), "instance_id")
-	params.Add(jsonutils.NewString(api.EIP_ASSOCIATE_TYPE_SERVER), "instance_type")
-
+func (self *SElasticip) StartEipAssociateInstanceTask(ctx context.Context, userCred mcclient.TokenCredential, input api.ElasticipAssociateInput, parentTaskId string) error {
+	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 	return self.StartEipAssociateTask(ctx, userCred, params, parentTaskId)
 }
 
 func (self *SElasticip) StartEipAssociateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "EipAssociateTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
-		log.Errorf("create EipAssociateTask task fail %s", err)
-		return err
+		return errors.Wrapf(err, "NewTask")
 	}
 	self.SetStatus(userCred, api.EIP_STATUS_ASSOCIATE, "start to associate")
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (self *SElasticip) AllowPerformDissociate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -1138,9 +1123,9 @@ func (self *SElasticip) GetIRegion() (cloudprovider.ICloudRegion, error) {
 		return nil, errors.Wrap(err, "GetDriver")
 	}
 
-	region := self.GetRegion()
-	if region == nil {
-		return nil, fmt.Errorf("fail to find region for eip")
+	region, err := self.GetRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "self.GetRegion")
 	}
 
 	return provider.GetIRegionById(region.GetExternalId())
@@ -1232,6 +1217,7 @@ type NewEipForVMOnHostArgs struct {
 
 	Guest        *SGuest
 	Host         *SHost
+	Natgateway   *SNatGateway
 	PendingUsage quotas.IQuota
 }
 
@@ -1243,12 +1229,21 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 		autoDellocate = args.AutoDellocate
 		vm            = args.Guest
 		host          = args.Host
+		nat           = args.Natgateway
 		pendingUsage  = args.PendingUsage
+
+		region *SCloudregion = nil
 	)
-	var (
-		region       = host.GetRegion()
-		regionDriver = region.GetDriver()
-	)
+
+	if host != nil {
+		region = host.GetRegion()
+	} else if nat != nil {
+		region = nat.GetRegion()
+	} else {
+		return nil, fmt.Errorf("invalid host or nat")
+	}
+
+	regionDriver := region.GetDriver()
 
 	if chargeType == "" {
 		chargeType = regionDriver.GetEipDefaultChargeType()
@@ -1266,14 +1261,31 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 	eip.Bandwidth = bw
 	eip.ChargeType = chargeType
 	eip.AutoDellocate = tristate.NewFromBool(autoDellocate)
-	eip.DomainId = vm.DomainId
-	eip.ProjectId = vm.ProjectId
+	if vm != nil {
+		eip.DomainId = vm.DomainId
+		eip.ProjectId = vm.ProjectId
+	} else {
+		eip.DomainId = userCred.GetProjectDomainId()
+		eip.ProjectId = userCred.GetProjectId()
+	}
 	eip.ProjectSrc = string(apis.OWNER_SOURCE_LOCAL)
-	eip.ManagerId = host.ManagerId
+	if host != nil {
+		eip.ManagerId = host.ManagerId
+	} else if nat != nil {
+		vpc, err := nat.GetVpc()
+		if err != nil {
+			return nil, errors.Wrapf(err, "nat.GetVpc")
+		}
+		eip.ManagerId = vpc.ManagerId
+	}
 	eip.CloudregionId = region.Id
-	eip.Name = fmt.Sprintf("eip-for-%s", vm.GetName())
+	if vm != nil {
+		eip.Name = fmt.Sprintf("eip-for-%s", vm.GetName())
+	} else if nat != nil {
+		eip.Name = fmt.Sprintf("eip-for-%s", nat.GetName())
+	}
 
-	if host.ManagerId == "" {
+	if host != nil && host.ManagerId == "" { // kvm
 
 		hostq := HostManager.Query().SubQuery()
 		wireq := WireManager.Query().SubQuery()
@@ -1316,17 +1328,30 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 
 	err = manager.TableSpec().Insert(ctx, eip)
 	if err != nil {
-		log.Errorf("create EIP record fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "TableSpec().Insert")
 	}
 	db.OpsLog.LogEvent(eip, db.ACT_CREATE, eip.GetShortDesc(ctx), userCred)
+
+	var ownerId mcclient.IIdentityProvider = nil
+	if vm != nil {
+		ownerId = vm.GetOwnerId()
+	} else if nat != nil {
+		ownerId = nat.GetOwnerId()
+	}
+
+	var provider *SCloudprovider = nil
+	if host != nil {
+		provider = host.GetCloudprovider()
+	} else if nat != nil {
+		provider = nat.GetCloudprovider()
+	}
 
 	eipPendingUsage := &SRegionQuota{Eip: 1}
 	keys := fetchRegionalQuotaKeys(
 		rbacutils.ScopeProject,
-		vm.GetOwnerId(),
+		ownerId,
 		region,
-		host.GetCloudprovider(),
+		provider,
 	)
 	eipPendingUsage.SetKeys(keys)
 	quotas.CancelPendingUsage(ctx, userCred, pendingUsage, eipPendingUsage, true)
@@ -1334,19 +1359,15 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 	return eip, nil
 }
 
-func (eip *SElasticip) AllocateAndAssociateVM(ctx context.Context, userCred mcclient.TokenCredential, vm *SGuest, parentTaskId string) error {
-	err := ValidateAssociateEip(vm)
+func (eip *SElasticip) AllocateAndAssociateInstance(ctx context.Context, userCred mcclient.TokenCredential, ins IEipAssociateInstance, input api.ElasticipAssociateInput, parentTaskId string) error {
+	err := ValidateAssociateEip(ins)
 	if err != nil {
 		return err
 	}
 
-	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewString(vm.ExternalId), "instance_external_id")
-	params.Add(jsonutils.NewString(vm.Id), "instance_id")
-	params.Add(jsonutils.NewString(api.EIP_ASSOCIATE_TYPE_SERVER), "instance_type")
+	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 
-	vm.SetStatus(userCred, api.VM_ASSOCIATE_EIP, "allocate and associate EIP")
-
+	db.StatusBaseSetStatus(ins, userCred, api.INSTANCE_ASSOCIATE_EIP, "allocate and associate EIP")
 	return eip.startEipAllocateTask(ctx, userCred, params, parentTaskId)
 }
 
@@ -1498,7 +1519,7 @@ func (self *SElasticip) DoPendingDelete(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SElasticip) getCloudProviderInfo() SCloudProviderInfo {
-	region := self.GetRegion()
+	region, _ := self.GetRegion()
 	provider := self.GetCloudprovider()
 	return MakeCloudProviderInfo(region, nil, provider)
 }

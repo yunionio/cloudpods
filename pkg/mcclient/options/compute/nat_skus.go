@@ -15,18 +15,27 @@
 package compute
 
 import (
-	"yunion.io/x/onecloud/cmd/climc/shell"
-	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
-func init() {
-	cmd := shell.NewResourceCmd(&modules.NatGateways).WithKeyword("nat")
+type NatSkuListOption struct {
+	options.BaseListOptions
+}
 
-	cmd.List(&compute.NatGatewayListOptions{})
-	cmd.Create(&api.NatgatewayCreateInput{})
-	cmd.Show(&compute.NatGatewayIdOptions{})
-	cmd.Delete(&compute.NatGatewayDeleteOption{})
-	cmd.Perform("syncstauts", &compute.NatGatewayIdOptions{})
+func (opts *NatSkuListOption) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(opts)
+}
+
+type NatSkuIdOption struct {
+	ID string `help:"Nat Id or name"`
+}
+
+func (opts *NatSkuIdOption) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
+func (opts *NatSkuIdOption) GetId() string {
+	return opts.ID
 }

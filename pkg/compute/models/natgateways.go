@@ -25,15 +25,22 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/reflectutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -41,7 +48,8 @@ type SNatGatewayManager struct {
 	db.SStatusInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SVpcResourceBaseManager
-	// SManagedResourceBaseManager
+
+	SDeletePreventableResourceBaseManager
 }
 
 var NatGatewayManager *SNatGatewayManager
@@ -61,9 +69,10 @@ func init() {
 type SNatGateway struct {
 	db.SStatusInfrasResourceBase
 	db.SExternalizedResourceBase
-	// SManagedResourceBase
 	SBillingResourceBase
 	SVpcResourceBase
+
+	SDeletePreventableResourceBase
 
 	NatSpec string `list:"user" create:"optional"` // NAT规格
 }
@@ -84,6 +93,10 @@ func (man *SNatGatewayManager) ListItemFilter(
 	q, err := man.SStatusInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusInfrasResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusInfrasResourceBaseManager.ListItemFilter")
+	}
+	q, err = man.SDeletePreventableResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DeletePreventableResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDeletePreventableResourceBaseManager.ListItemFilter")
 	}
 	q, err = man.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
 	if err != nil {
@@ -128,8 +141,91 @@ func (man *SNatGatewayManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field
 	return q, httperrors.ErrNotFound
 }
 
-func (man *SNatGatewayManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return nil, httperrors.NewNotImplementedError("Not Implemented")
+func (man *SNatGatewayManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.NatgatewayCreateInput) (api.NatgatewayCreateInput, error) {
+	if len(input.NetworkId) == 0 {
+		return input, httperrors.NewMissingParameterError("network_id")
+	}
+	_network, err := validators.ValidateModel(userCred, NetworkManager, &input.NetworkId)
+	if err != nil {
+		return input, err
+	}
+	network := _network.(*SNetwork)
+	vpc := network.GetVpc()
+	if vpc == nil {
+		return input, httperrors.NewGeneralError(errors.Errorf("failed to get network %s %s vpc", network.Name, network.Id))
+	}
+	input.VpcId = vpc.Id
+	region, err := vpc.GetRegion()
+	if err != nil {
+		return input, httperrors.NewGeneralError(errors.Wrapf(err, "vpc.GetRegion"))
+	}
+	if len(input.Duration) > 0 {
+		billingCycle, err := billing.ParseBillingCycle(input.Duration)
+		if err != nil {
+			return input, httperrors.NewInputParameterError("invalid duration %s", input.Duration)
+		}
+
+		if !utils.IsInStringArray(input.BillingType, []string{billing_api.BILLING_TYPE_PREPAID, billing_api.BILLING_TYPE_POSTPAID}) {
+			input.BillingType = billing_api.BILLING_TYPE_PREPAID
+		}
+
+		if input.BillingType == billing_api.BILLING_TYPE_PREPAID {
+			if !region.GetDriver().IsSupportedBillingCycle(billingCycle, man.KeywordPlural()) {
+				return input, httperrors.NewInputParameterError("unsupported duration %s", input.Duration)
+			}
+		}
+		tm := time.Time{}
+		input.BillingCycle = billingCycle.String()
+		input.ExpiredAt = billingCycle.EndAt(tm)
+	}
+	if len(input.Eip) > 0 || input.EipBw > 0 {
+		if len(input.Eip) > 0 {
+			_eip, err := validators.ValidateModel(userCred, ElasticipManager, &input.Eip)
+			if err != nil {
+				return input, err
+			}
+			eip := _eip.(*SElasticip)
+			if eip.Status != api.EIP_STATUS_READY {
+				return input, httperrors.NewInvalidStatusError("eip %s status invalid %s", input.Eip, eip.Status)
+			}
+
+			if eip.IsAssociated() {
+				return input, httperrors.NewResourceBusyError("eip %s has been associated", input.Eip)
+			}
+
+			if eip.CloudregionId != vpc.CloudregionId {
+				return input, httperrors.NewDuplicateResourceError("elastic ip %s and vpc %s not in same region", eip.Name, vpc.Name)
+			}
+
+			provider := eip.GetCloudprovider()
+			if provider != nil && provider.Id != vpc.ManagerId {
+				return input, httperrors.NewConflictError("cannot assoicate with eip %s: different cloudprovider", eip.Id)
+			}
+		} else {
+			// create new
+		}
+	}
+	driver := region.GetDriver()
+	return driver.ValidateCreateNatGateway(ctx, userCred, input)
+}
+
+func (self *SNatGateway) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+
+	err := self.StartNatGatewayCreateTask(ctx, userCred, data.(*jsonutils.JSONDict))
+	if err != nil {
+		self.SetStatus(userCred, api.NAT_STATUS_CREATE_FAILED, err.Error())
+		return
+	}
+	self.SetStatus(userCred, api.NAT_STATUS_ALLOCATE, "start allocate")
+}
+
+func (self *SNatGateway) StartNatGatewayCreateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "NatGatewayCreateTask", self, userCred, params, "", "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
+	}
+	return task.ScheduleRun(nil)
 }
 
 func (self *SNatGateway) AllowPerformSnatResources(ctx context.Context, userCred mcclient.TokenCredential,
@@ -137,6 +233,7 @@ func (self *SNatGateway) AllowPerformSnatResources(ctx context.Context, userCred
 
 	return true
 }
+
 func (self *SNatGateway) PerformSnatResources(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 
@@ -348,11 +445,20 @@ func (self *SNatGateway) syncRemoveCloudNatGateway(ctx context.Context, userCred
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
+	self.DeletePreventionOff(self, userCred)
+
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete
 		return self.SetStatus(userCred, api.NAT_STATUS_UNKNOWN, "sync to delete")
 	}
 	return self.purge(ctx, userCred)
+}
+
+func (self *SNatGateway) ValidateDeleteCondition(ctx context.Context) error {
+	if self.DisableDelete.IsTrue() {
+		return httperrors.NewInvalidStatusError("Nat is locked, cannot delete")
+	}
+	return self.SStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (self *SNatGateway) SyncWithCloudNatGateway(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extNat cloudprovider.ICloudNatGateway) error {
@@ -385,11 +491,6 @@ func (manager *SNatGatewayManager) newFromCloudNatGateway(ctx context.Context, u
 	nat := SNatGateway{}
 	nat.SetModelManager(manager, &nat)
 
-	/*region, err := vpc.GetRegion()
-	if err != nil {
-		return nil, errors.Wrap(err, "vpc.GetRegion")
-	}*/
-
 	newName, err := db.GenerateName(manager, ownerId, extNat.GetName())
 	if err != nil {
 		return nil, errors.Wrap(err, "db.GenerateName")
@@ -402,8 +503,6 @@ func (manager *SNatGatewayManager) newFromCloudNatGateway(ctx context.Context, u
 		nat.CreatedAt = extNat.GetCreatedAt()
 	}
 	nat.ExternalId = extNat.GetGlobalId()
-	// nat.CloudregionId = region.Id
-	// nat.ManagerId = provider.Id
 	nat.IsEmulated = extNat.IsEmulated()
 
 	factory, _ := provider.GetProviderFactory()
@@ -428,11 +527,53 @@ func (manager *SNatGatewayManager) newFromCloudNatGateway(ctx context.Context, u
 	return &nat, nil
 }
 
+// 删除NAT
+func (self *SNatGateway) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query api.ServerDeleteInput, input api.NatgatewayDeleteInput) error {
+	if !input.Force {
+		eips, err := self.GetEips()
+		if err != nil {
+			return errors.Wrapf(err, "self.GetEips")
+		}
+		if len(eips) > 0 {
+			return httperrors.NewNotEmptyError("natgateway has bind %d eips", len(eips))
+		}
+		dnat, err := self.GetDTable()
+		if err != nil {
+			return errors.Wrapf(err, "GetDTable()")
+		}
+		if len(dnat) > 0 {
+			return httperrors.NewNotEmptyError("natgateway has %d stable", len(dnat))
+		}
+		snat, err := self.GetSTable()
+		if err != nil {
+			return errors.Wrapf(err, "GetSTable")
+		}
+		if len(snat) > 0 {
+			return httperrors.NewNotEmptyError("natgateway has %d dtable", len(snat))
+		}
+	}
+	err := self.StartNatGatewayDeleteTask(ctx, userCred, nil)
+	if err != nil {
+		return err
+	}
+	self.SetStatus(userCred, api.NAT_STATUS_DELETING, jsonutils.Marshal(input).String())
+	return nil
+}
+
+func (self *SNatGateway) StartNatGatewayDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "NatGatewayDeleteTask", self, userCred, params, "", "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
+	}
+	return task.ScheduleRun(nil)
+}
+
 func (self *SNatGateway) GetEips() ([]SElasticip, error) {
 	q := ElasticipManager.Query().Equals("associate_id", self.Id)
 	eips := []SElasticip{}
-	if err := db.FetchModelObjects(ElasticipManager, q, &eips); err != nil {
-		return nil, err
+	err := db.FetchModelObjects(ElasticipManager, q, &eips)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	return eips, nil
 }
@@ -458,10 +599,10 @@ func (self *SNatGateway) SyncNatGatewayEips(ctx context.Context, userCred mcclie
 	for i := 0; i < len(removed); i += 1 {
 		err := removed[i].Dissociate(ctx, userCred)
 		if err != nil {
-			result.AddError(err)
-		} else {
-			result.Delete()
+			result.DeleteError(err)
+			continue
 		}
+		result.Delete()
 	}
 
 	for i := 0; i < len(added); i += 1 {
@@ -480,9 +621,9 @@ func (self *SNatGateway) SyncNatGatewayEips(ctx context.Context, userCred mcclie
 		err = neip.AssociateNatGateway(ctx, userCred, self)
 		if err != nil {
 			result.AddError(err)
-		} else {
-			result.Add()
+			continue
 		}
+		result.Add()
 	}
 
 	return result
@@ -503,15 +644,26 @@ func (self *SNatGateway) PerformSyncstatus(ctx context.Context, userCred mcclien
 		return nil, httperrors.NewBadRequestError("Nat gateway has %d task active, can't sync status", count)
 	}
 
-	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "NatGatewaySyncstatusTask", "")
+	return nil, self.StartSyncstatus(ctx, userCred, "")
+}
+
+func (self *SNatGateway) StartSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	return StartResourceSyncStatusTask(ctx, userCred, self, "NatGatewaySyncstatusTask", parentTaskId)
+}
+
+func (self *SNatGateway) GetVpc() (*SVpc, error) {
+	vpc, err := VpcManager.FetchById(self.VpcId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Fetch vpc by ID %s failed", self.VpcId)
+	}
+	return vpc.(*SVpc), nil
 }
 
 func (self *SNatGateway) GetINatGateway() (cloudprovider.ICloudNatGateway, error) {
-	model, err := VpcManager.FetchById(self.VpcId)
+	vpc, err := self.GetVpc()
 	if err != nil {
-		return nil, errors.Wrap(err, "Fetch vpc by ID failed")
+		return nil, errors.Wrap(err, "GetVpc")
 	}
-	vpc := model.(*SVpc)
 	cloudVpc, err := vpc.GetIVpc()
 	if err != nil {
 		return nil, errors.Wrap(err, "Fetch IVpc failed")
@@ -525,7 +677,11 @@ func (self *SNatGateway) GetINatGateway() (cloudprovider.ICloudNatGateway, error
 			return cloudNatGateways[i], nil
 		}
 	}
-	return nil, errors.Error("CloudNatGateway Not Found")
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
+}
+
+func (self *SNatGateway) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return nil
 }
 
 func (self *SNatGateway) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -549,7 +705,7 @@ func (self *SNatGateway) RealDelete(ctx context.Context, userCred mcclient.Token
 			return errors.Wrapf(err, "delete snat %s failed", snats[i].GetId())
 		}
 	}
-	return self.Delete(ctx, userCred)
+	return self.SInfrasResourceBase.Delete(ctx, userCred)
 }
 
 func (nm *SNatGatewayManager) NatNameToReal(name string, natgatewayId string) string {
@@ -588,7 +744,6 @@ type SNatEntry struct {
 	db.SExternalizedResourceBase
 
 	SNatgatewayResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	// NatgatewayId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
 
 func (manager *SNatEntryManager) GetContextManagers() [][]db.IModelManager {
@@ -694,6 +849,144 @@ func (manager *SNatEntryManager) FetchCustomizeColumns(
 	return rows
 }
 
+func (self *SNatGateway) AllowPerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "postpaid-expire")
+}
+
+func (self *SNatGateway) PerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PostpaidExpireInput) (jsonutils.JSONObject, error) {
+	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
+		return nil, httperrors.NewBadRequestError("nat gateway billing type is %s", self.BillingType)
+	}
+
+	bc, err := ParseBillingCycleInput(&self.SBillingResourceBase, input)
+	if err != nil {
+		return nil, err
+	}
+
+	err = self.SaveRenewInfo(ctx, userCred, bc, nil, billing_api.BILLING_TYPE_POSTPAID)
+	return nil, err
+}
+
+func (self *SNatGateway) SaveRenewInfo(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	bc *billing.SBillingCycle, expireAt *time.Time, billingType string,
+) error {
+	_, err := db.Update(self, func() error {
+		if billingType == "" {
+			billingType = billing_api.BILLING_TYPE_PREPAID
+		}
+		if self.BillingType == "" {
+			self.BillingType = billingType
+		}
+		if expireAt != nil && !expireAt.IsZero() {
+			self.ExpiredAt = *expireAt
+		} else {
+			self.BillingCycle = bc.String()
+			self.ExpiredAt = bc.EndAt(self.ExpiredAt)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Wrapf(err, "db.Update")
+	}
+	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(ctx), userCred)
+	return nil
+}
+
+func (self *SNatGateway) AllowPerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "renew")
+}
+
+func (self *SNatGateway) PerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.RenewInput) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{api.NAT_STAUTS_AVAILABLE}) {
+		return nil, httperrors.NewInvalidStatusError("Cannot do renew nat gateway in status %s required status %s", self.Status, api.NAT_SKU_AVAILABLE)
+	}
+
+	if len(input.Duration) == 0 {
+		return nil, httperrors.NewMissingParameterError("duration")
+	}
+
+	bc, err := billing.ParseBillingCycle(input.Duration)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("invalid duration %s: %s", input.Duration, err)
+	}
+
+	if !self.GetRegion().GetDriver().IsSupportedBillingCycle(bc, NatGatewayManager.KeywordPlural()) {
+		return nil, httperrors.NewInputParameterError("unsupported duration %s", input.Duration)
+	}
+
+	return nil, self.StartRenewTask(ctx, userCred, input.Duration, "")
+}
+
+func (self *SNatGateway) StartRenewTask(ctx context.Context, userCred mcclient.TokenCredential, duration string, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	data.Set("duration", jsonutils.NewString(duration))
+	task, err := taskman.TaskManager.NewTask(ctx, "NatGatewayRenewTask", self, userCred, data, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	self.SetStatus(userCred, api.NAT_STATUS_RENEWING, "")
+	return task.ScheduleRun(nil)
+}
+
+func (self *SNatGateway) AllowPerformSetAutoRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "set-auto-renew")
+}
+
+func (self *SNatGateway) SetAutoRenew(autoRenew bool) error {
+	_, err := db.Update(self, func() error {
+		self.AutoRenew = autoRenew
+		return nil
+	})
+	return err
+}
+
+// 设置自动续费
+// 要求NAT状态为available
+// 要求NAT计费类型为包年包月(预付费)
+func (self *SNatGateway) PerformSetAutoRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.AutoRenewInput) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{api.NAT_STAUTS_AVAILABLE}) {
+		return nil, httperrors.NewUnsupportOperationError("The nat gateway status need be %s, current is %s", api.NAT_STAUTS_AVAILABLE, self.Status)
+	}
+
+	if self.BillingType != billing_api.BILLING_TYPE_PREPAID {
+		return nil, httperrors.NewUnsupportOperationError("Only %s nat gateway support this operation", billing_api.BILLING_TYPE_PREPAID)
+	}
+
+	if self.AutoRenew == input.AutoRenew {
+		return nil, nil
+	}
+
+	region := self.GetRegion()
+	if region == nil {
+		return nil, httperrors.NewGeneralError(fmt.Errorf("filed to get nat %s region", self.Name))
+	}
+
+	driver := region.GetDriver()
+	if !driver.IsSupportedNatAutoRenew() {
+		err := self.SetAutoRenew(input.AutoRenew)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+
+		logclient.AddSimpleActionLog(self, logclient.ACT_SET_AUTO_RENEW, input, userCred, true)
+		return nil, nil
+	}
+
+	return nil, self.StartSetAutoRenewTask(ctx, userCred, input.AutoRenew, "")
+}
+
+func (self *SNatGateway) StartSetAutoRenewTask(ctx context.Context, userCred mcclient.TokenCredential, autoRenew bool, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	data.Set("auto_renew", jsonutils.NewBool(autoRenew))
+	task, err := taskman.TaskManager.NewTask(ctx, "NatGatewaySetAutoRenewTask", self, userCred, data, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	self.SetStatus(userCred, api.NAT_STATUS_SET_AUTO_RENEW, "")
+	return task.ScheduleRun(nil)
+}
+
 func (self *SNatEntry) GetINatGateway() (cloudprovider.ICloudNatGateway, error) {
 	model, err := NatGatewayManager.FetchById(self.NatgatewayId)
 	if err != nil {
@@ -730,4 +1023,41 @@ func (self *SNatEntry) ValidateUpdateData(ctx context.Context, userCred mcclient
 		data.Set("name", jsonutils.NewString(NatGatewayManager.NatNameFromReal(name, natgateway.GetId())))
 	}
 	return nil, nil
+}
+
+func (manager *SNatGatewayManager) getExpiredPostpaids() ([]SNatGateway, error) {
+	q := ListExpiredPostpaidResources(manager.Query(), options.Options.ExpiredPrepaidMaxCleanBatchSize)
+
+	nats := make([]SNatGateway, 0)
+	err := db.FetchModelObjects(manager, q, &nats)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return nats, nil
+}
+
+func (self *SNatGateway) doExternalSync(ctx context.Context, userCred mcclient.TokenCredential) error {
+	iNat, err := self.GetINatGateway()
+	if err != nil {
+		return errors.Wrapf(err, "GetINatGateway")
+	}
+	return self.SyncWithCloudNatGateway(ctx, userCred, self.GetCloudprovider(), iNat)
+}
+
+func (manager *SNatGatewayManager) DeleteExpiredPostpaids(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	nats, err := manager.getExpiredPostpaids()
+	if err != nil {
+		log.Errorf("Nats getExpiredPostpaids error: %v", err)
+		return
+	}
+	for i := 0; i < len(nats); i += 1 {
+		if len(nats[i].ExternalId) > 0 {
+			err := nats[i].doExternalSync(ctx, userCred)
+			if err == nil && nats[i].IsValidPostPaid() {
+				continue
+			}
+		}
+		nats[i].DeletePreventionOff(&nats[i], userCred)
+		nats[i].StartNatGatewayDeleteTask(ctx, userCred, nil)
+	}
 }

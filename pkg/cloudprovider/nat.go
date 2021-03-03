@@ -14,6 +14,8 @@
 
 package cloudprovider
 
+import "yunion.io/x/onecloud/pkg/util/billing"
+
 // These two structures are designed for modifying snat table and dnat table.
 // There is a so strange point that they have both field of ExternalIP and ExternalIPID.
 // The reason is that you must pass ExternalIPID to modify in Huawei Cloud for now.
@@ -37,4 +39,14 @@ type SNatDRule struct {
 	ExternalIP   string
 	ExternalIPID string
 	ExternalPort int
+}
+
+type NatGatewayCreateOptions struct {
+	Name      string
+	VpcId     string
+	NetworkId string
+	Desc      string
+	NatSpec   string
+
+	BillingCycle *billing.SBillingCycle
 }

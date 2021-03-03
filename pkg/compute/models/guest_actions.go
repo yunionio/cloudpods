@@ -2972,7 +2972,10 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 	}
 
 	eip = eipObj.(*SElasticip)
-	eipRegion := eip.GetRegion()
+	eipRegion, err := eip.GetRegion()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "eip.GetRegion"))
+	}
 	instRegion := self.getRegion()
 
 	if eip.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
@@ -3017,7 +3020,7 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different provider")
 	}
 
-	self.SetStatus(userCred, api.VM_ASSOCIATE_EIP, "associate eip")
+	self.SetStatus(userCred, api.INSTANCE_ASSOCIATE_EIP, "associate eip")
 
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(self.ExternalId), "instance_external_id")
@@ -3048,7 +3051,7 @@ func (self *SGuest) PerformDissociateEip(ctx context.Context, userCred mcclient.
 		return nil, errors.Wrap(err, "eip is not accessible")
 	}
 
-	self.SetStatus(userCred, api.VM_DISSOCIATE_EIP, "associate eip")
+	self.SetStatus(userCred, api.INSTANCE_DISSOCIATE_EIP, "associate eip")
 
 	autoDelete := (input.AudoDelete != nil && *input.AudoDelete)
 
@@ -3126,7 +3129,13 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	err = eip.AllocateAndAssociateVM(ctx, userCred, self, "")
+	opts := api.ElasticipAssociateInput{
+		InstanceId:         self.Id,
+		InstanceExternalId: self.ExternalId,
+		InstanceType:       api.EIP_ASSOCIATE_TYPE_SERVER,
+	}
+
+	err = eip.AllocateAndAssociateInstance(ctx, userCred, self, opts, "")
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -3694,7 +3703,7 @@ func (self *SGuest) AllowPerformPostpaidExpire(ctx context.Context, userCred mcc
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "postpaid-expire")
 }
 
-func (self *SGuest) PerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PostpaidExpireInput) (jsonutils.JSONObject, error) {
 	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
 		return nil, httperrors.NewBadRequestError("guest billing type is %s", self.BillingType)
 	}
@@ -3703,7 +3712,7 @@ func (self *SGuest) PerformPostpaidExpire(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewBadRequestError("guest %s unsupport postpaid expire", self.Hypervisor)
 	}
 
-	bc, err := ParseBillingCycleInput(&self.SBillingResourceBase, data)
+	bc, err := ParseBillingCycleInput(&self.SBillingResourceBase, input)
 	if err != nil {
 		return nil, err
 	}

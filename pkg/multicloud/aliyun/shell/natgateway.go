@@ -22,16 +22,27 @@ import (
 
 func init() {
 	type NatGatewayListOptions struct {
-		Limit  int `help:"page size"`
-		Offset int `help:"page offset"`
+		VpcId  string `help:"Vpc Id"`
+		NatId  string `help:"NatGateway Id"`
+		Limit  int    `help:"page size"`
+		Offset int    `help:"page offset"`
 	}
-	shellutils.R(&NatGatewayListOptions{}, "natgateway-list", "List NAT gateways", func(cli *aliyun.SRegion, args *NatGatewayListOptions) error {
-		gws, total, e := cli.GetNatGateways("", "", args.Offset, args.Limit)
+	shellutils.R(&NatGatewayListOptions{}, "nat-list", "List NAT gateways", func(cli *aliyun.SRegion, args *NatGatewayListOptions) error {
+		gws, total, e := cli.GetNatGateways(args.VpcId, args.NatId, args.Offset, args.Limit)
 		if e != nil {
 			return e
 		}
 		printList(gws, total, args.Offset, args.Limit, []string{})
 		return nil
+	})
+
+	type NatGatewayDeleteOptions struct {
+		ID    string `help:"Nat Id"`
+		Force bool   `help:"Force Delete Nat"`
+	}
+
+	shellutils.R(&NatGatewayDeleteOptions{}, "nat-delete", "Delete nat gateways", func(cli *aliyun.SRegion, args *NatGatewayDeleteOptions) error {
+		return cli.DeleteNatGateway(args.ID, args.Force)
 	})
 
 	type NatSEntryListOptions struct {

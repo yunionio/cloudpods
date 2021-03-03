@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -35,58 +36,98 @@ func init() {
 	taskman.RegisterTask(EipAssociateTask{})
 }
 
-func (self *EipAssociateTask) TaskFail(ctx context.Context, eip *models.SElasticip, msg jsonutils.JSONObject, vm *models.SGuest) {
-	eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, msg.String())
-	self.SetStageFailed(ctx, msg)
-	if vm != nil {
-		vm.SetStatus(self.UserCred, api.VM_ASSOCIATE_EIP_FAILED, msg.String())
-		db.OpsLog.LogEvent(vm, db.ACT_EIP_ATTACH, msg, self.GetUserCred())
-		logclient.AddActionLogWithStartable(self, vm, logclient.ACT_EIP_ASSOCIATE, msg, self.UserCred, false)
+func (self *EipAssociateTask) taskFail(ctx context.Context, eip *models.SElasticip, obj db.IStatusStandaloneModel, err error) {
+	eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+	if obj != nil {
+		db.StatusBaseSetStatus(obj, self.GetUserCred(), api.INSTANCE_ASSOCIATE_EIP_FAILED, err.Error())
+		db.OpsLog.LogEvent(obj, db.ACT_EIP_ATTACH, err, self.GetUserCred())
+		logclient.AddActionLogWithStartable(self, obj, logclient.ACT_EIP_ASSOCIATE, err, self.UserCred, false)
 	}
-	logclient.AddActionLogWithStartable(self, eip, logclient.ACT_VM_ASSOCIATE, msg, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, eip, logclient.ACT_VM_ASSOCIATE, err, self.UserCred, false)
+}
+
+func (self *EipAssociateTask) GetAssociateInput() (api.ElasticipAssociateInput, error) {
+	input := api.ElasticipAssociateInput{}
+	err := self.Params.Unmarshal(&input)
+	if err != nil {
+		return input, errors.Wrapf(err, "self.Params.Unmarshal")
+	}
+	return input, nil
+}
+
+func (self *EipAssociateTask) GetAssociateObj() (db.IStatusStandaloneModel, api.ElasticipAssociateInput, error) {
+	input, err := self.GetAssociateInput()
+	if err != nil {
+		return nil, input, errors.Wrapf(err, "GetAssociateInput")
+	}
+
+	switch input.InstanceType {
+	case api.EIP_ASSOCIATE_TYPE_SERVER:
+		vmObj, err := models.GuestManager.FetchById(input.InstanceId)
+		if err != nil {
+			return nil, input, errors.Wrapf(err, "GuestManager.FetchById(%s)", input.InstanceId)
+		}
+		return vmObj.(*models.SGuest), input, nil
+	case api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY:
+		natObj, err := models.NatGatewayManager.FetchById(input.InstanceId)
+		if err != nil {
+			return nil, input, errors.Wrapf(err, "NatGatewayManager.FetchById(%s)", input.InstanceId)
+		}
+		return natObj.(*models.SNatGateway), input, nil
+	default:
+		return nil, input, fmt.Errorf("invalid instance type %s", input.InstanceType)
+	}
 }
 
 func (self *EipAssociateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	eip := obj.(*models.SElasticip)
 
-	instanceId, _ := self.Params.GetString("instance_id")
-	server := models.GuestManager.FetchGuestById(instanceId)
-
-	if server == nil {
-		msg := fmt.Sprintf("fail to find server for instanceId %s", instanceId)
-		self.TaskFail(ctx, eip, jsonutils.NewString(msg), nil)
+	region, err := eip.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, eip, nil, errors.Wrapf(err, "eip.GetRegion"))
 		return
 	}
 
-	driver := server.GetDriver()
-	if driver == nil {
-		msg := fmt.Sprintf("fail to find guest driver for instanceId %s", instanceId)
-		self.TaskFail(ctx, eip, jsonutils.NewString(msg), nil)
+	ins, input, err := self.GetAssociateObj()
+	if err != nil {
+		self.taskFail(ctx, eip, nil, errors.Wrapf(err, "self.GetAssociateObj"))
 		return
 	}
+
+	db.StatusBaseSetStatus(ins, self.GetUserCred(), api.INSTANCE_ASSOCIATE_EIP, "associate eip")
 
 	self.SetStage("OnAssociateEipComplete", nil)
-	if err := driver.RequestAssociateEip(ctx, self.UserCred, server, eip, self); err != nil {
-		self.TaskFail(ctx, eip, jsonutils.NewString(err.Error()), server)
+	err = region.GetDriver().RequestAssociatEip(ctx, self.UserCred, eip, input, ins, self)
+	if err != nil {
+		self.taskFail(ctx, eip, ins, errors.Wrapf(err, "RequestAssociatEip"))
 		return
 	}
 }
 
 func (self *EipAssociateTask) OnAssociateEipComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	eip := obj.(*models.SElasticip)
-	instanceId, _ := self.Params.GetString("instance_id")
-	server := models.GuestManager.FetchGuestById(instanceId)
-	server.StartSyncstatus(ctx, self.UserCred, "")
-	logclient.AddActionLogWithStartable(self, server, logclient.ACT_EIP_ASSOCIATE, nil, self.UserCred, true)
-	logclient.AddActionLogWithStartable(self, eip, logclient.ACT_VM_ASSOCIATE, nil, self.UserCred, true)
+
+	ins, input, err := self.GetAssociateObj()
+	if err == nil {
+		switch input.InstanceType {
+		case api.EIP_ASSOCIATE_TYPE_SERVER:
+			server := ins.(*models.SGuest)
+			server.StartSyncstatus(ctx, self.UserCred, "")
+			logclient.AddActionLogWithStartable(self, eip, logclient.ACT_VM_ASSOCIATE, nil, self.UserCred, true)
+		case api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY:
+			nat := ins.(*models.SNatGateway)
+			nat.StartSyncstatus(ctx, self.UserCred, "")
+			logclient.AddActionLogWithStartable(self, eip, logclient.ACT_NATGATEWAY_ASSOCIATE, nil, self.UserCred, true)
+		}
+		logclient.AddActionLogWithStartable(self, ins, logclient.ACT_EIP_ASSOCIATE, nil, self.UserCred, true)
+	}
 
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *EipAssociateTask) OnAssociateEipCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	eip := obj.(*models.SElasticip)
-	instanceId, _ := self.Params.GetString("instance_id")
-	server := models.GuestManager.FetchGuestById(instanceId)
-	self.TaskFail(ctx, eip, data, server)
-	return
+	ins, _, _ := self.GetAssociateObj()
+	self.taskFail(ctx, eip, ins, errors.Errorf(data.String()))
 }

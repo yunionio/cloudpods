@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/billing"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -175,23 +176,21 @@ func ListExpiredPostpaidResources(
 	return q
 }
 
-func ParseBillingCycleInput(billingBase *SBillingResourceBase, data jsonutils.JSONObject) (*billing.SBillingCycle, error) {
+func ParseBillingCycleInput(billingBase *SBillingResourceBase, input apis.PostpaidExpireInput) (*billing.SBillingCycle, error) {
 	var (
 		bc          billing.SBillingCycle
 		err         error
 		durationStr string
 	)
-	durationStr, _ = data.GetString("duration")
-	if len(durationStr) == 0 {
-		expireTime, err := data.GetTime("expire_time")
-		if err != nil {
+	if len(input.Duration) == 0 {
+		if input.ExpireTime.IsZero() {
 			return nil, httperrors.NewInputParameterError("missing duration/expire_time")
 		}
 		timeC := billingBase.ExpiredAt
 		if timeC.IsZero() {
 			timeC = time.Now()
 		}
-		dur := expireTime.Sub(timeC)
+		dur := input.ExpireTime.Sub(timeC)
 		if dur <= 0 {
 			return nil, httperrors.NewInputParameterError("expire time is before current expire at")
 		}

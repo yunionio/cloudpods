@@ -177,9 +177,9 @@ func (man *SNatSEntryManager) ValidateCreateData(ctx context.Context, userCred m
 		}
 		natgateway := model.(*SNatGateway)
 		// get vpc
-		vpc := natgateway.GetVpc()
-		if vpc == nil {
-			return nil, errors.Wrap(httperrors.ErrBadRequest, "invalid natgateway vpc")
+		vpc, err := natgateway.GetVpc()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetVpc")
 		}
 
 		vpcIPV4Range, err := newIPv4RangeFromCIDR(vpc.CidrBlock)
