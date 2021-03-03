@@ -428,6 +428,25 @@ func (man *SCommonAlertManager) CustomizeFilterList(
 			return obj.getAlertType() == input.AlertType, nil
 		}))
 	}
+
+	if len(input.ResType) != 0 {
+		mF := func(obj *SCommonAlert) (bool, error) {
+			settings := new(monitor.AlertSetting)
+			if err := obj.Settings.Unmarshal(settings); err != nil {
+				return false, errors.Wrapf(err, "alert %s unmarshal", obj.GetId())
+			}
+			for _, s := range settings.Conditions {
+				if mesurement, contain := MetricMeasurementManager.measurementsCache.Get(s.Query.Model.
+					Measurement); contain {
+					if utils.IsInStringArray(mesurement.ResType, input.ResType) {
+						return true, nil
+					}
+				}
+			}
+			return false, nil
+		}
+		filters.Append(wrapF(mF))
+	}
 	return filters, nil
 }
 
