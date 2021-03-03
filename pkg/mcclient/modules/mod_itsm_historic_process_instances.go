@@ -46,9 +46,27 @@ func (this *HiProcInstManager) GetStatistics(s *mcclient.ClientSession, params j
 	nrHiProcInst := hiProcInstObj.Total
 	nrProcTask := procTaskObj.Total
 
+	hiProcInstCusPath := fmt.Sprintf("%s&process_definition_key=customer-service", hiProcInstPath)
+	procTaskCusPath := fmt.Sprintf("%s&process_definition_key=customer-service", procTaskPath)
+
+	hiProcInstCusObj, err := modulebase.List(this.ResourceManager, s, hiProcInstCusPath, "historic-process-instances")
+	if err != nil {
+		return nil, err
+	}
+
+	procTaskCusObj, err := modulebase.List(this.ResourceManager, s, procTaskCusPath, "process-tasks")
+	if err != nil {
+		return nil, err
+	}
+
+	hiProcInstCusTotal := hiProcInstCusObj.Total
+	procTaskCusTotal := procTaskCusObj.Total
+
 	rst := jsonutils.NewDict()
-	rst.Add(jsonutils.NewInt(int64(nrHiProcInst)), "nr-historic-process-instance")
-	rst.Add(jsonutils.NewInt(int64(nrProcTask)), "nr-process-task")
+	rst.Add(jsonutils.NewInt(int64(nrHiProcInst-hiProcInstCusTotal)), "nr-historic-process-instance")
+	rst.Add(jsonutils.NewInt(int64(nrProcTask-procTaskCusTotal)), "nr-process-task")
+	rst.Add(jsonutils.NewInt(int64(hiProcInstCusTotal)), "nr-historic-process-instance-cus")
+	rst.Add(jsonutils.NewInt(int64(procTaskCusTotal)), "nr-process-task-cus")
 
 	return rst, nil
 }
