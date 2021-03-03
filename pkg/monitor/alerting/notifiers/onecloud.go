@@ -437,8 +437,9 @@ func (s *sendMobileImpl) send() error {
 
 func SendNotifyInfo(base *sendnotifyBase, imp Isendnotify) error {
 	tmpMatches := base.config.Matches
-	for i := 0; i < len(tmpMatches); i += 10 {
-		split := i + 5
+	batch := 10
+	for i := 0; i < len(tmpMatches); i += batch {
+		split := i + batch
 		if split > len(tmpMatches) {
 			split = len(tmpMatches)
 		}
