@@ -232,7 +232,7 @@ func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential,
 				out.StorageType = snapshots[i].GetStorageType()
 			}
 		}
-	} else {
+	} else if guest != nil {
 		out.Size = self.SizeMb
 		disk, err := guest.GetSystemDisk()
 		if err != nil {
