@@ -653,7 +653,7 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 	if err != nil {
 		return nil, errors.Wrap(err, "region.CreateIElasticcaches")
 	}
-	self.SetResourceTags("kvs", "INSTANCE", []string{ret.InstanceID}, ec.Tags, false)
+	self.SetResourceTags(ALIYUN_SERVICE_KVS, "INSTANCE", ret.InstanceID, ec.Tags, true)
 
 	ret.region = self
 	return ret, nil
@@ -925,34 +925,20 @@ func (self *SElasticcache) GetICloudElasticcacheBackup(backupId string) (cloudpr
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (instance *SElasticcache) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	tags, err := instance.region.ListResourceTags("kvs", "INSTANCE", []string{instance.GetId()})
-	if err != nil {
-		log.Errorf(`[err:%s]instance.region.FetchResourceTags("kvs", "instance", []string{instance.GetId()})`, err.Error())
-		return nil
-	}
-	if _, ok := tags[instance.GetId()]; !ok {
-		return nil
-	}
-	data.Update(jsonutils.Marshal(tags[instance.GetId()]))
-	return data
-}
-
 func (instance *SElasticcache) GetTags() (map[string]string, error) {
-	tags, err := instance.region.ListResourceTags("kvs", "INSTANCE", []string{instance.GetId()})
+	tags, err := instance.region.ListTags(ALIYUN_SERVICE_KVS, "INSTANCE", instance.GetId())
 	if err != nil {
-		return nil, errors.Wrap(err, "instance.region.ListResourceTags")
+		return nil, errors.Wrap(err, "instance.region.ListTags")
 	}
-	if _, ok := tags[instance.GetId()]; !ok {
-		log.Debugf("SElasticcache.GetTags %s, tags %#v", instance.GetId(), tags)
-		return nil, cloudprovider.ErrNotFound
+	ret := map[string]string{}
+	for _, tag := range tags {
+		ret[tag.TagKey] = tag.TagValue
 	}
-	return *tags[instance.GetId()], nil
+	return ret, nil
 }
 
 func (instance *SElasticcache) SetTags(tags map[string]string, replace bool) error {
-	return instance.region.SetResourceTags("kvs", "INSTANCE", []string{instance.GetId()}, tags, replace)
+	return instance.region.SetResourceTags(ALIYUN_SERVICE_KVS, "INSTANCE", instance.GetId(), tags, replace)
 }
 
 func (self *SElasticcache) UpdateSecurityGroups(secgroupIds []string) error {
