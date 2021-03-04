@@ -3024,7 +3024,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateElasticcache(
 
 		iElasticcache, err := iRegion.GetIElasticcacheById(elasticcache.ExternalId)
 		oldTags, err := iElasticcache.GetTags()
-		if err != nil {
+		if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
 			return nil, errors.Wrap(err, "iElasticcache.GetTags()")
 		}
 		tags, err := elasticcache.GetAllUserMetadata()
