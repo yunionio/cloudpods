@@ -15,6 +15,7 @@
 package huawei
 
 import (
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -30,12 +31,13 @@ type SNatGateway struct {
 	multicloud.SNatGatewayBase
 	region *SRegion
 
-	ID          string
-	Name        string
-	Description string
-	Spec        string
-	Status      string
-	CreatedTime string `json:"created_at"`
+	ID                string
+	Name              string
+	Description       string
+	Spec              string
+	Status            string
+	InternalNetworkId string
+	CreatedTime       string `json:"created_at"`
 }
 
 func (gateway *SNatGateway) GetId() string {
@@ -54,7 +56,33 @@ func (gateway *SNatGateway) GetStatus() string {
 	return NatResouceStatusTransfer(gateway.Status)
 }
 
+func (self *SNatGateway) Delete() error {
+	return self.region.DeleteNatGateway(self.ID)
+}
+
+func (self *SNatGateway) Refresh() error {
+	nat, err := self.region.GetNatGateway(self.ID)
+	if err != nil {
+		return errors.Wrapf(err, "GetNatGateway(%s)", self.ID)
+	}
+	return jsonutils.Update(self, nat)
+}
+
+func (self *SNatGateway) GetINetworkId() string {
+	return self.InternalNetworkId
+}
+
 func (gateway *SNatGateway) GetNatSpec() string {
+	switch gateway.Spec {
+	case "1":
+		return api.NAT_SPEC_SMALL
+	case "2":
+		return api.NAT_SPEC_MIDDLE
+	case "3":
+		return api.NAT_SPEC_LARGE
+	case "4":
+		return api.NAT_SPEC_XLARGE
+	}
 	return gateway.Spec
 }
 
@@ -78,37 +106,7 @@ func (gateway *SNatGateway) GetExpiredAt() time.Time {
 }
 
 func (gateway *SNatGateway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	// Get all IEips of nat's region, which IpAddr is in the ExternalIPs of nat's Nat Rules.
-	IEips, err := gateway.region.GetIEips()
-	if err != nil {
-		return nil, errors.Wrapf(err, `get all Eips of region %q error`, gateway.region.GetId())
-	}
-	dNatTables, err := gateway.GetINatDTable()
-	if err != nil {
-		return nil, errors.Wrapf(err, `get all DNatTable of gateway %q error`, gateway.GetId())
-	}
-	sNatTables, err := gateway.GetINatSTable()
-	if err != nil {
-		return nil, errors.Wrapf(err, `get all SNatTable of gateway %q error`, gateway.GetId())
-	}
-
-	// Get natIPSet of nat rules
-	natIPSet := make(map[string]struct{})
-	for _, snat := range sNatTables {
-		natIPSet[snat.GetIP()] = struct{}{}
-	}
-	for _, dnat := range dNatTables {
-		natIPSet[dnat.GetExternalIp()] = struct{}{}
-	}
-
-	// Add Eip whose GetIpAddr() in natIPSet to ret
-	ret := make([]cloudprovider.ICloudEIP, 0, 2)
-	for i := range IEips {
-		if _, ok := natIPSet[IEips[i].GetIpAddr()]; ok {
-			ret = append(ret, IEips[i])
-		}
-	}
-	return ret, nil
+	return []cloudprovider.ICloudEIP{}, nil
 }
 
 func (gateway *SNatGateway) GetINatDTable() ([]cloudprovider.ICloudNatDEntry, error) {
@@ -266,4 +264,60 @@ func NatResouceStatusTransfer(status string) string {
 	default:
 		return api.NAT_STATUS_UNKNOWN
 	}
+}
+
+func (self *SRegion) GetNatGateway(id string) (*SNatGateway, error) {
+	resp, err := self.ecsClient.NatGateways.Get(id, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "NatGateways.Get(%s)", id)
+	}
+	nat := &SNatGateway{region: self}
+	err = resp.Unmarshal(nat)
+	return nat, errors.Wrap(err, "resp.Unmarshal")
+}
+
+func (self *SVpc) CreateINatGateway(opts *cloudprovider.NatGatewayCreateOptions) (cloudprovider.ICloudNatGateway, error) {
+	nat, err := self.region.CreateNatGateway(opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateNatGateway")
+	}
+	return nat, nil
+}
+
+func (self *SRegion) CreateNatGateway(opts *cloudprovider.NatGatewayCreateOptions) (*SNatGateway, error) {
+	spec := ""
+	switch strings.ToLower(opts.NatSpec) {
+	case api.NAT_SPEC_SMALL:
+		spec = "1"
+	case api.NAT_SPEC_MIDDLE:
+		spec = "2"
+	case api.NAT_SPEC_LARGE:
+		spec = "3"
+	case api.NAT_SPEC_XLARGE:
+		spec = "4"
+	}
+	params := jsonutils.Marshal(map[string]map[string]interface{}{
+		"nat_gateway": map[string]interface{}{
+			"name":                opts.Name,
+			"description":         opts.Desc,
+			"router_id":           opts.VpcId,
+			"internal_network_id": opts.NetworkId,
+			"spec":                spec,
+		},
+	})
+	resp, err := self.ecsClient.NatGateways.Create(params)
+	if err != nil {
+		return nil, errors.Wrap(err, "AsyncCreate")
+	}
+	nat := &SNatGateway{region: self}
+	err = resp.Unmarshal(nat)
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	return nat, nil
+}
+
+func (self *SRegion) DeleteNatGateway(id string) error {
+	_, err := self.ecsClient.NatGateways.Delete(id, nil)
+	return errors.Wrapf(err, "NatGateways.Delete(%s)", id)
 }

@@ -791,6 +791,10 @@ type ICloudNatGateway interface {
 	CreateINatDEntry(rule SNatDRule) (ICloudNatDEntry, error)
 	CreateINatSEntry(rule SNatSRule) (ICloudNatSEntry, error)
 
+	GetINetworkId() string
+	GetBandwidthMb() int
+	GetIpAddr() string
+
 	Delete() error
 }
 

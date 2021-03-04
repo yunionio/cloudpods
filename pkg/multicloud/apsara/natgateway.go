@@ -74,6 +74,10 @@ func (nat *SNatGetway) GetName() string {
 	return nat.NatGatewayId
 }
 
+func (self *SNatGetway) GetINetworkId() string {
+	return ""
+}
+
 func (nat *SNatGetway) GetStatus() string {
 	switch nat.Status {
 	case "Initiating":

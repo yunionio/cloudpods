@@ -258,6 +258,7 @@ func (self *SCloudregion) newFromCloudNatSku(ctx context.Context, userCred mccli
 	sku.SetModelManager(NatSkuManager, sku)
 	sku.Id = "" //避免使用yunion meta的id,导致出现duplicate entry问题
 	sku.Status = api.NAT_SKU_AVAILABLE
+	sku.SetEnabled(true)
 	sku.CloudregionId = self.Id
 	return NatSkuManager.TableSpec().Insert(ctx, sku)
 }

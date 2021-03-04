@@ -855,21 +855,6 @@ func (self *SAliyunRegionDriver) ValidateCreateSnapshotData(ctx context.Context,
 	return nil
 }
 
-func (self *SAliyunRegionDriver) DealNatGatewaySpec(spec string) string {
-	switch spec {
-	case "Small":
-		return api.NAT_SPEC_SMALL
-	case "Midele":
-		return api.NAT_SPEC_MIDDLE
-	case "Large":
-		return api.NAT_SPEC_LARGE
-	case "XLarge.1":
-		return api.NAT_SPEC_XLARGE
-	}
-	//can't arrive
-	return ""
-}
-
 // RequestBindIPToNatgateway in aliyun don't need to check eip again which is different from SManagerResongDriver.
 // RequestBindIPToNatgateway because func ieip.Associate will fail if eip has been associate
 func (self *SAliyunRegionDriver) RequestBindIPToNatgateway(ctx context.Context, task taskman.ITask, natgateway *models.SNatGateway,

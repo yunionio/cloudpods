@@ -249,8 +249,8 @@ func (self *SVpc) Delete() error {
 	return self.region.DeleteVpc(self.VpcId)
 }
 
-func (self *SVpc) getNatGateways() ([]SNatGetway, error) {
-	natgatways := make([]SNatGetway, 0)
+func (self *SVpc) getNatGateways() ([]SNatGateway, error) {
+	natgatways := make([]SNatGateway, 0)
 	gwTotal := -1
 	for gwTotal < 0 || len(natgatways) < gwTotal {
 		parts, total, err := self.region.GetNatGateways(self.VpcId, "", len(natgatways), 50)
@@ -269,7 +269,7 @@ func (self *SVpc) getNatGateways() ([]SNatGetway, error) {
 }
 
 func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
-	nats := []SNatGetway{}
+	nats := []SNatGateway{}
 	for {
 		parts, total, err := self.region.GetNatGateways(self.VpcId, "", len(nats), 50)
 		if err != nil {

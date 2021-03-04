@@ -63,11 +63,10 @@ func (self *NatGatewayCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 
 	opts.VpcId = vpc.ExternalId
 
-	networkId, _ := self.GetParams().GetString("network_id")
-	if len(networkId) > 0 {
-		_network, err := models.NetworkManager.FetchById(networkId)
+	if len(nat.NetworkId) > 0 {
+		_network, err := models.NetworkManager.FetchById(nat.NetworkId)
 		if err != nil {
-			self.taskFailed(ctx, nat, errors.Wrapf(err, "NetworkManager.FetchById(%s)", networkId))
+			self.taskFailed(ctx, nat, errors.Wrapf(err, "NetworkManager.FetchById(%s)", nat.NetworkId))
 			return
 		}
 		network := _network.(*models.SNetwork)
