@@ -122,7 +122,6 @@ type IRegionDriver interface {
 	RequestResetToInstanceSnapshot(ctx context.Context, guest *SGuest, isp *SInstanceSnapshot, task taskman.ITask, params *jsonutils.JSONDict) error
 
 	//Nat gateway
-	DealNatGatewaySpec(spec string) string
 	RequestBindIPToNatgateway(ctx context.Context, task taskman.ITask, natgateway *SNatGateway, eipID string) error
 	RequestUnBindIPFromNatgateway(ctx context.Context, task taskman.ITask, nat INatHelper, natgateway *SNatGateway) error
 	BindIPToNatgatewayRollback(ctx context.Context, eipId string) error

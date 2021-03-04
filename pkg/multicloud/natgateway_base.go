@@ -40,3 +40,11 @@ func (nat *SNatGatewayBase) GetISNatEntries() ([]cloudprovider.ICloudNatSEntry, 
 func (nat *SNatGatewayBase) Delete() error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "Delete")
 }
+
+func (nat *SNatGatewayBase) GetIpAddr() string {
+	return ""
+}
+
+func (nat *SNatGatewayBase) GetBandwidthMb() int {
+	return 0
+}

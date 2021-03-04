@@ -74,7 +74,11 @@ type SNatGateway struct {
 
 	SDeletePreventableResourceBase
 
-	NatSpec string `list:"user" create:"optional"` // NAT规格
+	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	IpAddr    string `width:"16" charset:"ascii" nullable:"false" list:"user"`
+
+	BandwidthMb int    `nullable:"false" list:"user"`
+	NatSpec     string `list:"user" create:"optional"` // NAT规格
 }
 
 func (manager *SNatGatewayManager) GetContextManagers() [][]db.IModelManager {
@@ -365,22 +369,25 @@ func (manager SNatGatewayManager) FetchCustomizeColumns(
 	rows := make([]api.NatgatewayDetails, len(objs))
 	stdRows := manager.SStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	netIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.NatgatewayDetails{
 			StatusInfrasResourceBaseDetails: stdRows[i],
 			VpcResourceInfo:                 vpcRows[i],
 		}
-		rows[i], _ = objs[i].(*SNatGateway).getMoreDetails(ctx, userCred, rows[i])
+		nat := objs[i].(*SNatGateway)
+		netIds[i] = nat.NetworkId
+	}
+
+	netMaps, err := db.FetchIdNameMap2(NetworkManager, netIds)
+	if err != nil {
+		log.Errorf("db.FetchIdNameMap2 for nat network")
+		return rows
+	}
+	for i := range rows {
+		rows[i].Network, _ = netMaps[netIds[i]]
 	}
 	return rows
-}
-
-func (self *SNatGateway) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	out api.NatgatewayDetails) (api.NatgatewayDetails, error) {
-
-	out.NatSpec = self.GetRegion().GetDriver().DealNatGatewaySpec(self.NatSpec)
-
-	return out, nil
 }
 
 func (manager *SNatGatewayManager) SyncNatGateways(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, vpc *SVpc, cloudNatGateways []cloudprovider.ICloudNatGateway) ([]SNatGateway, []cloudprovider.ICloudNatGateway, compare.SyncResult) {
@@ -465,6 +472,25 @@ func (self *SNatGateway) SyncWithCloudNatGateway(ctx context.Context, userCred m
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Status = extNat.GetStatus()
 		self.NatSpec = extNat.GetNatSpec()
+		self.BandwidthMb = extNat.GetBandwidthMb()
+
+		vpc, err := self.GetVpc()
+		if err != nil {
+			return errors.Wrapf(err, "GetVpc")
+		}
+		if networId := extNat.GetINetworkId(); len(networId) > 0 {
+			_network, err := db.FetchByExternalIdAndManagerId(NetworkManager, networId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				sq := WireManager.Query("id").Equals("vpc_id", vpc.Id).SubQuery()
+				return q.In("wire_id", sq)
+			})
+			if err != nil {
+				log.Errorf("failed to found nat %s network by external id %s", self.Name, networId)
+			} else {
+				network := _network.(*SNetwork)
+				self.NetworkId = network.Id
+				self.IpAddr = extNat.GetIpAddr()
+			}
+		}
 
 		factory, _ := provider.GetProviderFactory()
 		if factory.IsSupportPrepaidResources() {
@@ -499,6 +525,7 @@ func (manager *SNatGatewayManager) newFromCloudNatGateway(ctx context.Context, u
 	nat.VpcId = vpc.Id
 	nat.Status = extNat.GetStatus()
 	nat.NatSpec = extNat.GetNatSpec()
+	nat.BandwidthMb = extNat.GetBandwidthMb()
 	if createdAt := extNat.GetCreatedAt(); !createdAt.IsZero() {
 		nat.CreatedAt = extNat.GetCreatedAt()
 	}
@@ -512,6 +539,19 @@ func (manager *SNatGatewayManager) newFromCloudNatGateway(ctx context.Context, u
 			nat.ExpiredAt = expired
 		}
 		nat.AutoRenew = extNat.IsAutoRenew()
+	}
+	if networId := extNat.GetINetworkId(); len(networId) > 0 {
+		_network, err := db.FetchByExternalIdAndManagerId(NetworkManager, networId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			sq := WireManager.Query("id").Equals("vpc_id", vpc.Id).SubQuery()
+			return q.In("wire_id", sq)
+		})
+		if err != nil {
+			log.Errorf("failed to found nat %s network by external id %s", nat.Name, networId)
+		} else {
+			network := _network.(*SNetwork)
+			nat.NetworkId = network.Id
+			nat.IpAddr = extNat.GetIpAddr()
+		}
 	}
 
 	err = manager.TableSpec().Insert(ctx, &nat)

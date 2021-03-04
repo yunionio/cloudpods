@@ -206,10 +206,6 @@ func (self *SBaseRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *m
 	return fmt.Errorf("Not implement OnSnapshotDelete")
 }
 
-func (self *SBaseRegionDriver) DealNatGatewaySpec(spec string) string {
-	return spec
-}
-
 func (self *SBaseRegionDriver) RequestBingToNatgateway(ctx context.Context, task taskman.ITask,
 	natgateway *models.SNatGateway, needBind bool, eipID string) error {
 

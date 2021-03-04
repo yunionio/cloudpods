@@ -40,43 +40,52 @@ type SSnatTableIds struct {
 	SnatTableId []string
 }
 
-type SNatGetway struct {
+type NatGatewayPrivateInfo struct {
+	EniInstanceId    string
+	IzNo             string
+	MaxBandwidth     int
+	PrivateIpAddress string
+	VswitchId        string
+}
+
+type SNatGateway struct {
 	multicloud.SNatGatewayBase
 
 	vpc *SVpc
 
-	BandwidthPackageIds SBandwidthPackageIds
-	BusinessStatus      string
-	CreationTime        time.Time
-	ExpiredTime         time.Time
-	Description         string
-	ForwardTableIds     SForwardTableIds
-	SnatTableIds        SSnatTableIds
-	InstanceChargeType  TChargeType
-	Name                string
-	NatGatewayId        string
-	RegionId            string
-	Spec                string
-	Status              string
-	VpcId               string
+	BandwidthPackageIds   SBandwidthPackageIds
+	BusinessStatus        string
+	CreationTime          time.Time
+	ExpiredTime           time.Time
+	Description           string
+	ForwardTableIds       SForwardTableIds
+	SnatTableIds          SSnatTableIds
+	InstanceChargeType    TChargeType
+	Name                  string
+	NatGatewayId          string
+	RegionId              string
+	Spec                  string
+	Status                string
+	VpcId                 string
+	NatGatewayPrivateInfo NatGatewayPrivateInfo
 }
 
-func (nat *SNatGetway) GetId() string {
+func (nat *SNatGateway) GetId() string {
 	return nat.NatGatewayId
 }
 
-func (nat *SNatGetway) GetGlobalId() string {
+func (nat *SNatGateway) GetGlobalId() string {
 	return nat.NatGatewayId
 }
 
-func (nat *SNatGetway) GetName() string {
+func (nat *SNatGateway) GetName() string {
 	if len(nat.Name) > 0 {
 		return nat.Name
 	}
 	return nat.NatGatewayId
 }
 
-func (nat *SNatGetway) GetStatus() string {
+func (nat *SNatGateway) GetStatus() string {
 	switch nat.Status {
 	case "Initiating":
 		return api.NAT_STATUS_ALLOCATE
@@ -89,22 +98,34 @@ func (nat *SNatGetway) GetStatus() string {
 	}
 }
 
-func (self *SNatGetway) Delete() error {
+func (self *SNatGateway) GetINetworkId() string {
+	return self.NatGatewayPrivateInfo.VswitchId
+}
+
+func (self *SNatGateway) GetIpAddr() string {
+	return self.NatGatewayPrivateInfo.PrivateIpAddress
+}
+
+func (self *SNatGateway) GetBandwidthMb() int {
+	return self.NatGatewayPrivateInfo.MaxBandwidth
+}
+
+func (self *SNatGateway) Delete() error {
 	return self.vpc.region.DeleteNatGateway(self.NatGatewayId, false)
 }
 
-func (nat *SNatGetway) GetBillingType() string {
+func (nat *SNatGateway) GetBillingType() string {
 	return convertChargeType(nat.InstanceChargeType)
 }
 
-func (nat *SNatGetway) GetNatSpec() string {
+func (nat *SNatGateway) GetNatSpec() string {
 	if len(nat.Spec) == 0 {
 		return api.ALIYUN_NAT_SKU_DEFAULT
 	}
 	return nat.Spec
 }
 
-func (self *SNatGetway) Refresh() error {
+func (self *SNatGateway) Refresh() error {
 	nat, total, err := self.vpc.region.GetNatGateways("", self.NatGatewayId, 0, 1)
 	if err != nil {
 		return errors.Wrapf(err, "GetNatGateways")
@@ -118,15 +139,15 @@ func (self *SNatGetway) Refresh() error {
 	return jsonutils.Update(self, nat[0])
 }
 
-func (nat *SNatGetway) GetCreatedAt() time.Time {
+func (nat *SNatGateway) GetCreatedAt() time.Time {
 	return nat.CreationTime
 }
 
-func (nat *SNatGetway) GetExpiredAt() time.Time {
+func (nat *SNatGateway) GetExpiredAt() time.Time {
 	return nat.ExpiredTime
 }
 
-func (nat *SNatGetway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
+func (nat *SNatGateway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	eips := []SEipAddress{}
 	for {
 		parts, total, err := nat.vpc.region.GetEips("", nat.NatGatewayId, len(eips), 50)
@@ -146,7 +167,7 @@ func (nat *SNatGetway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	return ieips, nil
 }
 
-func (nat *SNatGetway) GetINatDTable() ([]cloudprovider.ICloudNatDEntry, error) {
+func (nat *SNatGateway) GetINatDTable() ([]cloudprovider.ICloudNatDEntry, error) {
 	itables := []cloudprovider.ICloudNatDEntry{}
 	for _, dtableId := range nat.ForwardTableIds.ForwardTableId {
 		dtables, err := nat.vpc.region.GetAllDTables(dtableId)
@@ -161,7 +182,7 @@ func (nat *SNatGetway) GetINatDTable() ([]cloudprovider.ICloudNatDEntry, error) 
 	return itables, nil
 }
 
-func (nat *SNatGetway) GetINatSTable() ([]cloudprovider.ICloudNatSEntry, error) {
+func (nat *SNatGateway) GetINatSTable() ([]cloudprovider.ICloudNatSEntry, error) {
 	stables, err := nat.getSnatEntries()
 	if err != nil {
 		return nil, err
@@ -174,7 +195,7 @@ func (nat *SNatGetway) GetINatSTable() ([]cloudprovider.ICloudNatSEntry, error) 
 	return itables, nil
 }
 
-func (nat *SNatGetway) GetINatDEntryByID(id string) (cloudprovider.ICloudNatDEntry, error) {
+func (nat *SNatGateway) GetINatDEntryByID(id string) (cloudprovider.ICloudNatDEntry, error) {
 	dNATEntry, err := nat.vpc.region.GetForwardTableEntry(nat.ForwardTableIds.ForwardTableId[0], id)
 	if err != nil {
 		return nil, cloudprovider.ErrNotFound
@@ -183,7 +204,7 @@ func (nat *SNatGetway) GetINatDEntryByID(id string) (cloudprovider.ICloudNatDEnt
 	return &dNATEntry, nil
 }
 
-func (nat *SNatGetway) GetINatSEntryByID(id string) (cloudprovider.ICloudNatSEntry, error) {
+func (nat *SNatGateway) GetINatSEntryByID(id string) (cloudprovider.ICloudNatSEntry, error) {
 	sNATEntry, err := nat.vpc.region.GetSNATEntry(nat.SnatTableIds.SnatTableId[0], id)
 	if err != nil {
 		return nil, cloudprovider.ErrNotFound
@@ -192,7 +213,7 @@ func (nat *SNatGetway) GetINatSEntryByID(id string) (cloudprovider.ICloudNatSEnt
 	return &sNATEntry, nil
 }
 
-func (nat *SNatGetway) CreateINatDEntry(rule cloudprovider.SNatDRule) (cloudprovider.ICloudNatDEntry, error) {
+func (nat *SNatGateway) CreateINatDEntry(rule cloudprovider.SNatDRule) (cloudprovider.ICloudNatDEntry, error) {
 	entryID, err := nat.vpc.region.CreateForwardTableEntry(rule, nat.ForwardTableIds.ForwardTableId[0])
 	if err != nil {
 		return nil, errors.Wrapf(err, `create dnat rule for nat gateway %q`, nat.GetId())
@@ -200,7 +221,7 @@ func (nat *SNatGetway) CreateINatDEntry(rule cloudprovider.SNatDRule) (cloudprov
 	return nat.GetINatDEntryByID(entryID)
 }
 
-func (nat *SNatGetway) CreateINatSEntry(rule cloudprovider.SNatSRule) (cloudprovider.ICloudNatSEntry, error) {
+func (nat *SNatGateway) CreateINatSEntry(rule cloudprovider.SNatSRule) (cloudprovider.ICloudNatSEntry, error) {
 	entryID, err := nat.vpc.region.CreateSNATTableEntry(rule, nat.SnatTableIds.SnatTableId[0])
 	if err != nil {
 		return nil, errors.Wrapf(err, `create snat rule for nat gateway %q`, nat.GetId())
@@ -208,7 +229,7 @@ func (nat *SNatGetway) CreateINatSEntry(rule cloudprovider.SNatSRule) (cloudprov
 	return nat.GetINatSEntryByID(entryID)
 }
 
-func (self *SRegion) GetNatGateways(vpcId string, natGwId string, offset, limit int) ([]SNatGetway, int, error) {
+func (self *SRegion) GetNatGateways(vpcId string, natGwId string, offset, limit int) ([]SNatGateway, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50
 	}
@@ -232,7 +253,7 @@ func (self *SRegion) GetNatGateways(vpcId string, natGwId string, offset, limit 
 		log.Debugf("%s", body.PrettyString())
 	}
 
-	gateways := make([]SNatGetway, 0)
+	gateways := make([]SNatGateway, 0)
 	err = body.Unmarshal(&gateways, "NatGateways", "NatGateway")
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "body.Unmarshal")
@@ -250,7 +271,7 @@ func (self *SVpc) CreateINatGateway(opts *cloudprovider.NatGatewayCreateOptions)
 	return nat, nil
 }
 
-func (self *SRegion) CreateNatGateway(opts *cloudprovider.NatGatewayCreateOptions) (*SNatGetway, error) {
+func (self *SRegion) CreateNatGateway(opts *cloudprovider.NatGatewayCreateOptions) (*SNatGateway, error) {
 	params := map[string]string{
 		"RegionId":           self.RegionId,
 		"VpcId":              opts.VpcId,
@@ -295,7 +316,7 @@ func (self *SRegion) CreateNatGateway(opts *cloudprovider.NatGatewayCreateOption
 		return nil, errors.Errorf("empty NatGatewayId after created")
 	}
 
-	var nat *SNatGetway = nil
+	var nat *SNatGateway = nil
 	err = cloudprovider.Wait(time.Second*5, time.Minute*15, func() (bool, error) {
 		nats, total, err := self.GetNatGateways("", natId, 0, 1)
 		if err != nil {
