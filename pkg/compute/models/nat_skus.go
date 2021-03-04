@@ -96,6 +96,9 @@ func (manager *SNatSkuManager) ListItemFilter(
 	if len(query.PrepaidStatus) > 0 {
 		q = q.Equals("prepaid_status", query.PrepaidStatus)
 	}
+	if len(query.Providers) > 0 {
+		q = q.In("provider", query.Providers)
+	}
 	return q, nil
 }
 
