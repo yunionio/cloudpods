@@ -708,7 +708,7 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 	if err != nil {
 		return nil, errors.Wrap(err, `resp.GetString("DBInstanceId")`)
 	}
-	region.SetResourceTags("rds", "INSTANCE", []string{instanceId}, desc.Tags, false)
+	region.SetResourceTags(ALIYUN_SERVICE_RDS, "INSTANCE", instanceId, desc.Tags, false)
 	return region.GetIDBInstanceById(instanceId)
 }
 
@@ -847,31 +847,18 @@ func (region *SRegion) RenewDBInstance(instanceId string, bc billing.SBillingCyc
 	return err
 }
 
-func (rds *SDBInstance) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	tags, err := rds.region.ListResourceTags("rds", "INSTANCE", []string{rds.GetId()})
-	if err != nil {
-		log.Errorf(`[err:%s]rds.region.FetchResourceTags("slb", "instance", []string{rds.GetId()})`, err.Error())
-		return nil
-	}
-	if _, ok := tags[rds.GetId()]; !ok {
-		return nil
-	}
-	data.Update(jsonutils.Marshal(tags[rds.GetId()]))
-	return data
-}
-
 func (rds *SDBInstance) GetTags() (map[string]string, error) {
-	tags, err := rds.region.ListResourceTags("rds", "INSTANCE", []string{rds.GetId()})
+	tags, err := rds.region.ListTags(ALIYUN_SERVICE_RDS, "INSTANCE", rds.GetId())
 	if err != nil {
-		return nil, errors.Wrap(err, `rds.region.ListResourceTags`)
+		return nil, errors.Wrap(err, `rds.region.ListTags`)
 	}
-	if _, ok := tags[rds.GetId()]; !ok {
-		return nil, cloudprovider.ErrNotFound
+	ret := map[string]string{}
+	for _, tag := range tags {
+		ret[tag.TagKey] = tag.TagValue
 	}
-	return *tags[rds.GetId()], nil
+	return ret, nil
 }
 
 func (rds *SDBInstance) SetTags(tags map[string]string, replace bool) error {
-	return rds.region.SetResourceTags("rds", "INSTANCE", []string{rds.GetId()}, tags, replace)
+	return rds.region.SetResourceTags(ALIYUN_SERVICE_RDS, "INSTANCE", rds.GetId(), tags, replace)
 }

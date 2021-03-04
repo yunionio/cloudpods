@@ -1235,21 +1235,20 @@ func (self *SManagedVirtualizedGuestDriver) RequestRemoteUpdate(ctx context.Cont
 	}
 	tags, err := guest.GetAllUserMetadata()
 	if err != nil {
-		log.Errorf("GetAllUserMetadata fail %s", err)
-	} else {
-		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
-		err := iVM.SetTags(tags, replaceTags)
-		if err != nil {
-			logclient.AddSimpleActionLog(guest, logclient.ACT_UPDATE_TAGS, err, userCred, false)
-			return errors.Wrap(err, "iVM.SetMetadata")
-		}
-		logclient.AddSimpleActionLog(guest, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
-		// sync back cloud metadata
-		iVM.Refresh()
-		err = models.SyncVirtualResourceMetadata(ctx, userCred, guest, iVM)
-		if err != nil {
-			return errors.Wrap(err, "syncVirtualResourceMetadata")
-		}
+		return errors.Wrapf(err, "GetAllUserMetadata")
+	}
+	tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
+	err = iVM.SetTags(tags, replaceTags)
+	if err != nil {
+		logclient.AddSimpleActionLog(guest, logclient.ACT_UPDATE_TAGS, err, userCred, false)
+		return errors.Wrap(err, "iVM.SetTags")
+	}
+	logclient.AddSimpleActionLog(guest, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
+	// sync back cloud metadata
+	iVM.Refresh()
+	err = models.SyncVirtualResourceMetadata(ctx, userCred, guest, iVM)
+	if err != nil {
+		return errors.Wrap(err, "syncVirtualResourceMetadata")
 	}
 
 	err = iVM.UpdateVM(ctx, guest.Name)

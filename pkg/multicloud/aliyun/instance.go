@@ -129,6 +129,9 @@ type SInstance struct {
 	VlanId                  string
 	VpcAttributes           SVpcAttributes
 	ZoneId                  string
+
+	sys  map[string]string
+	user map[string]string
 }
 
 // {"AutoReleaseTime":"","ClusterId":"","Cpu":1,"CreationTime":"2018-05-23T07:58Z","DedicatedHostAttribute":{"DedicatedHostId":"","DedicatedHostName":""},"Description":"","DeviceAvailable":true,"EipAddress":{"AllocationId":"","InternetChargeType":"","IpAddress":""},"ExpiredTime":"2018-05-30T16:00Z","GPUAmount":0,"GPUSpec":"","HostName":"iZ2ze57isp1ali72tzkjowZ","ImageId":"centos_7_04_64_20G_alibase_201701015.vhd","InnerIpAddress":{"IpAddress":[]},"InstanceChargeType":"PrePaid","InstanceId":"i-2ze57isp1ali72tzkjow","InstanceName":"gaoxianqi-test-7days","InstanceNetworkType":"vpc","InstanceType":"ecs.t5-lc2m1.nano","InstanceTypeFamily":"ecs.t5","InternetChargeType":"PayByBandwidth","InternetMaxBandwidthIn":-1,"InternetMaxBandwidthOut":0,"IoOptimized":true,"Memory":512,"NetworkInterfaces":{"NetworkInterface":[{"MacAddress":"00:16:3e:10:f0:c9","NetworkInterfaceId":"eni-2zecqsagtpztl6x5hu2r","PrimaryIpAddress":"192.168.220.214"}]},"OSName":"CentOS  7.4 64位","OSType":"linux","OperationLocks":{"LockReason":[]},"PublicIpAddress":{"IpAddress":[]},"Recyclable":false,"RegionId":"cn-beijing","ResourceGroupId":"","SaleCycle":"Week","SecurityGroupIds":{"SecurityGroupId":["sg-2zecqsagtpztl6x9zynl"]},"SerialNumber":"df05d9b4-df3d-4400-88d1-5f843f0dd088","SpotPriceLimit":0.000000,"SpotStrategy":"NoSpot","StartTime":"2018-05-23T07:58Z","Status":"Running","StoppedMode":"Not-applicable","VlanId":"","VpcAttributes":{"NatIpAddress":"","PrivateIpAddress":{"IpAddress":["192.168.220.214"]},"VSwitchId":"vsw-2ze9cqwza4upoyujq1thd","VpcId":"vpc-2zer4jy8ix3i8f0coc5uw"},"ZoneId":"cn-beijing-f"}
@@ -166,56 +169,9 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 	return instances, int(total), nil
 }
 
-func (self *SRegion) fetchTags(resourceType string, resourceId string) (*jsonutils.JSONDict, error) {
-	// 资源类型。取值范围：
-	// disk
-	// instance
-	// image
-	// securitygroup
-	// snapshot
-	var page int64 = 1
-	var pageSize int64 = 50
-	params := make(map[string]string)
-	params["RegionId"] = self.RegionId
-	params["ResourceType"] = resourceType
-	params["ResourceId"] = resourceId
-	params["PageSize"] = fmt.Sprintf("%d", pageSize)
-	params["PageNumber"] = fmt.Sprintf("%d", page)
-	ret, err := self.ecsRequest("DescribeTags", params)
-	if err != nil {
-		return nil, err
-	}
-
-	tags := jsonutils.NewDict()
-	result, _ := ret.GetArray("Tags", "Tag")
-	for _, item := range result {
-		k, _ := item.GetString("TagKey")
-		v, _ := item.Get("TagValue")
-		if len(k) > 0 {
-			tags.Set(k, v)
-		}
-	}
-
-	total, _ := ret.Int("TotalCount")
-	for ; total > page*pageSize; page++ {
-		params["PageSize"] = fmt.Sprintf("%d", pageSize)
-		params["PageNumber"] = fmt.Sprintf("%d", page)
-		ret, err := self.ecsRequest("DescribeTags", params)
-		if err != nil {
-			return nil, err
-		}
-
-		result, _ := ret.GetArray("Tags", "Tag")
-		for _, item := range result {
-			k, _ := item.GetString("TagKey")
-			v, _ := item.Get("TagValue")
-			if len(k) > 0 {
-				tags.Set(k, v)
-			}
-		}
-	}
-
-	return tags, nil
+type SAliyunTag struct {
+	TagKey   string
+	TagValue string
 }
 
 func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
@@ -233,11 +189,11 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	priceKey := fmt.Sprintf("%s::%s::%s::%s::%s", self.RegionId, self.InstanceType, self.InstanceNetworkType, self.OSType, optimized)
 	data.Add(jsonutils.NewString(priceKey), "price_key")
 
-	tags, err := self.host.zone.region.fetchTags("instance", self.InstanceId)
+	_, tags, err := self.fetchTags()
 	if err != nil {
 		log.Errorln(err)
 	}
-	data.Update(tags)
+	data.Update(jsonutils.Marshal(tags))
 
 	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
 	if len(self.ImageId) > 0 {
@@ -270,20 +226,31 @@ func (self *SInstance) GetSysTags() map[string]string {
 			}
 		}
 	}
+	sys, _, _ := self.fetchTags()
+	for k, v := range sys {
+		data[k] = v
+	}
 	return data
 }
 
 func (self *SInstance) GetTags() (map[string]string, error) {
-	tags, err := self.host.zone.region.fetchTags("instance", self.InstanceId)
+	_, tags, err := self.fetchTags()
 	if err != nil {
-		return nil, errors.Wrap(err, "self.host.zone.region.fetchTags")
+		return nil, errors.Wrap(err, "self.fetchTags")
 	}
-	data := map[string]string{}
-	err = tags.Unmarshal(&data)
+	return tags, nil
+}
+
+func (self *SInstance) fetchTags() (map[string]string, map[string]string, error) {
+	if self.sys != nil || self.user != nil {
+		return self.sys, self.user, nil
+	}
+	var err error
+	self.sys, self.user, err = self.host.zone.region.ListSysAndUserTags(ALIYUN_SERVICE_ECS, "instance", self.InstanceId)
 	if err != nil {
-		return nil, errors.Wrap(err, "tags.Unmarshal")
+		return nil, nil, errors.Wrapf(err, "ListSysAndUserTags")
 	}
-	return data, nil
+	return self.sys, self.user, nil
 }
 
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
@@ -442,6 +409,7 @@ func (self *SInstance) GetStatus() string {
 }
 
 func (self *SInstance) Refresh() error {
+	self.sys, self.user = nil, nil
 	new, err := self.host.zone.region.GetInstance(self.InstanceId)
 	if err != nil {
 		return err
@@ -1143,7 +1111,7 @@ func (self *SInstance) SetAutoRenew(autoRenew bool) error {
 }
 
 func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
-	return self.host.zone.region.SetResourceTags("ecs", "instance", []string{self.InstanceId}, tags, replace)
+	return self.host.zone.region.SetResourceTags(ALIYUN_SERVICE_ECS, "instance", self.InstanceId, tags, replace)
 }
 
 func (self *SRegion) SaveImage(instanceId string, opts *cloudprovider.SaveImageOptions) (*SImage, error) {

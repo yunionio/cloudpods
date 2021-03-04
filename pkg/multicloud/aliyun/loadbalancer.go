@@ -103,29 +103,16 @@ func (lb *SLoadbalancer) GetStatus() string {
 	return api.LB_STATUS_DISABLED
 }
 
-func (lb *SLoadbalancer) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	tags, err := lb.region.ListResourceTags("slb", "instance", []string{lb.GetId()})
-	if err != nil {
-		log.Errorf(`[err:%s]lb.region.FetchResourceTags("slb", "instance", []string{lb.GetId()})`, err.Error())
-		return nil
-	}
-	if _, ok := tags[lb.GetId()]; !ok {
-		return nil
-	}
-	data.Update(jsonutils.Marshal(tags[lb.GetId()]))
-	return data
-}
-
 func (lb *SLoadbalancer) GetTags() (map[string]string, error) {
-	tags, err := lb.region.ListResourceTags("slb", "instance", []string{lb.GetId()})
+	tags, err := lb.region.ListTags(ALIYUN_SERVICE_SLB, "instance", lb.GetId())
 	if err != nil {
-		return nil, errors.Wrap(err, "lb.region.ListResourceTags")
+		return nil, errors.Wrap(err, "lb.region.ListTags")
 	}
-	if _, ok := tags[lb.GetId()]; !ok {
-		return nil, cloudprovider.ErrNotFound
+	ret := map[string]string{}
+	for _, tag := range tags {
+		ret[tag.TagKey] = tag.TagValue
 	}
-	return *tags[lb.GetId()], nil
+	return ret, nil
 }
 
 func (lb *SLoadbalancer) GetAddress() string {
@@ -424,7 +411,7 @@ func (lb *SLoadbalancer) GetProjectId() string {
 }
 
 func (lb *SLoadbalancer) SetTags(tags map[string]string, replace bool) error {
-	return lb.region.SetResourceTags("slb", "instance", []string{lb.LoadBalancerId}, tags, replace)
+	return lb.region.SetResourceTags(ALIYUN_SERVICE_SLB, "instance", lb.LoadBalancerId, tags, replace)
 }
 
 // mapping aliyun finance zoneId to aliyun finance ecs zoneId
