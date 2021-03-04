@@ -335,17 +335,16 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateLoadbalancer(
 			return nil, errors.Wrap(err, "iLoadbalancer.GetTags()")
 		}
 		tags, err := lb.GetAllUserMetadata()
-		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
 		if err != nil {
-			log.Errorf("GetAllUserMetadata fail %s", err)
-		} else {
-			err := iLoadbalancer.SetTags(tags, replaceTags)
-			if err != nil {
-				logclient.AddActionLogWithStartable(task, lb, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, false)
-				return nil, errors.Wrap(err, "iLoadbalancer.SetMetadata")
-			}
-			logclient.AddActionLogWithStartable(task, lb, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
+			return nil, errors.Wrapf(err, "lb.GetAllUserMetadata")
 		}
+		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
+		err = iLoadbalancer.SetTags(tags, replaceTags)
+		if err != nil {
+			logclient.AddActionLogWithStartable(task, lb, logclient.ACT_UPDATE_TAGS, err, userCred, false)
+			return nil, errors.Wrap(err, "iLoadbalancer.SetMetadata")
+		}
+		logclient.AddActionLogWithStartable(task, lb, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
 		return nil, nil
 	})
 	return nil
@@ -2632,8 +2631,8 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateDBInstance(ct
 		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
 		err = iRds.SetTags(tags, replaceTags)
 		if err != nil {
-			logclient.AddActionLogWithStartable(task, instance, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, false)
-			return nil, errors.Wrap(err, "iRds.SetMetadata")
+			logclient.AddActionLogWithStartable(task, instance, logclient.ACT_UPDATE_TAGS, err, userCred, false)
+			return nil, errors.Wrap(err, "iRds.SetTags")
 		}
 		logclient.AddActionLogWithStartable(task, instance, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
 		return nil, nil
@@ -3025,17 +3024,16 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateElasticcache(
 			return nil, errors.Wrap(err, "iElasticcache.GetTags()")
 		}
 		tags, err := elasticcache.GetAllUserMetadata()
-		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
 		if err != nil {
-			log.Errorf("GetAllUserMetadata fail %s", err)
-		} else {
-			err := iElasticcache.SetTags(tags, replaceTags)
-			if err != nil {
-				logclient.AddActionLogWithStartable(task, elasticcache, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, false)
-				return nil, errors.Wrap(err, "iElasticcache.SetMetadata")
-			}
-			logclient.AddActionLogWithStartable(task, elasticcache, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
+			return nil, errors.Wrapf(err, "GetAllUserMetadata")
 		}
+		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
+		err = iElasticcache.SetTags(tags, replaceTags)
+		if err != nil {
+			logclient.AddActionLogWithStartable(task, elasticcache, logclient.ACT_UPDATE_TAGS, err, userCred, false)
+			return nil, errors.Wrap(err, "iElasticcache.SetTags")
+		}
+		logclient.AddActionLogWithStartable(task, elasticcache, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
 		return nil, nil
 	})
 	return nil

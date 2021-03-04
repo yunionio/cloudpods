@@ -166,21 +166,6 @@ func (self *SRegion) kvsRequest(action string, params map[string]string) (jsonut
 	return jsonRequest(client, "r-kvstore.aliyuncs.com", ALIYUN_API_VERSION_KVS, action, params, self.client.debug)
 }
 
-func (self *SRegion) tagRequest(serviceType string, action string, params map[string]string) (jsonutils.JSONObject, error) {
-	switch serviceType {
-	case "ecs":
-		return self.ecsRequest(action, params)
-	case "rds":
-		return self.rdsRequest(action, params)
-	case "slb":
-		return self.lbRequest(action, params)
-	case "kvs":
-		return self.kvsRequest(action, params)
-	default:
-		return nil, errors.Wrapf(errors.ErrNotSupported, "not support %service tag", serviceType)
-	}
-}
-
 type LBRegion struct {
 	RegionEndpoint string
 	RegionId       string
@@ -969,7 +954,7 @@ func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbala
 	if err != nil {
 		return nil, err
 	}
-	region.SetResourceTags("slb", "instance", []string{loadBalancerID}, loadbalancer.Tags, false)
+	region.SetResourceTags(ALIYUN_SERVICE_SLB, "instance", loadBalancerID, loadbalancer.Tags, false)
 	iLoadbalancer, err := region.GetLoadbalancerDetail(loadBalancerID)
 	if err != nil {
 		return nil, err

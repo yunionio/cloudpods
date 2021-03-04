@@ -15,8 +15,9 @@
 package shell
 
 import (
-	"fmt"
 	"strings"
+
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/multicloud/aliyun"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -24,36 +25,53 @@ import (
 
 func init() {
 	type TagGetOptions struct {
-		SERVICE string   `help:"service, eg. ecs"`
-		RESTYPE string   `help:"resource type, eg. instance"`
-		ID      []string `help:"resource Id, eg. ins-123xxx"`
+		SERVICE string `help:"service, eg. ecs" choices:"ecs|kvs|rds|vpc|slb"`
+		RESTYPE string `help:"resource type, eg. instance"`
+		ID      string `help:"resource Id, eg. ins-123xxx"`
 	}
-	shellutils.R(&TagGetOptions{}, "tag-show", "show tag of a specific resource", func(cli *aliyun.SRegion, args *TagGetOptions) error {
-		tags, err := cli.ListResourceTags(args.SERVICE, args.RESTYPE, args.ID)
+	shellutils.R(&TagGetOptions{}, "tag-list", "List tag of a specific resource", func(cli *aliyun.SRegion, args *TagGetOptions) error {
+		tags, err := cli.ListTags(args.SERVICE, args.RESTYPE, args.ID)
 		if err != nil {
 			return err
 		}
-		for id, tag := range tags {
-			fmt.Println(id, *tag)
-		}
+		printObject(tags)
 		return nil
+	})
+
+	type TagOptions struct {
+		TagGetOptions
+		KEY   string
+		VALUE string
+	}
+	shellutils.R(&TagOptions{}, "tag-resource", "set tags of a specific resource", func(cli *aliyun.SRegion, args *TagOptions) error {
+		return cli.TagResource(args.SERVICE, args.RESTYPE, args.ID, map[string]string{args.KEY: args.VALUE})
+	})
+
+	type UnTagOptions struct {
+		TagGetOptions
+		KEY []string
+	}
+
+	shellutils.R(&UnTagOptions{}, "untag-resource", "un tags of a specific resource", func(cli *aliyun.SRegion, args *UnTagOptions) error {
+		return cli.UntagResource(args.SERVICE, args.RESTYPE, args.ID, args.KEY)
 	})
 
 	type TagSetOptions struct {
 		TagGetOptions
-		Tag     []string `help:"tag to set, key:value"`
-		Replace bool     `help:"replace all tags"`
+		VALUES  []string
+		Replace bool
 	}
+
 	shellutils.R(&TagSetOptions{}, "tag-set", "set tags of a specific resource", func(cli *aliyun.SRegion, args *TagSetOptions) error {
-		tags := make(map[string]string)
-		for _, t := range args.Tag {
-			parts := strings.Split(t, ":")
-			tags[parts[0]] = parts[1]
+		tags := map[string]string{}
+		for _, value := range args.VALUES {
+			v := strings.Split(value, ":")
+			if len(v) != 2 {
+				return errors.Errorf("invalid tag %s", value)
+			}
+			tags[v[0]] = v[1]
 		}
-		err := cli.SetResourceTags(args.SERVICE, args.RESTYPE, args.ID, tags, args.Replace)
-		if err != nil {
-			return err
-		}
-		return nil
+		return cli.SetResourceTags(args.SERVICE, args.RESTYPE, args.ID, tags, args.Replace)
 	})
+
 }
