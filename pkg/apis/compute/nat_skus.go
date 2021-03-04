@@ -31,6 +31,11 @@ type NatSkuListInput struct {
 
 	PostpaidStatus string `json:"postpaid_stauts"`
 	PrepaidStatus  string `json:"prepaid_status"`
+
+	Providers []string `json:"providers"`
+	// swagger:ignore
+	// Deprecated
+	Provider []string `json:"provider" yunion-deprecated-by:"providers"`
 }
 
 type NatSkuDetails struct {
