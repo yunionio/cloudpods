@@ -36,6 +36,8 @@ func init() {
 		Email     string  `help:"The Email"`
 		Docs      *string `help:"the Docs website address"`
 		License   *string `help:"the license generator website address"`
+		BrandCn   *string `help:"the brand name in Chinese"`
+		BrandEn   *string `help:"the brand name in English"`
 	}
 
 	R(&CopyrightUpdateOptions{}, "copyright-update", "update copyright", func(s *mcclient.ClientSession, args *CopyrightUpdateOptions) error {
@@ -50,6 +52,14 @@ func init() {
 
 		if args.License != nil {
 			params.Add(jsonutils.NewString(*args.License), "license")
+		}
+
+		if args.BrandCn != nil {
+			params.Add(jsonutils.NewString(args.Email), "brand_cn")
+		}
+
+		if args.BrandEn != nil {
+			params.Add(jsonutils.NewString(args.Email), "brand_en")
 		}
 
 		if len(args.Copyright) > 0 {
