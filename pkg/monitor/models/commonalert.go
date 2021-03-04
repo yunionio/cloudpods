@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
 	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -365,13 +366,36 @@ func (manager *SCommonAlertManager) GetExportExtraKeys(ctx context.Context, keys
 					tenant.GetProjectDomain())))
 			}
 		} else {
-			tenant, err := db.TenantCacheManager.FetchTenantById(ctx, rowMap["domain_id"])
+			tenant, err := db.TenantCacheManager.FetchDomainById(ctx, rowMap["domain_id"])
 			if err == nil {
-				res.Set("tenant", jsonutils.NewString(tenant.GetProjectDomain()))
+				dictionaryVal := GetGlobalSettingsDictionary(ctx, "domain")
+				res.Set("tenant", jsonutils.NewString(fmt.Sprintf("%s%s", tenant.GetProjectDomain(), dictionaryVal)))
 			}
 		}
 	}
 	return res
+}
+
+func GetGlobalSettingsDictionary(ctx context.Context, param string) (val string) {
+	s := auth.GetAdminSession(ctx, "", "")
+	globalSettings, err := yunionconf.Parameters.GetGlobalSettings(s, jsonutils.NewDict())
+	if err != nil {
+		log.Errorf("GetGlobalSettings err:%v", err)
+		return
+	}
+	dictionary, err := globalSettings.Get("value", "dictionary")
+	if err != nil {
+		log.Errorf("can not get dictionary:%s", globalSettings.String())
+		return
+	}
+	lang := i18n.Lang(ctx)
+	switch lang {
+	case language.English:
+		val, _ = dictionary.GetString("en", param)
+	default:
+		val, _ = dictionary.GetString("zh", param)
+	}
+	return
 }
 
 func (man *SCommonAlertManager) CustomizeFilterList(
