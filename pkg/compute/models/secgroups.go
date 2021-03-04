@@ -131,7 +131,7 @@ func (manager *SSecurityGroupManager) ListItemFilter(
 		filters = append(filters, sqlchemy.In(q.Field("id"), GuestsecgroupManager.Query("secgroup_id").Equals("guest_id", serverId).SubQuery()))
 
 		isAdmin := false
-		admin := (input.ServerFilterListInput.Admin != nil && *input.ServerFilterListInput.Admin)
+		admin := (input.Admin != nil && *input.Admin)
 		if consts.IsRbacEnabled() {
 			allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
 			if allowScope == rbacutils.ScopeSystem || allowScope == rbacutils.ScopeDomain {
@@ -154,6 +154,22 @@ func (manager *SSecurityGroupManager) ListItemFilter(
 		}
 		sq := DBInstanceSecgroupManager.Query("secgroup_id").Equals("dbinstance_id", input.DBInstanceId)
 		q = q.In("id", sq.SubQuery())
+	}
+
+	if len(input.CloudregionId) > 0 || len(input.Providers) > 0 || len(input.Brands) > 0 || len(input.CloudaccountId) > 0 {
+		caches := SecurityGroupCacheManager.Query()
+		filter := api.SecurityGroupCacheListInput{
+			ManagedResourceListInput: input.ManagedResourceListInput,
+			RegionalFilterListInput:  input.RegionalFilterListInput,
+		}
+		caches, err = SecurityGroupCacheManager.ListItemFilter(ctx, caches, userCred, filter)
+		if err != nil {
+			return nil, errors.Wrapf(err, "SecurityGroupCacheManager.ListItemFilter")
+		}
+
+		sq := caches.SubQuery()
+
+		q = q.Join(sq, sqlchemy.Equals(q.Field("id"), sq.Field("secgroup_id")))
 	}
 
 	// elastic cache
@@ -258,9 +274,35 @@ func (manager *SSecurityGroupManager) OrderByExtraFields(
 
 func (manager *SSecurityGroupManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
-
 	q, err = manager.SSharableVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
+		return q, nil
+	}
+	switch field {
+	case "provider", "brand":
+		accountQuery := CloudaccountManager.Query(field, "id").Distinct().SubQuery()
+		providers := CloudproviderManager.Query("id", "cloudaccount_id").SubQuery()
+		caches := SecurityGroupCacheManager.Query("manager_id", "secgroup_id").SubQuery()
+		q.AppendField(accountQuery.Field(field)).Distinct()
+		q = q.Join(caches, sqlchemy.Equals(q.Field("id"), caches.Field("secgroup_id")))
+		q = q.Join(providers, sqlchemy.Equals(providers.Field("id"), caches.Field("manager_id")))
+		q = q.Join(accountQuery, sqlchemy.Equals(accountQuery.Field("id"), providers.Field("cloudaccount_id")))
+		return q, nil
+	case "region":
+		regionQuery := CloudregionManager.Query("name", "id").SubQuery()
+		caches := SecurityGroupCacheManager.Query("cloudregion_id", "secgroup_id").SubQuery()
+		q.AppendField(regionQuery.Field("name").Label("region")).Distinct()
+		q = q.Join(caches, sqlchemy.Equals(q.Field("id"), caches.Field("secgroup_id")))
+		q = q.Join(regionQuery, sqlchemy.Equals(caches.Field("cloudregion_id"), regionQuery.Field("id")))
+		return q, nil
+	case "account":
+		accountQuery := CloudaccountManager.Query("name", "id").Distinct().SubQuery()
+		providers := CloudproviderManager.Query("id", "cloudaccount_id").SubQuery()
+		caches := SecurityGroupCacheManager.Query("manager_id", "secgroup_id").SubQuery()
+		q.AppendField(accountQuery.Field("name").Label("account")).Distinct()
+		q = q.Join(caches, sqlchemy.Equals(q.Field("id"), caches.Field("secgroup_id")))
+		q = q.Join(providers, sqlchemy.Equals(providers.Field("id"), caches.Field("manager_id")))
+		q = q.Join(accountQuery, sqlchemy.Equals(accountQuery.Field("id"), providers.Field("cloudaccount_id")))
 		return q, nil
 	}
 
