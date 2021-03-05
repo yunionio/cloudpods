@@ -55,11 +55,11 @@ func init() {
 		}
 
 		if args.BrandCn != nil {
-			params.Add(jsonutils.NewString(args.Email), "brand_cn")
+			params.Add(jsonutils.NewString(*args.BrandCn), "brand_cn")
 		}
 
 		if args.BrandEn != nil {
-			params.Add(jsonutils.NewString(args.Email), "brand_en")
+			params.Add(jsonutils.NewString(*args.BrandEn), "brand_en")
 		}
 
 		if len(args.Copyright) > 0 {
