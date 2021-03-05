@@ -273,8 +273,6 @@ type ICloudBucket interface {
 	SetPolicy(policy SBucketPolicyStatementInput) error
 	DeletePolicy(id []string) ([]SBucketPolicyStatement, error)
 
-	DeleteTags() error
-
 	ListMultipartUploads() ([]SBucketMultipartUploads, error)
 }
 
@@ -839,32 +837,18 @@ func DeleteBucketCORS(ibucket ICloudBucket, id []string) ([]SBucketCORSRule, err
 	return deletedRules, nil
 }
 
-func SetBucketMetadata(ibucket ICloudBucket, tags map[string]string, replace bool) error {
-	newTags := map[string]string{}
-	if replace {
-		newTags = tags
-	} else {
-		oldTags, err := ibucket.GetTags()
-		if err != nil {
-			return errors.Wrap(err, "b.getTags()")
+func SetBucketTags(iBucket ICloudBucket, tags map[string]string) (TagsUpdateInfo, error) {
+	ret := TagsUpdateInfo{}
+	old, err := iBucket.GetTags()
+	if err != nil {
+		if errors.Cause(err) == ErrNotImplemented || errors.Cause(err) == ErrNotSupported {
+			return ret, nil
 		}
-		for k, v := range oldTags {
-			if _, ok := tags[k]; !ok {
-				tags[k] = v
-			}
-		}
-		newTags = tags
+		return ret, errors.Wrapf(err, "iBucket.GetTags")
 	}
-	if len(newTags) == 0 {
-		err := ibucket.DeleteTags()
-		if err != nil {
-			return errors.Wrap(err, "b.DeleteTags()")
-		}
-	} else {
-		err := ibucket.SetTags(newTags, true)
-		if err != nil {
-			return errors.Wrapf(err, "b.setTags(%s)", jsonutils.Marshal(newTags).String())
-		}
+	ret.OldTags, ret.NewTags = old, tags
+	if !ret.IsChanged() {
+		return ret, nil
 	}
-	return nil
+	return ret, iBucket.SetTags(tags, true)
 }
