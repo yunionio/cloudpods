@@ -666,12 +666,15 @@ func S3Shell() {
 	type BucketGetMetadata struct {
 		BUCKET string `help:"name of bucket to put object"`
 	}
-	shellutils.R(&BucketGetMetadata{}, "bucket-get-metadata", "get bucket metadata", func(cli cloudprovider.ICloudRegion, args *BucketGetMetadata) error {
+	shellutils.R(&BucketGetMetadata{}, "bucket-tag-list", "List bucket tag", func(cli cloudprovider.ICloudRegion, args *BucketGetMetadata) error {
 		bucket, err := cli.GetIBucketById(args.BUCKET)
 		if err != nil {
 			return err
 		}
-		meta, _ := bucket.GetTags()
+		meta, err := bucket.GetTags()
+		if err != nil {
+			return err
+		}
 		printObject(meta)
 		return nil
 	})
@@ -681,7 +684,7 @@ func S3Shell() {
 		Tags    []string `help:"Tags info, eg: hypervisor=aliyun、os_type=Linux、os_version"`
 		Replace bool
 	}
-	shellutils.R(&BucketSetMetadate{}, "bucket-set-metadata", "set bucket metadata", func(cli cloudprovider.ICloudRegion, args *BucketSetMetadate) error {
+	shellutils.R(&BucketSetMetadate{}, "bucket-set-tag", "set bucket tag", func(cli cloudprovider.ICloudRegion, args *BucketSetMetadate) error {
 		bucket, err := cli.GetIBucketById(args.BUCKET)
 		if err != nil {
 			return err
@@ -693,7 +696,7 @@ func S3Shell() {
 				tags[pair[0]] = pair[1]
 			}
 		}
-		err = cloudprovider.SetBucketMetadata(bucket, tags, args.Replace)
+		_, err = cloudprovider.SetBucketTags(bucket, tags)
 		if err != nil {
 			return err
 		}
