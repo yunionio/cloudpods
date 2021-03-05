@@ -704,10 +704,19 @@ func (b *SBucket) GetTags() (map[string]string, error) {
 	return result, nil
 }
 
-func (b *SBucket) SetTags(tags map[string]string) error {
+func (b *SBucket) SetTags(tags map[string]string, replace bool) error {
 	s3cli, err := b.region.GetS3Client()
 	if err != nil {
 		return errors.Wrap(err, "GetS3Client")
+	}
+
+	_, err = s3cli.DeleteBucketTagging(&s3.DeleteBucketTaggingInput{Bucket: &b.Name})
+	if err != nil {
+		return errors.Wrapf(err, "DeleteBucketTagging")
+	}
+
+	if len(tags) == 0 {
+		return nil
 	}
 
 	input := s3.PutBucketTaggingInput{Tagging: &s3.Tagging{}}
@@ -728,29 +737,4 @@ func (b *SBucket) SetTags(tags map[string]string) error {
 		return errors.Wrapf(err, "obscli.SetBucketTagging(%s)", jsonutils.Marshal(input))
 	}
 	return nil
-}
-
-func (b *SBucket) DeleteTags() error {
-	s3cli, err := b.region.GetS3Client()
-	if err != nil {
-		return errors.Wrap(err, "GetS3Client")
-	}
-	_, err = s3cli.DeleteBucketTagging(&s3.DeleteBucketTaggingInput{Bucket: &b.Name})
-	if err != nil {
-		return errors.Wrapf(err, "osscli.DeleteBucketTagging(%s)", b.Name)
-	}
-	return nil
-}
-
-func (b *SBucket) GetMetadata() *jsonutils.JSONDict {
-	meta := jsonutils.NewDict()
-	tags, err := b.GetTags()
-	if err != nil {
-		log.Errorf("error:%s b.getTags()", err)
-		return meta
-	}
-	for k, v := range tags {
-		meta.Add(jsonutils.NewString(v), k)
-	}
-	return meta
 }
