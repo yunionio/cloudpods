@@ -149,7 +149,7 @@ type SSecgroupCreateInput struct {
 type SecgroupListInput struct {
 	apis.SharableVirtualResourceListInput
 
-	ServerFilterListInput
+	ServerResourceInput
 
 	DBInstanceResourceInput
 	ELasticcacheResourceInput
@@ -177,6 +177,10 @@ type SecgroupListInput struct {
 	// default: all
 	// example: in
 	Direction string `json:"direction"`
+
+	RegionalFilterListInput
+
+	ManagedResourceListInput
 }
 
 type SecurityGroupCacheListInput struct {
