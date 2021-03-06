@@ -513,14 +513,29 @@ func (r *SReceiver) PushCache(ctx context.Context) error {
 }
 
 func (rm *SReceiverManager) EnabledContactFilter(contactType string, q *sqlchemy.SQuery) *sqlchemy.SQuery {
-	subQuery := SubContactManager.Query("receiver_id").Equals("type", contactType).IsTrue("enabled").SubQuery()
-	q = q.Join(subQuery, sqlchemy.Equals(subQuery.Field("receiver_id"), q.Field("id")))
+	switch contactType {
+	case api.MOBILE:
+		q = q.IsTrue("enabled_mobile")
+	case api.EMAIL:
+		q = q.IsTrue("enabled_email")
+	default:
+		subQuery := SubContactManager.Query("receiver_id").Equals("type", contactType).IsTrue("enabled").SubQuery()
+		q = q.Join(subQuery, sqlchemy.Equals(subQuery.Field("receiver_id"), q.Field("id")))
+	}
 	return q
 }
 
 func (rm *SReceiverManager) VerifiedContactFilter(contactType string, q *sqlchemy.SQuery) *sqlchemy.SQuery {
-	subQuery := SubContactManager.Query("receiver_id").Equals("type", contactType).IsTrue("verified").SubQuery()
-	q = q.Join(subQuery, sqlchemy.Equals(subQuery.Field("receiver_id"), q.Field("id")))
+	switch contactType {
+	case api.MOBILE:
+		q = q.IsTrue("verified_mobile")
+	case api.EMAIL:
+		q = q.IsTrue("verified_email")
+	default:
+		subQuery := SubContactManager.Query("receiver_id").Equals("type", contactType).IsTrue("verified").SubQuery()
+		q = q.Join(subQuery, sqlchemy.Equals(subQuery.Field("receiver_id"), q.Field("id")))
+
+	}
 	return q
 }
 
