@@ -355,6 +355,18 @@ var (
 					Result:   rbacutils.Allow,
 				},
 				*/
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "nat_skus",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "nat_skus",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
 			},
 		},
 	}
