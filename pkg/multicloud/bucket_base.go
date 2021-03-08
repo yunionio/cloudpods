@@ -126,10 +126,6 @@ func (b *SBaseBucket) GetTags() (map[string]string, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (b *SBaseBucket) SetTags(tags map[string]string) error {
-	return cloudprovider.ErrNotImplemented
-}
-
-func (b *SBaseBucket) DeleteTags() error {
+func (b *SBaseBucket) SetTags(tags map[string]string, replace bool) error {
 	return cloudprovider.ErrNotImplemented
 }

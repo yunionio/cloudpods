@@ -1105,11 +1105,19 @@ func (b *SBucket) GetTags() (map[string]string, error) {
 	return result, nil
 }
 
-func (b *SBucket) SetTags(tags map[string]string) error {
+func (b *SBucket) SetTags(tags map[string]string, replace bool) error {
 	coscli, err := b.region.GetCosClient(b)
 	if err != nil {
-		log.Errorf("GetCosClient fail %s", err)
-		return errors.Wrap(err, "b.region.GetCosClient(b)")
+		return errors.Wrapf(err, "b.region.GetCosClient(%s)", b.Name)
+	}
+
+	_, err = coscli.Bucket.DeleteTagging(context.Background())
+	if err != nil {
+		return errors.Wrapf(err, "DeleteTagging")
+	}
+
+	if len(tags) == 0 {
+		return nil
 	}
 
 	input := cos.BucketPutTaggingOptions{}
@@ -1122,30 +1130,4 @@ func (b *SBucket) SetTags(tags map[string]string) error {
 		return errors.Wrapf(err, "coscli.Bucket.PutTagging(%s)", jsonutils.Marshal(input))
 	}
 	return nil
-}
-
-func (b *SBucket) DeleteTags() error {
-	coscli, err := b.region.GetCosClient(b)
-	if err != nil {
-		log.Errorf("GetCosClient fail %s", err)
-		return errors.Wrap(err, "b.region.GetCosClient(b)")
-	}
-	_, err = coscli.Bucket.DeleteTagging(context.Background())
-	if err != nil {
-		return errors.Wrap(err, "coscli.Bucket.DeleteTagging(context.Background())")
-	}
-	return nil
-}
-
-func (b *SBucket) GetMetadata() *jsonutils.JSONDict {
-	meta := jsonutils.NewDict()
-	tags, err := b.GetTags()
-	if err != nil {
-		log.Errorf("error:%s b.getTags()", err)
-		return meta
-	}
-	for k, v := range tags {
-		meta.Add(jsonutils.NewString(v), k)
-	}
-	return meta
 }
