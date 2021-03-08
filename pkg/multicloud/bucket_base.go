@@ -118,10 +118,6 @@ func (b *SBaseBucket) DeletePolicy(id []string) ([]cloudprovider.SBucketPolicySt
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (b *SBaseBucket) DeleteTags() error {
-	return cloudprovider.ErrNotImplemented
-}
-
 func (b *SBaseBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUploads, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
