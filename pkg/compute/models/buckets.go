@@ -480,6 +480,7 @@ func (bucket *SBucket) PostCreate(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) {
+	bucket.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	pendingUsage := SRegionQuota{Bucket: 1}
 	keys, err := bucket.GetQuotaKeys()
 	if err != nil {
@@ -495,10 +496,10 @@ func (bucket *SBucket) PostCreate(
 	bucket.SetStatus(userCred, api.BUCKET_STATUS_START_CREATE, "PostCreate")
 	task, err := taskman.TaskManager.NewTask(ctx, "BucketCreateTask", bucket, userCred, nil, "", "", nil)
 	if err != nil {
-		log.Errorf("BucketCreateTask newTask error %s", err)
-	} else {
-		task.ScheduleRun(nil)
+		bucket.SetStatus(userCred, api.BUCKET_STATUS_CREATE_FAIL, errors.Wrapf(err, "NewTask").Error())
+		return
 	}
+	task.ScheduleRun(nil)
 }
 
 func (bucket *SBucket) ValidateUpdateData(
@@ -538,14 +539,16 @@ func (bucket *SBucket) RemoteCreate(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		return errors.Wrap(err, "db.SetExternalId")
 	}
+	tags, _ := bucket.GetAllUserMetadata()
+	if len(tags) > 0 {
+		_, err = cloudprovider.SetBucketTags(extBucket, tags)
+		if err != nil {
+			logclient.AddSimpleActionLog(bucket, logclient.ACT_UPDATE_TAGS, err, userCred, false)
+		}
+	}
 	err = bucket.syncWithCloudBucket(ctx, userCred, extBucket, nil, false)
 	if err != nil {
 		return errors.Wrap(err, "bucket.syncWithCloudBucket")
-	}
-	tags, _ := bucket.GetAllUserMetadata()
-	err = cloudprovider.SetBucketMetadata(extBucket, tags, false)
-	if err != nil {
-		log.Errorf("iBucket.SetMetadata failed: %s", err)
 	}
 	return nil
 }
@@ -1891,26 +1894,20 @@ func (bucket *SBucket) OnMetadataUpdated(ctx context.Context, userCred mcclient.
 	}
 	iBucket, err := bucket.GetIBucket()
 	if err != nil {
-		log.Errorf("bucket.GetIBucket() failed: %s", err)
 		return
 	}
-	oldTags, err := iBucket.GetTags()
+	tags, err := bucket.GetAllUserMetadata()
+	if err != nil {
+		return
+	}
+	diff, err := cloudprovider.SetBucketTags(iBucket, tags)
 	if err != nil {
 		logclient.AddSimpleActionLog(bucket, logclient.ACT_UPDATE_TAGS, err, userCred, false)
-		log.Errorf("iBucket.GetTags failed: %s", err)
 		return
 	}
-	tags, _ := bucket.GetAllUserMetadata()
-	tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
-
-	err = cloudprovider.SetBucketMetadata(iBucket, tags, true)
-	if err != nil {
-		logclient.AddSimpleActionLog(bucket, logclient.ACT_UPDATE_TAGS, err, userCred, false)
-		log.Errorf("iBucket.SetMetadata failed: %s", err)
-		return
+	if diff.IsChanged() {
+		logclient.AddSimpleActionLog(bucket, logclient.ACT_UPDATE_TAGS, diff, userCred, true)
 	}
-	syncMetadata(ctx, userCred, bucket, iBucket)
-	logclient.AddSimpleActionLog(bucket, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
 }
 
 func (manager *SBucketManager) ListItemExportKeys(ctx context.Context,

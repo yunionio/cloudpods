@@ -14,7 +14,13 @@
 
 package cloudprovider
 
+import "reflect"
+
 type TagsUpdateInfo struct {
 	OldTags map[string]string
 	NewTags map[string]string
+}
+
+func (t TagsUpdateInfo) IsChanged() bool {
+	return !reflect.DeepEqual(t.OldTags, t.NewTags)
 }
