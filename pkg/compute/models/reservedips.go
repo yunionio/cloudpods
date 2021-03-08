@@ -167,8 +167,8 @@ func (manager *SReservedipManager) GetReservedIP(network *SNetwork, ip string) *
 
 func (manager *SReservedipManager) GetReservedIPs(network *SNetwork) []SReservedip {
 	rips := make([]SReservedip, 0)
-	now := time.Now().UTC()
-	q := manager.Query().Equals("network_id", network.Id).GT("expired_at", now)
+	q := manager.Query().Equals("network_id", network.Id)
+	q = filterExpiredReservedIps(q)
 	err := db.FetchModelObjects(manager, q, &rips)
 	if err != nil {
 		log.Errorf("GetReservedIPs fail: %s", err)
