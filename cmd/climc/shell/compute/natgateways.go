@@ -29,4 +29,6 @@ func init() {
 	cmd.Show(&compute.NatGatewayIdOptions{})
 	cmd.Delete(&compute.NatGatewayDeleteOption{})
 	cmd.Perform("syncstauts", &compute.NatGatewayIdOptions{})
+	cmd.Perform("cancel-expire", &compute.NatGatewayIdOptions{})
+	cmd.Perform("postpaid-expire", &compute.NatPostpaidExpireOptions{})
 }

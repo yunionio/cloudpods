@@ -355,7 +355,7 @@ type DistinctFieldInput struct {
 
 type PostpaidExpireInput struct {
 	Duration   string    `json:"duration"`
-	ExpireTime time.Time `json:"expireType"`
+	ExpireTime time.Time `json:"expire_time"`
 }
 
 type AutoRenewInput struct {
