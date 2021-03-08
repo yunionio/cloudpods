@@ -17,6 +17,7 @@ package compute
 import (
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -90,4 +91,13 @@ type NatSCreateOptions struct {
 	EXTERNALIPID string `help:"External IP ID, can be empty except huawei Cloud"`
 	SourceCIDR   string `help:"Source CIDR"`
 	NetworkID    string `help:"Network id"`
+}
+
+type NatPostpaidExpireOptions struct {
+	NatGatewayIdOptions
+	apis.PostpaidExpireInput
+}
+
+func (opts *NatPostpaidExpireOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts.PostpaidExpireInput), nil
 }
