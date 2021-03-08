@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"sync"
 	"time"
 
 	"go.etcd.io/etcd/clientv3"
@@ -45,7 +46,8 @@ type SEtcdClient struct {
 	onKeepaliveFailure func()
 	leaseLiving        bool
 
-	watchers map[string]*SEtcdWatcher
+	watchers   map[string]*SEtcdWatcher
+	watchersMu *sync.Mutex
 }
 
 func defaultOnKeepAliveFailed() {
@@ -115,6 +117,7 @@ func NewEtcdClient(opt *SEtcdOptions, onKeepaliveFailure func()) (*SEtcdClient, 
 	etcdClient.leaseTtlTimeout = timeoutSeconds
 
 	etcdClient.watchers = make(map[string]*SEtcdWatcher)
+	etcdClient.watchersMu = &sync.Mutex{}
 
 	etcdClient.namespace = opt.EtcdNamspace
 
@@ -306,8 +309,10 @@ func (cli *SEtcdClient) Watch(
 	onModify TEtcdModifyEventFunc,
 	onDelete TEtcdDeleteEventFunc,
 ) error {
+	cli.watchersMu.Lock()
 	_, ok := cli.watchers[prefix]
 	if ok {
+		cli.watchersMu.Unlock()
 		return errors.Errorf("watch prefix %s already registered", prefix)
 	}
 
@@ -318,6 +323,7 @@ func (cli *SEtcdClient) Watch(
 		watcher: watcher,
 		cancel:  cancel,
 	}
+	cli.watchersMu.Unlock()
 
 	prefix = cli.getKey(prefix)
 
@@ -346,6 +352,8 @@ func (cli *SEtcdClient) Watch(
 }
 
 func (cli *SEtcdClient) Unwatch(prefix string) {
+	cli.watchersMu.Lock()
+	defer cli.watchersMu.Unlock()
 	watcher, ok := cli.watchers[prefix]
 	if ok {
 		log.Debugf("unwatch %s", prefix)
