@@ -180,11 +180,11 @@ func (manager *SCloudproviderManager) GetProviderFieldQuery(field string, isPubl
 	} else if isOnPremise.IsFalse() {
 		q = q.Filter(sqlchemy.IsFalse(account.Field("is_on_premise")))
 	}
-	if len(providers) > 0 {
-		q = q.Filter(sqlchemy.In(account.Field("provider"), providers))
-	}
-	if len(brands) > 0 {
-		q = q.Filter(sqlchemy.In(account.Field("brand"), brands))
+	if len(providers) > 0 || len(brands) > 0 {
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.In(account.Field("provider"), providers),
+			sqlchemy.In(account.Field("brand"), brands),
+		))
 	}
 	return q.SubQuery()
 }
