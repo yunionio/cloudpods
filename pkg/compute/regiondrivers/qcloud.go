@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -1465,7 +1466,8 @@ func (self *SQcloudRegionDriver) GetMaxElasticcacheSecurityGroupCount() int {
 	return 10
 }
 
-func (self *SQcloudRegionDriver) ValidateCreateElasticcacheData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SQcloudRegionDriver) ValidateCreateElasticcacheData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.ElasticcacheCreateInput) (*jsonutils.JSONDict, error) {
+	data := input.JSON(input)
 	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
 	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
 	instanceTypeV := validators.NewModelIdOrNameValidator("instance_type", "elasticcachesku", ownerId)
@@ -1505,6 +1507,28 @@ func (self *SQcloudRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 		data.Set("node_type", jsonutils.NewString(sku.NodeType))
 		data.Set("local_category", jsonutils.NewString(sku.LocalCategory))
 		data.Set("capacity_mb", jsonutils.NewInt(int64(sku.MemorySizeMB)))
+	}
+
+	// validate slave zones
+	if len(input.SlaveZones) > 0 {
+		if len(input.SlaveZones) < sku.ReplicasNum {
+			padding := make([]string, sku.ReplicasNum-len(input.SlaveZones))
+			for i := range padding {
+				padding[i] = zoneId
+			}
+
+			input.SlaveZones = append(input.SlaveZones, padding...)
+		}
+
+		data.Set("slave_zones", jsonutils.NewString(strings.Join(input.SlaveZones, ",")))
+	}
+	if err := validatorSlaveZones(ownerId, zoneV.Model.(*models.SZone).GetCloudRegionId(), data, true); err != nil {
+		return nil, err
+	}
+
+	sz, _ := data.GetString("slave_zones")
+	if len(strings.Split(sz, ",")) > sku.ReplicasNum {
+		return nil, fmt.Errorf("the number of slave zones can not beyond redis replicas number")
 	}
 
 	// validate secgroups
