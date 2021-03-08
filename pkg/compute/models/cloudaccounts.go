@@ -434,13 +434,41 @@ func (scm *SCloudaccountManager) hostVMIPsPrepareNets(ctx context.Context, clien
 // Performpreparenets searches for suitable network facilities for physical and virtual machines under the cloud account or provides configuration recommendations for network facilities before importing a cloud account.
 func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountPerformPrepareNetsInput) (api.CloudaccountPerformPrepareNetsOutput, error) {
 	var (
-		err    error
-		output api.CloudaccountPerformPrepareNetsOutput
+		err                  error
+		output               api.CloudaccountPerformPrepareNetsOutput
+		networkBits          int8
+		hostNumberUpperLimit int
+		hostNumberLowerLimit int
 	)
 	if input.Provider != api.CLOUD_PROVIDER_VMWARE {
 		return output, httperrors.NewNotSupportedError("not support for cloudaccount with provider '%s'", input.Provider)
 	}
 	// validate first
+	if input.NetworkBits == nil {
+		networkBits = 24
+	} else if *input.NetworkBits <= 0 || *input.NetworkBits >= 32 {
+		return output, httperrors.NewInputParameterError("invalid network_bits, it should be between 0 and 32")
+	} else {
+		networkBits = *input.NetworkBits
+	}
+	maxHostNumber := int((1 << uint(32-networkBits)) - 2)
+	if input.HostNumberUpperLimit == nil {
+		hostNumberUpperLimit = maxHostNumber
+	} else if *input.HostNumberUpperLimit > maxHostNumber {
+		return output, httperrors.NewInputParameterError("invalid host numbers, according to networkBits, it should be between 0 and %d", 2^(32-networkBits)-2)
+	} else {
+		hostNumberUpperLimit = *input.HostNumberUpperLimit
+	}
+
+	minHostNumber := 1
+	if input.HostNumberLowerLimit == nil {
+		hostNumberLowerLimit = minHostNumber
+	} else if *input.HostNumberLowerLimit < minHostNumber || *input.HostNumberLowerLimit > hostNumberUpperLimit {
+		return output, httperrors.NewInputParameterError("invalid host numbers, it should be between %d and %d", minHostNumber, hostNumberUpperLimit)
+	} else {
+		hostNumberLowerLimit = *input.HostNumberLowerLimit
+	}
+
 	ownerId, err := scm.FetchOwnerId(ctx, jsonutils.Marshal(input))
 	if err != nil {
 		return output, errors.Wrap(err, "FetchOwnerId in PerformPrepareNets")
@@ -541,20 +569,26 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		networks[i] = nets
 	}
 	return scm.parseAndSuggest(sParseAndSuggest{
-		NInfos:      nInfos,
-		AccountName: input.Name,
-		ZoneIds:     zoneids,
-		Wires:       wires,
-		Networks:    networks,
+		NInfos:               nInfos,
+		AccountName:          input.Name,
+		ZoneIds:              zoneids,
+		Wires:                wires,
+		Networks:             networks,
+		NetworkBits:          networkBits,
+		HostNumberUpperLimit: hostNumberUpperLimit,
+		HostNumberLowerLimit: hostNumberLowerLimit,
 	}), nil
 }
 
 type sParseAndSuggest struct {
-	NInfos      []sNetworkInfo
-	AccountName string
-	ZoneIds     []string
-	Wires       []SWire
-	Networks    [][]SNetwork
+	NInfos               []sNetworkInfo
+	AccountName          string
+	ZoneIds              []string
+	Wires                []SWire
+	Networks             [][]SNetwork
+	NetworkBits          int8
+	HostNumberUpperLimit int
+	HostNumberLowerLimit int
 }
 
 func (scm *SCloudaccountManager) parseAndSuggest(params sParseAndSuggest) api.CloudaccountPerformPrepareNetsOutput {
@@ -580,7 +614,6 @@ func (scm *SCloudaccountManager) parseAndSuggest(params sParseAndSuggest) api.Cl
 				Id:     nets[i].Id,
 				WireId: nets[i].WireId,
 			})
-
 		}
 	}
 	ipPoolLen := 0
@@ -662,7 +695,7 @@ func (scm *SCloudaccountManager) parseAndSuggest(params sParseAndSuggest) api.Cl
 		}
 
 		if len(noNetHostIP) > 0 {
-			sConfs := scm.suggestHostNetworks(noNetHostIP)
+			sConfs := scm.suggestHostNetworks(noNetHostIP, params.NetworkBits)
 			confs := make([]api.CANetConf, len(sConfs))
 			for i := range confs {
 				confs[i].CASimpleNetConf = sConfs[i]
@@ -704,9 +737,9 @@ func (scm *SCloudaccountManager) parseAndSuggest(params sParseAndSuggest) api.Cl
 				if _, ok := existedNets.Get(ip); ok {
 					continue
 				}
-				net := ip.NetAddr(24)
-				netLimitLow := net + 1
-				netLimitUp := net + 254
+				net := ip.NetAddr(params.NetworkBits)
+				netLimitLow := net + netutils.IPV4Addr(params.HostNumberLowerLimit)
+				netLimitUp := net + netutils.IPV4Addr(params.HostNumberUpperLimit)
 				// find startip
 				startIp := ip - 1
 				for ; startIp >= netLimitLow; startIp-- {
@@ -739,7 +772,7 @@ func (scm *SCloudaccountManager) parseAndSuggest(params sParseAndSuggest) api.Cl
 						VlanID:       vlan,
 						GuestIpStart: (startIp + 1).String(),
 						GuestIpEnd:   (endIp - 1).String(),
-						GuestIpMask:  24,
+						GuestIpMask:  params.NetworkBits,
 						GuestGateway: (net + netutils.IPV4Addr(options.Options.DefaultNetworkGatewayAddressEsxi)).
 							String(),
 					},
@@ -795,7 +828,7 @@ func (manager *SCloudaccountManager) fetchEsxiZoneIds() ([]string, error) {
 // The suggestHostNetworks give the suggest config of network contains the ip in 'ips'.
 // The suggested network mask is 24 and the gateway is x.x.x.1.
 // The suggests network is the smallest network segment that meets the above conditions.
-func (manager *SCloudaccountManager) suggestHostNetworks(ips []netutils.IPV4Addr) []api.CASimpleNetConf {
+func (manager *SCloudaccountManager) suggestHostNetworks(ips []netutils.IPV4Addr, mask int8) []api.CASimpleNetConf {
 	if len(ips) == 0 {
 		return nil
 	}
@@ -803,7 +836,6 @@ func (manager *SCloudaccountManager) suggestHostNetworks(ips []netutils.IPV4Addr
 		return ips[i] < ips[j]
 	})
 	var (
-		mask        int8 = 24
 		lastnetAddr netutils.IPV4Addr
 		consequent  []netutils.IPV4Addr
 		ret         []api.CASimpleNetConf

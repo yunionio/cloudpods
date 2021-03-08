@@ -80,8 +80,11 @@ func structureTestData() (sParseAndSuggest, error) {
 		ZoneIds: []string{
 			"zone_test",
 		},
-		Wires:    []SWire{},
-		Networks: [][]SNetwork{},
+		Wires:                []SWire{},
+		Networks:             [][]SNetwork{},
+		NetworkBits:          24,
+		HostNumberUpperLimit: 254,
+		HostNumberLowerLimit: 1,
 	}, nil
 }
 
