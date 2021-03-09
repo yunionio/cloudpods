@@ -550,20 +550,24 @@ func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.S
 	var err error
 	for _, instanceType := range instanceTypes {
 		if isPrepaid {
-			err = self.host.zone.region.ChangePrepaidVMConfig(self.ZoneId, self.InstanceId, instanceType, isDowngrade)
+			err = self.host.zone.region.ChangePrepaidVMConfig(self.InstanceId, instanceType, isDowngrade)
 			if err != nil {
 				log.Errorf("ChangePrepaidVMConfig %s error: %v", instanceType, err)
+				continue
 			}
 		} else {
-			err = self.host.zone.region.ChangeVMConfig(self.ZoneId, self.InstanceId, instanceType)
+			err = self.host.zone.region.ChangeVMConfig(self.InstanceId, instanceType)
 			if err != nil {
 				log.Errorf("ChangeVMConfig %s error: %v", instanceType, err)
+				continue
 			}
 		}
+		return nil
 	}
 	if err != nil {
 		return errors.Wrapf(err, "ChangeVMConfig")
 	}
+
 	return fmt.Errorf("Failed to change vm config, specification not supported")
 }
 
@@ -927,7 +931,7 @@ func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd
 	return body.GetString("DiskId")
 }
 
-func (self *SRegion) ChangePrepaidVMConfig(zoneId string, instanceId string, instanceType string, isDowngrade bool) error {
+func (self *SRegion) ChangePrepaidVMConfig(instanceId string, instanceType string, isDowngrade bool) error {
 	// todo: support change disk config?
 	params := make(map[string]string)
 	params["InstanceType"] = instanceType
@@ -942,7 +946,7 @@ func (self *SRegion) ChangePrepaidVMConfig(zoneId string, instanceId string, ins
 	return nil
 }
 
-func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, instanceType string) error {
+func (self *SRegion) ChangeVMConfig(instanceId string, instanceType string) error {
 	// todo: support change disk config?
 	params := make(map[string]string)
 	params["InstanceType"] = instanceType

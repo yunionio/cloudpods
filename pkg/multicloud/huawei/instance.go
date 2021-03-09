@@ -692,29 +692,31 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, username strin
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
+	instanceTypes := []string{}
 	if len(config.InstanceType) > 0 {
-		return self.ChangeConfig2(ctx, config.InstanceType)
+		instanceTypes = []string{config.InstanceType}
+	} else {
+		flavors, err := self.host.zone.region.GetMatchInstanceTypes(config.Cpu, config.MemoryMB, self.OSEXTAZAvailabilityZone)
+		if err != nil {
+			return errors.Wrapf(err, "GetMatchInstanceTypes")
+		}
+		for _, flavor := range flavors {
+			instanceTypes = append(instanceTypes, flavor.ID)
+		}
 	}
-	err := self.host.zone.region.ChangeVMConfig(self.OSEXTAZAvailabilityZone, self.GetId(), config.Cpu, config.MemoryMB, nil)
+	var err error
+	for _, instanceType := range instanceTypes {
+		err = self.host.zone.region.ChangeVMConfig(self.GetId(), instanceType)
+		if err != nil {
+			log.Warningf("ChangeVMConfig %s for %s error: %v", self.GetId(), instanceType, err)
+		} else {
+			return cloudprovider.WaitStatusWithDelay(self, api.VM_READY, 15*time.Second, 15*time.Second, 180*time.Second)
+		}
+	}
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "ChangeVMConfig")
 	}
-
-	return cloudprovider.WaitStatusWithDelay(self, api.VM_READY, 15*time.Second, 15*time.Second, 180*time.Second)
-}
-
-func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
-	err := self.host.zone.region.ChangeVMConfig2(self.OSEXTAZAvailabilityZone, self.GetId(), instanceType, nil)
-	if err != nil {
-		return errors.Wrap(err, "Instance.ChangeConfig2.ChangeVMConfig2")
-	}
-
-	err = cloudprovider.WaitStatusWithDelay(self, api.VM_READY, 15*time.Second, 15*time.Second, 180*time.Second)
-	if err != nil {
-		return errors.Wrap(err, "Instance.ChangeConfig2.WaitStatusWithDelay")
-	}
-
-	return nil
+	return fmt.Errorf("Failed to change vm config, specification not supported")
 }
 
 // todo:// 返回jsonobject感觉很诡异。不能直接知道内部细节
@@ -1290,42 +1292,16 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212653.html
-func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, vmem int, disks []*SDisk) error {
-	instanceTypes, err := self.GetMatchInstanceTypes(ncpu, vmem, zoneId)
-	if err != nil {
-		return err
-	}
-
+func (self *SRegion) ChangeVMConfig(instanceId string, instanceType string) error {
 	self.ecsClient.Servers.SetVersion("v1.1")
 	defer self.ecsClient.Servers.SetVersion("v1")
 
-	for _, t := range instanceTypes {
-		params := jsonutils.NewDict()
-		resizeObj := jsonutils.NewDict()
-		resizeObj.Add(jsonutils.NewString(t.ID), "flavorRef")
-		params.Add(resizeObj, "resize")
-		_, err := self.ecsClient.Servers.PerformAction2("resize", instanceId, params, "")
-		if err != nil {
-			log.Errorf("Failed for %s: %s", t.ID, err)
-		} else {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("Failed to change vm config, specification not supported")
-}
-
-func (self *SRegion) ChangeVMConfig2(zoneId string, instanceId string, instanceType string, disks []*SDisk) error {
 	params := jsonutils.NewDict()
 	resizeObj := jsonutils.NewDict()
 	resizeObj.Add(jsonutils.NewString(instanceType), "flavorRef")
 	params.Add(resizeObj, "resize")
-
-	self.ecsClient.Servers.SetVersion("v1.1")
-	defer self.ecsClient.Servers.SetVersion("v1")
-
 	_, err := self.ecsClient.Servers.PerformAction2("resize", instanceId, params, "")
-	return err
+	return errors.Wrapf(err, "PerformAction2(resize)")
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0142763126.html 微版本2.6及以上?

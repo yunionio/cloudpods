@@ -186,20 +186,12 @@ func init() {
 	})
 
 	type InstanceChangeConfigOptions struct {
-		ID             string `help:"instance ID"`
-		InstanceTypeId string `help:"instance type"`
-		Vmem           int    `help:"MiB of memory"`
-		Disk           []int  `help:"Data disk sizes int GB"`
+		ID           string `help:"instance ID"`
+		InstanceType string `help:"instance type"`
 	}
 
 	shellutils.R(&InstanceChangeConfigOptions{}, "instance-change-config", "Deploy keypair/password to a stopped virtual server", func(cli *qcloud.SRegion, args *InstanceChangeConfigOptions) error {
-		instance, e := cli.GetInstance(args.ID)
-		if e != nil {
-			return e
-		}
-
-		// todo : add create disks
-		err := cli.ChangeVMConfig2(instance.Placement.Zone, args.ID, args.InstanceTypeId, nil)
+		err := cli.ChangeVMConfig(args.ID, args.InstanceType)
 		if err != nil {
 			return err
 		}
