@@ -112,9 +112,6 @@ var (
 		CLOUD_PROVIDER_ALIYUN: []string{
 			HOST_TYPE_ALIYUN,
 		},
-		CLOUD_PROVIDER_APSARA: []string{
-			HOST_TYPE_APSARA,
-		},
 		CLOUD_PROVIDER_QCLOUD: []string{
 			HOST_TYPE_QCLOUD,
 		},
