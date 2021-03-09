@@ -48,7 +48,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/multicloud/esxi/vcenter"
-	"yunion.io/x/onecloud/pkg/util/choices"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -2381,34 +2380,47 @@ func (account *SCloudaccount) AllowPerformSyncSkus(ctx context.Context, userCred
 	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, account, "sync-skus")
 }
 
-func (account *SCloudaccount) PerformSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (account *SCloudaccount) PerformSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountSyncSkusInput) (jsonutils.JSONObject, error) {
 	if !account.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Account disabled")
 	}
 
-	dataDict := data.(*jsonutils.JSONDict)
-	resourceV := validators.NewStringChoicesValidator("resource", choices.NewChoices(ServerSkuManager.Keyword(), ElasticcacheSkuManager.Keyword(), DBInstanceSkuManager.Keyword()))
-	regionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", account.GetOwnerId())
-	providerV := validators.NewModelIdOrNameValidator("cloudprovider", "cloudprovider", account.GetOwnerId())
-	keyV := map[string]validators.IValidator{
-		"resource":      resourceV,
-		"cloudregion":   regionV.Optional(true),
-		"cloudprovider": providerV.Optional(true),
+	if len(input.Resource) == 0 {
+		return nil, httperrors.NewMissingParameterError("resource")
 	}
 
-	for _, v := range keyV {
-		if err := v.Validate(dataDict); err != nil {
+	params := jsonutils.NewDict()
+
+	if !utils.IsInStringArray(input.Resource, []string{
+		ServerSkuManager.Keyword(),
+		ElasticcacheSkuManager.Keyword(),
+		DBInstanceSkuManager.Keyword(),
+		NatSkuManager.Keyword(),
+	}) {
+		return nil, httperrors.NewInputParameterError("invalid resource %s", input.Resource)
+	}
+	params.Add(jsonutils.NewString(input.Resource), "resource")
+
+	if len(input.CloudregionId) > 0 {
+		_, err := validators.ValidateModel(userCred, CloudregionManager, &input.CloudregionId)
+		if err != nil {
 			return nil, err
 		}
+		params.Add(jsonutils.NewString(input.CloudregionId), "cloudregion_id")
+	}
+	if len(input.CloudproviderId) > 0 {
+		_, err := validators.ValidateModel(userCred, CloudproviderManager, &input.CloudproviderId)
+		if err != nil {
+			return nil, err
+		}
+		params.Add(jsonutils.NewString(input.CloudproviderId), "cloudprovider_id")
 	}
 
-	force, _ := data.Bool("force")
-	if account.CanSync() || force {
-		task, err := taskman.TaskManager.NewTask(ctx, "CloudAccountSyncSkusTask", account, userCred, dataDict, "", "", nil)
+	if account.CanSync() || input.Force {
+		task, err := taskman.TaskManager.NewTask(ctx, "CloudAccountSyncSkusTask", account, userCred, params, "", "", nil)
 		if err != nil {
 			return nil, errors.Wrapf(err, "CloudAccountSyncSkusTask")
 		}
-
 		task.ScheduleRun(nil)
 	}
 

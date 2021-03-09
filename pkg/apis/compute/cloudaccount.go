@@ -461,3 +461,11 @@ type GetCloudaccountSamlOutput struct {
 	// initial SAML SSO login URL for this cloudaccount
 	InitLoginUrl string `json:"init_login_url,allowempty"`
 }
+
+type CloudaccountSyncSkusInput struct {
+	Resource string
+	Force    bool
+
+	CloudregionResourceInput
+	CloudproviderResourceInput
+}

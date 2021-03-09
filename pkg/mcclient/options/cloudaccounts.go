@@ -840,10 +840,10 @@ func (opts *CloudaccountShareModeOptions) Params() (jsonutils.JSONObject, error)
 
 type CloudaccountSyncSkusOptions struct {
 	SCloudAccountIdOptions
-	RESOURCE string `help:"Resource of skus" choices:"serversku|elasticcachesku|dbinstance_sku|nat_sku"`
-	Force    bool   `help:"Force sync no matter what"`
-	Provider string `help:"provider to sync"`
-	Region   string `help:"region to sync"`
+	RESOURCE      string `help:"Resource of skus" choices:"serversku|elasticcachesku|dbinstance_sku|nat_sku"`
+	Force         bool   `help:"Force sync no matter what"`
+	Cloudprovider string `help:"provider to sync"`
+	Region        string `help:"region to sync"`
 }
 
 func (opts *CloudaccountSyncSkusOptions) Params() (jsonutils.JSONObject, error) {
@@ -853,8 +853,8 @@ func (opts *CloudaccountSyncSkusOptions) Params() (jsonutils.JSONObject, error) 
 		params.Add(jsonutils.JSONTrue, "force")
 	}
 
-	if len(opts.Provider) > 0 {
-		params.Add(jsonutils.NewString(opts.Provider), "cloudprovider")
+	if len(opts.Cloudprovider) > 0 {
+		params.Add(jsonutils.NewString(opts.Cloudprovider), "cloudprovider")
 	}
 
 	if len(opts.Region) > 0 {
