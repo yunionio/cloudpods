@@ -437,7 +437,7 @@ var (
 			DescriptionCN: "域管理员",
 			Description:   "Domain administrator",
 			Policies: []string{
-				"domainadmin",
+				"domain-admin",
 			},
 			IsPublic: true,
 		},
@@ -446,7 +446,7 @@ var (
 			DescriptionCN: "项目主管",
 			Description:   "Project owner",
 			Policies: []string{
-				"projectadmin",
+				"project-admin",
 			},
 			IsPublic: true,
 		},
@@ -455,8 +455,8 @@ var (
 			DescriptionCN: "系统财务管理员",
 			Description:   "System finance administrator",
 			Policies: []string{
-				"sysmeteradmin",
-				"sysdashboard",
+				"sys-meter-admin",
+				"sys-dashboard",
 			},
 			IsPublic: false,
 		},
@@ -465,8 +465,8 @@ var (
 			DescriptionCN: "域财务管理员",
 			Description:   "Domain finance administrator",
 			Policies: []string{
-				"domainmeteradmin",
-				"domaindashboard",
+				"domain-meter-admin",
+				"domain-dashboard",
 			},
 			IsPublic: true,
 		},
@@ -475,8 +475,8 @@ var (
 			DescriptionCN: "项目财务管理员",
 			Description:   "Project finance administrator",
 			Policies: []string{
-				"projectmeteradmin",
-				"projectdashboard",
+				"project-meter-admin",
+				"project-dashboard",
 			},
 			IsPublic: true,
 		},
@@ -485,8 +485,8 @@ var (
 			DescriptionCN: "项目操作员",
 			Description:   "Project operator",
 			Policies: []string{
-				"projecteditor",
-				"projectdashboard",
+				"project-editor",
+				"project-dashboard",
 			},
 			IsPublic: true,
 		},
@@ -495,8 +495,8 @@ var (
 			DescriptionCN: "项目只读成员",
 			Description:   "Project read-only member",
 			Policies: []string{
-				"projectviewer",
-				"projectdashboard",
+				"project-viewer",
+				"project-dashboard",
 			},
 			IsPublic: true,
 		},
