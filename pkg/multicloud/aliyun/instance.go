@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -527,10 +528,43 @@ func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SMan
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
-	if len(config.InstanceType) > 0 {
-		return self.host.zone.region.ChangeVMConfig2(self.ZoneId, self.InstanceId, config.InstanceType, nil)
+	isDowngrade, isPrepaid := false, self.GetBillingType() == billing_api.BILLING_TYPE_PREPAID
+	if (self.GetVcpuCount() > config.Cpu && config.Cpu > 0) || (self.GetVmemSizeMB() > config.MemoryMB && config.MemoryMB > 0) {
+		isDowngrade = true
 	}
-	return self.host.zone.region.ChangeVMConfig(self.ZoneId, self.InstanceId, config.Cpu, config.MemoryMB, nil)
+
+	instanceTypes := []string{}
+
+	if len(config.InstanceType) > 0 {
+		instanceTypes = []string{config.InstanceType}
+	} else {
+		specs, err := self.host.zone.region.GetMatchInstanceTypes(config.Cpu, config.MemoryMB, 0, self.ZoneId)
+		if err != nil {
+			return errors.Wrapf(err, "GetMatchInstanceTypes")
+		}
+		for _, spec := range specs {
+			instanceTypes = append(instanceTypes, spec.InstanceTypeId)
+		}
+	}
+
+	var err error
+	for _, instanceType := range instanceTypes {
+		if isPrepaid {
+			err = self.host.zone.region.ChangePrepaidVMConfig(self.ZoneId, self.InstanceId, instanceType, isDowngrade)
+			if err != nil {
+				log.Errorf("ChangePrepaidVMConfig %s error: %v", instanceType, err)
+			}
+		} else {
+			err = self.host.zone.region.ChangeVMConfig(self.ZoneId, self.InstanceId, instanceType)
+			if err != nil {
+				log.Errorf("ChangeVMConfig %s error: %v", instanceType, err)
+			}
+		}
+	}
+	if err != nil {
+		return errors.Wrapf(err, "ChangeVMConfig")
+	}
+	return fmt.Errorf("Failed to change vm config, specification not supported")
 }
 
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
@@ -893,38 +927,31 @@ func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd
 	return body.GetString("DiskId")
 }
 
-func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, vmem int, disks []*SDisk) error {
-	// todo: support change disk config?
-	params := make(map[string]string)
-	instanceTypes, e := self.GetMatchInstanceTypes(ncpu, vmem, 0, zoneId)
-	if e != nil {
-		return e
-	}
-
-	for _, instancetype := range instanceTypes {
-		params["InstanceType"] = instancetype.InstanceTypeId
-		params["ClientToken"] = utils.GenRequestId(20)
-		if err := self.instanceOperation(instanceId, "ModifyInstanceSpec", params); err != nil {
-			log.Errorf("Failed for %s: %s", instancetype.InstanceTypeId, err)
-		} else {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("Failed to change vm config, specification not supported")
-}
-
-func (self *SRegion) ChangeVMConfig2(zoneId string, instanceId string, instanceType string, disks []*SDisk) error {
+func (self *SRegion) ChangePrepaidVMConfig(zoneId string, instanceId string, instanceType string, isDowngrade bool) error {
 	// todo: support change disk config?
 	params := make(map[string]string)
 	params["InstanceType"] = instanceType
 	params["ClientToken"] = utils.GenRequestId(20)
-	if err := self.instanceOperation(instanceId, "ModifyInstanceSpec", params); err != nil {
-		log.Errorf("Failed for %s: %s", instanceType, err)
-		return fmt.Errorf("Failed to change vm config, specification not supported")
-	} else {
-		return nil
+	if isDowngrade {
+		params["OperatorType"] = "downgrade"
 	}
+	err := self.instanceOperation(instanceId, "ModifyPrepayInstanceSpec", params)
+	if err != nil {
+		return errors.Wrapf(err, "ModifyPrepayInstanceSpec %s", instanceType)
+	}
+	return nil
+}
+
+func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, instanceType string) error {
+	// todo: support change disk config?
+	params := make(map[string]string)
+	params["InstanceType"] = instanceType
+	params["ClientToken"] = utils.GenRequestId(20)
+	err := self.instanceOperation(instanceId, "ModifyInstanceSpec", params)
+	if err != nil {
+		return errors.Wrapf(err, "ModifyInstanceSpec %s", instanceType)
+	}
+	return nil
 }
 
 func (self *SRegion) DetachDisk(instanceId string, diskId string) error {

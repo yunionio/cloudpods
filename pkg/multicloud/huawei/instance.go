@@ -1296,6 +1296,9 @@ func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, 
 		return err
 	}
 
+	self.ecsClient.Servers.SetVersion("v1.1")
+	defer self.ecsClient.Servers.SetVersion("v1")
+
 	for _, t := range instanceTypes {
 		params := jsonutils.NewDict()
 		resizeObj := jsonutils.NewDict()
@@ -1317,6 +1320,9 @@ func (self *SRegion) ChangeVMConfig2(zoneId string, instanceId string, instanceT
 	resizeObj := jsonutils.NewDict()
 	resizeObj.Add(jsonutils.NewString(instanceType), "flavorRef")
 	params.Add(resizeObj, "resize")
+
+	self.ecsClient.Servers.SetVersion("v1.1")
+	defer self.ecsClient.Servers.SetVersion("v1")
 
 	_, err := self.ecsClient.Servers.PerformAction2("resize", instanceId, params, "")
 	return err
