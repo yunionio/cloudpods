@@ -535,14 +535,33 @@ func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SMan
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
+	instanceTypes := []string{}
 	if len(config.InstanceType) > 0 {
-		return self.ChangeConfig2(ctx, config.InstanceType)
+		instanceTypes = []string{config.InstanceType}
+	} else {
+		specs, err := self.host.zone.region.GetMatchInstanceTypes(config.Cpu, config.MemoryMB, 0, self.Placement.Zone)
+		if err != nil {
+			return errors.Wrapf(err, "GetMatchInstanceTypes")
+		}
+		for _, spec := range specs {
+			instanceTypes = append(instanceTypes, spec.InstanceType)
+		}
 	}
-	return self.host.zone.region.ChangeVMConfig(self.Placement.Zone, self.InstanceId, config.Cpu, config.MemoryMB, nil)
-}
 
-func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
-	return self.host.zone.region.ChangeVMConfig2(self.Placement.Zone, self.InstanceId, instanceType, nil)
+	var err error
+	for _, instanceType := range instanceTypes {
+		err = self.host.zone.region.ChangeVMConfig(self.InstanceId, instanceType)
+		if err != nil {
+			log.Errorf("ChangeConfig for %s with %s error: %v", self.InstanceId, instanceType, err)
+			continue
+		}
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	return fmt.Errorf("Failed to change vm config, specification not supported")
 }
 
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
@@ -863,39 +882,12 @@ func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd
 	return err
 }
 
-func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, vmem int, disks []*SDisk) error {
-	// todo: support change disk config?
-	params := make(map[string]string)
-	instanceTypes, e := self.GetMatchInstanceTypes(ncpu, vmem, 0, zoneId)
-	if e != nil {
-		return e
-	}
-
-	for _, instancetype := range instanceTypes {
-		params["InstanceType"] = instancetype.InstanceType
-		err := self.instanceOperation(instanceId, "ResetInstancesType", params, true)
-		if err != nil {
-			log.Errorf("Failed for %s: %s", instancetype.InstanceType, err)
-		} else {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("Failed to change vm config, specification not supported")
-}
-
-func (self *SRegion) ChangeVMConfig2(zoneId string, instanceId string, instanceType string, disks []*SDisk) error {
-	// todo: support change disk config?
+func (self *SRegion) ChangeVMConfig(instanceId string, instanceType string) error {
 	params := make(map[string]string)
 	params["InstanceType"] = instanceType
 
 	err := self.instanceOperation(instanceId, "ResetInstancesType", params, true)
-	if err != nil {
-		log.Errorf("Failed for %s: %s", instanceType, err)
-		return fmt.Errorf("Failed to change vm config, specification not supported")
-	}
-
-	return nil
+	return errors.Wrapf(err, "ResetInstancesType %s", instanceType)
 }
 
 func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
