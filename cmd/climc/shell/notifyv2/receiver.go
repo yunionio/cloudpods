@@ -32,4 +32,5 @@ func init() {
 	cmd.Perform("trigger-verify", new(options.ReceiverTriggerVerifyOptions))
 	cmd.Perform("verify", new(options.ReceiverVerifyOptions))
 	cmd.PerformClass("intellij-get", new(options.ReceiverIntellijGetOptions))
+	cmd.PerformClass("get-types", new(options.ReceiverGetTypeOptions))
 }

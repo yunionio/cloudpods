@@ -26,8 +26,10 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/notify"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -40,6 +42,7 @@ import (
 
 type SConfigManager struct {
 	db.SStandaloneResourceBaseManager
+	db.SDomainizedResourceBaseManager
 }
 
 var ConfigManager *SConfigManager
@@ -58,9 +61,11 @@ func init() {
 
 type SConfig struct {
 	db.SStandaloneResourceBase
+	db.SDomainizedResourceBase
 
-	Type    string               `width:"15" nullable:"false" create:"required" get:"admin" list:"admin"`
-	Content jsonutils.JSONObject `nullable:"false" create:"required" update:"admin" get:"admin" list:"admin"`
+	Type        string               `width:"15" nullable:"false" create:"required" get:"domain" list:"domain"`
+	Content     jsonutils.JSONObject `nullable:"false" create:"required" update:"domain" get:"domain" list:"domain"`
+	Attribution string               `width:"8" nullable:"false" default:"system" get:"domain" list:"domain"`
 }
 
 func (cm *SConfigManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ConfigCreateInput) (api.ConfigCreateInput, error) {
@@ -69,13 +74,29 @@ func (cm *SConfigManager) ValidateCreateData(ctx context.Context, userCred mccli
 	if err != nil {
 		return input, err
 	}
-	if !utils.IsInStringArray(input.Type, []string{api.EMAIL, api.MOBILE, api.DINGTALK, api.FEISHU, api.WEBCONSOLE, api.WORKWX, api.FEISHU_ROBOT, api.DINGTALK_ROBOT, api.WORKWX_ROBOT, api.WEBHOOK}) {
+	log.Infof("input: %s", jsonutils.Marshal(input))
+	if len(input.ProjectDomainId) > 0 {
+		_, input.DomainizedResourceInput, err = db.ValidateDomainizedResourceInput(ctx, input.DomainizedResourceInput)
+		if err != nil {
+			return input, err
+		}
+	}
+	if !utils.IsInStringArray(input.Type, []string{api.EMAIL, api.MOBILE, api.DINGTALK, api.FEISHU, api.WEBCONSOLE, api.WORKWX}) {
 		return input, httperrors.NewInputParameterError("unkown type %q", input.Type)
+	}
+	if !utils.IsInStringArray(input.Attribution, []string{api.CONFIG_ATTRIBUTION_SYSTEM, api.CONFIG_ATTRIBUTION_DOMAIN}) {
+		return input, httperrors.NewInputParameterError("invalid attribution, need %q or %q", api.CONFIG_ATTRIBUTION_SYSTEM, api.CONFIG_ATTRIBUTION_DOMAIN)
+	}
+	if input.Attribution == api.CONFIG_ATTRIBUTION_SYSTEM {
+		allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), ConfigManager.KeywordPlural(), policy.PolicyActionCreate)
+		if allowScope != rbacutils.ScopeSystem {
+			return input, httperrors.NewInputParameterError("No permission to set %q attribution", api.CONFIG_ATTRIBUTION_SYSTEM)
+		}
 	}
 	if input.Content == nil {
 		return input, httperrors.NewMissingParameterError("content")
 	}
-	config, err := cm.GetConfigByType(input.Type)
+	config, err := cm.Config(input.Type, input.ProjectDomainId)
 	if err == nil && config != nil {
 		return input, httperrors.NewDuplicateResourceError("duplicate type %q", input.Type)
 	}
@@ -104,6 +125,21 @@ func (cm *SConfigManager) ValidateCreateData(ctx context.Context, userCred mccli
 	return input, nil
 }
 
+func (c *SConfig) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	err := c.SStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	if err != nil {
+		return err
+	}
+	if c.Attribution == api.CONFIG_ATTRIBUTION_DOMAIN || c.Attribution == "" {
+		c.Attribution = api.CONFIG_ATTRIBUTION_DOMAIN
+		c.DomainId, _ = data.GetString("project_domain_id")
+		if c.DomainId == "" {
+			c.DomainId = userCred.GetProjectDomainId()
+		}
+	}
+	return nil
+}
+
 func (c *SConfig) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ConfigUpdateInput) (api.ConfigUpdateInput, error) {
 	// validate
 	configs := make(map[string]string)
@@ -129,7 +165,18 @@ func (c *SConfig) ValidateUpdateData(ctx context.Context, userCred mcclient.Toke
 }
 
 func (c *SConfig) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	err := c.StartRepullSubcontactTask(ctx, userCred)
+	c.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	configMap := make(map[string]string)
+	err := c.Content.Unmarshal(&configMap)
+	if err != nil {
+		log.Errorf("unable to unmarshal: %v", err)
+		return
+	}
+	NotifyService.AddConfig(ctx, c.Type, notifyv2.SConfig{
+		Config:   configMap,
+		DomainId: c.DomainId,
+	})
+	err = c.StartRepullSubcontactTask(ctx, userCred)
 	if err != nil {
 		log.Errorf("unable to StartRepullSubcontactTask: %v", err)
 	}
@@ -143,8 +190,22 @@ func (c *SConfig) PostUpdate(ctx context.Context, userCred mcclient.TokenCredent
 		log.Errorf("unable to unmarshal: %v", err)
 		return
 	}
-	NotifyService.RestartService(ctx, configMap, c.Type)
+	NotifyService.UpdateConfig(ctx, c.Type, notifyv2.SConfig{
+		Config:   configMap,
+		DomainId: c.DomainId,
+	})
 	err = c.StartRepullSubcontactTask(ctx, userCred)
+	if err != nil {
+		log.Errorf("unable to StartRepullSubcontactTask: %v", err)
+	}
+}
+
+func (c *SConfig) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	c.SStandaloneResourceBase.PreDelete(ctx, userCred)
+	NotifyService.DeleteConfig(ctx, c.Type, c.DomainId)
+}
+func (c *SConfig) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	err := c.StartRepullSubcontactTask(ctx, userCred)
 	if err != nil {
 		log.Errorf("unable to StartRepullSubcontactTask: %v", err)
 	}
@@ -159,19 +220,8 @@ func (c *SConfig) StartRepullSubcontactTask(ctx context.Context, userCred mcclie
 	return nil
 }
 
-func (cm *SConfigManager) filterContactType(cTypes []string, robot string) []string {
-	switch robot {
-	case api.CTYPE_ROBOT_ONLY:
-		return intersection(cTypes, RobotContactTypes)
-	case api.CTYPE_ROBOT_YES:
-		return cTypes
-	default:
-		return difference(cTypes, RobotContactTypes)
-	}
-}
-
 var sortedCTypes = []string{
-	api.WEBCONSOLE, api.EMAIL, api.MOBILE, api.DINGTALK, api.FEISHU, api.WORKWX, api.DINGTALK_ROBOT, api.FEISHU_ROBOT, api.WORKWX_ROBOT,
+	api.WEBCONSOLE, api.EMAIL, api.MOBILE, api.DINGTALK, api.FEISHU, api.WORKWX,
 }
 
 func sortContactType(ctypes []string) []string {
@@ -183,6 +233,25 @@ func sortContactType(ctypes []string) []string {
 		}
 	}
 	return ret
+}
+
+func (cm *SConfigManager) availableContactTypes(domainId string) ([]string, error) {
+	q := cm.Query("type")
+	q = q.Filter(sqlchemy.OR(sqlchemy.AND(sqlchemy.Equals(q.Field("attribution"), api.CONFIG_ATTRIBUTION_DOMAIN), sqlchemy.Equals(q.Field("domain_id"), domainId)), sqlchemy.Equals(q.Field("attribution"), api.CONFIG_ATTRIBUTION_SYSTEM)))
+
+	allTypes := make([]struct {
+		Type string
+	}, 0, 3)
+	err := q.All(&allTypes)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]string, len(allTypes))
+	for i := range ret {
+		ret[i] = allTypes[i].Type
+	}
+	// De-duplication
+	return sets.NewString(ret...).UnsortedList(), nil
 }
 
 func (cm *SConfigManager) allContactType() ([]string, error) {
@@ -206,10 +275,18 @@ func (self *SConfigManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 	if err != nil {
 		return nil, err
 	}
+	q, err = self.SDomainizedResourceBaseManager.ListItemFilter(ctx, q, userCred, input.DomainizedResourceListInput)
+	if err != nil {
+		return nil, err
+	}
 	q = q.NotEquals("type", api.WEBCONSOLE)
 	if len(input.Type) > 0 {
 		q.Filter(sqlchemy.Equals(q.Field("type"), input.Type))
 	}
+	if len(input.Attribution) > 0 {
+		q = q.Equals("attribution", input.Attribution)
+	}
+
 	return q, nil
 }
 
@@ -226,9 +303,11 @@ func (cm *SConfigManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.ConfigDetails {
 	sRows := cm.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	dRows := cm.SDomainizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	rows := make([]api.ConfigDetails, len(objs))
 	for i := range rows {
 		rows[i].StandaloneResourceDetails = sRows[i]
+		rows[i].DomainizedResourceInfo = dRows[i]
 	}
 	return rows
 }
@@ -238,11 +317,19 @@ func (cm *SConfigManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field stri
 	if err != nil {
 		return q, nil
 	}
+	q, err = cm.SDomainizedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err != nil {
+		return q, nil
+	}
 	return q, nil
 }
 
 func (cm *SConfigManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ConfigListInput) (*sqlchemy.SQuery, error) {
 	q, err := cm.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, err
+	}
+	q, err = cm.SDomainizedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.DomainizedResourceListInput)
 	if err != nil {
 		return nil, err
 	}
@@ -378,7 +465,18 @@ func (self *SConfigManager) InitializeData() error {
 }
 
 func (cm *SConfigManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeSystem
+	return rbacutils.ScopeDomain
+}
+
+func (cm *SConfigManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	switch scope {
+	case rbacutils.ScopeDomain, rbacutils.ScopeProject:
+		q = q.Equals("attribution", api.CONFIG_ATTRIBUTION_DOMAIN)
+		if owner != nil {
+			q = q.Equals("domain_id", owner.GetProjectDomainId())
+		}
+	}
+	return q
 }
 
 func (cm *SConfigManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -398,35 +496,113 @@ func (c *SConfig) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCr
 }
 
 // Fetch all SConfig struct which type is contactType.
-func (self *SConfigManager) GetConfigByType(contactType string) (*SConfig, error) {
-	var config SConfig
+func (self *SConfigManager) Configs(contactType string) ([]SConfig, error) {
+	var configs = make([]SConfig, 0, 2)
 	q := self.Query()
 	q.Filter(sqlchemy.Equals(q.Field("type"), contactType))
+	err := q.All(&configs)
+	if err != nil {
+		return nil, errors.Wrapf(err, "fail to fetch SConfigs by type %s", contactType)
+	}
+	return configs, nil
+}
+
+func (self *SConfigManager) Config(contactType, domainId string) (*SConfig, error) {
+	q := self.Query()
+	q = q.Equals("type", contactType)
+	if len(domainId) == 0 {
+		q = q.Equals("attribution", api.CONFIG_ATTRIBUTION_SYSTEM)
+	} else {
+		q = q.Equals("domain_id", domainId).Equals("attribution", api.CONFIG_ATTRIBUTION_DOMAIN)
+	}
+	var config SConfig
 	err := q.First(&config)
 	if err != nil {
-		return nil, errors.Wrap(err, "fail to fetch SConfigs by type")
+		return nil, errors.Wrapf(err, "fail to fetch SConfig by type %s and domain %s", contactType, domainId)
 	}
 	return &config, nil
 }
 
-func (self *SConfigManager) GetConfig(contactType string) (notifyv2.SConfig, error) {
-	config, err := self.GetConfigByType(contactType)
+func (self *SConfigManager) HasSystemConfig(contactType string) (bool, error) {
+	q := self.Query().Equals("type", contactType).Equals("attribution", "system")
+	c, err := q.CountWithError()
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-	ret := make(map[string]string)
-	err = config.Content.Unmarshal(&ret)
+	return c > 0, nil
+}
+
+func (self *SConfigManager) BatchCheckConfig(contactType string, domainIds []string) ([]bool, error) {
+	domainIdSet := sets.NewString(domainIds...)
+	var configs = make([]SConfig, 0, 2)
+	q := self.Query().Equals("type", contactType).Equals("attribution", "domain").In("domain_id", domainIdSet.UnsortedList())
+	err := q.All(&configs)
 	if err != nil {
-		return nil, errors.Wrap(err, "fail unmarshal config content")
+		return nil, errors.Wrapf(err, "fail to fetch SConfigs by type %s", contactType)
+	}
+	for i := range configs {
+		if domainIdSet.Has(configs[i].DomainId) {
+			domainIdSet.Delete(configs[i].DomainId)
+		}
+	}
+	ret := make([]bool, len(domainIds))
+	for i := range domainIds {
+		if domainIdSet.Has(domainIds[i]) {
+			// no config of domainId, use default one
+			ret[i] = false
+		}
+		ret[i] = true
 	}
 	return ret, nil
 }
 
+func (self *SConfigManager) GetConfigs(contactType string) ([]notifyv2.SConfig, error) {
+	configs, err := self.Configs(contactType)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]notifyv2.SConfig, 0, len(configs))
+	for i := range configs {
+		c := make(map[string]string)
+		err := configs[i].Content.Unmarshal(&c)
+		if err != nil {
+			return nil, errors.Wrap(err, "fail unmarshal config content")
+		}
+		ret = append(ret, notifyv2.SConfig{
+			Config:   c,
+			DomainId: configs[i].DomainId,
+		})
+	}
+	return ret, nil
+}
+
+func (self *SConfigManager) GetConfig(contactType, domainId string) (notifyv2.SConfig, error) {
+	config, err := self.Config(contactType, domainId)
+	if err != nil {
+		return notifyv2.SConfig{}, err
+	}
+	ret := make(map[string]string)
+	err = config.Content.Unmarshal(&ret)
+	if err != nil {
+		return notifyv2.SConfig{}, errors.Wrap(err, "fail unmarshal config content")
+	}
+	return notifyv2.SConfig{
+		Config:   ret,
+		DomainId: config.DomainId,
+	}, nil
+}
+
 func (self *SConfigManager) SetConfig(contactType string, config notifyv2.SConfig) error {
-	content := jsonutils.Marshal(config)
+	content := jsonutils.Marshal(config.Config)
 	sConfig := &SConfig{
 		Type:    contactType,
 		Content: content,
+	}
+	sConfig.DomainId = config.DomainId
+	if sConfig.DomainId == "" {
+		sConfig.Attribution = api.CONFIG_ATTRIBUTION_SYSTEM
+	} else {
+		sConfig.Attribution = api.CONFIG_ATTRIBUTION_DOMAIN
 	}
 	return self.TableSpec().InsertOrUpdate(context.Background(), sConfig)
 }

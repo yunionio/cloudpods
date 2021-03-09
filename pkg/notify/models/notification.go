@@ -80,25 +80,44 @@ const (
 )
 
 func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.NotificationCreateInput) (api.NotificationCreateInput, error) {
-	if len(input.Tag) == 0 && utils.IsInStringArray(input.Tag, []string{api.NOTIFICATION_TAG_ALERT}) {
+	if len(input.Tag) > 0 && !utils.IsInStringArray(input.Tag, []string{api.NOTIFICATION_TAG_ALERT}) {
 		return input, httperrors.NewInputParameterError("invalid tag")
 	}
-	if len(input.Receivers) == 0 {
+	if len(input.Contacts) > 0 {
 		if !userCred.IsAllow(rbacutils.ScopeSystem, api.SERVICE_TYPE, nm.KeywordPlural(), policy.PolicyActionPerform, SendByContact) {
-			return input, httperrors.NewForbiddenError("can't send notification by contact, need receiver")
+			return input, httperrors.NewForbiddenError("only admin can send notification by contact")
 		}
 		if len(input.Contacts) == 0 {
 			input.Contacts = []string{""}
 		}
 	}
+	log.Infof("notify input: %s", jsonutils.Marshal(input))
 
-	// check contact type enabled
-	allContactType, err := ConfigManager.allContactType()
-	if err != nil {
-		return input, err
-	}
-	if !utils.IsInStringArray(input.ContactType, allContactType) {
-		return input, httperrors.NewInputParameterError("Unconfigured contact type %q", input.ContactType)
+	// check robot
+	if len(input.Robots) > 0 {
+		input.ContactType = api.ROBOT
+		robots, err := RobotManager.FetchByIdOrNames(ctx, input.Robots...)
+		if err != nil {
+			return input, errors.Wrap(err, "RobotManager.FetchByIdOrNames")
+		}
+		idSet := sets.NewString()
+		nameSet := sets.NewString()
+		for i := range robots {
+			idSet.Insert(robots[i].Id)
+			nameSet.Insert(robots[i].Name)
+		}
+		for _, re := range input.Receivers {
+			if idSet.Has(re) || nameSet.Has(re) {
+				continue
+			}
+			if !input.IgnoreNonexistentReceiver {
+				return input, httperrors.NewInputParameterError("no such robot whose id is %q", re)
+			}
+		}
+		input.Robots = idSet.UnsortedList()
+		if len(input.Robots) == 0 {
+			return input, httperrors.NewInputParameterError("no valid receiver or contact")
+		}
 	}
 	// check receivers
 	if len(input.Receivers) > 0 {
@@ -138,10 +157,12 @@ func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred
 		length = len(input.Topic)
 	}
 	name := fmt.Sprintf("%s-%s-%s", input.Topic[:length], input.ContactType, nowStr)
+	var err error
 	input.Name, err = db.GenerateName(ctx, nm, ownerId, name)
 	if err != nil {
 		return input, errors.Wrapf(err, "unable to generate name for %s", name)
 	}
+	log.Infof("after validatecreate input: %s", jsonutils.Marshal(input))
 	return input, nil
 }
 
@@ -160,9 +181,15 @@ func (n *SNotification) CustomizeCreate(ctx context.Context, userCred mcclient.T
 		}
 	}
 	for i := range input.Contacts {
-		_, err := ReceiverNotificationManager.CreateWithoutReceiver(ctx, userCred, input.Contacts[i], n.Id)
+		_, err := ReceiverNotificationManager.CreateContact(ctx, userCred, input.Contacts[i], n.Id)
 		if err != nil {
-			return errors.Wrap(err, "ReceiverNotificationManager.Create")
+			return errors.Wrap(err, "ReceiverNotificationManager.CreateContact")
+		}
+	}
+	for i := range input.Robots {
+		_, err := ReceiverNotificationManager.CreateRobot(ctx, userCred, input.Robots[i], n.Id)
+		if err != nil {
+			return errors.Wrap(err, "ReceiverNotificationManager.CreateRobot")
 		}
 	}
 	return nil
@@ -345,7 +372,7 @@ func (nm *SNotificationManager) create(ctx context.Context, userCred mcclient.To
 		}
 	}
 	for i := range contacts {
-		_, err := ReceiverNotificationManager.CreateWithoutReceiver(ctx, userCred, contacts[i], n.Id)
+		_, err := ReceiverNotificationManager.CreateContact(ctx, userCred, contacts[i], n.Id)
 		if err != nil {
 			return errors.Wrap(err, "ReceiverNotificationManager.Create")
 		}

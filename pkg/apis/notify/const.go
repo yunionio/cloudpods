@@ -70,6 +70,20 @@ const (
 	CTYPE_ROBOT_YES  = "yes"
 	CTYPE_ROBOT_ONLY = "only"
 
+	CONFIG_ATTRIBUTION_SYSTEM = "system"
+	CONFIG_ATTRIBUTION_DOMAIN = "domain"
+
+	ROBOT_TYPE_FEISHU   = "feishu"
+	ROBOT_TYPE_DINGTALK = "dingtalk"
+	ROBOT_TYPE_WORKWX   = "workwx"
+	ROBOT_TYPE_WEBHOOK  = "webhook"
+
+	ROBOT_STATUS_READY = "ready"
+
+	RECEIVER_TYPE_USER    = "user"
+	RECEIVER_TYPE_CONTACT = "contact"
+	RECEIVER_TYPE_ROBOT   = "robot"
+
 	SUBSCRIPTION_RESOURCE_CREATE_DELETE      = "resource create delete"
 	SUBSCRIPTION_RESOURCE_CHANGECONFIG       = "resource change config"
 	SUBSCRIPTION_RESOURCE_UPDATE             = "resource udpate"

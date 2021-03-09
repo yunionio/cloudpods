@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/notify/models"
+    "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -61,6 +62,13 @@ func (self *RepullSuncontactTask) OnInit(ctx context.Context, obj db.IStandalone
 	}
 	subq := models.SubContactManager.Query("receiver_id").Equals("type", config.Type).SubQuery()
 	q := models.ReceiverManager.Query()
+    if config.Attribution == notify.CONFIG_ATTRIBUTION_DOMAIN {
+        q = q.Equals("domain_id", config.DomainId)
+    } else {
+        // The system-level config update should not affect the receiver under the domain with config
+        configq := models.ConfigManager.Query("domain_id").Equals("attribution", notify.CONFIG_ATTRIBUTION_DOMAIN).SubQuery()
+        q = q.Join(configq, sqlchemy.NotEquals(q.Field("domain_id"), configq.Field("domain_id")))
+    }
 	q.Join(subq, sqlchemy.Equals(q.Field("id"), subq.Field("receiver_id")))
 	rs := make([]models.SReceiver, 0)
 	err := db.FetchModelObjects(models.ReceiverManager, q, &rs)

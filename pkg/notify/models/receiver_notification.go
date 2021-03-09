@@ -43,6 +43,7 @@ type SReceiverNotification struct {
 	NotificationID string `width:"128" charset:"ascii" nullable:"false" index:"true"`
 	// ignore if ReceiverID is not empty or default
 	Contact      string    `width:"128" nullable:"false" index:"true"`
+	ReceiverType string    `width:"16"`
 	SendAt       time.Time `nullable:"false"`
 	SendBy       string    `width:"128" nullable:"false"`
 	Status       string    `width:"36" charset:"ascii"`
@@ -57,6 +58,18 @@ func (rnm *SReceiverNotificationManager) Create(ctx context.Context, userCred mc
 	rn := &SReceiverNotification{
 		ReceiverID:     receiverID,
 		NotificationID: notificationID,
+		ReceiverType:   api.RECEIVER_TYPE_USER,
+		Status:         api.RECEIVER_NOTIFICATION_RECEIVED,
+		SendBy:         userCred.GetUserId(),
+	}
+	return rn, rnm.TableSpec().Insert(ctx, rn)
+}
+
+func (rnm *SReceiverNotificationManager) CreateRobot(ctx context.Context, userCred mcclient.TokenCredential, RobotID, notificationID string) (*SReceiverNotification, error) {
+	rn := &SReceiverNotification{
+		ReceiverID:     RobotID,
+		NotificationID: notificationID,
+		ReceiverType:   api.RECEIVER_TYPE_ROBOT,
 		Status:         api.RECEIVER_NOTIFICATION_RECEIVED,
 		SendBy:         userCred.GetUserId(),
 	}
@@ -71,10 +84,10 @@ func (rnm *SReceiverNotificationManager) GetSlaveFieldName() string {
 	return "receiver_id"
 }
 
-func (rnm *SReceiverNotificationManager) CreateWithoutReceiver(ctx context.Context, userCred mcclient.TokenCredential, contact, notificationID string) (*SReceiverNotification, error) {
+func (rnm *SReceiverNotificationManager) CreateContact(ctx context.Context, userCred mcclient.TokenCredential, contact, notificationID string) (*SReceiverNotification, error) {
 	rn := &SReceiverNotification{
 		NotificationID: notificationID,
-		ReceiverID:     ReceiverIdDefault,
+		ReceiverType:   api.RECEIVER_TYPE_CONTACT,
 		Contact:        contact,
 		Status:         api.RECEIVER_NOTIFICATION_RECEIVED,
 		SendBy:         userCred.GetUserId(),
@@ -82,7 +95,18 @@ func (rnm *SReceiverNotificationManager) CreateWithoutReceiver(ctx context.Conte
 	return rn, rnm.TableSpec().Insert(ctx, rn)
 }
 
-func (rn *SReceiverNotification) Receiver() (*SReceiver, error) {
+// func (rn *SReceiverNotification) Receiver() (*SReceiver, error) {
+// 	q := ReceiverManager.Query().Equals("id", rn.ReceiverID)
+// 	var receiver SReceiver
+// 	err := q.First(&receiver)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	receiver.SetModelManager(ReceiverManager, &receiver)
+// 	return &receiver, nil
+// }
+
+func (rn *SReceiverNotification) receiver() (*SReceiver, error) {
 	q := ReceiverManager.Query().Equals("id", rn.ReceiverID)
 	var receiver SReceiver
 	err := q.First(&receiver)
@@ -91,6 +115,34 @@ func (rn *SReceiverNotification) Receiver() (*SReceiver, error) {
 	}
 	receiver.SetModelManager(ReceiverManager, &receiver)
 	return &receiver, nil
+}
+
+func (rn *SReceiverNotification) robot() (*SRobot, error) {
+    q := RobotManager.Query().Equals("id", rn.ReceiverID)
+    var robot SRobot
+    err := q.First(&robot)
+    if err != nil {
+        return nil, err
+    }
+    robot.SetModelManager(RobotManager, &robot)
+    return &robot, nil
+}
+
+func (rn *SReceiverNotification) Receiver() (IReceiver, error) {
+	switch rn.ReceiverType {
+	case api.RECEIVER_TYPE_USER:
+        return rn.receiver()
+	case api.RECEIVER_TYPE_CONTACT:
+		return &SContact{contact: rn.Contact}, nil
+	case api.RECEIVER_TYPE_ROBOT:
+        return rn.robot()
+	default:
+		// compatible
+        if rn.ReceiverID != "" && rn.ReceiverID != ReceiverIdDefault {
+            return rn.receiver()
+        }
+        return &SContact{contact: rn.Contact}, nil
+	}
 }
 
 func (rn *SReceiverNotification) BeforeSend(ctx context.Context, sendTime time.Time) error {
@@ -116,4 +168,45 @@ func (rn *SReceiverNotification) AfterSend(ctx context.Context, success bool, re
 		return nil
 	})
 	return err
+}
+
+type IReceiver interface {
+	IsEnabled() bool
+    GetDomainId() string
+	IsEnabledContactType(string) (bool, error)
+	IsVerifiedContactType(string) (bool, error)
+	GetContact(string) (string, error)
+	GetTemplateLang(context.Context) (string, error)
+}
+
+type SReceiverBase struct {
+}
+
+func (s SReceiverBase) IsEnabled() bool {
+	return true
+}
+
+func (s SReceiverBase) GetDomainId() string {
+    return ""
+}
+
+func (s SReceiverBase) IsEnabledContactType(_ string) (bool, error) {
+	return true, nil
+}
+
+func (s SReceiverBase) IsVerifiedContactType(_ string) (bool, error) {
+	return true, nil
+}
+
+func (s SReceiverBase) GetTemplateLang(ctx context.Context) (string, error) {
+	return "", nil
+}
+
+type SContact struct {
+	SReceiverBase
+	contact string
+}
+
+func (s *SContact) GetContact(_ string) (string, error) {
+	return s.contact, nil
 }

@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	notifyv2 "yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/models"
+	"yunion.io/x/onecloud/pkg/notify/rpc/apis"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -81,7 +82,10 @@ func (self *VerificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		self.taskFailed(ctx, receiver, err.Error())
 		return
 	}
-	param.Contact = contact
+    param.Receiver = &apis.SReceiver{
+    	Contact:              contact,
+    	DomainId:             receiver.DomainId,
+    }
 	err = models.NotifyService.Send(ctx, contactType, param)
 	if err != nil {
 		self.taskFailed(ctx, receiver, err.Error())

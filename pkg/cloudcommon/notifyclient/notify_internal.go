@@ -57,13 +57,12 @@ func systemNotify(ctx context.Context, priority npk.TNotifyPriority, event strin
 	notify(ctx, notifyAdminGroups, true, priority, event, data)
 }
 
-func notifyRobot(ctx context.Context, robot string, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
+func notifyAll(ctx context.Context, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
 	s, err := AdminSessionGenerator(ctx, consts.GetRegion(), "")
 	if err != nil {
 		return err
 	}
 	params := jsonutils.NewDict()
-	params.Set("robot", jsonutils.NewString(robot))
 	result, err := modules.NotifyReceiver.PerformClassAction(s, "get-types", params)
 	if err != nil {
 		return err
@@ -85,6 +84,30 @@ func notifyRobot(ctx context.Context, robot string, recipientId []string, isGrou
 type sTarget struct {
 	reIds    []string
 	contacts []string
+	robots   []string
+}
+
+func langRobot(ctx context.Context, robots []string) (map[language.Tag]*sTarget, error) {
+	contextLang := i18n.Lang(ctx)
+	robotLang, err := getRobotLang(robots)
+	if err != nil {
+		return nil, err
+	}
+	ret := make(map[language.Tag]*sTarget)
+	for robot, langStr := range robotLang {
+		lang, err := language.Parse(langStr)
+		if err != nil {
+			log.Errorf("can't parse %s to language.Tag: %v", langStr, err)
+			lang = contextLang
+		}
+		t := ret[lang]
+		if t == nil {
+			ret[lang] = &sTarget{}
+			t = ret[lang]
+		}
+		t.robots = append(t.robots, robot)
+	}
+	return ret, nil
 }
 
 func lang(ctx context.Context, contactType npk.TNotifyChannel, reIds []string, contacts []string) (map[language.Tag]*sTarget, error) {
@@ -175,6 +198,7 @@ func genMsgViaLang(ctx context.Context, p sNotifyParams) ([]npk.SNotifyMessage, 
 		msg := npk.SNotifyMessage{}
 		msg.Uid = reIds
 		msg.Priority = p.priority
+		msg.Robots = p.robots
 		msg.Contacts = p.contacts
 		msg.ContactType = p.channel
 		msg.Topic = p.event
@@ -185,9 +209,15 @@ func genMsgViaLang(ctx context.Context, p sNotifyParams) ([]npk.SNotifyMessage, 
 		return []npk.SNotifyMessage{msg}, nil
 	}
 
-	langMap, err := lang(ctx, p.channel, reIds, p.contacts)
-	if err != nil {
-		return nil, err
+	var langMap map[language.Tag]*sTarget
+
+	if p.channel == npk.NotifyByRobot {
+        langMap, err = langRobot(ctx, p.robots)
+	} else {
+		langMap, err = lang(ctx, p.channel, reIds, p.contacts)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	msgs := make([]npk.SNotifyMessage, 0, len(langMap))
@@ -196,6 +226,7 @@ func genMsgViaLang(ctx context.Context, p sNotifyParams) ([]npk.SNotifyMessage, 
 		msg := npk.SNotifyMessage{}
 		msg.Uid = t.reIds
 		msg.Priority = p.priority
+        msg.Robots = p.robots
 		msg.Contacts = t.contacts
 		msg.ContactType = p.channel
 		topic, _ := getContent(langSuffix, p.event, "title", p.channel, p.data)
@@ -218,6 +249,7 @@ func genMsgViaLang(ctx context.Context, p sNotifyParams) ([]npk.SNotifyMessage, 
 
 type sNotifyParams struct {
 	recipientId               []string
+	robots                    []string
 	isGroup                   bool
 	contacts                  []string
 	channel                   npk.TNotifyChannel

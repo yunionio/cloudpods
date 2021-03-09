@@ -64,6 +64,29 @@ func getUserLang(uids []string) (map[string]string, error) {
 	return uidLang, nil
 }
 
+func getRobotLang(robots []string) (map[string]string, error) {
+    s, err := AdminSessionGenerator(context.Background(), consts.GetRegion(), "")
+    if err != nil {
+        return nil, err
+    }
+    robotLang := make(map[string]string)
+    if len(robots) > 0 {
+        params := jsonutils.NewDict()
+		params.Set("filter", jsonutils.NewString(fmt.Sprintf("id.in(%s)", strings.Join(robots, ","))))
+		params.Set("scope", jsonutils.NewString("system"))
+        ret, err := modules.NotifyRobot.List(s, params)
+        if err != nil {
+            return nil, err
+        }
+        for i := range ret.Data {
+            id, _ := ret.Data[i].GetString("id")
+            langStr, _ := ret.Data[i].GetString("lang")
+            robotLang[id] = langStr
+        }
+    }
+    return robotLang, nil
+}
+
 func init() {
 	templatesTableLock = &sync.Mutex{}
 	templatesTable = make(map[string]*template.Template)

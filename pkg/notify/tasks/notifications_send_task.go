@@ -37,6 +37,16 @@ func (self *NotificationSendTask) taskFailed(ctx context.Context, notification *
 	self.SetStageFailed(ctx, jsonutils.NewString(reason))
 }
 
+type DomainContact struct {
+	DomainId string
+	Contact  string
+}
+
+type ReceiverSpec struct {
+	receiver     models.IReceiver
+	rNotificaion *models.SReceiverNotification
+}
+
 func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	notification := obj.(*models.SNotification)
 	if notification.Status == apis.NOTIFICATION_STATUS_OK {
@@ -50,20 +60,6 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 	}
 	notification.SetStatus(self.UserCred, apis.NOTIFICATION_STATUS_SENDING, "")
 
-	// split rns
-	var (
-		rnsWithReceiver    []*models.SReceiverNotification
-		rnsWithoutReceiver []*models.SReceiverNotification
-	)
-
-	for i := range rns {
-		if rns[i].ReceiverID == models.ReceiverIdDefault {
-			rnsWithoutReceiver = append(rnsWithoutReceiver, &rns[i])
-		} else {
-			rnsWithReceiver = append(rnsWithReceiver, &rns[i])
-		}
-	}
-
 	failedRecord := make([]string, 0)
 	sendFail := func(rn *models.SReceiverNotification, reason string) {
 		rn.AfterSend(ctx, false, reason)
@@ -71,79 +67,80 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 	}
 
 	// build contactMap
-	contactMap := make(map[string]*models.SReceiverNotification)
-	contactMapEn := make(map[string]*models.SReceiverNotification)
-	contactmapCn := make(map[string]*models.SReceiverNotification)
-	for i := range rnsWithReceiver {
-		if len(rnsWithReceiver[i].ReceiverID) == 0 {
-			contactMap[rnsWithReceiver[i].Contact] = rnsWithReceiver[i]
-			continue
-		}
-		receiver, err := rnsWithReceiver[i].Receiver()
+	receivers := make([]ReceiverSpec, 0, 0)
+	receiversEn := make([]ReceiverSpec, 0, len(rns)/2)
+	receiversCn := make([]ReceiverSpec, 0, len(rns)/2)
+	for i := range rns {
+		receiver, err := rns[i].Receiver()
 		if err != nil {
-			sendFail(rnsWithReceiver[i], fmt.Sprintf("fail to fetch Receiver: %s", err.Error()))
+			sendFail(&rns[i], fmt.Sprintf("fail to fetch Receiver: %s", err.Error()))
 			continue
 		}
 		// check receiver enabled
-		if receiver.Enabled.IsFalse() {
-			sendFail(rnsWithReceiver[i], fmt.Sprintf("disabled receiver"))
+		if !receiver.IsEnabled() {
+			sendFail(&rns[i], fmt.Sprintf("disabled receiver"))
 			continue
 		}
 		// check contact enabled
 		enabled, err := receiver.IsEnabledContactType(notification.ContactType)
 		if err != nil {
-			sendFail(rnsWithReceiver[i], fmt.Sprintf("IsEnabledContactType error for receiver: %s", err.Error()))
+			sendFail(&rns[i], fmt.Sprintf("IsEnabledContactType error for receiver: %s", err.Error()))
 			continue
 		}
 		if !enabled {
-			sendFail(rnsWithReceiver[i], fmt.Sprintf("disabled contactType %q", notification.ContactType))
+			sendFail(&rns[i], fmt.Sprintf("disabled contactType %q", notification.ContactType))
 			continue
 		}
 
 		// check contact verified
 		verified, err := receiver.IsVerifiedContactType(notification.ContactType)
 		if err != nil {
-			sendFail(rnsWithReceiver[i], fmt.Sprintf("IsVerifiedContactType error for receiver: %s", err.Error()))
+			sendFail(&rns[i], fmt.Sprintf("IsVerifiedContactType error for receiver: %s", err.Error()))
 			continue
 		}
 		if !verified {
-			sendFail(rnsWithReceiver[i], fmt.Sprintf("unverified contactType %q", notification.ContactType))
+			sendFail(&rns[i], fmt.Sprintf("unverified contactType %q", notification.ContactType))
 			continue
 		}
 
-		contact, err := receiver.GetContact(notification.ContactType)
-		if err != nil {
-			reason := fmt.Sprintf("fail to fetch contact: %s", err.Error())
-			sendFail(rnsWithReceiver[i], reason)
-			continue
-		}
+		// contact, err := receiver.GetContact(notification.ContactType)
+		// if err != nil {
+		// 	reason := fmt.Sprintf("fail to fetch contact: %s", err.Error())
+		// 	sendFail(&rns[i], reason)
+		// 	continue
+		// }
 		lang, err := receiver.GetTemplateLang(ctx)
 		if err != nil {
 			reason := fmt.Sprintf("fail to GetTemplateLang: %s", err.Error())
-			sendFail(rnsWithReceiver[i], reason)
+			sendFail(&rns[i], reason)
 			continue
 		}
 		switch lang {
 		case "":
-			contactMap[contact] = rnsWithReceiver[i]
+			receivers = append(receivers, ReceiverSpec{
+				receiver:     receiver,
+				rNotificaion: &rns[i],
+			})
 		case apis.TEMPLATE_LANG_EN:
-			contactMapEn[contact] = rnsWithReceiver[i]
+			receiversEn = append(receiversEn, ReceiverSpec{
+				receiver:     receiver,
+				rNotificaion: &rns[i],
+			})
 		case apis.TEMPLATE_LANG_CN:
-			contactmapCn[contact] = rnsWithReceiver[i]
+			receiversCn = append(receiversCn, ReceiverSpec{
+				receiver:     receiver,
+				rNotificaion: &rns[i],
+			})
 		}
 	}
 
-	for i := range rnsWithoutReceiver {
-		contactMap[rnsWithoutReceiver[i].Contact] = rnsWithoutReceiver[i]
-	}
-
 	var contactLen int
-	for lang, contactMap := range map[string]map[string]*models.SReceiverNotification{
-		"":                    contactMap,
-		apis.TEMPLATE_LANG_CN: contactmapCn,
-		apis.TEMPLATE_LANG_EN: contactMapEn,
+	for lang, receivers := range map[string][]ReceiverSpec{
+		"":                    receivers,
+		apis.TEMPLATE_LANG_CN: receiversCn,
+		apis.TEMPLATE_LANG_EN: receiversEn,
 	} {
-		if len(contactMap) == 0 {
+		if len(receivers) == 0 {
 			continue
 		}
 
@@ -154,40 +151,35 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		}
 		// set status before send
 		now := time.Now()
-		contacts := make([]string, 0, len(contactMap))
-		for c, rn := range contactMap {
-			rn.BeforeSend(ctx, now)
-			contacts = append(contacts, c)
+		for _, rn := range receivers {
+			rn.rNotificaion.BeforeSend(ctx, now)
 		}
 
-		contactLen += len(contacts)
+		contactLen += len(receivers)
 
 		// send
-		fds, err := models.NotifyService.BatchSend(ctx, notification.ContactType, rpcapi.BatchSendParams{
-			Contacts:       contacts,
-			Title:          p.Title,
-			Message:        p.Message,
-			Priority:       p.Priority,
-			RemoteTemplate: p.RemoteTemplate,
-		})
+		fds, err := self.batchSend(ctx, notification.ContactType, receivers, p)
 		if err != nil {
-			for _, rn := range contactMap {
-				sendFail(rn, err.Error())
+			for _, r := range receivers {
+				sendFail(r.rNotificaion, err.Error())
 			}
 			continue
 		}
 		// check result
+		failedRnIds := make(map[int64]struct{}, 0)
 		for _, fd := range fds {
-			rn := contactMap[fd.Contact]
-			sendFail(rn, fd.Reason)
-			delete(contactMap, fd.Contact)
+			sendFail(fd.rNotificaion, fd.Reason)
+			failedRnIds[fd.rNotificaion.RowId] = struct{}{}
 		}
 		// after send for successful notify
-		for _, rn := range contactMap {
-			rn.AfterSend(ctx, true, "")
+		for _, r := range receivers {
+			if _, ok := failedRnIds[r.rNotificaion.RowId]; ok {
+				continue
+			}
+			r.rNotificaion.AfterSend(ctx, true, "")
 		}
 	}
-	if len(failedRecord) > 0 && len(failedRecord) == contactLen {
+	if len(failedRecord) > 0 && len(failedRecord) >= len(rns) {
 		self.taskFailed(ctx, notification, strings.Join(failedRecord, "; "), true)
 		return
 	}
@@ -198,4 +190,84 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 	notification.SetStatus(self.UserCred, apis.NOTIFICATION_STATUS_OK, "")
 	logclient.AddActionLogWithContext(ctx, notification, logclient.ACT_SEND_NOTIFICATION, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
+}
+
+type FailedReceiverSpec struct {
+	ReceiverSpec
+	Reason string
+}
+
+func (self *NotificationSendTask) batchSend(ctx context.Context, contactType string, receivers []ReceiverSpec, params rpcapi.SendParams) (fails []FailedReceiverSpec, err error) {
+	log.Infof("contactType: %s, receivers: %s, params: %s", contactType, receivers, jsonutils.Marshal(params))
+	if contactType != apis.ROBOT {
+		return self._batchSend(ctx, contactType, receivers, func(res []*rpcapi.SReceiver) ([]*rpcapi.FailedRecord, error) {
+			return models.NotifyService.BatchSend(ctx, contactType, rpcapi.BatchSendParams{
+				Receivers:      res,
+				Title:          params.Title,
+				Message:        params.Message,
+				Priority:       params.Priority,
+				RemoteTemplate: params.RemoteTemplate,
+			})
+		})
+	}
+	robots := make(map[string][]ReceiverSpec)
+	for i := range receivers {
+		robot := receivers[i].receiver.(*models.SRobot)
+		robots[robot.Type] = append(robots[robot.Type], receivers[i])
+	}
+	for rType, robots := range robots {
+		_fails, err := self._batchSend(ctx, contactType, robots, func(res []*rpcapi.SReceiver) ([]*rpcapi.FailedRecord, error) {
+			return models.NotifyService.SendRobotMessage(ctx, rType, res, params.Title, params.Message)
+		})
+		if err != nil {
+			for i := range robots {
+				fails = append(fails, FailedReceiverSpec{
+					ReceiverSpec: robots[i],
+					Reason:       err.Error(),
+				})
+			}
+		}
+		fails = append(fails, _fails...)
+	}
+	return fails, nil
+}
+
+func (self *NotificationSendTask) _batchSend(ctx context.Context, contactType string, receivers []ReceiverSpec, send func([]*rpcapi.SReceiver) ([]*rpcapi.FailedRecord, error)) (fails []FailedReceiverSpec, err error) {
+	rpcReceivers := make([]*rpcapi.SReceiver, len(receivers))
+	rpc2Receiver := make(map[DomainContact]ReceiverSpec, len(receivers))
+	for i := range receivers {
+		contact, err := receivers[i].receiver.GetContact(contactType)
+		if err != nil {
+			fails = append(fails, FailedReceiverSpec{
+				ReceiverSpec: receivers[i],
+				Reason:       fmt.Sprintf("fail to fetch contact: %s", err.Error()),
+			})
+			continue
+		}
+		rpcReceivers[i] = &rpcapi.SReceiver{
+			DomainId: receivers[i].receiver.GetDomainId(),
+			Contact:  contact,
+		}
+		rpc2Receiver[DomainContact{
+			DomainId: receivers[i].receiver.GetDomainId(),
+			Contact:  contact,
+		}] = receivers[i]
+	}
+	fds, err := send(rpcReceivers)
+	if err != nil {
+		return nil, err
+	}
+	// check result
+	for _, fd := range fds {
+		dc := DomainContact{
+			DomainId: fd.Receiver.DomainId,
+			Contact:  fd.Receiver.Contact,
+		}
+		receiver := rpc2Receiver[dc]
+		fails = append(fails, FailedReceiverSpec{
+			ReceiverSpec: receiver,
+			Reason:       fd.Reason,
+		})
+	}
+	return
 }

@@ -119,22 +119,29 @@ func NotifyCriticalWithCtx(ctx context.Context, recipientId []string, isGroup bo
 
 // NotifyAllWithoutRobot will send messages via all contacnt type from exclude robot contact type such as dingtalk-robot.
 func NotifyAllWithoutRobot(recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
-	return notifyRobot(context.Background(), "no", recipientId, isGroup, priority, event, data)
+	return notifyAll(context.Background(), recipientId, isGroup, priority, event, data)
 }
 
 // NotifyAllWithoutRobot will send messages via all contacnt type from exclude robot contact type such as dingtalk-robot.
 func NotifyAllWithoutRobotWithCtx(ctx context.Context, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
-	return notifyRobot(ctx, "no", recipientId, isGroup, priority, event, data)
+	return notifyAll(ctx, recipientId, isGroup, priority, event, data)
 }
 
 // NotifyRobot will send messages via all robot contact type such as dingtalk-robot.
-func NotifyRobot(recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
-	return notifyRobot(context.Background(), "only", recipientId, isGroup, priority, event, data)
+func NotifyRobot(robotIds []string, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
+    return NotifyRobotWithCtx(context.Background(), robotIds, priority, event, data)
 }
 
 // NotifyRobot will send messages via all robot contact type such as dingtalk-robot.
-func NotifyRobotWithCtx(ctx context.Context, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
-	return notifyRobot(ctx, "only", recipientId, isGroup, priority, event, data)
+func NotifyRobotWithCtx(ctx context.Context, robotIds []string, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
+	rawNotify(context.Background(), sNotifyParams{
+		robots:   robotIds,
+		channel:  npk.NotifyByRobot,
+		priority: priority,
+		event:    event,
+		data:     data,
+	})
+    return nil
 }
 
 func SystemNotify(priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {

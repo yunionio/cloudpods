@@ -32,6 +32,9 @@ type NotificationCreateInput struct {
 	// description: direct contact, admin privileges required
 	// required: false
 	Contacts []string `json:"contacts"`
+    // description: robots
+    // example: feishu robot
+    Robots []string `json:"robots"`
 	// description: contact type
 	// required: ture
 	// example: email

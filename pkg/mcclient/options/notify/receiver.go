@@ -31,7 +31,7 @@ func (rc *ReceiverCreateOptions) Params() (jsonutils.JSONObject, error) {
 	d := jsonutils.NewDict()
 	d.Set("uid", jsonutils.NewString(rc.UID))
 	d.Set("email", jsonutils.NewString(rc.Email))
-	d.Set("enabled_contact_type", jsonutils.NewStringArray(rc.EnabledContactTypes))
+	d.Set("enabled_contact_types", jsonutils.NewStringArray(rc.EnabledContactTypes))
 	d.Add(jsonutils.NewString(rc.Mobile), "international_mobile", "mobile")
 	d.Add(jsonutils.NewString(rc.MobileAreaCode), "international_mobile", "area_code")
 	return d, nil
@@ -109,4 +109,12 @@ type ReceiverIntellijGetOptions struct {
 
 func (ri *ReceiverIntellijGetOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(ri), nil
+}
+
+type ReceiverGetTypeOptions struct {
+	Domain string `help:"Domain under where available contact methods"`
+}
+
+func (rg *ReceiverGetTypeOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(rg), nil
 }

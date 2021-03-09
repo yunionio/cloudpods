@@ -27,6 +27,7 @@ import (
 func init() {
 	type NotificationCreateInput struct {
 		Receivers   []string `help:"ID or Name of Receiver"`
+		Robots      []string `help:"ID or Name of Robot"`
 		ContactType string   `help:"Contact type of receiver"`
 		TOPIC       string   `help:"Topic"`
 		Priority    string   `help:"Priority"`
@@ -41,6 +42,7 @@ func init() {
 		if args.Oldsdk {
 			msg := notify.SNotifyMessage{
 				Uid:         args.Receivers,
+				Robots:      args.Robots,
 				ContactType: notify.TNotifyChannel(args.ContactType),
 				Topic:       args.TOPIC,
 				Priority:    notify.TNotifyPriority(args.Priority),
@@ -55,6 +57,7 @@ func init() {
 		} else {
 			input := api.NotificationCreateInput{
 				Receivers:   args.Receivers,
+				Robots:      args.Robots,
 				ContactType: args.ContactType,
 				Topic:       args.TOPIC,
 				Priority:    args.Priority,

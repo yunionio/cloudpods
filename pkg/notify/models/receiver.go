@@ -284,6 +284,10 @@ func (rm *SReceiverManager) ValidateCreateData(ctx context.Context, userCred mcc
 	return input, nil
 }
 
+func (r *SReceiver) IsEnabled() bool {
+	return r.Enabled.Bool()
+}
+
 var LaxMobileRegexp = regexp.MustCompile(`[0-9]{6,14}`)
 
 func (r *SReceiver) IsEnabledContactType(ct string) (bool, error) {
@@ -689,13 +693,18 @@ func (r *SReceiverManager) AllowPerformGetTypes(ctx context.Context, userCred mc
 	return true
 }
 
-func (cm *SReceiverManager) PerformGetTypes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ConfigManagerGetTypesInput) (api.ConfigManagerGetTypesOutput, error) {
+func (rm *SReceiverManager) PerformGetTypes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ConfigManagerGetTypesInput) (api.ConfigManagerGetTypesOutput, error) {
 	output := api.ConfigManagerGetTypesOutput{}
-	allContactType, err := ConfigManager.allContactType()
+	t, err := db.TenantCacheManager.FetchDomainByIdOrName(ctx, input.Domain)
 	if err != nil {
-		return output, err
+		return output, errors.Wrap(err, "unable to FetchDomainByIdOrName")
 	}
-	output.Types = sortContactType(ConfigManager.filterContactType(allContactType, input.Robot))
+	ret, err := ConfigManager.availableContactTypes(t.Id)
+	if err != nil {
+		return output, errors.Wrap(err, "unable to get available contact types")
+	}
+
+	output.Types = sortContactType(ret)
 	return output, nil
 }
 
@@ -1183,12 +1192,10 @@ func (rm *SReceiverManager) FetchByIDs(ctx context.Context, ids ...string) ([]SR
 	return contacts, nil
 }
 
-func (rm *SReceiverManager) FetchByIdOrNames(ctx context.Context, idOrNames ...string) ([]SReceiver, error) {
+func idOrNameFilter(q *sqlchemy.SQuery, idOrNames ...string) *sqlchemy.SQuery {
 	if len(idOrNames) == 0 {
-		return nil, nil
+		return q
 	}
-	var err error
-	q := rm.Query()
 	var conds []sqlchemy.ICondition
 	for _, idOrName := range idOrNames {
 		conds = append(conds, sqlchemy.Equals(q.Field("name"), idOrName))
@@ -1201,6 +1208,15 @@ func (rm *SReceiverManager) FetchByIdOrNames(ctx context.Context, idOrNames ...s
 	} else if len(conds) > 1 {
 		q = q.Filter(sqlchemy.OR(conds...))
 	}
+	return q
+}
+
+func (rm *SReceiverManager) FetchByIdOrNames(ctx context.Context, idOrNames ...string) ([]SReceiver, error) {
+	if len(idOrNames) == 0 {
+		return nil, nil
+	}
+	var err error
+	q := idOrNameFilter(rm.Query(), idOrNames...)
 	receivers := make([]SReceiver, 0, len(idOrNames))
 	err = db.FetchModelObjects(rm, q, &receivers)
 	if err != nil {
@@ -1254,4 +1270,8 @@ func (r *SReceiver) GetContact(cType string) (string, error) {
 		}
 	}
 	return "", nil
+}
+
+func (r *SReceiver) GetDomainId() string {
+	return r.DomainId
 }

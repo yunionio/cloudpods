@@ -27,10 +27,13 @@ type INotifyService interface {
 	InitAll() error
 	StopAll()
 	UpdateServices(ctx context.Context, userCred mcclient.TokenCredential, isStart bool)
-	RestartService(ctx context.Context, config SConfig, serviceName string)
+	UpdateConfig(ctx context.Context, service string, config SConfig) error
 	Send(ctx context.Context, contactType string, args apis.SendParams) error
-	ContactByMobile(ctx context.Context, mobile, serviceName string) (string, error)
+	ContactByMobile(ctx context.Context, mobile, serviceName, domainId string) (string, error)
 	BatchSend(ctx context.Context, contactType string, args apis.BatchSendParams) ([]*apis.FailedRecord, error)
+	SendRobotMessage(ctx context.Context, rType string, receivers []*apis.SReceiver, title string, message string) ([]*apis.FailedRecord, error)
+	AddConfig(ctx context.Context, service string, config SConfig) error
+	DeleteConfig(ctx context.Context, service, domainId string) error
 	ValidateConfig(ctx context.Context, cType string, configs map[string]string) (isValid bool, message string, err error)
 }
 
@@ -53,8 +56,11 @@ type SBatchSendParams struct {
 }
 
 type IServiceConfigStore interface {
-	GetConfig(serviceName string) (SConfig, error)
-	SetConfig(serviceName string, config SConfig) error
+	GetConfigs(service string) ([]SConfig, error)
+	GetConfig(service, domainId string) (SConfig, error)
+	SetConfig(service string, config SConfig) error
+    HasSystemConfig(service string) (bool, error)
+    BatchCheckConfig(service string, domainIds []string) ([]bool, error)
 }
 
 type SNotification struct {
@@ -70,7 +76,10 @@ type ITemplateStore interface {
 	FillWithTemplate(ctx context.Context, lang string, notification SNotification) (params apis.SendParams, err error)
 }
 
-type SConfig map[string]string
+type SConfig struct {
+	Config   map[string]string
+	DomainId string
+}
 
 var (
 	ErrNoSuchMobile     = errors.Error("no such mobile")
