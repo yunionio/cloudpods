@@ -377,7 +377,7 @@ func getDomainGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 
 		BucketUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
-		nicsUsage("domain", rangeObjs, hostTypes, providers, brands, cloudEnv, scope, cred),
+		// nicsUsage("domain", rangeObjs, hostTypes, providers, brands, cloudEnv, scope, cred),
 
 		SnapshotUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
@@ -421,7 +421,7 @@ func getProjectGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityP
 		DisksUsage(getKey(scope, "pending_delete_disks"), rangeObjs, hostTypes, nil, providers, brands, cloudEnv, scope, cred, true, false),
 		DisksUsage(getKey(scope, "pending_delete_disks.system"), rangeObjs, hostTypes, nil, providers, brands, cloudEnv, scope, cred, true, true),
 
-		nicsUsage("", rangeObjs, hostTypes, providers, brands, cloudEnv, scope, cred),
+		// nicsUsage("", rangeObjs, hostTypes, providers, brands, cloudEnv, scope, cred),
 
 		SnapshotUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
@@ -457,14 +457,14 @@ func ReportGeneralUsage(
 		}
 	}
 
-	if scope.HigherEqual(rbacutils.ScopeDomain) {
+	if scope.HigherEqual(rbacutils.ScopeDomain) && len(userCred.GetProjectDomainId()) > 0 {
 		commonUsage, err := getDomainGeneralUsage(rbacutils.ScopeDomain, userCred, rangeObjs, hostTypes, providers, brands, cloudEnv)
 		if err == nil {
 			count.Include(commonUsage)
 		}
 	}
 
-	if scope.HigherEqual(rbacutils.ScopeProject) {
+	if scope.HigherEqual(rbacutils.ScopeProject) && len(userCred.GetProjectId()) > 0 {
 		commonUsage, err := getProjectGeneralUsage(rbacutils.ScopeProject, userCred, rangeObjs, hostTypes, providers, brands, cloudEnv)
 		if err == nil {
 			count.Include(commonUsage)
@@ -645,7 +645,7 @@ func WireUsage(rangeObjs []db.IStandaloneModel, hostTypes []string, providers []
 	return count
 }
 
-func nicsUsage(prefix string, rangeObjs []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) Usage {
+/*func nicsUsage(prefix string, rangeObjs []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) Usage {
 	count := make(map[string]interface{})
 	result := models.WireManager.TotalCount(rangeObjs, hostTypes, providers, brands, cloudEnv, scope, ownerId)
 	// including nics for pending_deleted guests
@@ -658,7 +658,7 @@ func nicsUsage(prefix string, rangeObjs []db.IStandaloneModel, hostTypes []strin
 	count[prefixKey(prefix, "nics.eip")] = result.EipNicCount
 	count[prefixKey(prefix, "nics")] = result.GuestNicCount + result.GroupNicCount + result.LbNicCount + result.DbNicCount + result.EipNicCount
 	return count
-}
+}*/
 
 func prefixKey(prefix string, key string) string {
 	if len(prefix) > 0 {
