@@ -458,32 +458,57 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 	return &wire, nil
 }
 
-func filterByScopeOwnerId(q *sqlchemy.SQuery, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SQuery {
+func filterByScopeOwnerId(q *sqlchemy.SQuery, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, domainResource bool) *sqlchemy.SQuery {
 	switch scope {
 	case rbacutils.ScopeSystem:
 	case rbacutils.ScopeDomain:
 		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
 	case rbacutils.ScopeProject:
-		q = q.Equals("tenant_id", ownerId.GetProjectId())
+		if domainResource {
+			q = q.Equals("domain_id", ownerId.GetProjectId())
+		} else {
+			q = q.Equals("tenant_id", ownerId.GetProjectId())
+		}
 	}
 	return q
 }
 
+func fixVmwareProvider(providers []string) (bool, []string) {
+	findVmware := false
+	findOnecloud := false
+	newp := make([]string, 0)
+	for _, p := range providers {
+		if p == api.CLOUD_PROVIDER_VMWARE {
+			findVmware = true
+		} else {
+			if p == api.CLOUD_PROVIDER_ONECLOUD {
+				findOnecloud = true
+			}
+			newp = append(newp, p)
+		}
+	}
+	if findVmware && !findOnecloud {
+		newp = append(newp, api.CLOUD_PROVIDER_ONECLOUD)
+	}
+	return findVmware, newp
+}
+
 func (manager *SWireManager) totalCountQ(
 	rangeObjs []db.IStandaloneModel,
-	hostTypes []string,
+	hostTypes []string, hostProviders, hostBrands []string,
 	providers []string, brands []string, cloudEnv string,
 	scope rbacutils.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 ) *sqlchemy.SQuery {
-	guestsQ := filterByScopeOwnerId(GuestManager.Query(), scope, ownerId)
+	guestsQ := filterByScopeOwnerId(GuestManager.Query(), scope, ownerId, false)
 	guests := guestsQ.SubQuery()
 
+	// hosts no filter, for guest networks
 	hostsQ := HostManager.Query()
 	if len(hostTypes) > 0 {
 		hostsQ = hostsQ.In("host_type", hostTypes)
 	}
-	if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
+	if len(hostProviders) > 0 || len(hostBrands) > 0 || len(cloudEnv) > 0 {
 		hostsQ = CloudProviderFilter(hostsQ, hostsQ.Field("manager_id"), providers, brands, cloudEnv)
 	}
 	if len(rangeObjs) > 0 {
@@ -491,9 +516,23 @@ func (manager *SWireManager) totalCountQ(
 	}
 	hosts := hostsQ.SubQuery()
 
-	groups := filterByScopeOwnerId(GroupManager.Query(), scope, ownerId).SubQuery()
+	// hosts filter by owner, for host networks
+	hostsQ2 := HostManager.Query()
+	hostsQ2 = filterByScopeOwnerId(hostsQ2, scope, ownerId, true)
+	if len(hostTypes) > 0 {
+		hostsQ2 = hostsQ2.In("host_type", hostTypes)
+	}
+	if len(hostProviders) > 0 || len(hostBrands) > 0 || len(cloudEnv) > 0 {
+		hostsQ2 = CloudProviderFilter(hostsQ2, hostsQ2.Field("manager_id"), providers, brands, cloudEnv)
+	}
+	if len(rangeObjs) > 0 {
+		hostsQ2 = RangeObjectsFilter(hostsQ2, rangeObjs, nil, hostsQ.Field("zone_id"), hostsQ.Field("manager_id"), hostsQ.Field("id"), nil)
+	}
+	hosts2 := hostsQ2.SubQuery()
 
-	lbsQ := filterByScopeOwnerId(LoadbalancerManager.Query(), scope, ownerId)
+	groups := filterByScopeOwnerId(GroupManager.Query(), scope, ownerId, false).SubQuery()
+
+	lbsQ := filterByScopeOwnerId(LoadbalancerManager.Query(), scope, ownerId, false)
 	if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		lbsQ = CloudProviderFilter(lbsQ, lbsQ.Field("manager_id"), providers, brands, cloudEnv)
 	}
@@ -502,7 +541,7 @@ func (manager *SWireManager) totalCountQ(
 	}
 	lbs := lbsQ.SubQuery()
 
-	dbsQ := filterByScopeOwnerId(DBInstanceManager.Query(), scope, ownerId)
+	dbsQ := filterByScopeOwnerId(DBInstanceManager.Query(), scope, ownerId, false)
 	if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		dbsQ = CloudProviderFilter(dbsQ, dbsQ.Field("manager_id"), providers, brands, cloudEnv)
 	}
@@ -526,14 +565,8 @@ func (manager *SWireManager) totalCountQ(
 		hNics.Field("network_id"),
 		sqlchemy.COUNT("hnic_count"),
 	)
-	hNicQ = hNicQ.Join(hosts, sqlchemy.Equals(hNics.Field("baremetal_id"), hosts.Field("id")))
-	hNicQ = hNicQ.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
-
-	revIps := ReservedipManager.Query().SubQuery()
-	revQ := revIps.Query(
-		revIps.Field("network_id"),
-		sqlchemy.COUNT("rnic_count"),
-	)
+	hNicQ = hNicQ.Join(hosts2, sqlchemy.Equals(hNics.Field("baremetal_id"), hosts2.Field("id")))
+	hNicQ = hNicQ.Filter(sqlchemy.IsTrue(hosts2.Field("enabled")))
 
 	groupNics := GroupnetworkManager.Query().SubQuery()
 	grpNicQ := groupNics.Query(
@@ -550,7 +583,8 @@ func (manager *SWireManager) totalCountQ(
 	lbNicQ = lbNicQ.Join(lbs, sqlchemy.Equals(lbs.Field("id"), lbNics.Field("loadbalancer_id")))
 	lbNicQ = lbNicQ.Filter(sqlchemy.IsFalse(lbs.Field("pending_deleted")))
 
-	eipNics := ElasticipManager.Query().IsNotEmpty("network_id").SubQuery()
+	eipNicsQ := ElasticipManager.Query().IsNotEmpty("network_id")
+	eipNics := filterByScopeOwnerId(eipNicsQ, scope, ownerId, false).SubQuery()
 	eipNicQ := eipNics.Query(
 		eipNics.Field("network_id"),
 		sqlchemy.COUNT("eipnic_count"),
@@ -563,6 +597,7 @@ func (manager *SWireManager) totalCountQ(
 	}
 
 	netifsQ := NetworkInterfaceManager.Query()
+	netifsQ = filterByScopeOwnerId(netifsQ, scope, ownerId, true)
 	if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		netifsQ = CloudProviderFilter(netifsQ, netifsQ.Field("manager_id"), providers, brands, cloudEnv)
 	}
@@ -587,7 +622,6 @@ func (manager *SWireManager) totalCountQ(
 
 	gNicSQ := gNicQ.GroupBy(gNics.Field("network_id")).SubQuery()
 	hNicSQ := hNicQ.GroupBy(hNics.Field("network_id")).SubQuery()
-	revSQ := revQ.GroupBy(revIps.Field("network_id")).SubQuery()
 	grpNicSQ := grpNicQ.GroupBy(groupNics.Field("network_id")).SubQuery()
 	lbNicSQ := lbNicQ.GroupBy(lbNics.Field("network_id")).SubQuery()
 	eipNicSQ := eipNicQ.GroupBy(eipNics.Field("network_id")).SubQuery()
@@ -596,58 +630,90 @@ func (manager *SWireManager) totalCountQ(
 
 	networks := NetworkManager.Query().SubQuery()
 	netQ := networks.Query(
-		networks.Field("wire_id"),
-		sqlchemy.COUNT("id").Label("net_count"),
-		sqlchemy.SUM("gnic_count", gNicSQ.Field("gnic_count")),
-		sqlchemy.SUM("pending_deleted_gnic_count", gNicSQ.Field("pending_deleted_gnic_count")),
-		sqlchemy.SUM("hnic_count", hNicSQ.Field("hnic_count")),
-		sqlchemy.SUM("rev_count", revSQ.Field("rnic_count")),
-		sqlchemy.SUM("grpnic_count", grpNicSQ.Field("grpnic_count")),
-		sqlchemy.SUM("lbnic_count", lbNicSQ.Field("lbnic_count")),
-		sqlchemy.SUM("eipnic_count", eipNicSQ.Field("eipnic_count")),
-		sqlchemy.SUM("netifnic_count", netifNicSQ.Field("netifnic_count")),
-		sqlchemy.SUM("dbnic_count", dbNicSQ.Field("dbnic_count")),
+		sqlchemy.SUM("guest_nic_count", gNicSQ.Field("gnic_count")),
+		sqlchemy.SUM("pending_deleted_guest_nic_count", gNicSQ.Field("pending_deleted_gnic_count")),
+		sqlchemy.SUM("host_nic_count", hNicSQ.Field("hnic_count")),
+		sqlchemy.SUM("group_nic_count", grpNicSQ.Field("grpnic_count")),
+		sqlchemy.SUM("lb_nic_count", lbNicSQ.Field("lbnic_count")),
+		sqlchemy.SUM("eip_nic_count", eipNicSQ.Field("eipnic_count")),
+		sqlchemy.SUM("netif_nic_count", netifNicSQ.Field("netifnic_count")),
+		sqlchemy.SUM("db_nic_count", dbNicSQ.Field("dbnic_count")),
 	)
 	netQ = netQ.LeftJoin(gNicSQ, sqlchemy.Equals(gNicSQ.Field("network_id"), networks.Field("id")))
 	netQ = netQ.LeftJoin(hNicSQ, sqlchemy.Equals(hNicSQ.Field("network_id"), networks.Field("id")))
-	netQ = netQ.LeftJoin(revSQ, sqlchemy.Equals(revSQ.Field("network_id"), networks.Field("id")))
 	netQ = netQ.LeftJoin(grpNicSQ, sqlchemy.Equals(grpNicSQ.Field("network_id"), networks.Field("id")))
 	netQ = netQ.LeftJoin(lbNicSQ, sqlchemy.Equals(lbNicSQ.Field("network_id"), networks.Field("id")))
 	netQ = netQ.LeftJoin(eipNicSQ, sqlchemy.Equals(eipNicSQ.Field("network_id"), networks.Field("id")))
 	netQ = netQ.LeftJoin(netifNicSQ, sqlchemy.Equals(netifNicSQ.Field("network_id"), networks.Field("id")))
 	netQ = netQ.LeftJoin(dbNicSQ, sqlchemy.Equals(dbNicSQ.Field("network_id"), networks.Field("id")))
 
-	netQ = netQ.GroupBy(networks.Field("wire_id"))
-	netSQ := netQ.SubQuery()
+	return netQ
+}
+
+func (manager *SWireManager) totalCountQ2(
+	rangeObjs []db.IStandaloneModel,
+	hostTypes []string,
+	providers []string, brands []string, cloudEnv string,
+	scope rbacutils.TRbacScope,
+	ownerId mcclient.IIdentityProvider,
+) *sqlchemy.SQuery {
+	revIps := filterExpiredReservedIps(ReservedipManager.Query()).SubQuery()
+	revQ := revIps.Query(
+		revIps.Field("network_id"),
+		sqlchemy.COUNT("rnic_count"),
+	)
+
+	revSQ := revQ.GroupBy(revIps.Field("network_id")).SubQuery()
+
+	ownerNetworks := filterByScopeOwnerId(NetworkManager.Query(), scope, ownerId, false).SubQuery()
+	ownerNetQ := ownerNetworks.Query(
+		ownerNetworks.Field("wire_id"),
+		sqlchemy.COUNT("id").Label("net_count"),
+		sqlchemy.SUM("rev_count", revSQ.Field("rnic_count")),
+	)
+	ownerNetQ = ownerNetQ.LeftJoin(revSQ, sqlchemy.Equals(revSQ.Field("network_id"), ownerNetworks.Field("id")))
+	ownerNetQ = ownerNetQ.GroupBy(ownerNetworks.Field("wire_id"))
+	ownerNetSQ := ownerNetQ.SubQuery()
 
 	wires := WireManager.Query().SubQuery()
 	q := wires.Query(
+		sqlchemy.SUM("net_count", ownerNetSQ.Field("net_count")),
+		sqlchemy.SUM("reserved_count", ownerNetSQ.Field("rev_count")),
+	)
+	q = q.LeftJoin(ownerNetSQ, sqlchemy.Equals(wires.Field("id"), ownerNetSQ.Field("wire_id")))
+	return filterWiresCountQuery(q, hostTypes, providers, brands, cloudEnv, rangeObjs)
+}
+
+func (manager *SWireManager) totalCountQ3(
+	rangeObjs []db.IStandaloneModel,
+	hostTypes []string,
+	providers []string, brands []string, cloudEnv string,
+	scope rbacutils.TRbacScope,
+	ownerId mcclient.IIdentityProvider,
+) *sqlchemy.SQuery {
+	wires := filterByScopeOwnerId(WireManager.Query(), scope, ownerId, true).SubQuery()
+	q := wires.Query(
 		sqlchemy.COUNT("id").Label("wires_count"),
 		sqlchemy.SUM("emulated_wires_count", wires.Field("is_emulated")),
-		sqlchemy.SUM("net_count", netSQ.Field("net_count")),
-		sqlchemy.SUM("guest_nic_count", netSQ.Field("gnic_count")),
-		sqlchemy.SUM("pending_deleted_guest_nic_count", netSQ.Field("pending_deleted_gnic_count")),
-		sqlchemy.SUM("host_nic_count", netSQ.Field("hnic_count")),
-		sqlchemy.SUM("reserved_count", netSQ.Field("rev_count")),
-		sqlchemy.SUM("group_nic_count", netSQ.Field("grpnic_count")),
-		sqlchemy.SUM("lb_nic_count", netSQ.Field("lbnic_count")),
-		sqlchemy.SUM("eip_nic_count", netSQ.Field("eipnic_count")),
-		sqlchemy.SUM("netif_nic_count", netSQ.Field("netifnic_count")),
-		sqlchemy.SUM("db_nic_count", netSQ.Field("dbnic_count")),
 	)
-	q = q.LeftJoin(netSQ, sqlchemy.Equals(wires.Field("id"), netSQ.Field("wire_id")))
+	return filterWiresCountQuery(q, hostTypes, providers, brands, cloudEnv, rangeObjs)
+}
 
+func filterWiresCountQuery(q *sqlchemy.SQuery, hostTypes, providers, brands []string, cloudEnv string, rangeObjs []db.IStandaloneModel) *sqlchemy.SQuery {
 	if len(hostTypes) > 0 {
 		hostwires := HostwireManager.Query().SubQuery()
 		hosts := HostManager.Query().SubQuery()
-		q = q.Join(hostwires, sqlchemy.Equals(q.Field("id"), hostwires.Field("wire_id")))
-		q = q.Join(hosts, sqlchemy.Equals(hostwires.Field("host_id"), hosts.Field("id")))
-		q = q.Filter(sqlchemy.In(hosts.Field("host_type"), hostTypes))
+		hostWireQ := hostwires.Query(hostwires.Field("wire_id"))
+		hostWireQ = hostWireQ.Join(hosts, sqlchemy.Equals(hostWireQ.Field("host_id"), hosts.Field("id")))
+		hostWireQ = hostWireQ.Filter(sqlchemy.In(hosts.Field("host_type"), hostTypes))
+		hostWireQ = hostWireQ.GroupBy(hostwires.Field("wire_id"))
+		hostWireSQ := hostWireQ.SubQuery()
+
+		q = q.Join(hostWireSQ, sqlchemy.Equals(hostWireSQ.Field("wire_id"), q.Field("id")))
 	}
 
 	if len(rangeObjs) > 0 || len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		vpcs := VpcManager.Query().SubQuery()
-
 		q = q.Join(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
 		q = CloudProviderFilter(q, vpcs.Field("manager_id"), providers, brands, cloudEnv)
 		q = RangeObjectsFilter(q, rangeObjs, vpcs.Field("cloudregion_id"), q.Field("zone_id"), vpcs.Field("manager_id"), nil, nil)
@@ -683,15 +749,60 @@ func (manager *SWireManager) TotalCount(
 	scope rbacutils.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
 ) WiresCountStat {
+	vmwareP, hostProviders := fixVmwareProvider(providers)
+	vmwareB, hostBrands := fixVmwareProvider(brands)
+
+	if vmwareP || vmwareB {
+		if !utils.IsInStringArray(api.HOST_TYPE_ESXI, hostTypes) {
+			hostTypes = append(hostTypes, api.HOST_TYPE_ESXI)
+		}
+	} else {
+		if utils.IsInStringArray(api.HOST_TYPE_ESXI, hostTypes) {
+			providers = append(providers, api.CLOUD_PROVIDER_VMWARE)
+			brands = append(brands, api.CLOUD_PROVIDER_VMWARE)
+		}
+	}
+	if len(hostTypes) > 0 {
+		for _, p := range providers {
+			if hs, ok := api.CLOUD_PROVIDER_HOST_TYPE_MAP[p]; ok {
+				hostTypes = append(hostTypes, hs...)
+			}
+		}
+		for _, p := range brands {
+			if hs, ok := api.CLOUD_PROVIDER_HOST_TYPE_MAP[p]; ok {
+				hostTypes = append(hostTypes, hs...)
+			}
+		}
+	}
+	log.Debugf("providers: %#v hostProviders: %#v brands: %#v hostBrands: %#v hostTypes: %#v", providers, hostProviders, brands, hostBrands, hostTypes)
+
 	stat := WiresCountStat{}
 	err := manager.totalCountQ(
+		rangeObjs,
+		hostTypes, hostProviders, hostBrands,
+		providers, brands, cloudEnv,
+		scope, ownerId,
+	).First(&stat)
+	if err != nil {
+		log.Errorf("Wire total count: %v", err)
+	}
+	err = manager.totalCountQ2(
 		rangeObjs,
 		hostTypes,
 		providers, brands, cloudEnv,
 		scope, ownerId,
 	).First(&stat)
 	if err != nil {
-		log.Errorf("Wire total count: %v", err)
+		log.Errorf("Wire total count 2: %v", err)
+	}
+	err = manager.totalCountQ3(
+		rangeObjs,
+		hostTypes,
+		providers, brands, cloudEnv,
+		scope, ownerId,
+	).First(&stat)
+	if err != nil {
+		log.Errorf("Wire total count 2: %v", err)
 	}
 	return stat
 }

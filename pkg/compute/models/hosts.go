@@ -2567,7 +2567,7 @@ func (manager *SHostManager) totalCountQ(
 		iq.Field("isolated_reserved_storage"),
 	)
 	q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, brands, cloudEnv, rangeObjs)
-	log.Debugf("hostCount: %s", q.String())
+	// log.Debugf("hostCount: %s", q.String())
 	return q
 }
 
