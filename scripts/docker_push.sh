@@ -51,6 +51,8 @@ DOCKER_DIR="$SRC_DIR/build/docker"
 
 # https://docs.docker.com/develop/develop-images/build_enhancements/
 export DOCKER_BUILDKIT=1
+# https://github.com/docker/buildx#with-buildx-or-docker-1903
+export DOCKER_CLI_EXPERIMENTAL=enabled
 
 REGISTRY=${REGISTRY:-docker.io/yunion}
 TAG=${TAG:-latest}
@@ -156,10 +158,10 @@ build_process_with_buildx() {
 general_build() {
     local component=$1
     # 如果未指定，则默认使用当前架构
-    local arch=${2:-$current_arch}
+    local arch=${2:-$CURRENT_ARCH}
     local is_all_arch=$3
 
-    if [[ "$current_arch" == "$arch" ]]; then
+    if [[ "$CURRENT_ARCH" == "$arch" ]]; then
         build_process $component $arch $is_all_arch
     else
         build_process_with_buildx $component $arch $is_all_arch
