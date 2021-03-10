@@ -628,9 +628,17 @@ func (b *SBucket) SetReferer(conf cloudprovider.SBucketRefererConf) error {
 	if err != nil {
 		return errors.Wrap(err, "GetOssClient")
 	}
-	err = osscli.SetBucketReferer(b.Name, conf.WhiteList, conf.AllowEmptyRefer)
+	if !conf.Enabled {
+		return errors.Wrapf(cloudprovider.ErrNotSupported, "Disable Refer")
+	}
+
+	if conf.RefererType == "Black-List" {
+		return errors.Wrapf(cloudprovider.ErrNotSupported, "Black List")
+	}
+
+	err = osscli.SetBucketReferer(b.Name, conf.DomainList, conf.AllowEmptyRefer)
 	if err != nil {
-		return errors.Wrapf(err, "osscli.SetBucketReferer(%s,%s,%t)", b.Name, conf.WhiteList, conf.AllowEmptyRefer)
+		return errors.Wrapf(err, "osscli.SetBucketReferer(%s,%s,%t)", b.Name, conf.DomainList, conf.AllowEmptyRefer)
 	}
 	return nil
 }
@@ -646,7 +654,9 @@ func (b *SBucket) GetReferer() (cloudprovider.SBucketRefererConf, error) {
 		return result, errors.Wrapf(err, "osscli.GetBucketReferer(%s)", b.Name)
 	}
 	result = cloudprovider.SBucketRefererConf{
-		WhiteList:       refererResult.RefererList,
+		Enabled:         true,
+		RefererType:     "White-List",
+		DomainList:      refererResult.RefererList,
 		AllowEmptyRefer: refererResult.AllowEmptyReferer,
 	}
 	return result, nil
