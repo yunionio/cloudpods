@@ -170,8 +170,10 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 }
 
 type SAliyunTag struct {
-	TagKey   string
-	TagValue string
+	ResourceId   string
+	ResourceType string
+	TagKey       string
+	TagValue     string
 }
 
 func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
