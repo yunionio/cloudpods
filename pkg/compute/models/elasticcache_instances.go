@@ -83,7 +83,7 @@ type SElasticcache struct {
 	SZoneResourceBase
 
 	// 备可用区
-	SlaveZones string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"slave_zones"`
+	SlaveZones string `width:"512" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"slave_zones"`
 
 	// 实例规格
 	// example: redis.master.micro.default
