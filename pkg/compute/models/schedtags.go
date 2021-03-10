@@ -219,6 +219,13 @@ func (manager *SSchedtagManager) ListItemFilter(
 		q = q.In("default_strategy", query.DefaultStrategy)
 	}
 
+	if len(query.CloudproviderId) > 0 {
+		hostSubq := HostManager.Query("id").Equals("manager_id", query.CloudproviderId).SubQuery()
+		hostSchedtagQ := HostschedtagManager.Query("schedtag_id")
+		hostSchedtagSubq := hostSchedtagQ.Join(hostSubq, sqlchemy.Equals(hostSchedtagQ.Field("host_id"), hostSubq.Field("id"))).SubQuery()
+		q = q.Join(hostSchedtagSubq, sqlchemy.Equals(q.Field("id"), hostSchedtagSubq.Field("schedtag_id")))
+	}
+
 	return q, nil
 }
 
