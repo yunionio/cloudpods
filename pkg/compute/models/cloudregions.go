@@ -629,28 +629,17 @@ func (manager *SCloudregionManager) InitializeData() error {
 }
 
 func getCloudRegionIdByDomainId(domainId string) *sqlchemy.SSubQuery {
-	accounts := CloudaccountManager.Query().SubQuery()
 	cloudproviderregions := CloudproviderRegionManager.Query().SubQuery()
-	providers := CloudproviderManager.Query().SubQuery()
 
 	// not managed region
 	q1 := CloudregionManager.Query("id").Equals("provider", api.CLOUD_PROVIDER_ONECLOUD)
 
 	// managed region
 	q2 := cloudproviderregions.Query(cloudproviderregions.Field("cloudregion_id", "id"))
-	q2 = q2.Join(providers, sqlchemy.Equals(providers.Field("id"), cloudproviderregions.Field("cloudprovider_id")))
-	q2 = q2.Join(accounts, sqlchemy.Equals(providers.Field("cloudaccount_id"), accounts.Field("id")))
-	q2 = q2.Filter(sqlchemy.OR(
-		sqlchemy.AND(
-			sqlchemy.Equals(providers.Field("domain_id"), domainId),
-			sqlchemy.Equals(accounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN),
-		),
-		sqlchemy.Equals(accounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
-		sqlchemy.AND(
-			sqlchemy.Equals(accounts.Field("domain_id"), domainId),
-			sqlchemy.Equals(accounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN),
-		),
-	))
+	providerIds := CloudproviderManager.Query("id")
+	providerIds = CloudproviderManager.filterByDomainId(providerIds, domainId)
+	providersIdsQ := providerIds.Distinct().SubQuery()
+	q2 = q2.Join(providersIdsQ, sqlchemy.Equals(providersIdsQ.Field("id"), cloudproviderregions.Field("cloudprovider_id")))
 
 	return sqlchemy.Union(q1, q2).Query().SubQuery()
 }
