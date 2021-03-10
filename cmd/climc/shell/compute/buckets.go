@@ -452,11 +452,15 @@ func init() {
 		DomainList []string
 		// 是否允许空referer 访问
 		AllowEmptyRefer bool `help:"all empty refer access"`
+		Enabled         bool
+		RerererType     string `help:"Referer type" choices:"Black-List|White-List"`
 	}
 	R(&BucketSetRefererOption{}, "bucket-set-referer", "Set bucket referer", func(s *mcclient.ClientSession, args *BucketSetRefererOption) error {
 		conf := api.BucketRefererConf{
-			WhiteList:       args.DomainList,
+			Enabled:         args.Enabled,
 			AllowEmptyRefer: args.AllowEmptyRefer,
+			RefererType:     args.RerererType,
+			DomainList:      args.DomainList,
 		}
 		result, err := modules.Buckets.PerformAction(s, args.ID, "set-referer", jsonutils.Marshal(conf))
 		if err != nil {

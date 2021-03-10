@@ -694,20 +694,23 @@ func (b *SBucket) SetReferer(conf cloudprovider.SBucketRefererConf) error {
 	if err != nil {
 		return errors.Wrap(err, "b.region.GetCosClient")
 	}
+
+	if !conf.Enabled {
+		_, err = coscli.Bucket.PutReferer(context.Background(), nil)
+		return errors.Wrap(err, "Disable Refer")
+	}
+
 	opts := cos.BucketPutRefererOptions{
 		Status:                  "Enabled",
-		RefererType:             "White-List",
 		EmptyReferConfiguration: "Deny",
+		RefererType:             conf.RefererType,
+		DomainList:              conf.DomainList,
 	}
 
 	if conf.AllowEmptyRefer {
 		opts.EmptyReferConfiguration = "Allow"
 	}
-	opts.DomainList = conf.WhiteList
-	if len(opts.DomainList) == 0 {
-		opts.Status = "Disabled"
-		opts.DomainList = []string{"*"}
-	}
+
 	_, err = coscli.Bucket.PutReferer(context.Background(), &opts)
 	if err != nil {
 		return errors.Wrap(err, "coscli.Bucket.PutReferer")
@@ -720,23 +723,17 @@ func (b *SBucket) GetReferer() (cloudprovider.SBucketRefererConf, error) {
 	if err != nil {
 		return result, errors.Wrap(err, "b.region.GetCosClient")
 	}
+
 	referResult, _, err := coscli.Bucket.GetReferer(context.Background())
 	if err != nil {
 		return result, errors.Wrap(err, " coscli.Bucket.GetReferer")
 	}
 
-	if referResult.EmptyReferConfiguration == "Allow" {
-		result.AllowEmptyRefer = true
-	}
-	if referResult.Status == "Disabled" {
-		result.AllowEmptyRefer = true
-		return result, nil
-	}
-	result.WhiteList = referResult.DomainList
-	if referResult.RefererType == "Black-List" {
-		result.WhiteList = nil
-		result.BlackList = referResult.DomainList
-	}
+	result.AllowEmptyRefer = (referResult.EmptyReferConfiguration == "Allow")
+	result.Enabled = (referResult.Status == "Enabled")
+	result.RefererType = referResult.RefererType
+	result.DomainList = referResult.DomainList
+
 	return result, nil
 }
 
