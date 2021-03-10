@@ -320,12 +320,16 @@ func (input *BucketCORSRules) Validate() error {
 }
 
 type BucketRefererConf struct {
-	// 白名单域名列表
-	WhiteList []string
-	// 黑名单域名列表
-	BlackList []string
+	// Referer Type
+	// enmu: Black-List, White-List
+	RefererType string
+	// 域名列表
+	DomainList []string
 	// 是否允许空referer 访问
 	AllowEmptyRefer bool
+
+	// 是否开启
+	Enabled bool `json:"enabled"`
 }
 
 func (input *BucketRefererConf) Validate() error {
