@@ -560,10 +560,12 @@ func S3Shell() {
 	})
 
 	type BucketSetRefererOption struct {
-		BUCKET     string `help:"name of bucket to put object"`
-		DomainList []string
+		BUCKET      string `help:"name of bucket to put object"`
+		RefererType string `help:"referer type" choices:"Black-List|White-List" default:"Black-List"`
+		DomainList  []string
 		// 是否允许空refer 访问
 		AllowEmptyRefer bool `help:"all empty refer access"`
+		Disable         bool
 	}
 	shellutils.R(&BucketSetRefererOption{}, "bucket-set-referer", "Set bucket referer", func(cli cloudprovider.ICloudRegion, args *BucketSetRefererOption) error {
 		bucket, err := cli.GetIBucketById(args.BUCKET)
@@ -571,8 +573,13 @@ func S3Shell() {
 			return err
 		}
 		conf := cloudprovider.SBucketRefererConf{
-			WhiteList:       args.DomainList,
+			DomainList:      args.DomainList,
+			RefererType:     args.RefererType,
 			AllowEmptyRefer: args.AllowEmptyRefer,
+			Enabled:         true,
+		}
+		if args.Disable {
+			conf.Enabled = false
 		}
 		err = bucket.SetReferer(conf)
 		if err != nil {
