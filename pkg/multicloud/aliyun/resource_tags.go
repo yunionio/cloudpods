@@ -49,25 +49,25 @@ func (self *SRegion) ListTags(serviceType string, resourceType string, resourceI
 	params["RegionId"] = self.RegionId
 	params["ResourceType"] = resourceType
 	params["ResourceId.1"] = resourceId
-	params["PageSize"] = "50"
-	var page int = 1
+	nextToken := ""
 	for {
-		params["PageNumber"] = fmt.Sprintf("%d", page)
-		resp, err := self.tagRequest(serviceType, "DescribeTags", params)
+		if len(nextToken) > 0 {
+			params["NextToken"] = nextToken
+		}
+		resp, err := self.tagRequest(serviceType, "ListTagResources", params)
 		if err != nil {
-			return nil, errors.Wrapf(err, "%s DescribeTags %s", serviceType, params)
+			return nil, errors.Wrapf(err, "%s ListTagResources %s", serviceType, params)
 		}
 		part := []SAliyunTag{}
-		err = resp.Unmarshal(&part, "Tags", "Tag")
+		err = resp.Unmarshal(&part, "TagResources", "TagResource")
 		if err != nil {
 			return nil, errors.Wrapf(err, "resp.Unmarshal")
 		}
 		tags = append(tags, part...)
-		total, _ := resp.Int("TotalCount")
-		if len(tags) >= int(total) {
+		nextToken, _ = resp.GetString("NextToken")
+		if len(nextToken) == 0 {
 			break
 		}
-		page++
 	}
 	return tags, nil
 }
