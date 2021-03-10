@@ -22,6 +22,7 @@ type SElasticcache struct {
 
 	MaintenanceTime  *MaintenanceTime `json:"maintenance_time"`
 	NoAuth           *bool            `json:"no_auth"`
+	NodeSet          []NodeSet        `json:"NodeSet"`
 	Appid            int64            `json:"Appid"`
 	AutoRenewFlag    int64            `json:"AutoRenewFlag"`
 	BillingMode      int64            `json:"BillingMode"`
@@ -71,6 +72,12 @@ type InstanceTag struct {
 type MaintenanceTime struct {
 	StartTime string `json:"start_time"`
 	EndTime   string `json:"end_time"`
+}
+
+type NodeSet struct {
+	NodeID   int64 `json:"NodeId"`
+	NodeType int64 `json:"NodeType"`
+	ZoneID   int64 `json:"ZoneId"`
 }
 
 var zoneMaps = map[int]string{
@@ -892,7 +899,7 @@ func (self *SElasticcache) UpdateBackupPolicy(config cloudprovider.SCloudElastic
 }
 
 func (self *SElasticcache) getCloudElasticcacheAccounts() ([]SElasticcacheAccount, error) {
-	if self.GetEngineVersion() == "2.8" {
+	if self.GetEngineVersion() == "2.8" || (self.NodeSet != nil && len(self.NodeSet) > 0) {
 		account := SElasticcacheAccount{}
 		account.cacheDB = self
 		account.AccountName = "root"
