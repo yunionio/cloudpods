@@ -1497,27 +1497,49 @@ func (self *SCloudprovider) PerformDisable(ctx context.Context, userCred mcclien
 	return nil, nil
 }
 
+func (manager *SCloudproviderManager) filterByDomainId(q *sqlchemy.SQuery, domainId string) *sqlchemy.SQuery {
+	subq := db.SharedResourceManager.Query("resource_id")
+	subq = subq.Equals("resource_type", CloudaccountManager.Keyword())
+	subq = subq.Equals("target_project_id", domainId)
+	subq = subq.Equals("target_type", db.SharedTargetDomain)
+
+	cloudaccounts := CloudaccountManager.Query().SubQuery()
+	q = q.Join(cloudaccounts, sqlchemy.Equals(
+		q.Field("cloudaccount_id"),
+		cloudaccounts.Field("id"),
+	))
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.AND(
+			sqlchemy.Equals(q.Field("domain_id"), domainId),
+			sqlchemy.Equals(cloudaccounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN),
+		),
+		sqlchemy.AND(
+			sqlchemy.Equals(cloudaccounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
+			sqlchemy.OR(
+				sqlchemy.AND(
+					sqlchemy.Equals(cloudaccounts.Field("public_scope"), rbacutils.ScopeDomain),
+					sqlchemy.OR(
+						sqlchemy.Equals(cloudaccounts.Field("domain_id"), domainId),
+						sqlchemy.In(cloudaccounts.Field("id"), subq.SubQuery()),
+					),
+				),
+				sqlchemy.Equals(cloudaccounts.Field("public_scope"), rbacutils.ScopeSystem),
+			),
+		),
+		sqlchemy.AND(
+			sqlchemy.Equals(cloudaccounts.Field("domain_id"), domainId),
+			sqlchemy.Equals(cloudaccounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN),
+		),
+	))
+	return q
+}
+
 func (manager *SCloudproviderManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
 		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
 			if len(owner.GetProjectDomainId()) > 0 {
-				cloudaccounts := CloudaccountManager.Query().SubQuery()
-				q = q.Join(cloudaccounts, sqlchemy.Equals(
-					q.Field("cloudaccount_id"),
-					cloudaccounts.Field("id"),
-				))
-				q = q.Filter(sqlchemy.OR(
-					sqlchemy.AND(
-						sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
-						sqlchemy.Equals(cloudaccounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN),
-					),
-					sqlchemy.Equals(cloudaccounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
-					sqlchemy.AND(
-						sqlchemy.Equals(cloudaccounts.Field("domain_id"), owner.GetProjectDomainId()),
-						sqlchemy.Equals(cloudaccounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN),
-					),
-				))
+				q = manager.filterByDomainId(q, owner.GetProjectDomainId())
 			}
 		}
 	}
