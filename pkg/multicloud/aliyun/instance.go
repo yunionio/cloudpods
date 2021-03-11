@@ -577,9 +577,11 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	params["InternetChargeType"] = "PayByTraffic"
 	params["InternetMaxBandwidthIn"] = "200"
 	params["InternetMaxBandwidthOut"] = "100"
-	if publicIp.PublicIpBw > 0 && publicIp.PublicIpChargeType == cloudprovider.ElasticipChargeTypeByBandwidth {
-		params["InternetChargeType"] = "PayByBandwidth"
+	if publicIp.PublicIpBw > 0 {
 		params["InternetMaxBandwidthOut"] = fmt.Sprintf("%d", publicIp.PublicIpBw)
+	}
+	if publicIp.PublicIpChargeType == cloudprovider.ElasticipChargeTypeByBandwidth {
+		params["InternetChargeType"] = "PayByBandwidth"
 	}
 	params["HostName"] = stringutils2.GenerateHostName(name, osType)
 	if len(passwd) > 0 {
