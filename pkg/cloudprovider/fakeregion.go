@@ -14,6 +14,8 @@
 
 package cloudprovider
 
+import "yunion.io/x/pkg/errors"
+
 type SFakeOnPremiseRegion struct {
 }
 
@@ -54,7 +56,7 @@ func (region *SFakeOnPremiseRegion) GetSysTags() map[string]string {
 }
 
 func (region *SFakeOnPremiseRegion) GetTags() (map[string]string, error) {
-	return nil, nil
+	return nil, errors.Wrap(ErrNotImplemented, "GetTags")
 }
 
 func (region *SFakeOnPremiseRegion) SetTags(tags map[string]string, replace bool) error {

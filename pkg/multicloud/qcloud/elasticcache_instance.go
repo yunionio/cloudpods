@@ -266,7 +266,7 @@ func (self *SElasticcache) GetTags() (map[string]string, error) {
 		return nil, errors.Wrap(err, "self.region.FetchResourceTags")
 	}
 	if _, ok := tags[self.GetId()]; !ok {
-		return nil, cloudprovider.ErrNotFound
+		return map[string]string{}, nil
 	}
 	return *tags[self.GetId()], nil
 }

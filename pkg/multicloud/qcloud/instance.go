@@ -220,7 +220,7 @@ func (self *SInstance) GetTags() (map[string]string, error) {
 	if tags, ok := mtags[self.InstanceId]; ok {
 		return *tags, nil
 	}
-	return nil, cloudprovider.ErrNotFound
+	return map[string]string{}, nil
 }
 
 func (self *SInstance) getCloudMetadata() (map[string]string, error) {

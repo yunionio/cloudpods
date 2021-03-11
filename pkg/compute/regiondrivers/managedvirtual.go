@@ -332,6 +332,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateLoadbalancer(
 		}
 		oldTags, err := iLoadbalancer.GetTags()
 		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
+				return nil, nil
+			}
 			return nil, errors.Wrap(err, "iLoadbalancer.GetTags()")
 		}
 		tags, err := lb.GetAllUserMetadata()
@@ -341,6 +344,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateLoadbalancer(
 		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
 		err = iLoadbalancer.SetTags(tags, replaceTags)
 		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
+				return nil, nil
+			}
 			logclient.AddActionLogWithStartable(task, lb, logclient.ACT_UPDATE_TAGS, err, userCred, false)
 			return nil, errors.Wrap(err, "iLoadbalancer.SetMetadata")
 		}
@@ -2628,7 +2634,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateDBInstance(ct
 			return nil, errors.Wrap(err, "instance.GetIDBInstance")
 		}
 		oldTags, err := iRds.GetTags()
-		if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
+				return nil, nil
+			}
 			return nil, errors.Wrap(err, "iRds.GetTags()")
 		}
 		tags, err := instance.GetAllUserMetadata()
@@ -2638,6 +2647,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateDBInstance(ct
 		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
 		err = iRds.SetTags(tags, replaceTags)
 		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
+				return nil, nil
+			}
 			logclient.AddActionLogWithStartable(task, instance, logclient.ACT_UPDATE_TAGS, err, userCred, false)
 			return nil, errors.Wrap(err, "iRds.SetTags")
 		}
@@ -3026,8 +3038,15 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateElasticcache(
 		}
 
 		iElasticcache, err := iRegion.GetIElasticcacheById(elasticcache.ExternalId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetIElasticcacheById(%s)", elasticcache.ExternalId)
+		}
+
 		oldTags, err := iElasticcache.GetTags()
-		if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
+				return nil, nil
+			}
 			return nil, errors.Wrap(err, "iElasticcache.GetTags()")
 		}
 		tags, err := elasticcache.GetAllUserMetadata()
@@ -3037,6 +3056,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateElasticcache(
 		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
 		err = iElasticcache.SetTags(tags, replaceTags)
 		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
+				return nil, nil
+			}
+
 			logclient.AddActionLogWithStartable(task, elasticcache, logclient.ACT_UPDATE_TAGS, err, userCred, false)
 			return nil, errors.Wrap(err, "iElasticcache.SetTags")
 		}
