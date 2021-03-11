@@ -55,7 +55,8 @@ func (o SchedtagSetOptions) Params() (jsonutils.JSONObject, error) {
 
 type SchedtagListOptions struct {
 	BaseListOptions
-	Type string `help:"Filter by resource type"`
+	Type            string `help:"Filter by resource type"`
+	CloudproviderId string `help:"Filter by cloudprovider id"`
 }
 
 func (o SchedtagListOptions) Params() (jsonutils.JSONObject, error) {
@@ -66,6 +67,9 @@ func (o SchedtagListOptions) Params() (jsonutils.JSONObject, error) {
 
 	if len(o.Type) > 0 {
 		params.Add(jsonutils.NewString(o.Type), "resource_type")
+	}
+	if len(o.CloudproviderId) > 0 {
+		params.Add(jsonutils.NewString(o.CloudproviderId), "cloudprovider_id")
 	}
 
 	return params, nil
