@@ -1196,7 +1196,7 @@ func (bucket *SBucket) ValidateDeleteCondition(ctx context.Context) error {
 		return bucket.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
 	}
 	if bucket.ObjectCnt > 0 {
-		return httperrors.NewNotEmptyError("not an empty bucket")
+		return httperrors.NewNotEmptyError("Buckets that are not empty do not support this operation")
 	}
 	return bucket.ValidatePurgeCondition(ctx)
 }
