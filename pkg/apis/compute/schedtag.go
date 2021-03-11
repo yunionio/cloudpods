@@ -59,6 +59,7 @@ type SchedtagFilterListInput struct {
 type SchedtagListInput struct {
 	apis.StandaloneResourceListInput
 	apis.ScopedResourceBaseListInput
+	CloudproviderResourceInput
 
 	// fitler by resource_type
 	ResourceType []string `json:"resource_type"`
