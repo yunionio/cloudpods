@@ -122,7 +122,7 @@ func (lb *SLoadbalancer) GetTags() (map[string]string, error) {
 		return nil, errors.Wrap(err, "lb.region.ListResourceTags")
 	}
 	if _, ok := tags[lb.GetId()]; !ok {
-		return nil, cloudprovider.ErrNotFound
+		return map[string]string{}, nil
 	}
 	return *tags[lb.GetId()], nil
 }

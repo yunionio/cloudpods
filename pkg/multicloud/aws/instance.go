@@ -286,7 +286,7 @@ func (self *SInstance) GetTags() (map[string]string, error) {
 	}
 	tags, err := FetchTags(ec2Client, self.InstanceId)
 	if err != nil {
-		return nil, errors.Wrap(err, "FetchTags(self.host.zone.region.ec2Client, self.InstanceId)")
+		return nil, errors.Wrap(err, "FetchTags()")
 	}
 	data := map[string]string{}
 	err = tags.Unmarshal(&data)
