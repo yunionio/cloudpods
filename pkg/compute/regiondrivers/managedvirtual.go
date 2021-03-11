@@ -1914,8 +1914,15 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcache(ctx co
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateCreateElasticcacheData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return self.ValidateManagerId(ctx, userCred, data)
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateElasticcacheData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.ElasticcacheCreateInput) (*jsonutils.JSONDict, error) {
+	m := jsonutils.NewDict()
+	m.Set("manager_id", jsonutils.NewString(input.ManagerId))
+	_, err := self.ValidateManagerId(ctx, userCred, m)
+	if err != nil {
+		return nil, errors.Wrap(err, "ValidateManagerId")
+	}
+
+	return input.JSON(input), nil
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestRestartElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
