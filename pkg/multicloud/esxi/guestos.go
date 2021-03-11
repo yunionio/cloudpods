@@ -41,8 +41,16 @@ func asian(ver string, arch TOSArch) SOsInfo {
 	return SOsInfo{LINUX, "Asianux Server", ver, arch}
 }
 
-func centos(arch TOSArch) SOsInfo {
-	return SOsInfo{LINUX, "CentOS", "4/5", arch}
+func centos4_5(arch TOSArch) SOsInfo {
+	return centos("4/5", arch)
+}
+
+func centos(ver string, arch TOSArch) SOsInfo {
+	return SOsInfo{LINUX, "CentOS", ver, arch}
+}
+
+func coreos(ver string, arch TOSArch) SOsInfo {
+	return SOsInfo{LINUX, "CoreOS Linux", ver, arch}
 }
 
 func macos(ver string, arch TOSArch) SOsInfo {
@@ -51,7 +59,10 @@ func macos(ver string, arch TOSArch) SOsInfo {
 
 func debian(ver string, arch TOSArch) SOsInfo {
 	return SOsInfo{LINUX, "Debian", ver, arch}
+}
 
+func eComStationGuest(ver string, arch TOSArch) SOsInfo {
+	return SOsInfo{"", "eComStationGuest", ver, arch}
 }
 
 func fedora(ver string, arch TOSArch) SOsInfo {
@@ -118,16 +129,28 @@ var (
 		"asianux3Guest":           asian("3", X86),
 		"asianux4_64Guest":        asian("4", X86_64),
 		"asianux4Guest":           asian("4", X86),
-		"centos64Guest":           centos(X86_64),
-		"centosGuest":             centos(X86),
+		"asianux5_64Guest":        asian("5", X86_64),
+		"asianux7_64Guest":        asian("7", X86_64),
+		"centos6_64Guest":         centos("6", X86_64),
+		"centos64Guest":           centos4_5(X86_64),
+		"centos6Guest":            centos("6", X86),
+		"centos7_64Guest":         centos("7", X86_64),
+		"centos7Guest":            centos("7", X86),
+		"centosGuest":             centos4_5(X86),
+		"coreos64Guest":           coreos("", X86_64),
 		"darwin10_64Guest":        macos("10.6", X86_64),
 		"darwin10Guest":           macos("10.6", X86),
 		"darwin11_64Guest":        macos("10.7", X86_64),
 		"darwin11Guest":           macos("10.7", X86),
 		"darwin12_64Guest":        macos("10.8", X86_64),
 		"darwin13_64Guest":        macos("10.9", X86_64),
+		"darwin14_64Guest":        macos("10.10", X86_64),
+		"darwin15_64Guest":        macos("10.11", X86_64),
+		"darwin16_64Guest":        macos("10.12", X86_64),
 		"darwin64Guest":           macos("10.5", X86_64),
 		"darwinGuest":             macos("10.5", X86),
+		"debian10_64Guest":        debian("10", X86_64),
+		"debian10Guest":           debian("10", X86),
 		"debian4_64Guest":         debian("4", X86_64),
 		"debian4Guest":            debian("4", X86),
 		"debian5_64Guest":         debian("5", X86_64),
@@ -136,6 +159,12 @@ var (
 		"debian6Guest":            debian("6", X86),
 		"debian7_64Guest":         debian("7", X86_64),
 		"debian7Guest":            debian("7", X86),
+		"debian8_64Guest":         debian("8", X86_64),
+		"debian8Guest":            debian("8", X86),
+		"debian9_64Guest":         debian("9", X86_64),
+		"debian9Guest":            debian("9", X86),
+		"eComStation2Guest":       eComStationGuest("2.0", X86),
+		"eComStationGuest":        eComStationGuest("1.x", X86),
 		"fedora64Guest":           fedora("?", X86_64),
 		"fedoraGuest":             fedora("?", X86),
 		"freebsd64Guest":          freebsd(X86_64),
@@ -146,7 +175,11 @@ var (
 		"mandrivaGuest":           mandriva(X86),
 		"opensuse64Guest":         opensuse(X86_64),
 		"opensuseGuest":           opensuse(X86),
+		"oracleLinux6_64Guest":    oracle("6", X86_64),
 		"oracleLinux64Guest":      oracle("4/5", X86_64),
+		"oracleLinux6Guest":       oracle("6", X86),
+		"oracleLinux7_64Guest":    oracle("7", X86_64),
+		"oracleLinux7Guest":       oracle("7", X86),
 		"oracleLinuxGuest":        oracle("4/5", X86),
 		"other24xLinux64Guest":    linux("2.4", X86_64),
 		"other24xLinuxGuest":      linux("2.4", X86),
@@ -190,6 +223,8 @@ var (
 		"ubuntu64Guest":           ubuntu(X86_64),
 		"ubuntuGuest":             ubuntu(X86),
 		"vmkernel5Guest":          vmware("5"),
+		"vmkernel65Guest":         vmware("6.5"),
+		"vmkernel6Guest":          vmware("6"),
 		"vmkernelGuest":           vmware("4"),
 		"win2000AdvServGuest":     windows("Windows 2000 Advanced Server", X86),
 		"win2000ProGuest":         windows("Windows 2000 Professional", X86),
@@ -203,6 +238,9 @@ var (
 		"windows8_64Guest":        windows("Windows 8", X86_64),
 		"windows8Guest":           windows("Windows 8", X86),
 		"windows8Server64Guest":   windows("Windows 8 Server", X86_64),
+		"windows9_64Guest":        windows("Windows 10", X86_64),
+		"windows9Guest":           windows("Windows 10", X86),
+		"windows9Server64Guest":   windows("Windows 10 Server", X86_64),
 		"windowsHyperVGuest":      windows("Windows Hyper-V", X86_64),
 		"winLonghorn64Guest":      windows("Windows Longhorn", X86_64),
 		"winLonghornGuest":        windows("Windows Longhorn", X86),
