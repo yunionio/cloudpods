@@ -1013,6 +1013,7 @@ func (region *SRegion) GetIElasticcacheById(id string) (cloudprovider.ICloudElas
 	return nil, cloudprovider.ErrNotFound
 }
 
+// DescribeProductInfo 可以查询在售可用区信息
 // https://cloud.tencent.com/document/product/239/20026
 func (r *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheInput) (cloudprovider.ICloudElasticcache, error) {
 	params := map[string]string{}
@@ -1023,6 +1024,22 @@ func (r *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheInput
 	zoneId, ok := zoneIdMaps[ec.ZoneIds[0]]
 	if !ok {
 		return nil, fmt.Errorf("can't convert zone %s to integer id", ec.ZoneIds[0])
+	}
+
+	if len(ec.ZoneIds) > 1 {
+		for i := range ec.ZoneIds {
+			if i == 0 {
+				params[fmt.Sprintf("NodeSet.%d.NodeType", i)] = "0"
+				params[fmt.Sprintf("NodeSet.%d.ZoneId", i)] = fmt.Sprintf("%d", zoneId)
+			} else {
+				_z, ok := zoneIdMaps[ec.ZoneIds[i]]
+				if !ok {
+					return nil, fmt.Errorf("can't convert zone %s to integer id", ec.ZoneIds[i])
+				}
+				params[fmt.Sprintf("NodeSet.%d.NodeType", i)] = "1"
+				params[fmt.Sprintf("NodeSet.%d.ZoneId", i)] = fmt.Sprintf("%d", _z)
+			}
+		}
 	}
 
 	spec, err := parseLocalInstanceSpec(ec.InstanceType)
