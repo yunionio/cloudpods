@@ -2286,7 +2286,7 @@ func (self *SHuaWeiRegionDriver) ValidateDBInstanceRecovery(ctx context.Context,
 	return nil
 }
 
-func validatorSlaveZones(ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, optional bool) error {
+func validatorSlaveZones(ownerId mcclient.IIdentityProvider, regionId string, data *jsonutils.JSONDict, optional bool) error {
 	s, err := data.GetString("slave_zones")
 	if err != nil {
 		if optional {
@@ -2299,33 +2299,36 @@ func validatorSlaveZones(ownerId mcclient.IIdentityProvider, data *jsonutils.JSO
 	zones := strings.Split(s, ",")
 	ret := []string{}
 	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
-	for _, zone := range zones {
+	for i := range zones {
 		_data := jsonutils.NewDict()
-		_data.Add(jsonutils.NewString(zone), "zone")
+		_data.Set("zone", jsonutils.NewString(zones[i]))
 		if err := zoneV.Validate(_data); err != nil {
 			return errors.Wrap(err, "validatorSlaveZones")
 		} else {
+			if zoneV.Model.(*models.SZone).GetCloudRegionId() != regionId {
+				return errors.Wrap(fmt.Errorf("zone %s is not in region %s", zoneV.Model.GetName(), regionId), "GetCloudRegionId")
+			}
 			ret = append(ret, zoneV.Model.GetId())
 		}
 	}
 
-	if sku, err := data.GetString("sku"); err != nil || len(sku) == 0 {
-		return httperrors.NewMissingParameterError("sku")
-	} else {
-		chargeType, _ := data.GetString("charge_type")
-
-		_skuModel, err := db.FetchByIdOrName(models.ElasticcacheSkuManager, ownerId, sku)
-		if err != nil {
-			return err
-		}
-
-		skuModel := _skuModel.(*models.SElasticcacheSku)
-		for _, zoneId := range zones {
-			if err := ValidateElasticcacheSku(zoneId, chargeType, skuModel, nil); err != nil {
-				return err
-			}
-		}
-	}
+	//if sku, err := data.GetString("sku"); err != nil || len(sku) == 0 {
+	//	return httperrors.NewMissingParameterError("sku")
+	//} else {
+	//	chargeType, _ := data.GetString("charge_type")
+	//
+	//	_skuModel, err := db.FetchByIdOrName(models.ElasticcacheSkuManager, ownerId, sku)
+	//	if err != nil {
+	//		return err
+	//	}
+	//
+	//	skuModel := _skuModel.(*models.SElasticcacheSku)
+	//	for _, zoneId := range zones {
+	//		if err := ValidateElasticcacheSku(zoneId, chargeType, skuModel, nil); err != nil {
+	//			return err
+	//		}
+	//	}
+	//}
 
 	data.Set("slave_zones", jsonutils.NewString(strings.Join(ret, ",")))
 	return nil
@@ -2355,7 +2358,8 @@ func ValidateElasticcacheSku(zoneId string, chargeType string, sku *models.SElas
 	return nil
 }
 
-func (self *SHuaWeiRegionDriver) ValidateCreateElasticcacheData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SHuaWeiRegionDriver) ValidateCreateElasticcacheData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.ElasticcacheCreateInput) (*jsonutils.JSONDict, error) {
+	data := input.JSON(input)
 	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
 	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
 	// secgroupV := validators.NewModelIdOrNameValidator("security_group", "secgroup", ownerId)
@@ -2408,7 +2412,10 @@ func (self *SHuaWeiRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 	}
 
 	// validate slave zones
-	if err := validatorSlaveZones(ownerId, data, true); err != nil {
+	if len(input.SlaveZones) > 0 {
+		data.Set("slave_zones", jsonutils.NewString(strings.Join(input.SlaveZones, ",")))
+	}
+	if err := validatorSlaveZones(ownerId, zoneV.Model.(*models.SZone).GetCloudRegionId(), data, true); err != nil {
 		return nil, err
 	}
 

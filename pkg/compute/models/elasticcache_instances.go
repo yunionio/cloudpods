@@ -83,7 +83,7 @@ type SElasticcache struct {
 	SZoneResourceBase
 
 	// 备可用区
-	SlaveZones string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"slave_zones"`
+	SlaveZones string `width:"512" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"slave_zones"`
 
 	// 实例规格
 	// example: redis.master.micro.default
@@ -757,24 +757,28 @@ func (manager *SElasticcacheManager) AllowCreateItem(ctx context.Context, userCr
 }
 
 func (manager *SElasticcacheManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	input, err := manager.validateCreateData(ctx, userCred, ownerId, query, data)
+	_data := api.ElasticcacheCreateInput{}
+	err := data.Unmarshal(&_data)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ElasticcacheCreateInput.Unmarshal")
+	}
+	input, err := manager.validateCreateData(ctx, userCred, ownerId, query, _data)
+	if err != nil {
+		return nil, errors.Wrap(err, "validateCreateData")
 	}
 
 	return input, nil
 }
 
 func (manager *SElasticcacheManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ElasticcacheCreateInput) (*jsonutils.JSONDict, error) {
-	data := input.JSON(&input)
-	return manager.validateCreateData(ctx, userCred, ownerId, query, data)
+	return manager.validateCreateData(ctx, userCred, ownerId, query, input)
 }
 
-func (manager *SElasticcacheManager) validateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SElasticcacheManager) validateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ElasticcacheCreateInput) (*jsonutils.JSONDict, error) {
 	var region *SCloudregion
 	var provider *SCloudprovider
-	if id, _ := data.GetString("network"); len(id) > 0 {
-		network, err := db.FetchByIdOrName(NetworkManager, userCred, strings.Split(id, ",")[0])
+	if len(input.Network) > 0 {
+		network, err := db.FetchByIdOrName(NetworkManager, userCred, strings.Split(input.Network, ",")[0])
 		if err != nil {
 			return nil, fmt.Errorf("getting network failed")
 		}
@@ -788,34 +792,28 @@ func (manager *SElasticcacheManager) validateCreateData(ctx context.Context, use
 	}
 
 	// postpiad billing cycle
-	billingType, _ := data.GetString("billing_type")
-	if billingType == billing_api.BILLING_TYPE_POSTPAID {
-		billingCycle, _ := data.GetString("duration")
-		if len(billingCycle) > 0 {
-			cycle, err := bc.ParseBillingCycle(billingCycle)
+	if input.BillingType == billing_api.BILLING_TYPE_POSTPAID {
+		_cycle := input.Duration
+		if len(_cycle) > 0 {
+			cycle, err := bc.ParseBillingCycle(_cycle)
 			if err != nil {
-				return nil, httperrors.NewInputParameterError("invalid billing_cycle %s", billingCycle)
+				return nil, httperrors.NewInputParameterError("invalid billing_cycle %s", _cycle)
 			}
 
 			tm := time.Time{}
-			data.Set("billing_cycle", jsonutils.NewString(cycle.String()))
-			data.Set("expired_at", jsonutils.NewString(cycle.EndAt(tm).Format("2006-01-02 15:04:05")))
+			input.BillingCycle = cycle.String()
+			// .Format("2006-01-02 15:04:05")
+			input.ExpiredAt = cycle.EndAt(tm)
 		}
 	}
 
-	input := apis.VirtualResourceCreateInput{}
 	var err error
-	err = data.Unmarshal(&input)
+	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal VirtualResourceCreateInput fail %s", err)
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ValidateCreateData")
 	}
-	input, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
-	if err != nil {
-		return nil, err
-	}
-	data.Update(jsonutils.Marshal(input))
 
-	ret, err := region.GetDriver().ValidateCreateElasticcacheData(ctx, userCred, nil, data)
+	ret, err := region.GetDriver().ValidateCreateElasticcacheData(ctx, userCred, nil, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "region.GetDriver().ValidateCreateElasticcacheData")
 	}
@@ -864,6 +862,36 @@ func (self *SElasticcache) StartElasticcacheCreateTask(ctx context.Context, user
 	}
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (self *SElasticcache) GetSlaveZones() ([]SZone, error) {
+	if len(self.SlaveZones) > 0 {
+		zones := []SZone{}
+		sz := strings.Split(self.SlaveZones, ",")
+		err := ZoneManager.Query().In("id", sz).All(&zones)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetZones")
+		}
+
+		zoneMap := map[string]SZone{}
+		for i := range zones {
+			zoneMap[zones[i].GetId()] = zones[i]
+		}
+
+		ret := make([]SZone, len(sz))
+		for i := range sz {
+			z, ok := zoneMap[sz[i]]
+			if !ok {
+				return nil, fmt.Errorf("zone %s is not found", sz[i])
+			}
+
+			ret[i] = z
+		}
+
+		return ret, nil
+	}
+
+	return []SZone{}, nil
 }
 
 /*func (self *SElasticcache) GetIRegion() (cloudprovider.ICloudRegion, error) {
@@ -1080,11 +1108,21 @@ func (self *SElasticcache) GetCreateQCloudElasticcacheParams(data *jsonutils.JSO
 
 	zone := self.GetZone()
 	if zone != nil {
-		izone, err := iregion.GetIZoneById(zone.ExternalId)
+		zones := []SZone{*zone}
+		// slave zones
+		sz, err := self.GetSlaveZones()
 		if err != nil {
-			return nil, errors.Wrap(err, "elasticcache.GetCreateHuaweiElasticcacheParams.Zone")
+			return nil, errors.Wrap(err, "GetSlaveZones")
 		}
-		input.ZoneIds = []string{izone.GetId()}
+
+		zones = append(zones, sz...)
+		for i := range zones {
+			izone, err := iregion.GetIZoneById(zones[i].ExternalId)
+			if err != nil {
+				return nil, errors.Wrap(err, "elasticcache.GetCreateHuaweiElasticcacheParams.Zone")
+			}
+			input.ZoneIds = append(input.ZoneIds, izone.GetId())
+		}
 	}
 
 	switch self.BillingType {

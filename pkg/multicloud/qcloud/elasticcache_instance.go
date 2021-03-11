@@ -24,6 +24,7 @@ type SElasticcache struct {
 
 	MaintenanceTime  *MaintenanceTime `json:"maintenance_time"`
 	NoAuth           *bool            `json:"no_auth"`
+	NodeSet          []NodeSet        `json:"NodeSet"`
 	Appid            int64            `json:"Appid"`
 	AutoRenewFlag    int64            `json:"AutoRenewFlag"`
 	BillingMode      int64            `json:"BillingMode"`
@@ -75,11 +76,18 @@ type MaintenanceTime struct {
 	EndTime   string `json:"end_time"`
 }
 
+type NodeSet struct {
+	NodeID   int64 `json:"NodeId"`
+	NodeType int64 `json:"NodeType"`
+	ZoneID   int64 `json:"ZoneId"`
+}
+
 var zoneMaps = map[int]string{
 	100001: "ap-guangzhou-1",
 	100002: "ap-guangzhou-2",
 	100003: "ap-guangzhou-3",
 	100004: "ap-guangzhou-4",
+	100006: "ap-guangzhou-6",
 	110001: "ap-shenzhen-fsi-1",
 	110002: "ap-shenzhen-fsi-2",
 	110003: "ap-shenzhen-fsi-3",
@@ -95,11 +103,14 @@ var zoneMaps = map[int]string{
 	700003: "ap-shanghai-fsi-3",
 	330001: "ap-nanjing-1",
 	330002: "ap-nanjing-2",
+	330003: "ap-nanjing-3",
 	800001: "ap-beijing-1",
 	800002: "ap-beijing-2",
 	800003: "ap-beijing-3",
 	800004: "ap-beijing-4",
 	800005: "ap-beijing-5",
+	800006: "ap-beijing-6",
+	800007: "ap-beijing-7",
 	460001: "ap-beijing-fsi-1",
 	360001: "ap-tianjin-1",
 	360002: "ap-tianjin-2",
@@ -108,12 +119,14 @@ var zoneMaps = map[int]string{
 	190001: "ap-chongqing-1",
 	300001: "ap-hongkong-1",
 	300002: "ap-hongkong-2",
+	300003: "ap-hongkong-3",
 	390001: "ap-taipei-1",
 	900001: "ap-singapore-1",
 	230001: "ap-bangkok-1",
 	210001: "ap-mumbai-1",
 	210002: "ap-mumbai-2",
 	180001: "ap-seoul-1",
+	180002: "ap-seoul-2",
 	250001: "ap-tokyo-1",
 	150001: "na-siliconvalley-1",
 	150002: "na-siliconvalley-2",
@@ -129,6 +142,7 @@ var zoneIdMaps = map[string]int{
 	"ap-guangzhou-2":     100002,
 	"ap-guangzhou-3":     100003,
 	"ap-guangzhou-4":     100004,
+	"ap-guangzhou-6":     100006,
 	"ap-shenzhen-fsi-1":  110001,
 	"ap-shenzhen-fsi-2":  110002,
 	"ap-shenzhen-fsi-3":  110003,
@@ -144,11 +158,14 @@ var zoneIdMaps = map[string]int{
 	"ap-shanghai-fsi-3":  700003,
 	"ap-nanjing-1":       330001,
 	"ap-nanjing-2":       330002,
+	"ap-nanjing-3":       330003,
 	"ap-beijing-1":       800001,
 	"ap-beijing-2":       800002,
 	"ap-beijing-3":       800003,
 	"ap-beijing-4":       800004,
 	"ap-beijing-5":       800005,
+	"ap-beijing-6":       800006,
+	"ap-beijing-7":       800007,
 	"ap-beijing-fsi-1":   460001,
 	"ap-tianjin-1":       360001,
 	"ap-tianjin-2":       360002,
@@ -157,12 +174,14 @@ var zoneIdMaps = map[string]int{
 	"ap-chongqing-1":     190001,
 	"ap-hongkong-1":      300001,
 	"ap-hongkong-2":      300002,
+	"ap-hongkong-3":      300003,
 	"ap-taipei-1":        390001,
 	"ap-singapore-1":     900001,
 	"ap-bangkok-1":       230001,
 	"ap-mumbai-1":        210001,
 	"ap-mumbai-2":        210002,
 	"ap-seoul-1":         180001,
+	"ap-seoul-2":         180002,
 	"ap-tokyo-1":         250001,
 	"na-siliconvalley-1": 150001,
 	"na-siliconvalley-2": 150002,
@@ -893,7 +912,7 @@ func (self *SElasticcache) UpdateBackupPolicy(config cloudprovider.SCloudElastic
 }
 
 func (self *SElasticcache) getCloudElasticcacheAccounts() ([]SElasticcacheAccount, error) {
-	if self.GetEngineVersion() == "2.8" {
+	if self.GetEngineVersion() == "2.8" || (self.NodeSet != nil && len(self.NodeSet) > 0) {
 		account := SElasticcacheAccount{}
 		account.cacheDB = self
 		account.AccountName = "root"

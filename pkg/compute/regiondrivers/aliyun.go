@@ -1156,7 +1156,8 @@ func (self *SAliyunRegionDriver) ValidateDBInstanceAccountPrivilege(ctx context.
 	return nil
 }
 
-func (self *SAliyunRegionDriver) ValidateCreateElasticcacheData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SAliyunRegionDriver) ValidateCreateElasticcacheData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.ElasticcacheCreateInput) (*jsonutils.JSONDict, error) {
+	data := input.JSON(input)
 	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
 	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
 
