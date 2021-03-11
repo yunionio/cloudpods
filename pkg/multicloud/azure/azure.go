@@ -465,15 +465,20 @@ func (self *SAzureClient) _apiVersion(resource string, params url.Values) string
 	return AZURE_API_VERSION
 }
 
-func (self *SAzureClient) _list(resource string, params url.Values) (jsonutils.JSONObject, error) {
-	subId := self.subscriptionId
-	if len(subId) == 0 {
-		for _, sub := range self.subscriptions {
-			if sub.State == "Enabled" {
-				subId = sub.SubscriptionId
-			}
+func (self *SAzureClient) _subscriptionId() string {
+	if len(self.subscriptionId) > 0 {
+		return self.subscriptionId
+	}
+	for _, sub := range self.subscriptions {
+		if sub.State == "Enabled" {
+			return sub.SubscriptionId
 		}
 	}
+	return ""
+}
+
+func (self *SAzureClient) _list(resource string, params url.Values) (jsonutils.JSONObject, error) {
+	subId := self._subscriptionId()
 	path := "subscriptions"
 	switch resource {
 	case "subscriptions", "providers/Microsoft.Billing/enrollmentAccounts":
