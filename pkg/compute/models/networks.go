@@ -1621,6 +1621,10 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 		if endIp.NetAddr(masklen) != netAddr {
 			return input, httperrors.NewInputParameterError("start, end ip must be in the same subnet")
 		}
+	} else {
+		startIp, _ = netutils.NewIPV4Addr(self.GuestIpStart)
+		endIp, _ = netutils.NewIPV4Addr(self.GuestIpEnd)
+		netAddr = startIp.NetAddr(masklen)
 	}
 
 	for key, ipStr := range map[string]string{
