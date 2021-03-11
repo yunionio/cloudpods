@@ -540,12 +540,16 @@ func (self *SRegion) checkResourceGroup(resourceGroup string) (string, error) {
 	if len(resourceGroup) == 0 {
 		resourceGroup = "Default"
 	}
-	for i := range self.client.ressourceGroups {
-		if strings.ToLower(self.client.ressourceGroups[i].Name) == strings.ToLower(resourceGroup) {
+	projs, err := self.client.GetIProjects()
+	if err != nil {
+		return "", errors.Wrapf(err, "GetIProjects")
+	}
+	for _, proj := range projs {
+		if strings.ToLower(proj.GetGlobalId()) == strings.ToLower(resourceGroup) {
 			return resourceGroup, nil
 		}
 	}
-	_, err := self.CreateResourceGroup(resourceGroup)
+	_, err = self.CreateResourceGroup(resourceGroup)
 	return resourceGroup, err
 }
 
