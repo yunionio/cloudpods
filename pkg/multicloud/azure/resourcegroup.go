@@ -42,7 +42,7 @@ type SResourceGroup struct {
 
 func (self *SRegion) GetResourceGroupDetail(groupName string) (*SResourceGroup, error) {
 	resourceGroup := SResourceGroup{}
-	idStr := fmt.Sprintf("subscriptions/%s/resourcegroups/%s", self.client.subscriptionId, groupName)
+	idStr := fmt.Sprintf("subscriptions/%s/resourcegroups/%s", self.client._subscriptionId(), groupName)
 	return &resourceGroup, self.get(idStr, url.Values{}, &resourceGroup)
 }
 
@@ -56,12 +56,12 @@ func (self *SRegion) UpdateResourceGroup(groupName string, newName string) error
 
 func (self *SRegion) CreateResourceGroup(groupName string) (jsonutils.JSONObject, error) {
 	resourceGroup := SResourceGroup{Location: self.Name}
-	idStr := fmt.Sprintf("subscriptions/%s/resourcegroups/%s", self.client.subscriptionId, groupName)
+	idStr := fmt.Sprintf("subscriptions/%s/resourcegroups/%s", self.client._subscriptionId(), groupName)
 	return self.client.put(idStr, jsonutils.Marshal(resourceGroup))
 }
 
 func (self *SRegion) DeleteResourceGroup(groupName string) error {
-	idStr := fmt.Sprintf("subscriptions/%s/resourcegroups/%s", self.client.subscriptionId, groupName)
+	idStr := fmt.Sprintf("subscriptions/%s/resourcegroups/%s", self.client._subscriptionId(), groupName)
 	return self.del(idStr)
 }
 
