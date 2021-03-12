@@ -1509,6 +1509,10 @@ func (manager *SCloudproviderManager) filterByDomainId(q *sqlchemy.SQuery, domai
 			sqlchemy.Equals(cloudaccounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
 			sqlchemy.OR(
 				sqlchemy.AND(
+					sqlchemy.Equals(cloudaccounts.Field("public_scope"), rbacutils.ScopeNone),
+					sqlchemy.Equals(cloudaccounts.Field("domain_id"), domainId),
+				),
+				sqlchemy.AND(
 					sqlchemy.Equals(cloudaccounts.Field("public_scope"), rbacutils.ScopeDomain),
 					sqlchemy.OR(
 						sqlchemy.Equals(cloudaccounts.Field("domain_id"), domainId),
