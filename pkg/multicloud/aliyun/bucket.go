@@ -716,6 +716,15 @@ func (b *SBucket) GetCdnDomains() ([]cloudprovider.SCdnDomain, error) {
 	return result, nil
 }
 
+func (b *SBucket) GetMetadata() *jsonutils.JSONDict {
+	tags, err := b.GetTags()
+	if err != nil {
+		log.Errorf("GetTags error: %v", err)
+		return nil
+	}
+	return jsonutils.Marshal(tags).(*jsonutils.JSONDict)
+}
+
 func (b *SBucket) GetTags() (map[string]string, error) {
 	osscli, err := b.region.GetOssClient()
 	if err != nil {
