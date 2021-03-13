@@ -1888,6 +1888,7 @@ func (bucket *SBucket) OnMetadataUpdated(ctx context.Context, userCred mcclient.
 	if diff.IsChanged() {
 		logclient.AddSimpleActionLog(bucket, logclient.ACT_UPDATE_TAGS, diff, userCred, true)
 	}
+	syncVirtualResourceMetadata(ctx, userCred, bucket, iBucket)
 }
 
 func (manager *SBucketManager) ListItemExportKeys(ctx context.Context,
