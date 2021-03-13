@@ -420,7 +420,7 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 
 	instance := SDBInstance{}
 	jsonutils.Update(&instance, input)
-	skus, err := instance.GetAvailableDBInstanceSkus()
+	skus, err := instance.GetAvailableDBInstanceSkus(false)
 	if err != nil {
 		return input, httperrors.NewGeneralError(err)
 	}
@@ -1098,7 +1098,7 @@ func (self *SDBInstance) PerformChangeConfig(ctx context.Context, userCred mccli
 	}
 
 	if changed {
-		skus, err := tmp.GetAvailableDBInstanceSkus()
+		skus, err := tmp.GetAvailableDBInstanceSkus(true)
 		if err != nil {
 			return nil, httperrors.NewGeneralError(errors.Wrap(err, "self.GetAvailableDBInstanceSkus"))
 		}
@@ -1511,14 +1511,18 @@ func (self *SDBInstance) ValidateDeleteCondition(ctx context.Context) error {
 	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (self *SDBInstance) GetDBInstanceSkuQuery() *sqlchemy.SQuery {
+func (self *SDBInstance) GetDBInstanceSkuQuery(skipZoneCheck bool) *sqlchemy.SQuery {
 	q := DBInstanceSkuManager.Query().Equals("storage_type", self.StorageType).Equals("category", self.Category).
 		Equals("cloudregion_id", self.CloudregionId).Equals("engine", self.Engine).Equals("engine_version", self.EngineVersion)
-	for k, v := range map[string]string{"zone1": self.Zone1, "zone2": self.Zone2, "zone3": self.Zone3} {
-		if len(v) > 0 {
-			q = q.Equals(k, v)
+
+	if !skipZoneCheck {
+		for k, v := range map[string]string{"zone1": self.Zone1, "zone2": self.Zone2, "zone3": self.Zone3} {
+			if len(v) > 0 {
+				q = q.Equals(k, v)
+			}
 		}
 	}
+
 	if len(self.InstanceType) > 0 {
 		q = q.Equals("name", self.InstanceType)
 	} else {
@@ -1527,9 +1531,9 @@ func (self *SDBInstance) GetDBInstanceSkuQuery() *sqlchemy.SQuery {
 	return q
 }
 
-func (self *SDBInstance) GetAvailableDBInstanceSkus() ([]SDBInstanceSku, error) {
+func (self *SDBInstance) GetAvailableDBInstanceSkus(skipZoneCheck bool) ([]SDBInstanceSku, error) {
 	skus := []SDBInstanceSku{}
-	q := self.GetDBInstanceSkuQuery().Equals("status", api.DBINSTANCE_SKU_AVAILABLE)
+	q := self.GetDBInstanceSkuQuery(skipZoneCheck).Equals("status", api.DBINSTANCE_SKU_AVAILABLE)
 	err := db.FetchModelObjects(DBInstanceSkuManager, q, &skus)
 	if err != nil {
 		return nil, err
@@ -1540,7 +1544,7 @@ func (self *SDBInstance) GetAvailableDBInstanceSkus() ([]SDBInstanceSku, error) 
 
 func (self *SDBInstance) GetDBInstanceSkus() ([]SDBInstanceSku, error) {
 	skus := []SDBInstanceSku{}
-	q := self.GetDBInstanceSkuQuery()
+	q := self.GetDBInstanceSkuQuery(false)
 	err := db.FetchModelObjects(DBInstanceSkuManager, q, &skus)
 	if err != nil {
 		return nil, err
@@ -1564,7 +1568,7 @@ func (self *SDBInstance) GetAvailableZoneIds() ([]string, error) {
 
 func (self *SDBInstance) GetAvailableInstanceTypes() ([]cloudprovider.SInstanceType, error) {
 	instanceTypes := []cloudprovider.SInstanceType{}
-	skus, err := self.GetAvailableDBInstanceSkus()
+	skus, err := self.GetAvailableDBInstanceSkus(false)
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetAvailableDBInstanceSkus")
 	}
@@ -1580,7 +1584,7 @@ func (self *SDBInstance) GetAvailableInstanceTypes() ([]cloudprovider.SInstanceT
 
 func (self *SDBInstance) setZoneInfo() error {
 	sku := SDBInstanceSku{}
-	q := self.GetDBInstanceSkuQuery()
+	q := self.GetDBInstanceSkuQuery(false)
 	count, err := q.CountWithError()
 	if err != nil {
 		return errors.Wrapf(err, "q.CountWithError")
