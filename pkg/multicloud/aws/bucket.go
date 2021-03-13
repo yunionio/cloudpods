@@ -679,6 +679,15 @@ func (b *SBucket) DeleteCORS() error {
 	return nil
 }
 
+func (b *SBucket) GetMetadata() *jsonutils.JSONDict {
+	tags, err := b.GetTags()
+	if err != nil {
+		log.Errorf("GetTags error: %v", err)
+		return nil
+	}
+	return jsonutils.Marshal(tags).(*jsonutils.JSONDict)
+}
+
 func (b *SBucket) GetTags() (map[string]string, error) {
 	s3cli, err := b.region.GetS3Client()
 	if err != nil {
