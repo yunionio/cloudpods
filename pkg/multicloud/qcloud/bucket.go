@@ -1084,6 +1084,15 @@ func (b *SBucket) DeletePolicy(id []string) ([]cloudprovider.SBucketPolicyStatem
 	return deletedPolicy, nil
 }
 
+func (b *SBucket) GetMetadata() *jsonutils.JSONDict {
+	tags, err := b.GetTags()
+	if err != nil {
+		log.Errorf("GetTags error: %v", err)
+		return nil
+	}
+	return jsonutils.Marshal(tags).(*jsonutils.JSONDict)
+}
+
 func (b *SBucket) GetTags() (map[string]string, error) {
 	coscli, err := b.region.GetCosClient(b)
 	if err != nil {
