@@ -110,12 +110,15 @@ type SBucketCORSRule struct {
 }
 
 type SBucketRefererConf struct {
-	// 白名单域名列表
-	WhiteList []string
-	// 黑名单域名列表
-	BlackList []string
+	// 域名列表
+	DomainList []string
+	// 域名列表
+	// enmu: Black-List, White-List
+	RefererType string
 	// 是否允许空referer 访问
 	AllowEmptyRefer bool
+
+	Enabled bool
 }
 
 type SBucketPolicyStatement struct {
