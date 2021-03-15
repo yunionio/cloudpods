@@ -110,9 +110,6 @@ type NatGatewayFilterListInput struct {
 type NatEntryDetails struct {
 	apis.StatusInfrasResourceBaseDetails
 	NatGatewayResourceInfo
-
-	// NAT ENTRY的真实名称？？
-	RealName string `json:"real_name"`
 }
 
 type NatGatewaySyncstatusInput struct {

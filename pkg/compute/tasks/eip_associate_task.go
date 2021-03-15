@@ -37,7 +37,7 @@ func init() {
 }
 
 func (self *EipAssociateTask) taskFail(ctx context.Context, eip *models.SElasticip, obj db.IStatusStandaloneModel, err error) {
-	eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, err.Error())
+	eip.SetStatus(self.UserCred, api.EIP_STATUS_ASSOCIATE_FAIL, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	if obj != nil {
 		db.StatusBaseSetStatus(obj, self.GetUserCred(), api.INSTANCE_ASSOCIATE_EIP_FAILED, err.Error())
@@ -68,13 +68,17 @@ func (self *EipAssociateTask) GetAssociateObj() (db.IStatusStandaloneModel, api.
 		if err != nil {
 			return nil, input, errors.Wrapf(err, "GuestManager.FetchById(%s)", input.InstanceId)
 		}
-		return vmObj.(*models.SGuest), input, nil
+		vm := vmObj.(*models.SGuest)
+		input.InstanceExternalId = vm.ExternalId
+		return vm, input, nil
 	case api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY:
 		natObj, err := models.NatGatewayManager.FetchById(input.InstanceId)
 		if err != nil {
 			return nil, input, errors.Wrapf(err, "NatGatewayManager.FetchById(%s)", input.InstanceId)
 		}
-		return natObj.(*models.SNatGateway), input, nil
+		nat := natObj.(*models.SNatGateway)
+		input.InstanceExternalId = nat.ExternalId
+		return nat, input, nil
 	default:
 		return nil, input, fmt.Errorf("invalid instance type %s", input.InstanceType)
 	}
@@ -114,11 +118,11 @@ func (self *EipAssociateTask) OnAssociateEipComplete(ctx context.Context, obj db
 		case api.EIP_ASSOCIATE_TYPE_SERVER:
 			server := ins.(*models.SGuest)
 			server.StartSyncstatus(ctx, self.UserCred, "")
-			logclient.AddActionLogWithStartable(self, eip, logclient.ACT_VM_ASSOCIATE, nil, self.UserCred, true)
+			logclient.AddActionLogWithStartable(self, eip, logclient.ACT_VM_ASSOCIATE, ins, self.UserCred, true)
 		case api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY:
 			nat := ins.(*models.SNatGateway)
 			nat.StartSyncstatus(ctx, self.UserCred, "")
-			logclient.AddActionLogWithStartable(self, eip, logclient.ACT_NATGATEWAY_ASSOCIATE, nil, self.UserCred, true)
+			logclient.AddActionLogWithStartable(self, eip, logclient.ACT_NATGATEWAY_ASSOCIATE, ins, self.UserCred, true)
 		}
 		logclient.AddActionLogWithStartable(self, ins, logclient.ACT_EIP_ASSOCIATE, nil, self.UserCred, true)
 	}

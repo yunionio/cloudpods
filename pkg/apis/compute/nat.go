@@ -22,8 +22,12 @@ type SNatSCreateInput struct {
 	Name         string
 	NatgatewayId string
 	NetworkId    string
-	Ip           string
-	ExternalIpId string
+	// swagger: ignore
+	Ip string
+
+	// swagger:ignore
+	ExternalIpId string `json:"external_ip_id"  yunion-deprecated-by:"eip"`
+	Eip          string `json:"eip"`
 	SourceCidr   string
 }
 
@@ -35,7 +39,8 @@ type SNatDCreateInput struct {
 	InternalIp   string
 	InternalPort int
 	ExternalIp   string
-	ExternalIpId string
+	Eip          string `json:"eip"`
+	ExternalIpId string `json:"external_ip_id"  yunion-deprecated-by:"eip"`
 	ExternalPort int
 	IpProtocol   string
 }

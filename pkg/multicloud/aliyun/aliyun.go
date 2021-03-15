@@ -174,7 +174,8 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 				"InvalidInstance.NotSupported",
 				"try later",
 				"BackendServer.configuring",
-				"Another operation is being performed", //Another operation is being performed on the DB instance or the DB instance is faulty(赋予RDS账号权限)
+				"OperationUnsupported.EipNatBWPCheck",  // create nat snat
+				"Another operation is being performed", // Another operation is being performed on the DB instance or the DB instance is faulty(赋予RDS账号权限)
 			} {
 				if strings.Contains(err.Error(), code) {
 					retry = true

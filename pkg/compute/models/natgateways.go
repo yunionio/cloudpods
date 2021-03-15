@@ -17,14 +17,12 @@ package models
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -704,17 +702,17 @@ func (self *SNatGateway) GetINatGateway() (cloudprovider.ICloudNatGateway, error
 	if err != nil {
 		return nil, errors.Wrap(err, "GetVpc")
 	}
-	cloudVpc, err := vpc.GetIVpc()
+	iVpc, err := vpc.GetIVpc()
 	if err != nil {
-		return nil, errors.Wrap(err, "Fetch IVpc failed")
+		return nil, errors.Wrap(err, "vpc.GetIVpc")
 	}
-	cloudNatGateways, err := cloudVpc.GetINatGateways()
+	iNats, err := iVpc.GetINatGateways()
 	if err != nil {
-		return nil, errors.Wrapf(err, "Get INatGateways of vpc %s failed", cloudVpc.GetGlobalId())
+		return nil, errors.Wrapf(err, "iVpc.GetINatGateways")
 	}
-	for i := range cloudNatGateways {
-		if cloudNatGateways[i].GetGlobalId() == self.ExternalId {
-			return cloudNatGateways[i], nil
+	for i := range iNats {
+		if iNats[i].GetGlobalId() == self.ExternalId {
+			return iNats[i], nil
 		}
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
@@ -746,25 +744,6 @@ func (self *SNatGateway) RealDelete(ctx context.Context, userCred mcclient.Token
 		}
 	}
 	return self.SInfrasResourceBase.Delete(ctx, userCred)
-}
-
-func (nm *SNatGatewayManager) NatNameToReal(name string, natgatewayId string) string {
-	index := strings.Index(name, natgatewayId)
-	if index < 0 {
-		return name
-	}
-	return name[:index-1]
-}
-
-func (nm *SNatGatewayManager) NatNameFromReal(name string, natgatewayId string) string {
-	return fmt.Sprintf("%s-%s", name, natgatewayId)
-}
-
-type INatHelper interface {
-	db.IModel
-	CountByEIP() (int, error)
-	GetNatgateway() (*SNatGateway, error)
-	SetStatus(userCred mcclient.TokenCredential, status string, reason string) error
 }
 
 type SNatEntryManager struct {
@@ -879,11 +858,6 @@ func (manager *SNatEntryManager) FetchCustomizeColumns(
 		rows[i] = api.NatEntryDetails{
 			StatusInfrasResourceBaseDetails: stdRows[i],
 			NatGatewayResourceInfo:          natRows[i],
-		}
-		var base *SNatEntry
-		reflectutils.FindAnonymouStructPointer(objs[i], &base)
-		if base != nil && base.NatgatewayId != "" {
-			rows[i].RealName = NatGatewayManager.NatNameToReal(base.Name, base.NatgatewayId)
 		}
 	}
 	return rows
@@ -1075,20 +1049,6 @@ func (self *SNatEntry) RealDelete(ctx context.Context, userCred mcclient.TokenCr
 	}
 	self.SetStatus(userCred, api.NAT_STATUS_DELETED, "real delete")
 	return nil
-}
-
-func (self *SNatEntry) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-
-	if data.Contains("name") {
-		name, _ := data.GetString("name")
-		natgateway, err := self.GetNatgateway()
-		if err != nil {
-			return nil, err
-		}
-		data.Set("name", jsonutils.NewString(NatGatewayManager.NatNameFromReal(name, natgateway.GetId())))
-	}
-	return nil, nil
 }
 
 func (manager *SNatGatewayManager) getExpiredPostpaids() ([]SNatGateway, error) {

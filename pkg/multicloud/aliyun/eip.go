@@ -354,10 +354,7 @@ func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
 	}
 
 	_, err := region.vpcRequest("AssociateEipAddress", params)
-	if err != nil {
-		log.Errorf("AssociateEipAddress fail %s", err)
-	}
-	return err
+	return errors.Wrapf(err, "AssociateEipAddress")
 }
 
 func (region *SRegion) DissociateEip(eipId string, instanceId string) error {
