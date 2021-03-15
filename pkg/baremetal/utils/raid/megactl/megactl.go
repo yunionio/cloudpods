@@ -115,6 +115,8 @@ func (dev *MegaRaidPhyDev) parseLine(line string) bool {
 			dev.Status = "jbod"
 		} else if strings.Contains(strings.ToLower(val), "online") {
 			dev.Status = "online"
+		} else if val == "Rebuild" {
+			dev.Status = "rebuild"
 		} else {
 			dev.Status = "offline"
 		}
