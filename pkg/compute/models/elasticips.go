@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -140,6 +141,7 @@ func (manager *SElasticipManager) ListItemFilter(
 	associateType := query.UsableEipForAssociateType
 	associateId := query.UsableEipForAssociateId
 	if len(associateType) > 0 && len(associateId) > 0 {
+		q = q.Equals("status", api.EIP_STATUS_READY)
 		switch associateType {
 		case api.EIP_ASSOCIATE_TYPE_SERVER:
 			serverObj, err := GuestManager.FetchByIdOrName(userCred, associateId)
@@ -170,6 +172,26 @@ func (manager *SElasticipManager) ListItemFilter(
 			} else {
 				q = q.IsNullOrEmpty("manager_id")
 			}
+		case api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY:
+			_nat, err := validators.ValidateModel(userCred, NatGatewayManager, &query.UsableEipForAssociateId)
+			if err != nil {
+				return nil, err
+			}
+			nat := _nat.(*SNatGateway)
+			vpc, err := nat.GetVpc()
+			if err != nil {
+				return nil, httperrors.NewGeneralError(errors.Wrapf(err, "nat.GetVpc"))
+			}
+			q = q.Equals("cloudregion_id", vpc.CloudregionId)
+			if len(vpc.ManagerId) > 0 {
+				q = q.Equals("manager_id", vpc.ManagerId)
+			}
+			q = q.Filter(
+				sqlchemy.OR(
+					sqlchemy.Equals(q.Field("associate_id"), nat.Id),
+					sqlchemy.IsNullOrEmpty(q.Field("associate_id")),
+				),
+			)
 		default:
 			return nil, httperrors.NewInputParameterError("Not support associate type %s, only support %s", associateType, api.EIP_ASSOCIATE_VALID_TYPES)
 		}
@@ -1066,34 +1088,6 @@ func (self *SElasticip) PerformDissociate(ctx context.Context, userCred mcclient
 
 	if self.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
 		return nil, httperrors.NewUnsupportOperationError("fixed public eip cannot be dissociated")
-	}
-
-	if self.AssociateType == api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY {
-		model, err := NatGatewayManager.FetchById(self.AssociateId)
-		if err != nil {
-			return nil, errors.Wrapf(err, "fail to fetch natgateway %s", self.AssociateId)
-		}
-		natgateway := model.(*SNatGateway)
-		sCount, err := natgateway.GetSTableSize(func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-			return q.Equals("ip", self.IpAddr)
-		})
-		if err != nil {
-			return nil, errors.Wrapf(err, "fail to get stable size of natgateway %s", self.AssociateId)
-		}
-		if sCount > 0 {
-			return nil, httperrors.NewUnsupportOperationError(
-				"the associated natgateway has corresponding snat rules with eip %s, please delete them firstly", self.IpAddr)
-		}
-		dCount, err := natgateway.GetDTableSize(func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-			return q.Equals("external_ip", self.IpAddr)
-		})
-		if err != nil {
-			return nil, errors.Wrapf(err, "fail to get dtable size of natgateway %s", self.AssociateId)
-		}
-		if dCount > 0 {
-			return nil, httperrors.NewUnsupportOperationError(
-				"the associated natgateway has corresponding dnat rules with eip %s, please delete them firstly", self.IpAddr)
-		}
 	}
 
 	autoDelete := jsonutils.QueryBoolean(data, "auto_delete", false)

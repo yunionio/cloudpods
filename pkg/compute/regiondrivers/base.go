@@ -206,10 +206,8 @@ func (self *SBaseRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *m
 	return fmt.Errorf("Not implement OnSnapshotDelete")
 }
 
-func (self *SBaseRegionDriver) RequestBingToNatgateway(ctx context.Context, task taskman.ITask,
-	natgateway *models.SNatGateway, needBind bool, eipID string) error {
-
-	return fmt.Errorf("Not implement RequestBindIPToNatgateway")
+func (self *SBaseRegionDriver) RequestAssociateEipForNAT(ctx context.Context, userCred mcclient.TokenCredential, nat *models.SNatGateway, eip *models.SElasticip, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestAssociateEipForNAT")
 }
 
 func (self *SBaseRegionDriver) IsVpcCreateNeedInputCidr() bool {
@@ -432,6 +430,10 @@ func (self *SBaseRegionDriver) RequestSyncRdsSecurityGroups(ctx context.Context,
 
 func (self *SBaseRegionDriver) IsSupportedNatGateway() bool {
 	return false
+}
+
+func (self *SBaseRegionDriver) OnNatEntryDeleteComplete(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip) error {
+	return nil
 }
 
 func (self *SBaseRegionDriver) ValidateCreateNatGateway(ctx context.Context, userCred mcclient.TokenCredential, input api.NatgatewayCreateInput) (api.NatgatewayCreateInput, error) {

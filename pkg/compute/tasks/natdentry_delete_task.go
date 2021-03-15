@@ -16,11 +16,9 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -39,65 +37,70 @@ func init() {
 	taskman.RegisterTask(SNatDEntryDeleteTask{})
 }
 
-func (self *SNatDEntryDeleteTask) TaskFailed(ctx context.Context, dnatEntry *models.SNatDEntry, reason jsonutils.JSONObject) {
-	dnatEntry.SetStatus(self.UserCred, api.NAT_STATUS_DELETE_FAILED, reason.String())
-	db.OpsLog.LogEvent(dnatEntry, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
-	natgateway, err := dnatEntry.GetNatgateway()
-	if err == nil {
-		logclient.AddActionLogWithStartable(self, natgateway, logclient.ACT_NAT_DELETE_DNAT, reason, self.UserCred, false)
-	} else {
-		logclient.AddActionLogWithStartable(self, dnatEntry, logclient.ACT_NAT_DELETE_DNAT, reason, self.UserCred, false)
+func (self *SNatDEntryDeleteTask) taskFailed(ctx context.Context, dnat *models.SNatDEntry, err error) {
+	dnat.SetStatus(self.UserCred, api.NAT_STATUS_DELETE_FAILED, err.Error())
+	db.OpsLog.LogEvent(dnat, db.ACT_DELOCATE_FAIL, err, self.UserCred)
+	nat, _ := dnat.GetNatgateway()
+	if nat != nil {
+		logclient.AddActionLogWithStartable(self, nat, logclient.ACT_NAT_DELETE_DNAT, err, self.UserCred, false)
 	}
-	self.SetStageFailed(ctx, reason)
+	logclient.AddActionLogWithStartable(self, dnat, logclient.ACT_NAT_DELETE_DNAT, err, self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+}
+
+func (self *SNatDEntryDeleteTask) taskComplete(ctx context.Context, dnat *models.SNatDEntry) {
+	nat, _ := dnat.GetNatgateway()
+	if nat != nil {
+		logclient.AddActionLogWithStartable(self, nat, logclient.ACT_NAT_DELETE_SNAT, dnat, self.UserCred, true)
+	}
+	dnat.Purge(ctx, self.UserCred)
+	self.SetStageComplete(ctx, nil)
 }
 
 func (self *SNatDEntryDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	dnatEntry := obj.(*models.SNatDEntry)
-	dnatEntry.SetStatus(self.UserCred, api.NAT_STATUS_DELETING, "")
-	natgateway, err := dnatEntry.GetNatgateway()
-	if err != nil {
-		self.TaskFailed(ctx, dnatEntry, jsonutils.NewString(err.Error()))
-	}
-	cloudNatGateway, err := dnatEntry.GetINatGateway()
-	if err != nil {
-		self.TaskFailed(ctx, dnatEntry, jsonutils.NewString(fmt.Sprintf("Get NatGateway failed: %s", err)))
+	dnat := obj.(*models.SNatDEntry)
+
+	if len(dnat.ExternalId) == 0 {
+		self.taskComplete(ctx, dnat)
 		return
 	}
 
-	cloudNatDEntry, err := cloudNatGateway.GetINatDEntryByID(dnatEntry.ExternalId)
-	if errors.Cause(err) == cloudprovider.ErrNotFound {
-		// already delete
-	} else if err != nil {
-		self.TaskFailed(ctx, dnatEntry, jsonutils.NewString(fmt.Sprintf("Get DNat Entry by ID '%s' failed", dnatEntry.ExternalId)))
+	nat, err := dnat.GetNatgateway()
+	if err != nil {
+		self.taskFailed(ctx, dnat, errors.Wrapf(err, "dnat.GetNatgateway"))
 		return
-	} else if cloudNatDEntry != nil {
-		err = cloudNatDEntry.Delete()
-		if err != nil {
-			self.TaskFailed(ctx, dnatEntry, jsonutils.NewString(fmt.Sprintf("Delete DNat Entry '%s' failed: %s", dnatEntry.ExternalId, err)))
+	}
+	iNat, err := nat.GetINatGateway()
+	if err != nil {
+		self.taskFailed(ctx, dnat, errors.Wrapf(err, "nat.GetINatGateway"))
+		return
+	}
+
+	iDnat, err := iNat.GetINatDEntryByID(dnat.ExternalId)
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			self.taskComplete(ctx, dnat)
 			return
 		}
-
-		err = cloudprovider.WaitDeleted(cloudNatDEntry, 10*time.Second, 300*time.Second)
-		if err != nil {
-			self.TaskFailed(ctx, dnatEntry, jsonutils.NewString(err.Error()))
-			return
-		}
+		self.taskFailed(ctx, dnat, errors.Wrapf(err, "iNat.GetINatDEntryByID(%s)", dnat.ExternalId))
+		return
 	}
-
-	err = dnatEntry.Purge(ctx, self.UserCred)
+	err = iDnat.Delete()
 	if err != nil {
-		self.TaskFailed(ctx, dnatEntry, jsonutils.NewString(err.Error()))
+		self.taskFailed(ctx, dnat, errors.Wrapf(err, "iDnat.Delete"))
 		return
 	}
 
-	// Try to dissociate eip with natgateway if there is no nat rule using this eip and task is set ok even if
-	// dissociate failed.
-	err = natgateway.GetRegion().GetDriver().RequestUnBindIPFromNatgateway(ctx, self, dnatEntry, natgateway)
+	err = cloudprovider.WaitDeleted(iDnat, 10*time.Second, 5*time.Minute)
 	if err != nil {
-		log.Debugf("fail to try to dissociate eip with natgateway %s", natgateway.GetId())
+		self.taskFailed(ctx, dnat, errors.Wrapf(err, "cloudprovider.WaitDeleted"))
+		return
 	}
 
-	db.OpsLog.LogEvent(dnatEntry, db.ACT_DELETE, dnatEntry.GetShortDesc(ctx), self.UserCred)
-	logclient.AddActionLogWithStartable(self, natgateway, logclient.ACT_NAT_DELETE_DNAT, nil, self.UserCred, true)
-	self.SetStageComplete(ctx, nil)
+	eip, _ := dnat.GetEip()
+	if eip != nil {
+		nat.GetRegion().GetDriver().OnNatEntryDeleteComplete(ctx, self.UserCred, eip)
+	}
+
+	self.taskComplete(ctx, dnat)
 }
