@@ -630,11 +630,15 @@ func (rds *SDBInstance) ChangeConfig(cxt context.Context, desc *cloudprovider.SM
 
 func (region *SRegion) ChangeDBInstanceConfig(instanceId, payType string, desc *cloudprovider.SManagedDBInstanceChangeConfig) error {
 	params := map[string]string{
-		"RegionId":          region.RegionId,
-		"DBInstanceId":      instanceId,
-		"PayType":           payType,
-		"DBInstanceClass":   desc.InstanceType,
-		"DBInstanceStorage": fmt.Sprintf("%d", desc.DiskSizeGB),
+		"RegionId":     region.RegionId,
+		"DBInstanceId": instanceId,
+		"PayType":      payType,
+	}
+	if len(desc.InstanceType) > 0 {
+		params["DBInstanceClass"] = desc.InstanceType
+	}
+	if desc.DiskSizeGB > 0 {
+		params["DBInstanceStorage"] = fmt.Sprintf("%d", desc.DiskSizeGB)
 	}
 
 	_, err := region.rdsRequest("ModifyDBInstanceSpec", params)

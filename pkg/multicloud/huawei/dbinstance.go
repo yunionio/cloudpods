@@ -644,14 +644,6 @@ func (region *SRegion) CreateDBInstanceDatabase(instanceId, database, characterS
 }
 
 func (rds *SDBInstance) ChangeConfig(cxt context.Context, desc *cloudprovider.SManagedDBInstanceChangeConfig) error {
-	if rds.GetInstanceType() == desc.InstanceType {
-		desc.InstanceType = ""
-	}
-
-	if rds.GetDiskSizeGB() >= desc.DiskSizeGB {
-		desc.DiskSizeGB = 0
-	}
-
 	return rds.region.ChangeDBInstanceConfig(rds.Id, desc.InstanceType, desc.DiskSizeGB)
 }
 

@@ -166,11 +166,7 @@ type SDBInstanceChangeConfigInput struct {
 	apis.Meta
 
 	InstanceType string
-	VCpuCount    int
-	VmemSizeMb   int
-	StorageType  string
 	DiskSizeGB   int
-	Category     string
 }
 
 type SDBInstanceRecoveryConfigInput struct {

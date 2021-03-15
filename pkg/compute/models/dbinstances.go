@@ -1062,57 +1062,20 @@ func (self *SDBInstance) AllowPerformChangeConfig(ctx context.Context, userCred 
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "change-config")
 }
 
-func (self *SDBInstance) PerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SDBInstance) PerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SDBInstanceChangeConfigInput) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.DBINSTANCE_RUNNING}) {
 		return nil, httperrors.NewInputParameterError("Cannot change config in status %s", self.Status)
 	}
-	input := api.SDBInstanceChangeConfigInput{}
-	err := data.Unmarshal(&input)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("Unmarshal input error: %v", err)
+
+	if input.DiskSizeGB != 0 && input.DiskSizeGB < self.DiskSizeGB {
+		return nil, httperrors.NewUnsupportOperationError("DBInstance Disk cannot be thrink")
 	}
 
-	tmp := &SDBInstance{}
-	jsonutils.Update(tmp, self)
-
-	if len(input.StorageType) > 0 {
-		self.StorageType = input.StorageType
+	if input.DiskSizeGB == self.DiskSizeGB && input.InstanceType == self.InstanceType {
+		return nil, nil
 	}
 
-	changed := false
-	if len(input.InstanceType) > 0 {
-		tmp.InstanceType = input.InstanceType
-		changed = true
-	} else if input.VCpuCount > 0 {
-		tmp.VcpuCount = input.VCpuCount
-		self.InstanceType = ""
-		changed = true
-	} else if input.VmemSizeMb > 0 {
-		tmp.VmemSizeMb = input.VmemSizeMb
-		tmp.InstanceType = ""
-		changed = true
-	} else if len(input.Category) > 0 {
-		tmp.Category = input.Category
-		tmp.InstanceType = ""
-		changed = true
-	}
-
-	if changed {
-		skus, err := tmp.GetAvailableDBInstanceSkus(true)
-		if err != nil {
-			return nil, httperrors.NewGeneralError(errors.Wrap(err, "self.GetAvailableDBInstanceSkus"))
-		}
-		if len(skus) == 0 {
-			return nil, httperrors.NewInputParameterError("failed to match any skus for change config")
-		}
-	}
-
-	err = self.GetRegion().GetDriver().ValidateChangeDBInstanceConfigData(ctx, userCred, self, &input)
-	if err != nil {
-		return nil, err
-	}
-
-	return nil, self.StartDBInstanceChangeConfig(ctx, userCred, data.(*jsonutils.JSONDict), "")
+	return nil, self.StartDBInstanceChangeConfig(ctx, userCred, jsonutils.Marshal(input).(*jsonutils.JSONDict), "")
 }
 
 func (self *SDBInstance) StartDBInstanceChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
@@ -1542,28 +1505,14 @@ func (self *SDBInstance) GetAvailableDBInstanceSkus(skipZoneCheck bool) ([]SDBIn
 
 }
 
-func (self *SDBInstance) GetDBInstanceSkus() ([]SDBInstanceSku, error) {
+func (self *SDBInstance) GetDBInstanceSkus(skipZoneCheck bool) ([]SDBInstanceSku, error) {
 	skus := []SDBInstanceSku{}
-	q := self.GetDBInstanceSkuQuery(false)
+	q := self.GetDBInstanceSkuQuery(skipZoneCheck)
 	err := db.FetchModelObjects(DBInstanceSkuManager, q, &skus)
 	if err != nil {
 		return nil, err
 	}
 	return skus, nil
-}
-
-func (self *SDBInstance) GetAvailableZoneIds() ([]string, error) {
-	zoneIds := []string{}
-	skus, err := self.GetDBInstanceSkus()
-	if err != nil {
-		return nil, errors.Wrap(err, "self.GetDBInstanceSkus")
-	}
-	for _, sku := range skus {
-		if !utils.IsInStringArray(sku.ZoneId, zoneIds) {
-			zoneIds = append(zoneIds, sku.ZoneId)
-		}
-	}
-	return zoneIds, nil
 }
 
 func (self *SDBInstance) GetAvailableInstanceTypes() ([]cloudprovider.SInstanceType, error) {
