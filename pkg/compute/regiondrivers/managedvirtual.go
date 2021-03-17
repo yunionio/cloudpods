@@ -2468,74 +2468,27 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcacheAcl(ctx
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestChangeDBInstanceConfig(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, task taskman.ITask) error {
+func (self *SManagedVirtualizationRegionDriver) RequestChangeDBInstanceConfig(ctx context.Context, userCred mcclient.TokenCredential, rds *models.SDBInstance, input *api.SDBInstanceChangeConfigInput, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		input := &api.SDBInstanceChangeConfigInput{}
-		err := task.GetParams().Unmarshal(input)
+		conf := cloudprovider.SManagedDBInstanceChangeConfig{}
+
+		if input.DiskSizeGB > 0 && input.DiskSizeGB != rds.DiskSizeGB {
+			conf.DiskSizeGB = input.DiskSizeGB
+		}
+
+		if len(input.InstanceType) > 0 && input.InstanceType != rds.InstanceType {
+			conf.InstanceType = input.InstanceType
+		}
+
+		iRds, err := rds.GetIDBInstance()
 		if err != nil {
-			return nil, errors.Wrap(err, "task.GetParams().Unmarshal")
-		}
-		if len(input.StorageType) > 0 {
-			instance.StorageType = input.StorageType
+			return nil, errors.Wrap(err, "rds.GetIDBInstance")
 		}
 
-		conf := cloudprovider.SManagedDBInstanceChangeConfig{
-			DiskSizeGB:  input.DiskSizeGB,
-			StorageType: instance.StorageType,
-		}
-
-		opts := []cloudprovider.SManagedDBInstanceChangeConfig{}
-
-		if len(input.InstanceType) > 0 || input.VCpuCount > 0 || input.VmemSizeMb > 0 {
-			instance.InstanceType = input.InstanceType
-			if input.VCpuCount > 0 {
-				instance.VcpuCount = input.VCpuCount
-			}
-			if input.VmemSizeMb > 0 {
-				instance.VmemSizeMb = input.VmemSizeMb
-			}
-			skus, err := instance.GetDBInstanceSkus()
-			if err != nil {
-				return nil, errors.Wrap(err, "instance.GetDBInstanceSkus")
-			}
-			for i := range skus {
-				conf.InstanceType = skus[i].Name
-				conf.VcpuCount = skus[i].VcpuCount
-				conf.VmemSizeMb = skus[i].VmemSizeMb
-				opts = append(opts, conf)
-			}
-		} else {
-			conf.InstanceType = instance.InstanceType
-			conf.VcpuCount = instance.VcpuCount
-			conf.VmemSizeMb = instance.VmemSizeMb
-			opts = append(opts, conf)
-		}
-
-		iRds, err := instance.GetIDBInstance()
+		log.Infof("change config: %s", jsonutils.Marshal(conf).String())
+		err = iRds.ChangeConfig(ctx, &conf)
 		if err != nil {
-			return nil, errors.Wrap(err, "instance.GetIDBInstance")
-		}
-
-		var changeConfig = func() error {
-			errMsgs := []string{}
-			for i := range opts {
-				log.Infof("change config: %s", jsonutils.Marshal(opts[i]).String())
-				err = iRds.ChangeConfig(ctx, &opts[i])
-				if err != nil {
-					errMsgs = append(errMsgs, err.Error())
-					continue
-				}
-				return nil
-			}
-			if len(errMsgs) > 0 {
-				return fmt.Errorf(strings.Join(errMsgs, "\n"))
-			}
-			return fmt.Errorf("no available dbinstance sku to change")
-		}
-
-		err = changeConfig()
-		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "iRds.ChangeConfig")
 		}
 
 		err = cloudprovider.WaitStatus(iRds, api.DBINSTANCE_RUNNING, time.Second*10, time.Minute*40)
@@ -2548,13 +2501,13 @@ func (self *SManagedVirtualizationRegionDriver) RequestChangeDBInstanceConfig(ct
 			return nil, errors.Wrapf(err, "iRds.Refresh")
 		}
 
-		_, err = db.Update(instance, func() error {
-			instance.InstanceType = iRds.GetInstanceType()
-			instance.Category = iRds.GetCategory()
-			instance.VcpuCount = iRds.GetVcpuCount()
-			instance.VmemSizeMb = iRds.GetVmemSizeMB()
-			instance.StorageType = iRds.GetStorageType()
-			instance.DiskSizeGB = iRds.GetDiskSizeGB()
+		_, err = db.Update(rds, func() error {
+			rds.InstanceType = iRds.GetInstanceType()
+			rds.Category = iRds.GetCategory()
+			rds.VcpuCount = iRds.GetVcpuCount()
+			rds.VmemSizeMb = iRds.GetVmemSizeMB()
+			rds.StorageType = iRds.GetStorageType()
+			rds.DiskSizeGB = iRds.GetDiskSizeGB()
 			return nil
 		})
 		if err != nil {
@@ -2614,10 +2567,6 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceBackup(ct
 		instance.SetStatus(userCred, api.DBINSTANCE_RUNNING, "")
 		return nil, nil
 	})
-	return nil
-}
-
-func (self *SManagedVirtualizationRegionDriver) ValidateChangeDBInstanceConfigData(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, input *api.SDBInstanceChangeConfigInput) error {
 	return nil
 }
 
