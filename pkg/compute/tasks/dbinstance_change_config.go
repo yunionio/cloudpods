@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -44,11 +45,18 @@ func (self *DBInstanceChangeConfigTask) taskFailed(ctx context.Context, dbinstan
 }
 
 func (self *DBInstanceChangeConfigTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	instance := obj.(*models.SDBInstance)
+	rds := obj.(*models.SDBInstance)
 	self.SetStage("OnDBInstanceChangeConfigComplete", nil)
-	err := instance.GetRegion().GetDriver().RequestChangeDBInstanceConfig(ctx, self.UserCred, instance, self)
+	input := &api.SDBInstanceChangeConfigInput{}
+	err := self.GetParams().Unmarshal(input)
 	if err != nil {
-		self.taskFailed(ctx, instance, err)
+		self.taskFailed(ctx, rds, errors.Wrapf(err, "GetParams().Unmarshal"))
+		return
+	}
+
+	err = rds.GetRegion().GetDriver().RequestChangeDBInstanceConfig(ctx, self.UserCred, rds, input, self)
+	if err != nil {
+		self.taskFailed(ctx, rds, err)
 		return
 	}
 }

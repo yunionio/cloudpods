@@ -316,7 +316,7 @@ func (self *SBaseRegionDriver) InitDBInstanceUser(ctx context.Context, dbinstanc
 	return nil
 }
 
-func (self *SBaseRegionDriver) RequestChangeDBInstanceConfig(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, task taskman.ITask) error {
+func (self *SBaseRegionDriver) RequestChangeDBInstanceConfig(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, input *api.SDBInstanceChangeConfigInput, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestChangeDBInstanceConfig")
 }
 
@@ -330,10 +330,6 @@ func (self *SBaseRegionDriver) ValidateCreateDBInstanceDatabaseData(ctx context.
 
 func (self *SBaseRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceBackupCreateInput) (api.DBInstanceBackupCreateInput, error) {
 	return input, fmt.Errorf("Not Implement ValidateCreateDBInstanceBackupData")
-}
-
-func (self *SBaseRegionDriver) ValidateChangeDBInstanceConfigData(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, input *api.SDBInstanceChangeConfigInput) error {
-	return fmt.Errorf("Not Implement ValidateChangeDBInstanceConfigData")
 }
 
 func (self *SBaseRegionDriver) ValidateDBInstanceAccountPrivilege(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, account string, privilege string) error {
