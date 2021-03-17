@@ -17,6 +17,8 @@ package qcloud
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -232,7 +234,20 @@ func (self *SMySQLInstance) Reboot() error {
 }
 
 func (self *SMySQLInstance) ChangeConfig(ctx context.Context, opts *cloudprovider.SManagedDBInstanceChangeConfig) error {
-	return self.region.UpgradeMySQLDBInstance(self.InstanceId, opts.VmemSizeMb, opts.DiskSizeGB)
+	mb := self.GetVmemSizeMB()
+	if len(opts.InstanceType) > 0 {
+		re := regexp.MustCompile(`(\d{1,4})核(\d{1,20})MB$`)
+		params := re.FindStringSubmatch(opts.InstanceType)
+		if len(params) != 3 {
+			return fmt.Errorf("invalid rds instance type %s", opts.InstanceType)
+		}
+		_mb, _ := strconv.Atoi(params[2])
+		mb = int(_mb)
+	}
+	if opts.DiskSizeGB == 0 {
+		opts.DiskSizeGB = self.GetDiskSizeGB()
+	}
+	return self.region.UpgradeMySQLDBInstance(self.InstanceId, mb, opts.DiskSizeGB)
 }
 
 func (self *SMySQLInstance) GetMasterInstanceId() string {
@@ -330,7 +345,11 @@ func (self *SMySQLInstance) GetStatus() string {
 }
 
 func (self *SMySQLInstance) GetCategory() string {
-	return strings.ToLower(self.DeviceType)
+	category := strings.ToLower(self.DeviceType)
+	if category == "universal" {
+		category = "ha"
+	}
+	return category
 }
 
 func (self *SMySQLInstance) GetStorageType() string {

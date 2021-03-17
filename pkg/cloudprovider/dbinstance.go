@@ -77,10 +77,7 @@ type SManagedDBInstanceCreateConfig struct {
 
 type SManagedDBInstanceChangeConfig struct {
 	DiskSizeGB   int
-	StorageType  string
 	InstanceType string
-	VcpuCount    int
-	VmemSizeMb   int
 }
 
 type SDBInstanceDatabaseCreateConfig struct {
