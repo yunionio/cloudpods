@@ -2247,12 +2247,6 @@ func (self *SHuaWeiRegionDriver) ValidateChangeDBInstanceConfigData(ctx context.
 	if input.DiskSizeGB != 0 && input.DiskSizeGB < instance.DiskSizeGB {
 		return httperrors.NewUnsupportOperationError("Huawei DBInstance Disk cannot be thrink")
 	}
-	if len(input.Category) > 0 && input.Category != instance.Category {
-		return httperrors.NewUnsupportOperationError("Huawei DBInstance category cannot change")
-	}
-	if len(input.StorageType) > 0 && input.StorageType != instance.StorageType {
-		return httperrors.NewUnsupportOperationError("Huawei DBInstance storage type cannot change")
-	}
 	return nil
 }
 
