@@ -110,9 +110,9 @@ func (manager *SHostnetworkManager) FetchCustomizeColumns(
 		log.Errorf("FetchIdNameMap2 hostIds fail %s", err)
 		return rows
 	}
-	netIdMaps, err := db.FetchIdNameMap2(NetworkManager, netIds)
+	netWireMaps, err := manager.fetchNetWireMap(netIds)
 	if err != nil {
-		log.Errorf("FetchIdNameMap2 netIds fail %s", err)
+		log.Errorf("fetchNetWireMap netIds fail %s", err)
 		return rows
 	}
 	netifs := make(map[string]SNetInterface)
@@ -127,8 +127,10 @@ func (manager *SHostnetworkManager) FetchCustomizeColumns(
 		if name, ok := hostIdMaps[hostIds[i]]; ok {
 			rows[i].Host = name
 		}
-		if name, ok := netIdMaps[netIds[i]]; ok {
-			rows[i].Network = name
+		if nw, ok := netWireMaps[netIds[i]]; ok {
+			rows[i].Network = nw.Name
+			rows[i].Wire = nw.WireName
+			rows[i].WireId = nw.WireId
 		}
 		if netif, ok := netifs[macIds[i]]; ok {
 			rows[i].NicType = netif.NicType
@@ -136,6 +138,38 @@ func (manager *SHostnetworkManager) FetchCustomizeColumns(
 	}
 
 	return rows
+}
+
+type sNetWire struct {
+	Id       string
+	Name     string
+	WireId   string
+	WireName string
+}
+
+func (manager *SHostnetworkManager) fetchNetWireMap(netIds []string) (map[string]*sNetWire, error) {
+	if len(netIds) == 0 {
+		return map[string]*sNetWire{}, nil
+	}
+	q := NetworkManager.Query("id", "name", "wire_id")
+	if len(netIds) == 1 {
+		q = q.Equals("id", netIds[0])
+	} else {
+		q = q.In("id", netIds)
+	}
+	wireSubq := WireManager.Query("id", "name").SubQuery()
+	q = q.Join(wireSubq, sqlchemy.Equals(q.Field("wire_id"), wireSubq.Field("id")))
+	q = q.AppendField(wireSubq.Field("name", "wire_name"))
+	nws := make([]sNetWire, 0, len(netIds))
+	err := q.All(&nws)
+	if err != nil {
+		return nil, err
+	}
+	ret := make(map[string]*sNetWire, len(netIds))
+	for i := range nws {
+		ret[nws[i].Id] = &nws[i]
+	}
+	return ret, nil
 }
 
 func (bn *SHostnetwork) GetHost() *SHost {
