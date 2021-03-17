@@ -852,25 +852,7 @@ func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
 	return instance.Status, nil
 }
 
-func (self *SRegion) instanceStatusChecking(instanceId, status string) error {
-	remoteStatus, err := self.GetInstanceStatus(instanceId)
-	if err != nil {
-		log.Errorf("Fail to get instance status: %s", err)
-		return err
-	}
-	if status != remoteStatus {
-		log.Errorf("instanceStatusChecking: vm status is %s expect %s", remoteStatus, status)
-		return cloudprovider.ErrInvalidStatus
-	}
-
-	return nil
-}
-
 func (self *SRegion) StartVM(instanceId string) error {
-	if err := self.instanceStatusChecking(instanceId, InstanceStatusStopped); err != nil {
-		return err
-	}
-
 	params := &ec2.StartInstancesInput{}
 	params.SetInstanceIds([]*string{&instanceId})
 	_, err := self.ec2Client.StartInstances(params)
@@ -878,10 +860,6 @@ func (self *SRegion) StartVM(instanceId string) error {
 }
 
 func (self *SRegion) StopVM(instanceId string, isForce bool) error {
-	if err := self.instanceStatusChecking(instanceId, InstanceStatusRunning); err != nil {
-		return err
-	}
-
 	params := &ec2.StopInstancesInput{}
 	params.SetInstanceIds([]*string{&instanceId})
 	_, err := self.ec2Client.StopInstances(params)
@@ -889,10 +867,6 @@ func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 }
 
 func (self *SRegion) DeleteVM(instanceId string) error {
-	if err := self.instanceStatusChecking(instanceId, InstanceStatusStopped); err != nil {
-		return err
-	}
-
 	// 检查删除保护状态.如果已开启则先关闭删除保护再进行删除操作
 	protect, err := self.deleteProtectStatusVM(instanceId)
 	if err != nil {
