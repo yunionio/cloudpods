@@ -22,6 +22,11 @@ type HostnetworkDetails struct {
 	// IP子网名称
 	Network string `json:"network"`
 
+	// 二层网络名称
+	Wire string `json:"wire"`
+	// 二层网络ID
+	WireId string `json:"wire_id"`
+
 	NicType string `json:"nic_type"`
 }
 
