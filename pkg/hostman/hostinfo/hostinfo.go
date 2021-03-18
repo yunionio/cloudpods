@@ -713,8 +713,9 @@ func (h *SHostInfo) detectOvsKOVersion() error {
 	}
 	lines := strings.Split(string(output), "\n")
 	for i := 0; i < len(lines); i++ {
-		if strings.HasPrefix(lines[i], "version:") {
-			log.Infof("kernel module openvswitch %s", lines[i])
+		line := lines[i]
+		if strings.HasPrefix(line, "version:") || (h.IsAarch64() && strings.HasPrefix(line, "vermagic")) {
+			log.Infof("kernel module openvswitch %s", line)
 			return nil
 		}
 	}
@@ -1721,6 +1722,14 @@ func (h *SHostInfo) GetCpuArchitecture() string {
 	return h.Cpu.CpuArchitecture
 }
 
+func (h *SHostInfo) IsAarch64() bool {
+	return h.GetCpuArchitecture() == "aarch64"
+}
+
+func (h *SHostInfo) IsX8664() bool {
+	return h.GetCpuArchitecture() == "x86_64"
+}
+
 func NewHostInfo() (*SHostInfo, error) {
 	var res = new(SHostInfo)
 	res.sysinfo = &SSysInfo{}
@@ -1731,9 +1740,9 @@ func NewHostInfo() (*SHostInfo, error) {
 		res.Cpu = cpu
 	}
 
-	if cpu.CpuArchitecture == "aarch64" {
+	if res.IsAarch64() {
 		qemutils.UseAarch64()
-	} else if cpu.CpuArchitecture != "x86_64" {
+	} else if !res.IsX8664() {
 		return nil, fmt.Errorf("unsupport cpu architecture %s", cpu.CpuArchitecture)
 	}
 

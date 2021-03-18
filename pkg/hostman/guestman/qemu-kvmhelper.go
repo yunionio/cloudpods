@@ -312,7 +312,7 @@ func (s *SKVMGuestInstance) getQgaDesc() string {
 }
 
 func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (string, error) {
-	if s.manager.host.GetCpuArchitecture() == "aarch64" {
+	if s.manager.host.IsAarch64() {
 		return s.generateArmStartScript(data)
 	} else {
 		return s._generateStartScript(data)
