@@ -143,6 +143,10 @@ func (manager *SVpcPeeringConnectionManager) ValidateCreateData(
 	}
 	peerVpc := _peerVpc.(*SVpc)
 
+	if len(vpc.ManagerId) == 0 || len(peerVpc.ManagerId) == 0 {
+		return input, httperrors.NewInputParameterError("Only public cloud support vpcpeering")
+	}
+
 	// get account,providerFactory
 	account := vpc.GetCloudaccount()
 	peerAccount := peerVpc.GetCloudaccount()
