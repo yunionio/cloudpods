@@ -258,7 +258,10 @@ func filterByOwnerId(q *sqlchemy.SQuery, domainId, projectId string, effective b
 	if len(projectId) > 0 {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.AND(sqlchemy.IsNullOrEmpty(q.Field("domain_id")), sqlchemy.IsNullOrEmpty(q.Field("project_id"))),
-			sqlchemy.AND(sqlchemy.Equals(q.Field("domain_id"), api.ANY_DOMAIN_ID), sqlchemy.Equals(q.Field("project_id"), api.ANY_PROJECT_ID)),
+			sqlchemy.AND(sqlchemy.Equals(q.Field("domain_id"), api.ANY_DOMAIN_ID), sqlchemy.OR(
+				sqlchemy.Equals(q.Field("project_id"), api.ANY_PROJECT_ID),
+				sqlchemy.IsNullOrEmpty(q.Field("project_id")),
+			)),
 			sqlchemy.AND(sqlchemy.Equals(q.Field("domain_id"), domainId), sqlchemy.OR(
 				sqlchemy.IsNullOrEmpty(q.Field("project_id")),
 				sqlchemy.Equals(q.Field("project_id"), api.ANY_PROJECT_ID),
