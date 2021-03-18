@@ -92,24 +92,6 @@ func (self *SImage) IsEmulated() bool {
 	return false
 }
 
-func (self *SImage) GetMetadata() *jsonutils.JSONDict {
-	imageInfo := imagetools.NormalizeImageInfo(self.ImageName, "", "", "", "")
-	data := jsonutils.NewDict()
-	if len(imageInfo.OsArch) > 0 {
-		data.Add(jsonutils.NewString(imageInfo.OsArch), "os_arch")
-	}
-	if len(imageInfo.OsType) > 0 {
-		data.Add(jsonutils.NewString(imageInfo.OsType), "os_name")
-	}
-	if len(imageInfo.OsDistro) > 0 {
-		data.Add(jsonutils.NewString(imageInfo.OsDistro), "os_distribution")
-	}
-	if len(imageInfo.OsVersion) > 0 {
-		data.Add(jsonutils.NewString(imageInfo.OsVersion), "os_version")
-	}
-	return data
-}
-
 func (self *SImage) GetSysTags() map[string]string {
 	imageInfo := imagetools.NormalizeImageInfo(self.ImageName, "", "", "", "")
 	data := map[string]string{}

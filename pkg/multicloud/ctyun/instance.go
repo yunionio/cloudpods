@@ -181,26 +181,6 @@ func (self *SInstance) IsEmulated() bool {
 	return false
 }
 
-func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	lowerOs := self.GetOSType()
-	if strings.HasPrefix(lowerOs, "win") {
-		lowerOs = "win"
-	}
-	priceKey := fmt.Sprintf("%s::%s::%s", self.host.zone.region.GetId(), self.GetInstanceType(), lowerOs)
-	data.Add(jsonutils.NewString(priceKey), "price_key")
-	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
-
-	image, _ := self.GetImage()
-	if image != nil {
-		if meta := image.GetMetadata(); meta != nil {
-			data.Update(meta)
-		}
-	}
-
-	return data
-}
-
 func (self *SInstance) GetSysTags() map[string]string {
 	data := map[string]string{}
 	lowerOs := self.GetOSType()

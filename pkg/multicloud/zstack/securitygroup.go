@@ -86,11 +86,6 @@ func (self *SSecurityGroup) GetVpcId() string {
 	return api.NORMAL_VPC_ID
 }
 
-func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	return data
-}
-
 func (self *SSecurityGroup) GetId() string {
 	return self.UUID
 }

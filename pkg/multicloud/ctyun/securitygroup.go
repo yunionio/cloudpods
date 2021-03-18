@@ -135,10 +135,6 @@ func (self *SSecurityGroup) IsEmulated() bool {
 	return false
 }
 
-func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
-	return jsonutils.NewDict()
-}
-
 func (self *SSecurityGroup) GetDescription() string {
 	return ""
 }

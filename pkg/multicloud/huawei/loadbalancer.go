@@ -127,12 +127,6 @@ func (self *SLoadbalancer) IsEmulated() bool {
 	return false
 }
 
-func (self *SLoadbalancer) GetMetadata() *jsonutils.JSONDict {
-	meta := jsonutils.NewDict()
-
-	return meta
-}
-
 func (self *SLoadbalancer) GetProjectId() string {
 	return self.ProjectID
 }

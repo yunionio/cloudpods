@@ -15,8 +15,6 @@
 package ucloud
 
 import (
-	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
@@ -55,10 +53,6 @@ func (self *SProject) Refresh() error {
 
 func (self *SProject) IsEmulated() bool {
 	return false
-}
-
-func (self *SProject) GetMetadata() *jsonutils.JSONDict {
-	return jsonutils.NewDict()
 }
 
 func (self *SUcloudClient) FetchProjects() ([]SProject, error) {

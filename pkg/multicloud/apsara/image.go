@@ -83,23 +83,6 @@ func (self *SImage) GetMinRamSizeMb() int {
 	return 0
 }
 
-func (self *SImage) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	if len(self.Architecture) > 0 {
-		data.Add(jsonutils.NewString(self.Architecture), "os_arch")
-	}
-	if len(self.OSType) > 0 {
-		data.Add(jsonutils.NewString(self.GetOsType()), "os_name")
-	}
-	if len(self.Platform) > 0 {
-		data.Add(jsonutils.NewString(self.Platform), "os_distribution")
-	}
-	if len(self.OSName) > 0 {
-		data.Add(jsonutils.NewString(self.OSName), "os_version")
-	}
-	return data
-}
-
 func (self *SImage) GetSysTags() map[string]string {
 	data := map[string]string{}
 	data["os_arch"] = self.Architecture

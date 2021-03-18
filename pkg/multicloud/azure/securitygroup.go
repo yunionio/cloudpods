@@ -78,14 +78,6 @@ type SSecurityGroup struct {
 	Tags       map[string]string
 }
 
-func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
-	if len(self.Tags) == 0 {
-		return nil
-	}
-	data := jsonutils.Marshal(self.Tags).(*jsonutils.JSONDict)
-	return data
-}
-
 func (self *SSecurityGroup) GetTags() (map[string]string, error) {
 	return self.Tags, nil
 }

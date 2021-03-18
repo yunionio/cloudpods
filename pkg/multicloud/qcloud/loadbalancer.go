@@ -272,27 +272,22 @@ func (self *SLoadbalancer) IsEmulated() bool {
 	return false
 }
 
-func (self *SLoadbalancer) GetMetadata() *jsonutils.JSONDict {
-	meta := jsonutils.NewDict()
-	meta.Add(jsonutils.NewInt(int64(self.Forward)), "Forward")
-	meta.Add(jsonutils.NewInt(self.OpenBGP), "OpenBGP")
-	meta.Add(jsonutils.NewString(self.Domain), "Domain")
-	meta.Add(jsonutils.NewInt(self.ProjectID), "ProjectID")
+func (self *SLoadbalancer) GetTags() (map[string]string, error) {
 	tags, err := self.region.FetchResourceTags("clb", "clb", []string{self.GetId()})
 	if err != nil {
-		log.Errorf(`[err:%s]self.region.FetchResourceTags("clb", "clb", []string{self.GetId()})`, err.Error())
-		return nil
+		return nil, errors.Wrapf(err, "FetchResourceTags")
 	}
+	ret := map[string]string{}
 	if _, ok := tags[self.GetId()]; !ok {
-		return meta
+		return ret, nil
 	}
 	resourceTag := tags[self.GetId()]
 	if resourceTag != nil {
 		for k, v := range *resourceTag {
-			meta.Add(jsonutils.NewString(v), k)
+			ret[k] = v
 		}
 	}
-	return meta
+	return ret, nil
 }
 
 func (self *SLoadbalancer) GetSysTags() map[string]string {

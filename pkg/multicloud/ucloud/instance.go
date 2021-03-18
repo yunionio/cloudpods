@@ -182,21 +182,6 @@ func (self *SInstance) IsEmulated() bool {
 	return false
 }
 
-func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	// todo: add price key here
-	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
-	if len(self.BasicImageID) > 0 {
-		if image, err := self.host.zone.region.GetImage(self.BasicImageID); err != nil {
-			log.Errorf("Failed to find image %s for instance %s", self.BasicImageID, self.GetName())
-		} else if meta := image.GetMetadata(); meta != nil {
-			data.Update(meta)
-		}
-	}
-
-	return data
-}
-
 func (self *SInstance) GetSysTags() map[string]string {
 	data := map[string]string{}
 	// todo: add price key here
