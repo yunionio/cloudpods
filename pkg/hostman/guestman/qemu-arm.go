@@ -141,8 +141,6 @@ func (s *SKVMGuestInstance) generateArmStartScript(data *jsonutils.JSONDict) (st
 
 	if s.IsKvmSupport() {
 		cmd += "-enable-kvm"
-	} else {
-		cmd += "-no-kvm"
 	}
 
 	cmd += " -device virtio-net-pci,? 2>&1 | grep .speed= > /dev/null\n"
@@ -165,7 +163,6 @@ func (s *SKVMGuestInstance) generateArmStartScript(data *jsonutils.JSONDict) (st
 			cpuType = "max"
 		}
 	} else {
-		cmd += " -no-kvm"
 		accel = "tcg"
 		cpuType = "max"
 	}
