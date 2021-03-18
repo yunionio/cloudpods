@@ -1229,26 +1229,39 @@ func (self *SManagedVirtualizedGuestDriver) RequestRemoteUpdate(ctx context.Cont
 	if err != nil {
 		return errors.Wrap(err, "guest.GetIVM")
 	}
-	oldTags, err := iVM.GetTags()
+
+	err = func() error {
+		oldTags, err := iVM.GetTags()
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
+				return nil
+			}
+			return errors.Wrap(err, "iVM.GetTags()")
+		}
+		tags, err := guest.GetAllUserMetadata()
+		if err != nil {
+			return errors.Wrapf(err, "GetAllUserMetadata")
+		}
+		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
+		err = iVM.SetTags(tags, replaceTags)
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
+				return nil
+			}
+			logclient.AddSimpleActionLog(guest, logclient.ACT_UPDATE_TAGS, err, userCred, false)
+			return errors.Wrap(err, "iVM.SetTags")
+		}
+		logclient.AddSimpleActionLog(guest, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
+		// sync back cloud metadata
+		iVM.Refresh()
+		err = models.SyncVirtualResourceMetadata(ctx, userCred, guest, iVM)
+		if err != nil {
+			return errors.Wrap(err, "syncVirtualResourceMetadata")
+		}
+		return nil
+	}()
 	if err != nil {
-		return errors.Wrap(err, "iVM.GetTags()")
-	}
-	tags, err := guest.GetAllUserMetadata()
-	if err != nil {
-		return errors.Wrapf(err, "GetAllUserMetadata")
-	}
-	tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
-	err = iVM.SetTags(tags, replaceTags)
-	if err != nil {
-		logclient.AddSimpleActionLog(guest, logclient.ACT_UPDATE_TAGS, err, userCred, false)
-		return errors.Wrap(err, "iVM.SetTags")
-	}
-	logclient.AddSimpleActionLog(guest, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
-	// sync back cloud metadata
-	iVM.Refresh()
-	err = models.SyncVirtualResourceMetadata(ctx, userCred, guest, iVM)
-	if err != nil {
-		return errors.Wrap(err, "syncVirtualResourceMetadata")
+		return err
 	}
 
 	err = iVM.UpdateVM(ctx, guest.Name)

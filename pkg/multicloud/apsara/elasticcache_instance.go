@@ -943,7 +943,7 @@ func (instance *SElasticcache) GetTags() (map[string]string, error) {
 		return nil, errors.Wrap(err, "instance.region.ListResourceTags")
 	}
 	if _, ok := tags[instance.GetId()]; !ok {
-		return nil, cloudprovider.ErrNotFound
+		return map[string]string{}, nil
 	}
 	return *tags[instance.GetId()], nil
 }

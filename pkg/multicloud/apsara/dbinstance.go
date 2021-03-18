@@ -798,7 +798,7 @@ func (rds *SDBInstance) GetTags() (map[string]string, error) {
 		return nil, errors.Wrap(err, "rds.region.ListResourceTags")
 	}
 	if _, ok := tags[rds.GetId()]; !ok {
-		return nil, cloudprovider.ErrNotFound
+		return map[string]string{}, nil
 	}
 	return *tags[rds.GetId()], nil
 }

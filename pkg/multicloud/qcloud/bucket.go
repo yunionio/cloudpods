@@ -1084,8 +1084,7 @@ func (b *SBucket) DeletePolicy(id []string) ([]cloudprovider.SBucketPolicyStatem
 func (b *SBucket) GetTags() (map[string]string, error) {
 	coscli, err := b.region.GetCosClient(b)
 	if err != nil {
-		log.Errorf("GetCosClient fail %s", err)
-		return nil, errors.Wrap(err, "b.region.GetCosClient(b)")
+		return nil, errors.Wrap(err, "GetCosClient")
 	}
 
 	tagresult, _, err := coscli.Bucket.GetTagging(context.Background())
@@ -1093,7 +1092,7 @@ func (b *SBucket) GetTags() (map[string]string, error) {
 		if strings.Contains(err.Error(), "404") {
 			return nil, nil
 		}
-		return nil, errors.Wrap(err, "coscli.Bucket.GetTagging(context.Background())")
+		return nil, errors.Wrap(err, "GetTagging")
 	}
 	result := map[string]string{}
 	for i := range tagresult.TagSet {
