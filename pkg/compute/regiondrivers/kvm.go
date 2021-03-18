@@ -1234,16 +1234,8 @@ func (self *SKVMRegionDriver) RequestSyncSnapshotStatus(ctx context.Context, use
 	return nil
 }
 
-func (self *SKVMRegionDriver) RequestBindIPToNatgateway(ctx context.Context, task taskman.ITask, natgateway *models.SNatGateway,
-	eipId string) error {
-
-	return nil
-}
-
-func (self *SKVMRegionDriver) RequestUnBindIPFromNatgateway(ctx context.Context, task taskman.ITask,
-	nat models.INatHelper, natgateway *models.SNatGateway) error {
-
-	return nil
+func (self *SKVMRegionDriver) RequestAssociateEipForNAT(ctx context.Context, userCred mcclient.TokenCredential, nat *models.SNatGateway, eip *models.SElasticip, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotSupported, "RequestAssociateEipForNAT")
 }
 
 func (self *SKVMRegionDriver) RequestPreSnapshotPolicyApply(ctx context.Context, userCred mcclient.
@@ -1253,10 +1245,6 @@ func (self *SKVMRegionDriver) RequestPreSnapshotPolicyApply(ctx context.Context,
 
 		return data, nil
 	})
-	return nil
-}
-
-func (self *SKVMRegionDriver) BindIPToNatgatewayRollback(ctx context.Context, eipId string) error {
 	return nil
 }
 

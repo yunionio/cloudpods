@@ -16,11 +16,10 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -38,83 +37,101 @@ func init() {
 	taskman.RegisterTask(SNatSEntryCreateTask{})
 }
 
-func (self *SNatSEntryCreateTask) TaskFailed(ctx context.Context, snatEntry models.INatHelper, reason jsonutils.JSONObject) {
-	snatEntry.SetStatus(self.UserCred, api.NAT_STATUS_CREATE_FAILED, reason.String())
-	db.OpsLog.LogEvent(snatEntry, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
-	natgateway, err := snatEntry.GetNatgateway()
-	if err == nil {
-		logclient.AddActionLogWithStartable(self, natgateway, logclient.ACT_NAT_CREATE_SNAT, reason, self.UserCred, false)
-	} else {
-		logclient.AddActionLogWithStartable(self, snatEntry, logclient.ACT_ALLOCATE, reason, self.UserCred, false)
+func (self *SNatSEntryCreateTask) taskFailed(ctx context.Context, snat *models.SNatSEntry, err error) {
+	snat.SetStatus(self.UserCred, api.NAT_STATUS_CREATE_FAILED, err.Error())
+	db.OpsLog.LogEvent(snat, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
+	nat, _ := snat.GetNatgateway()
+	if nat != nil {
+		logclient.AddActionLogWithStartable(self, nat, logclient.ACT_NAT_CREATE_SNAT, err, self.UserCred, false)
 	}
-	self.SetStageFailed(ctx, reason)
+	logclient.AddActionLogWithStartable(self, snat, logclient.ACT_ALLOCATE, err, self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *SNatSEntryCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	snatEntry := obj.(*models.SNatSEntry)
-	NatToBindIPStage(ctx, self, snatEntry)
-}
+	snat := obj.(*models.SNatSEntry)
 
-func (self *SNatSEntryCreateTask) OnBindIPCompleteFailed(ctx context.Context, snatEntry *models.SNatSEntry,
-	reason jsonutils.JSONObject) {
-
-	self.TaskFailed(ctx, snatEntry, reason)
-}
-
-func (self *SNatSEntryCreateTask) OnBindIPComplete(ctx context.Context, snatEntry *models.SNatSEntry,
-	body jsonutils.JSONObject) {
-
-	cloudNatGateway, err := snatEntry.GetINatGateway()
+	eip, err := snat.GetEip()
 	if err != nil {
-		self.TaskFailed(ctx, snatEntry, jsonutils.NewString(fmt.Sprintf("Get NatGateway failed: %s", err)))
+		self.taskFailed(ctx, snat, errors.Wrapf(err, "snat.GetEip"))
 		return
 	}
 
-	externalIPID, err := self.Params.GetString("eip_external_id")
+	if len(eip.AssociateId) > 0 {
+		self.OnAssociateEipComplete(ctx, snat, body)
+		return
+	}
+
+	nat, err := snat.GetNatgateway()
+	if err != nil {
+		self.taskFailed(ctx, snat, errors.Wrapf(err, "snat.GetNatgateway"))
+		return
+	}
+
+	self.SetStage("OnAssociateEipComplete", nil)
+	err = nat.GetRegion().GetDriver().RequestAssociateEipForNAT(ctx, self.GetUserCred(), nat, eip, self)
+	if err != nil {
+		self.taskFailed(ctx, snat, errors.Wrapf(err, "RequestAssociateEipForNAT"))
+		return
+	}
+}
+
+func (self *SNatSEntryCreateTask) OnAssociateEipCompleteFailed(ctx context.Context, snatEntry *models.SNatSEntry, reason jsonutils.JSONObject) {
+	self.taskFailed(ctx, snatEntry, errors.Errorf(reason.String()))
+}
+
+func (self *SNatSEntryCreateTask) OnAssociateEipComplete(ctx context.Context, snat *models.SNatSEntry, body jsonutils.JSONObject) {
+	nat, err := snat.GetNatgateway()
+	if err != nil {
+		self.taskFailed(ctx, snat, errors.Wrapf(err, "snat.GetNatgateway"))
+		return
+	}
+	iNat, err := nat.GetINatGateway()
+	if err != nil {
+		self.taskFailed(ctx, snat, errors.Wrapf(err, "nat.GetINatGateway"))
+		return
+	}
+
+	eip, err := snat.GetEip()
+	if err != nil {
+		self.taskFailed(ctx, snat, errors.Wrapf(err, "snat.GetEip"))
+		return
+	}
+
 	// construct a DNat RUle
-	snatRule := cloudprovider.SNatSRule{
-		ExternalIP:   snatEntry.IP,
-		ExternalIPID: externalIPID,
+	rule := cloudprovider.SNatSRule{
+		ExternalIP:   snat.IP,
+		ExternalIPID: eip.ExternalId,
 	}
-	if self.Params.Contains("network_ext_id") {
-		extID, _ := self.Params.GetString("network_ext_id")
-		snatRule.NetworkID = extID
+	if len(snat.SourceCIDR) > 0 {
+		rule.SourceCIDR = snat.SourceCIDR
 	} else {
-		snatRule.SourceCIDR = snatEntry.SourceCIDR
-	}
-	extSnat, err := cloudNatGateway.CreateINatSEntry(snatRule)
-	if err != nil {
-		// create nat failed in cloud
-		if self.Params.Contains("need_bind") {
-			err1 := CreateINatFailedRollback(ctx, self, snatEntry)
-			if err1 != nil {
-				eip_id, _ := self.Params.GetString("eip_id")
-				log.Errorf("roll back after failing to create snat in cloud so that eip %s need to sync with cloud", eip_id)
-			}
+		network, err := snat.GetNetwork()
+		if err != nil {
+			self.taskFailed(ctx, snat, errors.Wrapf(err, "snat.GetNetwork"))
+			return
 		}
-		self.TaskFailed(ctx, snatEntry, jsonutils.NewString(fmt.Sprintf("Create SNat Entry '%s' failed: %s", snatEntry.ExternalId, err)))
-		return
+		rule.NetworkID = network.ExternalId
 	}
-
-	err = cloudprovider.WaitStatus(extSnat, api.NAT_STAUTS_AVAILABLE, 10*time.Second, 300*time.Second)
+	iSnat, err := iNat.CreateINatSEntry(rule)
 	if err != nil {
-		self.TaskFailed(ctx, snatEntry, jsonutils.NewString(err.Error()))
+		self.taskFailed(ctx, snat, errors.Wrapf(err, "CreateINatSEntry"))
 		return
 	}
 
-	err = db.SetExternalId(snatEntry, self.UserCred, extSnat.GetGlobalId())
+	err = db.SetExternalId(snat, self.UserCred, iSnat.GetGlobalId())
 	if err != nil {
-		self.TaskFailed(ctx, snatEntry, jsonutils.NewString(fmt.Sprintf("set external id failed: %s", err)))
+		self.taskFailed(ctx, snat, errors.Wrapf(err, "db.SetExternalId(%s)", iSnat.GetGlobalId()))
 		return
 	}
 
-	snatEntry.SetStatus(self.UserCred, api.NAT_STAUTS_AVAILABLE, "")
-	db.OpsLog.LogEvent(snatEntry, db.ACT_ALLOCATE, snatEntry.GetShortDesc(ctx), self.UserCred)
-	natgateway, err := snatEntry.GetNatgateway()
-	if err == nil {
-		logclient.AddActionLogWithStartable(self, natgateway, logclient.ACT_NAT_CREATE_SNAT, nil, self.UserCred, true)
-	} else {
-		logclient.AddActionLogWithStartable(self, snatEntry, logclient.ACT_ALLOCATE, nil, self.UserCred, true)
+	err = cloudprovider.WaitStatus(iSnat, api.NAT_STAUTS_AVAILABLE, 10*time.Second, 5*time.Minute)
+	if err != nil {
+		self.taskFailed(ctx, snat, errors.Wrapf(err, "cloudprovider.WaitStatus(iSnat)"))
+		return
 	}
+
+	snat.SetStatus(self.UserCred, api.NAT_STAUTS_AVAILABLE, "")
+	logclient.AddActionLogWithStartable(self, nat, logclient.ACT_NAT_CREATE_SNAT, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

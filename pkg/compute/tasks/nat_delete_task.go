@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type NatGatewayDeleteTask struct {
@@ -38,6 +39,7 @@ func init() {
 
 func (self *NatGatewayDeleteTask) taskFailed(ctx context.Context, nat *models.SNatGateway, err error) {
 	nat.SetStatus(self.UserCred, api.NAT_STATUS_DELETE_FAILED, err.Error())
+	logclient.AddActionLogWithStartable(self, nat, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
@@ -87,6 +89,7 @@ func (self *NatGatewayDeleteTask) doDeleteNatGateway(ctx context.Context, nat *m
 			self.taskFailed(ctx, nat, errors.Wrapf(err, "delete d entry %v", dnat[i]))
 			return
 		}
+		cloudprovider.WaitDeleted(dnat[i], time.Second*5, time.Minute)
 	}
 	snat, err := iNat.GetINatSTable()
 	if err != nil {
@@ -97,7 +100,9 @@ func (self *NatGatewayDeleteTask) doDeleteNatGateway(ctx context.Context, nat *m
 		err = snat[i].Delete()
 		if err != nil {
 			self.taskFailed(ctx, nat, errors.Wrapf(err, "delete s entry %v", snat[i]))
+			return
 		}
+		cloudprovider.WaitDeleted(snat[i], time.Second*5, time.Minute)
 	}
 
 	err = iNat.Delete()

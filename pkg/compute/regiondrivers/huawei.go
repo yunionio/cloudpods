@@ -2663,6 +2663,22 @@ func (self *SHuaWeiRegionDriver) ValidateCreateVpcData(ctx context.Context, user
 	return input, nil
 }
 
+func (self *SHuaWeiRegionDriver) OnNatEntryDeleteComplete(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip) error {
+	return models.StartResourceSyncStatusTask(ctx, userCred, eip, "EipSyncstatusTask", "")
+}
+
+func (self *SHuaWeiRegionDriver) RequestAssociateEipForNAT(ctx context.Context, userCred mcclient.TokenCredential, nat *models.SNatGateway, eip *models.SElasticip, task taskman.ITask) error {
+	_, err := db.Update(eip, func() error {
+		eip.AssociateType = api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
+		eip.AssociateId = nat.Id
+		return nil
+	})
+	if err != nil {
+		return errors.Wrapf(err, "db.Update")
+	}
+	return task.ScheduleRun(nil)
+}
+
 func (self *SHuaWeiRegionDriver) ValidateCreateNatGateway(ctx context.Context, userCred mcclient.TokenCredential, input api.NatgatewayCreateInput) (api.NatgatewayCreateInput, error) {
 	if len(input.Eip) > 0 || input.EipBw > 0 {
 		return input, httperrors.NewInputParameterError("Huawei nat not support associate eip")

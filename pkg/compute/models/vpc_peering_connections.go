@@ -162,19 +162,19 @@ func (manager *SVpcPeeringConnectionManager) ValidateCreateData(
 		vpcCidrBlocks := strings.Split(vpc.CidrBlock, ",")
 		peervpcCidrBlocks := strings.Split(peerVpc.CidrBlock, ",")
 		for i := range vpcCidrBlocks {
-			vpcIpv4Range, err := newIPv4RangeFromCIDR(vpcCidrBlocks[i])
+			vpcIpv4Range, err := netutils.NewIPV4Prefix(vpcCidrBlocks[i])
 			if err != nil {
 				return input, httperrors.NewGeneralError(errors.Wrapf(err, "convert vpc cidr %s to ipv4range error", vpcCidrBlocks[i]))
 			}
-			vpcIpv4Ranges = append(vpcIpv4Ranges, vpcIpv4Range)
+			vpcIpv4Ranges = append(vpcIpv4Ranges, vpcIpv4Range.ToIPRange())
 		}
 
 		for i := range peervpcCidrBlocks {
-			peervpcIpv4Range, err := newIPv4RangeFromCIDR(peervpcCidrBlocks[i])
+			peervpcIpv4Range, err := netutils.NewIPV4Prefix(peervpcCidrBlocks[i])
 			if err != nil {
 				return input, httperrors.NewGeneralError(errors.Wrapf(err, "convert vpc cidr %s to ipv4range error", peervpcCidrBlocks[i]))
 			}
-			peervpcIpv4Ranges = append(peervpcIpv4Ranges, peervpcIpv4Range)
+			peervpcIpv4Ranges = append(peervpcIpv4Ranges, peervpcIpv4Range.ToIPRange())
 		}
 		for i := range vpcIpv4Ranges {
 			for j := range peervpcIpv4Ranges {

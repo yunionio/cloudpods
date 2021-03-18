@@ -915,8 +915,7 @@ func (self *SVpc) GetIRegion() (cloudprovider.ICloudRegion, error) {
 func (self *SVpc) GetIVpc() (cloudprovider.ICloudVpc, error) {
 	provider, err := self.GetDriver()
 	if err != nil {
-		log.Errorf("fail to find cloud provider")
-		return nil, err
+		return nil, errors.Wrapf(err, "vpc.GetDriver")
 	}
 	var iregion cloudprovider.ICloudRegion
 	if provider.GetFactory().IsOnPremise() {
