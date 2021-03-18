@@ -16,11 +16,11 @@ package huawei
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -163,16 +163,22 @@ func (self *SEipAddress) GetPort() *Port {
 }
 
 func (self *SEipAddress) GetAssociationType() string {
-	port := self.GetPort()
-	if port == nil {
-		log.Errorf("SEipAddress.GetAssociationType port not found %#v", self)
-		return api.EIP_ASSOCIATE_TYPE_UNKNOWN
+	if len(self.PortId) == 0 {
+		return ""
+	}
+	port, err := self.region.GetPort(self.PortId)
+	if err != nil {
+		log.Errorf("Get eip %s port %s error: %v", self.ID, self.PortId, err)
+		return ""
 	}
 
-	owner := port.DeviceOwner
-	if strings.Contains(owner, "LOADBALANCER") {
+	switch port.DeviceOwner {
+	case "neutron:LOADBALANCER", "neutron:LOADBALANCERV2":
 		return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
-	} else {
+	case "network:nat_gateway":
+		return api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
+	default:
+		log.Infof("eip %s associate type: %s", self.ID, port.DeviceOwner)
 		return api.EIP_ASSOCIATE_TYPE_SERVER
 	}
 }
@@ -180,11 +186,10 @@ func (self *SEipAddress) GetAssociationType() string {
 func (self *SEipAddress) GetAssociationExternalId() string {
 	// network/0273a359d61847fc83405926c958c746/ext-floatingips?tenantId=0273a359d61847fc83405926c958c746&limit=2000
 	// 只能通过 port id 反查device id.
-	port := self.GetPort()
-	if port != nil {
+	if len(self.PortId) > 0 {
+		port, _ := self.region.GetPort(self.PortId)
 		return port.DeviceID
 	}
-
 	return ""
 }
 
@@ -254,14 +259,17 @@ func (self *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
 }
 
 func (self *SEipAddress) Dissociate() error {
+	if len(self.PortId) == 0 {
+		return nil
+	}
 	port, err := self.region.GetPort(self.PortId)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "GetPort(%s)", self.PortId)
 	}
 
 	err = self.region.DissociateEip(self.ID, port.DeviceID)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "DissociateEip")
 	}
 	err = cloudprovider.WaitStatus(self, api.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
 	return err

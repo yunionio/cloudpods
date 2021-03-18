@@ -62,6 +62,7 @@ type ElasticipListInput struct {
 	UsableResourceListInput
 
 	// filter usable eip for given associate type
+	// enmu: server, natgateway
 	UsableEipForAssociateType string `json:"usable_eip_for_associate_type"`
 	// filter usable eip for given associate id
 	UsableEipForAssociateId string `json:"usable_eip_for_associate_id"`

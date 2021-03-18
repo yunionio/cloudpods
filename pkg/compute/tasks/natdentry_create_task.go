@@ -16,11 +16,10 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -38,80 +37,96 @@ func init() {
 	taskman.RegisterTask(SNatDEntryCreateTask{})
 }
 
-func (self *SNatDEntryCreateTask) TaskFailed(ctx context.Context, dnatEntry models.INatHelper, reason jsonutils.JSONObject) {
-	dnatEntry.SetStatus(self.UserCred, api.NAT_STATUS_CREATE_FAILED, reason.String())
-	db.OpsLog.LogEvent(dnatEntry, db.ACT_ALLOCATE_FAIL, reason.String(), self.UserCred)
-	natgateway, err := dnatEntry.GetNatgateway()
-	if err == nil {
-		logclient.AddActionLogWithStartable(self, natgateway, logclient.ACT_NAT_CREATE_DNAT, reason, self.UserCred, false)
-	} else {
-		logclient.AddActionLogWithStartable(self, dnatEntry, logclient.ACT_ALLOCATE, reason, self.UserCred, false)
+func (self *SNatDEntryCreateTask) taskFailed(ctx context.Context, dnat *models.SNatDEntry, err error) {
+	dnat.SetStatus(self.UserCred, api.NAT_STATUS_CREATE_FAILED, err.Error())
+	db.OpsLog.LogEvent(dnat, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
+	nat, _ := dnat.GetNatgateway()
+	if nat != nil {
+		logclient.AddActionLogWithStartable(self, nat, logclient.ACT_NAT_CREATE_DNAT, err, self.UserCred, false)
 	}
-	self.SetStageFailed(ctx, reason)
+	logclient.AddActionLogWithStartable(self, dnat, logclient.ACT_ALLOCATE, err, self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *SNatDEntryCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	dnatEntry := obj.(*models.SNatDEntry)
-	NatToBindIPStage(ctx, self, dnatEntry)
-}
+	dnat := obj.(*models.SNatDEntry)
 
-func (self *SNatDEntryCreateTask) OnBindIPCompleteFailed(ctx context.Context, dnatEntry *models.SNatDEntry,
-	reason jsonutils.JSONObject) {
-
-	self.TaskFailed(ctx, dnatEntry, reason)
-}
-
-func (self *SNatDEntryCreateTask) OnBindIPComplete(ctx context.Context, dnatEntry *models.SNatDEntry,
-	body jsonutils.JSONObject) {
-
-	cloudNatGateway, err := dnatEntry.GetINatGateway()
+	eip, err := dnat.GetEip()
 	if err != nil {
-		self.TaskFailed(ctx, dnatEntry, jsonutils.NewString(fmt.Sprintf("Get NatGateway failed: %s", err)))
+		self.taskFailed(ctx, dnat, errors.Wrapf(err, "snat.GetEip"))
 		return
 	}
 
-	externalIPID, err := self.Params.GetString("eip_external_id")
+	if len(eip.AssociateId) > 0 {
+		self.OnAssociateEipComplete(ctx, dnat, body)
+		return
+	}
+
+	nat, err := dnat.GetNatgateway()
+	if err != nil {
+		self.taskFailed(ctx, dnat, errors.Wrapf(err, "snat.GetNatgateway"))
+		return
+	}
+
+	self.SetStage("OnAssociateEipComplete", nil)
+	err = nat.GetRegion().GetDriver().RequestAssociateEipForNAT(ctx, self.GetUserCred(), nat, eip, self)
+	if err != nil {
+		self.taskFailed(ctx, dnat, errors.Wrapf(err, "RequestBindIPToNatgateway"))
+		return
+	}
+}
+
+func (self *SNatDEntryCreateTask) OnAssociateEipCompleteFailed(ctx context.Context, dnat *models.SNatDEntry, reason jsonutils.JSONObject) {
+	self.taskFailed(ctx, dnat, errors.Errorf(reason.String()))
+}
+
+func (self *SNatDEntryCreateTask) OnAssociateEipComplete(ctx context.Context, dnat *models.SNatDEntry, body jsonutils.JSONObject) {
+	nat, err := dnat.GetNatgateway()
+	if err != nil {
+		self.taskFailed(ctx, dnat, errors.Wrapf(err, "dnat.GetNatgateway"))
+		return
+	}
+	iNat, err := nat.GetINatGateway()
+	if err != nil {
+		self.taskFailed(ctx, dnat, errors.Wrapf(err, "nat.GetINatGateway"))
+		return
+	}
+
+	eip, err := dnat.GetEip()
+	if err != nil {
+		self.taskFailed(ctx, dnat, errors.Wrapf(err, "dnat.GetEip"))
+		return
+	}
+
 	// construct a DNat RUle
-	dnatRule := cloudprovider.SNatDRule{
-		Protocol:     dnatEntry.IpProtocol,
-		InternalIP:   dnatEntry.InternalIP,
-		InternalPort: dnatEntry.InternalPort,
-		ExternalIP:   dnatEntry.ExternalIP,
-		ExternalIPID: externalIPID,
-		ExternalPort: dnatEntry.ExternalPort,
+	rule := cloudprovider.SNatDRule{
+		Protocol:     dnat.IpProtocol,
+		InternalIP:   dnat.InternalIP,
+		InternalPort: dnat.InternalPort,
+		ExternalIP:   dnat.ExternalIP,
+		ExternalPort: dnat.ExternalPort,
+		ExternalIPID: eip.ExternalId,
 	}
-	extDnat, err := cloudNatGateway.CreateINatDEntry(dnatRule)
+	iDnat, err := iNat.CreateINatDEntry(rule)
 	if err != nil {
-		if self.Params.Contains("need_bind") {
-			err1 := CreateINatFailedRollback(ctx, self, dnatEntry)
-			if err1 != nil {
-				eip_id, _ := self.Params.GetString("eip_id")
-				log.Errorf("roll back after failing to create dnat in cloud so that eip %s need to sync with cloud", eip_id)
-			}
-		}
-		self.TaskFailed(ctx, dnatEntry, jsonutils.NewString(fmt.Sprintf("Create DNat Entry '%s' failed: %s", dnatEntry.ExternalId, err)))
+		self.taskFailed(ctx, dnat, errors.Wrapf(err, "iNat.CreateINatDEntry"))
 		return
 	}
 
-	err = cloudprovider.WaitStatus(extDnat, api.NAT_STAUTS_AVAILABLE, 10*time.Second, 300*time.Second)
+	err = db.SetExternalId(dnat, self.UserCred, iDnat.GetGlobalId())
 	if err != nil {
-		self.TaskFailed(ctx, dnatEntry, jsonutils.NewString(err.Error()))
+		self.taskFailed(ctx, dnat, errors.Wrapf(err, "db.SetExternalId(%s)", iDnat.GetGlobalId()))
 		return
 	}
 
-	err = db.SetExternalId(dnatEntry, self.UserCred, extDnat.GetGlobalId())
+	err = cloudprovider.WaitStatus(iDnat, api.NAT_STAUTS_AVAILABLE, 10*time.Second, 5*time.Minute)
 	if err != nil {
-		self.TaskFailed(ctx, dnatEntry, jsonutils.NewString(fmt.Sprintf("set external id failed: %s", err)))
+		self.taskFailed(ctx, dnat, errors.Wrapf(err, "cloudprovider.WaitStatus"))
 		return
 	}
 
-	dnatEntry.SetStatus(self.UserCred, api.NAT_STAUTS_AVAILABLE, "")
-	db.OpsLog.LogEvent(dnatEntry, db.ACT_ALLOCATE, dnatEntry.GetShortDesc(ctx), self.UserCred)
-	natgateway, err := dnatEntry.GetNatgateway()
-	if err == nil {
-		logclient.AddActionLogWithStartable(self, natgateway, logclient.ACT_NAT_CREATE_DNAT, nil, self.UserCred, true)
-	} else {
-		logclient.AddActionLogWithStartable(self, dnatEntry, logclient.ACT_ALLOCATE, nil, self.UserCred, true)
-	}
+	dnat.SetStatus(self.UserCred, api.NAT_STAUTS_AVAILABLE, "")
+	logclient.AddActionLogWithStartable(self, nat, logclient.ACT_NAT_CREATE_DNAT, nil, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, dnat, logclient.ACT_ALLOCATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
