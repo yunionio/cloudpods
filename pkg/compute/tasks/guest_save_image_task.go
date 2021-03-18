@@ -38,7 +38,7 @@ func (self *GuestSaveImageTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 	guest := obj.(*models.SGuest)
 	log.Infof("Saving server image: %s", guest.Name)
 	restart := jsonutils.QueryBoolean(self.Params, "restart", false)
-	if restart {
+	if restart && guest.Status != api.VM_READY {
 		self.SetStage("OnStopServerComplete", nil)
 		guest.StartGuestStopTask(ctx, self.GetUserCred(), false, false, self.GetTaskId())
 		return
@@ -53,6 +53,11 @@ func (self *GuestSaveImageTask) OnStopServerComplete(ctx context.Context, guest 
 		self.OnSaveRootImageCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
+}
+
+func (self *GuestSaveImageTask) OnStopServerCompleteFailed(ctx context.Context, guest *models.SGuest, body jsonutils.JSONObject) {
+	guest.SetStatus(self.GetUserCred(), api.VM_SAVE_DISK_FAILED, body.String())
+	self.SetStageFailed(ctx, nil)
 }
 
 func (self *GuestSaveImageTask) OnSaveRootImageComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
