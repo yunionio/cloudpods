@@ -18,7 +18,6 @@ import (
 	"context"
 
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -42,7 +41,7 @@ func syncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model 
 	model.SetSysCloudMetadataAll(ctx, sysStore, userCred)
 
 	tags, err := remote.GetTags()
-	if err == nil || errors.Cause(err) == cloudprovider.ErrNotFound {
+	if err == nil {
 		store := make(map[string]interface{}, 0)
 		for key, value := range tags {
 			store[db.CLOUD_TAG_PREFIX+key] = value
@@ -71,7 +70,7 @@ func syncVirtualResourceMetadata(ctx context.Context, userCred mcclient.TokenCre
 	model.SetSysCloudMetadataAll(ctx, sysStore, userCred)
 
 	tags, err := remote.GetTags()
-	if err == nil || errors.Cause(err) == cloudprovider.ErrNotFound {
+	if err == nil {
 		store := make(map[string]interface{}, 0)
 		for key, value := range tags {
 			store[db.CLOUD_TAG_PREFIX+key] = value
