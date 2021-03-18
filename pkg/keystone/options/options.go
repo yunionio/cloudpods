@@ -53,7 +53,7 @@ type SKeystoneOptions struct {
 
 	SessionEndpointType string `help:"Client session end point type"`
 
-	AllowJoinProjectsAcrossDomains bool `help:"allow users/groups to join projects across domains" default:"false"`
+	// AllowJoinProjectsAcrossDomains bool `help:"allow users/groups to join projects across domains" default:"false"`
 
 	DefaultUserLanguage string `help:"default user language, default to zh-CN" default:"zh-CN"`
 }
