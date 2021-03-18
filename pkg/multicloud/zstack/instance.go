@@ -107,12 +107,6 @@ func (instance *SInstance) GetSecurityGroupIds() ([]string, error) {
 	return ids, nil
 }
 
-func (instance *SInstance) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-
-	return data
-}
-
 func (instance *SInstance) GetIHost() cloudprovider.ICloudHost {
 	return instance.host
 }

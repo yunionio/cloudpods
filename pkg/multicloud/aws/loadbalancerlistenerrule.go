@@ -116,10 +116,6 @@ func (self *SElbListenerRule) IsEmulated() bool {
 	return false
 }
 
-func (self *SElbListenerRule) GetMetadata() *jsonutils.JSONDict {
-	return jsonutils.NewDict()
-}
-
 func (self *SElbListenerRule) GetProjectId() string {
 	return ""
 }

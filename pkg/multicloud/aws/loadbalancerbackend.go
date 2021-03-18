@@ -18,8 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	"yunion.io/x/jsonutils"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -66,10 +64,6 @@ func (self *SElbBackend) Refresh() error {
 
 func (self *SElbBackend) IsEmulated() bool {
 	return false
-}
-
-func (self *SElbBackend) GetMetadata() *jsonutils.JSONDict {
-	return jsonutils.NewDict()
 }
 
 func (self *SElbBackend) GetProjectId() string {

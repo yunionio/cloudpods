@@ -102,20 +102,6 @@ func (lb *SLoadbalancer) GetStatus() string {
 	return api.LB_STATUS_DISABLED
 }
 
-func (lb *SLoadbalancer) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	tags, err := lb.region.ListResourceTags(APSARA_PRODUCT_SLB, "instance", []string{lb.GetId()})
-	if err != nil {
-		log.Errorf(`[err:%s]lb.region.FetchResourceTags("slb", "instance", []string{lb.GetId()})`, err.Error())
-		return nil
-	}
-	if _, ok := tags[lb.GetId()]; !ok {
-		return nil
-	}
-	data.Update(jsonutils.Marshal(tags[lb.GetId()]))
-	return data
-}
-
 func (lb *SLoadbalancer) GetTags() (map[string]string, error) {
 	tags, err := lb.region.ListResourceTags("slb", "instance", []string{lb.GetId()})
 	if err != nil {

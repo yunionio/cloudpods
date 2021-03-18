@@ -155,14 +155,6 @@ func (self *SClassicInstance) GetSecurityGroupIds() ([]string, error) {
 	return secgroupIds, nil
 }
 
-func (self *SClassicInstance) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	priceKey := fmt.Sprintf("%s::%s", self.Properties.HardwareProfile.Size, self.host.zone.region.Name)
-	data.Add(jsonutils.NewString(priceKey), "price_key")
-	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
-	return data
-}
-
 func (self *SClassicInstance) GetSysTags() map[string]string {
 	data := map[string]string{}
 	priceKey := fmt.Sprintf("%s::%s", self.Properties.HardwareProfile.Size, self.host.zone.region.Name)

@@ -74,11 +74,6 @@ func (image *SImage) GetMinRamSizeMb() int {
 	return 0
 }
 
-func (image *SImage) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	return data
-}
-
 func (image *SImage) GetId() string {
 	return image.UUID
 }

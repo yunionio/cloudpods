@@ -253,26 +253,6 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	return self.host.zone.region.GetInstanceSecrityGroupIds(self.GetId())
 }
 
-func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	// cn-north-1::et2.2xlarge.16::win
-	lowerOs := self.GetOSType()
-	if strings.HasPrefix(lowerOs, "win") {
-		lowerOs = "win"
-	}
-	priceKey := fmt.Sprintf("%s::%s::%s", self.host.zone.region.GetId(), self.GetInstanceType(), lowerOs)
-	data.Add(jsonutils.NewString(priceKey), "price_key")
-	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
-	if len(self.Metadata.MeteringImageID) > 0 {
-		if image, err := self.host.zone.region.GetImage(self.Metadata.MeteringImageID); err != nil {
-			log.Errorf("Failed to find image %s for instance %s zone %s", self.Metadata.MeteringImageID, self.GetId(), self.OSEXTAZAvailabilityZone)
-		} else if meta := image.GetMetadata(); meta != nil {
-			data.Update(meta)
-		}
-	}
-	return data
-}
-
 func (self *SInstance) GetSysTags() map[string]string {
 	data := map[string]string{}
 	// cn-north-1::et2.2xlarge.16::win

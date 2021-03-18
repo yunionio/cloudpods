@@ -186,13 +186,6 @@ func (self *SDisk) IsEmulated() bool {
 	return false
 }
 
-func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	data.Add(jsonutils.NewString(api.HYPERVISOR_CTYUN), "hypervisor")
-
-	return data
-}
-
 func (self *SDisk) GetSysTags() map[string]string {
 	data := map[string]string{}
 	data["hypervisor"] = api.HYPERVISOR_CTYUN

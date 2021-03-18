@@ -38,7 +38,6 @@ type ICloudResource interface {
 	Refresh() error
 
 	IsEmulated() bool
-	//	GetMetadata() *jsonutils.JSONDict
 
 	GetSysTags() map[string]string
 	GetTags() (map[string]string, error)

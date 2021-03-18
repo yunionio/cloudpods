@@ -120,19 +120,6 @@ type SDisk struct {
 	VolumeType          string
 }
 
-func (disk *SDisk) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-
-	data.Add(jsonutils.NewString(api.HYPERVISOR_OPENSTACK), "hypervisor")
-	return data
-}
-
-func (disk *SDisk) GetSysTags() map[string]string {
-	data := map[string]string{}
-	data["hypervisor"] = api.HYPERVISOR_OPENSTACK
-	return data
-}
-
 func (region *SRegion) GetDisks() ([]SDisk, error) {
 	disks := []SDisk{}
 	resource := "/volumes/detail"

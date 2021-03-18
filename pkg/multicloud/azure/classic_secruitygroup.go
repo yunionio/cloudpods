@@ -120,14 +120,6 @@ func (self *SClassicSecurityGroup) GetVpcId() string {
 	return "classic"
 }
 
-func (self *SClassicSecurityGroup) GetMetadata() *jsonutils.JSONDict {
-	if len(self.Tags) == 0 {
-		return nil
-	}
-	data := jsonutils.Marshal(self.Tags).(*jsonutils.JSONDict)
-	return data
-}
-
 func (self *SClassicSecurityGroup) GetTags() (map[string]string, error) {
 	return self.Tags, nil
 }

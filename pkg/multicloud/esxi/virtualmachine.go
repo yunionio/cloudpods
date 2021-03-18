@@ -97,27 +97,6 @@ func (self *SVirtualMachine) GetSecurityGroupIds() ([]string, error) {
 	return []string{}, cloudprovider.ErrNotSupported
 }
 
-func (self *SVirtualMachine) GetMetadata() *jsonutils.JSONDict {
-	meta := jsonutils.NewDict()
-	meta.Set("datacenter", jsonutils.NewString(self.GetDatacenterPathString()))
-	rp, _ := self.getResourcePool()
-	if rp != nil {
-		rpPath := rp.GetPath()
-		rpOffset := -1
-		for i := range rpPath {
-			if rpPath[i] == "Resources" {
-				if i > 0 {
-					meta.Set("cluster", jsonutils.NewString(rpPath[i-1]))
-					rpOffset = i
-				}
-			} else if rpOffset >= 0 && i > rpOffset {
-				meta.Set(fmt.Sprintf("pool%d", i-rpOffset-1), jsonutils.NewString(rpPath[i]))
-			}
-		}
-	}
-	return meta
-}
-
 func (self *SVirtualMachine) GetSysTags() map[string]string {
 	meta := map[string]string{}
 	meta["datacenter"] = self.GetDatacenterPathString()

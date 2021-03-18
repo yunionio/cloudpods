@@ -20,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -51,18 +50,6 @@ type SClassicDisk struct {
 	Name       string
 	Type       string
 	Properties ClassicProperties
-}
-
-func (self *SClassicDisk) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	data.Add(jsonutils.NewString(api.HYPERVISOR_AZURE), "hypervisor")
-	return data
-}
-
-func (self *SClassicDisk) GetSysTags() map[string]string {
-	data := map[string]string{}
-	data["hypervisor"] = api.HYPERVISOR_AZURE
-	return data
 }
 
 func (self *SClassicDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
