@@ -339,7 +339,11 @@ func genMsgViaLang(ctx context.Context, p sNotifyParams) ([]npk.SNotifyMessage, 
 }
 
 func intelliNotify(ctx context.Context, p sNotifyParams) {
-	log.Infof("recipientId: %v, contacts: %v, event %s priority %s", p.recipientId, p.contacts, p.event, p.priority)
+	log.Infof("recipientId: %v, contactType: %s, contacts: %v, event %s priority %s", p.recipientId, p.channel, p.contacts, p.event, p.priority)
+	// hack
+	if len(p.recipientId) == 0 && len(p.contacts) == 0 {
+		p.contacts = []string{""}
+	}
 	msgs, err := genMsgViaLang(ctx, p)
 	if err != nil {
 		log.Errorf("unable send notification: %v", err)
