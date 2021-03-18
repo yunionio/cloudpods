@@ -76,6 +76,10 @@ func IsProcessorAmd() bool {
 	return false
 }
 
+func isDevKVMExists() bool {
+	return fileutils2.Exists("/dev/kvm")
+}
+
 func detectKVMModuleSupport() string {
 	var km = KVM_MODULE_UNSUPPORT
 	if ModprobeKvmModule(KVM_MODULE_INTEL, false, false) {
@@ -83,10 +87,12 @@ func detectKVMModuleSupport() string {
 	} else if ModprobeKvmModule(KVM_MODULE_AMD, false, false) {
 		km = KVM_MODULE_AMD
 	} else if ModprobeKvmModule(KVM_MODULE, false, false) {
-		km = KVM_MODULE
+		if isDevKVMExists() {
+			km = KVM_MODULE
+		}
 	}
 	if km == KVM_MODULE_UNSUPPORT {
-		if fileutils2.Exists("/dev/kvm") {
+		if isDevKVMExists() {
 			km = KVM_MODULE_BUILDIN
 		}
 	}
