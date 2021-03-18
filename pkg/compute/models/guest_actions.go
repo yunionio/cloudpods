@@ -2131,6 +2131,7 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 		notes.Add(jsonutils.NewString(ngn[0].IpAddr), "ip")
 	}
 	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_CHANGE_NIC, notes, userCred, true)
+	notifyclient.NotifyWebhook(ctx, userCred, self, notifyclient.ActionChangeIpaddr)
 
 	err = self.StartSyncTask(ctx, userCred, true, "")
 	return nil, err
