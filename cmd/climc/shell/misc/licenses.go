@@ -15,6 +15,12 @@
 package misc
 
 import (
+	"bytes"
+	"io"
+	"mime/multipart"
+	"net/http"
+	"os"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -37,6 +43,40 @@ func init() {
 		}
 
 		printList(lics, modules.License.GetColumns(s))
+		return nil
+	})
+
+	type LicenseUploadOptions struct {
+		FILE string
+	}
+
+	R(&LicenseUploadOptions{}, "license-upload", "Upload license", func(s *mcclient.ClientSession, args *LicenseUploadOptions) error {
+		bodyBuf := &bytes.Buffer{}
+		bodyWriter := multipart.NewWriter(bodyBuf)
+		fileWriter, err := bodyWriter.CreateFormFile("license", args.FILE)
+		if err != nil {
+			return err
+		}
+		fh, err := os.Open(args.FILE)
+		if err != nil {
+			return err
+		}
+		defer fh.Close()
+		_, err = io.Copy(fileWriter, fh)
+		if err != nil {
+			return err
+		}
+		contentType := bodyWriter.FormDataContentType()
+		bodyWriter.Close()
+
+		header := http.Header{}
+		header.Set("Content-Type", contentType)
+		lic, err := modules.License.Upload(s, header, bodyBuf)
+		if err != nil {
+			return err
+		}
+
+		printObject(lic)
 		return nil
 	})
 
