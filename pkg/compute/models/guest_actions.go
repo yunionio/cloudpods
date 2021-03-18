@@ -51,6 +51,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/userdata"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	guestdriver_types "yunion.io/x/onecloud/pkg/compute/guestdrivers/types"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -2188,65 +2189,56 @@ func (self *SGuest) AllowPerformDetachnetwork(ctx context.Context, userCred mccl
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "detachnetwork")
 }
 
-func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerDetachnetworkInput) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot detach network in status %s", self.Status)
 	}
-	if err := self.GetDriver().ValidateDetachNetwork(ctx, userCred, self); err != nil {
+
+	err := self.GetDriver().ValidateDetachNetwork(ctx, userCred, self)
+	if err != nil {
 		return nil, err
 	}
-	var (
-		reserve   = jsonutils.QueryBoolean(data, "reserve", false)
-		netStr, _ = data.GetString("net_id")
-		gns       []SGuestnetwork
-		err       error
-	)
 
-	if len(netStr) > 0 {
-		netObj, err := NetworkManager.FetchByIdOrName(userCred, netStr)
+	var gns []SGuestnetwork
+	if len(input.NetId) > 0 {
+		netObj, err := validators.ValidateModel(userCred, NetworkManager, &input.NetId)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(NetworkManager.Keyword(), netStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
+			return nil, err
 		}
 		gns, err = self.GetNetworks(netObj.GetId())
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
 		}
-	}
-	ipStr, _ := data.GetString("ip_addr")
-	if len(ipStr) > 0 {
-		gn, err := self.GetGuestnetworkByIp(ipStr)
+	} else if len(input.IpAddr) > 0 {
+		gn, err := self.GetGuestnetworkByIp(input.IpAddr)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				return nil, httperrors.NewNotFoundError("ip %s not found", ipStr)
+				return nil, httperrors.NewNotFoundError("ip %s not found", input.IpAddr)
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
 		gns = []SGuestnetwork{*gn}
-	}
-	macStr, _ := data.GetString("mac")
-	if len(macStr) > 0 {
-		gn, err := self.GetGuestnetworkByMac(macStr)
+	} else if len(input.Mac) > 0 {
+		gn, err := self.GetGuestnetworkByMac(input.Mac)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				return nil, httperrors.NewNotFoundError("mac %s not found", macStr)
+				return nil, httperrors.NewNotFoundError("mac %s not found", input.Mac)
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
 		gns = []SGuestnetwork{*gn}
-	}
-	if self.Status == api.VM_READY {
-		err = self.detachNetworks(ctx, userCred, gns, reserve, true)
-		return nil, err
 	} else {
-		err = self.detachNetworks(ctx, userCred, gns, reserve, false)
-		if err != nil {
-			return nil, err
-		}
-		return nil, self.StartSyncTask(ctx, userCred, false, "")
+		return nil, httperrors.NewMissingParameterError("net_id")
 	}
+
+	if self.Status == api.VM_READY {
+		return nil, self.detachNetworks(ctx, userCred, gns, input.Reserve, true)
+	}
+	err = self.detachNetworks(ctx, userCred, gns, input.Reserve, false)
+	if err != nil {
+		return nil, err
+	}
+	return nil, self.StartSyncTask(ctx, userCred, false, "")
 }
 
 func (self *SGuest) AllowPerformAttachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
