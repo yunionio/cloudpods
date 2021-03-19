@@ -205,6 +205,13 @@ func InitHandlers(app *appsrv.Application) {
 		models.InterVpcNetworkManager,
 
 		models.NatSkuManager,
+		models.NasSkuManager,
+
+		models.FileSystemManager,
+		models.AccessGroupManager,
+		models.AccessGroupRuleManager,
+		models.AccessGroupCacheManager,
+		models.MountTargetManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

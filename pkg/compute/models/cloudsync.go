@@ -256,6 +256,63 @@ func syncRegionVPCs(ctx context.Context, userCred mcclient.TokenCredential, sync
 	}
 }
 
+func syncRegionAccessGroups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+	accessGroups, err := remoteRegion.GetICloudAccessGroups()
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return
+		}
+		log.Errorf("GetICloudFileSystems for region %s error: %v", localRegion.Name, err)
+		return
+	}
+
+	result := localRegion.SyncAccessGroups(ctx, userCred, provider, accessGroups)
+	syncResults.Add(AccessGroupCacheManager, result)
+	log.Infof("Sync Access Group Caches for region %s result: %s", localRegion.Name, result.Result())
+}
+
+func syncRegionFileSystems(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+	filesystems, err := remoteRegion.GetICloudFileSystems()
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return
+		}
+		log.Errorf("GetICloudFileSystems for region %s error: %v", localRegion.Name, err)
+		return
+	}
+
+	localFSs, removeFSs, result := localRegion.SyncFileSystems(ctx, userCred, provider, filesystems)
+	syncResults.Add(FileSystemManager, result)
+	log.Infof("Sync FileSystem for region %s result: %s", localRegion.Name, result.Result())
+
+	for j := 0; j < len(localFSs); j += 1 {
+		func() {
+			// lock file system
+			lockman.LockObject(ctx, &localFSs[j])
+			defer lockman.ReleaseObject(ctx, &localFSs[j])
+
+			if localFSs[j].Deleted {
+				return
+			}
+
+			syncFileSystemMountTargets(ctx, userCred, &localFSs[j], removeFSs[j])
+		}()
+	}
+}
+
+func syncFileSystemMountTargets(ctx context.Context, userCred mcclient.TokenCredential, localFs *SFileSystem, remoteFs cloudprovider.ICloudFileSystem) {
+	mountTargets, err := remoteFs.GetMountTargets()
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return
+		}
+		log.Errorf("GetMountTargets for %s error: %v", localFs.Name, err)
+		return
+	}
+	result := localFs.SyncMountTargets(ctx, userCred, mountTargets)
+	log.Infof("SyncMountTargets for FileSystem %s result: %s", localFs.Name, result.Result())
+}
+
 func syncVpcPeerConnections(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localVpc *SVpc, remoteVpc cloudprovider.ICloudVpc, syncRange *SSyncRange) {
 	peerConnections, err := remoteVpc.GetICloudVpcPeeringConnections()
 	if err != nil {
@@ -1181,6 +1238,9 @@ func syncPublicCloudProviderInfo(
 		// sync snapshots after sync disks
 		syncRegionSnapshots(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 	}
+
+	syncRegionAccessGroups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+	syncRegionFileSystems(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
 	if cloudprovider.IsSupportLoadbalancer(driver) {
 		syncRegionLoadbalancerAcls(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)

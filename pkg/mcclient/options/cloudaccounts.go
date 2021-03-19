@@ -840,7 +840,7 @@ func (opts *CloudaccountShareModeOptions) Params() (jsonutils.JSONObject, error)
 
 type CloudaccountSyncSkusOptions struct {
 	SCloudAccountIdOptions
-	RESOURCE      string `help:"Resource of skus" choices:"serversku|elasticcachesku|dbinstance_sku|nat_sku"`
+	RESOURCE      string `help:"Resource of skus" choices:"serversku|elasticcachesku|dbinstance_sku|nat_sku|nas_sku"`
 	Force         bool   `help:"Force sync no matter what"`
 	Cloudprovider string `help:"provider to sync"`
 	Region        string `help:"region to sync"`
