@@ -13,6 +13,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	idenapi "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/apis/notify"
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -279,4 +280,23 @@ func (r *SRobot) PerformDisable(ctx context.Context, userCred mcclient.TokenCred
 		return nil, errors.Wrap(err, "EnabledPerformEnable")
 	}
 	return nil, nil
+}
+
+func (r *SRobot) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	q := SubscriberManager.Query().Equals("type", notify.SUBSCRIBER_TYPE_ROBOT).Equals("identification", r.GetId())
+	subscribers := make([]SSubscriber, 0, 2)
+	err := db.FetchModelObjects(SubscriberManager, q, &subscribers)
+	if err != nil {
+		log.Errorf("unable to fetch subscribers with robot %q", r.GetId())
+		return
+	}
+	for i := range subscribers {
+		subscriber := &subscribers[i]
+		_, err := db.Update(r, func() error {
+			return subscriber.MarkDelete()
+		})
+		if err != nil {
+			log.Errorf("unable to delete subscriber %q because of deleting of robot %q", subscribers[i].GetId(), r.GetId())
+		}
+	}
 }

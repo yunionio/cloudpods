@@ -915,7 +915,26 @@ func (r *SReceiver) Delete(ctx context.Context, userCred mcclient.TokenCredentia
 			return err
 		}
 	}
+	r.deleteReceiverInSubscriber(ctx)
 	return r.SStatusStandaloneResourceBase.Delete(ctx, userCred)
+}
+
+func (r *SReceiver) deleteReceiverInSubscriber(ctx context.Context) {
+	q := SubscriberReceiverManager.Query().Equals("receiver_id", r.Id)
+	srs := make([]SSubscriberReceiver, 0, 2)
+	err := db.FetchModelObjects(SubscriberReceiverManager, q, &srs)
+	if err != nil {
+		log.Infof("unable to get SubscriberReceiver: %s", err.Error())
+	}
+	for i := range srs {
+		sr := &srs[i]
+		_, err := db.Update(sr, func() error {
+			return sr.MarkDelete()
+		})
+		if err != nil {
+			log.Errorf("unable to delete subscriber receiver for receiver %q", r.Id)
+		}
+	}
 }
 
 func (r *SReceiver) IsOwner(userCred mcclient.TokenCredential) bool {

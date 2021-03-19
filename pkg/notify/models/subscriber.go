@@ -62,7 +62,7 @@ type SSubscriber struct {
 
 	TopicID        string `width:"128" charset:"ascii" nullable:"false" index:"true" get:"user" list:"user"`
 	Type           string `width:"16" charset:"ascii" nullable:"false" index:"true" get:"user" list:"user"`
-	Identification string `width:"128" charset:"ascii" nullable:"false"`
+	Identification string `width:"128" charset:"ascii" nullable:"false" index:"true"`
 	RoleScope      string `width:"8" charset:"ascii" nullable:"false" get:"user" list:"user"`
 	ResourceScope  string `width:"8" charset:"ascii" nullable:"false" get:"user" list:"user"`
 }
