@@ -47,6 +47,7 @@ var (
 	ActionPendingDelete SAction = "pending_delete"
 	ActionRebuildRoot   SAction = "rebuild_root"
 	ActionChangeConfig  SAction = "change_config"
+	ActionChangeIpaddr  SAction = "change_ipaddr"
 )
 
 type SEvent struct {
