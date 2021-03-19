@@ -90,7 +90,7 @@ type SCachedimage struct {
 
 	// 镜像类型, system: 公有云镜像, customized: 自定义镜像
 	// example: system
-	ImageType string `width:"16" default:"customized" list:"user"`
+	ImageType string `width:"16" default:"customized" list:"user" index:"true"`
 }
 
 func (self SCachedimage) GetGlobalId() string {
