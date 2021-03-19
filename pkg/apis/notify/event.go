@@ -32,6 +32,7 @@ var (
 	ActionResize         SAction = "resize"
 	ActionExpiredRelease SAction = "expired_release"
 	ActionExecute        SAction = "execute"
+	ActionChangeIpaddr   SAction = "change_ipaddr"
 )
 
 const (

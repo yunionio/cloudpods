@@ -149,6 +149,9 @@ func (sm *STopicManager) InitializeData() error {
 				notify.TOPIC_RESOURCE_ELASTICCACHE,
 			)
 			t.addAction(notify.ActionUpdate)
+			t.addAction(notify.ActionRebuildRoot)
+			t.addAction(notify.ActionResetPassword)
+			t.addAction(notify.ActionChangeIpaddr)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 		case DefaultResourceReleaseDue1Day:
 			t.addResources(
@@ -340,6 +343,7 @@ func init() {
 		notify.ActionChangeConfig,
 		notify.ActionExpiredRelease,
 		notify.ActionExecute,
+		notify.ActionChangeIpaddr,
 	)
 }
 

@@ -151,6 +151,7 @@ var action2Topic = make(map[string]string, 0)
 func init() {
 	action2Topic[string(api.ActionRebuildRoot)] = string(api.ActionUpdate)
 	action2Topic[string(api.ActionResetPassword)] = string(api.ActionUpdate)
+	action2Topic[string(api.ActionChangeIpaddr)] = string(api.ActionUpdate)
 }
 
 func (lt *SLocalTemplateManager) fillWithTemplate(ctx context.Context, titleOrContent string, contactType string, lang string, event api.SEvent, dis jsonutils.JSONObject) (string, error) {
