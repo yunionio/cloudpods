@@ -149,3 +149,27 @@ func (self *SRegion) GetICloudQuotas() ([]cloudprovider.ICloudQuota, error) {
 func (self *SRegion) CreateInternetGateway() (cloudprovider.ICloudInternetGateway, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "CreateInternetGateway")
 }
+
+func (self *SRegion) GetICloudFileSystems() ([]cloudprovider.ICloudFileSystem, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudFileSystems")
+}
+
+func (self *SRegion) GetICloudFileSystemById(id string) (cloudprovider.ICloudFileSystem, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudFileSystemById")
+}
+
+func (self *SRegion) GetICloudAccessGroups() ([]cloudprovider.ICloudAccessGroup, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudAccessGroups")
+}
+
+func (self *SRegion) GetICloudAccessGroupById(id string) (cloudprovider.ICloudAccessGroup, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudAccessGroupById")
+}
+
+func (self *SRegion) CreateICloudAccessGroup(opts *cloudprovider.SAccessGroup) (cloudprovider.ICloudAccessGroup, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateICloudAccessGroup")
+}
+
+func (self *SRegion) CreateICloudFileSystem(opts *cloudprovider.FileSystemCraeteOptions) (cloudprovider.ICloudFileSystem, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateICloudFileSystem")
+}

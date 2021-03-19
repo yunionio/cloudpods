@@ -153,6 +153,15 @@ type ICloudRegion interface {
 	GetCapabilities() []string
 
 	GetICloudQuotas() ([]ICloudQuota, error)
+
+	GetICloudFileSystems() ([]ICloudFileSystem, error)
+	GetICloudFileSystemById(id string) (ICloudFileSystem, error)
+
+	CreateICloudFileSystem(opts *FileSystemCraeteOptions) (ICloudFileSystem, error)
+
+	GetICloudAccessGroups() ([]ICloudAccessGroup, error)
+	CreateICloudAccessGroup(opts *SAccessGroup) (ICloudAccessGroup, error)
+	GetICloudAccessGroupById(id string) (ICloudAccessGroup, error)
 }
 
 type ICloudZone interface {
@@ -1216,4 +1225,54 @@ type ICloudInterVpcNetworkRoute interface {
 
 	GetEnabled() bool
 	GetCidr() string
+}
+
+type ICloudFileSystem interface {
+	ICloudResource
+	IBillingResource
+
+	GetFileSystemType() string
+	GetStorageType() string
+	GetProtocol() string
+	GetCapacityGb() int64
+	GetUsedCapacityGb() int64
+	GetMountTargetCountLimit() int
+
+	GetZoneId() string
+
+	GetMountTargets() ([]ICloudMountTarget, error)
+	CreateMountTarget(opts *SMountTargetCreateOptions) (ICloudMountTarget, error)
+
+	Delete() error
+}
+
+type ICloudMountTarget interface {
+	GetGlobalId() string
+	GetName() string
+	GetAccessGroupId() string
+	GetDomainName() string
+	GetNetworkType() string
+	GetVpcId() string
+	GetNetworkId() string
+	GetStatus() string
+
+	Delete() error
+}
+
+type ICloudAccessGroup interface {
+	GetGlobalId() string
+	GetName() string
+	GetDesc() string
+	IsDefault() bool
+	GetMaxPriority() int
+	GetMinPriority() int
+	GetSupporedUserAccessTypes() []TUserAccessType
+	GetNetworkType() string
+	GetFileSystemType() string
+	GetMountTargetCount() int
+
+	GetRules() ([]AccessGroupRule, error)
+	SyncRules(common, added, removed AccessGroupRuleSet) error
+
+	Delete() error
 }

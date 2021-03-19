@@ -428,6 +428,10 @@ func (self *SBaseRegionDriver) IsSupportedNatGateway() bool {
 	return false
 }
 
+func (self *SBaseRegionDriver) IsSupportedNas() bool {
+	return false
+}
+
 func (self *SBaseRegionDriver) OnNatEntryDeleteComplete(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip) error {
 	return nil
 }
@@ -442,4 +446,8 @@ func (self *SBaseRegionDriver) IsSupportedNatAutoRenew() bool {
 
 func (self *SBaseRegionDriver) RequestAssociatEip(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {
 	return httperrors.NewNotImplementedError("RequestAssociatEip")
+}
+
+func (self *SBaseRegionDriver) RequestSyncAccessGroup(ctx context.Context, userCred mcclient.TokenCredential, fs *models.SFileSystem, mt *models.SMountTarget, ag *models.SAccessGroup, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestSyncAccessGroup")
 }

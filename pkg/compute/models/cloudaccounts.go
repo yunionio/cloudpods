@@ -2400,6 +2400,7 @@ func (account *SCloudaccount) PerformSyncSkus(ctx context.Context, userCred mccl
 		ElasticcacheSkuManager.Keyword(),
 		DBInstanceSkuManager.Keyword(),
 		NatSkuManager.Keyword(),
+		NasSkuManager.Keyword(),
 	}) {
 		return nil, httperrors.NewInputParameterError("invalid resource %s", input.Resource)
 	}

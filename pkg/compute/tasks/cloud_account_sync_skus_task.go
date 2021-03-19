@@ -105,6 +105,9 @@ func (self *CloudAccountSyncSkusTask) OnInit(ctx context.Context, obj db.IStanda
 		case models.NatSkuManager.Keyword():
 			result := region.SyncNatSkus(ctx, self.GetUserCred(), meta)
 			log.Infof("Sync %s %s skus for region %s result: %s", region.Provider, res, region.Name, result.Result())
+		case models.NasSkuManager.Keyword():
+			result := region.SyncNasSkus(ctx, self.GetUserCred(), meta)
+			log.Infof("Sync %s %s skus for region %s result: %s", region.Provider, res, region.Name, result.Result())
 		}
 
 		if syncFunc != nil {

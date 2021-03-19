@@ -66,6 +66,14 @@ type Tags struct {
 	Tag []Tag
 }
 
+func (t Tags) GetTags() (map[string]string, error) {
+	ret := map[string]string{}
+	for _, tag := range t.Tag {
+		ret[tag.TagKey] = tag.TagValue
+	}
+	return ret, nil
+}
+
 type Tag struct {
 	TagKey   string
 	TagValue string
