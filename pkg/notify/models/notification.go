@@ -232,16 +232,16 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 	}
 
 	// receiver
-	subscriptions, err := SubscriptionManager.SubsciptionByEvent(input.Event, input.AdvanceDays)
+	topics, err := TopicManager.TopicsByEvent(input.Event, input.AdvanceDays)
 	if err != nil {
 		return output, errors.Wrapf(err, "unable fetch subscriptions by event %q", input.Event)
 	}
-	if len(subscriptions) == 0 {
+	if len(topics) == 0 {
 		return output, nil
 	}
 	var receiverIds []string
-	for i := range subscriptions {
-		receiverIds1, err := SubscriptionReceiverManager.getReceivers(ctx, subscriptions[i].Id, input.ProjectDomainId, input.ProjectId)
+	for i := range topics {
+		receiverIds1, err := SubscriberManager.getReceiversSent(ctx, topics[i].Id, input.ProjectDomainId, input.ProjectId)
 		if err != nil {
 			return output, errors.Wrap(err, "unable to get receive")
 		}
@@ -252,35 +252,19 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 
 	// robot
 	var robots []string
-	for i := range subscriptions {
-		robot, err := SubscriptionReceiverManager.robot(subscriptions[i].Id)
+	for i := range topics {
+		_robots, err := SubscriberManager.robot(topics[i].Id, input.ProjectDomainId, input.ProjectId)
 		if err != nil {
 			if errors.Cause(err) != errors.ErrNotFound {
-				return output, errors.Wrapf(err, "unable fetch robot of subscription %q", subscriptions[i].Id)
+				return output, errors.Wrapf(err, "unable fetch robot of subscription %q", topics[i].Id)
 			}
 		} else {
-			robots = append(robots, robot)
+			robots = append(robots, _robots...)
 		}
 	}
 	robots = intersection(robots, intersection(cts, RobotContactTypes))
 	if len(robots) > 0 {
 		robots = sets.NewString(robots...).UnsortedList()
-	}
-
-	// webhook
-	var webhooks []string
-	for i := range subscriptions {
-		webhook, err := SubscriptionReceiverManager.webhook(subscriptions[i].Id)
-		if err != nil {
-			if errors.Cause(err) != errors.ErrNotFound {
-				return output, errors.Wrapf(err, "unable to fetch webhook of subscription %q", subscriptions[i].Id)
-			}
-		} else {
-			webhooks = append(webhooks, webhook)
-		}
-	}
-	if len(webhooks) > 0 {
-		webhooks = sets.NewString(webhooks...).UnsortedList()
 	}
 
 	message := jsonutils.Marshal(input.ResourceDetails).String()
@@ -313,37 +297,54 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 	}
 	// normal contact type
 	for _, ct := range contactTypes {
-		err := nm.create(ctx, userCred, ct, receiverIds, []string{}, input.Priority, "", message, input.Event, input.AdvanceDays)
+		err := nm.create(ctx, userCred, ct, receiverIds, nil, input.Priority, "", message, input.Event, input.AdvanceDays)
 		if err != nil {
 			output.FailedList = append(output.FailedList, api.FailedElem{
 				ContactType: ct,
 				Reason:      err.Error(),
 			})
 		}
-
 	}
 	// robot
-	for _, robot := range robots {
-		err := nm.create(ctx, userCred, robot, []string{}, []string{}, input.Priority, "", message, input.Event, input.AdvanceDays)
-		if err != nil {
-			output.FailedList = append(output.FailedList, api.FailedElem{
-				ContactType: robot,
-				Reason:      err.Error(),
-			})
-		}
-	}
-	// webhook
-	for _, webhook := range webhooks {
-		err := nm.create(ctx, userCred, webhook, []string{}, []string{}, input.Priority, "", message, input.Event, input.AdvanceDays)
-		if err != nil {
-			output.FailedList = append(output.FailedList, api.FailedElem{
-				ContactType: webhook,
-				Reason:      err.Error(),
-			})
-		}
-	}
-
+	err = nm.createWithRobots(ctx, userCred, robots, input.Priority, "", message, input.Event, input.AdvanceDays)
+	output.FailedList = append(output.FailedList, api.FailedElem{
+		ContactType: api.ROBOT,
+		Reason:      err.Error(),
+	})
 	return output, nil
+}
+
+func (nm *SNotificationManager) createWithRobots(ctx context.Context, userCred mcclient.TokenCredential, robotIds []string, priority, topic, message, event string, advanceDays int) error {
+	if len(robotIds) == 0 {
+		return nil
+	}
+	n := &SNotification{
+		ContactType: api.ROBOT,
+		Message:     message,
+		Priority:    priority,
+		ReceivedAt:  time.Now(),
+		Event:       event,
+		AdvanceDays: advanceDays,
+	}
+	n.Id = db.DefaultUUIDGenerator()
+	for i := range robotIds {
+		_, err := ReceiverNotificationManager.CreateRobot(ctx, userCred, robotIds[i], n.Id)
+		if err != nil {
+			return errors.Wrap(err, "ReceiverNotificationManager.CreateRobot")
+		}
+	}
+	err := nm.TableSpec().Insert(ctx, n)
+	if err != nil {
+		return errors.Wrap(err, "unable to insert Notification")
+	}
+	n.SetModelManager(nm, n)
+	task, err := taskman.TaskManager.NewTask(ctx, "NotificationSendTask", n, userCred, nil, "", "")
+	if err != nil {
+		log.Errorf("NotificationSendTask newTask error %v", err)
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
 }
 
 func (nm *SNotificationManager) create(ctx context.Context, userCred mcclient.TokenCredential, contactType string, receiverIds, contacts []string, priority, topic, message, event string, advanceDays int) error {
@@ -374,7 +375,7 @@ func (nm *SNotificationManager) create(ctx context.Context, userCred mcclient.To
 	for i := range contacts {
 		_, err := ReceiverNotificationManager.CreateContact(ctx, userCred, contacts[i], n.Id)
 		if err != nil {
-			return errors.Wrap(err, "ReceiverNotificationManager.Create")
+			return errors.Wrap(err, "ReceiverNotificationManager.CreateContact")
 		}
 	}
 	log.Infof("start NotificationSendTask for %s", contactType)

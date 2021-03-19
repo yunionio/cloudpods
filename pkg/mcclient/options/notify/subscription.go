@@ -14,84 +14,76 @@
 package notify
 
 import (
-	"fmt"
-	"strings"
-
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
-type SubscriptionListOptions struct {
+type TopicListOptions struct {
 	options.BaseListOptions
 }
 
-func (opts *SubscriptionListOptions) Params() (jsonutils.JSONObject, error) {
+func (opts *TopicListOptions) Params() (jsonutils.JSONObject, error) {
 	return options.ListStructToParams(opts)
 }
 
-type SubscriptionOptions struct {
-	ID string `help:"Id or Name of subscription"`
+type TopicOptions struct {
+	ID string `help:"Id or Name of topic"`
 }
 
-func (so *SubscriptionOptions) GetId() string {
+func (so *TopicOptions) GetId() string {
 	return so.ID
 }
 
-func (so *SubscriptionOptions) Params() (jsonutils.JSONObject, error) {
+func (so *TopicOptions) Params() (jsonutils.JSONObject, error) {
 	return nil, nil
 }
 
-type SubscriptionSetReceiverOptions struct {
-	SubscriptionOptions
-	Receivers     []string `json:"receivers"`
-	RoleAndScopes []string `json:"role_and_scopes" help:"role and scope, separated by a colon, example: admin:system"`
+type SubscriberCreateOptions struct {
+	Name          string   `positional:"true"`
+	TopicId       string   `positional:"true"`
+	ResourceScope string   `positional:"true" choices:"system|domain|project"`
+	Type          string   `positional:"true" choices:"receiver|robot|role"`
+	Receivers     []string `help:"required if type is 'receiver'"`
+	Role          string   `help:"required if type is 'role'"`
+	RoleScope     string   `help:"required if type if 'role'"`
+	Robot         string   `help:"required if type if 'robot'"`
 }
 
-func (opts *SubscriptionSetReceiverOptions) Params() (jsonutils.JSONObject, error) {
-	d := jsonutils.NewDict()
-	if len(opts.Receivers) > 0 {
-		d.Set("receivers", jsonutils.NewStringArray(opts.Receivers))
-	}
-	if len(opts.RoleAndScopes) > 0 {
-		ra := jsonutils.NewArray()
-		for _, rs := range opts.RoleAndScopes {
-			index := strings.Index(rs, ":")
-			if index <= 0 {
-				return nil, fmt.Errorf("invalid role_and_scope %q, example: %s", rs, "admin:system")
-			}
-			rd := jsonutils.NewDict()
-			rd.Set("role", jsonutils.NewString(rs[:index]))
-			rd.Set("scope", jsonutils.NewString(rs[index+1:]))
-			ra.Add(rd)
-		}
-		d.Set("roles", ra)
-	}
-	return d, nil
+func (sc *SubscriberCreateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(sc), nil
 }
 
-type SsubscriptionSetRobotOptions struct {
-	ROBOT string `choices:"feishu-robot|dingtalk-robot|workwx-robot"`
+type SubscriberListOptions struct {
+	options.BaseListOptions
+	TopicId       string
+	ResourceScope string `choices:"system|domain|project"`
+	Type          string `choices:"receiver|robot|role"`
 }
 
-type SubscriptionSetRobotOptions struct {
-	SubscriptionOptions
-	SsubscriptionSetRobotOptions
+func (sl *SubscriberListOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(sl)
 }
 
-func (opts *SubscriptionSetRobotOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(opts.SsubscriptionSetRobotOptions), nil
+type SubscriberOptions struct {
+	ID string
 }
 
-type SsubscriptionSetWebhookOptions struct {
-	WEBHOOK string `choices:"webhook"`
+func (s *SubscriberOptions) GetId() string {
+	return s.ID
 }
 
-type SubscriptionSetWebhookOptions struct {
-	SubscriptionOptions
-	SsubscriptionSetWebhookOptions
+func (s *SubscriberOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
 }
 
-func (opts *SubscriptionSetWebhookOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(opts.SsubscriptionSetWebhookOptions), nil
+type SubscriberSetReceiverOptions struct {
+	SubscriberOptions
+	Receivers []string
+}
+
+func (ssr *SubscriberSetReceiverOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	params.Set("receivers", jsonutils.NewStringArray(ssr.Receivers))
+	return params, nil
 }

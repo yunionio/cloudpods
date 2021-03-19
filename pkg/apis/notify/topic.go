@@ -12,34 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package models
+package notify
 
-import (
-	"yunion.io/x/log"
+import "yunion.io/x/onecloud/pkg/apis"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-)
+type TopicListInput struct {
+	apis.StandaloneResourceListInput
+}
 
-func InitDB() error {
-	for _, manager := range []db.IModelManager{
-		/*
-		 * Important!!!
-		 * initialization order matters, do not change the order
-		 */
+type TopicDetails struct {
+	apis.StandaloneResourceDetails
+	STopic
 
-		ReceiverManager,
-		NotificationManager,
-		ConfigManager,
-		TemplateManager,
-		ReceiverNotificationManager,
-		TopicManager,
-		RobotManager,
-	} {
-		err := manager.InitializeData()
-		if err != nil {
-			log.Errorf("Manager %s initializeData fail %s", manager.Keyword(), err)
-			// return err skip error table
-		}
-	}
-	return nil
+	// description: resources managed
+	// example: ["server", "eip", "disk"]
+	Resources []string `json:"resource_types"`
 }

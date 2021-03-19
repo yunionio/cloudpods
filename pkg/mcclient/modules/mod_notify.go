@@ -21,13 +21,14 @@ type ConfigsManager struct {
 }
 
 var (
-	NotifyReceiver     modulebase.ResourceManager
-	NotifyConfig       modulebase.ResourceManager
-	NotifyRobot        modulebase.ResourceManager
-	Notification       modulebase.ResourceManager
-	NotifyTemplate     modulebase.ResourceManager
-	NotifySubscription modulebase.ResourceManager
-	Configs            ConfigsManager
+	NotifyReceiver   modulebase.ResourceManager
+	NotifyConfig     modulebase.ResourceManager
+	NotifyRobot      modulebase.ResourceManager
+	Notification     modulebase.ResourceManager
+	NotifyTemplate   modulebase.ResourceManager
+	NotifyTopic      modulebase.ResourceManager
+	NotifySubscriber modulebase.ResourceManager
+	Configs          ConfigsManager
 )
 
 func init() {
@@ -71,11 +72,19 @@ func init() {
 	)
 	register(&NotifyTemplate)
 
-	NotifySubscription = NewNotifyv2Manager(
-		"subscription",
-		"subscriptions",
-		[]string{"ID", "Name", "Type", "Resource_Types", "Receivers", "Robot", "Webhook"},
+	NotifyTopic = NewNotifyv2Manager(
+		"topic",
+		"topics",
+		[]string{"ID", "Name", "Type", "Enabled", "Resources"},
 		[]string{},
 	)
-	register(&NotifySubscription)
+	register(&NotifyTopic)
+
+	NotifySubscriber = NewNotifyv2Manager(
+		"subscriber",
+		"subscribers",
+		[]string{"ID", "Name", "Topic_Id", "Type", "Resource_Scope", "Role_Scope", "Receivers", "Role", "Robot"},
+		[]string{},
+	)
+	register(&NotifySubscriber)
 }

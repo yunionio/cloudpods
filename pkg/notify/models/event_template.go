@@ -182,12 +182,12 @@ func (lt *SLocalTemplateManager) fillWithTemplate(ctx context.Context, titleOrCo
 }
 
 var specFields = map[string][]string{
-	notify.SUBSCRIPTION_RESOURCE_SCALINGPOLICY: {
+	notify.TOPIC_RESOURCE_SCALINGPOLICY: {
 		"trigger_type",
 		"action",
 		"unit",
 	},
-	notify.SUBSCRIPTION_RESOURCE_SCHEDULEDTASK: {
+	notify.TOPIC_RESOURCE_SCHEDULEDTASK: {
 		"resource_type",
 		"operation",
 	},
@@ -212,8 +212,8 @@ func init() {
 	stI18nTable.Set(comapi.ST_RESOURCE_OPERATION_STOP, i18n.NewTableEntry().EN("stop").CN("关机"))
 	stI18nTable.Set(comapi.ST_RESOURCE_OPERATION_START, i18n.NewTableEntry().EN("start").CN("开机"))
 
-	specFieldTrans[notify.SUBSCRIPTION_RESOURCE_SCALINGPOLICY] = spI18nTable
-	specFieldTrans[notify.SUBSCRIPTION_RESOURCE_SCHEDULEDTASK] = stI18nTable
+	specFieldTrans[notify.TOPIC_RESOURCE_SCALINGPOLICY] = spI18nTable
+	specFieldTrans[notify.TOPIC_RESOURCE_SCHEDULEDTASK] = stI18nTable
 }
 
 func (lt *SLocalTemplateManager) getTemplate(ctx context.Context, titleOrContent string, contactType string, topic string, lang string) (*template.Template, error) {
@@ -307,87 +307,87 @@ func init() {
 			api.TEMPLATE_LANG_CN,
 		},
 		sI18nElme{
-			api.SUBSCRIPTION_RESOURCE_SERVER,
+			api.TOPIC_RESOURCE_SERVER,
 			"virtual machine",
 			"虚拟机",
 		},
 		sI18nElme{
-			api.SUBSCRIPTION_RESOURCE_SCALINGGROUP,
+			api.TOPIC_RESOURCE_SCALINGGROUP,
 			"scaling group",
 			"弹性伸缩组",
 		},
 		sI18nElme{
-			api.SUBSCRIPTION_RESOURCE_SCALINGPOLICY,
+			api.TOPIC_RESOURCE_SCALINGPOLICY,
 			"scaling policy",
 			"弹性伸缩策略",
 		},
 		sI18nElme{
-			api.SUBSCRIPTION_RESOURCE_IMAGE,
+			api.TOPIC_RESOURCE_IMAGE,
 			"image",
 			"系统镜像",
 		},
 		sI18nElme{
-			api.SUBSCRIPTION_RESOURCE_DISK,
+			api.TOPIC_RESOURCE_DISK,
 			"disk",
 			"硬盘",
 		},
 		sI18nElme{
-			api.SUBSCRIPTION_RESOURCE_SNAPSHOT,
+			api.TOPIC_RESOURCE_SNAPSHOT,
 			"snapshot",
 			"硬盘快照",
 		},
 		sI18nElme{
-			api.SUBSCRIPTION_RESOURCE_INSTANCESNAPSHOT,
+			api.TOPIC_RESOURCE_INSTANCESNAPSHOT,
 			"instance snapshot",
 			"主机快照",
 		},
 		sI18nElme{
-			api.SUBSCRIPTION_RESOURCE_NETWORK,
+			api.TOPIC_RESOURCE_NETWORK,
 			"network",
 			"IP子网",
 		},
 		sI18nElme{
-			api.SUBSCRIPTION_RESOURCE_EIP,
+			api.TOPIC_RESOURCE_EIP,
 			"EIP",
 			"弹性公网IP",
 		},
 		sI18nElme{
-			api.SUBSCRIPTION_RESOURCE_SECGROUP,
+			api.TOPIC_RESOURCE_SECGROUP,
 			"security group",
 			"安全组",
 		},
 		sI18nElme{
-			api.SUBSCRIPTION_RESOURCE_LOADBALANCER,
+			api.TOPIC_RESOURCE_LOADBALANCER,
 			"loadbalancer instance",
 			"负载均衡实例",
 		},
 		sI18nElme{
-			api.SUBSCRIPTION_RESOURCE_LOADBALANCERACL,
+			api.TOPIC_RESOURCE_LOADBALANCERACL,
 			"loadbalancer ACL",
 			"负载均衡访问控制",
 		},
 		sI18nElme{
-			api.SUBSCRIPTION_RESOURCE_LOADBALANCERCERTIFICATE,
+			api.TOPIC_RESOURCE_LOADBALANCERCERTIFICATE,
 			"loadbalancer certificate",
 			"负载均衡证书",
 		},
 		sI18nElme{
-			api.SUBSCRIPTION_RESOURCE_BUCKET,
+			api.TOPIC_RESOURCE_BUCKET,
 			"object storage bucket",
 			"对象存储桶",
 		},
 		sI18nElme{
-			api.SUBSCRIPTION_RESOURCE_DBINSTANCE,
+			api.TOPIC_RESOURCE_DBINSTANCE,
 			"RDS instance",
 			"RDS实例",
 		},
 		sI18nElme{
-			api.SUBSCRIPTION_RESOURCE_ELASTICCACHE,
+			api.TOPIC_RESOURCE_ELASTICCACHE,
 			"Redis instance",
 			"Redis实例",
 		},
 		sI18nElme{
-			api.SUBSCRIPTION_RESOURCE_SCHEDULEDTASK,
+			api.TOPIC_RESOURCE_SCHEDULEDTASK,
 			"scheduled task",
 			"定时任务",
 		},
