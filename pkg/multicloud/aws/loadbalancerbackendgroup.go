@@ -104,15 +104,6 @@ func (self *SElbBackendGroup) IsEmulated() bool {
 	return false
 }
 
-func (self *SElbBackendGroup) GetMetadata() *jsonutils.JSONDict {
-	metadata := jsonutils.NewDict()
-	metadata.Add(jsonutils.NewInt(self.Port), "port")
-	metadata.Add(jsonutils.NewString(self.TargetType), "target_type")
-	metadata.Add(jsonutils.NewString(strings.ToLower(self.HealthCheckProtocol)), "health_check_protocol")
-	metadata.Add(jsonutils.NewInt(int64(self.HealthCheckIntervalSeconds)), "health_check_interval")
-	return metadata
-}
-
 func (self *SElbBackendGroup) GetSysTags() map[string]string {
 	data := map[string]string{}
 	data["port"] = strconv.FormatInt(self.Port, 10)

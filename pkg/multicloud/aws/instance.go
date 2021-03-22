@@ -210,50 +210,6 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	return self.SecurityGroupIds.SecurityGroupId, nil
 }
 
-func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	// todo: add price_key here
-	// 格式 ：regionId::instanceType::osName::os_license::preInstall::tenancy::usageType
-	// 举例 ： cn-northwest-1::c3.2xlarge::linux::NA::NA::shared::boxusage
-	// 注意：除了空用大写NA.其他一律用小写格式
-	priceKey := fmt.Sprintf("%s::%s::%s::NA::NA::shared::boxusage", self.RegionId, self.InstanceType, strings.ToLower(self.OSType))
-	data.Add(jsonutils.NewString(priceKey), "price_key")
-	ec2Client, err := self.host.zone.region.getEc2Client()
-	if err != nil {
-		return data
-	}
-	tags, err := FetchTags(ec2Client, self.InstanceId)
-	if err != nil {
-		log.Errorln(err)
-	} else {
-		data.Update(tags)
-	}
-
-	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
-
-	if strings.Contains(strings.ToLower(self.OSType), "window") {
-		if loginKey, err := self.host.zone.region.getPasswordData(self.GetId()); err == nil {
-			data.Add(jsonutils.NewString(loginKey), "login_key")
-		}
-	}
-
-	// no need to sync image metadata
-	/*
-		if len(self.ImageId) > 0 {
-			image, err := self.host.zone.region.GetImage(self.ImageId)
-			if err != nil {
-				log.Errorf("Failed to find image %s for instance %s zone %s", self.ImageId, self.GetId(), self.ZoneId)
-			} else {
-				meta := image.GetMetadata()
-				if meta != nil {
-					data.Update(meta)
-				}
-			}
-		}
-	*/
-	return data
-}
-
 func (self *SInstance) GetSysTags() map[string]string {
 	data := map[string]string{}
 	priceKey := fmt.Sprintf("%s::%s::%s::NA::NA::shared::boxusage", self.RegionId, self.InstanceType, strings.ToLower(self.OSType))

@@ -84,28 +84,6 @@ func (v SDiskSet) Less(i, j int) bool {
 	return false
 }
 
-func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-
-	// // The pricingInfo key structure is 'RegionId::DiskCategory::DiskType
-	// priceKey := fmt.Sprintf("%s::%s::%s", self.RegionId, self.Category, self.Type)
-	// data.Add(jsonutils.NewString(priceKey), "price_key")
-
-	data.Add(jsonutils.NewString(api.HYPERVISOR_QCLOUD), "hypervisor")
-	return data
-}
-
-func (self *SDisk) GetSysTags() map[string]string {
-	data := map[string]string{}
-
-	// // The pricingInfo key structure is 'RegionId::DiskCategory::DiskType
-	// priceKey := fmt.Sprintf("%s::%s::%s", self.RegionId, self.Category, self.Type)
-	// data.Add(jsonutils.NewString(priceKey), "price_key")
-
-	data["hypervisor"] = api.HYPERVISOR_QCLOUD
-	return data
-}
-
 func (self *SRegion) GetDisks(instanceId string, zoneId string, category string, diskIds []string, offset int, limit int) ([]SDisk, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50

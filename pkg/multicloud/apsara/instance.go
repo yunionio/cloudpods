@@ -222,34 +222,6 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	return self.SecurityGroupIds.SecurityGroupId, nil
 }
 
-func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-
-	// The pricingInfo key structure is 'RegionId::InstanceType::NetworkType::OSType::IoOptimized'
-	optimized := "optimized"
-	if !self.IoOptimized {
-		optimized = "none"
-	}
-	priceKey := fmt.Sprintf("%s::%s::%s::%s::%s", self.RegionId, self.InstanceType, self.InstanceNetworkType, self.OSType, optimized)
-	data.Add(jsonutils.NewString(priceKey), "price_key")
-
-	tags, err := self.host.zone.region.fetchTags("instance", self.InstanceId)
-	if err != nil {
-		log.Errorln(err)
-	}
-	data.Update(tags)
-
-	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
-	if len(self.ImageId) > 0 {
-		if image, err := self.host.zone.region.GetImage(self.ImageId); err != nil {
-			log.Errorf("Failed to find image %s for instance %s", self.ImageId, self.GetName())
-		} else if meta := image.GetMetadata(); meta != nil {
-			data.Update(meta)
-		}
-	}
-	return data
-}
-
 func (self *SInstance) GetSysTags() map[string]string {
 	data := map[string]string{}
 	// The pricingInfo key structure is 'RegionId::InstanceType::NetworkType::OSType::IoOptimized'

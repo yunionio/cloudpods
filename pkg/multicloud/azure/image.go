@@ -103,15 +103,6 @@ func (self *SImage) GetMinRamSizeMb() int {
 	return 0
 }
 
-func (self *SImage) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	osType := string(self.Properties.StorageProfile.OsDisk.OsType)
-	if len(osType) > 0 {
-		data.Add(jsonutils.NewString(osType), "os_name")
-	}
-	return data
-}
-
 func (self *SImage) GetSysTags() map[string]string {
 	data := map[string]string{}
 	osType := string(self.Properties.StorageProfile.OsDisk.OsType)

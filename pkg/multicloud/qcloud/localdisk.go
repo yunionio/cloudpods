@@ -18,8 +18,6 @@ import (
 	"context"
 	"time"
 
-	"yunion.io/x/jsonutils"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -33,12 +31,6 @@ type SLocalDisk struct {
 	DiskSize  float32
 	DisktType string
 	DiskUsage string
-}
-
-func (self *SLocalDisk) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	data.Add(jsonutils.NewString(api.HYPERVISOR_QCLOUD), "hypervisor")
-	return data
 }
 
 func (self *SLocalDisk) GetSysTags() map[string]string {

@@ -166,32 +166,6 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	return self.SecurityGroupIds, nil
 }
 
-func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	if self.image == nil {
-		image, err := self.host.zone.region.GetImage(self.ImageId)
-		if err == nil {
-			self.image = image
-		}
-	}
-
-	if self.image != nil {
-		data.Add(jsonutils.NewString(self.image.OsName), "os_distribution")
-	}
-
-	priceKey := fmt.Sprintf("%s::%s", self.host.zone.Zone, self.InstanceType)
-	data.Add(jsonutils.NewString(priceKey), "price_key")
-
-	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
-
-	tags, _ := self.getCloudMetadata()
-	for k, v := range tags {
-		data.Add(jsonutils.NewString(v), k)
-	}
-
-	return data
-}
-
 func (self *SInstance) GetSysTags() map[string]string {
 	data := map[string]string{}
 	if self.image == nil {
