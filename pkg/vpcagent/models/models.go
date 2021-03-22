@@ -21,6 +21,8 @@ import (
 type Vpc struct {
 	compute_models.SVpc
 
+	RouteTable *RouteTable `json:"-"`
+
 	Wire     *Wire    `json:"-"`
 	Networks Networks `json:"-"`
 }
@@ -28,6 +30,18 @@ type Vpc struct {
 func (el *Vpc) Copy() *Vpc {
 	return &Vpc{
 		SVpc: el.SVpc,
+	}
+}
+
+type RouteTable struct {
+	compute_models.SRouteTable
+
+	Vpc *Vpc
+}
+
+func (el *RouteTable) Copy() *RouteTable {
+	return &RouteTable{
+		SRouteTable: el.SRouteTable,
 	}
 }
 
