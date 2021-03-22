@@ -90,17 +90,6 @@ func (self *SSecurityGroup) GetVpcId() string {
 	return self.VpcId
 }
 
-func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
-	if len(self.Tags.Tag) == 0 {
-		return nil
-	}
-	data := jsonutils.NewDict()
-	for _, value := range self.Tags.Tag {
-		data.Add(jsonutils.NewString(value.TagValue), value.TagKey)
-	}
-	return data
-}
-
 func (self *SSecurityGroup) GetTags() (map[string]string, error) {
 	tags := map[string]string{}
 	for _, value := range self.Tags.Tag {

@@ -124,11 +124,6 @@ func (self *SSecurityGroup) IsEmulated() bool {
 	return false
 }
 
-func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	return data
-}
-
 func (self *SSecurityGroup) GetDescription() string {
 	if self.Description == self.VpcID {
 		return ""

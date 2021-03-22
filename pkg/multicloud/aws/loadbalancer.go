@@ -113,32 +113,6 @@ func (self *SElb) IsEmulated() bool {
 	return false
 }
 
-func (self *SElb) GetMetadata() *jsonutils.JSONDict {
-	metadata := jsonutils.NewDict()
-	metadata.Add(jsonutils.NewString(self.Type), "loadbalance_type")
-
-	attrs, err := self.region.getElbAttributesById(self.GetId())
-	if err != nil {
-		log.Errorf("SElb GetMetadata %s", err)
-		return metadata
-	}
-
-	for k, v := range attrs {
-		metadata.Add(jsonutils.NewString(v), k)
-	}
-
-	tags, err := self.region.FetchElbTags(self.LoadBalancerArn)
-	if err != nil {
-		log.Errorf("self.region.FetchElbTags() %s", err)
-		return metadata
-	}
-	for k, v := range tags {
-		metadata.Add(jsonutils.NewString(v), k)
-	}
-
-	return metadata
-}
-
 func (self *SElb) GetSysTags() map[string]string {
 	data := map[string]string{}
 	data["loadbalance_type"] = self.Type

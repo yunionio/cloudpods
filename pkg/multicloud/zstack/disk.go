@@ -135,13 +135,6 @@ func (region *SRegion) GetDisks(storageId string, diskIds []string, diskType str
 	return disks, region.client.listAll("volumes", params, &disks)
 }
 
-func (disk *SDisk) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-
-	data.Add(jsonutils.NewString(api.HYPERVISOR_ZSTACK), "hypervisor")
-	return data
-}
-
 func (disk *SDisk) GetSysTags() map[string]string {
 	data := map[string]string{}
 	data["hypervisor"] = api.HYPERVISOR_ZSTACK

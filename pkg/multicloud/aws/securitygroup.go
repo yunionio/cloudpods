@@ -102,26 +102,12 @@ func (self *SSecurityGroup) IsEmulated() bool {
 	return false
 }
 
-func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
-	if len(self.Tags.Tag) == 0 {
-		return nil
-	}
-	data := jsonutils.NewDict()
-	for _, value := range self.Tags.Tag {
-		data.Add(jsonutils.NewString(value.TagValue), value.TagKey)
-	}
-	return data
-}
-
-func (self *SSecurityGroup) GetSysTags() map[string]string {
-	if len(self.Tags.Tag) == 0 {
-		return nil
-	}
+func (self *SSecurityGroup) GetTags() (map[string]string, error) {
 	data := map[string]string{}
 	for _, value := range self.Tags.Tag {
 		data[value.TagKey] = value.TagValue
 	}
-	return data
+	return data, nil
 }
 
 func (self *SSecurityGroup) GetDescription() string {

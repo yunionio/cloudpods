@@ -226,29 +226,6 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	return secgroupIds, nil
 }
 
-func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	tags := jsonutils.NewDict()
-	for k, v := range self.Tags {
-		tags.Set(k, jsonutils.NewString(v))
-	}
-	data.Update(tags)
-	if osDistribution := self.Properties.StorageProfile.ImageReference.Publisher; len(osDistribution) > 0 {
-		data.Add(jsonutils.NewString(osDistribution), "os_distribution")
-	}
-	if loginAccount := self.Properties.OsProfile.AdminUsername; len(loginAccount) > 0 {
-		data.Add(jsonutils.NewString(loginAccount), "login_account")
-	}
-	if loginKey := self.Properties.OsProfile.AdminPassword; len(loginKey) > 0 {
-		data.Add(jsonutils.NewString(loginKey), "login_key")
-	}
-
-	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
-	priceKey := fmt.Sprintf("%s::%s", self.Properties.HardwareProfile.VMSize, self.host.zone.region.Name)
-	data.Add(jsonutils.NewString(priceKey), "price_key")
-	return data
-}
-
 func (self *SInstance) GetSysTags() map[string]string {
 	data := map[string]string{}
 	if osDistribution := self.Properties.StorageProfile.ImageReference.Publisher; len(osDistribution) > 0 {

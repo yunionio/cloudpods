@@ -92,10 +92,6 @@ func (self *SElbListener) IsEmulated() bool {
 	return false
 }
 
-func (self *SElbListener) GetMetadata() *jsonutils.JSONDict {
-	return jsonutils.NewDict()
-}
-
 func (self *SElbListener) GetProjectId() string {
 	return ""
 }

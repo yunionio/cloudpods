@@ -81,10 +81,6 @@ func (self *SElbCertificate) IsEmulated() bool {
 	return false
 }
 
-func (self *SElbCertificate) GetMetadata() *jsonutils.JSONDict {
-	return jsonutils.NewDict()
-}
-
 func (self *SElbCertificate) GetProjectId() string {
 	return ""
 }

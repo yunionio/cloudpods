@@ -241,25 +241,6 @@ func (self *SElasticcache) IsEmulated() bool {
 	return false
 }
 
-func (self *SElasticcache) GetMetadata() *jsonutils.JSONDict {
-	meta := jsonutils.NewDict()
-	tags, err := self.region.FetchResourceTags("redis", "instance", []string{self.GetId()})
-	if err != nil {
-		log.Errorf(`[err:%s]self.region.FetchResourceTags("cdb", "instanceId", []string{self.GetId()})`, err.Error())
-		return nil
-	}
-	if _, ok := tags[self.GetId()]; !ok {
-		return meta
-	}
-	resourceTag := tags[self.GetId()]
-	if resourceTag != nil {
-		for k, v := range *resourceTag {
-			meta.Add(jsonutils.NewString(v), k)
-		}
-	}
-	return meta
-}
-
 func (self *SElasticcache) GetTags() (map[string]string, error) {
 	tags, err := self.region.FetchResourceTags("redis", "instance", []string{self.GetId()})
 	if err != nil {
