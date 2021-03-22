@@ -1006,6 +1006,7 @@ func getUserInfo2(s *mcclient.ClientSession, uid string, pid string, loginIp str
 		item := jsonutils.NewDict()
 		item.Add(jsonutils.NewString(ep.Url), "url")
 		item.Add(jsonutils.NewString(ep.Name), "name")
+		item.Add(jsonutils.NewString(ep.Service), "service")
 		menus.Add(item)
 	}
 
