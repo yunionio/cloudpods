@@ -2702,12 +2702,26 @@ func (self *SGuest) getAttach2NetworkCount(net *SNetwork) (int, error) {
 	return q.CountWithError()
 }
 
-func (self *SGuest) getMaxNicIndex() int8 {
+func (self *SGuest) getUsableNicIndex() int8 {
 	nics, err := self.GetNetworks("")
 	if err != nil {
 		return -1
 	}
-	return int8(len(nics))
+	maxIndex := int8(len(nics))
+	for i := int8(0); i <= maxIndex; i++ {
+		found := true
+		for j := range nics {
+			if nics[j].Index == i {
+				found = false
+				break
+			}
+		}
+		if found {
+			return i
+		}
+	}
+	panic(fmt.Sprintf("cannot find usable nic index for guest %s(%s)",
+		self.Name, self.Id))
 }
 
 func (self *SGuest) setOSProfile(ctx context.Context, userCred mcclient.TokenCredential, profile jsonutils.JSONObject) error {
@@ -2848,7 +2862,7 @@ func (self *SGuest) attach2NetworkOnce(
 		nicDriver = args.nicDriver
 	)
 	if index < 0 {
-		index = self.getMaxNicIndex()
+		index = self.getUsableNicIndex()
 	}
 	if nicDriver == "" {
 		osProf := self.GetOSProfile()
