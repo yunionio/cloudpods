@@ -59,7 +59,7 @@ func fetchGuestUsageFromSchedInfo(s *api.SchedInfo) (computemodels.SQuota, compu
 	iNicCnt := 0
 
 	for _, netConfig := range s.Networks {
-		if computemodels.IsExitNetworkInfo(netConfig) {
+		if computemodels.IsExitNetworkInfo(s.UserCred, netConfig) {
 			eNicCnt += 1
 		} else {
 			iNicCnt += 1
