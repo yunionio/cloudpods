@@ -87,6 +87,9 @@ func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred
 		if !userCred.IsAllow(rbacutils.ScopeSystem, api.SERVICE_TYPE, nm.KeywordPlural(), policy.PolicyActionPerform, SendByContact) {
 			return input, httperrors.NewForbiddenError("can't send notification by contact, need receiver")
 		}
+		if len(input.Contacts) == 0 {
+			input.Contacts = []string{""}
+		}
 	}
 
 	// check contact type enabled
