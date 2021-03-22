@@ -108,5 +108,30 @@ func (manager *SBaremetalEventManager) ListItemFilter(
 	if !query.Until.IsZero() {
 		q = q.LE("created", query.Until)
 	}
+	if len(query.HostId) == 1 {
+		q = q.Equals("host_id", query.HostId[0])
+	} else if len(query.HostId) > 1 {
+		q = q.In("host_id", query.HostId)
+	}
+	if len(query.Id) == 1 {
+		q = q.Equals("id", query.Id[0])
+	} else if len(query.Id) > 1 {
+		q = q.In("id", query.Id)
+	}
+	if len(query.EventId) == 1 {
+		q = q.Equals("event_id", query.EventId[0])
+	} else if len(query.EventId) > 1 {
+		q = q.In("event_id", query.EventId)
+	}
+	if len(query.Type) == 1 {
+		q = q.Equals("type", query.Type[0])
+	} else if len(query.Type) > 1 {
+		q = q.In("type", query.Type)
+	}
+	if len(query.IpmiIp) == 1 {
+		q = q.Equals("ipmi_ip", query.IpmiIp[0])
+	} else if len(query.IpmiIp) > 1 {
+		q = q.In("ipmi_ip", query.IpmiIp)
+	}
 	return q, nil
 }
