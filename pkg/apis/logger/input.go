@@ -27,4 +27,14 @@ type BaremetalEventListInput struct {
 	Since time.Time `json:"since"`
 	// until
 	Until time.Time `json:"until"`
+	// host_id
+	HostId []string `json:"host_id"`
+	// id
+	Id []int64 `json:"id"`
+	// EventId
+	EventId []string `json:"event_id"`
+	// Type
+	Type []string `json:"type"`
+	// ipmi_ip
+	IpmiIp []string `json:"ipmi_ip"`
 }
