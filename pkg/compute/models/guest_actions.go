@@ -2189,7 +2189,7 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 		if err != nil {
 			return nil, err
 		}
-		if IsExitNetworkInfo(input.Nets[i]) {
+		if IsExitNetworkInfo(userCred, input.Nets[i]) {
 			enicCnt = count
 			// ebw = input.BwLimit
 		} else {
