@@ -26,6 +26,8 @@ import (
 type ExternalService struct {
 	Name string
 	Url  string
+
+	Service string
 }
 
 type Endpoint struct {

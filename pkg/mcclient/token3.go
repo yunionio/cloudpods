@@ -316,8 +316,11 @@ func (catalog KeystoneServiceCatalogV3) GetServicesByInterface(region string, in
 			if catalog[i].Endpoints[j].RegionId == region &&
 				catalog[i].Endpoints[j].Interface == infType &&
 				len(catalog[i].Endpoints[j].Name) > 0 {
-				srv := ExternalService{Name: catalog[i].Endpoints[j].Name,
-					Url: catalog[i].Endpoints[j].Url}
+				srv := ExternalService{
+					Name:    catalog[i].Endpoints[j].Name,
+					Url:     catalog[i].Endpoints[j].Url,
+					Service: catalog[i].Type,
+				}
 				services = append(services, srv)
 			}
 		}
