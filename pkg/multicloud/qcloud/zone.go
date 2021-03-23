@@ -62,11 +62,11 @@ func (self *SZone) GetId() string {
 }
 
 func (self *SZone) GetName() string {
-	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_QCLOUD_CN, self.ZoneName)
+	return self.ZoneName
 }
 
 func (self *SZone) GetI18n() cloudprovider.SModelI18nTable {
-	en := fmt.Sprintf("%s %s", CLOUD_PROVIDER_QCLOUD_EN, self.ZoneName)
+	en := self.ZoneName
 	table := cloudprovider.SModelI18nTable{}
 	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName()).EN(en)
 	return table
