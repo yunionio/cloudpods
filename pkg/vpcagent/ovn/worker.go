@@ -164,6 +164,8 @@ func (w *Worker) run(ctx context.Context, mss *agentmodels.ModelSets) (err error
 				ovndb.ClaimGuestnetwork(ctx, guestnetwork)
 			}
 		}
+		routes := resolveRoutes(vpc, mss)
+		ovndb.ClaimRoutes(ctx, vpc, routes)
 	}
 	for _, vpc := range mss.Vpcs {
 		if vpc.Id == apis.DEFAULT_VPC_ID {
