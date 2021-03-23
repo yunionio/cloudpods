@@ -1,3 +1,6 @@
+FROM registry.cn-beijing.aliyuncs.com/yunionio/centos-build:1.1-4 as build
+RUN yum install -y https://iso.yunion.cn/3.6/rpms/packages/host/baremetal-pxerom-1.1.0-20072810.x86_64.rpm
+
 FROM frolvlad/alpine-glibc:glibc-2.28
 
 MAINTAINER "Yaoqi Wan <wanyaoqi@yunionyun.com>"
@@ -16,17 +19,17 @@ RUN mkdir -p /opt/cloud/yunion/baremetal
 RUN wget -O /opt/cloud/yunion/baremetal/pci.ids http://pci-ids.ucw.cz/v2.2/pci.ids
 
 # download baremetal-pxerom-*.x86_64.rpm and unpack rpm in current directory
-COPY ./opt/cloud/yunion/baremetal/bootia32.efi /opt/cloud/yunion/baremetal
-COPY ./opt/cloud/yunion/baremetal/bootx64.efi /opt/cloud/yunion/baremetal
-COPY ./opt/cloud/yunion/baremetal/chain.c32 /opt/cloud/yunion/baremetal
-COPY ./opt/cloud/yunion/baremetal/initramfs /opt/cloud/yunion/baremetal
-COPY ./opt/cloud/yunion/baremetal/isolinux.bin /opt/cloud/yunion/baremetal
-COPY ./opt/cloud/yunion/baremetal/kernel /opt/cloud/yunion/baremetal
-COPY ./opt/cloud/yunion/baremetal/ldlinux.c32 /opt/cloud/yunion/baremetal
-COPY ./opt/cloud/yunion/baremetal/ldlinux.e32 /opt/cloud/yunion/baremetal
-COPY ./opt/cloud/yunion/baremetal/ldlinux.e64 /opt/cloud/yunion/baremetal
-COPY ./opt/cloud/yunion/baremetal/libcom32.c32 /opt/cloud/yunion/baremetal
-COPY ./opt/cloud/yunion/baremetal/libutil.c32 /opt/cloud/yunion/baremetal
-COPY ./opt/cloud/yunion/baremetal/lpxelinux.0 /opt/cloud/yunion/baremetal
-COPY ./opt/cloud/yunion/baremetal/menu.c32 /opt/cloud/yunion/baremetal
-COPY ./opt/cloud/yunion/baremetal/pxelinux.0 /opt/cloud/yunion/baremetal
+COPY --from=build /opt/cloud/yunion/baremetal/bootia32.efi /opt/cloud/yunion/baremetal
+COPY --from=build /opt/cloud/yunion/baremetal/bootx64.efi /opt/cloud/yunion/baremetal
+COPY --from=build /opt/cloud/yunion/baremetal/chain.c32 /opt/cloud/yunion/baremetal
+COPY --from=build ./opt/cloud/yunion/baremetal/initramfs /opt/cloud/yunion/baremetal
+COPY --from=build ./opt/cloud/yunion/baremetal/isolinux.bin /opt/cloud/yunion/baremetal
+COPY --from=build ./opt/cloud/yunion/baremetal/kernel /opt/cloud/yunion/baremetal
+COPY --from=build ./opt/cloud/yunion/baremetal/ldlinux.c32 /opt/cloud/yunion/baremetal
+COPY --from=build ./opt/cloud/yunion/baremetal/ldlinux.e32 /opt/cloud/yunion/baremetal
+COPY --from=build ./opt/cloud/yunion/baremetal/ldlinux.e64 /opt/cloud/yunion/baremetal
+COPY --from=build ./opt/cloud/yunion/baremetal/libcom32.c32 /opt/cloud/yunion/baremetal
+COPY --from=build ./opt/cloud/yunion/baremetal/libutil.c32 /opt/cloud/yunion/baremetal
+COPY --from=build ./opt/cloud/yunion/baremetal/lpxelinux.0 /opt/cloud/yunion/baremetal
+COPY --from=build ./opt/cloud/yunion/baremetal/menu.c32 /opt/cloud/yunion/baremetal
+COPY --from=build ./opt/cloud/yunion/baremetal/pxelinux.0 /opt/cloud/yunion/baremetal
