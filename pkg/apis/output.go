@@ -20,6 +20,11 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
+const (
+	EXTERNAL_RESOURCE_SOURCE_LOCAL = "local"
+	EXTERNAL_RESOURCE_SOURCE_CLOUD = "cloud"
+)
+
 type ModelBaseDetails struct {
 	Meta
 
