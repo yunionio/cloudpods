@@ -401,6 +401,11 @@ func (set Guestnetworks) joinGuests(subEntries Guests) bool {
 			continue
 		}
 		gn.Guest = g
+		if g.Guestnetworks == nil {
+			g.Guestnetworks = Guestnetworks{}
+		}
+		rowIdStr := fmt.Sprintf("%d", gn.RowId)
+		g.Guestnetworks[rowIdStr] = gn
 	}
 	return true
 }

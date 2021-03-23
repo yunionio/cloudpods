@@ -107,6 +107,7 @@ type Guest struct {
 	Host               *Host          `json:"-"`
 	AdminSecurityGroup *SecurityGroup `json:"-"`
 	SecurityGroups     SecurityGroups `json:"-"`
+	Guestnetworks      Guestnetworks  `json:"-"`
 }
 
 func (el *Guest) Copy() *Guest {
