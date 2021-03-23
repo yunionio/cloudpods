@@ -120,7 +120,18 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 	var cmds = []string{"parted", "-a", "none", "-s", diskPath, "--", "unit", "s", "print"}
 	lines, err := procutils.NewCommand(cmds[0], cmds[1:]...).Output()
 	if err != nil {
-		log.Errorf("resize disk fs fail: %s", err)
+		hasPartTable := func() bool {
+			for _, line := range strings.Split(string(lines), "\n") {
+				if strings.Contains(line, "Partition Table") {
+					return true
+				}
+			}
+			return false
+		}
+		if hasPartTable() {
+			return nil
+		}
+		log.Errorf("resize disk fs fail, output: %s , error: %s", lines, err)
 		return err
 	}
 	parts, label := ParseDiskPartition(diskPath, lines)
