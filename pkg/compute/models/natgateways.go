@@ -207,6 +207,10 @@ func (man *SNatGatewayManager) ValidateCreateData(ctx context.Context, userCred 
 			// create new
 		}
 	}
+	input.StatusInfrasResourceBaseCreateInput, err = man.SStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusInfrasResourceBaseCreateInput)
+	if err != nil {
+		return input, err
+	}
 	driver := region.GetDriver()
 	return driver.ValidateCreateNatGateway(ctx, userCred, input)
 }
