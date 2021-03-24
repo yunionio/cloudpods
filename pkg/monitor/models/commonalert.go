@@ -1121,6 +1121,34 @@ type SCompanyInfo struct {
 }
 
 func GetCompanyInfo(ctx context.Context) (SCompanyInfo, error) {
+	info, err := getBrandFromCopyrightApi(ctx)
+	if err == nil && len(info.Name) != 0 {
+		return *info, nil
+	}
+	if err != nil {
+		log.Errorf("getBrandFromCopyrightApi err:%v", err)
+	}
+	return getBrandFromInfoApi(ctx)
+}
+
+func getBrandFromCopyrightApi(ctx context.Context) (*SCompanyInfo, error) {
+	session := auth.GetAdminSession(context.Background(), "", "")
+	obj, err := modules.Copyright.Update(session, "copyright", jsonutils.NewDict())
+	if err != nil {
+		return nil, err
+	}
+	var info SCompanyInfo
+	lang := i18n.Lang(ctx)
+	switch lang {
+	case language.English:
+		info.Name, _ = obj.GetString("brand_en")
+	default:
+		info.Name, _ = obj.GetString("brand_cn")
+	}
+	return &info, nil
+}
+
+func getBrandFromInfoApi(ctx context.Context) (SCompanyInfo, error) {
 	session := auth.GetAdminSession(context.Background(), "", "")
 	obj, err := modules.Info.Get(session, "info", jsonutils.NewDict())
 	if err != nil {
