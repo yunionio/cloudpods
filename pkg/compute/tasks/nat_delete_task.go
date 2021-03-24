@@ -46,32 +46,10 @@ func (self *NatGatewayDeleteTask) taskFailed(ctx context.Context, nat *models.SN
 func (self *NatGatewayDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	nat := obj.(*models.SNatGateway)
 
-	self.SetStage("OnEipDissociateComplete", nil)
-	self.OnEipDissociateComplete(ctx, nat, nil)
-}
-
-func (self *NatGatewayDeleteTask) OnEipDissociateComplete(ctx context.Context, nat *models.SNatGateway, data jsonutils.JSONObject) {
-	eips, err := nat.GetEips()
-	if err != nil {
-		self.taskFailed(ctx, nat, errors.Wrapf(err, "nat.GetEips"))
-		return
-	}
-	if len(eips) > 0 {
-		eips[0].StartEipDissociateTask(ctx, self.GetUserCred(), false, self.GetTaskId())
-		return
-	}
-	self.doDeleteNatGateway(ctx, nat)
-}
-
-func (self *NatGatewayDeleteTask) OnEipDissociateCompleteFailed(ctx context.Context, nat *models.SNatGateway, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, nil)
-}
-
-func (self *NatGatewayDeleteTask) doDeleteNatGateway(ctx context.Context, nat *models.SNatGateway) {
 	iNat, err := nat.GetINatGateway()
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
-			self.taskComplete(ctx, nat)
+			self.OnEipDissociateComplete(ctx, nat, nil)
 			return
 		}
 		self.taskFailed(ctx, nat, errors.Wrapf(err, "nat.GetINatGateway"))
@@ -103,6 +81,38 @@ func (self *NatGatewayDeleteTask) doDeleteNatGateway(ctx context.Context, nat *m
 			return
 		}
 		cloudprovider.WaitDeleted(snat[i], time.Second*5, time.Minute)
+	}
+
+	self.SetStage("OnEipDissociateComplete", nil)
+	self.OnEipDissociateComplete(ctx, nat, nil)
+}
+
+func (self *NatGatewayDeleteTask) OnEipDissociateComplete(ctx context.Context, nat *models.SNatGateway, data jsonutils.JSONObject) {
+	eips, err := nat.GetEips()
+	if err != nil {
+		self.taskFailed(ctx, nat, errors.Wrapf(err, "nat.GetEips"))
+		return
+	}
+	if len(eips) > 0 {
+		eips[0].StartEipDissociateTask(ctx, self.GetUserCred(), false, self.GetTaskId())
+		return
+	}
+	self.doDeleteNatGateway(ctx, nat)
+}
+
+func (self *NatGatewayDeleteTask) OnEipDissociateCompleteFailed(ctx context.Context, nat *models.SNatGateway, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, nil)
+}
+
+func (self *NatGatewayDeleteTask) doDeleteNatGateway(ctx context.Context, nat *models.SNatGateway) {
+	iNat, err := nat.GetINatGateway()
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			self.taskComplete(ctx, nat)
+			return
+		}
+		self.taskFailed(ctx, nat, errors.Wrapf(err, "nat.GetINatGateway"))
+		return
 	}
 
 	err = iNat.Delete()
