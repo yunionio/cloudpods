@@ -816,13 +816,8 @@ func (lblis *SLoadbalancerListener) GetLoadbalancerCertificate() (*SCachedLoadba
 		return nil, nil
 	}
 
-	region := lblis.GetRegion()
-	if region == nil {
-		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "loadbalancer listener is not attached to any region")
-	}
-
 	ret := &SCachedLoadbalancerCertificate{}
-	err := CachedLoadbalancerCertificateManager.Query().Equals("id", lblis.CachedCertificateId).Equals("cloudregion_id", region.Id).IsFalse("pending_deleted").First(ret)
+	err := CachedLoadbalancerCertificateManager.Query().Equals("id", lblis.CachedCertificateId).IsFalse("pending_deleted").First(ret)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
