@@ -419,7 +419,7 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		ocGnrDefaultRef = fmt.Sprintf("gnrDefault/%s/%s/%s", vpc.Id, guestnetwork.GuestId, guestnetwork.Ifname)
 		ocAclRef        = fmt.Sprintf("acl/%s/%s/%s", network.Id, guestnetwork.GuestId, guestnetwork.Ifname)
 		ocQosRef        = fmt.Sprintf("qos/%s/%s/%s", network.Id, guestnetwork.GuestId, guestnetwork.Ifname)
-		ocQosEipRef     = fmt.Sprintf("qos-eip/%s/%s/%s", vpc.Id, guestnetwork.GuestId, guestnetwork.Ifname)
+		ocQosEipRef     = fmt.Sprintf("qos-eip/%s/%s/%s/v2", vpc.Id, guestnetwork.GuestId, guestnetwork.Ifname)
 		dhcpOpt         string
 	)
 
@@ -513,7 +513,9 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 
 	var (
 		gnrDefault *ovn_nb.LogicalRouterStaticRoute
-		qosEip     []*ovn_nb.QoS
+		qosEipIn   *ovn_nb.QoS
+		qosEipOut  *ovn_nb.QoS
+		hasQoSEip  bool
 	)
 	{
 		gnrDefaultPolicy := "src-ip"
@@ -533,30 +535,29 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 					kbur     = int64(kbps * 2)
 					eipgwVip = apis.VpcEipGatewayIP3().String()
 				)
-				qosEip = []*ovn_nb.QoS{
-					&ovn_nb.QoS{
-						Priority:  2000,
-						Direction: "from-lport",
-						Match:     fmt.Sprintf("inport == %q && ip4 && ip4.dst == %s", vpcEipLspName(vpc.Id, eipgwVip), guestnetwork.IpAddr),
-						Bandwidth: map[string]int64{
-							"rate":  kbps,
-							"burst": kbur,
-						},
-						ExternalIds: map[string]string{
-							externalKeyOcRef: ocQosEipRef,
-						},
+				hasQoSEip = true
+				qosEipIn = &ovn_nb.QoS{
+					Priority:  2000,
+					Direction: "from-lport",
+					Match:     fmt.Sprintf("inport == %q && ip4 && ip4.dst == %s", vpcEipLspName(vpc.Id, eipgwVip), guestnetwork.IpAddr),
+					Bandwidth: map[string]int64{
+						"rate":  kbps,
+						"burst": kbur,
 					},
-					&ovn_nb.QoS{
-						Priority:  3000,
-						Direction: "from-lport",
-						Match:     fmt.Sprintf("inport == %q", lportName),
-						Bandwidth: map[string]int64{
-							"rate":  kbps,
-							"burst": kbur,
-						},
-						ExternalIds: map[string]string{
-							externalKeyOcRef: ocQosEipRef,
-						},
+					ExternalIds: map[string]string{
+						externalKeyOcRef: ocQosEipRef,
+					},
+				}
+				qosEipOut = &ovn_nb.QoS{
+					Priority:  3000,
+					Direction: "from-lport",
+					Match:     fmt.Sprintf("inport == %q", lportName),
+					Bandwidth: map[string]int64{
+						"rate":  kbps,
+						"burst": kbur,
+					},
+					ExternalIds: map[string]string{
+						externalKeyOcRef: ocQosEipRef,
 					},
 				}
 			}
@@ -606,8 +607,8 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 	for _, qos := range qosVif {
 		irows = append(irows, qos)
 	}
-	for _, qos := range qosEip {
-		irows = append(irows, qos)
+	if hasQoSEip {
+		irows = append(irows, qosEipIn, qosEipOut)
 	}
 	allFound, args := cmp(&keeper.DB, ocVersion, irows...)
 	if allFound {
@@ -630,10 +631,11 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		args = append(args, ovnCreateArgs(qos, ref)...)
 		args = append(args, "--", "add", "Logical_Switch", netLsName(guestnetwork.NetworkId), "qos_rules", "@"+ref)
 	}
-	for i, qos := range qosEip {
-		ref := fmt.Sprintf("qosEip%d", i)
-		args = append(args, ovnCreateArgs(qos, ref)...)
-		args = append(args, "--", "add", "Logical_Switch", vpcEipLsName(vpc.Id), "qos_rules", "@"+ref)
+	if hasQoSEip {
+		args = append(args, ovnCreateArgs(qosEipIn, "qosEipIn")...)
+		args = append(args, "--", "add", "Logical_Switch", vpcEipLsName(vpc.Id), "qos_rules", "@qosEipIn")
+		args = append(args, ovnCreateArgs(qosEipOut, "qosEipOut")...)
+		args = append(args, "--", "add", "Logical_Switch", netLsName(guestnetwork.NetworkId), "qos_rules", "@qosEipOut")
 	}
 	return keeper.cli.Must(ctx, "ClaimGuestnetwork", args)
 }
