@@ -624,7 +624,7 @@ func (a StorcliAdaptor) key() string {
 }
 
 func (a *StorcliAdaptor) isComplete() bool {
-	return a.Controller >= 0 && a.key() != ""
+	return a.Controller >= 0 && a.name != "" && a.sn != ""
 }
 
 func (a *StorcliAdaptor) parseLine(l string) {
