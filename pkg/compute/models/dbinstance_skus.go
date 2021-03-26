@@ -298,6 +298,11 @@ func (manager *SDBInstanceSkuManager) GetPropertyInstanceSpecs(ctx context.Conte
 		return nil, errors.Wrap(err, "manager.ListItemFilter")
 	}
 
+	q2, err := manager.ListItemFilter(ctx, manager.Query(), userCred, listQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "manager.ListItemFilter")
+	}
+
 	input := &SDBInstanceSku{}
 	query.Unmarshal(input)
 	for k, v := range map[string]interface{}{
@@ -317,13 +322,28 @@ func (manager *SDBInstanceSkuManager) GetPropertyInstanceSpecs(ctx context.Conte
 			value := v.(string)
 			if len(value) > 0 {
 				q = q.Equals(k, v)
+				q2 = q2.Equals(k, v)
 			}
 		case int, int64:
 			value := fmt.Sprintf("%d", v)
 			if value != "0" {
 				q = q.Equals(k, v)
+				q2 = q2.Equals(k, v)
 			}
 		}
+	}
+
+	sq := q2.SubQuery()
+	q2 = sq.Query(sq.Field("zone1"), sq.Field("zone2"), sq.Field("zone3")).Distinct()
+
+	skuZones := []struct {
+		Zone1 string
+		Zone2 string
+		Zone3 string
+	}{}
+	err = q2.All(&skuZones)
+	if err != nil {
+		return nil, errors.Wrapf(err, "query sku zones")
 	}
 
 	skus := []SDBInstanceSku{}
@@ -360,23 +380,7 @@ func (manager *SDBInstanceSkuManager) GetPropertyInstanceSpecs(ctx context.Conte
 	result.Zones.Zone1 = map[string]string{}
 	result.Zones.Zone2 = map[string]string{}
 	result.Zones.Zone3 = map[string]string{}
-	for _, sku := range skus {
-		if _, ok := result.cpuMemsMb[sku.VcpuCount]; !ok {
-			result.cpuMemsMb[sku.VcpuCount] = map[int]bool{}
-			result.CpuMemsMb[fmt.Sprintf("%d", sku.VcpuCount)] = []int{}
-			result.Cpus = append(result.Cpus, sku.VcpuCount)
-		}
-
-		if _, ok := result.cpuMemsMb[sku.VcpuCount][sku.VmemSizeMb]; !ok {
-			result.cpuMemsMb[sku.VcpuCount][sku.VmemSizeMb] = true
-			result.CpuMemsMb[fmt.Sprintf("%d", sku.VcpuCount)] = append(result.CpuMemsMb[fmt.Sprintf("%d", sku.VcpuCount)], sku.VmemSizeMb)
-		}
-
-		if _, ok := result.memsMb[sku.VmemSizeMb]; !ok {
-			result.memsMb[sku.VmemSizeMb] = true
-			result.MemsMb = append(result.MemsMb, sku.VmemSizeMb)
-		}
-
+	for _, sku := range skuZones {
 		if _, ok := result.Zones.Zone1[sku.Zone1]; !ok && len(sku.Zone1) > 0 {
 			result.Zones.Zone1[sku.Zone1] = sku.Zone1
 		}
@@ -403,20 +407,36 @@ func (manager *SDBInstanceSkuManager) GetPropertyInstanceSpecs(ctx context.Conte
 			result.Zones.Zones[zoneId] = zoneId
 		}
 	}
-
-	zq := ZoneManager.Query("id", "name").In("id", result.zones)
-	rows, err := zq.Rows()
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		id, name := "", ""
-		err = rows.Scan(&id, &name)
-		if err != nil {
-			return nil, errors.Wrap(err, "rows.Scan")
+	for _, sku := range skus {
+		if _, ok := result.cpuMemsMb[sku.VcpuCount]; !ok {
+			result.cpuMemsMb[sku.VcpuCount] = map[int]bool{}
+			result.CpuMemsMb[fmt.Sprintf("%d", sku.VcpuCount)] = []int{}
+			result.Cpus = append(result.Cpus, sku.VcpuCount)
 		}
-		result.zoneNames[id] = name
+
+		if _, ok := result.cpuMemsMb[sku.VcpuCount][sku.VmemSizeMb]; !ok {
+			result.cpuMemsMb[sku.VcpuCount][sku.VmemSizeMb] = true
+			result.CpuMemsMb[fmt.Sprintf("%d", sku.VcpuCount)] = append(result.CpuMemsMb[fmt.Sprintf("%d", sku.VcpuCount)], sku.VmemSizeMb)
+		}
+
+		if _, ok := result.memsMb[sku.VmemSizeMb]; !ok {
+			result.memsMb[sku.VmemSizeMb] = true
+			result.MemsMb = append(result.MemsMb, sku.VmemSizeMb)
+		}
+
+	}
+
+	zones := []struct {
+		Id   string
+		Name string
+	}{}
+
+	err = ZoneManager.Query("id", "name").In("id", result.zones).All(&zones)
+	if err != nil {
+		return nil, errors.Wrapf(err, "query zones")
+	}
+	for _, zone := range zones {
+		result.zoneNames[zone.Id] = zone.Name
 	}
 
 	for _, zoneId := range result.Zones.Zone1 {
