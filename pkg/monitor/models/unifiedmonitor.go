@@ -311,15 +311,20 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQ
 	query.To = inputQuery.To
 	query.Model.Interval = inputQuery.Interval
 
-	if len(query.Model.GroupBy) == 0 {
-		if !inputQuery.Unit {
-			query.Model.GroupBy = append(query.Model.GroupBy,
-				monitor.MetricQueryPart{
-					Type:   "field",
-					Params: []string{"*"},
-				})
+	metricMeasurement, _ := MetricMeasurementManager.GetCache().Get(query.Model.Measurement)
+
+	if true {
+		tagId := "host_id"
+		if metricMeasurement != nil {
+			tagId = monitor.MEASUREMENT_TAG_ID[metricMeasurement.ResType]
 		}
+		query.Model.GroupBy = append(query.Model.GroupBy,
+			monitor.MetricQueryPart{
+				Type:   "field",
+				Params: []string{tagId},
+			})
 	}
+
 	if len(inputQuery.Interval) != 0 {
 		query.Model.GroupBy = append(query.Model.GroupBy,
 			monitor.MetricQueryPart{
@@ -332,7 +337,6 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQ
 			})
 	}
 
-	metricMeasurement, _ := MetricMeasurementManager.GetCache().Get(query.Model.Measurement)
 	if query.Model.Database == "" {
 		database := ""
 		if metricMeasurement == nil {
