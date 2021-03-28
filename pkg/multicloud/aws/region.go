@@ -153,7 +153,7 @@ func (self *SRegion) GetClient() *SAwsClient {
 }
 
 func (self *SRegion) getAwsSession() (*session.Session, error) {
-	return self.client.getAwsSession(self.RegionId)
+	return self.client.getAwsSession(self.RegionId, true)
 }
 
 func (self *SRegion) getEc2Client() (*ec2.EC2, error) {
@@ -320,11 +320,11 @@ func Build(r *request.Request) {
 }
 
 func (self *SRegion) rdsRequest(apiName string, params map[string]string, retval interface{}) error {
-	return self.client.request(self.RegionId, RDS_SERVICE_NAME, RDS_SERVICE_ID, "2014-10-31", apiName, params, retval)
+	return self.client.request(self.RegionId, RDS_SERVICE_NAME, RDS_SERVICE_ID, "2014-10-31", apiName, params, retval, true)
 }
 
 func (self *SRegion) ec2Request(apiName string, params map[string]string, retval interface{}) error {
-	return self.client.request(self.RegionId, EC2_SERVICE_NAME, EC2_SERVICE_ID, "2016-11-15", apiName, params, retval)
+	return self.client.request(self.RegionId, EC2_SERVICE_NAME, EC2_SERVICE_ID, "2016-11-15", apiName, params, retval, true)
 }
 
 func (self *SRegion) cloudWatchRequest(apiName string, params *cloudwatch.GetMetricStatisticsInput,
