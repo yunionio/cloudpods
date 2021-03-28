@@ -1,7 +1,6 @@
 package conditions
 
 import (
-	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -9,9 +8,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	mc_mds "yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/monitor/alerting"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
@@ -75,11 +71,11 @@ serLoop:
 			}
 		}
 	}
-	allHosts, err := c.getOnecloudResources(context)
+	allResources, err := c.GetQueryResources()
 	if err != nil {
-		return nil, errors.Wrap(err, "NoDataQueryCondition getOnecloudHosts error")
+		return nil, errors.Wrap(err, "GetQueryResources err")
 	}
-	for _, host := range allHosts {
+	for _, host := range allResources {
 		id, _ := host.GetString("id")
 		evalMatch, err := c.NewNoDataEvalMatch(context, host)
 		if err != nil {
@@ -100,46 +96,6 @@ serLoop:
 		EvalMatches:        matches,
 		AlertOkEvalMatches: alertOkmatches,
 	}, nil
-}
-
-func (c *NoDataQueryCondition) getOnecloudResources(evalContext *alerting.EvalContext) ([]jsonutils.JSONObject, error) {
-	var err error
-	allResources := make([]jsonutils.JSONObject, 0)
-	if len(evalContext.Rule.RuleDescription) == 0 {
-		return []jsonutils.JSONObject{}, nil
-	}
-	query := jsonutils.NewDict()
-	query.Add(jsonutils.NewStringArray([]string{"running", "ready"}), "status")
-	query.Add(jsonutils.NewString("true"), "admin")
-	if len(c.Query.Model.Tags) != 0 {
-		query, err = c.convertTagsQuery(evalContext, query)
-		if err != nil {
-			return nil, errors.Wrap(err, "NoDataQueryCondition convertTagsQuery error")
-		}
-	}
-	switch evalContext.Rule.RuleDescription[0].ResType {
-	case monitor.METRIC_RES_TYPE_HOST:
-		query.Set("host-type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
-		allResources, err = ListAllResources(&mc_mds.Hosts, query)
-	case monitor.METRIC_RES_TYPE_GUEST:
-		allResources, err = ListAllResources(&mc_mds.Servers, query)
-	case monitor.METRIC_RES_TYPE_RDS:
-		allResources, err = ListAllResources(&mc_mds.DBInstance, query)
-	case monitor.METRIC_RES_TYPE_REDIS:
-		allResources, err = ListAllResources(&mc_mds.ElasticCache, query)
-	case monitor.METRIC_RES_TYPE_OSS:
-		allResources, err = ListAllResources(&mc_mds.Buckets, query)
-	default:
-		query := jsonutils.NewDict()
-		query.Set("brand", jsonutils.NewString(hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND))
-		query.Set("host-type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
-		allResources, err = ListAllResources(&mc_mds.Hosts, query)
-	}
-
-	if err != nil {
-		return nil, errors.Wrap(err, "NoDataQueryCondition Host list error")
-	}
-	return allResources, nil
 }
 
 func (c *NoDataQueryCondition) convertTagsQuery(evalContext *alerting.EvalContext,
@@ -163,33 +119,6 @@ func (c *NoDataQueryCondition) convertTagsQuery(evalContext *alerting.EvalContex
 		filterCount++
 	}
 	return query, nil
-}
-
-func ListAllResources(manager modulebase.Manager, params *jsonutils.JSONDict) ([]jsonutils.JSONObject, error) {
-	if params == nil {
-		params = jsonutils.NewDict()
-	}
-	params.Add(jsonutils.NewString("system"), "scope")
-	params.Add(jsonutils.NewInt(0), "limit")
-	var count int
-	session := auth.GetAdminSession(context.Background(), "", "")
-	objs := make([]jsonutils.JSONObject, 0)
-	for {
-		params.Set("offset", jsonutils.NewInt(int64(count)))
-		result, err := manager.List(session, params)
-		if err != nil {
-			return nil, errors.Wrapf(err, "list %s resources with params %s", manager.KeyString(), params.String())
-		}
-		for _, data := range result.Data {
-			objs = append(objs, data)
-		}
-		total := result.Total
-		count = count + len(result.Data)
-		if count >= total {
-			break
-		}
-	}
-	return objs, nil
 }
 
 func (c *NoDataQueryCondition) NewNoDataEvalMatch(context *alerting.EvalContext, host jsonutils.JSONObject) (*monitor.EvalMatch, error) {
