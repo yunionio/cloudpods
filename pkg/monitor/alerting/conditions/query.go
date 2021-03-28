@@ -15,8 +15,9 @@
 package conditions
 
 import (
-	gocontext "context"
+	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -24,6 +25,10 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	mc_mds "yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/monitor/alerting"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
@@ -46,6 +51,7 @@ type QueryCondition struct {
 	Evaluator     AlertEvaluator
 	Operator      string
 	HandleRequest tsdb.HandleRequestFunc
+	ResType       string
 }
 
 // AlertQuery contains information about what datasource a query
@@ -150,7 +156,16 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 	var matches []*monitor.EvalMatch
 	var alertOkmatches []*monitor.EvalMatch
 
+	allResources, err := c.GetQueryResources()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetQueryResources err")
+	}
 	for _, series := range seriesList {
+		isLatestOfSerie, resource := c.serieIsLatestResource(allResources, series)
+		if !isLatestOfSerie {
+			continue
+		}
+		c.FillSerieByResourceField(resource, series)
 		reducedValue, valStrArr := c.Reducer.Reduce(series)
 		evalMatch := c.Evaluator.Eval(reducedValue)
 
@@ -215,6 +230,36 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 		EvalMatches:        matches,
 		AlertOkEvalMatches: alertOkmatches,
 	}, nil
+}
+
+func (c *QueryCondition) serieIsLatestResource(resources []jsonutils.JSONObject,
+	series *tsdb.TimeSeries) (bool, jsonutils.JSONObject) {
+	tagId := monitor.MEASUREMENT_TAG_ID[c.ResType]
+	if len(tagId) == 0 {
+		tagId = "host_id"
+	}
+	seriId := series.Tags[tagId]
+	for _, resource := range resources {
+		id, _ := resource.GetString("id")
+		if seriId == id {
+			return true, resource
+		}
+	}
+	return false, nil
+}
+
+func (c *QueryCondition) FillSerieByResourceField(resource jsonutils.JSONObject,
+	series *tsdb.TimeSeries) {
+	tagKeyRelationMap := c.getTagKeyRelationMap()
+	fieldMap, _ := resource.GetMap()
+	for field, v := range fieldMap {
+		val, _ := v.GetString()
+		for tagKey, resourceKey := range tagKeyRelationMap {
+			if resourceKey == field {
+				series.Tags[tagKey] = val
+			}
+		}
+	}
 }
 
 func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series tsdb.TimeSeries,
@@ -307,17 +352,17 @@ type queryResult struct {
 	metas  []tsdb.QueryResultMeta
 }
 
-func (c *QueryCondition) executeQuery(context *alerting.EvalContext, timeRange *tsdb.TimeRange) (*queryResult, error) {
+func (c *QueryCondition) executeQuery(evalCtx *alerting.EvalContext, timeRange *tsdb.TimeRange) (*queryResult, error) {
 	ds, err := models.DataSourceManager.GetSource(c.Query.DataSourceId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Cound not find datasource %v", c.Query.DataSourceId)
 	}
 
-	req := c.getRequestForAlertRule(ds, timeRange, context.IsDebug)
+	req := c.getRequestForAlertRule(ds, timeRange, evalCtx.IsDebug)
 	result := make(tsdb.TimeSeriesSlice, 0)
 	metas := make([]tsdb.QueryResultMeta, 0)
 
-	if context.IsDebug {
+	if evalCtx.IsDebug {
 		data := jsonutils.NewDict()
 		if req.TimeRange != nil {
 			data.Set("from", jsonutils.NewInt(req.TimeRange.GetFromAsMsEpoch()))
@@ -345,15 +390,15 @@ func (c *QueryCondition) executeQuery(context *alerting.EvalContext, timeRange *
 
 		data.Set("queries", jsonutils.Marshal(queries))
 
-		context.Logs = append(context.Logs, &monitor.ResultLogEntry{
+		evalCtx.Logs = append(evalCtx.Logs, &monitor.ResultLogEntry{
 			Message: fmt.Sprintf("Condition[%d]: Query", c.Index),
 			Data:    data,
 		})
 	}
 
-	resp, err := c.HandleRequest(context.Ctx, ds.ToTSDBDataSource(c.Query.Model.Database), req)
+	resp, err := c.HandleRequest(evalCtx.Ctx, ds.ToTSDBDataSource(c.Query.Model.Database), req)
 	if err != nil {
-		if err == gocontext.DeadlineExceeded {
+		if err == context.DeadlineExceeded {
 			return nil, errors.Error("Alert execution exceeded the timeout")
 		}
 
@@ -369,16 +414,16 @@ func (c *QueryCondition) executeQuery(context *alerting.EvalContext, timeRange *
 
 		queryResultData := map[string]interface{}{}
 
-		if context.IsTestRun {
+		if evalCtx.IsTestRun {
 			queryResultData["series"] = v.Series
 		}
 
-		if context.IsDebug {
+		if evalCtx.IsDebug {
 			queryResultData["meta"] = v.Meta
 		}
 
-		if context.IsTestRun || context.IsDebug {
-			context.Logs = append(context.Logs, &monitor.ResultLogEntry{
+		if evalCtx.IsTestRun || evalCtx.IsDebug {
+			evalCtx.Logs = append(evalCtx.Logs, &monitor.ResultLogEntry{
 				Message: fmt.Sprintf("Condition[%d]: Query Result", c.Index),
 				Data:    queryResultData,
 			})
@@ -442,6 +487,212 @@ func newQueryCondition(model *monitor.AlertCondition, index int) (*QueryConditio
 		operator = "and"
 	}
 	cond.Operator = operator
+	cond.setResType()
 
 	return cond, nil
+}
+
+func (c *QueryCondition) setResType() {
+	var resType = ""
+	metricMeasurement, _ := models.MetricMeasurementManager.GetCache().Get(c.Query.Model.Measurement)
+	if metricMeasurement != nil {
+		resType = metricMeasurement.ResType
+	}
+	c.ResType = resType
+}
+
+func (c *QueryCondition) GetQueryResources() ([]jsonutils.JSONObject, error) {
+	allHosts, err := c.getOnecloudResources()
+	if err != nil {
+		return nil, errors.Wrap(err, "getOnecloudHosts error")
+	}
+	allHosts = c.filterAllResources(allHosts)
+	return allHosts, nil
+}
+
+func (c *QueryCondition) getOnecloudResources() ([]jsonutils.JSONObject, error) {
+	var err error
+	allResources := make([]jsonutils.JSONObject, 0)
+
+	query := jsonutils.NewDict()
+	query.Add(jsonutils.NewStringArray([]string{"running", "ready"}), "status")
+	query.Add(jsonutils.NewString("true"), "admin")
+	//if len(c.Query.Model.Tags) != 0 {
+	//	query, err = c.convertTagsQuery(evalContext, query)
+	//	if err != nil {
+	//		return nil, errors.Wrap(err, "NoDataQueryCondition convertTagsQuery error")
+	//	}
+	//}
+	switch c.ResType {
+	case monitor.METRIC_RES_TYPE_HOST:
+		query.Set("host-type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
+		allResources, err = ListAllResources(&mc_mds.Hosts, query)
+	case monitor.METRIC_RES_TYPE_GUEST:
+		allResources, err = ListAllResources(&mc_mds.Servers, query)
+	case monitor.METRIC_RES_TYPE_RDS:
+		allResources, err = ListAllResources(&mc_mds.DBInstance, query)
+	case monitor.METRIC_RES_TYPE_REDIS:
+		allResources, err = ListAllResources(&mc_mds.ElasticCache, query)
+	case monitor.METRIC_RES_TYPE_OSS:
+		allResources, err = ListAllResources(&mc_mds.Buckets, query)
+	default:
+		query := jsonutils.NewDict()
+		query.Set("brand", jsonutils.NewString(hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND))
+		query.Set("host-type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
+		allResources, err = ListAllResources(&mc_mds.Hosts, query)
+	}
+
+	if err != nil {
+		return nil, errors.Wrap(err, "NoDataQueryCondition Host list error")
+	}
+	return allResources, nil
+}
+
+func ListAllResources(manager modulebase.Manager, params *jsonutils.JSONDict) ([]jsonutils.JSONObject, error) {
+	if params == nil {
+		params = jsonutils.NewDict()
+	}
+	params.Add(jsonutils.NewString("system"), "scope")
+	params.Add(jsonutils.NewInt(0), "limit")
+	params.Add(jsonutils.NewBool(true), "details")
+	var count int
+	session := auth.GetAdminSession(context.Background(), "", "")
+	objs := make([]jsonutils.JSONObject, 0)
+	for {
+		params.Set("offset", jsonutils.NewInt(int64(count)))
+		result, err := manager.List(session, params)
+		if err != nil {
+			return nil, errors.Wrapf(err, "list %s resources with params %s", manager.KeyString(), params.String())
+		}
+		for _, data := range result.Data {
+			objs = append(objs, data)
+		}
+		total := result.Total
+		count = count + len(result.Data)
+		if count >= total {
+			break
+		}
+	}
+	return objs, nil
+}
+
+func (c *QueryCondition) filterAllResources(resources []jsonutils.JSONObject) []jsonutils.JSONObject {
+	if len(c.Query.Model.Tags) == 0 {
+		return resources
+	}
+	filterIdMap := make(map[string]jsonutils.JSONObject)
+	filterQuery := c.getFilterQuery()
+	intKey := make([]int, 0)
+	if len(filterQuery) != 0 {
+		for key, _ := range filterQuery {
+			intKey = append(intKey, key)
+		}
+		sort.Ints(intKey)
+		minKey := intKey[0]
+		if minKey != 0 {
+			filterQuery[0] = minKey - 1
+		}
+	} else {
+		filterQuery[0] = len(c.Query.Model.Tags) - 1
+	}
+	for start, end := range filterQuery {
+		filterResources := c.getFilterResources(start, end, resources)
+		filterIdMap = c.fillFilterRes(filterResources, filterIdMap)
+	}
+	filterRes := make([]jsonutils.JSONObject, 0)
+	for _, obj := range filterIdMap {
+		filterRes = append(filterRes, obj)
+	}
+	return filterRes
+}
+
+func (c *QueryCondition) getFilterQuery() map[int]int {
+	length := len(c.Query.Model.Tags)
+	tagIndexMap := make(map[int]int)
+	for i := 0; i < length; i++ {
+		if c.Query.Model.Tags[i].Condition == "OR" {
+			andIndex := c.getTheAndOfConditionor(i + 1)
+			if andIndex == i+1 {
+				tagIndexMap[i] = i
+				continue
+			}
+			if andIndex == length {
+				for j := i; j < length; j++ {
+					tagIndexMap[j] = j
+				}
+				break
+			}
+			tagIndexMap[i] = andIndex
+			i = andIndex
+		}
+	}
+	return tagIndexMap
+}
+
+func (c *QueryCondition) getFilterResources(start int, end int,
+	resources []jsonutils.JSONObject) []jsonutils.JSONObject {
+	relationMap := c.getTagKeyRelationMap()
+	tmp := resources
+	for i := start; i <= end; i++ {
+		tag := c.Query.Model.Tags[i]
+		relationKey := relationMap[tag.Key]
+		filterObj := make([]jsonutils.JSONObject, 0)
+		for _, res := range tmp {
+			val, _ := res.GetString(relationKey)
+			if c.Query.Model.Tags[i].Operator == "=" {
+				if val == c.Query.Model.Tags[i].Value {
+					filterObj = append(filterObj, res)
+				}
+			}
+			if c.Query.Model.Tags[i].Operator == "!=" {
+				if val != c.Query.Model.Tags[i].Value {
+					filterObj = append(filterObj, res)
+				}
+			}
+		}
+		tmp = filterObj
+		if len(tmp) == 0 {
+			return tmp
+		}
+	}
+	return tmp
+}
+
+func (c *QueryCondition) fillFilterRes(filterRes []jsonutils.JSONObject,
+	filterIdMap map[string]jsonutils.JSONObject) map[string]jsonutils.JSONObject {
+	for _, res := range filterRes {
+		id, _ := res.GetString("id")
+		if _, ok := filterIdMap[id]; !ok {
+			filterIdMap[id] = res
+		}
+	}
+	return filterIdMap
+}
+
+func (c *QueryCondition) getTheAndOfConditionor(start int) int {
+	for i := start; i < len(c.Query.Model.Tags); i++ {
+		if c.Query.Model.Tags[i].Condition != "AND" {
+			return i
+		}
+	}
+	return len(c.Query.Model.Tags)
+}
+
+func (c *QueryCondition) getTagKeyRelationMap() map[string]string {
+	relationMap := make(map[string]string)
+	switch c.ResType {
+	case monitor.METRIC_RES_TYPE_HOST:
+		relationMap = monitor.HostTags
+	case monitor.METRIC_RES_TYPE_GUEST:
+		relationMap = monitor.ServerTags
+	case monitor.METRIC_RES_TYPE_RDS:
+		relationMap = monitor.RdsTags
+	case monitor.METRIC_RES_TYPE_REDIS:
+		relationMap = monitor.RedisTags
+	case monitor.METRIC_RES_TYPE_OSS:
+		relationMap = monitor.OssTags
+	default:
+		relationMap = monitor.HostTags
+	}
+	return relationMap
 }
