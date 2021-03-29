@@ -2476,6 +2476,9 @@ func (account *SCloudaccount) needSync() bool {
 	if time.Now().Sub(account.LastSyncEndAt) > time.Duration(account.getSyncIntervalSeconds())*time.Second {
 		return true
 	}
+	if account.EnableAutoSync && !account.LastAutoSync.IsZero() && time.Now().Sub(account.LastAutoSync) > time.Duration(account.getSyncIntervalSeconds()-1)*time.Second {
+		return true
+	}
 	return false
 }
 
