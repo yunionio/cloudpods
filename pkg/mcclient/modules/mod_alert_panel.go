@@ -12,6 +12,7 @@ var (
 
 func init() {
 	AlertPanelManager = NewAlertPanelManager()
+	register(AlertPanelManager)
 }
 
 func NewAlertPanelManager() *SAlertPanelManager {
