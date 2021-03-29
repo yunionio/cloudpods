@@ -161,8 +161,8 @@ func (self *SAwsClient) getDefaultRegionId() string {
 	return GetDefaultRegionId(self.accessUrl)
 }
 
-func (client *SAwsClient) getDefaultSession() (*session.Session, error) {
-	return client.getAwsSession(client.getDefaultRegionId())
+func (client *SAwsClient) getDefaultSession(assumeRole bool) (*session.Session, error) {
+	return client.getAwsSession(client.getDefaultRegionId(), assumeRole)
 }
 
 func (client *SAwsClient) GetAccountId() string {
@@ -196,7 +196,7 @@ const (
 func (self *SAwsClient) fetchRegions() ([]SRegion, error) {
 	cacheTime, _ := describeRegionResultCacheAt[self.accessUrl]
 	if _, ok := describeRegionResult[self.accessUrl]; !ok || cacheTime.IsZero() || time.Now().After(cacheTime.Add(time.Hour*describeRegionExpireHours)) {
-		s, err := self.getDefaultSession()
+		s, err := self.getDefaultSession(false)
 		if err != nil {
 			return nil, errors.Wrap(err, "getDefaultSession")
 		}
@@ -225,7 +225,7 @@ func (self *SAwsClient) fetchRegions() ([]SRegion, error) {
 	return regions, nil
 }
 
-func (client *SAwsClient) getAwsSession(regionId string) (*session.Session, error) {
+func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*session.Session, error) {
 	if client.sessions == nil {
 		client.sessions = make(map[string]*session.Session)
 	}
@@ -245,7 +245,7 @@ func (client *SAwsClient) getAwsSession(regionId string) (*session.Session, erro
 	if err != nil {
 		return nil, errors.Wrap(err, "getAwsSession.NewSession")
 	}
-	if len(client.accountId) > 0 {
+	if assumeRole && len(client.accountId) > 0 {
 		// need to assumeRole
 		var env string
 		switch client.GetAccessEnv() {
@@ -277,7 +277,7 @@ func (region *SRegion) getAwsElasticacheClient() (*elasticache.ElastiCache, erro
 }
 
 func (client *SAwsClient) getAwsRoute53Session() (*session.Session, error) {
-	session, err := client.getDefaultSession()
+	session, err := client.getDefaultSession(true)
 	if err != nil {
 		return nil, errors.Wrap(err, "client.getDefaultSession()")
 	}
@@ -329,7 +329,7 @@ func (client *SAwsClient) fetchOwnerId() error {
 }
 
 func (client *SAwsClient) fetchBuckets() error {
-	s, err := client.getDefaultSession()
+	s, err := client.getDefaultSession(true)
 	if err != nil {
 		return errors.Wrap(err, "getDefaultSession")
 	}
@@ -504,11 +504,11 @@ func (self *SAwsClient) GetAccessEnv() string {
 	}
 }
 
-func (self *SAwsClient) request(regionId, serviceName, serviceId, apiVersion string, apiName string, params map[string]string, retval interface{}) error {
+func (self *SAwsClient) request(regionId, serviceName, serviceId, apiVersion string, apiName string, params map[string]string, retval interface{}, assumeRole bool) error {
 	if len(regionId) == 0 {
 		regionId = self.getDefaultRegionId()
 	}
-	session, err := self.getAwsSession(regionId)
+	session, err := self.getAwsSession(regionId, assumeRole)
 	if err != nil {
 		return err
 	}
@@ -539,11 +539,11 @@ func (self *SAwsClient) request(regionId, serviceName, serviceId, apiVersion str
 }
 
 func (self *SAwsClient) iamRequest(apiName string, params map[string]string, retval interface{}) error {
-	return self.request("", IAM_SERVICE_NAME, IAM_SERVICE_ID, "2010-05-08", apiName, params, retval)
+	return self.request("", IAM_SERVICE_NAME, IAM_SERVICE_ID, "2010-05-08", apiName, params, retval, true)
 }
 
 func (self *SAwsClient) stsRequest(apiName string, params map[string]string, retval interface{}) error {
-	return self.request("", STS_SERVICE_NAME, STS_SERVICE_ID, "2011-06-15", apiName, params, retval)
+	return self.request("", STS_SERVICE_NAME, STS_SERVICE_ID, "2011-06-15", apiName, params, retval, false)
 }
 
 func jsonRequest(cli *client.Client, apiName string, params map[string]string, retval interface{}, debug bool) error {
