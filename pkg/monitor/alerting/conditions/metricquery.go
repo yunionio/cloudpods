@@ -45,6 +45,7 @@ func NewMetricQueryCondition(models []*monitor.AlertCondition) (*MetricQueryCond
 		if err := validators.ValidateToValue(qc.Query.To); err != nil {
 			return nil, errors.Wrapf(err, "to value %q", qc.Query.To)
 		}
+		qc.setResType()
 		qc.Query.DataSourceId = q.DataSourceId
 		cond.QueryCons = append(cond.QueryCons, *qc)
 	}
@@ -63,10 +64,24 @@ func (query *MetricQueryCondition) ExecuteQuery() (*mq.Metrics, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &mq.Metrics{
-		Series: queryResult.series,
-		Metas:  queryResult.metas,
-	}, nil
+	allResources, err := query.QueryCons[0].GetQueryResources()
+	if err != nil {
+		return nil, errors.Wrap(err, "MetricQueryCondition GetQueryResources err")
+	}
+	metrics := mq.Metrics{
+		Series: make(tsdb.TimeSeriesSlice, 0),
+		Metas:  nil,
+	}
+	for _, serie := range queryResult.series {
+		isLatestOfSerie, resource := query.QueryCons[0].serieIsLatestResource(allResources, serie)
+		if !isLatestOfSerie {
+			continue
+		}
+		query.QueryCons[0].FillSerieByResourceField(resource, serie)
+		metrics.Series = append(metrics.Series, serie)
+	}
+	metrics.Metas = queryResult.metas
+	return &metrics, nil
 }
 
 func (c *MetricQueryCondition) executeQuery(context *alerting.EvalContext, timeRange *tsdb.TimeRange) (*queryResult, error) {
