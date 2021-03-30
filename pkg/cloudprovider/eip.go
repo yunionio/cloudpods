@@ -35,4 +35,5 @@ type AssociateConfig struct {
 	InstanceId    string
 	AssociateType string
 	Bandwidth     int
+	ChargeType    string
 }
