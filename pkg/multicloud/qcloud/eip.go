@@ -21,18 +21,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
-)
-
-type TInternetChargeType string
-
-const (
-	InternetChargeByTraffic   = TInternetChargeType("PayByTraffic")
-	InternetChargeByBandwidth = TInternetChargeType("PayByBandwidth")
 )
 
 const (
@@ -209,7 +203,7 @@ func (self *SEipAddress) GetInternetChargeType() string {
 			}
 		}
 	}
-	return api.EIP_CHARGE_TYPE_BY_TRAFFIC
+	return ""
 }
 
 func (self *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
@@ -218,7 +212,7 @@ func (self *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
 		return err
 	}
 	if conf.Bandwidth > 0 && self.Bandwidth == 0 {
-		err = self.region.UpdateInstanceBandwidth(conf.InstanceId, conf.Bandwidth)
+		err = self.region.UpdateInstanceBandwidth(conf.InstanceId, conf.Bandwidth, conf.ChargeType)
 		if err != nil {
 			log.Warningf("failed to change instance %s bandwidth -> %d error: %v", conf.InstanceId, conf.Bandwidth, err)
 		}
@@ -235,8 +229,11 @@ func (self *SEipAddress) Dissociate() error {
 }
 
 func (self *SEipAddress) ChangeBandwidth(bw int) error {
-	if len(self.InstanceId) > 0 {
-		return self.region.UpdateInstanceBandwidth(self.InstanceId, bw)
+	if len(self.InstanceId) > 0 && len(self.InternetChargeType) > 0 && strings.HasSuffix(self.InstanceId, "ins-") {
+		return self.region.UpdateInstanceBandwidth(self.InstanceId, bw, "")
+	}
+	if len(self.InternetChargeType) > 0 {
+		return self.region.ChangeEipBindWidth(self.AddressId, bw, self.InternetChargeType)
 	}
 	return nil
 }
@@ -289,52 +286,42 @@ func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 	return &eips[0], nil
 }
 
-func (region *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetChargeType) (*SEipAddress, error) {
+func (region *SRegion) AllocateEIP(name string, bwMbps int, chargeType string) (*SEipAddress, error) {
 	params := make(map[string]string)
+	params["AddressName"] = name
 	if bwMbps > 0 {
 		params["InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bwMbps)
 	}
+
+	_, totalCount, err := region.GetBandwidthPackages([]string{}, 0, 50)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetBandwidthPackages")
+	}
+	if totalCount == 0 {
+		switch chargeType {
+		case api.EIP_CHARGE_TYPE_BY_TRAFFIC:
+			params["InternetChargeType"] = "TRAFFIC_POSTPAID_BY_HOUR"
+		case api.EIP_CHARGE_TYPE_BY_BANDWIDTH:
+			params["InternetChargeType"] = "BANDWIDTH_POSTPAID_BY_HOUR"
+		}
+	}
+
 	addRessSet := []string{}
 	body, err := region.vpcRequest("AllocateAddresses", params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "AllocateAddresses")
 	}
 	err = body.Unmarshal(&addRessSet, "AddressSet")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
 	}
-	if len(name) > 20 {
-		name = name[:20]
-	}
-	if len(addRessSet) > 0 {
-		params = map[string]string{}
-		params["AddressId"] = addRessSet[0]
-		params["AddressName"] = name
-		_, err = region.vpcRequest("ModifyAddressAttribute", params)
-		if err != nil {
-			return nil, err
-		}
-
-		eip, err := region.GetEip(addRessSet[0])
-		if err != nil {
-			return nil, err
-		}
-		return eip, cloudprovider.WaitStatus(eip, api.EIP_STATUS_READY, time.Second*5, time.Second*300)
-	}
-	return nil, cloudprovider.ErrNotFound
+	return region.GetEip(addRessSet[0])
 }
 
 // https://cloud.tencent.com/document/api/215/16699
 // 腾讯云eip不支持指定项目
 func (region *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
-	var ctype TInternetChargeType
-	switch eip.ChargeType {
-	case api.EIP_CHARGE_TYPE_BY_TRAFFIC:
-		ctype = InternetChargeByTraffic
-	case api.EIP_CHARGE_TYPE_BY_BANDWIDTH:
-		ctype = InternetChargeByBandwidth
-	}
-	return region.AllocateEIP(eip.Name, eip.BandwidthMbps, ctype)
+	return region.AllocateEIP(eip.Name, eip.BandwidthMbps, eip.ChargeType)
 }
 
 func (region *SRegion) DeallocateEIP(eipId string) error {
@@ -343,10 +330,7 @@ func (region *SRegion) DeallocateEIP(eipId string) error {
 	params["AddressIds.0"] = eipId
 
 	_, err := region.vpcRequest("ReleaseAddresses", params)
-	if err != nil {
-		log.Errorf("ReleaseAddresses fail %s", err)
-	}
-	return err
+	return errors.Wrapf(err, "ReleaseAddresses")
 }
 
 func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
@@ -355,10 +339,7 @@ func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
 	params["InstanceId"] = instanceId
 
 	_, err := region.vpcRequest("AssociateAddress", params)
-	if err != nil {
-		log.Errorf("AssociateAddress fail %s", err)
-	}
-	return err
+	return errors.Wrapf(err, "AssociateAddress")
 }
 
 func (region *SRegion) DissociateEip(eipId string) error {
@@ -367,20 +348,41 @@ func (region *SRegion) DissociateEip(eipId string) error {
 	params["AddressId"] = eipId
 
 	_, err := region.vpcRequest("DisassociateAddress", params)
-	if err != nil {
-		log.Errorf("UnassociateEipAddress fail %s", err)
-	}
-	return err
+	return errors.Wrapf(err, "DisassociateAddress")
 }
 
-func (region *SRegion) UpdateInstanceBandwidth(instanceId string, bw int) error {
+func (region *SRegion) UpdateInstanceBandwidth(instanceId string, bw int, chargeType string) error {
 	params := make(map[string]string)
 	params["Region"] = region.Region
-	params["InstanceIds.0"] = instanceId
+	params["InstanceId"] = instanceId
 	params["InternetAccessible.InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bw)
 
-	_, err := region.cvmRequest("ResetInstancesInternetMaxBandwidth", params, true)
-	return err
+	_, totalCount, err := region.GetBandwidthPackages([]string{}, 0, 50)
+	if err != nil {
+		return errors.Wrapf(err, "GetBandwidthPackages")
+	}
+	if totalCount == 0 {
+		switch chargeType {
+		case api.EIP_CHARGE_TYPE_BY_TRAFFIC:
+			params["InternetAccessible.InternetChargeType"] = "TRAFFIC_POSTPAID_BY_HOUR"
+		case api.EIP_CHARGE_TYPE_BY_BANDWIDTH:
+			params["InternetAccessible.InternetChargeType"] = "BANDWIDTH_POSTPAID_BY_HOUR"
+		}
+	}
+
+	_, err = region.cvmRequest("ModifyInstanceInternetChargeType", params, true)
+	return errors.Wrapf(err, "ModifyInstanceInternetChargeType")
+}
+
+func (self *SRegion) ChangeEipBindWidth(eipId string, bw int, chargeType string) error {
+	params := map[string]string{
+		"Region":                  self.Region,
+		"InternetMaxBandwidthOut": fmt.Sprintf("%d", bw),
+		"InternetChargeType":      chargeType,
+		"AddressId":               eipId,
+	}
+	_, err := self.vpcRequest("ModifyAddressInternetChargeType", params)
+	return errors.Wrapf(err, "ModifyAddressInternetChargeType")
 }
 
 func (self *SEipAddress) GetProjectId() string {

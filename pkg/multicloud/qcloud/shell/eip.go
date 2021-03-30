@@ -36,9 +36,9 @@ func init() {
 	})
 
 	type EipAllocateOptions struct {
-		BANDWIDTH  int                        `help:"EIP bandwoidth"`
-		NAME       string                     `help:"EIP Name"`
-		ChargeType qcloud.TInternetChargeType `help:"EIP ChargeType"`
+		BANDWIDTH  int    `help:"EIP bandwoidth"`
+		NAME       string `help:"EIP Name"`
+		ChargeType string `help:"EIP ChargeType" choices:"traffic|bandwidth"`
 	}
 	shellutils.R(&EipAllocateOptions{}, "eip-create", "Allocate an EIP", func(cli *qcloud.SRegion, args *EipAllocateOptions) error {
 		eip, err := cli.AllocateEIP(args.NAME, args.BANDWIDTH, args.ChargeType)
