@@ -12,21 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package shell
 
-const (
-	CACHED_IMAGE_STATUS_INIT         = "init"
-	CACHED_IMAGE_STATUS_SAVING       = "saving"
-	CACHED_IMAGE_STATUS_CACHING      = "caching"
-	CACHED_IMAGE_STATUS_ACTIVE       = "active"
-	CACHED_IMAGE_STATUS_DELETING     = "deleting"
-	CACHED_IMAGE_STATUS_CACHE_FAILED = "cache_fail"
-	CACHED_IMAGE_STATUS_UNKNOWN      = "unknown"
-
-	DOWNLOAD_SESSION_LENGTH = 3600 * 3 // 3 hour
+import (
+	"yunion.io/x/onecloud/pkg/multicloud/ecloud"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
-const (
-	CACHED_IMAGE_REFRESH_SECONDS                  = 900   // 15 minutes
-	CACHED_IMAGE_REFERENCE_SESSION_EXPIRE_SECONDS = 86400 // 1 day
-)
+func init() {
+	type VNetworkListOptions struct {
+		VpcId string `help:"Vpc ID"`
+	}
+	shellutils.R(&VNetworkListOptions{}, "subnet-list", "List subnets", func(cli *ecloud.SRegion, args *VNetworkListOptions) error {
+		ivpc, err := cli.GetIVpcById(args.VpcId)
+		if err != nil {
+			return err
+		}
+		vpc := ivpc.(*ecloud.SVpc)
+		networks, e := cli.GetNetworks(vpc.RouterId, "")
+		if e != nil {
+			return e
+		}
+		printList(networks, 0, 0, 0, nil)
+		return nil
+	})
+}

@@ -34,6 +34,7 @@ const (
 	HOST_TYPE_ZSTACK    = "zstack"
 	HOST_TYPE_GOOGLE    = "google"
 	HOST_TYPE_CTYUN     = "ctyun"
+	HOST_TYPE_ECLOUD    = "ecloud"
 
 	HOST_TYPE_DEFAULT = HOST_TYPE_HYPERVISOR
 

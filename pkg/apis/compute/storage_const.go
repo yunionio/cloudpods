@@ -94,6 +94,12 @@ const (
 	STORAGE_CTYUN_SSD  = "SSD"  // 超高IO云硬盘
 	STORAGE_CTYUN_SAS  = "SAS"  // 高IO云硬盘
 	STORAGE_CTYUN_SATA = "SATA" // 普通IO云硬盘
+
+	STORAGE_ECLOUD_CAPEBS = "capebs" // 容量盘
+	STORAGE_ECLOUD_EBS    = "ebs"    // 性能盘
+	STORAGE_ECLOUD_SSD    = "ssd"    // 高性能盘
+	STORAGE_ECLOUD_SSDEBS = "ssdebs" // 性能优化盘
+	STORAGE_ECLOUD_SYSTEM = "system" // 系统盘
 )
 
 const (
