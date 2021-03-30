@@ -1489,12 +1489,32 @@ func (vpc *SVpc) PerformPublic(ctx context.Context, userCred mcclient.TokenCrede
 			}
 		}
 	}
+	nats, err := vpc.GetNatgateways()
+	if err != nil {
+		return nil, errors.Wrapf(err, "vpc.GetNatgateways")
+	}
+	for i := range nats {
+		_, err = nats[i].PerformPublic(ctx, userCred, query, input)
+		if err != nil {
+			return nil, errors.Wrapf(err, "nat.PerformPublic")
+		}
+	}
 	return nil, nil
 }
 
 func (vpc *SVpc) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
 	if vpc.Id == "default" {
 		return nil, httperrors.NewForbiddenError("Prohibit making default vpc private")
+	}
+	nats, err := vpc.GetNatgateways()
+	if err != nil {
+		return nil, errors.Wrapf(err, "vpc.GetNatgateways")
+	}
+	for i := range nats {
+		_, err = nats[i].PerformPrivate(ctx, userCred, query, input)
+		if err != nil {
+			return nil, errors.Wrapf(err, "nat.PerformPrivate")
+		}
 	}
 	// perform private for all emulated wires
 	emptyNets := true
