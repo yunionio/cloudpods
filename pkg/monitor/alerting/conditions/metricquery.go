@@ -64,13 +64,17 @@ func (query *MetricQueryCondition) ExecuteQuery() (*mq.Metrics, error) {
 	if err != nil {
 		return nil, err
 	}
+	metrics := mq.Metrics{
+		Series: make(tsdb.TimeSeriesSlice, 0),
+		Metas:  queryResult.metas,
+	}
+	if len(query.QueryCons[0].ResType) == 0 {
+		metrics.Series = queryResult.series
+		return &metrics, nil
+	}
 	allResources, err := query.QueryCons[0].GetQueryResources()
 	if err != nil {
 		return nil, errors.Wrap(err, "MetricQueryCondition GetQueryResources err")
-	}
-	metrics := mq.Metrics{
-		Series: make(tsdb.TimeSeriesSlice, 0),
-		Metas:  nil,
 	}
 	for _, serie := range queryResult.series {
 		isLatestOfSerie, resource := query.QueryCons[0].serieIsLatestResource(allResources, serie)
@@ -80,7 +84,6 @@ func (query *MetricQueryCondition) ExecuteQuery() (*mq.Metrics, error) {
 		query.QueryCons[0].FillSerieByResourceField(resource, serie)
 		metrics.Series = append(metrics.Series, serie)
 	}
-	metrics.Metas = queryResult.metas
 	return &metrics, nil
 }
 

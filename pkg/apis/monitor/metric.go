@@ -9,6 +9,8 @@ const (
 	METRIC_RES_TYPE_OSS          = "oss"
 	METRIC_RES_TYPE_RDS          = "rds"
 	METRIC_RES_TYPE_CLOUDACCOUNT = "cloudaccount"
+	METRIC_RES_TYPE_TENANT       = "tenant"
+	METRIC_RES_TYPE_DOMAIN       = "domain"
 
 	METRIC_UNIT_PERCENT = "%"
 	METRIC_UNIT_BPS     = "bps"
