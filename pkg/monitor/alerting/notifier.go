@@ -242,7 +242,10 @@ func newAlertRecordRule(evalCtx *EvalContext) monitor.AlertRecordRule {
 		alertRule.Period = fmt.Sprintf("%dm", evalCtx.Rule.Frequency/60)
 	}
 
-	alertRule.AlertDuration = int64(evalCtx.Rule.For)/evalCtx.Rule.Frequency + 1
+	alertRule.AlertDuration = int64(evalCtx.Rule.For) / evalCtx.Rule.Frequency
+	if alertRule.AlertDuration == 0 {
+		alertRule.AlertDuration = 1
+	}
 
 	return alertRule
 }

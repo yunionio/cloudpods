@@ -313,17 +313,7 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQ
 
 	metricMeasurement, _ := MetricMeasurementManager.GetCache().Get(query.Model.Measurement)
 
-	if true {
-		tagId := "host_id"
-		if metricMeasurement != nil {
-			tagId = monitor.MEASUREMENT_TAG_ID[metricMeasurement.ResType]
-		}
-		query.Model.GroupBy = append(query.Model.GroupBy,
-			monitor.MetricQueryPart{
-				Type:   "field",
-				Params: []string{tagId},
-			})
-	}
+	checkQueryGroupBy(query, inputQuery)
 
 	if len(inputQuery.Interval) != 0 {
 		query.Model.GroupBy = append(query.Model.GroupBy,
@@ -411,6 +401,31 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQ
 func setDataSourceId(query *monitor.AlertQuery) {
 	datasource, _ := DataSourceManager.GetDefaultSource()
 	query.DataSourceId = datasource.Id
+}
+
+func checkQueryGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQuery) {
+	if len(query.Model.GroupBy) != 0 {
+		return
+	}
+	if inputQuery.Unit {
+		return
+	}
+	if query.Model.Database == monitor.METRIC_DATABASE_METER && inputQuery.Unit {
+		return
+	}
+	metricMeasurement, _ := MetricMeasurementManager.GetCache().Get(query.Model.Measurement)
+	tagId := ""
+	if metricMeasurement != nil {
+		tagId = monitor.MEASUREMENT_TAG_ID[metricMeasurement.ResType]
+	}
+	if len(tagId) == 0 {
+		tagId = "*"
+	}
+	query.Model.GroupBy = append(query.Model.GroupBy,
+		monitor.MetricQueryPart{
+			Type:   "field",
+			Params: []string{tagId},
+		})
 }
 
 func setSerieRowName(series *tsdb.TimeSeriesSlice, groupTag []string) {

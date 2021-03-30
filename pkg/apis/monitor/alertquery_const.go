@@ -133,4 +133,15 @@ var (
 		"domain_id":         "domain_id",
 		"project_domain":    "project_domain",
 	}
+
+	TenantTags = map[string]string{
+		"tenant_id":      "id",
+		"tenant":         "name",
+		"domain_id":      "domain_id",
+		"project_domain": "project_domain",
+	}
+	DomainTags = map[string]string{
+		"domain_id":      "id",
+		"project_domain": "name",
+	}
 )
