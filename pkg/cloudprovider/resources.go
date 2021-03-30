@@ -230,6 +230,8 @@ type ICloudStorage interface {
 	GetMountPoint() string
 
 	IsSysDiskStore() bool
+
+	DisableSync() bool
 }
 
 type ICloudHost interface {

@@ -32,6 +32,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/multicloud/qcloud/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/ucloud/provider" // object storages
 	_ "yunion.io/x/onecloud/pkg/multicloud/zstack/provider" // public clouds
+	_ "yunion.io/x/onecloud/pkg/multicloud/ecloud/provider" // public clouds
 )
 
 func init() {

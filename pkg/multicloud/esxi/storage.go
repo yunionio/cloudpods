@@ -55,7 +55,7 @@ import (
 var DATASTORE_PROPS = []string{"name", "parent", "info", "summary", "host", "vm"}
 
 type SDatastore struct {
-	multicloud.SResourceBase
+	multicloud.SStorageBase
 	SManagedObject
 
 	// vms []cloudprovider.ICloudVM

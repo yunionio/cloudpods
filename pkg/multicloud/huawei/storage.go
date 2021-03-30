@@ -28,7 +28,7 @@ import (
 
 type SStorage struct {
 	zone *SZone
-	multicloud.SResourceBase
+	multicloud.SStorageBase
 	storageType string // volume_type 目前支持“SSD”，“SAS”和“SATA”三种
 }
 

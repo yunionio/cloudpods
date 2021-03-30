@@ -25,7 +25,7 @@ import (
 )
 
 type SNovaStorage struct {
-	multicloud.SResourceBase
+	multicloud.SStorageBase
 	host *SHypervisor
 	zone *SZone
 }
