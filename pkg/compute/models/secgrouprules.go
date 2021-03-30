@@ -327,45 +327,47 @@ func (manager *SSecurityGroupRuleManager) ValidateCreateData(ctx context.Context
 
 func (self *SSecurityGroupRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SSecgroupRuleUpdateInput) (api.SSecgroupRuleUpdateInput, error) {
 	priority := int(self.Priority)
-	output := api.SSecgroupRuleUpdateInput{
-		SSecgroupRuleResource: api.SSecgroupRuleResource{
-			Priority:       &priority,
-			Protocol:       self.Protocol,
-			Ports:          self.Ports,
-			Direction:      self.Direction,
-			CIDR:           self.CIDR,
-			Action:         self.Action,
-			Description:    self.Description,
-			PeerSecgroupId: self.PeerSecgroupId,
-		},
+	if input.Priority == nil {
+		input.Priority = &priority
 	}
-	jsonutils.Update(&output, input)
+	if len(input.Direction) == 0 {
+		input.Direction = self.Direction
+	}
+	if len(input.Action) == 0 {
+		input.Action = self.Action
+	}
+	if len(input.Protocol) == 0 {
+		input.Protocol = self.Protocol
+	}
+	if len(input.Ports) == 0 {
+		input.Ports = self.Ports
+	}
 
-	if *output.Priority < 1 || *output.Priority > 100 {
-		return output, httperrors.NewOutOfRangeError("Invalid priority %d, must be in range or 1 ~ 100", input.Priority)
+	if *input.Priority < 1 || *input.Priority > 100 {
+		return input, httperrors.NewOutOfRangeError("Invalid priority %d, must be in range or 1 ~ 100", input.Priority)
 	}
 
 	if len(input.PeerSecgroupId) > 0 {
 		_, err := validators.ValidateModel(userCred, SecurityGroupManager, &input.PeerSecgroupId)
 		if err != nil {
-			return output, err
+			return input, err
 		}
 		if input.PeerSecgroupId == self.Id {
-			return output, httperrors.NewInputParameterError("peer_secgroup_id can not point to secgroup self")
+			return input, httperrors.NewInputParameterError("peer_secgroup_id can not point to secgroup self")
 		}
 	}
 
-	err := output.Check()
+	err := input.Check()
 	if err != nil {
-		return output, err
+		return input, err
 	}
 
-	output.ResourceBaseUpdateInput, err = self.SResourceBase.ValidateUpdateData(ctx, userCred, query, input.ResourceBaseUpdateInput)
+	input.ResourceBaseUpdateInput, err = self.SResourceBase.ValidateUpdateData(ctx, userCred, query, input.ResourceBaseUpdateInput)
 	if err != nil {
-		return output, errors.Wrap(err, "SResourceBase.ValidateUpdateData")
+		return input, errors.Wrap(err, "SResourceBase.ValidateUpdateData")
 	}
 
-	return output, nil
+	return input, nil
 }
 
 func (self *SSecurityGroupRule) String() string {
@@ -435,12 +437,14 @@ func (self *SSecurityGroupRule) PreDelete(ctx context.Context, userCred mcclient
 func (self *SSecurityGroupRule) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SResourceBase.PostUpdate(ctx, userCred, query, data)
 
-	if len(self.PeerSecgroupId) > 0 {
-		db.Update(self, func() error {
+	db.Update(self, func() error {
+		if data.Contains("peer_secgroup_id") {
 			self.CIDR = ""
-			return nil
-		})
-	}
+		} else if data.Contains("cidr") {
+			self.PeerSecgroupId = ""
+		}
+		return nil
+	})
 
 	log.Debugf("POST Update %s", data)
 	if secgroup := self.GetSecGroup(); secgroup != nil {
