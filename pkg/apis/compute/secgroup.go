@@ -82,7 +82,7 @@ type SSecgroupRuleResource struct {
 	// example: test to create rule
 	Description string `json:"description"`
 
-	// 对端安全组Id, 此参数和cidr参数互斥，并且优先级高于cidr, 同事peer_secgroup_id不能和它所在的安全组ID相同
+	// 对端安全组Id, 此参数和cidr参数互斥，并且优先级高于cidr, 同时peer_secgroup_id不能和它所在的安全组ID相同
 	// required: false
 	PeerSecgroupId string `json:"peer_secgroup_id"`
 }
@@ -247,11 +247,11 @@ type SecgroupDetails struct {
 	// 安全组缓存数量
 	CacheCnt int `json:"cache_cnt,allowempty"`
 	// 规则信息
-	Rules []SSecurityGroupRule `json:"rules"`
+	Rules []SecgroupRuleDetails `json:"rules"`
 	// 入方向规则信息
-	InRules []SSecurityGroupRule `json:"in_rules"`
+	InRules []SecgroupRuleDetails `json:"in_rules"`
 	// 出方向规则信息
-	OutRules []SSecurityGroupRule `json:"out_rules"`
+	OutRules []SecgroupRuleDetails `json:"out_rules"`
 }
 
 type SecurityGroupResourceInfo struct {

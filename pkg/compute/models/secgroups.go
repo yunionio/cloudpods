@@ -465,6 +465,19 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 		log.Errorf("db.FetchModelObjects error: %v", err)
 		return rows
 	}
+
+	peerSecgroupIds := []string{}
+	for _, rule := range rules {
+		if len(rule.PeerSecgroupId) > 0 {
+			peerSecgroupIds = append(peerSecgroupIds, rule.PeerSecgroupId)
+		}
+	}
+
+	peerMaps, err := db.FetchIdNameMap2(SecurityGroupManager, peerSecgroupIds)
+	if err != nil {
+		return rows
+	}
+
 	ruleMaps := map[string][]SSecurityGroupRule{}
 	for i := range rules {
 		if _, ok := ruleMaps[rules[i].SecgroupId]; !ok {
@@ -477,19 +490,14 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 		if !ok {
 			continue
 		}
-		_rules := []api.SSecurityGroupRule{}
-		_inRules := []api.SSecurityGroupRule{}
-		_outRules := []api.SSecurityGroupRule{}
+		_rules := []api.SecgroupRuleDetails{}
+		_inRules := []api.SecgroupRuleDetails{}
+		_outRules := []api.SecgroupRuleDetails{}
 		for j := range rules {
-			rule := api.SSecurityGroupRule{
-				Id:          rules[j].Id,
-				Priority:    rules[j].Priority,
-				Protocol:    rules[j].Protocol,
-				Ports:       rules[j].Ports,
-				Direction:   rules[j].Direction,
-				CIDR:        rules[j].CIDR,
-				Action:      rules[j].Action,
-				Description: rules[j].Description,
+			rule := api.SecgroupRuleDetails{}
+			jsonutils.Update(&rule, rules[j])
+			if len(rules[j].PeerSecgroupId) > 0 {
+				rule.PeerSecgroup, _ = peerMaps[rules[j].PeerSecgroupId]
 			}
 			_rules = append(_rules, rule)
 			switch rule.Direction {
