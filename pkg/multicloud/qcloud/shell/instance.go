@@ -233,4 +233,13 @@ func init() {
 		return nil
 	})
 
+	type InstanceBandWidthOptions struct {
+		ID                 string `help:"Instance ID"`
+		BANDWIDTH          int    `help:"Bandwidth"`
+		InternetChargeType string `help:"InternetChargeType" default:"traffic" choices:"traffic|bandwidth"`
+	}
+	shellutils.R(&InstanceBandWidthOptions{}, "instance-change-bandwidth", "Change instance bandwidth", func(cli *qcloud.SRegion, args *InstanceBandWidthOptions) error {
+		return cli.UpdateInstanceBandwidth(args.ID, args.BANDWIDTH, args.InternetChargeType)
+	})
+
 }

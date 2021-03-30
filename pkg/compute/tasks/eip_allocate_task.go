@@ -17,6 +17,7 @@ package tasks
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -139,6 +140,8 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 			self.onFailed(ctx, eip, jsonutils.NewString(msg))
 			return
 		}
+
+		cloudprovider.WaitStatus(extEip, api.EIP_STATUS_READY, time.Second*5, time.Minute*3)
 
 		if err := eip.SyncWithCloudEip(ctx, self.UserCred, eip.GetCloudprovider(), extEip, nil); err != nil {
 			msg := fmt.Sprintf("sync eip fail %s", err)
