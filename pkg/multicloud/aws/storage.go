@@ -27,7 +27,7 @@ import (
 )
 
 type SStorage struct {
-	multicloud.SResourceBase
+	multicloud.SStorageBase
 	zone        *SZone
 	storageType string
 }

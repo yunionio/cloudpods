@@ -28,7 +28,7 @@ import (
 )
 
 type SLocalStorage struct {
-	multicloud.SResourceBase
+	multicloud.SStorageBase
 	region *SRegion
 
 	primaryStorageID          string
