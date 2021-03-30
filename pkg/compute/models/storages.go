@@ -71,10 +71,10 @@ type SStorage struct {
 	SZoneResourceBase `update:""`
 
 	// 容量大小,单位Mb
-	Capacity int64 `nullable:"false" list:"domain" update:"domain" create:"domain_required"`
+	Capacity int64 `nullable:"false" list:"user" update:"domain" create:"domain_required"`
 	// 实际容量大小，单位Mb
 	// we always expect actual capacity great or equal than zero, otherwise something wrong
-	ActualCapacityUsed int64 `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+	ActualCapacityUsed int64 `nullable:"true" list:"user" update:"domain" create:"domain_optional"`
 	// 预留容量大小
 	Reserved int64 `nullable:"true" default:"0" list:"domain" update:"domain"`
 	// 存储类型
