@@ -22,6 +22,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/multicloud/aws/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/azure/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/ctyun/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/ecloud/provider" // public clouds
 	_ "yunion.io/x/onecloud/pkg/multicloud/esxi/provider"   // private clouds
 	_ "yunion.io/x/onecloud/pkg/multicloud/google/provider" // public clouds
 	_ "yunion.io/x/onecloud/pkg/multicloud/huawei/provider"
@@ -32,7 +33,6 @@ import (
 	_ "yunion.io/x/onecloud/pkg/multicloud/qcloud/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/ucloud/provider" // object storages
 	_ "yunion.io/x/onecloud/pkg/multicloud/zstack/provider" // public clouds
-	_ "yunion.io/x/onecloud/pkg/multicloud/ecloud/provider" // public clouds
 )
 
 func init() {
