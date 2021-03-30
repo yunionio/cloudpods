@@ -138,11 +138,13 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 		return nil, errors.Wrap(err, "GetQueryResources err")
 	}
 	for _, series := range seriesList {
-		isLatestOfSerie, resource := c.serieIsLatestResource(allResources, series)
-		if !isLatestOfSerie {
-			continue
+		if len(c.ResType) != 0 {
+			isLatestOfSerie, resource := c.serieIsLatestResource(allResources, series)
+			if !isLatestOfSerie {
+				continue
+			}
+			c.FillSerieByResourceField(resource, series)
 		}
-		c.FillSerieByResourceField(resource, series)
 		reducedValue, valStrArr := c.Reducer.Reduce(series)
 		evalMatch := c.Evaluator.Eval(reducedValue)
 
@@ -441,9 +443,27 @@ func newQueryCondition(model *monitor.AlertCondition, index int) (*QueryConditio
 
 func (c *QueryCondition) setResType() {
 	var resType = ""
+	if len(c.Query.Model.GroupBy) == 0 {
+		return
+	}
 	metricMeasurement, _ := models.MetricMeasurementManager.GetCache().Get(c.Query.Model.Measurement)
 	if metricMeasurement != nil {
 		resType = metricMeasurement.ResType
+	}
+	if len(resType) != 0 && c.Query.Model.GroupBy[0].Params[0] != monitor.
+		MEASUREMENT_TAG_ID[resType] {
+		resType = ""
+		for _, groupBy := range c.Query.Model.GroupBy {
+			tag := groupBy.Params[0]
+			if tag == "tenant_id" {
+				resType = monitor.METRIC_RES_TYPE_TENANT
+				break
+			}
+			if tag == "domain_id" {
+				resType = monitor.METRIC_RES_TYPE_DOMAIN
+				break
+			}
+		}
 	}
 	c.ResType = resType
 }
@@ -482,6 +502,10 @@ func (c *QueryCondition) getOnecloudResources() ([]jsonutils.JSONObject, error) 
 		allResources, err = ListAllResources(&mc_mds.ElasticCache, query)
 	case monitor.METRIC_RES_TYPE_OSS:
 		allResources, err = ListAllResources(&mc_mds.Buckets, query)
+	case monitor.METRIC_RES_TYPE_TENANT:
+		allResources, err = ListAllResources(&mc_mds.Projects, query)
+	case monitor.METRIC_RES_TYPE_DOMAIN:
+		allResources, err = ListAllResources(&mc_mds.Domains, query)
 	default:
 		query := jsonutils.NewDict()
 		query.Set("brand", jsonutils.NewString(hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND))
@@ -582,6 +606,9 @@ func (c *QueryCondition) getFilterResources(start int, end int,
 	tmp := resources
 	for i := start; i <= end; i++ {
 		tag := c.Query.Model.Tags[i]
+		if tag.Key == hostconsts.TELEGRAF_TAG_KEY_RES_TYPE {
+			continue
+		}
 		relationKey := relationMap[tag.Key]
 		filterObj := make([]jsonutils.JSONObject, 0)
 		for _, res := range tmp {
@@ -638,6 +665,10 @@ func (c *QueryCondition) getTagKeyRelationMap() map[string]string {
 		relationMap = monitor.RedisTags
 	case monitor.METRIC_RES_TYPE_OSS:
 		relationMap = monitor.OssTags
+	case monitor.METRIC_RES_TYPE_TENANT:
+		relationMap = monitor.TenantTags
+	case monitor.METRIC_RES_TYPE_DOMAIN:
+		relationMap = monitor.DomainTags
 	default:
 		relationMap = monitor.HostTags
 	}
