@@ -3075,6 +3075,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestAssociatEip(ctx context.C
 			InstanceId:    input.InstanceExternalId,
 			Bandwidth:     eip.Bandwidth,
 			AssociateType: input.InstanceType,
+			ChargeType:    eip.ChargeType,
 		}
 
 		err = iEip.Associate(conf)
