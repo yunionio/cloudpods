@@ -2676,8 +2676,9 @@ func (manager *SGuestManager) TotalCount(
 	status []string, hypervisors []string,
 	includeSystem bool, pendingDelete bool,
 	hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string,
+	since *time.Time,
 ) SGuestCountStat {
-	return usageTotalGuestResouceCount(scope, ownerId, rangeObjs, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv)
+	return usageTotalGuestResouceCount(scope, ownerId, rangeObjs, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv, since)
 }
 
 func (self *SGuest) detachNetworks(ctx context.Context, userCred mcclient.TokenCredential, gns []SGuestnetwork, reserve bool, deploy bool) error {
@@ -3286,9 +3287,10 @@ func usageTotalGuestResouceCount(
 	hostTypes []string,
 	resourceTypes []string,
 	providers []string, brands []string, cloudEnv string,
+	since *time.Time,
 ) SGuestCountStat {
 	q, guests := _guestResourceCountQuery(scope, ownerId, rangeObjs, status, hypervisors,
-		pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv)
+		pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv, since)
 	if !includeSystem {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.IsNull(guests.Field("is_system")), sqlchemy.IsFalse(guests.Field("is_system"))))
@@ -3316,6 +3318,7 @@ func _guestResourceCountQuery(
 	hostTypes []string,
 	resourceTypes []string,
 	providers []string, brands []string, cloudEnv string,
+	since *time.Time,
 ) (*sqlchemy.SQuery, *sqlchemy.SSubQuery) {
 
 	guestdisks := GuestdiskManager.Query().SubQuery()
@@ -3342,7 +3345,12 @@ func _guestResourceCountQuery(
 
 	isoDevSubQuery := isoDevQuery.SubQuery()
 
-	guests := GuestManager.Query().SubQuery()
+	var guests *sqlchemy.SSubQuery
+	if since != nil && !since.IsZero() {
+		guests = GuestManager.RawQuery().SubQuery()
+	} else {
+		guests = GuestManager.Query().SubQuery()
+	}
 	guestBackupSubQuery := GuestManager.Query(
 		"id",
 		"vcpu_count",
@@ -3391,6 +3399,11 @@ func _guestResourceCountQuery(
 	} else {
 		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(guests.Field("pending_deleted")), sqlchemy.IsFalse(guests.Field("pending_deleted"))))
 	}
+
+	if since != nil && !since.IsZero() {
+		q = q.Filter(sqlchemy.GT(guests.Field("created_at"), *since))
+	}
+
 	return q, guests
 }
 
