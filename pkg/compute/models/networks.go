@@ -926,7 +926,7 @@ func (manager *SNetworkManager) TotalPortCount(
 	userCred mcclient.IIdentityProvider,
 	providers []string, brands []string, cloudEnv string,
 	rangeObjs []db.IStandaloneModel,
-) NetworkPortStat {
+) map[string]NetworkPortStat {
 	nets := make([]SNetwork, 0)
 	err := manager.totalPortCountQ(
 		scope,
@@ -937,17 +937,32 @@ func (manager *SNetworkManager) TotalPortCount(
 	if err != nil {
 		log.Errorf("TotalPortCount: %v", err)
 	}
-	ct := 0
-	ctExt := 0
+	ret := make(map[string]NetworkPortStat)
 	for _, net := range nets {
+		var stat NetworkPortStat
+		var allStat NetworkPortStat
+		if len(net.ServerType) > 0 {
+			stat, _ = ret[net.ServerType]
+		}
+		allStat, _ = ret[""]
 		count := net.getIPRange().AddressCount()
 		if net.IsExitNetwork() {
-			ctExt += count
+			if len(net.ServerType) > 0 {
+				stat.CountExt += count
+			}
+			allStat.CountExt += count
 		} else {
-			ct += count
+			if len(net.ServerType) > 0 {
+				stat.Count += count
+			}
+			allStat.Count += count
 		}
+		if len(net.ServerType) > 0 {
+			ret[net.ServerType] = stat
+		}
+		ret[""] = allStat
 	}
-	return NetworkPortStat{Count: ct, CountExt: ctExt}
+	return ret
 }
 
 type SNicConfig struct {
