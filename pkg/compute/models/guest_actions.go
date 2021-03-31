@@ -1086,24 +1086,17 @@ func (self *SGuest) StartSyncstatus(ctx context.Context, userCred mcclient.Token
 
 func (self *SGuest) StartAutoDeleteGuestTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	db.OpsLog.LogEvent(self, db.ACT_DELETE, "auto-delete after stop", userCred)
-	return self.StartDeleteGuestTask(ctx, userCred, parentTaskId, false, false, false)
+	opts := api.ServerDeleteInput{}
+	return self.StartDeleteGuestTask(ctx, userCred, parentTaskId, opts)
 }
 
 func (self *SGuest) StartDeleteGuestTask(
 	ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string,
-	isPurge, overridePendingDelete, deleteSnapshots bool,
+	opts api.ServerDeleteInput,
 ) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(self.Status), "guest_status")
-	if isPurge {
-		params.Add(jsonutils.JSONTrue, "purge")
-	}
-	if overridePendingDelete {
-		params.Add(jsonutils.JSONTrue, "override_pending_delete")
-	}
-	if deleteSnapshots {
-		params.Add(jsonutils.JSONTrue, "delete_snapshots")
-	}
+	params.Update(jsonutils.Marshal(opts))
 	self.SetStatus(userCred, api.VM_START_DELETE, "")
 	return self.GetDriver().StartDeleteGuestTask(ctx, userCred, self, params, parentTaskId)
 }
@@ -1400,7 +1393,10 @@ func (self *SGuest) PerformPurge(ctx context.Context, userCred mcclient.TokenCre
 	if host != nil && host.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Cannot purge server on enabled host")
 	}
-	err = self.StartDeleteGuestTask(ctx, userCred, "", true, false, false)
+	opts := api.ServerDeleteInput{
+		Purge: true,
+	}
+	err = self.StartDeleteGuestTask(ctx, userCred, "", opts)
 	return nil, err
 }
 
