@@ -315,11 +315,11 @@ func (self *SCloudproviderregion) markEndSync(ctx context.Context, userCred mccl
 	log.Debugf("markEndSync deepSync %v", *deepSync)
 	err := self.markEndSyncInternal(userCred, syncResults, deepSync)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "markEndSyncInternal")
 	}
 	err = self.GetProvider().markEndSyncWithLock(ctx, userCred)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "markEndSyncWithLock")
 	}
 	return nil
 }
@@ -335,8 +335,7 @@ func (self *SCloudproviderregion) markEndSyncInternal(userCred mcclient.TokenCre
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Failed to markEndSyncInternal error: %v", err)
-		return err
+		return errors.Wrapf(err, "db.Update")
 	}
 	return nil
 }
@@ -373,11 +372,18 @@ func (set SSyncResultSet) Add(manager db.IModelManager, result compare.SyncResul
 func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange) error {
 	syncResults := SSyncResultSet{}
 
-	self.markSyncing(userCred)
-	defer self.markEndSync(ctx, userCred, syncResults, &syncRange.DeepSync)
-
 	localRegion := self.GetRegion()
 	provider := self.GetProvider()
+
+	self.markSyncing(userCred)
+
+	defer func() {
+		err := self.markEndSync(ctx, userCred, syncResults, &syncRange.DeepSync)
+		if err != nil {
+			log.Errorf("markEndSync for %s(%s) : %v", localRegion.Name, provider.Name, err)
+		}
+	}()
+
 	driver, err := provider.GetProvider()
 	if err != nil {
 		log.Errorf("Failed to get driver, connection problem?")
@@ -480,7 +486,7 @@ func (cpr *SCloudproviderregion) needAutoSyncInternal() bool {
 		region := cpr.GetRegion()
 		log.Debugf("empty region %s! no need to check so frequently", region.GetName())
 	}
-	if time.Now().Sub(cpr.LastSyncEndAt) > time.Duration(intval)*time.Second {
+	if time.Now().Sub(cpr.LastSync) > time.Duration(intval)*time.Second {
 		return true
 	}
 	return false
