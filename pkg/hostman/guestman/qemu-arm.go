@@ -270,7 +270,9 @@ func (s *SKVMGuestInstance) generateArmStartScript(data *jsonutils.JSONDict) (st
 		} else {
 			cmd += nicCmd
 		}
-		cmd += s.getVnicDesc(nics[i])
+		// aarch64 with addr lead to:
+		// virtio_net: probe of virtioN failed with error -22
+		cmd += s.getVnicDesc(nics[i], false)
 	}
 
 	if isolatedDevsParams != nil {
