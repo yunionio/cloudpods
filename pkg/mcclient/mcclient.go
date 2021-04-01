@@ -37,6 +37,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
+var listenerWorker *appsrv.SWorkerManager
+
 type Client struct {
 	authUrl string
 	timeout int
@@ -46,7 +48,10 @@ type Client struct {
 	_serviceCatalog IServiceCatalog
 
 	catalogListeners []IServiceCatalogChangeListener
-	listenerWorker   *appsrv.SWorkerManager
+}
+
+func init() {
+	listenerWorker = appsrv.NewWorkerManager("client_catalog_listener_worker", 1, 2048, false)
 }
 
 func NewClient(authUrl string, timeout int, debug bool, insecure bool, certFile, keyFile string) *Client {
@@ -82,7 +87,6 @@ func NewClient(authUrl string, timeout int, debug bool, insecure bool, certFile,
 		},
 	}
 
-	client.listenerWorker = appsrv.NewWorkerManager("client_catalog_listener_worker", 1, 2048, false)
 	return &client
 }
 
