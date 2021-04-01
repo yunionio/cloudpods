@@ -22,7 +22,7 @@ import (
 
 const (
 	// Version current go sdk version
-	Version               = "0.7.10"
+	Version               = "0.7.24"
 	userAgent             = "cos-go-sdk-v5/" + Version
 	contentTypeXML        = "application/xml"
 	defaultServiceBaseURL = "http://service.cos.myqcloud.com"
@@ -42,6 +42,8 @@ type BaseURL struct {
 	ServiceURL *url.URL
 	// 访问 job API 的基础 URL （不包含 path 部分）: http://example.com
 	BatchURL *url.URL
+	// 访问 CI 的基础 URL
+	CIURL *url.URL
 }
 
 // NewBucketURL 生成 BaseURL 所需的 BucketURL
@@ -68,6 +70,11 @@ func NewBucketURL(bucketName, region string, secure bool) *url.URL {
 	return u
 }
 
+type Config struct {
+	EnableCRC        bool
+	RequestBodyClose bool
+}
+
 // Client is a client manages communication with the COS API.
 type Client struct {
 	client *http.Client
@@ -82,6 +89,9 @@ type Client struct {
 	Bucket  *BucketService
 	Object  *ObjectService
 	Batch   *BatchService
+	CI      *CIService
+
+	Conf *Config
 }
 
 type service struct {
@@ -99,6 +109,7 @@ func NewClient(uri *BaseURL, httpClient *http.Client) *Client {
 		baseURL.BucketURL = uri.BucketURL
 		baseURL.ServiceURL = uri.ServiceURL
 		baseURL.BatchURL = uri.BatchURL
+		baseURL.CIURL = uri.CIURL
 	}
 	if baseURL.ServiceURL == nil {
 		baseURL.ServiceURL, _ = url.Parse(defaultServiceBaseURL)
@@ -108,12 +119,17 @@ func NewClient(uri *BaseURL, httpClient *http.Client) *Client {
 		client:    httpClient,
 		UserAgent: userAgent,
 		BaseURL:   baseURL,
+		Conf: &Config{
+			EnableCRC:        true,
+			RequestBodyClose: false,
+		},
 	}
 	c.common.client = c
 	c.Service = (*ServiceService)(&c.common)
 	c.Bucket = (*BucketService)(&c.common)
 	c.Object = (*ObjectService)(&c.common)
 	c.Batch = (*BatchService)(&c.common)
+	c.CI = (*CIService)(&c.common)
 	return c
 }
 
@@ -168,6 +184,9 @@ func (c *Client) newRequest(ctx context.Context, baseURL *url.URL, uri, method s
 	if c.Host != "" {
 		req.Host = c.Host
 	}
+	if c.Conf.RequestBodyClose {
+		req.Close = true
+	}
 	return
 }
 
@@ -201,6 +220,18 @@ func (c *Client) doAPI(ctx context.Context, req *http.Request, result interface{
 		// even though there was an error, we still return the response
 		// in case the caller wants to inspect it further
 		return response, err
+	}
+
+	// need CRC64 verification
+	if reader, ok := req.Body.(*teeReader); ok {
+		if c.Conf.EnableCRC && reader.writer != nil {
+			localcrc := reader.Crc64()
+			scoscrc := response.Header.Get("x-cos-hash-crc64ecma")
+			icoscrc, _ := strconv.ParseUint(scoscrc, 10, 64)
+			if icoscrc != localcrc {
+				return response, fmt.Errorf("verification failed, want:%v, return:%v", localcrc, icoscrc)
+			}
+		}
 	}
 
 	if result != nil {
@@ -244,9 +275,6 @@ func (c *Client) send(ctx context.Context, opt *sendOptions) (resp *Response, er
 	}
 
 	resp, err = c.doAPI(ctx, req, opt.result, !opt.disableCloseBody)
-	if err != nil {
-		return
-	}
 	return
 }
 

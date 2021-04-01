@@ -15,10 +15,12 @@
 package sqlchemy
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 )
 
 type SUnionQueryField struct {
@@ -48,6 +50,10 @@ func (sqf *SUnionQueryField) Label(label string) IQueryField {
 		sqf.alias = label
 	}
 	return sqf
+}
+
+func (sqf *SUnionQueryField) Variables() []interface{} {
+	return nil
 }
 
 type SUnion struct {
@@ -156,6 +162,10 @@ func Union(query ...IQuery) *SUnion {
 }
 
 func UnionWithError(query ...IQuery) (*SUnion, error) {
+	if len(query) == 0 {
+		return nil, errors.Wrap(sql.ErrNoRows, "empty union query")
+	}
+
 	fieldNames := make([]string, 0)
 	for _, f := range query[0].QueryFields() {
 		fieldNames = append(fieldNames, f.Name())

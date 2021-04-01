@@ -23,6 +23,29 @@ import (
 	"yunion.io/x/pkg/utils"
 )
 
+type ITableSpec interface {
+	Insert(dt interface{}) error
+	InsertOrUpdate(dt interface{}) error
+	Update(dt interface{}, onUpdate func() error) (UpdateDiffs, error)
+	Increment(diff, target interface{}) error
+	Decrement(diff, target interface{}) error
+
+	DataType() reflect.Type
+	ColumnSpec(name string) IColumnSpec
+	Name() string
+	Columns() []IColumnSpec
+	PrimaryColumns() []IColumnSpec
+	Expression() string
+
+	Instance() *STable
+
+	DropForeignKeySQL() []string
+	AddIndex(unique bool, cols ...string) bool
+
+	SyncSQL() []string
+	Fetch(dt interface{}) error
+}
+
 type STableSpec struct {
 	structType reflect.Type
 	name       string
@@ -32,7 +55,7 @@ type STableSpec struct {
 }
 
 type STable struct {
-	spec  *STableSpec
+	spec  ITableSpec
 	alias string
 }
 
@@ -59,6 +82,31 @@ func NewTableSpecFromStruct(s interface{}, name string) *STableSpec {
 
 func (ts *STableSpec) Name() string {
 	return ts.name
+}
+
+func (ts *STableSpec) Expression() string {
+	return fmt.Sprintf("`%s`", ts.name)
+}
+
+func (ts *STableSpec) Clone(name string, autoIncOffset int64) *STableSpec {
+	newCols := make([]IColumnSpec, len(ts.columns))
+	for i := range newCols {
+		col := ts.columns[i]
+		if intCol, ok := col.(*SIntegerColumn); ok && intCol.IsAutoIncrement {
+			newCol := *intCol
+			newCol.AutoIncrementOffset = autoIncOffset
+			newCols[i] = &newCol
+		} else {
+			newCols[i] = col
+		}
+	}
+	return &STableSpec{
+		structType: ts.structType,
+		name:       name,
+		columns:    newCols,
+		indexes:    ts.indexes,
+		contraints: ts.contraints,
+	}
 }
 
 func (ts *STableSpec) Columns() []IColumnSpec {
@@ -102,12 +150,16 @@ func (ts *STableSpec) CreateSQL() string {
 	if len(indexes) > 0 {
 		cols = append(cols, indexes...)
 	}
-	return fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (\n%s\n) ENGINE=InnoDB DEFAULT CHARSET=utf8%s", ts.name, strings.Join(cols, ",\n"), autoInc)
+	return fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (\n%s\n) ENGINE=InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci%s", ts.name, strings.Join(cols, ",\n"), autoInc)
+}
+
+func NewTableInstance(ts ITableSpec) *STable {
+	table := STable{spec: ts, alias: getTableAliasName()}
+	return &table
 }
 
 func (ts *STableSpec) Instance() *STable {
-	table := STable{spec: ts, alias: getTableAliasName()}
-	return &table
+	return NewTableInstance(ts)
 }
 
 func (ts *STableSpec) ColumnSpec(name string) IColumnSpec {
@@ -167,4 +219,8 @@ func (c *STableField) Label(label string) IQueryField {
 		c.alias = label
 	}
 	return c
+}
+
+func (c *STableField) Variables() []interface{} {
+	return nil
 }

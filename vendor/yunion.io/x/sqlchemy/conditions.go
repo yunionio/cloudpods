@@ -514,3 +514,23 @@ func Between(f IQueryField, r1, r2 interface{}) ICondition {
 	c := SBetweenCondition{NewTripleCondition(f, r1, r2)}
 	return &c
 }
+
+type STrueCondition struct{}
+
+func (t *STrueCondition) WhereClause() string {
+	return "1"
+}
+
+func (t *STrueCondition) Variables() []interface{} {
+	return nil
+}
+
+type SFalseCondition struct{}
+
+func (t *SFalseCondition) WhereClause() string {
+	return "0"
+}
+
+func (t *SFalseCondition) Variables() []interface{} {
+	return nil
+}
