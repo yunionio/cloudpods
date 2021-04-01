@@ -276,7 +276,7 @@ func (s *SKVMGuestInstance) getNicAddr(index int) int {
 	return s.GetDiskAddr(pciBase + index)
 }
 
-func (s *SKVMGuestInstance) getVnicDesc(nic jsonutils.JSONObject) string {
+func (s *SKVMGuestInstance) getVnicDesc(nic jsonutils.JSONObject, withAddr bool) string {
 	bridge, _ := nic.GetString("bridge")
 	ifname, _ := nic.GetString("ifname")
 	driver, _ := nic.GetString("driver")
@@ -290,7 +290,9 @@ func (s *SKVMGuestInstance) getVnicDesc(nic jsonutils.JSONObject) string {
 	cmd += fmt.Sprintf(",netdev=%s", ifname)
 	cmd += fmt.Sprintf(",mac=%s", mac)
 
-	cmd += fmt.Sprintf(",addr=0x%x", s.getNicAddr(int(index)))
+	if withAddr {
+		cmd += fmt.Sprintf(",addr=0x%x", s.getNicAddr(int(index)))
+	}
 	if driver == "virtio" {
 		if nic.Contains("vectors") {
 			cmd += fmt.Sprintf(",vectors=%d", vectors)
@@ -617,7 +619,7 @@ function nic_mtu() {
 		} else {
 			cmd += nicCmd
 		}
-		cmd += s.getVnicDesc(nics[i])
+		cmd += s.getVnicDesc(nics[i], true)
 	}
 
 	if isolatedDevsParams != nil {
