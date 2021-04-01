@@ -3982,7 +3982,7 @@ func (self *SHost) AllowPerformIpmiProbe(ctx context.Context,
 }
 
 func (self *SHost) PerformIpmiProbe(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if utils.IsInStringArray(self.Status, []string{api.BAREMETAL_INIT, api.BAREMETAL_READY, api.BAREMETAL_RUNNING}) {
+	if utils.IsInStringArray(self.Status, []string{api.BAREMETAL_INIT, api.BAREMETAL_READY, api.BAREMETAL_RUNNING, api.BAREMETAL_PROBE_FAIL}) {
 		return nil, self.StartIpmiProbeTask(ctx, userCred, "")
 	}
 	return nil, httperrors.NewInvalidStatusError("Cannot do Ipmi-probe in status %s", self.Status)
