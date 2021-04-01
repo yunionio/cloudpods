@@ -268,7 +268,7 @@ func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, s
 		ObjectPutHeaderOptions: &cos.ObjectPutHeaderOptions{},
 	}
 	if sizeBytes > 0 {
-		opts.ContentLength = int(sizeBytes)
+		opts.ContentLength = sizeBytes
 	}
 	if meta != nil {
 		extraHdr := http.Header{}
@@ -364,7 +364,7 @@ func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, p
 		return "", errors.Wrap(err, "GetCosClient")
 	}
 	opts := &cos.ObjectUploadPartOptions{}
-	opts.ContentLength = int(partSize)
+	opts.ContentLength = partSize
 	resp, err := coscli.Object.UploadPart(ctx, key, uploadId, partIndex, input, opts)
 	if err != nil {
 		return "", errors.Wrap(err, "UploadPart")
