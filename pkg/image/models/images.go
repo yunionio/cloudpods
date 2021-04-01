@@ -620,7 +620,7 @@ func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		if appParams != nil && appParams.Request.ContentLength > 0 {
 			return nil, httperrors.NewInvalidStatusError("cannot upload in status %s", self.Status)
 		}
-		if minDiskSize, err := data.Int("min_disk"); err == nil {
+		if minDiskSize, err := data.Int("min_disk"); err == nil && self.DiskFormat != string(qemuimg.ISO) {
 			img, err := qemuimg.NewQemuImage(self.getLocalLocation())
 			if err != nil {
 				return nil, errors.Wrap(err, "open image")
@@ -917,9 +917,9 @@ func (manager *SImageManager) count(scope rbacutils.TRbacScope, ownerId mcclient
 		sq = sq.IsFalse("pending_deleted")
 	}
 	if isISO.IsTrue() {
-		sq = sq.Equals("disk_format", "iso")
+		sq = sq.Equals("disk_format", string(qemuimg.ISO))
 	} else if isISO.IsFalse() {
-		sq = sq.NotEquals("disk_format", "iso")
+		sq = sq.NotEquals("disk_format", string(qemuimg.ISO))
 	}
 	cnt, _ := sq.CountWithError()
 
@@ -973,13 +973,13 @@ func (manager *SImageManager) Usage(scope rbacutils.TRbacScope, ownerId mcclient
 	count := manager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.False, false, tristate.False)
 	expandUsageCount(usages, prefix, "img", "", count)
 	count = manager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.True, false, tristate.False)
-	expandUsageCount(usages, prefix, "iso", "", count)
+	expandUsageCount(usages, prefix, string(qemuimg.ISO), "", count)
 	count = manager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.None, false, tristate.False)
 	expandUsageCount(usages, prefix, "imgiso", "", count)
 	count = manager.count(scope, ownerId, "", tristate.False, true, tristate.False)
 	expandUsageCount(usages, prefix, "img", "pending_delete", count)
 	count = manager.count(scope, ownerId, "", tristate.True, true, tristate.False)
-	expandUsageCount(usages, prefix, "iso", "pending_delete", count)
+	expandUsageCount(usages, prefix, string(qemuimg.ISO), "pending_delete", count)
 	count = manager.count(scope, ownerId, "", tristate.None, true, tristate.False)
 	expandUsageCount(usages, prefix, "imgiso", "pending_delete", count)
 	return usages
