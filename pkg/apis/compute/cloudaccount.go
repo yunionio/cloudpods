@@ -436,3 +436,9 @@ type GetCloudaccountSamlOutput struct {
 	// initial SAML SSO login URL for this cloudaccount
 	InitLoginUrl string `json:"init_login_url,allowempty"`
 }
+
+type CloudaccountEnableAutoSyncInput struct {
+	// 云账号状态必须是connected
+	// 最小值为region服务的minimal_sync_interval_seconds
+	SyncIntervalSeconds int `json:"sync_interval_seconds"`
+}

@@ -2346,7 +2346,7 @@ func (self *SCloudaccount) AllowPerformEnableAutoSync(ctx context.Context, userC
 	return db.IsAdminAllowPerform(userCred, self, "enable-auto-sync")
 }
 
-func (self *SCloudaccount) PerformEnableAutoSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SCloudaccount) PerformEnableAutoSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountEnableAutoSyncInput) (jsonutils.JSONObject, error) {
 	if self.EnableAutoSync {
 		return nil, nil
 	}
@@ -2355,10 +2355,11 @@ func (self *SCloudaccount) PerformEnableAutoSync(ctx context.Context, userCred m
 		return nil, httperrors.NewInvalidStatusError("cannot enable auto sync in status %s", self.Status)
 	}
 
-	syncIntervalSecs := int64(0)
-	syncIntervalSecs, _ = data.Int("sync_interval_seconds")
+	if input.SyncIntervalSeconds < options.Options.MinimalSyncIntervalSeconds {
+		return nil, httperrors.NewOutOfRangeError("sync_interval_seconds should be greater than %d", options.Options.MinimalSyncIntervalSeconds)
+	}
 
-	self.enableAutoSync(ctx, userCred, int(syncIntervalSecs))
+	self.enableAutoSync(ctx, userCred, input.SyncIntervalSeconds)
 
 	return nil, nil
 }
@@ -2503,7 +2504,7 @@ func (manager *SCloudaccountManager) initAllRecords() {
 
 func (self *SCloudaccount) CanSync() bool {
 	if self.SyncStatus == api.CLOUD_PROVIDER_SYNC_STATUS_QUEUED || self.SyncStatus == api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING || self.getSyncStatus2() == api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING {
-		if self.LastSync.IsZero() || time.Now().Sub(self.LastSync) > 1800*time.Second {
+		if self.LastSync.IsZero() || time.Now().Sub(self.LastSync) > time.Duration(self.getSyncIntervalSeconds()) {
 			return true
 		} else {
 			return false
