@@ -26,7 +26,7 @@ type BucketLifecycleTransition struct {
 
 // BucketLifecycleAbortIncompleteMultipartUpload is the param of BucketLifecycleRule
 type BucketLifecycleAbortIncompleteMultipartUpload struct {
-	DaysAfterInitiation string `xml:"DaysAfterInititation,omitempty"`
+	DaysAfterInitiation int `xml:"DaysAfterInitiation,omitempty"`
 }
 
 // BucketLifecycleRule is the rule of BucketLifecycle

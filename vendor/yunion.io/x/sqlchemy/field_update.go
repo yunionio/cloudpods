@@ -146,7 +146,7 @@ func (ts *STableSpec) updateFields(dt interface{}, fields map[string]interface{}
 	if err != nil {
 		return err
 	}
-	if aCnt != 1 {
+	if aCnt > 1 {
 		return errors.Wrapf(ErrUnexpectRowCount, "affected rows %d != 1", aCnt)
 	}
 	return nil

@@ -54,6 +54,8 @@ type IColumnSpec interface {
 	Tags() map[string]string
 
 	IsPointer() bool
+
+	SetDefault(defStr string)
 }
 
 type SBaseColumn struct {
@@ -88,6 +90,10 @@ func (c *SBaseColumn) ColType() string {
 
 func (c *SBaseColumn) Default() string {
 	return c.defaultString
+}
+
+func (c *SBaseColumn) SetDefault(defStr string) {
+	c.defaultString = defStr
 }
 
 func (c *SBaseColumn) IsSupportDefault() bool {
@@ -569,7 +575,17 @@ func (c *STextColumn) IsSupportDefault() bool {
 }
 
 func (c *STextColumn) ColType() string {
-	return fmt.Sprintf("%s CHARACTER SET '%s'", c.SBaseWidthColumn.ColType(), c.Charset)
+	var charset string
+	var collate string
+	switch c.Charset {
+	case "ascii":
+		charset = "ascii"
+		collate = "ascii_general_ci"
+	default:
+		charset = "utf8mb4"
+		collate = "utf8mb4_unicode_ci"
+	}
+	return fmt.Sprintf("%s CHARACTER SET '%s' COLLATE '%s'", c.SBaseWidthColumn.ColType(), charset, collate)
 }
 
 func (c *STextColumn) IsText() bool {
