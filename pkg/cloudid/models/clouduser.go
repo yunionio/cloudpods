@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -504,6 +505,10 @@ func (self *SClouduser) PostCreate(ctx context.Context, userCred mcclient.TokenC
 	if len(input.Password) > 0 {
 		self.SavePassword(input.Password)
 	}
+	db.Update(self, func() error {
+		self.Source = apis.EXTERNAL_RESOURCE_SOURCE_LOCAL
+		return nil
+	})
 	account, err := self.GetCloudaccount()
 	if err != nil {
 		return
