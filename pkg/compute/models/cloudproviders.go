@@ -769,8 +769,7 @@ func (self *SCloudprovider) markEndSync(userCred mcclient.TokenCredential) error
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Failed to markEndSync error: %v", err)
-		return err
+		return errors.Wrapf(err, "markEndSync")
 	}
 	return nil
 }
@@ -1347,7 +1346,10 @@ func (provider *SCloudprovider) syncCloudproviderRegions(ctx context.Context, us
 		}
 	}
 	if syncCnt == 0 {
-		provider.markEndSyncWithLock(ctx, userCred)
+		err := provider.markEndSyncWithLock(ctx, userCred)
+		if err != nil {
+			log.Errorf("markEndSyncWithLock for %s error: %v", provider.Name, err)
+		}
 	}
 }
 
