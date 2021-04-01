@@ -15,6 +15,7 @@
 package kvmpart
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"os"
@@ -185,7 +186,7 @@ func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
 			return false, errors.Wrap(err, "")
 		}
 	}
-	_, err = utils.NewFibonacciRetrierMaxTries(3, retrier).Start()
+	_, err = utils.NewFibonacciRetrierMaxTries(3, retrier).Start(context.Background())
 	if err != nil {
 		return errors.Wrap(err, "mount failed")
 	}

@@ -588,7 +588,7 @@ github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312
-# github.com/tencentyun/cos-go-sdk-v5 v0.7.10
+# github.com/tencentyun/cos-go-sdk-v5 v0.7.24
 github.com/tencentyun/cos-go-sdk-v5
 github.com/tencentyun/cos-go-sdk-v5/debug
 # github.com/texttheater/golang-levenshtein v0.0.0-20180516184445-d188e65d659e
@@ -1102,7 +1102,7 @@ k8s.io/utils/integer
 sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
-# yunion.io/x/executor v0.0.0-20201201131200-44fa553abd9e
+# yunion.io/x/executor v0.0.0-20210310041834-3fcd1574f68e
 yunion.io/x/executor/apis
 yunion.io/x/executor/client
 yunion.io/x/executor/server
@@ -1115,7 +1115,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v0.0.0-20201123083159-ca3aea986ff2
+# yunion.io/x/pkg v0.0.0-20210218105412-13a69f60034c
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
 yunion.io/x/pkg/prettytable
@@ -1149,7 +1149,7 @@ yunion.io/x/pkg/util/workqueue
 yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v0.0.0-20210204013753-dbac29c9cedb
+# yunion.io/x/sqlchemy v0.0.0-20210329171939-2c520f93aee3
 yunion.io/x/sqlchemy
 # yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
 yunion.io/x/structarg
