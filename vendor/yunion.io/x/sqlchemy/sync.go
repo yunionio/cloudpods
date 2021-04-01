@@ -75,8 +75,10 @@ func (info *SSqlColumnInfo) toColumnSpec() IColumnSpec {
 	charset := ""
 	if info.Collation == "ascii_general_ci" {
 		charset = "ascii"
-	} else if info.Collation == "utf8_general_ci" {
+	} else if info.Collation == "utf8_general_ci" || info.Collation == "utf8mb4_unicode_ci" {
 		charset = "utf8"
+	} else {
+		charset = "ascii"
 	}
 	if len(charset) > 0 {
 		tagmap[TAG_CHARSET] = charset

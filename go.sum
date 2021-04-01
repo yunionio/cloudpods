@@ -588,8 +588,8 @@ github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5
 github.com/syncthing/syncthing v0.14.48-rc.4/go.mod h1:nw3siZwHPA6M8iSfjDCWQ402eqvEIasMQOE8nFOxy7M=
 github.com/tencentcloud/tencentcloud-sdk-go v3.0.135+incompatible h1:QIMoFqKCmNp4HPLiTR+couZbHsIZfoOllncHYvtqse8=
 github.com/tencentcloud/tencentcloud-sdk-go v3.0.135+incompatible/go.mod h1:0PfYow01SHPMhKY31xa+EFz2RStxIqj6JFAJS+IkCi4=
-github.com/tencentyun/cos-go-sdk-v5 v0.7.10 h1:hJPLdR4RPsnubB3M9qXNBeUbcOJMVANnO/L6Att/PZU=
-github.com/tencentyun/cos-go-sdk-v5 v0.7.10/go.mod h1:wQBO5HdAkLjj2q6XQiIfDSP8DXDNrppDRw2Kp/1BODA=
+github.com/tencentyun/cos-go-sdk-v5 v0.7.24 h1:ZsZij764lOaPsj7mEAlyxXvslGt6/m312Tzqj/zeRpo=
+github.com/tencentyun/cos-go-sdk-v5 v0.7.24/go.mod h1:wQBO5HdAkLjj2q6XQiIfDSP8DXDNrppDRw2Kp/1BODA=
 github.com/texttheater/golang-levenshtein v0.0.0-20180516184445-d188e65d659e h1:T5PdfK/M1xyrHwynxMIVMWLS7f/qHwfslZphxtGnw7s=
 github.com/texttheater/golang-levenshtein v0.0.0-20180516184445-d188e65d659e/go.mod h1:XDKHRm5ThF8YJjx001LtgelzsoaEcvnA7lVWz9EeX3g=
 github.com/tinylib/msgp v1.0.2/go.mod h1:+d+yLhGm8mzTaHzB+wgMYrodPfmZrzkirds8fDWklFE=
@@ -910,8 +910,8 @@ sigs.k8s.io/structured-merge-diff/v4 v4.0.1/go.mod h1:bJZC9H9iH24zzfZ/41RGcq60oK
 sigs.k8s.io/yaml v1.1.0/go.mod h1:UJmg0vDUVViEyp3mgSv9WPwZCDxu4rQW1olrI1uml+o=
 sigs.k8s.io/yaml v1.2.0 h1:kr/MCeFWJWTwyaHoR9c8EjH9OumOmoF9YGiZd7lFm/Q=
 sigs.k8s.io/yaml v1.2.0/go.mod h1:yfXDCHCao9+ENCvLSE62v9VSji2MKu5jeNfTrofGhJc=
-yunion.io/x/executor v0.0.0-20201231064744-df32f32165a9 h1:TyKy58HHgjkTJYrZgD0haz4bItoC+QwcOQ+GtMuGTjw=
-yunion.io/x/executor v0.0.0-20201231064744-df32f32165a9/go.mod h1:Uxuou9WQIeJXNpy7t2fPLL0BYLvLiMvGQwY7Qc6aSws=
+yunion.io/x/executor v0.0.0-20210310041834-3fcd1574f68e h1:uGmKmmHm4zeLXhc/MEbAFtEDtGtyEYhC0OaBRGFi+fQ=
+yunion.io/x/executor v0.0.0-20210310041834-3fcd1574f68e/go.mod h1:Uxuou9WQIeJXNpy7t2fPLL0BYLvLiMvGQwY7Qc6aSws=
 yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051/go.mod h1:4N0/RVzsYL3kH3WE/H1BjUQdFiWu50JGCFQuuy+Z634=
 yunion.io/x/jsonutils v0.0.0-20201110084044-3e4e1cb49769 h1:LIQ4hhLGQuQK+XxlV+8JrKBuL37WUT+5ZTVxBwHOTD4=
 yunion.io/x/jsonutils v0.0.0-20201110084044-3e4e1cb49769/go.mod h1:p0nyMqGA/apTxxyLIU/o1k4V7Vujl2O6ey30L594sYE=
@@ -928,7 +928,7 @@ yunion.io/x/pkg v0.0.0-20210218105412-13a69f60034c h1:J/joqbA1N2mAlOl0Uqd4LpAq3+
 yunion.io/x/pkg v0.0.0-20210218105412-13a69f60034c/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
 yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e h1:v+EzIadodSwkdZ/7bremd7J8J50Cise/HCylsOJngmo=
 yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e/go.mod h1:0iFKpOs1y4lbCxeOmq3Xx/0AcQoewVPwj62eRluioEo=
-yunion.io/x/sqlchemy v0.0.0-20210204030051-4fb14f92a88f h1:RH3RY/AReFPwASyakFnHyFaHb0N+juxWmwiPlOHZqaY=
-yunion.io/x/sqlchemy v0.0.0-20210204030051-4fb14f92a88f/go.mod h1:FTdwPdGhMgh4E+UFXc9klI1Ok34fMuybTT+jLhOaIjI=
+yunion.io/x/sqlchemy v0.0.0-20210329171939-2c520f93aee3 h1:C4yasW3gXronDIlIVUqHSbkA38PM1X9gxUWTYGsuIuI=
+yunion.io/x/sqlchemy v0.0.0-20210329171939-2c520f93aee3/go.mod h1:FTdwPdGhMgh4E+UFXc9klI1Ok34fMuybTT+jLhOaIjI=
 yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce h1:kU8xE7O5uZ1GSJVMZHoJ+jrNL7csUQHYGyAPW9QfNpE=
 yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce/go.mod h1:EP6NSv2C0zzqBDTKumv8hPWLb3XvgMZDHQRfyuOrQng=

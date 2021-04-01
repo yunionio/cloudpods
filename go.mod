@@ -114,7 +114,7 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/stretchr/testify v1.5.1
 	github.com/tencentcloud/tencentcloud-sdk-go v3.0.135+incompatible
-	github.com/tencentyun/cos-go-sdk-v5 v0.7.10
+	github.com/tencentyun/cos-go-sdk-v5 v0.7.24
 	github.com/tinylib/msgp v1.1.0 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5 // indirect
 	github.com/tredoe/osutil v0.0.0-20161130133508-7d3ee1afa71c
@@ -146,13 +146,13 @@ require (
 	k8s.io/apimachinery v0.19.3
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
-	yunion.io/x/executor v0.0.0-20201231064744-df32f32165a9
+	yunion.io/x/executor v0.0.0-20210310041834-3fcd1574f68e
 	yunion.io/x/jsonutils v0.0.0-20201110084044-3e4e1cb49769
 	yunion.io/x/log v0.0.0-20201210064738-43181789dc74
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
 	yunion.io/x/pkg v0.0.0-20210218105412-13a69f60034c
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v0.0.0-20210204030051-4fb14f92a88f
+	yunion.io/x/sqlchemy v0.0.0-20210329171939-2c520f93aee3
 	yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
 )
 

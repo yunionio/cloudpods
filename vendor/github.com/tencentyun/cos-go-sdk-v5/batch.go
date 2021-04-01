@@ -13,7 +13,7 @@ type BatchRequestHeaders struct {
 	XCosAppid     int          `header:"x-cos-appid" xml:"-" url:"-"`
 	ContentLength string       `header:"Content-Length,omitempty" xml:"-" url:"-"`
 	ContentType   string       `header:"Content-Type,omitempty" xml:"-" url:"-"`
-	Headers       *http.Header `header:"-" xml:"-", url:"-"`
+	Headers       *http.Header `header:"-" xml:"-" url:"-"`
 }
 
 // BatchProgressSummary
@@ -244,7 +244,7 @@ func (s *BatchService) UpdateJobPriority(ctx context.Context, opt *BatchUpdatePr
 type BatchUpdateStatusOptions struct {
 	JobId              string `header:"-" url:"-" xml:"-"`
 	RequestedJobStatus string `url:"requestedJobStatus" header:"-" xml:"-"`
-	StatusUpdateReason string `url:"statusUpdateReason,omitempty" header:"-", xml:"-"`
+	StatusUpdateReason string `url:"statusUpdateReason,omitempty" header:"-" xml:"-"`
 }
 type BatchUpdateStatusResult struct {
 	XMLName            xml.Name `xml:"UpdateJobStatusResult"`

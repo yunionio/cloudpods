@@ -610,7 +610,7 @@ github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312
-# github.com/tencentyun/cos-go-sdk-v5 v0.7.10
+# github.com/tencentyun/cos-go-sdk-v5 v0.7.24
 github.com/tencentyun/cos-go-sdk-v5
 github.com/tencentyun/cos-go-sdk-v5/debug
 # github.com/texttheater/golang-levenshtein v0.0.0-20180516184445-d188e65d659e
@@ -1130,7 +1130,7 @@ k8s.io/utils/integer
 sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
-# yunion.io/x/executor v0.0.0-20201231064744-df32f32165a9
+# yunion.io/x/executor v0.0.0-20210310041834-3fcd1574f68e
 yunion.io/x/executor/apis
 yunion.io/x/executor/client
 yunion.io/x/executor/server
@@ -1177,7 +1177,7 @@ yunion.io/x/pkg/util/workqueue
 yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v0.0.0-20210204030051-4fb14f92a88f
+# yunion.io/x/sqlchemy v0.0.0-20210329171939-2c520f93aee3
 yunion.io/x/sqlchemy
 # yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
 yunion.io/x/structarg
