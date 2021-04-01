@@ -71,7 +71,7 @@ func AddDiskHandler(prefix string, app *appsrv.Application) {
 
 		app.AddHandler("POST",
 			fmt.Sprintf("%s/%s/<storageId>/<action>/<diskId>", prefix, keyWord),
-			auth.Authenticate(perfomrDiskActions))
+			auth.Authenticate(performDiskActions))
 		app.AddHandler("GET",
 			fmt.Sprintf("%s/%s/<storageId>/<diskId>/status", prefix, keyWord),
 			auth.Authenticate(getDiskStatus))
@@ -206,7 +206,7 @@ func saveToGlance(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	hostutils.ResponseOk(ctx, w)
 }
 
-func perfomrDiskActions(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func performDiskActions(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, body := appsrv.FetchEnv(ctx, w, r)
 	if body == nil {
 		body = jsonutils.NewDict()
@@ -230,7 +230,8 @@ func perfomrDiskActions(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	var disk storageman.IDisk
 	var err error
 
-	if action != "create" {
+	rebuild, _ := body.Bool("disk", "rebuild")
+	if action != "create" || rebuild {
 		disk, err = storage.GetDiskById(diskId)
 		if err != nil {
 			hostutils.Response(ctx, w, httperrors.NewGeneralError(errors.Wrapf(err, "GetDiskById(%s)", diskId)))
