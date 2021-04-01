@@ -69,7 +69,7 @@ func AddDiskHandler(prefix string, app *appsrv.Application) {
 
 		app.AddHandler("POST",
 			fmt.Sprintf("%s/%s/<storageId>/<action>/<diskId>", prefix, keyWord),
-			auth.Authenticate(perfomrDiskActions))
+			auth.Authenticate(performDiskActions))
 		app.AddHandler("GET",
 			fmt.Sprintf("%s/%s/<storageId>/<diskId>/status", prefix, keyWord),
 			auth.Authenticate(getDiskStatus))
@@ -200,7 +200,7 @@ func saveToGlance(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	hostutils.ResponseOk(ctx, w)
 }
 
-func perfomrDiskActions(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func performDiskActions(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, body := appsrv.FetchEnv(ctx, w, r)
 	if body == nil {
 		body = jsonutils.NewDict()
@@ -220,7 +220,11 @@ func perfomrDiskActions(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Storage %s not found", storageId))
 		return
 	}
-	disk := storage.GetDiskById(diskId)
+	var disk storageman.IDisk
+	rebuild, _ := body.Bool("disk", "rebuild")
+	if action != "create" || rebuild {
+		disk = storage.GetDiskById(diskId)
+	}
 
 	if f, ok := actionFuncs[action]; !ok {
 		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Not found"))
