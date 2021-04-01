@@ -281,7 +281,7 @@ type SVirtualLan struct {
 
 func (h *SHost) getVirtualSwitchs() []SVirtualSwitch {
 	hs := h.getHostSystem()
-	if hs.Config.Network == nil {
+	if hs.Config == nil || hs.Config.Network == nil {
 		return nil
 	}
 	vss := make([]SVirtualSwitch, 0, len(hs.Config.Network.Vswitch))
@@ -311,7 +311,7 @@ func (h *SHost) getVirtualSwitchs() []SVirtualSwitch {
 
 func (cli *SESXiClient) getVPGMap(mohost *mo.HostSystem) sVPGMap {
 	sm := newVPGMap()
-	if mohost.Config.Network == nil {
+	if mohost.Config == nil || mohost.Config.Network == nil {
 		return sm
 	}
 	for i := range mohost.Config.Network.Portgroup {
