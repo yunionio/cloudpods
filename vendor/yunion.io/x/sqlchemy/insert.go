@@ -179,7 +179,7 @@ func (t *STableSpec) insert(data interface{}, update bool, debug bool) error {
 		// for insertOrUpdate cases, if no duplication, targetCnt=1, else targetCnt=2
 		targetCnt = 2
 	}
-	if affectCnt < 1 || affectCnt > targetCnt {
+	if (!update && affectCnt < 1) || affectCnt > targetCnt {
 		return errors.Wrapf(ErrUnexpectRowCount, "Insert affected cnt %d != (1, %d)", affectCnt, targetCnt)
 	}
 
