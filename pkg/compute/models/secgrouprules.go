@@ -339,7 +339,7 @@ func (self *SSecurityGroupRule) ValidateUpdateData(ctx context.Context, userCred
 	if len(input.Protocol) == 0 {
 		input.Protocol = self.Protocol
 	}
-	if len(input.Ports) == 0 {
+	if len(input.Ports) == 0 && input.Protocol != string(secrules.PROTO_ANY) && input.Protocol != string(secrules.PROTO_ICMP) {
 		input.Ports = self.Ports
 	}
 
