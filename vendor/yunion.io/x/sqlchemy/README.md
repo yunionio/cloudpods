@@ -1,5 +1,8 @@
 # sqlchemy
 
+[![CircleCI](https://circleci.com/gh/yunionio/sqlchemy.svg?style=svg)](https://circleci.com/gh/yunionio/sqlchemy)
+[![Go Report Card](https://goreportcard.com/badge/github.com/yunionio/sqlchemy)](https://goreportcard.com/report/github.com/yunionio/sqlchemy)
+
 A lightweight golang ORM library inspired by python sqlalchemy.
 
 Features
