@@ -610,6 +610,9 @@ func (c *QueryCondition) getFilterResources(start int, end int,
 			continue
 		}
 		relationKey := relationMap[tag.Key]
+		if len(relationKey) == 0 {
+			continue
+		}
 		filterObj := make([]jsonutils.JSONObject, 0)
 		for _, res := range tmp {
 			val, _ := res.GetString(relationKey)
