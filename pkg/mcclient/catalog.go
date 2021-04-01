@@ -30,7 +30,7 @@ type IServiceCatalogChangeListener interface {
 func (cli *Client) RegisterCatalogListener(l IServiceCatalogChangeListener) {
 	cli.catalogListeners = append(cli.catalogListeners, l)
 	if cli.GetServiceCatalog() != nil {
-		cli.listenerWorker.Run(func() {
+		listenerWorker.Run(func() {
 			l.OnServiceCatalogChange(cli.GetServiceCatalog())
 		}, nil, nil)
 	}
@@ -38,7 +38,7 @@ func (cli *Client) RegisterCatalogListener(l IServiceCatalogChangeListener) {
 
 func (cli *Client) SetServiceCatalog(catalog IServiceCatalog) {
 	cli._serviceCatalog = catalog
-	cli.listenerWorker.Run(func() {
+	listenerWorker.Run(func() {
 		for i := range cli.catalogListeners {
 			cli.catalogListeners[i].OnServiceCatalogChange(catalog)
 		}
