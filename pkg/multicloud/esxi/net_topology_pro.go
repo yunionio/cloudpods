@@ -533,7 +533,7 @@ func (cli *SESXiClient) getVirtualSwitchs(hss []mo.HostSystem) (SVirtualSwitchMa
 	// vs
 	for i := range hss {
 		hs := hss[i]
-		if hs.Config.Network == nil {
+		if hs.Config == nil || hs.Config.Network == nil {
 			continue
 		}
 		for i := range hs.Config.Network.Vswitch {
@@ -570,7 +570,7 @@ func (cli *SESXiClient) getVirtualSwitchs(hss []mo.HostSystem) (SVirtualSwitchMa
 
 func (cli *SESXiClient) getVPGMap(mohost *mo.HostSystem) sVPGMap {
 	sm := newVPGMap()
-	if mohost.Config.Network == nil {
+	if mohost.Config == nil || mohost.Config.Network == nil {
 		return sm
 	}
 	for i := range mohost.Config.Network.Portgroup {
