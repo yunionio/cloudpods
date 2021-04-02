@@ -121,11 +121,21 @@ func rangeObjHandler(
 		if obj != nil {
 			rangeObjs = []db.IStandaloneModel{obj}
 		}
+		refresh := json.QueryBoolean(query, "refresh", false)
+		key := getCacheKey(scope, ownerId, isOwner, rangeObjs, hostTypes, providers, brands, cloudEnv, includeSystem)
+		if !refresh {
+			cached := usageCache.Get(key)
+			if cached != nil {
+				response(w, cached)
+				return
+			}
+		}
 		usage, err := reporter(scope, ownerId, isOwner, rangeObjs, hostTypes, providers, brands, cloudEnv, includeSystem)
 		if err != nil {
 			httperrors.GeneralServerError(ctx, w, err)
 			return
 		}
+		usageCache.AtomicSet(key, usage)
 		response(w, usage)
 	}
 }
