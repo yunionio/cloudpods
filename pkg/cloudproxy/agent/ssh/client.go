@@ -26,6 +26,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
+
+	ssh_util "yunion.io/x/onecloud/pkg/util/ssh"
 )
 
 type addrMap map[string]interface{}
@@ -93,7 +95,7 @@ func (am addrMap) delete(addr string) {
 }
 
 type Client struct {
-	cc *ClientConfig
+	cc *ssh_util.ClientConfig
 	c  *ssh.Client
 
 	stopc   chan sets.Empty
@@ -111,7 +113,7 @@ type Client struct {
 	remoteForwards portMap
 }
 
-func NewClient(cc *ClientConfig) *Client {
+func NewClient(cc *ssh_util.ClientConfig) *Client {
 	c := &Client{
 		cc: cc,
 
@@ -214,7 +216,7 @@ func (c *Client) Start(ctx context.Context) {
 }
 
 func (c *Client) connect(ctx context.Context) (*ssh.Client, error) {
-	sshc, err := c.cc.NewClient(ctx)
+	sshc, err := c.cc.ConnectContext(ctx)
 	return sshc, err
 }
 
