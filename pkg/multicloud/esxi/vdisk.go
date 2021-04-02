@@ -48,12 +48,15 @@ type SVirtualDisk struct {
 	multicloud.SDisk
 
 	SVirtualDevice
+	IsRoot bool
 }
 
 func NewVirtualDisk(vm *SVirtualMachine, dev types.BaseVirtualDevice, index int) SVirtualDisk {
+	isRoot := dev.GetVirtualDevice().DeviceInfo.GetDescription().Label == rootDiskMark
 	return SVirtualDisk{
 		multicloud.SDisk{},
 		NewVirtualDevice(vm, dev, index),
+		isRoot,
 	}
 }
 
@@ -378,7 +381,7 @@ func (disk *SVirtualDisk) GetTemplateId() string {
 }
 
 func (disk *SVirtualDisk) GetDiskType() string {
-	if disk.index == 0 {
+	if disk.IsRoot {
 		return api.DISK_TYPE_SYS
 	}
 	return api.DISK_TYPE_DATA
