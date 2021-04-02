@@ -16,8 +16,10 @@ package ssh
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -27,6 +29,12 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+)
+
+const (
+	ErrBadConfig = errors.Error("bad config")
+	ErrNetwork   = errors.Error("network error")
+	ErrProtocol  = errors.Error("ssh protocol error")
 )
 
 type ClientConfig struct {
@@ -54,7 +62,7 @@ func (conf ClientConfig) ToSshConfig() (*ssh.ClientConfig, error) {
 	if conf.PrivateKey != "" {
 		signer, err := parsePrivateKey(conf.PrivateKey)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(ErrBadConfig, "parse private key: %v", err)
 		}
 		auths = append(auths, ssh.PublicKeys(signer))
 	}
@@ -73,6 +81,29 @@ func (conf ClientConfig) Connect() (*ssh.Client, error) {
 		return nil, err
 	}
 	return client, nil
+}
+
+func (conf ClientConfig) ConnectContext(ctx context.Context) (*ssh.Client, error) {
+	cliConfig, err := conf.ToSshConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	addr := fmt.Sprintf("%s:%d", conf.Host, conf.Port)
+	d := &net.Dialer{}
+	netconn, err := d.DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return nil, errors.Wrapf(ErrNetwork, "tcp dial: %v", err)
+	}
+
+	sshconn, chans, reqs, err := ssh.NewClientConn(netconn, addr, cliConfig)
+	if err != nil {
+		netconn.Close()
+		return nil, errors.Wrap(ErrProtocol, err.Error())
+	}
+
+	sshc := ssh.NewClient(sshconn, chans, reqs)
+	return sshc, nil
 }
 
 type Client struct {
