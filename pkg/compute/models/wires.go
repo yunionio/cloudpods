@@ -237,7 +237,7 @@ func (wire *SWire) getHostwireQuery() *sqlchemy.SQuery {
 }
 
 func (wire *SWire) HostCount() (int, error) {
-	q := wire.getHostwireQuery()
+	q := HostwireManager.Query().Equals("wire_id", wire.Id).GroupBy("host_id")
 	return q.CountWithError()
 }
 
