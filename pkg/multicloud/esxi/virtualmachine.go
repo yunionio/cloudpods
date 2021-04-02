@@ -254,7 +254,6 @@ func (self *SVirtualMachine) getIHost() cloudprovider.ICloudHost {
 
 func (self *SVirtualMachine) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	idisks := make([]cloudprovider.ICloudDisk, len(self.vdisks))
-	sort.Sort(byDiskType(self.vdisks))
 	for i := 0; i < len(self.vdisks); i += 1 {
 		idisks[i] = &(self.vdisks[i])
 	}
@@ -770,11 +769,22 @@ func (self *SVirtualMachine) fetchHardwareInfo() error {
 		vdev := NewVirtualDevice(self, dev, 0)
 		self.devs[vdev.getKey()] = vdev
 	}
-	// sort disk based on index
-	sort.Slice(self.vdisks, func(i, j int) bool {
-		return self.vdisks[i].GetIndex() < self.vdisks[j].GetIndex()
-	})
+	self.rigorous()
+	sort.Sort(byDiskType(self.vdisks))
 	return nil
+}
+
+func (self *SVirtualMachine) rigorous() {
+	hasRoot := false
+	for i := range self.vdisks {
+		if self.vdisks[i].IsRoot {
+			hasRoot = true
+			break
+		}
+	}
+	if !hasRoot && len(self.vdisks) > 0 {
+		self.vdisks[0].IsRoot = true
+	}
 }
 
 func (self *SVirtualMachine) getVdev(key int32) SVirtualDevice {
