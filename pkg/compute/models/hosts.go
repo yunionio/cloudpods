@@ -5732,8 +5732,22 @@ func (host *SHost) PerformChangeOwner(ctx context.Context, userCred mcclient.Tok
 			return nil, errors.Wrap(err, "local storage change owner")
 		}
 	}
-
+	err = host.StartSyncTask(ctx, userCred, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "PerformChangeOwner StartSyncTask err")
+	}
 	return ret, nil
+}
+
+func (self *SHost) StartSyncTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	if task, err := taskman.TaskManager.NewTask(ctx, "HostSyncTask", self, userCred, jsonutils.NewDict(), parentTaskId, "",
+		nil); err != nil {
+		log.Errorln(err)
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
 }
 
 func (host *SHost) GetChangeOwnerRequiredDomainIds() []string {

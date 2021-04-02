@@ -732,10 +732,11 @@ func (self *SGuest) PerformAttachdisk(ctx context.Context, userCred mcclient.Tok
 	return nil, nil
 }
 
-func (self *SGuest) StartSyncTask(ctx context.Context, userCred mcclient.TokenCredential, fwOnly bool, parentTaskId string) error {
+func (self *SGuest) StartSyncTask(ctx context.Context, userCred mcclient.TokenCredential, firewallOnly bool,
+	parentTaskId string) error {
 
 	data := jsonutils.NewDict()
-	if fwOnly {
+	if firewallOnly {
 		data.Add(jsonutils.JSONTrue, "fw_only")
 	} else if err := self.SetStatus(userCred, api.VM_SYNC_CONFIG, ""); err != nil {
 		log.Errorln(err)
@@ -4402,7 +4403,15 @@ func (guest *SGuest) PerformChangeOwner(ctx context.Context, userCred mcclient.T
 			return nil, errors.Wrapf(err, "unable to change owner for instance snapshot %s", isps[i].GetId())
 		}
 	}
-	return guest.SVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, input)
+	changOwner, err := guest.SVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, input)
+	if err != nil {
+		return nil, err
+	}
+	err = guest.StartSyncTask(ctx, userCred, false, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "PerformChangeOwner StartSyncTask err")
+	}
+	return changOwner, nil
 }
 
 func (guest *SGuest) AllowPerformResizeDisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
