@@ -56,7 +56,7 @@ func (dev *Mpt2SASRaidPhyDev) parseLine(line string) bool {
 	}
 	switch key {
 	case "Drive Type":
-		if strings.HasSuffix("_HDD", val) {
+		if strings.HasSuffix(val, "_HDD") {
 			dev.Rotate = tristate.True
 		} else {
 			dev.Rotate = tristate.False
