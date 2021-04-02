@@ -415,6 +415,7 @@ type ICloudSecurityGroup interface {
 	GetVpcId() string
 
 	SyncRules(common, inAdds, outAdds, inDels, outDels []SecurityRule) error
+	GetReferences() ([]SecurityGroupReference, error)
 	Delete() error
 }
 

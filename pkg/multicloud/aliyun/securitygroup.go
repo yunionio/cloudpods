@@ -150,6 +150,52 @@ func (self *SSecurityGroup) Refresh() error {
 	return jsonutils.Update(self, group)
 }
 
+func (self *SSecurityGroup) GetReferences() ([]cloudprovider.SecurityGroupReference, error) {
+	references, err := self.vpc.region.DescribeSecurityGroupReferences(self.SecurityGroupId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "DescribeSecurityGroupReferences")
+	}
+	ret := []cloudprovider.SecurityGroupReference{}
+	for _, reference := range references {
+		if reference.SecurityGroupId == self.SecurityGroupId {
+			for _, sec := range reference.ReferencingSecurityGroups.ReferencingSecurityGroup {
+				ret = append(ret, cloudprovider.SecurityGroupReference{
+					Id: sec.SecurityGroupId,
+				})
+			}
+		}
+	}
+	return ret, nil
+}
+
+type ReferencingSecurityGroup struct {
+	AliUid          string
+	SecurityGroupId string
+}
+
+type ReferencingSecurityGroups struct {
+	ReferencingSecurityGroup []ReferencingSecurityGroup
+}
+
+type SecurityGroupReferences struct {
+	SecurityGroupId           string
+	ReferencingSecurityGroups ReferencingSecurityGroups
+}
+
+func (self *SRegion) DescribeSecurityGroupReferences(id string) ([]SecurityGroupReferences, error) {
+	params := map[string]string{
+		"RegionId":          self.RegionId,
+		"SecurityGroupId.1": id,
+	}
+	resp, err := self.ecsRequest("DescribeSecurityGroupReferences", params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "DescribeSecurityGroupReferences")
+	}
+	ret := []SecurityGroupReferences{}
+	err = resp.Unmarshal(&ret, "SecurityGroupReferences", "SecurityGroupReference")
+	return ret, errors.Wrapf(err, "resp.Unmarshal")
+}
+
 func (self *SRegion) GetSecurityGroups(vpcId, name string, securityGroupIds []string, offset int, limit int) ([]SSecurityGroup, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50

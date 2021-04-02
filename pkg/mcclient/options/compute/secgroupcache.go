@@ -12,14 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multicloud
+package compute
 
-import "yunion.io/x/onecloud/pkg/cloudprovider"
+import (
+	"yunion.io/x/jsonutils"
 
-type SSecurityGroup struct {
-	SVirtualResourceBase
+	"yunion.io/x/onecloud/pkg/mcclient/options"
+)
+
+type SecGroupCacheListOptions struct {
+	options.BaseListOptions
+	Secgroup string `help:"Secgroup ID or Name"`
 }
 
-func (self *SSecurityGroup) GetReferences() ([]cloudprovider.SecurityGroupReference, error) {
-	return []cloudprovider.SecurityGroupReference{}, nil
+func (opts *SecGroupCacheListOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(opts)
+}
+
+type SecGroupCacheIdOptions struct {
+	ID string `help:"ID or Name or secgroup cache"`
+}
+
+func (opts *SecGroupCacheIdOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *SecGroupCacheIdOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
 }
