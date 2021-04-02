@@ -55,7 +55,7 @@ func init() {
 type SHostwire struct {
 	SHostJointsBase
 
-	Bridge string `width:"16" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_required"`
+	Bridge string `width:"64" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_required"`
 	// 接口名称
 	Interface string `width:"16" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_required"`
 	// 是否是主地址
