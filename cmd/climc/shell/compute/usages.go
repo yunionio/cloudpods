@@ -32,6 +32,8 @@ type GeneralUsageOptions struct {
 
 	CloudEnv string `help:"show usage of specified cloudenv" choices:"public|private|onpremise"`
 	Scope    string `help:"show usage of specified privilege scope" choices:"system|domain|project"`
+
+	Refresh bool `help:"force refresh usage statistics"`
 }
 
 func fetchHostTypeOptions(args *GeneralUsageOptions) *jsonutils.JSONDict {
@@ -47,6 +49,9 @@ func fetchHostTypeOptions(args *GeneralUsageOptions) *jsonutils.JSONDict {
 	}
 	if len(args.CloudEnv) > 0 {
 		params.Add(jsonutils.NewString(args.CloudEnv), "cloud_env")
+	}
+	if args.Refresh {
+		params.Add(jsonutils.JSONTrue, "refresh")
 	}
 	return params
 }
