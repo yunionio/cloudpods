@@ -15,48 +15,16 @@
 package compute
 
 import (
-	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
-	type SecGroupCacheListOptions struct {
-		options.BaseListOptions
-		Secgroup string `help:"Secgroup ID or Name"`
-	}
-
-	R(&SecGroupCacheListOptions{}, "secgroup-cache-list", "List security group caches", func(s *mcclient.ClientSession, args *SecGroupCacheListOptions) error {
-		params, err := options.ListStructToParams(args)
-		if err != nil {
-			return err
-		}
-		result, err := modules.SecGroupCaches.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(result, modules.SecGroupCaches.GetColumns(s))
-		return nil
-	})
-	type SecGroupCacheIdOptions struct {
-		ID string `help:"ID or Name or secgroup cache"`
-	}
-	R(&SecGroupCacheIdOptions{}, "secgroup-cache-show", "Show security group cache", func(s *mcclient.ClientSession, args *SecGroupCacheIdOptions) error {
-		result, err := modules.SecGroupCaches.Get(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&SecGroupCacheIdOptions{}, "secgroup-cache-delete", "Delete security group cache", func(s *mcclient.ClientSession, args *SecGroupCacheIdOptions) error {
-		result, err := modules.SecGroupCaches.Delete(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
+	cmd := shell.NewResourceCmd(&modules.SecGroupCaches).WithKeyword("secgroup-cache")
+	cmd.List(&compute.SecGroupCacheListOptions{})
+	cmd.Show(&compute.SecGroupCacheIdOptions{})
+	cmd.Delete(&compute.SecGroupCacheIdOptions{})
+	cmd.Perform("syncstatus", &compute.SecGroupCacheIdOptions{})
+	cmd.Get("references", &compute.SecGroupCacheIdOptions{})
 }

@@ -136,6 +136,46 @@ func (self *SecurityGroupPolicy) String() string {
 	return strings.Join(result, ";")
 }
 
+type ReferredSecurityGroup struct {
+	SecurityGroupId          string
+	ReferredSecurityGroupIds []string
+}
+
+func (self *SSecurityGroup) GetReferences() ([]cloudprovider.SecurityGroupReference, error) {
+	references, err := self.region.DescribeSecurityGroupReferences(self.SecurityGroupId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "DescribeSecurityGroupReferences")
+	}
+	ret := []cloudprovider.SecurityGroupReference{}
+	for _, refer := range references {
+		if refer.SecurityGroupId == self.SecurityGroupId {
+			for _, id := range refer.ReferredSecurityGroupIds {
+				ret = append(ret, cloudprovider.SecurityGroupReference{
+					Id: id,
+				})
+			}
+		}
+	}
+	return ret, nil
+}
+
+func (self *SRegion) DescribeSecurityGroupReferences(id string) ([]ReferredSecurityGroup, error) {
+	params := map[string]string{
+		"Region":             self.Region,
+		"SecurityGroupIds.0": id,
+	}
+	resp, err := self.vpcRequest("DescribeSecurityGroupReferences", params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "DescribeSecurityGroupReferences")
+	}
+	ret := []ReferredSecurityGroup{}
+	err = resp.Unmarshal(&ret, "ReferredSecurityGroupSet")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	return ret, nil
+}
+
 func (self *SecurityGroupPolicy) toRules() []cloudprovider.SecurityRule {
 	result := []cloudprovider.SecurityRule{}
 	rule := cloudprovider.SecurityRule{

@@ -55,6 +55,9 @@ type SSecurityGroupCache struct {
 	SManagedResourceBase
 	SSecurityGroupResourceBase
 
+	// 被其他安全组引用的次数
+	ReferenceCount int `nullable:"false" list:"user" json:"reference_count"`
+
 	// 安全组Id
 	// SecgroupId string `width:"128" charset:"ascii" list:"user" create:"required"`
 
@@ -388,14 +391,26 @@ func (self *SSecurityGroupCache) GetSecgroup() (*SSecurityGroup, error) {
 	return model.(*SSecurityGroup), nil
 }
 
-func (self *SSecurityGroupCache) syncWithCloudSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudSecurityGroup) ([]SSecurityGroupRule, error) {
+func (self *SSecurityGroupCache) SyncBaseInfo(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudSecurityGroup) error {
 	_, err := db.Update(self, func() error {
 		self.Status = api.SECGROUP_CACHE_STATUS_READY
 		self.Name = ext.GetName()
 		self.Description = ext.GetDescription()
 		self.ExternalProjectId = ext.GetProjectId()
+		references, err := ext.GetReferences()
+		if err == nil {
+			self.ReferenceCount = len(references)
+		}
 		return nil
 	})
+	if err != nil {
+		return errors.Wrapf(err, "db.Update")
+	}
+	return nil
+}
+
+func (self *SSecurityGroupCache) syncWithCloudSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudSecurityGroup) ([]SSecurityGroupRule, error) {
+	err := self.SyncBaseInfo(ctx, userCred, ext)
 	if err != nil {
 		return nil, errors.Wrapf(err, "db.Update")
 	}
@@ -519,6 +534,8 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 			cache.Name = added[i].GetName()
 			cache.Description = added[i].GetDescription()
 			cache.ExternalId = added[i].GetGlobalId()
+			references, _ := added[i].GetReferences()
+			cache.ReferenceCount = len(references)
 			return nil
 		})
 		if err != nil {
@@ -541,6 +558,40 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 		}
 	}
 	return localSecgroups, remoteSecgroups, syncResult
+}
+
+func (self *SSecurityGroupCache) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsProjectAllowPerform(userCred, self, "syncstatus")
+}
+
+// 同步安全组缓存状态
+func (self *SSecurityGroupCache) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DiskSyncstatusInput) (jsonutils.JSONObject, error) {
+	return nil, self.StartSyncstatusTask(ctx, userCred, "")
+}
+
+func (self *SSecurityGroupCache) AllowGetDetailsReferences(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGetSpec(userCred, self, "references")
+}
+
+// 获取引用信息
+func (self *SSecurityGroupCache) GetDetailsReferences(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) ([]cloudprovider.SecurityGroupReference, error) {
+	iSecgroup, err := self.GetISecurityGroup()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetISecurityGroup")
+	}
+	return iSecgroup.GetReferences()
+}
+
+func (self *SSecurityGroupCache) StartSyncstatusTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	return StartResourceSyncStatusTask(ctx, userCred, self, "SecurityGroupCacheSyncstatusTask", "")
+}
+
+func (self *SSecurityGroupCache) ValidateDeleteCondition(ctx context.Context) error {
+	if self.ReferenceCount > 0 && self.Status == api.SECGROUP_CACHE_STATUS_READY {
+		return httperrors.NewNotEmptyError("security group has been reference in %d security group", self.ReferenceCount)
+	}
+
+	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (self *SSecurityGroupCache) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

@@ -38,15 +38,24 @@ func init() {
 		return nil
 	})
 
-	type SecurityGroupShowOptions struct {
+	type SecurityGroupIdOptions struct {
 		ID string `help:"ID or name of security group"`
 	}
-	shellutils.R(&SecurityGroupShowOptions{}, "security-group-show", "Show details of a security group", func(cli *aliyun.SRegion, args *SecurityGroupShowOptions) error {
+	shellutils.R(&SecurityGroupIdOptions{}, "security-group-show", "Show details of a security group", func(cli *aliyun.SRegion, args *SecurityGroupIdOptions) error {
 		secgrp, err := cli.GetSecurityGroupDetails(args.ID)
 		if err != nil {
 			return err
 		}
 		printObject(secgrp)
+		return nil
+	})
+
+	shellutils.R(&SecurityGroupIdOptions{}, "security-group-references", "Show references of a security group", func(cli *aliyun.SRegion, args *SecurityGroupIdOptions) error {
+		references, err := cli.DescribeSecurityGroupReferences(args.ID)
+		if err != nil {
+			return err
+		}
+		printList(references, 0, 0, 0, nil)
 		return nil
 	})
 

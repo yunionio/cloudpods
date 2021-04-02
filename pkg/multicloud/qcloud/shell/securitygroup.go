@@ -55,6 +55,15 @@ func init() {
 		return cloudprovider.ErrNotFound
 	})
 
+	shellutils.R(&SecurityGroupOptions{}, "security-group-references", "Show references of a security group", func(cli *qcloud.SRegion, args *SecurityGroupOptions) error {
+		references, err := cli.DescribeSecurityGroupReferences(args.ID)
+		if err != nil {
+			return err
+		}
+		printList(references, 0, 0, 0, nil)
+		return nil
+	})
+
 	shellutils.R(&SecurityGroupOptions{}, "security-group-delete", "Delete SecurityGroup", func(cli *qcloud.SRegion, args *SecurityGroupOptions) error {
 		return cli.DeleteSecurityGroup(args.ID)
 	})
