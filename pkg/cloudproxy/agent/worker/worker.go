@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	cloudproxy_modules "yunion.io/x/onecloud/pkg/mcclient/modules/cloudproxy"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
+	ssh_util "yunion.io/x/onecloud/pkg/util/ssh"
 )
 
 type Worker struct {
@@ -209,11 +210,11 @@ func (w *Worker) run(ctx context.Context, mss *agentmodels.ModelSets) (err error
 
 	w.clientSet.ClearAllMark()
 	for _, pep := range mss.ProxyEndpoints {
-		cc := agentssh.ClientConfig{
-			User: pep.User,
-			Host: pep.Host,
-			Port: pep.Port,
-			Key:  pep.PrivateKey,
+		cc := ssh_util.ClientConfig{
+			Username:   pep.User,
+			Host:       pep.Host,
+			Port:       pep.Port,
+			PrivateKey: pep.PrivateKey,
 		}
 		if reset := w.clientSet.ResetIfChanged(ctx, pep.Id, cc); reset {
 			log.Warningf("proxy endpoint %s changed, connections reset", pep.Id)

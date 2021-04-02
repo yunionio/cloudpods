@@ -16,10 +16,12 @@ package ssh
 
 import (
 	"context"
+
+	ssh_util "yunion.io/x/onecloud/pkg/util/ssh"
 )
 
 type epClientSet struct {
-	cc      ClientConfig
+	cc      ssh_util.ClientConfig
 	clients []*Client
 
 	mark bool
@@ -62,7 +64,7 @@ func (cs *ClientSet) ClearAllMark() {
 	}
 }
 
-func (cs *ClientSet) ResetIfChanged(ctx context.Context, epKey string, cc ClientConfig) bool {
+func (cs *ClientSet) ResetIfChanged(ctx context.Context, epKey string, cc ssh_util.ClientConfig) bool {
 	epcs, ok := cs.epClients[epKey]
 	if ok {
 		if epcs.cc != cc {
@@ -75,7 +77,7 @@ func (cs *ClientSet) ResetIfChanged(ctx context.Context, epKey string, cc Client
 	return false
 }
 
-func (cs *ClientSet) AddIfNotExist(ctx context.Context, epKey string, cc ClientConfig) bool {
+func (cs *ClientSet) AddIfNotExist(ctx context.Context, epKey string, cc ssh_util.ClientConfig) bool {
 	epcs, ok := cs.epClients[epKey]
 	if !ok {
 		epcs := &epClientSet{
