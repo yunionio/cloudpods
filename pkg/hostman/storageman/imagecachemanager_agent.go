@@ -154,7 +154,7 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByUpload(ctx context.Context
 		return nil, err
 	}
 	localImgPath, _ := localImage.GetString("path")
-	localImgSize, _ := localImage.Int("size")
+	//localImgSize, _ := localImage.Int("size")
 
 	client, err := esxi.NewESXiClientFromAccessInfo(ctx, &data.Datastore)
 	if err != nil {
@@ -180,14 +180,13 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByUpload(ctx context.Context
 			exists = true
 		}
 	} else {
-		ret, err := ds.CheckFile(ctx, remotePath)
+		_, err := ds.ListPath(ctx, remotePath)
 		if err != nil {
-			log.Debugf("ds.CheckFile failed: %s", err)
-		} else {
-			if int64(ret.Size) == localImgSize {
-				// exist and same size
-				exists = true
+			if errors.Cause(err) != errors.ErrNotFound {
+				return nil, errors.Wrapf(err, "unable to check file with path %s", remotePath)
 			}
+		} else {
+			exists = true
 		}
 	}
 	log.Debugf("exist: %t, remotePath: %s", exists, remotePath)

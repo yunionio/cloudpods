@@ -24,15 +24,28 @@ import (
 	"yunion.io/x/pkg/errors"
 )
 
-func NewDiskDev(sizeMb int64, templatePath string, uuid string, index int32, keyBase int32, controlKey int32, key int32) *types.VirtualDisk {
+type SDiskConfig struct {
+	SizeMb        int64
+	Uuid          string
+	ControllerKey int32
+	UnitNumber    int32
+	Key           int32
+	ImagePath     string
+	IsRoot        bool
+}
+
+// In fact, it is the default lable of first one disk
+const rootDiskMark = "Hard disk 1"
+
+func NewDiskDev(sizeMb int64, config SDiskConfig) *types.VirtualDisk {
 	device := types.VirtualDisk{}
 	diskFile := types.VirtualDiskFlatVer2BackingInfo{}
 	diskFile.DiskMode = "persistent"
 	thinProvisioned := true
 	diskFile.ThinProvisioned = &thinProvisioned
-	diskFile.Uuid = uuid
-	if len(templatePath) > 0 {
-		diskFile.FileName = templatePath
+	diskFile.Uuid = config.Uuid
+	if len(config.ImagePath) > 0 {
+		diskFile.FileName = config.ImagePath
 	}
 	device.Backing = &diskFile
 
@@ -40,13 +53,15 @@ func NewDiskDev(sizeMb int64, templatePath string, uuid string, index int32, key
 		device.CapacityInKB = sizeMb * 1024
 	}
 
-	device.ControllerKey = controlKey
-	if key != 0 {
-		device.Key = key
-	} else {
-		device.Key = keyBase + index
+	device.ControllerKey = config.ControllerKey
+	device.Key = config.Key
+	device.UnitNumber = &config.UnitNumber
+
+	var label string
+	if config.IsRoot {
+		label = rootDiskMark
+		device.DeviceInfo = &types.Description{Label: label}
 	}
-	device.UnitNumber = &index
 
 	return &device
 }

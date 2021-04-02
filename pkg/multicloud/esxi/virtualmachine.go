@@ -188,15 +188,23 @@ func (self *SVirtualMachine) DoRebuildRoot(ctx context.Context, imagePath string
 func (self *SVirtualMachine) rebuildDisk(ctx context.Context, disk *SVirtualDisk, imagePath string) error {
 	uuid := disk.GetId()
 	sizeMb := disk.GetDiskSizeMB()
-	index := disk.index
 	diskKey := disk.getKey()
 	ctlKey := disk.getControllerKey()
+	unitNumber := *disk.dev.GetVirtualDevice().UnitNumber
 
 	err := self.doDetachAndDeleteDisk(ctx, disk)
 	if err != nil {
 		return err
 	}
-	return self.createDiskInternal(ctx, sizeMb, uuid, int32(index), diskKey, ctlKey, imagePath, false)
+	return self.createDiskInternal(ctx, SDiskConfig{
+		SizeMb:        int64(sizeMb),
+		Uuid:          uuid,
+		ControllerKey: ctlKey,
+		UnitNumber:    unitNumber,
+		Key:           diskKey,
+		ImagePath:     imagePath,
+		IsRoot:        len(imagePath) > 0,
+	}, false)
 }
 
 func (self *SVirtualMachine) UpdateVM(ctx context.Context, name string) error {
@@ -246,7 +254,6 @@ func (self *SVirtualMachine) getIHost() cloudprovider.ICloudHost {
 
 func (self *SVirtualMachine) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	idisks := make([]cloudprovider.ICloudDisk, len(self.vdisks))
-	sort.Sort(byDiskType(self.vdisks))
 	for i := 0; i < len(self.vdisks); i += 1 {
 		idisks[i] = &(self.vdisks[i])
 	}
@@ -762,11 +769,22 @@ func (self *SVirtualMachine) fetchHardwareInfo() error {
 		vdev := NewVirtualDevice(self, dev, 0)
 		self.devs[vdev.getKey()] = vdev
 	}
-	// sort disk based on index
-	sort.Slice(self.vdisks, func(i, j int) bool {
-		return self.vdisks[i].GetIndex() < self.vdisks[j].GetIndex()
-	})
+	self.rigorous()
+	sort.Sort(byDiskType(self.vdisks))
 	return nil
+}
+
+func (self *SVirtualMachine) rigorous() {
+	hasRoot := false
+	for i := range self.vdisks {
+		if self.vdisks[i].IsRoot {
+			hasRoot = true
+			break
+		}
+	}
+	if !hasRoot && len(self.vdisks) > 0 {
+		self.vdisks[0].IsRoot = true
+	}
 }
 
 func (self *SVirtualMachine) getVdev(key int32) SVirtualDevice {
@@ -918,7 +936,13 @@ func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid st
 		unitNumber++
 	}
 
-	return self.createDiskInternal(ctx, sizeMb, uuid, int32(unitNumber), diskKey, ctrlKey, "", true)
+	return self.createDiskInternal(ctx, SDiskConfig{
+		SizeMb:        int64(sizeMb),
+		Uuid:          uuid,
+		UnitNumber:    int32(unitNumber),
+		ControllerKey: ctrlKey,
+		Key:           diskKey,
+	}, true)
 }
 
 // createDriverAndDisk will create a driver and disk associated with the driver
@@ -941,10 +965,19 @@ func (self *SVirtualMachine) createDriverAndDisk(ctx context.Context, sizeMb int
 		log.Errorf("there is no suitable key between 1000 and 2000???!")
 	}
 
-	return self.createDiskWithDeviceChange(ctx, deviceChange, sizeMb, uuid, 0, diskKey, scsiKey, "", true)
+	return self.createDiskWithDeviceChange(ctx, deviceChange,
+		SDiskConfig{
+			SizeMb:        int64(sizeMb),
+			Uuid:          uuid,
+			ControllerKey: scsiKey,
+			UnitNumber:    0,
+			Key:           scsiKey,
+			ImagePath:     "",
+			IsRoot:        false,
+		}, true)
 }
 
-func (self *SVirtualMachine) copyRootDisk(ctx context.Context, imagePath string, index int) (string, error) {
+func (self *SVirtualMachine) copyRootDisk(ctx context.Context, imagePath string) (string, error) {
 	movm := self.getVirtualMachine()
 	if movm.LayoutEx == nil || len(movm.LayoutEx.File) == 0 {
 		return "", fmt.Errorf("invalid LayoutEx")
@@ -969,7 +1002,8 @@ func (self *SVirtualMachine) copyRootDisk(ctx context.Context, imagePath string,
 	}
 	path := datastore.cleanPath(file)
 	vmDir := strings.Split(path, "/")[0]
-	newImagePath := datastore.getPathString(fmt.Sprintf("%s/%s-%d.vmdk", vmDir, vmDir, index))
+	// TODO find a non-conflicting path
+	newImagePath := datastore.getPathString(fmt.Sprintf("%s/%s.vmdk", vmDir, vmDir))
 
 	fm := datastore.getDatastoreObj().NewFileManager(datastore.datacenter.getObjectDatacenter(), true)
 	err = fm.Copy(ctx, imagePath, newImagePath)
@@ -979,22 +1013,20 @@ func (self *SVirtualMachine) copyRootDisk(ctx context.Context, imagePath string,
 	return newImagePath, nil
 }
 
-func (self *SVirtualMachine) createDiskWithDeviceChange(ctx context.Context,
-	deviceChange []types.BaseVirtualDeviceConfigSpec, sizeMb int,
-	uuid string, index int32, diskKey int32, ctlKey int32, imagePath string, check bool) error {
-
+func (self *SVirtualMachine) createDiskWithDeviceChange(ctx context.Context, deviceChange []types.BaseVirtualDeviceConfigSpec, config SDiskConfig, check bool) error {
 	var err error
 	// copy disk
-	if len(imagePath) > 0 {
-		imagePath, err = self.copyRootDisk(ctx, imagePath, int(index))
+	if len(config.ImagePath) > 0 {
+		config.IsRoot = true
+		config.ImagePath, err = self.copyRootDisk(ctx, config.ImagePath)
 		if err != nil {
 			return errors.Wrap(err, "unable to copyRootDisk")
 		}
 	}
 
-	devSpec := NewDiskDev(int64(sizeMb), imagePath, uuid, index, 0, ctlKey, diskKey)
+	devSpec := NewDiskDev(int64(config.SizeMb), config)
 	spec := addDevSpec(devSpec)
-	if len(imagePath) == 0 {
+	if len(config.ImagePath) == 0 {
 		spec.FileOperation = types.VirtualDeviceConfigSpecFileOperationCreate
 	}
 	configSpec := types.VirtualMachineConfigSpec{}
@@ -1025,10 +1057,9 @@ func (self *SVirtualMachine) createDiskWithDeviceChange(ctx context.Context,
 	return cloudprovider.ErrTimeout
 }
 
-func (self *SVirtualMachine) createDiskInternal(ctx context.Context, sizeMb int, uuid string, index int32,
-	diskKey int32, ctlKey int32, imagePath string, check bool) error {
+func (self *SVirtualMachine) createDiskInternal(ctx context.Context, config SDiskConfig, check bool) error {
 
-	return self.createDiskWithDeviceChange(ctx, nil, sizeMb, uuid, index, diskKey, ctlKey, imagePath, check)
+	return self.createDiskWithDeviceChange(ctx, nil, config, check)
 }
 
 func (self *SVirtualMachine) Renew(bc billing.SBillingCycle) error {
