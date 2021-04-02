@@ -51,7 +51,7 @@ type SNonlocalUser struct {
 	db.SModelBase
 
 	DomainId string `width:"64" charset:"ascii" primary:"true"`
-	Name     string `width:"255" charset:"utf8" primary:"true"`
+	Name     string `width:"191" charset:"utf8" primary:"true"`
 	UserId   string `width:"64" charset:"ascii" nullable:"false" index:"true"`
 }
 
