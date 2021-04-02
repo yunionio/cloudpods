@@ -62,6 +62,7 @@ type IHostDriver interface {
 	ValidateAttachStorage(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, storage *SStorage, data *jsonutils.JSONDict) error
 	RequestAttachStorage(ctx context.Context, hoststorage *SHoststorage, host *SHost, storage *SStorage, task taskman.ITask) error
 	RequestDetachStorage(ctx context.Context, host *SHost, storage *SStorage, task taskman.ITask) error
+	RequestSyncOnHost(ctx context.Context, host *SHost, task taskman.ITask) error
 }
 
 var hostDrivers map[string]IHostDriver
