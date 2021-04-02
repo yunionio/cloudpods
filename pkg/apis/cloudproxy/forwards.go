@@ -51,7 +51,10 @@ type ForwardListInput struct {
 	ProxyAgentId    string
 	ProxyEndpointId string
 
-	Type string
+	Type        string
+	RemoteAddr  string
+	RemotePort  *int
+	BindPortReq *int
 
 	Opaque string
 }
