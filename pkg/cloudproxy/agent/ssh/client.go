@@ -143,6 +143,9 @@ func (c *Client) Stop(ctx context.Context) {
 }
 
 func (c *Client) Start(ctx context.Context) {
+	ctx, cancelFunc := context.WithCancel(ctx)
+	defer cancelFunc()
+
 	pingT := time.NewTimer(17 * time.Second)
 	pingFailCount := 0
 	const pingMaxFail = 3
