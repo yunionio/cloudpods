@@ -19,11 +19,16 @@ import (
 	"fmt"
 	"net/http"
 
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/host_health"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
+
+type actionFunc func(context.Context, string, jsonutils.JSONObject) (interface{}, error)
 
 var (
 	keyWords = []string{"hosts"}
@@ -33,6 +38,15 @@ func AddHostHandler(prefix string, app *appsrv.Application) {
 	for _, keyword := range keyWords {
 		app.AddHandler("POST", fmt.Sprintf("%s/%s/shutdown-servers-on-host-down", prefix, keyword),
 			auth.Authenticate(setOnHostDown))
+
+		for action, f := range map[string]actionFunc{
+			"sync": hostSync,
+		} {
+			app.AddHandler("POST",
+				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyword, action),
+				auth.Authenticate(hostActions(f)),
+			)
+		}
 	}
 }
 
@@ -42,4 +56,26 @@ func setOnHostDown(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	hostutils.ResponseOk(ctx, w)
+}
+
+func hostActions(f actionFunc) appsrv.FilterHandler {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		params, _, body := appsrv.FetchEnv(ctx, w, r)
+		if body == nil {
+			body = jsonutils.NewDict()
+		}
+		var sid = params["<sid>"]
+		res, err := f(ctx, sid, body)
+		if err != nil {
+			hostutils.Response(ctx, w, err)
+		} else if res != nil {
+			hostutils.Response(ctx, w, res)
+		} else {
+			hostutils.ResponseOk(ctx, w)
+		}
+	}
+}
+
+func hostSync(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	return hostinfo.Instance().UpdateSyncInfo(sid, body)
 }

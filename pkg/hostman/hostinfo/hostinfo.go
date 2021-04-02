@@ -930,6 +930,25 @@ func (h *SHostInfo) getDomainInfo(hostId string) {
 	h.Project_domain = strings.ReplaceAll(project_domain, " ", "+")
 }
 
+func (h *SHostInfo) UpdateSyncInfo(hostId string, body jsonutils.JSONObject) (interface{}, error) {
+	if h.GetHostId() != hostId {
+		return nil, nil
+	}
+	descObj, err := body.Get("desc")
+	if err != nil {
+		return nil, err
+	}
+	domainId, _ := descObj.GetString("domain_id")
+	projectDomain, _ := descObj.GetString("project_domain")
+	if len(domainId) != 0 {
+		h.Domain_id = domainId
+	}
+	if len(projectDomain) != 0 {
+		h.Project_domain = strings.ReplaceAll(projectDomain, " ", "+")
+	}
+	return nil, nil
+}
+
 func (h *SHostInfo) setHostname(name string) {
 	h.FullName = name
 	err := sysutils.SetHostname(name)
