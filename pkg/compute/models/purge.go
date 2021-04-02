@@ -1693,11 +1693,6 @@ func (cache *SSecurityGroupCache) purge(ctx context.Context, userCred mcclient.T
 	lockman.LockObject(ctx, cache)
 	defer lockman.ReleaseObject(ctx, cache)
 
-	err := cache.ValidateDeleteCondition(ctx)
-	if err != nil {
-		return err
-	}
-
 	return cache.RealDelete(ctx, userCred)
 }
 
