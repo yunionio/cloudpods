@@ -70,6 +70,7 @@ func (cs *ClientSet) ResetIfChanged(ctx context.Context, epKey string, cc ssh_ut
 		if epcs.cc != cc {
 			epcs.stop(ctx)
 			delete(cs.epClients, epKey)
+			cs.AddIfNotExist(ctx, epKey, cc)
 			return true
 		}
 		epcs.setMark()
@@ -172,7 +173,7 @@ func (cs *ClientSet) getClient_(epKey string, typ string, create bool) (*Client,
 
 	clients, ok := cs.epClients[epKey]
 	if !ok || len(clients.clients) == 0 {
-		if !create {
+		if !ok || !create {
 			return nil, false
 		}
 		client = NewClient(&clients.cc)
