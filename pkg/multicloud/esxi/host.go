@@ -728,34 +728,174 @@ type SEsxiImageInfo struct {
 	StorageCacheHostIp string
 }
 
-func (self *SHost) CreateVM2(ctx context.Context, ds *SDatastore, params SCreateVMParam) (*SVirtualMachine, error) {
+func (self *SHost) CreateVM2(ctx context.Context, ds *SDatastore, params SCreateVMParam) (needDeploy bool, vm *SVirtualMachine, err error) {
+	needDeploy = true
+	var temvm *SVirtualMachine
 	if len(params.InstanceSnapshotInfo.InstanceSnapshotId) > 0 {
-		temvm, err := self.manager.SearchVM(params.InstanceSnapshotInfo.InstanceId)
+		temvm, err = self.manager.SearchVM(params.InstanceSnapshotInfo.InstanceId)
 		if err != nil {
-			return nil, errors.Wrapf(err, "can't find vm %q, please sync status for vm or sync cloudaccount", params.InstanceSnapshotInfo.InstanceId)
+			err = errors.Wrapf(err, "can't find vm %q, please sync status for vm or sync cloudaccount", params.InstanceSnapshotInfo.InstanceId)
 		}
-		isp, err := temvm.GetInstanceSnapshot(params.InstanceSnapshotInfo.InstanceSnapshotId)
+		var isp cloudprovider.ICloudInstanceSnapshot
+		isp, err = temvm.GetInstanceSnapshot(params.InstanceSnapshotInfo.InstanceSnapshotId)
 		if err != nil {
-			return nil, errors.Wrap(err, "unable to GetInstanceSnapshot")
+			err = errors.Wrap(err, "unable to GetInstanceSnapshot")
+			return
 		}
 		sp := isp.(*SVirtualMachineSnapshot)
-		return self.CloneVM(ctx, temvm, &sp.snapshotTree.Snapshot, ds, params)
+		vm, err = self.CloneVM(ctx, temvm, &sp.snapshotTree.Snapshot, ds, params)
+		return
 	}
 	if len(params.Disks) == 0 {
-		return nil, errors.Error("empty disk config")
+		err = errors.Error("empty disk config")
+		return
 	}
 	imageInfo := params.Disks[0].ImageInfo
 	if imageInfo.ImageType == string(cloudprovider.ImageTypeSystem) {
-		temvm, err := self.manager.SearchTemplateVM(imageInfo.ImageExternalId)
+		temvm, err = self.manager.SearchTemplateVM(imageInfo.ImageExternalId)
 		if err != nil {
-			return nil, errors.Wrapf(err, "SEsxiClient.SearchTemplateVM for image %q", imageInfo.ImageExternalId)
+			err = errors.Wrapf(err, "SEsxiClient.SearchTemplateVM for image %q", imageInfo.ImageExternalId)
+			return
 		}
-		return self.CloneVM(ctx, temvm, nil, ds, params)
+		vm, err = self.CloneVM(ctx, temvm, nil, ds, params)
+		return
 	}
 	return self.DoCreateVM(ctx, ds, params)
 }
 
-func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreateVMParam) (*SVirtualMachine, error) {
+func (self *SHost) needScsi(disks []SDiskInfo) bool {
+	if len(disks) == 0 {
+		return false
+	}
+	for i := range disks {
+		driver := disks[i].Driver
+		if driver == "" || driver == "scsi" || driver == "pvscsi" {
+			return true
+		}
+	}
+	return false
+}
+
+func (self *SHost) addDisks(ctx context.Context, dc *SDatacenter, ds *SDatastore, disks []SDiskInfo, uuid string, objectVm *object.VirtualMachine) (*SVirtualMachine, error) {
+	getVM := func() (*SVirtualMachine, error) {
+		var moVM mo.VirtualMachine
+		err := self.manager.reference2Object(objectVm.Reference(), VIRTUAL_MACHINE_PROPS, &moVM)
+		if err != nil {
+			return nil, errors.Wrap(err, "fail to fetch virtual machine just created")
+		}
+
+		evm := NewVirtualMachine(self.manager, &moVM, self.datacenter)
+		if evm == nil {
+			return nil, errors.Error("create successfully but unable to NewVirtualMachine")
+		}
+		return evm, nil
+	}
+
+	if len(disks) == 0 {
+		return getVM()
+	}
+
+	var (
+		scsiIdx    = 0
+		ideIdx     = 0
+		ide1un     = 0
+		ide2un     = 1
+		unitNumber = 0
+		ctrlKey    = 0
+	)
+	deviceChange := make([]types.BaseVirtualDeviceConfigSpec, 0, 1)
+	// add disks
+	var rootDiskSizeMb int64
+	for i, disk := range disks {
+		imagePath := disk.ImagePath
+		var size = disk.Size
+		if len(imagePath) == 0 {
+			if size == 0 {
+				size = 30 * 1024
+			}
+		} else {
+			imagePath, err := self.FileUrlPathToDsPath(imagePath)
+			if err != nil {
+				return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath")
+			}
+			newImagePath := fmt.Sprintf("[%s] %s/%s.vmdk", ds.GetRelName(), uuid, uuid)
+			fm := ds.getDatastoreObj().NewFileManager(dc.getObjectDatacenter(), true)
+			err = fm.Copy(ctx, imagePath, newImagePath)
+			if err != nil {
+				return nil, errors.Wrap(err, "unable to copy system disk")
+			}
+			imagePath = newImagePath
+			rootDiskSizeMb = size
+		}
+		uuid, driver := disk.DiskId, "scsi"
+		if len(disk.Driver) > 0 {
+			driver = disk.Driver
+		}
+		if driver == "scsi" || driver == "pvscsi" {
+			if self.isVersion50() {
+				driver = "scsi"
+			}
+			ctrlKey = 1000
+			unitNumber = scsiIdx
+			scsiIdx += 1
+			if scsiIdx == 7 {
+				scsiIdx++
+			}
+		} else {
+			ideno := ideIdx % 2
+			if ideno == 0 {
+				unitNumber = ideIdx/2 + ide1un
+			} else {
+				unitNumber = ideIdx/2 + ide2un
+			}
+			ctrlKey = 200 + ideno
+			ideIdx += 1
+		}
+		log.Debugf("size: %d, image path: %s, uuid: %s, index: %d, ctrlKey: %d, driver: %s, key: %d.", size, imagePath, uuid, unitNumber, ctrlKey, disk.Driver, 2000+i)
+		spec := addDevSpec(NewDiskDev(size, SDiskConfig{
+			SizeMb:        size,
+			Uuid:          uuid,
+			ControllerKey: int32(ctrlKey),
+			UnitNumber:    int32(unitNumber),
+			Key:           int32(2000 + i),
+			ImagePath:     imagePath,
+			IsRoot:        i == 0,
+		}))
+		if len(imagePath) == 0 {
+			spec.FileOperation = "create"
+		}
+		deviceChange = append(deviceChange, spec)
+	}
+	log.Infof("deviceChange: %s", jsonutils.Marshal(deviceChange))
+
+	configSpec := types.VirtualMachineConfigSpec{}
+	configSpec.DeviceChange = deviceChange
+	task, err := objectVm.Reconfigure(ctx, configSpec)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to reconfigure")
+	}
+	err = task.Wait(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "task.Wait")
+	}
+
+	evm, err := getVM()
+	if err != nil {
+		return nil, err
+	}
+
+	// resize root disk
+	if rootDiskSizeMb > 0 && int64(evm.vdisks[0].GetDiskSizeMB()) != rootDiskSizeMb {
+		err = evm.vdisks[0].Resize(ctx, rootDiskSizeMb)
+		if err != nil {
+			return evm, errors.Wrap(err, "resize for root disk")
+		}
+	}
+	return evm, nil
+}
+
+func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreateVMParam) (needDeploy bool, vm *SVirtualMachine, err error) {
+	needDeploy = true
 	deviceChange := make([]types.BaseVirtualDeviceConfigSpec, 0, 5)
 
 	// uuid first
@@ -800,34 +940,24 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 	deviceChange = append(deviceChange, addDevSpec(NewIDEDev(200, 0)))
 	deviceChange = append(deviceChange, addDevSpec(NewIDEDev(200, 1)))
 	deviceChange = append(deviceChange, addDevSpec(NewSVGADev(500, 100)))
-	disks, driver := params.Disks, "scsi"
-	if len(disks) > 0 {
-		driver = disks[0].Driver
-	}
-	if driver == "scsi" || driver == "pvscsi" {
+
+	if self.needScsi(params.Disks) {
+		driver := "pvscsi"
 		if self.isVersion50() {
 			driver = "scsi"
 		}
 		deviceChange = append(deviceChange, addDevSpec(NewSCSIDev(1000, 100, driver)))
 	}
-	var err error
 	cdromPath := params.Cdrom.Path
 	if len(cdromPath) > 0 {
+		needDeploy = false
 		cdromPath, err = self.FileUrlPathToDsPath(cdromPath)
 		if err != nil {
-			return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath for cdrom path")
+			err = errors.Wrapf(err, "SHost.FileUrlPathToDsPath for cdrom path")
+			return
 		}
 	}
 	deviceChange = append(deviceChange, addDevSpec(NewCDROMDev(cdromPath, 16000, 201)))
-
-	var (
-		scsiIdx = 0
-		ideIdx  = 0
-		ide1un  = 0
-		ide2un  = 1
-		index   = 0
-		ctrlKey = 0
-	)
 
 	// add usb to support mouse
 	usbController := addDevSpec(NewUSBController(nil))
@@ -851,7 +981,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 		}
 		dev, err := NewVNICDev(self, mac, driver, bridge, int32(vlanId), 4000, 100, int32(index))
 		if err != nil {
-			return nil, errors.Wrap(err, "NewVNICDev")
+			return needDeploy, nil, errors.Wrap(err, "NewVNICDev")
 		}
 		deviceChange = append(deviceChange, addDevSpec(dev))
 	}
@@ -859,118 +989,36 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 	spec.DeviceChange = deviceChange
 	dc, err := self.GetDatacenter()
 	if err != nil {
-		return nil, errors.Wrapf(err, "SHost.GetDatacenter for host '%s'", self.GetId())
+		err = errors.Wrapf(err, "SHost.GetDatacenter for host '%s'", self.GetId())
+		return
 	}
 	// get vmFloder
 	folders, err := dc.getObjectDatacenter().Folders(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "object.DataCenter.Folders")
+		err = errors.Wrap(err, "object.DataCenter.Folders")
+		return
 	}
 	vmFolder := folders.VmFolder
 	resourcePool, err := self.SyncResourcePool(params.ResourcePool)
 	if err != nil {
-		return nil, errors.Wrap(err, "SyncResourcePool")
+		err = errors.Wrap(err, "SyncResourcePool")
+		return
 	}
 	task, err := vmFolder.CreateVM(ctx, spec, resourcePool, self.GetoHostSystem())
 	if err != nil {
-		return nil, errors.Wrap(err, "VmFolder.Create")
+		err = errors.Wrap(err, "VmFolder.Create")
+		return
 	}
 
 	info, err := task.WaitForResult(ctx, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "Task.WaitForResult")
+		err = errors.Wrap(err, "Task.WaitForResult")
+		return
 	}
-
-	deviceChange = make([]types.BaseVirtualDeviceConfigSpec, 0, 1)
-	// add disks
-	var rootDiskSizeMb int64
-	for _, disk := range disks {
-		imagePath := disk.ImagePath
-		var size = disk.Size
-		if len(imagePath) == 0 {
-			if size == 0 {
-				size = 30 * 1024
-			}
-		} else {
-			imagePath, err = self.FileUrlPathToDsPath(imagePath)
-			if err != nil {
-				return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath")
-			}
-			newImagePath := fmt.Sprintf("[%s] %s/%s.vmdk", ds.GetRelName(), params.Uuid, params.Uuid)
-			fm := ds.getDatastoreObj().NewFileManager(dc.getObjectDatacenter(), true)
-			err := fm.Copy(ctx, imagePath, newImagePath)
-			if err != nil {
-				return nil, errors.Wrap(err, "unable to copy system disk")
-			}
-			imagePath = newImagePath
-			rootDiskSizeMb = size
-		}
-		uuid, driver := disk.DiskId, "scsi"
-		if len(disk.Driver) > 0 {
-			driver = disk.Driver
-		}
-		if driver == "scsi" || driver == "pvscsi" {
-			if self.isVersion50() {
-				driver = "scsi"
-			}
-			ctrlKey = 1000
-			index = scsiIdx
-			scsiIdx += 1
-			if scsiIdx == 7 {
-				scsiIdx++
-			}
-		} else {
-			ideno := ideIdx % 2
-			if ideno == 0 {
-				index = ideIdx/2 + ide1un
-			} else {
-				index = ideIdx/2 + ide2un
-			}
-			ctrlKey = 200 + ideno
-			ideIdx += 1
-		}
-		log.Debugf("size: %d, image path: %s, uuid: %s, index: %d, ctrlKey: %d, driver: %s.", size, imagePath, uuid,
-			index, ctrlKey, disk.Driver)
-		spec := addDevSpec(NewDiskDev(size, imagePath, uuid, int32(index), 2000, int32(ctrlKey), 0))
-		if len(imagePath) == 0 {
-			spec.FileOperation = "create"
-		}
-		deviceChange = append(deviceChange, spec)
-	}
-
-	configSpec := types.VirtualMachineConfigSpec{}
-	configSpec.DeviceChange = deviceChange
-
 	vmRef := info.Result.(types.ManagedObjectReference)
 	objectVM := object.NewVirtualMachine(self.manager.client.Client, vmRef)
-	task, err = objectVM.Reconfigure(ctx, configSpec)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to reconfigure")
-	}
-	err = task.Wait(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "task.Wait")
-	}
-
-	var moVM mo.VirtualMachine
-	err = self.manager.reference2Object(vmRef, VIRTUAL_MACHINE_PROPS, &moVM)
-	if err != nil {
-		return nil, errors.Wrap(err, "fail to fetch virtual machine just created")
-	}
-
-	evm := NewVirtualMachine(self.manager, &moVM, self.datacenter)
-	if evm == nil {
-		return nil, errors.Error("create successfully but unable to NewVirtualMachine")
-	}
-
-	// resize root disk
-	if rootDiskSizeMb > 0 && int64(evm.vdisks[0].GetDiskSizeMB()) != rootDiskSizeMb {
-		err = evm.vdisks[0].Resize(ctx, rootDiskSizeMb)
-		if err != nil {
-			return evm, errors.Wrap(err, "resize for root disk")
-		}
-	}
-	return evm, nil
+	vm, err = self.addDisks(ctx, dc, ds, params.Disks, params.Uuid, objectVM)
+	return
 }
 
 // If snapshot is not nil, params.Disks will be ignored

@@ -134,36 +134,36 @@ func (as *SAgentStorage) agentRebuildRoot(ctx context.Context, data jsonutils.JS
 	return vm.DoRebuildRoot(ctx, newPath, diskId)
 }
 
-func (as *SAgentStorage) agentCreateGuest(ctx context.Context, data *jsonutils.JSONDict) error {
+func (as *SAgentStorage) agentCreateGuest(ctx context.Context, data *jsonutils.JSONDict) (bool, error) {
 	hd := SHostDatastore{}
 	err := data.Unmarshal(&hd)
 	if err != nil {
-		return errors.Wrap(err, hostutils.ParamsError.Error())
+		return false, errors.Wrap(err, hostutils.ParamsError.Error())
 	}
 	host, ds, err := as.getHostAndDatastore(ctx, hd)
 	if err != nil {
-		return err
+		return false, err
 	}
 	desc, _ := data.Get("desc")
 	descDict, ok := desc.(*jsonutils.JSONDict)
 	if !ok {
-		return errors.Wrap(hostutils.ParamsError, "agentCreateGuest data format error")
+		return false, errors.Wrap(hostutils.ParamsError, "agentCreateGuest data format error")
 	}
 	createParam := esxi.SCreateVMParam{}
 	err = descDict.Unmarshal(&createParam)
 	if err != nil {
-		return errors.Wrapf(err, "%s: fail to unmarshal to esxi.SCreateVMParam", hostutils.ParamsError)
+		return false, errors.Wrapf(err, "%s: fail to unmarshal to esxi.SCreateVMParam", hostutils.ParamsError)
 	}
-	vm, err := host.CreateVM2(ctx, ds, createParam)
+	needDeploy, vm, err := host.CreateVM2(ctx, ds, createParam)
 	if err != nil {
-		return errors.Wrap(err, "SHost.CreateVM2")
+		return false, errors.Wrap(err, "SHost.CreateVM2")
 	}
 	name, _ := descDict.GetString("name")
 	err = as.tryRenameVm(ctx, vm, name)
 	if err != nil {
-		return errors.Wrapf(err, "RenameVm name '%s'", name)
+		return false, errors.Wrapf(err, "RenameVm name '%s'", name)
 	}
-	return nil
+	return needDeploy, nil
 }
 
 func (as *SAgentStorage) tryRenameVm(ctx context.Context, vm *esxi.SVirtualMachine, name string) error {
@@ -194,8 +194,12 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 	init := false
 	dataDict := data.(*jsonutils.JSONDict)
 	action, _ := dataDict.GetString("action")
+	var (
+		needDeploy bool
+		err        error
+	)
 	if action == "create" {
-		err := as.agentCreateGuest(ctx, dataDict)
+		needDeploy, err = as.agentCreateGuest(ctx, dataDict)
 		if err != nil {
 			return nil, errors.Wrap(err, "agentCreateGuest")
 		}
@@ -275,49 +279,52 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 	}
 
 	log.Debugf("host: %s, port: %d, user: %s, passwd: %s", info.Host, info.Port, info.Account, info.Password)
-	vddkInfo := deployapi.VDDKConInfo{
-		Host:   info.Host,
-		Port:   int32(info.Port),
-		User:   info.Account,
-		Passwd: info.Password,
-		Vmref:  vmref,
-	}
-	guestDesc := deployapi.GuestDesc{}
-	err = dataDict.Unmarshal(&guestDesc, "desc")
-	if err != nil {
-		return nil, errors.Wrapf(err, "%s: unmarshal to guestDesc", hostutils.ParamsError.Error())
-	}
-
-	desc, _ := dataDict.Get("desc")
-	guestDesc.Hypervisor = api.HYPERVISOR_ESXI
-	deploy, err := deployclient.GetDeployClient().DeployGuestFs(ctx, &deployapi.DeployParams{
-		DiskPath:  rootPath,
-		GuestDesc: &guestDesc,
-		DeployInfo: &deployapi.DeployInfo{
-			PublicKey:               &key,
-			Deploys:                 deployArray,
-			Password:                passwd,
-			IsInit:                  init,
-			WindowsDefaultAdminUser: true,
-		},
-		VddkInfo: &vddkInfo,
-	})
-	customize := false
-	if err != nil {
-		log.Errorf("unable to DeployGuestFs: %v", err)
-		customize = true
-	} else if deploy == nil {
-		log.Errorf("unable to DeployGuestFs: deploy is nil")
-		customize = true
-	} else if len(deploy.Os) == 0 {
-		log.Errorf("unable to DeployGuestFs: os is empty")
-		customize = true
-	}
-	if customize == true {
-		as.waitVmToolsVersion(ctx, vm)
-		err = vm.DoCustomize(ctx, desc)
+	var deploy *deployapi.DeployGuestFsResponse
+	if needDeploy {
+		vddkInfo := deployapi.VDDKConInfo{
+			Host:   info.Host,
+			Port:   int32(info.Port),
+			User:   info.Account,
+			Passwd: info.Password,
+			Vmref:  vmref,
+		}
+		guestDesc := deployapi.GuestDesc{}
+		err = dataDict.Unmarshal(&guestDesc, "desc")
 		if err != nil {
-			log.Errorf("unable to DoCustomize for vm %s: %v", vm.GetId(), err)
+			return nil, errors.Wrapf(err, "%s: unmarshal to guestDesc", hostutils.ParamsError.Error())
+		}
+
+		desc, _ := dataDict.Get("desc")
+		guestDesc.Hypervisor = api.HYPERVISOR_ESXI
+		deploy, err = deployclient.GetDeployClient().DeployGuestFs(ctx, &deployapi.DeployParams{
+			DiskPath:  rootPath,
+			GuestDesc: &guestDesc,
+			DeployInfo: &deployapi.DeployInfo{
+				PublicKey:               &key,
+				Deploys:                 deployArray,
+				Password:                passwd,
+				IsInit:                  init,
+				WindowsDefaultAdminUser: true,
+			},
+			VddkInfo: &vddkInfo,
+		})
+		customize := false
+		if err != nil {
+			log.Errorf("unable to DeployGuestFs: %v", err)
+			customize = true
+		} else if deploy == nil {
+			log.Errorf("unable to DeployGuestFs: deploy is nil")
+			customize = true
+		} else if len(deploy.Os) == 0 {
+			log.Errorf("unable to DeployGuestFs: os is empty")
+			customize = true
+		}
+		if customize == true {
+			as.waitVmToolsVersion(ctx, vm)
+			err = vm.DoCustomize(ctx, desc)
+			if err != nil {
+				log.Errorf("unable to DoCustomize for vm %s: %v", vm.GetId(), err)
+			}
 		}
 	}
 
