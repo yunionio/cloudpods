@@ -196,10 +196,13 @@ func (s *SLocalStorage) DeleteDiskfile(diskpath string) error {
 			destFile = fmt.Sprintf("%s.%d", path.Base(diskpath), time.Now().Unix())
 		)
 		if err := procutils.NewCommand("mkdir", "-p", destDir).Run(); err != nil {
+			log.Errorf("Fail to mkdir %s for recycle: %s", destDir, err)
 			return err
 		}
+		log.Infof("Move deleted disk file %s to recycle %s", diskpath, destDir)
 		return procutils.NewCommand("mv", "-f", diskpath, path.Join(destDir, destFile)).Run()
 	} else {
+		log.Infof("Delete disk file %s immediately", diskpath)
 		return procutils.NewCommand("rm", "-rf", diskpath).Run()
 	}
 }
