@@ -43,4 +43,7 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"eu-north-1":     {Latitude: 59.1946, Longitude: 18.47, City: api.CITY_STOCKHOLM, CountryCode: api.COUNTRY_CODE_SE},
 	"sa-east-1":      {Latitude: -23.5505199, Longitude: -46.63330939999999, City: api.CITY_SAO_PAULO, CountryCode: api.COUNTRY_CODE_BR},
 	"us-gov-west-1":  {Latitude: 37.09024, Longitude: -95.712891, City: api.CITY_US_GOV_WEST, CountryCode: api.COUNTRY_CODE_US},
+
+	"af-south-1": {Latitude: -33.9152209, Longitude: 18.3758904, City: api.CITY_CAPE_TOWN, CountryCode: api.COUNTRY_CODE_ZA},
+	"me-south-1": {Latitude: 25.9408826, Longitude: 50.4474957, City: api.CITY_BAHRAIN, CountryCode: api.COUNTRY_CODE_BH},
 }

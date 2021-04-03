@@ -66,12 +66,15 @@ var RegionLocations = map[string]string{
 	"eu-central-1":   "欧洲(法兰克福)",
 	"eu-west-1":      "欧洲(爱尔兰)",
 	"eu-west-2":      "欧洲(伦敦)",
+	"eu-south-1":     "欧洲(米兰)",
 	"eu-west-3":      "欧洲(巴黎)",
 	"eu-north-1":     "欧洲(斯德哥尔摩)",
 	"me-south-1":     "中东(巴林)",
 	"sa-east-1":      "南美洲(圣保罗)",
 	"us-gov-west-1":  "AWS GovCloud(美国西部)",
 	"us-gov-east-1":  "AWS GovCloud(美国东部)",
+
+	"af-south-1": "非洲(开普敦)",
 }
 
 var RegionLocationsEN = map[string]string{
@@ -79,9 +82,10 @@ var RegionLocationsEN = map[string]string{
 	"us-east-2":      "US East (Ohio)",
 	"us-west-1":      "US West (N. California)",
 	"us-west-2":      "US West (Oregon)",
-	"af-south-1":     "Cape Town",
+	"af-south-1":     "Africa (Cape Town)",
 	"ap-east-1":      "Asia Pacific (Hong Kong)",
 	"ap-south-1":     "Asia Pacific (Mumbai)",
+	"ap-northeast-3": "Asia Pacific (Osaka)",
 	"ap-northeast-2": "Asia Pacific (Seoul)",
 	"ap-southeast-1": "Asia Pacific (Singapore)",
 	"ap-southeast-2": "Asia Pacific (Sydney)",
