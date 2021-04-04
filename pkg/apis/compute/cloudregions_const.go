@@ -177,6 +177,9 @@ const (
 	// 尼日利亚
 	CITY_LAGOS = "Lagos" //拉哥斯
 
+	// 巴林王国 (中东国家)
+	CITY_BAHRAIN = "Bahrain" // 巴林
+
 	// 越南
 	CITY_HO_CHI_MINH = "Ho Chi Minh" //???
 
@@ -207,4 +210,5 @@ const (
 	COUNTRY_CODE_NO = "NO" //挪威
 	COUNTRY_CODE_MX = "MX" //墨西哥
 	COUNTRY_CODE_CL = "CL" //智利
+	COUNTRY_CODE_BH = "BH" //巴林
 )
