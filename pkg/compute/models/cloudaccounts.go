@@ -2504,7 +2504,7 @@ func (manager *SCloudaccountManager) initAllRecords() {
 
 func (self *SCloudaccount) CanSync() bool {
 	if self.SyncStatus == api.CLOUD_PROVIDER_SYNC_STATUS_QUEUED || self.SyncStatus == api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING || self.getSyncStatus2() == api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING {
-		if self.LastSync.IsZero() || time.Now().Sub(self.LastSync) > time.Duration(self.getSyncIntervalSeconds()) {
+		if self.LastSync.IsZero() || time.Now().Sub(self.LastSync) > time.Duration(self.getSyncIntervalSeconds())*time.Second {
 			return true
 		} else {
 			return false
