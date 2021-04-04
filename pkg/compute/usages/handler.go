@@ -475,21 +475,24 @@ func ReportGeneralUsage(
 ) (count Usage, err error) {
 	count = make(map[string]interface{})
 
-	if scope == rbacutils.ScopeSystem || isOwner {
+	// if scope == rbacutils.ScopeSystem || isOwner {
+	if scope == rbacutils.ScopeSystem {
 		count, err = getSystemGeneralUsage(userCred, rangeObjs, hostTypes, providers, brands, cloudEnv, includeSystem)
 		if err != nil {
 			return
 		}
 	}
 
-	if scope.HigherEqual(rbacutils.ScopeDomain) && len(userCred.GetProjectDomainId()) > 0 {
+	// if scope.HigherEqual(rbacutils.ScopeDomain) && len(userCred.GetProjectDomainId()) > 0 {
+	if scope == rbacutils.ScopeDomain && len(userCred.GetProjectDomainId()) > 0 {
 		commonUsage, err := getDomainGeneralUsage(rbacutils.ScopeDomain, userCred, rangeObjs, hostTypes, providers, brands, cloudEnv)
 		if err == nil {
 			count.Include(commonUsage)
 		}
 	}
 
-	if scope.HigherEqual(rbacutils.ScopeProject) && len(userCred.GetProjectId()) > 0 {
+	// if scope.HigherEqual(rbacutils.ScopeProject) && len(userCred.GetProjectId()) > 0 {
+	if scope == rbacutils.ScopeProject && len(userCred.GetProjectId()) > 0 {
 		commonUsage, err := getProjectGeneralUsage(rbacutils.ScopeProject, userCred, rangeObjs, hostTypes, providers, brands, cloudEnv)
 		if err == nil {
 			count.Include(commonUsage)
