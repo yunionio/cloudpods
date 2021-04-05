@@ -657,7 +657,7 @@ func (manager *SAssignmentManager) FetchAll(
 			grpproj.Field("project_id"),
 			grpproj.Field("role_id"),
 		)
-		q2 = q2.Join(memberships, sqlchemy.Equals(grpproj.Field("group_id"), memberships.Field("group_id")))
+		q2 = q2.LeftJoin(memberships, sqlchemy.Equals(grpproj.Field("group_id"), memberships.Field("group_id")))
 		if len(userId) > 0 {
 			q2 = q2.Filter(sqlchemy.Equals(memberships.Field("user_id"), userId))
 		}
