@@ -41,7 +41,7 @@ type SGuestDHCPServer struct {
 	iface string
 }
 
-func NewGuestDHCPServer(iface string, relay []string) (*SGuestDHCPServer, error) {
+func NewGuestDHCPServer(iface string, port int, relay []string) (*SGuestDHCPServer, error) {
 	var (
 		err       error
 		guestdhcp = new(SGuestDHCPServer)
@@ -51,7 +51,7 @@ func NewGuestDHCPServer(iface string, relay []string) (*SGuestDHCPServer, error)
 		return nil, fmt.Errorf("Wrong dhcp relay address")
 	}
 
-	guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCPServer2(iface, uint16(options.HostOptions.DhcpServerPort), DEFAULT_DHCP_CLIENT_PORT)
+	guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCPServer2(iface, uint16(port), DEFAULT_DHCP_CLIENT_PORT)
 	if err != nil {
 		return nil, err
 	}
@@ -67,14 +67,19 @@ func NewGuestDHCPServer(iface string, relay []string) (*SGuestDHCPServer, error)
 	return guestdhcp, nil
 }
 
-func (s *SGuestDHCPServer) Start() {
+func (s *SGuestDHCPServer) Start(blocking bool) {
 	log.Infof("SGuestDHCPServer starting ...")
-	go func() {
+	serve := func() {
 		err := s.server.ListenAndServe(s)
 		if err != nil {
 			log.Errorf("DHCP serve error: %s", err)
 		}
-	}()
+	}
+	if blocking {
+		serve()
+	} else {
+		go serve()
+	}
 }
 
 func (s *SGuestDHCPServer) RelaySetup(addr string) error {
@@ -139,6 +144,10 @@ func (s *SGuestDHCPServer) getGuestConfig(guestDesc, guestNic jsonutils.JSONObje
 }
 
 func (s *SGuestDHCPServer) getConfig(pkt dhcp.Packet) *dhcp.ResponseConfig {
+	if guestman.GuestDescGetter == nil {
+		return nil
+	}
+
 	var (
 		mac         = pkt.CHAddr().String()
 		ip, port    = "", ""

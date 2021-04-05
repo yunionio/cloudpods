@@ -1,0 +1,2 @@
+DESCRIPTION="Yunion Tiny DHCP Relay Server"
+SERVICE="yes"
