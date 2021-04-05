@@ -1,0 +1,22 @@
+[Unit]
+Description=Yunion Cloud DHCP Relay Agent
+Documentation=https://docs.yunion.cn
+After=network-online.target
+Wants=network-online.target
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/sysconfig/yunion_dhcprelay
+User=root
+Group=root
+ExecStart=/opt/yunion/bin/dhcprelay --interface "$INTERFACE" --ip "$IP" --relay "$RELAY"
+WorkingDirectory=/opt/yunion/bin
+KillMode=process
+Restart=always
+RestartSec=30
+LimitNOFILE=500000
+LimitNPROC=500000
+
+[Install]
+WantedBy=multi-user.target
