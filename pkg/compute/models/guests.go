@@ -4801,10 +4801,16 @@ func (self *SGuest) GetPublicIp() (*SElasticip, error) {
 func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extEip cloudprovider.ICloudEIP, syncOwnerId mcclient.IIdentityProvider) compare.SyncResult {
 	result := compare.SyncResult{}
 
-	eip, err := self.GetEipOrPublicIp()
+	eip, err := self.GetPublicIp()
 	if err != nil {
-		result.Error(fmt.Errorf("getEip error %s", err))
+		result.Error(fmt.Errorf("getPublicIp error %s", err))
 		return result
+	} else if eip == nil {
+		eip, err = self.GetElasticIp()
+		if err != nil {
+			result.Error(fmt.Errorf("getEip error %s", err))
+			return result
+		}
 	}
 
 	if eip == nil && extEip == nil {
