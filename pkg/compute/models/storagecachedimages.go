@@ -199,6 +199,15 @@ func (self *SStoragecachedimage) getExtraDetails(ctx context.Context, out api.St
 		host, _ := storagecache.GetHost()
 		if host != nil {
 			out.Host = host.GetShortDesc(ctx)
+		} else {
+			var err error
+			hostDesc, err := storagecache.GetEsxiAgentHostDesc()
+			if err != nil {
+				log.Errorf("unable to GetEsxiAgentHostDesc of stroagecache: %s", err.Error())
+			}
+			if hostDesc != nil {
+				out.Host = hostDesc
+			}
 		}
 	}
 	cachedImage := self.GetCachedimage()
