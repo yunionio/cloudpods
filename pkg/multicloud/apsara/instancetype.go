@@ -153,7 +153,7 @@ func (self *SInstanceType) GetAttachedDiskSizeGB() int {
 }
 
 func (self *SInstanceType) GetAttachedDiskCount() int {
-	return 6
+	return 0
 }
 
 func (self *SInstanceType) GetDataDiskTypes() string {
