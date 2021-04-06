@@ -26,8 +26,17 @@ import (
 	"unicode"
 
 	"gopkg.in/fatih/set.v0"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/fileutils"
+	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
+
 	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -53,13 +62,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
-	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/util/fileutils"
-	"yunion.io/x/pkg/util/regutils"
-	"yunion.io/x/pkg/util/sets"
-	"yunion.io/x/pkg/utils"
-	"yunion.io/x/sqlchemy"
 )
 
 func (self *SGuest) AllowGetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
