@@ -15,6 +15,8 @@
 package cloudproxy
 
 import (
+	"time"
+
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
@@ -38,7 +40,7 @@ type ForwardCreateFromServerInput struct {
 
 	Type        string
 	BindPortReq int `json:",omitzero"`
-	RemotePort  string
+	RemotePort  int `json:",omitzero"`
 
 	LastSeenTimeout int `json:",omitzero"`
 }
@@ -49,7 +51,30 @@ type ForwardListInput struct {
 	ProxyAgentId    string
 	ProxyEndpointId string
 
-	Type string
+	Type        string
+	RemoteAddr  string
+	RemotePort  *int
+	BindPortReq *int
 
 	Opaque string
+}
+
+type ForwardDetails struct {
+	ProxyEndpoint   string
+	ProxyEndpointId string
+	ProxyAgent      string
+	ProxyAgentId    string
+
+	Type        string
+	BindPortReq int
+	BindPort    int
+	RemoteAddr  string
+	RemotePort  int
+
+	LastSeen        time.Time
+	LastSeenTimeout int
+
+	Opaque string
+
+	BindAddr string
 }

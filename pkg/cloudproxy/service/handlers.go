@@ -25,6 +25,7 @@ func InitHandlers(app *appsrv.Application) {
 	db.InitAllManagers()
 
 	db.RegisterModelManager(db.OpsLog)
+	db.RegisterModelManager(db.Metadata)
 	db.RegisterModelManager(db.TenantCacheManager)
 	db.RegisterModelManager(db.UserCacheManager)
 	for _, manager := range []db.IModelManager{

@@ -358,6 +358,7 @@ func (man *SForwardManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	filters := [][2]string{
 		[2]string{"type", input.Type},
+		[2]string{"remote_addr", input.RemoteAddr},
 		[2]string{"proxy_endpoint_id", input.ProxyEndpointId},
 		[2]string{"proxy_agent_id", input.ProxyAgentId},
 		[2]string{"opaque", input.Opaque},
@@ -365,6 +366,18 @@ func (man *SForwardManager) ListItemFilter(
 	for _, filter := range filters {
 		if v := filter[1]; v != "" {
 			q = q.Equals(filter[0], v)
+		}
+	}
+	intFilters := []struct {
+		name string
+		val  *int
+	}{
+		{"remote_port", input.RemotePort},
+		{"bind_port_req", input.BindPortReq},
+	}
+	for _, filter := range intFilters {
+		if v := filter.val; v != nil {
+			q = q.Equals(filter.name, *v)
 		}
 	}
 	return q, nil

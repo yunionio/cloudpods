@@ -91,6 +91,7 @@ func init() {
 	cmd.Get("status", new(options.ServerIdOptions))
 	cmd.Get("iso", new(options.ServerIdOptions))
 	cmd.Get("create-params", new(options.ServerIdOptions))
+	cmd.Get("sshable", new(options.ServerIdOptions))
 	cmd.Get("change-owner-candidate-domains", new(options.ServerChangeOwnerCandidateDomainsOptions))
 
 	type ServerTaskShowOptions struct {
