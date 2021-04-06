@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/serialx/hashring"
 
@@ -101,6 +102,26 @@ func (self *SStoragecache) getStorageNames() []string {
 		names[i] = storages[i].Name
 	}
 	return names
+}
+
+func (self *SStoragecache) GetEsxiAgentHostDesc() (*jsonutils.JSONDict, error) {
+	if !strings.Contains(self.Name, "esxiagent") {
+		return nil, nil
+	}
+	obj, err := BaremetalagentManager.FetchById(self.ExternalId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to fetch baremetalagent %s", obj.GetId())
+	}
+	agent := obj.(*SBaremetalagent)
+	host := &SHost{}
+	host.Id = agent.Id
+	host.Name = agent.Name
+	host.ZoneId = agent.ZoneId
+	host.SetModelManager(HostManager, host)
+	ret := host.GetShortDesc(context.Background())
+	ret.Set("provider", jsonutils.NewString(api.CLOUD_PROVIDER_VMWARE))
+	ret.Set("brand", jsonutils.NewString(api.CLOUD_PROVIDER_VMWARE))
+	return ret, nil
 }
 
 func (self *SStoragecache) GetHost() (*SHost, error) {
