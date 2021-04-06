@@ -2942,14 +2942,11 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 		return nil, err
 	}
 
-	eip, err := self.GetEipOrPublicIp()
+	err = self.IsEipAssociable()
 	if err != nil {
-		log.Errorf("Fail to get Eip %s", err)
 		return nil, httperrors.NewGeneralError(err)
 	}
-	if eip != nil {
-		return nil, httperrors.NewInvalidStatusError("already associate with eip")
-	}
+
 	eipStr := input.EipId
 	if len(eipStr) == 0 {
 		return nil, httperrors.NewMissingParameterError("eip_id")
@@ -2963,7 +2960,7 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 		}
 	}
 
-	eip = eipObj.(*SElasticip)
+	eip := eipObj.(*SElasticip)
 	eipRegion, err := eip.GetRegion()
 	if err != nil {
 		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "eip.GetRegion"))
