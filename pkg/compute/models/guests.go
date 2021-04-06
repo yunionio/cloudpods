@@ -4879,6 +4879,28 @@ func (self *SGuest) isInReconcile(userCred mcclient.TokenCredential) bool {
 	return false
 }
 
+func (self *SGuest) IsEipAssociable() error {
+	var eip *SElasticip
+	var err error
+	switch self.Hypervisor {
+	case api.HYPERVISOR_AWS:
+		eip, err = self.GetElasticIp()
+	default:
+		eip, err = self.GetEipOrPublicIp()
+	}
+
+	if err != nil {
+		log.Errorf("Fail to get Eip %s", err)
+		return errors.Wrap(err, "IsEipAssociable")
+	}
+
+	if eip != nil {
+		return httperrors.NewInvalidStatusError("already associate with eip")
+	}
+
+	return nil
+}
+
 func (self *SGuest) GetEipOrPublicIp() (*SElasticip, error) {
 	return ElasticipManager.getEip(api.EIP_ASSOCIATE_TYPE_SERVER, self.Id, "")
 }
