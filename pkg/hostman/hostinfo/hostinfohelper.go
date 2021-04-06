@@ -359,7 +359,7 @@ func NewNIC(desc string) (*SNIC, error) {
 	if nic.EnableDHCPRelay() {
 		dhcpRelay = options.HostOptions.DhcpRelay
 	}
-	nic.dhcpServer, err = hostdhcp.NewGuestDHCPServer(nic.Bridge, dhcpRelay)
+	nic.dhcpServer, err = hostdhcp.NewGuestDHCPServer(nic.Bridge, options.HostOptions.DhcpServerPort, dhcpRelay)
 	if err != nil {
 		return nil, err
 	}
