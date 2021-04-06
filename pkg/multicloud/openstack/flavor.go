@@ -192,11 +192,11 @@ func (flavor *SFlavor) GetGlobalId() string {
 }
 
 func (flavor *SFlavor) GetInstanceTypeFamily() string {
-	return flavor.GetName()
+	return api.InstanceFamilies[api.SkuCategoryGeneralPurpose]
 }
 
 func (flavor *SFlavor) GetInstanceTypeCategory() string {
-	return flavor.GetName()
+	return api.SkuCategoryGeneralPurpose
 }
 
 func (flavor *SFlavor) GetPrepaidStatus() string {
@@ -244,7 +244,7 @@ func (flavor *SFlavor) GetAttachedDiskSizeGB() int {
 }
 
 func (flavor *SFlavor) GetAttachedDiskCount() int {
-	return 6
+	return 0
 }
 
 func (flavor *SFlavor) GetDataDiskTypes() string {

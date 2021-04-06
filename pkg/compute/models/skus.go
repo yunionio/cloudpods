@@ -1064,6 +1064,7 @@ func (manager *SServerSkuManager) SyncPrivateCloudSkus(ctx context.Context, user
 }
 
 func (self *SServerSku) constructSku(extSku cloudprovider.ICloudSku) {
+	self.ExternalId = extSku.GetGlobalId()
 	self.InstanceTypeFamily = extSku.GetInstanceTypeFamily()
 	self.InstanceTypeCategory = extSku.GetInstanceTypeCategory()
 
