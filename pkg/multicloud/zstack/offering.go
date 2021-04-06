@@ -154,11 +154,11 @@ func (region *SRegion) DeleteOffering(offeringId string) error {
 }
 
 func (offering *SInstanceOffering) GetInstanceTypeFamily() string {
-	return offering.AllocatorStrategy
+	return api.InstanceFamilies[api.SkuCategoryGeneralPurpose]
 }
 
 func (offering *SInstanceOffering) GetInstanceTypeCategory() string {
-	return offering.AllocatorStrategy
+	return api.SkuCategoryGeneralPurpose
 }
 
 func (offering *SInstanceOffering) GetPrepaidStatus() string {
@@ -206,7 +206,7 @@ func (offering *SInstanceOffering) GetAttachedDiskSizeGB() int {
 }
 
 func (offering *SInstanceOffering) GetAttachedDiskCount() int {
-	return 6
+	return 0
 }
 
 func (offering *SInstanceOffering) GetDataDiskTypes() string {
@@ -214,7 +214,7 @@ func (offering *SInstanceOffering) GetDataDiskTypes() string {
 }
 
 func (offering *SInstanceOffering) GetDataDiskMaxCount() int {
-	return 6
+	return 0
 }
 
 func (offering *SInstanceOffering) GetNicType() string {
