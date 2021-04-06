@@ -35,6 +35,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -663,6 +664,13 @@ func (rm *SReceiverManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.
 
 func (r *SReceiver) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	r.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	// 需求：管理后台新建的联系人，手机号和邮箱无需进行校验
+	// 方案：检查请求者对于创建联系人 是否具有system scope
+	allowScope := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
+	if allowScope == rbacutils.ScopeSystem {
+		r.VerifiedEmail = tristate.True
+		r.VerifiedMobile = tristate.True
+	}
 	// set status
 	r.SetStatus(userCred, api.RECEIVER_STATUS_PULLING, "")
 	logclient.AddActionLogWithContext(ctx, r, logclient.ACT_CREATE, nil, userCred, true)
