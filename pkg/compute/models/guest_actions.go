@@ -26,17 +26,8 @@ import (
 	"unicode"
 
 	"gopkg.in/fatih/set.v0"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/util/fileutils"
-	"yunion.io/x/pkg/util/regutils"
-	"yunion.io/x/pkg/util/sets"
-	"yunion.io/x/pkg/utils"
-	"yunion.io/x/sqlchemy"
-
 	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -62,6 +53,13 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/fileutils"
+	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 )
 
 func (self *SGuest) AllowGetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -2922,14 +2920,11 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 		return nil, err
 	}
 
-	eip, err := self.GetEipOrPublicIp()
+	err = self.IsEipAssociable()
 	if err != nil {
-		log.Errorf("Fail to get Eip %s", err)
 		return nil, httperrors.NewGeneralError(err)
 	}
-	if eip != nil {
-		return nil, httperrors.NewInvalidStatusError("already associate with eip")
-	}
+
 	eipStr := input.EipId
 	if len(eipStr) == 0 {
 		return nil, httperrors.NewMissingParameterError("eip_id")
@@ -2943,7 +2938,7 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 		}
 	}
 
-	eip = eipObj.(*SElasticip)
+	eip := eipObj.(*SElasticip)
 	eipRegion := eip.GetRegion()
 	instRegion := self.getRegion()
 
