@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -94,11 +95,25 @@ func (self *ApplyScriptTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 		self.taskFailed(ctx, sa, sar, errors.Wrapf(err, "unable to unmarshal %q to ServerDetails", data))
 		return
 	}
+
+	// check sshable
+	sshable, err := self.checkSshable(session, serverDetail.Id)
+	if err != nil {
+		self.taskFailed(ctx, sa, sar, err)
+		return
+	}
+	if !sshable.ok {
+		self.taskFailed(ctx, sa, sar, fmt.Errorf("server %s is not sshable: %s", serverDetail.Id, sshable.reason))
+		return
+	}
 	// make sure user
 	var user string
-	if serverDetail.Hypervisor == comapi.HYPERVISOR_KVM {
+	switch {
+	case sshable.user != "":
+		user = sshable.user
+	case serverDetail.Hypervisor == comapi.HYPERVISOR_KVM:
 		user = "root"
-	} else {
+	default:
 		user = "cloudroot"
 	}
 	// create local forward
@@ -152,6 +167,37 @@ func (self *ApplyScriptTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 		self.taskFailed(ctx, sa, sar, errors.Wrapf(err, "can't run ansible playbook reference %s", s.PlaybookReferenceId))
 		return
 	}
+}
+
+type sSSHable struct {
+	user   string
+	ok     bool
+	reason string
+}
+
+func (self *ApplyScriptTask) checkSshable(session *mcclient.ClientSession, serverId string) (sSSHable, error) {
+	data, err := modules.Servers.GetSpecific(session, serverId, "sshable", nil)
+	if err != nil {
+		return sSSHable{}, errors.Wrapf(err, "unable to get sshable info of server %s", serverId)
+	}
+	methodTrieds, _ := data.GetArray("method_tried")
+	sshable := sSSHable{}
+	reasons := make([]string, 0, len(methodTrieds))
+	for _, methodTried := range methodTrieds {
+		ok, _ := methodTried.Bool("sshable")
+		if ok {
+			sshable.ok = true
+			break
+		}
+		reason, _ := methodTried.GetString("reason")
+		reasons = append(reasons, reason)
+	}
+	if !sshable.ok {
+		sshable.reason = strings.Join(reasons, "; ")
+	} else {
+		sshable.user, _ = data.GetString("user")
+	}
+	return sshable, nil
 }
 
 func (self *ApplyScriptTask) clearLocalForward(s *mcclient.ClientSession, forwardId string) {
