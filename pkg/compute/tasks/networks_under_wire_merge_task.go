@@ -91,16 +91,37 @@ func (self *NetworksUnderWireMergeTask) OnInit(ctx context.Context, obj db.IStan
 				wireNets = append(wireNets, nets[i].SNetwork)
 			}
 		}
-		startIp, endIp, err := nets[i].CheckInvalidToMerge(ctx, nets[i+1].SNetwork, wireNets)
-		if err != nil {
-			log.Debugf("unable to merge network %q to %q: %v", nets[i].GetId(), nets[i+1].GetId(), err)
-			continue
-		}
-		err = nets[i].MergeToNetworkAfterCheck(ctx, self.UserCred, nets[i+1].SNetwork, startIp, endIp)
+		ok, err := self.mergeNetwork(ctx, nets[i].SNetwork, nets[i+1].SNetwork, wireNets)
 		if err != nil {
 			self.taskFailed(ctx, w, fmt.Sprintf("unable to merge network %q to %q", nets[i].GetId(), nets[i+1].GetId()), err)
 			return
 		}
+		if ok {
+			continue
+		}
+		// Try to merge in the opposite direction
+		ok, err = self.mergeNetwork(ctx, nets[i+1].SNetwork, nets[i].SNetwork, wireNets)
+		if err != nil {
+			self.taskFailed(ctx, w, fmt.Sprintf("unable to merge network %q to %q", nets[i+1].GetId(), nets[i].GetId()), err)
+			return
+		}
+		if ok {
+			// Swap position
+			nets[i], nets[i+1] = nets[i+1], nets[i]
+		}
 	}
 	self.taskSuccess(ctx, w, "")
+}
+
+func (self *NetworksUnderWireMergeTask) mergeNetwork(ctx context.Context, source, target *models.SNetwork, wireNets []*models.SNetwork) (bool, error) {
+	startIp, endIp, err := source.CheckInvalidToMerge(ctx, target, wireNets)
+	if err != nil {
+		log.Debugf("unable to merge network %q to %q: %v", source.GetId(), target.GetId(), err)
+		return false, nil
+	}
+	err = source.MergeToNetworkAfterCheck(ctx, self.UserCred, target, startIp, endIp)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
