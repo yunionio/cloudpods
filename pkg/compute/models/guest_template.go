@@ -199,7 +199,7 @@ func (gtm *SGuestTemplateManager) validateContent(ctx context.Context, userCred 
 	}
 	// check Image
 	imageId := input.Disks[0].ImageId
-	image, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, true)
+	image, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getImageInfo of '%s'", imageId)
 	}
