@@ -34,6 +34,8 @@ type ModelSetsMaxUpdatedAt struct {
 	NetworkAddresses   time.Time
 
 	DnsRecords time.Time
+
+	RouteTables time.Time
 }
 
 func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
@@ -51,6 +53,8 @@ func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
 		NetworkAddresses:   apihelper.PseudoZeroTime,
 
 		DnsRecords: apihelper.PseudoZeroTime,
+
+		RouteTables: apihelper.PseudoZeroTime,
 	}
 }
 
@@ -68,6 +72,8 @@ type ModelSets struct {
 	NetworkAddresses   NetworkAddresses
 
 	DnsRecords DnsRecords
+
+	RouteTables RouteTables
 }
 
 func NewModelSets() *ModelSets {
@@ -85,6 +91,8 @@ func NewModelSets() *ModelSets {
 		NetworkAddresses:   NetworkAddresses{},
 
 		DnsRecords: DnsRecords{},
+
+		RouteTables: RouteTables{},
 	}
 }
 
@@ -104,6 +112,8 @@ func (mss *ModelSets) ModelSetList() []apihelper.IModelSet {
 		mss.NetworkAddresses,
 
 		mss.DnsRecords,
+
+		mss.RouteTables,
 	}
 }
 
@@ -126,6 +136,8 @@ func (mss *ModelSets) copy_() *ModelSets {
 		NetworkAddresses:   mss.NetworkAddresses.Copy().(NetworkAddresses),
 
 		DnsRecords: mss.DnsRecords.Copy().(DnsRecords),
+
+		RouteTables: mss.RouteTables.Copy().(RouteTables),
 	}
 	return mssCopy
 }
@@ -164,6 +176,7 @@ func (mss *ModelSets) join() bool {
 	mss.Guests.initJoin()
 	var p []bool
 	p = append(p, mss.Vpcs.joinWires(mss.Wires))
+	p = append(p, mss.Vpcs.joinRouteTables(mss.RouteTables))
 	p = append(p, mss.Wires.joinNetworks(mss.Networks))
 	p = append(p, mss.Vpcs.joinNetworks(mss.Networks))
 	p = append(p, mss.Networks.joinGuestnetworks(mss.Guestnetworks))

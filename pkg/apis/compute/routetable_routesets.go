@@ -38,6 +38,8 @@ const (
 	Next_HOP_TYPE_DIRECTCONNECTION = "DirectConnection"      //专线
 	Next_HOP_TYPE_VPC              = "VPC"
 	Next_HOP_TYPE_VBR              = "VBR" // 边界路由器
+
+	Next_HOP_TYPE_IP = "IP"
 )
 
 const (

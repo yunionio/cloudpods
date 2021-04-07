@@ -640,6 +640,32 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 	return keeper.cli.Must(ctx, "ClaimGuestnetwork", args)
 }
 
+func (keeper *OVNNorthboundKeeper) ClaimRoutes(ctx context.Context, vpc *agentmodels.Vpc, routes resolvedRoutes) error {
+	var irows []types.IRow
+	for _, route := range routes {
+		irows = append(irows, &ovn_nb.LogicalRouterStaticRoute{
+			Policy:   ptr("dst-ip"),
+			IpPrefix: route.Cidr,
+			Nexthop:  route.NextHop,
+		})
+	}
+	ocVersion := fmt.Sprintf("%s.%d", vpc.UpdatedAt, vpc.UpdateVersion)
+	allFound, args := cmp(&keeper.DB, ocVersion, irows...)
+	if allFound {
+		return nil
+	}
+	lrName := vpcLrName(vpc.Id)
+	for i, irow := range irows {
+		ref := fmt.Sprintf("r%d", i)
+		args = append(args, ovnCreateArgs(irow, ref)...)
+		args = append(args, "--", "add", "Logical_Router", lrName, "static_routes", "@"+ref)
+	}
+	if len(args) > 0 {
+		return keeper.cli.Must(ctx, "ClaimGuestnetwork", args)
+	}
+	return nil
+}
+
 func (keeper *OVNNorthboundKeeper) ClaimVpcGuestDnsRecords(ctx context.Context, vpc *agentmodels.Vpc) error {
 	var (
 		grs = map[string][]string{}

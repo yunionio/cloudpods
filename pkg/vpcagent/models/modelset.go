@@ -41,6 +41,8 @@ type (
 	Guestsecgroups map[string]*Guestsecgroup // key: guestId/secgroupId
 
 	DnsRecords map[string]*DnsRecord
+
+	RouteTables map[string]*RouteTable
 )
 
 func (set Vpcs) ModelManager() mcclient_modulebase.IBaseManager {
@@ -76,6 +78,28 @@ func (ms Vpcs) joinWires(subEntries Wires) bool {
 		}
 		subEntry.Vpc = m
 		m.Wire = subEntry
+	}
+	return correct
+}
+
+func (ms Vpcs) joinRouteTables(subEntries RouteTables) bool {
+	correct := true
+	for _, subEntry := range subEntries {
+		vpcId := subEntry.VpcId
+		m, ok := ms[vpcId]
+		if !ok {
+			log.Warningf("vpc_id %s of route table %s(%s) is not present", vpcId, subEntry.Name, subEntry.Id)
+			correct = false
+			continue
+		}
+		subEntry.Vpc = m
+		if m.RouteTable != nil {
+			log.Warningf("vpc %s has more than 1 route table available, skipping %s(%s)",
+				m.Name, m.Id, subEntry.Name, subEntry.Id)
+			correct = false
+			continue
+		}
+		m.RouteTable = subEntry
 	}
 	return correct
 }
@@ -377,6 +401,11 @@ func (set Guestnetworks) joinGuests(subEntries Guests) bool {
 			continue
 		}
 		gn.Guest = g
+		if g.Guestnetworks == nil {
+			g.Guestnetworks = Guestnetworks{}
+		}
+		rowIdStr := fmt.Sprintf("%d", gn.RowId)
+		g.Guestnetworks[rowIdStr] = gn
 	}
 	return true
 }
@@ -626,6 +655,27 @@ func (set DnsRecords) AddModel(i db.IModel) {
 
 func (set DnsRecords) Copy() apihelper.IModelSet {
 	setCopy := DnsRecords{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
+}
+
+func (set RouteTables) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.RouteTables
+}
+
+func (set RouteTables) NewModel() db.IModel {
+	return &RouteTable{}
+}
+
+func (set RouteTables) AddModel(i db.IModel) {
+	m := i.(*RouteTable)
+	set[m.Id] = m
+}
+
+func (set RouteTables) Copy() apihelper.IModelSet {
+	setCopy := RouteTables{}
 	for id, el := range set {
 		setCopy[id] = el.Copy()
 	}
