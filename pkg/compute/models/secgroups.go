@@ -1222,6 +1222,17 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 	return nil
 }
 
+func (self *SSecurityGroup) GetSecurityGroupReferences() ([]SSecurityGroup, error) {
+	sq := SecurityGroupRuleManager.Query("secgroup_id").Equals("peer_secgroup_id", self.Id).Distinct().SubQuery()
+	q := SecurityGroupManager.Query().In("id", sq)
+	groups := []SSecurityGroup{}
+	err := db.FetchModelObjects(SecurityGroupManager, q, &groups)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return groups, nil
+}
+
 func (self *SSecurityGroup) ValidateDeleteCondition(ctx context.Context) error {
 	cnt, err := self.GetGuestsCount()
 	if err != nil {
@@ -1232,6 +1243,13 @@ func (self *SSecurityGroup) ValidateDeleteCondition(ctx context.Context) error {
 	}
 	if self.Id == "default" {
 		return httperrors.NewProtectedResourceError("not allow to delete default security group")
+	}
+	references, err := self.GetSecurityGroupReferences()
+	if err != nil {
+		return httperrors.NewGeneralError(err)
+	}
+	if len(references) > 0 {
+		return httperrors.NewNotEmptyError("the other security group is in use")
 	}
 	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
@@ -1300,6 +1318,26 @@ func (sg *SSecurityGroup) GetUsages() []db.IUsage {
 	return []db.IUsage{
 		&usage,
 	}
+}
+
+func (self *SSecurityGroup) AllowGetDetailsReferences(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsProjectAllowGetSpec(userCred, self, "references")
+}
+
+// 获取引用信息
+func (self *SSecurityGroup) GetDetailsReferences(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) ([]cloudprovider.SecurityGroupReference, error) {
+	groups, err := self.GetSecurityGroupReferences()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetSecurityGroupReferences")
+	}
+	ret := []cloudprovider.SecurityGroupReference{}
+	for i := range groups {
+		ret = append(ret, cloudprovider.SecurityGroupReference{
+			Id:   groups[i].Id,
+			Name: groups[i].Name,
+		})
+	}
+	return ret, nil
 }
 
 func (self *SSecurityGroup) AllowPerformImportRules(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

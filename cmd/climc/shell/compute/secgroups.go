@@ -36,4 +36,5 @@ func init() {
 	cmd.Perform("purge", &options.SecgroupIdOptions{})
 	cmd.Perform("change-owner", &options.SecgroupChangeOwnerOptions{})
 	cmd.Perform("import-rules", &options.SecgroupImportRulesOptions{})
+	cmd.Get("references", &options.SecgroupIdOptions{})
 }
