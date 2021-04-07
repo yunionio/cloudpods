@@ -41,6 +41,7 @@ func StartService() {
 	dbOpts := &opts.DBOptions
 	baseOpts := &opts.BaseOptions
 
+	models.InitPlaybookWorker()
 	app := common_app.InitApp(baseOpts, false)
 	InitHandlers(app)
 

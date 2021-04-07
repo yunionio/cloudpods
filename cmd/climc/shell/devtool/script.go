@@ -12,17 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package devtool
 
-import common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-
-type AnsibleServerOptions struct {
-	common_options.CommonOptions
-	common_options.DBOptions
-	KeepTmpdir          bool `help:"Whether to save the tmp directory" json:"keep_tmpdir"`
-	PlaybookWorkerCount int  `help:"count of worker to run playbook" default:"5" json:"playbook_worker_count"`
-}
-
-var (
-	Options AnsibleServerOptions
+import (
+	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/devtool"
 )
+
+func init() {
+	cmd := shell.NewResourceCmd(&modules.DevToolScripts).WithKeyword("devtool-script")
+	cmd.List(new(options.ScriptListOptions))
+	cmd.Perform("apply", new(options.ScriptApplyOptions))
+	cmd1 := shell.NewResourceCmd(&modules.DevToolScriptApplyRecords).WithKeyword("devtool-script-record")
+	cmd1.List(new(options.ScriptApplyRecordListOptions))
+}

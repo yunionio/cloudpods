@@ -12,17 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
-
-import common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-
-type AnsibleServerOptions struct {
-	common_options.CommonOptions
-	common_options.DBOptions
-	KeepTmpdir          bool `help:"Whether to save the tmp directory" json:"keep_tmpdir"`
-	PlaybookWorkerCount int  `help:"count of worker to run playbook" default:"5" json:"playbook_worker_count"`
-}
-
-var (
-	Options AnsibleServerOptions
-)
+package devtool // import "yunion.io/x/onecloud/pkg/apis/devtool"
