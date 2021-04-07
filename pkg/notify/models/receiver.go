@@ -602,7 +602,46 @@ func (rm *SReceiverManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 	if len(input.VerifiedContactType) > 0 {
 		q = rm.VerifiedContactFilter(input.VerifiedContactType, q)
 	}
+	if input.ProjectDomainFilter && userCred.GetProjectDomainId() != "" {
+		userIds, err := rm.findUserIdsWithProjectDomain(ctx, userCred, userCred.GetProjectDomainId())
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to findUserIdsWithProjectDomain")
+		}
+		switch len(userIds) {
+		case 0:
+			q = q.Equals("id", "")
+		case 1:
+			q = q.Equals("id", userIds[0])
+		default:
+			q = q.In("id", userIds)
+		}
+	}
 	return q, nil
+}
+
+func (rm *SReceiverManager) findUserIdsWithProjectDomain(ctx context.Context, userCred mcclient.TokenCredential, projectDomainId string) ([]string, error) {
+	session := auth.GetSession(ctx, userCred, "", "")
+	query := jsonutils.NewDict()
+	query.Set("effective", jsonutils.JSONTrue)
+	query.Set("project_domain_id", jsonutils.NewString(projectDomainId))
+	listRet, err := modules.RoleAssignments.List(session, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to list RoleAssignments")
+	}
+	log.Debugf("return value for role-assignments: %s", jsonutils.Marshal(listRet))
+	userIds := make([]string, 0, len(listRet.Data))
+	for i := range listRet.Data {
+		ras := listRet.Data[i]
+		user, err := ras.Get("user")
+		if err == nil {
+			id, err := user.GetString("id")
+			if err != nil {
+				return nil, errors.Wrap(err, "unable to get user.id from result of RoleAssignments.List")
+			}
+			userIds = append(userIds, id)
+		}
+	}
+	return userIds, nil
 }
 
 func (r *SReceiverManager) AllowPerformGetTypes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
