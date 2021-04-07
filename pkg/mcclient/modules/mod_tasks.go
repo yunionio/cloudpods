@@ -28,6 +28,7 @@ var (
 	Tasks modulebase.ResourceManager
 
 	ComputeTasks ComputeTasksManager
+	DevtoolTasks modulebase.ResourceManager
 )
 
 type ComputeTasksManager struct {
@@ -45,6 +46,11 @@ func init() {
 			[]string{"Id", "Obj_name", "Obj_Id", "Task_name", "Stage", "Created_at"}),
 	}
 	registerCompute(&ComputeTasks)
+
+	DevtoolTasks = NewDevtoolManager("task", "tasks",
+		[]string{},
+		[]string{"Id", "Obj_name", "Obj_Id", "Task_name", "Stage", "Created_at"},
+	)
 }
 
 type ITaskResourceManager interface {

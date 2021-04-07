@@ -15,6 +15,8 @@
 package ansible
 
 import (
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 )
@@ -27,3 +29,38 @@ type AnsiblePlaybookCreateInput struct {
 }
 
 type AnsiblePlaybookUpdateInput AnsiblePlaybookCreateInput
+
+type AnsibleHost struct {
+	User string `json:"user"`
+	IP   string `json:"ip"`
+	Port int    `json:"port"`
+	Name string `json:"name"`
+}
+
+type AnsiblePlaybookReferenceCreateInput struct {
+	apis.SharableVirtualResourceCreateInput
+
+	SAnsiblePlaybookReference
+	PlaybookParams map[string]interface{} `json:"playbook_params"`
+}
+
+type AnsiblePlaybookReferenceUpdateInput struct {
+}
+
+type AnsiblePlaybookReferenceRunInput struct {
+	Host AnsibleHost
+	Args jsonutils.JSONObject
+}
+
+type AnsiblePlaybookReferenceRunOutput struct {
+	AnsiblePlaybookInstanceId string
+}
+
+type AnsiblePlaybookReferenceStopInput struct {
+	AnsiblePlaybookInstanceId string
+}
+
+type AnsiblePlaybookInstanceListInput struct {
+	apis.StatusStandaloneResourceListInput
+	AnsiblePlayboookReferenceId string
+}

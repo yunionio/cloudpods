@@ -12,17 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package devtool
 
-import common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+const (
+	SCRIPT_APPLY_STATUS_APPLYING     = "applying"
+	SCRIPT_APPLY_STATUS_APPLY_FAILED = "apply_failed"
+	SCRIPT_APPLY_STATUS_READY        = "ready"
 
-type AnsibleServerOptions struct {
-	common_options.CommonOptions
-	common_options.DBOptions
-	KeepTmpdir          bool `help:"Whether to save the tmp directory" json:"keep_tmpdir"`
-	PlaybookWorkerCount int  `help:"count of worker to run playbook" default:"5" json:"playbook_worker_count"`
-}
+	SCRIPT_APPLY_RECORD_APPLYING = "applying"
+	SCRIPT_APPLY_RECORD_SUCCEED  = "succeed"
+	SCRIPT_APPLY_RECORD_FAILED   = "failed"
 
-var (
-	Options AnsibleServerOptions
+	SCRIPT_NAME  = "monitor agent"
+	SERVICE_TYPE = "devtool"
+
+	SCRIPT_STATUS_READY = "ready"
 )

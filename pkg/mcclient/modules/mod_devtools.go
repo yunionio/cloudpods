@@ -19,8 +19,10 @@ import (
 )
 
 var (
-	DevToolCronjobs  modulebase.ResourceManager
-	DevToolTemplates modulebase.ResourceManager
+	DevToolCronjobs           modulebase.ResourceManager
+	DevToolTemplates          modulebase.ResourceManager
+	DevToolScripts            modulebase.ResourceManager
+	DevToolScriptApplyRecords modulebase.ResourceManager
 )
 
 func init() {
@@ -40,4 +42,19 @@ func init() {
 		[]string{"is_system"},
 	)
 	registerCompute(&DevToolTemplates)
+
+	DevToolScripts = NewDevtoolManager(
+		"script",
+		"scripts",
+		[]string{"Id", "Name", "Type", "Playbook_Reference", "Max_Try_Times"},
+		[]string{},
+	)
+	registerCompute(&DevToolScripts)
+	DevToolScriptApplyRecords = NewDevtoolManager(
+		"scriptapplyrecord",
+		"scriptapplyrecords",
+		[]string{"Script_Id", "Server_Id", "Start_Time", "End_Time", "Reason", "Status"},
+		[]string{},
+	)
+	registerCompute(&DevToolScriptApplyRecords)
 }

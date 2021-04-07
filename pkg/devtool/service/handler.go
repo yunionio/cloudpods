@@ -30,6 +30,7 @@ func InitHandlers(app *appsrv.Application) {
 		taskman.TaskManager,
 		taskman.SubTaskManager,
 		taskman.TaskObjectManager,
+		db.SharedResourceManager,
 		db.UserCacheManager,
 		db.TenantCacheManager,
 	} {
@@ -42,6 +43,9 @@ func InitHandlers(app *appsrv.Application) {
 
 		models.CronjobManager,
 		models.DevtoolTemplateManager,
+		models.ScriptManager,
+		models.ScriptApplyManager,
+		models.ScriptApplyRecordManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
