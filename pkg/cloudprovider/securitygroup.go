@@ -27,7 +27,8 @@ import (
 )
 
 type SecurityGroupReference struct {
-	Id string
+	Id   string
+	Name string
 }
 
 type SecDriver interface {
