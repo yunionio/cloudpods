@@ -113,6 +113,8 @@ type ReceiverListInput struct {
 	EnabledContactType string `json:"enabled_contact_type"`
 
 	VerifiedContactType string `json:"verified_contact_type"`
+
+	ProjectDomainFilter bool `json:"project_domain_filter"`
 }
 
 type ReceiverUpdateInput struct {

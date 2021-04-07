@@ -12,6 +12,7 @@ type ReceiverListOptions struct {
 	UName               string `help:"user name in keystone"`
 	EnabledContactType  string `help:"enabled contact type"`
 	VerifiedContactType string `help:"verified contact type"`
+	ProjectDomainFilter bool   `help:"filter receivers who join the project under the domain where the requester is currently located"`
 }
 
 func (rl *ReceiverListOptions) Params() (jsonutils.JSONObject, error) {
