@@ -30,6 +30,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
@@ -587,4 +588,27 @@ func (self *SKVMHostDriver) tryCleanKubernetesData(host *models.SHost, hostname 
 		hostname = host.GetName()
 	}
 	return cli.Nodes().Delete(context.Background(), hostname, metav1.DeleteOptions{})
+}
+
+func (self *SKVMHostDriver) RequestSyncOnHost(ctx context.Context, host *models.SHost, task taskman.ITask) error {
+	log.Infof("Deallocating disk on host %s", host.GetName())
+	header := mcclient.GetTokenHeaders(task.GetUserCred())
+	url := fmt.Sprintf("/hosts/%s/sync", host.Id)
+	body := jsonutils.NewDict()
+	desc := self.GetJsonFromHost(ctx, host)
+	body.Add(desc, "desc")
+	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, body)
+	return err
+}
+
+func (self *SKVMHostDriver) GetJsonFromHost(ctx context.Context, host *models.SHost) *jsonutils.JSONDict {
+	desc := jsonutils.NewDict()
+	desc.Add(jsonutils.NewString(host.Name), "name")
+	// tenant
+	domainFetcher, _ := db.DefaultDomainFetcher(ctx, host.DomainId)
+	if domainFetcher != nil {
+		desc.Add(jsonutils.NewString(domainFetcher.GetProjectDomainId()), "domain_id")
+		desc.Add(jsonutils.NewString(domainFetcher.GetProjectDomain()), "project_domain")
+	}
+	return desc
 }
