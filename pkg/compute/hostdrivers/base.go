@@ -256,3 +256,7 @@ func (driver *SBaseHostDriver) GetStoragecacheQuota(host *models.SHost) int {
 func (driver *SBaseHostDriver) RequestDeallocateBackupDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement")
 }
+
+func (driver *SBaseHostDriver) RequestSyncOnHost(ctx context.Context, host *models.SHost, task taskman.ITask) error {
+	return nil
+}
