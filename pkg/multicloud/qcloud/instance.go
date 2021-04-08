@@ -591,7 +591,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 
 	internetChargeType := "TRAFFIC_POSTPAID_BY_HOUR"
 	if publicIpChargeType == cloudprovider.ElasticipChargeTypeByBandwidth {
-		internetChargeType = "BANDWIDTH_PREPAID"
+		internetChargeType = "BANDWIDTH_POSTPAID_BY_HOUR"
 	}
 	_, totalCount, err := self.GetBandwidthPackages([]string{}, 0, 50)
 	if err != nil {
