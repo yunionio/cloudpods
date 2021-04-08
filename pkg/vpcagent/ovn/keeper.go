@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/ovsdb/schema/ovn_nb"
 	"yunion.io/x/ovsdb/types"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 
 	apis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -102,14 +103,13 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 	)
 
 	var (
-		vpcExtLr           *ovn_nb.LogicalRouter
-		vpcExtLs           *ovn_nb.LogicalSwitch
-		vpcR1extp          *ovn_nb.LogicalRouterPort
-		vpcExtr1p          *ovn_nb.LogicalSwitchPort
-		vpcR2extp          *ovn_nb.LogicalRouterPort
-		vpcExtr2p          *ovn_nb.LogicalSwitchPort
-		vpcDefaultRoute    *ovn_nb.LogicalRouterStaticRoute
-		vpcExtDefaultRoute *ovn_nb.LogicalRouterStaticRoute
+		vpcExtLr        *ovn_nb.LogicalRouter
+		vpcExtLs        *ovn_nb.LogicalSwitch
+		vpcR1extp       *ovn_nb.LogicalRouterPort
+		vpcExtr1p       *ovn_nb.LogicalSwitchPort
+		vpcR2extp       *ovn_nb.LogicalRouterPort
+		vpcExtr2p       *ovn_nb.LogicalSwitchPort
+		vpcDefaultRoute *ovn_nb.LogicalRouterStaticRoute
 	)
 	if hasDistgw || hasEipgw {
 		vpcExtLr = &ovn_nb.LogicalRouter{
@@ -150,12 +150,6 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 			Nexthop:    apis.VpcInterExtIP2().String(),
 			OutputPort: ptr(vpcR1extpName(vpc.Id)),
 		}
-		vpcExtDefaultRoute = &ovn_nb.LogicalRouterStaticRoute{
-			Policy:     ptr("dst-ip"),
-			IpPrefix:   "0.0.0.0/0",
-			Nexthop:    apis.VpcInterExtIP1().String(),
-			OutputPort: ptr(vpcR2extpName(vpc.Id)),
-		}
 		irows = append(irows,
 			vpcExtLr,
 			vpcExtLs,
@@ -164,7 +158,6 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 			vpcR2extp,
 			vpcExtr2p,
 			vpcDefaultRoute,
-			vpcExtDefaultRoute,
 		)
 	}
 
@@ -241,9 +234,7 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 		args = append(args, ovnCreateArgs(vpcR2extp, vpcR2extp.Name)...)
 		args = append(args, ovnCreateArgs(vpcExtr2p, vpcExtr2p.Name)...)
 		args = append(args, ovnCreateArgs(vpcDefaultRoute, "vpcDefaultRoute")...)
-		args = append(args, ovnCreateArgs(vpcExtDefaultRoute, "vpcExtDefaultRoute")...)
 		args = append(args, "--", "add", "Logical_Router", vpcLrName(vpc.Id), "static_routes", "@vpcDefaultRoute")
-		args = append(args, "--", "add", "Logical_Router", vpcExtLrName(vpc.Id), "static_routes", "@vpcExtDefaultRoute")
 		args = append(args, "--", "add", "Logical_Switch", vpcExtLs.Name, "ports", "@"+vpcExtr1p.Name)
 		args = append(args, "--", "add", "Logical_Router", vpcLr.Name, "ports", "@"+vpcR1extp.Name)
 		args = append(args, "--", "add", "Logical_Switch", vpcExtLs.Name, "ports", "@"+vpcExtr2p.Name)
@@ -268,6 +259,7 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 
 func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *agentmodels.Network, opts *options.Options) error {
 	var (
+		vpc     = network.Vpc
 		rpMac   = mac.HashSubnetRouterPortMac(network.Id)
 		dhcpMac = mac.HashSubnetDhcpMac(network.Id)
 		mdMac   = mac.HashSubnetMetadataMac(network.Id)
@@ -294,6 +286,20 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 		Type:      "localport",
 		Addresses: []string{fmt.Sprintf("%s %s", mdMac, mdIp)},
 	}
+	var netAddrCidr string
+	if ipAddr, err := netutils.NewIPV4Addr(network.GuestGateway); err != nil {
+		return err
+	} else {
+		netAddr := ipAddr.NetAddr(network.GuestIpMask)
+		netAddrCidr = fmt.Sprintf("%s/%d", netAddr, network.GuestIpMask)
+	}
+	vpcExtBackRoute := &ovn_nb.LogicalRouterStaticRoute{
+		Policy:     ptr("dst-ip"),
+		IpPrefix:   netAddrCidr,
+		Nexthop:    apis.VpcInterExtIP1().String(),
+		OutputPort: ptr(vpcR2extpName(vpc.Id)),
+	}
+
 	routes := []string{
 		mdIp, "0.0.0.0",
 		"0.0.0.0/0", network.GuestGateway,
@@ -367,6 +373,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 		netNrp,
 		netMdp,
 		dhcpopts,
+		vpcExtBackRoute,
 	)
 	if allFound {
 		return nil
@@ -376,8 +383,10 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 	args = append(args, ovnCreateArgs(netNrp, netNrp.Name)...)
 	args = append(args, ovnCreateArgs(netMdp, netMdp.Name)...)
 	args = append(args, ovnCreateArgs(dhcpopts, "dhcpopts")...)
+	args = append(args, ovnCreateArgs(vpcExtBackRoute, "vpcExtBackRoute")...)
 	args = append(args, "--", "add", "Logical_Switch", netLs.Name, "ports", "@"+netNrp.Name, "@"+netMdp.Name)
-	args = append(args, "--", "add", "Logical_Router", vpcLrName(network.Vpc.Id), "ports", "@"+netRnp.Name)
+	args = append(args, "--", "add", "Logical_Router", vpcLrName(vpc.Id), "ports", "@"+netRnp.Name)
+	args = append(args, "--", "add", "Logical_Router", vpcExtLrName(vpc.Id), "static_routes", "@vpcExtBackRoute")
 	return keeper.cli.Must(ctx, "ClaimNetwork", args)
 }
 
