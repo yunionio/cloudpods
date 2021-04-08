@@ -31,11 +31,10 @@ func (man *SI18nResourceBaseManager) SyncI18ns(ctx context.Context, userCred mcc
 	itable := man.getSModelI18nTable(model, table)
 	_, _, r := db.I18nManager.SyncI18ns(ctx, userCred, model, itable)
 	if r.IsError() {
-		log.Infof("SyncI18ns for %s %s result: %s", model.Keyword(), model.GetId(), r.Result())
+		log.Errorf("SyncI18ns for %s %s result: %s", model.Keyword(), model.GetId(), r.Result())
 		return errors.Wrap(r.AllError(), "SyncI18ns")
 	}
 
-	log.Debugf("SyncI18ns for %s %s result: %s", model.Keyword(), model.GetId(), r.Result())
 	return nil
 }
 
@@ -51,7 +50,7 @@ func (self *SI18nResourceBase) RemoveI18ns(ctx context.Context, userCred mcclien
 func (self *SI18nResourceBase) GetModelI18N(ctx context.Context, model db.IModel) *jsonutils.JSONDict {
 	entries, err := db.I18nManager.GetModelI18N(ctx, model)
 	if err != nil {
-		log.Infof("GetI18N %s", err)
+		log.Errorf("GetModelI18N error %s", err)
 		return nil
 	}
 
@@ -66,7 +65,7 @@ func (self *SI18nResourceBase) GetModelI18N(ctx context.Context, model db.IModel
 func (self *SI18nResourceBase) GetModelKeyI18N(ctx context.Context, model db.IModel, keyName string) (string, bool) {
 	entries, err := db.I18nManager.GetModelKeyI18N(ctx, model, keyName)
 	if err != nil {
-		log.Infof("GetModelKeyI18N %s", err)
+		log.Errorf("GetModelKeyI18N error %s", err)
 		return "", false
 	}
 

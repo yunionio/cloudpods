@@ -8,7 +8,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -177,8 +176,10 @@ func (manager *SI18nManager) RemoveI18ns(ctx context.Context, userCred mcclient.
 }
 
 func (manager *SI18nManager) SyncI18ns(ctx context.Context, userCred mcclient.TokenCredential, model IModel, table IModelI18nTable) ([]SI18n, []IModelI18nEntry, compare.SyncResult) {
-	lockman.LockClass(ctx, manager, "")
-	defer lockman.ReleaseClass(ctx, manager, "")
+	//// No need to lock SI18nManager, the resources has been lock in the upper layer - QIU Jian, 20210405
+	// lockman.LockClass(ctx, manager, "")
+	// defer lockman.ReleaseClass(ctx, manager, "")
+
 	syncResult := compare.SyncResult{}
 
 	extItems := manager.getExternalI18nItems(ctx, table)
@@ -257,7 +258,7 @@ func (manager *SI18nManager) newFromI18n(ctx context.Context, userCred mcclient.
 }
 
 func (self *SI18n) updateFromI18n(ctx context.Context, userCred mcclient.TokenCredential, entry IModelI18nEntry) error {
-	_, err := UpdateWithLock(ctx, self, func() error {
+	_, err := Update(self, func() error {
 		self.KeyValue = entry.GetKeyValue()
 		self.Cn = entry.Lookup(i18n.I18N_TAG_CHINESE)
 		self.En = entry.Lookup(i18n.I18N_TAG_ENGLISH)
@@ -273,8 +274,8 @@ func (self *SI18n) updateFromI18n(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SI18n) removeI18n(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, self)
-	defer lockman.ReleaseObject(ctx, self)
+	// lockman.LockObject(ctx, self)
+	// defer lockman.ReleaseObject(ctx, self)
 
 	err := self.Delete(ctx, userCred)
 	return err
