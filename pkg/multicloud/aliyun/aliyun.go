@@ -21,6 +21,7 @@ import (
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
+	alierr "github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"github.com/pkg/errors"
@@ -147,39 +148,43 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 	if debug {
 		log.Debugf("request %s %s %s %s", domain, apiVersion, apiName, params)
 	}
+	var resp jsonutils.JSONObject
+	var err error
 	for i := 1; i < 4; i++ {
-		resp, err := _jsonRequest(client, domain, apiVersion, apiName, params)
+		resp, err = _jsonRequest(client, domain, apiVersion, apiName, params)
 		retry := false
 		if err != nil {
-			for _, code := range []string{
-				"InvalidAccessKeyId.NotFound",
-			} {
-				if strings.Contains(err.Error(), code) {
+			if e, ok := errors.Cause(err).(*alierr.ServerError); ok {
+				code := e.ErrorCode()
+				switch code {
+				case "InvalidAccessKeyId.NotFound":
+					return nil, err
+				case "SignatureNonceUsed",
+					"InvalidInstance.NotSupported",
+					"BackendServer.configuring",
+					"OperationUnsupported.EipNatBWPCheck":
+					retry = true
+				default:
+					if strings.HasPrefix(code, "EntityNotExist") || strings.HasSuffix(code, "NotFound") {
+						return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
+					}
 					return nil, err
 				}
-			}
-			for _, code := range []string{"404 Not Found", "EntityNotExist.Role", "EntityNotExist.Group"} {
-				if strings.Contains(err.Error(), code) {
-					return nil, errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
-				}
-			}
-			for _, code := range []string{
-				"EOF",
-				"i/o timeout",
-				"TLS handshake timeout",
-				"Client.Timeout exceeded while awaiting headers",
-				"connection reset by peer",
-				"server misbehaving",
-				"SignatureNonceUsed",
-				"InvalidInstance.NotSupported",
-				"try later",
-				"BackendServer.configuring",
-				"OperationUnsupported.EipNatBWPCheck",  // create nat snat
-				"Another operation is being performed", // Another operation is being performed on the DB instance or the DB instance is faulty(赋予RDS账号权限)
-			} {
-				if strings.Contains(err.Error(), code) {
-					retry = true
-					break
+			} else {
+				for _, code := range []string{
+					"EOF",
+					"i/o timeout",
+					"TLS handshake timeout",
+					"Client.Timeout exceeded while awaiting headers",
+					"connection reset by peer",
+					"server misbehaving",
+					"try later",
+					"Another operation is being performed", // Another operation is being performed on the DB instance or the DB instance is faulty(赋予RDS账号权限)
+				} {
+					if strings.Contains(err.Error(), code) {
+						retry = true
+						break
+					}
 				}
 			}
 		}
@@ -195,7 +200,7 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 		}
 		return resp, err
 	}
-	return nil, fmt.Errorf("timeout for request %s params: %s", apiName, params)
+	return resp, err
 }
 
 func _jsonRequest(client *sdk.Client, domain string, version string, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
