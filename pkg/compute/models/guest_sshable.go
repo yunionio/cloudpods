@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	cloudproxy_module "yunion.io/x/onecloud/pkg/mcclient/modules/cloudproxy"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	ssh_util "yunion.io/x/onecloud/pkg/util/ssh"
 )
 
@@ -173,9 +174,15 @@ func (guest *SGuest) GetDetailsSshable(
 				}
 			}
 		} else {
+			var reason string
+			if jce, ok := err.(*httputils.JSONClientError); ok {
+				reason = jce.Details
+			} else {
+				reason = err.Error()
+			}
 			tryData.AddMethodTried(compute_api.GuestSshableMethodData{
 				Method: compute_api.MethodProxyForward,
-				Reason: err.Error(),
+				Reason: reason,
 			})
 		}
 	}
