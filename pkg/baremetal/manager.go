@@ -1550,6 +1550,11 @@ func (b *SBaremetalInstance) StartBaremetalResetBMCTask(userCred mcclient.TokenC
 }
 
 func (b *SBaremetalInstance) StartBaremetalIpmiProbeTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
+	session := b.manager.GetClientSession()
+	data, _ = b.manager.fetchBaremetal(session, b.GetId())
+	if err := b.SaveDesc(data); err != nil {
+		return err
+	}
 	b.StartNewTask(tasks.NewBaremetalIpmiProbeTask, userCred, taskId, data)
 	return nil
 }
