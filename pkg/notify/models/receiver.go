@@ -771,6 +771,7 @@ func (r *SReceiver) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 
 func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	r.SStatusStandaloneResourceBase.PreUpdate(ctx, userCred, query, data)
+	originEmailEnable, originMobileEnable := r.EnabledEmail, r.EnabledMobile
 	var input api.ReceiverUpdateInput
 	err := data.Unmarshal(&input)
 	if err != nil {
@@ -811,6 +812,24 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 	err = ReceiverManager.TableSpec().InsertOrUpdate(ctx, r)
 	if err != nil {
 		log.Errorf("InsertOrUpdate: %v", err)
+	}
+	// 管理后台修改联系人，如果修改或者启用手机号和邮箱，无需进行校验
+	allowScope := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
+	if allowScope == rbacutils.ScopeSystem {
+		// 修改并启用
+		if len(input.Email) != 0 && input.Email != r.Email && r.EnabledEmail.Bool() {
+			r.VerifiedEmail = tristate.True
+		}
+		if len(mobile) != 0 && mobile != r.Mobile && r.EnabledMobile.Bool() {
+			r.VerifiedMobile = tristate.True
+		}
+		// 从禁用变启用
+		if !originEmailEnable.Bool() && r.EnabledEmail.Bool() {
+			r.VerifiedEmail = tristate.True
+		}
+		if !originMobileEnable.Bool() && r.EnabledMobile.Bool() {
+			r.VerifiedMobile = tristate.True
+		}
 	}
 }
 
