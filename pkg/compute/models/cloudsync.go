@@ -1201,6 +1201,7 @@ func syncPublicCloudProviderInfo(
 		syncRegionSkus(ctx, userCred, localRegion)
 		SyncRegionDBInstanceSkus(ctx, userCred, localRegion.Id, true)
 		SyncRegionNatSkus(ctx, userCred, localRegion.Id, true)
+		SyncRegionNasSkus(ctx, userCred, localRegion.Id, true)
 	} else {
 		syncSkusFromPrivateCloud(ctx, userCred, syncResults, localRegion, remoteRegion)
 	}
