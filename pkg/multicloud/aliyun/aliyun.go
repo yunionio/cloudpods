@@ -64,6 +64,7 @@ const (
 	ALIYUN_CBN_API_VERSION    = "2017-09-12"
 	ALIYUN_CDN_API_VERSION    = "2018-05-10"
 	ALIYUN_IMS_API_VERSION    = "2019-08-15"
+	ALIYUN_NAS_API_VERSION    = "2017-06-26"
 
 	ALIYUN_SERVICE_ECS = "ecs"
 	ALIYUN_SERVICE_VPC = "vpc"
@@ -159,13 +160,21 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 				switch code {
 				case "InvalidAccessKeyId.NotFound":
 					return nil, err
-				case "SignatureNonceUsed",
-					"InvalidInstance.NotSupported",
-					"BackendServer.configuring",
-					"OperationUnsupported.EipNatBWPCheck":
+				case "404 Not Found":
+					return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
+				case "InvalidInstance.NotSupported",
+					"SignatureNonceUsed",                  // SignatureNonce 重复。每次请求的 SignatureNonce 在 15 分钟内不能重复。
+					"BackendServer.configuring",           // 负载均衡的前一个配置项正在配置中，请稍后再试。
+					"Operation.Conflict",                  // 您当前的操作可能与其他人的操作产生了冲突，请稍后重试。
+					"OperationDenied.ResourceControl",     // 指定的区域处于资源控制中，请稍后再试。
+					"ServiceIsStopping",                   // 监听正在停止，请稍后重试。
+					"ProcessingSameRequest",               // 正在处理相同的请求。请稍后再试。
+					"ResourceInOperating",                 // 当前资源正在操作中，请求稍后重试。
+					"InvalidFileSystemStatus.Ordering",    // Message: The filesystem is ordering now, please check it later.
+					"OperationUnsupported.EipNatBWPCheck": // create nat snat
 					retry = true
 				default:
-					if strings.HasPrefix(code, "EntityNotExist") || strings.HasSuffix(code, "NotFound") {
+					if strings.HasPrefix(code, "EntityNotExist.") || strings.HasSuffix(code, ".NotFound") {
 						return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
 					}
 					return nil, err
@@ -554,6 +563,7 @@ func (region *SAliyunClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_INTERVPCNETWORK,
 		cloudprovider.CLOUD_CAPABILITY_SAML_AUTH,
 		cloudprovider.CLOUD_CAPABILITY_NAT,
+		cloudprovider.CLOUD_CAPABILITY_NAS,
 	}
 	return caps
 }

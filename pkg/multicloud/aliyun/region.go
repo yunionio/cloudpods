@@ -153,6 +153,15 @@ func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonut
 	return jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params, self.client.debug)
 }
 
+func (self *SRegion) nasRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
+	client, err := self.getSdkClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonRequest(client, "nas.aliyuncs.com", ALIYUN_NAS_API_VERSION, action, params, self.client.debug)
+}
+
 func (self *SRegion) kvsRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
 	client, err := self.getSdkClient()
 	if err != nil {
