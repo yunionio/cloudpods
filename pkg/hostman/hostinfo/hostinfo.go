@@ -714,7 +714,7 @@ func (h *SHostInfo) detectOvsKOVersion() error {
 	lines := strings.Split(string(output), "\n")
 	for i := 0; i < len(lines); i++ {
 		line := lines[i]
-		if strings.HasPrefix(line, "version:") || (h.IsAarch64() && strings.HasPrefix(line, "vermagic")) {
+		if strings.HasPrefix(line, "version:") || strings.HasPrefix(line, "vermagic") {
 			log.Infof("kernel module openvswitch %s", line)
 			return nil
 		}
