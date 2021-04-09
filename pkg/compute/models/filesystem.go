@@ -132,10 +132,23 @@ func (man *SFileSystemManager) ValidateCreateData(ctx context.Context, userCred 
 			return input, err
 		}
 		network := net.(*SNetwork)
-		zone := network.GetZone()
 		input.ManagerId = network.GetVpc().ManagerId
-		input.ZoneId = zone.Id
-		input.CloudregionId = zone.CloudregionId
+		if zone := network.GetZone(); zone != nil {
+			input.ZoneId = zone.Id
+			input.CloudregionId = zone.CloudregionId
+		} else {
+			zones, err := network.GetRegion().GetZones()
+			if err != nil {
+				return input, httperrors.NewGeneralError(errors.Wrapf(err, "GetZones"))
+			}
+			for _, zone := range zones {
+				if zone.Status == api.ZONE_ENABLE {
+					input.ZoneId = zone.Id
+					input.CloudregionId = zone.CloudregionId
+					break
+				}
+			}
+		}
 	} else if len(input.ZoneId) > 0 {
 		_zone, err := validators.ValidateModel(userCred, ZoneManager, &input.ZoneId)
 		if err != nil {

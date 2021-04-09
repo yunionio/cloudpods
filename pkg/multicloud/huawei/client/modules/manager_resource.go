@@ -51,6 +51,8 @@ const (
 	ServiceNameCTS  ServiceNameType = "cts"  // 云审计服务
 	ServiceNameCES  ServiceNameType = "ces"  // 监控服务 CloudEye
 	ServiceNameEPS  ServiceNameType = "eps"  // 企业项目
+
+	ServiceNameSFSTurbo ServiceNameType = "sfs-turbo" // 文件系统
 )
 
 type SManagerContext struct {
