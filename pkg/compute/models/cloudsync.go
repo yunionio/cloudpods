@@ -568,8 +568,9 @@ func syncZoneStorages(ctx context.Context, userCred mcclient.TokenCredential, sy
 					newCacheIds = append(newCacheIds, cachePair)
 				}
 			}
-			syncStorageDisks(ctx, userCred, syncResults, provider, driver, &localStorages[i], remoteStorages[i], syncRange)
-
+			if !remoteStorages[i].DisableSync() {
+				syncStorageDisks(ctx, userCred, syncResults, provider, driver, &localStorages[i], remoteStorages[i], syncRange)
+			}
 		}()
 	}
 	return newCacheIds

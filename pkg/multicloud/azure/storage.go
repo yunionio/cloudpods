@@ -39,7 +39,7 @@ const (
 var STORAGETYPES = []string{STORAGE_STD_LRS, STORAGE_PRE_LRS, STORAGE_STD_SSD}
 
 type SStorage struct {
-	multicloud.SResourceBase
+	multicloud.SStorageBase
 	zone *SZone
 
 	storageType  string
