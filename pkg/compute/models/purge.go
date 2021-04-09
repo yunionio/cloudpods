@@ -1789,6 +1789,54 @@ func (manager *SPolicyDefinitionManager) purgeAll(ctx context.Context, userCred 
 	return nil
 }
 
+func (self *SAccessGroupCache) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	return self.RealDelete(ctx, userCred)
+}
+
+func (manager *SAccessGroupCacheManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	caches := []SAccessGroupCache{}
+	err := fetchByManagerId(manager, providerId, &caches)
+	if err != nil {
+		return errors.Wrapf(err, "fetchByManagerId")
+	}
+
+	for i := range caches {
+		err := caches[i].purge(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "cache purge")
+		}
+	}
+
+	return nil
+}
+
+func (self *SFileSystem) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	return self.RealDelete(ctx, userCred)
+}
+
+func (manager *SFileSystemManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	files := []SFileSystem{}
+	err := fetchByManagerId(manager, providerId, &files)
+	if err != nil {
+		return errors.Wrapf(err, "fetchByManagerId")
+	}
+
+	for i := range files {
+		err := files[i].purge(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "cache purge")
+		}
+	}
+
+	return nil
+}
+
 func (vpcPC *SVpcPeeringConnection) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, vpcPC)
 	defer lockman.ReleaseObject(ctx, vpcPC)

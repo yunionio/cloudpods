@@ -375,6 +375,10 @@ type BaseCreateOptions struct {
 	Desc string `metavar:"<DESCRIPTION>" help:"Description" json:"description"`
 }
 
+func (opts *BaseCreateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
 type EnabledStatusCreateOptions struct {
 	BaseCreateOptions
 	Status  string

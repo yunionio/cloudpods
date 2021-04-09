@@ -18,6 +18,11 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
+const (
+	NETWORK_TYPE_VPC     = "vpc"
+	NETWORK_TYPE_CLASSIC = "classic"
+)
+
 type WireResourceInput struct {
 	// 二层网络(ID或Name)的资源
 	WireId string `json:"wire_id"`

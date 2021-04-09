@@ -63,11 +63,6 @@ type SNatSku struct {
 	PrepaidStatus  string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" update:"admin" default:"available"` // 预付费资源状态   available|soldout
 	PostpaidStatus string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" update:"admin" default:"available"` // 按需付费资源状态  available|soldout
 
-	Cps        int `nullable:"false" list:"user" create:"optional" update:"admin"`
-	Conns      int `nullable:"false" list:"user" create:"optional" update:"admin"`
-	Pps        int `nullable:"false" list:"user" create:"optional" update:"admin"`
-	Throughput int `nullable:"false" list:"user" create:"optional" update:"admin"`
-
 	Provider string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin"`
 	ZoneIds  string `charset:"utf8" nullable:"true" list:"user" update:"admin" create:"admin_optional" json:"zone_ids"`
 }
