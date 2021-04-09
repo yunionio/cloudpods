@@ -21,6 +21,7 @@ const (
 	CACHED_IMAGE_STATUS_ACTIVE       = "active"
 	CACHED_IMAGE_STATUS_DELETING     = "deleting"
 	CACHED_IMAGE_STATUS_CACHE_FAILED = "cache_fail"
+	CACHED_IMAGE_STATUS_UNKNOWN      = "unknown"
 
 	DOWNLOAD_SESSION_LENGTH = 3600 * 3 // 3 hour
 )

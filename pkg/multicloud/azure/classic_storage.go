@@ -32,7 +32,7 @@ const (
 )
 
 type SClassicStorage struct {
-	multicloud.SResourceBase
+	multicloud.SStorageBase
 	region *SRegion
 
 	AccountType string

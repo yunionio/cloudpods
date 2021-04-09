@@ -35,8 +35,9 @@ const (
 	DISK_START_SAVE = "start_save"
 	DISK_SAVING     = "saving"
 
-	DISK_START_RESIZE = "start_resize"
-	DISK_RESIZING     = "resizing"
+	DISK_START_RESIZE  = "start_resize"
+	DISK_RESIZING      = "resizing"
+	DISK_RESIZE_FAILED = "resize_failed"
 
 	DISK_START_MIGRATE = "start_migrate"
 	DISK_POST_MIGRATE  = "post_migrate"

@@ -44,6 +44,7 @@ func init() {
 	cmd.CreateWithKeyword("create-xsky", &options.SXskyCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-ctyun", &options.SCtyunCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-apsara", &options.SApsaraCloudAccountCreateOptions{})
+	cmd.CreateWithKeyword("create-ecloud", &options.SEcloudCloudAccountCreateOptions{})
 
 	cmd.UpdateWithKeyword("update-vmware", &options.SVMwareCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-aliyun", &options.SAliyunCloudAccountUpdateOptions{})

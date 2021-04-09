@@ -38,7 +38,7 @@ type SExtraSpecs struct {
 }
 
 type SStorage struct {
-	multicloud.SResourceBase
+	multicloud.SStorageBase
 	zone       *SZone
 	Name       string
 	ExtraSpecs SExtraSpecs

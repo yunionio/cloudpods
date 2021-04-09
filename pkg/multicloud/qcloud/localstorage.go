@@ -33,7 +33,7 @@ var QCLOUD_LOCAL_STORAGE_TYPES = []string{
 }
 
 type SLocalStorage struct {
-	multicloud.SResourceBase
+	multicloud.SStorageBase
 	zone        *SZone
 	storageType string
 	available   bool

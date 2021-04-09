@@ -337,6 +337,17 @@ func (opts *SCtyunCloudAccountCreateOptions) Params() (jsonutils.JSONObject, err
 	return params, nil
 }
 
+type SEcloudCloudAccountCreateOptions struct {
+	SCloudAccountCreateBaseOptions
+	SAccessKeyCredentialWithEnvironment
+}
+
+func (opts *SEcloudCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Ecloud"), "provider")
+	return params, nil
+}
+
 // update credential options
 
 type SCloudAccountIdOptions struct {
