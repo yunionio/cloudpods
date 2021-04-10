@@ -89,6 +89,7 @@ type Client struct {
 	Groups               *modules.SGroupManager
 	SAMLProviders        *modules.SAMLProviderManager
 	SAMLProviderMappings *modules.SAMLProviderMappingManager
+	SfsTurbos            *modules.SfsTurboManager
 }
 
 func (self *Client) SetHttpClient(httpClient *http.Client) {
@@ -146,6 +147,7 @@ func (self *Client) SetHttpClient(httpClient *http.Client) {
 	self.Groups.SetHttpClient(httpClient)
 	self.SAMLProviders.SetHttpClient(httpClient)
 	self.SAMLProviderMappings.SetHttpClient(httpClient)
+	self.SfsTurbos.SetHttpClient(httpClient)
 }
 
 func (self *Client) InitWithOptions(regionId, domainId, projectId string, credential auth.Credential) error {
@@ -237,6 +239,7 @@ func (self *Client) initManagers() {
 		self.SAMLProviders.SetDomainId(self.domainId)
 		self.SAMLProviderMappings = modules.NewSAMLProviderMappingManager(self.signer, self.debug)
 		self.SAMLProviderMappings.SetDomainId(self.domainId)
+		self.SfsTurbos = modules.NewSfsTurboManager(self.regionId, self.projectId, self.signer, self.debug)
 	}
 
 	self.init = true

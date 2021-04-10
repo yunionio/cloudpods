@@ -2689,3 +2689,7 @@ func (self *SHuaWeiRegionDriver) ValidateCreateNatGateway(ctx context.Context, u
 func (self *SHuaWeiRegionDriver) IsSupportedNatGateway() bool {
 	return true
 }
+
+func (self *SHuaWeiRegionDriver) IsSupportedNas() bool {
+	return true
+}
