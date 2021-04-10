@@ -76,7 +76,7 @@ func (self *FileSystemCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 		opts.VpcId = network.GetVpc().ExternalId
 	}
 
-	log.Infof("nas create params: %v", opts)
+	log.Infof("nas create params: %s", jsonutils.Marshal(opts).String())
 
 	iFs, err := iRegion.CreateICloudFileSystem(opts)
 	if err != nil {
