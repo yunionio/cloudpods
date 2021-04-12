@@ -376,7 +376,7 @@ func (self *SOpsLogManager) FilterByOwner(q *sqlchemy.SQuery, ownerId mcclient.I
 			}
 		case rbacutils.ScopeDomain:
 			if len(ownerId.GetProjectDomainId()) > 0 {
-				q = q.Filter(sqlchemy.Equals(q.Field("domain_id"), ownerId.GetProjectDomainId()))
+				q = q.Filter(sqlchemy.Equals(q.Field("project_domain_id"), ownerId.GetProjectDomainId()))
 			}
 		default:
 			// systemScope, no filter
