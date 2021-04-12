@@ -72,6 +72,10 @@ func (guest *SGuest) GetDetailsSshable(
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
+	if guest.Status != compute_api.VM_RUNNING {
+		return nil, httperrors.NewBadRequestError("server sshable state can only be checked when in running state")
+	}
+
 	tryData := &GuestSshableTryData{
 		User: "cloudroot",
 	}
