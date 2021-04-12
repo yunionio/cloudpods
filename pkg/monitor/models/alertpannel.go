@@ -117,11 +117,10 @@ func (man *SAlertPanelManager) ValidateCreateData(
 		}
 	}
 
-	name, err := CommonAlertManager.genName(ownerId, data.Name)
+	name, err := db.GenerateName(man, ownerId, data.Name)
 	if err != nil {
 		return data, err
 	}
-	data.Name = name
 
 	alertCreateInput := man.toAlertCreateInput(data)
 	data.AlertCreateInput = alertCreateInput
@@ -129,6 +128,8 @@ func (man *SAlertPanelManager) ValidateCreateData(
 	if data.Enabled == nil {
 		data.Enabled = &enable
 	}
+
+	data.Name = name
 	return data, nil
 }
 
@@ -212,8 +213,8 @@ func (man *SAlertPanelManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (dash *SAlertPanel) GetMoreDetails(out monitor.PanelDetails) (monitor.PanelDetails, error) {
-	setting, err := dash.GetSettings()
+func (panel *SAlertPanel) GetMoreDetails(out monitor.PanelDetails) (monitor.PanelDetails, error) {
+	setting, err := panel.GetSettings()
 	if err != nil {
 		return out, err
 	}
@@ -223,17 +224,19 @@ func (dash *SAlertPanel) GetMoreDetails(out monitor.PanelDetails) (monitor.Panel
 
 	out.CommonAlertMetricDetails = make([]*monitor.CommonAlertMetricDetails, len(setting.Conditions))
 	for i, cond := range setting.Conditions {
-		metricDetails := dash.GetCommonAlertMetricDetailsFromAlertCondition(i, cond)
+		metricDetails := panel.GetCommonAlertMetricDetailsFromAlertCondition(i, &cond)
 		out.CommonAlertMetricDetails[i] = metricDetails
+		setting.Conditions[i] = cond
 	}
+	panel.Settings = jsonutils.Marshal(setting)
 	return out, nil
 }
 
 func (dash *SAlertPanel) GetCommonAlertMetricDetailsFromAlertCondition(index int,
-	cond monitor.AlertCondition) *monitor.
+	cond *monitor.AlertCondition) *monitor.
 	CommonAlertMetricDetails {
 	metricDetails := new(monitor.CommonAlertMetricDetails)
-	getCommonAlertMetricDetailsFromCondition(&cond, metricDetails)
+	getCommonAlertMetricDetailsFromCondition(cond, metricDetails)
 	return metricDetails
 }
 
