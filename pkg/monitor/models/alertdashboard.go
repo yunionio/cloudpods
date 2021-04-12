@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
@@ -107,6 +108,36 @@ func (dash *SAlertDashBoard) CustomizeCreate(
 	data jsonutils.JSONObject,
 ) error {
 	return dash.SScopedResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+}
+
+func (dash *SAlertDashBoard) PostCreate(ctx context.Context,
+	userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	_, err := dash.PerformSetScope(ctx, userCred, query, data)
+	if err != nil {
+		log.Errorln(errors.Wrap(err, "dash PerformSetScope"))
+	}
+}
+
+func (dash *SAlertDashBoard) PerformSetScope(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	domainId := jsonutils.GetAnyString(data, []string{"domain_id", "domain", "project_domain_id", "project_domain"})
+	projectId := jsonutils.GetAnyString(data, []string{"project_id", "project"})
+	if len(domainId) == 0 && len(projectId) == 0 {
+		scope, _ := data.GetString("scope")
+		if len(scope) != 0 {
+			switch rbacutils.TRbacScope(scope) {
+			case rbacutils.ScopeSystem:
+
+			case rbacutils.ScopeDomain:
+				domainId = userCred.GetProjectDomainId()
+				data.(*jsonutils.JSONDict).Set("domain_id", jsonutils.NewString(domainId))
+			case rbacutils.ScopeProject:
+				projectId = userCred.GetProjectId()
+				data.(*jsonutils.JSONDict).Set("project_id", jsonutils.NewString(projectId))
+			}
+		}
+	}
+	return db.PerformSetScope(ctx, dash, userCred, data)
 }
 
 func (man *SAlertDashBoardManager) ListItemFilter(
