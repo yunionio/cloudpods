@@ -16,6 +16,7 @@ package qcloud
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -191,8 +192,8 @@ func (self *SecurityGroupPolicy) toRules() []cloudprovider.SecurityRule {
 		},
 	}
 	if len(self.SecurityGroupId) != 0 {
-		//安全组关联安全组的规则忽略
-		return nil
+		rule.ParseCIDR("0.0.0.0/0")
+		rule.PeerSecgroupId = self.SecurityGroupId
 	}
 	if strings.ToLower(self.Action) == "drop" {
 		rule.Action = secrules.SecurityRuleDeny
@@ -339,6 +340,7 @@ func (self *SSecurityGroup) deleteRules(rules []cloudprovider.SecurityRule, dire
 
 func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
 	rules := append(common, append(inAdds, outAdds...)...)
+	sort.Sort(cloudprovider.SecurityRuleSet(rules))
 	return self.region.syncSecgroupRules(self.SecurityGroupId, rules)
 }
 

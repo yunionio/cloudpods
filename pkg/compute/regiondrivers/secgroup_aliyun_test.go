@@ -38,7 +38,13 @@ func TestAliyunRuleSync(t *testing.T) {
 				ruleWithName("", "in:allow tcp 22", 100),
 				ruleWithName("", "in:allow tcp 1212", 100),
 			},
-			Common:  []cloudprovider.SecurityRule{},
+			Common: []cloudprovider.SecurityRule{
+				ruleWithName("", "in:deny tcp 443", 1),
+				ruleWithName("", "in:allow udp 1231", 1),
+				ruleWithName("", "in:allow tcp 3389", 100),
+				ruleWithName("", "in:allow tcp 22", 100),
+				ruleWithName("", "in:allow tcp 1212", 100),
+			},
 			InAdds:  []cloudprovider.SecurityRule{},
 			OutAdds: []cloudprovider.SecurityRule{},
 			InDels:  []cloudprovider.SecurityRule{},
@@ -53,7 +59,7 @@ func TestAliyunRuleSync(t *testing.T) {
 			Common:    []cloudprovider.SecurityRule{},
 			InAdds:    []cloudprovider.SecurityRule{},
 			OutAdds: []cloudprovider.SecurityRule{
-				ruleWithName("", "out:deny tcp 443", 49),
+				ruleWithName("", "out:deny tcp 443", 99),
 			},
 			InDels:  []cloudprovider.SecurityRule{},
 			OutDels: []cloudprovider.SecurityRule{},
