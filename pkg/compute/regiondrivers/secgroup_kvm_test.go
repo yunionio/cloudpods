@@ -41,6 +41,7 @@ func TestKvmRuleSync(t *testing.T) {
 	}
 
 	aliyun := []TestData{
+
 		{
 			Name: "Test aliyun rules",
 			SrcRules: cloudprovider.SecurityRuleSet{
@@ -60,18 +61,23 @@ func TestKvmRuleSync(t *testing.T) {
 				ruleWithName("allow tcp 80", "in:allow tcp 80", 50),
 				ruleWithName("allow tcp", "in:allow tcp", 1),
 			},
-			Common: []cloudprovider.SecurityRule{
+			Common: []cloudprovider.SecurityRule{},
+			InAdds: []cloudprovider.SecurityRule{
+				ruleWithName("", "in:allow tcp 1521", 1),
+				ruleWithName("", "in:allow tcp 3389", 1),
+				ruleWithName("", "in:allow tcp 443", 1),
+				ruleWithName("", "in:allow tcp 6379", 1),
+				ruleWithName("", "in:allow tcp 80", 1),
+			},
+			OutAdds: []cloudprovider.SecurityRule{},
+			InDels: []cloudprovider.SecurityRule{
+				ruleWithName("allow tcp", "in:allow tcp", 51),
+				ruleWithName("allow tcp", "in:allow tcp", 1),
 				ruleWithName("allow tcp 1521", "in:allow tcp 1521", 50),
 				ruleWithName("allow tcp 3389", "in:allow tcp 3389", 50),
 				ruleWithName("allow tcp 443", "in:allow tcp 443", 50),
 				ruleWithName("allow tcp 6379", "in:allow tcp 6379", 50),
 				ruleWithName("allow tcp 80", "in:allow tcp 80", 50),
-			},
-			InAdds:  []cloudprovider.SecurityRule{},
-			OutAdds: []cloudprovider.SecurityRule{},
-			InDels: []cloudprovider.SecurityRule{
-				ruleWithName("allow tcp", "in:allow tcp", 51),
-				ruleWithName("allow tcp", "in:allow tcp", 1),
 			},
 			OutDels: []cloudprovider.SecurityRule{},
 		},
@@ -84,8 +90,8 @@ func TestKvmRuleSync(t *testing.T) {
 			DestRules: []cloudprovider.SecurityRule{},
 			Common:    []cloudprovider.SecurityRule{},
 			InAdds: []cloudprovider.SecurityRule{
-				ruleWithPeerSecgroup("allow tcp 443", "in:allow tcp 443", 51, "peer1"),
-				ruleWithName("deny tcp 1521", "in:deny tcp 1521", 51),
+				ruleWithPeerSecgroup("allow tcp 443", "in:allow tcp 443", 3, "peer1"),
+				ruleWithName("deny tcp 1521", "in:deny tcp 1521", 2),
 			},
 			OutAdds: []cloudprovider.SecurityRule{},
 			InDels:  []cloudprovider.SecurityRule{},
