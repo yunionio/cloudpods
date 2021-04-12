@@ -298,6 +298,7 @@ func (guest *SGuest) sshableTry(
 	if client, err := conf.ConnectContext(ctx); err == nil {
 		defer client.Close()
 		methodData.Sshable = true
+		ok = true
 	} else {
 		methodData.Reason = err.Error()
 	}
