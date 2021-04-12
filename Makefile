@@ -89,6 +89,9 @@ vet:
 cmd/esxi-agent: prepare_dir
 	CGO_ENABLED=0 $(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
 
+cmd/fetcherfs: prepare_dir
+	CGO_ENABLED=0 $(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
+
 cmd/%: prepare_dir
 	$(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
 
@@ -100,6 +103,21 @@ deb/%: cmd/%
 
 pkg/%: prepare_dir
 	$(GO_INSTALL) $(REPO_PREFIX)/$@
+
+rpm/fetcherfs: cmd/fetcherfs
+	docker run --rm \
+		--name docker-centos-build-fetcherfs \
+		-v $(CURDIR):/data \
+		registry.cn-beijing.aliyuncs.com/yunionio/centos-build:1.1-4 \
+		/bin/bash -c "VERSION=3.6 /data/build/build.sh fetcherfs /opt/yunion/fetchclient/bin"
+
+deb/fetcherfs: rpm/fetcherfs
+	#VERSION=3.6 $(DEB_BUILD_SCRIPT) fetcherfs /opt/yunion/fetchclient/bin
+	docker run --rm \
+		--name docker-debian-build-fetcherfs \
+		-v $(CURDIR):/data \
+		registry.cn-beijing.aliyuncs.com/yunionio/debian10-base:1.0 \
+		/data/build/convert_rpm2deb.sh
 
 build:
 	$(MAKE) $(cmdTargets)
