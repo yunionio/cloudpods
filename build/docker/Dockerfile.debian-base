@@ -1,0 +1,9 @@
+# registry.cn-beijing.aliyuncs.com/yunionio/debian10-base:1.0
+
+FROM debian:10
+
+RUN apt update && apt install -y alien
+
+RUN apt-get clean autoclean && \
+	apt-get autoremove --yes && \
+	rm -rf /var/lib/{apt,dpkg,cache,log}/
