@@ -70,11 +70,9 @@ func StartService() {
 		log.Fatalf("unable to init esxi configs: %v", err)
 	}
 
-	if opts.FetchEtcdServiceInfoAndUseEtcdLock {
-		err := initEtcdLockOpts(opts)
-		if err != nil {
-			log.Fatalln(err)
-		}
+	// always try to init etcd options
+	if err := initEtcdLockOpts(opts); err != nil {
+		log.Errorf("try to init etcd options error: %v", err)
 	}
 
 	app := app_common.InitApp(baseOpts, true)
@@ -174,13 +172,23 @@ func initDefaultEtcdClient(opts *common_options.DBOptions) error {
 	if err != nil {
 		return err
 	}
+	onKeepaliveFailure := func() {
+		cli := etcd.Default()
+		if opts.LockmanMethod == common_options.LockMethodEtcd {
+			log.Fatalf("etcd keepalive failed and exit when lockman_method is %s", common_options.LockMethodEtcd)
+		}
+		if err := cli.RestartSession(); err != nil {
+			log.Errorf("restart default session error: %v", err)
+			return
+		}
+	}
 	err = etcd.InitDefaultEtcdClient(&etcd.SEtcdOptions{
 		EtcdEndpoint:  opts.EtcdEndpoints,
 		EtcdUsername:  opts.EtcdUsername,
 		EtcdPassword:  opts.EtcdPassword,
 		EtcdEnabldSsl: opts.EtcdUseTLS,
 		TLSConfig:     tlsConfig,
-	}, nil)
+	}, onKeepaliveFailure)
 	if err != nil {
 		return errors.Wrap(err, "init default etcd client")
 	}
@@ -197,7 +205,6 @@ func initEtcdLockOpts(opts *options.ComputeOptions) error {
 	}
 	if etcdEndpoint != nil {
 		opts.EtcdEndpoints = []string{etcdEndpoint.Url}
-		opts.LockmanMethod = common_options.LockMethodEtcd
 		if len(etcdEndpoint.CertId) > 0 {
 			dir, err := ioutil.TempDir("", "etcd-cluster-tls")
 			if err != nil {
