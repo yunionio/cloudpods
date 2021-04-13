@@ -27,7 +27,6 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
 
-	ansible_apis "yunion.io/x/onecloud/pkg/apis/ansible"
 	compute_apis "yunion.io/x/onecloud/pkg/apis/compute"
 	identity_apis "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -372,47 +371,10 @@ func (lbagent *SLoadbalancerAgent) updateOrCreatePbModel(ctx context.Context,
 	pb *ansible.Playbook,
 ) (*mcclient_models.AnsiblePlaybook, error) {
 	cliSess := auth.GetSession(ctx, userCred, "", "")
-
-	if pbId == "" {
-		pbJson, err := mcclient_modules.AnsiblePlaybooks.Get(cliSess, pbName, nil)
-		if err == nil {
-			pbModel := &mcclient_models.AnsiblePlaybook{}
-			if err := pbJson.Unmarshal(pbModel); err == nil {
-				pbId = pbModel.Id
-			}
-		}
-	}
-
-	var pbJson jsonutils.JSONObject
-	if pbId != "" {
-		var err error
-		ansiblePbInput := &ansible_apis.AnsiblePlaybookUpdateInput{
-			Name:     pbName,
-			Playbook: *pb,
-		}
-		params := ansiblePbInput.JSON(ansiblePbInput)
-		pbJson, err = mcclient_modules.AnsiblePlaybooks.Update(cliSess, pbId, params)
-		if err != nil {
-			return nil, errors.WithMessage(err, "update ansibleplaybook")
-		}
-	} else {
-		var err error
-		ansiblePbInput := &ansible_apis.AnsiblePlaybookCreateInput{
-			Name:     pbName,
-			Playbook: *pb,
-		}
-		params := ansiblePbInput.JSON(ansiblePbInput)
-		pbJson, err = mcclient_modules.AnsiblePlaybooks.Create(cliSess, params)
-		if err != nil {
-			return nil, errors.WithMessage(err, "create ansibleplaybook")
-		}
-	}
-
-	pbModel := &mcclient_models.AnsiblePlaybook{}
-	if err := pbJson.Unmarshal(pbModel); err != nil {
-		return nil, errors.WithMessage(err, "unmarshal ansibleplaybook")
-	}
-	return pbModel, nil
+	pbModel, err := mcclient_modules.AnsiblePlaybooks.UpdateOrCreatePbModel(
+		ctx, cliSess, pbId, pbName, pb,
+	)
+	return pbModel, err
 }
 
 func (lbagent *SLoadbalancerAgent) PerformUndeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
