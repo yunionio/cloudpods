@@ -932,11 +932,7 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 	}
 
 	if consts.IsRbacEnabled() {
-		ownerId, err := fetchOwnerId(ctx, dispatcher.modelManager, userCred, query)
-		if err != nil {
-			return nil, httperrors.NewGeneralError(err)
-		}
-		err = isClassRbacAllowed(dispatcher.modelManager, userCred, ownerId, policy.PolicyActionList, property)
+		_, _, err := FetchCheckQueryOwnerScope(ctx, userCred, query, dispatcher.modelManager, policy.PolicyActionList, true)
 		if err != nil {
 			return nil, err
 		}
