@@ -85,6 +85,7 @@ func init() {
 	cmd.Perform("save-template", new(options.ServerSaveImageOptions))
 	cmd.Perform("remote-update", new(options.ServerRemoteUpdateOptions))
 	cmd.Perform("create-eip", &options.ServerCreateEipOptions{})
+	cmd.Perform("make-sshable", &options.ServerMakeSshableOptions{})
 
 	cmd.Get("vnc", new(options.ServerIdOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))
@@ -92,6 +93,7 @@ func init() {
 	cmd.Get("iso", new(options.ServerIdOptions))
 	cmd.Get("create-params", new(options.ServerIdOptions))
 	cmd.Get("sshable", new(options.ServerIdOptions))
+	cmd.Get("make-sshable-cmd", new(options.ServerIdOptions))
 	cmd.Get("change-owner-candidate-domains", new(options.ServerChangeOwnerCandidateDomainsOptions))
 
 	type ServerTaskShowOptions struct {
