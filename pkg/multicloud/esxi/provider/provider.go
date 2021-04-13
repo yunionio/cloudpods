@@ -143,6 +143,24 @@ func (self *SESXiProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) 
 	}, nil
 }
 
+func (self *SESXiProviderFactory) GetAccountIdEqualizer() func(origin, now string) bool {
+	return func(origin, now string) bool {
+		if len(now) == 0 {
+			return true
+		}
+		originUserName, nowUserName := origin, now
+		index1 := strings.Index(origin, "@")
+		index2 := strings.Index(now, "@")
+		if index1 != -1 {
+			originUserName = originUserName[:index1]
+		}
+		if index2 != -1 {
+			nowUserName = nowUserName[:index2]
+		}
+		return originUserName == nowUserName
+	}
+}
+
 func init() {
 	factory := SESXiProviderFactory{}
 	cloudprovider.RegisterFactory(&factory)

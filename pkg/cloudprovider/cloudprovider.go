@@ -225,6 +225,8 @@ type ICloudProviderFactory interface {
 	GetTTLRange(zoneType TDnsZoneType, productType TDnsProductType) TTlRange
 
 	IsSupportSAMLAuth() bool
+
+	GetAccountIdEqualizer() func(origin, now string) bool
 }
 
 type ICloudProvider interface {
@@ -709,6 +711,15 @@ func (factory *baseProviderFactory) GetSupportedDnsPolicyValues() map[TDnsPolicy
 
 func (factory *baseProviderFactory) GetTTLRange(zoneType TDnsZoneType, productType TDnsProductType) TTlRange {
 	return TTlRange{}
+}
+
+func (factory *baseProviderFactory) GetAccountIdEqualizer() func(origin, now string) bool {
+	return func(origin, now string) bool {
+		if len(now) > 0 && now != origin {
+			return false
+		}
+		return true
+	}
 }
 
 type SDnsCapability struct {
