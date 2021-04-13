@@ -88,9 +88,20 @@ func (guest *SGuest) GetDetailsSshable(
 	tryData.PrivateKey = privateKey
 	tryData.PublicKey = publicKey
 
+	if err := guest.sshableTryEach(ctx, userCred, tryData); err != nil {
+		return nil, err
+	}
+	return tryData.outputJSON(), nil
+}
+
+func (guest *SGuest) sshableTryEach(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	tryData *GuestSshableTryData,
+) error {
 	gns, err := guest.GetNetworks("")
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("fetch network interface information: %v", err)
+		return httperrors.NewInternalServerError("fetch network interface information: %v", err)
 	}
 	type gnInfo struct {
 		guestNetwork *SGuestnetwork
@@ -111,7 +122,7 @@ func (guest *SGuest) GetDetailsSshable(
 		if vpc.Id == compute_api.DEFAULT_VPC_ID {
 			//   - vpc_id == "default"
 			if ok := guest.sshableTryDefaultVPC(ctx, tryData, gn); ok {
-				return tryData.outputJSON(), nil
+				return nil
 			}
 		} else {
 			gnInfos = append(gnInfos, gnInfo{
@@ -125,7 +136,7 @@ func (guest *SGuest) GetDetailsSshable(
 	//   - check eip
 	if eip, err := guest.GetEipOrPublicIp(); err == nil && eip != nil {
 		if ok := guest.sshableTryEip(ctx, tryData, eip); ok {
-			return tryData.outputJSON(), nil
+			return nil
 		}
 	}
 
@@ -157,7 +168,7 @@ func (guest *SGuest) GetDetailsSshable(
 				continue
 			}
 			if ok := guest.sshableTryForward(ctx, tryData, &fwd); ok {
-				return tryData.outputJSON(), nil
+				return nil
 			}
 		}
 	}
@@ -174,7 +185,7 @@ func (guest *SGuest) GetDetailsSshable(
 			var fwd cloudproxy_api.ForwardDetails
 			if err := res.Unmarshal(&fwd); err == nil {
 				if ok := guest.sshableTryForward(ctx, tryData, &fwd); ok {
-					return tryData.outputJSON(), nil
+					return nil
 				}
 			}
 		} else {
@@ -215,12 +226,12 @@ func (guest *SGuest) GetDetailsSshable(
 		for j := range dnats {
 			dnat := &dnats[j]
 			if ok := guest.sshableTryDnat(ctx, tryData, dnat); ok {
-				return tryData.outputJSON(), nil
+				return nil
 			}
 		}
 	}
 
-	return tryData.outputJSON(), nil
+	return nil
 }
 
 func (guest *SGuest) sshableTryDnat(
