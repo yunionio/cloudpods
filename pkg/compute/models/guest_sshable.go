@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	cloudproxy_module "yunion.io/x/onecloud/pkg/mcclient/modules/cloudproxy"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	ssh_util "yunion.io/x/onecloud/pkg/util/ssh"
 )
 
@@ -71,6 +72,10 @@ func (guest *SGuest) GetDetailsSshable(
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
+	if guest.Status != compute_api.VM_RUNNING {
+		return nil, httperrors.NewBadRequestError("server sshable state can only be checked when in running state")
+	}
+
 	tryData := &GuestSshableTryData{
 		User: "cloudroot",
 	}
@@ -173,9 +178,15 @@ func (guest *SGuest) GetDetailsSshable(
 				}
 			}
 		} else {
+			var reason string
+			if jce, ok := err.(*httputils.JSONClientError); ok {
+				reason = jce.Details
+			} else {
+				reason = err.Error()
+			}
 			tryData.AddMethodTried(compute_api.GuestSshableMethodData{
 				Method: compute_api.MethodProxyForward,
-				Reason: err.Error(),
+				Reason: reason,
 			})
 		}
 	}
@@ -291,6 +302,7 @@ func (guest *SGuest) sshableTry(
 	if client, err := conf.ConnectContext(ctx); err == nil {
 		defer client.Close()
 		methodData.Sshable = true
+		ok = true
 	} else {
 		methodData.Reason = err.Error()
 	}
