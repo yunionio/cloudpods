@@ -713,8 +713,10 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("invalid cloud account info error: %s", err.Error())
 	}
+
+	isEqual := providerDriver.GetAccountIdEqualizer()
 	// for backward compatibility
-	if len(self.AccountId) > 0 && accountId != self.AccountId {
+	if !isEqual(self.AccountId, accountId) {
 		return nil, httperrors.NewConflictError("inconsistent account_id, previous '%s' and now '%s'", self.AccountId, accountId)
 	}
 
