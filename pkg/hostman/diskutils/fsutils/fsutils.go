@@ -359,7 +359,7 @@ func FormatPartition(path, fs, uuid string) error {
 		cmd = []string{"mkfs.ext3"}
 		cmdUuid = []string{"tune2fs", "-U", uuid}
 	case fs == "ext4":
-		cmd = []string{"mkfs.ext4", "-O", "^64bit", "-E", "lazy_itable_init=1"}
+		cmd = []string{"mkfs.ext4", "-O", "^64bit", "-E", "lazy_itable_init=1", "-T", "largefile"}
 		cmdUuid = []string{"tune2fs", "-U", uuid}
 	case fs == "ext4dev":
 		cmd = []string{"mkfs.ext4dev", "-E", "lazy_itable_init=1"}
