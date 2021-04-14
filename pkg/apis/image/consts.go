@@ -56,12 +56,6 @@ const (
 	IMAGE_STATUS_UPDATING = "updating"
 )
 
-const (
-	IMAGE_OS_ARCH_X86    = "x86"     // x86 32位
-	IMAGE_OS_ARCH_X86_64 = "x86_64"  //
-	IMAGE_OS_ARCH_ARM    = "aarch64" // arm 64位 little endian
-)
-
 var (
 	ImageDeadStatus = []string{IMAGE_STATUS_DEACTIVATED, IMAGE_STATUS_KILLED, IMAGE_STATUS_DELETED, IMAGE_STATUS_PENDING_DELETE}
 )
