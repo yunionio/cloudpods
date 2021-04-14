@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -564,6 +565,9 @@ func (manager *SAccessGroupCacheManager) Register(ctx context.Context, opts *SAc
 	cache := &SAccessGroupCache{}
 	cache.SetModelManager(manager, cache)
 	cache.Name = opts.Name
+	if opts.NetworkType == api.NETWORK_TYPE_CLASSIC {
+		cache.Name = fmt.Sprintf("%s-%s", opts.Name, opts.NetworkType)
+	}
 	cache.Description = opts.Desc
 	cache.Status = api.ACCESS_GROUP_STATUS_CREATING
 	cache.ManagerId = opts.ManagerId

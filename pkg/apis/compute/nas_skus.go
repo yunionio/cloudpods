@@ -40,4 +40,7 @@ type NasSkuDetails struct {
 	apis.EnabledStatusStandaloneResourceDetails
 
 	CloudregionResourceInfo
+
+	// 云环境
+	CloudEnv string `json:"cloud_env"`
 }
