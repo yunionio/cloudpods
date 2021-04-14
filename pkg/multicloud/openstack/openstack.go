@@ -145,6 +145,8 @@ func (cli *SOpenStackClient) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 	subAccount := cloudprovider.SSubAccount{
 		Account: fmt.Sprintf("%s/%s", cli.project, cli.username),
 		Name:    cli.cpcfg.Name,
+
+		HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
 	}
 	if len(cli.domainName) > 0 {
 		subAccount.Account = fmt.Sprintf("%s/%s", subAccount.Account, cli.domainName)
