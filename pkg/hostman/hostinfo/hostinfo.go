@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
@@ -1742,11 +1743,11 @@ func (h *SHostInfo) GetCpuArchitecture() string {
 }
 
 func (h *SHostInfo) IsAarch64() bool {
-	return h.GetCpuArchitecture() == "aarch64"
+	return h.GetCpuArchitecture() == apis.OS_ARCH_AARCH64
 }
 
 func (h *SHostInfo) IsX8664() bool {
-	return h.GetCpuArchitecture() == "x86_64"
+	return h.GetCpuArchitecture() == apis.OS_ARCH_X86_64
 }
 
 func NewHostInfo() (*SHostInfo, error) {

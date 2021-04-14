@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -382,7 +383,7 @@ func (self *SKVMGuestDriver) RequestAssociateEip(ctx context.Context, userCred m
 func (self *SKVMGuestDriver) NeedStopForChangeSpec(guest *models.SGuest, cpuChanged, memChanged bool) bool {
 	return guest.GetMetadata("hotplug_cpu_mem", nil) != "enable" ||
 		(memChanged && guest.GetMetadata("__hugepage", nil) == "native") ||
-		guest.OsArch == api.OS_ARCH_ARM
+		apis.IsARM(guest.OsArch)
 }
 
 func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {

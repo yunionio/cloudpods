@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -180,8 +181,8 @@ func (self *SImage) GetOsType() string {
 }
 
 func (self *SImage) GetOsArch() string {
-	if self.ImageType == cloudprovider.CachedImageTypeCustomized {
-		return "x86_64"
+	if self.GetImageType() == cloudprovider.CachedImageTypeCustomized {
+		return apis.OS_ARCH_X86_64
 	}
 	return publisherGetOsArch(self.Publisher, self.Offer, self.Sku, self.Version)
 }

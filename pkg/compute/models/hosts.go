@@ -540,7 +540,7 @@ func (manager *SHostManager) CustomizeFilterList(ctx context.Context, q *sqlchem
 }
 
 func (self *SHost) IsArmHost() bool {
-	return self.CpuArchitecture == api.CPU_ARCH_AARCH64
+	return self.CpuArchitecture == apis.OS_ARCH_AARCH64
 }
 
 func (self *SHost) GetZone() *SZone {
