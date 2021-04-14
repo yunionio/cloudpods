@@ -15,6 +15,7 @@
 package ipmitool
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -115,21 +116,21 @@ func (ipmi *LanPlusIPMI) GetMode() string {
 	return "rmcp"
 }
 
-func (ipmi *LanPlusIPMI) GetCommand(args ...string) *procutils.Command {
+func (ipmi *LanPlusIPMI) GetCommand(args ...string) (*procutils.Command, context.CancelFunc) {
 	nArgs := []string{
-		"--signal=KILL",
-		fmt.Sprintf("%s", ipmi.GetDefaultTimeout()),
-		"ipmitool", "-I", "lanplus", "-H", ipmi.host,
+		"-I", "lanplus", "-H", ipmi.host,
 		"-p", fmt.Sprintf("%d", ipmi.port),
 		"-U", ipmi.user,
 		"-P", ipmi.password,
 	}
 	nArgs = append(nArgs, args...)
-	return procutils.NewCommand("timeout", nArgs...)
+	ctx, cancel := context.WithTimeout(context.Background(), ipmi.GetDefaultTimeout())
+	return procutils.NewCommandContext(ctx, "ipmitool", nArgs...), cancel
 }
 
 func (ipmi *LanPlusIPMI) ExecuteCommand(args ...string) ([]string, error) {
-	cmd := ipmi.GetCommand(args...)
+	cmd, cancel := ipmi.GetCommand(args...)
+	defer cancel()
 	log.Debugf("[LanPlusIPMI] execute command: %s", cmd.String())
 	out, err := cmd.Output()
 	if err != nil {
