@@ -17,6 +17,7 @@ package fsdriver
 import (
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
@@ -75,7 +76,7 @@ func (m *SEsxiRootFs) GetReleaseInfo(IDiskPartition) *deployapi.ReleaseInfo {
 	return &deployapi.ReleaseInfo{
 		Distro:  "ESXi",
 		Version: version,
-		Arch:    "x86_64",
+		Arch:    apis.OS_ARCH_X86_64,
 	}
 }
 

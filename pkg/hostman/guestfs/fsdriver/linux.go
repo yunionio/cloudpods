@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
@@ -329,24 +330,24 @@ func (l *sLinuxRootFs) GetArch(rootFs IDiskPartition) string {
 		files := rootFs.ListDir("/lib64", false)
 		for i := 0; i < len(files); i++ {
 			if strings.HasPrefix(files[i], "ld-") {
-				if strings.Contains(files[i], "aarch64") {
-					return "aarch64"
+				if strings.Contains(files[i], apis.OS_ARCH_AARCH64) {
+					return apis.OS_ARCH_AARCH64
 				} else if strings.Contains(files[i], "x86") {
-					return "x86_64"
+					return apis.OS_ARCH_X86_64
 				}
 			}
 		}
-		return "x86_64"
+		return apis.OS_ARCH_X86_64
 	} else {
 		files := rootFs.ListDir("/lib", false)
 		for i := 0; i < len(files); i++ {
 			if strings.HasPrefix(files[i], "ld-") {
 				if strings.Contains(files[i], "arm") {
-					return "aarch32"
+					return apis.OS_ARCH_AARCH32
 				}
 			}
 		}
-		return "x86"
+		return apis.OS_ARCH_X86_32
 	}
 }
 
