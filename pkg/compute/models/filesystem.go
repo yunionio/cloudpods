@@ -20,18 +20,23 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -136,32 +141,43 @@ func (man *SFileSystemManager) ValidateCreateData(ctx context.Context, userCred 
 		if zone := network.GetZone(); zone != nil {
 			input.ZoneId = zone.Id
 			input.CloudregionId = zone.CloudregionId
-		} else {
-			zones, err := network.GetRegion().GetZones()
-			if err != nil {
-				return input, httperrors.NewGeneralError(errors.Wrapf(err, "GetZones"))
-			}
-			for _, zone := range zones {
-				if zone.Status == api.ZONE_ENABLE {
-					input.ZoneId = zone.Id
-					input.CloudregionId = zone.CloudregionId
-					break
-				}
-			}
 		}
-	} else if len(input.ZoneId) > 0 {
-		_zone, err := validators.ValidateModel(userCred, ZoneManager, &input.ZoneId)
-		if err != nil {
-			return input, err
-		}
-		zone := _zone.(*SZone)
-		input.CloudregionId = zone.CloudregionId
-	} else {
+	}
+	if len(input.ZoneId) == 0 {
 		return input, httperrors.NewMissingParameterError("zone_id")
 	}
+	_zone, err := validators.ValidateModel(userCred, ZoneManager, &input.ZoneId)
+	if err != nil {
+		return input, err
+	}
+	zone := _zone.(*SZone)
+	region := zone.GetRegion()
+	input.CloudregionId = region.Id
+
 	if len(input.ManagerId) == 0 {
 		return input, httperrors.NewMissingParameterError("manager_id")
 	}
+
+	if len(input.Duration) > 0 {
+		billingCycle, err := billing.ParseBillingCycle(input.Duration)
+		if err != nil {
+			return input, httperrors.NewInputParameterError("invalid duration %s", input.Duration)
+		}
+
+		if !utils.IsInStringArray(input.BillingType, []string{billing_api.BILLING_TYPE_PREPAID, billing_api.BILLING_TYPE_POSTPAID}) {
+			input.BillingType = billing_api.BILLING_TYPE_PREPAID
+		}
+
+		if input.BillingType == billing_api.BILLING_TYPE_PREPAID {
+			if !region.GetDriver().IsSupportedBillingCycle(billingCycle, man.KeywordPlural()) {
+				return input, httperrors.NewInputParameterError("unsupported duration %s", input.Duration)
+			}
+		}
+		tm := time.Time{}
+		input.BillingCycle = billingCycle.String()
+		input.ExpiredAt = billingCycle.EndAt(tm)
+	}
+
 	input.StatusInfrasResourceBaseCreateInput, err = man.SStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusInfrasResourceBaseCreateInput)
 	if err != nil {
 		return input, err
@@ -533,4 +549,41 @@ func (self *SFileSystem) GetICloudFileSystem() (cloudprovider.ICloudFileSystem, 
 		return nil, errors.Wrap(err, "self.GetIRegion")
 	}
 	return iRegion.GetICloudFileSystemById(self.ExternalId)
+}
+
+func (manager *SFileSystemManager) getExpiredPostpaids() ([]SFileSystem, error) {
+	q := ListExpiredPostpaidResources(manager.Query(), options.Options.ExpiredPrepaidMaxCleanBatchSize)
+
+	fs := make([]SFileSystem, 0)
+	err := db.FetchModelObjects(manager, q, &fs)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return fs, nil
+}
+
+func (self *SFileSystem) doExternalSync(ctx context.Context, userCred mcclient.TokenCredential) error {
+	iFs, err := self.GetICloudFileSystem()
+	if err != nil {
+		return errors.Wrapf(err, "GetICloudFileSystem")
+	}
+	return self.SyncWithCloudFileSystem(ctx, userCred, iFs)
+}
+
+func (manager *SFileSystemManager) DeleteExpiredPostpaids(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	fss, err := manager.getExpiredPostpaids()
+	if err != nil {
+		log.Errorf("FileSystem getExpiredPostpaids error: %v", err)
+		return
+	}
+	for i := 0; i < len(fss); i += 1 {
+		if len(fss[i].ExternalId) > 0 {
+			err := fss[i].doExternalSync(ctx, userCred)
+			if err == nil && fss[i].IsValidPostPaid() {
+				continue
+			}
+		}
+		fss[i].DeletePreventionOff(&fss[i], userCred)
+		fss[i].StartDeleteTask(ctx, userCred, "")
+	}
 }

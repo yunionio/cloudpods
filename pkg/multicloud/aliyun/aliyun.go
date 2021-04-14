@@ -227,7 +227,7 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 
 	resp, err := processCommonRequest(client, req)
 	if err != nil {
-		return nil, errors.Wrapf(err, "processCommonRequest")
+		return nil, errors.Wrapf(err, "processCommonRequest with params %s", params)
 	}
 	body, err := jsonutils.Parse(resp.GetHttpContentBytes())
 	if err != nil {

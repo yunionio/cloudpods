@@ -60,6 +60,23 @@ func (self *FileSystemDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 		self.taskFailed(ctx, fs, errors.Wrapf(err, "fs.GetICloudFileSystem"))
 		return
 	}
+	err = func() error {
+		mts, err := iFs.GetMountTargets()
+		if err != nil {
+			return errors.Wrapf(err, "iFs.GetMountTargets")
+		}
+		for i := range mts {
+			err = mts[i].Delete()
+			if err != nil {
+				return errors.Wrapf(err, "Delete MountTarget")
+			}
+		}
+		return nil
+	}()
+	if err != nil {
+		self.taskFailed(ctx, fs, errors.Wrapf(err, "Delete MountTarget"))
+		return
+	}
 	err = iFs.Delete()
 	if err != nil {
 		self.taskFailed(ctx, fs, errors.Wrapf(err, "iFs.Delete"))

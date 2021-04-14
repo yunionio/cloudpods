@@ -158,6 +158,18 @@ func (self *SRegion) nasRequest(action string, params map[string]string) (jsonut
 	if err != nil {
 		return nil, err
 	}
+	if self.GetCloudEnv() == ALIYUN_FINANCE_CLOUDENV {
+		if strings.Contains(action, "FileSystem") {
+			if self.RegionId == "cn-hangzhou" {
+				params["RegionId"] = "cn-hangzhou-dg-a01"
+			}
+		}
+		if strings.Contains(action, "Access") || strings.Contains(action, "MountTarget") {
+			if self.RegionId == "cn-hangzhou" {
+				params["RegionId"] = "cn-hangzhou-finance"
+			}
+		}
+	}
 
 	return jsonRequest(client, "nas.aliyuncs.com", ALIYUN_NAS_API_VERSION, action, params, self.client.debug)
 }
