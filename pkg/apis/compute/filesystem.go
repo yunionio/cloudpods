@@ -14,7 +14,11 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"time"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 const (
 	// 可用
@@ -70,6 +74,22 @@ type FileSystemCreateInput struct {
 
 	// 订阅Id, 若传入network_id此参数可忽略
 	ManagerId string `json:"manager_id"`
+
+	// 包年包月时间周期
+	Duration string `json:"duration"`
+
+	// 是否自动续费(仅包年包月时生效)
+	// default: false
+	AutoRenew bool `json:"auto_renew"`
+
+	// 到期释放时间，仅后付费支持
+	ExpiredAt time.Time `json:"expired_at"`
+
+	// 计费方式
+	// enum: postpaid, prepaid
+	BillingType string `json:"billing_type"`
+	// swagger:ignore
+	BillingCycle string `json:"billing_cycle"`
 }
 
 type FileSystemSyncstatusInput struct {

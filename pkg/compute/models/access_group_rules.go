@@ -77,6 +77,10 @@ func (self *SAccessGroupRule) GetId() string {
 	return self.Id
 }
 
+func (manager *SAccessGroupRuleManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeDomain
+}
+
 func (manager *SAccessGroupRuleManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
 	groupId, _ := data.GetString("access_group_id")
 	return jsonutils.Marshal(map[string]string{"access_group_id": groupId})
