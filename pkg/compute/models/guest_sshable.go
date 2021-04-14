@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
 	cloudproxy_api "yunion.io/x/onecloud/pkg/apis/cloudproxy"
@@ -91,6 +92,23 @@ func (guest *SGuest) GetDetailsSshable(
 	if err := guest.sshableTryEach(ctx, userCred, tryData); err != nil {
 		return nil, err
 	}
+
+	{
+		sshable := false
+		for i := range tryData.MethodTried {
+			if tryData.MethodTried[i].Sshable {
+				sshable = true
+				break
+			}
+		}
+		if _, err := db.Update(guest, func() error {
+			guest.SshableLastState = tristate.NewFromBool(sshable)
+			return nil
+		}); err != nil {
+			log.Errorf("update guest %s(%s) sshable_last_state to %v: %v", guest.Name, guest.Id, sshable, err)
+		}
+	}
+
 	return tryData.outputJSON(), nil
 }
 
