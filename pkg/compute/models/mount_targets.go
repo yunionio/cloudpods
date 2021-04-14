@@ -71,6 +71,10 @@ type SMountTarget struct {
 	FileSystemId string `width:"36" charset:"ascii" nullable:"false" create:"required" index:"true" list:"user"`
 }
 
+func (manager *SMountTargetManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeDomain
+}
+
 func (manager *SMountTargetManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsDomainAllowCreate(userCred, manager)
 }
@@ -339,6 +343,21 @@ func (manager *SMountTargetManager) ListItemExportKeys(ctx context.Context,
 		return nil, errors.Wrapf(err, "SAccessGroupResourceBaseManager.ListItemExportKeys")
 	}
 	return q, nil
+}
+
+func (self *SMountTarget) ValidateDeleteCondition(ctx context.Context) error {
+	fs, err := self.GetFileSystem()
+	if err != nil {
+		return httperrors.NewGeneralError(errors.Wrapf(err, "GetFileSystem"))
+	}
+	region, err := fs.GetRegion()
+	if err != nil {
+		return httperrors.NewGeneralError(errors.Wrapf(err, "GetRegion"))
+	}
+	if region.Provider == api.CLOUD_PROVIDER_HUAWEI {
+		return httperrors.NewNotSupportedError("not allow to delete")
+	}
+	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (self *SMountTarget) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

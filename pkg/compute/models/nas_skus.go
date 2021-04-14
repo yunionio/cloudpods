@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -124,6 +125,8 @@ func (manager *SNasSkuManager) FetchCustomizeColumns(
 			EnabledStatusStandaloneResourceDetails: stdRows[i],
 			CloudregionResourceInfo:                regRows[i],
 		}
+
+		rows[i].CloudEnv = strings.Split(regRows[i].RegionExternalId, "/")[0]
 	}
 
 	return rows

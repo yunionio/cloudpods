@@ -321,6 +321,15 @@ func (self *SRegion) CreateFileSystem(opts *cloudprovider.FileSystemCraeteOption
 		"ClientToken":    utils.GenRequestId(20),
 		"Description":    opts.Name,
 	}
+
+	if self.GetCloudEnv() == ALIYUN_FINANCE_CLOUDENV {
+		if opts.FileSystemType == "standard" {
+			opts.ZoneId = strings.Replace(opts.ZoneId, "cn-shanghai-finance-1", "jr-cn-shanghai-", 1)
+			opts.ZoneId = strings.Replace(opts.ZoneId, "cn-shenzhen-finance-1", "jr-cn-shenzhen-", 1)
+			params["ZoneId"] = opts.ZoneId
+		}
+	}
+
 	switch opts.FileSystemType {
 	case "standard":
 		params["StorageType"] = utils.Capitalize(opts.StorageType)
@@ -340,6 +349,10 @@ func (self *SRegion) CreateFileSystem(opts *cloudprovider.FileSystemCraeteOption
 	}
 	if len(opts.NetworkId) > 0 {
 		params["VSwitchId"] = opts.NetworkId
+	}
+	if opts.BillingCycle != nil {
+		params["ChargeType"] = "Subscription"
+		params["Duration"] = fmt.Sprintf("%d", opts.BillingCycle.GetMonths())
 	}
 	resp, err := self.nasRequest("CreateFileSystem", params)
 	if err != nil {
