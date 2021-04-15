@@ -103,6 +103,18 @@ func (ec *SEcloudClient) fetchRegions() {
 	return
 }
 
+func (ec *SEcloudClient) TryConnect() error {
+	iregions := ec.GetIRegions()
+	if len(iregions) == 0 {
+		return fmt.Errorf("no invalid region for ecloud")
+	}
+	_, err := iregions[0].GetIZones()
+	if err != nil {
+		return errors.Wrap(err, "try to connect failed")
+	}
+	return nil
+}
+
 func (ec *SEcloudClient) GetIRegions() []cloudprovider.ICloudRegion {
 	if ec.iregions == nil {
 		ec.fetchRegions()
