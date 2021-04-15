@@ -814,7 +814,8 @@ func (self *SHost) addDisks(ctx context.Context, dc *SDatacenter, ds *SDatastore
 				size = 30 * 1024
 			}
 		} else {
-			imagePath, err := self.FileUrlPathToDsPath(imagePath)
+			var err error
+			imagePath, err = self.FileUrlPathToDsPath(imagePath)
 			if err != nil {
 				return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath")
 			}
