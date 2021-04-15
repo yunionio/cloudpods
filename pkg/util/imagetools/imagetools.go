@@ -17,28 +17,28 @@ package imagetools
 import (
 	"strings"
 
-	api "yunion.io/x/onecloud/pkg/apis/image"
+	"yunion.io/x/onecloud/pkg/apis"
 )
 
 func normalizeOsArch(osArch string, osType string, osDist string) string {
 	if len(osArch) > 0 {
 		switch strings.ToLower(osArch) {
 		case "x86_64", "64":
-			return api.IMAGE_OS_ARCH_X86_64
+			return apis.OS_ARCH_X86_64
 		case "x86", "x86_32", "32":
-			return api.IMAGE_OS_ARCH_X86
+			return apis.OS_ARCH_X86
 		case "arm", "arm64", "aarch", "aarch64":
-			return api.IMAGE_OS_ARCH_ARM
+			return apis.OS_ARCH_AARCH64
 		default:
 			return osArch
 		}
 	} else {
 		if osType == "linux" {
-			return "x86_64"
+			return apis.OS_ARCH_AARCH64
 		} else if osDist == "Windows Server 2003" {
-			return "i386"
+			return apis.OS_ARCH_I386
 		} else {
-			return "x86_64"
+			return apis.OS_ARCH_X86_64
 		}
 	}
 }

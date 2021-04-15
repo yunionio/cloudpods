@@ -17,6 +17,8 @@ package azure
 import (
 	"fmt"
 	"strings"
+
+	"yunion.io/x/onecloud/pkg/apis"
 )
 
 type SPublisherDriver struct {
@@ -53,7 +55,7 @@ var publisherDrivers = map[string]SPublisherDriver{
 			return parts[0]
 		},
 		GetOsArch: func(offer, sku, version string) string {
-			return "x86_64"
+			return apis.OS_ARCH_X86_64
 		},
 		GetName: func(offer, sku, version string) string {
 			return fmt.Sprintf("%s-%s-%s", offer, sku, version)
@@ -80,7 +82,7 @@ var publisherDrivers = map[string]SPublisherDriver{
 			return sku
 		},
 		GetOsArch: func(offer, sku, version string) string {
-			return "x86_64"
+			return apis.OS_ARCH_X86_64
 		},
 		GetName: func(offer, sku, version string) string {
 			return fmt.Sprintf("%s-%s", offer, version)
@@ -107,7 +109,7 @@ var publisherDrivers = map[string]SPublisherDriver{
 			return sku
 		},
 		GetOsArch: func(offer, sku, version string) string {
-			return "x86_64"
+			return apis.OS_ARCH_X86_64
 		},
 		GetName: func(offer, sku, version string) string {
 			return fmt.Sprintf("%s-%s", offer, version)
@@ -134,7 +136,7 @@ var publisherDrivers = map[string]SPublisherDriver{
 			return sku
 		},
 		GetOsArch: func(offer, sku, version string) string {
-			return "x86_64"
+			return apis.OS_ARCH_X86_64
 		},
 		GetName: func(offer, sku, version string) string {
 			return fmt.Sprintf("%s-%s", offer, version)
@@ -161,7 +163,7 @@ var publisherDrivers = map[string]SPublisherDriver{
 			return sku
 		},
 		GetOsArch: func(offer, sku, version string) string {
-			return "x86_64"
+			return apis.OS_ARCH_X86_64
 		},
 		GetName: func(offer, sku, version string) string {
 			return fmt.Sprintf("%s-%s-%s", offer, sku, version)
@@ -188,7 +190,7 @@ var publisherDrivers = map[string]SPublisherDriver{
 			return version
 		},
 		GetOsArch: func(offer, sku, version string) string {
-			return "x86_64"
+			return apis.OS_ARCH_X86_64
 		},
 		GetName: func(offer, sku, version string) string {
 			return fmt.Sprintf("%s-%s-%s", offer, sku, version)
@@ -215,7 +217,7 @@ var publisherDrivers = map[string]SPublisherDriver{
 			return sku
 		},
 		GetOsArch: func(offer, sku, version string) string {
-			return "x86_64"
+			return apis.OS_ARCH_X86_64
 		},
 		GetName: func(offer, sku, version string) string {
 			return fmt.Sprintf("%s-%s", offer, version)
@@ -242,7 +244,7 @@ var publisherDrivers = map[string]SPublisherDriver{
 			return sku
 		},
 		GetOsArch: func(offer, sku, version string) string {
-			return "x86_64"
+			return apis.OS_ARCH_X86_64
 		},
 		GetName: func(offer, sku, version string) string {
 			return fmt.Sprintf("%s-%s", offer, version)
@@ -299,5 +301,5 @@ func publisherGetOsArch(publisher, offer, sku, version string) string {
 	if ok {
 		return driver.GetOsArch(offer, sku, version)
 	}
-	return "x86_64"
+	return apis.OS_ARCH_X86_64
 }

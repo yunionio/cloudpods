@@ -20,7 +20,6 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
-	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -40,10 +39,15 @@ func (manager *SMultiArchResourceBaseManager) ListItemFilter(
 	query apis.MultiArchResourceBaseListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.OsArch) > 0 {
-		if query.OsArch == compute.OS_ARCH_X86 {
+		if query.OsArch == apis.OS_ARCH_X86 {
 			q = q.Filter(sqlchemy.OR(
 				sqlchemy.Startswith(q.Field("os_arch"), query.OsArch),
 				sqlchemy.IsNullOrEmpty(q.Field("os_arch")),
+			))
+		} else if query.OsArch == apis.OS_ARCH_ARM {
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.Startswith(q.Field("os_arch"), query.OsArch),
+				sqlchemy.Equals(q.Field("os_arch"), apis.OS_ARCH_AARCH64),
 			))
 		} else {
 			q = q.Startswith("os_arch", query.OsArch)
