@@ -9,13 +9,7 @@ assignees: ''
 
 **What happened**:
 
-**What you expected to happen**:
-
-**How to reproduce it**:
-
-**Anything else we need to know?**:
-
 **Environment**:
 - OS (e.g: `cat /etc/os-release`):
 - Kernel (e.g. `uname -a`):
-- Others:
+- Version (e.g. `kubectl get oc -n onecloud  -o yaml | grep -C 3 version`):
