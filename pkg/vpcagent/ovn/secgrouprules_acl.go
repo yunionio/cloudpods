@@ -121,7 +121,11 @@ func ruleToAcl(lport string, rule *agentmodels.SecurityGroupRule) (*ovn_nb.ACL, 
 
 		matches = append(matches, l4proto)
 		if len(portMatches) > 0 {
-			matches = append(matches, strings.Join(portMatches, " || "))
+			portMatch := strings.Join(portMatches, " || ")
+			if len(portMatches) > 1 {
+				portMatch = "( " + portMatch + " )"
+			}
+			matches = append(matches, portMatch)
 		}
 	}
 	switch rule.Protocol {
