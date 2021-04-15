@@ -15,7 +15,7 @@
 package guest
 
 import (
-	"yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
@@ -54,7 +54,7 @@ func (f *CPUPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.Pr
 
 	useRsvd := h.UseReserved()
 	getter := c.Getter()
-	if d.OsArch == compute.OS_ARCH_ARM {
+	if apis.IsARM(d.OsArch) {
 		host := getter.Host()
 		if !host.IsArmHost() {
 			h.Exclude(predicates.ErrHostCpuArchitectureNotMatch)

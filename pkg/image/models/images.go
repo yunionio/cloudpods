@@ -36,7 +36,6 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
-	"yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -559,7 +558,7 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 				dict.Set(api.IMAGE_OS_ARCH, jsonutils.NewString(osArch))
 			}
 			db.Update(self, func() error {
-				self.OsArch = compute.OS_ARCH_ARM
+				self.OsArch = apis.OS_ARCH_AARCH64
 				return nil
 			})
 		}

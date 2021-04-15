@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/util/macutils"
@@ -124,7 +125,7 @@ func (m *SMacOSRootFs) GetReleaseInfo(IDiskPartition) *deployapi.ReleaseInfo {
 	return &deployapi.ReleaseInfo{
 		Distro:  distro,
 		Version: version,
-		Arch:    "x86_64",
+		Arch:    apis.OS_ARCH_X86_64,
 	}
 }
 
