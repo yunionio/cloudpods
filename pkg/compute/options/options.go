@@ -136,8 +136,6 @@ type ComputeOptions struct {
 	EnableHostHealthCheck bool `help:"enable host health check" default:"true"`
 	HostHealthTimeout     int  `help:"second of wait host reconnect" default:"60"`
 
-	FetchEtcdServiceInfoAndUseEtcdLock bool `default:"true" help:"fetch etcd service info and use etcd lock"`
-
 	GuestTemplateCheckInterval int `help:"interval between two consecutive inspections of Guest Template in hour unit" default:"12"`
 
 	ScheduledTaskQueueSize int `help:"the maximum number of scheduled tasks that are being executed simultaneously" default:"100"`
