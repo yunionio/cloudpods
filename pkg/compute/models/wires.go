@@ -371,6 +371,7 @@ func (self *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.Toke
 		self.Bandwidth = extWire.GetBandwidth() // 10G
 
 		self.IsEmulated = extWire.IsEmulated()
+		self.Status = extWire.GetStatus()
 
 		vpc := self.GetVpc()
 		if vpc != nil {
@@ -429,6 +430,7 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 	wire.Name = newName
 	wire.ExternalId = extWire.GetGlobalId()
 	wire.Bandwidth = extWire.GetBandwidth()
+	wire.Status = extWire.GetStatus()
 	wire.VpcId = vpc.Id
 	region, err := vpc.GetRegion()
 	if err != nil {

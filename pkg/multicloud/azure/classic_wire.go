@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -49,7 +50,7 @@ func (self *SClassicWire) IsEmulated() bool {
 }
 
 func (self *SClassicWire) GetStatus() string {
-	return "available"
+	return api.WIRE_STATUS_AVAILABLE
 }
 
 func (self *SClassicWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {

@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -44,7 +45,7 @@ func (self *SWire) IsEmulated() bool {
 }
 
 func (self *SWire) GetStatus() string {
-	return "available"
+	return api.WIRE_STATUS_AVAILABLE
 }
 
 func (self *SWire) Refresh() error {
