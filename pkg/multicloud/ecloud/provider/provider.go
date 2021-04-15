@@ -91,6 +91,10 @@ func (f *SEcloudProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (
 	if err != nil {
 		return nil, err
 	}
+	err = client.TryConnect()
+	if err != nil {
+		return nil, err
+	}
 	return &SEcloudProvider{
 		SBaseProvider: cloudprovider.NewBaseProvider(f),
 		client:        client,
