@@ -19,6 +19,7 @@ import (
 	"net/url"
 	"strings"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -83,7 +84,7 @@ func (wire *SWire) IsEmulated() bool {
 }
 
 func (wire *SWire) GetStatus() string {
-	return "available"
+	return api.WIRE_STATUS_AVAILABLE
 }
 
 func (wire *SWire) Refresh() error {
