@@ -52,12 +52,8 @@ func (f *SEcloudProviderFactory) ValidateCreateCloudaccountData(ctx context.Cont
 	if len(input.AccessKeySecret) == 0 {
 		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_secret")
 	}
-	if len(input.Environment) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "environment")
-	}
 	output.Account = input.AccessKeyId
 	output.Secret = input.AccessKeySecret
-	output.AccessUrl = input.Environment
 	return output, nil
 }
 
