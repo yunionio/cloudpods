@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/multicloud/qcloud"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -97,7 +98,7 @@ func init() {
 				osArch:          "test",
 				osDist:          "Centos",
 				osVersion:       "3.4",
-				OutputArch:      "x86_64",
+				OutputArch:      apis.OS_ARCH_X86_64,
 				OutputDist:      "CentOS",
 				OutputOsVersion: "-",
 			},
@@ -121,39 +122,39 @@ func init() {
 				osArch:          "",
 				osDist:          "",
 				osVersion:       "7.1",
-				OutputArch:      "x86_64",
+				OutputArch:      apis.OS_ARCH_X86_64,
 				OutputDist:      "Other Linux",
 				OutputOsVersion: "-",
 			},
 			{
-				osArch:          "x86_64",
+				osArch:          apis.OS_ARCH_X86_64,
 				osDist:          "Windows Server",
 				osVersion:       "2008 R2 Datacenter Evaluation",
-				OutputArch:      "x86_64",
+				OutputArch:      apis.OS_ARCH_X86_64,
 				OutputDist:      "Windows Server 2008",
 				OutputOsVersion: "-",
 			},
 			{
-				osArch:          "x86_64",
+				osArch:          apis.OS_ARCH_X86_64,
 				osDist:          "Ubuntu",
 				osVersion:       "16.04.5",
-				OutputArch:      "x86_64",
+				OutputArch:      apis.OS_ARCH_X86_64,
 				OutputDist:      "Ubuntu",
 				OutputOsVersion: "16",
 			},
 			{
-				osArch:          "x86_64",
+				osArch:          apis.OS_ARCH_X86_64,
 				osDist:          "Windows%20Server%202008%20R2%20Datacenter",
 				osVersion:       "6.1",
-				OutputArch:      "x86_64",
+				OutputArch:      apis.OS_ARCH_X86_64,
 				OutputDist:      "Windows Server 2008",
 				OutputOsVersion: "-",
 			},
 			{
-				osArch:          "x86_64",
+				osArch:          apis.OS_ARCH_X86_64,
 				osDist:          "Windows Server 2012 R2 Datacenter Evaluation",
 				osVersion:       "6.2",
-				OutputArch:      "x86_64",
+				OutputArch:      apis.OS_ARCH_X86_64,
 				OutputDist:      "Windows Server 2012",
 				OutputOsVersion: "-",
 			},

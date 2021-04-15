@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -232,7 +233,7 @@ func (image *SImage) GetOsVersion() string {
 }
 
 func (image *SImage) GetOsArch() string {
-	return "x86_64"
+	return apis.OS_ARCH_X86_64
 }
 
 func (image *SImage) GetMinOsDiskSizeGb() int {

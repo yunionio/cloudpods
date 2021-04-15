@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -316,7 +317,7 @@ func (self *SRegion) GetImportImageParams(name string, osArch, osDist, osVersion
 			continue
 		}
 		if !utils.IsInStringArray(osArch, _imageSet.Architecture) {
-			osArch = "x86_64"
+			osArch = apis.OS_ARCH_X86_64
 		}
 		for _, _osVersion := range _imageSet.OsVersions {
 			if strings.HasPrefix(osVersion, _osVersion) {
@@ -334,7 +335,7 @@ func (self *SRegion) GetImportImageParams(name string, osArch, osDist, osVersion
 	}
 	if len(osType) == 0 {
 		osType = "Other Linux"
-		osArch = "x86_64"
+		osArch = apis.OS_ARCH_X86_64
 		osVersion = "-"
 	}
 

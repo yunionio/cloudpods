@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -425,9 +426,9 @@ func stdVersion(osDist string, osVersion string, osArch string) (string, error) 
 	// 架构
 	arch := ""
 	switch osArch {
-	case "64", "x86_64":
+	case "64", apis.OS_ARCH_X86_64:
 		arch = "64bit"
-	case "32", "x86_32":
+	case "32", apis.OS_ARCH_X86_32:
 		arch = "32bit"
 	default:
 		return "", fmt.Errorf("unsupported arch %s.reference: https://support.huaweicloud.com/api-ims/zh-cn_topic_0031617666.html", osArch)
