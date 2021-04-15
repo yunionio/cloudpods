@@ -46,3 +46,7 @@ type GuestMakeSshableInput struct {
 type GuestMakeSshableOutput struct {
 	AnsiblePlaybookId string
 }
+
+type GuestMakeSshableCmdOutput struct {
+	ShellCmd string
+}
