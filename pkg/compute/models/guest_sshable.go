@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -465,6 +466,63 @@ func (guest *SGuest) PerformMakeSshable(
 
 	output = compute_api.GuestMakeSshableOutput{
 		AnsiblePlaybookId: pbModel.Id,
+	}
+	return output, nil
+}
+
+func (guest *SGuest) AllowGetDetailsMakeSshableCmd(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) bool {
+	return db.IsProjectAllowGetSpec(userCred, guest, "make-sshable-cmd")
+}
+
+func (guest *SGuest) GetDetailsMakeSshableCmd(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (output compute_api.GuestMakeSshableCmdOutput, err error) {
+	_, projectPublicKey, err := sshkeys.GetSshProjectKeypair(ctx, guest.ProjectId)
+	if err != nil {
+		return output, httperrors.NewInternalServerError("fetch project public key: %v", err)
+	}
+	_, adminPublicKey, err := sshkeys.GetSshAdminKeypair(ctx)
+	if err != nil {
+		return output, httperrors.NewInternalServerError("fetch admin public key: %v", err)
+	}
+
+	varVals := [][2]string{
+		[2]string{"user", "cloudroot"},
+		[2]string{"adminpub", strings.TrimSpace(adminPublicKey)},
+		[2]string{"projpub", strings.TrimSpace(projectPublicKey)},
+	}
+	shellCmd := ""
+	for i := range varVals {
+		varVal := varVals[i]
+		shellCmd += fmt.Sprintf("%s=%q\n", varVal[0], varVal[1])
+	}
+
+	shellCmd += `
+group="$user"
+sshdir="/home/$user/.ssh"
+`
+	shellCmd += `
+id -g "$group" &>/dev/null || groupadd "$group"
+id -u "$user"  &>/dev/null || useradd --create-home --gid "$group" "$user"
+mkdir -p "$sshdir"
+echo "$adminpub" >>"$sshdir/authorized_keys"
+echo "$projpub" >>"$sshdir/authorized_keys"
+chown -R "$user:$group" "$sshdir"
+chmod -R 700 "$sshdir"
+chmod -R 600 "$sshdir/authorized_keys"
+
+if ! grep -q "^$user " /etc/sudoers; then
+  echo "$user ALL=(ALL) NOPASSWD: ALL" | EDITOR='tee -a' visudo
+fi
+`
+	output = compute_api.GuestMakeSshableCmdOutput{
+		ShellCmd: shellCmd,
 	}
 	return output, nil
 }
