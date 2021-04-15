@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -50,7 +51,7 @@ func (self *SWire) IsEmulated() bool {
 }
 
 func (self *SWire) GetStatus() string {
-	return "available"
+	return api.WIRE_STATUS_AVAILABLE
 }
 
 func (self *SRegion) CreateNetwork(vpcId, name string, cidr string, desc string) (*SNetwork, error) {

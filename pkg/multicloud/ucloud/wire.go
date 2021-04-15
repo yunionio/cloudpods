@@ -17,6 +17,7 @@ package ucloud
 import (
 	"fmt"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -43,7 +44,7 @@ func (self *SWire) GetGlobalId() string {
 }
 
 func (self *SWire) GetStatus() string {
-	return "available"
+	return api.WIRE_STATUS_AVAILABLE
 }
 
 func (self *SWire) Refresh() error {
