@@ -36,3 +36,17 @@ type GuestSshableOutput struct {
 
 	MethodTried []GuestSshableMethodData
 }
+
+type GuestMakeSshableInput struct {
+	User       string
+	PrivateKey string
+	Password   string
+}
+
+type GuestMakeSshableOutput struct {
+	AnsiblePlaybookId string
+}
+
+type GuestMakeSshableCmdOutput struct {
+	ShellCmd string
+}

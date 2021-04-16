@@ -1089,3 +1089,21 @@ type ServerCreateEipOptions struct {
 func (opts *ServerCreateEipOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
+
+type ServerMakeSshableOptions struct {
+	BaseIdOptions
+
+	User       string `help:"ssh username for ssh connection" default:"root"`
+	PrivateKey string `help:"ssh privatekey for ssh connection"`
+	Password   string `help:"ssh password for ssh connection"`
+}
+
+func (opts *ServerMakeSshableOptions) Params() (jsonutils.JSONObject, error) {
+	if opts.User == "" {
+		return nil, fmt.Errorf("ssh username must be set")
+	}
+	if opts.PrivateKey == "" && opts.Password == "" {
+		return nil, fmt.Errorf("either --private-key or --password must be set")
+	}
+	return jsonutils.Marshal(opts), nil
+}
