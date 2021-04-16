@@ -982,7 +982,7 @@ func (region *SRegion) GetCapabilities() []string {
 }
 
 func (region *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, error) {
-	caches, err := region.GetCloudElasticcaches()
+	caches, err := region.GetCloudElasticcaches("")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetCloudElasticcaches")
 	}
@@ -998,7 +998,7 @@ func (region *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, 
 }
 
 func (region *SRegion) GetIElasticcacheById(id string) (cloudprovider.ICloudElasticcache, error) {
-	caches, err := region.GetCloudElasticcaches()
+	caches, err := region.GetCloudElasticcaches(id)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetCloudElasticcaches")
 	}
