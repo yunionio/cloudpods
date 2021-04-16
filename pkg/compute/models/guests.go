@@ -151,6 +151,8 @@ type SGuest struct {
 
 	// 套餐名称
 	InstanceType string `width:"64" charset:"utf8" nullable:"true" list:"user" create:"optional"`
+
+	SshableLastState tristate.TriState `nullable:"false" default:"false" list:"user"`
 }
 
 func (manager *SGuestManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

@@ -7,6 +7,7 @@ MAINTAINER "Yousong Zhou <zhouyousong@yunionyun.com>"
 RUN set -x \
 	&& apk update \
 	&& apk add openssh-client \
+	&& apk add sshpass \
 	&& apk add ansible \
 	&& apk add tzdata git ca-certificates \
 	&& rm -rf /var/cache/apk/*
