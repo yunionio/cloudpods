@@ -126,6 +126,7 @@ func (guest *SGuest) purge(ctx context.Context, userCred mcclient.TokenCredentia
 	guest.DetachAllNetworks(ctx, userCred)
 	guest.EjectIso(userCred)
 	guest.DeleteEip(ctx, userCred)
+	guest.purgeInstanceSnapshots(ctx, userCred)
 	guest.DeleteAllDisksInDB(ctx, userCred)
 	if !utils.IsInStringArray(guest.Hypervisor, HypervisorIndependentInstanceSnapshot) {
 		guest.DeleteAllInstanceSnapshotInDB(ctx, userCred)
@@ -136,6 +137,30 @@ func (guest *SGuest) purge(ctx context.Context, userCred mcclient.TokenCredentia
 		return err
 	}
 	return guest.RealDelete(ctx, userCred)
+}
+
+func (guest *SGuest) purgeInstanceSnapshots(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, guest)
+	defer lockman.ReleaseObject(ctx, guest)
+
+	iss, err := guest.GetInstanceSnapshots()
+	if err != nil {
+		return errors.Wrap(err, "unable to GetInstanceSnapshots")
+	}
+	for i := range iss {
+		err := iss[i].purge(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "unable to purge InstanceSnapshot %s", iss[i].Id)
+		}
+	}
+	return nil
+}
+
+func (is *SInstanceSnapshot) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, is)
+	defer lockman.ReleaseObject(ctx, is)
+
+	return is.RealDelete(ctx, userCred)
 }
 
 func (storage *SStorage) purgeDisks(ctx context.Context, userCred mcclient.TokenCredential) error {
