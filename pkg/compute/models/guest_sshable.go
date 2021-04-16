@@ -506,16 +506,17 @@ func (guest *SGuest) GetDetailsMakeSshableCmd(
 	shellCmd += `
 group="$user"
 sshdir="/home/$user/.ssh"
+keyfile="$sshdir/authorized_keys"
 `
 	shellCmd += `
 id -g "$group" &>/dev/null || groupadd "$group"
 id -u "$user"  &>/dev/null || useradd --create-home --gid "$group" "$user"
 mkdir -p "$sshdir"
-echo "$adminpub" >>"$sshdir/authorized_keys"
-echo "$projpub" >>"$sshdir/authorized_keys"
+grep -q -F "$adminpub" "$keyfile" &>/dev/null || echo "$adminpub" >>"$keyfile"
+grep -q -F "$projpub" "$keyfile"  &>/dev/null || echo "$projpub" >>"$keyfile"
 chown -R "$user:$group" "$sshdir"
 chmod -R 700 "$sshdir"
-chmod -R 600 "$sshdir/authorized_keys"
+chmod -R 600 "$keyfile"
 
 if ! grep -q "^$user " /etc/sudoers; then
   echo "$user ALL=(ALL) NOPASSWD: ALL" | EDITOR='tee -a' visudo
