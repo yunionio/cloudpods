@@ -52,12 +52,8 @@ func (f *SEcloudProviderFactory) ValidateCreateCloudaccountData(ctx context.Cont
 	if len(input.AccessKeySecret) == 0 {
 		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_secret")
 	}
-	if len(input.Environment) == 0 {
-		return output, errors.Wrap(httperrors.ErrMissingParameter, "environment")
-	}
 	output.Account = input.AccessKeyId
 	output.Secret = input.AccessKeySecret
-	output.AccessUrl = input.Environment
 	return output, nil
 }
 
@@ -88,6 +84,10 @@ func (f *SEcloudProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (
 			ecloud.NewRamRoleSigner(account, cfg.Secret),
 		).SetCloudproviderConfig(cfg),
 	)
+	if err != nil {
+		return nil, err
+	}
+	err = client.TryConnect()
 	if err != nil {
 		return nil, err
 	}
