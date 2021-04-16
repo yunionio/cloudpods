@@ -2842,6 +2842,9 @@ func (cd *SCloudaccount) GetHost2Wire(ctx context.Context, userCred mcclient.Tok
 		return cd.vmwareHostWireCache, nil
 	}
 	hwJson := cd.GetMetadataJson(METADATA_EXT_HOST2WIRE_KEY, userCred)
+	if hwJson == nil {
+		return nil, fmt.Errorf("The cloud account synchronization network may have failed, please check the operation log first and solve the synchronization network problem")
+	}
 	ret := make(map[string][]SVs2Wire)
 	err := hwJson.Unmarshal(&ret)
 	if err != nil {
