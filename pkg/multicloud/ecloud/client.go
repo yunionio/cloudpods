@@ -227,6 +227,14 @@ func (ec *SEcloudClient) doList(ctx context.Context, r IRequest, result interfac
 }
 
 func (ec *SEcloudClient) request(ctx context.Context, r IRequest) (jsonutils.JSONObject, error) {
+	jrbody, err := ec.doRequest(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	return r.ForMateResponseBody(jrbody)
+}
+
+func (ec *SEcloudClient) doRequest(ctx context.Context, r IRequest) (jsonutils.JSONObject, error) {
 	// sign
 	ec.completeSingParams(r)
 	signature := ec.signer.Sign(ec.buildStringToSign(r), "BC_SIGNATURE&")
@@ -275,30 +283,7 @@ func (ec *SEcloudClient) request(ctx context.Context, r IRequest) (jsonutils.JSO
 			return nil, errors.Wrapf(err, "unable to parsing json: %s", rbody)
 		}
 	}
-	if !jrbody.Contains("state") {
-		return nil, ErrMissKey{
-			Key: "state",
-			Jo:  jrbody,
-		}
-	}
-	state, _ := jrbody.GetString("state")
-	switch state {
-	case "OK":
-		if !jrbody.Contains("body") {
-			return nil, ErrMissKey{
-				Key: "body",
-				Jo:  jrbody,
-			}
-		}
-		body, _ := jrbody.Get("body")
-		return body, nil
-	default:
-		if jrbody.Contains("errorMessage") {
-			msg, _ := jrbody.GetString("errorMessage")
-			return nil, &httputils.JSONClientError{Code: 400, Details: msg}
-		}
-		return nil, &httputils.JSONClientError{Code: 400, Details: jrbody.String()}
-	}
+	return jrbody, nil
 }
 
 type ErrMissKey struct {

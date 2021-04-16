@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type IRequest interface {
@@ -42,6 +44,7 @@ type IRequest interface {
 	GetHTTPSInsecure() bool
 	SetHTTPSInsecure(bool)
 	GetUserAgent() map[string]string
+	ForMateResponseBody(jrbody jsonutils.JSONObject) (jsonutils.JSONObject, error)
 }
 
 type SJSONRequest struct {
@@ -224,4 +227,31 @@ func (br *SBaseRequest) SetHTTPSInsecure(isInsecure bool) {
 
 func (br *SBaseRequest) GetUserAgent() map[string]string {
 	return nil
+}
+
+func (br *SBaseRequest) ForMateResponseBody(jrbody jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if jrbody == nil || !jrbody.Contains("state") {
+		return nil, ErrMissKey{
+			Key: "state",
+			Jo:  jrbody,
+		}
+	}
+	state, _ := jrbody.GetString("state")
+	switch state {
+	case "OK":
+		if !jrbody.Contains("body") {
+			return nil, ErrMissKey{
+				Key: "body",
+				Jo:  jrbody,
+			}
+		}
+		body, _ := jrbody.Get("body")
+		return body, nil
+	default:
+		if jrbody.Contains("errorMessage") {
+			msg, _ := jrbody.GetString("errorMessage")
+			return nil, &httputils.JSONClientError{Code: 400, Details: msg}
+		}
+		return nil, &httputils.JSONClientError{Code: 400, Details: jrbody.String()}
+	}
 }
