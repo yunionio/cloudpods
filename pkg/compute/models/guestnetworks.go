@@ -296,6 +296,13 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 	lockman.LockObject(ctx, network)
 	defer lockman.ReleaseObject(ctx, network)
 
+	vpc := network.GetVpc()
+	if vpc == nil {
+		return nil, fmt.Errorf("cannot find vpc of network %s(%s)", network.Id, network.Name)
+	}
+
+	provider := vpc.GetProviderName()
+
 	macAddr, err := manager.GenerateMac(network.Id, mac)
 	if err != nil {
 		return nil, err
@@ -317,7 +324,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 			// if reuse Ip address, no need to check address availability
 			// assign it anyway
 			gn.IpAddr = address
-		} else {
+		} else if provider == api.CLOUD_PROVIDER_ONECLOUD || options.Options.EnablePreAllocateIpAddr {
 			addrTable := network.GetUsedAddresses()
 			recentAddrTable := manager.getRecentlyReleasedIPAddresses(network.Id, network.getAllocTimoutDuration())
 			ipAddr, err := network.GetFreeIP(ctx, userCred, addrTable, recentAddrTable, address, allocDir, reserved)
@@ -330,9 +337,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 			gn.IpAddr = ipAddr
 		}
 
-		if vpc := network.GetVpc(); vpc == nil {
-			return nil, fmt.Errorf("cannot find vpc of network %s(%s)", network.Id, network.Name)
-		} else if vpc.Id != api.DEFAULT_VPC_ID && vpc.GetProviderName() == api.CLOUD_PROVIDER_ONECLOUD {
+		if vpc.Id != api.DEFAULT_VPC_ID && provider == api.CLOUD_PROVIDER_ONECLOUD {
 			var err error
 			GuestnetworkManager.lockAllocMappedAddr(ctx)
 			defer GuestnetworkManager.unlockAllocMappedAddr(ctx)
@@ -817,11 +822,11 @@ func (self *SGuestnetwork) getMtu(net *SNetwork) int {
 }
 
 func (self *SGuestnetwork) IsAllocated() bool {
-	if regutils.MatchMacAddr(self.MacAddr) && (self.Virtual || regutils.MatchIP4Addr(self.IpAddr)) {
+	provider := self.GetGuest().getRegion().Provider
+	if regutils.MatchMacAddr(self.MacAddr) && (self.Virtual || regutils.MatchIP4Addr(self.IpAddr) || (provider != api.CLOUD_PROVIDER_ONECLOUD && !options.Options.EnablePreAllocateIpAddr)) {
 		return true
-	} else {
-		return false
 	}
+	return false
 }
 
 func GetIPTenantIdPairs() {
