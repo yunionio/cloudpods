@@ -96,15 +96,13 @@ func (am addrMap) delete(addr string) {
 
 type Client struct {
 	cc *ssh_util.ClientConfig
-	c  *ssh.Client
 
 	stopc   chan sets.Empty
 	stopcEx *sync.Mutex
 	stopcc  bool
 
-	wakec chan sets.Empty
-	lfc   chan LocalForwardReq
-	rfc   chan RemoteForwardReq
+	lfc chan LocalForwardReq
+	rfc chan RemoteForwardReq
 
 	lfclosec chan LocalForwardReq
 	rfclosec chan RemoteForwardReq
@@ -120,9 +118,8 @@ func NewClient(cc *ssh_util.ClientConfig) *Client {
 		stopc:   make(chan sets.Empty),
 		stopcEx: &sync.Mutex{},
 
-		wakec: make(chan sets.Empty),
-		lfc:   make(chan LocalForwardReq),
-		rfc:   make(chan RemoteForwardReq),
+		lfc: make(chan LocalForwardReq),
+		rfc: make(chan RemoteForwardReq),
 
 		lfclosec: make(chan LocalForwardReq),
 		rfclosec: make(chan RemoteForwardReq),
@@ -150,71 +147,59 @@ func (c *Client) Start(ctx context.Context) {
 	pingFailCount := 0
 	const pingMaxFail = 3
 
-	const (
-		stateInit = iota
-		stateOK
-	)
-	state := stateInit
-	stateC := make(chan int)
-	stateInitRetryInterval := 7 * time.Second
-	stateInitRetryT := time.NewTicker(stateInitRetryInterval)
+	sshClientC := make(chan *ssh.Client)
+	var sshClient *ssh.Client
+	go c.runClientState(ctx, sshClientC)
 	for {
-		switch state {
-		case stateOK:
-			// check forwards and start
-		case stateInit:
-			if sshc, err := c.connect(ctx); err != nil {
-				log.Errorf("ssh connect: %v", err)
-			} else {
-				c.c = sshc
-				state = stateOK
-				go func() {
-					defer c.c.Conn.Close()
-
-					err := c.c.Conn.Wait()
-					if err != nil {
-						log.Errorf("ssh client conn: %v", err)
-					}
-					select {
-					case stateC <- stateInit:
-					case <-ctx.Done():
-					}
-				}()
-			}
-		}
-
 		select {
+		case sshClient = <-sshClientC:
 		case req := <-c.lfc:
-			if c.c != nil {
-				c.localForward(ctx, req)
+			if sshClient != nil {
+				c.localForward(ctx, sshClient, req)
 			}
 		case req := <-c.rfc:
-			if c.c != nil {
-				c.remoteForward(ctx, req)
+			if sshClient != nil {
+				c.remoteForward(ctx, sshClient, req)
 			}
 		case req := <-c.lfclosec:
 			c.localForwardClose(ctx, req)
 		case req := <-c.rfclosec:
 			c.remoteForwardClose(ctx, req)
-		case <-c.wakec:
-			break
 		case <-pingT.C:
 			//TODO ping check
 			//ping fail
 			if pingFailCount > pingMaxFail {
-				state = stateInit
 			}
-		case newState := <-stateC:
-			state = newState
-		case <-stateInitRetryT.C:
 		case <-c.stopc:
-			if c.c != nil {
-				c.c.Conn.Close()
-			}
 			return
 		case <-ctx.Done():
 			return
 		}
+	}
+}
+
+func (c *Client) runClientState(ctx context.Context, sshClientC chan *ssh.Client) {
+	for {
+		tmoCtx, _ := context.WithTimeout(ctx, 31*time.Second)
+		sshc, err := c.cc.ConnectContext(tmoCtx)
+		if err != nil {
+			log.Errorf("ssh connect: %v", err)
+			continue
+		}
+
+		select {
+		case sshClientC <- sshc:
+		case <-ctx.Done():
+		}
+
+		func() {
+			defer sshc.Conn.Close()
+
+			err := sshc.Conn.Wait()
+			if err != nil {
+				log.Infof("ssh client conn: %v", err)
+			}
+		}()
 	}
 }
 
@@ -230,13 +215,13 @@ func (c *Client) LocalForward(ctx context.Context, req LocalForwardReq) {
 	}
 }
 
-func (c *Client) localForward(ctx context.Context, req LocalForwardReq) {
-	if err := c.localForward_(ctx, req); err != nil {
+func (c *Client) localForward(ctx context.Context, sshc *ssh.Client, req LocalForwardReq) {
+	if err := c.localForward_(ctx, sshc, req); err != nil {
 		log.Errorf("local forward: %v", err)
 	}
 }
 
-func (c *Client) localForward_(ctx context.Context, req LocalForwardReq) error {
+func (c *Client) localForward_(ctx context.Context, sshc *ssh.Client, req LocalForwardReq) error {
 	// check LocalAddr/LocalPort existence
 	if c.localForwards.contains(req.LocalPort, req.LocalAddr) {
 		return errors.Errorf("local addr occupied: %s:%d", req.LocalAddr, req.LocalPort)
@@ -250,7 +235,7 @@ func (c *Client) localForward_(ctx context.Context, req LocalForwardReq) error {
 	fwd := &forwarder{
 		listener: listener,
 
-		dial:     c.c.Dial,
+		dial:     sshc.Dial,
 		dialAddr: req.RemoteAddr,
 		dialPort: req.RemotePort,
 
@@ -278,20 +263,20 @@ func (c *Client) RemoteForward(ctx context.Context, req RemoteForwardReq) {
 	}
 }
 
-func (c *Client) remoteForward(ctx context.Context, req RemoteForwardReq) {
-	if err := c.remoteForward_(ctx, req); err != nil {
+func (c *Client) remoteForward(ctx context.Context, sshc *ssh.Client, req RemoteForwardReq) {
+	if err := c.remoteForward_(ctx, sshc, req); err != nil {
 		log.Errorf("remote forward: %v", err)
 	}
 }
 
-func (c *Client) remoteForward_(ctx context.Context, req RemoteForwardReq) error {
+func (c *Client) remoteForward_(ctx context.Context, sshc *ssh.Client, req RemoteForwardReq) error {
 	// check RemoteAddr/RemotePort existence
 	if c.remoteForwards.contains(req.RemotePort, req.RemoteAddr) {
 		return errors.Errorf("remote addr occupied: %s:%d", req.RemoteAddr, req.RemotePort)
 	}
 
 	addr := net.JoinHostPort(req.RemoteAddr, fmt.Sprintf("%d", req.RemotePort))
-	listener, err := c.c.Listen("tcp", addr)
+	listener, err := sshc.Listen("tcp", addr)
 	if err != nil {
 		return errors.Wrapf(err, "ssh listen %s", addr)
 	}
