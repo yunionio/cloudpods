@@ -180,6 +180,12 @@ func (c *Client) Start(ctx context.Context) {
 
 func (c *Client) runClientState(ctx context.Context, sshClientC chan *ssh.Client) {
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		tmoCtx, _ := context.WithTimeout(ctx, 31*time.Second)
 		sshc, err := c.cc.ConnectContext(tmoCtx)
 		if err != nil {
@@ -187,17 +193,29 @@ func (c *Client) runClientState(ctx context.Context, sshClientC chan *ssh.Client
 			continue
 		}
 
-		select {
-		case sshClientC <- sshc:
-		case <-ctx.Done():
-		}
-
 		func() {
 			defer sshc.Conn.Close()
 
-			err := sshc.Conn.Wait()
-			if err != nil {
-				log.Infof("ssh client conn: %v", err)
+			select {
+			case sshClientC <- sshc:
+			case <-ctx.Done():
+				return
+			}
+
+			closeC := make(chan struct{})
+			go func() {
+				defer close(closeC)
+
+				err := sshc.Conn.Wait()
+				if err != nil {
+					log.Infof("ssh client conn: %v", err)
+				}
+			}()
+
+			select {
+			case <-closeC:
+			case <-ctx.Done():
+				return
 			}
 		}()
 	}
