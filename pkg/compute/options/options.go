@@ -114,6 +114,8 @@ type ComputeOptions struct {
 	SyncCloudImagesDay  int `default:"1" help:"Days auto sync public cloud images data, default 1 day"`
 	SyncCloudImagesHour int `default:"3" help:"What hour start sync public cloud images, default 03:00"`
 
+	EnablePreAllocateIpAddr bool `help:"Enable private and public cloud private ip pre allocate, default true" default:"true"`
+
 	DefaultImageCacheDir string `default:"image_cache"`
 
 	SnapshotCreateDiskProtocol string `help:"Snapshot create disk protocol" choices:"url|fuse" default:"fuse"`
