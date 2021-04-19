@@ -150,7 +150,7 @@ func (nat *SNatGateway) GetExpiredAt() time.Time {
 func (nat *SNatGateway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	eips := []SEipAddress{}
 	for {
-		parts, total, err := nat.vpc.region.GetEips("", nat.NatGatewayId, len(eips), 50)
+		parts, total, err := nat.vpc.region.GetEips("", nat.NatGatewayId, "", len(eips), 50)
 		if err != nil {
 			return nil, err
 		}
