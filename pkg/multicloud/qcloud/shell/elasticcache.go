@@ -9,7 +9,7 @@ func init() {
 	type RedisListOptions struct {
 	}
 	shellutils.R(&RedisListOptions{}, "redis-list", "List redis", func(cli *qcloud.SRegion, args *RedisListOptions) error {
-		redis, err := cli.GetCloudElasticcaches()
+		redis, err := cli.GetCloudElasticcaches("")
 		if err != nil {
 			return err
 		}
