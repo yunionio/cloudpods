@@ -103,7 +103,7 @@ func (self *SfsTurbo) GetStatus() string {
 	case "100":
 		return api.NAS_STATUS_CREATING
 	case "200":
-		return api.NAS_SKU_AVAILABLE
+		return api.NAS_STATUS_AVAILABLE
 	case "300":
 		return api.NAS_STATUS_UNKNOWN
 	case "303":

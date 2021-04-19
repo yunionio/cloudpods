@@ -85,7 +85,7 @@ func (self *FileSystemCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 	}
 	db.SetExternalId(fs, self.GetUserCred(), iFs.GetGlobalId())
 
-	cloudprovider.WaitMultiStatus(iFs, []string{api.NAS_STATUS_AVAILABLE, api.NAS_STATUS_CREATE_FAILED}, time.Second*5, time.Minute*3)
+	cloudprovider.WaitMultiStatus(iFs, []string{api.NAS_STATUS_AVAILABLE, api.NAS_STATUS_CREATE_FAILED}, time.Second*5, time.Minute*10)
 
 	self.SetStage("OnSyncstatusComplete", nil)
 	fs.StartSyncstatus(ctx, self.GetUserCred(), self.GetTaskId())
