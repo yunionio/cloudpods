@@ -166,10 +166,18 @@ func (manager *SAccessGroupCacheManager) QueryDistinctExtraField(q *sqlchemy.SQu
 	return q, httperrors.ErrNotFound
 }
 
+func (self *SAccessGroupCache) GetOwnerId() mcclient.IIdentityProvider {
+	ag, err := self.GetAccessGroup()
+	if err != nil {
+		return &db.SOwnerId{}
+	}
+	return &db.SOwnerId{DomainId: ag.DomainId}
+}
+
 func (manager *SAccessGroupCacheManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if userCred != nil {
 		sq := AccessGroupManager.Query("id")
-		if len(userCred.GetProjectDomainId()) > 0 {
+		if scope == rbacutils.ScopeDomain && len(userCred.GetProjectDomainId()) > 0 {
 			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
 			return q.In("access_group_id", sq)
 		}
