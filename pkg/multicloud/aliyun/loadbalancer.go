@@ -328,7 +328,7 @@ func (lb *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
 		}
 		return &eip, nil
 	}
-	eips, total, err := lb.region.GetEips("", lb.LoadBalancerId, 0, 1)
+	eips, total, err := lb.region.GetEips("", lb.LoadBalancerId, "", 0, 1)
 	if err != nil {
 		return nil, errors.Wrapf(err, "lb.region.GetEips(%s)", lb.LoadBalancerId)
 	}

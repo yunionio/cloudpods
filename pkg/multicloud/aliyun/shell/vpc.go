@@ -41,4 +41,14 @@ func init() {
 		return cli.DeleteVpc(args.ID)
 	})
 
+	type VpcMoveResourceGroup struct {
+		ResourceType    string `choices:"vpc|eip|bandwidthpackage" default:"vpc"`
+		ResourceGroupId string
+		ResourceId      string
+	}
+
+	shellutils.R(&VpcMoveResourceGroup{}, "vpc-mv-resource-group", "Delete vpc", func(cli *aliyun.SRegion, args *VpcMoveResourceGroup) error {
+		return cli.VpcMoveResourceGroup(args.ResourceType, args.ResourceGroupId, args.ResourceId)
+	})
+
 }
