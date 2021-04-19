@@ -120,6 +120,7 @@ func (self *SRegion) TagResource(serviceType string, resourceType string, resour
 		return errors.Wrap(cloudprovider.ErrNotSupported, "tags count exceed 20 for one request")
 	}
 	params := make(map[string]string)
+	params["RegionId"] = self.RegionId
 	params["ResourceType"] = resourceType
 	params["ResourceId.1"] = resourceId
 	i := 0
