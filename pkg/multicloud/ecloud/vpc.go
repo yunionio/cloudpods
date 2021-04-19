@@ -79,7 +79,7 @@ func (v *SVpc) Refresh() error {
 }
 
 func (v *SVpc) IsEmulated() bool {
-	return true
+	return false
 }
 
 func (v *SVpc) GetRegion() cloudprovider.ICloudRegion {
