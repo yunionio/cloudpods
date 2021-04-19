@@ -161,7 +161,7 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 	logentry.Add(jsonutils.NewString(notes), "notes")
 
 	logclientWorkerMan.Run(func() {
-		s := DefaultSessionGenerator(context.Background(), userCred, "", "")
+		s := DefaultSessionGenerator(context.Background(), auth.AdminCredential(), "", "")
 		_, err := api.Create(s, logentry)
 		if err != nil {
 			log.Errorf("create action log %s failed %s", logentry, err)
