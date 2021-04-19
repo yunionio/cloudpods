@@ -2939,9 +2939,15 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 					if len(guestnics[i].IpAddr) > 0 && guestnics[i].IpAddr == vnics[i].GetIP() {
 						// mac changed
 						reserve = true
+						removed = append(removed, sRemoveGuestnic{nic: &guestnics[i], reserve: reserve})
+						adds = append(adds, sAddGuestnic{index: i, nic: vnics[i], net: localNet, reserve: reserve})
+					} else if len(guestnics[i].IpAddr) == 0 {
+						db.Update(&guestnics[i], func() error {
+							guestnics[i].IpAddr = vnics[i].GetIP()
+							guestnics[i].MacAddr = vnics[i].GetMAC()
+							return nil
+						})
 					}
-					removed = append(removed, sRemoveGuestnic{nic: &guestnics[i], reserve: reserve})
-					adds = append(adds, sAddGuestnic{index: i, nic: vnics[i], net: localNet, reserve: reserve})
 				}
 			} else {
 				removed = append(removed, sRemoveGuestnic{nic: &guestnics[i]})
@@ -2999,7 +3005,7 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 		}
 		// always try allocate from reserved pool
 		_, err = self.Attach2Network(ctx, userCred, add.net, nil, ipStr,
-			add.nic.GetDriver(), 0, false, true, api.IPAllocationDefault, true, false, []SNicConfig{nicConf})
+			add.nic.GetDriver(), 0, false, true, api.IPAllocationDefault, true, true, []SNicConfig{nicConf})
 		if err != nil {
 			result.AddError(err)
 		} else {
