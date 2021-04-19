@@ -979,17 +979,31 @@ func (self *SRegion) GetCloudElasticcacheAccounts(instanceId string) ([]SElastic
 	params := map[string]string{}
 	params["Region"] = self.GetId()
 	params["InstanceId"] = instanceId
-	params["Limit"] = "100"
+	params["Limit"] = "20"
 	params["Offset"] = "0"
-	resp, err := self.client.redisRequest("DescribeInstanceAccount", params)
-	if err != nil {
-		return nil, errors.Wrap(err, "DescribeInstanceAccount")
-	}
 
 	ret := []SElasticcacheAccount{}
-	err = resp.Unmarshal(&ret, "Accounts")
-	if err != nil {
-		return nil, errors.Wrap(err, "Unmarshal")
+	offset := 0
+	for {
+		resp, err := self.client.redisRequest("DescribeInstanceAccount", params)
+		if err != nil {
+			return nil, errors.Wrap(err, "DescribeInstanceAccount")
+		}
+
+		_ret := []SElasticcacheAccount{}
+		err = resp.Unmarshal(&_ret, "Accounts")
+		if err != nil {
+			return nil, errors.Wrap(err, "Unmarshal")
+		} else {
+			ret = append(ret, _ret...)
+		}
+
+		if len(_ret) < 20 {
+			break
+		} else {
+			offset += 20
+			params["Offset"] = strconv.Itoa(offset)
+		}
 	}
 
 	return ret, nil
@@ -1000,16 +1014,31 @@ func (self *SRegion) GetCloudElasticcacheBackups(instanceId string) ([]SElasticc
 	params := map[string]string{}
 	params["Region"] = self.GetId()
 	params["InstanceId"] = instanceId
-	params["Limit"] = "100"
-	resp, err := self.client.redisRequest("DescribeInstanceBackups", params)
-	if err != nil {
-		return nil, errors.Wrap(err, "DescribeInstanceBackups")
-	}
+	params["Limit"] = "20"
+	params["Offset"] = "0"
 
 	ret := []SElasticcacheBackup{}
-	err = resp.Unmarshal(&ret, "BackupSet")
-	if err != nil {
-		return nil, errors.Wrap(err, "Unmarshal")
+	offset := 0
+	for {
+		resp, err := self.client.redisRequest("DescribeInstanceBackups", params)
+		if err != nil {
+			return nil, errors.Wrap(err, "DescribeInstanceBackups")
+		}
+
+		_ret := []SElasticcacheBackup{}
+		err = resp.Unmarshal(&_ret, "BackupSet")
+		if err != nil {
+			return nil, errors.Wrap(err, "Unmarshal")
+		} else {
+			ret = append(ret, _ret...)
+		}
+
+		if len(_ret) < 20 {
+			break
+		} else {
+			offset += 20
+			params["Offset"] = strconv.Itoa(offset)
+		}
 	}
 
 	return ret, nil
@@ -1078,19 +1107,38 @@ func (self *SRegion) GetCloudElasticcacheParameters(instanceId string) ([]SElast
 }
 
 // https://cloud.tencent.com/document/api/239/20018
-func (self *SRegion) GetCloudElasticcaches() ([]SElasticcache, error) {
+func (self *SRegion) GetCloudElasticcaches(instanceId string) ([]SElasticcache, error) {
 	params := map[string]string{}
 	params["Region"] = self.GetId()
-	params["Limit"] = "100"
-	resp, err := self.client.redisRequest("DescribeInstances", params)
-	if err != nil {
-		return nil, errors.Wrap(err, "DescribeInstances")
+	params["Limit"] = "20"
+	params["Offset"] = "0"
+
+	if len(instanceId) > 0 {
+		params["InstanceId"] = instanceId
 	}
 
 	ret := []SElasticcache{}
-	err = resp.Unmarshal(&ret, "InstanceSet")
-	if err != nil {
-		return nil, errors.Wrap(err, "Unmarshal")
+	offset := 0
+	for {
+		resp, err := self.client.redisRequest("DescribeInstances", params)
+		if err != nil {
+			return nil, errors.Wrap(err, "DescribeInstances")
+		}
+
+		_ret := []SElasticcache{}
+		err = resp.Unmarshal(&_ret, "InstanceSet")
+		if err != nil {
+			return nil, errors.Wrap(err, "Unmarshal")
+		} else {
+			ret = append(ret, _ret...)
+		}
+
+		if len(_ret) < 20 {
+			break
+		} else {
+			offset += 20
+			params["Offset"] = strconv.Itoa(offset)
+		}
 	}
 
 	return ret, nil
