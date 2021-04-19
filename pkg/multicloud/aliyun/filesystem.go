@@ -257,7 +257,7 @@ func (self *SRegion) CreateMountTarget(opts *cloudprovider.SMountTargetCreateOpt
 		"RegionId":        self.RegionId,
 		"FileSystemId":    opts.FileSystemId,
 		"AccessGroupName": strings.TrimPrefix(strings.TrimPrefix(opts.AccessGroupId, "extreme/"), "standard/"),
-		"NetworkType":     opts.NetworkType,
+		"NetworkType":     utils.Capitalize(opts.NetworkType),
 		"VpcId":           opts.VpcId,
 		"VSwitchId":       opts.NetworkId,
 	}
