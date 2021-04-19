@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"strings"
 
+	alierr "github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors"
+
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -196,6 +198,9 @@ func (self *SRegion) GetAccessGroups(fsType string) ([]SAccessGroup, error) {
 	for {
 		part, total, err := self.getAccessGroups(fsType, 50, num)
 		if err != nil {
+			if e, ok := errors.Cause(err).(*alierr.ServerError); ok && e.ErrorCode() == "Region.NotSupported" {
+				return accessGroups, nil
+			}
 			return nil, errors.Wrapf(err, "GetAccessGroups")
 		}
 		for i := range part {
