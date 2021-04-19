@@ -272,10 +272,18 @@ func (manager *SMountTargetManager) QueryDistinctExtraField(q *sqlchemy.SQuery, 
 	return q, httperrors.ErrNotFound
 }
 
+func (self *SMountTarget) GetOwnerId() mcclient.IIdentityProvider {
+	fs, err := self.GetFileSystem()
+	if err != nil {
+		return &db.SOwnerId{}
+	}
+	return &db.SOwnerId{DomainId: fs.DomainId}
+}
+
 func (manager *SMountTargetManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if userCred != nil {
 		sq := FileSystemManager.Query("id")
-		if len(userCred.GetProjectDomainId()) > 0 {
+		if scope == rbacutils.ScopeDomain && len(userCred.GetProjectDomainId()) > 0 {
 			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
 			return q.In("file_system_id", sq)
 		}
