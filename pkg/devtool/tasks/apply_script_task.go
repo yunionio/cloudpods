@@ -71,7 +71,7 @@ func (self *ApplyScriptTask) taskSuccess(ctx context.Context, sa *models.SScript
 func (self *ApplyScriptTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	sa := obj.(*models.SScriptApply)
 	// create record
-	sar, err := models.ScriptApplyRecordManager.CreateRecord(ctx, sa.ScriptId, sa.GuestId)
+	sar, err := models.ScriptApplyRecordManager.CreateRecord(ctx, sa.GetId())
 	if err != nil {
 		self.taskFailed(ctx, sa, nil, err)
 		return

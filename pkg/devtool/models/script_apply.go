@@ -103,7 +103,7 @@ func (sa *SScriptApply) StartApply(ctx context.Context, userCred mcclient.TokenC
 	err = sa.startApplyScriptTask(ctx, userCred, "")
 	if err != nil {
 		f := false
-		_, err = ScriptApplyRecordManager.createRecordWithResult(ctx, sa.ScriptId, sa.GuestId, &f, fmt.Sprintf("unabel to start ApplyScriptTask: %v", err))
+		_, err = ScriptApplyRecordManager.createRecordWithResult(ctx, sa.GetId(), &f, fmt.Sprintf("unabel to start ApplyScriptTask: %v", err))
 		if err != nil {
 			return errors.Wrap(err, "unable to record")
 		}

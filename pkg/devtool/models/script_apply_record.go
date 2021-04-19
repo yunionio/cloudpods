@@ -19,21 +19,22 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/devtool"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SScriptApplyRecord struct {
 	db.SStatusStandaloneResourceBase
-	ScriptId  string    `width:"36" charset:"ascii" nullable:"true" list:"user" index:"true"`
-	ServerId  string    `width:"36" charset:"ascii" nullable:"true" list:"user"`
-	StartTime time.Time `list:"user"`
-	EndTime   time.Time `list:"user"`
-	Reason    string    `list:"user"`
+	ScriptApplyId string    `width:"36" charset:"ascii" nullable:"true" list:"user" index:"true"`
+	StartTime     time.Time `list:"user"`
+	EndTime       time.Time `list:"user"`
+	Reason        string    `list:"user"`
 }
 
 type SScriptApplyRecordManager struct {
@@ -59,22 +60,56 @@ func (sarm *SScriptApplyRecordManager) ListItemFilter(ctx context.Context, q *sq
 	if err != nil {
 		return q, err
 	}
-	if len(input.ScriptId) > 0 {
-		q = q.Equals("script_id", input.ScriptId)
+	if len(input.ScriptApplyId) > 0 {
+		q = q.Equals("script_apply_id", input.ScriptApplyId)
+	}
+	if len(input.ScriptId) > 0 || len(input.ServerId) > 0 {
+		saq := ScriptApplyManager.Query("id")
+		if len(input.ScriptId) > 0 {
+			saq = saq.Equals("script_id", input.ScriptId)
+		}
+		if len(input.ServerId) > 0 {
+			saq = saq.Equals("guest_id", input.ServerId)
+		}
+		saqSub := saq.SubQuery()
+		q = q.Join(saqSub, sqlchemy.Equals(q.Field("script_apply_id"), saqSub.Field("id")))
 	}
 	return q, nil
 }
 
-func (sarm *SScriptApplyRecordManager) CreateRecord(ctx context.Context, scriptId, serverId string) (*SScriptApplyRecord, error) {
-	return sarm.createRecordWithResult(ctx, scriptId, serverId, nil, "")
+func (sarm *SScriptApplyRecordManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []interface{}, fields stringutils2.SSortedStrings, isList bool) []api.ScriptApplyRecordDetails {
+	sDetails := sarm.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	details := make([]api.ScriptApplyRecordDetails, len(objs))
+	for i := range details {
+		details[i].StandaloneResourceDetails = sDetails[i]
+		scriptApplyRecord := objs[i].(*SScriptApplyRecord)
+		sa, err := scriptApplyRecord.ScriptApply()
+		if err != nil {
+			log.Errorf("unable to get SScriptApply: %v", err)
+		}
+		details[i].ScriptId = sa.ScriptId
+		details[i].ServerId = sa.GuestId
+	}
+	return details
 }
 
-func (sarm *SScriptApplyRecordManager) createRecordWithResult(ctx context.Context, scriptId, serverId string, success *bool, reason string) (*SScriptApplyRecord, error) {
+func (sar *SScriptApplyRecord) ScriptApply() (*SScriptApply, error) {
+	obj, err := ScriptApplyManager.FetchById(sar.ScriptApplyId)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*SScriptApply), nil
+}
+
+func (sarm *SScriptApplyRecordManager) CreateRecord(ctx context.Context, scriptApplyId string) (*SScriptApplyRecord, error) {
+	return sarm.createRecordWithResult(ctx, scriptApplyId, nil, "")
+}
+
+func (sarm *SScriptApplyRecordManager) createRecordWithResult(ctx context.Context, scriptApplyId string, success *bool, reason string) (*SScriptApplyRecord, error) {
 	now := time.Now()
 	sar := &SScriptApplyRecord{
-		StartTime: now,
-		ScriptId:  scriptId,
-		ServerId:  serverId,
+		StartTime:     now,
+		ScriptApplyId: scriptApplyId,
 	}
 	if success == nil {
 		sar.Status = api.SCRIPT_APPLY_RECORD_APPLYING
@@ -117,7 +152,7 @@ func (sarm *SScriptApplyRecordManager) FetchOwnerId(ctx context.Context, data js
 }
 
 func (sar *SScriptApplyRecord) GetOwnerId() mcclient.IIdentityProvider {
-	obj, _ := ScriptManager.FetchById(sar.ScriptId)
+	obj, _ := ScriptApplyManager.FetchById(sar.ScriptApplyId)
 	if obj == nil {
 		return nil
 	}
