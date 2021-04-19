@@ -125,6 +125,7 @@ func (self *SRegion) rawTagResources(serviceType string, resourceType string, re
 		return errors.Wrap(cloudprovider.ErrNotSupported, "tags count exceed 20 for one request")
 	}
 	params := make(map[string]string)
+	params["RegionId"] = self.RegionId
 	params["ResourceType"] = resourceType
 	for i := range resIds {
 		params[fmt.Sprintf("ResourceId.%d", i+1)] = resIds[i]
