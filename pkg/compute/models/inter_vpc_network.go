@@ -193,6 +193,7 @@ func (manager *SInterVpcNetworkManager) newFromCloudInterVpcNetwork(ctx context.
 			if errors.Cause(err) != sql.ErrNoRows {
 				return nil, errors.Wrapf(err, "vpc.FetchByExternalIdAndManagerId(%s)", externalVpcIds[i])
 			}
+			continue
 		}
 		vpcIds = append(vpcIds, vpc.GetId())
 	}
