@@ -239,7 +239,7 @@ func (self *SEipAddress) ChangeBandwidth(bw int) error {
 	return self.region.UpdateEipBandwidth(self.AllocationId, bw)
 }
 
-func (region *SRegion) GetEips(eipId string, associatedId string, offset int, limit int) ([]SEipAddress, int, error) {
+func (region *SRegion) GetEips(eipId string, associatedId, addr string, offset int, limit int) ([]SEipAddress, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50
 	}
@@ -248,6 +248,9 @@ func (region *SRegion) GetEips(eipId string, associatedId string, offset int, li
 	params["RegionId"] = region.RegionId
 	params["PageSize"] = fmt.Sprintf("%d", limit)
 	params["PageNumber"] = fmt.Sprintf("%d", (offset/limit)+1)
+	if len(addr) > 0 {
+		params["EipAddress"] = addr
+	}
 
 	if len(eipId) > 0 {
 		params["AllocationId"] = eipId
@@ -282,7 +285,7 @@ func (region *SRegion) GetEips(eipId string, associatedId string, offset int, li
 }
 
 func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
-	eips, total, err := region.GetEips(eipId, "", 0, 1)
+	eips, total, err := region.GetEips(eipId, "", "", 0, 1)
 	if err != nil {
 		return nil, err
 	}

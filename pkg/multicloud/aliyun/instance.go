@@ -977,6 +977,7 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 		eip.AllocationId = self.InstanceId // fixed
 		eip.AllocationTime = self.CreationTime
 		eip.Bandwidth = self.InternetMaxBandwidthOut
+		eip.ResourceGroupId = self.ResourceGroupId
 		eip.InternetChargeType = self.InternetChargeType
 		return &eip, nil
 	}
@@ -1061,7 +1062,35 @@ func (region *SRegion) ConvertPublicIpToEip(instanceId string) error {
 }
 
 func (self *SInstance) ConvertPublicIpToEip() error {
-	return self.host.zone.region.ConvertPublicIpToEip(self.InstanceId)
+	err := self.host.zone.region.ConvertPublicIpToEip(self.InstanceId)
+	if err != nil {
+		return errors.Wrapf(err, "ConvertPublicIpToEip")
+	}
+	return cloudprovider.Wait(time.Second*5, time.Minute*5, func() (bool, error) {
+		self.Refresh()
+		iEip, err := self.GetIEIP()
+		if err != nil {
+			return false, errors.Wrapf(err, "GetIEIP")
+		}
+		if iEip == nil {
+			return false, nil
+		}
+		if iEip.GetMode() == api.EIP_MODE_STANDALONE_EIP {
+			return true, self.host.zone.region.VpcMoveResourceGroup("eip", self.ResourceGroupId, iEip.GetId())
+		}
+		return false, nil
+	})
+}
+
+func (self *SRegion) VpcMoveResourceGroup(resType, groupId, resId string) error {
+	params := map[string]string{
+		"RegionId":           self.RegionId,
+		"ResourceType":       resType,
+		"NewResourceGroupId": groupId,
+		"ResourceId":         resId,
+	}
+	_, err := self.vpcRequest("MoveResourceGroup", params)
+	return errors.Wrapf(err, "MoveResourceGroup")
 }
 
 func (region *SRegion) SetInstanceAutoRenew(instanceId string, autoRenew bool) error {
