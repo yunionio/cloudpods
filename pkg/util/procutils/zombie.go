@@ -96,11 +96,7 @@ func WaitZombieLoop(ctx context.Context) {
 				log.Errorf("%s: %s has invalid pid number %q: %v", pname, statPath, pidStr, err)
 				continue
 			}
-			var (
-				status syscall.WaitStatus
-				rusage syscall.Rusage
-			)
-			pid1, err := syscall.Wait4(pid, &status, 0, &rusage)
+			pid1, err := syscall.Wait4(pid, nil, 0, nil)
 			if err != nil {
 				log.Errorf("%s: %s: wait error: %v", pname, statPath, err)
 				continue
