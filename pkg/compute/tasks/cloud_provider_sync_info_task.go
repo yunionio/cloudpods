@@ -94,24 +94,16 @@ func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderPreInfoComplete(ctx co
 	syncRange := self.GetSyncRange()
 
 	db.OpsLog.LogEvent(provider, db.ACT_SYNCING_HOST, "", self.UserCred)
-	self.SetStage("OnSyncCloudProviderInfoComplete", nil)
 
-	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
-		provider.SyncCallSyncCloudproviderRegions(ctx, self.UserCred, syncRange)
-		return nil, nil
-	})
+	provider.SyncCallSyncCloudproviderRegions(ctx, self.UserCred, syncRange)
+
+	provider.CleanSchedCache()
+	self.SetStageComplete(ctx, nil)
+	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, "", self.UserCred)
+	logclient.AddActionLogWithStartable(self, provider, getAction(self.Params), body, self.UserCred, true)
 }
 
 func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderPreInfoCompleteFailed(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	log.Errorf("faild to sync provider quotas %s", body.String())
 	self.OnSyncCloudProviderPreInfoComplete(ctx, obj, body)
-}
-
-func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderInfoComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	provider := obj.(*models.SCloudprovider)
-	// provider.MarkEndSync(self.UserCred)
-	provider.CleanSchedCache()
-	self.SetStageComplete(ctx, nil)
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, "", self.UserCred)
-	logclient.AddActionLogWithStartable(self, provider, getAction(self.Params), body, self.UserCred, true)
 }
