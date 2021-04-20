@@ -364,6 +364,7 @@ func (in *SInstance) fetchSysDisk() {
 		ManualAttr: SDiskManualAttr{
 			IsVirtual:  true,
 			TempalteId: in.ImageRef,
+			ServerId:   in.Id,
 		},
 		SCreateTime:     in.SCreateTime,
 		SZoneRegionBase: in.SZoneRegionBase,
