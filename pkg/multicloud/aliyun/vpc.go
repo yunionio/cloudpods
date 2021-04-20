@@ -115,7 +115,7 @@ func (self *SVpc) addWire(wire *SWire) {
 }
 
 func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
-	for i := 0; i <= len(self.iwires); i += 1 {
+	for i := 0; i < len(self.iwires); i += 1 {
 		wire := self.iwires[i].(*SWire)
 		if wire.zone.ZoneId == zoneId {
 			return wire
@@ -137,8 +137,10 @@ func (self *SVpc) fetchVSwitches() error {
 	}
 	for i := 0; i < len(switches); i += 1 {
 		wire := self.getWireByZoneId(switches[i].ZoneId)
-		switches[i].wire = wire
-		wire.addNetwork(&switches[i])
+		if wire != nil {
+			switches[i].wire = wire
+			wire.addNetwork(&switches[i])
+		}
 	}
 	return nil
 }
