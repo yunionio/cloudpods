@@ -590,15 +590,20 @@ func (manager *SGuestManager) OrderByExtraFields(ctx context.Context, q *sqlchem
 			return nil, errors.Wrap(err, "SNetworkResourceBaseManager.OrderByExtraFields")
 		}
 	}
-	//fields = manager.SDiskResourceBaseManager.GetOrderByFields(query.DiskFilterListInput)
-	//if db.NeedOrderQuery(fields) {
-	//	diskQ := GuestdiskManager.Query("guest_id", "disk_id").SubQuery()
-	//	q = q.LeftJoin(diskQ, sqlchemy.Equals(q.Field("id"), diskQ.Field("guest_id"))).Distinct()
-	//	q, err = manager.SDiskResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.DiskFilterListInput)
-	//	if err != nil {
-	//		return nil, errors.Wrap(err, "SDiskResourceBaseManager.OrderByExtraFields")
-	//	}
-	//}
+
+	if db.NeedOrderQuery([]string{query.OrderByDisk}) {
+		guestdisks := GuestdiskManager.Query().SubQuery()
+		disks := DiskManager.Query().SubQuery()
+		guestdiskQ := guestdisks.Query(
+			guestdisks.Field("guest_id"),
+			sqlchemy.SUM("disks_size", disks.Field("disk_size")),
+		)
+		guestdiskQ = guestdiskQ.LeftJoin(disks, sqlchemy.Equals(guestdiskQ.Field("disk_id"), disks.Field("id")))
+		guestdiskSQ := guestdiskQ.GroupBy(guestdiskQ.Field("guest_id")).SubQuery()
+
+		q = q.LeftJoin(guestdiskSQ, sqlchemy.Equals(q.Field("id"), guestdiskSQ.Field("guest_id")))
+		db.OrderByFields(q, []string{query.OrderByDisk}, []sqlchemy.IQueryField{guestdiskSQ.Field("disks_size")})
+	}
 
 	return q, nil
 }
