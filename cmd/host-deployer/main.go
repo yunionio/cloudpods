@@ -14,9 +14,16 @@
 
 package main
 
-import "yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployserver"
+import (
+	"context"
+
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployserver"
+	"yunion.io/x/onecloud/pkg/util/procutils"
+)
 
 func main() {
+	go procutils.WaitZombieLoop(context.TODO())
+
 	deployer := deployserver.NewDeployService()
 	deployer.StartService()
 }

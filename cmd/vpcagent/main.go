@@ -26,6 +26,7 @@ import (
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/util/atexit"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/vpcagent/options"
 	_ "yunion.io/x/onecloud/pkg/vpcagent/ovn"
 	"yunion.io/x/onecloud/pkg/vpcagent/worker"
@@ -52,8 +53,12 @@ func main() {
 	}
 
 	{
+
+		ctx := context.Background()
+		ctx, cancelFunc := context.WithCancel(ctx)
+		go procutils.WaitZombieLoop(ctx)
+
 		wg := &sync.WaitGroup{}
-		ctx, cancelFunc := context.WithCancel(context.Background())
 		ctx = context.WithValue(ctx, "wg", wg)
 		wg.Add(1)
 		go w.Start(ctx)
