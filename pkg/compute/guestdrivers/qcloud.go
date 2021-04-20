@@ -17,7 +17,9 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -280,16 +282,17 @@ func (self *SQcloudGuestDriver) GetInstanceCapability() cloudprovider.SInstanceC
 	}
 }
 
-func (self *SQcloudGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
-	userName := "root"
+func (self *SQcloudGuestDriver) GetDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
+	userName := api.VM_DEFAULT_LINUX_LOGIN_USER
 	if desc.ImageType == "system" {
 		if desc.OsDistribution == "Ubuntu" {
 			userName = "ubuntu"
 		}
 	}
-	if desc.OsType == "Windows" {
-		userName = "Administrator"
+	if strings.ToLower(desc.OsType) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
+		userName = api.VM_DEFAULT_WINDOWS_LOGIN_USER
 	}
+
 	return userName
 }
 

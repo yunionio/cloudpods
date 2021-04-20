@@ -139,14 +139,6 @@ func (self *SHuaweiGuestDriver) GetInstanceCapability() cloudprovider.SInstanceC
 	}
 }
 
-func (self *SHuaweiGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
-	userName := "root"
-	if desc.OsType == "Windows" {
-		userName = "Administrator"
-	}
-	return userName
-}
-
 func (self *SHuaweiGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {
 	months := bc.GetMonths()
 	if (months >= 1 && months <= 9) || (months == 12) || (months == 24) || (months == 36) {

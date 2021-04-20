@@ -95,7 +95,7 @@ type IGuestDriver interface {
 	RemoteDeployGuestForRebuildRoot(ctx context.Context, guest *SGuest, ihost cloudprovider.ICloudHost, task taskman.ITask, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error)
 	GetGuestInitialStateAfterCreate() string
 	GetGuestInitialStateAfterRebuild() string
-	GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string
+	GetDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string
 	GetInstanceCapability() cloudprovider.SInstanceCapability
 
 	OnGuestDeployTaskDataReceived(ctx context.Context, guest *SGuest, task taskman.ITask, data jsonutils.JSONObject) error
