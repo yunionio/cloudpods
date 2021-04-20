@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -174,7 +175,7 @@ func (l *SLocalImageCache) prepare(ctx context.Context, zone, srcUrl, format str
 		l.consumerCount++
 		return true, true
 	}
-	url, err := auth.GetServiceURL("image", "", zone, "")
+	url, err := auth.GetServiceURL(apis.SERVICE_TYPE_IMAGE, "", zone, "")
 	if err != nil {
 		log.Errorf("Failed to acquire image %s", err)
 		return false, true
