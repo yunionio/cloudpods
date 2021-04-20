@@ -17,7 +17,6 @@ package guestdrivers
 import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
@@ -59,14 +58,6 @@ func (self *SApsaraGuestDriver) GetGuestInitialStateAfterCreate() string {
 
 func (self *SApsaraGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return api.VM_READY
-}
-
-func (self *SApsaraGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
-	userName := "root"
-	if desc.OsType == "Windows" {
-		userName = "Administrator"
-	}
-	return userName
 }
 
 func (self *SApsaraGuestDriver) AllowReconfigGuest() bool {
