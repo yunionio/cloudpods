@@ -245,8 +245,9 @@ func (s *sBaremetalRegisterTask) updateIpmiInfo(cli *ssh.Client) {
 			ipmitool.SetDellIPMILanPortShared(ipmiTool)
 		}
 	}
+	up := true
 	var nic = &types.SNicDevInfo{
-		Up:    true,
+		Up:    &up,
 		Speed: 100,
 		Mtu:   1500,
 	}

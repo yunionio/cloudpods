@@ -241,6 +241,8 @@ func TestParseNicInfo(t *testing.T) {
 	type args struct {
 		lines []string
 	}
+	up := true
+	down := false
 	mac1Str := "00:22:25:0b:ab:49"
 	mac2Str := "00:22:25:0b:ab:50"
 	mac1, _ := net.ParseMAC(mac1Str)
@@ -259,8 +261,8 @@ func TestParseNicInfo(t *testing.T) {
 				},
 			},
 			want: []*types.SNicDevInfo{
-				{Dev: "eth0", Mac: mac1, Speed: 0, Up: true, Mtu: 1500},
-				{Dev: "eth1", Mac: mac2, Speed: 0, Up: false, Mtu: 1500},
+				{Dev: "eth0", Mac: mac1, Speed: 0, Up: &up, Mtu: 1500},
+				{Dev: "eth1", Mac: mac2, Speed: 0, Up: &down, Mtu: 1500},
 			},
 		},
 	}
