@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package service
+package procutils
 
 import (
 	"context"
@@ -28,7 +28,7 @@ import (
 	"yunion.io/x/log"
 )
 
-func ReapZomebieLoop(ctx context.Context) {
+func WaitZombieLoop(ctx context.Context) {
 	myPid := os.Getpid()
 	if myPid != 1 {
 		log.Infof("My pid is not 1 and no need to wait zombies")
