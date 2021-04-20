@@ -68,11 +68,11 @@ func WaitZombieLoop(ctx context.Context) {
 			dataStr := string(data)
 			items := strings.Split(dataStr, " ")
 			const (
-				idxPid    = iota
-				idxName   = iota
-				idxState  = iota
-				idxPpid   = iota
-				idxMinLen = iota
+				idxPid = iota
+				idxName
+				idxState
+				idxPpid
+				idxMinLen
 			)
 			if len(items) < idxMinLen {
 				log.Errorf("%s contains less than %d items: %s", statPath, idxMinLen, dataStr)
