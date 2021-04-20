@@ -475,6 +475,7 @@ func syncZoneStorages(ctx context.Context, userCred mcclient.TokenCredential, sy
 }
 
 func syncStorageCaches(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localStorage *SStorage, remoteStorage cloudprovider.ICloudStorage) (cachePair sStoragecacheSyncPair) {
+	log.Debugf("syncStorageCaches for storage %s", localStorage.GetId())
 	remoteCache := remoteStorage.GetIStoragecache()
 	if remoteCache == nil {
 		log.Errorf("remote storageCache is nil")
@@ -1234,7 +1235,7 @@ func syncOnPremiseCloudProviderInfo(
 			result := storageCachePairs[i].syncCloudImages(ctx, userCred)
 			syncResults.Add(StoragecachedimageManager, result)
 			msg := result.Result()
-			log.Infof("syncCloudImages result: %s", msg)
+			log.Infof("syncCloudImages for stroagecache %s result: %s", storageCachePairs[i].local.GetId(), msg)
 			// }
 		}
 	}
