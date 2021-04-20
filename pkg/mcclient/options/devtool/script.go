@@ -58,7 +58,9 @@ func (so *ScriptApplyOptions) Params() (jsonutils.JSONObject, error) {
 
 type ScriptApplyRecordListOptions struct {
 	options.BaseListOptions
-	ScriptId string
+	ScriptId      string
+	ScriptApplyId string
+	ServerId      string
 }
 
 func (so *ScriptApplyRecordListOptions) Params() (jsonutils.JSONObject, error) {
