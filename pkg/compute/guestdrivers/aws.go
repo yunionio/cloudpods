@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -119,10 +120,9 @@ func (self *SAwsGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapa
 	}
 }
 
-func (self *SAwsGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
-	// return fetchAwsUserName(desc)
-	if desc.OsType == "Windows" {
-		return api.VM_AWS_DEFAULT_WINDOWS_LOGIN_USER
+func (self *SAwsGuestDriver) GetDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
+	if strings.ToLower(desc.OsType) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
+		return api.VM_DEFAULT_WINDOWS_LOGIN_USER
 	}
 
 	return api.VM_AWS_DEFAULT_LOGIN_USER

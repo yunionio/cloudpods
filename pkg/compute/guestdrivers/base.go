@@ -18,9 +18,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/osprofile"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -326,12 +328,11 @@ func (self *SBaseGuestDriver) GetUserDataType() string {
 	return cloudprovider.CLOUD_CONFIG
 }
 
-func (self *SBaseGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
-	userName := "root"
-	if desc.OsType == "Windows" {
-		userName = "Administrator"
+func (self *SBaseGuestDriver) GetDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
+	if strings.ToLower(desc.OsType) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
+		return api.VM_DEFAULT_WINDOWS_LOGIN_USER
 	}
-	return userName
+	return api.VM_DEFAULT_LINUX_LOGIN_USER
 }
 
 func (self *SBaseGuestDriver) OnGuestChangeCpuMemFailed(ctx context.Context, guest *models.SGuest, data *jsonutils.JSONDict, task taskman.ITask) error {
