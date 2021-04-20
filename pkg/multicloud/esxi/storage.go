@@ -292,6 +292,7 @@ func (self *SDatastore) FetchFakeTempateVMById(id string, regex string) (*SVirtu
 	filter["summary.config.uuid"] = uuid
 	filter["datastore"] = mods.Reference()
 	filter["summary.runtime.powerState"] = types.VirtualMachinePowerStatePoweredOff
+	filter["config.template"] = false
 	movms, err := self.datacenter.fetchMoVms(filter, []string{"name"})
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to fetch mo.VirtualMachines")
@@ -311,6 +312,7 @@ func (self *SDatastore) FetchFakeTempateVMs(regex string) ([]*SVirtualMachine, e
 	filter := property.Filter{}
 	filter["datastore"] = mods.Reference()
 	filter["summary.runtime.powerState"] = types.VirtualMachinePowerStatePoweredOff
+	filter["config.template"] = false
 	movms, err := self.datacenter.fetchMoVms(filter, []string{"name"})
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to fetch mo.VirtualMachines")
