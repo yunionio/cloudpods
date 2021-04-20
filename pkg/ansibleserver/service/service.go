@@ -15,7 +15,6 @@
 package service
 
 import (
-	"context"
 	"os"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -28,7 +27,6 @@ import (
 	common_app "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 func StartService() {
@@ -48,8 +46,6 @@ func StartService() {
 
 	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
-
-	go procutils.WaitZombieLoop(context.TODO())
 
 	common_app.ServeForever(app, baseOpts)
 }
