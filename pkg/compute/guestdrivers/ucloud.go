@@ -111,14 +111,6 @@ func (self *SUCloudGuestDriver) GetInstanceCapability() cloudprovider.SInstanceC
 	}
 }
 
-func (self *SUCloudGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
-	if desc.OsType == "Windows" {
-		return "Administrator"
-	}
-
-	return "root"
-}
-
 func init() {
 	driver := SUCloudGuestDriver{}
 	models.RegisterGuestDriver(&driver)

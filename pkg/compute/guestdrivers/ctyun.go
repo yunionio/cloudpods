@@ -113,14 +113,6 @@ func (self *SCtyunGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mo
 	return nil
 }
 
-func (self *SCtyunGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
-	if desc.OsType == "Windows" {
-		return "Administrator"
-	}
-
-	return "root"
-}
-
 func init() {
 	driver := SCtyunGuestDriver{}
 	models.RegisterGuestDriver(&driver)
