@@ -16,7 +16,6 @@ package procutils
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -34,7 +33,7 @@ func WaitZombieLoop(ctx context.Context) {
 		log.Infof("My pid is not 1 and no need to wait zombies")
 		return
 	}
-	myPidStr := fmt.Sprintf("%d", myPid)
+	const myPidStr = "1"
 
 	tick := time.NewTicker(31 * time.Second)
 	for {
