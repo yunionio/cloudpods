@@ -42,6 +42,23 @@ type ScriptApplyRecoredListInput struct {
 	// description: Id of Script
 	// example: cc2e2ba6-e33d-4be3-8e2d-4d2aa843dd03
 	ScriptId string
+	// description: Id of Server
+	// example:  a4b3n2c9-dbb7-4c51-8e1a-d2d4b331ccec
+	ServerId string
+	// description: Id of script apply
+	// example: a70eb6e6-dbb7-4c51-8e1a-d2d4b331ccec
+	ScriptApplyId string
+}
+
+type ScriptApplyRecordDetails struct {
+	apis.StandaloneResourceDetails
+	SScriptApplyRecord
+	// description: Id of Script
+	// example: cc2e2ba6-e33d-4be3-8e2d-4d2aa843dd03
+	ScriptId string
+	// description: Id of Server
+	// example: a4b3n2c9-dbb7-4c51-8e1a-d2d4b331ccec
+	ServerId string
 }
 
 type ScriptCreateInput struct {

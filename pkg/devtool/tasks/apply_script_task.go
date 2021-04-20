@@ -71,7 +71,7 @@ func (self *ApplyScriptTask) taskSuccess(ctx context.Context, sa *models.SScript
 func (self *ApplyScriptTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	sa := obj.(*models.SScriptApply)
 	// create record
-	sar, err := models.ScriptApplyRecordManager.CreateRecord(ctx, sa.ScriptId, sa.GuestId)
+	sar, err := models.ScriptApplyRecordManager.CreateRecord(ctx, sa.GetId())
 	if err != nil {
 		self.taskFailed(ctx, sa, nil, err)
 		return
@@ -155,7 +155,7 @@ func (self *ApplyScriptTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 	// check proxy forward
 	if ok := self.ensureLocalForwardWork(address, int(port)); !ok {
 		self.clearLocalForward(session, forwardId)
-		self.taskFailed(ctx, sa, sar, errors.Wrapf(err, "The created local forward is actually not usable"))
+		self.taskFailed(ctx, sa, sar, errors.Error("The created local forward is actually not usable"))
 		return
 	}
 	self.SetStage("OnAnsiblePlaybookComplete", updateData)
@@ -180,6 +180,7 @@ func (self *ApplyScriptTask) checkSshable(session *mcclient.ClientSession, serve
 	if err != nil {
 		return sSSHable{}, errors.Wrapf(err, "unable to get sshable info of server %s", serverId)
 	}
+	log.Debugf("data to chech sshable:\n %s", data)
 	methodTrieds, _ := data.GetArray("method_tried")
 	sshable := sSSHable{}
 	reasons := make([]string, 0, len(methodTrieds))
@@ -216,6 +217,7 @@ func (self *ApplyScriptTask) ensureLocalForwardWork(host string, port int) bool 
 		if err == nil {
 			return true
 		}
+		log.Debugf("no.%d times, try to connect to %s failed: %s", waitTimes, address, err)
 		time.Sleep(wt)
 		waitTimes += 1
 		wt += 1 * time.Second
