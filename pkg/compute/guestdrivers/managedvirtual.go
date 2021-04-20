@@ -341,7 +341,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 		}
 	}
 
-	desc.Account = guest.GetDriver().GetLinuxDefaultAccount(desc)
+	desc.Account = guest.GetDriver().GetDefaultAccount(desc)
 
 	if guest.GetDriver().IsNeedInjectPasswordByCloudInit(&desc) {
 		err = desc.InjectPasswordByCloudInit()
@@ -426,14 +426,6 @@ func (self *SManagedVirtualizedGuestDriver) GetGuestInitialStateAfterCreate() st
 
 func (self *SManagedVirtualizedGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return api.VM_READY
-}
-
-func (self *SManagedVirtualizedGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
-	userName := "root"
-	if strings.ToLower(desc.OsType) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
-		userName = "Administrator"
-	}
-	return userName
 }
 
 func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
