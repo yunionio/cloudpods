@@ -82,14 +82,17 @@ func NewRemoteFile(
 
 func (r *SRemoteFile) Fetch() bool {
 	if len(r.preChksum) > 0 {
+		log.Infof("Fetch remote file with precheck sum: %s", r.preChksum)
 		return r.fetch(r.preChksum)
 	} else if fileutils2.Exists(r.localPath) {
 		if !r.VerifyIntegrity() {
+			log.Warningf("Local path %s file mistmatch, refetch", r.localPath)
 			return r.fetch("")
 		} else {
 			return true
 		}
 	} else {
+		log.Infof("Fetch remote file %s to %s", r.downloadUrl, r.tmpPath)
 		return r.fetch("")
 	}
 }
@@ -118,10 +121,11 @@ func (r *SRemoteFile) VerifyIntegrity() bool {
 			return false
 		}
 		if localChksum == r.chksum {
-			log.Infof("identical chksum, skip download")
+			log.Infof("Identical chksum, skip download")
 			return true
 		}
 	}
+	log.Warningf("Integrity mistmatch, fetch from remote")
 	return r.fetch("")
 }
 
@@ -138,9 +142,10 @@ func (r *SRemoteFile) fetch(preChksum string) bool {
 		if fetchSucc {
 			if len(r.chksum) > 0 && fileutils2.Exists(r.tmpPath) {
 				if localChksum, err := fileutils2.MD5(r.tmpPath); err != nil {
-					log.Errorln(err)
+					log.Errorf("TmpPath %s MD5SUM error: %v", r.tmpPath, err)
 					fetchSucc = false
 				} else if r.chksum != localChksum {
+					log.Errorf("remote checksum %s != local checksum %s", r.chksum, localChksum)
 					fetchSucc = false
 				}
 			}
@@ -210,7 +215,7 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string) bool {
 	resp, err := httputils.Request(httpCli, r.ctx,
 		httputils.THttpMethod(method), url, header, nil, false)
 	if err != nil {
-		log.Errorln(err)
+		log.Errorf("Request %s to url %s error: %v", method, url, err)
 		return false
 	} else {
 		defer resp.Body.Close()
@@ -255,7 +260,7 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string) bool {
 				_, err = io.Copy(fi, reader)
 				close(finishChan)
 				if err != nil {
-					log.Errorln(err)
+					log.Errorf("Copy to tmpPath %s from reader error: %v", r.tmpPath, err)
 					return false
 				}
 			}
