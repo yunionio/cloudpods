@@ -173,14 +173,6 @@ func (self *SZStackGuestDriver) GetInstanceCapability() cloudprovider.SInstanceC
 	}
 }
 
-func (self *SZStackGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
-	userName := "root"
-	if desc.OsType == "Windows" {
-		userName = "Administrator"
-	}
-	return userName
-}
-
 func (self *SZStackGuestDriver) AllowReconfigGuest() bool {
 	return true
 }

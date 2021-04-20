@@ -90,14 +90,6 @@ func (self *SEcloudGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *m
 	return errors.ErrNotImplemented
 }
 
-func (self *SEcloudGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
-	if desc.OsType == "Windows" {
-		return "Administrator"
-	}
-
-	return "root"
-}
-
 func init() {
 	driver := SEcloudGuestDriver{}
 	models.RegisterGuestDriver(&driver)
