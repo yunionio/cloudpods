@@ -15,9 +15,14 @@
 package main
 
 import (
+	"context"
+
 	"yunion.io/x/onecloud/pkg/ansibleserver/service"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 func main() {
+	go procutils.WaitZombieLoop(context.TODO())
+
 	service.StartService()
 }
