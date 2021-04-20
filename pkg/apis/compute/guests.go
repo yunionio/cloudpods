@@ -62,9 +62,9 @@ type ServerListInput struct {
 	// enum: linux,windows,vmware
 	OsType []string `json:"os_type"`
 
-	// 对列表结果按照磁盘进行排序
+	// 对列表结果按照磁盘大小进行排序
 	// enum: asc,desc
-	// OrderByDisk string `json:"order_by_disk"`
+	OrderByDisk string `json:"order_by_disk"`
 
 	// 根据ip查找机器
 	IpAddr string `json:"ip_addr"`
