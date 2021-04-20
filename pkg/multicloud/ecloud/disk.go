@@ -62,6 +62,7 @@ type SDisk struct {
 type SDiskManualAttr struct {
 	IsVirtual  bool
 	TempalteId string
+	ServerId   string
 }
 
 func (d *SDisk) GetBillingType() string {
@@ -202,15 +203,38 @@ func (s *SDisk) CreateISnapshot(ctx context.Context, name string, desc string) (
 }
 
 func (s *SDisk) GetISnapshot(id string) (cloudprovider.ICloudSnapshot, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	parentId, isSystem := s.ID, false
+	if s.ManualAttr.IsVirtual {
+		parentId, isSystem = s.ManualAttr.ServerId, true
+	}
+	snapshots, err := s.storage.zone.region.GetSnapshots(id, parentId, isSystem)
+	if err != nil {
+		return nil, err
+	}
+	if len(snapshots) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return &snapshots[0], nil
 }
 
 func (s *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	parentId, isSystem := s.ID, false
+	if s.ManualAttr.IsVirtual {
+		parentId, isSystem = s.ManualAttr.ServerId, true
+	}
+	snapshots, err := s.storage.zone.region.GetSnapshots("", parentId, isSystem)
+	if err != nil {
+		return nil, err
+	}
+	isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots))
+	for i := range snapshots {
+		isnapshots[i] = &snapshots[i]
+	}
+	return isnapshots, nil
 }
 
 func (s *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
-	return []string{}, cloudprovider.ErrNotImplemented
+	return []string{}, nil
 }
 
 func (s *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
