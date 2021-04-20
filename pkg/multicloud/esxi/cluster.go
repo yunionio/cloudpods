@@ -23,6 +23,7 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -107,4 +108,31 @@ func (cluster *SCluster) SyncResourcePool(name string) (*mo.ResourcePool, error)
 
 func (cluster *SCluster) getoCluster() *mo.ClusterComputeResource {
 	return cluster.object.(*mo.ClusterComputeResource)
+}
+
+func (cluster *SCluster) GetDVSsBindHost() ([]mo.DistributedVirtualSwitch, error) {
+	var hosts []mo.HostSystem
+	err := cluster.manager.scanMObjects(cluster.object.Entity().Self, HOST_SYSTEM_PROPS, &hosts)
+	if err != nil {
+		return nil, err
+	}
+	var dvss []mo.DistributedVirtualSwitch
+	err = cluster.manager.scanMObjects(cluster.datacenter.object.Entity().Self, SIMPLE_DVS_PROPS, &dvss)
+	if err != nil {
+		return nil, err
+	}
+	hostRefs := sets.NewString()
+	for i := range hosts {
+		hostRefs.Insert(hosts[i].Self.String())
+	}
+	ret := make([]mo.DistributedVirtualSwitch, 0)
+	for i := range dvss {
+		for _, host := range dvss[i].Config.GetDVSConfigInfo().Host {
+			if hostRefs.Has(host.Config.Host.String()) {
+				ret = append(ret, dvss[i])
+				break
+			}
+		}
+	}
+	return ret, nil
 }

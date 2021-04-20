@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -686,13 +687,15 @@ func (cli *SESXiClient) MoveDisk(ctx context.Context, src, dst string, isForce b
 var (
 	SIMPLE_HOST_PROPS    = []string{"name", "config.network", "vm"}
 	SIMPLE_VM_PROPS      = []string{"name", "guest.net", "config.template", "config.hardware.device"}
-	SIMPLE_DVPG_PROPS    = []string{"key", "config.defaultPortConfig", "config.distributedVirtualSwitch"}
+	SIMPLE_DVPG_PROPS    = []string{"name", "key", "config.defaultPortConfig", "config.distributedVirtualSwitch"}
+	SIMPLE_DVS_PROPS     = []string{"name", "config"}
 	SIMPLE_NETWORK_PROPS = []string{"name"}
 )
 
 type SIPVlan struct {
-	IP     netutils.IPV4Addr
-	VlanId int32
+	IP        netutils.IPV4Addr
+	VlanId    int32
+	PortGroup string
 }
 
 type SSimpleVM struct {
@@ -703,6 +706,19 @@ type SSimpleVM struct {
 func (cli *SESXiClient) scanAllDvPortgroups() ([]*SDistributedVirtualPortgroup, error) {
 	var modvpgs []mo.DistributedVirtualPortgroup
 	err := cli.scanAllMObjects(SIMPLE_DVPG_PROPS, &modvpgs)
+	if err != nil {
+		return nil, errors.Wrap(err, "scanAllMObjects")
+	}
+	dvpgs := make([]*SDistributedVirtualPortgroup, 0, len(modvpgs))
+	for i := range modvpgs {
+		dvpgs = append(dvpgs, NewDistributedVirtualPortgroup(cli, &modvpgs[i], nil))
+	}
+	return dvpgs, nil
+}
+
+func (cli *SESXiClient) scanAllDvPortgroupsInDatacenter(dc *SDatacenter) ([]*SDistributedVirtualPortgroup, error) {
+	var modvpgs []mo.DistributedVirtualPortgroup
+	err := cli.scanMObjects(dc.object.Entity().Self, SIMPLE_DVPG_PROPS, &modvpgs)
 	if err != nil {
 		return nil, errors.Wrap(err, "scanAllMObjects")
 	}
@@ -746,7 +762,11 @@ func (cli *SESXiClient) HostVmIPsInDc(ctx context.Context, dc *SDatacenter) (SNe
 	if err != nil {
 		return SNetworkInfo{}, errors.Wrap(err, "scanMObjects")
 	}
-	return cli.hostVMIPs(ctx, hosts)
+	info, err := cli.hostVMIPs(ctx, hosts, dc)
+	if err != nil {
+		return info, err
+	}
+	return cli.fillDVSs(info, dc.GetDVSs)
 }
 
 func (cli *SESXiClient) HostVmIPsInCluster(ctx context.Context, cluster *SCluster) (SNetworkInfo, error) {
@@ -755,19 +775,50 @@ func (cli *SESXiClient) HostVmIPsInCluster(ctx context.Context, cluster *SCluste
 	if err != nil {
 		return SNetworkInfo{}, errors.Wrap(err, "scanMObjects")
 	}
-	return cli.hostVMIPs(ctx, hosts)
+	info, err := cli.hostVMIPs(ctx, hosts, cluster.datacenter)
+	if err != nil {
+		return info, err
+	}
+	return cli.fillDVSs(info, cluster.GetDVSsBindHost)
+}
+
+func (cli *SESXiClient) fillDVSs(info SNetworkInfo, fetchDVSs func() ([]mo.DistributedVirtualSwitch, error)) (SNetworkInfo, error) {
+	dvss, err := fetchDVSs()
+	if err != nil {
+		return info, err
+	}
+	dvsNames := make([]string, len(dvss))
+	for i := range dvss {
+		dvsNames[i] = dvss[i].Name
+	}
+	info.DVSs = dvsNames
+	return info, nil
+
 }
 
 type SNetworkInfo struct {
+	DVSs    []string
 	HostIps map[string]netutils.IPV4Addr
 	VMs     []SSimpleVM
-	VlanIps map[int32][]netutils.IPV4Addr
+	VlanIps map[int32]*SVlan
 	IPPool  SIPPool
 }
 
-func (cli *SESXiClient) hostVMIPs(ctx context.Context, hosts []mo.HostSystem) (SNetworkInfo, error) {
+type SVlan struct {
+	Id         int32
+	Ips        []netutils.IPV4Addr
+	PortGroups []string
+}
+
+func (vn *SVlan) mergeFrom(source *SVlan) {
+	vn.Ips = append(vn.Ips, source.Ips...)
+	vn.PortGroups = append(vn.PortGroups, source.PortGroups...)
+	vn.PortGroups = sets.NewString(vn.PortGroups...).UnsortedList()
+}
+
+func (cli *SESXiClient) hostVMIPs(ctx context.Context, hosts []mo.HostSystem, dc *SDatacenter) (SNetworkInfo, error) {
 	ret := SNetworkInfo{}
-	dvpgMap, err := cli.getDVPGMap()
+	dvpgMap, err := cli.getDVPGMap(dc)
 	if err != nil {
 		return ret, errors.Wrap(err, "unable to get dvpgKeyVlanMap")
 	}
@@ -819,19 +870,24 @@ func (cli *SESXiClient) mergeNetworInfo(nInfos []SNetworkInfo) SNetworkInfo {
 	}
 	ret := SNetworkInfo{
 		VMs:     make([]SSimpleVM, 0, vmsLen),
-		VlanIps: make(map[int32][]netutils.IPV4Addr, vlanIpLen),
+		VlanIps: make(map[int32]*SVlan, vlanIpLen),
 		IPPool:  NewIPPool(ipPoolLen),
 	}
 	for i := range nInfos {
 		ret.VMs = append(ret.VMs, nInfos[i].VMs...)
-		for vlan, ips := range nInfos[i].VlanIps {
-			ret.VlanIps[vlan] = append(ret.VlanIps[vlan], ips...)
+		for vlanId, vlan := range nInfos[i].VlanIps {
+			tVlan, ok := ret.VlanIps[vlanId]
+			if !ok {
+				tVlan = &SVlan{}
+				ret.VlanIps[vlanId] = tVlan
+			}
+			tVlan.mergeFrom(vlan)
 		}
 		ret.IPPool.Merge(&nInfos[i].IPPool)
 	}
-	for _, ips := range ret.VlanIps {
-		sort.Slice(ips, func(i, j int) bool {
-			return ips[i] < ips[j]
+	for _, vlan := range ret.VlanIps {
+		sort.Slice(vlan.Ips, func(i, j int) bool {
+			return vlan.Ips[i] < vlan.Ips[j]
 		})
 	}
 	return ret
@@ -843,12 +899,21 @@ func (cli *SESXiClient) HostVmIPs(ctx context.Context) (SNetworkInfo, error) {
 	if err != nil {
 		return SNetworkInfo{}, errors.Wrap(err, "scanAllMObjects")
 	}
-	return cli.hostVMIPs(ctx, hosts)
+	info, err := cli.hostVMIPs(ctx, hosts, nil)
+	if err != nil {
+		return info, err
+	}
+	return cli.fillDVSs(info, cli.GetDVSs)
 }
 
-func (cli *SESXiClient) macVlanMap(mohost *mo.HostSystem, movm *mo.VirtualMachine, dvpgMap sVPGMap) map[string]int32 {
+type sVlanPortGroup struct {
+	vlanId    int32
+	portGroup string
+}
+
+func (cli *SESXiClient) macVlanMap(mohost *mo.HostSystem, movm *mo.VirtualMachine, dvpgMap sVPGMap) map[string]sVlanPortGroup {
 	vpgMap := cli.getVPGMap(mohost)
-	ret := make(map[string]int32, 2)
+	ret := make(map[string]sVlanPortGroup, 2)
 	for _, device := range movm.Config.Hardware.Device {
 		bcard, ok := device.(types.BaseVirtualEthernetCard)
 		if !ok {
@@ -862,27 +927,33 @@ func (cli *SESXiClient) macVlanMap(mohost *mo.HostSystem, movm *mo.VirtualMachin
 			proc, ok := dvpgMap.Get(key)
 			if !ok {
 				log.Errorf("dvpg %s not found in key-vlanid map", key)
-				ret[mac] = 0
+				ret[mac] = sVlanPortGroup{}
 				continue
 			}
-			ret[mac] = proc.vlanId
+			ret[mac] = sVlanPortGroup{
+				vlanId:    proc.vlanId,
+				portGroup: proc.name,
+			}
 		case *types.VirtualEthernetCardNetworkBackingInfo:
 			netName, err := cli.networkName(bk.Network.Value)
 			if err != nil {
 				log.Errorf("get getNetworkName of %q: %v", bk.Network.Value, err)
-				ret[mac] = 0
+				ret[mac] = sVlanPortGroup{}
 				continue
 			}
 			key := fmt.Sprintf("%s-%s", mohost.Reference().Value, netName)
 			proc, ok := vpgMap.Get(key)
 			if !ok {
 				log.Errorf("vpg %s not found in key-vlanid map", key)
-				ret[mac] = 0
+				ret[mac] = sVlanPortGroup{}
 				continue
 			}
-			ret[mac] = proc.vlanId
+			ret[mac] = sVlanPortGroup{
+				vlanId:    proc.vlanId,
+				portGroup: proc.name,
+			}
 		default:
-			ret[mac] = 0
+			ret[mac] = sVlanPortGroup{}
 		}
 	}
 	return ret
@@ -891,7 +962,7 @@ func (cli *SESXiClient) macVlanMap(mohost *mo.HostSystem, movm *mo.VirtualMachin
 func (cli *SESXiClient) vmIPs(host *mo.HostSystem, vpgMap sVPGMap) (SNetworkInfo, error) {
 	nInfo := SNetworkInfo{
 		VMs:     make([]SSimpleVM, 0, len(host.Vm)),
-		VlanIps: make(map[int32][]netutils.IPV4Addr),
+		VlanIps: make(map[int32]*SVlan),
 		IPPool:  NewIPPool(),
 	}
 	if len(host.Vm) == 0 {
@@ -928,14 +999,34 @@ func (cli *SESXiClient) vmIPs(host *mo.HostSystem, vpgMap sVPGMap) (SNetworkInfo
 				if netutils.IsLinkLocal(ipaddr) {
 					continue
 				}
-				vlan := macVlanMap[mac]
+				vlanPG := macVlanMap[mac]
 				guestIps = append(guestIps, SIPVlan{
-					IP:     ipaddr,
-					VlanId: vlan,
+					IP:        ipaddr,
+					VlanId:    vlanPG.vlanId,
+					PortGroup: vlanPG.portGroup,
 				})
-				nInfo.VlanIps[vlan] = append(nInfo.VlanIps[vlan], ipaddr)
+				vlan, ok := nInfo.VlanIps[vlanPG.vlanId]
+				if !ok {
+					vlan = &SVlan{
+						Id:         vlanPG.vlanId,
+						Ips:        []netutils.IPV4Addr{},
+						PortGroups: []string{},
+					}
+					nInfo.VlanIps[vlanPG.vlanId] = vlan
+				}
+				vlan.Ips = append(vlan.Ips, ipaddr)
+				has := false
+				for _, pg := range vlan.PortGroups {
+					if pg == vlanPG.portGroup {
+						has = true
+						break
+					}
+				}
+				if !has {
+					vlan.PortGroups = append(vlan.PortGroups, vlanPG.portGroup)
+				}
 				nInfo.IPPool.Insert(ipaddr, SIPProc{
-					VlanId: vlan,
+					VlanId: vlan.Id,
 				})
 				break
 			}
@@ -943,4 +1034,13 @@ func (cli *SESXiClient) vmIPs(host *mo.HostSystem, vpgMap sVPGMap) (SNetworkInfo
 		nInfo.VMs = append(nInfo.VMs, SSimpleVM{vm.Name, guestIps})
 	}
 	return nInfo, nil
+}
+
+func (cli *SESXiClient) GetDVSs() ([]mo.DistributedVirtualSwitch, error) {
+	var dvss []mo.DistributedVirtualSwitch
+	err := cli.scanAllMObjects(SIMPLE_DVS_PROPS, &dvss)
+	if err != nil {
+		return nil, err
+	}
+	return dvss, nil
 }
