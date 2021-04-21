@@ -195,7 +195,7 @@ func ParseNicInfo(lines []string) []*types.SNicDevInfo {
 				Dev:   dev,
 				Mac:   mac,
 				Speed: speed,
-				Up:    up,
+				Up:    &up,
 				Mtu:   mtu,
 			})
 		}

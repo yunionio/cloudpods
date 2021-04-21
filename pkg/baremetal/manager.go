@@ -1685,7 +1685,9 @@ func (b *SBaremetalInstance) SendNicInfo(nic *types.SNicDevInfo, idx int, nicTyp
 		params.Add(jsonutils.NewString(nicType), "nic_type")
 	}
 	params.Add(jsonutils.NewInt(int64(nic.Mtu)), "mtu")
-	params.Add(jsonutils.NewBool(nic.Up), "link_up")
+	if nic.Up != nil {
+		params.Add(jsonutils.NewBool(*nic.Up), "link_up")
+	}
 	if reset {
 		params.Add(jsonutils.JSONTrue, "reset")
 	}

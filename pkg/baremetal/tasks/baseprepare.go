@@ -190,7 +190,6 @@ func (task *sBaremetalPrepareTask) configIPMISetting(cli *ssh.Client, i *baremet
 
 		ipmiNic := &types.SNicDevInfo{
 			Mac:   conf.Mac,
-			Up:    false,
 			Speed: 100,
 			Mtu:   1500,
 		}
@@ -441,7 +440,7 @@ func (task *sBaremetalPrepareTask) updateBmInfo(cli *ssh.Client, i *baremetalPre
 	}
 	if o.Options.EnablePxeBoot && task.baremetal.EnablePxeBoot() {
 		for _, nicInfo := range i.nicsInfo {
-			if nicInfo.Mac.String() != adminNic.GetMac().String() && nicInfo.Up {
+			if nicInfo.Mac.String() != adminNic.GetMac().String() && nicInfo.Up != nil && *nicInfo.Up {
 				err = task.doNicWireProbe(cli, nicInfo)
 				if err != nil {
 					// ignore the error
