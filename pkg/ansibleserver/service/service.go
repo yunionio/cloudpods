@@ -15,7 +15,6 @@
 package service
 
 import (
-	"context"
 	"os"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -48,8 +47,6 @@ func StartService() {
 
 	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
-
-	go ReapZomebieLoop(context.TODO())
 
 	common_app.ServeForever(app, baseOpts)
 }
