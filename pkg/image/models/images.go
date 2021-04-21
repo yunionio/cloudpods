@@ -1171,8 +1171,11 @@ func (self *SImage) Remove() error {
 	for i := 0; i < len(subimgs); i += 1 {
 		err := subimgs[i].RemoveFiles()
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "remove subimg %s", subimgs[i].GetName())
 		}
+	}
+	if self.Location == "" {
+		return nil
 	}
 	if strings.HasPrefix(self.Location, LocalFilePrefix) {
 		return self.RemoveFile()
