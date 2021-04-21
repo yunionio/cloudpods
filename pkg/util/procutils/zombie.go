@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package service
+package procutils
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -28,13 +27,13 @@ import (
 	"yunion.io/x/log"
 )
 
-func ReapZomebieLoop(ctx context.Context) {
+func WaitZombieLoop(ctx context.Context) {
 	myPid := os.Getpid()
 	if myPid != 1 {
 		log.Infof("My pid is not 1 and no need to wait zombies")
 		return
 	}
-	myPidStr := fmt.Sprintf("%d", myPid)
+	const myPidStr = "1"
 
 	tick := time.NewTicker(31 * time.Second)
 	for {
@@ -69,11 +68,11 @@ func ReapZomebieLoop(ctx context.Context) {
 			dataStr := string(data)
 			items := strings.Split(dataStr, " ")
 			const (
-				idxPid    = iota
-				idxName   = iota
-				idxState  = iota
-				idxPpid   = iota
-				idxMinLen = iota
+				idxPid = iota
+				idxName
+				idxState
+				idxPpid
+				idxMinLen
 			)
 			if len(items) < idxMinLen {
 				log.Errorf("%s contains less than %d items: %s", statPath, idxMinLen, dataStr)
@@ -97,11 +96,7 @@ func ReapZomebieLoop(ctx context.Context) {
 				log.Errorf("%s: %s has invalid pid number %q: %v", pname, statPath, pidStr, err)
 				continue
 			}
-			var (
-				status syscall.WaitStatus
-				rusage syscall.Rusage
-			)
-			pid1, err := syscall.Wait4(pid, &status, 0, &rusage)
+			pid1, err := syscall.Wait4(pid, nil, 0, nil)
 			if err != nil {
 				log.Errorf("%s: %s: wait error: %v", pname, statPath, err)
 				continue
