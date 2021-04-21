@@ -34,8 +34,8 @@ type CloudProviderSyncInfoTask struct {
 	taskman.STask
 }
 
-func init() {
-	syncWorker := appsrv.NewWorkerManager("CloudProviderSyncInfoTaskWorkerManager", 2, 512, true)
+func InitCloudproviderSyncWorkers(count int) {
+	syncWorker := appsrv.NewWorkerManager("CloudProviderSyncInfoTaskWorkerManager", count, 512, true)
 	taskman.RegisterTaskAndWorker(CloudProviderSyncInfoTask{}, syncWorker)
 }
 
