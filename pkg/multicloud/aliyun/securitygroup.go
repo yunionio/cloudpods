@@ -475,7 +475,10 @@ func (self *SPermission) toRule() (cloudprovider.SecurityRule, error) {
 	if self.Direction == "egress" {
 		rule.Direction = secrules.DIR_OUT
 		cidr = self.DestCidrIp
-		rule.PeerSecgroupId = self.DestGroupId
+	}
+	if len(self.SourceGroupId) > 0 || len(self.DestGroupId) > 0 {
+		cidr = "0.0.0.0/0"
+		rule.PeerSecgroupId = self.SourceGroupId + self.DestGroupId
 	}
 
 	rule.ParseCIDR(cidr)

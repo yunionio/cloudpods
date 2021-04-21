@@ -22,6 +22,7 @@ import (
 
 func TestQcloudRuleSync(t *testing.T) {
 	data := []TestData{
+
 		{
 			Name: "Test out rules",
 			SrcRules: cloudprovider.SecurityRuleSet{
@@ -32,10 +33,97 @@ func TestQcloudRuleSync(t *testing.T) {
 			Common:    []cloudprovider.SecurityRule{},
 			InAdds:    []cloudprovider.SecurityRule{},
 			OutAdds: []cloudprovider.SecurityRule{
-				ruleWithName("", "out:allow any", 48),
+				ruleWithName("", "out:allow any", 100),
 			},
 			InDels:  []cloudprovider.SecurityRule{},
 			OutDels: []cloudprovider.SecurityRule{},
+		},
+		{
+			Name: "Test peer out rules",
+			SrcRules: cloudprovider.SecurityRuleSet{
+				ruleWithPeerSecgroup("", "out:allow tcp", 1, "sec2"),
+				ruleWithPriority("out:deny any", 1),
+			},
+			DestRules: []cloudprovider.SecurityRule{
+				ruleWithPeerSecgroup("", "out:allow tcp", 2, "sec2"),
+				ruleWithPriority("out:deny any", 1),
+			},
+			Common: []cloudprovider.SecurityRule{
+				ruleWithPeerSecgroup("", "out:allow tcp", 2, "sec2"),
+				ruleWithPriority("out:deny any", 1),
+			},
+			InAdds:  []cloudprovider.SecurityRule{},
+			OutAdds: []cloudprovider.SecurityRule{},
+			InDels:  []cloudprovider.SecurityRule{},
+			OutDels: []cloudprovider.SecurityRule{},
+		},
+		{
+			Name: "Test peer out rules priority",
+			SrcRules: cloudprovider.SecurityRuleSet{
+				ruleWithPeerSecgroup("", "out:allow tcp", 2, "sec2"),
+				ruleWithPriority("out:deny any", 1),
+			},
+			DestRules: []cloudprovider.SecurityRule{
+				ruleWithPeerSecgroup("", "out:allow tcp", 2, "sec2"),
+				ruleWithPriority("out:deny any", 1),
+			},
+			Common: []cloudprovider.SecurityRule{
+				ruleWithPriority("out:deny any", 1),
+			},
+			InAdds: []cloudprovider.SecurityRule{},
+			OutAdds: []cloudprovider.SecurityRule{
+				ruleWithPeerSecgroup("", "out:allow tcp", 0, "sec2"),
+			},
+			InDels: []cloudprovider.SecurityRule{},
+			OutDels: []cloudprovider.SecurityRule{
+				ruleWithPeerSecgroup("", "out:allow tcp", 2, "sec2"),
+			},
+		},
+		{
+			Name: "Test peer out rules priority 2",
+			SrcRules: cloudprovider.SecurityRuleSet{
+				ruleWithPeerSecgroup("", "out:deny tcp", 4, "sec2"),
+				ruleWithPriority("out:allow any", 5),
+			},
+			DestRules: []cloudprovider.SecurityRule{
+				ruleWithPeerSecgroup("", "out:deny tcp", 0, "sec2"),
+				ruleWithPriority("out:allow any", 3),
+			},
+			Common: []cloudprovider.SecurityRule{
+				ruleWithPeerSecgroup("", "out:deny tcp", 1, "sec2"),
+			},
+			InAdds: []cloudprovider.SecurityRule{},
+			OutAdds: []cloudprovider.SecurityRule{
+				ruleWithPriority("out:allow any", 0),
+			},
+			InDels: []cloudprovider.SecurityRule{},
+			OutDels: []cloudprovider.SecurityRule{
+				ruleWithPriority("out:allow any", 3),
+			},
+		},
+		{
+			Name: "Test peer out rules 1",
+			SrcRules: cloudprovider.SecurityRuleSet{
+				ruleWithPeerSecgroup("", "out:deny tcp 22", 60, "Sys-Default"),
+				ruleWithPriority("out:allow 10.0.0.0/8 udp", 10),
+			},
+			DestRules: []cloudprovider.SecurityRule{
+				ruleWithPriority("out:allow any", 1),
+				ruleWithPeerSecgroup("", "out:deny tcp 22", 2, "Sys-Default"),
+				ruleWithPriority("out:allow 10.0.0.0/8 udp", 3),
+				ruleWithPriority("out:allow any", 4),
+			},
+			Common: []cloudprovider.SecurityRule{
+				ruleWithPeerSecgroup("", "out:deny tcp 22", 2, "Sys-Default"),
+				ruleWithPriority("out:allow 10.0.0.0/8 udp", 3),
+				ruleWithPriority("out:allow any", 4),
+			},
+			InAdds:  []cloudprovider.SecurityRule{},
+			OutAdds: []cloudprovider.SecurityRule{},
+			InDels:  []cloudprovider.SecurityRule{},
+			OutDels: []cloudprovider.SecurityRule{
+				ruleWithPriority("out:allow any", 1),
+			},
 		},
 	}
 

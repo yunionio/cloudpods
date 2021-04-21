@@ -43,7 +43,7 @@ func TestOpenStackRuleSync(t *testing.T) {
 			OutDels: []cloudprovider.SecurityRule{},
 		},
 		{
-			Name: "Test deny rules",
+			Name: "Test deny rules 2",
 			SrcRules: cloudprovider.SecurityRuleSet{
 				ruleWithPriority("in:deny any", 100),
 				ruleWithPriority("in:allow any", 99),
@@ -53,7 +53,9 @@ func TestOpenStackRuleSync(t *testing.T) {
 				ruleWithName("", "in:allow any", 0),
 				ruleWithName("", "out:allow any", 0),
 			},
-			Common:  []cloudprovider.SecurityRule{},
+			Common: []cloudprovider.SecurityRule{
+				ruleWithName("", "out:allow any", 0),
+			},
 			InAdds:  []cloudprovider.SecurityRule{},
 			OutAdds: []cloudprovider.SecurityRule{},
 			InDels: []cloudprovider.SecurityRule{
