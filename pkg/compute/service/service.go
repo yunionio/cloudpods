@@ -41,7 +41,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/compute/policy"
 	_ "yunion.io/x/onecloud/pkg/compute/regiondrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/storagedrivers"
-	_ "yunion.io/x/onecloud/pkg/compute/tasks"
+	"yunion.io/x/onecloud/pkg/compute/tasks"
 	"yunion.io/x/onecloud/pkg/controller/autoscaling"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/multicloud/esxi"
@@ -86,6 +86,7 @@ func StartService() {
 	setInfluxdbRetentionPolicy()
 
 	models.InitSyncWorkers(options.Options.CloudSyncWorkerCount)
+	tasks.InitCloudproviderSyncWorkers(options.Options.CloudProviderSyncWorkerCount)
 
 	var (
 		electObj        *elect.Elect
