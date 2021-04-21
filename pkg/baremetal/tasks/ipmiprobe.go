@@ -157,9 +157,10 @@ func (self *SBaremetalIpmiProbeTask) sendIpmiNicInfo(lanConf *types.SIPMILanConf
 	if speed <= 0 {
 		speed = 100
 	}
+	up := true
 	ipmiNic := &types.SNicDevInfo{
 		Mac:   lanConf.Mac,
-		Up:    true,
+		Up:    &up,
 		Speed: speed,
 		Mtu:   1500,
 	}
