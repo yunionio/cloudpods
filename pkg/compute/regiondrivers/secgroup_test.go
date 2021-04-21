@@ -21,7 +21,6 @@ import (
 
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/util/stringutils"
-	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -81,15 +80,8 @@ func (d TestData) Test(t *testing.T, srcD, destD cloudprovider.SecDriver) {
 			externalIds = append(externalIds, fmt.Sprintf("%s-%d", outDels[i].String(), outDels[i].Priority))
 		}
 	}
-	destRules := cloudprovider.SecurityRuleSet{}
-	for i := range dest.Rules {
-		if utils.IsInStringArray(dest.Rules[i].ExternalId, externalIds) || utils.IsInStringArray(fmt.Sprintf("%s-%d", dest.Rules[i].String(), dest.Rules[i].Priority), externalIds) {
-			continue
-		}
-		destRules = append(destRules, dest.Rules[i])
-	}
-	dest.Rules = destRules
-	_, inAdds, outAdds, inDels, outDels = cloudprovider.CompareRules(src, dest, true)
+	dest.Rules = append(append(common, inAdds...), outAdds...)
+	_, inAdds, outAdds, inDels, outDels = cloudprovider.CompareRules(dest, src, true)
 	//check(t, "common", common, rd.Common)
 	check(t, "inAdds", inAdds, rd.InAdds, dest.MinPriority, dest.MaxPriority)
 	check(t, "outAdds", outAdds, rd.OutAdds, dest.MinPriority, dest.MaxPriority)
@@ -146,11 +138,11 @@ var check = func(t *testing.T, name string, ret, expect []cloudprovider.Security
 			show(fmt.Sprintf("%s expect", name), expect)
 			t.Fatalf("invalid index(%d) %s rule name %s expect %s", i, name, ret[i].Name, expect[i].Name)
 		}
-		// if ret[i].Priority != expect[i].Priority {
-		// 	show(fmt.Sprintf("%s rule", name), ret)
-		// 	show(fmt.Sprintf("%s expect", name), expect)
-		// 	t.Fatalf("invalid index(%d) %s rule priority %d expect %d", i, name, ret[i].Priority, expect[i].Priority)
-		// }
+		if ret[i].Priority != expect[i].Priority {
+			show(fmt.Sprintf("%s rule", name), ret)
+			show(fmt.Sprintf("%s expect", name), expect)
+			t.Fatalf("invalid index(%d) %s rule priority %d expect %d", i, name, ret[i].Priority, expect[i].Priority)
+		}
 		if max != min && (ret[i].Priority < min || ret[i].Priority > max) {
 			t.Fatalf("invalid index(%d) %s rules %s priority should be in [%d, %d] current is %d", i, name, ret[i].String(), min, max, ret[i].Priority)
 		}
