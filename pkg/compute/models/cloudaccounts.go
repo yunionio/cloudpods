@@ -855,6 +855,9 @@ func (scm *SCloudaccountManager) parseAndSuggest(params sParseAndSuggest) api.Cl
 				net := ip.NetAddr(params.NetworkBits)
 				netLimitLow := net + netutils.IPV4Addr(params.HostNumberLowerLimit)
 				netLimitUp := net + netutils.IPV4Addr(params.HostNumberUpperLimit)
+				if ip < netLimitLow || ip > netLimitUp {
+					break
+				}
 				// find startip
 				startIp := ip - 1
 				for ; startIp >= netLimitLow; startIp-- {
