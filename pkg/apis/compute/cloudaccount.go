@@ -352,6 +352,8 @@ type CloudaccountPerformPrepareNetsInput struct {
 	OriginNetworkName *bool `json:"origin_network_name"`
 	// description: Created network ip distribution strategy
 	NetworkIpAllocationPolicy string `json:"network_ip_allocation_policy"`
+	// description: zone of wire created
+	WireZone string `json:"wire_zone"`
 }
 
 type CloudaccountPerformPrepareNetsOutput struct {

@@ -470,6 +470,18 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		hostNumberLowerLimit = *input.HostNumberLowerLimit
 	}
 
+	var wireZoneId string
+	if len(input.WireZone) > 0 {
+		zone, err := ZoneManager.FetchByIdOrName(userCred, input.WireZone)
+		if errors.Cause(err) == sql.ErrNoRows {
+			return output, httperrors.NewInputParameterError("no such zone %s", input.WireZone)
+		}
+		if err != nil {
+			return output, errors.Wrapf(err, "unable to fetch zone %s", input.WireZone)
+		}
+		wireZoneId = zone.GetId()
+	}
+
 	ownerId, err := scm.FetchOwnerId(ctx, jsonutils.Marshal(input))
 	if err != nil {
 		return output, errors.Wrap(err, "FetchOwnerId in PerformPrepareNets")
@@ -601,7 +613,11 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		for _, wireNet := range output.CAWireNets {
 			wireId := wireNet.SuitableWire
 			if len(wireId) == 0 {
-				wireId, err = scm.createWire(ctx, api.DEFAULT_VPC_ID, wireNet.SuggestedWire.ZoneIds[0], wireNet.SuggestedWire.Name, domainId, wireNet.SuggestedWire.Description)
+				zoneId := wireZoneId
+				if len(zoneId) == 0 {
+					zoneId = wireNet.SuggestedWire.ZoneIds[0]
+				}
+				wireId, err = scm.createWire(ctx, api.DEFAULT_VPC_ID, zoneId, wireNet.SuggestedWire.Name, domainId, wireNet.SuggestedWire.Description)
 				if err != nil {
 					errs = append(errs, errors.Wrapf(err, "create wire %s failed", wireNet.SuggestedWire.Name).Error())
 					continue
