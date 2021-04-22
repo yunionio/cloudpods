@@ -48,6 +48,14 @@ type SScheduledTaskLabel struct {
 	Label           string `width:"64" charset:"utf8" nullable:"false" index:"true"`
 }
 
+func (slm *SScheduledTaskLabelManager) GetMasterFieldName() string {
+	return "scheduled_task_id"
+}
+
+func (slm *SScheduledTaskLabelManager) GetSlaveFieldName() string {
+	return "label"
+}
+
 func (slm *SScheduledTaskLabelManager) Attach(ctx context.Context, taskId, label string) error {
 	sl := &SScheduledTaskLabel{
 		ScheduledTaskId: taskId,
