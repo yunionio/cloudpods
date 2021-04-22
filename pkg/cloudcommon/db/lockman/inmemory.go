@@ -31,6 +31,7 @@ const (
 }*/
 
 type SInMemoryLockRecord struct {
+	key    string
 	lock   *sync.Mutex
 	cond   *sync.Cond
 	holder context.Context
@@ -45,6 +46,11 @@ func newInMemoryLockRecord(ctx context.Context) *SInMemoryLockRecord {
 	return &rec
 }
 
+func (rec *SInMemoryLockRecord) fatalf(fmtStr string, args ...interface{}) {
+	debug.PrintStack()
+	log.Fatalf(fmtStr, args...)
+}
+
 func (rec *SInMemoryLockRecord) lockContext(ctx context.Context) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
@@ -56,18 +62,17 @@ func (rec *SInMemoryLockRecord) lockContext(ctx context.Context) {
 	}
 
 	if debug_log {
-		log.Debugf("rec.hold=[%p] ctx=[%p] %v", rec.holder, ctx, rec.holder == ctx)
+		log.Debugf("rec.hold=[%p] ctx=[%p] %v key=[%s]", rec.holder, ctx, rec.holder == ctx, rec.key)
 	}
 
 	if rec.holder == ctx {
 		rec.depth += 1
 		if debug_log {
-			log.Infof("lockContext: same ctx, depth: %d [%p]", rec.depth, rec.holder)
+			log.Infof("lockContext: same ctx, depth: %d [%p] key=[%s]", rec.depth, rec.holder, rec.key)
 		}
 		if rec.depth > 32 {
 			// XXX MUST BE BUG ???
-			debug.PrintStack()
-			panic("Too many recursive locks!!!")
+			rec.fatalf("Too many recursive locks!!! key=[%s]", rec.key)
 		}
 		return
 	}
@@ -76,7 +81,7 @@ func (rec *SInMemoryLockRecord) lockContext(ctx context.Context) {
 	rec.waiter.Enum(func(ele interface{}) {
 		electx := ele.(context.Context)
 		if electx == ctx {
-			log.Fatalf("try to lock from a waiter context????")
+			rec.fatalf("try to lock from a waiter context???? key=[%s]", rec.key)
 		}
 	})
 
@@ -84,7 +89,7 @@ func (rec *SInMemoryLockRecord) lockContext(ctx context.Context) {
 
 	if debug_log {
 		log.Debugf("waiter size %d after push", rec.waiter.Len())
-		log.Debugf("Start to wait ... [%p]", ctx)
+		log.Debugf("Start to wait ... [%p] key=[%s]", ctx, rec.key)
 	}
 
 	for rec.holder != nil {
@@ -92,13 +97,13 @@ func (rec *SInMemoryLockRecord) lockContext(ctx context.Context) {
 	}
 
 	if debug_log {
-		log.Debugf("End of wait ... [%p]", ctx)
+		log.Debugf("End of wait ... [%p] key=[%s]", ctx, rec.key)
 	}
 
 	rec.waiter.Pop(ctx)
 
 	if debug_log {
-		log.Debugf("waiter size %d after pop", rec.waiter.Len())
+		log.Debugf("waiter size %d after pop key=[%s]", rec.waiter.Len(), rec.key)
 	}
 
 	rec.holder = ctx
@@ -110,18 +115,18 @@ func (rec *SInMemoryLockRecord) unlockContext(ctx context.Context) (needClean bo
 	defer rec.lock.Unlock()
 
 	if rec.holder != ctx {
-		log.Fatalf("try to unlock a wait context???")
+		rec.fatalf("try to unlock a wait context??? key=[%s]", rec.key)
 	}
 
 	if debug_log {
-		log.Debugf("unlockContext depth %d [%p]", rec.depth, ctx)
+		log.Debugf("unlockContext depth %d [%p] key=[%s]", rec.depth, ctx, rec.key)
 	}
 
 	rec.depth -= 1
 
 	if rec.depth <= 0 {
 		if debug_log {
-			log.Debugf("depth 0, to release lock for context [%p]", ctx)
+			log.Debugf("depth 0, to release lock for context [%p] key=[%s]", ctx, rec.key)
 		}
 
 		rec.holder = nil
@@ -162,7 +167,9 @@ func (lockman *SInMemoryLockManager) getRecord(ctx context.Context, key string, 
 		if !new {
 			return nil
 		}
-		lockman.lockTable[key] = newInMemoryLockRecord(ctx)
+		rec := newInMemoryLockRecord(ctx)
+		rec.key = key
+		lockman.lockTable[key] = rec
 	}
 	return lockman.lockTable[key]
 }
