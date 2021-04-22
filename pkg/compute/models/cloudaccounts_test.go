@@ -44,12 +44,20 @@ func structureTestData() (sParseAndSuggest, error) {
 		"host2": hip + 2,
 		"host3": hip + 3,
 	}
-	ninfo.VlanIps = make(map[int32][]netutils.IPV4Addr)
+	ninfo.VlanIps = make(map[int32]*esxi.SVlan)
 	ninfo.IPPool = esxi.NewIPPool()
 	for _, vlanip := range vlanips {
 		for _, vlan := range vlanip.Vlans {
 			ips, _ := transferIps(vlan.Ips)
-			ninfo.VlanIps[vlan.Id] = append(ninfo.VlanIps[vlan.Id], ips...)
+			eVlan, ok := ninfo.VlanIps[vlan.Id]
+			if !ok {
+				eVlan = &esxi.SVlan{
+					Id:  vlan.Id,
+					Ips: []netutils.IPV4Addr{},
+				}
+				ninfo.VlanIps[vlan.Id] = eVlan
+			}
+			eVlan.Ips = append(eVlan.Ips, ips...)
 			for _, ip := range ips {
 				ninfo.IPPool.Insert(ip, esxi.SIPProc{
 					VlanId: vlan.Id,
@@ -66,9 +74,9 @@ func structureTestData() (sParseAndSuggest, error) {
 			}
 		}
 	}
-	for _, ips := range ninfo.VlanIps {
-		sort.Slice(ips, func(i, j int) bool {
-			return ips[i] < ips[j]
+	for _, vlan := range ninfo.VlanIps {
+		sort.Slice(vlan.Ips, func(i, j int) bool {
+			return vlan.Ips[i] < vlan.Ips[j]
 		})
 	}
 

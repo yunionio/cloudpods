@@ -750,13 +750,17 @@ func (opts *SCtyunCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, err
 type SVMwareCloudAccountPrepareNetsOptions struct {
 	SVMwareCredentialWithEnvironment
 
-	Project              string `help:"project for this account"`
-	ProjectDomain        string `help:"domain for this account"`
-	WireLevel            string `help:"wire level for this account" choices:"vcenter|datacenter|cluster" json:"wire_level_for_vmware"`
-	NetworkBits          *int8  `help:"Recommended network subnet mask" json:"network_bits"`
-	HostNumberUpperLimit *int   `help:"The upper limit of host number" json:"host_number_upper_limit"`
-	HostNumberLowerLimit *int   `help:"The lower limit of host number" json:"host_number_lower_limit"`
-	NAME                 string `help:"name for this account"`
+	Project                   string `help:"project for this account"`
+	ProjectDomain             string `help:"domain for this account"`
+	WireLevel                 string `help:"wire level for this account" choices:"vcenter|datacenter|cluster" json:"wire_level_for_vmware"`
+	NetworkBits               *int8  `help:"Recommended network subnet mask" json:"network_bits"`
+	HostNumberUpperLimit      *int   `help:"The upper limit of host number" json:"host_number_upper_limit"`
+	HostNumberLowerLimit      *int   `help:"The lower limit of host number" json:"host_number_lower_limit"`
+	Create                    *bool  `help:"Whether to directly create the recommended network"`
+	OriginNetworkName         *bool  `help:"It is recommended that the name of the network be the same as the native name of vmware"`
+	NetworkIpAllocationPolicy string `json:"network_ip_allocation_policy" choices:"stepdown|stepup|random"`
+	WireZone                  string `help:"zone of wire created"`
+	NAME                      string `help:"name for this account"`
 }
 
 func (opts *SVMwareCloudAccountPrepareNetsOptions) Params() (jsonutils.JSONObject, error) {

@@ -320,23 +320,36 @@ func (cli *SESXiClient) getVPGMap(mohost *mo.HostSystem) sVPGMap {
 		vlan := ipg.Spec.VlanId
 		sm.Insert(key, sVPGProc{
 			vlanId: vlan,
+			name:   ipg.Spec.Name,
 		})
 		// TODO: fill VSId
 	}
 	return sm
 }
 
-func (cli *SESXiClient) getDVPGMap() (sVPGMap, error) {
+func (cli *SESXiClient) getDVPGMap(dc *SDatacenter) (sVPGMap, error) {
 	sm := newVPGMap()
-	dvpgs, err := cli.scanAllDvPortgroups()
-	if err != nil {
-		return sm, err
+	var (
+		dvpgs []*SDistributedVirtualPortgroup
+		err   error
+	)
+	if dc == nil {
+		dvpgs, err = cli.scanAllDvPortgroups()
+		if err != nil {
+			return sm, err
+		}
+	} else {
+		dvpgs, err = cli.scanAllDvPortgroupsInDatacenter(dc)
+		if err != nil {
+			return sm, err
+		}
 	}
 	for i := range dvpgs {
 		key := dvpgs[i].getMODVPortgroup().Key
 		vlanid := dvpgs[i].GetVlanId()
 		sm.Insert(key, sVPGProc{
 			vlanId: vlanid,
+			name:   dvpgs[i].getMODVPortgroup().Name,
 		})
 		// TODO: fill VSId
 	}
@@ -370,6 +383,7 @@ func (vm *sVPGMap) Get(key string) (sVPGProc, bool) {
 }
 
 type sVPGProc struct {
+	name   string
 	vlanId int32
 	dvId   string
 }
