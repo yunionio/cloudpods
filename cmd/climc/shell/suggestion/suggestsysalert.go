@@ -25,6 +25,7 @@ func init() {
 	cmd.List(new(options.SuggestSysAlertListOptions))
 	cmd.Show(new(options.SSuggestAlertShowOptions))
 	cmd.Perform("ignore", new(options.SuggestAlertIgnoreOptions))
+	cmd.BatchDelete(new(options.SuggestAlertBatchDeleteOptions))
 	cmd_ := shell.NewResourceCmd(monitor.SuggestSysAlertCostManager)
 	cmd_.Get("", new(options.SuggestAlertCostOptions))
 }
