@@ -70,3 +70,15 @@ func (o *SuggestAlertCostOptions) Params() (jsonutils.JSONObject, error) {
 func (o *SuggestAlertCostOptions) GetId() string {
 	return o.ID
 }
+
+type SuggestAlertBatchDeleteOptions struct {
+	ID []string `help:"ID of models to operate"`
+}
+
+func (o SuggestAlertBatchDeleteOptions) GetIds() []string {
+	return o.ID
+}
+
+func (o SuggestAlertBatchDeleteOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
