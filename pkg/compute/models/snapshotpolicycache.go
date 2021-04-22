@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
@@ -32,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -538,4 +540,17 @@ func (manager *SSnapshotPolicyCacheManager) ListItemExportKeys(ctx context.Conte
 	}
 
 	return q, nil
+}
+
+func (manager *SSnapshotPolicyCacheManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
+}
+
+func (spc *SSnapshotPolicyCache) GetOwnerId() mcclient.IIdentityProvider {
+	p, err := spc.GetSnapshotPolicy()
+	if err != nil {
+		log.Errorf("unable to get snapshotpolicy of snapshotpolicycache %s: %v", spc.GetId(), err)
+		return nil
+	}
+	return p.GetOwnerId()
 }
