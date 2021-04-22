@@ -566,3 +566,12 @@ func (dc *SDatacenter) GetTemplateVMs() ([]*SVirtualMachine, error) {
 	}
 	return templateVms, nil
 }
+
+func (dc *SDatacenter) GetDVSs() ([]mo.DistributedVirtualSwitch, error) {
+	var dvss []mo.DistributedVirtualSwitch
+	err := dc.manager.scanMObjects(dc.object.Entity().Self, SIMPLE_DVS_PROPS, &dvss)
+	if err != nil {
+		return nil, err
+	}
+	return dvss, nil
+}

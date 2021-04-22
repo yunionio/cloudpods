@@ -1243,6 +1243,10 @@ func (self *SNetwork) ensureIfnameHint() {
 	log.Infof("network %s(%s): initialized ifname hint: %s", self.Name, self.Id, hint)
 }
 
+func (manager *SNetworkManager) NewIfnameHint(hint string) (string, error) {
+	return manager.newIfnameHint(hint)
+}
+
 func (manager *SNetworkManager) newIfnameHint(hint string) (string, error) {
 	isa := func(c byte) bool {
 		return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')

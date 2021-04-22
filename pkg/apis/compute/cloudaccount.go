@@ -346,6 +346,14 @@ type CloudaccountPerformPrepareNetsInput struct {
 	HostNumberLowerLimit *int `json:"host_number_lower_limit"`
 	// enum: vcenter,datacenter,cluster
 	WireLevelForVmware string `json:"wire_level_for_vmware"`
+	// description: Whether to directly create the recommended network
+	Create *bool `json:"create"`
+	// description: It is recommended that the name of the network be the same as the native name of vmware
+	OriginNetworkName *bool `json:"origin_network_name"`
+	// description: Created network ip distribution strategy
+	NetworkIpAllocationPolicy string `json:"network_ip_allocation_policy"`
+	// description: zone of wire created
+	WireZone string `json:"wire_zone"`
 }
 
 type CloudaccountPerformPrepareNetsOutput struct {
