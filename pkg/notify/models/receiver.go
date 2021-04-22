@@ -809,10 +809,6 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 	if err != nil {
 		log.Errorf("PushCache: %v", err)
 	}
-	err = ReceiverManager.TableSpec().InsertOrUpdate(ctx, r)
-	if err != nil {
-		log.Errorf("InsertOrUpdate: %v", err)
-	}
 	// 管理后台修改联系人，如果修改或者启用手机号和邮箱，无需进行校验
 	allowScope := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
 	if allowScope == rbacutils.ScopeSystem {
@@ -830,6 +826,10 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 		if !originMobileEnable.Bool() && r.EnabledMobile.Bool() {
 			r.VerifiedMobile = tristate.True
 		}
+	}
+	err = ReceiverManager.TableSpec().InsertOrUpdate(ctx, r)
+	if err != nil {
+		log.Errorf("InsertOrUpdate: %v", err)
 	}
 }
 
