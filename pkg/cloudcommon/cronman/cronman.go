@@ -17,6 +17,7 @@ package cronman
 import (
 	"container/heap"
 	"context"
+	"fmt"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -393,7 +394,7 @@ func (job *SCronJob) runJobInWorker(isStart bool) {
 	log.Debugf("Cron job: %s started", job.Name)
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, "Cron-Service")
-	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_TASKNAME, job.Name)
+	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_TASKNAME, fmt.Sprintf("%s-%d", job.Name, time.Now().Unix()))
 	userCred := DefaultAdminSessionGenerator()
 	job.job(ctx, userCred, isStart)
 }

@@ -431,6 +431,7 @@ func (self *SCloudproviderregion) submitSyncTask(ctx context.Context, userCred m
 	self.markStartSync(userCred)
 	RunSyncCloudproviderRegionTask(ctx, self.getSyncTaskKey(), func() {
 		nopanic.Run(func() {
+			ctx = context.WithValue(ctx, "provider-region", fmt.Sprintf("%d", self.RowId))
 			err := self.DoSync(ctx, userCred, syncRange)
 			if err != nil {
 				log.Errorf("DoSync faild %v", err)
