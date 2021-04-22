@@ -759,6 +759,7 @@ type SVMwareCloudAccountPrepareNetsOptions struct {
 	Create                    *bool  `help:"Whether to directly create the recommended network"`
 	OriginNetworkName         *bool  `help:"It is recommended that the name of the network be the same as the native name of vmware"`
 	NetworkIpAllocationPolicy string `json:"network_ip_allocation_policy" choices:"stepdown|stepup|random"`
+	WireZone                  string `help:"zone of wire created"`
 	NAME                      string `help:"name for this account"`
 }
 
