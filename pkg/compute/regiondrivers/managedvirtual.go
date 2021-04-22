@@ -1228,15 +1228,16 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateVpc(ctx context.Con
 			}
 		}
 
+		err = vpc.SyncRemoteWires(ctx, userCred)
+		if err != nil {
+			return nil, errors.Wrap(err, "vpc.SyncRemoteWires")
+		}
+
 		err = vpc.SyncWithCloudVpc(ctx, userCred, ivpc, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "vpc.SyncWithCloudVpc")
 		}
 
-		err = vpc.SyncRemoteWires(ctx, userCred)
-		if err != nil {
-			return nil, errors.Wrap(err, "vpc.SyncRemoteWires")
-		}
 		return nil, nil
 	})
 	return nil
