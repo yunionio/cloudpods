@@ -110,15 +110,15 @@ func (d *SOVSBridgeDriver) PersistentMac() error {
 	return nil
 }
 
-func (o *SOVSBridgeDriver) GenerateIfdownScripts(scriptPath string, nic jsonutils.JSONObject) error {
-	return o.generateIfdownScripts(o, scriptPath, nic)
+func (o *SOVSBridgeDriver) GenerateIfdownScripts(scriptPath string, nic jsonutils.JSONObject, isSlave bool) error {
+	return o.generateIfdownScripts(o, scriptPath, nic, isSlave)
 }
 
-func (o *SOVSBridgeDriver) GenerateIfupScripts(scriptPath string, nic jsonutils.JSONObject) error {
-	return o.generateIfupScripts(o, scriptPath, nic)
+func (o *SOVSBridgeDriver) GenerateIfupScripts(scriptPath string, nic jsonutils.JSONObject, isSlave bool) error {
+	return o.generateIfupScripts(o, scriptPath, nic, isSlave)
 }
 
-func (o *SOVSBridgeDriver) getUpScripts(nic jsonutils.JSONObject) (string, error) {
+func (o *SOVSBridgeDriver) getUpScripts(nic jsonutils.JSONObject, isSlave bool) (string, error) {
 	var (
 		bridge, _      = nic.GetString("bridge")
 		ifname, _      = nic.GetString("ifname")
@@ -166,7 +166,9 @@ func (o *SOVSBridgeDriver) getUpScripts(nic jsonutils.JSONObject) (string, error
 	s += "fi\n"
 	s += "ovs-vsctl add-port $SWITCH $IF $TAG\n"
 	if vpcProvider == compute.VPC_PROVIDER_OVN {
-		s += "ovs-vsctl set Interface $IF external_ids:iface-id=iface-$NET_ID-$IF\n"
+		if !isSlave {
+			s += "ovs-vsctl set Interface $IF external_ids:iface-id=iface-$NET_ID-$IF\n"
+		}
 	}
 	s += "PORT=$(ovs-ofctl show $SWITCH | grep -w $IF)\n"
 	s += "PORT=$(echo $PORT | awk 'BEGIN{FS=\"(\"}{print $1}')\n"
@@ -186,7 +188,7 @@ func (o *SOVSBridgeDriver) getUpScripts(nic jsonutils.JSONObject) (string, error
 	return s, nil
 }
 
-func (o *SOVSBridgeDriver) getDownScripts(nic jsonutils.JSONObject) (string, error) {
+func (o *SOVSBridgeDriver) getDownScripts(nic jsonutils.JSONObject, isSlave bool) (string, error) {
 	var (
 		bridge, _ = nic.GetString("bridge")
 		ifname, _ = nic.GetString("ifname")

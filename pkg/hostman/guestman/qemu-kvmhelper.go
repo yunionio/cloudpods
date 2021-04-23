@@ -222,11 +222,12 @@ func (s *SKVMGuestInstance) generateNicScripts(nic jsonutils.JSONObject) error {
 	if dev == nil {
 		return fmt.Errorf("Can't find bridge %s", bridge)
 	}
-	if err := dev.GenerateIfupScripts(s.getNicUpScriptPath(nic), nic); err != nil {
+	isSlave := s.IsSlave()
+	if err := dev.GenerateIfupScripts(s.getNicUpScriptPath(nic), nic, isSlave); err != nil {
 		log.Errorln(err)
 		return err
 	}
-	if err := dev.GenerateIfdownScripts(s.getNicDownScriptPath(nic), nic); err != nil {
+	if err := dev.GenerateIfdownScripts(s.getNicDownScriptPath(nic), nic, isSlave); err != nil {
 		log.Errorln(err)
 		return err
 	}
