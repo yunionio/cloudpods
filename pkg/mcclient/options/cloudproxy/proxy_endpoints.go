@@ -49,6 +49,8 @@ func (opts *ProxyEndpointCreateOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ProxyEndpointCreateFromServerOptions struct {
+	Name string
+
 	ServerId string `required:"true"`
 }
 

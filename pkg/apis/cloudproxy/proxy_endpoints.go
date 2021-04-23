@@ -30,6 +30,8 @@ type ProxyEndpointCreateInput struct {
 }
 
 type ProxyEndpointCreateFromServerInput struct {
+	Name string
+
 	ServerId string
 }
 

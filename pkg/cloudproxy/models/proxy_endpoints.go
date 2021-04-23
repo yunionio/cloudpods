@@ -93,6 +93,14 @@ func (man *SProxyEndpointManager) PerformCreateFromServer(ctx context.Context, u
 		return nil, httperrors.NewBadRequestError("cannot find ssh host ip address for this server")
 	}
 
+	name := input.Name
+	if name == "" {
+		name = serverInfo.Server.Name
+	}
+	if err := db.NewNameValidator(man, userCred, name, nil); err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+
 	proxyendpoint := &SProxyEndpoint{
 		User:       "cloudroot",
 		Host:       host,
@@ -101,7 +109,7 @@ func (man *SProxyEndpointManager) PerformCreateFromServer(ctx context.Context, u
 
 		IntranetIpAddr: nic.IpAddr,
 	}
-	proxyendpoint.Name = serverInfo.Server.Name
+	proxyendpoint.Name = name
 	proxyendpoint.DomainId = userCred.GetProjectDomainId()
 	proxyendpoint.ProjectId = userCred.GetProjectId()
 	if err := man.TableSpec().Insert(ctx, proxyendpoint); err != nil {
