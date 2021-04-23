@@ -52,12 +52,12 @@ type IBridgeDriver interface {
 	PersistentMac() error
 	DisableDHCPClient() (bool, error)
 
-	GenerateIfupScripts(scriptPath string, nic jsonutils.JSONObject) error
-	GenerateIfdownScripts(scriptPath string, nic jsonutils.JSONObject) error
+	GenerateIfupScripts(scriptPath string, nic jsonutils.JSONObject, isSlave bool) error
+	GenerateIfdownScripts(scriptPath string, nic jsonutils.JSONObject, isSlave bool) error
 	RegisterHostlocalServer(mac, ip string) error
 
-	getUpScripts(nic jsonutils.JSONObject) (string, error)
-	getDownScripts(nic jsonutils.JSONObject) (string, error)
+	getUpScripts(nic jsonutils.JSONObject, isSlave bool) (string, error)
+	getDownScripts(nic jsonutils.JSONObject, isSlave bool) (string, error)
 }
 
 type SBaseBridgeDriver struct {
@@ -303,8 +303,8 @@ func (d *SBaseBridgeDriver) saveFileExecutable(scriptPath, script string) error 
 	return os.Chmod(scriptPath, syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR)
 }
 
-func (d *SBaseBridgeDriver) generateIfdownScripts(driver IBridgeDriver, scriptPath string, nic jsonutils.JSONObject) error {
-	script, err := driver.getDownScripts(nic)
+func (d *SBaseBridgeDriver) generateIfdownScripts(driver IBridgeDriver, scriptPath string, nic jsonutils.JSONObject, isSlave bool) error {
+	script, err := driver.getDownScripts(nic, isSlave)
 	if err != nil {
 		log.Errorln(err)
 		return err
@@ -312,8 +312,8 @@ func (d *SBaseBridgeDriver) generateIfdownScripts(driver IBridgeDriver, scriptPa
 	return d.saveFileExecutable(scriptPath, script)
 }
 
-func (d *SBaseBridgeDriver) generateIfupScripts(driver IBridgeDriver, scriptPath string, nic jsonutils.JSONObject) error {
-	script, err := driver.getUpScripts(nic)
+func (d *SBaseBridgeDriver) generateIfupScripts(driver IBridgeDriver, scriptPath string, nic jsonutils.JSONObject, isSlave bool) error {
+	script, err := driver.getUpScripts(nic, isSlave)
 	if err != nil {
 		log.Errorln(err)
 		return err
