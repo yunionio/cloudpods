@@ -232,12 +232,26 @@ func mapStringSlice(f func(string) string, a []string) []string {
 	return a
 }
 
+const (
+	agentInstalledKey   = "sys:monitor_agent"
+	agentInstalledValue = "true"
+)
+
 func (self *ApplyScriptTask) OnAnsiblePlaybookComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	// try to delete local forward
 	session := auth.GetAdminSession(ctx, "", "")
 	forwardId, _ := self.Params.GetString("proxy_forward_id")
 	self.clearLocalForward(session, forwardId)
+
 	sa := obj.(*models.SScriptApply)
+	// try to set metadata for guest
+	metadata := jsonutils.NewDict()
+	metadata.Set(agentInstalledKey, jsonutils.NewString(agentInstalledValue))
+	_, err := modules.Servers.PerformAction(session, sa.GuestId, "metadata", metadata)
+	if err != nil {
+		log.Errorf("set metadata '%s:%s' for guest %s failed: %v", agentInstalledKey, agentInstalledValue, sa.GuestId, err)
+	}
+
 	sarId, _ := self.Params.GetString("script_apply_record_id")
 	osar, err := models.ScriptApplyRecordManager.FetchById(sarId)
 	if err != nil {
