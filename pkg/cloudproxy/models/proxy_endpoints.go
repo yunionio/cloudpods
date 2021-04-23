@@ -252,6 +252,11 @@ func (man *SProxyEndpointManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	input cloudproxy_api.ProxyEndpointListInput,
 ) (*sqlchemy.SQuery, error) {
+	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+
 	filters := [][2]string{
 		[2]string{cloudproxy_api.PM_SCOPE_VPC, input.VpcId},
 		[2]string{cloudproxy_api.PM_SCOPE_NETWORK, input.NetworkId},
