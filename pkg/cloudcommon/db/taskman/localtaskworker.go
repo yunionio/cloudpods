@@ -37,8 +37,8 @@ func Error2TaskData(err error) jsonutils.JSONObject {
 	return errJson
 }
 
-func LocalTaskRun(task ITask, proc func() (jsonutils.JSONObject, error)) {
-	localTaskWorkerMan.Run(func() {
+func LocalTaskRunWithWorkers(task ITask, proc func() (jsonutils.JSONObject, error), wm *appsrv.SWorkerManager) {
+	wm.Run(func() {
 
 		log.Debugf("XXXXXXXXXXXXXXXXXXLOCAL TASK RUN STARTXXXXXXXXXXXXXXXXX")
 		defer log.Debugf("XXXXXXXXXXXXXXXXXXLOCAL TASK RUN END  XXXXXXXXXXXXXXXXX")
@@ -58,4 +58,8 @@ func LocalTaskRun(task ITask, proc func() (jsonutils.JSONObject, error)) {
 		}
 
 	}, nil, nil)
+}
+
+func LocalTaskRun(task ITask, proc func() (jsonutils.JSONObject, error)) {
+	LocalTaskRunWithWorkers(task, proc, localTaskWorkerMan)
 }
