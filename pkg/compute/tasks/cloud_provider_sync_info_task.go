@@ -34,9 +34,12 @@ type CloudProviderSyncInfoTask struct {
 	taskman.STask
 }
 
+var syncLocalTaskWorkerMan *appsrv.SWorkerManager
+
 func init() {
 	syncWorker := appsrv.NewWorkerManager("CloudProviderSyncInfoTaskWorkerManager", 2, 512, true)
 	taskman.RegisterTaskAndWorker(CloudProviderSyncInfoTask{}, syncWorker)
+	syncLocalTaskWorkerMan = appsrv.NewWorkerManager("CloudProviderSyncLocalTaskWorkerManager", 5, 512, false)
 }
 
 func getAction(params *jsonutils.JSONDict) string {
@@ -94,16 +97,31 @@ func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderPreInfoComplete(ctx co
 	syncRange := self.GetSyncRange()
 
 	db.OpsLog.LogEvent(provider, db.ACT_SYNCING_HOST, "", self.UserCred)
+	self.SetStage("OnSyncCloudProviderInfoComplete", nil)
 
-	provider.SyncCallSyncCloudproviderRegions(ctx, self.UserCred, syncRange)
-
-	provider.CleanSchedCache()
-	self.SetStageComplete(ctx, nil)
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, "", self.UserCred)
-	logclient.AddActionLogWithStartable(self, provider, getAction(self.Params), body, self.UserCred, true)
+	taskman.LocalTaskRunWithWorkers(self, func() (jsonutils.JSONObject, error) {
+		provider.SyncCallSyncCloudproviderRegions(ctx, self.UserCred, syncRange)
+		return nil, nil
+	}, syncLocalTaskWorkerMan)
 }
 
 func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderPreInfoCompleteFailed(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	log.Errorf("faild to sync provider quotas %s", body.String())
 	self.OnSyncCloudProviderPreInfoComplete(ctx, obj, body)
+}
+
+func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderInfoComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+	provider := obj.(*models.SCloudprovider)
+	provider.CleanSchedCache()
+	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, "", self.UserCred)
+	logclient.AddActionLogWithStartable(self, provider, getAction(self.Params), body, self.UserCred, true)
+	self.SetStageComplete(ctx, nil)
+}
+
+func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderInfoCompleteFailed(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+	provider := obj.(*models.SCloudprovider)
+	provider.CleanSchedCache()
+	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_FAILED, "", self.UserCred)
+	logclient.AddActionLogWithStartable(self, provider, getAction(self.Params), body, self.UserCred, false)
+	self.SetStageFailed(ctx, nil)
 }
