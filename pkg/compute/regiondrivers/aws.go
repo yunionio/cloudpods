@@ -1559,3 +1559,33 @@ func (self *SAwsRegionDriver) RequestAssociateEip(ctx context.Context, userCred 
 	})
 	return nil
 }
+
+func (self *SAwsRegionDriver) ValidateCreateWafInstanceData(ctx context.Context, userCred mcclient.TokenCredential, input api.WafInstanceCreateInput) (api.WafInstanceCreateInput, error) {
+	if len(input.Type) == 0 {
+		input.Type = cloudprovider.WafTypeRegional
+	}
+	switch input.Type {
+	case cloudprovider.WafTypeRegional:
+	case cloudprovider.WafTypeCloudFront:
+		_region, err := models.CloudregionManager.FetchById(input.CloudregionId)
+		if err != nil {
+			return input, err
+		}
+		region := _region.(*models.SCloudregion)
+		if !strings.HasSuffix(region.ExternalId, "us-east-1") {
+			return input, httperrors.NewUnsupportOperationError("only us-east-1 support %s", input.Type)
+		}
+	default:
+		return input, httperrors.NewInputParameterError("Invalid aws waf type %s", input.Type)
+	}
+	if input.DefaultAction == nil {
+		input.DefaultAction = &cloudprovider.DefaultAction{
+			Action: cloudprovider.WafActionAllow,
+		}
+	}
+	return input, nil
+}
+
+func (self *SAwsRegionDriver) ValidateCreateWafRuleData(ctx context.Context, userCred mcclient.TokenCredential, waf *models.SWafInstance, input api.WafRuleCreateInput) (api.WafRuleCreateInput, error) {
+	return input, nil
+}

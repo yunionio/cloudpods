@@ -586,6 +586,7 @@ func (self *SAwsClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
 		cloudprovider.CLOUD_CAPABILITY_DNSZONE,
 		cloudprovider.CLOUD_CAPABILITY_SAML_AUTH,
+		cloudprovider.CLOUD_CAPABILITY_WAF,
 	}
 	return caps
 }

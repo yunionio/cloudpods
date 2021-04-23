@@ -83,3 +83,31 @@ func (self *SAzureRegionDriver) ValidateCreateVpcData(ctx context.Context, userC
 	}
 	return input, nil
 }
+
+func (self *SAzureRegionDriver) ValidateCreateWafInstanceData(ctx context.Context, userCred mcclient.TokenCredential, input api.WafInstanceCreateInput) (api.WafInstanceCreateInput, error) {
+	if len(input.Type) == 0 {
+		input.Type = cloudprovider.WafTypeAppGateway
+	}
+	switch input.Type {
+	case cloudprovider.WafTypeAppGateway:
+	default:
+		return input, httperrors.NewInputParameterError("Invalid azure waf type %s", input.Type)
+	}
+	if input.DefaultAction == nil {
+		input.DefaultAction = &cloudprovider.DefaultAction{}
+	}
+	if len(input.DefaultAction.Action) == 0 {
+		input.DefaultAction.Action = cloudprovider.WafActionDetection
+	}
+	switch input.DefaultAction.Action {
+	case cloudprovider.WafActionPrevention:
+	case cloudprovider.WafActionDetection:
+	default:
+		return input, httperrors.NewInputParameterError("invalid default action %s", input.DefaultAction.Action)
+	}
+	return input, nil
+}
+
+func (self *SAzureRegionDriver) ValidateCreateWafRuleData(ctx context.Context, userCred mcclient.TokenCredential, waf *models.SWafInstance, input api.WafRuleCreateInput) (api.WafRuleCreateInput, error) {
+	return input, nil
+}

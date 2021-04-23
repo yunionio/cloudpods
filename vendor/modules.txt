@@ -183,6 +183,7 @@ github.com/aws/aws-sdk-go/service/route53
 github.com/aws/aws-sdk-go/service/s3
 github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
+github.com/aws/aws-sdk-go/service/wafv2
 # github.com/beevik/etree v1.1.0
 github.com/beevik/etree
 # github.com/benbjohnson/clock v1.0.0

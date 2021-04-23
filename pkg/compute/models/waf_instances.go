@@ -1,0 +1,478 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package models
+
+import (
+	"context"
+	"fmt"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/sqlchemy"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
+)
+
+type SWafInstanceManager struct {
+	db.SEnabledStatusInfrasResourceBaseManager
+	db.SExternalizedResourceBaseManager
+	SManagedResourceBaseManager
+	SCloudregionResourceBaseManager
+}
+
+var WafInstanceManager *SWafInstanceManager
+
+func init() {
+	WafInstanceManager = &SWafInstanceManager{
+		SEnabledStatusInfrasResourceBaseManager: db.NewEnabledStatusInfrasResourceBaseManager(
+			SWafInstance{},
+			"waf_instances_tbl",
+			"waf_instance",
+			"waf_instances",
+		),
+	}
+	WafInstanceManager.SetVirtualObject(WafInstanceManager)
+}
+
+type SWafInstance struct {
+	db.SEnabledStatusInfrasResourceBase
+	db.SExternalizedResourceBase
+
+	SManagedResourceBase
+	SCloudregionResourceBase
+
+	Type          cloudprovider.TWafType       `width:"20" charset:"ascii" nullable:"false" list:"domain" create:"required"`
+	DefaultAction *cloudprovider.DefaultAction `charset:"ascii" nullable:"true" list:"domain" create:"domain_optional"`
+}
+
+func (manager *SWafInstanceManager) GetContextManagers() [][]db.IModelManager {
+	return [][]db.IModelManager{
+		{CloudregionManager},
+	}
+}
+
+func (manager *SWafInstanceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.WafInstanceCreateInput) (api.WafInstanceCreateInput, error) {
+	_region, err := validators.ValidateModel(userCred, CloudregionManager, &input.CloudregionId)
+	if err != nil {
+		return input, err
+	}
+	region := _region.(*SCloudregion)
+	_provider, err := validators.ValidateModel(userCred, CloudproviderManager, &input.CloudproviderId)
+	if err != nil {
+		return input, err
+	}
+	provider := _provider.(*SCloudprovider)
+	if !provider.IsAvailable() {
+		return input, httperrors.NewInputParameterError("cloudprovider %s not available", provider.Name)
+	}
+	for i := range input.CloudResources {
+		switch input.CloudResources[i].Type {
+		case LoadbalancerManager.Keyword():
+			_lb, err := validators.ValidateModel(userCred, LoadbalancerManager, &input.CloudResources[i].Id)
+			if err != nil {
+				return input, err
+			}
+			lb := _lb.(*SLoadbalancer)
+			if lb.ManagerId != provider.GetId() {
+				return input, httperrors.NewConflictError("lb %s does not belong to account %s", lb.Name, provider.GetName())
+			}
+		case GuestManager.Keyword():
+			_server, err := validators.ValidateModel(userCred, GuestManager, &input.CloudResources[i].Id)
+			if err != nil {
+				return input, err
+			}
+			server := _server.(*SGuest)
+			host := server.GetHost()
+			if host.ManagerId != provider.GetId() {
+				return input, httperrors.NewConflictError("server %s does not belong to account %s", server.Name, provider.GetName())
+			}
+		default:
+			return input, httperrors.NewInputParameterError("invalid %d resource type %s", i, input.CloudResources[i].Type)
+		}
+	}
+
+	input, err = region.GetDriver().ValidateCreateWafInstanceData(ctx, userCred, input)
+	if err != nil {
+		return input, err
+	}
+
+	input.SetEnabled()
+	input.EnabledStatusInfrasResourceBaseCreateInput, err = manager.SEnabledStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusInfrasResourceBaseCreateInput)
+	if err != nil {
+		return input, err
+	}
+	return input, nil
+}
+
+func (self *SWafInstance) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SEnabledStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	self.StartCreateTask(ctx, userCred, data.(*jsonutils.JSONDict))
+}
+
+func (self *SWafInstance) StartCreateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "WafCreateTask", self, userCred, params, "", "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
+	}
+	self.SetStatus(userCred, api.WAF_STATUS_CREATING, "")
+	return task.ScheduleRun(nil)
+}
+
+func (manager *SWafInstanceManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.WafInstanceDetails {
+	rows := make([]api.WafInstanceDetails, len(objs))
+	stdRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regionRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	insIds := make([]string, len(objs))
+	for i := range rows {
+		rows[i] = api.WafInstanceDetails{
+			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
+			ManagedResourceInfo:                    managerRows[i],
+			CloudregionResourceInfo:                regionRows[i],
+		}
+		ins := objs[i].(*SWafInstance)
+		insIds[i] = ins.Id
+	}
+	type WafRule struct {
+		api.SWafRule
+		WafInstanceId string
+	}
+	rules := []WafRule{}
+	q := WafRuleManager.Query().In("waf_instance_id", insIds)
+	err := q.All(&rules)
+	if err != nil {
+		return rows
+	}
+	ruleMaps := map[string][]api.SWafRule{}
+	for _, rule := range rules {
+		_, ok := ruleMaps[rule.WafInstanceId]
+		if !ok {
+			ruleMaps[rule.WafInstanceId] = []api.SWafRule{}
+		}
+		ruleMaps[rule.WafInstanceId] = append(ruleMaps[rule.WafInstanceId], rule.SWafRule)
+	}
+	for i := range rows {
+		rows[i].Rules, _ = ruleMaps[insIds[i]]
+	}
+	return rows
+}
+
+// 列出WAF实例
+func (manager *SWafInstanceManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.WafInstanceListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SEnabledStatusInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusInfrasResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}
+
+func (manager *SWafInstanceManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SEnabledStatusInfrasResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	q, err = manager.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SWafInstanceManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.WafInstanceListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusInfrasResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SWafInstanceManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SEnabledStatusInfrasResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SCloudregionResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	return q, nil
+}
+
+func (self *SCloudregion) GetWafInstances(managerId string) ([]SWafInstance, error) {
+	q := WafInstanceManager.Query().Equals("cloudregion_id", self.Id)
+	if len(managerId) > 0 {
+		q = q.Equals("manager_id", managerId)
+	}
+	wafs := []SWafInstance{}
+	err := db.FetchModelObjects(WafInstanceManager, q, &wafs)
+	return wafs, err
+}
+
+func (self *SCloudregion) SyncWafInstances(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, exts []cloudprovider.ICloudWafInstance) ([]SWafInstance, []cloudprovider.ICloudWafInstance, compare.SyncResult) {
+	lockman.LockRawObject(ctx, WafInstanceManager.Keyword(), fmt.Sprintf("%s-%s", self.Id, provider.Id))
+	defer lockman.ReleaseRawObject(ctx, WafInstanceManager.Keyword(), fmt.Sprintf("%s-%s", self.Id, provider.Id))
+
+	result := compare.SyncResult{}
+
+	localWafs := []SWafInstance{}
+	remoteWafs := []cloudprovider.ICloudWafInstance{}
+
+	dbWafs, err := self.GetWafInstances(provider.Id)
+	if err != nil {
+		result.Error(err)
+		return nil, nil, result
+	}
+
+	removed := make([]SWafInstance, 0)
+	commondb := make([]SWafInstance, 0)
+	commonext := make([]cloudprovider.ICloudWafInstance, 0)
+	added := make([]cloudprovider.ICloudWafInstance, 0)
+	if err := compare.CompareSets(dbWafs, exts, &removed, &commondb, &commonext, &added); err != nil {
+		result.Error(err)
+		return nil, nil, result
+	}
+
+	for i := 0; i < len(removed); i++ {
+		err := removed[i].syncRemove(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
+
+	for i := 0; i < len(commondb); i++ {
+		err := commondb[i].SyncWithCloudWafInstance(ctx, userCred, commonext[i])
+		if err != nil {
+			result.UpdateError(err)
+			continue
+		}
+		syncMetadata(ctx, userCred, &commondb[i], commonext[i])
+		localWafs = append(localWafs, commondb[i])
+		remoteWafs = append(remoteWafs, commonext[i])
+		result.Update()
+	}
+
+	for i := 0; i < len(added); i++ {
+		newWaf, err := self.newFromCloudWafInstance(ctx, userCred, provider, added[i])
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		syncMetadata(ctx, userCred, newWaf, added[i])
+		localWafs = append(localWafs, *newWaf)
+		remoteWafs = append(remoteWafs, added[i])
+		result.Add()
+	}
+
+	return localWafs, remoteWafs, result
+}
+
+func (self *SWafInstance) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	return self.StartDeleteTask(ctx, userCred)
+}
+
+func (self *SWafInstance) StartDeleteTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "WafDeleteTask", self, userCred, nil, "", "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
+	}
+	self.SetStatus(userCred, api.WAF_STATUS_DELETING, "")
+	return task.ScheduleRun(nil)
+}
+
+func (self *SWafInstance) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return nil
+}
+
+func (self *SWafInstance) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	rules, err := self.GetWafRules()
+	if err != nil {
+		return errors.Wrapf(err, "GetWafRules")
+	}
+	for i := range rules {
+		err = rules[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "Delete Rule %s", rules[i].Name)
+		}
+	}
+	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
+}
+
+func (self *SWafInstance) syncRemove(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return self.RealDelete(ctx, userCred)
+}
+
+func (self *SWafInstance) GetRegion() (*SCloudregion, error) {
+	region, err := CloudregionManager.FetchById(self.CloudregionId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CloudregionManager.FetchById")
+	}
+	return region.(*SCloudregion), nil
+}
+
+func (self *SWafInstance) GetIRegion() (cloudprovider.ICloudRegion, error) {
+	region, err := self.GetRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegion")
+	}
+	provider, err := self.GetDriver()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDriver")
+	}
+	return provider.GetIRegionById(region.ExternalId)
+}
+
+func (self *SWafInstance) GetICloudWafInstance() (cloudprovider.ICloudWafInstance, error) {
+	if len(self.ExternalId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
+	}
+	iRegion, err := self.GetIRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIRegion")
+	}
+	return iRegion.GetICloudWafInstanceById(self.ExternalId)
+}
+
+func (self *SWafInstance) SyncWithCloudWafInstance(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudWafInstance) error {
+	_, err := db.Update(self, func() error {
+		self.ExternalId = ext.GetGlobalId()
+		self.SetEnabled(ext.GetEnabled())
+		self.DefaultAction = ext.GetDefaultAction()
+		self.Status = ext.GetStatus()
+		return nil
+	})
+	return err
+}
+
+func (self *SCloudregion) newFromCloudWafInstance(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudWafInstance) (*SWafInstance, error) {
+	waf := &SWafInstance{}
+	waf.SetModelManager(WafInstanceManager, waf)
+	waf.SetEnabled(ext.GetEnabled())
+	waf.CloudregionId = self.Id
+	waf.ManagerId = provider.Id
+	waf.Status = ext.GetStatus()
+	waf.DefaultAction = ext.GetDefaultAction()
+	waf.Type = ext.GetWafType()
+	waf.ExternalId = ext.GetGlobalId()
+	var err = func() error {
+		lockman.LockRawObject(ctx, WafInstanceManager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, WafInstanceManager.Keyword(), "name")
+
+		var err error
+		waf.Name, err = db.GenerateName(ctx, WafInstanceManager, userCred, ext.GetName())
+		if err != nil {
+			return errors.Wrapf(err, "db.GenerateName")
+		}
+
+		return WafInstanceManager.TableSpec().Insert(ctx, waf)
+	}()
+	if err != nil {
+		return nil, err
+	}
+	return waf, nil
+}
+
+func (self *SWafInstance) AllowGetDetailsCloudResources(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsDomainAllowGetSpec(userCred, self, "cloud-resources")
+}
+
+// 获取WAF绑定的资源列表
+func (self *SWafInstance) GetDetailsCloudResources(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) ([]cloudprovider.SCloudResource, error) {
+	iWaf, err := self.GetICloudWafInstance()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetICloudWafInstance"))
+	}
+	return iWaf.GetCloudResources()
+}
+
+func (self *SWafInstance) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "syncstatus")
+}
+
+// 同步WAF状态
+func (self *SWafInstance) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.WafSyncstatusInput) (jsonutils.JSONObject, error) {
+	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "WafSyncstatusTask", "")
+}

@@ -39,6 +39,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/organizations"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/wafv2"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -139,6 +140,7 @@ type SRegion struct {
 	s3Client               *s3.S3
 	elbv2Client            *elbv2.ELBV2
 	acmClient              *acm.ACM
+	wafClient              *wafv2.WAFV2
 	organizationClient     *organizations.Organizations
 	resourceGroupTagClient *resourcegroupstaggingapi.ResourceGroupsTaggingAPI
 
@@ -187,6 +189,17 @@ func (self *SRegion) getIamClient() (*iam.IAM, error) {
 	}
 
 	return self.iamClient, nil
+}
+
+func (self *SRegion) getWafClient() (*wafv2.WAFV2, error) {
+	if self.wafClient == nil {
+		s, err := self.getAwsSession()
+		if err != nil {
+			return nil, errors.Wrapf(err, "getAwsSession")
+		}
+		self.wafClient = wafv2.New(s)
+	}
+	return self.wafClient, nil
 }
 
 func (self *SRegion) GetS3Client() (*s3.S3, error) {

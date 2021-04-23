@@ -182,3 +182,27 @@ func (self *SRegion) GetICloudApplicationGateways() ([]cloudprovider.ICloudAppli
 func (self *SRegion) GetICloudApplicationGatewayById(id string) (cloudprovider.ICloudApplicationGateway, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudApplicationGatewayById")
 }
+
+func (self *SRegion) GetICloudWafIPSets() ([]cloudprovider.ICloudWafIPSet, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudWafIPSets")
+}
+
+func (self *SRegion) GetICloudWafRegexSets() ([]cloudprovider.ICloudWafRegexSet, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudWafRegexSets")
+}
+
+func (self *SRegion) GetICloudWafInstances() ([]cloudprovider.ICloudWafInstance, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudWafInstances")
+}
+
+func (self *SRegion) GetICloudWafInstanceById(id string) (cloudprovider.ICloudWafInstance, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudWafInstanceById")
+}
+
+func (self *SRegion) CreateICloudWafInstance(opts *cloudprovider.WafCreateOptions) (cloudprovider.ICloudWafInstance, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateICloudWafInstance")
+}
+
+func (self *SRegion) GetICloudWafRuleGroups() ([]cloudprovider.ICloudWafRuleGroup, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudWafRuleGroups")
+}

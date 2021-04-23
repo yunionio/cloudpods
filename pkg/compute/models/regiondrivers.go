@@ -178,6 +178,13 @@ type IDBInstanceDriver interface {
 
 	IElasticIpDriver
 	INasDriver
+
+	IWafDriver
+}
+
+type IWafDriver interface {
+	ValidateCreateWafInstanceData(ctx context.Context, userCred mcclient.TokenCredential, input api.WafInstanceCreateInput) (api.WafInstanceCreateInput, error)
+	ValidateCreateWafRuleData(ctx context.Context, userCred mcclient.TokenCredential, waf *SWafInstance, input api.WafRuleCreateInput) (api.WafRuleCreateInput, error)
 }
 
 type INasDriver interface {
