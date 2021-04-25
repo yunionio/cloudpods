@@ -14,7 +14,16 @@
 
 package cloudprovider
 
-import "reflect"
+import (
+	"context"
+	"reflect"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+)
+
+const (
+	SET_TAGS = "set-tags"
+)
 
 type TagsUpdateInfo struct {
 	OldTags map[string]string
@@ -23,4 +32,13 @@ type TagsUpdateInfo struct {
 
 func (t TagsUpdateInfo) IsChanged() bool {
 	return !reflect.DeepEqual(t.OldTags, t.NewTags)
+}
+
+func SetTags(ctx context.Context, res ICloudResource, managerId string, tags map[string]string, replace bool) error {
+	// 避免同时设置多个资源标签出现以下错误
+	// Code=ResourceInUse.TagDuplicate, Message=tagKey-tagValue have exists., RequestId=e87714c0-e50b-4241-b79d-32897437174d
+	lockman.LockRawObject(ctx, SET_TAGS, managerId)
+	defer lockman.ReleaseRawObject(ctx, SET_TAGS, managerId)
+
+	return res.SetTags(tags, replace)
 }
