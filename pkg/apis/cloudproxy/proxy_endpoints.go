@@ -45,7 +45,7 @@ type ProxyEndpointUpdateInput struct {
 }
 
 type ProxyEndpointListInput struct {
-	apis.VirtualResourceBaseUpdateInput
+	apis.VirtualResourceListInput
 
 	VpcId     string
 	NetworkId string
