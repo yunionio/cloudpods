@@ -1235,7 +1235,8 @@ func (self *SManagedVirtualizedGuestDriver) RequestRemoteUpdate(ctx context.Cont
 			return errors.Wrapf(err, "GetAllUserMetadata")
 		}
 		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
-		err = iVM.SetTags(tags, replaceTags)
+
+		err = cloudprovider.SetTags(ctx, iVM, guest.GetHost().ManagerId, tags, replaceTags)
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
 				return nil

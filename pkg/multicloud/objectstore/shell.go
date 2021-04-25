@@ -722,7 +722,7 @@ func S3Shell() {
 				tags[pair[0]] = pair[1]
 			}
 		}
-		_, err = cloudprovider.SetBucketTags(bucket, tags)
+		_, err = cloudprovider.SetBucketTags(context.Background(), bucket, "", tags)
 		if err != nil {
 			return err
 		}

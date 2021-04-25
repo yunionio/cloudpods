@@ -342,7 +342,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateLoadbalancer(
 			return nil, errors.Wrapf(err, "lb.GetAllUserMetadata")
 		}
 		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
-		err = iLoadbalancer.SetTags(tags, replaceTags)
+		err = cloudprovider.SetTags(ctx, iLoadbalancer, lb.ManagerId, tags, replaceTags)
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
 				return nil, nil
@@ -2527,7 +2527,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateDBInstance(ct
 			return nil, errors.Wrapf(err, "instance.GetAllUserMetadata")
 		}
 		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
-		err = iRds.SetTags(tags, replaceTags)
+		err = cloudprovider.SetTags(ctx, iRds, instance.ManagerId, tags, replaceTags)
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
 				return nil, nil
@@ -2936,7 +2936,11 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateElasticcache(
 			return nil, errors.Wrapf(err, "GetAllUserMetadata")
 		}
 		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
-		err = iElasticcache.SetTags(tags, replaceTags)
+		mangerId := ""
+		if vpc := elasticcache.GetVpc(); vpc != nil {
+			mangerId = vpc.ManagerId
+		}
+		err = cloudprovider.SetTags(ctx, iElasticcache, mangerId, tags, replaceTags)
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
 				return nil, nil
