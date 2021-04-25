@@ -18,9 +18,11 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/cloudproxy"
+	cloudproxy_api "yunion.io/x/onecloud/pkg/apis/cloudproxy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -110,4 +112,27 @@ func (man *SProxyMatchManager) findMatch(ctx context.Context, networkId, vpcId s
 		r = &pm
 	}
 	return r
+}
+
+func (man *SProxyMatchManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input cloudproxy_api.ProxyMatchListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+
+	if len(input.ProxyEndpointId) > 0 {
+		_, err := validators.ValidateModel(userCred, ProxyEndpointManager, &input.ProxyEndpointId)
+		if err != nil {
+			return nil, err
+		}
+
+		q = q.Equals("proxy_endpoint_id", input.ProxyEndpointId)
+	}
+
+	return q, nil
 }
