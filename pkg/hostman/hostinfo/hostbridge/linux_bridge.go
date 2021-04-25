@@ -83,15 +83,15 @@ func (l *SLinuxBridgeDriver) Interfaces() ([]string, error) {
 	return infs, nil
 }
 
-func (l *SLinuxBridgeDriver) GenerateIfdownScripts(scriptPath string, nic jsonutils.JSONObject) error {
-	return l.generateIfdownScripts(l, scriptPath, nic)
+func (l *SLinuxBridgeDriver) GenerateIfdownScripts(scriptPath string, nic jsonutils.JSONObject, isSlave bool) error {
+	return l.generateIfdownScripts(l, scriptPath, nic, isSlave)
 }
 
-func (l *SLinuxBridgeDriver) GenerateIfupScripts(scriptPath string, nic jsonutils.JSONObject) error {
-	return l.generateIfupScripts(l, scriptPath, nic)
+func (l *SLinuxBridgeDriver) GenerateIfupScripts(scriptPath string, nic jsonutils.JSONObject, isSlave bool) error {
+	return l.generateIfupScripts(l, scriptPath, nic, isSlave)
 }
 
-func (l *SLinuxBridgeDriver) getUpScripts(nic jsonutils.JSONObject) (string, error) {
+func (l *SLinuxBridgeDriver) getUpScripts(nic jsonutils.JSONObject, isSlave bool) (string, error) {
 	s := "#!/bin/bash\n\n"
 	s += fmt.Sprintf("switch='%s'\n", l.bridge)
 	if options.HostOptions.TunnelPaddingBytes > 0 {
@@ -103,7 +103,7 @@ func (l *SLinuxBridgeDriver) getUpScripts(nic jsonutils.JSONObject) (string, err
 	return s, nil
 }
 
-func (l *SLinuxBridgeDriver) getDownScripts(nic jsonutils.JSONObject) (string, error) {
+func (l *SLinuxBridgeDriver) getDownScripts(nic jsonutils.JSONObject, isSlave bool) (string, error) {
 	s := "#!/bin/sh\n\n"
 	s += fmt.Sprintf("switch='%s'\n", l.bridge)
 	s += "brctl show ${switch} | grep $1\n"
