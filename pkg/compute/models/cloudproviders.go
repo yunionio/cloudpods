@@ -1333,14 +1333,11 @@ func (provider *SCloudprovider) syncCloudproviderRegions(ctx context.Context, us
 	for i := range cprs {
 		if cprs[i].Enabled && cprs[i].CanSync() && (!autoSync || cprs[i].needAutoSync()) && (len(regionIds) == 0 || utils.IsInStringArray(cprs[i].CloudregionId, regionIds)) {
 			syncCnt += 1
-			var waitChan chan bool = nil
 			if wg != nil {
 				wg.Add(1)
-				waitChan = make(chan bool)
 			}
-			cprs[i].submitSyncTask(ctx, userCred, syncRange, waitChan)
+			cprs[i].submitSyncTask(ctx, userCred, syncRange)
 			if wg != nil {
-				<-waitChan
 				wg.Done()
 			}
 		}
