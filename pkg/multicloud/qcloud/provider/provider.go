@@ -294,7 +294,7 @@ func (self *SQcloudProvider) GetBalance() (float64, string, error) {
 		return 0.0, api.CLOUD_PROVIDER_HEALTH_UNKNOWN, err
 	}
 	status := api.CLOUD_PROVIDER_HEALTH_NORMAL
-	if balance.AvailableAmount <= 0.0 {
+	if balance.AvailableAmount < 0.0 {
 		status = api.CLOUD_PROVIDER_HEALTH_ARREARS
 	}
 	return balance.AvailableAmount, status, nil
