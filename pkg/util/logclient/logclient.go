@@ -16,6 +16,7 @@ package logclient
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -160,11 +161,29 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 
 	logentry.Add(jsonutils.NewString(notes), "notes")
 
-	logclientWorkerMan.Run(func() {
-		s := DefaultSessionGenerator(context.Background(), auth.AdminCredential(), "", "")
-		_, err := api.Create(s, logentry)
-		if err != nil {
-			log.Errorf("create action log %s failed %s", logentry, err)
-		}
-	}, nil, nil)
+	task := &logTask{
+		userCred: auth.AdminCredential(),
+		api:      api,
+		logentry: logentry,
+	}
+
+	logclientWorkerMan.Run(task, nil, nil)
+}
+
+type logTask struct {
+	userCred mcclient.TokenCredential
+	api      IModule
+	logentry *jsonutils.JSONDict
+}
+
+func (t *logTask) Run() {
+	s := DefaultSessionGenerator(context.Background(), t.userCred, "", "")
+	_, err := t.api.Create(s, t.logentry)
+	if err != nil {
+		log.Errorf("create action log %s failed %s", t.logentry, err)
+	}
+}
+
+func (t *logTask) Dump() string {
+	return fmt.Sprintf("logTask %v %s", t.api, t.logentry)
 }

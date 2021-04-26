@@ -15,22 +15,35 @@
 package appsrv
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
 )
+
+type workerTask struct {
+	counter int
+}
+
+func (t *workerTask) Run() {
+	t.counter += 1
+	time.Sleep(1 * time.Second)
+}
+
+func (t *workerTask) Dump() string {
+	return fmt.Sprintf("counter: %d", t.counter)
+}
 
 func TestWorkerManager(t *testing.T) {
 	enableDebug()
 	startTime := time.Now()
 	// end := make(chan int)
 	wm := NewWorkerManager("testwm", 2, 10, false)
-	counter := 0
+	task := &workerTask{
+		counter: 0,
+	}
 	for i := 0; i < 10; i += 1 {
-		wm.Run(func() {
-			counter += 1
-			time.Sleep(1 * time.Second)
-		}, nil, nil)
+		wm.Run(task, nil, nil)
 	}
 	for wm.ActiveWorkerCount() != 0 {
 		time.Sleep(time.Second)
@@ -38,6 +51,31 @@ func TestWorkerManager(t *testing.T) {
 	if time.Since(startTime) < 5*time.Second {
 		t.Error("Incorrect timing")
 	}
+}
+
+type errWorkerTask struct {
+	wg *sync.WaitGroup
+}
+
+func (t *errWorkerTask) Run() {
+	t.wg.Done()
+}
+
+func (t *errWorkerTask) Dump() string {
+	return ""
+}
+
+type panicWorkerTask struct {
+	wg *sync.WaitGroup
+}
+
+func (t *panicWorkerTask) Run() {
+	defer t.wg.Done()
+	panic("panic inside worker")
+}
+
+func (t *panicWorkerTask) Dump() string {
+	return ""
 }
 
 func TestWorkerManagerError(t *testing.T) {
@@ -51,28 +89,27 @@ func TestWorkerManagerError(t *testing.T) {
 		}
 	}
 	t.Run("normal", func(t *testing.T) {
-		wg := &sync.WaitGroup{}
+		task := &errWorkerTask{
+			wg: &sync.WaitGroup{},
+		}
 		errMark := false
-		errCb := errCbFactory(wg, &errMark)
-		wg.Add(1)
-		wm.Run(func() {
-			defer wg.Done()
-		}, nil, errCb)
-		wg.Wait()
+		errCb := errCbFactory(task.wg, &errMark)
+		task.wg.Add(1)
+		wm.Run(task, nil, errCb)
+		task.wg.Wait()
 		if errMark {
 			t.Errorf("should be normal")
 		}
 	})
 	t.Run("panic", func(t *testing.T) {
-		wg := &sync.WaitGroup{}
+		task := &panicWorkerTask{
+			wg: &sync.WaitGroup{},
+		}
 		errMark := false
-		errCb := errCbFactory(wg, &errMark)
-		wg.Add(2) // 1 for errCb
-		wm.Run(func() {
-			defer wg.Done()
-			panic("panic inside worker")
-		}, nil, errCb)
-		wg.Wait()
+		errCb := errCbFactory(task.wg, &errMark)
+		task.wg.Add(2) // 1 for errCb
+		wm.Run(task, nil, errCb)
+		task.wg.Wait()
 		if !errMark {
 			t.Errorf("expecting error")
 		}

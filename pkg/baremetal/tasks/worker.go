@@ -44,10 +44,25 @@ func OnStop() {
 	}
 }
 
+type baremtalTask struct {
+	task ITask
+	args interface{}
+}
+
+func (t *baremtalTask) Run() {
+	executeTask(t.task, t.args)
+}
+
+func (t *baremtalTask) Dump() string {
+	return fmt.Sprintf("Task %s(%s) params: %v", t.task.GetName(), t.task.GetTaskId(), t.args)
+}
+
 func ExecuteTask(task ITask, args interface{}) {
-	baremetalTaskWorkerMan.Run(func() {
-		executeTask(task, args)
-	}, nil, nil)
+	t := &baremtalTask{
+		task: task,
+		args: args,
+	}
+	baremetalTaskWorkerMan.Run(t, nil, nil)
 }
 
 func executeTask(task ITask, args interface{}) {

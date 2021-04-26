@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"runtime/debug"
 	"sync"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -53,6 +54,7 @@ type SWorker struct {
 	id        uint64
 	state     int
 	container *list.Element
+	task      *sWorkerTask
 	manager   *SWorkerManager
 }
 
@@ -84,6 +86,8 @@ func (worker *SWorker) run() {
 			if task.worker != nil {
 				task.worker <- worker
 			}
+			task.start = time.Now()
+			worker.task = task
 			execCallback(task)
 		} else {
 			break
@@ -99,7 +103,7 @@ func (worker *SWorker) Detach(reason string) {
 	worker.manager.activeWorker.removeWithLock(worker)
 	worker.manager.detachedWorker.addWithLock(worker)
 
-	log.Warningf("detach worker %s due to reason %s", worker, reason)
+	log.Warningf("detach worker %s(%s) due to reason %s after %s", worker, worker.task.task.Dump(), reason, time.Now().Sub(worker.task.start))
 
 	worker.manager.scheduleWithLock()
 }
@@ -113,7 +117,11 @@ func (worker *SWorker) StateStr() string {
 }
 
 func (worker *SWorker) String() string {
-	return fmt.Sprintf("#%d(%p, %s)", worker.id, worker, worker.StateStr())
+	workerInfo := ""
+	if worker.task != nil {
+		workerInfo = worker.task.task.Dump()
+	}
+	return fmt.Sprintf("#%d(%p, %s) %s", worker.id, worker, worker.StateStr(), workerInfo)
 }
 
 type SWorkerList struct {
@@ -179,17 +187,23 @@ func NewWorkerManagerIgnoreOverflow(name string, workerCount int, backlog int, d
 	return &manager
 }
 
+type IWorkerTask interface {
+	Run()
+	Dump() string
+}
+
 type sWorkerTask struct {
-	task    func()
+	task    IWorkerTask
 	worker  chan *SWorker
 	onError func(error)
+	start   time.Time
 }
 
 func (wm *SWorkerManager) String() string {
 	return wm.name
 }
 
-func (wm *SWorkerManager) Run(task func(), worker chan *SWorker, onErr func(error)) bool {
+func (wm *SWorkerManager) Run(task IWorkerTask, worker chan *SWorker, onErr func(error)) bool {
 	ret := wm.queue.Push(&sWorkerTask{task: task, worker: worker, onError: onErr})
 	if ret {
 		wm.schedule()
@@ -220,7 +234,7 @@ func execCallback(task *sWorkerTask) {
 			debug.PrintStack()
 		}
 	}()
-	task.task()
+	task.task.Run()
 }
 
 func (wm *SWorkerManager) schedule() {
@@ -231,7 +245,8 @@ func (wm *SWorkerManager) schedule() {
 }
 
 func (wm *SWorkerManager) scheduleWithLock() {
-	if wm.activeWorker.size() < wm.workerCount && wm.queue.Size() > 0 {
+	queueSize := wm.queue.Size()
+	if wm.activeWorker.size() < wm.workerCount && queueSize > 0 {
 		wm.workerId += 1
 		worker := newWorker(wm.workerId, wm)
 		wm.activeWorker.addWithLock(worker)
@@ -239,8 +254,15 @@ func (wm *SWorkerManager) scheduleWithLock() {
 			log.Debugf("no enough worker, add new worker %s", worker)
 		}
 		go worker.run()
-	} else if wm.queue.Size() > 10 {
+	} else if queueSize > 10 {
 		log.Warningf("[%s] BUSY activeWork %d detachedWork %d max %d queue: %d", wm, wm.ActiveWorkerCount(), wm.DetachedWorkerCount(), wm.workerCount, wm.queue.Size())
+	} else if queueSize > 50 {
+		w := wm.activeWorker.list.Front()
+		for w != nil {
+			worker := w.Value.(*SWorker)
+			log.Warningf("work [%s]%s stucking for a while", worker.task.start, worker.task.task.Dump())
+			w = w.Next()
+		}
 	}
 }
 

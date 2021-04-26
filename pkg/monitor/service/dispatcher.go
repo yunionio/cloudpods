@@ -35,14 +35,30 @@ func addCommonAlertDispatcher(prefix string, app *appsrv.Application) {
 		performHandler, metadata, "perform_class_subscription", tags)
 }
 
+type subscriptionTask struct {
+	ctx   context.Context
+	query jsonutils.JSONObject
+	body  []sub.Point
+}
+
+func (t *subscriptionTask) Run() {
+	t.ctx = context.WithValue(context.Background(), appctx.APP_CONTEXT_KEY_AUTH_TOKEN, auth.AdminCredential())
+	subscriptionmodel.SubscriptionManager.PerformWrite(t.ctx, auth.AdminCredential(), t.query, t.body)
+}
+
+func (t *subscriptionTask) Dump() string {
+	return ""
+}
+
 func performHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	_, query, body := fetchEnv(ctx, w, r)
 	appsrv.SendJSON(w, wrap(jsonutils.NewDict(), "subscription"))
-	SubscriptionWorkerManager.Run(func() {
-		ctx = context.WithValue(context.Background(), appctx.APP_CONTEXT_KEY_AUTH_TOKEN, auth.AdminCredential())
-		subscriptionmodel.SubscriptionManager.PerformWrite(ctx, auth.AdminCredential(), query, body)
-	}, nil, nil)
-
+	task := &subscriptionTask{
+		ctx:   ctx,
+		query: query,
+		body:  body,
+	}
+	SubscriptionWorkerManager.Run(task, nil, nil)
 }
 
 // fetchEnv fetch handler, params, query and body from ctx(context.Context)

@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"gopkg.in/fatih/set.v0"
 
@@ -125,6 +126,7 @@ func (manager *SClouduserManager) ListItemFilter(ctx context.Context, q *sqlchem
 	if err != nil {
 		return nil, err
 	}
+	time.Sleep(time.Minute)
 
 	q, err = manager.SCloudaccountResourceBaseManager.ListItemFilter(ctx, q, userCred, query.CloudaccountResourceListInput)
 	if err != nil {
