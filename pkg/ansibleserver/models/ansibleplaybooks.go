@@ -186,10 +186,12 @@ func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.
 
 	// init private key
 	pb := apb.Playbook.Copy()
-	if k, err := mcclient_modules.Sshkeypairs.FetchPrivateKey(ctx, userCred); err != nil {
-		return err
-	} else {
-		pb.PrivateKey = []byte(k)
+	if len(pb.PrivateKey) == 0 {
+		if k, err := mcclient_modules.Sshkeypairs.FetchPrivateKey(ctx, userCred); err != nil {
+			return err
+		} else {
+			pb.PrivateKey = []byte(k)
+		}
 	}
 	pb.OutputWriter(&ansiblePlaybookOutputWriter{apb})
 
