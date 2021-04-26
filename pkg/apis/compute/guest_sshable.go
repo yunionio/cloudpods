@@ -28,6 +28,13 @@ type GuestSshableMethodData struct {
 
 	Sshable bool
 	Reason  string
+
+	ForwardDetails ForwardDetails
+}
+
+type ForwardDetails struct {
+	ProxyAgentId    string
+	ProxyEndpointId string
 }
 
 type GuestSshableOutput struct {
