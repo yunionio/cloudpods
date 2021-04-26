@@ -136,8 +136,8 @@ func (manager *SDBInstancePrivilegeManager) ValidateCreateData(ctx context.Conte
 }
 
 func (manager *SDBInstancePrivilegeManager) SyncDBInstanceAccountPrivileges(ctx context.Context, userCred mcclient.TokenCredential, account *SDBInstanceAccount, cloudPrivileges []cloudprovider.ICloudDBInstanceAccountPrivilege) compare.SyncResult {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, account.GetOwnerId()))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, account.GetOwnerId()))
+	lockman.LockRawObject(ctx, "dbinstance-privileges", account.Id)
+	defer lockman.ReleaseRawObject(ctx, "dbinstance-privileges", account.Id)
 
 	result := compare.SyncResult{}
 	dbPrivileges, err := account.GetDBInstancePrivileges()

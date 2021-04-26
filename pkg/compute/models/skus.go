@@ -1032,8 +1032,8 @@ func (manager *SServerSkuManager) PendingDeleteInvalidSku() error {
 }
 
 func (manager *SServerSkuManager) SyncPrivateCloudSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, skus []cloudprovider.ICloudSku) compare.SyncResult {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	lockman.LockRawObject(ctx, "serverskus", region.Id)
+	defer lockman.ReleaseRawObject(ctx, "serverskus", region.Id)
 
 	result := compare.SyncResult{}
 
@@ -1144,6 +1144,7 @@ func (self *SServerSku) setPrepaidPostpaidStatus(userCred mcclient.TokenCredenti
 
 func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSku cloudprovider.ICloudSku) error {
 	sku := &SServerSku{Provider: region.Provider}
+
 	sku.SetModelManager(manager, sku)
 	// 第一次同步新建的套餐是启用状态
 	sku.Enabled = tristate.True
@@ -1151,10 +1152,22 @@ func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred 
 	sku.constructSku(extSku)
 
 	sku.CloudregionId = region.Id
+
 	sku.SetModelManager(manager, sku)
-	err := manager.TableSpec().Insert(ctx, sku)
+	var err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		var err error
+		sku.Name, err = db.GenerateName(ctx, manager, userCred, extSku.GetName())
+		if err != nil {
+			return errors.Wrap(err, "db.GenerateName")
+		}
+
+		return manager.TableSpec().Insert(ctx, sku)
+	}()
 	if err != nil {
-		return errors.Wrapf(err, "newFromCloudSku.Insert")
+		return errors.Wrapf(err, "Insert")
 	}
 	db.OpsLog.LogEvent(sku, db.ACT_CREATE, sku.GetShortDesc(ctx), userCred)
 
@@ -1205,8 +1218,8 @@ func (manager *SServerSkuManager) FetchSkusByRegion(regionID string) ([]SServerS
 }
 
 func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSkuMeta *SSkuResourcesMeta) compare.SyncResult {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	lockman.LockRawObject(ctx, "serverskus", region.Id)
+	defer lockman.ReleaseRawObject(ctx, "serverskus", region.Id)
 
 	syncResult := compare.SyncResult{}
 

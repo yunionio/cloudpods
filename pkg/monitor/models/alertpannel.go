@@ -117,7 +117,7 @@ func (man *SAlertPanelManager) ValidateCreateData(
 		}
 	}
 
-	name, err := db.GenerateName(man, ownerId, data.Name)
+	name, err := db.GenerateName(ctx, man, ownerId, data.Name)
 	if err != nil {
 		return data, err
 	}

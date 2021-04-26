@@ -143,8 +143,8 @@ func (manager *SExternalProjectManager) GetProject(externalId string, providerId
 }
 
 func (manager *SExternalProjectManager) SyncProjects(ctx context.Context, userCred mcclient.TokenCredential, account *SCloudaccount, projects []cloudprovider.ICloudProject) compare.SyncResult {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	lockman.LockRawObject(ctx, "external-projects", account.Id)
+	defer lockman.ReleaseRawObject(ctx, "external-projects", account.Id)
 
 	syncResult := compare.SyncResult{}
 

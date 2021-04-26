@@ -1905,8 +1905,8 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncElasticcache(ctx cont
 		return errors.Wrap(fmt.Errorf("provider is nil"), "managedVirtualizationRegionDriver.RequestSyncElasticcache.GetCloudprovider")
 	}
 
-	lockman.LockClass(ctx, models.ElasticcacheManager, db.GetLockClassKey(models.ElasticcacheManager, provider.GetOwnerId()))
-	defer lockman.ReleaseClass(ctx, models.ElasticcacheManager, db.GetLockClassKey(models.ElasticcacheManager, provider.GetOwnerId()))
+	lockman.LockRawObject(ctx, "elastic-cache", ec.Id)
+	defer lockman.ReleaseRawObject(ctx, "elastic-cache", ec.Id)
 
 	err = ec.SyncWithCloudElasticcache(ctx, userCred, provider, iec)
 	if err != nil {

@@ -503,8 +503,8 @@ func (manager *SElasticcacheManager) QueryDistinctExtraField(q *sqlchemy.SQuery,
 }
 
 func (manager *SElasticcacheManager) SyncElasticcaches(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, region *SCloudregion, cloudElasticcaches []cloudprovider.ICloudElasticcache) ([]SElasticcache, []cloudprovider.ICloudElasticcache, compare.SyncResult) {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))
+	lockman.LockRawObject(ctx, "elastic-cache", fmt.Sprintf("%s-%s", provider.Id, region.Id))
+	defer lockman.ReleaseRawObject(ctx, "elastic-cache", fmt.Sprintf("%s-%s", provider.Id, region.Id))
 
 	localElasticcaches := []SElasticcache{}
 	remoteElasticcaches := []cloudprovider.ICloudElasticcache{}
@@ -628,17 +628,10 @@ func (self *SElasticcache) SyncWithCloudElasticcache(ctx context.Context, userCr
 }
 
 func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, provider *SCloudprovider, region *SCloudregion, extInstance cloudprovider.ICloudElasticcache) (*SElasticcache, error) {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	instance := SElasticcache{}
 	instance.SetModelManager(manager, &instance)
 
-	newName, err := db.GenerateName(manager, ownerId, extInstance.GetName())
-	if err != nil {
-		return nil, err
-	}
-	instance.Name = newName
 	instance.ExternalId = extInstance.GetGlobalId()
 	// instance.CloudregionId = region.Id
 	// instance.ManagerId = provider.Id
@@ -732,7 +725,17 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 		instance.AutoRenew = extInstance.IsAutoRenew()
 	}
 
-	err = manager.TableSpec().Insert(ctx, &instance)
+	err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		instance.Name, err = db.GenerateName(ctx, manager, ownerId, extInstance.GetName())
+		if err != nil {
+			return err
+		}
+
+		return manager.TableSpec().Insert(ctx, &instance)
+	}()
 	if err != nil {
 		return nil, errors.Wrapf(err, "newFromCloudElasticcache.Insert")
 	}

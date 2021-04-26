@@ -393,8 +393,8 @@ func (manager SNatGatewayManager) FetchCustomizeColumns(
 }
 
 func (manager *SNatGatewayManager) SyncNatGateways(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, vpc *SVpc, cloudNatGateways []cloudprovider.ICloudNatGateway) ([]SNatGateway, []cloudprovider.ICloudNatGateway, compare.SyncResult) {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))
+	lockman.LockRawObject(ctx, "natgateways", vpc.Id)
+	defer lockman.ReleaseRawObject(ctx, "natgateways", vpc.Id)
 
 	localNatGateways := make([]SNatGateway, 0)
 	remoteNatGateways := make([]cloudprovider.ICloudNatGateway, 0)
@@ -519,11 +519,6 @@ func (manager *SNatGatewayManager) newFromCloudNatGateway(ctx context.Context, u
 	nat := SNatGateway{}
 	nat.SetModelManager(manager, &nat)
 
-	newName, err := db.GenerateName(manager, ownerId, extNat.GetName())
-	if err != nil {
-		return nil, errors.Wrap(err, "db.GenerateName")
-	}
-	nat.Name = newName
 	nat.VpcId = vpc.Id
 	nat.Status = extNat.GetStatus()
 	nat.NatSpec = extNat.GetNatSpec()
@@ -556,9 +551,19 @@ func (manager *SNatGatewayManager) newFromCloudNatGateway(ctx context.Context, u
 		}
 	}
 
-	err = manager.TableSpec().Insert(ctx, &nat)
+	var err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		newName, err := db.GenerateName(ctx, manager, ownerId, extNat.GetName())
+		if err != nil {
+			return errors.Wrap(err, "db.GenerateName")
+		}
+		nat.Name = newName
+
+		return manager.TableSpec().Insert(ctx, &nat)
+	}()
 	if err != nil {
-		log.Errorf("newFromCloudNatGateway fail %s", err)
 		return nil, errors.Wrap(err, "Insert")
 	}
 
@@ -621,6 +626,9 @@ func (self *SNatGateway) GetEips() ([]SElasticip, error) {
 }
 
 func (self *SNatGateway) SyncNatGatewayEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extEips []cloudprovider.ICloudEIP) compare.SyncResult {
+	lockman.LockRawObject(ctx, "elasticip", self.Id)
+	defer lockman.ReleaseRawObject(ctx, "elasticip", self.Id)
+
 	result := compare.SyncResult{}
 
 	dbEips, err := self.GetEips()

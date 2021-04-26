@@ -93,7 +93,7 @@ func (man *SAlertDashBoardManager) ValidateCreateData(
 		return data, httperrors.NewInputParameterError("Invalid refresh format: %s", data.Refresh)
 	}
 
-	generateName, err := db.GenerateName(man, ownerId, data.Name)
+	generateName, err := db.GenerateName(ctx, man, ownerId, data.Name)
 	if err != nil {
 		return data, err
 	}

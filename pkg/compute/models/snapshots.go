@@ -906,11 +906,6 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 	snapshot := SSnapshot{}
 	snapshot.SetModelManager(manager, &snapshot)
 
-	newName, err := db.GenerateName(manager, syncOwnerId, extSnapshot.GetName())
-	if err != nil {
-		return nil, err
-	}
-	snapshot.Name = newName
 	snapshot.Status = extSnapshot.GetStatus()
 	snapshot.ExternalId = extSnapshot.GetGlobalId()
 	var localDisk *SDisk
@@ -932,10 +927,20 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 	snapshot.ManagerId = provider.Id
 	snapshot.CloudregionId = region.Id
 
-	err = manager.TableSpec().Insert(ctx, &snapshot)
+	var err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		newName, err := db.GenerateName(ctx, manager, syncOwnerId, extSnapshot.GetName())
+		if err != nil {
+			return err
+		}
+		snapshot.Name = newName
+
+		return manager.TableSpec().Insert(ctx, &snapshot)
+	}()
 	if err != nil {
-		log.Errorf("newFromCloudEip fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "Insert")
 	}
 
 	// bugfix for now:
@@ -964,8 +969,8 @@ func (manager *SSnapshotManager) getProviderSnapshotsByRegion(region *SCloudregi
 }
 
 func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, snapshots []cloudprovider.ICloudSnapshot, syncOwnerId mcclient.IIdentityProvider) compare.SyncResult {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
+	lockman.LockRawObject(ctx, "snapshots", fmt.Sprintf("%s-%s", provider.Id, region.Id))
+	defer lockman.ReleaseRawObject(ctx, "snapshots", fmt.Sprintf("%s-%s", provider.Id, region.Id))
 
 	syncResult := compare.SyncResult{}
 	dbSnapshots, err := manager.getProviderSnapshotsByRegion(region, provider)

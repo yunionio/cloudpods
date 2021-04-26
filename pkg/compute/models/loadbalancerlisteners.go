@@ -906,8 +906,8 @@ func (man *SLoadbalancerListenerManager) getLoadbalancerListenersByLoadbalancer(
 func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, lb *SLoadbalancer, listeners []cloudprovider.ICloudLoadbalancerListener, syncRange *SSyncRange) ([]SLoadbalancerListener, []cloudprovider.ICloudLoadbalancerListener, compare.SyncResult) {
 	syncOwnerId := provider.GetOwnerId()
 
-	lockman.LockClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
-	defer lockman.ReleaseClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
+	lockman.LockRawObject(ctx, "listeners", lb.Id)
+	defer lockman.ReleaseRawObject(ctx, "listeners", lb.Id)
 
 	localListeners := []SLoadbalancerListener{}
 	remoteListeners := []cloudprovider.ICloudLoadbalancerListener{}
@@ -1271,17 +1271,22 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 	lblis.LoadbalancerId = lb.Id
 	lblis.ExternalId = extListener.GetGlobalId()
 
-	newName, err := db.GenerateName(man, syncOwnerId, extListener.GetName())
-	if err != nil {
-		return nil, err
-	}
-	lblis.Name = newName
-
 	lblis.constructFieldsFromCloudListener(userCred, lb, extListener)
 
-	err = man.TableSpec().Insert(ctx, lblis)
+	var err = func() error {
+		lockman.LockRawObject(ctx, man.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, man.Keyword(), "name")
+
+		newName, err := db.GenerateName(ctx, man, syncOwnerId, extListener.GetName())
+		if err != nil {
+			return err
+		}
+		lblis.Name = newName
+
+		return man.TableSpec().Insert(ctx, lblis)
+	}()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Insert")
 	}
 
 	err = lblis.updateCachedLoadbalancerBackendGroupAssociate(ctx, extListener, lb.ManagerId)

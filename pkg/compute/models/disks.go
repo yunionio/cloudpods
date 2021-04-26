@@ -1289,8 +1289,8 @@ func (manager *SDiskManager) syncCloudDisk(ctx context.Context, userCred mcclien
 func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, storage *SStorage, disks []cloudprovider.ICloudDisk, syncOwnerId mcclient.IIdentityProvider) ([]SDisk, []cloudprovider.ICloudDisk, compare.SyncResult) {
 	// syncOwnerId := projectId
 
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
+	lockman.LockRawObject(ctx, "disks", storage.Id)
+	defer lockman.ReleaseRawObject(ctx, "disks", storage.Id)
 
 	localDisks := make([]SDisk, 0)
 	remoteDisks := make([]cloudprovider.ICloudDisk, 0)
@@ -1543,11 +1543,6 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	disk := SDisk{}
 	disk.SetModelManager(manager, &disk)
 
-	newName, err := db.GenerateName(manager, syncOwnerId, extDisk.GetName())
-	if err != nil {
-		return nil, err
-	}
-	disk.Name = newName
 	disk.Status = extDisk.GetStatus()
 	disk.ExternalId = extDisk.GetGlobalId()
 	disk.StorageId = storage.Id
@@ -1575,10 +1570,20 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 		disk.CreatedAt = createAt
 	}
 
-	err = manager.TableSpec().Insert(ctx, &disk)
+	var err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		newName, err := db.GenerateName(ctx, manager, syncOwnerId, extDisk.GetName())
+		if err != nil {
+			return err
+		}
+		disk.Name = newName
+
+		return manager.TableSpec().Insert(ctx, &disk)
+	}()
 	if err != nil {
-		log.Errorf("newFromCloudZone fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "newFromCloudDisk")
 	}
 
 	// create new joint model aboutsnapshotpolicy and disk
@@ -2588,8 +2593,8 @@ func (self *SDisk) syncSnapshots(ctx context.Context, userCred mcclient.TokenCre
 	}
 	localSnapshots := SnapshotManager.GetDiskSnapshots(self.Id)
 
-	lockman.LockClass(ctx, SnapshotManager, db.GetLockClassKey(SnapshotManager, syncOwnerId))
-	defer lockman.ReleaseClass(ctx, SnapshotManager, db.GetLockClassKey(SnapshotManager, syncOwnerId))
+	lockman.LockRawObject(ctx, "snapshots", self.Id)
+	defer lockman.ReleaseRawObject(ctx, "snapshots", self.Id)
 
 	removed := make([]SSnapshot, 0)
 	commondb := make([]SSnapshot, 0)

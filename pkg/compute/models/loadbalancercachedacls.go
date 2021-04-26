@@ -149,7 +149,7 @@ func (man *SCachedLoadbalancerAclManager) ValidateCreateData(ctx context.Context
 
 	provider := providerV.Model.(*SCloudprovider)
 	data.Set("manager_id", jsonutils.NewString(provider.Id))
-	name, _ := db.GenerateName(man, ownerId, aclV.Model.GetName())
+	name, _ := db.GenerateName(ctx, man, ownerId, aclV.Model.GetName())
 	data.Set("name", jsonutils.NewString(name))
 
 	input := apis.VirtualResourceCreateInput{}
@@ -441,10 +441,8 @@ func (man *SCachedLoadbalancerAclManager) getLoadbalancerAclByRegion(provider *S
 }
 
 func (man *SCachedLoadbalancerAclManager) SyncLoadbalancerAcls(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, acls []cloudprovider.ICloudLoadbalancerAcl, syncRange *SSyncRange) compare.SyncResult {
-	ownerProjId := provider.ProjectId
-
-	lockman.LockClass(ctx, man, ownerProjId)
-	defer lockman.ReleaseClass(ctx, man, ownerProjId)
+	lockman.LockRawObject(ctx, "acls", fmt.Sprintf("%s-%s", provider.Id, region.Id))
+	defer lockman.ReleaseRawObject(ctx, "acls", fmt.Sprintf("%s-%s", provider.Id, region.Id))
 
 	syncResult := compare.SyncResult{}
 
@@ -498,12 +496,7 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 	acl := SCachedLoadbalancerAcl{}
 	acl.SetModelManager(man, &acl)
 
-	newName, err := db.GenerateName(man, projectId, extAcl.GetName())
-	if err != nil {
-		return nil, errors.Wrap(err, "cachedLoadbalancerAclManager.new.GenerateName")
-	}
 	acl.ExternalId = extAcl.GetGlobalId()
-	acl.Name = newName
 	acl.ManagerId = provider.Id
 	acl.CloudregionId = region.Id
 
@@ -539,10 +532,19 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 		acl.AclId = localAcl.GetId()
 	}
 
-	err = man.TableSpec().Insert(ctx, &acl)
+	var err = func() error {
+		lockman.LockRawObject(ctx, man.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, man.Keyword(), "name")
+
+		newName, err := db.GenerateName(ctx, man, projectId, extAcl.GetName())
+		if err != nil {
+			return errors.Wrap(err, "cachedLoadbalancerAclManager.new.GenerateName")
+		}
+		acl.Name = newName
+		return man.TableSpec().Insert(ctx, &acl)
+	}()
 	if err != nil {
-		log.Errorf("newFromCloudLoadbalancerAcl fail %s", err)
-		return nil, errors.Wrap(err, "cachedLoadbalancerAclManager.new.InsertCachedAcl")
+		return nil, errors.Wrap(err, "Insert")
 	}
 
 	SyncCloudProject(userCred, &acl, projectId, extAcl, acl.ManagerId)

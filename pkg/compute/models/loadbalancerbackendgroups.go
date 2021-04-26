@@ -897,8 +897,8 @@ func (man *SLoadbalancerBackendGroupManager) getLoadbalancerBackendgroupsByLoadb
 func (man *SLoadbalancerBackendGroupManager) SyncLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, lb *SLoadbalancer, lbbgs []cloudprovider.ICloudLoadbalancerBackendGroup, syncRange *SSyncRange) ([]SLoadbalancerBackendGroup, []cloudprovider.ICloudLoadbalancerBackendGroup, compare.SyncResult) {
 	syncOwnerId := provider.GetOwnerId()
 
-	lockman.LockClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
-	defer lockman.ReleaseClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
+	lockman.LockRawObject(ctx, "backendgroups", lb.Id)
+	defer lockman.ReleaseRawObject(ctx, "backendgroups", lb.Id)
 
 	localLbgs := []SLoadbalancerBackendGroup{}
 	remoteLbbgs := []cloudprovider.ICloudLoadbalancerBackendGroup{}
@@ -1034,18 +1034,22 @@ func (man *SLoadbalancerBackendGroupManager) newFromCloudLoadbalancerBackendgrou
 
 	}*/
 
-	newName, err := db.GenerateName(man, syncOwnerId, extLoadbalancerBackendgroup.GetName())
-	if err != nil {
-		return nil, err
-	}
-
-	lbbg.Name = newName
-
 	lbbg.Type = extLoadbalancerBackendgroup.GetType()
 	lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
-	err = man.TableSpec().Insert(ctx, lbbg)
+	var err = func() error {
+		lockman.LockRawObject(ctx, man.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, man.Keyword(), "name")
+
+		newName, err := db.GenerateName(ctx, man, syncOwnerId, extLoadbalancerBackendgroup.GetName())
+		if err != nil {
+			return err
+		}
+		lbbg.Name = newName
+
+		return man.TableSpec().Insert(ctx, lbbg)
+	}()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Insert")
 	}
 
 	SyncCloudProject(userCred, lbbg, syncOwnerId, extLoadbalancerBackendgroup, provider.Id)

@@ -25,6 +25,7 @@ import (
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
@@ -114,19 +115,24 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		}
 		newGenName, err := conditionparser.EvalTemplate(generateName, guestInfo)
 		if err == nil {
-			newName, err := db.GenerateName2(models.GuestManager,
-				guest.GetOwnerId(), newGenName, guest, 1)
-			if err == nil {
-				_, err = db.Update(guest, func() error {
-					guest.Name = newName
-					return nil
-				})
-				if err != nil {
-					log.Errorf("guest update name fail %s", err)
+			func() {
+				lockman.LockRawObject(ctx, models.GuestManager.Keyword(), "name")
+				defer lockman.ReleaseRawObject(ctx, models.GuestManager.Keyword(), "name")
+
+				newName, err := db.GenerateName2(ctx, models.GuestManager,
+					guest.GetOwnerId(), newGenName, guest, 1)
+				if err == nil {
+					_, err = db.Update(guest, func() error {
+						guest.Name = newName
+						return nil
+					})
+					if err != nil {
+						log.Errorf("guest update name fail %s", err)
+					}
+				} else {
+					log.Errorf("db.GenerateName2 fail %s", err)
 				}
-			} else {
-				log.Errorf("db.GenerateName2 fail %s", err)
-			}
+			}()
 		} else {
 			log.Errorf("conditionparser.EvalTemplate fail %s", err)
 		}

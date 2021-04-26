@@ -4672,7 +4672,7 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 	dataDict := data.(*jsonutils.JSONDict)
 	nameHint, err := dataDict.GetString("generate_name")
 	if err == nil {
-		name, err = db.GenerateName(InstanceSnapshotManager, ownerId, nameHint)
+		name, err = db.GenerateName(ctx, InstanceSnapshotManager, ownerId, nameHint)
 		if err != nil {
 			return nil, err
 		}
@@ -4824,8 +4824,8 @@ func (self *SGuest) PerformSnapshotAndClone(
 		return nil, httperrors.NewInputParameterError("count must > 0")
 	}
 
-	lockman.LockClass(ctx, InstanceSnapshotManager, self.ProjectId)
-	defer lockman.ReleaseClass(ctx, InstanceSnapshotManager, self.ProjectId)
+	lockman.LockRawObject(ctx, InstanceSnapshotManager.Keyword(), "name")
+	defer lockman.ReleaseRawObject(ctx, InstanceSnapshotManager.Keyword(), "name")
 
 	// validate create instance snapshot and set snapshot pending usage
 	snapshotUsage, err := self.validateCreateInstanceSnapshot(ctx, userCred, query, data)
@@ -4861,7 +4861,7 @@ func (self *SGuest) PerformSnapshotAndClone(
 	// migrate snapshotUsage into regionUsage, then discard snapshotUsage
 	pendingRegionUsage.Snapshot = snapshotUsage.Snapshot
 
-	instanceSnapshotName, err := db.GenerateName(InstanceSnapshotManager, self.GetOwnerId(),
+	instanceSnapshotName, err := db.GenerateName(ctx, InstanceSnapshotManager, self.GetOwnerId(),
 		fmt.Sprintf("%s-%s", newlyGuestName, rand.String(8)))
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, false)
@@ -4909,14 +4909,14 @@ func (self *SGuest) StartInstanceSnapshotAndCloneTask(
 func (manager *SGuestManager) CreateGuestFromInstanceSnapshot(
 	ctx context.Context, userCred mcclient.TokenCredential, guestParams *jsonutils.JSONDict, isp *SInstanceSnapshot,
 ) (*SGuest, *jsonutils.JSONDict, error) {
-	lockman.LockClass(ctx, manager, isp.ProjectId)
-	defer lockman.ReleaseClass(ctx, manager, isp.ProjectId)
+	lockman.LockRawObject(ctx, manager.Keyword(), "name")
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
 
 	guestName, err := guestParams.GetString("name")
 	if err != nil {
 		return nil, nil, fmt.Errorf("No new guest name provider")
 	}
-	if guestName, err = db.GenerateName(manager, isp.GetOwnerId(), guestName); err != nil {
+	if guestName, err = db.GenerateName(ctx, manager, isp.GetOwnerId(), guestName); err != nil {
 		return nil, nil, err
 	}
 

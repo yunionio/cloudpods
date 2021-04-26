@@ -419,8 +419,11 @@ func (self *SGuestImage) genUpdateImage(ctx context.Context, userCred mcclient.T
 			return nil, false
 		}
 		return func() error {
+			lockman.LockRawObject(ctx, ImageManager.Keyword(), "name")
+			defer lockman.ReleaseRawObject(ctx, ImageManager.Keyword(), "name")
+
 			name, _ := dict.GetString("name")
-			name, err := db.GenerateName(ImageManager, userCred, fmt.Sprintf("%s-%s-%d", name, "data", index))
+			name, err := db.GenerateName(ctx, ImageManager, userCred, fmt.Sprintf("%s-%s-%d", name, "data", index))
 			if err != nil {
 				return errors.Wrap(err, "fail to generate unique name")
 			}
@@ -437,8 +440,11 @@ func (self *SGuestImage) genUpdateImage(ctx context.Context, userCred mcclient.T
 
 	return func() error {
 		if dict.Contains("name") {
+			lockman.LockRawObject(ctx, ImageManager.Keyword(), "name")
+			defer lockman.ReleaseRawObject(ctx, ImageManager.Keyword(), "name")
+
 			name, _ := dict.GetString("name")
-			name, err := db.GenerateName(ImageManager, userCred, fmt.Sprintf("%s-%s", name, "root"))
+			name, err := db.GenerateName(ctx, ImageManager, userCred, fmt.Sprintf("%s-%s", name, "root"))
 			if err != nil {
 				return errors.Wrap(err, "fail to generate unique name")
 			}

@@ -986,6 +986,7 @@ func (self *SIdentityProvider) GetSingleDomain(ctx context.Context, extId string
 
 func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId string, extName string, extDesc string, createDefaultProject bool) (*SDomain, error) {
 	log.Debugf("SyncOrCreateDomain extId: %s extName: %s", extId, extName)
+
 	domainId, err := IdmappingManager.RegisterIdMap(ctx, self.Id, extId, api.IdMappingEntityDomain)
 	if err != nil {
 		return nil, errors.Wrap(err, "IdmappingManager.RegisterIdMap")
@@ -998,7 +999,7 @@ func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId str
 		// find the domain
 		if domain.Name != extName {
 			// sync domain name
-			newName, err := db.GenerateName2(DomainManager, nil, extName, domain, 1)
+			newName, err := db.GenerateName2(ctx, DomainManager, nil, extName, domain, 1)
 			if err != nil {
 				log.Errorf("sync existing domain name (%s=%s) generate fail %s", domain.Name, extName, err)
 			} else {
@@ -1015,22 +1016,26 @@ func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId str
 	}
 
 	// otherwise, create the domain
-	lockman.LockClass(ctx, DomainManager, "")
-	defer lockman.ReleaseClass(ctx, DomainManager, "")
-
 	domain = &SDomain{}
 	domain.SetModelManager(DomainManager, domain)
 	domain.Id = domainId
-	newName, err := db.GenerateName(DomainManager, nil, extName)
-	if err != nil {
-		return nil, errors.Wrap(err, "GenerateName")
-	}
-	domain.Name = newName
 	domain.Enabled = tristate.True
 	domain.IsDomain = tristate.True
 	domain.DomainId = api.KeystoneDomainRoot
 	domain.Description = fmt.Sprintf("domain for %s", extDesc)
-	err = DomainManager.TableSpec().Insert(ctx, domain)
+
+	err = func() error {
+		lockman.LockClass(ctx, DomainManager, "name")
+		defer lockman.ReleaseClass(ctx, DomainManager, "name")
+
+		newName, err := db.GenerateName(ctx, DomainManager, nil, extName)
+		if err != nil {
+			return errors.Wrap(err, "GenerateName")
+		}
+		domain.Name = newName
+
+		return DomainManager.TableSpec().Insert(ctx, domain)
+	}()
 	if err != nil {
 		return nil, errors.Wrap(err, "insert")
 	}
@@ -1105,14 +1110,20 @@ func (self *SIdentityProvider) SyncOrCreateUser(ctx context.Context, extId strin
 			user.Enabled = tristate.False
 		}
 		domainOwnerId := &db.SOwnerId{DomainId: domainId}
-		newName, err := db.GenerateName(UserManager, domainOwnerId, extName)
-		if err != nil {
-			return nil, errors.Wrapf(err, "db.GenerateName %s", extName)
-		}
+
 		user.Id = userId
-		user.Name = newName
 		user.DomainId = domainId
-		err = UserManager.TableSpec().Insert(ctx, user)
+		err = func() error {
+			lockman.LockRawObject(ctx, UserManager.Keyword(), "name")
+			defer lockman.ReleaseRawObject(ctx, UserManager.Keyword(), "name")
+
+			user.Name, err = db.GenerateName(ctx, UserManager, domainOwnerId, extName)
+			if err != nil {
+				return errors.Wrapf(err, "db.GenerateName %s", extName)
+			}
+
+			return UserManager.TableSpec().Insert(ctx, user)
+		}()
 		if err != nil {
 			return nil, errors.Wrap(err, "Insert")
 		}

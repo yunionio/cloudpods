@@ -107,8 +107,8 @@ func (self *SNetworkinterfacenetwork) Detach(ctx context.Context, userCred mccli
 }
 
 func (manager *SNetworkinterfacenetworkManager) SyncInterfaceAddresses(ctx context.Context, userCred mcclient.TokenCredential, networkinterface *SNetworkInterface, exts []cloudprovider.ICloudInterfaceAddress) compare.SyncResult {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, networkinterface.GetOwnerId()))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, networkinterface.GetOwnerId()))
+	lockman.LockRawObject(ctx, "interface-addrs", networkinterface.Id)
+	defer lockman.ReleaseRawObject(ctx, "interface-addrs", networkinterface.Id)
 
 	syncResult := compare.SyncResult{}
 

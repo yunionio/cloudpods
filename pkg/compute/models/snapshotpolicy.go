@@ -404,8 +404,8 @@ func (manager *SSnapshotPolicyManager) SyncSnapshotPolicies(ctx context.Context,
 	provider *SCloudprovider, region *SCloudregion, cloudSPs []cloudprovider.ICloudSnapshotPolicy,
 	syncOwnerId mcclient.IIdentityProvider) compare.SyncResult {
 
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
+	lockman.LockRawObject(ctx, "snapshotpolicies", fmt.Sprintf("%s-%s", provider.Id, region.Id))
+	defer lockman.ReleaseRawObject(ctx, "snapshotpolicies", fmt.Sprintf("%s-%s", provider.Id, region.Id))
 	syncResult := compare.SyncResult{}
 
 	// Fetch allsnapshotpolicy caches
@@ -546,7 +546,6 @@ func (manager *SSnapshotPolicyManager) newFromCloudSnapshotPolicy(
 	ctx context.Context, userCred mcclient.TokenCredential, snapshotpolicyCluster map[uint64][]*SSnapshotPolicy,
 	ext cloudprovider.ICloudSnapshotPolicy, region *SCloudregion, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider,
 ) (*SSnapshotPolicy, error) {
-
 	snapshotPolicyTmp := SSnapshotPolicy{}
 	snapshotPolicyTmp.RetentionDays = ext.GetRetentionDays()
 	arw, err := ext.GetRepeatWeekdays()
@@ -598,17 +597,22 @@ func (manager *SSnapshotPolicyManager) newFromCloudSnapshotPolicy(
 	// no such suitable snapshotpolicy
 	if snapshotPolicy == nil {
 		snapshotPolicyTmp.SetModelManager(manager, &snapshotPolicyTmp)
-		newName, err := db.GenerateName(manager, syncOwnerId, ext.GetName())
-		if err != nil {
-			return nil, err
-		}
-		snapshotPolicyTmp.Name = newName
 		snapshotPolicyTmp.Status = ext.GetStatus()
 
-		err = manager.TableSpec().Insert(ctx, &snapshotPolicyTmp)
+		var err = func() error {
+			lockman.LockRawObject(ctx, manager.Keyword(), "name")
+			defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+			newName, err := db.GenerateName(ctx, manager, syncOwnerId, ext.GetName())
+			if err != nil {
+				return err
+			}
+			snapshotPolicyTmp.Name = newName
+
+			return manager.TableSpec().Insert(ctx, &snapshotPolicyTmp)
+		}()
 		if err != nil {
-			log.Errorf("newFromCloudEip fail %s", err)
-			return nil, err
+			return nil, errors.Wrapf(err, "Insert")
 		}
 		// sync project
 		SyncCloudProject(userCred, &snapshotPolicyTmp, syncOwnerId, ext, provider.GetId())

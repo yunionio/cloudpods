@@ -335,8 +335,8 @@ func (self *SElasticip) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, eips []cloudprovider.ICloudEIP, syncOwnerId mcclient.IIdentityProvider) compare.SyncResult {
 	// ownerProjId := projectId
 
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
+	lockman.LockRawObject(ctx, "elasticip", region.Id)
+	defer lockman.ReleaseRawObject(ctx, "elasticip", region.Id)
 
 	// localEips := make([]SElasticip, 0)
 	// remoteEips := make([]cloudprovider.ICloudEIP, 0)
@@ -511,11 +511,6 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 	eip := SElasticip{}
 	eip.SetModelManager(manager, &eip)
 
-	newName, err := db.GenerateName(manager, syncOwnerId, extEip.GetName())
-	if err != nil {
-		return nil, err
-	}
-	eip.Name = newName
 	eip.Status = extEip.GetStatus()
 	eip.ExternalId = extEip.GetGlobalId()
 	eip.IpAddr = extEip.GetIpAddr()
@@ -544,10 +539,20 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 		eip.NetworkId = network.GetId()
 	}
 
-	err = manager.TableSpec().Insert(ctx, &eip)
+	var err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		newName, err := db.GenerateName(ctx, manager, syncOwnerId, extEip.GetName())
+		if err != nil {
+			return err
+		}
+		eip.Name = newName
+
+		return manager.TableSpec().Insert(ctx, &eip)
+	}()
 	if err != nil {
-		log.Errorf("newFromCloudEip fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "newFromCloudEip")
 	}
 
 	SyncCloudProject(userCred, &eip, syncOwnerId, extEip, eip.ManagerId)
@@ -1317,13 +1322,18 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 		eip.NetworkId = net.Id
 	}
 
-	var err error
-	eip.Name, err = db.GenerateName(manager, userCred, eip.Name)
-	if err != nil {
-		return nil, errors.Wrap(err, "db.GenerateName")
-	}
+	var err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
 
-	err = manager.TableSpec().Insert(ctx, eip)
+		var err error
+		eip.Name, err = db.GenerateName(ctx, manager, userCred, eip.Name)
+		if err != nil {
+			return errors.Wrap(err, "db.GenerateName")
+		}
+
+		return manager.TableSpec().Insert(ctx, eip)
+	}()
 	if err != nil {
 		return nil, errors.Wrapf(err, "TableSpec().Insert")
 	}

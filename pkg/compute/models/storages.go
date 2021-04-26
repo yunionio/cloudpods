@@ -674,8 +674,8 @@ func (manager *SStorageManager) scanLegacyStorages() error {
 }
 
 func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, storages []cloudprovider.ICloudStorage) ([]SStorage, []cloudprovider.ICloudStorage, compare.SyncResult) {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	lockman.LockRawObject(ctx, "storages", fmt.Sprintf("%s-%s", provider.Id, zone.Id))
+	defer lockman.ReleaseRawObject(ctx, "storages", fmt.Sprintf("%s-%s", provider.Id, zone.Id))
 
 	localStorages := make([]SStorage, 0)
 	remoteStorages := make([]cloudprovider.ICloudStorage, 0)
@@ -905,11 +905,6 @@ func (manager *SStorageManager) newFromCloudStorage(ctx context.Context, userCre
 	storage := SStorage{}
 	storage.SetModelManager(manager, &storage)
 
-	newName, err := db.GenerateName(manager, userCred, extStorage.GetName())
-	if err != nil {
-		return nil, err
-	}
-	storage.Name = newName
 	storage.Status = extStorage.GetStatus()
 	storage.ExternalId = extStorage.GetGlobalId()
 	storage.ZoneId = zone.Id
@@ -927,10 +922,20 @@ func (manager *SStorageManager) newFromCloudStorage(ctx context.Context, userCre
 
 	storage.IsSysDiskStore = tristate.NewFromBool(extStorage.IsSysDiskStore())
 
-	err = manager.TableSpec().Insert(ctx, &storage)
+	var err = func() error {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		newName, err := db.GenerateName(ctx, manager, userCred, extStorage.GetName())
+		if err != nil {
+			return err
+		}
+		storage.Name = newName
+
+		return manager.TableSpec().Insert(ctx, &storage)
+	}()
 	if err != nil {
-		log.Errorf("newFromCloudStorage fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "Insert")
 	}
 
 	SyncCloudDomain(userCred, &storage, provider.GetOwnerId())

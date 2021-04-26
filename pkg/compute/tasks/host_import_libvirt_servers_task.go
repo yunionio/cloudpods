@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -95,31 +96,36 @@ func (self *HostImportLibvirtServersTask) StartImportServers(
 			originId string         = guestsDesc[i].Id
 		)
 
-		err := self.FillLibvirtGuestDesc(ctx, host, &guestsDesc[i])
-		if err != nil {
-			note = fmt.Sprintf("Guest %s desc fill failed: %s", guestsDesc[i].Id, err)
-			success = false
-		} else {
-			guest, err = models.GuestManager.DoImport(ctx, self.UserCred, &guestsDesc[i])
+		func() {
+			lockman.LockRawObject(ctx, models.GuestManager.Keyword(), "name")
+			defer lockman.ReleaseRawObject(ctx, models.GuestManager.Keyword(), "name")
+
+			err := self.FillLibvirtGuestDesc(ctx, host, &guestsDesc[i])
 			if err != nil {
-				note = fmt.Sprintf("Guest %s import failed: %s", guestsDesc[i].Id, err)
+				note = fmt.Sprintf("Guest %s desc fill failed: %s", guestsDesc[i].Id, err)
 				success = false
 			} else {
-				meta := map[string]interface{}{
-					"__is_import":    "true",
-					"__origin_id":    originId,
-					"__monitor_path": guestsDesc[i].MonitorPath,
-				}
-				guest.SetAllMetadata(ctx, meta, self.UserCred)
-				if err := self.CreateImportedLibvirtGuestOnHost(ctx, host, guest, &guestsDesc[i]); err != nil {
-					note = fmt.Sprintf("Guest  %s create on host failed: %s", guestsDesc[i].Id, err)
+				guest, err = models.GuestManager.DoImport(ctx, self.UserCred, &guestsDesc[i])
+				if err != nil {
+					note = fmt.Sprintf("Guest %s import failed: %s", guestsDesc[i].Id, err)
 					success = false
 				} else {
-					note = fmt.Sprintf("Guest %s import success, started create on host", guestsDesc[i].Id)
-					success = true
+					meta := map[string]interface{}{
+						"__is_import":    "true",
+						"__origin_id":    originId,
+						"__monitor_path": guestsDesc[i].MonitorPath,
+					}
+					guest.SetAllMetadata(ctx, meta, self.UserCred)
+					if err := self.CreateImportedLibvirtGuestOnHost(ctx, host, guest, &guestsDesc[i]); err != nil {
+						note = fmt.Sprintf("Guest  %s create on host failed: %s", guestsDesc[i].Id, err)
+						success = false
+					} else {
+						note = fmt.Sprintf("Guest %s import success, started create on host", guestsDesc[i].Id)
+						success = true
+					}
 				}
 			}
-		}
+		}()
 
 		if success {
 			db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_LIBVIRT_SERVERS, note, self.UserCred)
@@ -142,7 +148,7 @@ func (self *HostImportLibvirtServersTask) FillLibvirtGuestDesc(
 	// Generate new uuid for guest to prevent duplicate
 	guestDesc.Id = stringutils.UUID4()
 	guestDesc.HostId = host.Id
-	newName, err := db.GenerateName(models.GuestManager, self.UserCred, guestDesc.Name)
+	newName, err := db.GenerateName(ctx, models.GuestManager, self.UserCred, guestDesc.Name)
 	if err != nil {
 		return err
 	}

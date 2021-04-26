@@ -185,8 +185,8 @@ func (man *SHuaweiCachedLbbgManager) getLoadbalancerBackendgroupsByLoadbalancer(
 func (man *SHuaweiCachedLbbgManager) SyncLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, lb *SLoadbalancer, lbbgs []cloudprovider.ICloudLoadbalancerBackendGroup, syncRange *SSyncRange) ([]SHuaweiCachedLbbg, []cloudprovider.ICloudLoadbalancerBackendGroup, compare.SyncResult) {
 	syncOwnerId := provider.GetOwnerId()
 
-	lockman.LockClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
-	defer lockman.ReleaseClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
+	lockman.LockRawObject(ctx, "backendgroups", fmt.Sprintf("%s-%s", provider.Id, lb.Id))
+	defer lockman.ReleaseRawObject(ctx, "backendgroups", fmt.Sprintf("%s-%s", provider.Id, lb.Id))
 
 	localLbgs := []SHuaweiCachedLbbg{}
 	remoteLbbgs := []cloudprovider.ICloudLoadbalancerBackendGroup{}
@@ -349,17 +349,22 @@ func (man *SHuaweiCachedLbbgManager) newFromCloudLoadbalancerBackendgroup(ctx co
 	lbbg.ExternalId = extLoadbalancerBackendgroup.GetGlobalId()
 	lbbg.ProtocolType = extLoadbalancerBackendgroup.GetProtocolType()
 
-	newName, err := db.GenerateName(man, syncOwnerId, LocalLbbg.GetName())
-	if err != nil {
-		return nil, err
-	}
-
-	lbbg.Name = newName
 	lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
 
-	err = man.TableSpec().Insert(ctx, lbbg)
+	err = func() error {
+		lockman.LockRawObject(ctx, man.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, man.Keyword(), "name")
+
+		newName, err := db.GenerateName(ctx, man, syncOwnerId, LocalLbbg.GetName())
+		if err != nil {
+			return err
+		}
+		lbbg.Name = newName
+
+		return man.TableSpec().Insert(ctx, lbbg)
+	}()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Insert")
 	}
 
 	SyncCloudProject(userCred, lbbg, syncOwnerId, extLoadbalancerBackendgroup, provider.Id)
@@ -378,18 +383,23 @@ func newLocalBackendgroupFromCloudLoadbalancerBackendgroup(ctx context.Context, 
 	// lbbg.ManagerId = lb.ManagerId
 	lbbg.ExternalId = ""
 
-	newName, err := db.GenerateName(localman, syncOwnerId, extLoadbalancerBackendgroup.GetName())
-	if err != nil {
-		return nil, err
-	}
-
-	lbbg.Name = newName
 	lbbg.Type = extLoadbalancerBackendgroup.GetType()
 	lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
 
-	err = localman.TableSpec().Insert(ctx, lbbg)
+	var err = func() error {
+		lockman.LockRawObject(ctx, localman.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, localman.Keyword(), "name")
+
+		newName, err := db.GenerateName(ctx, localman, syncOwnerId, extLoadbalancerBackendgroup.GetName())
+		if err != nil {
+			return err
+		}
+		lbbg.Name = newName
+
+		return localman.TableSpec().Insert(ctx, lbbg)
+	}()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Insert")
 	}
 
 	SyncCloudProject(userCred, lbbg, syncOwnerId, extLoadbalancerBackendgroup, provider.Id)

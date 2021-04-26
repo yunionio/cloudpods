@@ -356,8 +356,8 @@ func (m *SSnapshotPolicyDiskManager) SyncByDisk(ctx context.Context, userCred mc
 func (m *SSnapshotPolicyDiskManager) SyncAttachDisk(ctx context.Context, userCred mcclient.TokenCredential,
 	Snapshotpolicies []string, syncOwnerID mcclient.IIdentityProvider, disk *SDisk) error {
 
-	lockman.LockClass(ctx, m, db.GetLockClassKey(m, syncOwnerID))
-	defer lockman.ReleaseClass(ctx, m, db.GetLockClassKey(m, syncOwnerID))
+	lockman.LockRawObject(ctx, "snapshot-policies", disk.Id)
+	defer lockman.ReleaseRawObject(ctx, "snapshot-policies", disk.Id)
 
 	failRecord := make([]string, 0, 1)
 	for _, spId := range Snapshotpolicies {

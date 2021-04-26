@@ -472,11 +472,6 @@ func (self *SCloudregion) getZoneIdBySuffix(zoneId string) (string, error) {
 func (self *SCloudregion) newFromCloudFileSystem(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, fs cloudprovider.ICloudFileSystem) (*SFileSystem, error) {
 	nas := SFileSystem{}
 	nas.SetModelManager(FileSystemManager, &nas)
-	var err error
-	nas.Name, err = db.GenerateName(FileSystemManager, userCred, fs.GetName())
-	if err != nil {
-		return nil, errors.Wrapf(err, "db.GenerateName")
-	}
 	nas.ExternalId = fs.GetGlobalId()
 	nas.CloudregionId = self.Id
 	nas.ManagerId = provider.Id
@@ -491,7 +486,18 @@ func (self *SCloudregion) newFromCloudFileSystem(ctx context.Context, userCred m
 	if zoneId := fs.GetZoneId(); len(zoneId) > 0 {
 		nas.ZoneId, _ = self.getZoneIdBySuffix(zoneId)
 	}
-	return &nas, FileSystemManager.TableSpec().Insert(ctx, &nas)
+	return func() (*SFileSystem, error) {
+		lockman.LockRawObject(ctx, FileSystemManager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, FileSystemManager.Keyword(), "name")
+
+		var err error
+		nas.Name, err = db.GenerateName(ctx, FileSystemManager, userCred, fs.GetName())
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.GenerateName")
+		}
+
+		return &nas, FileSystemManager.TableSpec().Insert(ctx, &nas)
+	}()
 }
 
 func (self *SFileSystem) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
