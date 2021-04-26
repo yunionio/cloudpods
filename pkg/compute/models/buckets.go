@@ -547,7 +547,7 @@ func (bucket *SBucket) RemoteCreate(ctx context.Context, userCred mcclient.Token
 	}
 	tags, _ := bucket.GetAllUserMetadata()
 	if len(tags) > 0 {
-		_, err = cloudprovider.SetBucketTags(extBucket, tags)
+		_, err = cloudprovider.SetBucketTags(ctx, extBucket, bucket.ManagerId, tags)
 		if err != nil {
 			logclient.AddSimpleActionLog(bucket, logclient.ACT_UPDATE_TAGS, err, userCred, false)
 		}
@@ -1912,7 +1912,7 @@ func (bucket *SBucket) OnMetadataUpdated(ctx context.Context, userCred mcclient.
 	if err != nil {
 		return
 	}
-	diff, err := cloudprovider.SetBucketTags(iBucket, tags)
+	diff, err := cloudprovider.SetBucketTags(ctx, iBucket, bucket.ManagerId, tags)
 	if err != nil {
 		logclient.AddSimpleActionLog(bucket, logclient.ACT_UPDATE_TAGS, err, userCred, false)
 		return
