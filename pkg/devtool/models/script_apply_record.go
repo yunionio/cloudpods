@@ -35,6 +35,7 @@ type SScriptApplyRecord struct {
 	StartTime     time.Time `list:"user"`
 	EndTime       time.Time `list:"user"`
 	Reason        string    `list:"user"`
+	FailCode      string    `list:"user"`
 }
 
 type SScriptApplyRecordManager struct {
@@ -159,20 +160,21 @@ func (sar *SScriptApplyRecord) GetOwnerId() mcclient.IIdentityProvider {
 	return obj.GetOwnerId()
 }
 
-func (sar *SScriptApplyRecord) SetResult(status, reason string) error {
+func (sar *SScriptApplyRecord) SetResult(status, failCode, reason string) error {
 	_, err := db.Update(sar, func() error {
 		sar.Status = status
 		sar.Reason = reason
+		sar.FailCode = failCode
 		sar.EndTime = time.Now()
 		return nil
 	})
 	return err
 }
 
-func (sar *SScriptApplyRecord) Fail(reason string) error {
-	return sar.SetResult(api.SCRIPT_APPLY_RECORD_FAILED, reason)
+func (sar *SScriptApplyRecord) Fail(code string, reason string) error {
+	return sar.SetResult(api.SCRIPT_APPLY_RECORD_FAILED, code, reason)
 }
 
 func (sar *SScriptApplyRecord) Succeed(reason string) error {
-	return sar.SetResult(api.SCRIPT_APPLY_RECORD_SUCCEED, reason)
+	return sar.SetResult(api.SCRIPT_APPLY_RECORD_SUCCEED, "", reason)
 }
