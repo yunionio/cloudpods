@@ -204,6 +204,7 @@ func (dash *SAlertDashBoard) getAttachPanels() ([]SAlertPanel, error) {
 	sq := AlertDashBoardPanelManager.Query(AlertDashBoardPanelManager.GetSlaveFieldName()).Equals(
 		AlertDashBoardPanelManager.GetMasterFieldName(), dash.Id).SubQuery()
 	panelQuery = panelQuery.In("id", sq)
+	panelQuery = panelQuery.Desc("created_at")
 	err := db.FetchModelObjects(AlertPanelManager, panelQuery, &panels)
 	if err != nil {
 		return panels, errors.Wrapf(err, "dashboard:%s get attach panels error", dash.Name)
