@@ -117,10 +117,10 @@ func (man *SAlertPanelManager) ValidateCreateData(
 		}
 	}
 
-	name, err := db.GenerateName(man, ownerId, data.Name)
-	if err != nil {
-		return data, err
-	}
+	//name, err := db.GenerateName(man, ownerId, data.Name)
+	//if err != nil {
+	//	return data, err
+	//}
 
 	alertCreateInput := man.toAlertCreateInput(data)
 	data.AlertCreateInput = alertCreateInput
@@ -129,8 +129,12 @@ func (man *SAlertPanelManager) ValidateCreateData(
 		data.Enabled = &enable
 	}
 
-	data.Name = name
+	//data.Name = name
 	return data, nil
+}
+
+func (man *SAlertPanelManager) HasName() bool {
+	return false
 }
 
 func (man *SAlertPanelManager) toAlertCreateInput(input monitor.AlertPanelCreateInput) monitor.AlertCreateInput {
