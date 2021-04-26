@@ -840,7 +840,7 @@ func DeleteBucketCORS(ibucket ICloudBucket, id []string) ([]SBucketCORSRule, err
 	return deletedRules, nil
 }
 
-func SetBucketTags(iBucket ICloudBucket, tags map[string]string) (TagsUpdateInfo, error) {
+func SetBucketTags(ctx context.Context, iBucket ICloudBucket, mangerId string, tags map[string]string) (TagsUpdateInfo, error) {
 	ret := TagsUpdateInfo{}
 	old, err := iBucket.GetTags()
 	if err != nil {
@@ -853,5 +853,5 @@ func SetBucketTags(iBucket ICloudBucket, tags map[string]string) (TagsUpdateInfo
 	if !ret.IsChanged() {
 		return ret, nil
 	}
-	return ret, iBucket.SetTags(tags, true)
+	return ret, SetTags(ctx, iBucket, mangerId, tags, true)
 }
