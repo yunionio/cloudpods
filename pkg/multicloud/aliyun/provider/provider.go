@@ -283,7 +283,7 @@ func (self *SAliyunProvider) GetBalance() (float64, string, error) {
 	}
 	status := api.CLOUD_PROVIDER_HEALTH_NORMAL
 	if balance.CreditAmount+balance.MybankCreditAmount <= 0 {
-		if balance.AvailableAmount <= 0 {
+		if balance.AvailableAmount < 0 {
 			status = api.CLOUD_PROVIDER_HEALTH_ARREARS
 		} else if balance.AvailableAmount < 100 {
 			status = api.CLOUD_PROVIDER_HEALTH_INSUFFICIENT
