@@ -87,6 +87,10 @@ func (v *ValidatorAnsiblePlaybook) Validate(data *jsonutils.JSONDict) error {
 			}
 		}
 	}
+	// add LF for privateKey
+	if len(pb.PrivateKey) > 0 && pb.PrivateKey[len(pb.PrivateKey)-1] != 10 {
+		pb.PrivateKey = append(pb.PrivateKey, 10)
+	}
 	pbJson := jsonutils.Marshal(pb)
 	if serialized := pbJson.String(); len(serialized) > PlaybookMaxBytes {
 		return httperrors.NewBadRequestError("playbook too big, got %d bytes, exceeding %d",
