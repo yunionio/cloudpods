@@ -139,6 +139,9 @@ func (ai *SAnsiblePlaybookInstance) runPlaybook(ctx context.Context, userCred mc
 	}
 
 	convertJO := func(o jsonutils.JSONObject) map[string]interface{} {
+		if o == nil {
+			return map[string]interface{}{}
+		}
 		ret := make(map[string]interface{})
 		o.Unmarshal(&ret)
 		return ret
