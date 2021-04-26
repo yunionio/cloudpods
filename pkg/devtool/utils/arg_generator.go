@@ -12,23 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package devtool
+package utils
 
-const (
-	SCRIPT_APPLY_STATUS_APPLYING     = "applying"
-	SCRIPT_APPLY_STATUS_APPLY_FAILED = "apply_failed"
-	SCRIPT_APPLY_STATUS_READY        = "ready"
-
-	SCRIPT_APPLY_RECORD_APPLYING = "applying"
-	SCRIPT_APPLY_RECORD_SUCCEED  = "succeed"
-	SCRIPT_APPLY_RECORD_FAILED   = "failed"
-
-	SCRIPT_APPLY_RECORD_FAILCODE_SSHABLE  = "ServerNotSshable"
-	SCRIPT_APPLY_RECORD_FAILCODE_INFLUXDB = "NoReachInfluxdb"
-	SCRIPT_APPLY_RECORD_FAILCODE_OTHERS   = "Others"
-
-	SCRIPT_NAME  = "monitor agent"
-	SERVICE_TYPE = "devtool"
-
-	SCRIPT_STATUS_READY = "ready"
+import (
+	"context"
+	"sync"
 )
+
+type argGenerator func(ctx context.Context, serverId, proxyEndpointId string, others interface{}) (map[string]interface{}, error)
+
+var argGenerators = &sync.Map{}
+
+func RegisterArgGenerator(name string, ag argGenerator) {
+	argGenerators.Store(name, ag)
+}
+
+func GetArgGenerator(name string) (argGenerator, bool) {
+	v, ok := argGenerators.Load(name)
+	if !ok {
+		return nil, ok
+	}
+	return v.(argGenerator), ok
+}
