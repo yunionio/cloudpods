@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/ansibleserver/options"
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/ansible"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -192,6 +193,10 @@ func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.
 		} else {
 			pb.PrivateKey = []byte(k)
 		}
+	}
+	// init tmpdir clean policy
+	if options.Options.KeepTmpdir {
+		pb.CleanOnExit(false)
 	}
 	pb.OutputWriter(&ansiblePlaybookOutputWriter{apb})
 
