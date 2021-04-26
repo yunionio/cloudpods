@@ -48,7 +48,6 @@ func InitHandlers(app *appsrv.Application) {
 		taskman.TaskManager,
 		taskman.SubTaskManager,
 		taskman.TaskObjectManager,
-		db.Metadata,
 		models.SensitiveConfigManager,
 		models.WhitelistedConfigManager,
 		models.IdmappingManager,
@@ -78,6 +77,8 @@ func InitHandlers(app *appsrv.Application) {
 
 	for _, manager := range []db.IModelManager{
 		db.OpsLog,
+		db.Metadata,
+
 		models.UserManager,
 		models.GroupManager,
 		models.ProjectManager,
