@@ -57,5 +57,8 @@ func Init(initPrivatePrefixes []string, cloudrootDir string) error {
 	}
 	hostCpuArch = strings.TrimSpace(string(cpuArch))
 	cloudrootDirectory = cloudrootDir
+	if len(cloudrootDirectory) == 0 {
+		cloudrootDirectory = "/opt"
+	}
 	return nil
 }
