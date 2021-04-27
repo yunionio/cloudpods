@@ -107,7 +107,8 @@ func (dash *SAlertDashBoard) CustomizeCreate(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) error {
-	return dash.SScopedResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	//return dash.SScopedResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	return nil
 }
 
 func (dash *SAlertDashBoard) PostCreate(ctx context.Context,
