@@ -50,7 +50,6 @@ type ComputeOptions struct {
 	LoadbalancerPendingDeleteCheckInterval int `default:"3600" help:"Interval between checks of pending deleted loadbalancer objects, defaults to 1h"`
 
 	ImageCacheStoragePolicy string `default:"least_used" choices:"best_fit|least_used" help:"Policy to choose storage for image cache, best_fit or least_used"`
-	ImageCacheFromHost      bool   `default:"false" help:"Download cached image from host"`
 	MetricsRetentionDays    int32  `default:"30" help:"Retention days for monitoring metrics in influxdb"`
 
 	DefaultBandwidth int `default:"1000" help:"Default bandwidth"`
