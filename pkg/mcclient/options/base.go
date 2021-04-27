@@ -406,3 +406,15 @@ type BaseShowOptions struct {
 func (o BaseShowOptions) Params() (jsonutils.JSONObject, error) {
 	return StructToParams(o)
 }
+
+type ChangeOwnerOptions struct {
+	BaseIdOptions
+	ProjectDomain string `json:"project_domain" help:"target domain"`
+}
+
+func (o ChangeOwnerOptions) Params() (jsonutils.JSONObject, error) {
+	if len(o.ProjectDomain) == 0 {
+		return nil, fmt.Errorf("empty project_domain")
+	}
+	return jsonutils.Marshal(map[string]string{"project_domain": o.ProjectDomain}), nil
+}
