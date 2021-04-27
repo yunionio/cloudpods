@@ -155,15 +155,15 @@ func (l *SLocalImageCache) Release() {
 	l.consumerCount -= 1
 }
 
-func (l *SLocalImageCache) Acquire(ctx context.Context, zone, srcUrl, format string) bool {
-	ret, exit := l.prepare(ctx, zone, srcUrl, format)
+func (l *SLocalImageCache) Acquire(ctx context.Context, zone, srcUrl, format, preChksum string) bool {
+	ret, exit := l.prepare(ctx, zone, srcUrl, format, preChksum)
 	if exit {
 		return ret
 	}
 	return l.fetch(ctx, zone, srcUrl, format)
 }
 
-func (l *SLocalImageCache) prepare(ctx context.Context, zone, srcUrl, format string) (bool, bool) {
+func (l *SLocalImageCache) prepare(ctx context.Context, zone, srcUrl, format, preChksum string) (bool, bool) {
 	l.cond.L.Lock()
 	defer l.cond.L.Unlock()
 
@@ -187,7 +187,7 @@ func (l *SLocalImageCache) prepare(ctx context.Context, zone, srcUrl, format str
 	url += fmt.Sprintf("?format=%s&scope=system", format)
 
 	l.remoteFile = remotefile.NewRemoteFile(ctx, url,
-		l.GetPath(), false, "", -1, nil, l.GetTmpPath(), srcUrl)
+		l.GetPath(), false, preChksum, -1, nil, l.GetTmpPath(), srcUrl)
 	return false, false
 }
 

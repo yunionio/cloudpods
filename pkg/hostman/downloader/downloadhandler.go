@@ -60,6 +60,8 @@ func AddDownloadHandler(prefix string, app *appsrv.Application) {
 		app.AddHandler("HEAD",
 			fmt.Sprintf("%s/%s/snapshots/<storageId>/<diskId>/<snapshotId>",
 				prefix, kerword), auth.Authenticate(snapshotHead))
+		app.AddHandler("HEAD",
+			fmt.Sprintf("%s/%s/images/<id>", prefix, kerword), auth.Authenticate(imageCacheHead))
 	}
 }
 
@@ -196,5 +198,18 @@ func snapshotHead(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		if err := hand.HandlerHead(); err != nil {
 			hostutils.Response(ctx, w, err)
 		}
+	}
+}
+
+func imageCacheHead(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	params, _, _ := appsrv.FetchEnv(ctx, w, r)
+	imageId := params["<id>"]
+	rateLimit := options.HostOptions.BandwidthLimit
+	compress := isCompress(r)
+
+	hand := NewImageCacheDownloadProvider(w, compress, rateLimit, imageId)
+
+	if err := hand.HandlerHead(); err != nil {
+		hostutils.Response(ctx, w, err)
 	}
 }
