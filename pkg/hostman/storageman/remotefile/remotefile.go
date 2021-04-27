@@ -114,12 +114,18 @@ func (r *SRemoteFile) GetInfo() *SImageDesc {
 }
 
 func (r *SRemoteFile) VerifyIntegrity() bool {
-	if r.download(false, "") {
-		localChksum, err := fileutils2.MD5(r.localPath)
-		if err != nil {
-			log.Errorln(err)
-			return false
+	localChksum, err := fileutils2.MD5(r.localPath)
+	if err != nil {
+		log.Errorf("MD5SUM local file %s error: %v", r.localPath, err)
+		return false
+	}
+	if r.preChksum != "" {
+		if localChksum == r.preChksum {
+			log.Infof("Identical preChksum, skip download")
+			return true
 		}
+	}
+	if r.download(false, "") {
 		if localChksum == r.chksum {
 			log.Infof("Identical chksum, skip download")
 			return true
@@ -204,10 +210,10 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string) bool {
 		}
 	}
 	var method, url = "HEAD", r.url
+	if len(r.downloadUrl) > 0 {
+		url = r.downloadUrl
+	}
 	if getData {
-		if len(r.downloadUrl) > 0 {
-			url = r.downloadUrl
-		}
 		method = "GET"
 	}
 
@@ -274,7 +280,7 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string) bool {
 			}
 			return true
 		} else {
-			log.Errorf("Remote file fetch error %d", resp.StatusCode)
+			log.Errorf("Remote file fetch %s %s error %d", method, url, resp.StatusCode)
 			return false
 		}
 	}

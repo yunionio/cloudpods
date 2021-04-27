@@ -24,7 +24,7 @@ type IImageCache interface {
 	GetPath() string
 	GetName() string
 	Load() bool
-	Acquire(ctx context.Context, zone, srcUrl, format string) bool
+	Acquire(ctx context.Context, zone, srcUrl, format, checksum string) bool
 	Release()
 	Remove(ctx context.Context) error
 	GetImageId() string
