@@ -51,13 +51,13 @@ func (self *SRbdStorageDriver) ValidateCreateData(ctx context.Context, userCred 
 	if len(input.RbdMonHost) == 0 {
 		return httperrors.NewMissingParameterError("rbd_mon_host")
 	}
-	input.MonHost = input.RbdMonHost
+	input.MonHost = strings.ReplaceAll(input.RbdMonHost, " ", "")
 
 	if len(input.RbdPool) == 0 {
 		return httperrors.NewMissingParameterError("rbd_pool")
 	}
-	input.Pool = input.RbdPool
-	input.Key = input.RbdKey
+	input.Pool = strings.Trim(input.RbdPool, " ")
+	input.Key = strings.Trim(input.RbdKey, " ")
 
 	input.RadosMonOpTimeout = input.RbdRadosMonOpTimeout
 	if input.RadosMonOpTimeout <= 0 {
@@ -99,35 +99,23 @@ func (self *SRbdStorageDriver) ValidateCreateData(ctx context.Context, userCred 
 	return nil
 }
 
-func (self *SRbdStorageDriver) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, storage *models.SStorage) (*jsonutils.JSONDict, error) {
-	conf, ok := storage.StorageConf.(*jsonutils.JSONDict)
-	if !ok {
-		conf = jsonutils.NewDict()
-	}
-	data.Set("update_storage_conf", jsonutils.JSONFalse)
-	for _, k := range []string{"rbd_rados_mon_op_timeout", "rbd_rados_osd_op_timeout", "rbd_client_mount_timeout"} {
-		if timeout, _ := data.Int(k); timeout > 0 {
-			conf.Set(strings.TrimPrefix(k, "rbd_"), jsonutils.NewInt(timeout))
-			data.Set("update_storage_conf", jsonutils.JSONTrue)
+func (self *SRbdStorageDriver) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, input api.StorageUpdateInput) (api.StorageUpdateInput, error) {
+	for k, v := range map[string]int{
+		"rados_mon_op_timeout": input.RbdRadosMonOpTimeout,
+		"rados_osd_op_timeout": input.RbdRadosOsdOpTimeout,
+		"client_mount_timeout": input.RbdClientMountTimeout} {
+		if v > 0 {
+			input.StorageConf.Set(k, jsonutils.NewInt(int64(v)))
+			input.UpdateStorageConf = true
 		}
 	}
 
-	if key, _ := data.GetString("rbd_key"); len(key) > 0 {
-		conf.Set("key", jsonutils.NewString(key))
-		data.Set("update_storage_conf", jsonutils.JSONTrue)
+	if len(input.RbdKey) > 0 {
+		input.StorageConf.Set("key", jsonutils.NewString(strings.Trim(input.RbdKey, " ")))
+		input.UpdateStorageConf = true
 	}
 
-	if update, _ := data.Bool("update_storage_conf"); update {
-		_, err := storage.GetModelManager().TableSpec().Update(ctx, storage, func() error {
-			storage.StorageConf = conf
-			return nil
-		})
-		if err != nil {
-			return nil, httperrors.NewGeneralError(err)
-		}
-	}
-
-	return data, nil
+	return input, nil
 }
 
 func (self *SRbdStorageDriver) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, storage *models.SStorage, data jsonutils.JSONObject) {

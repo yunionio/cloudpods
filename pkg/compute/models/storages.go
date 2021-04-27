@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -125,12 +126,22 @@ func (self *SStorage) AllowUpdateItem(ctx context.Context, userCred mcclient.Tok
 	return db.IsAdminAllowUpdate(userCred, self)
 }
 
-func (self *SStorage) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SStorage) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.StorageUpdateInput) (api.StorageUpdateInput, error) {
+	var err error
+	input.EnabledStatusInfrasResourceBaseUpdateInput, err = self.SEnabledStatusInfrasResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusInfrasResourceBaseUpdateInput)
+	if err != nil {
+		return input, err
+	}
+	if self.StorageConf != nil {
+		input.StorageConf = self.StorageConf.(*jsonutils.JSONDict)
+	} else {
+		input.StorageConf = jsonutils.NewDict()
+	}
 	driver := GetStorageDriver(self.StorageType)
 	if driver != nil {
-		return driver.ValidateUpdateData(ctx, userCred, data, self)
+		return driver.ValidateUpdateData(ctx, userCred, input)
 	}
-	return data, nil
+	return input, nil
 }
 
 func (self *SStorage) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -199,22 +210,22 @@ func (manager *SStorageManager) ValidateCreateData(
 	query jsonutils.JSONObject,
 	input api.StorageCreateInput,
 ) (api.StorageCreateInput, error) {
-	var err error
-
 	if !utils.IsInStringArray(input.StorageType, api.STORAGE_TYPES) {
 		return input, httperrors.NewInputParameterError("Invalid storage type %s", input.StorageType)
+	}
+	if len(input.MediumType) == 0 {
+		input.MediumType = api.DISK_TYPE_SSD
 	}
 	if !utils.IsInStringArray(input.MediumType, api.DISK_TYPES) {
 		return input, httperrors.NewInputParameterError("Invalid medium type %s", input.MediumType)
 	}
 	if len(input.ZoneId) == 0 {
-		return input, httperrors.NewMissingParameterError("zone")
+		return input, httperrors.NewMissingParameterError("zone_id")
 	}
-	_, input.ZoneResourceInput, err = ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
+	_, err := validators.ValidateModel(userCred, ZoneManager, &input.ZoneId)
 	if err != nil {
-		return input, errors.Wrap(err, "ValidateZoneResourceInput")
+		return input, err
 	}
-
 	storageDirver := GetStorageDriver(input.StorageType)
 	if storageDirver == nil {
 		return input, httperrors.NewUnsupportOperationError("Not support create %s storage", input.StorageType)
