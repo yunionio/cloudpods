@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/ansibleserver/options"
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/ansible"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -186,10 +187,16 @@ func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.
 
 	// init private key
 	pb := apb.Playbook.Copy()
-	if k, err := mcclient_modules.Sshkeypairs.FetchPrivateKey(ctx, userCred); err != nil {
-		return err
-	} else {
-		pb.PrivateKey = []byte(k)
+	if len(pb.PrivateKey) == 0 {
+		if k, err := mcclient_modules.Sshkeypairs.FetchPrivateKey(ctx, userCred); err != nil {
+			return err
+		} else {
+			pb.PrivateKey = []byte(k)
+		}
+	}
+	// init tmpdir clean policy
+	if options.Options.KeepTmpdir {
+		pb.CleanOnExit(false)
 	}
 	pb.OutputWriter(&ansiblePlaybookOutputWriter{apb})
 
