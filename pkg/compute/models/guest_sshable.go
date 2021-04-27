@@ -283,6 +283,10 @@ func (guest *SGuest) sshableTryForward(
 			Method: compute_api.MethodProxyForward,
 			Host:   fwd.BindAddr,
 			Port:   fwd.BindPort,
+			ForwardDetails: compute_api.ForwardDetails{
+				ProxyAgentId:    fwd.ProxyAgentId,
+				ProxyEndpointId: fwd.ProxyEndpointId,
+			},
 		}
 		return guest.sshableTry(
 			ctx, tryData, methodData,

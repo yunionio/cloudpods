@@ -21,14 +21,6 @@ type ScriptApplyInput struct {
 	// required: true
 	// example: b48c5c84-9952-4394-8ca9-c3b84e946a03
 	ServerID string
-	// description: whether to use eip first
-	// example: true
-	EipFirst bool
-	// description: Id of proxyEndpoint
-	// example: cf1d1a0f-9b9d-4629-8036-af3ed87c0821
-	ProxyEndpointId string
-	// description: whether to automatically select proxy endpoint
-	AutoChooseProxyEndpoint bool
 }
 
 type ScriptApplyOutput struct {
@@ -77,8 +69,6 @@ type ScriptDetails struct {
 }
 
 type SApplyInfo struct {
-	ServerId        string
-	EipFirst        bool
-	ProxyEndpointId string
-	TryTimes        int
+	ServerId string
+	TryTimes int
 }

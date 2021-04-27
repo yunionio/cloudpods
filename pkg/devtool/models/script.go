@@ -16,26 +16,18 @@ package models
 
 import (
 	"context"
-	"fmt"
-	"net/url"
-	"sync"
-
-	"github.com/coredns/coredns/plugin/pkg/log"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/sets"
 
-	proxy_api "yunion.io/x/onecloud/pkg/apis/cloudproxy"
 	comapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/devtool"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/devtool/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/cloudproxy"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -63,110 +55,7 @@ func init() {
 		),
 	}
 	ScriptManager.SetVirtualObject(ScriptManager)
-	registerArgGenerator(MonitorAgent, getArgs)
-}
-
-type argGenerator func(ctx context.Context, input api.ScriptApplyInput, details *comapi.ServerDetails) (map[string]interface{}, error)
-
-var argGenerators = &sync.Map{}
-
-func registerArgGenerator(name string, ag argGenerator) {
-	argGenerators.Store(name, ag)
-}
-
-func getArgGenerator(name string) (argGenerator, bool) {
-	v, ok := argGenerators.Load(name)
-	if !ok {
-		return nil, ok
-	}
-	return v.(argGenerator), ok
-}
-
-func convertInfluxdbUrl(ctx context.Context, pUrl string, endpointId string) (string, error) {
-	session := auth.AdminSessionWithInternal(ctx, "", "", "")
-	filter := jsonutils.NewDict()
-	filter.Set("proxy_endpoint_id", jsonutils.NewString(endpointId))
-	filter.Set("opaque", jsonutils.NewString(pUrl))
-	filter.Set("scope", jsonutils.NewString("system"))
-	lr, err := cloudproxy.Forwards.List(session, filter)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to list forward")
-	}
-	var port int64
-	if len(lr.Data) > 0 {
-		port, _ = lr.Data[0].Int("bind_port")
-	} else {
-		rUrl, err := url.Parse(pUrl)
-		if err != nil {
-			return "", errors.Wrap(err, "invalid influxdbUrl?")
-		}
-		// create one
-		createP := jsonutils.NewDict()
-		createP.Set("proxy_endpoint", jsonutils.NewString(endpointId))
-		createP.Set("type", jsonutils.NewString(proxy_api.FORWARD_TYPE_REMOTE))
-		createP.Set("remote_addr", jsonutils.NewString(rUrl.Hostname()))
-		createP.Set("remote_port", jsonutils.NewString(rUrl.Port()))
-		createP.Set("generate_name", jsonutils.NewString("influxdb proxy"))
-		createP.Set("opaque", jsonutils.NewString(pUrl))
-		forward, err := cloudproxy.Forwards.Create(session, createP)
-		if err != nil {
-			return "", errors.Wrapf(err, "unable to create forward with create params %s", createP.String())
-		}
-		port, _ = forward.Int("bind_port")
-	}
-	// fetch proxy_endpoint address
-	ep, err := cloudproxy.ProxyEndpoints.Get(session, endpointId, nil)
-	if err != nil {
-		return "", errors.Wrapf(err, "unable to get proxy endpoint %s", endpointId)
-	}
-	address, _ := ep.GetString("intranet_ip_addr")
-	return fmt.Sprintf("https://%s:%d", address, port), nil
-}
-
-func getArgs(ctx context.Context, input api.ScriptApplyInput, detail *comapi.ServerDetails) (map[string]interface{}, error) {
-	influxdbUrl, err := getInfluxdbUrl(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to get influxdbUrl")
-	}
-	// convert influxdbUrl
-	if len(input.ProxyEndpointId) > 0 {
-		influxdbUrl, err = convertInfluxdbUrl(ctx, influxdbUrl, input.ProxyEndpointId)
-		if err != nil {
-			return nil, errors.Wrapf(err, "unable to convertInfluxdbUrl %s", influxdbUrl)
-		}
-	}
-	vmId := detail.Id
-	tenantId := detail.ProjectId
-	domainId := detail.DomainId
-	ret := map[string]interface{}{
-		"influxdb_url":       influxdbUrl,
-		"influxdb_name":      "telegraf",
-		"onecloud_vm_id":     vmId,
-		"onecloud_tenant_id": tenantId,
-		"onecloud_domain_id": domainId,
-	}
-	return ret, nil
-}
-
-var influxdbUrl string
-
-func getInfluxdbUrl(ctx context.Context) (string, error) {
-	if len(influxdbUrl) > 0 {
-		return influxdbUrl, nil
-	}
-	session := auth.GetAdminSession(ctx, "", "")
-	params := jsonutils.NewDict()
-	params.Set("interface", jsonutils.NewString("public"))
-	params.Set("service", jsonutils.NewString("influxdb"))
-	ret, err := modules.EndpointsV3.List(session, params)
-	if err != nil {
-		return "", err
-	}
-	if len(ret.Data) == 0 {
-		return "", fmt.Errorf("no sucn endpoint with 'internal' interface and 'influxdb' service")
-	}
-	url, _ := ret.Data[0].GetString("url")
-	return url, nil
+	utils.RegisterArgGenerator(MonitorAgent, utils.GetArgs)
 }
 
 var MonitorAgent = "monitor agent"
@@ -236,8 +125,6 @@ func (s *SScript) ApplyInfos() ([]api.SApplyInfo, error) {
 	ai := make([]api.SApplyInfo, len(sa))
 	for i := range ai {
 		ai[i].ServerId = sa[i].GuestId
-		ai[i].EipFirst = sa[i].EipFirst.Bool()
-		ai[i].ProxyEndpointId = sa[i].ProxyEndpointId
 		ai[i].TryTimes = sa[i].TryTimes
 	}
 	return ai, nil
@@ -249,58 +136,17 @@ func (s *SScript) AllowPerformApply(ctx context.Context, userCred mcclient.Token
 
 func (s *SScript) PerformApply(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ScriptApplyInput) (api.ScriptApplyOutput, error) {
 	output := api.ScriptApplyOutput{}
-	serverInfo, err := s.checkServer(ctx, userCred, input.ServerID)
-	if err != nil {
-		return output, err
+	var argsGenerator string
+	if s.Name == MonitorAgent {
+		argsGenerator = MonitorAgent
 	}
-	// select proxyEndpoint automatically
-	if len(input.ProxyEndpointId) == 0 && input.AutoChooseProxyEndpoint {
-		var proxyEndpointId string
-		// find suitable proxyEndpoint
-		// network first
-		session := auth.GetAdminSession(ctx, "", "")
-		for _, netId := range serverInfo.NetworkIds {
-			filter := jsonutils.NewDict()
-			filter.Set("network_id", jsonutils.NewString(netId))
-			lr, err := cloudproxy.ProxyEndpoints.List(session, filter)
-			if err != nil {
-				return output, errors.Wrapf(err, "unable to list proxy endpoint in network %q", netId)
-			}
-			if len(lr.Data) == 0 {
-				continue
-			}
-			proxyEndpointId, _ = lr.Data[0].GetString("id")
-			break
-		}
-		if len(proxyEndpointId) == 0 {
-			filter := jsonutils.NewDict()
-			filter.Set("vpc_id", jsonutils.NewString(serverInfo.VpcId))
-			lr, err := cloudproxy.ProxyEndpoints.List(session, filter)
-			if err != nil {
-				return output, errors.Wrapf(err, "unable to list proxy endpoint in vpc %q", serverInfo.VpcId)
-			}
-			if len(lr.Data) > 0 {
-				// TODO Choose strictly
-				proxyEndpointId, _ = lr.Data[0].GetString("id")
-			}
-		}
-		if len(proxyEndpointId) == 0 {
-			return output, httperrors.NewInputParameterError("can't find suitable proxy endpoint for server %s, please connect with admin to create one", serverInfo.serverDetails.Name)
-		}
-		input.ProxyEndpointId = proxyEndpointId
-	}
-	ag, _ := getArgGenerator(MonitorAgent)
-	args, err := ag(ctx, input, serverInfo.serverDetails)
+	sa, err := ScriptApplyManager.createScriptApply(ctx, s.Id, input.ServerID, nil, argsGenerator)
 	if err != nil {
-		return output, errors.Wrapf(err, "unable to get args of server %s", serverInfo.ServerId)
-	}
-	sa, err := ScriptApplyManager.createScriptApply(ctx, s.Id, serverInfo.ServerId, input.ProxyEndpointId, input.EipFirst, args)
-	if err != nil {
-		return output, errors.Wrapf(err, "unable to apply script to server %s", serverInfo.ServerId)
+		return output, errors.Wrapf(err, "unable to apply script to server %s", input.ServerID)
 	}
 	err = sa.StartApply(ctx, userCred)
 	if err != nil {
-		return output, errors.Wrapf(err, "unable to apply script to server %s", serverInfo.ServerId)
+		return output, errors.Wrapf(err, "unable to apply script to server %s", input.ServerID)
 	}
 	output.ScriptApplyId = sa.Id
 	return output, nil
@@ -311,35 +157,4 @@ type sServerInfo struct {
 	VpcId         string
 	NetworkIds    []string
 	serverDetails *comapi.ServerDetails
-}
-
-func (s *SScript) checkServer(ctx context.Context, userCred mcclient.TokenCredential, serverId string) (sServerInfo, error) {
-	session := auth.GetSessionWithInternal(ctx, userCred, "", "")
-	// check server
-	data, err := modules.Servers.Get(session, serverId, nil)
-	if err != nil {
-		if httputils.ErrorCode(err) == 404 {
-			return sServerInfo{}, httperrors.NewInputParameterError("no such server %s", serverId)
-		}
-		return sServerInfo{}, fmt.Errorf("unable to get server %s: %s", serverId, httputils.ErrorMsg(err))
-	}
-	info := sServerInfo{}
-	var serverDetails comapi.ServerDetails
-	err = data.Unmarshal(&serverDetails)
-	if err != nil {
-		return info, errors.Wrap(err, "unable to unmarshal serverDetails")
-	}
-	if serverDetails.Status != comapi.VM_RUNNING {
-		return info, httperrors.NewInputParameterError("can only apply scripts to %s server", comapi.VM_RUNNING)
-	}
-	info.serverDetails = &serverDetails
-	info.ServerId = serverDetails.Id
-
-	networkIds := sets.NewString()
-	for _, nic := range serverDetails.Nics {
-		networkIds.Insert(nic.NetworkId)
-		info.VpcId = nic.VpcId
-	}
-	info.NetworkIds = networkIds.UnsortedList()
-	return info, nil
 }
