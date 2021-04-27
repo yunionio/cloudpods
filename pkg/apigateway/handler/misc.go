@@ -361,6 +361,12 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 			return
 		}
 
+		if len(password) == 0 {
+			e := httperrors.NewClientError("row %d password is empty", rowIdx)
+			httperrors.JsonClientError(ctx, w, e)
+			return
+		}
+
 		domainId, ok := domains[domain]
 		if !ok {
 			if len(domain) == 0 {
@@ -462,7 +468,7 @@ func (mh *MiscHandler) getDownloadsHandler(ctx context.Context, w http.ResponseW
 			return
 		}
 	case "BatchUserRegister":
-		records := [][]string{{"*用户名（user）", "用户密码（password）", "*部门/域（domain）", "*是否登录控制台（allow_web_console：true、false）"}}
+		records := [][]string{{"*用户名（user）", "*用户密码（password）", "*部门/域（domain）", "*是否登录控制台（allow_web_console：true、false）"}}
 		content, err = writeXlsx("users", records)
 		if err != nil {
 			httperrors.InternalServerError(ctx, w, "internal server error")
