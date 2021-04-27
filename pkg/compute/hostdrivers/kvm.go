@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -39,7 +38,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/k8s/tokens"
 )
@@ -164,6 +162,15 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mod
 	format, _ := params.GetString("format")
 	isForce := jsonutils.QueryBoolean(params, "is_force", false)
 
+	srcHostId, _ := params.GetString("source_host_id")
+	var srcHost *models.SHost
+	if srcHostId != "" {
+		srcHost = models.HostManager.FetchHostById(srcHostId)
+		if srcHost == nil {
+			return errors.Errorf("Source host %s not found", srcHostId)
+		}
+	}
+
 	type contentStruct struct {
 		ImageId        string
 		Format         string
@@ -176,37 +183,31 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mod
 	content.ImageId = imageId
 	content.Format = format
 
-	if options.Options.ImageCacheFromHost {
-		obj, err := models.CachedimageManager.FetchById(imageId)
-		if err != nil {
-			return errors.Wrapf(err, "Fetch cached image by image_id %s", imageId)
-		}
-		cacheImage := obj.(*models.SCachedimage)
-		srcHostCacheImage, err := cacheImage.ChooseSourceStoragecacheInRange(api.HOST_TYPE_HYPERVISOR, []string{host.Id}, []interface{}{host.GetZone()})
+	obj, err := models.CachedimageManager.FetchById(imageId)
+	if err != nil {
+		return errors.Wrapf(err, "Fetch cached image by image_id %s", imageId)
+	}
+	cacheImage := obj.(*models.SCachedimage)
+	rangeObjs := []interface{}{host.GetZone()}
+	if srcHost != nil {
+		rangeObjs = append(rangeObjs, srcHost)
+	}
+	srcHostCacheImage, err := cacheImage.ChooseSourceStoragecacheInRange(api.HOST_TYPE_HYPERVISOR, []string{host.Id}, rangeObjs)
+	if err != nil {
+		return errors.Wrapf(err, "Choose source storagecache")
+	}
+	if srcHostCacheImage != nil {
+		err = srcHostCacheImage.AddDownloadRefcount()
 		if err != nil {
 			return err
 		}
-		if srcHostCacheImage != nil {
-			err = srcHostCacheImage.AddDownloadRefcount()
-			if err != nil {
-				return err
-			}
-			srcHost, err := srcHostCacheImage.GetHost()
-			if err != nil {
-				return err
-			}
-			content.SrcUrl = fmt.Sprintf("%s/download/images/%s", srcHost.ManagerUri, imageId)
-		}
-	} else {
-		// from glance service
-		glanceURL, err := auth.GetServiceURL(apis.SERVICE_TYPE_IMAGE, "", host.GetZone().GetName(), "")
+
+		srcHost, err := srcHostCacheImage.GetHost()
 		if err != nil {
-			return errors.Wrapf(err, "Get %s service url", apis.SERVICE_TYPE_IMAGE)
+			return errors.Wrapf(err, "Get storage cached image %s host", srcHostCacheImage.GetId())
 		}
-		content.SrcUrl = fmt.Sprintf("%s/images/%s", glanceURL, imageId)
-		if content.Format != "" {
-			content.SrcUrl = fmt.Sprintf("%s?format=%s", content.SrcUrl, content.Format)
-		}
+		content.SrcUrl = fmt.Sprintf("%s/download/images/%s", srcHost.ManagerUri, imageId)
+
 	}
 
 	url := fmt.Sprintf("%s/disks/image_cache", host.ManagerUri)
@@ -222,7 +223,7 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mod
 
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "POST %s", url)
 	}
 	return nil
 }

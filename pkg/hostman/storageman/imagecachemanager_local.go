@@ -73,7 +73,7 @@ func (c *SLocalImageCacheManager) LoadImageCache(imageId string) {
 	}
 }
 
-func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, imageId, zone, srcUrl, format string) IImageCache {
+func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, imageId, zone, srcUrl, format, checksum string) IImageCache {
 	c.lock.LockRawObject(ctx, "image-cache", imageId)
 	defer c.lock.ReleaseRawObject(ctx, "image-cache", imageId)
 
@@ -82,7 +82,7 @@ func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, imageId, zon
 		img = NewLocalImageCache(imageId, c)
 		c.cachedImages[imageId] = img
 	}
-	if img.Acquire(ctx, zone, srcUrl, format) {
+	if img.Acquire(ctx, zone, srcUrl, format, checksum) {
 		return img
 	} else {
 		return nil
@@ -131,9 +131,10 @@ func (c *SLocalImageCacheManager) PrefetchImageCache(ctx context.Context, data i
 	}
 	format, _ := body.GetString("format")
 	srcUrl, _ := body.GetString("src_url")
+	checksum, _ := body.GetString("checksum")
 
 	if imgCache := c.AcquireImage(ctx, imageId, c.GetStorageManager().GetZoneName(),
-		srcUrl, format); imgCache != nil {
+		srcUrl, format, checksum); imgCache != nil {
 		defer imgCache.Release()
 
 		res := jsonutils.NewDict()
