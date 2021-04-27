@@ -66,8 +66,8 @@ func (r *SRbdImageCache) Load() bool {
 	return origin.IsValid()
 }
 
-func (r *SRbdImageCache) Acquire(ctx context.Context, zone, srcUrl, format string) bool {
-	localImageCache := storageManager.LocalStorageImagecacheManager.AcquireImage(ctx, r.imageId, zone, srcUrl, format)
+func (r *SRbdImageCache) Acquire(ctx context.Context, zone, srcUrl, format, checksum string) bool {
+	localImageCache := storageManager.LocalStorageImagecacheManager.AcquireImage(ctx, r.imageId, zone, srcUrl, format, checksum)
 	if localImageCache == nil {
 		log.Errorf("failed to acquireimage %s ", r.imageId)
 		return false
