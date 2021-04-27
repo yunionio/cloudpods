@@ -114,8 +114,9 @@ func (c *SRbdImageCacheManager) PrefetchImageCache(ctx context.Context, data int
 	format, _ := body.GetString("format")
 	srcUrl, _ := body.GetString("src_url")
 	zone, _ := body.GetString("zone")
+	checksum, _ := body.GetString("checksum")
 
-	cache := c.AcquireImage(ctx, imageId, zone, srcUrl, format)
+	cache := c.AcquireImage(ctx, imageId, zone, srcUrl, format, checksum)
 	if cache == nil {
 		return nil, fmt.Errorf("failed to cache image %s.%s", imageId, format)
 	}
@@ -152,7 +153,7 @@ func (c *SRbdImageCacheManager) removeImage(ctx context.Context, imageId string)
 	return nil
 }
 
-func (c *SRbdImageCacheManager) AcquireImage(ctx context.Context, imageId, zone, srcUrl, format string) IImageCache {
+func (c *SRbdImageCacheManager) AcquireImage(ctx context.Context, imageId, zone, srcUrl, format, checksum string) IImageCache {
 	lockman.LockRawObject(ctx, "image-cache", imageId)
 	defer lockman.ReleaseRawObject(ctx, "image-cache", imageId)
 
@@ -161,7 +162,7 @@ func (c *SRbdImageCacheManager) AcquireImage(ctx context.Context, imageId, zone,
 		img = NewRbdImageCache(imageId, c)
 		c.cachedImages[imageId] = img
 	}
-	if img.Acquire(ctx, zone, srcUrl, format) {
+	if img.Acquire(ctx, zone, srcUrl, format, checksum) {
 		return img
 	}
 	return nil

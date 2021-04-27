@@ -354,6 +354,10 @@ func (self *SStoragecache) getCachedImageSize() int64 {
 }
 
 func (self *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, format string, isForce bool, parentTaskId string) error {
+	return self.StartImageCacheTaskFromHost(ctx, userCred, imageId, format, isForce, "", parentTaskId)
+}
+
+func (self *SStoragecache) StartImageCacheTaskFromHost(ctx context.Context, userCred mcclient.TokenCredential, imageId string, format string, isForce bool, srcHostId string, parentTaskId string) error {
 	StoragecachedimageManager.Register(ctx, userCred, self.Id, imageId, "")
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewString(imageId), "image_id")
@@ -376,6 +380,10 @@ func (self *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcc
 
 	if isForce {
 		data.Add(jsonutils.JSONTrue, "is_force")
+	}
+
+	if srcHostId != "" {
+		data.Add(jsonutils.NewString(srcHostId), "source_host_id")
 	}
 	task, err := taskman.TaskManager.NewTask(ctx, "StorageCacheImageTask", self, userCred, data, parentTaskId, "", nil)
 	if err != nil {

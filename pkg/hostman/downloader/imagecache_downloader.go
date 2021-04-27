@@ -18,7 +18,10 @@ import (
 	"net/http"
 	"path"
 
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 type SImageCacheDownloadProvider struct {
@@ -42,6 +45,20 @@ func (s *SImageCacheDownloadProvider) getHeaders() http.Header {
 func (s *SImageCacheDownloadProvider) downloadFilePath() string {
 	return path.Join(
 		storageman.GetManager().LocalStorageImagecacheManager.GetPath(), s.imageId)
+}
+
+func (s *SImageCacheDownloadProvider) HandlerHead() error {
+	headers := s.getHeaders()
+	checksum, err := fileutils2.MD5(s.downloadFilePath())
+	if err != nil {
+		return errors.Wrapf(err, "MD5SUM %s", s.downloadFilePath())
+	}
+	headers.Set("X-Image-Meta-Checksum", checksum)
+	for k := range headers {
+		s.w.Header().Add(k, headers.Get(k))
+	}
+	s.w.WriteHeader(200)
+	return nil
 }
 
 func (s *SImageCacheDownloadProvider) Start() error {

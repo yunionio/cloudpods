@@ -166,6 +166,11 @@ func (self *SCachedimage) GetHypervisor() string {
 	return osType
 }
 
+func (self *SCachedimage) GetChecksum() string {
+	checksum, _ := self.Info.GetString("checksum")
+	return checksum
+}
+
 func (self *SCachedimage) getStoragecacheQuery() *sqlchemy.SQuery {
 	q := StoragecachedimageManager.Query().Equals("cachedimage_id", self.Id)
 	return q
@@ -442,6 +447,8 @@ func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, exclu
 
 	for _, rangeObj := range rangeObjs {
 		switch v := rangeObj.(type) {
+		case *SHost:
+			q = q.Filter(sqlchemy.Equals(host.Field("id"), v.Id))
 		case *SZone:
 			q = q.Filter(sqlchemy.Equals(host.Field("zone_id"), v.Id))
 		case *SCloudprovider:
