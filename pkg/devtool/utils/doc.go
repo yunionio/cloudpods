@@ -12,23 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package devtool
-
-const (
-	SCRIPT_APPLY_STATUS_APPLYING     = "applying"
-	SCRIPT_APPLY_STATUS_APPLY_FAILED = "apply_failed"
-	SCRIPT_APPLY_STATUS_READY        = "ready"
-
-	SCRIPT_APPLY_RECORD_APPLYING = "applying"
-	SCRIPT_APPLY_RECORD_SUCCEED  = "succeed"
-	SCRIPT_APPLY_RECORD_FAILED   = "failed"
-
-	SCRIPT_APPLY_RECORD_FAILCODE_SSHABLE  = "ServerNotSshable"
-	SCRIPT_APPLY_RECORD_FAILCODE_INFLUXDB = "NoReachInfluxdb"
-	SCRIPT_APPLY_RECORD_FAILCODE_OTHERS   = "Others"
-
-	SCRIPT_NAME  = "monitor agent"
-	SERVICE_TYPE = "devtool"
-
-	SCRIPT_STATUS_READY = "ready"
-)
+package utils // import "yunion.io/x/onecloud/pkg/devtool/utils"

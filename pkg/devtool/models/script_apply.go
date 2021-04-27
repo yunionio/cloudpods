@@ -21,7 +21,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/sets"
 
 	api "yunion.io/x/onecloud/pkg/apis/devtool"
@@ -34,11 +33,10 @@ type SScriptApply struct {
 	db.SStatusStandaloneResourceBase
 	ScriptId string `width:"36" nullable:"false" index:"true"`
 	GuestId  string `width:"36" nullable:"false" index:"true"`
-	EipFirst tristate.TriState
 	//
-	Args            jsonutils.JSONObject
-	ProxyEndpointId string `width:"36" nullable:"false"`
-	TryTimes        int
+	Args          jsonutils.JSONObject
+	TryTimes      int
+	ArgsGenerator string `width:"36" nullable:"false"`
 }
 
 type SScriptApplyManager struct {
@@ -61,13 +59,12 @@ func init() {
 	ScriptApplyManager.SetVirtualObject(ScriptApplyManager)
 }
 
-func (sam *SScriptApplyManager) createScriptApply(ctx context.Context, scriptId, guestId, proxyEndpointId string, eipFirst bool, args map[string]interface{}) (*SScriptApply, error) {
+func (sam *SScriptApplyManager) createScriptApply(ctx context.Context, scriptId, guestId string, args map[string]interface{}, argsGenerator string) (*SScriptApply, error) {
 	sa := &SScriptApply{
-		ScriptId:        scriptId,
-		GuestId:         guestId,
-		EipFirst:        tristate.NewFromBool(eipFirst),
-		ProxyEndpointId: proxyEndpointId,
-		Args:            jsonutils.Marshal(args),
+		ScriptId:      scriptId,
+		GuestId:       guestId,
+		Args:          jsonutils.Marshal(args),
+		ArgsGenerator: argsGenerator,
 	}
 	err := ScriptApplyManager.TableSpec().Insert(ctx, sa)
 	sa.SetModelManager(ScriptApplyManager, sa)
@@ -121,7 +118,7 @@ func (sa *SScriptApply) startApplyScriptTask(ctx context.Context, userCred mccli
 	return nil
 }
 
-func (sa *SScriptApply) StopApply(userCred mcclient.TokenCredential, record *SScriptApplyRecord, success bool, reason string) error {
+func (sa *SScriptApply) StopApply(userCred mcclient.TokenCredential, record *SScriptApplyRecord, success bool, failCode string, reason string) error {
 	var status string
 	if success {
 		status = api.SCRIPT_APPLY_STATUS_READY
@@ -131,7 +128,7 @@ func (sa *SScriptApply) StopApply(userCred mcclient.TokenCredential, record *SSc
 	} else {
 		status = api.SCRIPT_APPLY_RECORD_FAILED
 		if record != nil {
-			record.Fail(reason)
+			record.Fail(failCode, reason)
 		}
 	}
 	sa.SetStatus(userCred, status, "")
