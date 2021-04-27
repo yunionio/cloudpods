@@ -761,6 +761,7 @@ func hostUsage(
 
 	result := models.HostManager.TotalCount(userCred, scope, rangeObjs, "", "", hostTypes, resourceTypes, providers, brands, cloudEnv, enabled, isBaremetal)
 	count[prefix] = result.Count
+	count[fmt.Sprintf("%s.any_pool", prefix)] = result.Count
 	count[fmt.Sprintf("%s.memory", prefix)] = result.Memory
 	count[fmt.Sprintf("%s.memory.total", prefix)] = result.MemoryTotal
 	count[fmt.Sprintf("%s.cpu", prefix)] = result.CPU
@@ -815,6 +816,7 @@ func guestHypervisorsUsage(
 		includeSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv, since)
 	count := make(map[string]interface{})
 	count[prefix] = guest.TotalGuestCount
+	count[fmt.Sprintf("%s.any_pool", prefix)] = guest.TotalGuestCount
 	count[fmt.Sprintf("%s.cpu", prefix)] = guest.TotalCpuCount
 	count[fmt.Sprintf("%s.memory", prefix)] = guest.TotalMemSize
 
