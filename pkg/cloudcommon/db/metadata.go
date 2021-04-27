@@ -247,9 +247,15 @@ func (manager *SMetadataManager) metaDataQuery2List(ctx context.Context, q *sqlc
 	if err != nil {
 		return nil, errors.Wrap(err, "Query.All")
 	}
+	ciMap := map[string]string{}
 
 	ret := make([]jsonutils.JSONObject, len(metadatas))
 	for i := range metadatas {
+		if k, ok := ciMap[strings.ToLower(metadatas[i].Key)]; !ok {
+			ciMap[strings.ToLower(metadatas[i].Key)] = metadatas[i].Key
+		} else {
+			metadatas[i].Key = k
+		}
 		if input.Details != nil && *input.Details {
 			ret[i], err = manager.getKeyValueObjectCount(ctx, userCred, input, metadatas[i].Key, metadatas[i].Value, metadatas[i].Count)
 			if err != nil {
