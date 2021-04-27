@@ -205,6 +205,10 @@ func (l *SLocalImageCache) fetch(ctx context.Context, zone, srcUrl, format strin
 		defer l.cond.L.Unlock()
 
 		l.Desc = l.remoteFile.GetInfo()
+		if l.Desc == nil {
+			l.remoteFile = nil
+			return false
+		}
 		l.Size = l.GetSize() / 1024 / 1024
 		l.Desc.Id = l.imageId
 		l.remoteFile = nil
