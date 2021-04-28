@@ -924,6 +924,18 @@ func (self *SCloudregion) GetDetailsCapability(ctx context.Context, userCred mcc
 	return jsonutils.Marshal(&capa), nil
 }
 
+func (self *SCloudregion) AllowGetDetailsDiskCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (self *SCloudregion) GetDetailsDiskCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	capa, err := GetDiskCapabilities(ctx, userCred, query, self, nil)
+	if err != nil {
+		return nil, err
+	}
+	return jsonutils.Marshal(&capa), nil
+}
+
 func (self *SCloudregion) GetNetworkCount() (int, error) {
 	return getNetworkCount(nil, rbacutils.ScopeSystem, self, nil)
 }
