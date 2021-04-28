@@ -278,7 +278,7 @@ func GetTokenString() string {
 }
 
 func IsAuthed() bool {
-	return manager.isAuthed()
+	return manager != nil && manager.isAuthed()
 }
 
 func Client() *mcclient.Client {
