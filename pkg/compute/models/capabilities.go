@@ -94,6 +94,8 @@ func GetDiskCapabilities(ctx context.Context, userCred mcclient.TokenCredential,
 	capa.StorageTypes, capa.DataStorageTypes = s1, d1
 	capa.StorageTypes2, capa.StorageTypes3 = s2, s3
 	capa.DataStorageTypes2, capa.DataStorageTypes3 = d2, d3
+	capa.MinDataDiskCount = getMinDataDiskCount(region, zone)
+	capa.MaxDataDiskCount = getMaxDataDiskCount(region, zone)
 	return capa, nil
 }
 
