@@ -349,12 +349,46 @@ func (self *SCloudproviderregion) cancelStartingSync(userCred mcclient.TokenCred
 	return nil
 }
 
-type SSyncResultSet map[string]*compare.SyncResult
+type SyncResult struct {
+	RequestCost string
+	rc          time.Duration
+	SqlCost     string
+	sc          time.Duration
+	compare.SyncResult
+}
+
+type SSyncResultSet map[string]*SyncResult
+
+func (set SSyncResultSet) AddRequestCost(manager db.IModelManager) func() {
+	start := time.Now()
+	key := manager.KeywordPlural()
+	if _, ok := set[key]; !ok {
+		set[key] = &SyncResult{}
+	}
+	res := set[key]
+	return func() {
+		res.rc += time.Since(start)
+		res.RequestCost = res.rc.String()
+	}
+}
+
+func (set SSyncResultSet) AddSqlCost(manager db.IModelManager) func() {
+	start := time.Now()
+	key := manager.KeywordPlural()
+	if _, ok := set[key]; !ok {
+		set[key] = &SyncResult{}
+	}
+	res := set[key]
+	return func() {
+		res.sc += time.Since(start)
+		res.SqlCost = res.sc.String()
+	}
+}
 
 func (set SSyncResultSet) Add(manager db.IModelManager, result compare.SyncResult) {
 	key := manager.KeywordPlural()
 	if _, ok := set[key]; !ok {
-		set[key] = &compare.SyncResult{}
+		set[key] = &SyncResult{}
 	}
 	res := set[key]
 	res.AddCnt += result.AddCnt

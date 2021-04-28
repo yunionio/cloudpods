@@ -21,6 +21,7 @@ import (
 	"github.com/pkg/errors"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/compare"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -29,14 +30,20 @@ import (
 )
 
 func syncElasticcaches(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
-	extCacheDBs, err := remoteRegion.GetIElasticcaches()
+	extCacheDBs, err := func() ([]cloudprovider.ICloudElasticcache, error) {
+		defer syncResults.AddRequestCost(ElasticcacheManager)()
+		return remoteRegion.GetIElasticcaches()
+	}()
 	if err != nil {
 		msg := fmt.Sprintf("GetIElasticcaches for region %s failed %s", remoteRegion.GetName(), err)
 		log.Errorf(msg)
 		return
 	}
 
-	localInstances, remoteInstances, result := ElasticcacheManager.SyncElasticcaches(ctx, userCred, provider.GetOwnerId(), provider, localRegion, extCacheDBs)
+	localInstances, remoteInstances, result := func() ([]SElasticcache, []cloudprovider.ICloudElasticcache, compare.SyncResult) {
+		defer syncResults.AddSqlCost(ElasticcacheManager)()
+		return ElasticcacheManager.SyncElasticcaches(ctx, userCred, provider.GetOwnerId(), provider, localRegion, extCacheDBs)
+	}()
 
 	syncResults.Add(ElasticcacheManager, result)
 
@@ -61,43 +68,58 @@ func syncElasticcaches(ctx context.Context, userCred mcclient.TokenCredential, s
 }
 
 func syncElasticcacheParameters(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SElasticcache, remoteInstance cloudprovider.ICloudElasticcache) {
-	parameters, err := remoteInstance.GetICloudElasticcacheParameters()
+	parameters, err := func() ([]cloudprovider.ICloudElasticcacheParameter, error) {
+		defer syncResults.AddRequestCost(ElasticcacheParameterManager)()
+		return remoteInstance.GetICloudElasticcacheParameters()
+	}()
 	if err != nil {
 		msg := fmt.Sprintf("GetIElasticcacheParameters for dbinstance %s failed %s", remoteInstance.GetName(), err)
 		log.Errorf(msg)
 		return
 	}
 
-	result := ElasticcacheParameterManager.SyncElasticcacheParameters(ctx, userCred, localInstance, parameters)
-	syncResults.Add(ElasticcacheParameterManager, result)
+	func() {
+		defer syncResults.AddSqlCost(ElasticcacheParameterManager)()
+		result := ElasticcacheParameterManager.SyncElasticcacheParameters(ctx, userCred, localInstance, parameters)
+		syncResults.Add(ElasticcacheParameterManager, result)
 
-	msg := result.Result()
-	log.Infof("SyncElasticcacheParameters for dbinstance %s result: %s", localInstance.Name, msg)
-	if result.IsError() {
-		return
-	}
+		msg := result.Result()
+		log.Infof("SyncElasticcacheParameters for dbinstance %s result: %s", localInstance.Name, msg)
+		if result.IsError() {
+			return
+		}
+	}()
 }
 
 func syncElasticcacheAccounts(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SElasticcache, remoteInstance cloudprovider.ICloudElasticcache) {
-	accounts, err := remoteInstance.GetICloudElasticcacheAccounts()
+	accounts, err := func() ([]cloudprovider.ICloudElasticcacheAccount, error) {
+		defer syncResults.AddRequestCost(ElasticcacheAccountManager)()
+		return remoteInstance.GetICloudElasticcacheAccounts()
+	}()
 	if err != nil {
 		msg := fmt.Sprintf("GetIElasticcacheAccounts for dbinstance %s failed %s", remoteInstance.GetName(), err)
 		log.Errorf(msg)
 		return
 	}
 
-	result := ElasticcacheAccountManager.SyncElasticcacheAccounts(ctx, userCred, localInstance, accounts)
-	syncResults.Add(ElasticcacheAccountManager, result)
+	func() {
+		defer syncResults.AddSqlCost(ElasticcacheAccountManager)()
+		result := ElasticcacheAccountManager.SyncElasticcacheAccounts(ctx, userCred, localInstance, accounts)
+		syncResults.Add(ElasticcacheAccountManager, result)
 
-	msg := result.Result()
-	log.Infof("SyncElasticcacheAccounts for dbinstance %s result: %s", localInstance.Name, msg)
-	if result.IsError() {
-		return
-	}
+		msg := result.Result()
+		log.Infof("SyncElasticcacheAccounts for dbinstance %s result: %s", localInstance.Name, msg)
+		if result.IsError() {
+			return
+		}
+	}()
 }
 
 func syncElasticcacheAcls(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SElasticcache, remoteInstance cloudprovider.ICloudElasticcache) {
-	acls, err := remoteInstance.GetICloudElasticcacheAcls()
+	acls, err := func() ([]cloudprovider.ICloudElasticcacheAcl, error) {
+		defer syncResults.AddRequestCost(ElasticcacheAclManager)()
+		return remoteInstance.GetICloudElasticcacheAcls()
+	}()
 	if err != nil {
 		msg := fmt.Sprintf("GetIElasticcacheAcls for dbinstance %s failed %s", remoteInstance.GetName(), err)
 		if errors.Cause(err) == cloudprovider.ErrNotSupported {
@@ -108,36 +130,48 @@ func syncElasticcacheAcls(ctx context.Context, userCred mcclient.TokenCredential
 		return
 	}
 
-	result := ElasticcacheAclManager.SyncElasticcacheAcls(ctx, userCred, localInstance, acls)
-	syncResults.Add(ElasticcacheAclManager, result)
+	func() {
+		defer syncResults.AddSqlCost(ElasticcacheAclManager)()
+		result := ElasticcacheAclManager.SyncElasticcacheAcls(ctx, userCred, localInstance, acls)
+		syncResults.Add(ElasticcacheAclManager, result)
 
-	msg := result.Result()
-	log.Infof("SyncElasticcacheAcls for dbinstance %s result: %s", localInstance.Name, msg)
-	if result.IsError() {
-		return
-	}
+		msg := result.Result()
+		log.Infof("SyncElasticcacheAcls for dbinstance %s result: %s", localInstance.Name, msg)
+		if result.IsError() {
+			return
+		}
+	}()
 }
 
 func syncElasticcacheBackups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SElasticcache, remoteInstance cloudprovider.ICloudElasticcache) {
-	backups, err := remoteInstance.GetICloudElasticcacheBackups()
+	backups, err := func() ([]cloudprovider.ICloudElasticcacheBackup, error) {
+		defer syncResults.AddRequestCost(ElasticcacheBackupManager)()
+		return remoteInstance.GetICloudElasticcacheBackups()
+	}()
 	if err != nil {
 		msg := fmt.Sprintf("GetIElasticcacheBackups for dbinstance %s failed %s", remoteInstance.GetName(), err)
 		log.Errorf(msg)
 		return
 	}
 
-	result := ElasticcacheBackupManager.SyncElasticcacheBackups(ctx, userCred, localInstance, backups)
-	syncResults.Add(ElasticcacheBackupManager, result)
+	func() {
+		defer syncResults.AddSqlCost(ElasticcacheBackupManager)()
+		result := ElasticcacheBackupManager.SyncElasticcacheBackups(ctx, userCred, localInstance, backups)
+		syncResults.Add(ElasticcacheBackupManager, result)
 
-	msg := result.Result()
-	log.Infof("SyncElasticcacheBackups for dbinstance %s result: %s", localInstance.Name, msg)
-	if result.IsError() {
-		return
-	}
+		msg := result.Result()
+		log.Infof("SyncElasticcacheBackups for dbinstance %s result: %s", localInstance.Name, msg)
+		if result.IsError() {
+			return
+		}
+	}()
 }
 
 func syncElasticcacheSecgroups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SElasticcache, remoteInstance cloudprovider.ICloudElasticcache) {
-	secgroupIds, err := remoteInstance.GetSecurityGroupIds()
+	secgroupIds, err := func() ([]string, error) {
+		defer syncResults.AddRequestCost(ElasticcachesecgroupManager)()
+		return remoteInstance.GetSecurityGroupIds()
+	}()
 	if err != nil {
 		msg := fmt.Sprintf("Elasticcache.GetSecurityGroupIds for dbinstance %s failed %s", remoteInstance.GetName(), err)
 		if errors.Cause(err) == cloudprovider.ErrNotSupported {
@@ -148,12 +182,15 @@ func syncElasticcacheSecgroups(ctx context.Context, userCred mcclient.TokenCrede
 		return
 	}
 
-	result := localInstance.SyncElasticcacheSecgroups(ctx, userCred, secgroupIds)
-	syncResults.Add(ElasticcachesecgroupManager, result)
+	func() {
+		defer syncResults.AddSqlCost(ElasticcachesecgroupManager)()
+		result := localInstance.SyncElasticcacheSecgroups(ctx, userCred, secgroupIds)
+		syncResults.Add(ElasticcachesecgroupManager, result)
 
-	msg := result.Result()
-	log.Infof("SyncElasticcacheSecgroups for dbinstance %s result: %s", localInstance.Name, msg)
-	if result.IsError() {
-		return
-	}
+		msg := result.Result()
+		log.Infof("SyncElasticcacheSecgroups for dbinstance %s result: %s", localInstance.Name, msg)
+		if result.IsError() {
+			return
+		}
+	}()
 }

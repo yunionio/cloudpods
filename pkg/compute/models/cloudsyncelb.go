@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/compare"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -27,13 +28,19 @@ import (
 )
 
 func syncRegionLoadbalancerCertificates(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
-	certificates, err := remoteRegion.GetILoadBalancerCertificates()
+	certificates, err := func() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
+		defer syncResults.AddRequestCost(LoadbalancerCertificateManager)()
+		return remoteRegion.GetILoadBalancerCertificates()
+	}()
 	if err != nil {
 		msg := fmt.Sprintf("GetILoadBalancerCertificates for region %s failed %s", remoteRegion.GetName(), err)
 		log.Errorln(msg)
 		return
 	}
-	result := CachedLoadbalancerCertificateManager.SyncLoadbalancerCertificates(ctx, userCred, provider, localRegion, certificates, syncRange)
+	result := func() compare.SyncResult {
+		defer syncResults.AddSqlCost(LoadbalancerCertificateManager)()
+		return CachedLoadbalancerCertificateManager.SyncLoadbalancerCertificates(ctx, userCred, provider, localRegion, certificates, syncRange)
+	}()
 
 	syncResults.Add(CachedLoadbalancerCertificateManager, result)
 
@@ -45,13 +52,19 @@ func syncRegionLoadbalancerCertificates(ctx context.Context, userCred mcclient.T
 }
 
 func syncRegionLoadbalancerAcls(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
-	acls, err := remoteRegion.GetILoadBalancerAcls()
+	acls, err := func() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
+		defer syncResults.AddRequestCost(LoadbalancerAclManager)()
+		return remoteRegion.GetILoadBalancerAcls()
+	}()
 	if err != nil {
 		msg := fmt.Sprintf("GetILoadBalancerAcls for region %s failed %s", remoteRegion.GetName(), err)
 		log.Errorln(msg)
 		return
 	}
-	result := CachedLoadbalancerAclManager.SyncLoadbalancerAcls(ctx, userCred, provider, localRegion, acls, syncRange)
+	result := func() compare.SyncResult {
+		defer syncResults.AddSqlCost(LoadbalancerAclManager)()
+		return CachedLoadbalancerAclManager.SyncLoadbalancerAcls(ctx, userCred, provider, localRegion, acls, syncRange)
+	}()
 
 	syncResults.Add(CachedLoadbalancerAclManager, result)
 
@@ -63,42 +76,49 @@ func syncRegionLoadbalancerAcls(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func syncRegionLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
-	lbs, err := remoteRegion.GetILoadBalancers()
+	lbs, err := func() ([]cloudprovider.ICloudLoadbalancer, error) {
+		defer syncResults.AddRequestCost(LoadbalancerManager)()
+		return remoteRegion.GetILoadBalancers()
+	}()
 	if err != nil {
 		msg := fmt.Sprintf("GetILoadBalancers for region %s failed %s", remoteRegion.GetName(), err)
 		log.Errorln(msg)
 		return
 	}
-	localLbs, remoteLbs, result := LoadbalancerManager.SyncLoadbalancers(ctx, userCred, provider, localRegion, lbs, syncRange)
+	func() {
+		defer syncResults.AddSqlCost(LoadbalancerManager)()
 
-	syncResults.Add(LoadbalancerManager, result)
+		localLbs, remoteLbs, result := LoadbalancerManager.SyncLoadbalancers(ctx, userCred, provider, localRegion, lbs, syncRange)
 
-	msg := result.Result()
-	log.Infof("SyncLoadbalancers for region %s result: %s", localRegion.Name, msg)
-	if result.IsError() {
-		return
-	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_LB_COMPLETE, msg, userCred)
-	// 同步未关联负载均衡的后端服务器组
-	regionDriver := localRegion.GetDriver()
-	if regionDriver == nil {
-		msg := fmt.Sprintf("GetRegionDriver %s failed", localRegion.GetName())
-		log.Errorln(msg)
-		return
-	}
+		syncResults.Add(LoadbalancerManager, result)
 
-	regionDriver.RequestPullRegionLoadbalancerBackendGroup(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		msg := result.Result()
+		log.Infof("SyncLoadbalancers for region %s result: %s", localRegion.Name, msg)
+		if result.IsError() {
+			return
+		}
+		db.OpsLog.LogEvent(provider, db.ACT_SYNC_LB_COMPLETE, msg, userCred)
+		// 同步未关联负载均衡的后端服务器组
+		regionDriver := localRegion.GetDriver()
+		if regionDriver == nil {
+			msg := fmt.Sprintf("GetRegionDriver %s failed", localRegion.GetName())
+			log.Errorln(msg)
+			return
+		}
 
-	for i := 0; i < len(localLbs); i++ {
-		func() {
-			lockman.LockObject(ctx, &localLbs[i])
-			defer lockman.ReleaseObject(ctx, &localLbs[i])
+		regionDriver.RequestPullRegionLoadbalancerBackendGroup(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
-			syncLoadbalancerEip(ctx, userCred, provider, &localLbs[i], remoteLbs[i])
-			regionDriver.RequestPullLoadbalancerBackendGroup(ctx, userCred, syncResults, provider, &localLbs[i], remoteLbs[i], syncRange)
-			syncLoadbalancerListeners(ctx, userCred, syncResults, provider, &localLbs[i], remoteLbs[i], syncRange)
-		}()
-	}
+		for i := 0; i < len(localLbs); i++ {
+			func() {
+				lockman.LockObject(ctx, &localLbs[i])
+				defer lockman.ReleaseObject(ctx, &localLbs[i])
+
+				syncLoadbalancerEip(ctx, userCred, provider, &localLbs[i], remoteLbs[i])
+				regionDriver.RequestPullLoadbalancerBackendGroup(ctx, userCred, syncResults, provider, &localLbs[i], remoteLbs[i], syncRange)
+				syncLoadbalancerListeners(ctx, userCred, syncResults, provider, &localLbs[i], remoteLbs[i], syncRange)
+			}()
+		}
+	}()
 }
 
 func syncLoadbalancerEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localLb *SLoadbalancer, remoteLb cloudprovider.ICloudLoadbalancer) {
