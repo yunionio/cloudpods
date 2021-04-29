@@ -679,6 +679,18 @@ func (self *SZone) GetDetailsCapability(ctx context.Context, userCred mcclient.T
 	return jsonutils.Marshal(&capa), nil
 }
 
+func (self *SZone) AllowGetDetailsDiskCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (self *SZone) GetDetailsDiskCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	capa, err := GetDiskCapabilities(ctx, userCred, query, nil, self)
+	if err != nil {
+		return nil, err
+	}
+	return jsonutils.Marshal(&capa), nil
+}
+
 func (self *SZone) isManaged() bool {
 	region := self.GetRegion()
 	if region != nil && len(region.ExternalId) == 0 {
