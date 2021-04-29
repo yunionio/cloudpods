@@ -162,9 +162,13 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 	logentry.Add(jsonutils.NewString(notes), "notes")
 
 	task := &logTask{
-		userCred: auth.AdminCredential(),
+		userCred: userCred,
 		api:      api,
 		logentry: logentry,
+	}
+	// keystone no need to auth
+	if auth.IsAuthed() {
+		task.userCred = auth.AdminCredential()
 	}
 
 	logclientWorkerMan.Run(task, nil, nil)
