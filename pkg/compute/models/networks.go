@@ -173,6 +173,59 @@ func (self *SNetwork) ValidateDeleteCondition(ctx context.Context) error {
 	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
 
+func (nm *SNetworkManager) jointNetworkCount(manager db.IModelManager, netIds []string, filter func(*sqlchemy.SQuery) *sqlchemy.SQuery) *sqlchemy.SQuery {
+	q := manager.Query("network_id").In("network_id", netIds)
+	if filter != nil {
+		q = filter(q)
+	}
+	q = q.AppendField(sqlchemy.COUNT("count"))
+	return q
+}
+
+func (nm *SNetworkManager) GetTotalNicCount(netIds []string) (map[string]int, error) {
+	guestNetworkQ := nm.jointNetworkCount(GuestnetworkManager, netIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.Filter(sqlchemy.IsFalse(q.Field("virtual")))
+	})
+
+	groupNetworkQ := nm.jointNetworkCount(GroupnetworkManager, netIds, nil)
+	hostNetworkQ := nm.jointNetworkCount(HostnetworkManager, netIds, nil)
+	lbNetworkQ := nm.jointNetworkCount(LoadbalancernetworkManager, netIds, nil)
+	dbInstanceNetworkQ := nm.jointNetworkCount(DBInstanceNetworkManager, netIds, nil)
+	eipNetworkQ := nm.jointNetworkCount(ElasticipManager, netIds, nil)
+	natgatewayNetworkQ := nm.jointNetworkCount(NatGatewayManager, netIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.Filter(sqlchemy.IsNotEmpty(q.Field("ip_addr")))
+	})
+
+	reserverIpsQ := nm.jointNetworkCount(ReservedipManager, netIds, filterExpiredReservedIps)
+
+	sq := NetworkinterfacenetworkManager.Query("networkinterface_id", "network_id").In("network_id", netIds).Distinct().SubQuery()
+	networkInterfaceQ := NetworkInterfaceManager.Query()
+	networkInterfaceQ = networkInterfaceQ.Join(sq, sqlchemy.Equals(networkInterfaceQ.Field("id"), sq.Field("networkinterface_id")))
+	networkInterfaceQ.AppendField(sq.Field("network_id", "network_id"))
+	networkInterfaceQ.AppendField(sqlchemy.COUNT("count"))
+	networkInterfaceQ.GroupBy("network_id")
+
+	union, err := sqlchemy.UnionWithError(guestNetworkQ, groupNetworkQ, hostNetworkQ, lbNetworkQ, dbInstanceNetworkQ, eipNetworkQ, natgatewayNetworkQ, reserverIpsQ, networkInterfaceQ)
+	if err != nil {
+		return nil, err
+	}
+	networkCounts := make([]struct {
+		NetworkId string
+		Count     int
+	}, 0)
+	err = union.Query().All(&networkCounts)
+	if err != nil {
+		return nil, err
+	}
+	ret := map[string]int{}
+	for _, nc := range networkCounts {
+		if len(nc.NetworkId) > 0 {
+			ret[nc.NetworkId] += nc.Count
+		}
+	}
+	return ret, nil
+}
+
 func (self *SNetwork) GetTotalNicCount() (int, error) {
 	count, err := self.GetAllocatedNicCount()
 	if err != nil {
@@ -1000,6 +1053,10 @@ func parseNetworkInfo(userCred mcclient.TokenCredential, info *api.NetworkConfig
 
 func (self *SNetwork) GetFreeAddressCount() (int, error) {
 	return self.getFreeAddressCount()
+}
+
+func (self *SNetwork) GetTotalAddressCount() int {
+	return self.getIPRange().AddressCount()
 }
 
 func (self *SNetwork) getFreeAddressCount() (int, error) {
