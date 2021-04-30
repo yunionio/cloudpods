@@ -564,7 +564,7 @@ func (rm *SReceiverManager) FetchOwnerId(ctx context.Context, data jsonutils.JSO
 	return db.FetchDomainInfo(ctx, data)
 }
 
-func (rm *SReceiverManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+func (rm *SReceiverManager) filterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if owner == nil {
 		return q
 	}
@@ -574,6 +574,10 @@ func (rm *SReceiverManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IId
 	case rbacutils.ScopeProject, rbacutils.ScopeUser:
 		q = q.Equals("id", owner.GetUserId())
 	}
+	return q
+}
+
+func (rm *SReceiverManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	return q
 }
 
@@ -615,6 +619,12 @@ func (rm *SReceiverManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 		default:
 			q = q.In("id", userIds)
 		}
+	} else {
+		ownerId, queryScope, err := db.FetchCheckQueryOwnerScope(ctx, userCred, jsonutils.Marshal(input), rm, policy.PolicyActionList, true)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+		q = rm.filterByOwner(q, ownerId, queryScope)
 	}
 	return q, nil
 }
@@ -629,7 +639,7 @@ func (rm *SReceiverManager) findUserIdsWithProjectDomain(ctx context.Context, us
 		return nil, errors.Wrap(err, "unable to list RoleAssignments")
 	}
 	log.Debugf("return value for role-assignments: %s", jsonutils.Marshal(listRet))
-	userIds := make([]string, 0, len(listRet.Data))
+	userIds := sets.NewString()
 	for i := range listRet.Data {
 		ras := listRet.Data[i]
 		user, err := ras.Get("user")
@@ -638,10 +648,10 @@ func (rm *SReceiverManager) findUserIdsWithProjectDomain(ctx context.Context, us
 			if err != nil {
 				return nil, errors.Wrap(err, "unable to get user.id from result of RoleAssignments.List")
 			}
-			userIds = append(userIds, id)
+			userIds.Insert(id)
 		}
 	}
-	return userIds, nil
+	return userIds.UnsortedList(), nil
 }
 
 func (r *SReceiverManager) AllowPerformGetTypes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
