@@ -60,6 +60,8 @@ func init() {
 
 		Sn string `help:"find host by sn"`
 
+		OrderByServerCount string `help:"Order by server count" choices:"desc|asc"`
+
 		options.BaseListOptions
 	}
 	R(&HostListOptions{}, "host-list", "List hosts", func(s *mcclient.ClientSession, opts *HostListOptions) error {
