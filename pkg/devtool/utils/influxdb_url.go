@@ -140,8 +140,12 @@ func convertInfluxdbUrl(ctx context.Context, pUrl string, endpointId string) (po
 	if err != nil {
 		return 0, nil, errors.Wrap(err, "failed to list forward")
 	}
+	var forwardId string
+	var lastSeen string
 	if len(lr.Data) > 0 {
 		port, _ = lr.Data[0].Int("bind_port")
+		forwardId, _ = lr.Data[0].GetString("id")
+		lastSeen, _ = lr.Data[0].GetString("last_seen")
 	} else {
 		var rUrl *url.URL
 		rUrl, err = url.Parse(pUrl)
@@ -163,12 +167,31 @@ func convertInfluxdbUrl(ctx context.Context, pUrl string, endpointId string) (po
 			err = errors.Wrapf(err, "unable to create forward with create params %s", createP.String())
 			return
 		}
-		forwardId, _ := forward.GetString("id")
+		forwardId, _ = forward.GetString("id")
+		lastSeen, _ = forward.GetString("last_seen")
 		recycle = func() error {
 			_, err := cloudproxy.Forwards.Delete(session, forwardId, nil)
 			return err
 		}
 		port, _ = forward.Int("bind_port")
+	}
+	// wait forward last seen not empty
+	times, waitTime := 0, time.Second
+	var data jsonutils.JSONObject
+	for lastSeen == "" && times < 10 {
+		time.Sleep(waitTime)
+		times += 1
+		waitTime += time.Second * time.Duration(times)
+		data, err = cloudproxy.Forwards.GetSpecific(session, forwardId, "last_seen", nil)
+		if err != nil {
+			err = errors.Wrapf(err, "unable to check last_seen for forward %s", forwardId)
+			return
+		}
+		log.Infof("data of last seen: %s", data)
+		lastSeen, _ = data.GetString("last_seen")
+	}
+	if lastSeen == "" {
+		err = errors.Wrapf(err, "last_seen of forward %s always is empty, something wrong", forwardId)
 	}
 	return
 }
