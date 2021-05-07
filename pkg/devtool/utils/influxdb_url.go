@@ -65,6 +65,7 @@ func proxyEndpoints(ctx context.Context, proxyEndpointId string, info sServerInf
 	for _, netId := range info.NetworkIds {
 		filter := jsonutils.NewDict()
 		filter.Set("network_id", jsonutils.NewString(netId))
+		filter.Set("scope", jsonutils.NewString("system"))
 		lr, err := cloudproxy.ProxyEndpoints.List(session, filter)
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to list proxy endpoint in network %q", netId)
@@ -81,6 +82,7 @@ func proxyEndpoints(ctx context.Context, proxyEndpointId string, info sServerInf
 	}
 	filter := jsonutils.NewDict()
 	filter.Set("vpc_id", jsonutils.NewString(info.VpcId))
+	filter.Set("scope", jsonutils.NewString("system"))
 	lr, err := cloudproxy.ProxyEndpoints.List(session, filter)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to list proxy endpoint in vpc %q", info.VpcId)
