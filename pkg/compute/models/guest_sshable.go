@@ -207,10 +207,11 @@ func (guest *SGuest) sshableTryEach(
 		res, err := cloudproxy_module.Forwards.PerformClassAction(sess, "create-from-server", fwdCreateParams)
 		if err == nil {
 			var fwd cloudproxy_api.ForwardDetails
-			if err := res.Unmarshal(&fwd); err == nil {
-				if ok := guest.sshableTryForward(ctx, tryData, &fwd); ok {
-					return nil
-				}
+			if err := res.Unmarshal(&fwd); err != nil {
+				log.Errorf("unmarshal fwd details: %q", res.String())
+			}
+			if ok := guest.sshableTryForward(ctx, tryData, &fwd); ok {
+				return nil
 			}
 		} else {
 			var reason string
