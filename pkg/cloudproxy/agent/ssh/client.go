@@ -190,6 +190,12 @@ func (c *Client) runClientState(ctx context.Context, sshClientC chan *ssh.Client
 		sshc, err := c.cc.ConnectContext(tmoCtx)
 		if err != nil {
 			log.Errorf("ssh connect: %v", err)
+			waitTmo := time.NewTimer(13 * time.Second)
+			select {
+			case <-ctx.Done():
+				return
+			case <-waitTmo.C:
+			}
 			continue
 		}
 
