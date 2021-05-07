@@ -256,7 +256,11 @@ func (man *SForwardManager) PerformCreateFromServer(ctx context.Context, userCre
 		data, err = man.validatePortReq(ctx, typ, -1, agentId, epId, data)
 	}
 
-	forward := &SForward{}
+	forwardObj, err := db.NewModelObject(man)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	forward := forwardObj.(*SForward)
 	if err := data.Unmarshal(forward); err != nil {
 		return nil, httperrors.NewServerError("unmarshal create params: %v", err)
 	}
@@ -267,7 +271,7 @@ func (man *SForwardManager) PerformCreateFromServer(ctx context.Context, userCre
 		return nil, httperrors.NewServerError("database insertion error: %v", err)
 	}
 
-	return jsonutils.Marshal(forward), nil
+	return db.GetItemDetails(man, forward, ctx, userCred)
 }
 
 func (man *SForwardManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
