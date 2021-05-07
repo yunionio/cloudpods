@@ -14,6 +14,10 @@
 
 package apis
 
+const (
+	IS_SYSTEM = "IsSystem"
+)
+
 type MetadataListInput struct {
 	ModelBaseListInput
 
