@@ -72,7 +72,11 @@ func (self *ApplyScriptTask) taskFailed(ctx context.Context, sa *models.SScriptA
 			log.Errorf("unable to StartApply script %s to server %s", sa.ScriptId, sa.GuestId)
 		}
 	}
-	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+	var errMsg string
+	if err != nil {
+		errMsg = err.Error()
+	}
+	self.SetStageFailed(ctx, jsonutils.NewString(errMsg))
 }
 
 func (self *ApplyScriptTask) taskSuccess(ctx context.Context, sa *models.SScriptApply, sar *models.SScriptApplyRecord) {
@@ -325,7 +329,7 @@ func (self *ApplyScriptTask) OnAnsiblePlaybookComplete(ctx context.Context, obj 
 	sarId, _ := self.Params.GetString("script_apply_record_id")
 	osar, err := models.ScriptApplyRecordManager.FetchById(sarId)
 	if err != nil {
-		log.Errorf("unable to fetch script apply record %s", sarId)
+		log.Errorf("unable to fetch script apply record %s: %v", sarId, err)
 		self.taskSuccess(ctx, sa, nil)
 	}
 	self.taskSuccess(ctx, sa, osar.(*models.SScriptApplyRecord))
@@ -337,13 +341,13 @@ func (self *ApplyScriptTask) OnAnsiblePlaybookCompleteFailed(ctx context.Context
 	forwardId, _ := self.Params.GetString("proxy_forward_id")
 	_, err := cloudproxy.Forwards.Delete(session, forwardId, nil)
 	if err != nil {
-		log.Errorf("unable to delete proxy forward %s", forwardId)
+		log.Errorf("unable to delete proxy forward %s: %v", forwardId, err)
 	}
 	sa := obj.(*models.SScriptApply)
 	sarId, _ := self.Params.GetString("script_apply_record_id")
 	osar, err := models.ScriptApplyRecordManager.FetchById(sarId)
 	if err != nil {
-		log.Errorf("unable to fetch script apply record %s", sarId)
+		log.Errorf("unable to fetch script apply record %s: %v", sarId, err)
 		self.taskSuccess(ctx, sa, nil)
 	}
 	self.taskFailed(ctx, sa, osar.(*models.SScriptApplyRecord), errors.Error(body.String()))
