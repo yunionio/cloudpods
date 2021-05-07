@@ -210,8 +210,20 @@ func (guest *SGuest) sshableTryEach(
 			if err := res.Unmarshal(&fwd); err != nil {
 				log.Errorf("unmarshal fwd details: %q", res.String())
 			}
-			if ok := guest.sshableTryForward(ctx, tryData, &fwd); ok {
-				return nil
+
+			tmo := time.NewTimer(13 * time.Second)
+			tick := time.NewTicker(3 * time.Second)
+			for {
+				select {
+				case <-tmo.C:
+					break
+				case <-tick.C:
+					if ok := guest.sshableTryForward(ctx, tryData, &fwd); ok {
+						return nil
+					}
+				case <-ctx.Done():
+					break
+				}
 			}
 		} else {
 			var reason string
