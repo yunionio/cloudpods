@@ -898,6 +898,10 @@ func getModelItemDetails(manager IModelManager, item IModel, ctx context.Context
 	}
 }
 
+func GetItemDetails(manager IModelManager, item IModel, ctx context.Context, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
+	return getItemDetails(manager, item, ctx, userCred, nil)
+}
+
 func getItemDetails(manager IModelManager, item IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	metaFields, excludeFields := GetDetailFields(manager, userCred)
 	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
