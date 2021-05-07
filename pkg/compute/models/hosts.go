@@ -490,6 +490,17 @@ func (manager *SHostManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SZoneResourceBaseManager.OrderByExtraFields")
 	}
+
+	if db.NeedOrderQuery([]string{query.OrderByServerCount}) {
+		guests := GuestManager.Query().SubQuery()
+		guestCounts := guests.Query(
+			guests.Field("host_id"),
+			sqlchemy.COUNT("id").Label("guest_count"),
+		).GroupBy("host_id").SubQuery()
+		q = q.LeftJoin(guestCounts, sqlchemy.Equals(q.Field("id"), guestCounts.Field("host_id")))
+		db.OrderByFields(q, []string{query.OrderByServerCount}, []sqlchemy.IQueryField{guestCounts.Field("guest_count")})
+	}
+
 	return q, nil
 }
 

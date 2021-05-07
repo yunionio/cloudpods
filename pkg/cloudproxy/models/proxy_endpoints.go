@@ -110,8 +110,8 @@ func (man *SProxyEndpointManager) PerformCreateFromServer(ctx context.Context, u
 		IntranetIpAddr: nic.IpAddr,
 	}
 	proxyendpoint.Name = name
-	proxyendpoint.DomainId = userCred.GetProjectDomainId()
-	proxyendpoint.ProjectId = userCred.GetProjectId()
+	proxyendpoint.DomainId = serverInfo.Server.DomainId
+	proxyendpoint.ProjectId = serverInfo.Server.ProjectId
 	if err := man.TableSpec().Insert(ctx, proxyendpoint); err != nil {
 		return nil, httperrors.NewServerError("database insertion error: %v", err)
 	}
