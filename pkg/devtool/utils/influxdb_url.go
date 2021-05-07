@@ -276,7 +276,7 @@ func checkUrl(ctx context.Context, url string, host *ansible_api.AnsibleHost) (b
 		}
 	}()
 	times, waitTimes := 0, time.Second
-	for times < 5 {
+	for times < 10 {
 		time.Sleep(waitTimes)
 		times++
 		waitTimes += time.Second * time.Duration(times)
