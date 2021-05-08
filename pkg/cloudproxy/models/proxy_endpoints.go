@@ -109,9 +109,15 @@ func (man *SProxyEndpointManager) PerformCreateFromServer(ctx context.Context, u
 
 		IntranetIpAddr: nic.IpAddr,
 	}
+	proxyendpoint.SetModelManager(man, proxyendpoint)
 	proxyendpoint.Name = name
 	proxyendpoint.DomainId = serverInfo.Server.DomainId
 	proxyendpoint.ProjectId = serverInfo.Server.ProjectId
+
+	if err := proxyendpoint.remoteCheckMake(ctx, userCred); err != nil {
+		return nil, err
+	}
+
 	if err := man.TableSpec().Insert(ctx, proxyendpoint); err != nil {
 		return nil, httperrors.NewServerError("database insertion error: %v", err)
 	}
@@ -181,6 +187,11 @@ func (man *SProxyEndpointManager) ValidateCreateData(
 	// 	ssh credential validation
 	// }
 	return data, nil
+}
+
+func (proxyendpoint *SProxyEndpoint) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	err := proxyendpoint.remoteCheckMake(ctx, userCred)
+	return err
 }
 
 func (man *SProxyEndpointManager) getById(id string) (*SProxyEndpoint, error) {
