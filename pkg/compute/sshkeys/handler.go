@@ -41,7 +41,7 @@ func AddSshKeysHandler(prefix string, app *appsrv.Application) {
 func adminSshKeysHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	publicOnly := false
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
-	if !userCred.IsAllow(rbacutils.ScopeSystem, consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet) {
+	if !userCred.IsAllow(rbacutils.ScopeDomain, consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet) {
 		publicOnly = true
 	}
 	params := appctx.AppContextParams(ctx)
