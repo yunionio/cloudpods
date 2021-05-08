@@ -555,6 +555,9 @@ func (c *QueryCondition) getOnecloudResources() ([]jsonutils.JSONObject, error) 
 		allResources, err = ListAllResources(&mc_mds.ElasticCache, query)
 	case monitor.METRIC_RES_TYPE_OSS:
 		allResources, err = ListAllResources(&mc_mds.Buckets, query)
+	case monitor.METRIC_RES_TYPE_CLOUDACCOUNT:
+		query.Remove("status")
+		allResources, err = ListAllResources(&mc_mds.Cloudaccounts, query)
 	case monitor.METRIC_RES_TYPE_TENANT:
 		allResources, err = ListAllResources(&mc_mds.Projects, query)
 	case monitor.METRIC_RES_TYPE_DOMAIN:
@@ -721,6 +724,8 @@ func (c *QueryCondition) getTagKeyRelationMap() map[string]string {
 		relationMap = monitor.RedisTags
 	case monitor.METRIC_RES_TYPE_OSS:
 		relationMap = monitor.OssTags
+	case monitor.METRIC_RES_TYPE_CLOUDACCOUNT:
+		relationMap = monitor.CloudAccountTags
 	case monitor.METRIC_RES_TYPE_TENANT:
 		relationMap = monitor.TenantTags
 	case monitor.METRIC_RES_TYPE_DOMAIN:
