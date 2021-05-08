@@ -112,7 +112,7 @@ func (this *BaseManager) rawBaseUrlRequest(s *mcclient.ClientSession,
 }
 
 type ListResult struct {
-	Data   []jsonutils.JSONObject
+	Data   []jsonutils.JSONObject `json:"data,allowempty"`
 	Total  int
 	Limit  int
 	Offset int
