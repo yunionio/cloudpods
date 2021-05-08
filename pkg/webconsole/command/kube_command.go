@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	webconsole_api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 )
 
@@ -114,12 +115,29 @@ func (c *KubectlExec) Command(cmd string, args ...string) *KubectlExec {
 }
 
 func NewPodBashCommand(env *K8sEnv) ICommand {
+	shellRequest := webconsole_api.SK8sShellRequest{}
+	err := env.Data.Unmarshal(&shellRequest)
+	if err != nil {
+		log.Errorf("env.Data.Unmarshal SK8sShellRequest: %s", err)
+	}
+	if shellRequest.Command == "" {
+		shellRequest.Command = "sh"
+	}
+	args := make([]string, 0)
+	if len(shellRequest.Env) > 0 {
+		for k, v := range shellRequest.Env {
+			args = append(args, fmt.Sprintf("%s=%s", k, v))
+		}
+		args = append(args, shellRequest.Command)
+		shellRequest.Command = "env"
+	}
+
 	return NewKubectlCommand(env.Kubeconfig, env.Namespace).Exec().
 		Stdin().
 		TTY().
 		Pod(env.Pod).
 		Container(env.Container).
-		Command("sh")
+		Command(shellRequest.Command, args...)
 }
 
 type KubectlLog struct {

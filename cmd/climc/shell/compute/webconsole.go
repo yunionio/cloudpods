@@ -24,7 +24,7 @@ import (
 
 	webconsole_api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/webconsole"
 	o "yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/webconsole/command"
 )
@@ -70,7 +70,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		ret, err := modules.WebConsole.DoK8sShellConnect(s, args.NAME, params)
+		ret, err := webconsole.WebConsole.DoK8sShellConnect(s, args.NAME, params)
 		if err != nil {
 			return err
 		}
@@ -83,7 +83,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		ret, err := modules.WebConsole.DoK8sLogConnect(s, args.NAME, params)
+		ret, err := webconsole.WebConsole.DoK8sLogConnect(s, args.NAME, params)
 		if err != nil {
 			return err
 		}
@@ -92,7 +92,7 @@ func init() {
 	})
 
 	R(&o.WebConsoleBaremetalOptions{}, "webconsole-baremetal", "Connect baremetal host webconsole", func(s *mcclient.ClientSession, args *o.WebConsoleBaremetalOptions) error {
-		ret, err := modules.WebConsole.DoBaremetalConnect(s, args.ID, nil)
+		ret, err := webconsole.WebConsole.DoBaremetalConnect(s, args.ID, nil)
 		if err != nil {
 			return err
 		}
@@ -105,7 +105,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		ret, err := modules.WebConsole.DoSshConnect(s, args.IP, params)
+		ret, err := webconsole.WebConsole.DoSshConnect(s, args.IP, params)
 		if err != nil {
 			return err
 		}
@@ -114,7 +114,7 @@ func init() {
 	})
 
 	R(&o.WebConsoleServerOptions{}, "webconsole-server", "Connect server remote graphic console", func(s *mcclient.ClientSession, args *o.WebConsoleServerOptions) error {
-		ret, err := modules.WebConsole.DoServerConnect(s, args.ID, nil)
+		ret, err := webconsole.WebConsole.DoServerConnect(s, args.ID, nil)
 		if err != nil {
 			return err
 		}
