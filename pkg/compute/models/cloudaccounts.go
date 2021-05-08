@@ -56,6 +56,7 @@ import (
 
 type SCloudaccountManager struct {
 	db.SEnabledStatusInfrasResourceBaseManager
+	SProjectMappingResourceBaseManager
 	SSyncableBaseResourceManager
 }
 
@@ -162,6 +163,8 @@ type SCloudaccount struct {
 
 	SAMLAuth            tristate.TriState `nullable:"false" get:"user" update:"domain" create:"optional" list:"user" default:"false"`
 	vmwareHostWireCache map[string][]SVs2Wire
+
+	SProjectMappingResourceBase
 }
 
 func (self *SCloudaccount) GetCloudproviders() []SCloudprovider {
@@ -1202,6 +1205,7 @@ func (manager *SCloudaccountManager) FetchCustomizeColumns(
 ) []api.CloudaccountDetail {
 	rows := make([]api.CloudaccountDetail, len(objs))
 	stdRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	pmRows := manager.SProjectMappingResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	proxySettings := make(map[string]proxy.SProxySetting)
 	{
@@ -1226,6 +1230,7 @@ func (manager *SCloudaccountManager) FetchCustomizeColumns(
 		account := objs[i].(*SCloudaccount)
 		detail := api.CloudaccountDetail{
 			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
+			ProjectMappingResourceInfo:             pmRows[i],
 		}
 		if proxySetting, ok := proxySettings[account.ProxySettingId]; ok {
 			detail.ProxySetting.Id = proxySetting.Id
@@ -2852,4 +2857,29 @@ func (cd *SCloudaccount) GetHost2Wire(ctx context.Context, userCred mcclient.Tok
 	}
 	cd.vmwareHostWireCache = ret
 	return cd.vmwareHostWireCache, nil
+}
+
+func (self *SCloudaccount) AllowPerformProjectMapping(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "project-mapping")
+}
+
+func (self *SCloudaccount) PerformProjectMapping(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountProjectMappingInput) (jsonutils.JSONObject, error) {
+	if len(input.ProjectMappingId) > 0 {
+		_, err := validators.ValidateModel(userCred, ProjectMappingManager, &input.ProjectMappingId)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// no changes
+	if self.ProjectMappingId == input.ProjectMappingId {
+		return nil, nil
+	}
+	_, err := db.Update(self, func() error {
+		self.ProjectMappingId = input.ProjectMappingId
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return nil, refreshMapping()
 }

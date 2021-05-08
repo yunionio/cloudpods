@@ -110,6 +110,49 @@ type SCloudprovider struct {
 	Provider string `width:"64" charset:"ascii" list:"domain" create:"domain_required"`
 }
 
+type providerMapping struct {
+	Id               string
+	CloudaccountId   string
+	ProjectMappingId string
+}
+
+var providerProjectMapping map[string]*providerMapping = map[string]*providerMapping{}
+
+func refreshMapping() error {
+	q := CloudproviderManager.Query("cloudaccount_id", "id")
+	sq := CloudaccountManager.Query().SubQuery()
+	q = q.LeftJoin(sq, sqlchemy.Equals(q.Field("cloudaccount_id"), sq.Field("id"))).AppendField(sq.Field("project_mapping_id"))
+	pms := []providerMapping{}
+	err := q.All(&pms)
+	if err != nil {
+		return errors.Wrapf(err, "q.All")
+	}
+	for i := range pms {
+		providerProjectMapping[pms[i].Id] = &pms[i]
+	}
+	return nil
+}
+
+func (self *providerMapping) GetCloudaccount() (*SCloudaccount, error) {
+	account, err := CloudaccountManager.FetchById(self.CloudaccountId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "FetchById(%s)", self.CloudaccountId)
+	}
+	return account.(*SCloudaccount), nil
+}
+
+func GetProviderMapping(id string) (*providerMapping, error) {
+	mp, ok := providerProjectMapping[id]
+	if ok {
+		return mp, nil
+	}
+	err := refreshMapping()
+	if err != nil {
+		return nil, err
+	}
+	return providerProjectMapping[id], nil
+}
+
 func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
 	// allow delete cloudprovider if it is disabled
 	// account := self.GetCloudaccount()
