@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/osprofile"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -237,9 +238,12 @@ func (self *SInstance) GetSysTags() map[string]string {
 	if loginKey := self.Properties.OsProfile.AdminPassword; len(loginKey) > 0 {
 		data["login_key"] = loginKey
 	}
-	data["zone_ext_id"] = self.host.zone.GetGlobalId()
-	priceKey := fmt.Sprintf("%s::%s", self.Properties.HardwareProfile.VMSize, self.host.zone.region.Name)
-	data["price_key"] = priceKey
+	for _, res := range self.Resources {
+		if strings.HasSuffix(strings.ToLower(res.Id), "databricksbootstrap") {
+			data[apis.IS_SYSTEM] = "true"
+			break
+		}
+	}
 	return data
 }
 

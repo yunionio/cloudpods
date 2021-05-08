@@ -113,6 +113,14 @@ func (manager *SVirtualResourceBaseManager) FilterByHiddenSystemAttributes(q *sq
 	return q
 }
 
+func (model *SVirtualResourceBase) SetSystemInfo(isSystem bool) error {
+	_, err := Update(model, func() error {
+		model.IsSystem = isSystem
+		return nil
+	})
+	return err
+}
+
 func (model *SVirtualResourceBase) SetProjectInfo(ctx context.Context, userCred mcclient.TokenCredential, projectId, domainId string) error {
 	_, err := Update(model, func() error {
 		model.ProjectId = projectId
