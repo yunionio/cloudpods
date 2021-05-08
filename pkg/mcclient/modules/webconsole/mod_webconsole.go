@@ -12,15 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package modules
+package webconsole
 
 import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
+	webconsole_api "yunion.io/x/onecloud/pkg/apis/webconsole"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 )
 
 var (
@@ -30,7 +35,7 @@ var (
 func init() {
 	WebConsole = WebConsoleManager{NewWebConsoleManager()}
 
-	register(&WebConsole)
+	modulebase.Register("v1", &WebConsole)
 }
 
 type WebConsoleManager struct {
@@ -62,6 +67,64 @@ func (m WebConsoleManager) DoK8sConnect(s *mcclient.ClientSession, id, action st
 
 func (m WebConsoleManager) DoK8sShellConnect(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return m.DoK8sConnect(s, id, "shell", params)
+}
+
+func (m WebConsoleManager) DoCloudShell(s *mcclient.ClientSession, _ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	adminSession := auth.GetAdminSession(s.GetContext(), s.GetRegion(), "")
+
+	query := jsonutils.NewDict()
+	query.Add(jsonutils.JSONTrue, "system")
+	query.Add(jsonutils.NewString("system"), "scope")
+	query.Add(jsonutils.NewString("system-default"), "name")
+	clusters, err := k8s.KubeClusters.List(adminSession, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "KubeClusters")
+	}
+	if len(clusters.Data) == 0 {
+		return nil, httperrors.NewNotFoundError("cluster system-default not found")
+	}
+	clusterId, _ := clusters.Data[0].GetString("id")
+	if len(clusterId) == 0 {
+		return nil, httperrors.NewNotFoundError("cluster system-default no id")
+	}
+
+	query = jsonutils.NewDict()
+	query.Add(jsonutils.NewString(clusterId), "cluster")
+	query.Add(jsonutils.NewString("onecloud"), "namespace")
+	query.Add(jsonutils.NewString("climc"), "search")
+	pods, err := k8s.Pods.List(adminSession, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "Pods")
+	}
+	if len(pods.Data) == 0 {
+		return nil, httperrors.NewNotFoundError("pod climc not found")
+	}
+	podName, _ := pods.Data[0].GetString("name")
+	if len(podName) == 0 {
+		return nil, httperrors.NewNotFoundError("pod climc no name")
+	}
+
+	req := webconsole_api.SK8sShellRequest{}
+	req.Cluster = clusterId
+	req.Namespace = "onecloud"
+	req.Container = "climc"
+	req.Command = "/bin/bash"
+	req.Env = map[string]string{
+		"OS_AUTH_TOKEN":           s.GetToken().GetTokenString(),
+		"OS_PROJECT_NAME":         s.GetProjectName(),
+		"OS_PROJECT_DOMAIN":       s.GetProjectDomain(),
+		"OS_AUTH_URL":             "https://default-keystone:30500/v3",
+		"OS_ENDPOINT_TYPE":        "internal",
+		"YUNION_USE_CACHED_TOKEN": "false",
+		"YUNION_INSECURE":         "true",
+		"OS_USERNAME":             "",
+		"OS_PASSWORD":             "",
+		"OS_DOMAIN_NAME":          "",
+		"OS_ACCESS_KEY":           "",
+		"OS_SECRET_KEY":           "",
+		"OS_TRY_TERM_WIDTH":       "false",
+	}
+	return m.DoK8sConnect(s, podName, "shell", jsonutils.Marshal(req))
 }
 
 func (m WebConsoleManager) DoK8sLogConnect(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
