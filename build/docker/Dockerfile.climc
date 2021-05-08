@@ -1,5 +1,7 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/climc-base:20200820
+FROM registry.cn-beijing.aliyuncs.com/yunionio/climc-base:20210508
 
 ADD ./build/climc/root/opt /opt
+
+ADD ./build/climc/root/root /root
 
 ADD ./_output/alpine-build/bin/climc ./_output/alpine-build/bin/*cli /opt/yunion/bin/

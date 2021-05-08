@@ -12,20 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package handler
+package webconsole
 
-import (
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	_ "yunion.io/x/onecloud/pkg/mcclient/modules/cloudnet"
-	_ "yunion.io/x/onecloud/pkg/mcclient/modules/etcd"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
-	_ "yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
-	_ "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
-	_ "yunion.io/x/onecloud/pkg/mcclient/modules/webconsole"
-	_ "yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
-)
+type SK8sRequest struct {
+	Cluster   string `json:"cluster"`
+	Namespace string `json:"namespace"`
+	Container string `json:"container"`
+}
 
-func init() {
-	modules.InitUsages()
-	modules.Usages.RegisterManager(modules.UsageManagerK8s, k8s.Usages)
+type SK8sShellRequest struct {
+	SK8sRequest
+
+	Command string            `json:"command"`
+	Env     map[string]string `json:"env"`
 }
