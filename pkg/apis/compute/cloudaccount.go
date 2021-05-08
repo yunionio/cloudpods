@@ -309,6 +309,8 @@ type CloudaccountDetail struct {
 	StoragecacheCount int `json:"storagecache_count,allowempty"`
 
 	ProxySetting proxyapi.SProxySetting `json:"proxy_setting"`
+
+	ProjectMappingResourceInfo
 }
 
 type CloudaccountUpdateInput struct {
@@ -474,4 +476,8 @@ type CloudaccountEnableAutoSyncInput struct {
 	// 云账号状态必须是connected
 	// 最小值为region服务的minimal_sync_interval_seconds
 	SyncIntervalSeconds int `json:"sync_interval_seconds"`
+}
+
+type CloudaccountProjectMappingInput struct {
+	ProjectMappingId string
 }
