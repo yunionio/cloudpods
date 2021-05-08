@@ -42,7 +42,7 @@ var (
 )
 
 // golang 不支持 const 的string array, http://t.cn/EzAvbw8
-var BLACK_LIST_OBJ_TYPE = []string{"parameter"}
+var BLACK_LIST_OBJ_TYPE = []string{} // "parameter"}
 
 var logclientWorkerMan *appsrv.SWorkerManager
 
