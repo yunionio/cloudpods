@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -378,4 +379,12 @@ func (model *SParameter) GetOwnerId() mcclient.IIdentityProvider {
 
 func (manager *SParameterManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	return db.FetchUserInfo(ctx, data)
+}
+
+func (model *SParameter) GetId() string {
+	return fmt.Sprintf("%d", model.Id)
+}
+
+func (model *SParameter) GetName() string {
+	return model.Name
 }
