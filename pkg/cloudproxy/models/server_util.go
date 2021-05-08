@@ -21,19 +21,18 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	compute_models "yunion.io/x/onecloud/pkg/mcclient/models"
 	compute_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 type serverInfo struct {
-	Server *compute_models.Server
+	Server *compute_apis.ServerDetails
 
 	// PrivateKey is the one corresponds to userCred when getting this
 	// serverInfo instance.  It can be empty
 	PrivateKey string
 }
 
-func (si *serverInfo) GetNic() *compute_models.ServerNic {
+func (si *serverInfo) GetNic() *compute_apis.GuestnetworkShortDesc {
 	nic := si.getVPCNic()
 	if nic != nil {
 		return nic
@@ -47,7 +46,7 @@ func (si *serverInfo) GetNic() *compute_models.ServerNic {
 	return nil
 }
 
-func (si *serverInfo) getVPCNic() *compute_models.ServerNic {
+func (si *serverInfo) getVPCNic() *compute_apis.GuestnetworkShortDesc {
 	for _, nic := range si.Server.Nics {
 		if nic.IpAddr != "" && nic.VpcId != compute_apis.DEFAULT_VPC_ID {
 			return &nic
@@ -67,7 +66,7 @@ func getServerInfo(
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	server := &compute_models.Server{}
+	server := &compute_apis.ServerDetails{}
 	if err := serverJson.Unmarshal(server); err != nil {
 		return nil, httperrors.NewServerError("unmarshal server %s: %v", serverId, err)
 	}
