@@ -186,10 +186,17 @@ func (c *Client) runClientState(ctx context.Context, sshClientC chan *ssh.Client
 		default:
 		}
 
+		cc := c.cc
 		tmoCtx, _ := context.WithTimeout(ctx, 31*time.Second)
-		sshc, err := c.cc.ConnectContext(tmoCtx)
+		sshc, err := cc.ConnectContext(tmoCtx)
 		if err != nil {
-			log.Errorf("ssh connect: %v", err)
+			log.Errorf("ssh connect: %s@%s, port %d: %v", cc.Username, cc.Host, cc.Port, err)
+			waitTmo := time.NewTimer(13 * time.Second)
+			select {
+			case <-ctx.Done():
+				return
+			case <-waitTmo.C:
+			}
 			continue
 		}
 
