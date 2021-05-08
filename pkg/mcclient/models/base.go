@@ -77,6 +77,7 @@ type EnabledStatusStandaloneResource struct {
 type VirtualResource struct {
 	StatusStandaloneResource
 
+	DomainId         string
 	ProjectId        string
 	IsSystem         bool
 	PendingDeletedAt time.Time
