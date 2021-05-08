@@ -308,8 +308,6 @@ func (dash *SAlertPanel) ValidateUpdateData(
 		}
 		alertCreateInput := dash.getUpdateAlertInput(*updataInput)
 		data.Set("settings", jsonutils.Marshal(&alertCreateInput.Settings))
-		updataInput.StandaloneResourceBaseUpdateInput, err = dash.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred,
-			query, updataInput.StandaloneResourceBaseUpdateInput)
 		if err != nil {
 			return data, errors.Wrap(err, "SAlertPanel.ValidateUpdateData")
 		}
