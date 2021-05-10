@@ -150,6 +150,7 @@ func (c *Client) Start(ctx context.Context) {
 	sshClientC := make(chan *ssh.Client)
 	var sshClient *ssh.Client
 	go c.runClientState(ctx, sshClientC)
+
 	for {
 		select {
 		case sshClient = <-sshClientC:
