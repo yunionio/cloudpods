@@ -339,4 +339,9 @@ func init() {
 			newMetricFieldCreateInput("drop_out", "The total number of transmission packets dropped by the network interface", monitor.METRIC_UNIT_COUNT, 8),
 		})
 
+	RegistryMetricCreateInput("storage", "Storage usage",
+		monitor.METRIC_RES_TYPE_STORAGE, monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("usage_active", "Storage utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("free", "Free storage", monitor.METRIC_UNIT_MB, 2),
+		})
 }

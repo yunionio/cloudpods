@@ -12,6 +12,7 @@ const (
 	METRIC_RES_TYPE_AGENT        = "agent"
 	METRIC_RES_TYPE_TENANT       = "tenant"
 	METRIC_RES_TYPE_DOMAIN       = "domain"
+	METRIC_RES_TYPE_STORAGE      = "storage"
 
 	METRIC_UNIT_PERCENT = "%"
 	METRIC_UNIT_BPS     = "bps"
@@ -22,6 +23,7 @@ const (
 	METRIC_UNIT_MS      = "ms"
 	METRIC_UNIT_BYTE    = "byte"
 	METRIC_UNIT_RMB     = "RMB"
+	METRIC_UNIT_MB      = "Mb"
 
 	METRIC_DATABASE_TELE  = "telegraf"
 	METRIC_DATABASE_METER = "meter_db"
@@ -40,6 +42,7 @@ var (
 		METRIC_RES_TYPE_RDS:          4,
 		METRIC_RES_TYPE_REDIS:        5,
 		METRIC_RES_TYPE_CLOUDACCOUNT: 6,
+		METRIC_RES_TYPE_STORAGE:      7,
 	}
 )
 
