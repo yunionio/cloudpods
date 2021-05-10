@@ -6,7 +6,9 @@ ENV TZ Asia/Shanghai
 
 RUN mkdir -p /opt/yunion/bin
 
-RUN apk add --no-cache bash bash-completion tzdata ca-certificates vim && \
+RUN echo http://dl-cdn.alpinelinux.org/alpine/edge/testing >>/etc/apk/repositories
+
+RUN apk add --no-cache bash bash-completion tzdata ca-certificates vim ipmitool kubectl && \
     rm -rf /var/cache/apk/*
 
 RUN cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime

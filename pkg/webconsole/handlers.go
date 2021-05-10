@@ -23,6 +23,7 @@ import (
 	"net/url"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	webconsole_api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -54,21 +55,25 @@ func InitHandlers(app *appsrv.Application) {
 
 func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*command.K8sEnv, error) {
 	params, _, body := appsrv.FetchEnv(ctx, w, r)
-	cluster, _ := body.GetString("cluster")
-	if cluster == "" {
-		cluster = "default"
+
+	k8sReq := webconsole_api.SK8sRequest{}
+	err := body.Unmarshal(&k8sReq)
+	if err != nil {
+		return nil, errors.Wrap(err, "body.Unmarshal SK8sRequest")
 	}
-	namespace, _ := body.GetString("namespace")
-	if namespace == "" {
-		namespace = "default"
+
+	if k8sReq.Cluster == "" {
+		k8sReq.Cluster = "default"
+	}
+	if k8sReq.Namespace == "" {
+		k8sReq.Namespace = "default"
 	}
 	podName := params["<podName>"]
-	container, _ := body.GetString("container")
 	adminSession := auth.GetAdminSession(ctx, o.Options.Region, "")
 
 	query := jsonutils.NewDict()
-	query.Add(jsonutils.NewString(namespace), "namespace")
-	query.Add(jsonutils.NewString(cluster), "cluster")
+	query.Add(jsonutils.NewString(k8sReq.Namespace), "namespace")
+	query.Add(jsonutils.NewString(k8sReq.Cluster), "cluster")
 	obj, err := k8s.Pods.Get(adminSession, podName, query)
 	if err != nil {
 		return nil, err
@@ -78,13 +83,13 @@ func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*
 	}
 
 	data := jsonutils.NewDict()
-	ret, err := k8s.KubeClusters.GetSpecific(adminSession, cluster, "kubeconfig", data)
+	ret, err := k8s.KubeClusters.GetSpecific(adminSession, k8sReq.Cluster, "kubeconfig", data)
 	if err != nil {
 		return nil, err
 	}
 	conf, err := ret.GetString("kubeconfig")
 	if err != nil {
-		return nil, httperrors.NewNotFoundError("Not found cluster %q kubeconfig", cluster)
+		return nil, httperrors.NewNotFoundError("Not found cluster %q kubeconfig", k8sReq.Cluster)
 	}
 	f, err := ioutil.TempFile("", "kubeconfig-")
 	if err != nil {
@@ -94,10 +99,10 @@ func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*
 	f.WriteString(conf)
 
 	return &command.K8sEnv{
-		Cluster:    cluster,
-		Namespace:  namespace,
+		Cluster:    k8sReq.Cluster,
+		Namespace:  k8sReq.Namespace,
 		Pod:        podName,
-		Container:  container,
+		Container:  k8sReq.Container,
 		Kubeconfig: f.Name(),
 		Data:       body,
 	}, nil
