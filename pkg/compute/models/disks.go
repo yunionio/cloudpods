@@ -2512,9 +2512,13 @@ func (manager *SDiskManager) AutoSyncExtDiskSnapshot(ctx context.Context, userCr
 			continue
 		}
 		disk := obj.(*SDisk)
-		syncResult := disk.syncSnapshots(ctx, userCred)
+		syncResult, hasCreating := disk.syncSnapshots(ctx, userCred)
 		if syncResult.IsError() {
 			db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SYNC_SNAPSHOT_FAIL, syncResult.Result(), userCred)
+			continue
+		}
+		if hasCreating {
+			// There are snapshots that are being created and need to be synchronized next time
 			continue
 		}
 		sp := spMap[spd.SnapshotpolicyId]
@@ -2546,27 +2550,27 @@ func isInInts(a int, array []int) bool {
 	return false
 }
 
-func (self *SDisk) syncSnapshots(ctx context.Context, userCred mcclient.TokenCredential) compare.SyncResult {
-	syncResult := compare.SyncResult{}
+func (self *SDisk) syncSnapshots(ctx context.Context, userCred mcclient.TokenCredential) (syncResult compare.SyncResult, hasCreating bool) {
+	syncResult = compare.SyncResult{}
 
 	extDisk, err := self.GetIDisk()
 	if err != nil {
 		syncResult.Error(err)
-		return syncResult
+		return
 	}
 	provider := self.GetCloudprovider()
 	syncOwnerId := provider.GetOwnerId()
 	storage := self.GetStorage()
 	if storage == nil {
 		syncResult.Error(fmt.Errorf("no valid storage"))
-		return syncResult
+		return
 	}
 	region := storage.GetRegion()
 
 	extSnapshots, err := extDisk.GetISnapshots()
 	if err != nil {
 		syncResult.Error(err)
-		return syncResult
+		return
 	}
 	localSnapshots := SnapshotManager.GetDiskSnapshots(self.Id)
 
@@ -2581,7 +2585,7 @@ func (self *SDisk) syncSnapshots(ctx context.Context, userCred mcclient.TokenCre
 	err = compare.CompareSets(localSnapshots, extSnapshots, &removed, &commondb, &commonext, &added)
 	if err != nil {
 		syncResult.Error(err)
-		return syncResult
+		return
 	}
 	for i := 0; i < len(removed); i += 1 {
 		err = removed[i].syncRemoveCloudSnapshot(ctx, userCred)
@@ -2599,6 +2603,9 @@ func (self *SDisk) syncSnapshots(ctx context.Context, userCred mcclient.TokenCre
 			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			syncResult.Update()
 		}
+		if !hasCreating && commonext[i].GetStatus() == api.SNAPSHOT_CREATING {
+			hasCreating = true
+		}
 	}
 	for i := 0; i < len(added); i += 1 {
 		local, err := SnapshotManager.newFromCloudSnapshot(ctx, userCred, added[i], region, syncOwnerId, provider)
@@ -2608,8 +2615,11 @@ func (self *SDisk) syncSnapshots(ctx context.Context, userCred mcclient.TokenCre
 			syncMetadata(ctx, userCred, local, added[i])
 			syncResult.Add()
 		}
+		if !hasCreating && added[i].GetStatus() == api.SNAPSHOT_CREATING {
+			hasCreating = true
+		}
 	}
-	return syncResult
+	return
 }
 
 func (self *SDisk) GetSnapshotsNotInInstanceSnapshot() ([]SSnapshot, error) {
