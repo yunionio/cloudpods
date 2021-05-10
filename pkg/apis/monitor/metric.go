@@ -3,11 +3,12 @@ package monitor
 import "yunion.io/x/onecloud/pkg/apis"
 
 const (
-	METRIC_RES_TYPE_GUEST = "guest"
-	METRIC_RES_TYPE_HOST  = "host"
-	METRIC_RES_TYPE_REDIS = "redis"
-	METRIC_RES_TYPE_OSS   = "oss"
-	METRIC_RES_TYPE_RDS   = "rds"
+	METRIC_RES_TYPE_GUEST   = "guest"
+	METRIC_RES_TYPE_HOST    = "host"
+	METRIC_RES_TYPE_REDIS   = "redis"
+	METRIC_RES_TYPE_OSS     = "oss"
+	METRIC_RES_TYPE_RDS     = "rds"
+	METRIC_RES_TYPE_STORAGE = "storage"
 
 	METRIC_UNIT_PERCENT = "%"
 	METRIC_UNIT_BPS     = "bps"
