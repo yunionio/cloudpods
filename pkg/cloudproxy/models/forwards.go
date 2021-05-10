@@ -485,3 +485,19 @@ func (fwd *SForward) PerformHeartbeat(ctx context.Context, userCred mcclient.Tok
 	}
 	return nil, nil
 }
+
+func (fwd *SForward) AllowGetDetailsLastseen(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return fwd.IsOwner(userCred) || db.IsAllowGetSpec(rbacutils.ScopeSystem, userCred, fwd, "last_seen")
+}
+
+func (fwd *SForward) GetDetailsLastseen(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	ret := jsonutils.NewDict()
+	var lastSeen string
+	if fwd.LastSeen.IsZero() {
+		lastSeen = ""
+	} else {
+		lastSeen = fwd.LastSeen.Format("2006-01-02T15:04:05.000000Z")
+	}
+	ret.Add(jsonutils.NewString(lastSeen), "last_seen")
+	return ret, nil
+}
