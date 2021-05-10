@@ -562,6 +562,9 @@ func (c *QueryCondition) getOnecloudResources() ([]jsonutils.JSONObject, error) 
 		allResources, err = ListAllResources(&mc_mds.Projects, query)
 	case monitor.METRIC_RES_TYPE_DOMAIN:
 		allResources, err = ListAllResources(&mc_mds.Domains, query)
+	case monitor.METRIC_RES_TYPE_STORAGE:
+		query.Remove("status")
+		allResources, err = ListAllResources(&mc_mds.Storages, query)
 	default:
 		query := jsonutils.NewDict()
 		query.Set("brand", jsonutils.NewString(hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND))
@@ -730,6 +733,8 @@ func (c *QueryCondition) getTagKeyRelationMap() map[string]string {
 		relationMap = monitor.TenantTags
 	case monitor.METRIC_RES_TYPE_DOMAIN:
 		relationMap = monitor.DomainTags
+	case monitor.METRIC_RES_TYPE_STORAGE:
+		relationMap = monitor.StorageTags
 	default:
 		relationMap = monitor.HostTags
 	}
