@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -153,7 +154,28 @@ func (c *Client) Start(ctx context.Context) {
 
 	for {
 		select {
-		case sshClient = <-sshClientC:
+		case sshc := <-sshClientC:
+			conn := sshc.Conn
+			localAddr := conn.LocalAddr()
+			localAddrStr := localAddr.String()
+			addr, portStr, err := net.SplitHostPort(localAddrStr)
+			if err != nil {
+				log.Errorf("split host port of ssh client local addr: %v", err)
+				sshc.Close()
+				break
+			}
+			port, err := strconv.ParseUint(portStr, 10, 16)
+			if err != nil {
+				log.Errorf("parse ssh client local port: %v", err)
+				sshc.Close()
+				break
+			}
+			if v := c.localForwards.get(int(port), addr); v != nil {
+				log.Errorf("ssh client local port %d collides with local forward: %#v", port, v)
+				sshc.Close()
+				break
+			}
+			sshClient = sshc
 		case req := <-c.lfc:
 			if sshClient != nil {
 				c.localForward(ctx, sshClient, req)
