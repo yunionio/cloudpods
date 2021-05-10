@@ -144,4 +144,19 @@ var (
 		"domain_id":      "id",
 		"project_domain": "name",
 	}
+
+	StorageTags = map[string]string{
+		"id":             "storage_id",
+		"name":           "storage_name",
+		"zone":           "zone",
+		"zone_id":        "zone_id",
+		"zone_ext_id":    "zone_ext_id",
+		"status":         "status",
+		"cloudregion":    "cloudregion",
+		"cloudregion_id": "cloudregion_id",
+		"region_ext_id":  "region_ext_id",
+		"brand":          "brand",
+		"domain_id":      "domain_id",
+		"project_domain": "project_domain",
+	}
 )
