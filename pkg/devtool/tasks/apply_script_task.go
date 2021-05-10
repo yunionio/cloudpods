@@ -213,7 +213,9 @@ func (self *ApplyScriptTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 	self.SetStage("OnAnsiblePlaybookComplete", updateData)
 
 	// Inject Task Header
-	session.Header = self.GetTaskRequestHeader()
+	taskHeader := self.GetTaskRequestHeader()
+	session.Header.Set(mcclient.TASK_NOTIFY_URL, taskHeader.Get(mcclient.TASK_NOTIFY_URL))
+	session.Header.Set(mcclient.TASK_ID, taskHeader.Get(mcclient.TASK_ID))
 	_, err = modules.AnsiblePlaybookReference.PerformAction(session, s.PlaybookReferenceId, "run", params)
 	if err != nil {
 		self.clearLocalForward(session, forwardId)
