@@ -178,7 +178,7 @@ func (c *Client) Start(ctx context.Context) {
 	}
 }
 
-func (c *Client) runClientState(ctx context.Context, sshClientC chan *ssh.Client) {
+func (c *Client) runClientState(ctx context.Context, sshClientC chan<- *ssh.Client) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -203,12 +203,6 @@ func (c *Client) runClientState(ctx context.Context, sshClientC chan *ssh.Client
 		func() {
 			defer sshc.Conn.Close()
 
-			select {
-			case sshClientC <- sshc:
-			case <-ctx.Done():
-				return
-			}
-
 			closeC := make(chan struct{})
 			go func() {
 				defer close(closeC)
@@ -218,6 +212,13 @@ func (c *Client) runClientState(ctx context.Context, sshClientC chan *ssh.Client
 					log.Infof("ssh client conn: %v", err)
 				}
 			}()
+
+			select {
+			case sshClientC <- sshc:
+			case <-closeC:
+			case <-ctx.Done():
+				return
+			}
 
 			select {
 			case <-closeC:
