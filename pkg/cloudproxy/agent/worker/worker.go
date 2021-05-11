@@ -180,14 +180,24 @@ func (w *Worker) Start(ctx context.Context) {
 	}
 	go w.apih.Start(ctx)
 
-	var mss *agentmodels.ModelSets
+	const tickDur = 11 * time.Second
+	var (
+		mss  *agentmodels.ModelSets
+		tick = time.NewTicker(tickDur)
+	)
 	for {
 		select {
 		case imss := <-w.apih.ModelSets():
 			log.Infof("agent: got new data from api helper")
 			mss = imss.(*agentmodels.ModelSets)
 			if err := w.run(ctx, mss); err != nil {
-				log.Errorf("agent: %v", err)
+				log.Errorf("agent run: %v", err)
+			}
+		case <-tick.C:
+			if mss != nil {
+				if err := w.run(ctx, mss); err != nil {
+					log.Errorf("agent refresh run: %v", err)
+				}
 			}
 		case <-ctx.Done():
 			return
