@@ -182,7 +182,7 @@ func convertInfluxdbUrl(ctx context.Context, pUrl string, endpointId string) (po
 		time.Sleep(waitTime)
 		times += 1
 		waitTime += time.Second * time.Duration(times)
-		data, err = cloudproxy.Forwards.GetSpecific(session, forwardId, "last_seen", nil)
+		data, err = cloudproxy.Forwards.GetSpecific(session, forwardId, "lastseen", nil)
 		if err != nil {
 			err = errors.Wrapf(err, "unable to check last_seen for forward %s", forwardId)
 			return
