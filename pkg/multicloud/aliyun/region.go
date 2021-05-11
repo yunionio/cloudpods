@@ -158,7 +158,8 @@ func (self *SRegion) nasRequest(action string, params map[string]string) (jsonut
 	if err != nil {
 		return nil, err
 	}
-	if self.GetCloudEnv() == ALIYUN_FINANCE_CLOUDENV {
+	switch self.GetCloudEnv() {
+	case ALIYUN_FINANCE_CLOUDENV:
 		if strings.Contains(action, "FileSystem") {
 			if self.RegionId == "cn-hangzhou" {
 				params["RegionId"] = "cn-hangzhou-dg-a01"
@@ -171,7 +172,8 @@ func (self *SRegion) nasRequest(action string, params map[string]string) (jsonut
 		}
 	}
 
-	return jsonRequest(client, "nas.aliyuncs.com", ALIYUN_NAS_API_VERSION, action, params, self.client.debug)
+	endpint := self.GetClient().getNasEndpoint(self.RegionId)
+	return jsonRequest(client, endpint, ALIYUN_NAS_API_VERSION, action, params, self.client.debug)
 }
 
 func (self *SRegion) kvsRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
