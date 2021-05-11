@@ -213,10 +213,11 @@ func (guest *SGuest) sshableTryEach(
 
 			tmo := time.NewTimer(13 * time.Second)
 			tick := time.NewTicker(3 * time.Second)
+		out:
 			for {
 				select {
 				case <-tmo.C:
-					break
+					break out
 				case <-tick.C:
 					if ok := guest.sshableTryForward(ctx, tryData, &fwd); ok {
 						return nil
