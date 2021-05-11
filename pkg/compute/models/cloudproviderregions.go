@@ -427,11 +427,12 @@ func (self *SCloudproviderregion) getSyncTaskKey() string {
 	}
 }
 
-func (self *SCloudproviderregion) submitSyncTask(userCred mcclient.TokenCredential, syncRange SSyncRange, waitChan chan bool) {
+func (self *SCloudproviderregion) submitSyncTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange, waitChan chan bool) {
 	self.markStartSync(userCred)
 	RunSyncCloudproviderRegionTask(self.getSyncTaskKey(), func() {
 		nopanic.Run(func() {
-			err := self.DoSync(context.Background(), userCred, syncRange)
+			ctx = context.WithValue(ctx, "provider-region", fmt.Sprintf("%d", self.RowId))
+			err := self.DoSync(ctx, userCred, syncRange)
 			if err != nil {
 				log.Errorf("DoSync faild %v", err)
 			}
