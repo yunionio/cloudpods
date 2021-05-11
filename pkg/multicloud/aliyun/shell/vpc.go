@@ -33,6 +33,21 @@ func init() {
 		return nil
 	})
 
+	type VpcCreateOptions struct {
+		Name string
+		Desc string
+		CIDR string
+	}
+
+	shellutils.R(&VpcCreateOptions{}, "vpc-create", "Create vpc", func(cli *aliyun.SRegion, args *VpcCreateOptions) error {
+		vpc, err := cli.CreateIVpc(args.Name, args.Desc, args.CIDR)
+		if err != nil {
+			return err
+		}
+		printObject(vpc)
+		return nil
+	})
+
 	type VpcOptions struct {
 		ID string `help:"VPC id"`
 	}
