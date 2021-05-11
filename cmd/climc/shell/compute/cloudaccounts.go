@@ -99,6 +99,7 @@ func init() {
 	cmd.Perform("change-owner", &options.ClouaccountChangeOwnerOptions{})
 	cmd.Perform("change-project", &options.ClouaccountChangeProjectOptions{})
 	cmd.Perform("create-subscription", &options.SubscriptionCreateOptions{})
+	cmd.Perform("project-mapping", &options.ClouaccountProjectMappingOptions{})
 
 	cmd.Get("change-owner-candidate-domains", &options.SCloudAccountIdOptions{})
 	cmd.Get("enrollment-accounts", &options.SCloudAccountIdOptions{})

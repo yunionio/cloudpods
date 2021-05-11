@@ -909,3 +909,12 @@ func (opts *SubscriptionCreateOptions) Params() (jsonutils.JSONObject, error) {
 		"enrollment_account_id": opts.ENROLLMENTACCOUNT,
 	}), nil
 }
+
+type ClouaccountProjectMappingOptions struct {
+	SCloudAccountIdOptions
+	ProjectMappingId string `json:"project_mapping_id" help:"project mapping id"`
+}
+
+func (opts *ClouaccountProjectMappingOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(map[string]string{"project_mapping_id": opts.ProjectMappingId}), nil
+}

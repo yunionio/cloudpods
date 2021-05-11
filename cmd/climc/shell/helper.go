@@ -100,7 +100,7 @@ func (cmd ResourceCmd) RunWithDesc(action, desc string, args interface{}, callba
 	if ok {
 		desc = descArgs.Description()
 	}
-	R(args, fmt.Sprintf("%s%s-%s", prefix, cmd.keyword, action), desc, callback)
+	R(args, fmt.Sprintf("%s%s-%s", prefix, strings.ReplaceAll(cmd.keyword, "_", "-"), action), desc, callback)
 }
 
 func (cmd ResourceCmd) Run(action string, args interface{}, callback interface{}) {
