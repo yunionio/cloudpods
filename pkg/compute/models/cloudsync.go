@@ -1405,8 +1405,50 @@ func (manager *SCloudproviderregionManager) initAllRecords() {
 }
 
 func SyncCloudProject(userCred mcclient.TokenCredential, model db.IVirtualModel, syncOwnerId mcclient.IIdentityProvider, extModel cloudprovider.IVirtualResource, managerId string) {
-	var newOwnerId mcclient.IIdentityProvider
-	if extProjectId := extModel.GetProjectId(); len(extProjectId) > 0 {
+	newOwnerId, err := func() (mcclient.IIdentityProvider, error) {
+		pm, err := GetProviderMapping(managerId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetProviderMapping")
+		}
+		if len(pm.ProjectMappingId) == 0 {
+			return nil, nil
+		}
+		account, err := pm.GetCloudaccount()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetCloudaccount")
+		}
+		rm, err := GetRuleMapping(pm.ProjectMappingId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetRuleMapping")
+		}
+		if rm != nil && rm.Enabled.Bool() {
+			extTags, err := extModel.GetTags()
+			if err != nil {
+				return nil, errors.Wrapf(err, "extModel.GetTags")
+			}
+			if rm.Rules != nil {
+				for _, rule := range *rm.Rules {
+					domainId, projectId, newProj, isMatch := rule.IsMatchTags(extTags)
+					if isMatch {
+						if len(newProj) > 0 {
+							domainId, projectId, err = account.getOrCreateTenant(context.TODO(), newProj, "", "auto create from tag")
+							if err != nil {
+								return nil, errors.Wrapf(err, "getOrCreateTenant(%s)", newProj)
+							}
+						}
+						if len(domainId) > 0 && len(projectId) > 0 {
+							return &db.SOwnerId{DomainId: domainId, ProjectId: projectId}, nil
+						}
+					}
+				}
+			}
+		}
+		return nil, nil
+	}()
+	if err != nil {
+		log.Errorf("try sync project for %s %s by tags error: %v", model.Keyword(), model.GetName(), err)
+	}
+	if extProjectId := extModel.GetProjectId(); len(extProjectId) > 0 && newOwnerId == nil {
 		extProject, err := ExternalProjectManager.GetProject(extProjectId, managerId)
 		if err != nil {
 			log.Errorf("sync project for %s %s error: %v", model.Keyword(), model.GetName(), err)

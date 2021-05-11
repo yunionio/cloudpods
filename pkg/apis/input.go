@@ -117,6 +117,18 @@ type EnabledBaseResourceCreateInput struct {
 	Disabled *bool `json:"disabled" help:"turn off enabled flag"`
 }
 
+func (self *EnabledBaseResourceCreateInput) SetEnabled() {
+	enabled := true
+	self.Enabled = &enabled
+	self.Disabled = nil
+}
+
+func (self *EnabledBaseResourceCreateInput) SetDisabled() {
+	disabled := true
+	self.Disabled = &disabled
+	self.Enabled = nil
+}
+
 func (input *EnabledBaseResourceCreateInput) AfterUnmarshal() {
 	if input.Disabled != nil && input.Enabled == nil {
 		enabled := !(*input.Disabled)

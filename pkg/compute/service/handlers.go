@@ -212,6 +212,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.AccessGroupRuleManager,
 		models.AccessGroupCacheManager,
 		models.MountTargetManager,
+
+		models.ProjectMappingManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
