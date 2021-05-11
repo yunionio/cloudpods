@@ -115,6 +115,8 @@ type SAliyunClient struct {
 	ownerId   string
 	ownerName string
 
+	vpcEndpoints map[string]string
+
 	iregions []cloudprovider.ICloudRegion
 	iBuckets []cloudprovider.ICloudBucket
 }
@@ -122,6 +124,7 @@ type SAliyunClient struct {
 func NewAliyunClient(cfg *AliyunClientConfig) (*SAliyunClient, error) {
 	client := SAliyunClient{
 		AliyunClientConfig: cfg,
+		vpcEndpoints:       map[string]string{},
 	}
 	err := client.fetchRegions()
 	if err != nil {
@@ -226,6 +229,41 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 func (self *SAliyunClient) getDefaultClient() (*sdk.Client, error) {
 	client, err := self.getSdkClient(ALIYUN_DEFAULT_REGION)
 	return client, err
+}
+
+func (self *SAliyunClient) getVpcEndpoint(regionId string) string {
+	err := self.fetchVpcEndpoints()
+	if err != nil {
+		return "vpc.aliyuncs.com"
+	}
+	ep, ok := self.vpcEndpoints[regionId]
+	if ok && len(ep) > 0 {
+		return ep
+	}
+	return "vpc.aliyuncs.com"
+}
+
+func (self *SAliyunClient) fetchVpcEndpoints() error {
+	if len(self.vpcEndpoints) > 0 {
+		return nil
+	}
+	client, err := self.getDefaultClient()
+	if err != nil {
+		return errors.Wrapf(err, "getDefaultClient")
+	}
+	resp, err := jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, "DescribeRegions", nil, self.debug)
+	if err != nil {
+		return errors.Wrapf(err, "DescribeRegions")
+	}
+	regions := []SRegion{}
+	err = resp.Unmarshal(&regions, "Regions", "Region")
+	if err != nil {
+		return errors.Wrapf(err, "resp.Unmarshal")
+	}
+	for _, region := range regions {
+		self.vpcEndpoints[region.RegionId] = region.RegionEndpoint
+	}
+	return nil
 }
 
 func (self *SAliyunClient) getSdkClient(regionId string) (*sdk.Client, error) {
