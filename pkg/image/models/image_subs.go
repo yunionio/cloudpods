@@ -244,7 +244,13 @@ func (self *SImageSubformat) RemoveFiles() error {
 			return err
 		}
 	}
-	return RemoveImage(self.Location)
+	if err := RemoveImage(self.Location); err != nil {
+		if strings.Contains(err.Error(), "no such file or directory") {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 type SImageSubformatDetails struct {
@@ -290,7 +296,7 @@ func (self *SImageSubformat) isTorrentActive() bool {
 	return isActive(self.getLocalTorrentLocation(), self.TorrentSize, self.TorrentChecksum, "", false)
 }
 
-func (self *SImageSubformat) setStatus(status string) error {
+func (self *SImageSubformat) SetStatus(status string) error {
 	_, err := db.Update(self, func() error {
 		self.Status = status
 		return nil
@@ -310,7 +316,7 @@ func (self *SImageSubformat) checkStatus(useFast bool) {
 	if strings.HasPrefix(self.Location, LocalFilePrefix) {
 		if self.isActive(useFast) {
 			if self.Status != api.IMAGE_STATUS_ACTIVE {
-				self.setStatus(api.IMAGE_STATUS_ACTIVE)
+				self.SetStatus(api.IMAGE_STATUS_ACTIVE)
 			}
 			if len(self.FastHash) == 0 {
 				fastHash, err := fileutils2.FastCheckSum(self.GetLocalLocation())
@@ -328,7 +334,7 @@ func (self *SImageSubformat) checkStatus(useFast bool) {
 			}
 		} else {
 			if self.Status != api.IMAGE_STATUS_QUEUED {
-				self.setStatus(api.IMAGE_STATUS_QUEUED)
+				self.SetStatus(api.IMAGE_STATUS_QUEUED)
 			}
 		}
 		if self.isTorrentActive() {
