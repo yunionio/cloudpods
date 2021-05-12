@@ -159,7 +159,7 @@ func (self *GuestCreateTask) OnDeployGuestDescComplete(ctx context.Context, obj 
 }
 
 func (self *GuestCreateTask) notifyServerCreated(ctx context.Context, guest *models.SGuest) {
-	// notifyclient.NotifyWebhook(ctx, self.UserCred, guest, notifyclient.ActionCreate)
+	notifyclient.NotifyWebhook(ctx, self.UserCred, guest, notifyclient.ActionCreate)
 	guest.EventNotify(ctx, self.UserCred, notifyclient.ActionCreate)
 }
 
