@@ -342,10 +342,10 @@ func (cli *SESXiClient) newDatacenterFromMo(mo *mo.Datacenter) (*SDatacenter, er
 	if err != nil {
 		return nil, errors.Wrap(err, "dc.scanHosts")
 	}
-	err = dc.scanDatastores()
-	if err != nil {
-		return nil, errors.Wrap(err, "dc.scanDatastores")
-	}
+	// err = dc.scanDatastores()
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, "dc.scanDatastores")
+	// }
 	return dc, nil
 }
 
