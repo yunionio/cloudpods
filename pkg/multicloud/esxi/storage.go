@@ -59,6 +59,7 @@ type SDatastore struct {
 	// vms []cloudprovider.ICloudVM
 
 	ihosts []cloudprovider.ICloudHost
+	idisks []cloudprovider.ICloudDisk
 
 	storageCache *SDatastoreImageCache
 }
@@ -332,7 +333,7 @@ func (self *SDatastore) getVMs() ([]cloudprovider.ICloudVM, error) {
 	if len(vms) == 0 {
 		return nil, nil
 	}
-	svms, err := dc.fetchVms(vms, false)
+	svms, err := dc.fetchVmsFromCache(vms)
 	if err != nil {
 		return nil, err
 	}
@@ -359,20 +360,32 @@ func (self *SDatastore) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, er
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SDatastore) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
+func (self *SDatastore) fetchDisks() error {
 	vms, err := self.getVMs()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	allDisks := make([]cloudprovider.ICloudDisk, 0)
 	for i := 0; i < len(vms); i += 1 {
 		disks, err := vms[i].GetIDisks()
 		if err != nil {
-			return nil, err
+			return err
 		}
 		allDisks = append(allDisks, disks...)
 	}
-	return allDisks, nil
+	self.idisks = allDisks
+	return nil
+}
+
+func (self *SDatastore) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
+	if self.idisks != nil {
+		return self.idisks, nil
+	}
+	err := self.fetchDisks()
+	if err != nil {
+		return nil, err
+	}
+	return self.idisks, nil
 }
 
 func (self *SDatastore) isLocalVMFS() bool {

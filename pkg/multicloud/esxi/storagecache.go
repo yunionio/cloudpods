@@ -154,10 +154,47 @@ func (self *SDatastoreImageCache) GetIImageInImagecache() ([]cloudprovider.IClou
 	return ret, nil
 }
 
+var ErrTimeConsuming = errors.Error("time consuming")
+
+func (self *SDatastoreImageCache) getTemplateVMsFromCache() ([]*SVirtualMachine, error) {
+	ihosts, err := self.datastore.datacenter.GetIHosts()
+	if err != nil {
+		return nil, err
+	}
+	dsRef := self.datastore.getDatastore().Self
+	ret := make([]*SVirtualMachine, 0)
+	for i := range ihosts {
+		tvms := ihosts[i].(*SHost).tempalteVMs
+		if tvms == nil {
+			return nil, ErrTimeConsuming
+		}
+		for _, vm := range tvms {
+			dss := vm.getVirtualMachine().Datastore
+			for _, ds := range dss {
+				if ds == dsRef {
+					ret = append(ret, vm)
+					break
+				}
+			}
+		}
+	}
+	return ret, nil
+}
+
 func (self *SDatastoreImageCache) GetIImageInTemplateVMs() ([]cloudprovider.ICloudImage, error) {
 	ret := make([]cloudprovider.ICloudImage, 0, 2)
 	log.Infof("start to GetIImages")
 
+	datastore := self.datastore
+	if datastore.datacenter.ihosts != nil {
+		vms, err := self.getTemplateVMsFromCache()
+		if err == nil {
+			for i := range vms {
+				ret = append(ret, NewVMTemplate(vms[i], self))
+			}
+			return ret, nil
+		}
+	}
 	realTemplates, err := self.getTempalteVMs()
 	if err != nil {
 		return nil, errors.Wrap(err, "getTemplateVMs")
