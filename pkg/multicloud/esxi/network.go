@@ -43,8 +43,8 @@ const (
 	VLAN_MODE_TRUNK = "trunk"
 )
 
-var NETWORK_PROPS = []string{"name", "parent", "summary", "host", "vm"}
-var DVPORTGROUP_PROPS = []string{"name", "parent", "summary", "host", "vm", "config", "key"}
+var NETWORK_PROPS = []string{"name", "parent", "host"}
+var DVPORTGROUP_PROPS = []string{"name", "parent", "host", "config", "key"}
 
 type SNetwork struct {
 	SManagedObject
