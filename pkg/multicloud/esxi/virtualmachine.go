@@ -49,7 +49,20 @@ import (
 	"yunion.io/x/onecloud/pkg/util/version"
 )
 
-var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "runtime", "summary", "config", "guest", "resourcePool", "layoutEx", "snapshot"}
+var (
+	vmSummaryProps = []string{"summary.runtime.powerState", "summary.config.uuid", "summary.config.memorySizeMB", "summary.config.numCpu"}
+	// vmConfigProps   = []string{"config.template", "config.alternateGuestName", "config.hardware", "config.guestId", "config.guestFullName", "config.firmware", "config.version", "config.createDate"}
+	vmGuestProps    = []string{"guest.net", "guest.guestState", "guest.toolsStatus", "guest.toolsRunningStatus", "guest.toolsVersion"}
+	vmLayoutExProps = []string{"layoutEx.file"}
+)
+
+var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "resourcePool", "snapshot", "config"}
+
+func init() {
+	VIRTUAL_MACHINE_PROPS = append(VIRTUAL_MACHINE_PROPS, vmSummaryProps...)
+	// VIRTUAL_MACHINE_PROPS = append(VIRTUAL_MACHINE_PROPS, vmConfigProps...)
+	VIRTUAL_MACHINE_PROPS = append(VIRTUAL_MACHINE_PROPS, vmGuestProps...)
+}
 
 type SVirtualMachine struct {
 	multicloud.SInstanceBase
@@ -127,10 +140,10 @@ func (self *SVirtualMachine) GetGlobalId() string {
 }
 
 func (self *SVirtualMachine) GetStatus() string {
-	err := self.CheckFileInfo(context.Background())
-	if err != nil {
-		return api.VM_UNKNOWN
-	}
+	// err := self.CheckFileInfo(context.Background())
+	// if err != nil {
+	// 	return api.VM_UNKNOWN
+	// }
 	vm := object.NewVirtualMachine(self.manager.client.Client, self.getVirtualMachine().Self)
 	state, err := vm.PowerState(self.manager.context)
 	if err != nil {
@@ -727,10 +740,10 @@ func (self *SVirtualMachine) fetchHardwareInfo() error {
 
 	moVM := self.getVirtualMachine()
 
-	MAX_TRIES := 3
-	for tried := 0; tried < MAX_TRIES && (moVM == nil || moVM.Config == nil || moVM.Config.Hardware.Device == nil); tried += 1 {
-		time.Sleep(time.Second)
-	}
+	// MAX_TRIES := 3
+	// for tried := 0; tried < MAX_TRIES && (moVM == nil || moVM.Config == nil || moVM.Config.Hardware.Device == nil); tried += 1 {
+	// 	time.Sleep(time.Second)
+	// }
 
 	if moVM == nil || moVM.Config == nil || moVM.Config.Hardware.Device == nil {
 		return fmt.Errorf("invalid vm")
@@ -884,6 +897,20 @@ func (self *SVirtualMachine) devNumWithCtrlKey(ctrlKey int32) int {
 	return n
 }
 
+func (self *SVirtualMachine) getLayoutEx() *types.VirtualMachineFileLayoutEx {
+	vm := self.getVirtualMachine()
+	if vm.LayoutEx != nil {
+		return vm.LayoutEx
+	}
+	var nvm mo.VirtualMachine
+	err := self.manager.reference2Object(vm.Self, vmLayoutExProps, &nvm)
+	if err != nil {
+		log.Errorf("unable to fetch LayoutEx.File from vc: %v", err)
+	}
+	vm.LayoutEx = nvm.LayoutEx
+	return vm.LayoutEx
+}
+
 func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
 	if driver == "pvscsi" {
 		driver = "scsi"
@@ -945,11 +972,11 @@ func (self *SVirtualMachine) createDriverAndDisk(ctx context.Context, sizeMb int
 }
 
 func (self *SVirtualMachine) copyRootDisk(ctx context.Context, imagePath string, index int) (string, error) {
-	movm := self.getVirtualMachine()
-	if movm.LayoutEx == nil || len(movm.LayoutEx.File) == 0 {
+	layoutEx := self.getLayoutEx()
+	if layoutEx == nil || len(layoutEx.File) == 0 {
 		return "", fmt.Errorf("invalid LayoutEx")
 	}
-	file := movm.LayoutEx.File[0].Name
+	file := layoutEx.File[0].Name
 	// find stroage
 	host := self.GetIHost()
 	storages, err := host.GetIStorages()
@@ -1065,9 +1092,9 @@ func (self *SVirtualMachine) getResourcePool() (*SResourcePool, error) {
 }
 
 func (self *SVirtualMachine) CheckFileInfo(ctx context.Context) error {
-	vm := self.getVirtualMachine()
-	if vm.LayoutEx != nil && len(vm.LayoutEx.File) > 0 {
-		file := vm.LayoutEx.File[0]
+	layoutEx := self.getLayoutEx()
+	if layoutEx != nil && len(layoutEx.File) > 0 {
+		file := layoutEx.File[0]
 		host := self.GetIHost()
 		storages, err := host.GetIStorages()
 		if err != nil {

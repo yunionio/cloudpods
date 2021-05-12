@@ -25,6 +25,7 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -295,6 +296,33 @@ func (dc *SDatacenter) fetchFakeTemplateVMs(movms []mo.VirtualMachine, regex str
 		return nil, nil
 	}
 	return dc.fetchVms(objs, false)
+}
+
+func (dc *SDatacenter) fetchVmsFromCache(vmRefs []types.ManagedObjectReference) ([]*SVirtualMachine, error) {
+	vmRefSet := sets.NewString()
+	for i := range vmRefs {
+		vmRefSet.Insert(vmRefs[i].String())
+	}
+	ihosts, err := dc.GetIHosts()
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]*SVirtualMachine, 0, len(vmRefs))
+	for i := range ihosts {
+		ivms, err := ihosts[i].GetIVMs()
+		if err != nil {
+			return nil, err
+		}
+		for i := range ivms {
+			vm := ivms[i].(*SVirtualMachine)
+			s := vm.getVirtualMachine().Self.String()
+			if vmRefSet.Has(s) {
+				ret = append(ret, vm)
+				vmRefSet.Delete(s)
+			}
+		}
+	}
+	return ret, nil
 }
 
 func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference, all bool) ([]*SVirtualMachine, error) {
