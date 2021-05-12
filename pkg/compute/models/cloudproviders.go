@@ -1330,7 +1330,7 @@ func (provider *SCloudprovider) syncCloudproviderRegions(ctx context.Context, us
 				wg.Add(1)
 				waitChan = make(chan bool)
 			}
-			cprs[i].submitSyncTask(userCred, syncRange, waitChan)
+			cprs[i].submitSyncTask(ctx, userCred, syncRange, waitChan)
 			if wg != nil {
 				<-waitChan
 				wg.Done()
