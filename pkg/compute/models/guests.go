@@ -1960,8 +1960,6 @@ func (self *SGuest) moreExtraInfo(
 		}
 	} else {
 		out.Networks = self.getNetworksDetails()
-		out.Disks = self.getDisksDetails()
-		out.DisksInfo = self.getDisksInfoDetails()
 		out.VirtualIps = strings.Join(self.getVirtualIPs(), ",")
 		out.SecurityRules = self.getSecurityGroupsRules()
 
@@ -2116,26 +2114,6 @@ func (self *SGuest) getNetworksDetails() string {
 		buf.WriteString("\n")
 	}
 	return buf.String()
-}
-
-func (self *SGuest) getDisksDetails() string {
-	var buf bytes.Buffer
-	for _, disk := range self.GetDisks() {
-		if details := disk.GetDetailedString(); len(details) > 0 {
-			buf.WriteString(details)
-			buf.WriteString("\n")
-		}
-	}
-	return buf.String()
-}
-
-func (self *SGuest) getDisksInfoDetails() []api.GuestDiskInfo {
-	disks := self.GetDisks()
-	details := make([]api.GuestDiskInfo, len(disks))
-	for i := range details {
-		details[i] = disks[i].GetDetailedInfo()
-	}
-	return details
 }
 
 func (self *SGuest) GetCdrom() *SGuestcdrom {

@@ -15,6 +15,7 @@
 package compute
 
 import (
+	"fmt"
 	"time"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -268,6 +269,19 @@ type GuestDiskInfo struct {
 	Bps         int    `json:"bps"`
 	ImageId     string `json:"image_id,omitempty"`
 	Image       string `json:"image,omitemtpy"`
+}
+
+func (self GuestDiskInfo) ShortDesc() string {
+	fs := ""
+	if len(self.ImageId) > 0 {
+		fs = "root"
+	} else if len(self.FsFormat) > 0 {
+		fs = self.FsFormat
+	} else {
+		fs = "none"
+	}
+	return fmt.Sprintf("disk%d:%dM/%s/%s/%s/%s/%s", self.Index, self.SizeMb,
+		self.DiskFormat, self.Driver, self.CacheMode, self.AioMode, fs)
 }
 
 type GuestJointResourceDetails struct {

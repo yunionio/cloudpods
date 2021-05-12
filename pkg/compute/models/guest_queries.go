@@ -57,13 +57,17 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 	}
 
 	if len(fields) == 0 || fields.Contains("disk") {
-		gds := fetchGuestDiskSizes(guestIds)
+		gds := fetchGuestDisksInfo(guestIds)
 		if gds != nil {
 			for i := range rows {
-				if gd, ok := gds[guestIds[i]]; ok {
-					rows[i].DiskSizeMb = gd.DiskSizeMb
-					rows[i].DiskCount = gd.DiskCount
+				rows[i].DisksInfo, _ = gds[guestIds[i]]
+				rows[i].DiskCount = len(rows[i].DisksInfo)
+				shortDescs := []string{}
+				for _, info := range rows[i].DisksInfo {
+					rows[i].DiskSizeMb += int64(info.SizeMb)
+					shortDescs = append(shortDescs, info.ShortDesc())
 				}
+				rows[i].Disks = strings.Join(shortDescs, "\n")
 			}
 		}
 	}
@@ -214,25 +218,63 @@ type sGustDiskSize struct {
 	DiskCount  int
 }
 
-func fetchGuestDiskSizes(guestIds []string) map[string]sGustDiskSize {
+type sGuestDiskInfo struct {
+	api.GuestDiskInfo
+	GuestId string
+}
+
+func fetchGuestDisksInfo(guestIds []string) map[string][]api.GuestDiskInfo {
 	disks := DiskManager.Query().SubQuery()
 	guestdisks := GuestdiskManager.Query().SubQuery()
-
-	q := disks.Query(guestdisks.Field("guest_id"), sqlchemy.SUM("disk_size_mb", disks.Field("disk_size")), sqlchemy.COUNT("disk_count"))
+	storages := StorageManager.Query().SubQuery()
+	q := disks.Query(
+		disks.Field("id"),
+		disks.Field("name"),
+		disks.Field("fs_format"),
+		guestdisks.Field("index"),
+		disks.Field("disk_size").Label("size"),
+		disks.Field("disk_format"),
+		guestdisks.Field("driver"),
+		guestdisks.Field("cache_mode"),
+		guestdisks.Field("aio_mode"),
+		storages.Field("medium_type"),
+		storages.Field("storage_type"),
+		guestdisks.Field("iops"),
+		guestdisks.Field("bps"),
+		disks.Field("template_id").Label("image_id"),
+		guestdisks.Field("guest_id"),
+	)
 	q = q.Join(guestdisks, sqlchemy.Equals(guestdisks.Field("disk_id"), disks.Field("id")))
+	q = q.Join(storages, sqlchemy.Equals(disks.Field("storage_id"), storages.Field("id")))
 	q = q.Filter(sqlchemy.In(guestdisks.Field("guest_id"), guestIds))
 	q = q.GroupBy(guestdisks.Field("guest_id"))
-
-	gds := make([]sGustDiskSize, 0)
+	gds := []sGuestDiskInfo{}
 	err := q.All(&gds)
-	if err != nil && err != sql.ErrNoRows {
-		log.Errorf("query sGustDiskSize fail: %v", err)
+	if err != nil {
 		return nil
 	}
-
-	ret := make(map[string]sGustDiskSize)
+	imageIds := []string{}
+	ret := map[string][]api.GuestDiskInfo{}
 	for i := range gds {
-		ret[gds[i].GuestId] = gds[i]
+		if len(gds[i].ImageId) > 0 {
+			imageIds = append(imageIds, gds[i].ImageId)
+		}
+		_, ok := ret[gds[i].GuestId]
+		if !ok {
+			ret[gds[i].GuestId] = []api.GuestDiskInfo{}
+		}
+		ret[gds[i].GuestId] = append(ret[gds[i].GuestId], gds[i].GuestDiskInfo)
+	}
+	imageNames, err := db.FetchIdNameMap2(CachedimageManager, imageIds)
+	if err != nil {
+		return ret
+	}
+	for guestId, infos := range ret {
+		for i := range infos {
+			if len(infos[i].ImageId) > 0 {
+				ret[guestId][i].Image, _ = imageNames[infos[i].ImageId]
+			}
+		}
 	}
 	return ret
 }
@@ -242,15 +284,19 @@ func (guest *SGuest) GetDisksSize() int {
 }
 
 func (guest *SGuest) getDiskSize() int {
-	result := fetchGuestDiskSizes([]string{guest.Id})
+	result := fetchGuestDisksInfo([]string{guest.Id})
 	if result == nil {
 		return -1
 	}
-	if gs, ok := result[guest.Id]; ok {
-		return int(gs.DiskSizeMb)
-	} else {
+	gds, ok := result[guest.Id]
+	if !ok {
 		return -1
 	}
+	size := 0
+	for _, gd := range gds {
+		size += gd.SizeMb
+	}
+	return size
 }
 
 func fetchGuestIPs(guestIds []string, virtual tristate.TriState) map[string][]string {
