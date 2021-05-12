@@ -139,7 +139,7 @@ func (s *sBaremetalRegisterTask) CreateBaremetal() (string, error) {
 	}
 
 	params := jsonutils.NewDict()
-	params.Set("name", jsonutils.NewString(strings.Replace(s.accessNic.Mac.String(), ":", "", -1)))
+	params.Set("name", jsonutils.NewString(fmt.Sprintf("bm%s", strings.Replace(s.accessNic.Mac.String(), ":", "", -1))))
 	params.Set("access_mac", jsonutils.NewString(s.accessNic.Mac.String()))
 	params.Set("host_type", jsonutils.NewString("baremetal"))
 	params.Set("is_baremetal", jsonutils.JSONTrue)
