@@ -219,6 +219,9 @@ type SEventNotifyParam struct {
 }
 
 func EventNotify(ctx context.Context, userCred mcclient.TokenCredential, ep SEventNotifyParam) {
+	// disable EventNotify for now
+	return
+
 	ret, err := db.FetchCustomizeColumns(ep.Obj.GetModelManager(), ctx, userCred, jsonutils.NewDict(), []interface{}{ep.Obj}, stringutils2.SSortedStrings{}, false)
 	if err != nil {
 		log.Errorf("unable to FetchCustomizeColumns: %v", err)
