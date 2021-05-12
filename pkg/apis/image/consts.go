@@ -26,6 +26,7 @@ const (
 	//
 	IMAGE_STATUS_QUEUED     = "queued"
 	IMAGE_STATUS_SAVING     = "saving"
+	IMAGE_STATUS_SAVE_FAIL  = "save_fail"
 	IMAGE_STATUS_ACTIVE     = "active"
 	IMAGE_STATUS_CONVERTING = "converting"
 
