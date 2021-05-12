@@ -123,6 +123,8 @@ type SAliyunClient struct {
 	ownerId   string
 	ownerName string
 
+	nasEndpoints map[string]string
+
 	iregions []cloudprovider.ICloudRegion
 	iBuckets []cloudprovider.ICloudBucket
 }
@@ -130,6 +132,7 @@ type SAliyunClient struct {
 func NewAliyunClient(cfg *AliyunClientConfig) (*SAliyunClient, error) {
 	client := SAliyunClient{
 		AliyunClientConfig: cfg,
+		nasEndpoints:       map[string]string{},
 	}
 	err := client.fetchRegions()
 	if err != nil {
@@ -243,6 +246,41 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 		}
 	}
 	return body, nil
+}
+
+func (self *SAliyunClient) getNasEndpoint(regionId string) string {
+	err := self.fetchNasEndpoints()
+	if err != nil {
+		return "nas.aliyuncs.com"
+	}
+	ep, ok := self.nasEndpoints[regionId]
+	if ok && len(ep) > 0 {
+		return ep
+	}
+	return "nas.aliyuncs.com"
+}
+
+func (self *SAliyunClient) fetchNasEndpoints() error {
+	if len(self.nasEndpoints) > 0 {
+		return nil
+	}
+	client, err := self.getDefaultClient()
+	if err != nil {
+		return errors.Wrapf(err, "getDefaultClient")
+	}
+	resp, err := jsonRequest(client, "nas.aliyuncs.com", ALIYUN_NAS_API_VERSION, "DescribeRegions", nil, self.debug)
+	if err != nil {
+		return errors.Wrapf(err, "DescribeRegions")
+	}
+	regions := []SRegion{}
+	err = resp.Unmarshal(&regions, "Regions", "Region")
+	if err != nil {
+		return errors.Wrapf(err, "resp.Unmarshal")
+	}
+	for _, region := range regions {
+		self.nasEndpoints[region.RegionId] = region.RegionEndpoint
+	}
+	return nil
 }
 
 func (self *SAliyunClient) getDefaultClient() (*sdk.Client, error) {
