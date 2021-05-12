@@ -80,6 +80,7 @@ func Init(storageBackend string) {
 }
 
 type Storage interface {
+	Type() string
 	SaveImage(string) (string, error)
 	CleanTempfile(string) error
 	GetImage(string) (int64, io.ReadCloser, error)
@@ -89,6 +90,10 @@ type Storage interface {
 }
 
 type LocalStorage struct{}
+
+func (s *LocalStorage) Type() string {
+	return "local"
+}
 
 func (s *LocalStorage) SaveImage(imagePath string) (string, error) {
 	return fmt.Sprintf("%s%s", LocalFilePrefix, imagePath), nil
@@ -123,6 +128,10 @@ type S3Storage struct{}
 func imagePathToName(imagePath string) string {
 	segs := strings.Split(imagePath, "/")
 	return segs[len(segs)-1]
+}
+
+func (s *S3Storage) Type() string {
+	return "s3"
 }
 
 func (s *S3Storage) SaveImage(imagePath string) (string, error) {

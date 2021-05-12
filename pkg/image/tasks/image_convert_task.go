@@ -16,6 +16,7 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -72,9 +73,14 @@ func (self *PutImageTask) OnInit(ctx context.Context, obj db.IStandaloneModel, d
 	if strings.HasPrefix(image.Location, models.LocalFilePrefix) {
 		imagePath := image.GetLocalLocation()
 		image.SetStatus(self.UserCred, api.IMAGE_STATUS_SAVING, "save image to specific storage")
-		location, err := models.GetStorage().SaveImage(imagePath)
+		storage := models.GetStorage()
+		location, err := storage.SaveImage(imagePath)
 		if err != nil {
 			log.Errorf("Failed save image to specific storage %s", err)
+			errStr := fmt.Sprintf("save image to storage %s: %v", storage.Type(), err)
+			image.SetStatus(self.UserCred, api.IMAGE_STATUS_SAVE_FAIL, errStr)
+			self.SetStageFailed(ctx, jsonutils.NewString(errStr))
+			return
 		} else if location != image.Location {
 			_, err = db.Update(image, func() error {
 				image.Location = location
@@ -117,9 +123,14 @@ func (self *PutImageTask) OnInit(ctx context.Context, obj db.IStandaloneModel, d
 			}
 		} else {
 			imagePath := subimgs[i].GetLocalLocation()
+			storage := models.GetStorage()
 			location, err := models.GetStorage().SaveImage(imagePath)
 			if err != nil {
 				log.Errorf("Failed save image to sepcific storage %s", err)
+				errStr := fmt.Sprintf("save sub image %s to storage %s: %v", subimgs[i].Format, storage.Type(), err)
+				subimgs[i].SetStatus(api.IMAGE_STATUS_SAVE_FAIL)
+				self.SetStageFailed(ctx, jsonutils.NewString(errStr))
+				return
 			} else if subimgs[i].Location != location {
 				_, err := db.Update(&subimgs[i], func() error {
 					subimgs[i].Location = location
