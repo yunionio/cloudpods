@@ -149,9 +149,6 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context
 	if zone == nil {
 		return nil, httperrors.NewInputParameterError("zone info missing")
 	}
-	if vpc.Id != api.DEFAULT_VPC_ID {
-		return nil, httperrors.NewInputParameterError("vpc lb is not allowed for now")
-	}
 
 	if clusterV.Model == nil {
 		clusters := models.LoadbalancerClusterManager.FindByZoneId(zone.Id)
