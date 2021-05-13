@@ -479,12 +479,6 @@ func SyncServerSkusByRegion(ctx context.Context, userCred mcclient.TokenCredenti
 	notes := fmt.Sprintf("SyncServerSkusByRegion %s result: %s", region.Name, result.Result())
 	log.Infof(notes)
 
-	// notfiy sched manager
-	_, err = modules.SchedManager.SyncSku(auth.GetAdminSession(ctx, options.Options.Region, ""), false)
-	if err != nil {
-		log.Errorf("SchedManager SyncSku %s", err)
-	}
-
 	return result
 }
 

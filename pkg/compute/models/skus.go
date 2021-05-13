@@ -1270,6 +1270,13 @@ func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred m
 			syncResult.Add()
 		}
 	}
+
+	// notfiy sched manager
+	_, err = modules.SchedManager.SyncSku(auth.GetAdminSession(ctx, options.Options.Region, ""), false)
+	if err != nil {
+		log.Errorf("SchedManager SyncSku %s", err)
+	}
+
 	return syncResult
 }
 
