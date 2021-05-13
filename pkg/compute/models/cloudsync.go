@@ -152,11 +152,6 @@ func syncRegionSkus(ctx context.Context, userCred mcclient.TokenCredential, loca
 			// logSyncFailed(provider, task, msg)
 			return
 		}
-
-		_, err = modules.SchedManager.SyncSku(auth.GetAdminSession(ctx, options.Options.Region, ""), false)
-		if err != nil {
-			log.Errorf("SchedManager SyncSku %s", err)
-		}
 	}
 
 	if localRegion.GetDriver().IsSupportedElasticcache() {
