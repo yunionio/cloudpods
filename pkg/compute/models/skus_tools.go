@@ -18,7 +18,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strings"
 
@@ -37,6 +36,10 @@ import (
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
+const (
+	EMPTY_MD5 = "d751713988987e9331980363e24189ce"
+)
+
 /*
 资源套餐下载连接信息
 server: 虚拟机
@@ -47,6 +50,8 @@ type SSkuResourcesMeta struct {
 	ServerBase       string `json:"server_base"`
 	ElasticCacheBase string `json:"elastic_cache_base"`
 }
+
+var skuIndex = map[string]string{}
 
 func (self *SSkuResourcesMeta) getZoneIdBySuffix(zoneMaps map[string]string, suffix string) string {
 	for externalId, id := range zoneMaps {
@@ -145,7 +150,7 @@ func (self *SSkuResourcesMeta) GetServerSkusByRegionExternalId(regionExternalId 
 	}
 	for _, obj := range objs {
 		sku := SServerSku{}
-		sku.SetModelManager(ElasticcacheSkuManager, &sku)
+		sku.SetModelManager(ServerSkuManager, &sku)
 		err = obj.Unmarshal(&sku)
 		if err != nil {
 			return nil, errors.Wrapf(err, "obj.Unmarshal")
@@ -234,41 +239,34 @@ func (self *SSkuResourcesMeta) getSkusByRegion(base string, region string) ([]js
 	return items, nil
 }
 
+func (self *SSkuResourcesMeta) request(url string) (jsonutils.JSONObject, error) {
+	client := httputils.GetAdaptiveTimeoutClient()
+
+	header := http.Header{}
+	header.Set("User-Agent", "vendor/yunion-OneCloud@"+v.Get().GitVersion)
+	_, resp, err := httputils.JSONRequest(client, context.TODO(), httputils.GET, url, header, nil, false)
+	return resp, err
+}
+
+func (self *SSkuResourcesMeta) getServerSkuIndex() (map[string]string, error) {
+	resp, err := self.request(fmt.Sprintf("%s/index.json", self.ServerBase))
+	if err != nil {
+		return map[string]string{}, errors.Wrapf(err, "request")
+	}
+	ret := map[string]string{}
+	err = resp.Unmarshal(ret)
+	if err != nil {
+		return map[string]string{}, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	return ret, nil
+}
+
 func (self *SSkuResourcesMeta) _get(url string) ([]jsonutils.JSONObject, error) {
 	if !strings.HasPrefix(url, "http") {
 		return nil, fmt.Errorf("SkuResourcesMeta.get invalid url %s.expected has prefix 'http'", url)
 	}
 
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("SkuResourcesMeta.get.NewRequest %s", err)
-	}
-
-	userAgent := "vendor/yunion-OneCloud@" + v.Get().GitVersion
-	req.Header.Set("User-Agent", userAgent)
-
-	transport := httputils.GetTransport(true)
-	transport.Proxy = options.Options.HttpTransportProxyFunc()
-	client := &http.Client{
-		Transport: transport,
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("SkuResourcesMeta.get.Get %s", err)
-	}
-
-	defer resp.Body.Close()
-	content, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("SkuResourcesMeta.get.ReadAll %s", err)
-	}
-
-	jsonContent, err := jsonutils.Parse(content)
-	if err != nil {
-		return nil, fmt.Errorf("SkuResourcesMeta.get.Parse %s", err)
-	}
-
+	jsonContent, err := self.request(url)
 	var ret []jsonutils.JSONObject
 	err = jsonContent.Unmarshal(&ret)
 	if err != nil {
@@ -360,9 +358,30 @@ func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isSt
 		return
 	}
 
+	index, err := meta.getServerSkuIndex()
+	if err != nil {
+		log.Errorf("getServerSkuIndex error: %v", err)
+	}
+
 	cloudregions := fetchSkuSyncCloudregions()
 	for i := range cloudregions {
 		region := &cloudregions[i]
+		oldMd5, _ := skuIndex[region.ExternalId]
+		newMd5, ok := index[region.ExternalId]
+		if ok {
+			skuIndex[region.ExternalId] = newMd5
+		}
+
+		if newMd5 == EMPTY_MD5 {
+			log.Infof("%s Server Skus is empty skip syncing", region.Name)
+			continue
+		}
+
+		if len(oldMd5) > 0 && newMd5 == oldMd5 {
+			log.Infof("%s Server Skus not Changed skip syncing", region.Name)
+			continue
+		}
+
 		result := ServerSkuManager.SyncServerSkus(ctx, userCred, region, meta)
 		notes := fmt.Sprintf("SyncServerSkusByRegion %s result: %s", region.Name, result.Result())
 		log.Infof(notes)
