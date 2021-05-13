@@ -84,7 +84,7 @@ func (r runnable) Run(ctx context.Context) (err error) {
 	// write out playbook
 	playbook := r.GetPlaybookPath()
 	if len(playbook) == 0 {
-		playbook := filepath.Join(tmpdir, "playbook")
+		playbook = filepath.Join(tmpdir, "playbook")
 		err = ioutil.WriteFile(playbook, []byte(r.GetPlaybook()), os.FileMode(0600))
 		if err != nil {
 			err = errors.Wrapf(err, "writing playbook %s", playbook)
