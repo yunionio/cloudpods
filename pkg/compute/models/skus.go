@@ -85,8 +85,8 @@ type SServerSku struct {
 	InstanceTypeCategory string `width:"32" charset:"utf8" nullable:"true" list:"user" create:"admin_optional" update:"admin"`            // 通用型
 	LocalCategory        string `width:"32" charset:"utf8" nullable:"true" list:"user" create:"admin_optional" update:"admin" default:""` // 记录本地分类
 
-	PrepaidStatus  string `width:"32" charset:"utf8" nullable:"true" list:"user" create:"admin_optional" default:"available"` // 预付费资源状态   available|soldout
-	PostpaidStatus string `width:"32" charset:"utf8" nullable:"true" list:"user" create:"admin_optional" default:"available"` // 按需付费资源状态  available|soldout
+	PrepaidStatus  string `width:"32" charset:"utf8" nullable:"true" list:"user" update:"admin" create:"admin_optional" default:"available"` // 预付费资源状态   available|soldout
+	PostpaidStatus string `width:"32" charset:"utf8" nullable:"true" list:"user" update:"admin" create:"admin_optional" default:"available"` // 按需付费资源状态  available|soldout
 
 	CpuCoreCount int `nullable:"false" list:"user" create:"admin_required"`
 	MemorySizeMB int `nullable:"false" list:"user" create:"admin_required"`
@@ -598,11 +598,6 @@ func (self *SServerSku) AllowUpdateItem(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SServerSku) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerSkuUpdateInput) (api.ServerSkuUpdateInput, error) {
-	// 目前不允许改sku信息
-	if !inWhiteList(self.Provider) {
-		return input, httperrors.NewForbiddenError("can not update instance_type for public cloud %s", self.Provider)
-	}
-
 	if len(input.Name) > 0 {
 		return input, httperrors.NewUnsupportOperationError("Cannot change server sku name")
 	}
