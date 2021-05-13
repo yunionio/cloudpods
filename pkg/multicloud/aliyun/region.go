@@ -149,8 +149,8 @@ func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonut
 	if err != nil {
 		return nil, err
 	}
-
-	return jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params, self.client.debug)
+	endpoint := self.GetClient().getVpcEndpoint(self.RegionId)
+	return jsonRequest(client, endpoint, ALIYUN_API_VERSION_VPC, action, params, self.client.debug)
 }
 
 func (self *SRegion) nasRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
