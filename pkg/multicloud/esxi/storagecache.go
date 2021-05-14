@@ -246,11 +246,12 @@ func (self *SDatastoreImageCache) GetIImages() ([]cloudprovider.ICloudImage, err
 	if err != nil {
 		return nil, err
 	}
-	images2, err := self.GetIImageInImagecache()
-	if err != nil {
-		return nil, err
-	}
-	return append(images1, images2...), nil
+	return images1, nil
+	// images2, err := self.GetIImageInImagecache()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// return append(images1, images2...), nil
 }
 
 func (self *SDatastoreImageCache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {
