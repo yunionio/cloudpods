@@ -40,7 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
-	"yunion.io/x/onecloud/pkg/util/rand"
+	randutil "yunion.io/x/onecloud/pkg/util/rand"
 )
 
 type SKVMRegionDriver struct {
@@ -83,19 +83,65 @@ func (self *SKVMRegionDriver) GenerateSecurityGroupName(name string) string {
 
 func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
+	networkV.Optional(true)
+	if err := networkV.Validate(data); err != nil {
+		return nil, err
+	}
+
+	var network *models.SNetwork
+	if networkV.Model != nil {
+		network = networkV.Model.(*models.SNetwork)
+	} else {
+		vpcV := validators.NewModelIdOrNameValidator("vpc", "vpc", ownerId)
+		if err := vpcV.Validate(data); err != nil {
+			return nil, err
+		}
+		// find available networks
+		vpc := vpcV.Model.(*models.SVpc)
+		networks, err := vpc.GetNetworks()
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+		networksLen := len(networks)
+		if networksLen > 0 {
+			i := randutil.Intn(networksLen)
+			j := (i + 1) % networksLen
+			for {
+				net := &networks[j]
+				addrCount, err := net.GetFreeAddressCount()
+				if err != nil {
+					continue
+				}
+				if addrCount > 0 {
+					network = net
+					break
+				}
+
+				j = (j + 1) % networksLen
+				if j == i {
+					break
+				}
+			}
+		}
+		if network == nil {
+			return nil, httperrors.NewBadRequestError("no usable network in vpc %s(%s)", vpc.Name, vpc.Id)
+		}
+	}
+	if network.ServerType != api.NETWORK_TYPE_GUEST {
+		return nil, httperrors.NewBadRequestError("only network type %q is allowed", api.NETWORK_TYPE_GUEST)
+	}
+
 	addressV := validators.NewIPv4AddrValidator("address")
 	clusterV := validators.NewModelIdOrNameValidator("cluster", "loadbalancercluster", ownerId)
 	keyV := map[string]validators.IValidator{
 		"status":  validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
 		"address": addressV.Optional(true),
-		"network": networkV,
 		"cluster": clusterV.Optional(true),
 	}
 	if err := RunValidators(keyV, data, false); err != nil {
 		return nil, err
 	}
 
-	network := networkV.Model.(*models.SNetwork)
 	region, zone, vpc, _, err := network.ValidateElbNetwork(addressV.IP)
 	if err != nil {
 		return nil, err
@@ -134,7 +180,7 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context
 		} else {
 			return nil, httperrors.NewInputParameterError("no viable lbcluster")
 		}
-		i := rand.Intn(len(choices))
+		i := randutil.Intn(len(choices))
 		data.Set("cluster_id", jsonutils.NewString(choices[i].Id))
 	} else {
 		cluster := clusterV.Model.(*models.SLoadbalancerCluster)
@@ -148,10 +194,16 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context
 		}
 	}
 
+	lbNetworkType := api.LB_NETWORK_TYPE_VPC
+	if vpc.Id == api.DEFAULT_VPC_ID {
+		lbNetworkType = api.LB_NETWORK_TYPE_CLASSIC
+	}
+
 	data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
 	data.Set("zone_id", jsonutils.NewString(zone.GetId()))
 	data.Set("vpc_id", jsonutils.NewString(vpc.GetId()))
-	data.Set("network_type", jsonutils.NewString(api.LB_NETWORK_TYPE_CLASSIC))
+	data.Set("network_id", jsonutils.NewString(network.Id))
+	data.Set("network_type", jsonutils.NewString(lbNetworkType))
 	data.Set("address_type", jsonutils.NewString(api.LB_ADDR_TYPE_INTRANET))
 	return data, nil
 }
@@ -233,7 +285,7 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 
 	name, _ := data.GetString("name")
 	if name == "" {
-		name = fmt.Sprintf("%s-%s-%s-%s", backendGroup.Name, backendType, basename, rand.String(4))
+		name = fmt.Sprintf("%s-%s-%s-%s", backendGroup.Name, backendType, basename, randutil.String(4))
 	}
 
 	switch backendType {
@@ -1168,7 +1220,7 @@ func (self *SKVMRegionDriver) RequestCreateInstanceSnapshot(ctx context.Context,
 		defer lockman.ReleaseClass(ctx, models.SnapshotManager, "name")
 
 		snapshotName, err := db.GenerateName(ctx, models.SnapshotManager, task.GetUserCred(),
-			fmt.Sprintf("%s-%s", isp.Name, rand.String(8)))
+			fmt.Sprintf("%s-%s", isp.Name, randutil.String(8)))
 		if err != nil {
 			return nil, errors.Wrap(err, "Generate snapshot name")
 		}
@@ -1332,7 +1384,7 @@ func (self *SKVMRegionDriver) RequestCreateInstanceBackup(ctx context.Context, g
 			defer lockman.ReleaseClass(ctx, models.DiskBackupManager, "name")
 
 			diskBackupName, err := db.GenerateName(ctx, models.DiskBackupManager, task.GetUserCred(),
-				fmt.Sprintf("%s-%s", ib.Name, rand.String(8)))
+				fmt.Sprintf("%s-%s", ib.Name, randutil.String(8)))
 			if err != nil {
 				return nil, errors.Wrap(err, "Generate diskbackup name")
 			}
