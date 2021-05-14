@@ -335,6 +335,7 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 
 				if disk.Device == instance.RootDeviceName {
 					disk.Type = api.DISK_TYPE_SYS
+					disk.ImageId = instance.ImageId
 				} else {
 					disk.Type = api.DISK_TYPE_DATA
 				}
