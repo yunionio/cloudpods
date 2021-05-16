@@ -32,7 +32,7 @@ import (
 )
 
 type SProjectMappingResourceBase struct {
-	ProjectMappingId string `width:"36" charset:"ascii" nullable:"false" create:"required"  index:"true" list:"user" json:"project_mapping_id"`
+	ProjectMappingId string `width:"36" charset:"ascii" nullable:"false" create:"optional" index:"true" list:"user" json:"project_mapping_id"`
 }
 
 type SProjectMappingResourceBaseManager struct{}
