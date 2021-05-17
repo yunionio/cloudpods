@@ -1091,7 +1091,11 @@ func parseInstanceSnapshot(input *api.ServerCreateInput) (*api.ServerCreateInput
 	if isp.Status != api.INSTANCE_SNAPSHOT_READY {
 		return nil, httperrors.NewBadRequestError("Instance snapshot not ready")
 	}
-	return isp.ToInstanceCreateInput(input)
+	input, err = isp.ToInstanceCreateInput(input)
+	if len(input.Disks) == 0 {
+		return nil, httperrors.NewInputParameterError("there are no disks in this instance snapshot, try another one")
+	}
+	return input, nil
 }
 
 func (manager *SGuestManager) validateCreateData(
