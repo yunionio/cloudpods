@@ -83,6 +83,7 @@ func (self *DBInstanceDeleteTask) DeleteDBInstanceComplete(ctx context.Context, 
 			self.taskFailed(ctx, dbinstance, errors.Wrap(err, "dbinstance.Purge"))
 			return
 		}
+		notifyclient.NotifyWebhook(ctx, self.UserCred, dbinstance, notifyclient.ActionDelete)
 		self.SetStageComplete(ctx, nil)
 		return
 	}
