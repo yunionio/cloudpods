@@ -61,7 +61,6 @@ func (self *LoadbalancerCreateTask) OnLoadbalancerCreateComplete(ctx context.Con
 	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lb, db.ACT_ALLOCATE, lb.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_CREATE, nil, self.UserCred, true)
-	notifyclient.NotifyWebhook(ctx, self.UserCred, lb, notifyclient.ActionCreate)
 	self.SetStage("OnLoadbalancerStartComplete", nil)
 	lb.StartLoadBalancerStartTask(ctx, self.GetUserCred(), self.GetTaskId())
 }
@@ -72,6 +71,7 @@ func (self *LoadbalancerCreateTask) OnLoadbalancerCreateCompleteFailed(ctx conte
 
 func (self *LoadbalancerCreateTask) OnLoadbalancerStartComplete(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
 	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
+	notifyclient.NotifyWebhook(ctx, self.UserCred, lb, notifyclient.ActionCreate)
 	self.SetStageComplete(ctx, nil)
 }
 

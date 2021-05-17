@@ -66,7 +66,6 @@ func (self *DBInstanceCreateTask) CreateDBInstance(ctx context.Context, rds *mod
 func (self *DBInstanceCreateTask) OnCreateDBInstanceComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	dbinstance := obj.(*models.SDBInstance)
 	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_CREATE, nil, self.UserCred, true)
-	notifyclient.NotifyWebhook(ctx, self.UserCred, dbinstance, notifyclient.ActionCreate)
 	self.SetStage("OnSyncDBInstanceStatusComplete", nil)
 	models.StartResourceSyncStatusTask(ctx, self.UserCred, dbinstance, "DBInstanceSyncStatusTask", self.GetTaskId())
 }
@@ -77,6 +76,8 @@ func (self *DBInstanceCreateTask) OnCreateDBInstanceCompleteFailed(ctx context.C
 }
 
 func (self *DBInstanceCreateTask) OnSyncDBInstanceStatusComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	dbinstance := obj.(*models.SDBInstance)
+	notifyclient.NotifyWebhook(ctx, self.UserCred, dbinstance, notifyclient.ActionCreate)
 	self.SetStageComplete(ctx, nil)
 }
 
