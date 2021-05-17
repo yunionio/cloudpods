@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -247,62 +246,6 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 		desc.Add(jsonutils.JSONTrue, "is_ssd")
 	}
 	return desc
-}
-
-func (self *SGuestdisk) GetDetailedInfo() api.GuestDiskInfo {
-	desc := api.GuestDiskInfo{}
-	disk := self.GetDisk()
-	if disk == nil {
-		return desc
-	}
-	desc.Id = disk.Id
-	desc.Name = disk.Name
-	desc.FsFormat = disk.FsFormat
-	desc.DiskType = disk.DiskType
-	desc.Index = self.Index
-	desc.SizeMb = disk.DiskSize
-	desc.DiskFormat = disk.DiskFormat
-	desc.Driver = self.Driver
-	desc.CacheMode = self.CacheMode
-	desc.AioMode = self.AioMode
-	desc.Iops = self.Iops
-	desc.Bps = self.Bps
-
-	imageId := disk.GetTemplateId()
-	if len(imageId) > 0 {
-		desc.ImageId = imageId
-		cachedImageObj, _ := CachedimageManager.FetchById(imageId)
-		if cachedImageObj != nil {
-			cachedImage := cachedImageObj.(*SCachedimage)
-			desc.Image = cachedImage.GetName()
-		}
-	}
-
-	storage := disk.GetStorage()
-	if storage == nil {
-		return desc
-	}
-	desc.MediumType = storage.MediumType
-	desc.StorageType = storage.StorageType
-	return desc
-}
-
-func (self *SGuestdisk) GetDetailedString() string {
-	disk := self.GetDisk()
-	if disk == nil {
-		return ""
-	}
-
-	var fs string
-	if len(disk.GetTemplateId()) > 0 {
-		fs = "root"
-	} else if len(disk.GetFsFormat()) > 0 {
-		fs = disk.GetFsFormat()
-	} else {
-		fs = "none"
-	}
-	return fmt.Sprintf("disk%d:%dM/%s/%s/%s/%s/%s", self.Index, disk.DiskSize,
-		disk.DiskFormat, self.Driver, self.CacheMode, self.AioMode, fs)
 }
 
 func (self *SGuestdisk) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
