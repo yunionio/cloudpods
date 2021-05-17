@@ -897,10 +897,23 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 				return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath")
 			}
 			newImagePath := fmt.Sprintf("[%s] %s/%s.vmdk", ds.GetRelName(), params.Uuid, params.Uuid)
-			fm := ds.getDatastoreObj().NewFileManager(dc.getObjectDatacenter(), true)
-			err := fm.Copy(ctx, imagePath, newImagePath)
+			dm := object.NewVirtualDiskManager(self.manager.client.Client)
+			spec := &types.VirtualDiskSpec{
+				DiskType: "thin",
+			}
+			switch disk.Driver {
+			case "", "scsi", "pvscsi":
+				spec.AdapterType = "lsiLogic"
+			default:
+				spec.AdapterType = "ide"
+			}
+			task, err := dm.CopyVirtualDisk(self.manager.context, imagePath, self.datacenter.getDcObj(), newImagePath, self.datacenter.getDcObj(), spec, true)
 			if err != nil {
-				return nil, errors.Wrap(err, "unable to copy system disk")
+				return nil, errors.Wrap(err, "unable to CopyVirtualDisk")
+			}
+			err = task.Wait(self.manager.context)
+			if err != nil {
+				return nil, errors.Wrap(err, "waith CopyVirtualDiskTask")
 			}
 			imagePath = newImagePath
 			rootDiskSizeMb = size
