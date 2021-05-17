@@ -195,7 +195,7 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 	dataDict := data.(*jsonutils.JSONDict)
 	action, _ := dataDict.GetString("action")
 	var (
-		needDeploy bool
+		needDeploy = true
 		err        error
 	)
 	if action == "create" {
