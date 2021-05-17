@@ -40,7 +40,7 @@ Please refers to [install & deployment](https://docs.yunion.io/docs/setup/) (cur
 
 - [Yunion Cloud Documents](https://docs.yunion.io/)
 
-- [Swagger API](https://docs.yunion.cn/apiv2/)
+- [Swagger API](https://docs.yunion.io/zh/docs/swagger/)
 
 ## Architecture
 
