@@ -77,7 +77,9 @@ func (handler *defaultResultHandler) handle(evalCtx *EvalContext) error {
 		}
 		// TODO: save opslog
 	}
-
+	if evalCtx.Error != nil {
+		return evalCtx.Error
+	}
 	if err := handler.notifier.SendIfNeeded(evalCtx); err != nil {
 		return err
 	}
