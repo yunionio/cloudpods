@@ -132,7 +132,7 @@ type SImage struct {
 	// 是否有删除保护
 	Protected tristate.TriState `nullable:"false" default:"true" list:"user" get:"user" create:"optional" update:"user"`
 	// 是否是标准镜像
-	IsStandard tristate.TriState `nullable:"false" default:"false" list:"user" get:"user" create:"admin_optional"`
+	IsStandard tristate.TriState `nullable:"false" default:"false" list:"user" get:"user" create:"admin_optional" update:"user"`
 	// 是否是主机镜像
 	IsGuestImage tristate.TriState `nullable:"false" default:"false" create:"optional" list:"user"`
 	// 是否是数据盘镜像
