@@ -161,6 +161,7 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, 
 	} else {
 		matches = evalCtx.AlertOkEvalMatches
 	}
+	n.dealNeedShieldEvalMatchs(evalCtx, matches)
 	recordCreateInput := monitor.AlertRecordCreateInput{
 		StandaloneResourceCreateInput: apis.StandaloneResourceCreateInput{
 			GenerateName: evalCtx.Rule.Name,
@@ -178,7 +179,6 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, 
 	recordCreateInput.ResType = recordCreateInput.AlertRule.ResType
 	createData := recordCreateInput.JSON(recordCreateInput)
 	alert, _ := models.CommonAlertManager.GetAlert(evalCtx.Rule.Id)
-	log.Errorf("alert:%v", jsonutils.Marshal(alert))
 	record, err := db.DoCreate(models.AlertRecordManager, evalCtx.Ctx, evalCtx.UserCred, jsonutils.NewDict(),
 		createData, evalCtx.UserCred)
 	if err != nil {
@@ -195,6 +195,31 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, 
 		}
 	}
 	record.PostCreate(evalCtx.Ctx, evalCtx.UserCred, evalCtx.UserCred, nil, createData)
+}
+
+func (n *notificationService) dealNeedShieldEvalMatchs(evalCtx *EvalContext, match []*monitor.EvalMatch) {
+	input := monitor.AlertRecordShieldListInput{
+		ResType: evalCtx.Rule.RuleDescription[0].ResType,
+		AlertId: evalCtx.Rule.Id,
+	}
+filterMatch:
+	for i, _ := range match {
+		input.ResName = match[i].Tags["name"]
+		alertRecordShields, err := models.AlertRecordShieldManager.GetRecordShields(input)
+		if err != nil {
+			log.Errorf("GetRecordShields byAlertId:%s,err:%v", input.AlertId, err)
+			return
+		}
+		if len(alertRecordShields) != 0 {
+			for _, shield := range alertRecordShields {
+				if shield.EndTime.After(time.Now().UTC()) {
+					match[i].Tags[monitor.ALERT_RESOURCE_RECORD_SHIELD_KEY] = monitor.ALERT_RESOURCE_RECORD_SHIELD_VALUE
+					continue filterMatch
+				}
+			}
+		}
+	}
+
 }
 
 func (n *notificationService) detachAlertResourceWhenNodata(evalCtx *EvalContext) {

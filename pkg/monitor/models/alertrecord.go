@@ -292,11 +292,15 @@ getNewMatchTag:
 
 func (record *SAlertRecord) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	record.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	err := CreateAlertResourceDetailsByAlertRecord(ctx, userCred, ownerId, record)
+	if err != nil {
+		log.Errorf("CreateAlertResourceDetailsByAlertRecord err:%v", err)
+	}
 	if err := GetAlertResourceManager().ReconcileFromRecord(ctx, userCred, ownerId, record); err != nil {
 		log.Errorf("Reconcile from alert record error: %v", err)
 		return
 	}
-	err := GetAlertResourceManager().NotifyAlertResourceCount(ctx)
+	err = GetAlertResourceManager().NotifyAlertResourceCount(ctx)
 	if err != nil {
 		log.Errorf("NotifyAlertResourceCount error: %v", err)
 		return
