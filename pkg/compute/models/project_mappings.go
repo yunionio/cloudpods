@@ -175,10 +175,43 @@ func (manager *SProjectMappingManager) FetchCustomizeColumns(
 	for _, proj := range projects {
 		projectMaps[proj.Id] = proj.Name
 	}
+	accounts := []struct {
+		Id               string
+		Name             string
+		ProjectMappingId string
+	}{}
+	q = CloudaccountManager.Query().In("project_mapping_id", mpIds)
+	err = q.All(&accounts)
+	if err != nil {
+		return rows
+	}
+	accountMapping := map[string][]struct {
+		Id   string
+		Name string
+	}{}
+	for i := range accounts {
+		_, ok := accountMapping[accounts[i].ProjectMappingId]
+		if !ok {
+			accountMapping[accounts[i].ProjectMappingId] = []struct {
+				Id   string
+				Name string
+			}{}
+		}
+		accountMapping[accounts[i].ProjectMappingId] = append(accountMapping[accounts[i].ProjectMappingId],
+			struct {
+				Id   string
+				Name string
+			}{
+				Id:   accounts[i].Id,
+				Name: accounts[i].Name,
+			})
+	}
+
 	for i := range rows {
 		mp := objs[i].(*SProjectMapping)
 		if mp.Rules != nil {
 			rows[i].Rules = []api.ProjectMappingRuleInfoDetails{}
+			rows[i].Accounts, _ = accountMapping[mpIds[i]]
 			for i := range *mp.Rules {
 				rules := *mp.Rules
 				rule := api.ProjectMappingRuleInfoDetails{

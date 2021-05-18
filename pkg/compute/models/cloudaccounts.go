@@ -2863,6 +2863,7 @@ func (self *SCloudaccount) AllowPerformProjectMapping(ctx context.Context, userC
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "project-mapping")
 }
 
+// 绑定同步策略
 func (self *SCloudaccount) PerformProjectMapping(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountProjectMappingInput) (jsonutils.JSONObject, error) {
 	if len(input.ProjectMappingId) > 0 {
 		_, err := validators.ValidateModel(userCred, ProjectMappingManager, &input.ProjectMappingId)
