@@ -479,5 +479,6 @@ type CloudaccountEnableAutoSyncInput struct {
 }
 
 type CloudaccountProjectMappingInput struct {
-	ProjectMappingId string
+	// 同步策略Id, 若不传此参数则解绑
+	ProjectMappingId string `json:"project_mapping_id"`
 }

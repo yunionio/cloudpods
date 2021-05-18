@@ -139,6 +139,11 @@ type ProjectMappingDetails struct {
 	apis.EnabledStatusInfrasResourceBaseDetails
 
 	Rules []ProjectMappingRuleInfoDetails
+
+	Accounts []struct {
+		Id   string
+		Name string
+	}
 }
 
 type ProjectMappingCreateInput struct {
