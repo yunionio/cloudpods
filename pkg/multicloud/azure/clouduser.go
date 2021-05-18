@@ -254,7 +254,19 @@ func (self *SAzureClient) CreateIClouduser(conf *cloudprovider.SClouduserCreateC
 }
 
 type SDomain struct {
-	Name string
+	Name                             string
+	AuthenticationType               string
+	AvailabilityStatus               string
+	IsAdminManaged                   bool
+	IsDefault                        bool
+	IsDefaultForCloudRedirections    bool
+	IsInitial                        bool
+	IsRoot                           bool
+	IsVerified                       bool
+	ForceDeleteState                 string
+	State                            string
+	PasswordValidityPeriodInDays     string
+	PasswordNotificationWindowInDays string
 }
 
 func (self *SAzureClient) GetDomains() ([]SDomain, error) {
@@ -264,6 +276,19 @@ func (self *SAzureClient) GetDomains() ([]SDomain, error) {
 		return nil, errors.Wrap(err, "glist")
 	}
 	return domains, nil
+}
+
+func (self *SAzureClient) GetDefaultDomain() (*SDomain, error) {
+	domains, err := self.GetDomains()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDomains")
+	}
+	for i := range domains {
+		if domains[i].IsDefault {
+			return &domains[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SAzureClient) CreateClouduser(name, password string) (*SClouduser, error) {
@@ -280,14 +305,11 @@ func (self *SAzureClient) CreateClouduser(name, password string) (*SClouduser, e
 		"passwordProfile":   passwordProfile,
 		"userPrincipalName": name,
 	}
-	domains, err := self.GetDomains()
+	domain, err := self.GetDefaultDomain()
 	if err != nil {
-		return nil, errors.Wrap(err, "GetDomains")
+		return nil, errors.Wrap(err, "GetDefaultDomain")
 	}
-	if len(domains) == 0 {
-		return nil, errors.Wrap(err, "Missing domains")
-	}
-	params["userPrincipalName"] = fmt.Sprintf("%s@%s", name, domains[0].Name)
+	params["userPrincipalName"] = fmt.Sprintf("%s@%s", name, domain.Name)
 	user := SClouduser{client: self}
 	err = self.gcreate("users", jsonutils.Marshal(params), &user)
 	if err != nil {
