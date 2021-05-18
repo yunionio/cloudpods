@@ -760,22 +760,19 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context
 func (self *SKVMRegionDriver) RequestCreateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		_, err := db.Update(lb, func() error {
-			if lb.AddressType == api.LB_ADDR_TYPE_INTRANET {
-				// TODO support use reserved ip address
-				// TODO prefer ip address from server_type loadbalancer?
-				req := &models.SLoadbalancerNetworkRequestData{
-					Loadbalancer: lb,
-					NetworkId:    lb.NetworkId,
-					Address:      lb.Address,
-				}
-				// NOTE the small window when agents can see the ephemeral address
-				ln, err := models.LoadbalancernetworkManager.NewLoadbalancerNetwork(ctx, userCred, req)
-				if err != nil {
-					log.Errorf("allocating loadbalancer network failed: %v, req: %#v", err, req)
-					lb.Address = ""
-				} else {
-					lb.Address = ln.IpAddr
-				}
+			// TODO support use reserved ip address
+			req := &models.SLoadbalancerNetworkRequestData{
+				Loadbalancer: lb,
+				NetworkId:    lb.NetworkId,
+				Address:      lb.Address,
+			}
+			// NOTE the small window when agents can see the ephemeral address
+			ln, err := models.LoadbalancernetworkManager.NewLoadbalancerNetwork(ctx, userCred, req)
+			if err != nil {
+				log.Errorf("allocating loadbalancer network failed: %v, req: %#v", err, req)
+				lb.Address = ""
+			} else {
+				lb.Address = ln.IpAddr
 			}
 			return nil
 		})

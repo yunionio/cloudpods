@@ -64,6 +64,7 @@ type SLoadbalancerNetwork struct {
 	LoadbalancerId string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 	NetworkId      string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 	IpAddr         string `width:"16" charset:"ascii" list:"user"`
+	MacAddr        string `width:"32" charset:"ascii" nullable:"false" list:"user"`
 }
 
 func (manager *SLoadbalancernetworkManager) GetMasterFieldName() string {
@@ -98,11 +99,11 @@ type SLoadbalancerNetworkDeleteData struct {
 func (m *SLoadbalancernetworkManager) NewLoadbalancerNetwork(ctx context.Context, userCred mcclient.TokenCredential, req *SLoadbalancerNetworkRequestData) (*SLoadbalancerNetwork, error) {
 	networkMan := db.GetModelManager("network").(*SNetworkManager)
 	if networkMan == nil {
-		return nil, fmt.Errorf("failed getting network manager")
+		return nil, errors.Error("failed getting network manager")
 	}
 	im, err := networkMan.FetchById(req.NetworkId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "fetch network %q", req.NetworkId)
 	}
 	network := im.(*SNetwork)
 	ln := &SLoadbalancerNetwork{
@@ -113,12 +114,20 @@ func (m *SLoadbalancernetworkManager) NewLoadbalancerNetwork(ctx context.Context
 
 	lockman.LockObject(ctx, network)
 	defer lockman.ReleaseObject(ctx, network)
+	if req.Loadbalancer.NetworkType == api.LB_NETWORK_TYPE_VPC {
+		macAddr, err := GuestnetworkManager.GenerateMac(network.Id, "")
+		if err != nil {
+			return nil, errors.Wrapf(err, "generate macaddr")
+		}
+		ln.MacAddr = macAddr
+	}
+
 	usedMap := network.GetUsedAddresses()
-	recentReclaimed := map[string]bool{}
+	var recentReclaimed map[string]bool
 	ipAddr, err := network.GetFreeIP(ctx, userCred,
 		usedMap, recentReclaimed, req.Address, req.strategy, req.reserved)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "find a free ip")
 	}
 	ln.IpAddr = ipAddr
 	err = m.TableSpec().Insert(ctx, ln)
@@ -126,7 +135,7 @@ func (m *SLoadbalancernetworkManager) NewLoadbalancerNetwork(ctx context.Context
 		// NOTE no need to free ipAddr as GetFreeIP has no side effect
 		return nil, err
 	}
-	return ln, err
+	return ln, nil
 }
 
 func (m *SLoadbalancernetworkManager) DeleteLoadbalancerNetwork(ctx context.Context, userCred mcclient.TokenCredential, req *SLoadbalancerNetworkDeleteData) error {
