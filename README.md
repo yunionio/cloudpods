@@ -52,4 +52,4 @@ You are welcome to contribute to the project. Please refer to [CONTRIBUTING.md](
 
 ## License
 
-Apache License 2.0. See [LICENSE](./LICENSE) 。
+Apache License 2.0. See [LICENSE](./LICENSE).

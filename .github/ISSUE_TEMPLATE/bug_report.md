@@ -10,6 +10,9 @@ assignees: ''
 **What happened**:
 
 **Environment**:
-- OS (e.g: `cat /etc/os-release`):
+
+- OS (e.g. `cat /etc/os-release`):
 - Kernel (e.g. `uname -a`):
+<!--
 - Version (e.g. `kubectl get oc -n onecloud  -o yaml | grep -C 3 version`):
+-->
