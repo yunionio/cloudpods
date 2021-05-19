@@ -201,7 +201,9 @@ func (apb *SAnsiblePlaybookV2) runPlaybook(ctx context.Context, userCred mcclien
 		Requirements(apb.Requirements).
 		Files(files).
 		OutputWriter(&ansiblePlaybookOutputWriter{apb}).
-		KeepTmpdir(options.Options.KeepTmpdir)
+		KeepTmpdir(options.Options.KeepTmpdir).
+		RolePublic(options.Options.RolePublic).
+		Timeout(options.Options.Timeout)
 	man.sessions.Add(apb.Id, sess)
 
 	// NOTE host state check? run only on online hosts and running guests, skip others

@@ -20,6 +20,8 @@ type AnsibleServerOptions struct {
 	common_options.CommonOptions
 	common_options.DBOptions
 	KeepTmpdir bool `help:"Whether to save the tmp directory" json:"keep_tmpdir"`
+	RolePublic bool `help:"Download and use the role of the public directory"`
+	Timeout    int  `help:"Ansible Override the connection timeout in seconds" default:"10"`
 }
 
 var (

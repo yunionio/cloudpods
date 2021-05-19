@@ -16,6 +16,7 @@ package ansiblev2
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -39,12 +40,15 @@ type Session struct {
 	stateMux     *sync.Mutex
 	isRunning    bool
 	keepTmpdir   bool
+	rolePublic   bool
+	timeout      int
 }
 
 func NewSession() *Session {
 	sess := &Session{
 		stateMux: &sync.Mutex{},
 		files:    map[string][]byte{},
+		timeout:  10,
 	}
 	return sess
 }
@@ -92,6 +96,16 @@ func (sess *Session) OutputWriter(w io.Writer) *Session {
 
 func (sess *Session) KeepTmpdir(keep bool) *Session {
 	sess.keepTmpdir = keep
+	return sess
+}
+
+func (sess *Session) RolePublic(public bool) *Session {
+	sess.rolePublic = public
+	return sess
+}
+
+func (sess *Session) Timeout(timeout int) *Session {
+	sess.timeout = timeout
 	return sess
 }
 
@@ -192,7 +206,10 @@ func (sess *Session) Run(ctx context.Context) (err error) {
 	// install required roles
 	if len(requirements) > 0 {
 		args := []string{
-			"install", "-r", requirements, "-p", tmpdir,
+			"install", "-r", requirements,
+		}
+		if !sess.rolePublic {
+			args = append(args, "-p", tmpdir)
 		}
 		cmd := exec.CommandContext(ctx, "ansible-galaxy", args...)
 		stdout, _ := cmd.StdoutPipe()
@@ -214,7 +231,7 @@ func (sess *Session) Run(ctx context.Context) (err error) {
 	// run playbook
 	{
 		args := []string{
-			"--inventory", inventory,
+			"--inventory", inventory, "--timeout", fmt.Sprintf("%d", sess.timeout),
 		}
 		if privateKey != "" {
 			args = append(args, "--private-key", privateKey)
