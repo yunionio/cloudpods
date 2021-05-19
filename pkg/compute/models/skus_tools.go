@@ -267,6 +267,9 @@ func (self *SSkuResourcesMeta) _get(url string) ([]jsonutils.JSONObject, error) 
 	}
 
 	jsonContent, err := self.request(url)
+	if err != nil {
+		return nil, errors.Wrapf(err, "request %s", url)
+	}
 	var ret []jsonutils.JSONObject
 	err = jsonContent.Unmarshal(&ret)
 	if err != nil {
