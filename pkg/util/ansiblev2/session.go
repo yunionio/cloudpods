@@ -60,6 +60,16 @@ func (sess *Session) AddFile(path string, data []byte) *Session {
 	return sess
 }
 
+func (sess *Session) RolePublic(public bool) *Session {
+	sess.rolePublic = public
+	return sess
+}
+
+func (sess *Session) Timeout(timeout int) *Session {
+	sess.timeout = timeout
+	return sess
+}
+
 func (sess *Session) RemoveFile(path string) []byte {
 	data := sess.files[path]
 	delete(sess.files, path)

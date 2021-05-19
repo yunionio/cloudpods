@@ -16,6 +16,7 @@ package ansiblev2
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -39,6 +40,8 @@ type IPlaybookSession interface {
 	GetRequirements() string
 	GetFiles() map[string][]byte
 	GetOutputWriter() io.Writer
+	GetRolePublic() bool
+	GetTimeout() int
 	CheckAndSetRunning() bool
 	SetStopped()
 }
@@ -155,7 +158,10 @@ func (r runnable) Run(ctx context.Context) (err error) {
 	// install required roles
 	if len(requirements) > 0 {
 		args := []string{
-			"install", "-r", requirements, "-p", tmpdir,
+			"install", "-r", requirements,
+		}
+		if !r.GetRolePublic() {
+			args = append(args, "-p", tmpdir)
 		}
 		cmd := exec.CommandContext(ctx, "ansible-galaxy", args...)
 		stdout, _ := cmd.StdoutPipe()
@@ -178,7 +184,7 @@ func (r runnable) Run(ctx context.Context) (err error) {
 	// run playbook
 	{
 		args := []string{
-			"--inventory", inventory,
+			"--inventory", inventory, "--timeout", fmt.Sprintf("%d", r.GetTimeout()),
 		}
 		if config != "" {
 			args = append(args, "-e", "@"+config)
@@ -217,11 +223,14 @@ type PlaybookSessionBase struct {
 	stateMux     *sync.Mutex
 	isRunning    bool
 	keepTmpdir   bool
+	rolePublic   bool
+	timeout      int
 }
 
 func NewPlaybookSessionBase() PlaybookSessionBase {
 	return PlaybookSessionBase{
 		stateMux: &sync.Mutex{},
+		timeout:  10,
 	}
 }
 
@@ -275,4 +284,12 @@ func (pb *PlaybookSessionBase) GetRequirements() string {
 
 func (pb *PlaybookSessionBase) GetFiles() map[string][]byte {
 	return nil
+}
+
+func (pb *PlaybookSessionBase) GetRolePublic() bool {
+	return pb.rolePublic
+}
+
+func (pb *PlaybookSessionBase) GetTimeout() int {
+	return pb.timeout
 }
