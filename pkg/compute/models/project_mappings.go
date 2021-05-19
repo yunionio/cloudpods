@@ -209,17 +209,17 @@ func (manager *SProjectMappingManager) FetchCustomizeColumns(
 
 	for i := range rows {
 		mp := objs[i].(*SProjectMapping)
+		rows[i].Accounts, _ = accountMapping[mpIds[i]]
 		if mp.Rules != nil {
 			rows[i].Rules = []api.ProjectMappingRuleInfoDetails{}
-			rows[i].Accounts, _ = accountMapping[mpIds[i]]
-			for i := range *mp.Rules {
+			for j := range *mp.Rules {
 				rules := *mp.Rules
 				rule := api.ProjectMappingRuleInfoDetails{
-					ProjectMappingRuleInfo: rules[i],
+					ProjectMappingRuleInfo: rules[j],
 				}
-				rule.Tenant, _ = projectMaps[rules[i].ProjectId]
+				rule.Tenant, _ = projectMaps[rules[j].ProjectId]
 				rule.Project = rule.Tenant
-				rule.Domain, _ = domainMaps[rules[i].DomainId]
+				rule.Domain, _ = domainMaps[rules[j].DomainId]
 				rows[i].Rules = append(rows[i].Rules, rule)
 			}
 		}
