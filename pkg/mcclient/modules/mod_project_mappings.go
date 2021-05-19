@@ -22,7 +22,7 @@ var (
 
 func init() {
 	ProjectMappings = NewComputeManager("project_mapping", "project_mappings",
-		[]string{"ID", "Name", "Enabled", "Status", "Public_Scope", "Domain_Id", "Domain", "Rules", "Metadata"},
+		[]string{"ID", "Name", "Enabled", "Status", "Public_Scope", "Domain_Id", "Domain", "Rules", "Accounts", "Metadata"},
 		[]string{})
 
 	registerCompute(&ProjectMappings)
