@@ -280,7 +280,7 @@ func (self *SRegion) DeleteSecurityGroup(securityGroupId string) error {
 		"securityGroupId": jsonutils.NewString(securityGroupId),
 	}
 
-	resp, err := self.client.DoPost("statusCode", params)
+	resp, err := self.client.DoPost("/apiproxy/v3/deleteSecurityGroup", params)
 	if err != nil {
 		return errors.Wrap(err, "SRegion.DeleteSecurityGroup.DoPost")
 	}
