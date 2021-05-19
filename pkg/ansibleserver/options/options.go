@@ -21,6 +21,8 @@ type AnsibleServerOptions struct {
 	common_options.DBOptions
 	KeepTmpdir          bool `help:"Whether to save the tmp directory" json:"keep_tmpdir"`
 	PlaybookWorkerCount int  `help:"count of worker to run playbook" default:"5" json:"playbook_worker_count"`
+	RolePublic          bool `help:"Download and use the role of the public directory"`
+	Timeout             int  `help:"Ansible Override the connection timeout in seconds" default:"10"`
 }
 
 var (
