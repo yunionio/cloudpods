@@ -55,9 +55,6 @@ type SSecurityGroupCache struct {
 	SManagedResourceBase
 	SSecurityGroupResourceBase
 
-	// 安全组Id
-	// SecgroupId string `width:"128" charset:"ascii" list:"user" create:"required"`
-
 	// 虚拟私有网络外部Id
 	VpcId             string `width:"128" charset:"ascii" list:"user" create:"required"`
 	ExternalProjectId string `width:"128" charset:"ascii" list:"user" create:"optional"`
@@ -82,11 +79,23 @@ func (manager *SSecurityGroupCacheManager) AllowCreateItem(ctx context.Context, 
 }
 
 func (manager *SSecurityGroupCacheManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
+	return db.IsProjectAllowList(userCred, manager)
 }
 
 func (self *SSecurityGroupCache) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
 	return false
+}
+
+func (self *SSecurityGroupCache) GetOwnerId() mcclient.IIdentityProvider {
+	sec, err := self.GetSecgroup()
+	if err != nil {
+		return &db.SOwnerId{}
+	}
+	return &db.SOwnerId{DomainId: sec.DomainId, ProjectId: sec.ProjectId}
+}
+
+func (manager *SSecurityGroupCacheManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
 }
 
 // 安全组缓存列表
@@ -120,18 +129,6 @@ func (manager *SSecurityGroupCacheManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SSecurityGroupResourceBaseManager.ListItemFilter")
 	}
-
-	/*if defsecgroup := query.Secgroup; len(defsecgroup) > 0 {
-		secgroup, err := SecurityGroupManager.FetchByIdOrName(userCred, defsecgroup)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(SecurityGroupManager.Keyword(), defsecgroup)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		q = q.Equals("secgroup_id", secgroup.GetId())
-	}*/
 
 	return q, nil
 }
