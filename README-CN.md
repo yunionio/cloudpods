@@ -29,12 +29,12 @@
 
 ## 部署
 
-请参考文档 [安装部署](https://docs.yunion.io/docs/setup/) 搭建 YunionCloud 集群。
+请参考文档 [快速开始](https://docs.yunion.io/zh/docs/quickstart/) 搭建 YunionCloud 集群。
 
 
 ## 文档
 
-- [文档中心](https://docs.yunion.io/)
+- [文档中心](https://docs.yunion.io/zh)
 
 - [Swagger API文档](https://docs.yunion.cn/api/)
 

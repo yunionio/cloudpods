@@ -4,7 +4,7 @@
 [![Build Status](https://travis-ci.com/yunionio/yunioncloud.svg?branch=master)](https://travis-ci.com/yunionio/yunioncloud/branches) 
 [![Go Report Card](https://goreportcard.com/badge/github.com/yunionio/yunioncloud)](https://goreportcard.com/report/github.com/yunionio/yunioncloud) 
 
-### [README in Chinese](./README-CN.md)
+[English](./README.md) | [简体中文](./README-CN.md)
 
 ## What is Yunion Cloud?
 
@@ -34,13 +34,13 @@ You are welcome to install and try Yunion Cloud. Looking forward to your feedbac
 
 ## Installation
 
-Please refers to [install & deployment](https://docs.yunion.io/docs/setup/) (currently in Chinese Only).
+Please refers to [quick start](https://docs.yunion.io/en/docs/quickstart/).
 
 ## Documentations
 
-- [Yunion Cloud Documents](https://docs.yunion.io/)
+- [Yunion Cloud Documents](https://docs.yunion.io/en)
 
-- [Swagger API](https://docs.yunion.io/zh/docs/swagger/)
+- [Swagger API](https://docs.yunion.io/en/docs/swagger/)
 
 ## Architecture
 

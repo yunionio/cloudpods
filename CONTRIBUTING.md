@@ -1,3 +1,3 @@
-# 开发贡献参考
+# Contributing
 
-详情见文档 [开发贡献](https://docs.yunion.io/docs/contribute/)
+Please refer to the document "[Development Contribution](https://docs.yunion.io/en/docs/contribute/)".
