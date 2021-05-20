@@ -1481,6 +1481,11 @@ func (manager *SStorageManager) ListItemFilter(
 		q = q.In("id", subq.SubQuery())
 	}
 
+	if len(query.HostId) > 0 {
+		sq := HoststorageManager.Query("storage_id").Equals("host_id", query.HostId)
+		q = q.In("id", sq.SubQuery())
+	}
+
 	return q, err
 }
 
