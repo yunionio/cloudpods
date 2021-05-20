@@ -651,6 +651,26 @@ var MetricDescriptions = `
 				"unit":"RMB"
 			}
 		]
+	},
+	{
+		"measurement": {
+			"name": "storage",
+			"display_name": "Storage usage",
+			"res_type": "storage",
+			"database":"telegraf"
+		},
+		"metric_fields": [
+			{
+				"name":"usage_active",
+				"display_name":"Storage utilization rate",
+				"unit":"%"
+			},
+            {
+				"name":"free",
+				"display_name":"Free storage",
+				"unit":"Mb"
+			},
+		]
 	}
 ]
 `
