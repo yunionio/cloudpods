@@ -13,12 +13,13 @@ var (
 	}
 
 	MEASUREMENT_TAG_KEYWORD = map[string]string{
-		"host":         "host",
-		"guest":        "vm_name",
-		"redis":        "redis_name",
-		"rds":          "rds_name",
-		"oss":          "oss_name",
-		"cloudaccount": "cloudaccount_name",
+		METRIC_RES_TYPE_HOST:         "host",
+		METRIC_RES_TYPE_GUEST:        "vm_name",
+		METRIC_RES_TYPE_REDIS:        "redis_name",
+		METRIC_RES_TYPE_RDS:          "rds_name",
+		METRIC_RES_TYPE_OSS:          "oss_name",
+		METRIC_RES_TYPE_CLOUDACCOUNT: "cloudaccount_name",
+		METRIC_RES_TYPE_STORAGE:      "storage_name",
 	}
 	MEASUREMENT_TAG_ID = map[string]string{
 		METRIC_RES_TYPE_HOST:         "host_id",
@@ -29,6 +30,7 @@ var (
 		METRIC_RES_TYPE_CLOUDACCOUNT: "cloudaccount_id",
 		METRIC_RES_TYPE_TENANT:       "tenant_id",
 		METRIC_RES_TYPE_DOMAIN:       "domain_id",
+		METRIC_RES_TYPE_STORAGE:      "storage_id",
 	}
 	AlertReduceFunc = map[string]string{
 		"avg":          "average value",

@@ -266,4 +266,9 @@ func init() {
 			newMetricFieldCreateInput("balance", "balance", monitor.METRIC_UNIT_RMB, 1),
 		})
 
+	RegistryMetricCreateInput("storage", "Storage usage",
+		monitor.METRIC_RES_TYPE_STORAGE, monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("usage_active", "Storage utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("free", "Free storage", monitor.METRIC_UNIT_MB, 2),
+		})
 }
