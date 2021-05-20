@@ -146,8 +146,8 @@ var (
 	}
 
 	StorageTags = map[string]string{
-		"id":             "storage_id",
-		"name":           "storage_name",
+		"storage_id":     "id",
+		"storage_name":   "name",
 		"zone":           "zone",
 		"zone_id":        "zone_id",
 		"zone_ext_id":    "zone_ext_id",
