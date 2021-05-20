@@ -106,7 +106,7 @@ type SAwsClient struct {
 	iregions []cloudprovider.ICloudRegion
 	iBuckets []cloudprovider.ICloudBucket
 
-	sessions map[string]*session.Session
+	sessions map[string]map[bool]*session.Session
 }
 
 func NewAwsClient(cfg *AwsClientConfig) (*SAwsClient, error) {
@@ -227,9 +227,12 @@ func (self *SAwsClient) fetchRegions() ([]SRegion, error) {
 
 func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*session.Session, error) {
 	if client.sessions == nil {
-		client.sessions = make(map[string]*session.Session)
+		client.sessions = make(map[string]map[bool]*session.Session)
 	}
-	if sess, ok := client.sessions[regionId]; ok {
+	if _, ok := client.sessions[regionId]; !ok {
+		client.sessions[regionId] = make(map[bool]*session.Session)
+	}
+	if sess, ok := client.sessions[regionId][assumeRole]; ok {
 		return sess, nil
 	}
 	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
@@ -263,8 +266,8 @@ func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*sess
 		s.Config.LogLevel = &logLevel
 	}
 
-	client.sessions[regionId] = s
-	return client.sessions[regionId], nil
+	client.sessions[regionId][assumeRole] = s
+	return client.sessions[regionId][assumeRole], nil
 }
 
 func (region *SRegion) getAwsElasticacheClient() (*elasticache.ElastiCache, error) {
