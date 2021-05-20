@@ -60,27 +60,18 @@ func (self *GuestMigrateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 func (self *GuestMigrateTask) GetSchedParams() (*schedapi.ScheduleInput, error) {
 	obj := self.GetObject()
 	guest := obj.(*models.SGuest)
-	schedDesc := guest.ToSchedDesc()
+	input := new(api.ServerMigrateForecastInput)
 	if self.Params.Contains("prefer_host_id") {
 		preferHostId, _ := self.Params.GetString("prefer_host_id")
-		schedDesc.ServerConfig.PreferHost = preferHostId
+		input.PreferHostId = preferHostId
 	}
 	guestStatus, _ := self.Params.GetString("guest_status")
 	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
-		schedDesc.LiveMigrate = true
-		if guest.GetMetadata("__cpu_mode", self.UserCred) != api.CPU_MODE_QEMU {
-			host := guest.GetHost()
-			schedDesc.CpuDesc = host.CpuDesc
-			schedDesc.CpuMicrocode = host.CpuMicrocode
-			schedDesc.CpuMode = api.CPU_MODE_HOST
-		} else {
-			schedDesc.CpuMode = api.CPU_MODE_QEMU
-		}
+		input.LiveMigrate = true
 		skipCpuCheck := jsonutils.QueryBoolean(self.Params, "skip_cpu_check", false)
-		schedDesc.SkipCpuCheck = &skipCpuCheck
+		input.SkipCpuCheck = skipCpuCheck
 	}
-	schedDesc.ReuseNetwork = true
-	return schedDesc, nil
+	return guest.GetSchedMigrateParams(self.GetUserCred(), input), nil
 }
 
 func (self *GuestMigrateTask) OnStartSchedule(obj IScheduleModel) {
