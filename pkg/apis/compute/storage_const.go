@@ -222,4 +222,7 @@ type StorageListInput struct {
 
 	// filter by cachedimage
 	ImageId string `json:"image_id"`
+
+	// filter storages which attached the specified host
+	HostId string `json:"host_id"`
 }

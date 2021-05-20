@@ -31,6 +31,7 @@ type StorageListOptions struct {
 	Zone     string `help:"List storages in zone" json:"-"`
 	Region   string `help:"List storages in region"`
 	Schedtag string `help:"filter storage by schedtag"`
+	HostId   string `help:"filter storages which attached the specified host"`
 
 	HostSchedtagId string `help:"filter storage by host schedtag"`
 	ImageId        string `help:"filter storage by image"`
