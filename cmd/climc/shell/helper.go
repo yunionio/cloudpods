@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/util/printutils"
 )
 
 type ResourceCmd struct {
@@ -32,12 +33,15 @@ type ResourceCmd struct {
 
 	keyword string
 	prefix  string
+
+	printObject func(jsonutils.JSONObject)
 }
 
 func NewResourceCmd(manager modulebase.IBaseManager) *ResourceCmd {
 	return &ResourceCmd{
-		manager: manager,
-		keyword: manager.GetKeyword(),
+		manager:     manager,
+		keyword:     manager.GetKeyword(),
+		printObject: printObjectRecursive,
 	}
 }
 
@@ -58,6 +62,30 @@ func (cmd *ResourceCmd) WithKeyword(keyword string) *ResourceCmd {
 func (cmd *ResourceCmd) SetKeyword(keyword string) *ResourceCmd {
 	if len(keyword) > 0 {
 		cmd.keyword = keyword
+	}
+	return cmd
+}
+
+func (cmd *ResourceCmd) PrintObjectYAML() *ResourceCmd {
+	cmd.printObject = func(obj jsonutils.JSONObject) {
+		fmt.Print(obj.YAMLString())
+	}
+	return cmd
+}
+
+func (cmd *ResourceCmd) PrintObjectTable() *ResourceCmd {
+	cmd.printObject = printutils.PrintJSONObject
+	return cmd
+}
+
+func (cmd *ResourceCmd) PrintObjectKV() *ResourceCmd {
+	cmd.printObject = printObjectFmtKv
+	return cmd
+}
+
+func (cmd *ResourceCmd) PrintObjectFlattenKV() *ResourceCmd {
+	cmd.printObject = func(obj jsonutils.JSONObject) {
+		printObjectRecursiveEx(obj, printObjectFmtKv)
 	}
 	return cmd
 }
@@ -325,7 +353,7 @@ func (cmd ResourceCmd) PerformWithKeyword(keyword, action string, args IPerformO
 		if err != nil {
 			return err
 		}
-		printObject(ret)
+		cmd.printObject(ret)
 		return nil
 	}
 	cmd.Run(keyword, args, callback)
@@ -342,7 +370,7 @@ func (cmd ResourceCmd) PerformClassWithKeyword(keyword, action string, args IOpt
 		if err != nil {
 			return err
 		}
-		printObject(ret)
+		cmd.printObject(ret)
 		return nil
 	}
 	cmd.Run(keyword, args, callback)
@@ -363,7 +391,7 @@ func (cmd ResourceCmd) PerformClass(action string, args IOpt) {
 		if err != nil {
 			return err
 		}
-		printObject(ret)
+		cmd.printObject(ret)
 		return nil
 	}
 	cmd.Run(action, args, callback)

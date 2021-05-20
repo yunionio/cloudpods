@@ -874,6 +874,21 @@ func (o *ServerRestartOptions) Params() (jsonutils.JSONObject, error) {
 	return StructToParams(o)
 }
 
+type ServerMigrateForecastOptions struct {
+	ID           string `help:"ID of server" json:"-"`
+	PreferHost   string `help:"Server migration prefer host id or name" json:"prefer_host"`
+	LiveMigrate  *bool  `help:"Use live migrate"`
+	SkipCpuCheck *bool  `help:"Skip check CPU mode of the target host" json:"skip_cpu_check"`
+}
+
+func (o *ServerMigrateForecastOptions) GetId() string {
+	return o.ID
+}
+
+func (o *ServerMigrateForecastOptions) Params() (jsonutils.JSONObject, error) {
+	return StructToParams(o)
+}
+
 type ServerMigrateOptions struct {
 	ID         string `help:"ID of server" json:"-"`
 	PreferHost string `help:"Server migration prefer host id or name" json:"prefer_host"`
