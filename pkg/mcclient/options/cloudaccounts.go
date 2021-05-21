@@ -348,6 +348,17 @@ func (opts *SEcloudCloudAccountCreateOptions) Params() (jsonutils.JSONObject, er
 	return params, nil
 }
 
+type SJDcloudCloudAccountCreateOptions struct {
+	SCloudAccountCreateBaseOptions
+	SAccessKeyCredential
+}
+
+func (opts *SJDcloudCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("JDcloud"), "provider")
+	return params, nil
+}
+
 // update credential options
 
 type SCloudAccountIdOptions struct {
@@ -458,6 +469,15 @@ type SCtyunCloudAccountUpdateCredentialOptions struct {
 }
 
 func (opts *SCtyunCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
+type SJDcloudCloudAccountUpdateCredentialOptions struct {
+	SCloudAccountIdOptions
+	SAccessKeyCredential
+}
+
+func (opts *SJDcloudCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
 
@@ -757,6 +777,14 @@ type SCtyunCloudAccountUpdateOptions struct {
 }
 
 func (opts *SCtyunCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
+type SJDcloudCloudAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
+}
+
+func (opts *SJDcloudCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
 
