@@ -136,7 +136,7 @@ type CloudaccountCreateInput struct {
 	// 指定云平台
 	// Qcloud: 腾讯云
 	// Ctyun: 天翼云
-	// enum: VMware, Aliyun, Qcloud, Azure, Aws, Huawei, OpenStack, Ucloud, ZStack, Google, Ctyun
+	// enum: VMware, Aliyun, Qcloud, Azure, Aws, Huawei, OpenStack, Ucloud, ZStack, Google, Ctyun, JDcloud
 	Provider string `json:"provider"`
 	// swagger:ignore
 	AccountId string
