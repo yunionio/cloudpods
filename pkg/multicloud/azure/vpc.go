@@ -51,7 +51,7 @@ type SVpc struct {
 	Etag       string
 	Type       string
 	Location   string
-	Tags       map[string]string
+	Tags       TAzureTags
 	Properties VirtualNetworkPropertiesFormat `json:"properties,omitempty"`
 }
 

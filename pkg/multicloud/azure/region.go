@@ -381,20 +381,26 @@ func (region *SRegion) GetEips() ([]SEipAddress, error) {
 func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	eips, err := region.GetEips()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetEips")
 	}
 	classicEips, err := region.GetClassicEips()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetClassicEips")
 	}
-	ieips := make([]cloudprovider.ICloudEIP, len(eips)+len(classicEips))
+	ieips := []cloudprovider.ICloudEIP{}
 	for i := 0; i < len(eips); i++ {
+		if len(eips[i].GetIpAddr()) == 0 {
+			continue
+		}
 		eips[i].region = region
-		ieips[i] = &eips[i]
+		ieips = append(ieips, &eips[i])
 	}
 	for i := 0; i < len(classicEips); i++ {
+		if len(classicEips[i].GetIpAddr()) == 0 {
+			continue
+		}
 		classicEips[i].region = region
-		ieips[len(eips)+i] = &classicEips[i]
+		ieips = append(ieips, &classicEips[i])
 	}
 	return ieips, nil
 }
