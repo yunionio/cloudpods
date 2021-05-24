@@ -94,7 +94,7 @@ type SStorageAccount struct {
 	ID       string `json:"id,omitempty"`
 	Name     string `json:"name,omitempty"`
 	Type     string `json:"type,omitempty"`
-	Tags     map[string]string
+	Tags     TAzureTags
 
 	Properties AccountProperties `json:"properties"`
 }
@@ -715,8 +715,12 @@ func (b *SStorageAccount) MaxPartCount() int {
 	return 50000
 }
 
+func (b *SStorageAccount) GetTags() (map[string]string, error) {
+	return b.Tags, nil
+}
+
 func (b *SStorageAccount) GetProjectId() string {
-	return ""
+	return getResourceGroup(b.ID)
 }
 
 func (b *SStorageAccount) GetGlobalId() string {
