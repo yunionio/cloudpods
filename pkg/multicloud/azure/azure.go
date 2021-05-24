@@ -663,8 +663,8 @@ func (ae *AzureResponseError) ParseErrorFromJsonResponse(statusCode int, body js
 }
 
 func _jsonRequest(client *autorest.Client, method, domain, path string, body jsonutils.JSONObject, params url.Values, debug bool) (jsonutils.JSONObject, error) {
-	url := fmt.Sprintf("%s/%s?%s", strings.TrimSuffix(domain, "/"), strings.TrimPrefix(path, "/"), params.Encode())
-	req := httputils.NewJsonRequest(httputils.THttpMethod(method), url, body)
+	uri := fmt.Sprintf("%s/%s?%s", strings.TrimSuffix(domain, "/"), strings.TrimPrefix(path, "/"), params.Encode())
+	req := httputils.NewJsonRequest(httputils.THttpMethod(method), uri, body)
 	ae := AzureResponseError{}
 	cli := httputils.NewJsonClient(client)
 	header, body, err := cli.Send(context.TODO(), req, &ae, debug)
@@ -683,7 +683,16 @@ func _jsonRequest(client *autorest.Client, method, domain, path string, body jso
 	location := locationFunc(header)
 	if len(location) > 0 && (body == nil || body.IsZero() || !body.Contains("id")) {
 		err = cloudprovider.Wait(time.Second*10, time.Minute*30, func() (bool, error) {
-			req := httputils.NewJsonRequest(httputils.GET, location, nil)
+			locationUrl, err := url.Parse(location)
+			if err != nil {
+				return false, errors.Wrapf(err, "url.Parse(%s)", location)
+			}
+			if len(locationUrl.Query().Get("api-version")) == 0 {
+				q, _ := url.ParseQuery(locationUrl.RawQuery)
+				q.Set("api-version", params.Get("api-version"))
+				locationUrl.RawQuery = q.Encode()
+			}
+			req := httputils.NewJsonRequest(httputils.GET, locationUrl.String(), nil)
 			lae := AzureResponseError{}
 			_header, _body, _err := cli.Send(context.TODO(), req, &lae, debug)
 			if _err != nil {
@@ -729,7 +738,7 @@ func _jsonRequest(client *autorest.Client, method, domain, path string, body jso
 			return false, nil
 		})
 		if err != nil {
-			return nil, errors.Wrapf(err, "time out for waiting %s %s", method, url)
+			return nil, errors.Wrapf(err, "time out for waiting %s %s", method, uri)
 		}
 	}
 	return body, nil
