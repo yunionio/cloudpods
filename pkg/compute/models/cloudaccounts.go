@@ -2870,6 +2870,9 @@ func (self *SCloudaccount) PerformProjectMapping(ctx context.Context, userCred m
 		if err != nil {
 			return nil, err
 		}
+		if len(self.ProjectMappingId) > 0 && self.ProjectMappingId != input.ProjectMappingId {
+			return nil, httperrors.NewInputParameterError("account %s has aleady bind project mapping %s", self.Name, self.ProjectMappingId)
+		}
 	}
 	// no changes
 	if self.ProjectMappingId == input.ProjectMappingId {
