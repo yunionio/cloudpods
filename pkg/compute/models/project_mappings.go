@@ -105,6 +105,8 @@ func (manager *SProjectMappingManager) ValidateCreateData(
 				return input, err
 			}
 			input.Rules[i].DomainId = tenant.DomainId
+			input.Rules[i].Domain = tenant.Domain
+			input.Rules[i].Project = tenant.Name
 		}
 	}
 	input.SetEnabled()
@@ -132,97 +134,38 @@ func (manager *SProjectMappingManager) FetchCustomizeColumns(
 	rows := make([]api.ProjectMappingDetails, len(objs))
 	stdRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	mpIds := make([]string, len(objs))
-	projIds := []string{}
-	domainIds := []string{}
 	for i := range rows {
 		rows[i] = api.ProjectMappingDetails{
 			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
 		}
 		mp := objs[i].(*SProjectMapping)
 		mpIds[i] = mp.Id
-		if mp.Rules != nil {
-			for _, r := range *mp.Rules {
-				if len(r.ProjectId) > 0 {
-					projIds = append(projIds, r.ProjectId)
-					domainIds = append(domainIds, r.DomainId)
-				}
-			}
-		}
-	}
-	q := db.DefaultDomainQuery("domain", "domain_id").In("domain_id", domainIds)
-	domains := []struct {
-		DomainId string
-		Domain   string
-	}{}
-	err := q.All(&domainIds)
-	if err != nil {
-		return rows
-	}
-	domainMaps := map[string]string{}
-	for _, domain := range domains {
-		domainMaps[domain.DomainId] = domain.Domain
-	}
-	q = db.DefaultProjectQuery("id", "name").In("id", projIds)
-	projects := []struct {
-		Id   string
-		Name string
-	}{}
-	err = q.All(&projects)
-	if err != nil {
-		return rows
-	}
-	projectMaps := map[string]string{}
-	for _, proj := range projects {
-		projectMaps[proj.Id] = proj.Name
 	}
 	accounts := []struct {
 		Id               string
 		Name             string
 		ProjectMappingId string
 	}{}
-	q = CloudaccountManager.Query().In("project_mapping_id", mpIds)
-	err = q.All(&accounts)
+	q := CloudaccountManager.Query().In("project_mapping_id", mpIds)
+	err := q.All(&accounts)
 	if err != nil {
 		return rows
 	}
-	accountMapping := map[string][]struct {
-		Id   string
-		Name string
-	}{}
+	accountMapping := map[string][]api.SProjectMappingAccount{}
 	for i := range accounts {
 		_, ok := accountMapping[accounts[i].ProjectMappingId]
 		if !ok {
-			accountMapping[accounts[i].ProjectMappingId] = []struct {
-				Id   string
-				Name string
-			}{}
+			accountMapping[accounts[i].ProjectMappingId] = []api.SProjectMappingAccount{}
 		}
-		accountMapping[accounts[i].ProjectMappingId] = append(accountMapping[accounts[i].ProjectMappingId],
-			struct {
-				Id   string
-				Name string
-			}{
-				Id:   accounts[i].Id,
-				Name: accounts[i].Name,
-			})
+		account := api.SProjectMappingAccount{
+			Id:   accounts[i].Id,
+			Name: accounts[i].Name,
+		}
+		accountMapping[accounts[i].ProjectMappingId] = append(accountMapping[accounts[i].ProjectMappingId], account)
 	}
 
 	for i := range rows {
-		mp := objs[i].(*SProjectMapping)
 		rows[i].Accounts, _ = accountMapping[mpIds[i]]
-		if mp.Rules != nil {
-			rows[i].Rules = []api.ProjectMappingRuleInfoDetails{}
-			for j := range *mp.Rules {
-				rules := *mp.Rules
-				rule := api.ProjectMappingRuleInfoDetails{
-					ProjectMappingRuleInfo: rules[j],
-				}
-				rule.Tenant, _ = projectMaps[rules[j].ProjectId]
-				rule.Project = rule.Tenant
-				rule.Domain, _ = domainMaps[rules[j].DomainId]
-				rows[i].Rules = append(rows[i].Rules, rule)
-			}
-		}
 	}
 	return rows
 }
@@ -275,6 +218,8 @@ func (self *SProjectMapping) ValidateUpdateData(ctx context.Context, userCred mc
 				return input, err
 			}
 			input.Rules[i].DomainId = tenant.DomainId
+			input.Rules[i].Domain = tenant.Domain
+			input.Rules[i].Project = tenant.Name
 		}
 	}
 	input.EnabledStatusInfrasResourceBaseUpdateInput, err = self.SEnabledStatusInfrasResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusInfrasResourceBaseUpdateInput)
@@ -315,4 +260,30 @@ func (self *SProjectMapping) PostUpdate(ctx context.Context, userCred mcclient.T
 func (self *SProjectMapping) refreshMapping() error {
 	projectRuleMapping[self.Id] = self
 	return nil
+}
+
+func (self *SProjectMapping) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) bool {
+	return db.IsDomainAllowPerform(userCred, self, "enable")
+}
+
+// 启用资源映射
+func (self *SProjectMapping) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
+	_, err := self.SEnabledStatusInfrasResourceBase.PerformEnable(ctx, userCred, query, input)
+	if err != nil {
+		return nil, err
+	}
+	return nil, self.refreshMapping()
+}
+
+func (self *SProjectMapping) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) bool {
+	return db.IsDomainAllowPerform(userCred, self, "disable")
+}
+
+// 禁用资源映射
+func (self *SProjectMapping) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
+	_, err := self.SEnabledStatusInfrasResourceBase.PerformDisable(ctx, userCred, query, input)
+	if err != nil {
+		return nil, err
+	}
+	return nil, self.refreshMapping()
 }

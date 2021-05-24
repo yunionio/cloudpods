@@ -28,4 +28,6 @@ func init() {
 	cmd.Delete(&options.BaseIdOptions{})
 	cmd.Show(&options.BaseIdOptions{})
 	cmd.Create(&compute.ProjectMappingCreateOption{})
+	cmd.Perform("enable", &options.BaseIdOptions{})
+	cmd.Perform("disable", &options.BaseIdOptions{})
 }
