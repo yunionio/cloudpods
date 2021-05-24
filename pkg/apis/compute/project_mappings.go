@@ -34,23 +34,29 @@ const (
 )
 
 type STag struct {
-	Key   string
-	Value string
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 type ProjectMappingRuleInfo struct {
 	// 标签列表, 不可为空
-	Tags []STag
+	Tags []STag `json:"tags"`
 	// 条件表达式
 	// enmu: and, or
 	// default: and
-	Condition string
+	Condition string `json:"condition"`
 	// 是否自动根据标签值创建项目, 仅标签列表中有且仅有一个没有value的key时支持
-	AutoCreateProject bool
+	AutoCreateProject bool `json:"auto_create_project"`
 	// 符合条件时，资源放置的项目id, 此参数和auto_create_project互斥
-	ProjectId string
+	ProjectId string `json:"project_id"`
+	// 只读信息
 	// swagger:ignore
-	DomainId string
+	Project string `json:"project"`
+	// swagger:ignore
+	DomainId string `json:"domain_id"`
+	// 只读信息
+	// swagger:ignore
+	Domain string `json:"domain"`
 }
 
 type MappingRules []ProjectMappingRuleInfo
@@ -135,15 +141,18 @@ type ProjectMappingRuleInfoDetails struct {
 	Domain   string
 }
 
+type SProjectMappingAccount struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type ProjectMappingDetails struct {
 	apis.EnabledStatusInfrasResourceBaseDetails
 
 	Rules []ProjectMappingRuleInfoDetails
 
-	Accounts []struct {
-		Id   string
-		Name string
-	}
+	// 所绑定的云账号列表
+	Accounts []SProjectMappingAccount `json:"accounts"`
 }
 
 type ProjectMappingCreateInput struct {
