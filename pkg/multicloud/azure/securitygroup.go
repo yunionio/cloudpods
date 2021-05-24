@@ -75,11 +75,7 @@ type SSecurityGroup struct {
 	Name       string
 	Location   string
 	Type       string
-	Tags       map[string]string
-}
-
-func (self *SSecurityGroup) GetTags() (map[string]string, error) {
-	return self.Tags, nil
+	Tags       TAzureTags
 }
 
 func parseCIDR(cidr string) (*net.IPNet, error) {

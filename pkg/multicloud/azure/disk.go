@@ -80,7 +80,7 @@ type SDisk struct {
 	Location   string         `json:"location,omitempty"`
 	Properties DiskProperties `json:"properties,omitempty"`
 
-	Tags map[string]string `json:"tags,omitempty"`
+	Tags TAzureTags `json:"tags,omitempty"`
 }
 
 func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, imageId, snapshotId, resourceGroup string) (*SDisk, error) {

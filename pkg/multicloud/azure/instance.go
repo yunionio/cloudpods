@@ -184,7 +184,7 @@ type SInstance struct {
 	Type       string
 	Location   string
 	vmSize     *SVMSize
-	Tags       map[string]string
+	Tags       TAzureTags
 
 	Resources []SExtensionResource
 }
