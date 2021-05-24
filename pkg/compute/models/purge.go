@@ -31,6 +31,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
+var LB_CERTS_TO_BE_PURGE = map[string][]string{}
+
 type IPurgeableManager interface {
 	Keyword() string
 	purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error
@@ -195,12 +197,23 @@ func (manager *SCachedLoadbalancerCertificateManager) purgeAll(ctx context.Conte
 	if err != nil {
 		return err
 	}
+
+	lbcertIds := []string{}
+	if certs, ok := LB_CERTS_TO_BE_PURGE[providerId]; ok {
+		lbcertIds = certs
+	}
+
 	for i := range lbcs {
 		err := lbcs[i].purge(ctx, userCred)
 		if err != nil {
 			return err
 		}
+
+		if len(lbcs[i].CertificateId) > 0 && !utils.IsInStringArray(lbcs[i].CertificateId, lbcertIds) {
+			lbcertIds = append(lbcertIds, lbcs[i].CertificateId)
+		}
 	}
+	LB_CERTS_TO_BE_PURGE[providerId] = lbcertIds
 	return nil
 }
 
@@ -214,6 +227,50 @@ func (lbcert *SCachedLoadbalancerCertificate) purge(ctx context.Context, userCre
 	}
 
 	return lbcert.DoPendingDelete(ctx, userCred)
+}
+
+func (manager *SLoadbalancerCertificateManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	if certs, ok := LB_CERTS_TO_BE_PURGE[providerId]; ok {
+		lbcs := make([]SLoadbalancerCertificate, 0)
+		err := db.FetchModelObjects(manager, manager.Query().In("id", certs), &lbcs)
+		if err != nil {
+			return err
+		}
+		for i := range lbcs {
+			err := lbcs[i].purge(ctx, userCred)
+			if err != nil {
+				return err
+			}
+		}
+
+		delete(LB_CERTS_TO_BE_PURGE, providerId)
+	}
+	return nil
+}
+
+func (lbcert *SLoadbalancerCertificate) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, lbcert)
+	defer lockman.ReleaseObject(ctx, lbcert)
+
+	if !lbcert.PendingDeleted {
+		// 内容完整的证书不需要删除
+		if lbcert.IsComplete() {
+			return nil
+		}
+
+		caches, err := lbcert.GetCachedCerts()
+		if err != nil {
+			return errors.Wrap(err, "GetCachedCerts")
+		}
+
+		if len(caches) > 0 {
+			log.Debugf("the lb cert %s (%s) is in use.can not purge.", lbcert.Name, lbcert.Id)
+			return nil
+		}
+		return lbcert.DoPendingDelete(ctx, userCred)
+	}
+
+	return nil
 }
 
 func (manager *SCachedLoadbalancerAclManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {

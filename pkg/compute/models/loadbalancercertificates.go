@@ -77,7 +77,7 @@ type SLoadbalancerCertificate struct {
 
 func (lbcert *SLoadbalancerCertificate) GetCachedCerts() ([]SCachedLoadbalancerCertificate, error) {
 	ret := []SCachedLoadbalancerCertificate{}
-	q := CachedLoadbalancerCertificateManager.Query().Equals("certificate_id", lbcert.Id)
+	q := CachedLoadbalancerCertificateManager.Query().Equals("certificate_id", lbcert.Id).IsFalse("pending_deleted")
 	err := db.FetchModelObjects(CachedLoadbalancerCertificateManager, q, &ret)
 	if err != nil {
 		return nil, err
@@ -131,6 +131,10 @@ func (lbcert *SLoadbalancerCertificate) GetExtraDetails(
 	return api.LoadbalancerCertificateDetails{}, nil
 }
 
+func (lbcert *SLoadbalancerCertificate) IsComplete() bool {
+	return lbcert.PrivateKey != "" && lbcert.Certificate != ""
+}
+
 func (manager *SLoadbalancerCertificateManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -146,6 +150,7 @@ func (manager *SLoadbalancerCertificateManager) FetchCustomizeColumns(
 	for i := range rows {
 		rows[i] = api.LoadbalancerCertificateDetails{
 			SharableVirtualResourceDetails: virtRows[i],
+			IsComplete:                     objs[i].(*SLoadbalancerCertificate).IsComplete(),
 		}
 	}
 
