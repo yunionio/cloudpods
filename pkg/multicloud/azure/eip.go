@@ -60,6 +60,7 @@ type SEipAddress struct {
 	Location   string
 	Properties PublicIPAddressPropertiesFormat `json:"properties,omitempty"`
 	Type       string
+	Tags       TAzureTags
 	Sku        *PublicIPAddressSku
 }
 

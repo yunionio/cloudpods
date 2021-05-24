@@ -40,7 +40,7 @@ type SClassicSecurityGroup struct {
 	Name       string
 	Location   string
 	Type       string
-	Tags       map[string]string
+	Tags       TAzureTags
 }
 
 type ClassicSecurityGroupProperties struct {
@@ -118,10 +118,6 @@ func (self *ClassicSecurityGroupRuleProperties) toRule() *cloudprovider.Security
 
 func (self *SClassicSecurityGroup) GetVpcId() string {
 	return "classic"
-}
-
-func (self *SClassicSecurityGroup) GetTags() (map[string]string, error) {
-	return self.Tags, nil
 }
 
 func (self *SClassicSecurityGroup) GetId() string {
