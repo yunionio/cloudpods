@@ -21,6 +21,8 @@ type LoadbalancerCertificateDetails struct {
 	SLoadbalancerCertificate
 
 	LbListenerCount int `json:"lb_listener_count"`
+	// 证书内容是否完整
+	IsComplete bool `json:"is_complete"`
 }
 
 type LoadbalancerCertificateResourceInfo struct {
