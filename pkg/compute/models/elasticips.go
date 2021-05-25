@@ -502,6 +502,7 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 	if err != nil {
 		return errors.Wrap(err, "fail to sync associated instance of EIP")
 	}
+	syncVirtualResourceMetadata(ctx, userCred, self, ext)
 	SyncCloudProject(userCred, self, syncOwnerId, ext, self.ManagerId)
 
 	return nil
@@ -550,6 +551,7 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 		return nil, err
 	}
 
+	syncVirtualResourceMetadata(ctx, userCred, &eip, extEip)
 	SyncCloudProject(userCred, &eip, syncOwnerId, extEip, eip.ManagerId)
 
 	err = eip.SyncInstanceWithCloudEip(ctx, userCred, extEip)

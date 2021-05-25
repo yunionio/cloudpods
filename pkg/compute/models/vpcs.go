@@ -610,6 +610,8 @@ func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenC
 		return err
 	}
 
+	syncMetadata(ctx, userCred, self, extVPC)
+
 	if provider != nil {
 		SyncCloudDomain(userCred, self, provider.GetOwnerId())
 		self.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
@@ -645,6 +647,7 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 		return nil, err
 	}
 
+	syncMetadata(ctx, userCred, &vpc, extVPC)
 	SyncCloudDomain(userCred, &vpc, provider.GetOwnerId())
 
 	if provider != nil {

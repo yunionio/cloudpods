@@ -65,6 +65,10 @@ func (self *SEipAddress) GetName() string {
 	return self.Name
 }
 
+func (self *SEipAddress) GetTags() (map[string]string, error) {
+	return self.Tags.GetTags()
+}
+
 func (self *SEipAddress) GetGlobalId() string {
 	return self.AllocationId
 }

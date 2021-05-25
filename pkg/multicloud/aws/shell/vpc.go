@@ -22,15 +22,14 @@ import (
 
 func init() {
 	type VpcListOptions struct {
-		Limit  int `help:"page size"`
-		Offset int `help:"page offset"`
+		VpcIds []string
 	}
 	shellutils.R(&VpcListOptions{}, "vpc-list", "List vpcs", func(cli *aws.SRegion, args *VpcListOptions) error {
-		vpcs, total, e := cli.GetVpcs(nil, args.Offset, args.Limit)
-		if e != nil {
-			return e
+		vpcs, err := cli.GetVpcs(args.VpcIds)
+		if err != nil {
+			return err
 		}
-		printList(vpcs, total, args.Offset, args.Limit, []string{})
+		printList(vpcs, 0, 0, 0, []string{})
 		return nil
 	})
 

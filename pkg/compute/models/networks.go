@@ -763,6 +763,7 @@ func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
+	syncVirtualResourceMetadata(ctx, userCred, self, extNet)
 	SyncCloudProject(userCred, self, syncOwnerId, extNet, vpc.ManagerId)
 
 	if provider != nil {
@@ -812,6 +813,7 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 	}
 
 	vpc := wire.GetVpc()
+	syncVirtualResourceMetadata(ctx, userCred, &net, extNet)
 	SyncCloudProject(userCred, &net, syncOwnerId, extNet, vpc.ManagerId)
 
 	if provider != nil {

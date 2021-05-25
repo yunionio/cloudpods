@@ -890,6 +890,8 @@ func (self *SSnapshot) SyncWithCloudSnapshot(ctx context.Context, userCred mccli
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
+	syncVirtualResourceMetadata(ctx, userCred, self, ext)
+
 	// bugfix for now:
 	disk, err := self.GetDisk()
 	if err != nil && err != sql.ErrNoRows {
@@ -937,6 +939,8 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 		log.Errorf("newFromCloudEip fail %s", err)
 		return nil, err
 	}
+
+	syncVirtualResourceMetadata(ctx, userCred, &snapshot, extSnapshot)
 
 	// bugfix for now:
 	if localDisk != nil {

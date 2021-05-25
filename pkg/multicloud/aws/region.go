@@ -419,20 +419,18 @@ func (self *SRegion) fetchIVpcs() error {
 			}
 		}
 
-		tags := make(map[string]string, 0)
-		for _, tag := range vpc.Tags {
-			tags[*tag.Key] = *tag.Value
-		}
+		tagspec := TagSpec{ResourceType: "vpc"}
+		tagspec.LoadingEc2Tags(vpc.Tags)
 
 		self.ivpcs = append(self.ivpcs, &SVpc{region: self,
 			CidrBlock:               *vpc.CidrBlock,
 			CidrBlockAssociationSet: cidrBlockAssociationSet,
-			Tags:                    tags,
+			TagSpec:                 tagspec,
 			IsDefault:               *vpc.IsDefault,
 			RegionId:                self.RegionId,
 			Status:                  *vpc.State,
 			VpcId:                   *vpc.VpcId,
-			VpcName:                 tags["Name"],
+			VpcName:                 tagspec.GetNameTag(),
 			InstanceTenancy:         *vpc.InstanceTenancy,
 		})
 	}

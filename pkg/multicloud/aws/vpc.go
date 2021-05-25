@@ -50,7 +50,7 @@ type SVpc struct {
 	IsDefault               bool
 	Status                  string
 	InstanceTenancy         string
-	Tags                    map[string]string // 名称、描述等
+	TagSpec                 TagSpec
 }
 
 func (self *SVpc) addWire(wire *SWire) {
@@ -62,6 +62,10 @@ func (self *SVpc) addWire(wire *SWire) {
 
 func (self *SVpc) GetId() string {
 	return self.VpcId
+}
+
+func (self *SVpc) GetTags() (map[string]string, error) {
+	return self.TagSpec.GetTags()
 }
 
 func (self *SVpc) GetName() string {
@@ -222,9 +226,9 @@ func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
 }
 
 func (self *SVpc) fetchNetworks() error {
-	networks, _, err := self.region.GetNetwroks(nil, self.VpcId, 0, 0)
+	networks, err := self.region.GetNetwroks(nil, self.VpcId)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "GetNetwroks(%s)", self.VpcId)
 	}
 
 	for i := 0; i < len(networks); i += 1 {
@@ -567,12 +571,11 @@ func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
 		return nil, fmt.Errorf("GetVpc vpc id should not be empty.")
 	}
 
-	vpcs, total, err := self.GetVpcs([]string{vpcId}, 0, 1)
+	vpcs, err := self.GetVpcs([]string{vpcId})
 	if err != nil {
-		log.Errorf("GetVpcs %s: %s", vpcId, err)
 		return nil, errors.Wrap(err, "GetVpcs")
 	}
-	if total != 1 {
+	if len(vpcs) != 1 {
 		return nil, errors.Wrap(cloudprovider.ErrNotFound, "getVpc")
 	}
 	vpcs[0].region = self
@@ -639,10 +642,10 @@ func (self *SRegion) DeleteVpc(vpcId string) error {
 	return errors.Wrap(err, "DeleteVpc")
 }
 
-func (self *SRegion) GetVpcs(vpcId []string, offset int, limit int) ([]SVpc, int, error) {
+func (self *SRegion) GetVpcs(vpcId []string) ([]SVpc, error) {
 	ec2Client, err := self.getEc2Client()
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "getEc2Client")
+		return nil, errors.Wrap(err, "getEc2Client")
 	}
 
 	params := &ec2.DescribeVpcsInput{}
@@ -653,13 +656,13 @@ func (self *SRegion) GetVpcs(vpcId []string, offset int, limit int) ([]SVpc, int
 	ret, err := ec2Client.DescribeVpcs(params)
 	err = parseNotFoundError(err)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	vpcs := []SVpc{}
 	for _, item := range ret.Vpcs {
 		if err := FillZero(item); err != nil {
-			return nil, 0, err
+			return nil, err
 		}
 		cidrBlockAssociationSet := []string{}
 		for i := range item.CidrBlockAssociationSet {
@@ -669,26 +672,24 @@ func (self *SRegion) GetVpcs(vpcId []string, offset int, limit int) ([]SVpc, int
 			}
 		}
 
-		tags := make(map[string]string, 0)
-		for _, tag := range item.Tags {
-			tags[*tag.Key] = *tag.Value
-		}
+		tagspec := TagSpec{ResourceType: "vpc"}
+		tagspec.LoadingEc2Tags(item.Tags)
 
 		vpcs = append(vpcs, SVpc{
 			region:                  self,
 			RegionId:                self.RegionId,
 			VpcId:                   *item.VpcId,
-			VpcName:                 tags["Name"],
+			VpcName:                 tagspec.GetNameTag(),
 			CidrBlock:               *item.CidrBlock,
 			CidrBlockAssociationSet: cidrBlockAssociationSet,
 			IsDefault:               *item.IsDefault,
 			Status:                  *item.State,
 			InstanceTenancy:         *item.InstanceTenancy,
-			Tags:                    tags,
+			TagSpec:                 tagspec,
 		})
 	}
 
-	return vpcs, len(vpcs), nil
+	return vpcs, nil
 }
 
 func (self *SRegion) GetInternetGateways(vpcId string) ([]SInternetGateway, error) {
