@@ -518,3 +518,11 @@ type ServerDetachnetworkInput struct {
 	// 通过Mac解绑网卡, 优先级低于ip_addr
 	Mac string `json:"mac"`
 }
+
+type ServerMigrateForecastInput struct {
+	PreferHostId string `json:"prefer_host_id"`
+	// Deprecated
+	PreferHost   string `json:"prefer_host" yunion-deprecated-by:"prefer_host_id"`
+	LiveMigrate  bool   `json:"live_migrate"`
+	SkipCpuCheck bool   `josn:"skip_cpu_check"`
+}
