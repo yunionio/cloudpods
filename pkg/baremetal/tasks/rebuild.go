@@ -65,5 +65,8 @@ func (self *SBaremetalServerRebuildTask) DoDeploys(term *ssh.Client) (jsonutils.
 }
 
 func (self *SBaremetalServerRebuildTask) PostDeploys(term *ssh.Client) error {
-	return doPoweroff(term)
+	if self.Baremetal.HasBMC() {
+		return doPoweroff(term)
+	}
+	return nil
 }
