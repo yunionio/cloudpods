@@ -44,6 +44,16 @@ type SSnapshotPolicy struct {
 	TimePoints             string
 	RetentionDays          int
 	Status                 SSnapshotPolicyType
+
+	STags
+}
+
+func (self *SSnapshotPolicy) GetTags() (map[string]string, error) {
+	return self.STags.GetTags()
+}
+
+func (self *SSnapshotPolicy) GetSysTags() map[string]string {
+	return self.STags.GetSysTags()
 }
 
 func (self *SSnapshotPolicy) GetId() string {

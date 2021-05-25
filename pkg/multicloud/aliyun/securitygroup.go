@@ -62,23 +62,6 @@ type SPermissions struct {
 	Permission []SPermission
 }
 
-type Tags struct {
-	Tag []Tag
-}
-
-func (t Tags) GetTags() (map[string]string, error) {
-	ret := map[string]string{}
-	for _, tag := range t.Tag {
-		ret[tag.TagKey] = tag.TagValue
-	}
-	return ret, nil
-}
-
-type Tag struct {
-	TagKey   string
-	TagValue string
-}
-
 type SSecurityGroup struct {
 	multicloud.SSecurityGroup
 
@@ -91,19 +74,11 @@ type SSecurityGroup struct {
 	InnerAccessPolicy string
 	Permissions       SPermissions
 	RegionId          string
-	Tags              Tags
+	STags
 }
 
 func (self *SSecurityGroup) GetVpcId() string {
 	return self.VpcId
-}
-
-func (self *SSecurityGroup) GetTags() (map[string]string, error) {
-	tags := map[string]string{}
-	for _, value := range self.Tags.Tag {
-		tags[value.TagKey] = value.TagValue
-	}
-	return tags, nil
 }
 
 func (self *SSecurityGroup) GetId() string {

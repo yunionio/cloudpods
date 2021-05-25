@@ -84,6 +84,8 @@ type SLoadbalancer struct {
 	ResourceGroupId  string //企业资源组ID。
 	LoadBalancerSpec string //负载均衡实例的的性能规格
 	Bandwidth        int    //按带宽计费的公网型实例的带宽峰值
+
+	STags
 }
 
 func (lb *SLoadbalancer) GetName() string {
@@ -103,18 +105,6 @@ func (lb *SLoadbalancer) GetStatus() string {
 		return api.LB_STATUS_ENABLED
 	}
 	return api.LB_STATUS_DISABLED
-}
-
-func (lb *SLoadbalancer) GetTags() (map[string]string, error) {
-	tags, err := lb.region.ListTags(ALIYUN_SERVICE_SLB, "instance", lb.GetId())
-	if err != nil {
-		return nil, errors.Wrap(err, "lb.region.ListTags")
-	}
-	ret := map[string]string{}
-	for _, tag := range tags {
-		ret[tag.TagKey] = tag.TagValue
-	}
-	return ret, nil
 }
 
 func (lb *SLoadbalancer) GetAddress() string {

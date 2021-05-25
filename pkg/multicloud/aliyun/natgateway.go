@@ -68,6 +68,8 @@ type SNatGateway struct {
 	Status                string
 	VpcId                 string
 	NatGatewayPrivateInfo NatGatewayPrivateInfo
+
+	STags
 }
 
 func (nat *SNatGateway) GetId() string {

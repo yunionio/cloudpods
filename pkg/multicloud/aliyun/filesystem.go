@@ -71,7 +71,7 @@ type SFileSystem struct {
 	FileSystemId         string
 	RegionId             string
 
-	Tags Tags
+	STags
 }
 
 func (self *SFileSystem) GetId() string {
@@ -165,10 +165,6 @@ func (self *SFileSystem) Refresh() error {
 		return errors.Wrapf(err, "GetFileSystem(%s)", self.FileSystemId)
 	}
 	return jsonutils.Update(self, fs)
-}
-
-func (self *SFileSystem) GetTags() (map[string]string, error) {
-	return self.Tags.GetTags()
 }
 
 func (self *SRegion) GetFileSystems(id string, pageSize, pageNum int) ([]SFileSystem, int, error) {

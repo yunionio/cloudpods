@@ -97,6 +97,8 @@ type SEipAddress struct {
 	ChargeType      TChargeType
 	ExpiredTime     time.Time
 	ResourceGroupId string
+
+	STags
 }
 
 func (self *SEipAddress) GetId() string {
