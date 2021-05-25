@@ -98,6 +98,8 @@ type SInstance struct {
 	OSType            string
 	Description       string
 
+	TagSpec TagSpec
+
 	// 这些貌似都没啥用
 	// AutoReleaseTime         string
 	// DeviceAvailable         bool
@@ -236,22 +238,7 @@ func (self *SInstance) GetSysTags() map[string]string {
 }
 
 func (self *SInstance) GetTags() (map[string]string, error) {
-	ec2Client, err := self.host.zone.region.getEc2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "getEc2Client")
-	}
-	tags, err := FetchTags(ec2Client, self.InstanceId)
-	if err != nil {
-		return nil, errors.Wrap(err, "FetchTags()")
-	}
-	data := map[string]string{}
-	err = tags.Unmarshal(&data)
-	if err != nil {
-		return nil, errors.Wrap(err, "tags.Unmarshal")
-	}
-	delete(data, "Name")
-	delete(data, "Description")
-	return data, nil
+	return self.TagSpec.GetTags()
 }
 
 func (self *SInstance) GetBillingType() string {
@@ -726,6 +713,8 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				ProductCodes:      productCodes,
 				OSName:            osType, // todo: 这里在model层回写OSName信息
 				OSType:            osType,
+
+				TagSpec: tagspec,
 				// ExpiredTime:
 				// VlanId:
 				// OSType:

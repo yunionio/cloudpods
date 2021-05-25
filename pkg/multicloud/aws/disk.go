@@ -87,6 +87,10 @@ func (self *SDisk) GetId() string {
 	return self.DiskId
 }
 
+func (self *SDisk) GetTags() (map[string]string, error) {
+	return self.Tags.GetTags()
+}
+
 func (self *SDisk) GetName() string {
 	if len(self.DiskName) > 0 {
 		return self.DiskName

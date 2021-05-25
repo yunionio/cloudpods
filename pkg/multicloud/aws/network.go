@@ -47,6 +47,7 @@ type SNetwork struct {
 	NetworkName             string
 	VpcId                   string
 	ZoneId                  string
+	TagSpec                 TagSpec
 }
 
 func (self *SNetwork) GetId() string {
@@ -59,6 +60,10 @@ func (self *SNetwork) GetName() string {
 	}
 
 	return self.NetworkName
+}
+
+func (self *SNetwork) GetTags() (map[string]string, error) {
+	return self.TagSpec.GetTags()
 }
 
 func (self *SNetwork) GetGlobalId() string {
@@ -193,12 +198,11 @@ func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
 	if len(networkId) == 0 {
 		return nil, fmt.Errorf("GetNetwork networkId should not be empty.")
 	}
-	networks, total, err := self.GetNetwroks([]string{networkId}, "", 0, 0)
+	networks, err := self.GetNetwroks([]string{networkId}, "")
 	if err != nil {
-		log.Errorf("GetNetwroks %s: %s", networkId, err)
 		return nil, errors.Wrap(err, "GetNetwroks")
 	}
-	if total != 1 {
+	if len(networks) != 1 {
 		return nil, errors.Wrap(cloudprovider.ErrNotFound, "getNetwork")
 	}
 	return &networks[0], nil
@@ -215,7 +219,7 @@ func (self *SRegion) deleteNetwork(networkId string) error {
 	return errors.Wrap(err, "DeleteSubnet")
 }
 
-func (self *SRegion) GetNetwroks(ids []string, vpcId string, limit int, offset int) ([]SNetwork, int, error) {
+func (self *SRegion) GetNetwroks(ids []string, vpcId string) ([]SNetwork, error) {
 	params := &ec2.DescribeSubnetsInput{}
 	if len(ids) > 0 {
 		_ids := make([]*string, len(ids))
@@ -236,20 +240,20 @@ func (self *SRegion) GetNetwroks(ids []string, vpcId string, limit int, offset i
 
 	ec2Client, err := self.getEc2Client()
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "getEc2Client")
+		return nil, errors.Wrap(err, "getEc2Client")
 	}
 
 	ret, err := ec2Client.DescribeSubnets(params)
 	err = parseNotFoundError(err)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	subnets := []SNetwork{}
 	for i := range ret.Subnets {
 		item := ret.Subnets[i]
 		if err := FillZero(item); err != nil {
-			return nil, 0, err
+			return nil, err
 		}
 
 		tagspec := TagSpec{ResourceType: "subnet"}
@@ -263,9 +267,10 @@ func (self *SRegion) GetNetwroks(ids []string, vpcId string, limit int, offset i
 		subnet.IsDefault = *item.DefaultForAz
 		subnet.NetworkId = *item.SubnetId
 		subnet.NetworkName = tagspec.GetNameTag()
+		subnet.TagSpec = tagspec
 		subnets = append(subnets, subnet)
 	}
-	return subnets, len(subnets), nil
+	return subnets, nil
 }
 
 func (self *SNetwork) GetProjectId() string {
