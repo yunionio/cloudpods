@@ -61,7 +61,6 @@ type SElasticcache struct {
 	Bandwidth           int64       `json:"Bandwidth"`
 	ChargeType          TChargeType `json:"ChargeType"`
 	InstanceType        string      `json:"InstanceType"`
-	Tags                Tags        `json:"Tags"`
 	InstanceStatus      string      `json:"InstanceStatus"`
 	Port                int         `json:"Port"`
 	InstanceClass       string      `json:"InstanceClass"`
@@ -101,7 +100,6 @@ type SElasticcacheAttribute struct {
 	ReplicationMode     string      `json:"ReplicationMode"`
 	InstanceType        string      `json:"InstanceType"`
 	InstanceStatus      string      `json:"InstanceStatus"`
-	Tags                Tags        `json:"Tags"`
 	Port                int64       `json:"Port"`
 	InstanceClass       string      `json:"InstanceClass"`
 	CreateTime          time.Time   `json:"CreateTime"`
@@ -923,18 +921,6 @@ func (self *SElasticcache) GetICloudElasticcacheBackup(backupId string) (cloudpr
 	}
 
 	return nil, cloudprovider.ErrNotFound
-}
-
-func (instance *SElasticcache) GetTags() (map[string]string, error) {
-	tags, err := instance.region.ListTags(ALIYUN_SERVICE_KVS, "INSTANCE", instance.GetId())
-	if err != nil {
-		return nil, errors.Wrap(err, "instance.region.ListTags")
-	}
-	ret := map[string]string{}
-	for _, tag := range tags {
-		ret[tag.TagKey] = tag.TagValue
-	}
-	return ret, nil
 }
 
 func (instance *SElasticcache) SetTags(tags map[string]string, replace bool) error {

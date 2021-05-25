@@ -35,6 +35,11 @@ type SNetwork struct {
 	Name          string
 	Properties    SubnetPropertiesFormat
 	AddressPrefix string `json:"addressPrefix,omitempty"`
+	Tags          TAzureTags
+}
+
+func (self *SNetwork) GetTags() (map[string]string, error) {
+	return self.Tags, nil
 }
 
 func (self *SNetwork) GetId() string {
