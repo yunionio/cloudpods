@@ -78,6 +78,17 @@ func (self *TagSpec) SetTag(k, v string) {
 	self.Tags[k] = v
 }
 
+func (self *TagSpec) GetTags() (map[string]string, error) {
+	ret := map[string]string{}
+	for k, v := range self.Tags {
+		if k == "Name" || k == "Description" {
+			continue
+		}
+		ret[k] = v
+	}
+	return ret, nil
+}
+
 func (self *TagSpec) SetNameTag(v string) {
 	self.SetTag("Name", v)
 }
