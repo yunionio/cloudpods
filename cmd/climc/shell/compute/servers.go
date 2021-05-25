@@ -59,6 +59,7 @@ func init() {
 	cmd.BatchPerform("reset", new(options.ServerResetOptions))
 	cmd.BatchPerform("restart", new(options.ServerRestartOptions))
 	cmd.BatchPerform("purge", new(options.ServerIdsOptions))
+	cmd.PrintObjectYAML().Perform("migrate-forecast", new(options.ServerMigrateForecastOptions))
 	cmd.Perform("migrate", new(options.ServerMigrateOptions))
 	cmd.Perform("live-migrate", new(options.ServerLiveMigrateOptions))
 	cmd.Perform("modify-src-check", new(options.ServerModifySrcCheckOptions))
