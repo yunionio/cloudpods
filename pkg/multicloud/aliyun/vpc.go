@@ -62,6 +62,8 @@ type SVpc struct {
 	VSwitchIds   SVSwitchIds
 	VpcId        string
 	VpcName      string
+
+	STags
 }
 
 func (self *SVpc) GetId() string {

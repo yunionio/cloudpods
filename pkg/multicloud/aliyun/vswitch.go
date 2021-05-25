@@ -61,6 +61,16 @@ type SVSwitch struct {
 	CloudResources  SCloudResources
 	ResourceGroupId string
 	RouteTable      SRouteTable
+
+	STags
+}
+
+func (self *SVSwitch) GetTags() (map[string]string, error) {
+	return self.STags.GetTags()
+}
+
+func (self *SVSwitch) GetSysTags() map[string]string {
+	return self.STags.GetSysTags()
 }
 
 func (self *SVSwitch) GetId() string {

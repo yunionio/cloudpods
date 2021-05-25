@@ -103,6 +103,8 @@ type SDBInstance struct {
 	SupportUpgradeAccountType string
 	TempUpgradeTimeEnd        time.Time
 	TempUpgradeTimeStart      time.Time
+
+	STags
 }
 
 func (rds *SDBInstance) GetName() string {
@@ -849,18 +851,6 @@ func (region *SRegion) RenewDBInstance(instanceId string, bc billing.SBillingCyc
 	}
 	_, err := region.rdsRequest("RenewInstance", params)
 	return err
-}
-
-func (rds *SDBInstance) GetTags() (map[string]string, error) {
-	tags, err := rds.region.ListTags(ALIYUN_SERVICE_RDS, "INSTANCE", rds.GetId())
-	if err != nil {
-		return nil, errors.Wrap(err, `rds.region.ListTags`)
-	}
-	ret := map[string]string{}
-	for _, tag := range tags {
-		ret[tag.TagKey] = tag.TagValue
-	}
-	return ret, nil
 }
 
 func (rds *SDBInstance) SetTags(tags map[string]string, replace bool) error {

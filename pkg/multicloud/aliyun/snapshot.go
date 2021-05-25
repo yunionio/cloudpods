@@ -51,6 +51,8 @@ type SSnapshot struct {
 	Status          SnapshotStatusType
 	Usage           string
 	ResourceGroupId string
+
+	STags
 }
 
 func (self *SSnapshot) GetId() string {
@@ -59,6 +61,14 @@ func (self *SSnapshot) GetId() string {
 
 func (self *SSnapshot) GetName() string {
 	return self.SnapshotName
+}
+
+func (self *SSnapshot) GetTags() (map[string]string, error) {
+	return self.STags.GetTags()
+}
+
+func (self *SSnapshot) GetSysTags() map[string]string {
+	return self.STags.GetSysTags()
 }
 
 func (self *SSnapshot) GetStatus() string {

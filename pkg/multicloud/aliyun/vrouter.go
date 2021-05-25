@@ -32,4 +32,6 @@ type SVRouter struct {
 	VRouterId     string
 	VRouterName   string
 	VpcId         string
+
+	STags
 }
