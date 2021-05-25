@@ -17,6 +17,12 @@ package types
 import (
 	"net"
 	"strings"
+
+	"yunion.io/x/pkg/errors"
+)
+
+const (
+	ErrIPMIToolNull = errors.Error("IPMI tool is null")
 )
 
 type SSHConfig struct {

@@ -46,9 +46,16 @@ func NewBaremetalServerStopTask(
 }
 
 func (task *SBaremetalServerStopTask) DoStop(ctx context.Context, args interface{}) error {
-	task.SetStage(task.WaitForStop)
-	if err := task.Baremetal.DoPowerShutdown(true); err != nil {
-		log.Errorf("Do power shutdown error: %s", err)
+	if task.Baremetal.HasBMC() {
+		task.SetStage(task.WaitForStop)
+		if err := task.Baremetal.DoPowerShutdown(true); err != nil {
+			log.Errorf("Do power shutdown error: %s", err)
+		}
+	} else {
+		if err := task.Baremetal.SSHShutdown(); err != nil {
+			return errors.Wrap(err, "Try ssh shutdown")
+		}
+		task.SetStage(task.OnStopComplete)
 	}
 	task.startTime = time.Now()
 	ExecuteTask(task, nil)

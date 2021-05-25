@@ -345,7 +345,7 @@ func (self *SBaremetalGuestDriver) RequestStopGuestForDelete(ctx context.Context
 		return guest.StartGuestStopTask(ctx, task.GetUserCred(), true, false, task.GetTaskId())
 	}
 	if host != nil && !host.GetEnabled() && !purge {
-		return fmt.Errorf("fail to contact baremetal")
+		return errors.Errorf("fail to contact baremetal")
 	}
 	task.ScheduleRun(nil)
 	return nil

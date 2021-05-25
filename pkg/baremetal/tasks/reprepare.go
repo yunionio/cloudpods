@@ -48,3 +48,8 @@ func (self *SBaremetalReprepareTask) DoDeploys(term *ssh.Client) (jsonutils.JSON
 	err := task.DoPrepare(term)
 	return nil, err
 }
+
+func (self *SBaremetalReprepareTask) PostDeploys(term *ssh.Client) error {
+	self.Baremetal.AutoSyncStatus()
+	return nil
+}
