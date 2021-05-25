@@ -105,18 +105,6 @@ func (lb *SLoadbalancer) GetStatus() string {
 	return api.LB_STATUS_DISABLED
 }
 
-func (lb *SLoadbalancer) GetTags() (map[string]string, error) {
-	tags, err := lb.region.ListTags(ALIYUN_SERVICE_SLB, "instance", lb.GetId())
-	if err != nil {
-		return nil, errors.Wrap(err, "lb.region.ListTags")
-	}
-	ret := map[string]string{}
-	for _, tag := range tags {
-		ret[tag.TagKey] = tag.TagValue
-	}
-	return ret, nil
-}
-
 func (lb *SLoadbalancer) GetAddress() string {
 	return lb.Address
 }

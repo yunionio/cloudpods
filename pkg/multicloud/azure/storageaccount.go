@@ -94,9 +94,9 @@ type SStorageAccount struct {
 	ID       string `json:"id,omitempty"`
 	Name     string `json:"name,omitempty"`
 	Type     string `json:"type,omitempty"`
-	Tags     TAzureTags
 
 	Properties AccountProperties `json:"properties"`
+	Tags       TAzureTags
 }
 
 func (self *SRegion) listStorageAccounts() ([]SStorageAccount, error) {

@@ -55,6 +55,10 @@ type SVpc struct {
 	Properties VirtualNetworkPropertiesFormat `json:"properties,omitempty"`
 }
 
+func (self *SVpc) GetTags() (map[string]string, error) {
+	return self.Tags, nil
+}
+
 func (self *SVpc) GetId() string {
 	return self.ID
 }

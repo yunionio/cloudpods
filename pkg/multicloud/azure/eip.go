@@ -64,6 +64,10 @@ type SEipAddress struct {
 	Sku        *PublicIPAddressSku
 }
 
+func (self *SEipAddress) GetTags() (map[string]string, error) {
+	return self.Tags.GetTags()
+}
+
 func (self *SRegion) AllocateEIP(name, projectId string) (*SEipAddress, error) {
 	params := map[string]interface{}{
 		"Location": self.Name,
