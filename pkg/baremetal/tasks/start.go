@@ -44,16 +44,22 @@ func NewBaremetalServerStartTask(
 }
 
 func (self *SBaremetalServerStartTask) DoBoot(ctx context.Context, args interface{}) error {
-	conf := self.Baremetal.GetRawIPMIConfig()
-	if !conf.CdromBoot {
-		err := self.Baremetal.DoPXEBoot()
-		if err != nil {
-			return errors.Wrap(err, "DoPXEBoot")
+	if self.Baremetal.HasBMC() {
+		conf := self.Baremetal.GetRawIPMIConfig()
+		if !conf.CdromBoot {
+			err := self.Baremetal.DoPXEBoot()
+			if err != nil {
+				return errors.Wrap(err, "DoPXEBoot")
+			}
+		} else {
+			err := self.Baremetal.DoRedfishPowerOn()
+			if err != nil {
+				return errors.Wrap(err, "DoRedfishPowerOn")
+			}
 		}
 	} else {
-		err := self.Baremetal.DoRedfishPowerOn()
-		if err != nil {
-			return errors.Wrap(err, "DoRedfishPowerOn")
+		if err := self.Baremetal.SSHReboot(); err != nil {
+			return errors.Wrap(err, "Try reboot")
 		}
 	}
 	self.SetStage(self.WaitForStart)
@@ -68,7 +74,7 @@ func (self *SBaremetalServerStartTask) GetName() string {
 func (self *SBaremetalServerStartTask) WaitForStart(ctx context.Context, args interface{}) error {
 	status, err := self.Baremetal.GetPowerStatus()
 	if err != nil {
-		return errors.Wrap(err, "GetPowerStatus")
+		return errors.Wrap(err, "Wait for start")
 	}
 	log.Infof("%s WaitForStart status=%s", self.GetName(), status)
 	if status == types.POWER_STATUS_ON {

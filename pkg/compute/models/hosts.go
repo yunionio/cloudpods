@@ -3910,6 +3910,14 @@ func (self *SHost) AllowPerformPrepare(ctx context.Context,
 	return db.IsAdminAllowPerform(userCred, self, "prepare")
 }
 
+func (self *SHost) HasBMC() bool {
+	ipmiInfo, _ := self.GetIpmiInfo()
+	if ipmiInfo.Username != "" && ipmiInfo.Password != "" {
+		return true
+	}
+	return false
+}
+
 func (self *SHost) isRedfishCapable() bool {
 	ipmiInfo, _ := self.GetIpmiInfo()
 	if ipmiInfo.Verified && ipmiInfo.RedfishApi {

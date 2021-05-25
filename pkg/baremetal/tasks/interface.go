@@ -68,6 +68,11 @@ type IBaremetal interface {
 	SaveSSHConfig(remoteAddr string, key string) error
 	ServerLoadDesc() error
 	GetDHCPServerIP() (net.IP, error)
+
+	HasBMC() bool
+	SSHReachable() (bool, error)
+	SSHReboot() error
+	SSHShutdown() error
 }
 
 type IBmManager interface {

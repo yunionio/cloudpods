@@ -927,11 +927,16 @@ func (b *SBaremetalInstance) NeedPXEBoot() bool {
 		taskNeedPXEBoot = true
 	}
 	ret := false
-	if taskNeedPXEBoot || (task == nil && len(serverId) == 0 && b.GetHostType() == "baremetal") {
+	if taskNeedPXEBoot || (task == nil && len(serverId) == 0 && b.GetHostType() == "baremetal") || (task == nil && b.IsMaintenance()) {
 		ret = true
 	}
 	log.Infof("Check task %s, server %s NeedPXEBoot: %v", taskName, serverId, ret)
 	return ret
+}
+
+func (b *SBaremetalInstance) IsMaintenance() bool {
+	isMt, _ := b.desc.Bool("is_maintenance")
+	return isMt
 }
 
 func (b *SBaremetalInstance) GetHostType() string {
@@ -1347,6 +1352,112 @@ func (b *SBaremetalInstance) SetExistingIPMIIPAddr(ipAddr string) {
 	b.desc.Set("ipmi_info", info)
 }
 
+func (b *SBaremetalInstance) HasBMC() bool {
+	conf := b.GetIPMIConfig()
+	if conf == nil {
+		return false
+	}
+	return true
+}
+
+func (b *SBaremetalInstance) GetHostSSHClient() (*ssh.Client, error) {
+	conf, err := b.GetSSHConfig()
+	if err != nil {
+		return nil, errors.Wrap(err, "Get host ssh config")
+	}
+	if conf == nil {
+		return nil, errors.Errorf("Host ssh config is empty")
+	}
+	sshCli, err := ssh.NewClient(conf.RemoteIP, 22, "root", conf.Password, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "New ssh client")
+	}
+	return sshCli, nil
+}
+
+func (b *SBaremetalInstance) GetServerSSHClient() (*ssh.Client, error) {
+	s := b.GetServer()
+	if s == nil {
+		return nil, errors.Error("No server")
+	}
+
+	privateKey, err := modules.Sshkeypairs.FetchPrivateKey(context.TODO(), auth.AdminCredential())
+	if err != nil {
+		return nil, errors.Wrapf(err, "Get server %s login info", s.GetId())
+	}
+	nics := s.GetNics()
+	var errs []error
+	for _, nic := range nics {
+		if nic.LinkUp && nic.Ip != "" {
+			for _, user := range []string{"cloudroot", "root"} {
+				sshCli, err := ssh.NewClient(nic.Ip, 22, user, "", privateKey)
+				if err != nil {
+					err = errors.Wrapf(err, "New server %s ssh client %s@%s", s.GetName(), user, nic.Ip)
+					errs = append(errs, err)
+				} else {
+					return sshCli, nil
+				}
+			}
+		}
+	}
+
+	return nil, errors.NewAggregate(errs)
+}
+
+func (b *SBaremetalInstance) SSHReachable() (bool, error) {
+	var errs []error
+	if _, err := b.GetHostSSHClient(); err != nil {
+		errs = append(errs, err)
+	} else {
+		// host ssh reachable
+		return true, nil
+	}
+	if _, err := b.GetServerSSHClient(); err != nil {
+		errs = append(errs, err)
+	} else {
+		// server ssh reachable
+		return true, nil
+	}
+	return false, errors.NewAggregate(errs)
+}
+
+func (b *SBaremetalInstance) sshRun(hostCmd string, serverCmd string) ([]string, error) {
+	hostCli, err := b.GetHostSSHClient()
+	if err != nil {
+		log.Warningf("Get host ssh client error: %v", err)
+	} else {
+		if hostCli != nil {
+			return hostCli.RawRun(hostCmd)
+		}
+	}
+
+	serverCli, err := b.GetServerSSHClient()
+	if err != nil {
+		return nil, errors.Wrapf(err, "Get baremetal %s server ssh client", b.GetName())
+	}
+	return serverCli.RunWithTTY(serverCmd)
+}
+
+func (b *SBaremetalInstance) SSHReboot() error {
+	if _, err := b.sshRun("/sbin/reboot", "sudo shutdown -r now && exit"); err != nil {
+		if !ssh.IsExitMissingError(err) {
+			return errors.Wrap(err, "Try reboot")
+		}
+	}
+	b.ClearSSHConfig()
+	return nil
+}
+
+func (b *SBaremetalInstance) SSHShutdown() error {
+	if _, err := b.sshRun("/sbin/poweroff", "sudo shutdown -h now && exit"); err != nil {
+		if ssh.IsExitMissingError(err) {
+			return nil
+		}
+		return errors.Wrap(err, "Try poweroff")
+	}
+	return nil
+}
+
 func (b *SBaremetalInstance) GetIPMITool() *ipmitool.LanPlusIPMI {
 	conf := b.GetIPMIConfig()
 	if conf == nil {
@@ -1429,9 +1540,31 @@ func (b *SBaremetalInstance) DoDiskBoot() error {
 */
 
 func (b *SBaremetalInstance) GetPowerStatus() (string, error) {
+	status, err := b.getPowerStatus()
+	if err != nil {
+		if errors.Cause(err) != types.ErrIPMIToolNull {
+			return "", errors.Wrap(err, "GetPowerStatus")
+		} else if b.HasBMC() {
+			return "", errors.Wrap(err, "GetPowerStatus from ipmi")
+		}
+	}
+	return status, nil
+}
+
+func (b *SBaremetalInstance) getPowerStatus() (string, error) {
 	ipmiCli := b.GetIPMITool()
 	if ipmiCli == nil {
-		return "", fmt.Errorf("Baremetal %s ipmitool is nil", b.GetId())
+		if _, err := b.GetHostSSHClient(); err == nil {
+			return types.POWER_STATUS_ON, nil
+		} else {
+			log.Warningf("Use host %s ssh client get powerstatus: %v", b.GetName(), err)
+		}
+		if _, err := b.GetServerSSHClient(); err == nil {
+			return types.POWER_STATUS_ON, nil
+		} else {
+			log.Warningf("Use server %s ssh client get powerstatus: %v", b.GetServerName(), err)
+		}
+		return "", errors.Wrapf(types.ErrIPMIToolNull, "Baremetal %s", b.GetId())
 	}
 	return ipmitool.GetChassisPowerStatus(ipmiCli)
 }

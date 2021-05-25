@@ -313,7 +313,7 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 	// set ipmi nic address and user password
 	if err = task.configIPMISetting(cli, infos); err != nil {
 		logclient.AddActionLogWithStartable(task, task.baremetal, logclient.ACT_PREPARE, err, task.userCred, false)
-		return err
+		return errors.Wrap(err, "Config IPMI setting")
 	}
 
 	if err = task.updateBmInfo(cli, infos); err != nil {
