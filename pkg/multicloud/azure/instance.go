@@ -1037,6 +1037,13 @@ func (self *SInstance) GetProjectId() string {
 }
 
 func (self *SInstance) GetError() error {
+	if self.Properties.InstanceView != nil {
+		for _, status := range self.Properties.InstanceView.Statuses {
+			if status.Code == "ProvisioningState/failed/AllocationFailed" {
+				return errors.Errorf("%s %s", status.Code, status.Message)
+			}
+		}
+	}
 	return nil
 }
 
