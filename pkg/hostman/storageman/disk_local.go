@@ -30,6 +30,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
@@ -86,11 +87,12 @@ func (d *SLocalDisk) Probe() error {
 	if fileutils2.Exists(d.getPath()) {
 		d.isAlter = false
 		return nil
-	} else if fileutils2.Exists(d.getAlterPath()) {
+	}
+	if fileutils2.Exists(d.getAlterPath()) {
 		d.isAlter = true
 		return nil
 	}
-	return fmt.Errorf("Disk not found")
+	return errors.Wrapf(cloudprovider.ErrNotFound, "%s", d.getPath())
 }
 
 func (d *SLocalDisk) UmountFuseImage() {
