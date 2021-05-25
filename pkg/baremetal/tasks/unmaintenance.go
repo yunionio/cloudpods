@@ -16,9 +16,9 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	baremetalstatus "yunion.io/x/onecloud/pkg/baremetal/status"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
@@ -45,14 +45,23 @@ func NewBaremetalUnmaintenanceTask(
 
 func (task *SBaremetalUnmaintenanceTask) DoUnmaintenance(ctx context.Context, args interface{}) error {
 	var err error
-	if jsonutils.QueryBoolean(task.data, "guest_running", false) {
-		err = task.EnsurePowerShutdown(false)
-		if err != nil {
-			return fmt.Errorf("EnsurePowerShutdown hard: %v", err)
-		}
-		err = task.EnsurePowerUp()
-		if err != nil {
-			return fmt.Errorf("EnsurePowerUp disk: %v", err)
+	hasBMC := task.Baremetal.HasBMC()
+	if jsonutils.QueryBoolean(task.data, "guest_running", false) || !hasBMC {
+		if hasBMC {
+			err = task.EnsurePowerShutdown(false)
+			if err != nil {
+				return errors.Errorf("EnsurePowerShutdown hard: %v", err)
+			}
+			err = task.EnsurePowerUp()
+			if err != nil {
+				return errors.Errorf("EnsurePowerUp disk: %v", err)
+			}
+		} else {
+			if task.Baremetal.GetServer() != nil {
+				if err := task.EnsureSSHReboot(); err != nil {
+					return errors.Wrap(err, "Do unmaintenance for none BMC server")
+				}
+			}
 		}
 		task.Baremetal.SyncStatus(baremetalstatus.RUNNING, "")
 		SetTaskComplete(task, nil)
@@ -61,7 +70,7 @@ func (task *SBaremetalUnmaintenanceTask) DoUnmaintenance(ctx context.Context, ar
 	task.SetStage(task.WaitForStop)
 	err = task.EnsurePowerShutdown(true)
 	if err != nil {
-		return fmt.Errorf("EnsurePowerShutdown soft: %v", err)
+		return errors.Errorf("EnsurePowerShutdown soft: %v", err)
 	}
 	ExecuteTask(task, nil)
 	return nil

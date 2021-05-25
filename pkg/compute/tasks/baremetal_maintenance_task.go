@@ -69,12 +69,13 @@ func (self *BaremetalMaintenanceTask) OnEnterMaintenantModeSucc(ctx context.Cont
 		metadatas["__maint_guest_running"] = guestRunning
 	}
 	baremetal.SetAllMetadata(ctx, metadatas, self.UserCred)
+	baremetal.StartSyncConfig(ctx, self.GetUserCred(), "")
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *BaremetalMaintenanceTask) OnEnterMaintenantModeSuccFailed(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
 	self.SetStageFailed(ctx, body)
-	baremetal.StartSyncstatus(ctx, self.UserCred, "")
+	baremetal.StartSyncstatus(ctx, self.GetUserCred(), "")
 	guest := baremetal.GetBaremetalServer()
 	if guest != nil {
 		guest.StartSyncstatus(ctx, self.UserCred, "")

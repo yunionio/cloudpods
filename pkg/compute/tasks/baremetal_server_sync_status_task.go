@@ -57,6 +57,7 @@ func (self *BaremetalServerSyncStatusTask) OnInit(ctx context.Context, obj db.IS
 func (self *BaremetalServerSyncStatusTask) OnGuestStatusTaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	var status string
 	var hostStatus string
+	host := guest.GetHost()
 	if data.Contains("status") {
 		statusStr, _ := data.GetString("status")
 		switch statusStr {
@@ -69,6 +70,9 @@ func (self *BaremetalServerSyncStatusTask) OnGuestStatusTaskComplete(ctx context
 		case "admin":
 			status = api.VM_ADMIN
 			hostStatus = api.HOST_STATUS_RUNNING
+			if !host.IsMaintenance && !host.HasBMC() {
+				status = api.VM_READY
+			}
 		default:
 			status = api.VM_INIT
 			hostStatus = api.HOST_STATUS_UNKNOWN
@@ -78,7 +82,6 @@ func (self *BaremetalServerSyncStatusTask) OnGuestStatusTaskComplete(ctx context
 		hostStatus = api.HOST_STATUS_UNKNOWN
 	}
 	guest.SetStatus(self.UserCred, status, "BaremetalServerSyncStatusTask")
-	host := guest.GetHost()
 	host.SetStatus(self.UserCred, hostStatus, "BaremetalServerSyncStatusTask")
 
 	self.SetStageComplete(ctx, nil)
