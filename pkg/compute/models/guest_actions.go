@@ -394,11 +394,11 @@ func (self *SGuest) validateMigrate(
 		if !self.GetDriver().IsSupportMigrate() {
 			return httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.GetHypervisor())
 		}
+		if !migrateInput.IsRescueMode && self.Status != api.VM_READY {
+			return httperrors.NewServerStatusError("Cannot normal migrate guest in status %s, try rescue mode or server-live-migrate?", self.Status)
+		}
 		if err := self.GetDriver().CheckMigrate(self, userCred, *migrateInput); err != nil {
 			return err
-		}
-		if self.Status != api.VM_READY {
-			return httperrors.NewServerStatusError("Cannot normal migrate guest in status %s, try rescue mode or server-live-migrate?", self.Status)
 		}
 		if len(migrateInput.PreferHost) > 0 {
 			iHost, _ := HostManager.FetchByIdOrName(userCred, migrateInput.PreferHost)
