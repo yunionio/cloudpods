@@ -168,6 +168,10 @@ func (self *SRegion) GetDisks() ([]SDisk, error) {
 	return disks, nil
 }
 
+func (self *SDisk) GetTags() (map[string]string, error) {
+	return self.Tags, nil
+}
+
 func (self *SDisk) GetStatus() string {
 	status := self.Properties.ProvisioningState
 	switch status {

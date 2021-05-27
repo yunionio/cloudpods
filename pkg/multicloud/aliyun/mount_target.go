@@ -44,7 +44,6 @@ type SMountTarget struct {
 	MountTargetDomain string
 	AccessGroup       string
 	ClientMasterNodes ClientMasterNodes
-	Tags              Tags
 }
 
 func (self *SMountTarget) GetGlobalId() string {
