@@ -851,18 +851,6 @@ func (region *SRegion) RenewDBInstance(instanceId string, bc billing.SBillingCyc
 	return err
 }
 
-func (rds *SDBInstance) GetTags() (map[string]string, error) {
-	tags, err := rds.region.ListTags(ALIYUN_SERVICE_RDS, "INSTANCE", rds.GetId())
-	if err != nil {
-		return nil, errors.Wrap(err, `rds.region.ListTags`)
-	}
-	ret := map[string]string{}
-	for _, tag := range tags {
-		ret[tag.TagKey] = tag.TagValue
-	}
-	return ret, nil
-}
-
 func (rds *SDBInstance) SetTags(tags map[string]string, replace bool) error {
 	return rds.region.SetResourceTags(ALIYUN_SERVICE_RDS, "INSTANCE", rds.GetId(), tags, replace)
 }

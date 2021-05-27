@@ -33,10 +33,6 @@ type SMountInstances struct {
 	MountInstance []string
 }
 
-type STags struct {
-	Tag []string
-}
-
 type SDisk struct {
 	storage *SStorage
 	multicloud.SDisk
@@ -69,7 +65,6 @@ type SDisk struct {
 	Size                          int
 	SourceSnapshotId              string
 	Status                        string
-	Tags                          STags
 	Type                          string
 	ZoneId                        string
 }
@@ -317,18 +312,19 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) error {
 }
 
 func (self *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
-	if snapshotId, err := self.storage.zone.region.CreateSnapshot(self.DiskId, name, desc); err != nil {
-		log.Errorf("createSnapshot fail %s", err)
-		return nil, err
-	} else if snapshot, err := self.getSnapshot(snapshotId); err != nil {
-		return nil, err
-	} else {
-		snapshot.region = self.storage.zone.region
-		if err := cloudprovider.WaitStatus(snapshot, api.SNAPSHOT_READY, 15*time.Second, 3600*time.Second); err != nil {
-			return nil, err
-		}
-		return snapshot, nil
+	snapshotId, err := self.storage.zone.region.CreateSnapshot(self.DiskId, name, desc)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateSnapshot")
 	}
+	snapshot, err := self.storage.zone.region.GetISnapshotById(snapshotId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "getSnapshot(%s)", snapshotId)
+	}
+	err = cloudprovider.WaitStatus(snapshot, api.SNAPSHOT_READY, 15*time.Second, 3600*time.Second)
+	if err != nil {
+		return nil, errors.Wrapf(err, "cloudprovider.WaitStatus")
+	}
+	return snapshot, nil
 }
 
 func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
@@ -347,41 +343,25 @@ func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
 }
 
 func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
-	if snapshot, err := self.getSnapshot(snapshotId); err != nil {
-		return nil, err
-	} else {
-		snapshot.region = self.storage.zone.region
-		return snapshot, nil
-	}
-}
-
-func (self *SDisk) getSnapshot(snapshotId string) (*SSnapshot, error) {
-	if snapshots, total, err := self.storage.zone.region.GetSnapshots("", "", "", []string{snapshotId}, 0, 1); err != nil {
-		return nil, err
-	} else if total != 1 {
-		return nil, cloudprovider.ErrNotFound
-	} else {
-		return &snapshots[0], nil
-	}
+	return self.storage.zone.region.GetISnapshotById(snapshotId)
 }
 
 func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	snapshots := make([]SSnapshot, 0)
 	for {
-		if parts, total, err := self.storage.zone.region.GetSnapshots("", self.DiskId, "", []string{}, 0, 20); err != nil {
-			log.Errorf("GetDisks fail %s", err)
-			return nil, err
-		} else {
-			snapshots = append(snapshots, parts...)
-			if len(snapshots) >= total {
-				break
-			}
+		parts, total, err := self.storage.zone.region.GetSnapshots("", self.DiskId, "", []string{}, 0, 20)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetSnapshots(%s)", self.DiskId)
+		}
+		snapshots = append(snapshots, parts...)
+		if len(snapshots) >= total {
+			break
 		}
 	}
-	isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots))
+	isnapshots := []cloudprovider.ICloudSnapshot{}
 	for i := 0; i < len(snapshots); i++ {
 		snapshots[i].region = self.storage.zone.region
-		isnapshots[i] = &snapshots[i]
+		isnapshots = append(isnapshots, &snapshots[i])
 	}
 	return isnapshots, nil
 }

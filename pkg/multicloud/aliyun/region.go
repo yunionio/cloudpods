@@ -451,7 +451,7 @@ func (self *SRegion) GetVpcs(vpcId []string, offset int, limit int) ([]SVpc, int
 		params["VpcId"] = strings.Join(vpcId, ",")
 	}
 
-	body, err := self.ecsRequest("DescribeVpcs", params)
+	body, err := self.vpcRequest("DescribeVpcs", params)
 	if err != nil {
 		log.Errorf("GetVpcs fail %s", err)
 		return nil, 0, err

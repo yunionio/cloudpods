@@ -130,9 +130,6 @@ type SInstance struct {
 	VlanId                  string
 	VpcAttributes           SVpcAttributes
 	ZoneId                  string
-
-	sys  map[string]string
-	user map[string]string
 }
 
 // {"AutoReleaseTime":"","ClusterId":"","Cpu":1,"CreationTime":"2018-05-23T07:58Z","DedicatedHostAttribute":{"DedicatedHostId":"","DedicatedHostName":""},"Description":"","DeviceAvailable":true,"EipAddress":{"AllocationId":"","InternetChargeType":"","IpAddress":""},"ExpiredTime":"2018-05-30T16:00Z","GPUAmount":0,"GPUSpec":"","HostName":"iZ2ze57isp1ali72tzkjowZ","ImageId":"centos_7_04_64_20G_alibase_201701015.vhd","InnerIpAddress":{"IpAddress":[]},"InstanceChargeType":"PrePaid","InstanceId":"i-2ze57isp1ali72tzkjow","InstanceName":"gaoxianqi-test-7days","InstanceNetworkType":"vpc","InstanceType":"ecs.t5-lc2m1.nano","InstanceTypeFamily":"ecs.t5","InternetChargeType":"PayByBandwidth","InternetMaxBandwidthIn":-1,"InternetMaxBandwidthOut":0,"IoOptimized":true,"Memory":512,"NetworkInterfaces":{"NetworkInterface":[{"MacAddress":"00:16:3e:10:f0:c9","NetworkInterfaceId":"eni-2zecqsagtpztl6x5hu2r","PrimaryIpAddress":"192.168.220.214"}]},"OSName":"CentOS  7.4 64位","OSType":"linux","OperationLocks":{"LockReason":[]},"PublicIpAddress":{"IpAddress":[]},"Recyclable":false,"RegionId":"cn-beijing","ResourceGroupId":"","SaleCycle":"Week","SecurityGroupIds":{"SecurityGroupId":["sg-2zecqsagtpztl6x9zynl"]},"SerialNumber":"df05d9b4-df3d-4400-88d1-5f843f0dd088","SpotPriceLimit":0.000000,"SpotStrategy":"NoSpot","StartTime":"2018-05-23T07:58Z","Status":"Running","StoppedMode":"Not-applicable","VlanId":"","VpcAttributes":{"NatIpAddress":"","PrivateIpAddress":{"IpAddress":["192.168.220.214"]},"VSwitchId":"vsw-2ze9cqwza4upoyujq1thd","VpcId":"vpc-2zer4jy8ix3i8f0coc5uw"},"ZoneId":"cn-beijing-f"}
@@ -183,14 +180,6 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 
 func (self *SInstance) GetSysTags() map[string]string {
 	data := map[string]string{}
-	// The pricingInfo key structure is 'RegionId::InstanceType::NetworkType::OSType::IoOptimized'
-	optimized := "optimized"
-	if !self.IoOptimized {
-		optimized = "none"
-	}
-	priceKey := fmt.Sprintf("%s::%s::%s::%s::%s", self.RegionId, self.InstanceType, self.InstanceNetworkType, self.OSType, optimized)
-	data["price_key"] = priceKey
-	data["zone_ext_id"] = self.host.zone.GetGlobalId()
 	if len(self.ImageId) > 0 {
 		if image, err := self.host.zone.region.GetImage(self.ImageId); err != nil {
 			log.Errorf("Failed to find image %s for instance %s", self.ImageId, self.GetName())
@@ -201,31 +190,11 @@ func (self *SInstance) GetSysTags() map[string]string {
 			}
 		}
 	}
-	sys, _, _ := self.fetchTags()
+	sys := self.STags.GetSysTags()
 	for k, v := range sys {
 		data[k] = v
 	}
 	return data
-}
-
-func (self *SInstance) GetTags() (map[string]string, error) {
-	_, tags, err := self.fetchTags()
-	if err != nil {
-		return nil, errors.Wrap(err, "self.fetchTags")
-	}
-	return tags, nil
-}
-
-func (self *SInstance) fetchTags() (map[string]string, map[string]string, error) {
-	if self.sys != nil || self.user != nil {
-		return self.sys, self.user, nil
-	}
-	var err error
-	self.sys, self.user, err = self.host.zone.region.ListSysAndUserTags(ALIYUN_SERVICE_ECS, "instance", self.InstanceId)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "ListSysAndUserTags")
-	}
-	return self.sys, self.user, nil
 }
 
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
@@ -384,12 +353,11 @@ func (self *SInstance) GetStatus() string {
 }
 
 func (self *SInstance) Refresh() error {
-	self.sys, self.user = nil, nil
-	new, err := self.host.zone.region.GetInstance(self.InstanceId)
+	ins, err := self.host.zone.region.GetInstance(self.InstanceId)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(self, new)
+	return jsonutils.Update(self, ins)
 }
 
 /*

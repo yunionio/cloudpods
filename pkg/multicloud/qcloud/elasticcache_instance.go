@@ -35,7 +35,6 @@ type SElasticcache struct {
 	InstanceID       string           `json:"InstanceId"`
 	InstanceName     string           `json:"InstanceName"`
 	InstanceNode     []interface{}    `json:"InstanceNode"`
-	InstanceTags     []InstanceTag    `json:"InstanceTags"`
 	InstanceTitle    string           `json:"InstanceTitle"`
 	OfflineTime      string           `json:"OfflineTime"`
 	Port             int              `json:"Port"`
@@ -53,7 +52,6 @@ type SElasticcache struct {
 	Status           int              `json:"Status"`
 	SubStatus        int64            `json:"SubStatus"`
 	SubnetID         int64            `json:"SubnetId"`
-	Tags             []interface{}    `json:"Tags"`
 	Type             int              `json:"Type"`
 	UniqSubnetID     string           `json:"UniqSubnetId"`
 	UniqVpcID        string           `json:"UniqVpcId"`
@@ -64,11 +62,6 @@ type SElasticcache struct {
 
 func (self *SElasticcache) SetTags(tags map[string]string, replace bool) error {
 	return self.region.SetResourceTags("redis", "instance", []string{self.InstanceID}, tags, replace)
-}
-
-type InstanceTag struct {
-	TagKey   string `json:"TagKey"`
-	TagValue string `json:"TagValue"`
 }
 
 type MaintenanceTime struct {
@@ -239,17 +232,6 @@ func (self *SElasticcache) Refresh() error {
 
 func (self *SElasticcache) IsEmulated() bool {
 	return false
-}
-
-func (self *SElasticcache) GetTags() (map[string]string, error) {
-	tags, err := self.region.FetchResourceTags("redis", "instance", []string{self.GetId()})
-	if err != nil {
-		return nil, errors.Wrap(err, "self.region.FetchResourceTags")
-	}
-	if _, ok := tags[self.GetId()]; !ok {
-		return map[string]string{}, nil
-	}
-	return *tags[self.GetId()], nil
 }
 
 func (self *SElasticcache) GetProjectId() string {
