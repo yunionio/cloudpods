@@ -363,11 +363,11 @@ func (self *SGuest) PerformMigrate(ctx context.Context, userCred mcclient.TokenC
 	if !self.GetDriver().IsSupportMigrate() {
 		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.GetHypervisor())
 	}
+	if !input.IsRescueMode && self.Status != api.VM_READY {
+		return nil, httperrors.NewServerStatusError("Cannot normal migrate guest in status %s, try rescue mode or server-live-migrate?", self.Status)
+	}
 	if err := self.GetDriver().CheckMigrate(self, userCred, input); err != nil {
 		return nil, err
-	}
-	if self.Status != api.VM_READY {
-		return nil, httperrors.NewServerStatusError("Cannot normal migrate guest in status %s, try rescue mode or server-live-migrate?", self.Status)
 	}
 	var preferHostId string
 	if len(input.PreferHost) > 0 {
