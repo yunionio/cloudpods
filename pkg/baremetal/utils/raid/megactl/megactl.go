@@ -111,10 +111,14 @@ func (dev *MegaRaidPhyDev) parseLine(line string) bool {
 	case "Inquiry Data":
 		dev.Model = strings.Join(regexp.MustCompile(`\s+`).Split(val, -1), " ")
 	case "Firmware state":
-		if strings.Contains(strings.ToLower(val), "offline") {
-			dev.Status = "offline"
-		} else {
+		if val == "JBOD" {
+			dev.Status = "jbod"
+		} else if strings.Contains(strings.ToLower(val), "online") {
 			dev.Status = "online"
+		} else if val == "Rebuild" {
+			dev.Status = "rebuild"
+		} else {
+			dev.Status = "offline"
 		}
 	case "Logical Sector Size":
 		block, err := strconv.Atoi(val)
