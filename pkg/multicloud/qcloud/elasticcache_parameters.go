@@ -9,6 +9,7 @@ import (
 
 type SElasticcacheParameters struct {
 	multicloud.SElasticcacheParameterBase
+	multicloud.QcloudTags
 
 	cacheDB *SElasticcache
 
@@ -21,6 +22,7 @@ type SElasticcacheParameters struct {
 
 type SElasticcacheParameter struct {
 	multicloud.SElasticcacheParameterBase
+	multicloud.QcloudTags
 
 	cacheDB *SElasticcache
 

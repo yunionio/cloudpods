@@ -33,6 +33,7 @@ import (
 type SEip struct {
 	region *SRegion
 	multicloud.SEipBase
+	multicloud.CtyunTags
 
 	IPVersion           int64   `json:"ip_version"`
 	BandwidthShareType  string  `json:"bandwidth_share_type"`

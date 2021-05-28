@@ -30,6 +30,7 @@ import (
 
 type SMySQLInstanceAccount struct {
 	multicloud.SDBInstanceAccountBase
+	multicloud.QcloudTags
 	rds *SMySQLInstance
 
 	Notes              string

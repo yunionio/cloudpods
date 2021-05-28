@@ -35,6 +35,7 @@ import (
 
 type SElbCertificate struct {
 	multicloud.SResourceBase
+	multicloud.AwsTags
 	region *SRegion
 	cert   *x509.Certificate
 

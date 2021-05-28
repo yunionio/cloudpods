@@ -36,6 +36,7 @@ const (
 
 type SSnapshotPolicy struct {
 	multicloud.SResourceBase
+	multicloud.ApsaraTags
 	region *SRegion
 
 	AutoSnapshotPolicyName string

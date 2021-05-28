@@ -33,6 +33,7 @@ type AcceptVpcInfo struct {
 }
 type SVpcPeering struct {
 	multicloud.SResourceBase
+	multicloud.HuaweiTags
 	vpc *SVpc
 
 	RequestVpcInfo RequestVpcInfo `json:"request_vpc_info"`

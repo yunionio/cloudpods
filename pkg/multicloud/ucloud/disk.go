@@ -36,6 +36,7 @@ import (
 type SDisk struct {
 	storage *SStorage
 	multicloud.SDisk
+	multicloud.UcloudTags
 
 	Status        string `json:"Status"`
 	DeviceName    string `json:"DeviceName"`

@@ -37,6 +37,7 @@ import (
 
 type SStoragecache struct {
 	multicloud.SResourceBase
+	multicloud.HuaweiTags
 	region *SRegion
 }
 

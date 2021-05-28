@@ -35,6 +35,7 @@ import (
 
 type SElbListener struct {
 	multicloud.SResourceBase
+	multicloud.AwsTags
 	region *SRegion
 	lb     *SElb
 	group  *SElbBackendGroup

@@ -35,6 +35,7 @@ const (
 
 type SDatastoreImageCache struct {
 	multicloud.SResourceBase
+	multicloud.STagBase
 	datastore *SDatastore
 	host      *SHost
 }

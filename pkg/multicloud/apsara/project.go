@@ -28,6 +28,7 @@ import (
 
 type SResourceGroup struct {
 	multicloud.SResourceBase
+	multicloud.ApsaraTags
 	client *SApsaraClient
 
 	Status      string

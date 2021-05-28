@@ -40,6 +40,7 @@ const (
 
 type SSnapshot struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	region *SRegion
 
 	Progress        string

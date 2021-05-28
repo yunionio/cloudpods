@@ -59,6 +59,7 @@ type BackendServers struct {
 
 type SLoadbalancer struct {
 	multicloud.SLoadbalancerBase
+	multicloud.AliyunTags
 	region *SRegion
 
 	LoadBalancerId           string //负载均衡实例ID。

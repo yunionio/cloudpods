@@ -27,6 +27,7 @@ import (
 
 type SSNATTableEntry struct {
 	multicloud.SResourceBase
+	multicloud.ApsaraTags
 	nat *SNatGetway
 
 	SnatEntryId     string

@@ -60,6 +60,7 @@ type SFirewall struct {
 
 type SSecurityGroup struct {
 	multicloud.SSecurityGroup
+	multicloud.GoogleTags
 	vpc *SVpc
 
 	ServiceAccount string

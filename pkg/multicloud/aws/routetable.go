@@ -30,6 +30,7 @@ import (
 
 type SRouteTable struct {
 	multicloud.SResourceBase
+	multicloud.AwsTags
 	region *SRegion
 	vpc    *SVpc
 

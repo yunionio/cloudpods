@@ -53,6 +53,7 @@ type SPrivateIpSets struct {
 
 type SNetworkInterface struct {
 	multicloud.SNetworkInterfaceBase
+	multicloud.ApsaraTags
 	region *SRegion
 
 	InstanceId           string

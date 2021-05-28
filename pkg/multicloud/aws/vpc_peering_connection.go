@@ -238,6 +238,7 @@ func (self *SRegion) DeleteVpcPeeringConnectionRoute(vpcPeeringConnectionId stri
 
 type SVpcPeeringConnection struct {
 	multicloud.SResourceBase
+	multicloud.AwsTags
 	vpc   *SVpc
 	vpcPC *ec2.VpcPeeringConnection
 }

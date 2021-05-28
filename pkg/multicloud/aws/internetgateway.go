@@ -9,6 +9,7 @@ import (
 
 type SInternetGateway struct {
 	multicloud.SResourceBase
+	multicloud.AwsTags
 	region *SRegion
 
 	Attachments       []InternetGatewayAttachment `json:"Attachments"`

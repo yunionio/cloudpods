@@ -22,11 +22,13 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SStorage struct {
 	zone *SZone
 	SResourceBase
+	multicloud.GoogleTags
 
 	CreationTimestamp time.Time
 	Description       string

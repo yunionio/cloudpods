@@ -53,6 +53,7 @@ const (
 // https://support.huaweicloud.com/api-ims/zh-cn_topic_0020091565.html
 type SImage struct {
 	multicloud.SImageBase
+	multicloud.HuaweiTags
 	storageCache *SStoragecache
 
 	// normalized image info

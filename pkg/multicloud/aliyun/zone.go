@@ -109,6 +109,7 @@ type SDedicatedHostTypes struct {
 
 type SZone struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	region *SRegion
 
 	iwires []cloudprovider.ICloudWire

@@ -34,6 +34,7 @@ import (
 
 type SElbBackendGroup struct {
 	multicloud.SResourceBase
+	multicloud.AwsTags
 	region *SRegion
 	lb     *SElb
 

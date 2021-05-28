@@ -61,6 +61,7 @@ type SNetworkInterfaceAttachment struct {
 
 type SNetworkInterface struct {
 	multicloud.SNetworkInterfaceBase
+	multicloud.QcloudTags
 	region                      *SRegion
 	VpcId                       string
 	SubnetId                    string

@@ -23,6 +23,7 @@ import (
 
 type SNatSEntry struct {
 	multicloud.SResourceBase
+	multicloud.HuaweiTags
 	gateway *SNatGateway
 
 	ID           string `json:"id"`

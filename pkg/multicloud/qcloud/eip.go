@@ -48,6 +48,7 @@ const (
 type SEipAddress struct {
 	region *SRegion
 	multicloud.SEipBase
+	multicloud.QcloudTags
 
 	AddressId             string    //	EIP的ID，是EIP的唯一标识。
 	AddressName           string    //	EIP名称。

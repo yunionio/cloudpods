@@ -44,6 +44,7 @@ type SSecurityGroupRule struct {
 
 type SSecurityGroup struct {
 	multicloud.SSecurityGroup
+	multicloud.ZStackTags
 	region *SRegion
 
 	ZStackBasic

@@ -32,6 +32,7 @@ type SDisk struct {
 	storage *SStorage
 	SResourceBase
 	multicloud.SDisk
+	multicloud.GoogleTags
 
 	Id                     string
 	CreationTimestamp      time.Time

@@ -55,6 +55,7 @@ type SPool struct {
 
 type SStorage struct {
 	multicloud.SStorageBase
+	multicloud.ZStackTags
 	region *SRegion
 
 	ZStackBasic

@@ -42,6 +42,7 @@ type SVSwitchIds struct {
 
 type SVpc struct {
 	multicloud.SVpc
+	multicloud.ApsaraTags
 
 	region *SRegion
 

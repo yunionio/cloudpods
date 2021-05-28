@@ -33,6 +33,7 @@ type AclEntry struct {
 
 type SLoadbalancerAcl struct {
 	multicloud.SResourceBase
+	multicloud.ApsaraTags
 	region *SRegion
 
 	AclId   string

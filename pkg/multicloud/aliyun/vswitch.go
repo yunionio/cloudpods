@@ -43,6 +43,7 @@ type SCloudResources struct {
 
 type SVSwitch struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	wire *SWire
 
 	AvailableIpAddressCount int

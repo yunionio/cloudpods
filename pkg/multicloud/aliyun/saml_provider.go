@@ -33,6 +33,7 @@ import (
 
 type SAMLProvider struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	client *SAliyunClient
 
 	Arn              string

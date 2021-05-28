@@ -28,6 +28,7 @@ import (
 type SEip struct {
 	region *SRegion
 	multicloud.SEipBase
+	multicloud.EcloudTags
 
 	BandWidthMbSize int
 	BandWidthType   string

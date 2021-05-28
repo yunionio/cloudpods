@@ -26,6 +26,7 @@ import (
 
 type SWire struct {
 	multicloud.SResourceBase
+	multicloud.ApsaraTags
 	zone *SZone
 	vpc  *SVpc
 

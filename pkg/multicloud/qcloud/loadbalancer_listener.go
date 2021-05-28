@@ -70,6 +70,7 @@ type healthCheck struct {
 
 type SLBListener struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 	lb *SLoadbalancer
 
 	Protocol          string            `json:"Protocol"` // 监听器协议类型，取值 TCP | UDP | HTTP | HTTPS | TCP_SSL

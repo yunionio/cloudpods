@@ -25,6 +25,7 @@ import (
 // 子网在整个region可用
 type SWire struct {
 	multicloud.SResourceBase
+	multicloud.UcloudTags
 	region *SRegion
 	vpc    *SVPC
 

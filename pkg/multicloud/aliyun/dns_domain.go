@@ -28,6 +28,7 @@ import (
 
 type SDomain struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	client      *SAliyunClient
 	ttlMinValue int64
 	PunyCode    string     `json:"PunyCode"`

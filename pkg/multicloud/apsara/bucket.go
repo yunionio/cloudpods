@@ -32,6 +32,7 @@ import (
 
 type SBucket struct {
 	multicloud.SBaseBucket
+	multicloud.ApsaraTags
 
 	region *SRegion
 

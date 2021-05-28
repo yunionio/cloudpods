@@ -28,6 +28,7 @@ import (
 
 type SCcn struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 	region *SRegion
 
 	CcnID             string `json:"CcnId"`

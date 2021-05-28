@@ -28,6 +28,7 @@ import (
 
 type SProject struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 	client *SQcloudClient
 
 	ProjectName string    `json:"projectName"`

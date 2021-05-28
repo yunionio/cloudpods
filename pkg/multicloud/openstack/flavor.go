@@ -29,6 +29,7 @@ import (
 
 type SFlavor struct {
 	multicloud.SServerSku
+	multicloud.OpenStackTags
 	region *SRegion
 
 	Id           string

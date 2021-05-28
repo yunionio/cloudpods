@@ -36,6 +36,7 @@ const (
 
 type SSnapshotPolicy struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	region *SRegion
 
 	AutoSnapshotPolicyName string

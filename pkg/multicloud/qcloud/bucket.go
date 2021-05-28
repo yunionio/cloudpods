@@ -43,6 +43,7 @@ const (
 
 type SBucket struct {
 	multicloud.SBaseBucket
+	multicloud.QcloudTags
 
 	appId string
 

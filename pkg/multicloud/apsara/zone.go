@@ -108,6 +108,7 @@ type SDedicatedHostTypes struct {
 
 type SZone struct {
 	multicloud.SResourceBase
+	multicloud.ApsaraTags
 	region *SRegion
 
 	iwires []cloudprovider.ICloudWire

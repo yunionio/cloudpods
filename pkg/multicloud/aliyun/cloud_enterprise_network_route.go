@@ -58,6 +58,7 @@ type Conflict struct {
 
 type SCenRouteEntry struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	ChildInstance        *SCenChildInstance
 	NextHopInstanceID    string             `json:"NextHopInstanceId,omitempty"`
 	Status               string             `json:"Status"`

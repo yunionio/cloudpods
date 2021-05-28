@@ -39,6 +39,7 @@ type HostState struct {
 
 type SZone struct {
 	multicloud.SResourceBase
+	multicloud.OpenStackTags
 	region *SRegion
 
 	ZoneName  string

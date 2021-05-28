@@ -49,6 +49,7 @@ type Metadata struct {
 // https://support.huaweicloud.com/api-evs/zh-cn_topic_0051408624.html
 type SSnapshot struct {
 	multicloud.SResourceBase
+	multicloud.HuaweiTags
 	region *SRegion
 
 	Metadata                              Metadata `json:"metadata"`

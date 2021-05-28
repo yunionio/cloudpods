@@ -39,6 +39,7 @@ import (
 
 type SStoragecache struct {
 	multicloud.SResourceBase
+	multicloud.ApsaraTags
 	region *SRegion
 
 	iimages []cloudprovider.ICloudImage

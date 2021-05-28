@@ -23,6 +23,7 @@ import (
 
 type SZone struct {
 	multicloud.SResourceBase
+	multicloud.EcloudTags
 	region *SRegion
 	host   *SHost
 

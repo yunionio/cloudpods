@@ -40,6 +40,7 @@ type SPvtzBindVpcs struct {
 
 type SPrivateZone struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	client *SAliyunClient
 
 	// RequestID       string        `json:"RequestId"`

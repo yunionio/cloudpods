@@ -30,6 +30,7 @@ import (
 
 type SAMLProvider struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 	client *SQcloudClient
 
 	Name         string

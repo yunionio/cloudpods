@@ -36,6 +36,7 @@ import (
 
 type SStoragecache struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 	region *SRegion
 }
 

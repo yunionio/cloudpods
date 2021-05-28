@@ -73,6 +73,7 @@ type SVpcSecurityGroups struct {
 
 type SDBInstance struct {
 	multicloud.SDBInstanceBase
+	multicloud.AwsTags
 
 	region *SRegion
 

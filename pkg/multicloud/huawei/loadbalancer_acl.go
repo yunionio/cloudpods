@@ -26,6 +26,7 @@ import (
 
 type SElbACL struct {
 	multicloud.SResourceBase
+	multicloud.HuaweiTags
 	region *SRegion
 
 	ID              string `json:"id"`

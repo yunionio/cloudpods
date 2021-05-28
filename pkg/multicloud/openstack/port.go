@@ -73,6 +73,7 @@ func (fixip *SFixedIP) IsPrimary() bool {
 
 type SPort struct {
 	multicloud.SNetworkInterfaceBase
+	multicloud.OpenStackTags
 	region                  *SRegion
 	AdminStateUp            bool
 	AllowedAddressPairs     []string

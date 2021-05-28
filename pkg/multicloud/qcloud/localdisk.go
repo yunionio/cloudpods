@@ -25,6 +25,7 @@ import (
 
 type SLocalDisk struct {
 	multicloud.SDisk
+	multicloud.QcloudTags
 
 	storage   *SLocalStorage
 	DiskId    string

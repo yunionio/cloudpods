@@ -21,6 +21,7 @@ import (
 // https://docs.ucloud.cn/api/summary/get_project_list
 type SProject struct {
 	multicloud.SResourceBase
+	multicloud.UcloudTags
 	ProjectID     string `json:"ProjectId"`
 	ProjectName   string `json:"ProjectName"`
 	ParentID      string `json:"ParentId"`

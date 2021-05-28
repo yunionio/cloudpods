@@ -43,6 +43,7 @@ type SVSwitchIds struct {
 
 type SVpc struct {
 	multicloud.SVpc
+	multicloud.AliyunTags
 
 	region *SRegion
 

@@ -35,6 +35,7 @@ import (
 
 type SStoragecache struct {
 	multicloud.SResourceBase
+	multicloud.OpenStackTags
 	region *SRegion
 }
 

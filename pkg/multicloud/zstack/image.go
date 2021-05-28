@@ -46,6 +46,7 @@ type SBackupStorageRef struct {
 
 type SImage struct {
 	multicloud.SImageBase
+	multicloud.ZStackTags
 	storageCache *SStoragecache
 
 	// normalized image info

@@ -28,6 +28,7 @@ import (
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090625.html
 type SVpc struct {
 	multicloud.SVpc
+	multicloud.HuaweiTags
 
 	region *SRegion
 

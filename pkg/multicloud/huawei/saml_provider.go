@@ -37,6 +37,7 @@ type SAMLProviderLinks struct {
 
 type SAMLProvider struct {
 	multicloud.SResourceBase
+	multicloud.HuaweiTags
 	client *SHuaweiClient
 
 	Id          string

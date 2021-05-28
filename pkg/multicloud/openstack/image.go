@@ -50,6 +50,7 @@ const (
 type SImage struct {
 	multicloud.SImageBase
 	storageCache *SStoragecache
+	multicloud.OpenStackTags
 
 	// normalized image info
 	imgInfo *imagetools.ImageInfo

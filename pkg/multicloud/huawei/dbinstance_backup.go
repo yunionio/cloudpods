@@ -27,6 +27,7 @@ import (
 
 type SDBInstanceBackup struct {
 	multicloud.SDBInstanceBackupBase
+	multicloud.HuaweiTags
 	region *SRegion
 
 	BeginTime  string

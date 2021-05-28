@@ -38,6 +38,7 @@ import (
 
 type SStoragecache struct {
 	multicloud.SResourceBase
+	multicloud.GoogleTags
 	region *SRegion
 
 	iimages []cloudprovider.ICloudImage

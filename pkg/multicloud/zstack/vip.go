@@ -30,6 +30,7 @@ import (
 
 type SVirtualIP struct {
 	multicloud.SNetworkInterfaceBase
+	multicloud.ZStackTags
 	region *SRegion
 	ZStackBasic
 	IPRangeUUID        string   `json:"ipRangeUuid"`

@@ -25,6 +25,7 @@ import (
 // 腾讯云没有LB ACL
 type SLBACL struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 }
 
 func (self *SLBACL) GetAclListenerID() string {

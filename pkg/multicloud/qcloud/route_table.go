@@ -27,6 +27,7 @@ import (
 
 type SRouteSet struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 	RouteID                  int    `json:"RouteId"`
 	RouteItemID              string `json:"RouteItemId"`
 	DestinationIpv6CidrBlock string `json:"DestinationIpv6CidrBlock,omitempty"`
@@ -38,6 +39,7 @@ type SRouteSet struct {
 }
 type SRouteTableSet struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 	vpc            *SVpc
 	VpcID          string                     `json:"VpcId"`
 	RouteTableID   string                     `json:"RouteTableId"`

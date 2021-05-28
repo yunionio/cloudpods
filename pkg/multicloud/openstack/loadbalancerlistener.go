@@ -85,6 +85,7 @@ type SInsertHeaders struct {
 
 type SLoadbalancerListener struct {
 	multicloud.SResourceBase
+	multicloud.OpenStackTags
 	region                  *SRegion
 	l7policies              []SLoadbalancerL7Policy
 	pools                   []SLoadbalancerPool

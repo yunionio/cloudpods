@@ -61,6 +61,7 @@ func (region *SRegion) DescribeUsers(engine string) ([]*elasticache.User, error)
 
 type SElasticacheUser struct {
 	multicloud.SElasticcacheAccountBase
+	multicloud.AwsTags
 	region *SRegion
 	user   *elasticache.User
 }

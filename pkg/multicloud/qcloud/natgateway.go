@@ -25,6 +25,7 @@ import (
 
 type SNatGateway struct {
 	multicloud.SNatGatewayBase
+	multicloud.QcloudTags
 	vpc *SVpc
 
 	NatId            string  `json:"natId"`
