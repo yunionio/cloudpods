@@ -25,6 +25,7 @@ import (
 
 type SDTable struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 	nat *SNatGateway
 
 	Eip         string

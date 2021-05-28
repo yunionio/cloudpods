@@ -108,6 +108,7 @@ type SRoVipInfo struct {
 type SMySQLInstance struct {
 	region *SRegion
 	multicloud.SDBInstanceBase
+	multicloud.QcloudTags
 
 	AutoRenew        int
 	CdbError         int

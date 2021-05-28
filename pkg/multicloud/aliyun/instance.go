@@ -80,6 +80,7 @@ type SVpcAttributes struct {
 
 type SInstance struct {
 	multicloud.SInstanceBase
+	multicloud.AliyunTags
 
 	host *SHost
 
@@ -190,7 +191,7 @@ func (self *SInstance) GetSysTags() map[string]string {
 			}
 		}
 	}
-	sys := self.STags.GetSysTags()
+	sys := self.AliyunTags.GetSysTags()
 	for k, v := range sys {
 		data[k] = v
 	}

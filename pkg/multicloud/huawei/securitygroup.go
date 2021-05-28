@@ -64,6 +64,7 @@ type SecurityGroupRuleDetail struct {
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090615.html
 type SSecurityGroup struct {
 	multicloud.SSecurityGroup
+	multicloud.HuaweiTags
 	region *SRegion
 
 	ID                  string              `json:"id"`

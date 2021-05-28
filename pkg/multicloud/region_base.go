@@ -24,6 +24,7 @@ import (
 
 type SRegion struct {
 	SResourceBase
+	STagBase
 }
 
 func (r *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {

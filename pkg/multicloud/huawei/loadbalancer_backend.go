@@ -28,6 +28,7 @@ import (
 
 type SElbBackend struct {
 	multicloud.SResourceBase
+	multicloud.HuaweiTags
 	region       *SRegion
 	lb           *SLoadbalancer
 	backendGroup *SElbBackendGroup

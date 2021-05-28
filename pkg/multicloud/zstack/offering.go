@@ -29,6 +29,7 @@ import (
 
 type SInstanceOffering struct {
 	multicloud.SServerSku
+	multicloud.ZStackTags
 	region *SRegion
 
 	ZStackBasic

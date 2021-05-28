@@ -29,6 +29,7 @@ import (
 
 type SLBListenerRule struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 	listener *SLBListener
 
 	Domain            string      `json:"Domain"`

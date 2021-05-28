@@ -56,6 +56,7 @@ type SSecurityGroupRule struct {
 
 type SSecurityGroup struct {
 	multicloud.SSecurityGroup
+	multicloud.OpenStackTags
 	region *SRegion
 
 	Description        string

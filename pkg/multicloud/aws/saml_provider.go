@@ -35,6 +35,7 @@ import (
 
 type SAMLProvider struct {
 	multicloud.SResourceBase
+	multicloud.AwsTags
 	client *SAwsClient
 
 	SAMLMetadataDocument string    `xml:"SAMLMetadataDocument"`

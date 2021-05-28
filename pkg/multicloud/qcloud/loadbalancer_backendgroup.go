@@ -30,6 +30,7 @@ import (
 
 type SLBBackendGroup struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 	lb       *SLoadbalancer   // 必须不能为nil
 	listener *SLBListener     // 可能为nil
 	rule     *SLBListenerRule // tcp、udp、tcp_ssl监听rule 为nil

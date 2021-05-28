@@ -73,8 +73,6 @@ type Link struct {
 	Rel  string
 }
 
-type Metadata map[string]string
-
 type VolumeImageMetadata struct {
 	Checksum        string
 	MinRAM          int
@@ -89,6 +87,7 @@ type VolumeImageMetadata struct {
 type SDisk struct {
 	storage *SStorage
 	multicloud.SDisk
+	multicloud.OpenStackTags
 
 	Id   string
 	Name string
@@ -106,7 +105,6 @@ type SDisk struct {
 	UserId            string
 	TenantId          string `json:"os-vol-tenant-attr:tenant_id"`
 	Migstat           string `json:"os-vol-mig-status-attr:migstat"`
-	Metadata          Metadata
 
 	Status              string
 	Description         string

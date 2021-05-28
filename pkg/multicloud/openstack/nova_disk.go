@@ -27,6 +27,7 @@ import (
 
 type SNovaDisk struct {
 	multicloud.SDisk
+	multicloud.OpenStackTags
 	storage *SNovaStorage
 	region  *SRegion
 

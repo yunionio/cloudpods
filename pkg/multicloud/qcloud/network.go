@@ -31,6 +31,7 @@ import (
 
 type SNetwork struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 	wire *SWire
 
 	CidrBlock               string

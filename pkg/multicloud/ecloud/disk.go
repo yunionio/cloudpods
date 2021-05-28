@@ -30,6 +30,7 @@ type SDisk struct {
 	// TODO instance
 
 	multicloud.SDisk
+	multicloud.EcloudTags
 	multicloud.SBillingBase
 	SZoneRegionBase
 	SCreateTime

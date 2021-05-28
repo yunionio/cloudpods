@@ -36,6 +36,7 @@ import (
 // https://help.aliyun.com/document_detail/60933.html?spm=a2c4g.11186623.6.726.38f82ca9U1Gtxw
 type SElasticcache struct {
 	multicloud.SElasticcacheBase
+	multicloud.AliyunTags
 
 	region    *SRegion
 	attribute *SElasticcacheAttribute

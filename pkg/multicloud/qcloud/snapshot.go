@@ -37,6 +37,7 @@ const (
 
 type SSnapshot struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 	region *SRegion
 
 	SnapshotId       string             //	快照ID。

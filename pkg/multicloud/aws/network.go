@@ -35,6 +35,7 @@ import (
 
 type SNetwork struct {
 	multicloud.SResourceBase
+	multicloud.AwsTags
 	wire *SWire
 
 	AvailableIpAddressCount int
@@ -47,7 +48,6 @@ type SNetwork struct {
 	NetworkName             string
 	VpcId                   string
 	ZoneId                  string
-	TagSpec                 TagSpec
 }
 
 func (self *SNetwork) GetId() string {
@@ -60,10 +60,6 @@ func (self *SNetwork) GetName() string {
 	}
 
 	return self.NetworkName
-}
-
-func (self *SNetwork) GetTags() (map[string]string, error) {
-	return self.TagSpec.GetTags()
 }
 
 func (self *SNetwork) GetGlobalId() string {
@@ -267,7 +263,7 @@ func (self *SRegion) GetNetwroks(ids []string, vpcId string) ([]SNetwork, error)
 		subnet.IsDefault = *item.DefaultForAz
 		subnet.NetworkId = *item.SubnetId
 		subnet.NetworkName = tagspec.GetNameTag()
-		subnet.TagSpec = tagspec
+		jsonutils.Update(&subnet.AwsTags.TagSet, item.Tags)
 		subnets = append(subnets, subnet)
 	}
 	return subnets, nil

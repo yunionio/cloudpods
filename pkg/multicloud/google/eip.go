@@ -33,6 +33,7 @@ type SAddress struct {
 	region *SRegion
 	SResourceBase
 	multicloud.SEipBase
+	multicloud.GoogleTags
 
 	Id                string
 	CreationTimestamp time.Time

@@ -63,6 +63,7 @@ func (region *SRegion) DescribeCacheParameters(parameterGroupId string) ([]*elas
 
 type SElasticacheParameter struct {
 	multicloud.SElasticcacheParameterBase
+	multicloud.AwsTags
 	parameterGroup string
 	parameter      *elasticache.Parameter
 }

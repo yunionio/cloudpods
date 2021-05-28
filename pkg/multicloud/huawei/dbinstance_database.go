@@ -24,6 +24,7 @@ import (
 type SDBInstanceDatabase struct {
 	instance *SDBInstance
 	multicloud.SDBInstanceDatabaseBase
+	multicloud.HuaweiTags
 
 	Name         string
 	CharacterSet string

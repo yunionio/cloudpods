@@ -27,6 +27,7 @@ import (
 type SMySQLInstanceDatabase struct {
 	rds *SMySQLInstance
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 
 	CharacterSet string
 	DatabaseName string

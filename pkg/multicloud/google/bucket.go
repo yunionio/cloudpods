@@ -67,6 +67,7 @@ type SLifecycle struct {
 
 type SBucket struct {
 	multicloud.SBaseBucket
+	multicloud.GoogleTags
 
 	region *SRegion
 

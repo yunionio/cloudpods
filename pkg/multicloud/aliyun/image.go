@@ -58,6 +58,7 @@ const (
 
 type SImage struct {
 	multicloud.SImageBase
+	multicloud.AliyunTags
 	storageCache *SStoragecache
 
 	// normalized image info

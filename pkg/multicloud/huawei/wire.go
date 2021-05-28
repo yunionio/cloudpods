@@ -31,6 +31,7 @@ import (
 // 华为云的子网有点特殊。子网在整个region可用。
 type SWire struct {
 	multicloud.SResourceBase
+	multicloud.HuaweiTags
 	region *SRegion
 	vpc    *SVpc
 

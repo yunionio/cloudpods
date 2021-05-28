@@ -68,6 +68,7 @@ func (region *SRegion) DescribeSnapshots(replicaGroupId string, snapshotName str
 
 type SElasticacheSnapshop struct {
 	multicloud.SElasticcacheBackupBase
+	multicloud.AwsTags
 	region *SRegion
 
 	snapshot *elasticache.Snapshot

@@ -33,6 +33,7 @@ type SNextHops struct {
 
 type SRouteEntry struct {
 	multicloud.SResourceBase
+	multicloud.ApsaraTags
 	routeTable *SRouteTable
 
 	RouteTableId         string
@@ -92,6 +93,7 @@ type SRouteEntrys struct {
 
 type SRouteTable struct {
 	multicloud.SResourceBase
+	multicloud.ApsaraTags
 	region *SRegion
 	vpc    *SVpc
 	routes []cloudprovider.ICloudRoute

@@ -64,6 +64,7 @@ type SPermissions struct {
 
 type SSecurityGroup struct {
 	multicloud.SSecurityGroup
+	multicloud.AliyunTags
 
 	vpc               *SVpc
 	CreationTime      time.Time

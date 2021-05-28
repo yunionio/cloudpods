@@ -29,6 +29,7 @@ import (
 
 type SSecurityGroup struct {
 	multicloud.SSecurityGroup
+	multicloud.CtyunTags
 	region *SRegion
 
 	ResSecurityGroupID string `json:"resSecurityGroupId"`

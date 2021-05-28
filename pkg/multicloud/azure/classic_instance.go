@@ -135,6 +135,7 @@ type ClassicVirtualMachineProperties struct {
 
 type SClassicInstance struct {
 	multicloud.SInstanceBase
+	multicloud.AzureTags
 
 	host *SClassicHost
 

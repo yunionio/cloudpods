@@ -27,6 +27,7 @@ import (
 
 type SLoadbalancerMasterSlaveBackendGroup struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	lb *SLoadbalancer
 
 	MasterSlaveServerGroupId   string

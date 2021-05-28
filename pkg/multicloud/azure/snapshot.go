@@ -33,6 +33,7 @@ type SnapshotSku struct {
 
 type SSnapshot struct {
 	multicloud.SResourceBase
+	multicloud.AzureTags
 	region *SRegion
 
 	ID         string

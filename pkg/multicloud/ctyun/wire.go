@@ -27,6 +27,7 @@ import (
 
 type SWire struct {
 	multicloud.SResourceBase
+	multicloud.CtyunTags
 	region *SRegion
 	vpc    *SVpc
 

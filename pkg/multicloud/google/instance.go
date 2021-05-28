@@ -87,6 +87,7 @@ type SMetadata struct {
 
 type SInstance struct {
 	multicloud.SInstanceBase
+	multicloud.GoogleTags
 	host *SHost
 	SResourceBase
 
@@ -104,7 +105,6 @@ type SInstance struct {
 	ServiceAccounts    []ServiceAccount
 	Scheduling         map[string]interface{}
 	CpuPlatform        string
-	Labels             map[string]string
 	LabelFingerprint   string
 	StartRestricted    bool
 	DeletionProtection bool
@@ -916,16 +916,6 @@ func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudpro
 		}
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "no valid system disk found")
-}
-
-func (self *SInstance) GetTags() (map[string]string, error) {
-	return self.Labels, nil
-}
-
-func (self *SInstance) GetSysTags() map[string]string {
-	data := map[string]string{}
-	data["SecurityGroup"] = strings.Join(self.Tags.Items, ",")
-	return data
 }
 
 func (region *SRegion) SetLabels(id string, labels map[string]string, labelFingerprint string) error {

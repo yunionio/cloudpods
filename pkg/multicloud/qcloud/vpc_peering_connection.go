@@ -28,6 +28,7 @@ import (
 
 type SVpcPC struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 	vpc                   *SVpc
 	VpcID                 string `json:"vpcId"`
 	UnVpcID               string `json:"unVpcId"`

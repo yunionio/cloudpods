@@ -27,6 +27,7 @@ import (
 
 type SClassicWire struct {
 	multicloud.SResourceBase
+	multicloud.AzureTags
 
 	zone      *SZone
 	vpc       *SClassicVpc

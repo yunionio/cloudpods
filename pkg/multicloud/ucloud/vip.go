@@ -46,6 +46,7 @@ func (ip *SVipAddr) GetGlobalId() string {
 
 type SVip struct {
 	multicloud.SNetworkInterfaceBase
+	multicloud.UcloudTags
 	region     *SRegion
 	CreateTime int64
 	Name       string

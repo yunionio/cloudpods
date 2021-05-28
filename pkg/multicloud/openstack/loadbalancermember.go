@@ -42,6 +42,7 @@ type SLoadbalancerMemberCreateParams struct {
 
 type SLoadbalancerMember struct {
 	multicloud.SResourceBase
+	multicloud.OpenStackTags
 	poolID             string
 	region             *SRegion
 	MonitorPort        int      `json:"monitor_port"`

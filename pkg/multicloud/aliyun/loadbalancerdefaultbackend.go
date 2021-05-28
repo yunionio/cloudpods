@@ -26,6 +26,7 @@ import (
 
 type SLoadbalancerDefaultBackend struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	lbbg *SLoadbalancerDefaultBackendGroup
 
 	ServerId string

@@ -31,6 +31,7 @@ import (
 
 type SDBInstanceBackup struct {
 	multicloud.SDBInstanceBackupBase
+	multicloud.ApsaraTags
 	region *SRegion
 
 	BackupDBNames             string

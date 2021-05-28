@@ -27,6 +27,7 @@ import (
 
 type SVPC struct {
 	multicloud.SVpc
+	multicloud.UcloudTags
 
 	region *SRegion
 

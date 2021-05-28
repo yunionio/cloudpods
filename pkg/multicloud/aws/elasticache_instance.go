@@ -185,6 +185,7 @@ func (region *SRegion) DescribeCacheSubnetGroups(Id string) ([]*elasticache.Cach
 
 type SElasticache struct {
 	multicloud.SElasticcacheBase
+	multicloud.AwsTags
 
 	region        *SRegion
 	replicaGroup  *elasticache.ReplicationGroup

@@ -27,6 +27,7 @@ import (
 
 type SLoadbalancerListenerRule struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	httpListener  *SLoadbalancerHTTPListener
 	httpsListener *SLoadbalancerHTTPSListener
 

@@ -71,6 +71,7 @@ const (
 type SEipAddress struct {
 	region *SRegion
 	multicloud.SEipBase
+	multicloud.AliyunTags
 
 	Name         string
 	AllocationId string

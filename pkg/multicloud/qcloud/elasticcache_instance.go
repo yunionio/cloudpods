@@ -20,6 +20,7 @@ import (
 
 type SElasticcache struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 	region *SRegion
 
 	MaintenanceTime  *MaintenanceTime `json:"maintenance_time"`

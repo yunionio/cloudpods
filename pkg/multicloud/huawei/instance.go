@@ -100,6 +100,7 @@ type SysTag struct {
 // https://support.huaweicloud.com/api-bpconsole/zh-cn_topic_0100166287.html v1.1 支持创建包年/包月的弹性云服务器
 type SInstance struct {
 	multicloud.SInstanceBase
+	multicloud.HuaweiTags
 
 	host *SHost
 
@@ -115,7 +116,6 @@ type SInstance struct {
 	Updated     string                 `json:"updated"`
 	Created     time.Time              `json:"created"`
 	Metadata    VMMetadata             `json:"metadata"`
-	Tags        []string               `json:"tags"`
 	Description string                 `json:"description"`
 	Locked      bool                   `json:"locked"`
 	ConfigDrive string                 `json:"config_drive"`
@@ -237,7 +237,6 @@ func (self *SInstance) Refresh() error {
 	if err != nil {
 		return err
 	}
-	self.Tags = new.Tags
 	return nil
 }
 
@@ -274,17 +273,6 @@ func (self *SInstance) GetSysTags() map[string]string {
 		}
 	}
 	return data
-}
-
-func (self *SInstance) GetTags() (map[string]string, error) {
-	tags := map[string]string{}
-	for _, kv := range self.Tags {
-		splited := strings.Split(kv, "=")
-		if len(splited) == 2 {
-			tags[splited[0]] = splited[1]
-		}
-	}
-	return tags, nil
 }
 
 // https://support.huaweicloud.com/api-ecs/ecs_02_1002.html

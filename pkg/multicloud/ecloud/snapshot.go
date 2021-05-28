@@ -11,6 +11,7 @@ import (
 
 type SSnapshot struct {
 	multicloud.SResourceBase
+	multicloud.EcloudTags
 	region *SRegion
 	SCreateTime
 

@@ -29,6 +29,7 @@ import (
 // https://help.apsara.com/document_detail/61081.html?spm=a2c4g.11186623.6.752.3d7630beuL57kI
 type SElasticcacheBackup struct {
 	multicloud.SElasticcacheBackupBase
+	multicloud.ApsaraTags
 
 	cacheDB *SElasticcache
 

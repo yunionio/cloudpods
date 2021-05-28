@@ -27,6 +27,7 @@ import (
 
 type SOsDisk struct {
 	multicloud.SDisk
+	multicloud.AzureTags
 	region *SRegion
 
 	OsType       string `json:"osType,omitempty"`

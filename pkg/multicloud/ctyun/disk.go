@@ -35,6 +35,7 @@ import (
 type SDisk struct {
 	storage *SStorage
 	multicloud.SDisk
+	multicloud.CtyunTags
 	multicloud.SBillingBase
 
 	diskDetails *DiskDetails

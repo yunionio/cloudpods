@@ -41,6 +41,7 @@ type SDeprecated struct {
 
 type SImage struct {
 	multicloud.SImageBase
+	multicloud.GoogleTags
 	storagecache *SStoragecache
 	SResourceBase
 

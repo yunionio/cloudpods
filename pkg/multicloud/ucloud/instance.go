@@ -36,6 +36,7 @@ import (
 
 type SInstance struct {
 	multicloud.SInstanceBase
+	multicloud.UcloudTags
 
 	host *SHost
 

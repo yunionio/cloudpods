@@ -27,6 +27,8 @@ import (
 
 type SCcnRouteSet struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
+
 	RouteID              string `json:"RouteId"`
 	DestinationCidrBlock string `json:"DestinationCidrBlock"`
 	InstanceType         string `json:"InstanceType"`

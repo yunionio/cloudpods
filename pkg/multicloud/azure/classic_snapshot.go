@@ -24,6 +24,7 @@ import (
 
 type SClassicSnapshot struct {
 	multicloud.SResourceBase
+	multicloud.AzureTags
 	region *SRegion
 
 	Name     string

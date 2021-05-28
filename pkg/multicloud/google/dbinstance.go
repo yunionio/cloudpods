@@ -138,6 +138,7 @@ type SDBInstanceCaCert struct {
 
 type SDBInstance struct {
 	multicloud.SDBInstanceBase
+	multicloud.GoogleTags
 	region *SRegion
 
 	Kind                       string

@@ -43,6 +43,7 @@ type SCloudResources struct {
 
 type SVSwitch struct {
 	multicloud.SResourceBase
+	multicloud.ApsaraTags
 	wire *SWire
 
 	AvailableIpAddressCount int

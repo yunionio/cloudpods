@@ -27,6 +27,7 @@ import (
 
 type SStorage struct {
 	multicloud.SStorageBase
+	multicloud.UcloudTags
 	zone        *SZone
 	storageType string
 }

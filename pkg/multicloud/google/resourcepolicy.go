@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SDailySchedule struct {
@@ -74,6 +75,7 @@ type SSnapshotSchedulePolicy struct {
 type SResourcePolicy struct {
 	region *SRegion
 	SResourceBase
+	multicloud.GoogleTags
 
 	Id string
 

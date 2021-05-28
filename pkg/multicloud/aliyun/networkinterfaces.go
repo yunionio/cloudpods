@@ -53,6 +53,7 @@ type SPrivateIpSets struct {
 
 type SNetworkInterface struct {
 	multicloud.SNetworkInterfaceBase
+	multicloud.AliyunTags
 	region *SRegion
 
 	InstanceId           string

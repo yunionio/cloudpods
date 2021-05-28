@@ -40,6 +40,7 @@ const (
 
 type SSnapshot struct {
 	multicloud.SResourceBase
+	multicloud.ApsaraTags
 	region *SRegion
 
 	Progress        string

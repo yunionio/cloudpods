@@ -29,6 +29,7 @@ import (
 
 type SImage struct {
 	multicloud.SImageBase
+	multicloud.UcloudTags
 	storageCache *SStoragecache
 
 	// normalized image info
