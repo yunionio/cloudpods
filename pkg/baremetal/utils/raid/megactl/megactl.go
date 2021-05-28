@@ -117,6 +117,12 @@ func (dev *MegaRaidPhyDev) parseLine(line string) bool {
 			dev.Status = "online"
 		} else if val == "Rebuild" {
 			dev.Status = "rebuild"
+		} else if strings.Contains(strings.ToLower(val), "hotspare") {
+			dev.Status = "hotspare"
+		} else if strings.Contains(strings.ToLower(val), "copyback") {
+			dev.Status = "copyback"
+		} else if strings.Contains(strings.ToLower(val), "unconfigured(good)") {
+			dev.Status = "unconfigured_good"
 		} else {
 			dev.Status = "offline"
 		}
