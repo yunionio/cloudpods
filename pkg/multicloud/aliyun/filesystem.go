@@ -46,6 +46,7 @@ type Packages struct {
 
 type SFileSystem struct {
 	multicloud.SNasBase
+	multicloud.AliyunTags
 	region *SRegion
 
 	Status                string

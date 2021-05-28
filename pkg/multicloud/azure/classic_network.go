@@ -28,6 +28,7 @@ import (
 
 type SClassicNetwork struct {
 	multicloud.SResourceBase
+	multicloud.AzureTags
 	wire *SClassicWire
 
 	id            string

@@ -42,6 +42,7 @@ import (
 
 type SStorage struct {
 	multicloud.SStorageBase
+	multicloud.AliyunTags
 	zone        *SZone
 	storageType string
 }

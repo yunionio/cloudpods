@@ -82,6 +82,7 @@ type AccountProperties struct {
 
 type SStorageAccount struct {
 	multicloud.SBaseBucket
+	multicloud.AzureTags
 
 	region *SRegion
 
@@ -96,7 +97,6 @@ type SStorageAccount struct {
 	Type     string `json:"type,omitempty"`
 
 	Properties AccountProperties `json:"properties"`
-	Tags       TAzureTags
 }
 
 func (self *SRegion) listStorageAccounts() ([]SStorageAccount, error) {
@@ -246,7 +246,7 @@ func (self *SRegion) CreateStorageAccount(storageAccount string) (*SStorageAccou
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetUniqStorageAccountName")
 		}
-		stoargeaccount := SStorageAccount{
+		storageaccount := SStorageAccount{
 			region: self,
 			Sku: SSku{
 				Name: "Standard_GRS",
@@ -259,9 +259,9 @@ func (self *SRegion) CreateStorageAccount(storageAccount string) (*SStorageAccou
 			},
 			Name: uniqName,
 			Type: "Microsoft.Storage/storageAccounts",
-			Tags: map[string]string{"id": storageAccount},
 		}
-		return &stoargeaccount, self.create("", jsonutils.Marshal(stoargeaccount), &stoargeaccount)
+		storageaccount.Tags = map[string]string{"id": storageAccount}
+		return &storageaccount, self.create("", jsonutils.Marshal(storageaccount), &storageaccount)
 	}
 	return nil, err
 }

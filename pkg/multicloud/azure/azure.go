@@ -48,12 +48,6 @@ const (
 
 type TAzureResource string
 
-type TAzureTags map[string]string
-
-func (self TAzureTags) GetTags() (map[string]string, error) {
-	return self, nil
-}
-
 var (
 	GraphResource   = TAzureResource("graph")
 	DefaultResource = TAzureResource("default")

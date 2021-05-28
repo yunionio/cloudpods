@@ -58,6 +58,7 @@ type InterfacePropertiesFormat struct {
 
 type SInstanceNic struct {
 	multicloud.SResourceBase
+	multicloud.AzureTags
 
 	instance   *SInstance
 	ID         string

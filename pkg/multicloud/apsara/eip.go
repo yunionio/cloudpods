@@ -71,6 +71,7 @@ const (
 type SEipAddress struct {
 	region *SRegion
 	multicloud.SEipBase
+	multicloud.ApsaraTags
 
 	AllocationId string
 

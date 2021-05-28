@@ -29,6 +29,7 @@ import (
 
 type SNetwork struct {
 	multicloud.SResourceBase
+	multicloud.ZStackTags
 	wire *SWire
 
 	ZStackBasic

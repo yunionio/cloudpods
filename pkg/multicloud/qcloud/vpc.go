@@ -28,6 +28,7 @@ import (
 
 type SVpc struct {
 	multicloud.SVpc
+	multicloud.QcloudTags
 
 	region *SRegion
 

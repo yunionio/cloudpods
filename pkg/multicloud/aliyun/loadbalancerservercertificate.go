@@ -28,6 +28,7 @@ type SubjectAlternativeNames struct {
 
 type SLoadbalancerServerCertificate struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	region *SRegion
 
 	ServerCertificateId     string                  //	服务器证书ID。

@@ -33,6 +33,7 @@ Subnets
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090590.html
 type SNetwork struct {
 	multicloud.SResourceBase
+	multicloud.HuaweiTags
 	wire *SWire
 
 	AvailabilityZone string   `json:"availability_zone"`

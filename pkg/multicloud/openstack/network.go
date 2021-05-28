@@ -93,6 +93,7 @@ type SNextLink struct {
 
 type SNetwork struct {
 	multicloud.SResourceBase
+	multicloud.OpenStackTags
 	wire *SWire
 
 	Name            string

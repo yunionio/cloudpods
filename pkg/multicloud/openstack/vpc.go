@@ -36,6 +36,7 @@ const (
 
 type SVpc struct {
 	multicloud.SVpc
+	multicloud.OpenStackTags
 	region *SRegion
 
 	AdminStateUp          bool

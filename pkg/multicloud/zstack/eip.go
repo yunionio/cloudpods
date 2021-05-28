@@ -29,6 +29,7 @@ import (
 type SEipAddress struct {
 	region *SRegion
 	multicloud.SEipBase
+	multicloud.ZStackTags
 
 	ZStackBasic
 	VMNicUUID string `json:"vmNicUuid"`

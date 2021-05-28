@@ -67,6 +67,7 @@ type SEipAddress struct {
 	region *SRegion
 	port   *Port
 	multicloud.SEipBase
+	multicloud.HuaweiTags
 
 	ID                  string    `json:"id"`
 	Status              string    `json:"status"`

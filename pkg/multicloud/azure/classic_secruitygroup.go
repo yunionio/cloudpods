@@ -33,6 +33,7 @@ import (
 
 type SClassicSecurityGroup struct {
 	multicloud.SSecurityGroup
+	multicloud.AzureTags
 	region     *SRegion
 	vpc        *SClassicVpc
 	Properties ClassicSecurityGroupProperties `json:"properties,omitempty"`
@@ -40,7 +41,6 @@ type SClassicSecurityGroup struct {
 	Name       string
 	Location   string
 	Type       string
-	Tags       TAzureTags
 }
 
 type ClassicSecurityGroupProperties struct {

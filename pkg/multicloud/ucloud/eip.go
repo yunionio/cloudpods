@@ -37,6 +37,7 @@ const (
 type SEip struct {
 	region *SRegion
 	multicloud.SEipBase
+	multicloud.UcloudTags
 
 	BandwidthMb       int               `json:"Bandwidth"`
 	BandwidthType     int               `json:"BandwidthType"`

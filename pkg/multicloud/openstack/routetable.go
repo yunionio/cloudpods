@@ -22,6 +22,7 @@ import (
 
 type SRouteEntry struct {
 	multicloud.SResourceBase
+	multicloud.OpenStackTags
 	Destination string `json:"destination"`
 	Nexthop     string `json:"nexthop"`
 }
@@ -66,6 +67,7 @@ func (route *SRouteEntry) GetNextHop() string {
 
 type SRouteTable struct {
 	multicloud.SResourceBase
+	multicloud.OpenStackTags
 	vpc     *SVpc
 	entries []SRouteEntry
 	router  *SRouter

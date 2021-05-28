@@ -33,6 +33,7 @@ import (
 
 type SBucket struct {
 	multicloud.SBaseBucket
+	multicloud.STagBase
 
 	client IBucketProvider
 

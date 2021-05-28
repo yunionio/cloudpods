@@ -54,18 +54,14 @@ type PublicIPAddressPropertiesFormat struct {
 type SEipAddress struct {
 	region *SRegion
 	multicloud.SEipBase
+	multicloud.AzureTags
 
 	ID         string
 	Name       string
 	Location   string
 	Properties PublicIPAddressPropertiesFormat `json:"properties,omitempty"`
 	Type       string
-	Tags       TAzureTags
 	Sku        *PublicIPAddressSku
-}
-
-func (self *SEipAddress) GetTags() (map[string]string, error) {
-	return self.Tags.GetTags()
 }
 
 func (self *SRegion) AllocateEIP(name, projectId string) (*SEipAddress, error) {

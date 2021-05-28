@@ -28,6 +28,7 @@ import (
 
 type SNetwork struct {
 	multicloud.SResourceBase
+	multicloud.AzureTags
 	wire *SWire
 
 	//AvailableIpAddressCount int `json:"availableIpAddressCount,omitempty"`
@@ -35,7 +36,6 @@ type SNetwork struct {
 	Name          string
 	Properties    SubnetPropertiesFormat
 	AddressPrefix string `json:"addressPrefix,omitempty"`
-	Tags          TAzureTags
 }
 
 func (self *SNetwork) GetTags() (map[string]string, error) {

@@ -29,6 +29,7 @@ import (
 
 type SNatGateway struct {
 	multicloud.SNatGatewayBase
+	multicloud.HuaweiTags
 	region *SRegion
 
 	ID                string

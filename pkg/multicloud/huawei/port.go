@@ -48,6 +48,7 @@ func (fixip *SFixedIP) IsPrimary() bool {
 
 type Port struct {
 	multicloud.SNetworkInterfaceBase
+	multicloud.HuaweiTags
 	region          *SRegion
 	ID              string `json:"id"`
 	Name            string `json:"name"`

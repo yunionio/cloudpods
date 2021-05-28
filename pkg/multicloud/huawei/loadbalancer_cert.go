@@ -28,6 +28,7 @@ import (
 
 type SElbCert struct {
 	multicloud.SResourceBase
+	multicloud.HuaweiTags
 	region *SRegion
 
 	Certificate  string    `json:"certificate"`

@@ -36,6 +36,7 @@ type SMountInstances struct {
 type SDisk struct {
 	storage *SStorage
 	multicloud.SDisk
+	multicloud.AliyunTags
 
 	AttachedTime                  time.Time
 	AutoSnapshotPolicyId          string

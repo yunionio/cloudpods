@@ -35,6 +35,7 @@ var StorageTypes = []string{
 
 type SStorage struct {
 	multicloud.SStorageBase
+	multicloud.CtyunTags
 	zone        *SZone
 	storageType string
 }

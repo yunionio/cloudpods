@@ -49,6 +49,7 @@ func (nr *SNovaRequest) GetPort() string {
 
 type SInstance struct {
 	multicloud.SInstanceBase
+	multicloud.EcloudTags
 	multicloud.SBillingBase
 	SZoneRegionBase
 	SCreateTime

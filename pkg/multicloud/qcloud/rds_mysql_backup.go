@@ -30,6 +30,7 @@ import (
 
 type SMySQLInstanceBackup struct {
 	multicloud.SDBInstanceBackupBase
+	multicloud.QcloudTags
 	rds *SMySQLInstance
 
 	Name        string

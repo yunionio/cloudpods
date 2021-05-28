@@ -26,6 +26,7 @@ import (
 
 type SElasticcacheAcl struct {
 	multicloud.SElasticcacheAclBase
+	multicloud.AliyunTags
 
 	cacheDB *SElasticcache
 

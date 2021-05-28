@@ -30,6 +30,7 @@ type SDatabasePrivileges struct {
 
 type SDBInstanceAccount struct {
 	multicloud.SDBInstanceAccountBase
+	multicloud.AliyunTags
 	instance *SDBInstance
 
 	AccountDescription string

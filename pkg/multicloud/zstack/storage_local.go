@@ -29,6 +29,7 @@ import (
 
 type SLocalStorage struct {
 	multicloud.SStorageBase
+	multicloud.ZStackTags
 	region *SRegion
 
 	primaryStorageID          string

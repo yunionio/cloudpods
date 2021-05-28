@@ -32,6 +32,7 @@ type sDomianCountInfo struct {
 
 type SDomian struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 	client *SQcloudClient
 
 	ID               int    `json:"id"`

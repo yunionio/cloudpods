@@ -18,6 +18,7 @@ import "yunion.io/x/onecloud/pkg/multicloud"
 
 type SDBInstanceAccount struct {
 	multicloud.SDBInstanceAccountBase
+	multicloud.AzureTags
 	instance *SDBInstance
 
 	AccountName string

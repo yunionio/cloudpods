@@ -23,6 +23,7 @@ import (
 
 type SElasticcacheParameter struct {
 	multicloud.SElasticcacheParameterBase
+	multicloud.ApsaraTags
 
 	cacheDB *SElasticcache
 

@@ -35,6 +35,7 @@ var StorageTypes = []string{
 
 type SZone struct {
 	multicloud.SResourceBase
+	multicloud.UcloudTags
 	region *SRegion
 	host   *SHost
 

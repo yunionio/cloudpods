@@ -39,6 +39,7 @@ type STags struct {
 
 type SDisk struct {
 	multicloud.SResourceBase
+	multicloud.ApsaraTags
 	storage *SStorage
 	multicloud.SDisk
 

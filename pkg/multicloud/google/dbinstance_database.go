@@ -31,6 +31,7 @@ type SSqlserverDatabaseDetails struct {
 
 type SDBInstanceDatabase struct {
 	multicloud.SResourceBase
+	multicloud.GoogleTags
 	rds                      *SDBInstance
 	Kind                     string
 	Collation                string

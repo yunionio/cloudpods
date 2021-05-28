@@ -53,6 +53,7 @@ var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "runtime", "summary", "co
 
 type SVirtualMachine struct {
 	multicloud.SInstanceBase
+	multicloud.STagBase
 	SManagedObject
 
 	vnics     []SVirtualNIC

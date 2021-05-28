@@ -38,6 +38,7 @@ type ZoneState struct {
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0065817728.html
 type SZone struct {
 	multicloud.SResourceBase
+	multicloud.HuaweiTags
 	region *SRegion
 	host   *SHost
 

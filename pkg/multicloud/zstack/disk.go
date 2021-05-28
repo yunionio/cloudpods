@@ -31,6 +31,7 @@ import (
 
 type SDisk struct {
 	multicloud.SDisk
+	multicloud.ZStackTags
 
 	localStorage *SLocalStorage
 	storage      *SStorage

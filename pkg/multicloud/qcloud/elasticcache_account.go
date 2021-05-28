@@ -15,6 +15,7 @@ import (
 
 type SElasticcacheAccount struct {
 	multicloud.SElasticcacheAccountBase
+	multicloud.QcloudTags
 
 	cacheDB *SElasticcache
 

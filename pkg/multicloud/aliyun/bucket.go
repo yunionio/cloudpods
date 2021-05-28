@@ -36,6 +36,7 @@ import (
 
 type SBucket struct {
 	multicloud.SBaseBucket
+	multicloud.AliyunTags
 
 	region *SRegion
 

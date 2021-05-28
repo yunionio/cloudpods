@@ -28,6 +28,7 @@ import (
 
 type SStoragecache struct {
 	multicloud.SResourceBase
+	multicloud.EcloudTags
 	region *SRegion
 }
 

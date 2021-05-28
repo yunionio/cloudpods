@@ -27,6 +27,7 @@ import (
 
 type SDBInstanceSnapshot struct {
 	multicloud.SDBInstanceBackupBase
+	multicloud.AwsTags
 	region *SRegion
 
 	AllocatedStorage                 int       `xml:"AllocatedStorage"`

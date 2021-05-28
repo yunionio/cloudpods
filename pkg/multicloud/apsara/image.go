@@ -58,6 +58,7 @@ const (
 
 type SImage struct {
 	multicloud.SImageBase
+	multicloud.ApsaraTags
 	storageCache *SStoragecache
 
 	// normalized image info

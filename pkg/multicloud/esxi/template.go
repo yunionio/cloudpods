@@ -30,6 +30,7 @@ import (
 
 type SVMTemplate struct {
 	multicloud.SImageBase
+	multicloud.STagBase
 	cache *SDatastoreImageCache
 	vm    *SVirtualMachine
 	uuid  string

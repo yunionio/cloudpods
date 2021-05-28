@@ -38,6 +38,7 @@ type SInstanceCdrome struct {
 
 type SInstance struct {
 	multicloud.SInstanceBase
+	multicloud.ZStackTags
 	host *SHost
 
 	ZStackBasic

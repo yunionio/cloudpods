@@ -40,6 +40,7 @@ var STORAGETYPES = []string{STORAGE_STD_LRS, STORAGE_PRE_LRS, STORAGE_STD_SSD}
 
 type SStorage struct {
 	multicloud.SStorageBase
+	multicloud.AzureTags
 	zone *SZone
 
 	storageType  string

@@ -37,13 +37,10 @@ type SMountInstances struct {
 	MountInstance []string
 }
 
-type STags struct {
-	Tag []string
-}
-
 type SDisk struct {
 	storage *SStorage
 	multicloud.SDisk
+	multicloud.AwsTags
 
 	RegionId string
 	ZoneId   string // AvailabilityZone
@@ -60,7 +57,6 @@ type SDisk struct {
 	Encrypted        bool   // Encrypted
 	SourceSnapshotId string // SnapshotId
 	Iops             int    // Iops
-	Tags             TagSpec
 
 	CreationTime time.Time // CreateTime
 	AttachedTime time.Time // AttachTime
@@ -85,10 +81,6 @@ type SDisk struct {
 
 func (self *SDisk) GetId() string {
 	return self.DiskId
-}
-
-func (self *SDisk) GetTags() (map[string]string, error) {
-	return self.Tags.GetTags()
 }
 
 func (self *SDisk) GetName() string {
@@ -319,7 +311,7 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 		disk.DiskId = *item.VolumeId
 		disk.Iops = int(*item.Iops)
 		disk.CreationTime = *item.CreateTime
-		disk.Tags = tagspec
+		jsonutils.Update(&disk.AwsTags.TagSet, item.Tags)
 		if len(item.Attachments) > 0 {
 			disk.DeleteWithInstance = *item.Attachments[0].DeleteOnTermination
 			disk.AttachedTime = *item.Attachments[0].AttachTime
@@ -450,8 +442,8 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) (string, error) {
 	params.SetSize(int64(disk.Size))
 	params.SetVolumeType(disk.Category)
 	params.SetAvailabilityZone(disk.ZoneId)
-	tags, _ := disk.Tags.GetTagSpecifications()
-	params.SetTagSpecifications([]*ec2.TagSpecification{tags})
+	//tags, _ := disk.Tags.GetTagSpecifications()
+	//params.SetTagSpecifications([]*ec2.TagSpecification{tags})
 
 	ec2Client, err := self.getEc2Client()
 	if err != nil {

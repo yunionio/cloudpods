@@ -39,6 +39,7 @@ import (
 
 type SBucket struct {
 	multicloud.SBaseBucket
+	multicloud.AwsTags
 
 	region *SRegion
 

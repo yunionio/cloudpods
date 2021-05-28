@@ -176,6 +176,7 @@ type SExtensionResource struct {
 
 type SInstance struct {
 	multicloud.SInstanceBase
+	multicloud.AzureTags
 	host *SHost
 
 	Properties VirtualMachineProperties
@@ -184,7 +185,6 @@ type SInstance struct {
 	Type       string
 	Location   string
 	vmSize     *SVMSize
-	Tags       TAzureTags
 
 	Resources []SExtensionResource
 }

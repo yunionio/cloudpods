@@ -41,6 +41,7 @@ type SPortDetail struct {
 type SEipAddress struct {
 	region *SRegion
 	multicloud.SEipBase
+	multicloud.OpenStackTags
 
 	RouterId          string      `json:"router_id"`
 	Status            string      `json:"status"`

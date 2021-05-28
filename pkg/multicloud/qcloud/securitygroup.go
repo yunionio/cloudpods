@@ -63,6 +63,7 @@ type SecurityGroupPolicySet struct {
 
 type SSecurityGroup struct {
 	multicloud.SSecurityGroup
+	multicloud.QcloudTags
 	region                 *SRegion
 	SecurityGroupId        string    //		安全组实例ID，例如：sg-ohuuioma。
 	SecurityGroupName      string    //		安全组名称，可任意命名，但不得超过60个字符。

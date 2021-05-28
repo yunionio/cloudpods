@@ -44,6 +44,7 @@ type ClassicProperties struct {
 
 type SClassicDisk struct {
 	multicloud.SDisk
+	multicloud.AzureTags
 	region *SRegion
 
 	Id         string

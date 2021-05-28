@@ -84,6 +84,7 @@ type ImageProperties struct {
 
 type SImage struct {
 	multicloud.SImageBase
+	multicloud.AzureTags
 	storageCache *SStoragecache
 
 	Properties ImageProperties `json:"properties,omitempty"`

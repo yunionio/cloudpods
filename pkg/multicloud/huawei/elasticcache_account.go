@@ -27,6 +27,7 @@ import (
 
 type SElasticcacheAccount struct {
 	multicloud.SElasticcacheAccountBase
+	multicloud.HuaweiTags
 
 	cacheDB *SElasticcache
 }

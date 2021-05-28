@@ -29,6 +29,7 @@ import (
 
 type SImage struct {
 	multicloud.SImageBase
+	multicloud.STagBase
 	cache    *SDatastoreImageCache
 	filename string
 	size     int64

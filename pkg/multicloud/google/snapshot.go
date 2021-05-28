@@ -21,11 +21,13 @@ import (
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SSnapshot struct {
 	region *SRegion
 	SResourceBase
+	multicloud.GoogleTags
 
 	Id                 string
 	CreationTimestamp  time.Time

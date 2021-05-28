@@ -50,6 +50,7 @@ type NatGatewayPrivateInfo struct {
 
 type SNatGateway struct {
 	multicloud.SNatGatewayBase
+	multicloud.AliyunTags
 
 	vpc *SVpc
 

@@ -36,6 +36,7 @@ import (
 
 type SBucket struct {
 	multicloud.SBaseBucket
+	multicloud.HuaweiTags
 
 	region *SRegion
 

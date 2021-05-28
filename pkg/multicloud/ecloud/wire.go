@@ -24,6 +24,7 @@ import (
 
 type SWire struct {
 	multicloud.SResourceBase
+	multicloud.EcloudTags
 	vpc       *SVpc
 	zone      *SZone
 	inetworks []cloudprovider.ICloudNetwork

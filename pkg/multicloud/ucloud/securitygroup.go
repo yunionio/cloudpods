@@ -33,6 +33,7 @@ import (
 // https://docs.ucloud.cn/api/unet-api/describe_firewall
 type SSecurityGroup struct {
 	multicloud.SSecurityGroup
+	multicloud.UcloudTags
 	region *SRegion
 	vpc    *SVPC // 安全组在UCLOUD实际上与VPC是没有直接关联的。这里的vpc字段只是为了统一，仅仅是标记是哪个VPC在操作该安全组。
 

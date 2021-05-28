@@ -31,6 +31,7 @@ type SSqlserverUserDetails struct {
 
 type SDBInstanceAccount struct {
 	multicloud.SDBInstanceAccountBase
+	multicloud.GoogleTags
 	rds *SDBInstance
 
 	Kind                 string

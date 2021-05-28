@@ -39,6 +39,7 @@ const (
 
 type SSnapshot struct {
 	multicloud.SResourceBase
+	multicloud.AwsTags
 	region *SRegion
 
 	Progress       string
@@ -49,7 +50,7 @@ type SSnapshot struct {
 	SourceDiskType string
 	Status         SnapshotStatusType
 	Usage          string
-	TagSpec        TagSpec
+	//TagSpec        TagSpec
 }
 
 func (self *SSnapshot) GetDiskType() string {
@@ -59,10 +60,6 @@ func (self *SSnapshot) GetDiskType() string {
 
 func (self *SSnapshot) GetId() string {
 	return self.SnapshotId
-}
-
-func (self *SSnapshot) GetTags() (map[string]string, error) {
-	return self.TagSpec.GetTags()
 }
 
 func (self *SSnapshot) GetName() string {
@@ -174,7 +171,7 @@ func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName
 		snapshot.SourceDiskSize = int32(*item.VolumeSize)
 		// snapshot.SourceDiskType
 		snapshot.SnapshotName = tagspec.GetNameTag()
-		snapshot.TagSpec = tagspec
+		jsonutils.Update(&snapshot.AwsTags.TagSet, item.Tags)
 		snapshots = append(snapshots, snapshot)
 	}
 

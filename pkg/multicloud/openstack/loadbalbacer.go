@@ -98,6 +98,7 @@ type SL7RuleID struct {
 
 type SLoadbalancer struct {
 	multicloud.SLoadbalancerBase
+	multicloud.OpenStackTags
 	region *SRegion
 
 	Description        string        `json:"description"`

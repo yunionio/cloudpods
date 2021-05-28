@@ -39,6 +39,7 @@ type ClassicEipProperties struct {
 type SClassicEipAddress struct {
 	region *SRegion
 	multicloud.SEipBase
+	multicloud.AzureTags
 
 	ID         string
 	instanceId string
