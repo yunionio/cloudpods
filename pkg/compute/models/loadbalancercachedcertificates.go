@@ -584,7 +584,7 @@ func (manager *SCachedLoadbalancerCertificateManager) ListItemExportKeys(ctx con
 }
 
 func (man *SCachedLoadbalancerCertificateManager) InitializeData() error {
-	certs := man.Query().SubQuery()
+	certs := man.Query().IsFalse("pending_deleted").SubQuery()
 	sq := certs.Query(certs.Field("id"), certs.Field("external_id"), sqlchemy.COUNT("external_id").Label("total"))
 	sq2 := sq.GroupBy("external_id").SubQuery()
 	sq3 := sq2.Query(sq2.Field("external_id")).GT("total", 1).SubQuery()
