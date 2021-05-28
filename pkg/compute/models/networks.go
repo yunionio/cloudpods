@@ -703,7 +703,6 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
-			syncVirtualResourceMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localNets = append(localNets, commondb[i])
 			remoteNets = append(remoteNets, commonext[i])
 			syncResult.Update()
@@ -714,7 +713,6 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			syncVirtualResourceMetadata(ctx, userCred, new, added[i])
 			localNets = append(localNets, *new)
 			remoteNets = append(remoteNets, added[i])
 			syncResult.Add()

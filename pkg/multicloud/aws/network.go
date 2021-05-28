@@ -79,7 +79,6 @@ func (self *SNetwork) GetStatus() string {
 }
 
 func (self *SNetwork) Refresh() error {
-	log.Debugf("network refresh %s", self.NetworkId)
 	new, err := self.wire.zone.region.getNetwork(self.NetworkId)
 	if err != nil {
 		return err

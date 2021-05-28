@@ -379,16 +379,14 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
-			syncVirtualResourceMetadata(ctx, userCred, &commondb[i], commonext[i])
 			syncResult.Update()
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudEip(ctx, userCred, added[i], provider, region, syncOwnerId)
+		_, err := manager.newFromCloudEip(ctx, userCred, added[i], provider, region, syncOwnerId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			syncVirtualResourceMetadata(ctx, userCred, new, added[i])
 			syncResult.Add()
 		}
 	}
@@ -493,8 +491,7 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 		return nil
 	})
 	if err != nil {
-		log.Errorf("SyncWithCloudEip fail %s", err)
-		return err
+		return errors.Wrapf(err, "db.UpdateWithLock")
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
@@ -503,7 +500,12 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 		return errors.Wrap(err, "fail to sync associated instance of EIP")
 	}
 	syncVirtualResourceMetadata(ctx, userCred, self, ext)
-	SyncCloudProject(userCred, self, syncOwnerId, ext, self.ManagerId)
+
+	if res := self.GetAssociateResource(); res != nil {
+		self.SyncCloudProjectId(userCred, res.GetOwnerId())
+	} else {
+		SyncCloudProject(userCred, self, syncOwnerId, ext, self.ManagerId)
+	}
 
 	return nil
 }
@@ -556,12 +558,17 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 		return nil, errors.Wrapf(err, "newFromCloudEip")
 	}
 
-	syncVirtualResourceMetadata(ctx, userCred, &eip, extEip)
-	SyncCloudProject(userCred, &eip, syncOwnerId, extEip, eip.ManagerId)
-
 	err = eip.SyncInstanceWithCloudEip(ctx, userCred, extEip)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to sync associated instance of EIP")
+	}
+
+	syncVirtualResourceMetadata(ctx, userCred, &eip, extEip)
+
+	if res := eip.GetAssociateResource(); res != nil {
+		eip.SyncCloudProjectId(userCred, res.GetOwnerId())
+	} else {
+		SyncCloudProject(userCred, &eip, syncOwnerId, extEip, eip.ManagerId)
 	}
 
 	db.OpsLog.LogEvent(&eip, db.ACT_CREATE, eip.GetShortDesc(ctx), userCred)
