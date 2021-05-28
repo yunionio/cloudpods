@@ -111,7 +111,7 @@ func (self *ProjectMappingRuleInfo) IsMatchTags(_extTags map[string]string) (str
 	case MAPPING_CONDITION_OR:
 		for _, tag := range self.Tags {
 			extTag, ok := extTags[strings.ToUpper(tag.Key)]
-			if ok && len(tag.Value) == 0 || tag.Value == extTag {
+			if ok && (len(tag.Value) == 0 || tag.Value == extTag) {
 				if self.AutoCreateProject && len(tag.Value) == 0 && len(extTag) > 0 {
 					return "", "", extTag, true
 				} else {
