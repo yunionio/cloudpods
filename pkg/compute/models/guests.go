@@ -2547,6 +2547,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
+	syncVirtualResourceMetadata(ctx, userCred, self, extVM)
 	SyncCloudProject(userCred, self, syncOwnerId, extVM, host.ManagerId)
 
 	if provider.GetFactory().IsSupportPrepaidResources() && recycle {
@@ -3236,9 +3237,9 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 		vdisk := needAdds[i].vdisk
 		err := self.attach2Disk(ctx, needAdds[i].disk, userCred, vdisk.GetDriver(), vdisk.GetCacheMode(), vdisk.GetMountpoint())
 		if err != nil {
-			log.Errorf("attach2Disk error: %v", err)
-			result.AddError(err)
+			result.AddError(errors.Wrapf(err, "attach2Disk"))
 		} else {
+			needAdds[i].disk.SyncCloudProjectId(userCred, self.GetOwnerId())
 			result.Add()
 		}
 	}
@@ -4927,13 +4928,11 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 		// add
 		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, self.getRegion(), syncOwnerId)
 		if err != nil {
-			log.Errorf("getEipByExtEip error %v", err)
-			result.AddError(err)
+			result.AddError(errors.Wrapf(err, "getEipByExtEip"))
 		} else {
 			err = neip.AssociateInstance(ctx, userCred, api.EIP_ASSOCIATE_TYPE_SERVER, self)
 			if err != nil {
-				log.Errorf("AssociateVM error %v", err)
-				result.AddError(err)
+				result.AddError(errors.Wrapf(err, "neip.AssociateInstance"))
 			} else {
 				result.Add()
 			}
