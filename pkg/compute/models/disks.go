@@ -1248,42 +1248,34 @@ func (manager *SDiskManager) getDisksByStorage(storage *SStorage) ([]SDisk, erro
 }
 
 func (manager *SDiskManager) syncCloudDisk(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, vdisk cloudprovider.ICloudDisk, index int, syncOwnerId mcclient.IIdentityProvider, managerId string) (*SDisk, error) {
-	// ownerProjId := projectId
-
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
-
 	diskObj, err := db.FetchByExternalIdAndManagerId(manager, vdisk.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		sq := StorageManager.Query().SubQuery()
 		return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("storage_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), managerId))
 	})
 	if err != nil {
-		if err == sql.ErrNoRows {
-			vstorage, err := vdisk.GetIStorage()
-			if err != nil {
-				return nil, errors.Wrapf(err, "unable to GetIStorage of vdisk %q", vdisk.GetName())
-			}
-
-			storageObj, err := db.FetchByExternalIdAndManagerId(StorageManager, vstorage.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-				return q.Equals("manager_id", managerId)
-			})
-			if err != nil {
-				log.Errorf("cannot find storage of vdisk %s", err)
-				return nil, err
-			}
-			storage := storageObj.(*SStorage)
-			return manager.newFromCloudDisk(ctx, userCred, provider, vdisk, storage, -1, syncOwnerId)
-		} else {
-			return nil, err
+		if errors.Cause(err) != sql.ErrNoRows {
+			return nil, errors.Wrapf(err, "db.FetchByExternalIdAndManagerId")
 		}
-	} else {
-		disk := diskObj.(*SDisk)
-		err = disk.syncWithCloudDisk(ctx, userCred, provider, vdisk, index, syncOwnerId, managerId)
+		vstorage, err := vdisk.GetIStorage()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "unable to GetIStorage of vdisk %q", vdisk.GetName())
 		}
-		return disk, nil
+
+		storageObj, err := db.FetchByExternalIdAndManagerId(StorageManager, vstorage.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("manager_id", managerId)
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "cannot find storage of vdisk %s", vdisk.GetName())
+		}
+		storage := storageObj.(*SStorage)
+		return manager.newFromCloudDisk(ctx, userCred, provider, vdisk, storage, -1, syncOwnerId)
 	}
+	disk := diskObj.(*SDisk)
+	err = disk.syncWithCloudDisk(ctx, userCred, provider, vdisk, index, syncOwnerId, managerId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "syncWithCloudDisk")
+	}
+	return disk, nil
 }
 
 func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, storage *SStorage, disks []cloudprovider.ICloudDisk, syncOwnerId mcclient.IIdentityProvider) ([]SDisk, []cloudprovider.ICloudDisk, compare.SyncResult) {
@@ -1327,7 +1319,6 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
-			syncVirtualResourceMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localDisks = append(localDisks, commondb[i])
 			remoteDisks = append(remoteDisks, commonext[i])
 			syncResult.Update()
@@ -1360,7 +1351,6 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			syncVirtualResourceMetadata(ctx, userCred, new, added[i])
 			localDisks = append(localDisks, *new)
 			remoteDisks = append(remoteDisks, added[i])
 			syncResult.Add()
@@ -1371,19 +1361,16 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SDisk) syncDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, idisk cloudprovider.ICloudDisk, managerId string) error {
-	extId := idisk.GetGlobalId()
 	istorage, err := idisk.GetIStorage()
 	if err != nil {
-		log.Errorf("failed to get istorage for disk %s error: %v", extId, err)
-		return err
+		return errors.Wrapf(err, "idisk.GetIStorage %s", idisk.GetGlobalId())
 	}
 	storageExtId := istorage.GetGlobalId()
 	storage, err := db.FetchByExternalIdAndManagerId(StorageManager, storageExtId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		return q.Equals("manager_id", managerId)
 	})
 	if err != nil {
-		log.Errorf("failed to found storage by istorage %s error: %v", storageExtId, err)
-		return err
+		return errors.Wrapf(err, "storage db.FetchByExternalIdAndManagerId(%s)", storageExtId)
 	}
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.StorageId = storage.GetId()
@@ -1391,8 +1378,7 @@ func (self *SDisk) syncDiskStorage(ctx context.Context, userCred mcclient.TokenC
 		return nil
 	})
 	if err != nil {
-		log.Errorf("syncWithCloudDisk error %s", err)
-		return err
+		return errors.Wrapf(err, "db.UpdateWithLock")
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
@@ -1515,8 +1501,7 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		return nil
 	})
 	if err != nil {
-		log.Errorf("syncWithCloudDisk error %s", err)
-		return err
+		return errors.Wrapf(err, "db.UpdateWithLock")
 	}
 
 	// sync disk's snapshotpolicy
@@ -1534,7 +1519,13 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
-	SyncCloudProject(userCred, self, syncOwnerId, extDisk, storage.ManagerId)
+	syncVirtualResourceMetadata(ctx, userCred, self, extDisk)
+
+	if len(guests) == 0 {
+		SyncCloudProject(userCred, self, syncOwnerId, extDisk, storage.ManagerId)
+	} else {
+		self.SyncCloudProjectId(userCred, guests[0].GetOwnerId())
+	}
 
 	return nil
 }
@@ -1590,6 +1581,8 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	if err != nil {
 		return nil, err
 	}
+
+	syncVirtualResourceMetadata(ctx, userCred, &disk, extDisk)
 
 	SyncCloudProject(userCred, &disk, syncOwnerId, extDisk, storage.ManagerId)
 
