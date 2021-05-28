@@ -893,12 +893,11 @@ func (self *SSnapshot) SyncWithCloudSnapshot(ctx context.Context, userCred mccli
 	syncVirtualResourceMetadata(ctx, userCred, self, ext)
 
 	// bugfix for now:
-	disk, err := self.GetDisk()
-	if err != nil && err != sql.ErrNoRows {
-		return errors.Wrapf(err, "get disk of snapshot %s error", self.Id)
-	}
-	if err == nil {
+	disk, _ := self.GetDisk()
+	if disk != nil {
 		self.SyncCloudProjectId(userCred, disk.GetOwnerId())
+	} else {
+		SyncCloudProject(userCred, self, syncOwnerId, ext, disk.GetCloudprovider().Id)
 	}
 
 	return nil
@@ -1000,16 +999,14 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
-			syncVirtualResourceMetadata(ctx, userCred, &commondb[i], commonext[i])
 			syncResult.Update()
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		local, err := manager.newFromCloudSnapshot(ctx, userCred, added[i], region, syncOwnerId, provider)
+		_, err := manager.newFromCloudSnapshot(ctx, userCred, added[i], region, syncOwnerId, provider)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			syncVirtualResourceMetadata(ctx, userCred, local, added[i])
 			syncResult.Add()
 		}
 	}
