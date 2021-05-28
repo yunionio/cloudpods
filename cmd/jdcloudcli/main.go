@@ -1,0 +1,141 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/sirupsen/logrus"
+
+	"yunion.io/x/log"
+	"yunion.io/x/structarg"
+
+	"yunion.io/x/onecloud/pkg/multicloud/jdcloud"
+	_ "yunion.io/x/onecloud/pkg/multicloud/jdcloud/shell"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
+)
+
+type Options struct {
+	Help         bool   `help:"Show help" default:"false"`
+	Debug        bool   `help:"Show debug" default:"false"`
+	AccessKey    string `help:"Access key" default:"$JDCLOUD_ACCESS_KEY"`
+	AccessSecret string `help:"Secret" default:"$JDCLOUD_ACCESS_SECRET"`
+	RegionId     string `help:"RegionId" default:"$JDCLOUD_REGION"`
+	SUBCOMMAND   string `help:"jdcloudcli subcommand" subcommand:"true"`
+}
+
+func getSubcommandParser() (*structarg.ArgumentParser, error) {
+	parse, err := structarg.NewArgumentParser(&Options{},
+		"jdcloudcli",
+		"Command-line interface to ecloud API.",
+		`See "ecloud help COMMAND" for help on a specific command.`,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	subcmd := parse.GetSubcommand()
+	if subcmd == nil {
+		return nil, fmt.Errorf("No subcommand argument")
+	}
+	type HelpOptions struct {
+		SUBCOMMAND string `help:"sub-command name"`
+	}
+	shellutils.R(&HelpOptions{}, "help", "Show help of a subcommand", func(args *HelpOptions) error {
+		helpstr, err := subcmd.SubHelpString(args.SUBCOMMAND)
+		if err != nil {
+			return err
+		} else {
+			fmt.Print(helpstr)
+			return nil
+		}
+	})
+	for _, v := range shellutils.CommandTable {
+		_, e := subcmd.AddSubParser(v.Options, v.Command, v.Desc, v.Callback)
+		if e != nil {
+			return nil, e
+		}
+	}
+	return parse, nil
+}
+
+func showErrorAndExit(e error) {
+	fmt.Fprintf(os.Stderr, "%s", e)
+	fmt.Fprintln(os.Stderr)
+	os.Exit(1)
+}
+
+func newClient(options *Options) (*jdcloud.SRegion, error) {
+	if len(options.AccessKey) == 0 {
+		return nil, fmt.Errorf("Missing access key")
+	}
+	if len(options.AccessSecret) == 0 {
+		return nil, fmt.Errorf("Missing access secret")
+	}
+	regionId := options.RegionId
+	if regionId == "" {
+		regionId = jdcloud.JDCLOUD_DEFAULT_REGION
+	}
+	region := jdcloud.NewRegion(regionId, options.AccessKey, options.AccessSecret, nil)
+	if region == nil {
+		return nil, fmt.Errorf("no such region %s", regionId)
+	}
+	return region, nil
+}
+
+func main() {
+	parser, err := getSubcommandParser()
+	if err != nil {
+		showErrorAndExit(err)
+	}
+	err = parser.ParseArgs(os.Args[1:], false)
+	options := parser.Options().(*Options)
+
+	if options.Help {
+		fmt.Print(parser.HelpString())
+	} else {
+		if options.Debug {
+			log.SetLogLevel(log.Logger(), logrus.DebugLevel)
+		} else {
+			log.SetLogLevel(log.Logger(), logrus.InfoLevel)
+		}
+		subcmd := parser.GetSubcommand()
+		subparser := subcmd.GetSubParser()
+		if err != nil {
+			if subparser != nil {
+				fmt.Print(subparser.Usage())
+			} else {
+				fmt.Print(parser.Usage())
+			}
+			showErrorAndExit(err)
+		} else {
+			suboptions := subparser.Options()
+			if options.SUBCOMMAND == "help" {
+				err = subcmd.Invoke(suboptions)
+			} else {
+				var region *jdcloud.SRegion
+				region, err = newClient(options)
+				if err != nil {
+					showErrorAndExit(err)
+				}
+				err = subcmd.Invoke(region, suboptions)
+			}
+			if err != nil {
+				showErrorAndExit(err)
+			}
+		}
+	}
+}

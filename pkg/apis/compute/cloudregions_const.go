@@ -66,6 +66,7 @@ const (
 	CITY_SHI_JIA_ZHUANG = "ShiJiaZhuang" //石家庄
 	CITY_XIA_MEN        = "XiaMen"       //厦门
 	CITY_HUAI_NAN       = "HuaiNan"      //淮南
+	CITY_SU_QIAN        = "SuQian"       //宿迁
 
 	// 日本
 	CITY_TOKYO = "Tokyo" //东京
