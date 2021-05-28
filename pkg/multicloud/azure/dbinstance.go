@@ -77,13 +77,13 @@ type SDBInstanceProperties struct {
 type SDBInstance struct {
 	region *SRegion
 	multicloud.SDBInstanceBase
+	multicloud.AzureTags
 	Sku        SDBInstanceSku        `json:"sku"`
 	Properties SDBInstanceProperties `json:"properties"`
 	Location   string                `json:"location"`
 	ID         string                `json:"id"`
 	Name       string                `json:"name"`
 	Type       string                `json:"type"`
-	Tags       TAzureTags            `json:"tags"`
 }
 
 func (self *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, error) {

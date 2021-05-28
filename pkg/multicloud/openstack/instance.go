@@ -92,6 +92,7 @@ type SFault struct {
 
 type SInstance struct {
 	multicloud.SInstanceBase
+	multicloud.OpenStackTags
 	host *SHypervisor
 
 	DiskConfig         string    `json:"OS-DCF:diskConfig,omitempty"`
@@ -126,7 +127,6 @@ type SInstance struct {
 	KeyName                  string
 	Links                    []Link
 	Locked                   bool
-	Metadata                 Metadata
 	Name                     string
 	VolumesAttached          []VolumesAttached `json:"os-extended-volumes:volumes_attached,omitempty"`
 	Progress                 int

@@ -45,6 +45,7 @@ type ClassicVpcProperties struct {
 
 type SClassicVpc struct {
 	multicloud.SVpc
+	multicloud.AzureTags
 
 	region *SRegion
 

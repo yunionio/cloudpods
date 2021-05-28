@@ -32,17 +32,9 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
-type Tags struct {
-	Tag []Tag
-}
-
-type Tag struct {
-	TagKey   string
-	TagValue string
-}
-
 type SSecurityGroup struct {
 	multicloud.SSecurityGroup
+	multicloud.AwsTags
 	vpc *SVpc
 
 	RegionId          string
@@ -51,7 +43,6 @@ type SSecurityGroup struct {
 	Description       string
 	SecurityGroupName string
 	Permissions       []cloudprovider.SecurityRule
-	Tags              Tags
 
 	// CreationTime      time.Time
 	// InnerAccessPolicy string
@@ -100,14 +91,6 @@ func (self *SSecurityGroup) Refresh() error {
 
 func (self *SSecurityGroup) IsEmulated() bool {
 	return false
-}
-
-func (self *SSecurityGroup) GetTags() (map[string]string, error) {
-	data := map[string]string{}
-	for _, value := range self.Tags.Tag {
-		data[value.TagKey] = value.TagValue
-	}
-	return data, nil
 }
 
 func (self *SSecurityGroup) GetDescription() string {

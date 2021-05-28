@@ -37,6 +37,7 @@ import (
 type SElasticcache struct {
 	multicloud.SElasticcacheBase
 	multicloud.SBillingBase
+	multicloud.ApsaraTags
 
 	region    *SRegion
 	attribute *SElasticcacheAttribute

@@ -27,6 +27,7 @@ import (
 
 type SSnapshot struct {
 	multicloud.SResourceBase
+	multicloud.ZStackTags
 	region *SRegion
 
 	ZStackBasic

@@ -79,6 +79,7 @@ type SVpcAttributes struct {
 
 type SInstance struct {
 	multicloud.SInstanceBase
+	multicloud.ApsaraTags
 
 	host *SHost
 

@@ -28,6 +28,7 @@ import (
 
 type SCen struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	client                 *SAliyunClient
 	Status                 string                 `json:"Status"`
 	ProtectionLevel        string                 `json:"ProtectionLevel"`

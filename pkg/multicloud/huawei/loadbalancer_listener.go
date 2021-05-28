@@ -36,6 +36,7 @@ type Loadbalancer struct {
 
 type SElbListener struct {
 	multicloud.SResourceBase
+	multicloud.HuaweiTags
 	lb           *SLoadbalancer
 	acl          *SElbACL
 	backendgroup *SElbBackendGroup

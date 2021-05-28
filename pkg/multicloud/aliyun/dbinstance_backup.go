@@ -30,6 +30,7 @@ import (
 
 type SDBInstanceBackup struct {
 	multicloud.SDBInstanceBackupBase
+	multicloud.AliyunTags
 	region *SRegion
 
 	BackupDBNames             string

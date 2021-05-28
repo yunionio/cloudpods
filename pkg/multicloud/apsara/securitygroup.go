@@ -73,6 +73,7 @@ type Tag struct {
 
 type SSecurityGroup struct {
 	multicloud.SSecurityGroup
+	multicloud.ApsaraTags
 
 	vpc               *SVpc
 	CreationTime      time.Time

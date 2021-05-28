@@ -32,6 +32,7 @@ import (
 
 type SNetwork struct {
 	multicloud.SResourceBase
+	multicloud.CtyunTags
 	vpc  *SVpc
 	wire *SWire
 

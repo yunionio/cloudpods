@@ -42,6 +42,7 @@ import (
 
 type SStorage struct {
 	multicloud.SStorageBase
+	multicloud.ApsaraTags
 	zone        *SZone
 	storageType string
 }

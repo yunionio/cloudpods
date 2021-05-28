@@ -40,6 +40,7 @@ type AssociatedVPC struct {
 
 type SHostedZone struct {
 	multicloud.SResourceBase
+	multicloud.AwsTags
 	client *SAwsClient
 
 	ID                     string           `json:"Id"`

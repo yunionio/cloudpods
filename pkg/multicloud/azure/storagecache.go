@@ -46,6 +46,7 @@ const (
 
 type SStoragecache struct {
 	multicloud.SResourceBase
+	multicloud.AzureTags
 	region *SRegion
 }
 

@@ -27,6 +27,7 @@ import (
 
 type SLoadbalancerDefaultBackendGroup struct {
 	multicloud.SResourceBase
+	multicloud.ApsaraTags
 	lb *SLoadbalancer
 }
 

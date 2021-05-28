@@ -27,6 +27,7 @@ import (
 
 type SLoadbalancerHTTPListener struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	lb *SLoadbalancer
 
 	ListenerPort      int    //	负载均衡实例前端使用的端口。

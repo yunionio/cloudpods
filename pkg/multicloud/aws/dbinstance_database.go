@@ -21,6 +21,7 @@ import (
 
 type SDBInstanceDatabase struct {
 	multicloud.SDBInstanceDatabaseBase
+	multicloud.AwsTags
 
 	DBName string
 }

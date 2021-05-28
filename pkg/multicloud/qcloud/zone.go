@@ -39,6 +39,7 @@ const (
 
 type SZone struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 	region *SRegion
 
 	iwires []cloudprovider.ICloudWire

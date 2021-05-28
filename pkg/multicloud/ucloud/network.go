@@ -30,6 +30,7 @@ import (
 // https://docs.ucloud.cn/api/vpc2.0-api/describe_subnet
 type SNetwork struct {
 	multicloud.SResourceBase
+	multicloud.UcloudTags
 	wire *SWire
 
 	CreateTime   int64  `json:"CreateTime"`

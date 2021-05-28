@@ -29,6 +29,7 @@ import (
 
 type SProject struct {
 	multicloud.SResourceBase
+	multicloud.OpenStackTags
 	client      *SOpenStackClient
 	Description string
 	Enabled     bool

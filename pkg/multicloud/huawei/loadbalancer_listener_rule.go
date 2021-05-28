@@ -26,6 +26,7 @@ import (
 
 type SElbListenerPolicy struct {
 	multicloud.SResourceBase
+	multicloud.HuaweiTags
 	region   *SRegion
 	lb       *SLoadbalancer
 	listener *SElbListener

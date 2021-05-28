@@ -29,6 +29,7 @@ import (
 // https://help.aliyun.com/document_detail/95802.html?spm=a2c4g.11186623.6.746.1d4b302ayCuzXB
 type SElasticcacheAccount struct {
 	multicloud.SElasticcacheAccountBase
+	multicloud.AliyunTags
 
 	cacheDB *SElasticcache
 

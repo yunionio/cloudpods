@@ -24,6 +24,7 @@ import (
 // https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423027.html
 type SElasticcacheParameter struct {
 	multicloud.SElasticcacheParameterBase
+	multicloud.HuaweiTags
 
 	cacheDB *SElasticcache
 

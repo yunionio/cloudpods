@@ -30,6 +30,7 @@ import (
 
 type SfsTurbo struct {
 	multicloud.SNasBase
+	multicloud.HuaweiTags
 	region *SRegion
 
 	EnterpriseProjectId string

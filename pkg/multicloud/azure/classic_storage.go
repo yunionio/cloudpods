@@ -33,6 +33,7 @@ const (
 
 type SClassicStorage struct {
 	multicloud.SStorageBase
+	multicloud.AzureTags
 	region *SRegion
 
 	AccountType string

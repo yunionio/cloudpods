@@ -40,6 +40,7 @@ type Placement struct {
 type SDisk struct {
 	storage *SStorage
 	multicloud.SDisk
+	multicloud.QcloudTags
 
 	Attached             bool
 	AutoRenewFlagError   bool

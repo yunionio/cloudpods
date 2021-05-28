@@ -38,6 +38,7 @@ type SSnapshotDatePolicy struct {
 
 type SSnapshotPolicy struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 	region *SRegion
 
 	AutoSnapshotPolicyName  string

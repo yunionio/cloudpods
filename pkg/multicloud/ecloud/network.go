@@ -27,6 +27,7 @@ import (
 
 type SNetwork struct {
 	multicloud.SResourceBase
+	multicloud.EcloudTags
 	SZoneRegionBase
 
 	wire *SWire

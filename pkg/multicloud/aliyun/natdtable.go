@@ -27,6 +27,7 @@ import (
 
 type SForwardTableEntry struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	nat *SNatGateway
 
 	ForwardEntryId   string

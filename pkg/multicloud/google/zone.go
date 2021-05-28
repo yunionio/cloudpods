@@ -24,6 +24,7 @@ import (
 
 type SZone struct {
 	multicloud.SResourceBase
+	multicloud.GoogleTags
 	region *SRegion
 
 	Description           string

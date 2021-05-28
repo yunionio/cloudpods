@@ -38,10 +38,10 @@ const (
 type SEipAddress struct {
 	region *SRegion
 	multicloud.SEipBase
+	multicloud.AwsTags
 
 	AllocationId            string
 	Bandwidth               int
-	Tags                    TagSpec
 	Status                  string
 	InstanceId              string
 	AssociationId           string
@@ -63,10 +63,6 @@ func (self *SEipAddress) GetName() string {
 	}
 
 	return self.Name
-}
-
-func (self *SEipAddress) GetTags() (map[string]string, error) {
-	return self.Tags.GetTags()
 }
 
 func (self *SEipAddress) GetGlobalId() string {
@@ -199,10 +195,9 @@ func (self *SRegion) GetEips(eipId string, eipAddress string, offset int, limit 
 			status = EIP_STATUS_AVAILABLE
 		}
 
-		eips = append(eips, SEipAddress{
+		eip := SEipAddress{
 			region:                  self,
 			AllocationId:            *ip.AllocationId,
-			Tags:                    tagspec,
 			Status:                  status,
 			InstanceId:              *ip.InstanceId,
 			AssociationId:           *ip.AssociationId,
@@ -212,7 +207,9 @@ func (self *SRegion) GetEips(eipId string, eipAddress string, offset int, limit 
 			PrivateIpAddress:        *ip.PrivateIpAddress,
 			IpAddress:               *ip.PublicIp,
 			Name:                    tagspec.GetNameTag(),
-		})
+		}
+		jsonutils.Update(&eip.AwsTags.TagSet, ip.Tags)
+		eips = append(eips, eip)
 	}
 	return eips, len(eips), nil
 }

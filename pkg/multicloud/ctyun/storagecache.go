@@ -29,6 +29,7 @@ import (
 
 type SStoragecache struct {
 	multicloud.SResourceBase
+	multicloud.CtyunTags
 	region *SRegion
 }
 

@@ -31,6 +31,7 @@ type GroupProperties struct {
 
 type SResourceGroup struct {
 	multicloud.SResourceBase
+	multicloud.AzureTags
 	client *SAzureClient
 
 	ID         string

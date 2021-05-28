@@ -17,8 +17,6 @@ package google
 import (
 	"fmt"
 	"strings"
-
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SResourceBase struct {
@@ -36,16 +34,4 @@ func (r *SResourceBase) GetGlobalId() string {
 
 func (r *SResourceBase) GetName() string {
 	return r.Name
-}
-
-func (r *SResourceBase) GetSysTags() map[string]string {
-	return nil
-}
-
-func (r *SResourceBase) GetTags() (map[string]string, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (r *SResourceBase) SetTags(tags map[string]string, replace bool) error {
-	return cloudprovider.ErrNotImplemented
 }

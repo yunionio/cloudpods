@@ -34,6 +34,7 @@ import (
 // https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423020.html
 type SElasticcache struct {
 	multicloud.SElasticcacheBase
+	multicloud.HuaweiTags
 
 	region *SRegion
 

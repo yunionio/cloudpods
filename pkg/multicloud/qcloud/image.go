@@ -45,6 +45,7 @@ const (
 
 type SImage struct {
 	multicloud.SImageBase
+	multicloud.QcloudTags
 	storageCache *SStoragecache
 
 	// normalized image info

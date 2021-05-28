@@ -65,6 +65,7 @@ type SRelatedInstance struct {
 
 type SDBInstance struct {
 	multicloud.SDBInstanceBase
+	multicloud.HuaweiTags
 	region *SRegion
 
 	flavorCache []SDBInstanceFlavor

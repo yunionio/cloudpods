@@ -40,6 +40,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go/service/s3"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -421,18 +422,18 @@ func (self *SRegion) fetchIVpcs() error {
 
 		tagspec := TagSpec{ResourceType: "vpc"}
 		tagspec.LoadingEc2Tags(vpc.Tags)
-
-		self.ivpcs = append(self.ivpcs, &SVpc{region: self,
+		ivpc := &SVpc{region: self,
 			CidrBlock:               *vpc.CidrBlock,
 			CidrBlockAssociationSet: cidrBlockAssociationSet,
-			TagSpec:                 tagspec,
 			IsDefault:               *vpc.IsDefault,
 			RegionId:                self.RegionId,
 			Status:                  *vpc.State,
 			VpcId:                   *vpc.VpcId,
 			VpcName:                 tagspec.GetNameTag(),
 			InstanceTenancy:         *vpc.InstanceTenancy,
-		})
+		}
+		jsonutils.Update(ivpc.AwsTags.TagSet, vpc.Tags)
+		self.ivpcs = append(self.ivpcs, ivpc)
 	}
 
 	return nil

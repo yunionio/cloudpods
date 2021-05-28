@@ -37,6 +37,7 @@ const (
 // http://ctyun-api-url/apiproxy/v3/order/getImages
 type SImage struct {
 	multicloud.SImageBase
+	multicloud.CtyunTags
 	storageCache *SStoragecache
 
 	// normalized image info

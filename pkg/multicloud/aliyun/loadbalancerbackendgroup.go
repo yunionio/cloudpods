@@ -52,6 +52,7 @@ type AssociatedObjects struct {
 
 type SLoadbalancerBackendGroup struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	lb *SLoadbalancer
 
 	VServerGroupId    string

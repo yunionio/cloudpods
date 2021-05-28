@@ -28,6 +28,7 @@ import (
 // https://docs.ucloud.cn/api/udisk-api/describe_udisk_snapshot
 type SSnapshot struct {
 	multicloud.SResourceBase
+	multicloud.UcloudTags
 	region *SRegion
 
 	Comment          string `json:"Comment"`

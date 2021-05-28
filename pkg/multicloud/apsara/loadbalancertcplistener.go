@@ -28,6 +28,7 @@ import (
 
 type SLoadbalancerTCPListener struct {
 	multicloud.SResourceBase
+	multicloud.ApsaraTags
 	lb *SLoadbalancer
 
 	ListenerPort      int    //	负载均衡实例前端使用的端口。

@@ -69,6 +69,7 @@ type SSessionPersistence struct {
 
 type SLoadbalancerPool struct {
 	multicloud.SResourceBase
+	multicloud.OpenStackTags
 	region             *SRegion
 	members            []SLoadbalancerMember
 	healthmonitor      *SLoadbalancerHealthmonitor

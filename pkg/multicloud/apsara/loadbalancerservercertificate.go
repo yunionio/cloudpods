@@ -28,6 +28,7 @@ type SubjectAlternativeNames struct {
 
 type SLoadbalancerServerCertificate struct {
 	multicloud.SResourceBase
+	multicloud.ApsaraTags
 	region *SRegion
 
 	ServerCertificateId     string                  //	服务器证书ID。

@@ -16,6 +16,7 @@ package multicloud
 
 type SHostBase struct {
 	SResourceBase
+	STagBase
 }
 
 func (self *SHostBase) GetCpuCmtbound() float32 {

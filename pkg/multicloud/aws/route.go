@@ -23,6 +23,7 @@ import (
 
 type SRoute struct {
 	multicloud.SResourceBase
+	multicloud.AwsTags
 	routetable *SRouteTable
 
 	DestinationCIDRBlock string `json:"DestinationCidrBlock"`

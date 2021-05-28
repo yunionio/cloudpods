@@ -24,6 +24,7 @@ import (
 
 type SZone struct {
 	multicloud.SResourceBase
+	multicloud.AzureTags
 	region *SRegion
 
 	Name string

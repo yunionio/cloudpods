@@ -26,6 +26,7 @@ import (
 
 type SNovaStorage struct {
 	multicloud.SStorageBase
+	multicloud.OpenStackTags
 	host *SHypervisor
 	zone *SZone
 }

@@ -34,6 +34,7 @@ type OperationError struct {
 
 type SDBInstanceBackup struct {
 	multicloud.SDBInstanceBackupBase
+	multicloud.GoogleTags
 	rds *SDBInstance
 
 	Kind            string

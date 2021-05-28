@@ -91,6 +91,7 @@ type VolumeImageMetadata struct {
 type SDisk struct {
 	storage *SStorage
 	multicloud.SDisk
+	multicloud.HuaweiTags
 	details *SResourceDetail
 
 	ID                  string              `json:"id"`

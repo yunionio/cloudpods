@@ -34,6 +34,7 @@ type SNextHops struct {
 
 type SRouteEntry struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	routeTable *SRouteTable
 
 	RouteTableId         string
@@ -114,6 +115,7 @@ type SRouteEntrys struct {
 
 type SRouteTable struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	region *SRegion
 	vpc    *SVpc
 	routes []cloudprovider.ICloudRoute

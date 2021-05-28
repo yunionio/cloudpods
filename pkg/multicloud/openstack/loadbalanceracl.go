@@ -37,6 +37,7 @@ type AclEntry struct {
 
 type SLoadbalancerAcl struct {
 	multicloud.SResourceBase
+	multicloud.OpenStackTags
 	listener *SLoadbalancerListener
 }
 

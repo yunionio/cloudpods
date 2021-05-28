@@ -25,6 +25,7 @@ import (
 
 type SDBInstanceDatabase struct {
 	multicloud.SDBInstanceDatabaseBase
+	multicloud.ApsaraTags
 	instance *SDBInstance
 
 	CharacterSetName string

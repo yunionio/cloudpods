@@ -59,6 +59,7 @@ type SLoadbalancerHealthmonitorUpdateParams struct {
 
 type SLoadbalancerHealthmonitor struct {
 	multicloud.SResourceBase
+	multicloud.OpenStackTags
 	region             *SRegion
 	ProjectID          string    `json:"project_id"`
 	Name               string    `json:"name"`

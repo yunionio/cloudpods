@@ -28,6 +28,7 @@ import (
 
 type SInstanceType struct {
 	multicloud.SResourceBase
+	multicloud.ApsaraTags
 	BaselineCredit       int
 	CpuCoreCount         int
 	MemorySize           float32

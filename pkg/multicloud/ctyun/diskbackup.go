@@ -27,6 +27,7 @@ import (
 
 type SDiskBackup struct {
 	multicloud.SResourceBase
+	multicloud.CtyunTags
 	region *SRegion
 
 	Status           string `json:"status"`

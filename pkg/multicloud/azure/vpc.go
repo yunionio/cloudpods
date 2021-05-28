@@ -44,6 +44,7 @@ type VirtualNetworkPropertiesFormat struct {
 
 type SVpc struct {
 	multicloud.SVpc
+	multicloud.AzureTags
 	region *SRegion
 
 	ID         string
@@ -51,7 +52,6 @@ type SVpc struct {
 	Etag       string
 	Type       string
 	Location   string
-	Tags       TAzureTags
 	Properties VirtualNetworkPropertiesFormat `json:"properties,omitempty"`
 }
 

@@ -28,6 +28,7 @@ import (
 
 type SResourceGroup struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	client *SAliyunClient
 
 	Status      string

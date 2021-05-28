@@ -34,6 +34,7 @@ import (
 
 type SStoragecache struct {
 	multicloud.SResourceBase
+	multicloud.ZStackTags
 	ZoneId string
 	region *SRegion
 }

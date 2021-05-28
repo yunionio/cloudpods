@@ -39,6 +39,7 @@ const (
 
 type SRouteEntry struct {
 	multicloud.SResourceBase
+	multicloud.HuaweiTags
 	routeTable *SRouteTable
 
 	ID          string // route ID
@@ -103,6 +104,7 @@ func (route *SRouteEntry) GetNextHop() string {
 // And some method such as GetId and GetName of ICloudRouteTable has no practical meaning
 type SRouteTable struct {
 	multicloud.SResourceBase
+	multicloud.HuaweiTags
 	region *SRegion
 	vpc    *SVpc
 

@@ -34,6 +34,7 @@ import (
 
 type SAMLProvider struct {
 	multicloud.SResourceBase
+	multicloud.AzureTags
 	client *SAzureClient
 
 	Name     string

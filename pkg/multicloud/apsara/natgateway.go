@@ -40,6 +40,7 @@ type SSnatTableIds struct {
 
 type SNatGetway struct {
 	multicloud.SNatGatewayBase
+	multicloud.ApsaraTags
 
 	vpc *SVpc
 

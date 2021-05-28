@@ -27,6 +27,7 @@ import (
 
 type SDataDisk struct {
 	multicloud.SDisk
+	multicloud.AzureTags
 	region *SRegion
 
 	Lun            int32

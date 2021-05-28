@@ -25,6 +25,7 @@ import (
 
 type SProject struct {
 	multicloud.SResourceBase
+	multicloud.GoogleTags
 	Name           string
 	CreateTime     time.Time
 	LifecycleState string

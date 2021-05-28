@@ -24,6 +24,7 @@ import (
 
 type SVpc struct {
 	multicloud.SVpc
+	multicloud.ZStackTags
 
 	region *SRegion
 

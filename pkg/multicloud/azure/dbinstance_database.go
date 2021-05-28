@@ -29,6 +29,7 @@ import (
 type SDBInstanceDatabase struct {
 	region *SRegion
 	multicloud.SDBInstanceDatabaseBase
+	multicloud.AzureTags
 	ID         string                        `json:"id"`
 	Name       string                        `json:"name"`
 	Type       string                        `json:"type"`

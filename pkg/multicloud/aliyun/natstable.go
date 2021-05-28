@@ -27,6 +27,7 @@ import (
 
 type SSNATTableEntry struct {
 	multicloud.SResourceBase
+	multicloud.AliyunTags
 	nat *SNatGateway
 
 	SnatEntryId     string

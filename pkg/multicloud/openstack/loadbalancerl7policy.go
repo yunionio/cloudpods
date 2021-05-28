@@ -41,6 +41,7 @@ type SLoadbalancerL7PolicyCreateParams struct {
 
 type SLoadbalancerL7Policy struct {
 	multicloud.SResourceBase
+	multicloud.OpenStackTags
 	region             *SRegion
 	l7rules            []SLoadbalancerL7Rule
 	ListenerID         string      `json:"listener_id"`

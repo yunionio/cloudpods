@@ -46,6 +46,7 @@ type SDBInstanceExtra struct {
 
 type SDBInstance struct {
 	multicloud.SDBInstanceBase
+	multicloud.ApsaraTags
 
 	netInfo []SDBInstanceNetwork
 

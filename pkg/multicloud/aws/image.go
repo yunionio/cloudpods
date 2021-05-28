@@ -78,6 +78,7 @@ type RootDevice struct {
 
 type SImage struct {
 	multicloud.SImageBase
+	multicloud.AwsTags
 	storageCache *SStoragecache
 
 	// normalized image info

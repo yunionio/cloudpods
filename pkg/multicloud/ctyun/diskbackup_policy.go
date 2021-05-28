@@ -27,6 +27,7 @@ import (
 
 type SDiskBacupPolicy struct {
 	multicloud.SResourceBase
+	multicloud.CtyunTags
 	region *SRegion
 
 	PolicyResourceCount int64           `json:"policy_resource_count"`

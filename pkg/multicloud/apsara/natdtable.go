@@ -27,6 +27,7 @@ import (
 
 type SForwardTableEntry struct {
 	multicloud.SResourceBase
+	multicloud.ApsaraTags
 	nat *SNatGetway
 
 	ForwardEntryId   string

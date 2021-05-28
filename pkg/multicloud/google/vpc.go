@@ -27,6 +27,7 @@ import (
 
 type SVpc struct {
 	multicloud.SVpc
+	multicloud.GoogleTags
 	globalnetwork *SGlobalNetwork
 
 	region *SRegion

@@ -30,6 +30,7 @@ type SDatabasePrivileges struct {
 
 type SDBInstanceAccount struct {
 	multicloud.SDBInstanceAccountBase
+	multicloud.ApsaraTags
 	instance *SDBInstance
 
 	AccountDescription string

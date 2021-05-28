@@ -29,6 +29,7 @@ import (
 
 type SVirtualMachineSnapshot struct {
 	multicloud.SResourceBase
+	multicloud.STagBase
 	snapshotTree types.VirtualMachineSnapshotTree
 	vm           *SVirtualMachine
 }

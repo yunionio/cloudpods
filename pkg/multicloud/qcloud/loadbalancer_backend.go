@@ -28,6 +28,7 @@ import (
 
 type SLBBackend struct {
 	multicloud.SResourceBase
+	multicloud.QcloudTags
 	group *SLBBackendGroup
 
 	PublicIPAddresses  []string `json:"PublicIpAddresses"`

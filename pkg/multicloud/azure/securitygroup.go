@@ -68,6 +68,7 @@ type SecurityGroupPropertiesFormat struct {
 }
 type SSecurityGroup struct {
 	multicloud.SSecurityGroup
+	multicloud.AzureTags
 
 	region     *SRegion
 	Properties *SecurityGroupPropertiesFormat `json:"properties,omitempty"`
@@ -75,7 +76,6 @@ type SSecurityGroup struct {
 	Name       string
 	Location   string
 	Type       string
-	Tags       TAzureTags
 }
 
 func parseCIDR(cidr string) (*net.IPNet, error) {

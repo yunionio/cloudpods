@@ -27,6 +27,7 @@ import (
 
 type SZone struct {
 	multicloud.SResourceBase
+	multicloud.ZStackTags
 	region *SRegion
 
 	ZStackBasic

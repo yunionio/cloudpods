@@ -40,13 +40,13 @@ const (
 
 type SSnapshot struct {
 	multicloud.SResourceBase
+	multicloud.OpenStackTags
 	region *SRegion
 
 	Id       string
 	VolumeId string
 
-	Status   string
-	Metadata Metadata
+	Status string
 
 	Progress  string `json:"os-extended-snapshot-attributes:progress"`
 	Name      string

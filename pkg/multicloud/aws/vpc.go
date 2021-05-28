@@ -36,6 +36,7 @@ type SUserCIDRs struct {
 
 type SVpc struct {
 	multicloud.SVpc
+	multicloud.AwsTags
 
 	region *SRegion
 
@@ -50,7 +51,6 @@ type SVpc struct {
 	IsDefault               bool
 	Status                  string
 	InstanceTenancy         string
-	TagSpec                 TagSpec
 }
 
 func (self *SVpc) addWire(wire *SWire) {
@@ -62,10 +62,6 @@ func (self *SVpc) addWire(wire *SWire) {
 
 func (self *SVpc) GetId() string {
 	return self.VpcId
-}
-
-func (self *SVpc) GetTags() (map[string]string, error) {
-	return self.TagSpec.GetTags()
 }
 
 func (self *SVpc) GetName() string {
@@ -675,7 +671,7 @@ func (self *SRegion) GetVpcs(vpcId []string) ([]SVpc, error) {
 		tagspec := TagSpec{ResourceType: "vpc"}
 		tagspec.LoadingEc2Tags(item.Tags)
 
-		vpcs = append(vpcs, SVpc{
+		vpc := SVpc{
 			region:                  self,
 			RegionId:                self.RegionId,
 			VpcId:                   *item.VpcId,
@@ -685,8 +681,9 @@ func (self *SRegion) GetVpcs(vpcId []string) ([]SVpc, error) {
 			IsDefault:               *item.IsDefault,
 			Status:                  *item.State,
 			InstanceTenancy:         *item.InstanceTenancy,
-			TagSpec:                 tagspec,
-		})
+		}
+		jsonutils.Update(&vpc.AwsTags.TagSet, item.Tags)
+		vpcs = append(vpcs, vpc)
 	}
 
 	return vpcs, nil
