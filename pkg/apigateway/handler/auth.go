@@ -140,7 +140,7 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 	if options.Options.ReturnFullDomainList {
 		filters := jsonutils.NewDict()
 		if len(currentDomain) > 0 {
-			filters.Add(jsonutils.NewString(currentDomain), "id")
+			filters.Add(jsonutils.NewString(currentDomain), "name")
 		}
 		filters.Add(jsonutils.NewInt(1000), "limit")
 		result, e := modules.Domains.List(s, filters)
