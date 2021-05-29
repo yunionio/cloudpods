@@ -432,7 +432,7 @@ func (self *SRegion) fetchIVpcs() error {
 			VpcName:                 tagspec.GetNameTag(),
 			InstanceTenancy:         *vpc.InstanceTenancy,
 		}
-		jsonutils.Update(ivpc.AwsTags.TagSet, vpc.Tags)
+		jsonutils.Update(&ivpc.AwsTags.TagSet, vpc.Tags)
 		self.ivpcs = append(self.ivpcs, ivpc)
 	}
 
