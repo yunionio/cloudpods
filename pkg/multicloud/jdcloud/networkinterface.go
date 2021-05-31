@@ -24,12 +24,11 @@ import (
 
 type SNetworkInterface struct {
 	multicloud.SNetworkInterfaceBase
+	multicloud.JdcloudTags
 	region *SRegion
 
 	models.NetworkInterface
 }
-
-var ni cloudprovider.ICloudNetworkInterface = &SNetworkInterface{}
 
 func (nic *SNetworkInterface) GetId() string {
 	return nic.NetworkInterfaceId

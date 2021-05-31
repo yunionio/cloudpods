@@ -31,6 +31,7 @@ import (
 
 type SSnapshot struct {
 	multicloud.SResourceBase
+	multicloud.JdcloudTags
 	region *SRegion
 
 	models.Snapshot

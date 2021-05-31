@@ -33,6 +33,7 @@ type SDisk struct {
 	storage *SStorage
 
 	multicloud.SDisk
+	multicloud.JdcloudTags
 	multicloud.SBillingBase
 
 	models.Disk

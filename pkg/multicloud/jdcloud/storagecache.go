@@ -27,6 +27,7 @@ import (
 
 type SStoragecache struct {
 	multicloud.SResourceBase
+	multicloud.JdcloudTags
 	region *SRegion
 }
 

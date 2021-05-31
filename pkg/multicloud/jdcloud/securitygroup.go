@@ -31,6 +31,7 @@ import (
 
 type SSecurityGroup struct {
 	multicloud.SSecurityGroup
+	multicloud.JdcloudTags
 
 	vpc *SVpc
 	models.NetworkSecurityGroup

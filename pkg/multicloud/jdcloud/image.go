@@ -30,6 +30,7 @@ import (
 
 type SImage struct {
 	multicloud.SImageBase
+	multicloud.JdcloudTags
 
 	storageCache *SStoragecache
 	models.Image

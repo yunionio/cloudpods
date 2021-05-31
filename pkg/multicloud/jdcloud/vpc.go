@@ -30,6 +30,7 @@ import (
 
 type SVpc struct {
 	multicloud.SVpc
+	multicloud.JdcloudTags
 	models.Vpc
 
 	secgroups []cloudprovider.ICloudSecurityGroup

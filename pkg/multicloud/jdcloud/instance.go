@@ -37,6 +37,7 @@ import (
 type SInstance struct {
 	multicloud.SInstanceBase
 	multicloud.SBillingBase
+	multicloud.JdcloudTags
 
 	host  *SHost
 	image *SImage

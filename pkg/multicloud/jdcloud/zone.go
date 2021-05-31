@@ -79,6 +79,7 @@ var ZonesInRegion = map[string][]sZoneIden{
 
 type SZone struct {
 	multicloud.SResourceBase
+	multicloud.JdcloudTags
 	region *SRegion
 
 	ihost     cloudprovider.ICloudHost

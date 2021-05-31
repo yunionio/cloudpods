@@ -30,6 +30,7 @@ import (
 type SEip struct {
 	region *SRegion
 	multicloud.SEipBase
+	multicloud.JdcloudTags
 
 	models.ElasticIp
 }

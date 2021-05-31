@@ -237,6 +237,21 @@ func (self *EcloudTags) SetTags(tags map[string]string, replace bool) error {
 	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetTags")
 }
 
+type JdcloudTags struct {
+}
+
+func (jt *JdcloudTags) GetTags() (map[string]string, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetTags")
+}
+
+func (self *JdcloudTags) GetSysTags() map[string]string {
+	return nil
+}
+
+func (self *JdcloudTags) SetTags(tags map[string]string, replace bool) error {
+	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetTags")
+}
+
 type HuaweiTags struct {
 	Tags []string
 }
