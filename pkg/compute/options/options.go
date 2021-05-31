@@ -112,7 +112,7 @@ type ComputeOptions struct {
 	ConvertEsxiDefaultTemplate       string `help:"ESXI baremetal convert option"`
 	ConvertKubeletDockerVolumeSize   string `default:"256g" help:"Docker volume size"`
 
-	EnablePreAllocateIpAddr bool `help:"Enable private and public cloud private ip pre allocate, default true" default:"true"`
+	EnablePreAllocateIpAddr bool `help:"Enable private and public cloud private ip pre allocate, default false" default:"false"`
 
 	DefaultImageCacheDir string `default:"image_cache"`
 
