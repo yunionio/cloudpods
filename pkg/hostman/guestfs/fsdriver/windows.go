@@ -511,5 +511,5 @@ func (w *SWindowsRootFs) DetectIsUEFISupport(part IDiskPartition) bool {
 }
 
 func (l *SWindowsRootFs) IsResizeFsPartitionSupport() bool {
-	return false
+	return true
 }
