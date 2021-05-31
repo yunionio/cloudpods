@@ -482,3 +482,22 @@ type ServerDeleteInput struct {
 	// default: false
 	DeleteDisks bool
 }
+
+type ServerDetachnetworkInput struct {
+	// 是否保留IP地址(ip地址会进入到预留ip)
+	Reserve bool `json:"reserve"`
+	// 通过IP子网地址, 优先级最高
+	NetId string `json:"net_id"`
+	// 通过IP解绑网卡, 优先级高于mac
+	IpAddr string `json:"ip_addr"`
+	// 通过Mac解绑网卡, 优先级低于ip_addr
+	Mac string `json:"mac"`
+}
+
+type ServerMigrateForecastInput struct {
+	PreferHostId string `json:"prefer_host_id"`
+	// Deprecated
+	PreferHost   string `json:"prefer_host" yunion-deprecated-by:"prefer_host_id"`
+	LiveMigrate  bool   `json:"live_migrate"`
+	SkipCpuCheck bool   `josn:"skip_cpu_check"`
+}

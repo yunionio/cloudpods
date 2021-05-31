@@ -355,31 +355,129 @@ func (self *SGuest) CheckQemuVersion(qemuVer, compareVer string) bool {
 	return true
 }
 
+func (self *SGuest) validateMigrate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	migrateInput *api.GuestMigrateInput,
+	liveMigrateInput *api.GuestLiveMigrateInput,
+) error {
+	isLiveMigrate := false
+	if liveMigrateInput != nil {
+		isLiveMigrate = true
+	}
+
+	if isLiveMigrate {
+		// do live migrate check
+		if !self.GetDriver().IsSupportLiveMigrate() {
+			return httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.GetHypervisor())
+		}
+		if err := self.GetDriver().CheckLiveMigrate(self, userCred, *liveMigrateInput); err != nil {
+			return err
+		}
+		if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_SUSPEND}) {
+			if len(liveMigrateInput.PreferHost) > 0 {
+				iHost, _ := HostManager.FetchByIdOrName(userCred, liveMigrateInput.PreferHost)
+				if iHost == nil {
+					return httperrors.NewBadRequestError("Host %s not found", liveMigrateInput.PreferHost)
+				}
+				host := iHost.(*SHost)
+				liveMigrateInput.PreferHost = host.Id
+			}
+			return nil
+		}
+		return httperrors.NewBadRequestError("Cannot live migrate in status %s", self.Status)
+	} else {
+		// do migrate check
+		if !self.GetDriver().IsSupportMigrate() {
+			return httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.GetHypervisor())
+		}
+		if err := self.GetDriver().CheckMigrate(self, userCred, *migrateInput); err != nil {
+			return err
+		}
+		if self.Status != api.VM_READY {
+			return httperrors.NewServerStatusError("Cannot normal migrate guest in status %s, try rescue mode or server-live-migrate?", self.Status)
+		}
+		if len(migrateInput.PreferHost) > 0 {
+			iHost, _ := HostManager.FetchByIdOrName(userCred, migrateInput.PreferHost)
+			if iHost == nil {
+				return httperrors.NewBadRequestError("Host %s not found", migrateInput.PreferHost)
+			}
+			host := iHost.(*SHost)
+			migrateInput.PreferHost = host.Id
+		}
+		return nil
+	}
+}
+
+func (self *SGuest) PerformMigrateForecast(ctx context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject, input *api.ServerMigrateForecastInput) (jsonutils.JSONObject, error) {
+	var (
+		mInput  *api.GuestMigrateInput     = nil
+		lmInput *api.GuestLiveMigrateInput = nil
+	)
+
+	if input.LiveMigrate {
+		lmInput = &api.GuestLiveMigrateInput{
+			PreferHost:   input.PreferHostId,
+			SkipCpuCheck: &input.SkipCpuCheck,
+		}
+		if err := self.validateMigrate(ctx, userCred, nil, lmInput); err != nil {
+			return nil, err
+		}
+		input.PreferHostId = lmInput.PreferHost
+	} else {
+		mInput = &api.GuestMigrateInput{
+			PreferHost: input.PreferHostId,
+		}
+		if err := self.validateMigrate(ctx, userCred, mInput, nil); err != nil {
+			return nil, err
+		}
+		input.PreferHostId = mInput.PreferHost
+	}
+
+	schedParams := self.GetSchedMigrateParams(userCred, input)
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	_, res, err := modules.SchedManager.DoScheduleForecast(s, schedParams, 1)
+	if err != nil {
+		return nil, errors.Wrap(err, "Do schedule migrate forecast")
+	}
+
+	return res, nil
+}
+
+func (self *SGuest) GetSchedMigrateParams(
+	userCred mcclient.TokenCredential,
+	input *api.ServerMigrateForecastInput,
+) *schedapi.ScheduleInput {
+	schedDesc := self.ToSchedDesc()
+	if input.PreferHostId != "" {
+		schedDesc.ServerConfig.PreferHost = input.PreferHostId
+	}
+	if input.LiveMigrate {
+		schedDesc.LiveMigrate = input.LiveMigrate
+		if self.GetMetadata("__cpu_mode", userCred) != api.CPU_MODE_QEMU {
+			host := self.GetHost()
+			schedDesc.CpuDesc = host.CpuDesc
+			schedDesc.CpuMicrocode = host.CpuMicrocode
+			schedDesc.CpuMode = api.CPU_MODE_HOST
+		} else {
+			schedDesc.CpuMode = api.CPU_MODE_QEMU
+		}
+		schedDesc.SkipCpuCheck = &input.SkipCpuCheck
+	}
+	schedDesc.ReuseNetwork = true
+	return schedDesc
+}
+
 func (self *SGuest) AllowPerformMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.GuestMigrateInput) bool {
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "migrate")
 }
 
-func (self *SGuest) PerformMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.GuestMigrateInput) (jsonutils.JSONObject, error) {
-	if !self.GetDriver().IsSupportMigrate() {
-		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.GetHypervisor())
-	}
-	if !input.IsRescueMode && self.Status != api.VM_READY {
-		return nil, httperrors.NewServerStatusError("Cannot normal migrate guest in status %s, try rescue mode or server-live-migrate?", self.Status)
-	}
-	if err := self.GetDriver().CheckMigrate(self, userCred, input); err != nil {
+func (self *SGuest) PerformMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.GuestMigrateInput) (jsonutils.JSONObject, error) {
+	if err := self.validateMigrate(ctx, userCred, input, nil); err != nil {
 		return nil, err
 	}
-	var preferHostId string
-	if len(input.PreferHost) > 0 {
-		iHost, _ := HostManager.FetchByIdOrName(userCred, input.PreferHost)
-		if iHost == nil {
-			return nil, httperrors.NewBadRequestError("Host %s not found", input.PreferHost)
-		}
-		host := iHost.(*SHost)
-		preferHostId = host.Id
-	}
 
-	return nil, self.StartMigrateTask(ctx, userCred, input.IsRescueMode, input.AutoStart, self.Status, preferHostId, "")
+	return nil, self.StartMigrateTask(ctx, userCred, input.IsRescueMode, input.AutoStart, self.Status, input.PreferHost, "")
 }
 
 func (self *SGuest) StartMigrateTask(
@@ -415,27 +513,11 @@ func (self *SGuest) AllowPerformLiveMigrate(ctx context.Context, userCred mcclie
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "live-migrate")
 }
 
-func (self *SGuest) PerformLiveMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.GuestLiveMigrateInput) (jsonutils.JSONObject, error) {
-	if !self.GetDriver().IsSupportLiveMigrate() {
-		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.GetHypervisor())
-	}
-	if err := self.GetDriver().CheckLiveMigrate(self, userCred, input); err != nil {
+func (self *SGuest) PerformLiveMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.GuestLiveMigrateInput) (jsonutils.JSONObject, error) {
+	if err := self.validateMigrate(ctx, userCred, nil, input); err != nil {
 		return nil, err
 	}
-	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_SUSPEND}) {
-		var preferHostId string
-		if len(input.PreferHost) > 0 {
-			iHost, _ := HostManager.FetchByIdOrName(userCred, input.PreferHost)
-			if iHost == nil {
-				return nil, httperrors.NewBadRequestError("Host %s not found", input.PreferHost)
-			}
-			host := iHost.(*SHost)
-			preferHostId = host.Id
-		}
-		err := self.StartGuestLiveMigrateTask(ctx, userCred, self.Status, preferHostId, input.SkipCpuCheck, "")
-		return nil, err
-	}
-	return nil, httperrors.NewBadRequestError("Cannot live migrate in status %s", self.Status)
+	return nil, self.StartGuestLiveMigrateTask(ctx, userCred, self.Status, input.PreferHost, input.SkipCpuCheck, "")
 }
 
 func (self *SGuest) StartGuestLiveMigrateTask(ctx context.Context, userCred mcclient.TokenCredential, guestStatus, preferHostId string, skipCpuCheck *bool, parentTaskId string) error {
