@@ -50,6 +50,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/userdata"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -4448,25 +4449,24 @@ func (guest *SGuest) AllowPerformResizeDisk(ctx context.Context, userCred mcclie
 	return guest.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, guest, "resize-disk")
 }
 
-func (guest *SGuest) PerformResizeDisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	diskStr, _ := data.GetString("disk")
-	if len(diskStr) == 0 {
-		return nil, httperrors.NewMissingParameterError("disk")
+func (guest *SGuest) PerformResizeDisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerResizeDiskInput) (jsonutils.JSONObject, error) {
+	if len(input.DiskId) == 0 {
+		return nil, httperrors.NewMissingParameterError("disk_id")
 	}
-	diskObj, err := DiskManager.FetchByIdOrName(userCred, diskStr)
+	diskObj, err := validators.ValidateModel(userCred, DiskManager, &input.DiskId)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError2(DiskManager.Keyword(), diskStr)
-		} else {
-			return nil, httperrors.NewGeneralError(err)
-		}
+		return nil, err
 	}
-	guestdisk := guest.GetGuestDisk(diskObj.GetId())
+	guestdisk := guest.GetGuestDisk(input.DiskId)
 	if guestdisk == nil {
-		return nil, httperrors.NewInvalidStatusError("disk %s not attached to server", diskStr)
+		return nil, httperrors.NewInvalidStatusError("disk %s not attached to server", input.DiskId)
 	}
 	disk := diskObj.(*SDisk)
-	err = disk.doResize(ctx, userCred, data, guest)
+	sizeMb, err := input.SizeMb()
+	if err != nil {
+		return nil, err
+	}
+	err = disk.doResize(ctx, userCred, sizeMb, guest)
 	if err != nil {
 		return nil, err
 	}
