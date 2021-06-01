@@ -17,8 +17,11 @@ package compute
 import (
 	"time"
 
+	"yunion.io/x/pkg/util/fileutils"
+
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/billing"
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type DiskCreateInput struct {
@@ -248,4 +251,17 @@ type DiskSaveInput struct {
 
 	// swagger: ignore
 	ImageId string
+}
+
+type DiskResizeInput struct {
+	// default unit: Mb
+	// example: 1024; 40G; 1024M
+	Size string `json:"size"`
+}
+
+func (self DiskResizeInput) SizeMb() (int, error) {
+	if len(self.Size) == 0 {
+		return 0, httperrors.NewMissingParameterError("size")
+	}
+	return fileutils.GetSizeMb(self.Size, 'M', 1024)
 }
