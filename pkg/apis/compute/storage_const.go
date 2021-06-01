@@ -95,6 +95,13 @@ const (
 	STORAGE_CTYUN_SAS  = "SAS"  // 高IO云硬盘
 	STORAGE_CTYUN_SATA = "SATA" // 普通IO云硬盘
 
+	// jd cloud storage type
+	STORAGE_JDCLOUD_GP1 = "ssd.gp1"     // 通用型SSD云硬盘
+	STORAGE_JDCLOUD_IO1 = "ssd.io1"     // 性能型SSD云硬盘
+	STORAGE_JDCLOUD_STD = "hdd.std1"    // 容量型HDD云硬盘
+	STORAGE_JDCLOUD_SSD = "ssd"         // SSD云硬盘
+	STORAGE_JDCLOUD_PHD = "premium-hdd" // HDD云硬盘
+
 	STORAGE_ECLOUD_CAPEBS = "capebs" // 容量盘
 	STORAGE_ECLOUD_EBS    = "ebs"    // 性能盘
 	STORAGE_ECLOUD_SSD    = "ssd"    // 高性能盘
