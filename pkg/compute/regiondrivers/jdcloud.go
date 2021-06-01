@@ -1,7 +1,10 @@
 package regiondrivers
 
 import (
+	"yunion.io/x/pkg/util/secrules"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -30,4 +33,12 @@ func (self *SJDcloudRegionDriver) IsOnlySupportAllowRules() bool {
 
 func (self *SJDcloudRegionDriver) IsSecurityGroupBelongVpc() bool {
 	return true
+}
+
+func (self *SJDcloudRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
+}
+
+func (self *SJDcloudRegionDriver) GetDefaultSecurityGroupOutRule() cloudprovider.SecurityRule {
+	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("out:allow any")}
 }

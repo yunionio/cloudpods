@@ -61,7 +61,9 @@ func (sg *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
 	rules := sg.SecurityGroupRules
 	srs := make([]cloudprovider.SecurityRule, 0, len(rules))
 	for i := range rules {
-		rule := secrules.SecurityRule{}
+		rule := secrules.SecurityRule{
+			Priority: 1,
+		}
 
 		if rules[i].Direction == 0 {
 			rule.Direction = secrules.SecurityRuleIngress
