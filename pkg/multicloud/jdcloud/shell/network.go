@@ -37,4 +37,16 @@ func init() {
 		printList(networks, 0, 0, 0, nil)
 		return nil
 	})
+	shellutils.R(&VNetworkListOptions{}, "secgroup-list", "List secgroup", func(cli *jdcloud.SRegion, args *VNetworkListOptions) error {
+		ivpc, err := cli.GetIVpcById(args.VPCID)
+		if err != nil {
+			return err
+		}
+		segs, err := ivpc.GetISecurityGroups()
+		if err != nil {
+			return err
+		}
+		printList(segs, 0, 0, 0, nil)
+		return nil
+	})
 }
