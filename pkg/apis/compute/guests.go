@@ -540,3 +540,12 @@ type ServerMigrateForecastInput struct {
 	LiveMigrate  bool   `json:"live_migrate"`
 	SkipCpuCheck bool   `josn:"skip_cpu_check"`
 }
+
+type ServerResizeDiskInput struct {
+	// swagger: ignore
+	Disk string `json:"disk" yunion-deprecated-by:"disk_id"`
+	// 磁盘Id
+	DiskId string `json:"disk_id"`
+
+	DiskResizeInput
+}
