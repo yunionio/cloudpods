@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -189,7 +190,7 @@ func (in *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		}
 		stroage, err := in.host.zone.getStorageByType(disk.DiskType)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "unable to find storage with type %s", disk.DiskType)
 		}
 		disk.storage = stroage
 		disks = append(disks, disk)
@@ -198,9 +199,9 @@ func (in *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		disk := &SDisk{
 			Disk: in.DataDisks[i].CloudDisk,
 		}
-		stroage, err := in.host.zone.getStorageByType(disk.GetDiskType())
+		stroage, err := in.host.zone.getStorageByType(disk.DiskType)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "unable to find storage with type %s", disk.DiskType)
 		}
 		disk.storage = stroage
 		disks = append(disks, disk)
