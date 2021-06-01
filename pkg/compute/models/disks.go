@@ -27,7 +27,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -859,9 +858,16 @@ func (self *SDisk) AllowPerformResize(ctx context.Context, userCred mcclient.Tok
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "resize")
 }
 
-func (disk *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (disk *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DiskResizeInput) (jsonutils.JSONObject, error) {
 	guest := disk.GetGuest()
-	err := disk.doResize(ctx, userCred, data, guest)
+	if guest != nil {
+		return nil, httperrors.NewUnsupportOperationError("try use /servers/<%s>/resize-disk API", guest.Id)
+	}
+	sizeMb, err := input.SizeMb()
+	if err != nil {
+		return nil, err
+	}
+	err = disk.doResize(ctx, userCred, sizeMb, guest)
 	if err != nil {
 		return nil, err
 	}
@@ -902,15 +908,7 @@ func (disk *SDisk) GetQuotaKeys() (quotas.IQuotaKeys, error) {
 	), nil
 }
 
-func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, guest *SGuest) error {
-	sizeStr, err := data.GetString("size")
-	if err != nil {
-		return httperrors.NewMissingParameterError("size")
-	}
-	sizeMb, err := fileutils.GetSizeMb(sizeStr, 'M', 1024)
-	if err != nil {
-		return err
-	}
+func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredential, sizeMb int, guest *SGuest) error {
 	if disk.Status != api.DISK_READY {
 		return httperrors.NewResourceNotReadyError("Resize disk when disk is READY")
 	}
