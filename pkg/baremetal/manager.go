@@ -797,7 +797,11 @@ func PowerStatusToServerStatus(bm *SBaremetalInstance, status string) string {
 		if conf, _ := bm.GetSSHConfig(); conf == nil {
 			return baremetalstatus.SERVER_RUNNING
 		} else {
-			return baremetalstatus.SERVER_ADMIN
+			if !bm.HasBMC() && !bm.IsMaintenance() {
+				return baremetalstatus.SERVER_READY
+			} else {
+				return baremetalstatus.SERVER_ADMIN
+			}
 		}
 	case types.POWER_STATUS_OFF:
 		return baremetalstatus.SERVER_READY
@@ -994,6 +998,10 @@ func (b *SBaremetalInstance) getDHCPConfig(
 	serverIP, err := b.manager.Agent.GetDHCPServerIP()
 	if err != nil {
 		return nil, err
+	}
+	if isPxe && !b.NeedPXEBoot() {
+		b.ClearSSHConfig()
+		return nil, errors.Errorf("Baremetal %s not need PXE boot", b.GetName())
 	}
 	return GetNicDHCPConfig(nic, serverIP.String(), hostName, isPxe, arch)
 }
@@ -1406,16 +1414,18 @@ func (b *SBaremetalInstance) GetServerSSHClient() (*ssh.Client, error) {
 
 func (b *SBaremetalInstance) SSHReachable() (bool, error) {
 	var errs []error
-	if _, err := b.GetHostSSHClient(); err != nil {
+	if cli, err := b.GetHostSSHClient(); err != nil {
 		errs = append(errs, err)
 	} else {
 		// host ssh reachable
+		cli.Close()
 		return true, nil
 	}
-	if _, err := b.GetServerSSHClient(); err != nil {
+	if cli, err := b.GetServerSSHClient(); err != nil {
 		errs = append(errs, err)
 	} else {
 		// server ssh reachable
+		cli.Close()
 		return true, nil
 	}
 	return false, errors.NewAggregate(errs)
@@ -1554,12 +1564,15 @@ func (b *SBaremetalInstance) GetPowerStatus() (string, error) {
 func (b *SBaremetalInstance) getPowerStatus() (string, error) {
 	ipmiCli := b.GetIPMITool()
 	if ipmiCli == nil {
-		if _, err := b.GetHostSSHClient(); err == nil {
+		if cli, err := b.GetHostSSHClient(); err == nil {
+			cli.Close()
 			return types.POWER_STATUS_ON, nil
 		} else {
 			log.Warningf("Use host %s ssh client get powerstatus: %v", b.GetName(), err)
 		}
-		if _, err := b.GetServerSSHClient(); err == nil {
+		if cli, err := b.GetServerSSHClient(); err == nil {
+			cli.Close()
+			b.ClearSSHConfig()
 			return types.POWER_STATUS_ON, nil
 		} else {
 			log.Warningf("Use server %s ssh client get powerstatus: %v", b.GetServerName(), err)
