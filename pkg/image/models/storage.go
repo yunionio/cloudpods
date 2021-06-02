@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/image/drivers/s3"
+	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -159,7 +160,7 @@ func (s *S3Storage) GetImage(imagePath string) (int64, io.ReadCloser, error) {
 }
 
 func (s *S3Storage) IsCheckStatusEnabled() bool {
-	return false
+	return options.Options.S3CheckImageStatus
 }
 
 func (s *S3Storage) RemoveImage(fileName string) error {
