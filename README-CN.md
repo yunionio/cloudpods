@@ -74,7 +74,7 @@ $ git clone https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py <host_
 
 ## 里程碑
 
-请访问[Cloudpods Roadmap](https://docs.yunion.io/en/docs/roadmap/).
+请访问[Cloudpods Roadmap](https://docs.yunion.io/zh/docs/roadmap/).
 
 
 ## 贡献
