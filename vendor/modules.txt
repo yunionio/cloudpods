@@ -407,6 +407,9 @@ github.com/jdcloud-api/jdcloud-sdk-go/services/common/models
 github.com/jdcloud-api/jdcloud-sdk-go/services/disk/apis
 github.com/jdcloud-api/jdcloud-sdk-go/services/disk/client
 github.com/jdcloud-api/jdcloud-sdk-go/services/disk/models
+github.com/jdcloud-api/jdcloud-sdk-go/services/monitor/apis
+github.com/jdcloud-api/jdcloud-sdk-go/services/monitor/client
+github.com/jdcloud-api/jdcloud-sdk-go/services/monitor/models
 github.com/jdcloud-api/jdcloud-sdk-go/services/vm/apis
 github.com/jdcloud-api/jdcloud-sdk-go/services/vm/client
 github.com/jdcloud-api/jdcloud-sdk-go/services/vm/models
@@ -1192,7 +1195,7 @@ yunion.io/x/pkg/util/workqueue
 yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v0.0.0-20210401131841-cdb9ab689824
+# yunion.io/x/sqlchemy v0.0.0-20210519174758-cb08030e2008
 yunion.io/x/sqlchemy
 # yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
 yunion.io/x/structarg
