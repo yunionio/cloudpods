@@ -6,7 +6,7 @@
 
 ## Cloudpods是什么?
 
-Cloudpods是一个开源的Golang实现的融合多云/混合云云平台。Cloudpods可以理解为pod(豆荚) of clouds，有多云的寓意。Cloupods可以管理多个云账号的资源。并且，Cloudpods隐藏了云之间的资源数据模型和API的差异，对外暴露了一套统一的API来访问多云的资源。
+Cloudpods是一个开源的Golang实现的云原生融合多云/混合云云平台。Cloudpods可以理解为pod(豆荚) of clouds，有多云的寓意。Cloupods可以管理多个云账号的资源。并且，Cloudpods隐藏了云之间的资源数据模型和API的差异，对外暴露了一套统一的API来访问多云的资源。
 
 ## 功能
 
