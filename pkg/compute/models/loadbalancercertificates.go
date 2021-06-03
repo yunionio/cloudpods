@@ -478,3 +478,16 @@ func (manager *SLoadbalancerCertificateManager) GetResourceCount() ([]db.SScopeR
 	virts := manager.Query().IsFalse("pending_deleted")
 	return db.CalculateResourceCount(virts, "tenant_id")
 }
+
+func (manager *SLoadbalancerCertificateManager) GetLbCertByFingerprint(tenantId, fingerprint string) (*SLoadbalancerCertificate, error) {
+	c := SLoadbalancerCertificate{}
+	c.SetModelManager(manager, &c)
+	q1 := LoadbalancerCertificateManager.Query().IsFalse("pending_deleted")
+	q1 = q1.Equals("fingerprint", fingerprint)
+	q1 = q1.Equals("tenant_id", tenantId)
+	if err := q1.First(&c); err != nil {
+		return nil, err
+	}
+
+	return &c, nil
+}
