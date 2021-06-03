@@ -689,12 +689,13 @@ func (m *SGuestManager) GuestStart(ctx context.Context, sid string, body jsonuti
 			guest.SaveDesc(desc)
 		}
 		if guest.IsStopped() {
-			var data *jsonutils.JSONDict
-			params, err := body.Get("params")
-			if err != nil {
-				data, _ = params.(*jsonutils.JSONDict)
+			data := struct {
+				Params *jsonutils.JSONDict
+			}{
+				Params: jsonutils.NewDict(),
 			}
-			guest.StartGuest(ctx, data)
+			body.Unmarshal(&data)
+			guest.StartGuest(ctx, data.Params)
 			res := jsonutils.NewDict()
 			res.Set("vnc_port", jsonutils.NewInt(0))
 			return res, nil
