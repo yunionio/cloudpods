@@ -317,11 +317,7 @@ func (man *SCachedLoadbalancerCertificateManager) newFromCloudLoadbalancerCertif
 	lbcert.ManagerId = provider.Id
 	lbcert.CloudregionId = region.Id
 
-	c := SLoadbalancerCertificate{}
-	q1 := LoadbalancerCertificateManager.Query().IsFalse("pending_deleted")
-	q1 = q1.Equals("fingerprint", extCertificate.GetFingerprint())
-	q1 = q1.Equals("tenant_id", provider.ProjectId)
-	err = q1.First(&c)
+	c, err := LoadbalancerCertificateManager.GetLbCertByFingerprint(provider.ProjectId, extCertificate.GetFingerprint())
 	if err != nil {
 		switch err {
 		case sql.ErrNoRows:
@@ -359,6 +355,23 @@ func (lbcert *SCachedLoadbalancerCertificate) SyncWithCloudLoadbalancerCertifica
 	})
 	if err != nil {
 		return err
+	}
+
+	// update local lb cert
+	localCert, err := LoadbalancerCertificateManager.GetLbCertByFingerprint(projectId.GetProjectId(), extCertificate.GetFingerprint())
+	if err == nil && !localCert.IsComplete() {
+		pkey := extCertificate.GetPrivateKey()
+		cert := extCertificate.GetPublickKey()
+		if len(pkey) > 0 && len(cert) > 0 {
+			_, err = db.UpdateWithLock(ctx, localCert, func() error {
+				localCert.Certificate = cert
+				localCert.PrivateKey = pkey
+				return nil
+			})
+			if err != nil {
+				log.Errorf("SyncWithCloudLoadbalancerCertificate.Update.localcert %s %s", localCert.Id, err)
+			}
+		}
 	}
 	db.OpsLog.LogSyncUpdate(lbcert, diff, userCred)
 
