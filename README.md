@@ -8,7 +8,7 @@
 
 ## What is Cloudpods?
 
-Cloudpods is an open source unified multicloud/hybrid-cloud cloud platform. As the name implies, cloudpods manages the resources from many cloud accounts. Further, it hides the differences of underlying technologies and exposes one set of APIs that allow programatically interacting with the resources across many clouds.
+Cloudpods is an cloud-native open source unified multicloud/hybrid-cloud cloud platform developed with Golang. As the name implies, cloudpods manages the resources from many cloud accounts. Further, it hides the differences of underlying technologies and exposes one set of APIs that allow programatically interacting with the resources across many clouds.
 
 ## Features
 
