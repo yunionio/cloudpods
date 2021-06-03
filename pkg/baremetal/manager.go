@@ -999,9 +999,12 @@ func (b *SBaremetalInstance) getDHCPConfig(
 	if err != nil {
 		return nil, err
 	}
-	if isPxe && !b.NeedPXEBoot() {
+	if isPxe && IsUEFIPxeArch(arch) && !b.NeedPXEBoot() {
+		// TODO: use chainloader boot UEFI firmware,
+		// currently not response PXE request,
+		// and let BIOS detect bootable device
 		b.ClearSSHConfig()
-		return nil, errors.Errorf("Baremetal %s not need PXE boot", b.GetName())
+		return nil, errors.Errorf("Baremetal %s not need UEFI PXE boot", b.GetName())
 	}
 	return GetNicDHCPConfig(nic, serverIP.String(), hostName, isPxe, arch)
 }

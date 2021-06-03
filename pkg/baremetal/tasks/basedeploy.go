@@ -89,6 +89,11 @@ func (self *SBaremetalServerBaseDeployTask) OnPXEBoot(ctx context.Context, term 
 	if err != nil {
 		return errors.Wrap(err, "Do deploy")
 	}
+
+	if err := AdjustUEFIBootOrder(term); err != nil {
+		return errors.Wrap(err, "Adjust UEFI boot order")
+	}
+
 	_, err = term.Run(
 		"/bin/sync",
 		"/sbin/sysctl -w vm.drop_caches=3",

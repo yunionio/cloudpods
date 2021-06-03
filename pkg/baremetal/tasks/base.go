@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
+	"yunion.io/x/onecloud/pkg/baremetal/utils/uefi"
 	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -489,4 +490,32 @@ func (self *SBaremetalPXEBootTaskBase) OnStopComplete(ctx context.Context, args 
 
 func (self *SBaremetalPXEBootTaskBase) GetName() string {
 	return "BaremetalPXEBootTaskBase"
+}
+
+func AdjustUEFIBootOrder(term *ssh.Client) error {
+	isUEFI, err := uefi.RemoteIsUEFIBoot(term)
+	if err != nil {
+		return errors.Wrap(err, "Check baremetal is UEFI boot")
+	}
+
+	if !isUEFI {
+		return nil
+	}
+
+	mgr, err := uefi.NewEFIBootMgrFromRemote(term)
+	if err != nil {
+		return errors.Wrap(err, "NewEFIBootMgrFromRemote")
+	}
+
+	log.Errorf("=====before set ")
+	time.Sleep(30 * time.Second)
+
+	if err := uefi.RemoteSetCurrentBootAtFirst(term, mgr); err != nil {
+		return errors.Wrap(err, "Set current pxe boot at fist")
+	}
+
+	log.Errorf("=====after set ")
+	time.Sleep(30 * time.Second)
+
+	return nil
 }

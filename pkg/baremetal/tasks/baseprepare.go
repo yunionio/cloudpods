@@ -327,6 +327,11 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 		log.Errorf("SetNTP fail: %s", err)
 	}
 
+	if err = AdjustUEFIBootOrder(cli); err != nil {
+		logclient.AddActionLogWithStartable(task, task.baremetal, logclient.ACT_PREPARE, err, task.userCred, false)
+		return errors.Wrap(err, "Adjust UEFI boot order")
+	}
+
 	logclient.AddActionLogWithStartable(task, task.baremetal, logclient.ACT_PREPARE, infos.sysInfo, task.userCred, true)
 
 	log.Infof("Prepare complete")
