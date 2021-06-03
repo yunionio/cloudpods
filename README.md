@@ -22,7 +22,7 @@ Cloudpods is an open source unified multicloud/hybrid-cloud cloud platform. As t
 
 ## Installation
 
-You may install Cloudpods into a Linux box with at least 8GiB RAM and 200GB storage with the following two simple steps:
+You may install Cloudpods into a Linux box with at least 8GiB RAM and 200GB storage with the following three simple steps:
 
 ### Prepare passwordless SSH login
 
@@ -39,16 +39,26 @@ $ ssh-copy-id -i ~/.ssh/id_rsa.pub root@10.168.26.216
 # without entering the login password
 $ ssh root@10.168.26.216 "hostname"
 ```
-### Install Cloudpods
+### Install ansible and git
+
+#### For CentOS
+```bash
+# Install ansible and git locally
+$ yum install -y epel-release ansible git
+```
+#### For Debian 10
+```bash
+# Install ansible locally
+$ apt install -y ansible git
+```
+
+### Install cloudpods
 
 Please replace <host_ip> with the master IP address of the linux box.
 
 ```bash
-# Install ansible locally
-$ yum install -y epel-release ansible
-
 # Git clone the ocboot installation tool locally
-$ git clone -b release/3.7 https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py <host_ip>
+$ git clone https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py <host_ip>
 ```
 
 It takes 10-30 minutes to wait the installation complete. You may visit the Cloudpods webconsole at https://<host_ip>. The initial login account and password is admin and admin@123.
