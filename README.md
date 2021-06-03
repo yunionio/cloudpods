@@ -1,4 +1,4 @@
-# Yunion Cloud
+# Cloudpods
 
 [![CircleCI](https://circleci.com/gh/yunionio/yunioncloud.svg?style=svg)](https://circleci.com/gh/yunionio/yunioncloud) 
 [![Build Status](https://travis-ci.com/yunionio/yunioncloud.svg?branch=master)](https://travis-ci.com/yunionio/yunioncloud/branches) 
@@ -6,35 +6,54 @@
 
 [English](./README.md) | [简体中文](./README-CN.md)
 
-## What is Yunion Cloud?
+## What is Cloudpods?
 
-Yunion Cloud is an open source unified-IaaS cloud platform.
+Cloudpods is an open source unified multicloud/hybrid-cloud cloud platform. As the name implies, cloudpods manages the resources from many cloud accounts. Further, it hides the differences of underlying technologies and exposes one set of APIs that allow programatically interacting with the resources across many clouds.
 
-As its name sugguests, 'Yun' means 'cloud' in Chinese and 'Yunion Cloud' means to unify many distinct clouds into the one that behaves like an integral cloud platform.
+## Features
 
-As trends show, the enterprise IT infrastructure in the future would be unavoidably heterogeneous and the public clouds should be the major infrastructure providers for many enterprises. Further, the infrastructure would most likely be prepared for the cloud-native applications running on Kubernetes. Yunion Cloud is built to provide the cloud architecture for this scenario such that it is the middle layer between the underlying cloud infrustructures and the overlay kubernetes clusters across many clouds.
-
-Many may consider Yunion Cloud as a multi-cloud management platform (MCMP). Rather, we would view it as an IaaS platform as it does not only manage the resources and services from many clouds, but also hides the differences of underlying technologies and exposes one set of APIs that allow programatically interacting with the compute/storage/networking resources across many clouds.
-
-Yunion Cloud is working on abstracting APIs for the following resources:
-
-* Compute, including virtual machines, images, etc.
-* Storage, including disks, snapshots, object storages, etc.
-* Networking, including load balancers, VPC, virtual networks, NAT gateways, security groups, etc.
-* Accouting and billing, etc.
-* ...
-
-over the following many cloud providers:
-
-* On-premise IT resources, including kvm VM, baremetal, VMware vsphere/ESXi, etc.
-* Private clouds, including OpenStack, etc.
-* Public clouds, including Aliyun, AWS, Azure, Tencent Cloud, Huawei Cloud, etc.
-
-You are welcome to install and try Yunion Cloud. Looking forward to your feedback.
+* A light-weight private cloud that manages KVM hypervisor in scale
+* A BareMetal cloud that automates the full life-cycle management of baremetal physical machines
+* VMware vSphere management that enables self-service and automation
+* A multi-cloud management that is able to manage a wide range of major cloud providers, including private cloud, such as OpenStack, and public clouds, such as AWS, Azure, Google Cloud, Alibaba Cloud, Tencent Cloud, Huawei Cloud, etc.
+* One set of feature-rich APIs to access a wide range of the IaaS resources from platforms above with consistent resource models and APIs
+* A multi-tenancy RBAC-enabled identity and access management system
+* A multi-cloud image management system that automates image conversion between different cloud providers
 
 ## Installation
 
-Please refers to [quick start](https://docs.yunion.io/en/docs/quickstart/).
+You may install Cloudpods into a Linux box with at least 8GiB RAM and 200GB storage with the following two simple steps:
+
+### Prepare passwordless SSH login
+
+```bash
+# Generate the local ssh keypair
+# (SKIP this stekp if you already have ~/.ssh/id_rsa.pub locally)
+$ ssh-keygen
+
+# Copy the generated ~/.ssh/id_rsa.pub public key to the machine to be deployed
+$ ssh-copy-id -i ~/.ssh/id_rsa.pub root@10.168.26.216
+
+# Try to login to the machine to be deployed without password,
+# should be able to get the hostname of the deployed machine
+# without entering the login password
+$ ssh root@10.168.26.216 "hostname"
+```
+### Install Cloudpods
+
+Please replace <host_ip> with the master IP address of the linux box.
+
+```bash
+# Install ansible locally
+$ yum install -y epel-release ansible
+
+# Git clone the ocboot installation tool locally
+$ git clone -b release/3.7 https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py <host_ip>
+```
+
+It takes 10-30 minutes to wait the installation complete. You may visit the Cloudpods webconsole at https://<host_ip>. The initial login account and password is admin and admin@123.
+
+For more detailed instructions, please refers to [quick start](https://docs.yunion.io/en/docs/quickstart/).
 
 ## Documentations
 
@@ -42,9 +61,9 @@ Please refers to [quick start](https://docs.yunion.io/en/docs/quickstart/).
 
 - [Swagger API](https://docs.yunion.io/en/docs/swagger/)
 
-## Architecture
+## Roadmap
 
-![architecture](https://www.yunion.cn/static/frame.png)
+See [Cloudpods Roadmap](https://docs.yunion.io/en/docs/roadmap/) for details.
 
 ## Contribution
 
