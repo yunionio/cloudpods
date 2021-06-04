@@ -275,6 +275,22 @@ func (self *HuaweiTags) SetTags(tags map[string]string, replace bool) error {
 	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetTags")
 }
 
+type HuaweiDiskTags struct {
+	Tags map[string]string
+}
+
+func (self *HuaweiDiskTags) GetTags() (map[string]string, error) {
+	return self.Tags, nil
+}
+
+func (self *HuaweiDiskTags) GetSysTags() map[string]string {
+	return nil
+}
+
+func (self *HuaweiDiskTags) SetTags(tags map[string]string, replace bool) error {
+	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetTags")
+}
+
 type OpenStackTags struct {
 	Metadata map[string]string
 }
