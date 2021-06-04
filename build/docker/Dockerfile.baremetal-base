@@ -1,7 +1,7 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/centos-build:1.1-4 as build
-RUN yum install -y https://iso.yunion.cn/3.6/rpms/packages/host/baremetal-pxerom-1.1.0-20072810.x86_64.rpm
+FROM --platform=linux/amd64 registry.cn-beijing.aliyuncs.com/yunionio/centos-build:1.1-4 as build
+RUN yum install -y https://iso.yunion.cn/vm-images/baremetal-pxerom-1.1.0-21060506.x86_64.rpm
 
-FROM frolvlad/alpine-glibc:glibc-2.28
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.2
 
 MAINTAINER "Yaoqi Wan <wanyaoqi@yunionyun.com>"
 

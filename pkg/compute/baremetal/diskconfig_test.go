@@ -19,6 +19,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
@@ -464,7 +466,9 @@ func TestCalculateLayout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unmarshal expectedLayoutJson err: %v", err)
 	}
-	if !reflect.DeepEqual(layout, expectedLayout) {
+
+	assert := assert.New(t)
+	if !assert.Equal(expectedLayout, layout) {
 		t.Errorf("CalculateLayout() = %v, want %v", layout, expectedLayout)
 	}
 }
@@ -475,7 +479,7 @@ func TestCheckDisksAllocable(t *testing.T) {
 		"6:raid5:adapter2",
 		"6:raid5:adapter2",
 	)
-	bitmainConfs, err := NewBaremetalDiskConfigs("raid10:(60g,)")
+	bitmainConfs, err := NewBaremetalDiskConfigs("MarvelRaid:raid10:(60g,)")
 	if err != nil {
 		t.Fatalf("NewDiskConfigs err: %v", err)
 	}
@@ -1253,5 +1257,77 @@ func TestGetSplitSizes(t *testing.T) {
 				t.Errorf("GetSplitSizes() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+var (
+	pcieStorages = []*BaremetalStorage{
+		{
+			Driver:  DISK_DRIVER_LINUX,
+			Rotate:  true,
+			Size:    51200,
+			Adapter: 0,
+			Index:   0,
+		},
+		{
+			Driver:  DISK_DRIVER_PCIE,
+			Rotate:  false,
+			Size:    61440,
+			Adapter: 0,
+			Index:   0,
+		},
+	}
+)
+
+func TestPCIEStoragesAllocable(t *testing.T) {
+	adapter0 := 0
+	confs := []*api.BaremetalDiskConfig{
+		{
+			Adapter: &adapter0,
+			Conf:    DISK_CONF_NONE,
+			Count:   1,
+			Driver:  DISK_DRIVER_PCIE,
+			Range:   []int64{0},
+			Type:    DISK_TYPE_SSD,
+		},
+		{
+			Adapter: &adapter0,
+			Conf:    DISK_CONF_NONE,
+			Count:   1,
+			Driver:  DISK_DRIVER_LINUX,
+			Range:   []int64{0},
+			Type:    DISK_TYPE_ROTATE,
+		},
+	}
+
+	layouts, err := CalculateLayout(confs, pcieStorages)
+	if err != nil {
+		t.Errorf("CalculateLayout error: %v", err)
+		return
+	}
+	// log.Errorf("layouts: %s", jsonutils.Marshal(layouts))
+	disks := []*api.DiskConfig{
+		{
+			Backend: api.STORAGE_LOCAL,
+			Driver:  "scsi",
+			SizeMb:  30720,
+		},
+		{
+			Backend:    api.STORAGE_LOCAL,
+			Driver:     "scsi",
+			Fs:         "ext4",
+			Mountpoint: "/opt",
+			SizeMb:     -1,
+		},
+		{
+			Backend:    api.STORAGE_LOCAL,
+			Driver:     "scsi",
+			Fs:         "ext4",
+			Mountpoint: "/data",
+			SizeMb:     -1,
+		},
+	}
+	if ok := IsDisksAllocable(layouts, disks); !ok {
+		t.Errorf("Disk not allocable")
 	}
 }
