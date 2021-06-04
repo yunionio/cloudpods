@@ -1,8 +1,8 @@
 ## Cloudpods
 
-[![CircleCI](https://circleci.com/gh/yunionio/yunioncloud.svg?style=svg)](https://circleci.com/gh/yunionio/yunioncloud) 
-[![Build Status](https://travis-ci.com/yunionio/yunioncloud.svg?branch=master)](https://travis-ci.com/yunionio/yunioncloud/branches) 
-[![Go Report Card](https://goreportcard.com/badge/github.com/yunionio/yunioncloud)](https://goreportcard.com/report/github.com/yunionio/yunioncloud) 
+[![CircleCI](https://circleci.com/gh/yunionio/cloudpods.svg?style=svg)](https://circleci.com/gh/yunionio/cloudpods) 
+[![Build Status](https://travis-ci.com/yunionio/cloudpods.svg?branch=master)](https://travis-ci.com/yunionio/cloudpods/branches) 
+[![Go Report Card](https://goreportcard.com/badge/github.com/yunionio/cloudpods)](https://goreportcard.com/report/github.com/yunionio/cloudpods) 
 
 [English](./README.md) | [简体中文](./README-CN.md)
 
