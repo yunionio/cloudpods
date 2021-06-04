@@ -6,7 +6,7 @@
 
 ## Cloudpods是什么?
 
-Cloudpods是一个开源的Golang实现的云原生融合多云/混合云的云平台。Cloudpods可以理解为pod(豆荚) of clouds。Cloupods可以管理多个云平台和云账号。并且，Cloudpods隐藏了这些平台和账号之间的云资源的数据模型和API的差异，对外暴露了一套统一的API。从而大大降低了访问多云的复杂度，提升了管理多云资源的效率。
+Cloudpods是一个开源的Golang实现的云原生融合多云/混合云的云平台。Cloupods可以管理多个云平台和云账号。并且，Cloudpods隐藏了这些平台和账号之间的云资源的数据模型和API的差异，对外暴露了一套统一的API。从而大大降低了访问多云的复杂度，提升了管理多云的效率。
 
 ## 功能
 
@@ -21,7 +21,7 @@ Cloudpods提供了如下的功能：
 * 一套完整的多租户认证和访问控制体系
 * 自动将镜像转换为不同云平台需要的格式的多云镜像服务
 
-## 安装
+## 快速开始
 
 我们可以通过以下简单三步将Cloudpods安装在一台至少8GiB内存和100GB硬盘的Linux主机上（假设该主机的IP为 *10.168.26.216*）：
 
@@ -73,14 +73,14 @@ $ git clone https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py 10.168
 - [Swagger API文档](https://docs.yunion.cn/api/)
 
 
-## 开发计划
+## 规划
 
 请访问[Cloudpods Roadmap](https://docs.yunion.io/zh/docs/roadmap/).
 
 
 ## 贡献
 
-我们非常欢迎和感谢开发者向项目做贡献，流程细节请查看 [CONTRIBUTING](https://docs.yunion.io/zh/docs/contribute/contrib/) 。
+我们非常欢迎和感谢开发者向项目做贡献，流程细节请查看 [CONTRIBUTING](./CONTRIBUTING_zh.md)。
 
 
 ## License
