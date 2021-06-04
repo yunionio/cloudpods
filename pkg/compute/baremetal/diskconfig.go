@@ -58,7 +58,7 @@ func isDiskConfigStorageMatch(
 	adapterIsEqual := (confAdapter == nil || *confAdapter == adapter) &&
 		(confDriver == nil || *confDriver == driver)
 
-	log.V(10).Debugf("typeIsHybrid: %v, typeIsRotate: %v, typeIsSSD: %v, rangeIsNoneAndCountZero: %v, rangeIsNotNoneAndIndexInRange: %v, rangeIsNoneAndSmallThanCount: %v, adapterIsEqual: %v", typeIsHybrid, typeIsRotate, typeIsSSD, rangeIsNoneAndCountZero, rangeIsNotNoneAndIndexInRange, rangeIsNoneAndSmallThanCount, adapterIsEqual)
+	log.V(10).Debugf("Try storage: %#v, typeIsHybrid: %v, typeIsRotate: %v, typeIsSSD: %v, rangeIsNoneAndCountZero: %v, rangeIsNotNoneAndIndexInRange: %v, rangeIsNoneAndSmallThanCount: %v, adapterIsEqual: %v", *storage, typeIsHybrid, typeIsRotate, typeIsSSD, rangeIsNoneAndCountZero, rangeIsNotNoneAndIndexInRange, rangeIsNoneAndSmallThanCount, adapterIsEqual)
 
 	if (typeIsHybrid || typeIsRotate || typeIsSSD) &&
 		(rangeIsNoneAndCountZero || rangeIsNotNoneAndIndexInRange || rangeIsNoneAndSmallThanCount) &&
@@ -109,7 +109,11 @@ func RetrieveStorages(diskConfig *api.BaremetalDiskConfig, storages []*Baremetal
 		} else {
 			rest = append(rest, storage)
 		}
-		idx++
+		if confDriver == nil {
+			idx++
+		} else if *confDriver == storage.Driver {
+			idx++
+		}
 	}
 	return
 }
@@ -298,10 +302,18 @@ func ExpandNoneConf(layouts []Layout) (ret []Layout) {
 }
 
 func GetLayoutRaidConfig(layouts []Layout) []*api.BaremetalDiskConfig {
+	return getLayoutConfig(layouts, true)
+}
+
+func GetLayoutDiskConfig(layouts []Layout) []*api.BaremetalDiskConfig {
+	return getLayoutConfig(layouts, false)
+}
+
+func getLayoutConfig(layouts []Layout, onlyRaidDisk bool) []*api.BaremetalDiskConfig {
 	var disk []*BaremetalStorage
 	ret := make([]*api.BaremetalDiskConfig, 0)
 	for _, layout := range layouts {
-		if layout.Conf.Conf == DISK_CONF_NONE &&
+		if onlyRaidDisk && layout.Conf.Conf == DISK_CONF_NONE &&
 			sets.NewString(DISK_DRIVER_LINUX, DISK_DRIVER_PCIE).Has(layout.Disks[0].Driver) {
 			continue
 		}
@@ -335,8 +347,8 @@ func CalculateLayout(confs []*api.BaremetalDiskConfig, storages []*BaremetalStor
 			noneConf, _ := ParseDiskConfig(DISK_CONF_NONE)
 			conf = &noneConf
 		}
-		selected, storage1 := RetrieveStorages(conf, storages)
-		storages = storage1
+		selected, restStorges := RetrieveStorages(conf, storages)
+		storages = restStorges
 		if len(selected) == 0 {
 			err = fmt.Errorf("Not found matched storages by config: %#v", conf)
 			return

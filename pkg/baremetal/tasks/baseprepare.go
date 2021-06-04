@@ -363,7 +363,7 @@ func (task *sBaremetalPrepareTask) findAdminNic(cli *ssh.Client, nicsInfo []*typ
 
 func (task *sBaremetalPrepareTask) updateBmInfo(cli *ssh.Client, i *baremetalPrepareInfo) error {
 	adminNic := task.baremetal.GetAdminNic()
-	if adminNic == nil {
+	if adminNic == nil || (adminNic != nil && !adminNic.LinkUp) {
 		adminIdx, adminNicDev, err := task.findAdminNic(cli, i.nicsInfo)
 		if err != nil {
 			return errors.Wrap(err, "task.findAdminNic")
@@ -373,7 +373,7 @@ func (task *sBaremetalPrepareTask) updateBmInfo(cli *ssh.Client, i *baremetalPre
 		if err != nil {
 			return errors.Wrap(err, "send Admin Nic Info")
 		}
-		adminNic = task.baremetal.GetAdminNic()
+		adminNic = task.baremetal.GetNicByMac(adminNicDev.Mac)
 	}
 	// collect params
 	updateInfo := make(map[string]interface{})
