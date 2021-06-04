@@ -20,9 +20,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
@@ -382,10 +381,17 @@ func (r *HPSARaid) parsePhyDevs(lines []string) error {
 			r.adapters = append(r.adapters, adapter)
 		}
 	}
+	var errs []error
 	for _, a := range r.adapters {
-		if err := a.ParsePhyDevs(); err != nil {
-			return err
+		err := a.ParsePhyDevs()
+		if err != nil {
+			log.Errorf("parse adapter %d fail: %s", a.GetIndex(), err)
+			errs = append(errs, err)
 		}
+	}
+	if len(errs) == len(r.adapters) {
+		// all failed
+		return errors.NewAggregate(errs)
 	}
 	return nil
 }
