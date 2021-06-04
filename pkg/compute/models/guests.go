@@ -2644,6 +2644,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		return nil, errors.Wrapf(err, "Insert")
 	}
 
+	syncVirtualResourceMetadata(ctx, userCred, &guest, extVM)
 	SyncCloudProject(userCred, &guest, syncOwnerId, extVM, host.ManagerId)
 
 	db.OpsLog.LogEvent(&guest, db.ACT_CREATE, guest.GetShortDesc(ctx), userCred)
