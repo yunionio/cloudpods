@@ -507,15 +507,9 @@ func AdjustUEFIBootOrder(term *ssh.Client) error {
 		return errors.Wrap(err, "NewEFIBootMgrFromRemote")
 	}
 
-	log.Errorf("=====before set ")
-	time.Sleep(30 * time.Second)
-
 	if err := uefi.RemoteSetCurrentBootAtFirst(term, mgr); err != nil {
 		return errors.Wrap(err, "Set current pxe boot at fist")
 	}
-
-	log.Errorf("=====after set ")
-	time.Sleep(30 * time.Second)
 
 	return nil
 }

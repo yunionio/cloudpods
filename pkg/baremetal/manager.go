@@ -2260,6 +2260,14 @@ func (s *SBaremetalServer) GetDiskConfig() ([]*api.BaremetalDiskConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if len(layouts) != 0 {
+		firstDisk := layouts[0]
+		// convert to normal order if first disk is PCIE driver
+		if firstDisk.Conf.Driver == baremetal.DISK_DRIVER_PCIE {
+			return baremetal.GetLayoutDiskConfig(layouts), nil
+		}
+	}
 	return baremetal.GetLayoutRaidConfig(layouts), nil
 }
 
