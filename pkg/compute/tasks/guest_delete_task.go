@@ -210,7 +210,7 @@ func (self *GuestDeleteTask) OnSyncConfigComplete(ctx context.Context, obj db.IS
 		guest.DetachScheduledTask(ctx, self.UserCred)
 		guestStatus, _ := self.Params.GetString("guest_status")
 		if !utils.IsInStringArray(guestStatus, []string{
-			api.VM_SCHEDULE_FAILED, api.VM_NETWORK_FAILED, api.VM_DISK_FAILED,
+			api.VM_SCHEDULE_FAILED, api.VM_NETWORK_FAILED,
 			api.VM_CREATE_FAILED, api.VM_DEVICE_FAILED}) {
 			self.StartPendingDeleteGuest(ctx, guest)
 			return
