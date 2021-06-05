@@ -436,9 +436,23 @@ func newQueryCondition(model *monitor.AlertCondition, index int) (*QueryConditio
 		operator = "and"
 	}
 	cond.Operator = operator
+
+	cond.checkGroupByField()
 	cond.setResType()
 
 	return cond, nil
+}
+
+func (c *QueryCondition) checkGroupByField() {
+	metricMeasurement, _ := models.MetricMeasurementManager.GetCache().Get(c.Query.Model.Measurement)
+	if metricMeasurement == nil {
+		return
+	}
+	for i, group := range c.Query.Model.GroupBy {
+		if group.Params[0] == "*" {
+			c.Query.Model.GroupBy[i].Params = []string{monitor.MEASUREMENT_TAG_ID[metricMeasurement.ResType]}
+		}
+	}
 }
 
 func (c *QueryCondition) setResType() {
@@ -502,6 +516,10 @@ func (c *QueryCondition) getOnecloudResources() ([]jsonutils.JSONObject, error) 
 		allResources, err = ListAllResources(&mc_mds.ElasticCache, query)
 	case monitor.METRIC_RES_TYPE_OSS:
 		allResources, err = ListAllResources(&mc_mds.Buckets, query)
+	case monitor.METRIC_RES_TYPE_CLOUDACCOUNT:
+		query.Remove("status")
+		query.Add(jsonutils.NewBool(true), "enabled")
+		allResources, err = ListAllResources(&mc_mds.Cloudaccounts, query)
 	case monitor.METRIC_RES_TYPE_TENANT:
 		allResources, err = ListAllResources(&mc_mds.Projects, query)
 	case monitor.METRIC_RES_TYPE_DOMAIN:
