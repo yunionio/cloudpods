@@ -6,7 +6,7 @@
 
 ## Cloudpods是什么?
 
-![Cloudpods](https://docs.yunion.io/images/cloudpods_logo.png | height=100)
+<img src="https://docs.yunion.io/images/cloudpods_logo_green.png" alt="Cloudpods" height="100">
 
 Cloudpods是一个开源的Golang实现的云原生融合多云/混合云的云平台。Cloupods可以管理多个云平台和云账号。并且，Cloudpods隐藏了这些平台和账号之间的云资源的数据模型和API的差异，对外暴露了一套统一的API。从而大大降低了访问多云的复杂度，提升了管理多云的效率。
 
@@ -44,11 +44,14 @@ $ ssh root@10.168.26.216 "hostname"
 ### 2. 安装ansible和git
 
 #### CentOS
+
 ```bash
 # Install ansible and git locally
 $ yum install -y epel-release ansible git
 ```
+
 #### Debian 10
+
 ```bash
 # Install ansible locally
 $ apt install -y ansible git
@@ -67,19 +70,19 @@ $ git clone https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py 10.168
 
 请参考文档 [快速开始](https://docs.yunion.io/zh/docs/quickstart/) 获得更详细的安装指导。
 
-
 ## 文档
 
-- [Cloudpods文档](https://docs.yunion.io/zh)
+* [Cloudpods文档](https://docs.yunion.io/zh)
 
-- [Swagger API文档](https://docs.yunion.cn/api/)
+* [Swagger API文档](https://docs.yunion.cn/api/)
 
 ## 联系我们
 
 您可以通过如下方式联系我们：
 
 * 微信: 请扫描如下二维码联系我们
-![请扫描二维码联系我们](https://docs.yunion.io/images/skillcode.png)
+
+<img src="https://docs.yunion.io/images/skillcode.png" alt="WeChat QRCode">
 
 ## 版本历史
 
@@ -96,4 +99,3 @@ $ git clone https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py 10.168
 ## License
 
 Apache license 2.0，详情请看 [LICENSE](./LICENSE)。
-
