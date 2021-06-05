@@ -8,7 +8,7 @@
 
 ## What is Cloudpods?
 
-Cloudpods is an cloud-native open source unified multicloud/hybrid-cloud cloud platform developed with Golang. As the name implies, Cloudpods manages the resources from many cloud accounts across many cloud providers. Further, it hides the differences of underlying cloud providers and exposes one set of APIs that allow programatically interacting with the resources across many clouds.
+Cloudpods is an cloud-native open source unified multicloud/hybrid-cloud cloud platform developed with Golang. Cloudpods manages the resources from many cloud accounts across many cloud providers. Further, it hides the differences of underlying cloud providers and exposes one set of APIs that allow programatically interacting with many clouds.
 
 ## Features
 
@@ -21,9 +21,9 @@ Cloudpods is an cloud-native open source unified multicloud/hybrid-cloud cloud p
 * A complete multi-tenancy RBAC-enabled IAM (identity and access management) system
 * Multi-cloud image management system that automates image conversion between different cloud providers
 
-## Installation
+## Quick start
 
-You may install Cloudpods into a Linux box with at least 8GiB RAM and 100GB storage by following three simple steps (assuming that you install Cloudpods on a Linux box with IP *10.168.26.216*):
+You may install Cloudpods in a Linux box with at least 8GiB RAM and 100GB storage by following three simple steps (assuming that you install Cloudpods on a Linux box with IP *10.168.26.216*):
 
 ### 1. Prepare passwordless SSH login
 
@@ -78,7 +78,7 @@ See [Cloudpods Roadmap](https://docs.yunion.io/en/docs/roadmap/) for details.
 
 ## Contribution
 
-You are welcome to contribute to the project. Please refer to [CONTRIBUTING](https://docs.yunion.io/en/docs/contribute/contrib/) for guidelines.
+You are welcome to contribute to the project. Please refer to [CONTRIBUTING](./CONTRIBUTING.md) for guidelines.
 
 ## License
 
