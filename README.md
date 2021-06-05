@@ -1,4 +1,4 @@
-## Cloudpods
+# Cloudpods
 
 [![CircleCI](https://circleci.com/gh/yunionio/cloudpods.svg?style=svg)](https://circleci.com/gh/yunionio/cloudpods)
 [![Build Status](https://travis-ci.com/yunionio/cloudpods.svg?branch=master)](https://travis-ci.com/yunionio/cloudpods/branches)
@@ -8,7 +8,7 @@
 
 ## What is Cloudpods?
 
-![Cloudpods](https://docs.yunion.io/images/cloudpods_logo.png | height=100)
+<img src="https://docs.yunion.io/images/cloudpods_logo_green.png" alt="Cloudpods" height="100">
 
 Cloudpods is an cloud-native open source unified multicloud/hybrid-cloud cloud platform developed with Golang. Cloudpods manages the resources from many cloud accounts across many cloud providers. Further, it hides the differences of underlying cloud providers and exposes one set of APIs that allow programatically interacting with many clouds.
 
@@ -42,14 +42,18 @@ $ ssh-copy-id -i ~/.ssh/id_rsa.pub root@10.168.26.216
 # without entering the login password
 $ ssh root@10.168.26.216 "hostname"
 ```
+
 ### 2. Install ansible and git
 
 #### For CentOS
+
 ```bash
 # Install ansible and git locally
 $ yum install -y epel-release ansible git
 ```
+
 #### For Debian 10
+
 ```bash
 # Install ansible locally
 $ apt install -y ansible git
@@ -70,16 +74,17 @@ For more detailed instructions, please refers to [quick start](https://docs.yuni
 
 ## Documentations
 
-- [Cloudpods Documents](https://docs.yunion.io/en)
+* [Cloudpods Documents](https://docs.yunion.io/en)
 
-- [Swagger API](https://docs.yunion.io/en/docs/swagger/)
+* [Swagger API](https://docs.yunion.io/en/docs/swagger/)
 
 ## Contact
 
 You may contact us by:
 
 * WeChat: please scan the following QRCode to contact us
-![Please scan QRCode to contact us](https://docs.yunion.io/images/skillcode.png)
+
+<img src="https://docs.yunion.io/images/skillcode.png" alt="WeChat QRCode">
 
 ## Changelog
 
