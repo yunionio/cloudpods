@@ -8,6 +8,8 @@
 
 ## What is Cloudpods?
 
+![Cloudpods](https://docs.yunion.io/images/cloudpods_logo.png | height=100)
+
 Cloudpods is an cloud-native open source unified multicloud/hybrid-cloud cloud platform developed with Golang. Cloudpods manages the resources from many cloud accounts across many cloud providers. Further, it hides the differences of underlying cloud providers and exposes one set of APIs that allow programatically interacting with many clouds.
 
 ## Features
@@ -72,13 +74,24 @@ For more detailed instructions, please refers to [quick start](https://docs.yuni
 
 - [Swagger API](https://docs.yunion.io/en/docs/swagger/)
 
+## Contact
+
+You may contact us by:
+
+* WeChat: please scan the following QRCode to contact us
+![Please scan QRCode to contact us](https://docs.yunion.io/images/skillcode.png)
+
+## Changelog
+
+See [Cloudpods Changelog](https://docs.yunion.io/en/docs/changelog/) for details.
+
 ## Roadmap
 
 See [Cloudpods Roadmap](https://docs.yunion.io/en/docs/roadmap/) for details.
 
 ## Contribution
 
-You are welcome to contribute to the project. Please refer to [CONTRIBUTING](./CONTRIBUTING.md) for guidelines.
+We are grateful to any kind of contribution you make to the project. Please refer to [CONTRIBUTING](./CONTRIBUTING.md) for guidelines.
 
 ## License
 

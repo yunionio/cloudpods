@@ -4,13 +4,13 @@
 
 You can help to make Cloudpods better! There are many things you can do:
 
-## Help others to know Cloudpods
+## Help others know Cloudpods
 
-First of all, the easiest way to contribute to Cloudpods is to let more people known Cloudpods. To share your experience of Cloudpods. Hopefully Cloudpods may help resolve the issues in their daily jobs.
+First of all, the easiest way to contribute to Cloudpods is to let more people know Cloudpods. To share your experience of Cloudpods. Hopefully Cloudpods may help resolve the issues in their daily jobs.
 
 ## Report Bugs
 
-Cloudpos is an infrastructure management tool. Even though it has been thourougly tested and codes have been peer reviwed before merge, due to various reasons, you may still encounter bugs when using Cloudpods. This is frustrating. However, please do not hesitate to submit a issue at Github. The issue may help developers to improve the codes and make Cloudpods more and more robust. Meanwhile, the answer to the issues may also help others who meet the same bugs.
+Cloudpods is an infrastructure management tool. Even though it has been thourougly tested and codes have been peer reviwed before merge, due to its complexity, you may still encounter bugs when using Cloudpods. This is frustrating. However, please do not hesitate to submit a issue at Github. The issue may help developers to improve the codes and make Cloudpods more and more robust. Meanwhile, the answer to the issues may also help others who have the similar bugs.
 
 ## Answer issues
 
