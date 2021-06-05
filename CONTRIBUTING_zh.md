@@ -2,49 +2,47 @@
 
 [English](CONTRIBUTING.md) | [中文](CONTRIBUTING_zh.md)
 
-你有很多事情可以做，使得Cloudpods变得更完善，
+如果您对Cloudpods感兴趣并且愿意为Cloudpods贡献，可以通过以下任意方式贡献您的力量，使得Cloudpods变得更完善。
 
 ## 让别人知道Cloudpods
 
-First of all, the easiest way to contribute to Cloudpods is to let more people known Cloudpods. To share your experience of Cloudpods. Hopefully Cloudpods may help resolve the issues in their daily jobs.
+最简单的方式就是让更多的人知道Cloudpods，向他们分享您对Cloudpds的看法和使用经验，向他们推荐Cloudpods。很有可能，在您的推荐下，他们开始使用Cloudpods，并解决了他们在工作中遇到的基础设施管理问题。
 
 ## 报告BUG
 
-Cloudpos is an infrastructure management tool. Even though it has been thourougly tested and codes have been peer reviwed before merge, due to various reasons, you may still encounter bugs when using Cloudpods. This is frustrating. However, please do not hesitate to submit a issue at Github. The issue may help developers to improve the codes and make Cloudpods more and more robust. Meanwhile, the answer to the issues may also help others who meet the same bugs.
+Cloudpods是一款开源的基础设施管理工具软件，运行场景复杂。尽管在开发阶段开发者很有可能已经进行了详尽的测试，但难免在实际运行中还会遇到各种意想不到的bug。遇到这种情况，请不要犹豫在Github上提交一个issue。这能帮助开发者更好地改进代码逻辑，使得Cloudpods越来越鲁棒。同时，issue的解答记录也能帮助到遇到类似问题的其他人。
 
 ## 回答问题
 
-You may answer issues at Github and help those who encounter issues when using Cloudpods. Sometimes, the issues are not due to bugs in codes but simplely because of misconfigurations, environment or misunderstandings.
+有时候，人们在使用Cloudpods中遇到的问题并不是因为Cloudpods软件缺陷造成的，而是因为配置错误，环境因素或者误会导致的。这样的问题也许只需要简单地一两句就能解答，不需要代码的修改。您可以在Github回答issue或者社区群中回答提问，帮助那些在使用Cloudpods中遇到问题的人。
 
 ## 贡献代码
 
-我们非常欢迎和感谢开发者向项目做贡献，流程细节请查看 [CONTRIBUTING](https://docs.yunion.io/zh/docs/contribute/contrib/).
+我们非常欢迎和感谢开发者向项目提交代码PR，流程细节请查看 [CONTRIBUTING](https://docs.yunion.io/zh/docs/contribute/contrib/).
 
 ### 修复BUG
 
-You may help solve bugs by submiting patches.
-
+您可以通过提交代码补丁来修复Cloudpods存在的BUG。
 
 ### 开发新的功能特性
 
-You may help improve the codes of Cloudpods, including:
+不仅仅是修复BUG，您也可以通过提交代码以改进Cloudpods，包括但不限于：
+* 开发新的功能特性，您可以在[Cloudpods Roadmap](https://docs.yunion.io/zh/docs/roadmap/)找到Cloudpods的功能规划
+* 重构代码，使得代码更加简洁易读，更加低健壮，或者执行起来更加高效
 
-* Develop new features for Cloudpods
-* Recode some part of Cloudpods so as to make the code easier to be understood, or less error-prone, or more efficient
+## 文档
 
-## 文档化
-
-You may help improve documentations of Cloudpds by directly make pull request to documentations. Once the Pull Request is accepted and merged, the documentations will be updated immediately.
+您也可以通过给文档提交PR来改进Cloudpods的文档。一旦您的PR被接收并合并，Cloudpods的在线文档就能及时地自动更新。
 
 ## 翻译
 
-You may help translate the UI texts or documents of Cloudpds to other languages. Currently, we support Simplified Chinese and English.
+您也可以帮助翻译Cloudpods，要么翻译UI界面的i18n配置文件，要么翻译文档，使得Cloudpods支持更多的语言。目前，Cloudpods支持简体中文和英文。
 
 ## 写文章
 
-You are also welcome to write articles about Cloudpods and sharing your experience with others. The content of the articles may include the following but not be limited to:
-* Your user experiences with Cloudpods
-* Your opinion about the direction and area of Cloudpods
-* Comparison with other cloud platforms
-* Benchmarks
+另外，欢迎您写关于Cloudpods的文章，通过文字分享您使用Cloudpods的经验和技巧。文章可以包括但不限于如下内容：
+* 使用Cloudpods的体验
+* Cloudpods技术领域的观点
+* 和其他竞品的比较
+* 性能评测
 
