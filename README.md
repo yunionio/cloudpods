@@ -25,7 +25,9 @@ Cloudpods is an cloud-native open source unified multicloud/hybrid-cloud cloud p
 
 ## Quick start
 
-You may install Cloudpods in a Linux box with at least 8GiB RAM and 100GB storage by following three simple steps (assuming that you install Cloudpods on a Linux box with IP *10.168.26.216*):
+You may install Cloudpods in a Linux box (currently CentOS 7 and Debian 10 are fully tested) with at least 8GiB RAM and 100GB storage by following three simple steps.
+
+(Assuming that you install Cloudpods on a Linux box with IP *10.168.26.216*):
 
 ### 1. Prepare passwordless SSH login
 
@@ -82,6 +84,8 @@ For more detailed instructions, please refers to [quick start](https://docs.yuni
 
 You may contact us by:
 
+* Reddit: [r/Cloudpods](https://www.reddit.com/r/Cloudpods/)
+
 * WeChat: please scan the following QRCode to contact us
 
 <img src="https://docs.yunion.io/images/skillcode.png" alt="WeChat QRCode">
@@ -96,7 +100,7 @@ See [Cloudpods Roadmap](https://docs.yunion.io/en/docs/roadmap/) for details.
 
 ## Contribution
 
-We are grateful to any kind of contribution you make to the project. Please refer to [CONTRIBUTING](./CONTRIBUTING.md) for guidelines.
+You are welcome to do any kind of contribution to the project. Please refer to [CONTRIBUTING](./CONTRIBUTING.md) for guidelines.
 
 ## License
 
