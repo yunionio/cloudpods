@@ -25,7 +25,9 @@ Cloudpods提供了如下的功能：
 
 ## 快速开始
 
-我们可以通过以下简单三步将Cloudpods安装在一台至少8GiB内存和100GB硬盘的Linux主机上（假设该主机的IP为 *10.168.26.216*）：
+我们可以通过以下简单三步将Cloudpods安装在一台至少8GiB内存和100GB硬盘的Linux主机上（目前CentOS 7和Debian 10经过充分测试）
+
+(下面假设该主机的IP为 *10.168.26.216*)
 
 ### 1. 准备SSH免密登录
 
@@ -79,6 +81,8 @@ $ git clone https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py 10.168
 ## 联系我们
 
 您可以通过如下方式联系我们：
+
+* Reddit: [r/Cloudpods](https://www.reddit.com/r/Cloudpods/)
 
 * 微信: 请扫描如下二维码联系我们
 
