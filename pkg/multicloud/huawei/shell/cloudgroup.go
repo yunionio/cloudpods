@@ -68,6 +68,19 @@ func init() {
 		return nil
 	})
 
+	type GroupRoleOptions struct {
+		GROUP_ID string
+		ROLE_ID  string
+	}
+
+	shellutils.R(&GroupRoleOptions{}, "cloud-group-detach-policy", "Detach group role", func(cli *huawei.SRegion, args *GroupRoleOptions) error {
+		return cli.GetClient().DetachGroupRole(args.GROUP_ID, args.ROLE_ID)
+	})
+
+	shellutils.R(&GroupRoleOptions{}, "cloud-group-attach-policy", "Detach group role", func(cli *huawei.SRegion, args *GroupRoleOptions) error {
+		return cli.GetClient().AttachGroupRole(args.GROUP_ID, args.ROLE_ID)
+	})
+
 	type GroupUserListOptions struct {
 		GROUP_ID string
 	}
