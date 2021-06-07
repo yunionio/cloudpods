@@ -1297,6 +1297,12 @@ func (manager *SGuestManager) validateCreateData(
 
 		dataDiskDefs := []*api.DiskConfig{}
 		if sku != nil && sku.AttachedDiskCount > 0 {
+			if sku.AttachedDiskSizeGB == 0 {
+				return nil, httperrors.NewInputParameterError("sku %s not indicate attached disk size", sku.Name)
+			}
+			if len(sku.AttachedDiskType) == 0 {
+				return nil, httperrors.NewInputParameterError("sku %s not indicate attached disk backend", sku.Name)
+			}
 			for i := 0; i < sku.AttachedDiskCount; i += 1 {
 				dataDisk := &api.DiskConfig{
 					SizeMb:  sku.AttachedDiskSizeGB * 1024,
