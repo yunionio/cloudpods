@@ -364,15 +364,38 @@ func GetArgs(ctx context.Context, serverId, proxyEndpointId string, others inter
 	if len(influxdbUrl) == 0 {
 		return nil, errors.Wrap(ErrCannotReachInfluxbd, "please create usable Proxy Endpoint for server and try again")
 	}
-	vmId := info.serverDetails.Id
-	tenantId := info.serverDetails.ProjectId
-	domainId := info.serverDetails.DomainId
+	tags := map[string]string{
+		"host":             info.serverDetails.Host,
+		"host_id":          info.serverDetails.HostId,
+		"vm_id":            info.serverDetails.Id,
+		"vm_ip":            info.serverDetails.IPs,
+		"vm_name":          info.serverDetails.Name,
+		"zone":             info.serverDetails.Zone,
+		"zone_id":          info.serverDetails.ZoneId,
+		"zone_ext_id":      info.serverDetails.ZoneExtId,
+		"os_type":          info.serverDetails.OsType,
+		"status":           info.serverDetails.Status,
+		"cloudregion":      info.serverDetails.Cloudregion,
+		"cloudregion_id":   info.serverDetails.CloudregionId,
+		"region_ext_id":    info.serverDetails.RegionExtId,
+		"tenant":           info.serverDetails.Tenant,
+		"tenant_id":        info.serverDetails.TenantId,
+		"brand":            info.serverDetails.Brand,
+		"scaling_group_id": info.serverDetails.ScalingGroupId,
+		"domain_id":        info.serverDetails.DomainId,
+		"project_domain":   info.serverDetails.ProjectDomain,
+	}
+	telegrafTags := make([]map[string]string, 0, len(tags))
+	for name, value := range tags {
+		telegrafTags = append(telegrafTags, map[string]string{
+			"tag_name":  name,
+			"tag_value": value,
+		})
+	}
 	ret := map[string]interface{}{
-		"influxdb_url":       influxdbUrl,
-		"influxdb_name":      "telegraf",
-		"onecloud_vm_id":     vmId,
-		"onecloud_tenant_id": tenantId,
-		"onecloud_domain_id": domainId,
+		"influxdb_url":         influxdbUrl,
+		"influxdb_name":        "telegraf",
+		"telegraf_global_tags": telegrafTags,
 	}
 	return ret, nil
 }
