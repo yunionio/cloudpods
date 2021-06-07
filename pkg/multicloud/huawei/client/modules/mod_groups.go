@@ -17,6 +17,9 @@ package modules
 import (
 	"fmt"
 
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"
 )
@@ -50,6 +53,24 @@ func (manager *SGroupManager) ListRoles(domainId string, groupId string) (*respo
 	return manager.ListInContextWithSpec(nil, fmt.Sprintf("%s/roles", groupId), nil, "roles")
 }
 
+func (manager *SGroupManager) DeleteProjectRole(projectId, groupId, roleId string) error {
+	if len(projectId) == 0 {
+		return fmt.Errorf("missing projectId")
+	}
+	if len(groupId) == 0 {
+		return fmt.Errorf("missing groupId")
+	}
+	if len(roleId) == 0 {
+		return fmt.Errorf("missing roleId")
+	}
+	manager.SetVersion(fmt.Sprintf("v3/projects/%s", projectId))
+	_, err := manager.DeleteInContextWithSpec(nil, groupId, fmt.Sprintf("roles/%s", roleId), nil, nil, "")
+	if err != nil && errors.Cause(err) == cloudprovider.ErrNotFound {
+		return nil
+	}
+	return err
+}
+
 func (manager *SGroupManager) DeleteRole(domainId string, groupId, roleId string) error {
 	if len(domainId) == 0 {
 		return fmt.Errorf("missing domainId")
@@ -62,6 +83,24 @@ func (manager *SGroupManager) DeleteRole(domainId string, groupId, roleId string
 	}
 	manager.SetVersion(fmt.Sprintf("v3/domains/%s", domainId))
 	_, err := manager.DeleteInContextWithSpec(nil, groupId, fmt.Sprintf("roles/%s", roleId), nil, nil, "")
+	if err != nil && errors.Cause(err) == cloudprovider.ErrNotFound {
+		return nil
+	}
+	return err
+}
+
+func (manager *SGroupManager) AddProjectRole(projectId string, groupId, roleId string) error {
+	if len(projectId) == 0 {
+		return fmt.Errorf("missing projectId")
+	}
+	if len(groupId) == 0 {
+		return fmt.Errorf("missing groupId")
+	}
+	if len(roleId) == 0 {
+		return fmt.Errorf("missing roleId")
+	}
+	manager.SetVersion(fmt.Sprintf("v3/projects/%s", projectId))
+	_, err := manager.UpdateInContextWithSpec(nil, groupId, fmt.Sprintf("roles/%s", roleId), nil, "")
 	return err
 }
 
