@@ -286,6 +286,9 @@ image:
 
 .PHONY: image
 
+image-telegraf-raid-plugin:
+	VERSION=release-1.6.1 ARCH=all make image telegraf-raid-plugin
+
 %:
 	@:
 
