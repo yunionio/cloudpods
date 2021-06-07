@@ -138,26 +138,17 @@ func (ai *SAnsiblePlaybookInstance) runPlaybook(ctx context.Context, userCred mc
 		return errors.Wrap(err, "unable to update ansibleplaybookinstance")
 	}
 
-	convertJO := func(o jsonutils.JSONObject) map[string]interface{} {
-		if o == nil {
-			return map[string]interface{}{}
-		}
-		ret := make(map[string]interface{})
-		o.Unmarshal(&ret)
-		return ret
-	}
 	// merge configs
-	params := make(map[string]interface{})
-	for k, v := range convertJO(ar.DefaultParams) {
-		params[k] = v
+	dp, params := ar.DefaultParams.(*jsonutils.JSONDict), ai.Params.(*jsonutils.JSONDict)
+	for _, k := range dp.SortedKeys() {
+		v, _ := dp.Get(k)
+		params.Set(k, v)
 	}
-	for k, v := range convertJO(ai.Params) {
-		params[k] = v
-	}
+	ar.DefaultParams.(*jsonutils.JSONDict).SortedKeys()
 	sess := ansiblev2.NewOfflineSession().
 		Inventory(ai.Inventory).
 		PrivateKey(privateKey).
-		Configs(params).
+		ConfigYaml(params.YAMLString()).
 		PlaybookPath(ar.PlaybookPath).
 		OutputWriter(&ansiblePlaybookOutputWriter{ai}).
 		KeepTmpdir(options.Options.KeepTmpdir)
