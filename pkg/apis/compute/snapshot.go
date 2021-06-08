@@ -19,12 +19,12 @@ import "yunion.io/x/onecloud/pkg/apis"
 type SnapshotCreateInput struct {
 	apis.VirtualResourceCreateInput
 
-	// 磁盘名称或Id,建议使用Id
+	// 磁盘Id
 	// 目前仅VMware平台不支持创建快照,其余平台磁盘均支持创建快照
 	// required: true
-	Disk string `json:"disk"`
-	// swagger:ignore
 	DiskId string `json:"disk_id"`
+	// swagger:ignore
+	Disk string `json:"disk" yunion-deprecated-by:"disk_id"`
 	// swagger:ignore
 	StorageId string `json:"storage_id"`
 	// swagger:ignore
