@@ -1656,8 +1656,12 @@ func (manager *SHostManager) getHostsByZoneProvider(zone *SZone, provider *SClou
 }
 
 func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, hosts []cloudprovider.ICloudHost) ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
-	lockman.LockRawObject(ctx, "hosts", fmt.Sprintf("%s-%s", zone.Id, provider.Id))
-	defer lockman.ReleaseRawObject(ctx, "hosts", fmt.Sprintf("%s-%s", zone.Id, provider.Id))
+	key := provider.Id
+	if zone != nil {
+		key = fmt.Sprintf("%s-%s", zone.Id, provider.Id)
+	}
+	lockman.LockRawObject(ctx, "hosts", key)
+	defer lockman.ReleaseRawObject(ctx, "hosts", key)
 
 	localHosts := make([]SHost, 0)
 	remoteHosts := make([]cloudprovider.ICloudHost, 0)
