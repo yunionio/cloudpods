@@ -50,6 +50,7 @@ import (
 	"yunion.io/x/onecloud/pkg/baremetal/utils/disktool"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
 	raiddrivers "yunion.io/x/onecloud/pkg/baremetal/utils/raid/drivers"
+	"yunion.io/x/onecloud/pkg/baremetal/utils/uefi"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
@@ -1306,6 +1307,19 @@ func (b *SBaremetalInstance) GetRawIPMIConfig() *types.SIPMIInfo {
 	return &ipmiInfo
 }
 
+func (b *SBaremetalInstance) GetUEFIInfo() (*types.EFIBootMgrInfo, error) {
+	key := "uefi_info"
+	if !b.desc.Contains(key) {
+		return nil, nil
+	}
+	info := new(types.EFIBootMgrInfo)
+	if err := b.desc.Unmarshal(info, key); err != nil {
+
+		return nil, errors.Wrap(err, "Unmarshal json")
+	}
+	return info, nil
+}
+
 func (b *SBaremetalInstance) GetAccessIp() string {
 	accessIp, _ := b.desc.GetString("access_ip")
 	return accessIp
@@ -1434,13 +1448,16 @@ func (b *SBaremetalInstance) SSHReachable() (bool, error) {
 	return false, errors.NewAggregate(errs)
 }
 
-func (b *SBaremetalInstance) sshRun(hostCmd string, serverCmd string) ([]string, error) {
+func (b *SBaremetalInstance) sshRunWrapper(
+	hostRun func(hostCli *ssh.Client) ([]string, error),
+	serverRun func(serverCli *ssh.Client) ([]string, error),
+) ([]string, error) {
 	hostCli, err := b.GetHostSSHClient()
 	if err != nil {
 		log.Warningf("Get host ssh client error: %v", err)
 	} else {
 		if hostCli != nil {
-			return hostCli.RawRun(hostCmd)
+			return hostRun(hostCli)
 		}
 	}
 
@@ -1448,10 +1465,99 @@ func (b *SBaremetalInstance) sshRun(hostCmd string, serverCmd string) ([]string,
 	if err != nil {
 		return nil, errors.Wrapf(err, "Get baremetal %s server ssh client", b.GetName())
 	}
-	return serverCli.RunWithTTY(serverCmd)
+	return serverRun(serverCli)
+}
+
+func (b *SBaremetalInstance) sshRun(hostCmd string, serverCmd string) ([]string, error) {
+	return b.sshRunWrapper(
+		func(hostCli *ssh.Client) ([]string, error) {
+			return hostCli.RawRun(hostCmd)
+		},
+		func(serverCli *ssh.Client) ([]string, error) {
+			return serverCli.RunWithTTY(serverCmd)
+		},
+	)
+}
+
+func (b *SBaremetalInstance) adjustUEFIWrapper(cli *ssh.Client, f func() error) error {
+	isUEFI, err := uefi.RemoteIsUEFIBoot(cli)
+	if err != nil {
+		return errors.Wrap(err, "Check is uefi boot")
+	}
+	if !isUEFI {
+		return nil
+	}
+	return f()
+}
+
+func (b *SBaremetalInstance) AdjustUEFICurrentBootOrder(hostCli *ssh.Client) error {
+	return b.adjustUEFIWrapper(hostCli, func() error {
+		mgr, err := uefi.NewEFIBootMgrFromRemote(hostCli, false)
+		if err != nil {
+			return errors.Wrap(err, "NewEFIBootMgrFromRemote")
+		}
+		if err := uefi.RemoteSetCurrentBootAtFirst(hostCli, mgr); err != nil {
+			return errors.Wrap(err, "Set current boot order at first")
+		}
+		return b.SendUEFIInfo(mgr)
+	})
+}
+
+func (b *SBaremetalInstance) SendUEFIInfo(mgr *uefi.BootMgr) error {
+	info, err := mgr.ToEFIBootMgrInfo()
+	if err != nil {
+		return err
+	}
+	desc := b.desc
+	uefiData := jsonutils.Marshal(info)
+	desc.Add(uefiData, "uefi_info")
+	if err := b.SaveDesc(desc); err != nil {
+		return errors.Wrap(err, "Save uefi_info")
+	}
+	updateData := jsonutils.NewDict()
+	updateData.Add(uefiData, "uefi_info")
+	if _, err := modules.Hosts.Update(b.GetClientSession(), b.GetId(), updateData); err != nil {
+		return errors.Wrap(err, "Update cloud uefi info")
+	}
+	return nil
+}
+
+func (b *SBaremetalInstance) adjustServerUEFIBootOrder(srvCli *ssh.Client) error {
+	return b.adjustUEFIWrapper(srvCli, func() error {
+		info, err := b.GetUEFIInfo()
+		if err != nil {
+			return errors.Wrap(err, "GetUEFIInfo from local desc")
+		}
+		if info == nil {
+			return uefi.RemoteTryToSetPXEBoot(srvCli)
+		}
+		if err := uefi.RemoteTryToSetPXEBoot(srvCli); err != nil {
+			log.Warningf("RemoteTryToSetPXEBoot error: %v", err)
+		}
+		_, err = uefi.RemoteSetBootOrderByInfo(srvCli, info.GetPXEEntry())
+		return err
+	})
+}
+
+func (b *SBaremetalInstance) AdjustUEFIBootOrder() error {
+	_, err := b.sshRunWrapper(
+		func(hostCli *ssh.Client) ([]string, error) {
+			return nil, b.AdjustUEFICurrentBootOrder(hostCli)
+		},
+		func(srvCli *ssh.Client) ([]string, error) {
+			return nil, b.adjustServerUEFIBootOrder(srvCli)
+		},
+	)
+	return err
 }
 
 func (b *SBaremetalInstance) SSHReboot() error {
+	if !b.HasBMC() {
+		// try adjust uefi boot order before reboot
+		if err := b.AdjustUEFIBootOrder(); err != nil {
+			return errors.Wrap(err, "Adjust uefi boot order")
+		}
+	}
 	if _, err := b.sshRun("/sbin/reboot", "sudo shutdown -r now && exit"); err != nil {
 		if !ssh.IsExitMissingError(err) {
 			return errors.Wrap(err, "Try reboot")
@@ -2288,7 +2394,9 @@ func (s *SBaremetalServer) DoDiskConfig(term *ssh.Client) error {
 	if err != nil {
 		return fmt.Errorf("CalculateLayout: %v", err)
 	}
+	log.Errorf("===layouts: %s", jsonutils.Marshal(layouts).PrettyString())
 	diskConfs := baremetal.GroupLayoutResultsByDriverAdapter(layouts)
+	log.Errorf("===diskConfs: %s", jsonutils.Marshal(diskConfs).PrettyString())
 	for _, dConf := range diskConfs {
 		driver := dConf.Driver
 		raidDrv := raiddrivers.GetDriver(driver, term)
