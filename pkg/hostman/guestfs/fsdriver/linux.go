@@ -596,6 +596,10 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 	if mainNic != nil {
 		mainIp = mainNic.Ip
 	}
+
+	var systemdResolveConfig strings.Builder
+	dnss := []string{}
+	domains := []string{}
 	for i := range allNics {
 		nicDesc := allNics[i]
 		cmds.WriteString(fmt.Sprintf("auto %s\n", nicDesc.Name))
@@ -628,8 +632,10 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 			dnslist := netutils2.GetNicDns(nicDesc)
 			if len(dnslist) > 0 {
 				cmds.WriteString(fmt.Sprintf("    dns-nameservers %s\n", strings.Join(dnslist, " ")))
+				dnss = append(dnss, dnslist...)
 				if len(nicDesc.Domain) > 0 {
 					cmds.WriteString(fmt.Sprintf("    dns-search %s\n", nicDesc.Domain))
+					domains = append(domains, nicDesc.Domain)
 				}
 			}
 			if len(nicDesc.TeamingSlaves) > 0 {
@@ -642,6 +648,19 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 				cmds.WriteString(getNicTeamingConfigCmds(nicDesc.TeamingSlaves))
 			}
 			cmds.WriteString("\n")
+		}
+	}
+
+	if len(dnss) != 0 {
+		systemdResolveConfig.WriteString("[Resolve]\n")
+		systemdResolveConfig.WriteString(fmt.Sprintf("DNS=%s\n", strings.Join(dnss, " ")))
+		if len(domains) != 0 {
+			systemdResolveConfig.WriteString(fmt.Sprintf("Domains=%s\n", strings.Join(domains, " ")))
+		}
+		systemdResolveFn := "/etc/systemd/resolved.conf"
+		content := systemdResolveConfig.String()
+		if err := rootFs.FilePutContents(systemdResolveFn, content, false, false); err != nil {
+			log.Warningf("Put %s to %s error: %v", content, systemdResolveFn, err)
 		}
 	}
 	log.Debugf("%s", cmds.String())

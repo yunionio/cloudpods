@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/baremetal/utils/uefi"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/ssh"
@@ -30,6 +31,7 @@ import (
 type IServerBaseDeployTask interface {
 	IPXEBootTask
 
+	RemoveEFIOSEntry() bool
 	DoDeploys(term *ssh.Client) (jsonutils.JSONObject, error)
 	PostDeploys(term *ssh.Client) error
 }
@@ -75,6 +77,10 @@ func (self *SBaremetalServerBaseDeployTask) GetFinishAction() string {
 	return ""
 }
 
+func (self *SBaremetalServerBaseDeployTask) RemoveEFIOSEntry() bool {
+	return false
+}
+
 func (self *SBaremetalServerBaseDeployTask) DoDeploys(_ *ssh.Client) (jsonutils.JSONObject, error) {
 	return nil, nil
 }
@@ -85,12 +91,19 @@ func (self *SBaremetalServerBaseDeployTask) PostDeploys(_ *ssh.Client) error {
 
 func (self *SBaremetalServerBaseDeployTask) OnPXEBoot(ctx context.Context, term *ssh.Client, args interface{}) error {
 	log.Infof("%s called on stage pxeboot, args: %v", self.GetName(), args)
+
+	if self.IServerBaseDeployTask().RemoveEFIOSEntry() {
+		if err := uefi.RemoteTryRemoveOSBootEntry(term); err != nil {
+			return errors.Wrap(err, "Remote uefi boot entry")
+		}
+	}
+
 	result, err := self.IServerBaseDeployTask().DoDeploys(term)
 	if err != nil {
 		return errors.Wrap(err, "Do deploy")
 	}
 
-	if err := AdjustUEFIBootOrder(term); err != nil {
+	if err := AdjustUEFIBootOrder(term, self.Baremetal); err != nil {
 		return errors.Wrap(err, "Adjust UEFI boot order")
 	}
 

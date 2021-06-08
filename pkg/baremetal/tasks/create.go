@@ -46,6 +46,10 @@ func (self *SBaremetalServerCreateTask) GetName() string {
 	return "BaremetalServerCreateTask"
 }
 
+func (self *SBaremetalServerCreateTask) RemoveEFIOSEntry() bool {
+	return true
+}
+
 func (self *SBaremetalServerCreateTask) DoDeploys(term *ssh.Client) (jsonutils.JSONObject, error) {
 	// Build raid
 	err := self.Baremetal.GetServer().DoDiskConfig(term)

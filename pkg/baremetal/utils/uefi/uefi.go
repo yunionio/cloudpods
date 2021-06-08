@@ -22,13 +22,17 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
 const (
 	// efibootmgr useage: https://github.com/rhboot/efibootmgr
-	CMD_EFIBOOTMGR = "/usr/sbin/efibootmgr"
+	CMD_EFIBOOTMGR  = "/usr/sbin/efibootmgr"
+	SUDO_EFIBOOTMGR = "sudo efibootmgr"
+
+	MAC_KEYWORD = "MAC"
 )
 
 type BootMgr struct {
@@ -58,6 +62,13 @@ type BootEntry struct {
 	BootNum     string
 	Description string
 	IsActive    bool
+}
+
+func getEFIBootMgrCmd(sudo bool) string {
+	if sudo {
+		return SUDO_EFIBOOTMGR
+	}
+	return CMD_EFIBOOTMGR
 }
 
 func ParseEFIBootMGR(input string) (*BootMgr, error) {
@@ -213,8 +224,15 @@ func parseEFIBootMGREntry(line string) *BootEntry {
 	}
 }
 
-func NewEFIBootMgrFromRemote(cli *ssh.Client) (*BootMgr, error) {
-	cmd := CMD_EFIBOOTMGR
+func NewEFIBootMgrFromRemote(cli *ssh.Client, sudo bool) (*BootMgr, error) {
+	return newEFIBootMgrFromRemote(cli, sudo, true)
+}
+
+func newEFIBootMgrFromRemote(cli *ssh.Client, sudo bool, verbose bool) (*BootMgr, error) {
+	cmd := getEFIBootMgrCmd(sudo)
+	if verbose {
+		cmd = fmt.Sprintf("%s -v", cmd)
+	}
 	lines, err := cli.RawRun(cmd)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Execute command: %s", cmd)
@@ -222,8 +240,8 @@ func NewEFIBootMgrFromRemote(cli *ssh.Client) (*BootMgr, error) {
 	return ParseEFIBootMGR(strings.Join(lines, "\n"))
 }
 
-func (m *BootMgr) GetCommand() string {
-	return CMD_EFIBOOTMGR
+func (m *BootMgr) GetCommand(sudo bool) string {
+	return getEFIBootMgrCmd(sudo)
 }
 
 func (m *BootMgr) GetBootCurrent() string {
@@ -244,6 +262,15 @@ func (m *BootMgr) GetTimeout() int {
 
 func (m *BootMgr) GetBootEntry(num string) *BootEntry {
 	return m.entries[num]
+}
+
+func (m *BootMgr) GetBootEntryByDesc(desc string) *BootEntry {
+	for _, entry := range m.entries {
+		if strings.Contains(entry.Description, desc) {
+			return entry
+		}
+	}
+	return nil
 }
 
 func (m *BootMgr) FindBootOrderPos(num string) int {
@@ -293,8 +320,12 @@ func (m *BootMgr) MoveBootOrder(num string, pos int) *BootMgr {
 	return m
 }
 
+func getSetBootOrderArgs(bootOrder []string) string {
+	return strings.Join(bootOrder, ",")
+}
+
 func (m *BootMgr) GetSetBootOrderArgs() string {
-	return strings.Join(m.bootOrder, ",")
+	return getSetBootOrderArgs(m.bootOrder)
 }
 
 func RemoteIsUEFIBoot(cli *ssh.Client) (bool, error) {
@@ -311,6 +342,45 @@ func RemoteIsUEFIBoot(cli *ssh.Client) (bool, error) {
 	return false, nil
 }
 
+func convertToEFIBootMgrInfo(info *BootMgr) (*types.EFIBootMgrInfo, error) {
+	data := &types.EFIBootMgrInfo{
+		PxeBootNum: info.GetBootCurrent(),
+		BootOrder:  make([]*types.EFIBootEntry, len(info.GetBootOrder())),
+	}
+	for idx, orderNum := range info.GetBootOrder() {
+		entry := info.GetBootEntry(orderNum)
+		if entry == nil {
+			return nil, errors.Errorf("Not found boot entry by %q", orderNum)
+		}
+		data.BootOrder[idx] = &types.EFIBootEntry{
+			BootNum:     entry.BootNum,
+			Description: entry.Description,
+			IsActive:    entry.IsActive,
+		}
+	}
+	return data, nil
+}
+
+func (mgr *BootMgr) ToEFIBootMgrInfo() (*types.EFIBootMgrInfo, error) {
+	return convertToEFIBootMgrInfo(mgr)
+}
+
+func (mgr *BootMgr) sortEntryByKeyword(keyword string) *BootMgr {
+	newOrder := []string{}
+	oldOrder := []string{}
+	for _, num := range mgr.bootOrder {
+		entry := mgr.GetBootEntry(num)
+		if strings.Contains(entry.Description, keyword) {
+			newOrder = append(newOrder, num)
+		} else {
+			oldOrder = append(oldOrder, num)
+		}
+	}
+	newOrder = append(newOrder, oldOrder...)
+	mgr.bootOrder = newOrder
+	return mgr
+}
+
 func RemoteSetCurrentBootAtFirst(cli *ssh.Client, mgr *BootMgr) error {
 	curPos := mgr.FindBootOrderPos(mgr.GetBootCurrent())
 	if curPos == -1 {
@@ -318,7 +388,91 @@ func RemoteSetCurrentBootAtFirst(cli *ssh.Client, mgr *BootMgr) error {
 	}
 	// move to first
 	mgr.MoveBootOrder(mgr.GetBootCurrent(), 0)
-	cmd := fmt.Sprintf("%s -o %s", mgr.GetCommand(), mgr.GetSetBootOrderArgs())
+	cmd := fmt.Sprintf("%s -o %s", mgr.GetCommand(false), mgr.GetSetBootOrderArgs())
 	_, err := cli.Run(cmd)
 	return err
+}
+
+func RemoteSetBootOrder(cli *ssh.Client, order []string) error {
+	cmd := fmt.Sprintf("%s -o %s", SUDO_EFIBOOTMGR, getSetBootOrderArgs(order))
+	_, err := cli.RunWithTTY(cmd)
+	return err
+}
+
+func RemoteSetBootOrderByInfo(cli *ssh.Client, entry *types.EFIBootEntry) (*BootMgr, error) {
+	mgr, err := newEFIBootMgrFromRemote(cli, true, true)
+	if err != nil {
+		return nil, err
+	}
+
+	curEntry := mgr.GetBootEntryByDesc(entry.Description)
+	if curEntry == nil {
+		return nil, errors.Wrapf(err, "Not found remote boot entry by %q", entry.Description)
+	}
+
+	mgr = mgr.sortEntryByKeyword(curEntry.Description)
+	return mgr, RemoteSetBootOrder(cli, mgr.GetBootOrder())
+}
+
+func RemoteTryToSetPXEBoot(cli *ssh.Client) error {
+	mgr, err := newEFIBootMgrFromRemote(cli, true, true)
+	if err != nil {
+		return err
+	}
+
+	mgr = mgr.sortEntryByKeyword(MAC_KEYWORD)
+	return RemoteSetBootOrder(cli, mgr.GetBootOrder())
+}
+
+func remoteISUEFIBootWrap(cli *ssh.Client, f func(*ssh.Client) error) error {
+	isUEFI, err := RemoteIsUEFIBoot(cli)
+	if err != nil {
+		return errors.Wrap(err, "Check is UEFI boot")
+	}
+	if !isUEFI {
+		return nil
+	}
+	return f(cli)
+}
+
+func RemoteTryRemoveOSBootEntry(hostCli *ssh.Client) error {
+	return remoteISUEFIBootWrap(hostCli, remoteTryRemoveOSBootEntry)
+}
+
+func remoteTryRemoveOSBootEntry(hostCli *ssh.Client) error {
+	mgr, err := newEFIBootMgrFromRemote(hostCli, false, true)
+	if err != nil {
+		return err
+	}
+
+	// TODO: find other ways to decide whether entry is OS boot
+	osKeywords := []string{
+		"linux",
+		"centos",
+		"ubuntu",
+		"windows",
+		"grub",
+	}
+
+	isOsEntry := func(desc string) bool {
+		for _, key := range osKeywords {
+			desc := strings.ToLower(desc)
+			if strings.Contains(desc, key) {
+				return true
+			}
+		}
+		return false
+	}
+
+	for _, entry := range mgr.entries {
+		if !isOsEntry(entry.Description) {
+			continue
+		}
+		// delete entry and remove it from BootOrder
+		cmd := fmt.Sprintf("%s -b %s -B", mgr.GetCommand(false), entry.BootNum)
+		if _, err := hostCli.Run(cmd); err != nil {
+			return errors.Wrapf(err, "remove boot entry: %s", entry.Description)
+		}
+	}
+	return nil
 }
