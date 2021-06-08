@@ -28,12 +28,12 @@ type OfflineSession struct {
 	hostIp       string
 	hostName     string
 	configs      map[string]interface{}
+	configYaml   string
 }
 
 func NewOfflineSession() *OfflineSession {
 	sess := &OfflineSession{
 		PlaybookSessionBase: NewPlaybookSessionBase(),
-		configs:             map[string]interface{}{},
 	}
 	return sess
 }
@@ -68,12 +68,21 @@ func (sess *OfflineSession) Configs(configs map[string]interface{}) *OfflineSess
 	return sess
 }
 
+func (sess *OfflineSession) ConfigYaml(yaml string) *OfflineSession {
+	sess.configYaml = yaml
+	return sess
+}
+
 func (sess *OfflineSession) GetPlaybookPath() string {
 	return sess.playbookPath
 }
 
 func (sess *OfflineSession) GetConfigs() map[string]interface{} {
 	return sess.configs
+}
+
+func (sess *OfflineSession) GetConfigYaml() string {
+	return sess.configYaml
 }
 
 func (sess *OfflineSession) Run(ctx context.Context) (err error) {

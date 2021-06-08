@@ -44,6 +44,7 @@ type IPlaybookSession interface {
 	GetTimeout() int
 	CheckAndSetRunning() bool
 	SetStopped()
+	GetConfigYaml() string
 }
 
 type runnable struct {
@@ -142,6 +143,13 @@ func (r runnable) Run(ctx context.Context) (err error) {
 		}
 		config = filepath.Join(tmpdir, "config")
 		err = ioutil.WriteFile(config, yml, os.FileMode(0600))
+		if err != nil {
+			return errors.Wrapf(err, "unable to write config to file %s", config)
+		}
+	} else if r.GetConfigYaml() != "" {
+		yml := r.GetConfigYaml()
+		config = filepath.Join(tmpdir, "config")
+		err = ioutil.WriteFile(config, []byte(yml), os.FileMode(0600))
 		if err != nil {
 			return errors.Wrapf(err, "unable to write config to file %s", config)
 		}
@@ -276,6 +284,10 @@ func (pb *PlaybookSessionBase) GetInventory() string {
 
 func (pb *PlaybookSessionBase) GetConfigs() map[string]interface{} {
 	return nil
+}
+
+func (pb *PlaybookSessionBase) GetConfigYaml() string {
+	return ""
 }
 
 func (pb *PlaybookSessionBase) GetRequirements() string {
