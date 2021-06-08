@@ -137,22 +137,24 @@ func (task *sBaremetalPrepareTask) prepareBaremetalInfo(cli *ssh.Client) (*barem
 	if ipmiInfo == nil {
 		ipmiInfo = &types.SIPMIInfo{}
 	}
-	if !ipmiInfo.Present && ipmiEnable {
+	if !ipmiInfo.Verified && !ipmiInfo.Present && ipmiEnable {
 		ipmiInfo.Present = true
 		ipmiInfo.Verified = false
 	}
 
-	return &baremetalPrepareInfo{
-		sysInfo,
-		cpuInfo,
-		dmiCPUInfo,
-		memInfo,
-		nicsInfo,
-		diskInfo,
-		storageDriver,
-		ipmiInfo,
-		isolatedDevicesInfo,
-	}, nil
+	prepareInfo := &baremetalPrepareInfo{
+		sysInfo:             sysInfo,
+		cpuInfo:             cpuInfo,
+		dmiCpuInfo:          dmiCPUInfo,
+		memInfo:             memInfo,
+		nicsInfo:            nicsInfo,
+		diskInfo:            diskInfo,
+		storageDriver:       storageDriver,
+		ipmiInfo:            ipmiInfo,
+		isolatedDevicesInfo: isolatedDevicesInfo,
+	}
+
+	return prepareInfo, nil
 }
 
 func (task *sBaremetalPrepareTask) configIPMISetting(cli *ssh.Client, i *baremetalPrepareInfo) error {
@@ -327,7 +329,7 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 		log.Errorf("SetNTP fail: %s", err)
 	}
 
-	if err = AdjustUEFIBootOrder(cli); err != nil {
+	if err = AdjustUEFIBootOrder(cli, task.baremetal); err != nil {
 		logclient.AddActionLogWithStartable(task, task.baremetal, logclient.ACT_PREPARE, err, task.userCred, false)
 		return errors.Wrap(err, "Adjust UEFI boot order")
 	}

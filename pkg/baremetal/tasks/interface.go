@@ -23,6 +23,7 @@ import (
 	baremetaltypes "yunion.io/x/onecloud/pkg/baremetal/types"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
 type IBaremetal interface {
@@ -73,6 +74,7 @@ type IBaremetal interface {
 	SSHReachable() (bool, error)
 	SSHReboot() error
 	SSHShutdown() error
+	AdjustUEFICurrentBootOrder(cli *ssh.Client) error
 }
 
 type IBmManager interface {

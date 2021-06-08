@@ -43,6 +43,10 @@ func (self *SBaremetalServerDeployTask) GetName() string {
 	return "BaremetalServerDeployTask"
 }
 
+func (self *SBaremetalServerDeployTask) RemoveEFIOSEntry() bool {
+	return false
+}
+
 func (self *SBaremetalServerDeployTask) DoDeploys(term *ssh.Client) (jsonutils.JSONObject, error) {
 	return self.Baremetal.GetServer().DoDeploy(term, self.data, false)
 }

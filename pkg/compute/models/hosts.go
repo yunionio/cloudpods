@@ -187,6 +187,9 @@ type SHost struct {
 
 	// IPv4地址，作为么有云vpc访问外网时的网关
 	OvnMappedIpAddr string `width:"16" charset:"ascii" nullable:"true" list:"user"`
+
+	// UEFI详情
+	UefiInfo jsonutils.JSONObject `nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SHostManager) GetContextManagers() [][]db.IModelManager {
@@ -3505,6 +3508,10 @@ func (self *SHost) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 			log.Errorf("baremetal host %s update related server %s spec error: %v", self.GetName(), guest.GetName(), err)
 		}
 	}
+
+	if err := self.startSyncConfig(ctx, userCred, "", true); err != nil {
+		log.Errorf("start sync host %q config after updated", self.GetName())
+	}
 }
 
 func (self *SHost) UpdateDnsRecords(isAdd bool) {
@@ -3916,6 +3923,17 @@ func (self *SHost) HasBMC() bool {
 		return true
 	}
 	return false
+}
+
+func (self *SHost) IsUEFIBoot() bool {
+	info, _ := self.GetUEFIInfo()
+	if info == nil {
+		return false
+	}
+	if len(info.PxeBootNum) == 0 {
+		return false
+	}
+	return true
 }
 
 func (self *SHost) isRedfishCapable() bool {
@@ -5515,6 +5533,17 @@ func (host *SHost) GetIpmiInfo() (types.SIPMIInfo, error) {
 	return info, nil
 }
 
+func (host *SHost) GetUEFIInfo() (*types.EFIBootMgrInfo, error) {
+	if host.UefiInfo == nil {
+		return nil, nil
+	}
+	info := new(types.EFIBootMgrInfo)
+	if err := host.UefiInfo.Unmarshal(info); err != nil {
+		return nil, errors.Wrap(err, "host.UefiInfo.Unmarshal")
+	}
+	return info, nil
+}
+
 func (self *SHost) AllowGetDetailsJnlp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return db.IsAdminAllowGetSpec(userCred, self, "jnlp")
 }
@@ -5616,7 +5645,13 @@ func (self *SHost) PerformSyncConfig(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SHost) StartSyncConfig(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "BaremetalSyncConfigTask", self, userCred, nil, parentTaskId, "", nil)
+	return self.startSyncConfig(ctx, userCred, parentTaskId, false)
+}
+
+func (self *SHost) startSyncConfig(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, noStatus bool) error {
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewBool(noStatus), "not_sync_status")
+	task, err := taskman.TaskManager.NewTask(ctx, "BaremetalSyncConfigTask", self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}

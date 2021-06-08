@@ -616,7 +616,24 @@ func (tool *PartitionTool) parseLsDisk(lines []string, driver string) {
 	}
 	minCnt := int(math.Min(float64(len(disks)), float64(len(tool.diskTable[driver]))))
 	for i := 0; i < minCnt; i++ {
-		tool.diskTable[driver][i].SetInfo(disks[i])
+		driverDisk := tool.diskTable[driver][i]
+		if utils.IsInStringArray(driver, []string{NONRAID_DRIVER, PCIE_DRIVER}) {
+			// find size matched disk from disks
+			size := driverDisk.sizeMB
+			var remoteDisk *types.SDiskInfo
+			for ri := range disks {
+				if disks[ri].Size == size {
+					remoteDisk = disks[ri]
+					// remove matched disks
+					disks = append(disks[:ri], disks[ri+1:]...)
+					break
+				}
+			}
+			driverDisk.SetInfo(remoteDisk)
+		} else {
+			// raid disk set by order
+			driverDisk.SetInfo(disks[i])
+		}
 	}
 }
 

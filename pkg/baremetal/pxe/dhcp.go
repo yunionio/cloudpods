@@ -328,23 +328,23 @@ func (req *dhcpRequest) findBaremetalsOfAnyMac(session *mcclient.ClientSession, 
 
 // createOrUpdateBaremetal create or update baremetal by client MAC
 func (req *dhcpRequest) createOrUpdateBaremetal(session *mcclient.ClientSession) (jsonutils.JSONObject, error) {
-	// first try UUID
-	ret, err := req.findBaremetalsByUuid(session)
+	// first try mac and is_baremetal=true
+	ret, err := req.findBaremetalsOfAnyMac(session, true)
 	if err != nil {
 		return nil, err
 	}
 	if len(ret.Data) == 0 {
-		// try mac and is_baremetal=true
-		ret, err = req.findBaremetalsOfAnyMac(session, true)
+		// try mac and host_type=baremetal
+		ret, err = req.findBaremetalsOfAnyMac(session, false)
 		if err != nil {
 			return nil, err
 		}
-		if len(ret.Data) == 0 {
-			// try mac and host_type=baremetal
-			ret, err = req.findBaremetalsOfAnyMac(session, false)
-			if err != nil {
-				return nil, err
-			}
+	}
+	if len(ret.Data) == 0 {
+		// try UUID
+		ret, err = req.findBaremetalsByUuid(session)
+		if err != nil {
+			return nil, err
 		}
 	}
 	switch len(ret.Data) {
