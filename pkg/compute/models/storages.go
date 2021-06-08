@@ -132,11 +132,11 @@ func (self *SStorage) ValidateUpdateData(ctx context.Context, userCred mcclient.
 	if err != nil {
 		return input, err
 	}
+	input.StorageConf = jsonutils.NewDict()
 	if self.StorageConf != nil {
-		input.StorageConf = self.StorageConf.(*jsonutils.JSONDict)
-	} else {
-		input.StorageConf = jsonutils.NewDict()
+		input.StorageConf.Update(jsonutils.Marshal(self.StorageConf))
 	}
+
 	driver := GetStorageDriver(self.StorageType)
 	if driver != nil {
 		return driver.ValidateUpdateData(ctx, userCred, input)
