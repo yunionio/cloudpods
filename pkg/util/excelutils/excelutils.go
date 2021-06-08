@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/360EntSecGroup-Skylar/excelize"
 
@@ -84,7 +85,12 @@ func exportHeader(xlsx *excelize.File, texts []string, rowIndex int) {
 func exportRow(xlsx *excelize.File, data jsonutils.JSONObject, keys []string, rowIndex int) {
 	for i := 0; i < len(keys); i += 1 {
 		var valStr string
-		val, _ := data.GetIgnoreCases(keys[i])
+		var val jsonutils.JSONObject
+		if strings.Contains(keys[i], ".") {
+			val, _ = data.GetIgnoreCases(strings.Split(keys[i], ".")...)
+		} else {
+			val, _ = data.GetIgnoreCases(keys[i])
+		}
 		if val != nil {
 			valStr, _ = val.GetString()
 		}
