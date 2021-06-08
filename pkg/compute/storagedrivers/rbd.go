@@ -100,10 +100,8 @@ func (self *SRbdStorageDriver) ValidateCreateData(ctx context.Context, userCred 
 }
 
 func (self *SRbdStorageDriver) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, storage *models.SStorage) (*jsonutils.JSONDict, error) {
-	conf, ok := storage.StorageConf.(*jsonutils.JSONDict)
-	if !ok {
-		conf = jsonutils.NewDict()
-	}
+	conf := jsonutils.NewDict()
+	conf.Update(storage.StorageConf)
 	data.Set("update_storage_conf", jsonutils.JSONFalse)
 	for _, k := range []string{"rbd_rados_mon_op_timeout", "rbd_rados_osd_op_timeout", "rbd_client_mount_timeout"} {
 		if timeout, _ := data.Int(k); timeout > 0 {
