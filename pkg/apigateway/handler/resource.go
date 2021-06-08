@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -190,45 +191,62 @@ func (f *ResourceHandlers) listHandler(ctx context.Context, w http.ResponseWrite
 func (f *ResourceHandlers) doList(ctx context.Context, session *mcclient.ClientSession, module modulebase.IBaseManager, query jsonutils.JSONObject, w http.ResponseWriter, r *http.Request) {
 	var exportKeys []string
 	var exportTexts []string
-	exportFormat, _ := query.GetString("export")
-	if len(exportFormat) > 0 {
-		exportKeyStr, _ := query.GetString("export_keys")
-		exportTextStr, _ := query.GetString("export_texts")
-		if len(exportKeyStr) > 0 {
-			exportKeys = strings.Split(exportKeyStr, ",")
+	export := struct {
+		ExportFormat string `json:"export"`
+		ExportKeys   string `json:"export_keys"`
+		ExportTexts  string `json:"export_texts"`
+	}{}
+	query.Unmarshal(&export)
+	if len(export.ExportFormat) > 0 {
+		if len(export.ExportKeys) > 0 {
+			exportKeys = strings.Split(export.ExportKeys, ",")
 		}
-		if len(exportTextStr) > 0 {
-			exportTexts = strings.Split(exportTextStr, ",")
+		if len(export.ExportTexts) > 0 {
+			exportTexts = strings.Split(export.ExportTexts, ",")
 		}
 		if len(exportKeys) == 0 {
 			httperrors.InvalidInputError(ctx, w, "missing export keys")
 			return
-		} else if len(exportKeys) != len(exportTexts) {
-			if len(exportTexts) == 0 {
-				exportTexts = exportKeys
-			} else {
-				httperrors.InvalidInputError(ctx, w, "inconsistent export keys and texts")
-				return
-			}
+		}
+		if len(exportTexts) == 0 {
+			exportTexts = exportKeys
+		}
+		if len(exportKeys) != len(exportTexts) {
+			httperrors.InvalidInputError(ctx, w, "inconsistent export keys and texts")
+			return
 		}
 		queryDict := query.(*jsonutils.JSONDict)
 		queryDict.Remove("export")
 		queryDict.Remove("export_texts")
+		keys := []string{}
+		for _, key := range exportKeys {
+			if !strings.Contains(key, ".") {
+				keys = append(keys, key)
+				continue
+			}
+			key = strings.Split(key, ".")[0]
+			if !utils.IsInStringArray(key, keys) {
+				keys = append(keys, key)
+			}
+		}
+		queryDict.Set("export_keys", jsonutils.NewString(strings.Join(keys, ",")))
 		query = queryDict
 	}
 
 	ret, e := module.List(session, query)
 	if e != nil {
 		httperrors.GeneralServerError(ctx, w, e)
-	} else if len(exportFormat) > 0 {
+		return
+	}
+	if len(export.ExportFormat) > 0 {
 		w.Header().Set("Content-Description", "File Transfer")
 		w.Header().Set("Content-Transfer-Encoding", "binary")
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"export-%s.xlsx\"", module.KeyString()))
 		excelutils.Export(ret.Data, exportKeys, exportTexts, w)
-	} else {
-		appsrv.SendJSON(w, modulebase.ListResult2JSON(ret))
+		return
 	}
+	appsrv.SendJSON(w, modulebase.ListResult2JSON(ret))
 }
 
 // get single
