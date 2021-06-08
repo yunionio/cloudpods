@@ -257,7 +257,21 @@ func (self *SHuaweiClient) DetachGroupRole(groupId, roleId string) error {
 	if err != nil {
 		return errors.Wrap(err, "newGeneralAPIClient")
 	}
-	return client.Groups.DeleteRole(self.ownerId, groupId, roleId)
+	err = client.Groups.DeleteRole(self.ownerId, groupId, roleId)
+	if err != nil {
+		return errors.Wrapf(err, "DeleteRole")
+	}
+	projects, err := self.GetProjects()
+	if err != nil {
+		return errors.Wrapf(err, "GetProjects")
+	}
+	for _, project := range projects {
+		err = client.Groups.DeleteProjectRole(project.ID, groupId, roleId)
+		if err != nil {
+			return errors.Wrapf(err, "DeleteProjectRole")
+		}
+	}
+	return nil
 }
 
 func (self *SHuaweiClient) AttachGroupRole(groupId, roleId string) error {
@@ -265,5 +279,19 @@ func (self *SHuaweiClient) AttachGroupRole(groupId, roleId string) error {
 	if err != nil {
 		return errors.Wrap(err, "newGeneralAPIClient")
 	}
-	return client.Groups.AddRole(self.ownerId, groupId, roleId)
+	err = client.Groups.AddRole(self.ownerId, groupId, roleId)
+	if err != nil {
+		return errors.Wrapf(err, "AddRole")
+	}
+	projects, err := self.GetProjects()
+	if err != nil {
+		return errors.Wrapf(err, "GetProjects")
+	}
+	for _, project := range projects {
+		err = client.Groups.AddProjectRole(project.ID, groupId, roleId)
+		if err != nil {
+			return errors.Wrapf(err, "AddProjectRole")
+		}
+	}
+	return nil
 }
