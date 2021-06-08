@@ -1133,6 +1133,7 @@ func (self *SCloudaccount) RegisterSAMProvider() (*SSAMLProvider, error) {
 	}()
 	sp.EntityId = options.Options.ApiServer
 	sp.CloudaccountId = self.Id
+	sp.DomainId = self.DomainId
 	sp.Status = api.SAML_PROVIDER_STATUS_CREATING
 	metadata := SamlIdpInstance().GetMetadata(self.Id).String()
 	sp.MetadataDocument = metadata
@@ -1199,7 +1200,7 @@ func (self *SCloudaccount) StartSyncCloudrolesTask(ctx context.Context, userCred
 }
 
 func (self *SCloudaccount) GetSAMLProviders() ([]SSAMLProvider, error) {
-	q := SAMLProviderManager.Query().Equals("cloudaccount_id", self.Id)
+	q := SAMLProviderManager.Query().Equals("cloudaccount_id", self.Id).Desc("external_id")
 	samls := []SSAMLProvider{}
 	err := db.FetchModelObjects(SAMLProviderManager, q, &samls)
 	if err != nil {
