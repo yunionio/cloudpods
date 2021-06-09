@@ -547,35 +547,63 @@ type SMonCommand struct {
 	Format string
 }
 
-func (s *SRbdStorage) getCapacity() (uint64, error) {
-	_sizeKb, err := s.withCluster(func(conn *rados.Conn) (interface{}, error) {
-		stats, err := conn.GetClusterStats()
+type sCephCapacity struct {
+	CapacitySizeByte     int64
+	UsedCapacitySizeByte int64
+}
+
+type sCephDfResult struct {
+	Stats struct {
+		TotalBytes        int64   `json:"total_bytes"`
+		TotalAvailBytes   int64   `json:"total_avail_bytes"`
+		TotalUsedBytes    int64   `json:"total_used_bytes"`
+		TotalUsedRawBytes int64   `json:"total_used_raw_bytes"`
+		TotalUsedRawRatio float64 `json:"total_used_raw_ratio"`
+		NumOsds           int     `json:"num_osds"`
+		NumPerPoolOsds    int     `json:"num_per_pool_osds"`
+	}
+	Pools []struct {
+		Name  string `json:"name"`
+		ID    int    `json:"id"`
+		Stats struct {
+			Stored      int   `json:"stored"`
+			Objects     int   `json:"objects"`
+			KbUsed      int   `json:"kb_used"`
+			BytesUsed   int64 `json:"bytes_used"`
+			PercentUsed int   `json:"percent_used"`
+			MaxAvail    int64 `json:"max_avail"`
+		} `json:"stats"`
+	}
+}
+
+func (s *SRbdStorage) getCapacity() (*sCephCapacity, error) {
+	ret := &sCephCapacity{}
+	_, err := s.withCluster(func(conn *rados.Conn) (interface{}, error) {
+		poolName, _ := s.StorageConf.GetString("pool")
+		cmd := SMonCommand{Prefix: "df", Format: "json"}
+		buffer, _, err := conn.MonCommand([]byte(jsonutils.Marshal(cmd).String()))
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "MonCommand")
 		}
-		clusterSizeKb := stats.Kb
-		pool, _ := s.StorageConf.GetString("pool")
-		cmd := SMonCommand{Prefix: "osd pool get-quota", Pool: pool, Format: "json"}
-		bufer, _, err := conn.MonCommand([]byte(jsonutils.Marshal(cmd).String()))
+		result, err := jsonutils.Parse(buffer)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, string(buffer))
 		}
-		result, err := jsonutils.Parse(bufer)
-		if err != nil {
-			log.Errorf("parse %s json err: %v", string(bufer), err)
-			return nil, err
+		df := &sCephDfResult{}
+		result.Unmarshal(df)
+		ret.CapacitySizeByte = df.Stats.TotalAvailBytes
+		ret.UsedCapacitySizeByte = df.Stats.TotalUsedBytes
+		for _, pool := range df.Pools {
+			if pool.Name == poolName {
+				ret.UsedCapacitySizeByte = pool.Stats.BytesUsed
+			}
 		}
-		maxBytes, _ := result.Int("quota_max_bytes")
-		if maxBytes == 0 || uint64(maxBytes) > clusterSizeKb*1024 {
-			return clusterSizeKb, nil
-		}
-		return uint64(maxBytes) / 1024, nil
+		return nil, nil
 	})
 	if err != nil {
-		return 0, errors.Wrap(err, "getCapacity")
+		return ret, errors.Wrap(err, "getCapacity")
 	}
-	sizeKb := _sizeKb.(uint64)
-	return sizeKb / 1024, nil
+	return ret, nil
 }
 
 func (s *SRbdStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
@@ -586,10 +614,11 @@ func (s *SRbdStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 			return modules.Storages.PerformAction(hostutils.GetComputeSession(context.Background()), s.StorageId, "offline", nil)
 		}
 		content = map[string]interface{}{
-			"name":     s.StorageName,
-			"capacity": capacity,
-			"status":   api.STORAGE_ONLINE,
-			"zone":     s.GetZoneName(),
+			"name":                 s.StorageName,
+			"capacity":             capacity.CapacitySizeByte / 1024 / 1024,
+			"actual_capacity_used": capacity.UsedCapacitySizeByte / 1024 / 1024,
+			"status":               api.STORAGE_ONLINE,
+			"zone":                 s.GetZoneName(),
 		}
 		return modules.Storages.Put(hostutils.GetComputeSession(context.Background()), s.StorageId, jsonutils.Marshal(content))
 	}
