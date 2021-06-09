@@ -421,7 +421,7 @@ type IGetOpt interface {
 	IOpt
 }
 
-func (cmd ResourceCmd) Get(specific string, args IGetOpt) {
+func (cmd ResourceCmd) GetWithCustomShow(specific string, show func(data jsonutils.JSONObject), args IGetOpt) {
 	man := cmd.manager
 	callback := func(s *mcclient.ClientSession, args IGetOpt) error {
 		params, err := args.Params()
@@ -432,10 +432,14 @@ func (cmd ResourceCmd) Get(specific string, args IGetOpt) {
 		if err != nil {
 			return err
 		}
-		printObject(ret)
+		show(ret)
 		return nil
 	}
 	cmd.RunWithDesc(specific, fmt.Sprintf("Get %s of a %s", specific, man.GetKeyword()), args, callback)
+}
+
+func (cmd ResourceCmd) Get(specific string, args IGetOpt) {
+	cmd.GetWithCustomShow(specific, printObject, args)
 }
 
 type IUpdateOpt interface {
