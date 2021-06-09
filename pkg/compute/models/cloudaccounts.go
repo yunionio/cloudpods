@@ -2885,5 +2885,5 @@ func (self *SCloudaccount) PerformProjectMapping(ctx context.Context, userCred m
 	if err != nil {
 		return nil, err
 	}
-	return nil, refreshMapping()
+	return nil, refreshPmCaches()
 }

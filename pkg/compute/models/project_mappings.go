@@ -236,6 +236,16 @@ func (self *SProjectMapping) GetCloudaccounts() ([]SCloudaccount, error) {
 	return accounts, nil
 }
 
+func (self *SProjectMapping) GetCloudproviders() ([]SCloudprovider, error) {
+	q := CloudproviderManager.Query().Equals("project_mapping_id", self.Id)
+	ret := []SCloudprovider{}
+	err := db.FetchModelObjects(CloudproviderManager, q, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 func (self *SProjectMapping) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	delete(projectRuleMapping, self.Id)
 	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
@@ -248,6 +258,13 @@ func (self *SProjectMapping) ValidateDeleteCondition(ctx context.Context) error 
 	}
 	if len(accounts) > 0 {
 		return httperrors.NewNotEmptyError("project mapping has associate %d accounts", len(accounts))
+	}
+	providers, err := self.GetCloudproviders()
+	if err != nil {
+		return errors.Wrapf(err, "GetCloudproviders")
+	}
+	if len(providers) > 0 {
+		return httperrors.NewNotEmptyError("project mapping has associate %d cloudproviders", len(providers))
 	}
 	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
 }
