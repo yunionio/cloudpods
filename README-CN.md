@@ -8,7 +8,16 @@
 
 <img src="https://docs.yunion.io/images/cloudpods_logo_green.png" alt="Cloudpods" height="100">
 
-Cloudpods是一个开源的Golang实现的云原生融合多云/混合云的云平台。Cloupods可以管理多个云平台和云账号。并且，Cloudpods隐藏了这些平台和账号之间的云资源的数据模型和API的差异，对外暴露了一套统一的API。从而大大降低了访问多云的复杂度，提升了管理多云的效率。
+Cloudpods是一个开源的Golang实现的云原生融合多云/混合云的云平台，也就是“云上之云”。Cloupods可以管理多个云平台和云账号。并且，Cloudpods隐藏了这些平台和账号之间的云资源的数据模型和API的差异，对外暴露了一套统一的API，允许用户就像用一个云一样地访问多云。从而大大降低了访问多云的复杂度，提升了管理多云的效率。
+
+## Who needs Cloudpods?
+
+* Those who need a simple solution to virtualize a few physical servers into a private cloud
+* Those who need a compact and fully automatic baremetal lift-cycle management solution
+* Those who want to turn a VMware vSphere virtualization cluster into a private cloud
+* Those who need a cohesive view of both public and private cloud in a hybrid cloud setup
+* Those who needs a centric portal to access multiple acccounts from multiple public clouds
+* Those who is currently using a single cloud account, but will not lose the possibility to adopt multicloud strategy
 
 ## 功能
 
@@ -22,6 +31,41 @@ Cloudpods提供了如下的功能：
 * 一套功能丰富、统一一致的RESTAPI和模型访问以上的云资源和功能
 * 一套完整的多租户认证和访问控制体系
 * 自动将镜像转换为不同云平台需要的格式的多云镜像服务
+
+### 支持的云平台
+
+* 公有云:
+  * AWS
+  * Azure
+  * Google Cloud Platform
+  * 阿里云
+  * 华为云
+  * 腾讯云
+  * UCloud
+  * 中国电信云
+  * 中国移动云
+  * 京东云
+* 私有云:
+  * OpenStack
+  * ZStack
+  * AlibabaCloud Aspara (阿里飞天)
+* 本地基础设施资源:
+  * KVM
+  * VMWare vSphere vCenter/ESXi
+  * Baremetals (IPMI, Redfish API)
+  * Object storages (Minio, Ceph, XSky)
+  * NAS (Ceph)
+
+### 支持的云资源
+
+* Servers: instances, disks, network interfaces, networks, vpcs, storages, hosts, wires, snapshots, snapshot policies, security groups, elastic IPs, SSH keypairs, images
+* Load Balancers: LB instances, listeners, backend groups, backends, TSL certificates, ACLs
+* Object Storage: buckets, objects
+* NAS: files, folders
+* RDS: instances, accounts, backups, databases, parameters
+* Elastic Cache: instances, accounts, backups, parameters
+* DNS: dns zones, dns records
+* VPC: VPCs, VPC peering, inter-VPC network, NAT gateway, DNAT/SNAT rules, route tables, route entries
 
 ## 快速开始
 
