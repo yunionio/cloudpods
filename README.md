@@ -10,7 +10,16 @@
 
 <img src="https://docs.yunion.io/images/cloudpods_logo_green.png" alt="Cloudpods" height="100">
 
-Cloudpods is an cloud-native open source unified multicloud/hybrid-cloud cloud platform developed with Golang. Cloudpods manages the resources from many cloud accounts across many cloud providers. Further, it hides the differences of underlying cloud providers and exposes one set of APIs that allow programatically interacting with many clouds.
+Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform developed with Golang, i.e. Cloudpods is *a cloud on clouds*. Cloudpods manages the resources from many cloud accounts across many cloud providers. Further, it hides the differences of underlying cloud providers and exposes one set of APIs that allow programatically interacting with many clouds.
+
+## Who needs Cloudpods?
+
+* Those who need a simple solution to virtualize a few physical servers into a private cloud
+* Those who need a compact and fully automatic baremetal lift-cycle management solution
+* Those who want to turn a VMware vSphere virtualization cluster into a private cloud
+* Those who need a cohesive view of both public and private cloud in a hybrid cloud setup
+* Those who needs a centric portal to access multiple acccounts from multiple public clouds
+* Those who is currently using a single cloud account, but will not lose the possibility to adopt multicloud strategy
 
 ## Features
 
@@ -23,17 +32,53 @@ Cloudpods is an cloud-native open source unified multicloud/hybrid-cloud cloud p
 * A complete multi-tenancy RBAC-enabled IAM (identity and access management) system
 * Multi-cloud image management system that automates image conversion between different cloud providers
 
+### Supported cloud providers
+
+* Public Clouds:
+  * AWS
+  * Azure
+  * Google Cloud Platform
+  * Alibaba Cloud
+  * Huawei Cloud
+  * Tencent Cloud
+  * UCloud
+  * Ctyun (China Telecom)
+  * ECloud (China Mobile)
+  * JDCloud
+* Private Clouds:
+  * OpenStack
+  * ZStack
+  * AlibabaCloud Aspara
+* On-premise resources:
+  * KVM
+  * VMWare vSphere vCenter/ESXi
+  * Baremetals (IPMI, Redfish API)
+  * Object storages (Minio, Ceph, XSky)
+  * NAS (Ceph)
+
+### Supported resources
+
+* Servers: instances, disks, network interfaces, networks, vpcs, storages, hosts, wires, snapshots, snapshot policies, security groups, elastic IPs, SSH keypairs, images
+* Load Balancers: LB instances, listeners, backend groups, backends, TSL certificates, ACLs
+* Object Storage: buckets, objects
+* NAS: files, folders
+* RDS: instances, accounts, backups, databases, parameters
+* Elastic Cache: instances, accounts, backups, parameters
+* DNS: dns zones, dns records
+* VPC: VPCs, VPC peering, inter-VPC network, NAT gateway, DNAT/SNAT rules, route tables, route entries
+
 ## Quick start
 
 You may install Cloudpods in a Linux box (currently CentOS 7 and Debian 10 are fully tested) with at least 8GiB RAM and 100GB storage by following three simple steps.
 
 (Assuming that you install Cloudpods on a Linux box with IP *10.168.26.216*):
 
+
 ### 1. Prepare passwordless SSH login
 
 ```bash
-# Generate the local ssh keypair
-# (SKIP this stekp if you already have ~/.ssh/id_rsa.pub locally)
+# Generate a local ssh keypair
+# (SKIP this step if you already have ~/.ssh/id_rsa.pub locally)
 $ ssh-keygen
 
 # Copy the generated ~/.ssh/id_rsa.pub public key to the machine to be deployed
@@ -74,11 +119,13 @@ It takes 10-30 minutes to finish the installation. You may visit the webconsole 
 
 For more detailed instructions, please refers to [quick start](https://docs.yunion.io/en/docs/quickstart/).
 
+
 ## Documentations
 
 * [Cloudpods Documents](https://docs.yunion.io/en)
 
 * [Swagger API](https://docs.yunion.io/en/docs/swagger/)
+
 
 ## Contact
 
