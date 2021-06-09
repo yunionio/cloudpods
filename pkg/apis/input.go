@@ -183,6 +183,10 @@ type StandaloneAnonResourceCreateInput struct {
 	// 标签列表,最多支持20个
 	// example: { "user:rd": "op" }
 	Metadata map[string]string `json:"__meta__" token:"tag" help:"tags in the form of key=value"`
+
+	// 预检验参数,若为true则仅检查参数,并不真正创建变更
+	// default: false
+	DryRun bool `json:"dry_run"`
 }
 
 type StandaloneResourceCreateInput struct {
