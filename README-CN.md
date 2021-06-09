@@ -8,16 +8,16 @@
 
 <img src="https://docs.yunion.io/images/cloudpods_logo_green.png" alt="Cloudpods" height="100">
 
-Cloudpods是一个开源的Golang实现的云原生融合多云/混合云的云平台，也就是“云上之云”。Cloupods可以管理多个云平台和云账号。并且，Cloudpods隐藏了这些平台和账号之间的云资源的数据模型和API的差异，对外暴露了一套统一的API，允许用户就像用一个云一样地访问多云。从而大大降低了访问多云的复杂度，提升了管理多云的效率。
+Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的云平台，也就是一个“云上之云”。Cloudpods不仅可以管理本地的虚拟机和物理机资源，还可以管理多个云平台和云账号。Cloudpods隐藏了这些异构基础设施资源的数据模型和API的差异，对外暴露了一套统一的API，允许用户就像用一个云一样地访问多云。从而大大降低了访问多云的复杂度，提升了管理多云的效率。
 
-## Who needs Cloudpods?
+## 谁需要Cloudpods?
 
-* Those who need a simple solution to virtualize a few physical servers into a private cloud
-* Those who need a compact and fully automatic baremetal lift-cycle management solution
-* Those who want to turn a VMware vSphere virtualization cluster into a private cloud
-* Those who need a cohesive view of both public and private cloud in a hybrid cloud setup
-* Those who needs a centric portal to access multiple acccounts from multiple public clouds
-* Those who is currently using a single cloud account, but will not lose the possibility to adopt multicloud strategy
+* 将几台物理服务器虚拟化成一个私有云平台
+* 需要一个紧凑而且功能相对完整的物理机全生命周期管理工具
+* 将VMware vSphere虚拟化集群转换为一个可以自服务的私有云平台
+* 在混合云的场景，能够在一个界面访问私有云和公有云
+* 通过一个集中的入口访问分布在多个公有云平台上的多个账号
+* 当前只使用一个云公有云账号但希望将来使用多云的用户
 
 ## 功能
 
@@ -59,12 +59,12 @@ Cloudpods提供了如下的功能：
 ### 支持的云资源
 
 * Servers: instances, disks, network interfaces, networks, vpcs, storages, hosts, wires, snapshots, snapshot policies, security groups, elastic IPs, SSH keypairs, images
-* Load Balancers: LB instances, listeners, backend groups, backends, TSL certificates, ACLs
+* Load Balancers: instances, listeners, backend groups, backends, TSL certificates, ACLs
 * Object Storage: buckets, objects
-* NAS: files, folders
-* RDS: instances, accounts, backups, databases, parameters
+* NAS: file_systems, access_groups, mount_targets
+* RDS: instances, accounts, backups, databases, parameters, privileges
 * Elastic Cache: instances, accounts, backups, parameters
-* DNS: dns zones, dns records
+* DNS: DNS zones, DNS records
 * VPC: VPCs, VPC peering, inter-VPC network, NAT gateway, DNAT/SNAT rules, route tables, route entries
 
 ## 快速开始
