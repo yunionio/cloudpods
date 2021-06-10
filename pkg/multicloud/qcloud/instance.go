@@ -569,13 +569,21 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	if publicIpChargeType == cloudprovider.ElasticipChargeTypeByBandwidth {
 		internetChargeType = "BANDWIDTH_PREPAID"
 	}
-	_, totalCount, err := self.GetBandwidthPackages([]string{}, 0, 50)
+	pkgs, _, err := self.GetBandwidthPackages([]string{}, 0, 50)
 	if err != nil {
 		return "", errors.Wrapf(err, "GetBandwidthPackages")
 	}
-	if totalCount > 0 {
+	if len(pkgs) > 0 {
 		bandwidth = 65535 // unlimited bandwidth
 		internetChargeType = "BANDWIDTH_PACKAGE"
+		pkgId := pkgs[0].BandwidthPackageId
+		for _, pkg := range pkgs {
+			if len(pkg.ResourceSet) < 100 {
+				pkgId = pkg.BandwidthPackageId
+				break
+			}
+		}
+		params["InternetAccessible.BandwidthPackageId"] = pkgId
 	}
 
 	params["InternetAccessible.InternetChargeType"] = internetChargeType
