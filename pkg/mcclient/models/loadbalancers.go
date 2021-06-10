@@ -18,6 +18,15 @@ import (
 	"time"
 )
 
+type LoadbalancerNetwork struct {
+	VirtualResource
+
+	LoadbalancerId string
+	NetworkId      string
+	IpAddr         string
+	MacAddr        string
+}
+
 type Loadbalancer struct {
 	VirtualResource
 	ManagedResource
