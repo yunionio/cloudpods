@@ -577,6 +577,20 @@ func (s *SRbdStorage) getCapacity() (uint64, error) {
 	return sizeKb / 1024, nil
 }
 
+func (s *SRbdStorage) SyncStorageSize() error {
+	content := jsonutils.NewDict()
+	capacity, err := s.getCapacity()
+	if err != nil {
+		return errors.Wrapf(err, "getCapacity")
+	}
+	content.Set("capacity", jsonutils.NewInt(int64(capacity.CapacitySizeByte/1024/1024)))
+	content.Set("actual_capacity_used", jsonutils.NewInt(int64(capacity.UsedCapacitySizeByte/1024/1024)))
+	_, err = modules.Storages.Put(
+		hostutils.GetComputeSession(context.Background()),
+		s.StorageId, content)
+	return errors.Wrapf(err, "storage update")
+}
+
 func (s *SRbdStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	content := map[string]interface{}{}
 	if len(s.StorageId) > 0 {

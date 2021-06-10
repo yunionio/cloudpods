@@ -345,7 +345,7 @@ func StartSyncStorageSizeTask(interval time.Duration) {
 		manager := GetManager()
 		for i := 0; i < len(manager.Storages); i++ {
 			iS := manager.Storages[i]
-			if iS.StorageType() == api.STORAGE_LOCAL {
+			if iS.StorageType() == api.STORAGE_LOCAL || iS.StorageType() == api.STORAGE_RBD {
 				err := iS.SyncStorageSize()
 				if err != nil {
 					log.Errorf("sync storage %s size failed: %s", iS.GetStorageName(), err)
