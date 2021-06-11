@@ -214,6 +214,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.MountTargetManager,
 
 		models.ProjectMappingManager,
+
+		models.AppGatewayManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
