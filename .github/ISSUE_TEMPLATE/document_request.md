@@ -2,7 +2,9 @@
 name: Document Request
 about: Document request to this project
 title: ''
-labels: area/docs
+labels:
+- area/docs
+- enhancement
 assignees: ''
 
 ---
