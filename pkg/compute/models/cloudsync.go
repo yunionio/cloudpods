@@ -1400,20 +1400,21 @@ func (manager *SCloudproviderregionManager) initAllRecords() {
 
 func SyncCloudProject(userCred mcclient.TokenCredential, model db.IVirtualModel, syncOwnerId mcclient.IIdentityProvider, extModel cloudprovider.IVirtualResource, managerId string) {
 	newOwnerId, err := func() (mcclient.IIdentityProvider, error) {
-		pm, err := GetProviderMapping(managerId)
+		_manager, err := CloudproviderManager.FetchById(managerId)
 		if err != nil {
-			return nil, errors.Wrapf(err, "GetProviderMapping")
+			return nil, errors.Wrapf(err, "CloudproviderManager.FetchById(%s)", managerId)
 		}
-		if len(pm.ProjectMappingId) == 0 {
-			return nil, nil
-		}
-		account, err := pm.GetCloudaccount()
+		manager := _manager.(*SCloudprovider)
+		rm, err := manager.GetProjectMapping()
 		if err != nil {
-			return nil, errors.Wrapf(err, "GetCloudaccount")
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				return nil, nil
+			}
+			return nil, errors.Wrapf(err, "GetProjectMapping")
 		}
-		rm, err := GetRuleMapping(pm.ProjectMappingId)
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetRuleMapping")
+		account := manager.GetCloudaccount()
+		if account == nil {
+			return nil, fmt.Errorf("can not find manager %s account", manager.Name)
 		}
 		if rm != nil && rm.Enabled.Bool() {
 			extTags, err := extModel.GetTags()

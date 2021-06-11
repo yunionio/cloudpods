@@ -137,6 +137,8 @@ type CloudproviderDetails struct {
 
 	// 子订阅品牌信息
 	Brand string `json:"brand"`
+
+	ProjectMappingResourceInfo
 }
 
 // 云订阅输入参数
