@@ -26,6 +26,8 @@ var pluralMap = map[string]string{}
 
 func init() {
 	ss := []string{
+		"networks",
+		"loadbalancer_networks",
 		"loadbalancers",
 		"loadbalancer_listeners",
 		"loadbalancer_listener_rules",
@@ -41,6 +43,8 @@ func init() {
 }
 
 type ModelSetsMaxUpdatedAt struct {
+	Networks                  time.Time
+	LoadbalancerNetworks      time.Time
 	Loadbalancers             time.Time
 	LoadbalancerListeners     time.Time
 	LoadbalancerListenerRules time.Time
@@ -52,6 +56,8 @@ type ModelSetsMaxUpdatedAt struct {
 
 func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
 	return &ModelSetsMaxUpdatedAt{
+		Networks:                  PseudoZeroTime,
+		LoadbalancerNetworks:      PseudoZeroTime,
 		Loadbalancers:             PseudoZeroTime,
 		LoadbalancerListeners:     PseudoZeroTime,
 		LoadbalancerListenerRules: PseudoZeroTime,
@@ -63,6 +69,8 @@ func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
 }
 
 type ModelSets struct {
+	Networks                  Networks
+	LoadbalancerNetworks      LoadbalancerNetworks
 	Loadbalancers             Loadbalancers
 	LoadbalancerListeners     LoadbalancerListeners
 	LoadbalancerListenerRules LoadbalancerListenerRules
@@ -74,6 +82,8 @@ type ModelSets struct {
 
 func NewModelSets() *ModelSets {
 	return &ModelSets{
+		Networks:                  Networks{},
+		LoadbalancerNetworks:      LoadbalancerNetworks{},
 		Loadbalancers:             Loadbalancers{},
 		LoadbalancerListeners:     LoadbalancerListeners{},
 		LoadbalancerListenerRules: LoadbalancerListenerRules{},
@@ -94,6 +104,8 @@ func (mss *ModelSets) ModelSetList() []IModelSet {
 		mss.Loadbalancers,
 		mss.LoadbalancerAcls,
 		mss.LoadbalancerCertificates,
+		mss.LoadbalancerNetworks,
+		mss.Networks,
 	}
 }
 
@@ -143,10 +155,20 @@ func (mss *ModelSets) ApplyUpdates(mssNews *ModelSets) *ModelSetsUpdateResult {
 }
 
 func (mss *ModelSets) join() bool {
-	correct0 := mss.LoadbalancerBackendGroups.JoinBackends(mss.LoadbalancerBackends)
-	correct1 := mss.LoadbalancerListeners.JoinListenerRules(mss.LoadbalancerListenerRules)
-	correct2 := mss.LoadbalancerListeners.JoinCertificates(mss.LoadbalancerCertificates)
-	correct3 := mss.Loadbalancers.JoinListeners(mss.LoadbalancerListeners)
-	correct4 := mss.Loadbalancers.JoinBackendGroups(mss.LoadbalancerBackendGroups)
-	return correct0 && correct1 && correct2 && correct3 && correct4
+	var p []bool
+	p = append(p, mss.LoadbalancerBackendGroups.JoinBackends(mss.LoadbalancerBackends))
+	p = append(p, mss.LoadbalancerListeners.JoinListenerRules(mss.LoadbalancerListenerRules))
+	p = append(p, mss.LoadbalancerListeners.JoinCertificates(mss.LoadbalancerCertificates))
+	p = append(p, mss.Loadbalancers.JoinListeners(mss.LoadbalancerListeners))
+	p = append(p, mss.Loadbalancers.JoinBackendGroups(mss.LoadbalancerBackendGroups))
+
+	p = append(p, mss.LoadbalancerNetworks.JoinLoadbalancers(mss.Loadbalancers))
+	p = append(p, mss.LoadbalancerNetworks.JoinNetworks(mss.Networks))
+
+	for _, b := range p {
+		if !b {
+			return false
+		}
+	}
+	return true
 }

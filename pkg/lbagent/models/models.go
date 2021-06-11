@@ -21,11 +21,23 @@ import (
 type IModel interface {
 }
 
+type Network struct {
+	*models.Network
+}
+
+type LoadbalancerNetwork struct {
+	*models.LoadbalancerNetwork
+
+	Loadbalancer *Loadbalancer
+	Network      *Network
+}
+
 type Loadbalancer struct {
 	*models.Loadbalancer
 
-	listeners     LoadbalancerListeners
-	backendGroups LoadbalancerBackendGroups
+	loadbalancerNetwork *LoadbalancerNetwork
+	listeners           LoadbalancerListeners
+	backendGroups       LoadbalancerBackendGroups
 }
 
 type LoadbalancerListener struct {
@@ -51,6 +63,8 @@ type LoadbalancerBackendGroup struct {
 
 type LoadbalancerBackend struct {
 	*models.LoadbalancerBackend
+
+	backendGroup *LoadbalancerBackendGroup
 }
 
 type LoadbalancerAcl struct {

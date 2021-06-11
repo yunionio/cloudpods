@@ -32,6 +32,8 @@ type IModelSet interface {
 	addModelCallback(models.IVirtualResource) error
 }
 
+type Networks map[string]*Network
+type LoadbalancerNetworks map[string]*LoadbalancerNetwork
 type Loadbalancers map[string]*Loadbalancer
 type LoadbalancerListeners map[string]*LoadbalancerListener
 type LoadbalancerListenerRules map[string]*LoadbalancerListenerRule
@@ -39,6 +41,69 @@ type LoadbalancerBackendGroups map[string]*LoadbalancerBackendGroup
 type LoadbalancerBackends map[string]*LoadbalancerBackend
 type LoadbalancerAcls map[string]*LoadbalancerAcl
 type LoadbalancerCertificates map[string]*LoadbalancerCertificate
+
+func (set Networks) ModelManager() modulebase.IBaseManager {
+	return &modules.Networks
+}
+
+func (set Networks) NewModel() models.IVirtualResource {
+	return &models.Network{}
+}
+
+func (set Networks) addModelCallback(i models.IVirtualResource) error {
+	m, _ := i.(*models.Network)
+	set[m.Id] = &Network{
+		Network: m,
+	}
+	return nil
+}
+
+func (set LoadbalancerNetworks) ModelManager() modulebase.IBaseManager {
+	return &modules.Loadbalancernetworks
+}
+
+func (set LoadbalancerNetworks) NewModel() models.IVirtualResource {
+	return &models.LoadbalancerNetwork{}
+}
+
+func (set LoadbalancerNetworks) addModelCallback(i models.IVirtualResource) error {
+	m, _ := i.(*models.LoadbalancerNetwork)
+	set[m.Id] = &LoadbalancerNetwork{
+		LoadbalancerNetwork: m,
+	}
+	return nil
+}
+
+func (set LoadbalancerNetworks) JoinLoadbalancers(entries Loadbalancers) bool {
+	correct := true
+	for _, m := range set {
+		lbId := m.LoadbalancerId
+		netId := m.NetworkId
+		entry, ok := entries[lbId]
+		if !ok {
+			log.Warningf("lb for loadbalancer network %s/%s not found", lbId, netId)
+			correct = false
+		}
+		m.Loadbalancer = entry
+		entry.LoadbalancerNetwork = m
+	}
+	return correct
+}
+
+func (set LoadbalancerNetworks) JoinNetworks(entries Networks) bool {
+	correct := true
+	for _, m := range set {
+		lbId := m.LoadbalancerId
+		netId := m.NetworkId
+		entry, ok := entries[netId]
+		if !ok {
+			log.Warningf("network for loadbalancer network %s/%s not found", lbId, netId)
+			correct = false
+		}
+		m.Network = entry
+	}
+	return correct
+}
 
 func (set Loadbalancers) ModelManager() modulebase.IBaseManager {
 	return &modules.Loadbalancers
