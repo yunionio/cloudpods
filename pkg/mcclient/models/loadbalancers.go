@@ -18,6 +18,17 @@ import (
 	"time"
 )
 
+type Network struct {
+	VirtualResource
+
+	GuestIpStart string
+	GuestIpEnd   string
+	GuestIpMask  int8
+	GuestGateway string
+
+	ServerType string
+}
+
 type LoadbalancerNetwork struct {
 	VirtualResource
 
