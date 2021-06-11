@@ -121,15 +121,15 @@ func (set Loadbalancers) addModelCallback(i models.IVirtualResource) error {
 	}
 	set[m.Id] = &Loadbalancer{
 		Loadbalancer:  m,
-		listeners:     LoadbalancerListeners{},
-		backendGroups: LoadbalancerBackendGroups{},
+		Listeners:     LoadbalancerListeners{},
+		BackendGroups: LoadbalancerBackendGroups{},
 	}
 	return nil
 }
 
 func (ms Loadbalancers) JoinListeners(subEntries LoadbalancerListeners) bool {
 	for _, m := range ms {
-		m.listeners = LoadbalancerListeners{}
+		m.Listeners = LoadbalancerListeners{}
 	}
 	correct := true
 	for subId, subEntry := range subEntries {
@@ -140,19 +140,19 @@ func (ms Loadbalancers) JoinListeners(subEntries LoadbalancerListeners) bool {
 			correct = false
 			continue
 		}
-		if _, ok := m.listeners[subId]; ok {
+		if _, ok := m.Listeners[subId]; ok {
 			log.Warningf("loadbalancer listener id %s already joined", subId)
 			continue
 		}
 		subEntry.loadbalancer = m
-		m.listeners[subId] = subEntry
+		m.Listeners[subId] = subEntry
 	}
 	return correct
 }
 
 func (ms Loadbalancers) JoinBackendGroups(subEntries LoadbalancerBackendGroups) bool {
 	for _, m := range ms {
-		m.backendGroups = LoadbalancerBackendGroups{}
+		m.BackendGroups = LoadbalancerBackendGroups{}
 	}
 	correct := true
 	for subId, subEntry := range subEntries {
@@ -163,12 +163,12 @@ func (ms Loadbalancers) JoinBackendGroups(subEntries LoadbalancerBackendGroups) 
 			correct = false
 			continue
 		}
-		if _, ok := m.backendGroups[subId]; ok {
+		if _, ok := m.BackendGroups[subId]; ok {
 			log.Warningf("loadbalancer backendgroup id %s already joined", subId)
 			continue
 		}
 		subEntry.loadbalancer = m
-		m.backendGroups[subId] = subEntry
+		m.BackendGroups[subId] = subEntry
 	}
 	return correct
 }
@@ -308,14 +308,14 @@ func (set LoadbalancerBackendGroups) addModelCallback(i models.IVirtualResource)
 	}
 	set[m.Id] = &LoadbalancerBackendGroup{
 		LoadbalancerBackendGroup: m,
-		backends:                 LoadbalancerBackends{},
+		Backends:                 LoadbalancerBackends{},
 	}
 	return nil
 }
 
 func (ms LoadbalancerBackendGroups) JoinBackends(subEntries LoadbalancerBackends) bool {
 	for _, m := range ms {
-		m.backends = LoadbalancerBackends{}
+		m.Backends = LoadbalancerBackends{}
 	}
 	correct := true
 	for subId, subEntry := range subEntries {
@@ -326,11 +326,11 @@ func (ms LoadbalancerBackendGroups) JoinBackends(subEntries LoadbalancerBackends
 			correct = false
 			continue
 		}
-		if _, ok := m.backends[subId]; ok {
+		if _, ok := m.Backends[subId]; ok {
 			log.Warningf("loadbalancer backend id %s already joined", subId)
 			continue
 		}
-		m.backends[subId] = subEntry
+		m.Backends[subId] = subEntry
 	}
 	return correct
 }

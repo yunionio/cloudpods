@@ -52,7 +52,7 @@ func (b *LoadbalancerCorpus) GenGobetweenConfigs(dir string, opts *GenGobetweenC
 		},
 	}
 	for _, lb := range opts.LoadbalancersEnabled {
-		for _, listener := range lb.listeners {
+		for _, listener := range lb.Listeners {
 			if listener.ListenerType != "udp" {
 				continue
 			}
@@ -62,14 +62,14 @@ func (b *LoadbalancerCorpus) GenGobetweenConfigs(dir string, opts *GenGobetweenC
 			if listener.BackendGroupId == "" {
 				continue
 			}
-			backendGroup := lb.backendGroups[listener.BackendGroupId]
-			if backendGroup == nil || len(backendGroup.backends) == 0 {
+			backendGroup := lb.BackendGroups[listener.BackendGroupId]
+			if backendGroup == nil || len(backendGroup.Backends) == 0 {
 				continue
 			}
 
 			// backends
 			staticList := []string{}
-			for _, backend := range backendGroup.backends {
+			for _, backend := range backendGroup.Backends {
 				backendS := fmt.Sprintf("%s:%d weight=%d", backend.Address, backend.Port, backend.Weight)
 				staticList = append(staticList, backendS)
 			}

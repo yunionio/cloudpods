@@ -35,9 +35,9 @@ type LoadbalancerNetwork struct {
 type Loadbalancer struct {
 	*models.Loadbalancer
 
-	loadbalancerNetwork *LoadbalancerNetwork
-	listeners           LoadbalancerListeners
-	backendGroups       LoadbalancerBackendGroups
+	LoadbalancerNetwork *LoadbalancerNetwork
+	Listeners           LoadbalancerListeners
+	BackendGroups       LoadbalancerBackendGroups
 }
 
 type LoadbalancerListener struct {
@@ -57,7 +57,7 @@ type LoadbalancerListenerRule struct {
 type LoadbalancerBackendGroup struct {
 	*models.LoadbalancerBackendGroup
 
-	backends     LoadbalancerBackends
+	Backends     LoadbalancerBackends
 	loadbalancer *Loadbalancer
 }
 

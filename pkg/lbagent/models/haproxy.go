@@ -120,12 +120,12 @@ func (b *LoadbalancerCorpus) GenHaproxyConfigs(dir string, opts *AgentParams) (*
 		if lb.Address == "" {
 			continue
 		}
-		if len(lb.listeners) == 0 {
+		if len(lb.Listeners) == 0 {
 			continue
 		}
 		buf := bytes.NewBufferString(fmt.Sprintf("## loadbalancer %s(%s)\n\n", lb.Name, lb.Id))
 		hasActiveListener := false
-		for _, listener := range lb.listeners {
+		for _, listener := range lb.Listeners {
 			if listener.Status != "enabled" {
 				continue
 			}
@@ -310,7 +310,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigBackend(data map[string]interface{}
 			return fmt.Errorf("listener %s(%s): %v", listener.Name, listener.Id, err)
 		}
 		serverLines := []string{}
-		for _, backend := range backendGroup.backends {
+		for _, backend := range backendGroup.Backends {
 			serverLine := fmt.Sprintf("server %s %s:%d", backend.Id, backend.Address, backend.Port)
 			if listener.Scheduler == "rr" {
 				serverLine += " weight 1"
@@ -491,7 +491,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 			if rule.Redirect != computeapi.LB_REDIRECT_OFF {
 				continue
 			}
-			backendGroup := lb.backendGroups[rule.BackendGroupId]
+			backendGroup := lb.BackendGroups[rule.BackendGroupId]
 			backendData := map[string]interface{}{
 				"comment": fmt.Sprintf("rule %s(%s) backendGroup %s(%s)",
 					rule.Name, rule.Id,
@@ -508,7 +508,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 		}
 		// default backend group
 		if listener.Redirect == computeapi.LB_REDIRECT_OFF && listener.BackendGroupId != "" {
-			backendGroup := lb.backendGroups[listener.BackendGroupId]
+			backendGroup := lb.BackendGroups[listener.BackendGroupId]
 			backendData := map[string]interface{}{
 				"comment": fmt.Sprintf("listener %s(%s) default backendGroup %s(%s)",
 					listener.Name, listener.Id,
@@ -538,7 +538,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigTcp(buf *bytes.Buffer, listener *Lo
 	lb := listener.loadbalancer
 	data := b.genHaproxyConfigCommon(lb, listener, opts)
 	if listener.BackendGroupId != "" {
-		backendGroup := lb.backendGroups[listener.BackendGroupId]
+		backendGroup := lb.BackendGroups[listener.BackendGroupId]
 		backendData := map[string]interface{}{
 			"comment": fmt.Sprintf("listener %s(%s) backendGroup %s(%s)",
 				listener.Name, listener.Id,
