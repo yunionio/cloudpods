@@ -26,7 +26,7 @@ import (
 
 type IModelSet interface {
 	//InitializeFromJSON([]jsonutils.JSONObject) error
-	ModelManager() modulebase.Manager
+	ModelManager() modulebase.IBaseManager
 	NewModel() models.IVirtualResource
 	//GetModel(id string) models.IVirtualResource
 	addModelCallback(models.IVirtualResource) error
@@ -40,7 +40,7 @@ type LoadbalancerBackends map[string]*LoadbalancerBackend
 type LoadbalancerAcls map[string]*LoadbalancerAcl
 type LoadbalancerCertificates map[string]*LoadbalancerCertificate
 
-func (set Loadbalancers) ModelManager() modulebase.Manager {
+func (set Loadbalancers) ModelManager() modulebase.IBaseManager {
 	return &modules.Loadbalancers
 }
 
@@ -108,7 +108,7 @@ func (ms Loadbalancers) JoinBackendGroups(subEntries LoadbalancerBackendGroups) 
 	return correct
 }
 
-func (set LoadbalancerListeners) ModelManager() modulebase.Manager {
+func (set LoadbalancerListeners) ModelManager() modulebase.IBaseManager {
 	return &modules.LoadbalancerListeners
 }
 
@@ -170,7 +170,7 @@ func (ms LoadbalancerListeners) JoinCertificates(subEntries LoadbalancerCertific
 	return correct
 }
 
-func (set LoadbalancerListenerRules) ModelManager() modulebase.Manager {
+func (set LoadbalancerListenerRules) ModelManager() modulebase.IBaseManager {
 	return &modules.LoadbalancerListenerRules
 }
 
@@ -227,7 +227,7 @@ func (set LoadbalancerListenerRules) OrderedEnabledList() OrderedLoadbalancerLis
 	return rules
 }
 
-func (set LoadbalancerBackendGroups) ModelManager() modulebase.Manager {
+func (set LoadbalancerBackendGroups) ModelManager() modulebase.IBaseManager {
 	return &modules.LoadbalancerBackendGroups
 }
 
@@ -270,7 +270,7 @@ func (ms LoadbalancerBackendGroups) JoinBackends(subEntries LoadbalancerBackends
 	return correct
 }
 
-func (set LoadbalancerBackends) ModelManager() modulebase.Manager {
+func (set LoadbalancerBackends) ModelManager() modulebase.IBaseManager {
 	return &modules.LoadbalancerBackends
 }
 
@@ -290,7 +290,7 @@ func (set LoadbalancerBackends) addModelCallback(i models.IVirtualResource) erro
 	return nil
 }
 
-func (set LoadbalancerAcls) ModelManager() modulebase.Manager {
+func (set LoadbalancerAcls) ModelManager() modulebase.IBaseManager {
 	return &modules.LoadbalancerAcls
 }
 
@@ -309,7 +309,7 @@ func (set LoadbalancerAcls) addModelCallback(i models.IVirtualResource) error {
 	return nil
 }
 
-func (set LoadbalancerCertificates) ModelManager() modulebase.Manager {
+func (set LoadbalancerCertificates) ModelManager() modulebase.IBaseManager {
 	return &modules.LoadbalancerCertificates
 }
 

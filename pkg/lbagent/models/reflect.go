@@ -37,7 +37,7 @@ var PseudoZeroTime = time.Time{}.Add(time.Nanosecond)
 
 type GetModelsOptions struct {
 	ClientSession *mcclient.ClientSession
-	ModelManager  modulebase.Manager
+	ModelManager  modulebase.IBaseManager
 	ModelSet      IModelSet
 
 	BatchListSize int
