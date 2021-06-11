@@ -10,7 +10,7 @@
 
 <img src="https://docs.yunion.io/images/cloudpods_logo_green.png" alt="Cloudpods" height="100">
 
-Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform developed with Golang, i.e. Cloudpods is *a cloud on clouds*. Cloudpods manages the resources from many cloud accounts across many cloud providers. Further, it hides the differences of underlying cloud providers and exposes one set of APIs that allow programatically interacting with many clouds.
+Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform developed with Golang, i.e. Cloudpods is *a cloud on clouds*. Cloudpods is able to manage not only on-premise KVM/baremetals, but also resources from many cloud accounts across many cloud providers. It hides the differences of underlying cloud providers and exposes one set of APIs that allow programatically interacting with these many clouds.
 
 ## Who needs Cloudpods?
 
@@ -18,7 +18,7 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
 * Those who need a compact and fully automatic baremetal lift-cycle management solution
 * Those who want to turn a VMware vSphere virtualization cluster into a private cloud
 * Those who need a cohesive view of both public and private cloud in a hybrid cloud setup
-* Those who needs a centric portal to access multiple acccounts from multiple public clouds
+* Those who need a centric portal to access multiple acccounts from multiple public clouds
 * Those who is currently using a single cloud account, but will not lose the possibility to adopt multicloud strategy
 
 ## Features
@@ -59,12 +59,12 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
 ### Supported resources
 
 * Servers: instances, disks, network interfaces, networks, vpcs, storages, hosts, wires, snapshots, snapshot policies, security groups, elastic IPs, SSH keypairs, images
-* Load Balancers: LB instances, listeners, backend groups, backends, TSL certificates, ACLs
+* Load Balancers: instances, listeners, backend groups, backends, TSL certificates, ACLs
 * Object Storage: buckets, objects
-* NAS: files, folders
-* RDS: instances, accounts, backups, databases, parameters
+* NAS: file_systems, access_groups, mount_targets
+* RDS: instances, accounts, backups, databases, parameters, privileges
 * Elastic Cache: instances, accounts, backups, parameters
-* DNS: dns zones, dns records
+* DNS: DNS zones, DNS records
 * VPC: VPCs, VPC peering, inter-VPC network, NAT gateway, DNAT/SNAT rules, route tables, route entries
 
 ## Quick start
