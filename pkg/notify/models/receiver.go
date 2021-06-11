@@ -373,6 +373,7 @@ func (r *SReceiver) MarkContactTypeVerified(contactType string) error {
 	}
 	if sc, ok := r.subContactCache[contactType]; ok {
 		sc.Verified = tristate.True
+		sc.VerifiedNote = ""
 	} else {
 		subContact := &SSubContact{
 			Type:       contactType,
