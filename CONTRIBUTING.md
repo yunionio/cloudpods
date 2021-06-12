@@ -18,7 +18,7 @@ You may answer issues at Github and help those who encounter issues when using C
 
 ## Contribute codes
 
-You are welcome to contribute codes to Cloudpods. Please refers to [CONTRIBUTING](https://docs.yunion.io/en/docs/contribute/contrib/) for more details on how to contribute codes to Cloudpods.
+You are welcome to contribute codes to Cloudpods. Please refers to [CONTRIBUTING](https://www.cloudpods.org/en/docs/contribute/contrib/) for more details on how to contribute codes to Cloudpods.
 
 ### Fix Issues
 

@@ -8,7 +8,7 @@
 
 ## What is Cloudpods?
 
-<img src="https://docs.yunion.io/images/cloudpods_logo_green.png" alt="Cloudpods" height="100">
+<img src="https://www.cloudpods.org/images/cloudpods_logo_green.png" alt="Cloudpods" height="100">
 
 Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform developed with Golang, i.e. Cloudpods is *a cloud on clouds*. Cloudpods is able to manage not only on-premise KVM/baremetals, but also resources from many cloud accounts across many cloud providers. It hides the differences of underlying cloud providers and exposes one set of APIs that allow programatically interacting with these many clouds.
 
@@ -117,14 +117,14 @@ $ git clone https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py 10.168
 
 It takes 10-30 minutes to finish the installation. You may visit the webconsole of Cloudpods at https://10.168.26.216. The initial login account is *admin* and password is *admin@123*.
 
-For more detailed instructions, please refers to [quick start](https://docs.yunion.io/en/docs/quickstart/).
+For more detailed instructions, please refers to [quick start](https://www.cloudpods.org/en/docs/quickstart/).
 
 
 ## Documentations
 
-* [Cloudpods Documents](https://docs.yunion.io/en)
+* [Cloudpods Documents](https://www.cloudpods.org/en)
 
-* [Swagger API](https://docs.yunion.io/en/docs/swagger/)
+* [Swagger API](https://www.cloudpods.org/en/docs/swagger/)
 
 
 ## Contact
@@ -135,15 +135,15 @@ You may contact us by:
 
 * WeChat: please scan the following QRCode to contact us
 
-<img src="https://docs.yunion.io/images/skillcode.png" alt="WeChat QRCode">
+<img src="https://www.cloudpods.org/images/skillcode.png" alt="WeChat QRCode">
 
 ## Changelog
 
-See [Cloudpods Changelog](https://docs.yunion.io/en/docs/changelog/) for details.
+See [Cloudpods Changelog](https://www.cloudpods.org/en/docs/changelog/) for details.
 
 ## Roadmap
 
-See [Cloudpods Roadmap](https://docs.yunion.io/en/docs/roadmap/) for details.
+See [Cloudpods Roadmap](https://www.cloudpods.org/en/docs/roadmap/) for details.
 
 ## Contribution
 
