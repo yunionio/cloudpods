@@ -6,7 +6,7 @@
 
 ## Cloudpods是什么?
 
-<img src="https://docs.yunion.io/images/cloudpods_logo_green.png" alt="Cloudpods" height="100">
+<img src="https://www.cloudpods.org/images/cloudpods_logo_green.png" alt="Cloudpods" height="100">
 
 Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的云平台，也就是一个“云上之云”。Cloudpods不仅可以管理本地的虚拟机和物理机资源，还可以管理多个云平台和云账号。Cloudpods隐藏了这些异构基础设施资源的数据模型和API的差异，对外暴露了一套统一的API，允许用户就像用一个云一样地访问多云。从而大大降低了访问多云的复杂度，提升了管理多云的效率。
 
@@ -114,13 +114,13 @@ $ git clone https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py 10.168
 
 大概10-30分钟后，安装完成。访问 https://10.168.26.216 登入Cloudpods的Web控制台。初始的账号为 *admin* ，密码为 *admin@123*
 
-请参考文档 [快速开始](https://docs.yunion.io/zh/docs/quickstart/) 获得更详细的安装指导。
+请参考文档 [快速开始](https://www.cloudpods.org/zh/docs/quickstart/) 获得更详细的安装指导。
 
 ## 文档
 
-* [Cloudpods文档](https://docs.yunion.io/zh)
+* [Cloudpods文档](https://www.cloudpods.org/zh)
 
-* [Swagger API文档](https://docs.yunion.cn/api/)
+* [Swagger API文档](https://www.cloudpods.org/zh/docs/swagger/)
 
 ## 联系我们
 
@@ -130,15 +130,15 @@ $ git clone https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py 10.168
 
 * 微信: 请扫描如下二维码联系我们
 
-<img src="https://docs.yunion.io/images/skillcode.png" alt="WeChat QRCode">
+<img src="https://www.cloudpods.org/images/skillcode.png" alt="WeChat QRCode">
 
 ## 版本历史
 
-请访问[Cloudpods Changelog](https://docs.yunion.io/zh/docs/changelog/).
+请访问[Cloudpods Changelog](https://www.cloudpods.org/zh/docs/changelog/).
 
 ## 开发规划
 
-请访问[Cloudpods Roadmap](https://docs.yunion.io/zh/docs/roadmap/).
+请访问[Cloudpods Roadmap](https://www.cloudpods.org/zh/docs/roadmap/).
 
 ## 贡献
 

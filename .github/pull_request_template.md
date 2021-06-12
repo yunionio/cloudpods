@@ -16,5 +16,5 @@ If yes, write the release branches name in the below format and submit the relat
 - release/3.7
 - release/3.6
 
-Take a look at "https://docs.yunion.io/en/docs/contribute/contrib/" to learn how to submit a cherry-pick PR. 
+Take a look at "https://www.cloudpods.org/en/docs/contribute/contrib/" to learn how to submit a cherry-pick PR. 
 -->
