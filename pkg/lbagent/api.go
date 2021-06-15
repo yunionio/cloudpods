@@ -47,6 +47,8 @@ type ApiHelper struct {
 	haStateProvider HaStateProvider
 
 	mcclientSession *mcclient.ClientSession
+
+	ovn *OvnWorker
 }
 
 func NewApiHelper(opts *Options) (*ApiHelper, error) {
@@ -64,7 +66,11 @@ func (h *ApiHelper) Run(ctx context.Context) {
 		wg := ctx.Value("wg").(*sync.WaitGroup)
 		wg.Done()
 	}()
+	h.startOvnWorker(ctx)
+	defer h.stopOvnWorker()
+
 	h.runInit(ctx)
+	h.doUseCorpus(ctx)
 	apiSyncTicker := time.NewTicker(time.Duration(h.opts.ApiSyncInterval) * time.Second)
 	hbTicker := time.NewTicker(time.Duration(h.opts.ApiLbagentHbInterval) * time.Second)
 	defer hbTicker.Stop()
@@ -86,10 +92,12 @@ func (h *ApiHelper) Run(ctx context.Context) {
 		case state := <-h.haStateProvider.StateChannel():
 			switch state {
 			case api.LB_HA_STATE_BACKUP:
+				h.stopOvnWorker()
 				h.doStopDaemons(ctx)
 			default:
 				if state != h.haState {
 					// try your best to make things up
+					h.startOvnWorker(ctx)
 					h.doUseCorpus(ctx)
 				}
 			}
@@ -102,6 +110,20 @@ func (h *ApiHelper) Run(ctx context.Context) {
 
 func (h *ApiHelper) SetHaStateProvider(hsp HaStateProvider) {
 	h.haStateProvider = hsp
+}
+
+func (h *ApiHelper) startOvnWorker(ctx context.Context) {
+	if h.ovn == nil {
+		h.ovn = NewOvnWorker()
+		go h.ovn.Start(ctx)
+	}
+}
+
+func (h *ApiHelper) stopOvnWorker() {
+	if h.ovn != nil {
+		h.ovn.Stop()
+		h.ovn = nil
+	}
 }
 
 func (h *ApiHelper) adminClientSession(ctx context.Context) *mcclient.ClientSession {
@@ -234,7 +256,6 @@ func (h *ApiHelper) runInit(ctx context.Context) {
 	// better reload now because agent data is not in corpus yet
 	h.doSyncApiData(ctx)
 	h.doSyncAgentParams(ctx)
-	h.doUseCorpus(ctx)
 }
 
 func (h *ApiHelper) loadLocalData(ctx context.Context) (*agentmodels.LoadbalancerCorpus, error) {
@@ -407,6 +428,9 @@ func (h *ApiHelper) doUseCorpus(ctx context.Context) {
 	if h.agentParams == nil {
 		log.Warningf("agent params nil")
 		return
+	}
+	if err := h.ovn.Refresh(ctx, h.corpus.ModelSets.Loadbalancers); err != nil {
+		log.Errorf("ovn refresh: %v", err)
 	}
 	log.Infof("make effect new corpus and params")
 	cmdData := &LbagentCmdUseCorpusData{
