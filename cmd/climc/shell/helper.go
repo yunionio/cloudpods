@@ -224,6 +224,28 @@ type IShowOpt interface {
 	IIdOpt
 }
 
+type IPropertyOpt interface {
+	IOpt
+	Property() string
+}
+
+func (cmd ResourceCmd) GetProperty(args IPropertyOpt) {
+	man := cmd.manager
+	callback := func(s *mcclient.ClientSession, args IPropertyOpt) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := man.(modulebase.Manager).Get(s, args.Property(), params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	}
+	cmd.RunWithDesc(args.Property(), fmt.Sprintf("Get property of a %s", man.GetKeyword()), args, callback)
+}
+
 func (cmd ResourceCmd) Show(args IShowOpt) {
 	man := cmd.manager
 	callback := func(s *mcclient.ClientSession, args IShowOpt) error {
