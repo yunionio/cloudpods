@@ -87,6 +87,45 @@ func (manager *SVirtualResourceBaseManager) GetIVirtualModelManager() IVirtualMo
 	return q
 }*/
 
+func (manager *SVirtualResourceBaseManager) AllowGetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return IsAdminAllowGetSpec(userCred, manager, "statistics")
+}
+
+func (manager *SVirtualResourceBaseManager) GetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (map[string]apis.StatusStatistic, error) {
+	sq := manager.Query().SubQuery()
+	q := sq.Query(sq.Field("status"), sqlchemy.COUNT("total_count", sq.Field("id")), sqlchemy.SUM("pending_deleted_count", sq.Field("pending_deleted")))
+	_, queryScope, err := FetchCheckQueryOwnerScope(ctx, userCred, query, manager, rbacutils.ActionList, true)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+
+	q = manager.FilterByOwner(q, userCred, queryScope)
+	q = manager.FilterBySystemAttributes(q, userCred, query, queryScope)
+	q = manager.FilterByHiddenSystemAttributes(q, userCred, query, queryScope)
+	q = q.GroupBy(sq.Field("status"))
+	ret := []struct {
+		Status              string
+		TotalCount          int64
+		PendingDeletedCount int64
+	}{}
+	err = q.All(&ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "q.All")
+	}
+	type sStatistic struct {
+		TotalCount          int64
+		PendingDeletedCount int64
+	}
+	result := map[string]apis.StatusStatistic{}
+	for _, s := range ret {
+		result[s.Status] = apis.StatusStatistic{
+			TotalCount:          s.TotalCount,
+			PendingDeletedCount: s.PendingDeletedCount,
+		}
+	}
+	return result, nil
+}
+
 func (manager *SVirtualResourceBaseManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	q = manager.SStatusStandaloneResourceBaseManager.FilterByHiddenSystemAttributes(q, userCred, query, scope)
 
