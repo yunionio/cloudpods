@@ -96,6 +96,8 @@ func init() {
 	cmd.Get("sshable", new(options.ServerIdOptions))
 	cmd.Get("make-sshable-cmd", new(options.ServerIdOptions))
 	cmd.Get("change-owner-candidate-domains", new(options.ServerChangeOwnerCandidateDomainsOptions))
+	cmd.Get("change-owner-candidate-domains", new(options.ServerChangeOwnerCandidateDomainsOptions))
+	cmd.GetProperty(&options.StatusStatisticsOptions{})
 
 	type ServerTaskShowOptions struct {
 		ID       string `help:"ID or name of server" json:"-"`
