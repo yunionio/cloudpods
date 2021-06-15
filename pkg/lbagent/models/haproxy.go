@@ -16,7 +16,6 @@ package models
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -25,13 +24,14 @@ import (
 	"text/template"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
 	"yunion.io/x/onecloud/pkg/mcclient/models"
 )
 
-var haproxyConfigErrNop = errors.New("nop haproxy config snippet")
+var haproxyConfigErrNop = errors.Error("nop haproxy config snippet")
 
 type GenHaproxyConfigsResult struct {
 	LoadbalancersEnabled []*Loadbalancer
@@ -170,14 +170,15 @@ func (b *LoadbalancerCorpus) GenHaproxyConfigs(dir string, opts *AgentParams) (*
 	return r, nil
 }
 
-func (b *LoadbalancerCorpus) genHaproxyConfigCommon(lb *Loadbalancer, listener *LoadbalancerListener, opts *AgentParams) map[string]interface{} {
+func (b *LoadbalancerCorpus) genHaproxyConfigCommon(lb *Loadbalancer, listener *LoadbalancerListener, opts *AgentParams) (map[string]interface{}, error) {
 	data := map[string]interface{}{
 		"comment":       fmt.Sprintf("%s(%s)", listener.Name, listener.Id),
 		"id":            listener.Id,
 		"listener_type": listener.ListenerType,
 	}
 	{
-		bind := fmt.Sprintf("%s:%d", lb.Address, listener.ListenerPort)
+		address := lb.GetAddress()
+		bind := fmt.Sprintf("%s:%d", address, listener.ListenerPort)
 		if listener.ListenerType == "https" && listener.certificate != nil {
 			bind += fmt.Sprintf(" ssl crt %s.pem", listener.certificate.Id)
 			if listener.TLSCipherPolicy != "" {
@@ -242,7 +243,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigCommon(lb *Loadbalancer, listener *
 			}
 		}
 	}
-	return data
+	return data, nil
 }
 
 func (b *LoadbalancerCorpus) genHaproxyConfigBackend(data map[string]interface{}, lb *Loadbalancer, listener *LoadbalancerListener, backendGroup *LoadbalancerBackendGroup) error {
@@ -311,7 +312,9 @@ func (b *LoadbalancerCorpus) genHaproxyConfigBackend(data map[string]interface{}
 		}
 		serverLines := []string{}
 		for _, backend := range backendGroup.Backends {
-			serverLine := fmt.Sprintf("server %s %s:%d", backend.Id, backend.Address, backend.Port)
+
+			address, port := backend.GetAddressPort()
+			serverLine := fmt.Sprintf("server %s %s:%d", backend.Id, address, port)
 			if listener.Scheduler == "rr" {
 				serverLine += " weight 1"
 			} else {
@@ -428,7 +431,10 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 		lb = listener.loadbalancer
 	)
 
-	data := b.genHaproxyConfigCommon(lb, listener, opts)
+	data, err := b.genHaproxyConfigCommon(lb, listener, opts)
+	if err != nil {
+		return errors.Wrap(err, "genHaproxyConfigCommon for http listener")
+	}
 	{
 		// NOTE add X-Real-IP if needed
 		//
@@ -530,13 +536,16 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 		// nothing to serve
 		return haproxyConfigErrNop
 	}
-	err := haproxyConfigTmpl.ExecuteTemplate(buf, "httpListen", data)
+	err = haproxyConfigTmpl.ExecuteTemplate(buf, "httpListen", data)
 	return err
 }
 
 func (b *LoadbalancerCorpus) genHaproxyConfigTcp(buf *bytes.Buffer, listener *LoadbalancerListener, opts *AgentParams) error {
 	lb := listener.loadbalancer
-	data := b.genHaproxyConfigCommon(lb, listener, opts)
+	data, err := b.genHaproxyConfigCommon(lb, listener, opts)
+	if err != nil {
+		return errors.Wrap(err, "genHaproxyConfigCommon for tcp listener")
+	}
 	if listener.BackendGroupId != "" {
 		backendGroup := lb.BackendGroups[listener.BackendGroupId]
 		backendData := map[string]interface{}{

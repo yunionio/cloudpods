@@ -52,6 +52,7 @@ func (b *LoadbalancerCorpus) GenGobetweenConfigs(dir string, opts *GenGobetweenC
 		},
 	}
 	for _, lb := range opts.LoadbalancersEnabled {
+		address := lb.GetAddress()
 		for _, listener := range lb.Listeners {
 			if listener.ListenerType != "udp" {
 				continue
@@ -70,7 +71,8 @@ func (b *LoadbalancerCorpus) GenGobetweenConfigs(dir string, opts *GenGobetweenC
 			// backends
 			staticList := []string{}
 			for _, backend := range backendGroup.Backends {
-				backendS := fmt.Sprintf("%s:%d weight=%d", backend.Address, backend.Port, backend.Weight)
+				address, port := backend.GetAddressPort()
+				backendS := fmt.Sprintf("%s:%d weight=%d", address, port, backend.Weight)
 				staticList = append(staticList, backendS)
 			}
 
@@ -143,7 +145,7 @@ func (b *LoadbalancerCorpus) GenGobetweenConfigs(dir string, opts *GenGobetweenC
 			}
 
 			opts.Config.Servers[listener.Id] = gobetween.Server{
-				Bind:     fmt.Sprintf("%s:%d", lb.Address, listener.ListenerPort),
+				Bind:     fmt.Sprintf("%s:%d", address, listener.ListenerPort),
 				Protocol: "udp",
 				Balance:  serverBalance,
 				Discovery: &gobetween.DiscoveryConfig{

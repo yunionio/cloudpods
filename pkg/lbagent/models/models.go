@@ -15,6 +15,7 @@
 package models
 
 import (
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/models"
 )
 
@@ -38,6 +39,15 @@ type Loadbalancer struct {
 	LoadbalancerNetwork *LoadbalancerNetwork
 	Listeners           LoadbalancerListeners
 	BackendGroups       LoadbalancerBackendGroups
+
+	ListenAddress string
+}
+
+func (lb *Loadbalancer) GetAddress() string {
+	if lb.NetworkType == computeapi.LB_NETWORK_TYPE_VPC {
+		return lb.ListenAddress
+	}
+	return lb.Address
 }
 
 type LoadbalancerListener struct {
@@ -65,6 +75,24 @@ type LoadbalancerBackend struct {
 	*models.LoadbalancerBackend
 
 	backendGroup *LoadbalancerBackendGroup
+
+	ConnectAddress string
+	ConnectPort    int
+}
+
+func (lbbackend *LoadbalancerBackend) GetAddressPort() (addr string, port int) {
+	backendGroup := lbbackend.backendGroup
+	if backendGroup == nil {
+		return
+	}
+	lb := backendGroup.loadbalancer
+	if lb == nil {
+		return
+	}
+	if lb.NetworkType == computeapi.LB_NETWORK_TYPE_VPC {
+		return lbbackend.ConnectAddress, lbbackend.ConnectPort
+	}
+	return lbbackend.Address, lbbackend.Port
 }
 
 type LoadbalancerAcl struct {
