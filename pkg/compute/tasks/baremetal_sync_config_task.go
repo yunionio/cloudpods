@@ -54,9 +54,14 @@ func (self *BaremetalSyncConfigTask) DoSyncConfig(ctx context.Context, baremetal
 }
 
 func (self *BaremetalSyncConfigTask) OnSyncConfigComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
+	logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_SYNC_CONF, "", self.UserCred, true)
+	notSyncStatus, _ := self.Params.Bool("not_sync_status")
+	if notSyncStatus {
+		self.SetStageComplete(ctx, nil)
+		return
+	}
 	self.SetStage("OnSyncstatusComplete", nil)
 	baremetal.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
-	logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_SYNC_CONF, "", self.UserCred, true)
 }
 
 func (self *BaremetalSyncConfigTask) OnSyncstatusComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {

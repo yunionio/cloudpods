@@ -137,22 +137,24 @@ func (task *sBaremetalPrepareTask) prepareBaremetalInfo(cli *ssh.Client) (*barem
 	if ipmiInfo == nil {
 		ipmiInfo = &types.SIPMIInfo{}
 	}
-	if !ipmiInfo.Present && ipmiEnable {
+	if !ipmiInfo.Verified && !ipmiInfo.Present && ipmiEnable {
 		ipmiInfo.Present = true
 		ipmiInfo.Verified = false
 	}
 
-	return &baremetalPrepareInfo{
-		sysInfo,
-		cpuInfo,
-		dmiCPUInfo,
-		memInfo,
-		nicsInfo,
-		diskInfo,
-		storageDriver,
-		ipmiInfo,
-		isolatedDevicesInfo,
-	}, nil
+	prepareInfo := &baremetalPrepareInfo{
+		sysInfo:             sysInfo,
+		cpuInfo:             cpuInfo,
+		dmiCpuInfo:          dmiCPUInfo,
+		memInfo:             memInfo,
+		nicsInfo:            nicsInfo,
+		diskInfo:            diskInfo,
+		storageDriver:       storageDriver,
+		ipmiInfo:            ipmiInfo,
+		isolatedDevicesInfo: isolatedDevicesInfo,
+	}
+
+	return prepareInfo, nil
 }
 
 func (task *sBaremetalPrepareTask) configIPMISetting(cli *ssh.Client, i *baremetalPrepareInfo) error {
@@ -313,7 +315,7 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 	// set ipmi nic address and user password
 	if err = task.configIPMISetting(cli, infos); err != nil {
 		logclient.AddActionLogWithStartable(task, task.baremetal, logclient.ACT_PREPARE, err, task.userCred, false)
-		return err
+		return errors.Wrap(err, "Config IPMI setting")
 	}
 
 	if err = task.updateBmInfo(cli, infos); err != nil {
@@ -325,6 +327,11 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 	if err = task.baremetal.DoNTPConfig(); err != nil {
 		// ignore error
 		log.Errorf("SetNTP fail: %s", err)
+	}
+
+	if err = AdjustUEFIBootOrder(cli, task.baremetal); err != nil {
+		logclient.AddActionLogWithStartable(task, task.baremetal, logclient.ACT_PREPARE, err, task.userCred, false)
+		return errors.Wrap(err, "Adjust UEFI boot order")
 	}
 
 	logclient.AddActionLogWithStartable(task, task.baremetal, logclient.ACT_PREPARE, infos.sysInfo, task.userCred, true)
@@ -358,7 +365,7 @@ func (task *sBaremetalPrepareTask) findAdminNic(cli *ssh.Client, nicsInfo []*typ
 
 func (task *sBaremetalPrepareTask) updateBmInfo(cli *ssh.Client, i *baremetalPrepareInfo) error {
 	adminNic := task.baremetal.GetAdminNic()
-	if adminNic == nil {
+	if adminNic == nil || (adminNic != nil && !adminNic.LinkUp) {
 		adminIdx, adminNicDev, err := task.findAdminNic(cli, i.nicsInfo)
 		if err != nil {
 			return errors.Wrap(err, "task.findAdminNic")
@@ -368,7 +375,7 @@ func (task *sBaremetalPrepareTask) updateBmInfo(cli *ssh.Client, i *baremetalPre
 		if err != nil {
 			return errors.Wrap(err, "send Admin Nic Info")
 		}
-		adminNic = task.baremetal.GetAdminNic()
+		adminNic = task.baremetal.GetNicByMac(adminNicDev.Mac)
 	}
 	// collect params
 	updateInfo := make(map[string]interface{})

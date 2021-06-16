@@ -63,10 +63,11 @@ func (self *BaremetalUnmaintenanceTask) OnUnmaintenantComplete(ctx context.Conte
 		"__maint_password": "None",
 		"__maint_ip":       "None",
 	}
-	baremetal.SetAllMetadata(ctx, metadatas, self.UserCred)
+	baremetal.SetAllMetadata(ctx, metadatas, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 	guest := baremetal.GetBaremetalServer()
 	if guest != nil {
-		guest.StartSyncstatus(ctx, self.UserCred, "")
+		guest.StartSyncstatus(ctx, self.GetUserCred(), "")
 	}
+	baremetal.StartSyncConfig(ctx, self.GetUserCred(), "")
 }

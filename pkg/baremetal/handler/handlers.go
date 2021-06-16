@@ -212,9 +212,13 @@ func handleServerStart(ctx *Context, bm *baremetal.SBaremetalInstance, _ baremet
 }
 
 func handleServerStop(ctx *Context, bm *baremetal.SBaremetalInstance, _ baremetaltypes.IBaremetalServer) {
-	if err := bm.StartServerStopTask(ctx.UserCred(), ctx.TaskId(), ctx.Data()); err != nil {
-		ctx.ResponseError(httperrors.NewGeneralError(err))
-		return
+	if bm.HasBMC() {
+		if err := bm.StartServerStopTask(ctx.UserCred(), ctx.TaskId(), ctx.Data()); err != nil {
+			ctx.ResponseError(httperrors.NewGeneralError(err))
+			return
+		}
+	} else {
+		bm.StartBaremetalMaintenanceTask(ctx.UserCred(), ctx.TaskId(), ctx.Data())
 	}
 	ctx.ResponseOk()
 }

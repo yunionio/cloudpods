@@ -46,6 +46,10 @@ func (self *SBaremetalServerCreateTask) GetName() string {
 	return "BaremetalServerCreateTask"
 }
 
+func (self *SBaremetalServerCreateTask) RemoveEFIOSEntry() bool {
+	return true
+}
+
 func (self *SBaremetalServerCreateTask) DoDeploys(term *ssh.Client) (jsonutils.JSONObject, error) {
 	// Build raid
 	err := self.Baremetal.GetServer().DoDiskConfig(term)
@@ -90,7 +94,10 @@ func doPoweroff(term *ssh.Client) error {
 }
 
 func (self *SBaremetalServerCreateTask) PostDeploys(term *ssh.Client) error {
-	return doPoweroff(term)
+	if self.Baremetal.HasBMC() {
+		return doPoweroff(term)
+	}
+	return nil
 }
 
 func (self *SBaremetalServerCreateTask) onError(term *ssh.Client, err error) error {

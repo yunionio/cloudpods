@@ -113,18 +113,23 @@ func (s *Client) GetConfig() ClientConfig {
 }
 
 func (s *Client) RawRun(cmds ...string) ([]string, error) {
-	return s.run(false, cmds, nil)
+	return s.run(false, cmds, nil, false)
 }
 
 func (s *Client) Run(cmds ...string) ([]string, error) {
-	return s.run(true, cmds, nil)
+	return s.run(true, cmds, nil, false)
 }
 
 func (s *Client) RunWithInput(input io.Reader, cmds ...string) ([]string, error) {
-	return s.run(true, cmds, input)
+	return s.run(true, cmds, input, false)
 }
 
-func (s *Client) run(parseOutput bool, cmds []string, input io.Reader) ([]string, error) {
+// RunWithTTY request Pty before run command.
+func (s *Client) RunWithTTY(cmds ...string) ([]string, error) {
+	return s.run(false, cmds, nil, true)
+}
+
+func (s *Client) run(parseOutput bool, cmds []string, input io.Reader, withPty bool) ([]string, error) {
 	ret := []string{}
 	for _, cmd := range cmds {
 		session, err := s.client.NewSession()
@@ -132,6 +137,18 @@ func (s *Client) run(parseOutput bool, cmds []string, input io.Reader) ([]string
 			return nil, err
 		}
 		defer session.Close()
+
+		if withPty {
+			modes := ssh.TerminalModes{
+				ssh.ECHO:          1,     // enable echoing
+				ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
+				ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
+			}
+			if err := session.RequestPty("xterm", 24, 80, modes); err != nil {
+				return nil, errors.Wrap(err, "Setup TTY")
+			}
+		}
+
 		log.Debugf("Run command: %s", cmd)
 		var stdOut bytes.Buffer
 		var stdErr bytes.Buffer
@@ -223,4 +240,12 @@ func (s *Client) RunTerminal() error {
 		return errors.Wrap(err, "ssh wait")
 	}
 	return nil
+}
+
+func IsExitMissingError(err error) bool {
+	errStr := new(ssh.ExitMissingError).Error()
+	if strings.Contains(err.Error(), errStr) {
+		return true
+	}
+	return false
 }

@@ -44,6 +44,10 @@ func (self *SBaremetalServerDestroyTask) GetName() string {
 	return "BaremetalServerDestroyTask"
 }
 
+func (self *SBaremetalServerDestroyTask) RemoveEFIOSEntry() bool {
+	return true
+}
+
 func (self *SBaremetalServerDestroyTask) DoDeploys(term *ssh.Client) (jsonutils.JSONObject, error) {
 	if err := self.Baremetal.GetServer().DoEraseDisk(term); err != nil {
 		log.Errorf("Delete server do erase disk: %v", err)

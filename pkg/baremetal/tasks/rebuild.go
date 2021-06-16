@@ -45,6 +45,10 @@ func (self *SBaremetalServerRebuildTask) GetName() string {
 	return "BaremetalServerRebuildTask"
 }
 
+func (self *SBaremetalServerRebuildTask) RemoveEFIOSEntry() bool {
+	return true
+}
+
 func (self *SBaremetalServerRebuildTask) DoDeploys(term *ssh.Client) (jsonutils.JSONObject, error) {
 	parts, err := self.Baremetal.GetServer().DoRebuildRootDisk(term)
 	if err != nil {
@@ -65,5 +69,8 @@ func (self *SBaremetalServerRebuildTask) DoDeploys(term *ssh.Client) (jsonutils.
 }
 
 func (self *SBaremetalServerRebuildTask) PostDeploys(term *ssh.Client) error {
-	return doPoweroff(term)
+	if self.Baremetal.HasBMC() {
+		return doPoweroff(term)
+	}
+	return nil
 }

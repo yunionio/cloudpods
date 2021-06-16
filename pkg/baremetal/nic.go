@@ -28,6 +28,30 @@ import (
 	"yunion.io/x/onecloud/pkg/util/dhcp"
 )
 
+const (
+	// ref: https://datatracker.ietf.org/doc/html/rfc4578#section-2.1
+	PXE_CLIENT_ARCH_INTEL_X86PC = iota
+	PXE_CLIENT_ARCH_NEC_PC98
+	PXE_CLIENT_ARCH_EFI_ITANIUM
+	PXE_CLIENT_ARCH_DEC_ALPHA
+	PXE_CLIENT_ARCH_ARC_X86
+	PXE_CLIENT_ARCH_INTEL_LEAN_CLIENT
+	PXE_CLIENT_ARCH_EFI_IA32
+	PXE_CLIENT_ARCH_EFI_BC
+	PXE_CLIENT_ARCH_EFI_XSCALE
+	PXE_CLIENT_ARCH_EFI_X86_64
+)
+
+func IsUEFIPxeArch(arch uint16) bool {
+	switch arch {
+	case PXE_CLIENT_ARCH_EFI_IA32:
+		return true
+	case PXE_CLIENT_ARCH_EFI_BC, PXE_CLIENT_ARCH_EFI_XSCALE, PXE_CLIENT_ARCH_EFI_X86_64:
+		return true
+	}
+	return false
+}
+
 func GetNicDHCPConfig(
 	n *types.SNic,
 	serverIP string,
@@ -71,9 +95,9 @@ func GetNicDHCPConfig(
 	if isPxe {
 		conf.BootServer = serverIP
 		switch arch {
-		case 7, 9:
+		case PXE_CLIENT_ARCH_EFI_BC, PXE_CLIENT_ARCH_EFI_X86_64:
 			conf.BootFile = "bootx64.efi"
-		case 6:
+		case PXE_CLIENT_ARCH_EFI_IA32:
 			conf.BootFile = "bootia32.efi"
 		default:
 			//if o.Options.EnableTftpHttpDownload {
