@@ -149,6 +149,14 @@ func (w *SWindowsRootFs) IsWindows10() bool {
 	return false
 }
 
+func (w *SWindowsRootFs) IsOldWindows() bool {
+	info := w.GetReleaseInfo(nil)
+	if info != nil && strings.HasPrefix(info.Version, "5.") {
+		return true
+	}
+	return false
+}
+
 func (w *SWindowsRootFs) GetOs() string {
 	return "Windows"
 }
@@ -332,6 +340,12 @@ func (w *SWindowsRootFs) CommitChanges(part IDiskPartition) error {
 	tool := winutils.NewWinRegTool(confPath)
 	tool.CheckPath()
 	tool.EnableRdp()
+
+	if w.IsOldWindows() {
+		// windows prior to windows 2003 should not try to commit changes
+		return nil
+	}
+
 	tool.InstallGpeditStartScript(WIN_BOOT_SCRIPT_PATH)
 
 	bootDir := path.Dir(BOOT_SCRIPT_PATH)
