@@ -342,6 +342,29 @@ func (self *SBaremetalTaskBase) EnsurePowerUp() error {
 	return nil
 }
 
+func (self *SBaremetalTaskBase) EnsureSSHReboot() error {
+	if err := self.Baremetal.SSHReboot(); err != nil {
+		return errors.Wrap(err, "Ensure ssh reboot")
+	}
+
+	var (
+		err      error
+		canReach bool
+	)
+	maxTries := 20
+	startTime := time.Now()
+	for count := 0; count < maxTries; count++ {
+		times := (count % 10) + 1
+		log.Infof("Try %s ssh connection after reboot %d times, %s passed", self.Baremetal.GetName(), times, time.Now().Sub(startTime))
+		canReach, err = self.Baremetal.SSHReachable()
+		if canReach {
+			return nil
+		}
+		time.Sleep(10 * time.Second * time.Duration(times))
+	}
+	return errors.Wrapf(err, "Test %s ssh connection after reboot", self.Baremetal.GetName())
+}
+
 func (self *SBaremetalTaskBase) NeedPXEBoot() bool {
 	return false
 }
@@ -400,27 +423,35 @@ func (self *SBaremetalPXEBootTaskBase) InitPXEBootTask(ctx context.Context, args
 		self.PxeBoot = false
 	}
 
-	// Do soft reboot
-	if self.data != nil && jsonutils.QueryBoolean(self.data, "soft_boot", false) {
-		self.startTime = time.Now()
-		if err := self.Baremetal.DoPowerShutdown(true); err != nil {
-			// ignore error
-			log.Errorf("DoPowerShutdown error: %v", err)
+	if !self.Baremetal.HasBMC() {
+		// Try remote ssh reboot
+		if err := self.Baremetal.SSHReboot(); err != nil {
+			return errors.Wrap(err, "Try ssh reboot")
 		}
-		//self.CallNextStage(self, self.WaitForShutdown, nil)
-		self.SetStage(self.WaitForShutdown)
+	} else {
+		// Do soft reboot
+		if self.data != nil && jsonutils.QueryBoolean(self.data, "soft_boot", false) {
+			self.startTime = time.Now()
+			if err := self.Baremetal.DoPowerShutdown(true); err != nil {
+				// ignore error
+				log.Errorf("DoPowerShutdown error: %v", err)
+			}
+			//self.CallNextStage(self, self.WaitForShutdown, nil)
+			self.SetStage(self.WaitForShutdown)
 
-		return nil
+			return nil
+		}
+
+		// shutdown and power up to PXE mode
+		if err := self.EnsurePowerShutdown(false); err != nil {
+			return errors.Wrap(err, "EnsurePowerShutdown")
+		}
+
+		if err := self.EnsurePowerUp(); err != nil {
+			return errors.Wrap(err, "EnsurePowerUp to pxe")
+		}
 	}
 
-	// shutdown and power up to PXE mode
-	if err := self.EnsurePowerShutdown(false); err != nil {
-		return errors.Wrap(err, "EnsurePowerShutdown")
-	}
-
-	if err := self.EnsurePowerUp(); err != nil {
-		return errors.Wrap(err, "EnsurePowerUp to pxe")
-	}
 	// this stage will be called by baremetalInstance when pxe start notify
 	self.SetSSHStage(self.IPXEBootTask().OnPXEBoot)
 	return nil
@@ -458,4 +489,8 @@ func (self *SBaremetalPXEBootTaskBase) OnStopComplete(ctx context.Context, args 
 
 func (self *SBaremetalPXEBootTaskBase) GetName() string {
 	return "BaremetalPXEBootTaskBase"
+}
+
+func AdjustUEFIBootOrder(term *ssh.Client, bm IBaremetal) error {
+	return bm.AdjustUEFICurrentBootOrder(term)
 }

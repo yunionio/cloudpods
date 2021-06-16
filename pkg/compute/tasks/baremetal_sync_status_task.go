@@ -55,6 +55,10 @@ func (self *BaremetalSyncStatusTask) OnSyncstatusComplete(ctx context.Context, b
 	self.SetStageComplete(ctx, nil)
 }
 
+func (self *BaremetalSyncStatusTask) OnSyncstatusCompleteFailed(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, body)
+}
+
 type BaremetalSyncAllGuestsStatusTask struct {
 	SBaremetalBaseTask
 }
@@ -103,6 +107,10 @@ func (self *BaremetalSyncAllGuestsStatusTask) OnGuestSyncStatusComplete(ctx cont
 	}
 	log.Infof("All unknown guests syncstatus complete")
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *BaremetalSyncAllGuestsStatusTask) OnGuestSyncStatusCompleteFailed(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, body)
 }
 
 func init() {

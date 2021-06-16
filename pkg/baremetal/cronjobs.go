@@ -96,7 +96,7 @@ func (job *SStatusProbeJob) Do(ctx context.Context, now time.Time) error {
 	if bStatus == api.BAREMETAL_READY || bStatus == api.BAREMETAL_RUNNING || bStatus == api.BAREMETAL_UNKNOWN {
 		ps, err := job.baremetal.GetPowerStatus()
 		if err != nil {
-			return errors.Wrap(err, "GetPowerStatus")
+			return errors.Wrap(err, "StatusProbeJob get power status")
 		}
 		job.lastTime = now
 		pps := PowerStatusToBaremetalStatus(ps)

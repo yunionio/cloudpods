@@ -22,6 +22,8 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/baremetal/utils/uefi"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )
@@ -29,12 +31,15 @@ import (
 type IServerBaseDeployTask interface {
 	IPXEBootTask
 
+	RemoveEFIOSEntry() bool
 	DoDeploys(term *ssh.Client) (jsonutils.JSONObject, error)
 	PostDeploys(term *ssh.Client) error
 }
 
 type SBaremetalServerBaseDeployTask struct {
 	SBaremetalPXEBootTaskBase
+
+	needPXEBoot bool
 }
 
 func newBaremetalServerBaseDeployTask(
@@ -45,6 +50,7 @@ func newBaremetalServerBaseDeployTask(
 ) SBaremetalServerBaseDeployTask {
 	task := SBaremetalServerBaseDeployTask{
 		SBaremetalPXEBootTaskBase: newBaremetalPXEBootTaskBase(userCred, baremetal, taskId, data),
+		needPXEBoot:               true,
 	}
 	// any inheritance must call:
 	// task.SetStage(task.InitPXEBootTask)
@@ -59,12 +65,20 @@ func (self *SBaremetalServerBaseDeployTask) GetName() string {
 	return "BaremetalServerBaseDeployTask"
 }
 
+func (self *SBaremetalServerBaseDeployTask) NeedPXEBoot() bool {
+	return self.needPXEBoot
+}
+
 func (self *SBaremetalServerBaseDeployTask) GetFinishAction() string {
 	if self.data != nil {
 		action, _ := self.data.GetString("on_finish")
 		return action
 	}
 	return ""
+}
+
+func (self *SBaremetalServerBaseDeployTask) RemoveEFIOSEntry() bool {
+	return false
 }
 
 func (self *SBaremetalServerBaseDeployTask) DoDeploys(_ *ssh.Client) (jsonutils.JSONObject, error) {
@@ -77,10 +91,22 @@ func (self *SBaremetalServerBaseDeployTask) PostDeploys(_ *ssh.Client) error {
 
 func (self *SBaremetalServerBaseDeployTask) OnPXEBoot(ctx context.Context, term *ssh.Client, args interface{}) error {
 	log.Infof("%s called on stage pxeboot, args: %v", self.GetName(), args)
+
+	if self.IServerBaseDeployTask().RemoveEFIOSEntry() {
+		if err := uefi.RemoteTryRemoveOSBootEntry(term); err != nil {
+			return errors.Wrap(err, "Remote uefi boot entry")
+		}
+	}
+
 	result, err := self.IServerBaseDeployTask().DoDeploys(term)
 	if err != nil {
 		return errors.Wrap(err, "Do deploy")
 	}
+
+	if err := AdjustUEFIBootOrder(term, self.Baremetal); err != nil {
+		return errors.Wrap(err, "Adjust UEFI boot order")
+	}
+
 	_, err = term.Run(
 		"/bin/sync",
 		"/sbin/sysctl -w vm.drop_caches=3",
@@ -88,23 +114,42 @@ func (self *SBaremetalServerBaseDeployTask) OnPXEBoot(ctx context.Context, term 
 	if err != nil {
 		return errors.Wrap(err, "Sync disk")
 	}
+
 	if err := self.IServerBaseDeployTask().PostDeploys(term); err != nil {
 		return errors.Wrap(err, "post deploy")
 	}
+
 	onFinishAction := self.GetFinishAction()
 	if utils.IsInStringArray(onFinishAction, []string{"restart", "shutdown"}) {
-		err = self.EnsurePowerShutdown(false)
-		if err != nil {
-			return errors.Wrap(err, "Ensure power off")
-		}
-		if onFinishAction == "restart" {
-			err = self.EnsurePowerUp()
-			if err != nil {
-				return errors.Wrap(err, "Ensure power up")
+		if self.Baremetal.HasBMC() {
+			if err := self.EnsurePowerShutdown(false); err != nil {
+				return errors.Wrap(err, "Ensure power off")
+			}
+			if onFinishAction == "restart" {
+				if err := self.EnsurePowerUp(); err != nil {
+					return errors.Wrap(err, "Ensure power up")
+				}
+			}
+			self.Baremetal.AutoSyncAllStatus()
+		} else {
+			if onFinishAction == "shutdown" {
+				log.Infof("None BMC baremetal can't shutdown when deploying")
+				/*
+				 * if err := self.Baremetal.SSHShutdown(); err != nil {
+				 *     return errors.Wrap(err, "Try ssh shutdown")
+				 * }
+				 */
+			} else {
+				// do restart
+				// hack: ssh reboot to disk
+				self.needPXEBoot = false
+				if err := self.EnsureSSHReboot(); err != nil {
+					return errors.Wrap(err, "Try ssh reboot")
+				}
 			}
 		}
+		self.Baremetal.SyncAllStatus(types.POWER_STATUS_ON)
 	}
-	self.Baremetal.AutoSyncAllStatus()
 	SetTaskComplete(self, result)
 	return nil
 }
