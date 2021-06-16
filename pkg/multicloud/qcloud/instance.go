@@ -588,6 +588,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 
 	params["InternetAccessible.InternetChargeType"] = internetChargeType
 	params["InternetAccessible.InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bandwidth)
+	params["InternetAccessible.PublicIpAssigned"] = "TRUE"
 	if publicIpBw == 0 {
 		params["InternetAccessible.PublicIpAssigned"] = "FALSE"
 	}
@@ -654,6 +655,11 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 			if strings.Contains(err.Error(), "Code=InvalidPermission") { // 带宽上移用户未指定公网ip时不能设置带宽
 				delete(params, "InternetAccessible.InternetChargeType")
 				delete(params, "InternetAccessible.InternetMaxBandwidthOut")
+				return false, nil
+			}
+			if strings.Contains(err.Error(), "UnsupportedOperation.BandwidthPackageIdNotSupported") ||
+				(strings.Contains(err.Error(), "Code=InvalidParameterCombination") && strings.Contains(err.Error(), "InternetAccessible.BandwidthPackageId")) {
+				delete(params, "InternetAccessible.BandwidthPackageId")
 				return false, nil
 			}
 			return false, errors.Wrapf(err, "RunInstances")
