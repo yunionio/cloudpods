@@ -2,9 +2,11 @@ package models
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	api "yunion.io/x/onecloud/pkg/apis/notify"
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -95,6 +97,13 @@ func (rnm *SReceiverNotificationManager) CreateContact(ctx context.Context, user
 	return rn, rnm.TableSpec().Insert(ctx, rn)
 }
 
+func (rnm *SReceiverNotificationManager) SetHandlerProcessTimeout(info *appsrv.SHandlerInfo, r *http.Request) time.Duration {
+	if r.Method == http.MethodGet && len(r.URL.Query().Get("export_keys")) > 0 {
+		return time.Hour * 2
+	}
+	return -time.Second
+}
+
 // func (rn *SReceiverNotification) Receiver() (*SReceiver, error) {
 // 	q := ReceiverManager.Query().Equals("id", rn.ReceiverID)
 // 	var receiver SReceiver
@@ -118,30 +127,30 @@ func (rn *SReceiverNotification) receiver() (*SReceiver, error) {
 }
 
 func (rn *SReceiverNotification) robot() (*SRobot, error) {
-    q := RobotManager.Query().Equals("id", rn.ReceiverID)
-    var robot SRobot
-    err := q.First(&robot)
-    if err != nil {
-        return nil, err
-    }
-    robot.SetModelManager(RobotManager, &robot)
-    return &robot, nil
+	q := RobotManager.Query().Equals("id", rn.ReceiverID)
+	var robot SRobot
+	err := q.First(&robot)
+	if err != nil {
+		return nil, err
+	}
+	robot.SetModelManager(RobotManager, &robot)
+	return &robot, nil
 }
 
 func (rn *SReceiverNotification) Receiver() (IReceiver, error) {
 	switch rn.ReceiverType {
 	case api.RECEIVER_TYPE_USER:
-        return rn.receiver()
+		return rn.receiver()
 	case api.RECEIVER_TYPE_CONTACT:
 		return &SContact{contact: rn.Contact}, nil
 	case api.RECEIVER_TYPE_ROBOT:
-        return rn.robot()
+		return rn.robot()
 	default:
 		// compatible
-        if rn.ReceiverID != "" && rn.ReceiverID != ReceiverIdDefault {
-            return rn.receiver()
-        }
-        return &SContact{contact: rn.Contact}, nil
+		if rn.ReceiverID != "" && rn.ReceiverID != ReceiverIdDefault {
+			return rn.receiver()
+		}
+		return &SContact{contact: rn.Contact}, nil
 	}
 }
 
@@ -172,7 +181,7 @@ func (rn *SReceiverNotification) AfterSend(ctx context.Context, success bool, re
 
 type IReceiver interface {
 	IsEnabled() bool
-    GetDomainId() string
+	GetDomainId() string
 	IsEnabledContactType(string) (bool, error)
 	IsVerifiedContactType(string) (bool, error)
 	GetContact(string) (string, error)
@@ -187,7 +196,7 @@ func (s SReceiverBase) IsEnabled() bool {
 }
 
 func (s SReceiverBase) GetDomainId() string {
-    return ""
+	return ""
 }
 
 func (s SReceiverBase) IsEnabledContactType(_ string) (bool, error) {

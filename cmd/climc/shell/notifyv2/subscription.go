@@ -29,7 +29,7 @@ func init() {
 	cmd1.Create(new(notify.SubscriberCreateOptions))
 	cmd1.Show(new(notify.SubscriberOptions))
 	cmd1.Delete(new(notify.SubscriberOptions))
-	cmd1.Perform("set-receiver", new(notify.SubscriberSetReceiverOptions))
+	cmd1.Perform("change", new(notify.SubscriberChangeOptions))
 	cmd1.Perform("enable", new(notify.SubscriberOptions))
 	cmd1.Perform("disable", new(notify.SubscriberOptions))
 }

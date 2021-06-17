@@ -145,7 +145,11 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		}
 
 		// send
-		p, err := notification.TemplateStore().FillWithTemplate(ctx, lang, notification.Notification())
+		nn, err := notification.Notification()
+		if err != nil {
+			self.taskFailed(ctx, notification, err.Error(), false)
+		}
+		p, err := notification.TemplateStore().FillWithTemplate(ctx, lang, nn)
 		if err != nil {
 			self.taskFailed(ctx, notification, err.Error(), false)
 		}
@@ -199,7 +203,7 @@ type FailedReceiverSpec struct {
 
 func (self *NotificationSendTask) batchSend(ctx context.Context, contactType string, receivers []ReceiverSpec, params rpcapi.SendParams) (fails []FailedReceiverSpec, err error) {
 	log.Infof("contactType: %s, receivers: %s, params: %s", contactType, receivers, jsonutils.Marshal(params))
-	if contactType != apis.ROBOT {
+	if contactType != apis.ROBOT && contactType != apis.WEBHOOK {
 		return self._batchSend(ctx, contactType, receivers, func(res []*rpcapi.SReceiver) ([]*rpcapi.FailedRecord, error) {
 			return models.NotifyService.BatchSend(ctx, contactType, rpcapi.BatchSendParams{
 				Receivers:      res,

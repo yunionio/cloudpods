@@ -67,12 +67,11 @@ type SNotification struct {
 	Topic    string `width:"128" nullable:"true" create:"required" search:"user"`
 	Priority string `width:"16" nullable:"true" create:"optional" list:"user" get:"user"`
 	// swagger:ignore
-	Message     string    `create:"required"`
-	ReceivedAt  time.Time `nullable:"true" list:"user" get:"user"`
-	Event       string    `width:"32" nullable:"true" create:"optional"`
-	AdvanceDays int
-	SendTimes   int
-	Tag         string `width:"16" nullable:"true" index:"true" create:"optional"`
+	Message    string    `create:"required"`
+	ReceivedAt time.Time `nullable:"true" list:"user" get:"user"`
+	EventId    string    `width:"128" nullable:"true"`
+	SendTimes  int
+	Tag        string `width:"16" nullable:"true" index:"true" create:"optional"`
 }
 
 const (
@@ -220,7 +219,13 @@ func (nm *SNotificationManager) AllowPerformEventNotify(ctx context.Context, use
 
 // TODO: support project and domain
 func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.NotificationManagerEventNotifyInput) (api.NotificationManagerEventNotifyOutput, error) {
+	log.Infof("default receiverIds: %s", input.ReceiverIds)
 	var output api.NotificationManagerEventNotifyOutput
+	// check event
+	_, err := parseEvent(input.Event)
+	if err != nil {
+		return output, httperrors.NewInputParameterError("unable to parse event %q", input.Event)
+	}
 	// contact type
 	contactTypes := input.ContactTypes
 	cts, err := ConfigManager.allContactType()
@@ -245,10 +250,9 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 		if err != nil {
 			return output, errors.Wrap(err, "unable to get receive")
 		}
+		log.Infof("receiver for topic: %s", receiverIds1)
 		receiverIds = append(receiverIds, receiverIds1...)
 	}
-	// deduplication
-	receiverIds = sets.NewString(receiverIds...).UnsortedList()
 
 	// robot
 	var robots []string
@@ -262,19 +266,33 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 			robots = append(robots, _robots...)
 		}
 	}
-	robots = intersection(robots, intersection(cts, RobotContactTypes))
+	var webhookRobots []string
 	if len(robots) > 0 {
 		robots = sets.NewString(robots...).UnsortedList()
+		rs, err := RobotManager.FetchByIdOrNames(ctx, robots...)
+		if err != nil {
+			return output, errors.Wrap(err, "unable to get robots")
+		}
+		robots, webhookRobots = make([]string, 0, len(rs)), make([]string, 0, 1)
+		for i := range rs {
+			if rs[i].Type == api.ROBOT_TYPE_WEBHOOK {
+				webhookRobots = append(webhookRobots, rs[i].Id)
+			} else {
+				robots = append(robots, rs[i].Id)
+			}
+		}
 	}
 
 	message := jsonutils.Marshal(input.ResourceDetails).String()
 
+	// append default receiver
+	receiverIds = append(receiverIds, input.ReceiverIds...)
 	// fillter non-existed receiver
 	receivers, err := ReceiverManager.FetchByIdOrNames(ctx, receiverIds...)
 	if err != nil {
 		return output, errors.Wrap(err, "unable to fetch receivers by ids")
 	}
-	webconsoleContacts := make([]string, 0)
+	webconsoleContacts := sets.NewString()
 	idSet := sets.NewString()
 	for i := range receivers {
 		idSet.Insert(receivers[i].Id)
@@ -283,12 +301,18 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 		if idSet.Has(re) {
 			continue
 		}
-		webconsoleContacts = append(webconsoleContacts, re)
+		webconsoleContacts.Insert(re)
 	}
 	receiverIds = idSet.UnsortedList()
 
+	// create event
+	event, err := EventManager.CreateEvent(ctx, input.Event, message, input.AdvanceDays)
+	if err != nil {
+		return output, errors.Wrap(err, "unable to create Event")
+	}
+
 	// webconsole
-	err = nm.create(ctx, userCred, api.WEBCONSOLE, receiverIds, webconsoleContacts, input.Priority, "", message, input.Event, input.AdvanceDays)
+	err = nm.create(ctx, userCred, api.WEBCONSOLE, receiverIds, webconsoleContacts.UnsortedList(), input.Priority, event.Id)
 	if err != nil {
 		output.FailedList = append(output.FailedList, api.FailedElem{
 			ContactType: api.WEBCONSOLE,
@@ -297,7 +321,10 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 	}
 	// normal contact type
 	for _, ct := range contactTypes {
-		err := nm.create(ctx, userCred, ct, receiverIds, nil, input.Priority, "", message, input.Event, input.AdvanceDays)
+		if ct == api.MOBILE {
+			continue
+		}
+		err := nm.create(ctx, userCred, ct, receiverIds, nil, input.Priority, event.Id)
 		if err != nil {
 			output.FailedList = append(output.FailedList, api.FailedElem{
 				ContactType: ct,
@@ -305,26 +332,64 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 			})
 		}
 	}
+	err = nm.createWithWebhookRobots(ctx, userCred, webhookRobots, input.Priority, event.Id)
+	if err != nil {
+		output.FailedList = append(output.FailedList, api.FailedElem{
+			ContactType: api.WEBHOOK,
+			Reason:      err.Error(),
+		})
+	}
 	// robot
-	err = nm.createWithRobots(ctx, userCred, robots, input.Priority, "", message, input.Event, input.AdvanceDays)
-	output.FailedList = append(output.FailedList, api.FailedElem{
-		ContactType: api.ROBOT,
-		Reason:      err.Error(),
-	})
+	err = nm.createWithRobots(ctx, userCred, robots, input.Priority, event.Id)
+	if err != nil {
+		output.FailedList = append(output.FailedList, api.FailedElem{
+			ContactType: api.ROBOT,
+			Reason:      err.Error(),
+		})
+	}
 	return output, nil
 }
 
-func (nm *SNotificationManager) createWithRobots(ctx context.Context, userCred mcclient.TokenCredential, robotIds []string, priority, topic, message, event string, advanceDays int) error {
+func (nm *SNotificationManager) createWithWebhookRobots(ctx context.Context, userCred mcclient.TokenCredential, webhookRobotIds []string, priority, eventId string) error {
+	if len(webhookRobotIds) == 0 {
+		return nil
+	}
+	n := &SNotification{
+		ContactType: api.WEBHOOK,
+		Priority:    priority,
+		ReceivedAt:  time.Now(),
+		EventId:     eventId,
+	}
+	n.Id = db.DefaultUUIDGenerator()
+	for i := range webhookRobotIds {
+		_, err := ReceiverNotificationManager.CreateRobot(ctx, userCred, webhookRobotIds[i], n.Id)
+		if err != nil {
+			return errors.Wrap(err, "ReceiverNotificationManager.CreateRobot")
+		}
+	}
+	err := nm.TableSpec().Insert(ctx, n)
+	if err != nil {
+		return errors.Wrap(err, "unable to insert Notification")
+	}
+	n.SetModelManager(nm, n)
+	task, err := taskman.TaskManager.NewTask(ctx, "NotificationSendTask", n, userCred, nil, "", "")
+	if err != nil {
+		log.Errorf("NotificationSendTask newTask error %v", err)
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
+func (nm *SNotificationManager) createWithRobots(ctx context.Context, userCred mcclient.TokenCredential, robotIds []string, priority, eventId string) error {
 	if len(robotIds) == 0 {
 		return nil
 	}
 	n := &SNotification{
 		ContactType: api.ROBOT,
-		Message:     message,
 		Priority:    priority,
 		ReceivedAt:  time.Now(),
-		Event:       event,
-		AdvanceDays: advanceDays,
+		EventId:     eventId,
 	}
 	n.Id = db.DefaultUUIDGenerator()
 	for i := range robotIds {
@@ -347,7 +412,7 @@ func (nm *SNotificationManager) createWithRobots(ctx context.Context, userCred m
 	return nil
 }
 
-func (nm *SNotificationManager) create(ctx context.Context, userCred mcclient.TokenCredential, contactType string, receiverIds, contacts []string, priority, topic, message, event string, advanceDays int) error {
+func (nm *SNotificationManager) create(ctx context.Context, userCred mcclient.TokenCredential, contactType string, receiverIds, contacts []string, priority, eventId string) error {
 	if len(receiverIds)+len(contacts) == 0 {
 		log.Infof("%s: no send", contactType)
 		return nil
@@ -355,11 +420,9 @@ func (nm *SNotificationManager) create(ctx context.Context, userCred mcclient.To
 
 	n := &SNotification{
 		ContactType: contactType,
-		Message:     message,
 		Priority:    priority,
 		ReceivedAt:  time.Now(),
-		Event:       event,
-		AdvanceDays: advanceDays,
+		EventId:     eventId,
 	}
 	n.Id = db.DefaultUUIDGenerator()
 	err := nm.TableSpec().Insert(ctx, n)
@@ -454,6 +517,7 @@ func (n *SNotification) ReceiveDetails(userCred mcclient.TokenCredential, scope 
 		q.AppendField(subRQ.Field("name", "receiver_name"))
 		q = q.Join(subRQ, sqlchemy.OR(sqlchemy.Equals(q.Field("receiver_id"), subRQ.Field("id")), sqlchemy.Equals(q.Field("contact"), subRQ.Field("id"))))
 	}
+	q.DebugQuery()
 	ret := make([]api.ReceiveDetail, 0, 2)
 	err := q.All(&ret)
 	if err != nil && errors.Cause(err) != sql.ErrNoRows {
@@ -466,7 +530,11 @@ func (n *SNotification) ReceiveDetails(userCred mcclient.TokenCredential, scope 
 func (n *SNotification) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, out api.NotificationDetails) (api.NotificationDetails, error) {
 	// get title adn content
 	lang := getLangSuffix(ctx)
-	p, err := n.TemplateStore().FillWithTemplate(ctx, lang, n.Notification())
+	nn, err := n.Notification()
+	if err != nil {
+		return out, err
+	}
+	p, err := n.TemplateStore().FillWithTemplate(ctx, lang, nn)
 	if err != nil {
 		return out, err
 	}
@@ -482,14 +550,26 @@ func (n *SNotification) getMoreDetails(ctx context.Context, userCred mcclient.To
 	return out, nil
 }
 
-func (n *SNotification) Notification() notifyv2.SNotification {
+func (n *SNotification) Notification() (notifyv2.SNotification, error) {
+	if n.EventId == "" {
+		return notifyv2.SNotification{
+			ContactType: n.ContactType,
+			Topic:       n.Topic,
+			Message:     n.Message,
+		}, nil
+	}
+	event, err := EventManager.GetEvent(n.EventId)
+	if err != nil {
+		return notifyv2.SNotification{}, err
+	}
+	e, _ := parseEvent(event.Event)
 	return notifyv2.SNotification{
 		ContactType: n.ContactType,
 		Topic:       n.Topic,
-		Message:     n.Message,
-		Event:       n.Event,
-		AdvanceDays: n.AdvanceDays,
-	}
+		Message:     event.Message,
+		Event:       e,
+		AdvanceDays: event.AdvanceDays,
+	}, nil
 }
 
 func (nm *SNotificationManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -738,7 +818,7 @@ func (nm *SNotificationManager) ReSend(ctx context.Context, userCred mcclient.To
 }
 
 func (n *SNotification) TemplateStore() notifyv2.ITemplateStore {
-	if len(n.Event) == 0 || n.ContactType == api.MOBILE {
+	if len(n.EventId) == 0 || n.ContactType == api.MOBILE {
 		return TemplateManager
 	}
 	return LocalTemplateManager

@@ -39,6 +39,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.SubContactManager,
 		db.SharedResourceManager,
 		models.VerificationManager,
+		models.EventManager,
 	} {
 		db.RegisterModelManager(manager)
 	}

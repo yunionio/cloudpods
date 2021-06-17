@@ -27,7 +27,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -59,6 +58,11 @@ func (self *GuestRebuildRootTask) markFailed(ctx context.Context, guest *models.
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_REBUILD, reason, self.UserCred, false)
 	guest.SetStatus(self.GetUserCred(), api.VM_REBUILD_ROOT_FAIL, reason.String())
 	self.SGuestBaseTask.SetStageFailed(ctx, reason)
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    guest,
+		Action: notifyclient.ActionRebuildRoot,
+		IsFail: true,
+	})
 	gds := guest.CategorizeDisks()
 	imageId, _ := self.Params.GetString("origin_image_id")
 	_, err := db.Update(gds.Root, func() error {
@@ -176,15 +180,7 @@ func (self *GuestRebuildRootTask) OnRebuildAllDisksComplete(ctx context.Context,
 		}
 	}
 	db.OpsLog.LogEvent(guest, db.ACT_REBUILD_ROOT, "", self.UserCred)
-	notifyclient.NotifyWebhook(ctx, self.UserCred, guest, notifyclient.ActionRebuildRoot)
-	guest.NotifyServerEvent(
-		ctx,
-		self.UserCred,
-		notifyclient.SERVER_REBUILD_ROOT,
-		notify.NotifyPriorityImportant,
-		true, nil, false,
-	)
-	// guest.EventNotify(ctx, self.UserCred, notifyclient.ActionRebuildRoot)
+	guest.EventNotify(ctx, self.UserCred, notifyclient.ActionRebuildRoot)
 	self.SetStage("OnSyncStatusComplete", nil)
 	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
 }

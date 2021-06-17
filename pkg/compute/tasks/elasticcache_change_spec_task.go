@@ -40,7 +40,11 @@ func (self *ElasticcacheChangeSpecTask) taskFail(ctx context.Context, ec *models
 	ec.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
 	db.OpsLog.LogEvent(ec, db.ACT_CHANGE_FLAVOR, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, ec, logclient.ACT_VM_CHANGE_FLAVOR, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, ec.Id, ec.Name, api.ELASTIC_CACHE_STATUS_CHANGE_FAILED, reason.String())
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    ec,
+		Action: notifyclient.ActionChangeConfig,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, reason)
 }
 

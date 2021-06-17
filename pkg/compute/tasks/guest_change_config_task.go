@@ -335,7 +335,6 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecCompleteFailed(ctx con
 func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecFinish(ctx context.Context, guest *models.SGuest) {
 	models.HostManager.ClearSchedDescCache(guest.HostId)
 	self.SetStage("OnSyncConfigComplete", nil)
-	notifyclient.NotifyWebhook(ctx, self.UserCred, guest, notifyclient.ActionChangeConfig)
 	err := guest.StartSyncTaskWithoutSyncstatus(ctx, self.UserCred, false, self.GetTaskId())
 	if err != nil {
 		self.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("StartSyncstatus fail %s", err)))
@@ -383,7 +382,11 @@ func (self *GuestChangeConfigTask) markStageFailed(ctx context.Context, guest *m
 	guest.SetStatus(self.UserCred, api.VM_CHANGE_FLAVOR_FAIL, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_CHANGE_FLAVOR_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_CHANGE_FLAVOR, reason, self.UserCred, false)
-	notifyclient.NotifyError(ctx, self.UserCred, guest.GetId(), guest.GetName(), logclient.ACT_VM_CHANGE_FLAVOR, reason.String())
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    guest,
+		Action: notifyclient.ActionChangeConfig,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, reason)
 }
 

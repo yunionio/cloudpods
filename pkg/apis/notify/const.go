@@ -105,6 +105,7 @@ const (
 	TOPIC_RESOURCE_DBINSTANCE              = "dbinstance"
 	TOPIC_RESOURCE_ELASTICCACHE            = "elasticcache"
 	TOPIC_RESOURCE_SCHEDULEDTASK           = "scheduledtask"
+	TOPIC_RESOURCE_BAREMETAL               = "baremetal"
 
 	SUBSCRIBER_TYPE_ROLE     = "role"
 	SUBSCRIBER_TYPE_ROBOT    = "robot"

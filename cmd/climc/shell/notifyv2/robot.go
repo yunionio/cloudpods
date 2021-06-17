@@ -21,12 +21,12 @@ import (
 )
 
 func init() {
-    cmd := shell.NewResourceCmd(&modules.NotifyRobot).WithKeyword("notify-robot")
-    cmd.List(new(options.RobotListOptions))
-    cmd.Create(new(options.RobotCreateOptions))
-    cmd.Update(new(options.RobotUpdateOptions))
-    cmd.Show(new(options.RobotOptions))
-    cmd.Delete(new(options.RobotOptions))
-    cmd.Perform("enable", new(options.RobotOptions))
-    cmd.Perform("disable", new(options.RobotOptions))
+	cmd := shell.NewResourceCmd(&modules.NotifyRobot).WithKeyword("notify-robot")
+	cmd.List(new(options.RobotListOptions))
+	cmd.Create(new(options.RobotCreateOptions))
+	cmd.Update(new(options.RobotUpdateOptions))
+	cmd.Show(new(options.RobotOptions))
+	cmd.Delete(new(options.RobotOptions))
+	cmd.Perform("enable", new(options.RobotOptions))
+	cmd.Perform("disable", new(options.RobotOptions))
 }

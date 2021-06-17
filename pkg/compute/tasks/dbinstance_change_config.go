@@ -41,6 +41,11 @@ func (self *DBInstanceChangeConfigTask) taskFailed(ctx context.Context, dbinstan
 	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_CHANGE_CONFIG_FAILED, err.Error())
 	db.OpsLog.LogEvent(dbinstance, db.ACT_CHANGE_CONFIG, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_CHANGE_CONFIG, err, self.UserCred, false)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    dbinstance,
+		Action: notifyclient.ActionChangeConfig,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
@@ -64,7 +69,10 @@ func (self *DBInstanceChangeConfigTask) OnInit(ctx context.Context, obj db.IStan
 func (self *DBInstanceChangeConfigTask) OnDBInstanceChangeConfigComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	dbinstance := obj.(*models.SDBInstance)
 	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_CHANGE_CONFIG, nil, self.UserCred, true)
-	notifyclient.NotifyWebhook(ctx, self.UserCred, dbinstance, notifyclient.ActionChangeConfig)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    dbinstance,
+		Action: notifyclient.ActionChangeConfig,
+	})
 	self.SetStage("OnSyncDBInstanceStatusComplete", nil)
 	models.StartResourceSyncStatusTask(ctx, self.UserCred, dbinstance, "DBInstanceSyncStatusTask", self.GetTaskId())
 }

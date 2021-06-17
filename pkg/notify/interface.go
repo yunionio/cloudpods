@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/pkg/errors"
 
+	notify_apis "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/notify/rpc/apis"
 )
@@ -59,15 +60,15 @@ type IServiceConfigStore interface {
 	GetConfigs(service string) ([]SConfig, error)
 	GetConfig(service, domainId string) (SConfig, error)
 	SetConfig(service string, config SConfig) error
-    HasSystemConfig(service string) (bool, error)
-    BatchCheckConfig(service string, domainIds []string) ([]bool, error)
+	HasSystemConfig(service string) (bool, error)
+	BatchCheckConfig(service string, domainIds []string) ([]bool, error)
 }
 
 type SNotification struct {
 	ContactType string
 	Topic       string
 	Message     string
-	Event       string
+	Event       notify_apis.SEvent
 	AdvanceDays int
 }
 

@@ -79,12 +79,8 @@ func (lt *SLocalTemplateManager) detailsDisplay(resourceType string, details *js
 }
 
 func (lt *SLocalTemplateManager) FillWithTemplate(ctx context.Context, lang string, no notifyv2.SNotification) (params rpcapi.SendParams, err error) {
-	out := rpcapi.SendParams{}
-	event, err := parseEvent(no.Event)
-	if err != nil {
-		return out, errors.Wrapf(err, "unable to parse event %q", no.Event)
-	}
-	rtStr, aStr := event.ResourceType(), string(event.Action())
+	out, event := rpcapi.SendParams{}, no.Event
+	rtStr, aStr, resultStr := event.ResourceType(), string(event.Action()), string(event.Result())
 	dict, err := jsonutils.ParseString(no.Message)
 	if err != nil {
 		return out, errors.Wrapf(err, "unable to parse json from %q", no.Message)
@@ -92,10 +88,11 @@ func (lt *SLocalTemplateManager) FillWithTemplate(ctx context.Context, lang stri
 	webhookMsg := jsonutils.NewDict()
 	webhookMsg.Set("resource_type", jsonutils.NewString(rtStr))
 	webhookMsg.Set("action", jsonutils.NewString(aStr))
+	webhookMsg.Set("result", jsonutils.NewString(resultStr))
 	webhookMsg.Set("resource_details", dict)
 	if no.ContactType == api.WEBHOOK {
 		return rpcapi.SendParams{
-			Title:   no.Topic,
+			Title:   no.Event.StringWithDeli("_"),
 			Message: webhookMsg.String(),
 		}, nil
 	}
@@ -113,6 +110,10 @@ func (lt *SLocalTemplateManager) FillWithTemplate(ctx context.Context, lang stri
 	if len(aDis) == 0 {
 		aDis = aStr
 	}
+	resultDis := notifyclientI18nTable.LookupByLang(tag, resultStr)
+	if len(resultDis) == 0 {
+		resultDis = resultStr
+	}
 
 	lt.detailsDisplay(rtStr, dict.(*jsonutils.JSONDict), tag)
 
@@ -120,6 +121,7 @@ func (lt *SLocalTemplateManager) FillWithTemplate(ctx context.Context, lang stri
 	templateParams.Set("advance_days", jsonutils.NewInt(int64(no.AdvanceDays)))
 	templateParams.Set("resource_type_display", jsonutils.NewString(rtDis))
 	templateParams.Set("action_display", jsonutils.NewString(aDis))
+	templateParams.Set("result_display", jsonutils.NewString(resultDis))
 
 	// get title
 	title, err := lt.fillWithTemplate(ctx, "title", no.ContactType, lang, event, templateParams)
@@ -148,6 +150,19 @@ func (lt *SLocalTemplateManager) FillWithTemplate(ctx context.Context, lang stri
 
 var action2Topic = make(map[string]string, 0)
 
+func specTopic(event api.SEvent) string {
+	switch event.Action() {
+	case api.ActionRebuildRoot, api.ActionChangeIpaddr, api.ActionResetPassword:
+		return string(api.ActionUpdate)
+	case api.ActionDelete:
+		switch event.ResourceType() {
+		case api.TOPIC_RESOURCE_BAREMETAL, api.TOPIC_RESOURCE_SERVER, api.TOPIC_RESOURCE_LOADBALANCER, api.TOPIC_RESOURCE_DBINSTANCE, api.TOPIC_RESOURCE_ELASTICCACHE:
+			return "DELETE_WITH_IP"
+		}
+	}
+	return ""
+}
+
 func init() {
 	action2Topic[string(api.ActionRebuildRoot)] = string(api.ActionUpdate)
 	action2Topic[string(api.ActionResetPassword)] = string(api.ActionUpdate)
@@ -159,8 +174,11 @@ func (lt *SLocalTemplateManager) fillWithTemplate(ctx context.Context, titleOrCo
 		tmpl *template.Template
 		err  error
 	)
-	actionStr := string(event.Action())
-	for _, topic := range []string{event.String(), actionStr, action2Topic[actionStr], "common"} {
+	actionResultStr := event.ActionWithResult("_")
+	for _, topic := range []string{specTopic(event), event.StringWithDeli("_"), actionResultStr, "common"} {
+		if topic == "" {
+			continue
+		}
 		tmpl, err = lt.getTemplate(ctx, titleOrContent, contactType, topic, lang)
 		if errors.Cause(err) == errors.ErrNotFound {
 			continue
@@ -393,6 +411,11 @@ func init() {
 			"定时任务",
 		},
 		sI18nElme{
+			api.TOPIC_RESOURCE_BAREMETAL,
+			"baremetal",
+			"裸金属",
+		},
+		sI18nElme{
 			string(api.ActionCreate),
 			"created",
 			"创建",
@@ -436,6 +459,16 @@ func init() {
 			string(api.ActionPendingDelete),
 			"added to the recycle bin",
 			"加入回收站",
+		},
+		sI18nElme{
+			string(api.ResultFailed),
+			"failed",
+			"失败",
+		},
+		sI18nElme{
+			string(api.ResultSucceed),
+			"successfully",
+			"成功",
 		},
 	)
 }

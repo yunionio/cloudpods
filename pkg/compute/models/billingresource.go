@@ -16,13 +16,17 @@ package models
 
 import (
 	"context"
+	"reflect"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/billing"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -203,4 +207,84 @@ func ParseBillingCycleInput(billingBase *SBillingResourceBase, input apis.Postpa
 	}
 
 	return &bc, nil
+}
+
+type SBillingResourceCheckManager struct {
+	db.SResourceBaseManager
+}
+
+type SBillingResourceCheck struct {
+	db.SResourceBase
+	ResourceId   string `width:"128" charset:"ascii" index:"true"`
+	ResourceType string `width:"36" charset:"ascii" index:"true"`
+	AdvanceDays  int
+	LastCheck    time.Time
+}
+
+var BillingResourceCheckManager *SBillingResourceCheckManager
+
+func init() {
+	BillingResourceCheckManager = &SBillingResourceCheckManager{
+		SResourceBaseManager: db.NewResourceBaseManager(
+			SBillingResourceCheck{},
+			"billingresourcecheck_tbl",
+			"billingresourcecheck",
+			"billingresourcechecks",
+		),
+	}
+	BillingResourceCheckManager.SetVirtualObject(BillingResourceCheckManager)
+}
+
+func (bm *SBillingResourceCheckManager) Create(ctx context.Context, resourceId, resourceType string, advanceDays int) error {
+	bc := SBillingResourceCheck{
+		ResourceId:   resourceId,
+		ResourceType: resourceType,
+		AdvanceDays:  advanceDays,
+		LastCheck:    time.Now(),
+	}
+	return bm.TableSpec().Insert(ctx, &bc)
+}
+
+var advanceDays []int = []int{1, 3}
+
+func CheckBillingResourceExpireAt(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	billingResourceManagers := []db.IModelManager{
+		GuestManager,
+		DBInstanceManager,
+		ElasticcacheManager,
+	}
+	for _, advanceDay := range advanceDays {
+		for _, manager := range billingResourceManagers {
+			upLimit := time.Now().AddDate(0, 0, advanceDay)
+			downLimit := time.Now().AddDate(0, 0, advanceDay-1)
+			v := reflect.MakeSlice(reflect.SliceOf(manager.TableSpec().DataType()), 0, 0)
+			q := manager.Query().LE("expired_at", upLimit).GE("expired_at", downLimit)
+
+			bq := BillingResourceCheckManager.Query("resource_id").Equals("resource_type", manager.Keyword()).Equals("advance_days", advanceDay).SubQuery()
+			q = q.LeftJoin(bq, sqlchemy.Equals(q.Field("id"), bq.Field("resource_id")))
+			q = q.IsNull("resource_id")
+
+			vp := reflect.New(v.Type())
+			vp.Elem().Set(v)
+			err := db.FetchModelObjects(manager, q, vp.Interface())
+			if err != nil {
+				log.Errorf("unable to list %s: %v", manager.KeywordPlural(), err)
+			}
+
+			v = vp.Elem()
+			log.Debugf("%s length of v: %d", manager.Alias(), v.Len())
+			for i := 0; i < v.Len(); i++ {
+				m := v.Index(i).Addr().Interface().(db.IModel)
+				notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+					Obj:         m,
+					Action:      notifyclient.ActionExpiredRelease,
+					AdvanceDays: advanceDay,
+				})
+				err := BillingResourceCheckManager.Create(ctx, m.GetId(), manager.Keyword(), advanceDay)
+				if err != nil {
+					log.Errorf("unable to create billingresourcecheck for resource %s %s", manager.Keyword(), m.GetId())
+				}
+			}
+		}
+	}
 }

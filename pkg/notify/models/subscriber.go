@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -34,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -41,7 +43,7 @@ var SubscriberManager *SSubscriberManager
 
 func init() {
 	SubscriberManager = &SSubscriberManager{
-		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
+		SStandaloneAnonResourceBaseManager: db.NewStandaloneAnonResourceBaseManager(
 			SSubscriber{},
 			"subscriber_tbl",
 			"subscriber",
@@ -52,19 +54,22 @@ func init() {
 }
 
 type SSubscriberManager struct {
-	db.SVirtualResourceBaseManager
+	db.SStandaloneAnonResourceBaseManager
 	db.SEnabledResourceBaseManager
 }
 
 type SSubscriber struct {
-	db.SVirtualResourceBase
+	db.SStandaloneAnonResourceBase
 	db.SEnabledResourceBase
 
-	TopicID        string `width:"128" charset:"ascii" nullable:"false" index:"true" get:"user" list:"user"`
-	Type           string `width:"16" charset:"ascii" nullable:"false" index:"true" get:"user" list:"user"`
-	Identification string `width:"128" charset:"ascii" nullable:"false" index:"true"`
-	RoleScope      string `width:"8" charset:"ascii" nullable:"false" get:"user" list:"user"`
-	ResourceScope  string `width:"8" charset:"ascii" nullable:"false" get:"user" list:"user"`
+	TopicID               string `width:"128" charset:"ascii" nullable:"false" index:"true" get:"user" list:"user" create:"required"`
+	Type                  string `width:"16" charset:"ascii" nullable:"false" index:"true" get:"user" list:"user" create:"required"`
+	Identification        string `width:"128" charset:"ascii" nullable:"false" index:"true"`
+	RoleScope             string `width:"8" charset:"ascii" nullable:"false" get:"user" list:"user" create:"optional"`
+	ResourceScope         string `width:"8" charset:"ascii" nullable:"false" get:"user" list:"user" create:"required"`
+	ResourceAttributionId string `width:"128" charset:"ascii" nullable:"false" get:"user" list:"user" create:"optional"`
+	Scope                 string `width:"128" charset:"ascii" nullable:"false" create:"required"`
+	DomainId              string `width:"128" charset:"ascii" nullable:"false" create:"optional"`
 }
 
 func (sm *SSubscriberManager) validateReceivers(ctx context.Context, receivers []string) ([]string, error) {
@@ -86,8 +91,25 @@ func (sm *SSubscriberManager) validateReceivers(ctx context.Context, receivers [
 }
 
 func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.SubscriberCreateInput) (api.SubscriberCreateInput, error) {
+	log.Infof("before deal: %s", jsonutils.Marshal(input))
 	var err error
-	input.VirtualResourceCreateInput, err = sm.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
+	// permission check
+	sSystem, sDomain := string(rbacutils.ScopeSystem), string(rbacutils.ScopeDomain)
+	switch input.Scope {
+	case sSystem:
+		allow := db.IsAdminAllowCreate(userCred, sm)
+		if !allow {
+			return input, httperrors.NewForbiddenError("The scope %s and the role of the operator do not match", input.Scope)
+		}
+	case sDomain:
+		allow := db.IsDomainAllowCreate(userCred, sm)
+		if !allow {
+			return input, httperrors.NewForbiddenError("The scope %s and the role of the operator do not match", input.Scope)
+		}
+	default:
+		return input, httperrors.NewInputParameterError("unknown scope %s", input.Scope)
+	}
+	input.StandaloneAnonResourceCreateInput, err = sm.SStandaloneAnonResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneAnonResourceCreateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "SVirtualResourceBaseManager.ValidateCreateData")
 	}
@@ -99,6 +121,32 @@ func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred m
 	// check resource scope
 	if !utils.IsInStringArray(input.ResourceScope, []string{api.SUBSCRIBER_SCOPE_SYSTEM, api.SUBSCRIBER_SCOPE_DOMAIN, api.SUBSCRIBER_SCOPE_PROJECT}) {
 		return input, httperrors.NewInputParameterError("unknown resource_scope %q", input.ResourceScope)
+	}
+	// resource Attribution Id
+	var domainId string
+	switch input.ResourceScope {
+	case api.SUBSCRIBER_SCOPE_SYSTEM:
+		input.ResourceAttributionId = ""
+		input.DomainId = ""
+	case api.SUBSCRIBER_SCOPE_PROJECT:
+		tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, input.ResourceAttributionId)
+		if err != nil {
+			return input, errors.Wrapf(err, "unable to fetch project %s", input.ResourceAttributionId)
+		}
+		domainId = tenant.DomainId
+		input.DomainId = domainId
+		input.ResourceAttributionId = tenant.GetId()
+	case api.SUBSCRIBER_SCOPE_DOMAIN:
+		tenant, err := db.TenantCacheManager.FetchDomainByIdOrName(ctx, input.ResourceAttributionId)
+		if err != nil {
+			return input, errors.Wrapf(err, "unable to fetch domain %s", input.ResourceAttributionId)
+		}
+		domainId = tenant.DomainId
+		input.DomainId = domainId
+		input.ResourceAttributionId = tenant.DomainId
+	}
+	if input.Scope == sDomain && domainId != userCred.GetDomainId() {
+		return input, httperrors.NewForbiddenError("domain %s admin can't create subscriber for domain %s", userCred.GetDomainId(), domainId)
 	}
 	input.TopicID = t.GetId()
 	switch input.Type {
@@ -129,11 +177,12 @@ func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred m
 	default:
 		return input, httperrors.NewInputParameterError("unkown type %q", input.Type)
 	}
+	log.Infof("after deal input: %s", jsonutils.Marshal(input))
 	return input, nil
 }
 
 func (s *SSubscriber) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	err := s.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	err := s.SStandaloneAnonResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 	if err != nil {
 		return errors.Wrap(err, "SVirtualResourceBase.CustomizeCreate")
 	}
@@ -150,18 +199,69 @@ func (s *SSubscriber) CustomizeCreate(ctx context.Context, userCred mcclient.Tok
 	case api.SUBSCRIBER_TYPE_ROLE:
 		s.Identification = input.Role
 	}
+	s.Enabled = tristate.True
 	return nil
+}
+
+func (s *SSubscriber) AllowPerformChange(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (s *SSubscriber) PerformChange(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SubscriberChangeInput) (jsonutils.JSONObject, error) {
+	if s.Scope == string(rbacutils.ScopeSystem) {
+		if !db.IsAdminAllowUpdate(userCred, s) {
+			return nil, httperrors.NewForbiddenError("")
+		}
+	} else {
+		if !db.IsDomainAllowUpdate(userCred, s) {
+			return nil, httperrors.NewForbiddenError("")
+		}
+		if s.DomainId != userCred.GetDomainId() {
+			return nil, httperrors.NewForbiddenError("")
+		}
+	}
+	switch s.Type {
+	case api.SUBSCRIBER_TYPE_RECEIVER:
+		err := s.SetReceivers(ctx, input.Receivers)
+		if err != nil {
+			log.Errorf("unable to set receivers %s", input.Receivers)
+		}
+	case api.SUBSCRIBER_TYPE_ROBOT:
+		s.Identification = input.Robot
+	case api.SUBSCRIBER_TYPE_ROLE:
+		s.Identification = input.Role
+	}
+	return nil, nil
 }
 
 func (sm *SSubscriberManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.SubscriberListInput) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = sm.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.VirtualResourceListInput)
+	q, err = sm.SStandaloneAnonResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StandaloneAnonResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 	q, err = sm.SEnabledResourceBaseManager.ListItemFilter(ctx, q, userCred, input.EnabledResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledResourceBaseManager.ListItemFilter")
+	}
+	sSystem, sDomain := string(rbacutils.ScopeSystem), string(rbacutils.ScopeDomain)
+	if input.Scope == "" {
+		input.Scope = sSystem
+	}
+	switch input.Scope {
+	case sSystem:
+		allow := db.IsAdminAllowList(userCred, sm)
+		if !allow {
+			return nil, httperrors.NewForbiddenError("")
+		}
+	case sDomain:
+		allow := db.IsAdminAllowList(userCred, sm)
+		if !allow {
+			return nil, httperrors.NewForbiddenError("")
+		}
+		q = q.Equals("domain_id", userCred.GetDomainId())
+	default:
+		return nil, httperrors.NewInputParameterError("unkown scope %s", input.Scope)
 	}
 	if input.TopicID != "" {
 		q = q.Equals("topic_id", input.TopicID)
@@ -177,10 +277,10 @@ func (sm *SSubscriberManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 
 func (sm *SSubscriberManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []interface{}, fields stringutils2.SSortedStrings, isList bool) []api.SubscriberDetails {
 	var err error
-	vRows := sm.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	vRows := sm.SStandaloneAnonResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	rows := make([]api.SubscriberDetails, len(objs))
 	for i := range rows {
-		rows[i].VirtualResourceDetails = vRows[i]
+		rows[i].StandaloneAnonResourceDetails = vRows[i]
 		s := objs[i].(*SSubscriber)
 		switch s.Type {
 		case api.SUBSCRIBER_TYPE_RECEIVER:
@@ -201,6 +301,26 @@ func (sm *SSubscriberManager) FetchCustomizeColumns(ctx context.Context, userCre
 		}
 	}
 	return rows
+}
+
+func (s *SSubscriber) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	err := s.SStandaloneAnonResourceBase.CustomizeDelete(ctx, userCred, query, data)
+	if err != nil {
+		return err
+	}
+	if s.Scope == string(rbacutils.ScopeSystem) {
+		if !db.IsAdminAllowDelete(userCred, s) {
+			return httperrors.NewForbiddenError("")
+		}
+	} else {
+		if !db.IsDomainAllowDelete(userCred, s) {
+			return httperrors.NewForbiddenError("")
+		}
+		if s.DomainId != userCred.GetDomainId() {
+			return httperrors.NewForbiddenError("")
+		}
+	}
+	return nil
 }
 
 func (s *SSubscriber) receiverIdentifications() ([]api.Identification, error) {
@@ -248,17 +368,17 @@ func (srm *SSubscriberManager) robot(tid, projectDomainId, projectId string) ([]
 }
 
 func (srm *SSubscriberManager) findSuitableOnes(tid, projectDomainId, projectId string, types ...string) ([]SSubscriber, error) {
-	q := srm.Query().Equals("subscription_id", tid)
+	q := srm.Query().Equals("topic_id", tid).IsTrue("enabled")
 	q = q.Filter(sqlchemy.OR(
 		sqlchemy.AND(
-			sqlchemy.Equals(q.Field("resource_type"), api.SUBSCRIBER_SCOPE_PROJECT),
-			sqlchemy.Equals(q.Field("project_id"), projectId),
+			sqlchemy.Equals(q.Field("resource_scope"), api.SUBSCRIBER_SCOPE_PROJECT),
+			sqlchemy.Equals(q.Field("resource_attribution_id"), projectId),
 		),
 		sqlchemy.AND(
-			sqlchemy.Equals(q.Field("resource_type"), api.SUBSCRIBER_SCOPE_DOMAIN),
-			sqlchemy.Equals(q.Field("domain_id"), projectDomainId),
+			sqlchemy.Equals(q.Field("resource_scope"), api.SUBSCRIBER_SCOPE_DOMAIN),
+			sqlchemy.Equals(q.Field("resource_attribution_id"), projectDomainId),
 		),
-		sqlchemy.Equals(q.Field("resource_type"), api.SUBSCRIBER_SCOPE_SYSTEM),
+		sqlchemy.Equals(q.Field("resource_scope"), api.SUBSCRIBER_SCOPE_SYSTEM),
 	))
 	switch len(types) {
 	case 0:
@@ -267,6 +387,7 @@ func (srm *SSubscriberManager) findSuitableOnes(tid, projectDomainId, projectId 
 	default:
 		q = q.In("type", types)
 	}
+	q.DebugQuery()
 	srs := make([]SSubscriber, 0, 1)
 	err := db.FetchModelObjects(srm, q, &srs)
 	if err != nil {
@@ -291,7 +412,7 @@ func (srm *SSubscriberManager) getReceiversSent(ctx context.Context, tid string,
 				return nil, errors.Wrap(err, "unable to get receivers")
 			}
 			receivers = append(receivers, rIds...)
-		} else if sr.Type == api.SUBSCRIBER_TYPE_ROBOT {
+		} else if sr.Type == api.SUBSCRIBER_TYPE_ROLE {
 			roleMap[sr.RoleScope] = append(roleMap[sr.RoleScope], sr.Identification)
 			receivermap[sr.RoleScope] = &[]string{}
 		}
@@ -407,7 +528,7 @@ func (sr *SSubscriber) SetReceivers(ctx context.Context, receiverIds []string) e
 }
 
 func (s *SSubscriber) AllowPerformSetReceiver(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return s.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, s, "set-receiver")
+	return db.IsAdminAllowPerform(userCred, s, "set-receiver")
 }
 
 func (s *SSubscriber) PerformSetReceiver(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SubscriberSetReceiverInput) (jsonutils.JSONObject, error) {

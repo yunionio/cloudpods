@@ -40,14 +40,15 @@ func (so *TopicOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type SubscriberCreateOptions struct {
-	Name          string   `positional:"true"`
-	TopicId       string   `positional:"true"`
-	ResourceScope string   `positional:"true" choices:"system|domain|project"`
-	Type          string   `positional:"true" choices:"receiver|robot|role"`
-	Receivers     []string `help:"required if type is 'receiver'"`
-	Role          string   `help:"required if type is 'role'"`
-	RoleScope     string   `help:"required if type if 'role'"`
-	Robot         string   `help:"required if type if 'robot'"`
+	TopicId               string   `positional:"true"`
+	ResourceScope         string   `positional:"true" choices:"system|domain|project"`
+	ResourceAttributionId string   `help:"project id or domain id of resource"`
+	Type                  string   `positional:"true" choices:"receiver|robot|role"`
+	Receivers             []string `help:"required if type is 'receiver'"`
+	Role                  string   `help:"required if type is 'role'"`
+	RoleScope             string   `help:"required if type is 'role'"`
+	Robot                 string   `help:"required if type is 'robot'"`
+	Scope                 string   `positional:"true"`
 }
 
 func (sc *SubscriberCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -59,6 +60,7 @@ type SubscriberListOptions struct {
 	TopicId       string
 	ResourceScope string `choices:"system|domain|project"`
 	Type          string `choices:"receiver|robot|role"`
+	SCOPE         string `choices:"system|domain"`
 }
 
 func (sl *SubscriberListOptions) Params() (jsonutils.JSONObject, error) {
@@ -77,13 +79,16 @@ func (s *SubscriberOptions) Params() (jsonutils.JSONObject, error) {
 	return nil, nil
 }
 
-type SubscriberSetReceiverOptions struct {
+type SubscriberChangeOptions struct {
 	SubscriberOptions
 	Receivers []string
+	Role      string
+	RoleScope string
+	Robot     string
 }
 
-func (ssr *SubscriberSetReceiverOptions) Params() (jsonutils.JSONObject, error) {
-	params := jsonutils.NewDict()
-	params.Set("receivers", jsonutils.NewStringArray(ssr.Receivers))
+func (ssr *SubscriberChangeOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(ssr)
+	params.(*jsonutils.JSONDict).Remove("id")
 	return params, nil
 }

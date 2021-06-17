@@ -68,7 +68,21 @@ func (self *ElasticcacheAccountResetPasswordTask) OnInit(ctx context.Context, ob
 			ec.(*models.SElasticcache).SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RUNNING, "")
 			logclient.AddActionLogWithStartable(self, ec, logclient.ACT_RESET_PASSWORD, "", self.UserCred, true)
 		}
+		password, _ := self.GetParams().GetString("password")
+		self.resetPasswordNotify(ctx, ec.(*models.SElasticcache), ea, password)
 		logclient.AddActionLogWithStartable(self, ea, logclient.ACT_RESET_PASSWORD, "", self.UserCred, true)
 		self.SetStageComplete(ctx, nil)
 	}
+}
+
+func (self *ElasticcacheAccountResetPasswordTask) resetPasswordNotify(ctx context.Context, ec *models.SElasticcache, account *models.SElasticcacheAccount, password string) {
+	detailDecro := func(ctx context.Context, details *jsonutils.JSONDict) {
+		details.Set("account", jsonutils.NewString(account.GetName()))
+		details.Set("password", jsonutils.NewString(password))
+	}
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:                 ec,
+		Action:              notifyclient.ActionResetPassword,
+		ObjDetailsDecorator: detailDecro,
+	})
 }

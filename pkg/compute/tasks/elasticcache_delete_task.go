@@ -40,7 +40,11 @@ func (self *ElasticcacheDeleteTask) taskFail(ctx context.Context, elasticcache *
 	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RELEASE_FAILED, reason.String())
 	db.OpsLog.LogEvent(elasticcache, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_DELETE, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_RELEASE_FAILED, reason.String())
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    elasticcache,
+		Action: notifyclient.ActionDelete,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -62,7 +66,10 @@ func (self *ElasticcacheDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 		ec.DeleteSubResources(ctx, self.UserCred)
 		ec.SVirtualResourceBase.Delete(ctx, self.UserCred)
 		logclient.AddActionLogWithStartable(self, ec, logclient.ACT_DELETE, "", self.UserCred, true)
-		notifyclient.NotifyWebhook(ctx, self.UserCred, ec, notifyclient.ActionDelete)
+		notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+			Obj:    ec,
+			Action: notifyclient.ActionDelete,
+		})
 		self.SetStageComplete(ctx, nil)
 	}
 }

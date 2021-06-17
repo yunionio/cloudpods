@@ -1294,3 +1294,28 @@ func (r *SReceiver) GetContact(cType string) (string, error) {
 func (r *SReceiver) GetDomainId() string {
 	return r.DomainId
 }
+
+func (r *SReceiver) AllowPerformEnableContactType(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return r.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, r, "enable-contact-type")
+}
+
+func (r *SReceiver) PerformEnableContactType(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ReceiverEnableContactTypeInput) (jsonutils.JSONObject, error) {
+	err := r.PullCache(false)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to pull cache")
+	}
+	err = r.SetEnabledContactTypes(input.EnabledContactTypes)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to set enabled contact types")
+	}
+	err = r.PushCache(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to push cache")
+	}
+	r.SetStatus(userCred, api.RECEIVER_STATUS_PULLING, "")
+	err = r.StartSubcontactPullTask(ctx, userCred, nil, "")
+	if err != nil {
+		log.Errorf("unable to StartSubcontactPullTask: %v", err)
+	}
+	return nil, nil
+}

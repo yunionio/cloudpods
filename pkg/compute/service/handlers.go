@@ -95,6 +95,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.CloudimageManager,
 
 		models.WafRuleStatementManager,
+		models.BillingResourceCheckManager,
 	} {
 		db.RegisterModelManager(manager)
 	}

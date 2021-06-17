@@ -91,6 +91,7 @@ func init() {
 			"servers",
 		),
 	}
+	log.Infof("init GuestManager")
 	GuestManager.SetVirtualObject(GuestManager)
 	GuestManager.SetAlias("guest", "guests")
 }

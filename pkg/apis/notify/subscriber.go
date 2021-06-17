@@ -17,7 +17,7 @@ package notify
 import "yunion.io/x/onecloud/pkg/apis"
 
 type SubscriberCreateInput struct {
-	apis.VirtualResourceCreateInput
+	apis.StandaloneAnonResourceCreateInput
 
 	// description: Id of Topic
 	// required
@@ -26,6 +26,14 @@ type SubscriberCreateInput struct {
 	// description: scope of resource
 	// enum: system,domain,project
 	ResourceScope string
+
+	// description: project id or domain id of resource
+	// example: 1e3824756bac4ac084e784ed297ec652
+	ResourceAttributionId string
+
+	// description: domain id of resource
+	// example: 1e3824756bac4ac084e784ed297ec652
+	DomainId string
 
 	// description: Type of subscriber
 	// enum: receiver,robot,role
@@ -43,10 +51,29 @@ type SubscriberCreateInput struct {
 
 	// description: Robot(Id or Name) which is required when the type is 'robot' will Subscribe TopicID
 	Robot string
+
+	// description: scope
+	// enum: system,domain
+	Scope string
+}
+
+type SubscriberChangeInput struct {
+	// description: receivers which is required when the type is 'receiver' will Subscribe TopicID
+	Receivers []string
+
+	// description: Role(Id or Name) which is required when the type is 'role' will Subscribe TopicID
+	Role string
+
+	// description: The scope of role subscribers
+	// enum: system,domain,project
+	RoleScope string
+
+	// description: Robot(Id or Name) which is required when the type is 'robot' will Subscribe TopicID
+	Robot string
 }
 
 type SubscriberListInput struct {
-	apis.VirtualResourceListInput
+	apis.StandaloneAnonResourceListInput
 	apis.EnabledResourceBaseListInput
 
 	// description: topic id
@@ -59,6 +86,10 @@ type SubscriberListInput struct {
 	// description: type
 	// enum: receiver,robot,role
 	Type string
+
+	// description: scope
+	// enum: system,domain
+	Scope string
 }
 
 type Identification struct {
@@ -69,7 +100,7 @@ type Identification struct {
 }
 
 type SubscriberDetails struct {
-	apis.VirtualResourceDetails
+	apis.StandaloneAnonResourceDetails
 	SSubscriber
 
 	// description: receivers

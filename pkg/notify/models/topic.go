@@ -18,8 +18,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/sets"
@@ -34,11 +36,16 @@ import (
 )
 
 func parseEvent(es string) (notify.SEvent, error) {
+	es = strings.ToLower(es)
 	ess := strings.Split(es, notify.DelimiterInEvent)
-	if len(ess) != 2 {
+	if len(ess) != 2 && len(ess) != 3 {
 		return notify.SEvent{}, fmt.Errorf("invalid event string %q", es)
 	}
-	return notify.Event.WithResourceType(ess[0]).WithAction(notify.SAction(ess[1])), nil
+	event := notify.Event.WithResourceType(ess[0]).WithAction(notify.SAction(ess[1]))
+	if len(ess) == 3 {
+		event = event.WithResult(notify.SResult(ess[2]))
+	}
+	return event, nil
 }
 
 type STopicManager struct {
@@ -67,18 +74,20 @@ type STopic struct {
 	Type        string `width:"20" nullable:"false" create:"required" update:"user" list:"user"`
 	Resources   uint64 `nullable:"false"`
 	Actions     uint32 `nullable:"false"`
+	Results     uint8  `nullable:"false"`
 	AdvanceDays int    `nullable:"false"`
 }
 
 const (
-	DefaultResourceCreateDelete   = "resource create or delete"
-	DefaultResourceChangeConfig   = "resource change config"
-	DefaultResourceUpdate         = "resource update"
-	DefaultResourceReleaseDue1Day = "resource release due 1 day"
-	DefaultResourceReleaseDue3Day = "resource release due 3 day"
-	DefaultScheduledTaskExecute   = "scheduled task execute"
-	DefaultScalingPolicyExecute   = "scaling policy execute"
-	DefaultSnapshotPolicyExecute  = "snapshot policy execute"
+	DefaultResourceCreateDelete    = "resource create or delete"
+	DefaultResourceChangeConfig    = "resource change config"
+	DefaultResourceUpdate          = "resource update"
+	DefaultResourceReleaseDue1Day  = "resource release due 1 day"
+	DefaultResourceReleaseDue3Day  = "resource release due 3 day"
+	DefaultScheduledTaskExecute    = "scheduled task execute"
+	DefaultScalingPolicyExecute    = "scaling policy execute"
+	DefaultSnapshotPolicyExecute   = "snapshot policy execute"
+	DefaultResourceOperationFailed = "resource operation failed"
 )
 
 func (sm *STopicManager) InitializeData() error {
@@ -91,6 +100,7 @@ func (sm *STopicManager) InitializeData() error {
 		DefaultScheduledTaskExecute,
 		DefaultScalingPolicyExecute,
 		DefaultSnapshotPolicyExecute,
+		DefaultResourceOperationFailed,
 	)
 	q := sm.Query()
 	topics := make([]STopic, 0, initSNames.Len())
@@ -125,6 +135,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.TOPIC_RESOURCE_BUCKET,
 				notify.TOPIC_RESOURCE_DBINSTANCE,
 				notify.TOPIC_RESOURCE_ELASTICCACHE,
+				notify.TOPIC_RESOURCE_BAREMETAL,
 			)
 			t.addAction(
 				notify.ActionCreate,
@@ -189,6 +200,24 @@ func (sm *STopicManager) InitializeData() error {
 			t.addResources(notify.TOPIC_RESOURCE_SNAPSHOTPOLICY)
 			t.addAction(notify.ActionExecute)
 			t.Type = notify.TOPIC_TYPE_AUTOMATED_PROCESS
+		case DefaultResourceOperationFailed:
+			t.addResources(
+				notify.TOPIC_RESOURCE_SERVER,
+				notify.TOPIC_RESOURCE_EIP,
+				notify.TOPIC_RESOURCE_LOADBALANCER,
+				notify.TOPIC_RESOURCE_DBINSTANCE,
+				notify.TOPIC_RESOURCE_ELASTICCACHE,
+			)
+			t.addAction(
+				notify.ActionCreate,
+				notify.ActionSyncStatus,
+				notify.ActionRebuildRoot,
+				notify.ActionChangeConfig,
+				notify.ActionCreateBackupServer,
+				notify.ActionDelBackupServer,
+				notify.ActionMigrate,
+			)
+			t.Type = notify.TOPIC_TYPE_RESOURCE
 		}
 		err := sm.TableSpec().Insert(ctx, t)
 		if err != nil {
@@ -293,7 +322,15 @@ func (sm *STopicManager) TopicsByEvent(eventStr string, advanceDays int) ([]STop
 		return nil, errors.Wrapf(err, "unable to parse event %q", event)
 	}
 	resourceV := converter.resourceValue(event.ResourceType())
+	if resourceV < 0 {
+		log.Warningf("unknown resource type: %s", event.ResourceType())
+		return nil, nil
+	}
 	actionV := converter.actionValue(event.Action())
+	if actionV < 0 {
+		log.Warningf("unknown action type: %s", event.Action())
+		return nil, nil
+	}
 	q := sm.Query().Equals("advance_days", advanceDays)
 	q = q.Filter(sqlchemy.GT(sqlchemy.AND_Val("", q.Field("resources"), 1<<resourceV), 0))
 	q = q.Filter(sqlchemy.GT(sqlchemy.AND_Val("", q.Field("actions"), 1<<actionV), 0))
@@ -306,102 +343,169 @@ func (sm *STopicManager) TopicsByEvent(eventStr string, advanceDays int) ([]STop
 	return topics, nil
 }
 
+func (t *STopic) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input notify.PerformEnableInput) bool {
+	return db.IsAdminAllowPerform(userCred, t, "enable")
+}
+
+func (t *STopic) PreCheckPerformAction(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	action string, query jsonutils.JSONObject, data jsonutils.JSONObject,
+) error {
+	if err := t.SStandaloneResourceBase.PreCheckPerformAction(ctx, userCred, action, query, data); err != nil {
+		return err
+	}
+	if action == "enable" || action == "disable" {
+		if !db.IsAdminAllowPerform(userCred, t, action) {
+			return httperrors.NewForbiddenError("only allow admin to perform enable operations")
+		}
+	}
+	return nil
+}
+
+func (t *STopic) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input notify.PerformEnableInput) (jsonutils.JSONObject, error) {
+	err := db.EnabledPerformEnable(t, ctx, userCred, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
+	}
+	return nil, nil
+}
+
+func (t *STopic) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input notify.PerformDisableInput) bool {
+	return db.IsAdminAllowPerform(userCred, t, "disable")
+}
+
+func (t *STopic) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input notify.PerformDisableInput) (jsonutils.JSONObject, error) {
+	err := db.EnabledPerformEnable(t, ctx, userCred, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
+	}
+	return nil, nil
+}
+
 func init() {
 	converter = &sConverter{
-		resourceValueMap: make(map[string]int, 5),
-		resourceList:     make([]string, 0, 5),
-		actionList:       make([]notify.SAction, 0, 5),
-		actionValueMap:   make(map[notify.SAction]int, 5),
+		resource2Value: &sync.Map{},
+		value2Resource: &sync.Map{},
+		action2Value:   &sync.Map{},
+		value2Action:   &sync.Map{},
 	}
 	converter.registerResource(
-		notify.TOPIC_RESOURCE_SERVER,
-		notify.TOPIC_RESOURCE_SCALINGGROUP,
-		notify.TOPIC_RESOURCE_SCALINGPOLICY,
-		notify.TOPIC_RESOURCE_IMAGE,
-		notify.TOPIC_RESOURCE_DISK,
-		notify.TOPIC_RESOURCE_SNAPSHOT,
-		notify.TOPIC_RESOURCE_INSTANCESNAPSHOT,
-		notify.TOPIC_RESOURCE_SNAPSHOTPOLICY,
-		notify.TOPIC_RESOURCE_NETWORK,
-		notify.TOPIC_RESOURCE_EIP,
-		notify.TOPIC_RESOURCE_SECGROUP,
-		notify.TOPIC_RESOURCE_LOADBALANCER,
-		notify.TOPIC_RESOURCE_LOADBALANCERACL,
-		notify.TOPIC_RESOURCE_LOADBALANCERCERTIFICATE,
-		notify.TOPIC_RESOURCE_BUCKET,
-		notify.TOPIC_RESOURCE_DBINSTANCE,
-		notify.TOPIC_RESOURCE_ELASTICCACHE,
-		notify.TOPIC_RESOURCE_SCHEDULEDTASK,
+		map[string]int{
+			notify.TOPIC_RESOURCE_SERVER:                  0,
+			notify.TOPIC_RESOURCE_SCALINGGROUP:            1,
+			notify.TOPIC_RESOURCE_SCALINGPOLICY:           2,
+			notify.TOPIC_RESOURCE_IMAGE:                   3,
+			notify.TOPIC_RESOURCE_DISK:                    4,
+			notify.TOPIC_RESOURCE_SNAPSHOT:                5,
+			notify.TOPIC_RESOURCE_INSTANCESNAPSHOT:        6,
+			notify.TOPIC_RESOURCE_SNAPSHOTPOLICY:          7,
+			notify.TOPIC_RESOURCE_NETWORK:                 8,
+			notify.TOPIC_RESOURCE_EIP:                     9,
+			notify.TOPIC_RESOURCE_SECGROUP:                10,
+			notify.TOPIC_RESOURCE_LOADBALANCER:            11,
+			notify.TOPIC_RESOURCE_LOADBALANCERACL:         12,
+			notify.TOPIC_RESOURCE_LOADBALANCERCERTIFICATE: 13,
+			notify.TOPIC_RESOURCE_BUCKET:                  14,
+			notify.TOPIC_RESOURCE_DBINSTANCE:              15,
+			notify.TOPIC_RESOURCE_ELASTICCACHE:            16,
+			notify.TOPIC_RESOURCE_SCHEDULEDTASK:           17,
+			notify.TOPIC_RESOURCE_BAREMETAL:               18,
+		},
 	)
 	converter.registerAction(
-		notify.ActionCreate,
-		notify.ActionDelete,
-		notify.ActionPendingDelete,
-		notify.ActionUpdate,
-		notify.ActionRebuildRoot,
-		notify.ActionResetPassword,
-		notify.ActionChangeConfig,
-		notify.ActionExpiredRelease,
-		notify.ActionExecute,
-		notify.ActionChangeIpaddr,
+		map[notify.SAction]int{
+			notify.ActionCreate:             0,
+			notify.ActionDelete:             1,
+			notify.ActionPendingDelete:      2,
+			notify.ActionUpdate:             3,
+			notify.ActionRebuildRoot:        4,
+			notify.ActionResetPassword:      5,
+			notify.ActionChangeConfig:       6,
+			notify.ActionExpiredRelease:     7,
+			notify.ActionExecute:            8,
+			notify.ActionChangeIpaddr:       9,
+			notify.ActionSyncStatus:         10,
+			notify.ActionCleanData:          11,
+			notify.ActionMigrate:            12,
+			notify.ActionCreateBackupServer: 13,
+			notify.ActionDelBackupServer:    14,
+		},
 	)
 }
 
 var converter *sConverter
 
 type sConverter struct {
-	resourceValueMap map[string]int
-	resourceList     []string
-	actionValueMap   map[notify.SAction]int
-	actionList       []notify.SAction
+	resource2Value *sync.Map
+	value2Resource *sync.Map
+	action2Value   *sync.Map
+	value2Action   *sync.Map
 }
 
-func (rc *sConverter) registerResource(resources ...string) {
-	for _, resource := range resources {
-		if _, ok := rc.resourceValueMap[resource]; ok {
-			return
+type sResourceValue struct {
+	resource string
+	value    int
+}
+
+type sActionValue struct {
+	action string
+	value  int
+}
+
+func (rc *sConverter) registerResource(resourceValues map[string]int) {
+	for resource, value := range resourceValues {
+		if v, ok := rc.resource2Value.Load(resource); ok && v.(int) != value {
+			log.Fatalf("resource '%s' has been mapped to value '%d', and it is not allowed to map to another value '%d'", resource, v, value)
 		}
-		rc.resourceList = append(rc.resourceList, resource)
-		rc.resourceValueMap[resource] = len(rc.resourceList) - 1
+		if r, ok := rc.value2Resource.Load(value); ok && r.(string) != resource {
+			log.Fatalf("value '%d' has been mapped to resource '%s', and it is not allowed to map to another resource '%s'", value, r, resource)
+		}
+		rc.resource2Value.Store(resource, value)
+		rc.value2Resource.Store(value, resource)
 	}
 }
 
-func (rc *sConverter) registerAction(actions ...notify.SAction) {
-	for _, action := range actions {
-		if _, ok := rc.actionValueMap[action]; ok {
-			return
+func (rc *sConverter) registerAction(actionValues map[notify.SAction]int) {
+	for action, value := range actionValues {
+		if v, ok := rc.action2Value.Load(action); ok && v.(int) != value {
+			log.Fatalf("action '%s' has been mapped to value '%d', and it is not allowed to map to another value '%d'", action, v, value)
 		}
-		rc.actionList = append(rc.actionList, action)
-		rc.actionValueMap[action] = len(rc.actionList) - 1
+		if a, ok := rc.value2Action.Load(value); ok && a.(notify.SAction) != action {
+			log.Fatalf("value '%d' has been mapped to action '%s', and it is not allowed to map to another action '%s'", value, a, action)
+		}
+		rc.action2Value.Store(action, value)
+		rc.value2Action.Store(value, action)
 	}
 }
 
 func (rc *sConverter) resourceValue(resource string) int {
-	v, ok := rc.resourceValueMap[resource]
+	v, ok := rc.resource2Value.Load(resource)
 	if !ok {
 		return -1
 	}
-	return v
+	return v.(int)
 }
 
 func (rc *sConverter) resource(resourceValue int) string {
-	if resourceValue < 0 || resourceValue >= len(rc.resourceList) {
+	r, ok := rc.value2Resource.Load(resourceValue)
+	if !ok {
 		return ""
 	}
-	return rc.resourceList[resourceValue]
+	return r.(string)
 }
 
 func (rc *sConverter) actionValue(action notify.SAction) int {
-	v, ok := rc.actionValueMap[action]
+	v, ok := rc.action2Value.Load(action)
 	if !ok {
 		return -1
 	}
-	return v
+	return v.(int)
 }
 
 func (rc *sConverter) action(actionValue int) notify.SAction {
-	if actionValue < 0 || actionValue >= len(rc.actionList) {
+	a, ok := rc.value2Action.Load(actionValue)
+	if !ok {
 		return notify.SAction("")
 	}
-	return rc.actionList[actionValue]
+	return a.(notify.SAction)
 }

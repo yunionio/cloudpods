@@ -42,15 +42,15 @@ func (c *SendNotificationClient) Send(ctx context.Context, in *SendParams, opts 
 }
 
 func (c *SendNotificationClient) AddConfig(ctx context.Context, in *AddConfigInput, opts ...grpc.CallOption) (*Empty, error) {
-    ctx, cancel := context.WithTimeout(ctx, c.CallTimeout)
-    defer cancel()
-    return c.sendAgentClient.AddConfig(ctx, in, opts...)
+	ctx, cancel := context.WithTimeout(ctx, c.CallTimeout)
+	defer cancel()
+	return c.sendAgentClient.AddConfig(ctx, in, opts...)
 }
 
 func (c *SendNotificationClient) DeleteConfig(ctx context.Context, in *DeleteConfigInput, opts ...grpc.CallOption) (*Empty, error) {
-    ctx, cancel := context.WithTimeout(ctx, c.CallTimeout)
-    defer cancel()
-    return c.sendAgentClient.DeleteConfig(ctx, in, opts...)
+	ctx, cancel := context.WithTimeout(ctx, c.CallTimeout)
+	defer cancel()
+	return c.sendAgentClient.DeleteConfig(ctx, in, opts...)
 }
 
 func (c *SendNotificationClient) UpdateConfig(ctx context.Context, in *UpdateConfigInput, opts ...grpc.CallOption) (*Empty, error) {
@@ -60,9 +60,9 @@ func (c *SendNotificationClient) UpdateConfig(ctx context.Context, in *UpdateCon
 }
 
 func (c *SendNotificationClient) CompleteConfig(ctx context.Context, in *CompleteConfigInput, opts ...grpc.CallOption) (*Empty, error) {
-    ctx, cancel := context.WithTimeout(ctx, c.CallTimeout)
-    defer cancel()
-    return c.sendAgentClient.CompleteConfig(ctx, in, opts...)
+	ctx, cancel := context.WithTimeout(ctx, c.CallTimeout)
+	defer cancel()
+	return c.sendAgentClient.CompleteConfig(ctx, in, opts...)
 }
 
 func (c *SendNotificationClient) ValidateConfig(ctx context.Context, in *ValidateConfigInput, opts ...grpc.CallOption) (*ValidateConfigReply, error) {
@@ -78,9 +78,9 @@ func (c *SendNotificationClient) UseridByMobile(ctx context.Context, in *UseridB
 }
 
 func (c *SendNotificationClient) Ready(ctx context.Context, in *ReadyInput, opts ...grpc.CallOption) (*ReadyOutput, error) {
-    ctx, cancel := context.WithTimeout(ctx, c.CallTimeout)
-    defer cancel()
-    return c.sendAgentClient.Ready(ctx, in, opts...)
+	ctx, cancel := context.WithTimeout(ctx, c.CallTimeout)
+	defer cancel()
+	return c.sendAgentClient.Ready(ctx, in, opts...)
 }
 
 func (c *SendNotificationClient) BatchSend(ctx context.Context, in *BatchSendParams, opts ...grpc.CallOption) (*BatchSendReply, error) {

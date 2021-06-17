@@ -470,6 +470,11 @@ func (self *GuestMigrateTask) TaskFailed(ctx context.Context, guest *models.SGue
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 	notifyclient.NotifySystemErrorWithCtx(ctx, guest.Id, guest.Name, api.VM_MIGRATE_FAILED, reason.String())
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    guest,
+		Action: notifyclient.ActionMigrate,
+		IsFail: true,
+	})
 }
 
 //ManagedGuestMigrateTask

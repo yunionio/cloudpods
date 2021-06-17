@@ -212,7 +212,7 @@ func genMsgViaLang(ctx context.Context, p sNotifyParams) ([]npk.SNotifyMessage, 
 	var langMap map[language.Tag]*sTarget
 
 	if p.channel == npk.NotifyByRobot {
-        langMap, err = langRobot(ctx, p.robots)
+		langMap, err = langRobot(ctx, p.robots)
 	} else {
 		langMap, err = lang(ctx, p.channel, reIds, p.contacts)
 		if err != nil {
@@ -226,7 +226,7 @@ func genMsgViaLang(ctx context.Context, p sNotifyParams) ([]npk.SNotifyMessage, 
 		msg := npk.SNotifyMessage{}
 		msg.Uid = t.reIds
 		msg.Priority = p.priority
-        msg.Robots = p.robots
+		msg.Robots = p.robots
 		msg.Contacts = t.contacts
 		msg.ContactType = p.channel
 		topic, _ := getContent(langSuffix, p.event, "title", p.channel, p.data)

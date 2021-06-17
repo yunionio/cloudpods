@@ -33,6 +33,15 @@ var (
 	ActionExpiredRelease SAction = "expired_release"
 	ActionExecute        SAction = "execute"
 	ActionChangeIpaddr   SAction = "change_ipaddr"
+	ActionSyncStatus     SAction = "sync_status"
+	ActionCleanData      SAction = "clean_data"
+	ActionMigrate        SAction = "migrate"
+
+	ActionCreateBackupServer SAction = "add_backup_server"
+	ActionDelBackupServer    SAction = "delete_backup_server"
+
+	ResultFailed  SResult = "failed"
+	ResultSucceed SResult = "succeed"
 )
 
 const (
@@ -41,9 +50,12 @@ const (
 
 type SAction string
 
+type SResult string
+
 type SEvent struct {
 	resourceType string
 	action       SAction
+	result       SResult
 }
 
 func (se SEvent) WithResourceType(rt string) SEvent {
@@ -56,6 +68,11 @@ func (se SEvent) WithAction(a SAction) SEvent {
 	return se
 }
 
+func (se SEvent) WithResult(r SResult) SEvent {
+	se.result = r
+	return se
+}
+
 func (se SEvent) ResourceType() string {
 	return se.resourceType
 }
@@ -64,6 +81,29 @@ func (se SEvent) Action() SAction {
 	return se.action
 }
 
+func (se SEvent) ActionWithResult(delimiter string) string {
+	ar := string(se.action)
+	if len(se.result) > 0 {
+		ar += delimiter + string(se.result)
+	}
+	return strings.ToUpper(ar)
+}
+
+func (se SEvent) Result() SResult {
+	if se.result == "" {
+		return ResultSucceed
+	}
+	return se.result
+}
+
 func (se SEvent) String() string {
-	return strings.ToUpper(fmt.Sprintf("%s%s%s", se.ResourceType(), DelimiterInEvent, se.Action()))
+	return se.StringWithDeli(DelimiterInEvent)
+}
+
+func (se SEvent) StringWithDeli(delimiter string) string {
+	str := strings.ToUpper(fmt.Sprintf("%s%s%s", se.ResourceType(), delimiter, se.Action()))
+	if se.result != "" {
+		str += delimiter + strings.ToUpper(string(se.result))
+	}
+	return str
 }

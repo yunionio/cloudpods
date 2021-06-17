@@ -74,7 +74,6 @@ func (cm *SConfigManager) ValidateCreateData(ctx context.Context, userCred mccli
 	if err != nil {
 		return input, err
 	}
-	log.Infof("input: %s", jsonutils.Marshal(input))
 	if len(input.ProjectDomainId) > 0 {
 		_, input.DomainizedResourceInput, err = db.ValidateDomainizedResourceInput(ctx, input.DomainizedResourceInput)
 		if err != nil {

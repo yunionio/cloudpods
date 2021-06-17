@@ -4,10 +4,12 @@ import (
 	"context"
 	"strings"
 
-	"github.com/pkg/errors"
 	"golang.org/x/text/language"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -211,6 +213,11 @@ func (r *SRobot) ValidateUpdateData(ctx context.Context, userCred mcclient.Token
 }
 
 func (r *SRobot) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	err := r.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	if err != nil {
+		return err
+	}
+	r.Enabled = tristate.True
 	r.Status = api.ROBOT_STATUS_READY
 	return nil
 }
@@ -234,11 +241,11 @@ func (r *SRobot) IsEnabled() bool {
 }
 
 func (r *SRobot) IsEnabledContactType(ctype string) (bool, error) {
-	return ctype == api.ROBOT, nil
+	return ctype == api.ROBOT || ctype == api.WEBHOOK, nil
 }
 
 func (r *SRobot) IsVerifiedContactType(ctype string) (bool, error) {
-	return ctype == api.ROBOT, nil
+	return ctype == api.ROBOT || ctype == api.WEBHOOK, nil
 }
 
 func (r *SRobot) GetContact(ctype string) (string, error) {

@@ -23,6 +23,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -39,6 +40,11 @@ func (self *DBInstanceSyncStatusTask) taskFailed(ctx context.Context, dbinstance
 	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_UNKNOWN, err.Error())
 	db.OpsLog.LogEvent(dbinstance, db.ACT_SYNC_STATUS, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    dbinstance,
+		Action: notifyclient.ActionSyncStatus,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 

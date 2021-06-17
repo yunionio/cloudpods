@@ -101,6 +101,19 @@ func (rv *ReceiverVerifyOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(rv.SreceiverVerifyOptions), nil
 }
 
+type ReceiverEnableContactTypeInput struct {
+	ReceiverOptions
+	SreceiverEnableContactTypeInput
+}
+
+func (re *ReceiverEnableContactTypeInput) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(re.SreceiverEnableContactTypeInput), nil
+}
+
+type SreceiverEnableContactTypeInput struct {
+	EnabledContactTypes []string `help:"Enabled contact types"`
+}
+
 type ReceiverIntellijGetOptions struct {
 	USERID     string `help:"user id in keystone" json:"user_id"`
 	CreateIfNo *bool  `help:"create if receiver with UserId does not exist"`

@@ -28,3 +28,9 @@ type TopicDetails struct {
 	// example: ["server", "eip", "disk"]
 	Resources []string `json:"resource_types"`
 }
+
+type PerformEnableInput struct {
+}
+
+type PerformDisableInput struct {
+}

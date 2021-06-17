@@ -257,7 +257,7 @@ func (self *SRpcService) ContactByMobile(ctx context.Context, mobile, serviceNam
 	if s.Code() == codes.NotFound {
 		return "", errors.Wrap(notifyv2.ErrNoSuchMobile, s.Message())
 	}
-	if s.Code() == codes.PermissionDenied {
+	if s.Code() == codes.FailedPrecondition {
 		return "", errors.Wrap(notifyv2.ErrIncompleteConfig, s.Message())
 	}
 	return "", err

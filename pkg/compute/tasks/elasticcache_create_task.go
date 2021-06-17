@@ -40,7 +40,11 @@ func (self *ElasticcacheCreateTask) taskFail(ctx context.Context, elasticcache *
 	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(elasticcache, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, elasticcache.Id, elasticcache.Name, api.ELASTIC_CACHE_STATUS_CREATE_FAILED, reason.String())
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    elasticcache,
+		Action: notifyclient.ActionCreate,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -95,7 +99,11 @@ func (self *ElasticcacheCreateTask) OnSyncSecurityGroupCompleteFailed(ctx contex
 func (self *ElasticcacheCreateTask) OnElasticcacheCreateComplete(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
 	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RUNNING, "")
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_CREATE, "", self.UserCred, true)
-	notifyclient.NotifyWebhook(ctx, self.UserCred, elasticcache, notifyclient.ActionCreate)
+	// notifyclient.NotifyWebhook(ctx, self.UserCred, elasticcache, notifyclient.ActionCreate)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    elasticcache,
+		Action: notifyclient.ActionCreate,
+	})
 	self.SetStageComplete(ctx, nil)
 }
 

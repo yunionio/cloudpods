@@ -82,10 +82,10 @@ func (self *VerificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		self.taskFailed(ctx, receiver, err.Error())
 		return
 	}
-    param.Receiver = &apis.SReceiver{
-    	Contact:              contact,
-    	DomainId:             receiver.DomainId,
-    }
+	param.Receiver = &apis.SReceiver{
+		Contact:  contact,
+		DomainId: receiver.DomainId,
+	}
 	err = models.NotifyService.Send(ctx, contactType, param)
 	if err != nil {
 		self.taskFailed(ctx, receiver, err.Error())
