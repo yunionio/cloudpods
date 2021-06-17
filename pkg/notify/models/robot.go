@@ -100,11 +100,15 @@ func (rm *SRobotManager) InitializeData() error {
 		robots = append(robots, robot)
 	}
 	ctx := context.Background()
+	var webhookRobotId string
 	// insert new robot
 	for i := range robots {
 		err := rm.TableSpec().Insert(ctx, &robots[i])
 		if err != nil {
 			return err
+		}
+		if robots[i].Type == api.ROBOT_TYPE_WEBHOOK {
+			webhookRobotId = robots[i].Id
 		}
 	}
 	// delete old configs
@@ -115,6 +119,30 @@ func (rm *SRobotManager) InitializeData() error {
 		})
 		if err != nil {
 			return err
+		}
+	}
+	// add webhook Robot to subscriber
+	if len(webhookRobotId) > 0 {
+		topics := make([]STopic, 0, 3)
+		q = TopicManager.Query().In("name", []string{DefaultResourceCreateDelete, DefaultResourceChangeConfig, DefaultResourceUpdate})
+		err := db.FetchModelObjects(TopicManager, q, &topics)
+		if err != nil {
+			return errors.Wrap(err, "unable to fetch topics")
+		}
+		// create subscribers
+		for i := range topics {
+			subscriber := SSubscriber{
+				TopicID:        topics[i].Id,
+				Type:           api.SUBSCRIBER_TYPE_ROBOT,
+				Identification: webhookRobotId,
+				ResourceScope:  "system",
+				Scope:          "system",
+			}
+			subscriber.Enabled = tristate.True
+			err := SubscriberManager.TableSpec().Insert(ctx, &subscriber)
+			if err != nil {
+				return errors.Wrapf(err, "unable to create subscriber %s", jsonutils.Marshal(subscriber))
+			}
 		}
 	}
 	return nil
