@@ -141,13 +141,19 @@ func (manager *SProjectMappingManager) FetchCustomizeColumns(
 		mp := objs[i].(*SProjectMapping)
 		mpIds[i] = mp.Id
 	}
-	accounts := []struct {
+	type sBind struct {
 		Id               string
 		Name             string
 		ProjectMappingId string
-	}{}
+	}
+	accounts, managers := []sBind{}, []sBind{}
 	q := CloudaccountManager.Query().In("project_mapping_id", mpIds)
 	err := q.All(&accounts)
+	if err != nil {
+		return rows
+	}
+	q = CloudproviderManager.Query().In("project_mapping_id", mpIds)
+	err = q.All(&managers)
 	if err != nil {
 		return rows
 	}
@@ -163,9 +169,22 @@ func (manager *SProjectMappingManager) FetchCustomizeColumns(
 		}
 		accountMapping[accounts[i].ProjectMappingId] = append(accountMapping[accounts[i].ProjectMappingId], account)
 	}
+	managerMapping := map[string][]api.SProjectMappingAccount{}
+	for i := range managers {
+		_, ok := managerMapping[managers[i].ProjectMappingId]
+		if !ok {
+			managerMapping[managers[i].ProjectMappingId] = []api.SProjectMappingAccount{}
+		}
+		manager := api.SProjectMappingAccount{
+			Id:   managers[i].Id,
+			Name: managers[i].Name,
+		}
+		managerMapping[managers[i].ProjectMappingId] = append(managerMapping[managers[i].ProjectMappingId], manager)
+	}
 
 	for i := range rows {
 		rows[i].Accounts, _ = accountMapping[mpIds[i]]
+		rows[i].Managers, _ = managerMapping[mpIds[i]]
 	}
 	return rows
 }
