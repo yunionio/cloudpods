@@ -181,6 +181,19 @@ func init() {
 		return nil
 	})
 
+	R(&options.ResourceMetadataOptions{}, "server-set-metadata", "Set raw metadata of a server", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
+		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
+		result, err := modules.Servers.PerformAction(s, opts.ID, "metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	R(&options.ServerCreateFromInstanceSnapshot{}, "server-create-from-instance-snapshot", "server create from instance snapshot",
 		func(s *mcclient.ClientSession, opts *options.ServerCreateFromInstanceSnapshot) error {
 			params := &compute.ServerCreateInput{}

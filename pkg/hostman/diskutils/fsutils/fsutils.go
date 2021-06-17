@@ -263,6 +263,8 @@ func ResizePartitionFs(fpath, fs string, raiseError bool) (error, bool) {
 			{"umount", tmpPoint},
 			{"sleep", "2"},
 			{"rm", "-fr", tmpPoint}}
+	} else if fs == "ntfs" {
+		cmds = [][]string{{"ntfsresize", "-c", fpath}, {"ntfsresize", "-P", "-f", fpath}}
 	}
 
 	if len(cmds) > 0 {

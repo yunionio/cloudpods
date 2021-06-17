@@ -89,6 +89,22 @@ func (s *SKVMGuestInstance) getOsDistribution() string {
 	return osDis
 }
 
+func (s *SKVMGuestInstance) getOsVersion() string {
+	osVer, _ := s.Desc.GetString("metadata", "os_version")
+	return osVer
+}
+
+// is windows prioer to windows server 2003
+func (s *SKVMGuestInstance) isOldWindows() bool {
+	if s.getOsname() == OS_NAME_WINDOWS {
+		ver := s.getOsVersion()
+		if len(ver) > 1 && ver[0:2] == "5." {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *SKVMGuestInstance) getMachine() string {
 	machine, err := s.Desc.GetString("machine")
 	if err != nil {
@@ -527,13 +543,15 @@ function nic_mtu() {
 
 	cmd += " -device virtio-serial"
 	cmd += " -usb"
-	if !utils.IsInStringArray(s.getOsDistribution(), []string{OS_NAME_OPENWRT, OS_NAME_CIRROS}) && !s.disableUsbKbd() {
+	if !utils.IsInStringArray(s.getOsDistribution(), []string{OS_NAME_OPENWRT, OS_NAME_CIRROS}) && !s.isOldWindows() && !s.disableUsbKbd() {
 		cmd += " -device usb-kbd"
 	}
 	// # if osname == self.OS_NAME_ANDROID:
 	// #     cmd += " -device usb-mouse"
 	// # else:
-	cmd += " -device usb-tablet"
+	if !s.isOldWindows() {
+		cmd += " -device usb-tablet"
+	}
 
 	if s.IsVdiSpice() {
 		cmd += " -device qxl-vga,id=video0,ram_size=141557760,vram_size=141557760"
