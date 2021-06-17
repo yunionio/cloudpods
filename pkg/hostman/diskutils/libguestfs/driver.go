@@ -207,6 +207,10 @@ func (d *SLibguestfsDriver) Zerofree() {
 }
 
 func (d *SLibguestfsDriver) ResizePartition() error {
+	if d.IsLVMPartition() {
+		// do not try to resize LVM partition
+		return nil
+	}
 	return fsutils.ResizeDiskFs(d.nbddev, 0)
 }
 
