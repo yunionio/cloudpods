@@ -153,6 +153,9 @@ type ProjectMappingDetails struct {
 
 	// 所绑定的云账号列表
 	Accounts []SProjectMappingAccount `json:"accounts"`
+
+	// 所绑定的云订阅列表
+	Managers []SProjectMappingAccount `json:"managers"`
 }
 
 type ProjectMappingCreateInput struct {
