@@ -80,6 +80,8 @@ type SLoadbalancerAgent struct {
 	HbTimeout  int                       `nullable:"true" list:"admin" update:"admin" create:"optional" default:"3600"`
 	Params     *SLoadbalancerAgentParams `create:"optional" list:"admin" get:"admin"`
 
+	Networks                  time.Time `nullable:"true" list:"admin" update:"admin"`
+	LoadbalancerNetworks      time.Time `nullable:"true" list:"admin" update:"admin"`
 	Loadbalancers             time.Time `nullable:"true" list:"admin" update:"admin"`
 	LoadbalancerListeners     time.Time `nullable:"true" list:"admin" update:"admin"`
 	LoadbalancerListenerRules time.Time `nullable:"true" list:"admin" update:"admin"`
@@ -693,6 +695,8 @@ func (lbagent *SLoadbalancerAgent) ValidateUpdateData(ctx context.Context, userC
 		}
 	}
 	keys := map[string]time.Time{
+		"networks":                    lbagent.Networks,
+		"loadbalancer_networks":       lbagent.LoadbalancerNetworks,
 		"loadbalancers":               lbagent.Loadbalancers,
 		"loadbalancer_listeners":      lbagent.LoadbalancerListeners,
 		"loadbalancer_listener_rules": lbagent.LoadbalancerListenerRules,
