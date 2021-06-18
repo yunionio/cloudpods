@@ -183,8 +183,6 @@ func GetOnecloudResources(resTyep string) ([]jsonutils.JSONObject, error) {
 		allResources, err = ListAllResources(&mc_mds.Hosts, query)
 	case monitor.METRIC_RES_TYPE_GUEST:
 		allResources, err = ListAllResources(&mc_mds.Servers, query)
-	case monitor.METRIC_RES_TYPE_AGENT:
-		allResources, err = ListAllResources(&mc_mds.Servers, query)
 	case monitor.METRIC_RES_TYPE_RDS:
 		allResources, err = ListAllResources(&mc_mds.DBInstance, query)
 	case monitor.METRIC_RES_TYPE_REDIS:
