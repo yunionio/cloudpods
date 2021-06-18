@@ -301,6 +301,10 @@ func (record *SAlertRecord) PostCreate(ctx context.Context, userCred mcclient.To
 		log.Errorf("NotifyAlertResourceCount error: %v", err)
 		return
 	}
+	err = MonitorResourceManager.UpdateMonitorResourceAttachJoint(ctx, userCred, record)
+	if err != nil {
+		log.Errorf("UpdateMonitorResourceAttachJoint error: %v", err)
+	}
 }
 
 func (record *SAlertRecord) GetState() monitor.AlertStateType {
