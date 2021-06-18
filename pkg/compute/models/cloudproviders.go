@@ -123,7 +123,13 @@ type pmCache struct {
 
 func (self *pmCache) GetProjectMapping() (*SProjectMapping, error) {
 	if len(self.ManagerProjectMappingId) > 0 {
-		return GetRuleMapping(self.ManagerProjectMappingId)
+		pm, err := GetRuleMapping(self.ManagerProjectMappingId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetRuleMapping(%s)", self.ManagerProjectMappingId)
+		}
+		if pm.Enabled.IsTrue() {
+			return pm, nil
+		}
 	}
 	if len(self.AccountProjectMappingId) > 0 {
 		return GetRuleMapping(self.AccountProjectMappingId)
