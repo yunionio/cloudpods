@@ -138,6 +138,7 @@ type SAlert struct {
 	LastStateChange     time.Time            `list:"user"`
 	StateChanges        int                  `default:"0" nullable:"false" list:"user"`
 	CustomizeConfig     jsonutils.JSONObject `list:"user" create:"optional" update:"user"`
+	ResType             string               `width:"32" list:"user" update:"user"`
 }
 
 func (alert *SAlert) IsEnable() bool {
