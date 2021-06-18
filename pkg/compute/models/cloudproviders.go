@@ -1209,6 +1209,10 @@ func (manager *SCloudproviderManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
+	q, err = manager.SProjectizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ProjectizedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrapf(err, "SProjectizedResourceBaseManager.ListItemFilter")
+	}
 	q, err = manager.SSyncableBaseResourceManager.ListItemFilter(ctx, q, userCred, query.SyncableBaseResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SSyncableBaseResourceManager.ListItemFilter")
@@ -1307,6 +1311,13 @@ func (manager *SCloudproviderManager) QueryDistinctExtraField(q *sqlchemy.SQuery
 
 	if field == "manager" {
 		q = q.AppendField(q.Field("name").Label("manager")).Distinct()
+		return q, nil
+	}
+
+	if field == "account" {
+		accounts := CloudaccountManager.Query("name", "id").SubQuery()
+		q.AppendField(accounts.Field("name", field)).Distinct()
+		q = q.Join(accounts, sqlchemy.Equals(q.Field("cloudaccount_id"), accounts.Field("id")))
 		return q, nil
 	}
 
