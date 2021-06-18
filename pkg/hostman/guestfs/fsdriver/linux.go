@@ -536,6 +536,14 @@ func (d *sDebianLikeRootFs) PrepareFsForTemplate(rootFs IDiskPartition) error {
 			return errors.Wrap(err, "file put content /etc/network/interface")
 		}
 	}
+
+	// clean /etc/netplan/*
+	netplanDir := "/etc/netplan/"
+	if rootFs.Exists(netplanDir, false) {
+		for _, f := range rootFs.ListDir(netplanDir, false) {
+			rootFs.Remove(netplanDir+f, false)
+		}
+	}
 	return nil
 }
 
@@ -577,6 +585,16 @@ func getNicTeamingConfigCmds(slaves []*types.SServerNic) string {
 	return cmds.String()
 }
 
+func (d *sDebianLikeRootFs) deployNetplanConfigFile(rootFs IDiskPartition, nics []*types.SServerNic) error {
+	netplanDir := "/etc/netplan/"
+	dirExists := rootFs.Exists(netplanDir, false)
+	if !dirExists {
+		return nil
+	}
+
+	return nil
+}
+
 func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	if err := d.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics); err != nil {
 		return err
@@ -587,7 +605,19 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 	cmds.WriteString("iface lo inet loopback\n\n")
 
 	// ToServerNics(nics)
-	allNics, _ := convertNicConfigs(nics)
+	allNics, bondNics := convertNicConfigs(nics)
+
+	netplanDir := "/etc/netplan"
+	if rootFs.Exists(netplanDir, false) {
+		for _, f := range rootFs.ListDir(netplanDir, false) {
+			rootFs.Remove(netplanDir+f, false)
+		}
+		netplanConfig := NewNetplanConfig(allNics, bondNics)
+		if err := rootFs.FilePutContents(path.Join(netplanDir, "config.yaml"), netplanConfig.YAMLString(), false, false); err != nil {
+			return errors.Wrap(err, "Put netplan config")
+		}
+	}
+
 	mainNic, err := getMainNic(allNics)
 	if err != nil {
 		return err
