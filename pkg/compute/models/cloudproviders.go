@@ -1310,6 +1310,13 @@ func (manager *SCloudproviderManager) QueryDistinctExtraField(q *sqlchemy.SQuery
 		return q, nil
 	}
 
+	if field == "account" {
+		accounts := CloudaccountManager.Query("name", "id").SubQuery()
+		q.AppendField(accounts.Field("name", field)).Distinct()
+		q = q.Join(accounts, sqlchemy.Equals(q.Field("cloudaccount_id"), accounts.Field("id")))
+		return q, nil
+	}
+
 	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
