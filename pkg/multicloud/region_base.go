@@ -174,3 +174,11 @@ func (self *SRegion) CreateICloudAccessGroup(opts *cloudprovider.SAccessGroup) (
 func (self *SRegion) CreateICloudFileSystem(opts *cloudprovider.FileSystemCraeteOptions) (cloudprovider.ICloudFileSystem, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateICloudFileSystem")
 }
+
+func (self *SRegion) GetICloudApplicationGateways() ([]cloudprovider.ICloudApplicationGateway, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudApplicationGateways")
+}
+
+func (self *SRegion) GetICloudApplicationGatewayById(id string) (cloudprovider.ICloudApplicationGateway, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudApplicationGatewayById")
+}

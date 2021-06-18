@@ -58,6 +58,7 @@ var (
 		"policy_assignments",
 		"proxysettings",
 		"project_mappings",
+		"app_gateways",
 	}
 	computeUserResources = []string{
 		"keypairs",

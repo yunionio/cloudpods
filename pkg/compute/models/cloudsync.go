@@ -868,6 +868,24 @@ func syncSkusFromPrivateCloud(ctx context.Context, userCred mcclient.TokenCreden
 	}
 }
 
+func syncAppGateways(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion) {
+	apps, err := remoteRegion.GetICloudApplicationGateways()
+	if err != nil {
+		msg := fmt.Sprintf("GetICloudApplicationGateways for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		return
+	}
+	result := localRegion.SyncAppGateways(ctx, userCred, provider, apps)
+	syncResults.Add(AppGatewayManager, result)
+
+	msg := result.Result()
+	log.Infof("SyncAppGateways for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		return
+	}
+
+}
+
 func syncRegionDBInstances(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
 	instances, err := remoteRegion.GetIDBInstances()
 	if err != nil {
@@ -1257,6 +1275,8 @@ func syncPublicCloudProviderInfo(
 	if cloudprovider.IsSupportElasticCache(driver) {
 		syncElasticcaches(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 	}
+
+	syncAppGateways(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 
 	if cloudprovider.IsSupportCompute(driver) {
 		log.Debugf("storageCachePairs count %d", len(storageCachePairs))

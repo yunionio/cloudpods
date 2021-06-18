@@ -162,6 +162,9 @@ type ICloudRegion interface {
 	GetICloudAccessGroups() ([]ICloudAccessGroup, error)
 	CreateICloudAccessGroup(opts *SAccessGroup) (ICloudAccessGroup, error)
 	GetICloudAccessGroupById(id string) (ICloudAccessGroup, error)
+
+	GetICloudApplicationGateways() ([]ICloudApplicationGateway, error)
+	GetICloudApplicationGatewayById(id string) (ICloudApplicationGateway, error)
 }
 
 type ICloudZone interface {
@@ -1277,4 +1280,12 @@ type ICloudAccessGroup interface {
 	SyncRules(common, added, removed AccessGroupRuleSet) error
 
 	Delete() error
+}
+
+type ICloudApplicationGateway interface {
+	ICloudResource
+
+	GetInstanceType() string
+	GetBackends() ([]SAppGatewayBackend, error)
+	GetFrontends() ([]SAppGatewayFrontend, error)
 }
