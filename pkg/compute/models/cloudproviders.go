@@ -1209,6 +1209,10 @@ func (manager *SCloudproviderManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
+	q, err = manager.SProjectizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ProjectizedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrapf(err, "SProjectizedResourceBaseManager.ListItemFilter")
+	}
 	q, err = manager.SSyncableBaseResourceManager.ListItemFilter(ctx, q, userCred, query.SyncableBaseResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SSyncableBaseResourceManager.ListItemFilter")
