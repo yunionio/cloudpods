@@ -193,6 +193,20 @@ func (mr *MockCandidatePropertyGetterMockRecorder) GetIpmiInfo() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIpmiInfo", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).GetIpmiInfo))
 }
 
+// GetNics mocks base method
+func (m *MockCandidatePropertyGetter) GetNics() []*types.SNic {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNics")
+	ret0, _ := ret[0].([]*types.SNic)
+	return ret0
+}
+
+// GetIpmiInfo indicates an expected call of GetIpmiInfo
+func (mr *MockCandidatePropertyGetterMockRecorder) GetNics() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNics", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).GetNics))
+}
+
 // GetIsolatedDevice mocks base method
 func (m *MockCandidatePropertyGetter) GetIsolatedDevice(arg0 string) *core.IsolatedDeviceDesc {
 	m.ctrl.T.Helper()
