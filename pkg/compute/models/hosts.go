@@ -4307,6 +4307,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 			return httperrors.NewBadRequestError("%v", err)
 		}
 	}
+	self.ClearSchedDescCache()
 	return nil
 }
 
@@ -4619,6 +4620,7 @@ func (self *SHost) RemoveNetif(ctx context.Context, userCred mcclient.TokenCrede
 			}
 		}
 	}
+	self.ClearSchedDescCache()
 	return nil
 }
 
