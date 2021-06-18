@@ -1041,6 +1041,11 @@ func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *api.Networ
 		if netConfig.BwLimit > api.MAX_BANDWIDTH {
 			return httperrors.NewInputParameterError("Bandwidth limit cannot exceed %dMbps", api.MAX_BANDWIDTH)
 		}
+		if net.ServerType == api.NETWORK_TYPE_BAREMETAL {
+			// not check baremetal network free address here
+			// TODO: find better solution ?
+			return nil
+		}
 		freeCnt, err := net.getFreeAddressCount()
 		if err != nil {
 			return httperrors.NewInternalServerError("getFreeAddressCount fail %s", err)

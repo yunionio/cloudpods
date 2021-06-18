@@ -57,6 +57,20 @@ func (h baremetalGetter) StorageInfo() []*baremetal.BaremetalStorage {
 	return h.bm.StorageInfo
 }
 
+func (h baremetalGetter) GetFreePort(netId string) int {
+	cnt := h.h.GetFreePort(netId)
+	if cnt < 0 {
+		cnt = 0
+	}
+	nics := h.GetNics()
+	for _, nic := range nics {
+		if len(nic.IpAddr) > 0 && nic.NetId == netId {
+			cnt += 1
+		}
+	}
+	return cnt
+}
+
 type BaremetalDesc struct {
 	*BaseHostDesc
 
