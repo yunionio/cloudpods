@@ -122,11 +122,17 @@ $ git clone https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py 10.168
 
 * [Swagger API文档](https://www.cloudpods.org/zh/docs/swagger/)
 
+## 谁在使用Cloudpods？
+
+请在[这里](https://github.com/yunionio/cloudpods/issues/11427)查看Cloudpods用户列表。如果你正在使用Cloudpods，欢迎回复留下你的信息。谢谢对Cloudpods的支持！
+
 ## 联系我们
 
 您可以通过如下方式联系我们：
 
 * Reddit: [r/Cloudpods](https://www.reddit.com/r/Cloudpods/)
+
+* 哔哩哔哩: [Cloudpods](https://space.bilibili.com/623431553/)
 
 * 微信: 请扫描如下二维码联系我们
 
