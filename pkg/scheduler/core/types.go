@@ -106,6 +106,8 @@ type CandidatePropertyGetter interface {
 
 	GetIpmiInfo() types.SIPMIInfo
 
+	GetNics() []*types.SNic
+
 	GetQuotaKeys(s *api.SchedInfo) computemodels.SComputeResourceKeys
 
 	GetPendingUsage() *schedmodels.SPendingUsage
