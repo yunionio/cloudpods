@@ -52,6 +52,8 @@ type BaseHostDesc struct {
 	InstanceGroups map[string]*api.CandidateGroup `json:"instance_groups"`
 	IpmiInfo       types.SIPMIInfo                `json:"ipmi_info"`
 
+	Nics []*types.SNic `json:"nics"`
+
 	SharedDomains []string               `json:"shared_domains"`
 	PendingUsage  map[string]interface{} `json:"pending_usage"`
 }
@@ -227,6 +229,10 @@ func (b baseHostGetter) GetIpmiInfo() types.SIPMIInfo {
 	return b.h.IpmiInfo
 }
 
+func (b baseHostGetter) GetNics() []*types.SNic {
+	return b.h.Nics
+}
+
 func (b baseHostGetter) GetQuotaKeys(s *api.SchedInfo) computemodels.SComputeResourceKeys {
 	return b.h.getQuotaKeys(s)
 }
@@ -316,6 +322,10 @@ func newBaseHostDesc(b *baseBuilder, host *computemodels.SHost) (*BaseHostDesc, 
 
 	if err := desc.fillIpmiInfo(host); err != nil {
 		return nil, fmt.Errorf("Fill ipmi info error: %v", err)
+	}
+
+	if err := desc.fillNics(host); err != nil {
+		return nil, fmt.Errorf("Fill nics info error: %v", err)
 	}
 
 	if err := desc.fillIsolatedDevices(b, host); err != nil {
@@ -616,6 +626,11 @@ func (b *BaseHostDesc) fillIpmiInfo(host *computemodels.SHost) error {
 		return err
 	}
 	b.IpmiInfo = info
+	return nil
+}
+
+func (b *BaseHostDesc) fillNics(host *computemodels.SHost) error {
+	b.Nics = host.GetNics()
 	return nil
 }
 
