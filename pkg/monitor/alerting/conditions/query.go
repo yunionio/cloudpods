@@ -752,6 +752,8 @@ func (c *QueryCondition) getTagKeyRelationMap() map[string]string {
 		relationMap = monitor.DomainTags
 	case monitor.METRIC_RES_TYPE_STORAGE:
 		relationMap = monitor.StorageTags
+	case monitor.METRIC_RES_TYPE_AGENT:
+		relationMap = monitor.ServerTags
 	default:
 		relationMap = monitor.HostTags
 	}
