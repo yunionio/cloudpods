@@ -282,6 +282,9 @@ const (
 	ACT_UPDATE_RULE = "update_config"
 	ACT_UPDATE_TAGS = "update_tags"
 
+	ACT_UPDATE_MONITOR_RESOURCE_JOINT = "update_monitor_resource_joint"
+	ACT_DETACH_MONITOR_RESOURCE_JOINT = "detach_monitor_resource_joint"
+
 	ACT_MERGE_NETWORK        = "merge_network"
 	ACT_MERGE_NETWORK_FAILED = "merge_network_failed"
 )

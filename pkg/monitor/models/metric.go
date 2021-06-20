@@ -409,6 +409,11 @@ func (man *SMetricMeasurementManager) Run(ctx context.Context) error {
 		return errors.Wrap(err, "init metric json error")
 	}
 	log.Infoln("========metric_measurement_field init finish==========")
+	err = CommonAlertManager.UpdateAlertsResType(ctx, auth.AdminCredential())
+	if err != nil {
+		return errors.Wrap(err, "CommonAlertManager UpdateAlertsResType err")
+	}
+	log.Infoln("========UpdateAlertsResType Finish==========")
 	return nil
 }
 

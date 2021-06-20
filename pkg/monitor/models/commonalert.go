@@ -54,6 +54,7 @@ func init() {
 		SAlertManager: *NewAlertManager(SCommonAlert{}, "commonalert", "commonalerts"),
 	}
 	CommonAlertManager.SetVirtualObject(CommonAlertManager)
+	//registry.RegisterService(CommonAlertManager)
 }
 
 type ISubscriptionManager interface {
@@ -84,6 +85,41 @@ func (man *SCommonAlertManager) DeleteSubscriptionAlert(alert *SCommonAlert) {
 
 func (man *SCommonAlertManager) NamespaceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeSystem
+}
+
+func (manager *SCommonAlertManager) Init() error {
+	return nil
+}
+
+func (man *SCommonAlertManager) Run(ctx context.Context) error {
+	alerts, err := man.GetAlerts(monitor.CommonAlertListInput{})
+	if err != nil {
+		return err
+	}
+	errs := make([]error, 0)
+	for _, alert := range alerts {
+		err := alert.UpdateMonitorResourceJoint(ctx, auth.AdminCredential())
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+	}
+	return errors.NewAggregate(errs)
+}
+
+func (man *SCommonAlertManager) UpdateAlertsResType(ctx context.Context, userCred mcclient.TokenCredential) error {
+	alerts, err := man.GetAlerts(monitor.CommonAlertListInput{})
+	if err != nil {
+		return err
+	}
+	errs := make([]error, 0)
+	for _, alert := range alerts {
+		err := alert.UpdateResType()
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.NewAggregate(errs)
 }
 
 func (man *SCommonAlertManager) ValidateCreateData(
@@ -336,6 +372,7 @@ func (alert *SCommonAlert) PostCreate(ctx context.Context,
 		log.Errorln(errors.Wrap(err, "Alert PerformSetScope"))
 	}
 	CommonAlertManager.SetSubscriptionAlert(alert)
+	alert.StartUpdateMonitorAlertJointTask(ctx, userCred)
 }
 
 func (man *SCommonAlertManager) ListItemFilter(
@@ -347,13 +384,17 @@ func (man *SCommonAlertManager) ListItemFilter(
 	if err != nil {
 		return nil, err
 	}
-	q.Filter(sqlchemy.IsNull(q.Field("used_by")))
-
-	if len(query.Level) > 0 {
-		q.Equals("level", query.Level)
-	}
+	man.FieldListFilter(q, query)
 
 	return q, nil
+}
+
+func (man *SCommonAlertManager) FieldListFilter(q *sqlchemy.SQuery, input monitor.CommonAlertListInput) {
+	q.Filter(sqlchemy.IsNull(q.Field("used_by")))
+
+	if len(input.Level) > 0 {
+		q.Equals("level", input.Level)
+	}
 }
 
 func (manager *SCommonAlertManager) GetExportExtraKeys(ctx context.Context, keys stringutils2.SSortedStrings, rowMap map[string]string) *jsonutils.JSONDict {
@@ -480,6 +521,17 @@ func (man *SCommonAlertManager) GetAlert(id string) (*SCommonAlert, error) {
 		return nil, err
 	}
 	return obj.(*SCommonAlert), nil
+}
+
+func (manager *SCommonAlertManager) GetAlerts(input monitor.CommonAlertListInput) ([]SCommonAlert, error) {
+	alerts := make([]SCommonAlert, 0)
+	query := manager.Query()
+	manager.FieldListFilter(query, input)
+	err := db.FetchModelObjects(manager, query, &alerts)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCommonAlertManagerGetAlerts err")
+	}
+	return alerts, nil
 }
 
 func (man *SCommonAlertManager) FetchCustomizeColumns(
@@ -918,6 +970,7 @@ func (alert *SCommonAlert) PostUpdate(
 		alert.setMetaName(ctx, userCred, updateInput.MetaName)
 	}
 	CommonAlertManager.SetSubscriptionAlert(alert)
+	alert.StartUpdateMonitorAlertJointTask(ctx, userCred)
 }
 
 func (alert *SCommonAlert) UpdateNotification(ctx context.Context, userCred mcclient.TokenCredential,
@@ -957,6 +1010,7 @@ func (alert *SCommonAlert) CustomizeDelete(
 		return errors.Wrap(err, "customizeDeleteNotis")
 	}
 	alert.StartDeleteTask(ctx, userCred)
+	alert.StartDetachMonitorAlertJointTask(ctx, userCred)
 	return alert.SAlert.CustomizeDelete(ctx, userCred, query, data)
 }
 
@@ -1179,6 +1233,113 @@ func (manager *SCommonAlertManager) DetachAlertResourceByAlertId(ctx context.Con
 		}
 	}
 	return
+}
+
+func (alert *SCommonAlert) StartUpdateMonitorAlertJointTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "UpdateMonitorResourceJointTask", alert, userCred, jsonutils.NewDict(), "", "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (alert *SCommonAlert) UpdateMonitorResourceJoint(ctx context.Context, userCred mcclient.TokenCredential) error {
+	setting, _ := alert.GetSettings()
+	inputQuery := monitor.MetricInputQuery{
+		MetricQuery: make([]*monitor.AlertQuery, 0),
+	}
+	var resType string
+	for _, con := range setting.Conditions {
+		measurement, _ := MetricMeasurementManager.GetCache().Get(con.Query.Model.Measurement)
+		if measurement == nil {
+			continue
+		}
+		if !utils.IsInStringArray(measurement.ResType, []string{monitor.METRIC_RES_TYPE_HOST,
+			monitor.METRIC_RES_TYPE_GUEST}) {
+			continue
+		}
+		resType = measurement.ResType
+		inputQuery.MetricQuery = append(inputQuery.MetricQuery, &con.Query)
+	}
+	if len(inputQuery.MetricQuery) == 0 {
+		return nil
+	}
+	metrics, err := doQuery(inputQuery)
+	if err != nil {
+		return errors.Wrap(err, "doQuery err")
+	}
+	resourceIds := make([]string, 0)
+	for _, serie := range metrics.Series {
+		resourceKeyId := monitor.MEASUREMENT_TAG_ID[resType]
+		resourceId := serie.Tags[resourceKeyId]
+		if len(resourceId) == 0 {
+			continue
+		}
+		resourceIds = append(resourceIds, resourceId)
+	}
+	joints, _ := MonitorResourceAlertManager.GetJoinsByListInput(monitor.MonitorResourceJointListInput{AlertId: alert.GetId()})
+jointLoop:
+	for _, joint := range joints {
+		for i, resId := range resourceIds {
+			if resId == joint.MonitorResourceId {
+				resourceIds = append(resourceIds[0:i], resourceIds[i+1:]...)
+				continue jointLoop
+			}
+		}
+		joint.Detach(ctx, userCred)
+	}
+	if len(resourceIds) == 0 {
+		return nil
+	}
+	monitorResources, _ := MonitorResourceManager.GetMonitorResources(monitor.MonitorResourceListInput{ResId: resourceIds})
+	errs := make([]error, 0)
+	for _, monRes := range monitorResources {
+		err := monRes.AttachAlert(ctx, userCred, alert.GetId())
+		if err != nil {
+			errs = append(errs, err)
+		}
+		monRes.UpdateAlertState()
+	}
+
+	if len(errs) != 0 {
+		return errors.NewAggregate(errs)
+	}
+	return nil
+}
+
+func (alert *SCommonAlert) StartDetachMonitorAlertJointTask(ctx context.Context,
+	userCred mcclient.TokenCredential) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "DetachMonitorResourceJointTask", alert, userCred, jsonutils.NewDict(), "", "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (alert *SCommonAlert) DetachMonitorResourceJoint(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := MonitorResourceAlertManager.DetachJoint(ctx, userCred, monitor.MonitorResourceJointListInput{AlertId: alert.GetId()})
+	if err != nil {
+		return errors.Wrap(err, "SCommonAlert DetachJoint err")
+	}
+	return nil
+}
+
+func (alert *SCommonAlert) UpdateResType() error {
+	setting, _ := alert.GetSettings()
+	measurement, _ := MetricMeasurementManager.GetCache().Get(setting.Conditions[0].Query.Model.Measurement)
+	if measurement == nil {
+		return nil
+	}
+	_, err := db.Update(alert, func() error {
+		alert.ResType = measurement.ResType
+		return nil
+	})
+	if err != nil {
+		return errors.Wrapf(err, "alert:%s UpdateResType err", alert.Name)
+	}
+	return nil
 }
 
 type SCompanyInfo struct {
