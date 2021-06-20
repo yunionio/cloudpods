@@ -136,6 +136,18 @@ func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonu
 	return jsonRequest(client, endpoint, ALIYUN_API_VERSION, apiName, params, self.client.debug)
 }
 
+func (self *SRegion) wafRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	client, err := self.getSdkClient()
+	if err != nil {
+		return nil, err
+	}
+	if self.RegionId != "cn-hangzhou" && self.RegionId != "ap-southeast-1" {
+		return nil, cloudprovider.ErrNotSupported
+	}
+	endpoint := fmt.Sprintf("wafopenapi.%s.aliyuncs.com", self.RegionId)
+	return jsonRequest(client, endpoint, ALIYUN_WAF_API_VERSION, apiName, params, self.client.debug)
+}
+
 func (self *SRegion) rdsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	client, err := self.getSdkClient()
 	if err != nil {

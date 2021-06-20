@@ -52,6 +52,7 @@ type SSkuResourcesMeta struct {
 	ImageBase        string `json:"image_base"`
 	NatBase          string `json:"nat_base"`
 	NasBase          string `json:"nas_base"`
+	WafBase          string `json:"waf_base"`
 }
 
 var skuIndex = map[string]string{}
@@ -351,6 +352,19 @@ func (self *SSkuResourcesMeta) getServerSkuIndex() (map[string]string, error) {
 	return ret, nil
 }
 
+func (self *SSkuResourcesMeta) getWafIndex() (map[string]string, error) {
+	resp, err := self.request(fmt.Sprintf("%s/index.json", self.WafBase))
+	if err != nil {
+		return map[string]string{}, errors.Wrapf(err, "request")
+	}
+	ret := map[string]string{}
+	err = resp.Unmarshal(ret)
+	if err != nil {
+		return map[string]string{}, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	return ret, nil
+}
+
 func (self *SSkuResourcesMeta) _get(url string) ([]jsonutils.JSONObject, error) {
 	if !strings.HasPrefix(url, "http") {
 		return nil, fmt.Errorf("SkuResourcesMeta.get invalid url %s.expected has prefix 'http'", url)
@@ -523,6 +537,20 @@ func FetchSkuResourcesMeta() (*SSkuResourcesMeta, error) {
 	return ret, nil
 }
 
+func fetchCloudEnvs() ([]string, error) {
+	accounts := []SCloudaccount{}
+	q := CloudaccountManager.Query("provider", "access_url").In("provider", CloudproviderManager.GetPublicProviderProvidersQuery()).Distinct()
+	err := q.All(&accounts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "q.All")
+	}
+	ret := []string{}
+	for i := range accounts {
+		ret = append(ret, apis.GetCloudEnv(accounts[i].Provider, accounts[i].AccessUrl))
+	}
+	return ret, nil
+}
+
 func fetchSkuSyncCloudregions() []SCloudregion {
 	cloudregions := []SCloudregion{}
 	q := CloudregionManager.Query()
@@ -534,4 +562,31 @@ func fetchSkuSyncCloudregions() []SCloudregion {
 	}
 
 	return cloudregions
+}
+
+type sWafGroup struct {
+	SWafRuleGroup
+	Rules []SWafRule
+}
+
+func (self sWafGroup) GetGlobalId() string {
+	return self.ExternalId
+}
+
+func (self SWafRule) GetGlobalId() string {
+	return self.ExternalId
+}
+
+func (self *SSkuResourcesMeta) getCloudWafGroups(cloudEnv string) ([]sWafGroup, error) {
+	url := fmt.Sprintf("%s/%s.json", self.WafBase, cloudEnv)
+	resp, err := self.request(url)
+	if err != nil {
+		return nil, errors.Wrapf(err, "_get(%s)", url)
+	}
+	ret := []sWafGroup{}
+	err = resp.Unmarshal(&ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	return ret, nil
 }

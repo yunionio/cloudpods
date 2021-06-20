@@ -65,6 +65,7 @@ const (
 	ALIYUN_CDN_API_VERSION    = "2018-05-10"
 	ALIYUN_IMS_API_VERSION    = "2019-08-15"
 	ALIYUN_NAS_API_VERSION    = "2017-06-26"
+	ALIYUN_WAF_API_VERSION    = "2019-09-10"
 
 	ALIYUN_SERVICE_ECS = "ecs"
 	ALIYUN_SERVICE_VPC = "vpc"
@@ -179,7 +180,10 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 					"OperationUnsupported.EipNatBWPCheck": // create nat snat
 					retry = true
 				default:
-					if strings.HasPrefix(code, "EntityNotExist.") || strings.HasSuffix(code, ".NotFound") {
+					if strings.HasPrefix(code, "EntityNotExist.") || strings.HasSuffix(code, ".NotFound") || strings.HasSuffix(code, "NotExist") {
+						if strings.HasPrefix(apiName, "Delete") {
+							return jsonutils.NewDict(), nil
+						}
 						return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
 					}
 					return nil, err
@@ -639,6 +643,7 @@ func (region *SAliyunClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_SAML_AUTH,
 		cloudprovider.CLOUD_CAPABILITY_NAT,
 		cloudprovider.CLOUD_CAPABILITY_NAS,
+		cloudprovider.CLOUD_CAPABILITY_WAF,
 	}
 	return caps
 }

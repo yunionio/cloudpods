@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
@@ -1529,4 +1530,19 @@ func (self *SAliyunRegionDriver) RequestSyncAccessGroup(ctx context.Context, use
 		return jsonutils.Marshal(map[string]string{"access_group_id": cache.ExternalId}), nil
 	})
 	return nil
+}
+
+func (self *SAliyunRegionDriver) ValidateCreateWafInstanceData(ctx context.Context, userCred mcclient.TokenCredential, input api.WafInstanceCreateInput) (api.WafInstanceCreateInput, error) {
+	if !regutils.DOMAINNAME_REG.MatchString(input.Name) {
+		return input, httperrors.NewInputParameterError("invalid domain name %s", input.Name)
+	}
+	input.Type = cloudprovider.WafTypeDefault
+	if len(input.SourceIps) == 0 && len(input.CloudResources) == 0 {
+		return input, httperrors.NewMissingParameterError("source_ips")
+	}
+	return input, nil
+}
+
+func (self *SAliyunRegionDriver) ValidateCreateWafRuleData(ctx context.Context, userCred mcclient.TokenCredential, waf *models.SWafInstance, input api.WafRuleCreateInput) (api.WafRuleCreateInput, error) {
+	return input, httperrors.NewUnsupportOperationError("not supported create rule")
 }

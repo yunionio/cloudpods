@@ -451,3 +451,11 @@ func (self *SBaseRegionDriver) RequestAssociatEip(ctx context.Context, userCred 
 func (self *SBaseRegionDriver) RequestSyncAccessGroup(ctx context.Context, userCred mcclient.TokenCredential, fs *models.SFileSystem, mt *models.SMountTarget, ag *models.SAccessGroup, task taskman.ITask) error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestSyncAccessGroup")
 }
+
+func (self *SBaseRegionDriver) ValidateCreateWafInstanceData(ctx context.Context, userCred mcclient.TokenCredential, input api.WafInstanceCreateInput) (api.WafInstanceCreateInput, error) {
+	return input, errors.Wrapf(cloudprovider.ErrNotImplemented, "ValidateCreateWafInstanceData")
+}
+
+func (self *SBaseRegionDriver) ValidateCreateWafRuleData(ctx context.Context, userCred mcclient.TokenCredential, waf *models.SWafInstance, input api.WafRuleCreateInput) (api.WafRuleCreateInput, error) {
+	return input, errors.Wrapf(cloudprovider.ErrNotImplemented, "ValidateCreateWafRuleData")
+}
