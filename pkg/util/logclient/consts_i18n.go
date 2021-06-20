@@ -1293,4 +1293,13 @@ func init() {
 		CN("虚拟机套餐"),
 	)
 
+	o.Set(ACT_UPDATE_MONITOR_RESOURCE_JOINT, i18n.NewTableEntry().
+		EN("Update Monitor Resource joint").
+		CN("更新监控资源关联报警策略"),
+	)
+
+	o.Set(ACT_DETACH_MONITOR_RESOURCE_JOINT, i18n.NewTableEntry().
+		EN("Update Monitor Resource joint").
+		CN("解绑监控资源关联报警策略"),
+	)
 }

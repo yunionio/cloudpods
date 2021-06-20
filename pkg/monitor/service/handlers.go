@@ -62,6 +62,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.AlertDashBoardManager,
 		models.GetAlertResourceManager(),
 		models.AlertPanelManager,
+		models.MonitorResourceManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
@@ -80,6 +81,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.MetricManager,
 		models.GetAlertResourceAlertManager(),
 		models.AlertDashBoardPanelManager,
+		models.MonitorResourceAlertManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewJointModelHandler(manager)
