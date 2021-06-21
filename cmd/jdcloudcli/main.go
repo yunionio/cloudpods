@@ -89,7 +89,7 @@ func newClient(options *Options) (*jdcloud.SRegion, error) {
 	if regionId == "" {
 		regionId = jdcloud.JDCLOUD_DEFAULT_REGION
 	}
-	region := jdcloud.NewRegion(regionId, options.AccessKey, options.AccessSecret, nil)
+	region := jdcloud.NewRegion(regionId, options.AccessKey, options.AccessSecret, nil, options.Debug)
 	if region == nil {
 		return nil, fmt.Errorf("no such region %s", regionId)
 	}

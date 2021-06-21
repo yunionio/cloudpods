@@ -18,6 +18,7 @@ func (r *SRegion) GetMetricsData(req *DescribeMetricDataRequest) (*DescribeMetri
 		req.RegionId = r.GetId()
 	}
 	monitorClient := client.NewMonitorClient(r.Credential)
+	monitorClient.Logger = Logger{}
 	response, err := monitorClient.DescribeMetricData(req.DescribeMetricDataRequest)
 	if err != nil {
 		return nil, err

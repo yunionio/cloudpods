@@ -18,6 +18,9 @@ import (
 	"fmt"
 
 	"github.com/jdcloud-api/jdcloud-sdk-go/core"
+	"github.com/sirupsen/logrus"
+
+	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -55,7 +58,7 @@ type SRegion struct {
 	ivpcs  []cloudprovider.ICloudVpc
 }
 
-func AllRegions(accessKey, secretKey string, config *cloudprovider.ProviderConfig) []SRegion {
+func AllRegions(accessKey, secretKey string, config *cloudprovider.ProviderConfig, debug bool) []SRegion {
 	regions := make([]SRegion, 0, len(regionList))
 	for id, name := range regionList {
 		regions = append(regions, SRegion{
@@ -65,10 +68,15 @@ func AllRegions(accessKey, secretKey string, config *cloudprovider.ProviderConfi
 			cpcfg:      *config,
 		})
 	}
+	if debug {
+		log.SetLogLevel(log.Logger(), logrus.DebugLevel)
+	} else {
+		log.SetLogLevel(log.Logger(), logrus.InfoLevel)
+	}
 	return regions
 }
 
-func NewRegion(regionId, accessKey, secretKey string, config *cloudprovider.ProviderConfig) *SRegion {
+func NewRegion(regionId, accessKey, secretKey string, config *cloudprovider.ProviderConfig, debug bool) *SRegion {
 	name, ok := regionList[regionId]
 	if !ok {
 		return nil
@@ -80,6 +88,11 @@ func NewRegion(regionId, accessKey, secretKey string, config *cloudprovider.Prov
 	}
 	if config != nil {
 		region.cpcfg = *config
+	}
+	if debug {
+		log.SetLogLevel(log.Logger(), logrus.DebugLevel)
+	} else {
+		log.SetLogLevel(log.Logger(), logrus.InfoLevel)
 	}
 	return region
 }
