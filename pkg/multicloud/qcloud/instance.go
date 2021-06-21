@@ -22,6 +22,7 @@ import (
 	"time"
 
 	qcommon "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	sdkerrors "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	qvpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 
 	"yunion.io/x/jsonutils"
@@ -423,28 +424,32 @@ func (self *SInstance) GetHypervisor() string {
 }
 
 func (self *SInstance) StartVM(ctx context.Context) error {
-	timeout := 300 * time.Second
-	interval := 15 * time.Second
-
-	startTime := time.Now()
-	for time.Now().Sub(startTime) < timeout {
+	err := cloudprovider.Wait(time.Second*15, time.Minute*5, func() (bool, error) {
 		err := self.Refresh()
 		if err != nil {
-			return err
+			return true, errors.Wrapf(err, "Refresh")
 		}
 		log.Debugf("status %s expect %s", self.GetStatus(), api.VM_RUNNING)
 		if self.GetStatus() == api.VM_RUNNING {
-			return nil
+			return true, nil
+		}
+		if self.GetStatus() == api.VM_STARTING {
+			return false, nil
 		}
 		if self.GetStatus() == api.VM_READY {
 			err := self.host.zone.region.StartVM(self.InstanceId)
 			if err != nil {
-				return err
+				if e, ok := errors.Cause(err).(*sdkerrors.TencentCloudSDKError); ok {
+					if e.Code == "UnsupportedOperation.InstanceStateRunning" {
+						return true, nil
+					}
+				}
+				return true, err
 			}
 		}
-		time.Sleep(interval)
-	}
-	return cloudprovider.ErrTimeout
+		return false, nil
+	})
+	return errors.Wrapf(err, "Wait")
 }
 
 func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
