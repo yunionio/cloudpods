@@ -1615,6 +1615,7 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 		self.VmemSizeMb = extInstance.GetVmemSizeMB()
 		self.DiskSizeGB = extInstance.GetDiskSizeGB()
 		self.StorageType = extInstance.GetStorageType()
+		self.Category = extInstance.GetCategory()
 		self.Status = extInstance.GetStatus()
 		self.Port = extInstance.GetPort()
 

@@ -43,7 +43,7 @@ type SDBInstanceDatabaseProperties struct {
 
 func (self *SRegion) ListSDBInstanceDatabase(Id string) ([]SDBInstanceDatabase, error) {
 	type databases struct {
-		Value []SDBInstanceDatabase `json:"collation"`
+		Value []SDBInstanceDatabase
 	}
 
 	result := databases{}

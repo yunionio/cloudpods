@@ -21,10 +21,10 @@ import (
 
 func init() {
 	type DBInstanceListOptions struct {
-		Type string `help:"dbinstance type" choices:"Microsoft.DBForMariaDB/servers|Microsoft.DBforMySQL/servers|Microsoft.DBforMySQL/flexibleServers|Microsoft.DBforPostgreSQL/servers|Microsoft.DBforPostgreSQL/flexibleServers"`
+		TYPE string `help:"dbinstance type" choices:"Microsoft.DBForMariaDB/servers|Microsoft.DBforMySQL/servers|Microsoft.DBforMySQL/flexibleServers|Microsoft.DBforPostgreSQL/servers|Microsoft.DBforPostgreSQL/flexibleServers|Microsoft.Sql/servers|Microsoft.Sql/managedInstances"`
 	}
 	shellutils.R(&DBInstanceListOptions{}, "dbinstance-list", "List rds intances", func(cli *azure.SRegion, args *DBInstanceListOptions) error {
-		instances, err := cli.ListDBInstance(args.Type)
+		instances, err := cli.ListDBInstance(args.TYPE)
 		if err != nil {
 			return err
 		}

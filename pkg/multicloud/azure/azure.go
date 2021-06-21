@@ -412,6 +412,9 @@ func (self *SAzureClient) _apiVersion(resource string, params url.Values) string
 		}
 		return "2017-12-01"
 	}
+	if utils.IsInStringArray("microsoft.sql", info) {
+		return "2020-08-01-preview"
+	}
 	if utils.IsInStringArray("microsoft.compute", info) {
 		if utils.IsInStringArray("tags", info) {
 			return "2020-06-01"
