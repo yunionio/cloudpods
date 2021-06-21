@@ -63,11 +63,11 @@ build_bin() {
     local BUILD_ARCH=$2
     local BUILD_CGO=$3
     case "$1" in
-        baremetal-agent)
-            rm -vf _output/bin/$1
-            rm -rvf _output/bin/bundles/$1
-            GOOS=linux make cmd/$1
-            ;;
+        # baremetal-agent)
+            # rm -vf _output/bin/$1
+            # rm -rvf _output/bin/bundles/$1
+            # GOOS=linux make cmd/$1
+            # ;;
         climc)
              if [[  "$BUILD_ARCH" == *arm64 ]]; then
                 # exclude rbdcli for arm64
@@ -206,13 +206,13 @@ for component in $COMPONENTS; do
         continue
     fi
     echo "Start to build component: $component"
-    if [[ $component == baremetal-agent ]]; then
-        if [[ "$ARCH" == "arm64" ]]; then
-            continue
-        fi
-        build_process $component
-        continue
-    fi
+    # if [[ $component == baremetal-agent ]]; then
+        # if [[ "$ARCH" == "arm64" ]]; then
+            # continue
+        # fi
+        # build_process $component
+        # continue
+    # fi
 
     case "$ARCH" in
         all)
