@@ -17,6 +17,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -141,7 +142,7 @@ func (p *SJdcloudProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	if p.iregion != nil {
 		return p.iregion
 	}
-	regions := jdcloud.AllRegions(p.accessKey, p.secret, &p.cfg)
+	regions := jdcloud.AllRegions(p.accessKey, p.secret, &p.cfg, false)
 	iregions := make([]cloudprovider.ICloudRegion, len(regions))
 	for i := range iregions {
 		iregions[i] = &regions[i]
@@ -171,6 +172,21 @@ func (p *SJdcloudProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion
 }
 
 func (p *SJdcloudProvider) GetBalance() (float64, string, error) {
+	regions := p.GetIRegions()
+	if len(regions) > 0 {
+		region := regions[0].(*jdcloud.SRegion)
+		balance, err := region.DescribeAccountAmount()
+		if err != nil {
+			return 0.0, api.CLOUD_PROVIDER_HEALTH_NO_PERMISSION, errors.Wrap(err, "DescribeAccountAmount")
+		}
+		amount, _ := strconv.ParseFloat(balance.TotalAmount, 32)
+		if amount < 0 {
+			return amount, api.CLOUD_PROVIDER_HEALTH_ARREARS, nil
+		} else if amount < 50 {
+			return amount, api.CLOUD_PROVIDER_HEALTH_INSUFFICIENT, nil
+		}
+		return amount, api.CLOUD_PROVIDER_HEALTH_NORMAL, nil
+	}
 	return 0.0, api.CLOUD_PROVIDER_HEALTH_NORMAL, cloudprovider.ErrNotSupported
 }
 
@@ -199,6 +215,7 @@ func (p *SJdcloudProvider) GetCapabilities() []string {
 	caps := []string{
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		cloudprovider.CLOUD_CAPABILITY_RDS,
 	}
 	return caps
 }

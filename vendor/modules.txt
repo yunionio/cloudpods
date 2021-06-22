@@ -403,6 +403,9 @@ github.com/huandu/xstrings
 github.com/imdario/mergo
 # github.com/jdcloud-api/jdcloud-sdk-go v1.55.0
 github.com/jdcloud-api/jdcloud-sdk-go/core
+github.com/jdcloud-api/jdcloud-sdk-go/services/asset/apis
+github.com/jdcloud-api/jdcloud-sdk-go/services/asset/client
+github.com/jdcloud-api/jdcloud-sdk-go/services/asset/models
 github.com/jdcloud-api/jdcloud-sdk-go/services/charge/models
 github.com/jdcloud-api/jdcloud-sdk-go/services/common/models
 github.com/jdcloud-api/jdcloud-sdk-go/services/disk/apis
@@ -411,6 +414,9 @@ github.com/jdcloud-api/jdcloud-sdk-go/services/disk/models
 github.com/jdcloud-api/jdcloud-sdk-go/services/monitor/apis
 github.com/jdcloud-api/jdcloud-sdk-go/services/monitor/client
 github.com/jdcloud-api/jdcloud-sdk-go/services/monitor/models
+github.com/jdcloud-api/jdcloud-sdk-go/services/rds/apis
+github.com/jdcloud-api/jdcloud-sdk-go/services/rds/client
+github.com/jdcloud-api/jdcloud-sdk-go/services/rds/models
 github.com/jdcloud-api/jdcloud-sdk-go/services/vm/apis
 github.com/jdcloud-api/jdcloud-sdk-go/services/vm/client
 github.com/jdcloud-api/jdcloud-sdk-go/services/vm/models
@@ -1196,7 +1202,7 @@ yunion.io/x/pkg/util/workqueue
 yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v0.0.0-20210519174758-cb08030e2008
+# yunion.io/x/sqlchemy v0.0.0-20210619142628-653684d2c4f8
 yunion.io/x/sqlchemy
 # yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
 yunion.io/x/structarg
