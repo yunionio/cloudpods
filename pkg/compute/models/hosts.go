@@ -2455,7 +2455,7 @@ func (self *SHost) GetNetinterfacesWithIdAndCredential(netId string, userCred mc
 	if err != nil {
 		return nil, nil
 	}
-	if used == 0 && !reserved {
+	if used == 0 && !reserved && !options.Options.BaremetalServerReuseHostIp {
 		return nil, nil
 	}
 	matchNetIfs := make([]SNetInterface, 0)
@@ -2873,16 +2873,11 @@ func (self *SHost) getMoreDetails(ctx context.Context, out api.HostDetails, show
 			out.ServerIps = strings.Join(server.GetRealIPs(), ",")
 		}
 	}
-	netifs := self.GetNetInterfaces()
-	if netifs != nil && len(netifs) > 0 {
+	nics := self.GetNics()
+	if nics != nil && len(nics) > 0 {
 		nicInfos := []jsonutils.JSONObject{}
-		for i := 0; i < len(netifs); i += 1 {
-			nicInfo := netifs[i].getBaremetalJsonDesc()
-			if nicInfo == nil {
-				log.Errorf("netif %s get baremetal desc failed", netifs[i].GetId())
-				continue
-			}
-			nicInfos = append(nicInfos, nicInfo)
+		for i := 0; i < len(nics); i += 1 {
+			nicInfos = append(nicInfos, jsonutils.Marshal(nics[i]))
 		}
 		out.NicCount = len(nicInfos)
 		out.NicInfo = nicInfos
@@ -5649,6 +5644,24 @@ func (host *SHost) GetIpmiInfo() (types.SIPMIInfo, error) {
 		}
 	}
 	return info, nil
+}
+
+func (host *SHost) GetNics() []*types.SNic {
+	netifs := host.GetNetInterfaces()
+	nicInfos := []*types.SNic{}
+	if netifs != nil && len(netifs) > 0 {
+		for i := 0; i < len(netifs); i += 1 {
+			desc := netifs[i].getBaremetalJsonDesc()
+			if desc == nil {
+				log.Errorf("netif %s get baremetal desc failed", netifs[i].GetId())
+				continue
+			}
+			nicInfo := new(types.SNic)
+			desc.Unmarshal(nicInfo)
+			nicInfos = append(nicInfos, nicInfo)
+		}
+	}
+	return nicInfos
 }
 
 func (host *SHost) GetUEFIInfo() (*types.EFIBootMgrInfo, error) {

@@ -162,6 +162,18 @@ var (
 					Extra:    []string{"saml"},
 					Result:   rbacutils.Allow,
 				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "waf_rules",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "waf_rules",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
 			},
 		},
 		{

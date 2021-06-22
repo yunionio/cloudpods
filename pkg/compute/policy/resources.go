@@ -58,6 +58,12 @@ var (
 		"policy_assignments",
 		"proxysettings",
 		"project_mappings",
+		"app_gateways",
+		"waf_instances",
+		"waf_rules",
+		"waf_rule_groups",
+		"waf_ipsets",
+		"waf_regexsets",
 	}
 	computeUserResources = []string{
 		"keypairs",

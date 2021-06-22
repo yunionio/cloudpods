@@ -127,11 +127,17 @@ For more detailed instructions, please refers to [quick start](https://www.cloud
 * [Swagger API](https://www.cloudpods.org/en/docs/swagger/)
 
 
+## Who is using Cloudpods?
+
+Please check this [issue](https://github.com/yunionio/cloudpods/issues/11427) for the user list of Cloudpods. If you are using Cloudpods, you are welcome to leave your information by responding the issue. Thank you for your support.
+
 ## Contact
 
 You may contact us by:
 
 * Reddit: [r/Cloudpods](https://www.reddit.com/r/Cloudpods/)
+
+* Bilibili: [Cloudpods](https://space.bilibili.com/623431553/)
 
 * WeChat: please scan the following QRCode to contact us
 

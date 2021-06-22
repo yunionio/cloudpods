@@ -868,6 +868,24 @@ func syncSkusFromPrivateCloud(ctx context.Context, userCred mcclient.TokenCreden
 	}
 }
 
+func syncAppGateways(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion) {
+	apps, err := remoteRegion.GetICloudApplicationGateways()
+	if err != nil {
+		msg := fmt.Sprintf("GetICloudApplicationGateways for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		return
+	}
+	result := localRegion.SyncAppGateways(ctx, userCred, provider, apps)
+	syncResults.Add(AppGatewayManager, result)
+
+	msg := result.Result()
+	log.Infof("SyncAppGateways for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		return
+	}
+
+}
+
 func syncRegionDBInstances(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
 	instances, err := remoteRegion.GetIDBInstances()
 	if err != nil {
@@ -1083,6 +1101,91 @@ func syncDBInstanceAccountPrivileges(ctx context.Context, userCred mcclient.Toke
 	return nil
 }
 
+func syncWafIPSets(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion) error {
+	ipSets, err := remoteRegion.GetICloudWafIPSets()
+	if err != nil {
+		msg := fmt.Sprintf("GetICloudWafIPSets for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		return err
+	}
+	result := localRegion.SyncWafIPSets(ctx, userCred, provider, ipSets)
+	syncResults.Add(WafIPSetManager, result)
+	log.Infof("SyncWafIPSets for region %s result: %s", localRegion.Name, result.Result())
+	if result.IsError() {
+		return result.AllError()
+	}
+	return nil
+}
+
+func syncWafRegexSets(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion) error {
+	rSets, err := remoteRegion.GetICloudWafRegexSets()
+	if err != nil {
+		msg := fmt.Sprintf("GetICloudWafRegexSets for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		return err
+	}
+	result := localRegion.SyncWafRegexSets(ctx, userCred, provider, rSets)
+	syncResults.Add(WafRegexSetManager, result)
+	log.Infof("SyncWafRegexSets for region %s result: %s", localRegion.Name, result.Result())
+	if result.IsError() {
+		return result.AllError()
+	}
+	return nil
+}
+
+func syncWafInstances(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion) error {
+	wafIns, err := remoteRegion.GetICloudWafInstances()
+	if err != nil {
+		msg := fmt.Sprintf("GetICloudWafInstances for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		return err
+	}
+
+	localWafs, remoteWafs, result := localRegion.SyncWafInstances(ctx, userCred, provider, wafIns)
+	syncResults.Add(WafInstanceManager, result)
+	msg := result.Result()
+	log.Infof("SyncWafInstances for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		return result.AllError()
+	}
+
+	for i := 0; i < len(localWafs); i++ {
+		func() {
+			lockman.LockObject(ctx, &localWafs[i])
+			defer lockman.ReleaseObject(ctx, &localWafs[i])
+
+			if localWafs[i].Deleted {
+				return
+			}
+
+			err = syncWafRules(ctx, userCred, syncResults, &localWafs[i], remoteWafs[i])
+			if err != nil {
+				log.Errorf("syncDBInstanceAccountPrivileges error: %v", err)
+			}
+
+		}()
+	}
+
+	return nil
+}
+
+func syncWafRules(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localWaf *SWafInstance, remoteWafs cloudprovider.ICloudWafInstance) error {
+	rules, err := remoteWafs.GetRules()
+	if err != nil {
+		msg := fmt.Sprintf("GetRules for waf instance %s failed %s", localWaf.Name, err)
+		log.Errorf(msg)
+		return err
+	}
+	result := localWaf.SyncWafRules(ctx, userCred, rules)
+	syncResults.Add(WafRuleManager, result)
+	msg := result.Result()
+	log.Infof("SyncWafRules for waf %s result: %s", localWaf.Name, msg)
+	if result.IsError() {
+		return result.AllError()
+	}
+	return nil
+}
+
 func syncRegionSnapshots(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
 	snapshots, err := remoteRegion.GetISnapshots()
 	if err != nil {
@@ -1256,6 +1359,14 @@ func syncPublicCloudProviderInfo(
 
 	if cloudprovider.IsSupportElasticCache(driver) {
 		syncElasticcaches(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+	}
+
+	syncAppGateways(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
+
+	if utils.IsInStringArray(cloudprovider.CLOUD_CAPABILITY_WAF, driver.GetCapabilities()) {
+		syncWafIPSets(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
+		syncWafRegexSets(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
+		syncWafInstances(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
 	if cloudprovider.IsSupportCompute(driver) {

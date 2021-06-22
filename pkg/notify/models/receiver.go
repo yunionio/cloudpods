@@ -578,6 +578,44 @@ func (rm *SReceiverManager) filterByOwner(q *sqlchemy.SQuery, owner mcclient.IId
 	return q
 }
 
+func (rm *SReceiverManager) filterByOwnerAndProjectDomain(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, scope rbacutils.TRbacScope) (*sqlchemy.SQuery, error) {
+	if userCred == nil {
+		return q, nil
+	}
+
+	userIds, err := rm.findUserIdsWithProjectDomain(ctx, userCred, userCred.GetProjectDomainId())
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to findUserIdsWithProjectDomain")
+	}
+	var projectDomainCondition, ownerCondition sqlchemy.ICondition
+	switch len(userIds) {
+	case 0:
+		projectDomainCondition = nil
+	case 1:
+		projectDomainCondition = sqlchemy.Equals(q.Field("id"), userIds[0])
+	default:
+		projectDomainCondition = sqlchemy.In(q.Field("id"), userIds)
+	}
+
+	switch scope {
+	case rbacutils.ScopeDomain:
+		ownerCondition = sqlchemy.Equals(q.Field("domain_id"), userCred.GetProjectDomainId())
+	case rbacutils.ScopeProject:
+		ownerCondition = sqlchemy.Equals(q.Field("id"), userCred.GetUserId())
+	}
+
+	if projectDomainCondition != nil && ownerCondition != nil {
+		return q.Filter(sqlchemy.OR(projectDomainCondition, ownerCondition)), nil
+	}
+	if projectDomainCondition != nil {
+		return q.Filter(projectDomainCondition), nil
+	}
+	if ownerCondition != nil {
+		return q.Filter(ownerCondition), nil
+	}
+	return q, nil
+}
+
 func (rm *SReceiverManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	return q
 }
@@ -607,24 +645,16 @@ func (rm *SReceiverManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 	if len(input.VerifiedContactType) > 0 {
 		q = rm.VerifiedContactFilter(input.VerifiedContactType, q)
 	}
+	ownerId, queryScope, err := db.FetchCheckQueryOwnerScope(ctx, userCred, jsonutils.Marshal(input), rm, policy.PolicyActionList, true)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
 	if input.ProjectDomainFilter && userCred.GetProjectDomainId() != "" {
-		userIds, err := rm.findUserIdsWithProjectDomain(ctx, userCred, userCred.GetProjectDomainId())
+		q, err = rm.filterByOwnerAndProjectDomain(ctx, userCred, q, queryScope)
 		if err != nil {
-			return nil, errors.Wrap(err, "unable to findUserIdsWithProjectDomain")
-		}
-		switch len(userIds) {
-		case 0:
-			q = q.Equals("id", "")
-		case 1:
-			q = q.Equals("id", userIds[0])
-		default:
-			q = q.In("id", userIds)
+			return nil, errors.Wrap(err, "unable to filterByOwnerAndProjectDomain")
 		}
 	} else {
-		ownerId, queryScope, err := db.FetchCheckQueryOwnerScope(ctx, userCred, jsonutils.Marshal(input), rm, policy.PolicyActionList, true)
-		if err != nil {
-			return nil, httperrors.NewGeneralError(err)
-		}
 		q = rm.filterByOwner(q, ownerId, queryScope)
 	}
 	return q, nil

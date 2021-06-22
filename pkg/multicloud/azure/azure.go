@@ -435,6 +435,18 @@ func (self *SAzureClient) _apiVersion(resource string, params url.Values) string
 		if utils.IsInStringArray("publicipaddresses", info) {
 			return "2018-03-01"
 		}
+		if utils.IsInStringArray("frontdoorwebapplicationfirewallmanagedrulesets", info) {
+			return "2020-11-01"
+		}
+		if utils.IsInStringArray("frontdoorwebapplicationfirewallpolicies", info) {
+			return "2020-11-01"
+		}
+		if utils.IsInStringArray("applicationgatewaywebapplicationfirewallpolicies", info) {
+			return "2020-11-01"
+		}
+		if utils.IsInStringArray("applicationgatewayavailablewafrulesets", info) {
+			return "2018-06-01"
+		}
 		return "2018-06-01"
 	} else if utils.IsInStringArray("microsoft.classicnetwork", info) {
 		return "2016-04-01"
@@ -488,6 +500,9 @@ func (self *SAzureClient) _list(resource string, params url.Values) (jsonutils.J
 			return nil, fmt.Errorf("no avaiable subscriptions")
 		}
 		path = fmt.Sprintf("subscriptions/%s/%s", subId, resource)
+	case "Microsoft.Network/frontdoorWebApplicationFirewallPolicies":
+		path = fmt.Sprintf("subscriptions/%s/resourceGroups/%s/providers/%s", subId, params.Get("resourceGroups"), resource)
+		params.Del("resourceGroups")
 	default:
 		if len(subId) == 0 {
 			return nil, fmt.Errorf("no avaiable subscriptions")

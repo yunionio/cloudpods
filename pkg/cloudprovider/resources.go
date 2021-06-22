@@ -44,6 +44,11 @@ type ICloudResource interface {
 	SetTags(tags map[string]string, replace bool) error
 }
 
+type ICloudEnabledResource interface {
+	ICloudResource
+	GetEnabled() bool
+}
+
 type IVirtualResource interface {
 	ICloudResource
 
@@ -162,6 +167,16 @@ type ICloudRegion interface {
 	GetICloudAccessGroups() ([]ICloudAccessGroup, error)
 	CreateICloudAccessGroup(opts *SAccessGroup) (ICloudAccessGroup, error)
 	GetICloudAccessGroupById(id string) (ICloudAccessGroup, error)
+
+	GetICloudApplicationGateways() ([]ICloudApplicationGateway, error)
+	GetICloudApplicationGatewayById(id string) (ICloudApplicationGateway, error)
+
+	GetICloudWafIPSets() ([]ICloudWafIPSet, error)
+	GetICloudWafRegexSets() ([]ICloudWafRegexSet, error)
+	GetICloudWafInstances() ([]ICloudWafInstance, error)
+	GetICloudWafInstanceById(id string) (ICloudWafInstance, error)
+	CreateICloudWafInstance(opts *WafCreateOptions) (ICloudWafInstance, error)
+	GetICloudWafRuleGroups() ([]ICloudWafRuleGroup, error)
 }
 
 type ICloudZone interface {
@@ -1276,5 +1291,68 @@ type ICloudAccessGroup interface {
 	GetRules() ([]AccessGroupRule, error)
 	SyncRules(common, added, removed AccessGroupRuleSet) error
 
+	Delete() error
+}
+
+type ICloudApplicationGateway interface {
+	ICloudResource
+
+	GetInstanceType() string
+	GetBackends() ([]SAppGatewayBackend, error)
+	GetFrontends() ([]SAppGatewayFrontend, error)
+}
+
+type ICloudWafIPSet interface {
+	GetName() string
+	GetDesc() string
+	GetType() TWafType
+	GetGlobalId() string
+	GetAddresses() WafAddresses
+
+	Delete() error
+}
+
+type ICloudWafRegexSet interface {
+	GetName() string
+	GetDesc() string
+	GetType() TWafType
+	GetGlobalId() string
+	GetRegexPatterns() WafRegexPatterns
+
+	Delete() error
+}
+
+type ICloudWafInstance interface {
+	ICloudEnabledResource
+
+	GetWafType() TWafType
+	GetDefaultAction() *DefaultAction
+	GetRules() ([]ICloudWafRule, error)
+	AddRule(opts *SWafRule) (ICloudWafRule, error)
+
+	// 绑定的资源列表
+	GetCloudResources() ([]SCloudResource, error)
+
+	Delete() error
+}
+
+type ICloudWafRuleGroup interface {
+	GetName() string
+	GetDesc() string
+	GetGlobalId() string
+	GetWafType() TWafType
+	GetRules() ([]ICloudWafRule, error)
+}
+
+type ICloudWafRule interface {
+	GetName() string
+	GetDesc() string
+	GetGlobalId() string
+	GetPriority() int
+	GetAction() *DefaultAction
+	GetStatementCondition() TWafStatementCondition
+	GetStatements() ([]SWafStatement, error)
+
+	Update(opts *SWafRule) error
 	Delete() error
 }

@@ -93,6 +93,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.ScheduledTaskLabelManager,
 		models.DnsRecordSetTrafficPolicyManager,
 		models.CloudimageManager,
+
+		models.WafRuleStatementManager,
 	} {
 		db.RegisterModelManager(manager)
 	}
@@ -214,6 +216,16 @@ func InitHandlers(app *appsrv.Application) {
 		models.MountTargetManager,
 
 		models.ProjectMappingManager,
+
+		models.AppGatewayManager,
+
+		models.WafRuleGroupManager,
+		models.WafIPSetManager,
+		models.WafIPSetCacheManager,
+		models.WafRegexSetManager,
+		models.WafRegexSetCacheManager,
+		models.WafInstanceManager,
+		models.WafRuleManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

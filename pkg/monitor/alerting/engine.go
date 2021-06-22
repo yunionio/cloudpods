@@ -211,6 +211,9 @@ func (e *AlertEngine) processJob(attemptID int, attemptChan chan int, cancelChan
 				attemptChan <- (attemptID + 1)
 				return
 			}
+			log.Errorf("gt AlertingMaxAttempts, error: %v", evalContext.Error)
+			close(attemptChan)
+			return
 		}
 
 		// create new context with timeout for notifications
