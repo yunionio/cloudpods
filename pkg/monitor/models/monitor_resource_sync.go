@@ -179,7 +179,7 @@ func GetOnecloudResources(resTyep string) ([]jsonutils.JSONObject, error) {
 	query.Add(jsonutils.NewString("true"), "admin")
 	switch resTyep {
 	case monitor.METRIC_RES_TYPE_HOST:
-		query.Set("host-type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
+		//query.Set("host-type", jsonutils.NewString(hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR))
 		allResources, err = ListAllResources(&mc_mds.Hosts, query)
 	case monitor.METRIC_RES_TYPE_GUEST:
 		allResources, err = ListAllResources(&mc_mds.Servers, query)
