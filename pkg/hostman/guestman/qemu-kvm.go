@@ -284,8 +284,8 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 	if ctx != nil && len(appctx.AppContextTaskId(ctx)) >= 0 {
 		hostutils.TaskFailed(ctx, fmt.Sprintf("Async start server failed: %s", err))
 	}
-	s.SyncStatus()
-	return nil, nil
+	s.SyncStatus("")
+	return nil, err
 }
 
 func (s *SKVMGuestInstance) saveScripts(data *jsonutils.JSONDict) error {
@@ -334,7 +334,7 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 		}
 		log.Infof("%s is %s, pending_delete=%t", s.GetName(), action, pendingDelete)
 		if !s.IsSlave() {
-			s.SyncStatus()
+			s.SyncStatus("")
 		}
 	}
 }
@@ -373,8 +373,8 @@ func (s *SKVMGuestInstance) IsMonitorAlive() bool {
 // }
 
 func (s *SKVMGuestInstance) onImportGuestMonitorDisConnect(err error) {
-	log.Infof("Import Guest %s monitor disconnect", s.Id)
-	s.SyncStatus()
+	log.Infof("Import Guest %s monitor disconnect reason: %v", s.Id, err)
+	s.SyncStatus(fmt.Sprintf("import guest monitor disconnect %v", err))
 
 	// clean import pid file
 	if s.GetPid() == -2 {
@@ -406,7 +406,7 @@ func (s *SKVMGuestInstance) onImportGuestMonitorConnected(ctx context.Context) {
 		meta.Set("hot_remove_nic", jsonutils.NewString("disable"))
 		meta.Set("__qemu_version", jsonutils.NewString(s.GetQemuVersionStr()))
 		s.SyncMetadata(meta)
-		s.SyncStatus()
+		s.SyncStatus("")
 	})
 }
 
@@ -469,7 +469,7 @@ func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 			if stype == "mirror" {
 				mirrorStatus := s.MirrorJobStatus()
 				if mirrorStatus.IsSucc() {
-					_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), compute.VM_RUNNING)
+					_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), compute.VM_RUNNING, "BLOCK_JOB_READY")
 					if err != nil {
 						log.Errorf("onReceiveQMPEvent update server status error: %s", err)
 					}
@@ -548,11 +548,11 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 }
 
 func (s *SKVMGuestInstance) onMonitorDisConnect(err error) {
-	log.Infof("Guest %s on Monitor Disconnect", s.Id)
+	log.Errorf("Guest %s on Monitor Disconnect reason: %v", s.Id, err)
 	s.CleanStartupTask()
 	s.scriptStop()
 	if !jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
-		s.SyncStatus()
+		s.SyncStatus(fmt.Sprintf("monitor disconnect %v", err))
 	}
 	s.clearCgroup(0)
 	s.Monitor = nil
@@ -568,7 +568,7 @@ func (s *SKVMGuestInstance) startDiskBackupMirror(ctx context.Context) {
 			status = compute.VM_BLOCK_STREAM_FAIL
 			s.SyncMirrorJobFailed("mirror job missing")
 		}
-		hostutils.UpdateServerStatus(context.Background(), s.GetId(), status)
+		hostutils.UpdateServerStatus(context.Background(), s.GetId(), status, "")
 	} else {
 		metadata, _ := s.Desc.Get("metadata")
 		if metadata == nil || !metadata.Contains("backup_nbd_server_uri") {
@@ -747,7 +747,7 @@ func (s *SKVMGuestInstance) DoResumeTask(ctx context.Context) {
 	s.startupTask.Start()
 }
 
-func (s *SKVMGuestInstance) SyncStatus() {
+func (s *SKVMGuestInstance) SyncStatus(reason string) {
 	if s.IsRunning() {
 		s.Monitor.GetBlockJobCounts(s.CheckBlockOrRunning)
 		return
@@ -757,7 +757,7 @@ func (s *SKVMGuestInstance) SyncStatus() {
 		status = "suspend"
 	}
 
-	hostutils.UpdateServerStatus(context.Background(), s.Id, status)
+	hostutils.UpdateServerStatus(context.Background(), s.Id, status, reason)
 }
 
 func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
@@ -775,7 +775,7 @@ func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
 			status = compute.VM_BLOCK_STREAM
 		}
 	}
-	_, err := hostutils.UpdateServerStatus(context.Background(), s.Id, status)
+	_, err := hostutils.UpdateServerStatus(context.Background(), s.Id, status, "")
 	if err != nil {
 		log.Errorln(err)
 	}
