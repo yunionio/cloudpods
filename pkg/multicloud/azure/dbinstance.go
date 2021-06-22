@@ -106,12 +106,35 @@ func (self *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, error)
 	}
 	result := []cloudprovider.ICloudDBInstance{}
 	for i := range DBInstances {
+		DBInstances[i].region = self
 		result = append(result, &DBInstances[i])
+	}
+	sqlServers, err := self.ListSQLServer()
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListSQLServer")
+	}
+	for i := range sqlServers {
+		sqlServers[i].region = self
+		result = append(result, &sqlServers[i])
+	}
+	managedSQLServers, err := self.ListManagedSQLServer()
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListManagedSQLServer")
+	}
+	for i := range managedSQLServers {
+		managedSQLServers[i].region = self
+		result = append(result, &managedSQLServers[i])
 	}
 	return result, nil
 }
 
 func (self *SRegion) GetIDBInstanceById(instanceId string) (cloudprovider.ICloudDBInstance, error) {
+	if strings.Index(strings.ToLower(instanceId), "microsoft.sql/servers") > 0 {
+		return self.GetSQLServer(instanceId)
+	}
+	if strings.Index(strings.ToLower(instanceId), "microsoft.sql/managedinstances") > 0 {
+		return self.GetManagedSQLServer(instanceId)
+	}
 	rds, err := self.GetDBInstanceById(instanceId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "self.get(%s, url.Values{}, &newrds)", instanceId)
@@ -363,10 +386,6 @@ func (rds *SDBInstance) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanc
 
 func (rds *SDBInstance) Delete() error {
 	return cloudprovider.ErrNotImplemented
-}
-
-func (self *SDBInstance) GetTags() (map[string]string, error) {
-	return self.Tags, nil
 }
 
 func (self *SDBInstance) SetTags(tags map[string]string, replace bool) error {
