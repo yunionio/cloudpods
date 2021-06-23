@@ -12,6 +12,7 @@ const (
 	METRIC_RES_TYPE_TENANT       = "tenant"
 	METRIC_RES_TYPE_DOMAIN       = "domain"
 	METRIC_RES_TYPE_STORAGE      = "storage"
+	METRIC_RES_TYPE_JENKINS      = "jenkins"
 
 	METRIC_UNIT_PERCENT = "%"
 	METRIC_UNIT_BPS     = "bps"
