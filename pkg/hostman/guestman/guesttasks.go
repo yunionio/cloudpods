@@ -593,7 +593,7 @@ func (s *SGuestResumeTask) taskFailed(reason string) {
 	if s.ctx != nil && len(appctx.AppContextTaskId(s.ctx)) > 0 {
 		hostutils.TaskFailed(s.ctx, reason)
 	} else {
-		s.SyncStatus()
+		s.SyncStatus(reason)
 	}
 }
 
@@ -632,12 +632,12 @@ func (s *SGuestResumeTask) onStartRunning() {
 	if len(disksIdx) > 0 {
 		s.startStreamDisks(disksIdx)
 	} else if options.HostOptions.AutoMergeBackingTemplate {
-		s.SyncStatus()
+		s.SyncStatus("")
 		timeutils2.AddTimeout(
 			time.Second*time.Duration(options.HostOptions.AutoMergeDelaySeconds),
 			func() { s.startStreamDisks(nil) })
 	} else {
-		s.SyncStatus()
+		s.SyncStatus("")
 	}
 }
 
@@ -663,7 +663,7 @@ func (s *SGuestResumeTask) startStreamDisks(disksIdx []int) {
 func (s *SGuestResumeTask) onStreamComplete(disksIdx []int) {
 	if len(disksIdx) == 0 {
 		// if disks idx length == 0 indicate merge backing template
-		s.SyncStatus()
+		s.SyncStatus("")
 	} else {
 		s.streamDisksComplete(context.Background())
 	}
@@ -747,7 +747,7 @@ func (s *SGuestStreamDisksTask) onBlockDrivesSucc(res *jsonutils.JSONArray) {
 		s.taskComplete()
 	} else {
 		s.startDoBlockStream()
-		s.SyncStatus()
+		s.SyncStatus("")
 	}
 }
 
@@ -783,7 +783,7 @@ func (s *SGuestStreamDisksTask) checkStreamJobs(jobs int) {
 }
 
 func (s *SGuestStreamDisksTask) taskComplete() {
-	s.SyncStatus()
+	s.SyncStatus("")
 
 	// XXX: region disk post-migrate not implement
 
