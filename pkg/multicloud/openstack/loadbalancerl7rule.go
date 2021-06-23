@@ -38,6 +38,7 @@ type SLoadbalancerL7RuleCreateParams struct {
 
 type SLoadbalancerL7Rule struct {
 	multicloud.SResourceBase
+	multicloud.SLoadbalancerRedirectBase
 	multicloud.OpenStackTags
 	policy             *SLoadbalancerL7Policy
 	CreatedAt          string   `json:"created_at"`

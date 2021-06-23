@@ -70,6 +70,7 @@ type healthCheck struct {
 
 type SLBListener struct {
 	multicloud.SResourceBase
+	multicloud.SLoadbalancerRedirectBase
 	multicloud.QcloudTags
 	lb *SLoadbalancer
 
@@ -872,4 +873,12 @@ func certificateParams(t LB_TYPE, params map[string]string, cert *certificate, p
 
 func (self *SLBListener) GetProjectId() string {
 	return self.lb.GetProjectId()
+}
+
+func (self *SLBListener) GetClientIdleTimeout() int {
+	return 0
+}
+
+func (self *SLBListener) GetBackendConnectTimeout() int {
+	return 0
 }

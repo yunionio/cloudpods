@@ -27,6 +27,7 @@ import (
 
 type SLoadbalancerHTTPListener struct {
 	multicloud.SResourceBase
+	multicloud.SLoadbalancerRedirectBase
 	multicloud.AliyunTags
 	lb *SLoadbalancer
 
@@ -367,4 +368,12 @@ func (listerner *SLoadbalancerHTTPListener) Sync(ctx context.Context, lblis *clo
 
 func (listerner *SLoadbalancerHTTPListener) GetProjectId() string {
 	return listerner.lb.GetProjectId()
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetClientIdleTimeout() int {
+	return 0
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetBackendConnectTimeout() int {
+	return 0
 }

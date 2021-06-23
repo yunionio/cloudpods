@@ -432,40 +432,122 @@ func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCre
 	return region.CreateSecurityGroup(conf.Name)
 }
 
+func (region *SRegion) getIAppLBs() ([]cloudprovider.ICloudLoadbalancer, error) {
+	lbs := []SLoadbalancer{}
+	params := url.Values{}
+	params.Set("api-version", "2021-02-01")
+	err := region.list("Microsoft.Network/applicationGateways", params, &lbs)
+	if err != nil {
+		return nil, errors.Wrapf(err, "list")
+	}
+
+	ilbs := make([]cloudprovider.ICloudLoadbalancer, len(lbs))
+	for i := range lbs {
+		lbs[i].region = region
+		ilbs[i] = &lbs[i]
+	}
+
+	return ilbs, nil
+}
+
+func (region *SRegion) getINetworkLBs() ([]cloudprovider.ICloudLoadbalancer, error) {
+	lbs := []SLoadbalancer{}
+	params := url.Values{}
+	params.Set("api-version", "2021-02-01")
+	err := region.list("Microsoft.Network/loadBalancers", params, &lbs)
+	if err != nil {
+		return nil, errors.Wrapf(err, "list")
+	}
+
+	ilbs := make([]cloudprovider.ICloudLoadbalancer, len(lbs))
+	for i := range lbs {
+		lbs[i].region = region
+		ilbs[i] = &lbs[i]
+	}
+
+	return ilbs, nil
+}
+
 func (region *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	appLbs, err := region.getIAppLBs()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIAppLBs")
+	}
+
+	netLbs, err := region.getINetworkLBs()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetINetworkLBs")
+	}
+
+	lbs := []cloudprovider.ICloudLoadbalancer{}
+	lbs = append(lbs, appLbs...)
+	lbs = append(lbs, netLbs...)
+	return lbs, nil
 }
 
 func (region *SRegion) GetILoadBalancerById(loadbalancerId string) (cloudprovider.ICloudLoadbalancer, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	lb := SLoadbalancer{}
+	params := url.Values{}
+	params.Set("api-version", "2021-02-01")
+	err := region.get(loadbalancerId, params, &lb)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get")
+	}
+
+	lb.region = region
+	return &lb, nil
 }
 
 func (region *SRegion) GetILoadBalancerAclById(aclId string) (cloudprovider.ICloudLoadbalancerAcl, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, errors.Wrap(cloudprovider.ErrNotSupported, "GetILoadBalancerAclById")
 }
 
 func (region *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
+	segs := strings.Split(certId, "/sslCertificates")
+	if len(segs[0]) > 0 {
+		lb, err := region.GetILoadBalancerById(segs[0])
+		if err != nil {
+			return nil, errors.Wrap(err, "GetILoadBalancerById")
+		}
 
-func (region *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
+		return lb.(*SLoadbalancer).GetILoadBalancerCertificateById(certId)
+	}
 
-func (region *SRegion) GetILoadBalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetILoadBalancerCertificateById")
 }
 
 func (region *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	lbs, err := region.GetILoadBalancers()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetILoadBalancers")
+	}
+
+	certs := []cloudprovider.ICloudLoadbalancerCertificate{}
+	for i := range lbs {
+		_certs, err := lbs[i].(*SLoadbalancer).GetILoadBalancerCertificates()
+		if err != nil {
+			return nil, errors.Wrap(err, "GetILoadBalancerCertificates")
+		}
+		certs = append(certs, _certs...)
+	}
+
+	return certs, nil
+}
+
+func (region *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+	return nil, errors.Wrap(cloudprovider.ErrNotImplemented, "CreateILoadBalancerCertificate")
+}
+
+func (region *SRegion) GetILoadBalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
+	return nil, errors.Wrap(cloudprovider.ErrNotSupported, "GetILoadBalancerAcls")
 }
 
 func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, errors.Wrap(cloudprovider.ErrNotImplemented, "GetILoadBalancerCertificates")
 }
 
 func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, errors.Wrap(cloudprovider.ErrNotImplemented, "CreateILoadBalancerAcl")
 }
 
 func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {

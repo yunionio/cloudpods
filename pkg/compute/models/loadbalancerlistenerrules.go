@@ -19,6 +19,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -738,6 +740,15 @@ func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(userC
 	lbr.Path = extRule.GetPath()
 	lbr.Status = extRule.GetStatus()
 	lbr.Condition = extRule.GetCondition()
+
+	if utils.IsInStringArray(extRule.GetRedirect(), []string{api.LB_REDIRECT_OFF, api.LB_REDIRECT_RAW}) {
+		lbr.Redirect = extRule.GetRedirect()
+		lbr.RedirectCode = int(extRule.GetRedirectCode())
+		lbr.RedirectScheme = extRule.GetRedirectScheme()
+		lbr.RedirectHost = extRule.GetRedirectHost()
+		lbr.RedirectPath = extRule.GetRedirectPath()
+	}
+
 	if groupId := extRule.GetBackendGroupId(); len(groupId) > 0 {
 		if lbr.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI {
 			group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, groupId)

@@ -85,6 +85,7 @@ type SInsertHeaders struct {
 
 type SLoadbalancerListener struct {
 	multicloud.SResourceBase
+	multicloud.SLoadbalancerRedirectBase
 	multicloud.OpenStackTags
 	region                  *SRegion
 	l7policies              []SLoadbalancerL7Policy
@@ -762,4 +763,12 @@ func (listener *SLoadbalancerListener) Sync(ctx context.Context, lblis *cloudpro
 
 func (listener *SLoadbalancerListener) GetProjectId() string {
 	return listener.ProjectID
+}
+
+func (listener *SLoadbalancerListener) GetClientIdleTimeout() int {
+	return 0
+}
+
+func (listener *SLoadbalancerListener) GetBackendConnectTimeout() int {
+	return 0
 }

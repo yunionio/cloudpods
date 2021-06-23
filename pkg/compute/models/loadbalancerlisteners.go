@@ -1004,9 +1004,23 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 			lblis.HealthCheckInterval = extListener.GetHealthCheckInterval()
 			lblis.HealthCheckRise = extListener.GetHealthCheckRise()
 			lblis.HealthCheckFall = extListener.GetHealthCheckFail()
+			lblis.HealthCheckDomain = extListener.GetHealthCheckDomain()
+			lblis.HealthCheckURI = extListener.GetHealthCheckURI()
+			lblis.HealthCheckExp = extListener.GetHealthCheckExp()
+			lblis.HealthCheckHttpCode = extListener.GetHealthCheckCode()
 		}
 	}
 
+	if utils.IsInStringArray(extListener.GetRedirect(), []string{api.LB_REDIRECT_OFF, api.LB_REDIRECT_RAW}) {
+		lblis.Redirect = extListener.GetRedirect()
+		lblis.RedirectCode = int(extListener.GetRedirectCode())
+		lblis.RedirectScheme = extListener.GetRedirectScheme()
+		lblis.RedirectHost = extListener.GetRedirectHost()
+		lblis.RedirectPath = extListener.GetRedirectPath()
+	}
+
+	lblis.ClientIdleTimeout = extListener.GetClientIdleTimeout()
+	lblis.BackendConnectTimeout = extListener.GetBackendConnectTimeout()
 	lblis.BackendServerPort = extListener.GetBackendServerPort()
 
 	switch lblis.ListenerType {
@@ -1040,6 +1054,7 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 				lblis.StickySessionCookieTimeout = extListener.GetStickySessionCookieTimeout()
 			}
 		}
+		lblis.EnableHttp2 = extListener.HTTP2Enabled()
 		lblis.XForwardedFor = extListener.XForwardedForEnabled()
 		lblis.Gzip = extListener.GzipEnabled()
 	}
