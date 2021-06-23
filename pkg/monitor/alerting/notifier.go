@@ -182,7 +182,6 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, 
 	recordCreateInput.ResType = recordCreateInput.AlertRule.ResType
 	createData := recordCreateInput.JSON(recordCreateInput)
 	alert, _ := models.CommonAlertManager.GetAlert(evalCtx.Rule.Id)
-	log.Errorf("alert:%v", jsonutils.Marshal(alert))
 	record, err := db.DoCreate(models.AlertRecordManager, evalCtx.Ctx, evalCtx.UserCred, jsonutils.NewDict(),
 		createData, evalCtx.UserCred)
 	if err != nil {
