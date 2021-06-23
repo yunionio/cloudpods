@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -213,11 +214,23 @@ func (record *SAlertRecord) GetMoreDetails(out monitor.AlertRecordDetails) (moni
 		if err != nil {
 			return out, errors.Wrap(err, "record Unmarshal evalMatchs error")
 		}
+		for i, _ := range evalMatchs {
+			evalMatchs[i] = record.filterTags(evalMatchs[i])
+		}
 		out.ResNum = int64(len(evalMatchs))
 	}
 	commonAlert, _ := CommonAlertManager.GetAlert(record.AlertId)
 	out.AlertName = commonAlert.GetName()
 	return out, nil
+}
+
+func (record *SAlertRecord) filterTags(match monitor.EvalMatch) monitor.EvalMatch {
+	for key, _ := range match.Tags {
+		if strings.HasSuffix(key, "_id") {
+			delete(match.Tags, key)
+		}
+	}
+	return match
 }
 
 func (man *SAlertRecordManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, _ jsonutils.JSONObject, data monitor.AlertRecordCreateInput) (monitor.AlertRecordCreateInput, error) {
@@ -292,18 +305,18 @@ getNewMatchTag:
 
 func (record *SAlertRecord) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	record.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	err := MonitorResourceManager.UpdateMonitorResourceAttachJoint(ctx, userCred, record)
+	if err != nil {
+		log.Errorf("UpdateMonitorResourceAttachJoint error: %v", err)
+	}
 	if err := GetAlertResourceManager().ReconcileFromRecord(ctx, userCred, ownerId, record); err != nil {
 		log.Errorf("Reconcile from alert record error: %v", err)
 		return
 	}
-	err := GetAlertResourceManager().NotifyAlertResourceCount(ctx)
+	err = GetAlertResourceManager().NotifyAlertResourceCount(ctx)
 	if err != nil {
 		log.Errorf("NotifyAlertResourceCount error: %v", err)
 		return
-	}
-	err = MonitorResourceManager.UpdateMonitorResourceAttachJoint(ctx, userCred, record)
-	if err != nil {
-		log.Errorf("UpdateMonitorResourceAttachJoint error: %v", err)
 	}
 }
 

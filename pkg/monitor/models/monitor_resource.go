@@ -253,15 +253,19 @@ type AlertStatusCount struct {
 }
 
 func (manager *SMonitorResourceManager) GetPropertyAlert(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	scope, _ := query.GetString("scope")
+	data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	scope, _ := data.GetString("scope")
 	if len(scope) == 0 {
 		scope = "system"
 	}
 	result := jsonutils.NewDict()
 	for resType, _ := range GetResourceSyncMap() {
 		query := manager.Query("alert_state")
-		manager.FilterByOwner(query, userCred, rbacutils.TRbacScope(scope))
+		owner, _ := manager.FetchOwnerId(ctx, data)
+		if owner == nil {
+			owner = userCred
+		}
+		manager.FilterByOwner(query, owner, rbacutils.TRbacScope(scope))
 		query.AppendField(sqlchemy.COUNT("count_id", query.Field("id")))
 		input := monitor.MonitorResourceListInput{ResType: resType}
 		query = manager.FieldListFilter(query, input)

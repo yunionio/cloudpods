@@ -109,9 +109,9 @@ func (c FormatCond) String() string {
 func (c *QueryCondition) filterTags(tags map[string]string, details monitor.CommonAlertMetricDetails) map[string]string {
 	ret := make(map[string]string)
 	for key, val := range tags {
-		if strings.HasSuffix(key, "_id") {
-			continue
-		}
+		//if strings.HasSuffix(key, "_id") {
+		//	continue
+		//}
 		if len(val) == 0 {
 			continue
 		}
