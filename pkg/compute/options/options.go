@@ -173,6 +173,8 @@ type ComputeOptions struct {
 
 	NoCheckOsTypeForCachedImage bool `help:"Don't check os type for cached image"`
 
+	ProhibitRefreshingCloudImage bool `help:"Prohibit refreshing cloud image"`
+
 	esxi.EsxiOptions
 }
 
