@@ -168,9 +168,6 @@ type ICloudRegion interface {
 	CreateICloudAccessGroup(opts *SAccessGroup) (ICloudAccessGroup, error)
 	GetICloudAccessGroupById(id string) (ICloudAccessGroup, error)
 
-	GetICloudApplicationGateways() ([]ICloudApplicationGateway, error)
-	GetICloudApplicationGatewayById(id string) (ICloudApplicationGateway, error)
-
 	GetICloudWafIPSets() ([]ICloudWafIPSet, error)
 	GetICloudWafRegexSets() ([]ICloudWafRegexSet, error)
 	GetICloudWafInstances() ([]ICloudWafInstance, error)
@@ -1292,14 +1289,6 @@ type ICloudAccessGroup interface {
 	SyncRules(common, added, removed AccessGroupRuleSet) error
 
 	Delete() error
-}
-
-type ICloudApplicationGateway interface {
-	ICloudResource
-
-	GetInstanceType() string
-	GetBackends() ([]SAppGatewayBackend, error)
-	GetFrontends() ([]SAppGatewayFrontend, error)
 }
 
 type ICloudWafIPSet interface {

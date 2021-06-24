@@ -175,14 +175,6 @@ func (self *SRegion) CreateICloudFileSystem(opts *cloudprovider.FileSystemCraete
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateICloudFileSystem")
 }
 
-func (self *SRegion) GetICloudApplicationGateways() ([]cloudprovider.ICloudApplicationGateway, error) {
-	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudApplicationGateways")
-}
-
-func (self *SRegion) GetICloudApplicationGatewayById(id string) (cloudprovider.ICloudApplicationGateway, error) {
-	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudApplicationGatewayById")
-}
-
 func (self *SRegion) GetICloudWafIPSets() ([]cloudprovider.ICloudWafIPSet, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudWafIPSets")
 }
