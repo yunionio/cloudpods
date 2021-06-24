@@ -271,4 +271,21 @@ func init() {
 			newMetricFieldCreateInput("usage_active", "Storage utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
 			newMetricFieldCreateInput("free", "Free storage", monitor.METRIC_UNIT_MB, 2),
 		})
+
+	//jenkins
+	RegistryMetricCreateInput("jenkins_node", "jenkins node",
+		monitor.METRIC_RES_TYPE_JENKINS, monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("disk_available", "disk_available", monitor.METRIC_UNIT_BYTE, 1),
+			newMetricFieldCreateInput("temp_available", "temp_available", monitor.METRIC_UNIT_BYTE, 2),
+			newMetricFieldCreateInput("memory_available", "memory_available", monitor.METRIC_UNIT_BYTE, 3),
+			newMetricFieldCreateInput("memory_total", "memory_total", monitor.METRIC_UNIT_BYTE, 4),
+			newMetricFieldCreateInput("swap_available", "swap_available", monitor.METRIC_UNIT_BYTE, 5),
+			newMetricFieldCreateInput("swap_total", "swap_total", monitor.METRIC_UNIT_BYTE, 6),
+		})
+	RegistryMetricCreateInput("jenkins_job", "jenkins job",
+		monitor.METRIC_RES_TYPE_JENKINS, monitor.METRIC_DATABASE_TELE, 2, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("duration", "duration", monitor.METRIC_UNIT_MS, 1),
+			newMetricFieldCreateInput("number", "number", monitor.METRIC_UNIT_COUNT, 2),
+		})
+
 }
