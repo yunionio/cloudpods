@@ -40,7 +40,11 @@ func (self *LoadbalancerDeleteTask) taskFail(ctx context.Context, lb *models.SLo
 	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason.String())
 	db.OpsLog.LogEvent(lb, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_DELOCATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, lb.Id, lb.Name, api.LB_STATUS_DELETE_FAILED, reason.String())
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    lb,
+		Action: notifyclient.ActionDelete,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -60,7 +64,11 @@ func (self *LoadbalancerDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 func (self *LoadbalancerDeleteTask) OnLoadbalancerDeleteComplete(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(lb, db.ACT_DELETE, lb.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_DELOCATE, nil, self.UserCred, true)
-	notifyclient.NotifyWebhook(ctx, self.UserCred, lb, notifyclient.ActionDelete)
+	// notifyclient.NotifyWebhook(ctx, self.UserCred, lb, notifyclient.ActionDelete)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    lb,
+		Action: notifyclient.ActionDelete,
+	})
 	lb.DeleteEip(ctx, self.UserCred)
 	lb.LBPendingDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)

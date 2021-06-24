@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -307,6 +306,11 @@ func (self *GuestDeleteTask) OnFailed(ctx context.Context, guest *models.SGuest,
 	guest.SetStatus(self.UserCred, api.VM_DELETE_FAIL, err.String())
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DELOCATE, err, self.UserCred, false)
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    guest,
+		Action: notifyclient.ActionDelete,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, err)
 }
 
@@ -354,14 +358,5 @@ func (self *GuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGue
 }
 
 func (self *GuestDeleteTask) NotifyServerDeleted(ctx context.Context, guest *models.SGuest) {
-	notifyclient.NotifyWebhook(ctx, self.UserCred, guest, notifyclient.ActionPendingDelete)
-	guest.NotifyServerEvent(
-		ctx,
-		self.UserCred,
-		notifyclient.SERVER_DELETED,
-		notify.NotifyPriorityImportant,
-		false, nil, false,
-	)
-	guest.NotifyAdminServerEvent(ctx, notifyclient.SERVER_DELETED_ADMIN, notify.NotifyPriorityImportant)
-	// guest.EventNotify(ctx, self.UserCred, notifyclient.ActionPendingDelete)
+	guest.EventNotify(ctx, self.UserCred, notifyclient.ActionPendingDelete)
 }

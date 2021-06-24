@@ -43,6 +43,11 @@ func init() {
 func (self *EipAllocateTask) onFailed(ctx context.Context, eip *models.SElasticip, reason jsonutils.JSONObject) {
 	eip.SetStatus(self.UserCred, api.EIP_STATUS_ALLOCATE_FAIL, reason.String())
 	self.setGuestAllocateEipFailed(eip, reason)
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    eip,
+		Action: notifyclient.ActionCreate,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -159,6 +164,10 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 		}
 	} else {
 		logclient.AddActionLogWithStartable(self, eip, logclient.ACT_ALLOCATE, nil, self.UserCred, true)
+		notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+			Obj:    eip,
+			Action: notifyclient.ActionCreate,
+		})
 		self.SetStageComplete(ctx, nil)
 	}
 }
@@ -166,10 +175,6 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 func (self *EipAllocateTask) OnEipAssociateComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	eip := obj.(*models.SElasticip)
 	logclient.AddActionLogWithStartable(self, eip, logclient.ACT_ALLOCATE, nil, self.UserCred, true)
-	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
-		Obj:    eip,
-		Action: notifyclient.ActionCreate,
-	})
 	self.SetStageComplete(ctx, nil)
 }
 

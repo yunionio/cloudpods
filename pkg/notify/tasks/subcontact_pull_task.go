@@ -72,7 +72,7 @@ func (self *SubcontactPullTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 		if !utils.IsInStringArray(cType, PullContactType) {
 			continue
 		}
-		userid, err := models.NotifyService.ContactByMobile(ctx, receiver.Mobile, cType)
+		userid, err := models.NotifyService.ContactByMobile(ctx, receiver.Mobile, cType, receiver.GetDomainId())
 		if err != nil {
 			var reason string
 			if errors.Cause(err) == notify.ErrNoSuchMobile {

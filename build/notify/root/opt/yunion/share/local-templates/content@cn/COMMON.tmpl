@@ -3,4 +3,7 @@
 {{- if $d.brand -}}
 {{ $d.brand }}平台
 {{- end -}}
-{{ .resource_type_display }}{{ $d.name }}已经成功{{ .action_display }}
+{{ .resource_type_display }}{{ $d.name }}已经{{ .action_display }}{{.result_display}}
+{{- if eq .result "failed" -}}
+，请尽快前往控制台进行处理
+{{- end -}}

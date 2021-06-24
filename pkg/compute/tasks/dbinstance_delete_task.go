@@ -41,6 +41,11 @@ func (self *DBInstanceDeleteTask) taskFailed(ctx context.Context, dbinstance *mo
 	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(dbinstance, db.ACT_DELETE, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_DELETE, err, self.UserCred, false)
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    dbinstance,
+		Action: notifyclient.ActionDelete,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
@@ -83,13 +88,21 @@ func (self *DBInstanceDeleteTask) DeleteDBInstanceComplete(ctx context.Context, 
 			self.taskFailed(ctx, dbinstance, errors.Wrap(err, "dbinstance.Purge"))
 			return
 		}
-		notifyclient.NotifyWebhook(ctx, self.UserCred, dbinstance, notifyclient.ActionDelete)
+		//notifyclient.NotifyWebhook(ctx, self.UserCred, dbinstance, notifyclient.ActionDelete)
+		notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+			Obj:    dbinstance,
+			Action: notifyclient.ActionDelete,
+		})
 		self.SetStageComplete(ctx, nil)
 		return
 	}
 
 	self.DeleteBackups(ctx, dbinstance, nil)
-	notifyclient.NotifyWebhook(ctx, self.UserCred, dbinstance, notifyclient.ActionDelete)
+	//notifyclient.NotifyWebhook(ctx, self.UserCred, dbinstance, notifyclient.ActionDelete)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    dbinstance,
+		Action: notifyclient.ActionDelete,
+	})
 }
 
 func (self *DBInstanceDeleteTask) DeleteBackups(ctx context.Context, instance *models.SDBInstance, data jsonutils.JSONObject) {

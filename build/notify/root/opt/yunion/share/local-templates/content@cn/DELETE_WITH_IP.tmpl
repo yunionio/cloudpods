@@ -1,0 +1,22 @@
+{{- $d := .resource_details -}}
+您在{{ $d.project }}项目的
+{{- if $d.brand -}}
+{{ $d.brand }}平台
+{{- end -}}
+
+{{- if $d.private_dns -}}
+，内网地址为{{ $d.private_dns }}:{{ $d.private_connect_port }}
+{{- end -}}
+
+{{- if $d.public_dns -}}
+，外网地址为{{ $d.public_dns }}:{{ $d.public_connect_port }}
+{{- end -}}
+
+{{- if $d.ips -}}
+，IP地址为{{ $d.ips }}
+{{- end -}}
+
+{{- if $d.ip_addr -}}
+，IP地址为{{ $d.ip_addr }}
+{{- end -}}
+{{ .resource_type_display }}{{ $d.name }}已经删除成功。

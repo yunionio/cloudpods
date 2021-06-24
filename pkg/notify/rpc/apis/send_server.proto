@@ -17,7 +17,7 @@ syntax = "proto3";
 package apis;
 
 message SendParams {
-    string Contact = 1;
+    SReceiver Receiver  = 1;
     string Topic = 2;
     string Title = 3;
     string Message = 4;
@@ -25,12 +25,31 @@ message SendParams {
     string RemoteTemplate = 6;
 }
 
-message UpdateConfigParams {
+message ValidateConfigInput {
     map<string, string> configs = 1;
+}
+
+message AddConfigInput {
+    map<string, string> configs = 1;    
+    string domainId = 2;
+}
+
+message UpdateConfigInput {
+    map<string, string> configs = 1;
+    string domainId = 2;
+}
+
+message DeleteConfigInput {
+    string domainId = 1;
+}
+
+message CompleteConfigInput {
+    repeated AddConfigInput ConfigInput = 1;
 }
 
 message UseridByMobileParams {
     string mobile = 1;
+    string domainId = 2;
 }
 
 message Empty {
@@ -45,8 +64,13 @@ message ValidateConfigReply {
     string msg = 2;
 }
 
+message SReceiver {
+    string Contact = 1;
+    string DomainId = 2;
+}
+
 message BatchSendParams {
-    repeated string Contacts = 1;
+    repeated SReceiver Receivers = 1;
     string Title = 2;
     string Message = 3;
     string Priority = 4;
@@ -54,7 +78,7 @@ message BatchSendParams {
 }
 
 message FailedRecord {
-    string Contact = 1;
+    SReceiver Receiver = 1;
     string Reason = 2;
 }
 
@@ -62,10 +86,23 @@ message BatchSendReply {
     repeated FailedRecord FailedRecords = 1;
 }
 
+message ReadyInput {
+    repeated string DomainIds = 1;
+}
+
+message ReadyOutput {
+    bool Ok = 1;
+}
+
 service SendAgent {
-    rpc Send(SendParams) returns (Empty);
-    rpc UpdateConfig(UpdateConfigParams) returns (Empty);
-    rpc ValidateConfig(UpdateConfigParams) returns (ValidateConfigReply);
-    rpc UseridByMobile(UseridByMobileParams) returns (UseridByMobileReply);
+    rpc Ready(ReadyInput) returns (ReadyOutput);
+    rpc Send (SendParams) returns (Empty);
+    rpc AddConfig (AddConfigInput) returns (Empty);
+    rpc CompleteConfig (CompleteConfigInput) returns (Empty);
+    rpc UpdateConfig (UpdateConfigInput) returns (Empty);
+    rpc DeleteConfig (DeleteConfigInput) returns (Empty);
+    rpc ValidateConfig (ValidateConfigInput) returns (ValidateConfigReply);
+    rpc UseridByMobile (UseridByMobileParams) returns (UseridByMobileReply);
     rpc BatchSend (BatchSendParams) returns (BatchSendReply);
 }
+

@@ -42,6 +42,11 @@ func (self *EipDeallocateTask) taskFail(ctx context.Context, eip *models.SElasti
 	eip.SetStatus(self.UserCred, api.EIP_STATUS_DEALLOCATE_FAIL, msg.String())
 	db.OpsLog.LogEvent(eip, db.ACT_DELOCATE, msg, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, eip, logclient.ACT_DELETE, msg, self.UserCred, false)
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    eip,
+		Action: notifyclient.ActionDelete,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, msg)
 	return
 }

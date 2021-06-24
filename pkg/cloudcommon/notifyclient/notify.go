@@ -119,22 +119,29 @@ func NotifyCriticalWithCtx(ctx context.Context, recipientId []string, isGroup bo
 
 // NotifyAllWithoutRobot will send messages via all contacnt type from exclude robot contact type such as dingtalk-robot.
 func NotifyAllWithoutRobot(recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
-	return notifyRobot(context.Background(), "no", recipientId, isGroup, priority, event, data)
+	return notifyAll(context.Background(), recipientId, isGroup, priority, event, data)
 }
 
 // NotifyAllWithoutRobot will send messages via all contacnt type from exclude robot contact type such as dingtalk-robot.
 func NotifyAllWithoutRobotWithCtx(ctx context.Context, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
-	return notifyRobot(ctx, "no", recipientId, isGroup, priority, event, data)
+	return notifyAll(ctx, recipientId, isGroup, priority, event, data)
 }
 
 // NotifyRobot will send messages via all robot contact type such as dingtalk-robot.
-func NotifyRobot(recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
-	return notifyRobot(context.Background(), "only", recipientId, isGroup, priority, event, data)
+func NotifyRobot(robotIds []string, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
+	return NotifyRobotWithCtx(context.Background(), robotIds, priority, event, data)
 }
 
 // NotifyRobot will send messages via all robot contact type such as dingtalk-robot.
-func NotifyRobotWithCtx(ctx context.Context, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
-	return notifyRobot(ctx, "only", recipientId, isGroup, priority, event, data)
+func NotifyRobotWithCtx(ctx context.Context, robotIds []string, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
+	rawNotify(context.Background(), sNotifyParams{
+		robots:   robotIds,
+		channel:  npk.NotifyByRobot,
+		priority: priority,
+		event:    event,
+		data:     data,
+	})
+	return nil
 }
 
 func SystemNotify(priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
@@ -214,7 +221,9 @@ type SEventMessage struct {
 
 type SEventNotifyParam struct {
 	Obj                 db.IModel
+	ResourceType        string
 	Action              api.SAction
+	IsFail              bool
 	ObjDetailsDecorator func(context.Context, *jsonutils.JSONDict)
 	AdvanceDays         int
 }
@@ -240,9 +249,6 @@ func (t *eventTask) Run() {
 }
 
 func EventNotify(ctx context.Context, userCred mcclient.TokenCredential, ep SEventNotifyParam) {
-	// disable EventNotify for now
-	return
-
 	ret, err := db.FetchCustomizeColumns(ep.Obj.GetModelManager(), ctx, userCred, jsonutils.NewDict(), []interface{}{ep.Obj}, stringutils2.SSortedStrings{}, false)
 	if err != nil {
 		log.Errorf("unable to FetchCustomizeColumns: %v", err)
@@ -256,7 +262,14 @@ func EventNotify(ctx context.Context, userCred mcclient.TokenCredential, ep SEve
 	if ep.ObjDetailsDecorator != nil {
 		ep.ObjDetailsDecorator(ctx, objDetails)
 	}
-	event := api.Event.WithAction(ep.Action).WithResourceType(ep.Obj.GetModelManager().Keyword())
+	rt := ep.ResourceType
+	if len(rt) == 0 {
+		rt = ep.Obj.GetModelManager().Keyword()
+	}
+	event := api.Event.WithAction(ep.Action).WithResourceType(rt)
+	if ep.IsFail {
+		event = event.WithResult(api.ResultFailed)
+	}
 	var (
 		projectId       string
 		projectDomainId string
@@ -267,6 +280,7 @@ func EventNotify(ctx context.Context, userCred mcclient.TokenCredential, ep SEve
 		projectDomainId = ownerId.GetProjectDomainId()
 	}
 	params := api.NotificationManagerEventNotifyInput{
+		ReceiverIds:     []string{userCred.GetUserId()},
 		ResourceDetails: objDetails,
 		Event:           event.String(),
 		AdvanceDays:     ep.AdvanceDays,

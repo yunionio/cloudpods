@@ -296,7 +296,11 @@ func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IS
 		self.clearPendingUsage(ctx, guest)
 		db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 		logclient.AddActionLogWithStartable(self, obj, logclient.ACT_ALLOCATE, err, self.GetUserCred(), false)
-		notifyclient.NotifySystemErrorWithCtx(ctx, guest.Id, guest.Name, api.VM_CREATE_FAILED, err.Error())
+		notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+			Obj:    guest,
+			Action: notifyclient.ActionCreateBackupServer,
+			IsFail: true,
+		})
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	}
 }

@@ -41,6 +41,11 @@ func (self *LoadbalancerCreateTask) taskFail(ctx context.Context, lb *models.SLo
 	db.OpsLog.LogEvent(lb, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_CREATE, reason, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, lb.Id, lb.Name, api.LB_CREATE_FAILED, reason.String())
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    lb,
+		Action: notifyclient.ActionCreate,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -71,7 +76,10 @@ func (self *LoadbalancerCreateTask) OnLoadbalancerCreateCompleteFailed(ctx conte
 
 func (self *LoadbalancerCreateTask) OnLoadbalancerStartComplete(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
 	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
-	notifyclient.NotifyWebhook(ctx, self.UserCred, lb, notifyclient.ActionCreate)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    lb,
+		Action: notifyclient.ActionCreate,
+	})
 	self.SetStageComplete(ctx, nil)
 }
 

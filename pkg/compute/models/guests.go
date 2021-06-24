@@ -47,7 +47,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/userdata"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -91,6 +90,7 @@ func init() {
 			"servers",
 		),
 	}
+	log.Infof("init GuestManager")
 	GuestManager.SetVirtualObject(GuestManager)
 	GuestManager.SetAlias("guest", "guests")
 }
@@ -1681,8 +1681,6 @@ func (self *SGuest) PostUpdate(ctx context.Context, userCred mcclient.TokenCrede
 			log.Errorf("StartRemoteUpdateTask fail: %s", err)
 		}
 	}
-	// notify webhook
-	notifyclient.NotifyWebhook(ctx, userCred, self, notifyclient.ActionUpdate)
 }
 
 func (manager *SGuestManager) checkCreateQuota(

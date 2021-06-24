@@ -23,6 +23,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -73,7 +74,20 @@ func (self *DBInstanceAccountResetPasswordTask) OnInit(ctx context.Context, obj 
 		}
 	}
 
+	self.resetPasswdNotify(ctx, instance, account, password)
 	account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
 	logclient.AddActionLogWithStartable(self, account, logclient.ACT_RESET_PASSWORD, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *DBInstanceAccountResetPasswordTask) resetPasswdNotify(ctx context.Context, rds *models.SDBInstance, account *models.SDBInstanceAccount, password string) {
+	detailsDecro := func(ctx context.Context, details *jsonutils.JSONDict) {
+		details.Set("account", jsonutils.NewString(account.GetName()))
+		details.Set("password", jsonutils.NewString(password))
+	}
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:                 rds,
+		Action:              notifyclient.ActionResetPassword,
+		ObjDetailsDecorator: detailsDecro,
+	})
 }

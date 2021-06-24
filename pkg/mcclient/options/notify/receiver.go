@@ -31,7 +31,7 @@ func (rc *ReceiverCreateOptions) Params() (jsonutils.JSONObject, error) {
 	d := jsonutils.NewDict()
 	d.Set("uid", jsonutils.NewString(rc.UID))
 	d.Set("email", jsonutils.NewString(rc.Email))
-	d.Set("enabled_contact_type", jsonutils.NewStringArray(rc.EnabledContactTypes))
+	d.Set("enabled_contact_types", jsonutils.NewStringArray(rc.EnabledContactTypes))
 	d.Add(jsonutils.NewString(rc.Mobile), "international_mobile", "mobile")
 	d.Add(jsonutils.NewString(rc.MobileAreaCode), "international_mobile", "area_code")
 	return d, nil
@@ -101,6 +101,19 @@ func (rv *ReceiverVerifyOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(rv.SreceiverVerifyOptions), nil
 }
 
+type ReceiverEnableContactTypeInput struct {
+	ReceiverOptions
+	SreceiverEnableContactTypeInput
+}
+
+func (re *ReceiverEnableContactTypeInput) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(re.SreceiverEnableContactTypeInput), nil
+}
+
+type SreceiverEnableContactTypeInput struct {
+	EnabledContactTypes []string `help:"Enabled contact types"`
+}
+
 type ReceiverIntellijGetOptions struct {
 	USERID     string `help:"user id in keystone" json:"user_id"`
 	CreateIfNo *bool  `help:"create if receiver with UserId does not exist"`
@@ -109,4 +122,12 @@ type ReceiverIntellijGetOptions struct {
 
 func (ri *ReceiverIntellijGetOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(ri), nil
+}
+
+type ReceiverGetTypeOptions struct {
+	Domain string `help:"Domain under where available contact methods"`
+}
+
+func (rg *ReceiverGetTypeOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(rg), nil
 }

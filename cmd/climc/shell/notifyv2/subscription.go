@@ -21,10 +21,15 @@ import (
 )
 
 func init() {
-	cmd := shell.NewResourceCmd(&modules.NotifySubscription).WithKeyword("notify-subscription")
-	cmd.List(new(notify.SubscriptionListOptions))
-	cmd.Show(new(notify.SubscriptionOptions))
-	cmd.Perform("set-receiver", new(notify.SubscriptionSetReceiverOptions))
-	cmd.Perform("set-robot", new(notify.SubscriptionSetRobotOptions))
-	cmd.Perform("set-webhook", new(notify.SubscriptionSetWebhookOptions))
+	cmd := shell.NewResourceCmd(&modules.NotifyTopic).WithKeyword("notify-topic")
+	cmd.List(new(notify.TopicListOptions))
+
+	cmd1 := shell.NewResourceCmd(&modules.NotifySubscriber).WithKeyword("notify-subscriber")
+	cmd1.List(new(notify.SubscriberListOptions))
+	cmd1.Create(new(notify.SubscriberCreateOptions))
+	cmd1.Show(new(notify.SubscriberOptions))
+	cmd1.Delete(new(notify.SubscriberOptions))
+	cmd1.Perform("change", new(notify.SubscriberChangeOptions))
+	cmd1.Perform("enable", new(notify.SubscriberOptions))
+	cmd1.Perform("disable", new(notify.SubscriberOptions))
 }

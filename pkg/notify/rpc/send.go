@@ -34,7 +34,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	notifyv2 "yunion.io/x/onecloud/pkg/notify"
-	"yunion.io/x/onecloud/pkg/notify/models"
 	"yunion.io/x/onecloud/pkg/notify/rpc/apis"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
@@ -135,11 +134,57 @@ func (self *SRpcService) BatchSend(ctx context.Context, contactType string, args
 	if len(args.RemoteTemplate) == 0 && contactType == api.MOBILE {
 		return nil, fmt.Errorf("empty remote template for mobile type notification")
 	}
+	domainIds := make([]string, len(args.Receivers))
+	for i := range domainIds {
+		domainIds[i] = args.Receivers[i].DomainId
+	}
+	checks, err := self.configStore.BatchCheckConfig(contactType, domainIds)
+	if err != nil {
+		return nil, errors.Wrap(err, "BatchCheckConfig")
+	}
+	hasSystem, err := self.configStore.HasSystemConfig(contactType)
+	if err != nil {
+		return nil, errors.Wrap(err, "HasSystemConfig")
+	}
+	ret := make([]*apis.FailedRecord, 0)
+	receiverIndex := 0
+	for i := range checks {
+		if checks[i] {
+			receiverIndex++
+			continue
+		}
+		if hasSystem {
+			args.Receivers[receiverIndex].DomainId = ""
+			receiverIndex++
+			continue
+		}
+		ret = append(ret, &apis.FailedRecord{
+			Receiver: args.Receivers[i],
+			Reason:   fmt.Sprintf("no %q config for in domain %q and system", contactType, domainIds[i]),
+		})
+		args.Receivers = append(args.Receivers[:receiverIndex], args.Receivers[receiverIndex+1:]...)
+	}
 	f := func(service *apis.SendNotificationClient) (interface{}, error) {
+		// check ready
+		domainIds := make([]string, len(args.Receivers))
+		for i := range domainIds {
+			domainIds[i] = args.Receivers[i].DomainId
+		}
+		output, err := service.Ready(ctx, &apis.ReadyInput{DomainIds: domainIds})
+		if err != nil {
+			return nil, err
+		}
+		if !output.Ok {
+			// if NOINIT, try to restart server and send again
+			service, err = self.restartService(ctx, contactType)
+			if err != nil {
+				return nil, errors.Wrapf(err, "restart service %s failed", contactType)
+			}
+		}
 		return service.BatchSend(ctx, &args)
 	}
 
-	ret, err := self.execute(ctx, f, contactType)
+	i, err := self.execute(ctx, f, contactType)
 	if err != nil {
 		s, ok := status.FromError(err)
 		if !ok {
@@ -147,29 +192,54 @@ func (self *SRpcService) BatchSend(ctx context.Context, contactType string, args
 		}
 		return nil, errors.Error(s.Message())
 	}
-	reply := ret.(*apis.BatchSendReply)
-	return reply.FailedRecords, nil
+	reply := i.(*apis.BatchSendReply)
+	return append(ret, reply.FailedRecords...), nil
 }
 
-// RestartService can restart remote rpc server and pass config info.
-// This function should be call immediately after init notify server firstly
-// This function should be call immediately after accept the request about changing config.
-func (self *SRpcService) RestartService(ctx context.Context, config notifyv2.SConfig, serviceName string) {
-	_, err := self.restartWithConfig(ctx, serviceName, config)
-	if err != nil {
-		log.Debugf("restart service failed: %s", err)
+// UpdateConfig can update config for rpc service with domainId
+func (self *SRpcService) UpdateConfig(ctx context.Context, service string, config notifyv2.SConfig) error {
+	var (
+		sendService *apis.SendNotificationClient
+		err         error
+	)
+
+	sendService, ok := self.SendServices.Get(service)
+	if !ok {
+		return fmt.Errorf("no such service %s", service)
 	}
+
+	args := apis.UpdateConfigInput{
+		Configs:  config.Config,
+		DomainId: config.DomainId,
+	}
+	_, err = sendService.UpdateConfig(ctx, &args)
+	if err != nil {
+		st := status.Convert(err)
+		if st.Code() != codes.NotFound {
+			return errors.Error(st.Message())
+		}
+		_, err = sendService.AddConfig(ctx, &apis.AddConfigInput{
+			Configs:  config.Config,
+			DomainId: config.DomainId,
+		})
+		if err != nil {
+			return errors.Wrap(err, "try to add config but failed")
+		}
+	}
+	return nil
 }
 
-func (self *SRpcService) ContactByMobile(ctx context.Context, mobile, serviceName string) (string, error) {
+func (self *SRpcService) ContactByMobile(ctx context.Context, mobile, serviceName string, domainId string) (string, error) {
 
 	iMobile := api.ParseInternationalMobile(mobile)
 	// compatible
 	if iMobile.AreaCode == "86" {
 		mobile = iMobile.Mobile
 	}
-	args := apis.UseridByMobileParams{}
-	args.Mobile = mobile
+	args := apis.UseridByMobileParams{
+		Mobile:   mobile,
+		DomainId: domainId,
+	}
 
 	f := func(service *apis.SendNotificationClient) (interface{}, error) {
 		return service.UseridByMobile(ctx, &args)
@@ -187,7 +257,7 @@ func (self *SRpcService) ContactByMobile(ctx context.Context, mobile, serviceNam
 	if s.Code() == codes.NotFound {
 		return "", errors.Wrap(notifyv2.ErrNoSuchMobile, s.Message())
 	}
-	if s.Code() == codes.PermissionDenied {
+	if s.Code() == codes.FailedPrecondition {
 		return "", errors.Wrap(notifyv2.ErrIncompleteConfig, s.Message())
 	}
 	return "", err
@@ -246,40 +316,47 @@ func (self *SRpcService) execute(ctx context.Context, f func(client *apis.SendNo
 	return ret, nil
 }
 
-// restartSrevice fetch config from IServiceConfigStore and Call rpc.UpdateConfig
-func (self *SRpcService) restartService(ctx context.Context, serviceName string) (*apis.SendNotificationClient, error) {
+var ErrGetConfig = errors.Error("Get Config Failed")
 
-	config, err := self.configStore.GetConfig(serviceName)
+func (self *SRpcService) completeConfig(ctx context.Context, serviceName string, sendService *apis.SendNotificationClient) error {
+	// get config
+	configs, err := self.configStore.GetConfigs(serviceName)
 	if err != nil {
-		log.Debugf("getConfig of serveice %s from database error", serviceName)
-		return nil, models.ErrGetConfig
+		log.Errorf("getConfig of serveice %s from database error", serviceName)
+		return ErrGetConfig
 	}
-	return self.restartWithConfig(ctx, serviceName, config)
+
+	// update config for service
+	configInput := make([]*apis.AddConfigInput, len(configs))
+	for i := range configInput {
+		configInput[i] = &apis.AddConfigInput{
+			Configs:  configs[i].Config,
+			DomainId: configs[i].DomainId,
+		}
+	}
+	_, err = sendService.CompleteConfig(ctx, &apis.CompleteConfigInput{
+		ConfigInput: configInput,
+	})
+	if err != nil {
+		st := status.Convert(err)
+		if st.Code() == codes.FailedPrecondition {
+			// no such rpc serve
+			err = fmt.Errorf(st.Message())
+		}
+		if st.Code() == codes.Unavailable {
+			err = fmt.Errorf("service is unavailable for now: %s", st.Message())
+		}
+		return errors.Wrap(err, "UpdateConfig")
+	}
+	return nil
 }
 
-func (self *SRpcService) restartWithConfig(ctx context.Context, serviceName string,
-	config map[string]string) (*apis.SendNotificationClient, error) {
-
-	var (
-		sendService *apis.SendNotificationClient
-		err         error
-	)
-
-	sendService, ok := self.SendServices.Get(serviceName)
-
+func (self *SRpcService) restartService(ctx context.Context, service string) (*apis.SendNotificationClient, error) {
+	sendService, ok := self.SendServices.Get(service)
 	if !ok {
 		return nil, fmt.Errorf("no such service, please start new service")
 	}
-
-	args := apis.UpdateConfigParams{}
-	args.Configs = config
-	_, err = sendService.UpdateConfig(ctx, &args)
-	if err != nil {
-		st := status.Convert(err)
-		return nil, errors.Error(st.Message())
-	}
-
-	return sendService, nil
+	return sendService, self.completeConfig(ctx, service, sendService)
 }
 
 // startNewService try to start a new rpc service named serviceName
@@ -308,30 +385,7 @@ func (self *SRpcService) startNewService(ctx context.Context, serviceName string
 		return sendService, nil
 	}
 
-	// get config
-	config, err := self.configStore.GetConfig(serviceName)
-	if err != nil {
-		log.Errorf("getConfig of serveice %s from database error", serviceName)
-		return nil, models.ErrGetConfig
-	}
-
-	// update config for service
-	args := apis.UpdateConfigParams{}
-	args.Configs = config
-	_, err = sendService.UpdateConfig(ctx, &args)
-	if err != nil {
-		st := status.Convert(err)
-		if st.Code() == codes.FailedPrecondition {
-			// no such rpc serve
-			err = fmt.Errorf(st.Message())
-		}
-		if st.Code() == codes.Unavailable {
-			err = fmt.Errorf("service is unavailable for now: %s", st.Message())
-		}
-		return nil, errors.Wrap(err, "UpdateConfig")
-	}
-
-	return sendService, nil
+	return sendService, self.completeConfig(ctx, serviceName, sendService)
 }
 
 // closeService will remove service record from self.SendServices and try to remove sock file
@@ -374,8 +428,48 @@ func (self *SRpcService) updateService(ctx context.Context) error {
 	return nil
 }
 
-func (self *SRpcService) ValidateConfig(ctx context.Context, cType string, configs map[string]string) (isValid bool,
-	message string, err error) {
+func (self *SRpcService) AddConfig(ctx context.Context, service string, config notifyv2.SConfig) error {
+	var (
+		sendService *apis.SendNotificationClient
+		err         error
+	)
+
+	sendService, ok := self.SendServices.Get(service)
+	if !ok {
+		return fmt.Errorf("no such service %s", service)
+	}
+	args := apis.AddConfigInput{
+		DomainId: config.DomainId,
+		Configs:  config.Config,
+	}
+	_, err = sendService.AddConfig(ctx, &args)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (self *SRpcService) DeleteConfig(ctx context.Context, service, domainId string) error {
+	var (
+		sendService *apis.SendNotificationClient
+		err         error
+	)
+
+	sendService, ok := self.SendServices.Get(service)
+	if !ok {
+		return fmt.Errorf("no such service %s", service)
+	}
+	args := apis.DeleteConfigInput{
+		DomainId: domainId,
+	}
+	_, err = sendService.DeleteConfig(ctx, &args)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (self *SRpcService) ValidateConfig(ctx context.Context, cType string, configs map[string]string) (isValid bool, message string, err error) {
 
 	sendService, ok := self.SendServices.Get(cType)
 
@@ -389,7 +483,7 @@ func (self *SRpcService) ValidateConfig(ctx context.Context, cType string, confi
 			return
 		}
 	}
-	param := apis.UpdateConfigParams{
+	param := apis.ValidateConfigInput{
 		Configs: configs,
 	}
 	rep, err := sendService.ValidateConfig(ctx, &param)
@@ -403,6 +497,44 @@ func (self *SRpcService) ValidateConfig(ctx context.Context, cType string, confi
 		return
 	}
 	return rep.IsValid, rep.Msg, nil
+}
+
+func robotType2ContactType(rType string) string {
+	switch rType {
+	case api.ROBOT_TYPE_FEISHU:
+		return api.FEISHU_ROBOT
+	case api.ROBOT_TYPE_DINGTALK:
+		return api.DINGTALK_ROBOT
+	case api.ROBOT_TYPE_WORKWX:
+		return api.DINGTALK_ROBOT
+	case api.ROBOT_TYPE_WEBHOOK:
+		return api.WEBHOOK
+	}
+	return rType
+}
+
+func (self *SRpcService) SendRobotMessage(ctx context.Context, rType string, receivers []*apis.SReceiver, title string, message string) ([]*apis.FailedRecord, error) {
+	log.Infof("rType: %s", rType)
+	contactType := robotType2ContactType(rType)
+	args := apis.BatchSendParams{
+		Receivers: receivers,
+		Title:     title,
+		Message:   message,
+	}
+	f := func(service *apis.SendNotificationClient) (interface{}, error) {
+		return service.BatchSend(ctx, &args)
+	}
+
+	ret, err := self.execute(ctx, f, contactType)
+	if err != nil {
+		s, ok := status.FromError(err)
+		if !ok {
+			return nil, err
+		}
+		return nil, errors.Error(s.Message())
+	}
+	reply := ret.(*apis.BatchSendReply)
+	return reply.FailedRecords, nil
 }
 
 func grpcDialWithUnixSocket(ctx context.Context, socketPath string) (*grpc.ClientConn, error) {

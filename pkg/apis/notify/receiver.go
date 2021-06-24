@@ -162,3 +162,7 @@ type ReceiverIntellijGetInput struct {
 	// required: true
 	Scope string `json:"scope"`
 }
+
+type ReceiverEnableContactTypeInput struct {
+	EnabledContactTypes []string `json:"enabled_contact_types"`
+}

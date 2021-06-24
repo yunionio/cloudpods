@@ -23,6 +23,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -40,6 +41,11 @@ func (self *ElasticcacheSyncstatusTask) taskFailed(ctx context.Context, cache *m
 	self.SetStageFailed(ctx, err)
 	db.OpsLog.LogEvent(cache, db.ACT_SYNC_STATUS, cache.GetShortDesc(ctx), self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, cache, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    cache,
+		Action: notifyclient.ActionSyncStatus,
+		IsFail: true,
+	})
 }
 
 func (self *ElasticcacheSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

@@ -197,6 +197,7 @@ func mergeQueryParams(params map[string]string, query jsonutils.JSONObject, excl
 }
 
 func listHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	log.Infof("start list handler")
 	manager, params, query, _ := fetchEnv(ctx, w, r)
 	handleList(ctx, w, manager, nil, mergeQueryParams(params, query))
 }

@@ -32,6 +32,9 @@ type NotificationCreateInput struct {
 	// description: direct contact, admin privileges required
 	// required: false
 	Contacts []string `json:"contacts"`
+	// description: robots
+	// example: feishu robot
+	Robots []string `json:"robots"`
 	// description: contact type
 	// required: ture
 	// example: email
@@ -84,14 +87,19 @@ type NotificationListInput struct {
 	Tag         string
 }
 
+type SContact struct {
+	Contact     string `json:"contact"`
+	ContactType string `json:"contact_type"`
+}
+
 type NotificationManagerEventNotifyInput struct {
 	// description: ids or names of receiver
 	// required: false
-	// example: {"adfb720ccdd34c638346ea4fa7a713a8", "zhangsan"}
-	Receivers []string `json:"receivers"`
+	// example: {"adfb720ccdd34c638346ea4fa7a713a8"}
+	ReceiverIds []string `json:"receiver_ids"`
 	// description: direct contact, admin privileges required
 	// required: false
-	Contacts []string `json:"contacts"`
+	Contacts []SContact `json:"contacts"`
 	// description: contact types
 	// required: false
 	// example: email

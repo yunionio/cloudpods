@@ -26,15 +26,15 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type SendParams struct {
-	Contact              string   `protobuf:"bytes,1,opt,name=Contact,proto3" json:"Contact,omitempty"`
-	Topic                string   `protobuf:"bytes,2,opt,name=Topic,proto3" json:"Topic,omitempty"`
-	Title                string   `protobuf:"bytes,3,opt,name=Title,proto3" json:"Title,omitempty"`
-	Message              string   `protobuf:"bytes,4,opt,name=Message,proto3" json:"Message,omitempty"`
-	Priority             string   `protobuf:"bytes,5,opt,name=Priority,proto3" json:"Priority,omitempty"`
-	RemoteTemplate       string   `protobuf:"bytes,6,opt,name=RemoteTemplate,proto3" json:"RemoteTemplate,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Receiver             *SReceiver `protobuf:"bytes,1,opt,name=Receiver,proto3" json:"Receiver,omitempty"`
+	Topic                string     `protobuf:"bytes,2,opt,name=Topic,proto3" json:"Topic,omitempty"`
+	Title                string     `protobuf:"bytes,3,opt,name=Title,proto3" json:"Title,omitempty"`
+	Message              string     `protobuf:"bytes,4,opt,name=Message,proto3" json:"Message,omitempty"`
+	Priority             string     `protobuf:"bytes,5,opt,name=Priority,proto3" json:"Priority,omitempty"`
+	RemoteTemplate       string     `protobuf:"bytes,6,opt,name=RemoteTemplate,proto3" json:"RemoteTemplate,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
+	XXX_unrecognized     []byte     `json:"-"`
+	XXX_sizecache        int32      `json:"-"`
 }
 
 func (m *SendParams) Reset()         { *m = SendParams{} }
@@ -62,11 +62,11 @@ func (m *SendParams) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_SendParams proto.InternalMessageInfo
 
-func (m *SendParams) GetContact() string {
+func (m *SendParams) GetReceiver() *SReceiver {
 	if m != nil {
-		return m.Contact
+		return m.Receiver
 	}
-	return ""
+	return nil
 }
 
 func (m *SendParams) GetTopic() string {
@@ -104,47 +104,220 @@ func (m *SendParams) GetRemoteTemplate() string {
 	return ""
 }
 
-type UpdateConfigParams struct {
+type ValidateConfigInput struct {
 	Configs              map[string]string `protobuf:"bytes,1,rep,name=configs,proto3" json:"configs,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
 }
 
-func (m *UpdateConfigParams) Reset()         { *m = UpdateConfigParams{} }
-func (m *UpdateConfigParams) String() string { return proto.CompactTextString(m) }
-func (*UpdateConfigParams) ProtoMessage()    {}
-func (*UpdateConfigParams) Descriptor() ([]byte, []int) {
+func (m *ValidateConfigInput) Reset()         { *m = ValidateConfigInput{} }
+func (m *ValidateConfigInput) String() string { return proto.CompactTextString(m) }
+func (*ValidateConfigInput) ProtoMessage()    {}
+func (*ValidateConfigInput) Descriptor() ([]byte, []int) {
 	return fileDescriptor_63fdd68f7eb311f9, []int{1}
 }
 
-func (m *UpdateConfigParams) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_UpdateConfigParams.Unmarshal(m, b)
+func (m *ValidateConfigInput) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ValidateConfigInput.Unmarshal(m, b)
 }
-func (m *UpdateConfigParams) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_UpdateConfigParams.Marshal(b, m, deterministic)
+func (m *ValidateConfigInput) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ValidateConfigInput.Marshal(b, m, deterministic)
 }
-func (m *UpdateConfigParams) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_UpdateConfigParams.Merge(m, src)
+func (m *ValidateConfigInput) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ValidateConfigInput.Merge(m, src)
 }
-func (m *UpdateConfigParams) XXX_Size() int {
-	return xxx_messageInfo_UpdateConfigParams.Size(m)
+func (m *ValidateConfigInput) XXX_Size() int {
+	return xxx_messageInfo_ValidateConfigInput.Size(m)
 }
-func (m *UpdateConfigParams) XXX_DiscardUnknown() {
-	xxx_messageInfo_UpdateConfigParams.DiscardUnknown(m)
+func (m *ValidateConfigInput) XXX_DiscardUnknown() {
+	xxx_messageInfo_ValidateConfigInput.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_UpdateConfigParams proto.InternalMessageInfo
+var xxx_messageInfo_ValidateConfigInput proto.InternalMessageInfo
 
-func (m *UpdateConfigParams) GetConfigs() map[string]string {
+func (m *ValidateConfigInput) GetConfigs() map[string]string {
 	if m != nil {
 		return m.Configs
 	}
 	return nil
 }
 
+type AddConfigInput struct {
+	Configs              map[string]string `protobuf:"bytes,1,rep,name=configs,proto3" json:"configs,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	DomainId             string            `protobuf:"bytes,2,opt,name=domainId,proto3" json:"domainId,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
+}
+
+func (m *AddConfigInput) Reset()         { *m = AddConfigInput{} }
+func (m *AddConfigInput) String() string { return proto.CompactTextString(m) }
+func (*AddConfigInput) ProtoMessage()    {}
+func (*AddConfigInput) Descriptor() ([]byte, []int) {
+	return fileDescriptor_63fdd68f7eb311f9, []int{2}
+}
+
+func (m *AddConfigInput) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_AddConfigInput.Unmarshal(m, b)
+}
+func (m *AddConfigInput) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_AddConfigInput.Marshal(b, m, deterministic)
+}
+func (m *AddConfigInput) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AddConfigInput.Merge(m, src)
+}
+func (m *AddConfigInput) XXX_Size() int {
+	return xxx_messageInfo_AddConfigInput.Size(m)
+}
+func (m *AddConfigInput) XXX_DiscardUnknown() {
+	xxx_messageInfo_AddConfigInput.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_AddConfigInput proto.InternalMessageInfo
+
+func (m *AddConfigInput) GetConfigs() map[string]string {
+	if m != nil {
+		return m.Configs
+	}
+	return nil
+}
+
+func (m *AddConfigInput) GetDomainId() string {
+	if m != nil {
+		return m.DomainId
+	}
+	return ""
+}
+
+type UpdateConfigInput struct {
+	Configs              map[string]string `protobuf:"bytes,1,rep,name=configs,proto3" json:"configs,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	DomainId             string            `protobuf:"bytes,2,opt,name=domainId,proto3" json:"domainId,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
+}
+
+func (m *UpdateConfigInput) Reset()         { *m = UpdateConfigInput{} }
+func (m *UpdateConfigInput) String() string { return proto.CompactTextString(m) }
+func (*UpdateConfigInput) ProtoMessage()    {}
+func (*UpdateConfigInput) Descriptor() ([]byte, []int) {
+	return fileDescriptor_63fdd68f7eb311f9, []int{3}
+}
+
+func (m *UpdateConfigInput) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UpdateConfigInput.Unmarshal(m, b)
+}
+func (m *UpdateConfigInput) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UpdateConfigInput.Marshal(b, m, deterministic)
+}
+func (m *UpdateConfigInput) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpdateConfigInput.Merge(m, src)
+}
+func (m *UpdateConfigInput) XXX_Size() int {
+	return xxx_messageInfo_UpdateConfigInput.Size(m)
+}
+func (m *UpdateConfigInput) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpdateConfigInput.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UpdateConfigInput proto.InternalMessageInfo
+
+func (m *UpdateConfigInput) GetConfigs() map[string]string {
+	if m != nil {
+		return m.Configs
+	}
+	return nil
+}
+
+func (m *UpdateConfigInput) GetDomainId() string {
+	if m != nil {
+		return m.DomainId
+	}
+	return ""
+}
+
+type DeleteConfigInput struct {
+	DomainId             string   `protobuf:"bytes,1,opt,name=domainId,proto3" json:"domainId,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *DeleteConfigInput) Reset()         { *m = DeleteConfigInput{} }
+func (m *DeleteConfigInput) String() string { return proto.CompactTextString(m) }
+func (*DeleteConfigInput) ProtoMessage()    {}
+func (*DeleteConfigInput) Descriptor() ([]byte, []int) {
+	return fileDescriptor_63fdd68f7eb311f9, []int{4}
+}
+
+func (m *DeleteConfigInput) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DeleteConfigInput.Unmarshal(m, b)
+}
+func (m *DeleteConfigInput) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DeleteConfigInput.Marshal(b, m, deterministic)
+}
+func (m *DeleteConfigInput) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeleteConfigInput.Merge(m, src)
+}
+func (m *DeleteConfigInput) XXX_Size() int {
+	return xxx_messageInfo_DeleteConfigInput.Size(m)
+}
+func (m *DeleteConfigInput) XXX_DiscardUnknown() {
+	xxx_messageInfo_DeleteConfigInput.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DeleteConfigInput proto.InternalMessageInfo
+
+func (m *DeleteConfigInput) GetDomainId() string {
+	if m != nil {
+		return m.DomainId
+	}
+	return ""
+}
+
+type CompleteConfigInput struct {
+	ConfigInput          []*AddConfigInput `protobuf:"bytes,1,rep,name=ConfigInput,proto3" json:"ConfigInput,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
+}
+
+func (m *CompleteConfigInput) Reset()         { *m = CompleteConfigInput{} }
+func (m *CompleteConfigInput) String() string { return proto.CompactTextString(m) }
+func (*CompleteConfigInput) ProtoMessage()    {}
+func (*CompleteConfigInput) Descriptor() ([]byte, []int) {
+	return fileDescriptor_63fdd68f7eb311f9, []int{5}
+}
+
+func (m *CompleteConfigInput) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CompleteConfigInput.Unmarshal(m, b)
+}
+func (m *CompleteConfigInput) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CompleteConfigInput.Marshal(b, m, deterministic)
+}
+func (m *CompleteConfigInput) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CompleteConfigInput.Merge(m, src)
+}
+func (m *CompleteConfigInput) XXX_Size() int {
+	return xxx_messageInfo_CompleteConfigInput.Size(m)
+}
+func (m *CompleteConfigInput) XXX_DiscardUnknown() {
+	xxx_messageInfo_CompleteConfigInput.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CompleteConfigInput proto.InternalMessageInfo
+
+func (m *CompleteConfigInput) GetConfigInput() []*AddConfigInput {
+	if m != nil {
+		return m.ConfigInput
+	}
+	return nil
+}
+
 type UseridByMobileParams struct {
 	Mobile               string   `protobuf:"bytes,1,opt,name=mobile,proto3" json:"mobile,omitempty"`
+	DomainId             string   `protobuf:"bytes,2,opt,name=domainId,proto3" json:"domainId,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -154,7 +327,7 @@ func (m *UseridByMobileParams) Reset()         { *m = UseridByMobileParams{} }
 func (m *UseridByMobileParams) String() string { return proto.CompactTextString(m) }
 func (*UseridByMobileParams) ProtoMessage()    {}
 func (*UseridByMobileParams) Descriptor() ([]byte, []int) {
-	return fileDescriptor_63fdd68f7eb311f9, []int{2}
+	return fileDescriptor_63fdd68f7eb311f9, []int{6}
 }
 
 func (m *UseridByMobileParams) XXX_Unmarshal(b []byte) error {
@@ -182,6 +355,13 @@ func (m *UseridByMobileParams) GetMobile() string {
 	return ""
 }
 
+func (m *UseridByMobileParams) GetDomainId() string {
+	if m != nil {
+		return m.DomainId
+	}
+	return ""
+}
+
 type Empty struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -192,7 +372,7 @@ func (m *Empty) Reset()         { *m = Empty{} }
 func (m *Empty) String() string { return proto.CompactTextString(m) }
 func (*Empty) ProtoMessage()    {}
 func (*Empty) Descriptor() ([]byte, []int) {
-	return fileDescriptor_63fdd68f7eb311f9, []int{3}
+	return fileDescriptor_63fdd68f7eb311f9, []int{7}
 }
 
 func (m *Empty) XXX_Unmarshal(b []byte) error {
@@ -224,7 +404,7 @@ func (m *UseridByMobileReply) Reset()         { *m = UseridByMobileReply{} }
 func (m *UseridByMobileReply) String() string { return proto.CompactTextString(m) }
 func (*UseridByMobileReply) ProtoMessage()    {}
 func (*UseridByMobileReply) Descriptor() ([]byte, []int) {
-	return fileDescriptor_63fdd68f7eb311f9, []int{4}
+	return fileDescriptor_63fdd68f7eb311f9, []int{8}
 }
 
 func (m *UseridByMobileReply) XXX_Unmarshal(b []byte) error {
@@ -264,7 +444,7 @@ func (m *ValidateConfigReply) Reset()         { *m = ValidateConfigReply{} }
 func (m *ValidateConfigReply) String() string { return proto.CompactTextString(m) }
 func (*ValidateConfigReply) ProtoMessage()    {}
 func (*ValidateConfigReply) Descriptor() ([]byte, []int) {
-	return fileDescriptor_63fdd68f7eb311f9, []int{5}
+	return fileDescriptor_63fdd68f7eb311f9, []int{9}
 }
 
 func (m *ValidateConfigReply) XXX_Unmarshal(b []byte) error {
@@ -299,22 +479,69 @@ func (m *ValidateConfigReply) GetMsg() string {
 	return ""
 }
 
-type BatchSendParams struct {
-	Contacts             []string `protobuf:"bytes,1,rep,name=Contacts,proto3" json:"Contacts,omitempty"`
-	Title                string   `protobuf:"bytes,2,opt,name=Title,proto3" json:"Title,omitempty"`
-	Message              string   `protobuf:"bytes,3,opt,name=Message,proto3" json:"Message,omitempty"`
-	Priority             string   `protobuf:"bytes,4,opt,name=Priority,proto3" json:"Priority,omitempty"`
-	RemoteTemplate       string   `protobuf:"bytes,5,opt,name=RemoteTemplate,proto3" json:"RemoteTemplate,omitempty"`
+type SReceiver struct {
+	Contact              string   `protobuf:"bytes,1,opt,name=Contact,proto3" json:"Contact,omitempty"`
+	DomainId             string   `protobuf:"bytes,2,opt,name=DomainId,proto3" json:"DomainId,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SReceiver) Reset()         { *m = SReceiver{} }
+func (m *SReceiver) String() string { return proto.CompactTextString(m) }
+func (*SReceiver) ProtoMessage()    {}
+func (*SReceiver) Descriptor() ([]byte, []int) {
+	return fileDescriptor_63fdd68f7eb311f9, []int{10}
+}
+
+func (m *SReceiver) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SReceiver.Unmarshal(m, b)
+}
+func (m *SReceiver) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SReceiver.Marshal(b, m, deterministic)
+}
+func (m *SReceiver) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SReceiver.Merge(m, src)
+}
+func (m *SReceiver) XXX_Size() int {
+	return xxx_messageInfo_SReceiver.Size(m)
+}
+func (m *SReceiver) XXX_DiscardUnknown() {
+	xxx_messageInfo_SReceiver.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SReceiver proto.InternalMessageInfo
+
+func (m *SReceiver) GetContact() string {
+	if m != nil {
+		return m.Contact
+	}
+	return ""
+}
+
+func (m *SReceiver) GetDomainId() string {
+	if m != nil {
+		return m.DomainId
+	}
+	return ""
+}
+
+type BatchSendParams struct {
+	Receivers            []*SReceiver `protobuf:"bytes,1,rep,name=Receivers,proto3" json:"Receivers,omitempty"`
+	Title                string       `protobuf:"bytes,2,opt,name=Title,proto3" json:"Title,omitempty"`
+	Message              string       `protobuf:"bytes,3,opt,name=Message,proto3" json:"Message,omitempty"`
+	Priority             string       `protobuf:"bytes,4,opt,name=Priority,proto3" json:"Priority,omitempty"`
+	RemoteTemplate       string       `protobuf:"bytes,5,opt,name=RemoteTemplate,proto3" json:"RemoteTemplate,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
+	XXX_unrecognized     []byte       `json:"-"`
+	XXX_sizecache        int32        `json:"-"`
 }
 
 func (m *BatchSendParams) Reset()         { *m = BatchSendParams{} }
 func (m *BatchSendParams) String() string { return proto.CompactTextString(m) }
 func (*BatchSendParams) ProtoMessage()    {}
 func (*BatchSendParams) Descriptor() ([]byte, []int) {
-	return fileDescriptor_63fdd68f7eb311f9, []int{6}
+	return fileDescriptor_63fdd68f7eb311f9, []int{11}
 }
 
 func (m *BatchSendParams) XXX_Unmarshal(b []byte) error {
@@ -335,9 +562,9 @@ func (m *BatchSendParams) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_BatchSendParams proto.InternalMessageInfo
 
-func (m *BatchSendParams) GetContacts() []string {
+func (m *BatchSendParams) GetReceivers() []*SReceiver {
 	if m != nil {
-		return m.Contacts
+		return m.Receivers
 	}
 	return nil
 }
@@ -371,18 +598,18 @@ func (m *BatchSendParams) GetRemoteTemplate() string {
 }
 
 type FailedRecord struct {
-	Contact              string   `protobuf:"bytes,1,opt,name=Contact,proto3" json:"Contact,omitempty"`
-	Reason               string   `protobuf:"bytes,2,opt,name=Reason,proto3" json:"Reason,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Receiver             *SReceiver `protobuf:"bytes,1,opt,name=Receiver,proto3" json:"Receiver,omitempty"`
+	Reason               string     `protobuf:"bytes,2,opt,name=Reason,proto3" json:"Reason,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
+	XXX_unrecognized     []byte     `json:"-"`
+	XXX_sizecache        int32      `json:"-"`
 }
 
 func (m *FailedRecord) Reset()         { *m = FailedRecord{} }
 func (m *FailedRecord) String() string { return proto.CompactTextString(m) }
 func (*FailedRecord) ProtoMessage()    {}
 func (*FailedRecord) Descriptor() ([]byte, []int) {
-	return fileDescriptor_63fdd68f7eb311f9, []int{7}
+	return fileDescriptor_63fdd68f7eb311f9, []int{12}
 }
 
 func (m *FailedRecord) XXX_Unmarshal(b []byte) error {
@@ -403,11 +630,11 @@ func (m *FailedRecord) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_FailedRecord proto.InternalMessageInfo
 
-func (m *FailedRecord) GetContact() string {
+func (m *FailedRecord) GetReceiver() *SReceiver {
 	if m != nil {
-		return m.Contact
+		return m.Receiver
 	}
-	return ""
+	return nil
 }
 
 func (m *FailedRecord) GetReason() string {
@@ -428,7 +655,7 @@ func (m *BatchSendReply) Reset()         { *m = BatchSendReply{} }
 func (m *BatchSendReply) String() string { return proto.CompactTextString(m) }
 func (*BatchSendReply) ProtoMessage()    {}
 func (*BatchSendReply) Descriptor() ([]byte, []int) {
-	return fileDescriptor_63fdd68f7eb311f9, []int{8}
+	return fileDescriptor_63fdd68f7eb311f9, []int{13}
 }
 
 func (m *BatchSendReply) XXX_Unmarshal(b []byte) error {
@@ -456,55 +683,156 @@ func (m *BatchSendReply) GetFailedRecords() []*FailedRecord {
 	return nil
 }
 
+type ReadyInput struct {
+	DomainIds            []string `protobuf:"bytes,1,rep,name=DomainIds,proto3" json:"DomainIds,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ReadyInput) Reset()         { *m = ReadyInput{} }
+func (m *ReadyInput) String() string { return proto.CompactTextString(m) }
+func (*ReadyInput) ProtoMessage()    {}
+func (*ReadyInput) Descriptor() ([]byte, []int) {
+	return fileDescriptor_63fdd68f7eb311f9, []int{14}
+}
+
+func (m *ReadyInput) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ReadyInput.Unmarshal(m, b)
+}
+func (m *ReadyInput) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ReadyInput.Marshal(b, m, deterministic)
+}
+func (m *ReadyInput) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ReadyInput.Merge(m, src)
+}
+func (m *ReadyInput) XXX_Size() int {
+	return xxx_messageInfo_ReadyInput.Size(m)
+}
+func (m *ReadyInput) XXX_DiscardUnknown() {
+	xxx_messageInfo_ReadyInput.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ReadyInput proto.InternalMessageInfo
+
+func (m *ReadyInput) GetDomainIds() []string {
+	if m != nil {
+		return m.DomainIds
+	}
+	return nil
+}
+
+type ReadyOutput struct {
+	Ok                   bool     `protobuf:"varint,1,opt,name=Ok,proto3" json:"Ok,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ReadyOutput) Reset()         { *m = ReadyOutput{} }
+func (m *ReadyOutput) String() string { return proto.CompactTextString(m) }
+func (*ReadyOutput) ProtoMessage()    {}
+func (*ReadyOutput) Descriptor() ([]byte, []int) {
+	return fileDescriptor_63fdd68f7eb311f9, []int{15}
+}
+
+func (m *ReadyOutput) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ReadyOutput.Unmarshal(m, b)
+}
+func (m *ReadyOutput) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ReadyOutput.Marshal(b, m, deterministic)
+}
+func (m *ReadyOutput) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ReadyOutput.Merge(m, src)
+}
+func (m *ReadyOutput) XXX_Size() int {
+	return xxx_messageInfo_ReadyOutput.Size(m)
+}
+func (m *ReadyOutput) XXX_DiscardUnknown() {
+	xxx_messageInfo_ReadyOutput.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ReadyOutput proto.InternalMessageInfo
+
+func (m *ReadyOutput) GetOk() bool {
+	if m != nil {
+		return m.Ok
+	}
+	return false
+}
+
 func init() {
 	proto.RegisterType((*SendParams)(nil), "apis.SendParams")
-	proto.RegisterType((*UpdateConfigParams)(nil), "apis.UpdateConfigParams")
-	proto.RegisterMapType((map[string]string)(nil), "apis.UpdateConfigParams.ConfigsEntry")
+	proto.RegisterType((*ValidateConfigInput)(nil), "apis.ValidateConfigInput")
+	proto.RegisterMapType((map[string]string)(nil), "apis.ValidateConfigInput.ConfigsEntry")
+	proto.RegisterType((*AddConfigInput)(nil), "apis.AddConfigInput")
+	proto.RegisterMapType((map[string]string)(nil), "apis.AddConfigInput.ConfigsEntry")
+	proto.RegisterType((*UpdateConfigInput)(nil), "apis.UpdateConfigInput")
+	proto.RegisterMapType((map[string]string)(nil), "apis.UpdateConfigInput.ConfigsEntry")
+	proto.RegisterType((*DeleteConfigInput)(nil), "apis.DeleteConfigInput")
+	proto.RegisterType((*CompleteConfigInput)(nil), "apis.CompleteConfigInput")
 	proto.RegisterType((*UseridByMobileParams)(nil), "apis.UseridByMobileParams")
 	proto.RegisterType((*Empty)(nil), "apis.Empty")
 	proto.RegisterType((*UseridByMobileReply)(nil), "apis.UseridByMobileReply")
 	proto.RegisterType((*ValidateConfigReply)(nil), "apis.ValidateConfigReply")
+	proto.RegisterType((*SReceiver)(nil), "apis.SReceiver")
 	proto.RegisterType((*BatchSendParams)(nil), "apis.BatchSendParams")
 	proto.RegisterType((*FailedRecord)(nil), "apis.FailedRecord")
 	proto.RegisterType((*BatchSendReply)(nil), "apis.BatchSendReply")
+	proto.RegisterType((*ReadyInput)(nil), "apis.ReadyInput")
+	proto.RegisterType((*ReadyOutput)(nil), "apis.ReadyOutput")
 }
 
 func init() { proto.RegisterFile("send_server.proto", fileDescriptor_63fdd68f7eb311f9) }
 
 var fileDescriptor_63fdd68f7eb311f9 = []byte{
-	// 497 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x94, 0xdd, 0x6a, 0xd4, 0x40,
-	0x14, 0xc7, 0xc9, 0x7e, 0xef, 0xe9, 0xba, 0xd6, 0xe9, 0x5a, 0xc6, 0x5c, 0x95, 0x40, 0xa5, 0x37,
-	0xe6, 0xa2, 0x22, 0x2c, 0xbd, 0xd1, 0xb6, 0xac, 0x82, 0x50, 0x28, 0xb1, 0xf5, 0x56, 0xa6, 0xc9,
-	0x71, 0x1d, 0x4c, 0x32, 0x21, 0x33, 0x2d, 0xe4, 0x31, 0x7c, 0x04, 0xdf, 0x40, 0xf0, 0x05, 0x65,
-	0x3e, 0xb2, 0x9b, 0xac, 0xbb, 0xed, 0x5d, 0x7e, 0xe7, 0x8b, 0x39, 0xe7, 0xff, 0x27, 0xf0, 0x42,
-	0x62, 0x9e, 0x7c, 0x93, 0x58, 0x3e, 0x60, 0x19, 0x16, 0xa5, 0x50, 0x82, 0xf4, 0x58, 0xc1, 0x65,
-	0xf0, 0xc7, 0x03, 0xf8, 0x82, 0x79, 0x72, 0xcd, 0x4a, 0x96, 0x49, 0x42, 0x61, 0x78, 0x29, 0x72,
-	0xc5, 0x62, 0x45, 0xbd, 0x23, 0xef, 0x64, 0x1c, 0xd5, 0x48, 0x66, 0xd0, 0xbf, 0x11, 0x05, 0x8f,
-	0x69, 0xc7, 0xc4, 0x2d, 0x98, 0x28, 0x57, 0x29, 0xd2, 0xae, 0x8b, 0x6a, 0xd0, 0x53, 0xae, 0x50,
-	0x4a, 0xb6, 0x44, 0xda, 0xb3, 0x53, 0x1c, 0x12, 0x1f, 0x46, 0xd7, 0x25, 0x17, 0x25, 0x57, 0x15,
-	0xed, 0x9b, 0xd4, 0x8a, 0xc9, 0x6b, 0x98, 0x46, 0x98, 0x09, 0x85, 0x37, 0x98, 0x15, 0x29, 0x53,
-	0x48, 0x07, 0xa6, 0x62, 0x23, 0x1a, 0xfc, 0xf2, 0x80, 0xdc, 0x16, 0x09, 0x53, 0x78, 0x29, 0xf2,
-	0xef, 0x7c, 0xe9, 0x9e, 0xfe, 0x1e, 0x86, 0xb1, 0x61, 0x49, 0xbd, 0xa3, 0xee, 0xc9, 0xde, 0xe9,
-	0x71, 0xa8, 0x37, 0x0c, 0xff, 0x2f, 0x0d, 0x2d, 0xc8, 0x45, 0xae, 0xca, 0x2a, 0xaa, 0xbb, 0xfc,
-	0x33, 0x98, 0x34, 0x13, 0x64, 0x1f, 0xba, 0x3f, 0xb1, 0x72, 0x77, 0xd0, 0x9f, 0x7a, 0xdb, 0x07,
-	0x96, 0xde, 0x63, 0x7d, 0x03, 0x03, 0x67, 0x9d, 0xb9, 0x17, 0x84, 0x30, 0xbb, 0x95, 0x58, 0xf2,
-	0xe4, 0xa2, 0xba, 0x12, 0x77, 0x3c, 0x45, 0xf7, 0xa8, 0x43, 0x18, 0x64, 0x86, 0xdd, 0x18, 0x47,
-	0xc1, 0x10, 0xfa, 0x8b, 0xac, 0x50, 0x55, 0xf0, 0x06, 0x0e, 0xda, 0x8d, 0x11, 0x16, 0x69, 0xa5,
-	0xfb, 0xee, 0x4d, 0xb8, 0xee, 0xb3, 0x14, 0x9c, 0xc3, 0xc1, 0x57, 0x96, 0xf2, 0xf5, 0x46, 0xb6,
-	0x9c, 0xc2, 0x90, 0x4b, 0x93, 0x30, 0xf5, 0xa3, 0xa8, 0x46, 0xbd, 0x44, 0x26, 0x97, 0xee, 0xc1,
-	0xfa, 0x33, 0xf8, 0xed, 0xc1, 0xf3, 0x0b, 0xa6, 0xe2, 0x1f, 0x0d, 0xd9, 0x7d, 0x18, 0x39, 0x9d,
-	0xed, 0xf1, 0xc6, 0xd1, 0x8a, 0xd7, 0x12, 0x77, 0x76, 0x48, 0xdc, 0xdd, 0x2d, 0x71, 0xef, 0x49,
-	0x89, 0xfb, 0x5b, 0x25, 0xfe, 0x00, 0x93, 0x8f, 0x8c, 0xa7, 0x98, 0x44, 0x18, 0x8b, 0x32, 0x79,
-	0xc4, 0x96, 0x87, 0x30, 0x88, 0x90, 0x49, 0x91, 0xbb, 0xe7, 0x39, 0x0a, 0x3e, 0xc3, 0x74, 0xb5,
-	0xa4, 0xbd, 0xd1, 0x1c, 0x9e, 0x35, 0x67, 0xd6, 0x2e, 0x21, 0xd6, 0x25, 0xcd, 0x54, 0xd4, 0x2e,
-	0x3c, 0xfd, 0xdb, 0x81, 0xb1, 0x9e, 0x73, 0xbe, 0xc4, 0x5c, 0x91, 0x63, 0xe8, 0x69, 0x20, 0xfb,
-	0xb6, 0x71, 0x7d, 0x45, 0x7f, 0xcf, 0x46, 0x8c, 0xb0, 0xe4, 0x1d, 0x4c, 0x9a, 0xce, 0x23, 0x74,
-	0x97, 0x1b, 0xdb, 0x6d, 0x0b, 0x98, 0xb6, 0x05, 0x7e, 0xa4, 0xf1, 0x95, 0xcd, 0x6c, 0x33, 0xc4,
-	0x27, 0x98, 0xb6, 0x6d, 0x45, 0x7c, 0x37, 0x66, 0x8b, 0x4b, 0xeb, 0x41, 0xdb, 0x8c, 0x38, 0x87,
-	0xf1, 0xea, 0x8e, 0xe4, 0xa5, 0xad, 0xdb, 0x70, 0x8f, 0x3f, 0xdb, 0x08, 0x9b, 0xce, 0xbb, 0x81,
-	0xf9, 0xcd, 0xbc, 0xfd, 0x17, 0x00, 0x00, 0xff, 0xff, 0x71, 0x6f, 0x12, 0x61, 0x7b, 0x04, 0x00,
-	0x00,
+	// 722 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x55, 0x5d, 0x6b, 0xd4, 0x4c,
+	0x14, 0x26, 0xfb, 0xd9, 0x9c, 0xed, 0xbb, 0xed, 0x4e, 0xf7, 0xed, 0x9b, 0x77, 0x51, 0xa8, 0x41,
+	0x4b, 0x51, 0xbb, 0x42, 0x15, 0x59, 0x2a, 0x88, 0xdb, 0x2f, 0x69, 0xa1, 0xb4, 0x4c, 0x5b, 0x6f,
+	0x65, 0xba, 0x39, 0xae, 0xa1, 0xf9, 0x22, 0x99, 0x2d, 0xe4, 0xd2, 0xdf, 0xe0, 0x6f, 0xf0, 0xca,
+	0x5b, 0xff, 0x81, 0x7f, 0x4c, 0x32, 0x93, 0xc9, 0x26, 0xd9, 0x54, 0x11, 0xc1, 0xbb, 0x3c, 0x67,
+	0x9e, 0x73, 0xce, 0x93, 0x93, 0x39, 0x4f, 0xa0, 0x17, 0xa1, 0x67, 0xbd, 0x8f, 0x30, 0xbc, 0xc5,
+	0x70, 0x18, 0x84, 0x3e, 0xf7, 0x49, 0x83, 0x05, 0x76, 0x64, 0x7e, 0xd7, 0x00, 0x2e, 0xd0, 0xb3,
+	0xce, 0x59, 0xc8, 0xdc, 0x88, 0x3c, 0x81, 0x25, 0x8a, 0x13, 0xb4, 0x6f, 0x31, 0x34, 0xb4, 0x0d,
+	0x6d, 0xab, 0xb3, 0xb3, 0x32, 0x4c, 0x78, 0xc3, 0x0b, 0x15, 0xa6, 0x19, 0x81, 0xf4, 0xa1, 0x79,
+	0xe9, 0x07, 0xf6, 0xc4, 0xa8, 0x6d, 0x68, 0x5b, 0x3a, 0x95, 0x40, 0x44, 0x6d, 0xee, 0xa0, 0x51,
+	0x4f, 0xa3, 0x09, 0x20, 0x06, 0xb4, 0x4f, 0x31, 0x8a, 0xd8, 0x14, 0x8d, 0x86, 0x88, 0x2b, 0x48,
+	0x06, 0xb0, 0x74, 0x1e, 0xda, 0x7e, 0x68, 0xf3, 0xd8, 0x68, 0x8a, 0xa3, 0x0c, 0x93, 0x4d, 0xe8,
+	0x52, 0x74, 0x7d, 0x8e, 0x97, 0xe8, 0x06, 0x0e, 0xe3, 0x68, 0xb4, 0x04, 0xa3, 0x14, 0x35, 0x3f,
+	0x6b, 0xb0, 0xf6, 0x8e, 0x39, 0xb6, 0xc5, 0x38, 0xee, 0xfb, 0xde, 0x07, 0x7b, 0x7a, 0xec, 0x05,
+	0x33, 0x4e, 0xde, 0x40, 0x7b, 0x22, 0x60, 0x64, 0x68, 0x1b, 0xf5, 0xad, 0xce, 0xce, 0xa6, 0x7c,
+	0x9b, 0x0a, 0xee, 0x50, 0x3e, 0x47, 0x87, 0x1e, 0x0f, 0x63, 0xaa, 0xd2, 0x06, 0xbb, 0xb0, 0x9c,
+	0x3f, 0x20, 0xab, 0x50, 0xbf, 0xc1, 0x58, 0xcc, 0x46, 0xa7, 0xc9, 0x63, 0xf2, 0xbe, 0xb7, 0xcc,
+	0x99, 0xa1, 0x9a, 0x82, 0x00, 0xbb, 0xb5, 0x91, 0x66, 0x7e, 0xd1, 0xa0, 0x3b, 0xb6, 0xac, 0xbc,
+	0xa0, 0x57, 0x65, 0x41, 0x0f, 0xa4, 0xa0, 0x22, 0xad, 0x5a, 0x4b, 0x32, 0x29, 0xcb, 0x77, 0x99,
+	0xed, 0x1d, 0x5b, 0x69, 0xb3, 0x0c, 0xff, 0x91, 0xce, 0xaf, 0x1a, 0xf4, 0xae, 0x82, 0xf2, 0xec,
+	0x5e, 0x97, 0xa5, 0x3e, 0x94, 0x52, 0x17, 0x98, 0x7f, 0x59, 0xed, 0x33, 0xe8, 0x1d, 0xa0, 0x83,
+	0x45, 0xb1, 0xf9, 0x66, 0x5a, 0xb1, 0x99, 0x79, 0x0a, 0x6b, 0xfb, 0xbe, 0x1b, 0x94, 0x53, 0x5e,
+	0x42, 0x27, 0x07, 0xd3, 0x77, 0xec, 0x57, 0x7d, 0x0e, 0x9a, 0x27, 0x9a, 0x27, 0xd0, 0xbf, 0x8a,
+	0x30, 0xb4, 0xad, 0xbd, 0xf8, 0xd4, 0xbf, 0xb6, 0x1d, 0x4c, 0x57, 0x67, 0x1d, 0x5a, 0xae, 0xc0,
+	0xa9, 0x80, 0x14, 0xfd, 0x6c, 0x0e, 0x66, 0x1b, 0x9a, 0x87, 0x6e, 0xc0, 0x63, 0x73, 0x1b, 0xd6,
+	0x8a, 0x45, 0x29, 0x06, 0x4e, 0x9c, 0xd4, 0x9c, 0x89, 0xb0, 0xaa, 0x29, 0x91, 0x39, 0x2e, 0x5f,
+	0x77, 0x49, 0x37, 0xa0, 0x6d, 0x47, 0xe2, 0x40, 0xf0, 0x97, 0xa8, 0x82, 0xc9, 0x80, 0xdd, 0x68,
+	0x9a, 0xf6, 0x4f, 0x1e, 0xcd, 0x31, 0xe8, 0xd9, 0x4e, 0x27, 0x89, 0xfb, 0xbe, 0xc7, 0xd9, 0x84,
+	0xa7, 0x8d, 0x14, 0x4c, 0xd4, 0x1f, 0x94, 0xd4, 0x2b, 0x6c, 0x7e, 0xd3, 0x60, 0x65, 0x8f, 0xf1,
+	0xc9, 0xc7, 0x9c, 0x81, 0x6c, 0x83, 0xae, 0xaa, 0xaa, 0x7b, 0xb3, 0xe0, 0x20, 0x73, 0xc6, 0xdc,
+	0x2c, 0x6a, 0x77, 0x98, 0x45, 0xfd, 0x6e, 0xb3, 0x68, 0xfc, 0xd2, 0x2c, 0x9a, 0x95, 0x66, 0x71,
+	0x01, 0xcb, 0x47, 0xcc, 0x76, 0xd0, 0xa2, 0x38, 0xf1, 0x43, 0xeb, 0xf7, 0x3c, 0x6f, 0x1d, 0x5a,
+	0x14, 0x59, 0xe4, 0x7b, 0xa9, 0xe2, 0x14, 0x99, 0x27, 0xd0, 0xcd, 0x46, 0x21, 0x3f, 0xc6, 0x08,
+	0xfe, 0xc9, 0xb7, 0x51, 0xd3, 0x20, 0xb2, 0x76, 0xfe, 0x88, 0x16, 0x89, 0xe6, 0x63, 0x00, 0x8a,
+	0xcc, 0x8a, 0xe5, 0x3d, 0xbd, 0x07, 0xba, 0x9a, 0xb8, 0xac, 0xa1, 0xd3, 0x79, 0xc0, 0xbc, 0x0f,
+	0x1d, 0xc1, 0x3d, 0x9b, 0xf1, 0x84, 0xdc, 0x85, 0xda, 0xd9, 0x4d, 0xfa, 0xf1, 0x6b, 0x67, 0x37,
+	0x3b, 0x9f, 0x1a, 0xa0, 0x27, 0x92, 0xc6, 0x53, 0xf4, 0x38, 0x79, 0x0a, 0x4d, 0x41, 0x26, 0xab,
+	0x52, 0xc4, 0xbc, 0xcb, 0xa0, 0x97, 0x8b, 0xa4, 0xb5, 0x1e, 0x41, 0x23, 0x49, 0x55, 0xe4, 0xf9,
+	0x47, 0x1e, 0x74, 0x64, 0x44, 0x5c, 0x5d, 0x32, 0x04, 0x3d, 0x5b, 0x17, 0x52, 0xb9, 0x3f, 0x45,
+	0xfe, 0x08, 0xba, 0xc5, 0x75, 0x24, 0xff, 0xcb, 0xe3, 0x8a, 0x25, 0x2d, 0x66, 0xbe, 0x80, 0xe5,
+	0xbc, 0xf9, 0x90, 0xff, 0xee, 0x30, 0xa4, 0x85, 0xac, 0xbc, 0x5f, 0xa8, 0xac, 0x05, 0x0f, 0x29,
+	0x66, 0x1d, 0x41, 0xb7, 0xb8, 0x61, 0x4a, 0x65, 0xc5, 0xaf, 0x63, 0x50, 0x79, 0x24, 0x6f, 0xc1,
+	0x5b, 0xe8, 0x16, 0x17, 0x9b, 0x0c, 0x52, 0xd5, 0x15, 0x1e, 0xa2, 0x0a, 0x55, 0x59, 0xc1, 0x08,
+	0xf4, 0xec, 0x82, 0x91, 0x7f, 0x25, 0xaf, 0xb4, 0x7c, 0x83, 0x7e, 0x29, 0x2c, 0x32, 0xaf, 0x5b,
+	0xe2, 0x7f, 0xff, 0xfc, 0x47, 0x00, 0x00, 0x00, 0xff, 0xff, 0xa6, 0x44, 0xad, 0xbd, 0x04, 0x08,
+	0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -519,9 +847,13 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type SendAgentClient interface {
+	Ready(ctx context.Context, in *ReadyInput, opts ...grpc.CallOption) (*ReadyOutput, error)
 	Send(ctx context.Context, in *SendParams, opts ...grpc.CallOption) (*Empty, error)
-	UpdateConfig(ctx context.Context, in *UpdateConfigParams, opts ...grpc.CallOption) (*Empty, error)
-	ValidateConfig(ctx context.Context, in *UpdateConfigParams, opts ...grpc.CallOption) (*ValidateConfigReply, error)
+	AddConfig(ctx context.Context, in *AddConfigInput, opts ...grpc.CallOption) (*Empty, error)
+	CompleteConfig(ctx context.Context, in *CompleteConfigInput, opts ...grpc.CallOption) (*Empty, error)
+	UpdateConfig(ctx context.Context, in *UpdateConfigInput, opts ...grpc.CallOption) (*Empty, error)
+	DeleteConfig(ctx context.Context, in *DeleteConfigInput, opts ...grpc.CallOption) (*Empty, error)
+	ValidateConfig(ctx context.Context, in *ValidateConfigInput, opts ...grpc.CallOption) (*ValidateConfigReply, error)
 	UseridByMobile(ctx context.Context, in *UseridByMobileParams, opts ...grpc.CallOption) (*UseridByMobileReply, error)
 	BatchSend(ctx context.Context, in *BatchSendParams, opts ...grpc.CallOption) (*BatchSendReply, error)
 }
@@ -534,6 +866,15 @@ func NewSendAgentClient(cc *grpc.ClientConn) SendAgentClient {
 	return &sendAgentClient{cc}
 }
 
+func (c *sendAgentClient) Ready(ctx context.Context, in *ReadyInput, opts ...grpc.CallOption) (*ReadyOutput, error) {
+	out := new(ReadyOutput)
+	err := c.cc.Invoke(ctx, "/apis.SendAgent/Ready", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sendAgentClient) Send(ctx context.Context, in *SendParams, opts ...grpc.CallOption) (*Empty, error) {
 	out := new(Empty)
 	err := c.cc.Invoke(ctx, "/apis.SendAgent/Send", in, out, opts...)
@@ -543,7 +884,25 @@ func (c *sendAgentClient) Send(ctx context.Context, in *SendParams, opts ...grpc
 	return out, nil
 }
 
-func (c *sendAgentClient) UpdateConfig(ctx context.Context, in *UpdateConfigParams, opts ...grpc.CallOption) (*Empty, error) {
+func (c *sendAgentClient) AddConfig(ctx context.Context, in *AddConfigInput, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/apis.SendAgent/AddConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sendAgentClient) CompleteConfig(ctx context.Context, in *CompleteConfigInput, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/apis.SendAgent/CompleteConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sendAgentClient) UpdateConfig(ctx context.Context, in *UpdateConfigInput, opts ...grpc.CallOption) (*Empty, error) {
 	out := new(Empty)
 	err := c.cc.Invoke(ctx, "/apis.SendAgent/UpdateConfig", in, out, opts...)
 	if err != nil {
@@ -552,7 +911,16 @@ func (c *sendAgentClient) UpdateConfig(ctx context.Context, in *UpdateConfigPara
 	return out, nil
 }
 
-func (c *sendAgentClient) ValidateConfig(ctx context.Context, in *UpdateConfigParams, opts ...grpc.CallOption) (*ValidateConfigReply, error) {
+func (c *sendAgentClient) DeleteConfig(ctx context.Context, in *DeleteConfigInput, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/apis.SendAgent/DeleteConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sendAgentClient) ValidateConfig(ctx context.Context, in *ValidateConfigInput, opts ...grpc.CallOption) (*ValidateConfigReply, error) {
 	out := new(ValidateConfigReply)
 	err := c.cc.Invoke(ctx, "/apis.SendAgent/ValidateConfig", in, out, opts...)
 	if err != nil {
@@ -581,9 +949,13 @@ func (c *sendAgentClient) BatchSend(ctx context.Context, in *BatchSendParams, op
 
 // SendAgentServer is the server API for SendAgent service.
 type SendAgentServer interface {
+	Ready(context.Context, *ReadyInput) (*ReadyOutput, error)
 	Send(context.Context, *SendParams) (*Empty, error)
-	UpdateConfig(context.Context, *UpdateConfigParams) (*Empty, error)
-	ValidateConfig(context.Context, *UpdateConfigParams) (*ValidateConfigReply, error)
+	AddConfig(context.Context, *AddConfigInput) (*Empty, error)
+	CompleteConfig(context.Context, *CompleteConfigInput) (*Empty, error)
+	UpdateConfig(context.Context, *UpdateConfigInput) (*Empty, error)
+	DeleteConfig(context.Context, *DeleteConfigInput) (*Empty, error)
+	ValidateConfig(context.Context, *ValidateConfigInput) (*ValidateConfigReply, error)
 	UseridByMobile(context.Context, *UseridByMobileParams) (*UseridByMobileReply, error)
 	BatchSend(context.Context, *BatchSendParams) (*BatchSendReply, error)
 }
@@ -592,13 +964,25 @@ type SendAgentServer interface {
 type UnimplementedSendAgentServer struct {
 }
 
+func (*UnimplementedSendAgentServer) Ready(ctx context.Context, req *ReadyInput) (*ReadyOutput, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Ready not implemented")
+}
 func (*UnimplementedSendAgentServer) Send(ctx context.Context, req *SendParams) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Send not implemented")
 }
-func (*UnimplementedSendAgentServer) UpdateConfig(ctx context.Context, req *UpdateConfigParams) (*Empty, error) {
+func (*UnimplementedSendAgentServer) AddConfig(ctx context.Context, req *AddConfigInput) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddConfig not implemented")
+}
+func (*UnimplementedSendAgentServer) CompleteConfig(ctx context.Context, req *CompleteConfigInput) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CompleteConfig not implemented")
+}
+func (*UnimplementedSendAgentServer) UpdateConfig(ctx context.Context, req *UpdateConfigInput) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateConfig not implemented")
 }
-func (*UnimplementedSendAgentServer) ValidateConfig(ctx context.Context, req *UpdateConfigParams) (*ValidateConfigReply, error) {
+func (*UnimplementedSendAgentServer) DeleteConfig(ctx context.Context, req *DeleteConfigInput) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteConfig not implemented")
+}
+func (*UnimplementedSendAgentServer) ValidateConfig(ctx context.Context, req *ValidateConfigInput) (*ValidateConfigReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ValidateConfig not implemented")
 }
 func (*UnimplementedSendAgentServer) UseridByMobile(ctx context.Context, req *UseridByMobileParams) (*UseridByMobileReply, error) {
@@ -610,6 +994,24 @@ func (*UnimplementedSendAgentServer) BatchSend(ctx context.Context, req *BatchSe
 
 func RegisterSendAgentServer(s *grpc.Server, srv SendAgentServer) {
 	s.RegisterService(&_SendAgent_serviceDesc, srv)
+}
+
+func _SendAgent_Ready_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReadyInput)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SendAgentServer).Ready(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/apis.SendAgent/Ready",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SendAgentServer).Ready(ctx, req.(*ReadyInput))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _SendAgent_Send_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -630,8 +1032,44 @@ func _SendAgent_Send_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SendAgent_AddConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddConfigInput)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SendAgentServer).AddConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/apis.SendAgent/AddConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SendAgentServer).AddConfig(ctx, req.(*AddConfigInput))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SendAgent_CompleteConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompleteConfigInput)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SendAgentServer).CompleteConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/apis.SendAgent/CompleteConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SendAgentServer).CompleteConfig(ctx, req.(*CompleteConfigInput))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SendAgent_UpdateConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpdateConfigParams)
+	in := new(UpdateConfigInput)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -643,13 +1081,31 @@ func _SendAgent_UpdateConfig_Handler(srv interface{}, ctx context.Context, dec f
 		FullMethod: "/apis.SendAgent/UpdateConfig",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SendAgentServer).UpdateConfig(ctx, req.(*UpdateConfigParams))
+		return srv.(SendAgentServer).UpdateConfig(ctx, req.(*UpdateConfigInput))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SendAgent_DeleteConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteConfigInput)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SendAgentServer).DeleteConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/apis.SendAgent/DeleteConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SendAgentServer).DeleteConfig(ctx, req.(*DeleteConfigInput))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _SendAgent_ValidateConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpdateConfigParams)
+	in := new(ValidateConfigInput)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -661,7 +1117,7 @@ func _SendAgent_ValidateConfig_Handler(srv interface{}, ctx context.Context, dec
 		FullMethod: "/apis.SendAgent/ValidateConfig",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SendAgentServer).ValidateConfig(ctx, req.(*UpdateConfigParams))
+		return srv.(SendAgentServer).ValidateConfig(ctx, req.(*ValidateConfigInput))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -707,12 +1163,28 @@ var _SendAgent_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*SendAgentServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "Ready",
+			Handler:    _SendAgent_Ready_Handler,
+		},
+		{
 			MethodName: "Send",
 			Handler:    _SendAgent_Send_Handler,
 		},
 		{
+			MethodName: "AddConfig",
+			Handler:    _SendAgent_AddConfig_Handler,
+		},
+		{
+			MethodName: "CompleteConfig",
+			Handler:    _SendAgent_CompleteConfig_Handler,
+		},
+		{
 			MethodName: "UpdateConfig",
 			Handler:    _SendAgent_UpdateConfig_Handler,
+		},
+		{
+			MethodName: "DeleteConfig",
+			Handler:    _SendAgent_DeleteConfig_Handler,
 		},
 		{
 			MethodName: "ValidateConfig",

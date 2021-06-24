@@ -31,5 +31,7 @@ func init() {
 	cmd.Perform("disable", new(options.ReceiverOptions))
 	cmd.Perform("trigger-verify", new(options.ReceiverTriggerVerifyOptions))
 	cmd.Perform("verify", new(options.ReceiverVerifyOptions))
+	cmd.Perform("enable-contact-type", new(options.ReceiverEnableContactTypeInput))
 	cmd.PerformClass("intellij-get", new(options.ReceiverIntellijGetOptions))
+	cmd.PerformClass("get-types", new(options.ReceiverGetTypeOptions))
 }

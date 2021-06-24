@@ -12,34 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package models
+package notifyv2
 
 import (
-	"yunion.io/x/log"
-
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/notify"
 )
 
-func InitDB() error {
-	for _, manager := range []db.IModelManager{
-		/*
-		 * Important!!!
-		 * initialization order matters, do not change the order
-		 */
-
-		ReceiverManager,
-		NotificationManager,
-		ConfigManager,
-		TemplateManager,
-		ReceiverNotificationManager,
-		TopicManager,
-		RobotManager,
-	} {
-		err := manager.InitializeData()
-		if err != nil {
-			log.Errorf("Manager %s initializeData fail %s", manager.Keyword(), err)
-			// return err skip error table
-		}
-	}
-	return nil
+func init() {
+	cmd := shell.NewResourceCmd(&modules.NotifyRobot).WithKeyword("notify-robot")
+	cmd.List(new(options.RobotListOptions))
+	cmd.Create(new(options.RobotCreateOptions))
+	cmd.Update(new(options.RobotUpdateOptions))
+	cmd.Show(new(options.RobotOptions))
+	cmd.Delete(new(options.RobotOptions))
+	cmd.Perform("enable", new(options.RobotOptions))
+	cmd.Perform("disable", new(options.RobotOptions))
 }

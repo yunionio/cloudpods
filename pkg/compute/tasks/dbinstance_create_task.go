@@ -40,6 +40,11 @@ func (self *DBInstanceCreateTask) taskFailed(ctx context.Context, dbinstance *mo
 	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_CREATE_FAILED, err.Error())
 	db.OpsLog.LogEvent(dbinstance, db.ACT_CREATE, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_CREATE, err, self.UserCred, false)
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    dbinstance,
+		Action: notifyclient.ActionCreate,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
@@ -77,7 +82,11 @@ func (self *DBInstanceCreateTask) OnCreateDBInstanceCompleteFailed(ctx context.C
 
 func (self *DBInstanceCreateTask) OnSyncDBInstanceStatusComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	dbinstance := obj.(*models.SDBInstance)
-	notifyclient.NotifyWebhook(ctx, self.UserCred, dbinstance, notifyclient.ActionCreate)
+	//notifyclient.NotifyWebhook(ctx, self.UserCred, dbinstance, notifyclient.ActionCreate)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    dbinstance,
+		Action: notifyclient.ActionCreate,
+	})
 	self.SetStageComplete(ctx, nil)
 }
 

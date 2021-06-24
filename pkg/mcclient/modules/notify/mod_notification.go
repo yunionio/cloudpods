@@ -31,6 +31,7 @@ var (
 type SNotifyMessage struct {
 	Uid                       []string               `json:"uid,omitempty"`
 	Gid                       []string               `json:"gid,omitempty"`
+	Robots                    []string               `json:"robots,omitempty"`
 	ContactType               TNotifyChannel         `json:"contact_type,omitempty"`
 	Contacts                  []string               `json:"contracts"`
 	Topic                     string                 `json:"topic,omitempty"`
@@ -46,6 +47,7 @@ type SNotifyMessage struct {
 type SNotifyV2Message struct {
 	Receivers                 []string               `json:"receivers"`
 	Contacts                  []string               `json:"contacts"`
+	Robots                    []string               `json:"robots"`
 	ContactType               string                 `json:"contact_type"`
 	Topic                     string                 `json:"topic"`
 	Priority                  string                 `json:"priority"`
@@ -83,6 +85,7 @@ func (manager *NotificationManager) Send(s *mcclient.ClientSession, msg SNotifyM
 	v2msg := SNotifyV2Message{
 		Receivers:                 receiverIds,
 		Contacts:                  msg.Contacts,
+		Robots:                    msg.Robots,
 		ContactType:               string(msg.ContactType),
 		Topic:                     msg.Topic,
 		Priority:                  string(msg.Priority),

@@ -40,7 +40,11 @@ func (self *LoadbalancerListenerDeleteTask) taskFail(ctx context.Context, lblis 
 	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason.String())
 	db.OpsLog.LogEvent(lblis, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_DELOCATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, lblis.Id, lblis.Name, api.LB_STATUS_DELETE_FAILED, reason.String())
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    lblis,
+		Action: notifyclient.ActionDelete,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, reason)
 }
 

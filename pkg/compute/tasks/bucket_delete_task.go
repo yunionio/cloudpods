@@ -22,6 +22,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -52,6 +53,10 @@ func (task *BucketDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 		return
 	}
 
+	notifyclient.EventNotify(ctx, task.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    bucket,
+		Action: notifyclient.ActionDelete,
+	})
 	logclient.AddActionLogWithStartable(task, bucket, logclient.ACT_DELETE, nil, task.UserCred, true)
 	task.SetStageComplete(ctx, nil)
 }

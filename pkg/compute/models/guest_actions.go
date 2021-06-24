@@ -973,8 +973,13 @@ func (self *SGuest) EventNotify(ctx context.Context, userCred mcclient.TokenCred
 			}
 		}
 	}
+	var resourceType string
+	if self.Hypervisor == api.HYPERVISOR_BAREMETAL {
+		resourceType = noapi.TOPIC_RESOURCE_BAREMETAL
+	}
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
 		Obj:                 self,
+		ResourceType:        resourceType,
 		Action:              action,
 		ObjDetailsDecorator: detailsDecro,
 		AdvanceDays:         0,

@@ -52,6 +52,11 @@ var (
 	ActionExpiredRelease = api.ActionExpiredRelease
 	ActionExecute        = api.ActionExecute
 
+	ActionMigrate            = api.ActionMigrate
+	ActionCreateBackupServer = api.ActionCreateBackupServer
+	ActionDelBackupServer    = api.ActionDelBackupServer
+	ActionSyncStatus         = api.ActionSyncStatus
+
 	ActionPendingDelete = api.ActionPendingDelete
 )
 

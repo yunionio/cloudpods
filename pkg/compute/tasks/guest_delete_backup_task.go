@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -40,6 +41,11 @@ func (self *GuestDeleteBackupTask) OnFail(ctx context.Context, guest *models.SGu
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_DELETE_BACKUP, reason, self.UserCred, false)
 	db.OpsLog.LogEvent(guest, db.ACT_DELETE_BACKUP_FAILED, reason, self.UserCred)
 	guest.SetStatus(self.UserCred, compute.VM_BACKUP_DELETE_FAILED, reason.String())
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    guest,
+		Action: notifyclient.ActionDelBackupServer,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, reason)
 }
 

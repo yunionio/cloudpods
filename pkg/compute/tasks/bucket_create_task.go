@@ -22,6 +22,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -53,6 +54,10 @@ func (task *BucketCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 	}
 
 	bucket.SetStatus(task.UserCred, api.BUCKET_STATUS_READY, "BucketCreateTask")
+	notifyclient.EventNotify(ctx, task.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    bucket,
+		Action: notifyclient.ActionCreate,
+	})
 	logclient.AddActionLogWithStartable(task, bucket, logclient.ACT_ALLOCATE, nil, task.UserCred, true)
 	task.SetStageComplete(ctx, nil)
 }
