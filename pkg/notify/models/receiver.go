@@ -645,14 +645,14 @@ func (rm *SReceiverManager) FetchCustomizeColumns(ctx context.Context, userCred 
 
 func (rm *SReceiverManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	q, err := rm.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		return q, nil
 	}
 	q, err = rm.SDomainizedResourceBaseManager.QueryDistinctExtraField(q, field)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		return q, nil
 	}
-	return q, nil
+	return q, httperrors.ErrNotFound
 }
 
 func (rm *SReceiverManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ReceiverListInput) (*sqlchemy.SQuery, error) {
