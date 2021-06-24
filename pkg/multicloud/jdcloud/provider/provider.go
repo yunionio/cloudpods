@@ -17,7 +17,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -179,7 +178,7 @@ func (p *SJdcloudProvider) GetBalance() (float64, string, error) {
 		if err != nil {
 			return 0.0, api.CLOUD_PROVIDER_HEALTH_NO_PERMISSION, errors.Wrap(err, "DescribeAccountAmount")
 		}
-		amount, _ := strconv.ParseFloat(balance.TotalAmount, 32)
+		amount, _ := jsonutils.Marshal(balance).Float("totalAmount")
 		if amount < 0 {
 			return amount, api.CLOUD_PROVIDER_HEALTH_ARREARS, nil
 		} else if amount < 50 {
