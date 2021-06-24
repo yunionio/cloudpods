@@ -20,8 +20,6 @@ import (
 
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
@@ -203,94 +201,6 @@ func (self *SApplicationGateway) GetGlobalId() string {
 	return strings.ToLower(self.ID)
 }
 
-func (self *SApplicationGateway) GetStatus() string {
-	switch self.Properties.Provisioningstate {
-	case "Deleting":
-		return api.APP_GATEWAY_STATUS_DELETING
-	case "Failed":
-		return api.APP_GATEWAY_STATUS_CREATE_FAILED
-	case "Succeeded":
-		return api.APP_GATEWAY_STATUS_AVAILABLE
-	case "Updating":
-		return api.APP_GATEWAY_STATUS_UPDATING
-	}
-	return api.APP_GATEWAY_STATUS_AVAILABLE
-}
-
-func (self *SApplicationGateway) GetInstanceType() string {
-	return self.Properties.Sku.Name
-}
-
-func (self *SApplicationGateway) GetBackends() ([]cloudprovider.SAppGatewayBackend, error) {
-	ret := []cloudprovider.SAppGatewayBackend{}
-	for _, conf := range self.Properties.Backendaddresspools {
-		backend := cloudprovider.SAppGatewayBackend{
-			Name:         conf.Name,
-			RoutingRules: []cloudprovider.SAppGatewayRoutingRule{},
-		}
-		for _, r := range conf.Properties.Requestroutingrules {
-			rule := cloudprovider.SAppGatewayRoutingRule{}
-			for _, _rule := range self.Properties.Requestroutingrules {
-				if r.ID == _rule.ID {
-					rule.Name = _rule.Name
-					rule.Type = _rule.Properties.Ruletype
-					backend.RoutingRules = append(backend.RoutingRules, rule)
-					break
-				}
-			}
-		}
-		ret = append(ret, backend)
-	}
-	return ret, nil
-}
-
-func (self *SApplicationGateway) GetFrontends() ([]cloudprovider.SAppGatewayFrontend, error) {
-	ret := []cloudprovider.SAppGatewayFrontend{}
-	for _, conf := range self.Properties.Frontendipconfigurations {
-		front := cloudprovider.SAppGatewayFrontend{
-			Name:         conf.Name,
-			HttpListener: []cloudprovider.SAppGatewayHttpListener{},
-		}
-		for _, l := range conf.Properties.Httplisteners {
-			listener := cloudprovider.SAppGatewayHttpListener{}
-			for _, p := range self.Properties.Httplisteners {
-				if strings.ToLower(p.ID) == strings.ToLower(l.ID) {
-					listener.Name = p.Name
-					listener.Protocol = p.Properties.Protocol
-					break
-				}
-			}
-			for _, p := range self.Properties.Frontendports {
-				for _, _p := range self.Properties.Httplisteners {
-					if strings.ToLower(_p.ID) == strings.ToLower(l.ID) {
-						listener.Port = p.Properties.Port
-						break
-					}
-				}
-				if listener.Port > 0 {
-					break
-				}
-			}
-			if len(listener.Name) > 0 {
-				front.HttpListener = append(front.HttpListener, listener)
-			}
-		}
-		if len(conf.Properties.PrivateIPAddress) > 0 {
-			front.IpAddr = conf.Properties.PrivateIPAddress
-			front.Type = "Vpc"
-		} else if len(conf.Properties.PublicIPAddress.ID) > 0 {
-			eip, err := self.region.GetEip(conf.Properties.PublicIPAddress.ID)
-			if err != nil {
-				continue
-			}
-			front.IpAddr = eip.GetIpAddr()
-			front.Type = "Eip"
-		}
-		ret = append(ret, front)
-	}
-	return ret, nil
-}
-
 func (self *SRegion) ListAppGateways() ([]SApplicationGateway, error) {
 	apps := []SApplicationGateway{}
 	err := self.list("Microsoft.Network/applicationGateways", url.Values{}, &apps)
@@ -303,21 +213,4 @@ func (self *SRegion) ListAppGateways() ([]SApplicationGateway, error) {
 func (self *SRegion) GetApplicationGateway(id string) (*SApplicationGateway, error) {
 	ret := &SApplicationGateway{region: self}
 	return ret, self.get(id, url.Values{}, ret)
-}
-
-func (self *SRegion) GetICloudApplicationGateways() ([]cloudprovider.ICloudApplicationGateway, error) {
-	apps, err := self.ListAppGateways()
-	if err != nil {
-		return nil, errors.Wrapf(err, "ListAppGateways")
-	}
-	ret := []cloudprovider.ICloudApplicationGateway{}
-	for i := range apps {
-		apps[i].region = self
-		ret = append(ret, &apps[i])
-	}
-	return ret, nil
-}
-
-func (self *SRegion) GetICloudApplicationGatewayById(id string) (cloudprovider.ICloudApplicationGateway, error) {
-	return self.GetApplicationGateway(id)
 }

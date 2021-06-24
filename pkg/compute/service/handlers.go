@@ -218,8 +218,6 @@ func InitHandlers(app *appsrv.Application) {
 
 		models.ProjectMappingManager,
 
-		models.AppGatewayManager,
-
 		models.WafRuleGroupManager,
 		models.WafIPSetManager,
 		models.WafIPSetCacheManager,
