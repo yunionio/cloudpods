@@ -17,7 +17,9 @@ package predicates
 import (
 	"fmt"
 
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -35,6 +37,17 @@ import (
 type NetworkPredicate struct {
 	BasePredicate
 	plugin.BasePlugin
+	NetworkNicCountGetter INetworkNicCountGetter
+	networkFreePortCount  map[string]int
+}
+
+func NewNetworkPredicate(getter INetworkNicCountGetter) *NetworkPredicate {
+	if getter == nil {
+		getter = models.NetworkManager
+	}
+	return &NetworkPredicate{
+		NetworkNicCountGetter: getter,
+	}
 }
 
 func (p *NetworkPredicate) Name() string {
@@ -42,7 +55,13 @@ func (p *NetworkPredicate) Name() string {
 }
 
 func (p *NetworkPredicate) Clone() core.FitPredicate {
-	return &NetworkPredicate{}
+	return &NetworkPredicate{
+		NetworkNicCountGetter: p.NetworkNicCountGetter,
+	}
+}
+
+type INetworkNicCountGetter interface {
+	GetTotalNicCount([]string) (map[string]int, error)
 }
 
 func (p *NetworkPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
@@ -50,11 +69,27 @@ func (p *NetworkPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool,
 	if len(data.Networks) == 0 {
 		return false, nil
 	}
+	networkIds := sets.NewString()
+	for i := range cs {
+		for _, net := range cs[i].Getter().Networks() {
+			networkIds.Insert(net.GetId())
+		}
+	}
+	netCounts, err := p.NetworkNicCountGetter.GetTotalNicCount(networkIds.UnsortedList())
+	if err != nil {
+		return false, errors.Wrap(err, "unable to GetTotalNicCount")
+	}
+	p.networkFreePortCount = map[string]int{}
+	for i := range cs {
+		for _, net := range cs[i].Getter().Networks() {
+			p.networkFreePortCount[net.Id] = net.GetTotalAddressCount() - netCounts[net.Id]
+		}
+	}
 
 	return true, nil
 }
 
-func IsNetworksAvailable(c core.Candidater, data *api.SchedInfo, req *computeapi.NetworkConfig, networks []*api.CandidateNetwork, netTypes []string) (int, []core.PredicateFailureReason) {
+func IsNetworksAvailable(c core.Candidater, data *api.SchedInfo, req *computeapi.NetworkConfig, networks []*api.CandidateNetwork, netTypes []string, getFreePort func(string) int) (int, []core.PredicateFailureReason) {
 	var fullErrMsgs []core.PredicateFailureReason
 	var freeCnt int
 
@@ -74,10 +109,10 @@ func IsNetworksAvailable(c core.Candidater, data *api.SchedInfo, req *computeapi
 
 	checkNets := func(tmpNets []*api.CandidateNetwork) {
 		for _, n := range tmpNets {
-			if errMsg := IsNetworkAvailable(c, data, req, n, netTypes); errMsg != nil {
+			if errMsg := IsNetworkAvailable(c, data, req, n, netTypes, getFreePort); errMsg != nil {
 				fullErrMsgs = append(fullErrMsgs, errMsg)
 			} else {
-				freeCnt = freeCnt + c.Getter().GetFreePort(n.GetId())
+				freeCnt = freeCnt + getFreePort(n.GetId())
 			}
 		}
 	}
@@ -108,7 +143,7 @@ func IsNetworksAvailable(c core.Candidater, data *api.SchedInfo, req *computeapi
 func IsNetworkAvailable(
 	c core.Candidater, data *api.SchedInfo,
 	req *computeapi.NetworkConfig, n *api.CandidateNetwork,
-	netTypes []string,
+	netTypes []string, getFreePort func(string) int,
 ) core.PredicateFailureReason {
 	address := req.Address
 	private := req.Private
@@ -129,7 +164,11 @@ func IsNetworkAvailable(
 		}
 	}
 
-	if !(c.Getter().GetFreePort(n.GetId()) > 0 || isMigrate()) {
+	if getFreePort == nil {
+		getFreePort = c.Getter().GetFreePort
+	}
+
+	if !(getFreePort(n.GetId()) > 0 || isMigrate()) {
 		return FailReason{
 			Reason: fmt.Sprintf("%v(%v): ports use up", n.Name, n.Id),
 			Type:   NetworkPort,
@@ -226,9 +265,13 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	networks := getter.Networks()
 	d := u.SchedData()
 
+	getFreePort := func(id string) int {
+		return p.networkFreePortCount[id] - c.Getter().GetPendingUsage().NetUsage.Get(id)
+	}
+
 	for _, reqNet := range d.Networks {
 		netTypes := p.GetNetworkTypes(u, reqNet.NetType)
-		freePortCnt, errs := IsNetworksAvailable(c, d, reqNet, networks, netTypes)
+		freePortCnt, errs := IsNetworksAvailable(c, d, reqNet, networks, netTypes, getFreePort)
 		if len(errs) > 0 {
 			h.ExcludeByErrors(errs)
 			return h.GetResult()
