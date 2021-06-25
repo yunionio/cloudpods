@@ -1155,9 +1155,6 @@ func FetchModelObjects(modelManager IModelManager, query *sqlchemy.SQuery, targe
 
 	targetsValue := reflect.Indirect(reflect.ValueOf(targets))
 	for rows.Next() {
-		if modelManager.Keyword() == "server" {
-			log.Infof("one guest")
-		}
 		m, err := NewModelObject(modelManager)
 		if err != nil {
 			return err
