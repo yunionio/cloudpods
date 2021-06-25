@@ -884,3 +884,41 @@ func (mr *MockSchedulerMockRecorder) PriorityConfigs() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PriorityConfigs", reflect.TypeOf((*MockScheduler)(nil).PriorityConfigs))
 }
+
+// MockINetworkNicCountGetter is a mock of INetworkNicCountGetter interface
+type MockINetworkNicCountGetter struct {
+	ctrl     *gomock.Controller
+	recorder *MockINetworkNicCountGetterMockRecorder
+}
+
+// MockINetworkNicCountGetterMockRecorder is the mock recorder for MockINetworkNicCountGetter
+type MockINetworkNicCountGetterMockRecorder struct {
+	mock *MockINetworkNicCountGetter
+}
+
+// NewMockINetworkNicCountGetter creates a new mock instance
+func NewMockINetworkNicCountGetter(ctrl *gomock.Controller) *MockINetworkNicCountGetter {
+	mock := &MockINetworkNicCountGetter{ctrl: ctrl}
+	mock.recorder = &MockINetworkNicCountGetterMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockINetworkNicCountGetter) EXPECT() *MockINetworkNicCountGetterMockRecorder {
+	return m.recorder
+}
+
+// GetTotalNicCount mocks base method
+func (m *MockINetworkNicCountGetter) GetTotalNicCount(arg0 []string) (map[string]int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTotalNicCount", arg0)
+	ret0, _ := ret[0].(map[string]int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTotalNicCount indicates an expected call of GetTotalNicCount
+func (mr *MockINetworkNicCountGetterMockRecorder) GetTotalNicCount(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTotalNicCount", reflect.TypeOf((*MockINetworkNicCountGetter)(nil).GetTotalNicCount), arg0)
+}
