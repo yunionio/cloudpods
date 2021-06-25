@@ -210,13 +210,13 @@ func mergeInputOutputData(data *jsonutils.JSONDict, resVal reflect.Value) *jsonu
 	return data
 }
 
-func ValidateCreateData(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	ret, err := call(manager, "ValidateCreateData", ctx, userCred, ownerId, query, data)
+func ValidateCreateData(funcName string, manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	ret, err := call(manager, funcName, ctx, userCred, ownerId, query, data)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
 	if len(ret) != 2 {
-		return nil, httperrors.NewInternalServerError("Invald ValidateCreateData return value")
+		return nil, httperrors.NewInternalServerError("Invald %s return value", funcName)
 	}
 	resVal := ret[0]
 	if err := ValueToError(ret[1]); err != nil {
