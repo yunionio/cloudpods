@@ -31,11 +31,6 @@ import (
 func TestGenericSchedulerSchedule(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	scheduler, err := core.NewGenericScheduler(buildScheduler(ctrl, basePredicateNames...))
-	if err != nil {
-		t.Errorf("NewGenericScheduler: %s", err.Error())
-		return
-	}
 	commonInfo := &api.SchedInfo{
 		ScheduleInput: &apisdu.ScheduleInput{
 			ServerConfig: apisdu.ServerConfig{
@@ -114,12 +109,17 @@ func TestGenericSchedulerSchedule(t *testing.T) {
 			TotalMemorySize:        10240,
 			FreeMemorySize:         10240,
 			FreeStorageSizeAnyType: 201330,
-			FreePort:               10,
 			FreeGroupCount:         1,
 			Skus:                   []string{"ecs.g1.c1m1"},
 		}
+		netowrkNicCount := map[string]int{"nework01": 10}
+		scheduler, err := core.NewGenericScheduler(buildScheduler(ctrl, netowrkNicCount, basePredicateNames...))
+		if err != nil {
+			t.Errorf("NewGenericScheduler: %s", err.Error())
+			return
+		}
 		candidate := buildCandidate(ctrl, getterParam)
-		_, err := scheduler.Schedule(preSchedule(info, []core.Candidater{candidate}, false))
+		_, err = scheduler.Schedule(preSchedule(info, []core.Candidater{candidate}, false))
 		if err != nil {
 			t.Errorf("genericScheduler.Schedule error: %s", err.Error())
 		}
@@ -149,7 +149,6 @@ func TestGenericSchedulerSchedule(t *testing.T) {
 			TotalMemorySize:        10240,
 			FreeMemorySize:         10240,
 			FreeStorageSizeAnyType: 201330,
-			FreePort:               1,
 			Skus:                   []string{"ecs.g1.c1m1"},
 		}
 		getterParam2 := getterParam1
@@ -162,6 +161,17 @@ func TestGenericSchedulerSchedule(t *testing.T) {
 		candidates := []core.Candidater{
 			buildCandidate(ctrl, getterParam1),
 			buildCandidate(ctrl, getterParam2),
+		}
+		netowrkNicCount := map[string]int{
+			"network01": 255,
+			"network02": 256,
+			"network03": 1,
+			"network04": 1,
+		}
+		scheduler, err := core.NewGenericScheduler(buildScheduler(ctrl, netowrkNicCount, basePredicateNames...))
+		if err != nil {
+			t.Errorf("NewGenericScheduler: %s", err.Error())
+			return
 		}
 		res, err := scheduler.Schedule(preSchedule(info, candidates, true))
 		if err != nil {
