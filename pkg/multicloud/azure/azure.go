@@ -399,23 +399,19 @@ func (self *SAzureClient) _apiVersion(resource string, params url.Values) string
 	info := strings.Split(strings.ToLower(resource), "/")
 	if utils.IsInStringArray("microsoft.dbformariadb", info) {
 		return "2018-06-01-preview"
-	}
-	if utils.IsInStringArray("microsoft.dbformysql", info) {
+	} else if utils.IsInStringArray("microsoft.dbformysql", info) {
 		if utils.IsInStringArray("flexibleservers", info) {
 			return "2020-07-01-privatepreview"
 		}
 		return "2017-12-01"
-	}
-	if utils.IsInStringArray("microsoft.dbforpostgresql", info) {
+	} else if utils.IsInStringArray("microsoft.dbforpostgresql", info) {
 		if utils.IsInStringArray("flexibleservers", info) {
 			return "2020-02-14-preview"
 		}
 		return "2017-12-01"
-	}
-	if utils.IsInStringArray("microsoft.sql", info) {
+	} else if utils.IsInStringArray("microsoft.sql", info) {
 		return "2020-08-01-preview"
-	}
-	if utils.IsInStringArray("microsoft.compute", info) {
+	} else if utils.IsInStringArray("microsoft.compute", info) {
 		if utils.IsInStringArray("tags", info) {
 			return "2020-06-01"
 		}
@@ -476,6 +472,11 @@ func (self *SAzureClient) _apiVersion(resource string, params url.Values) string
 		return "2017-03-01-preview"
 	} else if utils.IsInStringArray("microsoft.authorization", info) {
 		return "2018-01-01-preview"
+	} else if utils.IsInStringArray("microsoft.cache", info) {
+		if utils.IsInStringArray("redisenterprise", info) {
+			return "2021-03-01"
+		}
+		return "2020-06-01"
 	}
 	return AZURE_API_VERSION
 }
@@ -967,7 +968,7 @@ func (self *SAzureClient) GetCapabilities() []string {
 		// cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
 		cloudprovider.CLOUD_CAPABILITY_RDS,
-		// cloudprovider.CLOUD_CAPABILITY_CACHE,
+		cloudprovider.CLOUD_CAPABILITY_CACHE,
 		cloudprovider.CLOUD_CAPABILITY_EVENT,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
 		cloudprovider.CLOUD_CAPABILITY_SAML_AUTH,
