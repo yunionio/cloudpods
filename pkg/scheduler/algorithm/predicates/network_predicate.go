@@ -37,7 +37,17 @@ import (
 type NetworkPredicate struct {
 	BasePredicate
 	plugin.BasePlugin
-	networkFreePortCount map[string]int
+	NetworkNicCountGetter INetworkNicCountGetter
+	networkFreePortCount  map[string]int
+}
+
+func NewNetworkPredicate(getter INetworkNicCountGetter) *NetworkPredicate {
+	if getter == nil {
+		getter = models.NetworkManager
+	}
+	return &NetworkPredicate{
+		NetworkNicCountGetter: getter,
+	}
 }
 
 func (p *NetworkPredicate) Name() string {
@@ -45,7 +55,13 @@ func (p *NetworkPredicate) Name() string {
 }
 
 func (p *NetworkPredicate) Clone() core.FitPredicate {
-	return &NetworkPredicate{}
+	return &NetworkPredicate{
+		NetworkNicCountGetter: p.NetworkNicCountGetter,
+	}
+}
+
+type INetworkNicCountGetter interface {
+	GetTotalNicCount([]string) (map[string]int, error)
 }
 
 func (p *NetworkPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
@@ -59,7 +75,7 @@ func (p *NetworkPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool,
 			networkIds.Insert(net.GetId())
 		}
 	}
-	netCounts, err := models.NetworkManager.GetTotalNicCount(networkIds.UnsortedList())
+	netCounts, err := p.NetworkNicCountGetter.GetTotalNicCount(networkIds.UnsortedList())
 	if err != nil {
 		return false, errors.Wrap(err, "unable to GetTotalNicCount")
 	}

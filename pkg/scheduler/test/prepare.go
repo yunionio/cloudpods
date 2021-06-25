@@ -27,26 +27,28 @@ import (
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	pre "yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	_ "yunion.io/x/onecloud/pkg/scheduler/algorithmprovider"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/sku"
 	"yunion.io/x/onecloud/pkg/scheduler/factory"
+	schmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 	"yunion.io/x/onecloud/pkg/scheduler/test/mock"
 )
 
 type sPredicateName string
 
 var (
-	HostStatus    sPredicateName = "a-GuestHostStatusFilter"
-	Hypervisor    sPredicateName = "b-GuestHypervisorFilter"
-	Migrate       sPredicateName = "d-GuestMigrateFilter"
-	Domain        sPredicateName = "e-GuestDomainFilter"
-	Image         sPredicateName = "e-GuestImageFilter"
-	CPU           sPredicateName = "g-GuestCPUFilter"
-	Memory        sPredicateName = "h-GuestMemoryFilter"
-	Storage       sPredicateName = "i-GuestStorageFilter"
-	Network       sPredicateName = "j-GuestNetworkFilter"
+	HostStatus sPredicateName = "a-GuestHostStatusFilter"
+	Hypervisor sPredicateName = "b-GuestHypervisorFilter"
+	Migrate    sPredicateName = "d-GuestMigrateFilter"
+	Domain     sPredicateName = "e-GuestDomainFilter"
+	Image      sPredicateName = "e-GuestImageFilter"
+	CPU        sPredicateName = "g-GuestCPUFilter"
+	Memory     sPredicateName = "h-GuestMemoryFilter"
+	Storage    sPredicateName = "i-GuestStorageFilter"
+	//Network       sPredicateName = "j-GuestNetworkFilter"
 	IsolateDevice sPredicateName = "k-GuestIsolatedDeviceFilter"
 	ResourceType  sPredicateName = "l-GuestResourceTypeFilter"
 	ServerSku     sPredicateName = "n-ServerSkuFilter"
@@ -60,7 +62,7 @@ var (
 	Quota sPredicateName = "z-QuotaFilter"
 
 	basePredicateNames = []sPredicateName{
-		HostStatus, Hypervisor, Migrate, Domain, Image, CPU, Memory, Storage, Network,
+		HostStatus, Hypervisor, Migrate, Domain, Image, CPU, Memory, Storage,
 		IsolateDevice, ResourceType, ServerSku,
 	}
 )
@@ -105,7 +107,6 @@ type sGetterParams struct {
 	TotalMemorySize        int64
 	FreeMemorySize         int64
 	FreeStorageSizeAnyType int64
-	FreePort               int
 	QuotaKeys              *models.SComputeResourceKeys
 	FreeGroupCount         int
 	Skus                   []string
@@ -170,15 +171,17 @@ func buildGetter(ctrl *gomock.Controller, param sGetterParams) *mock.MockCandida
 	cg.EXPECT().TotalMemorySize(gomock.Any()).AnyTimes().Return(param.TotalMemorySize)
 	cg.EXPECT().FreeMemorySize(gomock.Any()).AnyTimes().Return(param.FreeMemorySize)
 	cg.EXPECT().GetFreeStorageSizeOfType(gomock.Any(), gomock.Any()).AnyTimes().Return(param.FreeStorageSizeAnyType, int64(0))
-	cg.EXPECT().GetFreePort(gomock.Any()).AnyTimes().Return(param.FreePort)
 	if param.QuotaKeys != nil {
 		cg.EXPECT().GetQuotaKeys(gomock.Any()).AnyTimes().Return(param.QuotaKeys)
 	}
 	cg.EXPECT().GetFreeGroupCount(gomock.Any()).AnyTimes().Return(param.FreeGroupCount, nil)
+	cg.EXPECT().GetPendingUsage().AnyTimes().Return(&schmodels.SPendingUsage{
+		NetUsage: schmodels.NewResourcePendingUsage(map[string]int{}),
+	})
 	return cg
 }
 
-func buildScheduler(ctrl *gomock.Controller, predicates ...sPredicateName) core.Scheduler {
+func buildScheduler(ctrl *gomock.Controller, networkNicCount map[string]int, predicates ...sPredicateName) core.Scheduler {
 	pres := sets.NewString()
 	for _, pre := range predicates {
 		pres.Insert(string(pre))
@@ -186,8 +189,20 @@ func buildScheduler(ctrl *gomock.Controller, predicates ...sPredicateName) core.
 	algorithmProvider, _ := factory.GetAlgorithmProvider(factory.DefaultProvider)
 	mockScheduler := mock.NewMockScheduler(ctrl)
 	mockScheduler.EXPECT().BeforePredicate().AnyTimes().Return(nil)
+	networkNicGetter := mock.NewMockINetworkNicCountGetter(ctrl)
+	networkNicGetter.EXPECT().GetTotalNicCount(gomock.AssignableToTypeOf([]string{})).AnyTimes().DoAndReturn(func(netIds []string) (map[string]int, error) {
+		return networkNicCount, nil
+	})
 	mockScheduler.EXPECT().Predicates().AnyTimes().DoAndReturn(func() (map[string]core.FitPredicate, error) {
-		return factory.GetPredicates(pres)
+		ret, err := factory.GetPredicates(pres)
+		if err != nil {
+			return nil, err
+		}
+		if networkNicGetter == nil {
+			fmt.Printf("networkNicGetter is nil")
+		}
+		ret["j-GuestNetworkFilter"] = pre.NewNetworkPredicate(networkNicGetter)
+		return ret, nil
 	})
 	mockScheduler.EXPECT().PriorityConfigs().AnyTimes().DoAndReturn(func() ([]core.PriorityConfig, error) {
 		return factory.GetPriorityConfigs(algorithmProvider.PriorityKeys)
