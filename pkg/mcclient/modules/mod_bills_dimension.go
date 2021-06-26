@@ -9,6 +9,7 @@ type SBillsDimensionManager struct {
 var (
 	BillingDimensionManager         *SBillsDimensionManager
 	BillingDimensionAnalysisManager *SBillsDimensionManager
+	BillingDimensionJointManager    *SBillsDimensionManager
 )
 
 func NewBillingDimensionManager() *SBillsDimensionManager {
@@ -29,9 +30,20 @@ func NewBillingDimensionAnalysisManager() *SBillsDimensionManager {
 	}
 }
 
+func NewBillingDimensionJointManager() *SBillsDimensionManager {
+	man := NewMeterManager("dimensionjoint", "dimensionjoints",
+		[]string{"id", "name", "data"},
+		[]string{})
+	return &SBillsDimensionManager{
+		ResourceManager: &man,
+	}
+}
+
 func init() {
 	BillingDimensionManager = NewBillingDimensionManager()
 	BillingDimensionAnalysisManager = NewBillingDimensionAnalysisManager()
+	BillingDimensionJointManager = NewBillingDimensionJointManager()
 	register(BillingDimensionManager)
 	register(BillingDimensionAnalysisManager)
+	register(BillingDimensionJointManager)
 }
