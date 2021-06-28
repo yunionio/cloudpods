@@ -295,10 +295,13 @@ func (manager *SMonitorResourceManager) GetPropertyAlert(ctx context.Context, us
 func (manager *SMonitorResourceManager) UpdateMonitorResourceAttachJoint(ctx context.Context,
 	userCred mcclient.TokenCredential, alertRecord *SAlertRecord) error {
 	if !utils.IsInStringArray(alertRecord.ResType, []string{monitor.METRIC_RES_TYPE_HOST,
-		monitor.METRIC_RES_TYPE_GUEST}) {
+		monitor.METRIC_RES_TYPE_GUEST, monitor.METRIC_RES_TYPE_AGENT}) {
 		return nil
 	}
-
+	resType := alertRecord.ResType
+	if resType == monitor.METRIC_RES_TYPE_AGENT {
+		resType = monitor.METRIC_RES_TYPE_GUEST
+	}
 	matches, _ := alertRecord.GetEvalData()
 	errs := make([]error, 0)
 	for _, matche := range matches {
@@ -306,7 +309,7 @@ func (manager *SMonitorResourceManager) UpdateMonitorResourceAttachJoint(ctx con
 		if len(resId) == 0 {
 			continue
 		}
-		monitorResources, err := manager.GetMonitorResources(monitor.MonitorResourceListInput{ResType: alertRecord.ResType, ResId: []string{resId}})
+		monitorResources, err := manager.GetMonitorResources(monitor.MonitorResourceListInput{ResType: resType, ResId: []string{resId}})
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "SMonitorResourceManager GetMonitorResources by resId:%s err", resId))
 			continue
