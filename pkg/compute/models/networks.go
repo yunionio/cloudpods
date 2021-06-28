@@ -1067,7 +1067,7 @@ func (self *SNetwork) getFreeAddressCount() (int, error) {
 	return self.getIPRange().AddressCount() - used, nil
 }
 
-func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *api.NetworkConfig) error {
+func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *api.NetworkConfig, reuseAddr string) error {
 	if len(netConfig.Network) > 0 {
 		netObj, err := NetworkManager.FetchByIdOrName(userCred, netConfig.Network)
 		if err != nil {
@@ -1100,7 +1100,7 @@ func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *api.Networ
 				if err != nil {
 					return httperrors.NewInternalServerError("isAddressUsed fail %s", err)
 				}
-				if used {
+				if used && netConfig.Address != reuseAddr {
 					return httperrors.NewInputParameterError("Address %s has been used", netConfig.Address)
 				}
 			}
@@ -1116,6 +1116,9 @@ func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *api.Networ
 		freeCnt, err := net.getFreeAddressCount()
 		if err != nil {
 			return httperrors.NewInternalServerError("getFreeAddressCount fail %s", err)
+		}
+		if reuseAddr != "" {
+			freeCnt += 1
 		}
 		if freeCnt < 1 {
 			return httperrors.NewInputParameterError("network %s(%s) has no free addresses", net.Name, net.Id)
