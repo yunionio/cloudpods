@@ -40,6 +40,7 @@ var (
 		"brand":          "brand",
 		"domain_id":      "domain_id",
 		"project_domain": "project_domain",
+		"access_ip":      "access_ip",
 	}
 
 	RdsTags = map[string]string{
