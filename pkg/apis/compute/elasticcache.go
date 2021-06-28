@@ -175,7 +175,7 @@ type ElasticcacheCreateInput struct {
 	NetworkType string `json:"network_type"`
 
 	// 弹性缓存Engine
-	//  enum: redis, memcache
+	//  enum: redis, memcached
 	// required: true
 	Engine string `json:"engine"`
 

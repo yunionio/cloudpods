@@ -686,6 +686,11 @@ func (self *SRegion) redisRequest(apiName string, params map[string]string) (jso
 	return self.client.redisRequest(apiName, params)
 }
 
+func (self *SRegion) memcachedRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	params["Region"] = self.Region
+	return self.client.memcachedRequest(apiName, params)
+}
+
 func (self *SRegion) GetNetworks(ids []string, vpcId string, offset int, limit int) ([]SNetwork, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50
@@ -994,10 +999,41 @@ func (region *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, 
 		ret = append(ret, &cache)
 	}
 
+	mems := []SMemcached{}
+	offset := 0
+	for {
+		part, total, err := region.GetMemcaches(nil, 100, offset)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetMemcaches")
+		}
+		mems = append(mems, part...)
+		if len(mems) >= total {
+			break
+		}
+		offset += len(part)
+	}
+	for i := range mems {
+		mems[i].region = region
+		ret = append(ret, &mems[i])
+	}
+
 	return ret, nil
 }
 
 func (region *SRegion) GetIElasticcacheById(id string) (cloudprovider.ICloudElasticcache, error) {
+	if strings.HasPrefix(id, "cmem-") {
+		memcacheds, _, err := region.GetMemcaches([]string{id}, 1, 0)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetMemcaches")
+		}
+		for i := range memcacheds {
+			if memcacheds[i].GetGlobalId() == id {
+				memcacheds[i].region = region
+				return &memcacheds[i], nil
+			}
+		}
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	}
 	caches, err := region.GetCloudElasticcaches(id)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetCloudElasticcaches")

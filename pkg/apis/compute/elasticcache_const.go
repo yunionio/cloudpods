@@ -51,6 +51,8 @@ const (
 	ELASTIC_CACHE_SET_AUTO_RENEW               = "set_auto_renew"        //（设置自动续费）
 	ELASTIC_CACHE_SET_AUTO_RENEW_FAILED        = "set_auto_renew_failed" //（设置自动续费失败）
 
+	ELASTIC_CACHE_ENGINE_REDIS     = "redis"
+	ELASTIC_CACHE_ENGINE_MEMCACHED = "memcached"
 )
 
 const (
