@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 	"sort"
 
 	"yunion.io/x/pkg/errors"
@@ -50,6 +51,14 @@ type SCloudproviderCapability struct {
 	CloudproviderId string `width:"36" charset:"ascii" nullable:"false" primary:"true"`
 	CloudregionId   string `width:"36" charset:"ascii" nullable:"false" default:"" primary:"true"`
 	Capability      string `width:"18" charset:"ascii" nullable:"false" primary:"true"`
+}
+
+func (self *SCloudproviderCapability) GetId() string {
+	return fmt.Sprintf("%s/%s", self.CloudregionId, self.CloudproviderId)
+}
+
+func (self *SCloudproviderCapability) GetName() string {
+	return self.Capability
 }
 
 func (manager *SCloudproviderCapabilityManager) setCapabilities(ctx context.Context, userCred mcclient.TokenCredential, cloudproviderId string, capabilities []string) error {
