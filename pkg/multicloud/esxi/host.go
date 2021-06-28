@@ -1349,15 +1349,19 @@ func (host *SHost) fetchDatastores() error {
 		return nil
 	}
 
+	dc, err := host.GetDatacenter()
+	if err != nil {
+		return err
+	}
 	dss := host.getHostSystem().Datastore
 	var datastores []mo.Datastore
-	err := host.manager.references2Objects(dss, DATASTORE_PROPS, &datastores)
+	err = host.manager.references2Objects(dss, DATASTORE_PROPS, &datastores)
 	if err != nil {
 		return err
 	}
 	host.datastores = make([]cloudprovider.ICloudStorage, 0)
 	for i := 0; i < len(datastores); i += 1 {
-		ds := NewDatastore(host.manager, &datastores[i], host.datacenter)
+		ds := NewDatastore(host.manager, &datastores[i], dc)
 		dsId := ds.GetGlobalId()
 		if len(dsId) > 0 {
 			host.datastores = append(host.datastores, ds)
