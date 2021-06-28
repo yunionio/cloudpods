@@ -93,6 +93,15 @@ func init() {
 		return nil
 	})
 
+	R(&options.ElasticCacheIdOptions{}, "elastic-cache-sync", "Sync elastisc cache instance", func(s *mcclient.ClientSession, opts *options.ElasticCacheIdOptions) error {
+		result, err := modules.ElasticCache.PerformAction(s, opts.ID, "sync", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	R(&options.ElasticCacheIdOptions{}, "elastic-cache-delete", "Delete elastisc cache instance", func(s *mcclient.ClientSession, opts *options.ElasticCacheIdOptions) error {
 		result, err := modules.ElasticCache.Delete(s, opts.ID, nil)
 		if err != nil {
