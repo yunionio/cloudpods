@@ -69,7 +69,7 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
 
 ## Quick start
 
-You may install Cloudpods in a Linux box (currently CentOS 7 and Debian 10 are fully tested) with at least 8GiB RAM and 100GB storage by following three simple steps.
+You may install Cloudpods in a Linux box (currently CentOS 7 and Debian 10 are fully tested) with at least 8GiB RAM and 100GB storage by following two steps.
 
 (Assuming that you install Cloudpods on a Linux box with IP *10.168.26.216*):
 
@@ -90,23 +90,7 @@ $ ssh-copy-id -i ~/.ssh/id_rsa.pub root@10.168.26.216
 $ ssh root@10.168.26.216 "hostname"
 ```
 
-### 2. Install ansible and git
-
-#### For CentOS
-
-```bash
-# Install ansible and git locally
-$ yum install -y epel-release ansible git
-```
-
-#### For Debian 10
-
-```bash
-# Install ansible locally
-$ apt install -y ansible git
-```
-
-### 3. Install Cloudpods
+### 2. Install Cloudpods
 
 Run the following commands to start installing Cloudpods.
 
