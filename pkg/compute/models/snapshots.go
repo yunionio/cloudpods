@@ -891,7 +891,7 @@ func (self *SSnapshot) SyncWithCloudSnapshot(ctx context.Context, userCred mccli
 	if disk != nil {
 		self.SyncCloudProjectId(userCred, disk.GetOwnerId())
 	} else {
-		SyncCloudProject(userCred, self, syncOwnerId, ext, disk.GetCloudprovider().Id)
+		SyncCloudProject(userCred, self, syncOwnerId, ext, self.GetCloudprovider().Id)
 	}
 
 	return nil
