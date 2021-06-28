@@ -2100,6 +2100,19 @@ func (self *SGuest) findGuestnetworkByInfo(ipStr string, macStr string, index in
 	}
 }
 
+func (self *SGuest) getReuseAddr(gn *SGuestnetwork) string {
+	if self.GetHypervisor() != api.HYPERVISOR_BAREMETAL {
+		return ""
+	}
+	hostNics := self.GetHost().GetNics()
+	for _, hn := range hostNics {
+		if hn.GetMac().String() == gn.MacAddr {
+			return hn.IpAddr
+		}
+	}
+	return ""
+}
+
 // Change IPaddress of a guestnetwork
 // first detach the network, then attach a network with identity mac address but different IP configurations
 // TODO change IP address of a teaming NIC may fail!!
@@ -2137,7 +2150,7 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 	if err != nil {
 		return nil, err
 	}
-	err = isValidNetworkInfo(userCred, conf)
+	err = isValidNetworkInfo(userCred, conf, self.getReuseAddr(gn))
 	if err != nil {
 		return nil, err
 	}
@@ -2296,7 +2309,7 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 	}
 	var inicCnt, enicCnt int
 	for i := 0; i < count; i++ {
-		err := isValidNetworkInfo(userCred, input.Nets[i])
+		err := isValidNetworkInfo(userCred, input.Nets[i], "")
 		if err != nil {
 			return nil, err
 		}
