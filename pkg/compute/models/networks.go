@@ -192,9 +192,6 @@ func (nm *SNetworkManager) GetTotalNicCount(netIds []string) (map[string]int, er
 	lbNetworkQ := nm.jointNetworkCount(LoadbalancernetworkManager, netIds, nil)
 	dbInstanceNetworkQ := nm.jointNetworkCount(DBInstanceNetworkManager, netIds, nil)
 	eipNetworkQ := nm.jointNetworkCount(ElasticipManager, netIds, nil)
-	natgatewayNetworkQ := nm.jointNetworkCount(NatGatewayManager, netIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-		return q.Filter(sqlchemy.IsNotEmpty(q.Field("ip_addr")))
-	})
 
 	reserverIpsQ := nm.jointNetworkCount(ReservedipManager, netIds, filterExpiredReservedIps)
 
@@ -205,7 +202,7 @@ func (nm *SNetworkManager) GetTotalNicCount(netIds []string) (map[string]int, er
 	networkInterfaceQ.AppendField(sqlchemy.COUNT("count"))
 	networkInterfaceQ.GroupBy("network_id")
 
-	union, err := sqlchemy.UnionWithError(guestNetworkQ, groupNetworkQ, hostNetworkQ, lbNetworkQ, dbInstanceNetworkQ, eipNetworkQ, natgatewayNetworkQ, reserverIpsQ, networkInterfaceQ)
+	union, err := sqlchemy.UnionWithError(guestNetworkQ, groupNetworkQ, hostNetworkQ, lbNetworkQ, dbInstanceNetworkQ, eipNetworkQ, reserverIpsQ, networkInterfaceQ)
 	if err != nil {
 		return nil, err
 	}
