@@ -259,7 +259,7 @@ func (m *SGuestManager) IsGuestDir(f os.FileInfo) bool {
 	if !regutils.MatchUUID(f.Name()) {
 		return false
 	}
-	if !f.Mode().IsDir() {
+	if !f.Mode().IsDir() && f.Mode()&os.ModeSymlink == 0 {
 		return false
 	}
 	descFile := path.Join(m.ServersPath, f.Name(), "desc")
