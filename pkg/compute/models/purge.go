@@ -1924,3 +1924,63 @@ func (vpcPC *SVpcPeeringConnection) purge(ctx context.Context, userCred mcclient
 	defer lockman.ReleaseObject(ctx, vpcPC)
 	return vpcPC.RealDelete(ctx, userCred)
 }
+
+func (manager *SWafRuleGroupCacheManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	caches := []SWafRuleGroupCache{}
+	err := fetchByManagerId(manager, providerId, &caches)
+	if err != nil {
+		return errors.Wrapf(err, "fetchByManagerId")
+	}
+	for i := range caches {
+		err := caches[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "cache delete")
+		}
+	}
+	return nil
+}
+
+func (manager *SWafIPSetCacheManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	caches := []SWafIPSetCache{}
+	err := fetchByManagerId(manager, providerId, &caches)
+	if err != nil {
+		return errors.Wrapf(err, "fetchByManagerId")
+	}
+	for i := range caches {
+		err := caches[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "cache delete")
+		}
+	}
+	return nil
+}
+
+func (manager *SWafRegexSetCacheManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	caches := []SWafRegexSetCache{}
+	err := fetchByManagerId(manager, providerId, &caches)
+	if err != nil {
+		return errors.Wrapf(err, "fetchByManagerId")
+	}
+	for i := range caches {
+		err := caches[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "cache delete")
+		}
+	}
+	return nil
+}
+
+func (manager *SWafInstanceManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	ins := []SWafInstance{}
+	err := fetchByManagerId(manager, providerId, &ins)
+	if err != nil {
+		return errors.Wrapf(err, "fetchByManagerId")
+	}
+	for i := range ins {
+		err := ins[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "cache delete")
+		}
+	}
+	return nil
+}
