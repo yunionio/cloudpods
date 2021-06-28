@@ -456,7 +456,7 @@ func (c *QueryCondition) checkGroupByField() {
 }
 
 func (c *QueryCondition) setResType() {
-	var resType = ""
+	var resType = monitor.METRIC_RES_TYPE_HOST
 	if len(c.Query.Model.GroupBy) == 0 {
 		return
 	}
