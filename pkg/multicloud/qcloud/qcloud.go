@@ -60,6 +60,7 @@ const (
 	QCLOUD_POSTGRES_API_VERSION  = "2017-03-12"
 	QCLOUD_SQLSERVER_API_VERSION = "2018-03-28"
 	QCLOUD_REDIS_API_VERSION     = "2018-04-12"
+	QCLOUD_MEMCACHED_API_VERSION = "2019-03-18"
 	QCLOUD_SSL_API_VERSION       = "2019-12-05"
 	QCLOUD_CDN_API_VERSION       = "2018-06-06"
 )
@@ -174,6 +175,12 @@ func accountRequest(client *common.Client, apiName string, params map[string]str
 func redisRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("redis", params)
 	return _jsonRequest(client, domain, QCLOUD_REDIS_API_VERSION, apiName, params, debug, true)
+}
+
+// memcached
+func memcachedRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	domain := apiDomain("memcached", params)
+	return _jsonRequest(client, domain, QCLOUD_MEMCACHED_API_VERSION, apiName, params, debug, true)
 }
 
 // loadbalancer服务 api 3.0
@@ -621,6 +628,15 @@ func (client *SQcloudClient) redisRequest(apiName string, params map[string]stri
 	}
 
 	return redisRequest(cli, apiName, params, client.debug)
+}
+
+func (client *SQcloudClient) memcachedRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return memcachedRequest(cli, apiName, params, client.debug)
 }
 
 func (client *SQcloudClient) mariadbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {

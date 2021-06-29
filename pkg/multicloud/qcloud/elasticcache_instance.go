@@ -357,7 +357,7 @@ func (self *SElasticcache) GetNodeType() string {
 }
 
 func (self *SElasticcache) GetEngine() string {
-	return "redis"
+	return api.ELASTIC_CACHE_ENGINE_REDIS
 }
 
 func (self *SElasticcache) GetEngineVersion() string {
