@@ -41,13 +41,20 @@ type NetworkPredicate struct {
 	networkFreePortCount  map[string]int
 }
 
-func NewNetworkPredicate(getter INetworkNicCountGetter) *NetworkPredicate {
-	if getter == nil {
-		getter = models.NetworkManager
-	}
+func NewNetworkPredicate() *NetworkPredicate {
 	return &NetworkPredicate{
-		NetworkNicCountGetter: getter,
+		NetworkNicCountGetter: nil,
+		networkFreePortCount:  make(map[string]int),
 	}
+}
+
+func NewNetworkPredicateWithNicCounter() *NetworkPredicate {
+	return NewNetworkPredicate().WithNetworkCountGetter(models.GetNetworkManager())
+}
+
+func (p *NetworkPredicate) WithNetworkCountGetter(getter INetworkNicCountGetter) *NetworkPredicate {
+	p.NetworkNicCountGetter = getter
+	return p
 }
 
 func (p *NetworkPredicate) Name() string {
@@ -57,6 +64,7 @@ func (p *NetworkPredicate) Name() string {
 func (p *NetworkPredicate) Clone() core.FitPredicate {
 	return &NetworkPredicate{
 		NetworkNicCountGetter: p.NetworkNicCountGetter,
+		networkFreePortCount:  p.networkFreePortCount,
 	}
 }
 
@@ -75,14 +83,16 @@ func (p *NetworkPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool,
 			networkIds.Insert(net.GetId())
 		}
 	}
-	netCounts, err := p.NetworkNicCountGetter.GetTotalNicCount(networkIds.UnsortedList())
-	if err != nil {
-		return false, errors.Wrap(err, "unable to GetTotalNicCount")
-	}
-	p.networkFreePortCount = map[string]int{}
-	for i := range cs {
-		for _, net := range cs[i].Getter().Networks() {
-			p.networkFreePortCount[net.Id] = net.GetTotalAddressCount() - netCounts[net.Id]
+
+	if p.NetworkNicCountGetter != nil {
+		netCounts, err := p.NetworkNicCountGetter.GetTotalNicCount(networkIds.UnsortedList())
+		if err != nil {
+			return false, errors.Wrap(err, "unable to GetTotalNicCount")
+		}
+		for i := range cs {
+			for _, net := range cs[i].Getter().Networks() {
+				p.networkFreePortCount[net.Id] = net.GetTotalAddressCount() - netCounts[net.Id]
+			}
 		}
 	}
 
@@ -266,7 +276,10 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	d := u.SchedData()
 
 	getFreePort := func(id string) int {
-		return p.networkFreePortCount[id] - c.Getter().GetPendingUsage().NetUsage.Get(id)
+		if _, ok := p.networkFreePortCount[id]; ok {
+			return p.networkFreePortCount[id] - c.Getter().GetPendingUsage().NetUsage.Get(id)
+		}
+		return c.Getter().GetFreePort(id)
 	}
 
 	for _, reqNet := range d.Networks {
