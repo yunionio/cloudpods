@@ -201,7 +201,7 @@ func buildScheduler(ctrl *gomock.Controller, networkNicCount map[string]int, pre
 		if networkNicGetter == nil {
 			fmt.Printf("networkNicGetter is nil")
 		}
-		ret["j-GuestNetworkFilter"] = pre.NewNetworkPredicate(networkNicGetter)
+		ret["j-GuestNetworkFilter"] = pre.NewNetworkPredicate().WithNetworkCountGetter(networkNicGetter)
 		return ret, nil
 	})
 	mockScheduler.EXPECT().PriorityConfigs().AnyTimes().DoAndReturn(func() ([]core.PriorityConfig, error) {
