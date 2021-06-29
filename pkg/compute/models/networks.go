@@ -60,7 +60,10 @@ type SNetworkManager struct {
 
 var NetworkManager *SNetworkManager
 
-func init() {
+func GetNetworkManager() *SNetworkManager {
+	if NetworkManager != nil {
+		return NetworkManager
+	}
 	NetworkManager = &SNetworkManager{
 		SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(
 			SNetwork{},
@@ -70,6 +73,11 @@ func init() {
 		),
 	}
 	NetworkManager.SetVirtualObject(NetworkManager)
+	return NetworkManager
+}
+
+func init() {
+	GetNetworkManager()
 }
 
 type SNetwork struct {
