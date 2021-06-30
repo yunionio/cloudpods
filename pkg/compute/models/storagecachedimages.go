@@ -140,15 +140,6 @@ func (self *SStoragecachedimage) GetHost() (*SHost, error) {
 	return sc.GetHost()
 }
 
-func (self *SStoragecachedimage) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.StoragecachedimageDetails, error) {
-	return api.StoragecachedimageDetails{}, nil
-}
-
 func (manager *SStoragecachedimageManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

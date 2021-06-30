@@ -128,15 +128,6 @@ func (manager *SDBInstanceSecgroupManager) ListItemExportKeys(ctx context.Contex
 	return q, nil
 }
 
-func (self *SDBInstanceSecgroup) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.DBInstanceSecgroupDetails, error) {
-	return api.DBInstanceSecgroupDetails{}, nil
-}
-
 func (manager *SDBInstanceSecgroupManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

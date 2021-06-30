@@ -243,15 +243,6 @@ func (manager *SVpcPeeringConnectionManager) QueryDistinctExtraField(q *sqlchemy
 	return q, httperrors.ErrNotFound
 }
 
-func (self *SVpcPeeringConnection) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.VpcPeeringConnectionDetails, error) {
-	return api.VpcPeeringConnectionDetails{}, nil
-}
-
 func (manager *SVpcPeeringConnectionManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

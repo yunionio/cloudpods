@@ -543,10 +543,6 @@ func (manager *SDnsRecordManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 	return q, httperrors.ErrNotFound
 }
 
-func (record *SDnsRecord) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DnsRecordDetails, error) {
-	return api.DnsRecordDetails{}, nil
-}
-
 func (manager *SDnsRecordManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

@@ -140,15 +140,6 @@ func (manager *SEnabledStatusDomainLevelResourceBaseManager) FetchCustomizeColum
 	return rows
 }
 
-func (model *SEnabledStatusDomainLevelResourceBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (apis.EnabledStatusDomainLevelResourceDetails, error) {
-	return apis.EnabledStatusDomainLevelResourceDetails{}, nil
-}
-
 func (model *SEnabledStatusDomainLevelResourceBase) ValidateUpdateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

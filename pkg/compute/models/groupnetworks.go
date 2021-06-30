@@ -67,15 +67,6 @@ func (manager *SGroupnetworkManager) GetSlaveFieldName() string {
 	return "network_id"
 }
 
-func (self *SGroupnetwork) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.GroupnetworkDetails, error) {
-	return api.GroupnetworkDetails{}, nil
-}
-
 func (manager *SGroupnetworkManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

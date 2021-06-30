@@ -95,10 +95,6 @@ func (manager *SPolicyDefinitionManager) QueryDistinctExtraField(q *sqlchemy.SQu
 	return q, httperrors.ErrNotFound
 }
 
-func (self *SPolicyDefinition) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.PolicyDefinitionDetails, error) {
-	return api.PolicyDefinitionDetails{}, nil
-}
-
 func (manager *SPolicyDefinitionManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []interface{}, fields stringutils2.SSortedStrings, isList bool) []api.PolicyDefinitionDetails {
 	rows := make([]api.PolicyDefinitionDetails, len(objs))
 	statusRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)

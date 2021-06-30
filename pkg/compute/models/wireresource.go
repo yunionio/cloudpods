@@ -96,10 +96,6 @@ func (self *SWireResourceBase) GetZone() *SZone {
 	return nil
 }
 
-func (self *SWireResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) api.WireResourceInfo {
-	return api.WireResourceInfo{}
-}
-
 func (manager *SWireResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
@@ -59,15 +58,6 @@ type SHostschedtag struct {
 
 func (manager *SHostschedtagManager) GetMasterFieldName() string {
 	return "host_id"
-}
-
-func (self *SHostschedtag) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.HostschedtagDetails, error) {
-	return api.HostschedtagDetails{}, nil
 }
 
 func (self *SHostschedtag) GetDetails(base api.SchedtagJointResourceDetails, resourceName string, isList bool) interface{} {

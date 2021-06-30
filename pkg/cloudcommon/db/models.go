@@ -91,23 +91,6 @@ func mustCheckModelManager(modelMan IModelManager) {
 				panic(msg)
 			}
 		}
-		requiredModelFuncNames := []string{
-			"GetExtraDetails",
-		}
-		for _, name := range requiredModelFuncNames {
-			model, err := NewModelObject(modelMan)
-			if err != nil {
-				msg := fmt.Sprintf("model manager %T: new model object: %v", modelMan, err)
-				panic(msg)
-			}
-			modelV := reflect.ValueOf(model)
-			methV := modelV.MethodByName(name)
-			if !methV.IsValid() {
-				msg := fmt.Sprintf("model %T: has no valid %s, likely caused by ambiguity",
-					model, name)
-				panic(msg)
-			}
-		}
 	}
 }
 

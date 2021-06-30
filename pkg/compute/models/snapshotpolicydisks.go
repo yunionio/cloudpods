@@ -101,15 +101,6 @@ func (sd *SSnapshotPolicyDisk) SetStatus(userCred mcclient.TokenCredential, stat
 	return nil
 }
 
-func (self *SSnapshotPolicyDisk) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.SnapshotPolicyDiskDetails, error) {
-	return api.SnapshotPolicyDiskDetails{}, nil
-}
-
 func (manager *SSnapshotPolicyDiskManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -150,7 +141,8 @@ func (manager *SSnapshotPolicyDiskManager) FetchCustomizeColumns(
 			rows[i].Snapshotpolicy = name
 		}
 		if disk, ok := disks[diskIds[i]]; ok {
-			rows[i].Disk, _ = disk.GetExtraDetails(ctx, userCred, query, isList)
+			rows[i].Disk = api.DiskDetails{}
+			jsonutils.Update(&rows[i].Disk, disk)
 		}
 	}
 

@@ -177,15 +177,6 @@ func (manager *SSecurityGroupRuleManager) ListItemFilter(
 	return sql, nil
 }
 
-func (self *SSecurityGroupRule) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.SecgroupRuleDetails, error) {
-	return api.SecgroupRuleDetails{}, nil
-}
-
 func (manager *SSecurityGroupRuleManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

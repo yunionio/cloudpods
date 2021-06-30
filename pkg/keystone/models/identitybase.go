@@ -301,15 +301,6 @@ func (model *SEnabledIdentityBaseResource) ValidateUpdateData(
 	return rbacutils.ScopeSystem
 }*/
 
-func (model *SIdentityBaseResource) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.IdentityBaseResourceDetails, error) {
-	return api.IdentityBaseResourceDetails{}, nil
-}
-
 func (manager *SIdentityBaseResourceManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -351,15 +342,6 @@ func (manager *SIdentityBaseResourceManager) FetchCustomizeColumns(
 		}
 	}*/
 	return rows
-}
-
-func (model *SEnabledIdentityBaseResource) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.EnabledIdentityBaseResourceDetails, error) {
-	return api.EnabledIdentityBaseResourceDetails{}, nil
 }
 
 func (manager *SEnabledIdentityBaseResourceManager) FetchCustomizeColumns(

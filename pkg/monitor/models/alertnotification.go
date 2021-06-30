@@ -153,15 +153,6 @@ func (joint *SAlertnotification) getExtraDetails(noti SNotification, out monitor
 	return out
 }
 
-func (joint *SAlertnotification) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (monitor.AlertnotificationDetails, error) {
-	return monitor.AlertnotificationDetails{}, nil
-}
-
 func (joint *SAlertnotification) DoSave(ctx context.Context, userCred mcclient.TokenCredential) error {
 	if err := AlertNotificationManager.TableSpec().Insert(ctx, joint); err != nil {
 		return err

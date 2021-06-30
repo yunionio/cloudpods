@@ -86,15 +86,6 @@ func (self *SLoadbalancerListenerResourceBase) GetProviderName() string {
 	return ""
 }
 
-func (self *SLoadbalancerListenerResourceBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) api.LoadbalancerListenerResourceInfo {
-	return api.LoadbalancerListenerResourceInfo{}
-}
-
 func (manager *SLoadbalancerListenerResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

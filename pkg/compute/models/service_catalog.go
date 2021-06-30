@@ -239,12 +239,3 @@ func (manager *SServiceCatalogManager) FetchCustomizeColumns(
 
 	return rows
 }
-
-func (self *SServiceCatalog) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (computeapis.ServiceCatalogDetails, error) {
-	return computeapis.ServiceCatalogDetails{}, nil
-}

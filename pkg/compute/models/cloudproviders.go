@@ -974,16 +974,6 @@ func (self *SCloudprovider) getProject(ctx context.Context) *db.STenant {
 	return proj
 }
 
-func (self *SCloudprovider) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.CloudproviderDetails, error) {
-
-	return api.CloudproviderDetails{}, nil
-}
-
 func (manager *SCloudproviderManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

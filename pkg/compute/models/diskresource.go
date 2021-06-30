@@ -85,10 +85,6 @@ func (self *SDiskResourceBase) GetRegion() *SCloudregion {
 	return region
 }
 
-func (self *SDiskResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) api.DiskResourceInfo {
-	return api.DiskResourceInfo{}
-}
-
 func (manager *SDiskResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

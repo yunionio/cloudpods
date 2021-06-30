@@ -179,15 +179,6 @@ func (self *SCredential) ValidateUpdateData(ctx context.Context, userCred mcclie
 	return input, nil
 }
 
-func (self *SCredential) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.CredentialDetails, error) {
-	return api.CredentialDetails{}, nil
-}
-
 func (manager *SCredentialManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

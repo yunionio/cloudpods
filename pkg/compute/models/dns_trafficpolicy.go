@@ -117,15 +117,6 @@ func (self *SDnsTrafficPolicy) AllowUpdateItem(ctx context.Context, userCred mcc
 }
 
 // 详情
-func (self *SDnsTrafficPolicy) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.DnsTrafficPolicyDetails, error) {
-	return api.DnsTrafficPolicyDetails{}, nil
-}
-
 func (manager *SDnsTrafficPolicyManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

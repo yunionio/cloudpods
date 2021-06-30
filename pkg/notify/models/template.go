@@ -455,7 +455,3 @@ func (t *STemplate) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	}
 	return input, nil
 }
-
-func (t *STemplate) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.TemplateDetails, error) {
-	return api.TemplateDetails{}, nil
-}

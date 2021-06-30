@@ -23,6 +23,7 @@ const (
 
 type WafRuleGroupDetails struct {
 	apis.StatusInfrasResourceBaseDetails
+	SWafRuleGroup
 }
 
 type WafRuleGroupListInput struct {
@@ -40,6 +41,7 @@ type WafRuleGroupCacheDetails struct {
 	apis.StatusStandaloneResourceDetails
 	ManagedResourceInfo
 	CloudregionResourceInfo
+	SWafRuleGroupCache
 }
 
 type WafRuleGroupCacheListInput struct {

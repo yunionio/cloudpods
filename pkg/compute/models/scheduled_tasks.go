@@ -105,11 +105,6 @@ func (stm *SScheduledTaskManager) OrderByExtraFields(ctx context.Context, q *sql
 	return stm.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
 }
 
-func (stm *SScheduledTask) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, isList bool) (api.ScheduledTaskDetails, error) {
-	return api.ScheduledTaskDetails{}, nil
-}
-
 func (stm *SScheduledTaskManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

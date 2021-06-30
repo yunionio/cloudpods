@@ -106,15 +106,6 @@ func (self *SGuestdisk) ValidateUpdateData(ctx context.Context, userCred mcclien
 	return input, nil
 }
 
-func (self *SGuestdisk) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.GuestDiskDetails, error) {
-	return api.GuestDiskDetails{}, nil
-}
-
 func (manager *SGuestdiskManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

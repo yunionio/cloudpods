@@ -491,10 +491,6 @@ func (manager *SStandaloneAnonResourceBaseManager) ValidateCreateData(ctx contex
 	return input, nil
 }
 
-func (model *SStandaloneAnonResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.StandaloneAnonResourceDetails, error) {
-	return apis.StandaloneAnonResourceDetails{}, nil
-}
-
 func (manager *SStandaloneAnonResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

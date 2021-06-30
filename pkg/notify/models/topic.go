@@ -35,11 +35,11 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-func parseEvent(es string) (notify.SEvent, error) {
+func parseEvent(es string) (notify.SNotifyEvent, error) {
 	es = strings.ToLower(es)
 	ess := strings.Split(es, notify.DelimiterInEvent)
 	if len(ess) != 2 && len(ess) != 3 {
-		return notify.SEvent{}, fmt.Errorf("invalid event string %q", es)
+		return notify.SNotifyEvent{}, fmt.Errorf("invalid event string %q", es)
 	}
 	event := notify.Event.WithResourceType(ess[0]).WithAction(notify.SAction(ess[1]))
 	if len(ess) == 3 {

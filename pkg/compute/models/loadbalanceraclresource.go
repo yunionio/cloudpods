@@ -60,15 +60,6 @@ func (self *SLoadbalancerAclResourceBase) GetAcl() *SLoadbalancerAcl {
 	return acl.(*SLoadbalancerAcl)
 }
 
-func (self *SLoadbalancerAclResourceBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) api.LoadbalancerAclResourceInfo {
-	return api.LoadbalancerAclResourceInfo{}
-}
-
 func (manager *SLoadbalancerAclResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

@@ -137,15 +137,6 @@ func (manager *SElasticcachesecgroupManager) ListItemExportKeys(ctx context.Cont
 	return q, nil
 }
 
-func (self *SElasticcachesecgroup) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.ElasticcachesecgroupDetails, error) {
-	return api.ElasticcachesecgroupDetails{}, nil
-}
-
 func (manager *SElasticcachesecgroupManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

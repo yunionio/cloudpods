@@ -372,10 +372,6 @@ func (manager *SNatSEntryManager) newFromCloudNatSTable(ctx context.Context, use
 	return &table, nil
 }
 
-func (self *SNatSEntry) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.NatSEntryDetails, error) {
-	return api.NatSEntryDetails{}, nil
-}
-
 func (manager *SNatSEntryManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

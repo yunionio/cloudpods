@@ -519,15 +519,6 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (self *SSecurityGroup) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.SecgroupDetails, error) {
-	return api.SecgroupDetails{}, nil
-}
-
 func (manager *SSecurityGroupManager) ValidateCreateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

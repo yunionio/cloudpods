@@ -122,15 +122,6 @@ func (lbcert *SLoadbalancerCertificate) PostCreate(ctx context.Context, userCred
 	lbcert.SetStatus(userCred, api.LB_STATUS_ENABLED, "")
 }
 
-func (lbcert *SLoadbalancerCertificate) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.LoadbalancerCertificateDetails, error) {
-	return api.LoadbalancerCertificateDetails{}, nil
-}
-
 func (lbcert *SLoadbalancerCertificate) IsComplete() bool {
 	return lbcert.PrivateKey != "" && lbcert.Certificate != ""
 }

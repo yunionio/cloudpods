@@ -252,15 +252,6 @@ func (manager *SDomainLevelResourceBaseManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (model *SDomainLevelResourceBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (apis.DomainLevelResourceDetails, error) {
-	return apis.DomainLevelResourceDetails{}, nil
-}
-
 func (manager *SDomainLevelResourceBaseManager) GetIDomainLevelModelManager() IDomainLevelModelManager {
 	return manager.GetVirtualObject().(IDomainLevelModelManager)
 }

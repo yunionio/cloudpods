@@ -181,10 +181,6 @@ func (self *SManagedResourceBase) CanShareToDomain(domainId string) bool {
 	}
 }
 
-func (self *SManagedResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) api.ManagedResourceInfo {
-	return api.ManagedResourceInfo{}
-}
-
 func (manager *SManagedResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

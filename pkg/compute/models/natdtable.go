@@ -305,15 +305,6 @@ func (manager *SNatDEntryManager) newFromCloudNatDTable(ctx context.Context, use
 	return &table, nil
 }
 
-func (self *SNatDEntry) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.NatDEntryDetails, error) {
-	return api.NatDEntryDetails{}, nil
-}
-
 func (manager *SNatDEntryManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

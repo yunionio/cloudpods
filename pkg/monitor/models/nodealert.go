@@ -486,15 +486,6 @@ func (man *SV1AlertManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (alert *SV1Alert) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (monitor.AlertV1Details, error) {
-	return monitor.AlertV1Details{}, nil
-}
-
 const (
 	V1AlertDisabledStatus = "Disabled"
 	V1AlertEnabledStatus  = "Enabled"
@@ -580,15 +571,6 @@ func (man *SNodeAlertManager) FetchCustomizeColumns(
 	}
 
 	return rows
-}
-
-func (alert *SNodeAlert) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (monitor.NodeAlertDetails, error) {
-	return monitor.NodeAlertDetails{}, nil
 }
 
 func (alert *SNodeAlert) getMoreDetails(out monitor.NodeAlertDetails) (monitor.NodeAlertDetails, error) {

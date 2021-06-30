@@ -14,7 +14,9 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 const (
 	WAF_REGEX_SET_STATUS_AVAILABLE     = "available"
@@ -24,6 +26,7 @@ const (
 
 type WafRegexSetDetails struct {
 	apis.StatusInfrasResourceBaseDetails
+	SWafRegexSet
 }
 
 type WafRegexSetListInput struct {
@@ -34,6 +37,7 @@ type WafRegexSetCacheDetails struct {
 	apis.StatusStandaloneResourceDetails
 	ManagedResourceInfo
 	CloudregionResourceInfo
+	SWafRegexSetCache
 }
 
 type WafRegexSetCacheListInput struct {

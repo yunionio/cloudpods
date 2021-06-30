@@ -194,15 +194,6 @@ func (group *SGroup) Delete(ctx context.Context, userCred mcclient.TokenCredenti
 	return group.SIdentityBaseResource.Delete(ctx, userCred)
 }
 
-func (group *SGroup) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.GroupDetails, error) {
-	return api.GroupDetails{}, nil
-}
-
 func (manager *SGroupManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

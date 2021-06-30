@@ -67,15 +67,6 @@ func (manager *SCloudgroupJointsManager) GetMasterFieldName() string {
 	return "cloudgroup_id"
 }
 
-func (self *SCloudgroupJointsBase) GetExtraDetails(
-	ctx context.Context,
-	groupCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.CloudgroupJointResourceDetails, error) {
-	return api.CloudgroupJointResourceDetails{}, nil
-}
-
 func (manager *SCloudgroupJointsManager) FetchCustomizeColumns(
 	ctx context.Context,
 	groupCred mcclient.TokenCredential,

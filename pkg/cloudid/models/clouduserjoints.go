@@ -55,15 +55,6 @@ func (manager *SClouduserJointsManager) GetMasterFieldName() string {
 	return "clouduser_id"
 }
 
-func (self *SClouduserJointsBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.ClouduserJointResourceDetails, error) {
-	return api.ClouduserJointResourceDetails{}, nil
-}
-
 func (manager *SClouduserJointsManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

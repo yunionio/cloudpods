@@ -476,15 +476,6 @@ func (nm *SNotificationManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (n *SNotification) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.NotificationDetails, error) {
-	return api.NotificationDetails{}, nil
-}
-
 func (n *SNotification) ReceiverNotificationsNotOK() ([]SReceiverNotification, error) {
 	rnq := ReceiverNotificationManager.Query().Equals("notification_id", n.Id).NotEquals("status", api.RECEIVER_NOTIFICATION_OK)
 	rns := make([]SReceiverNotification, 0, 1)

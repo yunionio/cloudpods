@@ -347,15 +347,6 @@ func (domain *SDomain) ValidateUpdateData(ctx context.Context, userCred mcclient
 	return input, nil
 }
 
-func (domain *SDomain) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.DomainDetails, error) {
-	return api.DomainDetails{}, nil
-}
-
 func (manager *SDomainManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

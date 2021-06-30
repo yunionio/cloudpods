@@ -192,15 +192,6 @@ func (sm *SGroupManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (group *SGroup) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.InstanceGroupDetail, error) {
-	return api.InstanceGroupDetail{}, nil
-}
-
 func (group *SGroup) GetGuestCount() int {
 	q := GroupguestManager.Query().Equals("group_id", group.Id)
 	count, _ := q.CountWithError()

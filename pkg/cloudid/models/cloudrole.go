@@ -91,15 +91,6 @@ func (manager *SCloudroleManager) ListItemFilter(ctx context.Context, q *sqlchem
 }
 
 // 获取公有云角色详情
-func (self *SCloudrole) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.CloudroleDetails, error) {
-	return api.CloudroleDetails{}, nil
-}
-
 func (manager *SCloudroleManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

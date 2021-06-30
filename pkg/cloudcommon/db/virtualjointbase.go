@@ -112,15 +112,6 @@ func (manager *SVirtualJointResourceBaseManager) FilterByHiddenSystemAttributes(
 	return q
 }
 
-func (model *SVirtualJointResourceBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (apis.VirtualJointResourceBaseDetails, error) {
-	return apis.VirtualJointResourceBaseDetails{}, nil
-}
-
 func (manager *SVirtualJointResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

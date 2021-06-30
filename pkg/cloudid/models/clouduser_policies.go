@@ -91,15 +91,6 @@ func (self *SClouduserPolicy) ValidateUpdateData(ctx context.Context, userCred m
 }
 
 // 获取公有云用户权限详情
-func (self *SClouduserPolicy) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.ClouduserPolicyDetails, error) {
-	return api.ClouduserPolicyDetails{}, nil
-}
-
 func (manager *SClouduserPolicyManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

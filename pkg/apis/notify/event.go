@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	Event SEvent
+	Event SNotifyEvent
 
 	ActionCreate         SAction = "create"
 	ActionDelete         SAction = "delete"
@@ -52,36 +52,36 @@ type SAction string
 
 type SResult string
 
-type SEvent struct {
+type SNotifyEvent struct {
 	resourceType string
 	action       SAction
 	result       SResult
 }
 
-func (se SEvent) WithResourceType(rt string) SEvent {
+func (se SNotifyEvent) WithResourceType(rt string) SNotifyEvent {
 	se.resourceType = rt
 	return se
 }
 
-func (se SEvent) WithAction(a SAction) SEvent {
+func (se SNotifyEvent) WithAction(a SAction) SNotifyEvent {
 	se.action = a
 	return se
 }
 
-func (se SEvent) WithResult(r SResult) SEvent {
+func (se SNotifyEvent) WithResult(r SResult) SNotifyEvent {
 	se.result = r
 	return se
 }
 
-func (se SEvent) ResourceType() string {
+func (se SNotifyEvent) ResourceType() string {
 	return se.resourceType
 }
 
-func (se SEvent) Action() SAction {
+func (se SNotifyEvent) Action() SAction {
 	return se.action
 }
 
-func (se SEvent) ActionWithResult(delimiter string) string {
+func (se SNotifyEvent) ActionWithResult(delimiter string) string {
 	ar := string(se.action)
 	if len(se.result) > 0 {
 		ar += delimiter + string(se.result)
@@ -89,18 +89,18 @@ func (se SEvent) ActionWithResult(delimiter string) string {
 	return strings.ToUpper(ar)
 }
 
-func (se SEvent) Result() SResult {
+func (se SNotifyEvent) Result() SResult {
 	if se.result == "" {
 		return ResultSucceed
 	}
 	return se.result
 }
 
-func (se SEvent) String() string {
+func (se SNotifyEvent) String() string {
 	return se.StringWithDeli(DelimiterInEvent)
 }
 
-func (se SEvent) StringWithDeli(delimiter string) string {
+func (se SNotifyEvent) StringWithDeli(delimiter string) string {
 	str := strings.ToUpper(fmt.Sprintf("%s%s%s", se.ResourceType(), delimiter, se.Action()))
 	if se.result != "" {
 		str += delimiter + strings.ToUpper(string(se.result))

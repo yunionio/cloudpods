@@ -113,15 +113,6 @@ func (manager *SKeypairManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fiel
 	return q, httperrors.ErrNotFound
 }
 
-func (self *SKeypair) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.KeypairDetails, error) {
-	return api.KeypairDetails{}, nil
-}
-
 func (manager *SKeypairManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

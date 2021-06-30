@@ -68,10 +68,6 @@ func (self *SNatgatewayResourceBase) GetVpc() (*SVpc, error) {
 	return nat.GetVpc()
 }
 
-func (self *SNatgatewayResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) api.NatGatewayResourceInfo {
-	return api.NatGatewayResourceInfo{}
-}
-
 func (manager *SNatgatewayResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

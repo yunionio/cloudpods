@@ -178,15 +178,6 @@ func (manager *SStatusStandaloneResourceBaseManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (model *SStatusStandaloneResourceBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (apis.StatusStandaloneResourceDetails, error) {
-	return apis.StatusStandaloneResourceDetails{}, nil
-}
-
 func (model *SStatusStandaloneResourceBase) ValidateUpdateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

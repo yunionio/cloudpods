@@ -62,10 +62,6 @@ func (self *SStorageResourceBase) GetStorage() *SStorage {
 	return obj.(*SStorage)
 }
 
-func (self *SStorageResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) api.StorageResourceInfo {
-	return api.StorageResourceInfo{}
-}
-
 func (manager *SStorageResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

@@ -97,15 +97,6 @@ func (manager *SCloudpolicycacheManager) ListItemFilter(ctx context.Context, q *
 }
 
 // 获取公有云权限缓存详情
-func (self *SCloudpolicycache) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.CloudpolicycacheDetails, error) {
-	return api.CloudpolicycacheDetails{}, nil
-}
-
 func (manager *SCloudpolicycacheManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

@@ -225,15 +225,6 @@ func (lbc *SLoadbalancerCluster) ValidateDeleteCondition(ctx context.Context) er
 	return lbc.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (lbc *SLoadbalancerCluster) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.LoadbalancerClusterDetails, error) {
-	return api.LoadbalancerClusterDetails{}, nil
-}
-
 func (man *SLoadbalancerClusterManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

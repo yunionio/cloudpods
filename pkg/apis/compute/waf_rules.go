@@ -65,6 +65,7 @@ type WafRuleCreateInput struct {
 
 type WafRuleDetails struct {
 	apis.StatusStandaloneResourceDetails
+	SWafRule
 
 	Statements []cloudprovider.SWafStatement
 }

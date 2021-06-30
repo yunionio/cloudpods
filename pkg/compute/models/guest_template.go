@@ -328,15 +328,6 @@ func (manager *SGuestTemplateManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (gt *SGuestTemplate) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (computeapis.GuestTemplateDetails, error) {
-	return computeapis.GuestTemplateDetails{}, nil
-}
-
 func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
 	out computeapis.GuestTemplateDetails) (computeapis.GuestTemplateDetails, error) {
 

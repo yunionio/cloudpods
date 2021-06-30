@@ -201,15 +201,6 @@ func (self *SCachedLoadbalancerCertificate) PostCreate(ctx context.Context, user
 	return
 }
 
-func (self *SCachedLoadbalancerCertificate) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.CachedLoadbalancerCertificateDetails, error) {
-	return api.CachedLoadbalancerCertificateDetails{}, nil
-}
-
 func (man *SCachedLoadbalancerCertificateManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

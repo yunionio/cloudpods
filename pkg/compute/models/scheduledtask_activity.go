@@ -97,10 +97,6 @@ func (sam *SScheduledTaskActivityManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (sa *SScheduledTaskActivity) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ScheduledTaskActivityDetails, error) {
-	return api.ScheduledTaskActivityDetails{}, nil
-}
-
 func (sam *SScheduledTaskActivityManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.ScheduledTaskActivityListInput) (*sqlchemy.SQuery, error) {
 	q, err := sam.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StatusStandaloneResourceListInput)
 	if err != nil {

@@ -259,20 +259,6 @@ func OrderByExtraFields(
 	return ret[0].Interface().(*sqlchemy.SQuery), nil
 }
 
-func GetExtraDetails(model IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (*jsonutils.JSONDict, error) {
-	ret, err := call(model, "GetExtraDetails", ctx, userCred, query, isList)
-	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
-	}
-	if len(ret) != 2 {
-		return nil, httperrors.NewInternalServerError("Invalid GetExtraDetails return value count %d", len(ret))
-	}
-	if err := ValueToError(ret[1]); err != nil {
-		return nil, err
-	}
-	return ValueToJSONDict(ret[0]), nil
-}
-
 func FetchCustomizeColumns(
 	manager IModelManager,
 	ctx context.Context,

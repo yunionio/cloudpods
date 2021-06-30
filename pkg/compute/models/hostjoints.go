@@ -80,15 +80,6 @@ func (self *SHostJointsBase) AllowDeleteItem(ctx context.Context, userCred mccli
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
-func (self *SHostJointsBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.HostJointResourceDetails, error) {
-	return api.HostJointResourceDetails{}, nil
-}
-
 func (manager *SHostJointsManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

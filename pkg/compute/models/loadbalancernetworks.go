@@ -208,15 +208,6 @@ func (ln *SLoadbalancerNetwork) Detach(ctx context.Context, userCred mcclient.To
 	return db.DetachJoint(ctx, userCred, ln)
 }
 
-func (ln *SLoadbalancerNetwork) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.LoadbalancernetworkDetails, error) {
-	return api.LoadbalancernetworkDetails{}, nil
-}
-
 func (manager *SLoadbalancernetworkManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

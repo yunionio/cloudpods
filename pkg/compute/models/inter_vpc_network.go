@@ -131,15 +131,6 @@ func (self *SInterVpcNetwork) PostCreate(ctx context.Context, userCred mcclient.
 	task.ScheduleRun(nil)
 }
 
-func (self *SInterVpcNetwork) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.InterVpcNetworkDetails, error) {
-	return api.InterVpcNetworkDetails{}, nil
-}
-
 func (manager *SInterVpcNetworkManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

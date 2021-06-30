@@ -14,7 +14,9 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 const (
 	WAF_IPSET_STATUS_AVAILABLE     = "available"
@@ -24,6 +26,7 @@ const (
 
 type WafIPSetDetails struct {
 	apis.StatusInfrasResourceBaseDetails
+	SWafIPSet
 }
 
 type WafIPSetListInput struct {
@@ -34,6 +37,7 @@ type WafIPSetCacheDetails struct {
 	apis.StatusStandaloneResourceDetails
 	ManagedResourceInfo
 	CloudregionResourceInfo
+	SWafIPSetCache
 }
 
 type WafIPSetCacheListInput struct {

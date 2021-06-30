@@ -136,15 +136,6 @@ func (manager *SGuestsecgroupManager) ListItemExportKeys(ctx context.Context,
 	return q, nil
 }
 
-func (self *SGuestsecgroup) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.GuestsecgroupDetails, error) {
-	return api.GuestsecgroupDetails{}, nil
-}
-
 func (manager *SGuestsecgroupManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

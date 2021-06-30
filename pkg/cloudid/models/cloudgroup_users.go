@@ -87,15 +87,6 @@ func (self *SCloudgroupUser) ValidateUpdateData(ctx context.Context, userCred mc
 }
 
 // 获取用户组中用户详情
-func (self *SCloudgroupUser) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.CloudgroupUserDetails, error) {
-	return api.CloudgroupUserDetails{}, nil
-}
-
 func (manager *SCloudgroupUserManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

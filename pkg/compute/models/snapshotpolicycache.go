@@ -227,15 +227,6 @@ func (spcm *SSnapshotPolicyCacheManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (spc *SSnapshotPolicyCache) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.SnapshotPolicyCacheDetails, error) {
-	return api.SnapshotPolicyCacheDetails{}, nil
-}
-
 // =============================================== detach and delete ===================================================
 
 func (spc *SSnapshotPolicyCache) RealDetele(ctx context.Context, userCred mcclient.TokenCredential) error {

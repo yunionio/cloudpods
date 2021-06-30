@@ -198,10 +198,6 @@ func (self *SElasticcache) getCloudProviderInfo() SCloudProviderInfo {
 	return MakeCloudProviderInfo(region, zone, provider)
 }
 
-func (self *SElasticcache) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ElasticcacheDetails, error) {
-	return api.ElasticcacheDetails{}, nil
-}
-
 func (manager *SElasticcacheManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

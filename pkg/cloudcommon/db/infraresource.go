@@ -150,10 +150,6 @@ func (manager *SInfrasResourceBaseManager) OrderByExtraFields(ctx context.Contex
 	return q, nil
 }
 
-func (model *SInfrasResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.InfrasResourceBaseDetails, error) {
-	return apis.InfrasResourceBaseDetails{}, nil
-}
-
 func (manager *SInfrasResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

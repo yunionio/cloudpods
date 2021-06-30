@@ -500,15 +500,6 @@ func (self *SSchedtag) getMoreColumns(out api.SchedtagDetails) api.SchedtagDetai
 	return out
 }
 
-func (self *SSchedtag) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.SchedtagDetails, error) {
-	return api.SchedtagDetails{}, nil
-}
-
 func (manager *SSchedtagManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

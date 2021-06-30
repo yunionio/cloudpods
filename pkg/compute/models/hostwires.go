@@ -77,10 +77,6 @@ func (manager *SHostwireManager) GetSlaveFieldName() string {
 	return "wire_id"
 }
 
-func (self *SHostwire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.HostwireDetails, error) {
-	return api.HostwireDetails{}, nil
-}
-
 func (manager *SHostwireManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

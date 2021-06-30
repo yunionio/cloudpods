@@ -61,15 +61,6 @@ func (manager *SElasticcacheJointsManager) GetMasterFieldName() string {
 	return "elasticcache_id"
 }
 
-func (self *SElasticcacheJointsBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.ElasticcacheJointResourceDetails, error) {
-	return api.ElasticcacheJointResourceDetails{}, nil
-}
-
 func (manager *SElasticcacheJointsManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

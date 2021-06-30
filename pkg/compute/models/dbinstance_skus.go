@@ -189,10 +189,6 @@ func (manager *SDBInstanceSkuManager) ListItemFilter(
 	return q, nil
 }
 
-func (self *SDBInstanceSku) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DBInstanceSkuDetails, error) {
-	return api.DBInstanceSkuDetails{}, nil
-}
-
 func (manager *SDBInstanceSkuManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

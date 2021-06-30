@@ -174,10 +174,6 @@ func (self *SDBInstanceAccount) getMoreDetails(ctx context.Context, userCred mcc
 	return out, nil
 }
 
-func (self *SDBInstanceAccount) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DBInstanceAccountDetails, error) {
-	return api.DBInstanceAccountDetails{}, nil
-}
-
 func (manager *SDBInstanceAccountManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

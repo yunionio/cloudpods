@@ -56,10 +56,6 @@ func (self *SZoneResourceBase) GetZone() *SZone {
 	return ZoneManager.FetchZoneById(self.ZoneId)
 }
 
-func (self *SZoneResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) api.ZoneResourceInfo {
-	return api.ZoneResourceInfo{}
-}
-
 func (manager *SZoneResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
