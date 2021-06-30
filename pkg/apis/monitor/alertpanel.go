@@ -4,6 +4,7 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type AlertPanelCreateInput struct {
 	apis.ScopedResourceInput
+	apis.ProjectizedResourceListInput
 
 	CommonMetricInputQuery
 	AlertCreateInput
