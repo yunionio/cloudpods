@@ -479,7 +479,9 @@ func (c *QueryCondition) setResType() {
 			}
 		}
 	}
-	c.ResType = resType
+	if c.Query.Model.Database == monitor.METRIC_DATABASE_TELE {
+		c.ResType = resType
+	}
 }
 
 func (c *QueryCondition) GetQueryResources() ([]jsonutils.JSONObject, error) {
