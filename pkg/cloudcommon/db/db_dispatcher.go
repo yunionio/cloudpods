@@ -1269,6 +1269,15 @@ func _doCreateItem(
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
+
+	dryRun := struct {
+		DryRun bool
+	}{}
+	data.Unmarshal(&dryRun)
+	if dryRun.DryRun {
+		return model, nil
+	}
+
 	err = manager.TableSpec().InsertOrUpdate(ctx, model)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
