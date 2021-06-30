@@ -158,14 +158,13 @@ func (panel *SAlertPanel) CustomizeCreate(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) error {
-	err := panel.SScopedResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
-	if err != nil {
-		return errors.Wrap(err, "alertPanel SScopedResourceBase CustomizeCreate error")
-	}
 	dashboardId, err := data.GetString("dashboard_id")
 	if len(dashboardId) == 0 {
 		return errors.Wrap(err, "panel CustomizeCreate can not get dashboard_id")
 	}
+	dash, _ := AlertDashBoardManager.getDashboardByid(dashboardId)
+	panel.ProjectId = dash.ProjectId
+	panel.DomainId = dash.DomainId
 	return panel.attachDashboard(ctx, dashboardId)
 }
 
