@@ -31,6 +31,7 @@ type WebConsoleOptions struct {
 	SshpassToolPath   string `help:"sshpass tool binary path used to connect server sol" default:"/usr/bin/sshpass"`
 	EnableAutoLogin   bool   `help:"allow webconsole to log in directly with the cloudroot public key" default:"false"`
 	ApsaraConsoleAddr string `help:"Apsara console addr" default:"https://xxxx.com.cn/module/ecs/vnc/index.html"`
+	AliyunVncVersion  string `help:"Aliyun vnc version" default:"0.0.8"`
 }
 
 func OnOptionsChange(oldO, newO interface{}) bool {
