@@ -181,6 +181,11 @@ func newRuleDescription(rule *Rule, alertDetails *monitor.CommonAlertMetricDetai
 			ConditionType:   alertDetails.ConditionType,
 		},
 	}
+	if len(ruleDes.ResType) == 0 {
+		if alertDetails.DB == monitor.METRIC_DATABASE_TELE {
+			ruleDes.ResType = monitor.METRIC_RES_TYPE_HOST
+		}
+	}
 	rule.RuleDescription = append(rule.RuleDescription, &ruleDes)
 }
 
