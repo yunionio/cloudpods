@@ -22,6 +22,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/webconsole/options"
 )
 
 const (
@@ -154,11 +155,11 @@ func (info *RemoteConsoleInfo) getQcloudURL() (string, error) {
 }
 
 func (info *RemoteConsoleInfo) getAliyunURL() (string, error) {
-	isWindows := "False"
+	isWindows := "false"
 	if info.OsName == "Windows" {
-		isWindows = "True"
+		isWindows = "true"
 	}
-	base := "https://g.alicdn.com/aliyun/ecs-console-vnc2/0.0.5/index.html"
+	base := fmt.Sprintf("https://g.alicdn.com/aliyun/ecs-console-vnc2/%s/index.html", options.Options.AliyunVncVersion)
 	params := url.Values{
 		"vncUrl":     {info.Url},
 		"instanceId": {info.InstanceId},
