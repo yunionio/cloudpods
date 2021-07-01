@@ -25,12 +25,12 @@ import (
 
 func init() {
 	type TemplateCreateInput struct {
-		NAME         string `help:"Name"`
 		ContactType  string `help:"Contact type, specifically, setting it to all means all contact type"`
 		TemplateType string `help:"Template type"`
 		Topic        string `help:"Template topic"`
 		Content      string `help:"Template content"`
 		Example      string `help:"Example for using this template"`
+		Lang         string `help:"Language of Template"`
 	}
 	R(&TemplateCreateInput{}, "notify-template-create", "Create notify template", func(s *mcclient.ClientSession, args *TemplateCreateInput) error {
 		input := api.TemplateCreateInput{
@@ -39,9 +39,42 @@ func init() {
 			Topic:        args.Topic,
 			Content:      args.Content,
 			Example:      args.Example,
+			Lang:         args.Lang,
 		}
-		input.Name = args.NAME
 		ret, err := modules.NotifyTemplate.Create(s, jsonutils.Marshal(input))
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+	type TemplateSaveInput struct {
+		ContactType string `help:"contact type" positional:"true"`
+		Force       bool   `help:"Whether to force the update of existing templates"`
+
+		TemplateType string `help:"Template type"`
+		Topic        string `help:"Template topic"`
+		Content      string `help:"Template content"`
+		Example      string `help:"Example for using this template"`
+		Lang         string `help:"Language of Template"`
+	}
+	R(&TemplateSaveInput{}, "notify-template-save", "Save notify templates", func(s *mcclient.ClientSession, args *TemplateSaveInput) error {
+		templates := []api.TemplateCreateInput{
+			{
+				ContactType:  args.ContactType,
+				TemplateType: args.TemplateType,
+				Topic:        args.Topic,
+				Content:      args.Content,
+				Example:      args.Example,
+				Lang:         args.Lang,
+			},
+		}
+		input := api.TemplateManagerSaveInput{
+			ContactType: args.ContactType,
+			Templates:   templates,
+			Force:       args.Force,
+		}
+		ret, err := modules.NotifyTemplate.PerformClassAction(s, "save", jsonutils.Marshal(input))
 		if err != nil {
 			return err
 		}
@@ -54,6 +87,7 @@ func init() {
 		ContactType  string `help:"Contact type"`
 		TemplateType string `help:"Template type"`
 		Topic        string `help:"Topic"`
+		Lang         string `help:"Lang"`
 	}
 	R(&TemplateListInput{}, "notify-template-list", "List notify template", func(s *mcclient.ClientSession, args *TemplateListInput) error {
 		params, err := options.ListStructToParams(args)
