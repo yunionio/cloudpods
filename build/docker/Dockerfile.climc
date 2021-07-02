@@ -1,4 +1,4 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/climc-base:20210508
+FROM registry.cn-beijing.aliyuncs.com/yunionio/climc-base:20210701
 
 ADD ./build/climc/root/opt /opt
 
