@@ -264,7 +264,10 @@ func ResizePartitionFs(fpath, fs string, raiseError bool) (error, bool) {
 			{"sleep", "2"},
 			{"rm", "-fr", tmpPoint}}
 	} else if fs == "ntfs" {
-		cmds = [][]string{{"ntfsresize", "-c", fpath}, {"ntfsresize", "-P", "-f", fpath}}
+		// the following cmds may cause disk damage on Windows 10 with new version of NTFS
+		// comment out the following codes only impact Windows 2003
+		// as windows 2003 deprecated, so choose to sacrifies windows 2003
+		// cmds = [][]string{{"ntfsresize", "-c", fpath}, {"ntfsresize", "-P", "-f", fpath}}
 	}
 
 	if len(cmds) > 0 {
