@@ -43,14 +43,14 @@ import (
 )
 
 type STemplateManager struct {
-	db.SStandaloneResourceBaseManager
+	db.SStandaloneAnonResourceBaseManager
 }
 
 var TemplateManager *STemplateManager
 
 func init() {
 	TemplateManager = &STemplateManager{
-		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+		SStandaloneAnonResourceBaseManager: db.NewStandaloneAnonResourceBaseManager(
 			STemplate{},
 			"template_tbl",
 			"notifytemplate",
@@ -65,7 +65,7 @@ const (
 )
 
 type STemplate struct {
-	db.SStandaloneResourceBase
+	db.SStandaloneAnonResourceBase
 
 	ContactType string `width:"16" nullable:"false" create:"required" update:"user" list:"user"`
 	Topic       string `width:"20" nullable:"false" create:"required" update:"user" list:"user"`
@@ -73,8 +73,8 @@ type STemplate struct {
 	// title | content | remote
 	TemplateType string `width:"10" nullable:"false" create:"required" update:"user" list:"user"`
 	Content      string `length:"text" nullable:"false" create:"required" get:"user" list:"user" update:"user"`
-	Lang         string `width:"8" charset:"ascii" nullable:"false" list:"user" update:"user"`
-	Example      string `nullable:"false" created:"required" get:"user" list:"user" update:"user"`
+	Lang         string `width:"8" charset:"ascii" nullable:"false" list:"user" update:"user" create:"optional"`
+	Example      string `nullable:"false" create:"optional" get:"user" list:"user" update:"user"`
 }
 
 const (
@@ -233,13 +233,7 @@ func (tm *STemplateManager) FillWithTemplate(ctx context.Context, lang string, n
 	params.Topic = no.Topic
 	templates := make([]STemplate, 0, 3)
 	var q *sqlchemy.SQuery
-	if no.ContactType == api.MOBILE {
-		// hack
-		// ingore lang when contactType is mobile
-		q = tm.Query().Equals("topic", strings.ToUpper(no.Topic)).In("contact_type", []string{CONTACTTYPE_ALL, no.ContactType})
-	} else {
-		q = tm.Query().Equals("topic", strings.ToUpper(no.Topic)).Equals("lang", lang).In("contact_type", []string{CONTACTTYPE_ALL, no.ContactType})
-	}
+	q = tm.Query().Equals("topic", strings.ToUpper(no.Topic)).Equals("lang", lang).In("contact_type", []string{CONTACTTYPE_ALL, no.ContactType})
 	err = db.FetchModelObjects(tm, q, &templates)
 	if errors.Cause(err) == sql.ErrNoRows || len(templates) == 0 {
 		// no such template, return as is
@@ -328,7 +322,67 @@ func (tm *STemplate) Execute(str string) (string, error) {
 	return buffer.String(), nil
 }
 
+func (tm *STemplateManager) AllowPerformSave(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, tm, "save")
+}
+
+func (tm *STemplateManager) PerformSave(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.TemplateManagerSaveInput) (jsonutils.JSONObject, error) {
+	q := tm.Query().Equals("contact_type", input.ContactType)
+	templates := []STemplate{}
+	err := db.FetchModelObjects(tm, q, &templates)
+	if err != nil {
+		return nil, err
+	}
+	tempaltesMap := make(map[string]*api.TemplateCreateInput, len(input.Templates))
+	for i := range input.Templates {
+		template := &input.Templates[i]
+		if template.ContactType != input.ContactType {
+			continue
+		}
+		input.Templates[i], err = tm.ValidateCreateData(ctx, userCred, userCred, nil, input.Templates[i])
+		if err != nil {
+			return nil, err
+		}
+		key := fmt.Sprintf("%s-%s-%s", template.Topic, template.TemplateType, template.Lang)
+		tempaltesMap[key] = template
+	}
+	for i := range templates {
+		key := fmt.Sprintf("%s-%s-%s", templates[i].Topic, templates[i].TemplateType, templates[i].Lang)
+		if _, ok := tempaltesMap[key]; !ok {
+			continue
+		}
+		if input.Force {
+			err := templates[i].Delete(ctx, userCred)
+			if err != nil {
+				return nil, errors.Wrapf(err, "unable to delete template %s", templates[i].Id)
+			}
+		} else {
+			delete(tempaltesMap, key)
+		}
+	}
+	for _, template := range tempaltesMap {
+		t := STemplate{
+			ContactType:  input.ContactType,
+			Topic:        template.Topic,
+			TemplateType: template.TemplateType,
+			Lang:         template.Lang,
+			Example:      template.Example,
+			Content:      template.Content,
+		}
+		err = tm.TableSpec().Insert(ctx, &t)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to insert template")
+		}
+	}
+	return nil, nil
+}
+
 func (tm *STemplateManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.TemplateCreateInput) (api.TemplateCreateInput, error) {
+	var err error
+	input.StandaloneAnonResourceCreateInput, err = tm.SStandaloneAnonResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneAnonResourceCreateInput)
+	if err != nil {
+		return input, err
+	}
 	if !utils.IsInStringArray(input.TemplateType, []string{
 		api.TEMPLATE_TYPE_CONTENT, api.TEMPLATE_TYPE_REMOTE, api.TEMPLATE_TYPE_TITLE,
 	}) {
@@ -339,8 +393,11 @@ func (tm *STemplateManager) ValidateCreateData(ctx context.Context, userCred mcc
 			return input, httperrors.NewInputParameterError(err.Error())
 		}
 	}
-	if len(input.Name) == 0 {
-		input.Name = fmt.Sprintf("%s-%s-%s", input.ContactType, input.Topic, input.TemplateType)
+	if input.Lang == "" {
+		input.Lang = api.TEMPLATE_LANG_CN
+	}
+	if !utils.IsInStringArray(input.Lang, []string{api.TEMPLATE_LANG_EN, api.TEMPLATE_LANG_CN}) {
+		return input, httperrors.NewInputParameterError("no such lang %s", input.Lang)
 	}
 	return input, nil
 }
@@ -365,7 +422,7 @@ func (tm *STemplateManager) validate(template string, example string) error {
 }
 
 func (tm *STemplateManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.TemplateListInput) (*sqlchemy.SQuery, error) {
-	q, err := tm.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StandaloneResourceListInput)
+	q, err := tm.SStandaloneAnonResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StandaloneAnonResourceListInput)
 	if err != nil {
 		return nil, err
 	}
@@ -378,10 +435,18 @@ func (tm *STemplateManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 	if len(input.ContactType) > 0 {
 		q = q.Equals("contact_type", input.ContactType)
 	}
+	if len(input.Lang) > 0 {
+		q = q.Equals("lang", input.Lang)
+	}
 	return q, nil
 }
 
 func (t *STemplate) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.TemplateUpdateInput) (api.TemplateUpdateInput, error) {
+	var err error
+	input.StandaloneAnonResourceBaseUpdateInput, err = t.SStandaloneAnonResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneAnonResourceBaseUpdateInput)
+	if err != nil {
+		return input, err
+	}
 	if t.TemplateType == api.TEMPLATE_TYPE_REMOTE {
 		return input, nil
 	}

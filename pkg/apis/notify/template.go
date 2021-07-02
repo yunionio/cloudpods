@@ -17,7 +17,7 @@ package notify
 import "yunion.io/x/onecloud/pkg/apis"
 
 type TemplateCreateInput struct {
-	apis.StandaloneResourceCreateInput
+	apis.StandaloneAnonResourceCreateInput
 
 	// description: Contact type, specifically, setting it to all means all contact type
 	// require: true
@@ -41,10 +41,19 @@ type TemplateCreateInput struct {
 	// required: true
 	// example: {"name": "centos7.6"}
 	Example string `json:"example"`
+	// description: Language
+	// enum: cn,en
+	Lang string `json:"lang"`
+}
+
+type TemplateManagerSaveInput struct {
+	ContactType string
+	Templates   []TemplateCreateInput
+	Force       bool
 }
 
 type TemplateListInput struct {
-	apis.StandaloneResourceListInput
+	apis.StandaloneAnonResourceListInput
 
 	// description: Contact type, specifically, setting it to all means all contact type
 	// require: true
@@ -60,10 +69,14 @@ type TemplateListInput struct {
 	// required: true
 	// example: IMAGE_ACTIVE
 	Topic string `json:"topic"`
+
+	// description: Language
+	// enum: cn,en
+	Lang string `json:"lang"`
 }
 
 type TemplateUpdateInput struct {
-	apis.StandaloneResourceCreateInput
+	apis.StandaloneAnonResourceBaseUpdateInput
 
 	// description: template content
 	// required: true

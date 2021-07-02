@@ -65,7 +65,7 @@ type SConfig struct {
 
 	Type        string               `width:"15" nullable:"false" create:"required" get:"domain" list:"domain"`
 	Content     jsonutils.JSONObject `nullable:"false" create:"required" update:"domain" get:"domain" list:"domain"`
-	Attribution string               `width:"8" nullable:"false" default:"system" get:"domain" list:"domain"`
+	Attribution string               `width:"8" nullable:"false" default:"system" get:"domain" list:"domain" create:"optional"`
 }
 
 func (cm *SConfigManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ConfigCreateInput) (api.ConfigCreateInput, error) {
