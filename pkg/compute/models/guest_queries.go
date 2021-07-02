@@ -231,6 +231,7 @@ func fetchGuestDisksInfo(guestIds []string) map[string][]api.GuestDiskInfo {
 		disks.Field("id"),
 		disks.Field("name"),
 		disks.Field("fs_format"),
+		disks.Field("disk_type"),
 		guestdisks.Field("index"),
 		disks.Field("disk_size").Label("size"),
 		disks.Field("disk_format"),
