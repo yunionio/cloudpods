@@ -1984,3 +1984,18 @@ func (manager *SWafInstanceManager) purgeAll(ctx context.Context, userCred mccli
 	}
 	return nil
 }
+
+func (manager *SMongoDBManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	dbs := []SMongoDB{}
+	err := fetchByManagerId(manager, providerId, &dbs)
+	if err != nil {
+		return errors.Wrapf(err, "fetchByManagerId")
+	}
+	for i := range dbs {
+		err := dbs[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "cache delete")
+		}
+	}
+	return nil
+}

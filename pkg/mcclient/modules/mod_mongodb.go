@@ -12,25 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package shell
+package modules
 
-import (
-	"yunion.io/x/onecloud/pkg/multicloud/qcloud"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
+type MongoDBManager struct {
+	modulebase.ResourceManager
+}
+
+var (
+	MongoDB MongoDBManager
 )
 
 func init() {
-	type MemcachedListOptions struct {
-		Ids    []string
-		Offset int
-		Limit  int
-	}
-	shellutils.R(&MemcachedListOptions{}, "memcached-list", "List memcached", func(cli *qcloud.SRegion, args *MemcachedListOptions) error {
-		memcacheds, _, err := cli.GetMemcaches(args.Ids, args.Limit, args.Offset)
-		if err != nil {
-			return err
-		}
-		printList(memcacheds, 0, 0, 0, []string{})
-		return nil
-	})
+	MongoDB = MongoDBManager{NewComputeManager("mongodb", "mongodbs",
+		[]string{},
+		[]string{})}
+
+	registerCompute(&MongoDB)
 }

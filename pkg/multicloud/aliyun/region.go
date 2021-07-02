@@ -40,6 +40,10 @@ type SRegion struct {
 	client    *SAliyunClient
 	sdkClient *sdk.Client
 	ossClient *oss.Client
+	mongoSkus map[string]struct {
+		CpuCount  int
+		MemSizeGb int
+	}
 
 	RegionId  string
 	LocalName string
@@ -153,7 +157,15 @@ func (self *SRegion) rdsRequest(apiName string, params map[string]string) (jsonu
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(client, "rds.aliyuncs.com", ALIYUN_API_VERION_RDS, apiName, params, self.client.debug)
+	return jsonRequest(client, "rds.aliyuncs.com", ALIYUN_RDS_API_VERSION, apiName, params, self.client.debug)
+}
+
+func (self *SRegion) mongodbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	client, err := self.getSdkClient()
+	if err != nil {
+		return nil, err
+	}
+	return jsonRequest(client, "mongodb.aliyuncs.com", ALIYUN_MONGO_DB_API_VERSION, apiName, params, self.client.debug)
 }
 
 func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {

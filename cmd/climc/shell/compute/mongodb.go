@@ -12,25 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package shell
+package compute
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/qcloud"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
+	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
-	type MemcachedListOptions struct {
-		Ids    []string
-		Offset int
-		Limit  int
-	}
-	shellutils.R(&MemcachedListOptions{}, "memcached-list", "List memcached", func(cli *qcloud.SRegion, args *MemcachedListOptions) error {
-		memcacheds, _, err := cli.GetMemcaches(args.Ids, args.Limit, args.Offset)
-		if err != nil {
-			return err
-		}
-		printList(memcacheds, 0, 0, 0, []string{})
-		return nil
-	})
+	cmd := shell.NewResourceCmd(&modules.MongoDB)
+	cmd.List(&compute.MongoDBListOptions{})
+	cmd.Update(&compute.MongoDBUpdateOptions{})
+	cmd.Show(&options.BaseIdOptions{})
+	cmd.Delete(&options.BaseIdOptions{})
+	cmd.Get("backups", &options.BaseIdOptions{})
+	cmd.Perform("syncstatus", &options.BaseIdOptions{})
 }

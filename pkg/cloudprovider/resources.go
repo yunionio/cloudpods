@@ -174,6 +174,9 @@ type ICloudRegion interface {
 	GetICloudWafInstanceById(id string) (ICloudWafInstance, error)
 	CreateICloudWafInstance(opts *WafCreateOptions) (ICloudWafInstance, error)
 	GetICloudWafRuleGroups() ([]ICloudWafRuleGroup, error)
+
+	GetICloudMongoDBs() ([]ICloudMongoDB, error)
+	GetICloudMongoDBById(id string) (ICloudMongoDB, error)
 }
 
 type ICloudZone interface {
@@ -1343,5 +1346,29 @@ type ICloudWafRule interface {
 	GetStatements() ([]SWafStatement, error)
 
 	Update(opts *SWafRule) error
+	Delete() error
+}
+
+type ICloudMongoDB interface {
+	IVirtualResource
+	IBillingResource
+
+	GetVpcId() string
+	GetNetworkId() string
+	GetIpAddr() string
+	GetVcpuCount() int
+	GetVmemSizeMb() int
+	GetDiskSizeMb() int
+	GetZoneId() string
+	GetReplicationNum() int
+	GetCategory() string
+	GetEngine() string
+	GetEngineVersion() string
+	GetInstanceType() string
+	GetMaintainTime() string
+	GetPort() int
+
+	GetIBackups() ([]SMongoDBBackup, error)
+
 	Delete() error
 }

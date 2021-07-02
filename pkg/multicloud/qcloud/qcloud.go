@@ -63,6 +63,7 @@ const (
 	QCLOUD_MEMCACHED_API_VERSION = "2019-03-18"
 	QCLOUD_SSL_API_VERSION       = "2019-12-05"
 	QCLOUD_CDN_API_VERSION       = "2018-06-06"
+	QCLOUD_MONGODB_API_VERSION   = "2019-07-25"
 )
 
 type QcloudClientConfig struct {
@@ -175,6 +176,12 @@ func accountRequest(client *common.Client, apiName string, params map[string]str
 func redisRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("redis", params)
 	return _jsonRequest(client, domain, QCLOUD_REDIS_API_VERSION, apiName, params, debug, true)
+}
+
+// mongodb
+func mongodbRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	domain := apiDomain("mongodb", params)
+	return _jsonRequest(client, domain, QCLOUD_MONGODB_API_VERSION, apiName, params, debug, true)
 }
 
 // memcached
@@ -630,6 +637,15 @@ func (client *SQcloudClient) redisRequest(apiName string, params map[string]stri
 	return redisRequest(cli, apiName, params, client.debug)
 }
 
+func (client *SQcloudClient) mongodbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return mongodbRequest(cli, apiName, params, client.debug)
+}
+
 func (client *SQcloudClient) memcachedRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	cli, err := client.getDefaultClient()
 	if err != nil {
@@ -1027,6 +1043,7 @@ func (self *SQcloudClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_PUBLIC_IP,
 		cloudprovider.CLOUD_CAPABILITY_INTERVPCNETWORK,
 		cloudprovider.CLOUD_CAPABILITY_SAML_AUTH,
+		cloudprovider.CLOUD_CAPABILITY_MONGO_DB,
 	}
 	return caps
 }

@@ -78,6 +78,7 @@ type ComputeOptions struct {
 	DefaultLoadbalancerQuota int `default:"10" help:"Common loadbalancer quota per tenant, default 10"`
 	DefaultRdsQuota          int `default:"10" help:"Common RDS quota per tenant, default 10"`
 	DefaultCacheQuota        int `default:"10" help:"Common ElasticCache quota per tenant, default 10"`
+	DefaultMongodbQuota      int `default:"10" help:"Common MongoDB quota per tenant, default 10"`
 
 	DefaultGlobalvpcQuota    int `default:"10" help:"Common global Vpc quota per domain, default 10"`
 	DefaultCloudaccountQuota int `default:"20" help:"Common cloud account quota per domain, default 20"`

@@ -226,6 +226,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.WafRegexSetCacheManager,
 		models.WafInstanceManager,
 		models.WafRuleManager,
+
+		models.MongoDBManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

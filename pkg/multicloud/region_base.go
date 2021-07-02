@@ -198,3 +198,11 @@ func (self *SRegion) CreateICloudWafInstance(opts *cloudprovider.WafCreateOption
 func (self *SRegion) GetICloudWafRuleGroups() ([]cloudprovider.ICloudWafRuleGroup, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudWafRuleGroups")
 }
+
+func (self *SRegion) GetICloudMongoDBs() ([]cloudprovider.ICloudMongoDB, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudMongoDBs")
+}
+
+func (self *SRegion) GetICloudMongoDBById(id string) (cloudprovider.ICloudMongoDB, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudMongoDBById")
+}
