@@ -34,7 +34,7 @@ type IDiskPartition interface {
 	Exists(sPath string, caseInsensitive bool) bool
 	Chown(sPath string, uid, gid int, caseInsensitive bool) error
 	Chmod(sPath string, mode uint32, caseInsensitive bool) error
-	UserAdd(user, homeDir string, caseInsensitive bool) error
+	UserAdd(user, homeDir string, caseInsensitive bool, isSys bool) error
 	Stat(sPath string, caseInsensitive bool) os.FileInfo
 	Symlink(src, dst string, caseInsensitive bool) error
 
