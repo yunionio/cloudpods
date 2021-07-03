@@ -120,7 +120,7 @@ $ git clone https://github.com/yunionio/ocboot && cd ./ocboot && ./run.py 10.168
 
 * 微信: 请扫描如下二维码联系我们
 
-<img src="https://www.cloudpods.org/images/skillcode.png" alt="WeChat QRCode">
+<img src="https://www.cloudpods.org/images/contact_me_qr_20210701.png" alt="WeChat QRCode">
 
 ## 版本历史
 
