@@ -395,8 +395,11 @@ func (p *SSHPartition) Remove(sPath string, caseInsensitive bool) {
 	}
 }
 
-func (p *SSHPartition) UserAdd(user, homeDir string, caseInsensitive bool) error {
+func (p *SSHPartition) UserAdd(user, homeDir string, caseInsensitive bool, isSys bool) error {
 	cmd := fmt.Sprintf("/usr/sbin/chroot %s /usr/sbin/useradd -m -s /bin/bash %s", p.mountPath, user)
+	if isSys {
+		cmd += " -r"
+	}
 	if len(homeDir) > 0 {
 		cmd += fmt.Sprintf(" -d %s", path.Join(homeDir, user))
 	}
