@@ -222,11 +222,14 @@ func (f *SLocalGuestFS) Chmod(sPath string, mode uint32, caseInsensitive bool) e
 	return nil
 }
 
-func (f *SLocalGuestFS) UserAdd(user, homeDir string, caseInsensitive bool) error {
+func (f *SLocalGuestFS) UserAdd(user, homeDir string, caseInsensitive bool, isSys bool) error {
 	if err := f.Mkdir(homeDir, 0755, false); err != nil {
 		return errors.Wrap(err, "Mkdir")
 	}
 	cmd := []string{"chroot", f.mountPath, "useradd", "-m", "-s", "/bin/bash", user}
+	if isSys {
+		cmd = append(cmd, "-r")
+	}
 	if len(homeDir) > 0 {
 		cmd = append(cmd, "-d", path.Join(homeDir, user))
 	}
