@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap/buffer"
 
 	"yunion.io/x/jsonutils"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -143,19 +143,19 @@ func (self *SLoadbalancerCert) GetExpireTime() time.Time {
 
 func (self *SLoadbalancerCert) GetPublickKey() string {
 	if len(self.PublicKey) > 0 {
-		var pk buffer.Buffer
-		pk.AppendString("-----BEGIN CERTIFICATE-----\r\n")
+		var pk bytes.Buffer
+		pk.WriteString("-----BEGIN CERTIFICATE-----\r\n")
 		content := bytes.NewBufferString(self.PublicKey)
 		for {
 			l := content.Next(64)
 			if len(l) == 64 {
-				pk.AppendString(fmt.Sprintf("%s\r\n", l))
+				pk.WriteString(fmt.Sprintf("%s\r\n", l))
 			} else {
-				pk.AppendString(fmt.Sprintf("%s\r\n", l))
+				pk.WriteString(fmt.Sprintf("%s\r\n", l))
 				break
 			}
 		}
-		pk.AppendString("-----END CERTIFICATE-----")
+		pk.WriteString("-----END CERTIFICATE-----")
 		return pk.String()
 	}
 
