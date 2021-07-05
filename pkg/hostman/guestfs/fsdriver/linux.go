@@ -1335,6 +1335,54 @@ func (c *SRhelRootFs) DisableSerialConsole(rootFs IDiskPartition) error {
 	return c.disableSerialConcole(c, rootFs)
 }
 
+type SOpenEulerRootFs struct {
+	*SCentosRootFs
+}
+
+func NewOpenEulerRootFs(part IDiskPartition) IRootFsDriver {
+	return &SOpenEulerRootFs{
+		SCentosRootFs: NewCentosRootFs(part).(*SCentosRootFs),
+	}
+}
+
+func (c *SOpenEulerRootFs) String() string {
+	return "OpenEulerRootFs"
+}
+
+func (c *SOpenEulerRootFs) GetName() string {
+	return "OpenEuler"
+}
+
+func (c *SOpenEulerRootFs) RootSignatures() []string {
+	sig := c.sLinuxRootFs.RootSignatures()
+	return append([]string{"/etc/sysconfig/network", "/etc/openEuler-release"}, sig...)
+}
+
+func (c *SOpenEulerRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.ReleaseInfo {
+	rel, _ := rootFs.FileGetContents("/etc/openEuler-release", false)
+	var version string
+	if len(rel) > 0 {
+		re := regexp.MustCompile(`^\d+\.\d+`)
+		dat := strings.Split(string(rel), " ")
+		for _, v := range dat {
+			if re.Match([]byte(v)) {
+				version = v
+				break
+			}
+		}
+	}
+	version = strings.TrimSpace(version)
+	return deployapi.NewReleaseInfo(c.GetName(), version, c.GetArch(rootFs))
+}
+
+func (c *SOpenEulerRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
+	relInfo := c.GetReleaseInfo(rootFs)
+	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
+		return err
+	}
+	return nil
+}
+
 type SGentooRootFs struct {
 	*sLinuxRootFs
 }

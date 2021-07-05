@@ -45,6 +45,7 @@ func Init(initPrivatePrefixes []string, cloudrootDir string) error {
 		NewCentosRootFs, NewFedoraRootFs, NewRhelRootFs,
 		NewDebianRootFs, NewCirrosRootFs, NewCirrosNewRootFs, NewUbuntuRootFs,
 		NewGentooRootFs, NewArchLinuxRootFs, NewOpenWrtRootFs, NewCoreOsRootFs,
+		NewOpenEulerRootFs,
 	}
 	rootfsDrivers = append(rootfsDrivers, linuxFsDrivers...)
 	rootfsDrivers = append(rootfsDrivers, NewMacOSRootFs)
