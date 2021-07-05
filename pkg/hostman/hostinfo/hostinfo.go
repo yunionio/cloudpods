@@ -43,6 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils/kubelet"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
@@ -71,6 +72,8 @@ type SHostInfo struct {
 	Cpu     *SCPUInfo
 	Mem     *SMemory
 	sysinfo *SSysInfo
+
+	kubeletConfig kubelet.KubeletConfig
 
 	isInit          bool
 	enableHugePages bool
@@ -158,7 +161,7 @@ func (h *SHostInfo) IsHugepagesEnabled() bool {
  */
 func (h *SHostInfo) Init() error {
 	if err := h.prepareEnv(); err != nil {
-		return err
+		return errors.Wrap(err, "Prepare environment")
 	}
 
 	log.Infof("Start detectHostInfo")
@@ -317,7 +320,7 @@ func (h *SHostInfo) parseConfig() error {
 
 func (h *SHostInfo) prepareEnv() error {
 	if err := h.fixPathEnv(); err != nil {
-		return err
+		return errors.Wrap(err, "Fix path environment")
 	}
 	if options.HostOptions.ReportInterval > 300 {
 		return fmt.Errorf("Option report_interval must no longer than 5 min")
@@ -330,7 +333,7 @@ func (h *SHostInfo) prepareEnv() error {
 
 	_, err = procutils.NewCommand("ethtool", "-h").Output()
 	if err != nil {
-		return fmt.Errorf("Ethtool not installed")
+		return errors.Wrap(err, "Execute 'ethtool -h'")
 	}
 
 	ioParams := make(map[string]string, 0)
@@ -346,11 +349,11 @@ func (h *SHostInfo) prepareEnv() error {
 	fileutils2.ChangeAllBlkdevsParams(ioParams)
 	_, err = procutils.NewRemoteCommandAsFarAsPossible("modprobe", "tun").Output()
 	if err != nil {
-		return fmt.Errorf("Failed to activate tun/tap device")
+		return errors.Wrap(err, "Failed to activate tun/tap device")
 	}
 	output, err = procutils.NewRemoteCommandAsFarAsPossible("modprobe", "vhost_net").Output()
 	if err != nil {
-		log.Errorf("modprobe error: %s", output)
+		log.Warningf("modprobe vhost_net error: %s", output)
 	}
 	if !options.HostOptions.DisableSetCgroup {
 		if !cgrouputils.Init() {
@@ -495,7 +498,16 @@ func (h *SHostInfo) GetMemory() (int, error) {
 	if options.HostOptions.HugepagesOption == "native" {
 		return h.Mem.GetHugepageTotal()
 	}
-	return h.Mem.Total, nil // - options.reserved_memory
+	total := h.Mem.Total
+	if h.kubeletConfig != nil {
+		memThreshold := h.kubeletConfig.GetEvictionConfig().GetHard().GetMemoryAvailable()
+		memBytes, _ := memThreshold.Value.Quantity.AsInt64()
+		memMb := int(memBytes / 1024 / 1024)
+		subMem := total - memMb
+		log.Infof("Get total memory %d, kubelet memory threshold subtracted: (%d - %d)", subMem, total, memMb)
+		total = subMem
+	}
+	return total, nil // - options.reserved_memory
 }
 
 func (h *SHostInfo) getCurrentHugepageNr() (int64, error) {
@@ -1394,11 +1406,11 @@ func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 					params.Set("is_root_partiton", jsonutils.JSONTrue)
 					_, err := modules.Hoststorages.Update(h.GetSession(), h.HostId, storageId, nil, params)
 					if err != nil {
-						h.onFail(err)
+						h.onFail(errors.Wrapf(err, "Update host storage %s with params %s", storageId, params))
 					}
 				}
 				if err := storage.SetStorageInfo(storageId, storageName, storageConf); err != nil {
-					h.onFail(err)
+					h.onFail(errors.Wrapf(err, "Set storage info %s/%s/%s", storageId, storageName, storageConf))
 				}
 			} else {
 				// XXX hack: storage type baremetal is a converted host，reserve storage
@@ -1419,11 +1431,11 @@ func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 func (h *SHostInfo) uploadStorageInfo() {
 	for _, s := range storageman.GetManager().Storages {
 		if err := s.SetStorageInfo(s.GetId(), s.GetStorageName(), s.GetStorageConf()); err != nil {
-			h.onFail(err)
+			h.onFail(errors.Wrapf(err, "Upload storage %s info with config %s", s.GetStorageName(), s.GetStorageConf()))
 		}
 		res, err := s.SyncStorageInfo()
 		if err != nil {
-			h.onFail(err)
+			h.onFail(errors.Wrapf(err, "Sync storage %s info", s.GetStorageName()))
 		} else {
 			h.onSyncStorageInfoSucc(s, res)
 		}
@@ -1750,6 +1762,10 @@ func (h *SHostInfo) IsX8664() bool {
 	return h.GetCpuArchitecture() == apis.OS_ARCH_X86_64
 }
 
+func (h *SHostInfo) GetKubeletConfig() kubelet.KubeletConfig {
+	return h.kubeletConfig
+}
+
 func NewHostInfo() (*SHostInfo, error) {
 	var res = new(SHostInfo)
 	res.sysinfo = &SSysInfo{}
@@ -1779,6 +1795,17 @@ func NewHostInfo() (*SHostInfo, error) {
 	res.IsRegistered = make(chan struct{})
 	res.SysError = make(map[string]string)
 	res.SysWarning = make(map[string]string)
+
+	if !options.HostOptions.DisableProbeKubelet {
+		kubeletDir := options.HostOptions.KubeletRunDirectory
+		kubeletConfig, err := kubelet.NewKubeletConfigByDirectory(kubeletDir)
+		if err != nil {
+			return nil, errors.Wrapf(err, "New kubelet config by dir: %s", kubeletDir)
+		}
+		res.kubeletConfig = kubeletConfig
+		log.Infof("Get kubelet container image Fs: %s, eviction config: %s", res.kubeletConfig.GetImageFs(), res.kubeletConfig.GetEvictionConfig())
+	}
+
 	return res, nil
 }
 
@@ -1789,7 +1816,7 @@ func Instance() *SHostInfo {
 		var err error
 		hostInfo, err = NewHostInfo()
 		if err != nil {
-			log.Fatalln(err)
+			log.Fatalf("NewHostInfo: %s", err)
 		}
 	}
 	return hostInfo
