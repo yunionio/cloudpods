@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils/kubelet"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -54,6 +55,8 @@ type IHost interface {
 	GetIsolatedDeviceManager() *isolated_device.IsolatedDeviceManager
 
 	SyncRootPartitionUsedCapacity() error
+
+	GetKubeletConfig() kubelet.KubeletConfig
 }
 
 func GetComputeSession(ctx context.Context) *mcclient.ClientSession {

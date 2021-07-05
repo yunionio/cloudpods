@@ -143,7 +143,7 @@ func ChangeAllBlkdevsParams(params map[string]string) {
 	if _, err := os.Stat("/sys/block"); !os.IsNotExist(err) {
 		blockDevs, err := ioutil.ReadDir("/sys/block")
 		if err != nil {
-			log.Errorln(err)
+			log.Errorf("ReadDir /sys/block error: %s", err)
 			return
 		}
 		for _, b := range blockDevs {
