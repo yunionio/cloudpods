@@ -37,7 +37,7 @@ func (self *SLoadbalancerListenerRule) GetName() string {
 }
 
 func (self *SLoadbalancerListenerRule) GetGlobalId() string {
-	return self.GetId()
+	return strings.ToLower(self.GetId())
 }
 
 func (self *SLoadbalancerListenerRule) GetStatus() string {

@@ -3,6 +3,7 @@ package azure
 import (
 	"context"
 	"strconv"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -31,7 +32,7 @@ func (self *SLoadbalancerBackend) GetName() string {
 }
 
 func (self *SLoadbalancerBackend) GetGlobalId() string {
-	return self.GetId()
+	return strings.ToLower(self.GetId())
 }
 
 func (self *SLoadbalancerBackend) GetStatus() string {

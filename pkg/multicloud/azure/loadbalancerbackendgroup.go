@@ -42,7 +42,7 @@ func (self *SLoadbalancerBackendGroup) GetName() string {
 }
 
 func (self *SLoadbalancerBackendGroup) GetGlobalId() string {
-	return self.GetId()
+	return strings.ToLower(self.GetId())
 }
 
 func (self *SLoadbalancerBackendGroup) GetStatus() string {

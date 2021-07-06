@@ -34,7 +34,7 @@ func (self *SLoadbalancerCert) GetName() string {
 }
 
 func (self *SLoadbalancerCert) GetGlobalId() string {
-	return self.GetId()
+	return strings.ToLower(self.GetId())
 }
 
 func (self *SLoadbalancerCert) GetStatus() string {

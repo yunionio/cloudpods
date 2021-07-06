@@ -108,7 +108,7 @@ func (self *SLoadBalancerListener) GetName() string {
 }
 
 func (self *SLoadBalancerListener) GetGlobalId() string {
-	return self.GetId()
+	return strings.ToLower(self.GetId())
 }
 
 func (self *SLoadBalancerListener) GetStatus() string {

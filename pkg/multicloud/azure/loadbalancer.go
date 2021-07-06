@@ -38,7 +38,7 @@ func (self *SLoadbalancer) GetName() string {
 }
 
 func (self *SLoadbalancer) GetGlobalId() string {
-	return self.GetId()
+	return strings.ToLower(self.GetId())
 }
 
 func (self *SLoadbalancer) GetStatus() string {
