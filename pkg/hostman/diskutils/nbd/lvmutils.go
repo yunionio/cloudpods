@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/stringutils"
 
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/kvmpart"
@@ -86,6 +87,7 @@ type SKVMGuestLVMPartition struct {
 	partDev      string
 	originVgname string
 	vgname       string
+	vgid         string
 }
 
 func findVgname(partDev string) string {
@@ -105,19 +107,43 @@ func findVgname(partDev string) string {
 	return ""
 }
 
-func NewKVMGuestLVMPartition(partDev, originVgname string) *SKVMGuestLVMPartition {
+type SVG struct {
+	Id   string
+	Name string
+}
+
+func findVg(partDev string) (SVG, error) {
+	command := procutils.NewCommand("vgs", "-v", "--devices", partDev)
+	output, err := command.Output()
+	if err != nil {
+		return SVG{}, errors.Wrapf(err, "unable to exec command %q", command)
+	}
+	log.Debugf("command: %s\noutput: %s", command, output)
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(lines) <= 1 {
+		return SVG{}, fmt.Errorf("unable to find vg, output is %q", output)
+	}
+	data := regexp.MustCompile(`\s+`).Split(strings.TrimSpace(lines[len(lines)-1]), -1)
+	if len(data) < 1 || len(data) < 9 {
+		return SVG{}, fmt.Errorf("The output is not as expected: %q", output)
+	}
+	return SVG{data[8], data[0]}, nil
+}
+
+func NewKVMGuestLVMPartition(partDev string, vg SVG) *SKVMGuestLVMPartition {
 	return &SKVMGuestLVMPartition{
 		partDev:      partDev,
-		originVgname: originVgname,
+		originVgname: vg.Name,
 		vgname:       stringutils.UUID4(),
+		vgid:         vg.Id,
 	}
 }
 
 func (p *SKVMGuestLVMPartition) SetupDevice() bool {
-	if len(p.originVgname) == 0 {
+	if len(p.vgid) == 0 {
 		return false
 	}
-	if !p.vgRename(p.originVgname, p.vgname) {
+	if !p.vgRename(p.vgid, p.vgname) {
 		return false
 	}
 	if findVgname(p.partDev) != p.vgname {
