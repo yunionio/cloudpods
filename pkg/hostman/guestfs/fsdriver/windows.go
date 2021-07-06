@@ -118,14 +118,17 @@ func (w *SWindowsRootFs) GetLoginAccount(rootFs IDiskPartition, sUser string, de
 	users := tool.GetUsers()
 	admin := "Administrator"
 	selUsr := ""
-	if w.IsWindows10() {
-		delete(users, admin)
-	}
-	if _, ok := users[admin]; ok && windowsDefaultAdminUser {
+	isWin10 := w.IsWindows10()
+	// Win10 try not to use Administrator users
+	if _, ok := users[admin]; ok && windowsDefaultAdminUser && !isWin10 {
 		selUsr = admin
 	} else {
-		for user := range users {
-			if user != admin && (len(selUsr) == 0 || len(selUsr) > len(user)) {
+		// Looking for an unlocked user who is not an Administrator
+		for user, ok := range users {
+			if !ok {
+				continue
+			}
+			if user != admin {
 				selUsr = user
 			}
 		}
@@ -133,10 +136,8 @@ func (w *SWindowsRootFs) GetLoginAccount(rootFs IDiskPartition, sUser string, de
 			selUsr = admin
 		}
 	}
-	if len(selUsr) > 0 {
-		if _, ok := users[selUsr]; !ok {
-			tool.UnlockUser(selUsr)
-		}
+	if selUsr == "" {
+		return "", fmt.Errorf("no unlocked user")
 	}
 	return selUsr, nil
 }
