@@ -941,16 +941,14 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		return nil, isNew, cloudprovider.ErrDuplicateId
 	}
 	if providerCount == 1 {
-		providerObj, err := db.NewModelObject(CloudproviderManager)
-		if err != nil {
-			return nil, isNew, err
-		}
-		provider := providerObj.(*SCloudprovider)
+		provider := &SCloudprovider{}
+		provider.SetModelManager(CloudproviderManager, provider)
 		err = q.First(provider)
 		if err != nil {
-			return nil, isNew, err
+			return nil, isNew, errors.Wrapf(err, "q.First")
 		}
 		provider.markProviderConnected(ctx, userCred, subAccount.HealthStatus)
+		provider.updateName(ctx, userCred, subAccount.Name)
 		return provider, isNew, nil
 	}
 	// not found, create a new cloudprovider
