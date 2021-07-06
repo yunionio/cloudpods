@@ -36,6 +36,7 @@ type Loadbalancer struct {
 
 type SElbListener struct {
 	multicloud.SResourceBase
+	multicloud.SLoadbalancerRedirectBase
 	multicloud.HuaweiTags
 	lb           *SLoadbalancer
 	acl          *SElbACL
@@ -682,4 +683,12 @@ func (self *SRegion) CreateLoadBalancerPolicy(listenerID string, rule *cloudprov
 	}
 
 	return l7policy, nil
+}
+
+func (self *SElbListener) GetClientIdleTimeout() int {
+	return 0
+}
+
+func (self *SElbListener) GetBackendConnectTimeout() int {
+	return 0
 }

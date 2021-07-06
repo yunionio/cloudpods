@@ -29,6 +29,7 @@ import (
 
 type SLBListenerRule struct {
 	multicloud.SResourceBase
+	multicloud.SLoadbalancerRedirectBase
 	multicloud.QcloudTags
 	listener *SLBListener
 

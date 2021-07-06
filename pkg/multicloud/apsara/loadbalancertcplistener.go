@@ -28,6 +28,7 @@ import (
 
 type SLoadbalancerTCPListener struct {
 	multicloud.SResourceBase
+	multicloud.SLoadbalancerRedirectBase
 	multicloud.ApsaraTags
 	lb *SLoadbalancer
 
@@ -356,4 +357,12 @@ func (listerner *SLoadbalancerTCPListener) Sync(ctx context.Context, lblis *clou
 
 func (listerner *SLoadbalancerTCPListener) GetProjectId() string {
 	return ""
+}
+
+func (listerner *SLoadbalancerTCPListener) GetClientIdleTimeout() int {
+	return 0
+}
+
+func (listerner *SLoadbalancerTCPListener) GetBackendConnectTimeout() int {
+	return 0
 }

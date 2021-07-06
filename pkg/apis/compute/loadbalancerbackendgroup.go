@@ -21,6 +21,8 @@ type LoadbalancerBackendGroupDetails struct {
 	LoadbalancerResourceInfo
 
 	SLoadbalancerBackendGroup
+
+	LbListenerCount int `json:"lb_listener_count"`
 }
 
 type LoadbalancerBackendGroupResourceInfo struct {

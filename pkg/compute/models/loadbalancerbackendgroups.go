@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -490,6 +491,23 @@ func (man *SLoadbalancerBackendGroupManager) FetchCustomizeColumns(
 			VirtualResourceDetails:   virtRows[i],
 			LoadbalancerResourceInfo: lbRows[i],
 		}
+	}
+
+	for i := range objs {
+		q := LoadbalancerListenerManager.Query().IsFalse("pending_deleted").Equals("backend_group_id", objs[i].(*SLoadbalancerBackendGroup).GetId())
+		ownerId, queryScope, err := db.FetchCheckQueryOwnerScope(ctx, userCred, query, LoadbalancerListenerManager, policy.PolicyActionList, true)
+		if err != nil {
+			log.Errorf("FetchCheckQueryOwnerScope error: %v", err)
+			return rows
+		}
+
+		q = LoadbalancerListenerManager.FilterByOwner(q, ownerId, queryScope)
+		count, err := q.CountWithError()
+		if err != nil {
+			log.Errorf("db.CountWithError error: %v", err)
+		}
+
+		rows[i].LbListenerCount = count
 	}
 
 	return rows

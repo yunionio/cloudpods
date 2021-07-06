@@ -639,6 +639,31 @@ type ICloudLoadbalancer interface {
 	GetILoadBalancerListenerById(listenerId string) (ICloudLoadbalancerListener, error)
 }
 
+type ICloudLoadbalancerRedirect interface {
+	GetRedirect() string
+	GetRedirectCode() int64
+	GetRedirectScheme() string
+	GetRedirectHost() string
+	GetRedirectPath() string
+}
+
+type ICloudloadbalancerHealthCheck interface {
+	GetHealthCheck() string
+	GetHealthCheckType() string
+	GetHealthCheckTimeout() int
+	GetHealthCheckInterval() int
+	GetHealthCheckRise() int
+	GetHealthCheckFail() int
+
+	GetHealthCheckReq() string
+	GetHealthCheckExp() string
+
+	// HTTP && HTTPS
+	GetHealthCheckDomain() string
+	GetHealthCheckURI() string
+	GetHealthCheckCode() string
+}
+
 type ICloudLoadbalancerListener interface {
 	IVirtualResource
 
@@ -650,24 +675,13 @@ type ICloudLoadbalancerListener interface {
 	GetAclId() string
 
 	GetEgressMbps() int
-
-	GetHealthCheck() string
-	GetHealthCheckType() string
-	GetHealthCheckTimeout() int
-	GetHealthCheckInterval() int
-	GetHealthCheckRise() int
-	GetHealthCheckFail() int
-
-	GetHealthCheckReq() string
-	GetHealthCheckExp() string
-
 	GetBackendGroupId() string
 	GetBackendServerPort() int
 
+	GetClientIdleTimeout() int
+	GetBackendConnectTimeout() int
+
 	// HTTP && HTTPS
-	GetHealthCheckDomain() string
-	GetHealthCheckURI() string
-	GetHealthCheckCode() string
 	CreateILoadBalancerListenerRule(rule *SLoadbalancerListenerRule) (ICloudLoadbalancerListenerRule, error)
 	GetILoadBalancerListenerRuleById(ruleId string) (ICloudLoadbalancerListenerRule, error)
 	GetILoadbalancerListenerRules() ([]ICloudLoadbalancerListenerRule, error)
@@ -683,6 +697,10 @@ type ICloudLoadbalancerListener interface {
 	GetTLSCipherPolicy() string
 	HTTP2Enabled() bool
 
+	// http redirect
+	ICloudLoadbalancerRedirect
+	ICloudloadbalancerHealthCheck
+
 	Start() error
 	Stop() error
 	Sync(ctx context.Context, listener *SLoadbalancerListener) error
@@ -692,6 +710,8 @@ type ICloudLoadbalancerListener interface {
 
 type ICloudLoadbalancerListenerRule interface {
 	IVirtualResource
+	// http redirect
+	ICloudLoadbalancerRedirect
 
 	IsDefault() bool
 	GetDomain() string

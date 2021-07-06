@@ -33,6 +33,7 @@ import (
 
 type SElbListenerRule struct {
 	multicloud.SResourceBase
+	multicloud.SLoadbalancerRedirectBase
 	multicloud.AwsTags
 	listener *SElbListener
 	region   *SRegion

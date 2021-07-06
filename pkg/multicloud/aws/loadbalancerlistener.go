@@ -35,6 +35,7 @@ import (
 
 type SElbListener struct {
 	multicloud.SResourceBase
+	multicloud.SLoadbalancerRedirectBase
 	multicloud.AwsTags
 	region *SRegion
 	lb     *SElb
@@ -440,6 +441,14 @@ func (self *SElbListener) GetTLSCipherPolicy() string {
 
 func (self *SElbListener) HTTP2Enabled() bool {
 	return false
+}
+
+func (self *SElbListener) GetClientIdleTimeout() int {
+	return 0
+}
+
+func (self *SElbListener) GetBackendConnectTimeout() int {
+	return 0
 }
 
 func (self *SElbListener) Start() error {
