@@ -504,8 +504,52 @@ func (l *sLinuxRootFs) disableSerialConsoleSystemd(rootFs IDiskPartition) {
 	}
 }
 
+func (l *sLinuxRootFs) dirWalk(part IDiskPartition, sPath string, wF func(path string, isDir bool) bool) bool {
+	stat := part.Stat(sPath, false)
+	if !stat.IsDir() {
+		if wF(sPath, false) {
+			return true
+		}
+		return false
+	}
+	if wF(sPath, true) {
+		return true
+	}
+	for _, subPath := range part.ListDir(sPath, false) {
+		if l.dirWalk(part, path.Join(sPath, subPath), wF) {
+			return true
+		}
+	}
+	return false
+}
+
 func (l *sLinuxRootFs) DetectIsUEFISupport(part IDiskPartition) bool {
-	return part.Exists("/efi", false)
+	// ref: https://wiki.archlinux.org/title/EFI_system_partition#Check_for_an_existing_partition
+	// To confirm this is the ESP, mount it and check whether it contains a directory named EFI,
+	// if it does this is definitely the ESP.
+	efiDir := "/EFI"
+	exits := part.Exists(efiDir, false)
+	if !exits {
+		return false
+	}
+
+	hasEFIFirmware := false
+
+	l.dirWalk(part, efiDir, func(path string, isDir bool) bool {
+		if isDir {
+			return false
+		}
+		// check file is UEFI firmware
+		if strings.HasSuffix(path, ".efi") {
+			log.Infof("EFI firmware %s found", path)
+			hasEFIFirmware = true
+			return true
+		}
+		// continue walk
+		return false
+	})
+
+	return hasEFIFirmware
 }
 
 func (l *sLinuxRootFs) IsCloudinitInstall() bool {
