@@ -76,6 +76,14 @@ func (self *SDBInstance) GetIVpcId() string {
 	return self.VpcId
 }
 
+func (self *SDBInstance) Refresh() error {
+	rds, err := self.region.GetDBInstance(self.InstanceId)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(self, rds)
+}
+
 func (self *SDBInstance) GetMaintainTime() string {
 	return ""
 }
@@ -85,6 +93,9 @@ func (self *SDBInstance) GetMasterInstanceId() string {
 }
 
 func (self *SDBInstance) GetPort() int {
+	if len(self.InstancePort) == 0 {
+		self.Refresh()
+	}
 	port, _ := strconv.Atoi(self.InstancePort)
 	return int(port)
 }
@@ -163,6 +174,10 @@ func (self *SDBInstance) GetInternalConnectionStr() string {
 	return self.InternalDomainName
 }
 
+func (self *SDBInstance) Delete() error {
+	return self.region.DeleteDBInstance(self.InstanceId)
+}
+
 func (self *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, error) {
 	rds := []SDBInstance{}
 	n := 1
@@ -208,6 +223,20 @@ func (self *SRegion) GetDBInstance(id string) (*SDBInstance, error) {
 	}
 	jsonutils.Update(&ret.DBInstance, resp.Result.DbInstanceAttributes)
 	return &ret, nil
+}
+
+func (self *SRegion) DeleteDBInstance(id string) error {
+	req := apis.NewDeleteInstanceRequest(self.ID, id)
+	client := client.NewRdsClient(self.Credential)
+	client.Logger = Logger{}
+	resp, err := client.DeleteInstance(req)
+	if err != nil {
+		return err
+	}
+	if resp.Error.Code == 404 {
+		return nil
+	}
+	return nil
 }
 
 func (self *SRegion) GetDBInstances(pageNumber int, pageSize int) ([]SDBInstance, int, error) {
