@@ -691,6 +691,12 @@ func (self *SRegion) mongodbRequest(apiName string, params map[string]string) (j
 	return self.client.mongodbRequest(apiName, params)
 }
 
+// Elasticsearch
+func (self *SRegion) esRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	params["Region"] = self.Region
+	return self.client.esRequest(apiName, params)
+}
+
 func (self *SRegion) memcachedRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	params["Region"] = self.Region
 	return self.client.memcachedRequest(apiName, params)

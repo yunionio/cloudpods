@@ -206,3 +206,11 @@ func (self *SRegion) GetICloudMongoDBs() ([]cloudprovider.ICloudMongoDB, error) 
 func (self *SRegion) GetICloudMongoDBById(id string) (cloudprovider.ICloudMongoDB, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudMongoDBById")
 }
+
+func (self *SRegion) GetIElasticSearchs() ([]cloudprovider.ICloudElasticSearch, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIElasticSearchs")
+}
+
+func (self *SRegion) GetIElasticSearchById(id string) (cloudprovider.ICloudElasticSearch, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIElasticSearchById")
+}

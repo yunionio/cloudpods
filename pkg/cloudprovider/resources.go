@@ -177,6 +177,9 @@ type ICloudRegion interface {
 
 	GetICloudMongoDBs() ([]ICloudMongoDB, error)
 	GetICloudMongoDBById(id string) (ICloudMongoDB, error)
+
+	GetIElasticSearchs() ([]ICloudElasticSearch, error)
+	GetIElasticSearchById(id string) (ICloudElasticSearch, error)
 }
 
 type ICloudZone interface {
@@ -1389,6 +1392,27 @@ type ICloudMongoDB interface {
 	GetPort() int
 
 	GetIBackups() ([]SMongoDBBackup, error)
+
+	Delete() error
+}
+
+type ICloudElasticSearch interface {
+	IVirtualResource
+	IBillingResource
+
+	GetVersion() string
+	GetStorageType() string
+	GetDiskSizeGb() int
+	GetCategory() string
+
+	GetInstanceType() string
+	GetVcpuCount() int
+	GetVmemSizeGb() int
+
+	GetVpcId() string
+	GetNetworkId() string
+	GetZoneId() string
+	IsMultiAz() bool
 
 	Delete() error
 }
