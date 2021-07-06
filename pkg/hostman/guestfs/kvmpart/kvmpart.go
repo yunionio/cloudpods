@@ -65,7 +65,7 @@ func (p *SKVMGuestDiskPartition) GetPhysicalPartitionType() string {
 	if idxP > 0 {
 		dev = dev[:idxP]
 	}
-	cmd := fmt.Sprintf(`fdisk -l %s | grep "Disk label type:"`, dev)
+	cmd := fmt.Sprintf(`fdisk -l %s | grep "Disk.*label type:"`, dev)
 	output, err := procutils.NewCommand("sh", "-c", cmd).Output()
 	if err != nil {
 		log.Errorf("get disk label type error %s", output)
