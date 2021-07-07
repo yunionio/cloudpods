@@ -34,17 +34,21 @@ func init() {
 		return nil
 	})
 
-	type DBInstanceShowOptions struct {
+	type DBInstanceIdOptions struct {
 		ID string
 	}
 
-	shellutils.R(&DBInstanceShowOptions{}, "dbinstance-show", "Show rds", func(cli *jdcloud.SRegion, args *DBInstanceShowOptions) error {
+	shellutils.R(&DBInstanceIdOptions{}, "dbinstance-show", "Show rds", func(cli *jdcloud.SRegion, args *DBInstanceIdOptions) error {
 		rds, err := cli.GetDBInstance(args.ID)
 		if err != nil {
 			return err
 		}
 		printObject(rds)
 		return nil
+	})
+
+	shellutils.R(&DBInstanceIdOptions{}, "dbinstance-delete", "Delete rds", func(cli *jdcloud.SRegion, args *DBInstanceIdOptions) error {
+		return cli.DeleteDBInstance(args.ID)
 	})
 
 	type DBInstanceAccountListOptions struct {

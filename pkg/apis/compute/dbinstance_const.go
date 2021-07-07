@@ -102,6 +102,7 @@ const (
 	DBINSTANCE_TYPE_MARIADB    = "MariaDB"
 	DBINSTANCE_TYPE_ORACLE     = "Oracle"
 	DBINSTANCE_TYPE_PPAS       = "PPAS"
+	DBINSTANCE_TYPE_PERCONA    = "Percona"
 
 	//阿里云实例类型
 	ALIYUN_DBINSTANCE_CATEGORY_BASIC    = "basic"             //基础版
