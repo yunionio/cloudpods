@@ -16,6 +16,7 @@ import (
 
 type SLoadbalancer struct {
 	region    *SRegion
+	eip       cloudprovider.ICloudEIP
 	lbbgs     []cloudprovider.ICloudLoadbalancerBackendGroup
 	listeners []cloudprovider.ICloudLoadbalancerListener
 
@@ -78,6 +79,7 @@ func (self *SLoadbalancer) Refresh() error {
 		return errors.Wrap(err, "jsonutils.Update")
 	}
 
+	self.eip = nil
 	self.lbbgs = nil
 	self.listeners = nil
 	return nil
@@ -271,9 +273,15 @@ func (self *SLoadbalancer) getEipIds() []string {
 }
 
 func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
+	if self.eip != nil {
+		return self.eip, nil
+	}
+
 	eips := self.getEipIds()
 	if len(eips) > 0 {
-		return self.region.GetIEipById(eips[0])
+		eip, err := self.region.GetIEipById(eips[0])
+		self.eip = eip
+		return eip, err
 	}
 
 	return nil, nil

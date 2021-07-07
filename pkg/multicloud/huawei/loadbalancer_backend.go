@@ -121,6 +121,10 @@ func (self *SElbBackend) GetBackendId() string {
 	return ""
 }
 
+func (self *SElbBackend) GetIpAddress() string {
+	return ""
+}
+
 func (self *SElbBackend) SyncConf(ctx context.Context, port, weight int) error {
 	if port > 0 {
 		log.Warningf("Elb backend SyncConf unsupport modify port")

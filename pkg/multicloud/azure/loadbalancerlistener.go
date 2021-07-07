@@ -113,7 +113,7 @@ func (self *SLoadBalancerListener) GetGlobalId() string {
 
 func (self *SLoadBalancerListener) GetStatus() string {
 	switch self.ProvisioningState {
-	case "Succeeded":
+	case "Succeeded", "Updating", "Deleting":
 		return api.LB_STATUS_ENABLED
 	case "Failed":
 		return api.LB_STATUS_DISABLED
@@ -146,7 +146,20 @@ func (self *SLoadBalancerListener) GetSysTags() map[string]string {
 }
 
 func (self *SLoadBalancerListener) GetTags() (map[string]string, error) {
-	return nil, nil
+	if self.fp != nil {
+		if self.fp.Properties.PublicIPAddress != nil && len(self.fp.Properties.PublicIPAddress.ID) > 0 {
+			eip, _ := self.lb.GetIEIP()
+			if eip != nil {
+				return map[string]string{"FrontendIP": eip.GetIpAddr()}, nil
+			}
+		}
+
+		if len(self.fp.Properties.PrivateIPAddress) > 0 {
+			return map[string]string{"FrontendIP": self.fp.Properties.PrivateIPAddress}, nil
+		}
+	}
+
+	return map[string]string{}, nil
 }
 
 func (self *SLoadBalancerListener) SetTags(tags map[string]string, replace bool) error {

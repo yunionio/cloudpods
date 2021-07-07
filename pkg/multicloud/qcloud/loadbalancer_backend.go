@@ -115,6 +115,10 @@ func (self *SLBBackend) GetBackendId() string {
 	return self.InstanceID
 }
 
+func (self *SLBBackend) GetIpAddress() string {
+	return ""
+}
+
 // 传统型： https://cloud.tencent.com/document/product/214/31790
 func (self *SRegion) getClassicBackends(lbId, listenerId string) ([]SLBBackend, error) {
 	params := map[string]string{"LoadBalancerId": lbId}

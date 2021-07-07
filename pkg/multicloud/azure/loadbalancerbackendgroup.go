@@ -2,6 +2,7 @@ package azure
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -131,6 +132,22 @@ func (self *SLoadbalancerBackendGroup) GetILoadbalancerBackends() ([]cloudprovid
 			Name:          name,
 			ID:            vid,
 			Type:          api.LB_BACKEND_GUEST,
+			BackendPort:   self.DefaultPort,
+		}
+
+		ret = append(ret, &bg)
+	}
+
+	ips2 := self.Pool.Properties.BackendAddresses
+	for i := range ips2 {
+		name := fmt.Sprintf("ip-%s", ips2[i].IPAddress)
+		bg := SLoadbalancerBackend{
+			SResourceBase: multicloud.SResourceBase{},
+			lbbg:          self,
+			Name:          name,
+			ID:            fmt.Sprintf("%s-%s", self.GetId(), name),
+			Type:          api.LB_BACKEND_IP,
+			BackendIP:     ips2[i].IPAddress,
 			BackendPort:   self.DefaultPort,
 		}
 
