@@ -218,7 +218,7 @@ func checkProxyEndpoint(ctx context.Context, influxdbUrl, proxyEndpointId, addre
 	return nUrl, nil
 }
 
-func findValidInfluxdbUrl(ctx context.Context, influxdbUrl, proxyEndpointId string, info sServerInfo, host *ansible_api.AnsibleHost) (string, error) {
+func influxdbUrlViaProxyEndpoint(ctx context.Context, influxdbUrl, proxyEndpointId string, info sServerInfo, host *ansible_api.AnsibleHost) (string, error) {
 	if len(proxyEndpointId) > 0 {
 		pes, err := proxyEndpoints(ctx, proxyEndpointId, info)
 		if err != nil {
@@ -245,6 +245,10 @@ func findValidInfluxdbUrl(ctx context.Context, influxdbUrl, proxyEndpointId stri
 			return url, nil
 		}
 	}
+	return "", nil
+}
+
+func influxdbUrlDirect(ctx context.Context, influxdbUrl, proxyEndpointId string, info sServerInfo, host *ansible_api.AnsibleHost) (string, error) {
 	// check direct
 	ok, err := checkUrl(ctx, influxdbUrl, host)
 	if err != nil {
@@ -252,6 +256,25 @@ func findValidInfluxdbUrl(ctx context.Context, influxdbUrl, proxyEndpointId stri
 	}
 	if ok {
 		return influxdbUrl, nil
+	}
+	return "", nil
+}
+
+func findValidInfluxdbUrl(ctx context.Context, influxdbUrl, proxyEndpointId string, info sServerInfo, host *ansible_api.AnsibleHost) (string, error) {
+	findFuncs := []func(ctx context.Context, influxdbUrl, proxyEndpointId string, info sServerInfo, host *ansible_api.AnsibleHost) (string, error){}
+	if info.serverDetails.Hypervisor == comapi.HYPERVISOR_KVM {
+		findFuncs = append(findFuncs, influxdbUrlDirect, influxdbUrlViaProxyEndpoint)
+	} else {
+		findFuncs = append(findFuncs, influxdbUrlViaProxyEndpoint, influxdbUrlDirect)
+	}
+	for _, find := range findFuncs {
+		url, err := find(ctx, influxdbUrl, proxyEndpointId, info, host)
+		if err != nil {
+			return "", err
+		}
+		if len(url) > 0 {
+			return url, nil
+		}
 	}
 	return "", nil
 }
