@@ -62,7 +62,11 @@ func (self *GuestCreateTask) OnWaitGuestNetworksReady(ctx context.Context, obj d
 func (self *GuestCreateTask) OnGuestNetworkReady(ctx context.Context, guest *models.SGuest) {
 	guest.SetStatus(self.UserCred, api.VM_CREATE_DISK, "")
 	self.SetStage("OnDiskPrepared", nil)
-	guest.GetDriver().RequestGuestCreateAllDisks(ctx, guest, self)
+	err := guest.GetDriver().RequestGuestCreateAllDisks(ctx, guest, self)
+	if err != nil {
+		msg := fmt.Sprintf("unable to RequestGuestCreateAllDisks: %v", err)
+		self.OnDiskPreparedFailed(ctx, guest, jsonutils.NewString(msg))
+	}
 }
 
 func (self *GuestCreateTask) OnDiskPreparedFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
