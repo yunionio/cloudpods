@@ -7,8 +7,9 @@ import (
 )
 
 type MonitorResourceJointListInput struct {
-	MonitorResourceId string `json:"monitor_resource_id"`
-	AlertId           string `json:"alert_id"`
+	MonitorResourceId string  `json:"monitor_resource_id"`
+	AlertId           string  `json:"alert_id"`
+	JointId           []int64 `json:"joint_id"`
 }
 
 type MonitorResourceJointCreateInput struct {
