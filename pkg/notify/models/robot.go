@@ -224,26 +224,26 @@ func (r *SRobot) ValidateUpdateData(ctx context.Context, userCred mcclient.Token
 		return input, errors.Wrap(err, "SSharableVirtualResourceBase.ValidateUpdateData")
 	}
 	// check lang
-	if input.Lang == "" {
-		input.Lang = "zh_CN"
-	} else {
+	if len(input.Lang) > 0 {
 		_, err = language.Parse(input.Lang)
 		if err != nil {
 			return input, httperrors.NewInputParameterError("invalid lang %q: %s", input.Lang, err.Error())
 		}
 	}
-	// check Address
-	records, err := NotifyService.SendRobotMessage(ctx, r.Type, []*rpcapi.SReceiver{
-		{
-			Contact:  input.Address,
-			DomainId: r.DomainId,
-		},
-	}, "Validate", "This is a verification message, please ignore.")
-	if err != nil {
-		return input, errors.Wrap(err, "unable to validate address")
-	}
-	if len(records) > 0 {
-		return input, httperrors.NewInputParameterError("invalid address: %s", records[0].Reason)
+	if len(input.Address) > 0 {
+		// check Address
+		records, err := NotifyService.SendRobotMessage(ctx, r.Type, []*rpcapi.SReceiver{
+			{
+				Contact:  input.Address,
+				DomainId: r.DomainId,
+			},
+		}, "Validate", "This is a verification message, please ignore.")
+		if err != nil {
+			return input, errors.Wrap(err, "unable to validate address")
+		}
+		if len(records) > 0 {
+			return input, httperrors.NewInputParameterError("invalid address: %s", records[0].Reason)
+		}
 	}
 	return input, nil
 }
