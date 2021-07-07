@@ -576,6 +576,30 @@ func init() {
 		return nil
 	})
 
+	type IdentityProviderCreateGoogleOIDCOptions struct {
+		NAME string `help:"name of identity provider" json:"name"`
+
+		api.SOIDCGoogleConfigOptions
+
+		IdentityProviderCreateCommonOptions
+	}
+	R(&IdentityProviderCreateGoogleOIDCOptions{}, "idp-create-google-oidc", "Create an identity provider with Google OpenID Connect", func(s *mcclient.ClientSession, args *IdentityProviderCreateGoogleOIDCOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString("oidc"), "driver")
+		params.Add(jsonutils.NewString(api.IdpTemplateGoogle), "template")
+
+		params.Update(jsonutils.Marshal(args))
+
+		params.Add(jsonutils.Marshal(args.SOIDCGoogleConfigOptions), "config", "oidc")
+
+		idp, err := modules.IdentityProviders.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(idp)
+		return nil
+	})
+
 	type IdentityProviderCreateAzureOIDCOptions struct {
 		NAME string `help:"name of identity provider" json:"name"`
 

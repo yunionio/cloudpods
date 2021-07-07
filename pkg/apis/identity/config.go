@@ -95,6 +95,7 @@ const (
 	IdpTemplateDex         = "dex_oidc"
 	IdpTemplateGithub      = "github_oidc"
 	IdpTemplateAzureOAuth2 = "azure_oidc"
+	IdpTemplateGoogle      = "google_oidc"
 
 	IdpTemplateAlipay   = "alipay_oauth2"
 	IdpTemplateWechat   = "wechat_oauth2"

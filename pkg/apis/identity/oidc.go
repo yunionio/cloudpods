@@ -46,6 +46,13 @@ type SOIDCGithubConfigOptions struct {
 	SIdpAttributeOptions
 }
 
+type SOIDCGoogleConfigOptions struct {
+	ClientId     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+
+	SIdpAttributeOptions
+}
+
 const (
 	AZURE_CLOUD_ENV_CHINA  = "china"
 	AZURE_CLOUD_ENV_GLOBAL = "global"
