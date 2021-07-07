@@ -159,9 +159,13 @@ func (rm *SRobotManager) ValidateCreateData(ctx context.Context, userCred mcclie
 		return input, httperrors.NewInputParameterError("unkown type %q", input.Type)
 	}
 	// check lang
-	_, err = language.Parse(input.Lang)
-	if err != nil {
-		return input, httperrors.NewInputParameterError("invalid lang %q: %s", input.Lang, err.Error())
+	if input.Lang == "" {
+		input.Lang = "zh_CN"
+	} else {
+		_, err = language.Parse(input.Lang)
+		if err != nil {
+			return input, httperrors.NewInputParameterError("invalid lang %q: %s", input.Lang, err.Error())
+		}
 	}
 	// check Address
 	records, err := NotifyService.SendRobotMessage(ctx, input.Type, []*rpcapi.SReceiver{
@@ -220,9 +224,13 @@ func (r *SRobot) ValidateUpdateData(ctx context.Context, userCred mcclient.Token
 		return input, errors.Wrap(err, "SSharableVirtualResourceBase.ValidateUpdateData")
 	}
 	// check lang
-	_, err = language.Parse(input.Lang)
-	if err != nil {
-		return input, httperrors.NewInputParameterError("invalid lang %q: %s", input.Lang, err.Error())
+	if input.Lang == "" {
+		input.Lang = "zh_CN"
+	} else {
+		_, err = language.Parse(input.Lang)
+		if err != nil {
+			return input, httperrors.NewInputParameterError("invalid lang %q: %s", input.Lang, err.Error())
+		}
 	}
 	// check Address
 	records, err := NotifyService.SendRobotMessage(ctx, r.Type, []*rpcapi.SReceiver{
