@@ -973,6 +973,7 @@ func (self *SAzureClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
 		cloudprovider.CLOUD_CAPABILITY_SAML_AUTH,
 		cloudprovider.CLOUD_CAPABILITY_WAF,
+		cloudprovider.CLOUD_CAPABILITY_CACHE,
 	}
 	return caps
 }
