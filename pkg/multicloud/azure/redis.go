@@ -371,13 +371,17 @@ func (self *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, er
 		redis[i].region = self
 		ret = append(ret, &redis[i])
 	}
-	enterpriseRedis, err := self.GetEnterpriseRedisCaches()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetEnterpriseRedisCaches")
-	}
-	for i := range enterpriseRedis {
-		enterpriseRedis[i].region = self
-		ret = append(ret, &enterpriseRedis[i])
+	switch self.client.GetAccessEnv() {
+	// 国际区才有企业版
+	case api.CLOUD_ACCESS_ENV_AZURE_GLOBAL:
+		enterpriseRedis, err := self.GetEnterpriseRedisCaches()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetEnterpriseRedisCaches")
+		}
+		for i := range enterpriseRedis {
+			enterpriseRedis[i].region = self
+			ret = append(ret, &enterpriseRedis[i])
+		}
 	}
 	return ret, nil
 }
