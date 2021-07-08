@@ -655,9 +655,12 @@ func (self *SStorage) SyncStatusWithHosts() {
 	}
 }
 
-func (manager *SStorageManager) getStoragesByZoneId(zoneId string, provider *SCloudprovider) ([]SStorage, error) {
+func (manager *SStorageManager) getStoragesByZone(zone *SZone, provider *SCloudprovider) ([]SStorage, error) {
 	storages := make([]SStorage, 0)
-	q := manager.Query().Equals("zone_id", zoneId)
+	q := manager.Query()
+	if zone != nil {
+		q = q.Equals("zone_id", zone.Id)
+	}
 	if provider != nil {
 		q = q.Equals("manager_id", provider.Id)
 	}
@@ -698,7 +701,7 @@ func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mccli
 		return nil, nil, syncResult
 	}
 
-	dbStorages, err := manager.getStoragesByZoneId(zone.Id, provider)
+	dbStorages, err := manager.getStoragesByZone(zone, provider)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult

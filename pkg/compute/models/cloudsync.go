@@ -1390,6 +1390,47 @@ func syncPublicCloudProviderInfo(
 	return nil
 }
 
+func syncOnPremiseCloudProviderStorage(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, iregion cloudprovider.ICloudRegion, driver cloudprovider.ICloudProvider, syncRange *SSyncRange) []sStoragecacheSyncPair {
+	istorages, err := iregion.GetIStorages()
+	if err != nil {
+		msg := fmt.Sprintf("GetIStorages for provider %s failed %s", provider.GetName(), err)
+		log.Errorf(msg)
+		return nil
+	}
+	localStorages, remoteStorages, result := StorageManager.SyncStorages(ctx, userCred, provider, nil, istorages)
+	syncResults.Add(StorageManager, result)
+
+	msg := result.Result()
+	notes := fmt.Sprintf("SyncStorages for provider %s result: %s", provider.Name, msg)
+	log.Infof(notes)
+	if result.IsError() {
+		return nil
+	}
+
+	storageCachePairs := make([]sStoragecacheSyncPair, 0)
+	for i := 0; i < len(localStorages); i += 1 {
+		func() {
+			lockman.LockObject(ctx, &localStorages[i])
+			defer lockman.ReleaseObject(ctx, &localStorages[i])
+
+			if localStorages[i].Deleted {
+				return
+			}
+
+			if !isInCache(storageCachePairs, localStorages[i].StoragecacheId) {
+				cachePair := syncStorageCaches(ctx, userCred, provider, &localStorages[i], remoteStorages[i])
+				if cachePair.remote != nil && cachePair.local != nil {
+					storageCachePairs = append(storageCachePairs, cachePair)
+				}
+			}
+			if !remoteStorages[i].DisableSync() {
+				syncStorageDisks(ctx, userCred, syncResults, provider, driver, &localStorages[i], remoteStorages[i], syncRange)
+			}
+		}()
+	}
+	return storageCachePairs
+}
+
 func syncOnPremiseCloudProviderInfo(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -1413,8 +1454,9 @@ func syncOnPremiseCloudProviderInfo(
 		syncRegionBuckets(ctx, userCred, syncResults, provider, localRegion, iregion)
 	}
 
-	storageCachePairs := make([]sStoragecacheSyncPair, 0)
+	var storageCachePairs []sStoragecacheSyncPair
 	if cloudprovider.IsSupportCompute(driver) {
+		storageCachePairs = syncOnPremiseCloudProviderStorage(ctx, userCred, syncResults, provider, iregion, driver, syncRange)
 		ihosts, err := iregion.GetIHosts()
 		if err != nil {
 			msg := fmt.Sprintf("GetIHosts for provider %s failed %s", provider.GetName(), err)
