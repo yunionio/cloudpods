@@ -17,16 +17,16 @@ package nbd
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
-	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/stringutils"
 
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/kvmpart"
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -86,6 +86,9 @@ type SKVMGuestLVMPartition struct {
 	partDev      string
 	originVgname string
 	vgname       string
+
+	// if need to modify the name when putting down
+	needChangeName bool
 }
 
 func findVgname(partDev string) string {
@@ -109,8 +112,13 @@ func NewKVMGuestLVMPartition(partDev, originVgname string) *SKVMGuestLVMPartitio
 	return &SKVMGuestLVMPartition{
 		partDev:      partDev,
 		originVgname: originVgname,
-		vgname:       stringutils.UUID4(),
+		vgname:       uuidWithoutLine(),
 	}
+}
+
+func uuidWithoutLine() string {
+	uuid := stringutils.UUID4()
+	return strings.ReplaceAll(uuid, "-", "")
 }
 
 func (p *SKVMGuestLVMPartition) SetupDevice() bool {
@@ -120,9 +128,7 @@ func (p *SKVMGuestLVMPartition) SetupDevice() bool {
 	if !p.vgRename(p.originVgname, p.vgname) {
 		return false
 	}
-	if findVgname(p.partDev) != p.vgname {
-		return false
-	}
+	p.needChangeName = true
 	if p.vgActivate(true) {
 		return true
 	}
@@ -130,51 +136,74 @@ func (p *SKVMGuestLVMPartition) SetupDevice() bool {
 }
 
 func (p *SKVMGuestLVMPartition) FindPartitions() []*kvmpart.SKVMGuestDiskPartition {
-	if !p.isVgActive() {
-		return nil
-	}
-	files, err := ioutil.ReadDir("/dev/" + p.vgname)
-	if err != nil {
-		log.Errorln(err)
-		return nil
-	}
 	parts := []*kvmpart.SKVMGuestDiskPartition{}
-	for _, f := range files {
-		partPath := fmt.Sprintf("/dev/%s/%s", p.vgname, f.Name())
-		part := kvmpart.NewKVMGuestDiskPartition(partPath, p.partDev, true)
-		parts = append(parts, part)
+	// try /dev/{vgname}/{lvname}
+	files, err := ioutil.ReadDir("/dev/" + p.vgname)
+	if err == nil {
+		for _, f := range files {
+			partPath := fmt.Sprintf("/dev/%s/%s", p.vgname, f.Name())
+			part := kvmpart.NewKVMGuestDiskPartition(partPath, p.partDev, true)
+			parts = append(parts, part)
+		}
+		return parts
+	}
+	if !os.IsNotExist(err) {
+		log.Errorf("unable to readir /dev/%s: %v", p.vgname, err)
+		return nil
+	}
+	// try /dev/mapper/{vgname}-{lvname}
+	lvs, err := p.lvs()
+	if err != nil {
+		log.Errorf("unable to list lvs: %v", err)
+		return nil
+	}
+	for _, lvname := range lvs {
+		path := fmt.Sprintf("/dev/mapper/%s-%s", p.vgname, lvname)
+		_, err := os.Lstat(path)
+		if err == nil {
+			part := kvmpart.NewKVMGuestDiskPartition(path, p.partDev, true)
+			parts = append(parts, part)
+			continue
+		}
+		log.Errorf("unable to ls %s: %v", path, err)
 	}
 	return parts
 }
 
-func (p *SKVMGuestLVMPartition) PutdownDevice() bool {
-	if !p.isVgActive() {
-		return false
+var gexp *regexp.Regexp = regexp.MustCompile(`\s+`)
+
+func (p *SKVMGuestLVMPartition) lvs() ([]string, error) {
+	command := procutils.NewCommand("lvs", p.vgname)
+	output, err := command.Output()
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to exec %q command", command)
 	}
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(lines) == 0 {
+		return nil, errors.Wrapf(err, "command: %q, no output", command)
+	}
+	tableHeader := gexp.Split(strings.TrimSpace(lines[0]), -1)
+	if tableHeader[0] != "LV" {
+		return nil, fmt.Errorf("command: %q, unexpected output: %q", command, output)
+	}
+	lvname := make([]string, 0, len(lines)-1)
+	for i := 1; i < len(lines); i++ {
+		tableLine := gexp.Split(strings.TrimSpace(lines[i]), -1)
+		lvname = append(lvname, tableLine[0])
+	}
+	return lvname, nil
+}
+
+func (p *SKVMGuestLVMPartition) PutdownDevice() bool {
 	if !p.vgActivate(false) {
 		return false
 	}
-	if p.isVgActive() {
-		return false
-	}
-	if len(p.originVgname) == 0 {
-		return false
+	if len(p.originVgname) == 0 || !p.needChangeName {
+		return true
 	}
 	if p.vgRename(p.vgname, p.originVgname) {
 		return true
 	}
-	return false
-}
-
-func (p *SKVMGuestLVMPartition) isVgActive() bool {
-	for i := 0; i < 3; i++ {
-		if fileutils2.Exists("/dev/" + p.vgname) {
-			log.Infof("vg %s is active", p.vgname)
-			return true
-		}
-		time.Sleep(time.Second * 1)
-	}
-	log.Infof("vg %s is not active", p.vgname)
 	return false
 }
 
@@ -195,9 +224,10 @@ func (p *SKVMGuestLVMPartition) vgActivate(activate bool) bool {
 }
 
 func (p *SKVMGuestLVMPartition) vgRename(oldname, newname string) bool {
-	output, err := procutils.NewCommand("vgrename", oldname, newname).Output()
+	command := procutils.NewCommand("vgrename", oldname, newname)
+	output, err := command.Output()
 	if err != nil {
-		log.Errorf("%s", output)
+		log.Errorf("unable to exec command: %q, error: %v, output: %q", command, err, output)
 		return false
 	}
 	log.Infof("VG rename succ from %s to %s", oldname, newname)
