@@ -516,6 +516,7 @@ func (c *QueryCondition) setResType() {
 	metricMeasurement, _ := models.MetricMeasurementManager.GetCache().Get(c.Query.Model.Measurement)
 	if metricMeasurement != nil {
 		resType = metricMeasurement.ResType
+		c.ResType = resType
 	}
 	if len(resType) != 0 && c.Query.Model.GroupBy[0].Params[0] != monitor.
 		MEASUREMENT_TAG_ID[resType] {

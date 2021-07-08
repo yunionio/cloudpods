@@ -59,7 +59,7 @@ func (manager *SMonitorResourceAlertManager) DetachJoint(ctx context.Context, us
 	}
 	errs := make([]error, 0)
 	for _, joint := range joints {
-		err := joint.Delete(ctx, userCred)
+		err := joint.Delete(ctx, nil)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "joint %s:%s ,%s:%s", manager.GetMasterFieldName(),
 				joint.MonitorResourceId, manager.GetSlaveFieldName(), joint.AlertId))
@@ -102,9 +102,12 @@ func (manager *SMonitorResourceAlertManager) GetJoinsByListInput(input monitor.M
 	if len(input.AlertId) != 0 {
 		query.Equals(manager.GetSlaveFieldName(), input.AlertId)
 	}
+	if len(input.JointId) != 0 {
+		query.In("row_id", input.JointId)
+	}
 	err := db.FetchModelObjects(manager, query, &joints)
 	if err != nil {
-		return nil, errors.Wrapf(err, "FetchModelObjects by GetJoinsByMasterId:%s err", input)
+		return nil, errors.Wrapf(err, "FetchModelObjects by GetJoinsByMasterId:%s err", input.MonitorResourceId)
 	}
 	return joints, nil
 }
