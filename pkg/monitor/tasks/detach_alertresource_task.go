@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/monitor/models"
@@ -33,6 +34,12 @@ func (self *DetachAlertResourceTask) OnInit(ctx context.Context, obj db.IStandal
 	err := models.GetAlertResourceManager().NotifyAlertResourceCount(ctx)
 	if err != nil {
 		log.Errorf("DetachAlertResourceTask NotifyAlertResourceCount error:%v", err)
+	}
+	// detach MonitorResourceJoint when alert disabel
+	err = models.MonitorResourceAlertManager.DetachJoint(ctx, self.GetUserCred(),
+		monitor.MonitorResourceJointListInput{AlertId: alert.GetId()})
+	if err != nil {
+		log.Errorf("DetachJoint when alert:%s disable err:%v", alert.GetName(), err)
 	}
 	logclient.AddActionLogWithStartable(self, alert, logclient.ACT_DETACH_ALERTRESOURCE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)

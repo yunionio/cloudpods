@@ -1193,6 +1193,19 @@ func PerformConfigLog(model db.IModel, userCred mcclient.TokenCredential) {
 	logclient.AddSimpleActionLog(model, logclient.ACT_UPDATE_RULE, nil, userCred, true)
 }
 
+func (alert *SCommonAlert) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) bool {
+	return db.IsProjectAllowPerform(userCred, alert, "enable")
+}
+
+func (alert *SCommonAlert) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
+	err := db.EnabledPerformEnable(alert, ctx, userCred, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
+	}
+	alert.StartUpdateMonitorAlertJointTask(ctx, userCred)
+	return nil, nil
+}
+
 func (alert *SCommonAlert) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) bool {
 	return db.IsProjectAllowPerform(userCred, alert, "disable")
 }
@@ -1282,6 +1295,7 @@ func (alert *SCommonAlert) UpdateMonitorResourceJoint(ctx context.Context, userC
 		}
 		resourceIds = append(resourceIds, resourceId)
 	}
+	deleteJointIds := make([]int64, 0)
 	joints, _ := MonitorResourceAlertManager.GetJoinsByListInput(monitor.MonitorResourceJointListInput{AlertId: alert.GetId()})
 jointLoop:
 	for _, joint := range joints {
@@ -1291,10 +1305,16 @@ jointLoop:
 				continue jointLoop
 			}
 		}
-		joint.Detach(ctx, userCred)
+		deleteJointIds = append(deleteJointIds, joint.RowId)
 	}
 	if len(resourceIds) == 0 {
 		return nil
+	}
+	if len(deleteJointIds) != 0 {
+		err := MonitorResourceAlertManager.DetachJoint(ctx, userCred, monitor.MonitorResourceJointListInput{JointId: deleteJointIds})
+		if err != nil {
+			return errors.Wrapf(err, "DetachJoint By alertName:%s err", alert.GetName())
+		}
 	}
 	monitorResources, _ := MonitorResourceManager.GetMonitorResources(monitor.MonitorResourceListInput{ResId: resourceIds})
 	errs := make([]error, 0)

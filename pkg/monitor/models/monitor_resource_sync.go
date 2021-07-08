@@ -132,6 +132,7 @@ monLoop:
 					errs = append(errs, errors.Wrapf(err, "monitorResource:%s Update err", resource.Name))
 					continue monLoop
 				}
+				resource.UpdateAlertState()
 				if index == len(resources)-1 {
 					resources = resources[0:index]
 				} else {

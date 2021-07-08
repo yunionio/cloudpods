@@ -304,11 +304,13 @@ func (manager *SMonitorResourceManager) UpdateMonitorResourceAttachJoint(ctx con
 	}
 	matches, _ := alertRecord.GetEvalData()
 	errs := make([]error, 0)
+	matchResourceIds := make([]string, 0)
 	for _, matche := range matches {
 		resId := matche.Tags[monitor.MEASUREMENT_TAG_ID[alertRecord.ResType]]
 		if len(resId) == 0 {
 			continue
 		}
+		matchResourceIds = append(matchResourceIds, resId)
 		monitorResources, err := manager.GetMonitorResources(monitor.MonitorResourceListInput{ResType: resType, ResId: []string{resId}})
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "SMonitorResourceManager GetMonitorResources by resId:%s err", resId))
@@ -319,6 +321,23 @@ func (manager *SMonitorResourceManager) UpdateMonitorResourceAttachJoint(ctx con
 			if err != nil {
 				errs = append(errs, err)
 			}
+		}
+	}
+	resourceAlerts, err := MonitorResourceAlertManager.GetJoinsByListInput(monitor.MonitorResourceJointListInput{AlertId: alertRecord.AlertId})
+	if err != nil {
+		return errors.Wrapf(err, "get monitor_resource_joint by alertId:%s err", alertRecord.AlertId)
+	}
+	deleteJointIds := make([]int64, 0)
+	for _, joint := range resourceAlerts {
+		if utils.IsInStringArray(joint.MonitorResourceId, matchResourceIds) {
+			continue
+		}
+		deleteJointIds = append(deleteJointIds, joint.RowId)
+	}
+	if len(deleteJointIds) != 0 {
+		err = MonitorResourceAlertManager.DetachJoint(ctx, userCred, monitor.MonitorResourceJointListInput{JointId: deleteJointIds})
+		if err != nil {
+			return errors.Wrapf(err, "DetachJoint by alertId:%s err", alertRecord.AlertId)
 		}
 	}
 	return errors.NewAggregate(errs)
