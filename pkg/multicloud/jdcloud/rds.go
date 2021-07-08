@@ -17,6 +17,7 @@ package jdcloud
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	commodels "github.com/jdcloud-api/jdcloud-sdk-go/services/common/models"
@@ -215,8 +216,10 @@ func (self *SRegion) GetDBInstance(id string) (*SDBInstance, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "DescribeInstanceAttributes")
 	}
-	if resp.Error.Code == 404 {
+	if resp.Error.Code == 404 || strings.Contains(resp.Error.Status, "NotFound") {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, jsonutils.Marshal(resp.Error).String())
+	} else if resp.Error.Code != 0 {
+		return nil, errors.Error(jsonutils.Marshal(resp.Error).String())
 	}
 	ret := SDBInstance{
 		region: self,
