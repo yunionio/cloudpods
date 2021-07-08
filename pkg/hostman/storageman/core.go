@@ -29,6 +29,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils/kubelet"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/storageutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -73,7 +74,7 @@ func NewStorageManager(host hostutils.IHost) (*SStorageManager, error) {
 				allFull = false
 			}
 		} else {
-			log.Errorf("storage %s not accessible", s.Path)
+			log.Errorf("storage %s not accessible error: %v", s.Path, err)
 		}
 	}
 
@@ -120,6 +121,10 @@ func (s *SStorageManager) GetHostId() string {
 
 func (s *SStorageManager) GetMediumType() string {
 	return s.host.GetMediumType()
+}
+
+func (s *SStorageManager) GetKubeletConfig() kubelet.KubeletConfig {
+	return s.host.GetKubeletConfig()
 }
 
 func (s *SStorageManager) getLeasedUsedLocalStorage(cacheDir string, limit int) (string, error) {

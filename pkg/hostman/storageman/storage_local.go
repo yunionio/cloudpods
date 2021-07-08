@@ -17,6 +17,7 @@ package storageman
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"path"
 	"time"
@@ -32,6 +33,7 @@ import (
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils/kubelet"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -95,9 +97,48 @@ func (s *SLocalStorage) SyncStorageSize() error {
 	return err
 }
 
+func (s *SLocalStorage) GetAvailSizeMb() int {
+	sizeMb := s.SBaseStorage.GetAvailSizeMb()
+	kubeletConf := s.Manager.GetKubeletConfig()
+	if kubeletConf == nil {
+		return sizeMb
+	}
+
+	// available size should aware of kubelet hard eviction threshold
+	hardThresholds := kubeletConf.GetEvictionConfig().GetHard()
+	nodeFs := hardThresholds.GetNodeFsAvailable()
+	imageFs := hardThresholds.GetImageFsAvailable()
+	storageDev, err := kubelet.GetDirectoryMountDevice(s.GetPath())
+	if err != nil {
+		log.Errorf("Get directory %s mount device: %v", s.GetPath(), err)
+		return sizeMb
+	}
+
+	usablePercent := 1.0
+	if kubeletConf.HasDedicatedImageFs() {
+		if storageDev == kubeletConf.GetImageFsDevice() {
+			usablePercent = 1 - float64(imageFs.Value.Percentage)
+			log.Infof("Storage %s and kubelet imageFs %s share same device %s", s.GetPath(), kubeletConf.GetImageFs(), storageDev)
+		}
+	} else {
+		// nodeFs and imageFs use same device
+		if storageDev == kubeletConf.GetNodeFsDevice() {
+			maxPercent := math.Max(float64(nodeFs.Value.Percentage), float64(imageFs.Value.Percentage))
+			usablePercent = 1 - maxPercent
+			log.Infof("Storage %s and kubelet nodeFs share same device %s", s.GetPath(), storageDev)
+		}
+	}
+
+	sizeMb = int(float64(sizeMb) * usablePercent)
+	log.Infof("Storage %s sizeMb %d, usablePercent %f", s.GetPath(), sizeMb, usablePercent)
+
+	return sizeMb
+}
+
 func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	content := jsonutils.NewDict()
-	content.Set("name", jsonutils.NewString(s.GetName(s.GetComposedName)))
+	name := s.GetName(s.GetComposedName)
+	content.Set("name", jsonutils.NewString(name))
 	content.Set("capacity", jsonutils.NewInt(int64(s.GetAvailSizeMb())))
 	content.Set("actual_capacity_used", jsonutils.NewInt(int64(s.GetUsedSizeMb())))
 	content.Set("storage_type", jsonutils.NewString(s.StorageType()))
@@ -112,7 +153,7 @@ func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 		res jsonutils.JSONObject
 	)
 
-	log.Infof("Sync storage info %s", s.StorageId)
+	log.Infof("Sync storage info %s/%s", s.StorageId, name)
 
 	if len(s.StorageId) > 0 {
 		res, err = modules.Storages.Put(

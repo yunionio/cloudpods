@@ -140,6 +140,9 @@ type SHostOptions struct {
 
 	SyncStorageInfoDurationSecond int  `help:"sync storage size duration, unit is second" default:"60"`
 	StartHostIgnoreSysError       bool `help:"start host agent ignore sys error" default:"false"`
+
+	DisableProbeKubelet bool   `help:"Disable probe kubelet config" default:"false"`
+	KubeletRunDirectory string `help:"Kubelet config file path" default:"/var/lib/kubelet"`
 }
 
 var (
