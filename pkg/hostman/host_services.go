@@ -81,12 +81,12 @@ func (host *SHostService) RunService() {
 
 	hostInstance := hostinfo.Instance()
 	if err := hostInstance.Init(); err != nil {
-		log.Fatalf(err.Error())
+		log.Fatalf("Host instance init error: %v", err)
 	}
 
 	deployclient.Init(options.HostOptions.DeployServerSocketPath)
 	if err := storageman.Init(hostInstance); err != nil {
-		log.Fatalf(err.Error())
+		log.Fatalf("Storage manager init error: %v", err)
 	}
 
 	var guestChan chan struct{}
@@ -95,7 +95,7 @@ func (host *SHostService) RunService() {
 		log.Infof("Auth complete!!")
 
 		if err := host.initEtcdConfig(); err != nil {
-			log.Fatalln(err)
+			log.Fatalln("Init etcd config: %v", err)
 		}
 
 		hostInstance.StartRegister(2, func() {
