@@ -86,8 +86,9 @@ type SRegionQuota struct {
 	ObjectGB  int `default:"-1" allow_zero:"true" json:"object_gb"`
 	ObjectCnt int `default:"-1" allow_zero:"true" json:"object_cnt"`
 
-	Rds   int `default:"-1" allow_zero:"true" json:"rds"`
-	Cache int `default:"-1" allow_zero:"true" json:"cache"`
+	Rds     int `default:"-1" allow_zero:"true" json:"rds"`
+	Cache   int `default:"-1" allow_zero:"true" json:"cache"`
+	Mongodb int `default:"-1" allow_zero:"true" json:"mongodb"`
 
 	Loadbalancer int `default:"-1" allow_zero:"true" json:"loadbalancer"`
 }
@@ -138,6 +139,7 @@ func (self *SRegionQuota) FetchSystemQuota() {
 	self.ObjectCnt = defaultValue(options.Options.DefaultObjectCntQuota)
 	self.Rds = defaultValue(options.Options.DefaultRdsQuota)
 	self.Cache = defaultValue(options.Options.DefaultCacheQuota)
+	self.Mongodb = defaultValue(options.Options.DefaultMongodbQuota)
 	self.Loadbalancer = defaultValue(options.Options.DefaultLoadbalancerQuota)
 }
 
@@ -204,6 +206,8 @@ func (self *SRegionQuota) FetchUsage(ctx context.Context) error {
 	rdsUsage, _ := DBInstanceManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv)
 	self.Rds = rdsUsage.TotalRdsCount
 	self.Cache, _ = ElasticcacheManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv)
+	mongodbUsage, _ := MongoDBManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv)
+	self.Mongodb = mongodbUsage.TotalMongodbCount
 
 	self.Loadbalancer, _ = LoadbalancerManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv)
 
@@ -247,6 +251,9 @@ func (self *SRegionQuota) ResetNegative() {
 	if self.Cache < 0 {
 		self.Cache = 0
 	}
+	if self.Mongodb < 0 {
+		self.Mongodb = 0
+	}
 	if self.Loadbalancer < 0 {
 		self.Loadbalancer = 0
 	}
@@ -289,6 +296,9 @@ func (self *SRegionQuota) IsEmpty() bool {
 	if self.Cache > 0 {
 		return false
 	}
+	if self.Mongodb > 0 {
+		return false
+	}
 	if self.Loadbalancer > 0 {
 		return false
 	}
@@ -309,6 +319,7 @@ func (self *SRegionQuota) Add(quota quotas.IQuota) {
 	self.ObjectCnt = self.ObjectCnt + quotas.NonNegative(squota.ObjectCnt)
 	self.Rds = self.Rds + quotas.NonNegative(squota.Rds)
 	self.Cache = self.Cache + quotas.NonNegative(squota.Cache)
+	self.Mongodb = self.Mongodb + quotas.NonNegative(squota.Mongodb)
 	self.Loadbalancer = self.Loadbalancer + quotas.NonNegative(squota.Loadbalancer)
 }
 
@@ -326,6 +337,7 @@ func (self *SRegionQuota) Sub(quota quotas.IQuota) {
 	self.ObjectCnt = nonNegative(self.ObjectCnt - squota.ObjectCnt)
 	self.Rds = nonNegative(self.Rds - squota.Rds)
 	self.Cache = nonNegative(self.Cache - squota.Cache)
+	self.Mongodb = nonNegative(self.Mongodb - squota.Mongodb)
 	self.Loadbalancer = nonNegative(self.Loadbalancer - squota.Loadbalancer)
 }
 
@@ -367,6 +379,9 @@ func (self *SRegionQuota) Allocable(request quotas.IQuota) int {
 	}
 	if self.Cache >= 0 && squota.Cache > 0 && (cnt < 0 || cnt > self.Cache/squota.Cache) {
 		cnt = self.Cache / squota.Cache
+	}
+	if self.Mongodb >= 0 && squota.Mongodb > 0 && (cnt < 0 || cnt > self.Mongodb/squota.Mongodb) {
+		cnt = self.Mongodb / squota.Mongodb
 	}
 	if self.Loadbalancer >= 0 && squota.Loadbalancer > 0 && (cnt < 0 || cnt > self.Loadbalancer/squota.Loadbalancer) {
 		cnt = self.Loadbalancer / squota.Loadbalancer
@@ -411,6 +426,9 @@ func (self *SRegionQuota) Update(quota quotas.IQuota) {
 	}
 	if squota.Cache > 0 {
 		self.Cache = squota.Cache
+	}
+	if squota.Mongodb > 0 {
+		self.Mongodb = squota.Mongodb
 	}
 	if squota.Loadbalancer > 0 {
 		self.Loadbalancer = squota.Loadbalancer
@@ -457,6 +475,9 @@ func (used *SRegionQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) err
 	if quotas.Exceed(used.Cache, sreq.Cache, squota.Cache) {
 		err.Add(used, "cache", squota.Cache, used.Cache, sreq.Cache)
 	}
+	if quotas.Exceed(used.Mongodb, sreq.Mongodb, squota.Mongodb) {
+		err.Add(used, "mongodb", squota.Mongodb, used.Mongodb, sreq.Mongodb)
+	}
 	if quotas.Exceed(used.Loadbalancer, sreq.Loadbalancer, squota.Loadbalancer) {
 		err.Add(used, "loadbalancer", squota.Loadbalancer, used.Loadbalancer, sreq.Loadbalancer)
 	}
@@ -481,6 +502,7 @@ func (self *SRegionQuota) ToJSON(prefix string) jsonutils.JSONObject {
 	ret.Add(jsonutils.NewInt(int64(self.ObjectCnt)), keyName(prefix, "object_cnt"))
 	ret.Add(jsonutils.NewInt(int64(self.Rds)), keyName(prefix, "rds"))
 	ret.Add(jsonutils.NewInt(int64(self.Cache)), keyName(prefix, "cache"))
+	ret.Add(jsonutils.NewInt(int64(self.Mongodb)), keyName(prefix, "mongodb"))
 	ret.Add(jsonutils.NewInt(int64(self.Loadbalancer)), keyName(prefix, "loadbalancer"))
 	return ret
 }

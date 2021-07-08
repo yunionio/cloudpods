@@ -1482,6 +1482,7 @@ func (self *SCloudprovider) RealDelete(ctx context.Context, userCred mcclient.To
 		WafInstanceManager,
 		VpcManager,
 		ElasticipManager,
+		MongoDBManager,
 		NetworkInterfaceManager,
 		CloudproviderRegionManager,
 		CloudregionManager,

@@ -319,6 +319,8 @@ func getSystemGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.I
 
 		DBInstanceUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
 
+		MongoDBUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
+
 		ElasticCacheUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
 	)
 
@@ -409,6 +411,8 @@ func getDomainGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 
 		DBInstanceUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
+		MongoDBUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+
 		ElasticCacheUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 	)
 	return count, nil
@@ -456,6 +460,8 @@ func getProjectGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityP
 		LoadbalancerUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
 		DBInstanceUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+
+		MongoDBUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
 		ElasticCacheUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 	)
@@ -946,6 +952,15 @@ func DBInstanceUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvi
 	count[getKey(scope, "rds")] = cnt.TotalRdsCount
 	count[getKey(scope, "rds.cpu")] = cnt.TotalCpuCount
 	count[getKey(scope, "rds.memory")] = cnt.TotalMemSizeMb
+	return count
+}
+
+func MongoDBUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
+	cnt, _ := models.MongoDBManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
+	count := make(map[string]interface{})
+	count[getKey(scope, "mongodb")] = cnt.TotalMongodbCount
+	count[getKey(scope, "mongodb.cpu")] = cnt.TotalCpuCount
+	count[getKey(scope, "mongodb.memory")] = cnt.TotalMemSizeMb
 	return count
 }
 

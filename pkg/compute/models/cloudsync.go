@@ -1115,6 +1115,25 @@ func syncWafRegexSets(ctx context.Context, userCred mcclient.TokenCredential, sy
 	return nil
 }
 
+func syncMongoDBs(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion) error {
+	dbs, err := remoteRegion.GetICloudMongoDBs()
+	if err != nil {
+		msg := fmt.Sprintf("GetICloudMongoDBs for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		return err
+	}
+
+	_, _, result := localRegion.SyncMongoDBs(ctx, userCred, provider, dbs)
+	syncResults.Add(MongoDBManager, result)
+	msg := result.Result()
+	log.Infof("SyncMongoDBs for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		return result.AllError()
+	}
+
+	return nil
+}
+
 func syncWafInstances(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion) error {
 	wafIns, err := remoteRegion.GetICloudWafInstances()
 	if err != nil {
@@ -1347,6 +1366,10 @@ func syncPublicCloudProviderInfo(
 		syncWafIPSets(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 		syncWafRegexSets(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 		syncWafInstances(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
+	}
+
+	if utils.IsInStringArray(cloudprovider.CLOUD_CAPABILITY_MONGO_DB, driver.GetCapabilities()) {
+		syncMongoDBs(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
 	if cloudprovider.IsSupportCompute(driver) {
