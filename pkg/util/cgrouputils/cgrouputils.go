@@ -317,12 +317,12 @@ func (c *CGroupTask) init() bool {
 	if !CgroupIsMounted() {
 		if !fileutils2.Exists(cgroupsPath) {
 			if err := procutils.NewCommand("mkdir", "-p", cgroupsPath).Run(); err != nil {
-				log.Errorln(err)
+				log.Errorf("mkdir -p %s error: %v", cgroupsPath, err)
 			}
 		}
 		if err := procutils.NewCommand("mount", "-t", "tmpfs", "-o", "uid=0,gid=0,mode=0755",
 			"cgroup", cgroupsPath).Run(); err != nil {
-			log.Errorln(err)
+			log.Errorf("mount cgroups path %s, error: %v", cgroupsPath, err)
 			return false
 		}
 	}
@@ -350,7 +350,7 @@ func (c *CGroupTask) init() bool {
 				}
 				if err := procutils.NewCommand("mount", "-t", "cgroup", "-o",
 					module, module, moduleDir).Run(); err != nil {
-					log.Errorln(err)
+					log.Errorf("mount cgroup module %s to %s error: %v", module, moduleDir, err)
 					return false
 				}
 			}
@@ -358,7 +358,7 @@ func (c *CGroupTask) init() bool {
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Errorln(err)
+		log.Errorf("scan file %s error: %v", file.Name(), err)
 		return false
 	}
 
