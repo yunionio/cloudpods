@@ -116,6 +116,7 @@ var (
 		IdpTemplateDex:         IdentityDriverOIDC,
 		IdpTemplateGithub:      IdentityDriverOIDC,
 		IdpTemplateAzureOAuth2: IdentityDriverOIDC,
+		IdpTemplateGoogle:      IdentityDriverOIDC,
 
 		IdpTemplateAlipay:   IdentityDriverOAuth2,
 		IdpTemplateFeishu:   IdentityDriverOAuth2,
