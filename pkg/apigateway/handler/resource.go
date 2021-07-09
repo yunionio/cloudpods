@@ -805,7 +805,7 @@ func (f *ResourceHandlers) detachHandle(ctx context.Context, w http.ResponseWrit
 	jmod, e := modulebase.GetJointModule2(session, module, module2)
 	var obj jsonutils.JSONObject
 	if e == nil { // joint detach
-		obj, e = jmod.Detach(session, req.ResID(), req.ResID2(), nil)
+		obj, e = jmod.Detach(session, req.ResID(), req.ResID2(), req.Query())
 	} else {
 		obj, e = module2.DeleteInContextWithParam(session, req.ResID2(), req.Query(), req.Body(), module, req.ResID())
 	}
