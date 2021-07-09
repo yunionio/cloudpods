@@ -920,7 +920,8 @@ func (alert *SCommonAlert) ValidateUpdateData(
 			return data, errors.Wrap(err, "metric_query Unmarshal error")
 		}
 		scope, _ := data.GetString("scope")
-		err = CommonAlertManager.ValidateMetricQuery(metricQuery, scope, userCred)
+		ownerId := CommonAlertManager.GetOwnerId(ctx, userCred, data)
+		err = CommonAlertManager.ValidateMetricQuery(metricQuery, scope, ownerId)
 		if err != nil {
 			return data, errors.Wrap(err, "metric query error")
 		}
@@ -949,6 +950,14 @@ func (alert *SCommonAlert) ValidateUpdateData(
 		data.Update(jsonutils.Marshal(updataInput))
 	}
 	return data, nil
+}
+
+func (manager *SCommonAlertManager) GetOwnerId(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) mcclient.IIdentityProvider {
+	ownId, _ := CommonAlertManager.FetchOwnerId(ctx, data)
+	if ownId == nil {
+		ownId = userCred
+	}
+	return ownId
 }
 
 func (alert *SCommonAlert) PostUpdate(
