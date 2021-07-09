@@ -1627,7 +1627,7 @@ func (b *SBaremetalInstance) DoPXEBoot() error {
 	return fmt.Errorf("Baremetal %s ipmitool is nil", b.GetId())
 }
 
-func (b *SBaremetalInstance) DoRedfishPowerOn() error {
+func (b *SBaremetalInstance) doRedfishPowerOn() error {
 	log.Infof("Do Redfish PowerOn ........., wait")
 	ctx := context.Background()
 	b.ClearSSHConfig()
@@ -1636,7 +1636,7 @@ func (b *SBaremetalInstance) DoRedfishPowerOn() error {
 		err := redfishApi.Reset(ctx, "On")
 		if err != nil {
 			if httputils.ErrorCode(err) == 409 {
-				log.Warningf("redfishApi.Reset On fail %s", err)
+				return errors.Wrap(err, "redfishApi.Reset On fail, code 409")
 			} else {
 				return errors.Wrap(err, "redfishApi.Reset On")
 			}
@@ -1644,6 +1644,22 @@ func (b *SBaremetalInstance) DoRedfishPowerOn() error {
 		return nil
 	}
 	return fmt.Errorf("Baremetal %s redfishApi is nil", b.GetId())
+}
+
+func (b *SBaremetalInstance) DoRedfishPowerOn() error {
+	err := b.doRedfishPowerOn()
+	if err == nil {
+		return nil
+	}
+	var errs = []error{err}
+	log.Warningf("Do redfish power on error: %v, try use fallback IPMI way", err)
+	ipmiCli := b.GetIPMITool()
+	if err := ipmitool.DoReboot(ipmiCli); err != nil {
+		errs = append(errs, errors.Wrap(err, "Fallback to use ipmitool reboot"))
+	} else {
+		return nil
+	}
+	return errors.NewAggregate(errs)
 }
 
 /*
