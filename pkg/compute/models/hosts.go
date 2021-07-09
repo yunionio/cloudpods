@@ -4453,6 +4453,9 @@ func (self *SHost) PerformDisableNetif(ctx context.Context, userCred mcclient.To
 	return nil, nil
 }
 
+/*
+ * Disable a net interface, remove IP address if assigned
+ */
 func (self *SHost) DisableNetif(ctx context.Context, userCred mcclient.TokenCredential, netif *SNetInterface, reserve bool) error {
 	bn := netif.GetBaremetalNetwork()
 	var ipAddr string
