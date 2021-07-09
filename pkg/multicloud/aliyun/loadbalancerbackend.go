@@ -88,6 +88,10 @@ func (backend *SLoadbalancerBackend) GetBackendId() string {
 	return backend.ServerId
 }
 
+func (backend *SLoadbalancerBackend) GetIpAddress() string {
+	return ""
+}
+
 func (region *SRegion) GetLoadbalancerBackends(backendgroupId string) ([]SLoadbalancerBackend, error) {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId

@@ -77,6 +77,10 @@ func (backend *SLoadbalancerDefaultBackend) GetBackendId() string {
 	return backend.ServerId
 }
 
+func (backend *SLoadbalancerDefaultBackend) GetIpAddress() string {
+	return ""
+}
+
 func (backend *SLoadbalancerDefaultBackend) GetProjectId() string {
 	return backend.lbbg.GetProjectId()
 }

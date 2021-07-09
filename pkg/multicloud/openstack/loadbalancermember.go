@@ -224,6 +224,10 @@ func (member *SLoadbalancerMember) GetBackendId() string {
 	return ""
 }
 
+func (member *SLoadbalancerMember) GetIpAddress() string {
+	return ""
+}
+
 func (member *SLoadbalancerMember) GetProjectId() string {
 	return member.ProjectID
 }

@@ -95,6 +95,10 @@ func (self *SElbBackend) SyncConf(ctx context.Context, port, weight int) error {
 	return self.region.SyncElbBackend(self.GetId(), self.GetBackendId(), self.Target.Port, port)
 }
 
+func (self *SElbBackend) GetIpAddress() string {
+	return ""
+}
+
 func (self *SRegion) SyncElbBackend(backendId, serverId string, oldPort, newPort int) error {
 	err := self.RemoveElbBackend(backendId, serverId, 0, oldPort)
 	if err != nil {

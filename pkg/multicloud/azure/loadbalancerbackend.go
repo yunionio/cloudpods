@@ -21,6 +21,7 @@ type SLoadbalancerBackend struct {
 	ID          string `json:"id"`
 	Type        string `json:"type"`
 	BackendPort int
+	BackendIP   string
 }
 
 func (self *SLoadbalancerBackend) GetId() string {
@@ -64,7 +65,7 @@ func (self *SLoadbalancerBackend) GetPort() int {
 }
 
 func (self *SLoadbalancerBackend) GetBackendType() string {
-	return api.LB_BACKEND_GUEST
+	return self.Type
 }
 
 func (self *SLoadbalancerBackend) GetBackendRole() string {
@@ -73,6 +74,10 @@ func (self *SLoadbalancerBackend) GetBackendRole() string {
 
 func (self *SLoadbalancerBackend) GetBackendId() string {
 	return self.ID
+}
+
+func (self *SLoadbalancerBackend) GetIpAddress() string {
+	return self.BackendIP
 }
 
 func (self *SLoadbalancerBackend) SyncConf(ctx context.Context, port, weight int) error {

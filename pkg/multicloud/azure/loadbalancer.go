@@ -16,6 +16,7 @@ import (
 
 type SLoadbalancer struct {
 	region    *SRegion
+	eip       cloudprovider.ICloudEIP
 	lbbgs     []cloudprovider.ICloudLoadbalancerBackendGroup
 	listeners []cloudprovider.ICloudLoadbalancerListener
 
@@ -78,6 +79,7 @@ func (self *SLoadbalancer) Refresh() error {
 		return errors.Wrap(err, "jsonutils.Update")
 	}
 
+	self.eip = nil
 	self.lbbgs = nil
 	self.listeners = nil
 	return nil
@@ -271,9 +273,15 @@ func (self *SLoadbalancer) getEipIds() []string {
 }
 
 func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
+	if self.eip != nil {
+		return self.eip, nil
+	}
+
 	eips := self.getEipIds()
 	if len(eips) > 0 {
-		return self.region.GetIEipById(eips[0])
+		eip, err := self.region.GetIEipById(eips[0])
+		self.eip = eip
+		return eip, err
 	}
 
 	return nil, nil
@@ -404,14 +412,27 @@ func (self *SLoadbalancer) getRequestRoutingRule(id string) *RequestRoutingRule 
 	return nil
 }
 
+func (self *SLoadbalancer) getURLPathMap(id string) *URLPathMap {
+	ss := self.Properties.URLPathMaps
+	for i := range ss {
+		if ss[i].ID == id {
+			return &ss[i]
+		}
+	}
+	log.Debugf("getURLPathMap %s not found", id)
+	return nil
+}
+
 /*
 应用型LB： urlPathMaps（defaultBackendAddressPool+defaultBackendHttpSettings+requestRoutingRules+httpListeners）= Onecloud监听器
 */
 func (self *SLoadbalancer) getAppLBListeners() ([]cloudprovider.ICloudLoadbalancerListener, error) {
 	lbls := []cloudprovider.ICloudLoadbalancerListener{}
-	for i := range self.Properties.URLPathMaps {
-		u := self.Properties.URLPathMaps[i]
-		lbl := self.getAppLBListener(&u)
+	for i := range self.Properties.RequestRoutingRules {
+		r := self.Properties.RequestRoutingRules[i]
+		uid := strings.Replace(r.ID, "requestRoutingRules", "urlPathMaps", 1)
+		u := self.getURLPathMap(uid)
+		lbl := self.getAppLBListener(&r, u)
 		if lbl != nil {
 			lbls = append(lbls, lbl)
 		}
@@ -420,45 +441,54 @@ func (self *SLoadbalancer) getAppLBListeners() ([]cloudprovider.ICloudLoadbalanc
 	return lbls, nil
 }
 
-func (self *SLoadbalancer) getAppLBListener(u *URLPathMap) *SLoadBalancerListener {
+func (self *SLoadbalancer) getAppLBListener(r *RequestRoutingRule, u *URLPathMap) *SLoadBalancerListener {
 	var redirect *RedirectConfiguration
 	var listener *HTTPListener
 	var fp *FrontendIPConfiguration
 	var fpp *FrontendPort
-	if len(u.Properties.RequestRoutingRules) == 0 {
-		return nil
-	}
-
-	if u.Properties.DefaultRedirectConfiguration != nil {
-		redirect = self.getRedirectConfiguration(u.Properties.DefaultRedirectConfiguration.ID)
-	}
-
-	// httpListener, urlPathMap
-	rrr := self.getRequestRoutingRule(u.Properties.RequestRoutingRules[0].ID)
 	// frontendPort, frontendIPConfiguration, sslCertificate, requestRoutingRules
-	listener = self.getHttpListener(rrr.Properties.HTTPListener.ID)
+	listener = self.getHttpListener(r.Properties.HTTPListener.ID)
 	// frontendPorts
 	fp = self.getFrontendIPConfiguration(listener.Properties.FrontendIPConfiguration.ID)
 	fpp = self.getFrontendPort(listener.Properties.FrontendPort.ID)
-
 	// 配置有异常？？
 	if fpp == nil || listener == nil {
 		return nil
 	}
 
+	lbbgId := r.Properties.BackendAddressPool.ID
+	lbbgSettingId := r.Properties.BackendHTTPSettings.ID
+	provisioningState := "Succeeded"
+	rules := make([]PathRule, 0)
 	var backendGroup *BackendAddressPool
-	if u.Properties.DefaultBackendAddressPool != nil {
-		backendGroup = self.getBackendAddressPool(u.Properties.DefaultBackendAddressPool.ID)
-	}
-
 	var backendSetting *BackendHTTPSettingsCollection
 	var backendPort int
-	if u.Properties.DefaultBackendHTTPSettings != nil {
-		backendSetting = self.getBackendHTTPSettingsCollection(u.Properties.DefaultBackendHTTPSettings.ID)
+	var healthcheck *Probe
+	if u != nil {
+		provisioningState = u.Properties.ProvisioningState
+		rules = u.Properties.PathRules
+		if u.Properties.DefaultRedirectConfiguration != nil {
+			redirect = self.getRedirectConfiguration(u.Properties.DefaultRedirectConfiguration.ID)
+		}
+
+		if len(lbbgId) == 0 && u.Properties.DefaultBackendAddressPool != nil {
+			lbbgId = u.Properties.DefaultBackendAddressPool.ID
+		}
+
+		if len(lbbgSettingId) == 0 && u.Properties.DefaultBackendHTTPSettings != nil {
+			lbbgSettingId = u.Properties.DefaultBackendHTTPSettings.ID
+		}
+	}
+
+	if len(lbbgId) > 0 {
+		backendGroup = self.getBackendAddressPool(lbbgId)
+	}
+
+	if len(lbbgSettingId) > 0 {
+		backendSetting = self.getBackendHTTPSettingsCollection(lbbgSettingId)
 		backendPort = backendSetting.Properties.Port
 	}
 
-	var healthcheck *Probe
 	if backendSetting != nil && backendSetting.Properties.Probe != nil {
 		healthcheck = self.getProbe(backendSetting.Properties.Probe.ID)
 	}
@@ -471,9 +501,9 @@ func (self *SLoadbalancer) getAppLBListener(u *URLPathMap) *SLoadBalancerListene
 		backendGroup:      backendGroup,
 		redirect:          redirect,
 		healthcheck:       healthcheck,
-		Name:              u.Name,
-		ID:                u.ID,
-		ProvisioningState: u.Properties.ProvisioningState,
+		Name:              r.Name,
+		ID:                r.ID,
+		ProvisioningState: provisioningState,
 		IPVersion:         "",
 		Protocol:          listener.Properties.Protocol,
 		LoadDistribution:  "",
@@ -482,7 +512,7 @@ func (self *SLoadbalancer) getAppLBListener(u *URLPathMap) *SLoadBalancerListene
 		ClientIdleTimeout: 0,
 		EnableFloatingIP:  false,
 		EnableTcpReset:    false,
-		rules:             u.Properties.PathRules,
+		rules:             rules,
 	}
 }
 
@@ -611,10 +641,11 @@ func (self *SLoadbalancer) getNetworkLBListenerById(id string) (cloudprovider.IC
 }
 
 func (self *SLoadbalancer) getAppLBListenerById(id string) (cloudprovider.ICloudLoadbalancerListener, error) {
-	for i := range self.Properties.URLPathMaps {
-		u := self.Properties.URLPathMaps[i]
-		if u.ID == id {
-			return self.getAppLBListener(&u), nil
+	for i := range self.Properties.RequestRoutingRules {
+		r := self.Properties.RequestRoutingRules[i]
+		if r.ID == id {
+			u := self.getURLPathMap(strings.Replace(r.ID, "requestRoutingRules", "urlPathMaps", 1))
+			return self.getAppLBListener(&r, u), nil
 		}
 	}
 

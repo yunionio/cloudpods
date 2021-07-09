@@ -533,21 +533,27 @@ func (lbb *SLoadbalancerBackend) constructFieldsFromCloudLoadbalancerBackend(ext
 	lbb.BackendType = extLoadbalancerBackend.GetBackendType()
 	lbb.BackendRole = extLoadbalancerBackend.GetBackendRole()
 
-	instance, err := db.FetchByExternalIdAndManagerId(GuestManager, extLoadbalancerBackend.GetBackendId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-		sq := HostManager.Query().SubQuery()
-		return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("host_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), managerId))
-	})
-	if err != nil {
-		return err
-	}
-	guest := instance.(*SGuest)
+	if lbb.BackendType == api.LB_BACKEND_IP {
+		lbb.Address = extLoadbalancerBackend.GetIpAddress()
+	} else {
+		instance, err := db.FetchByExternalIdAndManagerId(GuestManager, extLoadbalancerBackend.GetBackendId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			sq := HostManager.Query().SubQuery()
+			return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("host_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), managerId))
+		})
+		if err != nil {
+			return err
+		}
 
-	lbb.BackendId = guest.Id
-	address, err := LoadbalancerBackendManager.GetGuestAddress(guest)
-	if err != nil {
-		return err
+		guest := instance.(*SGuest)
+
+		lbb.BackendId = guest.Id
+		address, err := LoadbalancerBackendManager.GetGuestAddress(guest)
+		if err != nil {
+			return err
+		}
+		lbb.Address = address
 	}
-	lbb.Address = address
+
 	return nil
 }
 

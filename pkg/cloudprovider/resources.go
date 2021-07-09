@@ -752,6 +752,7 @@ type ICloudLoadbalancerBackend interface {
 	GetBackendType() string
 	GetBackendRole() string
 	GetBackendId() string
+	GetIpAddress() string // backend type is ip
 	SyncConf(ctx context.Context, port, weight int) error
 }
 

@@ -34,7 +34,10 @@ type BackendAddressPoolProperties struct {
 	ProvisioningState       string                   `json:"provisioningState"`
 	LoadBalancingRules      []Subnet                 `json:"loadBalancingRules"`
 	BackendIPConfigurations []BackendIPConfiguration `json:"backendIPConfigurations"`
-	// loadBalancerBackendAddresses
+	BackendAddresses        []BackendAddress         `json:"backendAddresses"`
+	RequestRoutingRules     []BackendIPConfiguration `json:"requestRoutingRules"`
+	URLPathMaps             []BackendIPConfiguration `json:"urlPathMaps"`
+	PathRules               []BackendIPConfiguration `json:"pathRules"`
 }
 
 type BackendIPConfiguration struct {

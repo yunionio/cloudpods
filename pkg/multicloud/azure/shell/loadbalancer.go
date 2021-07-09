@@ -105,7 +105,13 @@ func init() {
 		LISTENID string `help:"ID of loadbalancer listener"`
 	}
 	shellutils.R(&LoadbalancerRuleOptions{}, "lbr-list", "List loadbalancer listener rules", func(cli *azure.SRegion, args *LoadbalancerRuleOptions) error {
-		lb, err := cli.GetILoadBalancerById(strings.Split(args.LISTENID, "/urlPathMaps")[0])
+		lbId := ""
+		if strings.Index(args.LISTENID, "/requestRoutingRules") > 0 {
+			lbId = strings.Split(args.LISTENID, "/requestRoutingRules")[0]
+		} else {
+			return nil
+		}
+		lb, err := cli.GetILoadBalancerById(lbId)
 		if err != nil {
 			return err
 		}
