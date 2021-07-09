@@ -53,6 +53,26 @@ var (
 		},
 	}
 
+	// {
+	//  "sub": "112176790568447731603",
+	//  "name": "Jian Qiu",
+	//  "given_name": "Jian",
+	//  "family_name": "Qiu",
+	//  "picture": "https://lh3.googleusercontent.com/a/AATXAJyj32UmKhmwI38ljm8xI53LX4Lw3w5wYxKsj4JS\u003ds96-c",
+	//  "email": "swordqiu@gmail.com",
+	//  "email_verified": true,
+	//  "locale": "zh-CN"
+	// }
+	GoogleOIDCTemplate = api.SOIDCIdpConfigOptions{
+		Endpoint: "https://accounts.google.com",
+		SIdpAttributeOptions: api.SIdpAttributeOptions{
+			UserIdAttribute:          "sub",
+			UserNameAttribute:        "email",
+			UserEmailAttribute:       "email",
+			UserDisplaynameAttribtue: "name",
+		},
+	}
+
 	AzureADTemplate = api.SOIDCIdpConfigOptions{
 		Scopes: []string{
 			"openid",

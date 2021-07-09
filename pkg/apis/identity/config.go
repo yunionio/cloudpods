@@ -95,6 +95,7 @@ const (
 	IdpTemplateDex         = "dex_oidc"
 	IdpTemplateGithub      = "github_oidc"
 	IdpTemplateAzureOAuth2 = "azure_oidc"
+	IdpTemplateGoogle      = "google_oidc"
 
 	IdpTemplateAlipay   = "alipay_oauth2"
 	IdpTemplateWechat   = "wechat_oauth2"
@@ -115,6 +116,7 @@ var (
 		IdpTemplateDex:         IdentityDriverOIDC,
 		IdpTemplateGithub:      IdentityDriverOIDC,
 		IdpTemplateAzureOAuth2: IdentityDriverOIDC,
+		IdpTemplateGoogle:      IdentityDriverOIDC,
 
 		IdpTemplateAlipay:   IdentityDriverOAuth2,
 		IdpTemplateFeishu:   IdentityDriverOAuth2,

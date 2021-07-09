@@ -73,6 +73,8 @@ func (self *SOIDCDriver) prepareConfig() error {
 			conf = DexOIDCTemplate
 		case api.IdpTemplateGithub:
 			conf = GithubOIDCTemplate
+		case api.IdpTemplateGoogle:
+			conf = GoogleOIDCTemplate
 		case api.IdpTemplateAzureOAuth2:
 			conf = AzureADTemplate
 			tenantId, _ := confJson.GetString("tenant_id")
