@@ -94,7 +94,7 @@ func (self *SESXiGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ow
 }
 
 func (self *SESXiGuestDriver) GetDefaultSysDiskBackend() string {
-	return api.STORAGE_LOCAL
+	return ""
 }
 
 func (self *SESXiGuestDriver) ChooseHostStorage(host *models.SHost, guest *models.SGuest, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
