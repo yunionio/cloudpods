@@ -406,11 +406,23 @@ type CGroupIOTask struct {
 	*CGroupTask
 }
 
+var (
+	/*
+	 * A global IoScheduler variable, should be set before initialize CGROUP
+	 */
+	IoScheduler string
+)
+
 const (
 	IoWeightBase    = 100
 	IoWeightMax     = 1000
 	IoWeightMin     = 100
 	BLOCK_IO_WEIGHT = "blkio.weight"
+
+	BLOCK_IO_BFQ_WEIGHT = "blkio.bfq.weight"
+
+	IOSCHED_CFQ = "cfq"
+	IOSCHED_BFQ = "bfq"
 )
 
 func (c *CGroupIOTask) Module() string {
@@ -424,11 +436,23 @@ func (c *CGroupIOTask) GetConfig() map[string]string {
 	} else if wt < IoWeightMin {
 		wt = IoWeightMin
 	}
-	return map[string]string{BLOCK_IO_WEIGHT: fmt.Sprintf("%d", wt)}
+	switch IoScheduler {
+	case IOSCHED_CFQ:
+		return map[string]string{BLOCK_IO_WEIGHT: fmt.Sprintf("%d", wt)}
+	case IOSCHED_BFQ:
+		return map[string]string{BLOCK_IO_BFQ_WEIGHT: fmt.Sprintf("%d", wt)}
+	default:
+		return nil
+	}
 }
 
 func (c *CGroupIOTask) init() bool {
-	return SetRootParam(c.Module(), BLOCK_IO_WEIGHT, fmt.Sprintf("%d", IoWeightMax), "")
+	switch IoScheduler {
+	case IOSCHED_CFQ:
+		return SetRootParam(c.Module(), BLOCK_IO_WEIGHT, fmt.Sprintf("%d", IoWeightMax), "")
+	default:
+		return true
+	}
 }
 
 func NewCGroupIOTask(pid string, coreNum int) *CGroupIOTask {
@@ -536,7 +560,8 @@ func NewCGroupCPUSetTask(pid string, coreNum int, cpuset string) CGroupCPUSetTas
 	return task
 }
 
-func Init() bool {
+func Init(ioScheduler string) bool {
+	IoScheduler = ioScheduler
 	for _, hand := range []ICGroupTask{&CGroupTask{}, &CGroupCPUTask{}, &CGroupIOTask{}} {
 		if !hand.init() {
 			return false

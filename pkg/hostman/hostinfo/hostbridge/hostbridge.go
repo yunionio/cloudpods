@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -233,7 +234,12 @@ func (d *SBaseBridgeDriver) SetupRoutes(routespecs []iproute2.RouteSpec) error {
 	br := d.bridge.String()
 	r := iproute2.NewRoute(br)
 	for _, routespec := range routespecs {
-		r.AddByRouteSpec(routespec)
+		rt := iproute2.RouteSpec{
+			Dst: routespec.Dst,
+			Src: routespec.Src,
+			Gw:  routespec.Gw,
+		}
+		r.AddByRouteSpec(rt)
 	}
 	if err := r.Err(); err != nil {
 		return errors.Wrapf(err, "set routes on %s", br)
@@ -272,14 +278,39 @@ func (d *SBaseBridgeDriver) Setup(o IBridgeDriver) error {
 			if err := o.SetupAddresses(d.inter.Mask); err != nil {
 				return err
 			}
+			time.Sleep(1 * time.Second)
 			if len(slaveAddrs) > 0 {
-				if err := o.SetupSlaveAddresses(slaveAddrs); err != nil {
-					return err
+				tried := 0
+				const MAX_TRIES = 4
+				for tried < MAX_TRIES {
+					if err := o.SetupSlaveAddresses(slaveAddrs); err != nil {
+						log.Errorf("SetupSlaveAddresses fail: %s", err)
+						tried += 1
+						if tried >= MAX_TRIES {
+							return err
+						} else {
+							time.Sleep(time.Duration(tried) * time.Second)
+						}
+					} else {
+						break
+					}
 				}
 			}
 			if len(routes) > 0 {
-				if err := o.SetupRoutes(routes); err != nil {
-					return err
+				tried := 0
+				const MAX_TRIES = 4
+				for {
+					if err := o.SetupRoutes(routes); err != nil {
+						log.Errorf("SetupRoutes fail: %s", err)
+						tried += 1
+						if tried >= MAX_TRIES {
+							return err
+						} else {
+							time.Sleep(time.Duration(tried) * time.Second)
+						}
+					} else {
+						break
+					}
 				}
 			}
 		} else {
