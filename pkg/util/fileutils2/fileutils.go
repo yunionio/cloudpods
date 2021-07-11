@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -139,6 +140,40 @@ func IsBlockDeviceUsed(dev string) bool {
 	return false
 }
 
+func GetAllBlkdevsIoSchedulers() ([]string, error) {
+	if _, err := os.Stat("/sys/block"); !os.IsNotExist(err) {
+		blockDevs, err := ioutil.ReadDir("/sys/block")
+		if err != nil {
+			log.Errorf("ReadDir /sys/block error: %s", err)
+			return nil, errors.Wrap(err, "ioutil.ReadDir(/sys/block)")
+		}
+		for _, b := range blockDevs {
+			if IsBlockDevMounted(b.Name()) {
+				conf, err := GetBlkdevConfig(b.Name(), "queue/scheduler")
+				if err != nil {
+					log.Errorf("Get %s queue/scheduler fail %s", b.Name(), err)
+				} else {
+					algs := make([]string, 0)
+					for _, alg := range strings.Split(strings.TrimSpace(conf), " ") {
+						if len(alg) > 0 {
+							if alg[0] == '[' {
+								alg = alg[1 : len(alg)-1]
+							}
+							algs = append(algs, alg)
+						}
+					}
+					return algs, nil
+				}
+			}
+		}
+		log.Errorf("no block device avaiable")
+		return nil, nil
+	} else {
+		log.Errorf("stat /sys/block fail %s", err)
+		return nil, errors.Wrap(err, "stat /sys/block fail")
+	}
+}
+
 func ChangeAllBlkdevsParams(params map[string]string) {
 	if _, err := os.Stat("/sys/block"); !os.IsNotExist(err) {
 		blockDevs, err := ioutil.ReadDir("/sys/block")
@@ -164,6 +199,15 @@ func ChangeBlkdevParameter(dev, key, value string) {
 			log.Errorf("Fail to set %s of %s to %s:%s", key, dev, value, err)
 		}
 		log.Infof("Set %s of %s to %s", key, dev, value)
+	}
+}
+
+func GetBlkdevConfig(dev, key string) (string, error) {
+	p := path.Join("/sys/block", dev, key)
+	if _, err := os.Stat(p); !os.IsNotExist(err) {
+		return FileGetContents(p)
+	} else {
+		return "", err
 	}
 }
 

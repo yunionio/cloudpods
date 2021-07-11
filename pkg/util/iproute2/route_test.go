@@ -15,6 +15,7 @@
 package iproute2
 
 import (
+	"net"
 	"testing"
 
 	"github.com/vishvananda/netlink"
@@ -58,6 +59,44 @@ func TestRoute(t *testing.T) {
 		r.DelByCidr("10.1.1.30/32")
 		if err := r.Err(); !IsErrSrch(err) {
 			t.Errorf("expecting ESRCH, got %v", err)
+		}
+	})
+
+	t.Run("route add", func(t *testing.T) {
+		ifname1 := genDummyName(t)
+		dum := addDummy(t, ifname1)
+		defer delDummy(t, dum)
+
+		ifname := "lo"
+
+		for _, cidr := range [][]string{
+			[]string{
+				"127.1.0.1/24",
+				"127.0.0.2",
+			},
+			[]string{
+				"192.168.120.243/24",
+				"127.0.0.2",
+			},
+		} {
+			_, ipnet, err := net.ParseCIDR(cidr[0])
+			if err != nil {
+				t.Errorf("ParseCIDR error %s", err)
+				continue
+			}
+			gw := net.ParseIP(cidr[1])
+
+			r := NewRoute(ifname)
+			r.AddByIPNet(ipnet, gw)
+			if err := r.Err(); err != nil {
+				t.Errorf("got error %v", err)
+			}
+
+			r.DelByIPNet(ipnet)
+
+			if err := r.Err(); err != nil {
+				t.Errorf("del error %v", err)
+			}
 		}
 	})
 }

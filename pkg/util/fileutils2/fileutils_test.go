@@ -14,12 +14,12 @@
 
 package fileutils2
 
-// TODO: rewrite this test
-/*
 import (
 	"testing"
 )
 
+// TODO: rewrite this test
+/*
 func TestIsBlockDeviceUsed(t *testing.T) {
 	type args struct {
 		dev string
@@ -68,3 +68,8 @@ func TestGetDevId(t *testing.T) {
 		})
 	}
 }*/
+
+func TestGetAllBlkdevsIoScheduler(t *testing.T) {
+	scheds, _ := GetAllBlkdevsIoSchedulers()
+	t.Logf("scheduler: %#v", scheds)
+}
