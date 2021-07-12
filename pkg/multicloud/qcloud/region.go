@@ -686,6 +686,11 @@ func (self *SRegion) redisRequest(apiName string, params map[string]string) (jso
 	return self.client.redisRequest(apiName, params)
 }
 
+func (self *SRegion) dcdbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	params["Region"] = self.Region
+	return self.client.dcdbRequest(apiName, params)
+}
+
 func (self *SRegion) mongodbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	params["Region"] = self.Region
 	return self.client.mongodbRequest(apiName, params)

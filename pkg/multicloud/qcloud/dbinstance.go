@@ -25,32 +25,32 @@ import (
 
 func (self *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, error) {
 	ret := []cloudprovider.ICloudDBInstance{}
-	mysql := []SMySQLInstance{}
-	for {
-		part, total, err := self.ListMySQLInstances([]string{}, len(mysql), 50)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ListMySQLInstances")
-		}
-		mysql = append(mysql, part...)
-		if len(mysql) >= total {
-			break
-		}
+	mysqls, err := self.GetIMySQLs()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIMySQLs")
 	}
-	for i := range mysql {
-		mysql[i].region = self
-		ret = append(ret, &mysql[i])
+	ret = append(ret, mysqls...)
+	tdsqls, err := self.GetITDSQLs()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetITDSQLs")
 	}
+	ret = append(ret, tdsqls...)
 	return ret, nil
 }
 
 func (self *SRegion) GetIDBInstanceById(id string) (cloudprovider.ICloudDBInstance, error) {
 	if strings.HasPrefix(id, "cdb") {
 		return self.GetMySQLInstanceById(id)
+	} else if strings.HasPrefix(id, "tdsqlshard") {
+		return self.GetTDSQL(id)
 	}
 	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) CreateIDBInstance(opts *cloudprovider.SManagedDBInstanceCreateConfig) (cloudprovider.ICloudDBInstance, error) {
+	if opts.Category == api.QCLOUD_DBINSTANCE_CATEGORY_TDSQL {
+		return nil, cloudprovider.ErrNotImplemented
+	}
 	switch opts.Engine {
 	case api.DBINSTANCE_TYPE_MYSQL:
 		rds, err := self.CreateMySQLDBInstance(opts)

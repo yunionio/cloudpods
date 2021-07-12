@@ -114,6 +114,7 @@ const (
 	QCLOUD_DBINSTANCE_CATEGORY_BASIC   = "basic" //基础版
 	QCLOUD_DBINSTANCE_CATEGORY_HA      = "ha"    //高可用
 	QCLOUD_DBINSTANCE_CATEGORY_FINANCE = "fe"    //金融版
+	QCLOUD_DBINSTANCE_CATEGORY_TDSQL   = "tdsql" //TDSQL
 
 	//华为云实例类型
 	HUAWEI_DBINSTANCE_CATEGORY_HA      = "ha"      //主备

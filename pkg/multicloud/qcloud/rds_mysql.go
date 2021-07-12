@@ -912,3 +912,23 @@ func (self *SMySQLInstance) GetTags() (map[string]string, error) {
 func (self *SMySQLInstance) SetTags(tags map[string]string, replace bool) error {
 	return self.region.SetResourceTags("cdb", "instanceId", []string{self.InstanceId}, tags, replace)
 }
+
+func (self *SRegion) GetIMySQLs() ([]cloudprovider.ICloudDBInstance, error) {
+	ret := []cloudprovider.ICloudDBInstance{}
+	mysql := []SMySQLInstance{}
+	for {
+		part, total, err := self.ListMySQLInstances([]string{}, len(mysql), 50)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ListMySQLInstances")
+		}
+		mysql = append(mysql, part...)
+		if len(mysql) >= total {
+			break
+		}
+	}
+	for i := range mysql {
+		mysql[i].region = self
+		ret = append(ret, &mysql[i])
+	}
+	return ret, nil
+}

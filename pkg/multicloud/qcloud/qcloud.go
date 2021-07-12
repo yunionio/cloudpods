@@ -65,6 +65,7 @@ const (
 	QCLOUD_CDN_API_VERSION       = "2018-06-06"
 	QCLOUD_MONGODB_API_VERSION   = "2019-07-25"
 	QCLOUD_ES_API_VERSION        = "2018-04-16"
+	QCLOUD_DCDB_API_VERSION      = "2018-04-11"
 )
 
 type QcloudClientConfig struct {
@@ -183,6 +184,12 @@ func esRequest(client *common.Client, apiName string, params map[string]string, 
 func redisRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("redis", params)
 	return _jsonRequest(client, domain, QCLOUD_REDIS_API_VERSION, apiName, params, debug, true)
+}
+
+// tdsql
+func dcdbRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	domain := apiDomain("dcdb", params)
+	return _jsonRequest(client, domain, QCLOUD_DCDB_API_VERSION, apiName, params, debug, true)
 }
 
 // mongodb
@@ -651,6 +658,15 @@ func (client *SQcloudClient) redisRequest(apiName string, params map[string]stri
 	}
 
 	return redisRequest(cli, apiName, params, client.debug)
+}
+
+func (client *SQcloudClient) dcdbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return dcdbRequest(cli, apiName, params, client.debug)
 }
 
 func (client *SQcloudClient) mongodbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
