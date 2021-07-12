@@ -125,6 +125,7 @@ monLoop:
 					continue monLoop
 				}
 				_, err = db.Update(resource, func() error {
+					res.(*jsonutils.JSONDict).Remove("id")
 					res.Unmarshal(resource)
 					return nil
 				})
