@@ -41,6 +41,7 @@ import (
 
 type ApplyScriptTask struct {
 	taskman.STask
+	cleanFunc func()
 }
 
 func init() {
@@ -49,7 +50,19 @@ func init() {
 
 var ErrServerNotSshable = errors.Error("server is not sshable")
 
+func (self *ApplyScriptTask) registerClean(clean func()) {
+	self.cleanFunc = clean
+}
+
+func (self *ApplyScriptTask) clean() {
+	if self.cleanFunc == nil {
+		return
+	}
+	self.cleanFunc()
+}
+
 func (self *ApplyScriptTask) taskFailed(ctx context.Context, sa *models.SScriptApply, sar *models.SScriptApplyRecord, err error) {
+	self.clean()
 	var failCode string
 	switch errors.Cause(err) {
 	case ErrServerNotSshable:
@@ -80,6 +93,7 @@ func (self *ApplyScriptTask) taskFailed(ctx context.Context, sa *models.SScriptA
 }
 
 func (self *ApplyScriptTask) taskSuccess(ctx context.Context, sa *models.SScriptApply, sar *models.SScriptApplyRecord) {
+	self.clean()
 	err := sa.StopApply(self.UserCred, sar, true, "", "")
 	if err != nil {
 		log.Errorf("unable to StopApply script %s to server %s", sa.ScriptId, sa.GuestId)
@@ -116,7 +130,7 @@ func (self *ApplyScriptTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 	}
 
 	// check sshable
-	sshable, err := self.checkSshable(session, serverDetail.Id)
+	sshable, err := self.checkSshable(session, &serverDetail)
 	if err != nil {
 		self.taskFailed(ctx, sa, sar, err)
 		return
@@ -162,19 +176,21 @@ func (self *ApplyScriptTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 			return
 		}
 
+		self.registerClean(func() {
+			self.clearLocalForward(session, forwardId)
+		})
+
 		port, _ := forward.Int("bind_port")
 		forwardId, _ = forward.GetString("id")
 		agentId, _ := forward.GetString("proxy_agent_id")
 		agent, err := cloudproxy.ProxyAgents.Get(session, agentId, nil)
 		if err != nil {
-			self.clearLocalForward(session, forwardId)
 			self.taskFailed(ctx, sa, sar, errors.Wrapf(err, "fail to get proxy agent %q", agentId))
 			return
 		}
 		address, _ := agent.GetString("advertise_addr")
 		// check proxy forward
 		if ok := self.ensureLocalForwardWork(address, int(port)); !ok {
-			self.clearLocalForward(session, forwardId)
 			self.taskFailed(ctx, sa, sar, errors.Error("The created local forward is actually not usable"))
 			return
 		}
@@ -197,7 +213,6 @@ func (self *ApplyScriptTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 		}
 		arg, err := generator(ctx, sa.GuestId, sshable.proxyEndpointId, &host)
 		if err != nil {
-			self.clearLocalForward(session, forwardId)
 			self.taskFailed(ctx, sa, sar, err)
 			return
 		}
@@ -218,7 +233,6 @@ func (self *ApplyScriptTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 	session.Header.Set(mcclient.TASK_ID, taskHeader.Get(mcclient.TASK_ID))
 	_, err = modules.AnsiblePlaybookReference.PerformAction(session, s.PlaybookReferenceId, "run", params)
 	if err != nil {
-		self.clearLocalForward(session, forwardId)
 		self.taskFailed(ctx, sa, sar, errors.Wrapf(err, "can't run ansible playbook reference %s", s.PlaybookReferenceId))
 		return
 	}
@@ -238,8 +252,80 @@ type sSSHable struct {
 }
 
 // func (self *ApplyScriptTask) ansibleHost(session modules.SS)
+func (self *ApplyScriptTask) checkSshableForYunionCloud(session *mcclient.ClientSession, serverDetail *comapi.ServerDetails) (sSSHable, error) {
+	if serverDetail.IPs == "" {
+		return sSSHable{}, fmt.Errorf("empty ips for server %s", serverDetail.Id)
+	}
+	ips := strings.Split(serverDetail.IPs, ",")
+	ip := strings.TrimSpace(ips[0])
+	if serverDetail.VpcId == "" || serverDetail.VpcId == comapi.DEFAULT_VPC_ID {
+		return sSSHable{
+			ok:   true,
+			user: "cloudroot",
+			host: ip,
+			port: 22,
+		}, nil
+	}
+	lfParams := jsonutils.NewDict()
+	lfParams.Set("proto", jsonutils.NewString("tcp"))
+	lfParams.Set("port", jsonutils.NewInt(22))
+	data, err := modules.Servers.PerformAction(session, serverDetail.Id, "list-forward", lfParams)
+	if err != nil {
+		return sSSHable{}, errors.Wrapf(err, "unable to List Forward for server %s", serverDetail.Id)
+	}
+	var openForward bool
+	var forwards []jsonutils.JSONObject
+	if !data.Contains("forwards") {
+		openForward = true
+	} else {
+		forwards, err = data.GetArray("forwards")
+		if err != nil {
+			return sSSHable{}, errors.Wrap(err, "parse response of List Forward")
+		}
+		openForward = len(forwards) == 0
+	}
 
-func (self *ApplyScriptTask) checkSshable(session *mcclient.ClientSession, serverId string) (sSSHable, error) {
+	var forward jsonutils.JSONObject
+	if openForward {
+		forward, err = modules.Servers.PerformAction(session, serverDetail.Id, "open-forward", lfParams)
+		if err != nil {
+			return sSSHable{}, errors.Wrapf(err, "unable to Open Forward for server %s", serverDetail.Id)
+		}
+		// register
+		self.registerClean(func() {
+			proxyAddr, _ := forward.GetString("proxy_addr")
+			proxyPort, _ := forward.Int("proxy_port")
+			params := jsonutils.NewDict()
+			params.Set("proto", jsonutils.NewString("tcp"))
+			params.Set("proxy_addr", jsonutils.NewString(proxyAddr))
+			params.Set("proxy_port", jsonutils.NewInt(proxyPort))
+			_, err := modules.Servers.PerformAction(session, serverDetail.Id, "close-forward", params)
+			if err != nil {
+				log.Errorf("unable to close forward(addr %q, port %d, proto %q) for server %s: %v", proxyAddr, proxyPort, "tcp", serverDetail.Id, err)
+			}
+		})
+	} else {
+		forward = forwards[0]
+	}
+	proxyAddr, _ := forward.GetString("proxy_addr")
+	proxyPort, _ := forward.Int("proxy_port")
+	// register
+	return sSSHable{
+		ok:   true,
+		user: "cloudroot",
+		host: proxyAddr,
+		port: int(proxyPort),
+	}, nil
+}
+
+func (self *ApplyScriptTask) checkSshable(session *mcclient.ClientSession, serverDetail *comapi.ServerDetails) (sSSHable, error) {
+	if serverDetail.Hypervisor == comapi.HYPERVISOR_KVM {
+		return self.checkSshableForYunionCloud(session, serverDetail)
+	}
+	return self.checkSshableForOtherCloud(session, serverDetail.Id)
+}
+
+func (self *ApplyScriptTask) checkSshableForOtherCloud(session *mcclient.ClientSession, serverId string) (sSSHable, error) {
 	data, err := modules.Servers.GetSpecific(session, serverId, "sshable", nil)
 	if err != nil {
 		return sSSHable{}, errors.Wrapf(err, "unable to get sshable info of server %s", serverId)
@@ -316,8 +402,6 @@ const (
 func (self *ApplyScriptTask) OnAnsiblePlaybookComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	// try to delete local forward
 	session := auth.GetAdminSession(ctx, "", "")
-	forwardId, _ := self.Params.GetString("proxy_forward_id")
-	self.clearLocalForward(session, forwardId)
 
 	sa := obj.(*models.SScriptApply)
 	// try to set metadata for guest
