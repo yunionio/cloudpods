@@ -1275,15 +1275,12 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 
 	if host.ManagerId == "" {
 
-		hostq := HostManager.Query().SubQuery()
 		wireq := WireManager.Query().SubQuery()
-		hostwireq := HostwireManager.Query().SubQuery()
 		scope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), NetworkManager.KeywordPlural(), policy.PolicyActionList)
 		q := NetworkManager.Query()
 		q = NetworkManager.FilterByOwner(q, userCred, scope)
-		q = q.Join(wireq, sqlchemy.Equals(wireq.Field("id"), q.Field("wire_id")))
-		q = q.Join(hostwireq, sqlchemy.Equals(hostwireq.Field("wire_id"), wireq.Field("id")))
-		q = q.Join(hostq, sqlchemy.Equals(hostq.Field("id"), host.Id))
+		q = q.Join(wireq, sqlchemy.Equals(wireq.Field("id"), q.Field("wire_id"))).
+			Filter(sqlchemy.Equals(wireq.Field("zone_id"), host.ZoneId))
 		q = q.Equals("server_type", api.NETWORK_TYPE_EIP)
 		q = q.Equals("bgp_type", bgpType)
 		var nets []SNetwork
