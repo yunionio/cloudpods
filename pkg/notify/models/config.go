@@ -63,7 +63,7 @@ type SConfig struct {
 	db.SStandaloneResourceBase
 	db.SDomainizedResourceBase
 
-	Type        string               `width:"15" nullable:"false" create:"required" get:"domain" list:"domain"`
+	Type        string               `width:"15" nullable:"false" create:"required" get:"domain" list:"domain" index:"true"`
 	Content     jsonutils.JSONObject `nullable:"false" create:"required" update:"domain" get:"domain" list:"domain"`
 	Attribution string               `width:"8" nullable:"false" default:"system" get:"domain" list:"domain" create:"optional"`
 }
@@ -232,6 +232,16 @@ func sortContactType(ctypes []string) []string {
 		}
 	}
 	return ret
+}
+
+func (cm *SConfigManager) contactTypesQuery(domainId string) *sqlchemy.SQuery {
+	q := cm.Query("type").Distinct()
+	if domainId == "" {
+		q = q.Equals("attribution", api.CONFIG_ATTRIBUTION_SYSTEM)
+	} else {
+		q = q.Filter(sqlchemy.OR(sqlchemy.AND(sqlchemy.Equals(q.Field("attribution"), api.CONFIG_ATTRIBUTION_DOMAIN), sqlchemy.Equals(q.Field("domain_id"), domainId)), sqlchemy.Equals(q.Field("attribution"), api.CONFIG_ATTRIBUTION_SYSTEM)))
+	}
+	return q
 }
 
 func (cm *SConfigManager) availableContactTypes(domainId string) ([]string, error) {
