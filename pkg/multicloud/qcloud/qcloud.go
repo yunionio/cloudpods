@@ -64,6 +64,7 @@ const (
 	QCLOUD_SSL_API_VERSION       = "2019-12-05"
 	QCLOUD_CDN_API_VERSION       = "2018-06-06"
 	QCLOUD_MONGODB_API_VERSION   = "2019-07-25"
+	QCLOUD_ES_API_VERSION        = "2018-04-16"
 )
 
 type QcloudClientConfig struct {
@@ -170,6 +171,12 @@ func cbsRequest(client *common.Client, apiName string, params map[string]string,
 func accountRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
 	domain := "account.api.qcloud.com"
 	return _phpJsonRequest(client, &wssJsonResponse{}, domain, "/v2/index.php", "", apiName, params, debug)
+}
+
+// es
+func esRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	domain := apiDomain("es", params)
+	return _jsonRequest(client, domain, QCLOUD_ES_API_VERSION, apiName, params, debug, true)
 }
 
 // redis
@@ -628,6 +635,15 @@ func (client *SQcloudClient) cdbRequest(apiName string, params map[string]string
 	return cdbRequest(cli, apiName, params, client.debug)
 }
 
+func (client *SQcloudClient) esRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return esRequest(cli, apiName, params, client.debug)
+}
+
 func (client *SQcloudClient) redisRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	cli, err := client.getDefaultClient()
 	if err != nil {
@@ -1044,6 +1060,7 @@ func (self *SQcloudClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_INTERVPCNETWORK,
 		cloudprovider.CLOUD_CAPABILITY_SAML_AUTH,
 		cloudprovider.CLOUD_CAPABILITY_MONGO_DB,
+		cloudprovider.CLOUD_CAPABILITY_ES,
 	}
 	return caps
 }

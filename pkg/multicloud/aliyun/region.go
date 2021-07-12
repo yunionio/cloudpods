@@ -152,6 +152,15 @@ func (self *SRegion) wafRequest(apiName string, params map[string]string) (jsonu
 	return jsonRequest(client, endpoint, ALIYUN_WAF_API_VERSION, apiName, params, self.client.debug)
 }
 
+func (self *SRegion) esRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	client, err := self.getSdkClient()
+	if err != nil {
+		return nil, err
+	}
+	domain := fmt.Sprintf("elasticsearch.%s.aliyuncs.com", self.RegionId)
+	return jsonRequest(client, domain, ALIYUN_ES_API_VERSION, apiName, params, self.client.debug)
+}
+
 func (self *SRegion) rdsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	client, err := self.getSdkClient()
 	if err != nil {

@@ -67,6 +67,7 @@ const (
 	ALIYUN_NAS_API_VERSION      = "2017-06-26"
 	ALIYUN_WAF_API_VERSION      = "2019-09-10"
 	ALIYUN_MONGO_DB_API_VERSION = "2015-12-01"
+	ALIYUN_ES_API_VERSION       = "2017-06-13"
 
 	ALIYUN_SERVICE_ECS = "ecs"
 	ALIYUN_SERVICE_VPC = "vpc"
@@ -167,7 +168,7 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 				switch code {
 				case "InvalidAccessKeyId.NotFound":
 					return nil, err
-				case "404 Not Found":
+				case "404 Not Found", "InstanceNotFound":
 					return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
 				case "InvalidInstance.NotSupported",
 					"SignatureNonceUsed",                  // SignatureNonce 重复。每次请求的 SignatureNonce 在 15 分钟内不能重复。
@@ -234,6 +235,29 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 	}
 	req.Scheme = "https"
 	req.GetHeaders()["User-Agent"] = "vendor/yunion-OneCloud@" + v.Get().GitVersion
+	method := requests.POST
+	for prefix, _method := range map[string]string{
+		"Get":      requests.GET,
+		"Describe": requests.GET,
+		"List":     requests.GET,
+		"Delete":   requests.DELETE,
+	} {
+		if strings.HasPrefix(apiName, prefix) {
+			method = _method
+			break
+		}
+	}
+	if strings.HasPrefix(domain, "elasticsearch") {
+		req.Product = "elasticsearch"
+		req.ServiceCode = "elasticsearch"
+		pathPattern, ok := params["PathPattern"]
+		if !ok {
+			return nil, errors.Errorf("Roa request missing pathPattern")
+		}
+		delete(params, "PathPattern")
+		req.PathPattern = pathPattern
+		req.Method = method
+	}
 
 	resp, err := processCommonRequest(client, req)
 	if err != nil {
@@ -646,6 +670,7 @@ func (region *SAliyunClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_NAS,
 		cloudprovider.CLOUD_CAPABILITY_WAF,
 		cloudprovider.CLOUD_CAPABILITY_MONGO_DB,
+		cloudprovider.CLOUD_CAPABILITY_ES,
 	}
 	return caps
 }

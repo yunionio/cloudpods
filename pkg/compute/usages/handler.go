@@ -321,6 +321,8 @@ func getSystemGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.I
 
 		MongoDBUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
 
+		ElasticSearchUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
+
 		ElasticCacheUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
 	)
 
@@ -413,6 +415,8 @@ func getDomainGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 
 		MongoDBUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
+		ElasticSearchUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+
 		ElasticCacheUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 	)
 	return count, nil
@@ -462,6 +466,8 @@ func getProjectGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityP
 		DBInstanceUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
 		MongoDBUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+
+		ElasticSearchUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
 		ElasticCacheUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 	)
@@ -961,6 +967,15 @@ func MongoDBUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider
 	count[getKey(scope, "mongodb")] = cnt.TotalMongodbCount
 	count[getKey(scope, "mongodb.cpu")] = cnt.TotalCpuCount
 	count[getKey(scope, "mongodb.memory")] = cnt.TotalMemSizeMb
+	return count
+}
+
+func ElasticSearchUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
+	cnt, _ := models.ElasticSearchManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
+	count := make(map[string]interface{})
+	count[getKey(scope, "es")] = cnt.TotalEsCount
+	count[getKey(scope, "es.cpu")] = cnt.TotalCpuCount
+	count[getKey(scope, "es.memory")] = cnt.TotalMemSizeGb * 1024
 	return count
 }
 

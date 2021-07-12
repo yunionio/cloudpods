@@ -1999,3 +1999,21 @@ func (manager *SMongoDBManager) purgeAll(ctx context.Context, userCred mcclient.
 	}
 	return nil
 }
+
+func (manager *SElasticSearchManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	ess := []SElasticSearch{}
+	err := fetchByManagerId(manager, providerId, &ess)
+	if err != nil {
+		return errors.Wrapf(err, "fetchByManagerId")
+	}
+	for i := range ess {
+		lockman.LockObject(ctx, &ess[i])
+		defer lockman.ReleaseObject(ctx, &ess[i])
+
+		err := ess[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "elastic search delete")
+		}
+	}
+	return nil
+}

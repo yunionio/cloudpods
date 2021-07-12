@@ -228,6 +228,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.WafRuleManager,
 
 		models.MongoDBManager,
+		models.ElasticSearchManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

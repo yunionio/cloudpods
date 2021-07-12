@@ -39,8 +39,11 @@ func (self STagBase) SetTags(tags map[string]string, replace bool) error {
 
 type QcloudTags struct {
 	TagSet []STag
-	//Redis
+
+	// Redis
 	InstanceTags []STag
+	// Elasticsearch
+	TagList []STag
 }
 
 func (self *QcloudTags) GetTags() (map[string]string, error) {
@@ -49,6 +52,9 @@ func (self *QcloudTags) GetTags() (map[string]string, error) {
 		ret[tag.Key] = tag.Value
 	}
 	for _, tag := range self.InstanceTags {
+		ret[tag.TagKey] = tag.TagValue
+	}
+	for _, tag := range self.TagList {
 		ret[tag.TagKey] = tag.TagValue
 	}
 	return ret, nil
