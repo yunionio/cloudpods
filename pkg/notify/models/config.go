@@ -470,6 +470,28 @@ func (self *SConfigManager) InitializeData() error {
 		"admin_tenant_name": options.Options.AdminProject,
 	})
 	err = self.TableSpec().InsertOrUpdate(context.TODO(), config)
+
+	// init config name
+	q = self.Query().IsNullOrEmpty("name")
+	enConfigs := make([]SConfig, 0)
+	err = db.FetchModelObjects(self, q, &enConfigs)
+	if err != nil {
+		return errors.Wrap(err, "unable to get configs with empty name")
+	}
+	for i := range enConfigs {
+		c := &enConfigs[i]
+		name, err := db.GenerateAlterName(c, enConfigs[i].Type)
+		if err != nil {
+			return errors.Wrap(err, "unable to generate alter name")
+		}
+		_, err = db.Update(c, func() error {
+			c.Name = name
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "unable to update name")
+		}
+	}
 	return nil
 }
 
