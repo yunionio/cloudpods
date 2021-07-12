@@ -65,7 +65,7 @@ func (rm *SRobotManager) InitializeData() error {
 	if len(configs) == 0 {
 		return nil
 	}
-	robots := make([]SRobot, len(configs))
+	robots := make([]SRobot, 0, len(configs))
 	for i := range configs {
 		webhook, _ := configs[i].Content.GetString("webhook")
 		robot := SRobot{
@@ -96,6 +96,8 @@ func (rm *SRobotManager) InitializeData() error {
 				robots = append(robots, robotn)
 			}
 			robot.Address = addresses[0]
+		default:
+			continue
 		}
 		robots = append(robots, robot)
 	}
