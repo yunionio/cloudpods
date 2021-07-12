@@ -22,7 +22,7 @@ func TestFindExtUserId(t *testing.T) {
 		want string
 	}{
 		{
-			in:   "authUserByCASV3: Authenticate: idp.SyncOrCreateDomainAndUser: qiujian: UserNotFoundError",
+			in:   "authUserByCASV3: Authenticate: idp.SyncOrCreateDomainAndUser: qiujian: UserNotFound",
 			want: "qiujian",
 		},
 	}
