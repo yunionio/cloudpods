@@ -116,7 +116,7 @@ func (h *AuthHandlers) getIdpSsoRedirectUri(ctx context.Context, w http.Response
 }
 
 func findExtUserId(input string) string {
-	pattern := regexp.MustCompile(`idp.SyncOrCreateDomainAndUser: ([^:]+): UserNotFoundError`)
+	pattern := regexp.MustCompile(`idp.SyncOrCreateDomainAndUser: ([^:]+): UserNotFound`)
 	matches := pattern.FindAllStringSubmatch(input, -1)
 	log.Debugf("%#v", matches)
 	if len(matches) > 0 && len(matches[0]) > 1 {
