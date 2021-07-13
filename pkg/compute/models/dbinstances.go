@@ -1539,11 +1539,9 @@ func (self *SDBInstance) setZoneInfo() error {
 		return errors.Wrapf(err, "q.CountWithError")
 	}
 	if count == 0 {
-		q.DebugQuery()
 		return fmt.Errorf("failed to fetch any sku for dbinstance %s(%s)", self.Name, self.Id)
 	}
 	if count > 1 {
-		q.DebugQuery()
 		return fmt.Errorf("fetch %d skus for dbinstance %s(%s)", count, self.Name, self.Id)
 	}
 	err = q.First(&sku)
