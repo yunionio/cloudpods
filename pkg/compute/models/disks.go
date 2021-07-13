@@ -325,7 +325,6 @@ func (self *SDisk) GetGuests() []SGuest {
 	q := query.Join(guestdisks, sqlchemy.AND(
 		sqlchemy.Equals(guestdisks.Field("guest_id"), query.Field("id")))).
 		Filter(sqlchemy.Equals(guestdisks.Field("disk_id"), self.Id))
-	// q.DebugQuery()
 	err := db.FetchModelObjects(GuestManager, q, &result)
 	if err != nil {
 		log.Errorln(err)
