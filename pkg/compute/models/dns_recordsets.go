@@ -215,7 +215,6 @@ func (manager *SDnsRecordSetManager) ValidateCreateData(ctx context.Context, use
 					),
 				),
 			))
-			policyQuery.DebugQuery()
 			cnt, err = policyQuery.CountWithError()
 			if err != nil {
 				return input, httperrors.NewGeneralError(err)
@@ -589,7 +588,6 @@ func (self *SDnsRecordSet) ValidateUpdateData(ctx context.Context, userCred mccl
 					),
 				),
 			))
-			policyQuery.DebugQuery()
 			cnt, err = policyQuery.CountWithError()
 			if err != nil {
 				return input, httperrors.NewGeneralError(err)
