@@ -387,7 +387,6 @@ func (srm *SSubscriberManager) findSuitableOnes(tid, projectDomainId, projectId 
 	default:
 		q = q.In("type", types)
 	}
-	q.DebugQuery()
 	srs := make([]SSubscriber, 0, 1)
 	err := db.FetchModelObjects(srm, q, &srs)
 	if err != nil {

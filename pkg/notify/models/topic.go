@@ -337,7 +337,6 @@ func (sm *STopicManager) TopicsByEvent(eventStr string, advanceDays int) ([]STop
 	var topics []STopic
 	err = db.FetchModelObjects(sm, q, &topics)
 	if err != nil {
-		q.DebugQuery()
 		return nil, errors.Wrap(err, "unable to FetchModelObjects")
 	}
 	return topics, nil

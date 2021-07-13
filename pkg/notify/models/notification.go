@@ -517,7 +517,6 @@ func (n *SNotification) ReceiveDetails(userCred mcclient.TokenCredential, scope 
 		q.AppendField(subRQ.Field("name", "receiver_name"))
 		q = q.Join(subRQ, sqlchemy.OR(sqlchemy.Equals(q.Field("receiver_id"), subRQ.Field("id")), sqlchemy.Equals(q.Field("contact"), subRQ.Field("id"))))
 	}
-	q.DebugQuery()
 	ret := make([]api.ReceiveDetail, 0, 2)
 	err := q.All(&ret)
 	if err != nil && errors.Cause(err) != sql.ErrNoRows {
