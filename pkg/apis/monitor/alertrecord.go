@@ -5,6 +5,7 @@ import "yunion.io/x/onecloud/pkg/apis"
 const (
 	SEND_STATE_OK     = "ok"
 	SEND_STATE_SILENT = "silent"
+	SEND_STATE_SHIELD = "shield"
 )
 
 type AlertRecordListInput struct {

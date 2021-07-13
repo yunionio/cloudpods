@@ -7,6 +7,6 @@ import (
 )
 
 func init() {
-	cmd := shell.NewResourceCmd(modules.MonitorResourceManager)
-	cmd.Get("", new(options.MonitorResourceJointAlertOptions))
+	cmd := shell.NewJointCmd(modules.MonitorResourceAlertManager)
+	cmd.List(new(options.MonitorResourceAlertListOptions))
 }

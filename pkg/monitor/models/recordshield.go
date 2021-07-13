@@ -47,7 +47,7 @@ type SAlertRecordShield struct {
 	SMonitorScopedResource
 
 	AlertId string `width:"36" charset:"ascii" nullable:"false" list:"user" create :"required" json:"alert_id"`
-	ResName string `width:"36" nullable:"false"  create:"optional" list:"user" update:"user" json:"res_name"`
+	ResId   string `width:"36" nullable:"false"  create:"optional" list:"user" update:"user" json:"res_id"`
 	ResType string `width:"36" nullable:"false"  create:"optional" list:"user" update:"user" json:"res_type"`
 
 	StartTime time.Time `required:"optional" list:"user" update:"user" json:"start_time"`
@@ -94,8 +94,8 @@ func (manager *SAlertRecordShieldManager) ListItemFilter(
 
 func (manager *SAlertRecordShieldManager) shieldListByDetailsFeild(query *sqlchemy.SQuery,
 	input monitor.AlertRecordShieldListInput) *sqlchemy.SQuery {
-	if len(input.ResName) != 0 {
-		query.Filter(sqlchemy.Equals(query.Field("res_name"), input.ResName))
+	if len(input.ResId) != 0 {
+		query.Filter(sqlchemy.Equals(query.Field("res_id"), input.ResId))
 	}
 	if len(input.ResType) != 0 {
 		query.Filter(sqlchemy.Equals(query.Field("res_type"), input.ResType))
@@ -108,6 +108,11 @@ func (manager *SAlertRecordShieldManager) shieldListByDetailsFeild(query *sqlche
 	if len(input.AlertName) != 0 {
 		query.Join(alertQuery, sqlchemy.Equals(query.Field("alert_id"),
 			alertQuery.Field("id"))).Filter(sqlchemy.Equals(alertQuery.Field("name"), input.AlertName))
+	}
+	if len(input.ResName) != 0 {
+		resQuery := MonitorResourceManager.Query().SubQuery()
+		query.Join(resQuery, sqlchemy.Equals(query.Field("res_id"), resQuery.Field("res_id"))).Filter(sqlchemy.Equals(
+			resQuery.Field("name"), input.ResName))
 	}
 	return query
 }
@@ -154,16 +159,29 @@ func (man *SAlertRecordShieldManager) FetchCustomizeColumns(
 
 func (shield *SAlertRecordShield) GetMoreDetails(ctx context.Context, out monitor.AlertRecordShieldDetails) (monitor.
 	AlertRecordShieldDetails, error) {
-	// Alert May delete By someone
-	out.AlertName = shield.AlertId
 	commonAlert, err := CommonAlertManager.GetAlert(shield.AlertId)
 	if err != nil {
 		log.Errorf("GetAlert byId:%s err:%v", shield.AlertId, err)
 		return out, nil
 	}
+	// Alert May delete By someone
+	out.AlertName = commonAlert.Name
 	alertDetails, err := commonAlert.GetMoreDetails(ctx, monitor.CommonAlertDetails{})
 	out.CommonAlertDetails = alertDetails
+
+	resources, err := MonitorResourceManager.GetMonitorResources(monitor.MonitorResourceListInput{ResId: []string{shield.ResId}})
+	if err != nil {
+		return out, errors.Errorf("getMonitorResource:%s err:%v", shield.ResId, err)
+	}
+	if len(resources) == 0 {
+		return out, nil
+	}
+	out.ResName = resources[0].Name
 	return out, nil
+}
+
+func (man *SAlertRecordShieldManager) HasName() bool {
+	return false
 }
 
 func (man *SAlertRecordShieldManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, _ jsonutils.JSONObject,
@@ -178,6 +196,19 @@ func (man *SAlertRecordShieldManager) ValidateCreateData(ctx context.Context, us
 	if len(data.ResName) == 0 {
 		return data, httperrors.NewInputParameterError("shield res_name is empty")
 	}
+	if len(data.ResId) == 0 {
+		return data, httperrors.NewInputParameterError("shield res_id is empty")
+	} else {
+		resources, err := MonitorResourceManager.GetMonitorResources(monitor.MonitorResourceListInput{ResId: []string{data.ResId}})
+		if err != nil {
+			return data, errors.Errorf("getMonitorResource:%s err:%v", data.ResId, err)
+		}
+		if len(resources) == 0 {
+			return data, httperrors.NewInputParameterError("can not get resource by res_id:%s", data.ResId)
+		}
+		data.ResType = resources[0].ResType
+	}
+
 	if data.EndTime.Before(data.StartTime) {
 		return data, httperrors.NewInputParameterError("end_time is before start_time")
 	}

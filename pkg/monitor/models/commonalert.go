@@ -1279,13 +1279,15 @@ func (alert *SCommonAlert) UpdateMonitorResourceJoint(ctx context.Context, userC
 	for _, con := range setting.Conditions {
 		measurement, _ := MetricMeasurementManager.GetCache().Get(con.Query.Model.Measurement)
 		if measurement == nil {
-			continue
+			resType = monitor.METRIC_RES_TYPE_HOST
+		} else {
+			resType = measurement.ResType
 		}
-		if !utils.IsInStringArray(measurement.ResType, []string{monitor.METRIC_RES_TYPE_HOST,
-			monitor.METRIC_RES_TYPE_GUEST}) {
-			continue
-		}
-		resType = measurement.ResType
+		//if !utils.IsInStringArray(measurement.ResType, []string{monitor.METRIC_RES_TYPE_HOST,
+		//	monitor.METRIC_RES_TYPE_GUEST, monitor.METRIC_RES_TYPE_AGENT}) {
+		//	continue
+		//}
+
 		inputQuery.MetricQuery = append(inputQuery.MetricQuery, &con.Query)
 	}
 	if len(inputQuery.MetricQuery) == 0 {

@@ -93,6 +93,7 @@ type AlertRecordShieldCreateOptions struct {
 	AlertId string `json:"alert_id" help:"common alert Id" required:"true"`
 	ResType string `json:"res_type" help:"resource tyge" choices:"host|guest|redis|oss|rds|cloudaccount"`
 	ResName string `json:"res_name" help:"resource name" required:"true"`
+	ResId   string `json:"res_id" help:"resource id" required:"true"`
 
 	ShieldPeriod string `json:"shield_period" help:"shield time eg:'1m,2h'" required:"true"`
 }

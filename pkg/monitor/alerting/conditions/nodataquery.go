@@ -17,6 +17,7 @@ const (
 	NO_DATA = "nodata"
 
 	HOST_TAG_NAME   = "name"
+	HOST_TAG_ID     = "id"
 	HOST_TAG_IP     = "access_ip"
 	RESOURCE_TAG_IP = "ips"
 	HOST_TAG_BRAND  = "brand"
@@ -157,6 +158,7 @@ func (c *NoDataQueryCondition) createEvalMatchTagFromHostJson(evalContext *alert
 		ip, _ = host.GetString(RESOURCE_TAG_IP)
 	}
 	name, _ := host.GetString(HOST_TAG_NAME)
+	id, _ := host.GetString("id")
 	brand, _ := host.GetString(HOST_TAG_BRAND)
 	evalMatch.Tags["ip"] = ip
 	evalMatch.Tags[HOST_TAG_NAME] = name
@@ -169,6 +171,7 @@ func (c *NoDataQueryCondition) createEvalMatchTagFromHostJson(evalContext *alert
 	case monitor.METRIC_RES_TYPE_OSS:
 	default:
 		evalMatch.Tags["host"] = name
+		evalMatch.Tags[monitor.MEASUREMENT_TAG_ID[monitor.METRIC_RES_TYPE_HOST]] = id
 		evalMatch.Tags[hostconsts.TELEGRAF_TAG_KEY_RES_TYPE] = hostconsts.TELEGRAF_TAG_ONECLOUD_RES_TYPE
 		evalMatch.Tags[hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE] = hostconsts.TELEGRAF_TAG_ONECLOUD_HOST_TYPE_HOST
 	}

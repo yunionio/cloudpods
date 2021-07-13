@@ -12,6 +12,7 @@ type AlertRecordShieldCreateInput struct {
 	AlertId string `json:"alert_id"`
 	ResType string `json:"res_type"`
 	ResName string `json:"res_name"`
+	ResId   string `json:"res_id"`
 
 	StartTime time.Time `json:"start_time"`
 	EndTime   time.Time `json:"end_time"`
@@ -22,7 +23,8 @@ type AlertRecordShieldDetails struct {
 	apis.ScopedResourceBaseInfo
 
 	CommonAlertDetails
-	AlertName string
+	AlertName string `json:"alert_name"`
+	ResName   string `json:"res_name"`
 }
 
 type AlertRecordShieldListInput struct {
@@ -32,8 +34,9 @@ type AlertRecordShieldListInput struct {
 	apis.EnabledResourceBaseListInput
 	apis.StatusStandaloneResourceListInput
 
-	AlertName string `json:"alerting"`
+	AlertName string `json:"alert_name"`
 	ResType   string `json:"res_type"`
 	ResName   string `json:"res_name"`
+	ResId     string `json:"res_id"`
 	AlertId   string `json:"alert_id"`
 }

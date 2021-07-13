@@ -181,6 +181,9 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, 
 		recordCreateInput.SendState = monitor.SEND_STATE_SILENT
 	}
 	recordCreateInput.ResType = recordCreateInput.AlertRule.ResType
+	if len(recordCreateInput.ResType) == 0 {
+		recordCreateInput.ResType = monitor.METRIC_RES_TYPE_HOST
+	}
 	createData := recordCreateInput.JSON(recordCreateInput)
 	alert, _ := models.CommonAlertManager.GetAlert(evalCtx.Rule.Id)
 	record, err := db.DoCreate(models.AlertRecordManager, evalCtx.Ctx, evalCtx.UserCred, jsonutils.NewDict(),
@@ -208,7 +211,7 @@ func (n *notificationService) dealNeedShieldEvalMatchs(evalCtx *EvalContext, mat
 	}
 filterMatch:
 	for i, _ := range match {
-		input.ResName = match[i].Tags["name"]
+		input.ResId = match[i].Tags[monitor.MEASUREMENT_TAG_ID[input.ResType]]
 		alertRecordShields, err := models.AlertRecordShieldManager.GetRecordShields(input)
 		if err != nil {
 			log.Errorf("GetRecordShields byAlertId:%s,err:%v", input.AlertId, err)
