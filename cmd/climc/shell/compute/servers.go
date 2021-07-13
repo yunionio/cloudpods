@@ -87,6 +87,7 @@ func init() {
 	cmd.Perform("remote-update", new(options.ServerRemoteUpdateOptions))
 	cmd.Perform("create-eip", &options.ServerCreateEipOptions{})
 	cmd.Perform("make-sshable", &options.ServerMakeSshableOptions{})
+	cmd.Perform("migrate-network", &options.ServerMigrateNetworkOptions{})
 
 	cmd.Get("vnc", new(options.ServerIdOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))
