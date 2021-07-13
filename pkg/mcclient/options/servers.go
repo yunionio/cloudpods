@@ -1093,3 +1093,13 @@ type ServerRemoteUpdateOptions struct {
 	ServerIdOptions
 	computeapi.ServerRemoteUpdateInput
 }
+
+type ServerMigrateNetworkOptions struct {
+	BaseIdOptions
+
+	computeapi.ServerMigrateNetworkInput
+}
+
+func (opts *ServerMigrateNetworkOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}

@@ -85,6 +85,7 @@ func init() {
 	cmd.Perform("set-auto-renew", new(options.ServerSetAutoRenew))
 	cmd.Perform("save-template", new(options.ServerSaveImageOptions))
 	cmd.Perform("remote-update", new(options.ServerRemoteUpdateOptions))
+	cmd.Perform("migrate-network", &options.ServerMigrateNetworkOptions{})
 
 	cmd.Get("vnc", new(options.ServerIdOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))
