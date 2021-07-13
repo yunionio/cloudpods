@@ -175,29 +175,20 @@ type SWafStatement struct {
 	RegexSetId string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 	// 自定义规则组Id, 目前只读
 	RuleGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user"`
-	// 大小, 仅type=Size时必填
-	Size *int64 `nullable:"false" list:"user"`
-	// 速率限制, 仅type=Rate时必填
-	Limit *int64 `nullable:"false" list:"user"`
 }
 
 func (self SWafStatement) GetGlobalId() string {
-	size, limit := int64(0), int64(0)
-	if self.Size != nil {
-		size = *self.Size
-	}
-	if self.Limit != nil {
-		limit = *self.Limit
-	}
-	return fmt.Sprintf("%s-%s-%s-%s-%s-%d-%d",
+	id := fmt.Sprintf("%s-%s-%s-%s-%s",
 		self.Type,
 		self.MatchField,
 		self.MatchFieldKey,
 		self.ManagedRuleGroupName,
 		self.SearchString,
-		size,
-		limit,
 	)
+	if self.Type == WafStatementTypeGeoMatch || self.Type == WafStatementTypeRate {
+		id = fmt.Sprintf("%s-%s", id, self.MatchFieldValues)
+	}
+	return id
 }
 
 func (self SWafStatement) GetExternalId() string {
@@ -287,6 +278,10 @@ func init() {
 
 	gotypes.RegisterSerializable(reflect.TypeOf(&SExcludeRules{}), func() gotypes.ISerializable {
 		return &SExcludeRules{}
+	})
+
+	gotypes.RegisterSerializable(reflect.TypeOf(&WafRegexPatterns{}), func() gotypes.ISerializable {
+		return &WafRegexPatterns{}
 	})
 
 }

@@ -15,6 +15,7 @@
 package aws
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/wafv2"
@@ -57,7 +58,7 @@ type SWebAcl struct {
 	multicloud.SResourceBase
 	multicloud.AwsTags
 	region *SRegion
-	sWebDetails
+	*wafv2.WebACL
 
 	scope                    string
 	ARN                      string
@@ -114,8 +115,8 @@ func (self *SRegion) GetWebAcl(id, name, scope string) (*SWebAcl, error) {
 		}
 		return nil, errors.Wrapf(err, "GetWebAcl")
 	}
-	ret := &SWebAcl{region: self, scope: scope, sWebDetails: sWebDetails{resp.WebACL}, LockToken: *resp.LockToken}
-	return ret, jsonutils.Update(ret, resp.WebACL)
+	ret := &SWebAcl{region: self, scope: scope, WebACL: resp.WebACL, LockToken: *resp.LockToken}
+	return ret, jsonutils.Update(ret, resp)
 }
 
 func (self *SRegion) DeleteWebAcl(id, name, scope, lockToken string) error {
@@ -228,6 +229,7 @@ func (self *SWebAcl) Refresh() error {
 	if err != nil {
 		return errors.Wrapf(err, "GetWebAcl")
 	}
+	self.WebACL = acl.WebACL
 	return jsonutils.Update(self, acl)
 }
 
@@ -351,7 +353,11 @@ func reverseConvertStatement(statement cloudprovider.SWafStatement) *wafv2.State
 	switch statement.Type {
 	case cloudprovider.WafStatementTypeRate:
 		rate := &wafv2.RateBasedStatement{}
-		rate.SetLimit(*statement.Limit)
+		limit := int(0)
+		if statement.MatchFieldValues != nil && len(*statement.MatchFieldValues) == 1 {
+			limit, _ = strconv.Atoi((*statement.MatchFieldValues)[0])
+		}
+		rate.SetLimit(int64(limit))
 		fd := &wafv2.ForwardedIPConfig{}
 		if len(statement.ForwardedIPHeader) > 0 {
 			fd.SetHeaderName(statement.ForwardedIPHeader)
@@ -379,7 +385,11 @@ func reverseConvertStatement(statement cloudprovider.SWafStatement) *wafv2.State
 	case cloudprovider.WafStatementTypeSize:
 		size := &wafv2.SizeConstraintStatement{}
 		size.SetFieldToMatch(field)
-		size.SetSize(*statement.Size)
+		value := int(0)
+		if statement.MatchFieldValues != nil && len(*statement.MatchFieldValues) == 1 {
+			value, _ = strconv.Atoi((*statement.MatchFieldValues)[0])
+		}
+		size.SetSize(int64(value))
 		ret.SetSizeConstraintStatement(size)
 	case cloudprovider.WafStatementTypeGeoMatch:
 		geo := &wafv2.GeoMatchStatement{}
@@ -450,9 +460,9 @@ func (self *SWebAcl) AddRule(opts *cloudprovider.SWafRule) (cloudprovider.ICloud
 	input.SetName(self.Name)
 	input.SetScope(self.scope)
 	input.SetDescription(self.Description)
-	input.SetDefaultAction(self.sWebDetails.DefaultAction)
-	input.SetVisibilityConfig(self.sWebDetails.VisibilityConfig)
-	rules := self.sWebDetails.Rules
+	input.SetDefaultAction(self.DefaultAction)
+	input.SetVisibilityConfig(self.WebACL.VisibilityConfig)
+	rules := self.Rules
 	rule := &wafv2.Rule{}
 	rule.SetName(opts.Name)
 	rule.SetPriority(int64(opts.Priority))
