@@ -314,14 +314,13 @@ func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request,
 	// log.Debugf("doCredentialLogin body: %s", body)
 	cliIp := netutils2.GetHttpRequestIp(req)
 	if body.Contains("username") {
-		uname, _ := body.GetString("username")
-
 		if h.preLoginHook != nil {
-			if err = h.preLoginHook(ctx, req, uname, body); err != nil {
+			if err = h.preLoginHook(ctx, req, body); err != nil {
 				return nil, err
 			}
 		}
 
+		uname, _ := body.GetString("username")
 		var passwd string
 		passwd, err = body.GetString("password")
 		if err != nil {
@@ -528,7 +527,7 @@ func clearAuthCookie(w http.ResponseWriter) {
 	clearCookie(w, constants.YUNION_AUTH_COOKIE, options.Options.CookieDomain)
 }
 
-type PreLoginFunc func(ctx context.Context, req *http.Request, uname string, body jsonutils.JSONObject) error
+type PreLoginFunc func(ctx context.Context, req *http.Request, body jsonutils.JSONObject) error
 
 func (h *AuthHandlers) postLoginHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	body, err := appsrv.FetchJSON(req)
