@@ -140,7 +140,7 @@ func (guest *SGuest) PerformMigrateNetwork(ctx context.Context, userCred mcclien
 	}
 
 	// synchronize the change to host, and wait it to be effective
-	err = guest.StartSyncTask(ctx, userCred, true, ":")
+	err = guest.StartSyncTask(ctx, userCred, false, "")
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to SyncTask")
 	}
