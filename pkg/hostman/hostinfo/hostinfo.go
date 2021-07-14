@@ -96,6 +96,8 @@ type SHostInfo struct {
 	FullName   string
 	SysError   map[string]string
 	SysWarning map[string]string
+
+	IoScheduler string
 }
 
 func (h *SHostInfo) GetIsolatedDeviceManager() *isolated_device.IsolatedDeviceManager {
@@ -336,11 +338,39 @@ func (h *SHostInfo) prepareEnv() error {
 		return errors.Wrap(err, "Execute 'ethtool -h'")
 	}
 
+	supportedSchedulers, _ := fileutils2.GetAllBlkdevsIoSchedulers()
+	// IoScheduler default to none scheduler
 	ioParams := make(map[string]string, 0)
-	if options.HostOptions.BlockIoScheduler == "deadline" {
-		ioParams["queue/scheduler"] = "deadline"
-	} else {
-		ioParams["queue/scheduler"] = "cfq"
+	switch options.HostOptions.BlockIoScheduler {
+	case "deadline":
+		if utils.IsInStringArray("mq-deadline", supportedSchedulers) {
+			h.IoScheduler = "mq-deadline"
+		} else if utils.IsInStringArray("deadline", supportedSchedulers) {
+			h.IoScheduler = "deadline"
+		} else {
+			h.IoScheduler = "none"
+		}
+	case "cfq":
+		if utils.IsInStringArray("bfq", supportedSchedulers) {
+			h.IoScheduler = "bfq"
+		} else if utils.IsInStringArray("cfq", supportedSchedulers) {
+			h.IoScheduler = "cfq"
+		} else {
+			h.IoScheduler = "none"
+		}
+	default:
+		if utils.IsInStringArray(options.HostOptions.BlockIoScheduler, supportedSchedulers) {
+			h.IoScheduler = options.HostOptions.BlockIoScheduler
+		} else {
+			h.IoScheduler = "none"
+		}
+	}
+
+	log.Infof("I/O Scheduler switch to %s", h.IoScheduler)
+
+	ioParams["queue/scheduler"] = h.IoScheduler
+	switch h.IoScheduler {
+	case "cfq":
 		ioParams["queue/iosched/group_isolation"] = "1"
 		ioParams["queue/iosched/slice_idle"] = "0"
 		ioParams["queue/iosched/group_idle"] = "0"
@@ -356,7 +386,7 @@ func (h *SHostInfo) prepareEnv() error {
 		log.Warningf("modprobe vhost_net error: %s", output)
 	}
 	if !options.HostOptions.DisableSetCgroup {
-		if !cgrouputils.Init() {
+		if !cgrouputils.Init(h.IoScheduler) {
 			return fmt.Errorf("Cannot initialize control group subsystem")
 		}
 	}
