@@ -342,6 +342,8 @@ type SGuestNetworkSyncTask struct {
 	addNics []jsonutils.JSONObject
 	errors  []error
 
+	changedNics [][]jsonutils.JSONObject
+
 	callback func(...error)
 }
 
@@ -360,7 +362,36 @@ func (n *SGuestNetworkSyncTask) syncNetworkConf() {
 		n.addNics = n.addNics[:len(n.addNics)-1]
 		n.addNic(nic)
 	} else {
+		if len(n.changedNics) > 0 {
+			for i := range n.changedNics {
+				n.onNicChange(n.changedNics[i][0], n.changedNics[i][1])
+			}
+		}
 		n.callback(n.errors...)
+	}
+}
+
+func (n *SGuestNetworkSyncTask) onNicChange(oldNic, newNic jsonutils.JSONObject) {
+	oldbr, _ := oldNic.GetString("bridge")
+	oldifname, _ := oldNic.GetString("ifname")
+	newbr, _ := newNic.GetString("bridge")
+	newifname, _ := newNic.GetString("ifname")
+	if oldbr != newbr {
+		// bridge changed
+		if oldifname == newifname {
+			output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "del-port", oldbr, oldifname).Output()
+			log.Debugf("ovs-vsctl del-port %s %s: %s", oldbr, oldifname, output)
+			if err != nil {
+				n.errors = append(n.errors, err)
+			}
+			output, err = procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "add-port", newbr, newifname).Output()
+			log.Debugf("ovs-vsctl add-port %s %s: %s", newbr, newifname, output)
+			if err != nil {
+				n.errors = append(n.errors, err)
+			}
+		} else {
+			log.Errorf("cannot change both bridge(%s!=%s) and ifname(%s!=%s)!!!!!", oldbr, newbr, oldifname, newifname)
+		}
 	}
 }
 
@@ -460,8 +491,8 @@ func (n *SGuestNetworkSyncTask) onDeviceAdd(nic jsonutils.JSONObject) {
 	n.syncNetworkConf()
 }
 
-func NewGuestNetworkSyncTask(guest *SKVMGuestInstance, delNics, addNics []jsonutils.JSONObject) *SGuestNetworkSyncTask {
-	return &SGuestNetworkSyncTask{guest, delNics, addNics, make([]error, 0), nil}
+func NewGuestNetworkSyncTask(guest *SKVMGuestInstance, delNics, addNics []jsonutils.JSONObject, changedNics [][]jsonutils.JSONObject) *SGuestNetworkSyncTask {
+	return &SGuestNetworkSyncTask{guest, delNics, addNics, make([]error, 0), changedNics, nil}
 }
 
 /**

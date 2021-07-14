@@ -1083,7 +1083,7 @@ func (s *SKVMGuestInstance) compareDescCdrom(newDesc jsonutils.JSONObject) *stri
 	}
 }
 
-func (s *SKVMGuestInstance) compareDescNetworks(newDesc jsonutils.JSONObject) ([]jsonutils.JSONObject, []jsonutils.JSONObject) {
+func (s *SKVMGuestInstance) compareDescNetworks(newDesc jsonutils.JSONObject) ([]jsonutils.JSONObject, []jsonutils.JSONObject, [][]jsonutils.JSONObject) {
 	var isValid = func(net jsonutils.JSONObject) bool {
 		driver, _ := net.GetString("driver")
 		return driver == "virtio"
@@ -1101,9 +1101,11 @@ func (s *SKVMGuestInstance) compareDescNetworks(newDesc jsonutils.JSONObject) ([
 	}
 
 	var delNics, addNics = []jsonutils.JSONObject{}, []jsonutils.JSONObject{}
+	var changedNics = [][]jsonutils.JSONObject{}
 	nics, _ := newDesc.GetArray("nics")
 	for _, n := range nics {
 		if isValid(n) {
+			// assume all nics in new desc are new
 			addNics = append(addNics, n)
 		}
 	}
@@ -1113,24 +1115,31 @@ func (s *SKVMGuestInstance) compareDescNetworks(newDesc jsonutils.JSONObject) ([
 		if isValid(n) {
 			idx := findNet(addNics, n)
 			if idx >= 0 {
-				// remove n
+				// check if bridge changed
+				changedNics = append(changedNics, []jsonutils.JSONObject{
+					n,            // old
+					addNics[idx], // new
+				})
+				// remove existing nic from new
 				addNics = append(addNics[:idx], addNics[idx+1:]...)
 			} else {
+				// not found, remove the nic
 				delNics = append(delNics, n)
 			}
 		}
 	}
-	return delNics, addNics
+	return delNics, addNics, changedNics
 }
 
 func (s *SKVMGuestInstance) SyncConfig(ctx context.Context, desc jsonutils.JSONObject, fwOnly bool) (jsonutils.JSONObject, error) {
 	var delDisks, addDisks, delNetworks, addNetworks []jsonutils.JSONObject
+	var changedNetworks [][]jsonutils.JSONObject
 	var cdrom *string
 
 	if !fwOnly {
 		delDisks, addDisks = s.compareDescDisks(desc)
 		cdrom = s.compareDescCdrom(desc)
-		delNetworks, addNetworks = s.compareDescNetworks(desc)
+		delNetworks, addNetworks, changedNetworks = s.compareDescNetworks(desc)
 	}
 	if err := s.SaveDesc(desc); err != nil {
 		return nil, err
@@ -1174,7 +1183,7 @@ func (s *SKVMGuestInstance) SyncConfig(ctx context.Context, desc jsonutils.JSONO
 	}
 
 	if len(delNetworks)+len(addNetworks) > 0 {
-		task := NewGuestNetworkSyncTask(s, delNetworks, addNetworks)
+		task := NewGuestNetworkSyncTask(s, delNetworks, addNetworks, changedNetworks)
 		runTaskNames = append(runTaskNames, jsonutils.NewString("networksync"))
 		tasks = append(tasks, task)
 	}
