@@ -629,6 +629,8 @@ github.com/stretchr/testify/assert
 github.com/stretchr/testify/mock
 github.com/stretchr/testify/require
 github.com/stretchr/testify/suite
+# github.com/tatsushid/go-fastping v0.0.0-20160109021039-d7bb493dee3e
+github.com/tatsushid/go-fastping
 # github.com/tencentcloud/tencentcloud-sdk-go v3.0.135+incompatible
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors
@@ -762,6 +764,7 @@ golang.org/x/net/http/httpguts
 golang.org/x/net/http/httpproxy
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack
+golang.org/x/net/icmp
 golang.org/x/net/idna
 golang.org/x/net/internal/iana
 golang.org/x/net/internal/socket
