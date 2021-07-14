@@ -148,7 +148,7 @@ func (self *SLoadBalancerListener) GetSysTags() map[string]string {
 func (self *SLoadBalancerListener) GetTags() (map[string]string, error) {
 	if self.fp != nil {
 		if self.fp.Properties.PublicIPAddress != nil && len(self.fp.Properties.PublicIPAddress.ID) > 0 {
-			eip, _ := self.lb.GetIEIP()
+			eip, _ := self.lb.GetIEIPById(self.fp.Properties.PublicIPAddress.ID)
 			if eip != nil {
 				return map[string]string{"FrontendIP": eip.GetIpAddr()}, nil
 			}

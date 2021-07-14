@@ -16,7 +16,7 @@ import (
 
 type SLoadbalancer struct {
 	region    *SRegion
-	eip       cloudprovider.ICloudEIP
+	eips      []cloudprovider.ICloudEIP
 	lbbgs     []cloudprovider.ICloudLoadbalancerBackendGroup
 	listeners []cloudprovider.ICloudLoadbalancerListener
 
@@ -79,7 +79,7 @@ func (self *SLoadbalancer) Refresh() error {
 		return errors.Wrap(err, "jsonutils.Update")
 	}
 
-	self.eip = nil
+	self.eips = nil
 	self.lbbgs = nil
 	self.listeners = nil
 	return nil
@@ -273,18 +273,53 @@ func (self *SLoadbalancer) getEipIds() []string {
 }
 
 func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
-	if self.eip != nil {
-		return self.eip, nil
+	ieips, err := self.GetIEIPS()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIEIPS")
 	}
 
-	eips := self.getEipIds()
-	if len(eips) > 0 {
-		eip, err := self.region.GetIEipById(eips[0])
-		self.eip = eip
-		return eip, err
+	if len(ieips) > 0 {
+		return self.eips[0], nil
 	}
 
 	return nil, nil
+}
+
+func (self *SLoadbalancer) GetIEIPById(eipId string) (cloudprovider.ICloudEIP, error) {
+	ieips, err := self.GetIEIPS()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIEIPS")
+	}
+
+	for i := range ieips {
+		if ieips[i].GetId() == eipId {
+			return ieips[i], nil
+		}
+	}
+
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, eipId)
+}
+
+func (self *SLoadbalancer) GetIEIPS() ([]cloudprovider.ICloudEIP, error) {
+	if self.eips != nil {
+		return self.eips, nil
+	}
+
+	eips := self.getEipIds()
+	ieips := make([]cloudprovider.ICloudEIP, 0)
+	for i := range eips {
+		ieip, err := self.region.GetIEipById(eips[i])
+		if err != nil {
+			return nil, errors.Wrap(err, "GetIEIP")
+		}
+		ieips = append(ieips, ieip)
+	}
+
+	if len(ieips) > 0 {
+		self.eips = ieips
+	}
+
+	return self.eips, nil
 }
 
 func (self *SLoadbalancer) Delete(ctx context.Context) error {
