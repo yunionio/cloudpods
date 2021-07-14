@@ -30,7 +30,11 @@ type SUnionQueryField struct {
 }
 
 func (sqf *SUnionQueryField) Expression() string {
-	return sqf.name
+	if len(sqf.alias) > 0 {
+		return fmt.Sprintf("`%s`.`%s` as `%s`", sqf.union.Alias(), sqf.name, sqf.alias)
+	} else {
+		return fmt.Sprintf("`%s`.`%s`", sqf.union.Alias(), sqf.name)
+	}
 }
 
 func (sqf *SUnionQueryField) Name() string {
@@ -42,7 +46,7 @@ func (sqf *SUnionQueryField) Name() string {
 }
 
 func (sqf *SUnionQueryField) Reference() string {
-	return fmt.Sprintf("`%s`.`%s`", sqf.union.Alias(), sqf.name)
+	return fmt.Sprintf("`%s`.`%s`", sqf.union.Alias(), sqf.Name())
 }
 
 func (sqf *SUnionQueryField) Label(label string) IQueryField {

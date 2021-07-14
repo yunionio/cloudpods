@@ -35,7 +35,7 @@ func structField2ColumnSpec(field *reflectutils.SStructFieldValue) IColumnSpec {
 		retCol = getFiledTypeCol(fieldType.Elem(), fieldname, tagmap, true)
 	}
 	if retCol == nil {
-		panic("unsupported colume data type %s" + fieldType.Name())
+		panic(fmt.Sprintf("unsupported colume %s data type %s", fieldname, fieldType.Name()))
 	}
 	return retCol
 }
