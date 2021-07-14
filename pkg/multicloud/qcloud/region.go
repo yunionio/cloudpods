@@ -681,6 +681,11 @@ func (self *SRegion) sslRequest(apiName string, params map[string]string) (jsonu
 	return self.client.sslRequest(apiName, params)
 }
 
+func (self *SRegion) kafkaRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	params["Region"] = self.Region
+	return self.client.kafkaRequest(apiName, params)
+}
+
 func (self *SRegion) redisRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	params["Region"] = self.Region
 	return self.client.redisRequest(apiName, params)

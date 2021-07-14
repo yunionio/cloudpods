@@ -229,6 +229,8 @@ func InitHandlers(app *appsrv.Application) {
 
 		models.MongoDBManager,
 		models.ElasticSearchManager,
+
+		models.KafkaManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

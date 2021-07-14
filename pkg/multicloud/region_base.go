@@ -214,3 +214,11 @@ func (self *SRegion) GetIElasticSearchs() ([]cloudprovider.ICloudElasticSearch, 
 func (self *SRegion) GetIElasticSearchById(id string) (cloudprovider.ICloudElasticSearch, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIElasticSearchById")
 }
+
+func (self *SRegion) GetICloudKafkas() ([]cloudprovider.ICloudKafka, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudKafkas")
+}
+
+func (self *SRegion) GetICloudKafkaById(id string) (cloudprovider.ICloudKafka, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudKafkaById")
+}

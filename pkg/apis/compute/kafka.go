@@ -17,20 +17,19 @@ package compute
 import "yunion.io/x/onecloud/pkg/apis"
 
 const (
-	ELASTIC_SEARCH_STATUS_AVAILABLE     = "available"
-	ELASTIC_SEARCH_STATUS_UNAVAILABLE   = "unavailable"
-	ELASITC_SEARCH_STATUS_CREATING      = "creating"
-	ELASTIC_SEARCH_STATUS_DELETING      = "deleting"
-	ELASTIC_SEARCH_STATUS_DELETE_FAILED = "delete_failed"
-	ELASTIC_SEARCH_STATUS_UNKNOWN       = "unknown"
+	KAFKA_STATUS_AVAILABLE     = "available"
+	KAFKA_STATUS_UNAVAILABLE   = "unavailable"
+	KAFKA_STATUS_CREATING      = "creating"
+	KAFKA_STATUS_DELETING      = "deleting"
+	KAFKA_STATUS_DELETE_FAILED = "delete_failed"
+	KAFKA_STATUS_UNKNOWN       = "unknown"
 )
 
-// 资源创建参数, 目前仅占位
-type ElasticSearchCreateInput struct {
+type KafkaCreateInput struct {
 }
 
 // 资源返回详情
-type ElasticSearchDetails struct {
+type KafkaDetails struct {
 	apis.VirtualResourceDetails
 	ManagedResourceInfo
 	CloudregionResourceInfo
@@ -40,7 +39,7 @@ type ElasticSearchDetails struct {
 }
 
 // 资源列表请求参数
-type ElasticSearchListInput struct {
+type KafkaListInput struct {
 	apis.VirtualResourceListInput
 	apis.ExternalizedResourceBaseListInput
 	apis.DeletePreventableResourceBaseListInput

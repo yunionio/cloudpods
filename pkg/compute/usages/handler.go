@@ -323,6 +323,8 @@ func getSystemGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.I
 
 		ElasticSearchUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
 
+		KafkaUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
+
 		ElasticCacheUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
 	)
 
@@ -417,6 +419,8 @@ func getDomainGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 
 		ElasticSearchUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
+		KafkaUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+
 		ElasticCacheUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 	)
 	return count, nil
@@ -468,6 +472,8 @@ func getProjectGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityP
 		MongoDBUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
 		ElasticSearchUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+
+		KafkaUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
 		ElasticCacheUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 	)
@@ -976,6 +982,15 @@ func ElasticSearchUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityPr
 	count[getKey(scope, "es")] = cnt.TotalEsCount
 	count[getKey(scope, "es.cpu")] = cnt.TotalCpuCount
 	count[getKey(scope, "es.memory")] = cnt.TotalMemSizeGb * 1024
+	return count
+}
+
+func KafkaUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
+	cnt, _ := models.KafkaManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
+	count := make(map[string]interface{})
+	count[getKey(scope, "kafka")] = cnt.TotalKafkaCount
+	count[getKey(scope, "kafka.cpu")] = cnt.TotalCpuCount
+	count[getKey(scope, "kafka.memory")] = cnt.TotalMemSizeGb * 1024
 	return count
 }
 
