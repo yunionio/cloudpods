@@ -615,6 +615,7 @@ func (adapter *MegaRaidAdaptor) BuildNoneRaid(devs []*baremetal.BaremetalStorage
 
 type StorcliAdaptor struct {
 	Controller int
+	isSNEmpty  bool
 	sn         string
 	name       string
 }
@@ -622,6 +623,7 @@ type StorcliAdaptor struct {
 func newStorcliAdaptor() *StorcliAdaptor {
 	return &StorcliAdaptor{
 		Controller: -1,
+		isSNEmpty:  false,
 		sn:         "",
 		name:       "",
 	}
@@ -632,24 +634,54 @@ func (a StorcliAdaptor) key() string {
 }
 
 func (a *StorcliAdaptor) isComplete() bool {
+	if a.isSNEmpty {
+		return a.Controller >= 0 && a.name != ""
+	}
 	return a.Controller >= 0 && a.name != "" && a.sn != ""
 }
 
-func (a *StorcliAdaptor) parseLine(l string) {
-	parts := strings.Split(l, " = ")
+func parseLineForStorcli(a *StorcliAdaptor, l string) {
+	controllerKey := "Controller"
+	productNameKey := "Product Name"
+	snKey := "Serial Number"
+
+	if !regexp.MustCompile(fmt.Sprintf("^(%s|%s|%s)\\s*=", controllerKey, productNameKey, snKey)).Match([]byte(l)) {
+		return
+	}
+
+	parts := strings.Split(l, "=")
 	if len(parts) != 2 {
 		return
 	}
-	key := parts[0]
-	val := parts[1]
+
+	trimBeginEndSpace := func(s string) string {
+		return strings.TrimLeft(strings.TrimRight(s, " "), " ")
+	}
+
+	key := trimBeginEndSpace(parts[0])
+	val := trimBeginEndSpace(parts[1])
+
+	if key == snKey && val == "" {
+		a.isSNEmpty = true
+		return
+	}
+
 	switch key {
-	case "Controller":
+	case controllerKey:
 		a.Controller, _ = strconv.Atoi(val)
-	case "Serial Number":
+	case snKey:
 		a.sn = val
-	case "Product Name":
+	case productNameKey:
 		a.name = val
 	}
+}
+
+func (a *StorcliAdaptor) parseLine(l string) {
+	parseLineForStorcli(a, l)
+}
+
+func (a *StorcliAdaptor) String() string {
+	return fmt.Sprintf("{controller: %d, isSNEmpty: %v, sn: %q, name: %s}", a.Controller, a.isSNEmpty, a.sn, a.name)
 }
 
 func (raid *MegaRaid) GetStorcliAdaptor() (map[string]*StorcliAdaptor, error) {
