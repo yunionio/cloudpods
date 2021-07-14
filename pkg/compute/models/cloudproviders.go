@@ -1347,6 +1347,20 @@ func (provider *SCloudprovider) markProviderDisconnected(ctx context.Context, us
 	return provider.ClearSchedDescCache()
 }
 
+func (self *SCloudprovider) updateName(ctx context.Context, userCred mcclient.TokenCredential, name string) error {
+	if self.Name != name {
+		diff, err := db.Update(self, func() error {
+			self.Name = name
+			return nil
+		})
+		if err != nil {
+			return errors.Wrapf(err, "db.Update")
+		}
+		db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
+	}
+	return nil
+}
+
 func (provider *SCloudprovider) markProviderConnected(ctx context.Context, userCred mcclient.TokenCredential, healthStatus string) error {
 	if healthStatus != provider.HealthStatus {
 		diff, err := db.Update(provider, func() error {
