@@ -173,6 +173,14 @@ func (self *sWafStatement) convert() cloudprovider.SWafStatement {
 		statement.Type = cloudprovider.WafStatementTypeXssMatch
 		fillStatement(&statement, self.XssMatchStatement.FieldToMatch)
 		fillTransformations(&statement, self.XssMatchStatement.TextTransformations)
+	} else if self.LabelMatchStatement != nil {
+		statement.Type = cloudprovider.WafStatementTypeLabelMatch
+		if self.LabelMatchStatement.Scope != nil {
+			statement.MatchFieldKey = *self.LabelMatchStatement.Scope
+		}
+		if self.LabelMatchStatement.Key != nil {
+			statement.MatchFieldValues = &cloudprovider.TWafMatchFieldValues{*self.LabelMatchStatement.Key}
+		}
 	}
 	return statement
 }

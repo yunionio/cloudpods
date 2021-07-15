@@ -129,6 +129,10 @@ func (c *Organizations) AcceptHandshakeRequest(input *AcceptHandshakeInput) (req
 //      * ORGANIZATION_ALREADY_HAS_ALL_FEATURES: The handshake request is invalid
 //      because the organization has already enabled all features.
 //
+//      * ORGANIZATION_IS_ALREADY_PENDING_ALL_FEATURES_MIGRATION: The handshake
+//      request is invalid because the organization has already started the process
+//      to enable all features.
+//
 //      * ORGANIZATION_FROM_DIFFERENT_SELLER_OF_RECORD: The request failed because
 //      the account is from a different marketplace than the accounts in the organization.
 //      For example, accounts with India addresses must be associated with the
@@ -169,6 +173,9 @@ func (c *Organizations) AcceptHandshakeRequest(input *AcceptHandshakeInput) (req
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -365,7 +372,7 @@ func (c *Organizations) AttachPolicyRequest(input *AttachPolicyInput) (req *requ
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -432,7 +439,7 @@ func (c *Organizations) AttachPolicyRequest(input *AttachPolicyInput) (req *requ
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -512,6 +519,9 @@ func (c *Organizations) AttachPolicyRequest(input *AttachPolicyInput) (req *requ
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -727,6 +737,9 @@ func (c *Organizations) CancelHandshakeRequest(input *CancelHandshakeInput) (req
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
 //
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
+//
 //      * INVALID_ENUM: You specified an invalid value.
 //
 //      * INVALID_ENUM_POLICY_TYPE: You specified an invalid policy type string.
@@ -877,8 +890,8 @@ func (c *Organizations) CreateAccountRequest(input *CreateAccountInput) (req *re
 //    operation.
 //
 //    * Check the AWS CloudTrail log for the CreateAccountResult event. For
-//    information on using AWS CloudTrail with AWS Organizations, see Monitoring
-//    the Activity in Your Organization (http://docs.aws.amazon.com/organizations/latest/userguide/orgs_monitoring.html)
+//    information on using AWS CloudTrail with AWS Organizations, see Logging
+//    and monitoring in AWS Organizations (http://docs.aws.amazon.com/organizations/latest/userguide/orgs_security_incident-response.html#orgs_cloudtrail-integration)
 //    in the AWS Organizations User Guide.
 //
 // The user who calls the API to create an account must have the organizations:CreateAccount
@@ -967,7 +980,7 @@ func (c *Organizations) CreateAccountRequest(input *CreateAccountInput) (req *re
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -1034,7 +1047,7 @@ func (c *Organizations) CreateAccountRequest(input *CreateAccountInput) (req *re
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -1111,6 +1124,9 @@ func (c *Organizations) CreateAccountRequest(input *CreateAccountInput) (req *re
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -1402,7 +1418,7 @@ func (c *Organizations) CreateGovCloudAccountRequest(input *CreateGovCloudAccoun
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -1469,7 +1485,7 @@ func (c *Organizations) CreateGovCloudAccountRequest(input *CreateGovCloudAccoun
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -1546,6 +1562,9 @@ func (c *Organizations) CreateGovCloudAccountRequest(input *CreateGovCloudAccoun
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -1742,7 +1761,7 @@ func (c *Organizations) CreateOrganizationRequest(input *CreateOrganizationInput
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -1809,7 +1828,7 @@ func (c *Organizations) CreateOrganizationRequest(input *CreateOrganizationInput
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -1886,6 +1905,9 @@ func (c *Organizations) CreateOrganizationRequest(input *CreateOrganizationInput
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -2077,7 +2099,7 @@ func (c *Organizations) CreateOrganizationalUnitRequest(input *CreateOrganizatio
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -2144,7 +2166,7 @@ func (c *Organizations) CreateOrganizationalUnitRequest(input *CreateOrganizatio
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -2224,6 +2246,9 @@ func (c *Organizations) CreateOrganizationalUnitRequest(input *CreateOrganizatio
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -2410,7 +2435,7 @@ func (c *Organizations) CreatePolicyRequest(input *CreatePolicyInput) (req *requ
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -2477,7 +2502,7 @@ func (c *Organizations) CreatePolicyRequest(input *CreatePolicyInput) (req *requ
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -2557,6 +2582,9 @@ func (c *Organizations) CreatePolicyRequest(input *CreatePolicyInput) (req *requ
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -2769,6 +2797,9 @@ func (c *Organizations) DeclineHandshakeRequest(input *DeclineHandshakeInput) (r
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
 //
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
+//
 //      * INVALID_ENUM: You specified an invalid value.
 //
 //      * INVALID_ENUM_POLICY_TYPE: You specified an invalid policy type string.
@@ -2948,6 +2979,9 @@ func (c *Organizations) DeleteOrganizationRequest(input *DeleteOrganizationInput
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -3135,6 +3169,9 @@ func (c *Organizations) DeleteOrganizationalUnitRequest(input *DeleteOrganizatio
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -3326,6 +3363,9 @@ func (c *Organizations) DeletePolicyRequest(input *DeletePolicyInput) (req *requ
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
 //
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
+//
 //      * INVALID_ENUM: You specified an invalid value.
 //
 //      * INVALID_ENUM_POLICY_TYPE: You specified an invalid policy type string.
@@ -3485,7 +3525,7 @@ func (c *Organizations) DeregisterDelegatedAdministratorRequest(input *Deregiste
 // You can run this action only for AWS services that support this feature.
 // For a current list of services that support it, see the column Supports Delegated
 // Administrator in the table at AWS Services that you can use with AWS Organizations
-// (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_integrated-services-list.html)
+// (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_integrate_services_list.html)
 // in the AWS Organizations User Guide.
 //
 // This operation can be called only from the organization's management account.
@@ -3532,7 +3572,7 @@ func (c *Organizations) DeregisterDelegatedAdministratorRequest(input *Deregiste
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -3599,7 +3639,7 @@ func (c *Organizations) DeregisterDelegatedAdministratorRequest(input *Deregiste
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -3676,6 +3716,9 @@ func (c *Organizations) DeregisterDelegatedAdministratorRequest(input *Deregiste
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -3862,6 +3905,9 @@ func (c *Organizations) DescribeAccountRequest(input *DescribeAccountInput) (req
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
 //
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
+//
 //      * INVALID_ENUM: You specified an invalid value.
 //
 //      * INVALID_ENUM_POLICY_TYPE: You specified an invalid policy type string.
@@ -4042,6 +4088,9 @@ func (c *Organizations) DescribeCreateAccountStatusRequest(input *DescribeCreate
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -4228,7 +4277,7 @@ func (c *Organizations) DescribeEffectivePolicyRequest(input *DescribeEffectiveP
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -4295,7 +4344,7 @@ func (c *Organizations) DescribeEffectivePolicyRequest(input *DescribeEffectiveP
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -4393,6 +4442,9 @@ func (c *Organizations) DescribeEffectivePolicyRequest(input *DescribeEffectiveP
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -4569,6 +4621,9 @@ func (c *Organizations) DescribeHandshakeRequest(input *DescribeHandshakeInput) 
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -4857,6 +4912,9 @@ func (c *Organizations) DescribeOrganizationalUnitRequest(input *DescribeOrganiz
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
 //
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
+//
 //      * INVALID_ENUM: You specified an invalid value.
 //
 //      * INVALID_ENUM_POLICY_TYPE: You specified an invalid policy type string.
@@ -5036,6 +5094,9 @@ func (c *Organizations) DescribePolicyRequest(input *DescribePolicyInput) (req *
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -5233,7 +5294,7 @@ func (c *Organizations) DetachPolicyRequest(input *DetachPolicyInput) (req *requ
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -5300,7 +5361,7 @@ func (c *Organizations) DetachPolicyRequest(input *DetachPolicyInput) (req *requ
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -5377,6 +5438,9 @@ func (c *Organizations) DetachPolicyRequest(input *DetachPolicyInput) (req *requ
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -5540,18 +5604,46 @@ func (c *Organizations) DisableAWSServiceAccessRequest(input *DisableAWSServiceA
 // can still perform operations in older accounts until the service completes
 // its clean-up from AWS Organizations.
 //
-// We recommend that you disable integration between AWS Organizations and the
-// specified AWS service by using the console or commands that are provided
-// by the specified service. Doing so ensures that the other service is aware
-// that it can clean up any resources that are required only for the integration.
-// How the service cleans up its resources in the organization's accounts depends
-// on that service. For more information, see the documentation for the other
-// AWS service.
+// We strongly recommend that you don't use this command to disable integration
+// between AWS Organizations and the specified AWS service. Instead, use the
+// console or commands that are provided by the specified service. This lets
+// the trusted service perform any required initialization when enabling trusted
+// access, such as creating any required resources and any required clean up
+// of resources when disabling trusted access.
+//
+// For information about how to disable trusted service access to your organization
+// using the trusted service, see the Learn more link under the Supports Trusted
+// Access column at AWS services that you can use with AWS Organizations (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_integrate_services_list.html).
+// on this page.
+//
+// If you disable access by using this command, it causes the following actions
+// to occur:
+//
+//    * The service can no longer create a service-linked role in the accounts
+//    in your organization. This means that the service can't perform operations
+//    on your behalf on any new accounts in your organization. The service can
+//    still perform operations in older accounts until the service completes
+//    its clean-up from AWS Organizations.
+//
+//    * The service can no longer perform tasks in the member accounts in the
+//    organization, unless those operations are explicitly permitted by the
+//    IAM policies that are attached to your roles. This includes any data aggregation
+//    from the member accounts to the management account, or to a delegated
+//    administrator account, where relevant.
+//
+//    * Some services detect this and clean up any remaining data or resources
+//    related to the integration, while other services stop accessing the organization
+//    but leave any historical data and configuration in place to support a
+//    possible re-enabling of the integration.
+//
+// Using the other service's console or commands to disable the integration
+// ensures that the other service is aware that it can clean up any resources
+// that are required only for the integration. How the service cleans up its
+// resources in the organization's accounts depends on that service. For more
+// information, see the documentation for the other AWS service.
 //
 // After you perform the DisableAWSServiceAccess operation, the specified service
-// can no longer perform operations in your organization's accounts unless the
-// operations are explicitly permitted by the IAM policies that are attached
-// to your roles.
+// can no longer perform operations in your organization's accounts
 //
 // For more information about integrating other services with AWS Organizations,
 // including the list of services that work with Organizations, see Integrating
@@ -5594,7 +5686,7 @@ func (c *Organizations) DisableAWSServiceAccessRequest(input *DisableAWSServiceA
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -5661,7 +5753,7 @@ func (c *Organizations) DisableAWSServiceAccessRequest(input *DisableAWSServiceA
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -5738,6 +5830,9 @@ func (c *Organizations) DisableAWSServiceAccessRequest(input *DisableAWSServiceA
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -5930,7 +6025,7 @@ func (c *Organizations) DisablePolicyTypeRequest(input *DisablePolicyTypeInput) 
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -5997,7 +6092,7 @@ func (c *Organizations) DisablePolicyTypeRequest(input *DisablePolicyTypeInput) 
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -6074,6 +6169,9 @@ func (c *Organizations) DisablePolicyTypeRequest(input *DisablePolicyTypeInput) 
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -6285,7 +6383,7 @@ func (c *Organizations) EnableAWSServiceAccessRequest(input *EnableAWSServiceAcc
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -6352,7 +6450,7 @@ func (c *Organizations) EnableAWSServiceAccessRequest(input *EnableAWSServiceAcc
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -6429,6 +6527,9 @@ func (c *Organizations) EnableAWSServiceAccessRequest(input *EnableAWSServiceAcc
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -6651,6 +6752,10 @@ func (c *Organizations) EnableAllFeaturesRequest(input *EnableAllFeaturesInput) 
 //      * ORGANIZATION_ALREADY_HAS_ALL_FEATURES: The handshake request is invalid
 //      because the organization has already enabled all features.
 //
+//      * ORGANIZATION_IS_ALREADY_PENDING_ALL_FEATURES_MIGRATION: The handshake
+//      request is invalid because the organization has already started the process
+//      to enable all features.
+//
 //      * ORGANIZATION_FROM_DIFFERENT_SELLER_OF_RECORD: The request failed because
 //      the account is from a different marketplace than the accounts in the organization.
 //      For example, accounts with India addresses must be associated with the
@@ -6679,6 +6784,9 @@ func (c *Organizations) EnableAllFeaturesRequest(input *EnableAllFeaturesInput) 
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -6866,7 +6974,7 @@ func (c *Organizations) EnablePolicyTypeRequest(input *EnablePolicyTypeInput) (r
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -6933,7 +7041,7 @@ func (c *Organizations) EnablePolicyTypeRequest(input *EnablePolicyTypeInput) (r
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -7010,6 +7118,9 @@ func (c *Organizations) EnablePolicyTypeRequest(input *EnablePolicyTypeInput) (r
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -7246,6 +7357,10 @@ func (c *Organizations) InviteAccountToOrganizationRequest(input *InviteAccountT
 //      * ORGANIZATION_ALREADY_HAS_ALL_FEATURES: The handshake request is invalid
 //      because the organization has already enabled all features.
 //
+//      * ORGANIZATION_IS_ALREADY_PENDING_ALL_FEATURES_MIGRATION: The handshake
+//      request is invalid because the organization has already started the process
+//      to enable all features.
+//
 //      * ORGANIZATION_FROM_DIFFERENT_SELLER_OF_RECORD: The request failed because
 //      the account is from a different marketplace than the accounts in the organization.
 //      For example, accounts with India addresses must be associated with the
@@ -7277,7 +7392,7 @@ func (c *Organizations) InviteAccountToOrganizationRequest(input *InviteAccountT
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -7344,7 +7459,7 @@ func (c *Organizations) InviteAccountToOrganizationRequest(input *InviteAccountT
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -7421,6 +7536,9 @@ func (c *Organizations) InviteAccountToOrganizationRequest(input *InviteAccountT
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -7592,6 +7710,11 @@ func (c *Organizations) LeaveOrganizationRequest(input *LeaveOrganizationInput) 
 //    when all required account information has not yet been provided (http://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_remove.html#leave-without-all-info)
 //    in the AWS Organizations User Guide.
 //
+//    * The account that you want to leave must not be a delegated administrator
+//    account for any AWS service enabled for your organization. If the account
+//    is a delegated administrator, you must first change the delegated administrator
+//    account to another account that is remaining in the organization.
+//
 //    * You can leave an organization only after you enable IAM user access
 //    to billing in your account. For more information, see Activating Access
 //    to the Billing and Cost Management Console (http://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/grantaccess.html#ControllingAccessWebsite-Activate)
@@ -7600,6 +7723,10 @@ func (c *Organizations) LeaveOrganizationRequest(input *LeaveOrganizationInput) 
 //    * After the account leaves the organization, all tags that were attached
 //    to the account object in the organization are deleted. AWS accounts outside
 //    of an organization do not support tags.
+//
+//    * A newly created account has a waiting period before it can be removed
+//    from its organization. If you get an error that indicates that a wait
+//    period is required, then try again in a few days.
 //
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
 // with awserr.Error's Code and Message methods to get detailed information about
@@ -7640,7 +7767,7 @@ func (c *Organizations) LeaveOrganizationRequest(input *LeaveOrganizationInput) 
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -7707,7 +7834,7 @@ func (c *Organizations) LeaveOrganizationRequest(input *LeaveOrganizationInput) 
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -7784,6 +7911,9 @@ func (c *Organizations) LeaveOrganizationRequest(input *LeaveOrganizationInput) 
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -7976,7 +8106,7 @@ func (c *Organizations) ListAWSServiceAccessForOrganizationRequest(input *ListAW
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -8043,7 +8173,7 @@ func (c *Organizations) ListAWSServiceAccessForOrganizationRequest(input *ListAW
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -8120,6 +8250,9 @@ func (c *Organizations) ListAWSServiceAccessForOrganizationRequest(input *ListAW
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -8366,6 +8499,9 @@ func (c *Organizations) ListAccountsRequest(input *ListAccountsInput) (req *requ
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
 //
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
+//
 //      * INVALID_ENUM: You specified an invalid value.
 //
 //      * INVALID_ENUM_POLICY_TYPE: You specified an invalid policy type string.
@@ -8609,6 +8745,9 @@ func (c *Organizations) ListAccountsForParentRequest(input *ListAccountsForParen
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -8855,6 +8994,9 @@ func (c *Organizations) ListChildrenRequest(input *ListChildrenInput) (req *requ
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
 //
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
+//
 //      * INVALID_ENUM: You specified an invalid value.
 //
 //      * INVALID_ENUM_POLICY_TYPE: You specified an invalid policy type string.
@@ -9099,6 +9241,9 @@ func (c *Organizations) ListCreateAccountStatusRequest(input *ListCreateAccountS
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
 //
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
+//
 //      * INVALID_ENUM: You specified an invalid value.
 //
 //      * INVALID_ENUM_POLICY_TYPE: You specified an invalid policy type string.
@@ -9333,7 +9478,7 @@ func (c *Organizations) ListDelegatedAdministratorsRequest(input *ListDelegatedA
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -9400,7 +9545,7 @@ func (c *Organizations) ListDelegatedAdministratorsRequest(input *ListDelegatedA
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -9477,6 +9622,9 @@ func (c *Organizations) ListDelegatedAdministratorsRequest(input *ListDelegatedA
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -9719,7 +9867,7 @@ func (c *Organizations) ListDelegatedServicesForAccountRequest(input *ListDelega
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -9786,7 +9934,7 @@ func (c *Organizations) ListDelegatedServicesForAccountRequest(input *ListDelega
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -9863,6 +10011,9 @@ func (c *Organizations) ListDelegatedServicesForAccountRequest(input *ListDelega
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -10110,6 +10261,9 @@ func (c *Organizations) ListHandshakesForAccountRequest(input *ListHandshakesFor
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -10362,6 +10516,9 @@ func (c *Organizations) ListHandshakesForOrganizationRequest(input *ListHandshak
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
 //
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
+//
 //      * INVALID_ENUM: You specified an invalid value.
 //
 //      * INVALID_ENUM_POLICY_TYPE: You specified an invalid policy type string.
@@ -10601,6 +10758,9 @@ func (c *Organizations) ListOrganizationalUnitsForParentRequest(input *ListOrgan
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -10853,6 +11013,9 @@ func (c *Organizations) ListParentsRequest(input *ListParentsInput) (req *reques
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
 //
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
+//
 //      * INVALID_ENUM: You specified an invalid value.
 //
 //      * INVALID_ENUM_POLICY_TYPE: You specified an invalid policy type string.
@@ -11092,6 +11255,9 @@ func (c *Organizations) ListPoliciesRequest(input *ListPoliciesInput) (req *requ
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -11337,6 +11503,9 @@ func (c *Organizations) ListPoliciesForTargetRequest(input *ListPoliciesForTarge
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -11590,6 +11759,9 @@ func (c *Organizations) ListRootsRequest(input *ListRootsInput) (req *request.Re
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
 //
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
+//
 //      * INVALID_ENUM: You specified an invalid value.
 //
 //      * INVALID_ENUM_POLICY_TYPE: You specified an invalid policy type string.
@@ -11838,6 +12010,9 @@ func (c *Organizations) ListTagsForResourceRequest(input *ListTagsForResourceInp
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
 //
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
+//
 //      * INVALID_ENUM: You specified an invalid value.
 //
 //      * INVALID_ENUM_POLICY_TYPE: You specified an invalid policy type string.
@@ -12079,6 +12254,9 @@ func (c *Organizations) ListTargetsForPolicyRequest(input *ListTargetsForPolicyI
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
 //
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
+//
 //      * INVALID_ENUM: You specified an invalid value.
 //
 //      * INVALID_ENUM_POLICY_TYPE: You specified an invalid policy type string.
@@ -12311,6 +12489,9 @@ func (c *Organizations) MoveAccountRequest(input *MoveAccountInput) (req *reques
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
 //
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
+//
 //      * INVALID_ENUM: You specified an invalid value.
 //
 //      * INVALID_ENUM_POLICY_TYPE: You specified an invalid policy type string.
@@ -12480,7 +12661,7 @@ func (c *Organizations) RegisterDelegatedAdministratorRequest(input *RegisterDel
 // You can run this action only for AWS services that support this feature.
 // For a current list of services that support it, see the column Supports Delegated
 // Administrator in the table at AWS Services that you can use with AWS Organizations
-// (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_integrated-services-list.html)
+// (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_integrate_services_list.html)
 // in the AWS Organizations User Guide.
 //
 // This operation can be called only from the organization's management account.
@@ -12527,7 +12708,7 @@ func (c *Organizations) RegisterDelegatedAdministratorRequest(input *RegisterDel
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -12594,7 +12775,7 @@ func (c *Organizations) RegisterDelegatedAdministratorRequest(input *RegisterDel
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -12671,6 +12852,9 @@ func (c *Organizations) RegisterDelegatedAdministratorRequest(input *RegisterDel
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -12838,6 +13022,11 @@ func (c *Organizations) RemoveAccountFromOrganizationRequest(input *RemoveAccoun
 //    when all required account information has not yet been provided (http://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_remove.html#leave-without-all-info)
 //    in the AWS Organizations User Guide.
 //
+//    * The account that you want to leave must not be a delegated administrator
+//    account for any AWS service enabled for your organization. If the account
+//    is a delegated administrator, you must first change the delegated administrator
+//    account to another account that is remaining in the organization.
+//
 //    * After the account leaves the organization, all tags that were attached
 //    to the account object in the organization are deleted. AWS accounts outside
 //    of an organization do not support tags.
@@ -12881,7 +13070,7 @@ func (c *Organizations) RemoveAccountFromOrganizationRequest(input *RemoveAccoun
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -12948,7 +13137,7 @@ func (c *Organizations) RemoveAccountFromOrganizationRequest(input *RemoveAccoun
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -13025,6 +13214,9 @@ func (c *Organizations) RemoveAccountFromOrganizationRequest(input *RemoveAccoun
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -13220,7 +13412,7 @@ func (c *Organizations) TagResourceRequest(input *TagResourceInput) (req *reques
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -13287,7 +13479,7 @@ func (c *Organizations) TagResourceRequest(input *TagResourceInput) (req *reques
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -13364,6 +13556,9 @@ func (c *Organizations) TagResourceRequest(input *TagResourceInput) (req *reques
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -13554,7 +13749,7 @@ func (c *Organizations) UntagResourceRequest(input *UntagResourceInput) (req *re
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -13621,7 +13816,7 @@ func (c *Organizations) UntagResourceRequest(input *UntagResourceInput) (req *re
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -13698,6 +13893,9 @@ func (c *Organizations) UntagResourceRequest(input *UntagResourceInput) (req *re
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -13884,6 +14082,9 @@ func (c *Organizations) UpdateOrganizationalUnitRequest(input *UpdateOrganizatio
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
 //
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
+//
 //      * INVALID_ENUM: You specified an invalid value.
 //
 //      * INVALID_ENUM_POLICY_TYPE: You specified an invalid policy type string.
@@ -14064,7 +14265,7 @@ func (c *Organizations) UpdatePolicyRequest(input *UpdatePolicyInput) (req *requ
 //   Some of the reasons in the following list might not be applicable to this
 //   specific API or operation.
 //
-//      * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//      * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //      account from the organization. You can't remove the management account.
 //      Instead, after you remove all member accounts, delete the organization
 //      itself.
@@ -14131,7 +14332,7 @@ func (c *Organizations) UpdatePolicyRequest(input *UpdatePolicyInput) (req *requ
 //      with the same marketplace.
 //
 //      * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//      in China. To create an organization, the master must have an valid business
+//      in China. To create an organization, the master must have a valid business
 //      license. For more information, contact customer support.
 //
 //      * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -14211,6 +14412,9 @@ func (c *Organizations) UpdatePolicyRequest(input *UpdatePolicyInput) (req *requ
 //      can't be modified.
 //
 //      * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//      * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//      for the invited account owner.
 //
 //      * INVALID_ENUM: You specified an invalid value.
 //
@@ -14569,8 +14773,8 @@ type Account struct {
 	// The Amazon Resource Name (ARN) of the account.
 	//
 	// For more information about ARNs in Organizations, see ARN Formats Supported
-	// by Organizations (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_permissions.html#orgs-permissions-arns)
-	// in the AWS Organizations User Guide.
+	// by Organizations (https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsorganizations.html#awsorganizations-resources-for-iam-policies)
+	// in the AWS Service Authorization Reference.
 	Arn *string `type:"string"`
 
 	// The email address associated with the AWS account.
@@ -15258,7 +15462,7 @@ func (s *ConcurrentModificationException) RequestID() string {
 // Some of the reasons in the following list might not be applicable to this
 // specific API or operation.
 //
-//    * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+//    * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 //    account from the organization. You can't remove the management account.
 //    Instead, after you remove all member accounts, delete the organization
 //    itself.
@@ -15325,7 +15529,7 @@ func (s *ConcurrentModificationException) RequestID() string {
 //    with the same marketplace.
 //
 //    * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-//    in China. To create an organization, the master must have an valid business
+//    in China. To create an organization, the master must have a valid business
 //    license. For more information, contact customer support.
 //
 //    * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -15632,8 +15836,8 @@ type CreateAccountStatus struct {
 
 	// If the request failed, a description of the reason for the failure.
 	//
-	//    * ACCOUNT_LIMIT_EXCEEDED: The account could not be created because you
-	//    have reached the limit on the number of accounts in your organization.
+	//    * ACCOUNT_LIMIT_EXCEEDED: The account couldn't be created because you
+	//    reached the limit on the number of accounts in your organization.
 	//
 	//    * CONCURRENT_ACCOUNT_MODIFICATION: You already submitted a request with
 	//    the same information.
@@ -15641,9 +15845,16 @@ type CreateAccountStatus struct {
 	//    * EMAIL_ALREADY_EXISTS: The account could not be created because another
 	//    AWS account with that email address already exists.
 	//
+	//    * FAILED_BUSINESS_VALIDATION: The AWS account that owns your organization
+	//    failed to receive business license validation.
+	//
 	//    * GOVCLOUD_ACCOUNT_ALREADY_EXISTS: The account in the AWS GovCloud (US)
 	//    Region could not be created because this Region already includes an account
 	//    with that email address.
+	//
+	//    * IDENTITY_INVALID_BUSINESS_VALIDATION: The AWS account that owns your
+	//    organization can't complete business license validation because it doesn't
+	//    have valid identity data.
 	//
 	//    * INVALID_ADDRESS: The account could not be created because the address
 	//    you provided is not valid.
@@ -15652,13 +15863,20 @@ type CreateAccountStatus struct {
 	//    you provided is not valid.
 	//
 	//    * INTERNAL_FAILURE: The account could not be created because of an internal
-	//    failure. Try again later. If the problem persists, contact Customer Support.
+	//    failure. Try again later. If the problem persists, contact AWS Customer
+	//    Support.
 	//
 	//    * MISSING_BUSINESS_VALIDATION: The AWS account that owns your organization
 	//    has not received Business Validation.
 	//
 	//    * MISSING_PAYMENT_INSTRUMENT: You must configure the management account
 	//    with a valid payment method, such as a credit card.
+	//
+	//    * PENDING_BUSINESS_VALIDATION: The AWS account that owns your organization
+	//    is still in the process of completing business license validation.
+	//
+	//    * UNKNOWN_BUSINESS_VALIDATION: The AWS account that owns your organization
+	//    has an unknown issue with business license validation.
 	FailureReason *string `type:"string" enum:"CreateAccountFailureReason"`
 
 	// If the account was created successfully, the unique identifier (ID) of the
@@ -15676,7 +15894,7 @@ type CreateAccountStatus struct {
 	// The date and time that the request was made for the account creation.
 	RequestedTimestamp *time.Time `type:"timestamp"`
 
-	// The status of the request.
+	// The status of the asynchronous request to create an AWS account.
 	State *string `type:"string" enum:"CreateAccountState"`
 }
 
@@ -16449,8 +16667,8 @@ type DelegatedService struct {
 	// The date that the account became a delegated administrator for this service.
 	DelegationEnabledDate *time.Time `type:"timestamp"`
 
-	// The name of a service that can request an operation for the specified service.
-	// This is typically in the form of a URL, such as: servicename.amazonaws.com.
+	// The name of an AWS service that can request an operation for the specified
+	// service. This is typically in the form of a URL, such as: servicename.amazonaws.com.
 	ServicePrincipal *string `min:"1" type:"string"`
 }
 
@@ -18141,8 +18359,8 @@ type Handshake struct {
 	// The Amazon Resource Name (ARN) of a handshake.
 	//
 	// For more information about ARNs in Organizations, see ARN Formats Supported
-	// by Organizations (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_permissions.html#orgs-permissions-arns)
-	// in the AWS Organizations User Guide.
+	// by Organizations (https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsorganizations.html#awsorganizations-resources-for-iam-policies)
+	// in the AWS Service Authorization Reference.
 	Arn *string `type:"string"`
 
 	// The date and time that the handshake expires. If the recipient of the handshake
@@ -18333,6 +18551,10 @@ func (s *HandshakeAlreadyInStateException) RequestID() string {
 //
 //    * ORGANIZATION_ALREADY_HAS_ALL_FEATURES: The handshake request is invalid
 //    because the organization has already enabled all features.
+//
+//    * ORGANIZATION_IS_ALREADY_PENDING_ALL_FEATURES_MIGRATION: The handshake
+//    request is invalid because the organization has already started the process
+//    to enable all features.
 //
 //    * ORGANIZATION_FROM_DIFFERENT_SELLER_OF_RECORD: The request failed because
 //    the account is from a different marketplace than the accounts in the organization.
@@ -18691,6 +18913,9 @@ func (s *InvalidHandshakeTransitionException) RequestID() string {
 //    can't be modified.
 //
 //    * INPUT_REQUIRED: You must include a value for all required parameters.
+//
+//    * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+//    for the invited account owner.
 //
 //    * INVALID_ENUM: You specified an invalid value.
 //
@@ -20934,8 +21159,8 @@ type Organization struct {
 	// The Amazon Resource Name (ARN) of an organization.
 	//
 	// For more information about ARNs in Organizations, see ARN Formats Supported
-	// by Organizations (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_permissions.html#orgs-permissions-arns)
-	// in the AWS Organizations User Guide.
+	// by Organizations (https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsorganizations.html#awsorganizations-resources-for-iam-policies)
+	// in the AWS Service Authorization Reference.
 	Arn *string `type:"string"`
 
 	//
@@ -20964,8 +21189,8 @@ type Organization struct {
 	// account for the organization.
 	//
 	// For more information about ARNs in Organizations, see ARN Formats Supported
-	// by Organizations (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_permissions.html#orgs-permissions-arns)
-	// in the AWS Organizations User Guide.
+	// by Organizations (https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsorganizations.html#awsorganizations-resources-for-iam-policies)
+	// in the AWS Service Authorization Reference.
 	MasterAccountArn *string `type:"string"`
 
 	// The email address that is associated with the AWS account that is designated
@@ -21098,8 +21323,8 @@ type OrganizationalUnit struct {
 	// The Amazon Resource Name (ARN) of this OU.
 	//
 	// For more information about ARNs in Organizations, see ARN Formats Supported
-	// by Organizations (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_permissions.html#orgs-permissions-arns)
-	// in the AWS Organizations User Guide.
+	// by Organizations (https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsorganizations.html#awsorganizations-resources-for-iam-policies)
+	// in the AWS Service Authorization Reference.
 	Arn *string `type:"string"`
 
 	// The unique identifier (ID) associated with this OU.
@@ -21629,8 +21854,8 @@ type PolicySummary struct {
 	// The Amazon Resource Name (ARN) of the policy.
 	//
 	// For more information about ARNs in Organizations, see ARN Formats Supported
-	// by Organizations (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_permissions.html#orgs-permissions-arns)
-	// in the AWS Organizations User Guide.
+	// by Organizations (https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsorganizations.html#awsorganizations-resources-for-iam-policies)
+	// in the AWS Service Authorization Reference.
 	Arn *string `type:"string"`
 
 	// A boolean value that indicates whether the specified policy is an AWS managed
@@ -21713,8 +21938,8 @@ type PolicyTargetSummary struct {
 	// The Amazon Resource Name (ARN) of the policy target.
 	//
 	// For more information about ARNs in Organizations, see ARN Formats Supported
-	// by Organizations (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_permissions.html#orgs-permissions-arns)
-	// in the AWS Organizations User Guide.
+	// by Organizations (https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsorganizations.html#awsorganizations-resources-for-iam-policies)
+	// in the AWS Service Authorization Reference.
 	Arn *string `type:"string"`
 
 	// The friendly name of the policy target.
@@ -22126,8 +22351,8 @@ type Root struct {
 	// The Amazon Resource Name (ARN) of the root.
 	//
 	// For more information about ARNs in Organizations, see ARN Formats Supported
-	// by Organizations (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_permissions.html#orgs-permissions-arns)
-	// in the AWS Organizations User Guide.
+	// by Organizations (https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsorganizations.html#awsorganizations-resources-for-iam-policies)
+	// in the AWS Service Authorization Reference.
 	Arn *string `type:"string"`
 
 	// The unique identifier (ID) for the root.
@@ -23193,6 +23418,18 @@ const (
 	// CreateAccountFailureReasonMissingBusinessValidation is a CreateAccountFailureReason enum value
 	CreateAccountFailureReasonMissingBusinessValidation = "MISSING_BUSINESS_VALIDATION"
 
+	// CreateAccountFailureReasonFailedBusinessValidation is a CreateAccountFailureReason enum value
+	CreateAccountFailureReasonFailedBusinessValidation = "FAILED_BUSINESS_VALIDATION"
+
+	// CreateAccountFailureReasonPendingBusinessValidation is a CreateAccountFailureReason enum value
+	CreateAccountFailureReasonPendingBusinessValidation = "PENDING_BUSINESS_VALIDATION"
+
+	// CreateAccountFailureReasonInvalidIdentityForBusinessValidation is a CreateAccountFailureReason enum value
+	CreateAccountFailureReasonInvalidIdentityForBusinessValidation = "INVALID_IDENTITY_FOR_BUSINESS_VALIDATION"
+
+	// CreateAccountFailureReasonUnknownBusinessValidation is a CreateAccountFailureReason enum value
+	CreateAccountFailureReasonUnknownBusinessValidation = "UNKNOWN_BUSINESS_VALIDATION"
+
 	// CreateAccountFailureReasonMissingPaymentInstrument is a CreateAccountFailureReason enum value
 	CreateAccountFailureReasonMissingPaymentInstrument = "MISSING_PAYMENT_INSTRUMENT"
 )
@@ -23208,6 +23445,10 @@ func CreateAccountFailureReason_Values() []string {
 		CreateAccountFailureReasonInternalFailure,
 		CreateAccountFailureReasonGovcloudAccountAlreadyExists,
 		CreateAccountFailureReasonMissingBusinessValidation,
+		CreateAccountFailureReasonFailedBusinessValidation,
+		CreateAccountFailureReasonPendingBusinessValidation,
+		CreateAccountFailureReasonInvalidIdentityForBusinessValidation,
+		CreateAccountFailureReasonUnknownBusinessValidation,
 		CreateAccountFailureReasonMissingPaymentInstrument,
 	}
 }
@@ -23265,6 +23506,9 @@ const (
 	// HandshakeConstraintViolationExceptionReasonOrganizationAlreadyHasAllFeatures is a HandshakeConstraintViolationExceptionReason enum value
 	HandshakeConstraintViolationExceptionReasonOrganizationAlreadyHasAllFeatures = "ORGANIZATION_ALREADY_HAS_ALL_FEATURES"
 
+	// HandshakeConstraintViolationExceptionReasonOrganizationIsAlreadyPendingAllFeaturesMigration is a HandshakeConstraintViolationExceptionReason enum value
+	HandshakeConstraintViolationExceptionReasonOrganizationIsAlreadyPendingAllFeaturesMigration = "ORGANIZATION_IS_ALREADY_PENDING_ALL_FEATURES_MIGRATION"
+
 	// HandshakeConstraintViolationExceptionReasonInviteDisabledDuringEnableAllFeatures is a HandshakeConstraintViolationExceptionReason enum value
 	HandshakeConstraintViolationExceptionReasonInviteDisabledDuringEnableAllFeatures = "INVITE_DISABLED_DURING_ENABLE_ALL_FEATURES"
 
@@ -23285,6 +23529,7 @@ func HandshakeConstraintViolationExceptionReason_Values() []string {
 		HandshakeConstraintViolationExceptionReasonHandshakeRateLimitExceeded,
 		HandshakeConstraintViolationExceptionReasonAlreadyInAnOrganization,
 		HandshakeConstraintViolationExceptionReasonOrganizationAlreadyHasAllFeatures,
+		HandshakeConstraintViolationExceptionReasonOrganizationIsAlreadyPendingAllFeaturesMigration,
 		HandshakeConstraintViolationExceptionReasonInviteDisabledDuringEnableAllFeatures,
 		HandshakeConstraintViolationExceptionReasonPaymentInstrumentRequired,
 		HandshakeConstraintViolationExceptionReasonOrganizationFromDifferentSellerOfRecord,
@@ -23469,6 +23714,9 @@ const (
 
 	// InvalidInputExceptionReasonTargetNotSupported is a InvalidInputExceptionReason enum value
 	InvalidInputExceptionReasonTargetNotSupported = "TARGET_NOT_SUPPORTED"
+
+	// InvalidInputExceptionReasonInvalidEmailAddressTarget is a InvalidInputExceptionReason enum value
+	InvalidInputExceptionReasonInvalidEmailAddressTarget = "INVALID_EMAIL_ADDRESS_TARGET"
 )
 
 // InvalidInputExceptionReason_Values returns all elements of the InvalidInputExceptionReason enum
@@ -23497,6 +23745,7 @@ func InvalidInputExceptionReason_Values() []string {
 		InvalidInputExceptionReasonInvalidSystemTagsParameter,
 		InvalidInputExceptionReasonDuplicateTagKey,
 		InvalidInputExceptionReasonTargetNotSupported,
+		InvalidInputExceptionReasonInvalidEmailAddressTarget,
 	}
 }
 

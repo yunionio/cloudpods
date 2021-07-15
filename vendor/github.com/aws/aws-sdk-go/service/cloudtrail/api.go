@@ -255,9 +255,10 @@ func (c *CloudTrail) CreateTrailRequest(input *CreateTrailInput) (req *request.R
 //   valid.
 //
 //   * KmsKeyNotFoundException
-//   This exception is thrown when the KMS key does not exist, when the S3 bucket
-//   and the KMS key are not in the same region, or when the KMS key associated
-//   with the SNS topic either does not exist or is not in the same region.
+//   This exception is thrown when the AWS KMS key does not exist, when the S3
+//   bucket and the AWS KMS key are not in the same region, or when the AWS KMS
+//   key associated with the SNS topic either does not exist or is not in the
+//   same region.
 //
 //   * KmsKeyDisabledException
 //   This exception is no longer in use.
@@ -439,6 +440,12 @@ func (c *CloudTrail) DeleteTrailRequest(input *DeleteTrailInput) (req *request.R
 //   an organization trail in a required service. For more information, see Prepare
 //   For Creating a Trail For Your Organization (https://docs.aws.amazon.com/awscloudtrail/latest/userguide/creating-an-organizational-trail-prepare.html).
 //
+//   * ConflictException
+//   This exception is thrown when the specified resource is not ready for an
+//   operation. This can occur when you try to run an operation on a trail before
+//   CloudTrail has time to fully load the trail. If this exception occurs, wait
+//   a few minutes, and then try the operation again.
+//
 // See also, https://docs.aws.amazon.com/goto/WebAPI/cloudtrail-2013-11-01/DeleteTrail
 func (c *CloudTrail) DeleteTrail(input *DeleteTrailInput) (*DeleteTrailOutput, error) {
 	req, out := c.DeleteTrailRequest(input)
@@ -612,8 +619,8 @@ func (c *CloudTrail) GetEventSelectorsRequest(input *GetEventSelectorsInput) (re
 //
 //    * If your event selector includes management events.
 //
-//    * If your event selector includes data events, the Amazon S3 objects or
-//    AWS Lambda functions that you are logging for data events.
+//    * If your event selector includes data events, the resources on which
+//    you are logging data events.
 //
 // For more information, see Logging Data and Management Events for Trails (https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-management-and-data-events-with-cloudtrail.html)
 // in the AWS CloudTrail User Guide.
@@ -1926,6 +1933,13 @@ func (c *CloudTrail) PutInsightSelectorsRequest(input *PutInsightSelectorsInput)
 //   This exception is thrown when the policy on the S3 bucket or KMS key is not
 //   sufficient.
 //
+//   * S3BucketDoesNotExistException
+//   This exception is thrown when the specified S3 bucket does not exist.
+//
+//   * KmsException
+//   This exception is thrown when there is an issue with the specified KMS key
+//   and the trail can’t be updated.
+//
 //   * UnsupportedOperationException
 //   This exception is thrown when the requested operation is not supported.
 //
@@ -2469,9 +2483,10 @@ func (c *CloudTrail) UpdateTrailRequest(input *UpdateTrailInput) (req *request.R
 //   other than the region in which the trail was created.
 //
 //   * KmsKeyNotFoundException
-//   This exception is thrown when the KMS key does not exist, when the S3 bucket
-//   and the KMS key are not in the same region, or when the KMS key associated
-//   with the SNS topic either does not exist or is not in the same region.
+//   This exception is thrown when the AWS KMS key does not exist, when the S3
+//   bucket and the AWS KMS key are not in the same region, or when the AWS KMS
+//   key associated with the SNS topic either does not exist or is not in the
+//   same region.
 //
 //   * KmsKeyDisabledException
 //   This exception is no longer in use.
@@ -2857,19 +2872,31 @@ type AdvancedFieldSelector struct {
 	//    value must be Management or Data.
 	//
 	//    * resources.type - This ﬁeld is required. resources.type can only use
-	//    the Equals operator, and the value can be one of the following: AWS::S3::Object
-	//    or AWS::Lambda::Function. You can have only one resources.type ﬁeld
-	//    per selector. To log data events on more than one resource type, add another
-	//    selector.
+	//    the Equals operator, and the value can be one of the following: AWS::S3::Object,
+	//    AWS::Lambda::Function, AWS::DynamoDB::Table, AWS::S3Outposts::Object,
+	//    AWS::ManagedBlockchain::Node, or AWS::S3ObjectLambda::AccessPoint. You
+	//    can have only one resources.type ﬁeld per selector. To log data events
+	//    on more than one resource type, add another selector.
 	//
 	//    * resources.ARN - You can use any operator with resources.ARN, but if
 	//    you use Equals or NotEquals, the value must exactly match the ARN of a
 	//    valid resource of the type you've speciﬁed in the template as the value
 	//    of resources.type. For example, if resources.type equals AWS::S3::Object,
-	//    the ARN must be in one of the following formats. The trailing slash is
-	//    intentional; do not exclude it. arn:partition:s3:::bucket_name/ arn:partition:s3:::bucket_name/object_or_file_name/
+	//    the ARN must be in one of the following formats. To log all data events
+	//    for all objects in a specific S3 bucket, use the StartsWith operator,
+	//    and include only the bucket ARN as the matching value. The trailing slash
+	//    is intentional; do not exclude it. arn:partition:s3:::bucket_name/ arn:partition:s3:::bucket_name/object_or_file_name/
 	//    When resources.type equals AWS::Lambda::Function, and the operator is
 	//    set to Equals or NotEquals, the ARN must be in the following format: arn:partition:lambda:region:account_ID:function:function_name
+	//    When resources.type equals AWS::DynamoDB::Table, and the operator is set
+	//    to Equals or NotEquals, the ARN must be in the following format: arn:partition:dynamodb:region:account_ID:table:table_name
+	//    When resources.type equals AWS::S3Outposts::Object, and the operator is
+	//    set to Equals or NotEquals, the ARN must be in the following format: arn:partition:s3-outposts:region:>account_ID:object_path
+	//    When resources.type equals AWS::ManagedBlockchain::Node, and the operator
+	//    is set to Equals or NotEquals, the ARN must be in the following format:
+	//    arn:partition:managedblockchain:region:account_ID:nodes/node_ID When resources.type
+	//    equals AWS::S3ObjectLambda::AccessPoint, and the operator is set to Equals
+	//    or NotEquals, the ARN must be in the following format: arn:partition:s3-object-lambda:region:account_ID:accesspoint/access_point_name
 	//
 	// Field is a required field
 	Field *string `min:"1" type:"string" required:"true"`
@@ -3088,6 +3115,65 @@ func (s *CloudWatchLogsDeliveryUnavailableException) StatusCode() int {
 
 // RequestID returns the service's response RequestID for request.
 func (s *CloudWatchLogsDeliveryUnavailableException) RequestID() string {
+	return s.RespMetadata.RequestID
+}
+
+// This exception is thrown when the specified resource is not ready for an
+// operation. This can occur when you try to run an operation on a trail before
+// CloudTrail has time to fully load the trail. If this exception occurs, wait
+// a few minutes, and then try the operation again.
+type ConflictException struct {
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
+
+	Message_ *string `locationName:"message" type:"string"`
+}
+
+// String returns the string representation
+func (s ConflictException) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ConflictException) GoString() string {
+	return s.String()
+}
+
+func newErrorConflictException(v protocol.ResponseMetadata) error {
+	return &ConflictException{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *ConflictException) Code() string {
+	return "ConflictException"
+}
+
+// Message returns the exception's message.
+func (s *ConflictException) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *ConflictException) OrigErr() error {
+	return nil
+}
+
+func (s *ConflictException) Error() string {
+	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *ConflictException) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *ConflictException) RequestID() string {
 	return s.RespMetadata.RequestID
 }
 
@@ -3443,11 +3529,11 @@ func (s *CreateTrailOutput) SetTrailARN(v string) *CreateTrailOutput {
 	return s
 }
 
-// The Amazon S3 buckets or AWS Lambda functions that you specify in your event
-// selectors for your trail to log data events. Data events provide information
-// about the resource operations performed on or within a resource itself. These
-// are also known as data plane operations. You can specify up to 250 data resources
-// for a trail.
+// The Amazon S3 buckets, AWS Lambda functions, or Amazon DynamoDB tables that
+// you specify in your event selectors for your trail to log data events. Data
+// events provide information about the resource operations performed on or
+// within a resource itself. These are also known as data plane operations.
+// You can specify up to 250 data resources for a trail.
 //
 // The total number of allowed data resources is 250. This number can be distributed
 // between 1 and 5 event selectors, but the total cannot exceed 250 across all
@@ -3494,8 +3580,12 @@ func (s *CreateTrailOutput) SetTrailARN(v string) *CreateTrailOutput {
 type DataResource struct {
 	_ struct{} `type:"structure"`
 
-	// The resource type in which you want to log data events. You can specify AWS::S3::Object
-	// or AWS::Lambda::Function resources.
+	// The resource type in which you want to log data events. You can specify AWS::S3::Object,
+	// AWS::Lambda::Function, or AWS::DynamoDB::Table resources.
+	//
+	// The AWS::S3Outposts::Object, AWS::ManagedBlockchain::Node, and AWS::S3ObjectLambda::AccessPoint
+	// resource types are not valid in basic event selectors. To log data events
+	// on these resource types, use advanced event selectors.
 	Type *string `type:"string"`
 
 	// An array of Amazon Resource Name (ARN) strings or partial ARN strings for
@@ -3515,16 +3605,19 @@ type DataResource struct {
 	//    prefix such as arn:aws:s3:::bucket-1/example-images. The trail logs data
 	//    events for objects in this S3 bucket that match the prefix.
 	//
-	//    * To log data events for all functions in your AWS account, specify the
-	//    prefix as arn:aws:lambda. This will also enable logging of Invoke activity
-	//    performed by any user or role in your AWS account, even if that activity
-	//    is performed on a function that belongs to another AWS account.
+	//    * To log data events for all Lambda functions in your AWS account, specify
+	//    the prefix as arn:aws:lambda. This will also enable logging of Invoke
+	//    activity performed by any user or role in your AWS account, even if that
+	//    activity is performed on a function that belongs to another AWS account.
 	//
 	//    * To log data events for a specific Lambda function, specify the function
 	//    ARN. Lambda function ARNs are exact. For example, if you specify a function
 	//    ARN arn:aws:lambda:us-west-2:111111111111:function:helloworld, data events
 	//    will only be logged for arn:aws:lambda:us-west-2:111111111111:function:helloworld.
 	//    They will not be logged for arn:aws:lambda:us-west-2:111111111111:function:helloworld2.
+	//
+	//    * To log data events for all DynamoDB tables in your AWS account, specify
+	//    the prefix as arn:aws:dynamodb.
 	Values []*string `type:"list"`
 }
 
@@ -3806,10 +3899,10 @@ type EventSelector struct {
 	_ struct{} `type:"structure"`
 
 	// CloudTrail supports data event logging for Amazon S3 objects and AWS Lambda
-	// functions. You can specify up to 250 resources for an individual event selector,
-	// but the total number of data resources cannot exceed 250 across all event
-	// selectors in a trail. This limit does not apply if you configure resource
-	// logging for all data events.
+	// functions with basic event selectors. You can specify up to 250 resources
+	// for an individual event selector, but the total number of data resources
+	// cannot exceed 250 across all event selectors in a trail. This limit does
+	// not apply if you configure resource logging for all data events.
 	//
 	// For more information, see Data Events (https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-management-and-data-events-with-cloudtrail.html#logging-data-events)
 	// and Limits in AWS CloudTrail (https://docs.aws.amazon.com/awscloudtrail/latest/userguide/WhatIsCloudTrail-Limits.html)
@@ -5842,9 +5935,10 @@ func (s *KmsKeyDisabledException) RequestID() string {
 	return s.RespMetadata.RequestID
 }
 
-// This exception is thrown when the KMS key does not exist, when the S3 bucket
-// and the KMS key are not in the same region, or when the KMS key associated
-// with the SNS topic either does not exist or is not in the same region.
+// This exception is thrown when the AWS KMS key does not exist, when the S3
+// bucket and the AWS KMS key are not in the same region, or when the AWS KMS
+// key associated with the SNS topic either does not exist or is not in the
+// same region.
 type KmsKeyNotFoundException struct {
 	_            struct{}                  `type:"structure"`
 	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
