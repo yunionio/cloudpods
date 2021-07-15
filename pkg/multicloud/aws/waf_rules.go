@@ -15,6 +15,7 @@
 package aws
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/wafv2"
@@ -25,10 +26,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
-type sWebDetails struct {
-	*wafv2.WebACL
-}
-
 type sWafRule struct {
 	waf *SWebAcl
 	*wafv2.Rule
@@ -36,7 +33,9 @@ type sWafRule struct {
 
 func (self *sWafRule) GetAction() *cloudprovider.DefaultAction {
 	ret := &cloudprovider.DefaultAction{}
-	if self.Action.Allow != nil {
+	if self.Action == nil {
+		ret.Action = cloudprovider.WafActionNone
+	} else if self.Action.Allow != nil {
 		ret.Action = cloudprovider.WafActionAllow
 	} else if self.Action.Block != nil {
 		ret.Action = cloudprovider.WafActionBlock
@@ -65,7 +64,7 @@ func (self *sWafRule) GetPriority() int {
 func (self *sWafRule) Delete() error {
 	input := wafv2.UpdateWebACLInput{}
 	rules := []*wafv2.Rule{}
-	for _, rule := range self.waf.sWebDetails.Rules {
+	for _, rule := range self.waf.Rules {
 		if *rule.Name == *self.Name {
 			continue
 		}
@@ -78,7 +77,7 @@ func (self *sWafRule) Delete() error {
 	input.SetScope(self.waf.scope)
 	input.SetDescription(self.waf.Description)
 	input.SetDefaultAction(self.waf.DefaultAction)
-	input.SetVisibilityConfig(self.waf.sWebDetails.VisibilityConfig)
+	input.SetVisibilityConfig(self.waf.WebACL.VisibilityConfig)
 	client, err := self.waf.region.getWafClient()
 	if err != nil {
 		return errors.Wrapf(err, "getWafClient")
@@ -129,8 +128,8 @@ func (self *sWafStatement) convert() cloudprovider.SWafStatement {
 		statement.Type = cloudprovider.WafStatementTypeGeoMatch
 		statement.MatchFieldKey = "CountryCodes"
 		values := cloudprovider.TWafMatchFieldValues{}
-		for _, code := range self.GeoMatchStatement.CountryCodes {
-			values = append(values, *code)
+		for i := range self.GeoMatchStatement.CountryCodes {
+			values = append(values, *self.GeoMatchStatement.CountryCodes[i])
 		}
 		statement.MatchFieldValues = &values
 		if self.GeoMatchStatement.ForwardedIPConfig != nil {
@@ -148,7 +147,7 @@ func (self *sWafStatement) convert() cloudprovider.SWafStatement {
 		fillExcludeRules(&statement, self.ManagedRuleGroupStatement.ExcludedRules)
 	} else if self.RateBasedStatement != nil {
 		statement.Type = cloudprovider.WafStatementTypeRate
-		statement.Limit = self.RateBasedStatement.Limit
+		statement.MatchFieldValues = &cloudprovider.TWafMatchFieldValues{fmt.Sprintf("%d", self.RateBasedStatement.Limit)}
 		if self.RateBasedStatement.ForwardedIPConfig != nil {
 			statement.ForwardedIPHeader = *self.RateBasedStatement.ForwardedIPConfig.HeaderName
 		}
@@ -163,7 +162,7 @@ func (self *sWafStatement) convert() cloudprovider.SWafStatement {
 	} else if self.SizeConstraintStatement != nil {
 		statement.Type = cloudprovider.WafStatementTypeSize
 		statement.Operator = cloudprovider.TWafOperator(*self.SizeConstraintStatement.ComparisonOperator)
-		statement.Size = self.SizeConstraintStatement.Size
+		statement.MatchFieldValues = &cloudprovider.TWafMatchFieldValues{fmt.Sprintf("%d", self.SizeConstraintStatement.Size)}
 		fillStatement(&statement, self.SizeConstraintStatement.FieldToMatch)
 		fillTransformations(&statement, self.SizeConstraintStatement.TextTransformations)
 	} else if self.SqliMatchStatement != nil {
@@ -255,10 +254,16 @@ func (self *sWafRule) GetStatements() ([]cloudprovider.SWafStatement, error) {
 
 func (self *SWebAcl) GetRules() ([]cloudprovider.ICloudWafRule, error) {
 	ret := []cloudprovider.ICloudWafRule{}
-	for i := range self.sWebDetails.Rules {
+	if len(self.Rules) == 0 {
+		err := self.Refresh()
+		if err != nil {
+			return nil, errors.Wrapf(err, "Refresh")
+		}
+	}
+	for i := range self.Rules {
 		ret = append(ret, &sWafRule{
 			waf:  self,
-			Rule: self.sWebDetails.Rules[i],
+			Rule: self.Rules[i],
 		})
 	}
 	return ret, nil
