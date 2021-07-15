@@ -790,12 +790,10 @@ func (s *SKVMGuestInstance) SaveDesc(desc jsonutils.JSONObject) error {
 	{
 		// fill in ovn vpc nic bridge field
 		nics, _ := s.Desc.GetArray("nics")
-		ovnBridge := options.HostOptions.OvnIntegrationBridge
 		for _, nic := range nics {
-			vpcProvider, _ := nic.GetString("vpc", "provider")
-			if vpcProvider == compute.VPC_PROVIDER_OVN {
+			if !nic.Contains("bridge") {
 				nicjd := nic.(*jsonutils.JSONDict)
-				nicjd.Set("bridge", jsonutils.NewString(ovnBridge))
+				nicjd.Set("bridge", jsonutils.NewString(getNicBridge(nic)))
 			}
 		}
 	}
@@ -1083,7 +1081,7 @@ func (s *SKVMGuestInstance) compareDescCdrom(newDesc jsonutils.JSONObject) *stri
 	}
 }
 
-func (s *SKVMGuestInstance) compareDescNetworks(newDesc jsonutils.JSONObject) ([]jsonutils.JSONObject, []jsonutils.JSONObject) {
+func (s *SKVMGuestInstance) compareDescNetworks(newDesc jsonutils.JSONObject) ([]jsonutils.JSONObject, []jsonutils.JSONObject, [][]jsonutils.JSONObject) {
 	var isValid = func(net jsonutils.JSONObject) bool {
 		driver, _ := net.GetString("driver")
 		return driver == "virtio"
@@ -1101,9 +1099,11 @@ func (s *SKVMGuestInstance) compareDescNetworks(newDesc jsonutils.JSONObject) ([
 	}
 
 	var delNics, addNics = []jsonutils.JSONObject{}, []jsonutils.JSONObject{}
+	var changedNics = [][]jsonutils.JSONObject{}
 	nics, _ := newDesc.GetArray("nics")
 	for _, n := range nics {
 		if isValid(n) {
+			// assume all nics in new desc are new
 			addNics = append(addNics, n)
 		}
 	}
@@ -1113,25 +1113,77 @@ func (s *SKVMGuestInstance) compareDescNetworks(newDesc jsonutils.JSONObject) ([
 		if isValid(n) {
 			idx := findNet(addNics, n)
 			if idx >= 0 {
-				// remove n
+				// check if bridge changed
+				changedNics = append(changedNics, []jsonutils.JSONObject{
+					n,            // old
+					addNics[idx], // new
+				})
+				// remove existing nic from new
 				addNics = append(addNics[:idx], addNics[idx+1:]...)
 			} else {
+				// not found, remove the nic
 				delNics = append(delNics, n)
 			}
 		}
 	}
-	return delNics, addNics
+	return delNics, addNics, changedNics
+}
+
+func getNicBridge(nic jsonutils.JSONObject) string {
+	bridge, _ := nic.GetString("bridge")
+	if len(bridge) == 0 {
+		vpcProvider, _ := nic.GetString("vpc", "provider")
+		if vpcProvider == compute.VPC_PROVIDER_OVN {
+			bridge = options.HostOptions.OvnIntegrationBridge
+		}
+	}
+	return bridge
+}
+
+func onNicChange(oldNic, newNic jsonutils.JSONObject) error {
+	oldbr := getNicBridge(oldNic)
+	oldifname, _ := oldNic.GetString("ifname")
+	newbr := getNicBridge(newNic)
+	newifname, _ := newNic.GetString("ifname")
+	if oldbr != newbr {
+		// bridge changed
+		if oldifname == newifname {
+			output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl",
+				"--", "del-port", oldbr, oldifname,
+				"--", "add-port", newbr, newifname,
+			).Output()
+			log.Infof("ovs-vsctl del-port %s %s add-port %s %s: %s", oldbr, oldifname, newbr, newifname, output)
+			if err != nil {
+				return errors.Wrap(err, "NewRemoteCommandAsFarAsPossible")
+			}
+		} else {
+			log.Errorf("cannot change both bridge(%s!=%s) and ifname(%s!=%s)!!!!!", oldbr, newbr, oldifname, newifname)
+		}
+	}
+	return nil
 }
 
 func (s *SKVMGuestInstance) SyncConfig(ctx context.Context, desc jsonutils.JSONObject, fwOnly bool) (jsonutils.JSONObject, error) {
 	var delDisks, addDisks, delNetworks, addNetworks []jsonutils.JSONObject
+	var changedNetworks [][]jsonutils.JSONObject
 	var cdrom *string
 
 	if !fwOnly {
 		delDisks, addDisks = s.compareDescDisks(desc)
 		cdrom = s.compareDescCdrom(desc)
-		delNetworks, addNetworks = s.compareDescNetworks(desc)
+		delNetworks, addNetworks, changedNetworks = s.compareDescNetworks(desc)
 	}
+
+	if len(changedNetworks) > 0 && s.IsRunning() {
+		// process changed networks
+		for i := range changedNetworks {
+			err := onNicChange(changedNetworks[i][0], changedNetworks[i][1])
+			if err != nil {
+				return nil, errors.Wrap(err, "onNicChange")
+			}
+		}
+	}
+
 	if err := s.SaveDesc(desc); err != nil {
 		return nil, err
 	}
