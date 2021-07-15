@@ -549,3 +549,10 @@ type ServerResizeDiskInput struct {
 
 	DiskResizeInput
 }
+
+type ServerMigrateNetworkInput struct {
+	// Source network Id
+	Src string `json:"src"`
+	// Destination network Id
+	Dest string `json:"dest"`
+}

@@ -1122,3 +1122,13 @@ func (opts *ServerMakeSshableOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	return jsonutils.Marshal(opts), nil
 }
+
+type ServerMigrateNetworkOptions struct {
+	BaseIdOptions
+
+	computeapi.ServerMigrateNetworkInput
+}
+
+func (opts *ServerMigrateNetworkOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
