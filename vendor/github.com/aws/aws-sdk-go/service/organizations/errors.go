@@ -96,7 +96,7 @@ const (
 	// Some of the reasons in the following list might not be applicable to this
 	// specific API or operation.
 	//
-	//    * ACCOUNT_CANNOT_LEAVE_ORGANIZAION: You attempted to remove the management
+	//    * ACCOUNT_CANNOT_LEAVE_ORGANIZATION: You attempted to remove the management
 	//    account from the organization. You can't remove the management account.
 	//    Instead, after you remove all member accounts, delete the organization
 	//    itself.
@@ -163,7 +163,7 @@ const (
 	//    with the same marketplace.
 	//
 	//    * MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE: Applies only to the AWS Regions
-	//    in China. To create an organization, the master must have an valid business
+	//    in China. To create an organization, the master must have a valid business
 	//    license. For more information, contact customer support.
 	//
 	//    * MASTER_ACCOUNT_MISSING_CONTACT_INFO: To complete this operation, you
@@ -328,6 +328,10 @@ const (
 	//    * ORGANIZATION_ALREADY_HAS_ALL_FEATURES: The handshake request is invalid
 	//    because the organization has already enabled all features.
 	//
+	//    * ORGANIZATION_IS_ALREADY_PENDING_ALL_FEATURES_MIGRATION: The handshake
+	//    request is invalid because the organization has already started the process
+	//    to enable all features.
+	//
 	//    * ORGANIZATION_FROM_DIFFERENT_SELLER_OF_RECORD: The request failed because
 	//    the account is from a different marketplace than the accounts in the organization.
 	//    For example, accounts with India addresses must be associated with the
@@ -373,6 +377,9 @@ const (
 	//    can't be modified.
 	//
 	//    * INPUT_REQUIRED: You must include a value for all required parameters.
+	//
+	//    * INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
+	//    for the invited account owner.
 	//
 	//    * INVALID_ENUM: You specified an invalid value.
 	//

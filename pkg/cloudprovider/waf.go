@@ -185,7 +185,7 @@ func (self SWafStatement) GetGlobalId() string {
 		self.ManagedRuleGroupName,
 		self.SearchString,
 	)
-	if self.Type == WafStatementTypeGeoMatch || self.Type == WafStatementTypeRate {
+	if self.Type == WafStatementTypeGeoMatch || self.Type == WafStatementTypeRate || self.Type == WafStatementTypeLabelMatch {
 		id = fmt.Sprintf("%s-%s", id, self.MatchFieldValues)
 	}
 	return id

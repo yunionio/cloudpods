@@ -40,6 +40,15 @@ const (
 	// Cannot set a CloudWatch Logs delivery for this region.
 	ErrCodeCloudWatchLogsDeliveryUnavailableException = "CloudWatchLogsDeliveryUnavailableException"
 
+	// ErrCodeConflictException for service response error code
+	// "ConflictException".
+	//
+	// This exception is thrown when the specified resource is not ready for an
+	// operation. This can occur when you try to run an operation on a trail before
+	// CloudTrail has time to fully load the trail. If this exception occurs, wait
+	// a few minutes, and then try the operation again.
+	ErrCodeConflictException = "ConflictException"
+
 	// ErrCodeInsightNotEnabledException for service response error code
 	// "InsightNotEnabledException".
 	//
@@ -243,9 +252,10 @@ const (
 	// ErrCodeKmsKeyNotFoundException for service response error code
 	// "KmsKeyNotFoundException".
 	//
-	// This exception is thrown when the KMS key does not exist, when the S3 bucket
-	// and the KMS key are not in the same region, or when the KMS key associated
-	// with the SNS topic either does not exist or is not in the same region.
+	// This exception is thrown when the AWS KMS key does not exist, when the S3
+	// bucket and the AWS KMS key are not in the same region, or when the AWS KMS
+	// key associated with the SNS topic either does not exist or is not in the
+	// same region.
 	ErrCodeKmsKeyNotFoundException = "KmsKeyNotFoundException"
 
 	// ErrCodeMaximumNumberOfTrailsExceededException for service response error code
@@ -342,6 +352,7 @@ var exceptionFromCode = map[string]func(protocol.ResponseMetadata) error{
 	"CloudTrailAccessNotEnabledException":                    newErrorAccessNotEnabledException,
 	"CloudTrailInvalidClientTokenIdException":                newErrorCloudTrailInvalidClientTokenIdException,
 	"CloudWatchLogsDeliveryUnavailableException":             newErrorCloudWatchLogsDeliveryUnavailableException,
+	"ConflictException":                                      newErrorConflictException,
 	"InsightNotEnabledException":                             newErrorInsightNotEnabledException,
 	"InsufficientDependencyServiceAccessPermissionException": newErrorInsufficientDependencyServiceAccessPermissionException,
 	"InsufficientEncryptionPolicyException":                  newErrorInsufficientEncryptionPolicyException,
