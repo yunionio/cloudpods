@@ -148,7 +148,7 @@ func (self *SLoadBalancerListener) GetSysTags() map[string]string {
 func (self *SLoadBalancerListener) GetTags() (map[string]string, error) {
 	if self.fp != nil {
 		if self.fp.Properties.PublicIPAddress != nil && len(self.fp.Properties.PublicIPAddress.ID) > 0 {
-			eip, _ := self.lb.GetIEIP()
+			eip, _ := self.lb.GetIEIPById(self.fp.Properties.PublicIPAddress.ID)
 			if eip != nil {
 				return map[string]string{"FrontendIP": eip.GetIpAddr()}, nil
 			}
@@ -259,7 +259,9 @@ func (self *SLoadBalancerListener) GetHealthCheckInterval() int {
 	}
 	switch self.GetHealthCheckType() {
 	case api.LB_HEALTH_CHECK_HTTP, api.LB_HEALTH_CHECK_HTTPS:
-		return self.healthcheck.Properties.Interval
+		if self.healthcheck.Properties.Interval > 0 {
+			return self.healthcheck.Properties.Interval
+		}
 	}
 
 	return self.healthcheck.Properties.IntervalInSeconds
@@ -275,10 +277,12 @@ func (self *SLoadBalancerListener) GetHealthCheckFail() int {
 	}
 	switch self.GetHealthCheckType() {
 	case api.LB_HEALTH_CHECK_HTTP, api.LB_HEALTH_CHECK_HTTPS:
-		return self.healthcheck.Properties.UnhealthyThreshold
+		if self.healthcheck.Properties.UnhealthyThreshold > 0 {
+			return self.healthcheck.Properties.UnhealthyThreshold
+		}
 	}
 
-	return self.healthcheck.Properties.IntervalInSeconds
+	return self.healthcheck.Properties.NumberOfProbes
 }
 
 func (self *SLoadBalancerListener) GetHealthCheckReq() string {
