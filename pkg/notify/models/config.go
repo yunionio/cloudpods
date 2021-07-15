@@ -63,7 +63,7 @@ type SConfig struct {
 	db.SStandaloneResourceBase
 	db.SDomainizedResourceBase
 
-	Type        string               `width:"15" nullable:"false" create:"required" get:"domain" list:"domain"`
+	Type        string               `width:"15" nullable:"false" create:"required" get:"domain" list:"domain" index:"true"`
 	Content     jsonutils.JSONObject `nullable:"false" create:"required" update:"domain" get:"domain" list:"domain"`
 	Attribution string               `width:"8" nullable:"false" default:"system" get:"domain" list:"domain" create:"optional"`
 }
@@ -232,6 +232,16 @@ func sortContactType(ctypes []string) []string {
 		}
 	}
 	return ret
+}
+
+func (cm *SConfigManager) contactTypesQuery(domainId string) *sqlchemy.SQuery {
+	q := cm.Query("type").Distinct()
+	if domainId == "" {
+		q = q.Equals("attribution", api.CONFIG_ATTRIBUTION_SYSTEM)
+	} else {
+		q = q.Filter(sqlchemy.OR(sqlchemy.AND(sqlchemy.Equals(q.Field("attribution"), api.CONFIG_ATTRIBUTION_DOMAIN), sqlchemy.Equals(q.Field("domain_id"), domainId)), sqlchemy.Equals(q.Field("attribution"), api.CONFIG_ATTRIBUTION_SYSTEM)))
+	}
+	return q
 }
 
 func (cm *SConfigManager) availableContactTypes(domainId string) ([]string, error) {
@@ -460,6 +470,28 @@ func (self *SConfigManager) InitializeData() error {
 		"admin_tenant_name": options.Options.AdminProject,
 	})
 	err = self.TableSpec().InsertOrUpdate(context.TODO(), config)
+
+	// init config name
+	q = self.Query().IsNullOrEmpty("name")
+	enConfigs := make([]SConfig, 0)
+	err = db.FetchModelObjects(self, q, &enConfigs)
+	if err != nil {
+		return errors.Wrap(err, "unable to get configs with empty name")
+	}
+	for i := range enConfigs {
+		c := &enConfigs[i]
+		name, err := db.GenerateAlterName(c, enConfigs[i].Type)
+		if err != nil {
+			return errors.Wrap(err, "unable to generate alter name")
+		}
+		_, err = db.Update(c, func() error {
+			c.Name = name
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "unable to update name")
+		}
+	}
 	return nil
 }
 

@@ -125,7 +125,8 @@ func (ri *ReceiverIntellijGetOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ReceiverGetTypeOptions struct {
-	Domain string `help:"Domain under where available contact methods"`
+	DomainIds []string `help:"View the available notification channels for the domains with these DomainIds"`
+	Operation string   `help:"Operation of reduce" choices:"merge|union"`
 }
 
 func (rg *ReceiverGetTypeOptions) Params() (jsonutils.JSONObject, error) {

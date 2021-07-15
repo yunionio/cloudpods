@@ -80,9 +80,13 @@ type ConfigValidateOutput struct {
 }
 
 type ConfigManagerGetTypesInput struct {
-	// description: domain where in config
-	// example: default
-	Domain string `json:"domain"`
+	// description: View the available notification channels for the domains with these DomainIds
+	// required: true
+	DomainIds []string `json:"domain_ids"`
+	// description: Operation of reduce
+	// required: false
+	// enum: union,merge
+	Operation string `json:"operation"`
 }
 
 type ConfigManagerGetTypesOutput struct {

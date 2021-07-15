@@ -695,16 +695,58 @@ func (r *SReceiverManager) AllowPerformGetTypes(ctx context.Context, userCred mc
 
 func (rm *SReceiverManager) PerformGetTypes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ConfigManagerGetTypesInput) (api.ConfigManagerGetTypesOutput, error) {
 	output := api.ConfigManagerGetTypesOutput{}
-	t, err := db.TenantCacheManager.FetchDomainByIdOrName(ctx, input.Domain)
-	if err != nil {
-		return output, errors.Wrap(err, "unable to FetchDomainByIdOrName")
+	var reduce func([]*sqlchemy.SQuery) *sqlchemy.SQuery
+	var err error
+	switch input.Operation {
+	case "", "merge":
+		reduce = func(qs []*sqlchemy.SQuery) *sqlchemy.SQuery {
+			q := qs[0]
+			for i := 1; i < len(qs); i++ {
+				q = q.In("type", qs[i])
+			}
+			return q
+		}
+	case "union":
+		reduce = func(qs []*sqlchemy.SQuery) *sqlchemy.SQuery {
+			if len(qs) == 1 {
+				return qs[0]
+			}
+			iqs := make([]sqlchemy.IQuery, 0, len(qs))
+			for i := range qs {
+				iqs = append(iqs, qs[i])
+			}
+			union, _ := sqlchemy.UnionWithError(iqs...)
+			if err != nil {
+			}
+			return union.Query()
+		}
+	default:
+		return output, httperrors.NewInputParameterError("unkown operation %q", input.Operation)
 	}
-	ret, err := ConfigManager.availableContactTypes(t.Id)
-	if err != nil {
-		return output, errors.Wrap(err, "unable to get available contact types")
+	domainIds := sets.NewString(input.DomainIds...).UnsortedList()
+	qs := make([]*sqlchemy.SQuery, 0, len(domainIds))
+	if len(domainIds) == 0 {
+		qs = append(qs, ConfigManager.contactTypesQuery(""))
+	} else {
+		for i := range domainIds {
+			ctypeQ := ConfigManager.contactTypesQuery(domainIds[i])
+			qs = append(qs, ctypeQ)
+		}
 	}
-
-	output.Types = sortContactType(ret)
+	q := reduce(qs)
+	q.DebugQuery()
+	allTypes := make([]struct {
+		Type string
+	}, 0, 3)
+	err = q.All(&allTypes)
+	if err != nil {
+		return output, err
+	}
+	ret := make([]string, len(allTypes))
+	for i := range ret {
+		ret[i] = allTypes[i].Type
+	}
+	output.Types = ret
 	return output, nil
 }
 
