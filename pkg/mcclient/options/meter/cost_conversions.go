@@ -23,7 +23,7 @@ type CostConversionCreateOptions struct {
 	CloudproviderId string `help:"cloudprovider filter of cost conversion" json:"cloudprovider_id"`
 	DomainIdFilter  string `help:"domain filter of cost conversion" json:"domain_id_filter"`
 
-	EnableDate string  `help:"enable date of conversion ratio, example:202107" json:"ratio"`
+	EnableDate string  `help:"enable date of conversion ratio, example:202107" json:"enable_date"`
 	Ratio      float64 `help:"cost conversion ratio" json:"ratio"`
 }
 
