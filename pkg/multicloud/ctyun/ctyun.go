@@ -277,7 +277,6 @@ func (self *SCtyunClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) 
 
 		s := cloudprovider.SSubAccount{
 			Name:         fmt.Sprintf("%s-%s", self.cpcfg.Name, iregion.GetId()),
-			State:        api.CLOUD_PROVIDER_CONNECTED,
 			Account:      fmt.Sprintf("%s/%s", self.accessKey, iregion.GetId()),
 			HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
 		}
