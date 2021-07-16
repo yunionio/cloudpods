@@ -95,7 +95,7 @@ func (l *sLinuxRootFs) DeployHosts(rootFs IDiskPartition, hostname, domain strin
 
 func (l *sLinuxRootFs) GetLoginAccount(rootFs IDiskPartition, sUser string, defaultRootUser bool, windowsDefaultAdminUser bool) (string, error) {
 	if len(sUser) > 0 {
-		if err := rootFs.UserAdd(sUser, "", false, false); err != nil && !strings.Contains(err.Error(), "already exists") {
+		if _, err := rootFs.CheckOrAddUser(sUser, "", false); err != nil && !strings.Contains(err.Error(), "already exists") {
 			return "", fmt.Errorf("UserAdd %s: %v", sUser, err)
 		}
 		if err := l.EnableUserSudo(rootFs, sUser); err != nil {
@@ -156,11 +156,13 @@ func (l *sLinuxRootFs) DeployYunionroot(rootFs IDiskPartition, pubkeys *deployap
 	}
 	var yunionroot = YUNIONROOT_USER
 	rootdir := path.Join(cloudrootDirectory, yunionroot)
-	if err := rootFs.UserAdd(yunionroot, cloudrootDirectory, false, true); err != nil && !strings.Contains(err.Error(), "already exists") {
-		log.Errorf("UserAdd %s: %v", yunionroot, err)
+	var err error
+	if rootdir, err = rootFs.CheckOrAddUser(yunionroot, cloudrootDirectory, true); err != nil {
+		return errors.Wrap(err, "unable to CheckOrAddUser")
 	}
-	err := DeployAuthorizedKeys(rootFs, rootdir, pubkeys, true)
+	err = DeployAuthorizedKeys(rootFs, rootdir, pubkeys, true)
 	if err != nil {
+		log.Infof("DeployAuthorizedKeys error: %s", err.Error())
 		return fmt.Errorf("DeployAuthorizedKeys: %v", err)
 	}
 	if err := l.EnableUserSudo(rootFs, yunionroot); err != nil {
