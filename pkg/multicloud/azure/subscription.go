@@ -14,12 +14,23 @@
 
 package azure
 
-import "net/url"
+import (
+	"net/url"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+)
 
 type SSubscription struct {
 	SubscriptionId string `json:"subscriptionId"`
 	State          string
 	DisplayName    string `json:"displayName"`
+}
+
+func (self *SSubscription) GetHealthStatus() string {
+	if self.State == "Enabled" {
+		return api.CLOUD_PROVIDER_HEALTH_NORMAL
+	}
+	return api.CLOUD_PROVIDER_HEALTH_SUSPENDED
 }
 
 func (self *SAzureClient) ListSubscriptions() ([]SSubscription, error) {
