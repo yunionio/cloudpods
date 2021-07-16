@@ -5,11 +5,14 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 var (
@@ -38,7 +41,9 @@ type SMonitorResourceAlert struct {
 	MonitorResourceId string               `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true" json:"monitor_resource_id"`
 	AlertId           string               `width:"36" charset:"ascii" list:"user" create:"required" index:"true"`
 	AlertRecordId     string               `width:"36" charset:"ascii" list:"user" update:"user"`
+	ResType           string               `width:"36" charset:"ascii" list:"user" update:"user" json:"res_type"`
 	AlertState        string               `width:"18" charset:"ascii" default:"init" list:"user" update:"user"`
+	SendState         string               `width:"18" charset:"ascii" default:"ok" list:"user" update:"user"`
 	TriggerTime       time.Time            `list:"user"  update:"user" json:"trigger_time"`
 	Data              jsonutils.JSONObject `list:"user"  update:"user"`
 }
@@ -113,9 +118,15 @@ func (manager *SMonitorResourceAlertManager) GetJoinsByListInput(input monitor.M
 }
 
 func (obj *SMonitorResourceAlert) UpdateAlertRecordData(record *SAlertRecord, match *monitor.EvalMatch) error {
+	sendState := record.SendState
+	if _, ok := match.Tags[monitor.ALERT_RESOURCE_RECORD_SHIELD_KEY]; ok {
+		sendState = monitor.SEND_STATE_SHIELD
+	}
 	if _, err := db.Update(obj, func() error {
 		obj.AlertRecordId = record.GetId()
+		obj.ResType = record.ResType
 		obj.AlertState = record.State
+		obj.SendState = sendState
 		obj.TriggerTime = record.CreatedAt
 		obj.Data = jsonutils.Marshal(match)
 		return nil
@@ -123,4 +134,71 @@ func (obj *SMonitorResourceAlert) UpdateAlertRecordData(record *SAlertRecord, ma
 		return err
 	}
 	return nil
+}
+
+func (m *SMonitorResourceAlertManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input *monitor.MonitorResourceJointListInput) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = m.SJointResourceBaseManager.ListItemFilter(ctx, q, userCred, input.JointResourceBaseListInput)
+	if err != nil {
+		return q, errors.Wrap(err, "SJointResourceBaseManager ListItemFilter err")
+	}
+	if input.Alerting {
+		q.Equals("alert_state", monitor.AlertStateAlerting)
+		resQ := MonitorResourceManager.Query("res_id")
+		resQ, err = MonitorResourceManager.ListItemFilter(ctx, resQ, userCred, monitor.MonitorResourceListInput{})
+		if err != nil {
+			return q, errors.Wrap(err, "Get monitor in Query err")
+		}
+		q.Filter(sqlchemy.In(q.Field("monitor_resource_id"), resQ.SubQuery()))
+	}
+	if len(input.SendState) != 0 {
+		q.Equals("send_state", input.SendState)
+	}
+	if len(input.ResType) != 0 {
+		q.Equals("res_type", input.ResType)
+	}
+
+	return q, nil
+}
+
+func (man *SMonitorResourceAlertManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []monitor.MonitorResourceJointDetails {
+	rows := make([]monitor.MonitorResourceJointDetails, len(objs))
+	for i := range rows {
+		rows[i] = monitor.MonitorResourceJointDetails{}
+		rows[i] = objs[i].(*SMonitorResourceAlert).getMoreDetails(rows[i])
+	}
+	return rows
+}
+
+func (obj *SMonitorResourceAlert) getMoreDetails(detail monitor.MonitorResourceJointDetails) monitor.
+	MonitorResourceJointDetails {
+	resources, err := MonitorResourceManager.GetMonitorResources(monitor.MonitorResourceListInput{ResId: []string{obj.
+		MonitorResourceId}})
+	if err != nil {
+		log.Errorf("getMonitorResource:%s err:%v", obj.MonitorResourceId, err)
+		return detail
+	}
+	if len(resources) == 0 {
+		return detail
+	}
+	detail.ResType = resources[0].ResType
+	detail.ResName = resources[0].Name
+	if len(obj.AlertRecordId) != 0 {
+		record, err := AlertRecordManager.GetAlertRecord(obj.AlertRecordId)
+		if err != nil {
+			log.Errorf("get alertRecord:%s err:%v", obj.AlertRecordId, err)
+			return detail
+		}
+		detail.Level = record.Level
+		detail.AlertRule = record.AlertRule
+		detail.SendState = record.SendState
+	}
+	return detail
 }

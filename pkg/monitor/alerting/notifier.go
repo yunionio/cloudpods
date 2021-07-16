@@ -165,6 +165,7 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, 
 	} else {
 		matches = evalCtx.AlertOkEvalMatches
 	}
+	n.dealNeedShieldEvalMatchs(evalCtx, matches)
 	recordCreateInput := monitor.AlertRecordCreateInput{
 		StandaloneResourceCreateInput: apis.StandaloneResourceCreateInput{
 			GenerateName: evalCtx.Rule.Name,
@@ -180,6 +181,9 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, 
 		recordCreateInput.SendState = monitor.SEND_STATE_SILENT
 	}
 	recordCreateInput.ResType = recordCreateInput.AlertRule.ResType
+	if len(recordCreateInput.ResType) == 0 {
+		recordCreateInput.ResType = monitor.METRIC_RES_TYPE_HOST
+	}
 	createData := recordCreateInput.JSON(recordCreateInput)
 	alert, _ := models.CommonAlertManager.GetAlert(evalCtx.Rule.Id)
 	record, err := db.DoCreate(models.AlertRecordManager, evalCtx.Ctx, evalCtx.UserCred, jsonutils.NewDict(),
@@ -198,6 +202,31 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, 
 		}
 	}
 	record.PostCreate(evalCtx.Ctx, evalCtx.UserCred, evalCtx.UserCred, nil, createData)
+}
+
+func (n *notificationService) dealNeedShieldEvalMatchs(evalCtx *EvalContext, match []*monitor.EvalMatch) {
+	input := monitor.AlertRecordShieldListInput{
+		ResType: evalCtx.Rule.RuleDescription[0].ResType,
+		AlertId: evalCtx.Rule.Id,
+	}
+filterMatch:
+	for i, _ := range match {
+		input.ResId = match[i].Tags[monitor.MEASUREMENT_TAG_ID[input.ResType]]
+		alertRecordShields, err := models.AlertRecordShieldManager.GetRecordShields(input)
+		if err != nil {
+			log.Errorf("GetRecordShields byAlertId:%s,err:%v", input.AlertId, err)
+			return
+		}
+		if len(alertRecordShields) != 0 {
+			for _, shield := range alertRecordShields {
+				if shield.EndTime.After(time.Now().UTC()) {
+					match[i].Tags[monitor.ALERT_RESOURCE_RECORD_SHIELD_KEY] = monitor.ALERT_RESOURCE_RECORD_SHIELD_VALUE
+					continue filterMatch
+				}
+			}
+		}
+	}
+
 }
 
 func (n *notificationService) detachAlertResourceWhenNodata(evalCtx *EvalContext) {

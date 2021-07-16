@@ -35,6 +35,11 @@ func init() {
 	MonitorResourceManager.SetVirtualObject(MonitorResourceManager)
 	RegistryResourceSync(NewGuestResourceSync())
 	RegistryResourceSync(NewHostResourceSync())
+	RegistryResourceSync(NewRdsResourceSync())
+	RegistryResourceSync(NewRedisResourceSync())
+	RegistryResourceSync(NewOssResourceSync())
+	RegistryResourceSync(NewAccountResourceSync())
+	RegistryResourceSync(NewStorageResourceSync())
 }
 
 type SMonitorResourceManager struct {
@@ -294,10 +299,10 @@ func (manager *SMonitorResourceManager) GetPropertyAlert(ctx context.Context, us
 
 func (manager *SMonitorResourceManager) UpdateMonitorResourceAttachJoint(ctx context.Context,
 	userCred mcclient.TokenCredential, alertRecord *SAlertRecord) error {
-	if !utils.IsInStringArray(alertRecord.ResType, []string{monitor.METRIC_RES_TYPE_HOST,
-		monitor.METRIC_RES_TYPE_GUEST, monitor.METRIC_RES_TYPE_AGENT}) {
-		return nil
-	}
+	//if !utils.IsInStringArray(alertRecord.ResType, []string{monitor.METRIC_RES_TYPE_HOST,
+	//	monitor.METRIC_RES_TYPE_GUEST, monitor.METRIC_RES_TYPE_AGENT}) {
+	//	return nil
+	//}
 	resType := alertRecord.ResType
 	if resType == monitor.METRIC_RES_TYPE_AGENT {
 		resType = monitor.METRIC_RES_TYPE_GUEST

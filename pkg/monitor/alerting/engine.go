@@ -226,9 +226,6 @@ func (e *AlertEngine) processJob(attemptID int, attemptChan chan int, cancelChan
 		// don't reuse the evalContext and get its own context.
 		evalContext.Ctx = resultHandleCtx
 		evalContext.Rule.State = evalContext.GetNewState()
-		if evalContext.Rule.Name == "cloudaccount_balance.balance" {
-			log.Errorf("cloudaccount_balance.balance newState:%s", string(evalContext.Rule.State))
-		}
 		if err := e.resultHandler.handle(evalContext); err != nil {
 			if xerrors.Is(err, context.Canceled) {
 				log.Warningf("Result handler returned context.Canceled")

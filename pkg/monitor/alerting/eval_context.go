@@ -225,6 +225,9 @@ func (c *EvalContext) GetEvalMatches() []monitor.EvalMatch {
 		matches = c.AlertOkEvalMatches
 	}
 	for _, c := range matches {
+		if _, ok := c.Tags[monitor.ALERT_RESOURCE_RECORD_SHIELD_KEY]; ok {
+			continue
+		}
 		ret = append(ret, monitor.EvalMatch{
 			Condition: c.Condition,
 			Value:     c.Value,
