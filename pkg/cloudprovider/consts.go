@@ -59,6 +59,7 @@ const (
 	CLOUD_CAPABILITY_WAF             = "waf"       // WAF
 	CLOUD_CAPABILITY_MONGO_DB        = "mongodb"   // MongoDB
 	CLOUD_CAPABILITY_ES              = "es"        // ElasticSearch
+	CLOUD_CAPABILITY_KAFKA           = "kafka"     // Kafka
 )
 
 const (

@@ -66,6 +66,7 @@ const (
 	QCLOUD_MONGODB_API_VERSION   = "2019-07-25"
 	QCLOUD_ES_API_VERSION        = "2018-04-16"
 	QCLOUD_DCDB_API_VERSION      = "2018-04-11"
+	QCLOUD_KAFKA_API_VERSION     = "2019-08-19"
 )
 
 type QcloudClientConfig struct {
@@ -178,6 +179,12 @@ func accountRequest(client *common.Client, apiName string, params map[string]str
 func esRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("es", params)
 	return _jsonRequest(client, domain, QCLOUD_ES_API_VERSION, apiName, params, debug, true)
+}
+
+// kafka
+func kafkaRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	domain := apiDomain("ckafka", params)
+	return _jsonRequest(client, domain, QCLOUD_KAFKA_API_VERSION, apiName, params, debug, true)
 }
 
 // redis
@@ -651,6 +658,15 @@ func (client *SQcloudClient) esRequest(apiName string, params map[string]string)
 	return esRequest(cli, apiName, params, client.debug)
 }
 
+func (client *SQcloudClient) kafkaRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return kafkaRequest(cli, apiName, params, client.debug)
+}
+
 func (client *SQcloudClient) redisRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	cli, err := client.getDefaultClient()
 	if err != nil {
@@ -1077,6 +1093,7 @@ func (self *SQcloudClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_SAML_AUTH,
 		cloudprovider.CLOUD_CAPABILITY_MONGO_DB,
 		cloudprovider.CLOUD_CAPABILITY_ES,
+		cloudprovider.CLOUD_CAPABILITY_KAFKA,
 	}
 	return caps
 }

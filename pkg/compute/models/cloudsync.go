@@ -1152,6 +1152,24 @@ func syncElasticSearchs(ctx context.Context, userCred mcclient.TokenCredential, 
 	return nil
 }
 
+func syncKafkas(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion) error {
+	iKafkas, err := remoteRegion.GetICloudKafkas()
+	if err != nil {
+		msg := fmt.Sprintf("GetICloudKafkas for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		return err
+	}
+
+	result := localRegion.SyncKafkas(ctx, userCred, provider, iKafkas)
+	syncResults.Add(KafkaManager, result)
+	msg := result.Result()
+	log.Infof("SyncKafkas for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		return result.AllError()
+	}
+	return nil
+}
+
 func syncWafInstances(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion) error {
 	wafIns, err := remoteRegion.GetICloudWafInstances()
 	if err != nil {
@@ -1392,6 +1410,10 @@ func syncPublicCloudProviderInfo(
 
 	if utils.IsInStringArray(cloudprovider.CLOUD_CAPABILITY_ES, driver.GetCapabilities()) {
 		syncElasticSearchs(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
+	}
+
+	if utils.IsInStringArray(cloudprovider.CLOUD_CAPABILITY_KAFKA, driver.GetCapabilities()) {
+		syncKafkas(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
 	if cloudprovider.IsSupportCompute(driver) {
