@@ -312,8 +312,7 @@ func (self *SCloudregion) SyncKafkas(ctx context.Context, userCred mcclient.Toke
 
 type SKafkaCountStat struct {
 	TotalKafkaCount int
-	TotalCpuCount   int
-	TotalMemSizeGb  int
+	TotalDiskSizeGb int
 }
 
 func (man *SKafkaManager) TotalCount(
@@ -324,8 +323,7 @@ func (man *SKafkaManager) TotalCount(
 ) (SKafkaCountStat, error) {
 	sq := man.Query().SubQuery()
 	q := sq.Query(sqlchemy.COUNT("total_kafka_count"),
-		sqlchemy.SUM("total_cpu_count", sq.Field("vcpu_count")),
-		sqlchemy.SUM("total_mem_size_gb", sq.Field("vmem_size_gb")))
+		sqlchemy.SUM("total_disk_size_gb", sq.Field("disk_size_gb")))
 
 	q = scopeOwnerIdFilter(q, scope, ownerId)
 	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
