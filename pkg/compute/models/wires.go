@@ -1117,7 +1117,7 @@ func (sm *SWireManager) FetchByIdsOrNames(idOrNames []string) ([]SWire, error) {
 	if len(idOrNames) == 1 {
 		q.Filter(sqlchemy.OR(sqlchemy.Equals(q.Field("id"), idOrNames[0]), sqlchemy.Equals(q.Field("name"), idOrNames[0])))
 	} else {
-		q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("id"), idOrNames), sqlchemy.In(q.Field("name"), idOrNames)))
+		q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("id"), stringutils2.RemoveUtf8Strings(idOrNames)), sqlchemy.In(q.Field("name"), idOrNames)))
 	}
 	ret := make([]SWire, 0, len(idOrNames))
 	err := db.FetchModelObjects(sm, q, &ret)
