@@ -526,7 +526,7 @@ func (manager *SAssignmentManager) queryAll(
 	if len(users) > 0 {
 		subq := UserManager.Query("id")
 		subq = subq.Filter(sqlchemy.OR(
-			sqlchemy.In(subq.Field("id"), users),
+			sqlchemy.In(subq.Field("id"), stringutils2.RemoveUtf8Strings(users)),
 			sqlchemy.ContainsAny(subq.Field("name"), users),
 		))
 		q = q.In("type", []string{api.AssignmentUserProject, api.AssignmentUserDomain}).In("user_id", subq.SubQuery())
@@ -537,7 +537,7 @@ func (manager *SAssignmentManager) queryAll(
 	if len(groups) > 0 {
 		subq := GroupManager.Query("id")
 		subq = subq.Filter(sqlchemy.OR(
-			sqlchemy.In(subq.Field("id"), groups),
+			sqlchemy.In(subq.Field("id"), stringutils2.RemoveUtf8Strings(groups)),
 			sqlchemy.ContainsAny(subq.Field("name"), groups),
 		))
 		q = q.In("type", []string{api.AssignmentGroupProject, api.AssignmentGroupDomain}).In("group_id", subq.SubQuery())
@@ -548,7 +548,7 @@ func (manager *SAssignmentManager) queryAll(
 	if len(roles) > 0 {
 		subq := RoleManager.Query("id")
 		subq = subq.Filter(sqlchemy.OR(
-			sqlchemy.In(subq.Field("id"), roles),
+			sqlchemy.In(subq.Field("id"), stringutils2.RemoveUtf8Strings(roles)),
 			sqlchemy.ContainsAny(subq.Field("name"), roles),
 		))
 		q = q.In("role_id", subq.SubQuery())
@@ -559,7 +559,7 @@ func (manager *SAssignmentManager) queryAll(
 	if len(projects) > 0 {
 		subq := ProjectManager.Query("id")
 		subq = subq.Filter(sqlchemy.OR(
-			sqlchemy.In(subq.Field("id"), projects),
+			sqlchemy.In(subq.Field("id"), stringutils2.RemoveUtf8Strings(projects)),
 			sqlchemy.ContainsAny(subq.Field("name"), projects),
 		))
 		q = q.In("project_id", subq.SubQuery()).In("type", []string{api.AssignmentUserProject, api.AssignmentGroupProject})
@@ -569,7 +569,7 @@ func (manager *SAssignmentManager) queryAll(
 		domainQ := DomainManager.Query("id", "name").SubQuery()
 		subq = subq.Join(domainQ, sqlchemy.Equals(subq.Field("domain_id"), domainQ.Field("id")))
 		subq = subq.Filter(sqlchemy.OR(
-			sqlchemy.In(domainQ.Field("id"), projectDomains),
+			sqlchemy.In(domainQ.Field("id"), stringutils2.RemoveUtf8Strings(projectDomains)),
 			sqlchemy.ContainsAny(domainQ.Field("name"), projectDomains),
 		))
 		q = q.In("project_id", subq.SubQuery()).In("type", []string{api.AssignmentUserProject, api.AssignmentGroupProject})
@@ -581,7 +581,7 @@ func (manager *SAssignmentManager) queryAll(
 	if len(domains) > 0 {
 		subq := DomainManager.Query("id")
 		subq = subq.Filter(sqlchemy.OR(
-			sqlchemy.In(subq.Field("id"), domains),
+			sqlchemy.In(subq.Field("id"), stringutils2.RemoveUtf8Strings(domains)),
 			sqlchemy.ContainsAny(subq.Field("name"), domains),
 		))
 		q = q.In("domain_id", subq.SubQuery()).In("type", []string{api.AssignmentUserDomain, api.AssignmentGroupDomain})
@@ -665,7 +665,7 @@ func (manager *SAssignmentManager) FetchAll(
 		if len(userStrs) > 0 {
 			subq := UserManager.Query("id")
 			subq = subq.Filter(sqlchemy.OR(
-				sqlchemy.In(subq.Field("id"), userStrs),
+				sqlchemy.In(subq.Field("id"), stringutils2.RemoveUtf8Strings(userStrs)),
 				sqlchemy.ContainsAny(subq.Field("name"), userStrs),
 			))
 			q2 = q2.Filter(sqlchemy.In(memberships.Field("user_id"), subq.SubQuery()))
