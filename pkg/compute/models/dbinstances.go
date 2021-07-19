@@ -623,11 +623,43 @@ func (manager *SDBInstanceManager) FetchCustomizeColumns(
 		return rows
 	}
 
+	networks := NetworkManager.Query().SubQuery()
+	rdsnetworks := DBInstanceNetworkManager.Query().SubQuery()
+	nQ := rdsnetworks.Query(
+		rdsnetworks.Field("dbinstance_id"),
+		rdsnetworks.Field("network_id"),
+		networks.Field("name").Label("network_name"),
+	).Join(networks, sqlchemy.Equals(rdsnetworks.Field("network_id"), networks.Field("id"))).
+		Filter(sqlchemy.In(rdsnetworks.Field("dbinstance_id"), rdsIds))
+
+	type sRdsNetworkInfo struct {
+		DBInstanceId string `json:"dbinstance_id"`
+		NetworkName  string
+		NetworkId    string
+	}
+	rns := []sRdsNetworkInfo{}
+	err = nQ.All(&rns)
+	if err != nil {
+		return rows
+	}
+	rdsNetworks := map[string][]string{}
+	for i := range rns {
+		_, ok := rdsNetworks[rns[i].DBInstanceId]
+		if !ok {
+			rdsNetworks[rns[i].DBInstanceId] = []string{}
+		}
+		rdsNetworks[rns[i].DBInstanceId] = append(rdsNetworks[rns[i].DBInstanceId], rns[i].NetworkName)
+	}
+
 	for i := range rows {
 		rows[i].Zone1Name = zone1[zone1Ids[i]]
 		rows[i].Zone2Name = zone2[zone2Ids[i]]
 		rows[i].Zone3Name = zone3[zone3Ids[i]]
 		rows[i].Secgroups, _ = ret[rdsIds[i]]
+		networks, ok := rdsNetworks[rdsIds[i]]
+		if ok {
+			rows[i].Network = strings.Join(networks, ",")
+		}
 	}
 
 	return rows
