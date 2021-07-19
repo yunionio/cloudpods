@@ -400,15 +400,31 @@ type ClusterComponentMonitorGrafanaTlsOpt struct {
 	KeyFile         string `help:"TLS key file" json:"-"`
 }
 
+type ClusterComponentMonitorGrafanaOAuth struct {
+	Enabled           bool   `help:"Enable oauth setting" json:"enabled"`
+	ClientId          string `help:"Client id" json:"clientId"`
+	ClientSecret      string `help:"Client secret" json:"clientSecret"`
+	Scopes            string `help:"Client scopes" json:"scopes"`
+	AuthURL           string `help:"Auth url" json:"authURL"`
+	TokenURL          string `help:"Token url" json:"tokenURL"`
+	ApiURL            string `help:"API URL" json:"apiURL"`
+	AllowedDomains    string `help:"Allowed domains" json:"allowedDomains"`
+	AllowSignUp       bool   `help:"Allow sign up" json:"allowSignUp"`
+	RoleAttributePath string `help:"Role attribute path" json:"roleAttributePath"`
+}
+
 type ClusterComponentMonitorGrafana struct {
 	AdminUser         string                               `help:"Grafana admin user" default:"admin" json:"adminUser"`
 	AdminPassword     string                               `help:"Grafana admin user password" json:"adminPassword"`
 	Storage           ClusterComponentStorage              `help:"Storage setting"`
 	PublicAddress     string                               `help:"Grafana expose public IP address or domain hostname" json:"publicAddress"`
 	Host              string                               `help:"Grafana ingress host domain name" json:"host"`
+	EnforceDomain     bool                                 `help:"Enforce use domain" json:"enforceDomain"`
 	Tls               ClusterComponentMonitorGrafanaTlsOpt `help:"TLS setting"`
 	DisableSubpath    bool                                 `help:"Disable grafana subpath" json:"disableSubpath"`
+	Subpath           string                               `help:"Grafana subpath" default:"grafana" json:"subpath"`
 	EnableThanosQuery bool                                 `help:"Enable thanos query datasource" json:"enableThanosQueryDataSource"`
+	Oauth             ClusterComponentMonitorGrafanaOAuth  `help:"OAuth config" json:"oauth"`
 }
 
 type ObjectStoreConfig struct {
@@ -663,16 +679,32 @@ type ClusterComponentMinioSetting struct {
 	Storage       ClusterComponentStorage `help:"Storage setting" json:"storage"`
 }
 
-type ClusterEnableComponentMinioOpt struct {
+type ClusterEnableComponentMinioBaseOpt struct {
 	ClusterComponentOptions
 	ClusterComponentMinioSetting
 }
 
-func (o ClusterEnableComponentMinioOpt) Params() (jsonutils.JSONObject, error) {
-	params := o.ClusterComponentOptions.Params("minio")
+func (o ClusterEnableComponentMinioBaseOpt) Params(typ string) (jsonutils.JSONObject, error) {
+	params := o.ClusterComponentOptions.Params(typ)
 	setting := jsonutils.Marshal(o.ClusterComponentMinioSetting)
-	params.Add(setting, "minio")
+	params.Add(setting, typ)
 	return params, nil
+}
+
+type ClusterEnableComponentMinioOpt struct {
+	ClusterEnableComponentMinioBaseOpt
+}
+
+func (o ClusterEnableComponentMinioOpt) Params() (jsonutils.JSONObject, error) {
+	return o.ClusterEnableComponentMinioBaseOpt.Params("minio")
+}
+
+type ClusterEnableComponentMonitorMinioOpt struct {
+	ClusterEnableComponentMinioBaseOpt
+}
+
+func (o ClusterEnableComponentMonitorMinioOpt) Params() (jsonutils.JSONObject, error) {
+	return o.ClusterEnableComponentMinioBaseOpt.Params("monitorMinio")
 }
 
 type ComponentThanosDnsDiscovery struct {
