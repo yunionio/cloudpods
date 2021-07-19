@@ -520,7 +520,6 @@ func (c *QueryCondition) setResType() {
 	}
 	if len(resType) != 0 && c.Query.Model.GroupBy[0].Params[0] != monitor.
 		MEASUREMENT_TAG_ID[resType] {
-		resType = ""
 		for _, groupBy := range c.Query.Model.GroupBy {
 			tag := groupBy.Params[0]
 			if tag == "tenant_id" {
