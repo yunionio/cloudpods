@@ -209,7 +209,7 @@ func (manager *SCloudproviderregionManager) QueryRelatedRegionIds(cloudAccounts 
 	if len(cloudAccounts) > 0 {
 		cpq := CloudaccountManager.Query().SubQuery()
 		subcpq := cpq.Query(cpq.Field("id")).Filter(sqlchemy.OR(
-			sqlchemy.In(cpq.Field("id"), cloudAccounts),
+			sqlchemy.In(cpq.Field("id"), stringutils2.RemoveUtf8Strings(cloudAccounts)),
 			sqlchemy.In(cpq.Field("name"), cloudAccounts),
 		)).SubQuery()
 		providers := CloudproviderManager.Query().SubQuery()
