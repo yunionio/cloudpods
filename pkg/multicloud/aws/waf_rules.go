@@ -72,10 +72,10 @@ func (self *sWafRule) Delete() error {
 	}
 	input.SetRules(rules)
 	input.SetLockToken(self.waf.LockToken)
-	input.SetId(self.waf.Id)
-	input.SetName(self.waf.Name)
+	input.SetId(*self.waf.Id)
+	input.SetName(*self.waf.Name)
 	input.SetScope(self.waf.scope)
-	input.SetDescription(self.waf.Description)
+	input.SetDescription(*self.waf.Description)
 	input.SetDefaultAction(self.waf.DefaultAction)
 	input.SetVisibilityConfig(self.waf.WebACL.VisibilityConfig)
 	client, err := self.waf.region.getWafClient()
@@ -147,7 +147,7 @@ func (self *sWafStatement) convert() cloudprovider.SWafStatement {
 		fillExcludeRules(&statement, self.ManagedRuleGroupStatement.ExcludedRules)
 	} else if self.RateBasedStatement != nil {
 		statement.Type = cloudprovider.WafStatementTypeRate
-		statement.MatchFieldValues = &cloudprovider.TWafMatchFieldValues{fmt.Sprintf("%d", self.RateBasedStatement.Limit)}
+		statement.MatchFieldValues = &cloudprovider.TWafMatchFieldValues{fmt.Sprintf("%d", *self.RateBasedStatement.Limit)}
 		if self.RateBasedStatement.ForwardedIPConfig != nil {
 			statement.ForwardedIPHeader = *self.RateBasedStatement.ForwardedIPConfig.HeaderName
 		}
@@ -181,6 +181,10 @@ func (self *sWafStatement) convert() cloudprovider.SWafStatement {
 		if self.LabelMatchStatement.Key != nil {
 			statement.MatchFieldValues = &cloudprovider.TWafMatchFieldValues{*self.LabelMatchStatement.Key}
 		}
+	} else if self.NotStatement != nil {
+		s := &sWafStatement{Statement: self.NotStatement.Statement}
+		statement = s.convert()
+		statement.Negation = true
 	}
 	return statement
 }
@@ -222,6 +226,8 @@ func fillTransformations(statement *cloudprovider.SWafStatement, trans []*wafv2.
 			values = append(values, cloudprovider.WafTextTransformationHtmlEntityDecode)
 		case wafv2.TextTransformationTypeCompressWhiteSpace:
 			values = append(values, cloudprovider.WafTextTransformationCompressWithSpace)
+		default:
+			values = append(values, cloudprovider.TWafTextTransformation(*tran.Type))
 		}
 	}
 	statement.Transformations = &values
