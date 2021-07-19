@@ -989,8 +989,7 @@ func KafkaUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, 
 	cnt, _ := models.KafkaManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
 	count := make(map[string]interface{})
 	count[getKey(scope, "kafka")] = cnt.TotalKafkaCount
-	count[getKey(scope, "kafka.cpu")] = cnt.TotalCpuCount
-	count[getKey(scope, "kafka.memory")] = cnt.TotalMemSizeGb * 1024
+	count[getKey(scope, "kafka.disk")] = cnt.TotalDiskSizeGb
 	return count
 }
 
