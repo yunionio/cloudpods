@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	policyman "yunion.io/x/onecloud/pkg/cloudcommon/policy"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/locale"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -466,6 +467,14 @@ func (manager *SPolicyManager) ListItemFilter(
 	q, err = manager.SSharableBaseResourceManager.ListItemFilter(ctx, q, userCred, query.SharableResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SSharableBaseResourceManager.ListItemFilter")
+	}
+	if len(query.RoleId) > 0 {
+		_, err := validators.ValidateModel(userCred, RoleManager, &query.RoleId)
+		if err != nil {
+			return nil, err
+		}
+		sq := RolePolicyManager.Query("policy_id").Equals("role_id", query.RoleId).SubQuery()
+		q = q.In("id", sq)
 	}
 	if len(query.Type) > 0 {
 		q = q.In("type", query.Type)
