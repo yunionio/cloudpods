@@ -222,7 +222,38 @@ func (f *SLocalGuestFS) Chmod(sPath string, mode uint32, caseInsensitive bool) e
 	return nil
 }
 
-func (f *SLocalGuestFS) UserAdd(user, homeDir string, caseInsensitive bool, isSys bool) error {
+func (f *SLocalGuestFS) CheckOrAddUser(user, homeDir string, isSys bool) (realHomeDir string, err error) {
+	var exist bool
+	if exist, realHomeDir, err = f.checkUser(user); err != nil || exist {
+		return
+	}
+	return path.Join(homeDir, user), f.userAdd(user, homeDir, isSys)
+}
+
+func (f *SLocalGuestFS) checkUser(user string) (exist bool, homeDir string, err error) {
+	cmd := []string{"chroot", f.mountPath, "cat", "/etc/passwd"}
+	command := procutils.NewCommand(cmd[0], cmd[1:]...)
+	output, err := command.Output()
+	if err != nil {
+		return
+	}
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		userInfos := strings.Split(strings.TrimSpace(lines[i]), ":")
+		if len(userInfos) < 6 {
+			continue
+		}
+		if userInfos[0] != user {
+			continue
+		}
+		exist = true
+		homeDir = userInfos[5]
+		break
+	}
+	return
+}
+
+func (f *SLocalGuestFS) userAdd(user, homeDir string, isSys bool) error {
 	if err := f.Mkdir(homeDir, 0755, false); err != nil {
 		return errors.Wrap(err, "Mkdir")
 	}
