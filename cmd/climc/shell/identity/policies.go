@@ -24,13 +24,14 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/identity"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -74,25 +75,8 @@ func createPolicy(s *mcclient.ClientSession, name string, policy string, domain 
 }
 
 func init() {
-	type PolicyListOptions struct {
-		options.BaseListOptions
-		Type          string `help:"filter by type"`
-		IsSystem      *bool  `help:"filter by is_system" negative:"is_no_system"`
-		Format        string `help:"policy format, default to yaml" default:"yaml" choices:"yaml|json"`
-		OrderByDomain string `help:"order by domain name" choices:"asc|desc"`
-	}
-	R(&PolicyListOptions{}, "policy-list", "List all policies", func(s *mcclient.ClientSession, args *PolicyListOptions) error {
-		params, err := options.ListStructToParams(args)
-		if err != nil {
-			return err
-		}
-		result, err := modules.Policies.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(result, modules.Policies.GetColumns(s))
-		return nil
-	})
+	cmd := shell.NewResourceCmd(&modules.Policies)
+	cmd.List(&identity.PolicyListOptions{})
 
 	type PolicyCreateOptions struct {
 		Domain   string `help:"domain of the policy"`
