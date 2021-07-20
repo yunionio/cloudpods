@@ -395,7 +395,37 @@ func (p *SSHPartition) Remove(sPath string, caseInsensitive bool) {
 	}
 }
 
-func (p *SSHPartition) UserAdd(user, homeDir string, caseInsensitive bool, isSys bool) error {
+func (p *SSHPartition) CheckOrAddUser(user, homeDir string, isSys bool) (realHomeDir string, err error) {
+	var exist bool
+	if exist, realHomeDir, err = p.checkUser(user); err != nil || exist {
+		return
+	}
+	return path.Join(homeDir, user), p.userAdd(user, homeDir, isSys)
+}
+
+func (p *SSHPartition) checkUser(user string) (exist bool, homeDir string, err error) {
+	cmd := fmt.Sprintf("/usr/sbin/chroot %s /usr/bin/cat /etc/passwd", p.mountPath)
+	lines, err := p.term.Run(cmd)
+	if err != nil {
+		return
+	}
+	log.Debugf("exec command 'cat /etc/passwd', output: %v", lines)
+	for i := len(lines) - 1; i >= 0; i-- {
+		userInfos := strings.Split(strings.TrimSpace(lines[i]), ":")
+		if len(userInfos) < 6 {
+			continue
+		}
+		if userInfos[0] != user {
+			continue
+		}
+		exist = true
+		homeDir = userInfos[5]
+		break
+	}
+	return
+}
+
+func (p *SSHPartition) userAdd(user, homeDir string, isSys bool) error {
 	cmd := fmt.Sprintf("/usr/sbin/chroot %s /usr/sbin/useradd -m -s /bin/bash %s", p.mountPath, user)
 	if isSys {
 		cmd += " -r"
