@@ -460,12 +460,18 @@ func (self *SWafInstance) AllowGetDetailsCloudResources(ctx context.Context, use
 }
 
 // 获取WAF绑定的资源列表
-func (self *SWafInstance) GetDetailsCloudResources(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) ([]cloudprovider.SCloudResource, error) {
+func (self *SWafInstance) GetDetailsCloudResources(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (cloudprovider.SCloudResources, error) {
+	ret := cloudprovider.SCloudResources{}
 	iWaf, err := self.GetICloudWafInstance()
 	if err != nil {
-		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetICloudWafInstance"))
+		return ret, httperrors.NewGeneralError(errors.Wrapf(err, "GetICloudWafInstance"))
 	}
-	return iWaf.GetCloudResources()
+	ret.Data, err = iWaf.GetCloudResources()
+	if err != nil {
+		return ret, errors.Wrapf(err, "GetCloudResources")
+	}
+	ret.Total = len(ret.Data)
+	return ret, nil
 }
 
 func (self *SWafInstance) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

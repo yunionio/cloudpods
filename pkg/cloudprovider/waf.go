@@ -250,6 +250,11 @@ type SCloudResource struct {
 	CanDissociate bool
 }
 
+type SCloudResources struct {
+	Data  []SCloudResource `json:",allowempty"`
+	Total int
+}
+
 type WafCreateOptions struct {
 	Name           string
 	Desc           string
