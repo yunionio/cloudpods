@@ -258,6 +258,8 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 		delete(params, "PathPattern")
 		req.PathPattern = pathPattern
 		req.Method = method
+	} else if strings.HasPrefix(domain, "alikafka") { //alikafka DeleteInstance必须显式指定Method
+		req.Method = requests.POST
 	}
 
 	resp, err := processCommonRequest(client, req)
