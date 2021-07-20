@@ -11,11 +11,10 @@ RUN set -x \
 
 # install default playbook and install pkg
 Run mkdir -p /opt/yunion/ansible-install-pkg
-Run wget https://dl.influxdata.com/telegraf/releases/telegraf-1.17.0-1.x86_64.rpm -P /opt/yunion/ansible-install-pkg
-Run wget https://dl.influxdata.com/telegraf/releases/telegraf-1.17.0-1.aarch64.rpm -P /opt/yunion/ansible-install-pkg
-Run wget https://dl.influxdata.com/telegraf/releases/telegraf-1.17.0_windows_amd64.zip -P /opt/yunion/ansible-install-pkg
-Run wget https://dl.influxdata.com/telegraf/releases/telegraf_1.17.0-1_amd64.deb -P /opt/yunion/ansible-install-pkg
-Run wget https://dl.influxdata.com/telegraf/releases/telegraf_1.17.0-1_arm64.deb -P /opt/yunion/ansible-install-pkg
+Run wget https://yunioniso.oss-cn-beijing.aliyuncs.com/rpms/telegraf/telegraf-1.5.0~yn-1.aarch64.rpm -P /opt/yunion/ansible-install-pkg
+Run wget https://yunioniso.oss-cn-beijing.aliyuncs.com/rpms/telegraf/telegraf-1.5.0~yn-1.x86_64.rpm -P /opt/yunion/ansible-install-pkg
+Run wget https://yunioniso.oss-cn-beijing.aliyuncs.com/rpms/telegraf/telegraf_1.5.0~yn-1_amd64.deb -P /opt/yunion/ansible-install-pkg
+Run wget https://yunioniso.oss-cn-beijing.aliyuncs.com/rpms/telegraf/telegraf_1.5.0~yn-1_arm64.deb -P /opt/yunion/ansible-install-pkg
 
 Run mkdir -p /opt/yunion/playbook
 Run mkdir /opt/yunion/playbook/monitor-agent
