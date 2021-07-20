@@ -346,6 +346,12 @@ type PolicyListInput struct {
 
 	// 是否显示系统权限
 	IsSystem *bool `json:"is_system"`
+
+	// filter policies by role id
+	RoleId string `json:"role_id"`
+	// swagger: ignore
+	// Deprecated
+	Role string `json:"role" yunion-deprecated-by:"role_id"`
 }
 
 type RegionFilterListInput struct {
