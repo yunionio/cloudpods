@@ -59,11 +59,11 @@ func QemuImgInit() error {
 
 func qcow2SparseOptions() []string {
 	if version.LE(qemuImgVersion, "1.1") {
-		return []string{"preallocation=metadata", "cluster_size=2M"}
+		return []string{"cluster_size=2M"}
 	} else if version.LE(qemuImgVersion, "1.7.1") {
-		return []string{"preallocation=metadata", "lazy_refcounts=on"}
+		return []string{"lazy_refcounts=on"}
 	} else if version.LE(qemuImgVersion, "2.2") {
-		return []string{"preallocation=metadata", "lazy_refcounts=on", "cluster_size=2M"}
+		return []string{"lazy_refcounts=on", "cluster_size=2M"}
 	} else {
 		return []string{}
 	}
