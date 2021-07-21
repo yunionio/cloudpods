@@ -23,7 +23,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -154,7 +156,9 @@ func parseUcloudResponse(params SParams, resp jsonutils.JSONObject) (jsonutils.J
 	err.Action, _ = params.data.GetString("Action")
 
 	if err.RetCode > 0 {
-		log.Debugf("Ucloud json request err %s", params.PrettyString())
+		if err.RetCode == 171 {
+			return nil, errors.Wrapf(httperrors.ErrInvalidAccessKey, err.Error())
+		}
 		return nil, err
 	}
 

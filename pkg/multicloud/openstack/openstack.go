@@ -29,6 +29,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/version"
@@ -113,7 +114,7 @@ func NewOpenStackClient(cfg *OpenstackClientConfig) (*SOpenStackClient, error) {
 	}
 	err := cli.fetchToken()
 	if err != nil {
-		return nil, errors.Wrap(err, "fetchToken")
+		return nil, err
 	}
 	return cli, cli.fetchRegions()
 }
@@ -387,7 +388,7 @@ func (cli *SOpenStackClient) fetchToken() error {
 	var err error
 	cli.tokenCredential, err = cli.getDefaultToken()
 	if err != nil {
-		return errors.Wrap(err, "getDefaultToken")
+		return err
 	}
 	return cli.checkEndpointType()
 }
@@ -427,6 +428,11 @@ func (cli *SOpenStackClient) getDefaultToken() (mcclient.TokenCredential, error)
 	client := cli.getDefaultClient()
 	token, err := client.Authenticate(cli.username, cli.password, cli.domainName, cli.project, cli.projectDomain)
 	if err != nil {
+		if e, ok := err.(*httputils.JSONClientError); ok {
+			if e.Class == "Unauthorized" {
+				return nil, errors.Wrapf(httperrors.ErrInvalidAccessKey, err.Error())
+			}
+		}
 		return nil, errors.Wrap(err, "Authenticate")
 	}
 	return token, nil

@@ -30,6 +30,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/fatih/color"
@@ -435,6 +436,28 @@ func GetDefaultClient() *http.Client {
 	return GetClient(true, time.Second*15)
 }
 
+func getClientErrorClass(err error) error {
+	cause := errors.Cause(err)
+	if urlErr, ok := cause.(*url.Error); ok {
+		if netErr, ok := urlErr.Err.(*net.OpError); ok {
+			switch t := netErr.Err.(type) {
+			case *net.DNSError:
+				return errors.ErrDNS
+			case *os.SyscallError:
+				if errno, ok := t.Err.(syscall.Errno); ok {
+					switch errno {
+					case syscall.ECONNREFUSED:
+						return errors.ErrConnectRefused
+					case syscall.ETIMEDOUT:
+						return errors.ErrTimeout
+					}
+				}
+			}
+		}
+	}
+	return errors.ErrClient
+}
+
 func Request(client sClient, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body io.Reader, debug bool) (*http.Response, error) {
 	req, resp, err := requestInternal(client, ctx, method, urlStr, header, body, debug)
 	if err != nil {
@@ -448,13 +471,13 @@ func Request(client sClient, ctx context.Context, method THttpMethod, urlStr str
 		}
 		if req == nil {
 			ce := newJsonClientErrorFromRequest2(string(method), urlStr, header, reqBody)
-			ce.Class = string(errors.ErrClient)
+			ce.Class = getClientErrorClass(err).Error()
 			ce.Details = err.Error()
 			ce.Code = 499
 			return nil, ce
 		}
 		ce := newJsonClientErrorFromRequest(req, reqBody)
-		ce.Class = string(errors.ErrClient)
+		ce.Class = getClientErrorClass(err).Error()
 		ce.Details = err.Error()
 		ce.Code = 499
 		return nil, ce
