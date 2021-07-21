@@ -41,6 +41,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 const (
@@ -115,7 +116,7 @@ func NewAwsClient(cfg *AwsClientConfig) (*SAwsClient, error) {
 	}
 	_, err := client.fetchRegions()
 	if err != nil {
-		return nil, errors.Wrap(err, "fetchRegions")
+		return nil, err
 	}
 	err = client.fetchOwnerId()
 	if err != nil {
@@ -204,6 +205,9 @@ func (self *SAwsClient) fetchRegions() ([]SRegion, error) {
 		// https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.DescribeRegions
 		result, err := svc.DescribeRegions(&ec2.DescribeRegionsInput{})
 		if err != nil {
+			if e, ok := err.(awserr.Error); ok && e.Code() == "AuthFailure" {
+				return nil, errors.Wrap(httperrors.ErrInvalidAccessKey, err.Error())
+			}
 			return nil, errors.Wrap(err, "DescribeRegions")
 		}
 		describeRegionResult[self.accessUrl] = result

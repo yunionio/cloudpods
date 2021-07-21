@@ -92,6 +92,8 @@ const (
 	ErrUserDisabled                = errors.Error("UserDisabled")
 	ErrWrongPassword               = errors.Error("WrongPassword")
 	ErrIncorrectUsernameOrPassword = errors.Error("IncorrectUsernameOrPassword")
+
+	ErrInvalidAccessKey = errors.Error("InvalidAccessKey")
 )
 
 var (
@@ -172,6 +174,8 @@ var (
 		ErrIncorrectUsernameOrPassword: 401,
 
 		ErrPolicyDefinition: 409,
+
+		ErrInvalidAccessKey: 400,
 	}
 )
 

@@ -22,7 +22,9 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -250,6 +252,9 @@ func (br *SBaseRequest) ForMateResponseBody(jrbody jsonutils.JSONObject) (jsonut
 	default:
 		if jrbody.Contains("errorMessage") {
 			msg, _ := jrbody.GetString("errorMessage")
+			if strings.Contains(msg, "Invalid parameter AccessKey") {
+				return nil, errors.Wrapf(httperrors.ErrInvalidAccessKey, msg)
+			}
 			return nil, &httputils.JSONClientError{Code: 400, Details: msg}
 		}
 		return nil, &httputils.JSONClientError{Code: 400, Details: jrbody.String()}

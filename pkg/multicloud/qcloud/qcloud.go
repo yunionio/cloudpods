@@ -40,6 +40,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -497,6 +498,12 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 		needRetry := false
 		e, ok := err.(*sdkerrors.TencentCloudSDKError)
 		if ok {
+			if utils.IsInStringArray(e.Code, []string{
+				"AuthFailure.SecretIdNotFound",
+				"AuthFailure.SignatureFailure",
+			}) {
+				return nil, errors.Wrapf(httperrors.ErrInvalidAccessKey, err.Error())
+			}
 			if utils.IsInStringArray(e.Code, []string{
 				"InvalidParameter.RoleNotExist",
 				"ResourceNotFound",

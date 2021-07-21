@@ -1175,7 +1175,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v0.0.0-20210218105412-13a69f60034c
+# yunion.io/x/pkg v0.0.0-20210721081124-55078288ca4c
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
 yunion.io/x/pkg/prettytable
