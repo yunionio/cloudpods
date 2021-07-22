@@ -251,14 +251,13 @@ type sSSHable struct {
 	port int
 }
 
-// func (self *ApplyScriptTask) ansibleHost(session modules.SS)
 func (self *ApplyScriptTask) checkSshableForYunionCloud(session *mcclient.ClientSession, serverDetail *comapi.ServerDetails) (sSSHable, error) {
 	if serverDetail.IPs == "" {
 		return sSSHable{}, fmt.Errorf("empty ips for server %s", serverDetail.Id)
 	}
 	ips := strings.Split(serverDetail.IPs, ",")
 	ip := strings.TrimSpace(ips[0])
-	if serverDetail.VpcId == "" || serverDetail.VpcId == comapi.DEFAULT_VPC_ID {
+	if serverDetail.Hypervisor == comapi.HYPERVISOR_BAREMETAL || serverDetail.VpcId == "" || serverDetail.VpcId == comapi.DEFAULT_VPC_ID {
 		return sSSHable{
 			ok:   true,
 			user: "cloudroot",
@@ -319,7 +318,7 @@ func (self *ApplyScriptTask) checkSshableForYunionCloud(session *mcclient.Client
 }
 
 func (self *ApplyScriptTask) checkSshable(session *mcclient.ClientSession, serverDetail *comapi.ServerDetails) (sSSHable, error) {
-	if serverDetail.Hypervisor == comapi.HYPERVISOR_KVM {
+	if serverDetail.Hypervisor == comapi.HYPERVISOR_KVM || serverDetail.Hypervisor == comapi.HYPERVISOR_BAREMETAL {
 		return self.checkSshableForYunionCloud(session, serverDetail)
 	}
 	return self.checkSshableForOtherCloud(session, serverDetail.Id)
@@ -422,19 +421,13 @@ func (self *ApplyScriptTask) OnAnsiblePlaybookComplete(ctx context.Context, obj 
 }
 
 func (self *ApplyScriptTask) OnAnsiblePlaybookCompleteFailed(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	// try to delete local forward
-	session := auth.GetAdminSession(ctx, "", "")
-	forwardId, _ := self.Params.GetString("proxy_forward_id")
-	_, err := cloudproxy.Forwards.Delete(session, forwardId, nil)
-	if err != nil {
-		log.Errorf("unable to delete proxy forward %s: %v", forwardId, err)
-	}
 	sa := obj.(*models.SScriptApply)
 	sarId, _ := self.Params.GetString("script_apply_record_id")
 	osar, err := models.ScriptApplyRecordManager.FetchById(sarId)
 	if err != nil {
 		log.Errorf("unable to fetch script apply record %s: %v", sarId, err)
-		self.taskSuccess(ctx, sa, nil)
+		self.taskFailed(ctx, sa, nil, errors.Error(body.String()))
+	} else {
+		self.taskFailed(ctx, sa, osar.(*models.SScriptApplyRecord), errors.Error(body.String()))
 	}
-	self.taskFailed(ctx, sa, osar.(*models.SScriptApplyRecord), errors.Error(body.String()))
 }
