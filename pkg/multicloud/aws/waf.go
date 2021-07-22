@@ -205,7 +205,10 @@ func (self *SWebAcl) GetStatus() string {
 
 func (self *SWebAcl) GetDefaultAction() *cloudprovider.DefaultAction {
 	ret := &cloudprovider.DefaultAction{}
-	if self.WebACL != nil && self.WebACL.DefaultAction != nil {
+	if self.WebACL.DefaultAction == nil {
+		self.Refresh()
+	}
+	if self.WebACL.DefaultAction != nil {
 		action := self.WebACL.DefaultAction
 		if action.Allow != nil {
 			ret.Action = cloudprovider.WafActionAllow
@@ -522,6 +525,9 @@ func (self *SWebAcl) AddRule(opts *cloudprovider.SWafRule) (cloudprovider.ICloud
 
 func (self *SWebAcl) GetCloudResources() ([]cloudprovider.SCloudResource, error) {
 	ret := []cloudprovider.SCloudResource{}
+	if self.scope != SCOPE_REGIONAL {
+		return ret, nil
+	}
 	for _, resType := range []string{"APPLICATION_LOAD_BALANCER", "API_GATEWAY", "APPSYNC"} {
 		resIds, err := self.region.ListResourcesForWebACL(resType, *self.ARN)
 		if err != nil {
@@ -530,6 +536,7 @@ func (self *SWebAcl) GetCloudResources() ([]cloudprovider.SCloudResource, error)
 		for _, resId := range resIds {
 			ret = append(ret, cloudprovider.SCloudResource{
 				Id:   resId,
+				Name: resId,
 				Type: resType,
 			})
 		}

@@ -182,7 +182,7 @@ type SApplicationGateway struct {
 	multicloud.AzureTags
 
 	Name       string                        `json:"name"`
-	ID         string                        `json:"id"`
+	Id         string                        `json:"id"`
 	Etag       string                        `json:"etag"`
 	Type       string                        `json:"type"`
 	Location   string                        `json:"location"`
@@ -194,11 +194,11 @@ func (self *SApplicationGateway) GetName() string {
 }
 
 func (self *SApplicationGateway) GetId() string {
-	return self.ID
+	return self.Id
 }
 
 func (self *SApplicationGateway) GetGlobalId() string {
-	return strings.ToLower(self.ID)
+	return strings.ToLower(self.Id)
 }
 
 func (self *SRegion) ListAppGateways() ([]SApplicationGateway, error) {
