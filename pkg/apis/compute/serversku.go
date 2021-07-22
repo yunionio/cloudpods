@@ -126,7 +126,8 @@ type ServerSkuCreateInput struct {
 type ServerSkuDetails struct {
 	apis.EnabledStatusStandaloneResourceDetails
 
-	ZoneResourceInfo
+	ZoneResourceInfoBase
+	CloudregionResourceInfo
 
 	SServerSku
 

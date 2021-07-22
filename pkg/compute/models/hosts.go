@@ -1305,7 +1305,6 @@ func (cap *SStorageCapacity) Add(cap2 SStorageCapacity) {
 
 func (cap *SStorageCapacity) toCapacityInfo() api.SStorageCapacityInfo {
 	info := api.SStorageCapacityInfo{}
-	info.Capacity = cap.Capacity
 	info.UsedCapacity = cap.Used
 	info.WasteCapacity = cap.Wasted
 	info.VirtualCapacity = cap.VCapacity

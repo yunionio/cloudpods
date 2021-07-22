@@ -192,6 +192,19 @@ func (manager *SSecurityGroupManager) ListItemFilter(
 		q = q.In("id", sq.SubQuery())
 	}
 
+	if input.CloudEnv == "onpremise" {
+		hosts := HostManager.Query("id").In("host_type", []string{api.HOST_TYPE_BAREMETAL, api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_ESXI}).SubQuery()
+		guests := GuestManager.Query("id").In("host_id", hosts).SubQuery()
+		guestSec := GuestManager.Query("secgrp_id").In("id", guests).SubQuery()
+		guestAdminSec := GuestManager.Query("admin_secgrp_id").In("id", guests).SubQuery()
+		guestSecs := GuestsecgroupManager.Query("secgroup_id").In("guest_id", guests).SubQuery()
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.In(q.Field("id"), guestSec),
+			sqlchemy.In(q.Field("id"), guestAdminSec),
+			sqlchemy.In(q.Field("id"), guestSecs),
+		))
+	}
+
 	return q, nil
 }
 

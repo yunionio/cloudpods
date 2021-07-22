@@ -46,6 +46,7 @@ func init() {
 	cmd.CreateWithKeyword("create-apsara", &options.SApsaraCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-ecloud", &options.SEcloudCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-jdcloud", &options.SJDcloudCloudAccountCreateOptions{})
+	cmd.CreateWithKeyword("create-cloudpods", &options.SCloudpodsCloudAccountCreateOptions{})
 
 	cmd.UpdateWithKeyword("update-vmware", &options.SVMwareCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-aliyun", &options.SAliyunCloudAccountUpdateOptions{})
@@ -60,6 +61,7 @@ func init() {
 	cmd.UpdateWithKeyword("update-s3", &options.SS3CloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-ctyun", &options.SCtyunCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-jdcloud", &options.SJDcloudCloudAccountUpdateOptions{})
+	cmd.UpdateWithKeyword("update-cloudpods", &options.SCloudpodsCloudAccountUpdateOptions{})
 
 	cmd.Perform("update-credential", &options.CloudaccountUpdateCredentialOptions{})
 
@@ -76,6 +78,7 @@ func init() {
 	cmd.PerformWithKeyword("update-credential-s3", "update-credential", &options.SS3CloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("update-credential-ctyun", "update-credential", &options.SCtyunCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("update-credential-jdcloud", "update-credential", &options.SJDcloudCloudAccountUpdateCredentialOptions{})
+	cmd.PerformWithKeyword("update-credential-cloudpods", "update-credential", &options.SCloudpodsCloudAccountUpdateCredentialOptions{})
 
 	cmd.PerformWithKeyword("test-connectivity-google", "test-connectivity", &options.SGoogleCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("test-connectivity-vmware", "test-connectivity", &options.SVMwareCloudAccountUpdateCredentialOptions{})
@@ -90,6 +93,7 @@ func init() {
 	cmd.PerformWithKeyword("test-connectivity-s3", "test-connectivity", &options.SS3CloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("test-connectivity-ctyun", "test-connectivity", &options.SCtyunCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("test-connectivity-jdcloud", "test-connectivity", &options.SJDcloudCloudAccountUpdateCredentialOptions{})
+	cmd.PerformWithKeyword("test-connectivity-cloudpods", "test-connectivity", &options.SCloudpodsCloudAccountUpdateCredentialOptions{})
 
 	cmd.Perform("enable", &options.SCloudAccountIdOptions{})
 	cmd.Perform("disable", &options.SCloudAccountIdOptions{})

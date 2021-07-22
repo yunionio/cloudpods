@@ -200,9 +200,6 @@ type HostDetails struct {
 	SysWarn string `json:"sys_warn"`
 	// host init error info
 	SysError string `json:"sys_error"`
-
-	// 标签
-	Metadata map[string]string `json:"metadata"`
 }
 
 type HostResourceInfo struct {

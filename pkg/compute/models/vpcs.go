@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -799,40 +800,22 @@ func (manager *SVpcManager) ValidateCreateData(
 	query jsonutils.JSONObject,
 	input api.VpcCreateInput,
 ) (api.VpcCreateInput, error) {
-	regionId := input.CloudregionId
-	if len(regionId) == 0 {
-		return input, httperrors.NewMissingParameterError("cloudregion_id")
-	}
-	regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionId)
+	regionObj, err := validators.ValidateModel(userCred, CloudregionManager, &input.CloudregionId)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return input, httperrors.NewResourceNotFoundError2(CloudregionManager.Keyword(), regionId)
-		} else {
-			return input, httperrors.NewGeneralError(err)
-		}
+		return input, err
 	}
 	region := regionObj.(*SCloudregion)
-	input.CloudregionId = region.Id
-	// data.Add(jsonutils.NewString(region.GetId()), "cloudregion_id")
 	if region.isManaged() {
-		managerStr := input.CloudproviderId
-		if len(managerStr) == 0 {
-			return input, httperrors.NewMissingParameterError("manager_id")
+		if len(region.ManagerId) > 0 {
+			input.CloudproviderId = region.ManagerId
 		}
-		managerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)
+		_, err := validators.ValidateModel(userCred, CloudproviderManager, &input.CloudproviderId)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return input, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
-			} else {
-				return input, httperrors.NewGeneralError(err)
-			}
+			return input, err
 		}
-		input.CloudproviderId = managerObj.GetId()
 		if input.ExternalAccessMode == "" {
 			input.ExternalAccessMode = api.VPC_EXTERNAL_ACCESS_MODE_EIP
 		}
-
-		// data.Add(jsonutils.NewString(managerObj.GetId()), "manager_id")
 	} else {
 		input.Status = api.VPC_STATUS_AVAILABLE
 		if input.ExternalAccessMode == "" {

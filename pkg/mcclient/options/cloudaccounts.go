@@ -359,6 +359,18 @@ func (opts *SJDcloudCloudAccountCreateOptions) Params() (jsonutils.JSONObject, e
 	return params, nil
 }
 
+type SCloudpodsCloudAccountCreateOptions struct {
+	SCloudAccountCreateBaseOptions
+	SAccessKeyCredential
+	AuthURL string `help:"Cloudpods auth_url" positional:"true" json:"auth_url"`
+}
+
+func (opts *SCloudpodsCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Cloudpods"), "provider")
+	return params, nil
+}
+
 // update credential options
 
 type SCloudAccountIdOptions struct {
@@ -479,6 +491,15 @@ type SJDcloudCloudAccountUpdateCredentialOptions struct {
 
 func (opts *SJDcloudCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
+}
+
+type SCloudpodsCloudAccountUpdateCredentialOptions struct {
+	SCloudAccountIdOptions
+	SAccessKeyCredential
+}
+
+func (opts *SCloudpodsCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts.SAccessKeyCredential), nil
 }
 
 type SGoogleCloudAccountUpdateCredentialOptions struct {
@@ -785,6 +806,14 @@ type SJDcloudCloudAccountUpdateOptions struct {
 }
 
 func (opts *SJDcloudCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
+type SCloudpodsCloudAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
+}
+
+func (opts *SCloudpodsCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
 

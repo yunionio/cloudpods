@@ -113,8 +113,6 @@ type RbdTimeoutInput struct {
 }
 
 type SStorageCapacityInfo struct {
-	// 容量大小, 单位Mb
-	Capacity int64 `json:"capacity"`
 	// 已使用容量大小
 	UsedCapacity int64 `json:"used_capacity"`
 	// 浪费容量大小(异常磁盘大小总和)
@@ -136,6 +134,8 @@ type StorageDetails struct {
 	apis.EnabledStatusInfrasResourceBaseDetails
 	ManagedResourceInfo
 	ZoneResourceInfo
+
+	SStorage
 
 	SStorageCapacityInfo
 

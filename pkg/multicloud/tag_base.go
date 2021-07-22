@@ -351,3 +351,19 @@ func (self *ZStackTags) GetSysTags() map[string]string {
 func (self *ZStackTags) SetTags(tags map[string]string, replace bool) error {
 	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetTags")
 }
+
+type CloudpodsTags struct {
+	Metadata map[string]string
+}
+
+func (self *CloudpodsTags) GetTags() (map[string]string, error) {
+	return self.Metadata, nil
+}
+
+func (self *CloudpodsTags) GetSysTags() map[string]string {
+	return nil
+}
+
+func (self *CloudpodsTags) SetTags(tags map[string]string, replace bool) error {
+	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetTags")
+}

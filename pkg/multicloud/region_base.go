@@ -230,3 +230,129 @@ func (self *SRegion) GetICloudApps() ([]cloudprovider.ICloudApp, error) {
 func (self *SRegion) GetICloudAppById(id string) (cloudprovider.ICloudApp, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudAppById")
 }
+
+type SRegionZoneBase struct {
+}
+
+func (self *SRegionZoneBase) GetIZones() ([]cloudprovider.ICloudZone, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIZones")
+}
+
+func (self *SRegionZoneBase) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIZoneById")
+}
+
+type SRegionVpcBase struct {
+}
+
+func (self *SRegionVpcBase) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateIVpc")
+}
+
+func (self *SRegionVpcBase) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIVpcs")
+}
+
+func (self *SRegionVpcBase) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIVpcById")
+}
+
+type SRegionOssBase struct {
+}
+
+func (self *SRegionOssBase) CreateIBucket(name string, storageClassStr string, acl string) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateIBucket")
+}
+
+func (self *SRegionOssBase) GetIBucketById(id string) (cloudprovider.ICloudBucket, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIBucketById")
+}
+
+func (self *SRegionOssBase) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIBuckets")
+}
+
+func (self *SRegionOssBase) IBucketExist(name string) (bool, error) {
+	return false, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegionOssBase) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIBucketByName")
+}
+
+func (self *SRegionOssBase) DeleteIBucket(name string) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "DeleteIBucket")
+}
+
+type SRegionLbBase struct {
+}
+
+func (self *SRegionLbBase) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetILoadBalancers")
+}
+
+func (self *SRegionLbBase) GetILoadBalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetILoadBalancerAcls")
+}
+
+func (self *SRegionLbBase) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetILoadBalancerCertificates")
+}
+
+func (self *SRegionLbBase) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetILoadBalancerBackendGroups")
+}
+
+func (self *SRegionLbBase) GetILoadBalancerById(loadbalancerId string) (cloudprovider.ICloudLoadbalancer, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetILoadBalancerById")
+}
+
+func (self *SRegionLbBase) GetILoadBalancerAclById(aclId string) (cloudprovider.ICloudLoadbalancerAcl, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetILoadBalancerAclById")
+}
+
+func (self *SRegionLbBase) GetILoadBalancerCertificateById(certId string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetILoadBalancerCertificateById")
+}
+
+func (self *SRegionLbBase) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateLoadBalancer")
+}
+
+func (self *SRegionLbBase) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateILoadBalancerAcl")
+}
+
+func (self *SRegionLbBase) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateILoadBalancerCertificate")
+}
+
+type SRegionSecurityGroupBase struct {
+}
+
+func (self *SRegionSecurityGroupBase) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateISecurityGroup")
+}
+
+func (self *SRegionSecurityGroupBase) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIElasticSearchById")
+}
+
+func (self *SRegionSecurityGroupBase) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetISecurityGroupByName")
+}
+
+type SRegionEipBase struct {
+}
+
+func (self *SRegionEipBase) GetIEipById(id string) (cloudprovider.ICloudEIP, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIEipById")
+}
+
+func (self *SRegionEipBase) GetIEips() ([]cloudprovider.ICloudEIP, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIEips")
+}
+
+func (self *SRegionEipBase) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateEIP")
+}
