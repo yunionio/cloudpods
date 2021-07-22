@@ -242,6 +242,8 @@ func (self DefaultAction) String() string {
 type SCloudResource struct {
 	// 资源Id
 	Id string
+	// 资源名称
+	Name string
 	// 资源类型
 	Type string
 	// 资源映射端口

@@ -135,6 +135,8 @@ func wafMatchFieldAndKeyCloud2Local(v SMatchvariable) (cloudprovider.TWafMatchFi
 		return cloudprovider.WafMatchFieldBody, "", nil
 	case "RequestCookies":
 		return cloudprovider.WafMatchFiledCookie, v.Selector, nil
+	case "RemoteAddr":
+		return cloudprovider.WafMatchFiledHeader, v.Selector, nil
 	default:
 		return "", "", fmt.Errorf("invalid variablename %s", v.Variablename)
 	}
@@ -399,6 +401,9 @@ type SAppGatewayWaf struct {
 		HttpListeners       []struct {
 			Id string
 		}
+		PathBasedRules []struct {
+			Id string
+		}
 		Resourcestate     string `json:"resourceState"`
 		Provisioningstate string `json:"provisioningState"`
 		Policysettings    struct {
@@ -486,7 +491,9 @@ func (self *SAppGatewayWaf) Refresh() error {
 }
 
 func (self *SAppGatewayWaf) GetDefaultAction() *cloudprovider.DefaultAction {
-	return &cloudprovider.DefaultAction{}
+	return &cloudprovider.DefaultAction{
+		Action: cloudprovider.TWafAction(self.Properties.Policysettings.Mode),
+	}
 }
 
 func (self *SRegion) ListAppWafs() ([]SAppGatewayWaf, error) {
@@ -607,17 +614,28 @@ func (self *SAppGatewayWaf) GetCloudResources() ([]cloudprovider.SCloudResource,
 	ret := []cloudprovider.SCloudResource{}
 	for _, ag := range self.Properties.ApplicationGateways {
 		ret = append(ret, cloudprovider.SCloudResource{
-			Id:            ag.ID,
-			Type:          "app_gateway",
+			Id:            ag.Id,
+			Name:          ag.Id[strings.LastIndex(ag.Id, "/")+1:],
+			Type:          "Application Gateway",
 			CanDissociate: true,
 		})
 	}
 	for _, lis := range self.Properties.HttpListeners {
 		ret = append(ret, cloudprovider.SCloudResource{
 			Id:            lis.Id,
-			Type:          "http_listener",
+			Name:          lis.Id[strings.LastIndex(lis.Id, "/")+1:],
+			Type:          "HTTP Listener",
 			CanDissociate: true,
 		})
+	}
+	for _, route := range self.Properties.PathBasedRules {
+		ret = append(ret, cloudprovider.SCloudResource{
+			Id:            route.Id,
+			Name:          route.Id[strings.LastIndex(route.Id, "/")+1:],
+			Type:          "Route Path",
+			CanDissociate: true,
+		})
+
 	}
 	return ret, nil
 }

@@ -426,6 +426,7 @@ func (self *SWafDomain) GetCloudResources() ([]cloudprovider.SCloudResource, err
 	if len(self.Cname) > 0 {
 		ret = append(ret, cloudprovider.SCloudResource{
 			Type:          "cname",
+			Name:          "CNAME",
 			Id:            self.Cname,
 			CanDissociate: false,
 		})
@@ -434,11 +435,13 @@ func (self *SWafDomain) GetCloudResources() ([]cloudprovider.SCloudResource, err
 	if err == nil {
 		ret = append(ret, cloudprovider.SCloudResource{
 			Type:          "segment_ipv4",
+			Name:          "Segment IPv4",
 			Id:            ipseg.Ips,
 			CanDissociate: false,
 		})
 		ret = append(ret, cloudprovider.SCloudResource{
 			Type:          "segment_ipv6",
+			Name:          "Segment IPv6",
 			Id:            ipseg.IpV6s,
 			CanDissociate: false,
 		})
