@@ -22,9 +22,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -35,7 +34,7 @@ import (
 )
 
 var (
-	ErrUnsupportedFormat = errors.New("unsupported format")
+	ErrUnsupportedFormat = errors.Error("unsupported format")
 )
 
 type TIONiceLevel int
@@ -461,6 +460,9 @@ func (img *SQemuImage) CreateQcow2(sizeMB int, compact bool, backPath string) er
 		}
 	} else if !compact {
 		sparseOpts := qcow2SparseOptions()
+		if sizeMB <= 1024*1024*4 {
+			options = append(options, "preallocation=metadata")
+		}
 		options = append(options, sparseOpts...)
 	}
 	return img.create(sizeMB, QCOW2, options)

@@ -2017,3 +2017,21 @@ func (manager *SElasticSearchManager) purgeAll(ctx context.Context, userCred mcc
 	}
 	return nil
 }
+
+func (manager *SKafkaManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	kafkas := []SElasticSearch{}
+	err := fetchByManagerId(manager, providerId, &kafkas)
+	if err != nil {
+		return errors.Wrapf(err, "fetchByManagerId")
+	}
+	for i := range kafkas {
+		lockman.LockObject(ctx, &kafkas[i])
+		defer lockman.ReleaseObject(ctx, &kafkas[i])
+
+		err := kafkas[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "kafka delete")
+		}
+	}
+	return nil
+}

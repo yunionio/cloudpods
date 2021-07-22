@@ -115,6 +115,7 @@ require (
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/stretchr/testify v1.5.1
+	github.com/tatsushid/go-fastping v0.0.0-20160109021039-d7bb493dee3e
 	github.com/tencentcloud/tencentcloud-sdk-go v3.0.135+incompatible
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.24
 	github.com/tinylib/msgp v1.1.0 // indirect

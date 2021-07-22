@@ -688,8 +688,14 @@ func (manager *SStorageManager) scanLegacyStorages() error {
 }
 
 func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, storages []cloudprovider.ICloudStorage) ([]SStorage, []cloudprovider.ICloudStorage, compare.SyncResult) {
-	lockman.LockRawObject(ctx, "storages", fmt.Sprintf("%s-%s", provider.Id, zone.Id))
-	defer lockman.ReleaseRawObject(ctx, "storages", fmt.Sprintf("%s-%s", provider.Id, zone.Id))
+	var resId string
+	if zone != nil {
+		resId = fmt.Sprintf("%s-%s", provider.Id, zone.Id)
+	} else {
+		resId = provider.Id
+	}
+	lockman.LockRawObject(ctx, "storages", resId)
+	defer lockman.ReleaseRawObject(ctx, "storages", resId)
 
 	localStorages := make([]SStorage, 0)
 	remoteStorages := make([]cloudprovider.ICloudStorage, 0)

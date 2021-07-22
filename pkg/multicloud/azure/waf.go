@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -118,28 +119,25 @@ func wafMatchFieldAndKeyLocal2Cloud(opts cloudprovider.SWafStatement) ([]SMatchv
 	return ret, nil
 }
 
-func wafMatchFieldAndKeyCloud2Local(vars []SMatchvariable) (cloudprovider.TWafMatchField, string, error) {
-	for _, v := range vars {
-		switch v.Variablename {
-		case "QueryString":
-			return cloudprovider.WafMatchFieldQuery, v.Selector, nil
-		case "RequestMethod":
-			return cloudprovider.WafMatchFieldMethod, "", nil
-		case "RequestUri":
-			return cloudprovider.WafMatchFiledUriPath, "", nil
-		case "RequestHeaders":
-			return cloudprovider.WafMatchFiledHeader, v.Selector, nil
-		case "PostArgs":
-			return cloudprovider.WafMatchFiledPostArgs, v.Selector, nil
-		case "RequestBody":
-			return cloudprovider.WafMatchFieldBody, "", nil
-		case "RequestCookies":
-			return cloudprovider.WafMatchFiledCookie, v.Selector, nil
-		default:
-			return "", "", fmt.Errorf("invalid variablename %s", v.Variablename)
-		}
+func wafMatchFieldAndKeyCloud2Local(v SMatchvariable) (cloudprovider.TWafMatchField, string, error) {
+	switch v.Variablename {
+	case "QueryString":
+		return cloudprovider.WafMatchFieldQuery, v.Selector, nil
+	case "RequestMethod":
+		return cloudprovider.WafMatchFieldMethod, "", nil
+	case "RequestUri":
+		return cloudprovider.WafMatchFiledUriPath, "", nil
+	case "RequestHeaders":
+		return cloudprovider.WafMatchFiledHeader, v.Selector, nil
+	case "PostArgs":
+		return cloudprovider.WafMatchFiledPostArgs, v.Selector, nil
+	case "RequestBody":
+		return cloudprovider.WafMatchFieldBody, "", nil
+	case "RequestCookies":
+		return cloudprovider.WafMatchFiledCookie, v.Selector, nil
+	default:
+		return "", "", fmt.Errorf("invalid variablename %s", v.Variablename)
 	}
-	return "", "", nil
 }
 
 func wafStatementLocal2Cloud(opts cloudprovider.SWafStatement) (SMatchcondition, error) {
@@ -272,7 +270,6 @@ func (self *CustomRule) GetStatements() ([]cloudprovider.SWafStatement, error) {
 			Transformations:  &trans,
 			MatchFieldValues: &values,
 		}
-		statement.MatchField, statement.MatchFieldKey, _ = wafMatchFieldAndKeyCloud2Local(condition.Matchvariables)
 		switch condition.Operator {
 		case "IPMatch":
 			statement.Type = cloudprovider.WafStatementTypeIPSet
@@ -299,7 +296,16 @@ func (self *CustomRule) GetStatements() ([]cloudprovider.SWafStatement, error) {
 		default:
 			statement.Type = cloudprovider.WafStatementTypeByteMatch
 		}
-		ret = append(ret, statement)
+
+		var err error
+		for _, v := range condition.Matchvariables {
+			statement.MatchField, statement.MatchFieldKey, err = wafMatchFieldAndKeyCloud2Local(v)
+			if err != nil {
+				log.Errorf("wafMatchFieldAndKeyCloud2Local %s error: %v", v, err)
+				continue
+			}
+			ret = append(ret, statement)
+		}
 	}
 	return ret, nil
 }

@@ -60,16 +60,8 @@ type SWebAcl struct {
 	region *SRegion
 	*wafv2.WebACL
 
-	scope                    string
-	ARN                      string
-	Description              string
-	Id                       string
-	LockToken                string
-	Name                     string
-	LabelNamespace           string
-	Capacity                 int
-	ManagedByFirewallManager bool
-	VisibilityConfig         SVisibilityConfig
+	scope     string
+	LockToken string
 }
 
 func (self *SRegion) ListWebACLs(scope string) ([]SWebAcl, error) {
@@ -116,7 +108,7 @@ func (self *SRegion) GetWebAcl(id, name, scope string) (*SWebAcl, error) {
 		return nil, errors.Wrapf(err, "GetWebAcl")
 	}
 	ret := &SWebAcl{region: self, scope: scope, WebACL: resp.WebACL, LockToken: *resp.LockToken}
-	return ret, jsonutils.Update(ret, resp)
+	return ret, nil
 }
 
 func (self *SRegion) DeleteWebAcl(id, name, scope, lockToken string) error {
@@ -189,15 +181,15 @@ func (self *SWebAcl) GetEnabled() bool {
 }
 
 func (self *SWebAcl) GetGlobalId() string {
-	return self.ARN
+	return *self.ARN
 }
 
 func (self *SWebAcl) GetName() string {
-	return self.Name
+	return *self.Name
 }
 
 func (self *SWebAcl) GetId() string {
-	return self.ARN
+	return *self.ARN
 }
 
 func (self *SWebAcl) GetWafType() cloudprovider.TWafType {
@@ -225,7 +217,7 @@ func (self *SWebAcl) GetDefaultAction() *cloudprovider.DefaultAction {
 }
 
 func (self *SWebAcl) Refresh() error {
-	acl, err := self.region.GetWebAcl(self.Id, self.Name, self.scope)
+	acl, err := self.region.GetWebAcl(*self.Id, *self.Name, self.scope)
 	if err != nil {
 		return errors.Wrapf(err, "GetWebAcl")
 	}
@@ -234,7 +226,7 @@ func (self *SWebAcl) Refresh() error {
 }
 
 func (self *SWebAcl) Delete() error {
-	return self.region.DeleteWebAcl(self.Id, self.Name, self.scope, self.LockToken)
+	return self.region.DeleteWebAcl(*self.Id, *self.Name, self.scope, self.LockToken)
 }
 
 func (self *SRegion) CreateICloudWafInstance(opts *cloudprovider.WafCreateOptions) (cloudprovider.ICloudWafInstance, error) {
@@ -456,10 +448,10 @@ func reverseConvertStatement(statement cloudprovider.SWafStatement) *wafv2.State
 func (self *SWebAcl) AddRule(opts *cloudprovider.SWafRule) (cloudprovider.ICloudWafRule, error) {
 	input := &wafv2.UpdateWebACLInput{}
 	input.SetLockToken(self.LockToken)
-	input.SetId(self.Id)
-	input.SetName(self.Name)
+	input.SetId(*self.Id)
+	input.SetName(*self.Name)
 	input.SetScope(self.scope)
-	input.SetDescription(self.Description)
+	input.SetDescription(*self.Description)
 	input.SetDefaultAction(self.DefaultAction)
 	input.SetVisibilityConfig(self.WebACL.VisibilityConfig)
 	rules := self.Rules
@@ -531,9 +523,9 @@ func (self *SWebAcl) AddRule(opts *cloudprovider.SWafRule) (cloudprovider.ICloud
 func (self *SWebAcl) GetCloudResources() ([]cloudprovider.SCloudResource, error) {
 	ret := []cloudprovider.SCloudResource{}
 	for _, resType := range []string{"APPLICATION_LOAD_BALANCER", "API_GATEWAY", "APPSYNC"} {
-		resIds, err := self.region.ListResourcesForWebACL(resType, self.ARN)
+		resIds, err := self.region.ListResourcesForWebACL(resType, *self.ARN)
 		if err != nil {
-			return nil, errors.Wrapf(err, "ListResourcesForWebACL(%s, %s)", resType, self.ARN)
+			return nil, errors.Wrapf(err, "ListResourcesForWebACL(%s, %s)", resType, *self.ARN)
 		}
 		for _, resId := range resIds {
 			ret = append(ret, cloudprovider.SCloudResource{

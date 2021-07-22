@@ -44,6 +44,8 @@ type QcloudTags struct {
 	InstanceTags []STag
 	// Elasticsearch
 	TagList []STag
+	// Kafka
+	Tags []STag
 }
 
 func (self *QcloudTags) GetTags() (map[string]string, error) {
@@ -55,6 +57,9 @@ func (self *QcloudTags) GetTags() (map[string]string, error) {
 		ret[tag.TagKey] = tag.TagValue
 	}
 	for _, tag := range self.TagList {
+		ret[tag.TagKey] = tag.TagValue
+	}
+	for _, tag := range self.Tags {
 		ret[tag.TagKey] = tag.TagValue
 	}
 	return ret, nil
@@ -79,6 +84,9 @@ type STag struct {
 type AliyunTags struct {
 	Tags struct {
 		Tag []STag
+
+		// Kafka
+		TagVO []STag `json:"TagVO" yunion-deprecated-by:"Tag"`
 	}
 }
 
@@ -95,6 +103,7 @@ func (self *AliyunTags) GetTags() (map[string]string, error) {
 			ret[tag.Key] = tag.Value
 		}
 	}
+
 	return ret, nil
 }
 

@@ -180,6 +180,9 @@ type ICloudRegion interface {
 
 	GetIElasticSearchs() ([]ICloudElasticSearch, error)
 	GetIElasticSearchById(id string) (ICloudElasticSearch, error)
+
+	GetICloudKafkas() ([]ICloudKafka, error)
+	GetICloudKafkaById(id string) (ICloudKafka, error)
 }
 
 type ICloudZone interface {
@@ -1414,6 +1417,29 @@ type ICloudElasticSearch interface {
 	GetNetworkId() string
 	GetZoneId() string
 	IsMultiAz() bool
+
+	Delete() error
+}
+
+type ICloudKafka interface {
+	IVirtualResource
+	IBillingResource
+
+	GetNetworkId() string
+	GetVpcId() string
+	GetZoneId() string
+	GetInstanceType() string
+
+	GetVersion() string
+	GetDiskSizeGb() int
+	GetStorageType() string
+	GetBandwidthMb() int
+	GetEndpoint() string
+	GetMsgRetentionMinute() int
+
+	IsMultiAz() bool
+
+	GetTopics() ([]SKafkaTopic, error)
 
 	Delete() error
 }

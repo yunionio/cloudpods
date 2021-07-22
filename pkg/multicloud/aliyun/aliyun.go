@@ -68,6 +68,7 @@ const (
 	ALIYUN_WAF_API_VERSION      = "2019-09-10"
 	ALIYUN_MONGO_DB_API_VERSION = "2015-12-01"
 	ALIYUN_ES_API_VERSION       = "2017-06-13"
+	ALIYUN_KAFKA_API_VERSION    = "2019-09-16"
 
 	ALIYUN_SERVICE_ECS = "ecs"
 	ALIYUN_SERVICE_VPC = "vpc"
@@ -257,6 +258,8 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 		delete(params, "PathPattern")
 		req.PathPattern = pathPattern
 		req.Method = method
+	} else if strings.HasPrefix(domain, "alikafka") { //alikafka DeleteInstance必须显式指定Method
+		req.Method = requests.POST
 	}
 
 	resp, err := processCommonRequest(client, req)
@@ -671,6 +674,7 @@ func (region *SAliyunClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_WAF,
 		cloudprovider.CLOUD_CAPABILITY_MONGO_DB,
 		cloudprovider.CLOUD_CAPABILITY_ES,
+		cloudprovider.CLOUD_CAPABILITY_KAFKA,
 	}
 	return caps
 }

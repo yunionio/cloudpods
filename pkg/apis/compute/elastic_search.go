@@ -25,7 +25,7 @@ const (
 	ELASTIC_SEARCH_STATUS_UNKNOWN       = "unknown"
 )
 
-// 资源创建参数, 目前仅站位
+// 资源创建参数, 目前仅占位
 type ElasticSearchCreateInput struct {
 }
 

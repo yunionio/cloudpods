@@ -1144,7 +1144,7 @@ func (manager *SCloudproviderManager) ListItemFilter(
 	if len(accountArr) > 0 {
 		cpq := CloudaccountManager.Query().SubQuery()
 		subcpq := cpq.Query(cpq.Field("id")).Filter(sqlchemy.OR(
-			sqlchemy.In(cpq.Field("id"), accountArr),
+			sqlchemy.In(cpq.Field("id"), stringutils2.RemoveUtf8Strings(accountArr)),
 			sqlchemy.In(cpq.Field("name"), accountArr),
 		)).SubQuery()
 		q = q.In("cloudaccount_id", subcpq)
@@ -1498,6 +1498,7 @@ func (self *SCloudprovider) RealDelete(ctx context.Context, userCred mcclient.To
 		ElasticipManager,
 		MongoDBManager,
 		ElasticSearchManager,
+		KafkaManager,
 		NetworkInterfaceManager,
 		CloudproviderRegionManager,
 		CloudregionManager,

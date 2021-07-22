@@ -160,7 +160,7 @@ func (manager *SDBInstanceNetworkManager) SyncDBInstanceNetwork(ctx context.Cont
 		}
 	}
 	for i := range networks {
-		_, ok := remoteMap[networks[i].NetworkId]
+		_, ok := remoteMap[networks[i].NetworkId+networks[i].IpAddr]
 		if ok {
 			continue
 		}
