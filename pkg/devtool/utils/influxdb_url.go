@@ -262,7 +262,7 @@ func influxdbUrlDirect(ctx context.Context, influxdbUrl, proxyEndpointId string,
 
 func findValidInfluxdbUrl(ctx context.Context, influxdbUrl, proxyEndpointId string, info sServerInfo, host *ansible_api.AnsibleHost) (string, error) {
 	findFuncs := []func(ctx context.Context, influxdbUrl, proxyEndpointId string, info sServerInfo, host *ansible_api.AnsibleHost) (string, error){}
-	if info.serverDetails.Hypervisor == comapi.HYPERVISOR_KVM {
+	if info.serverDetails.Hypervisor == comapi.HYPERVISOR_KVM || info.serverDetails.Hypervisor == comapi.HYPERVISOR_BAREMETAL {
 		findFuncs = append(findFuncs, influxdbUrlDirect, influxdbUrlViaProxyEndpoint)
 	} else {
 		findFuncs = append(findFuncs, influxdbUrlViaProxyEndpoint, influxdbUrlDirect)
@@ -419,6 +419,9 @@ func GetArgs(ctx context.Context, serverId, proxyEndpointId string, others inter
 		"influxdb_url":         influxdbUrl,
 		"influxdb_name":        "telegraf",
 		"telegraf_global_tags": telegrafTags,
+	}
+	if info.serverDetails.Hypervisor == comapi.HYPERVISOR_BAREMETAL {
+		ret["server_type"] = "baremetal"
 	}
 	return ret, nil
 }
