@@ -693,6 +693,18 @@ func (r *SReceiverManager) AllowPerformGetTypes(ctx context.Context, userCred mc
 	return true
 }
 
+func (rm *SReceiverManager) domainIdsFromReceivers(ctx context.Context, receivers []string) ([]string, error) {
+	res, err := rm.FetchByIdOrNames(ctx, receivers...)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to fetch receivres by id or names")
+	}
+	domainIds := sets.NewString()
+	for i := range res {
+		domainIds.Insert(res[i].DomainId)
+	}
+	return domainIds.UnsortedList(), nil
+}
+
 func (rm *SReceiverManager) PerformGetTypes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ConfigManagerGetTypesInput) (api.ConfigManagerGetTypesOutput, error) {
 	output := api.ConfigManagerGetTypesOutput{}
 	var reduce func([]*sqlchemy.SQuery) *sqlchemy.SQuery
@@ -723,7 +735,11 @@ func (rm *SReceiverManager) PerformGetTypes(ctx context.Context, userCred mcclie
 	default:
 		return output, httperrors.NewInputParameterError("unkown operation %q", input.Operation)
 	}
-	domainIds := sets.NewString(input.DomainIds...).UnsortedList()
+	domainIds, err := rm.domainIdsFromReceivers(ctx, input.Receivers)
+	if err != nil {
+		return output, err
+	}
+	domainIds = sets.NewString(append(domainIds, input.DomainIds...)...).UnsortedList()
 	qs := make([]*sqlchemy.SQuery, 0, len(domainIds))
 	if len(domainIds) == 0 {
 		qs = append(qs, ConfigManager.contactTypesQuery(""))
