@@ -80,8 +80,11 @@ type ConfigValidateOutput struct {
 }
 
 type ConfigManagerGetTypesInput struct {
+	// description: View the available notification channels for the receivers
+	// required: false
+	Receivers []string `json:"receivers"`
 	// description: View the available notification channels for the domains with these DomainIds
-	// required: true
+	// required: false
 	DomainIds []string `json:"domain_ids"`
 	// description: Operation of reduce
 	// required: false
