@@ -15,9 +15,6 @@
 package shell
 
 import (
-	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/secrules"
-
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/qcloud"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -96,30 +93,6 @@ func init() {
 		}
 		printList(address, total, args.Offset, args.Limit, []string{})
 		return nil
-	})
-
-	type RuleDeleteOptions struct {
-		SECGROUP_ID string
-		DIRECTION   string `choices:"Egress|Ingress"`
-		IDS         []string
-	}
-
-	shellutils.R(&RuleDeleteOptions{}, "security-group-rule-delete", "Delete rules", func(cli *qcloud.SRegion, args *RuleDeleteOptions) error {
-		return cli.DeleteRules(args.SECGROUP_ID, args.DIRECTION, args.IDS)
-	})
-
-	type RuleCreateOptions struct {
-		SECGROUP_ID string
-		INDEX       int
-		RULE        string
-	}
-
-	shellutils.R(&RuleCreateOptions{}, "security-group-rule-create", "Create rule", func(cli *qcloud.SRegion, args *RuleCreateOptions) error {
-		rule, err := secrules.ParseSecurityRule(args.RULE)
-		if err != nil {
-			return errors.Wrap(err, "secrules.ParseRuleString")
-		}
-		return cli.AddRule(args.SECGROUP_ID, args.INDEX, cloudprovider.SecurityRule{SecurityRule: *rule})
 	})
 
 }
