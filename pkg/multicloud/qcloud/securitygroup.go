@@ -287,77 +287,58 @@ func (self *SSecurityGroup) Refresh() error {
 	return jsonutils.Update(self, groups[0])
 }
 
-func (self *SSecurityGroup) deleteRules(rules []cloudprovider.SecurityRule, direction string) error {
-	ids := []string{}
-	for _, r := range rules {
-		ids = append(ids, r.ExternalId)
-	}
-	if len(ids) > 0 {
-		err := self.region.DeleteRules(self.SecurityGroupId, direction, ids)
-		if err != nil {
-			return errors.Wrapf(err, "deleteRules(%s)", ids)
-		}
-	}
-	return nil
-}
-
 func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
 	rules := append(common, append(inAdds, outAdds...)...)
 	return self.region.syncSecgroupRules(self.SecurityGroupId, rules)
 }
 
-func (self *SRegion) syncSecgroupRules(secgroupid string, rules []cloudprovider.SecurityRule) error {
-	err := self.deleteAllRules(secgroupid)
-	if err != nil {
-		return errors.Wrap(err, "deleteAllRules")
+func (self *SRegion) syncSecgroupRules(secgroupId string, rules []cloudprovider.SecurityRule) error {
+	params := map[string]string{
+		"SecurityGroupId": secgroupId,
+		"SortPolicys":     "True",
 	}
-	egressIndex, ingressIndex := -1, -1
+	egressIndex, ingressIndex := 0, 0
 	for _, rule := range rules {
-		policyIndex := 0
 		switch rule.Direction {
 		case secrules.DIR_IN:
+			params = convertSecgroupRule(ingressIndex, rule, params)
 			ingressIndex++
-			policyIndex = ingressIndex
 		case secrules.DIR_OUT:
+			params = convertSecgroupRule(egressIndex, rule, params)
 			egressIndex++
-			policyIndex = egressIndex
-		default:
-			return fmt.Errorf("Unknown rule direction %v for secgroup %s", rule, secgroupid)
 		}
-
-		//为什么不一次创建完成?
-		//答: 因为如果只有入方向安全组规则，创建时会提示缺少出方向规则。
-		//为什么不分两次，一次创建入方向规则，一次创建出方向规则?
-		//答: 因为这样就不能设置优先级了，一次性创建的出或入方向的优先级必须一样。
-		err := self.AddRule(secgroupid, policyIndex, rule)
+	}
+	_, err := self.vpcRequest("ModifySecurityGroupPolicies", params)
+	if err != nil {
+		return errors.Wrapf(err, "ModifySecurityGroupPolicies")
+	}
+	if egressIndex == 0 || ingressIndex == 0 {
+		ruleSet, err := self.DescribeSecurityGroupPolicies(secgroupId)
 		if err != nil {
-			return errors.Wrap(err, "AddRule")
+			return errors.Wrapf(err, "DescribeSecurityGroupPolicies")
+		}
+		params = map[string]string{
+			"SecurityGroupId": secgroupId,
+		}
+		if egressIndex == 0 && len(ruleSet.Egress) > 0 {
+			for idx, rule := range ruleSet.Egress {
+				params[fmt.Sprintf("SecurityGroupPolicySet.Egress.%d.PolicyIndex", idx)] = fmt.Sprintf("%d", rule.PolicyIndex)
+			}
+		}
+		if ingressIndex == 0 && len(ruleSet.Ingress) > 0 {
+			for idx, rule := range ruleSet.Ingress {
+				params[fmt.Sprintf("SecurityGroupPolicySet.Ingress.%d.PolicyIndex", idx)] = fmt.Sprintf("%d", rule.PolicyIndex)
+			}
+		}
+		_, err = self.vpcRequest("DeleteSecurityGroupPolicies", params)
+		if err != nil {
+			return errors.Wrapf(err, "DeleteSecurityGroupPolicies")
 		}
 	}
 	return nil
 }
 
-func (self *SRegion) deleteAllRules(secgroupid string) error {
-	params := map[string]string{"SecurityGroupId": secgroupid, "SecurityGroupPolicySet.Version": "0"}
-	_, err := self.vpcRequest("ModifySecurityGroupPolicies", params)
-	return err
-}
-
-func (self *SRegion) DeleteRules(secgroupId, direction string, ids []string) error {
-	if len(ids) == 0 {
-		return nil
-	}
-	params := map[string]string{"SecurityGroupId": secgroupId}
-	for idx, id := range ids {
-		params[fmt.Sprintf("SecurityGroupPolicySet.%s.%d.PolicyIndex", direction, idx)] = id
-	}
-	_, err := self.vpcRequest("DeleteSecurityGroupPolicies", params)
-	return err
-}
-
-func (self *SRegion) AddRule(secgroupId string, policyIndex int, rule cloudprovider.SecurityRule) error {
-	params := map[string]string{}
-	params["SecurityGroupId"] = secgroupId
+func convertSecgroupRule(policyIndex int, rule cloudprovider.SecurityRule, params map[string]string) map[string]string {
 	direction := "Egress"
 	action := "accept"
 	if rule.Action == secrules.SecurityRuleDeny {
@@ -370,14 +351,13 @@ func (self *SRegion) AddRule(secgroupId string, policyIndex int, rule cloudprovi
 	if rule.Direction == secrules.DIR_IN {
 		direction = "Ingress"
 	}
-	params[fmt.Sprintf("SecurityGroupPolicySet.%s.0.PolicyIndex", direction)] = fmt.Sprintf("%d", policyIndex)
-	params[fmt.Sprintf("SecurityGroupPolicySet.%s.0.Action", direction)] = action
-	params[fmt.Sprintf("SecurityGroupPolicySet.%s.0.PolicyDescription", direction)] = rule.Description
-	params[fmt.Sprintf("SecurityGroupPolicySet.%s.0.Protocol", direction)] = protocol
+	params[fmt.Sprintf("SecurityGroupPolicySet.%s.%d.Action", direction, policyIndex)] = action
+	params[fmt.Sprintf("SecurityGroupPolicySet.%s.%d.PolicyDescription", direction, policyIndex)] = rule.Description
+	params[fmt.Sprintf("SecurityGroupPolicySet.%s.%d.Protocol", direction, policyIndex)] = protocol
 	if len(rule.PeerSecgroupId) > 0 {
-		params[fmt.Sprintf("SecurityGroupPolicySet.%s.0.SecurityGroupId", direction)] = rule.PeerSecgroupId
+		params[fmt.Sprintf("SecurityGroupPolicySet.%s.%d.SecurityGroupId", direction, policyIndex)] = rule.PeerSecgroupId
 	} else {
-		params[fmt.Sprintf("SecurityGroupPolicySet.%s.0.CidrBlock", direction)] = rule.IPNet.String()
+		params[fmt.Sprintf("SecurityGroupPolicySet.%s.%d.CidrBlock", direction, policyIndex)] = rule.IPNet.String()
 	}
 	if rule.Protocol == secrules.PROTO_TCP || rule.Protocol == secrules.PROTO_UDP {
 		port := "ALL"
@@ -394,14 +374,9 @@ func (self *SRegion) AddRule(secgroupId string, policyIndex int, rule cloudprovi
 			}
 			port = strings.Join(ports, ",")
 		}
-		params[fmt.Sprintf("SecurityGroupPolicySet.%s.0.Port", direction)] = port
+		params[fmt.Sprintf("SecurityGroupPolicySet.%s.%d.Port", direction, policyIndex)] = port
 	}
-	_, err := self.vpcRequest("CreateSecurityGroupPolicies", params)
-	if err != nil {
-		log.Errorf("Create SecurityGroup rule %s error: %v", rule, err)
-		return err
-	}
-	return nil
+	return params
 }
 
 func (self *SRegion) DescribeSecurityGroupPolicies(secGroupId string) (*SecurityGroupPolicySet, error) {
@@ -505,6 +480,20 @@ func (self *SRegion) AddressGroupList(groupId, groupName string, offset, limit i
 	}
 	total, _ := body.Float("TotalCount")
 	return addressTemplateGroups, int(total), nil
+}
+
+func (self *SRegion) DeleteSecgroupRule(secId string, direction string, index int) error {
+	params := map[string]string{
+		"SecurityGroupId": secId,
+	}
+	switch direction {
+	case secrules.DIR_IN:
+		params["SecurityGroupPolicySet.Ingress.0.PolicyIndex"] = fmt.Sprintf("%d", index)
+	case secrules.DIR_OUT:
+		params["SecurityGroupPolicySet.Egress.0.PolicyIndex"] = fmt.Sprintf("%d", index)
+	}
+	_, err := self.vpcRequest("DeleteSecurityGroupPolicies", params)
+	return errors.Wrapf(err, "DeleteSecurityGroupPolicies")
 }
 
 func (self *SRegion) CreateSecurityGroup(name, projectId, description string) (*SSecurityGroup, error) {
