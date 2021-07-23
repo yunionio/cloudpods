@@ -33,6 +33,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -142,7 +143,7 @@ func NewAliyunClient(cfg *AliyunClientConfig) (*SAliyunClient, error) {
 	}
 	err := client.fetchRegions()
 	if err != nil {
-		return nil, errors.Wrap(err, "fetchRegions")
+		return nil, err
 	}
 	err = client.fetchBuckets()
 	if err != nil {
@@ -167,8 +168,13 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 			if e, ok := errors.Cause(err).(*alierr.ServerError); ok {
 				code := e.ErrorCode()
 				switch code {
-				case "InvalidAccessKeyId.NotFound":
-					return nil, err
+				case "InvalidAccessKeyId.NotFound",
+					"InvalidAccessKeyId",
+					"NoEnabledAccessKey",
+					"InvalidAccessKeyId.Inactive",
+					"Forbidden.AccessKeyDisabled",
+					"Forbidden.AccessKey":
+					return nil, errors.Wrapf(httperrors.ErrInvalidAccessKey, err.Error())
 				case "404 Not Found", "InstanceNotFound":
 					return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
 				case "InvalidInstance.NotSupported",

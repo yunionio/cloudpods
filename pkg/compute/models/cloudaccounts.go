@@ -362,7 +362,7 @@ func (manager *SCloudaccountManager) ValidateCreateData(
 ) (api.CloudaccountCreateInput, error) {
 	input, err := manager.validateCreateData(ctx, userCred, ownerId, query, input)
 	if err != nil {
-		return input, errors.Wrap(err, "validateCreateData")
+		return input, err
 	}
 
 	input.EnabledStatusInfrasResourceBaseCreateInput, err = manager.SEnabledStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusInfrasResourceBaseCreateInput)
@@ -505,8 +505,7 @@ func (manager *SCloudaccountManager) validateCreateData(
 		if err == cloudprovider.ErrNoSuchProvder {
 			return input, httperrors.NewResourceNotFoundError("no such provider %s", input.Provider)
 		}
-		//log.Debugf("ValidateCreateData %s", err.Error())
-		return input, httperrors.NewInputParameterError("invalid cloud account info error: %s", err.Error())
+		return input, httperrors.NewGeneralError(err)
 	}
 
 	// check accountId uniqueness

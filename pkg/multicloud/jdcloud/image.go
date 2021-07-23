@@ -17,14 +17,19 @@ package jdcloud
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jdcloud-api/jdcloud-sdk-go/services/vm/apis"
 	"github.com/jdcloud-api/jdcloud-sdk-go/services/vm/client"
 	"github.com/jdcloud-api/jdcloud-sdk-go/services/vm/models"
 
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
@@ -179,9 +184,13 @@ func (r *SRegion) GetImages(imageIds []string, imageSource string, pageNumber, p
 	client.Logger = Logger{}
 	resp, err := client.DescribeImages(req)
 	if err != nil {
+		log.Errorf("err: %v", err)
 		return nil, 0, err
 	}
 	if resp.Error.Code >= 400 {
+		if strings.Contains(resp.Error.Message, "secret key is nul") || strings.Contains(resp.Error.Message, "sign result is not same") {
+			return nil, 0, errors.Wrapf(httperrors.ErrInvalidAccessKey, resp.Error.Message)
+		}
 		err = fmt.Errorf(resp.Error.Message)
 		return nil, 0, err
 	}
