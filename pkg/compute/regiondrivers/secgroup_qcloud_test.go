@@ -32,7 +32,7 @@ func TestQcloudRuleSync(t *testing.T) {
 			Common:    []cloudprovider.SecurityRule{},
 			InAdds:    []cloudprovider.SecurityRule{},
 			OutAdds: []cloudprovider.SecurityRule{
-				ruleWithName("", "out:allow any", 48),
+				ruleWithName("", "out:allow any", 100),
 			},
 			InDels:  []cloudprovider.SecurityRule{},
 			OutDels: []cloudprovider.SecurityRule{},

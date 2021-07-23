@@ -49,10 +49,27 @@ const DEFAULT_SRC_RULE_ID = "default_src_rule_id"
 type SecRuleInfo struct {
 	InDefaultRule           SecurityRule
 	OutDefaultRule          SecurityRule
+	in                      SecurityRuleSet
+	out                     SecurityRuleSet
+	rules                   SecurityRuleSet
 	Rules                   SecurityRuleSet
 	MinPriority             int
 	MaxPriority             int
 	IsOnlySupportAllowRules bool
+}
+
+func (r SecRuleInfo) getOffest(priority int) (int, int) {
+	if r.MinPriority < r.MaxPriority {
+		if priority >= r.MaxPriority {
+			return priority, -1
+		}
+		return priority + 1, 0
+	} else {
+		if priority <= r.MaxPriority {
+			return priority, 1
+		}
+		return priority - 1, 0
+	}
 }
 
 func (r SecRuleInfo) AddDefaultRule(d SecRuleInfo, inRules, outRules []SecurityRule, isSrc bool) ([]SecurityRule, []SecurityRule) {
@@ -72,8 +89,22 @@ func (r SecRuleInfo) AddDefaultRule(d SecRuleInfo, inRules, outRules []SecurityR
 		r.OutDefaultRule.ExternalId = DEFAULT_DEST_RULE_ID
 	}
 
-	inRules = append(inRules, r.InDefaultRule)
-	outRules = append(outRules, r.OutDefaultRule)
+	var isWideRule = func(rules []SecurityRule) bool {
+		for _, rule := range rules {
+			if strings.HasSuffix(rule.String(), "allow any") || strings.HasSuffix(rule.String(), "deny any") {
+				return true
+			}
+		}
+		return false
+	}
+
+	if !isWideRule(inRules) {
+		inRules = append(inRules, r.InDefaultRule)
+	}
+	if !isWideRule(outRules) {
+		outRules = append(outRules, r.OutDefaultRule)
+	}
+
 	return inRules, outRules
 }
 
@@ -92,10 +123,19 @@ type SecurityGroupCreateInput struct {
 }
 
 type SecurityRule struct {
+	minPriority int
+	maxPriority int
+	offset      int
+
 	secrules.SecurityRule
 	Name       string
 	ExternalId string
 	Id         string
+}
+
+func (self *SecurityRule) addPriority(offset int) {
+	self.Priority += offset
+	self.offset += offset
 }
 
 func (r SecurityRule) String() string {
@@ -104,12 +144,22 @@ func (r SecurityRule) String() string {
 
 type SecurityRuleSet []SecurityRule
 
-func (rules SecurityRuleSet) Split() (in, out SecurityRuleSet) {
-	for i := 0; i < len(rules); i++ {
-		if rules[i].Direction == secrules.DIR_IN {
-			in = append(in, rules[i])
+func (self *SecRuleInfo) Split() (in, out SecurityRuleSet) {
+	self.rules = SecurityRuleSet{}
+	self.in = SecurityRuleSet{}
+	self.out = SecurityRuleSet{}
+	for i := 0; i < len(self.Rules); i++ {
+		self.rules = append(self.rules, self.Rules[i])
+		if self.Rules[i].Direction == secrules.DIR_IN {
+			self.in = append(self.in, self.Rules[i])
 		} else {
-			out = append(out, rules[i])
+			self.out = append(self.out, self.Rules[i])
+		}
+		self.Rules[i].minPriority, self.Rules[i].maxPriority = self.MinPriority, self.MaxPriority
+		if self.Rules[i].Direction == secrules.DIR_IN {
+			in = append(in, self.Rules[i])
+		} else {
+			out = append(out, self.Rules[i])
 		}
 	}
 	return
@@ -124,7 +174,37 @@ func (srs SecurityRuleSet) Swap(i, j int) {
 }
 
 func (srs SecurityRuleSet) Less(i, j int) bool {
-	return srs[i].Priority < srs[j].Priority || (srs[i].Priority == srs[j].Priority && srs[i].String() < srs[j].String())
+	if srs[i].Priority < srs[j].Priority {
+		return true
+	}
+	if srs[i].Priority > srs[j].Priority {
+		return false
+	}
+	if len(srs) > 0 {
+		if (srs[0].minPriority <= srs[0].maxPriority && srs[i].String() < srs[j].String()) ||
+			(srs[0].minPriority > srs[0].maxPriority && srs[i].String() > srs[j].String()) {
+			return true
+		}
+	}
+	return false
+}
+
+func (srs SecurityRuleSet) CanBeSplitByProtocol() bool {
+	firstNormalRuleIndex, find := 0, false
+	for idx, r := range srs {
+		if !(strings.HasSuffix(r.String(), "allow any") || strings.HasSuffix(r.String(), "deny any")) && !find {
+			firstNormalRuleIndex = idx
+			find = true
+		} else {
+			if r.ExternalId == DEFAULT_SRC_RULE_ID || r.ExternalId == DEFAULT_DEST_RULE_ID {
+				return true
+			}
+			if idx > firstNormalRuleIndex {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (srs SecurityRuleSet) AllowList() secrules.SecurityRuleSet {
@@ -141,12 +221,12 @@ func (srs SecurityRuleSet) Debug() {
 	}
 }
 
-func SortSecurityRule(rules SecurityRuleSet, max, min int, isAsc, onlyAllowRules bool) {
-	if (max >= min || onlyAllowRules) && !isAsc {
-		sort.Sort(sort.Reverse(rules))
+func SortSecurityRule(rules SecurityRuleSet, isAsc bool, info SecRuleInfo) {
+	if (info.MaxPriority > info.MinPriority && isAsc) || (info.MaxPriority < info.MinPriority && !isAsc) || (info.IsOnlySupportAllowRules && isAsc) {
+		sort.Sort(rules)
 		return
 	}
-	sort.Sort(rules)
+	sort.Sort(sort.Reverse(rules))
 	return
 }
 
@@ -163,23 +243,21 @@ func isAllowListEqual(src, dest secrules.SecurityRuleSet) bool {
 }
 
 func CompareRules(src, dest SecRuleInfo, debug bool) (common, inAdds, outAdds, inDels, outDels SecurityRuleSet) {
-	srcInRules, srcOutRules := src.Rules.Split()
-	destInRules, destOutRules := dest.Rules.Split()
+	srcInRules, srcOutRules := src.Split()
+	destInRules, destOutRules := dest.Split()
 
 	srcInRules, srcOutRules = src.AddDefaultRule(dest, srcInRules, srcOutRules, true)
 	destInRules, destOutRules = dest.AddDefaultRule(src, destInRules, destOutRules, false)
 
-	if debug {
-		log.Debugf("src in rules: ")
-		srcInRules.Debug()
-	}
-
 	// AllowList 需要优先级从高到低排序
-	SortSecurityRule(srcInRules, src.MaxPriority, src.MinPriority, false, src.IsOnlySupportAllowRules)
-	SortSecurityRule(srcOutRules, src.MaxPriority, src.MinPriority, false, src.IsOnlySupportAllowRules)
+	SortSecurityRule(srcInRules, false, src)
+	SortSecurityRule(srcOutRules, false, src)
 
-	SortSecurityRule(destInRules, dest.MaxPriority, dest.MinPriority, false, dest.IsOnlySupportAllowRules)
-	SortSecurityRule(destOutRules, dest.MaxPriority, dest.MinPriority, false, dest.IsOnlySupportAllowRules)
+	SortSecurityRule(destInRules, false, dest)
+	SortSecurityRule(destOutRules, false, dest)
+
+	isInAllowSplit := srcInRules.CanBeSplitByProtocol() && destInRules.CanBeSplitByProtocol()
+	isOutAllowSplit := srcOutRules.CanBeSplitByProtocol() && destOutRules.CanBeSplitByProtocol()
 
 	srcInAllowList := srcInRules.AllowList()
 	srcOutAllowList := srcOutRules.AllowList()
@@ -189,12 +267,36 @@ func CompareRules(src, dest SecRuleInfo, debug bool) (common, inAdds, outAdds, i
 	inEquals, outEquals := isAllowListEqual(srcInAllowList, destInAllowList), isAllowListEqual(srcOutAllowList, destOutAllowList)
 
 	if inEquals && outEquals {
+		common = dest.rules
+		return
+	}
+
+	if inEquals && outEquals {
+		common = dest.rules
+		return
+	}
+
+	if inEquals && outEquals {
 		return
 	}
 
 	if debug {
-		log.Debugf("In: src: %s dest: %s result: %v", srcInAllowList.String(), destInAllowList.String(), inEquals)
-		log.Debugf("Out: src: %s dest: %s result: %v", srcOutAllowList.String(), destOutAllowList.String(), outEquals)
+		log.Debugf("====desc sort====")
+		log.Debugf("src in rules: ")
+		srcInRules.Debug()
+		log.Debugf("src out rules: ")
+		srcOutRules.Debug()
+		log.Debugf("dest in rules: ")
+		destInRules.Debug()
+		log.Debugf("dest out rules: ")
+		destOutRules.Debug()
+		log.Debugf("====desc sort end====")
+
+		log.Debugf("isInAllowSplit: %v isOutAllowSplit: %v", isInAllowSplit, isOutAllowSplit)
+
+		log.Debugf("AllowList:")
+		log.Debugf("In: src: %s dest: %s isEquals: %v", srcInAllowList.String(), destInAllowList.String(), inEquals)
+		log.Debugf("Out: src: %s dest: %s isEquals: %v", srcOutAllowList.String(), destOutAllowList.String(), outEquals)
 	}
 
 	var tryUseAllowList = func(defaultRule SecurityRule, allowList secrules.SecurityRuleSet, rules SecurityRuleSet, isOnlyAllowList bool) SecurityRuleSet {
@@ -223,40 +325,39 @@ func CompareRules(src, dest SecRuleInfo, debug bool) (common, inAdds, outAdds, i
 	srcOutRules = tryUseAllowList(src.OutDefaultRule, srcOutAllowList, srcOutRules, dest.IsOnlySupportAllowRules)
 
 	if inEquals {
+		common = append(common, dest.in...)
 		srcInRules, destInRules = []SecurityRule{}, []SecurityRule{}
 	}
 	if outEquals {
+		common = append(common, dest.out...)
 		srcOutRules, destOutRules = []SecurityRule{}, []SecurityRule{}
 	}
 
+	// 默认从优先级低到高比较
+	SortSecurityRule(srcInRules, true, src)
+	SortSecurityRule(srcOutRules, true, src)
+
+	SortSecurityRule(destInRules, true, dest)
+	SortSecurityRule(destOutRules, true, dest)
+
 	if debug {
+		log.Debugf("====asc sort====")
 		log.Debugf("src in rules: ")
 		srcInRules.Debug()
-	}
-
-	// 默认从优先级低到高比较
-	SortSecurityRule(srcInRules, src.MaxPriority, src.MinPriority, true, src.IsOnlySupportAllowRules)
-	SortSecurityRule(srcOutRules, src.MaxPriority, src.MinPriority, true, src.IsOnlySupportAllowRules)
-
-	SortSecurityRule(destInRules, dest.MaxPriority, dest.MinPriority, true, dest.IsOnlySupportAllowRules)
-	SortSecurityRule(destOutRules, dest.MaxPriority, dest.MinPriority, true, dest.IsOnlySupportAllowRules)
-
-	var addPriority = func(priority int, min, max int, onlyAllowRules bool) int {
-		if onlyAllowRules {
-			return priority
-		}
-		inc := 1
-		if max < min {
-			max, min, inc = min, max, -1
-		}
-		if priority >= max || priority <= min {
-			return priority
-		}
-		return priority + inc
+		log.Debugf("src out rules: ")
+		srcOutRules.Debug()
+		log.Debugf("dest in rules: ")
+		destInRules.Debug()
+		log.Debugf("dest out rules: ")
+		destOutRules.Debug()
+		log.Debugf("====asc sort end====")
 	}
 
 	var _compare = func(srcRules SecurityRuleSet, destRules SecurityRuleSet) (common, add, del SecurityRuleSet) {
-		i, j, priority := 0, 0, (dest.MinPriority-1+dest.MaxPriority)/2
+		i, j, priority := 0, 0, dest.MinPriority
+		if len(destRules) > 0 && (destRules[i].ExternalId != DEFAULT_DEST_RULE_ID) {
+			priority = destRules[0].Priority
+		}
 		for i < len(srcRules) || j < len(destRules) {
 			if i < len(srcRules) && j < len(destRules) {
 				destRuleStr := destRules[j].String()
@@ -279,8 +380,20 @@ func CompareRules(src, dest SecRuleInfo, debug bool) (common, inAdds, outAdds, i
 					del = append(del, destRules[j])
 					j++
 				} else {
-					priority = addPriority(priority, dest.MinPriority, dest.MaxPriority, dest.IsOnlySupportAllowRules)
+					offset := 0
+					if !dest.IsOnlySupportAllowRules && i-1 >= 0 && srcRules[i-1].Priority != srcRules[i].Priority {
+						priority, offset = dest.getOffest(priority)
+					}
+					if offset != 0 {
+						for r := range add {
+							add[r].addPriority(offset)
+						}
+						for r := range common {
+							common[r].addPriority(offset)
+						}
+					}
 					srcRules[i].Priority = priority
+					srcRules[i].minPriority, srcRules[i].maxPriority = dest.MinPriority, dest.MaxPriority
 					add = append(add, srcRules[i])
 					i++
 				}
@@ -288,8 +401,20 @@ func CompareRules(src, dest SecRuleInfo, debug bool) (common, inAdds, outAdds, i
 				del = append(del, destRules[j])
 				j++
 			} else if j >= len(destRules) {
-				priority = addPriority(priority, dest.MinPriority, dest.MaxPriority, dest.IsOnlySupportAllowRules)
+				offset := 0
+				if !dest.IsOnlySupportAllowRules && i-1 >= 0 && srcRules[i-1].Priority != srcRules[i].Priority {
+					priority, offset = dest.getOffest(priority)
+				}
 				srcRules[i].Priority = priority
+				srcRules[i].minPriority, srcRules[i].maxPriority = dest.MinPriority, dest.MaxPriority
+				if offset != 0 {
+					for r := range add {
+						add[r].addPriority(offset)
+					}
+					for r := range common {
+						common[r].addPriority(offset)
+					}
+				}
 				add = append(add, srcRules[i])
 				i++
 			}
@@ -342,8 +467,16 @@ func CompareRules(src, dest SecRuleInfo, debug bool) (common, inAdds, outAdds, i
 	}
 
 	var inCommon, outCommon SecurityRuleSet
-	inCommon, inAdds, inDels = compare(srcInRules, destInRules)
-	outCommon, outAdds, outDels = compare(srcOutRules, destOutRules)
+	if isInAllowSplit {
+		inCommon, inAdds, inDels = compare(srcInRules, destInRules)
+	} else {
+		inCommon, inAdds, inDels = _compare(srcInRules, destInRules)
+	}
+	if isOutAllowSplit {
+		outCommon, outAdds, outDels = compare(srcOutRules, destOutRules)
+	} else {
+		outCommon, outAdds, outDels = _compare(srcOutRules, destOutRules)
+	}
 
 	var handleDefaultRules = func(removed, added []SecurityRule, isOnlyAllowList bool) ([]SecurityRule, []SecurityRule) {
 		ret := []SecurityRule{}
@@ -385,7 +518,8 @@ func CompareRules(src, dest SecRuleInfo, debug bool) (common, inAdds, outAdds, i
 
 	inDels, inAdds = handleDefaultRules(inDels, inAdds, dest.IsOnlySupportAllowRules)
 	outDels, outAdds = handleDefaultRules(outDels, outAdds, dest.IsOnlySupportAllowRules)
-	common, _ = handleDefaultRules(append(inCommon, outCommon...), []SecurityRule{}, dest.IsOnlySupportAllowRules)
+	_common, _ := handleDefaultRules(append(inCommon, outCommon...), []SecurityRule{}, dest.IsOnlySupportAllowRules)
+	common = append(common, _common...)
 	return
 }
 
