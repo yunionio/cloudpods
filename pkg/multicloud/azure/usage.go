@@ -69,7 +69,7 @@ func (region *SRegion) GetUsage(resourceType string) ([]SUsage, error) {
 
 func (region *SRegion) GetICloudQuotas() ([]cloudprovider.ICloudQuota, error) {
 	ret := []cloudprovider.ICloudQuota{}
-	for _, resourceType := range []string{"Microsoft.Network", "Microsoft.Storage", "Microsoft.Compute", "Microsoft.Storage"} {
+	for _, resourceType := range []string{"Microsoft.Network", "Microsoft.Storage", "Microsoft.Compute"} {
 		usages, err := region.GetUsage(resourceType)
 		if err != nil {
 			return nil, errors.Wrap(err, "GetUsage")
