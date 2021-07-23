@@ -126,7 +126,7 @@ func NewHuaweiClient(cfg *HuaweiClientConfig) (*SHuaweiClient, error) {
 func (self *SHuaweiClient) init() error {
 	err := self.fetchRegions()
 	if err != nil {
-		return errors.Wrap(err, "fetchRegions")
+		return err
 	}
 	err = self.initSigner()
 	if err != nil {

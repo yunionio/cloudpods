@@ -34,6 +34,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -227,7 +228,12 @@ func (cli *SZStackClient) _list(resource string, start int, limit int, params ur
 	}
 	_, resp, err := httputils.JSONRequest(cli.httpClient, context.Background(), "GET", requestURL, header, nil, cli.debug)
 	if err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("GET %s params: %s", resource, params))
+		if e, ok := err.(*httputils.JSONClientError); ok {
+			if strings.Contains(e.Details, "wrong accessKey signature") || strings.Contains(e.Details, "access key id") {
+				return nil, errors.Wrapf(httperrors.ErrInvalidAccessKey, err.Error())
+			}
+		}
+		return nil, err
 	}
 	return resp, nil
 }

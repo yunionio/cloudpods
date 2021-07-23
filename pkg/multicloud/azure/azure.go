@@ -1,5 +1,4 @@
 // Copyright 2019 Yunion
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -35,6 +34,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -685,6 +685,9 @@ func _jsonRequest(client *autorest.Client, method, domain, path string, body jso
 	cli := httputils.NewJsonClient(client)
 	header, body, err := cli.Send(context.TODO(), req, &ae, debug)
 	if err != nil {
+		if strings.Contains(err.Error(), "azure.BearerAuthorizer#WithAuthorization") {
+			return nil, errors.Wrapf(httperrors.ErrInvalidAccessKey, err.Error())
+		}
 		return nil, err
 	}
 	locationFunc := func(head http.Header) string {
