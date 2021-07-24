@@ -531,7 +531,7 @@ func (d *PCIDevice) checkSameIOMMUGroupDevice() error {
 	if err != nil {
 		return fmt.Errorf("IOMMUGroup FindSameGroupDevs: %v", err)
 	}
-	d.RestIOMMUGroupDevs = group.FindSameGroupDevs(d.Addr)
+	d.RestIOMMUGroupDevs = group.FindSameGroupDevs(d.Addr, d.VendorId)
 	return nil
 }
 
@@ -690,7 +690,7 @@ func NewIOMMUGroup() (*IOMMUGroup, error) {
 	return &IOMMUGroup{group: dict}, nil
 }
 
-func (g *IOMMUGroup) ListDevices(groupNum, selfAddr string) []*PCIDevice {
+func (g *IOMMUGroup) ListDevices(groupNum, selfAddr, vendorId string) []*PCIDevice {
 	ret := []string{}
 	for busId, group := range g.group {
 		if groupNum == group {
@@ -705,13 +705,17 @@ func (g *IOMMUGroup) ListDevices(groupNum, selfAddr string) []*PCIDevice {
 		}
 		dev, _ := detectPCIDevByAddrWithoutIOMMUGroup(addr[5:])
 		if dev != nil {
-			devs = append(devs, dev)
+			if dev.VendorId == vendorId {
+				devs = append(devs, dev)
+			} else {
+				log.Warningf("Skip append %q iommu_group[%s] device %s", selfAddr, groupNum, dev.String())
+			}
 		}
 	}
 	return devs
 }
 
-func (g *IOMMUGroup) FindSameGroupDevs(devAddr string) []*PCIDevice {
+func (g *IOMMUGroup) FindSameGroupDevs(devAddr string, vendorId string) []*PCIDevice {
 	// devAddr: '0000:3f:0f.3' or '3f:0f.3' format
 	if len(devAddr) == 7 {
 		devAddr = fmt.Sprintf("0000:%s", devAddr)
@@ -720,7 +724,7 @@ func (g *IOMMUGroup) FindSameGroupDevs(devAddr string) []*PCIDevice {
 	if !ok {
 		return nil
 	}
-	return g.ListDevices(group, devAddr)
+	return g.ListDevices(group, devAddr, vendorId)
 }
 
 func (g *IOMMUGroup) String() string {
