@@ -20,159 +20,43 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
 func init() {
-	type HostListOptions struct {
-		Schedtag  string `help:"List hosts in schedtag"`
-		Zone      string `help:"List hosts in zone"`
-		Region    string `help:"List hosts in region"`
-		Wire      string `help:"List hosts in wire"`
-		Image     string `help:"List hosts cached images" json:"cachedimage"`
-		Storage   string `help:"List hosts attached to storages"`
-		Baremetal string `help:"List hosts that is managed by baremetal system" choices:"true|false"`
-		Empty     bool   `help:"show empty host" json:"-"`
-		Occupied  bool   `help:"show occupid host" json:"-"`
-		Enabled   bool   `help:"Show enabled host only" json:"-"`
-		Disabled  bool   `help:"Show disabled host only" json:"-"`
-		HostType  string `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv|aliyun|azure|qcloud|aws|huawei|ucloud|google|ctyun"`
-		AnyMac    string `help:"Mac matches one of the host's interface"`
-		AnyIp     string `help:"IP matches one of the host's interface"`
+	cmd := shell.NewResourceCmd(&modules.Hosts)
+	cmd.List(&compute.HostListOptions{})
+	cmd.Show(&options.BaseShowOptions{})
+	cmd.GetMetadata(&options.BaseIdOptions{})
+	cmd.GetProperty(&compute.HostStatusStatisticsOptions{})
 
-		IsBaremetal *bool `help:"filter host list by is_baremetal=true|false"`
+	cmd.Perform("ping", &options.BaseIdOptions{})
+	cmd.Perform("undo-convert", &options.BaseIdOptions{})
+	cmd.Perform("maintenance", &options.BaseIdOptions{})
+	cmd.Perform("unmaintenance", &options.BaseIdOptions{})
+	cmd.Perform("start", &options.BaseIdOptions{})
+	cmd.Perform("stop", &options.BaseIdOptions{})
+	cmd.Perform("reset", &options.BaseIdOptions{})
+	cmd.Perform("delete", &options.BaseIdOptions{})
+	cmd.Perform("remove-all-netifs", &options.BaseIdOptions{})
 
-		ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
+	cmd.BatchPerform("enable", &options.BaseIdsOptions{})
+	cmd.BatchPerform("disable", &options.BaseIdsOptions{})
+	cmd.BatchPerform("syncstatus", &options.BaseIdsOptions{})
+	cmd.BatchPerform("sync-config", &options.BaseIdsOptions{})
+	cmd.BatchPerform("prepare", &options.BaseIdsOptions{})
+	cmd.BatchPerform("ipmi-probe", &options.BaseIdsOptions{})
 
-		Usable *bool `help:"List all zones that is usable"`
+	cmd.Get("ipmi", &options.BaseIdOptions{})
+	cmd.Get("vnc", &options.BaseIdOptions{})
 
-		Hypervisor string `help:"filter hosts by hypervisor"`
-
-		StorageNotAttached bool `help:"List hosts not attach specified storage"`
-
-		Uuid string `help:"find host with given system uuid"`
-
-		CdromBoot *bool `help:"filter hosts list by cdrom_boot=true|false"`
-
-		Sn string `help:"find host by sn"`
-
-		OrderByServerCount string `help:"Order by server count" choices:"desc|asc"`
-
-		options.BaseListOptions
-	}
-	R(&HostListOptions{}, "host-list", "List hosts", func(s *mcclient.ClientSession, opts *HostListOptions) error {
-		params, err := options.ListStructToParams(opts)
-		if err != nil {
-			return err
-		}
-
-		if opts.Empty {
-			params.Add(jsonutils.JSONTrue, "is_empty")
-		} else if opts.Occupied {
-			params.Add(jsonutils.JSONFalse, "is_empty")
-		}
-		if opts.Enabled {
-			params.Add(jsonutils.NewInt(1), "enabled")
-		} else if opts.Disabled {
-			params.Add(jsonutils.NewInt(0), "enabled")
-		}
-		if len(opts.Uuid) > 0 {
-			params.Add(jsonutils.NewString(opts.Uuid), "uuid")
-		}
-		if len(opts.Sn) > 0 {
-			params.Add(jsonutils.NewString(opts.Sn), "sn")
-		}
-		result, err := modules.Hosts.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(result, modules.Hosts.GetColumns(s))
-		return nil
-	})
-
-	type HostDetailOptions struct {
-		ID string `help:"ID or name of host"`
-	}
-	R(&HostDetailOptions{}, "host-show", "Show details of a host", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
-		result, err := modules.Hosts.Get(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&HostDetailOptions{}, "host-ping", "Ping a host", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
-		result, err := modules.Hosts.PerformAction(s, args.ID, "ping", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&HostDetailOptions{}, "host-metadata", "Show metadata of a host", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
-		result, err := modules.Hosts.GetMetadata(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	type HostOpsOptions struct {
-		ID []string `help:"ID or name of hosts"`
-	}
-	R(&HostOpsOptions{}, "host-enable", "Enable a host", func(s *mcclient.ClientSession, args *HostOpsOptions) error {
-		results := modules.Hosts.BatchPerformAction(s, args.ID, "enable", nil)
-		printBatchResults(results, modules.Hosts.GetColumns(s))
-		return nil
-	})
-
-	R(&HostOpsOptions{}, "host-disable", "Disable a host", func(s *mcclient.ClientSession, args *HostOpsOptions) error {
-		results := modules.Hosts.BatchPerformAction(s, args.ID, "disable", nil)
-		printBatchResults(results, modules.Hosts.GetColumns(s))
-		return nil
-	})
-
-	R(&HostOpsOptions{}, "host-syncstatus", "Synchronize status of a host", func(s *mcclient.ClientSession, args *HostOpsOptions) error {
-		results := modules.Hosts.BatchPerformAction(s, args.ID, "syncstatus", nil)
-		printBatchResults(results, modules.Hosts.GetColumns(s))
-		return nil
-	})
-
-	R(&HostOpsOptions{}, "host-sync-config", "Synchronize config of a host", func(s *mcclient.ClientSession, args *HostOpsOptions) error {
-		results := modules.Hosts.BatchPerformAction(s, args.ID, "sync-config", nil)
-		printBatchResults(results, modules.Hosts.GetColumns(s))
-		return nil
-	})
-
-	R(&HostOpsOptions{}, "host-prepare", "Prepare a host for installation", func(s *mcclient.ClientSession, args *HostOpsOptions) error {
-		results := modules.Hosts.BatchPerformAction(s, args.ID, "prepare", nil)
-		printBatchResults(results, modules.Hosts.GetColumns(s))
-		return nil
-	})
-
-	R(&HostOpsOptions{}, "host-ipmi-probe", "Do ipmi probe host", func(s *mcclient.ClientSession, args *HostOpsOptions) error {
-		results := modules.Hosts.BatchPerformAction(s, args.ID, "ipmi-probe", nil)
-		printBatchResults(results, modules.Hosts.GetColumns(s))
-		return nil
-	})
-
-	R(&HostDetailOptions{}, "host-ipmi", "Get IPMI information of a host", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
-		result, err := modules.Hosts.GetSpecific(s, args.ID, "ipmi", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&HostDetailOptions{}, "host-logininfo", "Get SSH login information of a host", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
+	R(&options.BaseIdOptions{}, "host-logininfo", "Get SSH login information of a host", func(s *mcclient.ClientSession, args *options.BaseIdOptions) error {
 		srvid, e := modules.Hosts.GetId(s, args.ID, nil)
 		if e != nil {
 			return e
@@ -182,15 +66,6 @@ func init() {
 			return e
 		}
 		printObject(i)
-		return nil
-	})
-
-	R(&HostDetailOptions{}, "host-vnc", "Get VNC information of a host", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
-		result, err := modules.Hosts.GetSpecific(s, args.ID, "vnc", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
 		return nil
 	})
 
@@ -206,7 +81,7 @@ func init() {
 		return nil
 	})
 
-	R(&HostListOptions{}, "host-node-count", "Get host node count", func(s *mcclient.ClientSession, opts *HostListOptions) error {
+	R(&compute.HostListOptions{}, "host-node-count", "Get host node count", func(s *mcclient.ClientSession, opts *compute.HostListOptions) error {
 		params, err := options.ListStructToParams(opts)
 		if err != nil {
 			return err
@@ -348,67 +223,6 @@ func init() {
 		printObject(result)
 		return nil
 	})
-
-	R(&HostDetailOptions{}, "host-undo-convert", "Undo converting a host to hypervisor", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
-		result, err := modules.Hosts.PerformAction(s, args.ID, "undo-convert", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&HostDetailOptions{}, "host-maintenance", "Reboot host into PXE offline OS, do maintenance jobs", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
-		result, err := modules.Hosts.PerformAction(s, args.ID, "maintenance", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&HostDetailOptions{}, "host-unmaintenance", "Reboot host back into disk installed OS", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
-		result, err := modules.Hosts.PerformAction(s, args.ID, "unmaintenance", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&HostDetailOptions{}, "host-start", "Power on host", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
-		result, err := modules.Hosts.PerformAction(s, args.ID, "start", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&HostDetailOptions{}, "host-stop", "Power off host", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
-		result, err := modules.Hosts.PerformAction(s, args.ID, "stop", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&HostDetailOptions{}, "host-reset", "Power reset host", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
-		result, err := modules.Hosts.PerformAction(s, args.ID, "reset", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&HostOpsOptions{}, "host-delete", "Delete host record", func(s *mcclient.ClientSession, args *HostOpsOptions) error {
-		results := modules.Hosts.BatchDelete(s, args.ID, nil)
-		printBatchResults(results, modules.Hosts.GetColumns(s))
-		return nil
-	})
-
 	type HostAddNetIfOptions struct {
 		ID        string `help:"ID or Name of host"`
 		WIRE      string `help:"ID or Name of wire to attach"`
@@ -499,15 +313,6 @@ func init() {
 			params.Add(jsonutils.JSONTrue, "reserve")
 		}
 		result, err := modules.Hosts.PerformAction(s, args.ID, "disable-netif", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&HostDetailOptions{}, "host-remove-all-netifs", "Remvoe all netifs expect admin&ipmi netifs", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
-		result, err := modules.Hosts.PerformAction(s, args.ID, "remove-all-netifs", nil)
 		if err != nil {
 			return err
 		}
