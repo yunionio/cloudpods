@@ -113,7 +113,7 @@ type SHost struct {
 	// 物理CPU颗数
 	NodeCount int8 `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 	// CPU描述信息
-	CpuDesc string `width:"64" charset:"ascii" nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
+	CpuDesc string `width:"128" charset:"ascii" nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
 	// CPU频率
 	CpuMhz int `nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
 	// CPU缓存大小,单位KB
@@ -1716,7 +1716,11 @@ func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.Toke
 		self.SysInfo = extHost.GetSysInfo()
 		self.CpuCount = extHost.GetCpuCount()
 		self.NodeCount = extHost.GetNodeCount()
-		self.CpuDesc = extHost.GetCpuDesc()
+		cpuDesc := extHost.GetCpuDesc()
+		if len(cpuDesc) > 128 {
+			cpuDesc = cpuDesc[:128]
+		}
+		self.CpuDesc = cpuDesc
 		self.CpuMhz = extHost.GetCpuMhz()
 		self.MemSize = extHost.GetMemSizeMB()
 		self.StorageSize = extHost.GetStorageSizeMB()
@@ -1957,7 +1961,11 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 	host.SysInfo = extHost.GetSysInfo()
 	host.CpuCount = extHost.GetCpuCount()
 	host.NodeCount = extHost.GetNodeCount()
-	host.CpuDesc = extHost.GetCpuDesc()
+	cpuDesc := extHost.GetCpuDesc()
+	if len(cpuDesc) > 128 {
+		cpuDesc = cpuDesc[:128]
+	}
+	host.CpuDesc = cpuDesc
 	host.CpuMhz = extHost.GetCpuMhz()
 	host.MemSize = extHost.GetMemSizeMB()
 	host.StorageSize = extHost.GetStorageSizeMB()
