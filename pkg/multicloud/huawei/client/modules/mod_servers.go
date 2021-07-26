@@ -21,7 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"
 )
 
@@ -31,12 +31,12 @@ type SServerManager struct {
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212668.html
 // v.1.1 新增支持创建包年/包月的弹性云服务器。！！但是不支持查询等调用 https://support.huaweicloud.com/api-ecs/zh-cn_topic_0093055772.html
-func NewServerManager(regionId, projectId string, signer auth.Signer, debug bool) *SServerManager {
+func NewServerManager(cfg manager.IManagerConfig) *SServerManager {
 	return &SServerManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameECS,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v1",
 		Keyword:       "server",
 		KeywordPlural: "servers",
@@ -94,12 +94,12 @@ func (self *SServerManager) Create(params jsonutils.JSONObject) (jsonutils.JSONO
 }
 
 // 不推荐使用这个manager
-func NewNovaServerManager(regionId, projectId string, signer auth.Signer, debug bool) *SServerManager {
+func NewNovaServerManager(cfg manager.IManagerConfig) *SServerManager {
 	return &SServerManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameECS,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v2.1",
 		Keyword:       "server",
 		KeywordPlural: "servers",
@@ -109,12 +109,12 @@ func NewNovaServerManager(regionId, projectId string, signer auth.Signer, debug 
 }
 
 // 重装弹性云服务器操作系统（安装Cloud-init）,请用这个manager
-func NewServerV2Manager(regionId, projectId string, signer auth.Signer, debug bool) *SServerManager {
+func NewServerV2Manager(cfg manager.IManagerConfig) *SServerManager {
 	return &SServerManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameECS,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v2",
 		Keyword:       "server",
 		KeywordPlural: "servers",

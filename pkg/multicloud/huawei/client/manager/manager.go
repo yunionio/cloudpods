@@ -17,6 +17,7 @@ package manager
 import (
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"
 )
 
@@ -68,4 +69,13 @@ type IManager interface {
 	// BatchPerformAction(action string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	// 执行操作 POST <base_url>/cloudservers/<cloudserver_id>/<action>
 	PerformAction(action string, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
+}
+
+type IManagerConfig interface {
+	GetSigner() auth.Signer
+	GetEndpoint() string
+	GetRegionId() string
+	GetDomainId() string
+	GetProjectId() string
+	GetDebug() bool
 }

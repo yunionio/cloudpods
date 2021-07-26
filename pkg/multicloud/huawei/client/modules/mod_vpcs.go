@@ -15,19 +15,19 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SVpcManager struct {
 	SResourceManager
 }
 
-func NewVpcManager(regionId string, projectId string, signer auth.Signer, debug bool) *SVpcManager {
+func NewVpcManager(cfg manager.IManagerConfig) *SVpcManager {
 	return &SVpcManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameVPC,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v1",
 		Keyword:       "vpc",
 		KeywordPlural: "vpcs",

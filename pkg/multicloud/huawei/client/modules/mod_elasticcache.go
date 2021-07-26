@@ -19,7 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"
 )
 
@@ -31,12 +31,12 @@ type SDcsAvailableZoneManager struct {
 	SResourceManager
 }
 
-func NewElasticcacheManager(regionId string, projectId string, signer auth.Signer, debug bool) *SElasticcacheManager {
+func NewElasticcacheManager(cfg manager.IManagerConfig) *SElasticcacheManager {
 	return &SElasticcacheManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameDCS,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v1.0",
 		Keyword:       "",
 		KeywordPlural: "instances",
@@ -103,11 +103,11 @@ func (self *SElasticcacheManager) ChangeInstanceSpec(instanceId string, specCode
 	return self.CreateInContextWithSpec(nil, fmt.Sprintf("%s/extend", instanceId), params, "")
 }
 
-func NewDcsAvailableZoneManager(regionId string, signer auth.Signer, debug bool) *SDcsAvailableZoneManager {
+func NewDcsAvailableZoneManager(cfg manager.IManagerConfig) *SDcsAvailableZoneManager {
 	return &SDcsAvailableZoneManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameDCS,
-		Region:        regionId,
+		Region:        cfg.GetRegionId(),
 		ProjectId:     "",
 		version:       "v1.0",
 		Keyword:       "available_zone",

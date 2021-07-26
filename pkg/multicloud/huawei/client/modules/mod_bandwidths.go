@@ -15,19 +15,19 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SBandwidthManager struct {
 	SResourceManager
 }
 
-func NewBandwidthManager(regionId string, projectId string, signer auth.Signer, debug bool) *SBandwidthManager {
+func NewBandwidthManager(cfg manager.IManagerConfig) *SBandwidthManager {
 	return &SBandwidthManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameVPC,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v1",
 		Keyword:       "bandwidth",
 		KeywordPlural: "bandwidths",

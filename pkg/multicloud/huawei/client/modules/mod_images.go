@@ -18,7 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/requests"
 )
 
@@ -36,16 +36,16 @@ func (self *imageProject) Process(request requests.IRequest) {
 	request.AddHeaderParam("X-Project-Id", self.projectId)
 }
 
-func NewImageManager(regionId string, projectId string, signer auth.Signer, debug bool) *SImageManager {
+func NewImageManager(cfg manager.IManagerConfig) *SImageManager {
 	var requestHook imageProject
-	if len(projectId) > 0 {
-		requestHook = imageProject{projectId: projectId}
+	if len(cfg.GetProjectId()) > 0 {
+		requestHook = imageProject{projectId: cfg.GetProjectId()}
 	}
 
 	return &SImageManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager2(signer, debug, &requestHook),
+		SBaseManager:  NewBaseManager2(cfg, &requestHook),
 		ServiceName:   ServiceNameIMS,
-		Region:        regionId,
+		Region:        cfg.GetRegionId(),
 		ProjectId:     "",
 		version:       "v2",
 		Keyword:       "image",
@@ -81,16 +81,16 @@ func (self *SImageManager) Get(id string, querys map[string]string) (jsonutils.J
 
 // https://support.huaweicloud.com/api-ims/zh-cn_topic_0020092108.html
 // 删除image只能用这个manager
-func NewOpenstackImageManager(regionId string, projectId string, signer auth.Signer, debug bool) *SImageManager {
+func NewOpenstackImageManager(cfg manager.IManagerConfig) *SImageManager {
 	var requestHook imageProject
-	if len(projectId) > 0 {
-		requestHook = imageProject{projectId: projectId}
+	if len(cfg.GetProjectId()) > 0 {
+		requestHook = imageProject{projectId: cfg.GetProjectId()}
 	}
 
 	return &SImageManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager2(signer, debug, &requestHook),
+		SBaseManager:  NewBaseManager2(cfg, &requestHook),
 		ServiceName:   ServiceNameIMS,
-		Region:        regionId,
+		Region:        cfg.GetRegionId(),
 		ProjectId:     "",
 		version:       "v2",
 		Keyword:       "image",

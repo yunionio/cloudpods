@@ -15,19 +15,19 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SSecurityGroupManager struct {
 	SResourceManager
 }
 
-func NewSecurityGroupManager(regionId string, projectId string, signer auth.Signer, debug bool) *SSecurityGroupManager {
+func NewSecurityGroupManager(cfg manager.IManagerConfig) *SSecurityGroupManager {
 	return &SSecurityGroupManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameVPC,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v1",
 		Keyword:       "security_group",
 		KeywordPlural: "security_groups",
@@ -36,12 +36,12 @@ func NewSecurityGroupManager(regionId string, projectId string, signer auth.Sign
 	}}
 }
 
-func NewNovaSecurityGroupManager(regionId string, projectId string, signer auth.Signer, debug bool) *SSecurityGroupManager {
+func NewNovaSecurityGroupManager(cfg manager.IManagerConfig) *SSecurityGroupManager {
 	return &SSecurityGroupManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameECS,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v2.1",
 		Keyword:       "security_group",
 		KeywordPlural: "security_groups",

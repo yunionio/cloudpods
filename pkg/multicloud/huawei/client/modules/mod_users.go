@@ -19,7 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"
 )
 
@@ -27,9 +27,9 @@ type SUserManager struct {
 	SResourceManager
 }
 
-func NewUserManager(signer auth.Signer, debug bool) *SUserManager {
-	return &SUserManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+func NewUserManager(cfg manager.IManagerConfig) *SUserManager {
+	user := &SUserManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameIAM,
 		Region:        "",
 		ProjectId:     "",
@@ -39,6 +39,8 @@ func NewUserManager(signer auth.Signer, debug bool) *SUserManager {
 
 		ResourceKeyword: "users",
 	}}
+	user.SetDomainId(cfg.GetDomainId())
+	return user
 }
 
 func (self *SUserManager) List(querys map[string]string) (*responses.ListResult, error) {

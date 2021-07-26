@@ -15,19 +15,19 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SKeypairManager struct {
 	SResourceManager
 }
 
-func NewKeypairManager(regionId string, projectId string, signer auth.Signer, debug bool) *SKeypairManager {
+func NewKeypairManager(cfg manager.IManagerConfig) *SKeypairManager {
 	return &SKeypairManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameECS,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v2",
 		Keyword:       "keypair",
 		KeywordPlural: "keypairs",

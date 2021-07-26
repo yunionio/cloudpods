@@ -20,7 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"
 )
 
@@ -28,12 +28,12 @@ type SDBInstanceManager struct {
 	SResourceManager
 }
 
-func NewDBInstanceManager(regionId string, projectId string, signer auth.Signer, debug bool) *SDBInstanceManager {
+func NewDBInstanceManager(cfg manager.IManagerConfig) *SDBInstanceManager {
 	return &SDBInstanceManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameRDS,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v3",
 		Keyword:       "",
 		KeywordPlural: "instances",
