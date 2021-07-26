@@ -1276,6 +1276,30 @@ func syncPublicCloudProviderInfo(
 	return nil
 }
 
+func getZoneForPremiseCloudRegion(ctx context.Context, userCred mcclient.TokenCredential, iregion cloudprovider.ICloudRegion) (*SZone, error) {
+	extHosts, err := iregion.GetIHosts()
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to GetIHosts")
+	}
+	for _, extHost := range extHosts {
+		// onpremise host
+		accessIp := extHost.GetAccessIp()
+		if len(accessIp) == 0 {
+			msg := fmt.Sprintf("fail to find wire for host %s: empty host access ip", extHost.GetName())
+			log.Errorf(msg)
+			continue
+		}
+		wire, err := WireManager.GetOnPremiseWireOfIp(accessIp)
+		if err != nil {
+			msg := fmt.Sprintf("fail to find wire for host %s %s: %s", extHost.GetName(), accessIp, err)
+			log.Errorf(msg)
+			continue
+		}
+		return wire.GetZone(), nil
+	}
+	return nil, errors.Wrap(errors.ErrNotFound, "no suitable zone")
+}
+
 func syncOnPremiseCloudProviderStorage(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, iregion cloudprovider.ICloudRegion, driver cloudprovider.ICloudProvider, syncRange *SSyncRange) []sStoragecacheSyncPair {
 	istorages, err := iregion.GetIStorages()
 	if err != nil {
@@ -1283,7 +1307,13 @@ func syncOnPremiseCloudProviderStorage(ctx context.Context, userCred mcclient.To
 		log.Errorf(msg)
 		return nil
 	}
-	localStorages, remoteStorages, result := StorageManager.SyncStorages(ctx, userCred, provider, nil, istorages)
+	zone, err := getZoneForPremiseCloudRegion(ctx, userCred, iregion)
+	if err != nil {
+		msg := fmt.Sprintf("Can't get zone for Premise cloud region %s", iregion.GetName())
+		log.Errorf(msg)
+		return nil
+	}
+	localStorages, remoteStorages, result := StorageManager.SyncStorages(ctx, userCred, provider, zone, istorages)
 	syncResults.Add(StorageManager, result)
 
 	msg := result.Result()
