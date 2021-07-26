@@ -300,9 +300,10 @@ github.com/fsnotify/fsnotify
 github.com/ghodss/yaml
 # github.com/gin-contrib/sse v0.1.0
 github.com/gin-contrib/sse
-# github.com/gin-gonic/gin v1.5.0
+# github.com/gin-gonic/gin v1.7.0
 github.com/gin-gonic/gin
 github.com/gin-gonic/gin/binding
+github.com/gin-gonic/gin/internal/bytesconv
 github.com/gin-gonic/gin/internal/json
 github.com/gin-gonic/gin/render
 # github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2
@@ -316,11 +317,13 @@ github.com/go-logr/logr
 # github.com/go-ole/go-ole v1.2.2
 github.com/go-ole/go-ole
 github.com/go-ole/go-ole/oleutil
-# github.com/go-playground/locales v0.12.1
+# github.com/go-playground/locales v0.13.0
 github.com/go-playground/locales
 github.com/go-playground/locales/currency
-# github.com/go-playground/universal-translator v0.16.0
+# github.com/go-playground/universal-translator v0.17.0
 github.com/go-playground/universal-translator
+# github.com/go-playground/validator/v10 v10.4.1
+github.com/go-playground/validator/v10
 # github.com/go-sql-driver/mysql v1.5.0
 github.com/go-sql-driver/mysql
 # github.com/go-yaml/yaml v2.1.0+incompatible
@@ -391,7 +394,7 @@ github.com/googollee/go-socket.io
 github.com/gopherjs/gopherjs/js
 # github.com/gorilla/mux v1.7.0
 github.com/gorilla/mux
-# github.com/gorilla/websocket v1.4.0
+# github.com/gorilla/websocket v1.4.1
 github.com/gorilla/websocket
 # github.com/gosuri/uitable v0.0.0-20160404203958-36ee7e946282
 github.com/gosuri/uitable
@@ -447,7 +450,7 @@ github.com/konsorten/go-windows-terminal-sequences
 github.com/kr/logfmt
 # github.com/kr/pty v1.1.5
 github.com/kr/pty
-# github.com/leodido/go-urn v1.1.0
+# github.com/leodido/go-urn v1.2.0
 github.com/leodido/go-urn
 # github.com/lestrrat-go/iter v0.0.0-20200422075355-fc1769541911
 github.com/lestrrat-go/iter/arrayiter
@@ -488,7 +491,7 @@ github.com/libvirt/libvirt-go-xml
 github.com/ma314smith/signedxml
 # github.com/mattn/go-colorable v0.1.2
 github.com/mattn/go-colorable
-# github.com/mattn/go-isatty v0.0.9
+# github.com/mattn/go-isatty v0.0.12
 github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.4
 github.com/mattn/go-runewidth
@@ -511,7 +514,7 @@ github.com/mholt/caddy
 github.com/mholt/caddy/caddyfile
 github.com/mholt/caddy/onevent/hook
 github.com/mholt/caddy/startupshutdown
-# github.com/miekg/dns v1.1.4
+# github.com/miekg/dns v1.1.25
 github.com/miekg/dns
 # github.com/minio/minio-go v6.0.14+incompatible
 github.com/minio/minio-go
@@ -748,6 +751,7 @@ golang.org/x/crypto/pkcs12
 golang.org/x/crypto/pkcs12/internal/rc2
 golang.org/x/crypto/poly1305
 golang.org/x/crypto/scrypt
+golang.org/x/crypto/sha3
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 golang.org/x/crypto/ssh/terminal
@@ -967,8 +971,6 @@ google.golang.org/protobuf/types/pluginpb
 gopkg.in/asn1-ber.v1
 # gopkg.in/fatih/set.v0 v0.2.1
 gopkg.in/fatih/set.v0
-# gopkg.in/go-playground/validator.v9 v9.29.1
-gopkg.in/go-playground/validator.v9
 # gopkg.in/inf.v0 v0.9.1
 gopkg.in/inf.v0
 # gopkg.in/ini.v1 v1.44.0

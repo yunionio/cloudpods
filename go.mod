@@ -52,7 +52,7 @@ require (
 	github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568 // indirect
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/ghodss/yaml v1.0.0
-	github.com/gin-gonic/gin v1.5.0
+	github.com/gin-gonic/gin v1.7.0
 	github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2 // indirect
 	github.com/go-ini/ini v1.62.0 // indirect
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
@@ -69,7 +69,7 @@ require (
 	github.com/googollee/go-engine.io v0.0.0-20180829091931-e2f255711dcb // indirect
 	github.com/googollee/go-socket.io v0.0.0-20181214084611-0ad7206c347a
 	github.com/gorilla/mux v1.7.0
-	github.com/gorilla/websocket v1.4.0
+	github.com/gorilla/websocket v1.4.1
 	github.com/gosuri/uitable v0.0.0-20160404203958-36ee7e946282
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645 // indirect
 	github.com/hako/durafmt v0.0.0-20180520121703-7b7ae1e72ead
@@ -91,7 +91,7 @@ require (
 	github.com/mdlayher/ethernet v0.0.0-20190606142754-0394541c37b7
 	github.com/mdlayher/raw v0.0.0-20190606144222-a54781e5f38f
 	github.com/mholt/caddy v0.10.11
-	github.com/miekg/dns v1.1.4
+	github.com/miekg/dns v1.1.25
 	github.com/minio/minio-go v6.0.14+incompatible
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
