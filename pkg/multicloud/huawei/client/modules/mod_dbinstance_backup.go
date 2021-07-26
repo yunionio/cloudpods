@@ -15,19 +15,19 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SDBInstanceBackupManager struct {
 	SResourceManager
 }
 
-func NewDBInstanceBackupManager(regionId string, projectId string, signer auth.Signer, debug bool) *SDBInstanceBackupManager {
+func NewDBInstanceBackupManager(cfg manager.IManagerConfig) *SDBInstanceBackupManager {
 	return &SDBInstanceBackupManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameRDS,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v3",
 		Keyword:       "backup",
 		KeywordPlural: "backups",

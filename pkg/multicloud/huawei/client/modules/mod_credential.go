@@ -15,16 +15,16 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SCredentialManager struct {
 	SResourceManager
 }
 
-func NewCredentialManager(signer auth.Signer, debug bool) *SCredentialManager {
+func NewCredentialManager(cfg manager.IManagerConfig) *SCredentialManager {
 	return &SCredentialManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameIAM,
 		Region:        "",
 		ProjectId:     "",

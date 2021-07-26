@@ -18,7 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"
 )
 
@@ -26,12 +26,12 @@ type SDiskManager struct {
 	SResourceManager
 }
 
-func NewDiskManager(regionId string, projectId string, signer auth.Signer, debug bool) *SDiskManager {
+func NewDiskManager(cfg manager.IManagerConfig) *SDiskManager {
 	return &SDiskManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameEVS,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v2",
 		Keyword:       "volume",
 		KeywordPlural: "volumes",

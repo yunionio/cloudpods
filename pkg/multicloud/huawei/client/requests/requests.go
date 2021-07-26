@@ -259,11 +259,11 @@ func defaultRequest() (request *SRequest) {
 	return
 }
 
-func NewResourceRequest(method, product, version, region, project, resourcePath string) *SRequest {
+func NewResourceRequest(domain, method, product, version, region, project, resourcePath string) *SRequest {
 	return &SRequest{
 		Scheme:       "HTTPS",
 		Method:       method,
-		Domain:       "myhuaweicloud.com",
+		Domain:       domain,
 		product:      product,
 		RegionId:     region,
 		version:      version,

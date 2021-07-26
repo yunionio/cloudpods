@@ -19,7 +19,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"
 )
@@ -42,9 +41,9 @@ func (self *orderCtx) GetPath() string {
 
 // 客户运营能力API的Endpoint为“bss.cn-north-1.myhuaweicloud.com”。该Endpoint为全局Endpoint，中国站所有区域均可使用。
 // https://support.huaweicloud.com/api-oce/zh-cn_topic_0084961226.html
-func NewOrderManager(signer auth.Signer, debug bool) *SOrderManager {
+func NewOrderManager(cfg manager.IManagerConfig) *SOrderManager {
 	return &SOrderManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameBSS,
 		Region:        "cn-north-1",
 		ProjectId:     "",

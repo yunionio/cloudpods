@@ -15,18 +15,18 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SVpcPeeringManager struct {
 	SResourceManager
 }
 
-func NewVpcPeeringManager(regionId string, projectId string, signer auth.Signer, debug bool) *SVpcPeeringManager {
+func NewVpcPeeringManager(cfg manager.IManagerConfig) *SVpcPeeringManager {
 	return &SVpcPeeringManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameVPC,
-		Region:        regionId,
+		Region:        cfg.GetRegionId(),
 		ProjectId:     "",
 		version:       "v2.0",
 		Keyword:       "peering",

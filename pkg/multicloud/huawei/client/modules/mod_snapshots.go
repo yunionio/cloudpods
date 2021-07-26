@@ -15,7 +15,7 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"
 )
 
@@ -23,12 +23,12 @@ type SSnapshotManager struct {
 	SResourceManager
 }
 
-func NewSnapshotManager(regionId, projectId string, signer auth.Signer, debug bool) *SSnapshotManager {
+func NewSnapshotManager(cfg manager.IManagerConfig) *SSnapshotManager {
 	return &SSnapshotManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameEVS,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v2",
 		Keyword:       "snapshot",
 		KeywordPlural: "snapshots",
@@ -44,12 +44,12 @@ func (self *SSnapshotManager) List(querys map[string]string) (*responses.ListRes
 // https://support.huaweicloud.com/api-evs/zh-cn_topic_0051408629.html
 // 回滚快照只能用这个manger。其他情况请不要使用
 // 另外，香港-亚太还支持另外一个接口。https://support.huaweicloud.com/api-evs/zh-cn_topic_0142374138.html
-func NewOsSnapshotManager(regionId string, projectId string, signer auth.Signer, debug bool) *SSnapshotManager {
+func NewOsSnapshotManager(cfg manager.IManagerConfig) *SSnapshotManager {
 	return &SSnapshotManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameEVS,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v2",
 		Keyword:       "snapshot",
 		KeywordPlural: "snapshots",

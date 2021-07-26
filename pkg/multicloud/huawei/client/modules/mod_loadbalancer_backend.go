@@ -17,7 +17,7 @@ package modules
 import (
 	"fmt"
 
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SElbBackendManager struct {
@@ -33,16 +33,16 @@ func (self *backendCtx) GetPath() string {
 	return fmt.Sprintf("pools/%s", self.backendGroupId)
 }
 
-func NewElbBackendManager(regionId string, projectId string, signer auth.Signer, debug bool) *SElbBackendManager {
+func NewElbBackendManager(cfg manager.IManagerConfig) *SElbBackendManager {
 	var requestHook portProject
-	if len(projectId) > 0 {
-		requestHook = portProject{projectId: projectId}
+	if len(cfg.GetProjectId()) > 0 {
+		requestHook = portProject{projectId: cfg.GetProjectId()}
 	}
 
 	return &SElbBackendManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager2(signer, debug, &requestHook),
+		SBaseManager:  NewBaseManager2(cfg, &requestHook),
 		ServiceName:   ServiceNameELB,
-		Region:        regionId,
+		Region:        cfg.GetRegionId(),
 		ProjectId:     "",
 		version:       "v2.0/lbaas",
 		Keyword:       "member",

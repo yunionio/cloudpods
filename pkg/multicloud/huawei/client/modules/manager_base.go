@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/requests"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -39,7 +40,7 @@ type IRequestHook interface {
 }
 
 type SBaseManager struct {
-	signer      auth.Signer
+	cfg         manager.IManagerConfig
 	httpClient  *http.Client
 	requestHook IRequestHook // 用于对request做特殊处理。非必要请不要使用！！！。目前只有port接口用到。
 
@@ -74,17 +75,21 @@ func (t *sThrottlingThreshold) Lock() {
 
 var ThrottlingLock = sThrottlingThreshold{locked: false, lockTime: time.Time{}}
 
-func NewBaseManager2(signer auth.Signer, debug bool, requesthk IRequestHook) SBaseManager {
+func NewBaseManager2(cfg manager.IManagerConfig, requesthk IRequestHook) SBaseManager {
 	return SBaseManager{
-		signer:      signer,
+		cfg:         cfg,
 		httpClient:  httputils.GetDefaultClient(),
-		debug:       debug,
+		debug:       cfg.GetDebug(),
 		requestHook: requesthk,
 	}
 }
 
-func NewBaseManager(signer auth.Signer, debug bool) SBaseManager {
-	return NewBaseManager2(signer, debug, nil)
+func NewBaseManager(cfg manager.IManagerConfig) SBaseManager {
+	return NewBaseManager2(cfg, nil)
+}
+
+func (self *SBaseManager) GetEndpoint() string {
+	return self.cfg.GetEndpoint()
 }
 
 func (self *SBaseManager) GetColumns() []string {
@@ -195,7 +200,7 @@ func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, j
 		self.requestHook.Process(request)
 	}
 	// 拼接、编译、签名 requests here。
-	err := self.buildRequestWithSigner(request, self.signer)
+	err := self.buildRequestWithSigner(request, self.cfg.GetSigner())
 	if err != nil {
 		return nil, nil, err
 	}

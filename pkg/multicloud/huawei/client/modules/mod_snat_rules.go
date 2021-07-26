@@ -15,18 +15,18 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SNatSRuleManager struct {
 	SResourceManager
 }
 
-func NewNatSManager(regionId string, projectId string, signer auth.Signer, debug bool) *SNatSRuleManager {
+func NewNatSManager(cfg manager.IManagerConfig) *SNatSRuleManager {
 	man := &SNatSRuleManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameNAT,
-		Region:        regionId,
+		Region:        cfg.GetRegionId(),
 		ProjectId:     "",
 		version:       "v2.0",
 		Keyword:       "snat_rule",
@@ -34,8 +34,8 @@ func NewNatSManager(regionId string, projectId string, signer auth.Signer, debug
 
 		ResourceKeyword: "snat_rules",
 	}}
-	if len(projectId) > 0 {
-		man.requestHook = &sProjectHook{projectId}
+	if len(cfg.GetProjectId()) > 0 {
+		man.requestHook = &sProjectHook{cfg.GetProjectId()}
 	}
 	return man
 }

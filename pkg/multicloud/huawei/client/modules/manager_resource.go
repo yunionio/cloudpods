@@ -135,7 +135,7 @@ func (self *SResourceManager) getReourcePath(ctx manager.IManagerContext, rid st
 
 func (self *SResourceManager) newRequest(method, rid, spec string, ctx manager.IManagerContext) *requests.SRequest {
 	resourcePath := self.getReourcePath(ctx, rid, spec)
-	return requests.NewResourceRequest(method, string(self.ServiceName), self.version, self.Region, self.ProjectId, resourcePath)
+	return requests.NewResourceRequest(self.GetEndpoint(), method, string(self.ServiceName), self.version, self.Region, self.ProjectId, resourcePath)
 }
 
 func (self *SResourceManager) List(queries map[string]string) (*responses.ListResult, error) {
