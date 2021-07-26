@@ -77,7 +77,7 @@ func (manager *SProjectizedResourceBaseManager) FetchOwnerId(ctx context.Context
 func (manager *SProjectizedResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	switch field {
 	case "tenant":
-		tenantCacheQuery := TenantCacheManager.GetTenantQuery("name", "id").Distinct().SubQuery()
+		tenantCacheQuery := TenantCacheManager.getTable() // GetTenantQuery("name", "id").Distinct().SubQuery()
 		q.AppendField(tenantCacheQuery.Field("name", "tenant")).Distinct()
 		q = q.Join(tenantCacheQuery, sqlchemy.Equals(q.Field("tenant_id"), tenantCacheQuery.Field("id")))
 		return q, nil
