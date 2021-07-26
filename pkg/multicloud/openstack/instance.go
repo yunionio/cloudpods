@@ -1014,23 +1014,27 @@ func (zone *SZone) CreateVM(hypervisor string, opts *cloudprovider.SManagedVMCre
 		az = fmt.Sprintf("%s:%s", zone.ZoneName, hypervisor)
 	}
 
+	net := map[string]string{
+		"uuid": network.NetworkId,
+	}
+	if len(opts.IpAddr) > 0 {
+		net["fixed_ip"] = opts.IpAddr
+	}
+
 	params := map[string]map[string]interface{}{
 		"server": {
-			"name":              opts.Name,
-			"adminPass":         opts.Password,
-			"accessIPv4":        opts.IpAddr,
-			"availability_zone": az,
-			"networks": []map[string]string{
-				{
-					"uuid":     network.NetworkId,
-					"fixed_ip": opts.IpAddr,
-				},
-			},
+			"name":                    opts.Name,
+			"adminPass":               opts.Password,
+			"availability_zone":       az,
+			"networks":                []map[string]string{net},
 			"security_groups":         secgroups,
 			"user_data":               opts.UserData,
 			"imageRef":                opts.ExternalImageId,
 			"block_device_mapping_v2": BlockDeviceMappingV2,
 		},
+	}
+	if len(opts.IpAddr) > 0 {
+		params["server"]["accessIPv4"] = opts.IpAddr
 	}
 
 	flavor, err := region.syncFlavor(opts.InstanceType, opts.Cpu, opts.MemoryMB, opts.SysDisk.SizeGB)
