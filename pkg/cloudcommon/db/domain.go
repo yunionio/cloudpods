@@ -91,7 +91,7 @@ func ValidateCreateDomainId(domainId string) error {
 func (manager *SDomainizedResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	switch field {
 	case "domain":
-		tenantCacheQuery := TenantCacheManager.GetDomainQuery("name", "id").SubQuery()
+		tenantCacheQuery := TenantCacheManager.getTable() // GetDomainQuery("name", "id").SubQuery()
 		q = q.AppendField(tenantCacheQuery.Field("name", "domain")).Distinct()
 		q = q.Join(tenantCacheQuery, sqlchemy.Equals(q.Field("domain_id"), tenantCacheQuery.Field("id")))
 		return q, nil
