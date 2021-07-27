@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -53,6 +54,51 @@ func (self *SStatusInfrasResourceBase) AllowPerformStatus(ctx context.Context, u
 
 func (self *SStatusInfrasResourceBase) GetIStatusInfrasModel() IStatusInfrasModel {
 	return self.GetVirtualObject().(IStatusInfrasModel)
+}
+
+func (manager *SStatusInfrasResourceBaseManager) AllowGetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return IsAdminAllowGetSpec(userCred, manager, "statistics")
+}
+
+func (manager *SStatusInfrasResourceBaseManager) GetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (map[string]apis.StatusStatistic, error) {
+	im, ok := manager.GetVirtualObject().(IModelManager)
+	if !ok {
+		im = manager
+	}
+
+	var err error
+	q := manager.Query()
+	q, err = ListItemFilter(im, ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
+	sq := q.SubQuery()
+	statQ := sq.Query(sq.Field("status"), sqlchemy.COUNT("total_count", sq.Field("id")))
+	_, queryScope, err := FetchCheckQueryOwnerScope(ctx, userCred, query, im, rbacutils.ActionList, true)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	statQ = manager.FilterByOwner(statQ, userCred, queryScope)
+	statQ = manager.FilterBySystemAttributes(statQ, userCred, query, queryScope)
+	statQ = manager.FilterByHiddenSystemAttributes(statQ, userCred, query, queryScope)
+	statQ = statQ.GroupBy(sq.Field("status"))
+
+	ret := []struct {
+		Status     string
+		TotalCount int64
+	}{}
+	err = statQ.All(&ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "q.All")
+	}
+	result := map[string]apis.StatusStatistic{}
+	for _, s := range ret {
+		result[s.Status] = apis.StatusStatistic{
+			TotalCount: s.TotalCount,
+		}
+	}
+	return result, nil
 }
 
 // 更新资源状态

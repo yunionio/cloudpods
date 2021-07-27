@@ -1132,3 +1132,8 @@ type ServerMigrateNetworkOptions struct {
 func (opts *ServerMigrateNetworkOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
+
+type ServerStatusStatisticsOptions struct {
+	ServerListOptions
+	StatusStatisticsOptions
+}

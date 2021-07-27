@@ -397,6 +397,18 @@ func (o *BaseIdOptions) Params() (jsonutils.JSONObject, error) {
 	return nil, nil
 }
 
+type BaseIdsOptions struct {
+	ID []string `json:"-"`
+}
+
+func (o *BaseIdsOptions) GetIds() []string {
+	return o.ID
+}
+
+func (o *BaseIdsOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
 type BaseShowOptions struct {
 	BaseIdOptions
 	WithMeta       *bool `help:"With meta data"`
@@ -420,25 +432,6 @@ func (o ChangeOwnerOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type StatusStatisticsOptions struct {
-	PendingDelete    *bool  `help:"Show only pending deleted resources"`
-	PendingDeleteAll *bool  `help:"Show also pending-deleted resources" json:"-"`
-	DeleteAll        *bool  `help:"Show also deleted resources" json:"-"`
-	ShowEmulated     *bool  `help:"Show all resources including the emulated resources"`
-	Scope            string `help:"resource scope" choices:"system|domain|project|user"`
-}
-
-func (o StatusStatisticsOptions) Params() (jsonutils.JSONObject, error) {
-	params, err := ListStructToParams(o)
-	if err != nil {
-		return nil, err
-	}
-	if BoolV(o.DeleteAll) {
-		params.Set("delete", jsonutils.NewString("all"))
-	}
-	if BoolV(o.PendingDeleteAll) {
-		params.Set("pending_delete", jsonutils.NewString("all"))
-	}
-	return params, nil
 }
 
 func (o StatusStatisticsOptions) Property() string {
