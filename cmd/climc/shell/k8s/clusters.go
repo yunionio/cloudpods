@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 	o "yunion.io/x/onecloud/pkg/mcclient/options/k8s"
@@ -201,18 +202,32 @@ func initKubeCluster() {
 		return nil
 	})
 
-	R(&o.ClusterEnableComponentMinioOpt{}, cmdN("component-enable-minio"), "Enable cluster minio component", func(s *mcclient.ClientSession, args *o.ClusterEnableComponentMinioOpt) error {
-		params, err := args.Params()
-		if err != nil {
-			return err
-		}
-		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "enable-component", params)
-		if err != nil {
-			return err
-		}
-		printObject(ret)
-		return nil
-	})
+	rEnableMinio := func(opt shell.IPerformOpt, cmd string, desc string) {
+		R(opt, cmd, desc, func(s *mcclient.ClientSession, args shell.IPerformOpt) error {
+			params, err := args.Params()
+			if err != nil {
+				return err
+			}
+			ret, err := k8s.KubeClusters.PerformAction(s, args.GetId(), "enable-component", params)
+			if err != nil {
+				return err
+			}
+			printObject(ret)
+			return nil
+		})
+	}
+
+	rEnableMinio(
+		new(o.ClusterEnableComponentMinioOpt),
+		cmdN("component-enable-minio"),
+		"Enable cluster minio component",
+	)
+
+	rEnableMinio(
+		new(o.ClusterEnableComponentMonitorMinioOpt),
+		cmdN("component-enable-monitor-minio"),
+		"Enable cluster monitor stack's minio component",
+	)
 
 	R(&o.ClusterEnableComponentThanosOpt{}, cmdN("component-enable-thanos"), "Enable cluster thanos component", func(s *mcclient.ClientSession, args *o.ClusterEnableComponentThanosOpt) error {
 		params, err := args.Params()
@@ -260,9 +275,14 @@ func initKubeCluster() {
 		return nil
 	})
 
-	R(&o.ClusterComponentType{}, cmdN("component-update"), "Update cluster component", func(s *mcclient.ClientSession, args *o.ClusterComponentType) error {
+	type ClusterComponentTypeUpdate struct {
+		o.ClusterComponentType
+		Force bool `help:"Force update"`
+	}
+
+	R(&ClusterComponentTypeUpdate{}, cmdN("component-update"), "Update cluster component", func(s *mcclient.ClientSession, args *ClusterComponentTypeUpdate) error {
 		// 1. get current setting
-		setting, err := getComponentSetting(s, args, false)
+		setting, err := getComponentSetting(s, &args.ClusterComponentType, false)
 		if err != nil {
 			return errors.Wrap(err, "get component setting")
 		}
@@ -270,8 +290,11 @@ func initKubeCluster() {
 		// 2. edit yaml
 		yaml, err := shellutils.Edit(setting.YAMLString())
 		if len(yaml) == 0 {
-			log.Infof("Nothing to update")
-			return nil
+			if !args.Force {
+				log.Infof("Nothing to update")
+				return nil
+			}
+			yaml = setting.YAMLString()
 		}
 		nowSetting, err := jsonutils.ParseYAML(yaml)
 		if err != nil {
@@ -279,6 +302,7 @@ func initKubeCluster() {
 		}
 		params := args.Params(args.TYPE)
 		params.Update(nowSetting)
+		params.Add(jsonutils.NewBool(args.Force), "force")
 
 		// 3. call update api
 		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "update-component", params)
