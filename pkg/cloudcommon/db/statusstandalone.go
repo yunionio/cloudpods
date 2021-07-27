@@ -61,22 +61,34 @@ func (manager *SStatusStandaloneResourceBaseManager) AllowGetPropertyStatistics(
 }
 
 func (manager *SStatusStandaloneResourceBaseManager) GetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (map[string]apis.StatusStatistic, error) {
-	sq := manager.Query().SubQuery()
-	q := sq.Query(sq.Field("status"), sqlchemy.COUNT("total_count", sq.Field("id")))
-	_, queryScope, err := FetchCheckQueryOwnerScope(ctx, userCred, query, manager, rbacutils.ActionList, true)
+	im, ok := manager.GetVirtualObject().(IModelManager)
+	if !ok {
+		im = manager
+	}
+
+	var err error
+	q := manager.Query()
+	q, err = ListItemFilter(im, ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
+	sq := q.SubQuery()
+	statQ := sq.Query(sq.Field("status"), sqlchemy.COUNT("total_count", sq.Field("id")))
+	_, queryScope, err := FetchCheckQueryOwnerScope(ctx, userCred, query, im, rbacutils.ActionList, true)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-	q = manager.FilterByOwner(q, userCred, queryScope)
-	q = manager.FilterBySystemAttributes(q, userCred, query, queryScope)
-	q = manager.FilterByHiddenSystemAttributes(q, userCred, query, queryScope)
-	q = q.GroupBy(sq.Field("status"))
+	statQ = manager.FilterByOwner(statQ, userCred, queryScope)
+	statQ = manager.FilterBySystemAttributes(statQ, userCred, query, queryScope)
+	statQ = manager.FilterByHiddenSystemAttributes(statQ, userCred, query, queryScope)
+	statQ = statQ.GroupBy(sq.Field("status"))
 
 	ret := []struct {
 		Status     string
 		TotalCount int64
 	}{}
-	err = q.All(&ret)
+	err = statQ.All(&ret)
 	if err != nil {
 		return nil, errors.Wrapf(err, "q.All")
 	}
