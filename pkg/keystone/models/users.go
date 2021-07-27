@@ -633,15 +633,6 @@ func (manager *SUserManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (user *SUser) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.UserDetails, error) {
-	return api.UserDetails{}, nil
-}
-
 func userExtra(user *SUser, out api.UserDetails) api.UserDetails {
 	out.GroupCount, _ = user.GetGroupCount()
 	out.ProjectCount, _ = user.GetProjectCount()

@@ -392,15 +392,6 @@ func (self *SVpc) getZoneByExternalId(externalId string) (*SZone, error) {
 	return nil, fmt.Errorf("found %d duplicate zones by externalId %s in cloudregion %s(%s)", len(zones), externalId, region.Name, region.Id)
 }
 
-func (self *SVpc) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.VpcDetails, error) {
-	return api.VpcDetails{}, nil
-}
-
 func (manager *SVpcManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

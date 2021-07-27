@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
@@ -63,15 +62,6 @@ func (manager *SNetworkschedtagManager) GetMasterFieldName() string {
 
 func (s *SNetworkschedtag) GetResourceId() string {
 	return s.NetworkId
-}
-
-func (s *SNetworkschedtag) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.NetworkschedtagDetails, error) {
-	return api.NetworkschedtagDetails{}, nil
 }
 
 func (s *SNetworkschedtag) GetDetails(base api.SchedtagJointResourceDetails, resourceName string, isList bool) interface{} {

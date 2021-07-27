@@ -339,11 +339,6 @@ func (sgm *SScalingGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	return q, nil
 }
 
-func (sgm *SScalingGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, isList bool) (api.ScalingGroupDetails, error) {
-	return api.ScalingGroupDetails{}, nil
-}
-
 func (sgm *SScalingGroupManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

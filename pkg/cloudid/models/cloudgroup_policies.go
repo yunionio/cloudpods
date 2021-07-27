@@ -86,15 +86,6 @@ func (self *SCloudgroupPolicy) ValidateUpdateData(ctx context.Context, userCred 
 }
 
 // 用户组中权限详情
-func (self *SCloudgroupPolicy) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.CloudgroupPolicyDetails, error) {
-	return api.CloudgroupPolicyDetails{}, nil
-}
-
 func (manager *SCloudgroupPolicyManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

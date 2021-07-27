@@ -389,15 +389,6 @@ func (lbb *SLoadbalancerBackend) getVpc(ctx context.Context) (*SVpc, error) {
 	return vpc, nil
 }
 
-func (lbb *SLoadbalancerBackend) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.LoadbalancerBackendDetails, error) {
-	return api.LoadbalancerBackendDetails{}, nil
-}
-
 func (manager *SLoadbalancerBackendManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

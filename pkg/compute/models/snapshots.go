@@ -296,15 +296,6 @@ func (manager *SSnapshotManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (self *SSnapshot) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.SnapshotDetails, error) {
-	return api.SnapshotDetails{}, nil
-}
-
 func (self *SSnapshot) getMoreDetails(out api.SnapshotDetails) api.SnapshotDetails {
 	if IStorage, _ := StorageManager.FetchById(self.StorageId); IStorage != nil {
 		storage := IStorage.(*SStorage)

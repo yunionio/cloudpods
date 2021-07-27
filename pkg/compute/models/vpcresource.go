@@ -103,10 +103,6 @@ func (self *SVpcResourceBase) GetProviderName() string {
 	return vpc.GetProviderName()
 }
 
-func (self *SVpcResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) api.VpcResourceInfo {
-	return api.VpcResourceInfo{}
-}
-
 func (manager *SVpcResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

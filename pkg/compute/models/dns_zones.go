@@ -234,15 +234,6 @@ func (self *SDnsZone) PostUpdate(ctx context.Context, userCred mcclient.TokenCre
 }
 
 // 解析详情
-func (self *SDnsZone) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.DnsZoneDetails, error) {
-	return api.DnsZoneDetails{}, nil
-}
-
 func (manager *SDnsZoneManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

@@ -437,10 +437,6 @@ func (self *SStorage) getMoreDetails(ctx context.Context, out api.StorageDetails
 	return out
 }
 
-func (self *SStorage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.StorageDetails, error) {
-	return api.StorageDetails{}, nil
-}
-
 func (manager *SStorageManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

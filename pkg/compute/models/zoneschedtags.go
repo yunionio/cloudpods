@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
@@ -70,15 +69,6 @@ func (obj *SZoneschedtag) Detach(ctx context.Context, userCred mcclient.TokenCre
 
 func (obj *SZoneschedtag) GetResourceId() string {
 	return obj.ZoneId
-}
-
-func (obj *SZoneschedtag) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.ZoneschedtagDetails, error) {
-	return api.ZoneschedtagDetails{}, nil
 }
 
 func (m *SZoneschedtagManager) ListItemFilter(

@@ -130,10 +130,6 @@ func (self *SSchedpolicy) getSchedtag() *SSchedtag {
 	return obj.(*SSchedtag)
 }
 
-func (self *SSchedpolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.SchedpolicyDetails, error) {
-	return api.SchedpolicyDetails{}, nil
-}
-
 func (manager *SSchedpolicyManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

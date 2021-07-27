@@ -375,15 +375,6 @@ func (manager *SProjectManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (proj *SProject) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.ProjectDetails, error) {
-	return api.ProjectDetails{}, nil
-}
-
 func projectExtra(proj *SProject, out api.ProjectDetails) api.ProjectDetails {
 	out.GroupCount, _ = proj.GetGroupCount()
 	out.UserCount, _ = proj.GetUserCount()

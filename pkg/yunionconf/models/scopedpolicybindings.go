@@ -326,10 +326,6 @@ func (manager *SScopedPolicyBindingManager) QueryDistinctExtraField(q *sqlchemy.
 	return q, httperrors.ErrNotFound
 }
 
-func (self *SScopedPolicyBinding) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ScopedPolicyBindingDetails, error) {
-	return api.ScopedPolicyBindingDetails{}, nil
-}
-
 func (manager *SScopedPolicyBindingManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

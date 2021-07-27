@@ -2994,10 +2994,6 @@ func (self *SHost) GetMetadataHiddenKeys() []string {
 	return []string{}
 }
 
-func (self *SHost) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.HostDetails, error) {
-	return api.HostDetails{}, nil
-}
-
 func (manager *SHostManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

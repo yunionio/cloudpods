@@ -85,15 +85,6 @@ func (manager *SHoststorageManager) GetSlaveFieldName() string {
 	return "storage_id"
 }
 
-func (self *SHoststorage) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.HoststorageDetails, error) {
-	return api.HoststorageDetails{}, nil
-}
-
 func (manager *SHoststorageManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

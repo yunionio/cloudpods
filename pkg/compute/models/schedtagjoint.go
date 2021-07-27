@@ -140,16 +140,6 @@ func (joint *SSchedtagJointsBase) GetSchedtagId() string {
 	return joint.SchedtagId
 }
 
-func (joint *SSchedtagJointsBase) GetExtraDetails(
-	obj db.IJointModel,
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.SchedtagJointResourceDetails, error) {
-	return api.SchedtagJointResourceDetails{}, nil
-}
-
 func (manager *SSchedtagJointsManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

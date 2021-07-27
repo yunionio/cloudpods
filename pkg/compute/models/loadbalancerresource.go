@@ -133,10 +133,6 @@ func (self *SLoadbalancerResourceBase) GetZone() *SZone {
 	return nil
 }
 
-func (self *SLoadbalancerResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) api.LoadbalancerResourceInfo {
-	return api.LoadbalancerResourceInfo{}
-}
-
 func (manager *SLoadbalancerResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

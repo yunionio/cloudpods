@@ -62,15 +62,6 @@ func (self *SGroupJointsBase) GetGroup() *SGroup {
 	return guest.(*SGroup)
 }
 
-func (self *SGroupJointsBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.GroupJointResourceDetails, error) {
-	return api.GroupJointResourceDetails{}, nil
-}
-
 func (manager *SGroupJointsManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

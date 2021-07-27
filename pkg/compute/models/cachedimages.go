@@ -356,10 +356,6 @@ func (manager *SCachedimageManager) getImageInfo(ctx context.Context, userCred m
 	return manager.getImageByName(ctx, userCred, imageId, refresh)
 }
 
-func (self *SCachedimage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.CachedimageDetails, error) {
-	return api.CachedimageDetails{}, nil
-}
-
 func (manager *SCachedimageManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

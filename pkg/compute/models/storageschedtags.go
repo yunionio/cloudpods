@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
@@ -63,15 +62,6 @@ func (manager *SStorageschedtagManager) GetMasterFieldName() string {
 
 func (joint *SStorageschedtag) GetResourceId() string {
 	return joint.StorageId
-}
-
-func (joint *SStorageschedtag) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.StorageschedtagDetails, error) {
-	return api.StorageschedtagDetails{}, nil
 }
 
 func (joint *SStorageschedtag) GetDetails(base api.SchedtagJointResourceDetails, resourceName string, isList bool) interface{} {

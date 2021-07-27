@@ -63,15 +63,6 @@ func (self *SLoadbalancerClusterResourceBase) GetLoadbalancerCluster() *SLoadbal
 	return cluster.(*SLoadbalancerCluster)
 }
 
-func (self *SLoadbalancerClusterResourceBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) api.LoadbalancerClusterResourceInfo {
-	return api.LoadbalancerClusterResourceInfo{}
-}
-
 func (manager *SLoadbalancerClusterResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

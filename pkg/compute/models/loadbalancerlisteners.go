@@ -493,15 +493,6 @@ func (lblis *SLoadbalancerListener) StartLoadBalancerListenerSyncTask(ctx contex
 	return nil
 }
 
-func (lblis *SLoadbalancerListener) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.LoadbalancerListenerDetails, error) {
-	return api.LoadbalancerListenerDetails{}, nil
-}
-
 func (lblis *SLoadbalancerListener) getMoreDetails(out api.LoadbalancerListenerDetails) (api.LoadbalancerListenerDetails, error) {
 	{
 		if lblis.BackendGroupId != "" {

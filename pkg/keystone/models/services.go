@@ -138,15 +138,6 @@ func (manager *SServiceManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (service *SService) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.ServiceDetails, error) {
-	return api.ServiceDetails{}, nil
-}
-
 func (service *SService) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	service.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	logclient.AddActionLogWithContext(ctx, service, logclient.ACT_CREATE, data, userCred, true)

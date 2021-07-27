@@ -138,15 +138,6 @@ func (manager *SDnsZoneCacheManager) ListItemFilter(
 	return q, nil
 }
 
-func (self *SDnsZoneCache) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.DnsZoneCacheDetails, error) {
-	return api.DnsZoneCacheDetails{}, nil
-}
-
 func (manager *SDnsZoneCacheManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

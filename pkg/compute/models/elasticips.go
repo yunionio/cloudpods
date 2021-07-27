@@ -1180,15 +1180,6 @@ func (self *SElasticip) PerformSync(ctx context.Context, userCred mcclient.Token
 	return nil, nil
 }
 
-func (self *SElasticip) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.ElasticipDetails, error) {
-	return api.ElasticipDetails{}, nil
-}
-
 func (manager *SElasticipManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

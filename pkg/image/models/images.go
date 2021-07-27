@@ -300,15 +300,6 @@ func (manager *SImageManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (self *SImage) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.ImageDetails, error) {
-	return api.ImageDetails{}, nil
-}
-
 func (self *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) map[string]string {
 	headers := make(map[string]string)
 

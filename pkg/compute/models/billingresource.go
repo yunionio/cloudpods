@@ -109,14 +109,6 @@ type SCloudBillingInfo struct {
 	InternetChargeType string `json:",omitempty"`
 }
 
-func (self *SBillingResourceBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-) api.BillingDetailsInfo {
-	return api.BillingDetailsInfo{}
-}
-
 func (manager *SBillingResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

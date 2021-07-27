@@ -134,11 +134,6 @@ func (spm *SScalingPolicyManager) OrderByExtraFields(ctx context.Context, q *sql
 	return spm.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
 }
 
-func (sgm *SScalingPolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, isList bool) (api.ScalingGroupDetails, error) {
-	return api.ScalingGroupDetails{}, nil
-}
-
 func (spm *SScalingPolicyManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

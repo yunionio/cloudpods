@@ -257,10 +257,6 @@ func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential,
 	return out
 }
 
-func (self *SInstanceSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.InstanceSnapshotDetails, error) {
-	return api.InstanceSnapshotDetails{}, nil
-}
-
 func (manager *SInstanceSnapshotManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

@@ -60,15 +60,6 @@ func (self *SSnapshotPolicyResourceBase) GetSnapshotPolicy() *SSnapshotPolicy {
 	return spObj.(*SSnapshotPolicy)
 }
 
-func (self *SSnapshotPolicyResourceBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) api.SnapshotPolicyResourceInfo {
-	return api.SnapshotPolicyResourceInfo{}
-}
-
 func (manager *SSnapshotPolicyResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

@@ -317,15 +317,6 @@ func (manager *SElasticcacheParameterManager) QueryDistinctExtraField(q *sqlchem
 	return q, httperrors.ErrNotFound
 }
 
-func (self *SElasticcacheParameter) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.ElasticcacheParameterDetails, error) {
-	return api.ElasticcacheParameterDetails{}, nil
-}
-
 func (manager *SElasticcacheParameterManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

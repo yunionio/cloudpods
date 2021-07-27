@@ -188,15 +188,6 @@ func (manager *SClouduserManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 }
 
 // 获取公有云用户详情
-func (self *SClouduser) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.ClouduserDetails, error) {
-	return api.ClouduserDetails{}, nil
-}
-
 func (manager *SClouduserManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

@@ -61,10 +61,6 @@ func (self *SGlobalVpcResourceBase) GetGlobalVpc() (*SGlobalVpc, error) {
 	return gv.(*SGlobalVpc), nil
 }
 
-func (self *SGlobalVpcResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) api.GlobalVpcResourceInfo {
-	return api.GlobalVpcResourceInfo{}
-}
-
 func (manager *SGlobalVpcResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

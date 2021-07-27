@@ -170,10 +170,6 @@ func (manager *SZoneManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (zone *SZone) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ZoneDetails, error) {
-	return api.ZoneDetails{}, nil
-}
-
 func (zone *SZone) GetCloudproviderId() string {
 	return ""
 }

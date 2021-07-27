@@ -60,15 +60,6 @@ func (self *SLoadbalancerCertificateResourceBase) GetCertificate() *SLoadbalance
 	return cert.(*SLoadbalancerCertificate)
 }
 
-func (self *SLoadbalancerCertificateResourceBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) api.LoadbalancerCertificateResourceInfo {
-	return api.LoadbalancerCertificateResourceInfo{}
-}
-
 func (manager *SLoadbalancerCertificateResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

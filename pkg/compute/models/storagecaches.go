@@ -297,15 +297,6 @@ func (manager *SStoragecacheManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (self *SStoragecache) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.StoragecacheDetails, error) {
-	return api.StoragecacheDetails{}, nil
-}
-
 func (self *SStoragecache) getMoreDetails(ctx context.Context, out api.StoragecacheDetails) api.StoragecacheDetails {
 	out.Storages = self.getStorageNames()
 	out.Size = self.getCachedImageSize()

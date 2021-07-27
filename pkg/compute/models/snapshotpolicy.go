@@ -369,15 +369,6 @@ func (manager *SSnapshotPolicyManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (sp *SSnapshotPolicy) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.SnapshotPolicyDetails, error) {
-	return api.SnapshotPolicyDetails{}, nil
-}
-
 func (sp *SSnapshotPolicy) ExecuteNotify(ctx context.Context, userCred mcclient.TokenCredential, diskName string) {
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
 		Obj:    sp,

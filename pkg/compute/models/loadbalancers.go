@@ -686,15 +686,6 @@ func (lb *SLoadbalancerManager) FetchZone1ResourceInfos(ctx context.Context,
 	return rows
 }
 
-func (lb *SLoadbalancer) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.LoadbalancerDetails, error) {
-	return api.LoadbalancerDetails{}, nil
-}
-
 func (lb *SLoadbalancer) getMoreDetails(out api.LoadbalancerDetails) (api.LoadbalancerDetails, error) {
 	eip, _ := lb.GetEip()
 	if eip != nil {

@@ -57,15 +57,9 @@ type WafInstanceDetails struct {
 	apis.EnabledStatusInfrasResourceBaseDetails
 	ManagedResourceInfo
 	CloudregionResourceInfo
+	SWafInstance
 
 	Rules []SWafRule
-}
-
-type SWafRule struct {
-	Id       string
-	Name     string
-	Priority int
-	Action   *cloudprovider.DefaultAction
 }
 
 type WafInstanceListInput struct {

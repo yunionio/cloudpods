@@ -181,15 +181,6 @@ func (manager *SCloudgroupcacheManager) Register(group *SCloudgroup, account *SC
 }
 
 // 获取权限组缓存详情
-func (self *SCloudgroupcache) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.CloudgroupcacheDetails, error) {
-	return api.CloudgroupcacheDetails{}, nil
-}
-
 func (manager *SCloudgroupcacheManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

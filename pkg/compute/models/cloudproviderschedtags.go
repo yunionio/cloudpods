@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
@@ -62,15 +61,6 @@ func (m *SCloudproviderschedtagManager) GetMasterFieldName() string {
 
 func (obj *SCloudproviderschedtag) GetResourceId() string {
 	return obj.CloudproviderId
-}
-
-func (obj *SCloudproviderschedtag) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.CloudproviderschedtagDetails, error) {
-	return api.CloudproviderschedtagDetails{}, nil
 }
 
 func (obj *SCloudproviderschedtag) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

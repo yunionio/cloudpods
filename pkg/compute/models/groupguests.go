@@ -62,15 +62,6 @@ func (manager *SGroupguestManager) GetSlaveFieldName() string {
 	return "guest_id"
 }
 
-func (self *SGroupguest) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.GroupguestDetails, error) {
-	return api.GroupguestDetails{}, nil
-}
-
 func (manager *SGroupguestManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

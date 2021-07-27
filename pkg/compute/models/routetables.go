@@ -310,10 +310,6 @@ func (rt *SRouteTable) PerformDelRoutes(ctx context.Context, userCred mcclient.T
 	return nil, nil
 }
 
-func (rt *SRouteTable) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.RouteTableDetails, error) {
-	return api.RouteTableDetails{}, nil
-}
-
 func (manager *SRouteTableManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

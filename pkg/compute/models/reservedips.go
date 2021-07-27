@@ -197,10 +197,6 @@ func (self *SReservedip) Release(ctx context.Context, userCred mcclient.TokenCre
 	return err
 }
 
-func (self *SReservedip) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ReservedipDetails, error) {
-	return api.ReservedipDetails{}, nil
-}
-
 func (manager *SReservedipManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

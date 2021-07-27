@@ -167,11 +167,6 @@ func (sam *SScalingActivityManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (sam *SScalingActivity) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, isList bool) (compute.ScalingActivityDetails, error) {
-	return compute.ScalingActivityDetails{}, nil
-}
-
 func (sam *SScalingActivityManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential, input compute.ScalingActivityListInput) (*sqlchemy.SQuery, error) {
 

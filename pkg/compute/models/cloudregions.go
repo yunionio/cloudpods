@@ -301,10 +301,6 @@ func (self *SCloudregion) getUsage() api.SCloudregionUsage {
 	return out
 }
 
-func (self *SCloudregion) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.CloudregionDetails, error) {
-	return api.CloudregionDetails{}, nil
-}
-
 func (manager *SCloudregionManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

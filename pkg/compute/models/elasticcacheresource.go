@@ -80,14 +80,6 @@ func (self *SElasticcacheResourceBase) GetIRegion() (cloudprovider.ICloudRegion,
 	return vpc.GetIRegion()
 }
 
-func (self *SElasticcacheResourceBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-) api.ElasticcacheResourceInfo {
-	return api.ElasticcacheResourceInfo{}
-}
-
 func (manager *SElasticcacheResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

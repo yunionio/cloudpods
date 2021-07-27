@@ -727,15 +727,6 @@ func (lbagent *SLoadbalancerAgent) ValidateUpdateData(ctx context.Context, userC
 	return data, nil
 }
 
-func (lbagent *SLoadbalancerAgent) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.LoadbalancerAgentDetails, error) {
-	return api.LoadbalancerAgentDetails{}, nil
-}
-
 func (manager *SLoadbalancerAgentManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

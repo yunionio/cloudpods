@@ -72,15 +72,6 @@ func (manager *SHostnetworkManager) GetSlaveFieldName() string {
 	return "network_id"
 }
 
-func (bn *SHostnetwork) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.HostnetworkDetails, error) {
-	return api.HostnetworkDetails{}, nil
-}
-
 func (manager *SHostnetworkManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

@@ -299,10 +299,6 @@ func (self *SConfigManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 	return q, nil
 }
 
-func (cm *SConfigManager) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ConfigDetails, error) {
-	return api.ConfigDetails{}, nil
-}
-
 func (cm *SConfigManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

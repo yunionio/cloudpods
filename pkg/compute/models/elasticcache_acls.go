@@ -404,15 +404,6 @@ func (manager *SElasticcacheAclManager) QueryDistinctExtraField(q *sqlchemy.SQue
 	return q, httperrors.ErrNotFound
 }
 
-func (self *SElasticcacheAcl) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.ElasticcacheAclDetails, error) {
-	return api.ElasticcacheAclDetails{}, nil
-}
-
 func (manager *SElasticcacheAclManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

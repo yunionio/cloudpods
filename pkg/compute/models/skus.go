@@ -238,10 +238,6 @@ func (self *SServerSku) AllowGetDetails(ctx context.Context, userCred mcclient.T
 	return true
 }
 
-func (self *SServerSku) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ServerSkuDetails, error) {
-	return api.ServerSkuDetails{}, nil
-}
-
 func (self *SServerSku) getTotalGuestCount() int {
 	// count
 	var count int

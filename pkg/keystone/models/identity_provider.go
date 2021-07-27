@@ -586,15 +586,6 @@ func (self *SIdentityProvider) PerformSync(ctx context.Context, userCred mcclien
 	return nil, nil
 }
 
-func (self *SIdentityProvider) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.IdentityProviderDetails, error) {
-	return api.IdentityProviderDetails{}, nil
-}
-
 func (manager *SIdentityProviderManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

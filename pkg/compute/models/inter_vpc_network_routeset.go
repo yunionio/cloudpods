@@ -230,15 +230,6 @@ func (manager *SInterVpcNetworkRouteSetManager) QueryDistinctExtraField(q *sqlch
 	return q, httperrors.ErrNotFound
 }
 
-func (self *SInterVpcNetworkRouteSet) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.InterVpcNetworkRouteSetDetails, error) {
-	return api.InterVpcNetworkRouteSetDetails{}, nil
-}
-
 func (manager *SInterVpcNetworkRouteSetManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

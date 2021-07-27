@@ -356,10 +356,6 @@ func (self *SNatGateway) GetDTableSize(filter func(q *sqlchemy.SQuery) *sqlchemy
 	return q.CountWithError()
 }
 
-func (self *SNatGateway) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.NatgatewayDetails, error) {
-	return api.NatgatewayDetails{}, nil
-}
-
 func (manager SNatGatewayManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -844,15 +840,6 @@ func (man *SNatEntryManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field s
 	}
 
 	return q, httperrors.ErrNotFound
-}
-
-func (entry *SNatEntry) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.NatEntryDetails, error) {
-	return api.NatEntryDetails{}, nil
 }
 
 func (manager *SNatEntryManager) FetchCustomizeColumns(

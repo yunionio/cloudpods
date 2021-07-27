@@ -181,15 +181,6 @@ func (self *SDynamicschedtag) ValidateUpdateData(ctx context.Context, userCred m
 	return data, nil
 }
 
-func (self *SDynamicschedtag) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.DynamicschedtagDetails, error) {
-	return api.DynamicschedtagDetails{}, nil
-}
-
 func (manager *SDynamicschedtagManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

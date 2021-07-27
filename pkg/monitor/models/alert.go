@@ -336,15 +336,6 @@ func (man *SAlertManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field stri
 	return q, httperrors.ErrNotFound
 }
 
-func (a *SAlert) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (monitor.AlertDetails, error) {
-	return monitor.AlertDetails{}, nil
-}
-
 func (man *SAlertManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

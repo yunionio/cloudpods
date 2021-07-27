@@ -76,14 +76,6 @@ func (self *SDBInstanceResourceBase) GetCloudprovider() *SCloudprovider {
 	return vpc.GetCloudprovider()
 }
 
-func (self *SDBInstanceResourceBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-) api.DBInstanceResourceInfo {
-	return api.DBInstanceResourceInfo{}
-}
-
 func (manager *SDBInstanceResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

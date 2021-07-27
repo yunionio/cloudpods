@@ -138,10 +138,6 @@ func (manager *SSharableVirtualResourceBaseManager) OrderByExtraFields(ctx conte
 	return q, nil
 }
 
-func (model *SSharableVirtualResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.SharableVirtualResourceDetails, error) {
-	return apis.SharableVirtualResourceDetails{}, nil
-}
-
 func (manager *SSharableVirtualResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

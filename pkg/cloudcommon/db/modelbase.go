@@ -298,10 +298,6 @@ func (manager *SModelBaseManager) GetSkipLog(ctx context.Context, userCred mccli
 	return false
 }
 
-func (model *SModelBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.ModelBaseDetails, error) {
-	return apis.ModelBaseDetails{}, nil
-}
-
 func (manager *SModelBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

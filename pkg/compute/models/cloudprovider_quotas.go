@@ -154,15 +154,6 @@ func (man *SCloudproviderQuotaManager) QueryDistinctExtraField(q *sqlchemy.SQuer
 	return q, httperrors.ErrNotFound
 }
 
-func (self *SCloudproviderQuota) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.CloudproviderQuotaDetails, error) {
-	return api.CloudproviderQuotaDetails{}, nil
-}
-
 func (manager *SCloudproviderQuotaManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

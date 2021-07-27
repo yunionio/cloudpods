@@ -119,10 +119,6 @@ func (self SElasticcacheSku) GetGlobalId() string {
 	return self.ExternalId
 }
 
-func (self *SElasticcacheSku) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ElasticcacheSkuDetails, error) {
-	return api.ElasticcacheSkuDetails{}, nil
-}
-
 func (manager *SElasticcacheSkuManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

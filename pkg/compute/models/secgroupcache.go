@@ -225,15 +225,6 @@ func (self *SSecurityGroupCache) GetVpc() (*SVpc, error) {
 	return vpc.(*SVpc), nil
 }
 
-func (self *SSecurityGroupCache) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.SecurityGroupCacheDetails, error) {
-	return api.SecurityGroupCacheDetails{}, nil
-}
-
 func (manager *SSecurityGroupCacheManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

@@ -186,15 +186,6 @@ func (manager *SEnabledStatusInfrasResourceBaseManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (model *SEnabledStatusInfrasResourceBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (apis.EnabledStatusInfrasResourceBaseDetails, error) {
-	return apis.EnabledStatusInfrasResourceBaseDetails{}, nil
-}
-
 func (model *SEnabledStatusInfrasResourceBase) ValidateUpdateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

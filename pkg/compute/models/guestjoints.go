@@ -62,15 +62,6 @@ func (manager *SGuestJointsManager) GetMasterFieldName() string {
 	return "guest_id"
 }
 
-func (self *SGuestJointsBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.GuestJointResourceDetails, error) {
-	return api.GuestJointResourceDetails{}, nil
-}
-
 func (manager *SGuestJointsManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

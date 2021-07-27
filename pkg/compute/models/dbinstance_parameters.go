@@ -218,10 +218,6 @@ func (manager *SDBInstanceParameterManager) newFromCloudDBInstanceParameter(ctx 
 	return nil
 }
 
-func (self *SDBInstanceParameter) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DBInstanceparameterDetails, error) {
-	return api.DBInstanceparameterDetails{}, nil
-}
-
 func (manager *SDBInstanceParameterManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

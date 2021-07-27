@@ -199,10 +199,6 @@ func (self *SBaremetalagent) GetZone() *SZone {
 	return nil
 }
 
-func (self *SBaremetalagent) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.BaremetalagentDetails, error) {
-	return api.BaremetalagentDetails{}, nil
-}
-
 func (manager *SBaremetalagentManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

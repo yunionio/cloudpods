@@ -432,15 +432,6 @@ func (self *SCloudpolicy) AllowGetDetails(ctx context.Context, userCred mcclient
 }
 
 // 获取公有云权限详情
-func (self *SCloudpolicy) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.CloudpolicyDetails, error) {
-	return api.CloudpolicyDetails{}, nil
-}
-
 func (manager *SCloudpolicyManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

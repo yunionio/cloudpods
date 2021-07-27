@@ -275,15 +275,6 @@ func (manager *SDnsRecordSetManager) ListItemFilter(
 }
 
 // 解析详情
-func (self *SDnsRecordSet) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.DnsRecordSetDetails, error) {
-	return api.DnsRecordSetDetails{}, nil
-}
-
 func (manager *SDnsRecordSetManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

@@ -60,10 +60,6 @@ func (self *SGroupResourceBase) GetGroup() *SGroup {
 	return nil
 }
 
-func (self *SGroupResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) api.GroupResourceInfo {
-	return api.GroupResourceInfo{}
-}
-
 func (manager *SGroupResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

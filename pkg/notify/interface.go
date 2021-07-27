@@ -68,7 +68,7 @@ type SNotification struct {
 	ContactType string
 	Topic       string
 	Message     string
-	Event       notify_apis.SEvent
+	Event       notify_apis.SNotifyEvent
 	AdvanceDays int
 }
 

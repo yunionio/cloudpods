@@ -267,15 +267,6 @@ func (manager *SRolePolicyManager) QueryDistinctExtraField(q *sqlchemy.SQuery, f
 	return q, httperrors.ErrNotFound
 }
 
-func (policy *SRolePolicy) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.RolePolicyDetails, error) {
-	return api.RolePolicyDetails{}, nil
-}
-
 func (manager *SRolePolicyManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

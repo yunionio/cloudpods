@@ -134,15 +134,6 @@ func (manager *SEnabledStatusStandaloneResourceBaseManager) FetchCustomizeColumn
 	return rows
 }
 
-func (model *SEnabledStatusStandaloneResourceBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (apis.EnabledStatusStandaloneResourceDetails, error) {
-	return apis.EnabledStatusStandaloneResourceDetails{}, nil
-}
-
 func (model *SEnabledStatusStandaloneResourceBase) ValidateUpdateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

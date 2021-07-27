@@ -295,10 +295,6 @@ func (self *SDBInstanceDatabase) GetDBInstance() (*SDBInstance, error) {
 	return instance.(*SDBInstance), nil
 }
 
-func (self *SDBInstanceDatabase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DBInstancedatabaseDetails, error) {
-	return api.DBInstancedatabaseDetails{}, nil
-}
-
 func (manager *SDBInstanceDatabaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

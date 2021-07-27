@@ -172,12 +172,3 @@ func (manager *SStatusDomainLevelUserResourceBaseManager) FetchCustomizeColumns(
 
 	return rows
 }
-
-func (model *SStatusDomainLevelUserResourceBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (apis.StatusDomainLevelUserResourceDetails, error) {
-	return apis.StatusDomainLevelUserResourceDetails{}, nil
-}

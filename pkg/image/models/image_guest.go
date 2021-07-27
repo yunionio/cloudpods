@@ -344,15 +344,6 @@ func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.T
 	return out
 }
 
-func (self *SGuestImage) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.GuestImageDetails, error) {
-	return api.GuestImageDetails{}, nil
-}
-
 func (manager *SGuestImageManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

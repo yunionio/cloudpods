@@ -108,15 +108,6 @@ func (manager *SGuestnetworkManager) GetSlaveFieldName() string {
 	return "network_id"
 }
 
-func (self *SGuestnetwork) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.GuestnetworkDetails, error) {
-	return api.GuestnetworkDetails{}, nil
-}
-
 func (manager *SGuestnetworkManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

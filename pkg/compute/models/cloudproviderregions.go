@@ -120,10 +120,6 @@ func (self *SCloudproviderregion) GetRegion() *SCloudregion {
 	return regionObj.(*SCloudregion)
 }
 
-func (self *SCloudproviderregion) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.CloudproviderregionDetails, error) {
-	return api.CloudproviderregionDetails{}, nil
-}
-
 func (manager *SCloudproviderregionManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

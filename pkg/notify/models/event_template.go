@@ -164,7 +164,7 @@ func (lt *SLocalTemplateManager) FillWithTemplate(ctx context.Context, lang stri
 
 var action2Topic = make(map[string]string, 0)
 
-func specTopic(event api.SEvent) string {
+func specTopic(event api.SNotifyEvent) string {
 	switch event.Action() {
 	case api.ActionRebuildRoot, api.ActionChangeIpaddr, api.ActionResetPassword:
 		return string(api.ActionUpdate)
@@ -183,7 +183,7 @@ func init() {
 	action2Topic[string(api.ActionChangeIpaddr)] = string(api.ActionUpdate)
 }
 
-func (lt *SLocalTemplateManager) fillWithTemplate(ctx context.Context, titleOrContent string, contactType string, lang string, event api.SEvent, dis jsonutils.JSONObject) (string, error) {
+func (lt *SLocalTemplateManager) fillWithTemplate(ctx context.Context, titleOrContent string, contactType string, lang string, event api.SNotifyEvent, dis jsonutils.JSONObject) (string, error) {
 	var (
 		tmpl *template.Template
 		err  error

@@ -87,10 +87,6 @@ func (self *SGlobalVpc) GetVpcCount() (int, error) {
 	return self.GetVpcQuery().CountWithError()
 }
 
-func (self *SGlobalVpc) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.GlobalVpcDetails, error) {
-	return api.GlobalVpcDetails{}, nil
-}
-
 func (manager *SGlobalVpcManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

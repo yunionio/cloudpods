@@ -70,10 +70,6 @@ func (manager *SHostResourceBaseManager) getHostIdFieldName() string {
 	return "host_id"
 }
 
-func (self *SHostResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) api.HostResourceInfo {
-	return api.HostResourceInfo{}
-}
-
 func (manager *SHostResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

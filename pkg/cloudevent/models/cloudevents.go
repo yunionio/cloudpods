@@ -155,15 +155,6 @@ func (manager *SCloudeventManager) ListItemFilter(
 	return q, nil
 }
 
-func (self *SCloudevent) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.CloudeventDetails, error) {
-	return api.CloudeventDetails{}, nil
-}
-
 func (manager *SCloudeventManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

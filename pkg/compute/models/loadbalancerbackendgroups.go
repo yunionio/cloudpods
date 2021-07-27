@@ -464,15 +464,6 @@ func (lbbg *SLoadbalancerBackendGroup) ValidatePurgeCondition(ctx context.Contex
 	return nil
 }
 
-func (lbbg *SLoadbalancerBackendGroup) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.LoadbalancerBackendGroupDetails, error) {
-	return api.LoadbalancerBackendGroupDetails{}, nil
-}
-
 func (man *SLoadbalancerBackendGroupManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

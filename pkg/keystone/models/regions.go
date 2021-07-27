@@ -104,10 +104,6 @@ func (region *SRegion) ValidateDeleteCondition(ctx context.Context) error {
 	return region.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (region *SRegion) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.RegionDetails, error) {
-	return api.RegionDetails{}, nil
-}
-
 func (manager *SRegionManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

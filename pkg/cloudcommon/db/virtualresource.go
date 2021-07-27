@@ -264,10 +264,6 @@ func (manager *SVirtualResourceBaseManager) AllowCreateItem(ctx context.Context,
 	return true
 }
 
-func (model *SVirtualResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.VirtualResourceDetails, error) {
-	return apis.VirtualResourceDetails{}, nil
-}
-
 func (manager *SVirtualResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

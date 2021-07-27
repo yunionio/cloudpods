@@ -658,10 +658,6 @@ func (self *SIsolatedDevice) getGuest() *SGuest {
 	return nil
 }
 
-func (self *SIsolatedDevice) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.IsolateDeviceDetails, error) {
-	return api.IsolateDeviceDetails{}, nil
-}
-
 func (manager *SIsolatedDeviceManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

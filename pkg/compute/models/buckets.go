@@ -559,10 +559,6 @@ func (bucket *SBucket) RemoteCreate(ctx context.Context, userCred mcclient.Token
 	return nil
 }
 
-func (bucket *SBucket) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.BucketDetails, error) {
-	return api.BucketDetails{}, nil
-}
-
 func (manager *SBucketManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

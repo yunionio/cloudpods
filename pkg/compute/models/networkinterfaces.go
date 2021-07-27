@@ -156,15 +156,6 @@ func (manager *SNetworkInterfaceManager) QueryDistinctExtraField(q *sqlchemy.SQu
 	return q, httperrors.ErrNotFound
 }
 
-func (self *SNetworkInterface) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.NetworkInterfaceDetails, error) {
-	return api.NetworkInterfaceDetails{}, nil
-}
-
 func (self *SNetworkInterface) getMoreDetails(out api.NetworkInterfaceDetails) (api.NetworkInterfaceDetails, error) {
 	networks, err := self.GetNetworks()
 	if err != nil {

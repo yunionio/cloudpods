@@ -302,15 +302,6 @@ func (self *SDBInstanceBackup) GetDBInstance() (*SDBInstance, error) {
 	return nil, fmt.Errorf("empty dbinstance id")
 }
 
-func (self *SDBInstanceBackup) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.DBInstanceBackupDetails, error) {
-	return api.DBInstanceBackupDetails{}, nil
-}
-
 func (manager *SDBInstanceBackupManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

@@ -389,19 +389,6 @@ func (cata SServiceCatalog) GetKeystoneCatalogV2() mcclient.KeystoneServiceCatal
 	return results
 }
 
-func (endpoint *SEndpoint) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.EndpointDetails, error) {
-	res, err := endpoint.getMoreDetails(api.EndpointDetails{})
-	if err != nil {
-		return api.EndpointDetails{}, err
-	}
-	return res, nil
-}
-
 func (endpoint *SEndpoint) getMoreDetails(details api.EndpointDetails) (api.EndpointDetails, error) {
 	if len(endpoint.ServiceCertificateId) > 0 {
 		cert, _ := endpoint.getServiceCertificate()

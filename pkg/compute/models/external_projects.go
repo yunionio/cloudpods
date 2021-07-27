@@ -78,15 +78,6 @@ func (self *SExternalProject) AllowUpdateItem(ctx context.Context, userCred mccl
 	return false
 }
 
-func (self *SExternalProject) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.ExternalProjectDetails, error) {
-	return api.ExternalProjectDetails{}, nil
-}
-
 func (manager *SExternalProjectManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

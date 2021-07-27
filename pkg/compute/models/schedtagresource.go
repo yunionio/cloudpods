@@ -60,15 +60,6 @@ func (self *SSchedtagResourceBase) GetSchedtag() *SSchedtag {
 	return obj.(*SSchedtag)
 }
 
-func (self *SSchedtagResourceBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) api.SchedtagResourceInfo {
-	return api.SchedtagResourceInfo{}
-}
-
 func (manager *SSchedtagResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

@@ -220,15 +220,6 @@ func (manager *SJointResourceBaseManager) ValidateCreateData(ctx context.Context
 	return input, nil
 }
 
-func (model *SJointResourceBase) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (apis.JointResourceBaseDetails, error) {
-	return apis.JointResourceBaseDetails{}, nil
-}
-
 func (manager *SJointResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

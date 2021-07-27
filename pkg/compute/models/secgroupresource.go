@@ -60,15 +60,6 @@ func (self *SSecurityGroupResourceBase) GetSecGroup() *SSecurityGroup {
 	return secgrp.(*SSecurityGroup)
 }
 
-func (self *SSecurityGroupResourceBaseManager) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) api.SecurityGroupResourceInfo {
-	return api.SecurityGroupResourceInfo{}
-}
-
 func (manager *SSecurityGroupResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

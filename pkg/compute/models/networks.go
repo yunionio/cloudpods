@@ -1196,15 +1196,6 @@ func (self *SNetwork) getMoreDetails(ctx context.Context, out api.NetworkDetails
 	return out, nil
 }
 
-func (self *SNetwork) GetExtraDetails(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	isList bool,
-) (api.NetworkDetails, error) {
-	return api.NetworkDetails{}, nil
-}
-
 func (manager *SNetworkManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
