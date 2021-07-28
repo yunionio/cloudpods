@@ -883,6 +883,11 @@ func (alert *SCommonAlert) ValidateUpdateData(
 		if period != "" {
 			frep, _ := time.ParseDuration(period)
 			freqSpec := int64(frep / time.Second)
+			dur, _ := data.Int("alert_duration")
+			if dur > 1 {
+				alertFor := freqSpec * dur
+				data.Set("for", jsonutils.NewInt(alertFor))
+			}
 			data.Set("frequency", jsonutils.NewInt(freqSpec))
 		}
 	}
@@ -891,16 +896,7 @@ func (alert *SCommonAlert) ValidateUpdateData(
 			return data, httperrors.NewInputParameterError("Invalid silent_period format: %s", silentPeriod)
 		}
 	}
-	//if recipients, _ := data.GetArray("recipients"); len(recipients) > 0 {
-	//	channelStr, _ := data.GetString("channel")
-	//	channel, _ := data.GetArray("channel")
-	//	if !strings.Contains(channelStr, monitor.DEFAULT_SEND_NOTIFY_CHANNEL) {
-	//		channels := jsonutils.NewArray()
-	//		channels.Add(channel...)
-	//		channels.Add(jsonutils.NewString(monitor.DEFAULT_SEND_NOTIFY_CHANNEL))
-	//		data.Set("channel", channels)
-	//	}
-	//}
+
 	tmp := jsonutils.NewArray()
 	if metric_query, _ := data.GetArray("metric_query"); len(metric_query) > 0 {
 		for i := range metric_query {
