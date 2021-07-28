@@ -17,7 +17,8 @@ package modules
 import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 var (
-	Actions modulebase.ResourceManager
+	Actions    modulebase.ResourceManager
+	ActionLogs modulebase.ResourceManager
 )
 
 func init() {
@@ -25,4 +26,8 @@ func init() {
 		[]string{"id", "start_time", "service", "ops_time", "obj_id", "obj_type", "obj_name", "user", "user_id", "tenant", "tenant_id", "owner_tenant_id", "action", "success", "notes"},
 		[]string{})
 	register(&Actions)
+
+	ActionLogs = NewActionManager("event", "events",
+		[]string{"id", "ops_time", "obj_id", "obj_type", "obj_name", "user", "user_id", "tenant", "tenant_id", "owner_tenant_id", "action", "notes"},
+		[]string{})
 }
