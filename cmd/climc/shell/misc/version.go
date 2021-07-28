@@ -17,6 +17,11 @@ package misc
 import (
 	"fmt"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -32,6 +37,43 @@ func init() {
 			return err
 		}
 		fmt.Println(body)
+		return nil
+	})
+
+	type VersionListOptions struct {
+	}
+
+	R(&VersionListOptions{}, "version-list", "query all backend service version", func(s *mcclient.ClientSession, args *VersionListOptions) error {
+		services := []jsonutils.JSONObject{}
+		params := map[string]interface{}{}
+		for {
+			params["offset"] = len(services)
+			resp, err := modules.ServicesV3.List(s, jsonutils.Marshal(params))
+			if err != nil {
+				return err
+			}
+			services = append(services, resp.Data...)
+			if len(services) >= resp.Total {
+				break
+			}
+		}
+		vers := map[string]string{}
+		for _, service := range services {
+			serviceType, _ := service.GetString("type")
+			if utils.IsInStringArray(serviceType, []string{"offlinecloudmeta"}) {
+				continue
+			}
+			ver, err := modules.GetVersion(s, serviceType)
+			if err != nil {
+				if errors.Cause(err) == cloudprovider.ErrNotFound || errors.Cause(err) == errors.ErrConnectRefused {
+					continue
+				}
+				vers[serviceType] = err.Error()
+			} else {
+				vers[serviceType] = ver
+			}
+		}
+		printObject(jsonutils.Marshal(vers))
 		return nil
 	})
 
