@@ -17,7 +17,8 @@ package modules
 import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 var (
-	BillAnalysises modulebase.ResourceManager
+	BillAnalysises         modulebase.ResourceManager
+	BillsUpgradeAnalysises modulebase.ResourceManager
 )
 
 func init() {
@@ -25,5 +26,10 @@ func init() {
 		[]string{"stat_date", "stat_value", "res_name", "res_type", "project_name", "res_fee"},
 		[]string{},
 	)
+
+	BillsUpgradeAnalysises = NewMeterManager("billsanalysis", "billsanalysises",
+		[]string{"project", "project_id", "domain", "domain_id", "amount", "year_amount"},
+		[]string{})
 	register(&BillAnalysises)
+	register(&BillsUpgradeAnalysises)
 }
