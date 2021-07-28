@@ -3509,7 +3509,10 @@ func (self *SGuest) attach2NetworkDesc(
 
 func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *api.NetworkConfig, pendingUsage quotas.IQuota) ([]SGuestnetwork, error) {
 	driver := self.GetDriver()
-	net, nicConfs, allocDir, reuseAddr := driver.GetNamedNetworkConfiguration(self, ctx, userCred, host, netConfig)
+	net, nicConfs, allocDir, reuseAddr, err := driver.GetNamedNetworkConfiguration(self, ctx, userCred, host, netConfig)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetNamedNetworkConfiguration on host %q", host.GetName())
+	}
 	if net != nil {
 		if len(nicConfs) == 0 {
 			return nil, fmt.Errorf("no avaialble network interface?")
@@ -3528,8 +3531,7 @@ func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclie
 			NicConfs:            nicConfs,
 		})
 		if err != nil {
-			log.Errorf("Attach2Network fail %s", err)
-			return nil, err
+			return nil, errors.Wrap(err, "Attach2Network fail")
 		} else {
 			return gn, nil
 		}

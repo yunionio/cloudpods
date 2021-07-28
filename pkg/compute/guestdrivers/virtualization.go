@@ -55,8 +55,11 @@ func (self *SVirtualizedGuestDriver) PrepareDiskRaidConfig(userCred mcclient.Tok
 	return nil, nil
 }
 
-func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig) (*models.SNetwork, []models.SNicConfig, api.IPAllocationDirection, bool) {
-	net, _ := host.GetNetworkWithId(netConfig.Network, netConfig.Reserved)
+func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig) (*models.SNetwork, []models.SNicConfig, api.IPAllocationDirection, bool, error) {
+	net, err := host.GetNetworkWithId(netConfig.Network, netConfig.Reserved)
+	if err != nil {
+		return nil, nil, "", false, errors.Wrapf(err, "get network with id %q, reserverd %v", netConfig.Network, netConfig.Reserved)
+	}
 	nicConfs := []models.SNicConfig{
 		{
 			Mac:    netConfig.Mac,
@@ -75,7 +78,7 @@ func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.
 	if len(netConfig.Address) > 0 && !options.Options.EnablePreAllocateIpAddr && !utils.IsInStringArray(host.GetProviderName(), []string{api.CLOUD_PROVIDER_ONECLOUD, api.CLOUD_PROVIDER_VMWARE}) {
 		reUse = true
 	}
-	return net, nicConfs, api.IPAllocationStepdown, reUse
+	return net, nicConfs, api.IPAllocationStepdown, reUse, nil
 }
 
 func (self *SVirtualizedGuestDriver) GetRandomNetworkTypes() []string {
