@@ -18,4 +18,6 @@ assignees: ''
 **Environment**:
 - OS (e.g: `cat /etc/os-release`):
 - Kernel (e.g. `uname -a`):
-- Others:
+<!--
+- Version (e.g. `climc version-list`):
+-->
