@@ -17,7 +17,8 @@ package modules
 import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 var (
-	Cloudevents modulebase.ResourceManager
+	Cloudevents    modulebase.ResourceManager
+	CloudeventLogs modulebase.ResourceManager
 )
 
 func init() {
@@ -27,4 +28,9 @@ func init() {
 		[]string{})
 
 	register(&Cloudevents)
+
+	CloudeventLogs = NewCloudeventManager("event", "events",
+		[]string{"id", "ops_time", "obj_id", "obj_type", "obj_name", "user", "user_id", "tenant", "tenant_id", "owner_tenant_id", "action", "notes"},
+		[]string{})
+
 }
