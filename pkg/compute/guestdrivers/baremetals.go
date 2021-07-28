@@ -135,8 +135,11 @@ func (self *SBaremetalGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk
 	return httperrors.NewUnsupportOperationError("Cannot resize disk for baremtal")
 }
 
-func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig) (*models.SNetwork, []models.SNicConfig, api.IPAllocationDirection, bool) {
-	netifs, net := host.GetNetinterfacesWithIdAndCredential(netConfig.Network, userCred, netConfig.Reserved)
+func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig) (*models.SNetwork, []models.SNicConfig, api.IPAllocationDirection, bool, error) {
+	netifs, net, err := host.GetNetinterfacesWithIdAndCredential(netConfig.Network, userCred, netConfig.Reserved)
+	if err != nil {
+		return nil, nil, "", false, errors.Wrap(err, "get host netinterfaces")
+	}
 	if netifs != nil {
 		nicCnt := 1
 		if netConfig.RequireTeaming || netConfig.TryTeaming {
@@ -144,8 +147,7 @@ func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SG
 		}
 		if len(netifs) < nicCnt {
 			if netConfig.RequireTeaming {
-				log.Errorf("not enough network interfaces, want %d got %d", nicCnt, len(netifs))
-				return net, nil, "", false
+				return net, nil, "", false, errors.Errorf("not enough network interfaces, want %d got %d", nicCnt, len(netifs))
 			}
 			nicCnt = len(netifs)
 		}
@@ -166,9 +168,9 @@ func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SG
 			reuseAddr = true
 		}
 
-		return net, nicConfs, api.IPAllocationStepup, reuseAddr
+		return net, nicConfs, api.IPAllocationStepup, reuseAddr, nil
 	}
-	return net, nil, "", false
+	return net, nil, "", false, nil
 }
 
 func (self *SBaremetalGuestDriver) GetRandomNetworkTypes() []string {
