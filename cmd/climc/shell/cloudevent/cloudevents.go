@@ -40,4 +40,18 @@ func init() {
 		printList(result, modules.Cloudevents.GetColumns(s))
 		return nil
 	})
+
+	type CloudeventLogsPurgeOptions struct {
+	}
+	R(&CloudeventLogsPurgeOptions{}, "cloud-event-purge", "Purge obsolete cloud event logs", func(s *mcclient.ClientSession, opts *CloudeventLogsPurgeOptions) error {
+		_, err := modules.Cloudevents.PerformClassAction(s, "purge-splitable", nil)
+		if err != nil {
+			return err
+		}
+		_, err = modules.CloudeventLogs.PerformClassAction(s, "purge-splitable", nil)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 }
