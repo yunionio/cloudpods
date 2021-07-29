@@ -18,3 +18,8 @@ BAREMETAL_BASE_VERSION = v0.3.1
 baremetal-base:
 	$(DOCKER_BUILDX)/baremetal-base:$(BAREMETAL_BASE_VERSION) -f ./Dockerfile.baremetal-base .
 	#docker push $(REGISTRY)/baremetal-base:$(BAREMETAL_BASE_VERSION)
+
+FILE_REPO_VERSION = v0.2.2
+
+file-repo:
+	$(DOCKER_BUILDX)/file-repo:$(FILE_REPO_VERSION) -f ./Dockerfile.file-repo .
