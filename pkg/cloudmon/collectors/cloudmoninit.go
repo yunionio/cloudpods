@@ -1,0 +1,25 @@
+package collectors
+
+import (
+	_ "yunion.io/x/onecloud/pkg/cloudmon/collectors/alertrecordhistorymon"
+	_ "yunion.io/x/onecloud/pkg/cloudmon/collectors/alimon"
+	_ "yunion.io/x/onecloud/pkg/cloudmon/collectors/apsaramon"
+	_ "yunion.io/x/onecloud/pkg/cloudmon/collectors/awsmon"
+	_ "yunion.io/x/onecloud/pkg/cloudmon/collectors/azuremon"
+	_ "yunion.io/x/onecloud/pkg/cloudmon/collectors/cloudaccountmon"
+	_ "yunion.io/x/onecloud/pkg/cloudmon/collectors/gcpmon"
+	_ "yunion.io/x/onecloud/pkg/cloudmon/collectors/huaweimon"
+	_ "yunion.io/x/onecloud/pkg/cloudmon/collectors/qcmon"
+	_ "yunion.io/x/onecloud/pkg/cloudmon/collectors/storagemon"
+	_ "yunion.io/x/onecloud/pkg/cloudmon/collectors/vmwaremon"
+	_ "yunion.io/x/onecloud/pkg/cloudmon/collectors/zstackmon"
+	_ "yunion.io/x/onecloud/pkg/multicloud/aliyun/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/apsara/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/aws/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/azure/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/esxi/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/google/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/huawei/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/qcloud/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/zstack/provider"
+)
