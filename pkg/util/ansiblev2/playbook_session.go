@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"sync"
 
@@ -205,6 +206,8 @@ func (r runnable) Run(ctx context.Context) (err error) {
 		cmd.Dir = tmpdir
 		cmd.Env = os.Environ()
 		cmd.Env = append(cmd.Env, "ANSIBLE_HOST_KEY_CHECKING=False")
+		// for debug
+		ioutil.WriteFile(path.Join(tmpdir, "run_cmd"), []byte(cmd.String()), os.ModePerm)
 		stdout, _ := cmd.StdoutPipe()
 		stderr, _ := cmd.StderrPipe()
 		if err1 := cmd.Start(); err1 != nil {
