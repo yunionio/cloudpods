@@ -143,7 +143,7 @@ type ComputeOptions struct {
 
 	BaremetalServerReuseHostIp bool `help:"baremetal server reuse host IP address, default true" default:"true"`
 
-	EnableHostHealthCheck bool `help:"enable host health check" default:"true"`
+	EnableHostHealthCheck bool `help:"enable host health check" default:"false"`
 	HostHealthTimeout     int  `help:"second of wait host reconnect" default:"60"`
 
 	GuestTemplateCheckInterval int `help:"interval between two consecutive inspections of Guest Template in hour unit" default:"12"`
