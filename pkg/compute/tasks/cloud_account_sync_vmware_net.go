@@ -230,6 +230,9 @@ func (self *CloudAccountSyncVMwareNetworkTask) createNetworks(ctx context.Contex
 	var err error
 	ret := make(map[string][]models.SVs2Wire)
 	for i := range capWires {
+		if len(capWires[i].GuestNetworks)+len(capWires[i].HostNetworks) == 0 {
+			continue
+		}
 		var wireId = capWires[i].WireId
 		if len(wireId) == 0 {
 			wireId, err = self.createWire(ctx, cloudaccount, api.DEFAULT_VPC_ID, zoneId, capWires[i].Name, capWires[i].Description)
