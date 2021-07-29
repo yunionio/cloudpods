@@ -267,7 +267,7 @@ func (p *SKVMGuestDiskPartition) Umount() error {
 				log.Warningf("blockdev --flushbufs %s error: %v", p.partDev, err)
 			}
 			if err := os.Remove(p.mountPath); err != nil {
-				log.Warningf("remove mount path %s error: %v", p.mountPath)
+				log.Warningf("remove mount path %s error: %v", p.mountPath, err)
 			}
 			log.Infof("umount %s successfully", p.partDev)
 			return nil

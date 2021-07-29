@@ -1,0 +1,8 @@
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.2
+
+MAINTAINER "Zexi Li <lizexi@yunionyun.com>"
+
+RUN mkdir -p /etc/yunion/data/
+
+ADD   ./_output/alpine-build/bin/cloudmon \
+      /opt/yunion/bin/
