@@ -2453,18 +2453,18 @@ func (self *SHost) getNetworkOfIPOnHost(ipAddr string) (*SNetwork, error) {
 	return nil, fmt.Errorf("IP %s not reachable on this host", ipAddr)
 }
 
-func (self *SHost) GetNetinterfacesWithIdAndCredential(netId string, userCred mcclient.TokenCredential, reserved bool) ([]SNetInterface, *SNetwork) {
+func (self *SHost) GetNetinterfacesWithIdAndCredential(netId string, userCred mcclient.TokenCredential, reserved bool) ([]SNetInterface, *SNetwork, error) {
 	netObj, err := NetworkManager.FetchById(netId)
 	if err != nil {
-		return nil, nil
+		return nil, nil, errors.Wrapf(err, "fetch by id %q", netId)
 	}
 	net := netObj.(*SNetwork)
 	used, err := net.getFreeAddressCount()
 	if err != nil {
-		return nil, nil
+		return nil, nil, errors.Wrapf(err, "get network %q free address count", net.GetName())
 	}
 	if used == 0 && !reserved && !options.Options.BaremetalServerReuseHostIp {
-		return nil, nil
+		return nil, nil, errors.Errorf("network %q out of usage", net.GetName())
 	}
 	matchNetIfs := make([]SNetInterface, 0)
 	netifs := self.GetNetInterfaces()
@@ -2478,9 +2478,9 @@ func (self *SHost) GetNetinterfacesWithIdAndCredential(netId string, userCred mc
 		}
 	}
 	if len(matchNetIfs) > 0 {
-		return matchNetIfs, net
+		return matchNetIfs, net, nil
 	}
-	return nil, nil
+	return nil, nil, errors.Errorf("not found matched netinterface by net %q wire %q", net.GetName(), net.WireId)
 }
 
 func (self *SHost) GetNetworkWithId(netId string, reserved bool) (*SNetwork, error) {
