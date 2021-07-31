@@ -187,6 +187,7 @@ func (nm *SNetworkManager) jointNetworkCount(manager db.IModelManager, netIds []
 		q = filter(q)
 	}
 	q = q.AppendField(sqlchemy.COUNT("count"))
+	q = q.GroupBy("network_id")
 	return q
 }
 
