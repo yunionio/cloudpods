@@ -845,12 +845,33 @@ func init() {
 		}
 
 		sshCli, err := ssh.NewClient(host, port, user, passwd, "")
+
+		forwardFlag := false
+		var forwardItem *forwardInfo
+
 		if err != nil {
-			return err
+			forwardFlag = true
+			forwardItem, err = openForward(s, srvid)
+			if err != nil {
+				return err
+			}
+
+			sshCli, err = ssh.NewClient(forwardItem.ProxyAddr, forwardItem.ProxyPort, user, passwd, "")
+			if err != nil {
+				closeForward(s, srvid, forwardItem)
+				return err
+			}
+
 		}
 		log.Infof("ssh %s:%d", host, port)
 		if err := sshCli.RunTerminal(); err != nil {
+			if forwardFlag {
+				closeForward(s, srvid, forwardItem)
+			}
 			return err
+		}
+		if forwardFlag {
+			closeForward(s, srvid, forwardItem)
 		}
 		return nil
 	})
