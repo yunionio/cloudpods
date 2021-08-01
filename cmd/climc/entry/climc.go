@@ -70,7 +70,7 @@ type BaseOptions struct {
 	SUBCOMMAND     string `help:"climc subcommand" subcommand:"true"`
 }
 
-func getSubcommandsParser() (*structarg.ArgumentParser, error) {
+func GetSubcommandsParser() (*structarg.ArgumentParser, error) {
 	var (
 		prog = "climc"
 		desc = `Command-line interface to the API server.`
@@ -125,13 +125,13 @@ func getSubcommandsParser() (*structarg.ArgumentParser, error) {
 	return parse, nil
 }
 
-func showErrorAndExit(e error) {
+func ShowErrorAndExit(e error) {
 	fmt.Fprintf(os.Stderr, "%s", e)
 	fmt.Fprintln(os.Stderr)
 	os.Exit(1)
 }
 
-func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
+func NewClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 	if len(options.OsAuthURL) == 0 {
 		return nil, fmt.Errorf("Missing OS_AUTH_URL")
 	}
@@ -262,14 +262,14 @@ func executeSubcommand(
 		e = subcmd.Invoke(sessionFactory(), suboptions)
 	}
 	if e != nil {
-		showErrorAndExit(e)
+		ShowErrorAndExit(e)
 	}
 }
 
 func ClimcMain() {
-	parser, e := getSubcommandsParser()
+	parser, e := GetSubcommandsParser()
 	if e != nil {
-		showErrorAndExit(e)
+		ShowErrorAndExit(e)
 	}
 	e = parser.ParseArgs(os.Args[1:], false)
 	options := parser.Options().(*BaseOptions)
@@ -294,9 +294,9 @@ func ClimcMain() {
 
 	shell.OutputFormat(options.OutputFormat)
 	ensureSessionFactory := func() *mcclient.ClientSession {
-		session, err := newClientSession(options)
+		session, err := NewClientSession(options)
 		if err != nil {
-			showErrorAndExit(err)
+			ShowErrorAndExit(err)
 		}
 		return session
 	}
@@ -315,7 +315,7 @@ func ClimcMain() {
 		} else {
 			fmt.Print(parser.Usage())
 		}
-		showErrorAndExit(e)
+		ShowErrorAndExit(e)
 	}
 
 	// execute subcommand in non-interactive mode

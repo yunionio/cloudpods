@@ -845,12 +845,39 @@ func init() {
 		}
 
 		sshCli, err := ssh.NewClient(host, port, user, passwd, "")
+
+		forwardFlag := false
+		var (
+			proxy_addr string
+			proxy_port int64
+		)
+
 		if err != nil {
-			return err
+			forwardFlag = true
+			jsonitem, err := openForward(srvid)
+			proxy_addr, _ = jsonitem.GetString("proxy_addr")
+			proxy_port, _ = jsonitem.Int("proxy_port")
+
+			if err != nil {
+				return err
+			}
+
+			sshCli, err = ssh.NewClient(proxy_addr, int(proxy_port), user, passwd, "")
+			if err != nil {
+				closeForward(srvid, proxy_addr, int(proxy_port))
+				return err
+			}
 		}
+
 		log.Infof("ssh %s:%d", host, port)
 		if err := sshCli.RunTerminal(); err != nil {
+			if forwardFlag {
+				closeForward(srvid, proxy_addr, int(proxy_port))
+			}
 			return err
+		}
+		if forwardFlag {
+			closeForward(srvid, proxy_addr, int(proxy_port))
 		}
 		return nil
 	})

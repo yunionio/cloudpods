@@ -15,6 +15,11 @@
 package compute
 
 import (
+	"os"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+	
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -26,3 +31,37 @@ func init() {
 	cmd.Perform("close-forward", &options.ServerCloseForwardOptions{})
 	cmd.Perform("list-forward", &options.ServerListForwardOptions{})
 }
+
+func openForward(srvid string) (jsonutils.JSONObject, error) {
+	parser, e := entry.GetSubcommandsParser()
+	if e != nil {
+		entry.ShowErrorAndExit(e)
+	}
+	e = parser.ParseArgs(os.Args[1:], false)
+	session, _ := entry.NewClientSession(parser.Options().(*entry.BaseOptions))
+	opt := &options.ServerOpenForwardOptions{ServerIdOptions: options.ServerIdOptions{ID: srvid}, Proto: "tcp", Port: 22}
+
+	params, err := opt.Params()
+	if err != nil {
+		return nil, errors.Wrap(err, "get open forward params")
+	}
+	return modules.Servers.PerformAction(session, opt.ID, "open-forward", params)
+}
+
+func closeForward(srvid string, proxy_addr string, proxy_port int) (jsonutils.JSONObject, error) {
+	parser, e := entry.GetSubcommandsParser()
+	if e != nil {
+		entry.ShowErrorAndExit(e)
+	}
+	e = parser.ParseArgs(os.Args[1:], false)
+	session, _ := entry.NewClientSession(parser.Options().(*entry.BaseOptions))
+	opt := &options.ServerCloseForwardOptions{ServerIdOptions: options.ServerIdOptions{ID: srvid}, Proto: "tcp", ProxyAddr: proxy_addr, ProxyPort: proxy_port}
+
+	params, err := opt.Params()
+	if err != nil {
+		return nil, errors.Wrap(err, "close forward params")
+	}
+	return modules.Servers.PerformAction(session, opt.ID, "close-forward", params)
+}
+
+
