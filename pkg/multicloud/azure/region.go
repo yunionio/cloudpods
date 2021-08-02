@@ -42,7 +42,8 @@ type SRegion struct {
 	multicloud.SRegion
 	client *SAzureClient
 
-	storageCache *SStoragecache
+	storageCache    *SStoragecache
+	appServicePlans map[string]*SAppServicePlan
 
 	ID          string
 	Name        string
