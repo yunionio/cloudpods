@@ -1030,6 +1030,10 @@ func (self *SHostManager) AllowGetPropertyNodeCount(ctx context.Context, userCre
 func (self *SHostManager) GetPropertyNodeCount(ctx context.Context, userCred mcclient.TokenCredential, query api.HostListInput) (jsonutils.JSONObject, error) {
 	hosts := self.Query().SubQuery()
 	q := hosts.Query(hosts.Field("host_type"), sqlchemy.SUM("node_count_total", hosts.Field("node_count")))
+	return self.getCount(ctx, userCred, q, query)
+}
+
+func (self *SHostManager) getCount(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, query api.HostListInput) (jsonutils.JSONObject, error) {
 	q, err := self.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
@@ -1046,7 +1050,7 @@ func (self *SHostManager) GetPropertyNodeCount(ctx context.Context, userCred mcc
 		var count int64
 		err = rows.Scan(&hostType, &count)
 		if err != nil {
-			log.Errorf("Get host node count scan err: %v", err)
+			log.Errorf("getCount scan err: %v", err)
 			return ret, nil
 		}
 
@@ -1054,6 +1058,16 @@ func (self *SHostManager) GetPropertyNodeCount(ctx context.Context, userCred mcc
 	}
 
 	return ret, nil
+}
+
+func (self *SHostManager) AllowGetPropertyHostTypeCount(ctx context.Context, userCred mcclient.TokenCredential, query api.HostListInput) bool {
+	return userCred.HasSystemAdminPrivilege()
+}
+
+func (self *SHostManager) GetPropertyHostTypeCount(ctx context.Context, userCred mcclient.TokenCredential, query api.HostListInput) (jsonutils.JSONObject, error) {
+	hosts := self.Query().SubQuery()
+	q := hosts.Query(hosts.Field("host_type"), sqlchemy.COUNT("count", hosts.Field("id")))
+	return self.getCount(ctx, userCred, q, query)
 }
 
 func (self *SHostManager) ClearAllSchedDescCache() error {
