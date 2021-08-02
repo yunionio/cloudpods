@@ -508,10 +508,14 @@ func (self *SAzureClient) _list(resource string, params url.Values) (jsonutils.J
 		path = fmt.Sprintf("subscriptions/%s/resourceGroups/%s/providers/%s", subId, params.Get("resourceGroups"), resource)
 		params.Del("resourceGroups")
 	default:
-		if len(subId) == 0 {
-			return nil, fmt.Errorf("no avaiable subscriptions")
+		if strings.HasPrefix(resource, "subscriptions/") || strings.HasPrefix(resource, "/subscriptions/") {
+			path = resource
+		} else {
+			if len(subId) == 0 {
+				return nil, fmt.Errorf("no avaiable subscriptions")
+			}
+			path = fmt.Sprintf("subscriptions/%s/providers/%s", subId, resource)
 		}
-		path = fmt.Sprintf("subscriptions/%s/providers/%s", subId, resource)
 	}
 	params.Set("api-version", self._apiVersion(resource, params))
 	return self.jsonRequest("GET", path, nil, params, true)
@@ -976,6 +980,7 @@ func (self *SAzureClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_SAML_AUTH,
 		cloudprovider.CLOUD_CAPABILITY_WAF,
 		cloudprovider.CLOUD_CAPABILITY_CACHE,
+		cloudprovider.CLOUD_CAPABILITY_APP,
 	}
 	return caps
 }
