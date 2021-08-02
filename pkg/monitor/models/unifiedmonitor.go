@@ -421,9 +421,6 @@ func checkQueryGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricInpu
 	if len(query.Model.GroupBy) != 0 {
 		return
 	}
-	if inputQuery.Unit {
-		return
-	}
 	if query.Model.Database == monitor.METRIC_DATABASE_METER && inputQuery.Unit {
 		return
 	}
