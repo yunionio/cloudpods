@@ -21,6 +21,7 @@ import (
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
 type SQuotaPredicate struct {
@@ -36,6 +37,9 @@ func (p *SQuotaPredicate) Clone() core.FitPredicate {
 }
 
 func (p *SQuotaPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
+	if !options.GetOptions().EnableQuotaCheck {
+		return false, nil
+	}
 	if len(u.SchedData().HostId) > 0 {
 		return false, nil
 	}
