@@ -39,7 +39,7 @@ type forwardInfo struct {
 func dump(input jsonutils.JSONObject) (*forwardInfo, error) {
 	ret := new(forwardInfo)
 	if err := input.Unmarshal(ret); err != nil {
-		return nil, errors.Wrap(err, "xxxx")
+		return nil, errors.Wrap(err, "JSONObject unmarshal failed")
 	}
 
 	if ret.ProxyAddr == "" {
