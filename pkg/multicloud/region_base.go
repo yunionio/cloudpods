@@ -222,3 +222,11 @@ func (self *SRegion) GetICloudKafkas() ([]cloudprovider.ICloudKafka, error) {
 func (self *SRegion) GetICloudKafkaById(id string) (cloudprovider.ICloudKafka, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudKafkaById")
 }
+
+func (self *SRegion) GetICloudApps() ([]cloudprovider.ICloudApp, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudApps")
+}
+
+func (self *SRegion) GetICloudAppById(id string) (cloudprovider.ICloudApp, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudAppById")
+}

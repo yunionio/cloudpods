@@ -231,6 +231,9 @@ func InitHandlers(app *appsrv.Application) {
 		models.ElasticSearchManager,
 
 		models.KafkaManager,
+
+		models.AppManager,
+		models.AppEnvironmentManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

@@ -183,6 +183,9 @@ type ICloudRegion interface {
 
 	GetICloudKafkas() ([]ICloudKafka, error)
 	GetICloudKafkaById(id string) (ICloudKafka, error)
+
+	GetICloudApps() ([]ICloudApp, error)
+	GetICloudAppById(id string) (ICloudApp, error)
 }
 
 type ICloudZone interface {
@@ -1442,4 +1445,19 @@ type ICloudKafka interface {
 	GetTopics() ([]SKafkaTopic, error)
 
 	Delete() error
+}
+
+type ICloudApp interface {
+	IVirtualResource
+	GetEnvironments() ([]ICloudAppEnvironment, error)
+	GetTechStack() string
+	GetType() string
+	GetKind() string
+	GetOsType() string
+}
+
+type ICloudAppEnvironment interface {
+	IVirtualResource
+	GetInstanceType() (string, error)
+	GetInstanceNumber() (int, error)
 }
