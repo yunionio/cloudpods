@@ -294,7 +294,24 @@ func (self *SNetwork) GetAllocatedNicCount() (*sNicCount, error) {
 		return nil, errors.Wrapf(err, "GetEipsCount")
 	}
 	cnt.Total += cnt.EipNicCount
+	bmReusedCnt, err := self.GetBaremetalServerReusedCount()
+	if err != nil {
+		return nil, errors.Wrapf(err, "Get baremetal server resued count")
+	}
+	cnt.Total -= bmReusedCnt
 	return cnt, nil
+}
+
+func (self *SNetwork) GetBaremetalServerReusedCount() (int, error) {
+	guest := GuestManager.Query().SubQuery()
+	gn := GuestnetworkManager.Query().Equals("network_id", self.Id)
+	gn = gn.Join(guest, sqlchemy.Equals(gn.Field("guest_id"), guest.Field("id")))
+	bmn := HostnetworkManager.Query().Equals("network_id", self.Id).SubQuery()
+	q := gn.Join(bmn, sqlchemy.AND(
+		sqlchemy.Equals(gn.Field("ip_addr"), bmn.Field("ip_addr")),
+		sqlchemy.Equals(guest.Field("host_id"), bmn.Field("baremetal_id")),
+	))
+	return q.CountWithError()
 }
 
 /*验证elb network可用，并返回关联的region, zone,vpc, wire*/
