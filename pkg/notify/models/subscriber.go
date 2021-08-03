@@ -76,14 +76,15 @@ type SSubscriber struct {
 	db.SStandaloneAnonResourceBase
 	db.SEnabledResourceBase
 
-	TopicID               string `width:"128" charset:"ascii" nullable:"false" index:"true" get:"user" list:"user" create:"required"`
-	Type                  string `width:"16" charset:"ascii" nullable:"false" index:"true" get:"user" list:"user" create:"required"`
-	Identification        string `width:"128" charset:"ascii" nullable:"false" index:"true"`
-	RoleScope             string `width:"8" charset:"ascii" nullable:"false" get:"user" list:"user" create:"optional"`
-	ResourceScope         string `width:"8" charset:"ascii" nullable:"false" get:"user" list:"user" create:"required"`
-	ResourceAttributionId string `width:"128" charset:"ascii" nullable:"false" get:"user" list:"user" create:"optional"`
-	Scope                 string `width:"128" charset:"ascii" nullable:"false" create:"required"`
-	DomainId              string `width:"128" charset:"ascii" nullable:"false" create:"optional"`
+	TopicID                 string `width:"128" charset:"ascii" nullable:"false" index:"true" get:"user" list:"user" create:"required"`
+	Type                    string `width:"16" charset:"ascii" nullable:"false" index:"true" get:"user" list:"user" create:"required"`
+	Identification          string `width:"128" charset:"ascii" nullable:"false" index:"true"`
+	RoleScope               string `width:"8" charset:"ascii" nullable:"false" get:"user" list:"user" create:"optional"`
+	ResourceScope           string `width:"8" charset:"ascii" nullable:"false" get:"user" list:"user" create:"required"`
+	ResourceAttributionId   string `width:"128" charset:"ascii" nullable:"false" get:"user" list:"user" create:"optional"`
+	ResourceAttributionName string `width:"128" charset:"utf8" list:"user" create:"optional"`
+	Scope                   string `width:"128" charset:"ascii" nullable:"false" create:"required"`
+	DomainId                string `width:"128" charset:"ascii" nullable:"false" create:"optional"`
 }
 
 func (sm *SSubscriberManager) validateReceivers(ctx context.Context, receivers []string) ([]string, error) {
@@ -149,6 +150,7 @@ func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred m
 		domainId = tenant.DomainId
 		input.DomainId = domainId
 		input.ResourceAttributionId = tenant.GetId()
+		input.ResourceAttributionName = tenant.GetName()
 	case api.SUBSCRIBER_SCOPE_DOMAIN:
 		tenant, err := db.TenantCacheManager.FetchDomainByIdOrName(ctx, input.ResourceAttributionId)
 		if err != nil {
@@ -157,6 +159,7 @@ func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred m
 		domainId = tenant.DomainId
 		input.DomainId = domainId
 		input.ResourceAttributionId = tenant.DomainId
+		input.ResourceAttributionName = tenant.Domain
 	}
 	if input.Scope == sDomain && domainId != userCred.GetDomainId() {
 		return input, httperrors.NewForbiddenError("domain %s admin can't create subscriber for domain %s", userCred.GetDomainId(), domainId)
