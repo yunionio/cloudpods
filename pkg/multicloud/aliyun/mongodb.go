@@ -252,6 +252,14 @@ func (self *SRegion) GetMongoDBsByType(mongoType string) ([]SMongoDB, error) {
 	return dbs, nil
 }
 
+func (self *SRegion) GetICloudMongoDBById(id string) (cloudprovider.ICloudMongoDB, error) {
+	db, err := self.GetMongoDB(id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetMongoDB(%s)", id)
+	}
+	return db, nil
+}
+
 func (self *SRegion) GetICloudMongoDBs() ([]cloudprovider.ICloudMongoDB, error) {
 	dbs := []SMongoDB{}
 	for _, mongoType := range []string{"sharding", "replicate", "serverless"} {
