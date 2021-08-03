@@ -844,13 +844,46 @@ func init() {
 			port = opts.Port
 		}
 
-		sshCli, err := ssh.NewClient(host, port, user, passwd, "")
+		vpcid, err := srv.GetString("vpc_id")
 		if err != nil {
 			return err
 		}
+
+		forwardFlag := false
+		var (
+			forwardItem *forwardInfo
+			sshCli      *ssh.Client
+		)
+
+		if vpcid == "default" {
+			sshCli, err = ssh.NewClient(host, port, user, passwd, "")
+			if err != nil {
+				return err
+			}
+		} else {
+			forwardFlag = true
+			forwardItem, err = openForward(s, srvid)
+			if err != nil {
+				return err
+			}
+
+			sshCli, err = ssh.NewClient(forwardItem.ProxyAddr, forwardItem.ProxyPort, user, passwd, "")
+			if err != nil {
+				closeForward(s, srvid, forwardItem)
+				return err
+			}
+		}
+
 		log.Infof("ssh %s:%d", host, port)
 		if err := sshCli.RunTerminal(); err != nil {
+			if forwardFlag {
+				closeForward(s, srvid, forwardItem)
+			}
 			return err
+		}
+
+		if forwardFlag {
+			closeForward(s, srvid, forwardItem)
 		}
 		return nil
 	})
