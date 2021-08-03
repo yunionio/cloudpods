@@ -1102,23 +1102,28 @@ LABEL start
 		bootmode := api.BOOT_MODE_PXE
 		if !isTftp {
 			adminNic := b.GetAdminNic()
+			var mac string
 			var addr string
 			var mask string
 			var gateway string
 			if adminNic != nil {
+				mac = adminNic.GetMac().String()
 				addr = adminNic.IpAddr
 				mask = adminNic.GetNetMask()
 				gateway = adminNic.Gateway
 			} else {
 				accessIp := b.GetAccessIp()
 				accessNet, _ := b.findAccessNetwork(accessIp)
+				accessMac := b.GetAccessMac()
 				if accessNet != nil {
+					mac = accessMac
 					addr = accessIp
 					mask = netutils.Masklen2Mask(int8(accessNet.GuestIpMask)).String()
 					gateway = accessNet.GuestGateway
 				}
 			}
 			serverIP, _ := b.manager.Agent.GetDHCPServerIP()
+			args = append(args, fmt.Sprintf("mac=%s", mac))
 			args = append(args, fmt.Sprintf("dest=%s", serverIP))
 			args = append(args, fmt.Sprintf("gateway=%s", gateway))
 			args = append(args, fmt.Sprintf("addr=%s", addr))
@@ -1323,6 +1328,11 @@ func (b *SBaremetalInstance) GetUEFIInfo() (*types.EFIBootMgrInfo, error) {
 func (b *SBaremetalInstance) GetAccessIp() string {
 	accessIp, _ := b.desc.GetString("access_ip")
 	return accessIp
+}
+
+func (b *SBaremetalInstance) GetAccessMac() string {
+	accessMac, _ := b.desc.GetString("access_mac")
+	return accessMac
 }
 
 func (b *SBaremetalInstance) GetServer() baremetaltypes.IBaremetalServer {
