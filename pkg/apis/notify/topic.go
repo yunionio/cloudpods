@@ -18,6 +18,7 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type TopicListInput struct {
 	apis.StandaloneResourceListInput
+	apis.EnabledResourceBaseListInput
 }
 
 type TopicDetails struct {
