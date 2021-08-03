@@ -24,7 +24,7 @@ import (
 
 func init() {
 	type EventSplitableOptions struct {
-		Service string `help:"service" choices:"compute|identity|image" default:"compute"`
+		Service string `help:"service" choices:"compute|identity|image|log|cloudevent" default:"compute"`
 	}
 	R(&EventSplitableOptions{}, "logs-splitable", "Show splitable info of event table", func(s *mcclient.ClientSession, args *EventSplitableOptions) error {
 		var results jsonutils.JSONObject
@@ -34,6 +34,10 @@ func init() {
 			results, err = modules.IdentityLogs.Get(s, "splitable", nil)
 		case "image":
 			results, err = modules.ImageLogs.Get(s, "splitable", nil)
+		case "log":
+			results, err = modules.Actions.Get(s, "splitable", nil)
+		case "cloudevent":
+			results, err = modules.Cloudevents.Get(s, "splitable", nil)
 		default:
 			results, err = modules.Logs.Get(s, "splitable", nil)
 		}
@@ -58,6 +62,10 @@ func init() {
 			results, err = modules.IdentityLogs.PerformClassAction(s, "purge-splitable", nil)
 		case "image":
 			results, err = modules.ImageLogs.PerformClassAction(s, "purge-splitable", nil)
+		case "log":
+			results, err = modules.Actions.PerformClassAction(s, "purge-splitable", nil)
+		case "cloudevent":
+			results, err = modules.Cloudevents.PerformClassAction(s, "purge-splitable", nil)
 		default:
 			results, err = modules.Logs.PerformClassAction(s, "purge-splitable", nil)
 		}
