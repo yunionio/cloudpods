@@ -105,7 +105,6 @@ func (sm *SSubscriberManager) validateReceivers(ctx context.Context, receivers [
 }
 
 func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.SubscriberCreateInput) (api.SubscriberCreateInput, error) {
-	log.Infof("before deal: %s", jsonutils.Marshal(input))
 	var err error
 	// permission check
 	sSystem, sDomain := string(rbacutils.ScopeSystem), string(rbacutils.ScopeDomain)
@@ -191,7 +190,6 @@ func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred m
 	default:
 		return input, httperrors.NewInputParameterError("unkown type %q", input.Type)
 	}
-	log.Infof("after deal input: %s", jsonutils.Marshal(input))
 	return input, nil
 }
 

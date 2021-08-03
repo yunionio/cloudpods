@@ -90,7 +90,6 @@ func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred
 			input.Contacts = []string{""}
 		}
 	}
-	log.Infof("notify input: %s", jsonutils.Marshal(input))
 
 	// check robot
 	if len(input.Robots) > 0 {
@@ -161,7 +160,6 @@ func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred
 	if err != nil {
 		return input, errors.Wrapf(err, "unable to generate name for %s", name)
 	}
-	log.Infof("after validatecreate input: %s", jsonutils.Marshal(input))
 	return input, nil
 }
 
@@ -219,7 +217,6 @@ func (nm *SNotificationManager) AllowPerformEventNotify(ctx context.Context, use
 
 // TODO: support project and domain
 func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.NotificationManagerEventNotifyInput) (api.NotificationManagerEventNotifyOutput, error) {
-	log.Infof("default receiverIds: %s", input.ReceiverIds)
 	var output api.NotificationManagerEventNotifyOutput
 	// check event
 	_, err := parseEvent(input.Event)
@@ -250,7 +247,6 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 		if err != nil {
 			return output, errors.Wrap(err, "unable to get receive")
 		}
-		log.Infof("receiver for topic: %s", receiverIds1)
 		receiverIds = append(receiverIds, receiverIds1...)
 	}
 
@@ -414,7 +410,6 @@ func (nm *SNotificationManager) createWithRobots(ctx context.Context, userCred m
 
 func (nm *SNotificationManager) create(ctx context.Context, userCred mcclient.TokenCredential, contactType string, receiverIds, contacts []string, priority, eventId string) error {
 	if len(receiverIds)+len(contacts) == 0 {
-		log.Infof("%s: no send", contactType)
 		return nil
 	}
 
@@ -441,7 +436,6 @@ func (nm *SNotificationManager) create(ctx context.Context, userCred mcclient.To
 			return errors.Wrap(err, "ReceiverNotificationManager.CreateContact")
 		}
 	}
-	log.Infof("start NotificationSendTask for %s", contactType)
 	n.SetModelManager(nm, n)
 	task, err := taskman.TaskManager.NewTask(ctx, "NotificationSendTask", n, userCred, nil, "", "")
 	if err != nil {
