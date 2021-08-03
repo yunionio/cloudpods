@@ -1161,14 +1161,19 @@ func onNicChange(oldNic, newNic jsonutils.JSONObject) error {
 	oldifname, _ := oldNic.GetString("ifname")
 	newbr := getNicBridge(newNic)
 	newifname, _ := newNic.GetString("ifname")
+	newvlan, _ := newNic.Int("vlan")
 	if oldbr != newbr {
 		// bridge changed
 		if oldifname == newifname {
-			output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl",
+			args := []string{
 				"--", "del-port", oldbr, oldifname,
 				"--", "add-port", newbr, newifname,
-			).Output()
-			log.Infof("ovs-vsctl del-port %s %s add-port %s %s: %s", oldbr, oldifname, newbr, newifname, output)
+			}
+			if newvlan > 1 {
+				args = append(args, fmt.Sprintf("tag=%d", newvlan))
+			}
+			output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", args...).Output()
+			log.Infof("ovs-vsctl %v: %s", args, output)
 			if err != nil {
 				return errors.Wrap(err, "NewRemoteCommandAsFarAsPossible")
 			}
