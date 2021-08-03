@@ -74,6 +74,11 @@ func InitHandlers(app *appsrv.Application) {
 		dispatcher.AddModelDispatcher(API_VERSION, app, handler)
 	}
 	for _, manager := range []db.IJointModelManager{
+		models.SubscriberReceiverManager,
+	} {
+		db.RegisterModelManager(manager)
+	}
+	for _, manager := range []db.IJointModelManager{
 		models.ReceiverNotificationManager,
 	} {
 		db.RegisterModelManager(manager)
