@@ -25,12 +25,12 @@ import (
 
 func init() {
 	type MongoDBListOptions struct {
-		Id     string
-		Offset int
-		Limit  int
+		MongoType string `choices:"sharding|replicate|serverless"`
+		Offset    int
+		Limit     int
 	}
 	shellutils.R(&MongoDBListOptions{}, "mongodb-list", "List mongodb", func(cli *aliyun.SRegion, args *MongoDBListOptions) error {
-		dbs, _, err := cli.GetMongoDBs(args.Limit, args.Offset)
+		dbs, _, err := cli.GetMongoDBs(args.MongoType, args.Limit, args.Offset)
 		if err != nil {
 			return err
 		}
