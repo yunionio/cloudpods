@@ -171,11 +171,11 @@ func (self *SMongoDB) GetNetworkId() string {
 }
 
 func (self *SMongoDB) GetZoneId() string {
-	if strings.Contains(self.ZoneId, ",") {
+	if !strings.Contains(self.ZoneId, ",") {
 		return self.ZoneId
 	}
-	if info := strings.Split(self.ZoneId, "-"); len(info) == 3 {
-		return strings.Join([]string{info[0], info[1], string(info[2][strings.Index(info[2], ",")-1])}, "-")
+	if index := strings.Index(self.ZoneId, ",") - 1; index > 0 {
+		return fmt.Sprintf("%s-%s", self.region.RegionId, string(self.ZoneId[index]))
 	}
 	return ""
 }
@@ -237,10 +237,10 @@ func (self *SMongoDB) GetVmemSizeMb() int {
 	return 0
 }
 
-func (self *SRegion) GetICloudMongoDBs() ([]cloudprovider.ICloudMongoDB, error) {
+func (self *SRegion) GetMongoDBsByType(mongoType string) ([]SMongoDB, error) {
 	dbs := []SMongoDB{}
 	for {
-		part, total, err := self.GetMongoDBs(100, len(dbs)/100)
+		part, total, err := self.GetMongoDBs(mongoType, 100, len(dbs)/100)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetMongoDB")
 		}
@@ -248,6 +248,18 @@ func (self *SRegion) GetICloudMongoDBs() ([]cloudprovider.ICloudMongoDB, error) 
 		if len(dbs) >= total {
 			break
 		}
+	}
+	return dbs, nil
+}
+
+func (self *SRegion) GetICloudMongoDBs() ([]cloudprovider.ICloudMongoDB, error) {
+	dbs := []SMongoDB{}
+	for _, mongoType := range []string{"sharding", "replicate", "serverless"} {
+		part, err := self.GetMongoDBsByType(mongoType)
+		if err != nil {
+			return nil, err
+		}
+		dbs = append(dbs, part...)
 	}
 	ret := []cloudprovider.ICloudMongoDB{}
 	for i := range dbs {
@@ -257,7 +269,7 @@ func (self *SRegion) GetICloudMongoDBs() ([]cloudprovider.ICloudMongoDB, error) 
 	return ret, nil
 }
 
-func (self *SRegion) GetMongoDBs(pageSize int, pageNum int) ([]SMongoDB, int, error) {
+func (self *SRegion) GetMongoDBs(mongoType string, pageSize int, pageNum int) ([]SMongoDB, int, error) {
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 100
 	}
@@ -268,6 +280,9 @@ func (self *SRegion) GetMongoDBs(pageSize int, pageNum int) ([]SMongoDB, int, er
 	params := map[string]string{
 		"PageSize":   fmt.Sprintf("%d", pageSize),
 		"PageNumber": fmt.Sprintf("%d", pageNum),
+	}
+	if len(mongoType) > 0 {
+		params["DBInstanceType"] = mongoType
 	}
 	resp, err := self.mongodbRequest("DescribeDBInstances", params)
 	if err != nil {

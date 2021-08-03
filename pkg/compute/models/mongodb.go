@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -510,11 +511,13 @@ func (self *SCloudregion) newFromCloudMongoDB(ctx context.Context, userCred mccl
 	ins.ReplicationNum = ext.GetReplicationNum()
 
 	if zoneId := ext.GetZoneId(); len(zoneId) > 0 {
-		_zone, err := db.FetchByExternalId(ZoneManager, zoneId)
-		if err != nil {
-			return nil, errors.Wrapf(err, "")
+		zones, _ := self.GetZones()
+		for _, zone := range zones {
+			if strings.HasSuffix(zone.ExternalId, zoneId) {
+				ins.ZoneId = zone.Id
+				break
+			}
 		}
-		ins.ZoneId = _zone.GetId()
 	}
 
 	createdAt := ext.GetCreatedAt()
