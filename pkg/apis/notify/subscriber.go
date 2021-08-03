@@ -31,6 +31,8 @@ type SubscriberCreateInput struct {
 	// example: 1e3824756bac4ac084e784ed297ec652
 	ResourceAttributionId string
 
+	ResourceAttributionName string
+
 	// description: domain id of resource
 	// example: 1e3824756bac4ac084e784ed297ec652
 	DomainId string

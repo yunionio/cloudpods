@@ -216,7 +216,7 @@ type FailedReceiverSpec struct {
 }
 
 func (self *NotificationSendTask) batchSend(ctx context.Context, contactType string, receivers []ReceiverSpec, params rpcapi.SendParams) (fails []FailedReceiverSpec, err error) {
-	log.Infof("contactType: %s, receivers: %s, params: %s", contactType, receivers, jsonutils.Marshal(params))
+	log.Debugf("contactType: %s, receivers: %s, params: %s", contactType, receivers, jsonutils.Marshal(params))
 	if contactType != apis.ROBOT && contactType != apis.WEBHOOK {
 		return self._batchSend(ctx, contactType, receivers, func(res []*rpcapi.SReceiver) ([]*rpcapi.FailedRecord, error) {
 			return models.NotifyService.BatchSend(ctx, contactType, rpcapi.BatchSendParams{

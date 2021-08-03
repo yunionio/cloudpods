@@ -46,6 +46,14 @@ type SSubscriberReceiver struct {
 	ReceiverId   string `width:"36" charset:"ascii" nullable:"false" index:"true"`
 }
 
+func (srm *SSubscriberReceiverManager) GetMasterFieldName() string {
+	return "subscriber_id"
+}
+
+func (srm *SSubscriberReceiverManager) GetSlaveFieldName() string {
+	return "receiver_id"
+}
+
 func (srm *SSubscriberReceiverManager) getBySubscriberId(sId string) ([]SSubscriberReceiver, error) {
 	q := srm.Query().Equals("subscriber_id", sId)
 	srs := make([]SSubscriberReceiver, 0, 2)
@@ -65,16 +73,11 @@ func (srm *SSubscriberReceiverManager) create(ctx context.Context, sId, receiver
 }
 
 func (srm *SSubscriberReceiverManager) delete(sId, receiverId string) error {
-	q := srm.Query().Equals("receiver_id", receiverId)
+	q := srm.Query().Equals("receiver_id", receiverId).Equals("subscriber_id", sId)
 	var sr SSubscriberReceiver
 	err := q.First(&sr)
 	if err != nil {
 		return err
 	}
-	srp := &sr
-	_, err = db.Update(srp, func() error {
-		srp.MarkDelete()
-		return nil
-	})
-	return err
+	return sr.Delete(context.Background(), nil)
 }
