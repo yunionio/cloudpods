@@ -49,6 +49,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -64,7 +65,7 @@ func init() {
 			"subscribers",
 		),
 	}
-	SubscriberManager.SetVirtualObject(ReceiverNotificationManager)
+	SubscriberManager.SetVirtualObject(SubscriberManager)
 }
 
 type SSubscriberManager struct {
@@ -196,6 +197,27 @@ func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred m
 	return input, nil
 }
 
+func (s *SSubscriber) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	s.SStandaloneAnonResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	var input api.SubscriberCreateInput
+	_ = data.Unmarshal(&input)
+	if s.Type == api.SUBSCRIBER_TYPE_RECEIVER {
+		err := s.SetReceivers(ctx, input.Receivers)
+		if err != nil {
+			logclient.AddActionLogWithContext(ctx, s, logclient.ACT_CREATE, err.Error(), userCred, false)
+			_, err := db.Update(s, func() error {
+				s.SetEnabled(false)
+				return nil
+			})
+			if err != nil {
+				log.Errorf("unable to enable subscriber: %v", err)
+			}
+		}
+	}
+	logclient.AddActionLogWithContext(ctx, s, logclient.ACT_CREATE, "", userCred, true)
+	return
+}
+
 func (s *SSubscriber) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	err := s.SStandaloneAnonResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 	if err != nil {
@@ -205,10 +227,6 @@ func (s *SSubscriber) CustomizeCreate(ctx context.Context, userCred mcclient.Tok
 	_ = data.Unmarshal(&input)
 	switch input.Type {
 	case api.SUBSCRIBER_TYPE_RECEIVER:
-		err := s.SetReceivers(ctx, input.Receivers)
-		if err != nil {
-			return errors.Wrapf(err, "unable to set connect receivers with subscriber %s", s.Id)
-		}
 	case api.SUBSCRIBER_TYPE_ROBOT:
 		s.Identification = input.Robot
 	case api.SUBSCRIBER_TYPE_ROLE:
@@ -339,7 +357,7 @@ func (s *SSubscriber) CustomizeDelete(ctx context.Context, userCred mcclient.Tok
 }
 
 func (s *SSubscriber) receiverIdentifications() ([]api.Identification, error) {
-	srSubq := SubscriberReceiverManager.Query().Equals("subscription_id", s.Id).SubQuery()
+	srSubq := SubscriberReceiverManager.Query().Equals("subscriber_id", s.Id).SubQuery()
 	rq := ReceiverManager.Query("id", "name")
 	rq = rq.Join(srSubq, sqlchemy.Equals(srSubq.Field("receiver_id"), rq.Field("id")))
 	var ret []api.Identification
@@ -523,6 +541,8 @@ func (sr *SSubscriber) SetReceivers(ctx context.Context, receiverIds []string) e
 			addReceivers = append(addReceivers, receiverIds[j])
 			j++
 		case dbReceivers[i] == receiverIds[j]:
+			i++
+			j++
 		}
 	}
 	// add
@@ -575,4 +595,18 @@ func (s *SSubscriber) PerformDisable(ctx context.Context, userCred mcclient.Toke
 		return nil, errors.Wrap(err, "EnabledPerformEnable")
 	}
 	return nil, nil
+}
+
+func (sm *SSubscriberManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	q, err := sm.SStandaloneAnonResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	switch field {
+	case "resource_scope":
+		return sm.Query("resource_scope").Distinct(), nil
+	case "type":
+		return sm.Query("type").Distinct(), nil
+	}
+	return q, nil
 }
