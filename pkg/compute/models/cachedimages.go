@@ -844,3 +844,33 @@ func (manager *SCachedimageManager) InitializeData() error {
 	}
 	return nil
 }
+
+func (im *SCachedimageManager) FetchIdRealNameMap2(imageIds []string) (map[string]string, error) {
+	q := im.Query("id", "name", "external_id", "info")
+	switch len(imageIds) {
+	case 0:
+		return map[string]string{}, nil
+	case 1:
+		q = q.Equals("id", imageIds[0])
+	default:
+		q = q.In("id", imageIds)
+	}
+	images := make([]SCachedimage, 0, len(imageIds))
+	err := db.FetchModelObjects(im, q, &images)
+	if err != nil {
+		return nil, err
+	}
+	ret := make(map[string]string, len(imageIds))
+	for i := range images {
+		if len(images[i].ExternalId) > 0 {
+			ret[images[i].Id] = images[i].Name
+			continue
+		}
+		imageName, _ := images[i].Info.GetString("name")
+		if len(imageName) == 0 {
+			imageName = images[i].Name
+		}
+		ret[images[i].Id] = imageName
+	}
+	return ret, nil
+}

@@ -265,8 +265,9 @@ func fetchGuestDisksInfo(guestIds []string) map[string][]api.GuestDiskInfo {
 		}
 		ret[gds[i].GuestId] = append(ret[gds[i].GuestId], gds[i].GuestDiskInfo)
 	}
-	imageNames, err := db.FetchIdNameMap2(CachedimageManager, imageIds)
+	imageNames, err := CachedimageManager.FetchIdRealNameMap2(imageIds)
 	if err != nil {
+		log.Errorf("unable to FetchIdRealNameMap2: %v", err)
 		return ret
 	}
 	for guestId, infos := range ret {
