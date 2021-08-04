@@ -1114,9 +1114,7 @@ LABEL start
 			} else {
 				accessIp := b.GetAccessIp()
 				accessNet, _ := b.findAccessNetwork(accessIp)
-				accessMac := b.GetAccessMac()
 				if accessNet != nil {
-					mac = accessMac
 					addr = accessIp
 					mask = netutils.Masklen2Mask(int8(accessNet.GuestIpMask)).String()
 					gateway = accessNet.GuestGateway
