@@ -827,23 +827,9 @@ func (self *SHost) addDisks(ctx context.Context, dc *SDatacenter, ds *SDatastore
 			}
 			newImagePath := fmt.Sprintf("[%s] %s/%s.vmdk", ds.GetRelName(), uuid, uuid)
 
-			dm := object.NewVirtualDiskManager(self.manager.client.Client)
-			spec := &types.VirtualDiskSpec{
-				DiskType: "thin",
-			}
-			switch disk.Driver {
-			case "", "scsi", "pvscsi":
-				spec.AdapterType = "lsiLogic"
-			default:
-				spec.AdapterType = "ide"
-			}
-			task, err := dm.CopyVirtualDisk(self.manager.context, imagePath, self.datacenter.getDcObj(), newImagePath, self.datacenter.getDcObj(), spec, true)
+			err = self.copyVirtualDisk(imagePath, newImagePath, disk.Driver)
 			if err != nil {
-				return nil, errors.Wrap(err, "unable to CopyVirtualDisk")
-			}
-			err = task.Wait(self.manager.context)
-			if err != nil {
-				return nil, errors.Wrap(err, "waith CopyVirtualDiskTask")
+				return nil, err
 			}
 			imagePath = newImagePath
 			rootDiskSizeMb = size
@@ -913,6 +899,40 @@ func (self *SHost) addDisks(ctx context.Context, dc *SDatacenter, ds *SDatastore
 		}
 	}
 	return evm, nil
+}
+
+func (self *SHost) copyVirtualDisk(srcPath, dstPath, diskDriver string) error {
+	dm := object.NewVirtualDiskManager(self.manager.client.Client)
+	spec := &types.VirtualDiskSpec{
+		DiskType: "thin",
+	}
+	switch diskDriver {
+	case "", "scsi", "pvscsi":
+		spec.AdapterType = "lsiLogic"
+	default:
+		spec.AdapterType = "ide"
+	}
+	task, err := dm.CopyVirtualDisk(self.manager.context, srcPath, self.datacenter.getDcObj(), dstPath, self.datacenter.getDcObj(), spec, true)
+	if err != nil {
+		return errors.Wrap(err, "unable to CopyVirtualDisk")
+	}
+	err = task.Wait(self.manager.context)
+	if err == nil {
+		return nil
+	}
+	errStr := strings.ToLower(err.Error())
+	if !strings.Contains(errStr, "the requested operation is not implemented by the server") {
+		return errors.Wrap(err, "wait CopyVirtualDiskTask")
+	}
+	task, err = dm.CopyVirtualDisk(self.manager.context, srcPath, self.datacenter.getDcObj(), dstPath, self.datacenter.getDcObj(), nil, true)
+	if err != nil {
+		return errors.Wrap(err, "unable to CopyVirtualDisk")
+	}
+	err = task.Wait(self.manager.context)
+	if err != nil {
+		return errors.Wrap(err, "wait CopyVirtualDiskTask")
+	}
+	return nil
 }
 
 func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreateVMParam) (needDeploy bool, vm *SVirtualMachine, err error) {
