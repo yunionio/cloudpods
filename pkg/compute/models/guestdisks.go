@@ -274,7 +274,13 @@ func (self *SGuestdisk) GetDetailedInfo() api.GuestDiskInfo {
 		cachedImageObj, _ := CachedimageManager.FetchById(imageId)
 		if cachedImageObj != nil {
 			cachedImage := cachedImageObj.(*SCachedimage)
-			desc.Image = cachedImage.GetName()
+			imageName := cachedImage.GetName()
+			if len(cachedImage.ExternalId) == 0 {
+				if name, _ := cachedImage.Info.GetString("name"); len(name) > 0 {
+					imageName = name
+				}
+			}
+			desc.Image = imageName
 		}
 	}
 
