@@ -46,8 +46,8 @@ func (self *SRegion) GetMongoDBBackups(id string, start time.Time, end time.Time
 		pageNum = 1
 	}
 	params := map[string]string{
-		"StartTime":    start.String(),
-		"EndTime":      end.String(),
+		"StartTime":    start.Format("2006-01-02T15:04Z"),
+		"EndTime":      end.Format("2006-01-02T15:04Z"),
 		"DBInstanceId": id,
 		"PageSize":     fmt.Sprintf("%d", pageSize),
 		"PageNumber":   fmt.Sprintf("%d", pageNum),
