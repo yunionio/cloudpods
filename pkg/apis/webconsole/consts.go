@@ -31,4 +31,5 @@ const (
 	CTYUN     = "ctyun"
 	HUAWEI    = "huawei"
 	APSARA    = "apsara"
+	JDCLOUD   = "jdcloud"
 )
