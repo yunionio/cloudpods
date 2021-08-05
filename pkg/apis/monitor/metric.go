@@ -9,6 +9,7 @@ const (
 	METRIC_RES_TYPE_OSS          = "oss"
 	METRIC_RES_TYPE_RDS          = "rds"
 	METRIC_RES_TYPE_CLOUDACCOUNT = "cloudaccount"
+	METRIC_RES_TYPE_AGENT        = "agent"
 	METRIC_RES_TYPE_TENANT       = "tenant"
 	METRIC_RES_TYPE_DOMAIN       = "domain"
 	METRIC_RES_TYPE_STORAGE      = "storage"
@@ -34,8 +35,9 @@ var (
 		METRIC_RES_TYPE_RDS, METRIC_RES_TYPE_CLOUDACCOUNT}
 	MetricUnit = []string{METRIC_UNIT_PERCENT, METRIC_UNIT_BPS, METRIC_UNIT_MBPS, METRIC_UNIT_BYTEPS, "count/s",
 		METRIC_UNIT_COUNT, METRIC_UNIT_MS, METRIC_UNIT_BYTE, METRIC_UNIT_RMB}
-	ResTypeScoreMap = map[string]int{
+	ResTypeScoreMap = map[string]float64{
 		METRIC_RES_TYPE_GUEST:        1,
+		METRIC_RES_TYPE_AGENT:        1.1,
 		METRIC_RES_TYPE_HOST:         2,
 		METRIC_RES_TYPE_OSS:          3,
 		METRIC_RES_TYPE_RDS:          4,
