@@ -37,6 +37,7 @@ const (
 	CTYUN     = api.CTYUN
 	HUAWEI    = api.HUAWEI
 	APSARA    = api.APSARA
+	JDCLOUD   = api.JDCLOUD
 )
 
 type RemoteConsoleInfo struct {
@@ -126,7 +127,7 @@ func (info *RemoteConsoleInfo) GetConnectParams() (string, error) {
 		return info.getApsaraURL()
 	case QCLOUD:
 		return info.getQcloudURL()
-	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI:
+	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI, JDCLOUD:
 		return info.Url, nil
 	default:
 		return "", fmt.Errorf("Can't convert protocol %s to connect params", info.Protocol)
