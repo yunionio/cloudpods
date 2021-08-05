@@ -41,10 +41,7 @@ func (so *ScriptOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type SscriptApplyOptions struct {
-	SERVERID                string `help:"server id" json:"server_id"`
-	EipFirst                bool   `help:"whether to use eip first"`
-	ProxyEndpointId         string `help:"proxy endpoint id"`
-	AutoChooseProxyEndpoint bool   `help:"automatically choose proxy endpoint"`
+	SERVERID string `help:"server id" json:"server_id"`
 }
 
 type ScriptApplyOptions struct {
@@ -54,6 +51,19 @@ type ScriptApplyOptions struct {
 
 func (so *ScriptApplyOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(so.SscriptApplyOptions), nil
+}
+
+type SscriptBatchApplyOptions struct {
+	ServerIds []string `help:"server id list"`
+}
+
+type ScriptBatchApplyOptions struct {
+	ScriptOptions
+	SscriptBatchApplyOptions
+}
+
+func (so *ScriptBatchApplyOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(so.SscriptBatchApplyOptions), nil
 }
 
 type ScriptApplyRecordListOptions struct {
