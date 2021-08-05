@@ -356,3 +356,7 @@ func (self *SRegion) CreateFileSystem(opts *cloudprovider.FileSystemCraeteOption
 	fsId, _ := resp.GetString("FileSystemId")
 	return self.GetFileSystem(fsId)
 }
+
+func (self *SFileSystem) SetTags(tags map[string]string, replace bool) error {
+	return self.region.SetResourceTags(ALIYUN_SERVICE_NAS, "filesystem", self.FileSystemId, tags, replace)
+}
