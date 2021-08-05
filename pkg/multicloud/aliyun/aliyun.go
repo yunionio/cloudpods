@@ -72,6 +72,7 @@ const (
 	ALIYUN_SERVICE_RDS = "rds"
 	ALIYUN_SERVICE_SLB = "slb"
 	ALIYUN_SERVICE_KVS = "kvs"
+	ALIYUN_SERVICE_NAS = "nas"
 )
 
 var (
