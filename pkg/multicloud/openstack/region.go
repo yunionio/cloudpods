@@ -202,6 +202,16 @@ func (region *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetInstance(%s)", id)
 	}
+	hosts, err := region.GetIHosts()
+	if err != nil {
+		return nil, err
+	}
+	for i := range hosts {
+		host := hosts[i].(*SHypervisor)
+		if instance.HypervisorHostname == host.HypervisorHostname {
+			instance.host = host
+		}
+	}
 	return instance, nil
 }
 
