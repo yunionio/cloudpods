@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/regutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -58,6 +59,9 @@ func (self *SESXiProviderFactory) ValidateCreateCloudaccountData(ctx context.Con
 	}
 	if len(input.Host) == 0 {
 		return output, errors.Wrap(httperrors.ErrMissingParameter, "host")
+	}
+	if !regutils.MatchIPAddr(input.Host) && !regutils.MatchDomainName(input.Host) {
+		return output, errors.Wrap(httperrors.ErrInputParameter, "host should be ip or domain name")
 	}
 	output.AccessUrl = fmt.Sprintf("https://%s:%d/sdk", input.Host, input.Port)
 	if input.Port == 0 || input.Port == 443 {
