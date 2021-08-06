@@ -36,6 +36,9 @@ const (
 	// 删除中
 	NAS_STATUS_DELETING      = "deleting"
 	NAS_STATUS_DELETE_FAILED = "delete_failed"
+
+	NAS_UPDATE_TAGS        = "update_tags"
+	NAS_UPDATE_TAGS_FAILED = "update_tags_fail"
 )
 
 type FileSystemListInput struct {
@@ -103,4 +106,9 @@ type FileSystemDetails struct {
 	Vpc     string
 	Network string
 	Zone    string
+}
+
+type FileSystemRemoteUpdateInput struct {
+	// 是否覆盖替换所有标签
+	ReplaceTags *bool `json:"replace_tags" help:"replace all remote tags"`
 }
