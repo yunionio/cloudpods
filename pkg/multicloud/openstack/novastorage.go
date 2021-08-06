@@ -109,3 +109,7 @@ func (storage *SNovaStorage) GetMountPoint() string {
 func (storage *SNovaStorage) IsSysDiskStore() bool {
 	return true
 }
+
+func (self *SNovaStorage) DisableSync() bool {
+	return true
+}
