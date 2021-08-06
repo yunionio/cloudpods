@@ -457,7 +457,7 @@ func (self *SCloudproviderregion) getSyncTaskKey() string {
 	}
 }
 
-func (self *SCloudproviderregion) submitSyncTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange, waitChan chan bool) {
+func (self *SCloudproviderregion) submitSyncTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange) {
 	self.markStartSync(userCred)
 	RunSyncCloudproviderRegionTask(ctx, self.getSyncTaskKey(), func() {
 		nopanic.Run(func() {
@@ -467,9 +467,6 @@ func (self *SCloudproviderregion) submitSyncTask(ctx context.Context, userCred m
 				log.Errorf("DoSync faild %v", err)
 			}
 		})
-		if waitChan != nil {
-			waitChan <- true
-		}
 	})
 }
 
