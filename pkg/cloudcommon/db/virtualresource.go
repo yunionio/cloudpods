@@ -99,21 +99,13 @@ func (manager *SVirtualResourceBaseManager) GetPropertyStatistics(ctx context.Co
 
 	var err error
 	q := manager.Query()
-	q, err = ListItemFilter(im, ctx, q, userCred, query)
+	q, err = ListItemQueryFilters(im, ctx, q, userCred, query, policy.PolicyActionList)
 	if err != nil {
 		return nil, err
 	}
 
 	sq := q.SubQuery()
 	statQ := sq.Query(sq.Field("status"), sqlchemy.COUNT("total_count", sq.Field("id")), sqlchemy.SUM("pending_deleted_count", sq.Field("pending_deleted")))
-	_, queryScope, err := FetchCheckQueryOwnerScope(ctx, userCred, query, manager, rbacutils.ActionList, true)
-	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
-	}
-
-	statQ = manager.FilterByOwner(statQ, userCred, queryScope)
-	statQ = manager.FilterBySystemAttributes(statQ, userCred, query, queryScope)
-	statQ = manager.FilterByHiddenSystemAttributes(statQ, userCred, query, queryScope)
 	statQ = statQ.GroupBy(sq.Field("status"))
 	ret := []struct {
 		Status              string
