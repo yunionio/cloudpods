@@ -260,7 +260,7 @@ func validatePasscodeHandler(ctx context.Context, w http.ResponseWriter, req *ht
 
 	if err != nil {
 		log.Warningf("VerifyTotpPasscode %s", err.Error())
-		httperrors.InvalidCredentialError(ctx, w, "invalid passcode: %v", err)
+		httperrors.InputParameterError(ctx, w, "invalid passcode: %v", err)
 		return
 	}
 
