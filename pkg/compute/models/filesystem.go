@@ -350,7 +350,6 @@ func (self *SCloudregion) SyncFileSystems(ctx context.Context, userCred mcclient
 			result.UpdateError(err)
 			continue
 		}
-		syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 		localFSs = append(localFSs, commondb[i])
 		remoteFSs = append(remoteFSs, commonext[i])
 		result.Update()
@@ -453,7 +452,11 @@ func (self *SFileSystem) SyncWithCloudFileSystem(ctx context.Context, userCred m
 		}
 		return nil
 	})
-	return errors.Wrapf(err, "db.Update")
+	if err != nil {
+		return errors.Wrapf(err, "db.Update")
+	}
+	syncMetadata(ctx, userCred, self, fs)
+	return nil
 }
 
 func (self *SCloudregion) getZoneIdBySuffix(zoneId string) (string, error) {
@@ -592,4 +595,32 @@ func (manager *SFileSystemManager) DeleteExpiredPostpaids(ctx context.Context, u
 		fss[i].DeletePreventionOff(&fss[i], userCred)
 		fss[i].StartDeleteTask(ctx, userCred, "")
 	}
+}
+
+func (self *SFileSystem) AllowPerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "remote-update")
+}
+
+func (self *SFileSystem) PerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.FileSystemRemoteUpdateInput) (jsonutils.JSONObject, error) {
+	return nil, self.StartRemoteUpdateTask(ctx, userCred, (input.ReplaceTags != nil && *input.ReplaceTags), "")
+}
+
+func (self *SFileSystem) StartRemoteUpdateTask(ctx context.Context, userCred mcclient.TokenCredential, replaceTags bool, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	if replaceTags {
+		data.Add(jsonutils.JSONTrue, "replace_tags")
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "FileSystemRemoteUpdateTask", self, userCred, data, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	self.SetStatus(userCred, api.NAS_UPDATE_TAGS, "StartRemoteUpdateTask")
+	return task.ScheduleRun(nil)
+}
+
+func (self *SFileSystem) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
+	if len(self.ExternalId) == 0 {
+		return
+	}
+	self.StartRemoteUpdateTask(ctx, userCred, true, "")
 }
