@@ -2019,7 +2019,7 @@ func (manager *SElasticSearchManager) purgeAll(ctx context.Context, userCred mcc
 }
 
 func (manager *SKafkaManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	kafkas := []SElasticSearch{}
+	kafkas := []SKafka{}
 	err := fetchByManagerId(manager, providerId, &kafkas)
 	if err != nil {
 		return errors.Wrapf(err, "fetchByManagerId")
