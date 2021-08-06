@@ -15,6 +15,7 @@
 package openstack
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -54,7 +55,7 @@ func (storage *SStorage) GetName() string {
 }
 
 func (storage *SStorage) GetGlobalId() string {
-	return storage.ID
+	return fmt.Sprintf("%s-%s", storage.zone.GetGlobalId(), storage.ID)
 }
 
 func (storage *SStorage) IsEmulated() bool {
@@ -72,7 +73,7 @@ func (storage *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	}
 	idisks := []cloudprovider.ICloudDisk{}
 	for i := 0; i < len(disks); i++ {
-		if disks[i].VolumeType == storage.Name || strings.HasSuffix(disks[i].Host, "#"+storage.ExtraSpecs.VolumeBackendName) {
+		if disks[i].AvailabilityZone == storage.zone.ZoneName && (disks[i].VolumeType == storage.Name || strings.HasSuffix(disks[i].Host, "#"+storage.ExtraSpecs.VolumeBackendName)) {
 			disks[i].storage = storage
 			idisks = append(idisks, &disks[i])
 		}
@@ -142,6 +143,9 @@ func (storage *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, e
 	disk, err := storage.zone.region.GetDisk(idStr)
 	if err != nil {
 		return nil, err
+	}
+	if disk.AvailabilityZone != storage.zone.ZoneName {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "disk %s not in zone %s", storage.zone.ZoneName)
 	}
 	disk.storage = storage
 	return disk, nil
