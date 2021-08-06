@@ -275,7 +275,7 @@ func (t *SAuthToken) VerifyTotpPasscode(s *mcclient.ClientSession, uid, passcode
 	}
 
 	t.updateRetryCount()
-	return errors.Wrap(httperrors.ErrInvalidCredential, "invalid passcode")
+	return errors.Wrap(httperrors.ErrInputParameter, "invalid passcode")
 }
 
 func SignJWT(t jwt.Token) (string, error) {
