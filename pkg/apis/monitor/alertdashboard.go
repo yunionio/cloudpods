@@ -44,3 +44,12 @@ type AlertPanelDetail struct {
 	Setting   jsonutils.JSONObject
 	PanelDetails
 }
+
+type AlertClonePanelInput struct {
+	PanelId        string `json:"panel_id"`
+	ClonePanelName string `json:"clone_panel_name"`
+}
+
+type AlertCloneDashboardInput struct {
+	CloneName string `json:"clone_name"`
+}

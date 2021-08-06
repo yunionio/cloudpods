@@ -363,3 +363,34 @@ func (panel *SAlertPanel) getPanelJoint() (*SAlertDashboardPanel, error) {
 	}
 	return iModel.(*SAlertDashboardPanel), nil
 }
+
+func (manager *SAlertPanelManager) getPanelByid(id string) (*SAlertPanel, error) {
+	iModel, err := db.FetchById(manager, id)
+	if err != nil {
+		return nil, err
+	}
+	return iModel.(*SAlertPanel), nil
+}
+
+func (panel *SAlertPanel) ClonePanel(ctx context.Context, dashboardId string,
+	input monitor.AlertClonePanelInput) (*SAlertPanel, error) {
+	iModel, _ := db.NewModelObject(AlertPanelManager)
+	panelJson := jsonutils.Marshal(panel)
+	panelJson.Unmarshal(iModel)
+	iModel.(*SAlertPanel).Id = ""
+	name := input.ClonePanelName
+	var err error
+	if len(name) == 0 {
+		name, err = db.GenerateName2(ctx, AlertPanelManager, nil, panel.GetName(), iModel, 1)
+		if err != nil {
+			return nil, errors.Wrap(err, "clonePanel GenerateName err")
+		}
+	}
+	iModel.(*SAlertPanel).Name = name
+	err = AlertPanelManager.TableSpec().Insert(ctx, iModel)
+	if err != nil {
+		return nil, errors.Wrapf(err, "panel:%s clone err", panel.Id)
+	}
+	iModel.(*SAlertPanel).attachDashboard(ctx, dashboardId)
+	return iModel.(*SAlertPanel), nil
+}
