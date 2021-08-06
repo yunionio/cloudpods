@@ -2050,15 +2050,49 @@ func (manager *SNetworkManager) ListItemFilter(
 	}
 
 	hostStr := input.HostId
-	if len(hostStr) > 0 {
-		hostObj, err := HostManager.FetchByIdOrName(userCred, hostStr)
-		if err != nil {
-			return nil, httperrors.NewResourceNotFoundError2(HostManager.Keyword(), hostStr)
+	if len(hostStr)+len(input.HostType) > 0 {
+		type sSimpleHost struct {
+			Id         string
+			OvnVersion string
 		}
-		host := hostObj.(*SHost)
-		sq := HostwireManager.Query("wire_id").Equals("host_id", hostObj.GetId())
-		if len(host.OvnVersion) > 0 {
-			wireQuery := WireManager.Query("id").IsNotNull("vpc_id")
+		hq := HostManager.Query("id", "ovn_version")
+		switch {
+		case len(hostStr) > 0 && len(input.HostType) > 0:
+			hq = hq.Filter(sqlchemy.OR(
+				sqlchemy.Equals(hq.Field("id"), hostStr),
+				sqlchemy.Equals(hq.Field("host_type"), input.HostType),
+			))
+		case len(hostStr) > 0:
+			hq = hq.Equals("id", hostStr)
+		case len(input.HostType) > 0:
+			hq = hq.Equals("host_type", input.HostType)
+		}
+		shs := make([]sSimpleHost, 0)
+		err := hq.All(&shs)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to filter all host from id and host type")
+		}
+		hostids := make([]string, len(shs))
+		var ovnVersion bool
+		for i := range shs {
+			hostids[i] = shs[i].Id
+			if len(shs[i].OvnVersion) > 0 {
+				ovnVersion = true
+			}
+		}
+		sq := HostwireManager.Query("wire_id")
+		switch len(hostids) {
+		case 0:
+			// hack for empty hostwire
+			sq = sq.IsTrue("deleted")
+		case 1:
+			sq = sq.Equals("host_id", hostids[0])
+		default:
+			sq = sq.In("host_id", hostids)
+		}
+		if ovnVersion {
+			vpcSub := VpcManager.Query("id").Equals("cloudregion_id", "default").NotEquals("id", api.DEFAULT_VPC_ID).SubQuery()
+			wireQuery := WireManager.Query("id").In("vpc_id", vpcSub)
 			q = q.Filter(sqlchemy.OR(
 				sqlchemy.In(q.Field("wire_id"), wireQuery.SubQuery()),
 				sqlchemy.In(q.Field("wire_id"), sq.SubQuery())),
