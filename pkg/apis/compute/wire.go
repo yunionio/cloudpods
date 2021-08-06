@@ -90,7 +90,8 @@ type WireListInput struct {
 
 	HostResourceInput
 
-	Bandwidth *int `json:"bandwidth"`
+	Bandwidth *int   `json:"bandwidth"`
+	HostType  string `json:"host_type"`
 }
 
 type WireMergeInput struct {

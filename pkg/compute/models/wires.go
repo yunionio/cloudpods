@@ -1301,6 +1301,12 @@ func (manager *SWireManager) ListItemFilter(
 		sq := HostwireManager.Query("wire_id").Equals("host_id", hostObj.GetId())
 		q = q.Filter(sqlchemy.In(q.Field("id"), sq.SubQuery()))
 	}
+	if len(query.HostType) > 0 {
+		hs := HostManager.Query("id").Equals("host_type", query.HostType).SubQuery()
+		sq := HostwireManager.Query("wire_id")
+		sq = sq.Join(hs, sqlchemy.Equals(sq.Field("host_id"), hs.Field("id")))
+		q = q.Filter(sqlchemy.In(q.Field("id"), sq.SubQuery()))
+	}
 
 	if query.Bandwidth != nil {
 		q = q.Equals("bandwidth", *query.Bandwidth)

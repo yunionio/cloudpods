@@ -21,10 +21,11 @@ type WireListOptions struct {
 
 	Bandwidth *int `help:"List wires by bandwidth"`
 
-	Region string `help:"List wires in region"`
-	Zone   string `help:"list wires in zone" json:"-"`
-	Vpc    string `help:"List wires in vpc"`
-	Host   string `help:"List wires attached to a host"`
+	Region   string `help:"List wires in region"`
+	Zone     string `help:"list wires in zone" json:"-"`
+	Vpc      string `help:"List wires in vpc"`
+	Host     string `help:"List wires attached to a host"`
+	HostType string `help:"List wires attached to host with HostType"`
 }
 
 func (wo *WireListOptions) GetContextId() string {
