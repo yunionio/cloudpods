@@ -22,9 +22,9 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -68,20 +68,13 @@ func (manager *SStatusInfrasResourceBaseManager) GetPropertyStatistics(ctx conte
 
 	var err error
 	q := manager.Query()
-	q, err = ListItemFilter(im, ctx, q, userCred, query)
+	q, err = ListItemQueryFilters(im, ctx, q, userCred, query, policy.PolicyActionList)
 	if err != nil {
 		return nil, err
 	}
 
 	sq := q.SubQuery()
 	statQ := sq.Query(sq.Field("status"), sqlchemy.COUNT("total_count", sq.Field("id")))
-	_, queryScope, err := FetchCheckQueryOwnerScope(ctx, userCred, query, im, rbacutils.ActionList, true)
-	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
-	}
-	statQ = manager.FilterByOwner(statQ, userCred, queryScope)
-	statQ = manager.FilterBySystemAttributes(statQ, userCred, query, queryScope)
-	statQ = manager.FilterByHiddenSystemAttributes(statQ, userCred, query, queryScope)
 	statQ = statQ.GroupBy(sq.Field("status"))
 
 	ret := []struct {
