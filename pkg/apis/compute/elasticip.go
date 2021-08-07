@@ -72,6 +72,8 @@ type SElasticipCreateInput struct {
 
 	// description: BgpType for the new eip
 	BgpType string `json:"bgp_type"`
+
+	BandwidthMb int `json:"bandwidth"`
 }
 
 type ElasticipDetails struct {

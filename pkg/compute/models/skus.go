@@ -269,7 +269,7 @@ func (manager *SServerSkuManager) FetchCustomizeColumns(
 	for i := range rows {
 		rows[i] = api.ServerSkuDetails{
 			EnabledStatusStandaloneResourceDetails: stdRows[i],
-			ZoneResourceInfo:                       zoneRows[i],
+			ZoneResourceInfoBase:                   zoneRows[i].ZoneResourceInfoBase,
 		}
 		if len(rows[i].Zone) == 0 {
 			rows[i].CloudregionResourceInfo = regRows[i]

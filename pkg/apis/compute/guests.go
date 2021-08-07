@@ -179,8 +179,7 @@ type ServerDetails struct {
 	SecurityRules string `json:"security_rules"`
 	// 操作系统名称
 	OsName string `json:"os_name"`
-	// 操作系统类型
-	OsType string `json:"os_type"`
+
 	// 系统管理员可见的安全组规则
 	AdminSecurityRules string `json:"admin_security_rules"`
 
