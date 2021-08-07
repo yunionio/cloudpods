@@ -126,6 +126,8 @@ type NetworkListInput struct {
 
 	// filter by BGP types
 	BgpType []string `json:"bgp_type"`
+
+	HostType string `json:"host_type"`
 }
 
 type NetworkResourceInfoBase struct {

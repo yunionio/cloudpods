@@ -44,7 +44,8 @@ type NetworkListOptions struct {
 	GuestIpStart []string `help:"search by guest_ip_start"`
 	GuestIpEnd   []string `help:"search by guest_ip_end"`
 
-	BgpType []string `help:"filter by bgp_type"`
+	BgpType  []string `help:"filter by bgp_type"`
+	HostType string   `help:"filter by host_type"`
 }
 
 func (opts *NetworkListOptions) GetContextId() string {
