@@ -793,6 +793,16 @@ func init() {
 			return err
 		}
 
+		eip, err := srv.GetString("eip")
+		if err != nil && err.Error() != "Get: key not found" {
+			return err
+		}
+
+		vpcid, err := srv.GetString("vpc_id")
+		if err != nil {
+			return err
+		}
+
 		address := make([]string, 0)
 		nics, err := srv.GetArray("nics")
 		if err != nil {
@@ -834,55 +844,57 @@ func init() {
 		if opts.User != "" {
 			user = opts.User
 		}
-
-		host := address[0]
-		if opts.Host != "" {
-			host = opts.Host
-		}
 		port := 22
 		if opts.Port != 22 {
 			port = opts.Port
 		}
 
-		vpcid, err := srv.GetString("vpc_id")
-		if err != nil {
-			return err
+		var forwardItem *forwardInfo = nil
+		host := address[0]
+		if opts.Host != "" {
+			host = opts.Host
+		} else {
+			if eip != "" {
+				host = eip
+			} else {
+				if vpcid != "default" {
+					forwardItem, err = openForward(s, srvid)
+					if err != nil {
+						return err
+					}
+					host = forwardItem.ProxyAddr
+					port = forwardItem.ProxyPort
+				}
+			}
 		}
 
-		forwardFlag := false
-		var (
-			forwardItem *forwardInfo
-			sshCli      *ssh.Client
-		)
-
-		if vpcid == "default" {
-			sshCli, err = ssh.NewClient(host, port, user, passwd, "")
-			if err != nil {
+		var sshCli *ssh.Client
+		for sshCli, err = ssh.NewClient(host, port, user, passwd, ""); err != nil; {
+			if opts.Host != "" {
 				return err
 			}
-		} else {
-			forwardFlag = true
-			forwardItem, err = openForward(s, srvid)
-			if err != nil {
-				return err
-			}
-
-			sshCli, err = ssh.NewClient(forwardItem.ProxyAddr, forwardItem.ProxyPort, user, passwd, "")
-			if err != nil {
+			if forwardItem != nil {
 				closeForward(s, srvid, forwardItem)
 				return err
+			} else {
+				forwardItem, err = openForward(s, srvid)
+				if err != nil {
+					return err
+				}
+				host = forwardItem.ProxyAddr
+				port = forwardItem.ProxyPort
 			}
 		}
 
 		log.Infof("ssh %s:%d", host, port)
 		if err := sshCli.RunTerminal(); err != nil {
-			if forwardFlag {
+			if forwardItem != nil {
 				closeForward(s, srvid, forwardItem)
 			}
 			return err
 		}
 
-		if forwardFlag {
+		if forwardItem != nil {
 			closeForward(s, srvid, forwardItem)
 		}
 		return nil
