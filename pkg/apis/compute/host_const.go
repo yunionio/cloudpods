@@ -23,12 +23,12 @@ const (
 	HOST_TYPE_HYPERV     = "hyperv"  // # Microsoft Hyper-V
 	HOST_TYPE_XEN        = "xen"     // # XenServer
 
-	HOST_TYPE_ALIYUN    = "aliyun"
-	HOST_TYPE_APSARA    = "apsara"
-	HOST_TYPE_AWS       = "aws"
-	HOST_TYPE_QCLOUD    = "qcloud"
-	HOST_TYPE_AZURE     = "azure"
-	HOST_TYPE_HUAWEI    = "huawei"
+	HOST_TYPE_ALIYUN             = "aliyun"
+	HOST_TYPE_APSARA             = "apsara"
+	HOST_TYPE_AWS                = "aws"
+	HOST_TYPE_QCLOUD             = "qcloud"
+	HOST_TYPE_AZURE              = "azure"
+	HOST_TYPE_HUAWEI             = "huawei"
 	HOST_TYPE_HUAWEI_CLOUD_STACK = "huaweicloudstack"
 	HOST_TYPE_OPENSTACK = "openstack"
 	HOST_TYPE_UCLOUD    = "ucloud"
