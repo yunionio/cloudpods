@@ -35,7 +35,7 @@ func GetRegistryMetricInput() (metricInitInputs []monitor.MetricCreateInput) {
 	if metricInitInputMap == nil {
 		metricInitInputMap = make(map[string]monitor.MetricCreateInput)
 	}
-	for name, _ := range metricInitInputMap {
+	for name := range metricInitInputMap {
 		metricInitInputs = append(metricInitInputs, metricInitInputMap[name])
 	}
 	return
@@ -270,6 +270,18 @@ func init() {
 		monitor.METRIC_RES_TYPE_STORAGE, monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("usage_active", "Storage utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
 			newMetricFieldCreateInput("free", "Free storage", monitor.METRIC_UNIT_MB, 2),
+		})
+
+	// lm-sensors temperature
+	RegistryMetricCreateInput("agent_sensors", "Collect lm-sensors metrics",
+		monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE, 6, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("temp_input", "lm-sensors temperature input", "", 1),
+		})
+
+	// smartctl device temperature
+	RegistryMetricCreateInput("agent_smart_device", "Collect smartctl metrics",
+		monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE, 7, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("temp_c", "Disk device temperature ", "", 1),
 		})
 
 	//jenkins
