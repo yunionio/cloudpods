@@ -705,12 +705,34 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 
 	originSecret, _ := self.getPassword()
 
+	hcsoEndpoints := cloudprovider.SHuaweiCloudStackEndpoints{}
+	if self.Provider == api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK && input.SHuaweiCloudStackEndpoints != nil {
+		if self.Options == nil {
+			self.Options = jsonutils.NewDict()
+		}
+
+		newOptions := jsonutils.Marshal(input.SHuaweiCloudStackEndpoints)
+		_, err = db.UpdateWithLock(ctx, self, func() error {
+			self.Options.Update(newOptions)
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		err = self.Options.Unmarshal(&hcsoEndpoints)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	accountId, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
-		Vendor:    self.Provider,
-		URL:       self.AccessUrl,
-		Account:   account.Account,
-		Secret:    account.Secret,
-		ProxyFunc: self.proxyFunc(),
+		Vendor:                     self.Provider,
+		URL:                        self.AccessUrl,
+		Account:                    account.Account,
+		Secret:                     account.Secret,
+		SHuaweiCloudStackEndpoints: hcsoEndpoints,
+		ProxyFunc:                  self.proxyFunc(),
 	})
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("invalid cloud account info error: %s", err.Error())
