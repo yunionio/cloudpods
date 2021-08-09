@@ -15,16 +15,16 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SEnterpriseProjectManager struct {
 	SResourceManager
 }
 
-func NewEnterpriseProjectManager(regionId string, projectId string, signer auth.Signer, debug bool) *SEnterpriseProjectManager {
-	return &SEnterpriseProjectManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+func NewEnterpriseProjectManager(cfg manager.IManagerConfig) *SEnterpriseProjectManager {
+	m := &SEnterpriseProjectManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameEPS,
 		Region:        "",
 		ProjectId:     "",
@@ -34,4 +34,6 @@ func NewEnterpriseProjectManager(regionId string, projectId string, signer auth.
 
 		ResourceKeyword: "enterprise-projects",
 	}}
+	m.SetDomainId(cfg.GetDomainId())
+	return m
 }

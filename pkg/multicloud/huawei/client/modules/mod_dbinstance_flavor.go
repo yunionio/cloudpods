@@ -15,19 +15,19 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SDBInstanceFlavorManager struct {
 	SResourceManager
 }
 
-func NewDBInstanceFlavorManager(regionId string, projectId string, signer auth.Signer, debug bool) *SDBInstanceFlavorManager {
+func NewDBInstanceFlavorManager(cfg manager.IManagerConfig) *SDBInstanceFlavorManager {
 	return &SDBInstanceFlavorManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameRDS,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v3",
 		Keyword:       "flavor",
 		KeywordPlural: "flavor",

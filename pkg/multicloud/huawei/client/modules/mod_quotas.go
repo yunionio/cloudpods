@@ -15,19 +15,19 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SQuotaManager struct {
 	SResourceManager
 }
 
-func NewQuotaManager(regionId string, projectId string, signer auth.Signer, debug bool) *SQuotaManager {
+func NewQuotaManager(cfg manager.IManagerConfig) *SQuotaManager {
 	return &SQuotaManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameEVS,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v1",
 		Keyword:       "quotas",
 		KeywordPlural: "quotas",

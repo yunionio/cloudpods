@@ -271,6 +271,18 @@ func (opts *SHuaweiCloudAccountCreateOptions) Params() (jsonutils.JSONObject, er
 	return params, nil
 }
 
+type SHuaweiCloudStackAccountCreateOptions struct {
+	SCloudAccountCreateBaseOptions
+	cloudprovider.SHuaweiCloudStackEndpoints
+	SAccessKeyCredential
+}
+
+func (opts *SHuaweiCloudStackAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("HuaweiCloudStack"), "provider")
+	return params, nil
+}
+
 type SUcloudCloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	SAccessKeyCredential
@@ -445,6 +457,16 @@ type SHuaweiCloudAccountUpdateCredentialOptions struct {
 }
 
 func (opts *SHuaweiCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
+type SHuaweiCloudStackAccountUpdateCredentialOptions struct {
+	SCloudAccountIdOptions
+	cloudprovider.SHuaweiCloudStackEndpoints
+	SAccessKeyCredential
+}
+
+func (opts *SHuaweiCloudStackAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
 
@@ -767,6 +789,14 @@ func (opts *SHuaweiCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, er
 		params.Add(jsonutils.NewStringArray(removeOptions), "remove_options")
 	}
 	return params, nil
+}
+
+type SHuaweiCloudStackAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
+}
+
+func (opts *SHuaweiCloudStackAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
 }
 
 type SUcloudCloudAccountUpdateOptions struct {

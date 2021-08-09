@@ -17,7 +17,7 @@ package modules
 import (
 	"fmt"
 
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SElbPoliciesManager struct {
@@ -33,16 +33,16 @@ func (self *policyCtx) GetPath() string {
 	return fmt.Sprintf("l7policies/%s", self.l7policyId)
 }
 
-func NewElbPoliciesManager(regionId string, projectId string, signer auth.Signer, debug bool) *SElbPoliciesManager {
+func NewElbPoliciesManager(cfg manager.IManagerConfig) *SElbPoliciesManager {
 	var requestHook portProject
-	if len(projectId) > 0 {
-		requestHook = portProject{projectId: projectId}
+	if len(cfg.GetProjectId()) > 0 {
+		requestHook = portProject{projectId: cfg.GetProjectId()}
 	}
 
 	return &SElbPoliciesManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager2(signer, debug, &requestHook),
+		SBaseManager:  NewBaseManager2(cfg, &requestHook),
 		ServiceName:   ServiceNameELB,
-		Region:        regionId,
+		Region:        cfg.GetRegionId(),
 		ProjectId:     "",
 		version:       "v2.0/lbaas",
 		Keyword:       "rule",

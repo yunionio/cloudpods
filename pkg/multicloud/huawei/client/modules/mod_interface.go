@@ -15,7 +15,7 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SInterfaceManager struct {
@@ -23,12 +23,12 @@ type SInterfaceManager struct {
 }
 
 // 不建议使用
-func NewInterfaceManager(regionId, projectId string, signer auth.Signer, debug bool) *SInterfaceManager {
+func NewInterfaceManager(cfg manager.IManagerConfig) *SInterfaceManager {
 	return &SInterfaceManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameECS,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v2",
 		Keyword:       "interfaceAttachment",
 		KeywordPlural: "interfaceAttachments",

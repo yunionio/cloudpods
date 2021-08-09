@@ -15,7 +15,7 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/requests"
 )
 
@@ -33,17 +33,17 @@ func (self *portProject) Process(request requests.IRequest) {
 	request.AddHeaderParam("X-Project-Id", self.projectId)
 }
 
-func NewPortManager(regionId string, projectId string, signer auth.Signer, debug bool) *SPortManager {
+func NewPortManager(cfg manager.IManagerConfig) *SPortManager {
 	var requestHook portProject
-	if len(projectId) > 0 {
-		requestHook = portProject{projectId: projectId}
+	if len(cfg.GetProjectId()) > 0 {
+		requestHook = portProject{projectId: cfg.GetProjectId()}
 	}
 
 	return &SPortManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager2(signer, debug, &requestHook),
+		SBaseManager:  NewBaseManager2(cfg, &requestHook),
 		ServiceName:   ServiceNameVPC,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v1",
 		Keyword:       "port",
 		KeywordPlural: "ports",

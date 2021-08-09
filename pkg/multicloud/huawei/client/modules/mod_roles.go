@@ -15,16 +15,16 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SRoleManager struct {
 	SResourceManager
 }
 
-func NewRoleManager(signer auth.Signer, debug bool) *SRoleManager {
-	return &SRoleManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+func NewRoleManager(cfg manager.IManagerConfig) *SRoleManager {
+	m := &SRoleManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameIAM,
 		Region:        "",
 		ProjectId:     "",
@@ -34,4 +34,6 @@ func NewRoleManager(signer auth.Signer, debug bool) *SRoleManager {
 
 		ResourceKeyword: "roles",
 	}}
+	m.SetDomainId(cfg.GetDomainId())
+	return m
 }

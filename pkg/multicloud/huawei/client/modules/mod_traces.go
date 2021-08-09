@@ -15,19 +15,19 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type STraceManager struct {
 	SResourceManager
 }
 
-func NewTraceManager(regionId string, projectId string, signer auth.Signer, debug bool) *STraceManager {
+func NewTraceManager(cfg manager.IManagerConfig) *STraceManager {
 	return &STraceManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameCTS,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v2.0",
 		Keyword:       "trace",
 		KeywordPlural: "traces",

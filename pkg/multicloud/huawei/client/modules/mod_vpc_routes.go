@@ -15,18 +15,18 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SVpcRouteManager struct {
 	SResourceManager
 }
 
-func NewVpcRouteManager(regionId string, projectId string, signer auth.Signer, debug bool) *SVpcRouteManager {
+func NewVpcRouteManager(cfg manager.IManagerConfig) *SVpcRouteManager {
 	return &SVpcRouteManager{SResourceManager: SResourceManager{
-		SBaseManager: NewBaseManager(signer, debug),
+		SBaseManager: NewBaseManager(cfg),
 		ServiceName:  ServiceNameVPC,
-		Region:       regionId,
+		Region:       cfg.GetRegionId(),
 		// the url should not include the field "projectid" in huawei cloud api v2.0
 		ProjectId:     "",
 		version:       "v2.0",

@@ -20,7 +20,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"
 )
 
@@ -28,9 +28,9 @@ type SGroupManager struct {
 	SResourceManager
 }
 
-func NewGroupManager(signer auth.Signer, debug bool) *SGroupManager {
-	return &SGroupManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+func NewGroupManager(cfg manager.IManagerConfig) *SGroupManager {
+	m := &SGroupManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameIAM,
 		Region:        "",
 		ProjectId:     "",
@@ -40,6 +40,8 @@ func NewGroupManager(signer auth.Signer, debug bool) *SGroupManager {
 
 		ResourceKeyword: "groups",
 	}}
+	m.SetDomainId(cfg.GetDomainId())
+	return m
 }
 
 func (manager *SGroupManager) ListRoles(domainId string, groupId string) (*responses.ListResult, error) {

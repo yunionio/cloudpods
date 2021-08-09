@@ -17,7 +17,7 @@ package modules
 import (
 	"fmt"
 
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"
 )
 
@@ -44,9 +44,9 @@ func (self *balanceCtx) GetPath() string {
 }
 
 // 这个manager非常特殊。只有List	和 SetDomainId方法可用。其他方法未验证
-func NewBalanceManager(signer auth.Signer, debug bool) *SBalanceManager {
+func NewBalanceManager(cfg manager.IManagerConfig) *SBalanceManager {
 	return &SBalanceManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameBSS,
 		Region:        "cn-north-1",
 		ProjectId:     "",

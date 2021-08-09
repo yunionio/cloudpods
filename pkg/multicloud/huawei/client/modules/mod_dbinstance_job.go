@@ -17,19 +17,19 @@ package modules
 import (
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SDBInstanceJobManager struct {
 	SResourceManager
 }
 
-func NewDBInstanceJobManager(regionId string, projectId string, signer auth.Signer, debug bool) *SDBInstanceJobManager {
+func NewDBInstanceJobManager(cfg manager.IManagerConfig) *SDBInstanceJobManager {
 	return &SDBInstanceJobManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameRDS,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v3",
 		Keyword:       "",
 		KeywordPlural: "",

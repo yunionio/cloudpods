@@ -21,7 +21,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/requests"
 )
 
@@ -29,12 +29,12 @@ type SCloudEyeManager struct {
 	SResourceManager
 }
 
-func NewCloudEyeManager(regionId string, projectId string, signer auth.Signer, debug bool) *SCloudEyeManager {
+func NewCloudEyeManager(cfg manager.IManagerConfig) *SCloudEyeManager {
 	return &SCloudEyeManager{SResourceManager: SResourceManager{
-		SBaseManager:    NewBaseManager(signer, debug),
+		SBaseManager:    NewBaseManager(cfg),
 		ServiceName:     ServiceNameCES,
-		Region:          regionId,
-		ProjectId:       projectId,
+		Region:          cfg.GetRegionId(),
+		ProjectId:       cfg.GetProjectId(),
 		version:         "V1.0",
 		Keyword:         "",
 		KeywordPlural:   "metrics",
@@ -93,7 +93,7 @@ func (ces *SCloudEyeManager) ListMetrics() ([]SMetricMeta, error) {
 }
 
 func (ces *SCloudEyeManager) listMetricsInternal(start string) (string, []SMetricMeta, error) {
-	request := requests.NewResourceRequest("GET", string(ces.ServiceName), ces.version, ces.Region, ces.ProjectId, ces.ResourceKeyword)
+	request := requests.NewResourceRequest(ces.GetEndpoint(), "GET", string(ces.ServiceName), ces.version, ces.Region, ces.ProjectId, ces.ResourceKeyword)
 	request.AddQueryParam("limit", "1000")
 	if len(start) > 0 {
 		request.AddQueryParam("start", start)
@@ -128,7 +128,7 @@ func (ces *SCloudEyeManager) GetMetricsData(metrics []SMetricMeta, since time.Ti
 	for i := range metrics {
 		metricReq[i] = metrics[i].SMetric
 	}
-	request := requests.NewResourceRequest("POST", string(ces.ServiceName), ces.version, ces.Region, ces.ProjectId, "batch-query-metric-data")
+	request := requests.NewResourceRequest(ces.GetEndpoint(), "POST", string(ces.ServiceName), ces.version, ces.Region, ces.ProjectId, "batch-query-metric-data")
 	input := SBatchQueryMetricDataInput{
 		Metrics: metricReq,
 		From:    since.Unix() * 1000,

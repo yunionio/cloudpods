@@ -17,7 +17,7 @@ package modules
 import (
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"
 )
 
@@ -25,12 +25,12 @@ type SfsTurboManager struct {
 	SResourceManager
 }
 
-func NewSfsTurboManager(regionId, projectId string, signer auth.Signer, debug bool) *SfsTurboManager {
+func NewSfsTurboManager(cfg manager.IManagerConfig) *SfsTurboManager {
 	return &SfsTurboManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameSFSTurbo,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v1",
 		Keyword:       "",
 		KeywordPlural: "shares",
