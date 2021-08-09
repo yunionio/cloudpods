@@ -115,7 +115,7 @@ func (self *SHuaweiCloudStackEndpoints) GetEndpoint(serviceName string, region s
 	var endpoint string
 	fileds := reflect.Indirect(reflect.ValueOf(self))
 	f := fileds.FieldByNameFunc(func(c string) bool {
-		return strings.ToLower(c) == sn
+		return c == sn
 	})
 
 	if f.Kind() == reflect.String {
