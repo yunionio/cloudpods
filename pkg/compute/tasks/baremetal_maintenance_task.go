@@ -52,10 +52,12 @@ func (self *BaremetalMaintenanceTask) OnEnterMaintenantModeSucc(ctx context.Cont
 	if len(action) > 0 {
 		logclient.AddActionLogWithStartable(self, baremetal, action, "", self.UserCred, true)
 	}
-	db.Update(baremetal, func() error {
-		baremetal.IsMaintenance = true
-		return nil
-	})
+	if action != logclient.ACT_VM_START {
+		db.Update(baremetal, func() error {
+			baremetal.IsMaintenance = true
+			return nil
+		})
+	}
 	username, _ := body.Get("username")
 	password, _ := body.Get("password")
 	ip, _ := body.Get("ip")
