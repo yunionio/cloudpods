@@ -551,7 +551,7 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 				qosEipOut = &ovn_nb.QoS{
 					Priority:  3000,
 					Direction: "from-lport",
-					Match:     fmt.Sprintf("inport == %q", lportName),
+					Match:     fmt.Sprintf("inport == %q && ip4 && ip4.src == %s", vpcErpName(vpc.Id), guestnetwork.IpAddr),
 					Bandwidth: map[string]int64{
 						"rate":  kbps,
 						"burst": kbur,
@@ -635,7 +635,7 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		args = append(args, ovnCreateArgs(qosEipIn, "qosEipIn")...)
 		args = append(args, "--", "add", "Logical_Switch", vpcEipLsName(vpc.Id), "qos_rules", "@qosEipIn")
 		args = append(args, ovnCreateArgs(qosEipOut, "qosEipOut")...)
-		args = append(args, "--", "add", "Logical_Switch", netLsName(guestnetwork.NetworkId), "qos_rules", "@qosEipOut")
+		args = append(args, "--", "add", "Logical_Switch", vpcEipLsName(vpc.Id), "qos_rules", "@qosEipOut")
 	}
 	return keeper.cli.Must(ctx, "ClaimGuestnetwork", args)
 }
