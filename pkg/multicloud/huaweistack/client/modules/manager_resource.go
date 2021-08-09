@@ -31,26 +31,26 @@ type ServiceNameType string
 const HuaWeiDefaultDomain = "myhuaweicloud.com"
 
 const (
-	ServiceNameECS  ServiceNameType = "ecs"     // 弹性云服务
-	ServiceNameCCE  ServiceNameType = "cce"     // 云容器服务
-	ServiceNameAS   ServiceNameType = "as"      // 弹性伸缩服务
-	ServiceNameIAM  ServiceNameType = "iam-pub" // 统一身份认证服务
-	ServiceNameIMS  ServiceNameType = "ims"     // 镜像服务
-	ServiceNameCSBS ServiceNameType = "csbs"    // 云服务器备份服务
-	ServiceNameCCI  ServiceNameType = "cci"     // 云容器实例 CCI
-	ServiceNameBMS  ServiceNameType = "bms"     // 裸金属服务器
-	ServiceNameEVS  ServiceNameType = "evs"     // 云硬盘 EVS
-	ServiceNameVBS  ServiceNameType = "vbs"     // 云硬盘备份 VBS
-	ServiceNameOBS  ServiceNameType = "obs"     // 对象存储服务 OBS
-	ServiceNameVPC  ServiceNameType = "vpc"     // 虚拟私有云 VPC
-	ServiceNameELB  ServiceNameType = "elb"     // 弹性负载均衡 ELB
-	ServiceNameBSS  ServiceNameType = "bss"     // 合作伙伴运营能力
-	ServiceNameNAT  ServiceNameType = "nat"     // Nat网关 NAT
-	ServiceNameDCS  ServiceNameType = "dcs"     // 分布式缓存服务
-	ServiceNameRDS  ServiceNameType = "rds"     // 关系型数据库 RDS
-	ServiceNameCTS  ServiceNameType = "cts"     // 云审计服务
-	ServiceNameCES  ServiceNameType = "ces"     // 监控服务 CloudEye
-	ServiceNameEPS  ServiceNameType = "eps"     // 企业项目
+	ServiceNameECS  ServiceNameType = "ecs"  // 弹性云服务
+	ServiceNameCCE  ServiceNameType = "cce"  // 云容器服务
+	ServiceNameAS   ServiceNameType = "as"   // 弹性伸缩服务
+	ServiceNameIAM  ServiceNameType = "iam"  // 统一身份认证服务
+	ServiceNameIMS  ServiceNameType = "ims"  // 镜像服务
+	ServiceNameCSBS ServiceNameType = "csbs" // 云服务器备份服务
+	ServiceNameCCI  ServiceNameType = "cci"  // 云容器实例 CCI
+	ServiceNameBMS  ServiceNameType = "bms"  // 裸金属服务器
+	ServiceNameEVS  ServiceNameType = "evs"  // 云硬盘 EVS
+	ServiceNameVBS  ServiceNameType = "vbs"  // 云硬盘备份 VBS
+	ServiceNameOBS  ServiceNameType = "obs"  // 对象存储服务 OBS
+	ServiceNameVPC  ServiceNameType = "vpc"  // 虚拟私有云 VPC
+	ServiceNameELB  ServiceNameType = "elb"  // 弹性负载均衡 ELB
+	ServiceNameBSS  ServiceNameType = "bss"  // 合作伙伴运营能力
+	ServiceNameNAT  ServiceNameType = "nat"  // Nat网关 NAT
+	ServiceNameDCS  ServiceNameType = "dcs"  // 分布式缓存服务
+	ServiceNameRDS  ServiceNameType = "rds"  // 关系型数据库 RDS
+	ServiceNameCTS  ServiceNameType = "cts"  // 云审计服务
+	ServiceNameCES  ServiceNameType = "ces"  // 监控服务 CloudEye
+	ServiceNameEPS  ServiceNameType = "eps"  // 企业项目
 
 	ServiceNameSFSTurbo ServiceNameType = "sfs-turbo" // 文件系统
 )

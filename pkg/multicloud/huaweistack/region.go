@@ -363,7 +363,7 @@ func (self *SRegion) GetI18n() cloudprovider.SModelI18nTable {
 }
 
 func (self *SRegion) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", self.client.GetAccessEnv(), self.ID)
+	return fmt.Sprintf("%s/%s", api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK, self.ID)
 }
 
 func (self *SRegion) GetStatus() string {
