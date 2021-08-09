@@ -551,7 +551,7 @@ func DoReboot(exector IPMIExecutor) error {
 			if status == types.POWER_STATUS_OFF {
 				break
 			}
-			time.Sleep(1 * time.Second)
+			time.Sleep(10 * time.Second)
 		}
 	}
 
@@ -561,7 +561,7 @@ func DoReboot(exector IPMIExecutor) error {
 		if err := DoPowerOn(exector); err != nil {
 			log.Errorf("DoReboot %d tries to power on: %v", tried, err)
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(10 * time.Second)
 		status, err = GetChassisPowerStatus(exector)
 		if err != nil {
 			log.Errorf("DoReboot %d tries to get power status: %v", tried, err)
