@@ -163,15 +163,6 @@ func (self *SElasticcache) GetCreatedAt() time.Time {
 
 func (self *SElasticcache) GetExpiredAt() time.Time {
 	var expiredTime time.Time
-	if self.ChargingMode == 1 {
-		res, err := self.region.GetOrderResourceDetail(self.GetId())
-		if err != nil {
-			log.Debugln(err)
-		}
-
-		expiredTime = res.ExpireTime
-	}
-
 	return expiredTime
 }
 

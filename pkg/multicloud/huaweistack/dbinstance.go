@@ -161,11 +161,7 @@ func (rds *SDBInstance) GetStatus() string {
 }
 
 func (rds *SDBInstance) GetBillingType() string {
-	_, err := rds.region.GetOrderResourceDetail(fmt.Sprintf("%s.vm", rds.Id))
-	if err != nil {
-		return billing_api.BILLING_TYPE_POSTPAID
-	}
-	return billing_api.BILLING_TYPE_PREPAID
+	return billing_api.BILLING_TYPE_POSTPAID
 }
 
 func (rds *SDBInstance) GetSecurityGroupIds() ([]string, error) {
@@ -185,11 +181,7 @@ func (rds *SDBInstance) fetchFlavor() error {
 }
 
 func (rds *SDBInstance) GetExpiredAt() time.Time {
-	order, err := rds.region.GetOrderResourceDetail(fmt.Sprintf("%s.vm", rds.Id))
-	if err != nil {
-		return time.Time{}
-	}
-	return order.ExpireTime
+	return time.Time{}
 }
 
 func (rds *SDBInstance) GetStorageType() string {
@@ -697,5 +689,5 @@ func (region *SRegion) RecoveryDBInstanceFromBackup(target, origin string, backu
 }
 
 func (rds *SDBInstance) Renew(bc billing.SBillingCycle) error {
-	return rds.region.RenewInstance(rds.Id, bc)
+	return cloudprovider.ErrNotSupported
 }

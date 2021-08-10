@@ -167,7 +167,11 @@ func (self *SImage) GetSizeByte() int64 {
 
 func (self *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
 	if self.imgInfo == nil {
-		imgInfo := imagetools.NormalizeImageInfo(self.ImageSourceType, self.OSType, self.OSType, self.Platform, "")
+		arch := "x86"
+		if strings.ToLower(self.SupportArm) == "true" {
+			arch = "arm"
+		}
+		imgInfo := imagetools.NormalizeImageInfo(self.ImageSourceType, arch, self.OSType, self.Platform, "")
 		self.imgInfo = &imgInfo
 	}
 
@@ -270,10 +274,6 @@ func excludeImage(image SImage) bool {
 	}
 
 	if len(image.SupportHighPerformance) > 0 {
-		return true
-	}
-
-	if len(image.SupportArm) > 0 {
 		return true
 	}
 
@@ -421,15 +421,14 @@ func formatVersion(osDist string, osVersion string) (string, error) {
 	return "", err
 }
 
-// todo: 如何保持同步更新
 // https://support.huaweicloud.com/api-ims/zh-cn_topic_0031617666.html
 func stdVersion(osDist string, osVersion string, osArch string) (string, error) {
 	// 架构
 	arch := ""
 	switch osArch {
-	case "64", apis.OS_ARCH_X86_64:
+	case "64", apis.OS_ARCH_X86_64, apis.OS_ARCH_AARCH64, apis.OS_ARCH_ARM:
 		arch = "64bit"
-	case "32", apis.OS_ARCH_X86_32:
+	case "32", apis.OS_ARCH_X86_32, apis.OS_ARCH_AARCH32:
 		arch = "32bit"
 	default:
 		return "", fmt.Errorf("unsupported arch %s.reference: https://support.huaweicloud.com/api-ims/zh-cn_topic_0031617666.html", osArch)

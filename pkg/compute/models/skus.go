@@ -1095,6 +1095,7 @@ func (self *SServerSku) constructSku(extSku cloudprovider.ICloudSku) {
 	self.PrepaidStatus = extSku.GetPrepaidStatus()
 	self.PostpaidStatus = extSku.GetPostpaidStatus()
 
+	self.CpuArch = extSku.GetCpuArch()
 	self.CpuCoreCount = extSku.GetCpuCoreCount()
 	self.MemorySizeMB = extSku.GetMemorySizeMB()
 

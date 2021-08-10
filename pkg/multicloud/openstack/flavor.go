@@ -208,6 +208,10 @@ func (flavor *SFlavor) GetPostpaidStatus() string {
 	return api.SkuStatusAvailable
 }
 
+func (flavor *SFlavor) GetCpuArch() string {
+	return ""
+}
+
 func (flavor *SFlavor) GetCpuCoreCount() int {
 	return int(flavor.Vcpus)
 }
