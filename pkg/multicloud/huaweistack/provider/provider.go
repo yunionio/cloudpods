@@ -29,7 +29,7 @@ import (
 )
 
 type SHuaweiCloudStackProviderFactory struct {
-	cloudprovider.SPublicCloudBaseProviderFactory
+	cloudprovider.SPrivateCloudBaseProviderFactory
 }
 
 func (self *SHuaweiCloudStackProviderFactory) GetId() string {
@@ -212,15 +212,7 @@ func (self *SHuaweiCloudStackProvider) GetIRegionById(extId string) (cloudprovid
 }
 
 func (self *SHuaweiCloudStackProvider) GetBalance() (float64, string, error) {
-	balance, err := self.client.QueryAccountBalance()
-	if err != nil {
-		return 0.0, api.CLOUD_PROVIDER_HEALTH_UNKNOWN, err
-	}
-	status := api.CLOUD_PROVIDER_HEALTH_NORMAL
-	if balance.AvailableAmount < 0.0 && balance.CreditAmount < 0.0 {
-		status = api.CLOUD_PROVIDER_HEALTH_ARREARS
-	}
-	return balance.AvailableAmount, status, nil
+	return 0.0, api.CLOUD_PROVIDER_HEALTH_NORMAL, nil
 }
 
 func (self *SHuaweiCloudStackProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {

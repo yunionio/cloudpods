@@ -900,6 +900,48 @@ func syncRegionDBInstances(ctx context.Context, userCred mcclient.TokenCredentia
 	}
 }
 
+func syncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+	skus, err := remoteRegion.GetIDBInstanceSkus()
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented {
+			return
+		}
+		msg := fmt.Sprintf("GetIDBInstanceSkus for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		return
+	}
+	result := localRegion.SyncDBInstanceSkus(ctx, userCred, provider, skus)
+
+	syncResults.Add(DBInstanceSkuManager, result)
+
+	msg := result.Result()
+	log.Infof("SyncDBInstanceSkus for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		return
+	}
+}
+
+func syncNATSkus(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+	skus, err := remoteRegion.GetICloudNatSkus()
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented {
+			return
+		}
+		msg := fmt.Sprintf("GetINatSkus for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		return
+	}
+	result := localRegion.SyncPrivateCloudNatSkus(ctx, userCred, skus)
+
+	syncResults.Add(NasSkuManager, result)
+
+	msg := result.Result()
+	log.Infof("SyncNasSkus for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		return
+	}
+}
+
 func syncDBInstanceResource(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SDBInstance, remoteInstance cloudprovider.ICloudDBInstance) {
 	err := syncDBInstanceNetwork(ctx, userCred, syncResults, localInstance, remoteInstance)
 	if err != nil {
@@ -1199,6 +1241,12 @@ func syncPublicCloudProviderInfo(
 		SyncRegionNasSkus(ctx, userCred, localRegion.Id, true)
 	} else {
 		syncSkusFromPrivateCloud(ctx, userCred, syncResults, localRegion, remoteRegion)
+		if cloudprovider.IsSupportRds(driver) {
+			syncDBInstanceSkus(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		}
+		if cloudprovider.IsSupportNAT(driver) {
+			syncNATSkus(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		}
 	}
 
 	// no need to lock public cloud region as cloud region for public cloud is readonly
