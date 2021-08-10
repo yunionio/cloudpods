@@ -163,9 +163,11 @@ func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SG
 		reuseAddr := false
 		hn := host.GetAttach2Network(netConfig.Network)
 		if hn != nil && options.Options.BaremetalServerReuseHostIp {
-			// try to reuse host network IP address
-			netConfig.Address = hn.IpAddr
-			reuseAddr = true
+			if netConfig.Address == "" || netConfig.Address == hn.IpAddr {
+				// try to reuse host network IP address
+				netConfig.Address = hn.IpAddr
+				reuseAddr = true
+			}
 		}
 
 		return net, nicConfs, api.IPAllocationStepup, reuseAddr, nil
