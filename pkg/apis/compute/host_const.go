@@ -30,12 +30,12 @@ const (
 	HOST_TYPE_AZURE              = "azure"
 	HOST_TYPE_HUAWEI             = "huawei"
 	HOST_TYPE_HUAWEI_CLOUD_STACK = "huaweicloudstack"
-	HOST_TYPE_OPENSTACK = "openstack"
-	HOST_TYPE_UCLOUD    = "ucloud"
-	HOST_TYPE_ZSTACK    = "zstack"
-	HOST_TYPE_GOOGLE    = "google"
-	HOST_TYPE_CTYUN     = "ctyun"
-	HOST_TYPE_ECLOUD    = "ecloud"
+	HOST_TYPE_OPENSTACK          = "openstack"
+	HOST_TYPE_UCLOUD             = "ucloud"
+	HOST_TYPE_ZSTACK             = "zstack"
+	HOST_TYPE_GOOGLE             = "google"
+	HOST_TYPE_CTYUN              = "ctyun"
+	HOST_TYPE_ECLOUD             = "ecloud"
 
 	HOST_TYPE_DEFAULT = HOST_TYPE_HYPERVISOR
 
