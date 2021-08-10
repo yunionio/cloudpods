@@ -323,6 +323,10 @@ func IsSupportRds(prod ICloudProvider) bool {
 	return utils.IsInStringArray(CLOUD_CAPABILITY_RDS, prod.GetCapabilities())
 }
 
+func IsSupportNAT(prod ICloudProvider) bool {
+	return utils.IsInStringArray(CLOUD_CAPABILITY_NAT, prod.GetCapabilities())
+}
+
 func IsSupportElasticCache(prod ICloudProvider) bool {
 	return utils.IsInStringArray(CLOUD_CAPABILITY_CACHE, prod.GetCapabilities())
 }
