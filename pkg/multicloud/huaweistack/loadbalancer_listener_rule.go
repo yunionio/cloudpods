@@ -26,7 +26,6 @@ import (
 
 type SElbListenerPolicy struct {
 	multicloud.SResourceBase
-	multicloud.SLoadbalancerRedirectBase
 	multicloud.HuaweiTags
 	region   *SRegion
 	lb       *SLoadbalancer
