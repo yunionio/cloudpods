@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -124,7 +125,7 @@ func (man *SCachedLoadbalancerAclManager) ValidateCreateData(ctx context.Context
 		}
 	}
 
-	if providerV.Model.(*SCloudprovider).Provider == api.CLOUD_PROVIDER_HUAWEI {
+	if utils.IsInStringArray(providerV.Model.(*SCloudprovider).Provider, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK}) {
 		listenerV := validators.NewModelIdOrNameValidator("listener", "loadbalancerlistener", ownerId)
 		if err := listenerV.Validate(data); err != nil {
 			return nil, err
@@ -313,7 +314,7 @@ func (self *SCachedLoadbalancerAcl) syncRemoveCloudLoadbalanceAcl(ctx context.Co
 func (acl *SCachedLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, extAcl cloudprovider.ICloudLoadbalancerAcl, projectId mcclient.IIdentityProvider) error {
 	diff, err := db.UpdateWithLock(ctx, acl, func() error {
 		// todo: 华为云acl没有name字段应此不需要同步名称
-		if api.CLOUD_PROVIDER_HUAWEI != acl.GetProviderName() {
+		if !utils.IsInStringArray(acl.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK}) {
 			acl.Name = extAcl.GetName()
 		} else {
 			ext_listener_id := extAcl.GetAclListenerID()
@@ -349,7 +350,7 @@ func (man *SCachedLoadbalancerAclManager) GetOrCreateCachedAcl(ctx context.Conte
 	defer lockman.ReleaseClass(ctx, man, ownerProjId)
 
 	listenerId := ""
-	if lblis.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI {
+	if utils.IsInStringArray(lblis.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK}) {
 		listenerId = lblis.Id
 	}
 	if lblis.GetProviderName() == api.CLOUD_PROVIDER_OPENSTACK {

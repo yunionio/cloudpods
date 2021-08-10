@@ -505,7 +505,7 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 		params.EgressMbps = lb.EgressMbps
 	}
 
-	if lb.AddressType == api.LB_ADDR_TYPE_INTRANET || utils.IsInStringArray(lb.SManagedResourceBase.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_AWS, api.CLOUD_PROVIDER_QCLOUD}) {
+	if lb.AddressType == api.LB_ADDR_TYPE_INTRANET || utils.IsInStringArray(lb.SManagedResourceBase.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK, api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_AWS, api.CLOUD_PROVIDER_QCLOUD}) {
 		vpc := lb.GetVpc()
 		if vpc == nil {
 			return nil, fmt.Errorf("failed to find vpc for lb %s", lb.Name)
@@ -517,7 +517,7 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 		params.VpcID = iVpc.GetId()
 	}
 
-	if lb.AddressType == api.LB_ADDR_TYPE_INTRANET || utils.IsInStringArray(lb.SManagedResourceBase.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_AWS}) {
+	if lb.AddressType == api.LB_ADDR_TYPE_INTRANET || utils.IsInStringArray(lb.SManagedResourceBase.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK, api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_AWS}) {
 		networks, err := lb.GetNetworks()
 		if err != nil {
 			return nil, fmt.Errorf("failed to find network for lb %s: %s", lb.Name, err)

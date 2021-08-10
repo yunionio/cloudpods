@@ -86,7 +86,7 @@ func (manager *SZoneManager) AllowListItems(ctx context.Context, userCred mcclie
 func (zone *SZone) ValidateDeleteCondition(ctx context.Context) error {
 	usage := zone.GeneralUsage()
 	if !usage.IsEmpty() {
-		return httperrors.NewNotEmptyError("not empty zone")
+		return httperrors.NewNotEmptyError("not empty zone: %s", zone.Id)
 	}
 	return zone.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }

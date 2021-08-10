@@ -20,17 +20,15 @@ import (
 )
 
 func init() {
-	type OrderListOptions struct {
-		OrderId      string   `help:"Order Id"`
-		ResourceIds  []string `help:"ResourceIds"`
-		MainResource bool     `help:"Main resource"`
+	type SkuListOptions struct {
 	}
-	shellutils.R(&OrderListOptions{}, "order-list", "List order", func(cli *huawei.SRegion, args *OrderListOptions) error {
-		orders, err := cli.GetOrderResources(args.OrderId, args.ResourceIds, args.MainResource)
-		if err != nil {
-			return err
+	shellutils.R(&SkuListOptions{}, "sku-list", "List skus", func(cli *huawei.SRegion, args *SkuListOptions) error {
+		skus, e := cli.GetISkus()
+		if e != nil {
+			return e
 		}
-		printList(orders, 0, 0, 0, nil)
+
+		printList(skus, 0, 0, 0, []string{})
 		return nil
 	})
 }

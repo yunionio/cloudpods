@@ -28,7 +28,6 @@ type Client struct {
 	// 标记初始化状态
 	init bool
 
-	Balances             *modules.SBalanceManager
 	Bandwidths           *modules.SBandwidthManager
 	Credentials          *modules.SCredentialManager
 	Disks                *modules.SDiskManager
@@ -53,7 +52,6 @@ type Client struct {
 	ElbL7policies        *modules.SElbL7policiesManager
 	ElbPolicies          *modules.SElbPoliciesManager
 	ElbWhitelist         *modules.SElbWhitelistManager
-	Orders               *modules.SOrderManager
 	Port                 *modules.SPortManager
 	Projects             *modules.SProjectManager
 	Regions              *modules.SRegionManager
@@ -151,7 +149,6 @@ func (self *Client) SetHttpClient(httpClient *http.Client) {
 	self.ElbL7policies.SetHttpClient(httpClient)
 	self.ElbPolicies.SetHttpClient(httpClient)
 	self.ElbWhitelist.SetHttpClient(httpClient)
-	self.Orders.SetHttpClient(httpClient)
 	self.SecurityGroupRules.SetHttpClient(httpClient)
 	self.SecurityGroups.SetHttpClient(httpClient)
 	self.NovaSecurityGroups.SetHttpClient(httpClient)
@@ -159,7 +156,6 @@ func (self *Client) SetHttpClient(httpClient *http.Client) {
 	self.Users.SetHttpClient(httpClient)
 	self.Interface.SetHttpClient(httpClient)
 	self.Jobs.SetHttpClient(httpClient)
-	self.Balances.SetHttpClient(httpClient)
 	self.Bandwidths.SetHttpClient(httpClient)
 	self.Port.SetHttpClient(httpClient)
 	self.Flavors.SetHttpClient(httpClient)
@@ -237,7 +233,6 @@ func (self *Client) initManagers() {
 		self.ElbL7policies = modules.NewElbL7policiesManager(self.cfg)
 		self.ElbPolicies = modules.NewElbPoliciesManager(self.cfg)
 		self.ElbWhitelist = modules.NewElbWhitelistManager(self.cfg)
-		self.Orders = modules.NewOrderManager(self.cfg)
 		self.SecurityGroupRules = modules.NewSecgroupRuleManager(self.cfg)
 		self.SecurityGroups = modules.NewSecurityGroupManager(self.cfg)
 		self.NovaSecurityGroups = modules.NewNovaSecurityGroupManager(self.cfg)
@@ -245,7 +240,6 @@ func (self *Client) initManagers() {
 		self.Users = modules.NewUserManager(self.cfg)
 		self.Interface = modules.NewInterfaceManager(self.cfg)
 		self.Jobs = modules.NewJobManager(self.cfg)
-		self.Balances = modules.NewBalanceManager(self.cfg)
 		self.Bandwidths = modules.NewBandwidthManager(self.cfg)
 		self.Credentials = modules.NewCredentialManager(self.cfg)
 		self.Port = modules.NewPortManager(self.cfg)

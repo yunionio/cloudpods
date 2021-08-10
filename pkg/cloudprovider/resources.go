@@ -797,6 +797,7 @@ type ICloudSku interface {
 	GetPrepaidStatus() string
 	GetPostpaidStatus() string
 
+	GetCpuArch() string
 	GetCpuCoreCount() int
 	GetMemorySizeMB() int
 

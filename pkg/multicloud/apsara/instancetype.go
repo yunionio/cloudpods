@@ -117,6 +117,10 @@ func (self *SInstanceType) GetPostpaidStatus() string {
 	return api.SkuStatusAvailable
 }
 
+func (self *SInstanceType) GetCpuArch() string {
+	return ""
+}
+
 func (self *SInstanceType) GetCpuCoreCount() int {
 	return int(self.CpuCoreCount)
 }
