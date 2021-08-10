@@ -15,16 +15,16 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SAMLProviderMappingManager struct {
 	SResourceManager
 }
 
-func NewSAMLProviderMappingManager(signer auth.Signer, debug bool) *SAMLProviderMappingManager {
-	return &SAMLProviderMappingManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+func NewSAMLProviderMappingManager(cfg manager.IManagerConfig) *SAMLProviderMappingManager {
+	m := &SAMLProviderMappingManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameIAM,
 		Region:        "",
 		ProjectId:     "",
@@ -34,4 +34,6 @@ func NewSAMLProviderMappingManager(signer auth.Signer, debug bool) *SAMLProvider
 
 		ResourceKeyword: "mappings",
 	}}
+	m.SetDomainId(cfg.GetDomainId())
+	return m
 }

@@ -15,19 +15,19 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SSubnetManager struct {
 	SResourceManager
 }
 
-func NewSubnetManager(regionId string, projectId string, signer auth.Signer, debug bool) *SSubnetManager {
+func NewSubnetManager(cfg manager.IManagerConfig) *SSubnetManager {
 	return &SSubnetManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameVPC,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v1",
 		Keyword:       "subnet",
 		KeywordPlural: "subnets",

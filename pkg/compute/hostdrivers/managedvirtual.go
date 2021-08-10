@@ -54,7 +54,7 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 	}
 
 	providerName := storageCache.GetProviderName()
-	if utils.IsInStringArray(providerName, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_UCLOUD}) {
+	if utils.IsInStringArray(providerName, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK, api.CLOUD_PROVIDER_UCLOUD}) {
 		image.OsVersion, _ = params.GetString("os_full_version")
 	}
 

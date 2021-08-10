@@ -436,13 +436,25 @@ func (manager *SCloudaccountManager) validateCreateData(
 		input.Zone = obj.GetId()
 	}
 
+	var endpointOptions jsonutils.JSONObject
 	endpoints := cloudprovider.SApsaraEndpoints{}
 	if input.SCloudaccountCredential.SApsaraEndpoints != nil {
+		endpoints = *input.SCloudaccountCredential.SApsaraEndpoints
+		endpointOptions = jsonutils.Marshal(input.SCloudaccountCredential.SApsaraEndpoints)
+	}
+
+	hcsoEndpoints := cloudprovider.SHuaweiCloudStackEndpoints{}
+	if input.SCloudaccountCredential.SHuaweiCloudStackEndpoints != nil {
+		hcsoEndpoints = *input.SCloudaccountCredential.SHuaweiCloudStackEndpoints
+		endpointOptions = jsonutils.Marshal(input.SCloudaccountCredential.SHuaweiCloudStackEndpoints)
+	}
+
+	if endpointOptions != nil {
 		if input.Options == nil {
 			input.Options = jsonutils.NewDict()
 		}
-		endpoints = *input.SCloudaccountCredential.SApsaraEndpoints
-		input.Options.Update(jsonutils.Marshal(input.SCloudaccountCredential.SApsaraEndpoints))
+
+		input.Options.Update(endpointOptions)
 	}
 
 	input.SCloudaccount, err = providerDriver.ValidateCreateCloudaccountData(ctx, userCred, input.SCloudaccountCredential)
@@ -499,7 +511,8 @@ func (manager *SCloudaccountManager) validateCreateData(
 		Secret:    input.Secret,
 		ProxyFunc: proxyFunc,
 
-		SApsaraEndpoints: endpoints,
+		SApsaraEndpoints:           endpoints,
+		SHuaweiCloudStackEndpoints: hcsoEndpoints,
 	})
 	if err != nil {
 		if err == cloudprovider.ErrNoSuchProvder {
@@ -903,8 +916,13 @@ func (self *SCloudaccount) getProviderInternal() (cloudprovider.ICloudProvider, 
 		return nil, fmt.Errorf("Invalid password %s", err)
 	}
 	endpoints := cloudprovider.SApsaraEndpoints{}
-	if self.Provider == api.CLOUD_PROVIDER_APSARA && self.Options != nil {
-		self.Options.Unmarshal(&endpoints)
+	hcsoEndpoints := cloudprovider.SHuaweiCloudStackEndpoints{}
+	if self.Options != nil {
+		if self.Provider == api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK {
+			self.Options.Unmarshal(&hcsoEndpoints)
+		} else if self.Provider == api.CLOUD_PROVIDER_APSARA {
+			self.Options.Unmarshal(&endpoints)
+		}
 	}
 	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
 		Id:      self.Id,
@@ -914,9 +932,9 @@ func (self *SCloudaccount) getProviderInternal() (cloudprovider.ICloudProvider, 
 		Account: self.Account,
 		Secret:  secret,
 
-		SApsaraEndpoints: endpoints,
-
-		ProxyFunc: self.proxyFunc(),
+		SApsaraEndpoints:           endpoints,
+		SHuaweiCloudStackEndpoints: hcsoEndpoints,
+		ProxyFunc:                  self.proxyFunc(),
 	})
 }
 

@@ -15,16 +15,16 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SRegionManager struct {
 	SResourceManager
 }
 
-func NewRegionManager(signer auth.Signer, debug bool) *SRegionManager {
+func NewRegionManager(cfg manager.IManagerConfig) *SRegionManager {
 	return &SRegionManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameIAM,
 		Region:        "",
 		ProjectId:     "",

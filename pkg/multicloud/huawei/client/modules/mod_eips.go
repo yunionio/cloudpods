@@ -17,19 +17,19 @@ package modules
 import (
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SEipManager struct {
 	SResourceManager
 }
 
-func NewEipManager(regionId string, projectId string, signer auth.Signer, debug bool) *SEipManager {
+func NewEipManager(cfg manager.IManagerConfig) *SEipManager {
 	return &SEipManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameVPC,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v1",
 		Keyword:       "publicip",
 		KeywordPlural: "publicips",

@@ -19,7 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"
 )
 
@@ -27,12 +27,12 @@ type SJobManager struct {
 	SResourceManager
 }
 
-func NewJobManager(regionId string, projectId string, signer auth.Signer, debug bool) *SJobManager {
+func NewJobManager(cfg manager.IManagerConfig) *SJobManager {
 	return &SJobManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   "",
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v1",
 		Keyword:       "",
 		KeywordPlural: "",

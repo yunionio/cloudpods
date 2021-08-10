@@ -15,19 +15,19 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SSecgroupRuleManager struct {
 	SResourceManager
 }
 
-func NewSecgroupRuleManager(regionId string, projectId string, signer auth.Signer, debug bool) *SSecgroupRuleManager {
+func NewSecgroupRuleManager(cfg manager.IManagerConfig) *SSecgroupRuleManager {
 	return &SSecgroupRuleManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager(signer, debug),
+		SBaseManager:  NewBaseManager(cfg),
 		ServiceName:   ServiceNameVPC,
-		Region:        regionId,
-		ProjectId:     projectId,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
 		version:       "v1",
 		Keyword:       "security_group_rule",
 		KeywordPlural: "security_group_rules",

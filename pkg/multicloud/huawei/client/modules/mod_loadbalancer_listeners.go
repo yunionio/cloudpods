@@ -15,23 +15,23 @@
 package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/manager"
 )
 
 type SElbListenersManager struct {
 	SResourceManager
 }
 
-func NewElbListenersManager(regionId string, projectId string, signer auth.Signer, debug bool) *SElbListenersManager {
+func NewElbListenersManager(cfg manager.IManagerConfig) *SElbListenersManager {
 	var requestHook portProject
-	if len(projectId) > 0 {
-		requestHook = portProject{projectId: projectId}
+	if len(cfg.GetProjectId()) > 0 {
+		requestHook = portProject{projectId: cfg.GetProjectId()}
 	}
 
 	return &SElbListenersManager{SResourceManager: SResourceManager{
-		SBaseManager:  NewBaseManager2(signer, debug, &requestHook),
+		SBaseManager:  NewBaseManager2(cfg, &requestHook),
 		ServiceName:   ServiceNameELB,
-		Region:        regionId,
+		Region:        cfg.GetRegionId(),
 		ProjectId:     "",
 		version:       "v2.0",
 		Keyword:       "listener",
