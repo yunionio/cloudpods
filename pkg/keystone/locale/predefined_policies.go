@@ -76,15 +76,47 @@ var (
 						"list",
 						"get",
 					},
+					"quotas": {
+						"list",
+						"get",
+					},
+					"zone_quotas": {
+						"list",
+						"get",
+					},
+					"region_quotas": {
+						"list",
+						"get",
+					},
+					"project_quotas": {
+						"list",
+						"get",
+					},
+					"domain_quotas": {
+						"list",
+						"get",
+					},
+					"infras_quotas": {
+						"list",
+						"get",
+					},
 				},
 				"image": {
 					"usages": {
 						"list",
 						"get",
 					},
+					"image_quotas": {
+						"list",
+						"get",
+					},
 				},
 				"identity": {
 					"usages": {
+						"list",
+						"get",
+					},
+					"identity_quotas": {
 						"list",
 						"get",
 					},
