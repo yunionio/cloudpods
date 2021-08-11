@@ -110,24 +110,30 @@ func (self *CloudReportBase) InitProviderInstance() (cloudprovider.ICloudProvide
 		return nil, errors.Wrap(err, "getCloudAccount error")
 	}
 	endpoints := cloudprovider.SApsaraEndpoints{}
+	hwendpoints := cloudprovider.SHuaweiCloudStackEndpoints{}
 	options, err := cloudAccout.Get("options")
 	if err == nil {
 		err := options.Unmarshal(&endpoints)
 		if err != nil {
 			log.Errorf("Unmarshal SApsaraEndpoints err:%v", err)
 		}
+		err = options.Unmarshal(&hwendpoints)
+		if err != nil {
+			log.Errorf("Unmarshal SHuaweiCloudStackEndpoints err:%v", err)
+		}
 	} else {
 		log.Errorf("get cloudAccout options err:%v", err)
 	}
 	cfg := cloudprovider.ProviderConfig{
-		Id:               self.SProvider.Id,
-		Name:             self.SProvider.Name,
-		URL:              self.SProvider.AccessUrl,
-		Account:          self.SProvider.Account,
-		Secret:           secretDe,
-		Vendor:           self.SProvider.Provider,
-		ProxyFunc:        proxyFunc,
-		SApsaraEndpoints: endpoints,
+		Id:                         self.SProvider.Id,
+		Name:                       self.SProvider.Name,
+		URL:                        self.SProvider.AccessUrl,
+		Account:                    self.SProvider.Account,
+		Secret:                     secretDe,
+		Vendor:                     self.SProvider.Provider,
+		ProxyFunc:                  proxyFunc,
+		SApsaraEndpoints:           endpoints,
+		SHuaweiCloudStackEndpoints: hwendpoints,
 	}
 	return cloudprovider.GetProvider(cfg)
 }
@@ -155,7 +161,9 @@ func (self *CloudReportBase) GetAllRegionOfServers(servers []jsonutils.JSONObjec
 			extranleIdMap[region_external_id] = ""
 			region, err := providerInstance.GetIRegionById(region_external_id)
 			if err != nil {
-				return nil, nil, err
+				name, _ := server.GetString("name")
+				log.Errorf("name:%s,region_external_id:%s,err:%v", name, region_external_id, err)
+				continue
 			}
 			regionServerList = append(regionServerList, region)
 			regionServers := make([]jsonutils.JSONObject, 0)
