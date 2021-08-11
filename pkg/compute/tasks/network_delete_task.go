@@ -16,9 +16,9 @@ package tasks
 
 import (
 	"context"
+	"database/sql"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -38,7 +38,6 @@ func init() {
 }
 
 func (self *NetworkDeleteTask) taskFailed(ctx context.Context, network *models.SNetwork, err error) {
-	log.Errorf("network delete task fail: %v", err)
 	network.SetStatus(self.UserCred, api.NETWORK_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(network, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, network, logclient.ACT_DELETE, err, self.UserCred, false)
@@ -52,19 +51,23 @@ func (self *NetworkDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	db.OpsLog.LogEvent(network, db.ACT_DELOCATING, network.GetShortDesc(ctx), self.UserCred)
 
 	inet, err := network.GetINetwork()
-	if inet != nil {
-		err = inet.Delete()
-		if err != nil {
-			self.taskFailed(ctx, network, errors.Wrapf(err, "inet.Delete"))
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotFound || errors.Cause(err) == sql.ErrNoRows {
+			self.taskComplete(ctx, network)
 			return
 		}
-	} else if errors.Cause(err) == cloudprovider.ErrNotFound {
-		// already deleted, do nothing
-	} else {
-		self.taskFailed(ctx, network, errors.Wrapf(err, "network.GetINetwork"))
+		self.taskFailed(ctx, network, errors.Wrapf(err, "GetINetwork"))
 		return
 	}
+	err = inet.Delete()
+	if err != nil {
+		self.taskFailed(ctx, network, errors.Wrapf(err, "inet.Delete"))
+		return
+	}
+	self.taskComplete(ctx, network)
+}
 
+func (self *NetworkDeleteTask) taskComplete(ctx context.Context, network *models.SNetwork) {
 	network.RealDelete(ctx, self.UserCred)
 	logclient.AddActionLogWithStartable(self, network, logclient.ACT_DELETE, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
