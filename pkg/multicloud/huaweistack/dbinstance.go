@@ -602,22 +602,6 @@ func (region *SRegion) RebootDBInstance(instanceId string) error {
 	return err
 }
 
-type SDBInstanceFlavor struct {
-	Vcpus        int
-	Ram          int //单位GB
-	SpecCode     string
-	InstanceMode string //实例模型
-}
-
-func (region *SRegion) GetDBInstanceFlavors(engine string, version string) ([]SDBInstanceFlavor, error) {
-	flavors := []SDBInstanceFlavor{}
-	resp, err := region.ecsClient.DBInstanceFlavor.ListInContextWithSpec(nil, engine, map[string]string{"version_name": version}, "flavors")
-	if err != nil {
-		return nil, err
-	}
-	return flavors, jsonutils.Update(&flavors, resp.Data)
-}
-
 func (rds *SDBInstance) CreateAccount(conf *cloudprovider.SDBInstanceAccountCreateConfig) error {
 	return rds.region.CreateDBInstanceAccount(rds.Id, conf.Name, conf.Password)
 }

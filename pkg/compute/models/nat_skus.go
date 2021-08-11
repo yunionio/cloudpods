@@ -23,12 +23,14 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -330,4 +332,61 @@ func (manager *SNatSkuManager) AllowGetPropertySyncTasks(ctx context.Context, us
 
 func (manager *SNatSkuManager) GetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query api.SkuTaskQueryInput) (jsonutils.JSONObject, error) {
 	return GetPropertySkusSyncTasks(ctx, userCred, query)
+}
+
+func (self *SCloudregion) SyncPrivateCloudNatSkus(ctx context.Context, userCred mcclient.TokenCredential, iskus []cloudprovider.ICloudNatSku) compare.SyncResult {
+	lockman.LockRawObject(ctx, self.Id, NatSkuManager.Keyword())
+	defer lockman.ReleaseRawObject(ctx, self.Id, NatSkuManager.Keyword())
+
+	result := compare.SyncResult{}
+
+	dbSkus, err := self.GetNatSkus()
+	if err != nil {
+		result.Error(err)
+		return result
+	}
+
+	removed := make([]SNatSku, 0)
+	commondb := make([]SNatSku, 0)
+	commonext := make([]cloudprovider.ICloudNatSku, 0)
+	added := make([]cloudprovider.ICloudNatSku, 0)
+
+	err = compare.CompareSets(dbSkus, iskus, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(err)
+		return result
+	}
+
+	for i := 0; i < len(removed); i += 1 {
+		err = removed[i].Delete(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
+	for i := 0; i < len(added); i += 1 {
+		err = self.newFromPrivateCloudNatSku(ctx, userCred, added[i])
+		if err != nil {
+			result.AddError(err)
+		} else {
+			result.Add()
+		}
+	}
+	return result
+}
+
+func (self *SCloudregion) newFromPrivateCloudNatSku(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudNatSku) error {
+	sku := &SNasSku{}
+	sku.SetModelManager(NatSkuManager, sku)
+	sku.Name = ext.GetName()
+	sku.Description = ext.GetDesc()
+	sku.ExternalId = ext.GetGlobalId()
+	sku.CloudregionId = self.Id
+	sku.Provider = self.Provider
+	sku.PrepaidStatus = ext.GetPrepaidStatus()
+	sku.PostpaidStatus = ext.GetPostpaidStatus()
+	sku.Enabled = tristate.True
+	sku.Status = api.NAT_SKU_AVAILABLE
+	return NatSkuManager.TableSpec().Insert(ctx, sku)
 }
