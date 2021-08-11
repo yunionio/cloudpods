@@ -101,7 +101,8 @@ func (self *SNatSEntryDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 
 	eip, _ := snat.GetEip()
 	if eip != nil {
-		nat.GetRegion().GetDriver().OnNatEntryDeleteComplete(ctx, self.UserCred, eip)
+		region, _ := nat.GetRegion()
+		region.GetDriver().OnNatEntryDeleteComplete(ctx, self.UserCred, eip)
 	}
 
 	self.taskComplete(ctx, snat)

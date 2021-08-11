@@ -164,7 +164,7 @@ func (sgm *SScalingGroupManager) ValidateCreateData(ctx context.Context, userCre
 
 	// check networks in vpc
 	for i := range networks {
-		vpc := networks[i].GetVpc()
+		vpc, _ := networks[i].GetVpc()
 		if vpc == nil {
 			return input, fmt.Errorf("Get vpc of network '%s' failed", networks[i].Id)
 		}

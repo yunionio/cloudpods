@@ -87,7 +87,7 @@ func (self *SZStackRegionDriver) ValidateCreateEipData(ctx context.Context, user
 	network := _network.(*models.SNetwork)
 	input.NetworkId = network.Id
 
-	vpc := network.GetVpc()
+	vpc, _ := network.GetVpc()
 	if vpc == nil {
 		return httperrors.NewInputParameterError("failed to found vpc for network %s(%s)", network.Name, network.Id)
 	}

@@ -232,7 +232,7 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 		guest := backend.(*models.SGuest)
 		{
 			// guest zone must match that of loadbalancer's
-			host := guest.GetHost()
+			host, _ := guest.GetHost()
 			if host == nil {
 				return nil, httperrors.NewInputParameterError("error getting host of guest %s", guest.GetId())
 			}
@@ -240,8 +240,8 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 				return nil, httperrors.NewInputParameterError("error loadbalancer of backend group %s", backendGroup.GetId())
 			}
 			var (
-				lbRegion   = lb.GetRegion()
-				hostRegion = host.GetRegion()
+				lbRegion      = lb.GetRegion()
+				hostRegion, _ = host.GetRegion()
 			)
 			if lbRegion.Id != hostRegion.Id {
 				return nil, httperrors.NewInputParameterError("region of host %q (%s) != region of loadbalancer %q (%s)",
@@ -956,7 +956,7 @@ func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCre
 	}
 	input.NetworkId = network.Id
 
-	vpc := network.GetVpc()
+	vpc, _ := network.GetVpc()
 	if vpc == nil {
 		return httperrors.NewInputParameterError("failed to found vpc for network %s(%s)", network.Name, network.Id)
 	}
@@ -1105,7 +1105,7 @@ func (self *SKVMRegionDriver) RequestCreateInstanceSnapshot(ctx context.Context,
 }
 
 func (self *SKVMRegionDriver) SnapshotIsOutOfChain(disk *models.SDisk) bool {
-	storage := disk.GetStorage()
+	storage, _ := disk.GetStorage()
 	return models.GetStorageDriver(storage.StorageType).SnapshotIsOutOfChain(disk)
 }
 
@@ -1127,7 +1127,7 @@ func (self *SKVMRegionDriver) OnDiskReset(ctx context.Context, userCred mcclient
 			return err
 		}
 	}
-	storage := disk.GetStorage()
+	storage, _ := disk.GetStorage()
 	return models.GetStorageDriver(storage.StorageType).OnDiskReset(ctx, userCred, disk, snapshot, data)
 }
 
@@ -1190,7 +1190,7 @@ func (self *SKVMRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *mo
 
 func (self *SKVMRegionDriver) RequestSyncDiskStatus(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		storage := disk.GetStorage()
+		storage, _ := disk.GetStorage()
 		host := storage.GetMasterHost()
 		header := task.GetTaskRequestHeader()
 		url := fmt.Sprintf("%s/disks/%s/%s/status", host.ManagerUri, storage.Id, disk.Id)

@@ -57,7 +57,7 @@ func (self *SGuest) CanPerformPrepaidRecycle() error {
 	if self.ExpiredAt.Before(time.Now()) {
 		return fmt.Errorf("prepaid expired")
 	}
-	host := self.GetHost()
+	host, _ := self.GetHost()
 	if host == nil {
 		return fmt.Errorf("no host")
 	}
@@ -107,7 +107,7 @@ func (self *SGuest) doPrepaidRecycle(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCredential) error {
-	oHost := self.GetHost()
+	oHost, _ := self.GetHost()
 
 	fakeHost := SHost{}
 	fakeHost.SetModelManager(HostManager, &fakeHost)
@@ -127,7 +127,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	totalSize := 0
 	for i := 0; i < len(guestdisks); i += 1 {
 		disk := guestdisks[i].GetDisk()
-		storage := disk.GetStorage()
+		storage, _ := disk.GetStorage()
 
 		totalSize += disk.DiskSize
 
@@ -149,7 +149,8 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	fakeHost.StorageSize = totalSize
 	fakeHost.StorageInfo = jsonutils.Marshal(&storageInfo)
 
-	fakeHost.ZoneId = self.getZone().GetId()
+	zone, _ := self.getZone()
+	fakeHost.ZoneId = zone.GetId()
 	fakeHost.IsBaremetal = false
 	fakeHost.IsMaintenance = false
 	fakeHost.ResourceType = api.HostResourceTypePrepaidRecycle
@@ -213,7 +214,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	var externalId string
 	for i := 0; i < len(guestdisks); i += 1 {
 		disk := guestdisks[i].GetDisk()
-		storage := disk.GetStorage()
+		storage, _ := disk.GetStorage()
 		if disk.BillingType == billing_api.BILLING_TYPE_PREPAID {
 			storageSize += int64(disk.DiskSize)
 			if len(externalId) == 0 {
@@ -229,7 +230,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 		}
 	}
 
-	sysStorage := guestdisks[0].GetDisk().GetStorage()
+	sysStorage, _ := guestdisks[0].GetDisk().GetStorage()
 
 	fakeStorage := SStorage{}
 	fakeStorage.SetModelManager(StorageManager, &fakeStorage)
@@ -308,7 +309,7 @@ func (self *SGuest) PerformUndoPrepaidRecycle(ctx context.Context, userCred mccl
 		return nil, httperrors.NewInvalidStatusError("cannot undo recycle in status %s", self.Status)
 	}
 
-	host := self.GetHost()
+	host, _ := self.GetHost()
 
 	if host == nil {
 		return nil, httperrors.NewInvalidStatusError("no valid host")
@@ -450,7 +451,7 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 	// check disk data integrity
 	for i := 0; i < len(guestdisks); i += 1 {
 		disk := guestdisks[i].GetDisk()
-		storage := disk.GetStorage()
+		storage, _ := disk.GetStorage()
 		if storage.StorageType == api.STORAGE_LOCAL {
 			oHostStorage := oHost.GetHoststorageByExternalId(storage.ExternalId)
 			if oHostStorage == nil {
@@ -478,7 +479,7 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 
 	for i := 0; i < len(guestdisks); i += 1 {
 		disk := guestdisks[i].GetDisk()
-		storage := disk.GetStorage()
+		storage, _ := disk.GetStorage()
 
 		if storage.StorageType == api.STORAGE_LOCAL {
 			oHostStorage := oHost.GetHoststorageByExternalId(storage.ExternalId)
@@ -514,7 +515,7 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func (self *SGuest) IsPrepaidRecycle() bool {
-	host := self.GetHost()
+	host, _ := self.GetHost()
 	if host == nil {
 		return false
 	}

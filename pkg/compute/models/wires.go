@@ -350,7 +350,7 @@ func (self *SWire) syncRemoveCloudWire(ctx context.Context, userCred mcclient.To
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	vpc := self.GetVpc()
+	vpc, _ := self.GetVpc()
 	cloudprovider := vpc.GetCloudprovider()
 	if self.ExternalId == WireManager.getWireExternalIdForClassicNetwork(cloudprovider.Provider, self.VpcId, self.ZoneId) {
 		return nil
@@ -373,7 +373,7 @@ func (self *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.Toke
 		self.IsEmulated = extWire.IsEmulated()
 		self.Status = extWire.GetStatus()
 
-		vpc := self.GetVpc()
+		vpc, _ := self.GetVpc()
 		if vpc != nil {
 			region, err := vpc.GetRegion()
 			if err != nil {
@@ -1067,10 +1067,9 @@ func (wire *SWire) clearHostSchedDescCache() error {
 }
 
 func (self *SWire) GetIWire() (cloudprovider.ICloudWire, error) {
-	vpc := self.GetVpc()
-	if vpc == nil {
-		log.Errorf("Cannot find VPC for wire???")
-		return nil, fmt.Errorf("No VPC?????")
+	vpc, err := self.GetVpc()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetVpc")
 	}
 	ivpc, err := vpc.GetIVpc()
 	if err != nil {
@@ -1093,7 +1092,7 @@ func (manager *SWireManager) GetOnPremiseWireOfIp(ipAddr string) (*SWire, error)
 	if err != nil {
 		return nil, err
 	}
-	wire := net.GetWire()
+	wire, _ := net.GetWire()
 	if wire != nil {
 		return wire, nil
 	} else {
@@ -1426,7 +1425,7 @@ func (man *SWireManager) removeWiresByVpc(ctx context.Context, userCred mcclient
 }
 
 func (self *SWire) IsManaged() bool {
-	vpc := self.GetVpc()
+	vpc, _ := self.GetVpc()
 	if vpc == nil {
 		return false
 	}
@@ -1435,7 +1434,7 @@ func (self *SWire) IsManaged() bool {
 
 func (model *SWire) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if !data.Contains("public_scope") {
-		vpc := model.GetVpc()
+		vpc, _ := model.GetVpc()
 		if !model.IsManaged() && db.IsAdminAllowPerform(userCred, model, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() && vpc != nil && vpc.IsPublic && vpc.PublicScope == string(rbacutils.ScopeSystem) {
 			model.SetShare(rbacutils.ScopeSystem)
 		} else {
@@ -1449,7 +1448,7 @@ func (model *SWire) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 
 func (wire *SWire) GetChangeOwnerCandidateDomainIds() []string {
 	candidates := [][]string{}
-	vpc := wire.GetVpc()
+	vpc, _ := wire.GetVpc()
 	if vpc != nil {
 		candidates = append(candidates,
 			vpc.GetChangeOwnerCandidateDomainIds(),

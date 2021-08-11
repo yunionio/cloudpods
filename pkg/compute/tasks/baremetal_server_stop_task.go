@@ -39,7 +39,7 @@ func (self *BaremetalServerStopTask) OnInit(ctx context.Context, obj db.IStandal
 	guest := obj.(*models.SGuest)
 	db.OpsLog.LogEvent(guest, db.ACT_STOPPING, "", self.UserCred)
 	guest.SetStatus(self.UserCred, api.VM_START_STOP, "")
-	baremetal := guest.GetHost()
+	baremetal, _ := guest.GetHost()
 	if baremetal != nil {
 		self.OnStopGuestFail(ctx, guest, "Baremetal is None")
 		return
@@ -68,7 +68,7 @@ func (self *BaremetalServerStopTask) OnGuestStopTaskComplete(ctx context.Context
 		guest.SetStatus(self.UserCred, api.VM_READY, "")
 		db.OpsLog.LogEvent(guest, db.ACT_STOP, "", self.UserCred)
 	}
-	baremetal := guest.GetHost()
+	baremetal, _ := guest.GetHost()
 	baremetal.SetStatus(self.UserCred, api.BAREMETAL_READY, "")
 	self.SetStageComplete(ctx, nil)
 	if guest.Status == api.VM_READY {
@@ -81,7 +81,7 @@ func (self *BaremetalServerStopTask) OnGuestStopTaskComplete(ctx context.Context
 func (self *BaremetalServerStopTask) OnGuestStopTaskCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	guest.SetStatus(self.UserCred, db.ACT_STOP_FAIL, data.String())
 	db.OpsLog.LogEvent(guest, db.ACT_STOP_FAIL, data, self.UserCred)
-	baremetal := guest.GetHost()
+	baremetal, _ := guest.GetHost()
 	baremetal.SetStatus(self.UserCred, api.BAREMETAL_READY, data.String())
 	self.SetStageFailed(ctx, data)
 }

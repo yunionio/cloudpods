@@ -165,7 +165,8 @@ func (manager *SZoneManager) FetchCustomizeColumns(
 		}
 		zone := objs[i].(*SZone)
 		rows[i].ZoneGeneralUsage = zone.GeneralUsage()
-		rows[i].CloudenvResourceInfo = zone.GetRegion().GetRegionCloudenvInfo()
+		region, _ := zone.GetRegion()
+		rows[i].CloudenvResourceInfo = region.GetRegionCloudenvInfo()
 	}
 	return rows
 }
@@ -330,8 +331,12 @@ func (manager *SZoneManager) FetchZoneById(zoneId string) *SZone {
 	return zoneObj.(*SZone)
 }
 
-func (zone *SZone) GetRegion() *SCloudregion {
-	return CloudregionManager.FetchRegionById(zone.GetCloudRegionId())
+func (zone *SZone) GetRegion() (*SCloudregion, error) {
+	region, err := CloudregionManager.FetchById(zone.GetCloudRegionId())
+	if err != nil {
+		return nil, err
+	}
+	return region.(*SCloudregion), nil
 }
 
 func (manager *SZoneManager) InitializeData() error {
@@ -687,7 +692,7 @@ func (self *SZone) GetDetailsDiskCapability(ctx context.Context, userCred mcclie
 }
 
 func (self *SZone) isManaged() bool {
-	region := self.GetRegion()
+	region, _ := self.GetRegion()
 	if region != nil && len(region.ExternalId) == 0 {
 		return false
 	} else {

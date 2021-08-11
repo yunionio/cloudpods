@@ -84,14 +84,14 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerBacken
 		return nil, httperrors.NewUnsupportOperationError("internal error: unexpected backend type %s", backendType)
 	}
 	guest := backend.(*models.SGuest)
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	if host == nil {
 		return nil, fmt.Errorf("error getting host of guest %s", guest.GetId())
 	}
 	if lb == nil {
 		return nil, fmt.Errorf("error loadbalancer of backend group %s", backendGroup.GetId())
 	}
-	hostRegion := host.GetRegion()
+	hostRegion, _ := host.GetRegion()
 	lbRegion := lb.GetRegion()
 	if hostRegion.Id != lbRegion.Id {
 		return nil, httperrors.NewInputParameterError("region of host %q (%s) != region of loadbalancer %q (%s))",
@@ -1302,8 +1302,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestApplySnapshotPolicy(ctx c
 
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 
-		regionId := disk.GetStorage().GetRegion().GetId()
-		providerId := disk.GetStorage().ManagerId
+		storage, _ := disk.GetStorage()
+		region, _ := storage.GetRegion()
+		regionId := region.GetId()
+		providerId := storage.ManagerId
 		spcache, err := models.SnapshotPolicyCacheManager.Register(ctx, userCred, sp.GetId(), regionId, providerId)
 		if err != nil {
 			return nil, errors.Wrap(err, "registersnapshotpolicy cache failed")
@@ -1330,8 +1332,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestCancelSnapshotPolicy(ctx 
 
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 
-		regionId := disk.GetStorage().GetRegion().GetId()
-		providerId := disk.GetStorage().ManagerId
+		storage, _ := disk.GetStorage()
+		region, _ := storage.GetRegion()
+		regionId := region.GetId()
+		providerId := storage.ManagerId
 		spcache, err := models.SnapshotPolicyCacheManager.FetchSnapshotPolicyCache(sp.GetId(), regionId, providerId)
 
 		if err != nil {
@@ -2937,7 +2941,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateElasticcache(
 		}
 		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
 		mangerId := ""
-		if vpc := elasticcache.GetVpc(); vpc != nil {
+		if vpc, _ := elasticcache.GetVpc(); vpc != nil {
 			mangerId = vpc.ManagerId
 		}
 		err = cloudprovider.SetTags(ctx, iElasticcache, mangerId, tags, replaceTags)
