@@ -152,7 +152,7 @@ func (man *SNatGatewayManager) ValidateCreateData(ctx context.Context, userCred 
 		return input, err
 	}
 	network := _network.(*SNetwork)
-	vpc := network.GetVpc()
+	vpc, _ := network.GetVpc()
 	if vpc == nil {
 		return input, httperrors.NewGeneralError(errors.Errorf("failed to get network %s %s vpc", network.Name, network.Id))
 	}
@@ -648,7 +648,8 @@ func (self *SNatGateway) SyncNatGatewayEips(ctx context.Context, userCred mcclie
 	}
 
 	for i := 0; i < len(added); i += 1 {
-		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, added[i], provider, self.GetRegion(), provider.GetOwnerId())
+		region, _ := self.GetRegion()
+		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, added[i], provider, region, provider.GetOwnerId())
 		if err != nil {
 			result.AddError(err)
 			continue
@@ -955,7 +956,8 @@ func (self *SNatGateway) PerformRenew(ctx context.Context, userCred mcclient.Tok
 		return nil, httperrors.NewInputParameterError("invalid duration %s: %s", input.Duration, err)
 	}
 
-	if !self.GetRegion().GetDriver().IsSupportedBillingCycle(bc, NatGatewayManager.KeywordPlural()) {
+	region, _ := self.GetRegion()
+	if !region.GetDriver().IsSupportedBillingCycle(bc, NatGatewayManager.KeywordPlural()) {
 		return nil, httperrors.NewInputParameterError("unsupported duration %s", input.Duration)
 	}
 
@@ -1001,7 +1003,7 @@ func (self *SNatGateway) PerformSetAutoRenew(ctx context.Context, userCred mccli
 		return nil, nil
 	}
 
-	region := self.GetRegion()
+	region, _ := self.GetRegion()
 	if region == nil {
 		return nil, httperrors.NewGeneralError(fmt.Errorf("filed to get nat %s region", self.Name))
 	}

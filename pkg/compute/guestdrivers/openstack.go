@@ -219,7 +219,7 @@ func (self *SOpenStackGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.C
 		if err != nil {
 			return "", errors.Wrap(err, "guest.GetSystemDisk(")
 		}
-		storage := sysDisk.GetStorage()
+		storage, _ := sysDisk.GetStorage()
 		if storage.StorageType == api.STORAGE_OPENSTACK_NOVA { //不通过镜像创建磁盘的机器
 			conf := cloudprovider.SManagedVMRebuildRootConfig{
 				Account:   desc.Account,
@@ -400,7 +400,7 @@ func (self *SOpenStackGuestDriver) RequestMigrate(ctx context.Context, guest *mo
 			return nil, errors.Wrap(fmt.Errorf("empty hostExternalId"), "iVM.GetIHostId()")
 		}
 		iHost, err := db.FetchByExternalIdAndManagerId(models.HostManager, hostExternalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-			if host := guest.GetHost(); host != nil {
+			if host, _ := guest.GetHost(); host != nil {
 				return q.Equals("manager_id", host.ManagerId)
 			}
 			return q
@@ -445,7 +445,7 @@ func (self *SOpenStackGuestDriver) RequestLiveMigrate(ctx context.Context, guest
 			return nil, errors.Wrap(fmt.Errorf("empty hostExternalId"), "iVM.GetIHostId()")
 		}
 		iHost, err := db.FetchByExternalIdAndManagerId(models.HostManager, hostExternalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-			if host := guest.GetHost(); host != nil {
+			if host, _ := guest.GetHost(); host != nil {
 				return q.Equals("manager_id", host.ManagerId)
 			}
 			return q

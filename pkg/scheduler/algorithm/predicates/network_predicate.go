@@ -185,10 +185,13 @@ func IsNetworkAvailable(
 		}
 	}
 
-	if wire != "" && !utils.HasPrefix(wire, n.WireId) && !utils.HasPrefix(wire, n.GetWire().GetName()) {
-		return FailReason{
-			Reason: fmt.Sprintf("Wire %s != %s", wire, n.WireId),
-			Type:   NetworkWire,
+	if wire != "" && !utils.HasPrefix(wire, n.WireId) {
+		_wire, _ := n.GetWire()
+		if !utils.HasPrefix(wire, _wire.GetName()) {
+			return FailReason{
+				Reason: fmt.Sprintf("Wire %s != %s", wire, n.WireId),
+				Type:   NetworkWire,
+			}
 		}
 	}
 

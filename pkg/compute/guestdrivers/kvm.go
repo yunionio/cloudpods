@@ -115,7 +115,7 @@ func (self *SKVMGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *
 }
 
 func (self *SKVMGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, snapshotId, diskId string) error {
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	url := fmt.Sprintf("%s/servers/%s/snapshot", host.ManagerUri, guest.Id)
 	body := jsonutils.NewDict()
 	body.Set("disk_id", jsonutils.NewString(diskId))
@@ -126,7 +126,7 @@ func (self *SKVMGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *mod
 }
 
 func (self *SKVMGuestDriver) RequestDeleteSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, params *jsonutils.JSONDict) error {
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	url := fmt.Sprintf("%s/servers/%s/delete-snapshot", host.ManagerUri, guest.Id)
 	header := self.getTaskRequestHeader(task)
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, params, false)
@@ -134,7 +134,7 @@ func (self *SKVMGuestDriver) RequestDeleteSnapshot(ctx context.Context, guest *m
 }
 
 func (self *SKVMGuestDriver) RequestReloadDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, params *jsonutils.JSONDict) error {
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	url := fmt.Sprintf("%s/servers/%s/reload-disk-snapshot", host.ManagerUri, guest.Id)
 	header := self.getTaskRequestHeader(task)
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, params, false)
@@ -403,7 +403,7 @@ func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *m
 		if vmemSize > int64(guest.VmemSize) {
 			body.Set("add_mem", jsonutils.NewInt(addMem))
 		}
-		host := guest.GetHost()
+		host, _ := guest.GetHost()
 		url := fmt.Sprintf("%s/servers/%s/hotplug-cpu-mem", host.ManagerUri, guest.Id)
 		_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
 		return err
@@ -419,7 +419,7 @@ func (self *SKVMGuestDriver) RequestSoftReset(ctx context.Context, guest *models
 }
 
 func (self *SKVMGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, disk *models.SDisk, task taskman.ITask) error {
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	header := task.GetTaskRequestHeader()
 	url := fmt.Sprintf("%s/servers/%s/status", host.ManagerUri, guest.Id)
 	_, res, _ := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", url, header, nil, false)
@@ -449,7 +449,7 @@ func (self *SKVMGuestDriver) RequestSaveImage(ctx context.Context, userCred mccl
 
 func (self *SKVMGuestDriver) RequestOpenForward(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, req *guestdriver_types.OpenForwardRequest) (*guestdriver_types.OpenForwardResponse, error) {
 	var (
-		host       = guest.GetHost()
+		host, _    = guest.GetHost()
 		url        = fmt.Sprintf("%s/servers/%s/open-forward", host.ManagerUri, guest.Id)
 		httpClient = httputils.GetDefaultClient()
 		header     = mcclient.GetTokenHeaders(userCred)
@@ -481,7 +481,7 @@ func (self *SKVMGuestDriver) RequestOpenForward(ctx context.Context, userCred mc
 
 func (self *SKVMGuestDriver) RequestCloseForward(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, req *guestdriver_types.CloseForwardRequest) (*guestdriver_types.CloseForwardResponse, error) {
 	var (
-		host       = guest.GetHost()
+		host, _    = guest.GetHost()
 		url        = fmt.Sprintf("%s/servers/%s/close-forward", host.ManagerUri, guest.Id)
 		httpClient = httputils.GetDefaultClient()
 		header     = mcclient.GetTokenHeaders(userCred)
@@ -511,7 +511,7 @@ func (self *SKVMGuestDriver) RequestCloseForward(ctx context.Context, userCred m
 
 func (self *SKVMGuestDriver) RequestListForward(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, req *guestdriver_types.ListForwardRequest) (*guestdriver_types.ListForwardResponse, error) {
 	var (
-		host       = guest.GetHost()
+		host, _    = guest.GetHost()
 		url        = fmt.Sprintf("%s/servers/%s/list-forward", host.ManagerUri, guest.Id)
 		httpClient = httputils.GetDefaultClient()
 		header     = mcclient.GetTokenHeaders(userCred)
@@ -594,7 +594,7 @@ func (self *SKVMGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest 
 }
 
 func (self *SKVMGuestDriver) RqeuestSuspendOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	url := fmt.Sprintf("%s/servers/%s/suspend", host.ManagerUri, guest.Id)
 	header := self.getTaskRequestHeader(task)
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, nil, false)
@@ -629,7 +629,7 @@ func (self *SKVMGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *
 }
 
 func (self *SKVMGuestDriver) RequestSyncToBackup(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	desc, err := guest.GetDriver().GetJsonDescAtHost(ctx, task.GetUserCred(), guest, host, nil)
 	if err != nil {
 		return errors.Wrapf(err, "GetJsonDescAtHost")
@@ -713,8 +713,9 @@ func (self *SKVMGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclien
 	if input.IsRescueMode {
 		guestDisks := guest.GetDisks()
 		for _, guestDisk := range guestDisks {
+			storage, _ := guestDisk.GetDisk().GetStorage()
 			if utils.IsInStringArray(
-				guestDisk.GetDisk().GetStorage().StorageType, api.STORAGE_LOCAL_TYPES) {
+				storage.StorageType, api.STORAGE_LOCAL_TYPES) {
 				return httperrors.NewBadRequestError("Rescue mode requires all disk store in shared storages")
 			}
 		}

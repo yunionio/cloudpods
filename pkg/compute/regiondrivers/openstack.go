@@ -129,7 +129,7 @@ func (self *SOpenStackRegionDriver) ValidateCreateLoadbalancerData(ctx context.C
 	}
 
 	// region := zoneV.Model.(*models.SZone).GetRegion()
-	region := networkV.Model.(*models.SNetwork).GetRegion()
+	region, _ := networkV.Model.(*models.SNetwork).GetRegion()
 	if region == nil {
 		return nil, fmt.Errorf("getting region failed")
 	}
@@ -267,7 +267,7 @@ func (self *SOpenStackRegionDriver) ValidateCreateEipData(ctx context.Context, u
 	network := _network.(*models.SNetwork)
 	input.NetworkId = network.Id
 
-	vpc := network.GetVpc()
+	vpc, _ := network.GetVpc()
 	if vpc == nil {
 		return httperrors.NewInputParameterError("failed to found vpc for network %s(%s)", network.Name, network.Id)
 	}

@@ -574,18 +574,22 @@ func (self *SStorage) GetZoneId() string {
 	}
 }
 
-func (self *SStorage) getZone() *SZone {
+func (self *SStorage) getZone() (*SZone, error) {
 	zoneId := self.GetZoneId()
 	if len(zoneId) > 0 {
-		return ZoneManager.FetchZoneById(zoneId)
+		zone, err := ZoneManager.FetchById(zoneId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetZone(%s)", zoneId)
+		}
+		return zone.(*SZone), nil
 	}
-	return nil
+	return nil, fmt.Errorf("empty zoneId for storage %s(%s)", self.Name, self.Id)
 }
 
-func (self *SStorage) GetRegion() *SCloudregion {
-	zone := self.getZone()
-	if zone == nil {
-		return nil
+func (self *SStorage) GetRegion() (*SCloudregion, error) {
+	zone, err := self.getZone()
+	if err != nil {
+		return nil, err
 	}
 	return zone.GetRegion()
 }
@@ -1295,7 +1299,7 @@ func (self *SStorage) GetIStorage() (cloudprovider.ICloudStorage, error) {
 	if provider.GetFactory().IsOnPremise() {
 		iRegion, err = provider.GetOnPremiseIRegion()
 	} else {
-		region := self.GetRegion()
+		region, _ := self.GetRegion()
 		if region == nil {
 			msg := "cannot find region for storage???"
 			log.Errorf(msg)
@@ -1546,9 +1550,9 @@ func (self *SStorage) ClearSchedDescCache() error {
 
 func (self *SStorage) getCloudProviderInfo() SCloudProviderInfo {
 	var region *SCloudregion
-	zone := self.getZone()
+	zone, _ := self.getZone()
 	if zone != nil {
-		region = zone.GetRegion()
+		region, _ = zone.GetRegion()
 	}
 	provider := self.GetCloudprovider()
 	return MakeCloudProviderInfo(region, zone, provider)

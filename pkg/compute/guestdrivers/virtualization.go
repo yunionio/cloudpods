@@ -243,7 +243,7 @@ func (self *SVirtualizedGuestDriver) StartGuestSyncstatusTask(guest *models.SGue
 func (self *SVirtualizedGuestDriver) RequestStopGuestForDelete(ctx context.Context, guest *models.SGuest,
 	host *models.SHost, task taskman.ITask) error {
 	if host == nil {
-		host = guest.GetHost()
+		host, _ = guest.GetHost()
 	}
 	if host != nil && host.GetEnabled() && host.HostStatus == api.HOST_ONLINE {
 		return guest.StartGuestStopTask(ctx, task.GetUserCred(), true, false, task.GetTaskId())

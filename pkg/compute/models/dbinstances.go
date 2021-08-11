@@ -332,7 +332,7 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 				return input, httperrors.NewInputParameterError("Ip %s not in network %s(%s) range", input.Address, network.Name, network.Id)
 			}
 		}
-		vpc = network.GetVpc()
+		vpc, _ = network.GetVpc()
 	} else if len(input.VpcId) > 0 {
 		_vpc, err := validators.ValidateModel(userCred, VpcManager, &input.VpcId)
 		if err != nil {

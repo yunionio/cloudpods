@@ -250,7 +250,7 @@ func getDomainManagerProviderSubq(domainId string) *sqlchemy.SSubQuery {
 
 func getDBInstanceInfo(region *SCloudregion, zone *SZone) map[string]map[string]map[string][]string {
 	if zone != nil {
-		region = zone.GetRegion()
+		region, _ = zone.GetRegion()
 	}
 	if region == nil {
 		return nil
@@ -708,7 +708,7 @@ func getAutoAllocNetworkCount(ownerId mcclient.IIdentityProvider, scope rbacutil
 
 func getNetworkCountByFilter(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, region *SCloudregion, zone *SZone, isAutoAlloc tristate.TriState, serverType string) (int, error) {
 	if zone != nil && region == nil {
-		region = zone.GetRegion()
+		region, _ = zone.GetRegion()
 	}
 
 	networks := NetworkManager.Query().SubQuery()

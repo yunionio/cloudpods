@@ -45,7 +45,7 @@ func (self *NatGatewaySyncstatusTask) taskFailed(ctx context.Context, natgateway
 func (self *NatGatewaySyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	natgateway := obj.(*models.SNatGateway)
 
-	region := natgateway.GetRegion()
+	region, _ := natgateway.GetRegion()
 	if region == nil {
 		self.taskFailed(ctx, natgateway, jsonutils.NewString(fmt.Sprintf("failed to found cloudregion for natgateway %s(%s)", natgateway.Name, natgateway.Id)))
 		return

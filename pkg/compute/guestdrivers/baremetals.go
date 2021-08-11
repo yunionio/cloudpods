@@ -292,7 +292,7 @@ func (self *SBaremetalGuestDriver) RequestGuestCreateAllDisks(ctx context.Contex
 		task.ScheduleRun(nil)
 		return nil
 	}
-	storage := diskCat.Root.GetStorage()
+	storage, _ := diskCat.Root.GetStorage()
 	if storage == nil {
 		return fmt.Errorf("no valid storage")
 	}
@@ -308,12 +308,12 @@ func (self *SBaremetalGuestDriver) NeedRequestGuestHotAddIso(ctx context.Context
 }
 
 func (self *SBaremetalGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, boot bool, task taskman.ITask) error {
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	return host.StartInsertIsoTask(ctx, task.GetUserCred(), filepath.Base(path), boot, task.GetTaskId())
 }
 
 func (self *SBaremetalGuestDriver) RequestGuestHotRemoveIso(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	return host.StartEjectIsoTask(ctx, task.GetUserCred(), task.GetTaskId())
 }
 
@@ -333,7 +333,7 @@ func (self *SBaremetalGuestDriver) RequestStartOnHost(ctx context.Context, guest
 func (self *SBaremetalGuestDriver) RequestStopGuestForDelete(ctx context.Context, guest *models.SGuest,
 	host *models.SHost, task taskman.ITask) error {
 	if host == nil {
-		host = guest.GetHost()
+		host, _ = guest.GetHost()
 	}
 	guestStatus, _ := task.GetParams().GetString("guest_status")
 	overridePendingDelete := jsonutils.QueryBoolean(task.GetParams(), "override_pending_delete", false)
@@ -433,7 +433,7 @@ func (self *SBaremetalGuestDriver) GetJsonDescAtHost(ctx context.Context, userCr
 func (self *SBaremetalGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewString(host.Id), "host_id")
-	zone := host.GetZone()
+	zone, _ := host.GetZone()
 	data.Add(jsonutils.NewString(zone.Name), "zone")
 	return data, nil
 }
@@ -562,7 +562,7 @@ func (self *SBaremetalGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context
 	if err != nil {
 		return err
 	}
-	baremetal := guest.GetHost()
+	baremetal, _ := guest.GetHost()
 	if baremetal != nil {
 		return baremetal.UpdateDiskConfig(userCred, nil)
 	}
@@ -574,7 +574,7 @@ func (self *SBaremetalGuestDriver) IsSupportGuestClone() bool {
 }
 
 func (self *SBaremetalGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	if host == nil {
 		return false, errors.Wrap(httperrors.ErrNotFound, "no host")
 	}

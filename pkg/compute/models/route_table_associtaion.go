@@ -110,7 +110,7 @@ func (self *SRouteTableAssociation) syncWithCloudAssociation(ctx context.Context
 		if err != nil {
 			return errors.Wrap(err, "self.GetRouteTable()")
 		}
-		vpc := routeTable.GetVpc()
+		vpc, _ := routeTable.GetVpc()
 		subnet, err := vpc.GetNetworkByExtId(cloudAssociation.AssociatedResourceId)
 		if err == nil {
 			AssociatedResourceId = subnet.GetId()
@@ -145,7 +145,7 @@ func (manager *SRouteTableAssociationManager) newAssociationFromCloud(
 	association.RouteTableId = routeTable.GetId()
 	association.ExternalId = cloudAssociation.GetGlobalId()
 	if association.AssociationType == string(cloudprovider.RouteTableAssociaToSubnet) {
-		vpc := routeTable.GetVpc()
+		vpc, _ := routeTable.GetVpc()
 		subnet, err := vpc.GetNetworkByExtId(association.ExtAssociatedResourceId)
 		if err == nil {
 			association.AssociatedResourceId = subnet.GetId()

@@ -188,7 +188,8 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mod
 		return errors.Wrapf(err, "Fetch cached image by image_id %s", imageId)
 	}
 	cacheImage := obj.(*models.SCachedimage)
-	rangeObjs := []interface{}{host.GetZone()}
+	zone, _ := host.GetZone()
+	rangeObjs := []interface{}{zone}
 	if srcHost != nil {
 		rangeObjs = append(rangeObjs, srcHost)
 	}
@@ -357,7 +358,8 @@ func (self *SKVMHostDriver) RequestPrepareSaveDiskOnHost(ctx context.Context, ho
 func (self *SKVMHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, host *models.SHost, disk *models.SDisk, imageId string, task taskman.ITask, data jsonutils.JSONObject) error {
 	body := jsonutils.NewDict()
 	backup, _ := data.GetString("backup")
-	content := map[string]string{"image_path": backup, "image_id": imageId, "storagecached_id": disk.GetStorage().StoragecacheId}
+	storage, _ := disk.GetStorage()
+	content := map[string]string{"image_path": backup, "image_id": imageId, "storagecached_id": storage.StoragecacheId}
 	if data.Contains("format") {
 		content["format"], _ = data.GetString("format")
 	}

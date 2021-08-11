@@ -105,14 +105,15 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 
 	disks := guest.GetDisks()
 	disk := disks[0].GetDisk()
-	isLocalStorage := utils.IsInStringArray(disk.GetStorage().StorageType,
+	storage, _ := disk.GetStorage()
+	isLocalStorage := utils.IsInStringArray(storage.StorageType,
 		api.STORAGE_LOCAL_TYPES)
 	if isLocalStorage {
 		targetStorages := jsonutils.NewArray()
 		for i := 0; i < len(disks); i++ {
 			var targetStroage string
 			if len(target.Disks[i].StorageIds) == 0 {
-				targetStroage = targetHost.GetLeastUsedStorage(disk.GetStorage().StorageType).Id
+				targetStroage = targetHost.GetLeastUsedStorage(storage.StorageType).Id
 			} else {
 				targetStroage = target.Disks[i].StorageIds[0]
 			}
@@ -168,7 +169,7 @@ func (self *GuestMigrateTask) OnCachedCdromComplete(ctx context.Context, guest *
 	}
 
 	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) {
-		host := guest.GetHost()
+		host, _ := guest.GetHost()
 		url := fmt.Sprintf("%s/servers/%s/src-prepare-migrate", host.ManagerUri, guest.Id)
 		self.SetStage("OnSrcPrepareComplete", nil)
 		_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST",
@@ -302,7 +303,7 @@ func (self *GuestMigrateTask) localStorageMigrateConf(ctx context.Context,
 		params.Set(disks[i].DiskId, snapshotIds)
 	}
 
-	sourceHost := guest.GetHost()
+	sourceHost, _ := guest.GetHost()
 	snapshotsUri := fmt.Sprintf("%s/download/snapshots/", sourceHost.ManagerUri)
 	disksUri := fmt.Sprintf("%s/download/disks/", sourceHost.ManagerUri)
 	serverUrl := fmt.Sprintf("%s/download/servers/%s", sourceHost.ManagerUri, guest.Id)
@@ -353,7 +354,7 @@ func (self *GuestLiveMigrateTask) OnStartDestComplete(ctx context.Context, guest
 
 	headers := self.GetTaskRequestHeader()
 
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	url := fmt.Sprintf("%s/servers/%s/live-migrate", host.ManagerUri, guest.Id)
 	self.SetStage("OnLiveMigrateComplete", nil)
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(),
@@ -390,7 +391,7 @@ func (self *GuestMigrateTask) setGuest(ctx context.Context, guest *models.SGuest
 			}
 		}
 	}
-	oldHost := guest.GetHost()
+	oldHost, _ := guest.GetHost()
 	oldHost.ClearSchedDescCache()
 	err := guest.OnScheduleToHost(ctx, self.UserCred, targetHostId)
 	if err != nil {

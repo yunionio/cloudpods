@@ -90,13 +90,13 @@ func (guest *SGuest) PerformMigrateNetwork(ctx context.Context, userCred mcclien
 	}
 	destNet := destModel.(*SNetwork)
 
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	if host == nil {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "guest is not allocated!")
 	}
 	if destNet.isOneCloudVpcNetwork() {
 		// vpc network should be in the same Zone
-		destZone := destNet.GetZone()
+		destZone, _ := destNet.GetZone()
 		if destZone == nil || destZone.Id != host.ZoneId {
 			return nil, errors.Wrap(httperrors.ErrBadRequest, "destination overlay network not in same zone as server")
 		}
