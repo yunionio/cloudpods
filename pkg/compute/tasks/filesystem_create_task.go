@@ -68,6 +68,8 @@ func (self *FileSystemCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 		return
 	}
 
+	zone, _ := fs.GetZone()
+
 	opts := &cloudprovider.FileSystemCraeteOptions{
 		Name:           fs.Name,
 		Desc:           fs.Description,
@@ -75,7 +77,7 @@ func (self *FileSystemCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 		StorageType:    fs.StorageType,
 		Protocol:       fs.Protocol,
 		FileSystemType: fs.FileSystemType,
-		ZoneId:         strings.TrimPrefix(fs.GetZone().ExternalId, iRegion.GetGlobalId()+"/"),
+		ZoneId:         strings.TrimPrefix(zone.ExternalId, iRegion.GetGlobalId()+"/"),
 	}
 
 	netId := jsonutils.GetAnyString(self.GetParams(), []string{"network_id"})
@@ -87,7 +89,8 @@ func (self *FileSystemCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 		}
 		network := net.(*models.SNetwork)
 		opts.NetworkId = network.ExternalId
-		opts.VpcId = network.GetVpc().ExternalId
+		vpc, _ := network.GetVpc()
+		opts.VpcId = vpc.ExternalId
 	}
 
 	log.Infof("nas create params: %s", jsonutils.Marshal(opts).String())

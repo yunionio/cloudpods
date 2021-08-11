@@ -698,7 +698,7 @@ func syncStorageCaches(ctx context.Context, userCred mcclient.TokenCredential, p
 	cachePair.local = localCache
 	cachePair.remote = remoteCache
 	cachePair.isNew = isNew
-	cachePair.region = localStorage.GetRegion()
+	cachePair.region, _ = localStorage.GetRegion()
 	return
 }
 
@@ -1756,7 +1756,7 @@ func getZoneForPremiseCloudRegion(ctx context.Context, userCred mcclient.TokenCr
 			log.Errorf(msg)
 			continue
 		}
-		return wire.GetZone(), nil
+		return wire.GetZone()
 	}
 	return nil, errors.Wrap(errors.ErrNotFound, "no suitable zone")
 }

@@ -38,7 +38,7 @@ func init() {
 func (self *GuestSyncConfTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF, nil, self.UserCred)
-	if host := guest.GetHost(); host == nil {
+	if host, _ := guest.GetHost(); host == nil {
 		self.SetStageFailed(ctx, jsonutils.NewString("No host for sync"))
 		return
 	} else {

@@ -52,8 +52,12 @@ func ValidateZoneResourceInput(userCred mcclient.TokenCredential, query api.Zone
 	return zoneObj.(*SZone), query, nil
 }
 
-func (self *SZoneResourceBase) GetZone() *SZone {
-	return ZoneManager.FetchZoneById(self.ZoneId)
+func (self *SZoneResourceBase) GetZone() (*SZone, error) {
+	zone, err := ZoneManager.FetchById(self.ZoneId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetZone(%s)", self.ZoneId)
+	}
+	return zone.(*SZone), nil
 }
 
 func (manager *SZoneResourceBaseManager) FetchCustomizeColumns(

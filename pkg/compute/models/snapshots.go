@@ -350,12 +350,12 @@ func (manager *SSnapshotManager) ValidateCreateData(
 	input.Size = disk.DiskSize
 	input.OsArch = disk.OsArch
 
-	storage := disk.GetStorage()
+	storage, _ := disk.GetStorage()
 	if len(disk.ExternalId) == 0 {
 		input.StorageId = disk.StorageId
 	}
 	input.ManagerId = storage.ManagerId
-	region := storage.GetRegion()
+	region, _ := storage.GetRegion()
 	if region == nil {
 		return input, httperrors.NewInputParameterError("failed to found region for disk's storage %s(%s)", storage.Name, storage.Id)
 	}
@@ -550,7 +550,7 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, owner mcclient
 		return nil, err
 	}
 	disk := iDisk.(*SDisk)
-	storage := disk.GetStorage()
+	storage, _ := disk.GetStorage()
 	snapshot := &SSnapshot{}
 	snapshot.SetModelManager(self, snapshot)
 	snapshot.ProjectId = owner.GetProjectId()
@@ -569,7 +569,7 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, owner mcclient
 	snapshot.Location = location
 	snapshot.CreatedBy = createdBy
 	snapshot.ManagerId = storage.ManagerId
-	if cloudregion := storage.GetRegion(); cloudregion != nil {
+	if cloudregion, _ := storage.GetRegion(); cloudregion != nil {
 		snapshot.CloudregionId = cloudregion.GetId()
 	}
 	snapshot.Name = name

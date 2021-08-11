@@ -83,7 +83,7 @@ func (p *CloudregionSchedtagPredicate) GetCandidateResource(c core.Candidater) I
 	if zone == nil {
 		return nil
 	}
-	region := zone.GetRegion()
+	region, _ := zone.GetRegion()
 	if region == nil {
 		return nil
 	}

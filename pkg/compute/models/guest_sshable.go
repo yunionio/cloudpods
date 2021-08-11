@@ -139,7 +139,7 @@ func (guest *SGuest) sshableTryEach(
 		if network == nil {
 			continue
 		}
-		vpc := network.GetVpc()
+		vpc, _ := network.GetVpc()
 		if vpc == nil {
 			continue
 		}

@@ -242,7 +242,7 @@ func (manager *SElasticcacheBackupManager) ValidateCreateData(ctx context.Contex
 		return nil, httperrors.NewMissingParameterError("elasticcache")
 	}
 
-	region = ec.GetRegion()
+	region, _ = ec.GetRegion()
 	driver := region.GetDriver()
 	if err := driver.AllowCreateElasticcacheBackup(ctx, userCred, ownerId, ec); err != nil {
 		return nil, err
@@ -328,7 +328,8 @@ func (self *SElasticcacheBackup) GetRegion() *SCloudregion {
 		return nil
 	}
 
-	return ieb.(*SElasticcache).GetRegion()
+	region, _ := ieb.(*SElasticcache).GetRegion()
+	return region
 }
 
 func (self *SElasticcacheBackup) ValidateDeleteCondition(ctx context.Context) error {

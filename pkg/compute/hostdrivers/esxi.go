@@ -70,8 +70,9 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 	// else, use it
 	hostCacheImage := models.StoragecachedimageManager.GetStoragecachedimage(storageCache.GetId(), cacheImage.GetId())
 	if hostCacheImage == nil {
+		zone, _ := host.GetZone()
 		srcHostCacheImage, err = cacheImage.ChooseSourceStoragecacheInRange(api.HOST_TYPE_ESXI, []string{host.Id},
-			[]interface{}{host.GetZone(), host.GetCloudprovider()})
+			[]interface{}{zone, host.GetCloudprovider()})
 		if err != nil {
 			return err
 		}
@@ -314,7 +315,7 @@ func (self *SESXiHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, h
 	// 	return fmt.Errorf("cannot find host with id %s", agentId)
 	// }
 
-	storage := disk.GetStorage()
+	storage, _ := disk.GetStorage()
 
 	type specStruct struct {
 		ImagePath      string

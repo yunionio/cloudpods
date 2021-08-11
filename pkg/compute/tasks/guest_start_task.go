@@ -43,7 +43,7 @@ func (self *GuestStartTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 
 func (self *GuestStartTask) RequestStart(ctx context.Context, guest *models.SGuest) {
 	self.SetStage("OnStartComplete", nil)
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	guest.SetStatus(self.UserCred, api.VM_STARTING, "")
 	result, err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self)
 	if err != nil {
@@ -98,7 +98,7 @@ func (self *GuestSchedStartTask) OnInit(ctx context.Context, obj db.IStandaloneM
 }
 
 func (self *GuestSchedStartTask) StartScheduler(ctx context.Context, guest *models.SGuest) {
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	if guestsMem := host.GetRunningGuestMemorySize(); guestsMem < 0 {
 		self.TaskFailed(ctx, guest, jsonutils.NewString("Guest Start Failed: Can't Get Host Guests Memory"))
 	} else {

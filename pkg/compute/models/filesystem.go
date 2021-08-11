@@ -137,8 +137,9 @@ func (man *SFileSystemManager) ValidateCreateData(ctx context.Context, userCred 
 			return input, err
 		}
 		network := net.(*SNetwork)
-		input.ManagerId = network.GetVpc().ManagerId
-		if zone := network.GetZone(); zone != nil {
+		vpc, _ := network.GetVpc()
+		input.ManagerId = vpc.ManagerId
+		if zone, _ := network.GetZone(); zone != nil {
 			input.ZoneId = zone.Id
 			input.CloudregionId = zone.CloudregionId
 		}
@@ -151,7 +152,7 @@ func (man *SFileSystemManager) ValidateCreateData(ctx context.Context, userCred 
 		return input, err
 	}
 	zone := _zone.(*SZone)
-	region := zone.GetRegion()
+	region, _ := zone.GetRegion()
 	input.CloudregionId = region.Id
 
 	if len(input.ManagerId) == 0 {

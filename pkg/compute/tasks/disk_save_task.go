@@ -39,8 +39,8 @@ func init() {
 
 func (self *DiskSaveTask) GetMasterHost(disk *models.SDisk) *models.SHost {
 	if guests := disk.GetGuests(); len(guests) == 1 {
-		if host := guests[0].GetHost(); host == nil {
-			if storage := disk.GetStorage(); storage != nil {
+		if host, _ := guests[0].GetHost(); host == nil {
+			if storage, _ := disk.GetStorage(); storage != nil {
 				return storage.GetMasterHost()
 			}
 		} else {

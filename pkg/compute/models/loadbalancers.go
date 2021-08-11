@@ -315,7 +315,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateZoneResourceInput")
 		}
-		region = zone.GetRegion()
+		region, _ = zone.GetRegion()
 	} else if len(input.NetworkId) > 0 {
 		if strings.IndexByte(input.NetworkId, ',') >= 0 {
 			input.NetworkId = strings.Split(input.NetworkId, ",")[0]
@@ -325,7 +325,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateNetworkResourceInput")
 		}
-		region = network.GetRegion()
+		region, _ = network.GetRegion()
 	}
 
 	if region == nil {
@@ -429,11 +429,13 @@ func (lb *SLoadbalancer) GetCloudproviderId() string {
 }
 
 func (lb *SLoadbalancer) GetZone() *SZone {
-	return lb.SZoneResourceBase.GetZone()
+	zone, _ := lb.SZoneResourceBase.GetZone()
+	return zone
 }
 
 func (lb *SLoadbalancer) GetVpc() *SVpc {
-	return lb.SVpcResourceBase.GetVpc()
+	vpc, _ := lb.SVpcResourceBase.GetVpc()
+	return vpc
 }
 
 func (lb *SLoadbalancer) GetNetworks() ([]SNetwork, error) {
@@ -590,10 +592,10 @@ func (lb *SLoadbalancer) ValidateUpdateData(ctx context.Context, userCred mcclie
 	}
 	if clusterV.Model != nil {
 		var (
-			cluster = clusterV.Model.(*SLoadbalancerCluster)
-			network = lb.GetNetwork()
-			wire    = network.GetWire()
-			zone    = wire.GetZone()
+			cluster    = clusterV.Model.(*SLoadbalancerCluster)
+			network, _ = lb.GetNetwork()
+			wire, _    = network.GetWire()
+			zone, _    = wire.GetZone()
 		)
 		if cluster.ZoneId != zone.Id {
 			return nil, httperrors.NewInputParameterError("cluster zone %s does not match network zone %s ",
