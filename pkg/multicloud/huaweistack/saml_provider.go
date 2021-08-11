@@ -66,7 +66,7 @@ func (self *SAMLProvider) GetStatus() string {
 }
 
 func (self *SAMLProvider) GetAuthUrl() string {
-	return fmt.Sprintf("https://auth.huaweicloud.com/authui/federation/websso?domain_id=%s&idp=%s&protocol=saml", self.client.ownerId, self.Id)
+	return fmt.Sprintf("https://auth.%s/authui/federation/websso?domain_id=%s&idp=%s&protocol=saml", self.client.cpcfg.EndpointDomain, self.client.ownerId, self.Id)
 }
 
 func (self *SAMLProvider) Delete() error {
