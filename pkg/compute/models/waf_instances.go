@@ -103,7 +103,7 @@ func (manager *SWafInstanceManager) ValidateCreateData(ctx context.Context, user
 				return input, err
 			}
 			server := _server.(*SGuest)
-			host := server.GetHost()
+			host, _ := server.GetHost()
 			if host.ManagerId != provider.GetId() {
 				return input, httperrors.NewConflictError("server %s does not belong to account %s", server.Name, provider.GetName())
 			}

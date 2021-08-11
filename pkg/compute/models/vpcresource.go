@@ -33,8 +33,8 @@ import (
 )
 
 type IVpcResource interface {
-	GetVpc() *SVpc
-	GetRegion() *SCloudregion
+	GetVpc() (*SVpc, error)
+	GetRegion() (*SCloudregion, error)
 }
 
 type SVpcResourceBase struct {
@@ -46,42 +46,41 @@ type SVpcResourceBaseManager struct {
 	SManagedResourceBaseManager
 }
 
-func (self *SVpcResourceBase) GetVpc() *SVpc {
-	obj, _ := VpcManager.FetchById(self.VpcId)
-	if obj == nil {
-		return nil
+func (self *SVpcResourceBase) GetVpc() (*SVpc, error) {
+	obj, err := VpcManager.FetchById(self.VpcId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetVpc(%s)", self.VpcId)
 	}
-	return obj.(*SVpc)
+	return obj.(*SVpc), nil
 }
 
-func (self *SVpcResourceBase) GetRegion() *SCloudregion {
-	vpc := self.GetVpc()
-	if vpc == nil {
-		return nil
+func (self *SVpcResourceBase) GetRegion() (*SCloudregion, error) {
+	vpc, err := self.GetVpc()
+	if err != nil {
+		return nil, err
 	}
-	region, _ := vpc.GetRegion()
-	return region
+	return vpc.GetRegion()
 }
 
 func (self *SVpcResourceBase) GetRegionId() string {
-	region := self.GetRegion()
-	if region != nil {
-		return region.Id
+	region, err := self.GetRegion()
+	if err != nil {
+		return ""
 	}
-	return ""
+	return region.Id
 }
 
 func (self *SVpcResourceBase) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	vpc := self.GetVpc()
-	if vpc != nil {
-		return vpc.GetIRegion()
+	vpc, err := self.GetVpc()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetVpc")
 	}
-	return nil, errors.Wrap(httperrors.ErrBadRequest, "not a valid vpc")
+	return vpc.GetIRegion()
 }
 
 func (self *SVpcResourceBase) GetCloudprovider() *SCloudprovider {
-	vpc := self.GetVpc()
-	if vpc == nil {
+	vpc, err := self.GetVpc()
+	if err != nil {
 		return nil
 	}
 	return vpc.GetCloudprovider()
@@ -96,7 +95,7 @@ func (self *SVpcResourceBase) GetCloudproviderId() string {
 }
 
 func (self *SVpcResourceBase) GetProviderName() string {
-	vpc := self.GetVpc()
+	vpc, _ := self.GetVpc()
 	if vpc == nil {
 		return ""
 	}
@@ -294,7 +293,7 @@ func (manager *SVpcResourceBaseManager) GetExportKeys() []string {
 }
 
 func (self *SVpcResourceBase) GetChangeOwnerCandidateDomainIds() []string {
-	vpc := self.GetVpc()
+	vpc, _ := self.GetVpc()
 	if vpc != nil {
 		return vpc.GetChangeOwnerCandidateDomainIds()
 	}
@@ -302,11 +301,11 @@ func (self *SVpcResourceBase) GetChangeOwnerCandidateDomainIds() []string {
 }
 
 func IsOneCloudVpcResource(res IVpcResource) bool {
-	vpc := res.GetVpc()
+	vpc, _ := res.GetVpc()
 	if vpc == nil {
 		return false
 	}
-	region := res.GetRegion()
+	region, _ := res.GetRegion()
 	if region == nil {
 		return false
 	}

@@ -69,7 +69,8 @@ func (self *SNatSEntryCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 	}
 
 	self.SetStage("OnAssociateEipComplete", nil)
-	err = nat.GetRegion().GetDriver().RequestAssociateEipForNAT(ctx, self.GetUserCred(), nat, eip, self)
+	region, _ := nat.GetRegion()
+	err = region.GetDriver().RequestAssociateEipForNAT(ctx, self.GetUserCred(), nat, eip, self)
 	if err != nil {
 		self.taskFailed(ctx, snat, errors.Wrapf(err, "RequestAssociateEipForNAT"))
 		return

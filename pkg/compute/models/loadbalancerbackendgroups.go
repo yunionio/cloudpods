@@ -225,7 +225,7 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 					return nil, httperrors.NewGeneralError(err)
 				}
 				guest := _guest.(*SGuest)
-				host := guest.GetHost()
+				host, _ := guest.GetHost()
 				if host == nil {
 					return nil, fmt.Errorf("error getting host of guest %s", guest.Name)
 				}
@@ -240,7 +240,7 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 					return nil, err
 				}
 				backends[i].Address = address
-				backendRegion = host.GetRegion()
+				backendRegion, _ = host.GetRegion()
 			case api.LB_BACKEND_HOST:
 				if !db.IsAdminAllowCreate(userCred, man) {
 					return nil, httperrors.NewForbiddenError("only sysadmin can specify host as backend")
@@ -257,7 +257,7 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 				backends[i].Name = host.Name
 				backends[i].ExternalID = host.ExternalId
 				backends[i].Address = host.AccessIp
-				backendRegion = host.GetRegion()
+				backendRegion, _ = host.GetRegion()
 			default:
 				return nil, httperrors.NewInputParameterError("unexpected backend type %s", backends[i].BackendType)
 			}

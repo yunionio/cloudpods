@@ -436,8 +436,9 @@ func (self *SKafka) SyncWithCloudKafka(ctx context.Context, userCred mcclient.To
 			} else {
 				network := _network.(*SNetwork)
 				self.NetworkId = network.Id
-				self.VpcId = network.GetVpc().Id
-				if zone := network.GetZone(); zone != nil {
+				vpc, _ := network.GetVpc()
+				self.VpcId = vpc.Id
+				if zone, _ := network.GetZone(); zone != nil {
 					self.ZoneId = zone.Id
 				}
 			}
@@ -529,8 +530,9 @@ func (self *SCloudregion) newFromCloudKafka(ctx context.Context, userCred mcclie
 		} else {
 			network := _network.(*SNetwork)
 			kafka.NetworkId = network.Id
-			kafka.VpcId = network.GetVpc().Id
-			if zone := network.GetZone(); zone != nil {
+			vpc, _ := network.GetVpc()
+			kafka.VpcId = vpc.Id
+			if zone, _ := network.GetZone(); zone != nil {
 				kafka.ZoneId = zone.Id
 			}
 		}

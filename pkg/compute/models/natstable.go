@@ -206,7 +206,7 @@ func (man *SNatSEntryManager) ValidateCreateData(ctx context.Context, userCred m
 			return nil, err
 		}
 		network := _network.(*SNetwork)
-		vpc := network.GetVpc()
+		vpc, _ := network.GetVpc()
 		if vpc == nil {
 			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "network.GetVpc"))
 		}

@@ -106,7 +106,7 @@ func (self *SAliyunRegionDriver) validateCreateLBCommonData(ownerId mcclient.IId
 		}
 	}
 
-	region := zoneV.Model.(*models.SZone).GetRegion()
+	region, _ := zoneV.Model.(*models.SZone).GetRegion()
 	if region == nil {
 		return nil, nil, fmt.Errorf("getting region failed")
 	}
@@ -294,7 +294,7 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerBackendData(ctx conte
 	}
 
 	guest := backend.(*models.SGuest)
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	if host == nil {
 		return nil, fmt.Errorf("error getting host of guest %s", guest.GetId())
 	}
@@ -302,7 +302,7 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerBackendData(ctx conte
 		return nil, fmt.Errorf("error loadbalancer of backend group %s", backendGroup.GetId())
 	}
 
-	hostRegion := host.GetRegion()
+	hostRegion, _ := host.GetRegion()
 	lbRegion := lb.GetRegion()
 	if hostRegion.Id != lbRegion.Id {
 		return nil, httperrors.NewInputParameterError("region of host %q (%s) != region of loadbalancer %q (%s))",
@@ -885,11 +885,11 @@ func (self *SAliyunRegionDriver) ValidateCreateDBInstanceData(ctx context.Contex
 	}
 
 	if network != nil {
-		wire := network.GetWire()
+		wire, _ := network.GetWire()
 		if wire == nil {
 			return input, httperrors.NewGeneralError(fmt.Errorf("failed to found wire for network %s(%s)", network.Name, network.Id))
 		}
-		zone := wire.GetZone()
+		zone, _ := wire.GetZone()
 		if zone == nil {
 			return input, httperrors.NewGeneralError(fmt.Errorf("failed to found zone for wire %s(%s)", wire.Name, wire.Id))
 		}
@@ -953,7 +953,7 @@ func (self *SAliyunRegionDriver) ValidateCreateDBInstanceData(ctx context.Contex
 		}
 	case api.DBINSTANCE_TYPE_SQLSERVER:
 		if input.Category == api.ALIYUN_DBINSTANCE_CATEGORY_ALWAYSON {
-			vpc := network.GetVpc()
+			vpc, _ := network.GetVpc()
 			count, err := vpc.GetNetworkCount()
 			if err != nil {
 				return input, httperrors.NewGeneralError(err)
@@ -1128,7 +1128,7 @@ func (self *SAliyunRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 		data.Set("billing_cycle", jsonutils.NewString(cycle.String()))
 	}
 
-	vpc := network.GetVpc()
+	vpc, _ := network.GetVpc()
 	if vpc == nil {
 		return nil, httperrors.NewNotFoundError("network %s related vpc not found", network.GetId())
 	}

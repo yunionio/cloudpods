@@ -100,7 +100,7 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 		host    *models.SHost
 	)
 
-	storage = disk.GetStorage()
+	storage, _ = disk.GetStorage()
 	if storage == nil { // dirty data
 		self.OnGuestDiskDeleteComplete(ctx, disk, nil)
 		return

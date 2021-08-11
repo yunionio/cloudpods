@@ -192,9 +192,9 @@ func elasticcacheSubResourceFetchOwner(q *sqlchemy.SQuery, userCred mcclient.IId
 }
 
 func (self *SElasticcache) getCloudProviderInfo() SCloudProviderInfo {
-	region := self.GetRegion()
+	region, _ := self.GetRegion()
 	provider := self.GetCloudprovider()
-	zone := self.GetZone()
+	zone, _ := self.GetZone()
 	return MakeCloudProviderInfo(region, zone, provider)
 }
 
@@ -781,8 +781,8 @@ func (manager *SElasticcacheManager) validateCreateData(ctx context.Context, use
 		if err != nil {
 			return nil, fmt.Errorf("getting network failed")
 		}
-		region = network.(*SNetwork).GetRegion()
-		vpc := network.(*SNetwork).GetVpc()
+		region, _ = network.(*SNetwork).GetRegion()
+		vpc, _ := network.(*SNetwork).GetVpc()
 		provider = vpc.GetCloudprovider()
 	}
 
@@ -925,7 +925,7 @@ func (self *SElasticcache) GetCreateAliyunElasticcacheParams(data *jsonutils.JSO
 	input.EngineVersion = self.EngineVersion
 	input.PrivateIpAddress = self.PrivateIpAddr
 
-	zone := self.GetZone()
+	zone, _ := self.GetZone()
 	if zone != nil {
 		izone, err := iregion.GetIZoneById(zone.ExternalId)
 		if err != nil {
@@ -1017,7 +1017,7 @@ func (self *SElasticcache) GetCreateHuaweiElasticcacheParams(data *jsonutils.JSO
 	input.EngineVersion = self.EngineVersion
 	input.PrivateIpAddress = self.PrivateIpAddr
 
-	zone := self.GetZone()
+	zone, _ := self.GetZone()
 	if zone != nil {
 		izone, err := iregion.GetIZoneById(zone.ExternalId)
 		if err != nil {
@@ -1070,7 +1070,8 @@ func (self *SElasticcache) GetCreateHuaweiElasticcacheParams(data *jsonutils.JSO
 
 	// fill security group here
 	if len(self.SecurityGroupId) > 0 {
-		sgCache, err := SecurityGroupCacheManager.GetSecgroupCache(context.Background(), nil, self.SecurityGroupId, self.VpcId, self.GetRegion().Id, self.GetCloudprovider().Id, "")
+		region, _ := self.GetRegion()
+		sgCache, err := SecurityGroupCacheManager.GetSecgroupCache(context.Background(), nil, self.SecurityGroupId, self.VpcId, region.Id, self.GetCloudprovider().Id, "")
 		if err != nil {
 			return nil, errors.Wrap(err, "elasticcache.GetCreateHuaweiElasticcacheParams.SecurityGroup")
 		}
@@ -1105,7 +1106,7 @@ func (self *SElasticcache) GetCreateQCloudElasticcacheParams(data *jsonutils.JSO
 		input.Password = password
 	}
 
-	zone := self.GetZone()
+	zone, _ := self.GetZone()
 	if zone != nil {
 		zones := []SZone{*zone}
 		// slave zones
@@ -1237,7 +1238,7 @@ func (self *SElasticcache) ValidatorChangeSpecData(ctx context.Context, userCred
 		return nil, httperrors.NewInputParameterError("provider mismatch: %s instance can't use %s sku", self.GetProviderName(), sku.Provider)
 	}
 
-	region := self.GetRegion()
+	region, _ := self.GetRegion()
 	if sku.CloudregionId != region.Id {
 		return nil, httperrors.NewInputParameterError("region mismatch: instance region %s, sku region %s", region.Id, sku.CloudregionId)
 	}
@@ -1286,7 +1287,7 @@ func (self *SElasticcache) AllowPerformUpdateAuthMode(ctx context.Context, userC
 }
 
 func (self *SElasticcache) ValidatorUpdateAuthModeData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	region := self.GetRegion()
+	region, _ := self.GetRegion()
 	if region == nil {
 		return nil, fmt.Errorf("fail to found region for elastic cache")
 	}
@@ -1734,10 +1735,11 @@ func (man *SElasticcacheManager) TotalCount(
 }
 
 func (cache *SElasticcache) GetQuotaKeys() quotas.IQuotaKeys {
+	region, _ := cache.GetRegion()
 	return fetchRegionalQuotaKeys(
 		rbacutils.ScopeProject,
 		cache.GetOwnerId(),
-		cache.GetRegion(),
+		region,
 		cache.GetCloudprovider(),
 	)
 }
@@ -1970,7 +1972,7 @@ func (self *SElasticcache) OnMetadataUpdated(ctx context.Context, userCred mccli
 }
 
 func (self *SElasticcache) getSecgroupsBySecgroupExternalIds(externalIds []string) ([]SSecurityGroup, error) {
-	vpc := self.GetVpc()
+	vpc, _ := self.GetVpc()
 	if vpc == nil {
 		return nil, errors.Wrap(errors.ErrNotFound, "GetVpc")
 	}
@@ -1993,7 +1995,7 @@ func (self *SElasticcache) validateSecgroupInput(secgroups []string) error {
 		return httperrors.NewInputParameterError("Cannot add security groups in status %s", self.Status)
 	}
 
-	region := self.GetRegion()
+	region, _ := self.GetRegion()
 	if region == nil {
 		return httperrors.NewNotFoundError("region")
 	}
@@ -2299,7 +2301,7 @@ func (self *SElasticcache) PerformSetAutoRenew(ctx context.Context, userCred mcc
 		return nil, nil
 	}
 
-	region := self.GetRegion()
+	region, _ := self.GetRegion()
 	if region == nil {
 		return nil, httperrors.NewResourceNotFoundError("elastic cache no related region found")
 	}
@@ -2349,7 +2351,7 @@ func (self *SElasticcache) PerformRenew(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewInputParameterError("invalid duration %s: %s", durationStr, err)
 	}
 
-	region := self.GetRegion()
+	region, _ := self.GetRegion()
 	if region == nil {
 		return nil, httperrors.NewResourceNotFoundError("elastic cache no related region found")
 	}

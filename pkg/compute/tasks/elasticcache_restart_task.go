@@ -46,7 +46,7 @@ func (self *ElasticcacheRestartTask) taskFail(ctx context.Context, elasticcache 
 
 func (self *ElasticcacheRestartTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	ec := obj.(*models.SElasticcache)
-	region := ec.GetRegion()
+	region, _ := ec.GetRegion()
 	if region == nil {
 		self.taskFail(ctx, ec, jsonutils.NewString(fmt.Sprintf("failed to find region for elastic cache %s", ec.GetName())))
 		return

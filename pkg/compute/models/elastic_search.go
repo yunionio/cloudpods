@@ -438,8 +438,9 @@ func (self *SElasticSearch) SyncWithCloudElasticSearch(ctx context.Context, user
 			} else {
 				network := _network.(*SNetwork)
 				self.NetworkId = network.Id
-				self.VpcId = network.GetVpc().Id
-				if zone := network.GetZone(); zone != nil {
+				vpc, _ := network.GetVpc()
+				self.VpcId = vpc.Id
+				if zone, _ := network.GetZone(); zone != nil {
 					self.ZoneId = zone.Id
 				}
 			}
@@ -518,8 +519,9 @@ func (self *SCloudregion) newFromCloudElasticSearch(ctx context.Context, userCre
 		} else {
 			network := _network.(*SNetwork)
 			es.NetworkId = network.Id
-			es.VpcId = network.GetVpc().Id
-			if zone := network.GetZone(); zone != nil {
+			vpc, _ := network.GetVpc()
+			es.VpcId = vpc.Id
+			if zone, _ := network.GetZone(); zone != nil {
 				es.ZoneId = zone.Id
 			}
 		}

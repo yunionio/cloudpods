@@ -46,7 +46,7 @@ func (self *ElasticcacheUpdateAuthModeTask) taskFail(ctx context.Context, elasti
 
 func (self *ElasticcacheUpdateAuthModeTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	elasticcache := obj.(*models.SElasticcache)
-	region := elasticcache.GetRegion()
+	region, _ := elasticcache.GetRegion()
 	if region == nil {
 		self.taskFail(ctx, elasticcache, jsonutils.Marshal(fmt.Sprintf("failed to find region for elastic cache %s", elasticcache.GetName())))
 		return

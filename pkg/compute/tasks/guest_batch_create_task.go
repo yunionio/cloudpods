@@ -138,7 +138,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		}
 	}
 
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 
 	quotaCpuMem := models.SQuota{Count: 1, Cpu: int(guest.VcpuCount), Memory: guest.VmemSize}
 	keys, err := guest.GetQuotaKeys()
