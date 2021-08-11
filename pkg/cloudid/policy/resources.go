@@ -28,6 +28,7 @@ var (
 	}
 	cloudidUserResources = []string{
 		"cloudusers",
+		"samlusers",
 	}
 )
 
