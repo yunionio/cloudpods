@@ -110,9 +110,9 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 		input.PreferHost = baremetal.Id
 		input.DefaultStorageType = defaultStorage.StorageType
 
-		zone := baremetal.GetZone()
+		zone, _ := baremetal.GetZone()
 		input.PreferZone = zone.Id
-		region := zone.GetRegion()
+		region, _ := zone.GetRegion()
 		input.PreferRegion = region.Id
 	} else {
 		if len(input.Schedtags) > 0 {
@@ -134,9 +134,9 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 			}
 			wire := wireObj.(*SWire)
 			input.PreferWire = wire.Id
-			zone := wire.GetZone()
+			zone, _ := wire.GetZone()
 			input.PreferZone = zone.Id
-			region := zone.GetRegion()
+			region, _ := zone.GetRegion()
 			input.PreferRegion = region.Id
 		} else if input.PreferZone != "" {
 			zoneStr := input.PreferZone
@@ -150,7 +150,7 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 			}
 			zone := zoneObj.(*SZone)
 			input.PreferZone = zone.Id
-			region := zone.GetRegion()
+			region, _ := zone.GetRegion()
 			input.PreferRegion = region.Id
 		} else if input.PreferRegion != "" {
 			regionStr := input.PreferRegion

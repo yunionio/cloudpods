@@ -70,7 +70,7 @@ func (self *SGuest) AllowGetDetailsVnc(ctx context.Context, userCred mcclient.To
 
 func (self *SGuest) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_BLOCK_STREAM}) {
-		host := self.GetHost()
+		host, _ := self.GetHost()
 		if host == nil {
 			return nil, httperrors.NewInternalServerError("Host missing")
 		}
@@ -93,7 +93,7 @@ func (self *SGuest) PreCheckPerformAction(
 		return err
 	}
 	if self.Hypervisor == api.HYPERVISOR_KVM {
-		host := self.GetHost()
+		host, _ := self.GetHost()
 		if host != nil && (host.HostStatus == api.HOST_OFFLINE || !host.Enabled.Bool()) &&
 			utils.IsInStringArray(action,
 				[]string{
@@ -168,7 +168,7 @@ func (self *SGuest) AllowGetDetailsDesc(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SGuest) GetDetailsDesc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	host := self.GetHost()
+	host, _ := self.GetHost()
 	if host == nil {
 		return nil, httperrors.NewInvalidStatusError("No host for server")
 	}
@@ -201,7 +201,7 @@ func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.Toke
 		if apis.IsARM(self.OsArch) {
 			var osArch string
 			if osArch = self.GetMetadata("os_arch", nil); len(osArch) == 0 {
-				host := self.GetHost()
+				host, _ := self.GetHost()
 				osArch = host.CpuArchitecture
 			}
 			properties.Add(jsonutils.NewString(osArch), "os_arch")
@@ -276,7 +276,7 @@ func (self *SGuest) PerformSaveGuestImage(ctx context.Context, userCred mcclient
 	if apis.IsARM(self.OsArch) {
 		var osArch string
 		if osArch = self.GetMetadata("os_arch", nil); len(osArch) == 0 {
-			host := self.GetHost()
+			host, _ := self.GetHost()
 			osArch = host.CpuArchitecture
 		}
 		properties.Add(jsonutils.NewString(osArch), "os_arch")
@@ -456,7 +456,7 @@ func (self *SGuest) GetSchedMigrateParams(
 	if input.LiveMigrate {
 		schedDesc.LiveMigrate = input.LiveMigrate
 		if self.GetMetadata("__cpu_mode", userCred) != api.CPU_MODE_QEMU {
-			host := self.GetHost()
+			host, _ := self.GetHost()
 			schedDesc.CpuDesc = host.CpuDesc
 			schedDesc.CpuMicrocode = host.CpuMicrocode
 			schedDesc.CpuMode = api.CPU_MODE_HOST
@@ -746,9 +746,9 @@ func (self *SGuest) AllowPerformAttachdisk(ctx context.Context, userCred mcclien
 }
 
 func (self *SGuest) ValidateAttachDisk(ctx context.Context, disk *SDisk) error {
-	storage := disk.GetStorage()
+	storage, _ := disk.GetStorage()
+	host, _ := self.GetHost()
 	if provider := storage.GetCloudprovider(); provider != nil {
-		host := self.GetHost()
 		if provider.Id != host.ManagerId {
 			return httperrors.NewInputParameterError("Disk %s and guest not belong to the same account", disk.Name)
 		}
@@ -767,7 +767,7 @@ func (self *SGuest) ValidateAttachDisk(ctx context.Context, disk *SDisk) error {
 		}
 	}
 
-	if len(disk.GetPathAtHost(self.GetHost())) == 0 {
+	if len(disk.GetPathAtHost(host)) == 0 {
 		return httperrors.NewInputParameterError("Disk %s not belong the guest's host", disk.Name)
 	}
 	if disk.Status != api.DISK_READY {
@@ -893,7 +893,7 @@ func (self *SGuest) PerformStart(ctx context.Context, userCred mcclient.TokenCre
 	data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_START_FAILED, api.VM_SAVE_DISK_FAILED, api.VM_SUSPEND}) {
 		if !self.guestDisksStorageTypeIsShared() {
-			host := self.GetHost()
+			host, _ := self.GetHost()
 			guestsMem, err := host.GetNotReadyGuestsMemorySize()
 			if err != nil {
 				return nil, err
@@ -953,7 +953,7 @@ func (self *SGuest) NotifyServerEvent(
 
 	kwargs.Add(jsonutils.NewString(self.Name), "name")
 	kwargs.Add(jsonutils.NewString(self.Hypervisor), "hypervisor")
-	host := self.GetHost()
+	host, _ := self.GetHost()
 	if host != nil {
 		brand := host.GetBrand()
 		if brand == api.CLOUD_PROVIDER_ONECLOUD {
@@ -1473,7 +1473,7 @@ func (self *SGuest) PerformPurge(ctx context.Context, userCred mcclient.TokenCre
 	if err != nil {
 		return nil, err
 	}
-	host := self.GetHost()
+	host, _ := self.GetHost()
 	if host != nil && host.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Cannot purge server on enabled host")
 	}
@@ -1704,7 +1704,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 		}
 		diskSize += diskInfo.SizeMb
 	}
-	host := self.GetHost()
+	host, _ := self.GetHost()
 	if host == nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CREATE, "No valid host", userCred, false)
 		return nil, httperrors.NewBadRequestError("No valid host")
@@ -1858,7 +1858,7 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 		}
 	} else {
 		devs := self.GetIsolatedDevices()
-		host := self.GetHost()
+		host, _ := self.GetHost()
 		lockman.LockObject(ctx, host)
 		defer lockman.ReleaseObject(ctx, host)
 		for i := 0; i < len(devs); i++ {
@@ -1883,7 +1883,7 @@ func (self *SGuest) startDetachIsolateDevice(ctx context.Context, userCred mccli
 		return httperrors.NewBadRequestError(msgFmt, device)
 	}
 	dev := iDev.(*SIsolatedDevice)
-	host := self.GetHost()
+	host, _ := self.GetHost()
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
 	err = self.detachIsolateDevice(ctx, userCred, dev)
@@ -1948,7 +1948,7 @@ func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mc
 }
 
 func (self *SGuest) startAttachIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, gpuModel string, count int) error {
-	host := self.GetHost()
+	host, _ := self.GetHost()
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
 	devs, err := IsolatedDeviceManager.GetDevsOnHost(host.Id, gpuModel, count)
@@ -1977,7 +1977,7 @@ func (self *SGuest) startAttachIsolatedDevice(ctx context.Context, userCred mccl
 		return httperrors.NewBadRequestError(msgFmt, device)
 	}
 	dev := iDev.(*SIsolatedDevice)
-	host := self.GetHost()
+	host, _ := self.GetHost()
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
 	err = self.attachIsolatedDevice(ctx, userCred, dev)
@@ -2104,7 +2104,8 @@ func (self *SGuest) getReuseAddr(gn *SGuestnetwork) string {
 	if self.GetHypervisor() != api.HYPERVISOR_BAREMETAL {
 		return ""
 	}
-	hostNics := self.GetHost().GetNics()
+	host, _ := self.GetHost()
+	hostNics := host.GetNics()
 	for _, hn := range hostNics {
 		if hn.GetMac().String() == gn.MacAddr {
 			return hn.IpAddr
@@ -2154,7 +2155,7 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 	if err != nil {
 		return nil, err
 	}
-	host := self.GetHost()
+	host, _ := self.GetHost()
 
 	ngn, err := func() ([]SGuestnetwork, error) {
 		lockman.LockRawObject(ctx, GuestnetworkManager.KeywordPlural(), "")
@@ -2337,7 +2338,7 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError("%v", err)
 	}
-	host := self.GetHost()
+	host, _ := self.GetHost()
 	defer host.ClearSchedDescCache()
 	for i := 0; i < count; i++ {
 		_, err = self.attach2NetworkDesc(ctx, userCred, host, input.Nets[i], pendingUsage, nil)
@@ -2470,7 +2471,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewInvalidStatusError("Cannot change config in %s", self.Status)
 	}
 
-	host := self.GetHost()
+	host, _ := self.GetHost()
 	if host == nil {
 		return nil, httperrors.NewInvalidStatusError("No valid host")
 	}
@@ -2591,7 +2592,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 					arr := jsonutils.NewArray(jsonutils.NewString(disks[diskIdx].DiskId), jsonutils.NewInt(int64(diskConf.SizeMb)))
 					resizeDisks.Add(arr)
 					addDisk += diskConf.SizeMb - oldSize
-					storage := disks[diskIdx].GetDisk().GetStorage()
+					storage, _ := disks[diskIdx].GetDisk().GetStorage()
 					schedInputDisks = append(schedInputDisks, &api.DiskConfig{
 						SizeMb:  addDisk,
 						Index:   diskConf.Index,
@@ -2968,7 +2969,7 @@ func (self *SGuest) IsLegalKey(key string) bool {
 }
 
 func (self *SGuest) SendMonitorCommand(ctx context.Context, userCred mcclient.TokenCredential, cmd string) (jsonutils.JSONObject, error) {
-	host := self.GetHost()
+	host, _ := self.GetHost()
 	url := fmt.Sprintf("%s/servers/%s/monitor", host.ManagerUri, self.Id)
 	header := http.Header{}
 	header.Add("X-Auth-Token", userCred.GetTokenString())
@@ -3016,7 +3017,7 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 
 	eip := eipObj.(*SElasticip)
 	eipRegion := eip.GetRegion()
-	instRegion := self.getRegion()
+	instRegion, _ := self.getRegion()
 
 	if eip.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
 		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot be associated")
@@ -3043,15 +3044,15 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 		}
 	}
 
-	eipZone := eip.GetZone()
+	eipZone, _ := eip.GetZone()
 	if eipZone != nil {
-		insZone := self.getZone()
+		insZone, _ := self.getZone()
 		if eipZone.Id != insZone.Id {
 			return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different zone")
 		}
 	}
 
-	host := self.GetHost()
+	host, _ := self.GetHost()
 	if host == nil {
 		return nil, httperrors.NewInputParameterError("server host is not found???")
 	}
@@ -3109,8 +3110,8 @@ func (self *SGuest) AllowPerformCreateEip(ctx context.Context, userCred mcclient
 
 func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	var (
-		host         = self.GetHost()
-		region       = host.GetRegion()
+		host, _      = self.GetHost()
+		region, _    = host.GetRegion()
 		regionDriver = region.GetDriver()
 
 		bw            int64
@@ -3509,7 +3510,8 @@ func (self *SGuest) AllowPerformCreateBackup(ctx context.Context, userCred mccli
 
 func (self *SGuest) guestDisksStorageTypeIsLocal() bool {
 	for _, gd := range self.GetDisks() {
-		if gd.GetDisk().GetStorage().StorageType != api.STORAGE_LOCAL {
+		storage, _ := gd.GetDisk().GetStorage()
+		if storage.StorageType != api.STORAGE_LOCAL {
 			return false
 		}
 	}
@@ -3518,7 +3520,8 @@ func (self *SGuest) guestDisksStorageTypeIsLocal() bool {
 
 func (self *SGuest) guestDisksStorageTypeIsShared() bool {
 	for _, gd := range self.GetDisks() {
-		if gd.GetDisk().GetStorage().StorageType == api.STORAGE_LOCAL {
+		storage, _ := gd.GetDisk().GetStorage()
+		if storage.StorageType == api.STORAGE_LOCAL {
 			return false
 		}
 	}
@@ -3786,7 +3789,7 @@ func (self *SGuest) GetStorages() []*SStorage {
 	disks := self.GetDisks()
 	storageMap := make(map[string]*SStorage)
 	for i := range disks {
-		storage := disks[i].GetStorage()
+		storage, _ := disks[i].GetStorage()
 		if _, ok := storageMap[storage.GetId()]; !ok {
 			storageMap[storage.GetId()] = storage
 		}
@@ -4034,7 +4037,8 @@ func (self *SGuest) importNics(ctx context.Context, userCred mcclient.TokenCrede
 		if err != nil {
 			return httperrors.NewNotFoundError("Not found network by ip %s", nic.Ip)
 		}
-		_, err = self.attach2NetworkDesc(ctx, userCred, self.GetHost(), ToNetConfig(&nic, net), nil, nil)
+		host, _ := self.GetHost()
+		_, err = self.attach2NetworkDesc(ctx, userCred, host, ToNetConfig(&nic, net), nil, nil)
 		if err != nil {
 			return err
 		}
@@ -4065,8 +4069,9 @@ func (self *SGuest) importDisks(ctx context.Context, userCred mcclient.TokenCred
 	if len(disks) == 0 {
 		return httperrors.NewInputParameterError("Empty import disks")
 	}
+	host, _ := self.GetHost()
 	for _, disk := range disks {
-		disk, err := self.createDiskOnHost(ctx, userCred, self.GetHost(), ToDiskConfig(&disk), nil, true, true, nil, nil, true)
+		disk, err := self.createDiskOnHost(ctx, userCred, host, ToDiskConfig(&disk), nil, true, true, nil, nil, true)
 		if err != nil {
 			return err
 		}
@@ -4147,8 +4152,9 @@ func (self *SGuest) GetDetailsVirtInstall(
 		vdiListenPort int64
 	)
 
+	host, _ := self.GetHost()
 	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_BLOCK_STREAM}) {
-		vncInfo, err := self.GetDriver().GetGuestVncInfo(ctx, userCred, self, self.GetHost())
+		vncInfo, err := self.GetDriver().GetGuestVncInfo(ctx, userCred, self, host)
 		if err != nil {
 			log.Errorln(err)
 			return nil, err
@@ -4185,7 +4191,7 @@ func (self *SGuest) GenerateVirtInstallCommandLine(
 	cmd += L(fmt.Sprintf("--ram %d", self.VmemSize))
 	cmd += L(fmt.Sprintf("--vcpus %d", self.VcpuCount))
 
-	host := self.GetHost()
+	host, _ := self.GetHost()
 
 	// disks
 	guestDisks := self.GetDisks()
@@ -4368,7 +4374,7 @@ func (self *SGuest) PerformSyncFixNics(ctx context.Context,
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-	host := self.GetHost()
+	host, _ := self.GetHost()
 	if host == nil {
 		return nil, httperrors.NewInternalServerError("host not found???")
 	}
@@ -4731,11 +4737,12 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 
 	// construct Quota
 	pendingUsage := &SRegionQuota{InstanceSnapshot: 1}
-	provider := self.GetHost().GetProviderName()
+	host, _ := self.GetHost()
+	provider := host.GetProviderName()
 	if utils.IsInStringArray(provider, ProviderHasSubSnapshot) {
 		disks := self.GetDisks()
 		for i := 0; i < len(disks); i++ {
-			if storage := disks[i].GetDisk().GetStorage(); utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
+			if storage, _ := disks[i].GetDisk().GetStorage(); utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
 				count, err := SnapshotManager.GetDiskManualSnapshotCount(disks[i].DiskId)
 				if err != nil {
 					return nil, httperrors.NewInternalServerError("%v", err)
@@ -4988,7 +4995,7 @@ func (self *SGuest) GetDetailsJnlp(ctx context.Context, userCred mcclient.TokenC
 	if self.Hypervisor != api.HYPERVISOR_BAREMETAL {
 		return nil, httperrors.NewInvalidStatusError("not a baremetal server")
 	}
-	host := self.GetHost()
+	host, _ := self.GetHost()
 	if host == nil {
 		return nil, httperrors.NewInvalidStatusError("no valid host")
 	}

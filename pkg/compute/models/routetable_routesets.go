@@ -143,7 +143,7 @@ func (manager *SRouteTableRouteSetManager) ValidateCreateData(
 		input.ExtNextHopId = vpcPeer.GetExternalId()
 	}
 
-	vpc := routeTable.GetVpc()
+	vpc, _ := routeTable.GetVpc()
 	account := vpc.GetCloudaccount()
 	factory, err := account.GetProviderFactory()
 	if err != nil {
@@ -312,7 +312,7 @@ func (self *SRouteTableRouteSet) GetVpc() (*SVpc, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetRouteTable()")
 	}
-	return routeTable.GetVpc(), nil
+	return routeTable.GetVpc()
 }
 
 func (self *SRouteTableRouteSet) syncRemoveRouteSet(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -378,7 +378,7 @@ func (manager *SRouteTableRouteSetManager) newRouteSetFromCloud(ctx context.Cont
 	routeSet.ExternalId = cloudRouteSet.GetGlobalId()
 	routeSet.SetModelManager(manager, routeSet)
 	if cloudRouteSet.GetNextHopType() == api.Next_HOP_TYPE_VPCPEERING {
-		vpc := routeTable.GetVpc()
+		vpc, _ := routeTable.GetVpc()
 		vpcPeer, err := vpc.GetVpcPeeringConnectionByExtId(cloudRouteSet.GetNextHop())
 		if err == nil {
 			routeSet.NextHopId = vpcPeer.GetId()

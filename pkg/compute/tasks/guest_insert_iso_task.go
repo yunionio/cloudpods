@@ -44,7 +44,7 @@ func (self *GuestInsertIsoTask) prepareIsoImage(ctx context.Context, obj db.ISta
 
 	disks := guest.GetDisks()
 	disk := disks[0].GetDisk()
-	storage := disk.GetStorage()
+	storage, _ := disk.GetStorage()
 	storageCache := storage.GetStoragecache()
 
 	if storageCache != nil {

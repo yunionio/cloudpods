@@ -177,7 +177,7 @@ func (self *SQcloudGuestDriver) ValidateChangeConfig(ctx context.Context, userCr
 		if err != nil {
 			return httperrors.NewResourceNotFoundError("failed to found system disk error: %v", err)
 		}
-		storage := disk.GetStorage()
+		storage, _ := disk.GetStorage()
 		if storage == nil {
 			return httperrors.NewResourceNotFoundError("failed to found storage for disk %s(%s)", disk.Name, disk.Id)
 		}
@@ -218,7 +218,7 @@ func (self *SQcloudGuestDriver) ValidateChangeConfig(ctx context.Context, userCr
 }
 
 func (self *SQcloudGuestDriver) ValidateDetachDisk(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, disk *models.SDisk) error {
-	storage := disk.GetStorage()
+	storage, _ := disk.GetStorage()
 	if storage == nil {
 		return httperrors.NewResourceNotFoundError("failed to found storage for disk %s(%s)", disk.Name, disk.Id)
 	}

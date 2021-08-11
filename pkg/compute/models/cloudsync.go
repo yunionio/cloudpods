@@ -1231,7 +1231,7 @@ func getZoneForPremiseCloudRegion(ctx context.Context, userCred mcclient.TokenCr
 			log.Errorf(msg)
 			continue
 		}
-		return wire.GetZone(), nil
+		return wire.GetZone()
 	}
 	return nil, errors.Wrap(errors.ErrNotFound, "no suitable zone")
 }

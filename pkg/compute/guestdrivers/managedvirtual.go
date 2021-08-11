@@ -91,7 +91,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 
 	for i := 0; i < len(disks); i += 1 {
 		disk := disks[i].GetDisk()
-		storage := disk.GetStorage()
+		storage, _ := disk.GetStorage()
 		if i == 0 {
 			config.SysDisk.Name = disk.Name
 			config.SysDisk.StorageExternalId = storage.ExternalId
@@ -143,7 +143,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestGuestCreateAllDisks(ctx conte
 		task.ScheduleRun(nil)
 		return nil
 	}
-	storage := diskCat.Root.GetStorage()
+	storage, _ := diskCat.Root.GetStorage()
 	if storage == nil {
 		return fmt.Errorf("no valid storage")
 	}
@@ -390,7 +390,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 
 	switch action {
 	case "create":
-		region := host.GetRegion()
+		region, _ := host.GetRegion()
 		if len(desc.InstanceType) == 0 && region != nil && utils.IsInStringArray(guest.Hypervisor, api.PUBLIC_CLOUD_HYPERVISORS) {
 			sku, err := models.ServerSkuManager.GetMatchedSku(region.GetId(), int64(desc.Cpu), int64(desc.MemoryMB))
 			if err != nil {
@@ -665,7 +665,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 
 		for _, guestdisk := range guest.GetDisks() {
 			disk := guestdisk.GetDisk()
-			storage := disk.GetStorage()
+			storage, _ := disk.GetStorage()
 			if disk != nil && disk.AutoDelete && !utils.IsInStringArray(storage.StorageType, api.STORAGE_LOCAL_TYPES) {
 				idisk, err := disk.GetIDisk()
 				if err != nil {
@@ -772,7 +772,7 @@ func (self *SManagedVirtualizedGuestDriver) DoGuestCreateDisksTask(ctx context.C
 }
 
 func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	ihost, err := host.GetIHost()
 	if err != nil {
 		return err
@@ -784,7 +784,8 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 	}
 
 	if len(instanceType) == 0 {
-		sku, err := models.ServerSkuManager.GetMatchedSku(host.GetRegion().GetId(), vcpuCount, vmemSize)
+		region, _ := host.GetRegion()
+		sku, err := models.ServerSkuManager.GetMatchedSku(region.GetId(), vcpuCount, vmemSize)
 		if err != nil {
 			return errors.Wrap(err, "ManagedVirtualizedGuestDriver.RequestChangeVmConfig.GetMatchedSku")
 		}
@@ -896,7 +897,7 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 
 				if len(diskInfo[i].StorageExternalId) > 0 {
 					storage, err := db.FetchByExternalIdAndManagerId(models.StorageManager, diskInfo[i].StorageExternalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-						host := guest.GetHost()
+						host, _ := guest.GetHost()
 						if host != nil {
 							return q.Equals("manager_id", host.ManagerId)
 						}
@@ -975,7 +976,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncSecgroupsOnHost(ctx conte
 		return errors.Wrap(err, "guest.GetVpc")
 	}
 
-	region := host.GetRegion()
+	region, _ := host.GetRegion()
 
 	vpcId, err := region.GetDriver().GetSecurityGroupVpcId(ctx, task.GetUserCred(), region, host, vpc, false)
 	if err != nil {

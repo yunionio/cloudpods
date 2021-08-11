@@ -78,7 +78,7 @@ func (self *GuestConvertEsxiToKvmTask) taskFailed(ctx context.Context, guest *mo
 
 func (self *GuestConvertEsxiToKvmTask) GenerateEsxiAcceessInfo(guest *models.SGuest) (*jsonutils.JSONDict, error) {
 	ret := jsonutils.NewDict()
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	accessInfo, err := host.GetCloudaccount().GetVCenterAccessInfo("")
 	if err != nil {
 		return nil, err
@@ -113,7 +113,7 @@ func (self *GuestConvertEsxiToKvmTask) SaveScheduleResult(ctx context.Context, o
 		self.taskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("guest set metadata %s", err)))
 		return
 	}
-	host := targetGuest.GetHost()
+	host, _ := targetGuest.GetHost()
 
 	//pendingUsage := models.SQuota{}
 	input := guest.ToCreateInput(self.UserCred)
@@ -136,7 +136,7 @@ func (self *GuestConvertEsxiToKvmTask) SaveScheduleResult(ctx context.Context, o
 func (self *GuestConvertEsxiToKvmTask) RequestHostCreateGuestFromEsxi(
 	ctx context.Context, guest *models.SGuest, esxiAccessInfo *jsonutils.JSONDict,
 ) error {
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	params := jsonutils.NewDict()
 	params.Set("desc", guest.GetJsonDescAtHypervisor(ctx, host))
 	params.Set("esxi_access_info", esxiAccessInfo)

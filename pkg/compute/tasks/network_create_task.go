@@ -54,7 +54,7 @@ func (self *NetworkCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 
 	network.SetStatus(self.UserCred, api.NETWORK_STATUS_PENDING, "")
 
-	wire := network.GetWire()
+	wire, _ := network.GetWire()
 	if wire == nil {
 		self.taskFailed(ctx, network, "getwire", fmt.Errorf("no vpc"))
 		return

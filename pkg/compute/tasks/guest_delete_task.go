@@ -46,7 +46,7 @@ func init() {
 
 func (self *GuestDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	if guest.Hypervisor == api.HYPERVISOR_BAREMETAL && host != nil && host.HostType != api.HOST_TYPE_BAREMETAL {
 		// if a fake server for converted hypervisor, then just skip stop
 		self.OnGuestStopComplete(ctx, guest, data)
@@ -285,7 +285,7 @@ func (self *GuestDeleteTask) OnGuestDetachDisksCompleteFailed(ctx context.Contex
 
 func (self *GuestDeleteTask) DoDeleteGuest(ctx context.Context, guest *models.SGuest) {
 	models.IsolatedDeviceManager.ReleaseDevicesOfGuest(ctx, guest, self.UserCred)
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	if guest.IsPrepaidRecycle() {
 		err := host.BorrowIpAddrsFromGuest(ctx, self.UserCred, guest)
 		if err != nil {

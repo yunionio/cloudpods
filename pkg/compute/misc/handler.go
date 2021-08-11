@@ -59,7 +59,8 @@ func getBmAgentUrl(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	zoneId := n.GetWire().ZoneId
+	wire, _ := n.GetWire()
+	zoneId := wire.ZoneId
 	bmAgent := models.BaremetalagentManager.GetAgent(compute.AgentTypeBaremetal, zoneId)
 	if bmAgent == nil {
 		httperrors.InternalServerError(ctx, w, "Baremetal agent not found")

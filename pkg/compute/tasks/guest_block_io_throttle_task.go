@@ -39,7 +39,7 @@ func (self *GuestBlockIoThrottleTask) OnInit(ctx context.Context, obj db.IStanda
 	guest := obj.(*models.SGuest)
 	url := fmt.Sprintf("/servers/%s/io-throttle", guest.Id)
 	headers := self.GetTaskRequestHeader()
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	self.SetStage("OnIoThrottle", nil)
 
 	params := jsonutils.NewDict()

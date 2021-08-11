@@ -151,7 +151,7 @@ func (manager *SElasticipManager) ListItemFilter(
 			}
 			guest := serverObj.(*SGuest)
 			if guest.Hypervisor == api.HYPERVISOR_KVM || utils.IsInStringArray(guest.Hypervisor, api.PRIVATE_CLOUD_HYPERVISORS) {
-				zone := guest.getZone()
+				zone, _ := guest.getZone()
 				networks := NetworkManager.Query().SubQuery()
 				wires := WireManager.Query().SubQuery()
 
@@ -161,10 +161,11 @@ func (manager *SElasticipManager) ListItemFilter(
 				gns := GuestnetworkManager.Query("network_id").Equals("guest_id", guest.Id).SubQuery()
 				q = q.Filter(sqlchemy.NotIn(q.Field("network_id"), gns))
 			} else {
-				region := guest.getRegion()
+				region, _ := guest.getRegion()
 				q = q.Equals("cloudregion_id", region.Id)
 			}
-			managerId := guest.GetHost().ManagerId
+			host, _ := guest.GetHost()
+			managerId := host.ManagerId
 			if managerId != "" {
 				q = q.Equals("manager_id", managerId)
 			} else {
@@ -260,13 +261,10 @@ func (self *SElasticip) GetNetwork() (*SNetwork, error) {
 	return network.(*SNetwork), nil
 }
 
-func (self *SElasticip) GetZone() *SZone {
-	if len(self.NetworkId) == 0 {
-		return nil
-	}
+func (self *SElasticip) GetZone() (*SZone, error) {
 	network, err := self.GetNetwork()
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	return network.GetZone()
 }
@@ -1000,7 +998,7 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 		}
 	}
 
-	serverRegion := server.getRegion()
+	serverRegion, _ := server.getRegion()
 	if serverRegion == nil {
 		return nil, httperrors.NewInputParameterError("server region is not found???")
 	}
@@ -1014,15 +1012,15 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 		return nil, httperrors.NewInputParameterError("eip and server are not in the same region")
 	}
 
-	eipZone := self.GetZone()
+	eipZone, _ := self.GetZone()
 	if eipZone != nil {
-		serverZone := server.getZone()
+		serverZone, _ := server.getZone()
 		if serverZone.Id != eipZone.Id {
 			return nil, httperrors.NewInputParameterError("eip and server are not in the same zone")
 		}
 	}
 
-	srvHost := server.GetHost()
+	srvHost, _ := server.GetHost()
 	if srvHost == nil {
 		return nil, httperrors.NewInputParameterError("server host is not found???")
 	}
@@ -1246,7 +1244,7 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 		pendingUsage  = args.PendingUsage
 	)
 	var (
-		region       = host.GetRegion()
+		region, _    = host.GetRegion()
 		regionDriver = region.GetDriver()
 	)
 

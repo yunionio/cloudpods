@@ -476,12 +476,12 @@ func (b *BaseHostDesc) fillCloudProvider(host *computemodels.SHost) error {
 }
 
 func (b *BaseHostDesc) fillRegion(host *computemodels.SHost) error {
-	b.Region = host.GetRegion()
+	b.Region, _ = host.GetRegion()
 	return nil
 }
 
 func (b *BaseHostDesc) fillZone(host *computemodels.SHost) error {
-	zone := host.GetZone()
+	zone, _ := host.GetZone()
 	b.Zone = zone
 	b.ZoneId = host.ZoneId
 	return nil

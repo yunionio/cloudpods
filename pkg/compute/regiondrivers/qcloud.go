@@ -119,7 +119,7 @@ func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerData(ctx context.Cont
 		}
 	}
 
-	region := zoneV.Model.(*models.SZone).GetRegion()
+	region, _ := zoneV.Model.(*models.SZone).GetRegion()
 	if region == nil {
 		return nil, fmt.Errorf("getting region failed")
 	}
@@ -1289,8 +1289,10 @@ func (self *SQcloudRegionDriver) RequestPreSnapshotPolicyApply(ctx context.Conte
 		if sp == nil {
 			return data, nil
 		}
+		storage, _ := disk.GetStorage()
+		region, _ := storage.GetRegion()
 		spcache, err := models.SnapshotPolicyCacheManager.FetchSnapshotPolicyCache(sp.GetId(),
-			disk.GetStorage().GetRegion().GetId(), disk.GetStorage().ManagerId)
+			region.GetId(), storage.ManagerId)
 		if err != nil {
 			return nil, err
 		}
@@ -1564,7 +1566,7 @@ func (self *SQcloudRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 		data.Set("billing_cycle", jsonutils.NewString(cycle.String()))
 	}
 
-	vpc := network.GetVpc()
+	vpc, _ := network.GetVpc()
 	if vpc == nil {
 		return nil, httperrors.NewNotFoundError("network %s related vpc not found", network.GetId())
 	}
@@ -1690,8 +1692,9 @@ func (self *SQcloudRegionDriver) RequestSyncSecgroupsForElasticcache(ctx context
 				return nil, fmt.Errorf("failed to sync project %s for create %s elastic cache %s error: %v", ec.ProjectId, provider.Provider, ec.Name, err)
 			}
 
-			vpc := ec.GetVpc()
-			vpcId, err := self.GetSecurityGroupVpcId(ctx, userCred, ec.GetRegion(), nil, vpc, false)
+			vpc, _ := ec.GetVpc()
+			region, _ := vpc.GetRegion()
+			vpcId, err := self.GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, false)
 			if err != nil {
 				return nil, errors.Wrap(err, "GetSecurityGroupVpcId")
 			}

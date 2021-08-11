@@ -65,7 +65,7 @@ func rangeObjFilter(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, regionFiel
 		} else if zoneField != nil {
 			q = q.Filter(sqlchemy.Equals(zoneField, wire.ZoneId))
 		} else if regionField != nil {
-			vpc := wire.GetVpc()
+			vpc, _ := wire.GetVpc()
 			q = q.Filter(sqlchemy.Equals(regionField, vpc.CloudregionId))
 		}
 	case "host":
@@ -79,7 +79,7 @@ func rangeObjFilter(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, regionFiel
 		} else if zoneField != nil {
 			q = q.Filter(sqlchemy.Equals(zoneField, host.ZoneId))
 		} else if regionField != nil {
-			zone := host.GetZone()
+			zone, _ := host.GetZone()
 			q = q.Filter(sqlchemy.Equals(regionField, zone.CloudregionId))
 		}
 	case "storage":
@@ -93,7 +93,7 @@ func rangeObjFilter(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, regionFiel
 		} else if zoneField != nil {
 			q = q.Filter(sqlchemy.Equals(zoneField, storage.ZoneId))
 		} else if regionField != nil {
-			zone := storage.GetZone()
+			zone, _ := storage.GetZone()
 			q = q.Filter(sqlchemy.Equals(regionField, zone.CloudregionId))
 		}
 	case "cloudprovider":

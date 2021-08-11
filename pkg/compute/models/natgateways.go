@@ -281,7 +281,8 @@ func (manager SNatGatewayManager) FetchCustomizeColumns(
 func (self *SNatGateway) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
 	out api.NatgatewayDetails) (api.NatgatewayDetails, error) {
 
-	out.NatSpec = self.GetRegion().GetDriver().DealNatGatewaySpec(self.NatSpec)
+	region, _ := self.GetRegion()
+	out.NatSpec = region.GetDriver().DealNatGatewaySpec(self.NatSpec)
 
 	return out, nil
 }
@@ -465,7 +466,8 @@ func (self *SNatGateway) SyncNatGatewayEips(ctx context.Context, userCred mcclie
 	}
 
 	for i := 0; i < len(added); i += 1 {
-		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, added[i], provider, self.GetRegion(), provider.GetOwnerId())
+		region, _ := self.GetRegion()
+		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, added[i], provider, region, provider.GetOwnerId())
 		if err != nil {
 			result.AddError(err)
 			continue

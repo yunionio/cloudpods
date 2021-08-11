@@ -245,7 +245,7 @@ func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential,
 		if err != nil {
 			log.Errorf("unable to GetSystemDisk of guest %q", guest.GetId())
 		} else {
-			s := disk.GetStorage()
+			s, _ := disk.GetStorage()
 			if s != nil {
 				out.StorageType = s.StorageType
 			}
@@ -307,9 +307,9 @@ func (manager *SInstanceSnapshotManager) fillInstanceSnapshot(userCred mcclient.
 	instanceSnapshot.GuestId = guest.Id
 	guestSchedInput := guest.ToSchedDesc()
 
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	instanceSnapshot.ManagerId = host.ManagerId
-	zone := host.GetZone()
+	zone, _ := host.GetZone()
 	instanceSnapshot.CloudregionId = zone.CloudregionId
 
 	for i := 0; i < len(guestSchedInput.Disks); i++ {
@@ -633,8 +633,8 @@ func (ism *SInstanceSnapshotManager) InitializeData() error {
 		if err != nil {
 			return errors.Wrapf(err, "unable to GetGuest for isp %q", isp.GetId())
 		} else {
-			host := guest.GetHost()
-			zone := host.GetZone()
+			host, _ := guest.GetHost()
+			zone, _ := host.GetZone()
 			cloudregionId = zone.CloudregionId
 		}
 		_, err = db.Update(isp, func() error {

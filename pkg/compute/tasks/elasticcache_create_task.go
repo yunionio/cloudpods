@@ -46,7 +46,7 @@ func (self *ElasticcacheCreateTask) taskFail(ctx context.Context, elasticcache *
 
 func (self *ElasticcacheCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	elasticcache := obj.(*models.SElasticcache)
-	region := elasticcache.GetRegion()
+	region, _ := elasticcache.GetRegion()
 	if region == nil {
 		self.taskFail(ctx, elasticcache, jsonutils.NewString(fmt.Sprintf("failed to find region for elastic cache %s", elasticcache.GetName())))
 		return
@@ -80,7 +80,7 @@ func (self *ElasticcacheCreateTask) OnInit(ctx context.Context, obj db.IStandalo
 }
 
 func (self *ElasticcacheCreateTask) OnSyncSecurityGroupComplete(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
-	region := elasticcache.GetRegion()
+	region, _ := elasticcache.GetRegion()
 	self.SetStage("OnElasticcacheCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateElasticcache(ctx, self.GetUserCred(), elasticcache, self, data.(*jsonutils.JSONDict)); err != nil {
 		self.taskFail(ctx, elasticcache, jsonutils.NewString(err.Error()))

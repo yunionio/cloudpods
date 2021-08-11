@@ -296,7 +296,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 	lockman.LockObject(ctx, network)
 	defer lockman.ReleaseObject(ctx, network)
 
-	vpc := network.GetVpc()
+	vpc, _ := network.GetVpc()
 	if vpc == nil {
 		return nil, fmt.Errorf("cannot find vpc of network %s(%s)", network.Id, network.Name)
 	}
@@ -535,7 +535,7 @@ func (self *SGuestnetwork) getJsonDescOneCloudVpc(network *SNetwork) *jsonutils.
 			}
 		}
 	}
-	vpc := network.GetVpc()
+	vpc, _ := network.GetVpc()
 
 	vpcDesc := jsonutils.NewDict()
 	vpcDesc.Set("id", jsonutils.NewString(vpc.Id))
@@ -808,7 +808,7 @@ func (self *SGuestnetwork) getBandwidth() int {
 	} else {
 		net := self.GetNetwork()
 		if net != nil {
-			wire := net.GetWire()
+			wire, _ := net.GetWire()
 			if wire != nil {
 				return wire.Bandwidth
 			}
@@ -822,7 +822,8 @@ func (self *SGuestnetwork) getMtu(net *SNetwork) int {
 }
 
 func (self *SGuestnetwork) IsAllocated() bool {
-	provider := self.GetGuest().getRegion().Provider
+	region, _ := self.GetGuest().getRegion()
+	provider := region.Provider
 	if regutils.MatchMacAddr(self.MacAddr) && (self.Virtual || regutils.MatchIP4Addr(self.IpAddr) || (provider != api.CLOUD_PROVIDER_ONECLOUD && !options.Options.EnablePreAllocateIpAddr)) {
 		return true
 	}
@@ -966,10 +967,11 @@ func (self *SGuestnetwork) ToNetworkConfig() *api.NetworkConfig {
 	if net == nil {
 		return nil
 	}
+	wire, _ := net.GetWire()
 	ret := &api.NetworkConfig{
 		Index:   int(self.Index),
 		Network: net.Id,
-		Wire:    net.GetWire().Id,
+		Wire:    wire.Id,
 		Mac:     self.MacAddr,
 		Address: self.IpAddr,
 		Driver:  self.Driver,

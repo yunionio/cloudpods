@@ -49,7 +49,7 @@ func (self *RouteTableSyncStatusTask) taskComplete(ctx context.Context, routeTab
 
 func (self *RouteTableSyncStatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	routeTable := obj.(*models.SRouteTable)
-	vpc := routeTable.GetVpc()
+	vpc, _ := routeTable.GetVpc()
 	iRouteTable, err := routeTable.GetICloudRouteTable()
 	if err != nil {
 		self.taskFailed(ctx, routeTable, errors.Wrapf(err, "routeTable.GetICloudRouteTable()"))

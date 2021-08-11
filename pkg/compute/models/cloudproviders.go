@@ -494,7 +494,7 @@ func (sr *SSyncRange) normalizeZoneIds() error {
 			}
 		}
 		zone := obj.(*SZone)
-		region := zone.GetRegion()
+		region, _ := zone.GetRegion()
 		if region == nil {
 			continue
 		}
@@ -517,11 +517,11 @@ func (sr *SSyncRange) normalizeHostIds() error {
 			}
 		}
 		host := obj.(*SHost)
-		zone := host.GetZone()
+		zone, _ := host.GetZone()
 		if zone == nil {
 			continue
 		}
-		region := zone.GetRegion()
+		region, _ := zone.GetRegion()
 		if region == nil {
 			continue
 		}

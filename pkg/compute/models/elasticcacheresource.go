@@ -69,7 +69,8 @@ func (self *SElasticcacheResourceBase) GetVpc() *SVpc {
 		log.Errorf("GetElasticcache fail %s", err)
 		return nil
 	}
-	return cache.GetVpc()
+	vpc, _ := cache.GetVpc()
+	return vpc
 }
 
 func (self *SElasticcacheResourceBase) GetIRegion() (cloudprovider.ICloudRegion, error) {

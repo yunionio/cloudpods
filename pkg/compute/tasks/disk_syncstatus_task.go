@@ -46,12 +46,12 @@ func (self *DiskSyncstatusTask) taskFailed(ctx context.Context, disk *models.SDi
 func (self *DiskSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	disk := obj.(*models.SDisk)
 
-	storage := disk.GetStorage()
+	storage, _ := disk.GetStorage()
 	if storage == nil {
 		self.taskFailed(ctx, disk, fmt.Errorf("failed to found storage for disk %s", disk.Name))
 		return
 	}
-	region := storage.GetRegion()
+	region, _ := storage.GetRegion()
 	if region == nil {
 		self.taskFailed(ctx, disk, fmt.Errorf("failed to found cloudregion for disk storage %s(%s)", disk.Name, disk.Id))
 		return

@@ -3255,7 +3255,7 @@ func (manager *SCloudaccountManager) queryCloudAccountByCapability(region *SClou
 		q = q.IsFalse("enabled")
 	}
 	if zone != nil {
-		region = zone.GetRegion()
+		region, _ = zone.GetRegion()
 	}
 	if region != nil {
 		providerregions := CloudproviderRegionManager.Query().SubQuery()
