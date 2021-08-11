@@ -100,6 +100,7 @@ type CommonAlertListInput struct {
 
 	Level   string   `json:"level"`
 	ResType []string `json:"res_type"`
+	UsedBy  string   `json:"used_by"`
 }
 
 type CommonAlertUpdateInput struct {
