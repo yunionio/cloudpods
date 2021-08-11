@@ -280,7 +280,7 @@ func init() {
 			newMetricFieldCreateInput("balance", "balance", monitor.METRIC_UNIT_RMB, 1),
 		})
 
-	// cpu
+	// agent_cpu
 	RegistryMetricCreateInput("agent_cpu", "CPU usage", monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE, 1,
 		[]monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("usage_active", "CPU active state utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
@@ -294,7 +294,7 @@ func init() {
 			newMetricFieldCreateInput("usage_softirq", "CPU softirq usage", monitor.METRIC_UNIT_PERCENT, 9),
 		})
 
-	// disk
+	// agent_disk
 	RegistryMetricCreateInput("agent_disk", "Disk usage", monitor.METRIC_RES_TYPE_AGENT,
 		monitor.METRIC_DATABASE_TELE, 3,
 		[]monitor.MetricFieldCreateInput{
@@ -307,7 +307,7 @@ func init() {
 			newMetricFieldCreateInput("inodes_total", "Total inodes", monitor.METRIC_UNIT_COUNT, 7),
 		})
 
-	// diskio
+	// agent_diskio
 	RegistryMetricCreateInput("agent_diskio", "Disk traffic and timing",
 		monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE, 4, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("read_bps", "Disk read rate", monitor.METRIC_UNIT_BPS, 1),
@@ -324,7 +324,7 @@ func init() {
 			newMetricFieldCreateInput("iops_in_progress", "Number of I / O requests issued but not yet completed", monitor.METRIC_UNIT_COUNT, 12),
 		})
 
-	// mem
+	// agent_mem
 	RegistryMetricCreateInput("agent_mem", "Memory", monitor.METRIC_RES_TYPE_AGENT,
 		monitor.METRIC_DATABASE_TELE, 2, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("used_percent", "Used memory rate", monitor.METRIC_UNIT_PERCENT, 1),
@@ -340,35 +340,37 @@ func init() {
 			newMetricFieldCreateInput("total", "Total memory", monitor.METRIC_UNIT_BYTE, 10),
 		})
 
-	// net
+	// agent_net
 	RegistryMetricCreateInput("agent_net", "Network interface and protocol usage",
 		monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE, 5, []monitor.MetricFieldCreateInput{
-			newMetricFieldCreateInput("bytes_sent", "The total number of bytes sent by the network interface", monitor.METRIC_UNIT_BYTE, 1),
-			newMetricFieldCreateInput("bytes_recv", "The total number of bytes received by the network interface", monitor.METRIC_UNIT_BYTE, 2),
-			newMetricFieldCreateInput("packets_sent", "The total number of packets sent by the network interface", monitor.METRIC_UNIT_COUNT, 3),
-			newMetricFieldCreateInput("packets_recv", "The total number of packets received by the network interface", monitor.METRIC_UNIT_COUNT, 4),
-			newMetricFieldCreateInput("err_in", "The total number of receive errors detected by the network interface", monitor.METRIC_UNIT_COUNT, 5),
-			newMetricFieldCreateInput("err_out", "The total number of transmission errors detected by the network interface", monitor.METRIC_UNIT_COUNT, 6),
-			newMetricFieldCreateInput("drop_in", "The total number of received packets dropped by the network interface", monitor.METRIC_UNIT_COUNT, 7),
-			newMetricFieldCreateInput("drop_out", "The total number of transmission packets dropped by the network interface", monitor.METRIC_UNIT_COUNT, 8),
+			newMetricFieldCreateInput("bps_sent", "Send traffic per second", monitor.METRIC_UNIT_BPS, 1),
+			newMetricFieldCreateInput("bps_recv", "Received traffic per second", monitor.METRIC_UNIT_BPS, 2),
+			newMetricFieldCreateInput("bytes_sent", "The total number of bytes sent by the network interface", monitor.METRIC_UNIT_BYTE, 3),
+			newMetricFieldCreateInput("bytes_recv", "The total number of bytes received by the network interface", monitor.METRIC_UNIT_BYTE, 4),
+			newMetricFieldCreateInput("packets_sent", "The total number of packets sent by the network interface", monitor.METRIC_UNIT_COUNT, 5),
+			newMetricFieldCreateInput("packets_recv", "The total number of packets received by the network interface", monitor.METRIC_UNIT_COUNT, 6),
+			newMetricFieldCreateInput("err_in", "The total number of receive errors detected by the network interface", monitor.METRIC_UNIT_COUNT, 7),
+			newMetricFieldCreateInput("err_out", "The total number of transmission errors detected by the network interface", monitor.METRIC_UNIT_COUNT, 8),
+			newMetricFieldCreateInput("drop_in", "The total number of received packets dropped by the network interface", monitor.METRIC_UNIT_COUNT, 9),
+			newMetricFieldCreateInput("drop_out", "The total number of transmission packets dropped by the network interface", monitor.METRIC_UNIT_COUNT, 10),
+		})
+
+	// agent lm-sensors temperature
+	RegistryMetricCreateInput("agent_sensors", "Collect lm-sensors metrics",
+		monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE, 6, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("temp_input", "lm-sensors temperature input", "", 1),
+		})
+
+	// agent smartctl device temperature
+	RegistryMetricCreateInput("agent_smart_device", "Collect smartctl metrics",
+		monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE, 7, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("temp_c", "Disk device temperature ", "", 1),
 		})
 
 	RegistryMetricCreateInput("storage", "Storage usage",
 		monitor.METRIC_RES_TYPE_STORAGE, monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("usage_active", "Storage utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
 			newMetricFieldCreateInput("free", "Free storage", monitor.METRIC_UNIT_MB, 2),
-		})
-
-	// lm-sensors temperature
-	RegistryMetricCreateInput("agent_sensors", "Collect lm-sensors metrics",
-		monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE, 6, []monitor.MetricFieldCreateInput{
-			newMetricFieldCreateInput("temp_input", "lm-sensors temperature input", "", 1),
-		})
-
-	// smartctl device temperature
-	RegistryMetricCreateInput("agent_smart_device", "Collect smartctl metrics",
-		monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE, 7, []monitor.MetricFieldCreateInput{
-			newMetricFieldCreateInput("temp_c", "Disk device temperature ", "", 1),
 		})
 
 	//jenkins
