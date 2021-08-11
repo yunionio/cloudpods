@@ -455,7 +455,8 @@ func (manager *SHostManager) ListItemFilter(
 				wires := []string{}
 				for i := 0; i < len(nets); i++ {
 					net := nets[i].GetNetwork()
-					if net.GetVpc().Id != api.DEFAULT_VPC_ID {
+					vpc, _ := net.GetVpc()
+					if vpc.Id != api.DEFAULT_VPC_ID {
 						q = q.IsNotEmpty("ovn_version")
 					} else {
 						if !utils.IsInStringArray(net.WireId, wires) {
@@ -546,23 +547,20 @@ func (self *SHost) IsArmHost() bool {
 	return self.CpuArchitecture == apis.OS_ARCH_AARCH64
 }
 
-func (self *SHost) GetZone() *SZone {
-	if len(self.ZoneId) == 0 {
-		return nil
+func (self *SHost) GetZone() (*SZone, error) {
+	zone, err := ZoneManager.FetchById(self.ZoneId)
+	if err != nil {
+		return nil, err
 	}
-	zone, _ := ZoneManager.FetchById(self.ZoneId)
-	if zone != nil {
-		return zone.(*SZone)
-	}
-	return nil
+	return zone.(*SZone), nil
 }
 
-func (self *SHost) GetRegion() *SCloudregion {
-	zone := self.GetZone()
-	if zone != nil {
-		return zone.GetRegion()
+func (self *SHost) GetRegion() (*SCloudregion, error) {
+	zone, err := self.GetZone()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return zone.GetRegion()
 }
 
 func (self *SHost) GetCpuCount() int {
@@ -1955,7 +1953,7 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 			log.Errorf(msg)
 			return nil, fmt.Errorf(msg)
 		}
-		izone = wire.GetZone()
+		izone, _ = wire.GetZone()
 	}
 
 	newName, err := db.GenerateName(manager, userCred, extHost.GetName())
@@ -2167,7 +2165,8 @@ func (self *SHost) newCloudHostStorage(ctx context.Context, userCred mcclient.To
 		if err == sql.ErrNoRows {
 			// no cloud storage found, this may happen for on-premise host
 			// create the storage right now
-			storageObj, err = StorageManager.newFromCloudStorage(ctx, userCred, extStorage, provider, self.GetZone())
+			zone, _ := self.GetZone()
+			storageObj, err = StorageManager.newFromCloudStorage(ctx, userCred, extStorage, provider, zone)
 			if err != nil {
 				log.Errorf("create by cloud storage fail %s", err)
 				return nil, err
@@ -2716,11 +2715,11 @@ func (self *SHost) GetIZone() (cloudprovider.ICloudZone, error) {
 	if err != nil {
 		return nil, fmt.Errorf("No cloudprovider for host: %s", err)
 	}
-	zone := self.GetZone()
+	zone, _ := self.GetZone()
 	if zone == nil {
 		return nil, fmt.Errorf("no zone for host???")
 	}
-	region := zone.GetRegion()
+	region, _ := zone.GetRegion()
 	if region == nil {
 		return nil, fmt.Errorf("No region for zone???")
 	}
@@ -2750,11 +2749,9 @@ func (self *SHost) GetIHostAndProvider() (cloudprovider.ICloudHost, cloudprovide
 	if provider.GetFactory().IsOnPremise() {
 		iregion, err = provider.GetOnPremiseIRegion()
 	} else {
-		region := self.GetRegion()
-		if region == nil {
-			msg := "fail to find region of host???"
-			log.Errorf(msg)
-			return nil, nil, fmt.Errorf(msg)
+		region, err := self.GetRegion()
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "GetRegion")
 		}
 		iregion, err = provider.GetIRegionById(region.ExternalId)
 	}
@@ -2774,7 +2771,7 @@ func (self *SHost) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	if err != nil {
 		return nil, fmt.Errorf("No cloudprovider for host %s: %s", self.Name, err)
 	}
-	region := self.GetRegion()
+	region, _ := self.GetRegion()
 	if region == nil {
 		return nil, fmt.Errorf("failed to find host %s region info", self.Name)
 	}
@@ -3003,7 +3000,7 @@ func (self *SHost) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCre
 	if utils.IsInStringArray(self.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING}) {
 		retval := jsonutils.NewDict()
 		retval.Set("host_id", jsonutils.NewString(self.Id))
-		zone := self.GetZone()
+		zone, _ := self.GetZone()
 		retval.Set("zone", jsonutils.NewString(zone.GetName()))
 		return retval, nil
 	}
@@ -3298,7 +3295,7 @@ func (manager *SHostManager) ValidateCreateData(
 				return input, errors.Wrap(err, "net.reserveIpWithDuration")
 			}
 		}
-		zoneObj := net.GetZone()
+		zoneObj, _ := net.GetZone()
 		if zoneObj == nil {
 			return input, httperrors.NewInputParameterError("IPMI network has no zone???")
 		}
@@ -3365,7 +3362,7 @@ func (manager *SHostManager) ValidateCreateData(
 				return input, httperrors.NewConflictError("Access ip %s has been used", accessIpAddr)
 			}
 
-			zoneObj := accessNet.GetZone()
+			zoneObj, _ := accessNet.GetZone()
 			if zoneObj == nil {
 				return input, httperrors.NewInputParameterError("Access network has no zone???")
 			}
@@ -3451,7 +3448,7 @@ func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 			if net == nil {
 				return input, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
 			}
-			zoneObj := net.GetZone()
+			zoneObj, _ := net.GetZone()
 			if zoneObj == nil {
 				return input, httperrors.NewInputParameterError("IPMI network has not zone???")
 			}
@@ -5162,9 +5159,9 @@ func (manager *SHostManager) GetHostByIp(hostIp string) (*SHost, error) {
 
 func (self *SHost) getCloudProviderInfo() SCloudProviderInfo {
 	var region *SCloudregion
-	zone := self.GetZone()
+	zone, _ := self.GetZone()
 	if zone != nil {
-		region = zone.GetRegion()
+		region, _ = zone.GetRegion()
 	}
 	provider := self.GetCloudprovider()
 	return MakeCloudProviderInfo(region, zone, provider)
@@ -5743,7 +5740,7 @@ func GetHostQuotaKeysFromCreateInput(owner mcclient.IIdentityProvider, input api
 }
 
 func (model *SHost) GetQuotaKeys() quotas.SDomainRegionalCloudResourceKeys {
-	zone := model.GetZone()
+	zone, _ := model.GetZone()
 	manager := model.GetCloudprovider()
 	ownerId := model.GetOwnerId()
 	zoneKeys := fetchZonalQuotaKeys(rbacutils.ScopeDomain, ownerId, zone, manager)

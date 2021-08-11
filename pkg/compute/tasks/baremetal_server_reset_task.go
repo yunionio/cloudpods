@@ -31,7 +31,7 @@ type BaremetalServerResetTask struct {
 
 func (self *BaremetalServerResetTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	baremetal := guest.GetHost()
+	baremetal, _ := guest.GetHost()
 	if baremetal == nil {
 		self.SetStageFailed(ctx, jsonutils.NewString("Baremetal is not found"))
 		return

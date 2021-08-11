@@ -126,7 +126,7 @@ func (self *SStoragecache) GetRegion() (*SCloudregion, error) {
 	if err != nil {
 		return nil, err
 	}
-	region := host.GetRegion()
+	region, _ := host.GetRegion()
 	if region == nil {
 		return nil, fmt.Errorf("failed to get region for host %s(%s)", host.Name, host.Id)
 	}

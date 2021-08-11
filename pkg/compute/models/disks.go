@@ -389,7 +389,7 @@ func (self *SDisk) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 		}
 	}
 
-	storage := self.GetStorage()
+	storage, _ := self.GetStorage()
 	if storage == nil {
 		return input, httperrors.NewNotFoundError("failed to find storage for disk %s", self.Name)
 	}
@@ -423,7 +423,7 @@ func diskCreateInput2ComputeQuotaKeys(input api.DiskCreateInput, ownerId mcclien
 	if len(input.PreferHost) > 0 {
 		hostObj, _ := HostManager.FetchById(input.PreferHost)
 		host := hostObj.(*SHost)
-		zone := host.GetZone()
+		zone, _ := host.GetZone()
 		keys.ZoneId = zone.Id
 		keys.RegionId = zone.CloudregionId
 	} else if len(input.PreferZone) > 0 {
@@ -434,7 +434,7 @@ func diskCreateInput2ComputeQuotaKeys(input api.DiskCreateInput, ownerId mcclien
 	} else if len(input.PreferWire) > 0 {
 		wireObj, _ := WireManager.FetchById(input.PreferWire)
 		wire := wireObj.(*SWire)
-		zone := wire.GetZone()
+		zone, _ := wire.GetZone()
 		keys.ZoneId = zone.Id
 		keys.RegionId = zone.CloudregionId
 	} else if len(input.PreferRegion) > 0 {
@@ -482,10 +482,11 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 		}
 		input.Storage = storage.Id
 
+		zone, _ := storage.getZone()
 		quotaKey = fetchComputeQuotaKeys(
 			rbacutils.ScopeProject,
 			ownerId,
-			storage.getZone(),
+			zone,
 			provider,
 			input.Hypervisor,
 		)
@@ -621,10 +622,11 @@ func getDiskResourceRequirements(ctx context.Context, userCred mcclient.TokenCre
 	if len(input.Storage) > 0 {
 		storageObj, _ := StorageManager.FetchById(input.Storage)
 		storage := storageObj.(*SStorage)
+		zone, _ := storage.getZone()
 		quotaKey = fetchComputeQuotaKeys(
 			rbacutils.ScopeProject,
 			ownerId,
-			storage.getZone(),
+			zone,
 			storage.GetCloudprovider(),
 			input.Hypervisor,
 		)
@@ -795,7 +797,7 @@ func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.Token
 	if !utils.IsInStringArray(self.Status, []string{api.DISK_READY}) {
 		return nil, httperrors.NewInputParameterError("Cannot reset disk in status %s", self.Status)
 	}
-	storage := self.GetStorage()
+	storage, _ := self.GetStorage()
 	if storage == nil {
 		return nil, httperrors.NewNotFoundError("failed to find storage for disk %s", self.Name)
 	}
@@ -883,7 +885,7 @@ func (disk *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 }
 
 func (disk *SDisk) getHypervisor() string {
-	storage := disk.GetStorage()
+	storage, _ := disk.GetStorage()
 	if storage != nil {
 		host := storage.GetMasterHost()
 		if host != nil {
@@ -895,7 +897,7 @@ func (disk *SDisk) getHypervisor() string {
 }
 
 func (disk *SDisk) GetQuotaKeys() (quotas.IQuotaKeys, error) {
-	storage := disk.GetStorage()
+	storage, _ := disk.GetStorage()
 	if storage == nil {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid storage")
 	}
@@ -903,7 +905,7 @@ func (disk *SDisk) GetQuotaKeys() (quotas.IQuotaKeys, error) {
 	if provider == nil && len(storage.ManagerId) > 0 {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid manager")
 	}
-	zone := storage.getZone()
+	zone, _ := storage.getZone()
 	if zone == nil {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid zone")
 	}
@@ -927,7 +929,7 @@ func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredenti
 		return nil
 	}
 	addDisk := sizeMb - disk.DiskSize
-	storage := disk.GetStorage()
+	storage, _ := disk.GetStorage()
 	if storage == nil {
 		return httperrors.NewInternalServerError("disk has no valid storage")
 	}
@@ -963,7 +965,7 @@ func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredenti
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
-	storage := self.GetStorage()
+	storage, _ := self.GetStorage()
 	if storage == nil {
 		return nil, httperrors.NewResourceNotFoundError("fail to find storage for disk %s", self.GetName())
 	}
@@ -983,15 +985,16 @@ func (self *SDisk) GetIDisk() (cloudprovider.ICloudDisk, error) {
 	return iStorage.GetIDiskById(self.GetExternalId())
 }
 
-func (self *SDisk) GetZone() *SZone {
-	if storage := self.GetStorage(); storage != nil {
-		return storage.getZone()
+func (self *SDisk) GetZone() (*SZone, error) {
+	storage, err := self.GetStorage()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return storage.getZone()
 }
 
 func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (string, error) {
-	if zone := self.GetZone(); zone == nil {
+	if zone, _ := self.GetZone(); zone == nil {
 		return "", httperrors.NewResourceNotFoundError("No zone for this disk")
 	}
 	data.Add(jsonutils.NewString(self.DiskFormat), "disk_format")
@@ -1089,7 +1092,7 @@ func (self *SDisk) ValidatePurgeCondition(ctx context.Context) error {
 
 func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) error {
 	if !isPurge {
-		storage := self.GetStorage()
+		storage, _ := self.GetStorage()
 		if storage == nil {
 			// storage is empty, a dirty data, allow delete
 			return nil
@@ -1150,7 +1153,7 @@ func (self *SDisk) GetTemplateId() string {
 }
 
 func (self *SDisk) IsLocal() bool {
-	storage := self.GetStorage()
+	storage, _ := self.GetStorage()
 	if storage != nil {
 		return storage.IsLocal()
 	}
@@ -1158,23 +1161,23 @@ func (self *SDisk) IsLocal() bool {
 }
 
 func (self *SDisk) GetCloudproviderId() string {
-	storage := self.GetStorage()
+	storage, _ := self.GetStorage()
 	if storage != nil {
 		return storage.GetCloudproviderId()
 	}
 	return ""
 }
 
-func (self *SDisk) GetStorage() *SStorage {
-	store, _ := StorageManager.FetchById(self.StorageId)
-	if store != nil {
-		return store.(*SStorage)
+func (self *SDisk) GetStorage() (*SStorage, error) {
+	store, err := StorageManager.FetchById(self.StorageId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetStorage(%s)", self.StorageId)
 	}
-	return nil
+	return store.(*SStorage), nil
 }
 
 func (self *SDisk) GetRegionDriver() (IRegionDriver, error) {
-	storage := self.GetStorage()
+	storage, _ := self.GetStorage()
 	if storage == nil {
 		return nil, fmt.Errorf("failed to found storage for disk %s(%s)", self.Name, self.Id)
 	}
@@ -1193,7 +1196,7 @@ func (self *SDisk) GetBackupStorage() *SStorage {
 }
 
 func (self *SDisk) GetCloudprovider() *SCloudprovider {
-	if storage := self.GetStorage(); storage != nil {
+	if storage, _ := self.GetStorage(); storage != nil {
 		return storage.GetCloudprovider()
 	}
 	return nil
@@ -1213,7 +1216,7 @@ func (self *SDisk) GetPathAtHost(host *SHost) string {
 }
 
 func (self *SDisk) GetFetchUrl() string {
-	storage := self.GetStorage()
+	storage, _ := self.GetStorage()
 	if storage == nil {
 		return ""
 	}
@@ -1388,7 +1391,7 @@ func (self *SDisk) syncDiskStorage(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SDisk) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	storage := self.GetStorage()
+	storage, _ := self.GetStorage()
 	if storage == nil {
 		return nil, fmt.Errorf("failed to get storage for disk %s(%s)", self.Name, self.Id)
 	}
@@ -1401,11 +1404,9 @@ func (self *SDisk) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	if provider.GetFactory().IsOnPremise() {
 		return provider.GetOnPremiseIRegion()
 	}
-	region := storage.GetRegion()
-	if region == nil {
-		msg := "fail to find region of storage???"
-		log.Errorf(msg)
-		return nil, fmt.Errorf(msg)
+	region, err := storage.GetRegion()
+	if err != nil {
+		return nil, err
 	}
 	return provider.GetIRegionById(region.ExternalId)
 }
@@ -1422,7 +1423,7 @@ func (self *SDisk) syncRemoveCloudDisk(ctx context.Context, userCred mcclient.To
 	if err == nil {
 		if storageId := iDisk.GetIStorageId(); len(storageId) > 0 {
 			storage, err := db.FetchByExternalIdAndManagerId(StorageManager, storageId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-				if s := self.GetStorage(); s != nil {
+				if s, _ := self.GetStorage(); s != nil {
 					return q.Equals("manager_id", s.ManagerId)
 				}
 				return q
@@ -1513,7 +1514,7 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 	if err != nil {
 		return errors.Wrapf(err, "Get snapshot policies of ICloudDisk %s.", extDisk.GetId())
 	}
-	storage := self.GetStorage()
+	storage, _ := self.GetStorage()
 	if storage == nil {
 		return fmt.Errorf("no valid storage")
 	}
@@ -1818,7 +1819,7 @@ func (self *SDisk) ToDiskInfo() DiskInfo {
 		Size:       int64(self.DiskSize),
 		DiskType:   self.DiskType,
 	}
-	storage := self.GetStorage()
+	storage, _ := self.GetStorage()
 	if storage == nil {
 		return ret
 	}
@@ -1838,7 +1839,7 @@ func (self *SDisk) ToDiskConfig() *api.DiskConfig {
 		SizeMb:     self.DiskSize,
 		DiskType:   self.DiskType,
 	}
-	storage := self.GetStorage()
+	storage, _ := self.GetStorage()
 	if storage == nil {
 		return ret
 	}
@@ -1914,7 +1915,7 @@ func (self *SDisk) CustomizeDelete(ctx context.Context, userCred mcclient.TokenC
 			if cnt > 0 {
 				return httperrors.NewForbiddenError("not allow to delete. Virtual disk must not have snapshots")
 			}
-		} else if storage := self.GetStorage(); storage != nil && storage.StorageType == api.STORAGE_RBD {
+		} else if storage, _ := self.GetStorage(); storage != nil && storage.StorageType == api.STORAGE_RBD {
 			scnt, err := self.GetSnapshotCount()
 			if err != nil {
 				return err
@@ -1978,7 +1979,7 @@ func (self *SDisk) getMoreDetails(ctx context.Context, userCred mcclient.TokenCr
 		policy.Name = sps[i].Name
 		out.Snapshotpolicies = append(out.Snapshotpolicies, policy)
 	}
-	storage := self.GetStorage()
+	storage, _ := self.GetStorage()
 	if storage != nil {
 		manualSnapshotCount, _ := self.GetManualSnapshotCount()
 		if utils.IsInStringArray(storage.StorageType, append(api.SHARED_FILE_STORAGE, api.STORAGE_LOCAL)) {
@@ -2091,7 +2092,7 @@ func (self *SDisk) SwitchToBackup(userCred mcclient.TokenCredential) error {
 }
 
 func (self *SDisk) ClearHostSchedCache() error {
-	storage := self.GetStorage()
+	storage, _ := self.GetStorage()
 	if storage == nil {
 		return fmt.Errorf("no valid storage")
 	}
@@ -2111,7 +2112,7 @@ func (self *SDisk) ClearHostSchedCache() error {
 func (self *SDisk) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	desc := self.SVirtualResourceBase.GetShortDesc(ctx)
 	desc.Add(jsonutils.NewInt(int64(self.DiskSize)), "size")
-	storage := self.GetStorage()
+	storage, _ := self.GetStorage()
 	if storage != nil {
 		desc.Add(jsonutils.NewString(storage.StorageType), "storage_type")
 		desc.Add(jsonutils.NewString(storage.MediumType), "medium_type")
@@ -2257,7 +2258,7 @@ func (disk *SDisk) validateDiskAutoCreateSnapshot() error {
 	if len(guests) == 0 {
 		return fmt.Errorf("Disks %s not attach guest, can't create snapshot", disk.GetName())
 	}
-	storage := disk.GetStorage()
+	storage, _ := disk.GetStorage()
 	if storage == nil {
 		return fmt.Errorf("no valid storage")
 	}
@@ -2416,7 +2417,7 @@ func (self *SDisk) CancelExpireTime(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SDisk) IsDetachable() bool {
-	storage := self.GetStorage()
+	storage, _ := self.GetStorage()
 	if storage == nil {
 		return true
 	}
@@ -2441,7 +2442,7 @@ func (self *SDisk) GetDynamicConditionInput() *jsonutils.JSONDict {
 }
 
 func (self *SDisk) IsNeedWaitSnapshotsDeleted() (bool, error) {
-	storage := self.GetStorage()
+	storage, _ := self.GetStorage()
 	if storage == nil {
 		return false, fmt.Errorf("no valid storage")
 	}
@@ -2566,12 +2567,12 @@ func (self *SDisk) syncSnapshots(ctx context.Context, userCred mcclient.TokenCre
 	}
 	provider := self.GetCloudprovider()
 	syncOwnerId := provider.GetOwnerId()
-	storage := self.GetStorage()
+	storage, _ := self.GetStorage()
 	if storage == nil {
 		syncResult.Error(fmt.Errorf("no valid storage"))
 		return
 	}
-	region := storage.GetRegion()
+	region, _ := storage.GetRegion()
 
 	extSnapshots, err := extDisk.GetISnapshots()
 	if err != nil {

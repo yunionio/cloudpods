@@ -46,7 +46,7 @@ func (self *ElasticcacheChangeSpecTask) taskFail(ctx context.Context, ec *models
 
 func (self *ElasticcacheChangeSpecTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	elasticcache := obj.(*models.SElasticcache)
-	region := elasticcache.GetRegion()
+	region, _ := elasticcache.GetRegion()
 	if region == nil {
 		self.taskFail(ctx, elasticcache, jsonutils.NewString(fmt.Sprintf("failed to find region for elastic cache %s", elasticcache.GetName())))
 		return

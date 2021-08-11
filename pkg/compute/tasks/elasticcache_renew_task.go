@@ -29,7 +29,8 @@ func (self *ElasticcacheRenewTask) OnInit(ctx context.Context, obj db.IStandalon
 	durationStr, _ := self.GetParams().GetString("duration")
 	bc, _ := billing.ParseBillingCycle(durationStr)
 
-	exp, err := instance.GetRegion().GetDriver().RequestRenewElasticcache(ctx, self.UserCred, instance, bc)
+	region, _ := instance.GetRegion()
+	exp, err := region.GetDriver().RequestRenewElasticcache(ctx, self.UserCred, instance, bc)
 	if err != nil {
 		db.OpsLog.LogEvent(instance, db.ACT_REW_FAIL, err, self.UserCred)
 		logclient.AddActionLogWithStartable(self, instance, logclient.ACT_RENEW, err, self.UserCred, false)

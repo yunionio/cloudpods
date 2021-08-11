@@ -57,7 +57,7 @@ func (self *HAGuestDeployTask) DeployBackup(ctx context.Context, guest *models.S
 func (self *HAGuestDeployTask) OnDeploySlaveGuestComplete(
 	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
 ) {
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	self.SetStage("OnDeployGuestComplete", nil)
 	self.DeployOnHost(ctx, guest, host)
 }

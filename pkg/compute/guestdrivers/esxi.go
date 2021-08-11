@@ -384,7 +384,7 @@ func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gues
 	if diskCat.Root == nil {
 		return fmt.Errorf("no root disk???")
 	}
-	storage := diskCat.Root.GetStorage()
+	storage, _ := diskCat.Root.GetStorage()
 	if storage == nil {
 		return fmt.Errorf("root disk has no storage???")
 	}
@@ -438,7 +438,7 @@ func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gues
 
 func (self *SESXiGuestDriver) RqeuestSuspendOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		host := guest.GetHost()
+		host, _ := guest.GetHost()
 		if host == nil {
 			return nil, errors.Error("fail to get host of guest")
 		}
@@ -462,7 +462,7 @@ func (self *SESXiGuestDriver) RqeuestSuspendOnHost(ctx context.Context, guest *m
 
 func (self *SESXiGuestDriver) RqeuestResumeOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		host := guest.GetHost()
+		host, _ := guest.GetHost()
 		if host == nil {
 			return nil, errors.Error("fail to get host of guest")
 		}
@@ -578,7 +578,7 @@ func (self *SESXiGuestDriver) RequestMigrate(ctx context.Context, guest *models.
 			return nil, errors.Wrap(fmt.Errorf("empty hostExternalId"), "iVM.GetIHostId()")
 		}
 		iHost, err = db.FetchByExternalIdAndManagerId(models.HostManager, hostExternalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-			if host := guest.GetHost(); host != nil {
+			if host, _ := guest.GetHost(); host != nil {
 				return q.Equals("manager_id", host.ManagerId)
 			}
 			return q
@@ -623,7 +623,7 @@ func (self *SESXiGuestDriver) RequestLiveMigrate(ctx context.Context, guest *mod
 			return nil, errors.Wrap(fmt.Errorf("empty hostExternalId"), "iVM.GetIHostId()")
 		}
 		iHost, err = db.FetchByExternalIdAndManagerId(models.HostManager, hostExternalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-			if host := guest.GetHost(); host != nil {
+			if host, _ := guest.GetHost(); host != nil {
 				return q.Equals("manager_id", host.ManagerId)
 			}
 			return q

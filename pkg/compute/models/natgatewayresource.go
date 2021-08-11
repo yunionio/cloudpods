@@ -63,7 +63,8 @@ func (self *SNatgatewayResourceBase) GetNatgateway() (*SNatGateway, error) {
 func (self *SNatgatewayResourceBase) GetVpc() *SVpc {
 	nat, _ := self.GetNatgateway()
 	if nat != nil {
-		return nat.GetVpc()
+		vpc, _ := nat.GetVpc()
+		return vpc
 	}
 	return nil
 }

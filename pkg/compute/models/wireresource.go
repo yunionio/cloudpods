@@ -55,45 +55,44 @@ func ValidateWireResourceInput(userCred mcclient.TokenCredential, input api.Wire
 	return wireObj.(*SWire), input, nil
 }
 
-func (self *SWireResourceBase) GetWire() *SWire {
-	w, _ := WireManager.FetchById(self.WireId)
-	if w != nil {
-		return w.(*SWire)
+func (self *SWireResourceBase) GetWire() (*SWire, error) {
+	w, err := WireManager.FetchById(self.WireId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetWire(%s)", self.WireId)
 	}
-	return nil
+	return w.(*SWire), nil
 }
 
 func (self *SWireResourceBase) GetCloudproviderId() string {
-	vpc := self.GetVpc()
+	vpc, _ := self.GetVpc()
 	if vpc != nil {
 		return vpc.ManagerId
 	}
 	return ""
 }
 
-func (self *SWireResourceBase) GetVpc() *SVpc {
-	wire := self.GetWire()
-	if wire != nil {
-		return wire.GetVpc()
+func (self *SWireResourceBase) GetVpc() (*SVpc, error) {
+	wire, err := self.GetWire()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetWire")
 	}
-	return nil
+	return wire.GetVpc()
 }
 
-func (self *SWireResourceBase) GetRegion() *SCloudregion {
-	vpc := self.GetVpc()
-	if vpc == nil {
-		return nil
+func (self *SWireResourceBase) GetRegion() (*SCloudregion, error) {
+	vpc, err := self.GetVpc()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetVpc")
 	}
-	region, _ := vpc.GetRegion()
-	return region
+	return vpc.GetRegion()
 }
 
-func (self *SWireResourceBase) GetZone() *SZone {
-	wire := self.GetWire()
-	if wire != nil {
-		return wire.GetZone()
+func (self *SWireResourceBase) GetZone() (*SZone, error) {
+	wire, err := self.GetWire()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetWire")
 	}
-	return nil
+	return wire.GetZone()
 }
 
 func (self *SWireResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) api.WireResourceInfo {
@@ -329,7 +328,7 @@ func (manager *SWireResourceBaseManager) GetExportKeys() []string {
 }
 
 func (self *SWireResourceBase) GetChangeOwnerCandidateDomainIds() []string {
-	wire := self.GetWire()
+	wire, _ := self.GetWire()
 	if wire != nil {
 		return wire.GetChangeOwnerCandidateDomainIds()
 	}

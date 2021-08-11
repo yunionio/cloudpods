@@ -92,7 +92,8 @@ func (self *SNatDEntryDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 
 	// Try to dissociate eip with natgateway if there is no nat rule using this eip and task is set ok even if
 	// dissociate failed.
-	err = natgateway.GetRegion().GetDriver().RequestUnBindIPFromNatgateway(ctx, self, dnatEntry, natgateway)
+	region, _ := natgateway.GetRegion()
+	err = region.GetDriver().RequestUnBindIPFromNatgateway(ctx, self, dnatEntry, natgateway)
 	if err != nil {
 		log.Debugf("fail to try to dissociate eip with natgateway %s", natgateway.GetId())
 	}

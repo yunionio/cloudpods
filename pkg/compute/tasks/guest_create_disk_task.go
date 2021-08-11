@@ -252,7 +252,7 @@ type ESXiGuestCreateDiskTask struct {
 
 func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	if host == nil {
 		self.SetStageFailed(ctx, jsonutils.NewString("no valid host"))
 		return
@@ -317,7 +317,8 @@ func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandal
 		}
 
 		disk.SetStatus(self.UserCred, api.DISK_READY, "create disk success")
-		disk.GetStorage().ClearSchedDescCache()
+		storage, _ := disk.GetStorage()
+		storage.ClearSchedDescCache()
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), self.UserCred)
 		db.OpsLog.LogAttachEvent(ctx, guest, disk, self.UserCred, disk.GetShortDesc(ctx))
 	}

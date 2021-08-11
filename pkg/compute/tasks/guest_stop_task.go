@@ -44,7 +44,7 @@ func (self *GuestStopTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 }
 
 func (self *GuestStopTask) stopGuest(ctx context.Context, guest *models.SGuest) {
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	if host == nil {
 		self.OnGuestStopTaskCompleteFailed(ctx, guest, jsonutils.NewString("no associated host"))
 		return

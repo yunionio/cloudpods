@@ -45,7 +45,8 @@ func NatToBindIPStage(ctx context.Context, task iTask, nat models.INatHelper) {
 	}
 
 	eipId, _ := task.GetParams().GetString("eip_id")
-	if err := natgateway.GetRegion().GetDriver().RequestBindIPToNatgateway(ctx, task, natgateway, eipId); err != nil {
+	region, _ := natgateway.GetRegion()
+	if err := region.GetDriver().RequestBindIPToNatgateway(ctx, task, natgateway, eipId); err != nil {
 		task.TaskFailed(ctx, nat, jsonutils.NewString(err.Error()))
 		return
 	}
@@ -57,7 +58,8 @@ func CreateINatFailedRollback(ctx context.Context, task iTask, nat models.INatHe
 		return errors.Wrap(err, "fetch natgateway failed")
 	}
 	eipId, _ := task.GetParams().GetString("eip_id")
-	err = natgateway.GetRegion().GetDriver().BindIPToNatgatewayRollback(ctx, eipId)
+	region, _ := natgateway.GetRegion()
+	err = region.GetDriver().BindIPToNatgatewayRollback(ctx, eipId)
 	if err != nil {
 		return err
 	}

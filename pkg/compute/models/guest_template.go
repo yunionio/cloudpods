@@ -253,7 +253,7 @@ func (gtm *SGuestTemplateManager) validateData(
 			return cinput, errors.Wrap(err, "NetworkManager.FetchById")
 		}
 		net := model.(*SNetwork)
-		vpc := net.GetVpc()
+		vpc, _ := net.GetVpc()
 		if vpc != nil {
 			cinput.VpcId = vpc.Id
 		}

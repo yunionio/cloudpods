@@ -43,7 +43,7 @@ type GuestSwitchToBackupTask struct {
 */
 func (self *GuestSwitchToBackupTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	self.Params.Set("is_force", jsonutils.JSONTrue)
 	self.SetStage("OnEnsureMasterGuestStoped", nil)
 	err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self)
