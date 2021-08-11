@@ -85,6 +85,24 @@ var (
 				},
 			},
 		},
+		{
+			Auth:  true,
+			Scope: rbacutils.ScopeUser,
+			Rules: []rbacutils.SRbacRule{
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "samlusers",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "samlusers",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+			},
+		},
 	}
 )
 
