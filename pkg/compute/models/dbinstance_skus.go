@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -687,4 +688,109 @@ func (manager *SDBInstanceSkuManager) AllowGetPropertySyncTasks(ctx context.Cont
 
 func (manager *SDBInstanceSkuManager) GetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query api.SkuTaskQueryInput) (jsonutils.JSONObject, error) {
 	return GetPropertySkusSyncTasks(ctx, userCred, query)
+}
+
+func (self *SCloudregion) GetDBInstanceSkus() ([]SDBInstanceSku, error) {
+	q := DBInstanceSkuManager.Query().Equals("cloudregion_id", self.Id)
+	skus := []SDBInstanceSku{}
+	err := db.FetchModelObjects(DBInstanceSkuManager, q, &skus)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return skus, nil
+}
+
+func (self *SCloudregion) SyncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, exts []cloudprovider.ICloudDBInstanceSku) compare.SyncResult {
+	lockman.LockRawObject(ctx, DBInstanceSkuManager.Keyword(), self.Id)
+	defer lockman.ReleaseRawObject(ctx, DBInstanceSkuManager.Keyword(), self.Id)
+
+	result := compare.SyncResult{}
+	dbSkus, err := self.GetDBInstanceSkus()
+	if err != nil {
+		result.Error(err)
+		return result
+	}
+
+	removed := make([]SDBInstanceSku, 0)
+	commondb := make([]SDBInstanceSku, 0)
+	commonext := make([]cloudprovider.ICloudDBInstanceSku, 0)
+	added := make([]cloudprovider.ICloudDBInstanceSku, 0)
+
+	err = compare.CompareSets(dbSkus, exts, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(err)
+		return result
+	}
+
+	for i := 0; i < len(removed); i += 1 {
+		err = removed[i].Delete(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
+	for i := 0; i < len(added); i += 1 {
+		err = self.newFromCloudSku(ctx, userCred, added[i])
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		result.Add()
+	}
+	return result
+}
+
+func (self *SCloudregion) newFromCloudSku(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudDBInstanceSku) error {
+	sku := &SDBInstanceSku{}
+	sku.SetModelManager(DBInstanceSkuManager, sku)
+	sku.Name = ext.GetName()
+	sku.Status = ext.GetStatus()
+	sku.CloudregionId = self.Id
+	sku.Enabled = tristate.True
+	sku.ExternalId = ext.GetGlobalId()
+	sku.Engine = ext.GetEngine()
+	sku.EngineVersion = ext.GetEngineVersion()
+	sku.StorageType = ext.GetStorageType()
+	sku.DiskSizeStep = ext.GetDiskSizeStep()
+	sku.MaxDiskSizeGb = ext.GetMaxDiskSizeGb()
+	sku.MinDiskSizeGb = ext.GetMinDiskSizeGb()
+	sku.IOPS = ext.GetIOPS()
+	sku.TPS = ext.GetTPS()
+	sku.QPS = ext.GetQPS()
+	sku.MaxConnections = ext.GetMaxConnections()
+	sku.VcpuCount = ext.GetVcpuCount()
+	sku.VmemSizeMb = ext.GetVmemSizeMb()
+	sku.Category = ext.GetCategory()
+	sku.ZoneId = ext.GetZoneId()
+	sku.Provider = self.Provider
+	zones, _ := self.GetZones()
+	if zone1 := ext.GetZone1Id(); len(zone1) > 0 {
+		for _, zone := range zones {
+			if strings.HasSuffix(zone.ExternalId, zone1) {
+				sku.Zone1 = zone.Id
+				break
+			}
+		}
+	}
+
+	if zone2 := ext.GetZone2Id(); len(zone2) > 0 {
+		for _, zone := range zones {
+			if strings.HasSuffix(zone.ExternalId, zone2) {
+				sku.Zone2 = zone.Id
+				break
+			}
+		}
+	}
+
+	if zone3 := ext.GetZone3Id(); len(zone3) > 0 {
+		for _, zone := range zones {
+			if strings.HasSuffix(zone.ExternalId, zone3) {
+				sku.Zone3 = zone.Id
+				break
+			}
+		}
+	}
+
+	return DBInstanceSkuManager.TableSpec().Insert(ctx, sku)
 }

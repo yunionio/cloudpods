@@ -231,6 +231,14 @@ func (self *SRegion) GetICloudAppById(id string) (cloudprovider.ICloudApp, error
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudAppById")
 }
 
+func (self *SRegion) GetIDBInstanceSkus() ([]cloudprovider.ICloudDBInstanceSku, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIDBInstanceSkus")
+}
+
+func (self *SRegion) GetICloudNatSkus() ([]cloudprovider.ICloudNatSku, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudNatSkus")
+}
+
 type SRegionZoneBase struct {
 }
 
