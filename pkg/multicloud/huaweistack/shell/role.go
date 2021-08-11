@@ -15,6 +15,13 @@
 package shell
 
 import (
+	"fmt"
+	"io/ioutil"
+
+	"yunion.io/x/jsonutils"
+
+	cloudid_api "yunion.io/x/onecloud/pkg/apis/cloudid"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	huawei "yunion.io/x/onecloud/pkg/multicloud/huaweistack"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -31,5 +38,38 @@ func init() {
 		}
 		printList(roles, 0, 0, 0, nil)
 		return nil
+	})
+
+	shellutils.R(&RoleListOptions{}, "cloud-policy-export", "Export cloudpolicy", func(cli *huawei.SRegion, args *RoleListOptions) error {
+		roles, err := cli.GetClient().GetRoles(args.DomainId, args.Name)
+		if err != nil {
+			return err
+		}
+		type sRule struct {
+			Name        string
+			Id          string
+			ExternalId  string
+			CloudEnv    string
+			Provider    string
+			Description string
+			Document    jsonutils.JSONDict
+			PolicyType  string
+			Status      string
+		}
+		ret := []sRule{}
+		for i := range roles {
+			ret = append(ret, sRule{
+				Name:        roles[i].DisplayName,
+				Id:          roles[i].Id,
+				ExternalId:  roles[i].DisplayName,
+				CloudEnv:    api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK,
+				Provider:    api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK,
+				Description: roles[i].DescriptionCn,
+				Document:    roles[i].Policy,
+				PolicyType:  cloudid_api.CLOUD_POLICY_TYPE_SYSTEM,
+				Status:      cloudid_api.CLOUD_POLICY_STATUS_AVAILABLE,
+			})
+		}
+		return ioutil.WriteFile(fmt.Sprintf("%s.json", api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK), []byte(jsonutils.Marshal(ret).PrettyString()), 0644)
 	})
 }

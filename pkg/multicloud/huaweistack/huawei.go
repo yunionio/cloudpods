@@ -73,6 +73,7 @@ func NewHuaweiClientConfig(accessKey, accessSecret, projectId string, endpoints 
 		accessSecret: accessSecret,
 		endpoints:    endpoints,
 	}
+
 	return cfg
 }
 
@@ -552,6 +553,10 @@ func (self *SHuaweiClient) GetOwnerId() (string, error) {
 	// 2021-02-02 02:43:28.0
 	self.ownerCreateTime, _ = timeutils.ParseTimeStr(strings.TrimSuffix(ret.CreateTime, ".0"))
 	return ret.DomainId, nil
+}
+
+func (self *SHuaweiClient) GetSamlEntityId() string {
+	return fmt.Sprintf("auth.%s", self.cpcfg.EndpointDomain)
 }
 
 func (self *SHuaweiClient) initOwner() error {

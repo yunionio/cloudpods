@@ -317,6 +317,11 @@ type SCloudproviderDelegate struct {
 	Provider string
 	Brand    string
 
+	Options struct {
+		cloudprovider.SApsaraEndpoints
+		cloudprovider.SHuaweiCloudStackEndpoints
+	}
+
 	ProxySetting proxyapi.SProxySetting
 }
 
@@ -391,6 +396,9 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 			Secret:  passwd,
 
 			ProxyFunc: proxyFunc,
+
+			SHuaweiCloudStackEndpoints: delegate.Options.SHuaweiCloudStackEndpoints,
+			SApsaraEndpoints:           delegate.Options.SApsaraEndpoints,
 		},
 	)
 }
