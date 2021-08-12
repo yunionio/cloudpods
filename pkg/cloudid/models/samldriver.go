@@ -16,8 +16,15 @@ package models
 
 import (
 	"context"
+	"io/ioutil"
+	"path"
 
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/cloudid/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/samlutils"
 	"yunion.io/x/onecloud/pkg/util/samlutils/idp"
 )
@@ -46,6 +53,10 @@ func Register(driver ICloudSAMLLoginDriver) {
 	driverTable[driver.GetEntityID()] = driver
 }
 
+func UnRegister(entityId string) {
+	delete(driverTable, entityId)
+}
+
 func FindDriver(entityId string) ICloudSAMLLoginDriver {
 	if driver, ok := driverTable[entityId]; ok {
 		return driver
@@ -55,4 +66,27 @@ func FindDriver(entityId string) ICloudSAMLLoginDriver {
 
 func AllDrivers() map[string]ICloudSAMLLoginDriver {
 	return driverTable
+}
+
+func GetMetadata(driver ICloudSAMLLoginDriver) ([]byte, error) {
+	filePath := path.Join(options.Options.CloudSAMLMetadataPath, driver.GetMetadataFilename())
+	metaBytes, err := ioutil.ReadFile(filePath)
+	if err != nil || len(metaBytes) == 0 {
+		metaUrl := driver.GetMetadataUrl()
+		if len(metaUrl) > 0 {
+			log.Debugf("[%s] metadata file load failed, try download from %s", driver.GetEntityID(), metaUrl)
+			httpcli := httputils.GetDefaultClient()
+			resp, err := httpcli.Get(metaUrl)
+			if err != nil {
+				return nil, errors.Wrapf(err, "http get %s fail", metaUrl)
+			}
+			metaBytes, err = ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return nil, errors.Wrapf(err, "read body %s fail", metaUrl)
+			}
+		} else {
+			return nil, errors.Wrapf(err, "read file %s fail", filePath)
+		}
+	}
+	return metaBytes, nil
 }

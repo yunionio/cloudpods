@@ -300,7 +300,7 @@ func (self *SHuaweiCloudStackProvider) GetIClouduserByName(name string) (cloudpr
 }
 
 func (self *SHuaweiCloudStackProvider) GetSamlEntityId() string {
-	return cloudprovider.SAML_ENTITY_ID_HUAWEI_CLOUD
+	return self.client.GetSamlEntityId()
 }
 
 func (self *SHuaweiCloudStackProvider) GetICloudSAMLProviders() ([]cloudprovider.ICloudSAMLProvider, error) {
