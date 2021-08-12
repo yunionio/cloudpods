@@ -35,7 +35,7 @@ func GetRegistryMetricInput() (metricInitInputs []monitor.MetricCreateInput) {
 	if metricInitInputMap == nil {
 		metricInitInputMap = make(map[string]monitor.MetricCreateInput)
 	}
-	for name, _ := range metricInitInputMap {
+	for name := range metricInitInputMap {
 		metricInitInputs = append(metricInitInputs, metricInitInputMap[name])
 	}
 	return
@@ -266,6 +266,93 @@ func init() {
 			newMetricFieldCreateInput("balance", "balance", monitor.METRIC_UNIT_RMB, 1),
 		})
 
+	// agent_cpu
+	RegistryMetricCreateInput("agent_cpu", "CPU usage", monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE, 1,
+		[]monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("usage_active", "CPU active state utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("usage_idle", "CPU idle state utilization rate", monitor.METRIC_UNIT_PERCENT, 2),
+			newMetricFieldCreateInput("usage_system", "CPU system state utilization rate", monitor.METRIC_UNIT_PERCENT, 3),
+			newMetricFieldCreateInput("usage_user", "CPU user mode utilization rate", monitor.METRIC_UNIT_PERCENT, 4),
+			newMetricFieldCreateInput("usage_iowait", "CPU IO usage", monitor.METRIC_UNIT_PERCENT, 5),
+			newMetricFieldCreateInput("usage_irq", "CPU IRQ usage", monitor.METRIC_UNIT_PERCENT, 6),
+			newMetricFieldCreateInput("usage_guest", "CPU guest usage", monitor.METRIC_UNIT_PERCENT, 7),
+			newMetricFieldCreateInput("usage_nice", "CPU priority switch utilization", monitor.METRIC_UNIT_PERCENT, 8),
+			newMetricFieldCreateInput("usage_softirq", "CPU softirq usage", monitor.METRIC_UNIT_PERCENT, 9),
+		})
+
+	// agent_disk
+	RegistryMetricCreateInput("agent_disk", "Disk usage", monitor.METRIC_RES_TYPE_AGENT,
+		monitor.METRIC_DATABASE_TELE, 3,
+		[]monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("used_percent", "Percentage of used disks", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("free", "Free space size", monitor.METRIC_UNIT_BYTE, 2),
+			newMetricFieldCreateInput("used", "Used disk size", monitor.METRIC_UNIT_BYTE, 3),
+			newMetricFieldCreateInput("total", "Total disk size", monitor.METRIC_UNIT_BYTE, 4),
+			newMetricFieldCreateInput("inodes_free", "Available inode", monitor.METRIC_UNIT_COUNT, 5),
+			newMetricFieldCreateInput("inodes_used", "Number of inodes used", monitor.METRIC_UNIT_COUNT, 6),
+			newMetricFieldCreateInput("inodes_total", "Total inodes", monitor.METRIC_UNIT_COUNT, 7),
+		})
+
+	// agent_diskio
+	RegistryMetricCreateInput("agent_diskio", "Disk traffic and timing",
+		monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE, 4, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("read_bps", "Disk read rate", monitor.METRIC_UNIT_BPS, 1),
+			newMetricFieldCreateInput("write_bps", "Disk write rate", monitor.METRIC_UNIT_BPS, 2),
+			newMetricFieldCreateInput("read_iops", "Disk read operate rate", monitor.METRIC_UNIT_COUNT, 3),
+			newMetricFieldCreateInput("write_iops", "Disk write operate rate", monitor.METRIC_UNIT_COUNT, 4),
+			newMetricFieldCreateInput("reads", "Number of reads", monitor.METRIC_UNIT_COUNT, 5),
+			newMetricFieldCreateInput("writes", "Number of writes", monitor.METRIC_UNIT_COUNT, 6),
+			newMetricFieldCreateInput("read_bytes", "Bytes read", monitor.METRIC_UNIT_BYTE, 7),
+			newMetricFieldCreateInput("write_bytes", "Bytes write", monitor.METRIC_UNIT_BYTE, 8),
+			newMetricFieldCreateInput("write_time", "Time to wait for write", monitor.METRIC_UNIT_MS, 9),
+			newMetricFieldCreateInput("io_time", "I / O request queuing time", monitor.METRIC_UNIT_MS, 10),
+			newMetricFieldCreateInput("weighted_io_time", "I / O request waiting time", monitor.METRIC_UNIT_MS, 11),
+			newMetricFieldCreateInput("iops_in_progress", "Number of I / O requests issued but not yet completed", monitor.METRIC_UNIT_COUNT, 12),
+		})
+
+	// agent_mem
+	RegistryMetricCreateInput("agent_mem", "Memory", monitor.METRIC_RES_TYPE_AGENT,
+		monitor.METRIC_DATABASE_TELE, 2, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("used_percent", "Used memory rate", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("available_percent", "Available memory rate", monitor.METRIC_UNIT_PERCENT, 2),
+			newMetricFieldCreateInput("used", "Used memory", monitor.METRIC_UNIT_BYTE, 3),
+			newMetricFieldCreateInput("free", "Free memory", monitor.METRIC_UNIT_BYTE, 4),
+			newMetricFieldCreateInput("active", "The amount of active memory", monitor.METRIC_UNIT_BYTE, 5),
+			newMetricFieldCreateInput("inactive", "The amount of inactive memory", monitor.METRIC_UNIT_BYTE, 6),
+			newMetricFieldCreateInput("cached", "Cache memory", monitor.METRIC_UNIT_BYTE, 7),
+			newMetricFieldCreateInput("buffered", "Buffer memory", monitor.METRIC_UNIT_BYTE, 7),
+			newMetricFieldCreateInput("slab", "Number of kernel caches", monitor.METRIC_UNIT_BYTE, 8),
+			newMetricFieldCreateInput("available", "Available memory", monitor.METRIC_UNIT_BYTE, 9),
+			newMetricFieldCreateInput("total", "Total memory", monitor.METRIC_UNIT_BYTE, 10),
+		})
+
+	// agent_net
+	RegistryMetricCreateInput("agent_net", "Network interface and protocol usage",
+		monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE, 5, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("bps_sent", "Send traffic per second", monitor.METRIC_UNIT_BPS, 1),
+			newMetricFieldCreateInput("bps_recv", "Received traffic per second", monitor.METRIC_UNIT_BPS, 2),
+			newMetricFieldCreateInput("bytes_sent", "The total number of bytes sent by the network interface", monitor.METRIC_UNIT_BYTE, 3),
+			newMetricFieldCreateInput("bytes_recv", "The total number of bytes received by the network interface", monitor.METRIC_UNIT_BYTE, 4),
+			newMetricFieldCreateInput("packets_sent", "The total number of packets sent by the network interface", monitor.METRIC_UNIT_COUNT, 5),
+			newMetricFieldCreateInput("packets_recv", "The total number of packets received by the network interface", monitor.METRIC_UNIT_COUNT, 6),
+			newMetricFieldCreateInput("err_in", "The total number of receive errors detected by the network interface", monitor.METRIC_UNIT_COUNT, 7),
+			newMetricFieldCreateInput("err_out", "The total number of transmission errors detected by the network interface", monitor.METRIC_UNIT_COUNT, 8),
+			newMetricFieldCreateInput("drop_in", "The total number of received packets dropped by the network interface", monitor.METRIC_UNIT_COUNT, 9),
+			newMetricFieldCreateInput("drop_out", "The total number of transmission packets dropped by the network interface", monitor.METRIC_UNIT_COUNT, 10),
+		})
+
+	// agent lm-sensors temperature
+	RegistryMetricCreateInput("agent_sensors", "Collect lm-sensors metrics",
+		monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE, 6, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("temp_input", "lm-sensors temperature input", "", 1),
+		})
+
+	// agent smartctl device temperature
+	RegistryMetricCreateInput("agent_smart_device", "Collect smartctl metrics",
+		monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE, 7, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("temp_c", "Disk device temperature ", "", 1),
+		})
+
 	RegistryMetricCreateInput("storage", "Storage usage",
 		monitor.METRIC_RES_TYPE_STORAGE, monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("usage_active", "Storage utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
@@ -286,79 +373,6 @@ func init() {
 		monitor.METRIC_RES_TYPE_JENKINS, monitor.METRIC_DATABASE_TELE, 2, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("duration", "duration", monitor.METRIC_UNIT_MS, 1),
 			newMetricFieldCreateInput("number", "number", monitor.METRIC_UNIT_COUNT, 2),
-		})
-
-	// cpu
-	RegistryMetricCreateInput("agent_cpu", "CPU usage", monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE, 1,
-		[]monitor.MetricFieldCreateInput{
-			newMetricFieldCreateInput("usage_active", "CPU active state utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
-			newMetricFieldCreateInput("usage_idle", "CPU idle state utilization rate", monitor.METRIC_UNIT_PERCENT, 2),
-			newMetricFieldCreateInput("usage_system", "CPU system state utilization rate", monitor.METRIC_UNIT_PERCENT, 3),
-			newMetricFieldCreateInput("usage_user", "CPU user mode utilization rate", monitor.METRIC_UNIT_PERCENT, 4),
-			newMetricFieldCreateInput("usage_iowait", "CPU IO usage", monitor.METRIC_UNIT_PERCENT, 5),
-			newMetricFieldCreateInput("usage_irq", "CPU IRQ usage", monitor.METRIC_UNIT_PERCENT, 6),
-			newMetricFieldCreateInput("usage_guest", "CPU guest usage", monitor.METRIC_UNIT_PERCENT, 7),
-			newMetricFieldCreateInput("usage_nice", "CPU priority switch utilization", monitor.METRIC_UNIT_PERCENT, 8),
-			newMetricFieldCreateInput("usage_softirq", "CPU softirq usage", monitor.METRIC_UNIT_PERCENT, 9),
-		})
-
-	// disk
-	RegistryMetricCreateInput("agent_disk", "Disk usage", monitor.METRIC_RES_TYPE_AGENT,
-		monitor.METRIC_DATABASE_TELE, 3,
-		[]monitor.MetricFieldCreateInput{
-			newMetricFieldCreateInput("used_percent", "Percentage of used disks", monitor.METRIC_UNIT_PERCENT, 1),
-			newMetricFieldCreateInput("free", "Free space size", monitor.METRIC_UNIT_BYTE, 2),
-			newMetricFieldCreateInput("used", "Used disk size", monitor.METRIC_UNIT_BYTE, 3),
-			newMetricFieldCreateInput("total", "Total disk size", monitor.METRIC_UNIT_BYTE, 4),
-			newMetricFieldCreateInput("inodes_free", "Available inode", monitor.METRIC_UNIT_COUNT, 5),
-			newMetricFieldCreateInput("inodes_used", "Number of inodes used", monitor.METRIC_UNIT_COUNT, 6),
-			newMetricFieldCreateInput("inodes_total", "Total inodes", monitor.METRIC_UNIT_COUNT, 7),
-		})
-
-	// diskio
-	RegistryMetricCreateInput("agent_diskio", "Disk traffic and timing",
-		monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE, 4, []monitor.MetricFieldCreateInput{
-			newMetricFieldCreateInput("read_bps", "Disk read rate", monitor.METRIC_UNIT_BPS, 1),
-			newMetricFieldCreateInput("write_bps", "Disk write rate", monitor.METRIC_UNIT_BPS, 2),
-			newMetricFieldCreateInput("read_iops", "Disk read operate rate", monitor.METRIC_UNIT_COUNT, 3),
-			newMetricFieldCreateInput("write_iops", "Disk write operate rate", monitor.METRIC_UNIT_COUNT, 4),
-			newMetricFieldCreateInput("reads", "Number of reads", monitor.METRIC_UNIT_COUNT, 5),
-			newMetricFieldCreateInput("writes", "Number of writes", monitor.METRIC_UNIT_COUNT, 6),
-			newMetricFieldCreateInput("read_bytes", "Bytes read", monitor.METRIC_UNIT_BYTE, 7),
-			newMetricFieldCreateInput("write_bytes", "Bytes write", monitor.METRIC_UNIT_BYTE, 8),
-			newMetricFieldCreateInput("write_time", "Time to wait for write", monitor.METRIC_UNIT_MS, 9),
-			newMetricFieldCreateInput("io_time", "I / O request queuing time", monitor.METRIC_UNIT_MS, 10),
-			newMetricFieldCreateInput("weighted_io_time", "I / O request waiting time", monitor.METRIC_UNIT_MS, 11),
-			newMetricFieldCreateInput("iops_in_progress", "Number of I / O requests issued but not yet completed", monitor.METRIC_UNIT_COUNT, 12),
-		})
-
-	// mem
-	RegistryMetricCreateInput("agent_mem", "Memory", monitor.METRIC_RES_TYPE_AGENT,
-		monitor.METRIC_DATABASE_TELE, 2, []monitor.MetricFieldCreateInput{
-			newMetricFieldCreateInput("used_percent", "Used memory rate", monitor.METRIC_UNIT_PERCENT, 1),
-			newMetricFieldCreateInput("available_percent", "Available memory rate", monitor.METRIC_UNIT_PERCENT, 2),
-			newMetricFieldCreateInput("used", "Used memory", monitor.METRIC_UNIT_BYTE, 3),
-			newMetricFieldCreateInput("free", "Free memory", monitor.METRIC_UNIT_BYTE, 4),
-			newMetricFieldCreateInput("active", "The amount of active memory", monitor.METRIC_UNIT_BYTE, 5),
-			newMetricFieldCreateInput("inactive", "The amount of inactive memory", monitor.METRIC_UNIT_BYTE, 6),
-			newMetricFieldCreateInput("cached", "Cache memory", monitor.METRIC_UNIT_BYTE, 7),
-			newMetricFieldCreateInput("buffered", "Buffer memory", monitor.METRIC_UNIT_BYTE, 7),
-			newMetricFieldCreateInput("slab", "Number of kernel caches", monitor.METRIC_UNIT_BYTE, 8),
-			newMetricFieldCreateInput("available", "Available memory", monitor.METRIC_UNIT_BYTE, 9),
-			newMetricFieldCreateInput("total", "Total memory", monitor.METRIC_UNIT_BYTE, 10),
-		})
-
-	// net
-	RegistryMetricCreateInput("agent_net", "Network interface and protocol usage",
-		monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE, 5, []monitor.MetricFieldCreateInput{
-			newMetricFieldCreateInput("bytes_sent", "The total number of bytes sent by the network interface", monitor.METRIC_UNIT_BYTE, 1),
-			newMetricFieldCreateInput("bytes_recv", "The total number of bytes received by the network interface", monitor.METRIC_UNIT_BYTE, 2),
-			newMetricFieldCreateInput("packets_sent", "The total number of packets sent by the network interface", monitor.METRIC_UNIT_COUNT, 3),
-			newMetricFieldCreateInput("packets_recv", "The total number of packets received by the network interface", monitor.METRIC_UNIT_COUNT, 4),
-			newMetricFieldCreateInput("err_in", "The total number of receive errors detected by the network interface", monitor.METRIC_UNIT_COUNT, 5),
-			newMetricFieldCreateInput("err_out", "The total number of transmission errors detected by the network interface", monitor.METRIC_UNIT_COUNT, 6),
-			newMetricFieldCreateInput("drop_in", "The total number of received packets dropped by the network interface", monitor.METRIC_UNIT_COUNT, 7),
-			newMetricFieldCreateInput("drop_out", "The total number of transmission packets dropped by the network interface", monitor.METRIC_UNIT_COUNT, 8),
 		})
 
 }
