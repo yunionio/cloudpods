@@ -102,6 +102,9 @@ func (self *SClassicDisk) GetDiskSizeMB() int {
 	if self.Properties.DiskSizeGB > 0 {
 		return int(self.Properties.DiskSizeGB * 1024)
 	}
+	if self.Properties.DiskSize > 0 {
+		return int(self.Properties.DiskSize * 1024)
+	}
 	return 0
 }
 
