@@ -17,3 +17,7 @@ func init() {
 func (self *SHuaweiCloudStackRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK
 }
+
+func (self *SHuaweiCloudStackRegionDriver) IsSupportedElasticcache() bool {
+	return false
+}

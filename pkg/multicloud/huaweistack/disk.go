@@ -185,28 +185,8 @@ func (self *SDisk) IsEmulated() bool {
 	return false
 }
 
-func (self *SDisk) getResourceDetails() *SResourceDetail {
-	if self.details != nil {
-		return self.details
-	}
-
-	res, err := self.storage.zone.region.GetOrderResourceDetail(self.GetId())
-	if err != nil {
-		log.Debugln(err)
-		return nil
-	}
-
-	self.details = &res
-	return self.details
-}
-
 func (self *SDisk) GetBillingType() string {
-	details := self.getResourceDetails()
-	if details == nil {
-		return billing_api.BILLING_TYPE_POSTPAID
-	} else {
-		return billing_api.BILLING_TYPE_PREPAID
-	}
+	return billing_api.BILLING_TYPE_POSTPAID
 }
 
 func (self *SDisk) GetCreatedAt() time.Time {
@@ -215,11 +195,6 @@ func (self *SDisk) GetCreatedAt() time.Time {
 
 func (self *SDisk) GetExpiredAt() time.Time {
 	var expiredTime time.Time
-	details := self.getResourceDetails()
-	if details != nil {
-		expiredTime = details.ExpireTime
-	}
-
 	return expiredTime
 }
 

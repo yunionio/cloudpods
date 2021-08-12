@@ -28,8 +28,6 @@ import (
 
 type ServiceNameType string
 
-const HuaWeiDefaultDomain = "myhuaweicloud.com"
-
 const (
 	ServiceNameECS  ServiceNameType = "ecs"  // 弹性云服务
 	ServiceNameCCE  ServiceNameType = "cce"  // 云容器服务
