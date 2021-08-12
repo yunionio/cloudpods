@@ -1124,19 +1124,12 @@ func (manager *SVpcManager) ListItemFilter(
 	vpcUsable := (query.UsableVpc != nil && *query.UsableVpc)
 	if vpcUsable || usable {
 		regions := CloudregionManager.Query().SubQuery()
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-		providerSQ := cloudproviders.Query(cloudproviders.Field("id")).Filter(
-			sqlchemy.AND(
-				sqlchemy.IsTrue(cloudproviders.Field("enabled")),
-				sqlchemy.In(cloudproviders.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS),
-				sqlchemy.In(cloudproviders.Field("health_status"), api.CLOUD_PROVIDER_VALID_HEALTH_STATUS),
-			),
-		)
+		providerSQ := usableCloudProviders().SubQuery()
 		q = q.Join(regions, sqlchemy.Equals(q.Field("cloudregion_id"), regions.Field("id"))).Filter(
 			sqlchemy.AND(
 				sqlchemy.Equals(regions.Field("status"), api.CLOUD_REGION_STATUS_INSERVER),
 				sqlchemy.OR(
-					sqlchemy.In(q.Field("manager_id"), providerSQ.SubQuery()),
+					sqlchemy.In(q.Field("manager_id"), providerSQ),
 					sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
 				),
 			),
