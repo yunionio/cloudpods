@@ -67,7 +67,14 @@ type ReportOptions struct {
 	Interval  string   `help:"interval""`
 	SinceTime string   `help:"sinceTime"`
 	EndTime   string   `help:"endTime"`
-	Provider  []string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei|ZStack|Google|Apsara" json:"provider,omitempty"`
+	Provider  []string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei|ZStack|Google|Apsara|HuaweiCloudStack" json:"provider,omitempty"`
+	PingProbeOptions
+}
+
+type PingProbeOptions struct {
+	Debug         bool `help:"debug"`
+	ProbeCount    int  `help:"probe count, default is 3" default:"3"`
+	TimeoutSecond int  `help:"probe timeout in second, default is 1 second" default:"1"`
 }
 
 var InstanceProviders = "Aliyun,Azure,Aws,Qcloud,VMWare,Huawei,Openstack,Ucloud,ZStack"
