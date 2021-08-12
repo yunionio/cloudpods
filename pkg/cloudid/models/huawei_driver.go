@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package huawei
+package models
 
 import (
 	"context"
@@ -21,7 +21,6 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudid/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/samlutils"
@@ -38,15 +37,15 @@ func (d *SHuaweiSAMLDriver) GetIdpInitiatedLoginData(ctx context.Context, userCr
 func (d *SHuaweiSAMLDriver) GetSpInitiatedLoginData(ctx context.Context, userCred mcclient.TokenCredential, cloudAccountId string, sp *idp.SSAMLServiceProvider) (samlutils.SSAMLSpInitiatedLoginData, error) {
 	data := samlutils.SSAMLSpInitiatedLoginData{}
 
-	_account, err := models.CloudaccountManager.FetchById(cloudAccountId)
+	_account, err := CloudaccountManager.FetchById(cloudAccountId)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			return data, httperrors.NewResourceNotFoundError2("cloudaccount", cloudAccountId)
 		}
 		return data, httperrors.NewGeneralError(err)
 	}
-	account := _account.(*models.SCloudaccount)
-	if account.Provider != api.CLOUD_PROVIDER_HUAWEI {
+	account := _account.(*SCloudaccount)
+	if account.Provider != api.CLOUD_PROVIDER_HUAWEI && account.Provider != api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK {
 		return data, httperrors.NewClientError("cloudaccount %s is %s not %s", account.Id, account.Provider, api.CLOUD_PROVIDER_HUAWEI)
 	}
 	if account.SAMLAuth.IsFalse() {
@@ -70,7 +69,7 @@ func (d *SHuaweiSAMLDriver) GetSpInitiatedLoginData(ctx context.Context, userCre
 	data.NameIdFormat = samlutils.NAME_ID_FORMAT_TRANSIENT
 	data.AudienceRestriction = sp.GetEntityId()
 	for k, v := range map[string][]string{
-		"User":   []string{userCred.GetUserName()},
+		"User":   {userCred.GetUserName()},
 		"Groups": groups,
 	} {
 		data.Attributes = append(data.Attributes, samlutils.SSAMLResponseAttribute{

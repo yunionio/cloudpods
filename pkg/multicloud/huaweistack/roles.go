@@ -49,7 +49,7 @@ func (role *SRole) GetPolicyType() string {
 }
 
 func (role *SRole) GetGlobalId() string {
-	return role.Id
+	return role.DisplayName
 }
 
 func (role *SRole) UpdateDocument(document *jsonutils.JSONDict) error {
@@ -82,7 +82,7 @@ func (self *SHuaweiClient) GetRoles(domainId, name string) ([]SRole, error) {
 		params["domain_id"] = self.ownerId
 	}
 	if len(name) > 0 {
-		params["name"] = name
+		params["display_name"] = name
 	}
 
 	client, err := self.newGeneralAPIClient()

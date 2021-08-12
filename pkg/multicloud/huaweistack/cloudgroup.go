@@ -257,7 +257,11 @@ func (self *SHuaweiClient) DetachGroupRole(groupId, roleId string) error {
 	if err != nil {
 		return errors.Wrap(err, "newGeneralAPIClient")
 	}
-	err = client.Groups.DeleteRole(self.ownerId, groupId, roleId)
+	role, err := self.GetRole(roleId)
+	if err != nil {
+		return errors.Wrapf(err, "GetRole(%s)", roleId)
+	}
+	err = client.Groups.DeleteRole(self.ownerId, groupId, role.Id)
 	if err != nil {
 		return errors.Wrapf(err, "DeleteRole")
 	}
@@ -266,7 +270,7 @@ func (self *SHuaweiClient) DetachGroupRole(groupId, roleId string) error {
 		return errors.Wrapf(err, "GetProjects")
 	}
 	for _, project := range projects {
-		err = client.Groups.DeleteProjectRole(project.ID, groupId, roleId)
+		err = client.Groups.DeleteProjectRole(project.ID, groupId, role.Id)
 		if err != nil {
 			return errors.Wrapf(err, "DeleteProjectRole")
 		}
@@ -274,12 +278,29 @@ func (self *SHuaweiClient) DetachGroupRole(groupId, roleId string) error {
 	return nil
 }
 
+func (self *SHuaweiClient) GetRole(name string) (*SRole, error) {
+	roles, err := self.GetRoles("", "")
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRoles(%s)", name)
+	}
+	for i := range roles {
+		if roles[i].DisplayName == name {
+			return &roles[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
+}
+
 func (self *SHuaweiClient) AttachGroupRole(groupId, roleId string) error {
 	client, err := self.newGeneralAPIClient()
 	if err != nil {
 		return errors.Wrap(err, "newGeneralAPIClient")
 	}
-	err = client.Groups.AddRole(self.ownerId, groupId, roleId)
+	role, err := self.GetRole(roleId)
+	if err != nil {
+		return errors.Wrapf(err, "GetRole(%s)", roleId)
+	}
+	err = client.Groups.AddRole(self.ownerId, groupId, role.Id)
 	if err != nil {
 		return errors.Wrapf(err, "AddRole")
 	}
@@ -288,7 +309,7 @@ func (self *SHuaweiClient) AttachGroupRole(groupId, roleId string) error {
 		return errors.Wrapf(err, "GetProjects")
 	}
 	for _, project := range projects {
-		err = client.Groups.AddProjectRole(project.ID, groupId, roleId)
+		err = client.Groups.AddProjectRole(project.ID, groupId, role.Id)
 		if err != nil {
 			return errors.Wrapf(err, "AddProjectRole")
 		}

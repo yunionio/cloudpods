@@ -17,8 +17,6 @@ package saml
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"path"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -30,7 +28,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/samlutils"
 	"yunion.io/x/onecloud/pkg/util/samlutils/idp"
 )
@@ -85,25 +82,10 @@ func initSAMLIdp(app *appsrv.Application, prefix string) error {
 	}
 
 	idpInst := idp.NewIdpInstance(saml, spFunc, idpFunc, logoutFunc)
-	for entityId, drvFactory := range models.AllDrivers() {
-		filePath := path.Join(options.Options.CloudSAMLMetadataPath, drvFactory.GetMetadataFilename())
-		metaBytes, err := ioutil.ReadFile(filePath)
-		if err != nil || len(metaBytes) == 0 {
-			metaUrl := drvFactory.GetMetadataUrl()
-			if len(metaUrl) > 0 {
-				log.Debugf("[%s] metadata file load failed, try download from %s", entityId, metaUrl)
-				httpcli := httputils.GetDefaultClient()
-				resp, err := httpcli.Get(metaUrl)
-				if err != nil {
-					return errors.Wrapf(err, "http get %s fail", metaUrl)
-				}
-				metaBytes, err = ioutil.ReadAll(resp.Body)
-				if err != nil {
-					return errors.Wrapf(err, "read body %s fail", metaUrl)
-				}
-			} else {
-				return errors.Wrapf(err, "read file %s fail", filePath)
-			}
+	for _, drvFactory := range models.AllDrivers() {
+		metaBytes, err := models.GetMetadata(drvFactory)
+		if err != nil {
+			return err
 		}
 		err = idpInst.AddSPMetadata(metaBytes)
 		if err != nil {
