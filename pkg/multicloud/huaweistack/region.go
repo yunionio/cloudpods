@@ -572,18 +572,8 @@ func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP
 		ctype = InternetChargeByBandwidth
 	}
 
-	// todo: 如何避免hardcode。集成到cloudmeta服务中？
 	if len(eip.BGPType) == 0 {
-		switch self.GetId() {
-		case "cn-north-1", "cn-east-2", "cn-south-1":
-			eip.BGPType = "5_sbgp"
-		case "cn-northeast-1":
-			eip.BGPType = "5_telcom"
-		case "cn-north-4", "ap-southeast-1", "ap-southeast-2", "eu-west-0":
-			eip.BGPType = "5_bgp"
-		default:
-			eip.BGPType = "5_bgp"
-		}
+		eip.BGPType = "5_bgp"
 	}
 
 	// 华为云EIP名字最大长度64
@@ -989,7 +979,17 @@ func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket
 }
 
 func (self *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	ret := make([]cloudprovider.ICloudSku, 0)
+	flavors, err := self.fetchInstanceTypes(zoneId)
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchInstanceTypes")
+	}
+
+	for i := range flavors {
+		ret = append(ret, &flavors[i])
+	}
+
+	return ret, nil
 }
 
 func (self *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, error) {
@@ -1044,24 +1044,7 @@ func (self *SRegion) GetZoneSupportedDiskTypes(zoneId string) ([]string, error) 
 }
 
 func (self *SRegion) GetISkus() ([]cloudprovider.ICloudSku, error) {
-	izones, err := self.GetIZones()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetIZones")
-	}
-
-	ret := make([]cloudprovider.ICloudSku, 0)
-	for i := range izones {
-		flavors, err := self.fetchInstanceTypes(izones[i].GetId())
-		if err != nil {
-			return nil, errors.Wrap(err, "fetchInstanceTypes")
-		}
-
-		for i := range flavors {
-			ret = append(ret, &flavors[i])
-		}
-	}
-
-	return ret, nil
+	return self.GetSkus("")
 }
 
 func (self *SRegion) GetEndpoints() ([]jsonutils.JSONObject, error) {

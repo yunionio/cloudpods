@@ -166,6 +166,10 @@ func (offering *SInstanceOffering) GetPrepaidStatus() string {
 	return api.SkuStatusSoldout
 }
 
+func (offering *SInstanceOffering) GetCpuArch() string {
+	return ""
+}
+
 func (offering *SInstanceOffering) GetPostpaidStatus() string {
 	return api.SkuStatusAvailable
 }

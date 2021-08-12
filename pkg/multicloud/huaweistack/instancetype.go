@@ -111,16 +111,6 @@ func getFlavorLocalCategory(family string) string {
 	}
 }
 
-// https://support.huaweicloud.com/productdesc-ecs/ecs_01_0066.html
-// https://support.huaweicloud.com/ecs_faq/ecs_faq_0105.html
-func GetCpuArch(flavorId string) string {
-	if strings.HasPrefix(flavorId, "k") {
-		return "aarch64"
-	}
-
-	return "x86"
-}
-
 func (self *SInstanceType) GetId() string {
 	return self.ID
 }
@@ -177,9 +167,19 @@ func (self *SInstanceType) GetPostpaidStatus() string {
 	return "available"
 }
 
+// https://support.huaweicloud.com/productdesc-ecs/ecs_01_0066.html
+// https://support.huaweicloud.com/ecs_faq/ecs_faq_0105.html
+func (self *SInstanceType) GetCpuArch() string {
+	if strings.HasPrefix(self.ID, "k") {
+		return "aarch64"
+	}
+
+	return "x86"
+}
+
 func (self *SInstanceType) GetCpuCoreCount() int {
 	count, err := strconv.Atoi(self.Vcpus)
-	if err != nil {
+	if err == nil {
 		return count
 	}
 	return 0
