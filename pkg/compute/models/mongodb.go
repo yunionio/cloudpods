@@ -249,6 +249,7 @@ func (manager *SMongoDBManager) FetchCustomizeColumns(
 
 	rdsIds := make([]string, len(rows))
 	vpcIds := make([]string, len(rows))
+	netIds := make([]string, len(rows))
 	for i := range rows {
 		rows[i] = api.MongoDBDetails{
 			VirtualResourceDetails:  virtRows[i],
@@ -258,6 +259,7 @@ func (manager *SMongoDBManager) FetchCustomizeColumns(
 		instance := objs[i].(*SMongoDB)
 		rdsIds[i] = instance.Id
 		vpcIds[i] = instance.VpcId
+		netIds[i] = instance.NetworkId
 	}
 
 	vpcs := make(map[string]SVpc)
@@ -268,11 +270,17 @@ func (manager *SMongoDBManager) FetchCustomizeColumns(
 		return rows
 	}
 
+	netMaps, err := db.FetchIdNameMap2(NetworkManager, netIds)
+	if err != nil {
+		return rows
+	}
+
 	for i := range rows {
 		if vpc, ok := vpcs[vpcIds[i]]; ok {
 			rows[i].Vpc = vpc.Name
 			rows[i].VpcExtId = vpc.ExternalId
 		}
+		rows[i].Network, _ = netMaps[netIds[i]]
 	}
 
 	return rows
@@ -477,6 +485,18 @@ func (self *SMongoDB) SyncWithCloudMongoDB(ctx context.Context, userCred mcclien
 		self.MaintainTime = ext.GetMaintainTime()
 		self.Status = ext.GetStatus()
 		self.Port = ext.GetPort()
+
+		if vpcId := ext.GetVpcId(); len(vpcId) > 0 {
+			vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", self.ManagerId)
+			})
+			if err != nil {
+				log.Errorf("FetchVpcId(%s) error: %v", vpcId, err)
+			} else {
+				self.VpcId = vpc.GetId()
+			}
+		}
+
 		return nil
 	})
 	if err != nil {
