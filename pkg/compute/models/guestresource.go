@@ -52,37 +52,36 @@ func ValidateGuestResourceInput(userCred mcclient.TokenCredential, input api.Ser
 	return srvObj.(*SGuest), input, nil
 }
 
-func (self *SGuestResourceBase) GetGuest() *SGuest {
-	obj, _ := GuestManager.FetchById(self.GuestId)
-	if obj != nil {
-		return obj.(*SGuest)
+func (self *SGuestResourceBase) GetGuest() (*SGuest, error) {
+	obj, err := GuestManager.FetchById(self.GuestId)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return obj.(*SGuest), nil
 }
 
-func (self *SGuestResourceBase) GetHost() *SHost {
-	guest := self.GetGuest()
-	if guest != nil {
-		return guest.GetHost()
+func (self *SGuestResourceBase) GetHost() (*SHost, error) {
+	guest, err := self.GetGuest()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return guest.GetHost()
 }
 
-func (self *SGuestResourceBase) GetZone() *SZone {
-	host := self.GetHost()
-	if host != nil {
-		return host.GetZone()
+func (self *SGuestResourceBase) GetZone() (*SZone, error) {
+	host, err := self.GetHost()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return host.GetZone()
 }
 
-func (self *SGuestResourceBase) GetRegion() *SCloudregion {
-	host := self.GetHost()
-	if host == nil {
-		return nil
+func (self *SGuestResourceBase) GetRegion() (*SCloudregion, error) {
+	host, err := self.GetHost()
+	if err != nil {
+		return nil, err
 	}
-	region := host.GetRegion()
-	return region
+	return host.GetRegion()
 }
 
 func (manager *SGuestResourceBaseManager) FetchCustomizeColumns(
@@ -245,7 +244,7 @@ func (manager *SGuestResourceBaseManager) GetExportKeys() []string {
 }
 
 func (self *SGuestResourceBase) GetChangeOwnerCandidateDomainIds() []string {
-	guest := self.GetGuest()
+	guest, _ := self.GetGuest()
 	if guest != nil {
 		return guest.GetChangeOwnerCandidateDomainIds()
 	}

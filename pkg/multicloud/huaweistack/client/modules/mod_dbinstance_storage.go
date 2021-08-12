@@ -12,28 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package policy
+package modules
 
 import (
-	api "yunion.io/x/onecloud/pkg/apis/cloudid"
-	common_policy "yunion.io/x/onecloud/pkg/cloudcommon/policy"
+	"yunion.io/x/onecloud/pkg/multicloud/huaweistack/client/manager"
 )
 
-var (
-	cloudidSystemResources = []string{
-		"cloudpolicies",
-	}
-	cloudidDomainResources = []string{
-		"cloudgroups",
-	}
-	cloudidUserResources = []string{
-		"cloudusers",
-		"samlusers",
-	}
-)
+type SDBInstanceStorageManager struct {
+	SResourceManager
+}
 
-func init() {
-	common_policy.RegisterSystemResources(api.SERVICE_TYPE, cloudidSystemResources)
-	common_policy.RegisterDomainResources(api.SERVICE_TYPE, cloudidDomainResources)
-	common_policy.RegisterUserResources(api.SERVICE_TYPE, cloudidUserResources)
+func NewDBInstanceStorageManager(cfg manager.IManagerConfig) *SDBInstanceStorageManager {
+	return &SDBInstanceStorageManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(cfg),
+		ServiceName:   ServiceNameRDS,
+		Region:        cfg.GetRegionId(),
+		ProjectId:     cfg.GetProjectId(),
+		version:       "v3",
+		Keyword:       "",
+		KeywordPlural: "storage_type",
+
+		ResourceKeyword: "storage-type",
+	}}
 }

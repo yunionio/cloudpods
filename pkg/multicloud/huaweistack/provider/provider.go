@@ -212,7 +212,7 @@ func (self *SHuaweiCloudStackProvider) GetIRegionById(extId string) (cloudprovid
 }
 
 func (self *SHuaweiCloudStackProvider) GetBalance() (float64, string, error) {
-	return 0, api.CLOUD_PROVIDER_HEALTH_NORMAL, nil
+	return 0.0, api.CLOUD_PROVIDER_HEALTH_NORMAL, nil
 }
 
 func (self *SHuaweiCloudStackProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {

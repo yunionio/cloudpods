@@ -213,9 +213,6 @@ func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
 	if self.Id == api.DEFAULT_VPC_ID {
 		return httperrors.NewProtectedResourceError("not allow to delete default vpc")
 	}
-	if self.Status == api.VPC_STATUS_UNKNOWN {
-		return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
-	}
 
 	cnt, err := self.GetNetworkCount()
 	if err != nil {

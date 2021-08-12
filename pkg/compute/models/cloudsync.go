@@ -698,7 +698,7 @@ func syncStorageCaches(ctx context.Context, userCred mcclient.TokenCredential, p
 	cachePair.local = localCache
 	cachePair.remote = remoteCache
 	cachePair.isNew = isNew
-	cachePair.region = localStorage.GetRegion()
+	cachePair.region, _ = localStorage.GetRegion()
 	return
 }
 
@@ -1044,7 +1044,60 @@ func syncRegionDBInstances(ctx context.Context, userCred mcclient.TokenCredentia
 			syncDBInstanceResource(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
 		}()
 	}
+}
 
+func syncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+	skus, err := func() ([]cloudprovider.ICloudDBInstanceSku, error) {
+		defer syncResults.AddRequestCost(DBInstanceSkuManager)()
+		return remoteRegion.GetIDBInstanceSkus()
+	}()
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented {
+			return
+		}
+		msg := fmt.Sprintf("GetIDBInstanceSkus for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		return
+	}
+	result := func() compare.SyncResult {
+		defer syncResults.AddSqlCost(DBInstanceSkuManager)()
+		return localRegion.SyncDBInstanceSkus(ctx, userCred, provider, skus)
+	}()
+
+	syncResults.Add(DBInstanceSkuManager, result)
+
+	msg := result.Result()
+	log.Infof("SyncDBInstanceSkus for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		return
+	}
+}
+
+func syncNATSkus(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+	skus, err := func() ([]cloudprovider.ICloudNatSku, error) {
+		defer syncResults.AddRequestCost(NatSkuManager)()
+		return remoteRegion.GetICloudNatSkus()
+	}()
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented {
+			return
+		}
+		msg := fmt.Sprintf("GetINatSkus for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		return
+	}
+	result := func() compare.SyncResult {
+		defer syncResults.AddSqlCost(DBInstanceSkuManager)()
+		return localRegion.SyncPrivateCloudNatSkus(ctx, userCred, skus)
+	}()
+
+	syncResults.Add(NasSkuManager, result)
+
+	msg := result.Result()
+	log.Infof("SyncNasSkus for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		return
+	}
 }
 
 func syncDBInstanceResource(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SDBInstance, remoteInstance cloudprovider.ICloudDBInstance) {
@@ -1576,6 +1629,12 @@ func syncPublicCloudProviderInfo(
 		SyncRegionNasSkus(ctx, userCred, localRegion.Id, true)
 	} else {
 		syncSkusFromPrivateCloud(ctx, userCred, syncResults, localRegion, remoteRegion)
+		if cloudprovider.IsSupportRds(driver) {
+			syncDBInstanceSkus(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		}
+		if cloudprovider.IsSupportNAT(driver) {
+			syncNATSkus(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		}
 	}
 
 	// no need to lock public cloud region as cloud region for public cloud is readonly
@@ -1697,7 +1756,7 @@ func getZoneForPremiseCloudRegion(ctx context.Context, userCred mcclient.TokenCr
 			log.Errorf(msg)
 			continue
 		}
-		return wire.GetZone(), nil
+		return wire.GetZone()
 	}
 	return nil, errors.Wrap(errors.ErrNotFound, "no suitable zone")
 }

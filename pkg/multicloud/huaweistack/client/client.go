@@ -75,6 +75,8 @@ type Client struct {
 	DBInstance           *modules.SDBInstanceManager
 	DBInstanceBackup     *modules.SDBInstanceBackupManager
 	DBInstanceFlavor     *modules.SDBInstanceFlavorManager
+	DBInstanceDatastore  *modules.SDBInstanceDatastoreManager
+	DBInstanceStorage    *modules.SDBInstanceStorageManager
 	DBInstanceJob        *modules.SDBInstanceJobManager
 	Traces               *modules.STraceManager
 	CloudEye             *modules.SCloudEyeManager
@@ -252,6 +254,8 @@ func (self *Client) initManagers() {
 		self.DBInstance = modules.NewDBInstanceManager(self.cfg)
 		self.DBInstanceBackup = modules.NewDBInstanceBackupManager(self.cfg)
 		self.DBInstanceFlavor = modules.NewDBInstanceFlavorManager(self.cfg)
+		self.DBInstanceStorage = modules.NewDBInstanceStorageManager(self.cfg)
+		self.DBInstanceDatastore = modules.NewDBInstanceDatastoreManager(self.cfg)
 		self.DBInstanceJob = modules.NewDBInstanceJobManager(self.cfg)
 		self.Traces = modules.NewTraceManager(self.cfg)
 		self.CloudEye = modules.NewCloudEyeManager(self.cfg)

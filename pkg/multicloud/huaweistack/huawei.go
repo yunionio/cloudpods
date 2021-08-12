@@ -109,6 +109,7 @@ func NewHuaweiClient(cfg *HuaweiClientConfig) (*SHuaweiClient, error) {
 	client := SHuaweiClient{
 		HuaweiClientConfig: cfg,
 	}
+
 	err := client.init()
 	if err != nil {
 		return nil, err

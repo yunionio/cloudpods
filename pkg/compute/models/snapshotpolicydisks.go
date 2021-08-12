@@ -313,7 +313,8 @@ func (m *SSnapshotPolicyDiskManager) SyncByDisk(ctx context.Context, userCred mc
 	}
 
 	//fetch snapshotPolicy Cache to find the snapshotpolicyID corresponding to extSnapshotpolicyID
-	spCaches, err := SnapshotPolicyCacheManager.FetchAllByExtIds(extSnapshotpolicies, storage.GetRegion().GetId(),
+	region, _ := storage.GetRegion()
+	spCaches, err := SnapshotPolicyCacheManager.FetchAllByExtIds(extSnapshotpolicies, region.GetId(),
 		storage.ManagerId)
 	if err != nil {
 		return errors.Wrapf(err, "fetachsnapshotpolicy caches failed")
@@ -394,7 +395,8 @@ func (m *SSnapshotPolicyDiskManager) SyncAttachDiskExt(ctx context.Context, user
 	extSnapshotpolicies []string, syncOwnerID mcclient.IIdentityProvider, disk *SDisk, storage *SStorage) error {
 
 	//fetch snapshotPolicy Cache to find the snapshotpolicyID corresponding to extSnapshotpolicyID
-	spCaches, err := SnapshotPolicyCacheManager.FetchAllByExtIds(extSnapshotpolicies, storage.GetRegion().GetId(),
+	region, _ := storage.GetRegion()
+	spCaches, err := SnapshotPolicyCacheManager.FetchAllByExtIds(extSnapshotpolicies, region.GetId(),
 		storage.ManagerId)
 	if err != nil {
 		return errors.Wrapf(err, "fetachsnapshotpolicy caches failed")
@@ -483,7 +485,9 @@ func (self *SSnapshotPolicyDiskManager) ValidateCreateData(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-	err = disk.GetStorage().GetRegion().GetDriver().ValidateCreateSnapshopolicyDiskData(ctx, userCred, disk, snapshotPolicy)
+	storage, _ := disk.GetStorage()
+	region, _ := storage.GetRegion()
+	err = region.GetDriver().ValidateCreateSnapshopolicyDiskData(ctx, userCred, disk, snapshotPolicy)
 	if err != nil {
 		return nil, err
 	}

@@ -408,7 +408,11 @@ func (man *SCommonAlertManager) ListItemFilter(
 }
 
 func (man *SCommonAlertManager) FieldListFilter(q *sqlchemy.SQuery, input monitor.CommonAlertListInput) {
-	q.Filter(sqlchemy.IsNull(q.Field("used_by")))
+	if len(input.UsedBy) == 0 {
+		q.Filter(sqlchemy.IsNull(q.Field("used_by")))
+	} else {
+		q.Equals("used_by", input.UsedBy)
+	}
 
 	if len(input.Level) > 0 {
 		q.Equals("level", input.Level)

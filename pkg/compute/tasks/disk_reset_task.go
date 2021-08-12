@@ -102,7 +102,7 @@ func (self *DiskResetTask) OnStartGuest(ctx context.Context, disk *models.SDisk,
 
 func (self *DiskResetTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	disk := obj.(*models.SDisk)
-	storage := disk.GetStorage()
+	storage, _ := disk.GetStorage()
 	if storage == nil {
 		self.TaskFailed(ctx, disk, fmt.Errorf("Disk storage not found"))
 		return
@@ -166,7 +166,7 @@ func (self *DiskCleanUpSnapshotsTask) StartCleanUpSnapshots(ctx context.Context,
 	var host *models.SHost
 	guests := disk.GetGuests()
 	if len(guests) == 1 {
-		host = guests[0].GetHost()
+		host, _ = guests[0].GetHost()
 	} else {
 		self.SetStageFailed(ctx, jsonutils.NewString("Disk can't get guest"))
 		return

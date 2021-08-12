@@ -176,7 +176,8 @@ func (self *GuestChangeConfigTask) DoCreateDisksTask(ctx context.Context, guest 
 		self.OnCreateDisksComplete(ctx, guest, nil)
 		return
 	}
-	err = guest.CreateDisksOnHost(ctx, self.UserCred, guest.GetHost(), disks, nil, false, false, nil, nil, false)
+	host, _ := guest.GetHost()
+	err = guest.CreateDisksOnHost(ctx, self.UserCred, host, disks, nil, false, false, nil, nil, false)
 	if err != nil {
 		self.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return

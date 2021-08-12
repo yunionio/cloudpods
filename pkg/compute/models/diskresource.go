@@ -52,37 +52,36 @@ func ValidateDiskResourceInput(userCred mcclient.TokenCredential, input api.Disk
 	return diskObj.(*SDisk), input, nil
 }
 
-func (self *SDiskResourceBase) GetDisk() *SDisk {
-	obj, _ := DiskManager.FetchById(self.DiskId)
-	if obj != nil {
-		return obj.(*SDisk)
+func (self *SDiskResourceBase) GetDisk() (*SDisk, error) {
+	obj, err := DiskManager.FetchById(self.DiskId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDisk(%s)", self.DiskId)
 	}
-	return nil
+	return obj.(*SDisk), nil
 }
 
-func (self *SDiskResourceBase) GetStorage() *SStorage {
-	disk := self.GetDisk()
-	if disk != nil {
-		return disk.GetStorage()
+func (self *SDiskResourceBase) GetStorage() (*SStorage, error) {
+	disk, err := self.GetDisk()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return disk.GetStorage()
 }
 
-func (self *SDiskResourceBase) GetZone() *SZone {
-	storage := self.GetStorage()
-	if storage != nil {
-		return storage.GetZone()
+func (self *SDiskResourceBase) GetZone() (*SZone, error) {
+	storage, err := self.GetStorage()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return storage.GetZone()
 }
 
-func (self *SDiskResourceBase) GetRegion() *SCloudregion {
-	storage := self.GetStorage()
-	if storage == nil {
-		return nil
+func (self *SDiskResourceBase) GetRegion() (*SCloudregion, error) {
+	storage, err := self.GetStorage()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetStorage")
 	}
-	region := storage.GetRegion()
-	return region
+	return storage.GetRegion()
 }
 
 func (manager *SDiskResourceBaseManager) FetchCustomizeColumns(
@@ -246,7 +245,7 @@ func (manager *SDiskResourceBaseManager) GetExportKeys() []string {
 }
 
 func (self *SDiskResourceBase) GetChangeOwnerCandidateDomainIds() []string {
-	disk := self.GetDisk()
+	disk, _ := self.GetDisk()
 	if disk != nil {
 		return disk.GetChangeOwnerCandidateDomainIds()
 	}

@@ -80,7 +80,9 @@ func (self *SnapshotPolicyApplyTask) OnInit(ctx context.Context, obj db.IStandal
 
 	self.SetStage("OnPreSnapshotPolicyApplyComplete", nil)
 	// pass data to next Stage without inserting database through this way
-	if err := disk.GetStorage().GetRegion().GetDriver().RequestPreSnapshotPolicyApply(ctx, self.UserCred, self, disk, snapshotPolicy,
+	storage, _ := disk.GetStorage()
+	region, _ := storage.GetRegion()
+	if err := region.GetDriver().RequestPreSnapshotPolicyApply(ctx, self.UserCred, self, disk, snapshotPolicy,
 		data); err != nil {
 
 		self.taskFail(ctx, disk, &spd, jsonutils.NewString(err.Error()))
@@ -122,7 +124,9 @@ func (self *SnapshotPolicyApplyTask) OnPreSnapshotPolicyApplyComplete(ctx contex
 	self.SetStage("OnSnapshotPolicyApply", nil)
 
 	// pass data to next Stage without inserting database through this way
-	if err := disk.GetStorage().GetRegion().GetDriver().
+	storage, _ := disk.GetStorage()
+	region, _ := storage.GetRegion()
+	if err := region.GetDriver().
 		RequestApplySnapshotPolicy(ctx, self.UserCred, self, disk, &snapshotPolicy, data); err != nil {
 
 		self.taskFail(ctx, disk, &spd, jsonutils.NewString(err.Error()))
@@ -195,7 +199,9 @@ func (self *SnapshotPolicyCancelTask) OnInit(ctx context.Context, obj db.IStanda
 	}
 	snapshotPolicy := model.(*models.SSnapshotPolicy)
 	self.SetStage("OnSnapshotPolicyCancel", nil)
-	if err := disk.GetStorage().GetRegion().GetDriver().RequestCancelSnapshotPolicy(ctx, self.UserCred, self, disk, snapshotPolicy, data); err != nil {
+	storage, _ := disk.GetStorage()
+	region, _ := storage.GetRegion()
+	if err := region.GetDriver().RequestCancelSnapshotPolicy(ctx, self.UserCred, self, disk, snapshotPolicy, data); err != nil {
 
 		self.taskFail(ctx, disk, &spd, jsonutils.NewString(err.Error()))
 		// fmt.Sprintf("faile to detach snapshot policy %s and disk %s: %s", snapshotPolicy.Id, disk.Id, err.Error()))

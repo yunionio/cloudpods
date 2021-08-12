@@ -159,7 +159,7 @@ func (manager *SNetworkManager) AllowCreateItem(ctx context.Context, userCred mc
 func (self *SNetwork) getMtu() int {
 	baseMtu := options.Options.DefaultMtu
 
-	wire := self.GetWire()
+	wire, _ := self.GetWire()
 	if wire != nil {
 		baseMtu = wire.Mtu
 		if IsOneCloudVpcResource(wire) {
@@ -371,25 +371,25 @@ func (self *SNetwork) ValidateElbNetwork(ipAddr net.IP) (*SCloudregion, *SZone, 
 	}
 
 	// 验证网络可用
-	wire := self.GetWire()
+	wire, _ := self.GetWire()
 	if wire == nil {
 		return nil, nil, nil, nil, fmt.Errorf("getting wire failed")
 	}
 
-	vpc := wire.GetVpc()
-	if vpc == nil {
-		return nil, nil, nil, nil, fmt.Errorf("getting vpc failed")
+	vpc, err := wire.GetVpc()
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrapf(err, "GetVpc")
 	}
 
 	var zone *SZone
 	if len(wire.ZoneId) > 0 {
-		zone = wire.GetZone()
+		zone, _ = wire.GetZone()
 		if zone == nil {
 			return nil, nil, nil, nil, fmt.Errorf("getting zone failed")
 		}
 	}
 
-	region := wire.GetRegion()
+	region, _ := wire.GetRegion()
 	if region == nil {
 		return nil, nil, nil, nil, fmt.Errorf("getting region failed")
 	}
@@ -458,7 +458,7 @@ func (self *SNetwork) GetNetworkInterfacesCount() (int, error) {
 
 func (manager *SNetworkManager) GetOrCreateClassicNetwork(ctx context.Context, wire *SWire) (*SNetwork, error) {
 	_network, err := db.FetchByExternalIdAndManagerId(manager, wire.Id, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-		v := wire.GetVpc()
+		v, _ := wire.GetVpc()
 		if v != nil {
 			wire := WireManager.Query().SubQuery()
 			vpc := VpcManager.Query().SubQuery()
@@ -834,7 +834,7 @@ func (self *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mccli
 }
 
 func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider) error {
-	vpc := self.GetVpc()
+	vpc, _ := self.GetVpc()
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		extNet.Refresh()
 		self.Status = extNet.GetStatus()
@@ -908,7 +908,7 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 		return nil, errors.Wrapf(err, "Insert")
 	}
 
-	vpc := wire.GetVpc()
+	vpc, _ := wire.GetVpc()
 	syncVirtualResourceMetadata(ctx, userCred, &net, extNet)
 	SyncCloudProject(userCred, &net, syncOwnerId, extNet, vpc.ManagerId)
 
@@ -1424,7 +1424,7 @@ func (manager *SNetworkManager) validateEnsureWire(ctx context.Context, userCred
 		return
 	}
 	w = wObj.(*SWire)
-	v = w.GetVpc()
+	v, _ = w.GetVpc()
 	crObj, err := CloudregionManager.FetchById(v.CloudregionId)
 	if err != nil {
 		err = errors.Wrapf(err, "cloudregion %s", v.CloudregionId)
@@ -1456,7 +1456,7 @@ func (manager *SNetworkManager) validateEnsureZoneVpc(ctx context.Context, userC
 
 	var wires []SWire
 	// 华为云,ucloud wire zone_id 为空
-	cr = z.GetRegion()
+	cr, _ = z.GetRegion()
 	if utils.IsInStringArray(cr.Provider, api.REGIONAL_NETWORK_PROVIDERS) {
 		wires, err = WireManager.getWiresByVpcAndZone(v, nil)
 	} else {
@@ -1732,7 +1732,7 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 		}
 
 		netRange := netutils.NewIPV4AddrRange(startIp, endIp)
-		vpc := self.GetVpc()
+		vpc, _ := self.GetVpc()
 		if !vpc.containsIPV4Range(netRange) {
 			return input, httperrors.NewInputParameterError("Network not in range of VPC cidrblock %s", vpc.CidrBlock)
 		}
@@ -1846,7 +1846,7 @@ func isOverlapNetworks(nets []SNetwork, startIp netutils.IPV4Addr, endIp netutil
 }
 
 func (self *SNetwork) IsManaged() bool {
-	wire := self.GetWire()
+	wire, _ := self.GetWire()
 	if wire == nil {
 		return false
 	}
@@ -1856,7 +1856,7 @@ func (self *SNetwork) IsManaged() bool {
 func (self *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if !data.Contains("public_scope") {
 		if self.ServerType == api.NETWORK_TYPE_GUEST && !self.IsManaged() {
-			wire := self.GetWire()
+			wire, _ := self.GetWire()
 			if db.IsAdminAllowPerform(userCred, self, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() && wire != nil && wire.IsPublic && wire.PublicScope == string(rbacutils.ScopeSystem) {
 				self.SetShare(rbacutils.ScopeSystem)
 			} else if db.IsDomainAllowPerform(userCred, self, "public") && ownerId.GetProjectId() == userCred.GetProjectId() && consts.GetNonDefaultDomainProjects() {
@@ -1875,7 +1875,7 @@ func (self *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.Tok
 
 func (self *SNetwork) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	vpc := self.GetVpc()
+	vpc, _ := self.GetVpc()
 	if vpc != nil && vpc.IsManaged() {
 		task, err := taskman.TaskManager.NewTask(ctx, "NetworkCreateTask", self, userCred, nil, "", "", nil)
 		if err != nil {
@@ -1963,11 +1963,9 @@ func (self *SNetwork) StartDeleteNetworkTask(ctx context.Context, userCred mccli
 }
 
 func (self *SNetwork) GetINetwork() (cloudprovider.ICloudNetwork, error) {
-	wire := self.GetWire()
-	if wire == nil {
-		msg := "No wire for this network????"
-		log.Errorf(msg)
-		return nil, fmt.Errorf(msg)
+	wire, err := self.GetWire()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetWire")
 	}
 	iwire, err := wire.GetIWire()
 	if err != nil {
@@ -2376,7 +2374,7 @@ func (self *SNetwork) PerformPurge(ctx context.Context, userCred mcclient.TokenC
 	if err != nil {
 		return nil, err
 	}
-	vpc := self.GetVpc()
+	vpc, _ := self.GetVpc()
 	if vpc != nil && len(vpc.ExternalId) > 0 {
 		provider := vpc.GetCloudprovider()
 		if provider != nil && provider.GetEnabled() {
@@ -2783,7 +2781,7 @@ func (network *SNetwork) GetSchedtagJointManager() ISchedtagJointManager {
 }
 
 func (network *SNetwork) ClearSchedDescCache() error {
-	wire := network.GetWire()
+	wire, _ := network.GetWire()
 	if wire == nil {
 		return nil
 	}
@@ -2869,7 +2867,7 @@ func (net *SNetwork) AllowPerformSync(ctx context.Context, userCred mcclient.Tok
 // 同步接入云IP子网状态
 // 本地IDC不支持此操作
 func (net *SNetwork) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkSyncInput) (jsonutils.JSONObject, error) {
-	vpc := net.GetVpc()
+	vpc, _ := net.GetVpc()
 	if vpc != nil && vpc.IsManaged() {
 		return nil, StartResourceSyncStatusTask(ctx, userCred, net, "NetworkSyncstatusTask", "")
 	}
@@ -2885,7 +2883,7 @@ func (net *SNetwork) PerformStatus(ctx context.Context, userCred mcclient.TokenC
 	if len(input.Status) == 0 {
 		return nil, httperrors.NewMissingParameterError("status")
 	}
-	vpc := net.GetVpc()
+	vpc, _ := net.GetVpc()
 	if vpc != nil && vpc.IsManaged() {
 		return nil, httperrors.NewUnsupportOperationError("managed network cannot change status")
 	}
@@ -2897,9 +2895,9 @@ func (net *SNetwork) PerformStatus(ctx context.Context, userCred mcclient.TokenC
 
 func (net *SNetwork) GetChangeOwnerCandidateDomainIds() []string {
 	candidates := [][]string{}
-	wire := net.GetWire()
+	wire, _ := net.GetWire()
 	if wire != nil {
-		vpc := wire.GetVpc()
+		vpc, _ := wire.GetVpc()
 		if vpc != nil {
 			candidates = append(candidates, vpc.GetChangeOwnerCandidateDomainIds())
 		}

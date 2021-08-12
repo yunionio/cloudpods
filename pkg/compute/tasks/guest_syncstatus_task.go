@@ -38,7 +38,7 @@ func init() {
 
 func (self *GuestSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	if host == nil || host.HostStatus == api.HOST_OFFLINE {
 		log.Errorf("host is not reachable")
 		guest.SetStatus(self.UserCred, api.VM_UNKNOWN, "Host not responding")

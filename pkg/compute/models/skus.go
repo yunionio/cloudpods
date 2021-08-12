@@ -308,7 +308,7 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred 
 		if input.CloudregionId != zone.CloudregionId {
 			return input, httperrors.NewConflictError("zone %s not in cloudregion %s", zone.Name, input.CloudregionId)
 		}
-		region = zone.GetRegion()
+		region, _ = zone.GetRegion()
 	}
 
 	if input.CpuCoreCount < 1 || input.CpuCoreCount > 256 {
@@ -794,7 +794,7 @@ func (manager *SServerSkuManager) ListItemFilter(
 			return nil, httperrors.NewGeneralError(err)
 		}
 		zone := _zone.(*SZone)
-		region := zone.GetRegion()
+		region, _ := zone.GetRegion()
 		if region == nil {
 			return nil, httperrors.NewResourceNotFoundError("failed to find cloudregion for zone %s(%s)", zone.Name, zone.Id)
 		}

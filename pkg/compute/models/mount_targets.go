@@ -132,7 +132,7 @@ func (manager *SMountTargetManager) ValidateCreateData(ctx context.Context, user
 			return input, err
 		}
 		network := _network.(*SNetwork)
-		vpc := network.GetVpc()
+		vpc, _ := network.GetVpc()
 		if vpc == nil {
 			return input, httperrors.NewGeneralError(fmt.Errorf("failed to found vpc for network %s", input.NetworkId))
 		}

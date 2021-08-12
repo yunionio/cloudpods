@@ -52,45 +52,44 @@ func ValidateNetworkResourceInput(userCred mcclient.TokenCredential, query api.N
 	return netObj.(*SNetwork), query, nil
 }
 
-func (self *SNetworkResourceBase) GetNetwork() *SNetwork {
-	obj, _ := NetworkManager.FetchById(self.NetworkId)
-	if obj != nil {
-		return obj.(*SNetwork)
+func (self *SNetworkResourceBase) GetNetwork() (*SNetwork, error) {
+	obj, err := NetworkManager.FetchById(self.NetworkId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetNetwork(%s)", self.NetworkId)
 	}
-	return nil
+	return obj.(*SNetwork), nil
 }
 
-func (self *SNetworkResourceBase) GetWire() *SWire {
-	net := self.GetNetwork()
-	if net != nil {
-		return net.GetWire()
+func (self *SNetworkResourceBase) GetWire() (*SWire, error) {
+	net, err := self.GetNetwork()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return net.GetWire()
 }
 
-func (self *SNetworkResourceBase) GetZone() *SZone {
-	wire := self.GetWire()
-	if wire != nil {
-		return wire.GetZone()
+func (self *SNetworkResourceBase) GetZone() (*SZone, error) {
+	wire, err := self.GetWire()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return wire.GetZone()
 }
 
-func (self *SNetworkResourceBase) GetVpc() *SVpc {
-	wire := self.GetWire()
-	if wire != nil {
-		return wire.GetVpc()
+func (self *SNetworkResourceBase) GetVpc() (*SVpc, error) {
+	wire, err := self.GetWire()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return wire.GetVpc()
 }
 
-func (self *SNetworkResourceBase) GetRegion() *SCloudregion {
-	vpc := self.GetVpc()
-	if vpc == nil {
-		return nil
+func (self *SNetworkResourceBase) GetRegion() (*SCloudregion, error) {
+	vpc, err := self.GetVpc()
+	if err != nil {
+		return nil, err
 	}
-	region, _ := vpc.GetRegion()
-	return region
+	return vpc.GetRegion()
 }
 
 func (manager *SNetworkResourceBaseManager) FetchCustomizeColumns(
@@ -254,7 +253,7 @@ func (manager *SNetworkResourceBaseManager) GetExportKeys() []string {
 }
 
 func (self *SNetworkResourceBase) GetChangeOwnerCandidateDomainIds() []string {
-	network := self.GetNetwork()
+	network, _ := self.GetNetwork()
 	if network != nil {
 		return network.GetChangeOwnerCandidateDomainIds()
 	}

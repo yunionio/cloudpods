@@ -138,7 +138,7 @@ func (manager *SGuestdiskManager) FetchCustomizeColumns(
 			rows[i].Status = disk.Status
 			rows[i].DiskSize = disk.DiskSize
 			rows[i].DiskType = disk.DiskType
-			storage := disk.GetStorage()
+			storage, _ := disk.GetStorage()
 			if storage != nil {
 				rows[i].StorageType = storage.StorageType
 				rows[i].MediumType = storage.MediumType
@@ -188,7 +188,7 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	templateId := disk.GetTemplateId()
 	if len(templateId) > 0 {
 		desc.Add(jsonutils.NewString(templateId), "template_id")
-		storage := disk.GetStorage()
+		storage, _ := disk.GetStorage()
 		storagecacheimg := StoragecachedimageManager.GetStoragecachedimage(storage.StoragecacheId, templateId)
 		if storagecacheimg != nil {
 			desc.Add(jsonutils.NewString(storagecacheimg.Path), "image_path")

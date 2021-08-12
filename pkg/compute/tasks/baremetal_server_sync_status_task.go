@@ -38,7 +38,7 @@ func init() {
 
 func (self *BaremetalServerSyncStatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	baremetal := guest.GetHost()
+	baremetal, _ := guest.GetHost()
 	if baremetal == nil {
 		guest.SetStatus(self.UserCred, api.VM_INIT, "BaremetalServerSyncStatusTask")
 		self.SetStageComplete(ctx, nil)
@@ -57,7 +57,7 @@ func (self *BaremetalServerSyncStatusTask) OnInit(ctx context.Context, obj db.IS
 func (self *BaremetalServerSyncStatusTask) OnGuestStatusTaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	var status string
 	var hostStatus string
-	host := guest.GetHost()
+	host, _ := guest.GetHost()
 	if data.Contains("status") {
 		statusStr, _ := data.GetString("status")
 		switch statusStr {

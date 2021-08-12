@@ -130,7 +130,7 @@ func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerData(ctx context.Cont
 		data.Set("eip_id", jsonutils.NewString(eip.ExternalId))
 	}
 
-	region := zoneV.Model.(*models.SZone).GetRegion()
+	region, _ := zoneV.Model.(*models.SZone).GetRegion()
 	if region == nil {
 		return nil, fmt.Errorf("getting region failed")
 	}
@@ -2334,7 +2334,7 @@ func ValidateElasticcacheSku(zoneId string, chargeType string, sku *models.SElas
 	}
 
 	if network != nil {
-		if zone := network.GetZone(); zone != nil && zone.Id != sku.ZoneId {
+		if zone, _ := network.GetZone(); zone != nil && zone.Id != sku.ZoneId {
 			return httperrors.NewResourceNotFoundError("elastic cache sku zone (%s) and subnet zone (%s) mismatch", sku.ZoneId, zone.Id)
 		}
 	}
@@ -2451,7 +2451,7 @@ func (self *SHuaWeiRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 		data.Set("billing_cycle", jsonutils.NewString(cycle.String()))
 	}
 
-	vpc := network.GetVpc()
+	vpc, _ := network.GetVpc()
 	if vpc == nil {
 		return nil, httperrors.NewNotFoundError("network %s related vpc not found", network.GetId())
 	}

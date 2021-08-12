@@ -49,10 +49,10 @@ func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	disk := obj.(*models.SDisk)
 
 	var host *models.SHost
-	storage := disk.GetStorage()
+	storage, _ := disk.GetStorage()
 	guest := disk.GetGuest()
 	if guest != nil {
-		host = guest.GetHost()
+		host, _ = guest.GetHost()
 	} else {
 		host = storage.GetMasterHost()
 	}
