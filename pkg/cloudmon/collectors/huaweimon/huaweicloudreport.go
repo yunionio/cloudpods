@@ -26,6 +26,11 @@ import (
 func init() {
 	factory := SHwCloudReportFactory{}
 	common.RegisterFactory(&factory)
+
+	stackFactory := SHwStackCloudReportFactory{
+		&SHwCloudReportFactory{},
+	}
+	common.RegisterFactory(&stackFactory)
 }
 
 type SHwCloudReportFactory struct {
@@ -96,4 +101,12 @@ func (self *SHwCloudReport) Report() error {
 		}
 	}
 	return nil
+}
+
+type SHwStackCloudReportFactory struct {
+	*SHwCloudReportFactory
+}
+
+func (self *SHwStackCloudReportFactory) GetId() string {
+	return compute.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK
 }

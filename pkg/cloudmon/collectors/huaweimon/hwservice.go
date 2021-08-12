@@ -22,16 +22,17 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei"
 	hw_moudules "yunion.io/x/onecloud/pkg/multicloud/huawei/client/modules"
+	"yunion.io/x/onecloud/pkg/multicloud/huaweistack"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
 
 func (self *SHwCloudReport) collectRegionMetricOfHost(region cloudprovider.ICloudRegion, servers []jsonutils.JSONObject) error {
 	dataList := make([]influxdb.SMetricData, 0)
-	hwReg := region.(*huawei.SRegion)
 	since, until, err := common.TimeRangeFromArgs(self.Args)
 	if err != nil {
 		return err
@@ -52,8 +53,7 @@ func (self *SHwCloudReport) collectRegionMetricOfHost(region cloudprovider.IClou
 			hwMeta.Dimensions = append(hwMeta.Dimensions, hw_moudules.SMetricDimension{Name: "instance_id", Value: instanceId})
 			metas = append(metas, hwMeta)
 		}
-
-		metricDatas, err := hwReg.GetMetricsData(metas, since, until)
+		metricDatas, err := self.GetMetricData(region, metas, since, until)
 		if err != nil {
 			log.Errorln(err)
 			continue
@@ -338,4 +338,17 @@ func (self *SHwCloudReport) collectMetricFromThisServer(server jsonutils.JSONObj
 	metric.Name = measurement
 	self.AddMetricTag(&metric, common.OtherVmTags)
 	return metric, nil
+}
+
+func (self *SHwCloudReport) GetMetricData(region cloudprovider.ICloudRegion, metrics []hw_moudules.SMetricMeta,
+	since time.Time, until time.Time) ([]hw_moudules.SMetricData, error) {
+	switch self.SProvider.Provider {
+	case compute.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK:
+		hwReg := region.(*huaweistack.SRegion)
+		return hwReg.GetMetricsData(metrics, since, until)
+	default:
+		hwReg := region.(*huawei.SRegion)
+		return hwReg.GetMetricsData(metrics, since, until)
+	}
+
 }
