@@ -414,6 +414,7 @@ type ClusterComponentMonitorGrafanaOAuth struct {
 }
 
 type ClusterComponentMonitorGrafana struct {
+	Disable           bool                                 `help:"Disable grafana component" json:"disable"`
 	AdminUser         string                               `help:"Grafana admin user" default:"admin" json:"adminUser"`
 	AdminPassword     string                               `help:"Grafana admin user password" json:"adminPassword"`
 	Storage           ClusterComponentStorage              `help:"Storage setting"`
@@ -436,6 +437,7 @@ type ObjectStoreConfig struct {
 }
 
 type ClusterComponentMonitorLoki struct {
+	Disable           bool                    `help:"Disable loki component" json:"disable"`
 	Storage           ClusterComponentStorage `help:"Storage setting" json:"storage"`
 	ObjectStoreConfig ObjectStoreConfig       `json:"objectStoreConfig"`
 }
@@ -445,11 +447,13 @@ type MonitorPrometheusThanosSidecar struct {
 }
 
 type ClusterComponentMonitorPrometheus struct {
+	Disable bool                           `help:"Disable prometheus component" json:"disable"`
 	Storage ClusterComponentStorage        `help:"Storage setting" json:"storage"`
 	Thanos  MonitorPrometheusThanosSidecar `json:"thanosSidecar"`
 }
 
 type ClusterComponentMonitorPromtail struct {
+	Disable bool `help:"Disable promtail component" json:"disable"`
 }
 
 type ClusterComponentMonitorSetting struct {
