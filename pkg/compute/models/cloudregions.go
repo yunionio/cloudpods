@@ -162,6 +162,29 @@ func (self *SCloudregion) GetZones() ([]SZone, error) {
 	return zones, nil
 }
 
+func (self *SCloudregion) GetZoneBySuffix(suffix string) (*SZone, error) {
+	sq := ZoneManager.Query().SubQuery()
+	q := sq.Query().Filter(
+		sqlchemy.AND(
+			sqlchemy.Equals(sq.Field("cloudregion_id"), self.Id),
+			sqlchemy.Endswith(sq.Field("external_id"), suffix),
+		),
+	)
+	count, err := q.CountWithError()
+	if err != nil {
+		return nil, err
+	}
+	if count == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, suffix)
+	}
+	if count > 1 {
+		return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, suffix)
+	}
+	zone := &SZone{}
+	zone.SetModelManager(ZoneManager, zone)
+	return zone, q.First(zone)
+}
+
 func (self *SCloudregion) GetGuestCount() (int, error) {
 	return self.getGuestCountInternal(false)
 }

@@ -26,6 +26,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -58,6 +59,29 @@ func (self *SCloudregionResourceBase) GetRegion() *SCloudregion {
 		return nil
 	}
 	return region.(*SCloudregion)
+}
+
+func (self *SCloudregionResourceBase) GetZoneBySuffix(suffix string) (*SZone, error) {
+	sq := ZoneManager.Query().SubQuery()
+	q := sq.Query().Filter(
+		sqlchemy.AND(
+			sqlchemy.Equals(sq.Field("cloudregion_id"), self.CloudregionId),
+			sqlchemy.Endswith(sq.Field("external_id"), suffix),
+		),
+	)
+	count, err := q.CountWithError()
+	if err != nil {
+		return nil, err
+	}
+	if count == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, suffix)
+	}
+	if count > 1 {
+		return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, suffix)
+	}
+	zone := &SZone{}
+	zone.SetModelManager(ZoneManager, zone)
+	return zone, q.First(zone)
 }
 
 func (manager *SCloudregionResourceBaseManager) FetchCustomizeColumns(

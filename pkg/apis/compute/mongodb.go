@@ -55,6 +55,7 @@ type MongoDBListInput struct {
 type MongoDBDetails struct {
 	apis.VirtualResourceDetails
 	CloudregionResourceInfo
+	ZoneResourceInfoBase
 	ManagedResourceInfo
 
 	VpcResourceInfoBase

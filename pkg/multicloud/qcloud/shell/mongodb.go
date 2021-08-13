@@ -50,4 +50,13 @@ func init() {
 		return cli.DeleteMongoDB(args.ID)
 	})
 
+	shellutils.R(&MongoDBIdOptions{}, "mongodb-backup-list", "List mongodb backups", func(cli *qcloud.SRegion, args *MongoDBIdOptions) error {
+		backups, err := cli.GetMongoDBBackups(args.ID)
+		if err != nil {
+			return err
+		}
+		printList(backups, 0, 0, 0, []string{})
+		return nil
+	})
+
 }
