@@ -34,7 +34,7 @@ func init() {
 	type EipAllocateOptions struct {
 		NAME      string `help:"eip name"`
 		BW        int    `help:"Bandwidth limit in Mbps"`
-		BGP       string `help:"bgp type" choices:"5_telcom|5_union|5_bgp|5_sbgp"`
+		BGP       string `help:"bgp type" choices:"5_pep|5_bgp"`
 		ProjectId string
 	}
 	shellutils.R(&EipAllocateOptions{}, "eip-create", "Allocate an EIP", func(cli *huawei.SRegion, args *EipAllocateOptions) error {

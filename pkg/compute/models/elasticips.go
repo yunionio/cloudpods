@@ -152,7 +152,8 @@ func (manager *SElasticipManager) ListItemFilter(
 				return nil, httperrors.NewGeneralError(err)
 			}
 			guest := serverObj.(*SGuest)
-			if guest.Hypervisor == api.HYPERVISOR_KVM || utils.IsInStringArray(guest.Hypervisor, api.PRIVATE_CLOUD_HYPERVISORS) {
+			privateCloud := guest.Hypervisor != api.HYPERVISOR_HUAWEI_CLOUD_STACK && utils.IsInStringArray(guest.Hypervisor, api.PRIVATE_CLOUD_HYPERVISORS)
+			if guest.Hypervisor == api.HYPERVISOR_KVM || privateCloud {
 				zone, _ := guest.getZone()
 				networks := NetworkManager.Query().SubQuery()
 				wires := WireManager.Query().SubQuery()
