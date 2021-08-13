@@ -62,9 +62,9 @@ func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) taskFail(ctx context
 
 func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lbbg := obj.(*models.SLoadbalancerBackendGroup)
-	region := lbbg.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(fmt.Sprintf("failed to find region for lb backendgroup %s", lbbg.Name)))
+	region, err := lbbg.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
 		return
 	}
 	backends := []cloudprovider.SLoadbalancerBackend{}
@@ -90,9 +90,9 @@ func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) OnLoadbalancerBacken
 
 func (self *HuaweiLoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lbbg := obj.(*models.SLoadbalancerBackendGroup)
-	region := lbbg.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(fmt.Sprintf("failed to find region for lb backendgroup %s", lbbg.Name)))
+	region, err := lbbg.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
 		return
 	}
 
@@ -118,9 +118,9 @@ func (self *HuaweiLoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx con
 
 func (self *AwsLoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lbbg := obj.(*models.SLoadbalancerBackendGroup)
-	region := lbbg.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(fmt.Sprintf("failed to find region for lb backendgroup %s", lbbg.Name)))
+	region, err := lbbg.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
 		return
 	}
 
@@ -145,9 +145,9 @@ func (self *AwsLoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx contex
 
 func (self *OpenstackLoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lbbg := obj.(*models.SLoadbalancerBackendGroup)
-	region := lbbg.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(fmt.Sprintf("failed to find region for lb backendgroup %s", lbbg.Name)))
+	region, err := lbbg.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
 		return
 	}
 

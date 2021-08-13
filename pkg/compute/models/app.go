@@ -375,14 +375,6 @@ func (a *SApp) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCre
 	return nil, StartResourceSyncStatusTask(ctx, userCred, a, "AppSyncstatusTask", "")
 }
 
-func (a *SApp) GetRegion() (*SCloudregion, error) {
-	region, err := CloudregionManager.FetchById(a.CloudregionId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "CloudregionManager.FetchById(%s)", a.CloudregionId)
-	}
-	return region.(*SCloudregion), nil
-}
-
 func (a *SApp) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	region, err := a.GetRegion()
 	if err != nil {

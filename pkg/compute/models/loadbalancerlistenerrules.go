@@ -494,9 +494,9 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 	}
 
 	listener := listenerV.Model.(*SLoadbalancerListener)
-	region := listener.GetRegion()
-	if region == nil {
-		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer listener %s", listener.Name)
+	region, err := listener.GetRegion()
+	if err != nil {
+		return nil, err
 	}
 
 	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerId)
@@ -579,9 +579,9 @@ func (lbr *SLoadbalancerListenerRule) ValidateUpdateData(ctx context.Context, us
 	}
 	data.Update(jsonutils.Marshal(input))
 
-	region := lbr.GetRegion()
-	if region == nil {
-		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer listener rule %s", lbr.Name)
+	region, err := lbr.GetRegion()
+	if err != nil {
+		return nil, err
 	}
 
 	ctx = context.WithValue(ctx, "lbr", lbr)
@@ -628,20 +628,12 @@ func (man *SLoadbalancerListenerRuleManager) FetchCustomizeColumns(
 	return rows
 }
 
-/*func (lbr *SLoadbalancerListenerRule) GetLoadbalancerListener() *SLoadbalancerListener {
-	listener, err := LoadbalancerListenerManager.FetchById(lbr.ListenerId)
+func (lbr *SLoadbalancerListenerRule) GetRegion() (*SCloudregion, error) {
+	listener, err := lbr.GetLoadbalancerListener()
 	if err != nil {
-		log.Errorf("failed to find listener for loadbalancer listener rule %s", lbr.Name)
-		return nil
+		return nil, err
 	}
-	return listener.(*SLoadbalancerListener)
-}*/
-
-func (lbr *SLoadbalancerListenerRule) GetRegion() *SCloudregion {
-	if listener := lbr.GetLoadbalancerListener(); listener != nil {
-		return listener.GetRegion()
-	}
-	return nil
+	return listener.GetRegion()
 }
 
 func (lbr *SLoadbalancerListenerRule) GetLoadbalancerBackendGroup() *SLoadbalancerBackendGroup {

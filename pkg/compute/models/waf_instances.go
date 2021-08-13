@@ -385,14 +385,6 @@ func (self *SWafInstance) syncRemove(ctx context.Context, userCred mcclient.Toke
 	return self.RealDelete(ctx, userCred)
 }
 
-func (self *SWafInstance) GetRegion() (*SCloudregion, error) {
-	region, err := CloudregionManager.FetchById(self.CloudregionId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "CloudregionManager.FetchById")
-	}
-	return region.(*SCloudregion), nil
-}
-
 func (self *SWafInstance) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	region, err := self.GetRegion()
 	if err != nil {

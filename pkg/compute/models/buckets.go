@@ -379,14 +379,6 @@ func (bucket *SBucket) StartBucketDeleteTask(ctx context.Context, userCred mccli
 	return nil
 }
 
-func (bucket *SBucket) GetRegion() (*SCloudregion, error) {
-	region, err := CloudregionManager.FetchById(bucket.CloudregionId)
-	if err != nil {
-		return nil, errors.Wrap(err, "CloudregionManager.FetchById")
-	}
-	return region.(*SCloudregion), nil
-}
-
 func (bucket *SBucket) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	provider, err := bucket.GetDriver()
 	if err != nil {

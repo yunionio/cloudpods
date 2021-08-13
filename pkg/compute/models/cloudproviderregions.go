@@ -111,15 +111,6 @@ func (self *SCloudproviderregion) GetAccount() *SCloudaccount {
 	return nil
 }
 
-func (self *SCloudproviderregion) GetRegion() *SCloudregion {
-	regionObj, err := CloudregionManager.FetchById(self.CloudregionId)
-	if err != nil {
-		log.Errorf("CloudregionManager.FetchById(%s) fail %s", self.CloudregionId, err)
-		return nil
-	}
-	return regionObj.(*SCloudregion)
-}
-
 func (manager *SCloudproviderregionManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -402,7 +393,10 @@ func (set SSyncResultSet) Add(manager db.IModelManager, result compare.SyncResul
 func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange) error {
 	syncResults := SSyncResultSet{}
 
-	localRegion := self.GetRegion()
+	localRegion, err := self.GetRegion()
+	if err != nil {
+		return errors.Wrapf(err, "GetRegion")
+	}
 	provider := self.GetProvider()
 
 	self.markSyncing(userCred)
@@ -449,12 +443,14 @@ func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.
 }
 
 func (self *SCloudproviderregion) getSyncTaskKey() string {
-	region := self.GetRegion()
+	region, err := self.GetRegion()
+	if err != nil {
+		return self.CloudregionId
+	}
 	if len(region.ExternalId) > 0 {
 		return region.ExternalId
-	} else {
-		return self.CloudproviderId
 	}
+	return self.CloudproviderId
 }
 
 func (self *SCloudproviderregion) submitSyncTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange) {
@@ -511,7 +507,7 @@ func (cpr *SCloudproviderregion) needAutoSyncInternal() bool {
 		if intval > 24*3600 { // at least once everyday
 			intval = 24 * 3600
 		}
-		region := cpr.GetRegion()
+		region, _ := cpr.GetRegion()
 		log.Debugf("empty region %s! no need to check so frequently", region.GetName())
 	}
 	if time.Now().Sub(cpr.LastSync) > time.Duration(intval)*time.Second {

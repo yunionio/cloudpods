@@ -400,14 +400,6 @@ func (self *SServerSku) GetPrivateCloudproviders() ([]SCloudprovider, error) {
 	return providers, nil
 }
 
-func (self *SServerSku) GetRegion() (*SCloudregion, error) {
-	regionObj, err := CloudregionManager.FetchById(self.CloudregionId)
-	if err != nil {
-		return nil, err
-	}
-	return regionObj.(*SCloudregion), nil
-}
-
 func (self *SServerSkuManager) ClearSchedDescCache(wait bool) error {
 	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
 	_, err := modules.SchedManager.SyncSku(s, true)

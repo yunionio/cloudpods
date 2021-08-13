@@ -213,14 +213,6 @@ func (self *SWafRuleGroupCache) StartDeleteTask(ctx context.Context, userCred mc
 	return task.ScheduleRun(nil)
 }
 
-func (self *SWafRuleGroupCache) GetRegion() (*SCloudregion, error) {
-	region, err := CloudregionManager.FetchById(self.CloudregionId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "CloudregionManager.FetchById")
-	}
-	return region.(*SCloudregion), nil
-}
-
 func (self *SWafRuleGroupCache) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	region, err := self.GetRegion()
 	if err != nil {

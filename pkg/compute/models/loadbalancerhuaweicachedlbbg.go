@@ -29,7 +29,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -337,9 +336,9 @@ func (man *SHuaweiCachedLbbgManager) newFromCloudLoadbalancerBackendgroup(ctx co
 	lbbg := &SHuaweiCachedLbbg{}
 	lbbg.SetModelManager(man, lbbg)
 
-	region := lb.GetRegion()
-	if region == nil {
-		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "loadbalancer is not attached to any region")
+	region, err := lb.GetRegion()
+	if err != nil {
+		return nil, err
 	}
 
 	lbbg.ManagerId = provider.Id
