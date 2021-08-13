@@ -302,7 +302,7 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerBackendData(ctx conte
 	}
 
 	hostRegion, _ := host.GetRegion()
-	lbRegion := lb.GetRegion()
+	lbRegion, _ := lb.GetRegion()
 	if hostRegion.Id != lbRegion.Id {
 		return nil, httperrors.NewInputParameterError("region of host %q (%s) != region of loadbalancer %q (%s))",
 			host.Name, host.ZoneId, lb.Name, lb.ZoneId)
@@ -610,7 +610,7 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 	}
 
 	// check scheduler limiations
-	cloudregion := lb.GetRegion()
+	cloudregion, _ := lb.GetRegion()
 	if cloudregion == nil {
 		return nil, httperrors.NewResourceNotFoundError("failed to find loadbalancer's %s(%s) region", lb.Name, lb.Id)
 	}
@@ -706,9 +706,9 @@ func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 
 	listenerType, _ := data.GetString("listener_type")
 
-	lb := lblis.GetLoadbalancer()
-	if lb == nil {
-		return nil, httperrors.NewInternalServerError("failed to found loadbalancer for listener %s(%s)", lblis.Name, lblis.Id)
+	lb, err := lblis.GetLoadbalancer()
+	if err != nil {
+		return nil, err
 	}
 
 	egressMbps := 5000
@@ -747,7 +747,7 @@ func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 		if len(lb.LoadbalancerSpec) == 0 {
 			return nil, httperrors.NewInputParameterError("The specified Scheduler %s is invalid for performance sharing loadbalancer", scheduler)
 		}
-		cloudregion := lb.GetRegion()
+		cloudregion, _ := lb.GetRegion()
 		if cloudregion == nil {
 			return nil, httperrors.NewResourceNotFoundError("failed to find loadbalancer's %s(%s) region", lb.Name, lb.Id)
 		}
@@ -809,7 +809,7 @@ func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 			}
 		}
 
-		lb := backendgroup.GetLoadbalancer()
+		lb, _ := backendgroup.GetLoadbalancer()
 		if tlsCipherPolicy, _ := data.GetString("tls_cipher_policy"); len(tlsCipherPolicy) > 0 && len(lb.LoadbalancerSpec) == 0 {
 			data.Set("tls_cipher_policy", jsonutils.NewString(""))
 		}

@@ -24,7 +24,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -37,10 +36,10 @@ func init() {
 	taskman.RegisterTask(DBInstanceChangeConfigTask{})
 }
 
-func (self *DBInstanceChangeConfigTask) taskFailed(ctx context.Context, dbinstance *models.SDBInstance, err error) {
-	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_CHANGE_CONFIG_FAILED, err.Error())
-	db.OpsLog.LogEvent(dbinstance, db.ACT_CHANGE_CONFIG, err, self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_CHANGE_CONFIG, err, self.UserCred, false)
+func (self *DBInstanceChangeConfigTask) taskFailed(ctx context.Context, rds *models.SDBInstance, err error) {
+	rds.SetStatus(self.UserCred, api.DBINSTANCE_CHANGE_CONFIG_FAILED, err.Error())
+	db.OpsLog.LogEvent(rds, db.ACT_CHANGE_CONFIG, err, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, rds, logclient.ACT_CHANGE_CONFIG, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
@@ -54,7 +53,13 @@ func (self *DBInstanceChangeConfigTask) OnInit(ctx context.Context, obj db.IStan
 		return
 	}
 
-	err = rds.GetRegion().GetDriver().RequestChangeDBInstanceConfig(ctx, self.UserCred, rds, input, self)
+	region, err := rds.GetRegion()
+	if err != nil {
+		self.taskFailed(ctx, rds, errors.Wrapf(err, "GetRegion"))
+		return
+	}
+
+	err = region.GetDriver().RequestChangeDBInstanceConfig(ctx, self.UserCred, rds, input, self)
 	if err != nil {
 		self.taskFailed(ctx, rds, err)
 		return
@@ -62,11 +67,10 @@ func (self *DBInstanceChangeConfigTask) OnInit(ctx context.Context, obj db.IStan
 }
 
 func (self *DBInstanceChangeConfigTask) OnDBInstanceChangeConfigComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	dbinstance := obj.(*models.SDBInstance)
-	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_CHANGE_CONFIG, nil, self.UserCred, true)
-	notifyclient.NotifyWebhook(ctx, self.UserCred, dbinstance, notifyclient.ActionChangeConfig)
+	rds := obj.(*models.SDBInstance)
+	logclient.AddActionLogWithStartable(self, rds, logclient.ACT_CHANGE_CONFIG, nil, self.UserCred, true)
 	self.SetStage("OnSyncDBInstanceStatusComplete", nil)
-	models.StartResourceSyncStatusTask(ctx, self.UserCred, dbinstance, "DBInstanceSyncStatusTask", self.GetTaskId())
+	models.StartResourceSyncStatusTask(ctx, self.UserCred, rds, "DBInstanceSyncStatusTask", self.GetTaskId())
 }
 
 func (self *DBInstanceChangeConfigTask) OnDBInstanceChangeConfigCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

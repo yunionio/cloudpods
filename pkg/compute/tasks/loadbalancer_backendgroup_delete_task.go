@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -46,9 +45,9 @@ func (self *LoadbalancerBackendGroupDeleteTask) taskFail(ctx context.Context, lb
 
 func (self *LoadbalancerBackendGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lbbg := obj.(*models.SLoadbalancerBackendGroup)
-	region := lbbg.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lbbg, jsonutils.NewString(fmt.Sprintf("failed to find region for lb %s", lbbg.Name)))
+	region, err := lbbg.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lbbg, jsonutils.NewString(err.Error()))
 		return
 	}
 	self.SetStage("OnLoadbalancerBackendGroupDeleteComplete", nil)
