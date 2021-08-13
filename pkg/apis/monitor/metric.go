@@ -14,6 +14,9 @@ const (
 	METRIC_RES_TYPE_DOMAIN       = "domain"
 	METRIC_RES_TYPE_STORAGE      = "storage"
 	METRIC_RES_TYPE_JENKINS      = "jenkins"
+	METRIC_RES_TYPE_EXT_MYSQL    = "ext_mysql"
+	METRIC_RES_TYPE_EXT_REDIS    = "ext_redis"
+	METRIC_RES_TYPE_EXT_RABBITMQ = "ext_rabbitmq"
 
 	METRIC_UNIT_PERCENT = "%"
 	METRIC_UNIT_BPS     = "bps"
@@ -22,6 +25,7 @@ const (
 	METRIC_UNIT_CPS     = "cps"
 	METRIC_UNIT_COUNT   = "count"
 	METRIC_UNIT_MS      = "ms"
+	METRIC_UNIT_SEC     = "s"
 	METRIC_UNIT_BYTE    = "byte"
 	METRIC_UNIT_RMB     = "RMB"
 	METRIC_UNIT_MB      = "Mb"
