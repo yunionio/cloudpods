@@ -565,9 +565,9 @@ func (self *SAwsRegionDriver) validateUpdateNetworkListenerData(ctx context.Cont
 
 func (self *SAwsRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lblis *models.SLoadbalancerListener, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
 	ownerId := lblis.GetOwnerId()
-	lb := lblis.GetLoadbalancer()
-	if lb == nil {
-		return nil, httperrors.NewResourceNotFoundError("loadbalancer listener %s related loadbalancer %s not found", lblis.Id, lblis.LoadbalancerId)
+	lb, err := lblis.GetLoadbalancer()
+	if err != nil {
+		return nil, err
 	}
 
 	if lb.LoadbalancerSpec == api.LB_AWS_SPEC_APPLICATION {
@@ -898,13 +898,13 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx context.
 
 func (self *SAwsRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		lbbg := lbb.GetLoadbalancerBackendGroup()
-		if lbbg == nil {
-			return nil, fmt.Errorf("failed to find lbbg for backend %s", lbb.Name)
+		lbbg, err := lbb.GetLoadbalancerBackendGroup()
+		if err != nil {
+			return nil, err
 		}
-		lb := lbbg.GetLoadbalancer()
-		if lb == nil {
-			return nil, fmt.Errorf("failed to find lb for backendgroup %s", lbbg.Name)
+		lb, err := lbbg.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 
 		cachedlbbgs, err := models.AwsCachedLbbgManager.GetCachedBackendGroups(lbbg.GetId())
@@ -1004,9 +1004,9 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Conte
 
 func (self *SAwsRegionDriver) RequestCreateLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		loadbalancer := lblis.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
+		loadbalancer, err := lblis.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 
 		{
@@ -1109,13 +1109,13 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerListener(ctx context.Cont
 
 func (self *SAwsRegionDriver) RequestCreateLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, lbr *models.SLoadbalancerListenerRule, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		listener := lbr.GetLoadbalancerListener()
-		if listener == nil {
-			return nil, fmt.Errorf("failed to find listener for listnener rule %s", lbr.Name)
+		listener, err := lbr.GetLoadbalancerListener()
+		if err != nil {
+			return nil, err
 		}
-		loadbalancer := listener.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for listener %s", listener.Name)
+		loadbalancer, err := listener.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
@@ -1164,9 +1164,9 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx context.
 		if err != nil {
 			return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.GetIRegion")
 		}
-		loadbalancer := lbbg.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for backendgroup %s", lbbg.Name)
+		loadbalancer, err := lbbg.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
 		if err != nil {
@@ -1355,9 +1355,9 @@ func (self *SAwsRegionDriver) RequestSyncLoadbalancerListener(ctx context.Contex
 		if err != nil {
 			return nil, errors.Wrap(err, "awsRegionDriver.RequestSyncLoadbalancerListener.GetAwsLoadbalancerListenerParams")
 		}
-		loadbalancer := lblis.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
+		loadbalancer, err := lblis.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
@@ -1389,9 +1389,9 @@ func (self *SAwsRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Co
 		return errors.Wrap(err, "AwsRegionDriver.RequestSyncLoadbalancerBackendGroup.GetLoadbalancerBackendGroup")
 	}
 
-	lb := lblis.GetLoadbalancer()
-	if lb == nil {
-		return errors.Wrap(fmt.Errorf("listener %s related loadbalancer not found", lblis.GetId()), "AwsRegionDriver.RequestSyncLoadbalancerBackendGroup.GetLoadbalancer")
+	lb, err := lblis.GetLoadbalancer()
+	if err != nil {
+		return err
 	}
 
 	cachedLbbg, err := models.AwsCachedLbbgManager.GetUsableCachedBackendGroup(lb.GetId(), lblis.BackendGroupId, lblis.ListenerType, lblis.HealthCheckType, lblis.HealthCheckInterval)

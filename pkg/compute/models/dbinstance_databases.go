@@ -237,9 +237,9 @@ func (manager *SDBInstanceDatabaseManager) ValidateCreateData(ctx context.Contex
 	if instance.Status != api.DBINSTANCE_RUNNING {
 		return nil, httperrors.NewInputParameterError("DBInstance %s(%s) status is %s require status is %s", instance.Name, instance.Id, instance.Status, api.DBINSTANCE_RUNNING)
 	}
-	region := instance.GetRegion()
-	if region == nil {
-		return nil, httperrors.NewInputParameterError("failed to found region for dbinstance %s(%s)", instance.Name, instance.Id)
+	region, err := instance.GetRegion()
+	if err != nil {
+		return nil, err
 	}
 	for i, _account := range input.Accounts {
 		account, err := instance.GetDBInstanceAccount(_account.Account)

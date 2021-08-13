@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -46,9 +45,9 @@ func (self *LoadbalancerListenerRuleDeleteTask) taskFail(ctx context.Context, lb
 
 func (self *LoadbalancerListenerRuleDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lbr := obj.(*models.SLoadbalancerListenerRule)
-	region := lbr.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lbr, jsonutils.NewString(fmt.Sprintf("failed to find region for lbr %s", lbr.Name)))
+	region, err := lbr.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
 		return
 	}
 	self.SetStage("OnLoadbalancerListenerRuleDeleteComplete", nil)
@@ -61,7 +60,7 @@ func (self *LoadbalancerListenerRuleDeleteTask) OnLoadbalancerListenerRuleDelete
 	db.OpsLog.LogEvent(lbr, db.ACT_DELETE, lbr.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbr, logclient.ACT_DELOCATE, nil, self.UserCred, true)
 	notifyclient.NotifyWebhook(ctx, self.UserCred, lbr, notifyclient.ActionDelete)
-	lblis := lbr.GetLoadbalancerListener()
+	lblis, _ := lbr.GetLoadbalancerListener()
 	if lblis != nil {
 		logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_LB_REMOVE_LISTENER_RULE, nil, self.UserCred, true)
 	}

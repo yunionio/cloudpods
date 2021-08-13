@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -36,22 +37,25 @@ func init() {
 	taskman.RegisterTask(DBInstanceCreateTask{})
 }
 
-func (self *DBInstanceCreateTask) taskFailed(ctx context.Context, dbinstance *models.SDBInstance, err error) {
-	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_CREATE_FAILED, err.Error())
-	db.OpsLog.LogEvent(dbinstance, db.ACT_CREATE, err, self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_CREATE, err, self.UserCred, false)
+func (self *DBInstanceCreateTask) taskFailed(ctx context.Context, rds *models.SDBInstance, err error) {
+	rds.SetStatus(self.UserCred, api.DBINSTANCE_CREATE_FAILED, err.Error())
+	db.OpsLog.LogEvent(rds, db.ACT_CREATE, err, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, rds, logclient.ACT_CREATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *DBInstanceCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	dbinstance := obj.(*models.SDBInstance)
-	self.CreateDBInstance(ctx, dbinstance)
+	rds := obj.(*models.SDBInstance)
+	self.CreateDBInstance(ctx, rds)
 }
 
 func (self *DBInstanceCreateTask) CreateDBInstance(ctx context.Context, rds *models.SDBInstance) {
-	region := rds.GetRegion()
+	region, err := rds.GetRegion()
+	if err != nil {
+		self.taskFailed(ctx, rds, errors.Wrapf(err, "GetRegion"))
+		return
+	}
 	self.SetStage("OnCreateDBInstanceComplete", nil)
-	var err error
 	if len(rds.DBInstancebackupId) > 0 {
 		err = region.GetDriver().RequestCreateDBInstanceFromBackup(ctx, self.UserCred, rds, self)
 	} else {
@@ -64,20 +68,20 @@ func (self *DBInstanceCreateTask) CreateDBInstance(ctx context.Context, rds *mod
 }
 
 func (self *DBInstanceCreateTask) OnCreateDBInstanceComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	dbinstance := obj.(*models.SDBInstance)
-	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_CREATE, nil, self.UserCred, true)
+	rds := obj.(*models.SDBInstance)
+	logclient.AddActionLogWithStartable(self, rds, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStage("OnSyncDBInstanceStatusComplete", nil)
-	models.StartResourceSyncStatusTask(ctx, self.UserCred, dbinstance, "DBInstanceSyncStatusTask", self.GetTaskId())
+	models.StartResourceSyncStatusTask(ctx, self.UserCred, rds, "DBInstanceSyncStatusTask", self.GetTaskId())
 }
 
 func (self *DBInstanceCreateTask) OnCreateDBInstanceCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	dbinstance := obj.(*models.SDBInstance)
-	self.taskFailed(ctx, dbinstance, fmt.Errorf("%s", data.String()))
+	rds := obj.(*models.SDBInstance)
+	self.taskFailed(ctx, rds, fmt.Errorf("%s", data.String()))
 }
 
 func (self *DBInstanceCreateTask) OnSyncDBInstanceStatusComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	dbinstance := obj.(*models.SDBInstance)
-	notifyclient.NotifyWebhook(ctx, self.UserCred, dbinstance, notifyclient.ActionCreate)
+	rds := obj.(*models.SDBInstance)
+	notifyclient.NotifyWebhook(ctx, self.UserCred, rds, notifyclient.ActionCreate)
 	self.SetStageComplete(ctx, nil)
 }
 

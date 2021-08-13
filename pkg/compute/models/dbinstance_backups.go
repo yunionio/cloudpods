@@ -230,9 +230,9 @@ func (manager *SDBInstanceBackupManager) ValidateCreateData(ctx context.Context,
 	if instance.Status != api.DBINSTANCE_RUNNING {
 		return nil, httperrors.NewInputParameterError("DBInstance %s(%s) status is %s require status is %s", instance.Name, instance.Id, instance.Status, api.DBINSTANCE_RUNNING)
 	}
-	region := instance.GetRegion()
-	if region == nil {
-		return nil, httperrors.NewInputParameterError("failed to found region for dbinstance %s(%s)", instance.Name, instance.Id)
+	region, err := instance.GetRegion()
+	if err != nil {
+		return nil, err
 	}
 	input.CloudregionId = region.Id
 	input, err = region.GetDriver().ValidateCreateDBInstanceBackupData(ctx, userCred, ownerId, instance, input)
@@ -356,9 +356,9 @@ func (self *SDBInstanceBackup) PerformSyncstatus(ctx context.Context, userCred m
 }
 
 func (backup *SDBInstanceBackup) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	region := backup.GetRegion()
-	if region == nil {
-		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid cloudregion")
+	region, err := backup.GetRegion()
+	if err != nil {
+		return nil, err
 	}
 	provider, err := backup.GetDriver()
 	if err != nil {
@@ -576,10 +576,6 @@ func (self *SDBInstanceBackup) StartDBInstanceBackupDeleteTask(ctx context.Conte
 
 func (self *SDBInstanceBackup) GetCloudprovider() *SCloudprovider {
 	return self.SManagedResourceBase.GetCloudprovider()
-}
-
-func (self *SDBInstanceBackup) GetRegion() *SCloudregion {
-	return self.SCloudregionResourceBase.GetRegion()
 }
 
 func (manager *SDBInstanceBackupManager) ListItemExportKeys(ctx context.Context,

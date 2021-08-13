@@ -461,10 +461,11 @@ func (self *SInstanceSnapshot) GetSnapshots() ([]SSnapshot, error) {
 }
 
 func (self *SInstanceSnapshot) GetQuotaKeys() quotas.IQuotaKeys {
+	region, _ := self.GetRegion()
 	return fetchRegionalQuotaKeys(
 		rbacutils.ScopeProject,
 		self.GetOwnerId(),
-		self.GetRegion(),
+		region,
 		self.GetCloudprovider(),
 	)
 }
