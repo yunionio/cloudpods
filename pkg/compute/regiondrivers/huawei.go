@@ -663,9 +663,9 @@ func (self *SHuaWeiRegionDriver) createLoadbalancerBackendGroup(ctx context.Cont
 	if err != nil {
 		return nil, err
 	}
-	lb := lbbg.GetLoadbalancer()
-	if lb == nil {
-		return nil, fmt.Errorf("failed to find loadbalancer for backendgroup %s", lbbg.Name)
+	lb, err := lbbg.GetLoadbalancer()
+	if err != nil {
+		return nil, err
 	}
 	iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
 	if err != nil {
@@ -725,7 +725,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx conte
 		}
 
 		rule = _rule.(*models.SLoadbalancerListenerRule)
-		listener = rule.GetLoadbalancerListener()
+		listener, _ = rule.GetLoadbalancerListener()
 	} else {
 		_listener, err := db.FetchById(models.LoadbalancerListenerManager, listenerId)
 		if err != nil {
@@ -898,7 +898,7 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context
 			return nil, err
 		}
 
-		lb := lbbg.GetLoadbalancer()
+		lb, _ := lbbg.GetLoadbalancer()
 		ilb, err := iRegion.GetILoadBalancerById(lb.GetExternalId())
 		if err != nil {
 			return nil, err
@@ -1230,9 +1230,9 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 		if err != nil {
 			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListener.GetHuaweiLoadbalancerListenerParams")
 		}
-		loadbalancer := lblis.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
+		loadbalancer, err := lblis.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
@@ -1375,9 +1375,9 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerListener(ctx context.Con
 		if err != nil {
 			return nil, err
 		}
-		loadbalancer := lblis.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
+		loadbalancer, err := lblis.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
@@ -1617,9 +1617,9 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerListener(ctx context.C
 		if jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
 			return nil, nil
 		}
-		loadbalancer := lblis.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
+		loadbalancer, err := lblis.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
@@ -1745,9 +1745,9 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx conte
 		if err != nil {
 			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestDeleteLoadbalancerBackendGroup.")
 		}
-		loadbalancer := lbbg.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for backendgroup %s", lbbg.Name)
+		loadbalancer, err := lbbg.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
 		if err != nil {
@@ -1923,7 +1923,8 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancer(ctx context.Context, 
 			}
 		}
 
-		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil, lb.GetCloudprovider(), lb.GetRegion()); err != nil {
+		region, _ := lb.GetRegion()
+		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil, lb.GetCloudprovider(), region); err != nil {
 			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.SyncWithCloudLoadbalancer")
 		}
 		lbbgs, err := iLoadbalancer.GetILoadBalancerBackendGroups()
@@ -2020,13 +2021,13 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Cont
 
 func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		lbbg := lbb.GetLoadbalancerBackendGroup()
-		if lbbg == nil {
-			return nil, fmt.Errorf("failed to find lbbg for backend %s", lbb.Name)
+		lbbg, err := lbb.GetLoadbalancerBackendGroup()
+		if err != nil {
+			return nil, err
 		}
-		lb := lbbg.GetLoadbalancer()
-		if lb == nil {
-			return nil, fmt.Errorf("failed to find lb for backendgroup %s", lbbg.Name)
+		lb, err := lbbg.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 
 		cachedlbbgs, err := models.HuaweiCachedLbbgManager.GetCachedBackendGroups(lbbg.GetId())
@@ -2077,13 +2078,13 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Co
 
 func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, lbr *models.SLoadbalancerListenerRule, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		listener := lbr.GetLoadbalancerListener()
-		if listener == nil {
-			return nil, fmt.Errorf("failed to find listener for listnener rule %s", lbr.Name)
+		listener, err := lbr.GetLoadbalancerListener()
+		if err != nil {
+			return nil, err
 		}
-		loadbalancer := listener.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for listener %s", listener.Name)
+		loadbalancer, err := listener.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {

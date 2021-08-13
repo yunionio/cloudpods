@@ -1008,7 +1008,10 @@ func syncDBInstanceBackups(ctx context.Context, userCred mcclient.TokenCredentia
 		return errors.Wrapf(err, "GetIDBInstanceBackups")
 	}
 
-	region := localInstance.GetRegion()
+	region, err := localInstance.GetRegion()
+	if err != nil {
+		return errors.Wrapf(err, "GetRegion")
+	}
 	provider := localInstance.GetCloudprovider()
 
 	result := DBInstanceBackupManager.SyncDBInstanceBackups(ctx, userCred, provider, localInstance, region, backups)

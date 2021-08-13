@@ -366,9 +366,9 @@ func (man *SCachedLoadbalancerAclManager) GetOrCreateCachedAcl(ctx context.Conte
 		listenerId = lblis.Id
 	}
 
-	region := lblis.GetRegion()
-	if region == nil {
-		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "Loadbalancer listenser is not attached region")
+	region, err := lblis.GetRegion()
+	if err != nil {
+		return nil, err
 	}
 	lbacl, err := man.getLoadbalancerAclByRegion(provider, region.Id, acl.Id, listenerId)
 	if err == nil {

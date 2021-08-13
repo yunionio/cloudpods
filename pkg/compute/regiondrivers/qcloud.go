@@ -260,9 +260,9 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx conte
 			return nil, nil
 		}
 
-		loadbalancer := lbbg.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for backendgroup %s", lbbg.Name)
+		loadbalancer, err := lbbg.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
 		if err != nil {
@@ -298,13 +298,13 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx conte
 
 func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		lbbg := lbb.GetLoadbalancerBackendGroup()
-		if lbbg == nil {
-			return nil, fmt.Errorf("failed to find lbbg for backend %s", lbb.Name)
+		lbbg, err := lbb.GetLoadbalancerBackendGroup()
+		if err != nil {
+			return nil, err
 		}
-		lb := lbbg.GetLoadbalancer()
-		if lb == nil {
-			return nil, fmt.Errorf("failed to find lb for backendgroup %s", lbbg.Name)
+		lb, err := lbbg.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 
 		cachedlbbgs, err := models.QcloudCachedLbbgManager.GetCachedBackendGroups(lbbg.GetId())
@@ -478,9 +478,9 @@ func (self *SQcloudRegionDriver) createLoadbalancerBackendGroup(ctx context.Cont
 	if err != nil {
 		return nil, errors.Wrap(err, "SQcloudRegionDriver.createLoadbalancerBackendGroup.GetIRegion")
 	}
-	lb := lbbg.GetLoadbalancer()
-	if lb == nil {
-		return nil, fmt.Errorf("failed to find loadbalancer for backendgroup %s", lbbg.Name)
+	lb, err := lbbg.GetLoadbalancer()
+	if err != nil {
+		return nil, err
 	}
 	iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
 	if err != nil {
@@ -489,9 +489,9 @@ func (self *SQcloudRegionDriver) createLoadbalancerBackendGroup(ctx context.Cont
 
 	var ilbbg cloudprovider.ICloudLoadbalancerBackendGroup
 	if lbr != nil {
-		l := lbr.GetLoadbalancerListener()
-		if l == nil {
-			return nil, fmt.Errorf("could not create loadbalancer backendgroup, loadbalancer listener rule %s related listener not found", lbr.GetName())
+		l, err := lbr.GetLoadbalancerListener()
+		if err != nil {
+			return nil, err
 		}
 
 		ilblis, err := iLoadbalancer.GetILoadBalancerListenerById(l.ExternalId)
@@ -588,9 +588,9 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 		if err != nil {
 			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerListener.GetQcloudLoadbalancerListenerParams")
 		}
-		loadbalancer := lblis.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
+		loadbalancer, err := lblis.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
@@ -676,13 +676,13 @@ func (self *SQcloudRegionDriver) GetLoadbalancerListenerRuleInputParams(lblis *m
 
 func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, lbr *models.SLoadbalancerListenerRule, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		listener := lbr.GetLoadbalancerListener()
-		if listener == nil {
-			return nil, fmt.Errorf("failed to find listener for listnener rule %s", lbr.Name)
+		listener, err := lbr.GetLoadbalancerListener()
+		if err != nil {
+			return nil, err
 		}
-		loadbalancer := listener.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for listener %s", listener.Name)
+		loadbalancer, err := listener.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
@@ -1226,7 +1226,7 @@ func (self *SQcloudRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context
 			return nil, errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerbackendGroup.GetIRegion")
 		}
 
-		lb := lbbg.GetLoadbalancer()
+		lb, _ := lbbg.GetLoadbalancer()
 		ilb, err := iRegion.GetILoadBalancerById(lb.GetExternalId())
 		if err != nil {
 			return nil, errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerbackendGroup.GetILoadBalancerById")
@@ -1355,9 +1355,9 @@ func (self *SQcloudRegionDriver) RequestSyncLoadbalancerListener(ctx context.Con
 		if err != nil {
 			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetParams")
 		}
-		loadbalancer := lblis.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
+		loadbalancer, err := lblis.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {

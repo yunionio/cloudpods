@@ -174,7 +174,8 @@ func (self *SOpenStackRegionDriver) RequestCreateLoadbalancer(ctx context.Contex
 			return nil, errors.Wrap(fmt.Errorf("status error"), "check status")
 		}
 
-		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil, lb.GetCloudprovider(), lb.GetRegion()); err != nil {
+		region, _ := lb.GetRegion()
+		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil, lb.GetCloudprovider(), region); err != nil {
 			return nil, err
 		}
 
@@ -425,9 +426,9 @@ func (self *SOpenStackRegionDriver) RequestCreateLoadbalancerListener(ctx contex
 		if err != nil {
 			return nil, errors.Wrapf(err, "lblis.GetLoadbalancerListenerParams")
 		}
-		loadbalancer := lblis.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
+		loadbalancer, err := lblis.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
@@ -643,9 +644,9 @@ func (self *SOpenStackRegionDriver) RequestSyncLoadbalancerListener(ctx context.
 		if err != nil {
 			return nil, err
 		}
-		loadbalancer := lblis.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
+		loadbalancer, err := lblis.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
@@ -722,9 +723,9 @@ func (self *SOpenStackRegionDriver) RequestDeleteLoadbalancerListener(ctx contex
 		if jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
 			return nil, nil
 		}
-		loadbalancer := lblis.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
+		loadbalancer, err := lblis.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
@@ -1004,7 +1005,7 @@ func (self *SOpenStackRegionDriver) ValidateUpdateLoadbalancerListenerRuleData(c
 	if redirectType != api.LB_REDIRECT_OFF {
 		if redirectType == api.LB_REDIRECT_RAW {
 			var (
-				lblis        = lbr.GetLoadbalancerListener()
+				lblis, _     = lbr.GetLoadbalancerListener()
 				listenerType = lblis.ListenerType
 			)
 			scheme, host, path := redirectSchemeV.Value, redirectHostV.Value, redirectPathV.Value
@@ -1034,13 +1035,13 @@ func (self *SOpenStackRegionDriver) ValidateUpdateLoadbalancerListenerRuleData(c
 
 func (self *SOpenStackRegionDriver) RequestCreateLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, lbr *models.SLoadbalancerListenerRule, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		listener := lbr.GetLoadbalancerListener()
-		if listener == nil {
-			return nil, fmt.Errorf("failed to find listener for listnener rule %s", lbr.Name)
+		listener, err := lbr.GetLoadbalancerListener()
+		if err != nil {
+			return nil, err
 		}
-		loadbalancer := listener.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for listener %s", listener.Name)
+		loadbalancer, err := listener.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
@@ -1099,13 +1100,13 @@ func (self *SOpenStackRegionDriver) RequestDeleteLoadbalancerListenerRule(ctx co
 		if jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
 			return nil, nil
 		}
-		listener := lbr.GetLoadbalancerListener()
-		if listener == nil {
-			return nil, fmt.Errorf("failed to find listener for listnener rule %s", lbr.Name)
+		listener, err := lbr.GetLoadbalancerListener()
+		if err != nil {
+			return nil, err
 		}
-		loadbalancer := listener.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for listener %s", listener.Name)
+		loadbalancer, err := listener.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
@@ -1315,9 +1316,9 @@ func (self *SOpenStackRegionDriver) createLoadbalancerBackendGroup(ctx context.C
 	if err != nil {
 		return nil, err
 	}
-	lb := lbbg.GetLoadbalancer()
-	if lb == nil {
-		return nil, fmt.Errorf("failed to find loadbalancer for backendgroup %s", lbbg.Name)
+	lb, err := lbbg.GetLoadbalancer()
+	if err != nil {
+		return nil, err
 	}
 	iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
 	if err != nil {
@@ -1526,7 +1527,7 @@ func (self *SOpenStackRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx co
 		}
 
 		rule = _rule.(*models.SLoadbalancerListenerRule)
-		listener = rule.GetLoadbalancerListener()
+		listener, _ = rule.GetLoadbalancerListener()
 	} else {
 		_listener, err := db.FetchById(models.LoadbalancerListenerManager, listenerId)
 		if err != nil {
@@ -1604,7 +1605,7 @@ func (self *SOpenStackRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx cont
 			return nil, err
 		}
 
-		lb := lbbg.GetLoadbalancer()
+		lb, _ := lbbg.GetLoadbalancer()
 		ilb, err := iRegion.GetILoadBalancerById(lb.GetExternalId())
 		if err != nil {
 			return nil, err
@@ -1754,9 +1755,9 @@ func (self *SOpenStackRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx co
 		if err != nil {
 			return nil, errors.Wrap(err, "openstackRegionDriver.RequestDeleteLoadbalancerBackendGroup.")
 		}
-		loadbalancer := lbbg.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for backendgroup %s", lbbg.Name)
+		loadbalancer, err := lbbg.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
 		if err != nil {
@@ -1933,13 +1934,13 @@ func (self *SOpenStackRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx co
 
 func (self *SOpenStackRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		lbbg := lbb.GetLoadbalancerBackendGroup()
-		if lbbg == nil {
-			return nil, fmt.Errorf("failed to find lbbg for backend %s", lbb.Name)
+		lbbg, err := lbb.GetLoadbalancerBackendGroup()
+		if err != nil {
+			return nil, err
 		}
-		lb := lbbg.GetLoadbalancer()
-		if lb == nil {
-			return nil, fmt.Errorf("failed to find lb for backendgroup %s", lbbg.Name)
+		lb, err := lbbg.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 
 		cachedlbbgs, err := models.OpenstackCachedLbbgManager.GetCachedBackendGroups(lbbg.GetId())

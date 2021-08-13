@@ -364,9 +364,9 @@ func (manager *SSnapshotManager) ValidateCreateData(
 		input.StorageId = disk.StorageId
 	}
 	input.ManagerId = storage.ManagerId
-	region, _ := storage.GetRegion()
-	if region == nil {
-		return input, httperrors.NewInputParameterError("failed to found region for disk's storage %s(%s)", storage.Name, storage.Id)
+	region, err := storage.GetRegion()
+	if err != nil {
+		return input, err
 	}
 	input.CloudregionId = region.Id
 
@@ -650,7 +650,7 @@ func (self *SSnapshot) GetStorageType() string {
 }
 
 func (self *SSnapshot) GetRegionDriver() IRegionDriver {
-	cloudRegion := self.GetRegion()
+	cloudRegion, _ := self.GetRegion()
 	if cloudRegion != nil {
 		return cloudRegion.GetDriver()
 	}
@@ -1007,19 +1007,15 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 	return syncResult
 }
 
-func (self *SSnapshot) GetRegion() *SCloudregion {
-	return CloudregionManager.FetchRegionById(self.CloudregionId)
-}
-
 func (self *SSnapshot) GetISnapshotRegion() (cloudprovider.ICloudRegion, error) {
 	provider, err := self.GetDriver()
 	if err != nil {
 		return nil, err
 	}
 
-	region := self.GetRegion()
-	if region == nil {
-		return nil, fmt.Errorf("fail to find region for snapshot")
+	region, err := self.GetRegion()
+	if err != nil {
+		return nil, err
 	}
 	return provider.GetIRegionById(region.GetExternalId())
 }
@@ -1044,7 +1040,7 @@ func (self *SSnapshot) PerformPurge(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SSnapshot) getCloudProviderInfo() SCloudProviderInfo {
-	region := self.GetRegion()
+	region, _ := self.GetRegion()
 	provider := self.GetCloudprovider()
 	return MakeCloudProviderInfo(region, nil, provider)
 }
@@ -1070,7 +1066,7 @@ func (manager *SSnapshotManager) CleanupSnapshots(ctx context.Context, userCred 
 	}
 
 	snapshot.SetModelManager(manager, snapshot)
-	region := snapshot.GetRegion()
+	region, _ := snapshot.GetRegion()
 	if err = manager.StartSnapshotCleanupTask(ctx, userCred, region, now); err != nil {
 		log.Errorf("Start snaphsot cleanup task failed %s", err)
 		return
@@ -1091,12 +1087,13 @@ func (manager *SSnapshotManager) StartSnapshotCleanupTask(
 	return nil
 }
 
-func (snapshot *SSnapshot) GetQuotaKeys() quotas.IQuotaKeys {
+func (self *SSnapshot) GetQuotaKeys() quotas.IQuotaKeys {
+	region, _ := self.GetRegion()
 	return fetchRegionalQuotaKeys(
 		rbacutils.ScopeProject,
-		snapshot.GetOwnerId(),
-		snapshot.GetRegion(),
-		snapshot.GetCloudprovider(),
+		self.GetOwnerId(),
+		region,
+		self.GetCloudprovider(),
 	)
 }
 

@@ -815,9 +815,9 @@ func (self *SSecurityGroupCache) GetSecuritRuleSet() (cloudprovider.SecurityRule
 }
 
 func (self *SSecurityGroupCache) SyncRules() error {
-	region := self.GetRegion()
-	if region == nil {
-		return fmt.Errorf("failed to get region for secgroupcache %s(%s)", self.Name, self.Id)
+	region, err := self.GetRegion()
+	if err != nil {
+		return err
 	}
 	iSecgroup, err := self.GetISecurityGroup()
 	if err != nil {

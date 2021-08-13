@@ -471,14 +471,6 @@ func (self *SAccessGroupCache) syncWithAccessGroup(ctx context.Context, userCred
 	return group.SyncRules(ctx, userCred, src)
 }
 
-func (self *SAccessGroupCache) GetRegion() (*SCloudregion, error) {
-	region, err := CloudregionManager.FetchById(self.CloudregionId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "CloudregionManager.FetchById(%s)", self.CloudregionId)
-	}
-	return region.(*SCloudregion), nil
-}
-
 func (self *SAccessGroupCache) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	provider, err := self.GetDriver()
 	if err != nil {

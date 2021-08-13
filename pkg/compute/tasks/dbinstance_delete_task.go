@@ -37,59 +37,64 @@ func init() {
 	taskman.RegisterTask(DBInstanceDeleteTask{})
 }
 
-func (self *DBInstanceDeleteTask) taskFailed(ctx context.Context, dbinstance *models.SDBInstance, err error) {
-	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_DELETE_FAILED, err.Error())
-	db.OpsLog.LogEvent(dbinstance, db.ACT_DELETE, err, self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_DELETE, err, self.UserCred, false)
+func (self *DBInstanceDeleteTask) taskFailed(ctx context.Context, rds *models.SDBInstance, err error) {
+	rds.SetStatus(self.UserCred, api.DBINSTANCE_DELETE_FAILED, err.Error())
+	db.OpsLog.LogEvent(rds, db.ACT_DELETE, err, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, rds, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *DBInstanceDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	dbinstance := obj.(*models.SDBInstance)
-	self.DeleteDBInstance(ctx, dbinstance)
+	rds := obj.(*models.SDBInstance)
+	self.DeleteDBInstance(ctx, rds)
 }
 
-func (self *DBInstanceDeleteTask) DeleteDBInstance(ctx context.Context, dbinstance *models.SDBInstance) {
-	idbinstance, err := dbinstance.GetIDBInstance()
+func (self *DBInstanceDeleteTask) DeleteDBInstance(ctx context.Context, rds *models.SDBInstance) {
+	irds, err := rds.GetIDBInstance()
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
-			self.DeleteDBInstanceComplete(ctx, dbinstance)
+			self.DeleteDBInstanceComplete(ctx, rds)
 			return
 		}
-		self.taskFailed(ctx, dbinstance, err)
+		self.taskFailed(ctx, rds, err)
 		return
 	}
 
 	if !jsonutils.QueryBoolean(self.Params, "purge", false) {
-		err = idbinstance.Delete()
+		err = irds.Delete()
 		if err != nil {
-			self.taskFailed(ctx, dbinstance, err)
+			self.taskFailed(ctx, rds, err)
 			return
 		}
 	}
 
-	self.DeleteDBInstanceComplete(ctx, dbinstance)
+	self.DeleteDBInstanceComplete(ctx, rds)
 }
 
-func (self *DBInstanceDeleteTask) DeleteDBInstanceComplete(ctx context.Context, dbinstance *models.SDBInstance) {
-	if !dbinstance.GetRegion().GetDriver().IsSupportKeepDBInstanceManualBackup() || jsonutils.QueryBoolean(self.Params, "purge", false) {
-		err := dbinstance.PurgeBackups(ctx, self.UserCred, api.BACKUP_MODE_MANUAL)
+func (self *DBInstanceDeleteTask) DeleteDBInstanceComplete(ctx context.Context, rds *models.SDBInstance) {
+	region, err := rds.GetRegion()
+	if err != nil {
+		self.taskFailed(ctx, rds, errors.Wrapf(err, "GetRegion"))
+		return
+	}
+	if !region.GetDriver().IsSupportKeepDBInstanceManualBackup() || jsonutils.QueryBoolean(self.Params, "purge", false) {
+		err := rds.PurgeBackups(ctx, self.UserCred, api.BACKUP_MODE_MANUAL)
 		if err != nil {
-			self.taskFailed(ctx, dbinstance, errors.Wrap(err, "dbinstance.PurgeManualBackups"))
+			self.taskFailed(ctx, rds, errors.Wrap(err, "rds.PurgeManualBackups"))
 			return
 		}
-		err = dbinstance.Purge(ctx, self.UserCred)
+		err = rds.Purge(ctx, self.UserCred)
 		if err != nil {
-			self.taskFailed(ctx, dbinstance, errors.Wrap(err, "dbinstance.Purge"))
+			self.taskFailed(ctx, rds, errors.Wrap(err, "rds.Purge"))
 			return
 		}
-		notifyclient.NotifyWebhook(ctx, self.UserCred, dbinstance, notifyclient.ActionDelete)
+		notifyclient.NotifyWebhook(ctx, self.UserCred, rds, notifyclient.ActionDelete)
 		self.SetStageComplete(ctx, nil)
 		return
 	}
 
-	self.DeleteBackups(ctx, dbinstance, nil)
-	notifyclient.NotifyWebhook(ctx, self.UserCred, dbinstance, notifyclient.ActionDelete)
+	self.DeleteBackups(ctx, rds, nil)
+	notifyclient.NotifyWebhook(ctx, self.UserCred, rds, notifyclient.ActionDelete)
 }
 
 func (self *DBInstanceDeleteTask) DeleteBackups(ctx context.Context, instance *models.SDBInstance, data jsonutils.JSONObject) {

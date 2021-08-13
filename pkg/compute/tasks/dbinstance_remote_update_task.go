@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -33,34 +34,41 @@ func init() {
 	taskman.RegisterTask(DBInstanceRemoteUpdateTask{})
 }
 
-func (self *DBInstanceRemoteUpdateTask) taskFail(ctx context.Context, dbinstance *models.SDBInstance, reason jsonutils.JSONObject) {
-	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_UPDATE_TAGS_FAILED, reason.String())
-	self.SetStageFailed(ctx, reason)
+func (self *DBInstanceRemoteUpdateTask) taskFail(ctx context.Context, rds *models.SDBInstance, err error) {
+	rds.SetStatus(self.UserCred, api.DBINSTANCE_UPDATE_TAGS_FAILED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *DBInstanceRemoteUpdateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	instance := obj.(*models.SDBInstance)
+	rds := obj.(*models.SDBInstance)
 	self.SetStage("OnRemoteUpdateComplete", nil)
 	replaceTags := jsonutils.QueryBoolean(self.Params, "replace_tags", false)
 
-	if err := instance.GetRegion().GetDriver().RequestRemoteUpdateDBInstance(ctx, self.GetUserCred(), instance, replaceTags, self); err != nil {
-		self.taskFail(ctx, instance, jsonutils.NewString(err.Error()))
+	region, err := rds.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, rds, errors.Wrapf(err, "GetRegion"))
+		return
+	}
+
+	if err := region.GetDriver().RequestRemoteUpdateDBInstance(ctx, self.GetUserCred(), rds, replaceTags, self); err != nil {
+		self.taskFail(ctx, rds, err)
+		return
 	}
 }
 
-func (self *DBInstanceRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Context, dbinstance *models.SDBInstance, data jsonutils.JSONObject) {
+func (self *DBInstanceRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Context, rds *models.SDBInstance, data jsonutils.JSONObject) {
 	self.SetStage("OnSyncStatusComplete", nil)
-	models.StartResourceSyncStatusTask(ctx, self.UserCred, dbinstance, "DBInstanceSyncStatusTask", self.GetTaskId())
+	models.StartResourceSyncStatusTask(ctx, self.UserCred, rds, "DBInstanceSyncStatusTask", self.GetTaskId())
 }
 
-func (self *DBInstanceRemoteUpdateTask) OnRemoteUpdateCompleteFailed(ctx context.Context, dbinstance *models.SDBInstance, data jsonutils.JSONObject) {
-	self.taskFail(ctx, dbinstance, data)
+func (self *DBInstanceRemoteUpdateTask) OnRemoteUpdateCompleteFailed(ctx context.Context, rds *models.SDBInstance, data jsonutils.JSONObject) {
+	self.taskFail(ctx, rds, errors.Errorf(data.String()))
 }
 
-func (self *DBInstanceRemoteUpdateTask) OnSyncStatusComplete(ctx context.Context, dbinstance *models.SDBInstance, data jsonutils.JSONObject) {
+func (self *DBInstanceRemoteUpdateTask) OnSyncStatusComplete(ctx context.Context, rds *models.SDBInstance, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *DBInstanceRemoteUpdateTask) OnSyncStatusCompleteFailed(ctx context.Context, dbinstance *models.SDBInstance, data jsonutils.JSONObject) {
+func (self *DBInstanceRemoteUpdateTask) OnSyncStatusCompleteFailed(ctx context.Context, rds *models.SDBInstance, data jsonutils.JSONObject) {
 	self.SetStageFailed(ctx, data)
 }

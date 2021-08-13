@@ -67,7 +67,7 @@ func (self *CloudAccountSyncSkusTask) OnInit(ctx context.Context, obj db.IStanda
 
 		_regions := provider.(*models.SCloudprovider).GetCloudproviderRegions()
 		for i := range _regions {
-			region := _regions[i].GetRegion()
+			region, _ := _regions[i].GetRegion()
 			regions = append(regions, *region)
 		}
 	} else {
@@ -76,7 +76,7 @@ func (self *CloudAccountSyncSkusTask) OnInit(ctx context.Context, obj db.IStanda
 			ids := []string{}
 			_regions := provider.GetCloudproviderRegions()
 			for i := range _regions {
-				region := _regions[i].GetRegion()
+				region, _ := _regions[i].GetRegion()
 				if region != nil && !utils.IsInStringArray(region.GetId(), ids) {
 					regions = append(regions, *region)
 					ids = append(ids, region.GetId())

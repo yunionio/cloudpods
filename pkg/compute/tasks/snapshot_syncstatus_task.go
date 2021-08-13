@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -45,14 +44,14 @@ func (self *SnapshotSyncstatusTask) taskFailed(ctx context.Context, snapshot *mo
 func (self *SnapshotSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	snapshot := obj.(*models.SSnapshot)
 
-	region := snapshot.GetRegion()
-	if region == nil {
-		self.taskFailed(ctx, snapshot, jsonutils.NewString(fmt.Sprintf("failed to found cloudregion for snapshot %s(%s)", snapshot.Name, snapshot.Id)))
+	region, err := snapshot.GetRegion()
+	if err != nil {
+		self.taskFailed(ctx, snapshot, jsonutils.NewString(err.Error()))
 		return
 	}
 
 	self.SetStage("OnSnapshotSyncStatusComplete", nil)
-	err := region.GetDriver().RequestSyncSnapshotStatus(ctx, self.GetUserCred(), snapshot, self)
+	err = region.GetDriver().RequestSyncSnapshotStatus(ctx, self.GetUserCred(), snapshot, self)
 	if err != nil {
 		self.taskFailed(ctx, snapshot, jsonutils.NewString(err.Error()))
 		return
