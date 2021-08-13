@@ -176,11 +176,7 @@ func (self *SMongoDB) GetDiskSizeMb() int {
 }
 
 func (self *SMongoDB) GetZoneId() string {
-	zone, err := self.region.getZoneById(self.Zone)
-	if err != nil {
-		return ""
-	}
-	return zone.GetGlobalId()
+	return self.Zone
 }
 
 func (self *SMongoDB) GetBillingType() string {
