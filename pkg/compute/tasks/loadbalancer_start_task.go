@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -46,9 +45,9 @@ func (self *LoadbalancerStartTask) taskFail(ctx context.Context, lb *models.SLoa
 
 func (self *LoadbalancerStartTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lb := obj.(*models.SLoadbalancer)
-	region := lb.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lb, jsonutils.NewString(fmt.Sprintf("failed to find region for lb %s", lb.Name)))
+	region, err := lb.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lb, jsonutils.NewString(err.Error()))
 		return
 	}
 	self.SetStage("OnLoadbalancerStartComplete", nil)

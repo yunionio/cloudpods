@@ -264,9 +264,9 @@ func (man *SCachedLoadbalancerCertificateManager) GetOrCreateCachedCertificate(c
 	lockman.LockClass(ctx, man, ownerProjId)
 	defer lockman.ReleaseClass(ctx, man, ownerProjId)
 
-	region := lblis.GetRegion()
-	if region == nil {
-		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "loadbalancer listener is not attached to any region?")
+	region, err := lblis.GetRegion()
+	if err != nil {
+		return nil, err
 	}
 	lbcert, err := man.getLoadbalancerCertificateByRegion(provider, region.Id, cert.Id)
 	if err == nil {

@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -33,18 +34,25 @@ func init() {
 	taskman.RegisterTask(DBInstanceRemoteUpdateTask{})
 }
 
-func (self *DBInstanceRemoteUpdateTask) taskFail(ctx context.Context, dbinstance *models.SDBInstance, reason jsonutils.JSONObject) {
-	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_UPDATE_TAGS, reason, self.UserCred, false)
-	self.SetStageFailed(ctx, reason)
+func (self *DBInstanceRemoteUpdateTask) taskFail(ctx context.Context, rds *models.SDBInstance, err error) {
+	logclient.AddActionLogWithStartable(self, rds, logclient.ACT_UPDATE_TAGS, err, self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *DBInstanceRemoteUpdateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	instance := obj.(*models.SDBInstance)
+	rds := obj.(*models.SDBInstance)
 	self.SetStage("OnRemoteUpdateComplete", nil)
 	replaceTags := jsonutils.QueryBoolean(self.Params, "replace_tags", false)
 
-	if err := instance.GetRegion().GetDriver().RequestRemoteUpdateDBInstance(ctx, self.GetUserCred(), instance, replaceTags, self); err != nil {
-		self.taskFail(ctx, instance, jsonutils.NewString(err.Error()))
+	region, err := rds.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, rds, errors.Wrapf(err, "GetRegion"))
+		return
+	}
+
+	if err := region.GetDriver().RequestRemoteUpdateDBInstance(ctx, self.GetUserCred(), rds, replaceTags, self); err != nil {
+		self.taskFail(ctx, rds, err)
+		return
 	}
 }
 

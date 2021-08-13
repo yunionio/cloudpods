@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -46,25 +45,26 @@ func (self *LoadbalancerListenerSyncTask) taskFail(ctx context.Context, lblis *m
 
 func (self *LoadbalancerListenerSyncTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lblis := obj.(*models.SLoadbalancerListener)
-	region := lblis.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lblis, jsonutils.NewString(fmt.Sprintf("failed to find region for lblis %s", lblis.Name)))
+	region, err := lblis.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
 		return
 	}
 
 	self.SetStage("OnLoadbalancerBackendgroupSyncComplete", nil)
 	driver := region.GetDriver()
 	userCred := self.GetUserCred()
-	err := driver.RequestSyncLoadbalancerBackendGroup(ctx, userCred, lblis, self)
+	err = driver.RequestSyncLoadbalancerBackendGroup(ctx, userCred, lblis, self)
 	if err != nil {
 		self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
+		return
 	}
 }
 
 func (self *LoadbalancerListenerSyncTask) OnLoadbalancerBackendgroupSyncComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
-	region := lblis.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lblis, jsonutils.NewString(fmt.Sprintf("failed to find region for lblis %s", lblis.Name)))
+	region, err := lblis.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
 		return
 	}
 	self.SetStage("OnLoadbalancerListenerSyncComplete", nil)

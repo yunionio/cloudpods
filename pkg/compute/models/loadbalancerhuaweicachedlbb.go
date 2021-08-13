@@ -288,9 +288,9 @@ func (man *SHuaweiCachedLbManager) newFromCloudLoadbalancerBackend(ctx context.C
 }
 
 func newLocalBackendFromCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, loadbalancerBackendgroup *SLoadbalancerBackendGroup, extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend, syncOwnerId mcclient.IIdentityProvider) (*SLoadbalancerBackend, error) {
-	lbbgRegion := loadbalancerBackendgroup.GetRegion()
-	if lbbgRegion == nil {
-		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "loadbalancerBackendgroup is not attached to any region")
+	lbbgRegion, err := loadbalancerBackendgroup.GetRegion()
+	if err != nil {
+		return nil, err
 	}
 	lbbgProvider := loadbalancerBackendgroup.GetCloudprovider()
 	if lbbgProvider == nil {

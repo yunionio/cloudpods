@@ -54,29 +54,29 @@ func ValidateLoadbalancerResourceInput(userCred mcclient.TokenCredential, input 
 	return lbObj.(*SLoadbalancer), input, nil
 }
 
-func (self *SLoadbalancerResourceBase) GetLoadbalancer() *SLoadbalancer {
-	w, _ := LoadbalancerManager.FetchById(self.LoadbalancerId)
-	if w != nil {
-		return w.(*SLoadbalancer)
+func (self *SLoadbalancerResourceBase) GetLoadbalancer() (*SLoadbalancer, error) {
+	w, err := LoadbalancerManager.FetchById(self.LoadbalancerId)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return w.(*SLoadbalancer), nil
 }
 
-func (self *SLoadbalancerResourceBase) GetVpc() *SVpc {
-	lb := self.GetLoadbalancer()
-	if lb != nil {
-		return lb.GetVpc()
+func (self *SLoadbalancerResourceBase) GetVpc() (*SVpc, error) {
+	lb, err := self.GetLoadbalancer()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return lb.GetVpc()
 }
 
 func (self *SLoadbalancerResourceBase) GetCloudprovider() *SCloudprovider {
-	vpc := self.GetVpc()
+	vpc, _ := self.GetVpc()
 	if vpc != nil {
 		return vpc.GetCloudprovider()
 	}
 
-	lb := self.GetLoadbalancer()
+	lb, _ := self.GetLoadbalancer()
 	if lb != nil {
 		return lb.GetCloudprovider()
 	}
@@ -93,7 +93,7 @@ func (self *SLoadbalancerResourceBase) GetCloudproviderId() string {
 }
 
 func (self *SLoadbalancerResourceBase) GetProviderName() string {
-	vpc := self.GetVpc()
+	vpc, _ := self.GetVpc()
 	if vpc != nil {
 		return vpc.GetProviderName()
 	}
@@ -101,36 +101,35 @@ func (self *SLoadbalancerResourceBase) GetProviderName() string {
 }
 
 func (self *SLoadbalancerResourceBase) GetCloudaccount() *SCloudaccount {
-	vpc := self.GetVpc()
+	vpc, _ := self.GetVpc()
 	if vpc != nil {
 		return vpc.GetCloudaccount()
 	}
 	return nil
 }
 
-func (self *SLoadbalancerResourceBase) GetRegion() *SCloudregion {
-	vpc := self.GetVpc()
-	if vpc == nil {
-		return nil
+func (self *SLoadbalancerResourceBase) GetRegion() (*SCloudregion, error) {
+	vpc, err := self.GetVpc()
+	if err != nil {
+		return nil, err
 	}
-	region, _ := vpc.GetRegion()
-	return region
+	return vpc.GetRegion()
 }
 
 func (self *SLoadbalancerResourceBase) GetRegionId() string {
-	region := self.GetRegion()
+	region, _ := self.GetRegion()
 	if region != nil {
 		return region.Id
 	}
 	return ""
 }
 
-func (self *SLoadbalancerResourceBase) GetZone() *SZone {
-	lb := self.GetLoadbalancer()
-	if lb != nil {
-		return lb.GetZone()
+func (self *SLoadbalancerResourceBase) GetZone() (*SZone, error) {
+	lb, err := self.GetLoadbalancer()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return lb.GetZone()
 }
 
 func (self *SLoadbalancerResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) api.LoadbalancerResourceInfo {
@@ -344,7 +343,7 @@ func (manager *SLoadbalancerResourceBaseManager) GetExportKeys() []string {
 }
 
 func (self *SLoadbalancerResourceBase) GetChangeOwnerCandidateDomainIds() []string {
-	lb := self.GetLoadbalancer()
+	lb, _ := self.GetLoadbalancer()
 	if lb != nil {
 		return lb.GetChangeOwnerCandidateDomainIds()
 	}

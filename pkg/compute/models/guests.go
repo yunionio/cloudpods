@@ -354,7 +354,7 @@ func (manager *SGuestManager) ListItemFilter(
 		} else {
 			hostQ = hostQ.IsNullOrEmpty("manager_id")
 		}
-		region := eip.GetRegion()
+		region, _ := eip.GetRegion()
 		regionTable := CloudregionManager.Query().SubQuery()
 		sq := hostQ.Join(regionTable, sqlchemy.Equals(zoneTable.Field("cloudregion_id"), regionTable.Field("id"))).
 			Filter(sqlchemy.Equals(regionTable.Field("id"), region.GetId())).SubQuery()
@@ -1654,7 +1654,7 @@ func (manager *SGuestManager) validateEip(userCred mcclient.TokenCredential, inp
 			}
 			input.PreferManager = eipCloudprovider.Id
 
-			eipRegion := eip.GetRegion()
+			eipRegion, _ := eip.GetRegion()
 			// preferRegionId, _ := data.GetString("prefer_region_id")
 			if len(preferRegionId) > 0 && preferRegionId != eipRegion.Id {
 				return httperrors.NewConflictError("cannot assoicate with eip %s: different region", eipStr)

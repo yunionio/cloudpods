@@ -3016,7 +3016,7 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 	}
 
 	eip := eipObj.(*SElasticip)
-	eipRegion := eip.GetRegion()
+	eipRegion, _ := eip.GetRegion()
 	instRegion, _ := self.getRegion()
 
 	if eip.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {

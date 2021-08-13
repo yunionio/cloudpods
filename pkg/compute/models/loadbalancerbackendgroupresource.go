@@ -53,61 +53,60 @@ func ValidateLoadbalancerBackendgroupResourceInput(userCred mcclient.TokenCreden
 	return lbbgObj.(*SLoadbalancerBackendGroup), input, nil
 }
 
-func (self *SLoadbalancerBackendgroupResourceBase) GetLoadbalancerBackendGroup() *SLoadbalancerBackendGroup {
-	w, _ := LoadbalancerBackendGroupManager.FetchById(self.BackendGroupId)
-	if w != nil {
-		return w.(*SLoadbalancerBackendGroup)
+func (self *SLoadbalancerBackendgroupResourceBase) GetLoadbalancerBackendGroup() (*SLoadbalancerBackendGroup, error) {
+	w, err := LoadbalancerBackendGroupManager.FetchById(self.BackendGroupId)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return w.(*SLoadbalancerBackendGroup), nil
 }
 
-func (self *SLoadbalancerBackendgroupResourceBase) GetLoadbalancer() *SLoadbalancer {
-	lbbg := self.GetLoadbalancerBackendGroup()
-	if lbbg != nil {
-		return lbbg.GetLoadbalancer()
+func (self *SLoadbalancerBackendgroupResourceBase) GetLoadbalancer() (*SLoadbalancer, error) {
+	lbbg, err := self.GetLoadbalancerBackendGroup()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return lbbg.GetLoadbalancer()
 }
 
-func (self *SLoadbalancerBackendgroupResourceBase) GetVpc() *SVpc {
-	lb := self.GetLoadbalancer()
-	if lb != nil {
-		return lb.GetVpc()
+func (self *SLoadbalancerBackendgroupResourceBase) GetVpc() (*SVpc, error) {
+	lb, err := self.GetLoadbalancer()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetLoadbalancer")
 	}
-	return nil
+	return lb.GetVpc()
 }
 
-func (self *SLoadbalancerBackendgroupResourceBase) GetCloudprovider() *SCloudprovider {
-	lb := self.GetLoadbalancer()
-	if lb != nil {
-		return lb.GetCloudprovider()
+func (self *SLoadbalancerBackendgroupResourceBase) GetCloudprovider() (*SCloudprovider, error) {
+	lb, err := self.GetLoadbalancer()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return lb.GetCloudprovider(), nil
 }
 
 func (self *SLoadbalancerBackendgroupResourceBase) GetProviderName() string {
-	lb := self.GetLoadbalancer()
-	if lb != nil {
-		return lb.SManagedResourceBase.GetProviderName()
+	lb, err := self.GetLoadbalancer()
+	if err != nil {
+		return ""
 	}
-	return ""
+	return lb.SManagedResourceBase.GetProviderName()
 }
 
-func (self *SLoadbalancerBackendgroupResourceBase) GetRegion() *SCloudregion {
-	vpc := self.GetVpc()
-	if vpc == nil {
-		return nil
+func (self *SLoadbalancerBackendgroupResourceBase) GetRegion() (*SCloudregion, error) {
+	vpc, err := self.GetVpc()
+	if err != nil {
+		return nil, err
 	}
-	region, _ := vpc.GetRegion()
-	return region
+	return vpc.GetRegion()
 }
 
-func (self *SLoadbalancerBackendgroupResourceBase) GetZone() *SZone {
-	lb := self.GetLoadbalancer()
-	if lb != nil {
-		return lb.GetZone()
+func (self *SLoadbalancerBackendgroupResourceBase) GetZone() (*SZone, error) {
+	lb, err := self.GetLoadbalancer()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return lb.GetZone()
 }
 
 func (self *SLoadbalancerBackendgroupResourceBase) GetExtraDetails(

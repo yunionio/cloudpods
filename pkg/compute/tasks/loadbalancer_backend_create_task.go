@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -41,7 +40,7 @@ func (self *LoadbalancerBackendCreateTask) taskFail(ctx context.Context, lbb *mo
 	db.OpsLog.LogEvent(lbb, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbb, logclient.ACT_CREATE, reason, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, lbb.Id, lbb.Name, api.LB_CREATE_FAILED, reason.String())
-	lbbg := lbb.GetLoadbalancerBackendGroup()
+	lbbg, _ := lbb.GetLoadbalancerBackendGroup()
 	if lbbg != nil {
 		logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_LB_ADD_BACKEND, reason, self.UserCred, false)
 	}
@@ -50,9 +49,9 @@ func (self *LoadbalancerBackendCreateTask) taskFail(ctx context.Context, lbb *mo
 
 func (self *LoadbalancerBackendCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lbb := obj.(*models.SLoadbalancerBackend)
-	region := lbb.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lbb, jsonutils.NewString(fmt.Sprintf("failed to find region for lbb %s", lbb.Name)))
+	region, err := lbb.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lbb, jsonutils.NewString(err.Error()))
 		return
 	}
 
@@ -66,7 +65,7 @@ func (self *LoadbalancerBackendCreateTask) OnLoadbalancerBackendCreateComplete(c
 	lbb.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lbb, db.ACT_ALLOCATE, lbb.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbb, logclient.ACT_CREATE, nil, self.UserCred, true)
-	lbbg := lbb.GetLoadbalancerBackendGroup()
+	lbbg, _ := lbb.GetLoadbalancerBackendGroup()
 	if lbbg != nil {
 		logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_LB_ADD_BACKEND, nil, self.UserCred, true)
 	}
