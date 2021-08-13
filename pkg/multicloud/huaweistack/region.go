@@ -557,12 +557,6 @@ func (self *SRegion) CreateVpc(name, cidr, desc string) (*SVpc, error) {
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090596.html
 // size: 1Mbit/s~2000Mbit/s
-// bgpType: 5_telcom，5_union，5_bgp，5_sbgp.
-// 东北-大连：5_telcom、5_union
-// 华南-广州：5_sbgp
-// 华东-上海二：5_sbgp
-// 华北-北京一：5_bgp、5_sbgp
-// 亚太-香港：5_bgp
 func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
 	var ctype TInternetChargeType
 	switch eip.ChargeType {
