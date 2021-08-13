@@ -420,22 +420,20 @@ func (lb *SLoadbalancer) GetCloudprovider() *SCloudprovider {
 	return lb.SManagedResourceBase.GetCloudprovider()
 }
 
-func (lb *SLoadbalancer) GetRegion() *SCloudregion {
-	return lb.SCloudregionResourceBase.GetRegion()
-}
-
 func (lb *SLoadbalancer) GetCloudproviderId() string {
 	return lb.SManagedResourceBase.GetCloudproviderId()
 }
 
-func (lb *SLoadbalancer) GetZone() *SZone {
-	zone, _ := lb.SZoneResourceBase.GetZone()
-	return zone
+func (lb *SLoadbalancer) GetRegion() (*SCloudregion, error) {
+	return lb.SCloudregionResourceBase.GetRegion()
 }
 
-func (lb *SLoadbalancer) GetVpc() *SVpc {
-	vpc, _ := lb.SVpcResourceBase.GetVpc()
-	return vpc
+func (lb *SLoadbalancer) GetVpc() (*SVpc, error) {
+	return lb.SVpcResourceBase.GetVpc()
+}
+
+func (lb *SLoadbalancer) GetZone() (*SZone, error) {
+	return lb.SZoneResourceBase.GetZone()
 }
 
 func (lb *SLoadbalancer) GetNetworks() ([]SNetwork, error) {
@@ -462,9 +460,9 @@ func (lb *SLoadbalancer) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "lb.GetDriver")
 	}
-	region := lb.GetRegion()
-	if region == nil {
-		return nil, fmt.Errorf("failed to get region for lb %s", lb.Name)
+	region, err := lb.GetRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegion")
 	}
 	return provider.GetIRegionById(region.ExternalId)
 }
@@ -480,9 +478,9 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 	params.Tags, _ = lb.GetAllUserMetadata()
 
 	if len(lb.ZoneId) > 0 {
-		zone := lb.GetZone()
-		if zone == nil {
-			return nil, fmt.Errorf("failed to find zone for lb %s", lb.Name)
+		zone, err := lb.GetZone()
+		if err != nil {
+			return nil, err
 		}
 		iZone, err := iRegion.GetIZoneById(zone.ExternalId)
 		if err != nil {
@@ -508,9 +506,9 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 	}
 
 	if lb.AddressType == api.LB_ADDR_TYPE_INTRANET || utils.IsInStringArray(lb.SManagedResourceBase.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK, api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_AWS, api.CLOUD_PROVIDER_QCLOUD}) {
-		vpc := lb.GetVpc()
-		if vpc == nil {
-			return nil, fmt.Errorf("failed to find vpc for lb %s", lb.Name)
+		vpc, err := lb.GetVpc()
+		if err != nil {
+			return nil, err
 		}
 		iVpc, err := iRegion.GetIVpcById(vpc.ExternalId)
 		if err != nil {
@@ -722,7 +720,7 @@ func (lb *SLoadbalancer) ValidateDeleteCondition(ctx context.Context) error {
 }
 
 func (lb *SLoadbalancer) validatePurgeCondition(ctx context.Context) error {
-	region := lb.GetRegion()
+	region, _ := lb.GetRegion()
 	if region != nil {
 		if err := region.GetDriver().ValidateDeleteLoadbalancerCondition(ctx, lb); err != nil {
 			return err
@@ -1089,7 +1087,8 @@ func (self *SLoadbalancer) SyncLoadbalancerEip(ctx context.Context, userCred mcc
 		// do nothing
 	} else if eip == nil && extEip != nil {
 		// add
-		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, self.GetRegion(), provider.GetOwnerId())
+		region, _ := self.GetRegion()
+		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, region, provider.GetOwnerId())
 		if err != nil {
 			log.Errorf("getEipByExtEip error %v", err)
 			result.AddError(err)
@@ -1120,7 +1119,8 @@ func (self *SLoadbalancer) SyncLoadbalancerEip(ctx context.Context, userCred mcc
 				result.DeleteError(err)
 			} else {
 				result.Delete()
-				neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, self.GetRegion(), provider.GetOwnerId())
+				region, _ := self.GetRegion()
+				neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, region, provider.GetOwnerId())
 				if err != nil {
 					result.AddError(err)
 				} else {
@@ -1308,10 +1308,11 @@ func (man *SLoadbalancerManager) TotalCount(
 }
 
 func (lb *SLoadbalancer) GetQuotaKeys() quotas.IQuotaKeys {
+	region, _ := lb.GetRegion()
 	return fetchRegionalQuotaKeys(
 		rbacutils.ScopeProject,
 		lb.GetOwnerId(),
-		lb.GetRegion(),
+		region,
 		lb.GetCloudprovider(),
 	)
 }

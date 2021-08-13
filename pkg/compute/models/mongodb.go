@@ -653,10 +653,11 @@ func (man *SMongoDBManager) TotalCount(
 }
 
 func (self *SMongoDB) GetQuotaKeys() quotas.IQuotaKeys {
+	region, _ := self.GetRegion()
 	return fetchRegionalQuotaKeys(
 		rbacutils.ScopeProject,
 		self.GetOwnerId(),
-		self.GetRegion(),
+		region,
 		self.GetCloudprovider(),
 	)
 }
@@ -674,9 +675,9 @@ func (self *SMongoDB) GetUsages() []db.IUsage {
 }
 
 func (self *SMongoDB) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	region := self.GetRegion()
-	if region == nil {
-		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid cloudregion")
+	region, err := self.GetRegion()
+	if err != nil {
+		return nil, err
 	}
 	provider, err := self.GetDriver()
 	if err != nil {

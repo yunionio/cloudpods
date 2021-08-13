@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -40,7 +39,7 @@ func (self *LoadbalancerBackendDeleteTask) taskFail(ctx context.Context, lbb *mo
 	lbb.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason.String())
 	db.OpsLog.LogEvent(lbb, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbb, logclient.ACT_DELOCATE, reason, self.UserCred, false)
-	lbbg := lbb.GetLoadbalancerBackendGroup()
+	lbbg, _ := lbb.GetLoadbalancerBackendGroup()
 	if lbbg != nil {
 		logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_LB_REMOVE_BACKEND, reason, self.UserCred, false)
 	}
@@ -49,9 +48,9 @@ func (self *LoadbalancerBackendDeleteTask) taskFail(ctx context.Context, lbb *mo
 
 func (self *LoadbalancerBackendDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lbb := obj.(*models.SLoadbalancerBackend)
-	region := lbb.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lbb, jsonutils.NewString(fmt.Sprintf("failed to find region for lbb %s", lbb.Name)))
+	region, err := lbb.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lbb, jsonutils.NewString(err.Error()))
 		return
 	}
 	self.SetStage("OnLoadbalancerBackendDeleteComplete", nil)
@@ -64,7 +63,7 @@ func (self *LoadbalancerBackendDeleteTask) OnLoadbalancerBackendDeleteComplete(c
 	lbb.DoPendingDelete(ctx, self.GetUserCred())
 	db.OpsLog.LogEvent(lbb, db.ACT_DELETE, lbb.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbb, logclient.ACT_DELOCATE, nil, self.UserCred, true)
-	lbbg := lbb.GetLoadbalancerBackendGroup()
+	lbbg, _ := lbb.GetLoadbalancerBackendGroup()
 	if lbbg != nil {
 		logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_LB_REMOVE_BACKEND, nil, self.UserCred, true)
 	}

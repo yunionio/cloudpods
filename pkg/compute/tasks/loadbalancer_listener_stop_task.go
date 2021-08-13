@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -46,9 +45,9 @@ func (self *LoadbalancerListenerStopTask) taskFail(ctx context.Context, lblis *m
 
 func (self *LoadbalancerListenerStopTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lblis := obj.(*models.SLoadbalancerListener)
-	region := lblis.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lblis, jsonutils.NewString(fmt.Sprintf("failed to find region for lblis %s", lblis.Name)))
+	region, err := lblis.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
 		return
 	}
 	self.SetStage("OnLoadbalancerListenerStopComplete", nil)

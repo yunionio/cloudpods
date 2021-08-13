@@ -368,14 +368,6 @@ func (self *SElasticSearch) StartDeleteTask(ctx context.Context, userCred mcclie
 	return nil
 }
 
-func (self *SElasticSearch) GetRegion() (*SCloudregion, error) {
-	region, err := CloudregionManager.FetchById(self.CloudregionId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "CloudregionManager.FetchById(%s)", self.CloudregionId)
-	}
-	return region.(*SCloudregion), nil
-}
-
 func (self *SElasticSearch) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	region, err := self.GetRegion()
 	if err != nil {

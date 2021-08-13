@@ -239,7 +239,7 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 				return nil, httperrors.NewInputParameterError("error loadbalancer of backend group %s", backendGroup.GetId())
 			}
 			var (
-				lbRegion      = lb.GetRegion()
+				lbRegion, _   = lb.GetRegion()
 				hostRegion, _ = host.GetRegion()
 			)
 			if lbRegion.Id != hostRegion.Id {
@@ -408,7 +408,7 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerRuleData(ctx con
 	if redirectType != api.LB_REDIRECT_OFF {
 		if redirectType == api.LB_REDIRECT_RAW {
 			var (
-				lblis        = lbr.GetLoadbalancerListener()
+				lblis, _     = lbr.GetLoadbalancerListener()
 				listenerType = lblis.ListenerType
 			)
 			scheme, host, path := redirectSchemeV.Value, redirectHostV.Value, redirectPathV.Value

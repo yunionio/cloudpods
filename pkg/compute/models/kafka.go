@@ -365,14 +365,6 @@ func (self *SKafka) StartDeleteTask(ctx context.Context, userCred mcclient.Token
 	return nil
 }
 
-func (self *SKafka) GetRegion() (*SCloudregion, error) {
-	region, err := CloudregionManager.FetchById(self.CloudregionId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "CloudregionManager.FetchById(%s)", self.CloudregionId)
-	}
-	return region.(*SCloudregion), nil
-}
-
 func (self *SKafka) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	region, err := self.GetRegion()
 	if err != nil {

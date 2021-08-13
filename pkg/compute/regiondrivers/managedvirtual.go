@@ -92,7 +92,7 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerBacken
 		return nil, fmt.Errorf("error loadbalancer of backend group %s", backendGroup.GetId())
 	}
 	hostRegion, _ := host.GetRegion()
-	lbRegion := lb.GetRegion()
+	lbRegion, _ := lb.GetRegion()
 	if hostRegion.Id != lbRegion.Id {
 		return nil, httperrors.NewInputParameterError("region of host %q (%s) != region of loadbalancer %q (%s))",
 			host.Name, host.ZoneId, lb.Name, lb.ZoneId)
@@ -242,7 +242,8 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancer(ctx co
 		if err := db.SetExternalId(lb, userCred, iLoadbalancer.GetGlobalId()); err != nil {
 			return nil, err
 		}
-		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil, lb.GetCloudprovider(), lb.GetRegion()); err != nil {
+		region, _ := lb.GetRegion()
+		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil, lb.GetCloudprovider(), region); err != nil {
 			return nil, err
 		}
 		//公网lb,需要同步public ip
@@ -567,9 +568,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackend
 		if err != nil {
 			return nil, err
 		}
-		loadbalancer := lbbg.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for backendgroup %s", lbbg.Name)
+		loadbalancer, err := lbbg.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
 		if err != nil {
@@ -612,9 +613,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 		if err != nil {
 			return nil, err
 		}
-		loadbalancer := lbbg.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for backendgroup %s", lbbg.Name)
+		loadbalancer, err := lbbg.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
 		if err != nil {
@@ -662,13 +663,13 @@ func (self *SManagedVirtualizationRegionDriver) RequestPullLoadbalancerBackendGr
 
 func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		lbbg := lbb.GetLoadbalancerBackendGroup()
-		if lbbg == nil {
-			return nil, fmt.Errorf("failed to find lbbg for backend %s", lbb.Name)
+		lbbg, err := lbb.GetLoadbalancerBackendGroup()
+		if err != nil {
+			return nil, err
 		}
-		lb := lbbg.GetLoadbalancer()
-		if lb == nil {
-			return nil, fmt.Errorf("failed to find lb for backendgroup %s", lbbg.Name)
+		lb, err := lbbg.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := lb.GetIRegion()
 		if err != nil {
@@ -703,13 +704,13 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 		if jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
 			return nil, nil
 		}
-		lbbg := lbb.GetLoadbalancerBackendGroup()
-		if lbbg == nil {
-			return nil, fmt.Errorf("failed to find lbbg for backend %s", lbb.Name)
+		lbbg, err := lbb.GetLoadbalancerBackendGroup()
+		if err != nil {
+			return nil, err
 		}
-		lb := lbbg.GetLoadbalancer()
-		if lb == nil {
-			return nil, fmt.Errorf("failed to find lb for backendgroup %s", lbbg.Name)
+		lb, err := lbbg.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := lb.GetIRegion()
 		if err != nil {
@@ -742,13 +743,13 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 
 func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		lbbg := lbb.GetLoadbalancerBackendGroup()
-		if lbbg == nil {
-			return nil, fmt.Errorf("failed to find lbbg for backend %s", lbb.Name)
+		lbbg, err := lbb.GetLoadbalancerBackendGroup()
+		if err != nil {
+			return nil, err
 		}
-		lb := lbbg.GetLoadbalancer()
-		if lb == nil {
-			return nil, fmt.Errorf("failed to find lb for backendgroup %s", lbbg.Name)
+		lb, err := lbbg.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := lb.GetIRegion()
 		if err != nil {
@@ -859,9 +860,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 		if err != nil {
 			return nil, errors.Wrapf(err, "lblis.GetLoadbalancerListenerParams")
 		}
-		loadbalancer := lblis.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
+		loadbalancer, err := lblis.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
@@ -888,9 +889,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerListene
 		if jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
 			return nil, nil
 		}
-		loadbalancer := lblis.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
+		loadbalancer, err := lblis.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
@@ -924,9 +925,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerListene
 
 func (self *SManagedVirtualizationRegionDriver) RequestStartLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		loadbalancer := lblis.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
+		loadbalancer, err := lblis.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
@@ -1027,7 +1028,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerListener(
 		if err != nil {
 			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetParams")
 		}
-		loadbalancer := lblis.GetLoadbalancer()
+		loadbalancer, err := lblis.GetLoadbalancer()
+		if err != nil {
+			return nil, err
+		}
 		if loadbalancer == nil {
 			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
 		}
@@ -1056,9 +1060,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerListener(
 
 func (self *SManagedVirtualizationRegionDriver) RequestStopLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		loadbalancer := lblis.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
+		loadbalancer, err := lblis.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
@@ -1079,9 +1083,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestStopLoadbalancerListener(
 
 func (self *SManagedVirtualizationRegionDriver) RequestSyncstatusLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		loadbalancer := lblis.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
+		loadbalancer, err := lblis.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
@@ -1106,13 +1110,13 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncstatusLoadbalancerLis
 
 func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, lbr *models.SLoadbalancerListenerRule, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		listener := lbr.GetLoadbalancerListener()
-		if listener == nil {
-			return nil, fmt.Errorf("failed to find listener for listnener rule %s", lbr.Name)
+		listener, err := lbr.GetLoadbalancerListener()
+		if err != nil {
+			return nil, err
 		}
-		loadbalancer := listener.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for listener %s", listener.Name)
+		loadbalancer, err := listener.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
@@ -1156,13 +1160,13 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerListene
 		if jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
 			return nil, nil
 		}
-		listener := lbr.GetLoadbalancerListener()
-		if listener == nil {
-			return nil, fmt.Errorf("failed to find listener for listnener rule %s", lbr.Name)
+		listener, err := lbr.GetLoadbalancerListener()
+		if err != nil {
+			return nil, err
 		}
-		loadbalancer := listener.GetLoadbalancer()
-		if loadbalancer == nil {
-			return nil, fmt.Errorf("failed to find loadbalancer for listener %s", listener.Name)
+		loadbalancer, err := listener.GetLoadbalancer()
+		if err != nil {
+			return nil, err
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
@@ -1610,7 +1614,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 			log.Errorf("failed to sync project %s for create %s rds %s error: %v", dbinstance.ProjectId, _cloudprovider.Provider, dbinstance.Name, err)
 		}
 
-		region := dbinstance.GetRegion()
+		region, err := dbinstance.GetRegion()
+		if err != nil {
+			return nil, err
+		}
 
 		err = region.GetDriver().InitDBInstanceUser(ctx, dbinstance, task, &desc)
 		if err != nil {
@@ -1769,7 +1776,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceFromBacku
 			log.Errorf("failed to sync project %s for create %s rds %s error: %v", rds.ProjectId, _cloudprovider.Provider, rds.Name, err)
 		}
 
-		region := rds.GetRegion()
+		region, err := rds.GetRegion()
+		if err != nil {
+			return nil, err
+		}
 
 		err = region.GetDriver().InitDBInstanceUser(ctx, rds, task, &desc)
 		if err != nil {
