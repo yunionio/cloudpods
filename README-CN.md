@@ -69,7 +69,7 @@ Cloudpods提供了如下的功能：
 
 ## 快速开始
 
-我们可以通过以下简单两步将Cloudpods安装在一台至少8GiB内存和100GB硬盘的Linux主机上（目前CentOS 7和Debian 10经过充分测试）
+我们可以通过以下简单三步将Cloudpods安装在一台至少8GiB内存和100GB硬盘的Linux主机上（目前CentOS 7和Debian 10经过充分测试）
 
 (下面假设该主机的IP为 *10.168.26.216*)
 
@@ -87,7 +87,19 @@ $ ssh-copy-id -i ~/.ssh/id_rsa.pub root@10.168.26.216
 $ ssh root@10.168.26.216 "hostname"
 ```
 
-### 2. 安装Cloudpods
+### 2. 安装git和相关工具
+
+#### CentOS 7安装git和epel源
+```bash
+yum install -y git epel-release
+```
+
+#### Debian 10安装git
+```bash
+apt install -y git
+```
+
+### 3. 安装Cloudpods
 
 通过以下命令开始安装Cloudpods：
 
