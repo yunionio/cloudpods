@@ -303,8 +303,9 @@ func (self *SCloudprovider) GetNextTimeRange() (time.Time, time.Time, error) {
 }
 
 type SCloudproviderDelegate struct {
-	Id   string
-	Name string
+	Id             string
+	Name           string
+	CloudaccountId string
 
 	Enabled    bool
 	Status     string
@@ -330,6 +331,16 @@ func (self *SCloudprovider) GetDelegate() (*SCloudproviderDelegate, error) {
 	err = result.Unmarshal(provider)
 	if err != nil {
 		return nil, errors.Wrap(err, "result.Unmarshal")
+	}
+	if provider.Provider == api.CLOUD_PROVIDER_APSARA || provider.Provider == api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK {
+		result, err := modules.Cloudaccounts.Get(s, provider.CloudaccountId, nil)
+		if err != nil {
+			return nil, errors.Wrapf(err, "modules.Cloudaccounts.Get")
+		}
+		err = result.Unmarshal(&provider.Options, "options")
+		if err != nil {
+			return nil, errors.Wrap(err, "result.Unmarshal")
+		}
 	}
 	return provider, nil
 }
