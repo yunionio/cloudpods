@@ -7,6 +7,11 @@ debian10-base:
 	docker buildx build --platform linux/arm64,linux/amd64 --push \
 		-t registry.cn-beijing.aliyuncs.com/yunionio/debian10-base:1.0 -f ./Dockerfile.debian-base .
 
+ONECLOUD_BASE_VERSION = v0.3.5
+
+onecloud-base:
+	$(DOCKER_BUILDX)/onecloud-base:$(ONECLOUD_BASE_VERSION) -f ./Dockerfile.onecloud-base .
+
 CLIMC_BASE_VERSION = 20210701
 
 climc-base:
