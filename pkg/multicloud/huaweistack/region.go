@@ -52,6 +52,7 @@ type SRegion struct {
 
 	izones []cloudprovider.ICloudZone
 	ivpcs  []cloudprovider.ICloudVpc
+	iskus  []cloudprovider.ICloudSku
 
 	storageCache *SStoragecache
 }
@@ -979,6 +980,10 @@ func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket
 }
 
 func (self *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
+	if self.iskus != nil {
+		return self.iskus, nil
+	}
+
 	ret := make([]cloudprovider.ICloudSku, 0)
 	flavors, err := self.fetchInstanceTypes(zoneId)
 	if err != nil {
@@ -989,7 +994,23 @@ func (self *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
 		ret = append(ret, &flavors[i])
 	}
 
+	self.iskus = ret
 	return ret, nil
+}
+
+func (self *SRegion) GetICloudSku(skuId string) (cloudprovider.ICloudSku, error) {
+	skus, err := self.GetSkus("")
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range skus {
+		if skus[i].GetId() == skuId {
+			return skus[i], nil
+		}
+	}
+
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetICloudSku")
 }
 
 func (self *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, error) {
