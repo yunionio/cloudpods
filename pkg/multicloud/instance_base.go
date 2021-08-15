@@ -70,3 +70,7 @@ func (self *SInstanceBase) SaveImage(opts *cloudprovider.SaveImageOptions) (clou
 func (self *SInstanceBase) AllocatePublicIpAddress() (string, error) {
 	return "", errors.Wrapf(cloudprovider.ErrNotImplemented, "AllocatePublicIpAddress")
 }
+
+func (self *SInstanceBase) GetOSArch() string {
+	return ""
+}
