@@ -45,6 +45,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/samlutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -349,7 +350,40 @@ func (manager *SCloudaccountManager) newFromICloudaccount(ctx context.Context, u
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert")
 	}
+	account.registerHuaweSaml(ctx)
 	return account, nil
+}
+
+func (self *SCloudaccount) registerHuaweSaml(ctx context.Context) error {
+	if self.Provider != computeapi.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK {
+		return nil
+	}
+	delegate, err := self.getCloudDelegate(ctx)
+	if err != nil {
+		return err
+	}
+	domain := delegate.Options.EndpointDomain
+	driv := SHuaweiSAMLDriver{
+		EntityId:         domain,
+		MetadataFileName: fmt.Sprintf("%s.xml", domain),
+		MetadataUrl:      fmt.Sprintf("https://auth.%s/authui/saml/metadata.xml", domain),
+	}
+	metadata, err := GetMetadata(&driv)
+	if err != nil {
+		return errors.Wrapf(err, "GetMetadata")
+	}
+	ed, err := samlutils.ParseMetadata(metadata)
+	if err != nil {
+		return errors.Wrapf(err, "ParseMetadata")
+	}
+
+	if FindDriver(ed.EntityId) != nil {
+		return nil
+	}
+	driv.EntityId = ed.EntityId
+	SamlIdpInstance().AddSPMetadata(metadata)
+	Register(&driv)
+	return nil
 }
 
 func (self *SCloudaccount) syncWithICloudaccount(ctx context.Context, userCred mcclient.TokenCredential, account SCloudaccount) error {
@@ -365,6 +399,10 @@ func (self *SCloudaccount) syncWithICloudaccount(ctx context.Context, userCred m
 	})
 	if err != nil {
 		return errors.Wrap(err, "db.UpdateWithLock")
+	}
+	err = self.registerHuaweSaml(ctx)
+	if err != nil {
+		log.Errorf("regiester %s saml sp error: %s", self.Name, err)
 	}
 	self.StartSAMLProviderCreateTask(ctx, userCred)
 	return nil
@@ -443,6 +481,10 @@ type SCloudDelegate struct {
 	Provider string
 	Brand    string
 
+	Options struct {
+		cloudprovider.SHuaweiCloudStackEndpoints
+		cloudprovider.SApsaraEndpoints
+	}
 	ProxySetting proxyapi.SProxySetting
 }
 
@@ -525,6 +567,9 @@ func (account *SCloudDelegate) GetProvider() (cloudprovider.ICloudProvider, erro
 		Account:   account.Account,
 		Secret:    passwd,
 		ProxyFunc: proxyFunc,
+
+		SApsaraEndpoints:           account.Options.SApsaraEndpoints,
+		SHuaweiCloudStackEndpoints: account.Options.SHuaweiCloudStackEndpoints,
 
 		AccountId: account.Id,
 	})

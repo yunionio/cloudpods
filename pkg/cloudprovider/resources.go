@@ -332,6 +332,7 @@ type ICloudVM interface {
 	GetBootOrder() string
 	GetVga() string
 	GetVdi() string
+	GetOSArch() string
 	GetOSType() string
 	GetOSName() string
 	GetBios() string
@@ -800,6 +801,7 @@ type ICloudSku interface {
 	GetPrepaidStatus() string
 	GetPostpaidStatus() string
 
+	GetCpuArch() string
 	GetCpuCoreCount() int
 	GetMemorySizeMB() int
 

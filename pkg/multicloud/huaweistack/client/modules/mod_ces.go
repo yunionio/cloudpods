@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
+	hw_mod "yunion.io/x/onecloud/pkg/multicloud/huawei/client/modules"
 	"yunion.io/x/onecloud/pkg/multicloud/huaweistack/client/manager"
 	"yunion.io/x/onecloud/pkg/multicloud/huaweistack/client/requests"
 )
@@ -42,41 +43,8 @@ func NewCloudEyeManager(cfg manager.IManagerConfig) *SCloudEyeManager {
 	}}
 }
 
-type SMetricDimension struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-}
-
-type SDatapoint struct {
-	Timestamp int64   `json:"timestamp"`
-	Max       float64 `json:"max,omitzero"`
-	Min       float64 `json:"min,omitzero"`
-	Average   float64 `json:"average,omitzero"`
-	Sum       float64 `json:"sum,omitzero"`
-	Variance  float64 `json:"variance,omitzero"`
-}
-
-type SMetricData struct {
-	SMetricMeta
-
-	Datapoints []SDatapoint
-}
-
-type SMetricMeta struct {
-	SMetric
-
-	Unit string `json:"unit"`
-}
-
-type SMetric struct {
-	MetricName string `json:"metric_name"`
-	Namespace  string `json:"namespace"`
-
-	Dimensions []SMetricDimension `json:"dimensions"`
-}
-
-func (ces *SCloudEyeManager) ListMetrics() ([]SMetricMeta, error) {
-	metrics := make([]SMetricMeta, 0)
+func (ces *SCloudEyeManager) ListMetrics() ([]hw_mod.SMetricMeta, error) {
+	metrics := make([]hw_mod.SMetricMeta, 0)
 	next := ""
 	for {
 		marker, data, err := ces.listMetricsInternal(next)
@@ -92,7 +60,7 @@ func (ces *SCloudEyeManager) ListMetrics() ([]SMetricMeta, error) {
 	return metrics, nil
 }
 
-func (ces *SCloudEyeManager) listMetricsInternal(start string) (string, []SMetricMeta, error) {
+func (ces *SCloudEyeManager) listMetricsInternal(start string) (string, []hw_mod.SMetricMeta, error) {
 	request := requests.NewResourceRequest(ces.GetEndpoint(), "GET", string(ces.ServiceName), ces.version, ces.Region, ces.ProjectId, ces.ResourceKeyword)
 	request.AddQueryParam("limit", "1000")
 	if len(start) > 0 {
@@ -103,7 +71,7 @@ func (ces *SCloudEyeManager) listMetricsInternal(start string) (string, []SMetri
 		return "", nil, errors.Wrap(err, "ces.jsonRequest")
 	}
 	marker, _ := resp.GetString("meta_data", "marker")
-	metrics := make([]SMetricMeta, 0)
+	metrics := make([]hw_mod.SMetricMeta, 0)
 	err = resp.Unmarshal(&metrics, "metrics")
 	if err != nil {
 		return "", nil, errors.Wrap(err, "resp.Unmarshal metrics")
@@ -112,7 +80,7 @@ func (ces *SCloudEyeManager) listMetricsInternal(start string) (string, []SMetri
 }
 
 type SBatchQueryMetricDataInput struct {
-	Metrics []SMetric `json:"metrics"`
+	Metrics []hw_mod.SMetric `json:"metrics"`
 
 	From   int64  `json:"from"`
 	To     int64  `json:"to"`
@@ -120,11 +88,11 @@ type SBatchQueryMetricDataInput struct {
 	Filter string `json:"filter"`
 }
 
-func (ces *SCloudEyeManager) GetMetricsData(metrics []SMetricMeta, since time.Time, until time.Time) ([]SMetricData, error) {
+func (ces *SCloudEyeManager) GetMetricsData(metrics []hw_mod.SMetricMeta, since time.Time, until time.Time) ([]hw_mod.SMetricData, error) {
 	if len(metrics) > 10 {
 		return nil, errors.Wrap(httperrors.ErrTooLarge, "request more than 10 metrics")
 	}
-	metricReq := make([]SMetric, len(metrics))
+	metricReq := make([]hw_mod.SMetric, len(metrics))
 	for i := range metrics {
 		metricReq[i] = metrics[i].SMetric
 	}
@@ -143,7 +111,7 @@ func (ces *SCloudEyeManager) GetMetricsData(metrics []SMetricMeta, since time.Ti
 		return nil, errors.Wrap(err, "ces.jsonRequest")
 	}
 	//log.Debugf("%s", resp)
-	result := make([]SMetricData, 0)
+	result := make([]hw_mod.SMetricData, 0)
 	err = resp.Unmarshal(&result, "metrics")
 	if err != nil {
 		return nil, errors.Wrap(err, "resp.Unmarshal")

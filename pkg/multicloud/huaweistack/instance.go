@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -354,15 +355,6 @@ func (self *SInstance) GetCreatedAt() time.Time {
 // charging_mode “0”：按需计费  “1”：按包年包月计费
 func (self *SInstance) GetExpiredAt() time.Time {
 	var expiredTime time.Time
-	if self.Metadata.ChargingMode == "1" {
-		res, err := self.host.zone.region.GetOrderResourceDetail(self.GetId())
-		if err != nil {
-			log.Debugln(err)
-		}
-
-		expiredTime = res.ExpireTime
-	}
-
 	return expiredTime
 }
 
@@ -474,6 +466,23 @@ func (self *SInstance) GetVga() string {
 
 func (self *SInstance) GetVdi() string {
 	return "vnc"
+}
+
+func (self *SInstance) GetOSArch() string {
+	if flavor, err := self.host.zone.region.GetICloudSku(self.Flavor.ID); err == nil {
+		return flavor.GetCpuArch()
+	} else {
+		log.Debugf("GetOSArch.GetICloudSku %s: %s", self.Flavor.ID, err)
+	}
+
+	t := self.GetInstanceType()
+	if len(t) > 0 {
+		if strings.HasPrefix(t, "k") {
+			return apis.OS_ARCH_AARCH64
+		}
+	}
+
+	return apis.OS_ARCH_X86
 }
 
 func (self *SInstance) GetOSType() string {
@@ -765,7 +774,7 @@ func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, 
 }
 
 func (self *SInstance) Renew(bc billing.SBillingCycle) error {
-	return self.host.zone.region.RenewInstance(self.GetId(), bc)
+	return cloudprovider.ErrNotSupported
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0094148850.html
@@ -955,30 +964,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		ids, err = self.GetAllSubTaskEntityIDs(self.ecsClient.Servers.ServiceType(), _id, "server_id")
 	} else {
 		// 包年包月
-		err = cloudprovider.WaitCreated(10*time.Second, 300*time.Second, func() bool {
-			log.Debugf("WaitCreated %s", _id)
-			order, e := self.GetOrder(_id)
-			if e != nil {
-				log.Debugf(e.Error())
-				return false
-			}
-
-			if order.TotalSize == 0 {
-				return false
-			}
-
-			ids, err = self.getAllResIdsByType(_id, RESOURCE_TYPE_VM)
-			if err != nil {
-				log.Debugln(err)
-				return false
-			}
-
-			if len(ids) > 0 {
-				return true
-			}
-
-			return false
-		})
+		return "", errors.Wrap(cloudprovider.ErrNotSupported, "CreateInstance")
 	}
 
 	if err != nil {
@@ -1321,43 +1307,6 @@ func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
 	return err
 }
 
-// // https://support.huaweicloud.com/api-bpconsole/zh-cn_topic_0082522029.html
-// 只支持传入主资源ID, 根据“查询客户包周期资源列表”接口响应参数中的“is_main_resource”来标识。
-// expire_mode 0：进入宽限期  1：转按需 2：自动退订 3：自动续订（当前只支持ECS、EVS和VPC）
-func (self *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle) error {
-	params := jsonutils.NewDict()
-	res := jsonutils.NewArray()
-	res.Add(jsonutils.NewString(instanceId))
-	params.Add(res, "resource_ids")
-	params.Add(jsonutils.NewInt(EXPIRE_MODE_AUTO_UNSUBSCRIBE), "expire_mode") // 自动退订
-	params.Add(jsonutils.NewInt(AUTO_PAY_TRUE), "isAutoPay")                  // 自动支付
-	month := int64(bc.GetMonths())
-	year := int64(bc.GetYears())
-
-	if month >= 1 && month <= 11 {
-		params.Add(jsonutils.NewInt(PERIOD_TYPE_MONTH), "period_type")
-		params.Add(jsonutils.NewInt(month), "period_num")
-	} else if year >= 1 && year <= 3 {
-		params.Add(jsonutils.NewInt(PERIOD_TYPE_YEAR), "period_type")
-		params.Add(jsonutils.NewInt(year), "period_num")
-	} else {
-		return fmt.Errorf("invalid renew period %d month,must be 1~11 month or 1~3 year", month)
-	}
-
-	domainId, err := self.getDomianId()
-	if err != nil {
-		return err
-	}
-
-	err = self.ecsClient.Orders.SetDomainId(domainId)
-	if err != nil {
-		return err
-	}
-
-	_, err = self.ecsClient.Orders.RenewPeriodResource(params)
-	return err
-}
-
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0065817702.html
 func (self *SRegion) GetInstanceSecrityGroupIds(instanceId string) ([]string, error) {
 	if len(instanceId) == 0 {
@@ -1377,20 +1326,6 @@ func (self *SRegion) GetInstanceSecrityGroupIds(instanceId string) ([]string, er
 	}
 
 	return securitygroupIds, nil
-}
-
-// https://support.huaweicloud.com/api-oce/zh-cn_topic_0082522030.html
-func (self *SRegion) UnsubscribeInstance(instanceId string, domianId string) (jsonutils.JSONObject, error) {
-	unsubObj := jsonutils.NewDict()
-	unsubObj.Add(jsonutils.NewInt(1), "unSubType")
-	unsubObj.Add(jsonutils.NewInt(5), "unsubscribeReasonType")
-	unsubObj.Add(jsonutils.NewString("no reason"), "unsubscribeReason")
-	resList := jsonutils.NewArray()
-	resList.Add(jsonutils.NewString(instanceId))
-	unsubObj.Add(resList, "resourceIds")
-
-	self.ecsClient.Orders.SetDomainId(domianId)
-	return self.ecsClient.Orders.PerformAction("resources/delete", "", unsubObj)
 }
 
 func (self *SInstance) GetProjectId() string {

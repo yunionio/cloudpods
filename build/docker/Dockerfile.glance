@@ -1,4 +1,4 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/torrent:20200820
+FROM registry.cn-beijing.aliyuncs.com/yunionio/torrent:20210815.0
 
 MAINTAINER "Zexi Li <lizexi@yunionyun.com>"
 

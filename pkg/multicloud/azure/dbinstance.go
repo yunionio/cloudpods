@@ -296,6 +296,8 @@ func (rds *SDBInstance) GetVmemSizeMB() int {
 			return rds.Sku.Capacity * 2 * 1024
 		case "General Purpose":
 			return rds.Sku.Capacity * 5 * 1024
+		case "GeneralPurpose":
+			return int(float32(rds.Sku.Capacity) * 5.2 * 1024)
 		case "Memory Optimized":
 			return rds.Sku.Capacity * 10 * 1024
 		default:

@@ -181,6 +181,10 @@ func (self *SHuaweiCloudStackProviderFactory) GetClientRC(info cloudprovider.SPr
 	}, nil
 }
 
+func (self *SHuaweiCloudStackProviderFactory) IsMultiTenant() bool {
+	return true
+}
+
 func init() {
 	factory := SHuaweiCloudStackProviderFactory{}
 	cloudprovider.RegisterFactory(&factory)
@@ -300,7 +304,7 @@ func (self *SHuaweiCloudStackProvider) GetIClouduserByName(name string) (cloudpr
 }
 
 func (self *SHuaweiCloudStackProvider) GetSamlEntityId() string {
-	return cloudprovider.SAML_ENTITY_ID_HUAWEI_CLOUD
+	return self.client.GetSamlEntityId()
 }
 
 func (self *SHuaweiCloudStackProvider) GetICloudSAMLProviders() ([]cloudprovider.ICloudSAMLProvider, error) {

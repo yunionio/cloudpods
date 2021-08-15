@@ -303,8 +303,9 @@ func (self *SCloudprovider) GetNextTimeRange() (time.Time, time.Time, error) {
 }
 
 type SCloudproviderDelegate struct {
-	Id   string
-	Name string
+	Id             string
+	Name           string
+	CloudaccountId string
 
 	Enabled    bool
 	Status     string
@@ -316,6 +317,11 @@ type SCloudproviderDelegate struct {
 
 	Provider string
 	Brand    string
+
+	Options struct {
+		cloudprovider.SApsaraEndpoints
+		cloudprovider.SHuaweiCloudStackEndpoints
+	}
 
 	ProxySetting proxyapi.SProxySetting
 }
@@ -330,6 +336,16 @@ func (self *SCloudprovider) GetDelegate() (*SCloudproviderDelegate, error) {
 	err = result.Unmarshal(provider)
 	if err != nil {
 		return nil, errors.Wrap(err, "result.Unmarshal")
+	}
+	if provider.Provider == api.CLOUD_PROVIDER_APSARA || provider.Provider == api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK {
+		result, err := modules.Cloudaccounts.Get(s, provider.CloudaccountId, nil)
+		if err != nil {
+			return nil, errors.Wrapf(err, "modules.Cloudaccounts.Get")
+		}
+		err = result.Unmarshal(&provider.Options, "options")
+		if err != nil {
+			return nil, errors.Wrap(err, "result.Unmarshal")
+		}
 	}
 	return provider, nil
 }
@@ -391,6 +407,9 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 			Secret:  passwd,
 
 			ProxyFunc: proxyFunc,
+
+			SHuaweiCloudStackEndpoints: delegate.Options.SHuaweiCloudStackEndpoints,
+			SApsaraEndpoints:           delegate.Options.SApsaraEndpoints,
 		},
 	)
 }

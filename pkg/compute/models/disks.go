@@ -1907,7 +1907,7 @@ func (self *SDisk) PerformPurge(ctx context.Context, userCred mcclient.TokenCred
 	}
 
 	provider := self.GetCloudprovider()
-	if provider != nil && provider.Provider == api.CLOUD_PROVIDER_HUAWEI {
+	if provider != nil && utils.IsInStringArray(provider.Provider, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK}) {
 		cnt, err := self.GetSnapshotCount()
 		if err != nil {
 			return nil, httperrors.NewInternalServerError("GetSnapshotCount fail %s", err)
@@ -1922,7 +1922,7 @@ func (self *SDisk) PerformPurge(ctx context.Context, userCred mcclient.TokenCred
 
 func (self *SDisk) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if !jsonutils.QueryBoolean(query, "delete_snapshots", false) {
-		if provider := self.GetCloudprovider(); provider != nil && provider.Provider == api.CLOUD_PROVIDER_HUAWEI {
+		if provider := self.GetCloudprovider(); provider != nil && utils.IsInStringArray(provider.Provider, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK}) {
 			cnt, err := self.GetSnapshotCount()
 			if err != nil {
 				return httperrors.NewInternalServerError("GetSnapshotCount fail %s", err)

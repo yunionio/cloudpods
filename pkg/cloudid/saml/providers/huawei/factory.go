@@ -19,20 +19,10 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
-type SHuaweiSAMLDriver struct{}
-
-func (d *SHuaweiSAMLDriver) GetEntityID() string {
-	return cloudprovider.SAML_ENTITY_ID_HUAWEI_CLOUD
-}
-
-func (d *SHuaweiSAMLDriver) GetMetadataFilename() string {
-	return "huawei.xml"
-}
-
-func (d *SHuaweiSAMLDriver) GetMetadataUrl() string {
-	return "https://auth.huaweicloud.com/authui/saml/metadata.xml"
-}
-
 func init() {
-	models.Register(&SHuaweiSAMLDriver{})
+	models.Register(&models.SHuaweiSAMLDriver{
+		EntityId:         cloudprovider.SAML_ENTITY_ID_HUAWEI_CLOUD,
+		MetadataFileName: "huawei.xml",
+		MetadataUrl:      "https://auth.huaweicloud.com/authui/saml/metadata.xml",
+	})
 }

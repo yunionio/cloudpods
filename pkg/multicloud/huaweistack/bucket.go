@@ -77,6 +77,12 @@ func (b *SBucket) GetCreateAt() time.Time {
 	return b.CreationDate
 }
 
+/*
+ service returned error: Status=405 Method Not Allowed, Code=MethodNotAllowed,
+ Message=The specified method is not allowed against this resource.,
+ RequestId=00000175B0E9D138440B9EF092DF8A7A
+https://support.huaweicloud.com/productdesc-modelarts/modelarts_01_0017.html
+*/
 func (b *SBucket) GetStorageClass() string {
 	obscli, err := b.region.getOBSClient()
 	if err != nil {
@@ -86,6 +92,7 @@ func (b *SBucket) GetStorageClass() string {
 	output, err := obscli.GetBucketStoragePolicy(b.Name)
 	if err != nil {
 		log.Errorf("obscli.GetBucketStoragePolicy error %s", err)
+		return ""
 	}
 	return output.StorageClass
 }
@@ -593,7 +600,8 @@ func (b *SBucket) GetWebsiteConf() (cloudprovider.SBucketWebsiteConf, error) {
 	}
 	result.Index = out.IndexDocument.Suffix
 	result.ErrorDocument = out.ErrorDocument.Key
-	result.Url = fmt.Sprintf("https://%s.obs-website.%s.myhuaweicloud.com", b.Name, b.region.GetId())
+	endpoint := b.region.client.cpcfg.GetEndpoint("obs-website", b.region.GetId())
+	result.Url = fmt.Sprintf("https://%s.%s", endpoint)
 	return result, nil
 }
 

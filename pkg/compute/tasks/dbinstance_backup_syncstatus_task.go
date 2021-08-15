@@ -46,14 +46,14 @@ func (self *DBInstanceBackupSyncstatusTask) taskFailed(ctx context.Context, back
 func (self *DBInstanceBackupSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	backup := obj.(*models.SDBInstanceBackup)
 
-	region := backup.GetRegion()
-	if region == nil {
-		self.taskFailed(ctx, backup, fmt.Errorf("failed to found cloudregion for backup storage %s(%s)", backup.Name, backup.Id))
+	region, err := backup.GetRegion()
+	if err != nil {
+		self.taskFailed(ctx, backup, errors.Wrapf(err, "GetRegion"))
 		return
 	}
 
 	self.SetStage("OnDBInstanceBackupSyncStatusComplete", nil)
-	err := region.GetDriver().RequestSyncDBInstanceBackupStatus(ctx, self.GetUserCred(), backup, self)
+	err = region.GetDriver().RequestSyncDBInstanceBackupStatus(ctx, self.GetUserCred(), backup, self)
 	if err != nil {
 		self.taskFailed(ctx, backup, errors.Wrap(err, "RequestSyncDBInstanceBackupStatus"))
 		return

@@ -54,11 +54,11 @@ type SEvent struct {
 }
 
 func (event *SEvent) GetName() string {
-	if len(event.ResourceId) > 0 {
-		return event.ResourceId
-	}
 	if len(event.ResourceName) > 0 {
 		return event.ResourceName
+	}
+	if len(event.ResourceId) > 0 {
+		return event.ResourceId
 	}
 	return event.TraceName
 }

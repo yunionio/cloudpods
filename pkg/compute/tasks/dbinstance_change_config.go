@@ -37,12 +37,12 @@ func init() {
 	taskman.RegisterTask(DBInstanceChangeConfigTask{})
 }
 
-func (self *DBInstanceChangeConfigTask) taskFailed(ctx context.Context, dbinstance *models.SDBInstance, err error) {
-	dbinstance.SetStatus(self.UserCred, api.DBINSTANCE_CHANGE_CONFIG_FAILED, err.Error())
-	db.OpsLog.LogEvent(dbinstance, db.ACT_CHANGE_CONFIG, err, self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_CHANGE_CONFIG, err, self.UserCred, false)
+func (self *DBInstanceChangeConfigTask) taskFailed(ctx context.Context, rds *models.SDBInstance, err error) {
+	rds.SetStatus(self.UserCred, api.DBINSTANCE_CHANGE_CONFIG_FAILED, err.Error())
+	db.OpsLog.LogEvent(rds, db.ACT_CHANGE_CONFIG, err, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, rds, logclient.ACT_CHANGE_CONFIG, err, self.UserCred, false)
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
-		Obj:    dbinstance,
+		Obj:    rds,
 		Action: notifyclient.ActionChangeConfig,
 		IsFail: true,
 	})
@@ -59,7 +59,13 @@ func (self *DBInstanceChangeConfigTask) OnInit(ctx context.Context, obj db.IStan
 		return
 	}
 
-	err = rds.GetRegion().GetDriver().RequestChangeDBInstanceConfig(ctx, self.UserCred, rds, input, self)
+	region, err := rds.GetRegion()
+	if err != nil {
+		self.taskFailed(ctx, rds, errors.Wrapf(err, "GetRegion"))
+		return
+	}
+
+	err = region.GetDriver().RequestChangeDBInstanceConfig(ctx, self.UserCred, rds, input, self)
 	if err != nil {
 		self.taskFailed(ctx, rds, err)
 		return
@@ -67,14 +73,14 @@ func (self *DBInstanceChangeConfigTask) OnInit(ctx context.Context, obj db.IStan
 }
 
 func (self *DBInstanceChangeConfigTask) OnDBInstanceChangeConfigComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	dbinstance := obj.(*models.SDBInstance)
-	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_CHANGE_CONFIG, nil, self.UserCred, true)
+	rds := obj.(*models.SDBInstance)
+	logclient.AddActionLogWithStartable(self, rds, logclient.ACT_CHANGE_CONFIG, nil, self.UserCred, true)
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
-		Obj:    dbinstance,
+		Obj:    rds,
 		Action: notifyclient.ActionChangeConfig,
 	})
 	self.SetStage("OnSyncDBInstanceStatusComplete", nil)
-	models.StartResourceSyncStatusTask(ctx, self.UserCred, dbinstance, "DBInstanceSyncStatusTask", self.GetTaskId())
+	models.StartResourceSyncStatusTask(ctx, self.UserCred, rds, "DBInstanceSyncStatusTask", self.GetTaskId())
 }
 
 func (self *DBInstanceChangeConfigTask) OnDBInstanceChangeConfigCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

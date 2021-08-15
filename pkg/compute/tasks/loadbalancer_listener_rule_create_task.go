@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -38,7 +37,7 @@ func init() {
 
 func getOnPrepareLoadbalancerBackendgroupFunc(provider string) func(ctx context.Context, region *models.SCloudregion, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject, self *LoadbalancerListenerRuleCreateTask) {
 	switch provider {
-	case api.CLOUD_PROVIDER_HUAWEI:
+	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK:
 		return onHuaiweiPrepareLoadbalancerBackendgroup
 	case api.CLOUD_PROVIDER_AWS:
 		return onAwsPrepareLoadbalancerBackendgroup
@@ -61,9 +60,9 @@ func onHuaiweiPrepareLoadbalancerBackendgroup(ctx context.Context, region *model
 		return
 	}
 
-	lblis := lbr.GetLoadbalancerListener()
-	if lblis == nil {
-		self.taskFail(ctx, lbr, jsonutils.NewString("huawei loadbalancer listener rule releated listener not found"))
+	lblis, err := lbr.GetLoadbalancerListener()
+	if err != nil {
+		self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
 		return
 	}
 
@@ -114,9 +113,9 @@ func onAwsPrepareLoadbalancerBackendgroup(ctx context.Context, region *models.SC
 		return
 	}
 
-	lblis := lbr.GetLoadbalancerListener()
-	if lblis == nil {
-		self.taskFail(ctx, lbr, jsonutils.NewString("aws loadbalancer listener rule releated listener not found"))
+	lblis, err := lbr.GetLoadbalancerListener()
+	if err != nil {
+		self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
 		return
 	}
 
@@ -156,9 +155,9 @@ func onOpenstackPrepareLoadbalancerBackendgroup(ctx context.Context, region *mod
 		return
 	}
 
-	lblis := lbr.GetLoadbalancerListener()
-	if lblis == nil {
-		self.taskFail(ctx, lbr, jsonutils.NewString("openstack loadbalancer listener rule releated listener not found"))
+	lblis, err := lbr.GetLoadbalancerListener()
+	if err != nil {
+		self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
 		return
 	}
 
@@ -207,7 +206,7 @@ func (self *LoadbalancerListenerRuleCreateTask) taskFail(ctx context.Context, lb
 	db.OpsLog.LogEvent(lbr, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbr, logclient.ACT_CREATE, reason, self.UserCred, false)
 	notifyclient.NotifySystemErrorWithCtx(ctx, lbr.Id, lbr.Name, api.LB_CREATE_FAILED, reason.String())
-	lblis := lbr.GetLoadbalancerListener()
+	lblis, _ := lbr.GetLoadbalancerListener()
 	if lblis != nil {
 		logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_LB_ADD_LISTENER_RULE, reason, self.UserCred, false)
 	}
@@ -216,9 +215,9 @@ func (self *LoadbalancerListenerRuleCreateTask) taskFail(ctx context.Context, lb
 
 func (self *LoadbalancerListenerRuleCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lbr := obj.(*models.SLoadbalancerListenerRule)
-	region := lbr.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lbr, jsonutils.NewString(fmt.Sprintf("failed to find region for lbr %s", lbr.Name)))
+	region, err := lbr.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
 		return
 	}
 
@@ -231,9 +230,9 @@ func (self *LoadbalancerListenerRuleCreateTask) OnPrepareLoadbalancerBackendgrou
 }
 
 func (self *LoadbalancerListenerRuleCreateTask) OnCreateLoadbalancerListenerRule(ctx context.Context, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject) {
-	region := lbr.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lbr, jsonutils.NewString(fmt.Sprintf("failed to find region for lbr %s", lbr.Name)))
+	region, err := lbr.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lbr, jsonutils.NewString(err.Error()))
 		return
 	}
 	self.SetStage("OnLoadbalancerListenerRuleCreateComplete", nil)
@@ -251,7 +250,7 @@ func (self *LoadbalancerListenerRuleCreateTask) OnLoadbalancerListenerRuleCreate
 	db.OpsLog.LogEvent(lbr, db.ACT_ALLOCATE, lbr.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbr, logclient.ACT_CREATE, nil, self.UserCred, true)
 	notifyclient.NotifyWebhook(ctx, self.UserCred, lbr, notifyclient.ActionCreate)
-	lblis := lbr.GetLoadbalancerListener()
+	lblis, _ := lbr.GetLoadbalancerListener()
 	if lblis != nil {
 		logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_LB_ADD_LISTENER_RULE, nil, self.UserCred, true)
 	}

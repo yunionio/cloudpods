@@ -17,7 +17,6 @@ package tasks
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -39,7 +38,7 @@ func init() {
 
 func getOnLoadbalancerListenerCreateCompleteFunc(provider string) func(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject, self *LoadbalancerListenerCreateTask) {
 	switch provider {
-	case api.CLOUD_PROVIDER_HUAWEI:
+	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK:
 		return onHuaweiLoadbalancerListenerCreateComplete
 	case api.CLOUD_PROVIDER_OPENSTACK:
 		return onOpenstackLoadbalancerListenerCreateComplete
@@ -169,9 +168,9 @@ func (self *LoadbalancerListenerCreateTask) taskFail(ctx context.Context, lblis 
 
 func (self *LoadbalancerListenerCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lblis := obj.(*models.SLoadbalancerListener)
-	region := lblis.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, lblis, jsonutils.NewString(fmt.Sprintf("failed to find region for lblis %s", lblis.Name)))
+	region, err := lblis.GetRegion()
+	if err != nil {
+		self.taskFail(ctx, lblis, jsonutils.NewString(err.Error()))
 		return
 	}
 	self.SetStage("OnLoadbalancerListenerCreateComplete", nil)

@@ -45,6 +45,10 @@ func (self *SHuaweiCloudStackGuestDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK
 }
 
+func (self *SHuaweiCloudStackGuestDriver) DoScheduleSKUFilter() bool {
+	return false
+}
+
 func (self *SHuaweiCloudStackGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
 	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
@@ -153,5 +157,5 @@ func (self *SHuaweiCloudStackGuestDriver) IsNeedInjectPasswordByCloudInit(desc *
 }
 
 func (self *SHuaweiCloudStackGuestDriver) IsSupportSetAutoRenew() bool {
-	return true
+	return false
 }

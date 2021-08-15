@@ -86,6 +86,7 @@ func (b *SBucket) GetStorageClass() string {
 	output, err := obscli.GetBucketStoragePolicy(b.Name)
 	if err != nil {
 		log.Errorf("obscli.GetBucketStoragePolicy error %s", err)
+		return ""
 	}
 	return output.StorageClass
 }

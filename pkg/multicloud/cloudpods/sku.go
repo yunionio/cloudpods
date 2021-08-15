@@ -61,6 +61,10 @@ func (self *SServerSku) GetPostpaidStatus() string {
 	return self.PostpaidStatus
 }
 
+func (self *SServerSku) GetCpuArch() string {
+	return "x86"
+}
+
 func (self *SServerSku) GetCpuCoreCount() int {
 	return self.CpuCoreCount
 }

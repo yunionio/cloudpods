@@ -12,22 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package shell
+package models
 
-import (
-	huawei "yunion.io/x/onecloud/pkg/multicloud/huaweistack"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
-)
+type SHuaweiSAMLDriver struct {
+	EntityId         string
+	MetadataFileName string
+	MetadataUrl      string
+}
 
-func init() {
-	type AccountBalanceOptions struct {
-	}
-	shellutils.R(&AccountBalanceOptions{}, "balance", "Get account balance", func(cli *huawei.SRegion, args *AccountBalanceOptions) error {
-		result, err := cli.GetClient().QueryAccountBalance()
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
+func (d *SHuaweiSAMLDriver) GetEntityID() string {
+	return d.EntityId
+}
+
+func (d *SHuaweiSAMLDriver) GetMetadataFilename() string {
+	return d.MetadataFileName
+}
+
+func (d *SHuaweiSAMLDriver) GetMetadataUrl() string {
+	return d.MetadataUrl
 }

@@ -17,6 +17,8 @@ package huaweistack
 import (
 	"strconv"
 	"strings"
+
+	"yunion.io/x/onecloud/pkg/apis"
 )
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212656.html
@@ -35,8 +37,9 @@ type SInstanceType struct {
 }
 
 type OSExtraSpecs struct {
-	EcsPerformancetype string `json:"ecs:performancetype"`
-	EcsGeneration      string `json:"ecs:generation"`
+	EcsPerformancetype      string `json:"ecs:performancetype"`
+	EcsGeneration           string `json:"ecs:generation"`
+	EcsInstanceArchitecture string `json:"ecs:instance_architecture"`
 }
 
 var FLAVOR_FAMILY_CATEGORY_MAP = map[string]string{
@@ -111,16 +114,6 @@ func getFlavorLocalCategory(family string) string {
 	}
 }
 
-// https://support.huaweicloud.com/productdesc-ecs/ecs_01_0066.html
-// https://support.huaweicloud.com/ecs_faq/ecs_faq_0105.html
-func GetCpuArch(flavorId string) string {
-	if strings.HasPrefix(flavorId, "k") {
-		return "aarch64"
-	}
-
-	return "x86"
-}
-
 func (self *SInstanceType) GetId() string {
 	return self.ID
 }
@@ -177,9 +170,29 @@ func (self *SInstanceType) GetPostpaidStatus() string {
 	return "available"
 }
 
+// https://support.huaweicloud.com/productdesc-ecs/ecs_01_0066.html
+// https://support.huaweicloud.com/ecs_faq/ecs_faq_0105.html
+func (self *SInstanceType) GetCpuArch() string {
+	if len(self.OSExtraSpecs.EcsInstanceArchitecture) > 0 {
+		if strings.ToLower(self.OSExtraSpecs.EcsInstanceArchitecture) == "arm64" {
+			return apis.OS_ARCH_AARCH64
+		}
+
+		if strings.HasPrefix(self.OSExtraSpecs.EcsInstanceArchitecture, "arm") {
+			return apis.OS_ARCH_AARCH64
+		}
+	}
+
+	if strings.HasPrefix(self.ID, "k") {
+		return apis.OS_ARCH_AARCH64
+	}
+
+	return apis.OS_ARCH_X86
+}
+
 func (self *SInstanceType) GetCpuCoreCount() int {
 	count, err := strconv.Atoi(self.Vcpus)
-	if err != nil {
+	if err == nil {
 		return count
 	}
 	return 0

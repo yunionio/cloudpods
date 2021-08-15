@@ -16,6 +16,8 @@ package netutils2
 
 import (
 	"testing"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
 func TestNetlen2Mask(t *testing.T) {
@@ -132,6 +134,74 @@ func TestMyDefault(t *testing.T) {
 		}
 		if ifname == "" {
 			t.Errorf("empty ifname")
+		}
+	}
+}
+
+func TestGetMainNicFromDeployApi(t *testing.T) {
+	nics1 := []*types.SServerNic{
+		{
+			Ip:      "10.168.222.19",
+			Gateway: "10.168.222.1",
+		},
+		{
+			Ip:      "114.114.114.114",
+			Gateway: "114.114.114.1",
+		},
+	}
+	nics2 := []*types.SServerNic{
+		{
+			Ip: "10.168.222.19",
+		},
+		{
+			Ip:      "114.114.114.114",
+			Gateway: "114.114.114.1",
+		},
+	}
+	nics3 := []*types.SServerNic{
+		{
+			Ip:      "10.168.222.19",
+			Gateway: "10.168.222.1",
+		},
+		{
+			Ip: "114.114.114.114",
+		},
+	}
+	nics4 := []*types.SServerNic{
+		{
+			Ip: "10.168.222.19",
+		},
+		{
+			Ip: "114.114.114.114",
+		},
+	}
+	cases := []struct {
+		nics []*types.SServerNic
+		want *types.SServerNic
+	}{
+		{
+			nics1,
+			nics1[1],
+		},
+		{
+			nics2,
+			nics2[1],
+		},
+		{
+			nics3,
+			nics3[0],
+		},
+		{
+			nics4,
+			nics4[1],
+		},
+	}
+	for _, c := range cases {
+		got, err := GetMainNicFromDeployApi(c.nics)
+		if err != nil {
+			t.Errorf("error %s", err)
+		} else if got != c.want {
+			t.Errorf("error: got %v want %v", got, c.want)
 		}
 	}
 }

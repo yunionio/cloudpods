@@ -153,19 +153,6 @@ func init() {
 		DOMAIN string `help:"domain ID"`
 	}
 
-	shellutils.R(&InstanceOrderUnsubscribeOptions{}, "instance-order-unsubscribe", "Unsubscribe a prepaid server", func(cli *huawei.SRegion, args *InstanceOrderUnsubscribeOptions) error {
-		instance, e := cli.GetInstanceByID(args.ID)
-		if e != nil {
-			return e
-		}
-
-		_, err := cli.UnsubscribeInstance(instance.GetId(), args.DOMAIN)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-
 	type InstanceSaveImageOptions struct {
 		ID         string `help:"Instance ID"`
 		IMAGE_NAME string `help:"Image name"`

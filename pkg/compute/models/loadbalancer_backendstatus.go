@@ -24,7 +24,6 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
@@ -60,9 +59,9 @@ func (lbr *SLoadbalancerListenerRule) GetDetailsBackendStatus(ctx context.Contex
 	if provider != nil {
 		return jsonutils.NewArray(), nil
 	}
-	lblis := lbr.GetLoadbalancerListener()
-	if lblis == nil {
-		return nil, httperrors.NewNotFoundError("find listener of listener rule %s(%s)", lbr.Name, lbr.Id)
+	lblis, err := lbr.GetLoadbalancerListener()
+	if err != nil {
+		return nil, err
 	}
 	pxname := fmt.Sprintf("backends_rule-%s", lbr.Id)
 	return lbGetBackendGroupCheckStatus(ctx, userCred, lblis.LoadbalancerId, pxname, lbr.BackendGroupId)

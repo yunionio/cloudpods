@@ -53,13 +53,12 @@ func ValidateLoadbalancerListenerResourceInput(userCred mcclient.TokenCredential
 	return listenerObj.(*SLoadbalancerListener), input, nil
 }
 
-func (self *SLoadbalancerListenerResourceBase) GetLoadbalancerListener() *SLoadbalancerListener {
+func (self *SLoadbalancerListenerResourceBase) GetLoadbalancerListener() (*SLoadbalancerListener, error) {
 	listener, err := LoadbalancerListenerManager.FetchById(self.ListenerId)
 	if err != nil {
-		log.Errorf("failed to find LoadbalancerCluster %s error: %v", self.ListenerId, err)
-		return nil
+		return nil, errors.Wrapf(err, "GetLoadbalancerListener(%s)", self.ListenerId)
 	}
-	return listener.(*SLoadbalancerListener)
+	return listener.(*SLoadbalancerListener), nil
 }
 
 func (self *SLoadbalancerListenerResourceBase) GetCloudproviderId() string {
@@ -71,7 +70,7 @@ func (self *SLoadbalancerListenerResourceBase) GetCloudproviderId() string {
 }
 
 func (self *SLoadbalancerListenerResourceBase) GetCloudprovider() *SCloudprovider {
-	listener := self.GetLoadbalancerListener()
+	listener, _ := self.GetLoadbalancerListener()
 	if listener != nil {
 		return listener.GetCloudprovider()
 	}
@@ -79,7 +78,7 @@ func (self *SLoadbalancerListenerResourceBase) GetCloudprovider() *SCloudprovide
 }
 
 func (self *SLoadbalancerListenerResourceBase) GetProviderName() string {
-	listener := self.GetLoadbalancerListener()
+	listener, _ := self.GetLoadbalancerListener()
 	if listener != nil {
 		return listener.GetProviderName()
 	}

@@ -526,14 +526,6 @@ func (self *SFileSystem) StartSyncstatus(ctx context.Context, userCred mcclient.
 	return StartResourceSyncStatusTask(ctx, userCred, self, "FileSystemSyncstatusTask", parentTaskId)
 }
 
-func (self *SFileSystem) GetRegion() (*SCloudregion, error) {
-	region, err := CloudregionManager.FetchById(self.CloudregionId)
-	if err != nil {
-		return nil, errors.Wrap(err, "CloudregionManager.FetchById")
-	}
-	return region.(*SCloudregion), nil
-}
-
 func (self *SFileSystem) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	provider, err := self.GetDriver()
 	if err != nil {

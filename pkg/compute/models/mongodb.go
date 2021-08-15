@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -247,8 +246,9 @@ func (manager *SMongoDBManager) FetchCustomizeColumns(
 	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
-	rdsIds := make([]string, len(rows))
 	vpcIds := make([]string, len(rows))
+	netIds := make([]string, len(rows))
+	zoneIds := make([]string, len(rows))
 	for i := range rows {
 		rows[i] = api.MongoDBDetails{
 			VirtualResourceDetails:  virtRows[i],
@@ -256,8 +256,9 @@ func (manager *SMongoDBManager) FetchCustomizeColumns(
 			CloudregionResourceInfo: regRows[i],
 		}
 		instance := objs[i].(*SMongoDB)
-		rdsIds[i] = instance.Id
 		vpcIds[i] = instance.VpcId
+		netIds[i] = instance.NetworkId
+		zoneIds[i] = instance.ZoneId
 	}
 
 	vpcs := make(map[string]SVpc)
@@ -268,11 +269,23 @@ func (manager *SMongoDBManager) FetchCustomizeColumns(
 		return rows
 	}
 
+	netMaps, err := db.FetchIdNameMap2(NetworkManager, netIds)
+	if err != nil {
+		return rows
+	}
+
+	zoneMaps, err := db.FetchIdNameMap2(ZoneManager, zoneIds)
+	if err != nil {
+		return rows
+	}
+
 	for i := range rows {
 		if vpc, ok := vpcs[vpcIds[i]]; ok {
 			rows[i].Vpc = vpc.Name
 			rows[i].VpcExtId = vpc.ExternalId
 		}
+		rows[i].Network, _ = netMaps[netIds[i]]
+		rows[i].Zone, _ = zoneMaps[zoneIds[i]]
 	}
 
 	return rows
@@ -477,6 +490,40 @@ func (self *SMongoDB) SyncWithCloudMongoDB(ctx context.Context, userCred mcclien
 		self.MaintainTime = ext.GetMaintainTime()
 		self.Status = ext.GetStatus()
 		self.Port = ext.GetPort()
+
+		if vpcId := ext.GetVpcId(); len(vpcId) > 0 {
+			vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", self.ManagerId)
+			})
+			if err != nil {
+				log.Errorf("FetchVpcId(%s) error: %v", vpcId, err)
+			} else {
+				self.VpcId = vpc.GetId()
+			}
+		}
+
+		if networkId := ext.GetNetworkId(); len(networkId) > 0 {
+			network, err := db.FetchByExternalIdAndManagerId(NetworkManager, networkId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				wire := WireManager.Query().SubQuery()
+				vpc := VpcManager.Query().SubQuery()
+				return q.Join(wire, sqlchemy.Equals(wire.Field("id"), q.Field("wire_id"))).
+					Join(vpc, sqlchemy.Equals(vpc.Field("id"), wire.Field("vpc_id"))).
+					Filter(sqlchemy.Equals(vpc.Field("manager_id"), self.ManagerId))
+			})
+			if err == nil {
+				self.NetworkId = network.GetId()
+			}
+		}
+
+		if zoneId := ext.GetZoneId(); len(zoneId) > 0 {
+			zone, err := self.GetZoneBySuffix(zoneId)
+			if err != nil {
+				log.Errorf("find zone %s error: %v", zoneId, err)
+			} else {
+				self.ZoneId = zone.Id
+			}
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -511,12 +558,9 @@ func (self *SCloudregion) newFromCloudMongoDB(ctx context.Context, userCred mccl
 	ins.ReplicationNum = ext.GetReplicationNum()
 
 	if zoneId := ext.GetZoneId(); len(zoneId) > 0 {
-		zones, _ := self.GetZones()
-		for _, zone := range zones {
-			if strings.HasSuffix(zone.ExternalId, zoneId) {
-				ins.ZoneId = zone.Id
-				break
-			}
+		zone, err := self.GetZoneBySuffix(zoneId)
+		if err == nil {
+			ins.ZoneId = zone.Id
 		}
 	}
 
@@ -609,10 +653,11 @@ func (man *SMongoDBManager) TotalCount(
 }
 
 func (self *SMongoDB) GetQuotaKeys() quotas.IQuotaKeys {
+	region, _ := self.GetRegion()
 	return fetchRegionalQuotaKeys(
 		rbacutils.ScopeProject,
 		self.GetOwnerId(),
-		self.GetRegion(),
+		region,
 		self.GetCloudprovider(),
 	)
 }
@@ -630,9 +675,9 @@ func (self *SMongoDB) GetUsages() []db.IUsage {
 }
 
 func (self *SMongoDB) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	region := self.GetRegion()
-	if region == nil {
-		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid cloudregion")
+	region, err := self.GetRegion()
+	if err != nil {
+		return nil, err
 	}
 	provider, err := self.GetDriver()
 	if err != nil {

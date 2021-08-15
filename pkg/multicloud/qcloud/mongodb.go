@@ -162,6 +162,12 @@ func (self *SMongoDB) GetVmemSizeMb() int {
 }
 
 func (self *SMongoDB) GetReplicationNum() int {
+	switch self.GetCategory() {
+	case api.MONGO_DB_CATEGORY_SHARDING:
+		return self.ReplicationSetNum
+	case api.MONGO_DB_CATEGORY_REPLICATE:
+		return 3
+	}
 	return self.ReplicationSetNum
 }
 
@@ -170,11 +176,7 @@ func (self *SMongoDB) GetDiskSizeMb() int {
 }
 
 func (self *SMongoDB) GetZoneId() string {
-	zone, err := self.region.getZoneById(self.Zone)
-	if err != nil {
-		return ""
-	}
-	return zone.GetGlobalId()
+	return self.Zone
 }
 
 func (self *SMongoDB) GetBillingType() string {
@@ -315,7 +317,8 @@ func (self *SRegion) GetICloudMongoDBs() ([]cloudprovider.ICloudMongoDB, error) 
 
 func (self *SRegion) GetMongoDBBackups(id string) ([]cloudprovider.SMongoDBBackup, error) {
 	params := map[string]string{
-		"InstanceId": id,
+		"BackupMethod": "2",
+		"InstanceId":   id,
 	}
 	resp, err := self.mongodbRequest("DescribeDBBackups", params)
 	if err != nil {

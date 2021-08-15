@@ -38,7 +38,8 @@ import (
 type SStoragecache struct {
 	multicloud.SResourceBase
 	multicloud.HuaweiTags
-	region *SRegion
+	region  *SRegion
+	iimages []cloudprovider.ICloudImage
 }
 
 func GetBucketName(regionId string, imageId string) string {
@@ -69,22 +70,43 @@ func (self *SStoragecache) IsEmulated() bool {
 	return false
 }
 
+func (self *SStoragecache) fetchImages() error {
+	imagesGold, err := self.region.GetImages("", ImageOwnerPublic, "", EnvFusionCompute)
+	if err != nil {
+		return err
+	}
+
+	imagesSelf, err := self.region.GetImages("", ImageOwnerSelf, "", EnvFusionCompute)
+	if err != nil {
+		return err
+	}
+
+	self.iimages = make([]cloudprovider.ICloudImage, len(imagesGold)+len(imagesSelf))
+	for i := range imagesGold {
+		imagesGold[i].storageCache = self
+		self.iimages[i] = &imagesGold[i]
+	}
+
+	l := len(imagesGold)
+	for i := range imagesSelf {
+		imagesSelf[i].storageCache = self
+		self.iimages[i+l] = &imagesSelf[i]
+	}
+	return nil
+}
+
 func (self *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	if self.iimages == nil {
+		err := self.fetchImages()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return self.iimages, nil
 }
 
 func (self *SStoragecache) GetICustomizedCloudImages() ([]cloudprovider.ICloudImage, error) {
-	imagesSelf, err := self.region.GetImages("", ImageOwnerSelf, "", EnvFusionCompute)
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetImages")
-	}
-
-	ret := []cloudprovider.ICloudImage{}
-	for i := range imagesSelf {
-		imagesSelf[i].storageCache = self
-		ret = append(ret, &imagesSelf[i])
-	}
-	return ret, nil
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {

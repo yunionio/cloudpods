@@ -33,10 +33,8 @@ import (
 
 /*
 待解决问题：
-1.同步的子账户中有一条空记录.需要查原因
-2.安全组同步需要进一步确认
-3.实例接口需要进一步确认
-4.BGP type 目前是hard code在代码中。需要考虑从cloudmeta服务中查询
+2.VM密码登录不成功(ubuntu不行，centos可以)
+3.实例绑定eip 查不出来eip？
 */
 
 const (
@@ -73,6 +71,7 @@ func NewHuaweiClientConfig(accessKey, accessSecret, projectId string, endpoints 
 		accessSecret: accessSecret,
 		endpoints:    endpoints,
 	}
+
 	return cfg
 }
 
@@ -244,7 +243,7 @@ func getOBSEndpoint(regionId string) string {
 }
 
 func (client *SHuaweiClient) getOBSClient(regionId string) (*obs.ObsClient, error) {
-	endpoint := getOBSEndpoint(regionId)
+	endpoint := client.cpcfg.SHuaweiCloudStackEndpoints.GetEndpoint("obs", regionId)
 	return obs.New(client.accessKey, client.accessSecret, endpoint)
 }
 
@@ -322,11 +321,7 @@ func (self *SHuaweiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 		if strings.ToLower(project.Name) == "mos" {
 			continue
 		}
-		// https://www.huaweicloud.com/notice/2018/20190618171312411.html
-		expiredAt, _ := timeutils.ParseTimeStr("2020-09-16 00:00:00")
-		if !self.ownerCreateTime.IsZero() && self.ownerCreateTime.After(expiredAt) && strings.ToLower(project.Name) == "cn-north-1" {
-			continue
-		}
+
 		s := cloudprovider.SSubAccount{
 			Name:         fmt.Sprintf("%s-%s", self.cpcfg.Name, project.Name),
 			Account:      fmt.Sprintf("%s/%s", self.accessKey, project.ID),
@@ -438,42 +433,6 @@ type SBalance struct {
 	MeasureUnit      int64   `json:"measure_unit"`
 }
 
-// 这里的余额指的是所有租户的总余额
-func (self *SHuaweiClient) QueryAccountBalance() (*SAccountBalance, error) {
-	domains, err := self.getEnabledDomains()
-	if err != nil {
-		return nil, err
-	}
-
-	result := &SAccountBalance{}
-	for _, domain := range domains {
-		balances, err := self.queryDomainBalances(domain.ID)
-		if err != nil {
-			return nil, err
-		}
-		for _, balance := range balances {
-			result.AvailableAmount += balance.Amount
-			result.CreditAmount += balance.CreditAmount
-			result.DesignatedAmount += balance.DesignatedAmount
-		}
-	}
-
-	return result, nil
-}
-
-// https://support.huaweicloud.com/api-bpconsole/zh-cn_topic_0075213309.html
-func (self *SHuaweiClient) queryDomainBalances(domainId string) ([]SBalance, error) {
-	huawei, _ := self.newGeneralAPIClient()
-	huawei.Balances.SetDomainId(domainId)
-	balances := make([]SBalance, 0)
-	err := doListAll(huawei.Balances.List, nil, &balances)
-	if err != nil {
-		return nil, err
-	}
-
-	return balances, nil
-}
-
 func (self *SHuaweiClient) GetVersion() string {
 	return HUAWEI_API_VERSION
 }
@@ -552,6 +511,10 @@ func (self *SHuaweiClient) GetOwnerId() (string, error) {
 	// 2021-02-02 02:43:28.0
 	self.ownerCreateTime, _ = timeutils.ParseTimeStr(strings.TrimSuffix(ret.CreateTime, ".0"))
 	return ret.DomainId, nil
+}
+
+func (self *SHuaweiClient) GetSamlEntityId() string {
+	return fmt.Sprintf("auth.%s", self.cpcfg.EndpointDomain)
 }
 
 func (self *SHuaweiClient) initOwner() error {

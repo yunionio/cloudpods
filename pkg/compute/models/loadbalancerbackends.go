@@ -174,9 +174,9 @@ func (man *SLoadbalancerBackendManager) QueryDistinctExtraField(q *sqlchemy.SQue
 }
 
 func (man *SLoadbalancerBackendManager) ValidateBackendVpc(lb *SLoadbalancer, guest *SGuest, backendgroup *SLoadbalancerBackendGroup) error {
-	region := lb.GetRegion()
-	if region == nil {
-		return httperrors.NewResourceNotFoundError("failed to find region for loadbalancer %s", lb.Name)
+	region, err := lb.GetRegion()
+	if err != nil {
+		return err
 	}
 	requireStatus := region.GetDriver().GetBackendStatusForAdd()
 	if !utils.IsInStringArray(guest.Status, requireStatus) {
@@ -187,7 +187,10 @@ func (man *SLoadbalancerBackendManager) ValidateBackendVpc(lb *SLoadbalancer, gu
 		return httperrors.NewBadRequestError("%s", err)
 	}
 	if len(lb.VpcId) > 0 {
-		lbVpc := lb.GetVpc()
+		lbVpc, err := lb.GetVpc()
+		if err != nil {
+			return err
+		}
 		if lbVpc != nil && !lbVpc.IsEmulated && vpc.Id != lb.VpcId {
 			return httperrors.NewBadRequestError("guest %s(%s) vpc %s(%s) not same as loadbalancer vpc %s", guest.Name, guest.Id, vpc.Name, vpc.Id, lb.VpcId)
 		}
@@ -238,11 +241,14 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 
 	backendType := backendTypeV.Value
 	backendGroup := backendGroupV.Model.(*SLoadbalancerBackendGroup)
-	lb := backendGroup.GetLoadbalancer()
+	lb, err := backendGroup.GetLoadbalancer()
+	if err != nil {
+		return nil, err
+	}
 	var backendModel db.IModel
 
 	input := apis.VirtualResourceCreateInput{}
-	err := data.Unmarshal(&input)
+	err = data.Unmarshal(&input)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("unmarshal VirtualResourceCreateInput fail %s", err)
 	}
@@ -252,9 +258,9 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 	}
 	data.Update(jsonutils.Marshal(input))
 
-	region := lb.GetRegion()
-	if region == nil {
-		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer %s", lb.Name)
+	region, err := lb.GetRegion()
+	if err != nil {
+		return nil, err
 	}
 
 	ctx = context.WithValue(ctx, "ownerId", ownerId)
@@ -266,20 +272,19 @@ func (lbb *SLoadbalancerBackend) AllowPerformStatus(ctx context.Context, userCre
 }
 
 func (lbb *SLoadbalancerBackend) GetCloudproviderId() string {
-	lbbg := lbb.GetLoadbalancerBackendGroup()
+	lbbg, _ := lbb.GetLoadbalancerBackendGroup()
 	if lbbg != nil {
 		return lbbg.GetCloudproviderId()
 	}
 	return ""
 }
 
-func (lbb *SLoadbalancerBackend) GetLoadbalancerBackendGroup() *SLoadbalancerBackendGroup {
+func (lbb *SLoadbalancerBackend) GetLoadbalancerBackendGroup() (*SLoadbalancerBackendGroup, error) {
 	backendgroup, err := LoadbalancerBackendGroupManager.FetchById(lbb.BackendGroupId)
 	if err != nil {
-		log.Errorf("failed to find backendgroup for backend %s", lbb.Name)
-		return nil
+		return nil, errors.Wrapf(err, "GetLoadbalancerBackendGroup(%s)", lbb.BackendGroupId)
 	}
-	return backendgroup.(*SLoadbalancerBackendGroup)
+	return backendgroup.(*SLoadbalancerBackendGroup), nil
 }
 
 func (lbb *SLoadbalancerBackend) GetGuest() *SGuest {
@@ -290,18 +295,20 @@ func (lbb *SLoadbalancerBackend) GetGuest() *SGuest {
 	return guest.(*SGuest)
 }
 
-func (lbb *SLoadbalancerBackend) GetRegion() *SCloudregion {
-	if backendgroup := lbb.GetLoadbalancerBackendGroup(); backendgroup != nil {
-		return backendgroup.GetRegion()
+func (lbb *SLoadbalancerBackend) GetRegion() (*SCloudregion, error) {
+	backendgroup, err := lbb.GetLoadbalancerBackendGroup()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return backendgroup.GetRegion()
 }
 
 func (lbb *SLoadbalancerBackend) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	if backendgroup := lbb.GetLoadbalancerBackendGroup(); backendgroup != nil {
-		return backendgroup.GetIRegion()
+	backendgroup, err := lbb.GetLoadbalancerBackendGroup()
+	if err != nil {
+		return nil, err
 	}
-	return nil, fmt.Errorf("failed to find region for backend %s", lbb.Name)
+	return backendgroup.GetIRegion()
 }
 
 func (man *SLoadbalancerBackendManager) GetGuestAddress(guest *SGuest) (string, error) {
@@ -330,13 +337,13 @@ func (lbb *SLoadbalancerBackend) ValidateUpdateData(ctx context.Context, userCre
 	}
 	data.Update(jsonutils.Marshal(input))
 
-	region := lbb.GetRegion()
-	if region == nil {
-		return nil, httperrors.NewResourceNotFoundError("failed to found region for loadbalancer backend %s", lbb.Name)
+	region, err := lbb.GetRegion()
+	if err != nil {
+		return nil, err
 	}
-	lbbg := lbb.GetLoadbalancerBackendGroup()
-	if lbbg == nil {
-		return nil, httperrors.NewResourceNotFoundError("failed to found backendgroup for backend %s(%s)", lbb.Name, lbb.Id)
+	lbbg, err := lbb.GetLoadbalancerBackendGroup()
+	if err != nil {
+		return nil, err
 	}
 
 	data.Set("backend_id", jsonutils.NewString(lbb.BackendId))

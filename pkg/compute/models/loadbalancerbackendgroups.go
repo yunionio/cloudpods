@@ -191,7 +191,7 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 
 	var (
 		lb          = lbV.Model.(*SLoadbalancer)
-		lbRegion    = lb.GetRegion()
+		lbRegion, _ = lb.GetRegion()
 		lbIsManaged = lb.IsManaged()
 		backends    = []cloudprovider.SLoadbalancerBackend{}
 	)
@@ -267,9 +267,9 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 		}
 	}
 	data.Set("backends", jsonutils.Marshal(backends))
-	region := lb.GetRegion()
-	if region == nil {
-		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer %s", lb.Name)
+	region, err := lb.GetRegion()
+	if err != nil {
+		return nil, err
 	}
 	return region.GetDriver().ValidateCreateLoadbalancerBackendGroupData(ctx, userCred, data, lb, backends)
 }
@@ -294,27 +294,28 @@ func (lbbg *SLoadbalancerBackendGroup) GetLoadbalancerListeners() ([]SLoadbalanc
 	return listeners, nil
 }
 
-func (lbbg *SLoadbalancerBackendGroup) GetLoadbalancer() *SLoadbalancer {
+func (lbbg *SLoadbalancerBackendGroup) GetLoadbalancer() (*SLoadbalancer, error) {
 	lb, err := LoadbalancerManager.FetchById(lbbg.LoadbalancerId)
 	if err != nil {
-		log.Errorf("failed to find loadbalancer for backendgroup %s", lbbg.Name)
-		return nil
+		return nil, err
 	}
-	return lb.(*SLoadbalancer)
+	return lb.(*SLoadbalancer), nil
 }
 
-func (llbg *SLoadbalancerBackendGroup) GetRegion() *SCloudregion {
-	if loadbalancer := llbg.GetLoadbalancer(); loadbalancer != nil {
-		return loadbalancer.GetRegion()
+func (llbg *SLoadbalancerBackendGroup) GetRegion() (*SCloudregion, error) {
+	loadbalancer, err := llbg.GetLoadbalancer()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return loadbalancer.GetRegion()
 }
 
 func (lbbg *SLoadbalancerBackendGroup) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	if loadbalancer := lbbg.GetLoadbalancer(); loadbalancer != nil {
-		return loadbalancer.GetIRegion()
+	loadbalancer, err := lbbg.GetLoadbalancer()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetLoadbalancer")
 	}
-	return nil, fmt.Errorf("failed to find loadbalancer for backendgroup %s", lbbg.Name)
+	return loadbalancer.GetIRegion()
 }
 
 func (lbbg *SLoadbalancerBackendGroup) GetBackends() ([]SLoadbalancerBackend, error) {
@@ -554,7 +555,7 @@ func (lbbg *SLoadbalancerBackendGroup) StartOpenstackLoadBalancerBackendGroupCre
 }
 
 func (lbbg *SLoadbalancerBackendGroup) LBPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	if lb := lbbg.GetLoadbalancer(); lb != nil && lb.BackendGroupId == lbbg.Id {
+	if lb, _ := lbbg.GetLoadbalancer(); lb != nil && lb.BackendGroupId == lbbg.Id {
 		if _, err := db.UpdateWithLock(ctx, lb, func() error {
 			lb.BackendGroupId = ""
 			return nil
@@ -635,7 +636,7 @@ func (lbbg *SLoadbalancerBackendGroup) GetBackendGroupParams() (*cloudprovider.S
 		ListenerID: listenerId,
 	}
 
-	loadbalancer := lbbg.GetLoadbalancer()
+	loadbalancer, _ := lbbg.GetLoadbalancer()
 	if loadbalancer != nil {
 		ret.VpcId = loadbalancer.VpcId
 		ret.LoadbalancerID = loadbalancer.ExternalId
@@ -745,14 +746,13 @@ func (lbbg *SLoadbalancerBackendGroup) GetAwsBackendGroupParams(lblis *SLoadbala
 
 	ret.ListenerID = lblis.GetExternalId()
 
-	lb := lblis.GetLoadbalancer()
+	lb, _ := lblis.GetLoadbalancer()
 	if lb != nil {
-		vpc := lb.GetVpc()
-		if vpc != nil {
-			ret.VpcId = vpc.GetExternalId()
-		} else {
-			return nil, fmt.Errorf("loadbalancer %s related vpc not found", lb.GetId())
+		vpc, err := lb.GetVpc()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetVpc")
 		}
+		ret.VpcId = vpc.GetExternalId()
 	}
 	ret.ListenType = lblis.ListenerType
 	ret.ListenPort = lblis.ListenerPort
@@ -860,9 +860,9 @@ func (lbbg *SLoadbalancerBackendGroup) GetICloudLoadbalancerBackendGroup() (clou
 		return nil, fmt.Errorf("backendgroup %s has no external id", lbbg.GetId())
 	}
 
-	lb := lbbg.GetLoadbalancer()
-	if lb == nil {
-		return nil, fmt.Errorf("backendgroup %s releated loadbalancer not found", lbbg.GetId())
+	lb, err := lbbg.GetLoadbalancer()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetLoadbalacer")
 	}
 
 	iregion, err := lb.GetIRegion()
