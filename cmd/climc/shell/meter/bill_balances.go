@@ -26,7 +26,7 @@ func init() {
 
 	type BillBalanceListOptions struct {
 		options.BaseListOptions
-		ACCOUNTID string `help:"accountId of the BillBalance"`
+		ACCOUNTID string `help:"accountId of the BillBalance" metavar:"accountList|account_id"`
 	}
 	R(&BillBalanceListOptions{}, "billbalance-list", "List all BillBalances ", func(s *mcclient.ClientSession, args *BillBalanceListOptions) error {
 		var params *jsonutils.JSONDict
