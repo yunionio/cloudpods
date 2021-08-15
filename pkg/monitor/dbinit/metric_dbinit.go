@@ -426,7 +426,7 @@ func init() {
 			newMetricFieldCreateInput("messages", "messages", monitor.METRIC_UNIT_COUNT, 3),
 			newMetricFieldCreateInput("queues", "queues", monitor.METRIC_UNIT_COUNT, 4),
 		})
-	RegistryMetricCreateInput("rabbitmq_overview", "rabbitmq_node",
+	RegistryMetricCreateInput("rabbitmq_node", "rabbitmq_node",
 		monitor.METRIC_RES_TYPE_EXT_RABBITMQ, monitor.METRIC_DATABASE_TELE, 2, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("disk_free", "disk_free", monitor.METRIC_UNIT_BYTE, 2),
 			newMetricFieldCreateInput("mem_used", "mem_used", monitor.METRIC_UNIT_BYTE, 1),
