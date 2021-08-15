@@ -3,6 +3,7 @@ package conditions
 import (
 	gocontext "context"
 	"strconv"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -68,7 +69,8 @@ func (query *MetricQueryCondition) ExecuteQuery() (*mq.Metrics, error) {
 		Series: make(tsdb.TimeSeriesSlice, 0),
 		Metas:  queryResult.metas,
 	}
-	if len(query.QueryCons[0].ResType) == 0 {
+	if len(query.QueryCons[0].ResType) == 0 ||
+		strings.HasPrefix(query.QueryCons[0].ResType, monitor.EXT_PREFIX) {
 		metrics.Series = queryResult.series
 		return &metrics, nil
 	}
