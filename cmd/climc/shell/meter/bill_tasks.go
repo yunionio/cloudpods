@@ -19,15 +19,15 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type BillTasksCreateOptions struct {
-		options.BaseListOptions
+		// options.BaseListOptions
 		CloudaccountId string `help:"cloudaccount Id" required:"true"`
 		StartDay       int    `help:"start day of billing cycle, example: 20060102"`
 		EndDay         int    `help:"end day of billing cycle, example: 20060102"`
+		TaskType       string `help:"task type" choices:"bill_remove|bill_pulling"`
 	}
 	R(&BillTasksCreateOptions{}, "bill-tasks-create", "create bill task",
 		func(s *mcclient.ClientSession, args *BillTasksCreateOptions) error {
