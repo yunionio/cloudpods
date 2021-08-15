@@ -181,6 +181,10 @@ func (self *SHuaweiCloudStackProviderFactory) GetClientRC(info cloudprovider.SPr
 	}, nil
 }
 
+func (self *SHuaweiCloudStackProviderFactory) IsMultiTenant() bool {
+	return true
+}
+
 func init() {
 	factory := SHuaweiCloudStackProviderFactory{}
 	cloudprovider.RegisterFactory(&factory)
