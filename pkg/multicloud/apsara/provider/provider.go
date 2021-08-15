@@ -39,6 +39,10 @@ func (self *SApsaraProviderFactory) GetName() string {
 	return apsara.CLOUD_PROVIDER_APSARA_CN
 }
 
+func (self *SApsaraProviderFactory) IsMultiTenant() bool {
+	return true
+}
+
 func (self *SApsaraProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
