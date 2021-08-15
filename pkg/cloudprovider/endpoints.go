@@ -53,6 +53,11 @@ type SHuaweiCloudStackEndpoints struct {
 	// required: true
 	DefaultRegion string `default:"$HUAWEI_DEFAULT_REGION" metavar:"$HUAWEI_DEFAULT_REGION"`
 
+	// 默认DNS
+	// example: 10.125.0.26,10.125.0.27
+	// required: false
+	DefaultSubnetDns string `default:"$HUAWEI_DEFAULT_SUBNET_DNS" metavar:"$HUAWEI_DEFAULT_SUBNET_DNS"`
+
 	// 弹性云服务
 	Ecs string `default:"$HUAWEI_ECS_ENDPOINT"`
 	// 云容器服务
