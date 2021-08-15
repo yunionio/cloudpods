@@ -497,7 +497,7 @@ func (self *SCloudregion) syncWithCloudRegion(ctx context.Context, userCred mccl
 
 		self.IsEmulated = cloudRegion.IsEmulated()
 
-		if !factory.IsPublicCloud() && !factory.IsOnPremise() {
+		if !factory.IsPublicCloud() && !factory.IsOnPremise() && !factory.IsMultiTenant() {
 			self.ManagerId = provider.Id
 		}
 
