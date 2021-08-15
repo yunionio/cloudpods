@@ -16,6 +16,8 @@ package monitor
 
 import "yunion.io/x/onecloud/pkg/apis"
 
+const EXT_PREFIX = "ext"
+
 const (
 	METRIC_RES_TYPE_GUEST        = "guest"
 	METRIC_RES_TYPE_HOST         = "host"
@@ -27,7 +29,8 @@ const (
 	METRIC_RES_TYPE_TENANT       = "tenant"
 	METRIC_RES_TYPE_DOMAIN       = "domain"
 	METRIC_RES_TYPE_STORAGE      = "storage"
-	METRIC_RES_TYPE_JENKINS      = "jenkins"
+	//ext is prefix！
+	METRIC_RES_TYPE_JENKINS      = "ext_jenkins"
 	METRIC_RES_TYPE_EXT_MYSQL    = "ext_mysql"
 	METRIC_RES_TYPE_EXT_REDIS    = "ext_redis"
 	METRIC_RES_TYPE_EXT_RABBITMQ = "ext_rabbitmq"
