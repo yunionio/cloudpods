@@ -167,7 +167,11 @@ func (self *SImage) GetSizeByte() int64 {
 
 func (self *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
 	if self.imgInfo == nil {
-		imgInfo := imagetools.NormalizeImageInfo(self.ImageSourceType, self.OSType, self.OSType, self.Platform, "")
+		arch := "x86"
+		if strings.ToLower(self.SupportArm) == "true" {
+			arch = "arm"
+		}
+		imgInfo := imagetools.NormalizeImageInfo(self.ImageSourceType, arch, self.OSType, self.Platform, "")
 		self.imgInfo = &imgInfo
 	}
 

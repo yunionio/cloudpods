@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -465,6 +466,23 @@ func (self *SInstance) GetVga() string {
 
 func (self *SInstance) GetVdi() string {
 	return "vnc"
+}
+
+func (self *SInstance) GetOSArch() string {
+	if flavor, err := self.host.zone.region.GetICloudSku(self.Flavor.ID); err == nil {
+		return flavor.GetCpuArch()
+	} else {
+		log.Debugf("GetOSArch.GetICloudSku %s: %s", self.Flavor.ID, err)
+	}
+
+	t := self.GetInstanceType()
+	if len(t) > 0 {
+		if strings.HasPrefix(t, "k") {
+			return apis.OS_ARCH_AARCH64
+		}
+	}
+
+	return apis.OS_ARCH_X86
 }
 
 func (self *SInstance) GetOSType() string {

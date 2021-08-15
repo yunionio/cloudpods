@@ -332,6 +332,7 @@ type ICloudVM interface {
 	GetBootOrder() string
 	GetVga() string
 	GetVdi() string
+	GetOSArch() string
 	GetOSType() string
 	GetOSName() string
 	GetBios() string
