@@ -389,4 +389,54 @@ func init() {
 			newMetricFieldCreateInput("number", "number", monitor.METRIC_UNIT_COUNT, 2),
 		})
 
+	//ext mysql
+	RegistryMetricCreateInput("mysql", "mysql",
+		monitor.METRIC_RES_TYPE_EXT_MYSQL, monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("binary_size_bytes", "binary_size_bytes", monitor.METRIC_UNIT_BYTE, 1),
+			newMetricFieldCreateInput("binary_files_count", "binary_files_count", monitor.METRIC_UNIT_COUNT, 2),
+			newMetricFieldCreateInput("connections", "connections", monitor.METRIC_UNIT_COUNT, 3),
+			newMetricFieldCreateInput("table_io_waits_total_fetch", "table_io_waits_total_fetch", monitor.METRIC_UNIT_COUNT, 4),
+			newMetricFieldCreateInput("table_io_waits_seconds_total_fetch", "table_io_waits_seconds_total_fetch", monitor.METRIC_UNIT_MS, 5),
+			newMetricFieldCreateInput("index_io_waits_total_fetch", "index_io_waits_total_fetch", monitor.METRIC_UNIT_COUNT, 6),
+			newMetricFieldCreateInput("index_io_waits_seconds_total_fetch", "index_io_waits_seconds_total_fetch", monitor.METRIC_UNIT_MS, 7),
+			newMetricFieldCreateInput("info_schema_table_rows", "info_schema_table_rows", monitor.METRIC_UNIT_COUNT, 8),
+			newMetricFieldCreateInput("info_schema_table_size_data_length", "info_schema_table_size_data_length", monitor.METRIC_UNIT_COUNT, 8),
+			newMetricFieldCreateInput("info_schema_table_size_index_length", "info_schema_table_size_index_length", monitor.METRIC_UNIT_COUNT, 9),
+		})
+
+	//ext redis
+	RegistryMetricCreateInput("redis", "redis",
+		monitor.METRIC_RES_TYPE_EXT_REDIS, monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("used_memory", "used_memory", monitor.METRIC_UNIT_BYTE, 1),
+			newMetricFieldCreateInput("used_memory_peak", "used_memory_peak", monitor.METRIC_UNIT_BYTE, 2),
+			newMetricFieldCreateInput("used_cpu_sys", "used_cpu_sys", monitor.METRIC_UNIT_PERCENT, 3),
+			newMetricFieldCreateInput("used_cpu_user", "used_cpu_user", monitor.METRIC_UNIT_PERCENT, 4),
+		})
+	RegistryMetricCreateInput("redis_keyspace", "redis_keyspace",
+		monitor.METRIC_RES_TYPE_EXT_REDIS, monitor.METRIC_DATABASE_TELE, 2, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("keys", "keys", monitor.METRIC_UNIT_COUNT, 1),
+			newMetricFieldCreateInput("expires", "expires", monitor.METRIC_UNIT_COUNT, 2),
+		})
+
+	//ext rabbitmq
+	RegistryMetricCreateInput("rabbitmq_overview", "rabbitmq_overview",
+		monitor.METRIC_RES_TYPE_EXT_RABBITMQ, monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("channels", "channels", monitor.METRIC_UNIT_COUNT, 1),
+			newMetricFieldCreateInput("consumers", "consumers", monitor.METRIC_UNIT_COUNT, 2),
+			newMetricFieldCreateInput("messages", "messages", monitor.METRIC_UNIT_COUNT, 3),
+			newMetricFieldCreateInput("queues", "queues", monitor.METRIC_UNIT_COUNT, 4),
+		})
+	RegistryMetricCreateInput("rabbitmq_overview", "rabbitmq_node",
+		monitor.METRIC_RES_TYPE_EXT_RABBITMQ, monitor.METRIC_DATABASE_TELE, 2, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("disk_free", "disk_free", monitor.METRIC_UNIT_BYTE, 2),
+			newMetricFieldCreateInput("mem_used", "mem_used", monitor.METRIC_UNIT_BYTE, 1),
+		})
+	RegistryMetricCreateInput("rabbitmq_queue", "rabbitmq_queue",
+		monitor.METRIC_RES_TYPE_EXT_RABBITMQ, monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("consumer_utilisation", "consumer_utilisation", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("message_bytes", "message_bytes", monitor.METRIC_UNIT_BYTE, 2),
+			newMetricFieldCreateInput("message_bytes_ram", "message_bytes_ram", monitor.METRIC_UNIT_BYTE, 3),
+			newMetricFieldCreateInput("messages", "messages", monitor.METRIC_UNIT_COUNT, 4),
+		})
+
 }
