@@ -234,6 +234,8 @@ func InitHandlers(app *appsrv.Application) {
 
 		models.AppManager,
 		models.AppEnvironmentManager,
+
+		models.CDNDomainManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

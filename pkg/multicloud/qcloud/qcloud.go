@@ -1089,8 +1089,6 @@ func (self *SQcloudClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
 		cloudprovider.CLOUD_CAPABILITY_RDS,
-		// cloudprovider.CLOUD_CAPABILITY_CACHE,
-		// cloudprovider.CLOUD_CAPABILITY_RDS,
 		cloudprovider.CLOUD_CAPABILITY_CACHE,
 		cloudprovider.CLOUD_CAPABILITY_EVENT,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
@@ -1101,6 +1099,7 @@ func (self *SQcloudClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_MONGO_DB,
 		cloudprovider.CLOUD_CAPABILITY_ES,
 		cloudprovider.CLOUD_CAPABILITY_KAFKA,
+		cloudprovider.CLOUD_CAPABILITY_CDN,
 	}
 	return caps
 }

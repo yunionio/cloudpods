@@ -1497,3 +1497,12 @@ type ICloudNatSku interface {
 	GetPrepaidStatus() string
 	GetPostpaidStatus() string
 }
+
+type ICloudCDNDomain interface {
+	ICloudEnabledResource
+
+	GetArea() string
+	GetServiceType() string
+
+	Delete() error
+}
