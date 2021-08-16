@@ -144,6 +144,9 @@ func (cli *SAzureClient) AssignPolicy(objectId, roleName, subscriptionId string)
 		resource := fmt.Sprintf("subscriptions/%s/providers/Microsoft.Authorization/roleAssignments/%s", subscriptionId, stringutils.UUID4())
 		_, err = cli.put(resource, jsonutils.Marshal(body))
 		if err != nil {
+			if e, ok := err.(*AzureResponseError); ok && e.AzureError.Code == "ReadOnlyDisabledSubscription" || e.AzureError.Code == "PrincipalNotFound" {
+				continue
+			}
 			return errors.Wrapf(err, "AssignPolicy %s for subscription %s", roleName, subscriptionId)
 		}
 	}
