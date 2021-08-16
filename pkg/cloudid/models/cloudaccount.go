@@ -597,7 +597,7 @@ func (self *SCloudaccount) getCloudusers() ([]SClouduser, error) {
 
 func (self *SCloudaccount) GetCloudusers() ([]SClouduser, error) {
 	users := []SClouduser{}
-	q := ClouduserManager.Query().Equals("status", api.CLOUD_USER_STATUS_AVAILABLE).Equals("cloudaccount_id", self.Id)
+	q := ClouduserManager.Query().Equals("cloudaccount_id", self.Id)
 	err := db.FetchModelObjects(ClouduserManager, q, &users)
 	if err != nil {
 		return nil, errors.Wrap(err, "db.FetchModelObjects")
@@ -612,7 +612,7 @@ func (self *SCloudaccount) SyncCloudusers(ctx context.Context, userCred mcclient
 	result := compare.SyncResult{}
 	dbUsers, err := self.GetCloudusers()
 	if err != nil {
-		result.Error(errors.Wrap(err, "GetCloudusersByProviderId"))
+		result.Error(errors.Wrap(err, "GetCloudusers"))
 		return nil, nil, result
 	}
 
