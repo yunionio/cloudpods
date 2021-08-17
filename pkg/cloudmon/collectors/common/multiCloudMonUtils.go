@@ -61,10 +61,10 @@ var OtherHostTag = map[string]string{
 }
 
 type ReportOptions struct {
-	Debug     bool     `help:"debug"`
 	Batch     int      `help:"batch"`
 	Count     int      `help:"count" json:"count"`
 	Interval  string   `help:"interval""`
+	Timeout   int64    `help:"command timeout unit:second" default:"10"`
 	SinceTime string   `help:"sinceTime"`
 	EndTime   string   `help:"endTime"`
 	Provider  []string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei|ZStack|Google|Apsara|HuaweiCloudStack" json:"provider,omitempty"`
