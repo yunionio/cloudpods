@@ -56,6 +56,7 @@ type SSQLServerDatabase struct {
 			Name     string `json:"name"`
 			Tier     string `json:"tier"`
 			Capacity int    `json:"capacity"`
+			Family   string `json:"family"`
 		} `json:"currentSku"`
 	} `json:"properties"`
 	Location string `json:"location"`
@@ -88,7 +89,24 @@ func (self *SSQLServerDatabase) GetDiskSizeMb() int {
 }
 
 func (self *SSQLServerDatabase) GetVcpuCount() int {
-	return self.Properties.Currentsku.Capacity
+	if len(self.Properties.Currentsku.Family) > 0 {
+		return self.Properties.Currentsku.Capacity
+	}
+	return 0
+}
+
+func (self *SSQLServerDatabase) GetVmemSizeMb() int {
+	if len(self.Properties.Currentsku.Family) > 0 {
+		return int(5.2 * 1024 * float32(self.Properties.Currentsku.Capacity))
+	}
+	return 0
+}
+
+func (self *SSQLServerDatabase) GetDTU() int {
+	if len(self.Properties.Currentsku.Family) == 0 {
+		return self.Properties.Currentsku.Capacity
+	}
+	return 0
 }
 
 func (self *SSQLServerDatabase) GetGlobalId() string {
