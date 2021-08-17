@@ -1,4 +1,4 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.2
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.3.5
 
 MAINTAINER "Zexi Li <lizexi@yunionyun.com>"
 
