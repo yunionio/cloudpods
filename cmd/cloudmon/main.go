@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"time"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/version"
 
 	_ "yunion.io/x/onecloud/pkg/cloudmon/collectors"
+	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
 	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -123,12 +126,28 @@ func main() {
 	if opts.SUBCOMMAND == "help" {
 		err = subcmd.Invoke(suboptions)
 	} else {
+		timout := suboptions.(*common.ReportOptions).Timeout
+		endChan := make(chan int, 1)
+		go func() {
+			ticker := time.NewTicker(time.Duration(timout) * time.Second)
+			for {
+				select {
+				case <-ticker.C:
+					log.Errorf("cmd: %s,provider: %v,end due to timeout: %s s", opts.SUBCOMMAND,
+						suboptions.(*common.ReportOptions).Provider, suboptions.(*common.ReportOptions).Timeout)
+					os.Exit(3)
+				case <-endChan:
+				}
+			}
+		}()
+
 		var session *mcclient.ClientSession
 		session, err = newClientSession(opts)
 		if err != nil {
 			showErrorAndExit(err)
 		}
 		err = subcmd.Invoke(session, suboptions)
+		endChan <- 1
 	}
 	if err != nil {
 		showErrorAndExit(err)
