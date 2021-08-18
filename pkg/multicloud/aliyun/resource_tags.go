@@ -97,7 +97,7 @@ func (self *SRegion) SetResourceTags(serviceType string, resourceType string, re
 	if err != nil {
 		return errors.Wrapf(err, "TagResource")
 	}
-	if !replace {
+	if !replace || len(tags) == 0 {
 		return nil
 	}
 	_, _tags, err := self.ListSysAndUserTags(serviceType, resourceType, resId)
@@ -109,7 +109,7 @@ func (self *SRegion) SetResourceTags(serviceType string, resourceType string, re
 		tagMaps[strings.ToLower(k)] = v
 	}
 	keys := []string{}
-	for k, _ := range _tags {
+	for k := range _tags {
 		if _, ok := tagMaps[strings.ToLower(k)]; !ok {
 			keys = append(keys, k)
 		}
@@ -140,9 +140,14 @@ func (self *SRegion) TagResource(serviceType string, resourceType string, resour
 		params[fmt.Sprintf("Tag.%d.Value", i+1)] = v
 		i++
 	}
-	_, err := self.tagRequest(serviceType, "TagResources", params)
+	action := "TagResources"
+	if len(tags) == 0 {
+		action = "UntagResources"
+		params["All"] = "true"
+	}
+	_, err := self.tagRequest(serviceType, action, params)
 	if err != nil {
-		return errors.Wrapf(err, "TagResources %s %s", resourceId, params)
+		return errors.Wrapf(err, "%s %s %s", action, resourceId, params)
 	}
 	return nil
 }
