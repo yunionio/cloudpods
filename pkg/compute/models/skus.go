@@ -494,53 +494,36 @@ func normalizeProvider(provider string) string {
 }
 
 func networkUsableRegionQueries(f sqlchemy.IQueryField) []sqlchemy.ICondition {
-	iconditions := make([]sqlchemy.ICondition, 0)
-	providers := CloudproviderManager.Query().SubQuery()
-	networks := NetworkManager.Query().SubQuery()
-	wires := WireManager.Query().SubQuery()
-	vpcs := VpcManager.Query().SubQuery()
-
+	providers := usableCloudProviders()
+	networks := NetworkManager.Query("wire_id").Equals("status", api.NETWORK_STATUS_AVAILABLE)
+	wires := WireManager.Query("vpc_id").In("id", networks)
+	_vpcs := VpcManager.Query("cloudregion_id").
+		Equals("status", api.VPC_STATUS_AVAILABLE).
+		In("id", wires)
+	filters := sqlchemy.OR(sqlchemy.In(_vpcs.Field("manager_id"), providers), sqlchemy.IsNullOrEmpty(_vpcs.Field("manager_id")))
+	vpcs := _vpcs.Filter(filters).SubQuery()
 	sq := vpcs.Query(sqlchemy.DISTINCT("cloudregion_id", vpcs.Field("cloudregion_id")))
-	sq = sq.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
-	sq = sq.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
-	sq = sq.Join(providers, sqlchemy.Equals(vpcs.Field("manager_id"), providers.Field("id")))
-	sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
-	sq = sq.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
-	sq = sq.Filter(sqlchemy.In(providers.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
-	sq = sq.Filter(sqlchemy.In(providers.Field("health_status"), api.CLOUD_PROVIDER_VALID_HEALTH_STATUS))
-	sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE))
-
-	sq2 := vpcs.Query(sqlchemy.DISTINCT("cloudregion_id", vpcs.Field("cloudregion_id")))
-	sq2 = sq2.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
-	sq2 = sq2.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
-	sq2 = sq2.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
-	sq2 = sq2.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
-	sq2 = sq2.Filter(sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE))
-
-	iconditions = append(iconditions, sqlchemy.In(f, sq.SubQuery()))
-	iconditions = append(iconditions, sqlchemy.In(f, sq2.SubQuery()))
-	return iconditions
+	return []sqlchemy.ICondition{sqlchemy.In(f, sq.SubQuery())}
 }
 
-func usableFilter(q *sqlchemy.SQuery, public_cloud bool) *sqlchemy.SQuery {
+func usableFilter(q *sqlchemy.SQuery, public_cloud bool) (*sqlchemy.SQuery, error) {
 	// 过滤出公有云provider状态健康的sku
 	if public_cloud {
-		providerTable := CloudproviderManager.Query().SubQuery()
+		providerTable := usableCloudProviders().SubQuery()
 		providerRegionTable := CloudproviderRegionManager.Query().SubQuery()
 
 		subq := providerRegionTable.Query(sqlchemy.DISTINCT("cloudregion_id", providerRegionTable.Field("cloudregion_id")))
 		subq = subq.Join(providerTable, sqlchemy.Equals(providerRegionTable.Field("cloudprovider_id"), providerTable.Field("id")))
-		subq = subq.Filter(sqlchemy.IsTrue(providerTable.Field("enabled")))
-		subq = subq.Filter(sqlchemy.In(providerTable.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
-		subq = subq.Filter(sqlchemy.In(providerTable.Field("health_status"), api.CLOUD_PROVIDER_VALID_HEALTH_STATUS))
 		q = q.Filter(sqlchemy.In(q.Field("cloudregion_id"), subq.SubQuery()))
 	}
 
 	// 过滤出network usable的sku
 	if public_cloud {
-		iconditions := NetworkUsableZoneQueries(q.Field("zone_id"), true, true)
-		iconditions = append(iconditions, sqlchemy.IsNullOrEmpty(q.Field("zone_id"))) //Azure的zone_id可能为空
-		q = q.Filter(sqlchemy.OR(iconditions...))
+		zoneIds, err := NetworkUsableZoneIds(true, true, nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "NetworkUsableZoneIds")
+		}
+		q = q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("zone_id"), zoneIds), sqlchemy.IsNullOrEmpty(q.Field("zone_id")))) //Azure的zone_id可能为空
 	} else {
 		// 本地IDC sku 只定义到region层级, zone id 为空.因此只能按region查询
 		iconditions := networkUsableRegionQueries(q.Field("cloudregion_id"))
@@ -549,7 +532,7 @@ func usableFilter(q *sqlchemy.SQuery, public_cloud bool) *sqlchemy.SQuery {
 		q = q.Filter(sqlchemy.OR(iconditions...))
 	}
 
-	return q
+	return q, nil
 }
 
 func (manager *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -772,7 +755,10 @@ func (manager *SServerSkuManager) ListItemFilter(
 	}
 
 	if query.Usable != nil && *query.Usable {
-		q = usableFilter(q, publicCloud)
+		q, err := usableFilter(q, publicCloud)
+		if err != nil {
+			return nil, err
+		}
 		q = q.IsTrue("enabled")
 	}
 

@@ -276,7 +276,10 @@ func (manager *SElasticcacheSkuManager) ListItemFilter(
 	}
 
 	if query.Usable != nil && *query.Usable {
-		q = usableFilter(q, true)
+		q, err = usableFilter(q, true)
+		if err != nil {
+			return nil, err
+		}
 		sq := sqlchemy.OR(sqlchemy.Equals(q.Field("prepaid_status"), api.SkuStatusAvailable), sqlchemy.Equals(q.Field("postpaid_status"), api.SkuStatusAvailable))
 		q = q.Filter(sq)
 	}

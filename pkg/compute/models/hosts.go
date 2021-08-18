@@ -317,15 +317,12 @@ func (manager *SHostManager) ListItemFilter(
 		hosts := HostManager.Query().SubQuery()
 		hostwires := HostwireManager.Query().SubQuery()
 		networks := NetworkManager.Query().SubQuery()
-		providers := CloudproviderManager.Query().SubQuery()
+		providers := usableCloudProviders().SubQuery()
 
 		hostQ1 := hosts.Query(hosts.Field("id"))
 		hostQ1 = hostQ1.Join(providers, sqlchemy.Equals(hosts.Field("manager_id"), providers.Field("id")))
 		hostQ1 = hostQ1.Join(hostwires, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
 		hostQ1 = hostQ1.Join(networks, sqlchemy.Equals(hostwires.Field("wire_id"), networks.Field("wire_id")))
-		hostQ1 = hostQ1.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
-		hostQ1 = hostQ1.Filter(sqlchemy.In(providers.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
-		hostQ1 = hostQ1.Filter(sqlchemy.In(providers.Field("health_status"), api.CLOUD_PROVIDER_VALID_HEALTH_STATUS))
 		hostQ1 = hostQ1.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 		hostQ1 = hostQ1.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 
