@@ -15,6 +15,7 @@
 package azure
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -162,7 +163,35 @@ func (self *SSQLServer) GetVcpuCount() int {
 }
 
 func (self *SSQLServer) GetVmemSizeMB() int {
-	return self.GetVcpuCount() * 3 * 1023
+	dbs, err := self.fetchDatabase()
+	if err != nil {
+		return 0
+	}
+	mem := 0
+	for _, db := range dbs {
+		mem += db.GetVmemSizeMb()
+	}
+	return mem
+}
+
+func (self *SSQLServer) GetSysTags() map[string]string {
+	dtu := self.GetDTU()
+	if dtu > 0 {
+		return map[string]string{"DTU": fmt.Sprintf("%d", dtu)}
+	}
+	return nil
+}
+
+func (self *SSQLServer) GetDTU() int {
+	dbs, err := self.fetchDatabase()
+	if err != nil {
+		return 0
+	}
+	dtu := 0
+	for _, db := range dbs {
+		dtu += db.GetDTU()
+	}
+	return dtu
 }
 
 func (self *SSQLServer) GetZone1Id() string {
