@@ -24,6 +24,7 @@ func init() {
 	cmd := shell.NewResourceCmd(&modules.DevToolScripts).WithKeyword("devtool-script")
 	cmd.List(new(options.ScriptListOptions))
 	cmd.Perform("apply", new(options.ScriptApplyOptions))
+	cmd.Perform("batch-apply", new(options.ScriptBatchApplyOptions))
 	cmd1 := shell.NewResourceCmd(&modules.DevToolScriptApplyRecords).WithKeyword("devtool-script-record")
 	cmd1.List(new(options.ScriptApplyRecordListOptions))
 }
