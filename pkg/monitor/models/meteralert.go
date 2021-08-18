@@ -101,14 +101,25 @@ func (man *SMeterAlertManager) genName(ctx context.Context, ownerId mcclient.IId
 
 func (man *SMeterAlertManager) getAllBillAccounts(ctx context.Context) ([]jsonutils.JSONObject, error) {
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	q := jsonutils.NewDict()
-	q.Add(jsonutils.NewString("accountList"), "account_id")
-	q.Add(jsonutils.NewInt(-1), "limit")
-	ret, err := modules.BillBalances.List(s, q)
-	if err != nil {
-		return nil, err
+	results := make([]jsonutils.JSONObject, 0)
+	for {
+		q := jsonutils.NewDict()
+		q.Add(jsonutils.NewString("system"), "scope")
+		q.Add(jsonutils.NewInt(int64(len(results))), "offset")
+		q.Add(jsonutils.NewInt(2048), "limit")
+		ret, err := modules.Cloudaccounts.List(s, q)
+		if err != nil {
+			return nil, err
+		}
+		if len(ret.Data) == 0 {
+			break
+		}
+		results = append(results, ret.Data...)
+		if ret.Total <= len(results) {
+			break
+		}
 	}
-	return ret.Data, nil
+	return results, nil
 }
 
 func (man *SMeterAlertManager) getAllBillAccountIds(ctx context.Context) ([]string, error) {
