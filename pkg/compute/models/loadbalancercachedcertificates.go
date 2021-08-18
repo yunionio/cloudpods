@@ -71,6 +71,11 @@ type SCachedLoadbalancerCertificate struct {
 	// CertificateId string `width:"128" charset:"ascii" nullable:"false" create:"required"  index:"true" list:"user" json:"certificate_id"` // 本地证书ID
 }
 
+func (manager *SCachedLoadbalancerCertificateManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
+	virts := manager.Query().IsFalse("pending_deleted")
+	return db.CalculateResourceCount(virts, "tenant_id")
+}
+
 func (self *SCachedLoadbalancerCertificate) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return false
 }
