@@ -1187,7 +1187,7 @@ func (manager *SCloudproviderManager) ListItemFilter(
 	}
 
 	if query.Usable != nil && *query.Usable {
-		providers := CloudproviderManager.Query().SubQuery()
+		providers := usableCloudProviders().SubQuery()
 		networks := NetworkManager.Query().SubQuery()
 		wires := WireManager.Query().SubQuery()
 		vpcs := VpcManager.Query().SubQuery()
@@ -1198,9 +1198,6 @@ func (manager *SCloudproviderManager) ListItemFilter(
 		sq = sq.Join(vpcs, sqlchemy.Equals(providerRegions.Field("cloudregion_id"), vpcs.Field("cloudregion_id")))
 		sq = sq.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
 		sq = sq.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
-		sq = sq.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
-		sq = sq.Filter(sqlchemy.In(providers.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
-		sq = sq.Filter(sqlchemy.In(providers.Field("health_status"), api.CLOUD_PROVIDER_VALID_HEALTH_STATUS))
 		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE))
 		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 		sq = sq.Filter(sqlchemy.OR(

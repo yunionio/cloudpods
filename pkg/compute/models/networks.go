@@ -2018,33 +2018,19 @@ func (manager *SNetworkManager) ListItemFilter(
 	}
 
 	if input.Usable != nil && *input.Usable {
-		wires := WireManager.Query().SubQuery()
-		zones := ZoneManager.Query().SubQuery()
-		vpcs := VpcManager.Query().SubQuery()
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-		providerSQ := cloudproviders.Query(cloudproviders.Field("id")).Filter(
-			sqlchemy.AND(
-				sqlchemy.IsTrue(cloudproviders.Field("enabled")),
-				sqlchemy.In(cloudproviders.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS),
-				sqlchemy.In(cloudproviders.Field("health_status"), api.CLOUD_PROVIDER_VALID_HEALTH_STATUS),
-			),
-		)
-		regions := CloudregionManager.Query().SubQuery()
+		regions := CloudregionManager.Query("id").Equals("status", api.CLOUD_REGION_STATUS_INSERVER)
+		zones := ZoneManager.Query("id").Equals("status", api.ZONE_ENABLE).In("cloudregion_id", regions)
+		providerSQ := usableCloudProviders()
+		_vpcs := VpcManager.Query("id").Equals("status", api.VPC_STATUS_AVAILABLE)
+		vpcs := _vpcs.Filter(sqlchemy.OR(
+			sqlchemy.In(_vpcs.Field("manager_id"), providerSQ),
+			sqlchemy.IsNullOrEmpty(_vpcs.Field("manager_id")),
+		))
 
-		sq := wires.Query(wires.Field("id")).
-			Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))).
-			Join(zones, sqlchemy.OR(sqlchemy.Equals(wires.Field("zone_id"), zones.Field("id")), sqlchemy.IsNullOrEmpty(wires.Field("zone_id")))).
-			Join(regions, sqlchemy.Equals(zones.Field("cloudregion_id"), regions.Field("id"))).
-			Filter(sqlchemy.AND(
-				sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE),
-				sqlchemy.Equals(zones.Field("status"), api.ZONE_ENABLE),
-				sqlchemy.Equals(regions.Field("status"), api.CLOUD_REGION_STATUS_INSERVER),
-				sqlchemy.OR(
-					sqlchemy.In(vpcs.Field("manager_id"), providerSQ.SubQuery()),
-					sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")),
-				),
-			))
-		q = q.In("wire_id", sq.SubQuery()).Equals("status", api.NETWORK_STATUS_AVAILABLE)
+		wires := WireManager.Query("id")
+		wires = wires.In("vpc_id", vpcs).
+			Filter(sqlchemy.OR(sqlchemy.IsNullOrEmpty(wires.Field("zone_id")), sqlchemy.In(wires.Field("zone_id"), zones)))
+		q = q.In("wire_id", wires).Equals("status", api.NETWORK_STATUS_AVAILABLE)
 	}
 
 	hostStr := input.HostId
