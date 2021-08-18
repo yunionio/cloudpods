@@ -66,6 +66,11 @@ type SQcloudCachedLbbg struct {
 	AssociatedType string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"` // 关联类型， listener || rule
 }
 
+func (manager *SQcloudCachedLbbgManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
+	virts := manager.Query().IsFalse("pending_deleted")
+	return db.CalculateResourceCount(virts, "tenant_id")
+}
+
 func (lbb *SQcloudCachedLbbg) GetCustomizeColumns(context.Context, mcclient.TokenCredential, jsonutils.JSONObject) *jsonutils.JSONDict {
 	return nil
 }
