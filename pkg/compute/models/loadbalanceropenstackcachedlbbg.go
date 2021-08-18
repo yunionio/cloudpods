@@ -66,6 +66,11 @@ type SOpenstackCachedLbbg struct {
 	ProtocolType   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"` // 监听协议类型
 }
 
+func (manager *SOpenstackCachedLbbgManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
+	virts := manager.Query().IsFalse("pending_deleted")
+	return db.CalculateResourceCount(virts, "tenant_id")
+}
+
 func (lbbg *SOpenstackCachedLbbg) GetLocalBackendGroup(ctx context.Context, userCred mcclient.TokenCredential) (*SLoadbalancerBackendGroup, error) {
 	if len(lbbg.BackendGroupId) == 0 {
 		return nil, fmt.Errorf("GetLocalBackendGroup no related local backendgroup")
