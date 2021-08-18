@@ -577,8 +577,28 @@ func (manager *SZoneManager) ListItemFilter(
 	usableNet := (query.Usable != nil && *query.Usable)
 	usableVpc := (query.UsableVpc != nil && *query.UsableVpc)
 	if usableNet || usableVpc {
-		iconditions := NetworkUsableZoneQueries(q.Field("id"), usableNet, usableVpc)
-		q = q.Filter(sqlchemy.OR(iconditions...))
+		if usableVpc {
+			regions := CloudregionManager.Query().SubQuery()
+			zones := ZoneManager.Query().SubQuery()
+			vpcs := VpcManager.Query().SubQuery()
+			sq := zones.Query(zones.Field("id")).Join(regions, sqlchemy.Equals(zones.Field("cloudregion_id"), regions.Field("id"))).Join(vpcs, sqlchemy.Equals(vpcs.Field("cloudregion_id"), regions.Field("id")))
+			q = q.In("id", sq)
+		} else {
+			regions := CloudregionManager.Query().SubQuery()
+			wires := WireManager.Query().SubQuery()
+			vpcs := VpcManager.Query().SubQuery()
+			networks := NetworkManager.Query().SubQuery()
+			sq1 := wires.Query(wires.Field("zone_id")).Join(networks, sqlchemy.Equals(networks.Field("wire_id"), wires.Field("id")))
+			sq2 := regions.Query(regions.Field("id")).Join(vpcs, sqlchemy.Equals(vpcs.Field("cloudregion_id"), regions.Field("id"))).
+				Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id"))).
+				Join(networks, sqlchemy.Equals(networks.Field("wire_id"), wires.Field("id"))).Filter(sqlchemy.IsNullOrEmpty(wires.Field("zone_id")))
+			q = q.Filter(
+				sqlchemy.OR(
+					sqlchemy.In(q.Field("id"), sq1),
+					sqlchemy.In(q.Field("cloudregion_id"), sq2),
+				),
+			)
+		}
 		q = q.Equals("status", api.ZONE_ENABLE)
 
 		service := query.Service
