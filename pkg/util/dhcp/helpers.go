@@ -70,10 +70,13 @@ func GetOptTime(d time.Duration) []byte {
 	return timeBytes
 }
 
-func GetClasslessRoutePack(route []string) []byte {
+func getClasslessRoutePack(route []string) []byte {
 	var snet, gw = route[0], route[1]
 	tmp := strings.Split(snet, "/")
 	netaddr := net.ParseIP(tmp[0])
+	if netaddr != nil {
+		netaddr = netaddr.To4()
+	}
 	masklen, _ := strconv.Atoi(tmp[1])
 	netlen := masklen / 8
 	if masklen%8 > 0 {
@@ -83,10 +86,13 @@ func GetClasslessRoutePack(route []string) []byte {
 		netaddr = netaddr[0:netlen]
 	}
 	gwaddr := net.ParseIP(gw)
+	if gwaddr != nil {
+		gwaddr = gwaddr.To4()
+	}
 
 	res := []byte{byte(masklen)}
-	res = append(res, []byte(netaddr.To4())...)
-	return append(res, []byte(gwaddr.To4())...)
+	res = append(res, []byte(netaddr)...)
+	return append(res, []byte(gwaddr)...)
 }
 
 func MakeReplyPacket(pkt Packet, conf *ResponseConfig) (Packet, error) {
@@ -159,7 +165,7 @@ func makeDHCPReplyPacket(req Packet, conf *ResponseConfig, msgType MessageType) 
 			optCode = OptClasslessRouteWin
 		}
 		for _, route := range conf.Routes {
-			routeBytes := GetClasslessRoutePack(route)
+			routeBytes := getClasslessRoutePack(route)
 			resp.AddOption(optCode, routeBytes)
 		}
 	}
