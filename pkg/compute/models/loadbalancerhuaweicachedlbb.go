@@ -64,6 +64,11 @@ type SHuaweiCachedLb struct {
 	CachedBackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 }
 
+func (manager *SHuaweiCachedLbManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
+	virts := manager.Query().IsFalse("pending_deleted")
+	return db.CalculateResourceCount(virts, "tenant_id")
+}
+
 func (man *SHuaweiCachedLbManager) GetBackendsByLocalBackendId(backendId string) ([]SHuaweiCachedLb, error) {
 	loadbalancerBackends := []SHuaweiCachedLb{}
 	q := man.Query().IsFalse("pending_deleted").Equals("backend_id", backendId)
