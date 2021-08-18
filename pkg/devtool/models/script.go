@@ -152,6 +152,36 @@ func (s *SScript) PerformApply(ctx context.Context, userCred mcclient.TokenCrede
 	return output, nil
 }
 
+func (s *SScript) AllowPerformBatchApply(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return s.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, s, "batch-apply")
+}
+
+func (s *SScript) PerformBatchApply(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ScriptBatchApplyInput) (api.ScriptBatchApplyOutput, error) {
+	output := api.ScriptBatchApplyOutput{
+		Results: make([]api.ScriptBatchApplyResult, len(input.ServerIds)),
+	}
+	var argsGenerator string
+	if s.Name == MonitorAgent {
+		argsGenerator = MonitorAgent
+	}
+	for i, serverId := range input.ServerIds {
+		output.Results[i].ServerId = serverId
+		sa, err := ScriptApplyManager.createScriptApply(ctx, s.Id, serverId, nil, argsGenerator)
+		if err != nil {
+			output.Results[i].Reason = err.Error()
+			continue
+		}
+		err = sa.StartApply(ctx, userCred)
+		if err != nil {
+			output.Results[i].Reason = err.Error()
+			continue
+		}
+		output.Results[i].Succeed = true
+		output.Results[i].ScriptApplyId = sa.Id
+	}
+	return output, nil
+}
+
 type sServerInfo struct {
 	ServerId      string
 	VpcId         string
