@@ -138,12 +138,6 @@ func NewSchedulerManager(keyword, keywordPlural string, columns, adminColumns []
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
-func NewMeterManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
-	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_METER, "", "", columns, adminColumns),
-		Keyword:     keyword, KeywordPlural: keywordPlural}
-}
-
 func NewYunionAgentManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
 		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_YUNIONAGENT, "", "", columns, adminColumns),
