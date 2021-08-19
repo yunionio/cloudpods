@@ -74,12 +74,12 @@ func (query *MetricQueryCondition) ExecuteQuery() (*mq.Metrics, error) {
 		metrics.Series = queryResult.series
 		return &metrics, nil
 	}
-	allResources, err := query.QueryCons[0].GetQueryResources()
-	if err != nil {
-		return nil, errors.Wrap(err, "MetricQueryCondition GetQueryResources err")
-	}
+	//allResources, err := query.QueryCons[0].GetQueryResources()
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "MetricQueryCondition GetQueryResources err")
+	//}
 	for _, serie := range queryResult.series {
-		isLatestOfSerie, resource := query.QueryCons[0].serieIsLatestResource(allResources, serie)
+		isLatestOfSerie, resource := query.QueryCons[0].serieIsLatestResource(nil, serie)
 		if !isLatestOfSerie {
 			continue
 		}

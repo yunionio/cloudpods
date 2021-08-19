@@ -6,8 +6,9 @@ import (
 )
 
 type Metrics struct {
-	Series tsdb.TimeSeriesSlice
-	Metas  []tsdb.QueryResultMeta
+	SeriesTotal int64
+	Series      tsdb.TimeSeriesSlice
+	Metas       []tsdb.QueryResultMeta
 }
 
 type MetricQuery interface {
