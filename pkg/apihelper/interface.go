@@ -44,7 +44,7 @@ type IModelSetEmulatedIncluder interface {
 	IncludeEmulated() bool
 }
 
-func SyncModelSets(mssOld IModelSets, s *mcclient.ClientSession, batchSize int) (r ModelSetsUpdateResult, err error) {
+func SyncModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (r ModelSetsUpdateResult, err error) {
 	mss := mssOld.ModelSetList()
 	mssNews := mssOld.NewEmpty()
 	for i, msNew := range mssNews.ModelSetList() {
@@ -60,10 +60,11 @@ func SyncModelSets(mssOld IModelSets, s *mcclient.ClientSession, batchSize int) 
 			ModelManager:  msNew.ModelManager(),
 			MinUpdatedAt:  minUpdatedAt,
 			ModelSet:      msNew,
-			BatchListSize: batchSize,
+			BatchListSize: opt.ListBatchSize,
 
-			IncludeDetails:  false,
-			IncludeEmulated: includeEmulated,
+			IncludeDetails:       opt.IncludeDetails,
+			IncludeEmulated:      includeEmulated,
+			InCludeOtherCloudEnv: opt.InCludeOtherCloudEnv,
 		})
 		if err != nil {
 			return

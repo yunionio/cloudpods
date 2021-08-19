@@ -3,6 +3,8 @@ package models
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"sync"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -11,10 +13,12 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apihelper"
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -22,6 +26,33 @@ import (
 var (
 	MonitorResourceManager *SMonitorResourceManager
 )
+
+type IMonitorResourceCache interface {
+	Get(resId string) (jsonutils.JSONObject, bool)
+}
+
+type sMonitorResourceCache struct {
+	length int
+	sync.Map
+}
+
+func (c *sMonitorResourceCache) set(resId string, obj jsonutils.JSONObject) {
+	c.Store(resId, obj)
+	c.length++
+}
+
+func (c *sMonitorResourceCache) remove(resId string) {
+	c.Delete(resId)
+	c.length--
+}
+
+func (c *sMonitorResourceCache) Get(resId string) (jsonutils.JSONObject, bool) {
+	obj, ok := c.Load(resId)
+	if !ok {
+		return nil, false
+	}
+	return obj.(jsonutils.JSONObject), true
+}
 
 func init() {
 	MonitorResourceManager = &SMonitorResourceManager{
@@ -31,15 +62,22 @@ func init() {
 			"monitorresource",
 			"monitorresources",
 		),
+		monitorResModelSets: NewModelSets(),
 	}
 	MonitorResourceManager.SetVirtualObject(MonitorResourceManager)
 	RegistryResourceSync(NewGuestResourceSync())
 	RegistryResourceSync(NewHostResourceSync())
 }
 
+func (manager *SMonitorResourceManager) GetModelSets() *MonitorResModelSets {
+	return manager.monitorResModelSets
+}
+
 type SMonitorResourceManager struct {
 	db.SVirtualResourceBaseManager
 	db.SEnabledResourceBaseManager
+
+	monitorResModelSets *MonitorResModelSets
 }
 
 type SMonitorResource struct {
@@ -49,22 +87,6 @@ type SMonitorResource struct {
 	AlertState string `width:"36" charset:"ascii" list:"user" default:"init" update:"user" json:"alert_state"`
 	ResId      string `width:"256" charset:"ascii"  index:"true" list:"user" update:"user" json:"res_id"`
 	ResType    string `width:"36" charset:"ascii" list:"user" update:"user" json:"res_type"`
-}
-
-func (manager *SMonitorResourceManager) SyncResources(ctx context.Context, userCred mcclient.TokenCredential,
-	isStart bool) {
-	for _, sync := range GetResourceSyncMap() {
-		err := sync.SyncResources(ctx, userCred, jsonutils.NewDict())
-		if err != nil {
-			log.Errorf("resType:%s SyncResources err:%v", sync.SyncType(), err)
-		}
-	}
-	err := CommonAlertManager.Run(ctx)
-	if err != nil {
-		log.Errorf("CommonAlertManager UpdateMonitorResourceJoint err:%v", err)
-		return
-	}
-	log.Infoln("====SMonitorResourceManager SyncResources End====")
 }
 
 func (manager *SMonitorResourceManager) GetMonitorResources(input monitor.MonitorResourceListInput) ([]SMonitorResource, error) {
@@ -358,4 +380,96 @@ func (self *SMonitorResource) UpdateAttachJoint(alertRecord *SAlertRecord, match
 	self.UpdateAlertState()
 	return errors.NewAggregate(errs)
 
+}
+
+func (manager *SMonitorResourceManager) GetResourceObj(id string) (bool, jsonutils.JSONObject) {
+	for _, set := range manager.GetModelSets().ModelSetList() {
+		setRv := reflect.ValueOf(set)
+		for _, kRv := range setRv.MapKeys() {
+			if id == kRv.String() {
+				mRv := setRv.MapIndex(kRv)
+				if mRv.IsValid() {
+					return true, jsonutils.Marshal(mRv.Interface())
+				}
+			}
+		}
+	}
+	return false, nil
+}
+
+func (manager *SMonitorResourceManager) SyncResources(ctx context.Context, mss *MonitorResModelSets) error {
+	userCred := auth.AdminCredential()
+	errs := make([]error, 0)
+	log.Infoln("start sync")
+	for _, set := range mss.ModelSetList() {
+		setRv := reflect.ValueOf(set)
+		typ := manager.GetSetType(set)
+		log.Infof("Type: %s,length: %d", typ, len(setRv.MapKeys()))
+		for _, kRv := range setRv.MapKeys() {
+			mRv := setRv.MapIndex(kRv)
+			//log.Errorf("resID:%s", kRv.String())
+			input := monitor.MonitorResourceListInput{
+				ResId: []string{kRv.String()},
+			}
+			res, err := MonitorResourceManager.GetMonitorResources(input)
+			if err != nil {
+				return errors.Wrap(err, "GetMonitorResources err")
+			}
+			if mRv.IsValid() {
+				obj := jsonutils.Marshal(mRv.Interface())
+				if len(res) == 0 {
+					// no find to create
+					createData := newMonitorResourceCreateInput(obj, typ)
+					_, err = db.DoCreate(MonitorResourceManager, ctx, userCred, nil, createData,
+						userCred)
+					if err != nil {
+						name, _ := createData.GetString("name")
+						errs = append(errs, errors.Wrapf(err, "monitorResource:%s resType:%s DoCreate err", name, typ))
+					}
+					continue
+				}
+				_, err = db.Update(&res[0], func() error {
+					obj.(*jsonutils.JSONDict).Remove("id")
+					(&res[0]).ResType = typ
+					obj.Unmarshal(&res[0])
+					return nil
+				})
+				if err != nil {
+					errs = append(errs, errors.Wrapf(err, "monitorResource:%s Update err", res[0].Name))
+					continue
+				}
+				continue
+			}
+			if len(res) != 0 {
+				log.Infof("delete monitor resource,resId: %s,resType: %s", res[0].ResId, res[0].ResType)
+				err := (&res[0]).RealDelete(ctx, userCred)
+				if err != nil {
+					errs = append(errs, errors.Wrapf(err, "delete monitorResource:%s err", res[0].GetId()))
+				}
+			}
+		}
+	}
+	log.Infoln("SMonitorResourceManager SyncResources End")
+	err := CommonAlertManager.Run(ctx)
+	if err != nil {
+		log.Errorf("CommonAlertManager UpdateMonitorResourceJoint err:%v", err)
+	}
+	return errors.NewAggregate(errs)
+}
+
+func (manager *SMonitorResourceManager) GetSetType(set apihelper.IModelSet) string {
+	if iset, ok := set.(IMonitorResModelSet); ok {
+		return iset.GetResType()
+	}
+	return "NONE"
+}
+
+func newMonitorResourceCreateInput(input jsonutils.JSONObject, typ string) jsonutils.JSONObject {
+	monitorResource := jsonutils.DeepCopy(input).(*jsonutils.JSONDict)
+	id, _ := monitorResource.GetString("id")
+	monitorResource.Add(jsonutils.NewString(id), "res_id")
+	monitorResource.Remove("id")
+	monitorResource.Add(jsonutils.NewString(typ), "res_type")
+
+	return monitorResource
 }

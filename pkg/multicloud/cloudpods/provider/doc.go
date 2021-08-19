@@ -12,4 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package azuremon // import "yunion.io/x/onecloud/pkg/cloudmon/collectors/azuremon"
+package provider // import "yunion.io/x/onecloud/pkg/multicloud/cloudpods/provider"
