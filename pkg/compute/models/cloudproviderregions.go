@@ -409,14 +409,7 @@ func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.
 }
 
 func (self *SCloudproviderregion) getSyncTaskKey() string {
-	region, err := self.GetRegion()
-	if err != nil {
-		return self.CloudregionId
-	}
-	if len(region.ExternalId) > 0 {
-		return region.ExternalId
-	}
-	return self.CloudproviderId
+	return fmt.Sprintf("%d", self.RowId)
 }
 
 func (self *SCloudproviderregion) submitSyncTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange, waitChan chan bool) {
