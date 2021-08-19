@@ -244,9 +244,29 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 		return jsonutils.NewDict(), err
 	}
 
+	if len(inputQuery.Soffset) != 0 && len(inputQuery.Slimit) != 0 {
+		seriesTotal := self.fillSearchSeriesTotalQuery(*inputQuery.MetricQuery[0])
+		rtn.SeriesTotal = seriesTotal
+	}
+
 	setSerieRowName(&rtn.Series, groupByTag)
 	fillSerieTags(&rtn.Series)
 	return jsonutils.Marshal(rtn), nil
+}
+
+func (self *SUnifiedMonitorManager) fillSearchSeriesTotalQuery(fork monitor.AlertQuery) int64 {
+	newGroupByPart := make([]monitor.MetricQueryPart, 0)
+	newGroupByPart = append(newGroupByPart, fork.Model.GroupBy[0])
+	fork.Model.GroupBy = newGroupByPart
+	forkInputQury := new(monitor.MetricInputQuery)
+	forkInputQury.MetricQuery = []*monitor.AlertQuery{&fork}
+	rtn, err := doQuery(*forkInputQury)
+	if err != nil {
+		log.Errorf("exec forkInputQury err:%v", err)
+		return 0
+	}
+	log.Errorf("series len:%d", len(rtn.Series))
+	return int64(len(rtn.Series))
 }
 
 func (self *SUnifiedMonitorManager) handleDataPreSignature(ctx context.Context, data jsonutils.JSONObject) {
@@ -339,6 +359,12 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricInputQ
 				Type:   "fill",
 				Params: []string{"none"},
 			})
+	}
+	if len(inputQuery.Slimit) != 0 && len(inputQuery.Soffset) != 0 {
+		query.Model.GroupBy = append(query.Model.GroupBy,
+			monitor.MetricQueryPart{Type: "slimit", Params: []string{inputQuery.Slimit}},
+			monitor.MetricQueryPart{Type: "soffset", Params: []string{inputQuery.Soffset}},
+		)
 	}
 
 	if query.Model.Database == "" {

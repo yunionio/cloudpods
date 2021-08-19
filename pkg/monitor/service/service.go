@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/monitor/subscriptionmodel"
 	_ "yunion.io/x/onecloud/pkg/monitor/tasks"
 	_ "yunion.io/x/onecloud/pkg/monitor/tsdb/driver/influxdb"
+	"yunion.io/x/onecloud/pkg/monitor/worker"
 )
 
 func StartService() {
@@ -66,15 +67,22 @@ func StartService() {
 	cron.AddJobAtIntervalsWithStartRun("InitAlertResourceAdminRoleUsers", time.Duration(opts.InitAlertResourceAdminRoleUsersIntervalSeconds)*time.Second, models.GetAlertResourceManager().GetAdminRoleUsers, true)
 	cron.AddJobEveryFewDays("DeleteRecordsOfThirtyDaysAgoRecords", 1, 0, 0, 0,
 		models.AlertRecordManager.DeleteRecordsOfThirtyDaysAgo, false)
-	cron.AddJobAtIntervalsWithStartRun("MonitorResourceSync", time.Duration(opts.MonitorResourceSyncIntervalSeconds)*time.Minute*60, models.MonitorResourceManager.SyncResources, true)
+	//cron.AddJobAtIntervalsWithStartRun("MonitorResourceSync", time.Duration(opts.MonitorResourceSyncIntervalSeconds)*time.Minute*60, models.MonitorResourceManager.SyncResources, true)
 	cron.Start()
 	defer cron.Stop()
 
 	subscriptionmodel.SubscriptionManager.AddSubscription()
 	models.CommonAlertManager.SetSubscriptionManager(subscriptionmodel.SubscriptionManager)
 
-	InitInfluxDBSubscriptionHandlers(app, baseOpts)
+	worker := worker.NewWorker(opts)
+	if worker == nil {
+		log.Fatalf("new worker failed")
+	}
+	go worker.Start(context.Background())
+
 	//common_app.ServeForever(app, baseOpts)
+	InitInfluxDBSubscriptionHandlers(app, baseOpts)
+
 }
 
 func startServices() {

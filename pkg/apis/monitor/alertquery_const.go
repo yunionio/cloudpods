@@ -15,6 +15,28 @@
 package monitor
 
 var (
+	UnionTags = []string{
+		"host",
+		"host_id",
+		"id",
+		"ips",
+		"name",
+		"zone",
+		"zone_id",
+		"zone_ext_id",
+		"os_type",
+		"status",
+		"cloudregion",
+		"cloudregion_id",
+		"region_ext_id",
+		"tenant",
+		"tenant_id",
+		"brand",
+		"vm_scaling_group_id",
+		"domain_id",
+		"project_domain",
+	}
+
 	ServerTags = map[string]string{
 		"host":             "host",
 		"host_id":          "host_id",
