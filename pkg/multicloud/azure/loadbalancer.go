@@ -16,6 +16,7 @@ package azure
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -106,6 +107,9 @@ func (self *SLoadbalancer) IsEmulated() bool {
 func (self *SLoadbalancer) GetSysTags() map[string]string {
 	data := map[string]string{}
 	data["loadbalance_type"] = self.Type
+	data["capacity"] = self.Properties.Sku.Capacity
+	data["max_capacity"] = strconv.Itoa(self.Properties.AutoscaleConfiguration.MaxCapacity)
+	data["min_capacity"] = strconv.Itoa(self.Properties.AutoscaleConfiguration.MinCapacity)
 	data["properties"] = jsonutils.Marshal(self.Properties).String()
 	return data
 }
