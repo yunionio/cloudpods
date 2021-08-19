@@ -19,7 +19,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -148,23 +147,21 @@ func (self *SRegion) getInstanceByIP(privateIP string) (*SInstance, error) {
 		queries["project_id"] = self.client.projectId
 	}
 
+	if len(privateIP) > 0 {
+		queries["ip"] = privateIP
+	}
+
 	instances := make([]SInstance, 0)
 	err := doListAllWithOffset(self.ecsClient.Servers.List, queries, &instances)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, instance := range instances {
-		ips := []string{}
-		for _, addresses := range instance.Addresses {
-			for _, ip := range addresses {
-				ips = append(ips, ip.Addr)
-			}
-		}
-
-		if utils.IsInStringArray(privateIP, ips) {
-			return &instance, nil
-		}
+	if len(instances) == 1 {
+		return &instances[0], nil
+	} else if len(instances) > 1 {
+		log.Warningln("SRegion.getInstanceByIP %s result: multiple server find", privateIP)
+		return &instances[0], nil
 	}
 
 	return nil, cloudprovider.ErrNotFound
