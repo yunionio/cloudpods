@@ -33,7 +33,13 @@ type SLoadbalancerProperties struct {
 	RequestRoutingRules                 []RequestRoutingRule                `json:"requestRoutingRules"`
 	RedirectConfigurations              []RedirectConfiguration             `json:"redirectConfigurations"`
 	WebApplicationFirewallConfiguration WebApplicationFirewallConfiguration `json:"webApplicationFirewallConfiguration"`
+	AutoscaleConfiguration				AutoscaleConfiguration 				`json:"autoscaleConfiguration"`
 	EnableHttp2                         bool                                `json:"enableHttp2"`
+}
+
+type AutoscaleConfiguration struct {
+	MaxCapacity      int                `json:"maxCapacity"`
+	MinCapacity      int                `json:"minCapacity"`
 }
 
 type BackendAddressPool struct {
