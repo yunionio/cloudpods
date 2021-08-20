@@ -341,7 +341,7 @@ func (sa *SScalingAlarm) generateAlertConfig(sp *SScalingPolicy) (*monitor.Alert
 	case api.OPERATOR_GT:
 		cond = cond.GT(sa.Value)
 	}
-	q := cond.Query().From(fmt.Sprintf("%ds", sa.Cycle))
+	q := cond.Query().From("1h")
 	sel := q.Selects().Select(indicatorMap[sa.Indicator].Field)
 	switch sa.Wrapper {
 	case api.WRAPPER_AVER:
