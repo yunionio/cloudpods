@@ -71,6 +71,7 @@ func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
 		rule.Protocol = r.Protocol
 		rule.Description = r.Description
 		rule.Direction = secrules.TSecurityRuleDirection(r.Direction)
+		rule.ParseCIDR(r.CIDR)
 		rule.ParsePorts(r.Ports)
 		ret = append(ret, rule)
 	}
