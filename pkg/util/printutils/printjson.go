@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/prettytable"
@@ -60,9 +61,9 @@ func PrintJSONList(list *modulebase.ListResult, columns []string) {
 		}
 	}
 	osTryTermWidth := os.Getenv("OS_TRY_TERM_WIDTH")
-	tryTermWidth := true
-	if osTryTermWidth == "false" {
-		tryTermWidth = false
+	tryTermWidth := false
+	if strings.ToLower(osTryTermWidth) == "true" {
+		tryTermWidth = true
 	}
 	pt := prettytable.NewPrettyTableWithTryTermWidth(colsWithData, tryTermWidth)
 	rows := make([][]string, 0)
