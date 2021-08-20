@@ -88,6 +88,11 @@ func (self *CloudProviderSyncInfoTask) OnInit(ctx context.Context, obj db.IStand
 			notes := fmt.Sprintf("SyncQuotas for provider %s result: %s", provider.Name, msg)
 			log.Infof(notes)
 		}
+		domains, err := p.GetICloudCDNDomains()
+		if err == nil {
+			result := provider.SyncCDNDomains(ctx, self.GetUserCred(), domains)
+			log.Infof("Sync CDN for provider %s result: %s", provider.Name, result.Result())
+		}
 		return nil, nil
 	})
 }

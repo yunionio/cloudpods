@@ -294,6 +294,9 @@ type ICloudProvider interface {
 	GetICloudInterVpcNetworks() ([]ICloudInterVpcNetwork, error)
 	GetICloudInterVpcNetworkById(id string) (ICloudInterVpcNetwork, error)
 	CreateICloudInterVpcNetwork(opts *SInterVpcNetworkCreateOptions) (ICloudInterVpcNetwork, error)
+
+	GetICloudCDNDomains() ([]ICloudCDNDomain, error)
+	GetICloudCDNDomainByName(name string) (ICloudCDNDomain, error)
 }
 
 func IsSupportProject(prod ICloudProvider) bool {
@@ -521,11 +524,21 @@ func (self *SBaseProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
 func (self *SBaseProvider) GetICloudInterVpcNetworks() ([]ICloudInterVpcNetwork, error) {
 	return nil, ErrNotImplemented
 }
+
 func (self *SBaseProvider) GetICloudInterVpcNetworkById(id string) (ICloudInterVpcNetwork, error) {
 	return nil, ErrNotImplemented
 }
+
 func (self *SBaseProvider) CreateICloudInterVpcNetwork(opts *SInterVpcNetworkCreateOptions) (ICloudInterVpcNetwork, error) {
 	return nil, ErrNotImplemented
+}
+
+func (self *SBaseProvider) GetICloudCDNDomains() ([]ICloudCDNDomain, error) {
+	return nil, errors.Wrapf(ErrNotImplemented, "GetICloudCDNDomains")
+}
+
+func (self *SBaseProvider) GetICloudCDNDomainByName(name string) (ICloudCDNDomain, error) {
+	return nil, errors.Wrapf(ErrNotImplemented, "GetICloudCDNDomainByName")
 }
 
 func NewBaseProvider(factory ICloudProviderFactory) SBaseProvider {

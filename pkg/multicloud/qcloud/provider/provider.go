@@ -441,3 +441,11 @@ func (self *SQcloudProvider) GetICloudInterVpcNetworkById(id string) (cloudprovi
 func (self *SQcloudProvider) CreateICloudInterVpcNetwork(opts *cloudprovider.SInterVpcNetworkCreateOptions) (cloudprovider.ICloudInterVpcNetwork, error) {
 	return self.client.CreateICloudInterVpcNetwork(opts)
 }
+
+func (self *SQcloudProvider) GetICloudCDNDomains() ([]cloudprovider.ICloudCDNDomain, error) {
+	return self.client.GetICloudCDNDomains()
+}
+
+func (self *SQcloudProvider) GetICloudCDNDomainByName(name string) (cloudprovider.ICloudCDNDomain, error) {
+	return self.client.GetICloudCDNDomainByName(name)
+}

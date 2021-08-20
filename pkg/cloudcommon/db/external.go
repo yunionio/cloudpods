@@ -27,12 +27,13 @@ import (
 
 // +onecloud:model-api-gen
 type SExternalizedResourceBase struct {
-	// 外部Id, 对用公有云私有资源自身的Id
+	// 云上Id, 对应云上资源自身Id
 	ExternalId string `width:"256" charset:"utf8" index:"true" list:"user" create:"domain_optional" update:"admin" json:"external_id"`
 
 	// 资源导入时间
 	ImportedAt time.Time `nullable:"true" created_at:"true" index:"true" get:"user" list:"user" json:"imported_at"`
-	Source     string    `width:"12" charset:"ascii" get:"user" list:"user" create:"optional" json:"source"`
+	// 资源来源, cloud: 从云上同步下来的资源, local: 从本地创建的资源或资源在本地更改过项目
+	Source string `width:"12" charset:"ascii" get:"user" list:"user" create:"optional" json:"source"`
 }
 
 func (model *SExternalizedResourceBase) BeforeInsert() {
