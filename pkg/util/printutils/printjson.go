@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/prettytable"
@@ -59,10 +61,33 @@ func PrintJSONList(list *modulebase.ListResult, columns []string) {
 			}
 		}
 	}
-	osTryTermWidth := os.Getenv("OS_TRY_TERM_WIDTH")
-	tryTermWidth := true
-	if osTryTermWidth == "false" {
-		tryTermWidth = false
+
+	const (
+		OS_MAX_COLUMN_TEXT_LENGTH = "OS_MAX_COLUMN_TEXT_LENGTH"
+		OS_TRY_TERM_WIDTH         = "OS_TRY_TERM_WIDTH"
+
+		defaultMaxColLength = 512
+	)
+	maxColLength := int64(-1)
+	colTruncated := false
+	tryTermWidth := false
+	screenWidth, _ := termWidth()
+	if screenWidth > 0 {
+		// the width of screen is available, which is an interactive shell
+		// truncate the text to make it prettier
+		osMaxTextLength := os.Getenv(OS_MAX_COLUMN_TEXT_LENGTH)
+		if len(osMaxTextLength) > 0 {
+			maxColLength, _ = strconv.ParseInt(osMaxTextLength, 10, 64)
+			if maxColLength >= 0 && maxColLength < 3 {
+				maxColLength = defaultMaxColLength
+			}
+		} else {
+			maxColLength = defaultMaxColLength
+		}
+		osTryTermWidth := os.Getenv(OS_TRY_TERM_WIDTH)
+		if strings.ToLower(osTryTermWidth) == "true" {
+			tryTermWidth = true
+		}
 	}
 	pt := prettytable.NewPrettyTableWithTryTermWidth(colsWithData, tryTermWidth)
 	rows := make([][]string, 0)
@@ -72,6 +97,10 @@ func PrintJSONList(list *modulebase.ListResult, columns []string) {
 			v, e := obj.GetIgnoreCases(k)
 			if e == nil {
 				s, _ := v.GetString()
+				if maxColLength > 0 && int64(len(s)) > maxColLength {
+					s = s[0:maxColLength-3] + "..."
+					colTruncated = true
+				}
 				row = append(row, s)
 			} else {
 				row = append(row, "")
@@ -105,6 +134,9 @@ func PrintJSONList(list *modulebase.ListResult, columns []string) {
 		}
 	}
 	fmt.Println("*** ", title, " ***")
+	if colTruncated {
+		fmt.Println(fmt.Sprintf("!!!Some text truncated, set env %s=-1 to show full text!!!", OS_MAX_COLUMN_TEXT_LENGTH))
+	}
 }
 
 func printJSONObject(dict *jsonutils.JSONDict, cb PrintJSONObjectFunc) {
