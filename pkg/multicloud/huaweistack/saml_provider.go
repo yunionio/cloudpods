@@ -210,6 +210,7 @@ func (self *SHuaweiClient) CreateSAMLProvider(opts *cloudprovider.SAMLProviderCr
 			"enabled":     true,
 		},
 	})
+	opts.Name = fmt.Sprintf("%s-%s", self.ownerName, opts.Name)
 	name := []byte{}
 	for _, c := range opts.Name {
 		if unicode.IsLetter(c) || unicode.IsNumber(c) || c == '-' || c == '_' {
