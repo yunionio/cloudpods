@@ -24,5 +24,5 @@ type Options struct {
 	SyncInterval         int
 	ListBatchSize        int
 	IncludeDetails       bool
-	InCludeOtherCloudEnv bool
+	IncludeOtherCloudEnv bool
 }
