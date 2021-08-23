@@ -94,7 +94,6 @@ func (e *InfluxdbExecutor) Query(ctx context.Context, dsInfo *tsdb.DataSource, t
 	}
 	dsInfo.Database = db
 
-	log.Errorf("rawQuery:%s", rawQuery)
 	req, err := e.createRequest(dsInfo, rawQuery)
 	if err != nil {
 		return nil, err
