@@ -794,6 +794,9 @@ func (self *SGuestnetwork) IsExit() bool {
 }
 
 func (self *SGuestnetwork) getBandwidth() int {
+	if self.BwLimit == 0 {
+		return 0
+	}
 	if self.BwLimit > 0 && self.BwLimit <= api.MAX_BANDWIDTH {
 		return self.BwLimit
 	} else {
