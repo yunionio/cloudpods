@@ -43,6 +43,12 @@ type ImageListInput struct {
 
 	// 是否为数据盘
 	IsData *bool `json:"is_data"`
+
+	// 操作系统类型，可能值为: Linux, Windows, FreeBSD 等
+	OsTypes []string `json:"os_types"`
+
+	// 发行版本，可能值为: CentOS, Ubuntu, Debian, ArchLinux,  OpenEuler 等
+	Distributions []string `json:"distributions"`
 }
 
 type GuestImageListInput struct {
