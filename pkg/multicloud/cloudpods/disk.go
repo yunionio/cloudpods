@@ -16,6 +16,7 @@ package cloudpods
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -155,15 +156,17 @@ func (self *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
 }
 
 func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
-	var err error
-	params := map[string]interface{}{
-		"size_mb": sizeMb,
-		"disk_id": self.Id,
+	input := api.ServerResizeDiskInput{
+		DiskResizeInput: api.DiskResizeInput{},
 	}
+	input.DiskId = self.Id
+	input.Size = fmt.Sprintf("%dM", sizeMb)
+
 	if len(self.Guests) > 0 {
-		err = self.region.perform(&modules.Servers, self.Guests[0].Id, "resize-disk", params)
+		_, err := self.region.perform(&modules.Servers, self.Guests[0].Id, "resize-disk", input)
+		return err
 	}
-	err = self.region.perform(&modules.Disks, self.Id, "resize", params)
+	_, err := self.region.perform(&modules.Disks, self.Id, "resize", input.DiskResizeInput)
 	return err
 }
 
@@ -231,7 +234,9 @@ func (self *SStorage) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) 
 }
 
 func (self *SStorage) CreateIDisk(opts *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
-	input := api.DiskCreateInput{}
+	input := api.DiskCreateInput{
+		DiskConfig: &api.DiskConfig{},
+	}
 	input.Name = opts.Name
 	input.Description = opts.Desc
 	input.SizeMb = opts.SizeGb * 1024

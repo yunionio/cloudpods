@@ -32,4 +32,5 @@ const (
 	HUAWEI    = "huawei"
 	APSARA    = "apsara"
 	JDCLOUD   = "jdcloud"
+	CLOUDPODS = "cloudpods"
 )

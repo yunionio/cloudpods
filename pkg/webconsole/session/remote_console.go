@@ -38,6 +38,7 @@ const (
 	HUAWEI    = api.HUAWEI
 	APSARA    = api.APSARA
 	JDCLOUD   = api.JDCLOUD
+	CLOUDPODS = api.CLOUDPODS
 )
 
 type RemoteConsoleInfo struct {
@@ -49,9 +50,12 @@ type RemoteConsoleInfo struct {
 	VncPassword string `json:"vncPassword"`
 
 	// used by aliyun server
-	InstanceId string `json:"instance_id"`
-	Url        string `json:"url"`
-	Password   string `json:"password"`
+	InstanceId    string `json:"instance_id"`
+	InstanceName  string `json:"instance_name"`
+	Url           string `json:"url"`
+	Password      string `json:"password"`
+	ConnectParams string `json:"connect_params"`
+	ApiServer     string `json:"api_server"`
 }
 
 func NewRemoteConsoleInfoByCloud(s *mcclient.ClientSession, serverId string) (*RemoteConsoleInfo, error) {
@@ -127,6 +131,8 @@ func (info *RemoteConsoleInfo) GetConnectParams() (string, error) {
 		return info.getApsaraURL()
 	case QCLOUD:
 		return info.getQcloudURL()
+	case CLOUDPODS:
+		return info.getCloudpodsURL()
 	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI, JDCLOUD:
 		return info.Url, nil
 	default:
@@ -170,6 +176,16 @@ func (info *RemoteConsoleInfo) getAliyunURL() (string, error) {
 		"instanceId": {info.InstanceId},
 		"isWindows":  {isWindows},
 		"password":   {info.Password},
+	}
+	return info.getConnParamsURL(base, params), nil
+}
+
+func (info *RemoteConsoleInfo) getCloudpodsURL() (string, error) {
+	base := fmt.Sprintf("%s/web-console/no-vnc", info.ApiServer)
+	params := url.Values{
+		"data":         {info.ConnectParams},
+		"instanceId":   {info.InstanceId},
+		"instanceName": {info.InstanceName},
 	}
 	return info.getConnParamsURL(base, params), nil
 }

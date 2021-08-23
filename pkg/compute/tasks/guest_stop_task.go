@@ -18,7 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -44,34 +44,30 @@ func (self *GuestStopTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 }
 
 func (self *GuestStopTask) stopGuest(ctx context.Context, guest *models.SGuest) {
-	host, _ := guest.GetHost()
-	if host == nil {
-		self.OnGuestStopTaskCompleteFailed(ctx, guest, jsonutils.NewString("no associated host"))
+	host, err := guest.GetHost()
+	if err != nil {
+		self.OnGuestStopTaskCompleteFailed(ctx, guest, jsonutils.NewString(errors.Wrapf(err, "GetHost").Error()))
 		return
 	}
 	if !self.IsSubtask() {
-		guest.SetStatus(self.UserCred, api.VM_STOPPING, "")
+		guest.SetStatus(self.GetUserCred(), api.VM_STOPPING, "")
 	}
 	self.SetStage("OnGuestStopTaskComplete", nil)
-	err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self)
+	err = guest.GetDriver().RequestStopOnHost(ctx, guest, host, self)
 	if err != nil {
-		log.Errorf("RequestStopOnHost fail %s", err)
 		self.OnGuestStopTaskCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}
 }
 
 func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	if !self.IsSubtask() {
-		guest.StartSyncstatus(ctx, self.UserCred, "")
-		// guest.SetStatus(self.UserCred, api.VM_READY, "")
-	}
 	db.OpsLog.LogEvent(guest, db.ACT_STOP, guest.GetShortDesc(ctx), self.UserCred)
 	models.HostManager.ClearSchedDescCache(guest.HostId)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP, "success", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 	if guest.Status == api.VM_READY && guest.DisableDelete.IsFalse() && guest.ShutdownBehavior == api.SHUTDOWN_TERMINATE {
 		guest.StartAutoDeleteGuestTask(ctx, self.UserCred, "")
+		return
 	}
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP, "success", self.UserCred, true)
 }
 
 func (self *GuestStopTask) OnGuestStopTaskCompleteFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {

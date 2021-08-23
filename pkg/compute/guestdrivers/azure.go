@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
@@ -205,13 +204,6 @@ func (self *SAzureGuestDriver) ValidateCreateData(ctx context.Context, userCred 
 		}
 	}
 	return input, nil
-}
-
-func (self *SAzureGuestDriver) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("name") {
-		return nil, httperrors.NewInputParameterError("cannot support change azure instance name")
-	}
-	return data, nil
 }
 
 func (self *SAzureGuestDriver) GetGuestInitialStateAfterCreate() string {

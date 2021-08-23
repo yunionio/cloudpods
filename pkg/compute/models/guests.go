@@ -121,9 +121,6 @@ type SGuest struct {
 	// 秘钥对Id
 	KeypairId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
-	// 宿主机Id
-	//HostId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin" index:"true"`
-
 	// 备份机所在宿主机Id
 	BackupHostId string `width:"36" charset:"ascii" nullable:"true" list:"user" get:"user"`
 
@@ -132,7 +129,7 @@ type SGuest struct {
 	Machine string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 	Bios    string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 	// 操作系统类型
-	OsType string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
+	OsType string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	FlavorId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
@@ -962,73 +959,17 @@ func ValidateMemCpuData(vmemSize, vcpuCount int, hypervisor string) (int, int, e
 	return vmemSize, vcpuCount, nil
 }
 
-func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerUpdateInput) (api.ServerUpdateInput, error) {
+	if len(input.Name) > 0 && len(input.Name) < 2 {
+		return input, httperrors.NewInputParameterError("name is too short")
+	}
+
 	var err error
-	var vmemSize int
-	var vcpuCount int
-
-	driver := GetDriver(self.Hypervisor)
-
-	if memSize, _ := data.Int("vmem_size"); memSize != 0 {
-		vmemSize, err = ValidateMemData(int(memSize), driver)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if cpuCount, _ := data.Int("vcpu_count"); cpuCount != 0 {
-		vcpuCount, err = ValidateCpuData(int(cpuCount), driver)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if vmemSize > 0 || vcpuCount > 0 {
-		if !utils.IsInStringArray(self.Status, []string{api.VM_READY}) && self.GetHypervisor() != api.HYPERVISOR_CONTAINER {
-			return nil, httperrors.NewInvalidStatusError("Cannot modify Memory and CPU in status %s", self.Status)
-		}
-		if self.GetHypervisor() == api.HYPERVISOR_BAREMETAL {
-			return nil, httperrors.NewInputParameterError("Cannot modify memory for baremetal")
-		}
-	}
-
-	if vmemSize > 0 {
-		data.Add(jsonutils.NewInt(int64(vmemSize)), "vmem_size")
-	}
-	if vcpuCount > 0 {
-		data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
-	}
-
-	data, err = self.GetDriver().ValidateUpdateData(ctx, userCred, data)
+	input.VirtualResourceBaseUpdateInput, err = self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
 	}
-
-	if vcpuCount > 0 || vmemSize > 0 {
-		quota, err := self.checkUpdateQuota(ctx, userCred, vcpuCount, vmemSize)
-		if err != nil {
-			return nil, httperrors.NewOutOfQuotaError("%v", err)
-		}
-		if !quota.IsEmpty() {
-			data.Add(jsonutils.Marshal(quota), "pending_usage")
-		}
-	}
-
-	if data.Contains("name") {
-		if name, _ := data.GetString("name"); len(name) < 2 {
-			return nil, httperrors.NewInputParameterError("name is too short")
-		}
-	}
-	input := apis.VirtualResourceBaseUpdateInput{}
-	err = data.Unmarshal(&input)
-	if err != nil {
-		return nil, errors.Wrap(err, "data.Unmarshal")
-	}
-	input, err = self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
-	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
-	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+	return input, nil
 }
 
 func serverCreateInput2ComputeQuotaKeys(input api.ServerCreateInput, ownerId mcclient.IIdentityProvider) SComputeResourceKeys {
@@ -1667,15 +1608,6 @@ func (manager *SGuestManager) validateEip(userCred mcclient.TokenCredential, inp
 
 func (self *SGuest) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
-
-	if data.Contains("pending_usage") {
-		quota := SQuota{}
-		data.Unmarshal(&quota, "pending_usage")
-		quotas.CancelPendingUsage(ctx, userCred, &quota, &quota, true)
-	}
-
-	self.StartSyncTask(ctx, userCred, true, "")
-
 	if data.Contains("name") || data.Contains("__meta__") {
 		err := self.StartRemoteUpdateTask(ctx, userCred, false, "")
 		if err != nil {
@@ -5023,21 +4955,15 @@ func (self *SGuest) SyncVMSecgroups(ctx context.Context, userCred mcclient.Token
 
 func (self *SGuest) GetIVM() (cloudprovider.ICloudVM, error) {
 	if len(self.ExternalId) == 0 {
-		msg := fmt.Sprintf("GetIVM: not managed by a provider")
-		log.Errorf(msg)
-		return nil, fmt.Errorf(msg)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty externalId")
 	}
-	host, _ := self.GetHost()
-	if host == nil {
-		msg := fmt.Sprintf("GetIVM: No valid host")
-		log.Errorf(msg)
-		return nil, fmt.Errorf(msg)
+	host, err := self.GetHost()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetHost")
 	}
 	ihost, err := host.GetIHost()
 	if err != nil {
-		msg := fmt.Sprintf("GetIVM: getihost fail %s", err)
-		log.Errorf(msg)
-		return nil, fmt.Errorf(msg)
+		return nil, errors.Wrapf(err, "GetIHost")
 	}
 	return ihost.GetIVMById(self.ExternalId)
 }
