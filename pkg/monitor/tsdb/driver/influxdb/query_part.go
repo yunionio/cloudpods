@@ -111,6 +111,8 @@ func init() {
 
 	renders["math"] = QueryDefinition{Renderer: suffixRenderer}
 	renders["alias"] = QueryDefinition{Renderer: aliasRenderer}
+	renders["slimit"] = QueryDefinition{Renderer: typeRenderer}
+	renders["soffset"] = QueryDefinition{Renderer: typeRenderer}
 }
 
 func fieldRenderer(query *Query, queryCtx *tsdb.TsdbQuery, part *QueryPart, innerExpr string) string {
@@ -171,6 +173,10 @@ func suffixRenderer(query *Query, queryCtx *tsdb.TsdbQuery, part *QueryPart, inn
 
 func aliasRenderer(query *Query, queryCtx *tsdb.TsdbQuery, part *QueryPart, innerExpr string) string {
 	return fmt.Sprintf(`%s AS "%s"`, innerExpr, part.Params[0])
+}
+
+func typeRenderer(query *Query, queryCtx *tsdb.TsdbQuery, part *QueryPart, innerExpr string) string {
+	return fmt.Sprintf(" %s %s", part.Type, part.Params[0])
 }
 
 func (r QueryDefinition) Render(query *Query, queryCtx *tsdb.TsdbQuery, part *QueryPart, innerExpr string) string {
