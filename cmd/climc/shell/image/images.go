@@ -142,13 +142,15 @@ func init() {
 	type ImageListOptions struct {
 		options.BaseListOptions
 
-		IsPublic   string   `help:"filter images public or not(True, False or None)" choices:"true|false"`
-		IsStandard string   `help:"filter images standard or non-standard" choices:"true|false"`
-		Protected  string   `help:"filter images by protected" choices:"true|false"`
-		IsUefi     bool     `help:"list uefi image"`
-		Format     []string `help:"Disk formats"`
-		SubFormats []string `help:"Sub formats"`
-		Name       string   `help:"Name filter"`
+		IsPublic     string   `help:"filter images public or not(True, False or None)" choices:"true|false"`
+		IsStandard   string   `help:"filter images standard or non-standard" choices:"true|false"`
+		Protected    string   `help:"filter images by protected" choices:"true|false"`
+		IsUefi       bool     `help:"list uefi image"`
+		Format       []string `help:"Disk formats"`
+		SubFormats   []string `help:"Sub formats"`
+		Name         string   `help:"Name filter"`
+		OsType       []string `help:"Type of OS filter e.g. 'Windows, Linux, Freebsd, Android, macOS, VMWare'"`
+		Distribution []string `help:"Distribution filter, e.g. 'CentOS, Ubuntu, Debian, Windows'"`
 	}
 	R(&ImageListOptions{}, "image-list", "List images", func(s *mcclient.ClientSession, args *ImageListOptions) error {
 		params, err := args.Params()
@@ -186,6 +188,12 @@ func init() {
 		}
 		if len(args.SubFormats) > 0 {
 			params.Add(jsonutils.Marshal(args.SubFormats), "sub_formats")
+		}
+		if len(args.OsType) > 0 {
+			params.Add(jsonutils.NewStringArray(args.OsType), "os_types")
+		}
+		if len(args.Distribution) > 0 {
+			params.Add(jsonutils.NewStringArray(args.Distribution), "distributions")
 		}
 		result, err := modules.Images.List(s, params)
 		if err != nil {
