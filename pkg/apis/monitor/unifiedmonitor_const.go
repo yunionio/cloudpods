@@ -69,9 +69,11 @@ type MetricFunc struct {
 }
 
 type MetricInputQuery struct {
-	From  string `json:"from"`
-	To    string `json:"to"`
-	Scope string `json:"scope"`
+	From    string `json:"from"`
+	To      string `json:"to"`
+	Scope   string `json:"scope"`
+	Slimit  string `json:"slimit"`
+	Soffset string `json:"soffset"`
 	//default group by
 	Unit        bool          `json:"unit"`
 	Interval    string        `json:"interval"`

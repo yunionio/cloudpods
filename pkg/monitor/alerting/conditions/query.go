@@ -156,13 +156,13 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 	var matches []*monitor.EvalMatch
 	var alertOkmatches []*monitor.EvalMatch
 
-	allResources, err := c.GetQueryResources()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetQueryResources err")
-	}
+	//allResources, err := c.GetQueryResources()
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "GetQueryResources err")
+	//}
 	for _, series := range seriesList {
 		if len(c.ResType) != 0 {
-			isLatestOfSerie, resource := c.serieIsLatestResource(allResources, series)
+			isLatestOfSerie, resource := c.serieIsLatestResource(nil, series)
 			if !isLatestOfSerie {
 				continue
 			}
@@ -224,6 +224,9 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 			})
 		}
 	}
+	if evalMatchCount == 0 && len(seriesList) != 0 {
+		log.Errorf("sql-meta:%s", metas[0].RawQuery)
+	}
 
 	return &alerting.ConditionResult{
 		Firing:             evalMatchCount > 0,
@@ -241,13 +244,13 @@ func (c *QueryCondition) serieIsLatestResource(resources []jsonutils.JSONObject,
 		tagId = "host_id"
 	}
 	seriId := series.Tags[tagId]
-	for _, resource := range resources {
-		id, _ := resource.GetString("id")
-		if seriId == id {
-			return true, resource
-		}
-	}
-	return false, nil
+	//for _, resource := range resources {
+	//	id, _ := resource.GetString("id")
+	//	if seriId == id {
+	//		return true, resource
+	//	}
+	//}
+	return models.MonitorResourceManager.GetResourceObj(seriId)
 }
 
 func (c *QueryCondition) FillSerieByResourceField(resource jsonutils.JSONObject,
@@ -694,7 +697,8 @@ func (c *QueryCondition) getFilterResources(start int, end int,
 		filterObj := make([]jsonutils.JSONObject, 0)
 		for _, res := range tmp {
 			val, _ := res.GetString(relationKey)
-			if c.Query.Model.Tags[i].Operator == "=" {
+			op := c.Query.Model.Tags[i].Operator
+			if op == "=" || len(op) == 0 {
 				if val == c.Query.Model.Tags[i].Value {
 					filterObj = append(filterObj, res)
 				}

@@ -38,10 +38,11 @@ type GetModelsOptions struct {
 	ModelManager  mcclient_modulebase.IBaseManager
 	ModelSet      IModelSet
 
-	BatchListSize   int
-	MinUpdatedAt    time.Time
-	IncludeDetails  bool
-	IncludeEmulated bool
+	BatchListSize        int
+	MinUpdatedAt         time.Time
+	IncludeDetails       bool
+	IncludeEmulated      bool
+	InCludeOtherCloudEnv bool
 }
 
 func GetModels(opts *GetModelsOptions) error {
@@ -106,14 +107,18 @@ func GetModels(opts *GetModelsOptions) error {
 		ShowEmulated: options.Bool(opts.IncludeEmulated),
 		Filter: []string{
 			minUpdatedAtFilter(minUpdatedAt), // order matters, filter.0
-			"manager_id.isnullorempty()",     // len(manager_id) > 0 is for pubcloud objects
-			"external_id.isnullorempty()",    // len(external_id) > 0 is for pubcloud objects
-			"cloud_env=onpremise",
 		},
 		OrderBy: []string{"updated_at"},
 		Order:   "asc",
 		Limit:   options.Int(opts.BatchListSize),
 		Offset:  options.Int(0),
+	}
+	if !opts.InCludeOtherCloudEnv {
+		listOptions.Filter = append(listOptions.Filter,
+			"manager_id.isnullorempty()",  // len(manager_id) > 0 is for pubcloud objects
+			"external_id.isnullorempty()", // len(external_id) > 0 is for pubcloud objects
+			"cloud_env=onpremise",
+		)
 	}
 	if !minUpdatedAt.Equal(PseudoZeroTime) {
 		// Only fetching pending deletes when we are doing incremental fetch

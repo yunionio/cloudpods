@@ -166,7 +166,7 @@ func (query *Query) renderGroupBy(queryContext *tsdb.TsdbQuery) string {
 			groupBy += " GROUP BY"
 		}
 
-		if i > 0 && group.Type != "fill" {
+		if i > 0 && utils.IsInStringArray(group.Type, []string{"field", "time", "tag"}) {
 			groupBy += ", " //fill is so very special. fill is a creep, fill is a weirdo
 		} else {
 			groupBy += " "

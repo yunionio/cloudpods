@@ -101,7 +101,7 @@ func (h *APIHelper) doSync(ctx context.Context) (changed bool, err error) {
 
 	s := h.adminClientSession(ctx)
 	mss := h.modelSets.Copy()
-	r, err := SyncModelSets(mss, s, h.opts.ListBatchSize)
+	r, err := SyncModelSets(mss, s, h.opts)
 	if err != nil {
 		return false, err
 	}
