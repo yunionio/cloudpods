@@ -1263,6 +1263,23 @@ func (manager *SImageManager) ListItemFilter(
 			q = q.IsFalse("is_data")
 		}
 	}
+
+	propFilter := func(nameKeys []string, vals []string) {
+		if len(vals) == 0 {
+			return
+		}
+		propQ := ImagePropertyManager.Query().In("name", nameKeys)
+		conds := make([]sqlchemy.ICondition, 0)
+		for _, val := range vals {
+			conds = append(conds, sqlchemy.Like(propQ.Field("value"), val))
+		}
+		propQ.Filter(sqlchemy.OR(conds...))
+		propSq := propQ.SubQuery()
+		q = q.Join(propSq, sqlchemy.Equals(q.Field("id"), propSq.Field("image_id")))
+	}
+	propFilter([]string{api.IMAGE_OS_TYPE}, query.OsTypes)
+	propFilter([]string{api.IMAGE_OS_DISTRO, "distro"}, query.Distributions)
+
 	return q, nil
 }
 
