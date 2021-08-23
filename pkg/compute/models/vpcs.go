@@ -1282,7 +1282,7 @@ func (vpc *SVpc) PerformSync(ctx context.Context, userCred mcclient.TokenCredent
 	return nil, httperrors.NewUnsupportOperationError("on-premise vpc cannot sync status")
 }
 
-func (self *SVpc) initWire(ctx context.Context, zone *SZone) (*SWire, error) {
+func (self *SVpc) initWire(ctx context.Context, zone *SZone, externalId string) (*SWire, error) {
 	wire := &SWire{
 		Bandwidth: 10000,
 		Mtu:       1500,
@@ -1290,6 +1290,7 @@ func (self *SVpc) initWire(ctx context.Context, zone *SZone) (*SWire, error) {
 	wire.VpcId = self.Id
 	wire.ZoneId = zone.Id
 	wire.IsEmulated = true
+	wire.ExternalId = externalId
 	wire.Name = fmt.Sprintf("vpc-%s", self.Name)
 
 	wire.DomainId = self.DomainId

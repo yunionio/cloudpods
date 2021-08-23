@@ -323,13 +323,14 @@ func (self *SBaremetalGuestDriver) RequestGuestCreateInsertIso(ctx context.Conte
 	return guest.StartInsertIsoTask(ctx, imageId, true, guest.HostId, task.GetUserCred(), task.GetTaskId())
 }
 
-func (self *SBaremetalGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
+func (self *SBaremetalGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
 	desc := guest.GetJsonDescAtBaremetal(ctx, host)
 	config := jsonutils.NewDict()
 	config.Set("desc", desc)
 	headers := task.GetTaskRequestHeader()
 	url := fmt.Sprintf("/baremetals/%s/servers/%s/start", host.Id, guest.Id)
-	return host.BaremetalSyncRequest(ctx, "POST", url, headers, config)
+	_, err := host.BaremetalSyncRequest(ctx, "POST", url, headers, config)
+	return err
 }
 
 func (self *SBaremetalGuestDriver) RequestStopGuestForDelete(ctx context.Context, guest *models.SGuest,
@@ -376,8 +377,7 @@ func (self *SBaremetalGuestDriver) StartGuestStopTask(guest *models.SGuest, ctx 
 	if err != nil {
 		return err
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (self *SBaremetalGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {

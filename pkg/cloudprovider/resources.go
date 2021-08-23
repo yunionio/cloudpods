@@ -552,8 +552,8 @@ type ICloudVpc interface {
 	GetRegion() ICloudRegion
 	GetIsDefault() bool
 	GetCidrBlock() string
-	// GetStatus() string
 	GetIWires() ([]ICloudWire, error)
+	CreateIWire(opts *SWireCreateOptions) (ICloudWire, error)
 	GetISecurityGroups() ([]ICloudSecurityGroup, error)
 	GetIRouteTables() ([]ICloudRouteTable, error)
 	GetIRouteTableById(routeTableId string) (ICloudRouteTable, error)

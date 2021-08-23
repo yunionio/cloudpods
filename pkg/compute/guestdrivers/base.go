@@ -178,10 +178,6 @@ func (self *SBaseGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mod
 	return fmt.Errorf("This Guest driver dose not implement ValidateResizeDisk")
 }
 
-func (self *SBaseGuestDriver) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return data, nil
-}
-
 func (self *SBaseGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{}, fmt.Errorf("This Guest driver dose not implement GetDeployStatus")
 }

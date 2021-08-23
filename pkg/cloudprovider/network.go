@@ -20,3 +20,10 @@ type SNetworkCreateOptions struct {
 	ProjectId string
 	Cidr      string
 }
+
+type SWireCreateOptions struct {
+	Name      string
+	ZoneId    string
+	Bandwidth int
+	Mtu       int
+}

@@ -315,29 +315,27 @@ func (self *SManagedVirtualizedGuestDriver) RequestAttachDisk(ctx context.Contex
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
-	ihost, err := host.GetIHost()
+func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
+	ivm, err := guest.GetIVM()
 	if err != nil {
-		return nil, err
-	}
-
-	ivm, err := ihost.GetIVMById(guest.GetExternalId())
-	if err != nil {
-		return nil, err
+		return errors.Wrapf(err, "GetIVM")
 	}
 
 	result := jsonutils.NewDict()
 	if ivm.GetStatus() != api.VM_RUNNING {
 		err := ivm.StartVM(ctx)
 		if err != nil {
-			return nil, err
+			return errors.Wrapf(err, "StartVM")
 		}
-		task.ScheduleRun(result)
-	} else {
-		result.Add(jsonutils.NewBool(true), "is_running")
+		err = cloudprovider.WaitStatus(ivm, api.VM_RUNNING, time.Second*5, time.Minute*10)
+		if err != nil {
+			return errors.Wrapf(err, "Wait vm running")
+		}
+		// 虚拟机开机，公网ip自动生成
+		guest.SyncAllWithCloudVM(ctx, userCred, host, ivm)
+		return task.ScheduleRun(result)
 	}
-
-	return result, nil
+	return guest.SetStatus(userCred, api.VM_RUNNING, "StartOnHost")
 }
 
 func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
@@ -606,9 +604,8 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForDeploy(ctx conte
 
 func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.Context, guest *models.SGuest, ihost cloudprovider.ICloudHost, task taskman.ITask, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
 	iVM, err := ihost.GetIVMById(guest.GetExternalId())
-	if err != nil || iVM == nil {
-		log.Errorf("cannot find vm %s", err)
-		return nil, fmt.Errorf("cannot find vm")
+	if err != nil {
+		return nil, errors.Wrapf(err, "ihost.GetIVMById(%s)", guest.GetExternalId())
 	}
 
 	if len(desc.UserData) > 0 {
@@ -616,6 +613,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForRebuildRoot(ctx 
 		if err != nil {
 			log.Errorf("update userdata fail %s", err)
 		}
+		cloudprovider.WaitMultiStatus(iVM, []string{api.VM_READY, api.VM_RUNNING}, time.Second*5, time.Minute*3)
 	}
 
 	diskId, err := func() (string, error) {
@@ -749,6 +747,8 @@ func (self *SManagedVirtualizedGuestDriver) RequestStopOnHost(ctx context.Contex
 		if err != nil {
 			return nil, errors.Wrapf(err, "wait server stop after 5 miniutes")
 		}
+		// 公有云关机，公网ip会释放
+		guest.SyncAllWithCloudVM(ctx, task.GetUserCred(), host, ivm)
 		return nil, nil
 	})
 	return nil

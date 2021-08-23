@@ -182,17 +182,17 @@ func (self *SGuest) AllowPerformSaveImage(ctx context.Context, userCred mcclient
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "save-image")
 }
 
-func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerSaveImageInput) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerSaveImageInput) (api.ServerSaveImageInput, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
-		return nil, httperrors.NewInputParameterError("Cannot save image in status %s", self.Status)
+		return input, httperrors.NewInputParameterError("Cannot save image in status %s", self.Status)
 	}
 	input.Restart = (self.Status == api.VM_RUNNING) || input.AutoStart
 	if len(input.Name) == 0 && len(input.GenerateName) == 0 {
-		return nil, httperrors.NewInputParameterError("Image name is required")
+		return input, httperrors.NewInputParameterError("Image name is required")
 	}
 	disks := self.CategorizeDisks()
 	if disks.Root == nil {
-		return nil, httperrors.NewInputParameterError("No root image")
+		return input, httperrors.NewInputParameterError("No root image")
 	}
 	input.OsType = self.OsType
 	if len(input.OsType) == 0 {
@@ -214,14 +214,14 @@ func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.Toke
 		var err error
 		input.ImageId, err = disks.Root.PrepareSaveImage(ctx, userCred, input)
 		if err != nil {
-			return nil, errors.Wrapf(err, "PrepareSaveImage")
+			return input, errors.Wrapf(err, "PrepareSaveImage")
 		}
 	}
 	if len(input.Name) == 0 {
 		input.Name = input.GenerateName
 	}
 
-	return nil, self.StartGuestSaveImage(ctx, userCred, input, "")
+	return input, self.StartGuestSaveImage(ctx, userCred, input, "")
 }
 
 func (self *SGuest) StartGuestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerSaveImageInput, parentTaskId string) error {
@@ -653,71 +653,47 @@ func (self *SGuest) GetOldPassword(ctx context.Context, userCred mcclient.TokenC
 	return password
 }
 
-func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	kwargs, ok := data.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, fmt.Errorf("Parse query body error")
-	}
-
+func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerDeployInput) (jsonutils.JSONObject, error) {
 	self.saveOldPassword(ctx, userCred)
 
-	if kwargs.Contains("__delete_keypair__") || kwargs.Contains("keypair") {
-		var kpId string
-
-		if kwargs.Contains("keypair") {
-			keypair, _ := kwargs.GetString("keypair")
-			iKp, err := KeypairManager.FetchByIdOrName(userCred, keypair)
+	if input.DeleteKeypair || len(input.KeypairId) > 0 {
+		if len(input.KeypairId) > 0 {
+			_, err := validators.ValidateModel(userCred, KeypairManager, &input.KeypairId)
 			if err != nil {
 				return nil, err
 			}
-			if iKp == nil {
-				return nil, fmt.Errorf("Fetch keypair error")
-			}
-			kp := iKp.(*SKeypair)
-			kpId = kp.Id
 		}
 
-		if self.KeypairId != kpId {
+		if self.KeypairId != input.KeypairId {
 			okey := self.getKeypair()
 			if okey != nil {
-				kwargs.Set("delete_public_key", jsonutils.NewString(okey.PublicKey))
+				input.DeletePublicKey = okey.PublicKey
 			}
 
 			diff, err := db.Update(self, func() error {
-				self.KeypairId = kpId
+				self.KeypairId = input.KeypairId
 				return nil
 			})
 			if err != nil {
-				log.Errorf("update keypair fail: %s", err)
-				return nil, httperrors.NewInternalServerError("%v", err)
+				return nil, httperrors.NewInternalServerError("update keypairId %v", err)
 			}
 
 			db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
-
-			kwargs.Set("reset_password", jsonutils.JSONTrue)
+			input.ResetPassword = true
 		}
 	}
 
-	var resetPasswd bool
-	passwdStr, _ := kwargs.GetString("password")
-	if len(passwdStr) > 0 {
-		err := seclib2.ValidatePassword(passwdStr)
+	if len(input.Password) > 0 {
+		err := seclib2.ValidatePassword(input.Password)
 		if err != nil {
 			return nil, err
 		}
-		resetPasswd = true
-	} else {
-		resetPasswd = jsonutils.QueryBoolean(kwargs, "reset_password", false)
-	}
-	if resetPasswd {
-		kwargs.Set("reset_password", jsonutils.JSONTrue)
-	} else {
-		kwargs.Set("reset_password", jsonutils.JSONFalse)
+		input.ResetPassword = true
 	}
 
 	// 变更密码/密钥时需要Restart才能生效。更新普通字段不需要Restart, Azure需要在运行状态下操作
 	doRestart := false
-	if resetPasswd {
+	if input.ResetPassword {
 		doRestart = self.GetDriver().IsNeedRestartForResetLoginInfo()
 	}
 
@@ -727,13 +703,13 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 	}
 
 	if utils.IsInStringArray(self.Status, deployStatus) {
-		if (doRestart && self.Status == api.VM_RUNNING) || (self.Status != api.VM_RUNNING && (jsonutils.QueryBoolean(kwargs, "auto_start", false) || jsonutils.QueryBoolean(kwargs, "restart", false))) {
-			kwargs.Set("restart", jsonutils.JSONTrue)
+		if (doRestart && self.Status == api.VM_RUNNING) || (self.Status != api.VM_RUNNING && (input.AutoStart || input.Restart)) {
+			input.Restart = true
 		} else {
 			// 避免前端直接传restart参数, 越过校验
-			kwargs.Set("restart", jsonutils.JSONFalse)
+			input.Restart = false
 		}
-		err := self.StartGuestDeployTask(ctx, userCred, kwargs, "deploy", "")
+		err := self.StartGuestDeployTask(ctx, userCred, jsonutils.Marshal(input).(*jsonutils.JSONDict), "deploy", "")
 		if err != nil {
 			return nil, err
 		}
@@ -785,33 +761,24 @@ func (self *SGuest) ValidateAttachDisk(ctx context.Context, disk *SDisk) error {
 	return nil
 }
 
-func (self *SGuest) PerformAttachdisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	diskId, err := data.GetString("disk_id")
-	if err != nil {
-		log.Errorln(err)
+func (self *SGuest) PerformAttachdisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerAttachDiskInput) (jsonutils.JSONObject, error) {
+	if len(input.DiskId) == 0 {
 		return nil, httperrors.NewMissingParameterError("disk_id")
 	}
-	disk, err := DiskManager.FetchByIdOrName(userCred, diskId)
-	if err != nil && err != sql.ErrNoRows {
-		log.Errorln(err)
-		return nil, err
-	}
-	if disk == nil {
-		return nil, httperrors.NewResourceNotFoundError("Disk %s not found", diskId)
-	}
-	if err := self.ValidateAttachDisk(ctx, disk.(*SDisk)); err != nil {
+	diskObj, err := validators.ValidateModel(userCred, DiskManager, &input.DiskId)
+	if err != nil {
 		return nil, err
 	}
 
-	taskData := data.(*jsonutils.JSONDict)
-	taskData.Set("disk_id", jsonutils.NewString(disk.GetId()))
+	if err := self.ValidateAttachDisk(ctx, diskObj.(*SDisk)); err != nil {
+		return nil, err
+	}
+
+	taskData := jsonutils.NewDict()
+	taskData.Add(jsonutils.NewString(input.DiskId), "disk_id")
 
 	self.SetStatus(userCred, api.VM_ATTACH_DISK, "")
-
-	if err := self.GetDriver().StartGuestAttachDiskTask(ctx, userCred, self, taskData, ""); err != nil {
-		return nil, err
-	}
-	return nil, nil
+	return nil, self.GetDriver().StartGuestAttachDiskTask(ctx, userCred, self, taskData, "")
 }
 
 func (self *SGuest) StartSyncTask(ctx context.Context, userCred mcclient.TokenCredential, firewallOnly bool,
@@ -1378,25 +1345,22 @@ func (self *SGuest) PerformAssignSecgroup(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewMissingParameterError("secgroup_id")
 	}
 
-	secgroup, err := SecurityGroupManager.FetchByIdOrName(userCred, input.SecgroupId)
-	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError2("secgroup", input.SecgroupId)
-		}
-		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "SecurityGroupManager.FetchByIdOrName(%s)", input.SecgroupId))
-	}
-
-	err = SecurityGroupManager.ValidateName(secgroup.GetName())
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("The secgroup name %s does not meet the requirements, please change the name", secgroup.GetName())
-	}
-
-	err = self.saveDefaultSecgroupId(userCred, secgroup.GetId())
+	secObj, err := validators.ValidateModel(userCred, SecurityGroupManager, &input.SecgroupId)
 	if err != nil {
 		return nil, err
 	}
 
-	notes := map[string]string{"name": secgroup.GetName(), "id": secgroup.GetId()}
+	err = SecurityGroupManager.ValidateName(secObj.GetName())
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("The secgroup name %s does not meet the requirements, please change the name", secObj.GetName())
+	}
+
+	err = self.saveDefaultSecgroupId(userCred, input.SecgroupId)
+	if err != nil {
+		return nil, err
+	}
+
+	notes := map[string]string{"name": secObj.GetName(), "id": secObj.GetId()}
 	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_ASSIGNSECGROUP, notes, userCred, true)
 	return nil, self.StartSyncTask(ctx, userCred, true, "")
 }
@@ -1554,12 +1518,10 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 		return nil, err
 	}
 
-	imageId := input.GetImageName()
-
-	if len(imageId) > 0 {
-		img, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
+	if len(input.ImageId) > 0 {
+		img, err := CachedimageManager.getImageInfo(ctx, userCred, input.ImageId, false)
 		if err != nil {
-			return nil, httperrors.NewNotFoundError("failed to find %s", imageId)
+			return nil, httperrors.NewNotFoundError("failed to find %s", input.ImageId)
 		}
 		err = self.GetDriver().ValidateImage(ctx, img)
 		if err != nil {
@@ -1587,12 +1549,12 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 		if len(osName) == 0 && len(osType) == 0 && strings.ToLower(osType) != strings.ToLower(osName) {
 			return nil, httperrors.NewBadRequestError("Cannot switch OS between %s-%s", osName, osType)
 		}
-		imageId = img.Id
+		input.ImageId = img.Id
 	}
 	templateId := self.GetTemplateId()
 
-	if templateId != imageId && len(templateId) > 0 && len(imageId) > 0 && !self.GetDriver().IsRebuildRootSupportChangeUEFI() {
-		q := CachedimageManager.Query().In("id", []string{imageId, templateId})
+	if templateId != input.ImageId && len(templateId) > 0 && len(input.ImageId) > 0 && !self.GetDriver().IsRebuildRootSupportChangeUEFI() {
+		q := CachedimageManager.Query().In("id", []string{input.ImageId, templateId})
 		images := []SCachedimage{}
 		err := db.FetchModelObjects(CachedimageManager, q, &images)
 		if err != nil {
@@ -1608,11 +1570,11 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 		return nil, httperrors.NewInputParameterError("%v", err)
 	}
 
-	if !self.GetDriver().IsRebuildRootSupportChangeImage() && len(imageId) > 0 {
+	if !self.GetDriver().IsRebuildRootSupportChangeImage() && len(input.ImageId) > 0 {
 		if len(templateId) == 0 {
 			return nil, httperrors.NewBadRequestError("No template for root disk, cannot rebuild root")
 		}
-		if imageId != templateId {
+		if input.ImageId != templateId {
 			return nil, httperrors.NewInputParameterError("%s not support rebuild root with a different image", self.GetDriver().GetHypervisor())
 		}
 	}
@@ -1641,18 +1603,13 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 		}
 	}
 
-	keypairStr := input.GetKeypairName()
-	if len(keypairStr) > 0 {
-		keypairObj, err := KeypairManager.FetchByIdOrName(userCred, keypairStr)
+	if len(input.KeypairId) > 0 {
+		_, err := validators.ValidateModel(userCred, KeypairManager, &input.KeypairId)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError("keypair %s not found", keypairStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
+			return nil, err
 		}
-		if self.KeypairId != keypairObj.GetId() {
-			err = self.setKeypairId(userCred, keypairObj.GetId())
+		if self.KeypairId != input.KeypairId {
+			err = self.setKeypairId(userCred, input.KeypairId)
 			if err != nil {
 				return nil, httperrors.NewGeneralError(err)
 			}
@@ -1670,7 +1627,7 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 		allDisks = *input.AllDisks
 	}
 
-	return nil, self.StartRebuildRootTask(ctx, userCred, imageId, needStop, autoStart, passwd, resetPasswd, allDisks)
+	return nil, self.StartRebuildRootTask(ctx, userCred, input.ImageId, needStop, autoStart, passwd, resetPasswd, allDisks)
 }
 
 func (self *SGuest) GetTemplateId() string {
@@ -1819,54 +1776,44 @@ func (self *SGuest) AllowPerformDetachdisk(ctx context.Context, userCred mcclien
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "detachdisk")
 }
 
-func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	diskId, err := data.GetString("disk_id")
-	if err != nil {
+func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerDetachDiskInput) (jsonutils.JSONObject, error) {
+	if len(input.DiskId) == 0 {
 		return nil, httperrors.NewMissingParameterError("disk_id")
 	}
-	keepDisk := jsonutils.QueryBoolean(data, "keep_disk", false)
-	iDisk, err := DiskManager.FetchByIdOrName(userCred, diskId)
+	diskObj, err := validators.ValidateModel(userCred, DiskManager, &input.DiskId)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, httperrors.NewNotFoundError("failed to find disk %s", diskId)
-		}
-		return nil, httperrors.NewGeneralError(err)
+		return nil, err
 	}
-	disk := iDisk.(*SDisk)
-	if disk != nil {
-		attached, err := self.isAttach2Disk(disk)
-		if err != nil {
-			return nil, httperrors.NewInternalServerError("check isAttach2Disk fail %s", err)
-		}
-		if attached {
-			if disk.DiskType == api.DISK_TYPE_SYS {
-				return nil, httperrors.NewUnsupportOperationError("Cannot detach sys disk")
-			}
-			detachDiskStatus, err := self.GetDriver().GetDetachDiskStatus()
-			if err != nil {
-				return nil, err
-			}
-			if keepDisk && !self.GetDriver().CanKeepDetachDisk() {
-				return nil, httperrors.NewInputParameterError("Cannot keep detached disk")
-			}
-
-			err = self.GetDriver().ValidateDetachDisk(ctx, userCred, self, disk)
-			if err != nil {
-				return nil, err
-			}
-
-			if utils.IsInStringArray(self.Status, detachDiskStatus) {
-				self.SetStatus(userCred, api.VM_DETACH_DISK, "")
-				err = self.StartGuestDetachdiskTask(ctx, userCred, disk, keepDisk, "", false)
-				return nil, err
-			} else {
-				return nil, httperrors.NewInvalidStatusError("Server in %s not able to detach disk", self.Status)
-			}
-		} else {
-			return nil, httperrors.NewInvalidStatusError("Disk %s not attached", diskId)
-		}
+	disk := diskObj.(*SDisk)
+	attached, err := self.isAttach2Disk(disk)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("check isAttach2Disk fail %s", err)
 	}
-	return nil, httperrors.NewResourceNotFoundError("Disk %s not found", diskId)
+	if !attached {
+		return nil, nil
+	}
+	if disk.DiskType == api.DISK_TYPE_SYS {
+		return nil, httperrors.NewUnsupportOperationError("Cannot detach sys disk")
+	}
+	detachDiskStatus, err := self.GetDriver().GetDetachDiskStatus()
+	if err != nil {
+		return nil, err
+	}
+	if input.KeepDisk && !self.GetDriver().CanKeepDetachDisk() {
+		return nil, httperrors.NewInputParameterError("Cannot keep detached disk")
+	}
+
+	err = self.GetDriver().ValidateDetachDisk(ctx, userCred, self, disk)
+	if err != nil {
+		return nil, err
+	}
+
+	if utils.IsInStringArray(self.Status, detachDiskStatus) {
+		self.SetStatus(userCred, api.VM_DETACH_DISK, "")
+		err = self.StartGuestDetachdiskTask(ctx, userCred, disk, input.KeepDisk, "", false)
+		return nil, err
+	}
+	return nil, httperrors.NewInvalidStatusError("Server in %s not able to detach disk", self.Status)
 }
 
 func (self *SGuest) StartGuestDetachdiskTask(
@@ -2501,7 +2448,7 @@ func (self *SGuest) AllowPerformChangeConfig(ctx context.Context, userCred mccli
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "change-config")
 }
 
-func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerChangeConfigInput) (jsonutils.JSONObject, error) {
 	if !self.GetDriver().AllowReconfigGuest() {
 		return nil, httperrors.NewInvalidStatusError("Not allow to change config")
 	}
@@ -2518,18 +2465,17 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewInvalidStatusError("Cannot change config in %s", self.Status)
 	}
 
-	host, _ := self.GetHost()
-	if host == nil {
-		return nil, httperrors.NewInvalidStatusError("No valid host")
+	_, err = self.GetHost()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetHost")
 	}
 
 	var addCpu, addMem int
 	var cpuChanged, memChanged bool
 
 	confs := jsonutils.NewDict()
-	skuId := jsonutils.GetAnyString(data, []string{"instance_type", "sku", "flavor"})
-	if len(skuId) > 0 {
-		sku, err := ServerSkuManager.FetchSkuByNameAndProvider(skuId, self.GetDriver().GetProvider(), true)
+	if len(input.InstanceType) > 0 {
+		sku, err := ServerSkuManager.FetchSkuByNameAndProvider(input.InstanceType, self.GetDriver().GetProvider(), true)
 		if err != nil {
 			return nil, err
 		}
@@ -2552,40 +2498,25 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 				addMem = sku.MemorySizeMB - self.VmemSize
 			}
 		}
-
 	} else {
-		vcpuCount, err := data.GetString("vcpu_count")
-		if err == nil {
-			nVcpu, err := strconv.ParseInt(vcpuCount, 10, 0)
-			if err != nil {
-				return nil, httperrors.NewBadRequestError("Params vcpu_count parse error")
-			}
-
-			if nVcpu != int64(self.VcpuCount) {
-				cpuChanged = true
-				addCpu = int(nVcpu - int64(self.VcpuCount))
-				err = confs.Add(jsonutils.NewInt(nVcpu), "vcpu_count")
-				if err != nil {
-					return nil, httperrors.NewBadRequestError("Params vcpu_count parse error")
-				}
-			}
+		if input.VcpuCount != self.VcpuCount {
+			cpuChanged = true
+			addCpu = input.VcpuCount - self.VcpuCount
+			confs.Add(jsonutils.NewInt(int64(input.VcpuCount)), "vcpu_count")
 		}
-		vmemSize, err := data.GetString("vmem_size")
-		if err == nil {
-			if !regutils.MatchSize(vmemSize) {
-				return nil, httperrors.NewBadRequestError("Memory size must be number[+unit], like 256M, 1G or 256")
-			}
-			nVmem, err := fileutils.GetSizeMb(vmemSize, 'M', 1024)
+		if !regutils.MatchSize(input.VmemSize) {
+			return nil, httperrors.NewBadRequestError("Memory size must be number[+unit], like 256M, 1G or 256")
+		}
+		nVmem, err := fileutils.GetSizeMb(input.VmemSize, 'M', 1024)
+		if err != nil {
+			httperrors.NewBadRequestError("Params vmem_size parse error")
+		}
+		if nVmem != self.VmemSize {
+			memChanged = true
+			addMem = nVmem - self.VmemSize
+			err = confs.Add(jsonutils.NewInt(int64(nVmem)), "vmem_size")
 			if err != nil {
-				httperrors.NewBadRequestError("Params vmem_size parse error")
-			}
-			if nVmem != self.VmemSize {
-				memChanged = true
-				addMem = nVmem - self.VmemSize
-				err = confs.Add(jsonutils.NewInt(int64(nVmem)), "vmem_size")
-				if err != nil {
-					return nil, httperrors.NewBadRequestError("Params vmem_size parse error")
-				}
+				return nil, httperrors.NewBadRequestError("Params vmem_size parse error")
 			}
 		}
 	}
@@ -2607,42 +2538,33 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	var newDisks = make([]*api.DiskConfig, 0)
 	var resizeDisks = jsonutils.NewArray()
 
-	var inputDisks = make([]*api.DiskConfig, 0)
-	if disksConf, err := data.Get("disks"); err == nil {
-		if err = disksConf.Unmarshal(&inputDisks); err != nil {
-			return nil, httperrors.NewInputParameterError("Unmarshal disks configure error %s", err)
-		}
-	}
-
 	var schedInputDisks = make([]*api.DiskConfig, 0)
 	var diskIdx = 1
-	for _, diskConf := range inputDisks {
-		diskConf, err = parseDiskInfo(ctx, userCred, diskConf)
-		if err != nil {
-			return nil, httperrors.NewBadRequestError("Parse disk info error: %s", err)
+	for i := range input.Disks {
+		disk := input.Disks[i]
+		if len(disk.Backend) == 0 {
+			disk.Backend = self.getDefaultStorageType()
 		}
-		if len(diskConf.Backend) == 0 {
-			diskConf.Backend = self.getDefaultStorageType()
-		}
-		if diskConf.SizeMb > 0 {
+		if disk.SizeMb > 0 {
 			if diskIdx >= len(disks) {
-				newDisks = append(newDisks, diskConf)
+				newDisks = append(newDisks, &disk)
 				newDiskIdx += 1
-				addDisk += diskConf.SizeMb
-				schedInputDisks = append(schedInputDisks, diskConf)
+				addDisk += disk.SizeMb
+				schedInputDisks = append(schedInputDisks, &disk)
 			} else {
-				disk := disks[diskIdx].GetDisk()
-				oldSize := disk.DiskSize
-				if diskConf.SizeMb < oldSize {
+				gDisk := disks[diskIdx].GetDisk()
+				oldSize := gDisk.DiskSize
+				if disk.SizeMb < oldSize {
 					return nil, httperrors.NewInputParameterError("Cannot reduce disk size")
-				} else if diskConf.SizeMb > oldSize {
-					arr := jsonutils.NewArray(jsonutils.NewString(disks[diskIdx].DiskId), jsonutils.NewInt(int64(diskConf.SizeMb)))
+				}
+				if disk.SizeMb > oldSize {
+					arr := jsonutils.NewArray(jsonutils.NewString(disks[diskIdx].DiskId), jsonutils.NewInt(int64(disk.SizeMb)))
 					resizeDisks.Add(arr)
-					addDisk += diskConf.SizeMb - oldSize
+					addDisk += disk.SizeMb - oldSize
 					storage, _ := disks[diskIdx].GetDisk().GetStorage()
 					schedInputDisks = append(schedInputDisks, &api.DiskConfig{
 						SizeMb:  addDisk,
-						Index:   diskConf.Index,
+						Index:   disk.Index,
 						Storage: storage.Id,
 					})
 				}
@@ -2654,7 +2576,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	if resizeDisks.Length() > 0 {
 		confs.Add(resizeDisks, "resize")
 	}
-	if self.Status != api.VM_RUNNING && jsonutils.QueryBoolean(data, "auto_start", false) {
+	if self.Status != api.VM_RUNNING && input.AutoStart {
 		confs.Add(jsonutils.NewBool(true), "auto_start")
 	}
 	if self.Status == api.VM_RUNNING {
@@ -3250,23 +3172,19 @@ func (self *SGuest) setUserData(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func (self *SGuest) AllowPerformUserData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "userdata")
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "user-data")
 }
 
-func (self *SGuest) PerformUserData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	userData, err := data.GetString("user_data")
-	if err != nil {
+func (self *SGuest) PerformUserData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerUserDataInput) (jsonutils.JSONObject, error) {
+	if len(input.UserData) == 0 {
 		return nil, httperrors.NewMissingParameterError("user_data")
 	}
-	err = self.setUserData(ctx, userCred, userData)
+	err := self.setUserData(ctx, userCred, input.UserData)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
 	if len(self.HostId) > 0 {
-		err = self.StartSyncTask(ctx, userCred, false, "")
-		if err != nil {
-			return nil, httperrors.NewGeneralError(err)
-		}
+		return nil, self.StartSyncTask(ctx, userCred, false, "")
 	}
 	return nil, nil
 }
