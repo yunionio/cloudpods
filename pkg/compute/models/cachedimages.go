@@ -93,6 +93,10 @@ type SCachedimage struct {
 	ImageType string `width:"16" default:"customized" list:"user" index:"true"`
 }
 
+func (manager *SCachedimageManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
+	return []db.SScopeResourceCount{}, nil
+}
+
 func (self *SCachedimage) ValidateDeleteCondition(ctx context.Context) error {
 	cnt, err := self.getStoragecacheCount()
 	if err != nil {
