@@ -64,7 +64,7 @@ func SyncModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (
 
 			IncludeDetails:       opt.IncludeDetails,
 			IncludeEmulated:      includeEmulated,
-			InCludeOtherCloudEnv: opt.InCludeOtherCloudEnv,
+			InCludeOtherCloudEnv: opt.IncludeOtherCloudEnv,
 		})
 		if err != nil {
 			return
