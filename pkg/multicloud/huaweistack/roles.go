@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -34,6 +35,7 @@ type SRole struct {
 	CreatedTime   string
 	Links         SLink
 	Policy        jsonutils.JSONDict
+	roleType      string
 }
 
 func (role *SRole) GetName() string {
@@ -45,7 +47,7 @@ func (role *SRole) GetDescription() string {
 }
 
 func (role *SRole) GetPolicyType() string {
-	return "System"
+	return role.roleType
 }
 
 func (role *SRole) GetGlobalId() string {
@@ -71,9 +73,72 @@ func (self *SHuaweiClient) GetISystemCloudpolicies() ([]cloudprovider.ICloudpoli
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range roles {
+		roles[i].roleType = api.CLOUD_POLICY_TYPE_SYSTEM
 		ret = append(ret, &roles[i])
 	}
 	return ret, nil
+}
+
+func (self *SHuaweiClient) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	roles, err := self.GetCustomRoles()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetCustomRoles")
+	}
+	ret := []cloudprovider.ICloudpolicy{}
+	for i := range roles {
+		roles[i].roleType = api.CLOUD_POLICY_TYPE_CUSTOM
+		ret = append(ret, &roles[i])
+	}
+	return ret, nil
+}
+
+func (self *SHuaweiClient) GetCustomRoles() ([]SRole, error) {
+	params := map[string]string{}
+
+	client, err := self.newGeneralAPIClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "newGeneralAPIClient")
+	}
+
+	client.Roles.SetVersion("v3.0/OS-ROLE")
+	defer client.Roles.SetVersion("v3.0")
+
+	roles := []SRole{}
+	err = doListAllWithNextLink(client.Roles.List, params, &roles)
+	if err != nil {
+		return nil, errors.Wrap(err, "doListAllWithOffset")
+	}
+	return roles, nil
+}
+
+func (self *SHuaweiClient) CreateICloudpolicy(opts *cloudprovider.SCloudpolicyCreateOptions) (cloudprovider.ICloudpolicy, error) {
+	client, err := self.newGeneralAPIClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "newGeneralAPIClient")
+	}
+
+	client.Roles.SetVersion("v3.0/OS-ROLE")
+	defer client.Roles.SetVersion("v3.0")
+
+	params := map[string]interface{}{
+		"role": map[string]interface{}{
+			"display_name": opts.Name,
+			"type":         "XA",
+			"description":  opts.Desc,
+			"policy":       opts.Document,
+		},
+	}
+
+	resp, err := client.Roles.Create(jsonutils.Marshal(params))
+	if err != nil {
+		return nil, err
+	}
+	role := &SRole{roleType: api.CLOUD_POLICY_TYPE_CUSTOM}
+	err = resp.Unmarshal(role)
+	if err != nil {
+		return nil, err
+	}
+	return role, nil
 }
 
 func (self *SHuaweiClient) GetRoles(domainId, name string) ([]SRole, error) {
