@@ -330,7 +330,6 @@ func (cli *SZStackClient) getResource(resource, resourceId string, retval interf
 }
 
 func (cli *SZStackClient) getMonitor(resource string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-
 	return cli._getMonitor(resource, params)
 }
 
