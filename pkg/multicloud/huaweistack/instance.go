@@ -362,6 +362,10 @@ func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
 	return self.host
 }
 
+func (self *SInstance) GetIHostId() string {
+	return self.host.GetGlobalId()
+}
+
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	err := self.Refresh()
 	if err != nil {

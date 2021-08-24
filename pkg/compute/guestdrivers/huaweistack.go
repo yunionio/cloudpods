@@ -15,11 +15,17 @@
 package guestdrivers
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -141,6 +147,41 @@ func (self *SHuaweiCloudStackGuestDriver) GetInstanceCapability() cloudprovider.
 			},
 		},
 	}
+}
+
+func (self *SHuaweiCloudStackGuestDriver) RemoteDeployGuestSyncHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, iVM cloudprovider.ICloudVM) (cloudprovider.ICloudHost, error) {
+	if hostId := iVM.GetIHostId(); len(hostId) > 0 {
+		nh, err := db.FetchByExternalIdAndManagerId(models.HostManager, hostId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("manager_id", host.ManagerId)
+		})
+		if err != nil {
+			log.Debugf("failed to found new hostId(%s) for ivm %s(%s) error: %v", hostId, guest.Name, guest.Id, err)
+			if errors.Cause(err) != sql.ErrNoRows {
+				return nil, errors.Wrap(err, "FetchByExternalIdAndManagerId")
+			}
+
+			// HYPERVISOR_HUAWEI_CLOUD_STACK VM被部署到一台全新的宿主机
+			zone, err := host.GetZone()
+			if err != nil {
+				log.Warningf("host %s GetZone: %s", host.GetId(), err)
+			} else {
+				_host, err := models.HostManager.NewFromCloudHost(ctx, userCred, iVM.GetIHost(), host.GetCloudprovider(), zone)
+				if err != nil {
+					log.Warningf("NewFromCloudHost %s: %s", iVM.GetIHostId(), err)
+				} else {
+					host = _host
+				}
+			}
+		} else {
+			host = nh.(*models.SHost)
+		}
+	}
+
+	if host.GetId() != guest.HostId {
+		guest.OnScheduleToHost(ctx, userCred, host.GetId())
+	}
+
+	return host.GetIHost()
 }
 
 func (self *SHuaweiCloudStackGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {

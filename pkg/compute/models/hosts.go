@@ -1716,7 +1716,7 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudHost(ctx, userCred, added[i], provider, zone)
+		new, err := manager.NewFromCloudHost(ctx, userCred, added[i], provider, zone)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -1971,7 +1971,7 @@ func (s *SHost) syncSchedtags(ctx context.Context, userCred mcclient.TokenCreden
 	return nil
 }
 
-func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost, provider *SCloudprovider, izone *SZone) (*SHost, error) {
+func (manager *SHostManager) NewFromCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost, provider *SCloudprovider, izone *SZone) (*SHost, error) {
 	host := SHost{}
 	host.SetModelManager(manager, &host)
 
@@ -2042,11 +2042,11 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 		lockman.LockRawObject(ctx, manager.Keyword(), "name")
 		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
 
-		newName, err := db.GenerateName(ctx, manager, userCred, extHost.GetName())
-		if err != nil {
-			return errors.Wrapf(err, "db.GenerateName")
-		}
-		host.Name = newName
+		//newName, err := db.GenerateName(ctx, manager, userCred, extHost.GetName())
+		//if err != nil {
+		//	return errors.Wrapf(err, "db.GenerateName")
+		//}
+		host.Name = extHost.GetName()
 
 		return manager.TableSpec().Insert(ctx, &host)
 	}()
