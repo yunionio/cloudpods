@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/version"
 )
 
 type SInstanceCdrome struct {
@@ -305,6 +306,11 @@ func (instance *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 	}
 	authURL, _ := url.Parse(instance.host.zone.region.client.authURL)
 	url := fmt.Sprintf("%s://%s:5000/thirdparty/vnc_auto.html?host=%s&port=%d&token=%s&title=%s", info.Scheme, authURL.Hostname(), info.Hostname, info.Port, info.Token, instance.Name)
+	if ver, _ := instance.host.zone.region.client.GetVersion(); ver != nil {
+		if version.GE(ver.Version, "4.0.0") {
+			url = fmt.Sprintf("%s://%s:5000/novnc/index.html?host=%s&port=%d&token=%s&title=%s&language=zh-CN&lowVersion=false", info.Scheme, authURL.Hostname(), info.Hostname, info.Port, info.Token, instance.Name)
+		}
+	}
 	password, _ := instance.host.zone.region.GetInstanceConsolePassword(instance.UUID)
 	if len(password) > 0 {
 		url = url + fmt.Sprintf("&password=%s", password)
