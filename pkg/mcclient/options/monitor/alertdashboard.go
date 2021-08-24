@@ -62,3 +62,30 @@ func (o *AlertDashBoardDeleteOptions) GetId() string {
 func (o *AlertDashBoardDeleteOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(o)
 }
+
+type AlertClonePanelOptions struct {
+	ID             string `help:"ID of alart " json:"-"`
+	PanelId        string `help:"ID of alertPanel" json:"panel_id"`
+	ClonePanelName string `help:"new panel name" json:"clone_panel_name"`
+}
+
+func (o *AlertClonePanelOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
+
+func (o *AlertClonePanelOptions) GetId() string {
+	return o.ID
+}
+
+type AlertCloneDashboardOptions struct {
+	ID        string `help:"ID of alart " json:"-"`
+	CloneName string `json:"clone_name" help:"new dashboard name"`
+}
+
+func (o *AlertCloneDashboardOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
+
+func (o *AlertCloneDashboardOptions) GetId() string {
+	return o.ID
+}

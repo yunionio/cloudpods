@@ -267,3 +267,76 @@ func (manager *SAlertDashBoardManager) getDashboardByid(id string) (*SAlertDashB
 	}
 	return iModel.(*SAlertDashBoard), nil
 }
+
+func (dash *SAlertDashBoard) AllowPerformClonePanel(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return true
+}
+
+func (dash *SAlertDashBoard) PerformClonePanel(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input monitor.AlertClonePanelInput) (jsonutils.JSONObject, error) {
+
+	panel, err := AlertPanelManager.getPanelByid(input.PanelId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "getPanelByid:%s err", input.PanelId)
+	}
+	panelCloned, err := panel.ClonePanel(ctx, dash.GetId(), input)
+	if err != nil {
+		return nil, errors.Wrap(err, "ClonePanel err")
+	}
+	panelDetails := monitor.PanelDetails{}
+	panelDetails, err = panelCloned.GetMoreDetails(panelDetails)
+	if err != nil {
+		return nil, errors.Wrapf(err, "panelCloned:%s GetMoreDetails err", panelCloned.Id)
+	}
+	output := jsonutils.Marshal(panelCloned)
+	output.(*jsonutils.JSONDict).Update(jsonutils.Marshal(&panelDetails))
+
+	return output, nil
+}
+
+func (dash *SAlertDashBoard) AllowPerformCloneDashboard(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return true
+}
+
+func (dash *SAlertDashBoard) PerformCloneDashboard(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input monitor.AlertCloneDashboardInput) (jsonutils.JSONObject, error) {
+	iModel, err := db.NewModelObject(AlertDashBoardManager)
+	if err != nil {
+		return nil, errors.Wrap(err, "AlertDashBoardManager NewModelObject err")
+	}
+	dashJson := jsonutils.Marshal(dash)
+	dashJson.Unmarshal(iModel)
+	iModel.(*SAlertDashBoard).Id = ""
+	name, err := db.GenerateName2(ctx, AlertDashBoardManager, nil, input.CloneName, iModel, 1)
+	if err != nil {
+		return nil, errors.Wrap(err, "clonePanel GenerateName err")
+	}
+	iModel.(*SAlertDashBoard).Name = name
+	err = AlertDashBoardManager.TableSpec().Insert(ctx, iModel)
+	if err != nil {
+		return nil, errors.Wrapf(err, "insert clone dashboard err by id:%s", dash.GetId())
+	}
+	alertPanels, err := dash.getAttachPanels()
+	if err != nil {
+		return nil, errors.Wrapf(err, "dashboard:%s getAttachPanels err", dash.Id)
+	}
+	for _, panel := range alertPanels {
+		err := panel.attachDashboard(ctx, iModel.(*SAlertDashBoard).Id)
+		if err != nil {
+			err := iModel.Delete(ctx, userCred)
+			if err != nil {
+				log.Errorf("delete cloneDashboard:%s err when panel attachDashboard err:%v", input.CloneName, err)
+			}
+			return nil, errors.Wrapf(err, "panel:%s attachCloneDashboard:%s err", panel.Name, input.CloneName)
+		}
+	}
+	boardDetails, err := iModel.(*SAlertDashBoard).GetMoreDetails(monitor.AlertDashBoardDetails{})
+	if err != nil {
+		return nil, errors.Wrap(err, "cloneDashboard getDetails err")
+	}
+	output := jsonutils.Marshal(iModel)
+	output.(*jsonutils.JSONDict).Update((jsonutils.Marshal(&boardDetails)))
+	return output, nil
+}

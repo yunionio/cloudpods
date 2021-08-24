@@ -26,4 +26,6 @@ func init() {
 	cmd.List(new(options.AlertDashBoardListOptions))
 	cmd.Show(new(options.AlertDashBoardShowOptions))
 	cmd.Delete(new(options.AlertDashBoardDeleteOptions))
+	cmd.Perform("clone-panel", new(options.AlertClonePanelOptions))
+	cmd.Perform("clone-dashboard", new(options.AlertCloneDashboardOptions))
 }
