@@ -162,16 +162,18 @@ func (d *NBDDriver) setupLVMS() (bool, error) {
 
 	lvmPartitions := []fsdriver.IDiskPartition{}
 	for _, part := range d.partitions {
-		vgname := d.findLVMPartitions(part.GetPartDev())
-		if len(vgname) > 0 {
-			log.Infof("find vg %s from %s", vgname, part.GetPartDev())
-			lvm := NewKVMGuestLVMPartition(part.GetPartDev(), vgname)
-			d.lvms = append(d.lvms, lvm)
-			if lvm.SetupDevice() {
-				if subparts := lvm.FindPartitions(); len(subparts) > 0 {
-					for i := 0; i < len(subparts); i++ {
-						lvmPartitions = append(lvmPartitions, subparts[i])
-					}
+		vg, err := findVg(part.GetPartDev())
+		if err != nil {
+			log.Errorf("unable to find vg from %s: %v", part.GetPartDev(), err)
+			continue
+		}
+		log.Infof("find vg %s from %s", vg.Name, part.GetPartDev())
+		lvm := NewKVMGuestLVMPartition(part.GetPartDev(), vg)
+		d.lvms = append(d.lvms, lvm)
+		if lvm.SetupDevice() {
+			if subparts := lvm.FindPartitions(); len(subparts) > 0 {
+				for i := 0; i < len(subparts); i++ {
+					lvmPartitions = append(lvmPartitions, subparts[i])
 				}
 			}
 		}
