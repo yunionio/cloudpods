@@ -296,7 +296,11 @@ func (self *SHuaweiCloudStackProvider) GetISystemCloudpolicies() ([]cloudprovide
 }
 
 func (self *SHuaweiCloudStackProvider) GetICustomCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	return []cloudprovider.ICloudpolicy{}, nil
+	return self.client.GetICustomCloudpolicies()
+}
+
+func (self *SHuaweiCloudStackProvider) CreateICloudpolicy(opts *cloudprovider.SCloudpolicyCreateOptions) (cloudprovider.ICloudpolicy, error) {
+	return self.client.CreateICloudpolicy(opts)
 }
 
 func (self *SHuaweiCloudStackProvider) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
