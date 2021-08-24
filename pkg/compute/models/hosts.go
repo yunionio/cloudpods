@@ -1713,7 +1713,7 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudHost(ctx, userCred, added[i], provider, zone)
+		new, err := manager.NewFromCloudHost(ctx, userCred, added[i], provider, zone)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -1968,7 +1968,7 @@ func (s *SHost) syncSchedtags(ctx context.Context, userCred mcclient.TokenCreden
 	return nil
 }
 
-func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost, provider *SCloudprovider, izone *SZone) (*SHost, error) {
+func (manager *SHostManager) NewFromCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost, provider *SCloudprovider, izone *SZone) (*SHost, error) {
 	host := SHost{}
 	host.SetModelManager(manager, &host)
 
@@ -1989,11 +1989,7 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 		izone, _ = wire.GetZone()
 	}
 
-	newName, err := db.GenerateName(manager, userCred, extHost.GetName())
-	if err != nil {
-		return nil, fmt.Errorf("generate name fail %s", err)
-	}
-	host.Name = newName
+	host.Name = extHost.GetName()
 	host.ExternalId = extHost.GetGlobalId()
 	host.ZoneId = izone.Id
 
@@ -2040,7 +2036,7 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 	host.IsPublic = false
 	host.PublicScope = string(rbacutils.ScopeNone)
 
-	err = manager.TableSpec().Insert(ctx, &host)
+	err := manager.TableSpec().Insert(ctx, &host)
 	if err != nil {
 		log.Errorf("newFromCloudHost fail %s", err)
 		return nil, err

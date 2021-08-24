@@ -40,7 +40,7 @@ type SZone struct {
 	multicloud.SResourceBase
 	multicloud.HuaweiTags
 	region *SRegion
-	host   *SHost
+	ihosts []cloudprovider.ICloudHost
 
 	iwires    []cloudprovider.ICloudWire
 	istorages []cloudprovider.ICloudStorage
@@ -81,11 +81,62 @@ func (self *SZone) fetchStorages() error {
 	return nil
 }
 
-func (self *SZone) getHost() *SHost {
-	if self.host == nil {
-		self.host = &SHost{zone: self, projectId: self.region.client.projectId}
+// 华为私有云没有直接列出host的接口，所有账号下的host都是通过VM反向解析出来的
+// 当账号下没有虚拟机时，如果没有host，会导致调度找不到可用的HOST。
+// 因此，为了避免上述情况始终会在每个zone下返回一台虚拟的host
+func (self *SZone) getEmulatedHost() SHost {
+	return SHost{
+		zone:      self,
+		vms:       nil,
+		IsFake:    true,
+		projectId: self.region.client.projectId,
+		Id:        fmt.Sprintf("%s-%s", self.region.client.cpcfg.Id, self.GetId()),
+		Name:      fmt.Sprintf("%s-%s", self.region.client.cpcfg.Name, self.GetId()),
 	}
-	return self.host
+}
+
+func (self *SZone) getHosts() ([]cloudprovider.ICloudHost, error) {
+	if self.ihosts != nil {
+		return self.ihosts, nil
+	}
+
+	vms, err := self.region.GetInstances()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetInstances")
+	}
+
+	hosts := map[string]string{}
+	hostVms := map[string][]SInstance{}
+	for i := range vms {
+		vm := vms[i]
+		if vm.OSEXTAZAvailabilityZone == self.GetId() {
+			hosts[vm.HostID] = vm.OSEXTSRVATTRHost
+			if _, ok := hostVms[vm.HostID]; ok {
+				hostVms[vm.HostID] = append(hostVms[vm.HostID], vm)
+			} else {
+				hostVms[vm.HostID] = []SInstance{vm}
+			}
+		}
+	}
+
+	fakeHost := self.getEmulatedHost()
+	ihosts := []cloudprovider.ICloudHost{&fakeHost}
+	for k, _ := range hosts {
+		h := SHost{
+			zone:      self,
+			projectId: self.region.client.projectId,
+			Id:        k,
+			Name:      hosts[k],
+		}
+		for i := range hostVms[k] {
+			hostVms[k][i].host = &h
+		}
+
+		h.vms = hostVms[k]
+		ihosts = append(ihosts, &h)
+	}
+
+	return ihosts, nil
 }
 
 func (self *SZone) GetId() string {
@@ -124,14 +175,21 @@ func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {
 }
 
 func (self *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
-	return []cloudprovider.ICloudHost{self.getHost()}, nil
+	return self.getHosts()
 }
 
 func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	host := self.getHost()
-	if host.GetGlobalId() == id {
-		return host, nil
+	ihosts, err := self.getHosts()
+	if err != nil {
+		return nil, errors.Wrap(err, "getHosts")
 	}
+
+	for i := range ihosts {
+		if ihosts[i].GetGlobalId() == id {
+			return ihosts[i], nil
+		}
+	}
+
 	return nil, cloudprovider.ErrNotFound
 }
 

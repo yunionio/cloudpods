@@ -444,6 +444,9 @@ func (self *SStoragecachedimage) syncRemoveCloudImage(ctx context.Context, userC
 
 func (self *SStoragecachedimage) syncWithCloudImage(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, image cloudprovider.ICloudImage, managerId string) error {
 	cachedImage := self.GetCachedimage()
+	if len(self.ExternalId) == 0 {
+		self.SetExternalId(cachedImage.GetExternalId())
+	}
 	if len(cachedImage.ExternalId) > 0 {
 		self.SetStatus(userCred, image.GetStatus(), "")
 		return cachedImage.syncWithCloudImage(ctx, userCred, ownerId, image, managerId)

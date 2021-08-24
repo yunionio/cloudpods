@@ -32,20 +32,31 @@ import (
 type SHost struct {
 	multicloud.SHostBase
 	zone *SZone
+	vms  []SInstance
 
+	// 华为私有云没有直接列出host的接口，所有账号下的host都是通过VM反向解析出来的
+	// 当账号下没有虚拟机时，如果没有host，会导致调度找不到可用的HOST。
+	// 因此，为了避免上述情况始终会在每个zone下返回一台虚拟的host
+	IsFake    bool
 	projectId string
+	Id        string
+	Name      string
 }
 
 func (self *SHost) GetId() string {
-	return fmt.Sprintf("%s-%s", self.zone.region.client.cpcfg.Id, self.zone.GetId())
+	return self.Id
 }
 
 func (self *SHost) GetName() string {
-	return fmt.Sprintf("%s-%s", self.zone.region.client.cpcfg.Name, self.zone.GetId())
+	if len(self.Name) > 0 {
+		return self.Name
+	}
+
+	return self.Id
 }
 
 func (self *SHost) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s", self.zone.region.client.cpcfg.Id, self.zone.GetId())
+	return self.Id
 }
 
 func (self *SHost) GetStatus() string {
@@ -53,36 +64,61 @@ func (self *SHost) GetStatus() string {
 }
 
 func (self *SHost) Refresh() error {
-	return nil
+	_, err := self.getVMs()
+	return errors.Wrap(err, "getVMs")
 }
 
 func (self *SHost) IsEmulated() bool {
-	return true
+	return self.IsFake
 }
 
 func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	vms, err := self.zone.region.GetInstances()
-	if err != nil {
-		return nil, err
-	}
-
-	filtedVms := make([]SInstance, 0)
-	for i := range vms {
-		if vms[i].OSEXTAZAvailabilityZone == self.zone.GetId() {
-			filtedVms = append(filtedVms, vms[i])
+	var vms []SInstance
+	var err error
+	if self.vms != nil {
+		vms = self.vms
+	} else {
+		vms, err = self.getVMs()
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	ivms := make([]cloudprovider.ICloudVM, len(filtedVms))
-	for i := 0; i < len(filtedVms); i += 1 {
-		filtedVms[i].host = self
-		ivms[i] = &filtedVms[i]
+	ret := make([]cloudprovider.ICloudVM, len(vms))
+	for i := range vms {
+		vm := vms[i]
+		vm.host = self
+		ret[i] = &vm
 	}
-	return ivms, nil
+
+	return ret, nil
+}
+
+func (self *SHost) getVMs() ([]SInstance, error) {
+	vms, err := self.zone.region.GetInstances()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetInstances")
+	}
+
+	ret := []SInstance{}
+	for i := range vms {
+		vm := vms[i]
+		if vm.OSEXTAZAvailabilityZone == self.GetId() && vm.HostID == self.GetId() {
+			vm.host = self
+			ret = append(ret, vm)
+		}
+	}
+
+	self.vms = ret
+	return ret, nil
 }
 
 func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	vm, err := self.zone.region.GetInstanceByID(id)
+	if vm.HostID != self.GetId() {
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetInstanceByID")
+	}
+
 	vm.host = self
 	return &vm, err
 }
@@ -118,6 +154,8 @@ func (self *SHost) GetAccessMac() string {
 func (self *SHost) GetSysInfo() jsonutils.JSONObject {
 	info := jsonutils.NewDict()
 	info.Add(jsonutils.NewString(CLOUD_PROVIDER_HUAWEI), "manufacture")
+	info.Add(jsonutils.NewString(self.GetId()), "id")
+	info.Add(jsonutils.NewString(self.GetName()), "name")
 	return info
 }
 
@@ -171,6 +209,10 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 		return nil, err
 	}
 
+	if instance.HostID != self.GetId() {
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetInstanceByID")
+	}
+
 	instance.host = self
 	return &instance, nil
 }
@@ -188,7 +230,8 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		return nil, err
 	}
 
-	vm, err := self.GetInstanceById(vmId)
+	// VM实际调度到的host， 可能不是当前host.因此需要改写host信息
+	vm, err := self.zone.region.GetIVMById(vmId)
 	if err != nil {
 		return nil, err
 	}
