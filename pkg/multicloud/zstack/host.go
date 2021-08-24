@@ -418,9 +418,11 @@ func (region *SRegion) CreateInstance(desc *cloudprovider.SManagedVMCreateConfig
 	systemTags := []string{
 		"createWithoutCdRom::true",
 		"usbRedirect::false",
-		fmt.Sprintf("staticIp::%s::%s", l3Id, desc.IpAddr),
 		"vmConsoleMode::vnc",
 		"cleanTraffic::false",
+	}
+	if len(desc.IpAddr) > 0 {
+		systemTags = append(systemTags, fmt.Sprintf("staticIp::%s::%s", l3Id, desc.IpAddr))
 	}
 	if len(desc.UserData) > 0 {
 		systemTags = append(systemTags, "userdata::"+desc.UserData)
