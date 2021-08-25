@@ -864,15 +864,6 @@ func (disk *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 	if guest != nil {
 		return nil, httperrors.NewUnsupportOperationError("try use /servers/<%s>/resize-disk API", guest.Id)
 	}
-	if guest.Hypervisor == api.HYPERVISOR_ESXI {
-		c, err := guest.GetInstanceSnapshotCount()
-		if err != nil {
-			return nil, errors.Wrapf(err, "unable to GetInstanceSnapshotCount for guest %s", guest.GetName())
-		}
-		if c > 0 {
-			return nil, httperrors.NewUnsupportOperationError("the disk of a esxi virtual machine with instance snapshots does not support resizing")
-		}
-	}
 	sizeMb, err := input.SizeMb()
 	if err != nil {
 		return nil, err
