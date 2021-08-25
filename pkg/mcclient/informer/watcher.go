@@ -16,8 +16,10 @@ package informer
 
 import (
 	"context"
+	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
@@ -34,6 +36,25 @@ type SWatchManager struct {
 
 func NewWatchManagerBySession(session *mcclient.ClientSession) (*SWatchManager, error) {
 	return NewWatchManager(session.GetClient(), session.GetToken(), session.GetRegion(), session.GetEndpointType())
+}
+
+func NewWatchManagerBySessionBg(session *mcclient.ClientSession, callback func(man *SWatchManager) error) {
+	go func() {
+		for {
+			watchMan, err := NewWatchManagerBySession(session)
+			if err != nil {
+				log.Errorf("NewWatchManagerBySession error: %v", err)
+			} else {
+				if err := callback(watchMan); err != nil {
+					log.Warningf("callback with watchMan error: %v", err)
+				} else {
+					log.Infof("callback with watchMan success.")
+					break
+				}
+			}
+			time.Sleep(10 * time.Second)
+		}
+	}()
 }
 
 func NewWatchManager(client *mcclient.Client, token mcclient.TokenCredential, region, interfaceType string) (*SWatchManager, error) {
