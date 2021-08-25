@@ -1334,6 +1334,15 @@ func (manager *SStorageManager) FetchStorageById(storageId string) *SStorage {
 	return obj.(*SStorage)
 }
 
+func (manager *SStorageManager) FetchStorageByIds(ids []string) ([]SStorage, error) {
+	objs := make([]SStorage, 0)
+	q := manager.Query().In("id", ids)
+	if err := db.FetchModelObjects(manager, q, &objs); err != nil {
+		return nil, err
+	}
+	return objs, nil
+}
+
 func (manager *SStorageManager) InitializeData() error {
 	storages := make([]SStorage, 0)
 	q := manager.Query()
