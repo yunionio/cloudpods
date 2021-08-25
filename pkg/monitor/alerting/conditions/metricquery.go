@@ -69,15 +69,11 @@ func (query *MetricQueryCondition) ExecuteQuery() (*mq.Metrics, error) {
 		Series: make(tsdb.TimeSeriesSlice, 0),
 		Metas:  queryResult.metas,
 	}
-	if len(query.QueryCons[0].ResType) == 0 ||
-		strings.HasPrefix(query.QueryCons[0].ResType, monitor.EXT_PREFIX) {
+	if query.noCheckSeries() {
 		metrics.Series = queryResult.series
 		return &metrics, nil
 	}
-	//allResources, err := query.QueryCons[0].GetQueryResources()
-	//if err != nil {
-	//	return nil, errors.Wrap(err, "MetricQueryCondition GetQueryResources err")
-	//}
+
 	for _, serie := range queryResult.series {
 		isLatestOfSerie, resource := query.QueryCons[0].serieIsLatestResource(nil, serie)
 		if !isLatestOfSerie {
@@ -87,6 +83,17 @@ func (query *MetricQueryCondition) ExecuteQuery() (*mq.Metrics, error) {
 		metrics.Series = append(metrics.Series, serie)
 	}
 	return &metrics, nil
+}
+
+func (query *MetricQueryCondition) noCheckSeries() bool {
+	if len(query.QueryCons[0].ResType) == 0 ||
+		strings.HasPrefix(query.QueryCons[0].ResType, monitor.EXT_PREFIX) {
+		return true
+	}
+	if len(query.QueryCons[0].Query.Model.GroupBy) == 0 {
+		return true
+	}
+	return false
 }
 
 func (c *MetricQueryCondition) executeQuery(context *alerting.EvalContext, timeRange *tsdb.TimeRange) (*queryResult, error) {
