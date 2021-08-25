@@ -63,6 +63,7 @@ var (
 		"waf_rule_groups",
 		"waf_ipsets",
 		"waf_regexsets",
+		"cdn_domains",
 	}
 	computeUserResources = []string{
 		"keypairs",
