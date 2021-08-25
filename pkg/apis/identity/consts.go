@@ -109,6 +109,7 @@ var (
 			"customized_private_prefixes",
 			"global_http_proxy",
 			"global_https_proxy",
+			"ignore_nonrunning_guests",
 		},
 	}
 
