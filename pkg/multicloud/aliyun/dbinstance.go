@@ -312,7 +312,7 @@ func (rds *SDBInstance) GetDBNetworks() ([]cloudprovider.SDBInstanceNetwork, err
 			networks = append(networks, network)
 		}
 	}
-	return []cloudprovider.SDBInstanceNetwork{}, nil
+	return networks, nil
 }
 
 func (rds *SDBInstance) fetchNetInfo() error {
