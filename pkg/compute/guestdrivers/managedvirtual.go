@@ -491,23 +491,15 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 		}
 
 		db.SetExternalId(guest, userCred, iVM.GetGlobalId())
-
-		if hostId := iVM.GetIHostId(); len(hostId) > 0 {
-			host, err := db.FetchByExternalIdAndManagerId(models.HostManager, hostId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-				return q.Equals("manager_id", host.ManagerId)
-			})
-			if err != nil {
-				log.Warningf("failed to found new hostId(%s) for ivm %s(%s) error: %v", hostId, guest.Name, guest.Id, err)
-			} else if host.GetId() != guest.HostId {
-				guest.OnScheduleToHost(ctx, userCred, host.GetId())
-			}
-		}
-
 		return iVM, nil
 	}()
-
 	if err != nil {
 		return nil, err
+	}
+	// iVM 实际所在的ihost 可能和 调度选择的host不是同一个,此处根据iVM实际所在host，重新同步
+	ihost, err = guest.GetDriver().RemoteDeployGuestSyncHost(ctx, userCred, guest, host, iVM)
+	if err != nil {
+		return nil, errors.Wrap(err, "RemoteDeployGuestSyncHost")
 	}
 
 	initialState := guest.GetDriver().GetGuestInitialStateAfterCreate()
@@ -550,6 +542,22 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 
 	data := fetchIVMinfo(desc, iVM, guest.Id, desc.Account, desc.Password, desc.PublicKey, "create")
 	return data, nil
+}
+
+func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestSyncHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, iVM cloudprovider.ICloudVM) (cloudprovider.ICloudHost, error) {
+	if hostId := iVM.GetIHostId(); len(hostId) > 0 {
+		nh, err := db.FetchByExternalIdAndManagerId(models.HostManager, hostId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("manager_id", host.ManagerId)
+		})
+		if err != nil {
+			log.Warningf("failed to found new hostId(%s) for ivm %s(%s) error: %v", hostId, guest.Name, guest.Id, err)
+		} else if nh.GetId() != guest.HostId {
+			guest.OnScheduleToHost(ctx, userCred, nh.GetId())
+			host = nh.(*models.SHost)
+		}
+	}
+
+	return host.GetIHost()
 }
 
 func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForDeploy(ctx context.Context, guest *models.SGuest, ihost cloudprovider.ICloudHost, task taskman.ITask, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {

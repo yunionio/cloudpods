@@ -304,6 +304,10 @@ func (self *SBaseGuestDriver) RemoteDeployGuestForCreate(ctx context.Context, us
 	return nil, cloudprovider.ErrNotSupported
 }
 
+func (self *SBaseGuestDriver) RemoteDeployGuestSyncHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, iVM cloudprovider.ICloudVM) (cloudprovider.ICloudHost, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
 func (self *SBaseGuestDriver) RemoteActionAfterGuestCreated(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, ivm cloudprovider.ICloudVM, desc *cloudprovider.SManagedVMCreateConfig) {
 	return
 }
