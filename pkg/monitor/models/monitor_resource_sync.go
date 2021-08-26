@@ -138,7 +138,7 @@ type RdsResourceSync struct {
 
 func NewRdsResourceSync() IResourceSync {
 	if rdsResourceSync == nil {
-		sync := new(RedisResourceSync)
+		sync := new(RdsResourceSync)
 		obj := newSyncObj(sync)
 		sync.SyncObject = obj
 		rdsResourceSync = sync
