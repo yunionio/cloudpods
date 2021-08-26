@@ -143,8 +143,7 @@ func (guest *SGuest) sshableTryEach(
 		if vpc == nil {
 			continue
 		}
-		if vpc.Id == compute_api.DEFAULT_VPC_ID {
-			//   - vpc_id == "default"
+		if vpc.Id == compute_api.DEFAULT_VPC_ID || vpc.Direct {
 			if ok := guest.sshableTryDefaultVPC(ctx, tryData, gn); ok {
 				return nil
 			}
