@@ -22,6 +22,7 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -31,6 +32,8 @@ type SInstanceNic struct {
 	id       string
 	ipAddr   string
 	macAddr  string
+
+	classic bool
 
 	cloudprovider.DummyICloudNic
 }
@@ -51,11 +54,15 @@ func (self *SInstanceNic) GetIP() string {
 }
 
 func (self *SInstanceNic) GetMAC() string {
-	return self.macAddr
+	if len(self.macAddr) > 0 {
+		return self.macAddr
+	}
+	ip, _ := netutils.NewIPV4Addr(self.GetIP())
+	return ip.ToMac("00:16:")
 }
 
 func (self *SInstanceNic) InClassicNetwork() bool {
-	return false
+	return self.classic == true
 }
 
 func (self *SInstanceNic) GetDriver() string {
