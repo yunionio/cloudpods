@@ -347,6 +347,15 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 		}
 		nics = append(nics, &nic)
 	}
+	for _, classicIp := range self.InnerIpAddress.IpAddress {
+		nic := SInstanceNic{
+			instance: self,
+			id:       fmt.Sprintf("%s-%s", self.InstanceId, classicIp),
+			ipAddr:   classicIp,
+			classic:  true,
+		}
+		nics = append(nics, &nic)
+	}
 	return nics, nil
 }
 
