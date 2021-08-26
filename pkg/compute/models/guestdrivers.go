@@ -91,6 +91,7 @@ type IGuestDriver interface {
 
 	RequestDeployGuestOnHost(ctx context.Context, guest *SGuest, host *SHost, task taskman.ITask) error
 	RemoteDeployGuestForCreate(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, host *SHost, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error)
+	RemoteDeployGuestSyncHost(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, host *SHost, iVM cloudprovider.ICloudVM) (cloudprovider.ICloudHost, error)
 	RemoteActionAfterGuestCreated(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, host *SHost, iVM cloudprovider.ICloudVM, desc *cloudprovider.SManagedVMCreateConfig)
 	RemoteDeployGuestForDeploy(ctx context.Context, guest *SGuest, ihost cloudprovider.ICloudHost, task taskman.ITask, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error)
 	RemoteDeployGuestForRebuildRoot(ctx context.Context, guest *SGuest, ihost cloudprovider.ICloudHost, task taskman.ITask, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error)

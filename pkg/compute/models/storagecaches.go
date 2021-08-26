@@ -719,7 +719,6 @@ func (cache *SStoragecache) syncCloudImages(
 	commondb := make([]SStoragecachedimage, 0)
 	commonext := make([]cloudprovider.ICloudImage, 0)
 	added := make([]cloudprovider.ICloudImage, 0)
-
 	err := compare.CompareSets(localCachedImages, remoteImages, &removed, &commondb, &commonext, &added)
 	if err != nil {
 		syncResult.Error(errors.Wrapf(err, "compare.CompareSets"))

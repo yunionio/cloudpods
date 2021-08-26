@@ -76,7 +76,7 @@ func (self *SRegion) getECSClient() (*client.Client, error) {
 
 		regionId := strings.Split(project.Name, "_")[0]
 		if regionId != self.ID {
-			// log.Debugf("project %s not in region %s", self.client.projectId, self.ID)
+			// log.Debugf("project %s not in region %s", self.client.ProjectId, self.ID)
 			return nil, errors.Error("region and project mismatch")
 		}
 	}
@@ -152,6 +152,18 @@ func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	instance, err := self.GetInstanceByID(id)
 	if err != nil {
 		return nil, err
+	}
+
+	zone, err := self.getZoneById(instance.OSEXTAZAvailabilityZone)
+	if err != nil {
+		return nil, errors.Wrap(err, "getZoneById")
+	}
+	instance.host = &SHost{
+		zone:      zone,
+		vms:       nil,
+		projectId: self.client.projectId,
+		Id:        instance.HostID,
+		Name:      instance.OSEXTSRVATTRHost,
 	}
 	return &instance, err
 }
