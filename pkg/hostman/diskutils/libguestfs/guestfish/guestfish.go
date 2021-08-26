@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kr/pty"
+	"github.com/creack/pty"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"

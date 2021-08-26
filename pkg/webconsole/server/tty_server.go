@@ -15,8 +15,8 @@
 package server
 
 import (
+	"github.com/creack/pty"
 	socketio "github.com/googollee/go-socket.io"
-	"github.com/kr/pty"
 
 	"yunion.io/x/log"
 

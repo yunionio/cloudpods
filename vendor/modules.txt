@@ -261,6 +261,8 @@ github.com/coreos/go-semver/semver
 github.com/coreos/go-systemd/journal
 # github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f
 github.com/coreos/pkg/capnslog
+# github.com/creack/pty v1.1.11
+github.com/creack/pty
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
@@ -416,8 +418,6 @@ github.com/koding/websocketproxy
 github.com/konsorten/go-windows-terminal-sequences
 # github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515
 github.com/kr/logfmt
-# github.com/kr/pty v1.1.5
-github.com/kr/pty
 # github.com/leodido/go-urn v1.1.0
 github.com/leodido/go-urn
 # github.com/lestrrat-go/iter v0.0.0-20200422075355-fc1769541911
