@@ -30,13 +30,9 @@ import (
 
 type SMetadataResourceBaseModelManager struct{}
 
-func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
-	manager IModelManager,
-	q *sqlchemy.SQuery,
-	input apis.MetadataResourceListInput,
-) *sqlchemy.SQuery {
+func (meta *SMetadataResourceBaseModelManager) objIdQueryWithTags(modelName string, oTags ...apis.STag) *sqlchemy.SQuery {
 	tags := map[string][]string{}
-	for _, tag := range input.Tags {
+	for _, tag := range oTags {
 		if _, ok := tags[tag.Key]; !ok {
 			tags[tag.Key] = []string{}
 		}
@@ -46,7 +42,7 @@ func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
 	}
 
 	if len(tags) > 0 {
-		metadataResQ := Metadata.Query().Equals("obj_type", manager.Keyword()).SubQuery()
+		metadataResQ := Metadata.Query().Equals("obj_type", modelName).SubQuery()
 		metadataView := metadataResQ.Query()
 		idx := 0
 		for key, values := range tags {
@@ -66,8 +62,30 @@ func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
 			idx++
 		}
 		metadatas := metadataView.SubQuery()
-		sq := metadatas.Query(metadatas.Field("obj_id")).Distinct().SubQuery()
-		q = q.Filter(sqlchemy.In(q.Field("id"), sq))
+		return metadatas.Query(metadatas.Field("obj_id")).Distinct()
+	}
+	return nil
+}
+
+func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
+	manager IModelManager,
+	q *sqlchemy.SQuery,
+	input apis.MetadataResourceListInput,
+) *sqlchemy.SQuery {
+	if len(input.Tags) > 0 {
+		sq := meta.objIdQueryWithTags(manager.Keyword(), input.Tags...)
+		if sq != nil {
+			q = q.Filter(sqlchemy.In(q.Field("id"), sq.SubQuery()))
+		}
+	}
+
+	if len(input.NoTags) > 0 {
+		for _, tag := range input.NoTags {
+			sq := meta.objIdQueryWithTags(manager.Keyword(), tag)
+			if sq != nil {
+				q = q.Filter(sqlchemy.NotIn(q.Field("id"), sq.SubQuery()))
+			}
+		}
 	}
 
 	if input.WithoutUserMeta != nil || input.WithUserMeta != nil {
