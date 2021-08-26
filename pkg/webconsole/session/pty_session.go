@@ -20,7 +20,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/kr/pty"
+	"github.com/creack/pty"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
