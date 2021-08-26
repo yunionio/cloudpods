@@ -86,6 +86,9 @@ type SVpc struct {
 
 	// Vpc外网访问模式
 	ExternalAccessMode string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
+
+	// Can it be connected directly
+	Direct bool `default:"false" list:"user" update:"user"`
 }
 
 func (manager *SVpcManager) GetContextManagers() [][]db.IModelManager {
