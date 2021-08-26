@@ -88,6 +88,7 @@ func (opts *VpcIdOptions) Params() (jsonutils.JSONObject, error) {
 type VpcUpdateOptions struct {
 	BaseUpdateOptions
 	ExternalAccessMode string `help:"Filter by external access mode" choices:"distgw|eip|eip-distgw"`
+	Direct             bool   `help:"Can it be connected directly"`
 }
 
 func (opts *VpcUpdateOptions) Params() (jsonutils.JSONObject, error) {
