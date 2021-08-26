@@ -82,12 +82,11 @@ func (manager *SInformerSyncManager) startWatcher() error {
 	log.Infof("[%s] Start resource informer watcher for %s", manager.Name(), manager.resourceManager.GetKeyword())
 	ctx := context.Background()
 	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
-	watchMan, err := informer.NewWatchManagerBySession(s)
-	if err != nil {
-		return errors.Wrap(err, "NewWatchManagerBySession")
-	}
-	if err := watchMan.For(manager.resourceManager).AddEventHandler(ctx, manager); err != nil {
-		return errors.Wrapf(err, "watch resource %s", manager.resourceManager.GetKeyword())
-	}
+	informer.NewWatchManagerBySessionBg(s, func(watchMan *informer.SWatchManager) error {
+		if err := watchMan.For(manager.resourceManager).AddEventHandler(ctx, manager); err != nil {
+			return errors.Wrapf(err, "watch resource %s", manager.resourceManager.GetKeyword())
+		}
+		return nil
+	})
 	return nil
 }
