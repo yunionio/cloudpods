@@ -134,7 +134,6 @@ func (self *SHwCloudReport) collectRegionMetricOfRds(region cloudprovider.ICloud
 	servers []jsonutils.JSONObject) error {
 	dataList := make([]influxdb.SMetricData, 0)
 
-	hwReg := region.(*huawei.SRegion)
 	since, until, err := common.TimeRangeFromArgs(self.Args)
 	if err != nil {
 		return err
@@ -173,9 +172,10 @@ func (self *SHwCloudReport) collectRegionMetricOfRds(region cloudprovider.ICloud
 			if tmp > len(metas) {
 				tmp = len(metas)
 			}
-			metricDatas, err := hwReg.GetMetricsData(metas[index:tmp], since, until)
+			metricDatas, err := self.GetMetricData(region, metas[index:tmp], since, until)
 			if err != nil {
-				return err
+				log.Errorln(err)
+				continue
 			}
 			if len(metricDatas) > 0 {
 				for _, metricData := range metricDatas {
