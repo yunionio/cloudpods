@@ -4520,6 +4520,15 @@ func (guest *SGuest) AllowPerformResizeDisk(ctx context.Context, userCred mcclie
 }
 
 func (guest *SGuest) PerformResizeDisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerResizeDiskInput) (jsonutils.JSONObject, error) {
+	if guest.Hypervisor == api.HYPERVISOR_ESXI {
+		c, err := guest.GetInstanceSnapshotCount()
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to GetInstanceSnapshotCount for guest %s", guest.GetName())
+		}
+		if c > 0 {
+			return nil, httperrors.NewUnsupportOperationError("the disk of a esxi virtual machine with instance snapshots does not support resizing")
+		}
+	}
 	if len(input.DiskId) == 0 {
 		return nil, httperrors.NewMissingParameterError("disk_id")
 	}
