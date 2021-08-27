@@ -1271,11 +1271,14 @@ func (manager *SImageManager) ListItemFilter(
 		propQ := ImagePropertyManager.Query().In("name", nameKeys)
 		conds := make([]sqlchemy.ICondition, 0)
 		for _, val := range vals {
-			conds = append(conds, sqlchemy.Like(propQ.Field("value"), val))
+			field := propQ.Field("value")
+			conds = append(conds,
+				sqlchemy.Like(field, val),
+				sqlchemy.Contains(field, val))
 		}
 		propQ.Filter(sqlchemy.OR(conds...))
 		propSq := propQ.SubQuery()
-		q = q.Join(propSq, sqlchemy.Equals(q.Field("id"), propSq.Field("image_id")))
+		q = q.Join(propSq, sqlchemy.Equals(q.Field("id"), propSq.Field("image_id"))).Distinct()
 	}
 	propFilter([]string{api.IMAGE_OS_TYPE}, query.OsTypes)
 	propFilter([]string{api.IMAGE_OS_DISTRO, "distro"}, query.Distributions)
