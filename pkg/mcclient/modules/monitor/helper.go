@@ -32,6 +32,7 @@ type AlertConfig struct {
 	conditions     []*AlertCondition
 	execErrorState string
 	noDataState    string
+	UsedBy         string
 }
 
 func NewAlertConfig(name string, frequency string, enabled bool) (*AlertConfig, error) {

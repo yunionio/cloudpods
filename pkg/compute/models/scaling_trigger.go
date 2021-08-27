@@ -324,11 +324,14 @@ var indicatorMap = map[string]sTableField{
 	api.INDICATOR_FLOW_OUT:   {"vm_netio", "bps_sent"},
 }
 
+var alertConfigUsedBy = "scaling_group"
+
 func (sa *SScalingAlarm) generateAlertConfig(sp *SScalingPolicy) (*monitor.AlertConfig, error) {
 	config, err := monitor.NewAlertConfig(fmt.Sprintf("sp-%s", sp.Id), fmt.Sprintf("%ds", sa.Cycle), true)
 	if err != nil {
 		return nil, err
 	}
+	config.UsedBy = alertConfigUsedBy
 	cond := config.Condition("telegraf", indicatorMap[sa.Indicator].Table).Avg()
 	log.Debugf("alarm: %#v", sa)
 
