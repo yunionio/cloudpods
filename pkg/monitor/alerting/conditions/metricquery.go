@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/monitor/alerting"
@@ -107,7 +108,16 @@ func (query *MetricQueryCondition) noCheckSeries() bool {
 	if len(query.QueryCons[0].Query.Model.GroupBy) == 0 {
 		return true
 	}
-	return false
+	groupBys := make([]string, 0)
+	for _, groupby := range query.QueryCons[0].Query.Model.GroupBy {
+		groupBys = append(groupBys, groupby.Params...)
+	}
+	for _, supportId := range monitor.MEASUREMENT_TAG_ID {
+		if utils.IsInStringArray(supportId, groupBys) {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *MetricQueryCondition) executeQuery(context *alerting.EvalContext, timeRange *tsdb.TimeRange) (*queryResult, error) {

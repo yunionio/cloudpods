@@ -19,6 +19,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	compute_models "yunion.io/x/onecloud/pkg/compute/models"
+	keystone_models "yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
 )
@@ -26,6 +27,7 @@ import (
 type IMonitorResModelSet interface {
 	apihelper.IModelSet
 	GetResType() string
+	NeedSync() bool
 }
 
 type (
@@ -36,6 +38,8 @@ type (
 	Oss      map[string]*SOss
 	Accounts map[string]*SAccount
 	Storages map[string]*SStorage
+	Domains  map[string]*SDomain
+	Projects map[string]*SProject
 )
 
 type Details struct {
@@ -91,6 +95,16 @@ type SAccount struct {
 	Details
 }
 
+type SDomain struct {
+	Id string
+	keystone_models.SDomain
+}
+
+type SProject struct {
+	Id string
+	keystone_models.SProject
+}
+
 func (s Servers) ModelManager() modulebase.IBaseManager {
 	return &mcclient_modules.Servers
 }
@@ -110,6 +124,10 @@ func (s Servers) Copy() apihelper.IModelSet {
 
 func (s Servers) GetResType() string {
 	return monitor.METRIC_RES_TYPE_GUEST
+}
+
+func (s Servers) NeedSync() bool {
+	return true
 }
 
 func (h Hosts) AddModel(i db.IModel) {
@@ -133,6 +151,10 @@ func (h Hosts) GetResType() string {
 	return monitor.METRIC_RES_TYPE_HOST
 }
 
+func (s Hosts) NeedSync() bool {
+	return true
+}
+
 func (r Rds) ModelManager() modulebase.IBaseManager {
 	return &mcclient_modules.DBInstance
 }
@@ -152,6 +174,10 @@ func (r Rds) Copy() apihelper.IModelSet {
 
 func (r Rds) GetResType() string {
 	return monitor.METRIC_RES_TYPE_RDS
+}
+
+func (s Rds) NeedSync() bool {
+	return true
 }
 
 func (r Redis) ModelManager() modulebase.IBaseManager {
@@ -175,6 +201,10 @@ func (r Redis) GetResType() string {
 	return monitor.METRIC_RES_TYPE_REDIS
 }
 
+func (s Redis) NeedSync() bool {
+	return true
+}
+
 func (o Oss) ModelManager() modulebase.IBaseManager {
 	return &mcclient_modules.Buckets
 }
@@ -194,6 +224,10 @@ func (o Oss) Copy() apihelper.IModelSet {
 
 func (o Oss) GetResType() string {
 	return monitor.METRIC_RES_TYPE_OSS
+}
+
+func (s Oss) NeedSync() bool {
+	return true
 }
 
 func (a Accounts) ModelManager() modulebase.IBaseManager {
@@ -217,6 +251,10 @@ func (a Accounts) GetResType() string {
 	return monitor.METRIC_RES_TYPE_CLOUDACCOUNT
 }
 
+func (s Accounts) NeedSync() bool {
+	return true
+}
+
 func (s Storages) ModelManager() modulebase.IBaseManager {
 	return &mcclient_modules.Storages
 }
@@ -236,4 +274,58 @@ func (s Storages) Copy() apihelper.IModelSet {
 
 func (s Storages) GetResType() string {
 	return monitor.METRIC_RES_TYPE_STORAGE
+}
+
+func (s Storages) NeedSync() bool {
+	return true
+}
+
+func (d Domains) ModelManager() modulebase.IBaseManager {
+	return &mcclient_modules.Domains
+}
+
+func (d Domains) NewModel() db.IModel {
+	return &SDomain{}
+}
+
+func (d Domains) AddModel(i db.IModel) {
+	resource := i.(*SDomain)
+	d[resource.Id] = resource
+}
+
+func (d Domains) Copy() apihelper.IModelSet {
+	return d
+}
+
+func (d Domains) GetResType() string {
+	return monitor.METRIC_RES_TYPE_DOMAIN
+}
+
+func (d Domains) NeedSync() bool {
+	return false
+}
+
+func (p Projects) ModelManager() modulebase.IBaseManager {
+	return &mcclient_modules.Projects
+}
+
+func (p Projects) NewModel() db.IModel {
+	return &SProject{}
+}
+
+func (p Projects) AddModel(i db.IModel) {
+	resource := i.(*SProject)
+	p[resource.Id] = resource
+}
+
+func (p Projects) Copy() apihelper.IModelSet {
+	return p
+}
+
+func (p Projects) GetResType() string {
+	return monitor.METRIC_RES_TYPE_TENANT
+}
+
+func (p Projects) NeedSync() bool {
+	return false
 }
