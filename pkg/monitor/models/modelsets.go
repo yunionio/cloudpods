@@ -24,6 +24,8 @@ type MonitorResModelSets struct {
 	Oss      Oss
 	Accounts Accounts
 	Storages Storages
+	Domains  Domains
+	Projects Projects
 }
 
 func (m *MonitorResModelSets) NewEmpty() apihelper.IModelSets {
@@ -39,6 +41,8 @@ func (m *MonitorResModelSets) ModelSetList() []apihelper.IModelSet {
 		m.Oss,
 		m.Accounts,
 		m.Storages,
+		m.Domains,
+		m.Projects,
 	}
 }
 
@@ -78,5 +82,7 @@ func NewModelSets() *MonitorResModelSets {
 		Oss:      Oss{},
 		Accounts: Accounts{},
 		Storages: Storages{},
+		Domains:  Domains{},
+		Projects: Projects{},
 	}
 }
