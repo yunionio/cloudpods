@@ -403,8 +403,12 @@ func (manager *SMonitorResourceManager) SyncResources(ctx context.Context, mss *
 	log.Infoln("start sync")
 	for _, set := range mss.ModelSetList() {
 		setRv := reflect.ValueOf(set)
-		typ := manager.GetSetType(set)
+		needSync, typ := manager.GetSetType(set)
 		log.Infof("Type: %s,length: %d", typ, len(setRv.MapKeys()))
+		if !needSync {
+			log.Infof("Type: %s don't sync", typ)
+			continue
+		}
 		for _, kRv := range setRv.MapKeys() {
 			mRv := setRv.MapIndex(kRv)
 			//log.Errorf("resID:%s", kRv.String())
@@ -457,11 +461,11 @@ func (manager *SMonitorResourceManager) SyncResources(ctx context.Context, mss *
 	return errors.NewAggregate(errs)
 }
 
-func (manager *SMonitorResourceManager) GetSetType(set apihelper.IModelSet) string {
+func (manager *SMonitorResourceManager) GetSetType(set apihelper.IModelSet) (bool, string) {
 	if iset, ok := set.(IMonitorResModelSet); ok {
-		return iset.GetResType()
+		return iset.NeedSync(), iset.GetResType()
 	}
-	return "NONE"
+	return false, "NONE"
 }
 
 func newMonitorResourceCreateInput(input jsonutils.JSONObject, typ string) jsonutils.JSONObject {
