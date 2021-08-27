@@ -49,6 +49,7 @@ type ModelManager interface {
 	Delete(session *mcclient.ClientSession, id string, param jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	PerformAction(session *mcclient.ClientSession, id string, action string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	Get(session *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
+	Update(session *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 }
 
 type CloudpodsClientConfig struct {
@@ -130,17 +131,21 @@ func (self *SCloudpodsClient) get(manager ModelManager, id string, params map[st
 	return resp.Unmarshal(retVal)
 }
 
-func (self *SCloudpodsClient) perform(manager ModelManager, id, action string, params map[string]interface{}) error {
-	_, err := manager.PerformAction(self.s, id, action, jsonutils.Marshal(params))
-	return err
+func (self *SCloudpodsClient) perform(manager ModelManager, id, action string, params interface{}) (jsonutils.JSONObject, error) {
+	return manager.PerformAction(self.s, id, action, jsonutils.Marshal(params))
 }
 
 func (self *SCloudpodsClient) delete(manager ModelManager, id string) error {
 	if len(id) == 0 {
 		return nil
 	}
-	params := map[string]interface{}{}
+	params := map[string]interface{}{"override_pending_delete": true}
 	_, err := manager.Delete(self.s, id, jsonutils.Marshal(params))
+	return err
+}
+
+func (self *SCloudpodsClient) update(manager ModelManager, id string, params interface{}) error {
+	_, err := manager.Update(self.s, id, jsonutils.Marshal(params))
 	return err
 }
 
@@ -150,7 +155,7 @@ func (self *SCloudpodsClient) GetAccountId() string {
 
 func (self *SCloudpodsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return []cloudprovider.SSubAccount{
-		cloudprovider.SSubAccount{
+		{
 			Name:         self.cpcfg.Name,
 			Account:      self.cpcfg.Account,
 			HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
@@ -179,7 +184,9 @@ func (self *SCloudpodsClient) list(manager ModelManager, params map[string]inter
 		params = map[string]interface{}{}
 	}
 	for k, v := range defaultParams {
-		params[k] = v
+		if _, ok := params[k]; !ok {
+			params[k] = v
+		}
 	}
 	ret := []jsonutils.JSONObject{}
 	for {

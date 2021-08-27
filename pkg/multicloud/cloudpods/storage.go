@@ -109,11 +109,15 @@ func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 }
 
 func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	storage, err := self.region.GetStorage(id)
+	return self.region.GetIStorageById(id)
+}
+
+func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
+	storage, err := self.GetStorage(id)
 	if err != nil {
 		return nil, err
 	}
-	storage.region = self.region
+	storage.region = self
 	return storage, nil
 }
 

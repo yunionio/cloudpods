@@ -47,13 +47,10 @@ func (self *HAGuestStartTask) RequestStartBacking(ctx context.Context, guest *mo
 	host := models.HostManager.FetchHostById(guest.BackupHostId)
 	guest.SetStatus(self.UserCred, api.VM_BACKUP_STARTING, "")
 
-	result, err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self)
+	err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self)
 	if err != nil {
 		self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
-	} else {
-		if result != nil && jsonutils.QueryBoolean(result, "is_running", false) {
-			self.RequestStart(ctx, guest)
-		}
+		return
 	}
 }
 

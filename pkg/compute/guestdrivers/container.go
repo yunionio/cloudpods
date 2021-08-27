@@ -96,8 +96,8 @@ func (self *SContainerDriver) RequestGuestHotAddIso(ctx context.Context, guest *
 	return nil
 }
 
-func (self *SContainerDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
-	return nil, httperrors.NewUnsupportOperationError("")
+func (self *SContainerDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
+	return httperrors.NewUnsupportOperationError("")
 }
 
 func (self *SContainerDriver) RequestStopOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {

@@ -99,20 +99,21 @@ func (self *SEip) IsAutoRenew() bool {
 }
 
 func (self *SEip) Associate(opts *cloudprovider.AssociateConfig) error {
-	params := map[string]interface{}{
-		"associate_type": opts.AssociateType,
-		"instance_id":    opts.InstanceId,
-	}
+	input := api.ElasticipAssociateInput{}
+	input.InstanceType = opts.AssociateType
+	input.InstanceId = opts.InstanceId
 	switch opts.AssociateType {
 	case api.EIP_ASSOCIATE_TYPE_SERVER:
 	default:
 		return cloudprovider.ErrNotImplemented
 	}
-	return self.region.perform(&modules.Elasticips, self.Id, "associate", params)
+	_, err := self.region.perform(&modules.Elasticips, self.Id, "associate", input)
+	return err
 }
 
 func (self *SEip) Dissociate() error {
-	return self.region.perform(&modules.Elasticips, self.Id, "dissociate", nil)
+	_, err := self.region.perform(&modules.Elasticips, self.Id, "dissociate", nil)
+	return err
 }
 
 func (self *SEip) GetCreatedAt() time.Time {

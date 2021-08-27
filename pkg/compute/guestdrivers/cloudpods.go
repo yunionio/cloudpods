@@ -49,6 +49,42 @@ func (self *SCloudpodsGuestDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_CLOUDPODS
 }
 
+func (self *SCloudpodsGuestDriver) GetGuestInitialStateAfterCreate() string {
+	return api.VM_READY
+}
+
+func (self *SCloudpodsGuestDriver) GetDetachDiskStatus() ([]string, error) {
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
+}
+
+func (self *SCloudpodsGuestDriver) GetAttachDiskStatus() ([]string, error) {
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
+}
+
+func (self *SCloudpodsGuestDriver) GetRebuildRootStatus() ([]string, error) {
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
+}
+
+func (self *SCloudpodsGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
+}
+
+func (self *SCloudpodsGuestDriver) GetDeployStatus() ([]string, error) {
+	return []string{api.VM_READY, api.VM_ADMIN}, nil
+}
+
+func (self *SCloudpodsGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
+	return true, nil
+}
+
+func (self *SCloudpodsGuestDriver) IsSupportMigrate() bool {
+	return true
+}
+
+func (self *SCloudpodsGuestDriver) IsSupportLiveMigrate() bool {
+	return true
+}
+
 func (self *SCloudpodsGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
 	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)

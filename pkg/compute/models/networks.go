@@ -54,6 +54,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -1434,29 +1435,25 @@ func (manager *SNetworkManager) validateEnsureWire(ctx context.Context, userCred
 	return
 }
 
-func (manager *SNetworkManager) validateEnsureZoneVpc(ctx context.Context, userCred mcclient.TokenCredential, input api.NetworkCreateInput) (w *SWire, v *SVpc, cr *SCloudregion, err error) {
-	defer func() {
-		if cause := errors.Cause(err); cause == sql.ErrNoRows {
-			err = httperrors.NewResourceNotFoundError("%s", err)
-		}
-	}()
-	zObj, err := ZoneManager.FetchByIdOrName(userCred, input.Zone)
+func (manager *SNetworkManager) validateEnsureZoneVpc(ctx context.Context, userCred mcclient.TokenCredential, input api.NetworkCreateInput) (*SWire, *SVpc, *SCloudregion, error) {
+	zObj, err := validators.ValidateModel(userCred, ZoneManager, &input.Zone)
 	if err != nil {
-		err = errors.Wrapf(err, "zone %s", input.Zone)
-		return
+		return nil, nil, nil, err
 	}
 	z := zObj.(*SZone)
 
-	vObj, err := VpcManager.FetchByIdOrName(userCred, input.Vpc)
+	vObj, err := validators.ValidateModel(userCred, VpcManager, &input.Vpc)
 	if err != nil {
-		err = errors.Wrapf(err, "vpc %s", input.Vpc)
-		return
+		return nil, nil, nil, err
 	}
-	v = vObj.(*SVpc)
+	v := vObj.(*SVpc)
 
-	var wires []SWire
+	cr, err := z.GetRegion()
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	// 华为云,ucloud wire zone_id 为空
-	cr, _ = z.GetRegion()
+	var wires []SWire
 	if utils.IsInStringArray(cr.Provider, api.REGIONAL_NETWORK_PROVIDERS) {
 		wires, err = WireManager.getWiresByVpcAndZone(v, nil)
 	} else {
@@ -1464,25 +1461,41 @@ func (manager *SNetworkManager) validateEnsureZoneVpc(ctx context.Context, userC
 	}
 
 	if err != nil {
-		return
-	} else if len(wires) > 1 {
-		err = httperrors.NewConflictError("found %d wires for zone %s and vpc %s", len(wires), input.Zone, input.Vpc)
-		return
-	} else if len(wires) == 1 {
-		w = &wires[0]
-		return
+		return nil, nil, nil, err
 	}
-	// wire not found.  We auto create one for OneCloud vpc
-	if cr.Provider == api.CLOUD_PROVIDER_ONECLOUD {
-		w, err = v.initWire(ctx, z)
+	if len(wires) > 1 {
+		return nil, nil, nil, httperrors.NewConflictError("found %d wires for zone %s and vpc %s", len(wires), input.Zone, input.Vpc)
+	}
+	if len(wires) == 1 {
+		return &wires[0], v, cr, nil
+	}
+	externalId := ""
+	if cr.Provider == api.CLOUD_PROVIDER_CLOUDPODS {
+		iVpc, err := v.GetIVpc()
 		if err != nil {
-			err = errors.Wrapf(err, "vpc %s init wire", v.Id)
-			return
+			return nil, nil, nil, err
 		}
-		return
+		iWire, err := iVpc.CreateIWire(&cloudprovider.SWireCreateOptions{
+			Name:      fmt.Sprintf("vpc-%s", v.Name),
+			ZoneId:    z.ExternalId,
+			Bandwidth: 10000,
+			Mtu:       1500,
+		})
+		if err != nil {
+			return nil, nil, nil, errors.Wrapf(err, "CreateIWire")
+		}
+		externalId = iWire.GetGlobalId()
 	}
-	err = httperrors.NewNotFoundError("wire not found for zone %s and vpc %s", input.Zone, input.Vpc)
-	return
+
+	// wire not found.  We auto create one for OneCloud vpc
+	if cr.Provider == api.CLOUD_PROVIDER_ONECLOUD || cr.Provider == api.CLOUD_PROVIDER_CLOUDPODS {
+		w, err := v.initWire(ctx, z, externalId)
+		if err != nil {
+			return nil, nil, nil, errors.Wrapf(err, "vpc %s init wire", v.Id)
+		}
+		return w, v, cr, nil
+	}
+	return nil, nil, nil, httperrors.NewNotFoundError("wire not found for zone %s and vpc %s", input.Zone, input.Vpc)
 }
 
 func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.NetworkCreateInput) (api.NetworkCreateInput, error) {

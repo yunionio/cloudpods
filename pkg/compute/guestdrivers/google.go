@@ -199,22 +199,17 @@ func (self *SGoogleGuestDriver) GetUserDataType() string {
 	return cloudprovider.CLOUD_SHELL_WITHOUT_ENCRYPT
 }
 
-func (self *SGoogleGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
-	ihost, err := host.GetIHost()
+func (self *SGoogleGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
+	ivm, err := guest.GetIVM()
 	if err != nil {
-		return nil, errors.Wrap(err, "host.GetIHost")
-	}
-
-	ivm, err := ihost.GetIVMById(guest.GetExternalId())
-	if err != nil {
-		return nil, errors.Wrap(err, "ihost.GetIVMById")
+		return errors.Wrap(err, "GetIVM")
 	}
 
 	result := jsonutils.NewDict()
 	if ivm.GetStatus() != api.VM_RUNNING {
 		err := ivm.StartVM(ctx)
 		if err != nil {
-			return nil, errors.Wrap(err, "ivm.StartVM")
+			return errors.Wrap(err, "ivm.StartVM")
 		}
 		vm := ivm.(*google.SInstance)
 		updateUserdata := false
@@ -247,12 +242,9 @@ func (self *SGoogleGuestDriver) RequestStartOnHost(ctx context.Context, guest *m
 				log.Errorf("failed to update google userdata")
 			}
 		}
-		task.ScheduleRun(result)
-	} else {
-		result.Add(jsonutils.NewBool(true), "is_running")
+		return task.ScheduleRun(result)
 	}
-
-	return result, nil
+	return guest.SetStatus(userCred, api.VM_RUNNING, "StartOnHost")
 }
 
 func (self *SGoogleGuestDriver) RemoteActionAfterGuestCreated(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, iVM cloudprovider.ICloudVM, desc *cloudprovider.SManagedVMCreateConfig) {

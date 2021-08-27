@@ -283,13 +283,13 @@ func (self *SKVMGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, 
 	return nil
 }
 
-func (self *SKVMGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
+func (self *SKVMGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
 	header := self.getTaskRequestHeader(task)
 
 	config := jsonutils.NewDict()
 	desc, err := guest.GetDriver().GetJsonDescAtHost(ctx, userCred, guest, host, nil)
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetJsonDescAtHost")
+		return errors.Wrapf(err, "GetJsonDescAtHost")
 	}
 	config.Add(desc, "desc")
 	params := task.GetParams()
@@ -297,11 +297,11 @@ func (self *SKVMGuestDriver) RequestStartOnHost(ctx context.Context, guest *mode
 		config.Add(params, "params")
 	}
 	url := fmt.Sprintf("%s/servers/%s/start", host.ManagerUri, guest.Id)
-	_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, config, false)
+	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, config, false)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return res, nil
+	return nil
 }
 
 func (self *SKVMGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
