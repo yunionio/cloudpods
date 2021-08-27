@@ -1061,7 +1061,12 @@ func (self *SHostManager) AllowGetPropertyHostTypeCount(ctx context.Context, use
 
 func (self *SHostManager) GetPropertyHostTypeCount(ctx context.Context, userCred mcclient.TokenCredential, query api.HostListInput) (jsonutils.JSONObject, error) {
 	hosts := self.Query().SubQuery()
-	q := hosts.Query(hosts.Field("host_type"), sqlchemy.COUNT("count", hosts.Field("id")))
+	// select host_type, (case host_type when 'huaweicloudstack' then count(DISTINCT external_id) else count(id) end) as count from hosts_tbl group by host_type;
+	cs := sqlchemy.NewCase()
+	hcso := sqlchemy.Equals(hosts.Field("host_type"), api.HOST_TYPE_HUAWEI_CLOUD_STACK)
+	cs.When(hcso, sqlchemy.COUNT("", sqlchemy.DISTINCT("", hosts.Field("external_id"))))
+	cs.Else(sqlchemy.COUNT("", hosts.Field("id")))
+	q := hosts.Query(hosts.Field("host_type"), sqlchemy.NewFunction(cs, "count"))
 	return self.getCount(ctx, userCred, q, query)
 }
 
