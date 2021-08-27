@@ -104,7 +104,7 @@ func (self *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
 
 func (self *SRegion) GetWires(vpcId, hostId string) ([]SWire, error) {
 	wires := []SWire{}
-	params := map[string]interface{}{}
+	params := map[string]interface{}{"cloud_env": ""}
 	if len(vpcId) > 0 {
 		params["vpc_id"] = vpcId
 	}

@@ -45,34 +45,19 @@ func (self *GuestStartTask) RequestStart(ctx context.Context, guest *models.SGue
 	self.SetStage("OnStartComplete", nil)
 	host, _ := guest.GetHost()
 	guest.SetStatus(self.UserCred, api.VM_STARTING, "")
-	result, err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self)
+	err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self)
 	if err != nil {
 		self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
-	} else {
-		if result != nil && jsonutils.QueryBoolean(result, "is_running", false) {
-			// guest.SetStatus(self.UserCred, models.VM_RUNNING, "start")
-			// self.taskComplete(ctx, guest)
-			self.OnStartComplete(ctx, guest, nil)
-		}
+		return
 	}
+	self.OnStartComplete(ctx, guest, nil)
 }
 
 func (self *GuestStartTask) OnStartComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	db.OpsLog.LogEvent(guest, db.ACT_START, guest.GetShortDesc(ctx), self.UserCred)
-	self.SetStage("OnGuestSyncstatusAfterStart", nil)
-	if guest.Hypervisor != api.HYPERVISOR_KVM {
-		guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
-	} else {
-		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_START, "success", self.UserCred, true)
-		self.taskComplete(ctx, guest)
-	}
-}
-
-func (self *GuestStartTask) OnGuestSyncstatusAfterStart(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	guest := obj.(*models.SGuest)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_START, "success", self.UserCred, true)
 	self.taskComplete(ctx, guest)
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_START, "", self.UserCred, true)
 }
 
 func (self *GuestStartTask) OnStartCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {

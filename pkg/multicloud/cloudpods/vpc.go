@@ -76,6 +76,10 @@ func (self *SVpc) GetRegion() cloudprovider.ICloudRegion {
 	return self.region
 }
 
+func (self *SVpc) GetExternalAccessMode() string {
+	return self.ExternalAccessMode
+}
+
 func (self *SVpc) Delete() error {
 	return self.region.cli.delete(&modules.Vpcs, self.Id)
 }
@@ -91,6 +95,31 @@ func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 		ret = append(ret, &vpcs[i])
 	}
 	return ret, nil
+}
+
+func (self *SVpc) CreateIWire(opts *cloudprovider.SWireCreateOptions) (cloudprovider.ICloudWire, error) {
+	wire, err := self.region.CreateWire(opts, self.Id, self.DomainId, self.PublicScope, self.IsPublic)
+	if err != nil {
+		return nil, err
+	}
+	wire.vpc = self
+	return wire, nil
+}
+
+func (self *SRegion) CreateWire(opts *cloudprovider.SWireCreateOptions, vpcId, domainId, publicScope string, isPublic bool) (*SWire, error) {
+	input := api.WireCreateInput{}
+	input.GenerateName = opts.Name
+	input.Mtu = opts.Mtu
+	input.Bandwidth = opts.Bandwidth
+	input.VpcId = vpcId
+	input.DomainId = domainId
+	input.PublicScope = publicScope
+	input.IsPublic = &isPublic
+	input.ZoneId = opts.ZoneId
+	t := true
+	input.IsEmulated = &t
+	wire := &SWire{}
+	return wire, self.create(&modules.Wires, input, wire)
 }
 
 func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {

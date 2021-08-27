@@ -222,7 +222,8 @@ func (self *GuestStartAndSyncToBackupTask) checkTemplete(ctx context.Context, gu
 func (self *GuestStartAndSyncToBackupTask) OnCheckTemplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStage("OnStartBackupGuest", nil)
 	host := models.HostManager.FetchHostById(guest.BackupHostId)
-	if _, err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self); err != nil {
+	err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self)
+	if err != nil {
 		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	}
 }

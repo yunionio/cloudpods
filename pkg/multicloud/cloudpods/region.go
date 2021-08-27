@@ -17,6 +17,8 @@ package cloudpods
 import (
 	"fmt"
 
+	"yunion.io/x/jsonutils"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -115,7 +117,7 @@ func (self *SRegion) create(manager ModelManager, params interface{}, retVal int
 	return self.cli.create(manager, params, retVal)
 }
 
-func (self *SRegion) perform(manager ModelManager, id, action string, params map[string]interface{}) error {
+func (self *SRegion) perform(manager ModelManager, id, action string, params interface{}) (jsonutils.JSONObject, error) {
 	return self.cli.perform(manager, id, action, params)
 }
 

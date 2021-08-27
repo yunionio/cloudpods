@@ -543,19 +543,6 @@ type ServerCloneInput struct {
 	PreferHostId string `json:"prefer_host_id"`
 }
 
-type ServerDeployInput struct {
-	apis.Meta
-
-	Id string
-
-	Keypair       string          `json:"keypair"`
-	DeleteKeypair *bool           `json:"__delete_keypair__"`
-	DeployConfigs []*DeployConfig `json:"deploy_configs"`
-	ResetPassword *bool           `json:"reset_password"`
-	Password      string          `json:"password"`
-	AutoStart     *bool           `json:"auto_start"`
-}
-
 type GuestBatchMigrateRequest struct {
 	apis.Meta
 

@@ -121,37 +121,19 @@ func (input *ServerListInput) AfterUnmarshal() {
 type ServerRebuildRootInput struct {
 	apis.Meta
 
-	// 镜像名称
-	Image string `json:"image"`
+	// swagger: ignore
+	Image string `json:"image" yunion-deprecated-by:"image_id"`
 	// 镜像 id
 	// required: true
-	ImageId       string `json:"image_id"`
-	Keypair       string `json:"keypair"`
+	ImageId string `json:"image_id"`
+	// swagger: ignore
+	Keypair string `json:"keypair" yunion-deprecated-by:"keypair_id"`
+	// 秘钥Id
 	KeypairId     string `json:"keypair_id"`
 	ResetPassword *bool  `json:"reset_password"`
 	Password      string `json:"password"`
 	AutoStart     *bool  `json:"auto_start"`
 	AllDisks      *bool  `json:"all_disks"`
-}
-
-func (i ServerRebuildRootInput) GetImageName() string {
-	if len(i.Image) > 0 {
-		return i.Image
-	}
-	if len(i.ImageId) > 0 {
-		return i.ImageId
-	}
-	return ""
-}
-
-func (i ServerRebuildRootInput) GetKeypairName() string {
-	if len(i.Keypair) > 0 {
-		return i.Keypair
-	}
-	if len(i.KeypairId) > 0 {
-		return i.KeypairId
-	}
-	return ""
 }
 
 type ServerResumeInput struct {
@@ -554,4 +536,85 @@ type ServerMigrateNetworkInput struct {
 	Src string `json:"src"`
 	// Destination network Id
 	Dest string `json:"dest"`
+}
+
+type ServerDeployInput struct {
+	apis.Meta
+
+	// swagger: ignore
+	Keypair string `json:"keypair" yunion-deprecated-by:"keypair_id"`
+	// 秘钥Id
+	KeypairId string `json:"keypair_id"`
+
+	// 清理指定公钥
+	// 若指定的秘钥Id和虚拟机的秘钥Id不相同, 则清理旧的公钥
+	DeletePublicKey string `json:"delete_public_key"`
+	// 解绑当前虚拟机秘钥, 并清理公钥信息
+	DeleteKeypair bool `json:"__delete_keypair__"`
+	// 生成随机密码, 优先级低于password
+	ResetPassword bool `json:"reset_password"`
+	// 重置指定密码
+	Password string `json:"password"`
+	// 部署完成后是否自动启动
+	// 若虚拟机重置密码后需要重启生效，并且当前虚拟机状态为running, 此参数默认为true
+	// 若虚拟机状态为ready, 指定此参数后，部署完成后，虚拟机会自动启动
+	AutoStart bool `json:"auto_start"`
+	// swagger: ignore
+	Restart bool `json:"restart"`
+
+	// swagger: ignore
+	DeployConfigs []*DeployConfig `json:"deploy_configs"`
+}
+
+type ServerUserDataInput struct {
+	UserData string `json:"user_data"`
+}
+
+type ServerAttachDiskInput struct {
+	DiskId string `json:"disk_id"`
+}
+
+type ServerDetachDiskInput struct {
+	// 磁盘Id，若磁盘未挂载在虚拟机上，不返回错误
+	DiskId string `json:"disk_id"`
+	// 是否保留磁盘
+	// default: false
+	KeepDisk bool `json:"keep_disk"`
+}
+
+type ServerChangeConfigInput struct {
+	// 实例类型, 优先级高于vcpu_count和vmem_size
+	InstanceType string `json:"instance_type"`
+	// swagger: ignore
+	Sku string `json:"sku" yunion-deprecated-by:"instance_type"`
+	// swagger: ignore
+	Flavor string `json:"flavor" yunion-deprecated-by:"instance_type"`
+
+	// cpu大小
+	VcpuCount int `json:"vcpu_count"`
+	// 内存大小, 1024M, 1G
+	VmemSize string `json:"vmem_size"`
+
+	// 调整完配置后是否自动启动
+	AutoStart bool `json:"auto_start"`
+
+	Disks []DiskConfig `json:"disks"`
+}
+
+type ServerUpdateInput struct {
+	apis.VirtualResourceBaseUpdateInput
+
+	// 删除保护开关
+	DisableDelete *bool `json:"disable_delete"`
+	// 启动顺序
+	BootOrder *string `json:"boot_order"`
+	// 关机执行操作
+	ShutdownBehavior *string `json:"shutdown_behavior"`
+	Vga              *string `json:"vga"`
+	Vdi              *string `json:"vdi"`
+	Machine          *string `json:"machine"`
+	Bios             *string `json:"bios"`
+
+	SrcIpCheck  *bool `json:"src_ip_check"`
+	SrcMacCheck *bool `json:"src_mac_check"`
 }

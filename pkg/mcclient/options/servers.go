@@ -633,17 +633,17 @@ func (o *ServerCancelDeleteOptions) Description() string {
 type ServerDeployOptions struct {
 	ServerIdOptions
 	Keypair       string   `help:"ssh Keypair used for login" json:"-"`
-	DeleteKeypair *bool    `help:"Remove ssh Keypairs" json:"-"`
+	DeleteKeypair bool     `help:"Remove ssh Keypairs" json:"-"`
 	Deploy        []string `help:"Specify deploy files in virtual server file system" json:"-"`
-	ResetPassword *bool    `help:"Force reset password"`
+	ResetPassword bool     `help:"Force reset password"`
 	Password      string   `help:"Default user password"`
-	AutoStart     *bool    `help:"Auto start server after deployed"`
+	AutoStart     bool     `help:"Auto start server after deployed"`
 }
 
 func (opts *ServerDeployOptions) Params() (jsonutils.JSONObject, error) {
 	params := new(computeapi.ServerDeployInput)
 	{
-		if opts.DeleteKeypair != nil {
+		if opts.DeleteKeypair == true {
 			params.DeleteKeypair = opts.DeleteKeypair
 		} else if len(opts.Keypair) > 0 {
 			params.Keypair = opts.Keypair
