@@ -53,7 +53,7 @@ func ServeForeverExtended(app *appsrv.Application, options *common_options.BaseO
 	if options.EnableSsl {
 		proto = "https"
 	}
-	log.Infof("Start listen on %s://%s", proto, addr)
+	log.Infof("Start listen on %s://%s, isMaster: %v", proto, addr, isMaster)
 	var certfile string
 	var sslfile string
 	if options.EnableSsl {
