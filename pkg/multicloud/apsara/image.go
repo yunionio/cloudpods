@@ -84,15 +84,6 @@ func (self *SImage) GetMinRamSizeMb() int {
 	return 0
 }
 
-func (self *SImage) GetSysTags() map[string]string {
-	data := map[string]string{}
-	data["os_arch"] = self.Architecture
-	data["os_name"] = self.GetOsType()
-	data["os_distribution"] = self.Platform
-	data["os_version"] = self.OSName
-	return data
-}
-
 func (self *SImage) GetId() string {
 	return self.ImageId
 }
@@ -187,8 +178,8 @@ func (self *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
 	return self.imgInfo
 }
 
-func (self *SImage) GetOsType() string {
-	return self.getNormalizedImageInfo().OsType
+func (self *SImage) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(self.getNormalizedImageInfo().OsType)
 }
 
 func (self *SImage) GetOsDist() string {
