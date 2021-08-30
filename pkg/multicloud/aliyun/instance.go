@@ -179,25 +179,6 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	return self.SecurityGroupIds.SecurityGroupId, nil
 }
 
-func (self *SInstance) GetSysTags() map[string]string {
-	data := map[string]string{}
-	if len(self.ImageId) > 0 {
-		if image, err := self.host.zone.region.GetImage(self.ImageId); err != nil {
-			log.Errorf("Failed to find image %s for instance %s", self.ImageId, self.GetName())
-		} else {
-			imageSysTags := image.GetSysTags()
-			for k, v := range imageSysTags {
-				data[k] = v
-			}
-		}
-	}
-	sys := self.AliyunTags.GetSysTags()
-	for k, v := range sys {
-		data[k] = v
-	}
-	return data
-}
-
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
 	return self.host
 }
@@ -327,8 +308,8 @@ func (self *SInstance) GetVdi() string {
 	return "vnc"
 }
 
-func (self *SInstance) GetOSType() string {
-	return osprofile.NormalizeOSType(self.OSType)
+func (self *SInstance) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(osprofile.NormalizeOSType(self.OSType))
 }
 
 func (self *SInstance) GetOSName() string {

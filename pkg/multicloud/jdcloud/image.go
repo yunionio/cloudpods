@@ -84,17 +84,8 @@ func (i *SImage) IsEmulated() bool {
 	return false
 }
 
-func (i *SImage) GetSysTags() map[string]string {
-	return map[string]string{
-		"os_arch":         i.Architecture,
-		"os_name":         i.OsType,
-		"os_distribution": i.Platform,
-		"os_version":      i.OsVersion,
-	}
-}
-
-func (i *SImage) GetOsType() string {
-	return i.OsType
+func (i *SImage) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(i.OsType)
 }
 
 func (i *SImage) GetOsDist() string {

@@ -294,9 +294,9 @@ func (a *SApp) GetKind() string {
 	return a.Kind
 }
 
-func (a *SApp) GetOsType() string {
+func (a *SApp) GetOsType() cloudprovider.TOsType {
 	if strings.Contains(a.Kind, "linux") {
-		return "Linux"
+		return cloudprovider.OsTypeLinux
 	}
-	return "Windows"
+	return cloudprovider.OsTypeWindows
 }

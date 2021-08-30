@@ -351,8 +351,8 @@ func (self *SInstance) GetVdi() string {
 	return "vnc"
 }
 
-func (self *SInstance) GetOSType() string {
-	return osprofile.NormalizeOSType(self.OSType)
+func (self *SInstance) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(osprofile.NormalizeOSType(self.OSType))
 }
 
 func (self *SInstance) GetOSName() string {

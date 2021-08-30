@@ -494,7 +494,7 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, username strin
 			return err
 		}
 	}
-	return self.host.zone.region.DeployVM(ctx, self.ID, self.GetOSType(), name, password, publicKey, deleteKeypair, description)
+	return self.host.zone.region.DeployVM(ctx, self.ID, string(self.GetOsType()), name, password, publicKey, deleteKeypair, description)
 }
 
 type VirtualMachineExtensionProperties struct {
@@ -839,8 +839,8 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	return disks, nil
 }
 
-func (self *SInstance) GetOSType() string {
-	return osprofile.NormalizeOSType(string(self.Properties.StorageProfile.OsDisk.OsType))
+func (self *SInstance) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(osprofile.NormalizeOSType(string(self.Properties.StorageProfile.OsDisk.OsType)))
 }
 
 func (self *SRegion) getOvsEnv(instanceId string) (string, error) {
@@ -1083,7 +1083,7 @@ func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudpro
 	if self.Properties.StorageProfile.OsDisk.ManagedDisk == nil {
 		return nil, fmt.Errorf("invalid os disk for save image")
 	}
-	image, err := self.host.zone.region.SaveImage(self.GetOSType(), self.Properties.StorageProfile.OsDisk.ManagedDisk.ID, opts)
+	image, err := self.host.zone.region.SaveImage(string(self.GetOsType()), self.Properties.StorageProfile.OsDisk.ManagedDisk.ID, opts)
 	if err != nil {
 		return nil, errors.Wrapf(err, "SaveImage")
 	}
