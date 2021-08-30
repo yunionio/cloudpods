@@ -58,12 +58,12 @@ type SReceiverNotification struct {
 	ReceiverID     string `width:"128" charset:"ascii" nullable:"false" index:"true"`
 	NotificationID string `width:"128" charset:"ascii" nullable:"false" index:"true"`
 	// ignore if ReceiverID is not empty or default
-	Contact      string    `width:"128" nullable:"false" index:"true"`
-	ReceiverType string    `width:"16"`
-	SendAt       time.Time `nullable:"false"`
-	SendBy       string    `width:"128" nullable:"false"`
-	Status       string    `width:"36" charset:"ascii"`
-	FailedReason string    `width:"1024"`
+	Contact      string `width:"128" index:"true"`
+	ReceiverType string `width:"16"`
+	SendAt       time.Time
+	SendBy       string `width:"128"`
+	Status       string `width:"36" charset:"ascii"`
+	FailedReason string `width:"1024"`
 }
 
 func (self *SReceiverNotificationManager) InitializeData() error {
