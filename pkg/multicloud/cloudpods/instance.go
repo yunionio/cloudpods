@@ -127,8 +127,8 @@ func (self *SInstance) GetVdi() string {
 	return self.Vdi
 }
 
-func (self *SInstance) GetOSType() string {
-	return self.OsType
+func (self *SInstance) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(self.OsType)
 }
 
 func (self *SInstance) GetOSName() string {

@@ -124,23 +124,8 @@ func (i *SImage) IsEmulated() bool {
 	return false
 }
 
-func (i *SImage) GetSysTags() map[string]string {
-	data := map[string]string{}
-
-	if osType := i.GetOsType(); len(osType) > 0 {
-		data["os_type"] = osType
-	}
-	if len(i.OsName) > 0 {
-		data["os_name"] = i.OsName
-	}
-	if osDis := i.GetOsDist(); len(osDis) > 0 {
-		data["os_distribution"] = osDis
-	}
-	return data
-}
-
-func (i *SImage) GetOsType() string {
-	return i.OsType
+func (i *SImage) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(i.OsType)
 }
 
 func (i *SImage) GetOsDist() string {

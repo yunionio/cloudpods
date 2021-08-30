@@ -156,8 +156,8 @@ func (i *SInstance) GetImage() (*SImage, error) {
 	return i.image, nil
 }
 
-func (i *SInstance) GetOSType() string {
-	return i.ImageOsType
+func (i *SInstance) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(i.ImageOsType)
 }
 
 func (i *SInstance) GetOSName() string {
@@ -178,25 +178,6 @@ func (i *SInstance) GetMachine() string {
 
 func (i *SInstance) GetInstanceType() string {
 	return i.FlavorRef
-}
-
-func (self *SInstance) GetSysTags() map[string]string {
-	data := map[string]string{}
-	// TODO
-	lowerOs := self.GetOSType()
-	priceKey := fmt.Sprintf("%s::%s::%s", self.host.zone.region.GetId(), self.GetInstanceType(), lowerOs)
-	data["price_key"] = priceKey
-	data["zone_ext_id"] = self.host.zone.GetGlobalId()
-
-	image, _ := self.GetImage()
-	if image != nil {
-		meta := image.GetSysTags()
-		for k, v := range meta {
-			data[k] = v
-		}
-	}
-
-	return data
 }
 
 func (in *SInstance) GetProjectId() string {

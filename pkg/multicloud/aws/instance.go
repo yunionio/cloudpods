@@ -212,33 +212,12 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	return self.SecurityGroupIds.SecurityGroupId, nil
 }
 
-func (self *SInstance) GetSysTags() map[string]string {
-	data := map[string]string{}
-	priceKey := fmt.Sprintf("%s::%s::%s::NA::NA::shared::boxusage", self.RegionId, self.InstanceType, strings.ToLower(self.OSType))
-	data["price_key"] = priceKey
-	data["zone_ext_id"] = self.host.zone.GetGlobalId()
-	if strings.Contains(strings.ToLower(self.OSType), "window") {
-		if loginKey, err := self.host.zone.region.getPasswordData(self.GetId()); err == nil {
-			data["login_key"] = loginKey
-		}
-	}
-	ec2Client, err := self.host.zone.region.getEc2Client()
-	if err != nil {
-		return data
-	}
-	// Name tag
-	tags, err := FetchTags(ec2Client, self.InstanceId)
-	if err == nil {
-		name, err := tags.GetString("Name")
-		if err == nil {
-			data["Name"] = name
-		}
-	}
-	return data
-}
-
 func (self *SInstance) GetTags() (map[string]string, error) {
 	return self.TagSpec.GetTags()
+}
+
+func (self *SInstance) GetSysTags() map[string]string {
+	return map[string]string{}
 }
 
 func (self *SInstance) GetBillingType() string {
@@ -331,8 +310,8 @@ func (self *SInstance) GetVdi() string {
 	return "vnc"
 }
 
-func (self *SInstance) GetOSType() string {
-	return osprofile.NormalizeOSType(self.OSType)
+func (self *SInstance) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(osprofile.NormalizeOSType(self.OSType))
 }
 
 func (self *SInstance) GetOSName() string {
@@ -452,8 +431,8 @@ func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SMan
 	}
 
 	userdata := ""
-	srcOsType := strings.ToLower(self.GetOSType())
-	destOsType := strings.ToLower(image.GetOsType())
+	srcOsType := strings.ToLower(string(self.GetOsType()))
+	destOsType := strings.ToLower(string(image.GetOsType()))
 	winOS := strings.ToLower(osprofile.OS_TYPE_WINDOWS)
 
 	cloudconfig := &cloudinit.SCloudConfig{}

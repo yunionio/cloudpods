@@ -355,11 +355,11 @@ func (self *SVirtualMachine) GetGuestToolsRunningStatus() string {
 	return string(moVM.Guest.ToolsRunningStatus)
 }
 
-func (self *SVirtualMachine) GetOSType() string {
+func (self *SVirtualMachine) GetOsType() cloudprovider.TOsType {
 	if osInfo, ok := GuestOsInfo[self.GetGuestId()]; ok {
-		return string(osInfo.OsType)
+		return cloudprovider.TOsType(osInfo.OsType)
 	}
-	return ""
+	return cloudprovider.OsTypeLinux
 }
 
 func (self *SVirtualMachine) GetOSName() string {

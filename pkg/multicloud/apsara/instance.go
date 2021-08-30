@@ -167,96 +167,8 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 	return instances, int(total), nil
 }
 
-func (self *SRegion) fetchTags(resourceType string, resourceId string) (*jsonutils.JSONDict, error) {
-	// 资源类型。取值范围：
-	// disk
-	// instance
-	// image
-	// securitygroup
-	// snapshot
-	var page int64 = 1
-	var pageSize int64 = 50
-	params := make(map[string]string)
-	params["RegionId"] = self.RegionId
-	params["ResourceType"] = resourceType
-	params["ResourceId"] = resourceId
-	params["PageSize"] = fmt.Sprintf("%d", pageSize)
-	params["PageNumber"] = fmt.Sprintf("%d", page)
-	ret, err := self.ecsRequest("DescribeTags", params)
-	if err != nil {
-		return nil, err
-	}
-
-	tags := jsonutils.NewDict()
-	result, _ := ret.GetArray("Tags", "Tag")
-	for _, item := range result {
-		k, _ := item.GetString("TagKey")
-		v, _ := item.Get("TagValue")
-		if len(k) > 0 {
-			tags.Set(k, v)
-		}
-	}
-
-	total, _ := ret.Int("TotalCount")
-	for ; total > page*pageSize; page++ {
-		params["PageSize"] = fmt.Sprintf("%d", pageSize)
-		params["PageNumber"] = fmt.Sprintf("%d", page)
-		ret, err := self.ecsRequest("DescribeTags", params)
-		if err != nil {
-			return nil, err
-		}
-
-		result, _ := ret.GetArray("Tags", "Tag")
-		for _, item := range result {
-			k, _ := item.GetString("TagKey")
-			v, _ := item.Get("TagValue")
-			if len(k) > 0 {
-				tags.Set(k, v)
-			}
-		}
-	}
-
-	return tags, nil
-}
-
 func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	return self.SecurityGroupIds.SecurityGroupId, nil
-}
-
-func (self *SInstance) GetSysTags() map[string]string {
-	data := map[string]string{}
-	// The pricingInfo key structure is 'RegionId::InstanceType::NetworkType::OSType::IoOptimized'
-	optimized := "optimized"
-	if !self.IoOptimized {
-		optimized = "none"
-	}
-	priceKey := fmt.Sprintf("%s::%s::%s::%s::%s", self.RegionId, self.InstanceType, self.InstanceNetworkType, self.OSType, optimized)
-	data["price_key"] = priceKey
-	data["zone_ext_id"] = self.host.zone.GetGlobalId()
-	if len(self.ImageId) > 0 {
-		if image, err := self.host.zone.region.GetImage(self.ImageId); err != nil {
-			log.Errorf("Failed to find image %s for instance %s", self.ImageId, self.GetName())
-		} else {
-			imageSysTags := image.GetSysTags()
-			for k, v := range imageSysTags {
-				data[k] = v
-			}
-		}
-	}
-	return data
-}
-
-func (self *SInstance) GetTags() (map[string]string, error) {
-	tags, err := self.host.zone.region.fetchTags("instance", self.InstanceId)
-	if err != nil {
-		return nil, errors.Wrap(err, "self.host.zone.region.fetchTags")
-	}
-	data := map[string]string{}
-	err = tags.Unmarshal(&data)
-	if err != nil {
-		return nil, errors.Wrap(err, "tags.Unmarshal")
-	}
-	return data, nil
 }
 
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
@@ -379,8 +291,8 @@ func (self *SInstance) GetVdi() string {
 	return "vnc"
 }
 
-func (self *SInstance) GetOSType() string {
-	return osprofile.NormalizeOSType(self.OSType)
+func (self *SInstance) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(osprofile.NormalizeOSType(self.OSType))
 }
 
 func (self *SInstance) GetOSName() string {

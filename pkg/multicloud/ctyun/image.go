@@ -87,23 +87,6 @@ func (self *SImage) IsEmulated() bool {
 	return false
 }
 
-func (self *SImage) GetSysTags() map[string]string {
-	data := map[string]string{}
-	if self.OSBit > 0 {
-		data["os_arch"] = self.GetOsArch()
-	}
-	if len(self.OSType) > 0 {
-		data["os_name"] = self.GetOsType()
-	}
-	if len(self.Platform) > 0 {
-		data["os_distribution"] = self.GetOsDist()
-	}
-
-	data["os_version"] = self.GetOsVersion()
-
-	return data
-}
-
 func (self *SImage) Delete(ctx context.Context) error {
 	return cloudprovider.ErrNotSupported
 }
@@ -142,8 +125,8 @@ func (self *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
 	return self.imgInfo
 }
 
-func (self *SImage) GetOsType() string {
-	return self.getNormalizedImageInfo().OsType
+func (self *SImage) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(self.getNormalizedImageInfo().OsType)
 }
 
 func (self *SImage) GetOsDist() string {

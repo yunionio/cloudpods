@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/osprofile"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -324,19 +323,18 @@ func (instance *SInstance) GetVdi() string {
 	return "vnc"
 }
 
-func (instance *SInstance) GetOSType() string {
+func (instance *SInstance) GetOsType() cloudprovider.TOsType {
 	if instance.Image != nil {
 		imageId, _ := instance.Image.GetString("id")
 		if len(imageId) > 0 {
 			image, err := instance.host.zone.region.GetImage(imageId)
 			if err != nil {
-				log.Errorf("GetImage %s", imageId)
-				return osprofile.OS_TYPE_LINUX
+				return cloudprovider.OsTypeLinux
 			}
 			return image.GetOsType()
 		}
 	}
-	return osprofile.OS_TYPE_LINUX
+	return cloudprovider.OsTypeLinux
 }
 
 func (instance *SInstance) GetOSName() string {

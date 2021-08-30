@@ -82,12 +82,12 @@ func (self *SImage) GetImageStatus() string {
 	return self.Status
 }
 
-func (self *SImage) GetOsType() string {
+func (self *SImage) GetOsType() cloudprovider.TOsType {
 	osType, ok := self.Properties["os_type"]
 	if ok {
-		return osType
+		return cloudprovider.TOsType(osType)
 	}
-	return "linux"
+	return cloudprovider.OsTypeLinux
 }
 
 func (self *SImage) GetOsDist() string {
