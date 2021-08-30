@@ -166,12 +166,12 @@ func (self *SImage) GetSizeByte() int64 {
 	return int64(self.Properties.StorageProfile.OsDisk.DiskSizeGB) * 1024 * 1024 * 1024
 }
 
-func (self *SImage) GetOsType() string {
+func (self *SImage) GetOsType() cloudprovider.TOsType {
 	osType := self.Properties.StorageProfile.OsDisk.OsType
 	if len(osType) == 0 {
 		osType = publisherGetOsType(self.Publisher)
 	}
-	return osType
+	return cloudprovider.TOsType(osType)
 }
 
 func (self *SImage) GetOsArch() string {

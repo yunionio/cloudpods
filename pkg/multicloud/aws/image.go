@@ -242,8 +242,8 @@ func (self *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
 	return self.imgInfo
 }
 
-func (self *SImage) GetOsType() string {
-	return self.getNormalizedImageInfo().OsType
+func (self *SImage) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(self.getNormalizedImageInfo().OsType)
 }
 
 func (self *SImage) GetOsArch() string {
@@ -272,15 +272,6 @@ func (self *SImage) GetCreatedAt() time.Time {
 
 func (self *SImage) IsEmulated() bool {
 	return false
-}
-
-func (self *SImage) GetSysTags() map[string]string {
-	data := map[string]string{}
-	data["os_arch"] = self.Architecture
-	data["os_name"] = self.OSType
-	data["os_distribution"] = self.OSDist
-	data["os_version"] = self.OSVersion
-	return data
 }
 
 func (self *SImage) Delete(ctx context.Context) error {

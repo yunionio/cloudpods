@@ -254,29 +254,6 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	return self.host.zone.region.GetInstanceSecrityGroupIds(self.GetId())
 }
 
-func (self *SInstance) GetSysTags() map[string]string {
-	data := map[string]string{}
-	// cn-north-1::et2.2xlarge.16::win
-	lowerOs := self.GetOSType()
-	if strings.HasPrefix(lowerOs, "win") {
-		lowerOs = "win"
-	}
-	priceKey := fmt.Sprintf("%s::%s::%s", self.host.zone.region.GetId(), self.GetInstanceType(), lowerOs)
-	data["price_key"] = priceKey
-	data["zone_ext_id"] = self.host.zone.GetGlobalId()
-	if len(self.Metadata.MeteringImageID) > 0 {
-		if image, err := self.host.zone.region.GetImage(self.Metadata.MeteringImageID); err != nil {
-			log.Errorf("Failed to find image %s for instance %s zone %s", self.Metadata.MeteringImageID, self.GetId(), self.OSEXTAZAvailabilityZone)
-		} else {
-			meta := image.GetSysTags()
-			for k, v := range meta {
-				data[k] = v
-			}
-		}
-	}
-	return data
-}
-
 // https://support.huaweicloud.com/api-ecs/ecs_02_1002.html
 // key 相同时value不会替换
 func (self *SRegion) CreateServerTags(instanceId string, tags map[string]string) error {
@@ -498,8 +475,8 @@ func (self *SInstance) GetOSArch() string {
 	return apis.OS_ARCH_X86
 }
 
-func (self *SInstance) GetOSType() string {
-	return osprofile.NormalizeOSType(self.Metadata.OSType)
+func (self *SInstance) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(osprofile.NormalizeOSType(self.Metadata.OSType))
 }
 
 func (self *SInstance) GetOSName() string {
