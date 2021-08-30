@@ -213,7 +213,7 @@ type ICloudImage interface {
 	GetSizeByte() int64
 	GetImageType() TImageType
 	GetImageStatus() string
-	GetOsType() string
+	GetOsType() TOsType
 	GetOsDist() string
 	GetOsVersion() string
 	GetOsArch() string
@@ -333,7 +333,7 @@ type ICloudVM interface {
 	GetVga() string
 	GetVdi() string
 	GetOSArch() string
-	GetOSType() string
+	GetOsType() TOsType
 	GetOSName() string
 	GetBios() string
 	GetMachine() string
@@ -1458,7 +1458,7 @@ type ICloudApp interface {
 	GetTechStack() string
 	GetType() string
 	GetKind() string
-	GetOsType() string
+	GetOsType() TOsType
 }
 
 type ICloudAppEnvironment interface {

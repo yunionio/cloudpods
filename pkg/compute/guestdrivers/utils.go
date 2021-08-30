@@ -48,7 +48,7 @@ type SDiskInfo struct {
 func fetchIVMinfo(desc cloudprovider.SManagedVMCreateConfig, iVM cloudprovider.ICloudVM, guestId string, account, passwd string, publicKey string, action string) *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 
-	data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
+	data.Add(jsonutils.NewString(string(iVM.GetOsType())), "os")
 
 	//避免在rebuild_root时绑定秘钥,没有account信息
 	data.Add(jsonutils.NewString(account), "account")

@@ -337,8 +337,8 @@ func (self *SClassicInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	return ret, nil
 }
 
-func (self *SClassicInstance) GetOSType() string {
-	return osprofile.NormalizeOSType(self.Properties.StorageProfile.OperatingSystemDisk.OperatingSystem)
+func (self *SClassicInstance) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(osprofile.NormalizeOSType(self.Properties.StorageProfile.OperatingSystemDisk.OperatingSystem))
 }
 
 func (self *SClassicInstance) GetINics() ([]cloudprovider.ICloudNic, error) {

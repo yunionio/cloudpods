@@ -90,7 +90,7 @@ func (self *SRegion) _createVM(desc *cloudprovider.SManagedVMCreateConfig, nicId
 		return nil, fmt.Errorf("image %s not ready status: %s", desc.ExternalImageId, image.Properties.ProvisioningState)
 	}
 	if !utils.IsInStringArray(desc.OsType, []string{osprofile.OS_TYPE_LINUX, osprofile.OS_TYPE_WINDOWS}) {
-		desc.OsType = image.GetOsType()
+		desc.OsType = string(image.GetOsType())
 	}
 	computeName := desc.Name
 	for _, k := range "`~!@#$%^&*()=+_[]{}\\|;:.'\",<>/?" {

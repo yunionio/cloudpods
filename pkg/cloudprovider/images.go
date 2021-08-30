@@ -81,7 +81,7 @@ func CloudImage2Image(image ICloudImage) SImage {
 		MinRamMB:   image.GetMinRamSizeMb(),
 		Name:       image.GetName(),
 		Properties: map[string]string{
-			"os_type":         image.GetOsType(),
+			"os_type":         string(image.GetOsType()),
 			"os_distribution": image.GetOsDist(),
 			"os_version":      image.GetOsVersion(),
 			"os_arch":         image.GetOsArch(),

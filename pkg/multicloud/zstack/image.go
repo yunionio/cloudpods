@@ -164,8 +164,8 @@ func (self *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
 	return self.imgInfo
 }
 
-func (image *SImage) GetOsType() string {
-	return image.getNormalizedImageInfo().OsType
+func (image *SImage) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(image.getNormalizedImageInfo().OsType)
 }
 
 func (image *SImage) GetOsDist() string {
