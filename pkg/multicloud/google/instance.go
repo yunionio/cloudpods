@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/fileutils"
-	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -287,19 +286,19 @@ func (instance *SInstance) GetVdi() string {
 	return "vnc"
 }
 
-func (instance *SInstance) GetOSType() string {
+func (instance *SInstance) GetOsType() cloudprovider.TOsType {
 	for _, disk := range instance.Disks {
 		if disk.Index == 0 {
 			for _, license := range disk.Licenses {
 				if strings.Index(strings.ToLower(license), "windows") < 0 {
-					return osprofile.OS_TYPE_LINUX
+					return cloudprovider.OsTypeWindows
 				} else {
-					return osprofile.OS_TYPE_WINDOWS
+					return cloudprovider.OsTypeLinux
 				}
 			}
 		}
 	}
-	return osprofile.OS_TYPE_LINUX
+	return cloudprovider.OsTypeLinux
 }
 
 func (instance *SInstance) GetOSName() string {

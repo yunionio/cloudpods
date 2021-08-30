@@ -93,24 +93,6 @@ func (self *SImage) IsEmulated() bool {
 	return false
 }
 
-func (self *SImage) GetSysTags() map[string]string {
-	imageInfo := imagetools.NormalizeImageInfo(self.ImageName, "", "", "", "")
-	data := map[string]string{}
-	if len(imageInfo.OsArch) > 0 {
-		data["os_arch"] = imageInfo.OsArch
-	}
-	if len(imageInfo.OsType) > 0 {
-		data["os_name"] = imageInfo.OsType
-	}
-	if len(imageInfo.OsDistro) > 0 {
-		data["os_distribution"] = imageInfo.OsDistro
-	}
-	if len(imageInfo.OsVersion) > 0 {
-		data["os_version"] = imageInfo.OsVersion
-	}
-	return data
-}
-
 func (self *SImage) Delete(ctx context.Context) error {
 	return self.storageCache.region.DeleteImage(self.GetId())
 }
@@ -159,8 +141,8 @@ func (self *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
 	return self.imgInfo
 }
 
-func (self *SImage) GetOsType() string {
-	return self.getNormalizedImageInfo().OsType
+func (self *SImage) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(self.getNormalizedImageInfo().OsType)
 }
 
 func (self *SImage) GetOsDist() string {

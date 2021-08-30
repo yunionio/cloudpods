@@ -355,25 +355,11 @@ func (self *SInstance) GetVdi() string {
 	return "vnc"
 }
 
-func (self *SInstance) GetOSType() string {
-	if self.image == nil {
-		image, err := self.host.zone.region.GetImage(self.ImageId)
-		if err != nil {
-			return self.OsName
-		}
-		self.image = image
+func (self *SInstance) GetOsType() cloudprovider.TOsType {
+	if strings.Contains(strings.ToLower(self.OsName), "win") {
+		return cloudprovider.OsTypeWindows
 	}
-	if self.image != nil {
-		switch self.image.Platform {
-		case "Windows":
-			return "Windows"
-		case "CentOS", "Debian", "FreeBSD", "SUSE", "openSUSE":
-			return "Linux"
-		default:
-			return "Linux"
-		}
-	}
-	return self.OsName
+	return cloudprovider.OsTypeLinux
 }
 
 func (self *SInstance) GetOSName() string {
@@ -473,7 +459,7 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
-	return self.host.zone.region.UpdateVM(self.InstanceId, name, self.GetOSType())
+	return self.host.zone.region.UpdateVM(self.InstanceId, name)
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
@@ -842,7 +828,7 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 	return cloudprovider.WaitDeleted(self, 10*time.Second, 5*time.Minute) // 5minutes
 }
 
-func (self *SRegion) UpdateVM(instanceId string, name, osType string) error {
+func (self *SRegion) UpdateVM(instanceId string, name string) error {
 	params := make(map[string]string)
 	params["InstanceName"] = name
 	return self.modifyInstanceAttribute(instanceId, params)

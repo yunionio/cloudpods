@@ -26,6 +26,13 @@ import (
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
+type TOsType string
+
+var (
+	OsTypeLinux   = TOsType(osprofile.OS_TYPE_LINUX)
+	OsTypeWindows = TOsType(osprofile.OS_TYPE_WINDOWS)
+)
+
 type SDistDefaultAccount struct {
 	// 操作系统发行版
 	OsDistribution string

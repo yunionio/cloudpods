@@ -2533,7 +2533,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		self.Vga = extVM.GetVga()
 		self.Vdi = extVM.GetVdi()
 		self.OsArch = extVM.GetOSArch()
-		self.OsType = extVM.GetOSType()
+		self.OsType = string(extVM.GetOsType())
 		self.Bios = extVM.GetBios()
 		self.Machine = extVM.GetMachine()
 		if !recycle {
@@ -2622,7 +2622,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.Vga = extVM.GetVga()
 	guest.Vdi = extVM.GetVdi()
 	guest.OsArch = extVM.GetOSArch()
-	guest.OsType = extVM.GetOSType()
+	guest.OsType = string(extVM.GetOsType())
 	guest.Bios = extVM.GetBios()
 	guest.Machine = extVM.GetMachine()
 	guest.Hypervisor = extVM.GetHypervisor()
