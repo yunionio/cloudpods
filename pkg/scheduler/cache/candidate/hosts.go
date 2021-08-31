@@ -182,8 +182,8 @@ func NewGuestReservedResourceUsedByBuilder(b *HostBuilder, host *computemodels.S
 	)
 	guestDiskSize := func(g *computemodels.SGuest, onlyLocal bool) int {
 		size := 0
-		for _, gd := range g.GetDisks() {
-			disk := gd.GetDisk()
+		disks, _ := g.GetDisks()
+		for _, disk := range disks {
 			if !onlyLocal || disk.IsLocal() {
 				size += disk.DiskSize
 			}

@@ -66,3 +66,35 @@ type GuestdiskUpdateInput struct {
 
 	Index *int8 `json:"index"`
 }
+
+type GuestdiskJsonDesc struct {
+	DiskId           string `json:"disk_id"`
+	Driver           string `json:"driver"`
+	CacheMode        string `json:"cache_mode"`
+	AioMode          string `json:"aio_mode"`
+	Iops             int    `json:"iops"`
+	Bps              int    `json:"bps"`
+	Size             int    `json:"size"`
+	TemplateId       string `json:"template_id"`
+	ImagePath        string `json:"image_path"`
+	StorageId        string `json:"storage_id"`
+	Migrating        bool   `json:"migrating"`
+	Path             string `json:"path"`
+	Format           string `json:"format"`
+	Index            int8   `json:"index"`
+	MergeSnapshot    bool   `json:"merge_snapshot"`
+	EsxiFlatFilePath string `json:"esxi_flat_file_path"`
+	Fs               string `json:"fs"`
+	Mountpoint       string `json:"mountpoint"`
+	Dev              string `json:"dev"`
+	IsSSD            bool   `json:"is_ssd"`
+
+	// esxi
+	ImageInfo struct {
+		ImageType          string `json:"image_type"`
+		ImageExternalId    string `json:"image_external_id"`
+		StorageCacheHostIp string `json:"storage_cache_host_ip"`
+	} `json:"image_info"`
+
+	TargetStorageId string `json:"target_storage_id"`
+}

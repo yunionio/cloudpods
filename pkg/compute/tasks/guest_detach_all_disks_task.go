@@ -53,7 +53,8 @@ func (self *GuestDetachAllDisksTask) OnDiskDeleteComplete(ctx context.Context, o
 	if (host == nil || !host.GetEnabled()) && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		purge = true
 	}
-	for _, guestdisk := range guest.GetDisks() {
+	guestDisks, _ := guest.GetGuestDisks()
+	for _, guestdisk := range guestDisks {
 		taskData := jsonutils.NewDict()
 		taskData.Add(jsonutils.NewString(guestdisk.DiskId), "disk_id")
 		if purge {

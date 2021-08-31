@@ -447,10 +447,10 @@ func (self *SGuestnetwork) GetTeamGuestnetwork() (*SGuestnetwork, error) {
 	return nil, nil
 }
 
-func (self *SGuestnetwork) getJsonDescAtBaremetal(host *SHost) jsonutils.JSONObject {
-	network := self.GetNetwork()
-	hostwire := host.getHostwireOfIdAndMac(network.WireId, self.MacAddr)
-	return self.getJsonDescHostwire(network, hostwire)
+func (self *SGuestnetwork) getJsonDescAtBaremetal(host *SHost) *api.GuestnetworkJsonDesc {
+	net := self.GetNetwork()
+	hostwire := host.getHostwireOfIdAndMac(net.WireId, self.MacAddr)
+	return self.getJsonDescHostwire(hostwire)
 }
 
 func guestGetHostWireFromNetwork(host *SHost, network *SNetwork) (*SHostwire, error) {
@@ -471,10 +471,10 @@ func guestGetHostWireFromNetwork(host *SHost, network *SNetwork) (*SHostwire, er
 	return hostWire, nil
 }
 
-func (self *SGuestnetwork) getJsonDescAtHost(ctx context.Context, host *SHost) jsonutils.JSONObject {
+func (self *SGuestnetwork) getJsonDescAtHost(ctx context.Context, host *SHost) *api.GuestnetworkJsonDesc {
 	var (
-		ret     *jsonutils.JSONDict
-		network = self.GetNetwork()
+		ret     *api.GuestnetworkJsonDesc = nil
+		network                           = self.GetNetwork()
 	)
 	if network.isOneCloudVpcNetwork() {
 		ret = self.getJsonDescOneCloudVpc(network)
@@ -483,7 +483,7 @@ func (self *SGuestnetwork) getJsonDescAtHost(ctx context.Context, host *SHost) j
 		if err != nil {
 			log.Errorln(err)
 		}
-		ret = self.getJsonDescHostwire(network, hostWire)
+		ret = self.getJsonDescHostwire(hostWire)
 	}
 	{
 		ipnets, err := NetworkAddressManager.fetchAddressesByGuestnetworkId(ctx, self.RowId)
@@ -491,23 +491,23 @@ func (self *SGuestnetwork) getJsonDescAtHost(ctx context.Context, host *SHost) j
 			log.Errorln(err)
 		}
 		if len(ipnets) > 0 {
-			ret.Set("networkaddresses", jsonutils.Marshal(ipnets))
+			ret.Networkaddresses = jsonutils.Marshal(ipnets)
 		}
 	}
 	return ret
 }
 
-func (self *SGuestnetwork) getJsonDescHostwire(network *SNetwork, hostwire *SHostwire) *jsonutils.JSONDict {
-	desc := self.getJsonDesc(network)
+func (self *SGuestnetwork) getJsonDescHostwire(hostwire *SHostwire) *api.GuestnetworkJsonDesc {
+	desc := self.getJsonDesc()
 	if hostwire != nil {
-		desc.Add(jsonutils.NewString(hostwire.Bridge), "bridge")
-		desc.Add(jsonutils.NewString(hostwire.WireId), "wire_id")
-		desc.Add(jsonutils.NewString(hostwire.Interface), "interface")
+		desc.Bridge = hostwire.Bridge
+		desc.WireId = hostwire.WireId
+		desc.Interface = hostwire.Interface
 	}
 	return desc
 }
 
-func (self *SGuestnetwork) getJsonDescOneCloudVpc(network *SNetwork) *jsonutils.JSONDict {
+func (self *SGuestnetwork) getJsonDescOneCloudVpc(network *SNetwork) *api.GuestnetworkJsonDesc {
 	if self.MappedIpAddr == "" {
 		var (
 			err  error
@@ -526,69 +526,61 @@ func (self *SGuestnetwork) getJsonDescOneCloudVpc(network *SNetwork) *jsonutils.
 			}
 		}
 	}
-	vpc, _ := network.GetVpc()
 
-	vpcDesc := jsonutils.NewDict()
-	vpcDesc.Set("id", jsonutils.NewString(vpc.Id))
-	vpcDesc.Set("provider", jsonutils.NewString(api.VPC_PROVIDER_OVN))
-	vpcDesc.Set("mapped_ip_addr", jsonutils.NewString(self.MappedIpAddr))
-	desc := self.getJsonDesc(network)
-	desc.Set("vpc", vpcDesc)
+	desc := self.getJsonDesc()
+
+	vpc, _ := network.GetVpc()
+	desc.Vpc.Id = vpc.Id
+	desc.Vpc.Provider = api.VPC_PROVIDER_OVN
+	desc.Vpc.MappedIpAddr = self.MappedIpAddr
+
 	return desc
 }
 
-func (self *SGuestnetwork) getJsonDesc(network *SNetwork) *jsonutils.JSONDict {
-	desc := jsonutils.NewDict()
+func (self *SGuestnetwork) getJsonDesc() *api.GuestnetworkJsonDesc {
+	net := self.GetNetwork()
+	desc := &api.GuestnetworkJsonDesc{
+		Net:     net.Name,
+		NetId:   self.NetworkId,
+		Mac:     self.MacAddr,
+		Virtual: self.Virtual,
+	}
 
-	desc.Add(jsonutils.NewString(network.Name), "net")
-	desc.Add(jsonutils.NewString(self.NetworkId), "net_id")
-	desc.Add(jsonutils.NewString(self.MacAddr), "mac")
 	if self.Virtual {
-		desc.Add(jsonutils.JSONTrue, "virtual")
 		if len(self.TeamWith) > 0 {
 			teamGN, _ := self.GetTeamGuestnetwork()
 			if teamGN != nil {
-				log.Debugf("%#v", teamGN)
-				desc.Add(jsonutils.NewString(teamGN.IpAddr), "ip")
+				desc.Ip = teamGN.IpAddr
 			}
 		} else {
-			desc.Add(jsonutils.NewString(network.GetNetAddr().String()), "ip")
+			desc.Ip = net.GetNetAddr().String()
 		}
 	} else {
-		desc.Add(jsonutils.JSONFalse, "virtual")
-		desc.Add(jsonutils.NewString(self.IpAddr), "ip")
+		desc.Ip = self.IpAddr
 	}
-	if len(network.GuestGateway) > 0 {
-		desc.Add(jsonutils.NewString(network.GuestGateway), "gateway")
-	}
-	desc.Add(jsonutils.NewString(network.GetDNS()), "dns")
-	desc.Add(jsonutils.NewString(network.GetDomain()), "domain")
-	routes := network.GetRoutes()
-	if routes != nil && len(routes) > 0 {
-		desc.Add(jsonutils.Marshal(routes), "routes")
-	}
-	desc.Add(jsonutils.NewString(self.GetIfname()), "ifname")
-	desc.Add(jsonutils.NewInt(int64(network.GuestIpMask)), "masklen")
-	desc.Add(jsonutils.NewString(self.Driver), "driver")
-	desc.Add(jsonutils.NewInt(int64(network.VlanId)), "vlan")
-	desc.Add(jsonutils.NewInt(int64(self.getBandwidth())), "bw")
-	desc.Add(jsonutils.NewInt(int64(self.getMtu(network))), "mtu")
-	desc.Add(jsonutils.NewInt(int64(self.Index)), "index")
-	vips := self.GetVirtualIPs()
-	if len(vips) > 0 {
-		desc.Add(jsonutils.NewStringArray(vips), "virtual_ips")
-	}
-	if len(network.ExternalId) > 0 {
-		desc.Add(jsonutils.NewString(network.ExternalId), "external_id")
-	}
+	desc.Gateway = net.GuestGateway
+	desc.DNS = net.GetDNS()
+	desc.Domain = net.GetDomain()
 
-	if len(self.TeamWith) > 0 {
-		desc.Add(jsonutils.NewString(self.TeamWith), "team_with")
+	routes := net.GetRoutes()
+	if routes != nil && len(routes) > 0 {
+		desc.Routes = jsonutils.Marshal(routes)
 	}
+	desc.Ifname = self.GetIfname()
+	desc.Masklen = net.GuestIpMask
+	desc.Driver = self.Driver
+	desc.Vlan = net.VlanId
+	desc.Bw = self.getBandwidth()
+	desc.Mtu = self.getMtu(net)
+	desc.Index = self.Index
+	desc.VirtualIps = self.GetVirtualIPs()
+	desc.ExternalId = net.ExternalId
+	desc.TeamWith = self.TeamWith
 
 	guest := self.getGuest()
 	if guest.GetHypervisor() != api.HYPERVISOR_KVM {
-		desc.Add(jsonutils.JSONTrue, "manual")
+		manual := true
+		desc.Manual = &manual
 	}
 
 	return desc

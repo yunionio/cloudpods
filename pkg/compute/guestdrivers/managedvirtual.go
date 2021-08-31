@@ -87,11 +87,14 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 		log.Errorf("failed to sync project %s for create %s guest %s error: %v", guest.ProjectId, provider.Provider, guest.Name, err)
 	}
 
-	disks := guest.GetDisks()
+	disks, err := guest.GetDisks()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDisks")
+	}
 	config.DataDisks = []cloudprovider.SDiskInfo{}
 
 	for i := 0; i < len(disks); i += 1 {
-		disk := disks[i].GetDisk()
+		disk := disks[i]
 		storage, _ := disk.GetStorage()
 		if i == 0 {
 			config.SysDisk.Name = disk.Name
@@ -714,10 +717,14 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 			return nil, errors.Wrapf(err, "ivm.DeleteVM")
 		}
 
-		for _, guestdisk := range guest.GetDisks() {
-			disk := guestdisk.GetDisk()
+		disks, err := guest.GetDisks()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetDisks")
+		}
+
+		for _, disk := range disks {
 			storage, _ := disk.GetStorage()
-			if disk != nil && disk.AutoDelete && !utils.IsInStringArray(storage.StorageType, api.STORAGE_LOCAL_TYPES) {
+			if disk.AutoDelete && !utils.IsInStringArray(storage.StorageType, api.STORAGE_LOCAL_TYPES) {
 				idisk, err := disk.GetIDisk()
 				if err != nil {
 					if errors.Cause(err) == cloudprovider.ErrNotFound {
@@ -920,7 +927,7 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 			return err
 		}
 
-		disks := guest.GetDisks()
+		disks, _ := guest.GetGuestDisks()
 		if len(disks) != len(diskInfo) {
 			msg := fmt.Sprintf("inconsistent disk number: guest have %d disks, data contains %d disks", len(disks), len(diskInfo))
 			log.Errorf(msg)

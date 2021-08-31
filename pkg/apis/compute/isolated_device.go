@@ -95,3 +95,12 @@ type IsolatedDeviceUpdateInput struct {
 	apis.StandaloneResourceBaseUpdateInput
 	IsolatedDeviceReservedResourceInput
 }
+
+type IsolatedDeviceJsonDesc struct {
+	Id             string `json:"id"`
+	DevType        string `json:"dev_type"`
+	Model          string `json:"model"`
+	Addr           string `json:"addr"`
+	VendorDeviceId string `json:"vendor_device_id"`
+	Vendor         string `json:"vendor"`
+}

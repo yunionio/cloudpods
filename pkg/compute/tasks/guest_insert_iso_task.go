@@ -42,7 +42,7 @@ func (self *GuestInsertIsoTask) prepareIsoImage(ctx context.Context, obj db.ISta
 	imageId, _ := self.Params.GetString("image_id")
 	db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARING, imageId, self.UserCred)
 
-	disks := guest.GetDisks()
+	disks, _ := guest.GetGuestDisks()
 	disk := disks[0].GetDisk()
 	storage, _ := disk.GetStorage()
 	storageCache := storage.GetStoragecache()
@@ -105,7 +105,7 @@ func (self *HaGuestInsertIsoTask) prepareIsoImage(ctx context.Context, obj db.IS
 	guest := obj.(*models.SGuest)
 	imageId, _ := self.Params.GetString("image_id")
 	db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARING, imageId, self.UserCred)
-	disks := guest.GetDisks()
+	disks, _ := guest.GetGuestDisks()
 	disk := disks[0].GetDisk()
 	storage := disk.GetBackupStorage()
 	storageCache := storage.GetStoragecache()

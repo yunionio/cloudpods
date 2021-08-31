@@ -109,12 +109,9 @@ func (self *GuestRebuildRootTask) StartRebuildRootDisk(ctx context.Context, gues
 func (self *GuestRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	allDisks := jsonutils.QueryBoolean(self.Params, "all_disks", false)
 	if allDisks {
-		guestdisks := guest.GetDisks()
-		for i := 1; i < len(guestdisks); i += 1 {
-			disk := guestdisks[i].GetDisk()
-			if disk != nil {
-				disk.SetStatus(self.UserCred, api.DISK_INIT, "rebuild data disks")
-			}
+		disks, _ := guest.GetDisks()
+		for i := 1; i < len(disks); i += 1 {
+			disks[i].SetStatus(self.UserCred, api.DISK_INIT, "rebuild data disks")
 		}
 		self.SetStage("OnRebuildingDataDisksComplete", nil)
 		self.OnRebuildingDataDisksComplete(ctx, guest, data)
@@ -125,15 +122,14 @@ func (self *GuestRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Context,
 
 func (self *GuestRebuildRootTask) OnRebuildingDataDisksComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	diskReady := true
-	guestdisks := guest.GetDisks()
-	if len(guestdisks) > 0 {
+	disks, _ := guest.GetDisks()
+	if len(disks) > 0 {
 		guest.SetStatus(self.UserCred, api.VM_REBUILD_ROOT, "rebuild data disks")
 	}
-	for i := 1; i < len(guestdisks); i += 1 {
-		disk := guestdisks[i].GetDisk()
-		if disk.Status == api.DISK_INIT {
+	for i := 1; i < len(disks); i += 1 {
+		if disks[i].Status == api.DISK_INIT {
 			diskReady = false
-			disk.StartDiskCreateTask(ctx, self.UserCred, true, "", self.GetTaskId())
+			disks[i].StartDiskCreateTask(ctx, self.UserCred, true, "", self.GetTaskId())
 		}
 	}
 	if diskReady {

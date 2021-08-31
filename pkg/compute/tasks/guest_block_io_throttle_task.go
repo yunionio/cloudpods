@@ -57,7 +57,7 @@ func (self *GuestBlockIoThrottleTask) OnIoThrottle(ctx context.Context, guest *m
 	iops, _ := self.Params.Int("iops")
 	bps, _ := self.Params.Int("bps")
 
-	gds := guest.GetDisks()
+	gds, _ := guest.GetGuestDisks()
 	for i := 0; i < len(gds); i++ {
 		db.Update(&gds[i], func() error {
 			gds[i].Iops = int(iops)
