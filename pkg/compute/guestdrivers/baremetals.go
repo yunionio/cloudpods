@@ -326,7 +326,7 @@ func (self *SBaremetalGuestDriver) RequestGuestCreateInsertIso(ctx context.Conte
 func (self *SBaremetalGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
 	desc := guest.GetJsonDescAtBaremetal(ctx, host)
 	config := jsonutils.NewDict()
-	config.Set("desc", desc)
+	config.Set("desc", jsonutils.Marshal(desc))
 	headers := task.GetTaskRequestHeader()
 	url := fmt.Sprintf("/baremetals/%s/servers/%s/start", host.Id, guest.Id)
 	_, err := host.BaremetalSyncRequest(ctx, "POST", url, headers, config)
@@ -429,7 +429,8 @@ func (self *SBaremetalGuestDriver) ValidateCreateDataOnHost(ctx context.Context,
 }
 
 func (self *SBaremetalGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	return guest.GetJsonDescAtBaremetal(ctx, host), nil
+	desc := guest.GetJsonDescAtBaremetal(ctx, host)
+	return jsonutils.Marshal(desc), nil
 }
 
 func (self *SBaremetalGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {

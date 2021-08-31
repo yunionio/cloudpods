@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
@@ -124,14 +124,14 @@ func (self *SGuestcdrom) GetDetails() string {
 	}
 }
 
-func (self *SGuestcdrom) getJsonDesc() jsonutils.JSONObject {
+func (self *SGuestcdrom) getJsonDesc() *api.GuestcdromJsonDesc {
 	if len(self.ImageId) > 0 && len(self.Path) > 0 {
-		desc := jsonutils.NewDict()
-		desc.Add(jsonutils.NewString(self.ImageId), "image_id")
-		desc.Add(jsonutils.NewString(self.Path), "path")
-		desc.Add(jsonutils.NewString(self.Name), "name")
-		desc.Add(jsonutils.NewInt(int64(self.Size)), "size")
-		return desc
+		return &api.GuestcdromJsonDesc{
+			ImageId: self.ImageId,
+			Path:    self.Path,
+			Name:    self.Name,
+			Size:    self.Size,
+		}
 	}
 	return nil
 }

@@ -26,7 +26,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
@@ -730,14 +729,28 @@ func (guest *SGuest) GetSystemDisk() (*SDisk, error) {
 	return disk, nil
 }
 
-func (guest *SGuest) GetDisks() []SGuestdisk {
+func (self *SGuest) GetDisks() ([]SDisk, error) {
+	gds := GuestdiskManager.Query().SubQuery()
+	sq := DiskManager.Query()
+	q := sq.Join(gds, sqlchemy.Equals(gds.Field("disk_id"), sq.Field("id"))).Filter(
+		sqlchemy.Equals(gds.Field("guest_id"), self.Id),
+	).Asc(gds.Field("index"))
+	disks := []SDisk{}
+	err := db.FetchModelObjects(DiskManager, q, &disks)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return disks, nil
+}
+
+func (guest *SGuest) GetGuestDisks() ([]SGuestdisk, error) {
 	disks := make([]SGuestdisk, 0)
 	q := guest.GetDisksQuery().Asc("index")
 	err := db.FetchModelObjects(GuestdiskManager, q, &disks)
 	if err != nil {
-		log.Errorf("Getdisks error: %s", err)
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
-	return disks
+	return disks, nil
 }
 
 func (guest *SGuest) GetGuestDisk(diskId string) *SGuestdisk {
@@ -791,8 +804,7 @@ func (guest *SGuest) GetNetworks(netId string) ([]SGuestnetwork, error) {
 	q := guest.GetNetworksQuery(netId).Asc("index")
 	err := db.FetchModelObjects(GuestnetworkManager, q, &guestnics)
 	if err != nil {
-		log.Errorf("GetNetworks error: %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	return guestnics, nil
 }
@@ -2209,17 +2221,16 @@ func (self *SGuest) IsWindows() bool {
 	}
 }
 
-func (self *SGuest) getSecgroupJson() ([]jsonutils.JSONObject, error) {
-	objs := []jsonutils.JSONObject{}
-
+func (self *SGuest) getSecgroupJson() ([]*api.SecgroupJsonDesc, error) {
+	ret := []*api.SecgroupJsonDesc{}
 	secgroups, err := self.GetSecgroups()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetSecgroups")
 	}
 	for _, secGrp := range secgroups {
-		objs = append(objs, secGrp.getDesc())
+		ret = append(ret, secGrp.getDesc())
 	}
-	return objs, nil
+	return ret, nil
 }
 
 func (self *SGuest) GetSecgroups() ([]SSecurityGroup, error) {
@@ -2283,11 +2294,8 @@ func (self *SGuest) getAdminSecurityRules() string {
 }
 
 func (self *SGuest) isGpu() bool {
-	return len(self.GetIsolatedDevices()) != 0
-}
-
-func (self *SGuest) GetIsolatedDevices() []SIsolatedDevice {
-	return IsolatedDeviceManager.findAttachedDevicesOfGuest(self)
+	devs, _ := self.GetIsolatedDevices()
+	return len(devs) != 0
 }
 
 func (self *SGuest) IsFailureStatus() bool {
@@ -3045,7 +3053,7 @@ func (self *SGuest) isAttach2Disk(disk *SDisk) (bool, error) {
 }
 
 func (self *SGuest) getDiskIndex() int8 {
-	guestdisks := self.GetDisks()
+	guestdisks, _ := self.GetGuestDisks()
 	var max uint
 	for i := 0; i < len(guestdisks); i++ {
 		if uint(guestdisks[i].Index) > max {
@@ -3132,7 +3140,7 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 
 	needRemoves := make([]SGuestdisk, 0)
 
-	guestdisks := self.GetDisks()
+	guestdisks, _ := self.GetGuestDisks()
 	for i := 0; i < len(guestdisks); i += 1 {
 		find := false
 		for j := 0; j < len(newdisks); j += 1 {
@@ -3647,8 +3655,8 @@ type SGuestDiskCategory struct {
 
 func (self *SGuest) CategorizeDisks() SGuestDiskCategory {
 	diskCat := SGuestDiskCategory{}
-	guestdisks := self.GetDisks()
-	if guestdisks == nil {
+	guestdisks, err := self.GetGuestDisks()
+	if err != nil {
 		log.Errorf("no disk for this server!!!")
 		return diskCat
 	}
@@ -3766,7 +3774,11 @@ func (self *SGuest) CustomizeDelete(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SGuest) DeleteAllDisksInDB(ctx context.Context, userCred mcclient.TokenCredential) error {
-	for _, guestdisk := range self.GetDisks() {
+	guestDisks, err := self.GetGuestDisks()
+	if err != nil {
+		return errors.Wrapf(err, "GetGuestDisks")
+	}
+	for _, guestdisk := range guestDisks {
 		disk := guestdisk.GetDisk()
 		err := guestdisk.Detach(ctx, userCred)
 		if err != nil {
@@ -3804,7 +3816,7 @@ func (self *SGuest) DeleteAllInstanceSnapshotInDB(ctx context.Context, userCred 
 }
 
 func (self *SGuest) isNeedDoResetPasswd() bool {
-	guestdisks := self.GetDisks()
+	guestdisks, _ := self.GetGuestDisks()
 	disk := guestdisks[0].GetDisk()
 	if len(disk.SnapshotId) > 0 {
 		return false
@@ -3929,273 +3941,190 @@ func (self *SGuest) getExtraOptions() jsonutils.JSONObject {
 	return self.GetMetadataJson("extra_options", nil)
 }
 
-func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *jsonutils.JSONDict {
-	desc := jsonutils.NewDict()
-
-	desc.Add(jsonutils.NewString(self.Name), "name")
-	if len(self.Description) > 0 {
-		desc.Add(jsonutils.NewString(self.Description), "description")
+func (self *SGuest) GetIsolatedDevices() ([]SIsolatedDevice, error) {
+	q := IsolatedDeviceManager.Query().Equals("guest_id", self.Id)
+	devs := []SIsolatedDevice{}
+	err := db.FetchModelObjects(IsolatedDeviceManager, q, &devs)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
-	desc.Add(jsonutils.NewString(self.Id), "uuid")
-	desc.Add(jsonutils.NewInt(int64(self.VmemSize)), "mem")
-	desc.Add(jsonutils.NewInt(int64(self.VcpuCount)), "cpu")
-	desc.Add(jsonutils.NewString(self.getVga()), "vga")
-	desc.Add(jsonutils.NewString(self.GetVdi()), "vdi")
-	desc.Add(jsonutils.NewString(self.getMachine()), "machine")
-	desc.Add(jsonutils.NewString(self.getBios()), "bios")
-	desc.Add(jsonutils.NewString(self.BootOrder), "boot_order")
+	return devs, nil
+}
 
-	desc.Add(jsonutils.NewBool(self.SrcIpCheck.Bool()), "src_ip_check")
-	desc.Add(jsonutils.NewBool(self.SrcMacCheck.Bool()), "src_mac_check")
+func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *api.GuestJsonDesc {
+	desc := &api.GuestJsonDesc{
+		Name:        self.Name,
+		Description: self.Description,
+		UUID:        self.Id,
+		Mem:         self.VmemSize,
+		Cpu:         self.VcpuCount,
+		Vga:         self.getVga(),
+		Vdi:         self.GetVdi(),
+		Machine:     self.getMachine(),
+		Bios:        self.getBios(),
+		BootOrder:   self.BootOrder,
+		SrcIpCheck:  self.SrcIpCheck.Bool(),
+		SrcMacCheck: self.SrcMacCheck.Bool(),
+		HostId:      self.HostId,
+	}
 
 	if len(self.BackupHostId) > 0 {
 		if self.HostId == host.Id {
-			desc.Set("is_master", jsonutils.JSONTrue)
+			isMaster := true
+			desc.IsMaster = &isMaster
 		} else if self.BackupHostId == host.Id {
-			desc.Set("is_slave", jsonutils.JSONTrue)
+			isSlave := true
+			desc.IsSlave = &isSlave
 		}
 	}
-	desc.Set("host_id", jsonutils.NewString(host.Id))
 
 	// isolated devices
-	isolatedDevs := IsolatedDeviceManager.generateJsonDescForGuest(self)
-	desc.Add(jsonutils.NewArray(isolatedDevs...), "isolated_devices")
+	isolatedDevs, _ := self.GetIsolatedDevices()
+	for _, dev := range isolatedDevs {
+		desc.IsolatedDevices = append(desc.IsolatedDevices, dev.getDesc())
+	}
 
 	// nics, domain
-	jsonNics := make([]jsonutils.JSONObject, 0)
+	desc.Domain = options.Options.DNSDomain
 	nics, _ := self.GetNetworks("")
-	domain := options.Options.DNSDomain
 	for _, nic := range nics {
 		nicDesc := nic.getJsonDescAtHost(ctx, host)
-		jsonNics = append(jsonNics, nicDesc)
-		nicDomain, _ := nicDesc.GetString("domain")
-		if len(nicDomain) > 0 && len(domain) == 0 {
-			domain = nicDomain
+		desc.Nics = append(desc.Nics, nicDesc)
+		if len(nicDesc.Domain) > 0 {
+			desc.Domain = nicDesc.Domain
 		}
 	}
-	desc.Add(jsonutils.NewArray(jsonNics...), "nics")
-	desc.Add(jsonutils.NewString(domain), "domain")
 
 	// disks
-	jsonDisks := make([]jsonutils.JSONObject, 0)
-	disks := self.GetDisks()
-	if disks != nil && len(disks) > 0 {
-		for _, disk := range disks {
-			diskDesc := disk.GetJsonDescAtHost(host)
-			jsonDisks = append(jsonDisks, diskDesc)
-		}
+	disks, _ := self.GetGuestDisks()
+	for _, disk := range disks {
+		diskDesc := disk.GetJsonDescAtHost(host)
+		desc.Disks = append(desc.Disks, diskDesc)
 	}
-	desc.Add(jsonutils.NewArray(jsonDisks...), "disks")
 
 	// cdrom
 	cdrom := self.getCdrom(false)
 	if cdrom != nil {
-		cdDesc := cdrom.getJsonDesc()
-		if cdDesc != nil {
-			desc.Add(cdDesc, "cdrom")
-		}
+		desc.Cdrom = cdrom.getJsonDesc()
 	}
 
 	// tenant
 	tc, _ := self.GetTenantCache(ctx)
 	if tc != nil {
-		desc.Add(jsonutils.NewString(tc.GetName()), "tenant")
-		desc.Add(jsonutils.NewString(tc.DomainId), "domain_id")
-		desc.Add(jsonutils.NewString(tc.Domain), "project_domain")
+		desc.Tenant = tc.GetName()
+		desc.DomainId = tc.DomainId
+		desc.ProjectDomain = tc.Domain
 	}
-	desc.Add(jsonutils.NewString(self.ProjectId), "tenant_id")
-
-	// flavor
-	// desc.Add(jsonuitls.NewString(self.getFlavorName()), "flavor")
+	desc.TenantId = self.ProjectId
 
 	keypair := self.getKeypair()
 	if keypair != nil {
-		desc.Add(jsonutils.NewString(keypair.Name), "keypair")
-		desc.Add(jsonutils.NewString(keypair.PublicKey), "pubkey")
+		desc.Keypair = keypair.Name
+		desc.Pubkey = keypair.PublicKey
 	}
 
-	netRoles := self.getNetworkRoles()
-	if netRoles != nil && len(netRoles) > 0 {
-		desc.Add(jsonutils.NewStringArray(netRoles), "network_roles")
-	}
+	desc.NetworkRoles = self.getNetworkRoles()
 
-	/*
-		secGrp := self.getSecgroup()
-		if secGrp != nil {
-			desc.Add(jsonutils.NewString(secGrp.Name), "secgroup")
-		}
-	*/
+	desc.Secgroups, _ = self.getSecgroupJson()
 
-	secgroups, _ := self.getSecgroupJson()
-	if secgroups != nil {
-		desc.Add(jsonutils.NewArray(secgroups...), "secgroups")
-	}
+	desc.SecurityRules = self.getSecurityGroupsRules()
+	desc.AdminSecurityRules = self.getAdminSecurityRules()
 
-	/*
-		TODO
-		srs := self.getSecurityRuleSet()
-		if srs.estimatedSinglePortRuleCount() <= options.FirewallFlowCountLimit {
-	*/
+	desc.ExtraOptions = self.getExtraOptions()
 
-	rules := self.getSecurityGroupsRules()
-	if len(rules) > 0 {
-		desc.Add(jsonutils.NewString(rules), "security_rules")
-	}
-	rules = self.getAdminSecurityRules()
-	if len(rules) > 0 {
-		desc.Add(jsonutils.NewString(rules), "admin_security_rules")
-	}
-
-	extraOptions := self.getExtraOptions()
-	if extraOptions != nil {
-		desc.Add(extraOptions, "extra_options")
-	}
-
-	kvmOptions := self.getKvmOptions()
-	if len(kvmOptions) > 0 {
-		desc.Add(jsonutils.NewString(kvmOptions), "kvm")
-	}
+	desc.Kvm = self.getKvmOptions()
 
 	zone, _ := self.getZone()
 	if zone != nil {
-		desc.Add(jsonutils.NewString(zone.Id), "zone_id")
-		desc.Add(jsonutils.NewString(zone.Name), "zone")
+		desc.ZoneId = zone.Id
+		desc.Zone = zone.Name
 	}
 
-	os := self.GetOS()
-	if len(os) > 0 {
-		desc.Add(jsonutils.NewString(os), "os_name")
-	}
+	desc.OsName = self.GetOS()
 
-	meta, _ := self.GetAllMetadata(nil)
-	desc.Add(jsonutils.Marshal(meta), "metadata")
+	desc.Metadata, _ = self.GetAllMetadata(nil)
 
-	userData := meta["user_data"]
+	userData, _ := desc.Metadata["user_data"]
 	if len(userData) > 0 {
 		decodeData, _ := userdata.Decode(userData)
 		if len(decodeData) > 0 {
 			userData = decodeData
 		}
-		desc.Add(jsonutils.NewString(userData), "user_data")
+		desc.UserData = userData
 	}
-
-	if self.PendingDeleted {
-		desc.Add(jsonutils.JSONTrue, "pending_deleted")
-	} else {
-		desc.Add(jsonutils.JSONFalse, "pending_deleted")
-	}
+	desc.PendingDeleted = self.PendingDeleted
 
 	// add scaling group
 	sggs, err := ScalingGroupGuestManager.Fetch("", self.Id)
 	if err == nil && len(sggs) > 0 {
-		desc.Add(jsonutils.NewString(sggs[0].ScalingGroupId), "scaling_group_id")
+		desc.ScallingGroupId = sggs[0].ScalingGroupId
 	}
 
 	return desc
 }
 
-func (self *SGuest) GetJsonDescAtBaremetal(ctx context.Context, host *SHost) *jsonutils.JSONDict {
-	desc := jsonutils.NewDict()
-
-	desc.Add(jsonutils.NewString(self.Name), "name")
-	if len(self.Description) > 0 {
-		desc.Add(jsonutils.NewString(self.Description), "description")
-	}
-	desc.Add(jsonutils.NewString(self.Id), "uuid")
-	desc.Add(jsonutils.NewInt(int64(self.VmemSize)), "mem")
-	desc.Add(jsonutils.NewInt(int64(self.VcpuCount)), "cpu")
-	diskConf := host.getDiskConfig()
-	if !gotypes.IsNil(diskConf) {
-		desc.Add(diskConf, "disk_config")
+func (self *SGuest) GetJsonDescAtBaremetal(ctx context.Context, host *SHost) *api.GuestJsonDesc {
+	desc := &api.GuestJsonDesc{
+		Name:        self.Name,
+		Description: self.Description,
+		UUID:        self.Id,
+		Mem:         self.VmemSize,
+		Cpu:         self.VcpuCount,
 	}
 
-	jsonNics := make([]jsonutils.JSONObject, 0)
-	jsonStandbyNics := make([]jsonutils.JSONObject, 0)
+	desc.DiskConfig = host.getDiskConfig()
 
 	netifs := host.GetNetInterfaces()
-	domain := options.Options.DNSDomain
+	desc.Domain = options.Options.DNSDomain
 
-	if netifs != nil && len(netifs) > 0 {
-		for _, nic := range netifs {
-			nicDesc := nic.getServerJsonDesc()
-			if nicDesc.Contains("ip") {
-				jsonNics = append(jsonNics, nicDesc)
-				nicDomain, _ := nicDesc.GetString("domain")
-				if len(nicDomain) > 0 && len(domain) == 0 {
-					domain = nicDomain
-				}
-			} else {
-				jsonStandbyNics = append(jsonStandbyNics, nicDesc)
+	for _, nic := range netifs {
+		nicDesc := nic.getServerJsonDesc()
+		if len(nicDesc.Ip) > 0 {
+			desc.Nics = append(desc.Nics, nicDesc)
+			if len(nicDesc.Domain) > 0 {
+				desc.Domain = nicDesc.Domain
 			}
+		} else {
+			desc.NicsStandby = append(desc.NicsStandby, nicDesc)
 		}
 	}
-	desc.Add(jsonutils.NewArray(jsonNics...), "nics")
-	desc.Add(jsonutils.NewArray(jsonStandbyNics...), "nics_standby")
-	desc.Add(jsonutils.NewString(domain), "domain")
 
-	jsonDisks := make([]jsonutils.JSONObject, 0)
-	disks := self.GetDisks()
-	if disks != nil && len(disks) > 0 {
-		for _, disk := range disks {
-			diskDesc := disk.GetJsonDescAtHost(host)
-			jsonDisks = append(jsonDisks, diskDesc)
-		}
+	disks, _ := self.GetGuestDisks()
+	for _, disk := range disks {
+		diskDesc := disk.GetJsonDescAtHost(host)
+		desc.Disks = append(desc.Disks, diskDesc)
 	}
-	desc.Add(jsonutils.NewArray(jsonDisks...), "disks")
 
 	tc, _ := self.GetTenantCache(ctx)
 	if tc != nil {
-		desc.Add(jsonutils.NewString(tc.GetName()), "tenant")
-		desc.Add(jsonutils.NewString(tc.DomainId), "domain_id")
-		desc.Add(jsonutils.NewString(tc.Domain), "project_domain")
+		desc.Tenant = tc.GetName()
+		desc.DomainId = tc.DomainId
+		desc.ProjectDomain = tc.Domain
 	}
-
-	desc.Add(jsonutils.NewString(self.ProjectId), "tenant_id")
+	desc.TenantId = self.ProjectId
 
 	keypair := self.getKeypair()
 	if keypair != nil {
-		desc.Add(jsonutils.NewString(keypair.Name), "keypair")
-		desc.Add(jsonutils.NewString(keypair.PublicKey), "pubkey")
+		desc.Keypair = keypair.Name
+		desc.Pubkey = keypair.PublicKey
 	}
 
-	netRoles := self.getNetworkRoles()
-	if netRoles != nil && len(netRoles) > 0 {
-		desc.Add(jsonutils.NewStringArray(netRoles), "network_roles")
-	}
+	desc.NetworkRoles = self.getNetworkRoles()
 
-	rules := self.getSecurityGroupsRules()
-	if len(rules) > 0 {
-		desc.Add(jsonutils.NewString(rules), "security_rules")
-	}
-	rules = self.getAdminSecurityRules()
-	if len(rules) > 0 {
-		desc.Add(jsonutils.NewString(rules), "admin_security_rules")
-	}
+	desc.SecurityRules = self.getSecurityGroupsRules()
+	desc.AdminSecurityRules = self.getAdminSecurityRules()
 
 	zone, _ := self.getZone()
 	if zone != nil {
-		desc.Add(jsonutils.NewString(zone.Id), "zone_id")
-		desc.Add(jsonutils.NewString(zone.Name), "zone")
+		desc.ZoneId = zone.Id
+		desc.Zone = zone.Name
 	}
 
-	os := self.GetOS()
-	if len(os) > 0 {
-		desc.Add(jsonutils.NewString(os), "os_name")
-	}
+	desc.OsName = self.GetOS()
+	desc.Metadata, _ = self.GetAllMetadata(nil)
 
-	meta, _ := self.GetAllMetadata(nil)
-	desc.Add(jsonutils.Marshal(meta), "metadata")
-
-	userData := meta["user_data"]
-	if len(userData) > 0 {
-		desc.Add(jsonutils.NewString(userData), "user_data")
-	}
-
-	if self.PendingDeleted {
-		desc.Add(jsonutils.JSONTrue, "pending_deleted")
-	} else {
-		desc.Add(jsonutils.JSONFalse, "pending_deleted")
-	}
+	desc.UserData, _ = desc.Metadata["user_data"]
+	desc.PendingDeleted = self.PendingDeleted
 
 	return desc
 }
@@ -4233,7 +4162,7 @@ func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 	spec.Set("mem", jsonutils.NewInt(int64(self.VmemSize)))
 
 	// get disk spec
-	guestdisks := self.GetDisks()
+	guestdisks, _ := self.GetGuestDisks()
 	diskSpecs := jsonutils.NewArray()
 	for _, guestdisk := range guestdisks {
 		info := guestdisk.ToDiskInfo()
@@ -4263,7 +4192,7 @@ func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 	spec.Set("nic", nicSpecs)
 
 	// get isolate device spec
-	guestgpus := self.GetIsolatedDevices()
+	guestgpus, _ := self.GetIsolatedDevices()
 	gpuSpecs := jsonutils.NewArray()
 	for _, guestgpu := range guestgpus {
 		if strings.HasPrefix(guestgpu.DevType, "GPU") {
@@ -4478,7 +4407,7 @@ func (self *SGuest) SaveDeployInfo(ctx context.Context, userCred mcclient.TokenC
 
 func (self *SGuest) isAllDisksReady() bool {
 	ready := true
-	disks := self.GetDisks()
+	disks, _ := self.GetGuestDisks()
 	if disks == nil || len(disks) == 0 {
 		return true
 	}
@@ -5131,7 +5060,10 @@ func (self *SGuest) FillNetSchedDesc(desc *api.ServerConfigs) {
 }
 
 func (self *SGuest) GuestDisksHasSnapshot() (bool, error) {
-	guestDisks := self.GetDisks()
+	guestDisks, err := self.GetGuestDisks()
+	if err != nil {
+		return false, errors.Wrapf(err, "GetGuestDisks")
+	}
 	for i := 0; i < len(guestDisks); i++ {
 		cnt, err := SnapshotManager.GetDiskSnapshotCount(guestDisks[i].DiskId)
 		if err != nil {
@@ -5324,8 +5256,8 @@ func (self *SGuest) toCreateInput() *api.ServerCreateInput {
 }
 
 func (self *SGuest) ToDisksConfig() []*api.DiskConfig {
-	guestDisks := self.GetDisks()
-	if len(guestDisks) == 0 {
+	guestDisks, err := self.GetGuestDisks()
+	if err != nil {
 		return nil
 	}
 	ret := make([]*api.DiskConfig, len(guestDisks))
@@ -5389,7 +5321,7 @@ func (self *SGuest) ToNetworksConfig() []*api.NetworkConfig {
 }
 
 func (self *SGuest) ToIsolatedDevicesConfig() []*api.IsolatedDeviceConfig {
-	guestIsolatedDevices := self.GetIsolatedDevices()
+	guestIsolatedDevices, _ := self.GetIsolatedDevices()
 	if len(guestIsolatedDevices) == 0 {
 		return nil
 	}
@@ -5457,7 +5389,10 @@ func (self *SGuest) GetInstanceSnapshotCount() (int, error) {
 }
 
 func (self *SGuest) GetDiskSnapshotsNotInInstanceSnapshots() ([]SSnapshot, error) {
-	guestDisks := self.GetDisks()
+	guestDisks, err := self.GetGuestDisks()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetGuestDisks")
+	}
 	diskIds := make([]string, len(guestDisks))
 	for i := 0; i < len(guestDisks); i++ {
 		diskIds[i] = guestDisks[i].DiskId
@@ -5467,10 +5402,9 @@ func (self *SGuest) GetDiskSnapshotsNotInInstanceSnapshots() ([]SSnapshot, error
 	sq := InstanceSnapshotJointManager.Query("snapshot_id").SubQuery()
 	q = q.LeftJoin(sq, sqlchemy.Equals(q.Field("id"), sq.Field("snapshot_id"))).
 		Filter(sqlchemy.IsNull(sq.Field("snapshot_id")))
-	err := db.FetchModelObjects(SnapshotManager, q, &snapshots)
+	err = db.FetchModelObjects(SnapshotManager, q, &snapshots)
 	if err != nil {
-		log.Errorf("fetch db snapshots failed %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	return snapshots, nil
 }
@@ -5561,7 +5495,8 @@ func (self *SGuestManager) checkGuestImage(ctx context.Context, input *api.Serve
 }
 
 func (self *SGuest) GetDiskIndex(diskId string) int8 {
-	for _, gd := range self.GetDisks() {
+	guestDisks, _ := self.GetGuestDisks()
+	for _, gd := range guestDisks {
 		if gd.DiskId == diskId {
 			return gd.Index
 		}

@@ -14,6 +14,8 @@
 
 package compute
 
+import "yunion.io/x/jsonutils"
+
 type GuestnetworkDetails struct {
 	GuestJointResourceDetails
 
@@ -69,4 +71,45 @@ type GuestnetworkUpdateInput struct {
 	BwLimit *int `json:"bw_limit"`
 
 	Index *int8 `json:"index"`
+}
+
+type GuestnetworkJsonDesc struct {
+	Net        string               `json:"net"`
+	NetId      string               `json:"net_id"`
+	Mac        string               `json:"mac"`
+	Virtual    bool                 `json:"virtual"`
+	Ip         string               `json:"ip"`
+	Gateway    string               `json:"gateway"`
+	DNS        string               `json:"dns"`
+	Domain     string               `json:"domain"`
+	Routes     jsonutils.JSONObject `json:"routes"`
+	Ifname     string               `json:"ifname"`
+	Masklen    int8                 `json:"masklen"`
+	Driver     string               `json:"driver"`
+	Vlan       int                  `json:"vlan"`
+	Bw         int                  `json:"bw"`
+	Mtu        int                  `json:"mtu"`
+	Index      int8                 `json:"index"`
+	VirtualIps []string             `json:"virtual_ips"`
+	ExternalId string               `json:"external_id"`
+	TeamWith   string               `json:"team_with"`
+	Manual     *bool                `json:"manual"`
+
+	Vpc struct {
+		Id           string `json:"id"`
+		Provider     string `json:"provider"`
+		MappedIpAddr string `json:"mapped_ip_addr"`
+	} `json:"vpc"`
+
+	Networkaddresses jsonutils.JSONObject `json:"networkaddresses"`
+
+	Bridge    string `json:"bridge"`
+	WireId    string `json:"wire_id"`
+	Interface string `json:"interface"`
+
+	// baremetal
+	Rate        int    `json:"rate"`
+	BaremetalId string `json:"baremetal_id"`
+	NicType     string `json:"nic_type"`
+	LinkUp      bool   `json:"link_up"`
 }

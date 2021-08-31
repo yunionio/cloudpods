@@ -46,7 +46,7 @@ func (self *BaremetalServerStartTask) OnInit(ctx context.Context, obj db.IStanda
 	}
 	desc := guest.GetJsonDescAtBaremetal(ctx, baremetal)
 	config := jsonutils.NewDict()
-	config.Set("desc", desc)
+	config.Set("desc", jsonutils.Marshal(desc))
 	url := fmt.Sprintf("/baremetals/%s/servers/%s/start", baremetal.Id, guest.Id)
 	headers := self.GetTaskRequestHeader()
 	self.SetStage("OnStartComplete", nil)

@@ -344,7 +344,7 @@ func (self *GuestCreateBackupDisksTask) CreateBackups(ctx context.Context, guest
 	body.Set("disk_index", jsonutils.NewInt(diskIndex+1))
 	self.SetStage("CreateBackups", body)
 
-	guestDisks := guest.GetDisks()
+	guestDisks, _ := guest.GetGuestDisks()
 	if int(diskIndex) == len(guestDisks) {
 		self.SetStageComplete(ctx, nil)
 	} else {
