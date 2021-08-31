@@ -511,8 +511,8 @@ func (manager *SCloudaccountManager) validateCreateData(
 		Secret:    input.Secret,
 		ProxyFunc: proxyFunc,
 
-		SApsaraEndpoints:           endpoints,
-		SHCSOEndpoints: hcsoEndpoints,
+		SApsaraEndpoints: endpoints,
+		SHCSOEndpoints:   hcsoEndpoints,
 	})
 	if err != nil {
 		if err == cloudprovider.ErrNoSuchProvder {
@@ -740,12 +740,12 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 	}
 
 	accountId, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
-		Vendor:                     self.Provider,
-		URL:                        self.AccessUrl,
-		Account:                    account.Account,
-		Secret:                     account.Secret,
+		Vendor:         self.Provider,
+		URL:            self.AccessUrl,
+		Account:        account.Account,
+		Secret:         account.Secret,
 		SHCSOEndpoints: hcsoEndpoints,
-		ProxyFunc:                  self.proxyFunc(),
+		ProxyFunc:      self.proxyFunc(),
 	})
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("invalid cloud account info error: %s", err.Error())
@@ -954,9 +954,9 @@ func (self *SCloudaccount) getProviderInternal() (cloudprovider.ICloudProvider, 
 		Account: self.Account,
 		Secret:  secret,
 
-		SApsaraEndpoints:           endpoints,
-		SHCSOEndpoints: hcsoEndpoints,
-		ProxyFunc:                  self.proxyFunc(),
+		SApsaraEndpoints: endpoints,
+		SHCSOEndpoints:   hcsoEndpoints,
+		ProxyFunc:        self.proxyFunc(),
 	})
 }
 

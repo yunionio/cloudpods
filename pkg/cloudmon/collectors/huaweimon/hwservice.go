@@ -25,9 +25,9 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud/hcso"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei"
 	hw_moudules "yunion.io/x/onecloud/pkg/multicloud/huawei/client/modules"
-	"yunion.io/x/onecloud/pkg/multicloud/hcso"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
 

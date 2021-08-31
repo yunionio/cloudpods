@@ -25,10 +25,10 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/obs"
 	"yunion.io/x/onecloud/pkg/multicloud/hcso/client"
 	"yunion.io/x/onecloud/pkg/multicloud/hcso/client/auth"
 	"yunion.io/x/onecloud/pkg/multicloud/hcso/client/auth/credentials"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/obs"
 )
 
 /*
