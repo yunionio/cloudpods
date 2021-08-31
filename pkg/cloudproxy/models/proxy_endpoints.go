@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"strconv"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -101,10 +102,14 @@ func (man *SProxyEndpointManager) PerformCreateFromServer(ctx context.Context, u
 		return nil, httperrors.NewGeneralError(err)
 	}
 
+	port := 22
+	if portStr, ok := serverInfo.Server.Metadata[compute_apis.SSH_PORT]; ok {
+		port, _ = strconv.Atoi(portStr)
+	}
 	proxyendpoint := &SProxyEndpoint{
 		User:       "cloudroot",
 		Host:       host,
-		Port:       22,
+		Port:       port,
 		PrivateKey: serverInfo.PrivateKey,
 
 		IntranetIpAddr: nic.IpAddr,

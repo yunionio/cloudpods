@@ -17,11 +17,13 @@ package models
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
@@ -132,6 +134,14 @@ func (guest *SGuest) sshableTryEach(
 		network      *SNetwork
 		vpc          *SVpc
 	}
+	// make sure the ssh port
+	var sshPort int
+	if tryData.Port != 0 {
+		sshPort = tryData.Port
+	} else {
+		sshPort = guest.GetSshPort(userCred)
+	}
+	tryData.Port = sshPort
 	var gnInfos []gnInfo
 	for i := range gns {
 		gn := &gns[i]
@@ -169,7 +179,7 @@ func (guest *SGuest) sshableTryEach(
 	for i := range gnInfos {
 		gnInfo := &gnInfos[i]
 		gn := gnInfo.guestNetwork
-		port := 22
+		port := sshPort
 		input := &cloudproxy_api.ForwardListInput{
 			Type:       cloudproxy_api.FORWARD_TYPE_LOCAL,
 			RemoteAddr: gn.IpAddr,
@@ -200,7 +210,7 @@ func (guest *SGuest) sshableTryEach(
 		fwdCreateInput := cloudproxy_api.ForwardCreateFromServerInput{
 			ServerId:   guest.Id,
 			Type:       cloudproxy_api.FORWARD_TYPE_LOCAL,
-			RemotePort: 22,
+			RemotePort: sshPort,
 		}
 		fwdCreateParams := jsonutils.Marshal(fwdCreateInput)
 		res, err := cloudproxy_module.Forwards.PerformClassAction(sess, "create-from-server", fwdCreateParams)
@@ -248,7 +258,7 @@ func (guest *SGuest) sshableTryEach(
 		natgwq := NatGatewayManager.Query().SubQuery()
 		q := NatDEntryManager.Query().
 			Equals("internal_ip", gn.IpAddr).
-			Equals("internal_port", 22).
+			Equals("internal_port", sshPort).
 			Equals("ip_protocol", "tcp")
 		q = q.Join(natgwq, sqlchemy.AND(
 			sqlchemy.In(natgwq.Field("vpc_id"), vpc.Id),
@@ -316,7 +326,7 @@ func (guest *SGuest) sshableTryEip(
 	methodData := compute_api.GuestSshableMethodData{
 		Method: compute_api.MethodEIP,
 		Host:   eip.IpAddr,
-		Port:   22,
+		Port:   tryData.Port,
 	}
 	return guest.sshableTry(
 		ctx, tryData, methodData,
@@ -331,7 +341,7 @@ func (guest *SGuest) sshableTryDefaultVPC(
 	methodData := compute_api.GuestSshableMethodData{
 		Method: compute_api.MethodDirect,
 		Host:   gn.IpAddr,
-		Port:   22,
+		Port:   tryData.Port,
 	}
 	return guest.sshableTry(
 		ctx, tryData, methodData,
@@ -403,6 +413,7 @@ func (guest *SGuest) PerformMakeSshable(
 
 	tryData := &GuestSshableTryData{
 		DryRun: true,
+		Port:   input.Port,
 	}
 	if err := guest.sshableTryEach(ctx, userCred, tryData); err != nil {
 		return output, httperrors.NewNotAcceptableError("searching for usable ssh address: %v", err)
@@ -410,6 +421,13 @@ func (guest *SGuest) PerformMakeSshable(
 		return output, httperrors.NewNotAcceptableError("no usable ssh address")
 	}
 
+	// storage sshport
+	if input.Port != 0 {
+		err := guest.SetSshPort(ctx, userCred, input.Port)
+		if err != nil {
+			return output, errors.Wrap(err, "unable to set sshport for guest")
+		}
+	}
 	host := ansible.Host{
 		Name: guest.Name,
 	}
@@ -543,4 +561,28 @@ fi
 		ShellCmd: shellCmd,
 	}
 	return output, nil
+}
+
+func (guest *SGuest) GetSshPort(userCred mcclient.TokenCredential) int {
+	portStr := guest.GetMetadata(compute_api.SSH_PORT, userCred)
+	if portStr == "" {
+		return 22
+	}
+	port, _ := strconv.Atoi(portStr)
+	return port
+}
+
+func (guest *SGuest) SetSshPort(ctx context.Context, userCred mcclient.TokenCredential, port int) error {
+	return guest.SetMetadata(ctx, compute_api.SSH_PORT, port, userCred)
+}
+
+func (guest *SGuest) AllowPerformSetSshport(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return guest.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, guest, "set-sshport")
+}
+
+func (guest *SGuest) PerformSetSshPort(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input compute_api.GuestSetSshPortInput) (jsonutils.JSONObject, error) {
+	if input.Port < 0 {
+		return nil, httperrors.NewInputParameterError("invalid port")
+	}
+	return nil, guest.SetSshPort(ctx, userCred, input.Port)
 }

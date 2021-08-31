@@ -1123,6 +1123,16 @@ func (opts *ServerMakeSshableOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
 
+type ServerSetSshportOptions struct {
+	BaseIdOptions
+
+	Port int `help:"ssh port" default:"22"`
+}
+
+func (opts *ServerSetSshportOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
 type ServerMigrateNetworkOptions struct {
 	BaseIdOptions
 
