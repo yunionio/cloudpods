@@ -110,7 +110,7 @@ func (self *CloudReportBase) InitProviderInstance() (cloudprovider.ICloudProvide
 		return nil, errors.Wrap(err, "getCloudAccount error")
 	}
 	endpoints := cloudprovider.SApsaraEndpoints{}
-	hwendpoints := cloudprovider.SHuaweiCloudStackEndpoints{}
+	hwendpoints := cloudprovider.SHCSOEndpoints{}
 	options, err := cloudAccout.Get("options")
 	if err == nil {
 		err := options.Unmarshal(&endpoints)
@@ -119,21 +119,21 @@ func (self *CloudReportBase) InitProviderInstance() (cloudprovider.ICloudProvide
 		}
 		err = options.Unmarshal(&hwendpoints)
 		if err != nil {
-			log.Errorf("Unmarshal SHuaweiCloudStackEndpoints err:%v", err)
+			log.Errorf("Unmarshal SHCSOEndpoints err:%v", err)
 		}
 	} else {
 		log.Errorf("get cloudAccout options err:%v", err)
 	}
 	cfg := cloudprovider.ProviderConfig{
-		Id:                         self.SProvider.Id,
-		Name:                       self.SProvider.Name,
-		URL:                        self.SProvider.AccessUrl,
-		Account:                    self.SProvider.Account,
-		Secret:                     secretDe,
-		Vendor:                     self.SProvider.Provider,
-		ProxyFunc:                  proxyFunc,
-		SApsaraEndpoints:           endpoints,
-		SHuaweiCloudStackEndpoints: hwendpoints,
+		Id:               self.SProvider.Id,
+		Name:             self.SProvider.Name,
+		URL:              self.SProvider.AccessUrl,
+		Account:          self.SProvider.Account,
+		Secret:           secretDe,
+		Vendor:           self.SProvider.Provider,
+		ProxyFunc:        proxyFunc,
+		SApsaraEndpoints: endpoints,
+		SHCSOEndpoints:   hwendpoints,
 	}
 	return cloudprovider.GetProvider(cfg)
 }

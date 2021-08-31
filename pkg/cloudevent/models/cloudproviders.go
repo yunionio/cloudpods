@@ -320,7 +320,7 @@ type SCloudproviderDelegate struct {
 
 	Options struct {
 		cloudprovider.SApsaraEndpoints
-		cloudprovider.SHuaweiCloudStackEndpoints
+		cloudprovider.SHCSOEndpoints
 	}
 
 	ProxySetting proxyapi.SProxySetting
@@ -337,7 +337,7 @@ func (self *SCloudprovider) GetDelegate() (*SCloudproviderDelegate, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "result.Unmarshal")
 	}
-	if provider.Provider == api.CLOUD_PROVIDER_APSARA || provider.Provider == api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK {
+	if provider.Provider == api.CLOUD_PROVIDER_APSARA || provider.Provider == api.CLOUD_PROVIDER_HCSO {
 		result, err := modules.Cloudaccounts.Get(s, provider.CloudaccountId, nil)
 		if err != nil {
 			return nil, errors.Wrapf(err, "modules.Cloudaccounts.Get")
@@ -408,8 +408,8 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 
 			ProxyFunc: proxyFunc,
 
-			SHuaweiCloudStackEndpoints: delegate.Options.SHuaweiCloudStackEndpoints,
-			SApsaraEndpoints:           delegate.Options.SApsaraEndpoints,
+			SHCSOEndpoints:   delegate.Options.SHCSOEndpoints,
+			SApsaraEndpoints: delegate.Options.SApsaraEndpoints,
 		},
 	)
 }

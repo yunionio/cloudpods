@@ -45,7 +45,7 @@ func (d *SHuaweiSAMLDriver) GetSpInitiatedLoginData(ctx context.Context, userCre
 		return data, httperrors.NewGeneralError(err)
 	}
 	account := _account.(*SCloudaccount)
-	if account.Provider != api.CLOUD_PROVIDER_HUAWEI && account.Provider != api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK {
+	if account.Provider != api.CLOUD_PROVIDER_HUAWEI && account.Provider != api.CLOUD_PROVIDER_HCSO {
 		return data, httperrors.NewClientError("cloudaccount %s is %s not %s", account.Id, account.Provider, api.CLOUD_PROVIDER_HUAWEI)
 	}
 	if account.SAMLAuth.IsFalse() {

@@ -67,7 +67,7 @@ type ReportOptions struct {
 	Timeout   int64    `help:"command timeout unit:second" default:"10"`
 	SinceTime string   `help:"sinceTime"`
 	EndTime   string   `help:"endTime"`
-	Provider  []string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei|ZStack|Google|Apsara|HuaweiCloudStack" json:"provider,omitempty"`
+	Provider  []string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei|ZStack|Google|Apsara|HCSO" json:"provider,omitempty"`
 	PingProbeOptions
 }
 
