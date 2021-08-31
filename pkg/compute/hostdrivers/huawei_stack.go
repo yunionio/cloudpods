@@ -26,25 +26,25 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-type SHuaweiCloudStackHostDriver struct {
+type SHCSOHostDriver struct {
 	SManagedVirtualizationHostDriver
 }
 
 func init() {
-	driver := SHuaweiCloudStackHostDriver{}
+	driver := SHCSOHostDriver{}
 	models.RegisterHostDriver(&driver)
 }
 
-func (self *SHuaweiCloudStackHostDriver) GetHostType() string {
-	return api.HOST_TYPE_HUAWEI_CLOUD_STACK
+func (self *SHCSOHostDriver) GetHostType() string {
+	return api.HOST_TYPE_HCSO
 }
 
-func (self *SHuaweiCloudStackHostDriver) GetHypervisor() string {
-	return api.HYPERVISOR_HUAWEI_CLOUD_STACK
+func (self *SHCSOHostDriver) GetHypervisor() string {
+	return api.HYPERVISOR_HCSO
 }
 
 // 系统盘必须至少40G
-func (self *SHuaweiCloudStackHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
+func (self *SHCSOHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	switch storage.StorageType {
 	case api.STORAGE_HUAWEI_SSD, api.STORAGE_HUAWEI_SATA, api.STORAGE_HUAWEI_SAS:
 		if sizeGb < 10 || sizeGb > 32768 {
@@ -57,7 +57,7 @@ func (self *SHuaweiCloudStackHostDriver) ValidateDiskSize(storage *models.SStora
 	return nil
 }
 
-func (self *SHuaweiCloudStackHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SHCSOHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	if len(guests) >= 1 {
 		if disk.DiskType == api.DISK_TYPE_SYS {
 			for _, g := range guests {

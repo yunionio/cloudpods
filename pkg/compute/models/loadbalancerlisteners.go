@@ -369,7 +369,7 @@ func (man *SLoadbalancerListenerManager) ValidateAcl(aclStatusV *validators.Vali
 			return httperrors.NewMissingParameterError("acl_type")
 		}
 	} else {
-		if !utils.IsInStringArray(providerName, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK}) {
+		if !utils.IsInStringArray(providerName, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO}) {
 			data.Set("acl_id", jsonutils.NewString(""))
 			data.Set("cached_acl_id", jsonutils.NewString(""))
 		}
@@ -1013,7 +1013,7 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 
 	switch lblis.ListenerType {
 	case api.LB_LISTENER_TYPE_UDP:
-		if !utils.IsInStringArray(lblis.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK}) {
+		if !utils.IsInStringArray(lblis.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO}) {
 			lblis.HealthCheckExp = extListener.GetHealthCheckExp()
 			lblis.HealthCheckReq = extListener.GetHealthCheckReq()
 		}
@@ -1056,7 +1056,7 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 
 	groupId := extListener.GetBackendGroupId()
 	switch lblis.GetProviderName() {
-	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK:
+	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO:
 		if len(groupId) > 0 {
 			group, err := db.FetchByExternalIdAndManagerId(HuaweiCachedLbbgManager, groupId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 				return q.Equals("manager_id", lb.ManagerId)
@@ -1148,7 +1148,7 @@ func (lblis *SLoadbalancerListener) updateCachedLoadbalancerBackendGroupAssociat
 	}
 
 	switch lblis.GetProviderName() {
-	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK:
+	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO:
 		_group, err := db.FetchByExternalIdAndManagerId(HuaweiCachedLbbgManager, exteralLbbgId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 			return q.Equals("manager_id", managerId)
 		})

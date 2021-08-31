@@ -29,7 +29,7 @@ const (
 	HOST_TYPE_QCLOUD             = "qcloud"
 	HOST_TYPE_AZURE              = "azure"
 	HOST_TYPE_HUAWEI             = "huawei"
-	HOST_TYPE_HUAWEI_CLOUD_STACK = "huaweicloudstack"
+	HOST_TYPE_HCSO = "hcso"
 	HOST_TYPE_OPENSTACK          = "openstack"
 	HOST_TYPE_UCLOUD             = "ucloud"
 	HOST_TYPE_ZSTACK             = "zstack"
@@ -112,7 +112,7 @@ var HOST_TYPES = []string{
 	HOST_TYPE_AWS,
 	HOST_TYPE_QCLOUD,
 	HOST_TYPE_HUAWEI,
-	HOST_TYPE_HUAWEI_CLOUD_STACK,
+	HOST_TYPE_HCSO,
 	HOST_TYPE_OPENSTACK,
 	HOST_TYPE_UCLOUD,
 	HOST_TYPE_ZSTACK,
