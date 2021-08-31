@@ -408,8 +408,8 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 
 			ProxyFunc: proxyFunc,
 
-			SHCSOEndpoints: delegate.Options.SHCSOEndpoints,
-			SApsaraEndpoints:           delegate.Options.SApsaraEndpoints,
+			SHCSOEndpoints:   delegate.Options.SHCSOEndpoints,
+			SApsaraEndpoints: delegate.Options.SApsaraEndpoints,
 		},
 	)
 }

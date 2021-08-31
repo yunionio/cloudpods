@@ -568,8 +568,8 @@ func (account *SCloudDelegate) GetProvider() (cloudprovider.ICloudProvider, erro
 		Secret:    passwd,
 		ProxyFunc: proxyFunc,
 
-		SApsaraEndpoints:           account.Options.SApsaraEndpoints,
-		SHCSOEndpoints: account.Options.SHCSOEndpoints,
+		SApsaraEndpoints: account.Options.SApsaraEndpoints,
+		SHCSOEndpoints:   account.Options.SHCSOEndpoints,
 
 		AccountId: account.Id,
 	})

@@ -125,15 +125,15 @@ func (self *CloudReportBase) InitProviderInstance() (cloudprovider.ICloudProvide
 		log.Errorf("get cloudAccout options err:%v", err)
 	}
 	cfg := cloudprovider.ProviderConfig{
-		Id:                         self.SProvider.Id,
-		Name:                       self.SProvider.Name,
-		URL:                        self.SProvider.AccessUrl,
-		Account:                    self.SProvider.Account,
-		Secret:                     secretDe,
-		Vendor:                     self.SProvider.Provider,
-		ProxyFunc:                  proxyFunc,
-		SApsaraEndpoints:           endpoints,
-		SHCSOEndpoints: hwendpoints,
+		Id:               self.SProvider.Id,
+		Name:             self.SProvider.Name,
+		URL:              self.SProvider.AccessUrl,
+		Account:          self.SProvider.Account,
+		Secret:           secretDe,
+		Vendor:           self.SProvider.Provider,
+		ProxyFunc:        proxyFunc,
+		SApsaraEndpoints: endpoints,
+		SHCSOEndpoints:   hwendpoints,
 	}
 	return cloudprovider.GetProvider(cfg)
 }
