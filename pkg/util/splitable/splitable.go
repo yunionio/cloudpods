@@ -47,6 +47,10 @@ func (t *SSplitTableSpec) Name() string {
 	return t.tableName
 }
 
+func (t *SSplitTableSpec) Database() *sqlchemy.SDatabase {
+	return t.metaSpec.Database()
+}
+
 func (t *SSplitTableSpec) Columns() []sqlchemy.IColumnSpec {
 	return t.tableSpec.Columns()
 }
@@ -116,8 +120,8 @@ func (t *SSplitTableSpec) Fetch(dt interface{}) error {
 	return sql.ErrNoRows
 }
 
-func NewSplitTableSpec(s interface{}, name string, indexField string, dateField string, maxDuration time.Duration, maxSegments int) (*SSplitTableSpec, error) {
-	spec := sqlchemy.NewTableSpecFromStruct(s, name)
+func NewSplitTableSpec(s interface{}, name string, indexField string, dateField string, maxDuration time.Duration, maxSegments int, dbName sqlchemy.DBName) (*SSplitTableSpec, error) {
+	spec := sqlchemy.NewTableSpecFromStructWithDBName(s, name, dbName)
 	indexCol := spec.ColumnSpec(indexField)
 	if indexCol == nil {
 		return nil, errors.Wrapf(errors.ErrNotFound, "indexField %s not found", indexField)
@@ -138,7 +142,7 @@ func NewSplitTableSpec(s interface{}, name string, indexField string, dateField 
 		return nil, errors.Wrapf(errors.ErrInvalidStatus, "dateField %s not datetime column", dateField)
 	}
 
-	metaSpec := sqlchemy.NewTableSpecFromStruct(&STableMetadata{}, fmt.Sprintf("%s_metadata", name))
+	metaSpec := sqlchemy.NewTableSpecFromStructWithDBName(&STableMetadata{}, fmt.Sprintf("%s_metadata", name), dbName)
 
 	sts := &SSplitTableSpec{
 		indexField:  indexField,

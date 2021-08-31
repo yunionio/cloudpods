@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/net/http/httpproxy"
 	"golang.org/x/text/language"
@@ -38,6 +39,7 @@ import (
 	"yunion.io/x/structarg"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/atexit"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -141,6 +143,8 @@ type HostCommonOptions struct {
 type DBOptions struct {
 	SqlConnection string `help:"SQL connection string" alias:"connection"`
 
+	Clickhouse string `help:"Connection string for click house"`
+
 	AutoSyncTable   bool `help:"Automatically synchronize table changes if differences are detected"`
 	ExitAfterDBInit bool `help:"Exit program after db initialization" default:"false"`
 
@@ -173,23 +177,23 @@ type EtcdOptions struct {
 	EtcdKey           string   `help:"path to key file for connecting to etcd cluster"`
 }
 
-func (this *EtcdOptions) GetEtcdTLSConfig() (*tls.Config, error) {
+func (opt *EtcdOptions) GetEtcdTLSConfig() (*tls.Config, error) {
 	var (
 		cert       tls.Certificate
 		certLoaded bool
 		capool     *x509.CertPool
 	)
-	if this.EtcdCert != "" && this.EtcdKey != "" {
+	if opt.EtcdCert != "" && opt.EtcdKey != "" {
 		var err error
-		cert, err = tls.LoadX509KeyPair(this.EtcdCert, this.EtcdKey)
+		cert, err = tls.LoadX509KeyPair(opt.EtcdCert, opt.EtcdKey)
 		if err != nil {
 			return nil, errors.Wrap(err, "load etcd cert and key")
 		}
 		certLoaded = true
-		this.EtcdUseTLS = true
+		opt.EtcdUseTLS = true
 	}
-	if this.EtcdCacert != "" {
-		data, err := ioutil.ReadFile(this.EtcdCacert)
+	if opt.EtcdCacert != "" {
+		data, err := ioutil.ReadFile(opt.EtcdCacert)
 		if err != nil {
 			return nil, errors.Wrap(err, "read cacert file")
 		}
@@ -206,15 +210,15 @@ func (this *EtcdOptions) GetEtcdTLSConfig() (*tls.Config, error) {
 			}
 			capool.AddCert(cacert)
 		}
-		this.EtcdUseTLS = true
+		opt.EtcdUseTLS = true
 	}
-	if this.EtcdSkipTLSVerify { // it's false by default, true means user intends to use tls
-		this.EtcdUseTLS = true
+	if opt.EtcdSkipTLSVerify { // it's false by default, true means user intends to use tls
+		opt.EtcdUseTLS = true
 	}
-	if this.EtcdUseTLS {
+	if opt.EtcdUseTLS {
 		cfg := &tls.Config{
 			RootCAs:            capool,
-			InsecureSkipVerify: this.EtcdSkipTLSVerify,
+			InsecureSkipVerify: opt.EtcdSkipTLSVerify,
 		}
 		if certLoaded {
 			cfg.Certificates = []tls.Certificate{cert}
@@ -224,8 +228,24 @@ func (this *EtcdOptions) GetEtcdTLSConfig() (*tls.Config, error) {
 	return nil, nil
 }
 
-func (this *DBOptions) GetDBConnection() (dialect, connstr string, err error) {
-	return utils.TransSQLAchemyURL(this.SqlConnection)
+func (opt *DBOptions) GetDBConnection() (string, string, error) {
+	if strings.HasPrefix(opt.SqlConnection, "mysql") {
+		return utils.TransSQLAchemyURL(opt.SqlConnection)
+	} else {
+		pos := strings.Index(opt.SqlConnection, "://")
+		if pos > 0 {
+			return opt.SqlConnection[:pos], opt.SqlConnection[pos+3:], nil
+		} else {
+			return "", "", httperrors.ErrNotSupported
+		}
+	}
+}
+
+func (opt *DBOptions) GetClickhouseConnStr() (string, string, error) {
+	if len(opt.Clickhouse) == 0 {
+		return "", "", errors.ErrNotFound
+	}
+	return "clickhouse", opt.Clickhouse, nil
 }
 
 func ParseOptions(optStruct interface{}, args []string, configFileName string, serviceType string) {
