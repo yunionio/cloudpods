@@ -27,7 +27,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/multicloud/esxi/provider"   // private clouds
 	_ "yunion.io/x/onecloud/pkg/multicloud/google/provider" // public clouds
 	_ "yunion.io/x/onecloud/pkg/multicloud/huawei/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/huaweistack/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/hcso/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/jdcloud/provider" // public clouds
 	_ "yunion.io/x/onecloud/pkg/multicloud/objectstore/ceph/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/objectstore/provider"
