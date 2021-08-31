@@ -34,74 +34,74 @@ import (
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
-type SHuaweiCloudStackGuestDriver struct {
+type SHCSOGuestDriver struct {
 	SManagedVirtualizedGuestDriver
 }
 
 func init() {
-	driver := SHuaweiCloudStackGuestDriver{}
+	driver := SHCSOGuestDriver{}
 	models.RegisterGuestDriver(&driver)
 }
 
-func (self *SHuaweiCloudStackGuestDriver) GetHypervisor() string {
-	return api.HYPERVISOR_HUAWEI_CLOUD_STACK
+func (self *SHCSOGuestDriver) GetHypervisor() string {
+	return api.HYPERVISOR_HCSO
 }
 
-func (self *SHuaweiCloudStackGuestDriver) GetProvider() string {
-	return api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK
+func (self *SHCSOGuestDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_HCSO
 }
 
-func (self *SHuaweiCloudStackGuestDriver) DoScheduleSKUFilter() bool {
+func (self *SHCSOGuestDriver) DoScheduleSKUFilter() bool {
 	return false
 }
 
-func (self *SHuaweiCloudStackGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
+func (self *SHCSOGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
 	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PRIVATE_CLOUD
-	keys.Provider = api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK
-	keys.Brand = api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK
-	keys.Hypervisor = api.HYPERVISOR_HUAWEI_CLOUD_STACK
+	keys.Provider = api.CLOUD_PROVIDER_HCSO
+	keys.Brand = api.CLOUD_PROVIDER_HCSO
+	keys.Hypervisor = api.HYPERVISOR_HCSO
 	return keys
 }
 
-func (self *SHuaweiCloudStackGuestDriver) GetDefaultSysDiskBackend() string {
+func (self *SHCSOGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_HUAWEI_SAS
 }
 
-func (self *SHuaweiCloudStackGuestDriver) GetMinimalSysDiskSizeGb() int {
+func (self *SHCSOGuestDriver) GetMinimalSysDiskSizeGb() int {
 	return 40
 }
 
-func (self *SHuaweiCloudStackGuestDriver) GetStorageTypes() []string {
+func (self *SHCSOGuestDriver) GetStorageTypes() []string {
 	return []string{api.STORAGE_HUAWEI_SATA, api.STORAGE_HUAWEI_SAS, api.STORAGE_HUAWEI_SSD}
 }
 
-func (self *SHuaweiCloudStackGuestDriver) ChooseHostStorage(host *models.SHost, guest *models.SGuest, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
+func (self *SHCSOGuestDriver) ChooseHostStorage(host *models.SHost, guest *models.SGuest, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
 	return self.chooseHostStorage(self, host, diskConfig.Backend, storageIds), nil
 }
 
-func (self *SHuaweiCloudStackGuestDriver) GetDetachDiskStatus() ([]string, error) {
+func (self *SHCSOGuestDriver) GetDetachDiskStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SHuaweiCloudStackGuestDriver) GetAttachDiskStatus() ([]string, error) {
+func (self *SHCSOGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SHuaweiCloudStackGuestDriver) GetRebuildRootStatus() ([]string, error) {
+func (self *SHCSOGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SHuaweiCloudStackGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+func (self *SHCSOGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
-func (self *SHuaweiCloudStackGuestDriver) GetDeployStatus() ([]string, error) {
+func (self *SHCSOGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SHuaweiCloudStackGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
+func (self *SHCSOGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
 	if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
@@ -112,15 +112,15 @@ func (self *SHuaweiCloudStackGuestDriver) ValidateResizeDisk(guest *models.SGues
 	return nil
 }
 
-func (self *SHuaweiCloudStackGuestDriver) GetGuestInitialStateAfterCreate() string {
+func (self *SHCSOGuestDriver) GetGuestInitialStateAfterCreate() string {
 	return api.VM_RUNNING
 }
 
-func (self *SHuaweiCloudStackGuestDriver) GetGuestInitialStateAfterRebuild() string {
+func (self *SHCSOGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return api.VM_RUNNING
 }
 
-func (self *SHuaweiCloudStackGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapability {
+func (self *SHCSOGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCapability {
 	return cloudprovider.SInstanceCapability{
 		Hypervisor: self.GetHypervisor(),
 		Provider:   self.GetProvider(),
@@ -149,7 +149,7 @@ func (self *SHuaweiCloudStackGuestDriver) GetInstanceCapability() cloudprovider.
 	}
 }
 
-func (self *SHuaweiCloudStackGuestDriver) RemoteDeployGuestSyncHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, iVM cloudprovider.ICloudVM) (cloudprovider.ICloudHost, error) {
+func (self *SHCSOGuestDriver) RemoteDeployGuestSyncHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, iVM cloudprovider.ICloudVM) (cloudprovider.ICloudHost, error) {
 	if hostId := iVM.GetIHostId(); len(hostId) > 0 {
 		nh, err := db.FetchByExternalIdAndManagerId(models.HostManager, hostId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 			return q.Equals("manager_id", host.ManagerId)
@@ -160,7 +160,7 @@ func (self *SHuaweiCloudStackGuestDriver) RemoteDeployGuestSyncHost(ctx context.
 				return nil, errors.Wrap(err, "FetchByExternalIdAndManagerId")
 			}
 
-			// HYPERVISOR_HUAWEI_CLOUD_STACK VM被部署到一台全新的宿主机
+			// HYPERVISOR_HCSO VM被部署到一台全新的宿主机
 			zone, err := host.GetZone()
 			if err != nil {
 				log.Warningf("host %s GetZone: %s", host.GetId(), err)
@@ -184,7 +184,7 @@ func (self *SHuaweiCloudStackGuestDriver) RemoteDeployGuestSyncHost(ctx context.
 	return host.GetIHost()
 }
 
-func (self *SHuaweiCloudStackGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {
+func (self *SHCSOGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {
 	months := bc.GetMonths()
 	if (months >= 1 && months <= 9) || (months == 12) || (months == 24) || (months == 36) {
 		return true
@@ -193,10 +193,10 @@ func (self *SHuaweiCloudStackGuestDriver) IsSupportedBillingCycle(bc billing.SBi
 	return false
 }
 
-func (self *SHuaweiCloudStackGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool {
+func (self *SHCSOGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool {
 	return true
 }
 
-func (self *SHuaweiCloudStackGuestDriver) IsSupportSetAutoRenew() bool {
+func (self *SHCSOGuestDriver) IsSupportSetAutoRenew() bool {
 	return false
 }

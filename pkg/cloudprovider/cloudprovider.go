@@ -98,7 +98,7 @@ type SCloudaccountCredential struct {
 	*SApsaraEndpoints
 
 	// Huawei Cloud Stack Online
-	*SHuaweiCloudStackEndpoints
+	*SHCSOEndpoints
 }
 
 type SCloudaccount struct {
@@ -161,7 +161,7 @@ type ProviderConfig struct {
 	AccountId string
 
 	SApsaraEndpoints
-	SHuaweiCloudStackEndpoints
+	SHCSOEndpoints
 
 	ProxyFunc httputils.TransportProxyFunc
 }

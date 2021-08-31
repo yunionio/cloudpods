@@ -19,19 +19,19 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
-type SHuaweiCloudStackRegionDriver struct {
+type SHCSORegionDriver struct {
 	SHuaWeiRegionDriver
 }
 
 func init() {
-	driver := SHuaweiCloudStackRegionDriver{}
+	driver := SHCSORegionDriver{}
 	models.RegisterRegionDriver(&driver)
 }
 
-func (self *SHuaweiCloudStackRegionDriver) GetProvider() string {
-	return api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK
+func (self *SHCSORegionDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_HCSO
 }
 
-func (self *SHuaweiCloudStackRegionDriver) IsSupportedElasticcache() bool {
+func (self *SHCSORegionDriver) IsSupportedElasticcache() bool {
 	return false
 }

@@ -108,5 +108,5 @@ type SHwStackCloudReportFactory struct {
 }
 
 func (self *SHwStackCloudReportFactory) GetId() string {
-	return compute.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK
+	return compute.CLOUD_PROVIDER_HCSO
 }
