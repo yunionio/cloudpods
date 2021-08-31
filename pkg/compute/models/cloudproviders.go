@@ -893,8 +893,8 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 		Secret:    passwd,
 		ProxyFunc: account.proxyFunc(),
 
-		SApsaraEndpoints:           endpoints,
-		SHCSOEndpoints: hscsoEndpoints,
+		SApsaraEndpoints: endpoints,
+		SHCSOEndpoints:   hscsoEndpoints,
 	})
 }
 
