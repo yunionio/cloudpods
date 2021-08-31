@@ -195,10 +195,13 @@ type STag struct {
 }
 
 type MetadataResourceListInput struct {
-	// 通过标签过滤
+	// 通过标签过滤（包含这些标签）
 	Tags []STag `json:"tags"`
 
-	// 通过标签过滤
+	// 通过标签过滤（不包含这些标签）
+	NoTags []STag `json:"no_tags"`
+
+	// 通过标签排序
 	OrderByTag string `json:"order_by_tag"`
 
 	// deprecated

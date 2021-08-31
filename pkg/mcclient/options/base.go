@@ -221,6 +221,7 @@ type BaseListOptions struct {
 	ExtraListOptions
 
 	Tags      []string `help:"Tags info, eg: hypervisor=aliyun, os_type=Linux, os_version" json:"-"`
+	NoTags    []string `help:"List resources without this tags, eg: os_type=Linux, os_version" json:"-"`
 	UserTags  []string `help:"UserTags info, eg: group=rd" json:"-"`
 	CloudTags []string `help:"CloudTags info, eg: price_key=cn-beijing" json:"-"`
 
@@ -240,19 +241,45 @@ type BaseListOptions struct {
 }
 
 func (opts *BaseListOptions) addTag(prefix, tag string, idx int, params *jsonutils.JSONDict) error {
-	tagInfo := strings.Split(tag, "=")
-	if len(tagInfo) > 2 {
-		return fmt.Errorf("Too many equal characters %s", tag)
+	key, value, err := opts.spliteTag(tag)
+	if err != nil {
+		return err
 	}
-	key := tagInfo[0]
 	if len(key) == 0 {
 		return fmt.Errorf("Key must not be empty")
 	}
 	params.Add(jsonutils.NewString(prefix+key), fmt.Sprintf("tags.%d.key", idx))
-	if len(tagInfo) == 2 {
-		params.Add(jsonutils.NewString(tagInfo[1]), fmt.Sprintf("tags.%d.value", idx))
+	if len(value) > 0 {
+		params.Add(jsonutils.NewString(value), fmt.Sprintf("tags.%d.value", idx))
 	}
 	return nil
+}
+
+func (opts *BaseListOptions) addNoTag(prefix, tag string, idx int, params *jsonutils.JSONDict) error {
+	key, value, err := opts.spliteTag(tag)
+	if err != nil {
+		return err
+	}
+	if len(key) == 0 {
+		return fmt.Errorf("Key must not be empty")
+	}
+	params.Add(jsonutils.NewString(prefix+key), fmt.Sprintf("no_tags.%d.key", idx))
+	if len(value) > 0 {
+		params.Add(jsonutils.NewString(value), fmt.Sprintf("no_tags.%d.value", idx))
+	}
+	return nil
+}
+
+func (opts *BaseListOptions) spliteTag(tag string) (key string, value string, err error) {
+	tagInfo := strings.Split(tag, "=")
+	if len(tagInfo) > 2 {
+		return "", "", fmt.Errorf("Too many equal characters %s", tag)
+	}
+	key = tagInfo[0]
+	if len(tagInfo) > 1 {
+		value = tagInfo[1]
+	}
+	return key, value, nil
 }
 
 func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
@@ -279,13 +306,20 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 			params.Set("admin", jsonutils.JSONTrue)
 		}
 	}*/
-	tagIdx := 0
+	tagIdx, noTagIdx := 0, 0
 	for _, tag := range opts.Tags {
 		err = opts.addTag("", tag, tagIdx, params)
 		if err != nil {
 			return nil, err
 		}
 		tagIdx++
+	}
+	for _, tag := range opts.NoTags {
+		err = opts.addNoTag("", tag, noTagIdx, params)
+		if err != nil {
+			return nil, err
+		}
+		noTagIdx++
 	}
 	for _, tag := range opts.UserTags {
 		err = opts.addTag(dbapi.USER_TAG_PREFIX, tag, tagIdx, params)
