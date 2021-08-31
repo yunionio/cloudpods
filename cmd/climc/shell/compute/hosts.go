@@ -43,7 +43,7 @@ func init() {
 	cmd.Perform("start", &options.BaseIdOptions{})
 	cmd.Perform("stop", &options.BaseIdOptions{})
 	cmd.Perform("reset", &options.BaseIdOptions{})
-	cmd.Perform("delete", &options.BaseIdOptions{})
+	cmd.BatchDelete(&options.BaseIdsOptions{})
 	cmd.Perform("remove-all-netifs", &options.BaseIdOptions{})
 
 	cmd.BatchPerform("enable", &options.BaseIdsOptions{})
