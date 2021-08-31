@@ -491,7 +491,8 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 	}
 	syncVirtualResourceMetadata(ctx, userCred, self, ext)
 
-	if res := self.GetAssociateResource(); res != nil {
+	// eip有绑定资源，并且绑定资源是项目资源,eip项目信息跟随绑定资源
+	if res := self.GetAssociateResource(); res != nil && len(res.GetOwnerId().GetProjectId()) > 0 {
 		self.SyncCloudProjectId(userCred, res.GetOwnerId())
 	} else {
 		SyncCloudProject(userCred, self, syncOwnerId, ext, self.ManagerId)
