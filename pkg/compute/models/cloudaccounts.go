@@ -443,10 +443,10 @@ func (manager *SCloudaccountManager) validateCreateData(
 		endpointOptions = jsonutils.Marshal(input.SCloudaccountCredential.SApsaraEndpoints)
 	}
 
-	hcsoEndpoints := cloudprovider.SHuaweiCloudStackEndpoints{}
-	if input.SCloudaccountCredential.SHuaweiCloudStackEndpoints != nil {
-		hcsoEndpoints = *input.SCloudaccountCredential.SHuaweiCloudStackEndpoints
-		endpointOptions = jsonutils.Marshal(input.SCloudaccountCredential.SHuaweiCloudStackEndpoints)
+	hcsoEndpoints := cloudprovider.SHCSOEndpoints{}
+	if input.SCloudaccountCredential.SHCSOEndpoints != nil {
+		hcsoEndpoints = *input.SCloudaccountCredential.SHCSOEndpoints
+		endpointOptions = jsonutils.Marshal(input.SCloudaccountCredential.SHCSOEndpoints)
 	}
 
 	if endpointOptions != nil {
@@ -512,7 +512,7 @@ func (manager *SCloudaccountManager) validateCreateData(
 		ProxyFunc: proxyFunc,
 
 		SApsaraEndpoints:           endpoints,
-		SHuaweiCloudStackEndpoints: hcsoEndpoints,
+		SHCSOEndpoints: hcsoEndpoints,
 	})
 	if err != nil {
 		if err == cloudprovider.ErrNoSuchProvder {
@@ -718,13 +718,13 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 
 	originSecret, _ := self.getPassword()
 
-	hcsoEndpoints := cloudprovider.SHuaweiCloudStackEndpoints{}
-	if self.Provider == api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK && input.SHuaweiCloudStackEndpoints != nil {
+	hcsoEndpoints := cloudprovider.SHCSOEndpoints{}
+	if self.Provider == api.CLOUD_PROVIDER_HCSO && input.SHCSOEndpoints != nil {
 		if self.Options == nil {
 			self.Options = jsonutils.NewDict()
 		}
 
-		newOptions := jsonutils.Marshal(input.SHuaweiCloudStackEndpoints)
+		newOptions := jsonutils.Marshal(input.SHCSOEndpoints)
 		_, err = db.UpdateWithLock(ctx, self, func() error {
 			self.Options.Update(newOptions)
 			return nil
@@ -744,7 +744,7 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		URL:                        self.AccessUrl,
 		Account:                    account.Account,
 		Secret:                     account.Secret,
-		SHuaweiCloudStackEndpoints: hcsoEndpoints,
+		SHCSOEndpoints: hcsoEndpoints,
 		ProxyFunc:                  self.proxyFunc(),
 	})
 	if err != nil {
@@ -938,9 +938,9 @@ func (self *SCloudaccount) getProviderInternal() (cloudprovider.ICloudProvider, 
 		return nil, fmt.Errorf("Invalid password %s", err)
 	}
 	endpoints := cloudprovider.SApsaraEndpoints{}
-	hcsoEndpoints := cloudprovider.SHuaweiCloudStackEndpoints{}
+	hcsoEndpoints := cloudprovider.SHCSOEndpoints{}
 	if self.Options != nil {
-		if self.Provider == api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK {
+		if self.Provider == api.CLOUD_PROVIDER_HCSO {
 			self.Options.Unmarshal(&hcsoEndpoints)
 		} else if self.Provider == api.CLOUD_PROVIDER_APSARA {
 			self.Options.Unmarshal(&endpoints)
@@ -955,7 +955,7 @@ func (self *SCloudaccount) getProviderInternal() (cloudprovider.ICloudProvider, 
 		Secret:  secret,
 
 		SApsaraEndpoints:           endpoints,
-		SHuaweiCloudStackEndpoints: hcsoEndpoints,
+		SHCSOEndpoints: hcsoEndpoints,
 		ProxyFunc:                  self.proxyFunc(),
 	})
 }

@@ -130,7 +130,7 @@ func (man *SCachedLoadbalancerAclManager) ValidateCreateData(ctx context.Context
 		}
 	}
 
-	if utils.IsInStringArray(providerV.Model.(*SCloudprovider).Provider, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK}) {
+	if utils.IsInStringArray(providerV.Model.(*SCloudprovider).Provider, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO}) {
 		listenerV := validators.NewModelIdOrNameValidator("listener", "loadbalancerlistener", ownerId)
 		if err := listenerV.Validate(data); err != nil {
 			return nil, err
@@ -328,7 +328,7 @@ func (self *SCachedLoadbalancerAcl) syncRemoveCloudLoadbalanceAcl(ctx context.Co
 func (acl *SCachedLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, extAcl cloudprovider.ICloudLoadbalancerAcl, projectId mcclient.IIdentityProvider) error {
 	diff, err := db.UpdateWithLock(ctx, acl, func() error {
 		// todo: 华为云acl没有name字段应此不需要同步名称
-		if !utils.IsInStringArray(acl.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK}) {
+		if !utils.IsInStringArray(acl.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO}) {
 			acl.Name = extAcl.GetName()
 		} else {
 			ext_listener_id := extAcl.GetAclListenerID()
@@ -364,7 +364,7 @@ func (man *SCachedLoadbalancerAclManager) GetOrCreateCachedAcl(ctx context.Conte
 	defer lockman.ReleaseClass(ctx, man, ownerProjId)
 
 	listenerId := ""
-	if utils.IsInStringArray(lblis.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK}) {
+	if utils.IsInStringArray(lblis.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO}) {
 		listenerId = lblis.Id
 	}
 	if lblis.GetProviderName() == api.CLOUD_PROVIDER_OPENSTACK {

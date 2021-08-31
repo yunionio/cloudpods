@@ -13,7 +13,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei"
 	hw_moudules "yunion.io/x/onecloud/pkg/multicloud/huawei/client/modules"
-	"yunion.io/x/onecloud/pkg/multicloud/huaweistack"
+	"yunion.io/x/onecloud/pkg/multicloud/hcso"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
 
@@ -329,8 +329,8 @@ func (self *SHwCloudReport) collectMetricFromThisServer(server jsonutils.JSONObj
 func (self *SHwCloudReport) GetMetricData(region cloudprovider.ICloudRegion, metrics []hw_moudules.SMetricMeta,
 	since time.Time, until time.Time) ([]hw_moudules.SMetricData, error) {
 	switch self.SProvider.Provider {
-	case compute.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK:
-		hwReg := region.(*huaweistack.SRegion)
+	case compute.CLOUD_PROVIDER_HCSO:
+		hwReg := region.(*hcso.SRegion)
 		return hwReg.GetMetricsData(metrics, since, until)
 	default:
 		hwReg := region.(*huawei.SRegion)

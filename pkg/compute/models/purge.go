@@ -551,7 +551,7 @@ func (lbbg *SLoadbalancerBackendGroup) purgeCachedlbbg(ctx context.Context, user
 	switch lbbg.GetProviderName() {
 	case api.CLOUD_PROVIDER_AWS:
 		return lbbg.purgeAwsCachedlbbg(ctx, userCred)
-	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK:
+	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO:
 		return lbbg.purgeHuaweiCachedlbbg(ctx, userCred)
 	}
 
@@ -632,7 +632,7 @@ func (lbb *SLoadbalancerBackend) purgeCachedlbb(ctx context.Context, userCred mc
 	switch lbb.GetProviderName() {
 	case api.CLOUD_PROVIDER_AWS:
 		return lbb.purgeAwsCachedlbb(ctx, userCred)
-	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK:
+	case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO:
 		return lbb.purgeHuaweiCachedlbb(ctx, userCred)
 	}
 

@@ -20,7 +20,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/multicloud/esxi/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/google/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/huawei/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/huaweistack/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/hcso/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/qcloud/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/zstack/provider"
 )
