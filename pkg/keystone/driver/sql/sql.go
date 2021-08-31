@@ -70,7 +70,8 @@ func (sql *SSQLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthent
 	err = models.VerifyPassword(usrExt, ident.Password.User.Password)
 	if err != nil {
 		localUser.SaveFailedAuth()
-		if o.Options.PasswordErrorLockCount > 0 && localUser.FailedAuthCount > o.Options.PasswordErrorLockCount {
+		if o.Options.PasswordErrorLockCount > 0 && localUser.FailedAuthCount > o.Options.PasswordErrorLockCount && !usrExt.IsSystemAccount {
+			// do not lock system account!!!
 			models.UserManager.LockUser(usrExt.Id, "too many failed auth attempts")
 			sql.alertNotify(ctx, usrExt, time.Now())
 			return nil, errors.Wrap(httperrors.ErrTooManyAttempts, "user locked")
