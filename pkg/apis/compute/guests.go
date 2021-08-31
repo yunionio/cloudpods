@@ -617,4 +617,6 @@ type ServerUpdateInput struct {
 
 	SrcIpCheck  *bool `json:"src_ip_check"`
 	SrcMacCheck *bool `json:"src_mac_check"`
+
+	SshPort int `json:"ssh_port"`
 }

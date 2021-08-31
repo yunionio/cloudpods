@@ -48,6 +48,7 @@ type GuestMakeSshableInput struct {
 	User       string
 	PrivateKey string
 	Password   string
+	Port       int
 }
 
 type GuestMakeSshableOutput struct {
@@ -56,4 +57,8 @@ type GuestMakeSshableOutput struct {
 
 type GuestMakeSshableCmdOutput struct {
 	ShellCmd string
+}
+
+type GuestSetSshPortInput struct {
+	Port int
 }
