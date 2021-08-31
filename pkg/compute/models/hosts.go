@@ -1063,7 +1063,7 @@ func (self *SHostManager) GetPropertyHostTypeCount(ctx context.Context, userCred
 	hosts := self.Query().SubQuery()
 	// select host_type, (case host_type when 'huaweicloudstack' then count(DISTINCT external_id) else count(id) end) as count from hosts_tbl group by host_type;
 	cs := sqlchemy.NewCase()
-	hcso := sqlchemy.Equals(hosts.Field("host_type"), api.HOST_TYPE_HUAWEI_CLOUD_STACK)
+	hcso := sqlchemy.Equals(hosts.Field("host_type"), api.HOST_TYPE_HCSO)
 	cs.When(hcso, sqlchemy.COUNT("", sqlchemy.DISTINCT("", hosts.Field("external_id"))))
 	cs.Else(sqlchemy.COUNT("", hosts.Field("id")))
 	q := hosts.Query(hosts.Field("host_type"), sqlchemy.NewFunction(cs, "count"))
