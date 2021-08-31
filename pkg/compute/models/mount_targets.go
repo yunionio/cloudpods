@@ -362,7 +362,7 @@ func (self *SMountTarget) ValidateDeleteCondition(ctx context.Context) error {
 	if err != nil {
 		return httperrors.NewGeneralError(errors.Wrapf(err, "GetRegion"))
 	}
-	if utils.IsInStringArray(region.Provider, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK}) {
+	if utils.IsInStringArray(region.Provider, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO}) {
 		return httperrors.NewNotSupportedError("not allow to delete")
 	}
 	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)

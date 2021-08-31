@@ -1735,19 +1735,9 @@ func (self *SHost) syncRemoveCloudHost(ctx context.Context, userCred mcclient.To
 
 	err := self.ValidatePurgeCondition(ctx)
 	if err != nil {
-		err = self.SetStatus(userCred, api.HOST_OFFLINE, "sync to delete")
-		if err == nil {
-			_, err = self.PerformDisable(ctx, userCred, nil, apis.PerformDisableInput{})
-		}
-		guests, err := self.GetGuests()
+		err = self.purge(ctx, userCred)
 		if err != nil {
-			return errors.Wrapf(err, "GetGuests")
-		}
-		for _, guest := range guests {
-			err = guest.SetStatus(userCred, api.VM_UNKNOWN, "sync to delete")
-			if err != nil {
-				return err
-			}
+			return errors.Wrap(err, "purge")
 		}
 	} else {
 		err = self.RealDelete(ctx, userCred)

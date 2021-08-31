@@ -355,7 +355,7 @@ func (manager *SCloudaccountManager) newFromICloudaccount(ctx context.Context, u
 }
 
 func (self *SCloudaccount) registerHuaweSaml(ctx context.Context) error {
-	if self.Provider != computeapi.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK {
+	if self.Provider != computeapi.CLOUD_PROVIDER_HCSO {
 		return nil
 	}
 	delegate, err := self.getCloudDelegate(ctx)
@@ -482,7 +482,7 @@ type SCloudDelegate struct {
 	Brand    string
 
 	Options struct {
-		cloudprovider.SHuaweiCloudStackEndpoints
+		cloudprovider.SHCSOEndpoints
 		cloudprovider.SApsaraEndpoints
 	}
 	ProxySetting proxyapi.SProxySetting
@@ -568,8 +568,8 @@ func (account *SCloudDelegate) GetProvider() (cloudprovider.ICloudProvider, erro
 		Secret:    passwd,
 		ProxyFunc: proxyFunc,
 
-		SApsaraEndpoints:           account.Options.SApsaraEndpoints,
-		SHuaweiCloudStackEndpoints: account.Options.SHuaweiCloudStackEndpoints,
+		SApsaraEndpoints: account.Options.SApsaraEndpoints,
+		SHCSOEndpoints:   account.Options.SHCSOEndpoints,
 
 		AccountId: account.Id,
 	})

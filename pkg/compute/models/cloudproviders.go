@@ -875,9 +875,9 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 	account := self.GetCloudaccount()
 
 	endpoints := cloudprovider.SApsaraEndpoints{}
-	hscsoEndpoints := cloudprovider.SHuaweiCloudStackEndpoints{}
+	hscsoEndpoints := cloudprovider.SHCSOEndpoints{}
 	if account.Options != nil {
-		if self.Provider == api.CLOUD_PROVIDER_HUAWEI_CLOUD_STACK {
+		if self.Provider == api.CLOUD_PROVIDER_HCSO {
 			account.Options.Unmarshal(&hscsoEndpoints)
 		} else if self.Provider == api.CLOUD_PROVIDER_APSARA {
 			account.Options.Unmarshal(&endpoints)
@@ -893,8 +893,8 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 		Secret:    passwd,
 		ProxyFunc: account.proxyFunc(),
 
-		SApsaraEndpoints:           endpoints,
-		SHuaweiCloudStackEndpoints: hscsoEndpoints,
+		SApsaraEndpoints: endpoints,
+		SHCSOEndpoints:   hscsoEndpoints,
 	})
 }
 
