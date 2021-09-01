@@ -191,7 +191,9 @@ func (man *SLoadbalancerManager) ListItemFilter(
 	}
 
 	if len(query.Address) > 0 {
-		q = q.In("address", query.Address)
+		c1 := sqlchemy.In(q.Field("id"), ElasticipManager.Query("associate_id").In("ip_addr", query.Address))
+		c2 := sqlchemy.In(q.Field("address"), query.Address)
+		q = q.Filter(sqlchemy.OR(c1, c2))
 	}
 	if len(query.AddressType) > 0 {
 		q = q.In("address_type", query.AddressType)
