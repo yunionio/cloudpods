@@ -2722,7 +2722,58 @@ func (s *SBaremetalServer) deployFs(term *ssh.Client, deployInfo *deployapi.Depl
 	if strings.ToLower(rootfs.GetOs()) == "windows" {
 		return nil, fmt.Errorf("Unsupported OS: %s", rootfs.GetOs())
 	}
-	return guestfs.DeployGuestFs(rootfs, s.desc, deployInfo)
+	desc, err := deployapi.GuestDescToDeployDesc(s.desc)
+	if err != nil {
+		return nil, errors.Wrap(err, "To deploy desc fail")
+	}
+	desc, err = s.reIndexDescNics(term, desc)
+	if err != nil {
+		return nil, errors.Wrap(err, "reIndexDescNics")
+	}
+
+	return guestfs.DeployGuestFs(rootfs, desc, deployInfo)
+}
+
+func (s *SBaremetalServer) reIndexDescNics(term *ssh.Client, desc *deployapi.GuestDesc) (*deployapi.GuestDesc, error) {
+	rNics, err := tasks.GetNicsInfo(term)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Get server %s remote nics", s.GetName())
+	}
+	findRemoteNic := func(mac string) (int, *types.SNicDevInfo) {
+		for idx, nic := range rNics {
+			if nic.Mac.String() == mac {
+				return idx, rNics[idx]
+			}
+		}
+		return -1, nil
+	}
+	reIndexNics := func(nics []*deployapi.Nic) ([]*deployapi.Nic, error) {
+		for idx, nic := range nics {
+			if nic.GetNicType() == api.NIC_TYPE_IPMI {
+				continue
+			}
+			rIdx, rNic := findRemoteNic(nic.GetMac())
+			if rNic == nil {
+				return nil, errors.Errorf("Not found remote nic by mac %q", nic.GetMac())
+			}
+			if nics[idx].Index != int32(rIdx) {
+				log.Infof("Reindex nic %s index %d to %d", nics[idx].GetMac(), nics[idx].Index, rIdx)
+				nics[idx].Index = int32(rIdx)
+			}
+		}
+		return nics, nil
+	}
+	nics, err := reIndexNics(desc.Nics)
+	if err != nil {
+		return nil, errors.Wrap(err, "Reindex nics")
+	}
+	desc.Nics = nics
+	sNics, err := reIndexNics(desc.NicsStandby)
+	if err != nil {
+		return nil, errors.Wrap(err, "Reindex standby nics")
+	}
+	desc.NicsStandby = sNics
+	return desc, nil
 }
 
 func (s *SBaremetalServer) GetNics() []types.SServerNic {
