@@ -17,7 +17,7 @@ ANSIBLESERVER_BASE = v1.0.5
 ansibleserver-base:
 	$(DOCKER_BUILDX)/ansibleserver-base:$(ANSIBLESERVER_BASE) -f ./Dockerfile.ansibleserver-base .
 
-CLIMC_BASE_VERSION = 20210817
+CLIMC_BASE_VERSION = 20210901
 
 climc-base:
 	docker buildx build --platform linux/arm64,linux/amd64 --push \
