@@ -70,6 +70,10 @@ type SAccessGroupCache struct {
 	NetworkType    string `width:"8" charset:"ascii" nullable:"false" index:"true" list:"user" default:"vpc"`
 }
 
+func (manager *SAccessGroupCacheManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeDomain
+}
+
 func (manager *SAccessGroupCacheManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return false
 }
