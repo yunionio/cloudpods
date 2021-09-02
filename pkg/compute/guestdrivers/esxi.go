@@ -284,16 +284,15 @@ type SEsxiInstanceSnapshotInfo struct {
 func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
 	desc := guest.GetJsonDescAtHypervisor(ctx, host)
 	// add image_info
-	disks, _ := desc.GetArray("disks")
-	if len(disks) == 0 {
-		return desc, nil
+	if len(desc.Disks) == 0 {
+		return jsonutils.Marshal(desc), nil
 	}
-	templateId, _ := disks[0].GetString("template_id")
+	templateId := desc.Disks[0].TemplateId
 	if len(templateId) == 0 {
 		// try to check instance_snapshot_id
 		ispId := guest.GetMetadata("__base_instance_snapshot_id", userCred)
 		if len(ispId) == 0 {
-			return desc, nil
+			return jsonutils.Marshal(desc), nil
 		}
 		obj, err := models.InstanceSnapshotManager.FetchById(ispId)
 		if err != nil {
@@ -304,30 +303,27 @@ func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mc
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to fetch Guest of InstanceSnapshot %q", ispId)
 		}
-		isInfo := SEsxiInstanceSnapshotInfo{
-			InstanceSnapshotId: isp.GetExternalId(),
-			InstanceId:         ispGuest.GetExternalId(),
-		}
-		desc.Set("instance_snapshot_info", jsonutils.Marshal(isInfo))
-		return desc, nil
+		desc.InstanceSnapshotInfo.InstanceSnapshotId = isp.GetExternalId()
+		desc.InstanceSnapshotInfo.InstanceId = ispGuest.GetExternalId()
+		return jsonutils.Marshal(desc), nil
 	}
 	model, err := models.CachedimageManager.FetchById(templateId)
 	if err != nil {
-		return desc, errors.Wrapf(err, "CachedimageManager.FetchById(%s)", templateId)
+		return jsonutils.Marshal(desc), errors.Wrapf(err, "CachedimageManager.FetchById(%s)", templateId)
 	}
 	img := model.(*models.SCachedimage)
 	if cloudprovider.TImageType(img.ImageType) != cloudprovider.ImageTypeSystem {
-		return desc, nil
+		return jsonutils.Marshal(desc), nil
 	}
 	sciSubQ := models.StoragecachedimageManager.Query("storagecache_id").Equals("cachedimage_id", templateId).Equals("status", api.CACHED_IMAGE_STATUS_ACTIVE).SubQuery()
 	scQ := models.StoragecacheManager.Query().In("id", sciSubQ)
 	storageCaches := make([]models.SStoragecache, 0, 1)
 	err = db.FetchModelObjects(models.StoragecacheManager, scQ, &storageCaches)
 	if err != nil {
-		return desc, errors.Wrapf(err, "fetch storageCache associated with cacheimage %s", templateId)
+		return jsonutils.Marshal(desc), errors.Wrapf(err, "fetch storageCache associated with cacheimage %s", templateId)
 	}
 	if len(storageCaches) == 0 {
-		return desc, errors.Errorf("no such storage cache associated with cacheimage %s", templateId)
+		return jsonutils.Marshal(desc), errors.Errorf("no such storage cache associated with cacheimage %s", templateId)
 	}
 	if len(storageCaches) > 1 {
 		log.Warningf("there are multiple storageCache associated with caheimage '%s' ??!!", templateId)
@@ -338,7 +334,7 @@ func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mc
 	for i := range storageCaches {
 		hosts, err := storageCaches[i].GetHosts()
 		if err != nil {
-			return desc, errors.Wrap(err, "storageCaches.GetHosts")
+			return jsonutils.Marshal(desc), errors.Wrap(err, "storageCaches.GetHosts")
 		}
 		for i := range hosts {
 			if host.GetId() == hosts[i].GetId() {
@@ -350,22 +346,17 @@ func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mc
 	if storageCacheHost == nil {
 		storageCacheHost, err = storageCaches[0].GetHost()
 		if err != nil {
-			return desc, errors.Wrapf(err, "unable to GetHost of storageCache %s", storageCaches[0].Id)
+			return jsonutils.Marshal(desc), errors.Wrapf(err, "unable to GetHost of storageCache %s", storageCaches[0].Id)
 		}
 		if storageCacheHost == nil {
-			return desc, fmt.Errorf("unable to GetHost of storageCache %s: result is nil", storageCaches[0].Id)
+			return jsonutils.Marshal(desc), fmt.Errorf("unable to GetHost of storageCache %s: result is nil", storageCaches[0].Id)
 		}
 	}
 
-	hostIp := storageCacheHost.AccessIp
-	imageInfo := SEsxiImageInfo{
-		ImageType:          img.ImageType,
-		ImageExternalId:    img.ExternalId,
-		StorageCacheHostIp: hostIp,
-	}
-	dict := disks[0].(*jsonutils.JSONDict)
-	dict.Add(jsonutils.Marshal(imageInfo), "image_info")
-	return desc, nil
+	desc.Disks[0].ImageInfo.ImageType = img.ImageType
+	desc.Disks[0].ImageInfo.ImageExternalId = img.ExternalId
+	desc.Disks[0].ImageInfo.StorageCacheHostIp = storageCacheHost.AccessIp
+	return jsonutils.Marshal(desc), nil
 }
 
 func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {

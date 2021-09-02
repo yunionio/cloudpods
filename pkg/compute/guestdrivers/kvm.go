@@ -255,7 +255,8 @@ func (self *SKVMGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, gue
 }
 
 func (self *SKVMGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	return guest.GetJsonDescAtHypervisor(ctx, host), nil
+	desc := guest.GetJsonDescAtHypervisor(ctx, host)
+	return jsonutils.Marshal(desc), nil
 }
 
 func (self *SKVMGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
@@ -711,16 +712,22 @@ func (self *SKVMGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclien
 		return httperrors.NewServerStatusError("Cannot normal migrate guest in status %s, try rescue mode or server-live-migrate?", guest.Status)
 	}
 	if input.IsRescueMode {
-		guestDisks := guest.GetDisks()
-		for _, guestDisk := range guestDisks {
-			storage, _ := guestDisk.GetDisk().GetStorage()
+		disks, err := guest.GetDisks()
+		if err != nil {
+			return errors.Wrapf(err, "GetDisks")
+		}
+		for _, disk := range disks {
+			storage, _ := disk.GetStorage()
 			if utils.IsInStringArray(
 				storage.StorageType, api.STORAGE_LOCAL_TYPES) {
 				return httperrors.NewBadRequestError("Rescue mode requires all disk store in shared storages")
 			}
 		}
 	}
-	devices := guest.GetIsolatedDevices()
+	devices, err := guest.GetIsolatedDevices()
+	if err != nil {
+		return errors.Wrapf(err, "GetIsolatedDevices")
+	}
 	if len(devices) > 0 {
 		return httperrors.NewBadRequestError("Cannot migrate with isolated devices")
 	}
@@ -742,8 +749,11 @@ func (self *SKVMGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcc
 		if cdrom != nil && len(cdrom.ImageId) > 0 {
 			return httperrors.NewBadRequestError("Cannot live migrate with cdrom")
 		}
-		devices := guest.GetIsolatedDevices()
-		if devices != nil && len(devices) > 0 {
+		devices, err := guest.GetIsolatedDevices()
+		if err != nil {
+			return errors.Wrapf(err, "GetIsolatedDevices")
+		}
+		if len(devices) > 0 {
 			return httperrors.NewBadRequestError("Cannot live migrate with isolated devices")
 		}
 		if !guest.CheckQemuVersion(guest.GetQemuVersion(userCred), "1.1.2") {

@@ -175,67 +175,53 @@ func (self *SGuestdisk) GetDisk() *SDisk {
 	return disk.(*SDisk)
 }
 
-func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
+func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) *api.GuestdiskJsonDesc {
 	disk := self.GetDisk()
-	desc := jsonutils.NewDict()
-	desc.Add(jsonutils.NewString(self.DiskId), "disk_id")
-	desc.Add(jsonutils.NewString(self.Driver), "driver")
-	desc.Add(jsonutils.NewString(self.CacheMode), "cache_mode")
-	desc.Add(jsonutils.NewString(self.AioMode), "aio_mode")
-	desc.Add(jsonutils.NewInt(int64(self.Iops)), "iops")
-	desc.Add(jsonutils.NewInt(int64(self.Bps)), "bps")
-	desc.Add(jsonutils.NewInt(int64(disk.DiskSize)), "size")
-	templateId := disk.GetTemplateId()
-	if len(templateId) > 0 {
-		desc.Add(jsonutils.NewString(templateId), "template_id")
+	desc := &api.GuestdiskJsonDesc{
+		DiskId:    self.DiskId,
+		Driver:    self.Driver,
+		CacheMode: self.CacheMode,
+		AioMode:   self.AioMode,
+		Iops:      self.Iops,
+		Bps:       self.Bps,
+		Size:      disk.DiskSize,
+	}
+	desc.TemplateId = disk.GetTemplateId()
+	if len(desc.TemplateId) > 0 {
 		storage, _ := disk.GetStorage()
-		storagecacheimg := StoragecachedimageManager.GetStoragecachedimage(storage.StoragecacheId, templateId)
+		storagecacheimg := StoragecachedimageManager.GetStoragecachedimage(storage.StoragecacheId, desc.TemplateId)
 		if storagecacheimg != nil {
-			desc.Add(jsonutils.NewString(storagecacheimg.Path), "image_path")
+			desc.ImagePath = storagecacheimg.Path
 		}
 	}
 	if host.HostType == api.HOST_TYPE_HYPERVISOR {
-		desc.Add(jsonutils.NewString(disk.StorageId), "storage_id")
+		desc.StorageId = disk.StorageId
 		localpath := disk.GetPathAtHost(host)
 		if len(localpath) == 0 {
-			desc.Add(jsonutils.JSONTrue, "migrating")
+			desc.Migrating = true
 			// not used yet
 			// disk.SetStatus(nil, api.DISK_START_MIGRATE, "migration")
 		} else {
-			desc.Add(jsonutils.NewString(localpath), "path")
+			desc.Path = localpath
 		}
 	}
-	desc.Add(jsonutils.NewString(disk.DiskFormat), "format")
-	desc.Add(jsonutils.NewInt(int64(self.Index)), "index")
+	desc.Format = disk.DiskFormat
+	desc.Index = self.Index
 
-	tid := disk.GetTemplateId()
-	if len(tid) > 0 {
-		desc.Add(jsonutils.NewString(tid), "template_id")
-	}
 	if len(disk.SnapshotId) > 0 {
 		needMerge := disk.GetMetadata("merge_snapshot", nil)
 		if needMerge == "true" {
-			desc.Set("merge_snapshot", jsonutils.JSONTrue)
+			desc.MergeSnapshot = true
 		}
 	}
 	if fpath := disk.GetMetadata(api.DISK_META_ESXI_FLAT_FILE_PATH, nil); len(fpath) > 0 {
-		desc.Set("merge_snapshot", jsonutils.JSONTrue)
-		desc.Set("esxi_flat_file_path", jsonutils.NewString(fpath))
+		desc.MergeSnapshot = true
+		desc.EsxiFlatFilePath = fpath
 	}
-	fs := disk.GetFsFormat()
-	if len(fs) > 0 {
-		desc.Add(jsonutils.NewString(fs), "fs")
-	}
-	if len(self.Mountpoint) > 0 {
-		desc.Add(jsonutils.NewString(self.Mountpoint), "mountpoint")
-	}
-	dev := disk.getDev()
-	if len(dev) > 0 {
-		desc.Add(jsonutils.NewString(dev), "dev")
-	}
-	if disk.IsSsd {
-		desc.Add(jsonutils.JSONTrue, "is_ssd")
-	}
+	desc.Fs = disk.GetFsFormat()
+	desc.Mountpoint = self.Mountpoint
+	desc.Dev = disk.getDev()
+	desc.IsSSD = disk.IsSsd
 	return desc
 }
 

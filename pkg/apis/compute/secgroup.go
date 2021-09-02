@@ -312,3 +312,8 @@ type SecurityGroupCloneInput struct {
 type SecgroupImportRulesInput struct {
 	Rules []SSecgroupRuleCreateInput `json:"rules"`
 }
+
+type SecgroupJsonDesc struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}

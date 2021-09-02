@@ -121,7 +121,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	fakeHost.MemReserved = 0
 	fakeHost.MemSize = self.VmemSize
 
-	guestdisks := self.GetDisks()
+	guestdisks, _ := self.GetGuestDisks()
 
 	storageInfo := make([]baremetal.BaremetalStorage, 0)
 	totalSize := 0
@@ -446,7 +446,7 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 		return errors.New(msg)
 	}
 
-	guestdisks := server.GetDisks()
+	guestdisks, _ := server.GetGuestDisks()
 
 	// check disk data integrity
 	for i := 0; i < len(guestdisks); i += 1 {
@@ -685,7 +685,7 @@ func (host *SHost) RebuildRecycledGuest(ctx context.Context, userCred mcclient.T
 		return err
 	}
 
-	guestdisks := guest.GetDisks()
+	guestdisks, _ := guest.GetGuestDisks()
 	for i := 0; i < len(guestdisks); i += 1 {
 		disk := guestdisks[i].GetDisk()
 		err = db.SetExternalId(disk, userCred, idisks[i].GetGlobalId())

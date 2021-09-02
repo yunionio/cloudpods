@@ -196,12 +196,13 @@ func (self *SNetInterface) getServernetwork() *SGuestnetwork {
 	return obj.(*SGuestnetwork)
 }
 
-func (self *SNetInterface) getServerJsonDesc() *jsonutils.JSONDict {
-	desc := jsonutils.Marshal(self).(*jsonutils.JSONDict)
+func (self *SNetInterface) getServerJsonDesc() *api.GuestnetworkJsonDesc {
+	desc := &api.GuestnetworkJsonDesc{}
+	jsonutils.Update(desc, self)
 	gn := self.getServernetwork()
 	if gn != nil {
-		desc.Update(gn.getJsonDescAtBaremetal(self.GetBaremetal()))
-		desc.Set("index", jsonutils.NewInt(int64(self.Index))) // override, preserve orginal network interface index
+		jsonutils.Update(desc, gn.getJsonDescAtBaremetal(self.GetBaremetal()))
+		desc.Index = self.Index // override, preserve orginal network interface index
 	}
 	return desc
 }

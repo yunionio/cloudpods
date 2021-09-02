@@ -64,14 +64,18 @@ func (self *GuestSwitchToBackupTask) OnEnsureMasterGuestStoped(ctx context.Conte
 }
 
 func (self *GuestSwitchToBackupTask) OnBackupGuestStoped(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	disks := guest.GetDisks()
+	disks, err := guest.GetDisks()
+	if err != nil {
+		self.OnFail(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
 	for i := 0; i < len(disks); i++ {
-		disk := disks[i].GetDisk()
+		disk := disks[i]
 		err := disk.SwitchToBackup(self.UserCred)
 		if err != nil {
 			if i > 0 {
 				for j := 0; j < i; j++ {
-					disk = disks[j].GetDisk()
+					disk = disks[j]
 					disk.SwitchToBackup(self.UserCred)
 				}
 			}
@@ -79,7 +83,7 @@ func (self *GuestSwitchToBackupTask) OnBackupGuestStoped(ctx context.Context, gu
 			return
 		}
 	}
-	err := guest.SwitchToBackup(self.UserCred)
+	err = guest.SwitchToBackup(self.UserCred)
 	if err != nil {
 		self.OnFail(ctx, guest, jsonutils.NewString(fmt.Sprintf("Switch to backup guest error: %s", err)))
 		return
@@ -324,7 +328,7 @@ func (self *GuestCreateBackupTask) SaveScheduleResult(ctx context.Context, obj I
 }
 
 func (self *GuestCreateBackupTask) StartCreateBackupDisks(ctx context.Context, guest *models.SGuest, host *models.SHost, candidateDisks []*schedapi.CandidateDisk) {
-	guestDisks := guest.GetDisks()
+	guestDisks, _ := guest.GetGuestDisks()
 	for i := 0; i < len(guestDisks); i++ {
 		var candidateDisk *schedapi.CandidateDisk
 		if len(candidateDisks) >= i {

@@ -157,7 +157,8 @@ func (self *SContainerDriver) RequestUndeployGuestOnHost(ctx context.Context, gu
 }
 
 func (self *SContainerDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	return guest.GetJsonDescAtHypervisor(ctx, host), nil
+	desc := guest.GetJsonDescAtHypervisor(ctx, host)
+	return jsonutils.Marshal(desc), nil
 }
 
 func (self *SContainerDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {

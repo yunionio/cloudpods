@@ -82,9 +82,13 @@ func (self *GuestDeleteOnHostTask) OnUnDeployGuest(ctx context.Context, guest *m
 			self.OnFail(ctx, guest, jsonutils.NewString(err.Error()))
 			return
 		}
-		guestdisks := guest.GetDisks()
-		for i := 0; i < len(guestdisks); i++ {
-			disk := guestdisks[i].GetDisk()
+		disks, err := guest.GetDisks()
+		if err != nil {
+			self.OnFail(ctx, guest, jsonutils.NewString(err.Error()))
+			return
+		}
+		for i := 0; i < len(disks); i++ {
+			disk := &disks[i]
 			_, err := db.Update(disk, func() error {
 				disk.BackupStorageId = ""
 				return nil

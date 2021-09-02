@@ -103,7 +103,7 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 	body := jsonutils.NewDict()
 	body.Set("target_host_id", jsonutils.NewString(targetHostId))
 
-	disks := guest.GetDisks()
+	disks, _ := guest.GetGuestDisks()
 	disk := disks[0].GetDisk()
 	storage, _ := disk.GetStorage()
 	isLocalStorage := utils.IsInStringArray(storage.StorageType,
@@ -282,7 +282,7 @@ func (self *GuestMigrateTask) sharedStorageMigrateConf(ctx context.Context, gues
 	body.Set("is_local_storage", jsonutils.JSONFalse)
 	body.Set("qemu_version", jsonutils.NewString(guest.GetQemuVersion(self.UserCred)))
 	targetDesc := guest.GetJsonDescAtHypervisor(ctx, targetHost)
-	body.Set("desc", targetDesc)
+	body.Set("desc", jsonutils.Marshal(targetDesc))
 	return body, false
 }
 
@@ -293,7 +293,7 @@ func (self *GuestMigrateTask) localStorageMigrateConf(ctx context.Context,
 		body.Update(data.(*jsonutils.JSONDict))
 	}
 	params := jsonutils.NewDict()
-	disks := guest.GetDisks()
+	disks, _ := guest.GetGuestDisks()
 	for i := 0; i < len(disks); i++ {
 		snapshots := models.SnapshotManager.GetDiskSnapshots(disks[i].DiskId)
 		snapshotIds := jsonutils.NewArray()
@@ -314,23 +314,16 @@ func (self *GuestMigrateTask) localStorageMigrateConf(ctx context.Context,
 	body.Set("server_url", jsonutils.NewString(serverUrl))
 	body.Set("qemu_version", jsonutils.NewString(guest.GetQemuVersion(self.UserCred)))
 	targetDesc := guest.GetJsonDescAtHypervisor(ctx, targetHost)
-	jsonDisks, _ := targetDesc.Get("disks")
-	if jsonDisks == nil {
-		self.TaskFailed(ctx, guest, jsonutils.NewString("Get jsonDisks error"))
-		return nil, true
-	}
-	disksDesc, _ := jsonDisks.GetArray()
-	if len(disksDesc) == 0 {
+	if len(targetDesc.Disks) == 0 {
 		self.TaskFailed(ctx, guest, jsonutils.NewString("Get disksDesc error"))
 		return nil, true
 	}
 	targetStorages, _ := self.Params.GetArray("target_storages")
 	for i := 0; i < len(disks); i++ {
-		diskDesc := disksDesc[i].(*jsonutils.JSONDict)
-		diskDesc.Set("target_storage_id", targetStorages[i])
+		targetDesc.Disks[i].TargetStorageId = targetStorages[i].String()
 	}
 
-	body.Set("desc", targetDesc)
+	body.Set("desc", jsonutils.Marshal(targetDesc))
 	body.Set("rebase_disks", jsonutils.JSONTrue)
 	body.Set("is_local_storage", jsonutils.JSONTrue)
 	return body, false
@@ -374,9 +367,9 @@ func (self *GuestMigrateTask) setGuest(ctx context.Context, guest *models.SGuest
 	targetHostId, _ := self.Params.GetString("target_host_id")
 	if jsonutils.QueryBoolean(self.Params, "is_local_storage", false) {
 		targetStorages, _ := self.Params.GetArray("target_storages")
-		guestDisks := guest.GetDisks()
-		for i := 0; i < len(guestDisks); i++ {
-			disk := guestDisks[i].GetDisk()
+		disks, _ := guest.GetDisks()
+		for i := 0; i < len(disks); i++ {
+			disk := &disks[i]
 			db.Update(disk, func() error {
 				disk.Status = api.DISK_READY
 				disk.StorageId, _ = targetStorages[i].GetString()

@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -143,8 +144,12 @@ func (self *SBaseHostDriver) FinishConvert(userCred mcclient.TokenCredential, ho
 	if err != nil {
 		return err
 	}
-	for _, guestdisk := range guest.GetDisks() {
-		disk := guestdisk.GetDisk()
+	disks, err := guest.GetDisks()
+	if err != nil {
+		return errors.Wrapf(err, "GetDisks")
+	}
+	for i := range disks {
+		disk := &disks[i]
 		db.Update(disk, func() error {
 			disk.DiskSize = 0
 			return nil
