@@ -120,6 +120,10 @@ func GetModels(opts *GetModelsOptions) error {
 			"cloud_env=onpremise",
 		)
 	}
+	if inter, ok := opts.ModelSet.(IModelSetFilter); ok {
+		filter := inter.ModelFilter()
+		listOptions.Filter = append(listOptions.Filter, filter...)
+	}
 	if !minUpdatedAt.Equal(PseudoZeroTime) {
 		// Only fetching pending deletes when we are doing incremental fetch
 		listOptions.PendingDeleteAll = options.Bool(true)
@@ -128,6 +132,10 @@ func GetModels(opts *GetModelsOptions) error {
 	params, err := listOptions.Params()
 	if err != nil {
 		return fmt.Errorf("%s: making list params: %s", manKeyPlural, err)
+	}
+	if inter, ok := opts.ModelSet.(IModelListParam); ok {
+		filter := inter.ModelParamFilter()
+		params.Update(filter)
 	}
 	//XXX
 	//params.Set(api.LBAGENT_QUERY_ORIG_KEY, jsonutils.NewString(api.LBAGENT_QUERY_ORIG_VAL))
