@@ -175,13 +175,9 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 
 func DeployGuestFs(
 	rootfs fsdriver.IRootFsDriver,
-	guestDesc *jsonutils.JSONDict,
+	desc *deployapi.GuestDesc,
 	deployInfo *deployapi.DeployInfo,
 ) (jsonutils.JSONObject, error) {
-	desc, err := deployapi.GuestDescToDeployDesc(guestDesc)
-	if err != nil {
-		return nil, errors.Wrap(err, "To deploy desc fail")
-	}
 	ret, err := DoDeployGuestFs(rootfs, desc, deployInfo)
 	if err != nil {
 		return nil, err
