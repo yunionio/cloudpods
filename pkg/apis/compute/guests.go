@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/billing"
 )
@@ -619,4 +621,70 @@ type ServerUpdateInput struct {
 	SrcMacCheck *bool `json:"src_mac_check"`
 
 	SshPort int `json:"ssh_port"`
+}
+
+type GuestJsonDesc struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	UUID        string `json:"uuid"`
+	Mem         int    `json:"mem"`
+	Cpu         int    `json:"cpu"`
+	Vga         string `json:"vga"`
+	Vdi         string `json:"vdi"`
+	Machine     string `json:"machie"`
+	Bios        string `json:"bios"`
+	BootOrder   string `json:"boot_order"`
+	SrcIpCheck  bool   `json:"src_ip_check"`
+	SrcMacCheck bool   `json:"src_mac_check"`
+	IsMaster    *bool  `json:"is_master"`
+	IsSlave     *bool  `json:"is_slave"`
+	HostId      string `json:"host_id"`
+
+	IsolatedDevices []*IsolatedDeviceJsonDesc `json:"isolated_devices"`
+
+	Domain string `json:"domain"`
+
+	Nics  []*GuestnetworkJsonDesc `json:"nics"`
+	Disks []*GuestdiskJsonDesc    `json:"disks"`
+
+	Cdrom *GuestcdromJsonDesc `json:"cdrom"`
+
+	Tenant        string `json:"tenant"`
+	TenantId      string `json:"tenant_id"`
+	DomainId      string `json:"domain_id"`
+	ProjectDomain string `json:"project_domain"`
+
+	Keypair string `json:"keypair"`
+	Pubkey  string `json:"pubkey"`
+
+	NetworkRoles []string `json:"network_roles"`
+
+	Secgroups          []*SecgroupJsonDesc `json:"secgroups"`
+	SecurityRules      string              `json:"security_rules"`
+	AdminSecurityRules string              `json:"admin_security_rules"`
+
+	ExtraOptions jsonutils.JSONObject `json:"extra_options"`
+
+	Kvm string `json:"kvm"`
+
+	Zone   string `json:"zone"`
+	ZoneId string `json:"zone_id"`
+
+	OsName string `json:"os_name"`
+
+	Metadata       map[string]string `json:"metadata"`
+	UserData       string            `json:"user_data"`
+	PendingDeleted bool              `json:"pending_deleted"`
+
+	ScallingGroupId string `json:"scalling_group_id"`
+
+	// baremetal
+	DiskConfig  jsonutils.JSONObject    `json:"disk_config"`
+	NicsStandby []*GuestnetworkJsonDesc `json:"nics_standby"`
+
+	// esxi
+	InstanceSnapshotInfo struct {
+		InstanceSnapshotId string `json:"instance_snapshot_id"`
+		InstanceId         string `json:"instance_id"`
+	} `json:"instance_snapshot_info"`
 }

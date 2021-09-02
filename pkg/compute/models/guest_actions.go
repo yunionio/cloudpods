@@ -1861,7 +1861,7 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 			return nil, err
 		}
 	} else {
-		devs := self.GetIsolatedDevices()
+		devs, _ := self.GetIsolatedDevices()
 		host, _ := self.GetHost()
 		lockman.LockObject(ctx, host)
 		defer lockman.ReleaseObject(ctx, host)
@@ -2532,7 +2532,10 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		addMem = 0
 	}
 
-	disks := self.GetDisks()
+	disks, err := self.GetGuestDisks()
+	if err != nil {
+		return nil, err
+	}
 	var addDisk int
 	var newDiskIdx = 0
 	var newDisks = make([]*api.DiskConfig, 0)
@@ -2632,6 +2635,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SGuest) changeConfToSchedDesc(addCpu, addMem int, schedInputDisks []*api.DiskConfig) *schedapi.ScheduleInput {
+	devs, _ := self.GetIsolatedDevices()
 	desc := &schedapi.ScheduleInput{
 		ServerConfig: schedapi.ServerConfig{
 			ServerConfigs: &api.ServerConfigs{
@@ -2645,7 +2649,7 @@ func (self *SGuest) changeConfToSchedDesc(addCpu, addMem int, schedInputDisks []
 			Domain:  self.DomainId,
 		},
 		ChangeConfig:      true,
-		HasIsolatedDevice: len(self.GetIsolatedDevices()) > 0,
+		HasIsolatedDevice: len(devs) > 0,
 	}
 	return desc
 }
@@ -2681,13 +2685,13 @@ func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.Token
 		eip.DoPendingDelete(ctx, userCred)
 	}
 
-	for _, guestdisk := range self.GetDisks() {
-		disk := guestdisk.GetDisk()
-		if !disk.IsDetachable() {
-			disk.DoPendingDelete(ctx, userCred)
+	disks, _ := self.GetDisks()
+	for i := range disks {
+		if !disks[i].IsDetachable() {
+			disks[i].DoPendingDelete(ctx, userCred)
 		} else {
 			log.Warningf("detachable disk on pending delete guests!!! should be removed earlier")
-			self.DetachDisk(ctx, disk, userCred)
+			self.DetachDisk(ctx, &disks[i], userCred)
 		}
 	}
 	backends := []SLoadbalancerBackend{}
@@ -2723,8 +2727,8 @@ func (self *SGuest) DoCancelPendingDelete(ctx context.Context, userCred mcclient
 		eip.DoCancelPendingDelete(ctx, userCred)
 	}
 
-	for _, guestdisk := range self.GetDisks() {
-		disk := guestdisk.GetDisk()
+	disks, _ := self.GetDisks()
+	for _, disk := range disks {
 		disk.DoCancelPendingDelete(ctx, userCred)
 	}
 	if self.BillingType == billing_api.BILLING_TYPE_POSTPAID && !self.ExpiredAt.IsZero() {
@@ -3483,8 +3487,9 @@ func (self *SGuest) AllowPerformCreateBackup(ctx context.Context, userCred mccli
 }
 
 func (self *SGuest) guestDisksStorageTypeIsLocal() bool {
-	for _, gd := range self.GetDisks() {
-		storage, _ := gd.GetDisk().GetStorage()
+	disks, _ := self.GetDisks()
+	for _, disk := range disks {
+		storage, _ := disk.GetStorage()
 		if storage.StorageType != api.STORAGE_LOCAL {
 			return false
 		}
@@ -3493,8 +3498,9 @@ func (self *SGuest) guestDisksStorageTypeIsLocal() bool {
 }
 
 func (self *SGuest) guestDisksStorageTypeIsShared() bool {
-	for _, gd := range self.GetDisks() {
-		storage, _ := gd.GetDisk().GetStorage()
+	disks, _ := self.GetDisks()
+	for _, disk := range disks {
+		storage, _ := disk.GetStorage()
 		if storage.StorageType == api.STORAGE_LOCAL {
 			return false
 		}
@@ -3515,7 +3521,8 @@ func (self *SGuest) PerformCreateBackup(
 	if self.Hypervisor != api.HYPERVISOR_KVM {
 		return nil, httperrors.NewBadRequestError("Backup only support hypervisor kvm")
 	}
-	if len(self.GetIsolatedDevices()) > 0 {
+	devs, _ := self.GetIsolatedDevices()
+	if len(devs) > 0 {
 		return nil, httperrors.NewBadRequestError("Cannot create backup with isolated devices")
 	}
 	hasSnapshot, err := self.GuestDisksHasSnapshot()
@@ -3700,10 +3707,12 @@ func (self *SGuest) PerformCancelExpire(ctx context.Context, userCred mcclient.T
 	if err := self.GetDriver().CancelExpireTime(ctx, userCred, self); err != nil {
 		return nil, err
 	}
-	guestdisks := self.GetDisks()
-	for i := 0; i < len(guestdisks); i += 1 {
-		disk := guestdisks[i].GetDisk()
-		if err := disk.CancelExpireTime(ctx, userCred); err != nil {
+	disks, err := self.GetDisks()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(disks); i += 1 {
+		if err := disks[i].CancelExpireTime(ctx, userCred); err != nil {
 			return nil, err
 		}
 	}
@@ -3760,7 +3769,7 @@ func (self *SGuest) PerformRenew(ctx context.Context, userCred mcclient.TokenCre
 }
 
 func (self *SGuest) GetStorages() []*SStorage {
-	disks := self.GetDisks()
+	disks, _ := self.GetDisks()
 	storageMap := make(map[string]*SStorage)
 	for i := range disks {
 		storage, _ := disks[i].GetStorage()
@@ -3827,11 +3836,13 @@ func (self *SGuest) SaveRenewInfo(
 	if err != nil {
 		return err
 	}
-	guestdisks := self.GetDisks()
-	for i := 0; i < len(guestdisks); i += 1 {
-		disk := guestdisks[i].GetDisk()
-		if disk.AutoDelete {
-			err = disk.SaveRenewInfo(ctx, userCred, bc, expireAt, billingType)
+	disks, err := self.GetDisks()
+	if err != nil {
+		return err
+	}
+	for i := 0; i < len(disks); i += 1 {
+		if disks[i].AutoDelete {
+			err = disks[i].SaveRenewInfo(ctx, userCred, bc, expireAt, billingType)
 			if err != nil {
 				return err
 			}
@@ -3889,14 +3900,17 @@ func (self *SGuest) AllowPerformStreamDisksComplete(ctx context.Context, userCre
 }
 
 func (self *SGuest) PerformStreamDisksComplete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	for _, disk := range self.GetDisks() {
-		d := disk.GetDisk()
-		if len(d.SnapshotId) > 0 && d.GetMetadata("merge_snapshot", userCred) == "true" {
-			SnapshotManager.AddRefCount(d.SnapshotId, -1)
-			d.SetMetadata(ctx, "merge_snapshot", jsonutils.JSONFalse, userCred)
+	disks, err := self.GetDisks()
+	if err != nil {
+		return nil, err
+	}
+	for _, disk := range disks {
+		if len(disk.SnapshotId) > 0 && disk.GetMetadata("merge_snapshot", userCred) == "true" {
+			SnapshotManager.AddRefCount(disk.SnapshotId, -1)
+			disk.SetMetadata(ctx, "merge_snapshot", jsonutils.JSONFalse, userCred)
 		}
-		if len(d.GetMetadata(api.DISK_META_ESXI_FLAT_FILE_PATH, nil)) > 0 {
-			d.SetMetadata(ctx, api.DISK_META_ESXI_FLAT_FILE_PATH, "", userCred)
+		if len(disk.GetMetadata(api.DISK_META_ESXI_FLAT_FILE_PATH, nil)) > 0 {
+			disk.SetMetadata(ctx, api.DISK_META_ESXI_FLAT_FILE_PATH, "", userCred)
 		}
 	}
 	return nil, nil
@@ -4168,7 +4182,10 @@ func (self *SGuest) GenerateVirtInstallCommandLine(
 	host, _ := self.GetHost()
 
 	// disks
-	guestDisks := self.GetDisks()
+	guestDisks, err := self.GetGuestDisks()
+	if err != nil {
+		return "", errors.Wrapf(err, "GetGuestDisks")
+	}
 	for _, guestDisk := range guestDisks {
 		disk := guestDisk.GetDisk()
 		cmd += L(
@@ -4193,7 +4210,7 @@ func (self *SGuest) GenerateVirtInstallCommandLine(
 	}
 
 	// isolated devices
-	isolatedDevices := self.GetIsolatedDevices()
+	isolatedDevices, _ := self.GetIsolatedDevices()
 	for _, isolatedDev := range isolatedDevices {
 		cmd += L(fmt.Sprintf("--hostdev %s", isolatedDev.Addr))
 	}
@@ -4398,12 +4415,12 @@ func (self *SGuest) PerformSyncFixNics(ctx context.Context,
 }
 
 func (guest *SGuest) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
-	guestdisks := guest.GetDisks()
-	for i := range guestdisks {
-		disk := guestdisks[i].GetDisk()
-		if disk == nil {
-			return nil, httperrors.NewInternalServerError("some disk missing!!!")
-		}
+	disks, err := guest.GetDisks()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDisks")
+	}
+	for i := range disks {
+		disk := disks[i]
 		_, err := disk.PerformChangeOwner(ctx, userCred, query, input)
 		if err != nil {
 			return nil, err
@@ -4550,7 +4567,8 @@ func (self *SGuest) validateForBatchMigrate(ctx context.Context, rescueMode bool
 	if len(guest.BackupHostId) > 0 {
 		return guest, httperrors.NewBadRequestError("guest %s has backup, can't migrate", guest.Name)
 	}
-	if len(guest.GetIsolatedDevices()) > 0 {
+	devs, _ := guest.GetIsolatedDevices()
+	if len(devs) > 0 {
 		return guest, httperrors.NewBadRequestError("guest %s has isolated device, can't migrate", guest.Name)
 	}
 	if rescueMode {
@@ -4563,12 +4581,6 @@ func (self *SGuest) validateForBatchMigrate(ctx context.Context, rescueMode bool
 		return guest, httperrors.NewBadRequestError("guest %s status %s can't migrate", guest.Name, guest.Status)
 	}
 	if guest.Status == api.VM_RUNNING {
-		if len(guest.GetIsolatedDevices()) > 0 {
-			return guest, httperrors.NewBadRequestError(
-				"guest %s status %s has isolated device, can't do migrate",
-				guest.Name, guest.Status,
-			)
-		}
 		cdrom := guest.getCdrom(false)
 		if cdrom != nil && len(cdrom.ImageId) > 0 {
 			return guest, httperrors.NewBadRequestError("cannot migrate with cdrom")
@@ -4723,10 +4735,13 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 	host, _ := self.GetHost()
 	provider := host.GetProviderName()
 	if utils.IsInStringArray(provider, ProviderHasSubSnapshot) {
-		disks := self.GetDisks()
+		disks, err := self.GetDisks()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetDisks")
+		}
 		for i := 0; i < len(disks); i++ {
-			if storage, _ := disks[i].GetDisk().GetStorage(); utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
-				count, err := SnapshotManager.GetDiskManualSnapshotCount(disks[i].DiskId)
+			if storage, _ := disks[i].GetStorage(); utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
+				count, err := SnapshotManager.GetDiskManualSnapshotCount(disks[i].Id)
 				if err != nil {
 					return nil, httperrors.NewInternalServerError("%v", err)
 				}

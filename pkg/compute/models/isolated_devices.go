@@ -585,15 +585,14 @@ func (manager *SIsolatedDeviceManager) TotalCount(
 	return stat, nil
 }
 
-func (self *SIsolatedDevice) getDesc() *jsonutils.JSONDict {
-	desc := jsonutils.NewDict()
-	desc.Add(jsonutils.NewString(self.Id), "id")
-	desc.Add(jsonutils.NewString(self.DevType), "dev_type")
-	desc.Add(jsonutils.NewString(self.Model), "model")
-	desc.Add(jsonutils.NewString(self.Addr), "addr")
-	desc.Add(jsonutils.NewString(self.VendorDeviceId), "vendor_device_id")
-	desc.Add(jsonutils.NewString(self.getVendor()), "vendor")
-	return desc
+func (self *SIsolatedDevice) getDesc() *api.IsolatedDeviceJsonDesc {
+	return &api.IsolatedDeviceJsonDesc{
+		Id:             self.Id,
+		DevType:        self.DevType,
+		Model:          self.Model,
+		VendorDeviceId: self.VendorDeviceId,
+		Vendor:         self.getVendor(),
+	}
 }
 
 func (man *SIsolatedDeviceManager) GetSpecShouldCheckStatus(query *jsonutils.JSONDict) (bool, error) {
@@ -631,20 +630,10 @@ func (man *SIsolatedDeviceManager) GetSpecIdent(spec *jsonutils.JSONDict) []stri
 }
 
 func (self *SIsolatedDevice) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
-	desc := self.getDesc()
+	desc := jsonutils.NewDict()
+	desc.Update(jsonutils.Marshal(self.getDesc()))
 	desc.Add(jsonutils.NewString(IsolatedDeviceManager.Keyword()), "res_name")
 	return desc
-}
-
-func (manager *SIsolatedDeviceManager) generateJsonDescForGuest(guest *SGuest) []jsonutils.JSONObject {
-	ret := make([]jsonutils.JSONObject, 0)
-	devs := manager.findAttachedDevicesOfGuest(guest)
-	if devs != nil && len(devs) > 0 {
-		for _, dev := range devs {
-			ret = append(ret, dev.getDesc())
-		}
-	}
-	return ret
 }
 
 func (self *SIsolatedDevice) getHost() *SHost {

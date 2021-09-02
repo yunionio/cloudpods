@@ -138,7 +138,8 @@ func (self *GuestConvertEsxiToKvmTask) RequestHostCreateGuestFromEsxi(
 ) error {
 	host, _ := guest.GetHost()
 	params := jsonutils.NewDict()
-	params.Set("desc", guest.GetJsonDescAtHypervisor(ctx, host))
+	desc := guest.GetJsonDescAtHypervisor(ctx, host)
+	params.Set("desc", jsonutils.Marshal(desc))
 	params.Set("esxi_access_info", esxiAccessInfo)
 	url := fmt.Sprintf("%s/servers/%s/create-form-esxi", host.ManagerUri, guest.Id)
 	header := self.GetTaskRequestHeader()
@@ -153,7 +154,7 @@ func (self *GuestConvertEsxiToKvmTask) OnHostCreateGuest(
 	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
 ) {
 	targetGuest := self.getTargetGuest()
-	guestDisks := targetGuest.GetDisks()
+	guestDisks, _ := targetGuest.GetGuestDisks()
 	for i := 0; i < len(guestDisks); i++ {
 		disk := guestDisks[i].GetDisk()
 		esxiFlatFilePath, _ := data.GetString(disk.Id, "esxi_flat_filepath")

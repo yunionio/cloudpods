@@ -176,7 +176,8 @@ func (self *HostImportLibvirtServersTask) CreateImportedLibvirtGuestOnHost(
 		disksPath.Set(disk.DiskId, jsonutils.NewString(disk.AccessPath))
 	}
 	body := jsonutils.NewDict()
-	body.Set("desc", guest.GetJsonDescAtHypervisor(ctx, host))
+	desc := guest.GetJsonDescAtHypervisor(ctx, host)
+	body.Set("desc", jsonutils.Marshal(desc))
 	body.Set("disks_path", disksPath)
 	if len(guestDesc.MonitorPath) > 0 {
 		body.Set("monitor_path", jsonutils.NewString(guestDesc.MonitorPath))
@@ -209,7 +210,7 @@ func (self *CreateImportedLibvirtGuestTask) OnInit(
 	if err != nil {
 		self.TaskFailed(ctx, guest, jsonutils.NewString("guest create on host no disk access path feedback"))
 	}
-	guestDisks := guest.GetDisks()
+	guestDisks, _ := guest.GetGuestDisks()
 	for i := 0; i < len(guestDisks); i++ {
 		disk := guestDisks[i].GetDisk()
 		if accessPath, ok := disksPath[disk.Id]; !ok {

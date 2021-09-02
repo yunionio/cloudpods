@@ -366,12 +366,11 @@ func (self *SSecurityGroup) GetSecgroupCacheCount() (int, error) {
 	return self.GetSecgroupCacheQuery().CountWithError()
 }
 
-func (self *SSecurityGroup) getDesc() jsonutils.JSONObject {
-	desc := jsonutils.NewDict()
-	desc.Add(jsonutils.NewString(self.Name), "name")
-	desc.Add(jsonutils.NewString(self.Id), "id")
-	//desc.Add(jsonutils.NewString(self.getSecurityRuleString("")), "security_rules")
-	return desc
+func (self *SSecurityGroup) getDesc() *api.SecgroupJsonDesc {
+	return &api.SecgroupJsonDesc{
+		Id:   self.Id,
+		Name: self.Name,
+	}
 }
 
 func (manager *SSecurityGroupManager) FetchCustomizeColumns(

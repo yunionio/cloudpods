@@ -1007,7 +1007,7 @@ func (self *SKVMRegionDriver) RequestDeleteInstanceSnapshot(ctx context.Context,
 }
 
 func (self *SKVMRegionDriver) RequestResetToInstanceSnapshot(ctx context.Context, guest *models.SGuest, isp *models.SInstanceSnapshot, task taskman.ITask, params *jsonutils.JSONDict) error {
-	disks := guest.GetDisks()
+	disks, _ := guest.GetGuestDisks()
 	diskIndexI64, err := params.Int("disk_index")
 	if err != nil {
 		return errors.Wrap(err, "get 'disk_index' from params")
@@ -1055,7 +1055,7 @@ func (self *SKVMRegionDriver) RequestCreateSnapshot(ctx context.Context, snapsho
 }
 
 func (self *SKVMRegionDriver) RequestCreateInstanceSnapshot(ctx context.Context, guest *models.SGuest, isp *models.SInstanceSnapshot, task taskman.ITask, params *jsonutils.JSONDict) error {
-	disks := guest.GetDisks()
+	disks, _ := guest.GetGuestDisks()
 	diskIndexI64, err := params.Int("disk_index")
 	if err != nil {
 		return errors.Wrap(err, "get 'disk_index' from params")
