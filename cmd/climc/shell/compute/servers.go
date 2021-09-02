@@ -88,6 +88,7 @@ func init() {
 	cmd.Perform("create-eip", &options.ServerCreateEipOptions{})
 	cmd.Perform("make-sshable", &options.ServerMakeSshableOptions{})
 	cmd.Perform("migrate-network", &options.ServerMigrateNetworkOptions{})
+	cmd.Perform("set-sshport", &options.ServerSetSshportOptions{})
 
 	cmd.Get("vnc", new(options.ServerIdOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))
