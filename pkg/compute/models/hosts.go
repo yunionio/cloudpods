@@ -1772,6 +1772,7 @@ func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.Toke
 		self.StorageSize = extHost.GetStorageSizeMB()
 		self.StorageType = extHost.GetStorageType()
 		self.HostType = extHost.GetHostType()
+		self.OvnVersion = extHost.GetOvnVersion()
 
 		if cpuCmt := extHost.GetCpuCmtbound(); cpuCmt > 0 {
 			self.CpuCmtbound = cpuCmt
@@ -1991,6 +1992,7 @@ func (manager *SHostManager) NewFromCloudHost(ctx context.Context, userCred mccl
 	host.ZoneId = izone.Id
 
 	host.HostType = extHost.GetHostType()
+	host.OvnVersion = extHost.GetOvnVersion()
 
 	host.Status = extHost.GetStatus()
 	host.HostStatus = extHost.GetHostStatus()

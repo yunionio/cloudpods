@@ -15,11 +15,14 @@
 package guestdrivers
 
 import (
+	"yunion.io/x/pkg/utils"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -83,6 +86,16 @@ func (self *SCloudpodsGuestDriver) IsSupportMigrate() bool {
 
 func (self *SCloudpodsGuestDriver) IsSupportLiveMigrate() bool {
 	return true
+}
+
+func (self *SCloudpodsGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
+	if guest.GetDiskIndex(disk.Id) <= 0 && guest.Status == api.VM_RUNNING {
+		return httperrors.NewUnsupportOperationError("Cann't online resize root disk")
+	}
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING}) {
+		return httperrors.NewServerStatusError("Cannot resize disk when guest in status %s", guest.Status)
+	}
+	return nil
 }
 
 func (self *SCloudpodsGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {

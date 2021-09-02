@@ -459,3 +459,7 @@ func (self *SBaseRegionDriver) ValidateCreateWafInstanceData(ctx context.Context
 func (self *SBaseRegionDriver) ValidateCreateWafRuleData(ctx context.Context, userCred mcclient.TokenCredential, waf *models.SWafInstance, input api.WafRuleCreateInput) (api.WafRuleCreateInput, error) {
 	return input, errors.Wrapf(cloudprovider.ErrNotImplemented, "ValidateCreateWafRuleData")
 }
+
+func (self *SBaseRegionDriver) RequestCreateNetwork(ctx context.Context, userCred mcclient.TokenCredential, net *models.SNetwork) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestCreateNetwork")
+}
