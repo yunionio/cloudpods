@@ -18,15 +18,16 @@ package storageman
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type SRbdImageCacheManager struct {
@@ -92,7 +93,7 @@ func (c *SRbdImageCacheManager) loadCache(ctx context.Context) {
 
 func (c *SRbdImageCacheManager) LoadImageCache(imageId string) {
 	imageCache := NewRbdImageCache(imageId, c)
-	if imageCache.Load() {
+	if imageCache.Load() == nil {
 		c.cachedImages[imageId] = imageCache
 	}
 }
@@ -107,29 +108,42 @@ func (c *SRbdImageCacheManager) PrefetchImageCache(ctx context.Context, data int
 		return nil, hostutils.ParamsError
 	}
 
-	imageId, err := body.GetString("image_id")
+	input := struct {
+		ImageId  string
+		Format   string
+		SrcUrl   string
+		Checksum string
+		Zone     string
+	}{}
+	err := body.Unmarshal(&input)
 	if err != nil {
-		return nil, err
-	}
-	format, _ := body.GetString("format")
-	srcUrl, _ := body.GetString("src_url")
-	zone, _ := body.GetString("zone")
-	checksum, _ := body.GetString("checksum")
-
-	cache := c.AcquireImage(ctx, imageId, zone, srcUrl, format, checksum)
-	if cache == nil {
-		return nil, fmt.Errorf("failed to cache image %s.%s", imageId, format)
+		return nil, errors.Wrapf(err, "input.Unmarshal")
 	}
 
-	res := map[string]interface{}{
-		"image_id": imageId,
-		"path":     cache.GetPath(),
+	if len(input.ImageId) == 0 {
+		return nil, httperrors.NewMissingParameterError("image_id")
 	}
+
+	cache, err := c.AcquireImage(ctx, input.ImageId, input.Zone, input.SrcUrl, input.Format, input.Checksum)
+	if err != nil {
+		return nil, errors.Wrapf(err, "AcquireImage")
+	}
+
+	ret := struct {
+		ImageId string
+		Path    string
+		Name    string
+		Size    int64
+	}{
+		ImageId: input.ImageId,
+		Path:    cache.GetPath(),
+	}
+
 	if desc := cache.GetDesc(); desc != nil {
-		res["name"] = desc.Name
-		res["size"] = desc.Size
+		ret.Name = desc.Name
+		ret.Size = desc.Size
 	}
-	return jsonutils.Marshal(res), nil
+	return jsonutils.Marshal(ret), nil
 }
 
 func (c *SRbdImageCacheManager) DeleteImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error) {
@@ -153,7 +167,7 @@ func (c *SRbdImageCacheManager) removeImage(ctx context.Context, imageId string)
 	return nil
 }
 
-func (c *SRbdImageCacheManager) AcquireImage(ctx context.Context, imageId, zone, srcUrl, format, checksum string) IImageCache {
+func (c *SRbdImageCacheManager) AcquireImage(ctx context.Context, imageId, zone, srcUrl, format, checksum string) (IImageCache, error) {
 	lockman.LockRawObject(ctx, "image-cache", imageId)
 	defer lockman.ReleaseRawObject(ctx, "image-cache", imageId)
 
@@ -162,10 +176,8 @@ func (c *SRbdImageCacheManager) AcquireImage(ctx context.Context, imageId, zone,
 		img = NewRbdImageCache(imageId, c)
 		c.cachedImages[imageId] = img
 	}
-	if img.Acquire(ctx, zone, srcUrl, format, checksum) {
-		return img
-	}
-	return nil
+
+	return img, img.Acquire(ctx, zone, srcUrl, format, checksum)
 }
 
 func (c *SRbdImageCacheManager) ReleaseImage(ctx context.Context, imageId string) {

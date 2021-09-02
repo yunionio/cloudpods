@@ -182,16 +182,19 @@ func (d *SRBDDisk) createFromTemplate(ctx context.Context, imageId, format strin
 	if imageCacheManager == nil {
 		return nil, fmt.Errorf("failed to find image cache manger for storage %s", d.Storage.GetStorageName())
 	}
-	imageCache := imageCacheManager.AcquireImage(ctx, imageId, d.GetZoneName(), "", "", "")
-	if imageCache == nil {
-		return nil, fmt.Errorf("failed to qcquire image for storage %s", d.Storage.GetStorageName())
+	imageCache, err := imageCacheManager.AcquireImage(ctx, imageId, d.GetZoneName(), "", "", "")
+	if err != nil {
+		return nil, errors.Wrapf(err, "AcquireImage")
 	}
+
 	defer imageCacheManager.ReleaseImage(ctx, imageId)
+
 	storage := d.Storage.(*SRbdStorage)
 	destPool, _ := storage.StorageConf.GetString("pool")
 	storage.deleteImage(destPool, d.Id) //重装系统时，需要删除以前的系统盘
-	if err := storage.cloneImage(ctx, imageCacheManager.GetPath(), imageCache.GetName(), destPool, d.Id); err != nil {
-		return nil, err
+	err = storage.cloneImage(ctx, imageCacheManager.GetPath(), imageCache.GetName(), destPool, d.Id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "cloneImage(%s)", imageCache.GetName())
 	}
 	return d.GetDiskDesc(), nil
 }
