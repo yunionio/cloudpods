@@ -91,7 +91,7 @@ func (self *SImage) GetOsType() cloudprovider.TOsType {
 }
 
 func (self *SImage) GetOsDist() string {
-	osDist, ok := self.Properties["os_dist"]
+	osDist, ok := self.Properties["os_distribution"]
 	if ok {
 		return osDist
 	}
@@ -107,6 +107,10 @@ func (self *SImage) GetOsVersion() string {
 }
 
 func (self *SImage) GetOsArch() string {
+	osArch, ok := self.Properties["os_arch"]
+	if ok {
+		return osArch
+	}
 	return self.OsArch
 }
 
