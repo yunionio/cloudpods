@@ -103,6 +103,41 @@ func (manager *SMonitorResourceManager) GetMonitorResources(input monitor.Monito
 	return monitorResources, nil
 }
 
+type SdeleteRes struct {
+	resType string
+	notIn   []string
+	in      []string
+}
+
+func (manager *SMonitorResourceManager) DeleteMonitorResources(ctx context.Context, userCred mcclient.TokenCredential, input SdeleteRes) error {
+	monitorResources := make([]SMonitorResource, 0)
+	errs := make([]error, 0)
+	query := manager.Query()
+	if len(input.notIn) != 0 {
+		query.NotIn("res_id", input.notIn)
+	}
+	if len(input.in) != 0 {
+		query.In("res_id", input.in)
+	}
+	if len(input.resType) != 0 {
+		query.Equals("res_type", input.resType)
+	}
+	err := db.FetchModelObjects(manager, query, &monitorResources)
+	if err != nil {
+		return errors.Wrap(err, "SMonitorResourceManager FetchModelObjects when DeleteMonitorResources err")
+	}
+	for _, res := range monitorResources {
+		err := (&res).RealDelete(ctx, userCred)
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "delete monitorResource:%s err", res.GetId()))
+		}
+	}
+	if len(errs) != 0 {
+		return errors.NewAggregate(errs)
+	}
+	return nil
+}
+
 func (manager *SMonitorResourceManager) GetMonitorResourceById(id string) (*SMonitorResource, error) {
 	iModel, err := db.FetchById(manager, id)
 	if err != nil {
@@ -401,6 +436,7 @@ func (manager *SMonitorResourceManager) SyncResources(ctx context.Context, mss *
 	userCred := auth.AdminCredential()
 	errs := make([]error, 0)
 	log.Infoln("start sync")
+	aliveIds := make([]string, 0)
 	for _, set := range mss.ModelSetList() {
 		setRv := reflect.ValueOf(set)
 		needSync, typ := manager.GetSetType(set)
@@ -420,6 +456,7 @@ func (manager *SMonitorResourceManager) SyncResources(ctx context.Context, mss *
 				return errors.Wrap(err, "GetMonitorResources err")
 			}
 			if mRv.IsValid() {
+				aliveIds = append(aliveIds, kRv.String())
 				obj := jsonutils.Marshal(mRv.Interface())
 				if len(res) == 0 {
 					// no find to create
@@ -451,6 +488,10 @@ func (manager *SMonitorResourceManager) SyncResources(ctx context.Context, mss *
 					errs = append(errs, errors.Wrapf(err, "delete monitorResource:%s err", res[0].GetId()))
 				}
 			}
+		}
+		err := manager.DeleteMonitorResources(ctx, userCred, SdeleteRes{notIn: aliveIds, resType: typ})
+		if err != nil {
+			return err
 		}
 	}
 	log.Infoln("SMonitorResourceManager SyncResources End")

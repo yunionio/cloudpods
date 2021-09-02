@@ -15,6 +15,8 @@
 package models
 
 import (
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/apihelper"
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -130,6 +132,10 @@ func (s Servers) NeedSync() bool {
 	return true
 }
 
+func (s Servers) ModelFilter() []string {
+	return []string{"hypervisor.notin(baremetal,container)"}
+}
+
 func (h Hosts) AddModel(i db.IModel) {
 	resource := i.(*Host)
 	h[resource.Id] = resource
@@ -153,6 +159,12 @@ func (h Hosts) GetResType() string {
 
 func (s Hosts) NeedSync() bool {
 	return true
+}
+
+func (s Hosts) ModelParamFilter() jsonutils.JSONObject {
+	param := jsonutils.NewDict()
+	param.Set("baremetal", jsonutils.NewBool(false))
+	return param
 }
 
 func (r Rds) ModelManager() modulebase.IBaseManager {
