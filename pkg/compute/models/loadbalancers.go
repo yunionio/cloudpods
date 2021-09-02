@@ -190,11 +190,16 @@ func (man *SLoadbalancerManager) ListItemFilter(
 		return nil, err
 	}
 
-	if len(query.Address) > 0 {
+	if len(query.Address) == 1 {
+		c1 := sqlchemy.In(q.Field("id"), ElasticipManager.Query("associate_id").Contains("ip_addr", query.Address[0]))
+		c2 := sqlchemy.Contains(q.Field("address"), query.Address[0])
+		q = q.Filter(sqlchemy.OR(c1, c2))
+	} else if len(query.Address) > 1 {
 		c1 := sqlchemy.In(q.Field("id"), ElasticipManager.Query("associate_id").In("ip_addr", query.Address))
 		c2 := sqlchemy.In(q.Field("address"), query.Address)
 		q = q.Filter(sqlchemy.OR(c1, c2))
 	}
+
 	if len(query.AddressType) > 0 {
 		q = q.In("address_type", query.AddressType)
 	}
