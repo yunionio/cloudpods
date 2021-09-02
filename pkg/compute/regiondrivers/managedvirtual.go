@@ -3121,3 +3121,46 @@ func (self *SManagedVirtualizationRegionDriver) RequestAssociatEip(ctx context.C
 	})
 	return nil
 }
+
+func (self *SManagedVirtualizationRegionDriver) RequestCreateNetwork(ctx context.Context, userCred mcclient.TokenCredential, net *models.SNetwork) error {
+	wire, err := net.GetWire()
+	if err != nil {
+		return errors.Wrapf(err, "GetWire")
+	}
+
+	iwire, err := wire.GetIWire()
+	if err != nil {
+		return errors.Wrapf(err, "GetIWire")
+	}
+
+	prefix, err := net.GetPrefix()
+	if err != nil {
+		return errors.Wrapf(err, "GetPrefix")
+	}
+
+	opts := cloudprovider.SNetworkCreateOptions{
+		Name: net.Name,
+		Cidr: prefix.String(),
+		Desc: net.Description,
+	}
+
+	provider := wire.GetCloudprovider()
+	opts.ProjectId, err = provider.SyncProject(ctx, userCred, net.ProjectId)
+	if err != nil {
+		log.Errorf("failed to sync project %s for create %s network %s error: %v", net.ProjectId, provider.Provider, net.Name, err)
+	}
+
+	inet, err := iwire.CreateINetwork(&opts)
+	if err != nil {
+		return errors.Wrapf(err, "CreateINetwork")
+	}
+
+	db.SetExternalId(net, userCred, inet.GetGlobalId())
+
+	err = cloudprovider.WaitStatus(inet, api.NETWORK_STATUS_AVAILABLE, 10*time.Second, 5*time.Minute)
+	if err != nil {
+		return errors.Wrapf(err, "Wait network available after 6 minutes status: %s", inet.GetStatus())
+	}
+
+	return net.SyncWithCloudNetwork(ctx, userCred, inet, nil, nil)
+}
