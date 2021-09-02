@@ -306,6 +306,8 @@ type ICloudHost interface {
 	GetIHostNics() ([]ICloudHostNetInterface, error)
 
 	GetSchedtags() ([]string, error)
+
+	GetOvnVersion() string // just for cloudpods host
 }
 
 type ICloudVM interface {

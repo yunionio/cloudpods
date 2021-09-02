@@ -18,7 +18,6 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -36,12 +35,11 @@ func init() {
 	taskman.RegisterTask(VpcCreateTask{})
 }
 
-func (self *VpcCreateTask) TaskFailed(ctx context.Context, vpc *models.SVpc, err jsonutils.JSONObject) {
-	log.Errorf("vpc create task fail: %s", err)
-	vpc.SetStatus(self.UserCred, api.VPC_STATUS_FAILED, err.String())
+func (self *VpcCreateTask) taskFailed(ctx context.Context, vpc *models.SVpc, err error) {
+	vpc.SetStatus(self.UserCred, api.VPC_STATUS_FAILED, err.Error())
 	db.OpsLog.LogEvent(vpc, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, vpc, logclient.ACT_ALLOCATE, err, self.UserCred, false)
-	self.SetStageFailed(ctx, err)
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *VpcCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -50,13 +48,13 @@ func (self *VpcCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 
 	region, err := vpc.GetRegion()
 	if err != nil {
-		self.TaskFailed(ctx, vpc, jsonutils.NewString(errors.Wrap(err, "vpc.GetRegion").Error()))
+		self.taskFailed(ctx, vpc, errors.Wrapf(err, "GetRegion"))
 		return
 	}
 	self.SetStage("OnCreateVpcComplete", nil)
 	err = region.GetDriver().RequestCreateVpc(ctx, self.UserCred, region, vpc, self)
 	if err != nil {
-		self.TaskFailed(ctx, vpc, jsonutils.NewString(err.Error()))
+		self.taskFailed(ctx, vpc, errors.Wrapf(err, "RequestCreateVpc"))
 		return
 	}
 }
@@ -67,5 +65,5 @@ func (self *VpcCreateTask) OnCreateVpcComplete(ctx context.Context, vpc *models.
 }
 
 func (self *VpcCreateTask) OnCreateVpcCompleteFailed(ctx context.Context, vpc *models.SVpc, data jsonutils.JSONObject) {
-	self.TaskFailed(ctx, vpc, data)
+	self.taskFailed(ctx, vpc, errors.Errorf(data.String()))
 }

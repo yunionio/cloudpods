@@ -146,6 +146,8 @@ type IRegionDriver interface {
 	RequestSyncNatGatewayStatus(ctx context.Context, userCred mcclient.TokenCredential, natgateway *SNatGateway, task taskman.ITask) error
 	RequestSyncBucketStatus(ctx context.Context, userCred mcclient.TokenCredential, bucket *SBucket, task taskman.ITask) error
 	RequestSyncDBInstanceBackupStatus(ctx context.Context, userCred mcclient.TokenCredential, backup *SDBInstanceBackup, task taskman.ITask) error
+
+	RequestCreateNetwork(ctx context.Context, userCred mcclient.TokenCredential, network *SNetwork) error
 }
 
 type IDBInstanceDriver interface {

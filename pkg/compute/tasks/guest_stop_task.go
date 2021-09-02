@@ -62,9 +62,12 @@ func (self *GuestStopTask) stopGuest(ctx context.Context, guest *models.SGuest) 
 func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(guest, db.ACT_STOP, guest.GetShortDesc(ctx), self.UserCred)
 	models.HostManager.ClearSchedDescCache(guest.HostId)
+	if guest.Status != api.VM_READY { // for kvm
+		guest.SetStatus(self.GetUserCred(), api.VM_READY, "")
+	}
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP, "success", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
-	if guest.Status == api.VM_READY && guest.DisableDelete.IsFalse() && guest.ShutdownBehavior == api.SHUTDOWN_TERMINATE {
+	if guest.DisableDelete.IsFalse() && guest.ShutdownBehavior == api.SHUTDOWN_TERMINATE {
 		guest.StartAutoDeleteGuestTask(ctx, self.UserCred, "")
 		return
 	}
