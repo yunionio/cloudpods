@@ -34,3 +34,7 @@ func (self *SHostBase) GetReservedMemoryMb() int {
 func (self *SHostBase) GetSchedtags() ([]string, error) {
 	return nil, nil
 }
+
+func (self *SHostBase) GetOvnVersion() string {
+	return ""
+}

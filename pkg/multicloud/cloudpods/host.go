@@ -52,6 +52,10 @@ func (self *SHost) GetAccessIp() string {
 	return self.AccessIp
 }
 
+func (self *SHost) GetOvnVersion() string {
+	return self.OvnVersion
+}
+
 func (self *SHost) Refresh() error {
 	host, err := self.zone.region.GetHost(self.Id)
 	if err != nil {
