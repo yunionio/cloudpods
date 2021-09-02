@@ -15,6 +15,8 @@
 package apihelper
 
 import (
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	mcclient "yunion.io/x/onecloud/pkg/mcclient"
 	mcclient_modulebase "yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -42,6 +44,14 @@ type IModelSet interface {
 
 type IModelSetEmulatedIncluder interface {
 	IncludeEmulated() bool
+}
+
+type IModelSetFilter interface {
+	ModelFilter() []string
+}
+
+type IModelListParam interface {
+	ModelParamFilter() jsonutils.JSONObject
 }
 
 func SyncModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (r ModelSetsUpdateResult, err error) {
