@@ -1614,6 +1614,12 @@ func (self *SGuest) PostUpdate(ctx context.Context, userCred mcclient.TokenCrede
 			log.Errorf("StartRemoteUpdateTask fail: %s", err)
 		}
 	}
+	if port, err := data.Int("ssh_port"); err != nil {
+		err := self.SetSshPort(ctx, userCred, int(port))
+		if err != nil {
+			log.Errorf("unable to set sshport for guest %s", self.GetId())
+		}
+	}
 }
 
 func (manager *SGuestManager) checkCreateQuota(
