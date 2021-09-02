@@ -670,6 +670,10 @@ func getDMIMemInfo(cli *ssh.Client) (*types.SDMIMemInfo, error) {
 	return sysutils.ParseDMIMemInfo(ret), nil
 }
 
+func GetNicsInfo(cli *ssh.Client) ([]*types.SNicDevInfo, error) {
+	return getNicsInfo(cli)
+}
+
 func getNicsInfo(cli *ssh.Client) ([]*types.SNicDevInfo, error) {
 	ret, err := cli.Run("/lib/mos/lsnic")
 	if err != nil {
