@@ -24,9 +24,12 @@ import (
 	"syscall"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -78,7 +81,7 @@ func (l *SLocalImageCache) GetName() string {
 	return l.imageId
 }
 
-func (l *SLocalImageCache) Load() bool {
+func (l *SLocalImageCache) Load() error {
 	var (
 		imgPath = l.GetPath()
 		infPath = l.GetInfPath()
@@ -88,16 +91,14 @@ func (l *SLocalImageCache) Load() bool {
 		if !fileutils2.Exists(infPath) {
 			img, err := qemuimg.NewQemuImage(imgPath)
 			if err != nil {
-				log.Errorln(err)
-				return false
+				return errors.Wrapf(err, "NewQemuImage(%s)", imgPath)
 			}
 			if !img.IsValid() {
-				return false
+				return fmt.Errorf("invalid local image %s", img.String())
 			}
 			chksum, err := fileutils2.MD5(imgPath)
 			if err != nil {
-				log.Errorln(err)
-				return false
+				return errors.Wrapf(err, "fileutils2.MD5(%s)", imgPath)
 			}
 			desc = &remotefile.SImageDesc{
 				Format: string(img.Format),
@@ -106,31 +107,23 @@ func (l *SLocalImageCache) Load() bool {
 				Path:   imgPath,
 				Size:   l.GetSize(),
 			}
-			bdesc, err := json.Marshal(desc)
+			err = fileutils2.FilePutContents(infPath, jsonutils.Marshal(desc).PrettyString(), false)
 			if err != nil {
-				log.Errorln(err)
-				return false
-			}
-			err = fileutils2.FilePutContents(infPath, string(bdesc), false)
-			if err != nil {
-				log.Errorf("File put content error %s", err)
-				return false
+				return errors.Wrapf(err, "fileutils2.FilePutContents(%s)", infPath)
 			}
 		} else {
 			sdesc, err := fileutils2.FileGetContents(infPath)
 			if err != nil {
-				log.Errorf("File get contents error %s", err)
-				return false
+				return errors.Wrapf(err, "fileutils2.FileGetContents(%s)", infPath)
 			}
 			err = json.Unmarshal([]byte(sdesc), desc)
 			if err != nil {
-				log.Errorf("Unmarshal desc %s error %s", sdesc, err)
-				return false
+				return errors.Wrapf(err, "jsonutils.Unmarshal(%s)", infPath)
 			}
 		}
 		if len(desc.Chksum) > 0 && len(desc.Id) > 0 && desc.Id == l.imageId {
 			l.Desc = desc
-			return true
+			return nil
 		}
 	}
 
@@ -138,7 +131,7 @@ func (l *SLocalImageCache) Load() bool {
 	if fileutils2.Exists(tmpPath) {
 		syscall.Unlink(tmpPath)
 	}
-	return false
+	return errors.Wrapf(cloudprovider.ErrNotFound, imgPath)
 }
 
 func (l *SLocalImageCache) needCheck() bool {
@@ -155,15 +148,18 @@ func (l *SLocalImageCache) Release() {
 	l.consumerCount -= 1
 }
 
-func (l *SLocalImageCache) Acquire(ctx context.Context, zone, srcUrl, format, preChksum string) bool {
-	ret, exit := l.prepare(ctx, zone, srcUrl, format, preChksum)
-	if exit {
-		return ret
+func (l *SLocalImageCache) Acquire(ctx context.Context, zone, srcUrl, format, preChksum string) error {
+	isOk, err := l.prepare(ctx, zone, srcUrl, format, preChksum)
+	if err != nil {
+		return errors.Wrapf(err, "prepare")
+	}
+	if isOk {
+		return nil
 	}
 	return l.fetch(ctx, zone, srcUrl, format)
 }
 
-func (l *SLocalImageCache) prepare(ctx context.Context, zone, srcUrl, format, preChksum string) (bool, bool) {
+func (l *SLocalImageCache) prepare(ctx context.Context, zone, srcUrl, format, preChksum string) (bool, error) {
 	l.cond.L.Lock()
 	defer l.cond.L.Unlock()
 
@@ -173,12 +169,11 @@ func (l *SLocalImageCache) prepare(ctx context.Context, zone, srcUrl, format, pr
 
 	if l.remoteFile == nil && l.Desc != nil && (l.consumerCount > 0 || !l.needCheck()) {
 		l.consumerCount++
-		return true, true
+		return true, nil
 	}
 	url, err := auth.GetServiceURL(apis.SERVICE_TYPE_IMAGE, "", zone, "")
 	if err != nil {
-		log.Errorf("Failed to acquire image %s", err)
-		return false, true
+		return false, errors.Wrapf(err, "GetServiceURL(%s)", apis.SERVICE_TYPE_IMAGE)
 	}
 	url += fmt.Sprintf("/images/%s", l.imageId)
 	if len(format) == 0 {
@@ -188,12 +183,11 @@ func (l *SLocalImageCache) prepare(ctx context.Context, zone, srcUrl, format, pr
 
 	l.remoteFile = remotefile.NewRemoteFile(ctx, url,
 		l.GetPath(), false, preChksum, -1, nil, l.GetTmpPath(), srcUrl)
-	return false, false
+	return false, nil
 }
 
-func (l *SLocalImageCache) fetch(ctx context.Context, zone, srcUrl, format string) bool {
-	if (fileutils2.Exists(l.GetPath()) && l.remoteFile.VerifyIntegrity()) ||
-		l.remoteFile.Fetch() {
+func (l *SLocalImageCache) fetch(ctx context.Context, zone, srcUrl, format string) error {
+	var _fetch = func() error {
 		if len(l.Manager.GetId()) > 0 {
 			_, err := hostutils.RemoteStoragecacheCacheImage(ctx,
 				l.Manager.GetId(), l.imageId, "ready", l.GetPath())
@@ -204,11 +198,12 @@ func (l *SLocalImageCache) fetch(ctx context.Context, zone, srcUrl, format strin
 		l.cond.L.Lock()
 		defer l.cond.L.Unlock()
 
-		l.Desc = l.remoteFile.GetInfo()
-		if l.Desc == nil {
-			l.remoteFile = nil
-			return false
+		var err error
+		l.Desc, err = l.remoteFile.GetInfo()
+		if err != nil {
+			return errors.Wrapf(err, "remoteFile.GetInfo")
 		}
+
 		l.Size = l.GetSize() / 1024 / 1024
 		l.Desc.Id = l.imageId
 		l.remoteFile = nil
@@ -218,24 +213,23 @@ func (l *SLocalImageCache) fetch(ctx context.Context, zone, srcUrl, format strin
 
 		bDesc, err := json.Marshal(l.Desc)
 		if err != nil {
-			log.Errorf("Marshal image desc error %s", err)
-			return false
+			return errors.Wrapf(err, "json.Marshal(%s)", l.Desc)
 		}
 
 		err = fileutils2.FilePutContents(l.GetInfPath(), string(bDesc), false)
 		if err != nil {
-			log.Errorf("File put content error %s", err)
-			return false
+			return errors.Wrapf(err, "FilePutContents(%s)", string(bDesc))
 		}
-		return true
-	} else {
-		l.cond.L.Lock()
-		defer l.cond.L.Unlock()
-		l.Desc = nil
-		l.remoteFile = nil
-		l.cond.Broadcast()
-		return false
+		return nil
 	}
+	if fileutils2.Exists(l.GetPath()) && l.remoteFile.VerifyIntegrity() == nil {
+		return _fetch()
+	}
+	err := l.remoteFile.Fetch()
+	if err != nil {
+		return errors.Wrapf(err, "remoteFile.Fetch")
+	}
+	return _fetch()
 }
 
 func (l *SLocalImageCache) Remove(ctx context.Context) error {
