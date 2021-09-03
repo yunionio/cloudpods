@@ -156,17 +156,9 @@ func (self *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
 }
 
 func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
-	input := api.ServerResizeDiskInput{
-		DiskResizeInput: api.DiskResizeInput{},
-	}
-	input.DiskId = self.Id
+	input := api.DiskResizeInput{}
 	input.Size = fmt.Sprintf("%dM", sizeMb)
-
-	if len(self.Guests) > 0 {
-		_, err := self.region.perform(&modules.Servers, self.Guests[0].Id, "resize-disk", input)
-		return err
-	}
-	_, err := self.region.perform(&modules.Disks, self.Id, "resize", input.DiskResizeInput)
+	_, err := self.region.perform(&modules.Disks, self.Id, "resize", input)
 	return err
 }
 

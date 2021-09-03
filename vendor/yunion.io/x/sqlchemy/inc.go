@@ -26,10 +26,16 @@ import (
 	"yunion.io/x/pkg/util/reflectutils"
 )
 
+// Increment perform an incremental update on a record, the primary key of the record is specified in diff,
+// the numeric fields of this record will be atomically added by the value of the corresponding field in diff
+// if target is given as a pointer to a variable, the result will be stored in the target
+// if target is not given, the updated result will be stored in diff
 func (t *STableSpec) Increment(diff interface{}, target interface{}) error {
 	return t.incrementInternal(diff, "+", target)
 }
 
+// Decrement is similar to Increment methods, the difference is that this method will atomically decrease the numeric fields
+// with the value of diff
 func (t *STableSpec) Decrement(diff interface{}, target interface{}) error {
 	return t.incrementInternal(diff, "-", target)
 }
@@ -144,9 +150,8 @@ func (t *STableSpec) incrementInternal(diff interface{}, opcode string, target i
 	if aCnt != 1 {
 		if aCnt == 0 {
 			return sql.ErrNoRows
-		} else {
-			return errors.Wrapf(ErrUnexpectRowCount, "affected rows %d != 1", aCnt)
 		}
+		return errors.Wrapf(ErrUnexpectRowCount, "affected rows %d != 1", aCnt)
 	}
 	q := t.Query()
 	for k, v := range primaries {

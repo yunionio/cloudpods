@@ -73,9 +73,8 @@ func getStringValue(dat interface{}) string {
 	case reflect.Bool:
 		if value.Bool() {
 			return "true"
-		} else {
-			return "false"
 		}
+		return "false"
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return fmt.Sprintf("%d", value.Int())
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:

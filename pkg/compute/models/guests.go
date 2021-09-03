@@ -2916,112 +2916,69 @@ func getCloudNicNetwork(ctx context.Context, vnic cloudprovider.ICloudNic, host 
 func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, vnics []cloudprovider.ICloudNic, ipList []string) compare.SyncResult {
 	result := compare.SyncResult{}
 
-	guestnics, err := self.GetNetworks("")
+	nics, err := self.GetNetworks("")
 	if err != nil {
 		result.Error(err)
 		return result
 	}
 
-	removed := make([]sRemoveGuestnic, 0)
-	adds := make([]sAddGuestnic, 0)
-
-	for i := 0; i < len(guestnics) || i < len(vnics); i += 1 {
-		if i < len(guestnics) && i < len(vnics) {
-			localNet, err := getCloudNicNetwork(ctx, vnics[i], host, ipList, i)
-			if err != nil {
-				log.Errorf("%s", err)
-				result.Error(err)
-				return result
-			}
-			if guestnics[i].NetworkId == localNet.Id {
-				if guestnics[i].MacAddr == vnics[i].GetMAC() {
-					if guestnics[i].IpAddr == vnics[i].GetIP() {
-						if err := NetworkAddressManager.syncGuestnetworkICloudNic(
-							ctx, userCred, &guestnics[i], vnics[i]); err != nil {
-							result.AddError(err)
-						}
-					} else if len(vnics[i].GetIP()) > 0 {
-						// ip changed
-						removed = append(removed, sRemoveGuestnic{nic: &guestnics[i]})
-						adds = append(adds, sAddGuestnic{index: i, nic: vnics[i], net: localNet})
-					} else {
-						// do nothing
-						// vm maybe turned off, ignore the case
-					}
-				} else {
-					reserve := false
-					if len(guestnics[i].IpAddr) > 0 && guestnics[i].IpAddr == vnics[i].GetIP() {
-						// mac changed
-						reserve = true
-						removed = append(removed, sRemoveGuestnic{nic: &guestnics[i], reserve: reserve})
-						adds = append(adds, sAddGuestnic{index: i, nic: vnics[i], net: localNet, reserve: reserve})
-					} else if len(guestnics[i].IpAddr) == 0 {
-						db.Update(&guestnics[i], func() error {
-							guestnics[i].IpAddr = vnics[i].GetIP()
-							guestnics[i].MacAddr = vnics[i].GetMAC()
-							return nil
-						})
-					}
-				}
-			} else {
-				removed = append(removed, sRemoveGuestnic{nic: &guestnics[i]})
-				adds = append(adds, sAddGuestnic{index: i, nic: vnics[i], net: localNet})
-			}
-		} else if i < len(guestnics) {
-			removed = append(removed, sRemoveGuestnic{nic: &guestnics[i]})
-		} else if i < len(vnics) {
-			localNet, err := getCloudNicNetwork(ctx, vnics[i], host, ipList, i)
-			if err != nil {
-				log.Errorf("%s", err) // ignore this case
-			} else {
-				adds = append(adds, sAddGuestnic{index: i, nic: vnics[i], net: localNet})
-			}
-		}
+	removed := make([]SGuestnetwork, 0)
+	commondb := make([]SGuestnetwork, 0)
+	commonext := make([]cloudprovider.ICloudNic, 0)
+	added := make([]cloudprovider.ICloudNic, 0)
+	set := compare.SCompareSet{
+		DBFunc:  "GetIP",
+		DBSet:   nics,
+		ExtFunc: "GetIP",
+		ExtSet:  vnics,
+	}
+	err = compare.CompareSetsFunc(set, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(errors.Wrapf(err, "compare.CompareSets"))
+		return result
 	}
 
-	for _, remove := range removed {
-		err := self.detachNetworks(ctx, userCred, []SGuestnetwork{*remove.nic}, remove.reserve, false)
+	for i := 0; i < len(removed); i += 1 {
+		err = self.detachNetworks(ctx, userCred, []SGuestnetwork{removed[i]}, false, false)
 		if err != nil {
 			result.DeleteError(err)
-		} else {
-			result.Delete()
+			continue
 		}
+		result.Delete()
 	}
 
-	for _, add := range adds {
-		if len(add.nic.GetIP()) == 0 && len(ipList) <= add.index {
-			continue // cannot determine which network it attached to
+	for i := 0; i < len(commondb); i += 1 {
+		err := NetworkAddressManager.syncGuestnetworkICloudNic(ctx, userCred, &commondb[i], commonext[i])
+		if err != nil {
+			result.UpdateError(err)
+			continue
 		}
-		if add.net == nil {
-			continue // cannot determine which network it attached to
-		}
-		ipStr := add.nic.GetIP()
-		if len(ipStr) == 0 {
-			ipStr = ipList[add.index]
-		}
-		// check if the IP has been occupied, if yes, release the IP
-		gn, err := GuestnetworkManager.getGuestNicByIP(ipStr, add.net.Id)
+		db.Update(&commondb[i], func() error {
+			commondb[i].MacAddr = commonext[i].GetMAC()
+			commondb[i].Driver = commonext[i].GetDriver()
+			return nil
+		})
+		result.Update()
+	}
+
+	for i := 0; i < len(added); i += 1 {
+		localNet, err := getCloudNicNetwork(ctx, added[i], host, ipList, i)
 		if err != nil {
 			result.AddError(err)
 			continue
 		}
-		if gn != nil {
-			err = gn.Detach(ctx, userCred)
-			if err != nil {
-				result.AddError(err)
-				continue
-			}
-		}
+
 		nicConf := SNicConfig{
-			Mac:    add.nic.GetMAC(),
+			Mac:    added[i].GetMAC(),
 			Index:  -1,
 			Ifname: "",
 		}
+
 		// always try allocate from reserved pool
 		guestnetworks, err := self.Attach2Network(ctx, userCred, Attach2NetworkArgs{
-			Network:             add.net,
-			IpAddr:              ipStr,
-			NicDriver:           add.nic.GetDriver(),
+			Network:             localNet,
+			IpAddr:              added[i].GetIP(),
+			NicDriver:           added[i].GetDriver(),
 			TryReserved:         true,
 			AllocDir:            api.IPAllocationDefault,
 			RequireDesignatedIP: true,
@@ -3030,14 +2987,14 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 		})
 		if err != nil {
 			result.AddError(err)
-		} else {
-			result.Add()
-			for i := range guestnetworks {
-				guestnetwork := &guestnetworks[i]
-				if NetworkAddressManager.syncGuestnetworkICloudNic(
-					ctx, userCred, guestnetwork, add.nic); err != nil {
-					result.AddError(err)
-				}
+			continue
+		}
+		result.Add()
+		for i := range guestnetworks {
+			guestnetwork := &guestnetworks[i]
+			if NetworkAddressManager.syncGuestnetworkICloudNic(
+				ctx, userCred, guestnetwork, added[i]); err != nil {
+				result.AddError(err)
 			}
 		}
 	}
@@ -3116,83 +3073,59 @@ func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mccli
 	return err
 }
 
-type sSyncDiskPair struct {
-	disk  *SDisk
-	vdisk cloudprovider.ICloudDisk
-}
-
 func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, vdisks []cloudprovider.ICloudDisk, syncOwnerId mcclient.IIdentityProvider) compare.SyncResult {
+	lockman.LockRawObject(ctx, self.Id, DiskManager.Keyword())
+	defer lockman.ReleaseRawObject(ctx, self.Id, DiskManager.Keyword())
+
 	result := compare.SyncResult{}
 
-	newdisks := make([]sSyncDiskPair, 0)
-	for i := 0; i < len(vdisks); i += 1 {
-		if len(vdisks[i].GetGlobalId()) == 0 {
-			continue
-		}
-		disk, err := DiskManager.syncCloudDisk(ctx, userCred, provider, vdisks[i], i, syncOwnerId, host.ManagerId)
-		if err != nil {
-			log.Errorf("syncCloudDisk error: %v", err)
-			result.Error(err)
-			return result
-		}
-		if disk.PendingDeleted != self.PendingDeleted { //避免主机正常,磁盘在回收站的情况
-			db.Update(disk, func() error {
-				disk.PendingDeleted = self.PendingDeleted
+	dbDisks, err := self.GetDisks()
+	if err != nil {
+		result.Error(errors.Wrapf(err, "GetDisks"))
+		return result
+	}
+
+	removed := make([]SDisk, 0)
+	commondb := make([]SDisk, 0)
+	commonext := make([]cloudprovider.ICloudDisk, 0)
+	added := make([]cloudprovider.ICloudDisk, 0)
+	err = compare.CompareSets(dbDisks, vdisks, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(errors.Wrapf(err, "compare.CompareSets"))
+		return result
+	}
+
+	for i := 0; i < len(removed); i += 1 {
+		self.DetachDisk(ctx, &removed[i], userCred)
+		result.Delete()
+	}
+
+	for i := 0; i < len(commondb); i += 1 {
+		if commondb[i].PendingDeleted != self.PendingDeleted { //避免主机正常,磁盘在回收站的情况
+			db.Update(&commondb[i], func() error {
+				commondb[i].PendingDeleted = self.PendingDeleted
 				return nil
 			})
 		}
-		newdisks = append(newdisks, sSyncDiskPair{disk: disk, vdisk: vdisks[i]})
+		commondb[i].SyncCloudProjectId(userCred, self.GetOwnerId())
+		result.Update()
 	}
 
-	needRemoves := make([]SGuestdisk, 0)
-
-	guestdisks, _ := self.GetGuestDisks()
-	for i := 0; i < len(guestdisks); i += 1 {
-		find := false
-		for j := 0; j < len(newdisks); j += 1 {
-			if newdisks[j].disk.Id == guestdisks[i].DiskId {
-				find = true
-				break
-			}
-		}
-		if !find {
-			needRemoves = append(needRemoves, guestdisks[i])
-		}
-	}
-
-	needAdds := make([]sSyncDiskPair, 0)
-
-	for i := 0; i < len(newdisks); i += 1 {
-		find := false
-		for j := 0; j < len(guestdisks); j += 1 {
-			if newdisks[i].disk.Id == guestdisks[j].DiskId {
-				find = true
-				break
-			}
-		}
-		if !find {
-			needAdds = append(needAdds, newdisks[i])
-		}
-	}
-
-	for i := 0; i < len(needRemoves); i += 1 {
-		err := needRemoves[i].Detach(ctx, userCred)
+	for i := 0; i < len(added); i += 1 {
+		disk, err := DiskManager.findOrCreateDisk(ctx, userCred, provider, added[i], -1, self.GetOwnerId(), host.ManagerId)
 		if err != nil {
-			result.DeleteError(err)
-		} else {
-			result.Delete()
+			result.AddError(errors.Wrapf(err, "findOrCreateDisk(%s)", added[i].GetGlobalId()))
+			continue
 		}
-	}
-	for i := 0; i < len(needAdds); i += 1 {
-		vdisk := needAdds[i].vdisk
-		err := self.attach2Disk(ctx, needAdds[i].disk, userCred, vdisk.GetDriver(), vdisk.GetCacheMode(), vdisk.GetMountpoint())
+		disk.SyncCloudProjectId(userCred, self.GetOwnerId())
+		err = self.attach2Disk(ctx, disk, userCred, added[i].GetDriver(), added[i].GetCacheMode(), added[i].GetMountpoint())
 		if err != nil {
-			result.AddError(errors.Wrapf(err, "attach2Disk"))
-		} else {
-			needAdds[i].disk.SyncCloudProjectId(userCred, self.GetOwnerId())
-			result.Add()
+			result.AddError(err)
+			continue
 		}
+		result.Add()
 	}
+
 	return result
 }
 
