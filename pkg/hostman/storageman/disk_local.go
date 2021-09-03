@@ -218,46 +218,43 @@ func (d *SLocalDisk) CreateFromTemplate(ctx context.Context, imageId, format str
 func (d *SLocalDisk) createFromTemplate(
 	ctx context.Context, imageId, format string, imageCacheManager IImageCacheManger,
 ) (jsonutils.JSONObject, error) {
-	imageCache := imageCacheManager.AcquireImage(ctx, imageId, d.GetZoneName(), "", "", "")
-	if imageCache != nil {
-		defer imageCacheManager.ReleaseImage(ctx, imageId)
-		cacheImagePath := imageCache.GetPath()
-
-		if fileutils2.Exists(d.GetPath()) {
-			err := os.Remove(d.GetPath())
-			if err != nil {
-				log.Errorln(err)
-				return nil, fmt.Errorf("Fail to Create disk %s", d.Id)
-			}
-		}
-
-		newImg, err := qemuimg.NewQemuImage(d.GetPath())
-		if err != nil {
-			log.Errorln(err)
-			return nil, err
-		}
-		if err := newImg.CreateQcow2(0, false, cacheImagePath); err != nil {
-			log.Errorln(err)
-			return nil, fmt.Errorf("Fail to create disk %s", d.Id)
-		}
-		return d.GetDiskDesc(), nil
-
-	} else {
-		return nil, fmt.Errorf("Fail to fetch image %s", imageId)
+	imageCache, err := imageCacheManager.AcquireImage(ctx, imageId, d.GetZoneName(), "", "", "")
+	if err != nil {
+		return nil, errors.Wrapf(err, "AcquireImage")
 	}
+
+	defer imageCacheManager.ReleaseImage(ctx, imageId)
+	cacheImagePath := imageCache.GetPath()
+
+	if fileutils2.Exists(d.GetPath()) {
+		err := os.Remove(d.GetPath())
+		if err != nil {
+			return nil, errors.Wrapf(err, "os.Remove(%s)", d.GetPath())
+		}
+	}
+
+	newImg, err := qemuimg.NewQemuImage(d.GetPath())
+	if err != nil {
+		return nil, errors.Wrapf(err, "NewQemuImage(%s)", d.GetPath())
+	}
+	err = newImg.CreateQcow2(0, false, cacheImagePath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateQcow2(%s)", cacheImagePath)
+	}
+	return d.GetDiskDesc(), nil
 }
 
 func (d *SLocalDisk) CreateFromUrl(ctx context.Context, url string, size int64) error {
 	remoteFile := remotefile.NewRemoteFile(ctx, url, d.getPath(), false, "", -1, nil, "", "")
-	if remoteFile.Fetch() {
-		if options.HostOptions.EnableFallocateDisk {
-			//TODO
-			// d.fallocate()
-		}
-		return nil
-	} else {
-		return fmt.Errorf("Fail to fetch image from %s", url)
+	err := remoteFile.Fetch()
+	if err != nil {
+		return errors.Wrapf(err, "fetch image from %s", url)
 	}
+	if options.HostOptions.EnableFallocateDisk {
+		//TODO
+		// d.fallocate()
+	}
+	return nil
 }
 
 func (d *SLocalDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat, fsFormat string,

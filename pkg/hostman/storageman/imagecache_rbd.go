@@ -22,8 +22,10 @@ import (
 	"sync"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -57,29 +59,30 @@ func (r *SRbdImageCache) GetPath() string {
 	return fmt.Sprintf("rbd:%s/%s%s", imageCacheManger.GetPath(), r.GetName(), storage.getStorageConfString())
 }
 
-func (r *SRbdImageCache) Load() bool {
+func (r *SRbdImageCache) Load() error {
 	log.Debugf("loading rbd imagecache %s", r.GetPath())
 	origin, err := qemuimg.NewQemuImage(r.GetPath())
 	if err != nil {
-		return false
+		return errors.Wrapf(err, "NewQemuImage at host %s", options.HostOptions.Hostname)
 	}
-	return origin.IsValid()
+	if origin.IsValid() {
+		return nil
+	}
+	return fmt.Errorf("invalid rbd image %s at host %s", origin.String(), options.HostOptions.Hostname)
 }
 
-func (r *SRbdImageCache) Acquire(ctx context.Context, zone, srcUrl, format, checksum string) bool {
-	localImageCache := storageManager.LocalStorageImagecacheManager.AcquireImage(ctx, r.imageId, zone, srcUrl, format, checksum)
-	if localImageCache == nil {
-		log.Errorf("failed to acquireimage %s ", r.imageId)
-		return false
+func (r *SRbdImageCache) Acquire(ctx context.Context, zone, srcUrl, format, checksum string) error {
+	localImageCache, err := storageManager.LocalStorageImagecacheManager.AcquireImage(ctx, r.imageId, zone, srcUrl, format, checksum)
+	if err != nil {
+		return errors.Wrapf(err, "LocalStorage.AcquireImage")
 	}
 	r.imageName = localImageCache.GetName()
-	if !r.Load() {
+	if r.Load() != nil {
 		log.Infof("convert local image %s to rbd pool %s", r.imageId, r.Manager.GetPath())
 		err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(),
 			"convert", "-O", "raw", localImageCache.GetPath(), r.GetPath()).Run()
 		if err != nil {
-			log.Errorf("failed to convert image %s", err)
-			return false
+			return errors.Wrapf(err, "convert loca image %s to rbd pool %s at host %s", r.imageId, r.Manager.GetPath(), options.HostOptions.Hostname)
 		}
 	}
 	return r.Load()

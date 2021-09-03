@@ -23,8 +23,8 @@ import (
 type IImageCache interface {
 	GetPath() string
 	GetName() string
-	Load() bool
-	Acquire(ctx context.Context, zone, srcUrl, format, checksum string) bool
+	Load() error
+	Acquire(ctx context.Context, zone, srcUrl, format, checksum string) error
 	Release()
 	Remove(ctx context.Context) error
 	GetImageId() string

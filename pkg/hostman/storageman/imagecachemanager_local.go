@@ -16,15 +16,17 @@ package storageman
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"os"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -68,12 +70,12 @@ func (c *SLocalImageCacheManager) loadCache(ctx context.Context) {
 
 func (c *SLocalImageCacheManager) LoadImageCache(imageId string) {
 	imageCache := NewLocalImageCache(imageId, c)
-	if imageCache.Load() {
+	if imageCache.Load() == nil {
 		c.cachedImages[imageId] = imageCache
 	}
 }
 
-func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, imageId, zone, srcUrl, format, checksum string) IImageCache {
+func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, imageId, zone, srcUrl, format, checksum string) (IImageCache, error) {
 	c.lock.LockRawObject(ctx, "image-cache", imageId)
 	defer c.lock.ReleaseRawObject(ctx, "image-cache", imageId)
 
@@ -82,11 +84,7 @@ func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, imageId, zon
 		img = NewLocalImageCache(imageId, c)
 		c.cachedImages[imageId] = img
 	}
-	if img.Acquire(ctx, zone, srcUrl, format, checksum) {
-		return img
-	} else {
-		return nil
-	}
+	return img, img.Acquire(ctx, zone, srcUrl, format, checksum)
 }
 
 func (c *SLocalImageCacheManager) ReleaseImage(ctx context.Context, imageId string) {
@@ -125,43 +123,57 @@ func (c *SLocalImageCacheManager) PrefetchImageCache(ctx context.Context, data i
 		return nil, hostutils.ParamsError
 	}
 
-	imageId, err := body.GetString("image_id")
+	input := struct {
+		ImageId  string
+		Format   string
+		SrcUrl   string
+		Checksum string
+	}{}
+	err := body.Unmarshal(&input)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "input.Unmarshal")
 	}
-	format, _ := body.GetString("format")
-	srcUrl, _ := body.GetString("src_url")
-	checksum, _ := body.GetString("checksum")
 
-	if imgCache := c.AcquireImage(ctx, imageId, c.GetStorageManager().GetZoneName(),
-		srcUrl, format, checksum); imgCache != nil {
-		defer imgCache.Release()
-
-		res := jsonutils.NewDict()
-		res.Set("image_id", jsonutils.NewString(imageId))
-		res.Set("path", jsonutils.NewString(imgCache.GetPath()))
-
-		var (
-			name string
-			size int64
-		)
-		if desc := imgCache.GetDesc(); desc != nil {
-			name = desc.Name
-			size = desc.Size
-		}
-		if size == 0 {
-			if fi, err := os.Stat(imgCache.GetPath()); err != nil {
-				size = fi.Size()
-			}
-		}
-		if len(name) == 0 {
-			name = imageId
-		}
-
-		res.Set("name", jsonutils.NewString(name))
-		res.Set("size", jsonutils.NewInt(size))
-		return res, nil
-	} else {
-		return nil, fmt.Errorf("Failed to fetch image %s", imageId)
+	if len(input.ImageId) == 0 {
+		return nil, httperrors.NewMissingParameterError("image_id")
 	}
+
+	ret := struct {
+		ImageId string
+		Path    string
+		Name    string
+		Size    int64
+	}{}
+
+	imgCache, err := c.AcquireImage(ctx, input.ImageId, c.GetStorageManager().GetZoneName(), input.SrcUrl, input.Format, input.Checksum)
+	if err != nil {
+		return nil, errors.Wrapf(err, "AcquireImage")
+	}
+
+	defer imgCache.Release()
+
+	ret.ImageId = input.ImageId
+	ret.Path = imgCache.GetPath()
+
+	var (
+		name string
+		size int64
+	)
+	if desc := imgCache.GetDesc(); desc != nil {
+		ret.Name = desc.Name
+		ret.Size = desc.Size
+	}
+	if size == 0 {
+		fi, err := os.Stat(imgCache.GetPath())
+		if err != nil {
+			log.Errorf("os.Stat(%s) error: %v", imgCache.GetPath(), err)
+		} else {
+			ret.Size = fi.Size()
+		}
+	}
+	if len(name) == 0 {
+		ret.Name = input.ImageId
+	}
+
+	return jsonutils.Marshal(ret), nil
 }
