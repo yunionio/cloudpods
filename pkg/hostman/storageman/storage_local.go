@@ -377,11 +377,8 @@ func (s *SLocalStorage) CreateSnapshotFormUrl(
 ) error {
 	remoteFile := remotefile.NewRemoteFile(ctx, snapshotUrl, snapshotPath,
 		false, "", -1, nil, "", "")
-	if remoteFile.Fetch() {
-		return nil
-	} else {
-		return fmt.Errorf("Fail to fetch snapshot from %s", snapshotUrl)
-	}
+	err := remoteFile.Fetch()
+	return errors.Wrapf(err, "fetch snapshot from %s", snapshotUrl)
 }
 
 func (s *SLocalStorage) DeleteSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
