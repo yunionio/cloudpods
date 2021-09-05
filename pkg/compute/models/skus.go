@@ -270,9 +270,7 @@ func (manager *SServerSkuManager) FetchCustomizeColumns(
 		rows[i] = api.ServerSkuDetails{
 			EnabledStatusStandaloneResourceDetails: stdRows[i],
 			ZoneResourceInfoBase:                   zoneRows[i].ZoneResourceInfoBase,
-		}
-		if len(rows[i].Zone) == 0 {
-			rows[i].CloudregionResourceInfo = regRows[i]
+			CloudregionResourceInfo:                regRows[i],
 		}
 
 		rows[i].CloudEnv = strings.Split(zoneRows[i].RegionExternalId, "/")[0]
