@@ -691,15 +691,17 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	if orderBy == nil {
 		orderBy = []string{}
 	}
-	if primaryCol != nil && primaryCol.IsNumeric() {
-		orderBy = append(orderBy, primaryCol.Name())
-	} else if manager.TableSpec().ColumnSpec("created_at") != nil {
-		orderBy = append(orderBy, "created_at")
-		if manager.TableSpec().ColumnSpec("name") != nil {
-			orderBy = append(orderBy, "name")
-		}
-		if primaryCol != nil {
+	if !q.IsGroupBy() {
+		if primaryCol != nil && primaryCol.IsNumeric() {
 			orderBy = append(orderBy, primaryCol.Name())
+		} else if manager.TableSpec().ColumnSpec("created_at") != nil {
+			orderBy = append(orderBy, "created_at")
+			if manager.TableSpec().ColumnSpec("name") != nil {
+				orderBy = append(orderBy, "name")
+			}
+			if primaryCol != nil {
+				orderBy = append(orderBy, primaryCol.Name())
+			}
 		}
 	}
 	for _, orderByField := range orderBy {

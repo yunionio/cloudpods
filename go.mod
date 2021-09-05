@@ -10,6 +10,7 @@ require (
 	github.com/Azure/go-autorest/autorest v0.9.6
 	github.com/Azure/go-autorest/autorest/azure/auth v0.4.2
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
+	github.com/ClickHouse/clickhouse-go v1.4.7 // indirect
 	github.com/DataDog/dd-trace-go v0.6.1 // indirect
 	github.com/DataDog/zstd v1.3.4 // indirect
 	github.com/Masterminds/goutils v1.1.0 // indirect
@@ -156,6 +157,6 @@ require (
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
 	yunion.io/x/pkg v0.0.0-20210918114143-ce839f862c5f
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v0.0.0-20210918113031-c1c107f37ada
+	yunion.io/x/sqlchemy v0.0.0-20210827024030-22a1e669b4f8
 	yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
 )

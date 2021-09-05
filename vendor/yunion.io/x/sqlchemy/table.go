@@ -17,7 +17,6 @@ package sqlchemy
 import (
 	"fmt"
 	"reflect"
-	"strings"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
@@ -72,6 +71,9 @@ type ITableSpec interface {
 
 	// Fetch query a struct
 	Fetch(dt interface{}) error
+
+	// Database returns the database of this table
+	Database() *SDatabase
 }
 
 // STableSpec defines the table specification, which implements ITableSpec
@@ -79,8 +81,10 @@ type STableSpec struct {
 	structType reflect.Type
 	name       string
 	columns    []IColumnSpec
-	indexes    []sTableIndex
-	contraints []sTableConstraint
+	indexes    []STableIndex
+	contraints []STableConstraint
+
+	sDBReferer
 }
 
 // STable is an instance of table for query, system will automatically give a alias to this table
@@ -98,6 +102,10 @@ type STableField struct {
 
 // NewTableSpecFromStruct generates STableSpec based on the information of a struct model
 func NewTableSpecFromStruct(s interface{}, name string) *STableSpec {
+	return NewTableSpecFromStructWithDBName(s, name, DefaultDB)
+}
+
+func NewTableSpecFromStructWithDBName(s interface{}, name string, dbName DBName) *STableSpec {
 	val := reflect.Indirect(reflect.ValueOf(s))
 	st := val.Type()
 	if st.Kind() != reflect.Struct {
@@ -107,8 +115,11 @@ func NewTableSpecFromStruct(s interface{}, name string) *STableSpec {
 		columns:    []IColumnSpec{},
 		name:       name,
 		structType: st,
+		sDBReferer: sDBReferer{
+			dbName: dbName,
+		},
 	}
-	struct2TableSpec(val, table)
+	table.struct2TableSpec(val)
 	return table
 }
 
@@ -127,10 +138,13 @@ func (ts *STableSpec) Clone(name string, autoIncOffset int64) *STableSpec {
 	newCols := make([]IColumnSpec, len(ts.columns))
 	for i := range newCols {
 		col := ts.columns[i]
-		if intCol, ok := col.(*SIntegerColumn); ok && intCol.IsAutoIncrement {
-			newCol := *intCol
-			newCol.AutoIncrementOffset = autoIncOffset
-			newCols[i] = &newCol
+		if col.IsAutoIncrement() {
+			colValue := reflect.ValueOf(col).Elem()
+			newColValue := reflect.New(colValue.Type()).Elem()
+			reflect.Copy(newColValue, colValue)
+			newCol := newColValue.Addr().Interface().(IColumnSpec)
+			newCol.SetAutoIncrementOffset(autoIncOffset)
+			newCols[i] = newCol
 		} else {
 			newCols[i] = col
 		}
@@ -141,6 +155,7 @@ func (ts *STableSpec) Clone(name string, autoIncOffset int64) *STableSpec {
 		columns:    newCols,
 		indexes:    ts.indexes,
 		contraints: ts.contraints,
+		sDBReferer: ts.sDBReferer,
 	}
 }
 
@@ -166,30 +181,8 @@ func (ts *STableSpec) DataType() reflect.Type {
 }
 
 // CreateSQL returns the SQL for creating this table
-func (ts *STableSpec) CreateSQL() string {
-	cols := make([]string, 0)
-	primaries := make([]string, 0)
-	indexes := make([]string, 0)
-	autoInc := ""
-	for _, c := range ts.columns {
-		cols = append(cols, c.DefinitionString())
-		if c.IsPrimary() {
-			primaries = append(primaries, fmt.Sprintf("`%s`", c.Name()))
-			if intC, ok := c.(*SIntegerColumn); ok && intC.AutoIncrementOffset > 1 {
-				autoInc = fmt.Sprintf(" AUTO_INCREMENT=%d", intC.AutoIncrementOffset)
-			}
-		}
-		if c.IsIndex() {
-			indexes = append(indexes, fmt.Sprintf("KEY `ix_%s_%s` (`%s`)", ts.name, c.Name(), c.Name()))
-		}
-	}
-	if len(primaries) > 0 {
-		cols = append(cols, fmt.Sprintf("PRIMARY KEY (%s)", strings.Join(primaries, ", ")))
-	}
-	if len(indexes) > 0 {
-		cols = append(cols, indexes...)
-	}
-	return fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (\n%s\n) ENGINE=InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci%s", ts.name, strings.Join(cols, ",\n"), autoInc)
+func (ts *STableSpec) CreateSQLs() []string {
+	return ts.Database().backend.GetCreateSQLs(ts)
 }
 
 // NewTableInstance return an new table instance from an ITableSpec
@@ -236,6 +229,11 @@ func (tbl *STable) Fields() []IQueryField {
 		ret = append(ret, tbl.Field(c.Name()))
 	}
 	return ret
+}
+
+// Database implementaion of STable for IQuerySource
+func (tbl *STable) Database() *SDatabase {
+	return tbl.spec.Database()
 }
 
 // Expression implementation of STableField for IQueryField

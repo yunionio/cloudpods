@@ -18,7 +18,6 @@ import (
 	"reflect"
 
 	"yunion.io/x/log"
-
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
@@ -74,7 +73,7 @@ func (ts *STableSpec) FetchAll(dest interface{}) error {
 	}
 
 	for i := 0; i < arrayValue.Len(); i++ {
-		keyValueStr := getStringValue(keyValues[i])
+		keyValueStr := GetStringValue(keyValues[i])
 		if tmpMap, ok := tmpDestMapMap[keyValueStr]; ok {
 			err = mapString2Struct(tmpMap, arrayValue.Index(i))
 			if err != nil {

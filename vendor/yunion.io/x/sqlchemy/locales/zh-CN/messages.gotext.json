@@ -1,0 +1,65 @@
+{
+    "language": "zh-CN",
+    "messages": [
+        {
+            "id": "No data to update",
+            "message": "No data to update",
+            "translation": "没有需要UPDATE的数据",
+            "position": "errors.go:24:2"
+        },
+        {
+            "id": "duplicate entry",
+            "message": "duplicate entry",
+            "translation": "重复条目",
+            "position": "errors.go:25:2"
+        },
+        {
+            "id": "empty query",
+            "message": "empty query",
+            "translation": "空查询",
+            "position": "errors.go:26:2"
+        },
+        {
+            "id": "empty primary keys",
+            "message": "empty primary keys",
+            "translation": "未指定主键",
+            "position": "errors.go:27:2"
+        },
+        {
+            "id": "unexpected row count",
+            "message": "unexpected row count",
+            "translation": "行数不符合预期",
+            "position": "errors.go:28:2"
+        },
+        {
+            "id": "input needs pointer input",
+            "message": "input needs pointer input",
+            "translation": "输入应为指针类型",
+            "position": "errors.go:30:2"
+        },
+        {
+            "id": "input needs slice or array",
+            "message": "input needs slice or array",
+            "translation": "输入应为slice或者array类型",
+            "position": "errors.go:31:2"
+        },
+        {
+            "id": "read only input",
+            "message": "read only input",
+            "translation": "输入参数只读",
+            "position": "errors.go:32:2"
+        },
+        {
+            "id": "NotSupportedError",
+            "message": "NotSupportedError",
+            "translation": "不支持",
+            "position": "errors.go:34:2"
+        },
+        {
+            "id": "TableNotExists",
+            "message": "TableNotExists",
+            "translation": "表不存在",
+            "position": "errors.go:36:2"
+        }
+    ]
+}

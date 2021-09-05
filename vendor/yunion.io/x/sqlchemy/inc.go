@@ -31,12 +31,18 @@ import (
 // if target is given as a pointer to a variable, the result will be stored in the target
 // if target is not given, the updated result will be stored in diff
 func (t *STableSpec) Increment(diff interface{}, target interface{}) error {
+	if !t.Database().backend.CanUpdate() {
+		return errors.ErrNotSupported
+	}
 	return t.incrementInternal(diff, "+", target)
 }
 
 // Decrement is similar to Increment methods, the difference is that this method will atomically decrease the numeric fields
 // with the value of diff
 func (t *STableSpec) Decrement(diff interface{}, target interface{}) error {
+	if !t.Database().backend.CanUpdate() {
+		return errors.ErrNotSupported
+	}
 	return t.incrementInternal(diff, "-", target)
 }
 
@@ -81,13 +87,11 @@ func (t *STableSpec) incrementInternal(diff interface{}, opcode string, target i
 			}
 			continue
 		}
-		dtc, ok := c.(*SDateTimeColumn)
-		if ok && dtc.IsUpdatedAt {
+		if c.IsUpdatedAt() {
 			updatedFields = append(updatedFields, k)
 			continue
 		}
-		nc, ok := c.(*SIntegerColumn)
-		if ok && nc.IsAutoVersion {
+		if c.IsAutoVersion() {
 			versionFields = append(versionFields, k)
 			continue
 		}
@@ -120,7 +124,7 @@ func (t *STableSpec) incrementInternal(diff interface{}, opcode string, target i
 		buf.WriteString(fmt.Sprintf(", `%s` = `%s` + 1", versionField, versionField))
 	}
 	for _, updatedField := range updatedFields {
-		buf.WriteString(fmt.Sprintf(", `%s` = UTC_TIMESTAMP()", updatedField))
+		buf.WriteString(fmt.Sprintf(", `%s` = %s", updatedField, t.Database().backend.CurrentUTCTimeStampString()))
 	}
 
 	buf.WriteString(" WHERE ")
@@ -139,7 +143,7 @@ func (t *STableSpec) incrementInternal(diff interface{}, opcode string, target i
 		log.Infof("Update: %s %s", buf.String(), vars)
 	}
 
-	results, err := _db.Exec(buf.String(), vars...)
+	results, err := t.Database().Exec(buf.String(), vars...)
 	if err != nil {
 		return errors.Wrapf(err, "_db.Exec %s %#v", buf.String(), vars)
 	}

@@ -125,13 +125,11 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 			}
 			continue
 		}
-		nc, ok := c.(*SIntegerColumn)
-		if ok && nc.IsAutoVersion {
+		if c.IsAutoVersion() {
 			versionFields = append(versionFields, k)
 			continue
 		}
-		dtc, ok := c.(*SDateTimeColumn)
-		if ok && dtc.IsUpdatedAt {
+		if c.IsUpdatedAt() {
 			updatedFields = append(updatedFields, k)
 			continue
 		}
@@ -169,7 +167,7 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 		buf.WriteString(fmt.Sprintf(", `%s` = `%s` + 1", versionField, versionField))
 	}
 	for _, updatedField := range updatedFields {
-		buf.WriteString(fmt.Sprintf(", `%s` = UTC_TIMESTAMP()", updatedField))
+		buf.WriteString(fmt.Sprintf(", `%s` = %s", updatedField, us.tableSpec.Database().backend.CurrentUTCTimeStampString()))
 	}
 	buf.WriteString(" WHERE ")
 	first = true
@@ -189,7 +187,7 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 	if DEBUG_SQLCHEMY {
 		log.Infof("Update: %s %s", buf.String(), vars)
 	}
-	results, err := _db.Exec(buf.String(), vars...)
+	results, err := us.tableSpec.Database().Exec(buf.String(), vars...)
 	if err != nil {
 		return nil, err
 	}
@@ -215,6 +213,9 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 // dt is the point to the struct storing the record
 // doUpdate provides method to update the field of the record
 func (ts *STableSpec) Update(dt interface{}, doUpdate func() error) (UpdateDiffs, error) {
+	if !ts.Database().backend.CanUpdate() {
+		return nil, errors.ErrNotSupported
+	}
 	session, err := ts.prepareUpdate(dt)
 	if err != nil {
 		return nil, err
