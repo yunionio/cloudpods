@@ -87,3 +87,12 @@ type SApplyInfo struct {
 	ServerId string
 	TryTimes int
 }
+
+type DevtoolManagerServiceUrlInput struct {
+	ServiceName string
+	ServerId    string
+}
+
+type DevtoolManagerServiceUrlOutput struct {
+	ServiceUrl string
+}

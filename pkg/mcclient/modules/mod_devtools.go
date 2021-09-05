@@ -23,6 +23,8 @@ var (
 	DevToolTemplates          modulebase.ResourceManager
 	DevToolScripts            modulebase.ResourceManager
 	DevToolScriptApplyRecords modulebase.ResourceManager
+	DevToolSshInfos           modulebase.ResourceManager
+	DevToolServiceUrls        modulebase.ResourceManager
 )
 
 func init() {
@@ -57,4 +59,20 @@ func init() {
 		[]string{},
 	)
 	registerCompute(&DevToolScriptApplyRecords)
+
+	DevToolSshInfos = NewDevtoolManager(
+		"sshinfo",
+		"sshinfos",
+		[]string{"Id", "Server_Id", "Server_Name", "Server_Hypervisor", "Forward_Id", "User", "Host", "Port", "Need_Clean", "Failed_Reason"},
+		[]string{},
+	)
+	registerCompute(&DevToolSshInfos)
+
+	DevToolServiceUrls = NewDevtoolManager(
+		"serviceurl",
+		"serviceurls",
+		[]string{"Id", "Service", "Server_Id", "Url", "Server_Ansible_Info", "Failed_Reason"},
+		[]string{},
+	)
+	registerCompute(&DevToolServiceUrls)
 }
