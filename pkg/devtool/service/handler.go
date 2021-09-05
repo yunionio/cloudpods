@@ -46,6 +46,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.ScriptManager,
 		models.ScriptApplyManager,
 		models.ScriptApplyRecordManager,
+		models.SshInfoManager,
+		models.ServiceUrlManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
