@@ -559,7 +559,7 @@ func NetworkUsableZoneIds(usableNet, usableVpc bool, query *api.ZoneListInput) (
 	if err != nil {
 		return nil, errors.Wrap(err, "zoneUsableVpc")
 	}
-	ret, err := usableZoneQ1(vpcs, usableNet)
+	r1, err := usableZoneQ1(vpcs, usableNet)
 	if err != nil {
 		return nil, errors.Wrap(err, "usableZoneQ1")
 	}
@@ -568,7 +568,16 @@ func NetworkUsableZoneIds(usableNet, usableVpc bool, query *api.ZoneListInput) (
 		return nil, errors.Wrap(err, "usableZoneQ2")
 	}
 
-	ret = append(ret, r2...)
+	r1 = append(r1, r2...)
+	// remove dupliates
+	ret := make([]string, 0)
+	rm := make(map[string]bool)
+	for _, zone := range r1 {
+		if _, ok := rm[zone]; !ok {
+			rm[zone] = true
+			ret = append(ret, zone)
+		}
+	}
 	return ret, nil
 }
 
