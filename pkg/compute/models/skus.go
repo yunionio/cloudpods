@@ -510,9 +510,9 @@ func usableFilter(q *sqlchemy.SQuery, public_cloud bool) (*sqlchemy.SQuery, erro
 		providerTable := usableCloudProviders().SubQuery()
 		providerRegionTable := CloudproviderRegionManager.Query().SubQuery()
 
-		subq := providerRegionTable.Query(sqlchemy.DISTINCT("cloudregion_id", providerRegionTable.Field("cloudregion_id")))
-		subq = subq.Join(providerTable, sqlchemy.Equals(providerRegionTable.Field("cloudprovider_id"), providerTable.Field("id")))
-		q = q.Filter(sqlchemy.In(q.Field("cloudregion_id"), subq.SubQuery()))
+		_subq := providerRegionTable.Query(sqlchemy.DISTINCT("cloudregion_id", providerRegionTable.Field("cloudregion_id")))
+		subq := _subq.Join(providerTable, sqlchemy.Equals(providerRegionTable.Field("cloudprovider_id"), providerTable.Field("id"))).SubQuery()
+		q.Join(subq, sqlchemy.Equals(q.Field("cloudregion_id"), subq.Field("cloudregion_id")))
 	}
 
 	// 过滤出network usable的sku
@@ -701,10 +701,12 @@ func (manager *SServerSkuManager) ListItemFilter(
 	cloudEnvStr := query.CloudEnv
 	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD {
 		publicCloud = true
-		q = q.Filter(sqlchemy.In(q.Field("provider"), CloudproviderManager.GetPublicProviderProvidersQuery()))
+		pq := CloudproviderManager.GetPublicProviderProvidersQuery()
+		q = q.Join(pq, sqlchemy.Equals(q.Field("provider"), pq.Field("provider")))
 	}
 	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD {
-		q = q.Filter(sqlchemy.In(q.Field("provider"), CloudproviderManager.GetPrivateProviderProvidersQuery()))
+		pq := CloudproviderManager.GetPrivateProviderProvidersQuery()
+		q = q.Join(pq, sqlchemy.Equals(q.Field("provider"), pq.Field("provider")))
 	}
 	if cloudEnvStr == api.CLOUD_ENV_ON_PREMISE {
 		q = q.Filter(
