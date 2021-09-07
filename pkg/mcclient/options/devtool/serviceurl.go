@@ -21,6 +21,7 @@ import (
 )
 
 type ServiceUrlCreateOptions struct {
+	NAME              string `help:"Name"`
 	Service           string `help:"service name"`
 	ServerId          string `help:"server id"`
 	ServerAnsibleInfo SServerAnisbleInfo
@@ -28,7 +29,7 @@ type ServiceUrlCreateOptions struct {
 
 type SServerAnisbleInfo struct {
 	User string `json:"user"`
-	IP   string `json:"ip"`
+	Ip   string `json:"ip"`
 	Port int    `json:"port"`
 	Name string `json:"name"`
 }
