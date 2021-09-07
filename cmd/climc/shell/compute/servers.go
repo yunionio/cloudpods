@@ -878,12 +878,14 @@ func init() {
 				closeForward(s, srvid, forwardItem)
 				return err
 			} else {
-				forwardItem, err = openForward(s, srvid)
-				if err != nil {
-					return err
+				if vpcid != "default" {
+					forwardItem, err = openForward(s, srvid)
+					if err != nil {
+						return err
+					}
+					host = forwardItem.ProxyAddr
+					port = forwardItem.ProxyPort
 				}
-				host = forwardItem.ProxyAddr
-				port = forwardItem.ProxyPort
 			}
 		}
 
