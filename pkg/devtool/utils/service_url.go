@@ -42,7 +42,18 @@ type Service struct {
 	Url  string
 }
 
-func serviceComplete(service Service) (completeUrl string, expectedCode int) {
+func serviceComplete(serviceName, address string, port int) (url, checkUrl string, expectedCode int) {
+	switch serviceName {
+	case "influxdb":
+		return fmt.Sprintf("https://%s:%d", address, port), fmt.Sprintf("https://%s:%d/ping", address, port), 204
+	case "repo":
+		return fmt.Sprintf("http://%s:%d", address, port), fmt.Sprintf("http://%s:%d", address, port), 200
+	default:
+		return fmt.Sprintf("http://%s:%d", address, port), fmt.Sprintf("http://%s:%d", address, port), 200
+	}
+}
+
+func serviceComplete2(service Service) (completeUrl string, expectedCode int) {
 	switch service.Name {
 	case "influxdb":
 		return fmt.Sprintf("%s/ping", service.Url), 204
@@ -104,7 +115,7 @@ func proxyEndpoints(ctx context.Context, proxyEndpointId string, info sServerInf
 }
 
 func serviceUrlDirect(ctx context.Context, service Service, proxyEndpointId string, info sServerInfo, host *ansible_api.AnsibleHost) (string, error) {
-	url, code := serviceComplete(service)
+	url, code := serviceComplete2(service)
 	ok, err := checkUrl(ctx, url, code, host)
 	if err != nil {
 		return "", err
@@ -200,11 +211,10 @@ func checkProxyEndpoint(ctx context.Context, service Service, proxyEndpointId, a
 	if err != nil {
 		return "", err
 	}
-	url, code := serviceComplete(service)
-	nUrl := fmt.Sprintf("https://%s:%d", address, port)
-	ok, err := checkUrl(ctx, url, code, host)
+	url, cUrl, code := serviceComplete(service.Name, address, int(port))
+	ok, err := checkUrl(ctx, cUrl, code, host)
 	if err != nil {
-		return "", errors.Wrapf(err, "check url %q", nUrl)
+		return "", errors.Wrapf(err, "check url %q", cUrl)
 	}
 	if !ok {
 		if recycle != nil {
@@ -215,7 +225,7 @@ func checkProxyEndpoint(ctx context.Context, service Service, proxyEndpointId, a
 		}
 		return "", nil
 	}
-	return nUrl, nil
+	return url, nil
 }
 
 type sServerInfo struct {

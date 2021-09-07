@@ -30,10 +30,10 @@ import (
 
 type SServiceUrl struct {
 	db.SStatusStandaloneResourceBase
-	Service           string `width:"32" charset:"ascii" list:"user" create:"required"`
-	ServerId          string `width:"128" charset:"ascii" list:"user" create:"required"`
-	Url               string `wdith:"32" charset:"ascii" list:"user"`
-	ServerAnsibleInfo *SServerAnisbleInfo
+	Service           string              `width:"32" charset:"ascii" list:"user" create:"required"`
+	ServerId          string              `width:"128" charset:"ascii" list:"user" create:"required"`
+	Url               string              `wdith:"32" charset:"ascii" list:"user"`
+	ServerAnsibleInfo *SServerAnisbleInfo `width:"128" list:"user" create:"required"`
 	FailedReason      string
 }
 
