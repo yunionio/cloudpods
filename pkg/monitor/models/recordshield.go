@@ -226,9 +226,7 @@ func (man *SAlertRecordShieldManager) ValidateCreateData(ctx context.Context, us
 	if data.EndTime.Before(data.StartTime) {
 		return data, httperrors.NewInputParameterError("end_time is before start_time")
 	}
-	if data.EndTime.Before(time.Now()) {
-		return data, httperrors.NewInputParameterError("end_time is before now")
-	}
+
 	hint := fmt.Sprintf("%s-%s", alert.Name, data.ResName)
 	name, err := db.GenerateName(ctx, man, ownerId, hint)
 	if err != nil {
