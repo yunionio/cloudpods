@@ -4335,6 +4335,18 @@ func (self *SGuest) createConvertedServer(
 	createInput := self.ToCreateInput(userCred)
 	createInput.Hypervisor = api.HYPERVISOR_KVM
 	createInput.GenerateName = fmt.Sprintf("%s-%s", self.Name, api.HYPERVISOR_KVM)
+	// change drivers so as to bootable in KVM
+	for i := range createInput.Disks {
+		if createInput.Disks[i].Driver != "ide" {
+			createInput.Disks[i].Driver = "ide"
+		}
+	}
+	for i := range createInput.Networks {
+		if createInput.Networks[i].Driver != "e1000" && createInput.Networks[i].Driver != "vmxnet3" {
+			createInput.Networks[i].Driver = "e1000"
+		}
+	}
+
 	lockman.LockClass(ctx, GuestManager, userCred.GetProjectId())
 	defer lockman.ReleaseClass(ctx, GuestManager, userCred.GetProjectId())
 	newGuest, err := db.DoCreate(GuestManager, ctx, userCred, nil,
