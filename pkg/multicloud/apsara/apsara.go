@@ -226,13 +226,20 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 	req.Domain = domain
 	req.Version = version
 	req.ApiName = apiName
+	id := ""
 	if params != nil {
 		for k, v := range params {
 			req.QueryParams[k] = v
+			if strings.ToLower(k) != "regionid" && strings.HasSuffix(k, "Id") {
+				id = v
+			}
 		}
 	}
 	req.Scheme = "http"
 	req.GetHeaders()["User-Agent"] = "vendor/yunion-OneCloud@" + v.Get().GitVersion
+	if strings.HasPrefix(apiName, "Describe") && len(id) > 0 {
+		req.GetHeaders()["x-acs-instanceId"] = id
+	}
 
 	resp, err := processCommonRequest(client, req)
 	if err != nil {
@@ -249,6 +256,9 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 		if len(code) > 0 && !utils.IsInStringArray(code, []string{"200"}) {
 			return nil, fmt.Errorf(body.String())
 		}
+	}
+	if body.Contains("errorKey") {
+		return nil, errors.Errorf(body.String())
 	}
 	return body, nil
 }
