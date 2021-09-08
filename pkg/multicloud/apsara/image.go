@@ -274,25 +274,29 @@ func (self *SRegion) ImportImage(name string, osArch string, osType string, osDi
 }
 
 func (self *SRegion) GetImage(imageId string) (*SImage, error) {
-	images, _, err := self.GetImages("", "", []string{imageId}, "", 0, 1)
-	if err != nil {
-		return nil, err
+	for _, owner := range []ImageOwnerType{ImageOwnerSelf, ImageOwnerSystem} {
+		images, _, err := self.GetImages("", owner, []string{imageId}, "", 0, 1)
+		if err != nil {
+			return nil, err
+		}
+		if len(images) == 1 {
+			return &images[0], nil
+		}
 	}
-	if len(images) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	return &images[0], nil
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetImageByName(name string) (*SImage, error) {
-	images, _, err := self.GetImages("", "", nil, name, 0, 1)
-	if err != nil {
-		return nil, err
+	for _, owner := range []ImageOwnerType{ImageOwnerSelf, ImageOwnerSystem} {
+		images, _, err := self.GetImages("", owner, nil, name, 0, 1)
+		if err != nil {
+			return nil, err
+		}
+		if len(images) == 1 {
+			return &images[0], nil
+		}
 	}
-	if len(images) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	return &images[0], nil
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetImagesBySnapshot(snapshotId string, offset int, limit int) ([]SImage, int, error) {
