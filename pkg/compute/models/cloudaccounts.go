@@ -822,8 +822,7 @@ func (self *SCloudaccount) StartSyncCloudProviderInfoTask(ctx context.Context, u
 
 	task, err := taskman.TaskManager.NewTask(ctx, "CloudAccountSyncInfoTask", self, userCred, params, "", "", nil)
 	if err != nil {
-		log.Errorf("CloudAccountSyncInfoTask newTask error %s", err)
-		return err
+		return errors.Wrapf(err, "NewTask")
 	}
 	self.markStartSync(userCred, syncRange)
 	db.OpsLog.LogEvent(self, db.ACT_SYNC_HOST_START, "", userCred)
@@ -968,6 +967,22 @@ func (self *SCloudaccount) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 	return provider.GetSubAccounts()
 }
 
+func (self *SCloudaccount) getDefaultExternalProject(id string) (*SExternalProject, error) {
+	q := ExternalProjectManager.Query().Equals("cloudaccount_id", self.Id).Equals("external_id", id)
+	projects := []SExternalProject{}
+	err := db.FetchModelObjects(ExternalProjectManager, q, &projects)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	if len(projects) > 1 {
+		return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, id)
+	}
+	if len(projects) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	}
+	return &projects[0], nil
+}
+
 func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclient.TokenCredential, subAccount cloudprovider.SSubAccount) (*SCloudprovider, bool, error) {
 	isNew := false
 	q := CloudproviderManager.Query().Equals("cloudaccount_id", self.Id).Equals("account", subAccount.Account)
@@ -1011,7 +1026,16 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 			newCloudprovider.SetEnabled(false)
 			newCloudprovider.Status = api.CLOUD_PROVIDER_DISCONNECTED
 		}
-		if !self.AutoCreateProject || len(self.ProjectId) > 0 {
+		if len(subAccount.DefaultProjectId) > 0 {
+			proj, err := self.getDefaultExternalProject(subAccount.DefaultProjectId)
+			if err != nil {
+				log.Errorf("getDefaultExternalProject: %v", err)
+			} else {
+				newCloudprovider.DomainId = proj.DomainId
+				newCloudprovider.ProjectId = proj.ProjectId
+			}
+		}
+		if len(newCloudprovider.ProjectId) == 0 && (!self.AutoCreateProject || len(self.ProjectId) > 0) {
 			ownerId := self.GetOwnerId()
 			if len(self.ProjectId) > 0 {
 				t, err := db.TenantCacheManager.FetchTenantById(ctx, self.ProjectId)
@@ -1059,8 +1083,7 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		return &newCloudprovider, nil
 	}()
 	if err != nil {
-		log.Errorf("insert new cloudprovider fail %s", err)
-		return nil, isNew, err
+		return nil, isNew, errors.Wrapf(err, "insert new cloudprovider")
 	}
 
 	db.OpsLog.LogEvent(newCloudprovider, db.ACT_CREATE, newCloudprovider.GetShortDesc(ctx), userCred)
@@ -1072,11 +1095,10 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 
 	newCloudprovider.savePassword(passwd)
 
-	if self.AutoCreateProject && len(self.ProjectId) == 0 {
+	if len(subAccount.DefaultProjectId) == 0 && self.AutoCreateProject && len(self.ProjectId) == 0 {
 		err = newCloudprovider.syncProject(ctx, userCred)
 		if err != nil {
-			log.Errorf("syncproject fail %s", err)
-			return nil, isNew, err
+			return nil, isNew, errors.Wrapf(err, "syncProject")
 		}
 	}
 
@@ -2075,6 +2097,7 @@ func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCre
 			delete(cloudaccountPendingSyncs, account.Id)
 		}()
 
+		account.SyncAccountResources(ctx, userCred)
 		log.Debugf("syncAccountStatus %s %s", account.Id, account.Name)
 		err := account.syncAccountStatus(ctx, userCred)
 		if waitChan != nil {
@@ -2088,7 +2111,6 @@ func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCre
 			if err == nil && autoSync && account.GetEnabled() && account.EnableAutoSync {
 				syncRange := SSyncRange{FullSync: true}
 				account.markAutoSync(userCred)
-				account.SyncAccountResources(ctx, userCred)
 				providers := account.GetEnabledCloudproviders()
 				for i := range providers {
 					provider := &providers[i]
