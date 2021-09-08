@@ -33,6 +33,7 @@ type SApsaraEndpoints struct {
 	RamEndpoint             string `default:"$APSARA_RAM_ENDPOINT"`
 	MetricsEndpoint         string `default:"$APSRRA_METRICS_ENDPOINT"`
 	ResourcemanagerEndpoint string `default:"$APSARA_RESOURCEMANAGER_ENDPOINT"`
+	DefaultRegion           string `default:"$APSARA_DEFAULT_REGION"`
 }
 
 // SHCSOEndpoints 华为私有云endpoints配置
