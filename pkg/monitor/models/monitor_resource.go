@@ -314,6 +314,10 @@ func (self *SMonitorResource) getMoreDetails(out monitor.MonitorResourceDetails)
 	if err != nil {
 		log.Errorf("getMoreDetails err:%v", err)
 	}
+	_, object := MonitorResourceManager.GetResourceObj(self.ResId)
+	if object != nil {
+		object.Unmarshal(&out)
+	}
 	out.AttachAlertCount = int64(len(joints))
 	return out
 }

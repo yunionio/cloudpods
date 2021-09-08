@@ -58,6 +58,7 @@ type Details struct {
 	Brand         string
 	DomainId      string
 	ProjectDomain string
+	Ips           string
 }
 type Guest struct {
 	compute_models.SGuest
