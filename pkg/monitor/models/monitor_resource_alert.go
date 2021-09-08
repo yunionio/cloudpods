@@ -204,6 +204,8 @@ func (obj *SMonitorResourceAlert) getMoreDetails(detail monitor.MonitorResourceJ
 	}
 	detail.ResType = resources[0].ResType
 	detail.ResName = resources[0].Name
+	detail.ResId = resources[0].ResId
+
 	if len(obj.AlertRecordId) != 0 {
 		record, err := AlertRecordManager.GetAlertRecord(obj.AlertRecordId)
 		if err != nil {
@@ -213,6 +215,7 @@ func (obj *SMonitorResourceAlert) getMoreDetails(detail monitor.MonitorResourceJ
 		detail.Level = record.Level
 		detail.AlertRule = record.AlertRule
 		detail.SendState = record.SendState
+		detail.State = record.State
 	}
 	return detail
 }
