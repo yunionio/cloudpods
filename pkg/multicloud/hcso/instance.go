@@ -774,6 +774,9 @@ func (self *SRegion) GetInstances() ([]SInstance, error) {
 func (self *SRegion) GetInstanceByID(instanceId string) (SInstance, error) {
 	instance := SInstance{}
 	err := DoGet(self.ecsClient.Servers.Get, instanceId, nil, &instance)
+	if instance.Status == "DELETED" {
+		return instance, errors.Wrap(cloudprovider.ErrNotFound, "GetInstanceByID")
+	}
 	return instance, err
 }
 
