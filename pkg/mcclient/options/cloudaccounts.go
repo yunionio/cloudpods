@@ -866,6 +866,7 @@ func (opts *SVMwareCloudAccountPrepareNetsOptions) Params() (jsonutils.JSONObjec
 type SApsaraCloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	cloudprovider.SApsaraEndpoints
+	Endpoint string
 	SAccessKeyCredential
 }
 
