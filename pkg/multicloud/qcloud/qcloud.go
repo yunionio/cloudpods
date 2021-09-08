@@ -954,6 +954,7 @@ func (client *SQcloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 	subAccount.Name = client.cpcfg.Name
 	subAccount.Account = client.secretId
 	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
+	subAccount.DefaultProjectId = "0"
 	if len(client.appId) > 0 {
 		subAccount.Account = fmt.Sprintf("%s/%s", client.secretId, client.appId)
 	}
