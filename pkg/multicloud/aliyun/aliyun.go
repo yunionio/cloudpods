@@ -541,6 +541,16 @@ func (self *SAliyunClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 	subAccount.Name = self.cpcfg.Name
 	subAccount.Account = self.accessKey
 	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
+	projects, err := self.GetIProjects()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIProject")
+	}
+	for i := range projects {
+		if projects[i].GetName() == "默认资源组" {
+			subAccount.DefaultProjectId = projects[i].GetGlobalId()
+			break
+		}
+	}
 	return []cloudprovider.SSubAccount{subAccount}, nil
 }
 
