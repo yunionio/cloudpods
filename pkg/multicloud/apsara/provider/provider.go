@@ -57,6 +57,9 @@ func (self *SApsaraProviderFactory) ValidateCreateCloudaccountData(ctx context.C
 		return output, httperrors.NewMissingParameterError("endpoint")
 	}
 	output.AccessUrl = input.Endpoint
+	if input.SApsaraEndpoints == nil || len(input.SApsaraEndpoints.DefaultRegion) == 0 {
+		return output, httperrors.NewMissingParameterError("default_region")
+	}
 	return output, nil
 }
 
