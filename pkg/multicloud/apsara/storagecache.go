@@ -70,17 +70,29 @@ func (self *SStoragecache) IsEmulated() bool {
 	return false
 }
 
-func (self *SStoragecache) fetchImages() error {
+func (self *SStoragecache) getImages(owner ImageOwnerType) ([]SImage, error) {
 	images := make([]SImage, 0)
 	for {
-		parts, total, err := self.region.GetImages(ImageStatusType(""), "", nil, "", len(images), 50)
+		parts, total, err := self.region.GetImages(ImageStatusType(""), owner, nil, "", len(images), 50)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		images = append(images, parts...)
 		if len(images) >= total {
 			break
 		}
+	}
+	return images, nil
+}
+
+func (self *SStoragecache) fetchImages() error {
+	images := make([]SImage, 0)
+	for _, owner := range []ImageOwnerType{ImageOwnerSelf, ImageOwnerSystem} {
+		_images, err := self.getImages(owner)
+		if err != nil {
+			return errors.Wrapf(err, "GetImage(%s)", owner)
+		}
+		images = append(images, _images...)
 	}
 	self.iimages = make([]cloudprovider.ICloudImage, len(images))
 	for i := 0; i < len(images); i += 1 {
