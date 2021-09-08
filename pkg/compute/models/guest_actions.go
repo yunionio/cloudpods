@@ -4288,22 +4288,23 @@ func (self *SGuest) PerformConvertToKvm(
 	if self.Status != api.VM_READY {
 		return nil, httperrors.NewBadRequestError("guest status must be ready")
 	}
-	newGuest, err := self.createConvertedServer(ctx, userCred)
+	newGuest, createInput, err := self.createConvertedServer(ctx, userCred)
 	if err != nil {
 		return nil, errors.Wrap(err, "create converted server")
 	}
-	return nil, self.StartConvertEsxiToKvmTask(ctx, userCred, preferHost, newGuest)
+	return nil, self.StartConvertEsxiToKvmTask(ctx, userCred, preferHost, newGuest, createInput)
 }
 
 func (self *SGuest) StartConvertEsxiToKvmTask(
 	ctx context.Context, userCred mcclient.TokenCredential,
-	preferHostId string, newGuest *SGuest,
+	preferHostId string, newGuest *SGuest, createInput *api.ServerCreateInput,
 ) error {
 	params := jsonutils.NewDict()
 	if len(preferHostId) > 0 {
 		params.Set("prefer_host_id", jsonutils.NewString(preferHostId))
 	}
 	params.Set("target_guest_id", jsonutils.NewString(newGuest.Id))
+	params.Set("input", jsonutils.Marshal(createInput))
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestConvertEsxiToKvmTask", self, userCred,
 		params, "", "", nil)
 	if err != nil {
@@ -4317,28 +4318,28 @@ func (self *SGuest) StartConvertEsxiToKvmTask(
 
 func (self *SGuest) createConvertedServer(
 	ctx context.Context, userCred mcclient.TokenCredential,
-) (*SGuest, error) {
+) (*SGuest, *api.ServerCreateInput, error) {
 	// set guest pending usage
 	pendingUsage, pendingRegionUsage, err := self.getGuestUsage(1)
 	keys, err := self.GetQuotaKeys()
 	if err != nil {
-		return nil, err
+		return nil, nil, errors.Wrap(err, "GetQuotaKeys")
 	}
 	pendingUsage.SetKeys(keys)
 	err = quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage)
 	if err != nil {
-		return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
+		return nil, nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
 	}
 	regionKeys, err := self.GetRegionalQuotaKeys()
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, false)
-		return nil, err
+		return nil, nil, errors.Wrap(err, "GetRegionalQuotaKeys")
 	}
 	pendingRegionUsage.SetKeys(regionKeys)
 	err = quotas.CheckSetPendingQuota(ctx, userCred, &pendingRegionUsage)
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, false)
-		return nil, err
+		return nil, nil, errors.Wrap(err, "CheckSetPendingQuota")
 	}
 	// generate guest create params
 	createInput := self.ToCreateInput(userCred)
@@ -4362,9 +4363,9 @@ func (self *SGuest) createConvertedServer(
 		jsonutils.Marshal(createInput), self.GetOwnerId())
 	quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, true)
 	if err != nil {
-		return nil, err
+		return nil, nil, errors.Wrap(err, "db.DoCreate")
 	}
-	return newGuest.(*SGuest), nil
+	return newGuest.(*SGuest), createInput, nil
 }
 
 func (self *SGuest) AllowPerformSyncFixNics(ctx context.Context,
