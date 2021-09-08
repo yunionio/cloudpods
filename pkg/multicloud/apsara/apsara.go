@@ -301,7 +301,11 @@ func (self *SApsaraClient) trialRequest(apiName string, params map[string]string
 }
 
 func (self *SApsaraClient) fetchRegions() error {
-	body, err := self.ecsRequest("DescribeRegions", map[string]string{"AcceptLanguage": "zh-CN"})
+	params := map[string]string{"AcceptLanguage": "zh-CN"}
+	if len(self.endpoints.DefaultRegion) > 0 {
+		params["RegionId"] = self.endpoints.DefaultRegion
+	}
+	body, err := self.ecsRequest("DescribeRegions", params)
 	if err != nil {
 		return errors.Wrapf(err, "DescribeRegions")
 	}
