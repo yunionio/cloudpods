@@ -47,6 +47,9 @@ type MonitorResourceListInput struct {
 type MonitorResourceDetails struct {
 	apis.VirtualResourceDetails
 	compute.CloudregionResourceInfo
+	compute.CloudaccountResourceInfo
+	Ips      string `json:"ips"`
+	AccessIp string `json:"access_ip"`
 
 	AttachAlertCount int64 `json:"attach_alert_count"`
 }
