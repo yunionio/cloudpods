@@ -116,7 +116,14 @@ func (self *GuestConvertEsxiToKvmTask) SaveScheduleResult(ctx context.Context, o
 	host, _ := targetGuest.GetHost()
 
 	//pendingUsage := models.SQuota{}
-	input := guest.ToCreateInput(self.UserCred)
+	input := new(api.ServerCreateInput)
+
+	err = self.Params.Unmarshal(input, "input")
+	if err != nil {
+		log.Errorf("fail to unmarshal params input")
+		input = guest.ToCreateInput(self.UserCred)
+	}
+
 	//pendingUsage.Storage = guest.GetDisksSize()
 	err = targetGuest.CreateDisksOnHost(ctx, self.UserCred, host, input.Disks, nil,
 		true, true, target.Disks, nil, true)
