@@ -22,8 +22,9 @@ import (
 type SDnsZoneListOptions struct {
 	BaseListOptions
 
-	VpcId    string `help:"Filter dns zone by vpc"`
-	ZoneType string `help:"Filter dns zone by zone type" choices:"PublicZone|PrivateZone"`
+	VpcId     string `help:"Filter dns zone by vpc"`
+	ZoneType  string `help:"Filter dns zone by zone type" choices:"PublicZone|PrivateZone"`
+	WithCache bool   `help:"Whether to bring cache information"`
 }
 
 func (opts *SDnsZoneListOptions) Params() (jsonutils.JSONObject, error) {
