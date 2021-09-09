@@ -46,9 +46,15 @@ type QcloudTags struct {
 func (self *QcloudTags) GetTags() (map[string]string, error) {
 	ret := map[string]string{}
 	for _, tag := range self.TagSet {
+		if tag.Value == "null" {
+			tag.Value = ""
+		}
 		ret[tag.Key] = tag.Value
 	}
 	for _, tag := range self.InstanceTags {
+		if tag.TagValue == "null" {
+			tag.TagValue = ""
+		}
 		ret[tag.TagKey] = tag.TagValue
 	}
 	return ret, nil

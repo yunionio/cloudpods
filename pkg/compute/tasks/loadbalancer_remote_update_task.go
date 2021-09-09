@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -33,22 +34,23 @@ func init() {
 	taskman.RegisterTask(LoadbalancerRemoteUpdateTask{})
 }
 
-func (self *LoadbalancerRemoteUpdateTask) taskFail(ctx context.Context, lb *models.SLoadbalancer, reason jsonutils.JSONObject) {
-	lb.SetStatus(self.UserCred, api.LB_UPDATE_TAGS_FAILED, reason.String())
-	self.SetStageFailed(ctx, reason)
+func (self *LoadbalancerRemoteUpdateTask) taskFail(ctx context.Context, lb *models.SLoadbalancer, err error) {
+	lb.SetStatus(self.UserCred, api.LB_UPDATE_TAGS_FAILED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *LoadbalancerRemoteUpdateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lb := obj.(*models.SLoadbalancer)
 	region, err := lb.GetRegion()
 	if err != nil {
-		self.taskFail(ctx, lb, jsonutils.NewString(err.Error()))
+		self.taskFail(ctx, lb, errors.Wrapf(err, "GetRegion"))
 		return
 	}
 	self.SetStage("OnRemoteUpdateComplete", nil)
 	replaceTags := jsonutils.QueryBoolean(self.Params, "replace_tags", false)
 	if err := region.GetDriver().RequestRemoteUpdateLoadbalancer(ctx, self.GetUserCred(), lb, replaceTags, self); err != nil {
-		self.taskFail(ctx, lb, jsonutils.NewString(err.Error()))
+		self.taskFail(ctx, lb, errors.Wrapf(err, "RequestRemoteUpdateLoadbalancer"))
+		return
 	}
 }
 
@@ -58,7 +60,7 @@ func (self *LoadbalancerRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Con
 }
 
 func (self *LoadbalancerRemoteUpdateTask) OnRemoteUpdateCompleteFailed(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
-	self.taskFail(ctx, lb, data)
+	self.taskFail(ctx, lb, errors.Errorf(data.String()))
 }
 
 func (self *LoadbalancerRemoteUpdateTask) OnSyncStatusComplete(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
