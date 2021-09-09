@@ -303,16 +303,12 @@ func (self *SManagedVirtualizationRegionDriver) RequestStopLoadbalancer(ctx cont
 
 func (self *SManagedVirtualizationRegionDriver) RequestSyncstatusLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := lb.GetIRegion()
+		iLb, err := lb.GetILoadbalancer()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "GetILoadbalancer")
 		}
-		iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
-		if err != nil {
-			return nil, err
-		}
-		models.SyncVirtualResourceMetadata(ctx, userCred, lb, iLoadbalancer)
-		status := iLoadbalancer.GetStatus()
+		models.SyncVirtualResourceMetadata(ctx, userCred, lb, iLb)
+		status := iLb.GetStatus()
 		if utils.IsInStringArray(status, []string{api.LB_STATUS_ENABLED, api.LB_STATUS_DISABLED}) {
 			return nil, lb.SetStatus(userCred, status, "")
 		}
@@ -323,15 +319,11 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncstatusLoadbalancer(ct
 
 func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, replaceTags bool, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := lb.GetIRegion()
+		iLb, err := lb.GetILoadbalancer()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "GetILoadbalancer")
 		}
-		iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
-		if err != nil {
-			return nil, err
-		}
-		oldTags, err := iLoadbalancer.GetTags()
+		oldTags, err := iLb.GetTags()
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
 				return nil, nil
@@ -343,7 +335,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestRemoteUpdateLoadbalancer(
 			return nil, errors.Wrapf(err, "lb.GetAllUserMetadata")
 		}
 		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
-		err = cloudprovider.SetTags(ctx, iLoadbalancer, lb.ManagerId, tags, replaceTags)
+		err = cloudprovider.SetTags(ctx, iLb, lb.ManagerId, tags, replaceTags)
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
 				return nil, nil

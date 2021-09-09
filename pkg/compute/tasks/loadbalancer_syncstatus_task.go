@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -35,24 +36,25 @@ func init() {
 	taskman.RegisterTask(LoadbalancerSyncstatusTask{})
 }
 
-func (self *LoadbalancerSyncstatusTask) taskFail(ctx context.Context, lb *models.SLoadbalancer, reason jsonutils.JSONObject) {
-	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_UNKNOWN, reason.String())
-	db.OpsLog.LogEvent(lb, db.ACT_SYNC_STATUS, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_SYNC_STATUS, reason, self.UserCred, false)
-	notifyclient.NotifySystemErrorWithCtx(ctx, lb.Id, lb.Name, api.LB_SYNC_CONF_FAILED, reason.String())
-	self.SetStageFailed(ctx, reason)
+func (self *LoadbalancerSyncstatusTask) taskFail(ctx context.Context, lb *models.SLoadbalancer, err error) {
+	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_UNKNOWN, err.Error())
+	db.OpsLog.LogEvent(lb, db.ACT_SYNC_STATUS, err, self.UserCred)
+	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
+	notifyclient.NotifySystemErrorWithCtx(ctx, lb.Id, lb.Name, api.LB_SYNC_CONF_FAILED, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *LoadbalancerSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	lb := obj.(*models.SLoadbalancer)
 	region, err := lb.GetRegion()
 	if err != nil {
-		self.taskFail(ctx, lb, jsonutils.NewString(err.Error()))
+		self.taskFail(ctx, lb, errors.Wrapf(err, "lb.GetRegion"))
 		return
 	}
 	self.SetStage("OnLoadbalancerSyncstatusComplete", nil)
 	if err := region.GetDriver().RequestSyncstatusLoadbalancer(ctx, self.GetUserCred(), lb, self); err != nil {
-		self.taskFail(ctx, lb, jsonutils.NewString(err.Error()))
+		self.taskFail(ctx, lb, errors.Wrapf(err, "RequestSyncstatusLoadbalancer"))
+		return
 	}
 }
 
@@ -63,5 +65,5 @@ func (self *LoadbalancerSyncstatusTask) OnLoadbalancerSyncstatusComplete(ctx con
 }
 
 func (self *LoadbalancerSyncstatusTask) OnLoadbalancerSyncstatusCompleteFailed(ctx context.Context, lb *models.SLoadbalancer, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lb, reason)
+	self.taskFail(ctx, lb, errors.Errorf(reason.String()))
 }

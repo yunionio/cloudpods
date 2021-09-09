@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 )
 
 const (
@@ -264,7 +265,7 @@ func (region *SRegion) tagsExist(tags map[string]string) (map[string]string, map
 	existTags := make(map[string]string)
 	for i := range tagRows {
 		tagkv := tagRows[i]
-		if v, ok := tags[tagkv.TagKey]; ok && tagkv.TagValue == v {
+		if v, ok := tags[tagkv.TagKey]; ok && (tagkv.TagValue == v || (utils.IsInStringArray(tagkv.TagValue, []string{"", "null"}) && len(v) == 0)) {
 			// exist
 			existTags[tagkv.TagKey] = tagkv.TagValue
 		}
@@ -279,13 +280,27 @@ func (region *SRegion) tagsExist(tags map[string]string) (map[string]string, map
 }
 
 func (region *SRegion) SetResourceTags(serviceType, resoureType string, resIds []string, tags map[string]string, replace bool) error {
-	_, notExist, err := region.tagsExist(tags)
+	allTags, notExist, err := region.tagsExist(tags)
+	if err != nil {
+		return errors.Wrapf(err, "tagsExist")
+	}
+	var getTagValue = func(k string) string {
+		if len(tags[k]) > 0 {
+			return tags[k]
+		}
+		if v, ok := allTags[k]; ok {
+			return v
+		}
+		return "null"
+	}
+
 	for k, v := range notExist {
-		err := region.createTag(k, v)
+		err := region.createTag(k, getTagValue(k))
 		if err != nil {
 			return errors.Wrapf(err, "createTag %s %s", k, v)
 		}
 	}
+
 	oldTags, err := region.FetchResourceTags(serviceType, resoureType, resIds)
 	if err != nil {
 		return errors.Wrap(err, "FetchTags")
@@ -344,15 +359,15 @@ func (region *SRegion) SetResourceTags(serviceType, resoureType string, resIds [
 		}
 	}
 	for k, ids := range modKeyIds {
-		err := region.modifyTag(serviceType, resoureType, ids, k, tags[k])
+		err := region.modifyTag(serviceType, resoureType, ids, k, getTagValue(k))
 		if err != nil {
-			return errors.Wrapf(err, "modifyTag %s %s fail %s", k, tags[k], err)
+			return errors.Wrapf(err, "modifyTag %s %s fail %s", k, getTagValue(k), err)
 		}
 	}
 	for k, ids := range addKeyIds {
-		err := region.attachTag(serviceType, resoureType, ids, k, tags[k])
+		err := region.attachTag(serviceType, resoureType, ids, k, getTagValue(k))
 		if err != nil {
-			return errors.Wrapf(err, "addTag %s %s fail %s", k, tags[k], err)
+			return errors.Wrapf(err, "addTag %s %s fail %s", k, getTagValue(k), err)
 		}
 	}
 	return nil
