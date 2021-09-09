@@ -53,6 +53,7 @@ todo:
 // https://cloud.tencent.com/document/api/214/30694#LoadBalancer
 type SLoadbalancer struct {
 	multicloud.SLoadbalancerBase
+	multicloud.QcloudTags
 	region *SRegion
 
 	Status           int64     `json:"Status"` // 0：创建中，1：正常运行
@@ -270,24 +271,6 @@ func (self *SLoadbalancer) Refresh() error {
 
 func (self *SLoadbalancer) IsEmulated() bool {
 	return false
-}
-
-func (self *SLoadbalancer) GetTags() (map[string]string, error) {
-	tags, err := self.region.FetchResourceTags("clb", "clb", []string{self.GetId()})
-	if err != nil {
-		return nil, errors.Wrapf(err, "FetchResourceTags")
-	}
-	ret := map[string]string{}
-	if _, ok := tags[self.GetId()]; !ok {
-		return ret, nil
-	}
-	resourceTag := tags[self.GetId()]
-	if resourceTag != nil {
-		for k, v := range *resourceTag {
-			ret[k] = v
-		}
-	}
-	return ret, nil
 }
 
 func (self *SLoadbalancer) GetSysTags() map[string]string {
