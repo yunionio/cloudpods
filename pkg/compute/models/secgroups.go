@@ -385,12 +385,14 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 
 	virtRows := manager.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	secgroupIds := make([]string, len(objs))
+	secgroups := make([]*SSecurityGroup, len(objs))
 	for i := range rows {
 		rows[i] = api.SecgroupDetails{
 			SharableVirtualResourceDetails: virtRows[i],
 		}
 		secgroup := objs[i].(*SSecurityGroup)
 		secgroupIds[i] = secgroup.Id
+		secgroups[i] = secgroup
 	}
 
 	caches := []SSecurityGroupCache{}
@@ -527,8 +529,43 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 		rows[i].AdminGuestCnt, _ = adminGuestMaps[secgroupIds[i]]
 		rows[i].SystemGuestCnt, _ = systemGuestMaps[secgroupIds[i]]
 	}
-
+	withCache, _ := query.Bool("with_cache")
+	if withCache {
+		secgroupIds := make([]string, len(secgroups))
+		for i := range secgroups {
+			secgroupIds[i] = secgroups[i].Id
+		}
+		cacheDetails, err := manager.GetCacheDetails(ctx, userCred, secgroupIds)
+		if err != nil {
+			log.Errorf("unable to Get cacheDetails: %v", err)
+		}
+		for i := range rows {
+			rows[i].CloudCaches = cacheDetails[secgroupIds[i]]
+		}
+	}
 	return rows
+}
+
+func (manager *SSecurityGroupManager) GetCacheDetails(ctx context.Context, userCred mcclient.TokenCredential, secgroupIds []string) (map[string][]jsonutils.JSONObject, error) {
+	q := SecurityGroupCacheManager.Query().In("secgroup_id", secgroupIds)
+	caches := []SSecurityGroupCache{}
+	err := db.FetchModelObjects(SecurityGroupCacheManager, q, &caches)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	objs := make([]interface{}, len(caches))
+	for i := range caches {
+		objs[i] = &caches[i]
+	}
+	cacheDetails := SecurityGroupCacheManager.FetchCustomizeColumns(ctx, userCred, jsonutils.NewDict(), objs, stringutils2.SSortedStrings{}, true)
+	ret := make(map[string][]jsonutils.JSONObject, len(secgroupIds))
+	for i := range cacheDetails {
+		jsonDict := jsonutils.Marshal(cacheDetails[i]).(*jsonutils.JSONDict)
+		jsonDict.Update(jsonutils.Marshal(objs[i]).(*jsonutils.JSONDict))
+		secgroupId, _ := jsonDict.GetString("secgroup_id")
+		ret[secgroupId] = append(ret[secgroupId], jsonDict)
+	}
+	return ret, nil
 }
 
 func (manager *SSecurityGroupManager) ValidateCreateData(
