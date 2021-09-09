@@ -942,7 +942,10 @@ func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
 	for i := range iBuckets {
 		loc := iBuckets[i].GetLocation()
 		// remove oss- prefix
-		if loc[4:] != region.GetId() {
+		if strings.HasPrefix(loc, "oss-") {
+			loc = loc[4:]
+		}
+		if loc != region.GetId() {
 			continue
 		}
 		ret = append(ret, iBuckets[i])
