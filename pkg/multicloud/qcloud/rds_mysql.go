@@ -898,17 +898,6 @@ func (self *SMySQLInstance) CreateIBackup(opts *cloudprovider.SDBInstanceBackupC
 	return self.region.CreateMySQLBackup(self.InstanceId, tables)
 }
 
-func (self *SMySQLInstance) GetTags() (map[string]string, error) {
-	tags, err := self.region.FetchResourceTags("cdb", "instanceId", []string{self.GetId()})
-	if err != nil {
-		return nil, errors.Wrap(err, "self.region.FetchResourceTags")
-	}
-	if _, ok := tags[self.GetId()]; !ok {
-		return map[string]string{}, nil
-	}
-	return *tags[self.GetId()], nil
-}
-
 func (self *SMySQLInstance) SetTags(tags map[string]string, replace bool) error {
 	return self.region.SetResourceTags("cdb", "instanceId", []string{self.InstanceId}, tags, replace)
 }
