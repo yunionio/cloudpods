@@ -474,6 +474,14 @@ func (lb *SLoadbalancer) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	return provider.GetIRegionById(region.ExternalId)
 }
 
+func (lb *SLoadbalancer) GetILoadbalancer() (cloudprovider.ICloudLoadbalancer, error) {
+	iRegion, err := lb.GetIRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIRegion")
+	}
+	return iRegion.GetILoadBalancerById(lb.ExternalId)
+}
+
 func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.ICloudRegion) (*cloudprovider.SLoadbalancer, error) {
 	params := &cloudprovider.SLoadbalancer{
 		Name:             lb.Name,

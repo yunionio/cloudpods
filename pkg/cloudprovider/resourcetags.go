@@ -17,6 +17,10 @@ package cloudprovider
 import (
 	"context"
 	"reflect"
+	"time"
+
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
@@ -40,5 +44,26 @@ func SetTags(ctx context.Context, res ICloudResource, managerId string, tags map
 	lockman.LockRawObject(ctx, SET_TAGS, managerId)
 	defer lockman.ReleaseRawObject(ctx, SET_TAGS, managerId)
 
-	return res.SetTags(tags, replace)
+	err := res.SetTags(tags, replace)
+	if err != nil {
+		return errors.Wrapf(err, "SetTags")
+	}
+
+	// 避免设置标签后未及时生效，导致本地同步和云上不一致
+	Wait(time.Second*5, time.Minute, func() (bool, error) {
+		res.Refresh()
+		newTags, err := res.GetTags()
+		if err != nil {
+			return false, errors.Wrapf(err, "GetTags")
+		}
+		for k, v := range tags {
+			_, ok := newTags[k]
+			if !ok {
+				log.Warningf("tag %s:%s not found waitting....", k, v)
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	return nil
 }
