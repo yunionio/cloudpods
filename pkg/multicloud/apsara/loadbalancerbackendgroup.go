@@ -58,6 +58,7 @@ type SLoadbalancerBackendGroup struct {
 	VServerGroupId    string
 	VServerGroupName  string
 	AssociatedObjects AssociatedObjects
+	DepartmentInfo
 }
 
 func (backendgroup *SLoadbalancerBackendGroup) GetILoadbalancer() cloudprovider.ICloudLoadbalancer {
@@ -270,8 +271,4 @@ func (backendgroup *SLoadbalancerBackendGroup) AddBackendServer(serverId string,
 
 func (backendgroup *SLoadbalancerBackendGroup) RemoveBackendServer(serverId string, weight, port int) error {
 	return backendgroup.lb.region.RemoveBackendVServer(backendgroup.lb.LoadBalancerId, backendgroup.VServerGroupId, serverId, port)
-}
-
-func (backendgroup *SLoadbalancerBackendGroup) GetProjectId() string {
-	return ""
 }

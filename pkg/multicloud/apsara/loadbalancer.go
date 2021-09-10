@@ -79,9 +79,9 @@ type SLoadbalancer struct {
 	SlaveZoneId              string              //实例的备可用区ID。
 	InternetChargeType       TInternetChargeType //公网实例的计费方式。取值：paybybandwidth：按带宽计费 paybytraffic：按流量计费（默认值） 说明 当 PayType参数的值为PrePay时，只支持按带宽计费。
 	PayType                  string              //实例的计费类型，取值：PayOnDemand：按量付费 PrePay：预付费
-	ResourceGroupId          string              //企业资源组ID。
 	LoadBalancerSpec         string              //负载均衡实例的的性能规格
 	Bandwidth                int                 //按带宽计费的公网型实例的带宽峰值
+	DepartmentInfo
 }
 
 func (lb *SLoadbalancer) GetName() string {
@@ -403,10 +403,6 @@ func (lb *SLoadbalancer) GetILoadBalancerListeners() ([]cloudprovider.ICloudLoad
 		}
 	}
 	return listeners, nil
-}
-
-func (lb *SLoadbalancer) GetProjectId() string {
-	return lb.ResourceGroupId
 }
 
 func (lb *SLoadbalancer) SetTags(tags map[string]string, replace bool) error {

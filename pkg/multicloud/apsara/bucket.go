@@ -40,10 +40,8 @@ type SBucket struct {
 	Location     string
 	CreationDate time.Time
 	StorageClass string
-}
 
-func (b *SBucket) GetProjectId() string {
-	return ""
+	DepartmentInfo
 }
 
 func (b *SBucket) GetGlobalId() string {

@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -26,17 +25,28 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
+type DepartmentInfo struct {
+	Department      string
+	DepartmentName  string
+	ResourceGroupId string
+}
+
+func (self DepartmentInfo) GetProjectId() string {
+	return self.Department
+}
+
 type SResourceGroup struct {
 	multicloud.SResourceBase
 	multicloud.ApsaraTags
 	client *SApsaraClient
 
-	Status      string
-	AccountId   string
-	DisplayName string
-	Id          string
-	CreateDate  time.Time
-	Name        string
+	Creator           string
+	GmtCreated        string
+	Id                string
+	OrganizationId    string
+	OrganizationName  string
+	ResourceGroupName string
+	RsId              string
 }
 
 func (self *SResourceGroup) GetGlobalId() string {
@@ -48,31 +58,15 @@ func (self *SResourceGroup) GetId() string {
 }
 
 func (self *SResourceGroup) GetName() string {
-	if len(self.DisplayName) > 0 {
-		return self.DisplayName
-	}
-	return self.Name
+	return self.ResourceGroupName
 }
 
 func (self *SResourceGroup) Refresh() error {
-	group, err := self.client.GetResourceGroup(self.Id)
-	if err != nil {
-		return errors.Wrap(err, "GetResourceGroup")
-	}
-	return jsonutils.Update(self, group)
+	return nil
 }
 
 func (self *SResourceGroup) GetStatus() string {
-	switch self.Status {
-	case "Creating":
-		return api.EXTERNAL_PROJECT_STATUS_CREATING
-	case "OK":
-		return api.EXTERNAL_PROJECT_STATUS_AVAILABLE
-	case "Deleted", "Deleting", "PendingDelete":
-		return api.EXTERNAL_PROJECT_STATUS_DELETING
-	default:
-		return api.EXTERNAL_PROJECT_STATUS_UNKNOWN
-	}
+	return api.EXTERNAL_PROJECT_STATUS_AVAILABLE
 }
 
 func (self *SApsaraClient) GetResourceGroups(pageNumber int, pageSize int) ([]SResourceGroup, int, error) {
@@ -91,11 +85,11 @@ func (self *SApsaraClient) GetResourceGroups(pageNumber int, pageSize int) ([]SR
 		return nil, 0, errors.Wrap(err, "rmRequest.ListResourceGroup")
 	}
 	groups := []SResourceGroup{}
-	err = resp.Unmarshal(&groups, "ResourceGroups", "ResourceGroup")
+	err = resp.Unmarshal(&groups, "data")
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "resp.Unmarshal")
 	}
-	total, _ := resp.Int("TotalCount")
+	total, _ := resp.Int("pageInfo", "total")
 	return groups, int(total), nil
 }
 

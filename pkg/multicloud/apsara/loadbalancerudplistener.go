@@ -54,6 +54,7 @@ type SLoadbalancerUDPListener struct {
 
 	HealthCheckExp string // UDP监听健康检查的响应串
 	HealthCheckReq string // UDP监听健康检查的请求串
+	DepartmentInfo
 }
 
 func (listener *SLoadbalancerUDPListener) GetName() string {
@@ -278,8 +279,4 @@ func (region *SRegion) SyncLoadbalancerUDPListener(lb *SLoadbalancer, listener *
 
 func (listerner *SLoadbalancerUDPListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListener) error {
 	return listerner.lb.region.SyncLoadbalancerUDPListener(listerner.lb, lblis)
-}
-
-func (listerner *SLoadbalancerUDPListener) GetProjectId() string {
-	return ""
 }
