@@ -205,15 +205,19 @@ func (self *SHuaweiClient) fetchRegions() error {
 
 		regionId := strings.Split(project.Name, "_")[0]
 		for _, region := range self.regions {
-			if region.ID == regionId {
+			if region.ID == regionId || project.Name == region.ID {
 				filtedRegions = append(filtedRegions, region)
 			}
-		}
-		if regionId == project.Name {
-			self.isMainProject = true
+			if project.Name == region.ID {
+				self.isMainProject = true
+			}
 		}
 	} else {
 		filtedRegions = self.regions
+	}
+
+	if len(filtedRegions) == 0 {
+		return errors.Wrapf(cloudprovider.ErrNotFound, "empty regions")
 	}
 
 	self.iregions = make([]cloudprovider.ICloudRegion, len(filtedRegions))
