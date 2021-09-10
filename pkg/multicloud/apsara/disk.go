@@ -67,13 +67,13 @@ type SDisk struct {
 	Portable                      bool
 	ProductCode                   string
 	RegionId                      string
-	ResourceGroupId               string
 	Size                          int
 	SourceSnapshotId              string
 	Status                        string
 	Tags                          STags
 	Type                          string
 	ZoneId                        string
+	DepartmentInfo
 }
 
 func (self *SRegion) GetDisks(instanceId string, zoneId string, category string, diskIds []string, offset int, limit int) ([]SDisk, int, error) {
@@ -436,8 +436,4 @@ func (self *SRegion) rebuildDisk(diskId string) error {
 		return err
 	}
 	return nil
-}
-
-func (self *SDisk) GetProjectId() string {
-	return self.ResourceGroupId
 }

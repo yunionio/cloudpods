@@ -92,7 +92,6 @@ type SDBInstance struct {
 	PayType                   TChargeType
 	ReadOnlyDBInstanceIds     SReadOnlyDBInstanceIds
 	RegionId                  string
-	ResourceGroupId           string
 	VSwitchId                 string
 	VpcCloudInstanceId        string
 	VpcId                     string
@@ -104,6 +103,7 @@ type SDBInstance struct {
 	SupportUpgradeAccountType string
 	TempUpgradeTimeEnd        time.Time
 	TempUpgradeTimeStart      time.Time
+	DepartmentInfo
 }
 
 func (rds *SDBInstance) GetName() string {
@@ -751,10 +751,6 @@ func (region *SRegion) RecoveryDBInstanceFromBackup(srcId, destId string, backup
 		return errors.Wrap(err, "rdsRequest.RecoveryDBInstance")
 	}
 	return nil
-}
-
-func (rds *SDBInstance) GetProjectId() string {
-	return rds.ResourceGroupId
 }
 
 func (rds *SDBInstance) CreateDatabase(conf *cloudprovider.SDBInstanceDatabaseCreateConfig) error {

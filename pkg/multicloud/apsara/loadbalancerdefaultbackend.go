@@ -31,6 +31,7 @@ type SLoadbalancerDefaultBackend struct {
 
 	ServerId string
 	Weight   int
+	DepartmentInfo
 }
 
 func (backend *SLoadbalancerDefaultBackend) GetName() string {
@@ -78,10 +79,6 @@ func (backend *SLoadbalancerDefaultBackend) GetBackendId() string {
 }
 
 func (backend *SLoadbalancerDefaultBackend) GetIpAddress() string {
-	return ""
-}
-
-func (backend *SLoadbalancerDefaultBackend) GetProjectId() string {
 	return ""
 }
 

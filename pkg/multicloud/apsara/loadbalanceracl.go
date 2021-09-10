@@ -40,6 +40,8 @@ type SLoadbalancerAcl struct {
 	AclName string
 
 	AclEntrys AclEntrys
+
+	DepartmentInfo
 }
 
 func (acl *SLoadbalancerAcl) GetAclListenerID() string {
@@ -155,8 +157,4 @@ func (acl *SLoadbalancerAcl) Sync(_acl *cloudprovider.SLoadbalancerAccessControl
 		return acl.region.AddAccessControlListEntry(acl.AclId, _acl.Entrys)
 	}
 	return nil
-}
-
-func (acl *SLoadbalancerAcl) GetProjectId() string {
-	return ""
 }

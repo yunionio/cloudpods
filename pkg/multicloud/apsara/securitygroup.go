@@ -85,6 +85,8 @@ type SSecurityGroup struct {
 	Permissions       SPermissions
 	RegionId          string
 	Tags              Tags
+
+	DepartmentInfo
 }
 
 func (self *SSecurityGroup) GetVpcId() string {
@@ -487,10 +489,6 @@ func (self *SRegion) DeleteSecurityGroup(secGrpId string) error {
 
 func (self *SSecurityGroup) Delete() error {
 	return self.vpc.region.DeleteSecurityGroup(self.SecurityGroupId)
-}
-
-func (self *SSecurityGroup) GetProjectId() string {
-	return ""
 }
 
 func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {

@@ -112,6 +112,7 @@ func NewApsaraClient(cfg *ApsaraClientConfig) (*SApsaraClient, error) {
 	client := SApsaraClient{
 		ApsaraClientConfig: cfg,
 	}
+
 	err := client.fetchRegions()
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchRegions")

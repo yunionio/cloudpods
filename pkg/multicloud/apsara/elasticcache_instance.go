@@ -73,7 +73,8 @@ type SElasticcache struct {
 	NodeType            string      `json:"NodeType"`
 	CapacityMB          int         `json:"Capacity"`
 	Connections         int64       `json:"Connections"`
-	ResourceGroupId     string      `json:"ResourceGroupId"`
+
+	DepartmentInfo
 }
 
 type SElasticcacheAttribute struct {
@@ -862,10 +863,6 @@ func (self *SElasticcache) UpdateAuthMode(noPwdAccess bool, password string) err
 	}
 
 	return nil
-}
-
-func (self *SElasticcache) GetProjectId() string {
-	return self.ResourceGroupId
 }
 
 func (self *SElasticcache) GetAuthMode() string {
