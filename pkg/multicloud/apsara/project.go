@@ -86,9 +86,9 @@ func (self *SApsaraClient) GetResourceGroups(pageNumber int, pageSize int) ([]SR
 		"PageNumber": fmt.Sprintf("%d", pageNumber),
 		"PageSize":   fmt.Sprintf("%d", pageSize),
 	}
-	resp, err := self.ascmRequest("ListResourceGroups", params)
+	resp, err := self.ascmRequest("ListResourceGroup", params)
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "rmRequest.ListResourceGroups")
+		return nil, 0, errors.Wrap(err, "rmRequest.ListResourceGroup")
 	}
 	groups := []SResourceGroup{}
 	err = resp.Unmarshal(&groups, "ResourceGroups", "ResourceGroup")
