@@ -17,8 +17,6 @@ package apsara
 import (
 	"crypto/tls"
 	"fmt"
-	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -27,7 +25,6 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"github.com/pkg/errors"
-	"golang.org/x/net/http/httpproxy"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -114,15 +111,6 @@ type SApsaraClient struct {
 func NewApsaraClient(cfg *ApsaraClientConfig) (*SApsaraClient, error) {
 	client := SApsaraClient{
 		ApsaraClientConfig: cfg,
-	}
-	pcfg := &httpproxy.Config{
-		HTTPProxy:  "http://192.168.199.117:8888",
-		HTTPSProxy: "",
-		NoProxy:    "",
-	}
-	proxyFunc := pcfg.ProxyFunc()
-	client.cpcfg.ProxyFunc = func(req *http.Request) (*url.URL, error) {
-		return proxyFunc(req.URL)
 	}
 
 	err := client.fetchRegions()
@@ -252,8 +240,6 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 	if strings.HasPrefix(apiName, "Describe") && len(id) > 0 {
 		req.GetHeaders()["x-acs-instanceId"] = id
 	}
-
-	log.Errorf("header: %s", req.GetHeaders())
 
 	resp, err := processCommonRequest(client, req)
 	if err != nil {

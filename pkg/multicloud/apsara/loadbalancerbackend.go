@@ -33,6 +33,7 @@ type SLoadbalancerBackend struct {
 	ServerId string
 	Port     int
 	Weight   int
+	DepartmentInfo
 }
 
 func (backend *SLoadbalancerBackend) GetName() string {
@@ -102,10 +103,6 @@ func (region *SRegion) GetLoadbalancerBackends(backendgroupId string) ([]SLoadba
 	}
 	backends := []SLoadbalancerBackend{}
 	return backends, body.Unmarshal(&backends, "BackendServers", "BackendServer")
-}
-
-func (backend *SLoadbalancerBackend) GetProjectId() string {
-	return ""
 }
 
 func (backend *SLoadbalancerBackend) SyncConf(ctx context.Context, port, weight int) error {

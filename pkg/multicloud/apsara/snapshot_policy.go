@@ -45,6 +45,7 @@ type SSnapshotPolicy struct {
 	TimePoints             string
 	RetentionDays          int
 	Status                 SSnapshotPolicyType
+	DepartmentInfo
 }
 
 func (self *SSnapshotPolicy) GetId() string {
@@ -83,10 +84,6 @@ func (self *SSnapshotPolicy) IsEmulated() bool {
 
 func (self *SSnapshotPolicy) GetGlobalId() string {
 	return self.AutoSnapshotPolicyId
-}
-
-func (self *SSnapshotPolicy) GetProjectId() string {
-	return ""
 }
 
 func (self *SSnapshotPolicy) GetRetentionDays() int {

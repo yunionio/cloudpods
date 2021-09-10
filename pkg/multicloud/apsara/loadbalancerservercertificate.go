@@ -43,8 +43,8 @@ type SLoadbalancerServerCertificate struct {
 	ExpireTimeStamp         uint64                  //	过期时间戳。
 	CommonName              string                  //	域名，对应证书的CommonName字段。
 	SubjectAlternativeNames SubjectAlternativeNames // 数组格式，返回证书的备用域名列表，对应证书的Subject Alternative Name字段，详情请参见SubjectAlternativeNames。
-	ResourceGroupId         string                  //	实例的企业资源组ID
 	RegionId                string                  //	负载均衡实例的地域。
+	DepartmentInfo
 }
 
 func (certificate *SLoadbalancerServerCertificate) GetPublickKey() string {
@@ -132,8 +132,4 @@ func (region *SRegion) GetLoadbalancerServerCertificates() ([]SLoadbalancerServe
 	}
 	certificates := []SLoadbalancerServerCertificate{}
 	return certificates, body.Unmarshal(&certificates, "ServerCertificates", "ServerCertificate")
-}
-
-func (certificate *SLoadbalancerServerCertificate) GetProjectId() string {
-	return ""
 }
