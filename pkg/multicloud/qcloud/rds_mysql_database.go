@@ -89,7 +89,7 @@ func (rds *SMySQLInstance) GetIDBInstanceDatabases() ([]cloudprovider.ICloudDBIn
 			part[i].rds = rds
 			ret = append(ret, &part[i])
 		}
-		if len(ret) >= total {
+		if len(ret) >= total || len(part) == 0 {
 			break
 		}
 	}
