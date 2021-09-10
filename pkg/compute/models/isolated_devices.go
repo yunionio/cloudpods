@@ -590,6 +590,7 @@ func (self *SIsolatedDevice) getDesc() *api.IsolatedDeviceJsonDesc {
 		Id:             self.Id,
 		DevType:        self.DevType,
 		Model:          self.Model,
+		Addr:           self.Addr,
 		VendorDeviceId: self.VendorDeviceId,
 		Vendor:         self.getVendor(),
 	}
