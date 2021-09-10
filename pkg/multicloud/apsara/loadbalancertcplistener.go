@@ -54,6 +54,7 @@ type SLoadbalancerTCPListener struct {
 	HealthCheckConnectTimeout int    //	每次健康检查响应的最大超时间，单位为秒。
 	HealthCheckInterval       int    //	健康检查的时间间隔，单位为秒。
 	HealthCheckConnectPort    int    //	健康检查的端口。
+	DepartmentInfo
 }
 
 func (listener *SLoadbalancerTCPListener) GetName() string {
@@ -352,8 +353,4 @@ func (region *SRegion) SyncLoadbalancerTCPListener(lb *SLoadbalancer, listener *
 
 func (listerner *SLoadbalancerTCPListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListener) error {
 	return listerner.lb.region.SyncLoadbalancerTCPListener(listerner.lb, lblis)
-}
-
-func (listerner *SLoadbalancerTCPListener) GetProjectId() string {
-	return ""
 }

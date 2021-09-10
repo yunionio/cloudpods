@@ -33,6 +33,7 @@ type SLoadbalancerMasterSlaveBackend struct {
 	Weight     int
 	Port       int
 	ServerType string
+	DepartmentInfo
 }
 
 func (backend *SLoadbalancerMasterSlaveBackend) GetName() string {
@@ -77,10 +78,6 @@ func (backend *SLoadbalancerMasterSlaveBackend) GetBackendRole() string {
 
 func (backend *SLoadbalancerMasterSlaveBackend) GetBackendId() string {
 	return backend.ServerId
-}
-
-func (backend *SLoadbalancerMasterSlaveBackend) GetProjectId() string {
-	return ""
 }
 
 func (backend *SLoadbalancerMasterSlaveBackend) SyncConf(ctx context.Context, port, weight int) error {

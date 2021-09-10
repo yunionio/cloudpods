@@ -69,6 +69,7 @@ type SLoadbalancerHTTPSListener struct {
 	EnableHttp2            string //	是否开启HTTP/2特性。取值：on（默认值）|off
 
 	TLSCipherPolicy string //
+	DepartmentInfo
 }
 
 func (listener *SLoadbalancerHTTPSListener) GetName() string {
@@ -393,8 +394,4 @@ func (region *SRegion) SyncLoadbalancerHTTPSListener(lb *SLoadbalancer, listener
 
 func (listerner *SLoadbalancerHTTPSListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListener) error {
 	return listerner.lb.region.SyncLoadbalancerHTTPSListener(listerner.lb, lblis)
-}
-
-func (listerner *SLoadbalancerHTTPSListener) GetProjectId() string {
-	return ""
 }

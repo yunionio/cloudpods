@@ -37,6 +37,7 @@ type SLoadbalancerListenerRule struct {
 	RuleName       string `json:"RuleName"`
 	Url            string `json:"Url"`
 	VServerGroupId string `json:"VServerGroupId"`
+	DepartmentInfo
 }
 
 func (lbr *SLoadbalancerListenerRule) GetName() string {
@@ -94,10 +95,6 @@ func (lbr *SLoadbalancerListenerRule) GetDomain() string {
 
 func (lbr *SLoadbalancerListenerRule) GetPath() string {
 	return lbr.Url
-}
-
-func (lbr *SLoadbalancerListenerRule) GetProjectId() string {
-	return ""
 }
 
 func (lbr *SLoadbalancerListenerRule) GetBackendGroupId() string {

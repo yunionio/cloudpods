@@ -59,9 +59,9 @@ type SVSwitch struct {
 	VpcId         string
 	ZoneId        string
 
-	CloudResources  SCloudResources
-	ResourceGroupId string
-	RouteTable      SRouteTable
+	CloudResources SCloudResources
+	RouteTable     SRouteTable
+	DepartmentInfo
 }
 
 func (self *SVSwitch) GetId() string {
@@ -269,8 +269,4 @@ func (vsw *SVSwitch) dissociateWithSNAT() error {
 		}
 	}
 	return nil
-}
-
-func (self *SVSwitch) GetProjectId() string {
-	return self.ResourceGroupId
 }
