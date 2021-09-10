@@ -33,6 +33,7 @@ type SLoadbalancerMasterSlaveBackend struct {
 	Weight     int
 	Port       int
 	ServerType string
+	DepartmentInfo
 }
 
 func (backend *SLoadbalancerMasterSlaveBackend) GetName() string {
@@ -80,10 +81,6 @@ func (backend *SLoadbalancerMasterSlaveBackend) GetBackendId() string {
 }
 
 func (backend *SLoadbalancerMasterSlaveBackend) GetIpAddress() string {
-	return ""
-}
-
-func (backend *SLoadbalancerMasterSlaveBackend) GetProjectId() string {
 	return ""
 }
 
