@@ -74,9 +74,8 @@ func (self *SRegion) getECSClient() (*client.Client, error) {
 		}
 
 		regionId := strings.Split(project.Name, "_")[0]
-		if regionId != self.ID {
-			// log.Debugf("project %s not in region %s", self.client.projectId, self.ID)
-			return nil, errors.Error("region and project mismatch")
+		if regionId != self.ID && project.Name != self.ID {
+			return nil, errors.Errorf("region %s and project %s mismatch", self.ID, project.Name)
 		}
 	}
 
