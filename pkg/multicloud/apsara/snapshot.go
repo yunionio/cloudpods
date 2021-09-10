@@ -43,15 +43,15 @@ type SSnapshot struct {
 	multicloud.ApsaraTags
 	region *SRegion
 
-	Progress        string
-	SnapshotId      string
-	SnapshotName    string
-	SourceDiskId    string
-	SourceDiskSize  int32
-	SourceDiskType  string
-	Status          SnapshotStatusType
-	Usage           string
-	ResourceGroupId string
+	Progress       string
+	SnapshotId     string
+	SnapshotName   string
+	SourceDiskId   string
+	SourceDiskSize int32
+	SourceDiskType string
+	Status         SnapshotStatusType
+	Usage          string
+	DepartmentInfo
 }
 
 func (self *SSnapshot) GetId() string {
@@ -197,10 +197,6 @@ func (self *SRegion) DeleteSnapshot(snapshotId string) error {
 	params["SnapshotId"] = snapshotId
 	_, err := self.ecsRequest("DeleteSnapshot", params)
 	return err
-}
-
-func (self *SSnapshot) GetProjectId() string {
-	return self.ResourceGroupId
 }
 
 // If snapshot linked images can't be delete

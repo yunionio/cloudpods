@@ -61,7 +61,6 @@ type SNetworkInterface struct {
 	MacAddress           string
 	NetworkInterfaceName string
 	PrivateIpSets        SPrivateIpSets
-	ResourceGroupId      string
 	SecurityGroupIds     SSecurityGroupIds
 	Status               string
 	Type                 string
@@ -71,6 +70,7 @@ type SNetworkInterface struct {
 	NetworkInterfaceId   string
 	PrimaryIpAddress     string
 	PrivateIpAddress     string
+	DepartmentInfo
 }
 
 func (nic *SNetworkInterface) GetName() string {

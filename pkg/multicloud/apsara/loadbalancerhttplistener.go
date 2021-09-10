@@ -75,6 +75,7 @@ type SLoadbalancerHTTPListener struct {
 	ForwardPort     int    //	HTTP至HTTPS的监听转发端口。暂时只支持将HTTP 80访问重定向转发至HTTPS 443。 说明 如果 ListenerForward的值为 off，该参数不显示。
 	ListenerForward string //	表示是否开启HTTP至HTTPS的监听转发。on：表示开启 off：表示未开启
 	VServerGroupId  string // 绑定的服务器组ID
+	DepartmentInfo
 }
 
 func (listener *SLoadbalancerHTTPListener) GetName() string {
@@ -364,10 +365,6 @@ func (region *SRegion) SyncLoadbalancerHTTPListener(lb *SLoadbalancer, listener 
 
 func (listerner *SLoadbalancerHTTPListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListener) error {
 	return listerner.lb.region.SyncLoadbalancerHTTPListener(listerner.lb, lblis)
-}
-
-func (listerner *SLoadbalancerHTTPListener) GetProjectId() string {
-	return ""
 }
 
 func (listerner *SLoadbalancerHTTPListener) GetClientIdleTimeout() int {
