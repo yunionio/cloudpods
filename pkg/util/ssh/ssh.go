@@ -21,7 +21,9 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -219,6 +221,47 @@ func (s *Client) Close() {
 	s.client.Close()
 }
 
+func updateTermSize(session *ssh.Session, quit <-chan int) {
+	sigwinchCh := make(chan os.Signal, 1)
+	signal.Notify(sigwinchCh, syscall.SIGWINCH)
+
+	fd := int(os.Stdin.Fd())
+	width, height, err := terminal.GetSize(fd)
+	if err != nil {
+		log.Errorf("get terminal size: %v", err)
+	}
+
+	for {
+		select {
+		case <-quit:
+			return
+		case sigwinCh := <-sigwinchCh:
+			if sigwinCh == nil {
+				<-quit
+				return
+			}
+			termWidth, termHeight, err := terminal.GetSize(fd)
+			if err != nil {
+				log.Errorf("get terminal size: %v", err)
+			}
+
+			if termHeight == height && termWidth == width {
+				continue
+			}
+
+			err = session.WindowChange(termHeight, termWidth)
+			if err != nil {
+				log.Errorf("send window-change request: %v", err)
+				continue
+			}
+
+			width = termWidth
+			height = termHeight
+		}
+	}
+
+}
+
 func (s *Client) RunTerminal() error {
 	defer s.Close()
 	session, err := s.client.NewSession()
@@ -261,15 +304,21 @@ func (s *Client) RunTerminal() error {
 		return errors.Wrap(err, "session shell")
 	}
 
+	quit := make(chan int)
+	go updateTermSize(session, quit)
+
 	if err := session.Wait(); err != nil {
 		if e, ok := err.(*ssh.ExitError); ok {
 			switch e.ExitStatus() {
 			case 130:
+				quit <- 1
 				return nil
 			}
 		}
+		quit <- 1
 		return errors.Wrap(err, "ssh wait")
 	}
+	quit <- 1
 	return nil
 }
 
