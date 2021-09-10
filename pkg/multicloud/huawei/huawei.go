@@ -203,17 +203,20 @@ func (self *SHuaweiClient) fetchRegions() error {
 			return err
 		}
 
-		regionId := strings.Split(project.Name, "_")[0]
 		for _, region := range self.regions {
-			if region.ID == regionId {
+			if strings.Count(project.Name, region.ID) >= 1 {
 				filtedRegions = append(filtedRegions, region)
 			}
-		}
-		if regionId == project.Name {
-			self.isMainProject = true
+			if project.Name == region.ID {
+				self.isMainProject = true
+			}
 		}
 	} else {
 		filtedRegions = self.regions
+	}
+
+	if len(filtedRegions) == 0 {
+		return errors.Wrapf(cloudprovider.ErrNotFound, "empty regions")
 	}
 
 	self.iregions = make([]cloudprovider.ICloudRegion, len(filtedRegions))
@@ -326,10 +329,10 @@ func (self *SHuaweiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 			continue
 		}
 		// https://www.huaweicloud.com/notice/2018/20190618171312411.html
-		expiredAt, _ := timeutils.ParseTimeStr("2020-09-16 00:00:00")
-		if !self.ownerCreateTime.IsZero() && self.ownerCreateTime.After(expiredAt) && strings.ToLower(project.Name) == "cn-north-1" {
-			continue
-		}
+		// expiredAt, _ := timeutils.ParseTimeStr("2020-09-16 00:00:00")
+		// if !self.ownerCreateTime.IsZero() && self.ownerCreateTime.After(expiredAt) && strings.ToLower(project.Name) == "cn-north-1" {
+		// 	continue
+		// }
 		s := cloudprovider.SSubAccount{
 			Name:         fmt.Sprintf("%s-%s", self.cpcfg.Name, project.Name),
 			State:        api.CLOUD_PROVIDER_CONNECTED,
