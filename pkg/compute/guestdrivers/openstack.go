@@ -48,13 +48,21 @@ func init() {
 	models.RegisterGuestDriver(&driver)
 }
 
-func (self *SOpenStackGuestDriver) DoScheduleCPUFilter() bool { return true }
+func (self *SOpenStackGuestDriver) DoScheduleCPUFilter() bool {
+	return options.Options.SchedulerOptions.OpenStackSchedulerCPUFilter
+}
 
-func (self *SOpenStackGuestDriver) DoScheduleMemoryFilter() bool { return true }
+func (self *SOpenStackGuestDriver) DoScheduleMemoryFilter() bool {
+	return options.Options.SchedulerOptions.OpenStackSchedulerMemoryFilter
+}
 
-func (self *SOpenStackGuestDriver) DoScheduleSKUFilter() bool { return false }
+func (self *SOpenStackGuestDriver) DoScheduleSKUFilter() bool {
+	return options.Options.SchedulerOptions.OpenStackSchedulerSKUFilter
+}
 
-func (self *SOpenStackGuestDriver) DoScheduleStorageFilter() bool { return true }
+func (self *SOpenStackGuestDriver) DoScheduleStorageFilter() bool {
+	return options.Options.SchedulerOptions.OpenStackSchedulerStorageFilter
+}
 
 func (self *SOpenStackGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_OPENSTACK
