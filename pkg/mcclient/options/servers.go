@@ -99,10 +99,11 @@ type ServerLoginInfoOptions struct {
 
 type ServerSSHLoginOptions struct {
 	ServerLoginInfoOptions
-	Host     string `help:"IP address or hostname of the server"`
-	Port     int    `help:"SSH service port" default:"22"`
-	User     string `help:"SSH login user"`
-	Password string `help:"SSH password"`
+	Host         string `help:"IP address or hostname of the server"`
+	Port         int    `help:"SSH service port" default:"22"`
+	User         string `help:"SSH login user"`
+	Password     string `help:"SSH password"`
+	UseCloudroot bool   `help:"SSH login with cloudroot"`
 }
 
 type ServerConvertToKvmOptions struct {
