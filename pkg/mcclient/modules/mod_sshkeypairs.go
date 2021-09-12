@@ -48,6 +48,11 @@ func (this *SSshkeypairManager) List(s *mcclient.ClientSession, params jsonutils
 
 func (this *SSshkeypairManager) FetchPrivateKey(ctx context.Context, userCred mcclient.TokenCredential) (string, error) {
 	s := auth.GetSession(ctx, userCred, "", "")
+	return this.FetchPrivateKeyBySession(ctx, s)
+}
+
+func (this *SSshkeypairManager) FetchPrivateKeyBySession(ctx context.Context, s *mcclient.ClientSession) (string, error) {
+	userCred := s.GetToken()
 	jd := jsonutils.NewDict()
 	var jr jsonutils.JSONObject
 	if userCred.HasSystemAdminPrivilege() {

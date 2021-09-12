@@ -15,6 +15,7 @@
 package compute
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -818,13 +819,15 @@ func init() {
 			return fmt.Errorf("Not found ip address from server %s", opts.ID)
 		}
 
+		privateKey := ""
 		params := jsonutils.NewDict()
 		if len(opts.Key) > 0 {
-			privateKey, e := ioutil.ReadFile(opts.Key)
+			key, e := ioutil.ReadFile(opts.Key)
 			if e != nil {
 				return e
 			}
-			params.Add(jsonutils.NewString(string(privateKey)), "private_key")
+			params.Add(jsonutils.NewString(string(key)), "private_key")
+			privateKey = string(key)
 		}
 
 		i, e := modules.Servers.GetLoginInfo(s, srvid, params)
@@ -832,14 +835,14 @@ func init() {
 			return e
 		}
 		passwd, err := i.GetString("password")
-		if err != nil {
+		if err != nil && !opts.UseCloudroot {
 			return err
 		}
 		if opts.Password != "" {
 			passwd = opts.Password
 		}
 		user, err := i.GetString("username")
-		if err != nil {
+		if err != nil && !opts.UseCloudroot {
 			return err
 		}
 		if opts.User != "" {
@@ -869,8 +872,22 @@ func init() {
 			}
 		}
 
+		if opts.UseCloudroot {
+			var err error
+			privateKey, err = modules.Sshkeypairs.FetchPrivateKeyBySession(context.Background(), s)
+			if err != nil {
+				return err
+			}
+			passwd = ""
+			user = "cloudroot"
+		}
+
 		var sshCli *ssh.Client
-		for sshCli, err = ssh.NewClient(host, port, user, passwd, ""); err != nil; {
+		err = nil
+		for ; sshCli == nil; sshCli, err = ssh.NewClient(host, port, user, passwd, privateKey) {
+			if err == nil {
+				continue
+			}
 			if opts.Host != "" {
 				return err
 			}
@@ -879,9 +896,9 @@ func init() {
 				return err
 			} else {
 				if vpcid != "default" {
-					forwardItem, err = openForward(s, srvid)
-					if err != nil {
-						return err
+					forwardItem, e = openForward(s, srvid)
+					if e != nil {
+						return e
 					}
 					host = forwardItem.ProxyAddr
 					port = forwardItem.ProxyPort
