@@ -63,7 +63,7 @@ func init() {
 		Id int
 	}
 
-	shellutils.R(&OrganizationListOptions{}, "organization-list", "List organization tree", func(cli *apsara.SRegion, args *OrganizationListOptions) error {
+	shellutils.R(&OrganizationListOptions{}, "organization-tree", "List organization tree", func(cli *apsara.SRegion, args *OrganizationListOptions) error {
 		org, err := cli.GetClient().GetOrganizationTree(args.Id)
 		if err != nil {
 			return err
@@ -72,12 +72,12 @@ func init() {
 		return nil
 	})
 
-	shellutils.R(&OrganizationListOptions{}, "organization-project-list", "List organization tree", func(cli *apsara.SRegion, args *OrganizationListOptions) error {
-		org, err := cli.GetClient().GetOrganizationTree(args.Id)
+	shellutils.R(&OrganizationListOptions{}, "organization-list", "List organization", func(cli *apsara.SRegion, args *OrganizationListOptions) error {
+		orgs, err := cli.GetClient().GetOrganizationList()
 		if err != nil {
 			return err
 		}
-		printList(org.ListProjects(), 0, 0, 0, nil)
+		printList(orgs, 0, 0, 0, nil)
 		return nil
 	})
 
