@@ -18,6 +18,8 @@ import (
 	"strconv"
 	"time"
 
+	alierr "github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 )
@@ -138,7 +140,7 @@ func (r *SRegion) FetchMetrics(ns string) ([]SMetricMeta, error) {
 	return metrics, nil
 }
 
-func (r *SRegion) DescribeMetricList(name string, ns string, since time.Time, until time.Time, nextToken string) ([]jsonutils.JSONObject, string, error) {
+func (r *SRegion) DescribeMetricList(department, name string, ns string, since time.Time, until time.Time, nextToken string) ([]jsonutils.JSONObject, string, error) {
 	params := make(map[string]string)
 	params["MetricName"] = name
 	params["Namespace"] = ns
@@ -151,6 +153,9 @@ func (r *SRegion) DescribeMetricList(name string, ns string, since time.Time, un
 	}
 	if !until.IsZero() {
 		params["EndTime"] = strconv.FormatInt(until.Unix()*1000, 10)
+	}
+	if len(department) > 0 {
+		params["Department"] = department
 	}
 	body, err := r.metricsRequest("DescribeMetricList", params)
 	if err != nil {
@@ -172,11 +177,11 @@ func (r *SRegion) DescribeMetricList(name string, ns string, since time.Time, un
 	return dataArray, nToken, nil
 }
 
-func (r *SRegion) FetchMetricData(name string, ns string, since time.Time, until time.Time) ([]jsonutils.JSONObject, error) {
+func (r *SRegion) fetchMetricData(department string, name string, ns string, since time.Time, until time.Time) ([]jsonutils.JSONObject, error) {
 	data := make([]jsonutils.JSONObject, 0)
 	nextToken := ""
 	for {
-		datArray, next, err := r.DescribeMetricList(name, ns, since, until, nextToken)
+		datArray, next, err := r.DescribeMetricList(department, name, ns, since, until, nextToken)
 		if err != nil {
 			return nil, errors.Wrap(err, "r.DescribeMetricList")
 		}
@@ -185,6 +190,35 @@ func (r *SRegion) FetchMetricData(name string, ns string, since time.Time, until
 			break
 		}
 		nextToken = next
+	}
+	return data, nil
+}
+
+func (r *SRegion) FetchMetricData(name string, ns string, since time.Time, until time.Time) ([]jsonutils.JSONObject, error) {
+	data := make([]jsonutils.JSONObject, 0)
+	part, err := r.fetchMetricData("1", name, ns, since, until)
+	if err == nil {
+		return part, nil
+	}
+	if err != nil {
+		if e, ok := errors.Cause(err).(*alierr.ServerError); ok && e.ErrorCode() != "NoPermission" {
+			return nil, errors.Wrapf(err, "fetchMetricData")
+		}
+	}
+
+	orgs, err := r.GetClient().GetOrganizationList()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetOrganizationList")
+	}
+
+	for i := range orgs {
+		if orgs[i].ParentId == "1" {
+			part, err := r.fetchMetricData(orgs[i].Id, name, ns, since, until)
+			if err != nil {
+				return nil, errors.Wrapf(err, "fetchMetricData")
+			}
+			data = append(data, part...)
+		}
 	}
 	return data, nil
 }
