@@ -79,12 +79,16 @@ func (self *SApsaraProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 }
 
 func (self *SApsaraProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	endpoints := cloudprovider.SApsaraEndpoints{}
+	if cfg.Options != nil {
+		cfg.Options.Unmarshal(&endpoints)
+	}
 	client, err := apsara.NewApsaraClient(
 		apsara.NewApsaraClientConfig(
 			cfg.Account,
 			cfg.Secret,
 			cfg.URL,
-			cfg.SApsaraEndpoints,
+			endpoints,
 		).CloudproviderConfig(cfg),
 	)
 	if err != nil {
