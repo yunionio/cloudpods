@@ -443,7 +443,7 @@ func NextDeviceName(curDeviceNames []string) (string, error) {
 	}
 
 	for i := 0; i < 25; i++ {
-		device := fmt.Sprintf("/dev/sd%s", string(98+i))
+		device := fmt.Sprintf("/dev/sd%c", byte(98+i))
 		found := false
 		for _, item := range currents {
 			if strings.HasPrefix(item, device) {
@@ -457,7 +457,7 @@ func NextDeviceName(curDeviceNames []string) (string, error) {
 	}
 
 	for i := 0; i < 25; i++ {
-		device := fmt.Sprintf("/dev/vxd%s", string(98+i))
+		device := fmt.Sprintf("/dev/vxd%c", byte(98+i))
 		found := false
 		for _, item := range currents {
 			if !strings.HasPrefix(item, device) {

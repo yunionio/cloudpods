@@ -243,7 +243,7 @@ func getOBSEndpoint(regionId string) string {
 }
 
 func (client *SHuaweiClient) getOBSClient(regionId string) (*obs.ObsClient, error) {
-	endpoint := client.cpcfg.SHCSOEndpoints.GetEndpoint("obs", regionId)
+	endpoint := client.endpoints.GetEndpoint("obs", regionId)
 	return obs.New(client.accessKey, client.accessSecret, endpoint)
 }
 
@@ -514,7 +514,7 @@ func (self *SHuaweiClient) GetOwnerId() (string, error) {
 }
 
 func (self *SHuaweiClient) GetSamlEntityId() string {
-	return fmt.Sprintf("auth.%s", self.cpcfg.EndpointDomain)
+	return fmt.Sprintf("auth.%s", self.endpoints.EndpointDomain)
 }
 
 func (self *SHuaweiClient) initOwner() error {

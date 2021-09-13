@@ -228,6 +228,7 @@ type SAWSCloudAccountCreateOptions struct {
 	OptionsBillingReportBucket  string `help:"bucket that stores billing report" json:"-"`
 	OptionsBillingBucketAccount string `help:"id of account that can access bucket, blank if this account can access" json:"-"`
 	OptionsBillingFilePrefix    string `help:"prefix of billing file name" json:"-"`
+	OptionsAssumeRoleName       string `help:"assume role name" json:"-"`
 }
 
 func (opts *SAWSCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -241,6 +242,9 @@ func (opts *SAWSCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error
 	}
 	if len(opts.OptionsBillingFilePrefix) > 0 {
 		options.Add(jsonutils.NewString(opts.OptionsBillingFilePrefix), "billing_file_prefix")
+	}
+	if len(opts.OptionsAssumeRoleName) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsAssumeRoleName), "aws_assume_role_name")
 	}
 	if options.Size() > 0 {
 		params.Add(options, "options")
@@ -540,7 +544,7 @@ type SCloudAccountUpdateBaseOptions struct {
 	Name string `help:"New name to update"`
 
 	SyncIntervalSeconds *int   `help:"auto synchornize interval in seconds"`
-	AutoCreateProject   *bool  `help:"automatically create local project for new remote project"`
+	AutoCreateProject   *bool  `help:"automatically create local project for new remote project" negative:"no_auto_create_project"`
 	ProxySetting        string `help:"proxy setting name or id" json:"proxy_setting"`
 	SamlAuth            string `help:"Enable or disable saml auth" choices:"true|false"`
 
@@ -706,6 +710,8 @@ type SAWSCloudAccountUpdateOptions struct {
 	RemoveOptionsBillingBucketAccount bool   `help:"remove id of account that can access bucket, blank if this account can access" json:"-"`
 	OptionsBillingFilePrefix          string `help:"update prefix of billing file name" json:"-"`
 	RemoveOptionsBillingFilePrefix    bool   `help:"remove prefix of billing file name" json:"-"`
+	OptionsAssumeRoleName             string `help:"name of assume role" json:"-"`
+	RemoveOptionsAssumeRoleName       bool   `help:"remove option of aws_assume_role_name"`
 }
 
 func (opts *SAWSCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
@@ -721,6 +727,9 @@ func (opts *SAWSCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error
 	if len(opts.OptionsBillingFilePrefix) > 0 {
 		options.Add(jsonutils.NewString(opts.OptionsBillingFilePrefix), "billing_file_prefix")
 	}
+	if len(opts.OptionsAssumeRoleName) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsAssumeRoleName), "aws_assume_role_name")
+	}
 	if options.Size() > 0 {
 		params.Add(options, "options")
 	}
@@ -733,6 +742,9 @@ func (opts *SAWSCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error
 	}
 	if opts.RemoveOptionsBillingFilePrefix {
 		removeOptions = append(removeOptions, "billing_file_prefix")
+	}
+	if opts.RemoveOptionsAssumeRoleName {
+		removeOptions = append(removeOptions, "aws_assume_role_name")
 	}
 	if len(removeOptions) > 0 {
 		params.Add(jsonutils.NewStringArray(removeOptions), "remove_options")

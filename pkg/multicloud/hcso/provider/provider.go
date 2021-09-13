@@ -150,10 +150,14 @@ func parseAccount(account string) (accessKey string, projectId string) {
 }
 
 func (self *SHCSOProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	hscsoEndpoints := cloudprovider.SHCSOEndpoints{}
+	if cfg.Options != nil {
+		cfg.Options.Unmarshal(&hscsoEndpoints)
+	}
 	accessKey, project_id := parseAccount(cfg.Account)
 	client, err := huawei.NewHuaweiClient(
 		huawei.NewHuaweiClientConfig(
-			accessKey, cfg.Secret, project_id, &cfg.SHCSOEndpoints,
+			accessKey, cfg.Secret, project_id, &hscsoEndpoints,
 		).CloudproviderConfig(cfg),
 	)
 	if err != nil {
