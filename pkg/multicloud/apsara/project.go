@@ -28,11 +28,12 @@ import (
 type DepartmentInfo struct {
 	Department      string
 	DepartmentName  string
+	ResourceGroup   string
 	ResourceGroupId string
 }
 
 func (self DepartmentInfo) GetProjectId() string {
-	return self.Department
+	return self.ResourceGroup
 }
 
 type SResourceGroup struct {
