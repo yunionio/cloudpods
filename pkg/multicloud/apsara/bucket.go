@@ -87,7 +87,7 @@ func (b *SBucket) GetStorageClass() string {
 func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
 	return []cloudprovider.SBucketAccessUrl{
 		{
-			Url:         fmt.Sprintf("%s.%s", b.Name, b.region.client.cpcfg.OssEndpoint),
+			Url:         fmt.Sprintf("%s.%s", b.Name, b.region.client.endpoints.OssEndpoint),
 			Description: "ExtranetEndpoint",
 			Primary:     true,
 		},

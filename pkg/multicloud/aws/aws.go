@@ -60,6 +60,8 @@ const (
 	AWS_CHINA_ARN_PREFIX  = "arn:aws-cn:iam::aws:policy/"
 
 	DEFAULT_S3_REGION_ID = "us-east-1"
+
+	DefaultAssumeRoleName = "OrganizationAccountAccessRole"
 )
 
 var (
@@ -75,6 +77,8 @@ type AwsClientConfig struct {
 	accountId    string
 
 	debug bool
+
+	assumeRoleName string
 }
 
 func NewAwsClientConfig(accessUrl, accessKey, accessSecret, accountId string) *AwsClientConfig {
@@ -96,6 +100,18 @@ func (cfg *AwsClientConfig) Debug(debug bool) *AwsClientConfig {
 	cfg.debug = debug
 	DEBUG = debug
 	return cfg
+}
+
+func (cfg *AwsClientConfig) SetAssumeRole(roleName string) *AwsClientConfig {
+	cfg.assumeRoleName = roleName
+	return cfg
+}
+
+func (cfg *AwsClientConfig) getAssumeRoleName() string {
+	if len(cfg.assumeRoleName) > 0 {
+		return cfg.assumeRoleName
+	}
+	return DefaultAssumeRoleName
 }
 
 type SAwsClient struct {
@@ -261,7 +277,7 @@ func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*sess
 		default:
 			env = "aws-cn"
 		}
-		roleARN := fmt.Sprintf("arn:%s:iam::%s:role/OrganizationAccountAccessRole", env, client.accountId)
+		roleARN := fmt.Sprintf("arn:%s:iam::%s:role/%s", env, client.accountId, client.getAssumeRoleName())
 		creds := stscreds.NewCredentials(s, roleARN)
 		s = s.Copy(&aws.Config{Credentials: creds})
 	}

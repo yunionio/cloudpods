@@ -201,11 +201,15 @@ func parseAccount(account, secret string) (accessKey string, secretKey string, a
 }
 
 func (self *SAwsProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	extra := cloudprovider.SAWSExtraOptions{}
+	if cfg.Options != nil {
+		cfg.Options.Unmarshal(&extra)
+	}
 	accessKey, secret, accountId := parseAccount(cfg.Account, cfg.Secret)
 	client, err := aws.NewAwsClient(
 		aws.NewAwsClientConfig(
 			cfg.URL, accessKey, secret, accountId,
-		).CloudproviderConfig(cfg),
+		).SetAssumeRole(extra.AWSAssumeRoleName).CloudproviderConfig(cfg),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewAwsClient")
