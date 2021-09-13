@@ -6,6 +6,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -27,37 +28,49 @@ func (self *SAzureCloudReport) collectRegionMetricOfHost(region cloudprovider.IC
 		return err
 	}
 	for _, server := range servers {
+		srvId, _ := server.GetString("id")
+		srvName, _ := server.GetString("name")
+		srvPrefix := srvId + "/" + "srvName"
 		external_id, err := server.GetString("external_id")
 		if err != nil {
 			continue
 		}
+		classicKey := "microsoft.classiccompute/virtualmachines"
+		ns := "Microsoft.Compute/virtualMachines"
+		metricSpecs := azureMetricSpecs
+		if strings.Contains(strings.ToLower(external_id), classicKey) {
+			ns = classicKey
+			metricSpecs = azureClassicMetricsSpec
+		}
 		metricNameArr := make([]string, 0)
-		for metricName, _ := range azureMetricSpecs {
+		for metricName := range metricSpecs {
 			metricNameArr = append(metricNameArr, metricName)
 		}
 		metricNames := strings.Join(metricNameArr, ",")
-		rtnMetrics, err := azureReg.GetMonitorData(metricNames, "Microsoft.Compute/virtualMachines", external_id, since, until)
+		azureReg.GetClient().Debug(true)
+		rtnMetrics, err := azureReg.GetMonitorData(metricNames, ns, external_id, since, until)
 		if err != nil {
-			log.Errorln(err)
+			log.Errorf("get metrics for server %s error: %v", srvPrefix, err)
 			continue
 		}
 		if rtnMetrics == nil || rtnMetrics.Value == nil {
+			log.Warningf("server %s metrics is nil", srvPrefix)
 			continue
 		}
-		for metricName, influxDbSpecs := range azureMetricSpecs {
+		for metricName, influxDbSpecs := range metricSpecs {
 			for _, value := range *rtnMetrics.Value {
 				if value.Name.LocalizedValue != nil {
-					if metricName == *(value.Name.LocalizedValue) {
+					if metricName == *(value.Name.LocalizedValue) || (value.Name.Value != nil && *value.Name.Value == metricName) {
 						metric, err := common.FillVMCapacity(server.(*jsonutils.JSONDict))
 						if err != nil {
-							return err
+							return errors.Wrapf(err, "fill vm %q capacity", srvPrefix)
 						}
 						dataList = append(dataList, metric)
 						if value.Timeseries != nil {
 							for _, timeserie := range *value.Timeseries {
 								serverMetric, err := self.collectMetricFromThisServer(server, timeserie, influxDbSpecs)
 								if err != nil {
-									return err
+									return errors.Wrapf(err, "collect metrics from server %q", srvPrefix)
 								}
 								dataList = append(dataList, serverMetric...)
 							}
@@ -68,7 +81,7 @@ func (self *SAzureCloudReport) collectRegionMetricOfHost(region cloudprovider.IC
 		}
 		err = common.SendMetrics(self.Session, dataList, self.Args.Debug, "")
 		if err != nil {
-			log.Errorln(err)
+			log.Errorf("send %q metrics error: %v", srvName, err)
 		}
 		dataList = dataList[:0]
 	}
