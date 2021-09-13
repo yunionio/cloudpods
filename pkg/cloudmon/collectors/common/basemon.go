@@ -129,14 +129,14 @@ func (self *CloudReportBase) InitProviderInstance() (cloudprovider.ICloudProvide
 	if err == nil {
 		err := options.Unmarshal(&endpoints)
 		if err != nil {
-			log.Errorf("Unmarshal SApsaraEndpoints err:%v", err)
+			log.Errorf("Unmarshal SApsaraEndpoints err: %v", err)
 		}
 		err = options.Unmarshal(&hwendpoints)
 		if err != nil {
-			log.Errorf("Unmarshal SHCSOEndpoints err:%v", err)
+			log.Errorf("Unmarshal SHCSOEndpoints err: %v", err)
 		}
 	} else {
-		log.Errorf("get cloudAccout options err:%v", err)
+		log.Errorf("get cloudAccout options err: %v", err)
 	}
 	cfg := cloudprovider.ProviderConfig{
 		Id:               self.SProvider.Id,
