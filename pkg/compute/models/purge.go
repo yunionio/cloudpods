@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/log"
@@ -1234,6 +1235,16 @@ func (manager *SCloudregionManager) purgeAll(ctx context.Context, userCred mccli
 		return err
 	}
 	for i := range regions {
+		c, err := CloudproviderRegionManager.Query().NotEquals("cloudprovider_id", providerId).Equals("cloudregion_id", regions[i].GetId()).CountWithError()
+		if err != nil && errors.Cause(err) != sql.ErrNoRows {
+			return err
+		}
+		// 仍然有其他provider在使用该region
+		if c > 0 {
+			log.Infof("cloud region is using by other providers.skipped purge region %s with id %s", regions[i].GetName(), regions[i].GetId())
+			return nil
+		}
+
 		err = regions[i].purge(ctx, userCred)
 		if err != nil {
 			return err
