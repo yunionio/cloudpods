@@ -119,13 +119,38 @@ const (
 	KEY_USABLE = "usable"
 )
 
-//multiCloud查询指标列表组装
+// multiCloud查询指标列表组装
+const (
+	MetricKeyPercentageCPU   = "Percentage CPU"
+	MetricKeyNetworkInTotal  = "Network In Total"
+	MetricKeyNetworkOutTotal = "Network Out Total"
+	MetricKeyDiskReadBytes   = "Disk Read Bytes"
+	MetricKeyDiskWriteBytes  = "Disk Write Bytes"
+	MetricKeyDiskReadOPS     = "Disk Read Operations/Sec"
+	MetricKeyDiskWriteOPS    = "Disk Write Operations/Sec"
+
+	MetricKeyClassicNetworkIn    = "Network In"
+	MetricKeyClassicNetworkOut   = "Network Out"
+	MetricKeyClassicDiskReadBPS  = "Disk Read Bytes/Sec"
+	MetricKeyClassicDiskWriteBPS = "Disk Write Bytes/Sec"
+)
+
 var azureMetricSpecs = map[string][]string{
-	"Percentage CPU":            {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_CPU_USAGE},
-	"Network In Total":          {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_NET_BPS_RX},
-	"Network Out Total":         {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_NET_BPS_TX},
-	"Disk Read Bytes":           {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_DISK_READ_BPS},
-	"Disk Write Bytes":          {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_DISK_WRITE_BPS},
-	"Disk Read Operations/Sec":  {DEFAULT_STATISTICS, UNIT_COUNT_SEC, INFLUXDB_FIELD_DISK_READ_IOPS},
-	"Disk Write Operations/Sec": {DEFAULT_STATISTICS, UNIT_COUNT_SEC, INFLUXDB_FIELD_DISK_WRITE_BPS},
+	MetricKeyPercentageCPU:   {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_CPU_USAGE},
+	MetricKeyNetworkInTotal:  {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_NET_BPS_RX},
+	MetricKeyNetworkOutTotal: {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_NET_BPS_TX},
+	MetricKeyDiskReadBytes:   {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_DISK_READ_BPS},
+	MetricKeyDiskWriteBytes:  {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_DISK_WRITE_BPS},
+	MetricKeyDiskReadOPS:     {DEFAULT_STATISTICS, UNIT_COUNT_SEC, INFLUXDB_FIELD_DISK_READ_IOPS},
+	MetricKeyDiskWriteOPS:    {DEFAULT_STATISTICS, UNIT_COUNT_SEC, INFLUXDB_FIELD_DISK_WRITE_IOPS},
+}
+
+var azureClassicMetricsSpec = map[string][]string{
+	MetricKeyPercentageCPU:       {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_CPU_USAGE},
+	MetricKeyClassicNetworkIn:    {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_NET_BPS_RX},
+	MetricKeyClassicNetworkOut:   {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_NET_BPS_TX},
+	MetricKeyClassicDiskReadBPS:  {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_DISK_READ_BPS},
+	MetricKeyClassicDiskWriteBPS: {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_DISK_WRITE_BPS},
+	MetricKeyDiskReadOPS:         {DEFAULT_STATISTICS, UNIT_COUNT_SEC, INFLUXDB_FIELD_DISK_READ_IOPS},
+	MetricKeyDiskWriteOPS:        {DEFAULT_STATISTICS, UNIT_COUNT_SEC, INFLUXDB_FIELD_DISK_WRITE_IOPS},
 }
