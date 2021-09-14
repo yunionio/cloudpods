@@ -3,10 +3,12 @@ package apsaramon
 import (
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
@@ -30,45 +32,65 @@ func (self *SApsaraCloudReport) collectRegionMetricOfHost(region cloudprovider.I
 	aliReg := region.(*apsara.SRegion)
 	since, until, err := common.TimeRangeFromArgs(self.Args)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "common.TimeRangeFromArgs")
 	}
-	for metricName, influxDbSpecs := range apsaraMetricSpecs {
-		metricArray, err := aliReg.FetchMetricData(metricName, "acs_ecs_dashboard", since, until)
-		if err != nil {
-			log.Errorln(err)
+
+	instances := []api.ServerDetails{}
+	instanceMaps := map[string]api.ServerDetails{}
+	jsonutils.Update(&instances, servers)
+	for i := range instances {
+		if len(instances[i].ExternalId) == 0 {
 			continue
 		}
-
-		instances := []api.ServerDetails{}
-		instanceMaps := map[string]api.ServerDetails{}
-		jsonutils.Update(&instances, servers)
-		for i := range instances {
-			if len(instances[i].ExternalId) == 0 {
-				continue
-			}
-			instanceMaps[instances[i].ExternalId] = instances[i]
+		instanceMaps[instances[i].ExternalId] = instances[i]
+		metric, err := common.FillVMCapacity(jsonutils.Marshal(instances[i]).(*jsonutils.JSONDict))
+		if err != nil {
+			return errors.Wrapf(err, "common.FillVMCapacity")
 		}
-
-		metrics := []SApsaraMetric{}
-		jsonutils.Update(&metrics, metricArray)
-
-		for _, rtnMetric := range metrics {
-			server, ok := instanceMaps[rtnMetric.InstanceId]
-			if ok {
-				metric, err := common.FillVMCapacity(jsonutils.Marshal(server).(*jsonutils.JSONDict))
-				if err != nil {
-					return err
-				}
-				dataList = append(dataList, metric)
-				serverMetric, err := self.collectMetricFromThisServer(jsonutils.Marshal(server), rtnMetric, influxDbSpecs)
-				if err != nil {
-					return err
-				}
-				dataList = append(dataList, serverMetric)
-			}
-		}
+		dataList = append(dataList, metric)
 	}
-	return common.SendMetrics(self.Session, dataList, self.Args.Debug, "")
+
+	err = common.SendMetrics(self.Session, dataList, self.Args.Debug, "")
+	if err != nil {
+		log.Errorf("send server base metric error: %v", err)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(apsaraMetricSpecs))
+	for _metricName, _influxDbSpecs := range apsaraMetricSpecs {
+		go func(metricName string, influxDbSpecs []string) {
+			defer wg.Done()
+			dataList = []influxdb.SMetricData{}
+			metricArray, err := aliReg.FetchMetricData(metricName, "acs_ecs_dashboard", since, until)
+			if err != nil {
+				log.Errorln(err)
+				return
+			}
+
+			metrics := []SApsaraMetric{}
+			jsonutils.Update(&metrics, metricArray)
+
+			for _, rtnMetric := range metrics {
+				server, ok := instanceMaps[rtnMetric.InstanceId]
+				if ok {
+					serverMetric, err := self.collectMetricFromThisServer(jsonutils.Marshal(server), rtnMetric, influxDbSpecs)
+					if err != nil {
+						log.Errorf("collect %s error: %v", metricName, err)
+						continue
+					}
+					dataList = append(dataList, serverMetric)
+				}
+			}
+			log.Infof("SendMetrics %s length: %d", metricName, len(dataList))
+			err = common.SendMetrics(self.Session, dataList, self.Args.Debug, "")
+			if err != nil {
+				log.Errorf("SendMetrics %s length: %d error: %v", metricName, len(dataList), err)
+			}
+
+		}(_metricName, _influxDbSpecs)
+	}
+	wg.Wait()
+	return nil
 }
 
 func (self *SApsaraCloudReport) collectRegionMetricOfRedis(region cloudprovider.ICloudRegion,
@@ -228,10 +250,8 @@ func (self *SApsaraCloudReport) collectRegionMetricOfElb(region cloudprovider.IC
 	return common.SendMetrics(self.Session, dataList, self.Args.Debug, "")
 }
 
-func (self *SApsaraCloudReport) collectMetricFromThisServer(server jsonutils.JSONObject, rtnMetric SApsaraMetric,
-	influxDbSpecs []string) (influxdb.SMetricData, error) {
+func (self *SApsaraCloudReport) collectMetricFromThisServer(server jsonutils.JSONObject, rtnMetric SApsaraMetric, influxDbSpecs []string) (influxdb.SMetricData, error) {
 	metric, err := self.NewMetricFromJson(server)
-	//metric, err := common.JsonToMetric(server.(*jsonutils.JSONDict), "", common.ServerTags, make([]string, 0))
 	if err != nil {
 		return influxdb.SMetricData{}, err
 	}
