@@ -72,14 +72,16 @@ type ApsaraClientConfig struct {
 	accessKey    string
 	accessSecret string
 	debug        bool
+
+	endpoints cloudprovider.SApsaraEndpoints
 }
 
 func NewApsaraClientConfig(accessKey, accessSecret string, endpoint string, endpoints cloudprovider.SApsaraEndpoints) *ApsaraClientConfig {
 	cfg := &ApsaraClientConfig{
 		accessKey:    accessKey,
 		accessSecret: accessSecret,
+		endpoints:    endpoints,
 	}
-	cfg.cpcfg.SApsaraEndpoints = endpoints
 	cfg.cpcfg.URL = endpoint
 	return cfg
 }
@@ -117,7 +119,7 @@ func NewApsaraClient(cfg *ApsaraClientConfig) (*SApsaraClient, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchRegions")
 	}
-	if len(client.cpcfg.OssEndpoint) > 0 {
+	if len(client.endpoints.OssEndpoint) > 0 {
 		err = client.fetchBuckets()
 		if err != nil {
 			return nil, errors.Wrapf(err, "fetchBuckets")
@@ -132,32 +134,32 @@ func NewApsaraClient(cfg *ApsaraClientConfig) (*SApsaraClient, error) {
 func (self *SApsaraClient) getDomain(product string) string {
 	switch product {
 	case APSARA_PRODUCT_ECS:
-		if len(self.cpcfg.EcsEndpoint) > 0 {
-			return self.cpcfg.EcsEndpoint
+		if len(self.endpoints.EcsEndpoint) > 0 {
+			return self.endpoints.EcsEndpoint
 		}
 	case APSARA_PRODUCT_RAM:
-		if len(self.cpcfg.RamEndpoint) > 0 {
-			return self.cpcfg.RamEndpoint
+		if len(self.endpoints.RamEndpoint) > 0 {
+			return self.endpoints.RamEndpoint
 		}
 	case APSARA_PRODUCT_RDS:
-		if len(self.cpcfg.RdsEndpoint) > 0 {
-			return self.cpcfg.RdsEndpoint
+		if len(self.endpoints.RdsEndpoint) > 0 {
+			return self.endpoints.RdsEndpoint
 		}
 	case APSARA_PRODUCT_SLB:
-		if len(self.cpcfg.SlbEndpoint) > 0 {
-			return self.cpcfg.SlbEndpoint
+		if len(self.endpoints.SlbEndpoint) > 0 {
+			return self.endpoints.SlbEndpoint
 		}
 	case APSARA_PRODUCT_STS:
-		if len(self.cpcfg.StsEndpoint) > 0 {
-			return self.cpcfg.StsEndpoint
+		if len(self.endpoints.StsEndpoint) > 0 {
+			return self.endpoints.StsEndpoint
 		}
 	case APSARA_PRODUCT_VPC:
-		if len(self.cpcfg.VpcEndpoint) > 0 {
-			return self.cpcfg.VpcEndpoint
+		if len(self.endpoints.VpcEndpoint) > 0 {
+			return self.endpoints.VpcEndpoint
 		}
 	case APSARA_PRODUCT_KVSTORE:
-		if len(self.cpcfg.KvsEndpoint) > 0 {
-			return self.cpcfg.KvsEndpoint
+		if len(self.endpoints.KvsEndpoint) > 0 {
+			return self.endpoints.KvsEndpoint
 		}
 	}
 	return self.cpcfg.URL
@@ -312,8 +314,8 @@ func (self *SApsaraClient) trialRequest(apiName string, params map[string]string
 
 func (self *SApsaraClient) fetchRegions() error {
 	params := map[string]string{"AcceptLanguage": "zh-CN"}
-	if len(self.cpcfg.SApsaraEndpoints.DefaultRegion) > 0 {
-		params["RegionId"] = self.cpcfg.SApsaraEndpoints.DefaultRegion
+	if len(self.endpoints.DefaultRegion) > 0 {
+		params["RegionId"] = self.endpoints.DefaultRegion
 	}
 	body, err := self.ecsRequest("DescribeRegions", params)
 	if err != nil {
@@ -348,7 +350,7 @@ func (client *SApsaraClient) getOssClient(regionId string) (*oss.Client, error) 
 	cliOpts := []oss.ClientOption{
 		oss.HTTPClient(httpClient),
 	}
-	cli, err := oss.New(client.cpcfg.OssEndpoint, client.accessKey, client.accessSecret, cliOpts...)
+	cli, err := oss.New(client.endpoints.OssEndpoint, client.accessKey, client.accessSecret, cliOpts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "oss.New")
 	}
@@ -369,7 +371,7 @@ func (self *SApsaraClient) invalidateIBuckets() {
 }
 
 func (self *SApsaraClient) getIBuckets() ([]cloudprovider.ICloudBucket, error) {
-	if len(self.cpcfg.OssEndpoint) == 0 {
+	if len(self.endpoints.OssEndpoint) == 0 {
 		return nil, fmt.Errorf("empty oss endpoint")
 	}
 	if self.iBuckets == nil {

@@ -109,31 +109,19 @@ func (self *CloudReportBase) InitProviderInstance() (cloudprovider.ICloudProvide
 	if err != nil {
 		return nil, errors.Wrap(err, "getCloudAccount error")
 	}
-	endpoints := cloudprovider.SApsaraEndpoints{}
-	hwendpoints := cloudprovider.SHCSOEndpoints{}
 	options, err := cloudAccout.Get("options")
-	if err == nil {
-		err := options.Unmarshal(&endpoints)
-		if err != nil {
-			log.Errorf("Unmarshal SApsaraEndpoints err: %v", err)
-		}
-		err = options.Unmarshal(&hwendpoints)
-		if err != nil {
-			log.Errorf("Unmarshal SHCSOEndpoints err: %v", err)
-		}
-	} else {
-		log.Errorf("get cloudAccout options err: %v", err)
+	if err != nil {
+		log.Errorf("get cloudAccout options err:%v", err)
 	}
 	cfg := cloudprovider.ProviderConfig{
-		Id:               self.SProvider.Id,
-		Name:             self.SProvider.Name,
-		URL:              self.SProvider.AccessUrl,
-		Account:          self.SProvider.Account,
-		Secret:           secretDe,
-		Vendor:           self.SProvider.Provider,
-		ProxyFunc:        proxyFunc,
-		SApsaraEndpoints: endpoints,
-		SHCSOEndpoints:   hwendpoints,
+		Id:        self.SProvider.Id,
+		Name:      self.SProvider.Name,
+		URL:       self.SProvider.AccessUrl,
+		Account:   self.SProvider.Account,
+		Secret:    secretDe,
+		Vendor:    self.SProvider.Provider,
+		ProxyFunc: proxyFunc,
+		Options:   options.(*jsonutils.JSONDict),
 	}
 	return cloudprovider.GetProvider(cfg)
 }
