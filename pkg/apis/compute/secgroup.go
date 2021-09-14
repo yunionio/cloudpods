@@ -17,6 +17,7 @@ package compute
 import (
 	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
@@ -181,6 +182,7 @@ type SecgroupListInput struct {
 	RegionalFilterListInput
 
 	ManagedResourceListInput
+	WithCache bool `json:"witch_cache"`
 }
 
 type SecurityGroupCacheListInput struct {
@@ -252,6 +254,8 @@ type SecgroupDetails struct {
 	InRules []SecgroupRuleDetails `json:"in_rules"`
 	// 出方向规则信息
 	OutRules []SecgroupRuleDetails `json:"out_rules"`
+
+	CloudCaches []jsonutils.JSONObject `json:"cloud_caches"`
 }
 
 type SecurityGroupResourceInfo struct {

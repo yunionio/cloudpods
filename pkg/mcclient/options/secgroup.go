@@ -37,6 +37,7 @@ type SecgroupListOptions struct {
 	DBInstance   string `help:"Filter secgroups bound to specified rds" json:"dbinstance"`
 	Cloudregion  string `help:"Filter secgroups by region"`
 	Cloudaccount string `help:"Filter secgroups by account"`
+	WithCache    bool   `help:"Whether to bring cache information"`
 }
 
 func (opts *SecgroupListOptions) Params() (jsonutils.JSONObject, error) {
