@@ -61,13 +61,14 @@ var OtherHostTag = map[string]string{
 }
 
 type ReportOptions struct {
-	Batch     int      `help:"batch"`
-	Count     int      `help:"count" json:"count"`
-	Interval  string   `help:"interval""`
-	Timeout   int64    `help:"command timeout unit:second" default:"10"`
-	SinceTime string   `help:"sinceTime"`
-	EndTime   string   `help:"endTime"`
-	Provider  []string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei|ZStack|Google|Apsara|HCSO" json:"provider,omitempty"`
+	Batch          int      `help:"batch"`
+	Count          int      `help:"count" json:"count"`
+	Interval       string   `help:"interval""`
+	Timeout        int64    `help:"command timeout unit:second" default:"10"`
+	SinceTime      string   `help:"sinceTime"`
+	EndTime        string   `help:"endTime"`
+	Provider       []string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei|ZStack|Google|Apsara|JDcloud|Ecloud|HCSO" json:"provider,omitempty"`
+	MetricInterval string   `help:"metric interval eg:PT1M"`
 	PingProbeOptions
 }
 
@@ -401,7 +402,7 @@ func SendMetrics(s *mcclient.ClientSession, metrics []influxdb.SMetricData, debu
 
 func ReportCloudMetricOfoperatorType(operatorType string, session *mcclient.ClientSession, args *ReportOptions) error {
 	query := jsonutils.NewDict()
-	query.Add(jsonutils.NewString("0"), KEY_LIMIT)
+	query.Add(jsonutils.NewString("10"), KEY_LIMIT)
 	query.Add(jsonutils.NewString("true"), KEY_ADMIN)
 	//query.Add(jsonutils.NewString("true"), KEY_USABLE)
 	if len(args.Provider) > 0 {
@@ -409,7 +410,7 @@ func ReportCloudMetricOfoperatorType(operatorType string, session *mcclient.Clie
 			query.Add(jsonutils.NewString(val), "provider")
 		}
 	}
-	cloudProviderList, err := (&modules.Cloudproviders).List(session, query)
+	cloudProviderList, err := ListAllResources(&modules.Cloudproviders, session, query)
 	if err != nil {
 		return errors.Wrap(err, "cloudProviders get list error")
 	}
@@ -418,8 +419,8 @@ func ReportCloudMetricOfoperatorType(operatorType string, session *mcclient.Clie
 	if args.Count == 0 {
 		args.Count = 1
 	}
-	for i := 0; i < len(cloudProviderList.Data); i++ {
-		provider := cloudProviderList.Data[i]
+	for i := 0; i < len(cloudProviderList); i++ {
+		provider := cloudProviderList[i]
 		status, err := provider.GetString("status")
 		if err != nil {
 			return errors.Wrap(err, "provider get status error")
