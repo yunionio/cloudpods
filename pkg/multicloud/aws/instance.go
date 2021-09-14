@@ -792,22 +792,8 @@ func (self *SRegion) CreateInstance(name string, image *SImage, instanceType str
 			}
 		}
 
-		// io1类型的卷需要指定IOPS参数。这里根据aws网站的建议值进行设置
-		// 卷每增加1G。IOPS增加50。最大不超过32000
-		if disk.Category == api.STORAGE_IO1_SSD {
-			iops := int64(disk.Size * 50)
-			if iops < 32000 {
-				ebs.SetIops(iops)
-			} else {
-				ebs.SetIops(32000)
-			}
-		} else if disk.Category == api.STORAGE_IO2_SSD {
-			iops := int64(disk.Size * 100)
-			if iops < 64000 {
-				ebs.SetIops(iops)
-			} else {
-				ebs.SetIops(64000)
-			}
+		if iops := GenDiskIops(disk.Category, disk.Size); iops > 0 {
+			ebs.SetIops(iops)
 		}
 
 		blockDevice := &ec2.BlockDeviceMapping{
