@@ -77,7 +77,7 @@ var OtherHostTag = map[string]string{
 type ReportOptions struct {
 	Batch          int      `help:"batch"`
 	Count          int      `help:"count" json:"count"`
-	Interval       string   `help:"interval""`
+	Interval       string   `help:"interval"`
 	Timeout        int64    `help:"command timeout unit:second" default:"10"`
 	SinceTime      string   `help:"sinceTime"`
 	EndTime        string   `help:"endTime"`

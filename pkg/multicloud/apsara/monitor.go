@@ -144,6 +144,7 @@ func (r *SRegion) DescribeMetricList(department, name string, ns string, since t
 	params := make(map[string]string)
 	params["MetricName"] = name
 	params["Namespace"] = ns
+	params["Period"] = "60"
 	params["Length"] = "2000"
 	if len(nextToken) > 0 {
 		params["NextToken"] = nextToken
