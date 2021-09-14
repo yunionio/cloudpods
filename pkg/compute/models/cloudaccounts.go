@@ -437,15 +437,11 @@ func (manager *SCloudaccountManager) validateCreateData(
 	}
 
 	var endpointOptions jsonutils.JSONObject
-	endpoints := cloudprovider.SApsaraEndpoints{}
 	if input.SCloudaccountCredential.SApsaraEndpoints != nil {
-		endpoints = *input.SCloudaccountCredential.SApsaraEndpoints
 		endpointOptions = jsonutils.Marshal(input.SCloudaccountCredential.SApsaraEndpoints)
 	}
 
-	hcsoEndpoints := cloudprovider.SHCSOEndpoints{}
 	if input.SCloudaccountCredential.SHCSOEndpoints != nil {
-		hcsoEndpoints = *input.SCloudaccountCredential.SHCSOEndpoints
 		endpointOptions = jsonutils.Marshal(input.SCloudaccountCredential.SHCSOEndpoints)
 	}
 
@@ -511,8 +507,7 @@ func (manager *SCloudaccountManager) validateCreateData(
 		Secret:    input.Secret,
 		ProxyFunc: proxyFunc,
 
-		SApsaraEndpoints: endpoints,
-		SHCSOEndpoints:   hcsoEndpoints,
+		Options: input.Options,
 	})
 	if err != nil {
 		if err == cloudprovider.ErrNoSuchProvder {
@@ -740,12 +735,12 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 	}
 
 	accountId, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
-		Vendor:         self.Provider,
-		URL:            self.AccessUrl,
-		Account:        account.Account,
-		Secret:         account.Secret,
-		SHCSOEndpoints: hcsoEndpoints,
-		ProxyFunc:      self.proxyFunc(),
+		Vendor:    self.Provider,
+		URL:       self.AccessUrl,
+		Account:   account.Account,
+		Secret:    account.Secret,
+		Options:   self.Options,
+		ProxyFunc: self.proxyFunc(),
 	})
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("invalid cloud account info error: %s", err.Error())
@@ -936,15 +931,6 @@ func (self *SCloudaccount) getProviderInternal() (cloudprovider.ICloudProvider, 
 	if err != nil {
 		return nil, fmt.Errorf("Invalid password %s", err)
 	}
-	endpoints := cloudprovider.SApsaraEndpoints{}
-	hcsoEndpoints := cloudprovider.SHCSOEndpoints{}
-	if self.Options != nil {
-		if self.Provider == api.CLOUD_PROVIDER_HCSO {
-			self.Options.Unmarshal(&hcsoEndpoints)
-		} else if self.Provider == api.CLOUD_PROVIDER_APSARA {
-			self.Options.Unmarshal(&endpoints)
-		}
-	}
 	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
 		Id:      self.Id,
 		Name:    self.Name,
@@ -953,9 +939,8 @@ func (self *SCloudaccount) getProviderInternal() (cloudprovider.ICloudProvider, 
 		Account: self.Account,
 		Secret:  secret,
 
-		SApsaraEndpoints: endpoints,
-		SHCSOEndpoints:   hcsoEndpoints,
-		ProxyFunc:        self.proxyFunc(),
+		Options:   self.Options,
+		ProxyFunc: self.proxyFunc(),
 	})
 }
 

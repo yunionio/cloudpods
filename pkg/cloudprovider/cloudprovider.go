@@ -160,8 +160,7 @@ type ProviderConfig struct {
 
 	AccountId string
 
-	SApsaraEndpoints
-	SHCSOEndpoints
+	Options *jsonutils.JSONDict
 
 	ProxyFunc httputils.TransportProxyFunc
 }
