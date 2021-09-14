@@ -188,8 +188,8 @@ func (self *SRegion) createNetwork(vpcId string, name string, cidr string, desc 
 	// hard code for hcso
 	// https://support.huaweicloud.com/dns_faq/dns_faq_002.html
 	// https://support.huaweicloud.com/api-dns/dns_api_69001.html
-	if self.client != nil && len(self.client.cpcfg.SHCSOEndpoints.DefaultSubnetDns) > 0 {
-		dns := strings.Split(self.client.cpcfg.SHCSOEndpoints.DefaultSubnetDns, ",")
+	if self.client != nil && len(self.client.endpoints.DefaultSubnetDns) > 0 {
+		dns := strings.Split(self.client.endpoints.DefaultSubnetDns, ",")
 		if len(dns) > 0 && len(dns[0]) > 0 {
 			subnetObj.Add(jsonutils.NewString(dns[0]), "primary_dns")
 		}
