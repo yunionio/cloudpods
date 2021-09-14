@@ -63,8 +63,7 @@ func (self *SApsaraClient) GetOrganizationTree(id int) (*SOrganizationTree, erro
 		id = 1
 	}
 	params := map[string]string{
-		"Id":       fmt.Sprintf("%d", id),
-		"RegionId": "ln-1",
+		"Id": fmt.Sprintf("%d", id),
 	}
 	resp, err := self.ascmRequest("GetOrganizationTree", params)
 	if err != nil {
@@ -76,6 +75,20 @@ func (self *SApsaraClient) GetOrganizationTree(id int) (*SOrganizationTree, erro
 		return nil, errors.Wrapf(err, "resp.Unmarshal")
 	}
 	return &tree, nil
+}
+
+func (self *SApsaraClient) GetOrganizationList() ([]SOrganization, error) {
+	params := map[string]string{"Id": "1"}
+	resp, err := self.ascmRequest("GetOrganizationList", params)
+	if err != nil {
+		return nil, err
+	}
+	result := []SOrganization{}
+	err = resp.Unmarshal(&result, "data")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	return result, nil
 }
 
 func (self *SOrganizationTree) ListProjects() []SResourceGroupList {

@@ -312,7 +312,7 @@ func TimeRangeFromArgs(args *ReportOptions) (since, until time.Time, err error) 
 			return since, until, err
 		}
 	} else {
-		period64, err := strconv.ParseInt(args.Interval, 10, 8)
+		period64, err := strconv.ParseInt(args.Interval, 10, 32)
 		if err != nil {
 			return since, until, err
 		}
