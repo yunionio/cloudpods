@@ -125,7 +125,7 @@ type DnsZoneDetails struct {
 	// 关联vpc数量
 	VpcCount int `json:"vpc_count"`
 	// Cache info
-	CloudCaches []DnsZoneCacheDetails `json:"cloud_caches"`
+	CloudCaches []jsonutils.JSONObject `json:"cloud_caches"`
 }
 
 type DnsZoneListInput struct {
@@ -141,7 +141,8 @@ type DnsZoneListInput struct {
 	ZoneType string `json:"zone_type"`
 
 	// Filter dns zone By vpc
-	VpcId string `json:"vpc_id"`
+	VpcId     string `json:"vpc_id"`
+	WithCache bool   `json:"with_cache"`
 }
 
 type DnsZoneSyncStatusInput struct {
