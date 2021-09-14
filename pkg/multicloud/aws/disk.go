@@ -480,6 +480,22 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) (string, error) {
 	return StrVal(ret.VolumeId), self.DeleteDisk(diskId)
 }
 
+// io1类型的卷需要指定IOPS参数,最大不超过32000。这里根据aws网站的建议值进行设置
+// io2类型的卷需要指定IOPS参数,最大不超过64000。
+// GenDiskIops Base 100, 卷每增加2G。IOPS增加1。最多到3000 iops
+func GenDiskIops(diskType string, sizeGB int) int64 {
+	if diskType == api.STORAGE_IO1_SSD || diskType == api.STORAGE_IO2_SSD {
+		iops := int64(100 + sizeGB/2)
+		if iops < 3000 {
+			return iops
+		} else {
+			return 3000
+		}
+	}
+
+	return 0
+}
+
 func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, snapshotId string, desc string) (string, error) {
 	tagspec := TagSpec{ResourceType: "volume"}
 	tagspec.SetNameTag(name)
@@ -494,8 +510,8 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 		params.SetSnapshotId(snapshotId)
 	}
 
-	if category == api.STORAGE_IO1_SSD || category == api.STORAGE_IO2_SSD {
-		params.SetIops(200)
+	if iops := GenDiskIops(category, sizeGb); iops > 0 {
+		params.SetIops(iops)
 	}
 
 	params.SetTagSpecifications([]*ec2.TagSpecification{ec2Tags})
