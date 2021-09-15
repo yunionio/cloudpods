@@ -44,13 +44,14 @@ type BaseEventListOptions struct {
 
 type EventListOptions struct {
 	BaseEventListOptions
-	Id   string   `help:"" metavar:"OBJ_ID"`
+	Id   []string `help:"object IDs" metavar:"OBJ_ID"`
+	Name []string `help:"object names" metavar:"OBJ_NAME"`
 	Type []string `help:"Type of relevant object" metavar:"OBJ_TYPE"`
 }
 
 type TypeEventListOptions struct {
 	BaseEventListOptions
-	ID string `help:"" metavar:"OBJ_ID"`
+	ID []string `help:"object IDs" metavar:"OBJ_ID"`
 }
 
 func doComputeEventList(s *mcclient.ClientSession, args *EventListOptions) error {
@@ -71,7 +72,10 @@ func DoEventList(man modulebase.ResourceManager, s *mcclient.ClientSession, args
 		params.Add(jsonutils.NewStringArray(args.Type), "obj_type")
 	}
 	if len(args.Id) > 0 {
-		params.Add(jsonutils.NewString(args.Id), "obj_id")
+		params.Add(jsonutils.NewStringArray(args.Id), "obj_id")
+	}
+	if len(args.Name) > 0 {
+		params.Add(jsonutils.NewStringArray(args.Name), "obj_name")
 	}
 	if len(args.Since) > 0 {
 		params.Add(jsonutils.NewString(args.Since), "since")
