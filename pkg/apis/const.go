@@ -74,10 +74,20 @@ const (
 	OS_ARCH_AARCH64 = "aarch64"
 )
 
-func IsARM(osArch string) bool {
-	return utils.IsInStringArray(osArch, []string{
+var (
+	ARCH_X86 = []string{
+		OS_ARCH_X86,
+		OS_ARCH_I386,
+		OS_ARCH_X86_32,
+		OS_ARCH_X86_64,
+	}
+	ARCH_ARM = []string{
 		OS_ARCH_ARM,
 		OS_ARCH_AARCH32,
 		OS_ARCH_AARCH64,
-	})
+	}
+)
+
+func IsARM(osArch string) bool {
+	return utils.IsInStringArray(osArch, ARCH_ARM)
 }
