@@ -288,7 +288,7 @@ func (ps *DiskPartitions) String() string {
 func (ps *DiskPartitions) DebugString() string {
 	partitionsStr := []string{}
 	for _, p := range ps.partitions {
-		partitionsStr = append(partitionsStr, fmt.Sprintf("%#v", *p))
+		partitionsStr = append(partitionsStr, fmt.Sprintf("{%#v}", *p))
 	}
 	return fmt.Sprintf("driver: %s, dev: %s, sectors: %d, partitions: %#v", ps.driver, ps.dev, ps.sectors, partitionsStr)
 }
@@ -599,7 +599,7 @@ func (tool *PartitionTool) DebugString() string {
 		return ret
 	}
 	for driver, disks := range tool.diskTable {
-		s := fmt.Sprintf("%s: %v", driver, disksString(disks))
+		s := fmt.Sprintf("(%s: %v)", driver, disksString(disks))
 		ret = append(ret, s)
 	}
 	return strings.Join(ret, "\n")
