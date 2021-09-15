@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"golang.org/x/net/http/httpproxy"
 
@@ -220,12 +221,25 @@ func (self *CloudReportBase) CollectRegionMetric(region cloudprovider.ICloudRegi
 
 func (self *CloudReportBase) ListAllResources(manager modulebase.Manager,
 	query *jsonutils.JSONDict) ([]jsonutils.JSONObject, error) {
+
+	return ListAllResources(manager, self.Session, query)
+}
+
+func ListAllResources(manager modulebase.Manager, session *mcclient.ClientSession,
+	query *jsonutils.JSONDict) ([]jsonutils.JSONObject, error) {
 	offsetIndex := 0
 	resources := make([]jsonutils.JSONObject, 0)
+	tryTimes := 5
+	i := 0
 	for {
+		i++
 		query.Add(jsonutils.NewInt(int64(offsetIndex)), "offset")
-		resList, err := manager.List(self.Session, query)
+		resList, err := manager.List(session, query)
 		if err != nil {
+			if i <= tryTimes {
+				time.Sleep(3 * time.Second)
+				continue
+			}
 			return nil, err
 		}
 		resources = append(resources, resList.Data...)
