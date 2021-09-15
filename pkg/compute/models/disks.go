@@ -1223,6 +1223,32 @@ func (self *SDisk) GetPathAtHost(host *SHost) string {
 	return ""
 }
 
+func (self *SDisk) GetMasterHost() (*SHost, error) {
+	hosts := HostManager.Query().SubQuery()
+	hoststorages := HoststorageManager.Query().SubQuery()
+
+	q := hosts.Query().Join(hoststorages, sqlchemy.Equals(hoststorages.Field("host_id"), hosts.Field("id")))
+	q = q.Filter(sqlchemy.Equals(hoststorages.Field("storage_id"), self.StorageId))
+	q = q.IsTrue("enabled")
+	q = q.Equals("host_status", api.HOST_ONLINE).Asc("id")
+	guest := self.GetGuest()
+	if guest != nil && len(guest.OsArch) > 0 {
+		switch guest.OsArch {
+		case apis.OS_ARCH_X86:
+			q = q.In("cpu_architecture", apis.ARCH_X86)
+		case apis.OS_ARCH_ARM:
+			q = q.In("cpu_architecture", apis.ARCH_ARM)
+		}
+	}
+	host := SHost{}
+	host.SetModelManager(HostManager, &host)
+	err := q.First(&host)
+	if err != nil {
+		return nil, errors.Wrapf(err, "q.First")
+	}
+	return &host, nil
+}
+
 func (self *SDisk) GetFetchUrl() string {
 	storage, _ := self.GetStorage()
 	if storage == nil {

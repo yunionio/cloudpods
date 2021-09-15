@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/stringutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -54,7 +55,11 @@ func (self *DiskCreateTask) OnStorageCacheImageComplete(ctx context.Context, dis
 		db.OpsLog.LogEvent(disk, db.ACT_DELOCATE, disk.GetShortDesc(ctx), self.GetUserCred())
 	}
 	storage, _ := disk.GetStorage()
-	host := storage.GetMasterHost()
+	host, err := disk.GetMasterHost()
+	if err != nil {
+		self.OnStartAllocateFailed(ctx, disk, jsonutils.NewString(errors.Wrapf(err, "GetMasterHost").Error()))
+		return
+	}
 	db.OpsLog.LogEvent(disk, db.ACT_ALLOCATING, disk.GetShortDesc(ctx), self.GetUserCred())
 	disk.SetStatus(self.GetUserCred(), api.DISK_STARTALLOC, fmt.Sprintf("Disk start alloc use host %s(%s)", host.Name, host.Id))
 	if rebuild && storage.StorageType == api.STORAGE_RBD {
