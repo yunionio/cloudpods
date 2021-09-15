@@ -48,7 +48,7 @@ func (self *SAzureCloudReport) collectRegionMetricOfHost(region cloudprovider.IC
 		}
 		metricNames := strings.Join(metricNameArr, ",")
 		azureReg.GetClient().Debug(true)
-		rtnMetrics, err := azureReg.GetMonitorData(metricNames, ns, external_id, since, until)
+		rtnMetrics, err := azureReg.GetMonitorData(metricNames, ns, external_id, since, until, self.Args.MetricInterval)
 		if err != nil {
 			log.Errorf("get metrics for server %s error: %v", srvPrefix, err)
 			continue

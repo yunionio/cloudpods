@@ -85,12 +85,14 @@ type MetricValue struct {
 	Count *float64 `json:"count,omitempty"`
 }
 
-func (self *SRegion) GetMonitorData(name string, ns string, resourceId string, since time.Time,
-	until time.Time) (*ResponseMetirc, error) {
+func (self *SRegion) GetMonitorData(name string, ns string, resourceId string, since time.Time, until time.Time, interval string) (*ResponseMetirc, error) {
 	params := url.Values{}
 	params.Set("metricnamespace", ns)
 	params.Set("metricnames", name)
 	params.Set("interval", "PT1M")
+	if len(interval) != 0 {
+		params.Set("interval", interval)
+	}
 	params.Set("aggregation", "Average")
 	params.Set("api-version", "2018-01-01")
 	if !since.IsZero() && !until.IsZero() {
