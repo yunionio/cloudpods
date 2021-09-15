@@ -38,7 +38,7 @@ type Mpt2SASRaidPhyDev struct {
 }
 
 func newMpt2SASRaidPhyDev(adapter int) *Mpt2SASRaidPhyDev {
-	b := raid.NewRaidBasePhyDev(baremetal.DISK_DRIVER_MARVELRAID)
+	b := raid.NewRaidBasePhyDev(baremetal.DISK_DRIVER_MPT2SAS)
 	b.Adapter = adapter
 	return &Mpt2SASRaidPhyDev{
 		RaidBasePhyDev: b,
@@ -116,6 +116,7 @@ func (dev *Mpt2SASRaidPhyDev) isComplete() bool {
 
 func (dev *Mpt2SASRaidPhyDev) ToBaremetalStorage(idx int) *baremetal.BaremetalStorage {
 	s := dev.RaidBasePhyDev.ToBaremetalStorage(idx)
+	s.Index = int64(idx)
 	s.Slot = dev.slot
 	s.Enclosure = dev.enclosure
 	s.Block = int64(dev.block)
@@ -296,7 +297,9 @@ func (adapter *Mpt2SASRaidAdaptor) BuildRaid10(devs []*baremetal.BaremetalStorag
 }
 
 func (adapter *Mpt2SASRaidAdaptor) BuildNoneRaid(devs []*baremetal.BaremetalStorage) error {
-	return fmt.Errorf("Not impl")
+	// TODO: not impl
+	// return fmt.Errorf("Not impl")
+	return nil
 }
 
 func (adapter *Mpt2SASRaidAdaptor) RemoveLogicVolumes() error {
@@ -338,11 +341,25 @@ func (r *Mpt2SASRaid) ParsePhyDevs() error {
 	return r.parseAdapters(ret)
 }
 
+func getLineAdapterIndex(line string) int {
+	dat := regexp.MustCompile(`\s+`).Split(strings.TrimSpace(line), -1)
+	if len(dat) == 0 {
+		return -1
+	}
+	if regexp.MustCompile(`\d+`).MatchString(dat[0]) {
+		if !regexp.MustCompile(`^\d+`).MatchString(dat[0]) {
+			return -1
+		}
+		idx, _ := strconv.Atoi(dat[0])
+		return idx
+	}
+	return -1
+}
+
 func (r *Mpt2SASRaid) parseAdapters(lines []string) error {
 	for _, line := range lines {
-		dat := regexp.MustCompile(`\s+`).Split(strings.TrimSpace(line), -1)
-		if regexp.MustCompile(`\d+`).MatchString(dat[0]) {
-			idx, _ := strconv.Atoi(dat[0])
+		idx := getLineAdapterIndex(line)
+		if idx >= 0 {
 			adapter := newMpt2SASRaidAdaptor(idx, r)
 			r.adapters = append(r.adapters, adapter)
 		}
