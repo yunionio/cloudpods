@@ -271,6 +271,14 @@ func (m *MockCandidatePropertyGetter) Host() *models.SHost {
 	return ret0
 }
 
+func (m *MockCandidatePropertyGetter) IsArmHost() bool {
+	return false
+}
+
+func (m *MockCandidatePropertyGetter) CPUArch() string {
+	return ""
+}
+
 // Host indicates an expected call of Host
 func (mr *MockCandidatePropertyGetterMockRecorder) Host() *gomock.Call {
 	mr.mock.ctrl.T.Helper()

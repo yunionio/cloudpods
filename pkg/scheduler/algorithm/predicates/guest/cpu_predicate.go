@@ -54,13 +54,25 @@ func (f *CPUPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.Pr
 
 	useRsvd := h.UseReserved()
 	getter := c.Getter()
+
+	archMatch := true
+	isArmHost := getter.IsArmHost()
 	if apis.IsARM(d.OsArch) {
-		host := getter.Host()
-		if !host.IsArmHost() {
-			h.Exclude(predicates.ErrHostCpuArchitectureNotMatch)
-			return h.GetResult()
+		// process arm64 host
+		if !isArmHost {
+			archMatch = false
+		}
+	} else {
+		// process x86_64 host
+		if isArmHost {
+			archMatch = false
 		}
 	}
+	if !archMatch {
+		h.Exclude2(predicates.ErrHostCpuArchitectureNotMatch, getter.CPUArch(), d.OsArch)
+		return h.GetResult()
+	}
+
 	freeCPUCount := getter.FreeCPUCount(useRsvd)
 	reqCPUCount := int64(d.Ncpu)
 	if freeCPUCount < reqCPUCount {
