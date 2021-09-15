@@ -177,6 +177,9 @@ func (r *SBaseRedfishClient) Probe(ctx context.Context) error {
 	if r.IsDebug {
 		log.Debugf("%s", resp.PrettyString())
 	}
+	if resp == nil {
+		return errors.Errorf("Response is nil")
+	}
 	err = r.IRedfishDriver().ParseRoot(resp)
 	if err != nil {
 		return errors.Wrap(err, "r.IRedfishDriver().ParseRoot(resp)")
