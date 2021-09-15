@@ -2458,6 +2458,7 @@ func (s *SBaremetalServer) DoDiskConfig(term *ssh.Client) error {
 	for tried := 0; !tool.IsAllDisksReady() && tried < maxTries; tried++ {
 		time.Sleep(5 * time.Second)
 		tool.RetrieveDiskInfo()
+		log.Warningf("disktool not ready string: %s", tool.DebugString())
 	}
 
 	if !tool.IsAllDisksReady() {
