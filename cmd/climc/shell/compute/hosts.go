@@ -15,10 +15,12 @@
 package compute
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -26,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
@@ -523,9 +526,36 @@ func init() {
 			return e
 		}
 		i, e := modules.Hosts.GetLoginInfo(s, srvid, nil)
+		privateKey := ""
 		if e != nil {
-			return e
+			if httputils.ErrorCode(e) == 404 {
+				var err error
+				privateKey, err = modules.Sshkeypairs.FetchPrivateKeyBySession(context.Background(), s)
+				if err != nil {
+					return errors.Wrap(err, "fetch private key")
+				}
+				params := jsonutils.NewDict()
+				params.Add(jsonutils.NewString(string(args.ID)), "ID")
+				ret, err := modules.Hosts.Get(s, args.ID, params)
+				if err != nil {
+					return errors.Wrap(err, "get host by ID")
+				}
+				ip, err := ret.GetString("access_ip")
+				if err != nil {
+					return errors.Wrap(err, "get the ip of the host")
+				}
+
+				jsonItem := jsonutils.NewDict()
+				jsonItem.Add(jsonutils.NewString(ip), "ip")
+				jsonItem.Add(jsonutils.NewString("root"), "username")
+				jsonItem.Add(jsonutils.NewString(""), "password")
+				jsonItem.Add(jsonutils.NewInt(22), "port")
+				i = jsonItem
+			} else {
+				return e
+			}
 		}
+
 		host, err := i.GetString("ip")
 		if err != nil {
 			return err
@@ -542,7 +572,7 @@ func init() {
 		if args.Port != 22 {
 			port = args.Port
 		}
-		sshCli, err := ssh.NewClient(host, port, user, passwd, "")
+		sshCli, err := ssh.NewClient(host, port, user, passwd, privateKey)
 		if err != nil {
 			return err
 		}
