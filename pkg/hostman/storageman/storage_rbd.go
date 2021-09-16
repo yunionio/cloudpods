@@ -21,24 +21,21 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
-
-	"github.com/ceph/go-ceph/rados"
-	"github.com/ceph/go-ceph/rbd"
-	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/cephutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 )
@@ -48,22 +45,24 @@ const (
 	RBD_ORDER   = 22 //为rbd对应到rados中每个对象的大小，默认为4MB
 )
 
-var (
-	ErrNoSuchImage    = errors.New("no such image")
-	ErrNoSuchSnapshot = errors.New("no such snapshot")
-)
+type sStorageConf struct {
+	MonHost            string
+	Key                string
+	Pool               string
+	RadosMonOpTimeout  int64
+	RadosOsdOpTimeout  int64
+	ClientMountTimeout int64
+}
 
 type SRbdStorage struct {
 	SBaseStorage
+	sStorageConf
 }
 
 func NewRBDStorage(manager *SStorageManager, path string) *SRbdStorage {
 	var ret = new(SRbdStorage)
 	ret.SBaseStorage = *NewBaseStorage(manager, path)
-	err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", "/etc/ceph").Run()
-	if err != nil {
-		log.Errorf("Failed to mkdir /etc/ceph: %s", err)
-	}
+	ret.sStorageConf = sStorageConf{}
 	return ret
 }
 
@@ -90,28 +89,21 @@ func (s *SRbdStorage) GetSnapshotPathByIds(diskId, snapshotId string) string {
 	return ""
 }
 
+func (s *SRbdStorage) GetClient() (*cephutils.CephClient, error) {
+	return cephutils.NewClient(s.MonHost, s.Key, s.Pool)
+}
+
 func (s *SRbdStorage) IsSnapshotExist(diskId, snapshotId string) (bool, error) {
-	var exist bool
-	pool, _ := s.StorageConf.GetString("pool")
-	_, err := s.withImage(pool, diskId,
-		func(src *rbd.Image) (interface{}, error) {
-			sps, err := src.GetSnapshotNames()
-			if err != nil {
-				return nil, errors.Wrap(err, "get snapshot names")
-			}
-			for i := 0; i < len(sps); i++ {
-				if sps[i].Name == snapshotId {
-					exist = true
-					break
-				}
-			}
-			return nil, nil
-		},
-	)
+	client, err := s.GetClient()
 	if err != nil {
-		return false, err
+		return false, errors.Wrapf(err, "GetClient")
 	}
-	return exist, nil
+	defer client.Close()
+	img, err := client.GetImage(diskId)
+	if err != nil {
+		return false, errors.Wrapf(err, "GetImage")
+	}
+	return img.IsSnapshotExist(snapshotId)
 }
 
 func (s *SRbdStorage) GetSnapshotDir() string {
@@ -132,488 +124,217 @@ func (s *SRbdStorage) GetImgsaveBackupPath() string {
 
 //Tip Configuration values containing :, @, or = can be escaped with a leading \ character.
 func (s *SRbdStorage) getStorageConfString() string {
-	conf := ""
-	for _, key := range []string{"mon_host", "key"} {
-		if value, _ := s.StorageConf.GetString(key); len(value) > 0 {
-			if key == "mon_host" {
-				value = strings.Replace(value, ",", `\;`, -1)
-			}
-			for _, keyworkd := range []string{":", "@", "="} {
-				if strings.Index(value, keyworkd) != -1 {
-					value = strings.Replace(value, keyworkd, fmt.Sprintf(`\%s`, keyworkd), -1)
-				}
-			}
-			conf += fmt.Sprintf(":%s=%s", key, value)
+	conf := []string{}
+	conf = append(conf, "mon_host="+strings.ReplaceAll(s.MonHost, ",", `\;`))
+	key := s.Key
+	if len(key) > 0 {
+		for _, k := range []string{":", "@", "="} {
+			key = strings.ReplaceAll(key, k, fmt.Sprintf(`\%s`, k))
 		}
+		conf = append(conf, "key="+key)
 	}
-	for key, _timeout := range map[string]int64{
-		"rados_mon_op_timeout": api.RBD_DEFAULT_MON_TIMEOUT,
-		"rados_osd_op_timeout": api.RBD_DEFAULT_OSD_TIMEOUT,
-		"client_mount_timeout": api.RBD_DEFAULT_MOUNT_TIMEOUT,
+	for k, timeout := range map[string]int64{
+		"rados_mon_op_timeout": s.RadosMonOpTimeout,
+		"rados_osd_op_timeout": s.RadosOsdOpTimeout,
+		"client_mount_timeout": s.ClientMountTimeout,
 	} {
-		if timeout, _ := s.StorageConf.Int(key); timeout > 0 {
-			conf += fmt.Sprintf(":%s=%d", key, timeout)
-		} else {
-			conf += fmt.Sprintf(":%s=%d", key, _timeout)
-		}
+		conf = append(conf, fmt.Sprintf("%s=%d", k, timeout))
 	}
-	return conf
+	return ":" + strings.Join(conf, ":")
 }
 
-func (s *SRbdStorage) getImageSizeMb(pool string, name string) uint64 {
-	size, err := s.withImage(pool, name, func(image *rbd.Image) (interface{}, error) {
-		size, err := image.GetSize()
-		if err != nil {
-			return nil, err
-		}
-		return size / 1024 / 1024, nil
-	})
+func (s *SRbdStorage) listImages(pool string) ([]string, error) {
+	client, err := s.GetClient()
 	if err != nil {
-		log.Errorf("get image error: %v", err)
-		return 0
+		return nil, errors.Wrapf(err, "GetClient")
 	}
-	return size.(uint64)
+	client.SetPool(pool)
+	defer client.Close()
+	return client.ListImages()
+}
+
+func (s *SRbdStorage) IsImageExist(name string) (bool, error) {
+	images, err := s.listImages(s.Pool)
+	if err != nil {
+		return false, errors.Wrapf(err, "listImages")
+	}
+	if utils.IsInStringArray(name, images) {
+		return true, nil
+	}
+	return false, nil
+}
+
+func (s *SRbdStorage) getImageSizeMb(pool string, name string) (uint64, error) {
+	client, err := s.GetClient()
+	if err != nil {
+		return 0, errors.Wrapf(err, "GetClient")
+	}
+	defer client.Close()
+	client.SetPool(pool)
+	img, err := client.GetImage(name)
+	if err != nil {
+		return 0, errors.Wrapf(err, "GetImage")
+	}
+	info, err := img.GetInfo()
+	if err != nil {
+		return 0, errors.Wrapf(err, "GetInfo")
+	}
+	return uint64(info.SizeByte) / 1024 / 1024, nil
 }
 
 func (s *SRbdStorage) resizeImage(pool string, name string, sizeMb uint64) error {
-	_, err := s.withImage(pool, name, func(image *rbd.Image) (interface{}, error) {
-		return nil, image.Resize(sizeMb * 1024 * 1024)
-	})
-	return err
+	client, err := s.GetClient()
+	if err != nil {
+		return errors.Wrapf(err, "GetClient")
+	}
+	defer client.Close()
+	client.SetPool(pool)
+	img, err := client.GetImage(name)
+	if err != nil {
+		return errors.Wrapf(err, "GetImage")
+	}
+	return img.Resize(int64(sizeMb))
 }
 
 func (s *SRbdStorage) deleteImage(pool string, name string) error {
-	_, err := s.withIOContext(pool, func(ioctx *rados.IOContext) (interface{}, error) {
-		names, err := rbd.GetImageNames(ioctx)
-		if err != nil {
-			return nil, err
+	client, err := s.GetClient()
+	if err != nil {
+		return errors.Wrapf(err, "GetClient")
+	}
+	defer client.Close()
+	client.SetPool(pool)
+	img, err := client.GetImage(name)
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			return nil
 		}
-		if !utils.IsInStringArray(name, names) {
-			return nil, nil
-		}
-
-		image := rbd.GetImage(ioctx, name)
-		err = image.Open()
-		if err != nil {
-			return nil, errors.Wrap(err, "image.Open()")
-		}
-
-		//需要先删除image底下的snap
-		snapInfos, err := image.GetSnapshotNames()
-		if err != nil {
-			return nil, errors.Wrap(err, "image.GetSnapshotNames()")
-		}
-		for _, snapInfo := range snapInfos {
-			image.Close()
-
-			err = image.Open(snapInfo.Name)
-			if err != nil {
-				return nil, errors.Wrapf(err, "image.Open(%s)", snapInfo.Name)
-			}
-
-			pools, images, err := image.ListChildren()
-			if err != nil {
-				return nil, errors.Wrap(err, "image.ListChildren")
-			}
-
-			for i, _pool := range pools {
-				//需要解除snap底下的image关系
-				_, err = s.withIOContext(_pool, func(ioctx *rados.IOContext) (interface{}, error) {
-					_image := rbd.GetImage(ioctx, images[i])
-					err = _image.Open()
-					if err != nil {
-						return nil, errors.Wrap(err, "_image.Open()")
-					}
-					defer _image.Close()
-					log.Debugf("start flatten %s/%s@%s => %s/%s", pool, name, snapInfo.Name, _pool, images[i])
-					err := _image.Flatten()
-					if err != nil {
-						return nil, errors.Wrap(err, "_image.Flatten")
-					}
-					return nil, nil
-				})
-				if err != nil {
-					return nil, errors.Wrapf(err, "flatten child %s/%s", _pool, images[i])
-				}
-			}
-
-			snapshot := image.GetSnapshot(snapInfo.Name)
-			protect, err := snapshot.IsProtected()
-			if err != nil {
-				return nil, errors.Wrapf(err, "snapshot.IsProtected() %s", snapInfo.Name)
-			}
-
-			if protect {
-				for i := 0; i < 3; i++ {
-					err = snapshot.Unprotect()
-					if err == nil {
-						break
-					}
-					//Resource busy
-					if strings.Contains(err.Error(), "16") {
-						log.Warningf("snapshot is busy, try unprotect after %d seconds", (i+1)*5)
-						time.Sleep(time.Second * time.Duration(i+1) * 5)
-						continue
-					}
-					return nil, errors.Wrapf(err, "snapshot.Unprotect() %s", snapInfo.Name)
-				}
-			}
-
-			err = snapshot.Remove()
-			if err != nil {
-				return nil, errors.Wrapf(err, "snapshot.Remove() %s", snapInfo.Name)
-			}
-		}
-
-		image.Close()
-
-		err = image.Remove()
-		if err != nil {
-			return nil, errors.Wrapf(err, "image.Remove() %s/%s", pool, name)
-		}
-		return nil, nil
-	})
-	return err
-}
-
-// 比较费时
-func (s *SRbdStorage) copyImage(srcPool string, srcImage string, destPool string, destImage string) error {
-	_, err := s.withImage(srcPool, srcImage, func(src *rbd.Image) (interface{}, error) {
-		imageSize, err := src.GetSize()
-		if err != nil {
-			return nil, err
-		}
-		if err := s.createImage(destPool, destImage, imageSize/1024/1024); err != nil {
-			log.Errorf("create image dest pool: %s dest image: %s image size: %dMb error: %v", destPool, destImage, imageSize/1024/1024, err)
-			return nil, err
-		}
-		_, err = s.withImage(destPool, destImage, func(dest *rbd.Image) (interface{}, error) {
-			return nil, src.Copy(*dest)
-		})
-		return nil, err
-	})
-	return err
+		return errors.Wrapf(err, "GetImage")
+	}
+	return img.Delete()
 }
 
 // 速度快
 func (s *SRbdStorage) cloneImage(ctx context.Context, srcPool string, srcImage string, destPool string, destImage string) error {
-	_, err := s.withImage(srcPool, srcImage, func(src *rbd.Image) (interface{}, error) {
-		err := func() error {
-			lockman.LockRawObject(ctx, "rbd_image_cache", srcImage)
-			defer lockman.ReleaseRawObject(ctx, "rbd_image_cache", srcImage)
-			snapInfos, err := src.GetSnapshotNames()
-			if err != nil {
-				return errors.Wrap(err, "image.GetSnapshotNames()")
-			}
-			var snapshot *rbd.Snapshot = nil
-			for _, snap := range snapInfos {
-				if snap.Name == destImage {
-					snapshot = src.GetSnapshot(destImage)
-					break
-				}
-			}
-			if snapshot == nil {
-				snapshot, err = src.CreateSnapshot(destImage)
-				if err != nil {
-					return errors.Wrap(err, "src.CreateSnapshot")
-				}
-			}
-
-			isProtect, err := snapshot.IsProtected()
-			if err != nil {
-				return errors.Wrap(err, "snapshot.IsProtected")
-			}
-			if !isProtect {
-				if err := snapshot.Protect(); err != nil {
-					return errors.Wrap(err, "snapshot.Protect")
-				}
-			}
-			return nil
-		}()
-		if err != nil {
-			return nil, errors.Wrap(err, "get snapshot")
-		}
-
-		return s.withIOContext(destPool, func(ioctx *rados.IOContext) (interface{}, error) {
-			_, err := src.Clone(destImage, ioctx, destImage, RBD_FEATURE, RBD_ORDER)
-			if err != nil {
-				return nil, errors.Wrapf(err, "src.Clone")
-			}
-			return nil, nil
-		})
-	})
-	return err
+	client, err := s.GetClient()
+	if err != nil {
+		return errors.Wrapf(err, "GetClient")
+	}
+	defer client.Close()
+	client.SetPool(srcPool)
+	img, err := client.GetImage(srcImage)
+	if err != nil {
+		return errors.Wrapf(err, "GetImage")
+	}
+	return img.Clone(ctx, destPool, destImage)
 }
 
 func (s *SRbdStorage) cloneFromSnapshot(srcImage, srcPool, srcSnapshot, newImage, pool string) error {
-	_, err := s.withImage(srcPool, srcImage, func(src *rbd.Image) (interface{}, error) {
-		snapshot := src.GetSnapshot(srcSnapshot)
-		isProtect, err := snapshot.IsProtected()
-		if err != nil {
-			return nil, errors.Wrap(err, "snapshot is protected")
-		}
-		if !isProtect {
-			if err := snapshot.Protect(); err != nil {
-				return nil, errors.Wrap(err, "snapshot protect")
-			}
-			defer snapshot.Unprotect()
-		}
-		return s.withIOContext(pool, func(ioctx *rados.IOContext) (interface{}, error) {
-			_, err := src.Clone(srcSnapshot, ioctx, newImage, RBD_FEATURE, RBD_ORDER)
-			if err != nil {
-				return nil, errors.Wrap(err, "clone from snapshot")
-			}
-			return nil, nil
-		})
-	})
-
+	client, err := s.GetClient()
 	if err != nil {
-		return errors.Wrap(err, "clone from snapshot")
+		return errors.Wrapf(err, "GetClient")
 	}
-	return nil
-}
-
-func (s *SRbdStorage) withImage(pool string, name string, doFunc func(*rbd.Image) (interface{}, error)) (interface{}, error) {
-	return s.withIOContext(pool, func(ioctx *rados.IOContext) (interface{}, error) {
-		image := rbd.GetImage(ioctx, name)
-		if err := image.Open(); err != nil {
-			log.Errorf("open image %s name error: %v", name, err)
-			return nil, err
-		}
-		defer image.Close()
-		return doFunc(image)
-	})
-}
-
-func (s *SRbdStorage) withIOContext(pool string, doFunc func(*rados.IOContext) (interface{}, error)) (interface{}, error) {
-	return s.withCluster(func(conn *rados.Conn) (interface{}, error) {
-		ioctx, err := conn.OpenIOContext(pool)
-		if err != nil {
-			return nil, errors.Wrapf(err, "conn.OpenIOContext(%s)", pool)
-		}
-		return doFunc(ioctx)
-	})
-}
-
-func (s *SRbdStorage) listImages(pool string) ([]string, error) {
-	images, err := s.withIOContext(pool, func(ioctx *rados.IOContext) (interface{}, error) {
-		return rbd.GetImageNames(ioctx)
-	})
+	defer client.Close()
+	client.SetPool(srcPool)
+	img, err := client.GetImage(srcImage)
 	if err != nil {
-		return nil, err
+		return errors.Wrapf(err, "GetImage")
 	}
-	return images.([]string), nil
-}
-
-func (s *SRbdStorage) withCluster(doFunc func(*rados.Conn) (interface{}, error)) (interface{}, error) {
-	conn, _ := rados.NewConn()
-	for _, key := range []string{"mon_host", "key"} {
-		if value, _ := s.StorageConf.GetString(key); len(value) > 0 {
-			if err := conn.SetConfigOption(key, value); err != nil {
-				return nil, err
-			}
-		}
+	snap, err := img.GetSnapshot(srcSnapshot)
+	if err != nil {
+		return errors.Wrapf(err, "GetSnapshot")
 	}
-	for key, timeout := range map[string]int64{
-		"rados_osd_op_timeout": api.RBD_DEFAULT_OSD_TIMEOUT,
-		"rados_mon_op_timeout": api.RBD_DEFAULT_MON_TIMEOUT,
-		"client_mount_timeout": api.RBD_DEFAULT_MOUNT_TIMEOUT,
-	} {
-
-		_timeout, _ := s.StorageConf.Int(key)
-		if _timeout > 0 {
-			timeout = _timeout
-		}
-		if err := conn.SetConfigOption(key, fmt.Sprintf("%d", timeout)); err != nil {
-			return nil, err
-		}
-	}
-	if err := conn.Connect(); err != nil {
-		return nil, errors.Wrapf(err, "conn.Connect() %s", s.StorageName)
-	}
-	defer conn.Shutdown()
-	return doFunc(conn)
+	return snap.Clone(pool, newImage)
 }
 
 func (s *SRbdStorage) createImage(pool string, name string, sizeMb uint64) error {
-	_, err := s.withIOContext(pool, func(ioctx *rados.IOContext) (interface{}, error) {
-		image, err := rbd.Create(ioctx, name, sizeMb*1024*1024, RBD_ORDER, RBD_FEATURE)
-		if err != nil {
-			return nil, err
-		}
-		defer image.Close()
-		return nil, nil
-	})
+	client, err := s.GetClient()
+	if err != nil {
+		return errors.Wrapf(err, "GetClient")
+	}
+	defer client.Close()
+	client.SetPool(pool)
+	_, err = client.CreateImage(name, int64(sizeMb))
 	return err
 }
 
 func (s *SRbdStorage) renameImage(pool string, src string, dest string) error {
-	_, err := s.withImage(pool, src, func(image *rbd.Image) (interface{}, error) {
-		return nil, image.Rename(dest)
-	})
-	return err
+	client, err := s.GetClient()
+	if err != nil {
+		return errors.Wrapf(err, "GetClient")
+	}
+	defer client.Close()
+	client.SetPool(pool)
+	img, err := client.GetImage(src)
+	if err != nil {
+		return errors.Wrapf(err, "GetImage")
+	}
+	return img.Rename(dest)
 }
 
 func (s *SRbdStorage) resetDisk(pool string, diskId string, snapshotId string) error {
-	_, err := s.withImage(pool, diskId, func(image *rbd.Image) (interface{}, error) {
-		snap := image.GetSnapshot(snapshotId)
-		return nil, snap.Rollback()
-	})
-	return err
+	client, err := s.GetClient()
+	if err != nil {
+		return errors.Wrapf(err, "GetClient")
+	}
+	client.SetPool(pool)
+	defer client.Close()
+	img, err := client.GetImage(diskId)
+	if err != nil {
+		return errors.Wrapf(err, "GetImage")
+	}
+	snap, err := img.GetSnapshot(snapshotId)
+	if err != nil {
+		return errors.Wrapf(err, "GetSnapshot")
+	}
+	return snap.Rollback()
 }
 
 func (s *SRbdStorage) createSnapshot(pool string, diskId string, snapshotId string) error {
-	_, err := s.withImage(pool, diskId, func(image *rbd.Image) (interface{}, error) {
-		return image.CreateSnapshot(snapshotId)
-	})
+	client, err := s.GetClient()
+	if err != nil {
+		return errors.Wrapf(err, "GetClient")
+	}
+	client.SetPool(pool)
+	defer client.Close()
+	img, err := client.GetImage(diskId)
+	if err != nil {
+		return errors.Wrapf(err, "GetImage")
+	}
+	_, err = img.CreateSnapshot(snapshotId)
 	return err
 }
 
 func (s *SRbdStorage) deleteSnapshot(pool string, diskId string, snapshotId string) error {
-	_, err := s.withImage(pool, diskId, func(image *rbd.Image) (interface{}, error) {
-		snapshots, err := image.GetSnapshotNames()
-		if err != nil {
-			return nil, errors.Wrapf(err, "image.GetSnapshotNames()")
-		}
-		var snapshot *rbd.Snapshot
-		for _, snapInfo := range snapshots {
-			if snapInfo.Name == snapshotId {
-				snapshot = image.GetSnapshot(snapshotId)
-				break
-			}
-		}
-		if snapshot == nil { //not found snapshot
-			return nil, nil
-		}
-		isProtect, err := snapshot.IsProtected()
-		if err != nil {
-			return nil, errors.Wrap(err, "snapshot is protected")
-		}
-		if isProtect {
-			image.Close()
-			if err := image.Open(snapshotId); err != nil {
-				return nil, errors.Wrap(err, "image open snapshot")
-			}
-			pools, childImgs, err := image.ListChildren()
-			if err != nil {
-				return nil, errors.Wrap(err, "image list children")
-			}
-			for i, iPool := range pools {
-				_, err = s.withIOContext(iPool, func(ioctx *rados.IOContext) (interface{}, error) {
-					_image := rbd.GetImage(ioctx, childImgs[i])
-					err = _image.Open()
-					if err != nil {
-						return nil, errors.Wrap(err, "open child image")
-					}
-					defer _image.Close()
-
-					log.Infof("start flatten %s/%s@%s => %s/%s", pool, diskId, snapshotId, iPool, childImgs[i])
-					err := _image.Flatten()
-					if err != nil {
-						return nil, errors.Wrap(err, "child image flatten")
-					}
-					return nil, nil
-				})
-				if err != nil {
-					return nil, errors.Wrapf(err, "flatten child %s/%s", iPool, childImgs[i])
-				}
-			}
-			for i := 0; i < 3; i++ {
-				err = snapshot.Unprotect()
-				if err == nil {
-					break
-				}
-				//Resource busy
-				if strings.Contains(err.Error(), "16") {
-					log.Warningf("snapshot is busy, try unprotect after %d seconds", (i+1)*5)
-					time.Sleep(time.Second * time.Duration(i+1) * 5)
-					continue
-				}
-				return nil, errors.Wrapf(err, "snapshot.Unprotect() %s", snapshotId)
-			}
-		}
-		err = snapshot.Remove()
-		if err != nil {
-			return nil, errors.Wrap(err, "snapshot remove")
-		}
-		return nil, nil
-	})
-	return err
-}
-
-type SMonCommand struct {
-	Prefix string
-	Pool   string
-	Format string
-}
-
-type sCephCapacity struct {
-	CapacitySizeByte     int64
-	UsedCapacitySizeByte int64
-}
-
-type sCephDfResult struct {
-	Stats struct {
-		TotalBytes        int64   `json:"total_bytes"`
-		TotalAvailBytes   int64   `json:"total_avail_bytes"`
-		TotalUsedBytes    int64   `json:"total_used_bytes"`
-		TotalUsedRawBytes int64   `json:"total_used_raw_bytes"`
-		TotalUsedRawRatio float64 `json:"total_used_raw_ratio"`
-		NumOsds           int     `json:"num_osds"`
-		NumPerPoolOsds    int     `json:"num_per_pool_osds"`
-	}
-	Pools []struct {
-		Name  string `json:"name"`
-		ID    int    `json:"id"`
-		Stats struct {
-			Stored      int   `json:"stored"`
-			Objects     int   `json:"objects"`
-			KbUsed      int   `json:"kb_used"`
-			BytesUsed   int64 `json:"bytes_used"`
-			PercentUsed int   `json:"percent_used"`
-			MaxAvail    int64 `json:"max_avail"`
-		} `json:"stats"`
-	}
-}
-
-func (s *SRbdStorage) getCapacity() (*sCephCapacity, error) {
-	ret := &sCephCapacity{}
-	_, err := s.withCluster(func(conn *rados.Conn) (interface{}, error) {
-		poolName, _ := s.StorageConf.GetString("pool")
-		cmd := SMonCommand{Prefix: "df", Format: "json"}
-		buffer, _, err := conn.MonCommand([]byte(jsonutils.Marshal(cmd).String()))
-		if err != nil {
-			return nil, errors.Wrapf(err, "MonCommand")
-		}
-		result, err := jsonutils.Parse(buffer)
-		if err != nil {
-			return nil, errors.Wrapf(err, string(buffer))
-		}
-		df := &sCephDfResult{}
-		result.Unmarshal(df)
-		ret.CapacitySizeByte = df.Stats.TotalAvailBytes
-		ret.UsedCapacitySizeByte = df.Stats.TotalUsedBytes
-		for _, pool := range df.Pools {
-			if pool.Name == poolName {
-				ret.UsedCapacitySizeByte = pool.Stats.BytesUsed
-			}
-		}
-		return nil, nil
-	})
+	client, err := s.GetClient()
 	if err != nil {
-		return ret, errors.Wrap(err, "getCapacity")
+		return errors.Wrapf(err, "GetClient")
 	}
-	return ret, nil
+	client.SetPool(pool)
+	defer client.Close()
+	img, err := client.GetImage(diskId)
+	if err != nil {
+		return errors.Wrapf(err, "GetImage")
+	}
+	snap, err := img.GetSnapshot(snapshotId)
+	if err != nil {
+		return errors.Wrapf(err, "GetSnapshot")
+	}
+	return snap.Delete()
 }
 
 func (s *SRbdStorage) SyncStorageSize() error {
 	content := jsonutils.NewDict()
-	capacity, err := s.getCapacity()
+	client, err := s.GetClient()
 	if err != nil {
-		return errors.Wrapf(err, "getCapacity")
+		return errors.Wrapf(err, "GetClient")
 	}
-	content.Set("capacity", jsonutils.NewInt(int64(capacity.CapacitySizeByte/1024/1024)))
-	content.Set("actual_capacity_used", jsonutils.NewInt(int64(capacity.UsedCapacitySizeByte/1024/1024)))
+	defer client.Close()
+	capacity, err := client.GetCapacity()
+	if err != nil {
+		return errors.Wrapf(err, "GetCapacity")
+	}
+	content.Set("capacity", jsonutils.NewInt(int64(capacity.CapacitySizeKb/1024)))
+	content.Set("actual_capacity_used", jsonutils.NewInt(int64(capacity.UsedCapacitySizeKb/1024)))
 	_, err = modules.Storages.Put(
 		hostutils.GetComputeSession(context.Background()),
 		s.StorageId, content)
@@ -623,14 +344,20 @@ func (s *SRbdStorage) SyncStorageSize() error {
 func (s *SRbdStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	content := map[string]interface{}{}
 	if len(s.StorageId) > 0 {
-		capacity, err := s.getCapacity()
+		client, err := s.GetClient()
 		if err != nil {
 			return modules.Storages.PerformAction(hostutils.GetComputeSession(context.Background()), s.StorageId, "offline", nil)
 		}
+		defer client.Close()
+		capacity, err := client.GetCapacity()
+		if err != nil {
+			return modules.Storages.PerformAction(hostutils.GetComputeSession(context.Background()), s.StorageId, "offline", nil)
+		}
+
 		content = map[string]interface{}{
 			"name":                 s.StorageName,
-			"capacity":             capacity.CapacitySizeByte / 1024 / 1024,
-			"actual_capacity_used": capacity.UsedCapacitySizeByte / 1024 / 1024,
+			"capacity":             capacity.CapacitySizeKb / 1024,
+			"actual_capacity_used": capacity.UsedCapacitySizeKb / 1024,
 			"status":               api.STORAGE_ONLINE,
 			"zone":                 s.GetZoneName(),
 		}
@@ -646,9 +373,6 @@ func (s *SRbdStorage) GetDiskById(diskId string) (IDisk, error) {
 		if s.Disks[i].GetId() == diskId {
 			err := s.Disks[i].Probe()
 			if err != nil {
-				if errors.Cause(err) == rbd.RbdErrorNotFound {
-					return nil, cloudprovider.ErrNotFound
-				}
 				return nil, errors.Wrapf(err, "disk.Prob")
 			}
 			return s.Disks[i], nil
@@ -671,20 +395,12 @@ func (s *SRbdStorage) CreateDisk(diskId string) IDisk {
 }
 
 func (s *SRbdStorage) Accessible() error {
-	var c = make(chan error)
-	go func() {
-		_, err := s.withCluster(func(conn *rados.Conn) (interface{}, error) {
-			return conn.ListPools()
-		})
-		c <- err
-	}()
-	var err error
-	select {
-	case err = <-c:
-		break
-	case <-time.After(time.Second * 30):
-		err = ErrStorageTimeout
+	client, err := s.GetClient()
+	if err != nil {
+		return errors.Wrapf(err, "GetClient")
 	}
+	defer client.Close()
+	_, err = client.GetCapacity()
 	return err
 }
 
@@ -814,8 +530,21 @@ func (s *SRbdStorage) CreateDiskFromSnapshot(
 func (s *SRbdStorage) SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject) error {
 	s.StorageId = storageId
 	s.StorageName = storageName
+	if gotypes.IsNil(conf) {
+		return fmt.Errorf("empty storage conf for storage %s(%s)", storageName, storageId)
+	}
 	if dconf, ok := conf.(*jsonutils.JSONDict); ok {
 		s.StorageConf = dconf
+	}
+	conf.Unmarshal(&s.sStorageConf)
+	if s.RadosMonOpTimeout == 0 {
+		s.RadosMonOpTimeout = api.RBD_DEFAULT_MON_TIMEOUT
+	}
+	if s.RadosOsdOpTimeout == 0 {
+		s.RadosOsdOpTimeout = api.RBD_DEFAULT_OSD_TIMEOUT
+	}
+	if s.ClientMountTimeout == 0 {
+		s.ClientMountTimeout = api.RBD_DEFAULT_MOUNT_TIMEOUT
 	}
 	return nil
 }

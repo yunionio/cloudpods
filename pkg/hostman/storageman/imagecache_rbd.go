@@ -113,7 +113,7 @@ func (r *SRbdImageCache) GetDesc() *remotefile.SImageDesc {
 	imageCacheManger := r.Manager.(*SRbdImageCacheManager)
 	storage := imageCacheManger.storage.(*SRbdStorage)
 
-	size := storage.getImageSizeMb(imageCacheManger.Pool, r.GetName())
+	size, _ := storage.getImageSizeMb(imageCacheManger.Pool, r.GetName())
 	return &remotefile.SImageDesc{
 		Size: int64(size),
 		Name: r.imageName,
