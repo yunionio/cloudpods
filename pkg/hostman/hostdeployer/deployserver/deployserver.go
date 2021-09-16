@@ -360,6 +360,12 @@ func (s *SDeployService) PrepareEnv() error {
 		sysutils.SetSysConfig(nbdBdi+"min_ratio", "0")
 	}
 
+	// create /dev/lvm_remote
+	err = s.checkLvmRemote()
+	if err != nil {
+		return errors.Wrap(err, "unable to checkLvmRemote")
+	}
+
 	if !winutils.CheckTool(DeployOption.ChntpwPath) {
 		if winutils.CheckTool("/usr/bin/chntpw.static") {
 			winutils.SetChntpwPath("/usr/bin/chntpw.static")
@@ -370,6 +376,21 @@ func (s *SDeployService) PrepareEnv() error {
 		winutils.SetChntpwPath(DeployOption.ChntpwPath)
 	}
 	return nil
+}
+
+func (s *SDeployService) checkLvmRemote() error {
+	_, err := os.Stat("/dev/lvm_remote")
+	if err == nil {
+		return nil
+	}
+	if os.IsNotExist(err) {
+		err := os.Mkdir("/dev/lvm_remote", os.ModePerm)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	return err
 }
 
 func (s *SDeployService) InitService() {
