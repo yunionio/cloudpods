@@ -175,6 +175,15 @@ func (d *NBDDriver) setupLVMS() (bool, error) {
 				for i := 0; i < len(subparts); i++ {
 					lvmPartitions = append(lvmPartitions, subparts[i])
 				}
+			} else {
+				log.Infof("wait a second and try again")
+				time.Sleep(time.Second)
+				subparts := lvm.FindPartitions()
+				if len(subparts) > 0 {
+					for i := 0; i < len(subparts); i++ {
+						lvmPartitions = append(lvmPartitions, subparts[i])
+					}
+				}
 			}
 		}
 	}
