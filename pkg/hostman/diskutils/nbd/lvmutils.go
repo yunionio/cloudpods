@@ -120,8 +120,15 @@ func findVg(partDev string) (SVG, error) {
 	if err != nil {
 		return SVG{}, errors.Wrapf(err, "unable to exec command %q", command)
 	}
-	log.Debugf("command: %s\noutput: %s", command, output)
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	log.Debugf("command: %s\noutptu: %s", command, output)
+
+	outputStr := string(output)
+	r := regexp.MustCompile("WARNING: Device mismatch detected for .* which is accessing .* instead of .*.")
+	ret := r.FindStringSubmatch(outputStr)
+	if len(ret) > 0 {
+		return SVG{}, fmt.Errorf("VG conflicts with the VG UUID of the host")
+	}
+	lines := strings.Split(strings.TrimSpace(outputStr), "\n")
 	if len(lines) <= 1 {
 		return SVG{}, fmt.Errorf("unable to find vg, output is %q", output)
 	}
@@ -176,6 +183,7 @@ func (p *SKVMGuestLVMPartition) FindPartitions() []*kvmpart.SKVMGuestDiskPartiti
 		log.Errorf("unable to readir /dev/%s: %v", p.vgname, err)
 		return nil
 	}
+	log.Debugf("unable to read dir '/dev/%s': %v", p.vgname, err)
 	// try /dev/mapper/{vgname}-{lvname}
 	lvs, err := p.lvs()
 	if err != nil {
@@ -249,7 +257,7 @@ func (p *SKVMGuestLVMPartition) vgActivate(activate bool) bool {
 }
 
 func (p *SKVMGuestLVMPartition) vgRename(oldname, newname string) bool {
-	command := procutils.NewCommand("vgrename", oldname, newname)
+	command := procutils.NewCommand("vgrename", "--devices", p.partDev, oldname, newname)
 	output, err := command.Output()
 	if err != nil {
 		log.Errorf("unable to exec command: %q, error: %v, output: %q", command, err, output)
