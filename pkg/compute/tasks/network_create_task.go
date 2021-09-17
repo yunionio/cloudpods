@@ -54,9 +54,9 @@ func (self *NetworkCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		return
 	}
 
-	driver, err := region.GetRegionDriver()
-	if err != nil {
-		self.taskFailed(ctx, net, errors.Wrapf(err, "GetRegionDriver"))
+	driver := region.GetDriver()
+	if driver == nil {
+		self.taskFailed(ctx, net, errors.Wrapf(err, "GetRegionDriver for %s", region.Provider))
 		return
 	}
 
