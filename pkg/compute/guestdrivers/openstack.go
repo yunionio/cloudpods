@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	scheduler "yunion.io/x/onecloud/pkg/scheduler/options"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -49,19 +50,19 @@ func init() {
 }
 
 func (self *SOpenStackGuestDriver) DoScheduleCPUFilter() bool {
-	return options.Options.SchedulerOptions.OpenStackSchedulerCPUFilter
+	return scheduler.GetOptions().OpenstackSchedulerCPUFilter
 }
 
 func (self *SOpenStackGuestDriver) DoScheduleMemoryFilter() bool {
-	return options.Options.SchedulerOptions.OpenStackSchedulerMemoryFilter
+	return scheduler.GetOptions().OpenstackSchedulerMemoryFilter
 }
 
 func (self *SOpenStackGuestDriver) DoScheduleSKUFilter() bool {
-	return options.Options.SchedulerOptions.OpenStackSchedulerSKUFilter
+	return scheduler.GetOptions().OpenstackSchedulerSKUFilter
 }
 
 func (self *SOpenStackGuestDriver) DoScheduleStorageFilter() bool {
-	return options.Options.SchedulerOptions.OpenStackSchedulerStorageFilter
+	return scheduler.GetOptions().OpenstackSchedulerStorageFilter
 }
 
 func (self *SOpenStackGuestDriver) GetHypervisor() string {

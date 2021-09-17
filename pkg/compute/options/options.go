@@ -176,15 +176,6 @@ type ComputeOptions struct {
 	ProhibitRefreshingCloudImage bool `help:"Prohibit refreshing cloud image"`
 
 	esxi.EsxiOptions
-
-	SchedulerOptions
-}
-
-type SchedulerOptions struct {
-	OpenStackSchedulerCPUFilter     bool `help:"Scheduler OpenStack usable host by cpu" default:"true"`
-	OpenStackSchedulerMemoryFilter  bool `help:"Scheduler OpenStack usable host by memory" default:"true"`
-	OpenStackSchedulerStorageFilter bool `help:"Scheduler OpenStack usable host by storage" default:"true"`
-	OpenStackSchedulerSKUFilter     bool `help:"Scheduler OpenStack usable host by sku" default:"false"`
 }
 
 type SCapabilityOptions struct {
