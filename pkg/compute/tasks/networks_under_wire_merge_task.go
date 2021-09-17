@@ -105,7 +105,7 @@ func (self *NetworksUnderWireMergeTask) OnInit(ctx context.Context, obj db.IStan
 				wireNets = append(wireNets, nets[i].SNetwork)
 			}
 		}
-		ok, err := self.mergeNetwork(ctx, nets[i].SNetwork, nets[i+1].SNetwork, wireNets)
+		ok, err := self.mergeNetwork(ctx, nets[i].SNetwork, nets[i+1].SNetwork, nil)
 		if err != nil {
 			self.taskFailed(ctx, w, fmt.Sprintf("unable to merge network %q to %q", nets[i].GetId(), nets[i+1].GetId()), err)
 			return
@@ -114,7 +114,7 @@ func (self *NetworksUnderWireMergeTask) OnInit(ctx context.Context, obj db.IStan
 			continue
 		}
 		// Try to merge in the opposite direction
-		ok, err = self.mergeNetwork(ctx, nets[i+1].SNetwork, nets[i].SNetwork, wireNets)
+		ok, err = self.mergeNetwork(ctx, nets[i+1].SNetwork, nets[i].SNetwork, nil)
 		if err != nil {
 			self.taskFailed(ctx, w, fmt.Sprintf("unable to merge network %q to %q", nets[i+1].GetId(), nets[i].GetId()), err)
 			return
