@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ceph/go-ceph/rbd"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -29,6 +27,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 )
 
@@ -48,12 +47,14 @@ func (d *SRBDDisk) GetType() string {
 
 func (d *SRBDDisk) Probe() error {
 	storage := d.Storage.(*SRbdStorage)
-	storageConf := d.Storage.GetStorageConf()
-	pool, _ := storageConf.GetString("pool")
-	_, err := storage.withImage(pool, d.Id, func(image *rbd.Image) (interface{}, error) {
-		return image.GetSize()
-	})
-	return err
+	exist, err := storage.IsImageExist(d.Id)
+	if err != nil {
+		return errors.Wrapf(err, "IsImageExist")
+	}
+	if !exist {
+		return cloudprovider.ErrNotFound
+	}
+	return nil
 }
 
 func (d *SRBDDisk) getPath() string {
@@ -75,11 +76,12 @@ func (d *SRBDDisk) GetDiskDesc() jsonutils.JSONObject {
 	storage := d.Storage.(*SRbdStorage)
 	storageConf := d.Storage.GetStorageConf()
 	pool, _ := storageConf.GetString("pool")
+	sizeMb, _ := storage.getImageSizeMb(pool, d.Id)
 	desc := map[string]interface{}{
 		"disk_id":     d.Id,
 		"disk_format": "raw",
 		"disk_path":   d.GetPath(),
-		"disk_size":   storage.getImageSizeMb(pool, d.Id),
+		"disk_size":   sizeMb,
 	}
 	return jsonutils.Marshal(desc)
 }

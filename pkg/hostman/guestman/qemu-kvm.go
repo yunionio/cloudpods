@@ -846,7 +846,7 @@ func (s *SKVMGuestInstance) DeployFs(deployInfo *deployapi.DeployInfo) (jsonutil
 		diskPath, _ := disks[0].GetString("path")
 		disk := storageman.GetManager().GetDiskByPath(diskPath)
 		if disk == nil {
-			return nil, fmt.Errorf("Cannot find disk index 0")
+			return nil, fmt.Errorf("Cannot find disk %s index 0", diskPath)
 		}
 		return disk.DeployGuestFs(disk.GetPath(), s.Desc, deployInfo)
 	} else {
