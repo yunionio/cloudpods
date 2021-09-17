@@ -36,7 +36,6 @@ import (
 	_ "yunion.io/x/onecloud/pkg/compute/guestdrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
-	compute_options "yunion.io/x/onecloud/pkg/compute/options"
 	_ "yunion.io/x/onecloud/pkg/scheduler/algorithmprovider"
 	skuman "yunion.io/x/onecloud/pkg/scheduler/data_manager/sku"
 	schedhandler "yunion.io/x/onecloud/pkg/scheduler/handler"
@@ -91,7 +90,7 @@ func StartService() error {
 		startSched()
 	})
 
-	common_options.StartOptionManager(&opts.ComputeOptions, opts.ConfigSyncPeriodSeconds, compute_api.SERVICE_TYPE, compute_api.SERVICE_VERSION, compute_options.OnOptionsChange)
+	common_options.StartOptionManager(&opts, opts.ConfigSyncPeriodSeconds, compute_api.SERVICE_TYPE, compute_api.SERVICE_VERSION, o.OnOptionsChange)
 
 	app := app_common.InitApp(&opts.BaseOptions, true)
 	cloudcommon.AppDBInit(app)

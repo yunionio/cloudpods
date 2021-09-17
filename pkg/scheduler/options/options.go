@@ -18,7 +18,7 @@ import (
 	"os"
 
 	api "yunion.io/x/onecloud/pkg/apis/scheduler"
-	common_optoins "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/compute/options"
 )
 
@@ -89,6 +89,34 @@ type SchedOptions struct {
 	WireDBCachePeriod string `help:"Wire database cache period" default:"5m"`
 
 	SkuRefreshInterval string `help:"Server SKU refresh interval" default:"12h"`
+
+	OpenstackOptions
+}
+
+type OpenstackOptions struct {
+	OpenstackSchedulerCPUFilter     bool `help:"Scheduler OpenStack usable host by cpu" default:"true"`
+	OpenstackSchedulerMemoryFilter  bool `help:"Scheduler OpenStack usable host by memory" default:"true"`
+	OpenstackSchedulerStorageFilter bool `help:"Scheduler OpenStack usable host by storage" default:"true"`
+	OpenstackSchedulerSKUFilter     bool `help:"Scheduler OpenStack usable host by sku" default:"false"`
+}
+
+func OnOpenstackOptionsChange(oOpts, nOpts interface{}) bool {
+	oldOpts := oOpts.(*OpenstackOptions)
+	newOpts := nOpts.(*OpenstackOptions)
+
+	if oldOpts.OpenstackSchedulerCPUFilter != newOpts.OpenstackSchedulerCPUFilter {
+		return true
+	}
+	if oldOpts.OpenstackSchedulerMemoryFilter != newOpts.OpenstackSchedulerMemoryFilter {
+		return true
+	}
+	if oldOpts.OpenstackSchedulerStorageFilter != newOpts.OpenstackSchedulerStorageFilter {
+		return true
+	}
+	if oldOpts.OpenstackSchedulerSKUFilter != newOpts.OpenstackSchedulerSKUFilter {
+		return true
+	}
+	return false
 }
 
 var (
@@ -100,6 +128,25 @@ func GetOptions() *SchedulerOptions {
 }
 
 func Init() {
-	common_optoins.ParseOptions(&opt, os.Args, "region.conf", api.SERVICE_TYPE)
+	common_options.ParseOptions(&opt, os.Args, "region.conf", api.SERVICE_TYPE)
 	options.Options = opt.ComputeOptions
+}
+
+func OnOptionsChange(oldO, newO interface{}) bool {
+	oldOpts := oldO.(*SchedulerOptions)
+	newOpts := newO.(*SchedulerOptions)
+
+	changed := false
+	if common_options.OnCommonOptionsChange(&oldOpts.CommonOptions, &newOpts.CommonOptions) {
+		changed = true
+	}
+	if common_options.OnDBOptionsChange(&oldOpts.DBOptions, &newOpts.DBOptions) {
+		changed = true
+	}
+
+	if OnOptionsChange(&oldOpts.OpenstackOptions, &newOpts.OpenstackOptions) {
+		changed = true
+	}
+
+	return changed
 }
