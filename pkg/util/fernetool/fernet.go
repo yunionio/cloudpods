@@ -82,7 +82,11 @@ func (m *SFernetKeyManager) LoadKeys(path string) error {
 	return nil
 }
 
-func (m *SFernetKeyManager) Decrypt(tok []byte, ttl time.Duration) []byte {
+func (m *SFernetKeyManager) Decrypt(tok []byte) []byte {
+	return m.VerifyAndDecrypt(tok, 0)
+}
+
+func (m *SFernetKeyManager) VerifyAndDecrypt(tok []byte, ttl time.Duration) []byte {
 	modReturned := len(tok) % 4
 	if modReturned > 0 {
 		for i := 0; i < 4-modReturned; i += 1 {
