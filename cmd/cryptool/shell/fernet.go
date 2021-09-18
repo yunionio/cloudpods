@@ -16,7 +16,6 @@ package shell
 
 import (
 	"fmt"
-	"time"
 
 	"yunion.io/x/pkg/util/timeutils"
 
@@ -110,7 +109,7 @@ func init() {
 		}
 		fmt.Println("primary key hash:", fm.PrimaryKeyHash())
 
-		ret := fm.Decrypt([]byte(args.MSG), time.Hour*-1)
+		ret := fm.Decrypt([]byte(args.MSG))
 		if len(ret) == 0 {
 			return fmt.Errorf("invalid message")
 		}
