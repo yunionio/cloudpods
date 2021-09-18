@@ -284,7 +284,7 @@ func (self *SNetworkInterface) syncRemoveCloudNetworkInterface(ctx context.Conte
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		self.SetStatus(userCred, api.NETWORK_INTERFACE_STATUS_UNKNOWN, "sync to delete")
 		return errors.Wrapf(err, "ValidateDeleteCondition")

@@ -170,15 +170,22 @@ func (self *SNetwork) GetNetworkInterfaces() ([]SNetworkInterface, error) {
 	return networkinterfaces, nil
 }
 
-func (self *SNetwork) ValidateDeleteCondition(ctx context.Context) error {
-	vnics, err := NetworkManager.TotalNicCount([]string{self.Id})
-	if err != nil {
-		return httperrors.NewInternalServerError("TotalNicCount fail %s", err)
+func (self *SNetwork) ValidateDeleteCondition(ctx context.Context, data *api.NetworkDetails) error {
+	if data == nil {
+		data = &api.NetworkDetails{}
+		nics, err := NetworkManager.TotalNicCount([]string{self.Id})
+		if err != nil {
+			return errors.Wrapf(err, "TotalNicCount")
+		}
+		if cnt, ok := nics[self.Id]; ok {
+			data.SNetworkNics = cnt
+		}
 	}
-	if nics, ok := vnics[self.Id]; ok && nics.Total > 0 {
-		return httperrors.NewNotEmptyError("not an empty network %s", jsonutils.Marshal(nics).String())
+	if data.Total > 0 {
+		return httperrors.NewNotEmptyError("not an empty network %s", jsonutils.Marshal(data.SNetworkNics).String())
 	}
-	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
+
+	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 /*验证elb network可用，并返回关联的region, zone,vpc, wire*/
@@ -628,7 +635,7 @@ func (self *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mccli
 		return nil
 	}
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
 		err = self.SetStatus(userCred, api.NETWORK_STATUS_UNKNOWN, "Sync to remove")
 	} else {
@@ -2286,7 +2293,7 @@ func (self *SNetwork) AllowPerformPurge(ctx context.Context, userCred mcclient.T
 // 清除IP子网数据
 // 要求IP子网内没有被分配IP,若清除接入云,要求接入云账号处于禁用状态
 func (self *SNetwork) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkPurgeInput) (jsonutils.JSONObject, error) {
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

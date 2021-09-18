@@ -170,7 +170,7 @@ func (wire *SWire) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 	return input, nil
 }
 
-func (wire *SWire) ValidateDeleteCondition(ctx context.Context) error {
+func (wire *SWire) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	cnt, err := wire.HostCount()
 	if err != nil {
 		return httperrors.NewInternalServerError("HostCount fail %s", err)
@@ -185,7 +185,7 @@ func (wire *SWire) ValidateDeleteCondition(ctx context.Context) error {
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("wire contains networks")
 	}
-	return wire.SInfrasResourceBase.ValidateDeleteCondition(ctx)
+	return wire.SInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (manager *SWireManager) getWireExternalIdForClassicNetwork(provider string, vpcId string, zoneId string) string {
@@ -356,7 +356,7 @@ func (self *SWire) syncRemoveCloudWire(ctx context.Context, userCred mcclient.To
 		return nil
 	}
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
 		err = self.markNetworkUnknown(userCred)
 	} else {

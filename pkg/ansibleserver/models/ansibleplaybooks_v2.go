@@ -118,7 +118,7 @@ func (man *SAnsiblePlaybookV2Manager) InitializeData() error {
 	return nil
 }
 
-func (apb *SAnsiblePlaybookV2) ValidateDeleteCondition(ctx context.Context) error {
+func (apb *SAnsiblePlaybookV2) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if apb.Status == api.AnsiblePlaybookStatusRunning {
 		return httperrors.NewConflictError("playbook is in running state")
 	}

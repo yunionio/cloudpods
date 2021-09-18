@@ -151,7 +151,7 @@ func (self *SGoogleRegionDriver) RequestDeleteVpc(ctx context.Context, userCred 
 
 		for i := range vpcs {
 			if vpcs[i].Status == api.VPC_STATUS_AVAILABLE && vpcs[i].ManagerId == vpc.ManagerId {
-				err = vpc.ValidateDeleteCondition(ctx)
+				err = vpc.ValidateDeleteCondition(ctx, nil)
 				if err != nil {
 					return nil, errors.Wrapf(err, "vpc %s(%s) not empty", vpc.Name, vpc.Id)
 				}

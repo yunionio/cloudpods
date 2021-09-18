@@ -380,7 +380,7 @@ func (self *SSchedtag) ValidateUpdateData(ctx context.Context, userCred mcclient
 	return data, nil
 }
 
-func (self *SSchedtag) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SSchedtag) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	cnt, err := self.GetObjectCount()
 	if err != nil {
 		return httperrors.NewInternalServerError("GetObjectCount fail %s", err)
@@ -402,7 +402,7 @@ func (self *SSchedtag) ValidateDeleteCondition(ctx context.Context) error {
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("tag is associate with sched policies")
 	}
-	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 // GetObjectPtr wraps the given value with pointer: V => *V, *V => **V, etc.

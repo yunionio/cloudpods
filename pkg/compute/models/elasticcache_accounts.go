@@ -130,7 +130,7 @@ func (self *SElasticcacheAccount) syncRemoveCloudElasticcacheAccount(ctx context
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudElasticcacheAccount.Remove")
 	}

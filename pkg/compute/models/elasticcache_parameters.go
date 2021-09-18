@@ -134,7 +134,7 @@ func (self *SElasticcacheParameter) syncRemoveCloudElasticcacheParameter(ctx con
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudElasticcacheParameter.Remove")
 	}

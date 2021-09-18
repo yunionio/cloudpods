@@ -716,7 +716,7 @@ func (self *SImage) AllowDeleteItem(ctx context.Context, userCred mcclient.Token
 	return self.IsOwner(userCred) || db.IsAdminAllowDelete(userCred, self)
 }
 
-func (self *SImage) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SImage) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.Protected.IsTrue() {
 		return httperrors.NewForbiddenError("image is protected")
 	}
@@ -729,7 +729,7 @@ func (self *SImage) ValidateDeleteCondition(ctx context.Context) error {
 	// if self.IsShared() {
 	// 	return httperrors.NewForbiddenError("image is shared")
 	// }
-	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
+	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SImage) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

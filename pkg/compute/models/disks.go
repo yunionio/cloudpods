@@ -1078,7 +1078,7 @@ func (self *SDisk) StartDiskSaveTask(ctx context.Context, userCred mcclient.Toke
 	return nil
 }
 
-func (self *SDisk) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SDisk) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	provider := self.GetCloudprovider()
 	if provider != nil {
 		if !provider.IsAvailable() {
@@ -1120,7 +1120,7 @@ func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) er
 	if !isPurge && self.IsNotDeletablePrePaid() {
 		return httperrors.NewForbiddenError("not allow to delete prepaid disk in valid status")
 	}
-	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx)
+	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SDisk) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

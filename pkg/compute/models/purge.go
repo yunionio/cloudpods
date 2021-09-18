@@ -58,7 +58,7 @@ func (eip *SElasticip) purge(ctx context.Context, userCred mcclient.TokenCredent
 	lockman.LockObject(ctx, eip)
 	defer lockman.ReleaseObject(ctx, eip)
 
-	err := eip.ValidateDeleteCondition(ctx)
+	err := eip.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -293,7 +293,7 @@ func (lbacl *SCachedLoadbalancerAcl) purge(ctx context.Context, userCred mcclien
 	lockman.LockObject(ctx, lbacl)
 	defer lockman.ReleaseObject(ctx, lbacl)
 
-	err := lbacl.ValidateDeleteCondition(ctx)
+	err := lbacl.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -420,7 +420,7 @@ func (lb *SLoadbalancer) purge(ctx context.Context, userCred mcclient.TokenCrede
 		return err
 	}
 
-	err = lb.ValidateDeleteCondition(ctx)
+	err = lb.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -453,7 +453,7 @@ func (lbl *SLoadbalancerListener) purge(ctx context.Context, userCred mcclient.T
 		return err
 	}
 
-	err = lbl.ValidateDeleteCondition(ctx)
+	err = lbl.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -466,7 +466,7 @@ func (lblr *SLoadbalancerListenerRule) purge(ctx context.Context, userCred mccli
 	lockman.LockObject(ctx, lblr)
 	defer lockman.ReleaseObject(ctx, lblr)
 
-	err := lblr.ValidateDeleteCondition(ctx)
+	err := lblr.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -578,7 +578,7 @@ func (lbbg *SAwsCachedLbbg) purge(ctx context.Context, userCred mcclient.TokenCr
 	lockman.LockObject(ctx, lbbg)
 	defer lockman.ReleaseObject(ctx, lbbg)
 
-	err := lbbg.ValidateDeleteCondition(ctx)
+	err := lbbg.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -605,7 +605,7 @@ func (lbbg *SHuaweiCachedLbbg) purge(ctx context.Context, userCred mcclient.Toke
 	lockman.LockObject(ctx, lbbg)
 	defer lockman.ReleaseObject(ctx, lbbg)
 
-	err := lbbg.ValidateDeleteCondition(ctx)
+	err := lbbg.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -622,7 +622,7 @@ func (lbb *SLoadbalancerBackend) purge(ctx context.Context, userCred mcclient.To
 		return err
 	}
 
-	err = lbb.ValidateDeleteCondition(ctx)
+	err = lbb.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -659,7 +659,7 @@ func (lbb *SAwsCachedLb) purge(ctx context.Context, userCred mcclient.TokenCrede
 	lockman.LockObject(ctx, lbb)
 	defer lockman.ReleaseObject(ctx, lbb)
 
-	err := lbb.ValidateDeleteCondition(ctx)
+	err := lbb.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -686,7 +686,7 @@ func (lbb *SHuaweiCachedLb) purge(ctx context.Context, userCred mcclient.TokenCr
 	lockman.LockObject(ctx, lbb)
 	defer lockman.ReleaseObject(ctx, lbb)
 
-	err := lbb.ValidateDeleteCondition(ctx)
+	err := lbb.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -740,7 +740,7 @@ func (manager *SSnapshotPolicyCacheManager) purgeAll(ctx context.Context, userCr
 func (spc *SSnapshotPolicyCache) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, spc)
 	defer lockman.ReleaseObject(ctx, spc)
-	err := spc.ValidateDeleteCondition(ctx)
+	err := spc.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -790,7 +790,7 @@ func (sc *SStoragecache) purge(ctx context.Context, userCred mcclient.TokenCrede
 		return err
 	}
 
-	err = sc.ValidateDeleteCondition(ctx)
+	err = sc.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -821,7 +821,7 @@ func (storage *SStorage) purge(ctx context.Context, userCred mcclient.TokenCrede
 		return err
 	}
 
-	err = storage.ValidateDeleteCondition(ctx)
+	err = storage.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -964,7 +964,7 @@ func (nic *SNetworkInterface) purge(ctx context.Context, userCred mcclient.Token
 		return err
 	}
 
-	err = nic.ValidateDeleteCondition(ctx)
+	err = nic.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -1041,7 +1041,7 @@ func (net *SNetwork) purge(ctx context.Context, userCred mcclient.TokenCredentia
 		return errors.Wrapf(err, "purgeDBInstanceNetworks")
 	}
 
-	err = net.ValidateDeleteCondition(ctx)
+	err = net.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return errors.Wrapf(err, "ValidateDeleteCondition")
 	}
@@ -1085,7 +1085,7 @@ func (wire *SWire) purge(ctx context.Context, userCred mcclient.TokenCredential)
 	if err != nil {
 		return err
 	}
-	err = wire.ValidateDeleteCondition(ctx)
+	err = wire.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -1130,7 +1130,7 @@ func (vpc *SVpc) Purge(ctx context.Context, userCred mcclient.TokenCredential) e
 	if err != nil {
 		return err
 	}
-	err = vpc.ValidateDeleteCondition(ctx)
+	err = vpc.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -1138,7 +1138,7 @@ func (vpc *SVpc) Purge(ctx context.Context, userCred mcclient.TokenCredential) e
 }
 
 func (dn *SNatDEntry) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := dn.ValidateDeleteCondition(ctx)
+	err := dn.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -1146,7 +1146,7 @@ func (dn *SNatDEntry) Purge(ctx context.Context, userCred mcclient.TokenCredenti
 }
 
 func (sn *SNatSEntry) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := sn.ValidateDeleteCondition(ctx)
+	err := sn.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -1171,7 +1171,7 @@ func (zone *SZone) Purge(ctx context.Context, userCred mcclient.TokenCredential)
 	lockman.LockObject(ctx, zone)
 	defer lockman.ReleaseObject(ctx, zone)
 
-	err := zone.ValidateDeleteCondition(ctx)
+	err := zone.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -1221,7 +1221,7 @@ func (region *SCloudregion) purge(ctx context.Context, userCred mcclient.TokenCr
 		return err
 	}
 
-	err = region.ValidateDeleteCondition(ctx)
+	err = region.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -1257,7 +1257,7 @@ func (table *SNatSEntry) purge(ctx context.Context, userCred mcclient.TokenCrede
 	lockman.LockObject(ctx, table)
 	defer lockman.ReleaseObject(ctx, table)
 
-	err := table.ValidateDeleteCondition(ctx)
+	err := table.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -1284,7 +1284,7 @@ func (table *SNatDEntry) purge(ctx context.Context, userCred mcclient.TokenCrede
 	lockman.LockObject(ctx, table)
 	defer lockman.ReleaseObject(ctx, table)
 
-	err := table.ValidateDeleteCondition(ctx)
+	err := table.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -1323,7 +1323,7 @@ func (nat *SNatGateway) purge(ctx context.Context, userCred mcclient.TokenCreden
 
 	nat.DeletePreventionOff(nat, userCred)
 
-	err = nat.ValidateDeleteCondition(ctx)
+	err = nat.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -1401,7 +1401,7 @@ func (account *SDBInstanceAccount) Purge(ctx context.Context, userCred mcclient.
 		}
 	}
 
-	err = account.ValidateDeleteCondition(ctx)
+	err = account.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -1439,7 +1439,7 @@ func (database *SDBInstanceDatabase) Purge(ctx context.Context, userCred mcclien
 		}
 	}
 
-	err = database.ValidateDeleteCondition(ctx)
+	err = database.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -1465,7 +1465,7 @@ func (parameter *SDBInstanceParameter) purge(ctx context.Context, userCred mccli
 	lockman.LockObject(ctx, parameter)
 	defer lockman.ReleaseObject(ctx, parameter)
 
-	err := parameter.ValidateDeleteCondition(ctx)
+	err := parameter.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -1491,7 +1491,7 @@ func (network *SDBInstanceNetwork) purge(ctx context.Context, userCred mcclient.
 	lockman.LockObject(ctx, network)
 	defer lockman.ReleaseObject(ctx, network)
 
-	err := network.ValidateDeleteCondition(ctx)
+	err := network.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return errors.Wrapf(err, "ValidateDeleteCondition")
 	}
@@ -1583,7 +1583,7 @@ func (instance *SDBInstance) Purge(ctx context.Context, userCred mcclient.TokenC
 		return errors.Wrap(err, "instance.purgeBackups")
 	}
 
-	err = instance.ValidateDeleteCondition(ctx)
+	err = instance.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return errors.Wrapf(err, "ValidateDeleteCondition")
 	}
@@ -1609,7 +1609,7 @@ func (backup *SDBInstanceBackup) purge(ctx context.Context, userCred mcclient.To
 	lockman.LockObject(ctx, backup)
 	defer lockman.ReleaseObject(ctx, backup)
 
-	err := backup.ValidateDeleteCondition(ctx)
+	err := backup.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -1808,7 +1808,7 @@ func (quota *SCloudproviderQuota) purge(ctx context.Context, userCred mcclient.T
 	lockman.LockObject(ctx, quota)
 	defer lockman.ReleaseObject(ctx, quota)
 
-	err := quota.ValidateDeleteCondition(ctx)
+	err := quota.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -1835,7 +1835,7 @@ func (assignment *SPolicyAssignment) purge(ctx context.Context, userCred mcclien
 	lockman.LockObject(ctx, assignment)
 	defer lockman.ReleaseObject(ctx, assignment)
 
-	err := assignment.ValidateDeleteCondition(ctx)
+	err := assignment.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return errors.Wrapf(err, "assignment.ValidateDeleteCondition(%s(%s))", assignment.Name, assignment.Id)
 	}
@@ -1859,7 +1859,7 @@ func (definition *SPolicyDefinition) purge(ctx context.Context, userCred mcclien
 		}
 	}
 
-	err = definition.ValidateDeleteCondition(ctx)
+	err = definition.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}

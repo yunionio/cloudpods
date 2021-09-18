@@ -479,11 +479,11 @@ func fetchServices(srvIds []string) map[string]SService {
 	return ret
 }
 
-func (endpoint *SEndpoint) ValidateDeleteCondition(ctx context.Context) error {
+func (endpoint *SEndpoint) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if endpoint.Enabled.IsTrue() {
 		return httperrors.NewInvalidStatusError("endpoint is enabled")
 	}
-	return endpoint.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return endpoint.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (manager *SEndpointManager) ValidateCreateData(

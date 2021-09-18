@@ -1504,11 +1504,11 @@ func (self *SDBInstance) syncRemoveCloudDBInstance(ctx context.Context, userCred
 	return self.Purge(ctx, userCred)
 }
 
-func (self *SDBInstance) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SDBInstance) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.DisableDelete.IsTrue() {
 		return httperrors.NewInvalidStatusError("DBInstance is locked, cannot delete")
 	}
-	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SDBInstance) GetDBInstanceSkuQuery(skipZoneCheck bool) *sqlchemy.SQuery {

@@ -207,7 +207,7 @@ func (group *SGroup) GetGuestCount() int {
 	return count
 }
 
-func (group *SGroup) ValidateDeleteCondition(ctx context.Context) error {
+func (group *SGroup) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	q := GroupguestManager.Query().Equals("group_id", group.Id)
 	count, err := q.CountWithError()
 	if err != nil {

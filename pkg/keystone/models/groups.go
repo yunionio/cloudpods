@@ -173,11 +173,11 @@ func (group *SGroup) GetProjectCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (group *SGroup) ValidateDeleteCondition(ctx context.Context) error {
+func (group *SGroup) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if group.IsReadOnly() {
 		return httperrors.NewForbiddenError("readonly")
 	}
-	return group.SIdentityBaseResource.ValidateDeleteCondition(ctx)
+	return group.SIdentityBaseResource.ValidateDeleteCondition(ctx, nil)
 }
 
 func (group *SGroup) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

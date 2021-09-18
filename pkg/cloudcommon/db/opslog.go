@@ -363,7 +363,7 @@ func (self *SOpsLog) AllowDeleteItem(ctx context.Context, userCred mcclient.Toke
 	return false
 }
 
-func (self *SOpsLog) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SOpsLog) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	return httperrors.NewForbiddenError("not allow to delete log")
 }
 

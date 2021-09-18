@@ -171,7 +171,7 @@ func (rt *SRouteTable) AllowPerformPurge(ctx context.Context, userCred mcclient.
 }
 
 func (rt *SRouteTable) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	err := rt.ValidateDeleteCondition(ctx)
+	err := rt.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -500,7 +500,7 @@ func (self *SRouteTable) syncRemoveCloudRouteTable(ctx context.Context, userCred
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}

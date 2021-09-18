@@ -103,7 +103,7 @@ func (self *SCloudregion) CustomizeCreate(ctx context.Context, userCred mcclient
 	return nil
 }
 
-func (self *SCloudregion) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SCloudregion) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	zoneCnt, err := self.GetZoneCount()
 	if err != nil {
 		return httperrors.NewInternalServerError("GetZoneCount fail %s", err)
@@ -118,7 +118,7 @@ func (self *SCloudregion) ValidateDeleteCondition(ctx context.Context) error {
 	if self.Id == api.DEFAULT_REGION_ID {
 		return httperrors.NewProtectedResourceError("not allow to delete default cloud region")
 	}
-	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SCloudregion) GetElasticIps(managerId, eipMode string) ([]SElasticip, error) {

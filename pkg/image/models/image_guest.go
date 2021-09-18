@@ -168,7 +168,7 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 	gi.SetStatus(userCred, api.IMAGE_STATUS_SAVING, "")
 }
 
-func (gi *SGuestImage) ValidateDeleteCondition(ctx context.Context) error {
+func (gi *SGuestImage) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if gi.Protected.IsTrue() {
 		return httperrors.NewForbiddenError("image is protected")
 	}

@@ -163,8 +163,8 @@ func (manager *SCredentialManager) ValidateCreateData(ctx context.Context, userC
 	return data, nil
 }
 
-func (self *SCredential) ValidateDeleteCondition(ctx context.Context) error {
-	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
+func (self *SCredential) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SCredential) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CredentialUpdateInput) (api.CredentialUpdateInput, error) {
