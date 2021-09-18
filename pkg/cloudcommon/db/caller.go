@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -284,12 +285,32 @@ func FetchCustomizeColumns(
 	if ret[0].Len() != len(objs) {
 		return nil, httperrors.NewInternalServerError("Invalid FetchCustomizeColumns return value, inconsistent obj count: input %d != output %d", len(objs), ret[0].Len())
 	}
+
+	showReason := false
+	if query.Contains("show_fail_reason") {
+		showReason = true
+	}
+
 	retVal := make([]*jsonutils.JSONDict, ret[0].Len())
 	for i := 0; i < ret[0].Len(); i += 1 {
 		jsonDict := ValueToJSONDict(ret[0].Index(i))
 		// NOTE: don't use obj update jsonDict as retval
 		jsonDict.Update(jsonutils.Marshal(objs[i]).(*jsonutils.JSONDict))
+		out := apis.ModelBaseDetails{
+			CanDelete: true,
+		}
+
+		err = ValidateDeleteCondition(objs[i].(IModel), ctx, jsonDict)
+		if err != nil {
+			out.CanDelete = false
+			if showReason {
+				out.DeleteFailReason = httperrors.NewErrorFromGeneralError(ctx, err)
+			}
+		}
+		jsonDict.Update(jsonutils.Marshal(out))
+
 		retVal[i] = jsonDict
+
 	}
 	return retVal, nil
 }
@@ -316,6 +337,17 @@ func CustomizeDelete(model IModel, ctx context.Context, userCred mcclient.TokenC
 	}
 	if len(ret) != 1 {
 		return httperrors.NewInternalServerError("Invald CustomizeDelete return value")
+	}
+	return ValueToError(ret[0])
+}
+
+func ValidateDeleteCondition(model IModel, ctx context.Context, data jsonutils.JSONObject) error {
+	ret, err := call(model, "ValidateDeleteCondition", ctx, data)
+	if err != nil {
+		return httperrors.NewGeneralError(err)
+	}
+	if len(ret) != 1 {
+		return httperrors.NewInternalServerError("Invald ValidateDeleteCondition return value")
 	}
 	return ValueToError(ret[0])
 }

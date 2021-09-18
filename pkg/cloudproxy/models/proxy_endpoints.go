@@ -231,7 +231,7 @@ func (proxyendpoint *SProxyEndpoint) ValidateUpdateData(ctx context.Context, use
 	return input, nil
 }
 
-func (proxyendpoint *SProxyEndpoint) ValidateDeleteCondition(ctx context.Context) error {
+func (proxyendpoint *SProxyEndpoint) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	q := ForwardManager.Query().Equals("proxy_endpoint_id", proxyendpoint.Id)
 	if count, err := q.CountWithError(); err != nil {
 		return httperrors.NewServerError("count forwards using proxy endpoint %s(%s)",

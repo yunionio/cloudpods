@@ -89,7 +89,7 @@ func (policy *SScopedPolicy) ValidateUpdateData(ctx context.Context, userCred mc
 	return input, nil
 }
 
-func (policy *SScopedPolicy) ValidateDeleteCondition(ctx context.Context) error {
+func (policy *SScopedPolicy) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	cnt, err := policy.getReferenceCount()
 	if err != nil {
 		return httperrors.NewInternalServerError("getReferenceCount fail %s", err)
@@ -97,7 +97,7 @@ func (policy *SScopedPolicy) ValidateDeleteCondition(ctx context.Context) error 
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("policy is referenced")
 	}
-	return policy.SInfrasResourceBase.ValidateDeleteCondition(ctx)
+	return policy.SInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (policy *SScopedPolicy) getReferenceCount() (int, error) {

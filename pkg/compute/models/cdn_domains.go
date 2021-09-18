@@ -161,7 +161,7 @@ func (self *SCDNDomain) syncRemoveCloudCDNDomain(ctx context.Context, userCred m
 
 	self.DeletePreventionOff(self, userCred)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return errors.Wrapf(err, "ValidateDeleteCondition")
 	}

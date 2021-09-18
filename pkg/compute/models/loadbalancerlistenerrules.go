@@ -896,7 +896,7 @@ func (lbr *SLoadbalancerListenerRule) syncRemoveCloudLoadbalancerListenerRule(ct
 	lockman.LockObject(ctx, lbr)
 	defer lockman.ReleaseObject(ctx, lbr)
 
-	err := lbr.ValidateDeleteCondition(ctx)
+	err := lbr.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
 		err = lbr.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {

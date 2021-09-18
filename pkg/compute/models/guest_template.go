@@ -591,7 +591,7 @@ func (gt *SGuestTemplate) genForbiddenError(resourceName, resourceStr, scope str
 	return httperrors.NewForbiddenError(msgFmt, msgArgs...)
 }
 
-func (gt *SGuestTemplate) ValidateDeleteCondition(ctx context.Context) error {
+func (gt *SGuestTemplate) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	// check service catelog
 	q := ServiceCatalogManager.Query("name").Equals("guest_template_id", gt.Id)
 	names := make([]struct{ Name string }, 0, 1)

@@ -630,7 +630,7 @@ func (self *SHost) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenC
 	return userCred.IsSystemAdmin()
 }*/
 
-func (self *SHost) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SHost) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	return self.validateDeleteCondition(ctx, false)
 }
 
@@ -665,7 +665,7 @@ func (self *SHost) validateDeleteCondition(ctx context.Context, purge bool) erro
 		}
 
 	}
-	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
+	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SHost) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -2147,7 +2147,7 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 
 func (self *SHost) syncRemoveCloudHostStorage(ctx context.Context, userCred mcclient.TokenCredential, localStorage *SStorage) error {
 	hs := self.GetHoststorageOfId(localStorage.Id)
-	err := hs.ValidateDeleteCondition(ctx)
+	err := hs.ValidateDeleteCondition(ctx, nil)
 	if err == nil {
 		log.Errorf("sync remove hoststorage fail: %s", err)
 		err = hs.Detach(ctx, userCred)

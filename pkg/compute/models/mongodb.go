@@ -460,11 +460,11 @@ func (self *SMongoDB) syncRemoveCloudMongoDB(ctx context.Context, userCred mccli
 	return self.RealDelete(ctx, userCred)
 }
 
-func (self *SMongoDB) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SMongoDB) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.DisableDelete.IsTrue() {
 		return httperrors.NewInvalidStatusError("MongoDB is locked, cannot delete")
 	}
-	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SMongoDB) SyncAllWithCloudMongoDB(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudMongoDB) error {

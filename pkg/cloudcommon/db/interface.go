@@ -181,7 +181,7 @@ type IModel interface {
 
 	// delete hooks
 	AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
-	ValidateDeleteCondition(ctx context.Context) error
+	// ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error
 	// CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error
 	PreDelete(ctx context.Context, userCred mcclient.TokenCredential)
 	MarkDelete() error

@@ -286,7 +286,7 @@ func (dispatcher *DBJointModelDispatcher) Detach(ctx context.Context, id1 string
 }
 
 func DetachJoint(ctx context.Context, userCred mcclient.TokenCredential, item IJointModel) error {
-	err := item.ValidateDeleteCondition(ctx)
+	err := ValidateDeleteCondition(item, ctx, nil)
 	if err != nil {
 		return err
 	}

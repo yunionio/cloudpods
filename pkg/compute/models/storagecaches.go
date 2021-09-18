@@ -535,7 +535,7 @@ func (manager *SStoragecacheManager) GetCachePathById(storageCacheId string) str
 	return sc.Path
 }
 
-func (self *SStoragecache) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SStoragecache) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.getCachedImageCount() > 0 {
 		return httperrors.NewNotEmptyError("storage cache not empty")
 	}
@@ -543,7 +543,7 @@ func (self *SStoragecache) ValidateDeleteCondition(ctx context.Context) error {
 	if len(storages) > 0 {
 		return httperrors.NewNotEmptyError("referered by storages")
 	}
-	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SStoragecache) AllowPerformUncacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

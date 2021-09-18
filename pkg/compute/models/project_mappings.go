@@ -270,7 +270,7 @@ func (self *SProjectMapping) Delete(ctx context.Context, userCred mcclient.Token
 	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
-func (self *SProjectMapping) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SProjectMapping) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	accounts, err := self.GetCloudaccounts()
 	if err != nil {
 		return errors.Wrapf(err, "GetCloudaccounts")
@@ -285,7 +285,7 @@ func (self *SProjectMapping) ValidateDeleteCondition(ctx context.Context) error 
 	if len(providers) > 0 {
 		return httperrors.NewNotEmptyError("project mapping has associate %d cloudproviders", len(providers))
 	}
-	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
+	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SProjectMapping) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {

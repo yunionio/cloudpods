@@ -315,7 +315,7 @@ func (proj *SProject) GetGroupCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (proj *SProject) ValidateDeleteCondition(ctx context.Context) error {
+func (proj *SProject) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if proj.IsAdminProject() {
 		return httperrors.NewForbiddenError("cannot delete system project")
 	}
@@ -331,7 +331,7 @@ func (proj *SProject) ValidateDeleteCondition(ctx context.Context) error {
 	if grpCnt > 0 {
 		return httperrors.NewNotEmptyError("project contains group")
 	}
-	return proj.SIdentityBaseResource.ValidateDeleteCondition(ctx)
+	return proj.SIdentityBaseResource.ValidateDeleteCondition(ctx, nil)
 }
 
 func (proj *SProject) IsAdminProject() bool {

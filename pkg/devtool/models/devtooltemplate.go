@@ -92,7 +92,7 @@ func (obj *SDevtoolTemplate) PostUpdate(ctx context.Context, userCred mcclient.T
 	task.ScheduleRun(nil)
 }
 
-func (obj *SDevtoolTemplate) ValidateDeleteCondition(ctx context.Context) error {
+func (obj *SDevtoolTemplate) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 
 	template := obj
 	items := make([]SCronjob, 0)

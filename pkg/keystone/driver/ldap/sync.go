@@ -148,7 +148,7 @@ func (self *SLDAPDriver) syncDomains(ctx context.Context, cli *ldaputils.SLDAPCl
 			log.Errorf("domain.DeleteUserGroups error %s", err)
 			continue
 		}
-		err = obsoleteDomain.ValidateDeleteCondition(ctx)
+		err = obsoleteDomain.ValidateDeleteCondition(ctx, nil)
 		if err != nil {
 			log.Errorf("obsoleteDomain.ValidateDeleteCondition error %s", err)
 			continue
@@ -215,7 +215,7 @@ func (self *SLDAPDriver) syncUsers(ctx context.Context, cli *ldaputils.SLDAPClie
 			log.Errorf("deleteUser.UnlinkIdp error %s", err)
 			continue
 		}
-		err = deleteUsers[i].ValidateDeleteCondition(ctx)
+		err = deleteUsers[i].ValidateDeleteCondition(ctx, nil)
 		if err != nil {
 			log.Errorf("deleteUser.ValidateDeleteCondition error %s", err)
 			continue
@@ -296,7 +296,7 @@ func (self *SLDAPDriver) syncGroups(ctx context.Context, cli *ldaputils.SLDAPCli
 			log.Errorf("deleteGroup.UnlinkIdp error %s", err)
 			continue
 		}
-		err = deleteGroups[i].ValidateDeleteCondition(ctx)
+		err = deleteGroups[i].ValidateDeleteCondition(ctx, nil)
 		if err != nil {
 			log.Errorf("deleteGroup.ValidateDeleteCondition error %s", err)
 			continue
