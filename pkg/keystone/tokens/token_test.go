@@ -54,7 +54,7 @@ func TestSAuthToken_Encode(t *testing.T) {
 			t.Fatalf("SFernetKeyManager encrypt fail %s", err)
 		}
 
-		dtm := fm.Decrypt(ft, time.Hour)
+		dtm := fm.Decrypt(ft)
 		token2 := SAuthToken{}
 		err = token2.Decode(dtm)
 		if err != nil {
