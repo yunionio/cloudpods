@@ -854,17 +854,9 @@ func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.J
 
 func getModelExtraDetails(item IModel, ctx context.Context, showReason bool) apis.ModelBaseDetails {
 	out := apis.ModelBaseDetails{
-		CanDelete: true,
 		CanUpdate: true,
 	}
-	err := item.ValidateDeleteCondition(ctx)
-	if err != nil {
-		out.CanDelete = false
-		if showReason {
-			out.DeleteFailReason = httperrors.NewErrorFromGeneralError(ctx, err)
-		}
-	}
-	err = item.ValidateUpdateCondition(ctx)
+	err := item.ValidateUpdateCondition(ctx)
 	if err != nil {
 		out.CanUpdate = false
 		if showReason {
@@ -1834,9 +1826,9 @@ func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IM
 
 func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	// log.Debugf("deleteItem %s", jsonutils.Marshal(model))
-	err := model.ValidateDeleteCondition(ctx)
+
+	err := ValidateDeleteCondition(model, ctx, nil)
 	if err != nil {
-		log.Errorf("validate delete condition error: %s", err)
 		return nil, err
 	}
 

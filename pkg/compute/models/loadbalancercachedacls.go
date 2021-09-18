@@ -253,7 +253,7 @@ func (lbacl *SCachedLoadbalancerAcl) AllowPerformPatch(ctx context.Context, user
 	return lbacl.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, lbacl, "patch")
 }
 
-func (lbacl *SCachedLoadbalancerAcl) ValidateDeleteCondition(ctx context.Context) error {
+func (lbacl *SCachedLoadbalancerAcl) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	man := LoadbalancerListenerManager
 	t := man.TableSpec().Instance()
 	pdF := t.Field("pending_deleted")
@@ -307,7 +307,7 @@ func (self *SCachedLoadbalancerAcl) syncRemoveCloudLoadbalanceAcl(ctx context.Co
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
 		err = self.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {

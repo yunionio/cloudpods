@@ -250,7 +250,7 @@ func (self *SStorage) CustomizeCreate(ctx context.Context, userCred mcclient.Tok
 	return self.SEnabledStatusInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
-func (self *SStorage) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SStorage) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	cnt, err := self.GetHostCount()
 	if err != nil {
 		return httperrors.NewInternalServerError("GetHostCount fail %s", err)
@@ -272,7 +272,7 @@ func (self *SStorage) ValidateDeleteCondition(ctx context.Context) error {
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("storage has snapshots")
 	}
-	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
+	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -766,7 +766,7 @@ func (self *SStorage) syncRemoveCloudStorage(ctx context.Context, userCred mccli
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
 		err = self.SetStatus(userCred, api.STORAGE_OFFLINE, "sync to delete")
 		if err == nil {

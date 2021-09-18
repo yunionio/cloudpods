@@ -215,7 +215,7 @@ func (n *SNotification) IsAttached() (bool, error) {
 	return cnt > 0, nil
 }
 
-func (n *SNotification) ValidateDeleteCondition(ctx context.Context) error {
+func (n *SNotification) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	cnt, err := n.GetAlertNotificationCount()
 	if err != nil {
 		return err
@@ -223,7 +223,7 @@ func (n *SNotification) ValidateDeleteCondition(ctx context.Context) error {
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("Alert notification used by %d alert", cnt)
 	}
-	return n.SVirtualResourceBase.ValidateDeleteCondition(ctx)
+	return n.SVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (n *SNotification) ShouldSendNotification() bool {

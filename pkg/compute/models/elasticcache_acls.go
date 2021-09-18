@@ -126,7 +126,7 @@ func (self *SElasticcacheAcl) syncRemoveCloudElasticcacheAcl(ctx context.Context
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudElasticcacheAcl.Remove")
 	}
@@ -311,7 +311,7 @@ func (self *SElasticcacheAcl) StartUpdateElasticcacheAclTask(ctx context.Context
 	return nil
 }
 
-func (self *SElasticcacheAcl) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SElasticcacheAcl) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	return nil
 }
 

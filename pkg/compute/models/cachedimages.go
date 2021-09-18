@@ -101,7 +101,7 @@ func (self SCachedimage) GetGlobalId() string {
 	return self.ExternalId
 }
 
-func (self *SCachedimage) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SCachedimage) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	cnt, err := self.getStoragecacheCount()
 	if err != nil {
 		return httperrors.NewInternalServerError("ValidateDeleteCondition error %s", err)
@@ -112,7 +112,7 @@ func (self *SCachedimage) ValidateDeleteCondition(ctx context.Context) error {
 	if self.GetStatus() == api.CACHED_IMAGE_STATUS_ACTIVE && !self.isReferenceSessionExpire() {
 		return httperrors.NewConflictError("the image reference session has not been expired!")
 	}
-	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
+	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SCachedimage) isReferenceSessionExpire() bool {

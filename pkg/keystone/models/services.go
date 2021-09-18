@@ -105,7 +105,7 @@ func (service *SService) GetEndpointCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (service *SService) ValidateDeleteCondition(ctx context.Context) error {
+func (service *SService) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	epCnt, _ := service.GetEndpointCount()
 	if epCnt > 0 {
 		return httperrors.NewNotEmptyError("service contains endpoints")
@@ -113,7 +113,7 @@ func (service *SService) ValidateDeleteCondition(ctx context.Context) error {
 	if service.Enabled.IsTrue() {
 		return httperrors.NewInvalidStatusError("service is enabled")
 	}
-	return service.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return service.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (manager *SServiceManager) FetchCustomizeColumns(

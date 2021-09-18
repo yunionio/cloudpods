@@ -262,7 +262,7 @@ func (self *SCloudpolicy) GetCloudgroups() ([]SCloudgroup, error) {
 	return groups, nil
 }
 
-func (self *SCloudpolicy) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SCloudpolicy) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	users, err := self.GetCloudusers()
 	if err != nil {
 		return httperrors.NewGeneralError(errors.Wrapf(err, "GetCloudusers"))
@@ -277,14 +277,14 @@ func (self *SCloudpolicy) ValidateDeleteCondition(ctx context.Context) error {
 	if len(groups) > 0 {
 		return httperrors.NewNotEmptyError("policy %s has %d groups used", self.Name, len(groups))
 	}
-	return self.SStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
+	return self.SStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SCloudpolicy) syncRemove(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}

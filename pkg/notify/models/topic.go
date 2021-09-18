@@ -282,7 +282,7 @@ func (ss *STopic) ValidateUpdateData(ctx context.Context, userCred mcclient.Toke
 	return input, httperrors.NewForbiddenError("update prohibited")
 }
 
-func (ss *STopic) ValidateDeleteCondition(ctx context.Context) error {
+func (ss *STopic) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	return httperrors.NewForbiddenError("prohibit deletion")
 }
 

@@ -263,8 +263,8 @@ func (st *SScheduledTask) PostCreate(ctx context.Context, userCred mcclient.Toke
 	logclient.AddActionLogWithContext(ctx, st, logclient.ACT_CREATE, "", userCred, true)
 }
 
-func (st *SScheduledTask) ValidateDeleteCondition(ctx context.Context) error {
-	err := st.SVirtualResourceBase.ValidateDeleteCondition(ctx)
+func (st *SScheduledTask) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	err := st.SVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}

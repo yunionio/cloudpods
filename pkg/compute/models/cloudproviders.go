@@ -173,7 +173,7 @@ func (self *SCloudprovider) GetProjectMapping() (*SProjectMapping, error) {
 	return cache.GetProjectMapping()
 }
 
-func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	// allow delete cloudprovider if it is disabled
 	// account := self.GetCloudaccount()
 	// if account != nil && account.EnableAutoSync {
@@ -189,7 +189,7 @@ func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
 	// if !usage.isEmpty() {
 	// 	return httperrors.NewNotEmptyError("Not an empty cloud provider")
 	// }
-	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (manager *SCloudproviderManager) GetPublicProviderIdsQuery() *sqlchemy.SSubQuery {

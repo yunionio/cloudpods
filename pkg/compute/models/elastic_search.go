@@ -339,11 +339,11 @@ func (man *SElasticSearchManager) TotalCount(
 }
 
 // 判断资源是否可以删除
-func (self *SElasticSearch) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SElasticSearch) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.DisableDelete.IsTrue() {
 		return httperrors.NewInvalidStatusError("ElasticSearch is locked, cannot delete")
 	}
-	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SElasticSearch) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
