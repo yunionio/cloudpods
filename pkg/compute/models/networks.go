@@ -171,156 +171,14 @@ func (self *SNetwork) GetNetworkInterfaces() ([]SNetworkInterface, error) {
 }
 
 func (self *SNetwork) ValidateDeleteCondition(ctx context.Context) error {
-	cnt, err := self.GetAllocatedNicCount()
+	vnics, err := NetworkManager.TotalNicCount([]string{self.Id})
 	if err != nil {
-		return httperrors.NewInternalServerError("GetAllocatedNicCount fail %s", err)
+		return httperrors.NewInternalServerError("TotalNicCount fail %s", err)
 	}
-	if cnt.Total > 0 {
-		return httperrors.NewNotEmptyError("not an empty network %s", jsonutils.Marshal(cnt).String())
+	if nics, ok := vnics[self.Id]; ok && nics.Total > 0 {
+		return httperrors.NewNotEmptyError("not an empty network %s", jsonutils.Marshal(nics).String())
 	}
 	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
-}
-
-func (nm *SNetworkManager) jointNetworkCount(manager db.IModelManager, netIds []string, filter func(*sqlchemy.SQuery) *sqlchemy.SQuery) *sqlchemy.SQuery {
-	q := manager.Query("network_id").In("network_id", netIds)
-	if filter != nil {
-		q = filter(q)
-	}
-	q = q.AppendField(sqlchemy.COUNT("count"))
-	q = q.GroupBy("network_id")
-	return q
-}
-
-func (nm *SNetworkManager) GetTotalNicCount(netIds []string) (map[string]int, error) {
-	guestNetworkQ := nm.jointNetworkCount(GuestnetworkManager, netIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-		return q.Filter(sqlchemy.IsFalse(q.Field("virtual")))
-	})
-
-	groupNetworkQ := nm.jointNetworkCount(GroupnetworkManager, netIds, nil)
-	hostNetworkQ := nm.jointNetworkCount(HostnetworkManager, netIds, nil)
-	lbNetworkQ := nm.jointNetworkCount(LoadbalancernetworkManager, netIds, nil)
-	dbInstanceNetworkQ := nm.jointNetworkCount(DBInstanceNetworkManager, netIds, nil)
-	eipNetworkQ := nm.jointNetworkCount(ElasticipManager, netIds, nil)
-	natgatewayNetworkQ := nm.jointNetworkCount(NatGatewayManager, netIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-		return q.Filter(sqlchemy.IsNotEmpty(q.Field("ip_addr")))
-	})
-
-	reserverIpsQ := nm.jointNetworkCount(ReservedipManager, netIds, filterExpiredReservedIps)
-
-	sq := NetworkinterfacenetworkManager.Query("networkinterface_id", "network_id").In("network_id", netIds).Distinct().SubQuery()
-	networkInterfaceQ := NetworkInterfaceManager.Query()
-	networkInterfaceQ = networkInterfaceQ.Join(sq, sqlchemy.Equals(networkInterfaceQ.Field("id"), sq.Field("networkinterface_id")))
-	networkInterfaceQ.AppendField(sq.Field("network_id", "network_id"))
-	networkInterfaceQ.AppendField(sqlchemy.COUNT("count"))
-	networkInterfaceQ.GroupBy("network_id")
-
-	union, err := sqlchemy.UnionWithError(guestNetworkQ, groupNetworkQ, hostNetworkQ, lbNetworkQ, dbInstanceNetworkQ, eipNetworkQ, natgatewayNetworkQ, reserverIpsQ, networkInterfaceQ)
-	if err != nil {
-		return nil, err
-	}
-	networkCounts := make([]struct {
-		NetworkId string
-		Count     int
-	}, 0)
-	err = union.Query().All(&networkCounts)
-	if err != nil {
-		return nil, err
-	}
-	ret := map[string]int{}
-	for _, nc := range networkCounts {
-		if len(nc.NetworkId) > 0 {
-			ret[nc.NetworkId] += nc.Count
-		}
-	}
-	return ret, nil
-}
-
-func (self *SNetwork) GetTotalNicCount() (int, error) {
-	count, err := self.GetAllocatedNicCount()
-	if err != nil {
-		return -1, err
-	}
-	total := count.Total
-	cnt, err := self.GetReservedNicsCount()
-	if err != nil {
-		return -1, err
-	}
-	total += cnt
-	cnt, err = self.GetNetworkInterfacesCount()
-	if err != nil {
-		return -1, err
-	}
-	total += cnt
-	return total, nil
-}
-
-type sNicCount struct {
-	GuestNicCount        int
-	GroupNicCount        int
-	BaremetalNicCount    int
-	LoadbalancerNicCount int
-	DBInstanceNicCount   int
-	EipNicCount          int
-	NatNicCount          int
-	Total                int
-}
-
-func (self *SNetwork) GetAllocatedNicCount() (*sNicCount, error) {
-	cnt := &sNicCount{Total: 0}
-	var err error
-	cnt.GuestNicCount, err = self.GetGuestnicsCount()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetGuestnicsCount")
-	}
-	cnt.Total += cnt.GuestNicCount
-	cnt.GroupNicCount, err = self.GetGroupNicsCount()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetGroupNicsCount")
-	}
-	cnt.Total += cnt.GroupNicCount
-	cnt.BaremetalNicCount, err = self.GetBaremetalNicsCount()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetBaremetalNicsCount")
-	}
-	cnt.Total += cnt.BaremetalNicCount
-	cnt.LoadbalancerNicCount, err = self.GetLoadbalancerIpsCount()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetLoadbalancerIpsCount")
-	}
-	cnt.Total += cnt.LoadbalancerNicCount
-	cnt.DBInstanceNicCount, err = self.GetDBInstanceIpsCount()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetDBInstanceIpsCount")
-	}
-	cnt.Total += cnt.DBInstanceNicCount
-	cnt.EipNicCount, err = self.GetEipsCount()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetEipsCount")
-	}
-	cnt.Total += cnt.EipNicCount
-	cnt.NatNicCount, err = self.GetNatGatewayIpsCount()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetNatGatewayIpsCount")
-	}
-	cnt.Total += cnt.NatNicCount
-	bmReusedCnt, err := self.GetBaremetalServerReusedCount()
-	if err != nil {
-		return nil, errors.Wrapf(err, "Get baremetal server resued count")
-	}
-	cnt.Total -= bmReusedCnt
-	return cnt, nil
-}
-
-func (self *SNetwork) GetBaremetalServerReusedCount() (int, error) {
-	guest := GuestManager.Query().SubQuery()
-	gn := GuestnetworkManager.Query().Equals("network_id", self.Id)
-	gn = gn.Join(guest, sqlchemy.Equals(gn.Field("guest_id"), guest.Field("id")))
-	bmn := HostnetworkManager.Query().Equals("network_id", self.Id).SubQuery()
-	q := gn.Join(bmn, sqlchemy.AND(
-		sqlchemy.Equals(gn.Field("ip_addr"), bmn.Field("ip_addr")),
-		sqlchemy.Equals(guest.Field("host_id"), bmn.Field("baremetal_id")),
-	))
-	return q.CountWithError()
 }
 
 /*验证elb network可用，并返回关联的region, zone,vpc, wire*/
@@ -393,28 +251,6 @@ func (self *SNetwork) GetGuestnetworks() ([]SGuestnetwork, error) {
 	return gns, nil
 }
 
-func (self *SNetwork) GetGuestnicsCount() (int, error) {
-	return GuestnetworkManager.Query().Equals("network_id", self.Id).IsFalse("virtual").CountWithError()
-}
-
-func (self *SNetwork) GetGroupNicsCount() (int, error) {
-	return GroupnetworkManager.Query().Equals("network_id", self.Id).CountWithError()
-}
-
-func (self *SNetwork) GetBaremetalNicsCount() (int, error) {
-	return HostnetworkManager.Query().Equals("network_id", self.Id).CountWithError()
-}
-
-func (self *SNetwork) GetReservedNicsCount() (int, error) {
-	q := ReservedipManager.Query().Equals("network_id", self.Id)
-	q = filterExpiredReservedIps(q)
-	return q.CountWithError()
-}
-
-func (self *SNetwork) GetLoadbalancerIpsCount() (int, error) {
-	return LoadbalancernetworkManager.Query().Equals("network_id", self.Id).CountWithError()
-}
-
 func (self *SNetwork) GetDBInstanceNetworks() ([]SDBInstanceNetwork, error) {
 	q := DBInstanceNetworkManager.Query().Equals("network_id", self.Id)
 	networks := []SDBInstanceNetwork{}
@@ -423,23 +259,6 @@ func (self *SNetwork) GetDBInstanceNetworks() ([]SDBInstanceNetwork, error) {
 		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	return networks, nil
-}
-
-func (self *SNetwork) GetDBInstanceIpsCount() (int, error) {
-	return DBInstanceNetworkManager.Query().Equals("network_id", self.Id).CountWithError()
-}
-
-func (self *SNetwork) GetNatGatewayIpsCount() (int, error) {
-	return NatGatewayManager.Query().Equals("network_id", self.Id).IsNotEmpty("ip_addr").CountWithError()
-}
-
-func (self *SNetwork) GetEipsCount() (int, error) {
-	return ElasticipManager.Query().Equals("network_id", self.Id).CountWithError()
-}
-
-func (self *SNetwork) GetNetworkInterfacesCount() (int, error) {
-	sq := NetworkinterfacenetworkManager.Query("networkinterface_id").Equals("network_id", self.Id).Distinct().SubQuery()
-	return NetworkInterfaceManager.Query().In("id", sq).CountWithError()
 }
 
 func (manager *SNetworkManager) GetOrCreateClassicNetwork(ctx context.Context, wire *SWire) (*SNetwork, error) {
@@ -1086,9 +905,13 @@ func (self *SNetwork) GetTotalAddressCount() int {
 }
 
 func (self *SNetwork) getFreeAddressCount() (int, error) {
-	used, err := self.GetTotalNicCount()
+	vnics, err := NetworkManager.TotalNicCount([]string{self.Id})
 	if err != nil {
-		return -1, err
+		return -1, errors.Wrapf(err, "TotalNicCount")
+	}
+	used := 0
+	if nics, ok := vnics[self.Id]; ok {
+		used = nics.Total
 	}
 	return self.getIPRange().AddressCount() - used, nil
 }
@@ -1175,26 +998,6 @@ func (self *SNetwork) GetPorts() int {
 	return self.getIPRange().AddressCount()
 }
 
-func (self *SNetwork) getMoreDetails(ctx context.Context, out api.NetworkDetails, isList bool) (api.NetworkDetails, error) {
-	out.Exit = false
-	if self.IsExitNetwork() {
-		out.Exit = true
-	}
-	out.Ports = self.GetPorts()
-	out.PortsUsed, _ = self.GetTotalNicCount()
-
-	out.Vnics, _ = self.GetGuestnicsCount()
-	out.BmVnics, _ = self.GetBaremetalNicsCount()
-	out.LbVnics, _ = self.GetLoadbalancerIpsCount()
-	out.EipVnics, _ = self.GetEipsCount()
-	out.GroupVnics, _ = self.GetGroupNicsCount()
-	out.ReserveVnics, _ = self.GetReservedNicsCount()
-
-	out.Routes = self.GetRoutes()
-	out.Schedtags = GetSchedtagsDetailsToResourceV2(self, ctx)
-	return out, nil
-}
-
 func (self *SNetwork) GetExtraDetails(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -1217,15 +1020,152 @@ func (manager *SNetworkManager) FetchCustomizeColumns(
 	virtRows := manager.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	wireRows := manager.SWireResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
+	netIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.NetworkDetails{
 			SharableVirtualResourceDetails: virtRows[i],
 			WireResourceInfo:               wireRows[i],
 		}
-		rows[i], _ = objs[i].(*SNetwork).getMoreDetails(ctx, rows[i], isList)
+		network := objs[i].(*SNetwork)
+		rows[i].Exit = false
+		if network.IsExitNetwork() {
+			rows[i].Exit = true
+		}
+		rows[i].Ports = network.GetPorts()
+		rows[i].Routes = network.GetRoutes()
+		rows[i].Schedtags = GetSchedtagsDetailsToResourceV2(network, ctx)
+
+		netIds[i] = network.Id
+	}
+	vnics, err := manager.TotalNicCount(netIds)
+	if err != nil {
+		return rows
+	}
+	for i := range rows {
+		rows[i].SNetworkNics, _ = vnics[netIds[i]]
 	}
 
 	return rows
+}
+
+func (manager *SNetworkManager) GetTotalNicCount(netIds []string) (map[string]int, error) {
+	vnics, err := manager.TotalNicCount(netIds)
+	if err != nil {
+		return nil, errors.Wrapf(err, "TotalNicCount")
+	}
+	result := map[string]int{}
+	for _, id := range netIds {
+		result[id] = 0
+		if nics, ok := vnics[id]; ok {
+			result[id] = nics.Total
+		}
+	}
+	return result, nil
+}
+
+type SNetworkNics struct {
+	Id string
+	api.SNetworkNics
+}
+
+func (nm *SNetworkManager) query(manager db.IModelManager, field string, netIds []string, filter func(*sqlchemy.SQuery) *sqlchemy.SQuery) *sqlchemy.SSubQuery {
+	q := manager.Query()
+
+	if filter != nil {
+		q = filter(q)
+	}
+
+	sq := q.SubQuery()
+
+	return sq.Query(
+		sq.Field("network_id"),
+		sqlchemy.COUNT(field),
+	).In("network_id", netIds).GroupBy(sq.Field("network_id")).SubQuery()
+}
+
+func (nm *SNetworkManager) TotalNicCount(netIds []string) (map[string]api.SNetworkNics, error) {
+	// guest vnic
+	vnicSQ := nm.query(GuestnetworkManager, "vnic", netIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.IsFalse("virtual")
+	})
+
+	// bm vnic
+	bmSQ := nm.query(HostnetworkManager, "bm_vnic", netIds, nil)
+
+	// lb vnic
+	lbSQ := nm.query(LoadbalancernetworkManager, "lb_vnic", netIds, nil)
+
+	// eip vnic
+	eipSQ := nm.query(ElasticipManager, "eip_vnic", netIds, nil)
+
+	// group vnic
+	groupSQ := nm.query(GroupnetworkManager, "group_vnic", netIds, nil)
+
+	// reserved vnics
+	reserveSQ := nm.query(ReservedipManager, "reserve_vnic", netIds, filterExpiredReservedIps)
+
+	// rds vnics
+	rdsSQ := nm.query(DBInstanceNetworkManager, "rds_vnic", netIds, nil)
+
+	// nat vnics
+	natSQ := nm.query(NatGatewayManager, "nat_vnic", netIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.IsNotEmpty("ip_addr")
+	})
+
+	// networkinterface vncis
+	nisSQ := nm.query(NetworkinterfacenetworkManager, "networkinterface_vnic", netIds, nil)
+
+	// bm reused vnics
+	bmReusedSQ := nm.query(GuestnetworkManager, "bm_reused_vnic", netIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		guest := GuestManager.Query().SubQuery()
+		bmn := HostnetworkManager.Query().SubQuery()
+		return q.Join(guest, sqlchemy.Equals(guest.Field("id"), q.Field("guest_id"))).Join(bmn, sqlchemy.AND(
+			sqlchemy.Equals(q.Field("ip_addr"), bmn.Field("ip_addr")),
+			sqlchemy.Equals(guest.Field("host_id"), bmn.Field("baremetal_id")),
+		))
+	})
+
+	nets := nm.Query().SubQuery()
+	netQ := nets.Query(
+		sqlchemy.SUM("vnics", vnicSQ.Field("vnic")),
+		sqlchemy.SUM("bm_vnics", bmSQ.Field("bm_vnic")),
+		sqlchemy.SUM("lb_vnics", lbSQ.Field("lb_vnic")),
+		sqlchemy.SUM("eip_vnics", eipSQ.Field("eip_vnic")),
+		sqlchemy.SUM("group_vnics", groupSQ.Field("group_vnic")),
+		sqlchemy.SUM("reserve_vnics", reserveSQ.Field("reserve_vnic")),
+		sqlchemy.SUM("rds_vnics", rdsSQ.Field("rds_vnic")),
+		sqlchemy.SUM("nat_vnics", natSQ.Field("nat_vnic")),
+		sqlchemy.SUM("networkinterface_vnics", nisSQ.Field("networkinterface_vnic")),
+		sqlchemy.SUM("bm_reused_vnics", bmReusedSQ.Field("bm_reused_vnic")),
+	)
+
+	netQ.AppendField(netQ.Field("id"))
+
+	netQ = netQ.LeftJoin(vnicSQ, sqlchemy.Equals(netQ.Field("id"), vnicSQ.Field("network_id")))
+	netQ = netQ.LeftJoin(bmSQ, sqlchemy.Equals(netQ.Field("id"), bmSQ.Field("network_id")))
+	netQ = netQ.LeftJoin(lbSQ, sqlchemy.Equals(netQ.Field("id"), lbSQ.Field("network_id")))
+	netQ = netQ.LeftJoin(eipSQ, sqlchemy.Equals(netQ.Field("id"), eipSQ.Field("network_id")))
+	netQ = netQ.LeftJoin(groupSQ, sqlchemy.Equals(netQ.Field("id"), groupSQ.Field("network_id")))
+	netQ = netQ.LeftJoin(reserveSQ, sqlchemy.Equals(netQ.Field("id"), reserveSQ.Field("network_id")))
+	netQ = netQ.LeftJoin(rdsSQ, sqlchemy.Equals(netQ.Field("id"), rdsSQ.Field("network_id")))
+	netQ = netQ.LeftJoin(natSQ, sqlchemy.Equals(netQ.Field("id"), natSQ.Field("network_id")))
+	netQ = netQ.LeftJoin(nisSQ, sqlchemy.Equals(netQ.Field("id"), nisSQ.Field("network_id")))
+	netQ = netQ.LeftJoin(bmReusedSQ, sqlchemy.Equals(netQ.Field("id"), bmReusedSQ.Field("network_id")))
+
+	netQ = netQ.Filter(sqlchemy.In(netQ.Field("id"), netIds)).GroupBy(netQ.Field("id"))
+
+	nics := []SNetworkNics{}
+	err := netQ.All(&nics)
+	if err != nil {
+		return nil, errors.Wrapf(err, "netQ.All")
+	}
+
+	result := map[string]api.SNetworkNics{}
+	for i := range nics {
+		nics[i].SumTotal()
+		result[nics[i].Id] = nics[i].SNetworkNics
+	}
+	return result, nil
 }
 
 func (self *SNetwork) AllowPerformReserveIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
