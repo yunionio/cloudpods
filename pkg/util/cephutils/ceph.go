@@ -24,6 +24,7 @@ import (
 	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -311,9 +312,6 @@ type SSnapshot struct {
 }
 
 func (self *SSnapshot) Rollback() error {
-	if !self.Protected {
-		return nil
-	}
 	opts := self.options()
 	opts = append(opts, []string{"snap", "rollback", self.GetName()}...)
 	return self.image.client.run("rbd", opts)
@@ -328,18 +326,12 @@ func (self *SSnapshot) GetName() string {
 }
 
 func (self *SSnapshot) Unprotect() error {
-	if !self.Protected {
-		return nil
-	}
 	opts := self.options()
 	opts = append(opts, []string{"snap", "unprotect", self.GetName()}...)
 	return self.image.client.run("rbd", opts)
 }
 
 func (self *SSnapshot) Protect() error {
-	if self.Protected {
-		return nil
-	}
 	opts := self.options()
 	opts = append(opts, []string{"snap", "protect", self.GetName()}...)
 	return self.image.client.run("rbd", opts)
@@ -354,26 +346,23 @@ func (self *SSnapshot) Remove() error {
 func (self *SSnapshot) Delete() error {
 	pool := self.image.client.pool
 	defer self.image.client.SetPool(pool)
-	if self.Protected {
-		err := self.Unprotect()
-		if err != nil {
-			return errors.Wrapf(err, "Unprotect")
-		}
-		chidren, err := self.ListChildren()
-		if err != nil {
-			return errors.Wrapf(err, "")
-		}
 
-		for i := range chidren {
-			self.image.client.SetPool(chidren[i].Pool)
-			image, err := self.image.client.GetImage(chidren[i].Image)
-			if err != nil {
-				return errors.Wrapf(err, "GetImage(%s/%s)", chidren[i].Pool, chidren[i].Image)
-			}
-			err = image.Flatten()
-			if err != nil {
-				return errors.Wrapf(err, "Flatten")
-			}
+	self.Unprotect()
+
+	chidren, err := self.ListChildren()
+	if err != nil {
+		return errors.Wrapf(err, "")
+	}
+
+	for i := range chidren {
+		self.image.client.SetPool(chidren[i].Pool)
+		image, err := self.image.client.GetImage(chidren[i].Image)
+		if err != nil {
+			return errors.Wrapf(err, "GetImage(%s/%s)", chidren[i].Pool, chidren[i].Image)
+		}
+		err = image.Flatten()
+		if err != nil {
+			return errors.Wrapf(err, "Flatten")
 		}
 	}
 	return self.Remove()
@@ -471,7 +460,7 @@ func (self *SImage) Clone(ctx context.Context, pool, name string) error {
 func (self *SSnapshot) Clone(pool, name string) error {
 	err := self.Protect()
 	if err != nil {
-		return errors.Wrapf(err, "Protect")
+		log.Warningf("protect %s error: %v", self.GetName(), err)
 	}
 	opts := self.options()
 	opts = append(opts, []string{"clone", self.GetName(), fmt.Sprintf("%s/%s", pool, name)}...)
