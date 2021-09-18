@@ -18,7 +18,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -223,7 +222,7 @@ func credentialExtra(cred *SCredential, out api.CredentialDetails) api.Credentia
 }
 
 func (self *SCredential) getBlob() []byte {
-	return keys.CredentialKeyManager.Decrypt([]byte(self.EncryptedBlob), time.Duration(-1))
+	return keys.CredentialKeyManager.Decrypt([]byte(self.EncryptedBlob))
 }
 
 func (self *SCredential) GetAccessKeySecret() (*api.SAccessKeySecretBlob, error) {

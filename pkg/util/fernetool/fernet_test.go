@@ -17,7 +17,6 @@ package fernetool
 import (
 	"crypto/rand"
 	"testing"
-	"time"
 )
 
 func TestFernetKeys(t *testing.T) {
@@ -36,7 +35,7 @@ func TestFernetKeys(t *testing.T) {
 		if err != nil {
 			t.Fatalf("fail to encrypt %s", err)
 		}
-		omsg := m.Decrypt(msg, time.Hour)
+		omsg := m.Decrypt(msg)
 		if len(omsg) != msgLen {
 			t.Fatalf("descrupt fail %s", err)
 		}
