@@ -88,6 +88,8 @@ type CandidatePropertyGetter interface {
 	ProjectGuests() map[string]int64
 	CreatingGuestCount() int
 
+	CPUArch() string
+	IsArmHost() bool
 	RunningCPUCount() int64
 	TotalCPUCount(useRsvd bool) int64
 	FreeCPUCount(useRsvd bool) int64
