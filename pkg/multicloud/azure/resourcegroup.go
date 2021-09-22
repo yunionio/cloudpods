@@ -30,7 +30,7 @@ type GroupProperties struct {
 }
 
 type SResourceGroup struct {
-	multicloud.SResourceBase
+	multicloud.SProjectBase
 	multicloud.AzureTags
 	client *SAzureClient
 

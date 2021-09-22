@@ -27,7 +27,7 @@ import (
 )
 
 type SResourceGroup struct {
-	multicloud.SResourceBase
+	multicloud.SProjectBase
 	multicloud.AliyunTags
 	client *SAliyunClient
 

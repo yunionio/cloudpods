@@ -27,7 +27,7 @@ import (
 )
 
 type SProject struct {
-	multicloud.SResourceBase
+	multicloud.SProjectBase
 	multicloud.QcloudTags
 	client *SQcloudClient
 
