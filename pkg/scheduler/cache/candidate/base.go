@@ -82,6 +82,14 @@ func (b baseHostGetter) Host() *computemodels.SHost {
 	return b.h.SHost
 }
 
+func (b baseHostGetter) IsArmHost() bool {
+	return b.h.IsArmHost()
+}
+
+func (b baseHostGetter) CPUArch() string {
+	return b.h.CpuArchitecture
+}
+
 func (b baseHostGetter) Cloudprovider() *computemodels.SCloudprovider {
 	return b.h.Cloudprovider
 }
