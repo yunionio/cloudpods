@@ -77,13 +77,12 @@ func (self *SAwsRegionDriver) GetProvider() string {
 }
 
 func networkCheck(network *models.SNetwork) error {
-	total := network.GetPorts()
-	used, err := network.GetTotalNicCount()
+	free, err := network.GetFreeAddressCount()
 	if err != nil {
-		return errors.Wrap(err, "validateAwsLbNetwork.GetTotalNicCount")
+		return errors.Wrapf(err, "GetFreeAddressCount")
 	}
 
-	if (total - used) < 8 {
+	if free < 8 {
 		return fmt.Errorf("network %s free ip is less than 8", network.GetId())
 	}
 
