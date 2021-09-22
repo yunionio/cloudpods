@@ -834,6 +834,9 @@ type ICloudSku interface {
 
 type ICloudProject interface {
 	ICloudResource
+
+	GetDomainId() string
+	GetDomainName() string
 }
 
 type ICloudNatGateway interface {

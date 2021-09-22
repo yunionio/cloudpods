@@ -28,7 +28,7 @@ import (
 
 // https://support.huaweicloud.com/api-em/zh-cn_topic_0121230880.html
 type SEnterpriseProject struct {
-	multicloud.SResourceBase
+	multicloud.SProjectBase
 	multicloud.HuaweiTags
 
 	Id          string

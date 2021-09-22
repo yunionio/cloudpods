@@ -23,7 +23,7 @@ import (
 )
 
 type SProject struct {
-	multicloud.SResourceBase
+	multicloud.SProjectBase
 	multicloud.CloudpodsTags
 
 	cli *SCloudpodsClient
