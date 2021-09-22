@@ -1549,7 +1549,7 @@ func SyncCloudProject(userCred mcclient.TokenCredential, model db.IVirtualModel,
 					domainId, projectId, newProj, isMatch := rule.IsMatchTags(extTags)
 					if isMatch {
 						if len(newProj) > 0 {
-							domainId, projectId, err = account.getOrCreateTenant(context.TODO(), newProj, "", "auto create from tag")
+							domainId, projectId, err = account.getOrCreateTenant(context.TODO(), newProj, "", "", "auto create from tag")
 							if err != nil {
 								return nil, errors.Wrapf(err, "getOrCreateTenant(%s)", newProj)
 							}
