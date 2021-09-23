@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/mdlayher/arp"
@@ -99,6 +100,16 @@ func (s *SKVMGuestInstance) isOldWindows() bool {
 	if s.getOsname() == OS_NAME_WINDOWS {
 		ver := s.getOsVersion()
 		if len(ver) > 1 && ver[0:2] == "5." {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *SKVMGuestInstance) isWindows10() bool {
+	if s.getOsname() == OS_NAME_WINDOWS {
+		distro := s.getOsDistribution()
+		if strings.Contains(strings.ToLower(distro), "windows 10") {
 			return true
 		}
 	}
@@ -542,7 +553,9 @@ function nic_mtu() {
 
 	cmd += " -device virtio-serial"
 	cmd += " -usb"
-	if !utils.IsInStringArray(s.getOsDistribution(), []string{OS_NAME_OPENWRT, OS_NAME_CIRROS}) && !s.isOldWindows() && !s.disableUsbKbd() {
+	if !utils.IsInStringArray(s.getOsDistribution(), []string{OS_NAME_OPENWRT, OS_NAME_CIRROS}) &&
+		!s.isOldWindows() && !s.isWindows10() &&
+		!s.disableUsbKbd() {
 		cmd += " -device usb-kbd"
 	}
 	// # if osname == self.OS_NAME_ANDROID:
