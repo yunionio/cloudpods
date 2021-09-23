@@ -433,10 +433,10 @@ func checkQueryGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricInpu
 	if len(query.Model.GroupBy) != 0 {
 		return
 	}
-	if query.Model.Database == monitor.METRIC_DATABASE_METER || inputQuery.Unit {
+	metricMeasurement, _ := MetricMeasurementManager.GetCache().Get(query.Model.Measurement)
+	if inputQuery.Unit || metricMeasurement == nil && query.Model.Database == monitor.METRIC_DATABASE_METER {
 		return
 	}
-	metricMeasurement, _ := MetricMeasurementManager.GetCache().Get(query.Model.Measurement)
 	tagId := ""
 	if metricMeasurement != nil {
 		tagId = monitor.MEASUREMENT_TAG_ID[metricMeasurement.ResType]
