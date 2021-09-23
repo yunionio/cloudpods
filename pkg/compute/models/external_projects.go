@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -66,6 +67,7 @@ type SExternalProject struct {
 	db.SExternalizedResourceBase
 	SManagedResourceBase
 
+	ExternalDomainId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 	// 归属云账号ID
 	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 }
@@ -202,7 +204,7 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 			self.DomainId = account.DomainId
 			if account.AutoCreateProject {
 				desc := fmt.Sprintf("auto create from cloud project %s (%s)", self.Name, self.ExternalId)
-				domainId, projectId, err := account.getOrCreateTenant(ctx, self.Name, "", desc)
+				domainId, projectId, err := account.getOrCreateTenant(ctx, self.Name, "", "", desc)
 				if err != nil {
 					log.Errorf("failed to get or create tenant %s(%s) %v", self.Name, self.ExternalId, err)
 				} else {
@@ -253,6 +255,53 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 	return nil
 }
 
+func (self *SCloudaccount) getOrCreateDomain(ctx context.Context, userCred mcclient.TokenCredential, id, name string) (string, error) {
+	lockman.LockRawObject(ctx, self.Id, CloudaccountManager.Keyword())
+	defer lockman.ReleaseRawObject(ctx, self.Id, CloudaccountManager.Keyword())
+
+	domainId := ""
+	domain, err := db.TenantCacheManager.FetchDomainByIdOrName(ctx, name)
+	if err != nil {
+		if errors.Cause(err) != sql.ErrNoRows {
+			return "", errors.Wrapf(err, "FetchDomainByIdOrName")
+		}
+		s := auth.GetAdminSession(ctx, options.Options.Region, "")
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(name), "generate_name")
+
+		desc := fmt.Sprintf("auto create from cloud project %s (%s)", id, name)
+		params.Add(jsonutils.NewString(desc), "description")
+
+		resp, err := modules.Domains.Create(s, params)
+		if err != nil {
+			return "", errors.Wrap(err, "Projects.Create")
+		}
+		domainId, err = resp.GetString("id")
+		if err != nil {
+			return "", errors.Wrapf(err, "resp.GetString")
+		}
+	} else {
+		domainId = domain.Id
+	}
+
+	share := self.GetSharedInfo()
+	if share.PublicScope == rbacutils.ScopeSystem {
+		return domainId, nil
+	}
+	input := api.CloudaccountPerformPublicInput{}
+	input.ShareMode = string(rbacutils.ScopeSystem)
+	input.PerformPublicDomainInput = apis.PerformPublicDomainInput{
+		Scope:           string(rbacutils.ScopeDomain),
+		SharedDomains:   append(share.SharedDomains, domainId),
+		SharedDomainIds: append(share.SharedDomains, domainId),
+	}
+	_, err = self.SInfrasResourceBase.PerformPublic(ctx, userCred, jsonutils.NewDict(), input.PerformPublicDomainInput)
+	if err != nil {
+		return "", errors.Wrapf(err, "PerformPublic")
+	}
+	return domainId, self.setShareMode(userCred, input.ShareMode)
+}
+
 func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context, userCred mcclient.TokenCredential, account *SCloudaccount, localProject *db.STenant, extProject cloudprovider.ICloudProject) (*SExternalProject, error) {
 	project := SExternalProject{}
 	project.SetModelManager(manager, &project)
@@ -264,12 +313,22 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 	project.CloudaccountId = account.Id
 	project.DomainId = account.DomainId
 	project.ProjectId = account.ProjectId
+	project.ExternalDomainId = extProject.GetDomainId()
+	domainName := extProject.GetDomainName()
+	if len(project.ExternalDomainId) > 0 && len(domainName) > 0 {
+		domainId, err := account.getOrCreateDomain(ctx, userCred, project.ExternalDomainId, domainName)
+		if err != nil {
+			log.Errorf("getOrCreateDomain for project %s error: %v", account.Name, err)
+		} else {
+			project.DomainId = domainId
+		}
+	}
 	if localProject != nil {
 		project.DomainId = localProject.DomainId
 		project.ProjectId = localProject.Id
 	} else if account.AutoCreateProject {
 		desc := fmt.Sprintf("auto create from cloud project %s (%s)", project.Name, project.ExternalId)
-		domainId, projectId, err := account.getOrCreateTenant(ctx, project.Name, "", desc)
+		domainId, projectId, err := account.getOrCreateTenant(ctx, project.Name, project.DomainId, "", desc)
 		if err != nil {
 			log.Errorf("failed to get or create tenant %s(%s) %v", project.Name, project.ExternalId, err)
 		} else {
