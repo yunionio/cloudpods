@@ -219,7 +219,7 @@ filterMatch:
 		}
 		if len(alertRecordShields) != 0 {
 			for _, shield := range alertRecordShields {
-				if shield.EndTime.After(time.Now().UTC()) {
+				if shield.EndTime.After(time.Now().UTC()) && shield.StartTime.Before(time.Now().UTC()) {
 					match[i].Tags[monitor.ALERT_RESOURCE_RECORD_SHIELD_KEY] = monitor.ALERT_RESOURCE_RECORD_SHIELD_VALUE
 					continue filterMatch
 				}
