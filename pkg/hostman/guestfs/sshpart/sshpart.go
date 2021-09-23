@@ -428,7 +428,7 @@ func (p *SSHPartition) checkUser(user string) (exist bool, homeDir string, err e
 func (p *SSHPartition) userAdd(user, homeDir string, isSys bool) error {
 	cmd := fmt.Sprintf("/usr/sbin/chroot %s /usr/sbin/useradd -m -s /bin/bash %s", p.mountPath, user)
 	if isSys {
-		cmd += " -r"
+		cmd += " -r -e '' -f '-1' -K 'PASS_MAX_DAYS=-1'"
 	}
 	if len(homeDir) > 0 {
 		cmd += fmt.Sprintf(" -d %s", path.Join(homeDir, user))
