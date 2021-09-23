@@ -15,8 +15,6 @@
 package monitor
 
 import (
-	"time"
-
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
@@ -28,8 +26,8 @@ type AlertRecordShieldCreateInput struct {
 	ResName string `json:"res_name"`
 	ResId   string `json:"res_id"`
 
-	StartTime time.Time `json:"start_time"`
-	EndTime   time.Time `json:"end_time"`
+	StartTime string `json:"start_time"`
+	EndTime   string `json:"end_time"`
 }
 
 type AlertRecordShieldDetails struct {
