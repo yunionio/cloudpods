@@ -42,7 +42,7 @@ func GetDefaultToken() (string, error) {
 			UserId:    simpleToken.GetUserId(),
 			Method:    api.AUTH_METHOD_TOKEN,
 			ProjectId: simpleToken.GetProjectId(),
-			ExpiresAt: now.Add(24 * time.Hour),
+			ExpiresAt: now.Add(time.Duration(options.Options.TokenExpirationSeconds) * time.Second),
 			AuditIds:  []string{utils.GenRequestId(16)},
 		}
 	}
@@ -160,13 +160,16 @@ func (t *SAuthToken) Encode() ([]byte, error) {
 }
 
 func (t *SAuthToken) ParseFernetToken(tokenStr string) error {
-	tk := keys.TokenKeysManager.Decrypt([]byte(tokenStr), time.Duration(options.Options.TokenExpirationSeconds)*time.Second)
+	tk := keys.TokenKeysManager.Decrypt([]byte(tokenStr)) // , time.Duration(options.Options.TokenExpirationSeconds)*time.Second)
 	if tk == nil {
 		return ErrExpiredToken
 	}
 	err := t.Decode(tk)
 	if err != nil {
 		return errors.Wrap(err, "decode error")
+	}
+	if t.ExpiresAt.Before(time.Now()) {
+		return ErrExpiredToken
 	}
 	return nil
 }
