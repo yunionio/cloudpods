@@ -45,7 +45,7 @@ func (nic *SNetworkInterface) GetIP() string {
 
 func (nic *SNetworkInterface) GetMAC() string {
 	ip, _ := netutils.NewIPV4Addr(nic.NetworkIP)
-	return ip.ToMac("00:16:")
+	return ip.ToMac("42:01:")
 }
 
 func (nic *SNetworkInterface) GetDriver() string {
