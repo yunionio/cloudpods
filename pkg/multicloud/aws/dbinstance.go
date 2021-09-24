@@ -305,10 +305,10 @@ func (region *SRegion) GetDBInstances(instanceId string) ([]SDBInstance, error) 
 	params := map[string]string{}
 	idx := 1
 	if len(instanceId) > 0 {
-		params[fmt.Sprintf("Filter.%d.Name", idx)] = "DbiResourceId"
-		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = instanceId
+		params[fmt.Sprintf("Filters.Filter.%d.Name", idx)] = "dbi-resource-id"
+		params[fmt.Sprintf("Filters.Filter.%d.Values.Value.1", idx)] = instanceId
 	}
-	err := region.rdsRequest("DescribeDBInstances", map[string]string{}, &instances)
+	err := region.rdsRequest("DescribeDBInstances", params, &instances)
 	if err != nil {
 		return nil, errors.Wrap(err, "DescribeDBInstances")
 	}
@@ -326,4 +326,22 @@ func (region *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, erro
 		idbinstances = append(idbinstances, &instances[i])
 	}
 	return idbinstances, nil
+}
+
+func (self *SRegion) GetIDBInstanceById(id string) (cloudprovider.ICloudDBInstance, error) {
+	instances, err := self.GetDBInstances(id)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDBInstances")
+	}
+
+	if len(instances) > 1 {
+		return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, id)
+	}
+
+	if len(instances) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	}
+
+	instances[0].region = self
+	return &instances[0], nil
 }
