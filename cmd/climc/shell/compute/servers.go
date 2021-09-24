@@ -101,6 +101,8 @@ func init() {
 	cmd.Get("change-owner-candidate-domains", new(options.ServerChangeOwnerCandidateDomainsOptions))
 	cmd.Get("change-owner-candidate-domains", new(options.ServerChangeOwnerCandidateDomainsOptions))
 	cmd.GetProperty(&options.ServerStatusStatisticsOptions{})
+	cmd.GetProperty(&options.ServerProjectStatisticsOptions{})
+	cmd.GetProperty(&options.ServerDomainStatisticsOptions{})
 
 	type ServerTaskShowOptions struct {
 		ID       string `help:"ID or name of server" json:"-"`
