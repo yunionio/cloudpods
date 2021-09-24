@@ -338,10 +338,6 @@ func (manager *SMountTargetManager) ListItemExportKeys(ctx context.Context,
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemExportKeys")
 	}
-	q, err = manager.SVpcResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
-	if err != nil {
-		return nil, errors.Wrapf(err, "SVpcResourceBaseManager.ListItemExportKeys")
-	}
 	q, err = manager.SNetworkResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 	if err != nil {
 		return nil, errors.Wrapf(err, "SNetworkResourceBaseManager.ListItemExportKeys")
