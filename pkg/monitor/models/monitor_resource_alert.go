@@ -217,5 +217,22 @@ func (obj *SMonitorResourceAlert) getMoreDetails(detail monitor.MonitorResourceJ
 		detail.SendState = record.SendState
 		detail.State = record.State
 	}
+	alert, err := CommonAlertManager.GetAlert(obj.AlertId)
+	if err != nil {
+		log.Errorf("SMonitorResourceAlert get alert by id :%s err:%v", obj.AlertId, err)
+		return detail
+	}
+	detail.AlertName = alert.Name
+
+	shields, err := AlertRecordShieldManager.GetRecordShields(monitor.AlertRecordShieldListInput{ResId: obj.MonitorResourceId,
+		AlertId: obj.AlertId})
+	if err != nil {
+		log.Errorf("SMonitorResourceAlert get GetRecordShields by resId: %s,alertId: %s, err: %v",
+			obj.MonitorResourceId, obj.AlertId, err)
+		return detail
+	}
+	if len(shields) != 0 {
+		detail.IsSetShield = true
+	}
 	return detail
 }
