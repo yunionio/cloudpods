@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
@@ -222,8 +223,16 @@ func (man *SAlertRecordShieldManager) ValidateCreateData(ctx context.Context, us
 		}
 		data.ResType = resources[0].ResType
 	}
+	startTime, err := timeutils.ParseTimeStr(data.StartTime)
+	if err != nil {
+		return data, httperrors.NewInputParameterError("parse start_time: %s err", data.StartTime)
+	}
+	endTime, err := timeutils.ParseTimeStr(data.EndTime)
+	if err != nil {
+		return data, httperrors.NewInputParameterError("parse end_time: %s err", data.EndTime)
+	}
 
-	if data.EndTime.Before(data.StartTime) {
+	if endTime.Before(startTime) {
 		return data, httperrors.NewInputParameterError("end_time is before start_time")
 	}
 
@@ -234,6 +243,27 @@ func (man *SAlertRecordShieldManager) ValidateCreateData(ctx context.Context, us
 	}
 	data.Name = name
 	return data, nil
+}
+
+func (shield *SAlertRecordShield) PostCreate(ctx context.Context,
+	userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	input := new(monitor.AlertRecordShieldCreateInput)
+	if err := data.Unmarshal(input); err != nil {
+		log.Errorf("post create unmarshal input: %v", err)
+		return
+	}
+	startTime, _ := timeutils.ParseTimeStr(input.StartTime)
+	endTime, _ := timeutils.ParseTimeStr(input.EndTime)
+	_, err := db.Update(shield, func() error {
+		shield.StartTime = startTime
+		shield.EndTime = endTime
+		return nil
+	})
+	if err != nil {
+		log.Errorf("PostCreate update startTime and endTime err: %v", err)
+		return
+	}
 }
 
 func (manager *SAlertRecordShieldManager) GetRecordShields(input monitor.AlertRecordShieldListInput) (
