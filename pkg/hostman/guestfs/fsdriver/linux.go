@@ -393,14 +393,26 @@ func (l *sLinuxRootFs) PrepareFsForTemplate(rootFs IDiskPartition) error {
 			}
 		}
 	}
-	for _, dir := range []string{"/var/log", "/var/cache", "/usr/local/var/log", "/usr/local/var/cache"} {
+	for _, dir := range []string{
+		"/var/log",
+		"/var/cache",
+		"/usr/local/var/log",
+		"/usr/local/var/cache",
+	} {
 		if rootFs.Exists(dir, false) {
 			if err := l.rootFs.Zerofiles(dir, false); err != nil {
 				return err
 			}
 		}
 	}
-	for _, dir := range []string{"/var/spool", "/var/run", "/run", "/usr/local/var/spool", "/usr/local/var/run"} {
+	for _, dir := range []string{
+		"/var/spool",
+		"/var/run",
+		"/run",
+		"/usr/local/var/spool",
+		"/usr/local/var/run",
+		"/etc/openvswitch",
+	} {
 		if rootFs.Exists(dir, false) {
 			if err := rootFs.Cleandir(dir, true, true); err != nil {
 				return err
