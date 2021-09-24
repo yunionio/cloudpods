@@ -290,10 +290,8 @@ func (instance *SInstance) GetOsType() cloudprovider.TOsType {
 	for _, disk := range instance.Disks {
 		if disk.Index == 0 {
 			for _, license := range disk.Licenses {
-				if strings.Index(strings.ToLower(license), "windows") < 0 {
+				if strings.Contains(strings.ToLower(license), "windows") {
 					return cloudprovider.OsTypeWindows
-				} else {
-					return cloudprovider.OsTypeLinux
 				}
 			}
 		}
