@@ -39,6 +39,7 @@ func getCacheKey(
 	brands []string,
 	cloudEnv string,
 	includeSystem bool,
+	details bool,
 ) string {
 	type RangeObject struct {
 		Resource string `json:"resource"`
@@ -55,6 +56,7 @@ func getCacheKey(
 		Brands    []string             `json:"brands"`
 		CloudEnv  string               `json:"cloud_env"`
 		System    bool                 `json:"system"`
+		Details   bool                 `json:"details"`
 	}
 	key := KeyStruct{}
 	key.Scope = scope
@@ -68,6 +70,7 @@ func getCacheKey(
 	if isOwner {
 		key.IsOwner = true
 	}
+	key.Details = details
 	for _, obj := range rangeObjs {
 		robj := RangeObject{
 			Resource: obj.Keyword(),

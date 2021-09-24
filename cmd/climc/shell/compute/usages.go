@@ -32,6 +32,7 @@ type GeneralUsageOptions struct {
 
 	CloudEnv string `help:"show usage of specified cloudenv" choices:"public|private|onpremise"`
 	Scope    string `help:"show usage of specified privilege scope" choices:"system|domain|project"`
+	Details  bool   `help:"show projects or domains details usage"`
 
 	Refresh bool `help:"force refresh usage statistics"`
 }
@@ -67,6 +68,7 @@ func init() {
 		if len(args.Scope) > 0 {
 			params.Add(jsonutils.NewString(args.Scope), "scope")
 		}
+		params.Add(jsonutils.NewBool(args.Details), "details")
 		result, err := modules.Usages.GetGeneralUsage(s, params)
 		if err != nil {
 			return err

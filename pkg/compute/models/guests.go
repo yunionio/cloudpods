@@ -2617,6 +2617,59 @@ func (manager *SGuestManager) TotalCount(
 	return usageTotalGuestResouceCount(scope, ownerId, rangeObjs, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv, since)
 }
 
+type SGuestCnt struct {
+	Id          string
+	Name        string
+	ServerCount int
+}
+
+func (manager *SGuestManager) TotalProjectCount(domainId string) ([]SGuestCnt, error) {
+	projects := db.TenantCacheManager.GetTenantQuery().Equals("domain_id", domainId).SubQuery()
+
+	guests := manager.Query().SubQuery()
+
+	guestSQ := guests.Query(
+		guests.Field("tenant_id"),
+		sqlchemy.COUNT("guest_count"),
+	).GroupBy(guests.Field("tenant_id")).SubQuery()
+
+	projectQ := projects.Query(
+		sqlchemy.SUM("server_count", guestSQ.Field("guest_count")),
+	)
+
+	projectQ.AppendField(projectQ.Field("id"))
+	projectQ.AppendField(projectQ.Field("name"))
+
+	projectQ = projectQ.LeftJoin(guestSQ, sqlchemy.Equals(projectQ.Field("id"), guestSQ.Field("tenant_id")))
+
+	result := []SGuestCnt{}
+	return result, projectQ.All(&result)
+
+}
+
+func (manager *SGuestManager) TotalDomainCount() ([]SGuestCnt, error) {
+	domains := db.TenantCacheManager.GetDomainQuery().SubQuery()
+
+	guests := manager.Query().SubQuery()
+
+	guestSQ := guests.Query(
+		guests.Field("domain_id"),
+		sqlchemy.COUNT("guest_count"),
+	).GroupBy(guests.Field("domain_id")).SubQuery()
+
+	domainQ := domains.Query(
+		sqlchemy.SUM("server_count", guestSQ.Field("guest_count")),
+	)
+
+	domainQ.AppendField(domainQ.Field("id"))
+	domainQ.AppendField(domainQ.Field("name"))
+
+	domainQ = domainQ.LeftJoin(guestSQ, sqlchemy.Equals(domainQ.Field("id"), guestSQ.Field("domain_id")))
+
+	result := []SGuestCnt{}
+	return result, domainQ.All(&result)
+}
+
 func (self *SGuest) detachNetworks(ctx context.Context, userCred mcclient.TokenCredential, gns []SGuestnetwork, reserve bool, deploy bool) error {
 	err := GuestnetworkManager.DeleteGuestNics(ctx, userCred, gns, reserve)
 	if err != nil {
