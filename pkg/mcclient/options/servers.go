@@ -1148,3 +1148,13 @@ type ServerStatusStatisticsOptions struct {
 	ServerListOptions
 	StatusStatisticsOptions
 }
+
+type ServerProjectStatisticsOptions struct {
+	ServerListOptions
+	ProjectStatisticsOptions
+}
+
+type ServerDomainStatisticsOptions struct {
+	ServerListOptions
+	DomainStatisticsOptions
+}

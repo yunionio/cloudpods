@@ -238,3 +238,9 @@ type StatusStatistic struct {
 	// 需要指定pending_delete=all
 	PendingDeletedCount int64 `json:"pending_deleted_count"`
 }
+
+type ProjectStatistic struct {
+	Count int
+	Id    string
+	Name  string
+}

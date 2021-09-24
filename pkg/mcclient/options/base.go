@@ -471,3 +471,17 @@ type StatusStatisticsOptions struct {
 func (o StatusStatisticsOptions) Property() string {
 	return "statistics"
 }
+
+type ProjectStatisticsOptions struct {
+}
+
+func (o ProjectStatisticsOptions) Property() string {
+	return "project-statistics"
+}
+
+type DomainStatisticsOptions struct {
+}
+
+func (o DomainStatisticsOptions) Property() string {
+	return "domain-statistics"
+}
