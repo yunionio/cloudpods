@@ -26,6 +26,10 @@ import (
 	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
+const (
+	INTERNAL_ID = "internal"
+)
+
 type IMonitorResModelSet interface {
 	apihelper.IModelSet
 	GetResType() string
@@ -253,6 +257,7 @@ func (a Accounts) NewModel() db.IModel {
 
 func (a Accounts) AddModel(i db.IModel) {
 	resource := i.(*SAccount)
+	resource.TenantId = INTERNAL_ID
 	a[resource.Id] = resource
 }
 
