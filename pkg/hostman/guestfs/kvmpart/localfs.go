@@ -259,7 +259,7 @@ func (f *SLocalGuestFS) userAdd(user, homeDir string, isSys bool) error {
 	}
 	cmd := []string{"chroot", f.mountPath, "useradd", "-m", "-s", "/bin/bash", user}
 	if isSys {
-		cmd = append(cmd, "-r")
+		cmd = append(cmd, "-r", "-e", "", "-f", "-1", "-K", "PASS_MAX_DAYS=-1")
 	}
 	if len(homeDir) > 0 {
 		cmd = append(cmd, "-d", path.Join(homeDir, user))
