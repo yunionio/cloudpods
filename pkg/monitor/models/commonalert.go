@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
 	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
@@ -313,20 +314,28 @@ func (alert *SCommonAlert) customizeCreateNotis(ctx context.Context, userCred mc
 	}
 	//user_by 弃用
 	if input.AlertType == monitor.CommonAlertSystemAlertType {
-		return alert.createAlertNoti(ctx, userCred, input.Name, "webconsole", []string{}, input.SilentPeriod, true)
+		return alert.createAlertNoti(ctx, userCred, input.Name, "webconsole", []string{}, nil, input.SilentPeriod, true)
 	}
 	for _, channel := range input.Channel {
-		err := alert.createAlertNoti(ctx, userCred, input.Name, channel, input.Recipients, input.SilentPeriod, false)
+		err := alert.createAlertNoti(ctx, userCred, input.Name, channel, input.Recipients, nil, input.SilentPeriod, false)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("create notify[channel is %s]error", channel))
+		}
+	}
+	if len(input.RobotIds) != 0 {
+		err := alert.createAlertNoti(ctx, userCred, input.Name, string(notify.NotifyByRobot), []string{},
+			input.RobotIds,
+			input.SilentPeriod, false)
+		if err != nil {
+			return errors.Wrap(err, "create notify channel is robot error")
 		}
 	}
 	return nil
 }
 
-func (alert *SCommonAlert) createAlertNoti(ctx context.Context, userCred mcclient.TokenCredential,
-	notiName, channel string, userIds []string, silentPeriod string, isSysNoti bool) error {
-	noti, err := NotificationManager.CreateOneCloudNotification(ctx, userCred, notiName, channel, userIds, silentPeriod)
+func (alert *SCommonAlert) createAlertNoti(ctx context.Context, userCred mcclient.TokenCredential, notiName, channel string, userIds []string, robotIds []string, silentPeriod string, isSysNoti bool) error {
+	noti, err := NotificationManager.CreateOneCloudNotification(ctx, userCred, notiName, channel, userIds, robotIds,
+		silentPeriod)
 	if err != nil {
 		return errors.Wrap(err, "create notification")
 	}
@@ -620,11 +629,15 @@ func (alert *SCommonAlert) GetMoreDetails(ctx context.Context, out monitor.Commo
 		if i == 0 {
 			out.Recipients = settings.UserIds
 		}
-		if settings.Channel != monitor.DEFAULT_SEND_NOTIFY_CHANNEL {
+		if !utils.IsInStringArray(settings.Channel,
+			[]string{monitor.DEFAULT_SEND_NOTIFY_CHANNEL, string(notify.NotifyByRobot)}) {
 			channel.Insert(settings.Channel)
 		}
 		if noti.Frequency != 0 {
 			out.SilentPeriod = fmt.Sprintf("%dm", noti.Frequency/60)
+		}
+		if len(settings.RobotIds) != 0 {
+			out.RobotIds = settings.RobotIds
 		}
 	}
 	out.Channel = channel.List()
