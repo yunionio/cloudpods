@@ -142,6 +142,8 @@ type SHostOptions struct {
 
 	DisableProbeKubelet bool   `help:"Disable probe kubelet config" default:"false"`
 	KubeletRunDirectory string `help:"Kubelet config file path" default:"/var/lib/kubelet"`
+
+	DisableKVM bool `help:"force disable KVM" default:"false"`
 }
 
 var (
