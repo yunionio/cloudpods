@@ -130,6 +130,62 @@ func (manager *SVirtualResourceBaseManager) GetPropertyStatistics(ctx context.Co
 	return result, nil
 }
 
+func (manager *SVirtualResourceBaseManager) AllowGetPropertyProjectStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return IsAdminAllowGetSpec(userCred, manager, "project-statistics")
+}
+
+func (manager *SVirtualResourceBaseManager) GetPropertyProjectStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) ([]apis.ProjectStatistic, error) {
+	im, ok := manager.GetVirtualObject().(IModelManager)
+	if !ok {
+		im = manager
+	}
+
+	tenants := TenantCacheManager.GetTenantQuery().Equals("domain_id", userCred.GetProjectDomainId()).SubQuery()
+
+	sq := im.Query().SubQuery()
+
+	q := sq.Query(
+		sq.Field("tenant_id"),
+		sqlchemy.COUNT("count"),
+	).GroupBy(sq.Field("tenant_id"))
+
+	q.Join(tenants, sqlchemy.Equals(q.Field("tenant_id"), tenants.Field("id")))
+
+	q.AppendField(tenants.Field("id"))
+	q.AppendField(tenants.Field("name"))
+
+	result := []apis.ProjectStatistic{}
+	return result, q.All(&result)
+}
+
+func (manager *SVirtualResourceBaseManager) AllowGetPropertyDomainStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return IsAdminAllowGetSpec(userCred, manager, "domain-statistics")
+}
+
+func (manager *SVirtualResourceBaseManager) GetPropertyDomainStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) ([]apis.ProjectStatistic, error) {
+	im, ok := manager.GetVirtualObject().(IModelManager)
+	if !ok {
+		im = manager
+	}
+
+	domains := TenantCacheManager.GetDomainQuery().SubQuery()
+
+	sq := im.Query().SubQuery()
+
+	q := sq.Query(
+		sq.Field("domain_id"),
+		sqlchemy.COUNT("count"),
+	).GroupBy(sq.Field("domain_id"))
+
+	q.Join(domains, sqlchemy.Equals(q.Field("domain_id"), domains.Field("id")))
+
+	q.AppendField(domains.Field("id"))
+	q.AppendField(domains.Field("name"))
+
+	result := []apis.ProjectStatistic{}
+	return result, q.All(&result)
+}
+
 func (manager *SVirtualResourceBaseManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	q = manager.SStatusStandaloneResourceBaseManager.FilterByHiddenSystemAttributes(q, userCred, query, scope)
 
