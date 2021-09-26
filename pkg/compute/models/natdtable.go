@@ -242,7 +242,7 @@ func (self *SNatDEntry) syncRemoveCloudNatDTable(ctx context.Context, userCred m
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
 		return self.SetStatus(userCred, api.VPC_STATUS_UNKNOWN, "sync to delete")
 	}

@@ -65,18 +65,18 @@ func init() {
 	BaremetalagentManager.SetVirtualObject(BaremetalagentManager)
 }
 
-func (self *SBaremetalagent) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SBaremetalagent) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.Status == api.BAREMETAL_AGENT_ENABLED {
 		return fmt.Errorf("Cannot delete in status %s", self.Status)
 	}
 	storageCache, _ := self.getStorageCache()
 	if storageCache != nil {
-		err := storageCache.ValidateDeleteCondition(ctx)
+		err := storageCache.ValidateDeleteCondition(ctx, nil)
 		if err != nil {
 			return fmt.Errorf("storagecache cannot be delete: %s", err)
 		}
 	}
-	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SBaremetalagent) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.BaremetalagentUpdateInput) (api.BaremetalagentUpdateInput, error) {

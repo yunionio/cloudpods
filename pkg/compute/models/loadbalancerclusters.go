@@ -202,7 +202,7 @@ func (lbc *SLoadbalancerCluster) ValidateUpdateData(ctx context.Context, userCre
 	return data, nil
 }
 
-func (lbc *SLoadbalancerCluster) ValidateDeleteCondition(ctx context.Context) error {
+func (lbc *SLoadbalancerCluster) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	men := []db.IModelManager{
 		LoadbalancerManager,
 	}
@@ -222,7 +222,7 @@ func (lbc *SLoadbalancerCluster) ValidateDeleteCondition(ctx context.Context) er
 				lbcId, lbc.Name, n, man.KeywordPlural())
 		}
 	}
-	return lbc.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return lbc.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (lbc *SLoadbalancerCluster) GetExtraDetails(
@@ -267,7 +267,7 @@ func (lbc *SLoadbalancerCluster) CustomizeDelete(ctx context.Context, userCred m
 	}
 	for i := range lbagents {
 		lbagent := &lbagents[i]
-		if err := lbagent.ValidateDeleteCondition(ctx); err != nil {
+		if err := lbagent.ValidateDeleteCondition(ctx, nil); err != nil {
 			return errors.Wrapf(err, "lbagent %s(%s): validate delete", lbagent.Name, lbagent.Id)
 		}
 		if err := lbagent.CustomizeDelete(ctx, userCred, query, data); err != nil {

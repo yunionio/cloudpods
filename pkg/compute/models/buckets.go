@@ -1180,12 +1180,12 @@ func (bucket *SBucket) PerformSync(
 }
 
 func (bucket *SBucket) ValidatePurgeCondition(ctx context.Context) error {
-	return bucket.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
+	return bucket.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
-func (bucket *SBucket) ValidateDeleteCondition(ctx context.Context) error {
+func (bucket *SBucket) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if bucket.Status == api.BUCKET_STATUS_UNKNOWN {
-		return bucket.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
+		return bucket.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 	}
 	if bucket.ObjectCnt > 0 {
 		return httperrors.NewNotEmptyError("Buckets that are not empty do not support this operation")

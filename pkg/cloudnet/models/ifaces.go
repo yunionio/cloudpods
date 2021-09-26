@@ -106,7 +106,7 @@ func (iface *SIface) ValidateUpdateCondition(ctx context.Context) error {
 	return nil
 }
 
-func (iface *SIface) ValidateDeleteCondition(ctx context.Context) error {
+func (iface *SIface) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	// if networkid != "" {
 	// 	return errors.New("part of network, remove it by remove network memeber")
 	// }

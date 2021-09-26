@@ -472,8 +472,8 @@ func (man *SLoadbalancerBackendManager) getLoadbalancerBackendsByLoadbalancerBac
 	return loadbalancerBackends, nil
 }
 
-func (lbb *SLoadbalancerBackend) ValidateDeleteCondition(ctx context.Context) error {
-	return lbb.SVirtualResourceBase.ValidateDeleteCondition(ctx)
+func (lbb *SLoadbalancerBackend) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	return lbb.SVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (man *SLoadbalancerBackendManager) SyncLoadbalancerBackends(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, loadbalancerBackendgroup *SLoadbalancerBackendGroup, lbbs []cloudprovider.ICloudLoadbalancerBackend, syncRange *SSyncRange) compare.SyncResult {
@@ -562,7 +562,7 @@ func (lbb *SLoadbalancerBackend) syncRemoveCloudLoadbalancerBackend(ctx context.
 	lockman.LockObject(ctx, lbb)
 	defer lockman.ReleaseObject(ctx, lbb)
 
-	err := lbb.ValidateDeleteCondition(ctx)
+	err := lbb.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
 		err = lbb.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {

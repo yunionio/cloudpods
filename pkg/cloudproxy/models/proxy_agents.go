@@ -79,7 +79,7 @@ func (proxyagent *SProxyAgent) ValidateUpdateData(ctx context.Context, userCred 
 	return data, nil
 }
 
-func (proxyagent *SProxyAgent) ValidateDeleteCondition(ctx context.Context) error {
+func (proxyagent *SProxyAgent) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	q := ForwardManager.Query().Equals("proxy_agent_id", proxyagent.Id)
 	if count, err := q.CountWithError(); err != nil {
 		return httperrors.NewServerError("count forwards using proxy endpoint %s(%s)",

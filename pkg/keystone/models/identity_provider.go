@@ -791,7 +791,7 @@ func (self *SIdentityProvider) GetPolicyCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (self *SIdentityProvider) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SIdentityProvider) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.Driver == api.IdentityDriverSQL {
 		return httperrors.NewForbiddenError("cannot delete default SQL identity provider")
 	}
@@ -816,7 +816,7 @@ func (self *SIdentityProvider) ValidateDeleteCondition(ctx context.Context) erro
 			}
 		}
 	}
-	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SIdentityProvider) ValidateUpdateCondition(ctx context.Context) error {
@@ -894,7 +894,7 @@ func (self *SIdentityProvider) Purge(ctx context.Context, userCred mcclient.Toke
 		if self.isSsoIdp() && self.AutoCreateUser.IsFalse() {
 			continue
 		}
-		err = groups[i].ValidateDeleteCondition(ctx)
+		err = groups[i].ValidateDeleteCondition(ctx, nil)
 		if err != nil {
 			db.OpsLog.LogEvent(&groups[i], db.ACT_DELETE_FAIL, err, userCred)
 			log.Errorf("group %s ValidateDeleteCondition fail %s", groups[i].Name, err)

@@ -122,7 +122,7 @@ func (self *SInterVpcNetworkRouteSet) syncRemoveRouteSet(ctx context.Context, us
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}

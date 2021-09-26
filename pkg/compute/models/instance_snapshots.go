@@ -506,7 +506,7 @@ func (self *SInstanceSnapshot) GetInstanceSnapshotJointAt(diskIndex int) (*SInst
 	return ispj, err
 }
 
-func (self *SInstanceSnapshot) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SInstanceSnapshot) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.Status == api.INSTANCE_SNAPSHOT_START_DELETE || self.Status == api.INSTANCE_SNAPSHOT_RESET {
 		return httperrors.NewForbiddenError("can't delete instance snapshot with wrong status")
 	}
@@ -569,7 +569,7 @@ func (is *SInstanceSnapshot) syncRemoveCloudInstanceSnapshot(ctx context.Context
 	lockman.LockObject(ctx, is)
 	defer lockman.ReleaseObject(ctx, is)
 
-	err := is.ValidateDeleteCondition(ctx)
+	err := is.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		err = is.SetStatus(userCred, api.INSTANCE_SNAPSHOT_UNKNOWN, "sync to delete")
 	} else {

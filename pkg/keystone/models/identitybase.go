@@ -413,11 +413,11 @@ func (self *SIdentityBaseResource) ValidateUpdateData(ctx context.Context, userC
 }
 */
 
-func (self *SEnabledIdentityBaseResource) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SEnabledIdentityBaseResource) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.Enabled.IsTrue() {
 		return httperrors.NewResourceBusyError("resource is enabled")
 	}
-	return self.SIdentityBaseResource.ValidateDeleteCondition(ctx)
+	return self.SIdentityBaseResource.ValidateDeleteCondition(ctx, nil)
 }
 
 func (model *SIdentityBaseResource) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {

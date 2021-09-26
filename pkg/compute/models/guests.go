@@ -680,14 +680,14 @@ func (guest *SGuest) validateDeleteCondition(ctx context.Context, isPurge bool) 
 	if !isPurge && guest.IsNotDeletablePrePaid() {
 		return httperrors.NewForbiddenError("not allow to delete prepaid server in valid status")
 	}
-	return guest.SVirtualResourceBase.ValidateDeleteCondition(ctx)
+	return guest.SVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (guest *SGuest) ValidatePurgeCondition(ctx context.Context) error {
 	return guest.validateDeleteCondition(ctx, true)
 }
 
-func (guest *SGuest) ValidateDeleteCondition(ctx context.Context) error {
+func (guest *SGuest) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	host, _ := guest.GetHost()
 	if host != nil && guest.GetHypervisor() != api.HYPERVISOR_BAREMETAL {
 		if !host.GetEnabled() {

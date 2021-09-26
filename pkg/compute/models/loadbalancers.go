@@ -730,7 +730,7 @@ func (lb *SLoadbalancer) getMoreDetails(out api.LoadbalancerDetails) (api.Loadba
 	return out, nil
 }
 
-func (lb *SLoadbalancer) ValidateDeleteCondition(ctx context.Context) error {
+func (lb *SLoadbalancer) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	err := lb.validatePurgeCondition(ctx)
 	if err != nil {
 		return err
@@ -751,7 +751,7 @@ func (lb *SLoadbalancer) validatePurgeCondition(ctx context.Context) error {
 		}
 	}
 
-	return lb.SModelBase.ValidateDeleteCondition(ctx)
+	return lb.SModelBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (lb *SLoadbalancer) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {

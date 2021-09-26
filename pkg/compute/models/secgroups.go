@@ -713,7 +713,7 @@ func (self *SSecurityGroup) AllowPerformPurge(ctx context.Context, userCred mccl
 }
 
 func (self *SSecurityGroup) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1270,7 +1270,7 @@ func (self *SSecurityGroup) GetSecurityGroupReferences() ([]SSecurityGroup, erro
 	return groups, nil
 }
 
-func (self *SSecurityGroup) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SSecurityGroup) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	cnt, err := self.GetGuestsCount()
 	if err != nil {
 		return httperrors.NewInternalServerError("GetGuestsCount fail %s", err)
@@ -1288,7 +1288,7 @@ func (self *SSecurityGroup) ValidateDeleteCondition(ctx context.Context) error {
 	if len(references) > 0 {
 		return httperrors.NewNotEmptyError("the other security group is in use")
 	}
-	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
+	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SSecurityGroup) GetSecurityGroupCaches() ([]SSecurityGroupCache, error) {

@@ -281,7 +281,7 @@ func (self *SStoragecachedimage) Detach(ctx context.Context, userCred mcclient.T
 	return db.DetachJoint(ctx, userCred, self)
 }
 
-func (self *SStoragecachedimage) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SStoragecachedimage) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.Status != api.CACHED_IMAGE_STATUS_CACHE_FAILED {
 		cnt, err := self.getReferenceCount()
 		if err != nil {
@@ -291,7 +291,7 @@ func (self *SStoragecachedimage) ValidateDeleteCondition(ctx context.Context) er
 			return httperrors.NewNotEmptyError("Image is in use")
 		}
 	}
-	return self.SJointResourceBase.ValidateDeleteCondition(ctx)
+	return self.SJointResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SStoragecachedimage) isCachedImageInUse() error {
@@ -314,7 +314,7 @@ func (self *SStoragecachedimage) isDownloadSessionExpire() bool {
 }
 
 func (self *SStoragecachedimage) markDeleting(ctx context.Context, userCred mcclient.TokenCredential, isForce bool) error {
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}

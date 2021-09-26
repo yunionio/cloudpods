@@ -376,7 +376,7 @@ func (self *SFileSystem) syncRemove(ctx context.Context, userCred mcclient.Token
 
 	self.DeletePreventionOff(self, userCred)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
 		return self.SetStatus(userCred, api.NAS_STATUS_UNKNOWN, "sync to delete")
 	}
@@ -423,11 +423,11 @@ func (self *SFileSystem) RealDelete(ctx context.Context, userCred mcclient.Token
 	return self.SInfrasResourceBase.Delete(ctx, userCred)
 }
 
-func (self *SFileSystem) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SFileSystem) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.DisableDelete.IsTrue() {
 		return httperrors.NewInvalidStatusError("FileSystem is locked, cannot delete")
 	}
-	return self.SStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
+	return self.SStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SFileSystem) SyncAllWithCloudFileSystem(ctx context.Context, userCred mcclient.TokenCredential, fs cloudprovider.ICloudFileSystem) error {

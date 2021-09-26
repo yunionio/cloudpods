@@ -1194,7 +1194,7 @@ func (self *SElasticcache) StartRestartTask(ctx context.Context, userCred mcclie
 	return nil
 }
 
-func (self *SElasticcache) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SElasticcache) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.DisableDelete.IsTrue() {
 		return httperrors.NewInvalidStatusError("Elastic cache is locked, cannot delete")
 	}
@@ -1207,7 +1207,7 @@ func (self *SElasticcache) ValidateDeleteCondition(ctx context.Context) error {
 }
 
 func (self *SElasticcache) ValidatePurgeCondition(ctx context.Context) error {
-	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx)
+	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SElasticcache) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {

@@ -648,7 +648,7 @@ func (self *SServerSku) StartServerSkuDeleteTask(ctx context.Context, userCred m
 	return nil
 }
 
-func (self *SServerSku) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SServerSku) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	serverCount, err := skuRelatedGuestCount(self)
 	if err != nil {
 		return httperrors.NewInternalServerError("check instance")

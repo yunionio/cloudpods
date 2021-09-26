@@ -211,7 +211,7 @@ func (self *SVpc) ValidateUpdateData(ctx context.Context, userCred mcclient.Toke
 	return input, nil
 }
 
-func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SVpc) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.Id == api.DEFAULT_VPC_ID {
 		return httperrors.NewProtectedResourceError("not allow to delete default vpc")
 	}
@@ -238,7 +238,7 @@ func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
 		return httperrors.NewNotEmptyError("VPC peering not empty, please delete vpc peering first")
 	}
 
-	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
+	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SVpc) getWireQuery() *sqlchemy.SQuery {
@@ -519,7 +519,7 @@ func (self *SVpc) syncRemoveCloudVpc(ctx context.Context, userCred mcclient.Toke
 		return nil
 	}
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
 		self.markAllNetworksUnknown(userCred)
 		_, err = self.PerformDisable(ctx, userCred, nil, apis.PerformDisableInput{})
@@ -1051,7 +1051,7 @@ func (self *SVpc) AllowPerformPurge(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SVpc) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

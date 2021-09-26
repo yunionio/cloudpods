@@ -583,12 +583,12 @@ func (self *SSecurityGroupCache) StartSyncstatusTask(ctx context.Context, userCr
 	return StartResourceSyncStatusTask(ctx, userCred, self, "SecurityGroupCacheSyncstatusTask", "")
 }
 
-func (self *SSecurityGroupCache) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SSecurityGroupCache) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.ReferenceCount > 0 && self.Status == api.SECGROUP_CACHE_STATUS_READY {
 		return httperrors.NewNotEmptyError("security group has been reference in %d security group", self.ReferenceCount)
 	}
 
-	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SSecurityGroupCache) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

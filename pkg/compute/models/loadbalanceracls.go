@@ -399,7 +399,7 @@ func (lbacl *SLoadbalancerAcl) PerformPatch(ctx context.Context, userCred mcclie
 	return nil, nil
 }
 
-func (lbacl *SLoadbalancerAcl) ValidateDeleteCondition(ctx context.Context) error {
+func (lbacl *SLoadbalancerAcl) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	men := []db.IModelManager{
 		LoadbalancerListenerManager,
 	}

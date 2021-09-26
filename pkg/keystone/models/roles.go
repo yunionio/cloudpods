@@ -195,7 +195,7 @@ func (role *SRole) IsSystemRole() bool {
 	return role.Name == api.SystemAdminRole && role.DomainId == api.DEFAULT_DOMAIN_ID
 }
 
-func (role *SRole) ValidateDeleteCondition(ctx context.Context) error {
+func (role *SRole) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	// if role.IsShared() {
 	// 	return httperrors.NewInvalidStatusError("cannot delete shared role")
 	// }
@@ -210,7 +210,7 @@ func (role *SRole) ValidateDeleteCondition(ctx context.Context) error {
 	if grpCnt > 0 {
 		return httperrors.NewNotEmptyError("role is being assigned to group")
 	}
-	return role.SIdentityBaseResource.ValidateDeleteCondition(ctx)
+	return role.SIdentityBaseResource.ValidateDeleteCondition(ctx, nil)
 }
 
 func (role *SRole) GetExtraDetails(

@@ -150,7 +150,7 @@ func (self *SHostwire) GetGuestnicsCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (self *SHostwire) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SHostwire) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	cnt, err := self.GetGuestnicsCount()
 	if err != nil {
 		return httperrors.NewInternalServerError("GetGuestnicsCount fail %s", err)
@@ -162,7 +162,7 @@ func (self *SHostwire) ValidateDeleteCondition(ctx context.Context) error {
 			return httperrors.NewNotEmptyError("guest on the host are using networks on this wire")
 		}
 	}
-	return self.SHostJointsBase.ValidateDeleteCondition(ctx)
+	return self.SHostJointsBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SHostwire) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

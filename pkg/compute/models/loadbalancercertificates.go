@@ -174,7 +174,7 @@ func (manager *SLoadbalancerCertificateManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (lbcert *SLoadbalancerCertificate) ValidateDeleteCondition(ctx context.Context) error {
+func (lbcert *SLoadbalancerCertificate) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	men := []db.IModelManager{
 		LoadbalancerListenerManager,
 	}
@@ -202,7 +202,7 @@ func (lbcert *SLoadbalancerCertificate) ValidateDeleteCondition(ctx context.Cont
 	}
 
 	for i := range caches {
-		err := caches[i].ValidateDeleteCondition(ctx)
+		err := caches[i].ValidateDeleteCondition(ctx, nil)
 		if err != nil {
 			return errors.Wrap(err, "ValidateDeleteCondition")
 		}

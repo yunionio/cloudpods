@@ -349,7 +349,7 @@ func (manager *SMountTargetManager) ListItemExportKeys(ctx context.Context,
 	return q, nil
 }
 
-func (self *SMountTarget) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SMountTarget) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	fs, err := self.GetFileSystem()
 	if err != nil {
 		return httperrors.NewGeneralError(errors.Wrapf(err, "GetFileSystem"))
@@ -361,7 +361,7 @@ func (self *SMountTarget) ValidateDeleteCondition(ctx context.Context) error {
 	if utils.IsInStringArray(region.Provider, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO}) {
 		return httperrors.NewNotSupportedError("not allow to delete")
 	}
-	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SMountTarget) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

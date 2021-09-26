@@ -83,12 +83,12 @@ func (manager *SZoneManager) AllowListItems(ctx context.Context, userCred mcclie
 	return true
 }
 
-func (zone *SZone) ValidateDeleteCondition(ctx context.Context) error {
+func (zone *SZone) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	usage := zone.GeneralUsage()
 	if !usage.IsEmpty() {
 		return httperrors.NewNotEmptyError("not empty zone: %s", zone.Id)
 	}
-	return zone.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return zone.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (manager *SZoneManager) Count() (int, error) {
@@ -259,7 +259,7 @@ func (self *SZone) syncRemoveCloudZone(ctx context.Context, userCred mcclient.To
 		return err
 	}
 
-	err = self.ValidateDeleteCondition(ctx)
+	err = self.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
 		err = self.SetStatus(userCred, api.ZONE_DISABLE, "sync to delete")
 	} else {

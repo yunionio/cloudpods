@@ -96,12 +96,12 @@ func (region *SRegion) GetEndpointCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (region *SRegion) ValidateDeleteCondition(ctx context.Context) error {
+func (region *SRegion) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	epCnt, _ := region.GetEndpointCount()
 	if epCnt > 0 {
 		return httperrors.NewNotEmptyError("region contains endpoints")
 	}
-	return region.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return region.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (region *SRegion) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.RegionDetails, error) {

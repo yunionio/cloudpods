@@ -203,7 +203,7 @@ func (self *SCloudaccount) getCloudprovidersInternal(enabled tristate.TriState) 
 	return cloudproviders
 }
 
-func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	// allow delete cloudaccount if it is disabled
 	// if self.EnableAutoSync {
 	//	return httperrors.NewInvalidStatusError("automatic syncing is enabled")
@@ -216,12 +216,12 @@ func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context) error {
 	}
 	cloudproviders := self.GetCloudproviders()
 	for i := 0; i < len(cloudproviders); i++ {
-		if err := cloudproviders[i].ValidateDeleteCondition(ctx); err != nil {
+		if err := cloudproviders[i].ValidateDeleteCondition(ctx, nil); err != nil {
 			return httperrors.NewInvalidStatusError("provider %s: %v", cloudproviders[i].Name, err)
 		}
 	}
 
-	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
+	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SCloudaccount) enableAccountOnly(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {

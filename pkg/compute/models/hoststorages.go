@@ -309,7 +309,7 @@ func (self *SHoststorage) GetGuestDiskCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (self *SHoststorage) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SHoststorage) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	cnt, err := self.GetGuestDiskCount()
 	if err != nil {
 		return httperrors.NewInternalServerError("GetGuestDiskCount fail %s", err)
@@ -317,7 +317,7 @@ func (self *SHoststorage) ValidateDeleteCondition(ctx context.Context) error {
 	if cnt > 0 {
 		return errors.Wrap(ErrStorageInUse, "guest on the host are using disks on this storage")
 	}
-	return self.SHostJointsBase.ValidateDeleteCondition(ctx)
+	return self.SHostJointsBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SHoststorage) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
