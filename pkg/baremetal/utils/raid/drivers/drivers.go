@@ -24,6 +24,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
+	_ "yunion.io/x/onecloud/pkg/baremetal/utils/raid/adaptec"
 	_ "yunion.io/x/onecloud/pkg/baremetal/utils/raid/hpssactl"
 	_ "yunion.io/x/onecloud/pkg/baremetal/utils/raid/megactl"
 	_ "yunion.io/x/onecloud/pkg/baremetal/utils/raid/mvcli"
@@ -64,6 +65,8 @@ func GetDriverByKernelModule(module string, term raid.IExecTerm) (raid.IRaidDriv
 		name = baremetal.DISK_DRIVER_HPSARAID
 	case raid.MODULE_MPT2SAS, raid.MODULE_MPT3SAS:
 		name = baremetal.DISK_DRIVER_MPT2SAS
+	case raid.MODULE_AACRAID:
+		name = baremetal.DISK_DRIVER_ADAPTECRAID
 	}
 	if name == "" {
 		return nil, errors.Errorf("Not support module %q", module)
