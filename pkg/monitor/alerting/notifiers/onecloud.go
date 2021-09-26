@@ -68,7 +68,7 @@ func init() {
 			if err := input.Settings.Unmarshal(settings); err != nil {
 				return input, errors.Wrap(err, "unmarshal setting")
 			}
-			if settings.Channel == "" {
+			if settings.Channel == "" && len(settings.RobotIds) == 0 {
 				return input, httperrors.NewInputParameterError("channel is empty")
 			}
 			ids := make([]string, 0)
@@ -187,6 +187,12 @@ func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONOb
 			return oc.notifyByContextLang(langContext, ctx, ids)
 		})
 	}
+	if len(oc.Setting.RobotIds) != 0 {
+		withLangTag := i18n.WithLangTag(context.Background(), language.English)
+		langNotifyGroup.Go(func() error {
+			return oc.notifyByContextLang(withLangTag, ctx, []string{})
+		})
+	}
 	return langNotifyGroup.Wait()
 }
 
@@ -228,6 +234,7 @@ func (oc *OneCloudNotifier) notifyByContextLang(ctx context.Context, evalCtx *al
 
 	msg := notify.SNotifyMessage{
 		Uid:         uids,
+		Robots:      oc.Setting.RobotIds,
 		ContactType: notify.TNotifyChannel(oc.Setting.Channel),
 		Topic:       config.Title,
 		Priority:    notify.TNotifyPriority(config.Priority),
@@ -291,6 +298,9 @@ func (oc *OneCloudNotifier) newMeterRemoteMobileContent(config *monitor.Notifica
 }
 
 func GetUserLangIdsMap(ids []string) (map[string][]string, error) {
+	if len(ids) == 0 {
+		return map[string][]string{}, nil
+	}
 	session := auth.GetAdminSession(context.Background(), "", "")
 	langIdsMap := make(map[string][]string)
 	params := jsonutils.NewDict()
@@ -362,6 +372,10 @@ func (f *sendBodyFactory) newSendnotify(evalCtx *alerting.EvalContext, notifier 
 		mobile := new(sendMobileImpl)
 		mobile.sendnotifyBase = def
 		return mobile
+	case string(notify.NotifyByRobot):
+		robot := new(sendRobotImpl)
+		robot.sendnotifyBase = def
+		return robot
 	default:
 		return def
 	}
@@ -433,6 +447,19 @@ func (s *sendMobileImpl) send() error {
 		s.msg.Topic,
 		msgObj)
 	return nil
+}
+
+type sendRobotImpl struct {
+	*sendnotifyBase
+}
+
+func (s *sendRobotImpl) send() error {
+	return SendNotifyInfo(s.sendnotifyBase, s)
+}
+
+func (s *sendRobotImpl) execNotifyFunc() error {
+	return notifyclient.NotifyRobotWithCtx(s.Ctx, s.msg.Robots, notify.TNotifyPriority(s.msg.Priority),
+		"DEFAULT", jsonutils.Marshal(&s.config))
 }
 
 func SendNotifyInfo(base *sendnotifyBase, imp Isendnotify) error {
