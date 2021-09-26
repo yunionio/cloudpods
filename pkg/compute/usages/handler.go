@@ -300,7 +300,7 @@ func getSystemGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.I
 		guestRunningUsage,
 		// containerRunningUsage,
 
-		IsolatedDeviceUsage("", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
+		IsolatedDeviceUsage("", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
 		// IsolatedDeviceUsage("prepaid_pool", rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
 		// IsolatedDeviceUsage("any_pool", rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
 
@@ -400,6 +400,8 @@ func getDomainGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 
 		WireUsage(scope, cred, rangeObjs, hostTypes, providers, brands, cloudEnv),
 		NetworkUsage(getKey(scope, ""), scope, cred, providers, brands, cloudEnv, rangeObjs),
+
+		IsolatedDeviceUsage("", scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
 
 		EipUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 
@@ -867,12 +869,12 @@ func guestUsage(prefix string, scope rbacutils.TRbacScope, userCred mcclient.IId
 	return guestHypervisorsUsage(prefix, scope, userCred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, nil, hypervisors, false)
 }*/
 
-func IsolatedDeviceUsage(pref string, rangeObjs []db.IStandaloneModel, hostType []string, resourceTypes []string, providers []string, brands []string, cloudEnv string) Usage {
+func IsolatedDeviceUsage(pref string, scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, hostType []string, resourceTypes []string, providers []string, brands []string, cloudEnv string) Usage {
 	prefix := "isolated_devices"
 	if len(pref) > 0 {
 		prefix = fmt.Sprintf("%s.%s", prefix, pref)
 	}
-	ret, _ := models.IsolatedDeviceManager.TotalCount(hostType, resourceTypes, providers, brands, cloudEnv, rangeObjs)
+	ret, _ := models.IsolatedDeviceManager.TotalCount(scope, userCred, hostType, resourceTypes, providers, brands, cloudEnv, rangeObjs)
 	count := make(map[string]interface{})
 	count[prefix] = ret.Devices
 	return count
