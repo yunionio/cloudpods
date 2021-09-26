@@ -84,7 +84,7 @@ func (self *SCloudimage) syncRemove(ctx context.Context, userCred mcclient.Token
 	}
 	image := _image.(*SCachedimage)
 
-	err = image.ValidateDeleteCondition(ctx)
+	err = image.ValidateDeleteCondition(ctx, nil)
 	if err == nil {
 		image.Delete(ctx, userCred)
 	}

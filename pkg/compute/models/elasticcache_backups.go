@@ -139,7 +139,7 @@ func (self *SElasticcacheBackup) syncRemoveCloudElasticcacheBackup(ctx context.C
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudElasticcacheBackup.Remove")
 	}
@@ -332,7 +332,7 @@ func (self *SElasticcacheBackup) GetRegion() *SCloudregion {
 	return region
 }
 
-func (self *SElasticcacheBackup) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SElasticcacheBackup) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	icache, err := db.FetchById(ElasticcacheManager, self.ElasticcacheId)
 	if err != nil {
 		return err

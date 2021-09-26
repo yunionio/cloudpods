@@ -336,11 +336,11 @@ func (man *SKafkaManager) TotalCount(
 }
 
 // 判断资源是否可以删除
-func (self *SKafka) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SKafka) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.DisableDelete.IsTrue() {
 		return httperrors.NewInvalidStatusError("Kafka is locked, cannot delete")
 	}
-	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SKafka) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

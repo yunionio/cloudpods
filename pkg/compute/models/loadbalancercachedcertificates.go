@@ -96,7 +96,7 @@ func (self *SCachedLoadbalancerCertificate) AllowDeleteItem(ctx context.Context,
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
-func (self *SCachedLoadbalancerCertificate) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SCachedLoadbalancerCertificate) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	men := []db.IModelManager{
 		LoadbalancerListenerManager,
 	}
@@ -385,7 +385,7 @@ func (lbcert *SCachedLoadbalancerCertificate) syncRemoveCloudLoadbalancerCertifi
 	lockman.LockObject(ctx, lbcert)
 	defer lockman.ReleaseObject(ctx, lbcert)
 
-	err := lbcert.ValidateDeleteCondition(ctx)
+	err := lbcert.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
 		err = lbcert.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {

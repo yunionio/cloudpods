@@ -580,7 +580,7 @@ func (model *SModelBase) ValidateUpdateCondition(ctx context.Context) error {
 	return nil
 }
 
-func (model *SModelBase) ValidateDeleteCondition(ctx context.Context) error {
+func (model *SModelBase) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	return nil
 }
 

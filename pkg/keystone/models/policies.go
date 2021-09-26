@@ -440,7 +440,7 @@ func (policy *SPolicy) Delete(ctx context.Context, userCred mcclient.TokenCreden
 	return policy.SEnabledIdentityBaseResource.Delete(ctx, userCred)
 }
 
-func (policy *SPolicy) ValidateDeleteCondition(ctx context.Context) error {
+func (policy *SPolicy) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	// if policy.IsShared() {
 	// 	return httperrors.NewInvalidStatusError("cannot delete shared policy")
 	// }
@@ -450,7 +450,7 @@ func (policy *SPolicy) ValidateDeleteCondition(ctx context.Context) error {
 	if policy.Enabled.IsTrue() {
 		return httperrors.NewInvalidStatusError("cannot delete enabled policy")
 	}
-	return policy.SEnabledIdentityBaseResource.ValidateDeleteCondition(ctx)
+	return policy.SEnabledIdentityBaseResource.ValidateDeleteCondition(ctx, nil)
 }
 
 // 权限策略列表

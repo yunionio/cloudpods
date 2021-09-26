@@ -302,11 +302,11 @@ func (manager *SIsolatedDeviceManager) GetExportExtraKeys(ctx context.Context, k
 	return res
 }
 
-func (self *SIsolatedDevice) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SIsolatedDevice) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if len(self.GuestId) > 0 {
 		return httperrors.NewNotEmptyError("Isolated device used by server")
 	}
-	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SIsolatedDevice) getDetailedString() string {

@@ -91,7 +91,7 @@ func (self *SRouteTableAssociation) syncRemoveAssociation(ctx context.Context, u
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}

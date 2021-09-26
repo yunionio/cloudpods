@@ -744,7 +744,7 @@ func (user *SUser) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 	}
 }
 
-func (user *SUser) ValidateDeleteCondition(ctx context.Context) error {
+func (user *SUser) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	idMappings, err := user.getIdmappings()
 	if err != nil {
 		return errors.Wrap(err, "getIdmappings")
@@ -764,7 +764,7 @@ func (user *SUser) ValidateDeleteCondition(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "ValidatePurgeCondition")
 	}
-	return user.SIdentityBaseResource.ValidateDeleteCondition(ctx)
+	return user.SIdentityBaseResource.ValidateDeleteCondition(ctx, nil)
 }
 
 func (user *SUser) ValidatePurgeCondition(ctx context.Context) error {

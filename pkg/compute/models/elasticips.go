@@ -930,11 +930,11 @@ func (self *SElasticip) CustomizeDelete(ctx context.Context, userCred mcclient.T
 	return self.StartEipDeallocateTask(ctx, userCred, "")
 }
 
-func (self *SElasticip) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SElasticip) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.IsAssociated() {
 		return fmt.Errorf("eip is associated with resources")
 	}
-	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx)
+	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SElasticip) StartEipDeallocateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
@@ -1491,7 +1491,7 @@ func (self *SElasticip) AllowPerformPurge(ctx context.Context, userCred mcclient
 }
 
 func (self *SElasticip) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

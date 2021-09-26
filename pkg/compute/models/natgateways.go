@@ -452,18 +452,18 @@ func (self *SNatGateway) syncRemoveCloudNatGateway(ctx context.Context, userCred
 
 	self.DeletePreventionOff(self, userCred)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
 		return self.SetStatus(userCred, api.NAT_STATUS_UNKNOWN, "sync to delete")
 	}
 	return self.purge(ctx, userCred)
 }
 
-func (self *SNatGateway) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SNatGateway) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.DisableDelete.IsTrue() {
 		return httperrors.NewInvalidStatusError("Nat is locked, cannot delete")
 	}
-	return self.SStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
+	return self.SStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SNatGateway) SyncWithCloudNatGateway(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extNat cloudprovider.ICloudNatGateway) error {

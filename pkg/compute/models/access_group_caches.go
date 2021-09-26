@@ -594,14 +594,14 @@ func (manager *SAccessGroupCacheManager) Register(ctx context.Context, opts *SAc
 	return cache, cache.CreateIAccessGroup()
 }
 
-func (self *SAccessGroupCache) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SAccessGroupCache) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.AccessGroupId == api.DEFAULT_ACCESS_GROUP {
 		return httperrors.NewProtectedResourceError("not allow to delete default access group")
 	}
 	if self.MountTargetCount > 0 && self.Status != api.ACCESS_GROUP_STATUS_UNKNOWN {
 		return httperrors.NewNotEmptyError("access group not empty, please delete mount target first")
 	}
-	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SAccessGroupCache) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {

@@ -271,7 +271,7 @@ func (self *SRouteTableRouteSet) PostUpdate(ctx context.Context, userCred mcclie
 	routeTable.StartRouteTableUpdateTask(ctx, userCred, self, "update")
 }
 
-func (self *SRouteTableRouteSet) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SRouteTableRouteSet) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	vpc, err := self.GetVpc()
 	if err != nil {
 		return errors.Wrap(err, "self.GetVpc()")
@@ -319,7 +319,7 @@ func (self *SRouteTableRouteSet) syncRemoveRouteSet(ctx context.Context, userCre
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		return err
 	}
