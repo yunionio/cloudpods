@@ -644,12 +644,14 @@ func (opts *SQcloudCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, er
 type SGoogleCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
 
-	OptionsBillingReportBucket        string `help:"update Google S3 bucket that stores account billing report" json:"-"`
-	RemoveOptionsBillingReportBucket  bool   `help:"remove Google S3 bucket that stores account billing report" json:"-"`
-	OptionsBillingBucketAccount       string `help:"update id of account that can access bucket, blank if this account can access" json:"-"`
-	RemoveOptionsBillingBucketAccount bool   `help:"remove id of account that can access bucket, blank if this account can access" json:"-"`
-	OptionsBillingFilePrefix          string `help:"update prefix of billing file name" json:"-"`
-	RemoveOptionsBillingFilePrefix    bool   `help:"remove prefix of billing file name" json:"-"`
+	OptionsBillingReportBigqueryTable   string `help:"update Google big query table that stores account billing report" json:"-"`
+	OptionsBillingReportBigqueryAccount string `help:"update Google account for big query table" json:"-"`
+	OptionsBillingReportBucket          string `help:"update Google S3 bucket that stores account billing report" json:"-"`
+	RemoveOptionsBillingReportBucket    bool   `help:"remove Google S3 bucket that stores account billing report" json:"-"`
+	OptionsBillingBucketAccount         string `help:"update id of account that can access bucket, blank if this account can access" json:"-"`
+	RemoveOptionsBillingBucketAccount   bool   `help:"remove id of account that can access bucket, blank if this account can access" json:"-"`
+	OptionsBillingFilePrefix            string `help:"update prefix of billing file name" json:"-"`
+	RemoveOptionsBillingFilePrefix      bool   `help:"remove prefix of billing file name" json:"-"`
 
 	OptionsUsageReportBucket       string `help:"update Google S3 bucket that stores account usage report" json:"-"`
 	RemoveOptionsUsageReportBucket bool   `help:"remove Google S3 bucket that stores account usage report" json:"-"`
@@ -661,6 +663,12 @@ func (opts *SGoogleCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, er
 	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
 
 	options := jsonutils.NewDict()
+	if len(opts.OptionsBillingReportBigqueryTable) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingReportBigqueryTable), "billing_bigquery_table")
+	}
+	if len(opts.OptionsBillingReportBigqueryAccount) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionsBillingReportBigqueryAccount), "billing_bigquery_account")
+	}
 	if len(opts.OptionsBillingReportBucket) > 0 {
 		options.Add(jsonutils.NewString(opts.OptionsBillingReportBucket), "billing_report_bucket")
 	}
