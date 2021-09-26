@@ -136,24 +136,36 @@ func (s *SKVMGuestInstance) generateArmStartScript(data *jsonutils.JSONDict) (st
 	cmd += "else\n"
 	cmd += "    QEMU_CMD=$DEFAULT_QEMU_CMD\n"
 	cmd += "fi\n"
-	cmd += "function nic_speed() {\n"
-	cmd += "    $QEMU_CMD "
-
-	if s.IsKvmSupport() {
-		cmd += "-enable-kvm"
+	if s.IsKvmSupport() && !options.HostOptions.DisableKVM {
+		cmd += "QEMU_CMD_KVM_ARG=-enable-kvm\n"
+	} else {
+		cmd += "QEMU_CMD_KVM_ARG=\n"
 	}
+	cmd += `
+function nic_speed() {
+    $QEMU_CMD $QEMU_CMD_KVM_ARG -device virtio-net-pci,help 2>&1 | grep -q "\<speed="
+    if [ "$?" -eq "0" ]; then
+        echo ",speed=$1"
+    fi
+}
 
-	cmd += " -device virtio-net-pci,? 2>&1 | grep .speed= > /dev/null\n"
-	cmd += "    if [ \"$?\" -eq \"0\" ]; then\n"
-	cmd += "        echo \",speed=$1\"\n"
-	cmd += "    fi\n"
-	cmd += "}\n"
+function nic_mtu() {
+    local bridge="$1"; shift
+
+    $QEMU_CMD $QEMU_CMD_KVM_ARG -device virtio-net-pci,help 2>&1 | grep -q '\<host_mtu='
+    if [ "$?" -eq "0" ]; then
+        local origmtu="$(<"/sys/class/net/$bridge/mtu")"
+        if [ -n "$origmtu" -a "$origmtu" -gt 576 ]; then
+            echo ",host_mtu=$(($origmtu - 58))"
+        fi
+    fi
+}
+`
 
 	// Generate Start VM script
-	cmd += `CMD="$QEMU_CMD`
+	cmd += `CMD="$QEMU_CMD $QEMU_CMD_KVM_ARG`
 	var accel, cpuType string
-	if s.IsKvmSupport() {
-		cmd += " -enable-kvm"
+	if s.IsKvmSupport() && !options.HostOptions.DisableKVM {
 		accel = "kvm"
 		if options.HostOptions.HostCpuPassthrough {
 			cpuType = "host"
