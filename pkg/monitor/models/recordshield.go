@@ -32,6 +32,10 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+const (
+	DEFAULT_SHEILD_TIME = 100 // year
+)
+
 var (
 	AlertRecordShieldManager *SAlertRecordShieldManager
 )
@@ -222,6 +226,12 @@ func (man *SAlertRecordShieldManager) ValidateCreateData(ctx context.Context, us
 			return data, httperrors.NewInputParameterError("can not get resource by res_id:%s", data.ResId)
 		}
 		data.ResType = resources[0].ResType
+	}
+	if len(data.StartTime) == 0 {
+		data.StartTime = time.Now().UTC().Format(timeutils.MysqlTimeFormat)
+	}
+	if len(data.EndTime) == 0 {
+		data.EndTime = time.Now().AddDate(DEFAULT_SHEILD_TIME, 0, 0).UTC().Format(timeutils.MysqlTimeFormat)
 	}
 	startTime, err := timeutils.ParseTimeStr(data.StartTime)
 	if err != nil {
