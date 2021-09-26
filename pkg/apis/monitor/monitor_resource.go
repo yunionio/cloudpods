@@ -42,6 +42,8 @@ type MonitorResourceListInput struct {
 	ResId     []string `json:"res_id"`
 	ResType   string   `json:"res_type"`
 	OnlyResId bool     `json:"only_res_id"`
+
+	ResName string `json:"res_name"`
 }
 
 type MonitorResourceDetails struct {
