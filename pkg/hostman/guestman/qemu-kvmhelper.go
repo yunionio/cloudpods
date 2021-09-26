@@ -435,7 +435,7 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 	// cmd += "    fi\n"
 	// cmd += "else\n"
 	cmd += "QEMU_CMD=$DEFAULT_QEMU_CMD\n"
-	if s.IsKvmSupport() {
+	if s.IsKvmSupport() && !options.HostOptions.DisableKVM {
 		cmd += "QEMU_CMD_KVM_ARG=-enable-kvm\n"
 	} else {
 		cmd += "QEMU_CMD_KVM_ARG=-no-kvm\n"
@@ -455,18 +455,17 @@ function nic_mtu() {
     $QEMU_CMD $QEMU_CMD_KVM_ARG -device virtio-net-pci,help 2>&1 | grep -q '\<host_mtu='
     if [ "$?" -eq "0" ]; then
         local origmtu="$(<"/sys/class/net/$bridge/mtu")"
-	if [ -n "$origmtu" -a "$origmtu" -gt 576 ]; then
-                echo ",host_mtu=$(($origmtu - 58))"
-	fi
+        if [ -n "$origmtu" -a "$origmtu" -gt 576 ]; then
+            echo ",host_mtu=$(($origmtu - 58))"
+        fi
     fi
 }
 `
 
 	// Generate Start VM script
-	cmd += `CMD="$QEMU_CMD`
+	cmd += `CMD="$QEMU_CMD $QEMU_CMD_KVM_ARG`
 	var accel, cpuType string
-	if s.IsKvmSupport() {
-		cmd += " -enable-kvm"
+	if s.IsKvmSupport() && !options.HostOptions.DisableKVM {
 		accel = "kvm"
 		cpuType = ""
 		if osname == OS_NAME_MACOS {
@@ -493,7 +492,6 @@ function nic_mtu() {
 			cpuType = isolatedDevsParams.Cpu
 		}
 	} else {
-		cmd += " -no-kvm"
 		accel = "tcg"
 		cpuType = "qemu64"
 	}
