@@ -36,6 +36,7 @@ const (
 	MODULE_HPSA     = "hpsa"
 	MODULE_MPT2SAS  = "mpt2sas"
 	MODULE_MPT3SAS  = "mpt3sas"
+	MODULE_AACRAID  = "aacraid"
 )
 
 const (

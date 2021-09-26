@@ -23,7 +23,7 @@ climc-base:
 	docker buildx build --platform linux/arm64,linux/amd64 --push \
 		-t registry.cn-beijing.aliyuncs.com/yunionio/climc-base:$(CLIMC_BASE_VERSION) -f ./Dockerfile.climc-base .
 
-BAREMETAL_BASE_VERSION = v0.3.2
+BAREMETAL_BASE_VERSION = v0.3.3
 
 baremetal-base:
 	$(DOCKER_BUILDX)/baremetal-base:$(BAREMETAL_BASE_VERSION) -f ./Dockerfile.baremetal-base .
