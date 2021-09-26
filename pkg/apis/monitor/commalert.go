@@ -56,6 +56,8 @@ type CommonAlertCreateInput struct {
 	Channel []string `json:"channel"`
 	// 通知接受者
 	Recipients []string `json:"recipients"`
+
+	RobotIds []string `json:"robot_ids"`
 	// 静默期
 	SilentPeriod string `json:"silent_period"`
 	// 报警类型
@@ -132,6 +134,7 @@ type CommonAlertDetails struct {
 	NotifierId    string   `json:"notifier_id"`
 	Channel       []string `json:"channel"`
 	Recipients    []string `json:"recipients"`
+	RobotIds      []string `json:"robot_ids"`
 	// 静默期
 	SilentPeriod string `json:"silent_period"`
 	Status       string `json:"status"`
