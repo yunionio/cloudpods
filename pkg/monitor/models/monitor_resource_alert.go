@@ -171,6 +171,15 @@ func (m *SMonitorResourceAlertManager) ListItemFilter(ctx context.Context, q *sq
 	if len(input.ResType) != 0 {
 		q.Equals("res_type", input.ResType)
 	}
+	if len(input.ResName) != 0 {
+		resQ := MonitorResourceManager.Query("res_id")
+		resQ, err = MonitorResourceManager.ListItemFilter(ctx, resQ, userCred,
+			monitor.MonitorResourceListInput{ResName: input.ResName})
+		if err != nil {
+			return q, errors.Wrap(err, "Get monitor in Query err")
+		}
+		q.Filter(sqlchemy.In(q.Field("monitor_resource_id"), resQ.SubQuery()))
+	}
 
 	return q, nil
 }

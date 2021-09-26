@@ -30,6 +30,7 @@ type MonitorResourceJointListInput struct {
 	Alerting          bool    `json:"alertinng"`
 	SendState         string  `json:"send_state"`
 	ResType           string  `json:"res_type"`
+	ResName           string  `json:"res_name"`
 }
 
 type MonitorResourceJointCreateInput struct {
