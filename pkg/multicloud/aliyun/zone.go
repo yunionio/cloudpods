@@ -31,6 +31,7 @@ type TChargeType string
 
 const (
 	PrePaidInstanceChargeType    TChargeType = "PrePaid"
+	PrePaidDBInstanceChargeType  TChargeType = "Prepaid"
 	PostPaidInstanceChargeType   TChargeType = "PostPaid"
 	PostPaidDBInstanceChargeType TChargeType = "Postpaid"
 	DefaultInstanceChargeType                = PostPaidInstanceChargeType

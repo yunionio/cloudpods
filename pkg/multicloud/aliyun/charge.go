@@ -22,7 +22,7 @@ import (
 
 func convertChargeType(ct TChargeType) string {
 	switch ct {
-	case PrePaidInstanceChargeType:
+	case PrePaidInstanceChargeType, PrePaidDBInstanceChargeType:
 		return api.BILLING_TYPE_PREPAID
 	case PostPaidInstanceChargeType, PostPaidDBInstanceChargeType:
 		return api.BILLING_TYPE_POSTPAID
