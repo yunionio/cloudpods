@@ -517,7 +517,7 @@ func (manager *SIsolatedDeviceManager) ReleaseDevicesOfGuest(ctx context.Context
 }
 
 func (manager *SIsolatedDeviceManager) totalCountQ(
-	devType []string, hostTypes []string,
+	scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, devType []string, hostTypes []string,
 	resourceTypes []string,
 	providers []string, brands []string, cloudEnv string,
 	rangeObjs []db.IStandaloneModel,
@@ -525,6 +525,9 @@ func (manager *SIsolatedDeviceManager) totalCountQ(
 	hosts := HostManager.Query().SubQuery()
 	devs := manager.Query().SubQuery()
 	q := devs.Query().Join(hosts, sqlchemy.Equals(devs.Field("host_id"), hosts.Field("id")))
+	if scope == rbacutils.ScopeDomain {
+		q = q.Filter(sqlchemy.Equals(hosts.Field("domain_id"), ownerId.GetProjectDomainId()))
+	}
 	q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 	if len(devType) != 0 {
 		q = q.Filter(sqlchemy.In(devs.Field("dev_type"), devType))
@@ -538,6 +541,8 @@ type IsolatedDeviceCountStat struct {
 }
 
 func (manager *SIsolatedDeviceManager) totalCount(
+	scope rbacutils.TRbacScope,
+	ownerId mcclient.IIdentityProvider,
 	devType,
 	hostTypes []string,
 	resourceTypes []string,
@@ -547,6 +552,8 @@ func (manager *SIsolatedDeviceManager) totalCount(
 	rangeObjs []db.IStandaloneModel,
 ) (int, error) {
 	return manager.totalCountQ(
+		scope,
+		ownerId,
 		devType,
 		hostTypes,
 		resourceTypes,
@@ -558,6 +565,8 @@ func (manager *SIsolatedDeviceManager) totalCount(
 }
 
 func (manager *SIsolatedDeviceManager) TotalCount(
+	scope rbacutils.TRbacScope,
+	ownerId mcclient.IIdentityProvider,
 	hostType []string,
 	resourceTypes []string,
 	providers []string,
@@ -567,14 +576,14 @@ func (manager *SIsolatedDeviceManager) TotalCount(
 ) (IsolatedDeviceCountStat, error) {
 	stat := IsolatedDeviceCountStat{}
 	devCnt, err := manager.totalCount(
-		nil, hostType, resourceTypes,
+		scope, ownerId, nil, hostType, resourceTypes,
 		providers, brands, cloudEnv,
 		rangeObjs)
 	if err != nil {
 		return stat, err
 	}
 	gpuCnt, err := manager.totalCount(
-		VALID_GPU_TYPES, hostType, resourceTypes,
+		scope, ownerId, VALID_GPU_TYPES, hostType, resourceTypes,
 		providers, brands, cloudEnv,
 		rangeObjs)
 	if err != nil {
