@@ -173,7 +173,7 @@ func (self *STask) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenC
 	return false
 }
 
-func (self *STask) ValidateDeleteCondition(ctx context.Context) error {
+func (self *STask) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	return httperrors.NewForbiddenError("forbidden")
 }
 

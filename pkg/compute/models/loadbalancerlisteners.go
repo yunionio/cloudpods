@@ -1237,7 +1237,7 @@ func (lblis *SLoadbalancerListener) syncRemoveCloudLoadbalancerListener(ctx cont
 	lockman.LockObject(ctx, lblis)
 	defer lockman.ReleaseObject(ctx, lblis)
 
-	err := lblis.ValidateDeleteCondition(ctx)
+	err := lblis.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
 		err = lblis.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {

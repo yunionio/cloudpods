@@ -248,7 +248,7 @@ func (lbbg *SHuaweiCachedLbbg) syncRemoveCloudLoadbalancerBackendgroup(ctx conte
 	lockman.LockObject(ctx, lbbg)
 	defer lockman.ReleaseObject(ctx, lbbg)
 
-	err := lbbg.ValidateDeleteCondition(ctx)
+	err := lbbg.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
 		err = lbbg.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {

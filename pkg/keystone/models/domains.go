@@ -310,7 +310,7 @@ func (domain *SDomain) ValidatePurgeCondition(ctx context.Context) error {
 	return nil
 }
 
-func (domain *SDomain) ValidateDeleteCondition(ctx context.Context) error {
+func (domain *SDomain) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if domain.IsReadOnly() {
 		return httperrors.NewForbiddenError("readonly")
 	}
@@ -318,7 +318,7 @@ func (domain *SDomain) ValidateDeleteCondition(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return domain.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return domain.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (domain *SDomain) ValidateUpdateCondition(ctx context.Context) error {
@@ -419,7 +419,7 @@ func (domain *SDomain) DeleteUserGroups(ctx context.Context, userCred mcclient.T
 		return errors.Wrap(err, "domain.getUsers")
 	}
 	for i := range usrs {
-		err = usrs[i].ValidateDeleteCondition(ctx)
+		err = usrs[i].ValidateDeleteCondition(ctx, nil)
 		if err != nil {
 			return errors.Wrap(err, "usr.ValidateDeleteCondition")
 		}
@@ -433,7 +433,7 @@ func (domain *SDomain) DeleteUserGroups(ctx context.Context, userCred mcclient.T
 		return errors.Wrap(err, "domain.getGroups")
 	}
 	for i := range grps {
-		err = grps[i].ValidateDeleteCondition(ctx)
+		err = grps[i].ValidateDeleteCondition(ctx, nil)
 		if err != nil {
 			return errors.Wrap(err, "grp.ValidateDeleteCondition")
 		}

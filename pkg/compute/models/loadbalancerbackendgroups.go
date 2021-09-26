@@ -436,7 +436,7 @@ func (lbbg *SLoadbalancerBackendGroup) isDefault(ctx context.Context) (bool, err
 	return true, nil
 }
 
-func (lbbg *SLoadbalancerBackendGroup) ValidateDeleteCondition(ctx context.Context) error {
+func (lbbg *SLoadbalancerBackendGroup) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if ok, err := lbbg.isDefault(ctx); err != nil {
 		return httperrors.NewInternalServerError("get isDefault fail %s", err.Error())
 	} else {
@@ -977,7 +977,7 @@ func (lbbg *SLoadbalancerBackendGroup) syncRemoveCloudLoadbalancerBackendgroup(c
 	lockman.LockObject(ctx, lbbg)
 	defer lockman.ReleaseObject(ctx, lbbg)
 
-	err := lbbg.ValidateDeleteCondition(ctx)
+	err := lbbg.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
 		err = lbbg.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {

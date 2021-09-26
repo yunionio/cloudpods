@@ -602,7 +602,7 @@ func (self *SSnapshot) StartSnapshotDeleteTask(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (self *SSnapshot) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SSnapshot) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.Status == api.SNAPSHOT_DELETING {
 		return httperrors.NewBadRequestError("Cannot delete snapshot in status %s", self.Status)
 	}
@@ -849,7 +849,7 @@ func (self *SSnapshot) syncRemoveCloudSnapshot(ctx context.Context, userCred mcc
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
 		err = self.SetStatus(userCred, api.SNAPSHOT_UNKNOWN, "sync to delete")
 	} else {

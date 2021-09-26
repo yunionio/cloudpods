@@ -171,7 +171,7 @@ func (manager *SCloudproviderregion) ValidateCreateData(ctx context.Context, use
 	return nil, httperrors.NewForbiddenError("not allow to create")
 }
 
-func (self *SCloudproviderregion) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SCloudproviderregion) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	return nil
 }
 

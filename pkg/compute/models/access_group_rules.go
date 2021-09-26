@@ -351,11 +351,11 @@ func (self *SAccessGroupRule) PreDelete(ctx context.Context, userCred mcclient.T
 	}
 }
 
-func (self *SAccessGroupRule) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SAccessGroupRule) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.AccessGroupId == api.DEFAULT_ACCESS_GROUP {
 		return httperrors.NewProtectedResourceError("not allow to delete default access group rule")
 	}
-	return self.SResourceBase.ValidateDeleteCondition(ctx)
+	return self.SResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (manager *SAccessGroupRuleManager) InitializeData() error {

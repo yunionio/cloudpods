@@ -235,7 +235,7 @@ func (sgm *SScalingGroupManager) ValidateCreateData(ctx context.Context, userCre
 	return input, nil
 }
 
-func (sg *SScalingGroup) ValidateDeleteCondition(ctx context.Context) error {
+func (sg *SScalingGroup) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	// check enabled
 	if sg.Enabled.IsTrue() {
 		return httperrors.NewForbiddenError("Please disable this ScalingGroup firstly")

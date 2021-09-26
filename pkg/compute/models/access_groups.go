@@ -250,7 +250,7 @@ func (self *SAccessGroup) RealDelete(ctx context.Context, userCred mcclient.Toke
 	return self.SStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
-func (self *SAccessGroup) ValidateDeleteCondition(ctx context.Context) error {
+func (self *SAccessGroup) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.Id == api.DEFAULT_ACCESS_GROUP {
 		return httperrors.NewProtectedResourceError("not allow to delete default access group")
 	}
@@ -261,7 +261,7 @@ func (self *SAccessGroup) ValidateDeleteCondition(ctx context.Context) error {
 	if len(mts) > 0 {
 		return httperrors.NewNotEmptyError("access group not empty, please delete mount target first")
 	}
-	return self.SStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
+	return self.SStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (self *SAccessGroup) DoSync(ctx context.Context, userCred mcclient.TokenCredential) {

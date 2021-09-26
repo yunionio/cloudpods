@@ -106,7 +106,7 @@ func (ps *SProxySetting) HttpTransportProxyFunc() httputils.TransportProxyFunc {
 	}
 }
 
-func (ps *SProxySetting) ValidateDeleteCondition(ctx context.Context) error {
+func (ps *SProxySetting) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if ps.Id == proxyapi.ProxySettingId_DIRECT {
 		return httperrors.NewConflictError("DIRECT setting cannot be deleted")
 	}
@@ -122,7 +122,7 @@ func (ps *SProxySetting) ValidateDeleteCondition(ctx context.Context) error {
 				ps.Id, n, man.KeywordPlural())
 		}
 	}
-	return ps.SInfrasResourceBase.ValidateDeleteCondition(ctx)
+	return ps.SInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (ps *SProxySetting) AllowPerformTest(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
