@@ -63,6 +63,7 @@ type Details struct {
 	DomainId      string
 	ProjectDomain string
 	Ips           string
+	Account       string
 }
 type Guest struct {
 	compute_models.SGuest
