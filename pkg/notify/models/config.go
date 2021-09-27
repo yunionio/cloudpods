@@ -172,7 +172,7 @@ func (c *SConfig) PostCreate(ctx context.Context, userCred mcclient.TokenCredent
 		return
 	}
 	NotifyService.AddConfig(ctx, c.Type, c.Config())
-	err = c.StartRepullSubcontactTask(ctx, userCred)
+	err = c.StartRepullSubcontactTask(ctx, userCred, false)
 	if err != nil {
 		log.Errorf("unable to StartRepullSubcontactTask: %v", err)
 	}
@@ -190,7 +190,7 @@ func (c *SConfig) PostUpdate(ctx context.Context, userCred mcclient.TokenCredent
 		Config:   configMap,
 		DomainId: c.DomainId,
 	})
-	err = c.StartRepullSubcontactTask(ctx, userCred)
+	err = c.StartRepullSubcontactTask(ctx, userCred, false)
 	if err != nil {
 		log.Errorf("unable to StartRepullSubcontactTask: %v", err)
 	}
@@ -200,15 +200,34 @@ func (c *SConfig) PreDelete(ctx context.Context, userCred mcclient.TokenCredenti
 	c.SStandaloneResourceBase.PreDelete(ctx, userCred)
 	NotifyService.DeleteConfig(ctx, c.Type, c.Config().DomainId)
 }
-func (c *SConfig) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	err := c.StartRepullSubcontactTask(ctx, userCred)
+
+func (c *SConfig) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	err := c.SStandaloneResourceBase.CustomizeDelete(ctx, userCred, query, data)
 	if err != nil {
-		log.Errorf("unable to StartRepullSubcontactTask: %v", err)
+		return err
 	}
+	NotifyService.DeleteConfig(ctx, c.Type, c.Config().DomainId)
+	err = c.StartRepullSubcontactTask(ctx, userCred, true)
+	if err != nil {
+		return errors.Wrap(err, "unable to start repull subcontact")
+	}
+	return err
 }
 
-func (c *SConfig) StartRepullSubcontactTask(ctx context.Context, userCred mcclient.TokenCredential) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "RepullSuncontactTask", c, userCred, nil, "", "")
+func (c *SConfig) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return nil
+}
+
+func (c *SConfig) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return c.SStandaloneResourceBase.Delete(ctx, userCred)
+}
+
+func (c *SConfig) StartRepullSubcontactTask(ctx context.Context, userCred mcclient.TokenCredential, del bool) error {
+	taskData := jsonutils.NewDict()
+	if del {
+		taskData.Set("deleted", jsonutils.JSONTrue)
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "RepullSuncontactTask", c, userCred, taskData, "", "")
 	if err != nil {
 		return err
 	}
