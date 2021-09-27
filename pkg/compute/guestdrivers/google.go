@@ -242,6 +242,7 @@ func (self *SGoogleGuestDriver) RequestStartOnHost(ctx context.Context, guest *m
 				log.Errorf("failed to update google userdata")
 			}
 		}
+		guest.SetStatus(userCred, api.VM_RUNNING, "StartOnHost")
 		return task.ScheduleRun(result)
 	}
 	return guest.SetStatus(userCred, api.VM_RUNNING, "StartOnHost")
