@@ -142,7 +142,12 @@ func (manager *SVirtualResourceBaseManager) GetPropertyProjectStatistics(ctx con
 
 	tenants := TenantCacheManager.GetTenantQuery().Equals("domain_id", userCred.GetProjectDomainId()).SubQuery()
 
-	sq := im.Query().SubQuery()
+	_q, err := ListItemQueryFilters(im, ctx, im.Query(), userCred, query, policy.PolicyActionList)
+	if err != nil {
+		return nil, err
+	}
+
+	sq := _q.SubQuery()
 
 	q := sq.Query(
 		sq.Field("tenant_id"),
@@ -170,7 +175,12 @@ func (manager *SVirtualResourceBaseManager) GetPropertyDomainStatistics(ctx cont
 
 	domains := TenantCacheManager.GetDomainQuery().SubQuery()
 
-	sq := im.Query().SubQuery()
+	_q, err := ListItemQueryFilters(im, ctx, im.Query(), userCred, query, policy.PolicyActionList)
+	if err != nil {
+		return nil, err
+	}
+
+	sq := _q.SubQuery()
 
 	q := sq.Query(
 		sq.Field("domain_id"),
