@@ -95,7 +95,7 @@ func (cm *SConfigManager) ValidateCreateData(ctx context.Context, userCred mccli
 	if input.Content == nil {
 		return input, httperrors.NewMissingParameterError("content")
 	}
-	config, err := cm.Config(input.Type, input.ProjectDomainId)
+	config, err := cm.Config(input.Type, input.ProjectDomainId, input.Attribution)
 	if err == nil && config != nil {
 		return input, httperrors.NewDuplicateResourceError("duplicate type %q", input.Type)
 	}
@@ -171,10 +171,7 @@ func (c *SConfig) PostCreate(ctx context.Context, userCred mcclient.TokenCredent
 		log.Errorf("unable to unmarshal: %v", err)
 		return
 	}
-	NotifyService.AddConfig(ctx, c.Type, notifyv2.SConfig{
-		Config:   configMap,
-		DomainId: c.DomainId,
-	})
+	NotifyService.AddConfig(ctx, c.Type, c.Config())
 	err = c.StartRepullSubcontactTask(ctx, userCred)
 	if err != nil {
 		log.Errorf("unable to StartRepullSubcontactTask: %v", err)
@@ -201,7 +198,7 @@ func (c *SConfig) PostUpdate(ctx context.Context, userCred mcclient.TokenCredent
 
 func (c *SConfig) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	c.SStandaloneResourceBase.PreDelete(ctx, userCred)
-	NotifyService.DeleteConfig(ctx, c.Type, c.DomainId)
+	NotifyService.DeleteConfig(ctx, c.Type, c.Config().DomainId)
 }
 func (c *SConfig) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	err := c.StartRepullSubcontactTask(ctx, userCred)
@@ -534,10 +531,10 @@ func (self *SConfigManager) Configs(contactType string) ([]SConfig, error) {
 	return configs, nil
 }
 
-func (self *SConfigManager) Config(contactType, domainId string) (*SConfig, error) {
+func (self *SConfigManager) Config(contactType, domainId string, attribution string) (*SConfig, error) {
 	q := self.Query()
 	q = q.Equals("type", contactType)
-	if len(domainId) == 0 {
+	if attribution == api.CONFIG_ATTRIBUTION_SYSTEM {
 		q = q.Equals("attribution", api.CONFIG_ATTRIBUTION_SYSTEM)
 	} else {
 		q = q.Equals("domain_id", domainId).Equals("attribution", api.CONFIG_ATTRIBUTION_DOMAIN)
@@ -590,33 +587,9 @@ func (self *SConfigManager) GetConfigs(contactType string) ([]notifyv2.SConfig, 
 	}
 	ret := make([]notifyv2.SConfig, 0, len(configs))
 	for i := range configs {
-		c := make(map[string]string)
-		err := configs[i].Content.Unmarshal(&c)
-		if err != nil {
-			return nil, errors.Wrap(err, "fail unmarshal config content")
-		}
-		ret = append(ret, notifyv2.SConfig{
-			Config:   c,
-			DomainId: configs[i].DomainId,
-		})
+		ret = append(ret, configs[i].Config())
 	}
 	return ret, nil
-}
-
-func (self *SConfigManager) GetConfig(contactType, domainId string) (notifyv2.SConfig, error) {
-	config, err := self.Config(contactType, domainId)
-	if err != nil {
-		return notifyv2.SConfig{}, err
-	}
-	ret := make(map[string]string)
-	err = config.Content.Unmarshal(&ret)
-	if err != nil {
-		return notifyv2.SConfig{}, errors.Wrap(err, "fail unmarshal config content")
-	}
-	return notifyv2.SConfig{
-		Config:   ret,
-		DomainId: config.DomainId,
-	}, nil
 }
 
 func (self *SConfigManager) SetConfig(contactType string, config notifyv2.SConfig) error {
@@ -632,6 +605,18 @@ func (self *SConfigManager) SetConfig(contactType string, config notifyv2.SConfi
 		sConfig.Attribution = api.CONFIG_ATTRIBUTION_DOMAIN
 	}
 	return self.TableSpec().InsertOrUpdate(context.Background(), sConfig)
+}
+
+func (self *SConfig) Config() notifyv2.SConfig {
+	c := make(map[string]string)
+	_ = self.Content.Unmarshal(&c)
+	sc := notifyv2.SConfig{
+		Config: c,
+	}
+	if self.Attribution == api.CONFIG_ATTRIBUTION_DOMAIN {
+		sc.DomainId = self.DomainId
+	}
+	return sc
 }
 
 func intersection(sa1, sa2 []string) []string {
