@@ -134,7 +134,7 @@ func NotifyRobot(robotIds []string, priority npk.TNotifyPriority, event string, 
 
 // NotifyRobot will send messages via all robot contact type such as dingtalk-robot.
 func NotifyRobotWithCtx(ctx context.Context, robotIds []string, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
-	rawNotify(context.Background(), sNotifyParams{
+	rawNotify(ctx, sNotifyParams{
 		robots:   robotIds,
 		channel:  npk.NotifyByRobot,
 		priority: priority,
