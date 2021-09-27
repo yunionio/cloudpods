@@ -155,7 +155,6 @@ func (sm *STopicManager) InitializeData() error {
 		case DefaultResourceUpdate:
 			t.addResources(
 				notify.TOPIC_RESOURCE_SERVER,
-				notify.TOPIC_RESOURCE_DISK,
 				notify.TOPIC_RESOURCE_DBINSTANCE,
 				notify.TOPIC_RESOURCE_ELASTICCACHE,
 			)
