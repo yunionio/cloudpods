@@ -260,9 +260,21 @@ func (s *SSubscriber) PerformChange(ctx context.Context, userCred mcclient.Token
 			log.Errorf("unable to set receivers %s", input.Receivers)
 		}
 	case api.SUBSCRIBER_TYPE_ROBOT:
-		s.Identification = input.Robot
+		_, err := db.Update(s, func() error {
+			s.Identification = input.Robot
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to update subscriber")
+		}
 	case api.SUBSCRIBER_TYPE_ROLE:
-		s.Identification = input.Role
+		_, err := db.Update(s, func() error {
+			s.Identification = input.Role
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to update subscriber")
+		}
 	}
 	return nil, nil
 }
