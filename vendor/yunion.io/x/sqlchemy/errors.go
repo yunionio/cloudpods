@@ -21,19 +21,38 @@ import (
 )
 
 const (
-	ErrNoDataToUpdate   = errors.Error("No data to update")
-	ErrDuplicateEntry   = errors.Error("duplicate entry")
-	ErrEmptyQuery       = errors.Error("empty query")
-	ErrEmptyPrimaryKey  = errors.Error("empty primary keys")
+	// ErrNoDataToUpdate is an Error constant: no data to update
+	ErrNoDataToUpdate = errors.Error("No data to update")
+
+	// ErrDuplicateEntry is an Error constant: duplicate entry
+	ErrDuplicateEntry = errors.Error("duplicate entry")
+
+	// ErrEmptyQuery is an Error constant: empty query
+	ErrEmptyQuery = errors.Error("empty query")
+
+	// ErrEmptyPrimaryKey is an Error constant: no primary key
+	ErrEmptyPrimaryKey = errors.Error("empty primary keys")
+
+	// ErrUnexpectRowCount is an Error constant: the number of rows impacted by modification unexpected
 	ErrUnexpectRowCount = errors.Error("unexpected row count")
 
+	// ErrNeedsPointer is an Error constant: input should be a pointer
 	ErrNeedsPointer = errors.Error("input needs pointer input")
-	ErrNeedsArray   = errors.Error("input needs slice or array")
-	ErrReadOnly     = errors.Error("read only input")
 
+	// ErrNeedsArray is an Error constant: input should be an Array or Slice
+	ErrNeedsArray = errors.Error("input needs slice or array")
+
+	// ErrReadOnly is an Error constant: database is read-only
+	ErrReadOnly = errors.Error("read only input")
+
+	// ErrNotSupported is an Error constant: method not supported yet
 	ErrNotSupported = errors.ErrNotSupported
 
+	// ErrTableNotExists is an Error constant: table not exists
 	ErrTableNotExists = errors.Error("TableNotExists")
+
+	// ErrUnionFieldsNotMatch is an Error constant: fields of union queries not match
+	ErrUnionFieldsNotMatch = errors.Error("cannot union, name of fields not match")
 )
 
 const (

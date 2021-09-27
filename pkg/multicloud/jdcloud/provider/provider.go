@@ -211,10 +211,14 @@ func (p *SJdcloudProvider) GetCloudRegionExternalIdPrefix() string {
 }
 
 func (p *SJdcloudProvider) GetCapabilities() []string {
+	iRegions := p.GetIRegions()
+	if len(iRegions) > 0 {
+		return iRegions[0].GetCapabilities()
+	}
 	caps := []string{
-		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
-		cloudprovider.CLOUD_CAPABILITY_NETWORK,
-		cloudprovider.CLOUD_CAPABILITY_RDS,
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_NETWORK + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_RDS + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
 }

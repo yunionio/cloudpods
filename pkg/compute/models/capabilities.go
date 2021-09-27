@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -37,17 +38,20 @@ import (
 )
 
 type SCapabilities struct {
-	Hypervisors                 []string `json:",allowempty"`
-	Brands                      []string `json:",allowempty"`
-	DisabledBrands              []string `json:",allowempty"`
-	ComputeEngineBrands         []string `json:",allowempty"`
-	DisabledComputeEngineBrands []string `json:",allowempty"`
-	RdsEngineBrands             []string `json:",allowempty"`
-	RedisEngineBrands           []string `json:",allowempty"`
-	LoadbalancerEngineBrands    []string `json:",allowempty"`
-	DisabledRdsEngineBrands     []string `json:",allowempty"`
-	CloudIdBrands               []string `json:",allowempty"`
-	DisabledCloudIdBrands       []string `json:",allowempty"`
+	Hypervisors []string `json:",allowempty"`
+
+	Brands                           []string `json:",allowempty"`
+	DisabledBrands                   []string `json:",allowempty"`
+	ComputeEngineBrands              []string `json:",allowempty"`
+	DisabledComputeEngineBrands      []string `json:",allowempty"`
+	RdsEngineBrands                  []string `json:",allowempty"`
+	DisabledRdsEngineBrands          []string `json:",allowempty"`
+	RedisEngineBrands                []string `json:",allowempty"`
+	DisabledRedisEngineBrands        []string `json:",allowempty"`
+	LoadbalancerEngineBrands         []string `json:",allowempty"`
+	DisabledLoadbalancerEngineBrands []string `json:",allowempty"`
+	CloudIdBrands                    []string `json:",allowempty"`
+	DisabledCloudIdBrands            []string `json:",allowempty"`
 	// 支持SAML 2.0
 	SamlAuthBrands              []string `json:",allowempty"`
 	DisabledSamlAuthBrands      []string `json:",allowempty"`
@@ -60,21 +64,53 @@ type SCapabilities struct {
 	CdnBrands                   []string `json:",allowempty"`
 	DisabledCdnBrands           []string `json:",allowempty"`
 	PublicIpBrands              []string `json:",allowempty"`
+	DisabledPublicIpBrands      []string `json:",allowempty"`
 	NetworkManageBrands         []string `json:",allowempty"`
 	DisabledNetworkManageBrands []string `json:",allowempty"`
 	ObjectStorageBrands         []string `json:",allowempty"`
 	DisabledObjectStorageBrands []string `json:",allowempty"`
-	ResourceTypes               []string `json:",allowempty"`
-	StorageTypes                []string `json:",allowempty"` // going to remove on 2.14
-	DataStorageTypes            []string `json:",allowempty"` // going to remove on 2.14
-	GPUModels                   []string `json:",allowempty"`
-	HostCpuArchs                []string `json:",allowempty"` // x86_64 aarch64
-	MinNicCount                 int
-	MaxNicCount                 int
-	MinDataDiskCount            int
-	MaxDataDiskCount            int
-	SchedPolicySupport          bool
-	Usable                      bool
+
+	ReadOnlyBrands                           []string `json:",allowempty"`
+	ReadOnlyDisabledBrands                   []string `json:",allowempty"`
+	ReadOnlyComputeEngineBrands              []string `json:",allowempty"`
+	ReadOnlyDisabledComputeEngineBrands      []string `json:",allowempty"`
+	ReadOnlyRdsEngineBrands                  []string `json:",allowempty"`
+	ReadOnlyDisabledRdsEngineBrands          []string `json:",allowempty"`
+	ReadOnlyRedisEngineBrands                []string `json:",allowempty"`
+	ReadOnlyDisabledRedisEngineBrands        []string `json:",allowempty"`
+	ReadOnlyLoadbalancerEngineBrands         []string `json:",allowempty"`
+	ReadOnlyDisabledLoadbalancerEngineBrands []string `json:",allowempty"`
+	ReadOnlyCloudIdBrands                    []string `json:",allowempty"`
+	ReadOnlyDisabledCloudIdBrands            []string `json:",allowempty"`
+	// 支持SAML 2.0
+	ReadOnlySamlAuthBrands              []string `json:",allowempty"`
+	ReadOnlyDisabledSamlAuthBrands      []string `json:",allowempty"`
+	ReadOnlyNatBrands                   []string `json:",allowempty"`
+	ReadOnlyDisabledNatBrands           []string `json:",allowempty"`
+	ReadOnlyNasBrands                   []string `json:",allowempty"`
+	ReadOnlyDisabledNasBrands           []string `json:",allowempty"`
+	ReadOnlyWafBrands                   []string `json:",allowempty"`
+	ReadOnlyDisabledWafBrands           []string `json:",allowempty"`
+	ReadOnlyCdnBrands                   []string `json:",allowempty"`
+	ReadOnlyDisabledCdnBrands           []string `json:",allowempty"`
+	ReadOnlyPublicIpBrands              []string `json:",allowempty"`
+	ReadOnlyDisabledPublicIpBrands      []string `json:",allowempty"`
+	ReadOnlyNetworkManageBrands         []string `json:",allowempty"`
+	ReadOnlyDisabledNetworkManageBrands []string `json:",allowempty"`
+	ReadOnlyObjectStorageBrands         []string `json:",allowempty"`
+	ReadOnlyDisabledObjectStorageBrands []string `json:",allowempty"`
+
+	ResourceTypes      []string `json:",allowempty"`
+	StorageTypes       []string `json:",allowempty"` // going to remove on 2.14
+	DataStorageTypes   []string `json:",allowempty"` // going to remove on 2.14
+	GPUModels          []string `json:",allowempty"`
+	HostCpuArchs       []string `json:",allowempty"` // x86_64 aarch64
+	MinNicCount        int
+	MaxNicCount        int
+	MinDataDiskCount   int
+	MaxDataDiskCount   int
+	SchedPolicySupport bool
+	Usable             bool
 
 	// Deprecated
 	PublicNetworkCount int
@@ -295,20 +331,24 @@ func getDBInstanceInfo(region *SCloudregion, zone *SZone) map[string]map[string]
 
 // set all brands, compute engine brands, network manage brands, object storage brands
 func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabilities) {
-	capa.Brands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, "")
-	capa.ComputeEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_COMPUTE)
-	capa.RdsEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_RDS)
-	capa.RedisEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_CACHE)
-	capa.NetworkManageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_NETWORK)
-	capa.ObjectStorageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
-	capa.CloudIdBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_CLOUDID)
-	capa.PublicIpBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_PUBLIC_IP)
-	capa.LoadbalancerEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_LOADBALANCER)
-	capa.SamlAuthBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_SAML_AUTH)
-	capa.NatBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_NAT)
-	capa.NasBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_NAS)
-	capa.WafBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_WAF)
-	capa.CdnBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_CDN)
+	brands, err := CloudaccountManager.getBrandsOfCapability(region, zone, domainId)
+	if err != nil {
+		log.Errorf("getBrandsOfCapability: %v", err)
+	}
+	brandMaps := map[string]map[string]bool{}
+	for _, brand := range brands {
+		_, ok := brandMaps[brand.Brand]
+		if !ok {
+			brandMaps[brand.Brand] = map[string]bool{}
+		}
+		_, ok = brandMaps[brand.Brand][brand.Capability]
+		if !ok {
+			brandMaps[brand.Brand][brand.Capability] = brand.Enabled
+		}
+		if brand.Enabled {
+			brandMaps[brand.Brand][brand.Capability] = true
+		}
+	}
 
 	if utils.IsInStringArray(api.HYPERVISOR_KVM, capa.Hypervisors) || utils.IsInStringArray(api.HYPERVISOR_BAREMETAL, capa.Hypervisors) {
 		capa.Brands = append(capa.Brands, api.ONECLOUD_BRAND_ONECLOUD)
@@ -319,19 +359,72 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 		capa.LoadbalancerEngineBrands = append(capa.LoadbalancerEngineBrands, api.ONECLOUD_BRAND_ONECLOUD)
 	}
 
-	capa.NetworkManageBrands = append(capa.NetworkManageBrands, api.ONECLOUD_BRAND_ONECLOUD)
+	var appendBrand = func(enabled *[]string, disabled *[]string, readOnlyEnabled *[]string, readOnlyDisabled *[]string, brand, capability string, isEnable, readOnly bool) {
+		if readOnly {
+			if isEnable {
+				*readOnlyEnabled = append(*readOnlyEnabled, brand)
+				if capability == cloudprovider.CLOUD_CAPABILITY_COMPUTE && !utils.IsInStringArray(brand, capa.ReadOnlyBrands) {
+					capa.ReadOnlyBrands = append(capa.ReadOnlyBrands, brand)
+				}
+			} else {
+				*readOnlyDisabled = append(*readOnlyDisabled, brand)
+				if capability == cloudprovider.CLOUD_CAPABILITY_COMPUTE && !utils.IsInStringArray(brand, capa.ReadOnlyDisabledBrands) {
+					capa.ReadOnlyDisabledBrands = append(capa.ReadOnlyDisabledBrands, brand)
+				}
+			}
+		} else {
+			if isEnable {
+				*enabled = append(*enabled, brand)
+				if capability == cloudprovider.CLOUD_CAPABILITY_COMPUTE && !utils.IsInStringArray(brand, capa.Brands) {
+					capa.Brands = append(capa.Brands, brand)
+				}
+			} else {
+				*disabled = append(*disabled, brand)
+				if capability == cloudprovider.CLOUD_CAPABILITY_COMPUTE && !utils.IsInStringArray(brand, capa.DisabledBrands) {
+					capa.DisabledBrands = append(capa.DisabledBrands, brand)
+				}
+			}
+		}
+	}
 
-	capa.DisabledBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, "")
-	capa.DisabledComputeEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_COMPUTE)
-	capa.DisabledRdsEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_RDS)
-	capa.DisabledNetworkManageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_NETWORK)
-	capa.DisabledObjectStorageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
-	capa.DisabledCloudIdBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_CLOUDID)
-	capa.DisabledSamlAuthBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_SAML_AUTH)
-	capa.DisabledNatBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_NAT)
-	capa.DisabledNasBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_NAS)
-	capa.DisabledNasBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_WAF)
-	capa.DisabledCdnBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_CDN)
+	for brand, info := range brandMaps {
+		for capability, enabled := range info {
+			readOnly := false
+			if strings.HasSuffix(capability, cloudprovider.READ_ONLY_SUFFIX) {
+				readOnly = true
+				capability = strings.TrimSuffix(capability, cloudprovider.READ_ONLY_SUFFIX)
+			}
+			switch capability {
+			case cloudprovider.CLOUD_CAPABILITY_COMPUTE:
+				appendBrand(&capa.ComputeEngineBrands, &capa.DisabledComputeEngineBrands, &capa.ReadOnlyComputeEngineBrands, &capa.ReadOnlyDisabledComputeEngineBrands, brand, capability, enabled, readOnly)
+			case cloudprovider.CLOUD_CAPABILITY_RDS:
+				appendBrand(&capa.RdsEngineBrands, &capa.DisabledRdsEngineBrands, &capa.ReadOnlyRdsEngineBrands, &capa.ReadOnlyDisabledRdsEngineBrands, brand, capability, enabled, readOnly)
+			case cloudprovider.CLOUD_CAPABILITY_CACHE:
+				appendBrand(&capa.RedisEngineBrands, &capa.DisabledRedisEngineBrands, &capa.ReadOnlyRedisEngineBrands, &capa.ReadOnlyDisabledRedisEngineBrands, brand, capability, enabled, readOnly)
+			case cloudprovider.CLOUD_CAPABILITY_NETWORK:
+				appendBrand(&capa.NetworkManageBrands, &capa.DisabledNetworkManageBrands, &capa.ReadOnlyNetworkManageBrands, &capa.ReadOnlyDisabledNetworkManageBrands, brand, capability, enabled, readOnly)
+			case cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE:
+				appendBrand(&capa.ObjectStorageBrands, &capa.DisabledObjectStorageBrands, &capa.ReadOnlyObjectStorageBrands, &capa.ReadOnlyDisabledObjectStorageBrands, brand, capability, enabled, readOnly)
+			case cloudprovider.CLOUD_CAPABILITY_CLOUDID:
+				appendBrand(&capa.CloudIdBrands, &capa.DisabledCloudIdBrands, &capa.ReadOnlyCloudIdBrands, &capa.ReadOnlyDisabledCloudIdBrands, brand, capability, enabled, readOnly)
+			case cloudprovider.CLOUD_CAPABILITY_PUBLIC_IP:
+				appendBrand(&capa.PublicIpBrands, &capa.DisabledPublicIpBrands, &capa.ReadOnlyPublicIpBrands, &capa.ReadOnlyDisabledPublicIpBrands, brand, capability, enabled, readOnly)
+			case cloudprovider.CLOUD_CAPABILITY_LOADBALANCER:
+				appendBrand(&capa.LoadbalancerEngineBrands, &capa.DisabledLoadbalancerEngineBrands, &capa.ReadOnlyLoadbalancerEngineBrands, &capa.ReadOnlyDisabledLoadbalancerEngineBrands, brand, capability, enabled, readOnly)
+			case cloudprovider.CLOUD_CAPABILITY_SAML_AUTH:
+				appendBrand(&capa.SamlAuthBrands, &capa.DisabledSamlAuthBrands, &capa.ReadOnlySamlAuthBrands, &capa.ReadOnlyDisabledSamlAuthBrands, brand, capability, enabled, readOnly)
+			case cloudprovider.CLOUD_CAPABILITY_NAT:
+				appendBrand(&capa.NatBrands, &capa.DisabledNatBrands, &capa.ReadOnlyNatBrands, &capa.ReadOnlyDisabledNatBrands, brand, capability, enabled, readOnly)
+			case cloudprovider.CLOUD_CAPABILITY_NAS:
+				appendBrand(&capa.NasBrands, &capa.DisabledNasBrands, &capa.ReadOnlyNasBrands, &capa.ReadOnlyDisabledNasBrands, brand, capability, enabled, readOnly)
+			case cloudprovider.CLOUD_CAPABILITY_WAF:
+				appendBrand(&capa.WafBrands, &capa.DisabledWafBrands, &capa.ReadOnlyWafBrands, &capa.ReadOnlyDisabledWafBrands, brand, capability, enabled, readOnly)
+			case cloudprovider.CLOUD_CAPABILITY_CDN:
+				appendBrand(&capa.CdnBrands, &capa.DisabledCdnBrands, &capa.ReadOnlyCdnBrands, &capa.ReadOnlyDisabledCdnBrands, brand, capability, enabled, readOnly)
+			default:
+			}
+		}
+	}
 
 	return
 }
