@@ -144,8 +144,8 @@ func (ec *SEcloudClient) GetRegionById(id string) (*SRegion, error) {
 
 func (ec *SEcloudClient) GetCapabilities() []string {
 	caps := []string{
-		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
-		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_NETWORK + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
 }
