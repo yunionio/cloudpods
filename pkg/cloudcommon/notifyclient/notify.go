@@ -284,6 +284,7 @@ func EventNotify(ctx context.Context, userCred mcclient.TokenCredential, ep SEve
 		ResourceDetails: objDetails,
 		Event:           event.String(),
 		AdvanceDays:     ep.AdvanceDays,
+		Priority:        string(npk.NotifyPriorityNormal),
 		ProjectId:       projectId,
 		ProjectDomainId: projectDomainId,
 	}
