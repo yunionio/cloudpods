@@ -162,8 +162,8 @@ func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred m
 		input.ResourceAttributionId = tenant.Id
 		input.ResourceAttributionName = tenant.Name
 	}
-	if input.Scope == sDomain && domainId != userCred.GetDomainId() {
-		return input, httperrors.NewForbiddenError("domain %s admin can't create subscriber for domain %s", userCred.GetDomainId(), domainId)
+	if input.Scope == sDomain && domainId != userCred.GetProjectDomainId() {
+		return input, httperrors.NewForbiddenError("domain %s admin can't create subscriber for domain %s", userCred.GetProjectDomainId(), domainId)
 	}
 
 	var checkQuery *sqlchemy.SQuery
@@ -263,7 +263,7 @@ func (s *SSubscriber) PerformChange(ctx context.Context, userCred mcclient.Token
 		if !db.IsDomainAllowUpdate(userCred, s) {
 			return nil, httperrors.NewForbiddenError("")
 		}
-		if s.DomainId != userCred.GetDomainId() {
+		if s.DomainId != userCred.GetProjectDomainId() {
 			return nil, httperrors.NewForbiddenError("")
 		}
 	}
@@ -314,11 +314,11 @@ func (sm *SSubscriberManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 			return nil, httperrors.NewForbiddenError("")
 		}
 	case sDomain:
-		allow := db.IsAdminAllowList(userCred, sm)
+		allow := db.IsDomainAllowList(userCred, sm)
 		if !allow {
 			return nil, httperrors.NewForbiddenError("")
 		}
-		q = q.Equals("domain_id", userCred.GetDomainId())
+		q = q.Equals("domain_id", userCred.GetProjectDomainId())
 	default:
 		return nil, httperrors.NewInputParameterError("unkown scope %s", input.Scope)
 	}
@@ -375,7 +375,7 @@ func (s *SSubscriber) CustomizeDelete(ctx context.Context, userCred mcclient.Tok
 		if !db.IsDomainAllowDelete(userCred, s) {
 			return httperrors.NewForbiddenError("")
 		}
-		if s.DomainId != userCred.GetDomainId() {
+		if s.DomainId != userCred.GetProjectDomainId() {
 			return httperrors.NewForbiddenError("")
 		}
 	}
