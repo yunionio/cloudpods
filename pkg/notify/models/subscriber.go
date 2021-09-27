@@ -165,6 +165,8 @@ func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred m
 	if input.Scope == sDomain && domainId != userCred.GetDomainId() {
 		return input, httperrors.NewForbiddenError("domain %s admin can't create subscriber for domain %s", userCred.GetDomainId(), domainId)
 	}
+
+	var checkQuery *sqlchemy.SQuery
 	input.TopicID = t.GetId()
 	switch input.Type {
 	case api.SUBSCRIBER_TYPE_RECEIVER:
@@ -182,6 +184,7 @@ func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred m
 			return input, errors.Wrapf(err, "unable find role %q", input.Role)
 		}
 		input.Role = roleCache.GetId()
+		checkQuery = sm.Query().Equals("topic_id", input.TopicID).Equals("type", api.SUBSCRIBER_TYPE_ROLE).Equals("resource_scope", input.ResourceScope).Equals("identification", input.Role).Equals("role_scope", input.RoleScope)
 	case api.SUBSCRIBER_TYPE_ROBOT:
 		robot, err := RobotManager.FetchByIdOrName(userCred, input.Robot)
 		if errors.Cause(err) == sql.ErrNoRows {
@@ -191,8 +194,19 @@ func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred m
 			return input, errors.Wrapf(err, "unable to fetch robot %q", input.Robot)
 		}
 		input.Robot = robot.GetId()
+		checkQuery = sm.Query().Equals("type", api.SUBSCRIBER_TYPE_ROLE).Equals("topic_id", input.TopicID).Equals("resource_scope", input.ResourceScope).Equals("identification", input.Robot)
 	default:
 		return input, httperrors.NewInputParameterError("unkown type %q", input.Type)
+	}
+	// check type+resourceScope+identification
+	if checkQuery != nil {
+		count, err := checkQuery.CountWithError()
+		if err != nil {
+			return input, errors.Wrap(err, "unable to count")
+		}
+		if count > 0 {
+			return input, httperrors.NewForbiddenError("repeated with existing subscribers")
+		}
 	}
 	return input, nil
 }
