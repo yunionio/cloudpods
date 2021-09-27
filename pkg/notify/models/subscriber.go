@@ -157,10 +157,10 @@ func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred m
 		if err != nil {
 			return input, errors.Wrapf(err, "unable to fetch domain %s", input.ResourceAttributionId)
 		}
-		domainId = tenant.DomainId
+		domainId = tenant.Id
 		input.DomainId = domainId
-		input.ResourceAttributionId = tenant.DomainId
-		input.ResourceAttributionName = tenant.Domain
+		input.ResourceAttributionId = tenant.Id
+		input.ResourceAttributionName = tenant.Name
 	}
 	if input.Scope == sDomain && domainId != userCred.GetDomainId() {
 		return input, httperrors.NewForbiddenError("domain %s admin can't create subscriber for domain %s", userCred.GetDomainId(), domainId)
