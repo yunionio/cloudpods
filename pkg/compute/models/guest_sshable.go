@@ -491,7 +491,7 @@ func (guest *SGuest) PerformMakeSshable(
 
 	cliSess := auth.GetSession(ctx, userCred, "", "")
 	pbId := ""
-	pbName := "make-sshable-" + guest.Name
+	pbName := "make-sshable-" + guest.Id
 	pbModel, err := mcclient_modules.AnsiblePlaybooks.UpdateOrCreatePbModel(
 		ctx, cliSess, pbId, pbName, pb,
 	)
