@@ -65,7 +65,7 @@ func GetDriverByKernelModule(module string, term raid.IExecTerm) (raid.IRaidDriv
 		name = baremetal.DISK_DRIVER_HPSARAID
 	case raid.MODULE_MPT2SAS, raid.MODULE_MPT3SAS:
 		name = baremetal.DISK_DRIVER_MPT2SAS
-	case raid.MODULE_AACRAID:
+	case raid.MODULE_AACRAID, raid.MODULE_SMARTPQI:
 		name = baremetal.DISK_DRIVER_ADAPTECRAID
 	}
 	if name == "" {
@@ -96,13 +96,13 @@ func BuildRaid(driver raid.IRaidDriver, confs []*api.BaremetalDiskConfig, adapte
 	if adapter == nil {
 		return fmt.Errorf("Not found adapter by index %d", adapterIdx)
 	}
-	if err := buildRaid(adapter, confs); err != nil {
+	if err := buildRaid(driver, adapter, confs); err != nil {
 		return fmt.Errorf("Driver %s, adapter %d build raid: %v", driver.GetName(), adapterIdx, err)
 	}
 	return nil
 }
 
-func buildRaid(adapter raid.IRaidAdapter, confs []*api.BaremetalDiskConfig) error {
+func buildRaid(driver raid.IRaidDriver, adapter raid.IRaidAdapter, confs []*api.BaremetalDiskConfig) error {
 	if err := adapter.PreBuildRaid(confs); err != nil {
 		return fmt.Errorf("PreBuildRaid: %v", err)
 	}
@@ -142,6 +142,7 @@ func buildRaid(adapter raid.IRaidAdapter, confs []*api.BaremetalDiskConfig) erro
 		if err != nil {
 			return fmt.Errorf("Build raid %s: %v", conf.Conf, err)
 		}
+		log.Infof("Build %s:%d raid %s", driver.GetName(), adapter.GetIndex(), conf.Conf)
 	}
 	if len(nonDisks) > 0 {
 		if err := adapter.BuildNoneRaid(nonDisks); err != nil {
