@@ -2448,9 +2448,7 @@ func (s *SBaremetalServer) DoDiskConfig(term *ssh.Client) error {
 		}
 	}
 
-	tool := disktool.NewSSHPartitionTool(term)
-	tool.FetchDiskConfs(baremetal.GetDiskConfigurations(layouts))
-	err = tool.RetrieveDiskInfo()
+	tool, err := disktool.NewSSHPartitionTool(term, layouts)
 	if err != nil {
 		return err
 	}
@@ -2529,11 +2527,9 @@ func (s *SBaremetalServer) DoPartitionDisk(term *ssh.Client) ([]*disktool.Partit
 		return nil, errors.Wrapf(err, "CalculateLayout")
 	}
 
-	tool := disktool.NewSSHPartitionTool(term)
-	tool.FetchDiskConfs(baremetal.GetDiskConfigurations(layouts))
-	err = tool.RetrieveDiskInfo()
+	tool, err := disktool.NewSSHPartitionTool(term, layouts)
 	if err != nil {
-		return nil, errors.Wrapf(err, "RetrieveDiskInfo")
+		return nil, errors.Wrapf(err, "NewSSHPartitionTool")
 	}
 
 	disks, _ := s.desc.GetArray("disks")
@@ -2606,9 +2602,7 @@ func (s *SBaremetalServer) DoRebuildRootDisk(term *ssh.Client) ([]*disktool.Part
 		return nil, err
 	}
 
-	tool := disktool.NewSSHPartitionTool(term)
-	tool.FetchDiskConfs(baremetal.GetDiskConfigurations(layouts))
-	err = tool.RetrieveDiskInfo()
+	tool, err := disktool.NewSSHPartitionTool(term, layouts)
 	if err != nil {
 		return nil, err
 	}

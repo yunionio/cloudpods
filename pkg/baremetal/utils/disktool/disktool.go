@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	// "yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	raiddrivers "yunion.io/x/onecloud/pkg/baremetal/utils/raid/drivers"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
@@ -631,10 +632,42 @@ func (tool *PartitionTool) parseLsDisk(lines []string, driver string) {
 			}
 			driverDisk.SetInfo(remoteDisk)
 		} else {
-			// raid disk set by order
-			driverDisk.SetInfo(disks[i])
+			// raid disks should set by driver matched disk
+			// find driver matched disk from remote disks
+			remoteDisk, err := tool.findDriverRaidMatchedDisk(driverDisk, disks, i)
+			if err != nil {
+				// raid disk set by order
+				log.Warningf("findDriverRaidMatchedDisk error: %v, set disk by order", err)
+				remoteDisk = disks[i]
+			}
+			// driverDisk.SetInfo(disks[i])
+			driverDisk.SetInfo(remoteDisk)
 		}
 	}
+}
+
+func (tool *PartitionTool) findDriverRaidMatchedDisk(disk *DiskPartitions, rDisks []*types.SDiskInfo, diskIndex int) (*types.SDiskInfo, error) {
+	raidDrv, err := raiddrivers.GetDriverWithInit(disk.driver, tool.runner.Term())
+	if err != nil {
+		return nil, errors.Wrapf(err, "Not found raid driver by %q", disk.driver)
+	}
+	log.Debugf("find raid driver %q", raidDrv.GetName())
+	/*
+	 * for _, ada := range raidDrv.GetAdapters() {
+	 * 	if ada.GetIndex() == disk.adapter {
+	 * 		return ada.FindRemoteMatchedDisk(&raid.MatchedDiskParams{
+	 * 			Driver:     disk.driver,
+	 * 			Adapter:    disk.adapter,
+	 * 			RaidConfig: disk.raidConfig,
+	 * 			Index:      diskIndex,
+	 * 			SizeMB:     disk.sizeMB,
+	 * 			BlockSize:  disk.blockSize,
+	 * 		}, rDisks)
+	 * 	}
+	 * }
+	 * return nil, errors.Errorf("Not found raid driver %q adapter %d", disk.driver, disk.adapter)
+	 */
+	return nil, errors.Errorf("to be implemented")
 }
 
 func (tool *PartitionTool) FetchDiskConfs(diskConfs []baremetal.DiskConfiguration) *PartitionTool {
@@ -753,12 +786,21 @@ type SSHPartitionTool struct {
 	term *ssh.Client
 }
 
-func NewSSHPartitionTool(term *ssh.Client) *SSHPartitionTool {
+func newSSHPartitionTool(term *ssh.Client) *SSHPartitionTool {
 	tool := &SSHPartitionTool{
 		term: term,
 	}
 	tool.PartitionTool = NewPartitionTool(tool)
 	return tool
+}
+
+func NewSSHPartitionTool(term *ssh.Client, layouts []baremetal.Layout) (*SSHPartitionTool, error) {
+	tool := newSSHPartitionTool(term)
+	tool.FetchDiskConfs(baremetal.GetDiskConfigurations(layouts))
+	if err := tool.RetrieveDiskInfo(); err != nil {
+		return nil, errors.Wrapf(err, "RetrieveDiskInfo")
+	}
+	return tool, nil
 }
 
 func (tool *SSHPartitionTool) Run(cmds ...string) ([]string, error) {
