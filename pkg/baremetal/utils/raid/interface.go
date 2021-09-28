@@ -18,6 +18,7 @@ import (
 	"io"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	// "yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 )
 
@@ -26,8 +27,16 @@ type IRaidDriver interface {
 	GetName() string
 	GetAdapters() []IRaidAdapter
 	PreBuildRaid(confs []*api.BaremetalDiskConfig, adapterIdx int) error
-
 	CleanRaid() error
+}
+
+type MatchedDiskParams struct {
+	Driver     string
+	Adapter    int
+	RaidConfig string
+	Index      int
+	SizeMB     int64
+	BlockSize  int64
 }
 
 type IRaidAdapter interface {
@@ -36,6 +45,7 @@ type IRaidAdapter interface {
 	GetLogicVolumes() ([]*RaidLogicalVolume, error)
 	RemoveLogicVolumes() error
 	GetDevices() []*baremetal.BaremetalStorage
+	// FindRemoteMatchedDisk(input *MatchedDiskParams, remoteDisks []*types.SDiskInfo) (*types.SDiskInfo, error)
 
 	BuildRaid0(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error
 	BuildRaid1(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error
