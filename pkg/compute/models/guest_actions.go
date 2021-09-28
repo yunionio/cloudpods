@@ -925,7 +925,7 @@ func (self *SGuest) EventNotify(ctx context.Context, userCred mcclient.TokenCred
 		}
 		loginAccount := meta[api.VM_METADATA_LOGIN_ACCOUNT]
 		if len(loginAccount) > 0 {
-			details.Add(jsonutils.NewString(loginAccount), "account")
+			details.Add(jsonutils.NewString(loginAccount), "login_account")
 		}
 		keypair := self.getKeypairName()
 		if len(keypair) > 0 {

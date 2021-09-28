@@ -430,6 +430,11 @@ func init() {
 			"裸金属",
 		},
 		sI18nElme{
+			api.TOPIC_RESOURCE_SNAPSHOTPOLICY,
+			"snapshot policy",
+			"快照策略",
+		},
+		sI18nElme{
 			string(api.ActionCreate),
 			"created",
 			"创建",
