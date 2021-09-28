@@ -2790,6 +2790,13 @@ func (self *SCloudaccount) SyncDnsZones(ctx context.Context, userCred mcclient.T
 			result.UpdateError(errors.Wrapf(err, "SyncWithCloudDnsZone"))
 			continue
 		}
+		zone, err := commondb[i].GetDnsZone()
+		if err != nil {
+			result.UpdateError(errors.Wrapf(err, "GetDnsZone"))
+			continue
+		}
+		localZones = append(localZones, *zone)
+		remoteZones = append(remoteZones, commonext[i])
 
 		result.Update()
 	}
@@ -2801,10 +2808,10 @@ func (self *SCloudaccount) SyncDnsZones(ctx context.Context, userCred mcclient.T
 			continue
 		}
 		if isNew {
-			localZones = append(localZones, *dnsZone)
-			remoteZones = append(remoteZones, added[i])
+			result.Add()
 		}
-		result.Add()
+		localZones = append(localZones, *dnsZone)
+		remoteZones = append(remoteZones, added[i])
 	}
 
 	return localZones, remoteZones, result

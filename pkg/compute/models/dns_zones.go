@@ -663,14 +663,19 @@ func (self *SDnsZone) SyncDnsRecordSets(ctx context.Context, userCred mcclient.T
 		result.Delete()
 	}
 
-	if self.ZoneType == string(cloudprovider.PrivateZone) {
-		for i := range update {
-			_record, err := DnsRecordSetManager.FetchById(update[i].Id)
-			if err != nil {
-				result.UpdateError(errors.Wrapf(err, "DnsRecordSetManager.FetchById(%s)", del[i].Id))
-				continue
-			}
-			record := _record.(*SDnsRecordSet)
+	for i := range update {
+		_record, err := DnsRecordSetManager.FetchById(update[i].Id)
+		if err != nil {
+			result.UpdateError(errors.Wrapf(err, "DnsRecordSetManager.FetchById(%s)", del[i].Id))
+			continue
+		}
+		record := _record.(*SDnsRecordSet)
+		caches, err := self.GetDnsZoneCaches()
+		if err != nil {
+			result.UpdateError(errors.Wrapf(err, "GetDnsZoneCaches"))
+			continue
+		}
+		if self.ZoneType == string(cloudprovider.PrivateZone) || len(caches) < 2 {
 			err = record.syncWithCloudDnsRecord(ctx, userCred, provider, update[i])
 			if err != nil {
 				result.UpdateError(errors.Wrapf(err, "syncWithCloudDnsRecord"))
