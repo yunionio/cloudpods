@@ -9,8 +9,8 @@ Your {{ if $d.brand -}} {{ $d.brand }} {{ end -}} {{ .resource_type_display }} {
 , the internet address is {{ $d.public_dns }}:{{ $d.public_connect_port }}
 {{- end -}}
 
-{{- if and $d.address_type $d.address -}}
-, the service address is {{ $d.address_type }}{{ $d.address }}
+{{- if $d.address -}}
+, the service address is {{ $d.address }}
 {{- end -}}
 
 {{- if $d.ips -}}
@@ -46,7 +46,7 @@ Your {{ if $d.brand -}} {{ $d.brand }} {{ end -}} {{ .resource_type_display }} {
 {{- end -}}
 
 {{- if eq .resource_type "server" -}}
-, and please use {{ if $d.windows -}} Remote Desktop Connector (RDC) {{ else -}} SSH {{ end -}} or the control panel console to access the VM.
+, and please use {{ if $d.windows -}} Remote Desktop Connector (RDC) {{ else -}} SSH {{ end -}} or go to the console to access the VM.
 {{- end -}}
 
 {{- if has .resource_type $consoleServiceType -}}
