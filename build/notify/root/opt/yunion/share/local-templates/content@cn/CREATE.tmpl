@@ -13,8 +13,8 @@
 ，外网地址为{{ $d.public_dns }}:{{ $d.public_connect_port }}
 {{- end -}}
 
-{{- if and $d.address_type $d.address -}}
-，服务地址为{{ $d.address_type }}{{ $d.address }}
+{{- if $d.address -}}
+，服务地址为{{ $d.address }}
 {{- end -}}
 
 {{- if $d.ips -}}
@@ -29,8 +29,8 @@
 ，IP地址为{{ $d.ip_addr }}
 {{- end -}}
 
-{{- if $d.account -}}
-，初始帐号为{{ $d.account }}
+{{- if $d.login_account -}}
+，初始帐号为{{ $d.login_account }}
 {{- end -}}
 
 {{- if $d.password -}}
@@ -56,7 +56,7 @@
 {{- else -}}
 SSH
 {{- end -}}
-或控制面板控制台访问虚拟机。
+或前往控制台访问虚拟机。
 {{- end -}}
 
 {{- if has .resource_type $consoleServiceType -}}

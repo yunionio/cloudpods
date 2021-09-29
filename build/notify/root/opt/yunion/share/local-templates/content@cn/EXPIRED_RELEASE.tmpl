@@ -3,4 +3,12 @@
 {{- if $d.brand -}}
 {{ $d.brand }}平台
 {{- end -}}
+
+{{- if $d.private_dns -}}
+，内网地址为{{ $d.private_dns }}:{{ $d.private_connect_port }}
+{{- end -}}
+
+{{- if $d.public_dns -}}
+，外网地址为{{ $d.public_dns }}:{{ $d.public_connect_port }}的
+{{- end -}}
 {{ .resource_type_display }}{{ $d.name }}还有{{ .advance_days }}天就要到期释放，如需续期使用，请尽快前往控制台处理

@@ -73,6 +73,66 @@ var (
 				},
 			},
 		},
+		{
+			Auth:  true,
+			Scope: rbacutils.ScopeSystem,
+			Rules: []rbacutils.SRbacRule{
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "topics",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "topics",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+			},
+		},
+		{
+			Auth:  true,
+			Scope: rbacutils.ScopeSystem,
+			Rules: []rbacutils.SRbacRule{
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "subscribers",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "subscribers",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "subscribers",
+					Action:   PolicyActionCreate,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "subscribers",
+					Action:   PolicyActionUpdate,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "subscribers",
+					Action:   PolicyActionDelete,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "subscribers",
+					Action:   PolicyActionPerform,
+					Result:   rbacutils.Allow,
+				},
+			},
+		},
 	}
 )
 
