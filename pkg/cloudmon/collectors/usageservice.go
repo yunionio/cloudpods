@@ -179,11 +179,13 @@ type resourceUsage struct {
 
 func getDomainAndProjectServerUsage(session *mcclient.ClientSession, nowTime time.Time) ([]influxdb.SMetricData, error) {
 	metrics := make([]influxdb.SMetricData, 0)
+	param := jsonutils.NewDict()
+	param.Set("scope", jsonutils.NewString("system"))
 	for urlKey, tag := range map[string]string{
 		"domain-statistics":  "domain_id.project_domain",
 		"project-statistics": "tenant_id.tenant",
 	} {
-		jsonObject, err := modules.Servers.GetById(session, urlKey, jsonutils.NewDict())
+		jsonObject, err := modules.Servers.GetById(session, urlKey, param)
 		if err != nil {
 			return nil, errors.Wrapf(err, "get server-%s err", urlKey)
 		}
