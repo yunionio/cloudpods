@@ -426,6 +426,9 @@ func (man *SCommonAlertManager) FieldListFilter(q *sqlchemy.SQuery, input monito
 	if len(input.Level) > 0 {
 		q.Equals("level", input.Level)
 	}
+	if len(input.Name) != 0 {
+		q.Contains("name", input.Name)
+	}
 }
 
 func (manager *SCommonAlertManager) GetExportExtraKeys(ctx context.Context, keys stringutils2.SSortedStrings, rowMap map[string]string) *jsonutils.JSONDict {
