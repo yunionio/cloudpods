@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/filterclause"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
 
@@ -129,6 +130,15 @@ func (manager *SAlertRecordManager) ListItemFilter(
 	if len(query.ResType) != 0 {
 		q.Filter(sqlchemy.Equals(q.Field("res_type"), query.ResType))
 	}
+	if len(query.Filter) != 0 {
+		for i, _ := range query.Filter {
+			if strings.Contains(query.Filter[i], "trigger_time") {
+				timeFilter := strings.ReplaceAll(query.Filter[i], "trigger_time", "created_at")
+				filterClause := filterclause.ParseFilterClause(timeFilter)
+				q.Filter(filterClause.QueryCondition(q))
+			}
+		}
+	}
 	return q, nil
 }
 
@@ -234,7 +244,9 @@ func (record *SAlertRecord) GetMoreDetails(out monitor.AlertRecordDetails) (moni
 		out.ResNum = int64(len(evalMatchs))
 	}
 	commonAlert, _ := CommonAlertManager.GetAlert(record.AlertId)
-	out.AlertName = commonAlert.GetName()
+	if commonAlert != nil {
+		out.AlertName = commonAlert.GetName()
+	}
 	return out, nil
 }
 
