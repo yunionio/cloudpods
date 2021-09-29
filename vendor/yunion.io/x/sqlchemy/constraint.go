@@ -19,7 +19,7 @@ import (
 	"strings"
 )
 
-type STableConstraint struct {
+type sTableConstraint struct {
 	name         string
 	columns      []string
 	foreignTable string
@@ -53,11 +53,11 @@ func fetchColumns(match string) []string {
 	return ret
 }
 
-func parseConstraints(defStr string) []STableConstraint {
+func parseConstraints(defStr string) []sTableConstraint {
 	matches := constraintRegexp.FindAllStringSubmatch(defStr, -1)
-	tcs := make([]STableConstraint, len(matches))
+	tcs := make([]sTableConstraint, len(matches))
 	for i := range matches {
-		tcs[i] = STableConstraint{
+		tcs[i] = sTableConstraint{
 			name:         matches[i][1],
 			foreignTable: matches[i][4],
 			columns:      fetchColumns(matches[i][2]),
@@ -67,11 +67,11 @@ func parseConstraints(defStr string) []STableConstraint {
 	return tcs
 }
 
-func parseIndexes(defStr string) []STableIndex {
+func parseIndexes(defStr string) []sTableIndex {
 	matches := indexRegexp.FindAllStringSubmatch(defStr, -1)
-	tcs := make([]STableIndex, len(matches))
+	tcs := make([]sTableIndex, len(matches))
 	for i := range matches {
-		tcs[i] = STableIndex{
+		tcs[i] = sTableIndex{
 			name:     matches[i][2],
 			isUnique: len(matches[i][1]) > 0,
 			columns:  fetchColumns(matches[i][3]),

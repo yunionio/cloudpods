@@ -104,6 +104,10 @@ type SGuestnetwork struct {
 	EipId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 }
 
+func (self SGuestnetwork) GetIP() string {
+	return self.IpAddr
+}
+
 func (manager *SGuestnetworkManager) GetSlaveFieldName() string {
 	return "network_id"
 }

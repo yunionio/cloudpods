@@ -215,24 +215,22 @@ func (self *SManagedVirtualizationHostDriver) RequestSaveUploadImageOnHost(ctx c
 }
 
 func (self *SManagedVirtualizationHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, sizeMb int64, task taskman.ITask) error {
-	iCloudStorage, err := storage.GetIStorage()
+	iDisk, err := disk.GetIDisk()
 	if err != nil {
-		log.Errorf("storage.GetIStorage fail %s", err)
-		return err
-	}
-
-	iDisk, err := iCloudStorage.GetIDiskById(disk.GetExternalId())
-	if err != nil {
-		log.Errorf("iCloudStorage.GetIDisk fail %s", err)
-		return err
+		return errors.Wrapf(err, "GetIDisk")
 	}
 
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		err = iDisk.Resize(ctx, sizeMb)
 		if err != nil {
-			log.Errorf("iDisk.Resize fail %s", err)
-			return nil, err
+			return nil, errors.Wrapf(err, "iDisk.Resize")
 		}
+
+		err = cloudprovider.WaitStatus(iDisk, api.DISK_READY, time.Second*5, time.Minute*3)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Wait disk ready")
+		}
+
 		return jsonutils.Marshal(map[string]int64{"disk_size": sizeMb}), nil
 	})
 
