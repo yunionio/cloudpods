@@ -1199,10 +1199,14 @@ func (task *SGuestOnlineResizeDiskTask) OnGetBlocksSucc(results *jsonutils.JSONA
 	hostutils.TaskFailed(task.ctx, fmt.Sprintf("disk %s not found on this guest", task.diskId))
 }
 
-func (task *SGuestOnlineResizeDiskTask) OnResizeSucc(result string) {
-	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewInt(task.sizeMB), "disk_size")
-	hostutils.TaskComplete(task.ctx, params)
+func (task *SGuestOnlineResizeDiskTask) OnResizeSucc(err string) {
+	if len(err) == 0 {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewInt(task.sizeMB), "disk_size")
+		hostutils.TaskComplete(task.ctx, params)
+		return
+	}
+	hostutils.TaskFailed(task.ctx, fmt.Sprintf("resize disk %s %dMb error: %v", task.diskId, task.sizeMB, err))
 }
 
 /**
