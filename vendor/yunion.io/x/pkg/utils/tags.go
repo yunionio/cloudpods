@@ -148,3 +148,21 @@ func TagPop(m map[string]string, key string) (map[string]string, string, bool) {
 	}
 	return m, val, ok
 }
+
+func SplitCSV(csv string) []string {
+	offset := 0
+	words := make([]string, 0)
+	str := []byte(csv)
+	for offset < len(str) {
+		var word string
+		word, offset = _findWord(str, offset, ",\r\n")
+		words = append(words, word)
+		if offset < len(str) {
+			offset++
+			if offset >= len(str) {
+				words = append(words, "")
+			}
+		}
+	}
+	return words
+}

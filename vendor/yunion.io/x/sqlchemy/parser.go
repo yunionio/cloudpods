@@ -94,14 +94,13 @@ func getFiledTypeCol(fieldType reflect.Type, fieldname string, tagmap map[string
 		if _, ok := tagmap[TAG_WIDTH]; ok {
 			col := NewDecimalColumn(fieldname, tagmap, isPointer)
 			return &col
-		} else {
-			colType := "FLOAT"
-			if fieldType == gotypes.Float64Type {
-				colType = "DOUBLE"
-			}
-			col := NewFloatColumn(fieldname, colType, tagmap, isPointer)
-			return &col
 		}
+		colType := "FLOAT"
+		if fieldType == gotypes.Float64Type {
+			colType = "DOUBLE"
+		}
+		col := NewFloatColumn(fieldname, colType, tagmap, isPointer)
+		return &col
 	}
 	if fieldType.Implements(gotypes.ISerializableType) {
 		col := NewCompoundColumn(fieldname, tagmap, isPointer)
@@ -113,11 +112,11 @@ func getFiledTypeCol(fieldType reflect.Type, fieldname string, tagmap map[string
 func struct2TableSpec(sv reflect.Value, table *STableSpec) {
 	fields := reflectutils.FetchStructFieldValueSet(sv)
 	autoIncCnt := 0
-	for i := 0; i < len(fields); i += 1 {
+	for i := 0; i < len(fields); i++ {
 		column := structField2ColumnSpec(&fields[i])
 		if column != nil {
 			if intC, ok := column.(*SIntegerColumn); ok && intC.IsAutoIncrement {
-				autoIncCnt += 1
+				autoIncCnt++
 				if autoIncCnt > 1 {
 					panic(fmt.Sprintf("Table %s contains multiple autoincremental columns!!", table.name))
 				}

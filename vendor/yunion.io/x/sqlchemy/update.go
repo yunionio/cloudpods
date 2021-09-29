@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/utils"
 )
 
+// SUpdateSession is a struct to store the state of a update session
 type SUpdateSession struct {
 	oValue    reflect.Value
 	tableSpec *STableSpec
@@ -62,12 +63,14 @@ func (ts *STableSpec) prepareUpdate(dt interface{}) (*SUpdateSession, error) {
 	return &us, nil
 }
 
+// SUpdateDiff is a struct to store the differences for an update of a column
 type SUpdateDiff struct {
 	old interface{}
 	new interface{}
 	col IColumnSpec
 }
 
+// String of SUpdateDiff returns the string representation of a SUpdateDiff
 func (ud *SUpdateDiff) String() string {
 	return fmt.Sprintf("%s->%s",
 		utils.TruncateString(ud.old, 32),
@@ -81,8 +84,10 @@ func (ud SUpdateDiff) jsonObj() jsonutils.JSONObject {
 	return r
 }
 
+// UpdateDiffs is a map of SUpdateDiff whose key is the column name
 type UpdateDiffs map[string]SUpdateDiff
 
+// String of UpdateDiffs returns the string representation of UpdateDiffs
 func (uds UpdateDiffs) String() string {
 	obj := jsonutils.NewDict()
 	for k := range uds {
@@ -206,6 +211,9 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 	return setters, nil
 }
 
+// Update method of STableSpec updates a record of a table,
+// dt is the point to the struct storing the record
+// doUpdate provides method to update the field of the record
 func (ts *STableSpec) Update(dt interface{}, doUpdate func() error) (UpdateDiffs, error) {
 	session, err := ts.prepareUpdate(dt)
 	if err != nil {
