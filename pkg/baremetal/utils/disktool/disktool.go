@@ -753,12 +753,21 @@ type SSHPartitionTool struct {
 	term *ssh.Client
 }
 
-func NewSSHPartitionTool(term *ssh.Client) *SSHPartitionTool {
+func newSSHPartitionTool(term *ssh.Client) *SSHPartitionTool {
 	tool := &SSHPartitionTool{
 		term: term,
 	}
 	tool.PartitionTool = NewPartitionTool(tool)
 	return tool
+}
+
+func NewSSHPartitionTool(term *ssh.Client, layouts []baremetal.Layout) (*SSHPartitionTool, error) {
+	tool := newSSHPartitionTool(term)
+	tool.FetchDiskConfs(baremetal.GetDiskConfigurations(layouts))
+	if err := tool.RetrieveDiskInfo(); err != nil {
+		return nil, errors.Wrapf(err, "RetrieveDiskInfo")
+	}
+	return tool, nil
 }
 
 func (tool *SSHPartitionTool) Run(cmds ...string) ([]string, error) {

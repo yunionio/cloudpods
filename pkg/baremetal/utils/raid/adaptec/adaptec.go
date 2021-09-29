@@ -58,7 +58,7 @@ func GetCommand(args ...string) string {
 	return raid.GetCommand(bin, args...)
 }
 
-func (raid *AdaptecRaid) GetName() string {
+func (r *AdaptecRaid) GetName() string {
 	return baremetal.DISK_DRIVER_ADAPTECRAID
 }
 
@@ -77,8 +77,8 @@ func (r *AdaptecRaid) ParsePhyDevs() error {
 	return nil
 }
 
-func (raid *AdaptecRaid) CleanRaid() error {
-	for _, ada := range raid.adapters {
+func (r *AdaptecRaid) CleanRaid() error {
+	for _, ada := range r.adapters {
 		ada.removeJBODDisks()
 		ada.RemoveLogicVolumes()
 	}
@@ -114,17 +114,17 @@ func getAdaptorIndex(line string) int {
 	return adapInt
 }
 
-func (raid *AdaptecRaid) parsePhyDevs(lines []string) error {
+func (r *AdaptecRaid) parsePhyDevs(lines []string) error {
 	for _, line := range lines {
 		index := getAdaptorIndex(line)
 		if index == -1 {
 			continue
 		}
-		ada, err := NewAdaptecRaidAdaptor(index, raid)
+		ada, err := NewAdaptecRaidAdaptor(index, r)
 		if err != nil {
 			return errors.Wrapf(err, "New raid adaptor %d", index)
 		}
-		raid.adapters = append(raid.adapters, ada)
+		r.adapters = append(r.adapters, ada)
 	}
 	return nil
 }
@@ -167,24 +167,9 @@ func (ada *AdaptecRaidAdaptor) GetIndex() int {
 }
 
 func (ada *AdaptecRaidAdaptor) PreBuildRaid(confs []*api.BaremetalDiskConfig) error {
-	// set to raid expose raw mode or mixed mode
-	if !ada.isRaidExposeRawMode() && !ada.isMixedMode() {
-		err := func() error {
-			errs := []error{}
-			if err := ada.setControllerModeRaidExposeRaw(); err != nil {
-				errs = append(errs, err)
-			} else {
-				return nil
-			}
-			if err := ada.setControllerModeMixed(); err != nil {
-				errs = append(errs, err)
-			} else {
-				return nil
-			}
-			return errors.NewAggregate(errs)
-		}()
-		if err != nil {
-			return errors.Wrap(err, "set raid to expose raw or mixed mode")
+	if !ada.isRaidHideRawMode() {
+		if err := ada.setControllerModeRaidHideRaw(); err != nil {
+			return errors.Wrapf(err, "set controller mode to raid hide raw mode")
 		}
 	}
 	if err := ada.removeJBODDisks(); err != nil {
@@ -365,6 +350,26 @@ func (ada *AdaptecRaidAdaptor) buildJBOD(dev *baremetal.BaremetalStorage) error 
 }
 
 func (ada *AdaptecRaidAdaptor) buildNonRaid(dev *baremetal.BaremetalStorage) error {
+	// set to raid expose raw mode or mixed mode
+	if !ada.isRaidExposeRawMode() && !ada.isMixedMode() {
+		err := func() error {
+			errs := []error{}
+			if err := ada.setControllerModeRaidExposeRaw(); err != nil {
+				errs = append(errs, err)
+			} else {
+				return nil
+			}
+			if err := ada.setControllerModeMixed(); err != nil {
+				errs = append(errs, err)
+			} else {
+				return nil
+			}
+			return errors.NewAggregate(errs)
+		}()
+		if err != nil {
+			return errors.Wrap(err, "set raid to expose raw or mixed mode")
+		}
+	}
 	// try build JBOD firstly
 	if err := ada.buildJBOD(dev); err != nil {
 		log.Warningf("try build JBOD error: %v", err)
