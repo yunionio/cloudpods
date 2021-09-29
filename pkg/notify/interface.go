@@ -58,10 +58,7 @@ type SBatchSendParams struct {
 
 type IServiceConfigStore interface {
 	GetConfigs(service string) ([]SConfig, error)
-	GetConfig(service, domainId string) (SConfig, error)
 	SetConfig(service string, config SConfig) error
-	HasSystemConfig(service string) (bool, error)
-	BatchCheckConfig(service string, domainIds []string) ([]bool, error)
 }
 
 type SNotification struct {

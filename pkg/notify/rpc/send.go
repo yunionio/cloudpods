@@ -41,7 +41,7 @@ import (
 const (
 	// ErrSendServiceNotFound means SRpcService's SendSerivces hasn't this Send Service.
 	ErrSendServiceNotFound = errors.Error("No such send service")
-	ErrSendServiceNotInit  = errors.Error("Send service hasn't been init")
+	// ErrSendServiceNotInit  = errors.Error("Send service hasn't been init")
 )
 
 // SRpcService provide rpc service about sending message for notify module and manage these services.
@@ -134,53 +134,8 @@ func (self *SRpcService) BatchSend(ctx context.Context, contactType string, args
 	if len(args.RemoteTemplate) == 0 && contactType == api.MOBILE {
 		return nil, fmt.Errorf("empty remote template for mobile type notification")
 	}
-	domainIds := make([]string, len(args.Receivers))
-	for i := range domainIds {
-		domainIds[i] = args.Receivers[i].DomainId
-	}
-	checks, err := self.configStore.BatchCheckConfig(contactType, domainIds)
-	if err != nil {
-		return nil, errors.Wrap(err, "BatchCheckConfig")
-	}
-	hasSystem, err := self.configStore.HasSystemConfig(contactType)
-	if err != nil {
-		return nil, errors.Wrap(err, "HasSystemConfig")
-	}
 	ret := make([]*apis.FailedRecord, 0)
-	receiverIndex := 0
-	for i := range checks {
-		if checks[i] {
-			receiverIndex++
-			continue
-		}
-		if hasSystem {
-			args.Receivers[receiverIndex].DomainId = ""
-			receiverIndex++
-			continue
-		}
-		ret = append(ret, &apis.FailedRecord{
-			Receiver: args.Receivers[i],
-			Reason:   fmt.Sprintf("no %q config for in domain %q and system", contactType, domainIds[i]),
-		})
-		args.Receivers = append(args.Receivers[:receiverIndex], args.Receivers[receiverIndex+1:]...)
-	}
 	f := func(service *apis.SendNotificationClient) (interface{}, error) {
-		// check ready
-		domainIds := make([]string, len(args.Receivers))
-		for i := range domainIds {
-			domainIds[i] = args.Receivers[i].DomainId
-		}
-		output, err := service.Ready(ctx, &apis.ReadyInput{DomainIds: domainIds})
-		if err != nil {
-			return nil, err
-		}
-		if !output.Ok {
-			// if NOINIT, try to restart server and send again
-			service, err = self.restartService(ctx, contactType)
-			if err != nil {
-				return nil, errors.Wrapf(err, "restart service %s failed", contactType)
-			}
-		}
 		return service.BatchSend(ctx, &args)
 	}
 
@@ -290,28 +245,7 @@ func (self *SRpcService) execute(ctx context.Context, f func(client *apis.SendNo
 			self.closeService(ctx, serviceName)
 			return nil, ErrSendServiceNotFound
 		}
-
-		if st.Message() != ErrSendServiceNotInit.Error() {
-			return nil, err
-		}
-
-		// if NOINIT, try to restart server and send again
-		sendService, err = self.restartService(ctx, serviceName)
-		if err != nil {
-			return nil, errors.Wrapf(err, "restart service %s failed", serviceName)
-		}
-
-		ret, err = f(sendService)
-		if err != nil {
-			st := status.Convert(err)
-			if st.Code() == codes.Unavailable {
-				// sock is bad
-				self.closeService(ctx, serviceName)
-
-				return nil, errors.Wrap(ErrSendServiceNotFound, serviceName)
-			}
-			return nil, err
-		}
+		return nil, err
 	}
 	return ret, nil
 }

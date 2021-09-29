@@ -157,14 +157,16 @@ func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred m
 		if err != nil {
 			return input, errors.Wrapf(err, "unable to fetch domain %s", input.ResourceAttributionId)
 		}
-		domainId = tenant.DomainId
+		domainId = tenant.Id
 		input.DomainId = domainId
-		input.ResourceAttributionId = tenant.DomainId
-		input.ResourceAttributionName = tenant.Domain
+		input.ResourceAttributionId = tenant.Id
+		input.ResourceAttributionName = tenant.Name
 	}
-	if input.Scope == sDomain && domainId != userCred.GetDomainId() {
-		return input, httperrors.NewForbiddenError("domain %s admin can't create subscriber for domain %s", userCred.GetDomainId(), domainId)
+	if input.Scope == sDomain && domainId != userCred.GetProjectDomainId() {
+		return input, httperrors.NewForbiddenError("domain %s admin can't create subscriber for domain %s", userCred.GetProjectDomainId(), domainId)
 	}
+
+	var checkQuery *sqlchemy.SQuery
 	input.TopicID = t.GetId()
 	switch input.Type {
 	case api.SUBSCRIBER_TYPE_RECEIVER:
@@ -182,6 +184,7 @@ func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred m
 			return input, errors.Wrapf(err, "unable find role %q", input.Role)
 		}
 		input.Role = roleCache.GetId()
+		checkQuery = sm.Query().Equals("topic_id", input.TopicID).Equals("type", api.SUBSCRIBER_TYPE_ROLE).Equals("resource_scope", input.ResourceScope).Equals("identification", input.Role).Equals("role_scope", input.RoleScope)
 	case api.SUBSCRIBER_TYPE_ROBOT:
 		robot, err := RobotManager.FetchByIdOrName(userCred, input.Robot)
 		if errors.Cause(err) == sql.ErrNoRows {
@@ -191,8 +194,19 @@ func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred m
 			return input, errors.Wrapf(err, "unable to fetch robot %q", input.Robot)
 		}
 		input.Robot = robot.GetId()
+		checkQuery = sm.Query().Equals("type", api.SUBSCRIBER_TYPE_ROLE).Equals("topic_id", input.TopicID).Equals("resource_scope", input.ResourceScope).Equals("identification", input.Robot)
 	default:
 		return input, httperrors.NewInputParameterError("unkown type %q", input.Type)
+	}
+	// check type+resourceScope+identification
+	if checkQuery != nil {
+		count, err := checkQuery.CountWithError()
+		if err != nil {
+			return input, errors.Wrap(err, "unable to count")
+		}
+		if count > 0 {
+			return input, httperrors.NewForbiddenError("repeated with existing subscribers")
+		}
 	}
 	return input, nil
 }
@@ -249,7 +263,7 @@ func (s *SSubscriber) PerformChange(ctx context.Context, userCred mcclient.Token
 		if !db.IsDomainAllowUpdate(userCred, s) {
 			return nil, httperrors.NewForbiddenError("")
 		}
-		if s.DomainId != userCred.GetDomainId() {
+		if s.DomainId != userCred.GetProjectDomainId() {
 			return nil, httperrors.NewForbiddenError("")
 		}
 	}
@@ -260,9 +274,21 @@ func (s *SSubscriber) PerformChange(ctx context.Context, userCred mcclient.Token
 			log.Errorf("unable to set receivers %s", input.Receivers)
 		}
 	case api.SUBSCRIBER_TYPE_ROBOT:
-		s.Identification = input.Robot
+		_, err := db.Update(s, func() error {
+			s.Identification = input.Robot
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to update subscriber")
+		}
 	case api.SUBSCRIBER_TYPE_ROLE:
-		s.Identification = input.Role
+		_, err := db.Update(s, func() error {
+			s.Identification = input.Role
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to update subscriber")
+		}
 	}
 	return nil, nil
 }
@@ -288,11 +314,11 @@ func (sm *SSubscriberManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 			return nil, httperrors.NewForbiddenError("")
 		}
 	case sDomain:
-		allow := db.IsAdminAllowList(userCred, sm)
+		allow := db.IsDomainAllowList(userCred, sm)
 		if !allow {
 			return nil, httperrors.NewForbiddenError("")
 		}
-		q = q.Equals("domain_id", userCred.GetDomainId())
+		q = q.Equals("domain_id", userCred.GetProjectDomainId())
 	default:
 		return nil, httperrors.NewInputParameterError("unkown scope %s", input.Scope)
 	}
@@ -349,7 +375,7 @@ func (s *SSubscriber) CustomizeDelete(ctx context.Context, userCred mcclient.Tok
 		if !db.IsDomainAllowDelete(userCred, s) {
 			return httperrors.NewForbiddenError("")
 		}
-		if s.DomainId != userCred.GetDomainId() {
+		if s.DomainId != userCred.GetProjectDomainId() {
 			return httperrors.NewForbiddenError("")
 		}
 	}

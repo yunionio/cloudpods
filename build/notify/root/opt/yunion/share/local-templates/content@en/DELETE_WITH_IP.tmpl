@@ -6,7 +6,7 @@ Your {{ if $d.brand -}} {{ $d.brand }} {{ end -}} {{ .resource_type_display }} {
 {{- end -}}
 
 {{- if $d.public_dns -}}
-, the internet address is {{ $d.public_dns }}:{{ $d.public_connect_port }}
+, the external address is {{ $d.public_dns }}:{{ $d.public_connect_port }}
 {{- end -}}
 
 {{- if and $d.address_type $d.address -}}

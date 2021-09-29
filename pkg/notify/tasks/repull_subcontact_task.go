@@ -41,7 +41,9 @@ func init() {
 }
 
 func (self *RepullSuncontactTask) taskFailed(ctx context.Context, config *models.SConfig, reason string) {
-	logclient.AddActionLogWithContext(ctx, config, logclient.ACT_PULL_SUBCONTACT, reason, self.UserCred, false)
+	if !config.Deleted {
+		logclient.AddActionLogWithContext(ctx, config, logclient.ACT_PULL_SUBCONTACT, reason, self.UserCred, false)
+	}
 	self.SetStageFailed(ctx, jsonutils.NewString(reason))
 }
 
@@ -66,8 +68,8 @@ func (self *RepullSuncontactTask) OnInit(ctx context.Context, obj db.IStandalone
 		q = q.Equals("domain_id", config.DomainId)
 	} else {
 		// The system-level config update should not affect the receiver under the domain with config
-		configq := models.ConfigManager.Query("domain_id").Equals("attribution", notify.CONFIG_ATTRIBUTION_DOMAIN).SubQuery()
-		q = q.Join(configq, sqlchemy.NotEquals(q.Field("domain_id"), configq.Field("domain_id")))
+		configq := models.ConfigManager.Query("domain_id").Equals("type", config.Type).Equals("attribution", notify.CONFIG_ATTRIBUTION_DOMAIN).SubQuery()
+		q = q.NotIn("domain_id", configq)
 	}
 	q.Join(subq, sqlchemy.Equals(q.Field("id"), subq.Field("receiver_id")))
 	rs := make([]models.SReceiver, 0)
@@ -75,6 +77,10 @@ func (self *RepullSuncontactTask) OnInit(ctx context.Context, obj db.IStandalone
 	if err != nil {
 		self.taskFailed(ctx, config, fmt.Sprintf("unable to FetchModelObjects: %v", err))
 		return
+	}
+
+	if del, _ := self.GetParams().Bool("deleted"); del {
+		config.RealDelete(ctx, self.GetUserCred())
 	}
 
 	var reasons []string
@@ -93,17 +99,16 @@ func (self *RepullSuncontactTask) OnInit(ctx context.Context, obj db.IStandalone
 				return
 			}
 			ctSets := sets.NewString(cts...)
-			if !ctSets.Has(config.Type) {
-				return
-			}
-			ctSets.Delete(config.Type)
-			err = r.SetVerifiedContactTypes(ctSets.UnsortedList())
-			if err != nil {
-				reasons = append(reasons, repullFailedReason{
-					ReceiverId: r.Id,
-					Reason:     fmt.Sprintf("unable to SetVerifiedContactTypes: %v", err),
-				}.String())
-				return
+			if ctSets.Has(config.Type) {
+				ctSets.Delete(config.Type)
+				err = r.SetVerifiedContactTypes(ctSets.UnsortedList())
+				if err != nil {
+					reasons = append(reasons, repullFailedReason{
+						ReceiverId: r.Id,
+						Reason:     fmt.Sprintf("unable to SetVerifiedContactTypes: %v", err),
+					}.String())
+					return
+				}
 			}
 			// pull
 			params := jsonutils.NewDict()
