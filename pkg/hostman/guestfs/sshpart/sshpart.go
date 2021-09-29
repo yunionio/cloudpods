@@ -572,9 +572,8 @@ func (p *SSHPartition) Zerofree() {
 }
 
 func MountSSHRootfs(term *ssh.Client, layouts []baremetal.Layout) (*SSHPartition, fsdriver.IRootFsDriver, error) {
-	tool := disktool.NewSSHPartitionTool(term)
-	tool.FetchDiskConfs(baremetal.GetDiskConfigurations(layouts))
-	if err := tool.RetrieveDiskInfo(); err != nil {
+	tool, err := disktool.NewSSHPartitionTool(term, layouts)
+	if err != nil {
 		return nil, nil, err
 	}
 	tool.RetrievePartitionInfo()
