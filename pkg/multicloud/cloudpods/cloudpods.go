@@ -237,7 +237,7 @@ func (self *SCloudpodsClient) GetRegions() ([]SRegion, error) {
 
 func (self *SCloudpodsClient) GetCapabilities() []string {
 	return []string{
-		cloudprovider.CLOUD_CAPABILITY_PROJECT,
+		cloudprovider.CLOUD_CAPABILITY_PROJECT + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
 	}

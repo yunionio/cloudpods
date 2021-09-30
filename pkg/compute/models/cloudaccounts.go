@@ -2509,16 +2509,9 @@ func (manager *SCloudaccountManager) queryCloudAccountByCapability(region *SClou
 	providers := CloudproviderManager.Query().SubQuery()
 	q := manager.Query()
 	q = q.Join(providers, sqlchemy.Equals(q.Field("id"), providers.Field("cloudaccount_id")))
-	if len(capability) > 0 {
-		cloudproviderCapabilities := CloudproviderCapabilityManager.Query().SubQuery()
-		q = q.Join(cloudproviderCapabilities, sqlchemy.Equals(providers.Field("id"), cloudproviderCapabilities.Field("cloudprovider_id")))
-		q = q.Filter(sqlchemy.Equals(cloudproviderCapabilities.Field("capability"), capability))
-	}
-	if enabled.IsTrue() {
-		q = q.IsTrue("enabled")
-	} else if enabled.IsFalse() {
-		q = q.IsFalse("enabled")
-	}
+	cloudproviderCapabilities := CloudproviderCapabilityManager.Query().SubQuery()
+	q = q.Join(cloudproviderCapabilities, sqlchemy.Equals(providers.Field("id"), cloudproviderCapabilities.Field("cloudprovider_id")))
+	q = q.Filter(sqlchemy.Equals(cloudproviderCapabilities.Field("capability"), capability))
 	if zone != nil {
 		region, _ = zone.GetRegion()
 	}
@@ -2529,42 +2522,54 @@ func (manager *SCloudaccountManager) queryCloudAccountByCapability(region *SClou
 	}
 	if len(domainId) > 0 {
 		q = manager.filterByDomainId(q, domainId)
-		/*q = q.Filter(sqlchemy.OR(
-			sqlchemy.AND(
-				sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN),
-				sqlchemy.Equals(q.Field("domain_id"), domainId),
-			),
-			sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
-			sqlchemy.AND(
-				sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN),
-				sqlchemy.Equals(providers.Field("domain_id"), domainId),
-			),
-		))*/
 	}
 	return q
 }
 
-func (manager *SCloudaccountManager) getBrandsOfCapability(region *SCloudregion, zone *SZone, domainId string, enabled tristate.TriState, capability string) ([]string, error) {
-	subq := manager.queryCloudAccountByCapability(region, zone, domainId, enabled, capability).SubQuery()
-	q := subq.Query(subq.Field("brand")).Distinct()
-	rows, err := q.Rows()
-	if err != nil {
-		if errors.Cause(err) != sql.ErrNoRows {
-			return nil, errors.Wrap(err, "rows")
-		}
-		return []string{}, nil
+type sBrandCapability struct {
+	Brand      string
+	Enabled    bool
+	Capability string
+}
+
+func (manager *SCloudaccountManager) getBrandsOfCapability(region *SCloudregion, zone *SZone, domainId string) ([]sBrandCapability, error) {
+	accounts := manager.Query("id", "enabled", "brand")
+	if len(domainId) > 0 {
+		accounts = manager.filterByDomainId(accounts, domainId)
 	}
-	ret := make([]string, 0)
-	defer rows.Close()
-	for rows.Next() {
-		var brand string
-		err := rows.Scan(&brand)
+
+	accountSQ := accounts.SubQuery()
+	providers := CloudproviderManager.Query().SubQuery()
+	q := CloudproviderCapabilityManager.Query("capability")
+
+	q.AppendField(accountSQ.Field("enabled"))
+	q.AppendField(accountSQ.Field("brand"))
+
+	q = q.Join(providers, sqlchemy.Equals(q.Field("cloudprovider_id"), providers.Field("id")))
+	q = q.Join(accountSQ, sqlchemy.Equals(providers.Field("cloudaccount_id"), accountSQ.Field("id")))
+
+	if zone != nil {
+		var err error
+		region, err = zone.GetRegion()
 		if err != nil {
-			return nil, errors.Wrap(err, "rows.Scan")
+			return nil, errors.Wrapf(err, "GetRegion")
 		}
-		ret = append(ret, brand)
 	}
-	return ret, nil
+	if region != nil {
+		providerregions := CloudproviderRegionManager.Query().SubQuery()
+		q = q.Join(providerregions, sqlchemy.Equals(q.Field("cloudprovider_id"), providerregions.Field("cloudprovider_id"))).Filter(
+			sqlchemy.Equals(providerregions.Field("cloudregion_id"), region.Id),
+		)
+	}
+
+	q = q.Distinct()
+
+	result := []sBrandCapability{}
+	err := q.All(&result)
+	if err != nil {
+		return nil, errors.Wrapf(err, "q.All")
+	}
+	return result, nil
 }
 
 func (account *SCloudaccount) getAccountShareInfo() apis.SAccountShareInfo {
