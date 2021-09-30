@@ -48,7 +48,7 @@ type SRegion struct {
 }
 
 func (self *SRegion) fetchIVpcs() error {
-	vpcs, err := self.GetVpcs()
+	vpcs, err := self.GetVpcs("", "", "")
 	if err != nil {
 		return errors.Wrap(err, "SRegion.fetchIVpcs")
 	}
@@ -83,11 +83,17 @@ func (self *SRegion) fetchInfrastructure() error {
 	return nil
 }
 
-func (self *SRegion) GetVpcs() ([]SVpc, error) {
+func (self *SRegion) GetVpcs(t string, crmBizId string, accountId string) ([]SVpc, error) {
 	vpcs := make([]SVpc, 0)
 	params := map[string]string{
 		"regionId": self.GetId(),
 	}
+
+	customInfo := self.getCustiomInfo(t, crmBizId, accountId)
+	if customInfo != nil {
+		params["customInfo"] = customInfo.String()
+	}
+
 	resp, err := self.client.DoGet("/apiproxy/v3/getVpcs", params)
 	if err != nil {
 		return nil, err
