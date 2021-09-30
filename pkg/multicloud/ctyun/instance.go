@@ -53,8 +53,8 @@ type SInstance struct {
 	Flavor                           FlavorObj            `json:"flavor"`
 	Addresses                        map[string][]Address `json:"addresses"`
 	UserID                           string               `json:"user_id"`
-	Created                          int64                `json:"created"`
-	DueDate                          int64                `json:"dueDate"`
+	Created                          time.Time            `json:"created"`
+	DueDate                          *time.Time           `json:"dueDate"`
 	SecurityGroups                   []SecurityGroup      `json:"security_groups"`
 	OSEXTAZAvailabilityZone          string               `json:"OS-EXT-AZ:availability_zone"`
 	OSExtendedVolumesVolumesAttached []Volume             `json:"os-extended-volumes:volumes_attached"`
@@ -106,7 +106,7 @@ type PublicP struct {
 }
 
 func (self *SInstance) GetBillingType() string {
-	if self.DueDate > 0 {
+	if self.DueDate != nil {
 		return billing_api.BILLING_TYPE_PREPAID
 	} else {
 		return billing_api.BILLING_TYPE_POSTPAID
@@ -114,15 +114,15 @@ func (self *SInstance) GetBillingType() string {
 }
 
 func (self *SInstance) GetCreatedAt() time.Time {
-	return time.Unix(self.Created/1000, 0)
+	return self.Created
 }
 
 func (self *SInstance) GetExpiredAt() time.Time {
-	if self.DueDate == 0 {
+	if self.DueDate == nil {
 		return time.Time{}
 	}
 
-	return time.Unix(self.DueDate/1000, 0)
+	return *self.DueDate
 }
 
 func (self *SInstance) GetId() string {
