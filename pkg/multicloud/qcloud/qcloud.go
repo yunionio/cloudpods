@@ -1097,10 +1097,10 @@ func (self *SQcloudClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_PUBLIC_IP,
 		cloudprovider.CLOUD_CAPABILITY_INTERVPCNETWORK,
 		cloudprovider.CLOUD_CAPABILITY_SAML_AUTH,
-		cloudprovider.CLOUD_CAPABILITY_MONGO_DB,
-		cloudprovider.CLOUD_CAPABILITY_ES,
-		cloudprovider.CLOUD_CAPABILITY_KAFKA,
-		cloudprovider.CLOUD_CAPABILITY_CDN,
+		cloudprovider.CLOUD_CAPABILITY_MONGO_DB + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_ES + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_KAFKA + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_CDN + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
 }

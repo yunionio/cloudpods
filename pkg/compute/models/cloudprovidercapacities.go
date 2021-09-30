@@ -70,6 +70,7 @@ func (manager *SCloudproviderCapabilityManager) setRegionCapabilities(ctx contex
 	if err != nil {
 		return errors.Wrap(err, "manager.getCapabilities")
 	}
+
 	oldCapas := stringutils2.NewSortedStrings(oldCapabilities)
 	newCapas := stringutils2.NewSortedStrings(capabilities)
 	deleted, _, added := stringutils2.Split(oldCapas, newCapas)
