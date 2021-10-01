@@ -359,6 +359,8 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 		capa.LoadbalancerEngineBrands = append(capa.LoadbalancerEngineBrands, api.ONECLOUD_BRAND_ONECLOUD)
 	}
 
+	capa.NetworkManageBrands = append(capa.NetworkManageBrands, api.ONECLOUD_BRAND_ONECLOUD)
+
 	var appendBrand = func(enabled *[]string, disabled *[]string, readOnlyEnabled *[]string, readOnlyDisabled *[]string, brand, capability string, isEnable, readOnly bool) {
 		if readOnly {
 			if isEnable {
