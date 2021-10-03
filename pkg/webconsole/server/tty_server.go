@@ -74,11 +74,13 @@ func initSocketHandler(so socketio.Socket, p *session.Pty) {
 				data, err := p.Read()
 				if err != nil {
 					log.Errorf("[%s] read data error: %v", so.Id(), err)
-					err = p.Stop()
+					/*err = p.Stop()
 					if err != nil {
 						log.Warningf("[%s] stop tty error: %v", so.Id(), err)
 					}
 					p.Session.Reconnect()
+					*/
+					cleanUp(so, p)
 				} else {
 					so.Emit(OUTPUT_EVENT, string(data))
 				}
