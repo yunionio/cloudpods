@@ -404,7 +404,7 @@ func (p *SSHPartition) CheckOrAddUser(user, homeDir string, isSys bool) (realHom
 }
 
 func (p *SSHPartition) checkUser(user string) (exist bool, homeDir string, err error) {
-	cmd := fmt.Sprintf("/usr/sbin/chroot %s /usr/bin/cat /etc/passwd", p.mountPath)
+	cmd := fmt.Sprintf("/usr/sbin/chroot %s /bin/cat /etc/passwd", p.mountPath)
 	lines, err := p.term.Run(cmd)
 	if err != nil {
 		return
