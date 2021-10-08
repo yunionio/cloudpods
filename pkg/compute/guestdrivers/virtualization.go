@@ -75,7 +75,7 @@ func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.
 		})
 	}
 	reUse := false
-	if len(netConfig.Address) > 0 && !options.Options.EnablePreAllocateIpAddr && !utils.IsInStringArray(host.GetProviderName(), []string{api.CLOUD_PROVIDER_ONECLOUD, api.CLOUD_PROVIDER_VMWARE}) {
+	if len(netConfig.Address) > 0 && !options.Options.EnablePreAllocateIpAddr && !utils.IsInStringArray(host.GetProviderName(), []string{api.CLOUD_PROVIDER_ONECLOUD, api.CLOUD_PROVIDER_VMWARE, api.CLOUD_PROVIDER_CLOUDPODS}) {
 		reUse = true
 	}
 	return net, nicConfs, api.IPAllocationStepdown, reUse, nil
