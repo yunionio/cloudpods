@@ -14,7 +14,11 @@
 
 package monitor
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"time"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 const (
 	SEND_STATE_OK     = "ok"
@@ -41,8 +45,9 @@ type AlertRecordDetails struct {
 	apis.StatusStandaloneResourceDetails
 	apis.ScopedResourceBaseInfo
 
-	ResNum    int64  `json:"res_num"`
-	AlertName string `json:"alert_name"`
+	ResNum      int64  `json:"res_num"`
+	AlertName   string `json:"alert_name"`
+	TriggerTime time.Time
 }
 
 type AlertRecordCreateInput struct {
