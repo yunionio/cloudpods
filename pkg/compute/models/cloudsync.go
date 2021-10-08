@@ -1697,25 +1697,25 @@ func syncPublicCloudProviderInfo(
 		syncElasticcaches(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 	}
 
-	if utils.IsInStringArray(cloudprovider.CLOUD_CAPABILITY_WAF, driver.GetCapabilities()) {
+	if cloudprovider.IsSupportWaf(driver) {
 		syncWafIPSets(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 		syncWafRegexSets(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 		syncWafInstances(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
-	if utils.IsInStringArray(cloudprovider.CLOUD_CAPABILITY_MONGO_DB, driver.GetCapabilities()) {
+	if cloudprovider.IsSupportMongoDB(driver) {
 		syncMongoDBs(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
-	if utils.IsInStringArray(cloudprovider.CLOUD_CAPABILITY_ES, driver.GetCapabilities()) {
+	if cloudprovider.IsSupportElasticSearch(driver) {
 		syncElasticSearchs(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
-	if utils.IsInStringArray(cloudprovider.CLOUD_CAPABILITY_KAFKA, driver.GetCapabilities()) {
+	if cloudprovider.IsSupportKafka(driver) {
 		syncKafkas(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
-	if utils.IsInStringArray(cloudprovider.CLOUD_CAPABILITY_APP, driver.GetCapabilities()) {
+	if cloudprovider.IsSupportApp(driver) {
 		syncApps(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
