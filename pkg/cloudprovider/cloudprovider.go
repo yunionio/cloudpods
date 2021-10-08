@@ -298,40 +298,64 @@ type ICloudProvider interface {
 	GetICloudCDNDomainByName(name string) (ICloudCDNDomain, error)
 }
 
+func IsSupportCapability(prod ICloudProvider, capa string) bool {
+	return utils.IsInStringArray(capa, prod.GetCapabilities()) || utils.IsInStringArray(capa+READ_ONLY_SUFFIX, prod.GetCapabilities())
+}
+
 func IsSupportProject(prod ICloudProvider) bool {
-	return utils.IsInStringArray(CLOUD_CAPABILITY_PROJECT, prod.GetCapabilities())
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_PROJECT)
 }
 
 func IsSupportDnsZone(prod ICloudProvider) bool {
-	return utils.IsInStringArray(CLOUD_CAPABILITY_DNSZONE, prod.GetCapabilities())
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_DNSZONE)
 }
 
 func IsSupportInterVpcNetwork(prod ICloudProvider) bool {
-	return utils.IsInStringArray(CLOUD_CAPABILITY_INTERVPCNETWORK, prod.GetCapabilities())
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_INTERVPCNETWORK)
 }
 
 func IsSupportCompute(prod ICloudProvider) bool {
-	return utils.IsInStringArray(CLOUD_CAPABILITY_COMPUTE, prod.GetCapabilities())
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_COMPUTE)
 }
 
 func IsSupportLoadbalancer(prod ICloudProvider) bool {
-	return utils.IsInStringArray(CLOUD_CAPABILITY_LOADBALANCER, prod.GetCapabilities())
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_LOADBALANCER)
 }
 
 func IsSupportObjectstore(prod ICloudProvider) bool {
-	return utils.IsInStringArray(CLOUD_CAPABILITY_OBJECTSTORE, prod.GetCapabilities())
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_OBJECTSTORE)
 }
 
 func IsSupportRds(prod ICloudProvider) bool {
-	return utils.IsInStringArray(CLOUD_CAPABILITY_RDS, prod.GetCapabilities())
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_RDS)
 }
 
 func IsSupportNAT(prod ICloudProvider) bool {
-	return utils.IsInStringArray(CLOUD_CAPABILITY_NAT, prod.GetCapabilities())
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_NAT)
 }
 
 func IsSupportElasticCache(prod ICloudProvider) bool {
-	return utils.IsInStringArray(CLOUD_CAPABILITY_CACHE, prod.GetCapabilities())
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_CACHE)
+}
+
+func IsSupportWaf(prod ICloudProvider) bool {
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_WAF)
+}
+
+func IsSupportMongoDB(prod ICloudProvider) bool {
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_MONGO_DB)
+}
+
+func IsSupportElasticSearch(prod ICloudProvider) bool {
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_ES)
+}
+
+func IsSupportKafka(prod ICloudProvider) bool {
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_KAFKA)
+}
+
+func IsSupportApp(prod ICloudProvider) bool {
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_APP)
 }
 
 var providerTable map[string]ICloudProviderFactory
