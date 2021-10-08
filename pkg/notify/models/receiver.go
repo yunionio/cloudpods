@@ -905,7 +905,6 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 	mobile := input.InternationalMobile.String()
 	if len(mobile) != 0 && mobile != r.Mobile {
 		r.VerifiedMobile = tristate.False
-		r.Mobile = mobile
 		for _, c := range r.subContactCache {
 			if c.ParentContactType == api.MOBILE {
 				c.Verified = tristate.False
@@ -935,6 +934,7 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 			r.VerifiedMobile = tristate.True
 		}
 	}
+	r.Mobile = mobile
 	err = ReceiverManager.TableSpec().InsertOrUpdate(ctx, r)
 	if err != nil {
 		log.Errorf("InsertOrUpdate: %v", err)
