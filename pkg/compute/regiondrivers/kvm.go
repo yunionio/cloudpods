@@ -373,6 +373,8 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerRuleData(ctx con
 	}
 	if lbr.RedirectCode > 0 {
 		redirectCodeV.Default(int64(lbr.RedirectCode))
+	} else {
+		redirectCodeV.Default(api.LB_REDIRECT_CODE_302)
 	}
 	if lbr.RedirectScheme != "" {
 		redirectSchemeV.Default(lbr.RedirectScheme)
@@ -590,6 +592,8 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context
 	}
 	if lblis.RedirectCode > 0 {
 		redirectCodeV.Default(int64(lblis.RedirectCode))
+	} else {
+		redirectCodeV.Default(api.LB_REDIRECT_CODE_302)
 	}
 	if lblis.RedirectScheme != "" {
 		redirectSchemeV.Default(lblis.RedirectScheme)

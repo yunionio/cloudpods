@@ -969,6 +969,8 @@ func (self *SOpenStackRegionDriver) ValidateUpdateLoadbalancerListenerRuleData(c
 	}
 	if lbr.RedirectCode > 0 {
 		redirectCodeV.Default(int64(lbr.RedirectCode))
+	} else {
+		redirectCodeV.Default(api.LB_REDIRECT_CODE_302)
 	}
 	if lbr.RedirectScheme != "" {
 		redirectSchemeV.Default(lbr.RedirectScheme)
