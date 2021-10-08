@@ -247,6 +247,7 @@ func (record *SAlertRecord) GetMoreDetails(out monitor.AlertRecordDetails) (moni
 	if commonAlert != nil {
 		out.AlertName = commonAlert.GetName()
 	}
+	out.TriggerTime = record.CreatedAt
 	return out, nil
 }
 
