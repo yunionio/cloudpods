@@ -23,11 +23,13 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils/kubelet"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -199,16 +201,16 @@ func (s *SStorageManager) GetStorageDisk(storageId, diskId string) IDisk {
 	return nil
 }
 
-func (s *SStorageManager) GetStorageByPath(sPath string) IStorage {
+func (s *SStorageManager) GetStorageByPath(sPath string) (IStorage, error) {
 	for _, storage := range s.Storages {
 		if storage.GetPath() == sPath {
-			return storage
+			return storage, nil
 		}
 	}
-	return nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, sPath)
 }
 
-func (s *SStorageManager) GetDiskByPath(diskPath string) IDisk {
+func (s *SStorageManager) GetDiskByPath(diskPath string) (IDisk, error) {
 	pos := strings.LastIndex(diskPath, "/")
 	sPath := diskPath[:pos]
 	diskId := diskPath[pos+1:]
@@ -216,12 +218,11 @@ func (s *SStorageManager) GetDiskByPath(diskPath string) IDisk {
 	if pos > 0 {
 		diskId = diskId[:pos]
 	}
-	storage := s.GetStorageByPath(sPath)
-	if storage != nil {
-		disk, _ := storage.GetDiskById(diskId)
-		return disk
+	storage, err := s.GetStorageByPath(sPath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetStorageByPath")
 	}
-	return nil
+	return storage.GetDiskById(diskId)
 }
 
 func (s *SStorageManager) GetTotalCapacity() int {
