@@ -528,7 +528,7 @@ func init() {
 		i, e := modules.Hosts.GetLoginInfo(s, srvid, nil)
 		privateKey := ""
 		if e != nil {
-			if httputils.ErrorCode(e) == 404 {
+			if httputils.ErrorCode(e) == 404 || e.Error() == "ciphertext too short" {
 				var err error
 				privateKey, err = modules.Sshkeypairs.FetchPrivateKeyBySession(context.Background(), s)
 				if err != nil {
