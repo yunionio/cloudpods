@@ -43,7 +43,7 @@ type SSubscriberReceiverManager struct {
 type SSubscriberReceiver struct {
 	db.SJointResourceBase
 	SubscriberId string `width:"36" charset:"ascii" nullable:"false" index:"true"`
-	ReceiverId   string `width:"36" charset:"ascii" nullable:"false" index:"true"`
+	ReceiverId   string `width:"128" charset:"ascii" nullable:"false" index:"true"`
 }
 
 func (srm *SSubscriberReceiverManager) GetMasterFieldName() string {
