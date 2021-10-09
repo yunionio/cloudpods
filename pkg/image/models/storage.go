@@ -71,9 +71,9 @@ func IsCheckStatusEnabled(img *SImage) bool {
 
 func Init(storageBackend string) {
 	switch storageBackend {
-	case "local":
+	case image.IMAGE_STORAGE_DRIVER_LOCAL:
 		storage = &LocalStorage{}
-	case "s3":
+	case image.IMAGE_STORAGE_DRIVER_S3:
 		storage = &S3Storage{}
 	default:
 		storage = &LocalStorage{}
@@ -93,7 +93,7 @@ type Storage interface {
 type LocalStorage struct{}
 
 func (s *LocalStorage) Type() string {
-	return "local"
+	return image.IMAGE_STORAGE_DRIVER_LOCAL
 }
 
 func (s *LocalStorage) SaveImage(imagePath string) (string, error) {
@@ -132,7 +132,7 @@ func imagePathToName(imagePath string) string {
 }
 
 func (s *S3Storage) Type() string {
-	return "s3"
+	return image.IMAGE_STORAGE_DRIVER_S3
 }
 
 func (s *S3Storage) SaveImage(imagePath string) (string, error) {
