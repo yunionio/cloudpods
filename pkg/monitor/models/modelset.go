@@ -37,17 +37,27 @@ type IMonitorResModelSet interface {
 }
 
 type (
-	Servers  map[string]*Guest
-	Hosts    map[string]*Host
-	Rds      map[string]*SRds
-	Redis    map[string]*SRedis
-	Oss      map[string]*SOss
+	// +onecloud:swagger-gen-ignore
+	Servers map[string]*Guest
+	// +onecloud:swagger-gen-ignore
+	Hosts map[string]*Host
+	// +onecloud:swagger-gen-ignore
+	Rds map[string]*SRds
+	// +onecloud:swagger-gen-ignore
+	Redis map[string]*SRedis
+	// +onecloud:swagger-gen-ignore
+	Oss map[string]*SOss
+	// +onecloud:swagger-gen-ignore
 	Accounts map[string]*SAccount
+	// +onecloud:swagger-gen-ignore
 	Storages map[string]*SStorage
-	Domains  map[string]*SDomain
+	// +onecloud:swagger-gen-ignore
+	Domains map[string]*SDomain
+	// +onecloud:swagger-gen-ignore
 	Projects map[string]*SProject
 )
 
+// +onecloud:swagger-gen-ignore
 type Details struct {
 	//com_apis.CloudproviderDetails
 	//Host          string
@@ -65,49 +75,59 @@ type Details struct {
 	Ips           string
 	Account       string
 }
+
+// +onecloud:swagger-gen-ignore
 type Guest struct {
 	compute_models.SGuest
 	Details
 }
 
+// +onecloud:swagger-gen-ignore
 type Host struct {
 	Id string
 	compute_models.SHost
 	Details
 }
 
+// +onecloud:swagger-gen-ignore
 type SRds struct {
 	compute_models.SDBInstance
 	Details
 }
 
+// +onecloud:swagger-gen-ignore
 type SRedis struct {
 	compute_models.SElasticcache
 	Details
 }
 
+// +onecloud:swagger-gen-ignore
 type SOss struct {
 	compute_models.SBucket
 	Details
 }
 
+// +onecloud:swagger-gen-ignore
 type SStorage struct {
 	Id string
 	compute_models.SStorage
 	Details
 }
 
+// +onecloud:swagger-gen-ignore
 type SAccount struct {
 	Id string
 	compute_models.SCloudaccount
 	Details
 }
 
+// +onecloud:swagger-gen-ignore
 type SDomain struct {
 	Id string
 	keystone_models.SDomain
 }
 
+// +onecloud:swagger-gen-ignore
 type SProject struct {
 	Id string
 	keystone_models.SProject
