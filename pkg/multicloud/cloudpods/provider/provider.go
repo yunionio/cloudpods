@@ -38,6 +38,10 @@ func (self *SCloudpodsProviderFactory) GetName() string {
 	return cloudpods.CLOUD_PROVIDER_CLOUDPODS
 }
 
+func (self *SCloudpodsProviderFactory) IsNeedForceAutoCreateProject() bool {
+	return true
+}
+
 func (self *SCloudpodsProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	ret := cloudprovider.SCloudaccount{}
 	if len(input.AuthUrl) == 0 {

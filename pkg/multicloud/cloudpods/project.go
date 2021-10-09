@@ -49,7 +49,11 @@ func (self *SProject) GetStatus() string {
 
 func (self *SCloudpodsClient) GetProjects() ([]SProject, error) {
 	ret := []SProject{}
-	return ret, self.list(&modules.Projects, nil, &ret)
+	params := map[string]interface{}{
+		"scope": "system",
+		"limit": 1024,
+	}
+	return ret, self.list(&modules.Projects, params, &ret)
 }
 
 func (self *SCloudpodsClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {

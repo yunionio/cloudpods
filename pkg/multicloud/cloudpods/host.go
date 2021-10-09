@@ -180,7 +180,7 @@ func (self *SHost) GetSchedtags() ([]string, error) {
 }
 
 type SHostNic struct {
-	api.HostwireDetails
+	api.HostnetworkDetails
 }
 
 func (self *SHostNic) GetDriver() string {
@@ -188,7 +188,7 @@ func (self *SHostNic) GetDriver() string {
 }
 
 func (self *SHostNic) GetDevice() string {
-	return self.Interface
+	return ""
 }
 
 func (self *SHostNic) GetMac() string {
@@ -208,24 +208,24 @@ func (self *SHostNic) GetMtu() int32 {
 }
 
 func (self *SHostNic) GetNicType() string {
-	return ""
+	return self.NicType
 }
 
 func (self *SHostNic) GetBridge() string {
-	return self.Bridge
+	return ""
 }
 
 func (self *SHostNic) GetIpAddr() string {
-	return ""
+	return self.IpAddr
 }
 
 func (self *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
 	nics := []SHostNic{}
 	params := map[string]interface{}{
 		"scope":   "system",
-		"host_id": self.Id,
+		"details": "true",
 	}
-	resp, err := modules.Hostwires.List(self.zone.region.cli.s, jsonutils.Marshal(params))
+	resp, err := modules.Baremetalnetworks.ListDescendent(self.zone.region.cli.s, self.Id, jsonutils.Marshal(params))
 	if err != nil {
 		return nil, err
 	}
