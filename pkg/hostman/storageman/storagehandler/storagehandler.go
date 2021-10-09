@@ -19,10 +19,12 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -130,12 +132,14 @@ func storageDetach(ctx context.Context, body jsonutils.JSONObject) (interface{},
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("mount_point")
 	}
-	storage := storageman.GetManager().GetStorageByPath(mountPoint)
-
-	name, _ := body.GetString("name")
-	if storage == nil {
-		return nil, httperrors.NewBadRequestError("ShareStorage[%s] Has detach from host ...", name)
+	storage, err := storageman.GetManager().GetStorageByPath(mountPoint)
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			return nil, nil
+		}
+		return nil, errors.Wrapf(err, "GetStorageByPath(%s)", mountPoint)
 	}
+
 	if err := storage.Detach(); err != nil {
 		log.Errorf("detach storage %s failed: %s", storage.GetPath(), err)
 	}

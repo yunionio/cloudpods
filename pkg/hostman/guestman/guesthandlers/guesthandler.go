@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
@@ -460,7 +461,7 @@ func guestReloadDiskSnapshot(ctx context.Context, sid string, body jsonutils.JSO
 		id, _ := d.GetString("disk_id")
 		if diskId == id {
 			diskPath, _ := d.GetString("path")
-			disk = storageman.GetManager().GetDiskByPath(diskPath)
+			disk, _ = storageman.GetManager().GetDiskByPath(diskPath)
 			break
 		}
 	}
@@ -495,7 +496,10 @@ func guestSnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (
 		id, _ := d.GetString("disk_id")
 		if diskId == id {
 			diskPath, _ := d.GetString("path")
-			disk = storageman.GetManager().GetDiskByPath(diskPath)
+			disk, err = storageman.GetManager().GetDiskByPath(diskPath)
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
+			}
 			break
 		}
 	}
@@ -531,7 +535,10 @@ func guestDeleteSnapshot(ctx context.Context, sid string, body jsonutils.JSONObj
 		id, _ := d.GetString("disk_id")
 		if diskId == id {
 			diskPath, _ := d.GetString("path")
-			disk = storageman.GetManager().GetDiskByPath(diskPath)
+			disk, err = storageman.GetManager().GetDiskByPath(diskPath)
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
+			}
 			break
 		}
 	}
