@@ -2510,10 +2510,18 @@ func (self *SHost) GetNetworkWithId(netId string, reserved bool) (*SNetwork, err
 		q2 = q2.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
 		q2 = q2.Join(regions, sqlchemy.Equals(regions.Field("id"), vpcs.Field("cloudregion_id")))
 		q2 = q2.Filter(sqlchemy.Equals(networks.Field("id"), netId))
-		q2 = q2.Filter(sqlchemy.AND(
-			sqlchemy.Equals(regions.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD),
-			sqlchemy.NOT(sqlchemy.Equals(vpcs.Field("id"), api.DEFAULT_VPC_ID)),
-		))
+		q2 = q2.Filter(
+			sqlchemy.OR(
+				sqlchemy.AND(
+					sqlchemy.Equals(regions.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD),
+					sqlchemy.NOT(sqlchemy.Equals(vpcs.Field("id"), api.DEFAULT_VPC_ID)),
+				),
+				sqlchemy.AND(
+					sqlchemy.Equals(regions.Field("provider"), api.CLOUD_PROVIDER_CLOUDPODS),
+					sqlchemy.NOT(sqlchemy.Equals(vpcs.Field("external_id"), api.DEFAULT_VPC_ID)),
+				),
+			),
+		)
 	}
 
 	q := sqlchemy.Union(q1, q2).Query()
