@@ -409,6 +409,9 @@ func (self *SImage) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 
 func (self *SImage) GetPath(format string) string {
 	path := filepath.Join(options.Options.FilesystemStoreDatadir, self.Id)
+	if options.Options.StorageDriver == api.IMAGE_STORAGE_DRIVER_S3 {
+		path = filepath.Join(options.Options.S3MountPoint, self.Id)
+	}
 	if len(format) > 0 {
 		path = fmt.Sprintf("%s.%s", path, format)
 	}
@@ -1174,10 +1177,9 @@ func (self *SImage) Remove() error {
 			return errors.Wrapf(err, "remove subimg %s", subimgs[i].GetName())
 		}
 	}
-	if self.Location == "" {
-		return nil
-	}
-	if strings.HasPrefix(self.Location, LocalFilePrefix) {
+
+	// 考虑镜像下载中断情况
+	if len(self.Location) == 0 || strings.HasPrefix(self.Location, LocalFilePrefix) {
 		return self.RemoveFile()
 	} else {
 		return RemoveImage(self.Location)
