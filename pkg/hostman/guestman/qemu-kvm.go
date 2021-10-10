@@ -844,9 +844,9 @@ func (s *SKVMGuestInstance) DeployFs(deployInfo *deployapi.DeployInfo) (jsonutil
 	disks, _ := s.Desc.GetArray("disks")
 	if len(disks) > 0 {
 		diskPath, _ := disks[0].GetString("path")
-		disk := storageman.GetManager().GetDiskByPath(diskPath)
-		if disk == nil {
-			return nil, fmt.Errorf("Cannot find disk %s index 0", diskPath)
+		disk, err := storageman.GetManager().GetDiskByPath(diskPath)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
 		}
 		return disk.DeployGuestFs(disk.GetPath(), s.Desc, deployInfo)
 	} else {
@@ -923,7 +923,7 @@ func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) erro
 	for _, disk := range disks {
 		if disk.Contains("path") {
 			diskPath, _ := disk.GetString("path")
-			d := storageman.GetManager().GetDiskByPath(diskPath)
+			d, _ := storageman.GetManager().GetDiskByPath(diskPath)
 			if d != nil && d.GetType() == compute.STORAGE_LOCAL && migrated {
 				if err := d.DeleteAllSnapshot(); err != nil {
 					log.Errorln(err)
@@ -1338,7 +1338,7 @@ func (s *SKVMGuestInstance) streamDisksComplete(ctx context.Context) {
 	disks, _ := s.Desc.GetArray("disks")
 	for i, disk := range disks {
 		diskpath, _ := disk.GetString("path")
-		d := storageman.GetManager().GetDiskByPath(diskpath)
+		d, _ := storageman.GetManager().GetDiskByPath(diskpath)
 		if d != nil {
 			log.Infof("Disk %s do post create from fuse", d.GetId())
 			d.PostCreateFromImageFuse()
@@ -1592,7 +1592,10 @@ func (s *SKVMGuestInstance) PrepareMigrate(liveMigrage bool) (*jsonutils.JSONDic
 	for _, disk := range disks {
 		if disk.Contains("path") {
 			diskPath, _ := disk.GetString("path")
-			d := storageman.GetManager().GetDiskByPath(diskPath)
+			d, err := storageman.GetManager().GetDiskByPath(diskPath)
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
+			}
 			if d.GetType() == compute.STORAGE_LOCAL {
 				back, err := d.PrepareMigrate(liveMigrage)
 				if err != nil {
@@ -1622,8 +1625,8 @@ func (s *SKVMGuestInstance) IsSharedStorage() bool {
 	disks, _ := s.Desc.GetArray("disks")
 	for i := 0; i < len(disks); i++ {
 		diskPath, _ := disks[i].GetString("path")
-		disk := storageman.GetManager().GetDiskByPath(diskPath)
-		if disk == nil {
+		disk, err := storageman.GetManager().GetDiskByPath(diskPath)
+		if err != nil {
 			log.Errorf("failed find disk by path %s", diskPath)
 			return false
 		}

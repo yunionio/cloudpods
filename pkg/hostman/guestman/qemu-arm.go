@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	options "yunion.io/x/onecloud/pkg/hostman/options"
@@ -101,9 +102,9 @@ func (s *SKVMGuestInstance) generateArmStartScript(data *jsonutils.JSONDict) (st
 
 	for _, disk := range disks {
 		diskPath, _ := disk.GetString("path")
-		d := storageman.GetManager().GetDiskByPath(diskPath)
-		if d == nil {
-			return "", fmt.Errorf("get disk %s by storage error", diskPath)
+		d, err := storageman.GetManager().GetDiskByPath(diskPath)
+		if err != nil {
+			return "", errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
 		}
 
 		diskIndex, _ := disk.Int("index")

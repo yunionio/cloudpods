@@ -1427,7 +1427,7 @@ func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 			}
 		} else {
 			// Storage type local
-			storage := storageManager.GetStorageByPath(mountPoint)
+			storage, _ := storageManager.GetStorageByPath(mountPoint)
 			if storage != nil {
 				storage.SetStoragecacheId(storagecacheId)
 				if IsRootPartition(mountPoint) {
