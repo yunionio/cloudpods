@@ -273,7 +273,7 @@ func (d *SGuestDiskSyncTask) addDisk(disk jsonutils.JSONObject) {
 
 func (d *SGuestDiskSyncTask) startAddDisk(disk jsonutils.JSONObject) {
 	diskPath, _ := disk.GetString("path")
-	iDisk := storageman.GetManager().GetDiskByPath(diskPath)
+	iDisk, _ := storageman.GetManager().GetDiskByPath(diskPath)
 	if iDisk == nil {
 		d.syncDisksConf()
 		return
