@@ -41,6 +41,9 @@ const (
 	LocalFilePrefix = "file://"
 	S3Prefix        = "s3://"
 
+	IMAGE_STORAGE_DRIVER_LOCAL = "local"
+	IMAGE_STORAGE_DRIVER_S3    = "s3"
+
 	// image properties
 	IMAGE_OS_ARCH             = "os_arch"
 	IMAGE_OS_DISTRO           = "os_distribution"
