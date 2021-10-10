@@ -101,7 +101,7 @@ func StartService() {
 
 	go models.CheckImages()
 	models.Init(options.Options.StorageDriver)
-	if options.Options.StorageDriver == "s3" {
+	if options.Options.StorageDriver == api.IMAGE_STORAGE_DRIVER_S3 {
 		initS3()
 	}
 
@@ -128,7 +128,7 @@ func StartService() {
 		if options.Options.EnableTorrentService {
 			torrent.StopTorrents()
 		}
-		if options.Options.StorageDriver == "s3" {
+		if options.Options.StorageDriver == api.IMAGE_STORAGE_DRIVER_S3 {
 			procutils.NewCommand("umount", options.Options.S3MountPoint).Run()
 		}
 	})
