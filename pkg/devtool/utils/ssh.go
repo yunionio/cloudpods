@@ -104,6 +104,7 @@ func checkSshableForYunionCloud(session *mcclient.ClientSession, serverDetail *c
 	lfParams := jsonutils.NewDict()
 	lfParams.Set("proto", jsonutils.NewString("tcp"))
 	lfParams.Set("port", jsonutils.NewInt(22))
+	lfParams.Set("addr", jsonutils.NewString(ip))
 	data, err := modules.Servers.PerformAction(session, serverDetail.Id, "list-forward", lfParams)
 	if err != nil {
 		err = errors.Wrapf(err, "unable to List Forward for server %s", serverDetail.Id)
