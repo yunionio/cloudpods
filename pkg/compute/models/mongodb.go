@@ -784,17 +784,13 @@ func (self *SMongoDB) PerformRemoteUpdate(ctx context.Context, userCred mcclient
 
 func (self *SMongoDB) StartRemoteUpdateTask(ctx context.Context, userCred mcclient.TokenCredential, replaceTags bool, parentTaskId string) error {
 	data := jsonutils.NewDict()
-	if replaceTags {
-		data.Add(jsonutils.JSONTrue, "replace_tags")
+	data.Add(jsonutils.NewBool(replaceTags), "replace_tags")
+	task, err := taskman.TaskManager.NewTask(ctx, "MongoDBRemoteUpdateTask", self, userCred, data, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
 	}
-	if task, err := taskman.TaskManager.NewTask(ctx, "MongoDBRemoteUpdateTask", self, userCred, data, parentTaskId, "", nil); err != nil {
-		log.Errorln(err)
-		return errors.Wrap(err, "Start ElasticcacheRemoteUpdateTask")
-	} else {
-		self.SetStatus(userCred, api.DBINSTANCE_UPDATE_TAGS, "StartRemoteUpdateTask")
-		task.ScheduleRun(nil)
-	}
-	return nil
+	self.SetStatus(userCred, apis.STATUS_UPDATE_TAGS, "StartRemoteUpdateTask")
+	return task.ScheduleRun(nil)
 }
 
 func (self *SMongoDB) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {

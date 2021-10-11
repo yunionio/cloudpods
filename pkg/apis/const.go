@@ -43,6 +43,9 @@ const (
 
 	SERVICE_TYPE_ETCD     = "etcd"
 	SERVICE_TYPE_INFLUXDB = "influxdb"
+
+	STATUS_UPDATE_TAGS        = "update_tags"
+	STATUS_UPDATE_TAGS_FAILED = "update_tags_fail"
 )
 
 var (
