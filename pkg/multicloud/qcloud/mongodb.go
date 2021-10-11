@@ -251,6 +251,10 @@ func (self *SRegion) DeleteMongoDB(id string) error {
 	})
 }
 
+func (self *SMongoDB) SetTags(tags map[string]string, replace bool) error {
+	return self.region.SetResourceTags("mongodb", "instance", []string{self.InstanceId}, tags, replace)
+}
+
 func (self *SMongoDB) GetIBackups() ([]cloudprovider.SMongoDBBackup, error) {
 	return self.region.GetMongoDBBackups(self.InstanceId)
 }

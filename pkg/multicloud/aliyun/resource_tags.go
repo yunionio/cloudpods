@@ -38,6 +38,8 @@ func (self *SRegion) tagRequest(serviceType, action string, params map[string]st
 		return self.kvsRequest(action, params)
 	case ALIYUN_SERVICE_NAS:
 		return self.nasRequest(action, params)
+	case ALIYUN_SERVICE_MONGO_DB:
+		return self.mongodbRequest(action, params)
 	default:
 		return nil, fmt.Errorf("invalid service type")
 	}

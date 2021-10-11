@@ -252,6 +252,10 @@ func (self *SRegion) GetMongoDBsByType(mongoType string) ([]SMongoDB, error) {
 	return dbs, nil
 }
 
+func (self *SMongoDB) SetTags(tags map[string]string, replace bool) error {
+	return self.region.SetResourceTags(ALIYUN_SERVICE_MONGO_DB, "INSTANCE", self.GetId(), tags, replace)
+}
+
 func (self *SRegion) GetICloudMongoDBById(id string) (cloudprovider.ICloudMongoDB, error) {
 	db, err := self.GetMongoDB(id)
 	if err != nil {
