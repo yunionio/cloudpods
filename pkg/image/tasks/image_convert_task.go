@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/image/models"
+	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -89,8 +90,10 @@ func (self *PutImageTask) OnInit(ctx context.Context, obj db.IStandaloneModel, d
 			if err != nil {
 				log.Errorf("failed update image location %s", err)
 			} else {
-				if err = procutils.NewCommand("rm", "-f", imagePath).Run(); err != nil {
-					log.Errorf("failed remove file %s: %s", imagePath, err)
+				if !strings.Contains(imagePath, options.Options.S3MountPoint) {
+					if err = procutils.NewCommand("rm", "-f", imagePath).Run(); err != nil {
+						log.Errorf("failed remove file %s: %s", imagePath, err)
+					}
 				}
 			}
 		}
