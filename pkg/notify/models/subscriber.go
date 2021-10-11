@@ -561,11 +561,11 @@ func (sr *SSubscriber) SetReceivers(ctx context.Context, receiverIds []string) e
 			rmReceivers = append(rmReceivers, dbReceivers[i])
 			i++
 		case dbReceivers[i] > receiverIds[j]:
-			rmReceivers = append(rmReceivers, dbReceivers[i])
-			i++
-		case dbReceivers[i] < receiverIds[j]:
 			addReceivers = append(addReceivers, receiverIds[j])
 			j++
+		case dbReceivers[i] < receiverIds[j]:
+			rmReceivers = append(rmReceivers, dbReceivers[i])
+			i++
 		case dbReceivers[i] == receiverIds[j]:
 			i++
 			j++
