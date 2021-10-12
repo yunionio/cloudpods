@@ -46,7 +46,6 @@ type SDBInstanceExtra struct {
 
 type SDBInstance struct {
 	multicloud.SDBInstanceBase
-	multicloud.AliyunTags
 
 	netInfo []SDBInstanceNetwork
 
@@ -850,6 +849,30 @@ func (region *SRegion) RenewDBInstance(instanceId string, bc billing.SBillingCyc
 	}
 	_, err := region.rdsRequest("RenewInstance", params)
 	return err
+}
+
+func (self *SDBInstance) GetTags() (map[string]string, error) {
+	_, tags, err := self.region.ListSysAndUserTags(ALIYUN_SERVICE_RDS, "INSTANCE", self.DBInstanceId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListTags")
+	}
+	tagMaps := map[string]string{}
+	for k, v := range tags {
+		tagMaps[strings.ToLower(k)] = v
+	}
+	return tagMaps, nil
+}
+
+func (self *SDBInstance) GetSysTags() map[string]string {
+	tags, _, err := self.region.ListSysAndUserTags(ALIYUN_SERVICE_RDS, "INSTANCE", self.DBInstanceId)
+	if err != nil {
+		return nil
+	}
+	tagMaps := map[string]string{}
+	for k, v := range tags {
+		tagMaps[strings.ToLower(k)] = v
+	}
+	return tagMaps
 }
 
 func (rds *SDBInstance) SetTags(tags map[string]string, replace bool) error {
