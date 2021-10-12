@@ -681,6 +681,65 @@ func (region *SRegion) ChangeDBInstanceConfig(instanceId string, instanceType st
 	return nil
 }
 
+func (self *SDBInstance) SetTags(tags map[string]string, replace bool) error {
+	existedTags, err := self.GetTags()
+	if err != nil {
+		return errors.Wrap(err, "self.GetTags()")
+	}
+	deleteTagsKey := []string{}
+	for k := range existedTags {
+		if replace {
+			deleteTagsKey = append(deleteTagsKey, k)
+		} else {
+			if _, ok := tags[k]; ok {
+				deleteTagsKey = append(deleteTagsKey, k)
+			}
+		}
+	}
+	if len(deleteTagsKey) > 0 {
+		err := self.region.DeleteRdsTags(self.GetId(), deleteTagsKey)
+		if err != nil {
+			return errors.Wrapf(err, "DeleteRdsTags")
+		}
+	}
+	if len(tags) > 0 {
+		err := self.region.CreateRdsTags(self.GetId(), tags)
+		if err != nil {
+			return errors.Wrapf(err, "CreateRdsTags")
+		}
+	}
+	return nil
+}
+
+func (self *SRegion) DeleteRdsTags(instanceId string, tagsKey []string) error {
+	params := map[string]interface{}{
+		"action": "delete",
+	}
+	tagsObj := []map[string]string{}
+	for _, k := range tagsKey {
+		tagsObj = append(tagsObj, map[string]string{"key": k})
+	}
+	params["tags"] = tagsObj
+
+	_, err := self.ecsClient.DBInstance.PerformAction2("tags/action", instanceId, jsonutils.Marshal(params), "")
+	return err
+}
+
+func (self *SRegion) CreateRdsTags(instanceId string, tags map[string]string) error {
+	params := map[string]interface{}{
+		"action": "create",
+	}
+
+	tagsObj := []map[string]string{}
+	for k, v := range tags {
+		tagsObj = append(tagsObj, map[string]string{"key": k, "value": v})
+	}
+	params["tags"] = tagsObj
+
+	_, err := self.ecsClient.DBInstance.PerformAction2("tags/action", instanceId, jsonutils.Marshal(params), "")
+	return err
+}
+
 func (rds *SDBInstance) RecoveryFromBackup(conf *cloudprovider.SDBInstanceRecoveryConfig) error {
 	if len(conf.OriginDBInstanceExternalId) == 0 {
 		conf.OriginDBInstanceExternalId = rds.Id
