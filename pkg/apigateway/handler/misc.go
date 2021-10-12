@@ -346,8 +346,9 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 		rowIdx := i + 2
 		name := row[0]
 		password := row[1]
-		domain := row[2]
-		allowWebConsole := strings.ToLower(row[3])
+		displayname := row[2]
+		domain := row[3]
+		allowWebConsole := strings.ToLower(row[4])
 
 		// 忽略空白行
 		rowStr := strings.Join(row, "")
@@ -359,6 +360,10 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 			e := httperrors.NewClientError("row %d name is empty", rowIdx)
 			httperrors.JsonClientError(ctx, w, e)
 			return
+		}
+
+		if len(displayname) == 0 {
+			displayname = name
 		}
 
 		if len(password) == 0 {
@@ -401,6 +406,7 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 
 		user := jsonutils.NewDict()
 		user.Add(jsonutils.NewString(name), "name")
+		user.Add(jsonutils.NewString(displayname), "displayname")
 		user.Add(jsonutils.NewString(domainId), "domain_id")
 		if len(password) > 0 {
 			user.Add(jsonutils.NewString(password), "password")
@@ -468,7 +474,7 @@ func (mh *MiscHandler) getDownloadsHandler(ctx context.Context, w http.ResponseW
 			return
 		}
 	case "BatchUserRegister":
-		records := [][]string{{"*用户名（user）", "*用户密码（password）", "*部门/域（domain）", "*是否登录控制台（allow_web_console：true、false）"}}
+		records := [][]string{{"*用户名（user）", "*用户密码（password）", "*显示名（displayname）", "*部门/域（domain）", "*是否登录控制台（allow_web_console：true、false）"}}
 		content, err = writeXlsx("users", records)
 		if err != nil {
 			httperrors.InternalServerError(ctx, w, "internal server error")
