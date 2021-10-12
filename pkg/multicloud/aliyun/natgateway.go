@@ -16,6 +16,7 @@ package aliyun
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -349,4 +350,32 @@ func (self *SRegion) DeleteNatGateway(natId string, isForce bool) error {
 	}
 	_, err := self.vpcRequest("DeleteNatGateway", params)
 	return errors.Wrapf(err, "DeleteNatGateway")
+}
+
+func (self *SNatGateway) GetTags() (map[string]string, error) {
+	_, tags, err := self.vpc.region.ListSysAndUserTags(ALIYUN_SERVICE_VPC, "NATGATEWAY", self.NatGatewayId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListTags")
+	}
+	tagMaps := map[string]string{}
+	for k, v := range tags {
+		tagMaps[strings.ToLower(k)] = v
+	}
+	return tagMaps, nil
+}
+
+func (self *SNatGateway) GetSysTags() map[string]string {
+	tags, _, err := self.vpc.region.ListSysAndUserTags(ALIYUN_SERVICE_VPC, "NATGATEWAY", self.NatGatewayId)
+	if err != nil {
+		return nil
+	}
+	tagMaps := map[string]string{}
+	for k, v := range tags {
+		tagMaps[strings.ToLower(k)] = v
+	}
+	return tagMaps
+}
+
+func (self *SNatGateway) SetTags(tags map[string]string, replace bool) error {
+	return self.vpc.region.SetResourceTags(ALIYUN_SERVICE_VPC, "NATGATEWAY", self.GetId(), tags, replace)
 }

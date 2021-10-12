@@ -46,6 +46,7 @@ type SCdnDomain struct {
 	Status      string     `json:"Status"`
 	UpdateTime  string     `json:"UpdateTime"`
 }
+
 type SDomains struct {
 	RequestID   string       `json:"RequestId"`
 	Domains     []SCdnDomain `json:"Domains"`
@@ -94,9 +95,9 @@ func (client *SQcloudClient) DescribeCdnDomains(domains, origins []string, domai
 		filterIndex++
 	}
 
-	resp, err := client.cdnRequest("DescribeDomains", params)
+	resp, err := client.cdnRequest("DescribeDomainsConfig", params)
 	if err != nil {
-		return nil, 0, errors.Wrapf(err, "client.DescribeDomains(DescribeDomains, %s)", jsonutils.Marshal(params).String())
+		return nil, 0, errors.Wrapf(err, "DescribeDomainsConfig %s", params)
 	}
 	cdnDomains := []SCdnDomain{}
 	err = resp.Unmarshal(&cdnDomains, "Domains")
