@@ -1,0 +1,14 @@
+{{- $d := .resource_details -}}
+您在{{ $d.project }}项目的
+
+{{- if $d.ips -}}
+IP地址为{{ $d.ips }}的
+{{- end -}}
+
+{{- if $d.ip_addr -}}
+IP地址为{{ $d.ip_addr }}的
+{{- end -}}
+{{- if $d.brand -}}
+{{ $d.brand }}平台
+{{- end -}}
+{{ .resource_type_display }}{{ $d.name }}成功加入回收站

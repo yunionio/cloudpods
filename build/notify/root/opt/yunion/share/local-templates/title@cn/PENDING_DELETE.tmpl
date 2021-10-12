@@ -1,0 +1,5 @@
+{{- $d := .resource_details -}}
+{{- if $d.project -}}
+{{ $d.project }}项目的
+{{- end -}}
+{{ .resource_type_display }}{{ $d.name }}成功加入回收站
