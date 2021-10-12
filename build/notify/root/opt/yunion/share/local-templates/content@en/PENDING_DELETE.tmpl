@@ -1,0 +1,22 @@
+{{- $d := .resource_details -}}
+Your {{ if $d.brand -}} {{ $d.brand }} {{ end -}} {{ .resource_type_display }} {{ $d.name }} 
+{{ if $d.project -}} in project {{ $d.project }} {{ end -}} has been added to recycle bin successfully
+{{- if $d.private_dns -}}
+, the intranet address is {{ $d.private_dns }}:{{ $d.private_connect_port }}
+{{- end -}}
+
+{{- if $d.public_dns -}}
+, the external address is {{ $d.public_dns }}:{{ $d.public_connect_port }}
+{{- end -}}
+
+{{- if and $d.address_type $d.address -}}
+, the service address is {{ $d.address_type }}{{ $d.address }}
+{{- end -}}
+
+{{- if $d.ips -}}
+, the IP address is {{ $d.ips }}
+{{- end -}}
+
+{{- if $d.ip_addr -}}
+, the IP address is {{ $d.ip_addr }}
+{{- end -}}

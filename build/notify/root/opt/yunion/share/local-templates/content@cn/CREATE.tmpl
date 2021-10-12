@@ -4,7 +4,7 @@
 {{- if $d.brand -}}
 {{ $d.brand }}平台
 {{- end -}}
-{{ .resource_type_display }}{{ $d.name }}已经创建成功
+{{ .resource_type_display }}{{ $d.name }}创建成功
 {{- if $d.private_dns -}}
 ，内网地址为{{ $d.private_dns }}:{{ $d.private_connect_port }}
 {{- end -}}

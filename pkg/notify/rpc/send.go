@@ -440,7 +440,7 @@ func robotType2ContactType(rType string) string {
 	case api.ROBOT_TYPE_DINGTALK:
 		return api.DINGTALK_ROBOT
 	case api.ROBOT_TYPE_WORKWX:
-		return api.DINGTALK_ROBOT
+		return api.WORKWX_ROBOT
 	case api.ROBOT_TYPE_WEBHOOK:
 		return api.WEBHOOK
 	}
