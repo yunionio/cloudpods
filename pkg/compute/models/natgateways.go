@@ -426,7 +426,6 @@ func (manager *SNatGatewayManager) SyncNatGateways(ctx context.Context, userCred
 			syncResult.UpdateError(err)
 			continue
 		}
-		syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 		localNatGateways = append(localNatGateways, commondb[i])
 		remoteNatGateways = append(remoteNatGateways, commonext[i])
 		syncResult.Update()
@@ -438,7 +437,6 @@ func (manager *SNatGatewayManager) SyncNatGateways(ctx context.Context, userCred
 			syncResult.AddError(err)
 			continue
 		}
-		syncMetadata(ctx, userCred, routeTableNew, added[i])
 		localNatGateways = append(localNatGateways, *routeTableNew)
 		remoteNatGateways = append(remoteNatGateways, added[i])
 		syncResult.Add()
@@ -505,6 +503,7 @@ func (self *SNatGateway) SyncWithCloudNatGateway(ctx context.Context, userCred m
 		return err
 	}
 
+	syncMetadata(ctx, userCred, self, extNat)
 	SyncCloudDomain(userCred, self, provider.GetOwnerId())
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
@@ -564,6 +563,7 @@ func (manager *SNatGatewayManager) newFromCloudNatGateway(ctx context.Context, u
 	}
 
 	SyncCloudDomain(userCred, &nat, provider.GetOwnerId())
+	syncMetadata(ctx, userCred, &nat, extNat)
 
 	db.OpsLog.LogEvent(&nat, db.ACT_CREATE, nat.GetShortDesc(ctx), userCred)
 

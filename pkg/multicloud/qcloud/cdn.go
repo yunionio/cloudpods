@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -83,8 +84,30 @@ func (self *SCdnDomain) GetServiceType() string {
 	return self.ServiceType
 }
 
+func (self *SCdnDomain) Refresh() error {
+	domains, _, err := self.client.DescribeCdnDomains([]string{self.Domain}, nil, "", 0, 100)
+	if err != nil {
+		return errors.Wrapf(err, "DescribeCdnDomains")
+	}
+	if len(domains) == 0 {
+		return errors.Wrapf(cloudprovider.ErrNotFound, self.Domain)
+	}
+	if len(domains) > 1 {
+		return errors.Wrapf(cloudprovider.ErrDuplicateId, self.Domain)
+	}
+	return jsonutils.Update(self, domains[0])
+}
+
 func (self *SCdnDomain) Delete() error {
 	return self.client.DeleteCdnDomain(self.Domain)
+}
+
+func (self *SCdnDomain) SetTags(tags map[string]string, replace bool) error {
+	region, err := self.client.getDefaultRegion()
+	if err != nil {
+		return errors.Wrapf(err, "getDefaultRegion")
+	}
+	return region.SetResourceTags("cdn", "domain", []string{self.Domain}, tags, replace)
 }
 
 func (self *SQcloudClient) DeleteCdnDomain(domain string) error {
@@ -170,9 +193,9 @@ func (client *SQcloudClient) DescribeCdnDomains(domains, origins []string, domai
 		filterIndex++
 	}
 
-	resp, err := client.cdnRequest("DescribeDomains", params)
+	resp, err := client.cdnRequest("DescribeDomainsConfig", params)
 	if err != nil {
-		return nil, 0, errors.Wrapf(err, "DescribeDomains %s", params)
+		return nil, 0, errors.Wrapf(err, "DescribeDomainsConfig %s", params)
 	}
 	cdnDomains := []SCdnDomain{}
 	err = resp.Unmarshal(&cdnDomains, "Domains")
