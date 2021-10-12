@@ -94,9 +94,19 @@ func (man *SProxyEndpointManager) PerformCreateFromServer(ctx context.Context, u
 		return nil, httperrors.NewBadRequestError("cannot find ssh host ip address for this server")
 	}
 
-	name := input.Name
-	if name == "" {
-		name = serverInfo.Server.Name
+	var name string
+	if len(input.Name) > 0 {
+		name = input.Name
+	} else if len(input.GenerateName) > 0 {
+		name, err = db.GenerateName(ctx, man, userCred, input.GenerateName)
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.GenerateName")
+		}
+	} else {
+		name, err = db.GenerateName(ctx, man, userCred, serverInfo.Server.Name)
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.GenerateName")
+		}
 	}
 	if err := db.NewNameValidator(man, userCred, name, nil); err != nil {
 		return nil, httperrors.NewGeneralError(err)
