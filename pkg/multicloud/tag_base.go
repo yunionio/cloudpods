@@ -46,6 +46,8 @@ type QcloudTags struct {
 	TagList []STag
 	// Kafka
 	Tags []STag
+	// Cdn
+	Tag []STag
 }
 
 func (self *QcloudTags) GetTags() (map[string]string, error) {
@@ -74,6 +76,13 @@ func (self *QcloudTags) GetTags() (map[string]string, error) {
 		}
 		ret[tag.TagKey] = tag.TagValue
 	}
+	for _, tag := range self.Tag {
+		if tag.TagValue == "null" {
+			tag.TagValue = ""
+		}
+		ret[tag.TagKey] = tag.TagValue
+	}
+
 	return ret, nil
 }
 
