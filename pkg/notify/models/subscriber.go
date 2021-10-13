@@ -284,6 +284,9 @@ func (s *SSubscriber) PerformChange(ctx context.Context, userCred mcclient.Token
 	case api.SUBSCRIBER_TYPE_ROLE:
 		_, err := db.Update(s, func() error {
 			s.Identification = input.Role
+			if input.RoleScope != "" {
+				s.RoleScope = input.RoleScope
+			}
 			return nil
 		})
 		if err != nil {
