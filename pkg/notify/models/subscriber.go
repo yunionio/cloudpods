@@ -353,7 +353,7 @@ func (sm *SSubscriberManager) FetchCustomizeColumns(ctx context.Context, userCre
 				log.Errorf("unable get robotIdentification for subscriber %q: %v", s.Id, err)
 			}
 		case api.SUBSCRIBER_TYPE_ROLE:
-			rows[i].Role, err = s.roleIdentification()
+			rows[i].Role, err = s.roleIdentification(ctx)
 			if err != nil {
 				log.Errorf("unable to get roleIdentification for subscriber %q: %v", s.Id, err)
 			}
@@ -404,13 +404,14 @@ func (s *SSubscriber) robotIdentification() (api.Identification, error) {
 	return ret, nil
 }
 
-func (s *SSubscriber) roleIdentification() (api.Identification, error) {
+func (s *SSubscriber) roleIdentification(ctx context.Context) (api.Identification, error) {
 	var ret api.Identification
-	q := db.RoleCacheManager.Query("id", "name").Equals("id", s.Identification)
-	err := q.First(&ret)
+	roleCache, err := db.RoleCacheManager.FetchRoleById(ctx, s.Identification)
 	if err != nil {
-		return ret, err
+		return ret, errors.Wrapf(err, "unable to find role %q", s.Identification)
 	}
+	ret.ID = s.Identification
+	ret.Name = roleCache.Name
 	return ret, nil
 }
 
