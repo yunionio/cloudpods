@@ -37,6 +37,9 @@ import (
 )
 
 const (
+	ACTIVE_COMPUTER_NAME_KEY = `HKLM\SYSTEM\CurrentControlSet\Control\ComputerName\ActiveComputerName`
+	COMPUTER_NAME_KEY        = `HKLM\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName`
+
 	TCPIP_PARAM_KEY      = `HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters`
 	BOOT_SCRIPT_PATH     = "/Windows/System32/GroupPolicy/Machine/Scripts/Startup/cloudboot.bat"
 	WIN_BOOT_SCRIPT_PATH = "cloudboot"
@@ -139,6 +142,10 @@ func (w *SWindowsRootFs) GetLoginAccount(rootFs IDiskPartition, sUser string, de
 	if selUsr == "" {
 		return "", fmt.Errorf("no unlocked user")
 	}
+	if !users[selUsr] {
+		// user is locked
+		tool.UnlockUser(selUsr)
+	}
 	return selUsr, nil
 }
 
@@ -216,6 +223,8 @@ func (w *SWindowsRootFs) DeployHostname(part IDiskPartition, hostname, domain st
 	} {
 		lines = append(lines, w.regAdd(TCPIP_PARAM_KEY, k, v, "REG_SZ"))
 	}
+	lines = append(lines, w.regAdd(ACTIVE_COMPUTER_NAME_KEY, "ComputerName", hostname, "REG_SZ"))
+	lines = append(lines, w.regAdd(COMPUTER_NAME_KEY, "ComputerName", hostname, "REG_SZ"))
 	hostScripts := strings.Join(lines, "\r\n")
 	return w.putGuestScriptContents("/windows/hostnamecfg.bat", hostScripts)
 }
