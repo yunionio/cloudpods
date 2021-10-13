@@ -247,9 +247,6 @@ func init() {
 			if err != nil {
 				return err
 			}
-			if err != nil {
-				return err
-			}
 			printList(modulebase.JSON2ListResult(result), listFields)
 		} else {
 			taskNotify := options.BoolV(opts.TaskNotify)
