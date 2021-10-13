@@ -171,7 +171,7 @@ func mapStringSlice(f func(string) string, a []string) []string {
 }
 
 const (
-	agentInstalledKey   = "sys:monitor_agent"
+	agentInstalledKey   = "__monitor_agent"
 	agentInstalledValue = "true"
 )
 
