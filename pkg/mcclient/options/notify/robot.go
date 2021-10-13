@@ -24,7 +24,7 @@ type RobotListOptions struct {
 	options.BaseListOptions
 	Lang    string
 	Type    string `choices:"feishu|dingtalk|workwx|webhook"`
-	Enabled bool
+	Enabled *bool
 }
 
 func (rl *RobotListOptions) Params() (jsonutils.JSONObject, error) {
