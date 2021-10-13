@@ -545,6 +545,10 @@ func (this *ImageManager) BatchUpdate(
 }
 
 func (this *ImageManager) Download(s *mcclient.ClientSession, id string, format string, torrent bool) (jsonutils.JSONObject, io.Reader, int64, error) {
+	return this.Download2(s, id, format, torrent)
+}
+
+func (this *ImageManager) Download2(s *mcclient.ClientSession, id string, format string, torrent bool) (jsonutils.JSONObject, io.ReadCloser, int64, error) {
 	query := jsonutils.NewDict()
 	if len(format) > 0 {
 		query.Add(jsonutils.NewString(format), "format")

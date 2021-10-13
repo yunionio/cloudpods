@@ -94,6 +94,12 @@ func (h *MiscHandler) Bind(app *appsrv.Application) {
 	app.AddHandler3(uploader)
 	app.AddHandler(GET, prefix+"downloads/<template_id>", FetchAuthToken(h.getDownloadsHandler))
 	app.AddHandler(POST, prefix+"piuploads", FetchAuthToken(h.postPIUploads)) // itsm process instances upload api
+	// download vm image by url (no auth token required). token 有效期24小时
+	imageDownloadByUrl := uploadHandlerInfo(GET, prefix+"imageutils/image/<image_name>", imageDownloadByUrlHandler)
+	app.AddHandler3(imageDownloadByUrl)
+	// fetch vm image download url or download large file directly with query parameter <direct=true>
+	imageDownloader := uploadHandlerInfo("GET", prefix+"/imageutils/download/<image_id>", FetchAuthToken(imageDownloadHandler))
+	app.AddHandler3(imageDownloader)
 	imageUploader := uploadHandlerInfo("POST", prefix+"/imageutils/upload", FetchAuthToken(imageUploadHandler))
 	app.AddHandler3(imageUploader)
 	s3upload := uploadHandlerInfo(POST, prefix+"s3uploads", FetchAuthToken(h.postS3UploadHandler))
@@ -449,31 +455,15 @@ func (mh *MiscHandler) getDownloadsHandler(ctx context.Context, w http.ResponseW
 	case "BatchHostRegister":
 		records := [][]string{BatchHostRegisterTemplate}
 		content, err = writeXlsx("hosts", records)
-		if err != nil {
-			httperrors.InternalServerError(ctx, w, "internal server error")
-			return
-		}
 	case "BatchHostISORegister":
 		records := [][]string{BatchHostISORegisterTemplate}
 		content, err = writeXlsx("hosts", records)
-		if err != nil {
-			httperrors.InternalServerError(ctx, w, "internal server error")
-			return
-		}
 	case "BatchHostPXERegister":
 		records := [][]string{BatchHostPXERegisterTemplate}
 		content, err = writeXlsx("hosts", records)
-		if err != nil {
-			httperrors.InternalServerError(ctx, w, "internal server error")
-			return
-		}
 	case "BatchUserRegister":
 		records := [][]string{{"*用户名（user）", "*用户密码（password）", "*部门/域（domain）", "*是否登录控制台（allow_web_console：true、false）"}}
 		content, err = writeXlsx("users", records)
-		if err != nil {
-			httperrors.InternalServerError(ctx, w, "internal server error")
-			return
-		}
 	case "BatchProjectRegister":
 		var titles []string
 		if options.Options.NonDefaultDomainProjects {
@@ -484,12 +474,13 @@ func (mh *MiscHandler) getDownloadsHandler(ctx context.Context, w http.ResponseW
 
 		records := [][]string{titles}
 		content, err = writeXlsx("projects", records)
-		if err != nil {
-			httperrors.InternalServerError(ctx, w, "internal server error")
-			return
-		}
 	default:
 		httperrors.InputParameterError(ctx, w, "template not found %s", template)
+		return
+	}
+
+	if err != nil {
+		httperrors.InternalServerError(ctx, w, "internal server error")
 		return
 	}
 
