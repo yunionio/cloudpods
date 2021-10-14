@@ -136,6 +136,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.TOPIC_RESOURCE_DBINSTANCE,
 				notify.TOPIC_RESOURCE_ELASTICCACHE,
 				notify.TOPIC_RESOURCE_BAREMETAL,
+				notify.TOPIC_RESOURCE_SECGROUP,
 			)
 			t.addAction(
 				notify.ActionCreate,
@@ -146,7 +147,6 @@ func (sm *STopicManager) InitializeData() error {
 		case DefaultResourceChangeConfig:
 			t.addResources(
 				notify.TOPIC_RESOURCE_SERVER,
-				notify.TOPIC_RESOURCE_DISK,
 				notify.TOPIC_RESOURCE_DBINSTANCE,
 				notify.TOPIC_RESOURCE_ELASTICCACHE,
 			)
