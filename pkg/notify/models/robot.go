@@ -216,7 +216,7 @@ func (rm *SRobotManager) FetchCustomizeColumns(ctx context.Context, userCred mcc
 }
 
 func (rm *SRobotManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.RobotListInput) (*sqlchemy.SQuery, error) {
-	q, err := rm.SSharableBaseResourceManager.ListItemFilter(ctx, q, userCred, input.SharableResourceBaseListInput)
+	q, err := rm.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
 	if err != nil {
 		return nil, err
 	}
