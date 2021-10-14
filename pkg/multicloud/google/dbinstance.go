@@ -118,6 +118,7 @@ type SDBInstanceSetting struct {
 	StorageAutoResize         bool
 	DataDiskSizeGb            int
 	DatabaseFlags             []SDBInstanceParameter
+	UserLabels                map[string]string
 }
 
 type SDBInstanceIpAddress struct {
@@ -138,7 +139,6 @@ type SDBInstanceCaCert struct {
 
 type SDBInstance struct {
 	multicloud.SDBInstanceBase
-	multicloud.GoogleTags
 	region *SRegion
 
 	Kind                       string
@@ -627,4 +627,22 @@ func (region *SRegion) CreateDBInstance(desc *cloudprovider.SManagedDBInstanceCr
 		return nil, errors.Wrapf(err, "CreateRds")
 	}
 	return rds, nil
+}
+
+func (self *SDBInstance) GetTags() (map[string]string, error) {
+	return self.Settings.UserLabels, nil
+}
+
+func (self *SDBInstance) GetSysTags() map[string]string {
+	return nil
+}
+
+func (self *SDBInstance) SetTags(tags map[string]string, replace bool) error {
+	params := map[string]interface{}{
+		"settings": map[string]interface{}{
+			"userLabels": tags,
+		},
+	}
+	err := self.region.rdsPatch(self.GetId(), jsonutils.Marshal(params))
+	return errors.Wrapf(err, "rdsPatch")
 }
