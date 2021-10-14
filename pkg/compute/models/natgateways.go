@@ -426,7 +426,6 @@ func (manager *SNatGatewayManager) SyncNatGateways(ctx context.Context, userCred
 			syncResult.UpdateError(err)
 			continue
 		}
-		syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 		localNatGateways = append(localNatGateways, commondb[i])
 		remoteNatGateways = append(remoteNatGateways, commonext[i])
 		syncResult.Update()
@@ -438,7 +437,6 @@ func (manager *SNatGatewayManager) SyncNatGateways(ctx context.Context, userCred
 			syncResult.AddError(err)
 			continue
 		}
-		syncMetadata(ctx, userCred, routeTableNew, added[i])
 		localNatGateways = append(localNatGateways, *routeTableNew)
 		remoteNatGateways = append(remoteNatGateways, added[i])
 		syncResult.Add()
@@ -505,6 +503,7 @@ func (self *SNatGateway) SyncWithCloudNatGateway(ctx context.Context, userCred m
 		return err
 	}
 
+	syncMetadata(ctx, userCred, self, extNat)
 	SyncCloudDomain(userCred, self, provider.GetOwnerId())
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
@@ -564,6 +563,7 @@ func (manager *SNatGatewayManager) newFromCloudNatGateway(ctx context.Context, u
 	}
 
 	SyncCloudDomain(userCred, &nat, provider.GetOwnerId())
+	syncMetadata(ctx, userCred, &nat, extNat)
 
 	db.OpsLog.LogEvent(&nat, db.ACT_CREATE, nat.GetShortDesc(ctx), userCred)
 
@@ -1086,5 +1086,38 @@ func (manager *SNatGatewayManager) DeleteExpiredPostpaids(ctx context.Context, u
 		}
 		nats[i].DeletePreventionOff(&nats[i], userCred)
 		nats[i].StartNatGatewayDeleteTask(ctx, userCred, nil)
+	}
+}
+
+func (self *SNatGateway) AllowPerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "remote-update")
+}
+
+func (self *SNatGateway) PerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.MongoDBRemoteUpdateInput) (jsonutils.JSONObject, error) {
+	err := self.StartRemoteUpdateTask(ctx, userCred, (input.ReplaceTags != nil && *input.ReplaceTags), "")
+	if err != nil {
+		return nil, errors.Wrap(err, "StartRemoteUpdateTask")
+	}
+	return nil, nil
+}
+
+func (self *SNatGateway) StartRemoteUpdateTask(ctx context.Context, userCred mcclient.TokenCredential, replaceTags bool, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewBool(replaceTags), "replace_tags")
+	task, err := taskman.TaskManager.NewTask(ctx, "NatGatewayRemoteUpdateTask", self, userCred, data, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	self.SetStatus(userCred, apis.STATUS_UPDATE_TAGS, "StartRemoteUpdateTask")
+	return task.ScheduleRun(nil)
+}
+
+func (self *SNatGateway) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
+	if len(self.ExternalId) == 0 {
+		return
+	}
+	err := self.StartRemoteUpdateTask(ctx, userCred, true, "")
+	if err != nil {
+		log.Errorf("StartRemoteUpdateTask fail: %s", err)
 	}
 }

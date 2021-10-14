@@ -16,9 +16,9 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -35,26 +35,26 @@ func init() {
 	taskman.RegisterTask(NatGatewaySyncstatusTask{})
 }
 
-func (self *NatGatewaySyncstatusTask) taskFailed(ctx context.Context, natgateway *models.SNatGateway, reason jsonutils.JSONObject) {
-	natgateway.SetStatus(self.GetUserCred(), api.NAT_STATUS_UNKNOWN, reason.String())
-	self.SetStageFailed(ctx, reason)
+func (self *NatGatewaySyncstatusTask) taskFailed(ctx context.Context, natgateway *models.SNatGateway, err error) {
+	natgateway.SetStatus(self.GetUserCred(), api.NAT_STATUS_UNKNOWN, err.Error())
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 	db.OpsLog.LogEvent(natgateway, db.ACT_SYNC_STATUS, natgateway.GetShortDesc(ctx), self.GetUserCred())
-	logclient.AddActionLogWithContext(ctx, natgateway, logclient.ACT_SYNC_STATUS, reason, self.UserCred, false)
+	logclient.AddActionLogWithContext(ctx, natgateway, logclient.ACT_SYNC_STATUS, err, self.UserCred, false)
 }
 
 func (self *NatGatewaySyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	natgateway := obj.(*models.SNatGateway)
 
-	region, _ := natgateway.GetRegion()
-	if region == nil {
-		self.taskFailed(ctx, natgateway, jsonutils.NewString(fmt.Sprintf("failed to found cloudregion for natgateway %s(%s)", natgateway.Name, natgateway.Id)))
+	region, err := natgateway.GetRegion()
+	if err != nil {
+		self.taskFailed(ctx, natgateway, errors.Wrapf(err, "GetRegion"))
 		return
 	}
 
 	self.SetStage("OnNatGatewaySyncStatusComplete", nil)
-	err := region.GetDriver().RequestSyncNatGatewayStatus(ctx, self.GetUserCred(), natgateway, self)
+	err = region.GetDriver().RequestSyncNatGatewayStatus(ctx, self.GetUserCred(), natgateway, self)
 	if err != nil {
-		self.taskFailed(ctx, natgateway, jsonutils.NewString(err.Error()))
+		self.taskFailed(ctx, natgateway, errors.Wrapf(err, "RequestSyncNatGatewayStatus"))
 		return
 	}
 }
@@ -64,5 +64,5 @@ func (self *NatGatewaySyncstatusTask) OnNatGatewaySyncStatusComplete(ctx context
 }
 
 func (self *NatGatewaySyncstatusTask) OnNatGatewaySyncStatusCompleteFailed(ctx context.Context, natgateway *models.SNatGateway, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, natgateway, data)
+	self.SetStageFailed(ctx, data)
 }
