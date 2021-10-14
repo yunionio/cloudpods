@@ -579,9 +579,6 @@ func (stm *SScheduledTaskManager) timeScope(median time.Time, interval time.Dura
 var timerQueue = make(chan struct{}, cop.Options.ScheduledTaskQueueSize)
 
 func (stm *SScheduledTaskManager) Timer(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	if len(timerQueue) == 0 {
-		timerQueue = make(chan struct{}, cop.Options.ScheduledTaskQueueSize)
-	}
 	// 60 is for fault tolerance
 	interval := 60 + 30
 	timeScope := stm.timeScope(time.Now(), time.Duration(interval)*time.Second)
@@ -593,12 +590,16 @@ func (stm *SScheduledTaskManager) Timer(ctx context.Context, userCred mcclient.T
 		return
 	}
 	log.Debugf("timeScope: start: %s, end: %s", timeScope.Start, timeScope.End)
+	waitQueue := make(chan struct{}, len(sts))
 	for i := range sts {
+		log.Infof("sts[%d]: %s", i, jsonutils.Marshal(sts[i]))
 		st := sts[i]
 		timerQueue <- struct{}{}
+		waitQueue <- struct{}{}
 		go func(ctx context.Context) {
 			defer func() {
 				<-timerQueue
+				<-waitQueue
 			}()
 			if st.NextTime.Before(timeScope.Start) {
 				// For unknown reasons, the scalingTimer did not execute at the specified time
@@ -624,6 +625,9 @@ func (stm *SScheduledTaskManager) Timer(ctx context.Context, userCred mcclient.T
 		}(ctx)
 	}
 	// wait all finish
+	for i := 0; i < len(sts); i++ {
+		waitQueue <- struct{}{}
+	}
 }
 
 func init() {
