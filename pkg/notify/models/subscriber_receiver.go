@@ -79,5 +79,6 @@ func (srm *SSubscriberReceiverManager) delete(sId, receiverId string) error {
 	if err != nil {
 		return err
 	}
+	sr.SetModelManager(srm, &sr)
 	return sr.Delete(context.Background(), nil)
 }
