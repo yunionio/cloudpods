@@ -36,6 +36,7 @@ type SKVMGuestDiskPartition struct {
 	*SLocalGuestFS
 	partDev string
 	fs      string
+	uuid    string
 
 	readonly  bool
 	sourceDev string
@@ -164,13 +165,13 @@ func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
 
 	var err error
 	if fsType == "xfs" {
-		uuids := fileutils2.GetDevUuid(p.partDev)
-		uuid := uuids["UUID"]
-		if len(uuid) > 0 {
-			LockXfsPartition(uuid)
+		uuids, _ := fileutils2.GetDevUuid(p.partDev)
+		p.uuid, _ = uuids["UUID"]
+		if len(p.uuid) > 0 {
+			LockXfsPartition(p.uuid)
 			defer func() {
 				if err != nil {
-					UnlockXfsPartition(uuid)
+					UnlockXfsPartition(p.uuid)
 				}
 			}()
 		}
@@ -250,19 +251,18 @@ func (p *SKVMGuestDiskPartition) Umount() error {
 		return nil
 	}
 
+	defer func() {
+		if p.fs == "xfs" && len(p.uuid) > 0 {
+			UnlockXfsPartition(p.uuid)
+		}
+	}()
+
 	var tries = 0
 	var err error
 	for tries < 10 {
 		tries += 1
 		_, err = procutils.NewCommand("umount", p.mountPath).Output()
 		if err == nil {
-			if p.fs == "xfs" {
-				uuids := fileutils2.GetDevUuid(p.partDev)
-				uuid := uuids["UUID"]
-				if len(uuid) > 0 {
-					UnlockXfsPartition(uuid)
-				}
-			}
 			if _, err := procutils.NewCommand("blockdev", "--flushbufs", p.partDev).Output(); err != nil {
 				log.Warningf("blockdev --flushbufs %s error: %v", p.partDev, err)
 			}
@@ -292,7 +292,7 @@ func (p *SKVMGuestDiskPartition) Zerofree() {
 }
 
 func (p *SKVMGuestDiskPartition) zerofreeSwap() {
-	uuids := fileutils2.GetDevUuid(p.partDev)
+	uuids, _ := fileutils2.GetDevUuid(p.partDev)
 	output, err := procutils.NewCommand("shred", "-n", "0", "-z", p.partDev).Output()
 	if err != nil {
 		log.Errorf("zerofree swap error: %s, %s", err, output)
