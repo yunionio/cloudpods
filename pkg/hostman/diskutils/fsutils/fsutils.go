@@ -228,8 +228,8 @@ func ResizePartitionFs(fpath, fs string, raiseError bool) (error, bool) {
 		return nil, false
 	}
 	var (
-		cmds  = [][]string{}
-		uuids = fileutils2.GetDevUuid(fpath)
+		cmds     = [][]string{}
+		uuids, _ = fileutils2.GetDevUuid(fpath)
 	)
 	if strings.HasPrefix(fs, "linux-swap") {
 		if v, ok := uuids["UUID"]; ok {

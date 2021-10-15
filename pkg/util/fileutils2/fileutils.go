@@ -349,10 +349,11 @@ func GetDevId(spath string) string {
 	return strings.Join(data, ":")
 }
 
-func GetDevUuid(dev string) map[string]string {
+func GetDevUuid(dev string) (map[string]string, error) {
 	lines, err := procutils.NewCommand("blkid", dev).Output()
 	if err != nil {
-		return nil
+		log.Errorf("GetDevUuid %s error: %v", dev, err)
+		return map[string]string{}, errors.Wrapf(err, "blkid")
 	}
 	for _, l := range strings.Split(string(lines), "\n") {
 		if strings.HasPrefix(l, dev) {
@@ -367,8 +368,8 @@ func GetDevUuid(dev string) map[string]string {
 					}
 				}
 			}
-			return ret
+			return ret, nil
 		}
 	}
-	return nil
+	return map[string]string{}, nil
 }
