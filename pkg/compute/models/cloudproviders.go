@@ -642,8 +642,8 @@ func (self *SCloudprovider) PerformSync(ctx context.Context, userCred mcclient.T
 	if !account.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Cloudaccount disabled")
 	}
-	if account.EnableAutoSync {
-		return nil, httperrors.NewInvalidStatusError("Account auto sync enabled")
+	if account.EnableAutoSync && self.SyncStatus != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
+		return nil, httperrors.NewInvalidStatusError("Cloudprovider is not idle")
 	}
 	syncRange := SSyncRange{}
 	err := data.Unmarshal(&syncRange)

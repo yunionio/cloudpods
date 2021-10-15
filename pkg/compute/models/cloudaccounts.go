@@ -622,9 +622,11 @@ func (self *SCloudaccount) PerformSync(ctx context.Context, userCred mcclient.To
 	if !self.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Account disabled")
 	}
-	if self.EnableAutoSync {
-		return nil, httperrors.NewInvalidStatusError("Account auto sync enabled")
+
+	if self.EnableAutoSync && self.SyncStatus != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
+		return nil, httperrors.NewInvalidStatusError("Account is not idle")
 	}
+
 	syncRange := SSyncRange{}
 	err := data.Unmarshal(&syncRange)
 	if err != nil {
