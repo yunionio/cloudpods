@@ -145,6 +145,7 @@ func (manager *SCloudproviderregionManager) FetchCustomizeColumns(
 			rows[i].Cloudprovider = manager.Name
 			account := manager.GetCloudaccount()
 			rows[i].EnableAutoSync = false
+			rows[i].CloudproviderSyncStatus = manager.SyncStatus
 			if account != nil {
 				rows[i].CloudaccountId = account.Id
 				rows[i].Cloudaccount = account.Name

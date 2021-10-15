@@ -39,6 +39,9 @@ type CloudproviderregionDetails struct {
 	// example: 300
 	SyncIntervalSeconds int `json:"sync_interval_seconds"`
 
+	// 云订阅同步状态
+	CloudproviderSyncStatus string `json:"cloudprovider_sync_status"`
+
 	// 支持服务列表
 	Capabilities []string `json:"capabilities"`
 }
