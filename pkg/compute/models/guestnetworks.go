@@ -212,7 +212,7 @@ func (manager *SGuestnetworkManager) GenerateMac(netId string, suggestion string
 				log.Errorf("generate random mac failed: %s", err)
 				continue
 			}
-			mac = fmt.Sprintf("00:22:%02x:%02x:%02x:%02x", b[0], b[1], b[2], b[3])
+			mac = fmt.Sprintf("%s:%02x:%02x:%02x:%02x", options.Options.GlobalMacPrefix, b[0], b[1], b[2], b[3])
 		}
 		q := manager.Query().Equals("mac_addr", mac)
 		if len(netId) > 0 {
