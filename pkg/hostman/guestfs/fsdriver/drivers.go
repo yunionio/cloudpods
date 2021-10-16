@@ -51,7 +51,14 @@ func Init(initPrivatePrefixes []string, cloudrootDir string) error {
 	rootfsDrivers = append(rootfsDrivers, NewMacOSRootFs)
 	rootfsDrivers = append(rootfsDrivers, NewEsxiRootFs)
 	rootfsDrivers = append(rootfsDrivers, NewWindowsRootFs)
-	rootfsDrivers = append(rootfsDrivers, NewAndroidRootFs)
+
+	androidFsDrivers := []newRootFsDriverFunc{
+		NewAndroidRootFs,
+		NewPhoenixOSRootFs,
+	}
+
+	rootfsDrivers = append(rootfsDrivers, androidFsDrivers...)
+
 	cpuArch, err := procutils.NewCommand("uname", "-m").Output()
 	if err != nil {
 		return errors.Wrap(err, "get cpu architecture")
