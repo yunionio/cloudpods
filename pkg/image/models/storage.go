@@ -15,6 +15,7 @@
 package models
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -36,25 +37,25 @@ func GetStorage() Storage {
 	return storage
 }
 
-func GetImage(location string) (int64, io.ReadCloser, error) {
+func GetImage(ctx context.Context, location string) (int64, io.ReadCloser, error) {
 	switch {
 	case strings.HasPrefix(location, image.S3Prefix):
-		return s3Instance.GetImage(location[len(image.S3Prefix):])
+		return s3Instance.GetImage(ctx, location[len(image.S3Prefix):])
 	case strings.HasPrefix(location, image.LocalFilePrefix):
-		return local.GetImage(location[len(image.LocalFilePrefix):])
+		return local.GetImage(ctx, location[len(image.LocalFilePrefix):])
 	default:
-		return local.GetImage(location)
+		return local.GetImage(ctx, location)
 	}
 }
 
-func RemoveImage(location string) error {
+func RemoveImage(ctx context.Context, location string) error {
 	switch {
 	case strings.HasPrefix(location, image.S3Prefix):
-		return s3Instance.RemoveImage(location[len(image.S3Prefix):])
+		return s3Instance.RemoveImage(ctx, location[len(image.S3Prefix):])
 	case strings.HasPrefix(location, image.LocalFilePrefix):
-		return local.RemoveImage(location[len(image.LocalFilePrefix):])
+		return local.RemoveImage(ctx, location[len(image.LocalFilePrefix):])
 	default:
-		return local.RemoveImage(location)
+		return local.RemoveImage(ctx, location)
 	}
 }
 
@@ -82,10 +83,10 @@ func Init(storageBackend string) {
 
 type Storage interface {
 	Type() string
-	SaveImage(string) (string, error)
+	SaveImage(context.Context, string) (string, error)
 	CleanTempfile(string) error
-	GetImage(string) (int64, io.ReadCloser, error)
-	RemoveImage(string) error
+	GetImage(context.Context, string) (int64, io.ReadCloser, error)
+	RemoveImage(context.Context, string) error
 
 	IsCheckStatusEnabled() bool
 }
@@ -96,7 +97,7 @@ func (s *LocalStorage) Type() string {
 	return image.IMAGE_STORAGE_DRIVER_LOCAL
 }
 
-func (s *LocalStorage) SaveImage(imagePath string) (string, error) {
+func (s *LocalStorage) SaveImage(ctx context.Context, imagePath string) (string, error) {
 	return fmt.Sprintf("%s%s", LocalFilePrefix, imagePath), nil
 }
 
@@ -104,7 +105,7 @@ func (s *LocalStorage) CleanTempfile(filePath string) error {
 	return nil
 }
 
-func (s *LocalStorage) GetImage(imagePath string) (int64, io.ReadCloser, error) {
+func (s *LocalStorage) GetImage(ctx context.Context, imagePath string) (int64, io.ReadCloser, error) {
 	fstat, err := os.Stat(imagePath)
 	if err != nil {
 		return -1, nil, errors.Wrapf(err, "stat file %s", imagePath)
@@ -120,7 +121,7 @@ func (s *LocalStorage) IsCheckStatusEnabled() bool {
 	return true
 }
 
-func (s *LocalStorage) RemoveImage(imagePath string) error {
+func (s *LocalStorage) RemoveImage(ctx context.Context, imagePath string) error {
 	return os.Remove(imagePath)
 }
 
@@ -135,8 +136,8 @@ func (s *S3Storage) Type() string {
 	return image.IMAGE_STORAGE_DRIVER_S3
 }
 
-func (s *S3Storage) SaveImage(imagePath string) (string, error) {
-	return s3.Put(imagePath, imagePathToName(imagePath))
+func (s *S3Storage) SaveImage(ctx context.Context, imagePath string) (string, error) {
+	return s3.Put(ctx, imagePath, imagePathToName(imagePath))
 }
 
 func (s *S3Storage) CleanTempfile(filePath string) error {
@@ -147,22 +148,14 @@ func (s *S3Storage) CleanTempfile(filePath string) error {
 	return nil
 }
 
-func (s *S3Storage) GetImage(imagePath string) (int64, io.ReadCloser, error) {
-	obj, err := s3.Get(imagePathToName(imagePath))
-	if err != nil {
-		return -1, nil, errors.Wrap(err, "s3 get image")
-	}
-	objInfo, err := obj.Stat()
-	if err != nil {
-		return -1, nil, errors.Wrap(err, "s3 obj stat")
-	}
-	return objInfo.Size, obj, nil
+func (s *S3Storage) GetImage(ctx context.Context, imagePath string) (int64, io.ReadCloser, error) {
+	return s3.Get(ctx, imagePathToName(imagePath))
 }
 
 func (s *S3Storage) IsCheckStatusEnabled() bool {
 	return options.Options.S3CheckImageStatus
 }
 
-func (s *S3Storage) RemoveImage(fileName string) error {
-	return s3.Remove(fileName)
+func (s *S3Storage) RemoveImage(ctx context.Context, fileName string) error {
+	return s3.Remove(ctx, fileName)
 }
