@@ -15,14 +15,17 @@
 package s3
 
 import (
+	"context"
 	"fmt"
-
-	"github.com/minio/minio-go"
+	"io"
+	"os"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/image"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
 )
 
 type Err string
@@ -37,7 +40,7 @@ var client *S3Client
 
 // Bucket is image upload bucket name
 type S3Client struct {
-	*minio.Client
+	osc      *objectstore.SObjectStoreClient
 	bucket   string
 	endpoint string
 }
@@ -46,16 +49,21 @@ func (c *S3Client) Location(filePath string) string {
 	return fmt.Sprintf("%s%s", image.S3Prefix, filePath)
 }
 
+func (c *S3Client) getBucket() (cloudprovider.ICloudBucket, error) {
+	return c.osc.GetIBucketByName(c.bucket)
+}
+
 func Init(endpoint, accessKey, secretKey, bucket string, useSSL bool) error {
 	if client != nil {
 		return nil
 	}
-	minioClient, err := minio.New(endpoint, accessKey, secretKey, useSSL)
+	cfg := objectstore.NewObjectStoreClientConfig(endpoint, accessKey, secretKey)
+	minioClient, err := objectstore.NewObjectStoreClient(cfg)
 	if err != nil {
 		return errors.Wrap(err, "new minio client")
 	}
 	client = &S3Client{
-		Client:   minioClient,
+		osc:      minioClient,
 		bucket:   bucket,
 		endpoint: endpoint,
 	}
@@ -67,45 +75,77 @@ func Init(endpoint, accessKey, secretKey, bucket string, useSSL bool) error {
 }
 
 func ensureBucket() error {
-	exists, err := client.BucketExists(client.bucket)
+	exists, err := client.osc.IBucketExist(client.bucket)
 	if err != nil {
 		return errors.Wrap(err, "call bucket exists")
 	}
 	if !exists {
-		if err = client.MakeBucket(client.bucket, ""); err != nil {
+		if err = client.osc.CreateIBucket(client.bucket, "", "private"); err != nil {
 			return errors.Wrap(err, "call make bucket")
 		}
 	}
 	return nil
 }
 
-func Put(filePath, objName string) (string, error) {
+func Put(ctx context.Context, filePath, objName string) (string, error) {
 	if client == nil {
 		return "", ErrClientNotInit
 	}
-
-	size, err := client.FPutObject(client.bucket, objName, filePath, minio.PutObjectOptions{})
+	bucket, err := client.getBucket()
 	if err != nil {
-		return "", errors.Wrap(err, "put object")
+		return "", errors.Wrap(err, "client.getBucket")
 	}
-	log.Debugf("put object %s size %d", objName, size)
+
+	finfo, err := os.Stat(filePath)
+	if err != nil {
+		return "", errors.Wrap(err, "os.Stat")
+	}
+	fSize := finfo.Size()
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", errors.Wrap(err, "os.Open")
+	}
+	defer file.Close()
+	const blockSizeMB = 100
+	err = cloudprovider.UploadObject(ctx, bucket, objName, blockSizeMB*1000*1000, file, fSize, cloudprovider.ACLPrivate, "", nil, false)
+	if err != nil {
+		return "", errors.Wrap(err, "cloudprovider.UploadObject")
+	}
+	log.Debugf("put object %s size %d", objName, fSize)
 	return client.Location(objName), nil
 }
 
-func Get(fileName string) (*minio.Object, error) {
+func Get(ctx context.Context, fileName string) (int64, io.ReadCloser, error) {
 	if client == nil {
-		return nil, ErrClientNotInit
+		return 0, nil, ErrClientNotInit
 	}
-	obj, err := client.GetObject(client.bucket, fileName, minio.GetObjectOptions{})
+
+	bucket, err := client.getBucket()
 	if err != nil {
-		return nil, errors.Wrapf(err, "get object %s", fileName)
+		return 0, nil, errors.Wrap(err, "client.getBucket")
 	}
-	return obj, nil
+	result, err := bucket.ListObjects(fileName, "", "", 1)
+	if err != nil {
+		return 0, nil, errors.Wrap(err, "bucket.ListObject")
+	}
+
+	rc, err := bucket.GetObject(ctx, fileName, nil)
+	if err != nil {
+		return 0, nil, errors.Wrap(err, "bucket.GetObject")
+	}
+
+	return result.Objects[0].GetSizeBytes(), rc, err
 }
 
-func Remove(fileName string) error {
+func Remove(ctx context.Context, fileName string) error {
 	if client == nil {
 		return ErrClientNotInit
 	}
-	return client.RemoveObject(client.bucket, fileName)
+
+	bucket, err := client.getBucket()
+	if err != nil {
+		return errors.Wrap(err, "client.getBucket")
+	}
+
+	return bucket.DeleteObject(ctx, fileName)
 }
