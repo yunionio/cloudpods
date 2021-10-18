@@ -239,7 +239,7 @@ func (self *SImage) CustomizedGetDetailsBody(ctx context.Context, userCred mccli
 		return nil, httperrors.NewInvalidStatusError("empty file path")
 	}
 
-	size, rc, err := GetImage(filePath)
+	size, rc, err := GetImage(ctx, filePath)
 	if err != nil {
 		return nil, errors.Wrap(err, "get image")
 	}
@@ -1160,10 +1160,10 @@ func (self *SImage) RemoveFile() error {
 	return nil
 }
 
-func (self *SImage) Remove() error {
+func (self *SImage) Remove(ctx context.Context) error {
 	subimgs := ImageSubformatManager.GetAllSubImages(self.Id)
 	for i := 0; i < len(subimgs); i += 1 {
-		err := subimgs[i].RemoveFiles()
+		err := subimgs[i].RemoveFiles(ctx)
 		if err != nil {
 			return errors.Wrapf(err, "remove subimg %s", subimgs[i].GetName())
 		}
@@ -1173,7 +1173,7 @@ func (self *SImage) Remove() error {
 	if len(self.Location) == 0 || strings.HasPrefix(self.Location, LocalFilePrefix) {
 		return self.RemoveFile()
 	} else {
-		return RemoveImage(self.Location)
+		return RemoveImage(ctx, self.Location)
 	}
 
 }
