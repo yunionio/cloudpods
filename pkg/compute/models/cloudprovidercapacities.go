@@ -50,7 +50,7 @@ type SCloudproviderCapability struct {
 
 	CloudproviderId string `width:"36" charset:"ascii" nullable:"false" primary:"true"`
 	CloudregionId   string `width:"36" charset:"ascii" nullable:"false" default:"" primary:"true"`
-	Capability      string `width:"18" charset:"ascii" nullable:"false" primary:"true"`
+	Capability      string `width:"36" charset:"ascii" nullable:"false" primary:"true"`
 }
 
 func (self *SCloudproviderCapability) GetId() string {
