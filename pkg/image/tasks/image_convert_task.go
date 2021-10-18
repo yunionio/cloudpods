@@ -75,7 +75,7 @@ func (self *PutImageTask) OnInit(ctx context.Context, obj db.IStandaloneModel, d
 		imagePath := image.GetLocalLocation()
 		image.SetStatus(self.UserCred, api.IMAGE_STATUS_SAVING, "save image to specific storage")
 		storage := models.GetStorage()
-		location, err := storage.SaveImage(imagePath)
+		location, err := storage.SaveImage(ctx, imagePath)
 		if err != nil {
 			log.Errorf("Failed save image to specific storage %s", err)
 			errStr := fmt.Sprintf("save image to storage %s: %v", storage.Type(), err)
@@ -83,6 +83,7 @@ func (self *PutImageTask) OnInit(ctx context.Context, obj db.IStandaloneModel, d
 			self.SetStageFailed(ctx, jsonutils.NewString(errStr))
 			return
 		} else if location != image.Location {
+			// save success! to update the location
 			_, err = db.Update(image, func() error {
 				image.Location = location
 				return nil
@@ -90,6 +91,7 @@ func (self *PutImageTask) OnInit(ctx context.Context, obj db.IStandaloneModel, d
 			if err != nil {
 				log.Errorf("failed update image location %s", err)
 			} else {
+				// update location success, remove local copy
 				if !strings.Contains(imagePath, options.Options.S3MountPoint) {
 					if err = procutils.NewCommand("rm", "-f", imagePath).Run(); err != nil {
 						log.Errorf("failed remove file %s: %s", imagePath, err)
@@ -127,7 +129,7 @@ func (self *PutImageTask) OnInit(ctx context.Context, obj db.IStandaloneModel, d
 		} else {
 			imagePath := subimgs[i].GetLocalLocation()
 			storage := models.GetStorage()
-			location, err := models.GetStorage().SaveImage(imagePath)
+			location, err := models.GetStorage().SaveImage(ctx, imagePath)
 			if err != nil {
 				log.Errorf("Failed save image to sepcific storage %s", err)
 				errStr := fmt.Sprintf("save sub image %s to storage %s: %v", subimgs[i].Format, storage.Type(), err)
