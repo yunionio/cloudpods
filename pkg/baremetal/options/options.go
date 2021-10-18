@@ -36,6 +36,7 @@ type BaremetalOptions struct {
 	TftpMaxTimeoutRetries  int    `default:"50" help:"Maximal tftp timeout retries, default is 50"`
 	LengthyWorkerCount     int    `default:"8" help:"Parallel worker count for lengthy tasks"`
 	ShortWorkerCount       int    `default:"8" help:"Parallel worker count for short-lived tasks"`
+	TaskWorkerCount        int    `default:"32" help:"Parallel worker count for tasks"`
 
 	DefaultIpmiPassword       string `help:"Default IPMI passowrd"`
 	DefaultStrongIpmiPassword string `help:"Default strong IPMI passowrd"`
