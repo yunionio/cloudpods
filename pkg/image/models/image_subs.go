@@ -15,6 +15,7 @@
 package models
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
@@ -235,7 +236,7 @@ func (self *SImageSubformat) StopTorrent() {
 	}
 }
 
-func (self *SImageSubformat) RemoveFiles() error {
+func (self *SImageSubformat) RemoveFiles(ctx context.Context) error {
 	self.StopTorrent()
 	location := self.getLocalTorrentLocation()
 	if len(location) > 0 && fileutils2.IsFile(location) {
@@ -244,7 +245,7 @@ func (self *SImageSubformat) RemoveFiles() error {
 			return err
 		}
 	}
-	if err := RemoveImage(self.Location); err != nil {
+	if err := RemoveImage(ctx, self.Location); err != nil {
 		if strings.Contains(err.Error(), "no such file or directory") {
 			return nil
 		}
