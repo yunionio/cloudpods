@@ -62,7 +62,7 @@ func (this *MetadataManager) getModule(session *mcclient.ClientSession, params j
 		if len(resources) >= 1 {
 			resource := resources[0]
 			keyString := resource + "s"
-			if strings.HasSuffix(resource, "y") {
+			if strings.HasSuffix(resource, "y") && resource != NatGateways.GetKeyword() {
 				keyString = resource[:len(resource)-1] + "ies"
 			}
 			find := false
