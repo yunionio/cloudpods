@@ -558,10 +558,9 @@ function nic_mtu() {
 		!s.disableUsbKbd() {
 		cmd += " -device usb-kbd"
 	}
-	// # if osname == self.OS_NAME_ANDROID:
-	// #     cmd += " -device usb-mouse"
-	// # else:
-	if !s.isOldWindows() {
+	if osname == OS_NAME_ANDROID {
+		cmd += " -device usb-mouse"
+	} else if !s.isOldWindows() {
 		cmd += " -device usb-tablet"
 	}
 

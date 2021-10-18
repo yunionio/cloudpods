@@ -52,16 +52,92 @@ func BuildPropStr(prop map[string]string) string {
 	return ret
 }
 
-type SAndroidRootFs struct {
+type sBaseAndroidRootFs struct {
 	*sGuestRootFsDriver
+
+	rootDir    string
+	distroKey  string
+	versionKey string
+}
+
+func (m *sBaseAndroidRootFs) IsFsCaseInsensitive() bool {
+	return false
+}
+
+func (m *sBaseAndroidRootFs) RootSignatures() []string {
+	return []string{
+		m.rootDir, "/grub",
+	}
+}
+
+func (m *sBaseAndroidRootFs) GetLoginAccount(rootFs IDiskPartition, user string, defaultRootUser bool, windowsDefaultAdminUser bool) (string, error) {
+	return "", nil
+}
+
+func (m *sBaseAndroidRootFs) DeployPublicKey(rootfs IDiskPartition, uname string, pubkeys *deployapi.SSHKeys) error {
+	return nil
+}
+
+func (m *sBaseAndroidRootFs) ChangeUserPasswd(part IDiskPartition, account, gid, publicKey, password string) (string, error) {
+	return "", nil
+}
+
+func (m *sBaseAndroidRootFs) DeployHostname(part IDiskPartition, hostname, domain string) error {
+	return nil
+}
+
+func (m *sBaseAndroidRootFs) DeployHosts(part IDiskPartition, hn, domain string, ips []string) error {
+	return nil
+}
+
+func (m *sBaseAndroidRootFs) GetOs() string {
+	return "Android"
+}
+
+func (m *sBaseAndroidRootFs) GetReleaseInfo(IDiskPartition) *deployapi.ReleaseInfo {
+	spath := fmt.Sprintf("/%s/system/build.prop", m.rootDir)
+	lines, _ := m.rootFs.FileGetContents(spath, false)
+	prop := ParsePropStr(string(lines))
+	distro, _ := prop[m.distroKey]
+	version, _ := prop[m.versionKey]
+	arch, _ := prop["ro.product.cpu.abi"]
+	return &deployapi.ReleaseInfo{
+		Distro:  distro,
+		Version: version,
+		Arch:    arch,
+	}
+}
+
+func (m *sBaseAndroidRootFs) PrepareFsForTemplate(IDiskPartition) error {
+	return nil
+}
+
+func (m *sBaseAndroidRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*types.SServerNic) error {
+	return nil
+}
+
+func (m *sBaseAndroidRootFs) CommitChanges(part IDiskPartition) error {
+	spath := fmt.Sprintf("/%s/system/build.prop", m.rootDir)
+	lines, _ := m.rootFs.FileGetContents(spath, false)
+	prop := ParsePropStr(string(lines))
+	prop["ro.setupwizard.mode"] = "DISABLED"
+	prop["persist.sys.timezone"] = "Asia/Shanghai"
+	return m.rootFs.FilePutContents(spath, BuildPropStr(prop), false, false)
+}
+
+type SAndroidRootFs struct {
+	*sBaseAndroidRootFs
 }
 
 func NewAndroidRootFs(part IDiskPartition) IRootFsDriver {
-	return &SAndroidRootFs{sGuestRootFsDriver: newGuestRootFsDriver(part)}
-}
-
-func (m *SAndroidRootFs) IsFsCaseInsensitive() bool {
-	return false
+	return &SAndroidRootFs{
+		&sBaseAndroidRootFs{
+			sGuestRootFsDriver: newGuestRootFsDriver(part),
+			rootDir:            "android-*",
+			distroKey:          "ro.product.model",
+			versionKey:         "ro.build.version.release",
+		},
+	}
 }
 
 func (m *SAndroidRootFs) GetName() string {
@@ -72,63 +148,25 @@ func (m *SAndroidRootFs) String() string {
 	return "AndroidRootFs"
 }
 
-func (m *SAndroidRootFs) RootSignatures() []string {
-	return []string{
-		"/android-*", "/grub",
+type SPhoenixOSRootFs struct {
+	*sBaseAndroidRootFs
+}
+
+func NewPhoenixOSRootFs(part IDiskPartition) IRootFsDriver {
+	return &SPhoenixOSRootFs{
+		&sBaseAndroidRootFs{
+			sGuestRootFsDriver: newGuestRootFsDriver(part),
+			rootDir:            "PhoenixOS",
+			distroKey:          "ro.phoenix.os.branch",
+			versionKey:         "ro.phoenix.version.codename",
+		},
 	}
 }
 
-func (m *SAndroidRootFs) GetLoginAccount(rootFs IDiskPartition, user string, defaultRootUser bool, windowsDefaultAdminUser bool) (string, error) {
-	return "", nil
+func (m *SPhoenixOSRootFs) GetName() string {
+	return "PhoenixOS"
 }
 
-func (m *SAndroidRootFs) DeployPublicKey(rootfs IDiskPartition, uname string, pubkeys *deployapi.SSHKeys) error {
-	return nil
-}
-
-func (m *SAndroidRootFs) ChangeUserPasswd(part IDiskPartition, account, gid, publicKey, password string) (string, error) {
-	return "", nil
-}
-
-func (m *SAndroidRootFs) DeployHostname(part IDiskPartition, hostname, domain string) error {
-	return nil
-}
-
-func (m *SAndroidRootFs) DeployHosts(part IDiskPartition, hn, domain string, ips []string) error {
-	return nil
-}
-
-func (m *SAndroidRootFs) GetOs() string {
-	return "Android"
-}
-
-func (m *SAndroidRootFs) GetReleaseInfo(IDiskPartition) *deployapi.ReleaseInfo {
-	spath := "/android-*/system/build.prop"
-	lines, _ := m.rootFs.FileGetContents(spath, false)
-	prop := ParsePropStr(string(lines))
-	distro, _ := prop["ro.product.model"]
-	version, _ := prop["ro.build.version.release"]
-	arch, _ := prop["ro.product.cpu.abi"]
-	return &deployapi.ReleaseInfo{
-		Distro:  distro,
-		Version: version,
-		Arch:    arch,
-	}
-}
-
-func (m *SAndroidRootFs) PrepareFsForTemplate(IDiskPartition) error {
-	return nil
-}
-
-func (m *SAndroidRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*types.SServerNic) error {
-	return nil
-}
-
-func (m *SAndroidRootFs) CommitChanges(part IDiskPartition) error {
-	spath := "/android-*/system/build.prop"
-	lines, _ := m.rootFs.FileGetContents(spath, false)
-	prop := ParsePropStr(string(lines))
-	prop["ro.setupwizard.mode"] = "DISABLED"
-	prop["persist.sys.timezone"] = "Asia/Shanghai"
-	return m.rootFs.FilePutContents(spath, BuildPropStr(prop), false, false)
+func (m *SPhoenixOSRootFs) String() string {
+	return "PhoenixOSRootFs"
 }
