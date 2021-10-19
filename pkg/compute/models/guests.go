@@ -313,6 +313,7 @@ func (manager *SGuestManager) ListItemFilter(
 		}
 	}
 
+	var eipMode string
 	usableServerForEipFilter := query.UsableServerForEip
 	if len(usableServerForEipFilter) > 0 {
 		eipObj, err := ElasticipManager.FetchByIdOrName(userCred, usableServerForEipFilter)
@@ -323,6 +324,10 @@ func (manager *SGuestManager) ListItemFilter(
 			return nil, httperrors.NewGeneralError(err)
 		}
 		eip := eipObj.(*SElasticip)
+
+		if eip.GetProviderName() == api.CLOUD_PROVIDER_AWS {
+			eipMode = api.EIP_MODE_STANDALONE_EIP
+		}
 
 		if len(eip.NetworkId) > 0 {
 			sq := GuestnetworkManager.Query("guest_id").Equals("network_id", eip.NetworkId).SubQuery()
@@ -404,6 +409,9 @@ func (manager *SGuestManager) ListItemFilter(
 		eips := ElasticipManager.Query().SubQuery()
 		sq := eips.Query(eips.Field("associate_id")).Equals("associate_type", api.EIP_ASSOCIATE_TYPE_SERVER)
 		sq = sq.IsNotNull("associate_id").IsNotEmpty("associate_id")
+		if len(eipMode) > 0 {
+			sq = sq.Equals("mode", eipMode)
+		}
 
 		if withEip {
 			q = q.In("id", sq)
