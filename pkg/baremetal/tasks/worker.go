@@ -24,13 +24,14 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 var baremetalTaskWorkerMan *appsrv.SWorkerManager
 
 func init() {
-	baremetalTaskWorkerMan = appsrv.NewWorkerManager("BaremetalTaskWorkerManager", 8, 1024, false)
+	baremetalTaskWorkerMan = appsrv.NewWorkerManager("BaremetalTaskWorkerManager", options.Options.TaskWorkerCount, 1024, false)
 }
 
 func GetWorkManager() *appsrv.SWorkerManager {
