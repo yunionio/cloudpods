@@ -76,7 +76,7 @@ func (r *SRbdImageCache) Acquire(ctx context.Context, zone, srcUrl, format, chec
 	if !r.Load() {
 		log.Infof("convert local image %s to rbd pool %s", r.imageId, r.Manager.GetPath())
 		err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(),
-			"convert", "-O", "raw", localImageCache.GetPath(), r.GetPath()).Run()
+			"convert", "-W", "-m", "16", "-O", "raw", localImageCache.GetPath(), r.GetPath()).Run()
 		if err != nil {
 			log.Errorf("failed to convert image %s", err)
 			return false
