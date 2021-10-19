@@ -14,6 +14,13 @@
 
 package cloudprovider
 
+import (
+	"reflect"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/gotypes"
+)
+
 type SCdnDomain struct {
 	// cdn加速域名
 	Domain string
@@ -27,4 +34,28 @@ type SCdnDomain struct {
 	Origin string
 	// 源站类型 domain|ip|bucket
 	OriginType string
+}
+
+type SCdnOrigin struct {
+	Type       string
+	Origin     string
+	ServerName string
+	Protocol   string
+	Path       string
+}
+
+type SCdnOrigins []SCdnOrigin
+
+func (self SCdnOrigins) IsZero() bool {
+	return len(self) == 0
+}
+
+func (self SCdnOrigins) String() string {
+	return jsonutils.Marshal(self).String()
+}
+
+func init() {
+	gotypes.RegisterSerializable(reflect.TypeOf(&SCdnOrigins{}), func() gotypes.ISerializable {
+		return &SCdnOrigins{}
+	})
 }
