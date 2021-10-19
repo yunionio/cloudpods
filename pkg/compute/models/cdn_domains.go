@@ -64,6 +64,10 @@ type SCDNDomain struct {
 	SDeletePreventableResourceBase
 	SManagedResourceBase
 
+	Cname string `list:"user" width:"256"`
+
+	// 源站信息
+	Origins *cloudprovider.SCdnOrigins `list:"user"`
 	// 服务类别
 	ServiceType string `list:"user" width:"32" update:"admin" create:"admin_required"`
 	// 加速区域
@@ -188,6 +192,8 @@ func (self *SCDNDomain) SyncWithCloudCDNDomain(ctx context.Context, userCred mcc
 		self.Status = ext.GetStatus()
 		self.Area = ext.GetArea()
 		self.ServiceType = ext.GetServiceType()
+		self.Cname = ext.GetCname()
+		self.Origins = ext.GetOrigins()
 		return nil
 	})
 	if err != nil {
@@ -214,6 +220,8 @@ func (self *SCloudprovider) newFromCloudCDNDomain(ctx context.Context, userCred 
 	domain.Status = ext.GetStatus()
 	domain.Area = ext.GetArea()
 	domain.ServiceType = ext.GetServiceType()
+	domain.Cname = ext.GetCname()
+	domain.Origins = ext.GetOrigins()
 
 	err := CDNDomainManager.TableSpec().Insert(ctx, &domain)
 	if err != nil {

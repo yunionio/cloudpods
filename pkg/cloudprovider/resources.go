@@ -1508,6 +1508,8 @@ type ICloudCDNDomain interface {
 
 	GetArea() string
 	GetServiceType() string
+	GetCname() string
+	GetOrigins() *SCdnOrigins
 
 	Delete() error
 }
