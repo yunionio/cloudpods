@@ -996,7 +996,7 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 		// IMPORTANT: this serves as a guard against a guest to have multiple
 		// associated elastic_ips
 		seip, _ := server.GetEipOrPublicIp()
-		if seip != nil {
+		if seip != nil && (seip.Mode == api.EIP_MODE_STANDALONE_EIP || seip.GetProviderName() != api.CLOUD_PROVIDER_AWS) {
 			return input, httperrors.NewInvalidStatusError("instance is already associated with eip")
 		}
 
