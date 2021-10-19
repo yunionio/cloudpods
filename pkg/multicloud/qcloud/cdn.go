@@ -26,14 +26,14 @@ import (
 )
 
 type SCdnOrigin struct {
-	Origins            []string      `json:"Origins"`
-	OriginType         string        `json:"OriginType"`
-	ServerName         string        `json:"ServerName"`
-	CosPrivateAccess   string        `json:"CosPrivateAccess"`
-	OriginPullProtocol string        `json:"OriginPullProtocol"`
-	BackupOrigins      []interface{} `json:"BackupOrigins"`
-	BackupOriginType   interface{}   `json:"BackupOriginType"`
-	BackupServerName   interface{}   `json:"BackupServerName"`
+	Origins            []string `json:"Origins"`
+	OriginType         string   `json:"OriginType"`
+	ServerName         string   `json:"ServerName"`
+	CosPrivateAccess   string   `json:"CosPrivateAccess"`
+	OriginPullProtocol string   `json:"OriginPullProtocol"`
+	BackupOrigins      []string `json:"BackupOrigins"`
+	BackupOriginType   string   `json:"BackupOriginType"`
+	BackupServerName   string   `json:"BackupServerName"`
 }
 
 type SCdnDomain struct {
@@ -74,6 +74,30 @@ func (self *SCdnDomain) GetStatus() string {
 
 func (self *SCdnDomain) GetEnabled() bool {
 	return self.Disable == "normal"
+}
+
+func (self *SCdnDomain) GetCname() string {
+	return self.Cname
+}
+
+func (self *SCdnDomain) GetOrigins() *cloudprovider.SCdnOrigins {
+	ret := cloudprovider.SCdnOrigins{}
+	for _, org := range self.Origin.Origins {
+		ret = append(ret, cloudprovider.SCdnOrigin{
+			Type:       self.Origin.OriginType,
+			ServerName: self.Origin.ServerName,
+			Protocol:   self.Origin.OriginPullProtocol,
+			Origin:     org,
+		})
+	}
+	for _, org := range self.Origin.BackupOrigins {
+		ret = append(ret, cloudprovider.SCdnOrigin{
+			Type:       self.Origin.BackupOriginType,
+			ServerName: self.Origin.BackupServerName,
+			Origin:     org,
+		})
+	}
+	return &ret
 }
 
 func (self *SCdnDomain) GetArea() string {
