@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -57,9 +56,6 @@ func (c *S3Client) getBucket() (cloudprovider.ICloudBucket, error) {
 func Init(endpoint, accessKey, secretKey, bucket string, useSSL bool) error {
 	if client != nil {
 		return nil
-	}
-	if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
-		endpoint = "http://" + endpoint
 	}
 	cfg := objectstore.NewObjectStoreClientConfig(endpoint, accessKey, secretKey)
 	minioClient, err := objectstore.NewObjectStoreClient(cfg)
