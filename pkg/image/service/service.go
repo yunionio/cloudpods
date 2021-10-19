@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -135,8 +136,16 @@ func StartService() {
 }
 
 func initS3() {
+	url := options.Options.S3Endpoint
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		prefix := "http://"
+		if options.Options.S3UseSSL {
+			prefix = "https://"
+		}
+		url = prefix + url
+	}
 	err := s3.Init(
-		options.Options.S3Endpoint,
+		url,
 		options.Options.S3AccessKey,
 		options.Options.S3SecretKey,
 		options.Options.S3BucketName,
@@ -163,11 +172,6 @@ func initS3() {
 		}
 	}
 
-	prefix := "http://"
-	if options.Options.S3UseSSL {
-		prefix = "https://"
-	}
-	url := prefix + options.Options.S3Endpoint
 	out, err := procutils.NewCommand("s3fs",
 		options.Options.S3BucketName, options.Options.S3MountPoint,
 		"-o", fmt.Sprintf("passwd_file=/tmp/s3-pass,use_path_request_style,url=%s", url)).Output()
