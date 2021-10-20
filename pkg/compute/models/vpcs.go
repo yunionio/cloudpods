@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -520,6 +521,12 @@ func (self *SVpc) syncRemoveCloudVpc(ctx context.Context, userCred mcclient.Toke
 		}
 	} else {
 		err = self.RealDelete(ctx, userCred)
+		if err == nil {
+			notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+				Obj:    self,
+				Action: notifyclient.ActionDelete,
+			})
+		}
 	}
 	return err
 }

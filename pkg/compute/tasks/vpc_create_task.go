@@ -23,6 +23,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -61,6 +62,10 @@ func (self *VpcCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 
 func (self *VpcCreateTask) OnCreateVpcComplete(ctx context.Context, vpc *models.SVpc, data jsonutils.JSONObject) {
 	logclient.AddActionLogWithStartable(self, vpc, logclient.ACT_ALLOCATE, nil, self.UserCred, true)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    vpc,
+		Action: notifyclient.ActionCreate,
+	})
 	self.SetStageComplete(ctx, nil)
 }
 

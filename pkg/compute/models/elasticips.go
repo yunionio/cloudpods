@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -388,7 +389,15 @@ func (self *SElasticip) syncRemoveCloudEip(ctx context.Context, userCred mcclien
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	return self.RealDelete(ctx, userCred)
+	err := self.RealDelete(ctx, userCred)
+	if err != nil {
+		return err
+	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    self,
+		Action: notifyclient.ActionSyncDelete,
+	})
+	return nil
 }
 
 func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudEIP) error {
@@ -485,6 +494,13 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
+	if len(diff) > 0 {
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    self,
+			Action: notifyclient.ActionSyncUpdate,
+		})
+	}
+
 	err = self.SyncInstanceWithCloudEip(ctx, userCred, ext)
 	if err != nil {
 		return errors.Wrap(err, "fail to sync associated instance of EIP")
@@ -563,6 +579,10 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 	}
 
 	db.OpsLog.LogEvent(&eip, db.ACT_CREATE, eip.GetShortDesc(ctx), userCred)
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    &eip,
+		Action: notifyclient.ActionSyncCreate,
+	})
 
 	return &eip, nil
 }

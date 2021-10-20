@@ -26,6 +26,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -106,6 +107,10 @@ func (self *DiskCreateTask) OnDiskReady(ctx context.Context, disk *models.SDisk,
 	disk.SetStatus(self.UserCred, api.DISK_READY, "")
 	self.CleanHostSchedCache(disk)
 	db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), self.UserCred)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    disk,
+		Action: notifyclient.ActionCreate,
+	})
 	self.SetStageComplete(ctx, nil)
 }
 

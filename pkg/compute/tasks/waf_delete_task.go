@@ -24,6 +24,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -69,5 +70,9 @@ func (self *WafDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 
 func (self *WafDeleteTask) taskComplete(ctx context.Context, waf *models.SWafInstance) {
 	waf.RealDelete(ctx, self.GetUserCred())
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    waf,
+		Action: notifyclient.ActionDelete,
+	})
 	self.SetStageComplete(ctx, nil)
 }

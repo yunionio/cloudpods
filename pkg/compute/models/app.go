@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -286,6 +287,10 @@ func (self *SCloudregion) newFromCloudApp(ctx context.Context, userCred mcclient
 	SyncCloudProject(userCred, &app, provider.GetOwnerId(), ext, provider.Id)
 
 	db.OpsLog.LogEvent(&app, db.ACT_CREATE, app.GetShortDesc(ctx), userCred)
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    &app,
+		Action: notifyclient.ActionSyncCreate,
+	})
 
 	return &app, nil
 }
@@ -319,11 +324,19 @@ func (a *SApp) purge(ctx context.Context, userCred mcclient.TokenCredential) err
 }
 
 func (a *SApp) syncRemoveCloudApp(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return a.purge(ctx, userCred)
+	err := a.purge(ctx, userCred)
+	if err != nil {
+		return err
+	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    a,
+		Action: notifyclient.ActionSyncDelete,
+	})
+	return nil
 }
 
 func (a *SApp) SyncWithCloudApp(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudApp) error {
-	_, err := db.UpdateWithLock(ctx, a, func() error {
+	diff, err := db.UpdateWithLock(ctx, a, func() error {
 		a.ExternalId = ext.GetGlobalId()
 		a.Status = ext.GetStatus()
 		a.Type = ext.GetType()
@@ -341,6 +354,12 @@ func (a *SApp) SyncWithCloudApp(ctx context.Context, userCred mcclient.TokenCred
 	result := a.SyncAppEnvironments(ctx, userCred, provider, aes)
 	if result.IsError() {
 		return result.AllError()
+	}
+	if len(diff) > 0 {
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    a,
+			Action: notifyclient.ActionSyncUpdate,
+		})
 	}
 	return nil
 }

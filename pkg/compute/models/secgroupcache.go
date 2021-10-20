@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -478,6 +479,10 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 			syncResult.DeleteError(err)
 		} else {
 			syncResult.Delete()
+			notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+				Obj:    &removed[i],
+				Action: notifyclient.ActionSyncDelete,
+			})
 		}
 	}
 

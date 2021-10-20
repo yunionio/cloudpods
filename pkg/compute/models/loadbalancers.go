@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -1022,6 +1023,11 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 
 	db.OpsLog.LogEvent(&lb, db.ACT_CREATE, lb.GetShortDesc(ctx), userCred)
 
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    &lb,
+		Action: notifyclient.ActionSyncCreate,
+	})
+
 	lb.syncLoadbalancerNetwork(ctx, userCred, lbNetworkIds)
 	return &lb, nil
 }
@@ -1035,6 +1041,10 @@ func (lb *SLoadbalancer) syncRemoveCloudLoadbalancer(ctx context.Context, userCr
 		return lb.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
 		lb.LBPendingDelete(ctx, userCred)
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    lb,
+			Action: notifyclient.ActionSyncDelete,
+		})
 		return nil
 	}
 }
@@ -1216,6 +1226,13 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 	})
 
 	db.OpsLog.LogSyncUpdate(lb, diff, userCred)
+
+	if len(diff) > 0 {
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    lb,
+			Action: notifyclient.ActionSyncUpdate,
+		})
+	}
 
 	networkIds := getExtLbNetworkIds(extLb, lb.ManagerId)
 	SyncCloudProject(userCred, lb, syncOwnerId, extLb, provider.Id)

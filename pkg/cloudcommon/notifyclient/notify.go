@@ -249,16 +249,21 @@ func (t *eventTask) Run() {
 }
 
 func EventNotify(ctx context.Context, userCred mcclient.TokenCredential, ep SEventNotifyParam) {
-	ret, err := db.FetchCustomizeColumns(ep.Obj.GetModelManager(), ctx, userCred, jsonutils.NewDict(), []interface{}{ep.Obj}, stringutils2.SSortedStrings{}, false)
-	if err != nil {
-		log.Errorf("unable to FetchCustomizeColumns: %v", err)
-		return
+	var objDetails *jsonutils.JSONDict
+	if ep.Action == ActionDelete || ep.Action == ActionSyncDelete {
+		objDetails = jsonutils.Marshal(ep.Obj).(*jsonutils.JSONDict)
+	} else {
+		ret, err := db.FetchCustomizeColumns(ep.Obj.GetModelManager(), ctx, userCred, jsonutils.NewDict(), []interface{}{ep.Obj}, stringutils2.SSortedStrings{}, false)
+		if err != nil {
+			log.Errorf("unable to FetchCustomizeColumns: %v", err)
+			return
+		}
+		if len(ret) == 0 {
+			log.Errorf("unable to FetchCustomizeColumns: details of model %q is empty", ep.Obj.GetId())
+			return
+		}
+		objDetails = ret[0]
 	}
-	if len(ret) == 0 {
-		log.Errorf("unable to FetchCustomizeColumns: details of model %q is empty", ep.Obj.GetId())
-		return
-	}
-	objDetails := ret[0]
 	if ep.ObjDetailsDecorator != nil {
 		ep.ObjDetailsDecorator(ctx, objDetails)
 	}

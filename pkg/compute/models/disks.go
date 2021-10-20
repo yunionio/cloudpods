@@ -1463,7 +1463,15 @@ func (self *SDisk) syncRemoveCloudDisk(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return err
 	}
-	return self.RealDelete(ctx, userCred)
+	err = self.RealDelete(ctx, userCred)
+	if err != nil {
+		return err
+	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    self,
+		Action: notifyclient.ActionSyncDelete,
+	})
+	return nil
 }
 
 func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, extDisk cloudprovider.ICloudDisk, index int, syncOwnerId mcclient.IIdentityProvider, managerId string) error {
@@ -1535,6 +1543,13 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		return err
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+
+	if len(diff) > 0 {
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    self,
+			Action: notifyclient.ActionSyncUpdate,
+		})
+	}
 
 	syncVirtualResourceMetadata(ctx, userCred, self, extDisk)
 
@@ -1616,6 +1631,11 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	SyncCloudProject(userCred, &disk, syncOwnerId, extDisk, storage.ManagerId)
 
 	db.OpsLog.LogEvent(&disk, db.ACT_CREATE, disk.GetShortDesc(ctx), userCred)
+
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    &disk,
+		Action: notifyclient.ActionSyncCreate,
+	})
 
 	return &disk, nil
 }
