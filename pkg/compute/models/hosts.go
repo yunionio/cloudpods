@@ -3548,8 +3548,12 @@ func (self *SHost) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 		}
 	}
 
-	if err := self.startSyncConfig(ctx, userCred, "", true); err != nil {
-		log.Errorf("start sync host %q config after updated", self.GetName())
+	notSyncConf, _ := data.Bool("not_sync_config")
+
+	if !notSyncConf {
+		if err := self.startSyncConfig(ctx, userCred, "", true); err != nil {
+			log.Errorf("start sync host %q config after updated", self.GetName())
+		}
 	}
 }
 
