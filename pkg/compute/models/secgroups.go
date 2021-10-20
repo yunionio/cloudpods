@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -1140,6 +1141,10 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 	rules, _ := secgroup.SyncSecurityGroupRules(ctx, userCred, dest)
 
 	db.OpsLog.LogEvent(&secgroup, db.ACT_CREATE, secgroup.GetShortDesc(ctx), userCred)
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    &secgroup,
+		Action: notifyclient.ActionSyncCreate,
+	})
 	return &secgroup, rules, nil
 }
 

@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -381,7 +382,15 @@ func (self *SFileSystem) syncRemove(ctx context.Context, userCred mcclient.Token
 		return self.SetStatus(userCred, api.NAS_STATUS_UNKNOWN, "sync to delete")
 	}
 
-	return self.RealDelete(ctx, userCred)
+	err = self.RealDelete(ctx, userCred)
+	if err != nil {
+		return err
+	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    self,
+		Action: notifyclient.ActionSyncDelete,
+	})
+	return nil
 }
 
 func (self *SFileSystem) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -436,7 +445,7 @@ func (self *SFileSystem) SyncAllWithCloudFileSystem(ctx context.Context, userCre
 }
 
 func (self *SFileSystem) SyncWithCloudFileSystem(ctx context.Context, userCred mcclient.TokenCredential, fs cloudprovider.ICloudFileSystem) error {
-	_, err := db.Update(self, func() error {
+	diff, err := db.Update(self, func() error {
 		self.Status = fs.GetStatus()
 		self.StorageType = fs.GetStorageType()
 		self.Protocol = fs.GetProtocol()
@@ -455,6 +464,12 @@ func (self *SFileSystem) SyncWithCloudFileSystem(ctx context.Context, userCred m
 	})
 	if err != nil {
 		return errors.Wrapf(err, "db.Update")
+	}
+	if len(diff) > 0 {
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    self,
+			Action: notifyclient.ActionSyncUpdate,
+		})
 	}
 	syncMetadata(ctx, userCred, self, fs)
 	return nil
@@ -490,7 +505,7 @@ func (self *SCloudregion) newFromCloudFileSystem(ctx context.Context, userCred m
 	if zoneId := fs.GetZoneId(); len(zoneId) > 0 {
 		nas.ZoneId, _ = self.getZoneIdBySuffix(zoneId)
 	}
-	return func() (*SFileSystem, error) {
+	fileSystem, err := func() (*SFileSystem, error) {
 		lockman.LockRawObject(ctx, FileSystemManager.Keyword(), "name")
 		defer lockman.ReleaseRawObject(ctx, FileSystemManager.Keyword(), "name")
 
@@ -502,6 +517,14 @@ func (self *SCloudregion) newFromCloudFileSystem(ctx context.Context, userCred m
 
 		return &nas, FileSystemManager.TableSpec().Insert(ctx, &nas)
 	}()
+	if err != nil {
+		return nil, err
+	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    &nas,
+		Action: notifyclient.ActionSyncCreate,
+	})
+	return fileSystem, nil
 }
 
 func (self *SFileSystem) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

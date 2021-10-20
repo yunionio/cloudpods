@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -1492,7 +1493,15 @@ func (manager *SDBInstanceManager) SyncDBInstances(ctx context.Context, userCred
 }
 
 func (self *SDBInstance) syncRemoveCloudDBInstance(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return self.Purge(ctx, userCred)
+	err := self.Purge(ctx, userCred)
+	if err != nil {
+		return err
+	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    self,
+		Action: notifyclient.ActionSyncDelete,
+	})
+	return nil
 }
 
 func (self *SDBInstance) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
@@ -1704,6 +1713,12 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 	}
 	syncVirtualResourceMetadata(ctx, userCred, self, extInstance)
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	if len(diff) > 0 {
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    self,
+			Action: notifyclient.ActionSyncUpdate,
+		})
+	}
 	return nil
 }
 
@@ -1792,6 +1807,11 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 	SyncCloudProject(userCred, &instance, ownerId, extInstance, provider.Id)
 
 	db.OpsLog.LogEvent(&instance, db.ACT_CREATE, instance.GetShortDesc(ctx), userCred)
+
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    &instance,
+		Action: notifyclient.ActionSyncCreate,
+	})
 
 	return &instance, nil
 }

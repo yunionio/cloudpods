@@ -53,6 +53,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -655,7 +656,12 @@ func (self *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mccli
 		err = self.SetStatus(userCred, api.NETWORK_STATUS_UNKNOWN, "Sync to remove")
 	} else {
 		err = self.RealDelete(ctx, userCred)
-
+		if err == nil {
+			notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+				Obj:    self,
+				Action: notifyclient.ActionSyncDelete,
+			})
+		}
 	}
 	return err
 }
@@ -680,6 +686,12 @@ func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 		return err
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	if len(diff) > 0 {
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    self,
+			Action: notifyclient.ActionSyncUpdate,
+		})
+	}
 
 	syncVirtualResourceMetadata(ctx, userCred, self, extNet)
 	SyncCloudProject(userCred, self, syncOwnerId, extNet, vpc.ManagerId)
@@ -751,6 +763,10 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 	}
 
 	db.OpsLog.LogEvent(&net, db.ACT_CREATE, net.GetShortDesc(ctx), userCred)
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    &net,
+		Action: notifyclient.ActionSyncCreate,
+	})
 
 	return &net, nil
 }

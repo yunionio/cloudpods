@@ -75,6 +75,9 @@ func (self *DnsZoneDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 
 	dnsZone.RealDelete(ctx, self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, dnsZone, logclient.ACT_DELETE, nil, self.UserCred, true)
-	notifyclient.NotifyWebhook(ctx, self.UserCred, dnsZone, notifyclient.ActionDelete)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    dnsZone,
+		Action: notifyclient.ActionDelete,
+	})
 	self.SetStageComplete(ctx, nil)
 }

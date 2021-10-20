@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -576,7 +577,15 @@ func (self *SElasticcache) syncRemoveCloudElasticcache(ctx context.Context, user
 		self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_ERROR, "sync to delete")
 		return errors.Wrap(err, "ValidateDeleteCondition")
 	}
-	return self.SVirtualResourceBase.Delete(ctx, userCred)
+	err = self.SVirtualResourceBase.Delete(ctx, userCred)
+	if err != nil {
+		return err
+	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    self,
+		Action: notifyclient.ActionSyncDelete,
+	})
+	return nil
 }
 
 func (self *SElasticcache) SyncWithCloudElasticcache(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extInstance cloudprovider.ICloudElasticcache) error {
@@ -620,6 +629,12 @@ func (self *SElasticcache) SyncWithCloudElasticcache(ctx context.Context, userCr
 	}
 	syncVirtualResourceMetadata(ctx, userCred, self, extInstance)
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	if len(diff) > 0 {
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    self,
+			Action: notifyclient.ActionSyncUpdate,
+		})
+	}
 	return nil
 }
 
@@ -738,6 +753,11 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 
 	SyncCloudProject(userCred, &instance, ownerId, extInstance, provider.Id)
 	db.OpsLog.LogEvent(&instance, db.ACT_CREATE, instance.GetShortDesc(ctx), userCred)
+
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    &instance,
+		Action: notifyclient.ActionSyncCreate,
+	})
 
 	return &instance, nil
 }

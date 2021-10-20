@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -344,6 +345,10 @@ func (man *SCachedLoadbalancerCertificateManager) newFromCloudLoadbalancerCertif
 	SyncCloudProject(userCred, &lbcert, projectId, extCertificate, lbcert.ManagerId)
 
 	db.OpsLog.LogEvent(&lbcert, db.ACT_CREATE, lbcert.GetShortDesc(ctx), userCred)
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    &lbcert,
+		Action: notifyclient.ActionSyncCreate,
+	})
 
 	return &lbcert, nil
 }
@@ -375,6 +380,12 @@ func (lbcert *SCachedLoadbalancerCertificate) SyncWithCloudLoadbalancerCertifica
 		}
 	}
 	db.OpsLog.LogSyncUpdate(lbcert, diff, userCred)
+	if len(diff) > 0 {
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    lbcert,
+			Action: notifyclient.ActionSyncUpdate,
+		})
+	}
 
 	SyncCloudProject(userCred, lbcert, projectId, extCertificate, lbcert.ManagerId)
 
@@ -390,6 +401,10 @@ func (lbcert *SCachedLoadbalancerCertificate) syncRemoveCloudLoadbalancerCertifi
 		err = lbcert.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
 		err = lbcert.DoPendingDelete(ctx, userCred)
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    lbcert,
+			Action: notifyclient.ActionSyncDelete,
+		})
 	}
 	return err
 }

@@ -46,6 +46,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/userdata"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -2408,7 +2409,14 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 
 	if options.SyncPurgeRemovedResources.Contains(self.Keyword()) {
 		log.Debugf("purge removed resource %s", self.Name)
-		return self.purge(ctx, userCred)
+		err := self.purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    self,
+			Action: notifyclient.ActionSyncDelete,
+		})
 	}
 
 	if !lostNamePattern.MatchString(self.Name) {
@@ -2527,6 +2535,13 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
+	if len(diff) > 0 {
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    self,
+			Action: notifyclient.ActionSyncUpdate,
+		})
+	}
+
 	syncVirtualResourceMetadata(ctx, userCred, self, extVM)
 	SyncCloudProject(userCred, self, syncOwnerId, extVM, host.ManagerId)
 
@@ -2629,6 +2644,11 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	SyncCloudProject(userCred, &guest, syncOwnerId, extVM, host.ManagerId)
 
 	db.OpsLog.LogEvent(&guest, db.ACT_CREATE, guest.GetShortDesc(ctx), userCred)
+
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    &guest,
+		Action: notifyclient.ActionSyncCreate,
+	})
 
 	if guest.Status == api.VM_RUNNING {
 		db.OpsLog.LogEvent(&guest, db.ACT_START, guest.GetShortDesc(ctx), userCred)
