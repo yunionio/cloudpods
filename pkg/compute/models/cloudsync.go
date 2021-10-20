@@ -1434,6 +1434,106 @@ func syncApps(ctx context.Context, userCred mcclient.TokenCredential, syncResult
 	return nil
 }
 
+func syncKubeClusters(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion) error {
+	iClusters, err := func() ([]cloudprovider.ICloudKubeCluster, error) {
+		defer syncResults.AddRequestCost(KubeClusterManager)()
+		return remoteRegion.GetICloudKubeClusters()
+	}()
+	if err != nil {
+		msg := fmt.Sprintf("GetICloudKubeClusters for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		return err
+	}
+	localClusters, remoteClusters, result := func() ([]SKubeCluster, []cloudprovider.ICloudKubeCluster, compare.SyncResult) {
+		defer syncResults.AddSqlCost(KubeClusterManager)()
+		return localRegion.SyncKubeClusters(ctx, userCred, provider, iClusters)
+	}()
+	syncResults.Add(KubeClusterManager, result)
+	msg := result.Result()
+	log.Infof("SyncKubeClusters for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		return result.AllError()
+	}
+
+	for i := 0; i < len(localClusters); i++ {
+		func() {
+			lockman.LockObject(ctx, &localClusters[i])
+			defer lockman.ReleaseObject(ctx, &localClusters[i])
+
+			if localClusters[i].Deleted {
+				return
+			}
+
+			err = syncKubeClusterNodePools(ctx, userCred, syncResults, &localClusters[i], remoteClusters[i])
+			if err != nil {
+				log.Errorf("syncKubeClusterNodePools for %s error: %v", localClusters[i].Name, err)
+			}
+
+			err = syncKubeClusterNodes(ctx, userCred, syncResults, &localClusters[i], remoteClusters[i])
+			if err != nil {
+				log.Errorf("syncKubeClusterNodes for %s error: %v", localClusters[i].Name, err)
+			}
+
+			err = localClusters[i].Import(ctx, userCred, remoteClusters[i])
+			if err != nil {
+				log.Errorf("Import cluster %s error: %v", localClusters[i].Name, err)
+			}
+		}()
+	}
+
+	return nil
+}
+
+func syncKubeClusterNodePools(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, cluster *SKubeCluster, ext cloudprovider.ICloudKubeCluster) error {
+	iPools, err := func() ([]cloudprovider.ICloudKubeNodePool, error) {
+		defer syncResults.AddRequestCost(KubeNodePoolManager)()
+		return ext.GetIKubeNodePools()
+	}()
+	if err != nil {
+		msg := fmt.Sprintf("GetICloudKubeNodePools for cluster %s failed %s", cluster.GetName(), err)
+		log.Errorf(msg)
+		return err
+	}
+
+	result := func() compare.SyncResult {
+		defer syncResults.AddSqlCost(KubeNodePoolManager)()
+		return cluster.SyncKubeNodePools(ctx, userCred, iPools)
+	}()
+	syncResults.Add(KubeNodePoolManager, result)
+	msg := result.Result()
+	log.Infof("SyncKubeNodePools for cluster %s result: %s", cluster.Name, msg)
+	if result.IsError() {
+		return result.AllError()
+	}
+
+	return nil
+}
+
+func syncKubeClusterNodes(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, cluster *SKubeCluster, ext cloudprovider.ICloudKubeCluster) error {
+	iNodes, err := func() ([]cloudprovider.ICloudKubeNode, error) {
+		defer syncResults.AddRequestCost(KubeNodeManager)()
+		return ext.GetIKubeNodes()
+	}()
+	if err != nil {
+		msg := fmt.Sprintf("GetICloudKubeNodes for cluster %s failed %s", cluster.GetName(), err)
+		log.Errorf(msg)
+		return err
+	}
+
+	result := func() compare.SyncResult {
+		defer syncResults.AddSqlCost(KubeNodeManager)()
+		return cluster.SyncKubeNodes(ctx, userCred, iNodes)
+	}()
+	syncResults.Add(KubeNodeManager, result)
+	msg := result.Result()
+	log.Infof("SyncKubeNodes for cluster %s result: %s", cluster.Name, msg)
+	if result.IsError() {
+		return result.AllError()
+	}
+
+	return nil
+}
+
 func syncWafInstances(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion) error {
 	wafIns, err := func() ([]cloudprovider.ICloudWafInstance, error) {
 		defer syncResults.AddRequestCost(WafInstanceManager)()
@@ -1717,6 +1817,10 @@ func syncPublicCloudProviderInfo(
 
 	if cloudprovider.IsSupportApp(driver) {
 		syncApps(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
+	}
+
+	if cloudprovider.IsSupportContainer(driver) {
+		syncKubeClusters(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
 	if cloudprovider.IsSupportCompute(driver) {

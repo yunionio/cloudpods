@@ -46,6 +46,12 @@ const (
 
 	STATUS_UPDATE_TAGS        = "update_tags"
 	STATUS_UPDATE_TAGS_FAILED = "update_tags_fail"
+
+	STATUS_DELETING      = "deleting"
+	STATUS_DELETE_FAILED = "delete_failed"
+	STATUS_UNKNOWN       = "unknown"
+	STATUS_CREATING      = "creating"
+	STATUS_CREATE_FAILED = "create_failed"
 )
 
 var (

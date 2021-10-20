@@ -64,6 +64,7 @@ const (
 	CLOUD_CAPABILITY_KAFKA           = "kafka"     // Kafka
 	CLOUD_CAPABILITY_APP             = "app"       // App
 	CLOUD_CAPABILITY_CDN             = "cdn"       // CDN
+	CLOUD_CAPABILITY_CONTAINER       = "container" // 容器
 )
 
 const (

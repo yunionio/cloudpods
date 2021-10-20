@@ -491,6 +491,8 @@ func (self *SAzureClient) _apiVersion(resource string, params url.Values) string
 			return "2021-03-01"
 		}
 		return "2020-06-01"
+	} else if utils.IsInStringArray("microsoft.containerservice", info) {
+		return "2021-05-01"
 	}
 	return AZURE_API_VERSION
 }
@@ -995,6 +997,7 @@ func (self *SAzureClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_WAF,
 		cloudprovider.CLOUD_CAPABILITY_CACHE + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_APP + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_CONTAINER + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
 }

@@ -67,6 +67,9 @@ var (
 		"waf_ipsets",
 		"waf_regexsets",
 		"cdn_domains",
+		"cloud_kube_clusters",
+		"cloud_kube_node_pools",
+		"cloud_kube_nodes",
 	}
 	computeUserResources = []string{
 		"keypairs",

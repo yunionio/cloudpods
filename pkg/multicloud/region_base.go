@@ -239,6 +239,14 @@ func (self *SRegion) GetICloudNatSkus() ([]cloudprovider.ICloudNatSku, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudNatSkus")
 }
 
+func (self *SRegion) GetICloudKubeClusters() ([]cloudprovider.ICloudKubeCluster, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudKubeClusters")
+}
+
+func (self *SRegion) GetICloudKubeClusterById(id string) (cloudprovider.ICloudKubeCluster, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetICloudKubeClusterById")
+}
+
 type SRegionZoneBase struct {
 }
 

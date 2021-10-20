@@ -358,6 +358,10 @@ func IsSupportApp(prod ICloudProvider) bool {
 	return IsSupportCapability(prod, CLOUD_CAPABILITY_APP)
 }
 
+func IsSupportContainer(prod ICloudProvider) bool {
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_CONTAINER)
+}
+
 var providerTable map[string]ICloudProviderFactory
 
 func init() {
