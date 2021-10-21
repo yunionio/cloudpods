@@ -53,5 +53,6 @@ type MonitorResourceDetails struct {
 	Ips      string `json:"ips"`
 	AccessIp string `json:"access_ip"`
 
-	AttachAlertCount int64 `json:"attach_alert_count"`
+	AttachAlertCount int64  `json:"attach_alert_count"`
+	Hypervisor       string `json:"hypervisor"`
 }
