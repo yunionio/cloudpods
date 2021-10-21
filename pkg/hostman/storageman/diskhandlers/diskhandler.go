@@ -257,17 +257,17 @@ func performDiskActions(ctx context.Context, w http.ResponseWriter, r *http.Requ
 }
 
 func diskCreate(ctx context.Context, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
-	diskInfo, err := body.Get("disk")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("disk")
+	params := storageman.SDiskCreateByDiskinfo{
+		DiskId:   diskId,
+		Disk:     disk,
+		DiskInfo: compute.DiskAllocateInput{},
+		Storage:  storage,
 	}
-	hostutils.DelayTask(ctx, storage.CreateDiskByDiskinfo,
-		&storageman.SDiskCreateByDiskinfo{
-			DiskId:   diskId,
-			Disk:     disk,
-			DiskInfo: diskInfo,
-			Storage:  storage,
-		})
+	err := body.Unmarshal(&params.DiskInfo, "disk")
+	if err != nil {
+		return nil, errors.Wrapf(err, "body.Unmarshal")
+	}
+	hostutils.DelayTask(ctx, storage.CreateDiskByDiskinfo, &params)
 	return nil, nil
 }
 

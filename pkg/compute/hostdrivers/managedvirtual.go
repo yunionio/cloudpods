@@ -237,16 +237,11 @@ func (self *SManagedVirtualizationHostDriver) RequestResizeDiskOnHost(ctx contex
 	return nil
 }
 
-func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
+func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, input api.DiskAllocateInput) error {
 	iCloudStorage, err := storage.GetIStorage()
 	if err != nil {
 		return err
 	}
-	size, err := content.Int("size")
-	if err != nil {
-		return err
-	}
-	size = size >> 10
 
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		_cloudprovider := storage.GetCloudprovider()
@@ -259,7 +254,7 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 		}
 		conf := cloudprovider.DiskCreateConfig{
 			Name:      disk.GetName(),
-			SizeGb:    int(size),
+			SizeGb:    input.DiskSizeMb >> 10,
 			ProjectId: projectId,
 		}
 		iDisk, err := iCloudStorage.CreateIDisk(&conf)
@@ -333,7 +328,7 @@ func (self *SManagedVirtualizationHostDriver) RequestResetDisk(ctx context.Conte
 	return nil
 }
 
-func (self *SManagedVirtualizationHostDriver) RequestRebuildDiskOnStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
+func (self *SManagedVirtualizationHostDriver) RequestRebuildDiskOnStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, input api.DiskAllocateInput) error {
 	iDisk, err := disk.GetIDisk()
 	if err != nil {
 		return err

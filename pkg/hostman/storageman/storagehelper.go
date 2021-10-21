@@ -18,12 +18,14 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type SDiskCreateByDiskinfo struct {
 	DiskId   string
 	Disk     IDisk
-	DiskInfo jsonutils.JSONObject
+	DiskInfo api.DiskAllocateInput
 
 	Storage IStorage
 }

@@ -693,34 +693,35 @@ func (self *SDisk) StartAllocate(ctx context.Context, host *SHost, storage *SSto
 	templateId := self.GetTemplateId()
 	fsFormat := self.GetFsFormat()
 
-	content := jsonutils.NewDict()
-	content.Add(jsonutils.NewString(self.DiskFormat), "format")
-	content.Add(jsonutils.NewInt(int64(self.DiskSize)), "size")
+	input := api.DiskAllocateInput{
+		Format:     self.DiskFormat,
+		DiskSizeMb: self.DiskSize,
+		SnapshotId: snapshot,
+	}
 	if len(snapshot) > 0 {
-		content.Add(jsonutils.NewString(snapshot), "snapshot")
 		if utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
 			SnapshotManager.AddRefCount(self.SnapshotId, 1)
 			self.SetMetadata(ctx, "merge_snapshot", jsonutils.JSONTrue, userCred)
 		}
 	} else if len(templateId) > 0 {
-		content.Add(jsonutils.NewString(templateId), "image_id")
+		input.ImageId = templateId
 	}
 	if len(fsFormat) > 0 {
-		content.Add(jsonutils.NewString(fsFormat), "fs_format")
+		input.FsFormat = fsFormat
 		if fsFormat == "ext4" {
 			name := strings.ToLower(self.GetName())
 			for _, key := range []string{"encrypt", "secret", "cipher", "private"} {
 				if strings.Index(key, name) > 0 {
-					content.Add(jsonutils.JSONTrue, "encryption")
+					input.Encryption = true
 					break
 				}
 			}
 		}
 	}
 	if rebuild {
-		return host.GetHostDriver().RequestRebuildDiskOnStorage(ctx, host, storage, self, task, content)
+		return host.GetHostDriver().RequestRebuildDiskOnStorage(ctx, host, storage, self, task, input)
 	} else {
-		return host.GetHostDriver().RequestAllocateDiskOnStorage(ctx, userCred, host, storage, self, task, content)
+		return host.GetHostDriver().RequestAllocateDiskOnStorage(ctx, userCred, host, storage, self, task, input)
 	}
 }
 

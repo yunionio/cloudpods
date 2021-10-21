@@ -237,11 +237,11 @@ func (s *SRbdStorage) cloneFromSnapshot(srcImage, srcPool, srcSnapshot, newImage
 	client.SetPool(srcPool)
 	img, err := client.GetImage(srcImage)
 	if err != nil {
-		return errors.Wrapf(err, "GetImage")
+		return errors.Wrapf(err, "GetImage(%s/%s)", srcPool, srcImage)
 	}
 	snap, err := img.GetSnapshot(srcSnapshot)
 	if err != nil {
-		return errors.Wrapf(err, "GetSnapshot")
+		return errors.Wrapf(err, "GetSnapshot(%s)", srcSnapshot)
 	}
 	return snap.Clone(pool, newImage)
 }
@@ -516,15 +516,9 @@ func (s *SRbdStorage) DeleteSnapshots(ctx context.Context, params interface{}) (
 	return nil, fmt.Errorf("Not support delete snapshots")
 }
 
-func (s *SRbdStorage) CreateDiskFromSnapshot(
-	ctx context.Context, disk IDisk, createParams *SDiskCreateByDiskinfo,
-) error {
-	var (
-		snapshotUrl, _ = createParams.DiskInfo.GetString("snapshot_url")
-		srcDiskId, _   = createParams.DiskInfo.GetString("src_disk_id")
-		srcPool, _     = createParams.DiskInfo.GetString("src_pool")
-	)
-	return disk.CreateFromRbdSnapshot(ctx, snapshotUrl, srcDiskId, srcPool)
+func (s *SRbdStorage) CreateDiskFromSnapshot(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) error {
+	info := input.DiskInfo
+	return disk.CreateFromRbdSnapshot(ctx, info.SnapshotUrl, info.SrcDiskId, info.SrcPool)
 }
 
 func (s *SRbdStorage) SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject) error {
