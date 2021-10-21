@@ -43,8 +43,8 @@ func (self *SBaseHostDriver) ValidateResetDisk(ctx context.Context, userCred mcc
 	return nil, httperrors.NewNotImplementedError("Not Implement ValidateResetDisk")
 }
 
-func (self *SBaseHostDriver) ValidateAttachStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
-	return httperrors.NewNotImplementedError("Not Implement ValidateAttachStorage")
+func (self *SBaseHostDriver) ValidateAttachStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, input api.HostStorageCreateInput) (api.HostStorageCreateInput, error) {
+	return input, httperrors.NewNotImplementedError("Not Implement ValidateAttachStorage")
 }
 
 func (self *SBaseHostDriver) RequestAttachStorage(ctx context.Context, hoststorage *models.SHoststorage, host *models.SHost, storage *models.SStorage, task taskman.ITask) error {

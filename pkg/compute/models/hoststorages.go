@@ -27,6 +27,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -137,42 +138,28 @@ func (self *SHoststorage) GetStorage() *SStorage {
 	return nil
 }
 
-func (manager *SHoststorageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	storageId, _ := data.GetString("storage_id")
-	if len(storageId) == 0 {
-		return nil, httperrors.NewMissingParameterError("storage_id")
-	}
-	storageTmp, _ := StorageManager.FetchById(storageId)
-	if storageTmp == nil {
-		return nil, httperrors.NewResourceNotFoundError("failed to find storage %s to attach host", storageId)
-	}
-	storage := storageTmp.(*SStorage)
-
-	hostId, _ := data.GetString("host_id")
-	if len(hostId) == 0 {
-		return nil, httperrors.NewMissingParameterError("host_id")
-	}
-	hostTmp, _ := HostManager.FetchById(hostId)
-	if hostTmp == nil {
-		return nil, httperrors.NewResourceNotFoundError("failed to find host %s to attach storage", hostId)
-	}
-	host := hostTmp.(*SHost)
-
-	if err := host.GetHostDriver().ValidateAttachStorage(ctx, userCred, host, storage, data); err != nil {
-		return nil, err
-	}
-
-	input := apis.JoinResourceBaseCreateInput{}
-	err := data.Unmarshal(&input)
+func (manager *SHoststorageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.HostStorageCreateInput) (api.HostStorageCreateInput, error) {
+	storageObj, err := validators.ValidateModel(userCred, StorageManager, &input.StorageId)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal JoinResourceBaseCreateInput fail %s", err)
+		return input, err
 	}
-	input, err = manager.SJointResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	storage := storageObj.(*SStorage)
+	hostObj, err := validators.ValidateModel(userCred, HostManager, &input.HostId)
 	if err != nil {
-		return nil, err
+		return input, err
 	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+	host := hostObj.(*SHost)
+
+	input, err = host.GetHostDriver().ValidateAttachStorage(ctx, userCred, host, storage, input)
+	if err != nil {
+		return input, err
+	}
+
+	input.JoinResourceBaseCreateInput, err = manager.SJointResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.JoinResourceBaseCreateInput)
+	if err != nil {
+		return input, err
+	}
+	return input, nil
 }
 
 func (self *SHoststorage) syncLocalStorageShare(ctx context.Context, userCred mcclient.TokenCredential) {
