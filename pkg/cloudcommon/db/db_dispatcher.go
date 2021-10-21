@@ -184,7 +184,7 @@ func applyListItemsSearchFilters(manager IModelManager, ctx context.Context, q *
 	return q, nil
 }
 
-func applyListItemsGeneralFilters(manager IModelManager, q *sqlchemy.SQuery,
+func ApplyListItemsGeneralFilters(manager IModelManager, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential, filters []string, filterAny bool) (*sqlchemy.SQuery, error) {
 	conds := make([]sqlchemy.ICondition, 0)
 	schFields := searchFields(manager, userCred) // only filter searchable fields
@@ -298,7 +298,7 @@ func listItemQueryFiltersRaw(manager IModelManager,
 	filterAny, _ := query.Bool("filter_any")
 	filters := jsonutils.GetQueryStringArray(query, "filter")
 	if len(filters) > 0 {
-		q, err = applyListItemsGeneralFilters(manager, q, userCred, filters, filterAny)
+		q, err = ApplyListItemsGeneralFilters(manager, q, userCred, filters, filterAny)
 	}
 	jointFilter := jsonutils.GetQueryStringArray(query, "joint_filter")
 	if len(jointFilter) > 0 {
