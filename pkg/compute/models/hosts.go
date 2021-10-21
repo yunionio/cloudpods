@@ -1029,7 +1029,16 @@ func (self *SHostManager) GetPropertyNodeCount(ctx context.Context, userCred mcc
 }
 
 func (self *SHostManager) getCount(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, query api.HostListInput) (jsonutils.JSONObject, error) {
-	q, err := self.ListItemFilter(ctx, q, userCred, query)
+	filterAny := false
+	if query.FilterAny != nil {
+		filterAny = *query.FilterAny
+	}
+	q, err := db.ApplyListItemsGeneralFilters(self, q, userCred, query.Filter, filterAny)
+	if err != nil {
+		return nil, err
+	}
+
+	q, err = self.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
