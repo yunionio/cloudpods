@@ -185,6 +185,7 @@ func (m *SBaremetalManager) CleanBaremetal(bmId string) {
 func (m *SBaremetalManager) updateBaremetal(session *mcclient.ClientSession, bmId string) (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.JSONTrue, "is_baremetal")
+	params.Add(jsonutils.JSONTrue, "not_sync_config")
 	obj, err := modules.Hosts.Put(session, bmId, params)
 	if err != nil {
 		return nil, err
@@ -2658,7 +2659,13 @@ func (s *SBaremetalServer) DoRebuildRootDisk(term *ssh.Client) ([]*disktool.Part
 
 func (s *SBaremetalServer) SyncPartitionSize(term *ssh.Client, parts []*disktool.Partition) ([]jsonutils.JSONObject, error) {
 	disks, _ := s.desc.GetArray("disks")
+
+	// calculate root partitions count
 	rootPartsCnt := len(parts) - len(disks) + 1
+	if len(parts) < len(disks) {
+		// HACK: rebuild root disk
+		rootPartsCnt = len(parts)
+	}
 	rootParts := parts[0:rootPartsCnt]
 	dataParts := parts[rootPartsCnt:]
 	idx := 0
