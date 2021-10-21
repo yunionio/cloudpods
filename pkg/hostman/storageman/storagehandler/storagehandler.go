@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -128,22 +127,25 @@ func storageAttach(ctx context.Context, body jsonutils.JSONObject) (interface{},
 }
 
 func storageDetach(ctx context.Context, body jsonutils.JSONObject) (interface{}, error) {
-	mountPoint, err := body.GetString("mount_point")
+	info := struct {
+		MountPoint string
+		StorageId  string
+		Name       string
+	}{}
+	err := body.Unmarshal(&info)
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("mount_point")
+		return nil, errors.Wrapf(err, "body.Unmarshal")
 	}
-	storage, err := storageman.GetManager().GetStorageByPath(mountPoint)
-	if err != nil {
-		if errors.Cause(err) == cloudprovider.ErrNotFound {
-			return nil, nil
+	if len(info.StorageId) == 0 {
+		return nil, httperrors.NewMissingParameterError("storage_id")
+	}
+	storage := storageman.GetManager().GetStorage(info.StorageId)
+	if storage != nil {
+		if err := storage.Detach(); err != nil {
+			log.Errorf("detach storage %s failed: %s", storage.GetPath(), err)
 		}
-		return nil, errors.Wrapf(err, "GetStorageByPath(%s)", mountPoint)
+		storageman.GetManager().Remove(storage)
 	}
-
-	if err := storage.Detach(); err != nil {
-		log.Errorf("detach storage %s failed: %s", storage.GetPath(), err)
-	}
-	storageman.GetManager().Remove(storage)
 	return nil, nil
 }
 
