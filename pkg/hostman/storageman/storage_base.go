@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/storageutils"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -302,7 +303,7 @@ func (s *SBaseStorage) CreateDiskByDiskinfo(ctx context.Context, params interfac
 	}
 
 	if createParams.Disk != nil {
-		if !jsonutils.QueryBoolean(createParams.DiskInfo, "rebuild", false) {
+		if !createParams.DiskInfo.Rebuild {
 			return nil, fmt.Errorf("Disk exist")
 		}
 		if err := createParams.Disk.OnRebuildRoot(ctx, createParams.DiskInfo); err != nil {
@@ -316,48 +317,41 @@ func (s *SBaseStorage) CreateDiskByDiskinfo(ctx context.Context, params interfac
 	}
 
 	switch {
-	case createParams.DiskInfo.Contains("snapshot"):
+	case len(createParams.DiskInfo.SnapshotId) > 0:
 		log.Infof("CreateDiskFromSnpashot %s", createParams)
 		return s.CreateDiskFromSnpashot(ctx, disk, createParams)
-	case createParams.DiskInfo.Contains("image_id"):
+	case len(createParams.DiskInfo.ImageId) > 0:
 		log.Infof("CreateDiskFromTemplate %s", createParams)
 		return s.CreateDiskFromTemplate(ctx, disk, createParams)
-	case createParams.DiskInfo.Contains("size"):
+	case createParams.DiskInfo.DiskSizeMb > 0:
 		log.Infof("CreateRawDisk %s", createParams)
 		return s.CreateRawDisk(ctx, disk, createParams)
 	default:
-		return nil, fmt.Errorf("Not fount")
+		return nil, fmt.Errorf("CreateDiskByDiskinfo with params %s empty snapshot_id, image_id or disk_size_mb", jsonutils.Marshal(createParams.DiskInfo))
 	}
 }
 
-func (s *SBaseStorage) CreateRawDisk(ctx context.Context, disk IDisk, createParams *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
-	size, _ := createParams.DiskInfo.Int("size")
-	diskFromat, _ := createParams.DiskInfo.GetString("format")
-	fsFormat, _ := createParams.DiskInfo.GetString("fs_format")
-	encryption := jsonutils.QueryBoolean(createParams.DiskInfo, "encryption", false)
-
-	return disk.CreateRaw(ctx, int(size), diskFromat, fsFormat, encryption, createParams.DiskId, "")
+func (s *SBaseStorage) CreateRawDisk(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
+	return disk.CreateRaw(ctx, input.DiskInfo.DiskSizeMb, input.DiskInfo.Format, input.DiskInfo.FsFormat, input.DiskInfo.Encryption, input.DiskId, "")
 }
 
-func (s *SBaseStorage) CreateDiskFromTemplate(ctx context.Context, disk IDisk, createParams *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
+func (s *SBaseStorage) CreateDiskFromTemplate(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
 	var (
-		imageId, _ = createParams.DiskInfo.GetString("image_id")
-		format     = "qcow2" // force qcow2
-		size, _    = createParams.DiskInfo.Int("size")
+		format = "qcow2" // force qcow2
 	)
 
-	return disk.CreateFromTemplate(ctx, imageId, format, size)
+	return disk.CreateFromTemplate(ctx, input.DiskInfo.ImageId, format, int64(input.DiskInfo.DiskSizeMb))
 }
 
-func (s *SBaseStorage) CreateDiskFromSnpashot(ctx context.Context, disk IDisk, createParams *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
-	var storage = createParams.Storage
-	var snapshotUrl, _ = createParams.DiskInfo.GetString("snapshot_url")
-	if len(snapshotUrl) == 0 {
-		return nil, fmt.Errorf("Create disk from snapshot missing params snapshot url")
+func (s *SBaseStorage) CreateDiskFromSnpashot(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
+	var storage = input.Storage
+	if len(input.DiskInfo.SnapshotUrl) == 0 {
+		return nil, httperrors.NewMissingParameterError("snapshot_url")
 	}
 
-	if err := storage.CreateDiskFromSnapshot(ctx, disk, createParams); err != nil {
-		return nil, err
+	err := storage.CreateDiskFromSnapshot(ctx, disk, input)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateDiskFromSnapshot")
 	}
 
 	return disk.GetDiskDesc(), nil

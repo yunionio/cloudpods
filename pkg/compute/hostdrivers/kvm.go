@@ -259,48 +259,44 @@ func (self *SKVMHostDriver) RequestUncacheImage(ctx context.Context, host *model
 	return nil
 }
 
-func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
+func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, input api.DiskAllocateInput) error {
 	header := task.GetTaskRequestHeader()
-	if snapshotId, err := content.GetString("snapshot"); err == nil {
-		iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
-		snapshot := iSnapshot.(*models.SSnapshot)
+	if len(input.SnapshotId) > 0 {
+		snapObj, err := models.SnapshotManager.FetchById(input.SnapshotId)
+		if err != nil {
+			return errors.Wrapf(err, "SnapshotManager.FetchById(%s)", input.SnapshotId)
+		}
+		snapshot := snapObj.(*models.SSnapshot)
 		snapshotStorage := models.StorageManager.FetchStorageById(snapshot.StorageId)
 		if snapshotStorage.StorageType == api.STORAGE_LOCAL {
 			snapshotHost := snapshotStorage.GetMasterHost()
 			if options.Options.SnapshotCreateDiskProtocol == "url" {
-				content.Set("snapshot_url",
-					jsonutils.NewString(fmt.Sprintf("%s/download/snapshots/%s/%s/%s",
-						snapshotHost.ManagerUri, snapshotStorage.Id, snapshot.DiskId, snapshot.Id)))
-				content.Set("snapshot_out_of_chain", jsonutils.NewBool(snapshot.OutOfChain))
+				input.SnapshotUrl = fmt.Sprintf("%s/download/snapshots/%s/%s/%s", snapshotHost.ManagerUri, snapshotStorage.Id, snapshot.DiskId, snapshot.Id)
+				input.SnapshotOutOfChain = snapshot.OutOfChain
 			} else if options.Options.SnapshotCreateDiskProtocol == "fuse" {
-				content.Set("snapshot_url", jsonutils.NewString(fmt.Sprintf("%s/snapshots/%s/%s",
-					snapshotHost.GetFetchUrl(true), snapshot.DiskId, snapshot.Id)))
+				input.SnapshotUrl = fmt.Sprintf("%s/snapshots/%s/%s", snapshotHost.GetFetchUrl(true), snapshot.DiskId, snapshot.Id)
 			}
-			content.Set("protocol", jsonutils.NewString(options.Options.SnapshotCreateDiskProtocol))
+			input.Protocol = options.Options.SnapshotCreateDiskProtocol
 		} else if snapshotStorage.StorageType == api.STORAGE_RBD {
-			pool, _ := snapshotStorage.StorageConf.GetString("pool")
-			content.Set("snapshot_url", jsonutils.NewString(snapshot.Id))
-			content.Set("src_disk_id", jsonutils.NewString(snapshot.DiskId))
-			content.Set("src_pool", jsonutils.NewString(pool))
+			input.SnapshotUrl = snapshot.Id
+			input.SrcDiskId = snapshot.DiskId
+			input.SrcPool, _ = snapshotStorage.StorageConf.GetString("pool")
 		} else {
-			content.Set("snapshot_url", jsonutils.NewString(snapshot.Location))
+			input.SnapshotUrl = snapshot.Location
 		}
 	}
 
 	url := fmt.Sprintf("/disks/%s/create/%s", storage.Id, disk.Id)
 	body := jsonutils.NewDict()
-	body.Add(content, "disk")
+	body.Add(jsonutils.Marshal(input), "disk")
 	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, body)
 	return err
 }
 
-func (self *SKVMHostDriver) RequestRebuildDiskOnStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
-	content.Add(jsonutils.JSONTrue, "rebuild")
-	if task.GetParams().Contains("backing_disk_id") {
-		backingDiskId, _ := task.GetParams().GetString("backing_disk_id")
-		content.Set("backing_disk_id", jsonutils.NewString(backingDiskId))
-	}
-	return self.RequestAllocateDiskOnStorage(ctx, task.GetUserCred(), host, storage, disk, task, content)
+func (self *SKVMHostDriver) RequestRebuildDiskOnStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, input api.DiskAllocateInput) error {
+	input.Rebuild = true
+	input.BackingDiskId, _ = task.GetParams().GetString("backing_disk_id")
+	return self.RequestAllocateDiskOnStorage(ctx, task.GetUserCred(), host, storage, disk, task, input)
 }
 
 func (self *SKVMHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {

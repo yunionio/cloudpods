@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/billing"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/multicloud/esxi/vcenter"
 )
 
 type DiskCreateInput struct {
@@ -264,4 +265,25 @@ func (self DiskResizeInput) SizeMb() (int, error) {
 		return 0, httperrors.NewMissingParameterError("size")
 	}
 	return fileutils.GetSizeMb(self.Size, 'M', 1024)
+}
+
+type DiskAllocateInput struct {
+	Format        string
+	DiskSizeMb    int
+	ImageId       string
+	FsFormat      string
+	Encryption    bool
+	Rebuild       bool
+	BackingDiskId string
+	SnapshotId    string
+
+	SnapshotUrl        string
+	SnapshotOutOfChain bool
+	Protocol           string
+	SrcDiskId          string
+	SrcPool            string
+
+	// vmware
+	HostIp    string
+	Datastore vcenter.SVCenterAccessInfo
 }
