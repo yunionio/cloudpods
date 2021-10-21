@@ -59,48 +59,47 @@ func (self *SKVMHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_KVM
 }
 
-func (self *SKVMHostDriver) ValidateAttachStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
+func (self *SKVMHostDriver) ValidateAttachStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, input api.HostStorageCreateInput) (api.HostStorageCreateInput, error) {
 	if !utils.IsInStringArray(storage.StorageType, append([]string{api.STORAGE_LOCAL}, api.SHARED_STORAGE...)) {
-		return httperrors.NewUnsupportOperationError("Unsupport attach %s storage for %s host", storage.StorageType, host.HostType)
+		return input, httperrors.NewUnsupportOperationError("Unsupport attach %s storage for %s host", storage.StorageType, host.HostType)
 	}
 	if storage.StorageType == api.STORAGE_RBD {
 		if host.HostStatus != api.HOST_ONLINE {
-			return httperrors.NewInvalidStatusError("Attach rbd storage require host status is online")
+			return input, httperrors.NewInvalidStatusError("Attach rbd storage require host status is online")
 		}
 		pool, _ := storage.StorageConf.GetString("pool")
-		data.Set("mount_point", jsonutils.NewString(fmt.Sprintf("rbd:%s", pool)))
+		input.MountPoint = fmt.Sprintf("rbd:%s", pool)
 	} else if utils.IsInStringArray(storage.StorageType, api.SHARED_FILE_STORAGE) {
-		mountPoint, err := data.GetString("mount_point")
-		if err != nil {
-			return httperrors.NewMissingParameterError("mount_point")
+		if len(input.MountPoint) == 0 {
+			return input, httperrors.NewMissingParameterError("mount_point")
 		}
-		count, err := models.HoststorageManager.Query().Equals("host_id", host.Id).Equals("mount_point", mountPoint).CountWithError()
+		count, err := models.HoststorageManager.Query().Equals("host_id", host.Id).Equals("mount_point", input.MountPoint).CountWithError()
 		if err != nil {
-			return httperrors.NewInternalServerError("Query host storage error %s", err)
+			return input, httperrors.NewInternalServerError("Query host storage error %s", err)
 		}
 		if count > 0 {
-			return httperrors.NewBadRequestError("Host %s already have mount point %s with other storage", host.Name, mountPoint)
+			return input, httperrors.NewBadRequestError("Host %s already have mount point %s with other storage", host.Name, input.MountPoint)
 		}
 		if host.HostStatus != api.HOST_ONLINE {
-			return httperrors.NewInvalidStatusError("Attach nfs storage require host status is online")
+			return input, httperrors.NewInvalidStatusError("Attach nfs storage require host status is online")
 		}
 		if storage.StorageType == api.STORAGE_GPFS {
 			header := http.Header{}
 			header.Set(mcclient.AUTH_TOKEN, userCred.GetTokenString())
 			header.Set(mcclient.REGION_VERSION, "v2")
 			params := jsonutils.NewDict()
-			params.Set("mount_point", jsonutils.NewString(mountPoint))
+			params.Set("mount_point", jsonutils.NewString(input.MountPoint))
 			urlStr := fmt.Sprintf("%s/storages/is-mount-point?%s", host.ManagerUri, params.QueryString())
 			_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", urlStr, header, nil, false)
 			if err != nil {
-				return err
+				return input, err
 			}
 			if !jsonutils.QueryBoolean(res, "is_mount_point", false) {
-				return httperrors.NewBadRequestError("%s is not mount point %s", mountPoint, res)
+				return input, httperrors.NewBadRequestError("%s is not mount point %s", input.MountPoint, res)
 			}
 		}
 	}
-	return nil
+	return input, nil
 }
 
 func (self *SKVMHostDriver) RequestAttachStorage(ctx context.Context, hoststorage *models.SHoststorage, host *models.SHost, storage *models.SStorage, task taskman.ITask) error {
@@ -141,6 +140,7 @@ func (self *SKVMHostDriver) RequestDetachStorage(ctx context.Context, host *mode
 			mountPoint, _ := task.GetParams().GetString("mount_point")
 			body.Set("mount_point", jsonutils.NewString(mountPoint))
 			body.Set("name", jsonutils.NewString(storage.Name))
+			body.Set("storage_id", jsonutils.NewString(storage.Id))
 			_, resp, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, headers, body, false)
 			return resp, err
 		}
