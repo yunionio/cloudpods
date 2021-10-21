@@ -59,7 +59,7 @@ type IHostDriver interface {
 	IsReachStoragecacheCapacityLimit(host *SHost, cachedImages []SCachedimage) bool
 	GetStoragecacheQuota(host *SHost) int
 
-	ValidateAttachStorage(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, storage *SStorage, data *jsonutils.JSONDict) error
+	ValidateAttachStorage(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, storage *SStorage, input api.HostStorageCreateInput) (api.HostStorageCreateInput, error)
 	RequestAttachStorage(ctx context.Context, hoststorage *SHoststorage, host *SHost, storage *SStorage, task taskman.ITask) error
 	RequestDetachStorage(ctx context.Context, host *SHost, storage *SStorage, task taskman.ITask) error
 	RequestSyncOnHost(ctx context.Context, host *SHost, task taskman.ITask) error

@@ -16,6 +16,8 @@ package compute
 
 import (
 	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/apis"
 )
 
 type HoststorageDetails struct {
@@ -57,4 +59,11 @@ type HoststorageListInput struct {
 	HostJointsListInput
 
 	StorageFilterListInput
+}
+
+type HostStorageCreateInput struct {
+	apis.JoinResourceBaseCreateInput
+	StorageId  string `json:"storage_id"`
+	HostId     string `json:"host_id"`
+	MountPoint string `json:"mount_point"`
 }
