@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostutils/kubelet"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -489,19 +490,15 @@ func doRebaseDisk(diskPath, newBasePath string) error {
 }
 
 func (s *SLocalStorage) CreateDiskFromSnapshot(
-	ctx context.Context, disk IDisk, createParams *SDiskCreateByDiskinfo,
+	ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo,
 ) error {
-	var (
-		snapshotUrl, _      = createParams.DiskInfo.GetString("snapshot_url")
-		transferProtocol, _ = createParams.DiskInfo.GetString("protocol")
-		diskSize, _         = createParams.DiskInfo.Int("size")
-	)
-	if transferProtocol == "fuse" {
-		if err := disk.CreateFromImageFuse(ctx, snapshotUrl, diskSize); err != nil {
-			return err
+	info := input.DiskInfo
+	if info.Protocol == "fuse" {
+		err := disk.CreateFromImageFuse(ctx, info.SnapshotUrl, int64(info.DiskSizeMb))
+		if err != nil {
+			return errors.Wrapf(err, "CreateFromImageFuse")
 		}
 		return nil
-	} else {
-		return fmt.Errorf("Unsupport protocol %s for Local storage", transferProtocol)
 	}
+	return httperrors.NewUnsupportOperationError("Unsupport protocol %s for Local storage", info.Protocol)
 }

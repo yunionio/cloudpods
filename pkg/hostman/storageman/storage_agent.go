@@ -59,31 +59,25 @@ func (as *SAgentStorage) GetDiskById(diskId string) (IDisk, error) {
 }
 
 func (as *SAgentStorage) CreateDiskByDiskInfo(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	createParams, ok := params.(*SDiskCreateByDiskinfo)
+	input, ok := params.(*SDiskCreateByDiskinfo)
 	if !ok {
 		return nil, errors.Wrap(hostutils.ParamsError, "CreateDiskByDiskInfo params format error")
-	}
-
-	hd := SHostDatastore{}
-	err := createParams.DiskInfo.Unmarshal(&hd)
-	if err != nil {
-		return nil, errors.Wrap(hostutils.ParamsError, err.Error())
 	}
 
 	diskMeta, err := as.SLocalStorage.CreateDiskByDiskinfo(ctx, params)
 	if err != nil {
 		return nil, errors.Wrap(err, "as.SLocalStorage.CreateDiskByDiskinfo")
 	}
-	disk, err := as.GetDiskById(createParams.DiskId)
+	disk, err := as.GetDiskById(input.DiskId)
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetDiskById(%s)", createParams.DiskId)
+		return nil, errors.Wrapf(err, "GetDiskById(%s)", input.DiskId)
 	}
 
-	_, ds, err := as.getHostAndDatastore(ctx, hd)
+	_, ds, err := as.getHostAndDatastore(ctx, SHostDatastore{HostIp: input.DiskInfo.HostIp, Datastore: input.DiskInfo.Datastore})
 	if err != nil {
 		return nil, errors.Wrap(err, "as.getHostAndDatastore")
 	}
-	remotePath := "disks/" + createParams.DiskId
+	remotePath := "disks/" + input.DiskId
 	file, err := os.Open(disk.GetPath())
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to open disk path")

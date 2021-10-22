@@ -181,29 +181,26 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 	return nil
 }
 
-func (self *SESXiHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
+func (self *SESXiHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, input api.DiskAllocateInput) error {
 	if !host.IsEsxiAgentReady() {
 		return fmt.Errorf("fail to find valid ESXi agent")
 	}
 
 	type specStruct struct {
 		Datastore vcenter.SVCenterAccessInfo
-		HostIp    string
-		Format    string
 	}
 
-	spec := specStruct{}
-	spec.HostIp = host.AccessIp
-	spec.Format = "vmdk"
+	input.HostIp = host.AccessIp
+	input.Format = "vmdk"
 
-	accessInfo, err := host.GetCloudaccount().GetVCenterAccessInfo(storage.ExternalId)
+	var err error
+	input.Datastore, err = host.GetCloudaccount().GetVCenterAccessInfo(storage.ExternalId)
 	if err != nil {
 		return err
 	}
-	spec.Datastore = accessInfo
 
 	body := jsonutils.NewDict()
-	body.Add(jsonutils.Marshal(&spec), "disk")
+	body.Add(jsonutils.Marshal(&input), "disk")
 
 	url := fmt.Sprintf("/disks/agent/create/%s", disk.Id)
 

@@ -93,7 +93,7 @@ func (self *CephClient) output(name string, opts []string) (jsonutils.JSONObject
 	opts = append([]string{"--format", "json"}, opts...)
 	resp, err := procutils.NewRemoteCommandAsFarAsPossible(name, opts...).Output()
 	if err != nil {
-		return nil, errors.Wrapf(err, "CreateImage %s", string(resp))
+		return nil, errors.Wrapf(err, "%s %s", name, string(resp))
 	}
 	return jsonutils.Parse(resp)
 }
@@ -101,7 +101,7 @@ func (self *CephClient) output(name string, opts []string) (jsonutils.JSONObject
 func (self *CephClient) run(name string, opts []string) error {
 	output, err := procutils.NewRemoteCommandAsFarAsPossible(name, opts...).Output()
 	if err != nil {
-		return errors.Wrapf(err, "CreateImage %s", string(output))
+		return errors.Wrapf(err, "%s %s", name, string(output))
 	}
 	return nil
 }
@@ -328,10 +328,20 @@ func (self *SSnapshot) GetName() string {
 func (self *SSnapshot) Unprotect() error {
 	opts := self.options()
 	opts = append(opts, []string{"snap", "unprotect", self.GetName()}...)
-	return self.image.client.run("rbd", opts)
+	err := self.image.client.run("rbd", opts)
+	if err != nil {
+		if strings.Contains(err.Error(), "snap is already unprotected") {
+			return nil
+		}
+		return errors.Wrapf(err, "Unprotect")
+	}
+	return nil
 }
 
 func (self *SSnapshot) Protect() error {
+	if self.Protected {
+		return nil
+	}
 	opts := self.options()
 	opts = append(opts, []string{"snap", "protect", self.GetName()}...)
 	return self.image.client.run("rbd", opts)
@@ -347,11 +357,14 @@ func (self *SSnapshot) Delete() error {
 	pool := self.image.client.pool
 	defer self.image.client.SetPool(pool)
 
-	self.Unprotect()
+	err := self.Unprotect()
+	if err != nil {
+		return errors.Wrapf(err, "Unprotect %s", self.GetName())
+	}
 
 	chidren, err := self.ListChildren()
 	if err != nil {
-		return errors.Wrapf(err, "")
+		return errors.Wrapf(err, "ListChildren")
 	}
 
 	for i := range chidren {
@@ -454,7 +467,19 @@ func (self *SImage) Clone(ctx context.Context, pool, name string) error {
 	if err != nil {
 		return errors.Wrapf(err, "findOrCreateSnap")
 	}
-	return snap.Clone(pool, name)
+	err = snap.Clone(pool, name)
+	if err != nil {
+		return errors.Wrapf(err, "clone %s/%s", pool, name)
+	}
+
+	_pool := self.client.pool
+	defer self.client.SetPool(_pool)
+
+	img, err := self.client.GetImage(name)
+	if err != nil {
+		return errors.Wrapf(err, "GetImage(%s) after clone", name)
+	}
+	return img.Flatten()
 }
 
 func (self *SSnapshot) Clone(pool, name string) error {

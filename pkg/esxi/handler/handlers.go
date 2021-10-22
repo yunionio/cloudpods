@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/esxi"
@@ -121,8 +122,9 @@ func createHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	hostutils.DelayTask(ctx, esxi.EsxiAgent.AgentStorage.CreateDiskByDiskInfo,
-		storageman.SDiskCreateByDiskinfo{DiskId: disk.GetId(), Disk: disk, DiskInfo: diskInfo})
+	params := storageman.SDiskCreateByDiskinfo{DiskId: disk.GetId(), Disk: disk, DiskInfo: api.DiskAllocateInput{}}
+	diskInfo.Unmarshal(&params.DiskInfo)
+	hostutils.DelayTask(ctx, esxi.EsxiAgent.AgentStorage.CreateDiskByDiskInfo, params)
 	hostutils.ResponseOk(ctx, w)
 }
 
