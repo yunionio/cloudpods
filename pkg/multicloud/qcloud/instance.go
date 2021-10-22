@@ -246,6 +246,7 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 			DiskSize:  self.SystemDisk.DiskSize,
 			DisktType: self.SystemDisk.DiskType,
 			DiskUsage: "SYSTEM_DISK",
+			imageId:   self.ImageId,
 		}
 		idisks = append(idisks, &disk)
 	}
@@ -297,13 +298,23 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 
 		nics []cloudprovider.ICloudNic
 	)
+	if classic {
+		for _, ipAddr := range self.PrivateIpAddresses {
+			nic := SInstanceNic{
+				instance: self,
+				ipAddr:   ipAddr,
+				classic:  true,
+			}
+			nics = append(nics, &nic)
+		}
+	}
 	client, err := region.client.getVpcClient(region.GetId())
 	if err != nil {
 		return nil, err
 	}
 	req := qvpc.NewDescribeNetworkInterfacesRequest()
 	req.Filters = []*qvpc.Filter{
-		&qvpc.Filter{
+		{
 			Values: qcommon.StringPtrs([]string{self.InstanceId}),
 			Name:   qcommon.StringPtr("attachment.instance-id"),
 		},

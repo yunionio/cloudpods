@@ -172,6 +172,12 @@ func (self *SZone) fetchStorages() error {
 		storage := SLocalStorage{zone: self, storageType: localstorageType, available: true}
 		self.istorages = append(self.istorages, &storage)
 	}
+	for _, storageType := range QCLOUD_LOCAL_STORAGE_TYPES {
+		if !utils.IsInStringArray(storageType, self.localstorages) {
+			storage := SLocalStorage{zone: self, storageType: storageType, available: false}
+			self.istorages = append(self.istorages, &storage)
+		}
+	}
 	return nil
 }
 
