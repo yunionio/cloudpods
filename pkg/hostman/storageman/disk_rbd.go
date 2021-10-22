@@ -101,17 +101,15 @@ func (d *SRBDDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JS
 	return nil, storage.deleteImage(pool, d.Id)
 }
 
-func (d *SRBDDisk) OnRebuildRoot(ctx context.Context, params jsonutils.JSONObject) error {
-	backingDiskId, err := params.GetString("backing_disk_id")
-	if err != nil {
+func (d *SRBDDisk) OnRebuildRoot(ctx context.Context, params api.DiskAllocateInput) error {
+	if len(params.BackingDiskId) == 0 {
 		_, err := d.Delete(ctx, params)
 		return err
-	} else {
-		storage := d.Storage.(*SRbdStorage)
-		storageConf := d.Storage.GetStorageConf()
-		pool, _ := storageConf.GetString("pool")
-		return storage.renameImage(pool, d.Id, backingDiskId)
 	}
+	storage := d.Storage.(*SRbdStorage)
+	storageConf := d.Storage.GetStorageConf()
+	pool, _ := storageConf.GetString("pool")
+	return storage.renameImage(pool, d.Id, params.BackingDiskId)
 }
 
 func (d *SRBDDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {

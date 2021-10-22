@@ -131,7 +131,7 @@ func (d *SLocalDisk) Delete(ctx context.Context, params interface{}) (jsonutils.
 	return nil, nil
 }
 
-func (d *SLocalDisk) OnRebuildRoot(ctx context.Context, params jsonutils.JSONObject) error {
+func (d *SLocalDisk) OnRebuildRoot(ctx context.Context, params api.DiskAllocateInput) error {
 	_, err := d.Delete(ctx, params)
 	return err
 }

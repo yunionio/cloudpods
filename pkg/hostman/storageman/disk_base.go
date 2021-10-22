@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 )
@@ -37,7 +38,7 @@ type IDisk interface {
 	GetDiskDesc() jsonutils.JSONObject
 	GetDiskSetupScripts(idx int) string
 	GetSnapshotLocation() string
-	OnRebuildRoot(ctx context.Context, params jsonutils.JSONObject) error
+	OnRebuildRoot(ctx context.Context, params api.DiskAllocateInput) error
 	DoDeleteSnapshot(snapshotId string) error
 
 	DeleteAllSnapshot() error
@@ -92,7 +93,7 @@ func (d *SBaseDisk) Delete(ctx context.Context, params interface{}) (jsonutils.J
 	return nil, fmt.Errorf("Not implemented")
 }
 
-func (d *SBaseDisk) OnRebuildRoot(ctx context.Context, params jsonutils.JSONObject) error {
+func (d *SBaseDisk) OnRebuildRoot(ctx context.Context, params api.DiskAllocateInput) error {
 	return fmt.Errorf("Not implemented")
 }
 
