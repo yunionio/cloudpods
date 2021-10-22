@@ -2574,7 +2574,15 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		if err != nil {
 			return nil, httperrors.NewBadRequestError("Parse disk info error: %s", err)
 		}
-		if len(diskConf.Backend) == 0 {
+		if len(diskConf.SnapshotId) > 0 {
+			snapObj, err := SnapshotManager.FetchById(diskConf.SnapshotId)
+			if err != nil {
+				return nil, httperrors.NewResourceNotFoundError("snapshot %s not found", diskConf.SnapshotId)
+			}
+			snap := snapObj.(*SSnapshot)
+			diskConf.Storage = snap.StorageId
+		}
+		if len(diskConf.Backend) == 0 && len(diskConf.Storage) == 0 {
 			diskConf.Backend = self.getDefaultStorageType()
 		}
 		if diskConf.SizeMb > 0 {
