@@ -32,6 +32,7 @@ type SLocalDisk struct {
 	DiskSize  float32
 	DisktType string
 	DiskUsage string
+	imageId   string
 }
 
 func (self *SLocalDisk) GetSysTags() map[string]string {
@@ -112,7 +113,7 @@ func (self *SLocalDisk) Reset(ctx context.Context, snapshotId string) (string, e
 }
 
 func (self *SLocalDisk) GetTemplateId() string {
-	return ""
+	return self.imageId
 }
 
 func (self *SLocalDisk) GetStatus() string {
