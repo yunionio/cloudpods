@@ -2545,7 +2545,15 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	var diskIdx = 1
 	for i := range input.Disks {
 		disk := input.Disks[i]
-		if len(disk.Backend) == 0 {
+		if len(disk.SnapshotId) > 0 {
+			snapObj, err := SnapshotManager.FetchById(disk.SnapshotId)
+			if err != nil {
+				return nil, httperrors.NewResourceNotFoundError("snapshot %s not found", disk.SnapshotId)
+			}
+			snap := snapObj.(*SSnapshot)
+			disk.Storage = snap.StorageId
+		}
+		if len(disk.Backend) == 0 && len(disk.Storage) == 0 {
 			disk.Backend = self.getDefaultStorageType()
 		}
 		if disk.SizeMb > 0 {
