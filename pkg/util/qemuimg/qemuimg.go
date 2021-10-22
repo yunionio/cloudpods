@@ -17,11 +17,11 @@ package qemuimg
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
@@ -110,90 +110,49 @@ func (img *SQemuImage) parse() error {
 			img.ActualSizeBytes = fileInfo.Size()
 		}
 	}
-	cmd := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(), "info", img.Path)
-
-	var stdin io.WriteCloser
-	var err error
-	if len(img.Password) > 0 {
-		stdin, err = cmd.StdinPipe()
+	resp, err := func() (jsonutils.JSONObject, error) {
+		output, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(), "info", img.Path, "--output", "json").Output()
 		if err != nil {
-			return errors.Wrap(err, "cmd stdin pipe")
+			return nil, errors.Wrapf(err, "qemu-img info")
 		}
-		defer stdin.Close()
-	}
-	outb, err := cmd.StdoutPipe()
-	if err != nil {
-		return errors.Wrap(err, "cmd stdout pipe")
-	}
-	defer outb.Close()
+		return jsonutils.Parse(output)
+	}()
 
-	errb, err := cmd.StderrPipe()
-	if err != nil {
-		return errors.Wrap(err, "cmd stderr pipe")
-	}
-	defer errb.Close()
+	info := struct {
+		VirtualSizeBytes      int64  `json:"virtual-size"`
+		Filename              string `json:"filename"`
+		Format                string `json:"format"`
+		ActualSizeBytes       int64  `json:"actual-size"`
+		ClusterSize           int    `json:"cluster-size"`
+		BackingFilename       string `json:"backing-filename"`
+		FullBackingFilename   string `json:"full-backing-filename"`
+		BackingFilenameFormat string `json:"backing-filename-format"`
+		Encrypted             bool   `json:"encrypted"`
+		FormatSpecific        struct {
+			Type string `json:"type"`
+			Data struct {
+				Compat        string `json:"compat"`
+				LazyRefcounts int    `json:"lazy-refcounts"`
+				RefcountBits  int    `json:"refcount-bits"`
+				Corrupt       bool   `json:"corrupt"`
+			} `json:"data"`
+		} `json:"format-specific"`
+		CreateType string `json:"create-type"`
+		DirtyFlag  bool   `json:"dirty-flag"`
+	}{}
 
-	err = cmd.Start()
-
-	if len(img.Password) > 0 {
-		io.WriteString(stdin, img.Password+"\n")
-	}
-
-	out, err := ioutil.ReadAll(outb)
+	err = resp.Unmarshal(&info)
 	if err != nil {
-		return errors.Wrap(err, "read stdout pipe")
+		return errors.Wrapf(err, "resp.Unmarshal")
 	}
-	errOut, err := ioutil.ReadAll(errb)
-	if err != nil {
-		return errors.Wrap(err, "read stderr pipe")
-	}
+	img.Format = TImageFormat(info.Format)
+	img.SizeBytes = info.VirtualSizeBytes
+	img.ClusterSize = info.ClusterSize
+	img.Compat = info.FormatSpecific.Data.Compat
+	img.Encryption = info.Encrypted
+	img.BackFilePath = info.FullBackingFilename
+	img.Subformat = info.CreateType
 
-	err = cmd.Wait()
-	if err != nil {
-		log.Errorf("qemu-img info %s fail %s: %s", img.Path, err, errOut)
-		return fmt.Errorf("qemu-img info error %s", errOut)
-	}
-	lines := strings.Split(string(out), "\n")
-	for i := 0; i < len(lines); i++ {
-		line := lines[i]
-		if len(line) > 0 {
-			line = strings.TrimSpace(line)
-			switch {
-			case strings.HasPrefix(line, "file format:"):
-				img.Format = String2ImageFormat(line[strings.LastIndexByte(line, ' ')+1:])
-			case strings.HasPrefix(line, "virtual size:"):
-				if img.SizeBytes == 0 {
-					sizeStr := line[strings.LastIndexByte(line, '(')+1 : strings.LastIndexByte(line, ' ')]
-					size, err := strconv.ParseInt(sizeStr, 10, 64)
-					if err != nil {
-						return fmt.Errorf("invalid size str %s: %s", sizeStr, err)
-					}
-					img.SizeBytes = size
-				}
-			case strings.HasPrefix(line, "cluster_size:"):
-				sizeStr := line[strings.LastIndexByte(line, ' ')+1:]
-				size, err := strconv.ParseInt(sizeStr, 10, 64)
-				if err != nil {
-					return fmt.Errorf("invalid cluster size str %s", sizeStr)
-				}
-				img.ClusterSize = int(size)
-			case strings.HasPrefix(line, "backing file:"):
-				img.BackFilePath = line[strings.LastIndexByte(line, ' ')+1:]
-			case strings.HasPrefix(line, "compat:"):
-				img.Compat = line[strings.LastIndexByte(line, ' ')+1:]
-			case strings.HasPrefix(line, "encrypted:"):
-				if line[strings.LastIndexByte(line, ' ')+1:] == "yes" {
-					img.Encryption = true
-				}
-			case strings.HasPrefix(line, "create type:"):
-				img.Subformat = line[strings.LastIndexByte(line, ' ')+1:]
-			}
-		}
-		if err != nil {
-			log.Errorf("read output fail %s", err)
-			return fmt.Errorf("read output fail %s", err)
-		}
-	}
 	if img.Format == RAW && fileutils2.IsFile(img.Path) {
 		// test if it is an ISO
 		blkType := fileutils2.GetBlkidType(img.Path)
