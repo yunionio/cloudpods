@@ -248,7 +248,7 @@ func (s *SKVMGuestInstance) generateArmStartScript(data *jsonutils.JSONDict) (st
 
 	for _, disk := range disks {
 		format, _ := disk.GetString("format")
-		cmd += s.getDriveDesc(disk, format)
+		cmd += s.getDriveDesc(disk, format, true)
 		cmd += s.getArmVdiskDesc(disk)
 	}
 

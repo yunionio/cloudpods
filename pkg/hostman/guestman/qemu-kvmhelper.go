@@ -163,7 +163,7 @@ func (s *SKVMGuestInstance) disablePvpanicDev() bool {
 	return val == "true"
 }
 
-func (s *SKVMGuestInstance) getDriveDesc(disk jsonutils.JSONObject, format string) string {
+func (s *SKVMGuestInstance) getDriveDesc(disk jsonutils.JSONObject, format string, fileLockingOff bool) string {
 	diskIndex, _ := disk.Int("index")
 	cacheMode, _ := disk.GetString("cache_mode")
 	aioMode, _ := disk.GetString("aio_mode")
@@ -181,6 +181,9 @@ func (s *SKVMGuestInstance) getDriveDesc(disk jsonutils.JSONObject, format strin
 	cmd += fmt.Sprintf(",aio=%s", aioMode)
 	if disk.Contains("url") { // # a remote file backed image
 		cmd += ",copy-on-read=on"
+	}
+	if fileLockingOff {
+		cmd += ",file.locking=off"
 	}
 	// #cmd += ",media=disk"
 	return cmd
@@ -616,7 +619,7 @@ function nic_mtu() {
 
 	for _, disk := range disks {
 		format, _ := disk.GetString("format")
-		cmd += s.getDriveDesc(disk, format)
+		cmd += s.getDriveDesc(disk, format, false)
 		cmd += s.getVdiskDesc(disk)
 	}
 
