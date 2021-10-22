@@ -357,11 +357,6 @@ func (self *SSnapshot) Delete() error {
 	pool := self.image.client.pool
 	defer self.image.client.SetPool(pool)
 
-	err := self.Unprotect()
-	if err != nil {
-		return errors.Wrapf(err, "Unprotect %s", self.GetName())
-	}
-
 	chidren, err := self.ListChildren()
 	if err != nil {
 		return errors.Wrapf(err, "ListChildren")
@@ -378,6 +373,12 @@ func (self *SSnapshot) Delete() error {
 			return errors.Wrapf(err, "Flatten")
 		}
 	}
+
+	err = self.Unprotect()
+	if err != nil {
+		return errors.Wrapf(err, "Unprotect %s", self.GetName())
+	}
+
 	return self.Remove()
 }
 
