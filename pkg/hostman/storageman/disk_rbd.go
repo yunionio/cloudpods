@@ -80,7 +80,7 @@ func (d *SRBDDisk) GetDiskDesc() jsonutils.JSONObject {
 	desc := map[string]interface{}{
 		"disk_id":     d.Id,
 		"disk_format": "raw",
-		"disk_path":   d.GetPath(),
+		"disk_path":   d.getPath(),
 		"disk_size":   sizeMb,
 	}
 	return jsonutils.Marshal(desc)
