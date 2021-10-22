@@ -260,7 +260,7 @@ function nic_mtu() {
 
 	for _, disk := range disks {
 		format, _ := disk.GetString("format")
-		cmd += s.getDriveDesc(disk, format)
+		cmd += s.getDriveDesc(disk, format, true)
 		cmd += s.getArmVdiskDesc(disk)
 	}
 
