@@ -1578,6 +1578,13 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 
 	disk.IsEmulated = extDisk.IsEmulated()
 
+	if templateId := extDisk.GetTemplateId(); len(templateId) > 0 {
+		cachedImage, err := db.FetchByExternalId(CachedimageManager, templateId)
+		if err == nil && cachedImage != nil {
+			disk.TemplateId = cachedImage.GetId()
+		}
+	}
+
 	if provider.GetFactory().IsSupportPrepaidResources() {
 		disk.BillingType = extDisk.GetBillingType()
 		if expired := extDisk.GetExpiredAt(); !expired.IsZero() {
