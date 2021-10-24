@@ -130,3 +130,7 @@ func (self *SLocalStorage) GetMountPoint() string {
 func (self *SLocalStorage) IsSysDiskStore() bool {
 	return true
 }
+
+func (self *SLocalStorage) DisableSync() bool {
+	return true
+}
