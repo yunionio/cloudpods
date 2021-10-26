@@ -82,7 +82,7 @@ type SPort struct {
 	Description             string
 	DeviceID                string
 	DeviceOwner             string
-	DnsAssignment           DnsAssignment
+	DnsAssignment           []DnsAssignment
 	DnsDomain               string
 	DnsName                 string
 	ExtraDhcpOpts           []ExtraDhcpOpt
