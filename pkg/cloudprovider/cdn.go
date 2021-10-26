@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/gotypes"
 )
 
+// +onecloud:model-api-gen
 type SCdnDomain struct {
 	// cdn加速域名
 	Domain string
@@ -36,6 +37,7 @@ type SCdnDomain struct {
 	OriginType string
 }
 
+// +onecloud:model-api-gen
 type SCdnOrigin struct {
 	Type       string
 	Origin     string
@@ -44,6 +46,7 @@ type SCdnOrigin struct {
 	Path       string
 }
 
+// +onecloud:model-api-gen
 type SCdnOrigins []SCdnOrigin
 
 func (self SCdnOrigins) IsZero() bool {
