@@ -147,6 +147,11 @@ func (sm *STopicManager) InitializeData() error {
 				notify.TOPIC_RESOURCE_FILESYSTEM,
 				notify.TOPIC_RESOURCE_NATGATEWAY,
 				notify.TOPIC_RESOURCE_VPC,
+				notify.TOPIC_RESOURCE_CDNDOMAIN,
+				notify.TOPIC_RESOURCE_WAF,
+				notify.TOPIC_RESOURCE_KAFKA,
+				notify.TOPIC_RESOURCE_ELASTICSEARCH,
+				notify.TOPIC_RESOURCE_MONGODB,
 			)
 			t.addAction(
 				notify.ActionCreate,
@@ -466,6 +471,16 @@ func init() {
 			notify.TOPIC_RESOURCE_ELASTICCACHE:            16,
 			notify.TOPIC_RESOURCE_SCHEDULEDTASK:           17,
 			notify.TOPIC_RESOURCE_BAREMETAL:               18,
+			notify.TOPIC_RESOURCE_VPC:                     19,
+			notify.TOPIC_RESOURCE_DNSZONE:                 20,
+			notify.TOPIC_RESOURCE_NATGATEWAY:              21,
+			notify.TOPIC_RESOURCE_WEBAPP:                  22,
+			notify.TOPIC_RESOURCE_CDNDOMAIN:               23,
+			notify.TOPIC_RESOURCE_FILESYSTEM:              24,
+			notify.TOPIC_RESOURCE_WAF:                     25,
+			notify.TOPIC_RESOURCE_KAFKA:                   26,
+			notify.TOPIC_RESOURCE_ELASTICSEARCH:           27,
+			notify.TOPIC_RESOURCE_MONGODB:                 28,
 		},
 	)
 	converter.registerAction(
@@ -485,6 +500,9 @@ func init() {
 			notify.ActionMigrate:            12,
 			notify.ActionCreateBackupServer: 13,
 			notify.ActionDelBackupServer:    14,
+			notify.ActionSyncCreate:         15,
+			notify.ActionSyncUpdate:         16,
+			notify.ActionSyncDelete:         17,
 		},
 	)
 }
