@@ -579,6 +579,8 @@ func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP
 			eip.BGPType = "5_telcom"
 		case "cn-north-4", "ap-southeast-1", "ap-southeast-2", "eu-west-0":
 			eip.BGPType = "5_bgp"
+		case "cn-southwest-2":
+			eip.BGPType = "5_sbgp"
 		default:
 			eip.BGPType = "5_bgp"
 		}
