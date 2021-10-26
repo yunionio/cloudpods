@@ -630,6 +630,10 @@ func (self *SSecurityGroup) PostCreate(ctx context.Context, userCred mcclient.To
 
 		SecurityGroupRuleManager.TableSpec().Insert(ctx, rule)
 	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    self,
+		Action: notifyclient.ActionCreate,
+	})
 }
 
 func (manager *SSecurityGroupManager) FetchSecgroupById(secId string) (*SSecurityGroup, error) {

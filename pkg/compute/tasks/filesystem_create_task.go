@@ -113,7 +113,7 @@ func (self *FileSystemCreateTask) OnSyncstatusComplete(ctx context.Context, fs *
 	self.SetStageComplete(ctx, nil)
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
 		Obj:    self,
-		Action: notifyclient.ActionDelete,
+		Action: notifyclient.ActionCreate,
 	})
 }
 

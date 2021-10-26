@@ -186,6 +186,10 @@ func (self *NatGatewayCreateTask) OnDeployEipComplete(ctx context.Context, nat *
 }
 
 func (self *NatGatewayCreateTask) OnSyncstatusComplete(ctx context.Context, nat *models.SNatGateway, data jsonutils.JSONObject) {
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    nat,
+		Action: notifyclient.ActionCreate,
+	})
 	self.SetStageComplete(ctx, nil)
 }
 
