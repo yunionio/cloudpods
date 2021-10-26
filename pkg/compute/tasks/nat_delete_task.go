@@ -24,6 +24,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -132,5 +133,9 @@ func (self *NatGatewayDeleteTask) doDeleteNatGateway(ctx context.Context, nat *m
 
 func (self *NatGatewayDeleteTask) taskComplete(ctx context.Context, nat *models.SNatGateway) {
 	nat.RealDelete(ctx, self.GetUserCred())
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    nat,
+		Action: notifyclient.ActionDelete,
+	})
 	self.SetStageComplete(ctx, nil)
 }
