@@ -177,7 +177,7 @@ func (eip *SEipAddress) GetAssociationExternalId() string {
 	if len(eip.PortId) > 0 {
 		port, err := eip.region.GetPort(eip.PortId)
 		if err != nil {
-			log.Errorf("failed to get eip port %s info", port.DeviceID)
+			log.Errorf("failed to get eip port %s info", eip.PortId)
 			return ""
 		}
 		return port.DeviceID
