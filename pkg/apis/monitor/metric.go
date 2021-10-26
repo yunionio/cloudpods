@@ -29,6 +29,7 @@ const (
 	METRIC_RES_TYPE_TENANT       = "tenant"
 	METRIC_RES_TYPE_DOMAIN       = "domain"
 	METRIC_RES_TYPE_STORAGE      = "storage"
+	METRIC_RES_TYPE_ELB          = "elb"
 	//ext is prefix！
 	METRIC_RES_TYPE_JENKINS      = "ext_jenkins"
 	METRIC_RES_TYPE_EXT_MYSQL    = "ext_mysql"
