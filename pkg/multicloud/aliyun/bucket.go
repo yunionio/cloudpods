@@ -702,17 +702,10 @@ func (b *SBucket) GetCdnDomains() ([]cloudprovider.SCdnDomain, error) {
 		if cdnDomains.DomainsData[i].Source == bucketExtUrl {
 			for j := range cdnDomains.DomainsData[i].Domains.DomainNames {
 				area := ""
-				cdnDomianDescribes, err := b.region.client.DescribeUserDomains(cdnDomains.DomainsData[i].Domains.DomainNames[j])
-				if err != nil {
-					return nil, errors.Wrapf(err, "b.region.client.DescribeUserDomains(%s)", cdnDomains.DomainsData[i].Domains.DomainNames[j])
+				domain, _ := b.region.client.GetCDNDomainByName(cdnDomains.DomainsData[i].Domains.DomainNames[j])
+				if domain != nil {
+					area = domain.Coverage
 				}
-				for k := range cdnDomianDescribes.PageData {
-					if cdnDomianDescribes.PageData[k].DomainName == cdnDomains.DomainsData[i].Domains.DomainNames[j] {
-						area = cdnDomianDescribes.PageData[k].Coverage
-						break
-					}
-				}
-
 				result = append(result, cloudprovider.SCdnDomain{
 					Domain:     cdnDomains.DomainsData[i].Domains.DomainNames[j],
 					Status:     toAPICdnStatus(cdnDomains.DomainsData[i].DomainInfos.DomainInfo[j].Status),

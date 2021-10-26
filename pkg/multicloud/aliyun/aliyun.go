@@ -77,6 +77,7 @@ const (
 	ALIYUN_SERVICE_SLB      = "slb"
 	ALIYUN_SERVICE_KVS      = "kvs"
 	ALIYUN_SERVICE_NAS      = "nas"
+	ALIYUN_SERVICE_CDN      = "cdn"
 	ALIYUN_SERVICE_MONGO_DB = "mongodb"
 )
 
@@ -693,6 +694,7 @@ func (region *SAliyunClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_MONGO_DB + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_ES + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_KAFKA + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_CDN + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
 }

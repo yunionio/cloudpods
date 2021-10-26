@@ -44,6 +44,9 @@ type SCdnOrigin struct {
 	ServerName string
 	Protocol   string
 	Path       string
+	Port       int
+	Enabled    string
+	Priority   int
 }
 
 // +onecloud:model-api-gen

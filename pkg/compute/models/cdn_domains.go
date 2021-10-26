@@ -183,6 +183,14 @@ func (self *SCDNDomain) syncRemoveCloudCDNDomain(ctx context.Context, userCred m
 	return nil
 }
 
+// 判断资源是否可以删除
+func (self *SCDNDomain) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	if self.DisableDelete.IsTrue() {
+		return httperrors.NewInvalidStatusError("CDN is locked, cannot delete")
+	}
+	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
+}
+
 func (self *SCDNDomain) GetICloudCDNDomain() (cloudprovider.ICloudCDNDomain, error) {
 	manager := self.GetCloudprovider()
 	if manager == nil {
