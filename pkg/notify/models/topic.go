@@ -88,6 +88,7 @@ const (
 	DefaultScalingPolicyExecute    = "scaling policy execute"
 	DefaultSnapshotPolicyExecute   = "snapshot policy execute"
 	DefaultResourceOperationFailed = "resource operation failed"
+	DefaultResourceSync            = "resource sync"
 )
 
 func (sm *STopicManager) InitializeData() error {
@@ -101,6 +102,7 @@ func (sm *STopicManager) InitializeData() error {
 		DefaultScalingPolicyExecute,
 		DefaultSnapshotPolicyExecute,
 		DefaultResourceOperationFailed,
+		DefaultResourceSync,
 	)
 	q := sm.Query()
 	topics := make([]STopic, 0, initSNames.Len())
@@ -108,12 +110,17 @@ func (sm *STopicManager) InitializeData() error {
 	if err != nil {
 		return errors.Wrap(err, "unable to FetchModelObjects")
 	}
+	nameTopicMap := make(map[string]*STopic, len(topics))
 	for i := range topics {
 		t := &topics[i]
 		initSNames.Delete(t.Name)
+		nameTopicMap[t.Name] = t
+	}
+	for _, name := range initSNames.UnsortedList() {
+		nameTopicMap[name] = nil
 	}
 	ctx := context.Background()
-	for _, name := range initSNames.UnsortedList() {
+	for name, topic := range nameTopicMap {
 		t := new(STopic)
 		t.Name = name
 		t.Enabled = tristate.True
@@ -137,6 +144,14 @@ func (sm *STopicManager) InitializeData() error {
 				notify.TOPIC_RESOURCE_ELASTICCACHE,
 				notify.TOPIC_RESOURCE_BAREMETAL,
 				notify.TOPIC_RESOURCE_SECGROUP,
+				notify.TOPIC_RESOURCE_FILESYSTEM,
+				notify.TOPIC_RESOURCE_NATGATEWAY,
+				notify.TOPIC_RESOURCE_VPC,
+				notify.TOPIC_RESOURCE_CDNDOMAIN,
+				notify.TOPIC_RESOURCE_WAF,
+				notify.TOPIC_RESOURCE_KAFKA,
+				notify.TOPIC_RESOURCE_ELASTICSEARCH,
+				notify.TOPIC_RESOURCE_MONGODB,
 			)
 			t.addAction(
 				notify.ActionCreate,
@@ -217,10 +232,50 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionMigrate,
 			)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
+		case DefaultResourceSync:
+			t.addResources(
+				notify.TOPIC_RESOURCE_SERVER,
+				notify.TOPIC_RESOURCE_DISK,
+				notify.TOPIC_RESOURCE_DBINSTANCE,
+				notify.TOPIC_RESOURCE_ELASTICCACHE,
+				notify.TOPIC_RESOURCE_LOADBALANCER,
+				notify.TOPIC_RESOURCE_EIP,
+				notify.TOPIC_RESOURCE_VPC,
+				notify.TOPIC_RESOURCE_NETWORK,
+				notify.TOPIC_RESOURCE_LOADBALANCERCERTIFICATE,
+				notify.TOPIC_RESOURCE_DNSZONE,
+				notify.TOPIC_RESOURCE_NATGATEWAY,
+				notify.TOPIC_RESOURCE_BUCKET,
+				notify.TOPIC_RESOURCE_FILESYSTEM,
+				notify.TOPIC_RESOURCE_WEBAPP,
+				notify.TOPIC_RESOURCE_CDNDOMAIN,
+				notify.TOPIC_RESOURCE_WAF,
+				notify.TOPIC_RESOURCE_KAFKA,
+				notify.TOPIC_RESOURCE_ELASTICSEARCH,
+				notify.TOPIC_RESOURCE_MONGODB,
+			)
+			t.addAction(
+				notify.ActionSyncCreate,
+				notify.ActionSyncUpdate,
+				notify.ActionSyncDelete,
+			)
+			t.Type = notify.TOPIC_TYPE_RESOURCE
 		}
-		err := sm.TableSpec().Insert(ctx, t)
-		if err != nil {
-			return errors.Wrapf(err, "unable to insert %s", name)
+		if topic == nil {
+			err := sm.TableSpec().Insert(ctx, t)
+			if err != nil {
+				return errors.Wrapf(err, "unable to insert %s", name)
+			}
+		} else {
+			_, err := db.Update(topic, func() error {
+				topic.Resources = t.Resources
+				topic.Actions = t.Actions
+				topic.Type = t.Type
+				return nil
+			})
+			if err != nil {
+				return errors.Wrapf(err, "unable to update topic %s", topic.Name)
+			}
 		}
 	}
 	return nil
@@ -416,6 +471,16 @@ func init() {
 			notify.TOPIC_RESOURCE_ELASTICCACHE:            16,
 			notify.TOPIC_RESOURCE_SCHEDULEDTASK:           17,
 			notify.TOPIC_RESOURCE_BAREMETAL:               18,
+			notify.TOPIC_RESOURCE_VPC:                     19,
+			notify.TOPIC_RESOURCE_DNSZONE:                 20,
+			notify.TOPIC_RESOURCE_NATGATEWAY:              21,
+			notify.TOPIC_RESOURCE_WEBAPP:                  22,
+			notify.TOPIC_RESOURCE_CDNDOMAIN:               23,
+			notify.TOPIC_RESOURCE_FILESYSTEM:              24,
+			notify.TOPIC_RESOURCE_WAF:                     25,
+			notify.TOPIC_RESOURCE_KAFKA:                   26,
+			notify.TOPIC_RESOURCE_ELASTICSEARCH:           27,
+			notify.TOPIC_RESOURCE_MONGODB:                 28,
 		},
 	)
 	converter.registerAction(
@@ -435,6 +500,9 @@ func init() {
 			notify.ActionMigrate:            12,
 			notify.ActionCreateBackupServer: 13,
 			notify.ActionDelBackupServer:    14,
+			notify.ActionSyncCreate:         15,
+			notify.ActionSyncUpdate:         16,
+			notify.ActionSyncDelete:         17,
 		},
 	)
 }

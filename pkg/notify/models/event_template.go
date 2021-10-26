@@ -435,6 +435,56 @@ func init() {
 			"快照策略",
 		},
 		sI18nElme{
+			api.TOPIC_RESOURCE_VPC,
+			"VPC",
+			"VPC",
+		},
+		sI18nElme{
+			api.TOPIC_RESOURCE_DNSZONE,
+			"DNS zone",
+			"DNS zone",
+		},
+		sI18nElme{
+			api.TOPIC_RESOURCE_NATGATEWAY,
+			"nat gateway",
+			"nat网关",
+		},
+		sI18nElme{
+			api.TOPIC_RESOURCE_WEBAPP,
+			"webapp",
+			"应用程序服务",
+		},
+		sI18nElme{
+			api.TOPIC_RESOURCE_CDNDOMAIN,
+			"CDN domain",
+			"CDN domain",
+		},
+		sI18nElme{
+			api.TOPIC_RESOURCE_FILESYSTEM,
+			"file system",
+			"文件系统",
+		},
+		sI18nElme{
+			api.TOPIC_RESOURCE_WAF,
+			"WAF",
+			"WAF",
+		},
+		sI18nElme{
+			api.TOPIC_RESOURCE_KAFKA,
+			"Kafka",
+			"Kafka",
+		},
+		sI18nElme{
+			api.TOPIC_RESOURCE_ELASTICSEARCH,
+			"Elasticsearch",
+			"Elasticsearch",
+		},
+		sI18nElme{
+			api.TOPIC_RESOURCE_MONGODB,
+			"MongoDB",
+			"MongoDB",
+		},
+		sI18nElme{
 			string(api.ActionCreate),
 			"created",
 			"创建",

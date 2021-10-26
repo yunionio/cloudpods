@@ -38,6 +38,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -80,5 +81,9 @@ func (self *MongoDBDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 
 func (self *MongoDBDeleteTask) taskComplete(ctx context.Context, mongodb *models.SMongoDB) {
 	mongodb.RealDelete(ctx, self.GetUserCred())
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    mongodb,
+		Action: notifyclient.ActionDelete,
+	})
 	self.SetStageComplete(ctx, nil)
 }

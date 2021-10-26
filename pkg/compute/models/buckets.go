@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -232,6 +233,10 @@ func (manager *SBucketManager) newFromCloudBucket(
 	}
 
 	SyncCloudProject(userCred, &bucket, provider.GetOwnerId(), extBucket, provider.Id)
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    &bucket,
+		Action: notifyclient.ActionSyncCreate,
+	})
 	bucket.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
 
 	syncVirtualResourceMetadata(ctx, userCred, &bucket, extBucket)
@@ -308,6 +313,12 @@ func (bucket *SBucket) syncWithCloudBucket(
 	syncVirtualResourceMetadata(ctx, userCred, bucket, extBucket)
 
 	db.OpsLog.LogSyncUpdate(bucket, diff, userCred)
+	if len(diff) > 0 {
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    bucket,
+			Action: notifyclient.ActionSyncUpdate,
+		})
+	}
 
 	if !oStats.Equals(extBucket.GetStats()) {
 		db.OpsLog.LogEvent(bucket, api.BUCKET_OPS_STATS_CHANGE, bucket.GetShortDesc(ctx), userCred)
@@ -332,6 +343,10 @@ func (bucket *SBucket) syncRemoveCloudBucket(
 	if err != nil {
 		return errors.Wrap(err, "RealDelete")
 	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    bucket,
+		Action: notifyclient.ActionSyncDelete,
+	})
 	return nil
 }
 

@@ -106,7 +106,10 @@ func (self *DnsZoneCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 
 func (self *DnsZoneCreateTask) OnSyncRecordSetComplete(ctx context.Context, dnsZone *models.SDnsZone, data jsonutils.JSONObject) {
 	dnsZone.SetStatus(self.GetUserCred(), api.DNS_ZONE_STATUS_AVAILABLE, "")
-	notifyclient.NotifyWebhook(ctx, self.UserCred, dnsZone, notifyclient.ActionCreate)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    dnsZone,
+		Action: notifyclient.ActionCreate,
+	})
 	self.SetStageComplete(ctx, nil)
 }
 

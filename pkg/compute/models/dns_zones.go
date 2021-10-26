@@ -457,6 +457,10 @@ func (manager *SDnsZoneManager) newFromCloudDnsZone(ctx context.Context, userCre
 		dnsZone.AddVpc(ctx, vpcId)
 	}
 
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    dnsZone,
+		Action: notifyclient.ActionSyncCreate,
+	})
 	SyncCloudDomain(userCred, dnsZone, account.GetOwnerId())
 	dnsZone.SyncShareState(ctx, userCred, account.getAccountShareInfo())
 
