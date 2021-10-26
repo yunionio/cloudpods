@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -457,7 +458,15 @@ func (self *SCloudregion) SyncMongoDBs(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SMongoDB) syncRemoveCloudMongoDB(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return self.RealDelete(ctx, userCred)
+	err := self.RealDelete(ctx, userCred)
+	if err != nil {
+		return err
+	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    self,
+		Action: notifyclient.ActionSyncDelete,
+	})
+	return nil
 }
 
 func (self *SMongoDB) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
@@ -528,6 +537,12 @@ func (self *SMongoDB) SyncWithCloudMongoDB(ctx context.Context, userCred mcclien
 	})
 	if err != nil {
 		return errors.Wrapf(err, "db.Update")
+	}
+	if len(diff) > 0 {
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    self,
+			Action: notifyclient.ActionSyncUpdate,
+		})
 	}
 	syncVirtualResourceMetadata(ctx, userCred, self, ext)
 	if provider := self.GetCloudprovider(); provider != nil {
@@ -617,6 +632,10 @@ func (self *SCloudregion) newFromCloudMongoDB(ctx context.Context, userCred mccl
 	if err != nil {
 		return nil, errors.Wrapf(err, "newFromCloudMongoDB.Insert")
 	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    &ins,
+		Action: notifyclient.ActionSyncCreate,
+	})
 
 	syncVirtualResourceMetadata(ctx, userCred, &ins, ext)
 	SyncCloudProject(userCred, &ins, provider.GetOwnerId(), ext, provider.Id)

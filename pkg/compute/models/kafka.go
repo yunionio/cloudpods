@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -389,7 +390,15 @@ func (self *SKafka) GetIKafka() (cloudprovider.ICloudKafka, error) {
 }
 
 func (self *SKafka) syncRemoveCloudKafka(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return self.RealDelete(ctx, userCred)
+	err := self.RealDelete(ctx, userCred)
+	if err != nil {
+		return err
+	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    self,
+		Action: notifyclient.ActionSyncDelete,
+	})
+	return nil
 }
 
 // 同步资源属性
@@ -468,6 +477,12 @@ func (self *SKafka) SyncWithCloudKafka(ctx context.Context, userCred mcclient.To
 	})
 	if err != nil {
 		return errors.Wrapf(err, "db.Update")
+	}
+	if len(diff) > 0 {
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    self,
+			Action: notifyclient.ActionSyncUpdate,
+		})
 	}
 
 	syncVirtualResourceMetadata(ctx, userCred, self, ext)
@@ -568,6 +583,10 @@ func (self *SCloudregion) newFromCloudKafka(ctx context.Context, userCred mcclie
 	if err != nil {
 		return nil, errors.Wrapf(err, "newFromCloudKafka.Insert")
 	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    &kafka,
+		Action: notifyclient.ActionSyncCreate,
+	})
 
 	// 同步标签
 	syncVirtualResourceMetadata(ctx, userCred, &kafka, ext)

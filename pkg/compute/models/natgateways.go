@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -454,7 +455,15 @@ func (self *SNatGateway) syncRemoveCloudNatGateway(ctx context.Context, userCred
 	if err != nil { // cannot delete
 		return self.SetStatus(userCred, api.NAT_STATUS_UNKNOWN, "sync to delete")
 	}
-	return self.purge(ctx, userCred)
+	err = self.purge(ctx, userCred)
+	if err != nil {
+		return err
+	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    self,
+		Action: notifyclient.ActionSyncDelete,
+	})
+	return nil
 }
 
 func (self *SNatGateway) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
@@ -507,6 +516,12 @@ func (self *SNatGateway) SyncWithCloudNatGateway(ctx context.Context, userCred m
 	SyncCloudDomain(userCred, self, provider.GetOwnerId())
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	if len(diff) > 0 {
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    self,
+			Action: notifyclient.ActionSyncUpdate,
+		})
+	}
 	return nil
 }
 
@@ -566,6 +581,10 @@ func (manager *SNatGatewayManager) newFromCloudNatGateway(ctx context.Context, u
 	syncMetadata(ctx, userCred, &nat, extNat)
 
 	db.OpsLog.LogEvent(&nat, db.ACT_CREATE, nat.GetShortDesc(ctx), userCred)
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    &nat,
+		Action: notifyclient.ActionSyncCreate,
+	})
 
 	return &nat, nil
 }

@@ -40,6 +40,10 @@ var (
 	ActionCreateBackupServer SAction = "add_backup_server"
 	ActionDelBackupServer    SAction = "delete_backup_server"
 
+	ActionSyncCreate SAction = "sync_create"
+	ActionSyncUpdate SAction = "sync_update"
+	ActionSyncDelete SAction = "sync_delete"
+
 	ResultFailed  SResult = "failed"
 	ResultSucceed SResult = "succeed"
 )

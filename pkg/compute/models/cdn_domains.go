@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -171,7 +172,15 @@ func (self *SCDNDomain) syncRemoveCloudCDNDomain(ctx context.Context, userCred m
 	if err != nil {
 		return errors.Wrapf(err, "ValidateDeleteCondition")
 	}
-	return self.RealDelete(ctx, userCred)
+	err = self.RealDelete(ctx, userCred)
+	if err != nil {
+		return err
+	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    self,
+		Action: notifyclient.ActionSyncDelete,
+	})
+	return nil
 }
 
 func (self *SCDNDomain) GetICloudCDNDomain() (cloudprovider.ICloudCDNDomain, error) {
@@ -200,6 +209,12 @@ func (self *SCDNDomain) SyncWithCloudCDNDomain(ctx context.Context, userCred mcc
 		return err
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	if len(diff) > 0 {
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    self,
+			Action: notifyclient.ActionSyncUpdate,
+		})
+	}
 	syncMetadata(ctx, userCred, self, ext)
 
 	if provider := self.GetCloudprovider(); provider != nil {
@@ -234,6 +249,10 @@ func (self *SCloudprovider) newFromCloudCDNDomain(ctx context.Context, userCred 
 	domain.SyncShareState(ctx, userCred, self.getAccountShareInfo())
 
 	db.OpsLog.LogEvent(&domain, db.ACT_CREATE, domain.GetShortDesc(ctx), userCred)
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    &domain,
+		Action: notifyclient.ActionSyncCreate,
+	})
 
 	return &domain, nil
 }

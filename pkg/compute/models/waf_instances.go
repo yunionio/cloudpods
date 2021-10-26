@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -382,7 +383,15 @@ func (self *SWafInstance) RealDelete(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SWafInstance) syncRemove(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return self.RealDelete(ctx, userCred)
+	err := self.RealDelete(ctx, userCred)
+	if err != nil {
+		return err
+	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    self,
+		Action: notifyclient.ActionSyncDelete,
+	})
+	return nil
 }
 
 func (self *SWafInstance) GetIRegion() (cloudprovider.ICloudRegion, error) {
@@ -409,13 +418,19 @@ func (self *SWafInstance) GetICloudWafInstance() (cloudprovider.ICloudWafInstanc
 }
 
 func (self *SWafInstance) SyncWithCloudWafInstance(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudWafInstance) error {
-	_, err := db.Update(self, func() error {
+	diff, err := db.Update(self, func() error {
 		self.ExternalId = ext.GetGlobalId()
 		self.SetEnabled(ext.GetEnabled())
 		self.DefaultAction = ext.GetDefaultAction()
 		self.Status = ext.GetStatus()
 		return nil
 	})
+	if len(diff) > 0 {
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    self,
+			Action: notifyclient.ActionSyncUpdate,
+		})
+	}
 	return err
 }
 
@@ -444,6 +459,10 @@ func (self *SCloudregion) newFromCloudWafInstance(ctx context.Context, userCred 
 	if err != nil {
 		return nil, err
 	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    waf,
+		Action: notifyclient.ActionSyncCreate,
+	})
 	return waf, nil
 }
 

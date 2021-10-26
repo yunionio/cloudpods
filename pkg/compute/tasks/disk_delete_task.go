@@ -24,6 +24,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -176,6 +177,10 @@ func (self *DiskDeleteTask) OnGuestDiskDeleteComplete(ctx context.Context, obj d
 	disk := obj.(*models.SDisk)
 	self.CleanHostSchedCache(disk)
 	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE, disk.GetShortDesc(ctx), self.UserCred)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    disk,
+		Action: notifyclient.ActionDelete,
+	})
 	if len(disk.SnapshotId) > 0 && disk.GetMetadata("merge_snapshot", nil) == "true" {
 		models.SnapshotManager.AddRefCount(disk.SnapshotId, -1)
 	}

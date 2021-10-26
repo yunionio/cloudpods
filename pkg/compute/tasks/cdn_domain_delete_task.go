@@ -24,6 +24,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -67,6 +68,11 @@ func (self *CDNDomainDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		self.taskFailed(ctx, domain, errors.Wrapf(err, "Delete"))
 		return
 	}
+
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    domain,
+		Action: notifyclient.ActionDelete,
+	})
 
 	self.taskComplete(ctx, domain)
 }

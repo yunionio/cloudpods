@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -223,6 +224,10 @@ func (self *SDnsZoneCache) syncRemove(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return errors.Wrapf(err, "dnsZone.RealDelete for %s(%s)", dnsZone.Name, dnsZone.Id)
 	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    self,
+		Action: notifyclient.ActionSyncDelete,
+	})
 
 	return self.RealDelete(ctx, userCred)
 }
@@ -288,6 +293,10 @@ func (self *SDnsZoneCache) SyncWithCloudDnsZone(ctx context.Context, userCred mc
 			dnsZone.AddVpc(ctx, add.(string))
 		}
 	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    self,
+		Action: notifyclient.ActionSyncUpdate,
+	})
 	return nil
 }
 
