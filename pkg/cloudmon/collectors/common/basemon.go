@@ -47,6 +47,24 @@ func (self *CloudReportBase) Report() error {
 	return fmt.Errorf("No Implment the method")
 }
 
+func (self *CloudReportBase) GetResourceByOperator() ([]jsonutils.JSONObject, error) {
+	var servers []jsonutils.JSONObject
+	var err error
+	switch MonType(self.Operator) {
+	case REDIS:
+		servers, err = self.GetAllserverOfThisProvider(&modules.ElasticCache)
+	case RDS:
+		servers, err = self.GetAllserverOfThisProvider(&modules.DBInstance)
+	case OSS:
+		servers, err = self.GetAllserverOfThisProvider(&modules.Buckets)
+	case ELB:
+		servers, err = self.GetAllserverOfThisProvider(&modules.Loadbalancers)
+	default:
+		servers, err = self.GetAllserverOfThisProvider(&modules.Servers)
+	}
+	return servers, err
+}
+
 func (self *CloudReportBase) GetAllserverOfThisProvider(manager modulebase.Manager) ([]jsonutils.JSONObject, error) {
 	query := jsonutils.NewDict()
 

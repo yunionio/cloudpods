@@ -18,7 +18,6 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 func init() {
@@ -50,7 +49,7 @@ type SAzureCloudReport struct {
 }
 
 func (self *SAzureCloudReport) Report() error {
-	servers, err := self.GetAllserverOfThisProvider(&modules.Servers)
+	servers, err := self.GetResourceByOperator()
 	if err != nil {
 		return err
 	}
@@ -64,19 +63,19 @@ func (self *SAzureCloudReport) Report() error {
 	}
 	for _, region := range regionList {
 		servers := regionServerMap[region.GetGlobalId()]
-		switch self.Operator {
-		case "server":
-			err = common.CollectRegionMetricAsync(self.Args.Batch, region, servers, self)
-			//err = self.collectRegionMetricOfHost(region, servers)
-			//case "redis":
-			//	err = self.collectRegionMetricOfRedis(region, servers)
-			//case "rds":
-			//	err = self.collectRegionMetricOfRds(region, servers)
-			//case "oss":
-			//	err = self.collectRegionMetricOfOss(region, servers)
-			//case "elb":
-			//	err = self.collectRegionMetricOfElb(region, servers)
-		}
+		err = common.CollectRegionMetricAsync(self.Args.Batch, region, servers, self)
+		//switch self.Operator {
+		//case "server":
+		//	//err = self.collectRegionMetricOfHost(region, servers)
+		//	//case "redis":
+		//	//	err = self.collectRegionMetricOfRedis(region, servers)
+		//	//case "rds":
+		//	//	err = self.collectRegionMetricOfRds(region, servers)
+		//	//case "oss":
+		//	//	err = self.collectRegionMetricOfOss(region, servers)
+		//	//case "elb":
+		//	//	err = self.collectRegionMetricOfElb(region, servers)
+		//}
 		if err != nil {
 			return err
 		}

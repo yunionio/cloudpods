@@ -27,6 +27,7 @@ const (
 	UNIT_MEM           = "byte"
 	UNIT_MSEC          = "ms"
 	UNIT_COUNT_SEC     = "count/s"
+	UNIT_BYTES         = "byte"
 
 	//ESC监控指标
 	INFLUXDB_FIELD_CPU_USAGE           = "vm_cpu.usage_active"
@@ -58,8 +59,11 @@ const (
 	INFLUXDB_FIELD_RDS_DISK_USAGE           = "rds_disk.used_percent"
 	INFLUXDB_FIELD_RDS_DISK_READ_BPS        = "rds_diskio.read_bps"
 	INFLUXDB_FIELD_RDS_DISK_WRITE_BPS       = "rds_diskio.write_bps"
+	INFLUXDB_FIELD_RDS_DISK_IO_PERSENT      = "rds_diskio.used_percent"
 	INFLUXDB_FIELD_RDS_CONN_COUNT           = "rds_conn.used_count"
 	INFLUXDB_FIELD_RDS_CONN_USAGE           = "rds_conn.used_percent"
+	INFLUXDB_FIELD_RDS_CONN_ACTIVE          = "rds_conn.active_count"
+	INFLUXDB_FIELD_RDS_CONN_FAILED          = "rds_conn.failed_count"
 
 	INFLUXDB_FIELD_RDS_QPS              = "rds_qps.query_qps"
 	INFLUXDB_FIELD_RDS_TPS              = "rds_tps.trans_qps"
@@ -76,6 +80,8 @@ const (
 	INFLUXDB_FIFLD_REDIS_CACHE_KEYS     = "dcs_cachekeys.key_count"
 	INFLUXDB_FIFLD_REDIS_CACHE_EXP_KEYS = INFLUXDB_FIFLD_REDIS_CACHE_KEYS + ",exp=expire"
 	INFLUXDB_FIFLD_REDIS_DATA_MEM_USAGE = "dcs_datamem.used_byte"
+	INFLUXDB_FIFLD_REDIS_SERVER_LOAD    = "dcs_cpu.server_load"
+	INFLUXDB_FIFLD_REDIS_CONN_ERRORS    = "dcs_conn.errors"
 
 	//对象存储OSS监控指标
 	INFLUXDB_FIELD_OSS_NET_BPS_RX          = "oss_netio.bps_recv"
@@ -94,20 +100,22 @@ const (
 	INFLUXDB_FIELD_OSS_REQ_COUNT_4XX       = INFLUXDB_FIELD_OSS_REQ_COUNT + ",request=4xx"
 
 	//负载均衡监控指标
-	INFLUXDB_FIELD_ELB_NET_BPS_RX     = "haproxy.bin"
-	INFLUXDB_FIELD_ELB_NET_BPS_TX     = "haproxy.bout"
-	INFLUXDB_FIELD_ELB_REQ_RATE       = "haproxy.req_rate,request=http"
-	INFLUXDB_FIELD_ELB_CONN_RATE      = "haproxy.conn_rate,request=tcp"
-	INFLUXDB_FIELD_ELB_DREQ_COUNT     = "haproxy.dreq,request=http"
-	INFLUXDB_FIELD_ELB_DCONN_COUNT    = "haproxy.dcon,request=tcp"
-	INFLUXDB_FIELD_ELB_HRSP_COUNT     = "haproxy.hrsp_Nxx"
-	INFLUXDB_FIELD_ELB_HRSP_COUNT_2XX = INFLUXDB_FIELD_ELB_HRSP_COUNT + ",request=2xx"
-	INFLUXDB_FIELD_ELB_HRSP_COUNT_3XX = INFLUXDB_FIELD_ELB_HRSP_COUNT + ",request=3xx"
-	INFLUXDB_FIELD_ELB_HRSP_COUNT_4XX = INFLUXDB_FIELD_ELB_HRSP_COUNT + ",request=4xx"
-	INFLUXDB_FIELD_ELB_HRSP_COUNT_5XX = INFLUXDB_FIELD_ELB_HRSP_COUNT + ",request=5xx"
-	INFLUXDB_FIELD_ELB_CHC_STATUS     = "haproxy.check_status"
-	INFLUXDB_FIELD_ELB_CHC_CODE       = "haproxy.check_code"
-	INFLUXDB_FIELD_ELB_LAST_CHC       = "haproxy.last_chk"
+	INFLUXDB_FIELD_ELB_NET_BPS_RX      = "haproxy.bin"
+	INFLUXDB_FIELD_ELB_NET_BPS_TX      = "haproxy.bout"
+	INFLUXDB_FIELD_ELB_REQ_RATE        = "haproxy.req_rate,request=http"
+	INFLUXDB_FIELD_ELB_CONN_RATE       = "haproxy.conn_rate,request=tcp"
+	INFLUXDB_FIELD_ELB_DREQ_COUNT      = "haproxy.dreq,request=http"
+	INFLUXDB_FIELD_ELB_DCONN_COUNT     = "haproxy.dcon,request=tcp"
+	INFLUXDB_FIELD_ELB_HRSP_COUNT      = "haproxy.hrsp_Nxx"
+	INFLUXDB_FIELD_ELB_HRSP_COUNT_2XX  = INFLUXDB_FIELD_ELB_HRSP_COUNT + ",request=2xx"
+	INFLUXDB_FIELD_ELB_HRSP_COUNT_3XX  = INFLUXDB_FIELD_ELB_HRSP_COUNT + ",request=3xx"
+	INFLUXDB_FIELD_ELB_HRSP_COUNT_4XX  = INFLUXDB_FIELD_ELB_HRSP_COUNT + ",request=4xx"
+	INFLUXDB_FIELD_ELB_HRSP_COUNT_5XX  = INFLUXDB_FIELD_ELB_HRSP_COUNT + ",request=5xx"
+	INFLUXDB_FIELD_ELB_CHC_STATUS      = "haproxy.check_status"
+	INFLUXDB_FIELD_ELB_CHC_CODE        = "haproxy.check_code"
+	INFLUXDB_FIELD_ELB_LAST_CHC        = "haproxy.last_chk"
+	INFLUXDB_FIELD_ELB_SNAT_PORT       = "haproxy.used_snat_port"
+	INFLUXDB_FIELD_ELB_SNAT_CONN_COUNT = "haproxy.snat_conn_count"
 
 	KEY_VMS   = "vms"
 	KEY_CPUS  = "cpus"
@@ -133,6 +141,10 @@ const (
 	MetricKeyClassicNetworkOut   = "Network Out"
 	MetricKeyClassicDiskReadBPS  = "Disk Read Bytes/Sec"
 	MetricKeyClassicDiskWriteBPS = "Disk Write Bytes/Sec"
+
+	SERVER_METRIC_NAMESPACE = "Microsoft.Compute/virtualMachines"
+	REDIS_METRIC_NAMESPACE  = "Microsoft.Cache/redis"
+	ELB_METRIC_NAMESPACE    = "Microsoft.Network/loadBalancers"
 )
 
 var azureMetricSpecs = map[string][]string{
@@ -153,4 +165,40 @@ var azureClassicMetricsSpec = map[string][]string{
 	MetricKeyClassicDiskWriteBPS: {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_DISK_WRITE_BPS},
 	MetricKeyDiskReadOPS:         {DEFAULT_STATISTICS, UNIT_COUNT_SEC, INFLUXDB_FIELD_DISK_READ_IOPS},
 	MetricKeyDiskWriteOPS:        {DEFAULT_STATISTICS, UNIT_COUNT_SEC, INFLUXDB_FIELD_DISK_WRITE_IOPS},
+}
+
+var azureRedisMetricsSpec = map[string][]string{
+	"percentProcessorTime": {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_REDIS_CPU_USAGE},
+	"usedmemorypercentage": {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_REDIS_MEM_USAGE},
+	"connectedclients":     {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIFLD_REDIS_CONN_USAGE},
+	"operationsPerSecond":  {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIFLD_REDIS_OPT_SES},
+	"alltotalkeys":         {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIFLD_REDIS_CACHE_KEYS},
+	"expiredkeys":          {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIFLD_REDIS_CACHE_EXP_KEYS},
+	"usedmemory":           {DEFAULT_STATISTICS, UNIT_BYTES, INFLUXDB_FIFLD_REDIS_DATA_MEM_USAGE},
+	"serverLoad":           {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIFLD_REDIS_SERVER_LOAD},
+	"errors":               {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIFLD_REDIS_CONN_ERRORS},
+}
+
+//mariadb,mysql,postgresql
+var azureRdsMetricsSpec = map[string][]string{
+	"cpu_percent":            {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_RDS_CPU_USAGE},
+	"memory_percent":         {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_RDS_MEM_USAGE},
+	"storage_percent":        {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_RDS_DISK_USAGE},
+	"network_bytes_ingress":  {DEFAULT_STATISTICS, UNIT_BYTES, INFLUXDB_FIELD_RDS_NET_BPS_RX},
+	"network_bytes_egress":   {DEFAULT_STATISTICS, UNIT_BYTES, INFLUXDB_FIELD_RDS_NET_BPS_TX},
+	"io_consumption_percent": {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_RDS_DISK_IO_PERSENT},
+	"active_connections":     {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIELD_RDS_CONN_ACTIVE},
+	"connections_failed":     {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIELD_RDS_CONN_FAILED},
+}
+
+var azureRdsMetricsSpecSqlserver = map[string][]string{
+	"cpu_percent":          {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_RDS_CPU_USAGE},
+	"memory_usage_percent": {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_RDS_MEM_USAGE},
+	"storage_percent":      {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_RDS_DISK_USAGE},
+	"connections_failed":   {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIELD_RDS_CONN_FAILED},
+}
+
+var azureElbMetricSpecs = map[string][]string{
+	"SnatConnectionCount": {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIELD_ELB_SNAT_PORT},
+	"UsedSnatPorts":       {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIELD_ELB_SNAT_CONN_COUNT},
 }

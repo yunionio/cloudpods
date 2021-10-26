@@ -229,10 +229,18 @@ func init() {
 			newMetricFieldCreateInput("used_percent", "Percentage of used disks", monitor.METRIC_UNIT_PERCENT, 1),
 		})
 
+	// rds_conn
+	RegistryMetricCreateInput("rds_conn", "Rds connection", monitor.METRIC_RES_TYPE_RDS,
+		monitor.METRIC_DATABASE_TELE, 5, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("active_count", "active connection count", monitor.METRIC_UNIT_COUNT, 1),
+			newMetricFieldCreateInput("failed_count", "failed connection count", monitor.METRIC_UNIT_COUNT, 2),
+		})
+
 	// dcs_cpu
 	RegistryMetricCreateInput("dcs_cpu", "Redis CPU usage", monitor.METRIC_RES_TYPE_REDIS,
 		monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("usage_percent", "CPU active state utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("server_load", "server load", monitor.METRIC_UNIT_PERCENT, 2),
 		})
 
 	// dcs_mem
@@ -253,6 +261,7 @@ func init() {
 	RegistryMetricCreateInput("dcs_conn", "Redis connect", monitor.METRIC_RES_TYPE_REDIS,
 		monitor.METRIC_DATABASE_TELE, 5, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("used_percent", "Connection usage", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("errors", "Connection errors", monitor.METRIC_UNIT_COUNT, 1),
 		})
 
 	// dcs_instantopt
@@ -278,6 +287,13 @@ func init() {
 		monitor.METRIC_RES_TYPE_CLOUDACCOUNT,
 		monitor.METRIC_DATABASE_METER, 1, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("balance", "balance", monitor.METRIC_UNIT_RMB, 1),
+		})
+
+	// haproxy
+	RegistryMetricCreateInput("haproxy", "load balance", monitor.METRIC_RES_TYPE_ELB,
+		monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("used_snat_port", "used SNAT port count", monitor.METRIC_UNIT_COUNT, 1),
+			newMetricFieldCreateInput("snat_conn_count", "SNAT connection count", monitor.METRIC_UNIT_COUNT, 1),
 		})
 
 	// agent_cpu
