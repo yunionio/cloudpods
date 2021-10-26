@@ -499,3 +499,11 @@ func (self *SAliyunProvider) CreateICloudSAMLProvider(opts *cloudprovider.SAMLPr
 	}
 	return sp, nil
 }
+
+func (self *SAliyunProvider) GetICloudCDNDomains() ([]cloudprovider.ICloudCDNDomain, error) {
+	return self.client.GetICloudCDNDomains()
+}
+
+func (self *SAliyunProvider) GetICloudCDNDomainByName(name string) (cloudprovider.ICloudCDNDomain, error) {
+	return self.client.GetICloudCDNDomainByName(name)
+}
