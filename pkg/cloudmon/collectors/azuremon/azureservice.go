@@ -15,6 +15,7 @@
 package azuremon
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -22,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	com_api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/azure"
@@ -50,8 +52,7 @@ func (self *SAzureCloudReport) collectRegionMetricOfHost(region cloudprovider.IC
 			continue
 		}
 		classicKey := "microsoft.classiccompute/virtualmachines"
-		ns := "Microsoft.Compute/virtualMachines"
-		metricSpecs := azureMetricSpecs
+		ns, metricSpecs := self.getMetricSpecs(server)
 		if strings.Contains(strings.ToLower(external_id), classicKey) {
 			ns = classicKey
 			metricSpecs = azureClassicMetricsSpec
@@ -75,11 +76,13 @@ func (self *SAzureCloudReport) collectRegionMetricOfHost(region cloudprovider.IC
 			for _, value := range *rtnMetrics.Value {
 				if value.Name.LocalizedValue != nil {
 					if metricName == *(value.Name.LocalizedValue) || (value.Name.Value != nil && *value.Name.Value == metricName) {
-						metric, err := common.FillVMCapacity(server.(*jsonutils.JSONDict))
-						if err != nil {
-							return errors.Wrapf(err, "fill vm %q capacity", srvPrefix)
+						if self.Operator == string(common.SERVER) {
+							metric, err := common.FillVMCapacity(server.(*jsonutils.JSONDict))
+							if err != nil {
+								return errors.Wrapf(err, "fill vm %q capacity", srvPrefix)
+							}
+							dataList = append(dataList, metric)
 						}
-						dataList = append(dataList, metric)
 						if value.Timeseries != nil {
 							for _, timeserie := range *value.Timeseries {
 								serverMetric, err := self.collectMetricFromThisServer(server, timeserie, influxDbSpecs)
@@ -106,7 +109,7 @@ func (self *SAzureCloudReport) collectMetricFromThisServer(server jsonutils.JSON
 	rtnMetric azure.TimeSeriesElement, influxDbSpecs []string) ([]influxdb.SMetricData, error) {
 	datas := make([]influxdb.SMetricData, 0)
 	for _, data := range *rtnMetric.Data {
-		metric, err := common.JsonToMetric(server.(*jsonutils.JSONDict), "", common.ServerTags, make([]string, 0))
+		metric, err := self.NewMetricFromJson(server)
 		if err != nil {
 			return nil, err
 		}
@@ -152,4 +155,40 @@ func (self *SAzureCloudReport) collectMetricFromThisServer(server jsonutils.JSON
 	}
 
 	return datas, nil
+}
+
+func (self *SAzureCloudReport) getMetricSpecs(res jsonutils.JSONObject) (string, map[string][]string) {
+	switch common.MonType(self.Operator) {
+	case common.SERVER:
+		return SERVER_METRIC_NAMESPACE, azureMetricSpecs
+	case common.REDIS:
+		return REDIS_METRIC_NAMESPACE, azureRedisMetricsSpec
+	case common.RDS:
+		return self.getRdsMetricSpecsByEngine(res)
+	case common.ELB:
+		return ELB_METRIC_NAMESPACE, azureElbMetricSpecs
+	default:
+		return SERVER_METRIC_NAMESPACE, azureMetricSpecs
+	}
+}
+
+func (self *SAzureCloudReport) getRdsMetricSpecsByEngine(res jsonutils.JSONObject) (string, map[string][]string) {
+	engine, _ := res.GetString("engine")
+	externalId, _ := res.GetString("external_id")
+	suffix := "servers"
+	if strings.Contains(externalId, "flexible") {
+		suffix = "flexibleServers"
+	}
+	switch engine {
+	case com_api.DBINSTANCE_TYPE_SQLSERVER:
+		return "Microsoft.Sql/servers/databases", azureRdsMetricsSpec
+	case com_api.DBINSTANCE_TYPE_MYSQL:
+		return fmt.Sprintf("Microsoft.DBforMySQL/%s", suffix), azureRdsMetricsSpec
+	case com_api.DBINSTANCE_TYPE_POSTGRESQL:
+		return fmt.Sprintf("Microsoft.DBforPostgreSQL/%s", suffix), azureRdsMetricsSpec
+	case com_api.DBINSTANCE_TYPE_MARIADB:
+		return "Microsoft.DBforMariaDB/servers", azureRdsMetricsSpec
+	default:
+		return fmt.Sprintf("Microsoft.DBforMySQL/%s", suffix), azureRdsMetricsSpec
+	}
 }
