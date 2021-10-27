@@ -34,6 +34,15 @@ github.com/Azure/go-autorest/logger
 github.com/Azure/go-autorest/tracing
 # github.com/BurntSushi/toml v0.3.1
 github.com/BurntSushi/toml
+# github.com/ClickHouse/clickhouse-go v1.4.7
+github.com/ClickHouse/clickhouse-go
+github.com/ClickHouse/clickhouse-go/lib/binary
+github.com/ClickHouse/clickhouse-go/lib/cityhash102
+github.com/ClickHouse/clickhouse-go/lib/column
+github.com/ClickHouse/clickhouse-go/lib/data
+github.com/ClickHouse/clickhouse-go/lib/lz4
+github.com/ClickHouse/clickhouse-go/lib/protocol
+github.com/ClickHouse/clickhouse-go/lib/types
 # github.com/DataDog/dd-trace-go v0.6.1
 github.com/DataDog/dd-trace-go/opentracing
 github.com/DataDog/dd-trace-go/tracer
@@ -211,6 +220,8 @@ github.com/c-bata/go-prompt
 # github.com/cheggaaa/pb/v3 v3.0.8
 github.com/cheggaaa/pb/v3
 github.com/cheggaaa/pb/v3/termutil
+# github.com/cloudflare/golz4 v0.0.0-20150217214814-ef862a3cdc58
+github.com/cloudflare/golz4
 # github.com/coredns/coredns v1.3.0
 github.com/coredns/coredns/core/dnsserver
 github.com/coredns/coredns/coremain
@@ -1178,7 +1189,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v0.0.0-20210918114143-ce839f862c5f
+# yunion.io/x/pkg v0.0.0-20211116020154-6a76ba2f7e97
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
 yunion.io/x/pkg/prettytable
@@ -1212,7 +1223,11 @@ yunion.io/x/pkg/util/workqueue
 yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v0.0.0-20210827024030-22a1e669b4f8
+# yunion.io/x/sqlchemy v0.0.0-20211116231750-5ec40db49db1
 yunion.io/x/sqlchemy
+yunion.io/x/sqlchemy/backends
+yunion.io/x/sqlchemy/backends/clickhouse
+yunion.io/x/sqlchemy/backends/mysql
+yunion.io/x/sqlchemy/backends/sqlite
 # yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
 yunion.io/x/structarg

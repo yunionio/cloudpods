@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 )
@@ -32,11 +33,41 @@ func init() {
 		SERVICE string `help:"Service type"`
 	}
 	R(&VersionOptions{}, "version-show", "query backend service for its version", func(s *mcclient.ClientSession, args *VersionOptions) error {
-		body, err := modules.GetVersion(s, args.SERVICE)
+		body, err := modulebase.GetVersion(s, args.SERVICE)
 		if err != nil {
 			return err
 		}
 		fmt.Println(body)
+		return nil
+	})
+
+	type StatsOptions struct {
+		SERVICE string `help:"Service type"`
+	}
+	R(&StatsOptions{}, "api-stats-show", "query backend service for its stats", func(s *mcclient.ClientSession, args *StatsOptions) error {
+		body, err := modulebase.GetStats(s, "stats", args.SERVICE)
+		if err != nil {
+			return err
+		}
+		printObject(body)
+		return nil
+	})
+	R(&StatsOptions{}, "db-stats-show", "query backend service for its db stats", func(s *mcclient.ClientSession, args *StatsOptions) error {
+		body, err := modulebase.GetStats(s, "db_stats", args.SERVICE)
+		if err != nil {
+			return err
+		}
+		stats, _ := body.Get("db_stats")
+		printObject(stats)
+		return nil
+	})
+	R(&StatsOptions{}, "worker-stats-show", "query backend service for its worker stats", func(s *mcclient.ClientSession, args *StatsOptions) error {
+		body, err := modulebase.GetStats(s, "worker_stats", args.SERVICE)
+		if err != nil {
+			return err
+		}
+		data, _ := body.GetArray("workers")
+		printList(&modulebase.ListResult{Data: data}, nil)
 		return nil
 	})
 

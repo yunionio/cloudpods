@@ -162,7 +162,7 @@ func (ts *STableSpec) SyncSQL() []string {
 			}
 			return nil
 		}
-		addIndexes, removeIndexes = diffIndexes(indexes, ts.indexes)
+		addIndexes, removeIndexes = diffIndexes(indexes, ts._indexes)
 	}
 
 	ret := make([]string, 0)
@@ -185,7 +185,7 @@ func (ts *STableSpec) SyncSQL() []string {
 	}
 
 	alters := make([]string, 0)
-	remove, update, add := diffCols(ts.name, cols, ts.columns)
+	remove, update, add := diffCols(ts.name, cols, ts.Columns())
 	// first check if primary key is modifed
 	changePrimary := false
 	for _, col := range remove {
@@ -251,7 +251,7 @@ func (ts *STableSpec) SyncSQL() []string {
 	}
 	if changePrimary {
 		primaries := make([]string, 0)
-		for _, c := range ts.columns {
+		for _, c := range ts.Columns() {
 			if c.IsPrimary() {
 				primaries = append(primaries, fmt.Sprintf("`%s`", c.Name()))
 			}

@@ -60,7 +60,7 @@ func (table *STableSpec) struct2TableSpec(sv reflect.Value) {
 			if column.IsIndex() {
 				table.AddIndex(column.IsUnique(), column.Name())
 			}
-			table.columns = append(table.columns, column)
+			table._columns = append(table._columns, column)
 		}
 	}
 }

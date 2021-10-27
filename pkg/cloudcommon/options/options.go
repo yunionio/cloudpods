@@ -123,7 +123,7 @@ type CommonOptions struct {
 	AdminDomain        string `help:"Admin user domain" default:"Default"`
 	AdminPassword      string `help:"Admin password" alias:"admin-passwd"`
 	AdminProject       string `help:"Admin project" default:"system" alias:"admin-tenant-name"`
-	AdminProjectDomain string `help:"Domain of Admin project" default:"default"`
+	AdminProjectDomain string `help:"Domain of Admin project" default:"Default"`
 	AuthTokenCacheSize uint32 `help:"Auth token Cache Size" default:"2048"`
 
 	TenantCacheExpireSeconds int `help:"expire seconds of cached tenant/domain info. defailt 15 minutes" default:"900"`

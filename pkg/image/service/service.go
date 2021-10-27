@@ -21,9 +21,8 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
-
 	"yunion.io/x/log"
+	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
@@ -94,9 +93,12 @@ func StartService() {
 	}
 
 	app := app_common.InitApp(baseOpts, true)
+
+	cloudcommon.InitDB(dbOpts)
+
 	InitHandlers(app)
 
-	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
+	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 
 	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 

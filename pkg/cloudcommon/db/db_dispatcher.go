@@ -145,7 +145,7 @@ func listItemsQueryByColumn(manager IModelManager, q *sqlchemy.SQuery, userCred 
 					}
 				} else if len(arrV) > 1 {
 					for i := range arrV {
-						arrV[i] = colSpec.ConvertFromString(arrV[i])
+						arrV[i] = sqlchemy.GetStringValue(colSpec.ConvertFromString(arrV[i]))
 					}
 					q = q.In(fn, arrV)
 				} else if len(arrV) == 1 {

@@ -47,6 +47,5 @@ func FetchColumns(match string) []string {
 			}
 		}
 	}
-	// log.Debugf("%s", ret)
 	return ret
 }

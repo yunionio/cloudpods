@@ -58,11 +58,16 @@ func InitDB(options *common_options.DBOptions) {
 	if err != nil {
 		log.Fatalf("Invalid SqlConnection string: %s error: %v", options.SqlConnection, err)
 	}
+	log.Infof("database dialect: %s sqlStr: %s", dialect, sqlStr)
 	dbConn, err := sql.Open(dialect, sqlStr)
 	if err != nil {
 		panic(err)
 	}
-	sqlchemy.SetDefaultDB(dbConn)
+	backend := sqlchemy.MySQLBackend
+	if dialect == "sqlite3" {
+		backend = sqlchemy.SQLiteBackend
+	}
+	sqlchemy.SetDBWithNameBackend(dbConn, sqlchemy.DefaultDB, backend)
 
 	dialect, sqlStr, err = options.GetClickhouseConnStr()
 	if err == nil {

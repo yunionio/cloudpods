@@ -122,25 +122,23 @@ func (t *SSplitTableSpec) Fetch(dt interface{}) error {
 
 func NewSplitTableSpec(s interface{}, name string, indexField string, dateField string, maxDuration time.Duration, maxSegments int, dbName sqlchemy.DBName) (*SSplitTableSpec, error) {
 	spec := sqlchemy.NewTableSpecFromStructWithDBName(s, name, dbName)
-	indexCol := spec.ColumnSpec(indexField)
+	/*indexCol := spec.ColumnSpec(indexField)
 	if indexCol == nil {
 		return nil, errors.Wrapf(errors.ErrNotFound, "indexField %s not found", indexField)
 	}
 	if !indexCol.IsPrimary() {
 		return nil, errors.Wrapf(errors.ErrInvalidStatus, "indexField %s not primary", indexField)
 	}
-	if intCol, ok := indexCol.(*sqlchemy.SIntegerColumn); !ok {
-		return nil, errors.Wrapf(errors.ErrInvalidStatus, "indexField %s not integer", indexField)
-	} else if !intCol.IsAutoIncrement {
+	if !indexCol.IsAutoIncrement() {
 		return nil, errors.Wrapf(errors.ErrInvalidStatus, "indexField %s not auto_increment", indexField)
 	}
 	dateCol := spec.ColumnSpec(dateField)
 	if dateCol == nil {
 		return nil, errors.Wrapf(errors.ErrNotFound, "dateField %s not found", dateField)
 	}
-	if _, ok := dateCol.(*sqlchemy.SDateTimeColumn); !ok {
+	if !dateCol.IsDateTime() {
 		return nil, errors.Wrapf(errors.ErrInvalidStatus, "dateField %s not datetime column", dateField)
-	}
+	}*/
 
 	metaSpec := sqlchemy.NewTableSpecFromStructWithDBName(&STableMetadata{}, fmt.Sprintf("%s_metadata", name), dbName)
 

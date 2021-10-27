@@ -78,11 +78,11 @@ type ITableSpec interface {
 
 // STableSpec defines the table specification, which implements ITableSpec
 type STableSpec struct {
-	structType reflect.Type
-	name       string
-	columns    []IColumnSpec
-	indexes    []STableIndex
-	contraints []STableConstraint
+	structType  reflect.Type
+	name        string
+	_columns    []IColumnSpec
+	_indexes    []STableIndex
+	_contraints []STableConstraint
 
 	sDBReferer
 }
@@ -112,14 +112,13 @@ func NewTableSpecFromStructWithDBName(s interface{}, name string, dbName DBName)
 		panic("expect Struct kind")
 	}
 	table := &STableSpec{
-		columns:    []IColumnSpec{},
 		name:       name,
 		structType: st,
 		sDBReferer: sDBReferer{
 			dbName: dbName,
 		},
 	}
-	table.struct2TableSpec(val)
+	// table.struct2TableSpec(val)
 	return table
 }
 
@@ -135,13 +134,14 @@ func (ts *STableSpec) Expression() string {
 
 // Clone makes a clone of a table, so we may create a new table of the same schema
 func (ts *STableSpec) Clone(name string, autoIncOffset int64) *STableSpec {
-	newCols := make([]IColumnSpec, len(ts.columns))
+	columns := ts.Columns()
+	newCols := make([]IColumnSpec, len(columns))
 	for i := range newCols {
-		col := ts.columns[i]
+		col := columns[i]
 		if col.IsAutoIncrement() {
-			colValue := reflect.ValueOf(col).Elem()
-			newColValue := reflect.New(colValue.Type()).Elem()
-			reflect.Copy(newColValue, colValue)
+			colValue := reflect.Indirect(reflect.ValueOf(col))
+			newColValue := reflect.Indirect(reflect.New(colValue.Type()))
+			newColValue.Set(colValue)
 			newCol := newColValue.Addr().Interface().(IColumnSpec)
 			newCol.SetAutoIncrementOffset(autoIncOffset)
 			newCols[i] = newCol
@@ -150,26 +150,31 @@ func (ts *STableSpec) Clone(name string, autoIncOffset int64) *STableSpec {
 		}
 	}
 	return &STableSpec{
-		structType: ts.structType,
-		name:       name,
-		columns:    newCols,
-		indexes:    ts.indexes,
-		contraints: ts.contraints,
-		sDBReferer: ts.sDBReferer,
+		structType:  ts.structType,
+		name:        name,
+		_columns:    newCols,
+		_indexes:    ts._indexes,
+		_contraints: ts._contraints,
+		sDBReferer:  ts.sDBReferer,
 	}
 }
 
 // Columns implementation of STableSpec for ITableSpec
 func (ts *STableSpec) Columns() []IColumnSpec {
-	return ts.columns
+	if ts._columns == nil {
+		val := reflect.Indirect(reflect.New(ts.structType))
+		ts.struct2TableSpec(val)
+	}
+	return ts._columns
 }
 
 // PrimaryColumns implementation of STableSpec for ITableSpec
 func (ts *STableSpec) PrimaryColumns() []IColumnSpec {
 	ret := make([]IColumnSpec, 0)
-	for i := range ts.columns {
-		if ts.columns[i].IsPrimary() {
-			ret = append(ret, ts.columns[i])
+	columns := ts.Columns()
+	for i := range columns {
+		if columns[i].IsPrimary() {
+			ret = append(ret, columns[i])
 		}
 	}
 	return ret

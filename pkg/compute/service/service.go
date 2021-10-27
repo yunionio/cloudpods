@@ -21,10 +21,9 @@ import (
 	"path/filepath"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
-
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
@@ -77,8 +76,11 @@ func StartService() {
 
 	app := app_common.InitApp(baseOpts, true)
 
+	cloudcommon.InitDB(dbOpts)
+
 	InitHandlers(app)
-	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
+
+	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
 	options.InitNameSyncResources()

@@ -38,16 +38,19 @@ type IBackend interface {
 	GetTableSQL() string
 	// GetCreateSQL returns the SQL for create a table
 	GetCreateSQLs(ts ITableSpec) []string
-	//
+	// IsSupportIndexAndContraints returns whether the backend supports index and contraints such as foreigh keys
+	//     MySQL: true
+	//     Sqlite: true
+	//     Clickhouse: false
 	IsSupportIndexAndContraints() bool
-	//
+	// FetchTableColumnSpecs parse the table definition in database to extract columns' specification of a table
 	FetchTableColumnSpecs(ts ITableSpec) ([]IColumnSpec, error)
-	//
+	// FetchIndexesAndConstraints parse the table defintion in database to extract index and constraints information of a table
 	FetchIndexesAndConstraints(ts ITableSpec) ([]STableIndex, []STableConstraint, error)
-	//
+	// GetColumnSpecByFieldType parse the field of model struct to extract column specifiction of a field
 	GetColumnSpecByFieldType(table *STableSpec, fieldType reflect.Type, fieldname string, tagmap map[string]string, isPointer bool) IColumnSpec
 	//
-	CurrentUTCTimeStampString() string
+	// CurrentUTCTimeStampString() string
 
 	// Capability
 
@@ -58,8 +61,17 @@ type IBackend interface {
 	// CanInsertOrUpdate returns weather the backend supports InsertOrUpdate
 	CanInsertOrUpdate() bool
 
+	// DropIndexSQLTemplate returns the template of drop index SQL
 	DropIndexSQLTemplate() string
+	// InsertSQLTemplate returns the template of insert SQL
+	InsertSQLTemplate() string
+	// InsertOrUpdateSQLTemplate returns the template of insert or update SQL
+	InsertOrUpdateSQLTemplate() string
 
+	// CanSupportRowAffected returns wether the backend support RowAffected method after update
+	//     MySQL: true
+	//     Sqlite: false
+	//     Clickhouse: false
 	CanSupportRowAffected() bool
 }
 

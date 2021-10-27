@@ -1867,12 +1867,14 @@ func (account *SCloudaccount) markAllProvidersDicconnected(ctx context.Context, 
 }
 
 func (account *SCloudaccount) markAccountConnected(ctx context.Context, userCred mcclient.TokenCredential) error {
-	_, err := db.UpdateWithLock(ctx, account, func() error {
-		account.ErrorCount = 0
-		return nil
-	})
-	if err != nil {
-		return err
+	if account.ErrorCount != 0 {
+		_, err := db.UpdateWithLock(ctx, account, func() error {
+			account.ErrorCount = 0
+			return nil
+		})
+		if err != nil {
+			return err
+		}
 	}
 	return account.SetStatus(userCred, api.CLOUD_PROVIDER_CONNECTED, "")
 }

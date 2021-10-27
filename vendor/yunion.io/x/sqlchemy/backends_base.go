@@ -32,3 +32,11 @@ func (bb *SBaseBackend) DropIndexSQLTemplate() string {
 func (bb *SBaseBackend) CanSupportRowAffected() bool {
 	return true
 }
+
+func (bb *SBaseBackend) InsertSQLTemplate() string {
+	return "INSERT INTO `{{ .Table }}` ({{ .Columns }}) VALUES ({{ .Values }})"
+}
+
+func (bb *SBaseBackend) InsertOrUpdateSQLTemplate() string {
+	return ""
+}

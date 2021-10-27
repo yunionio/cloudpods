@@ -65,7 +65,7 @@ type IColumnSpec interface {
 	IsSearchable() bool
 
 	// IsAscii returns whether this column is an ASCII type text, if true, the column should be compared with a UTF8 string
-	// IsAscii() bool
+	IsAscii() bool
 
 	// IsNumeric returns whether this column is a numeric type column, e.g. integer or float
 	IsNumeric() bool
@@ -109,11 +109,15 @@ type IColumnSpec interface {
 	// IsAutoIncrement
 	IsAutoIncrement() bool
 
+	AutoIncrementOffset() int64
+
 	SetAutoIncrement(val bool)
 
 	SetAutoIncrementOffset(offset int64)
 
 	IsString() bool
+
+	IsDateTime() bool
 }
 
 // SBaseColumn is the base structure represents a column
@@ -254,6 +258,10 @@ func (c *SBaseColumn) IsAutoIncrement() bool {
 	return false
 }
 
+func (c *SBaseColumn) AutoIncrementOffset() int64 {
+	return 0
+}
+
 func (c *SBaseColumn) SetAutoIncrement(val bool) {
 }
 
@@ -261,6 +269,10 @@ func (c *SBaseColumn) SetAutoIncrementOffset(offset int64) {
 }
 
 func (c *SBaseColumn) IsString() bool {
+	return false
+}
+
+func (c *SBaseColumn) IsDateTime() bool {
 	return false
 }
 
