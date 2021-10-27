@@ -708,12 +708,14 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 			// skip markerField in pagingConf
 			continue
 		}
-		colSpec := manager.TableSpec().ColumnSpec(orderByField)
-		if colSpec != nil {
-			if order == sqlchemy.SQL_ORDER_ASC {
-				q = q.Asc(orderByField)
-			} else {
-				q = q.Desc(orderByField)
+		for _, field := range q.QueryFields() {
+			if orderByField == field.Name() {
+				if order == sqlchemy.SQL_ORDER_ASC {
+					q = q.Asc(field)
+				} else {
+					q = q.Desc(field)
+				}
+				break
 			}
 		}
 	}
