@@ -248,8 +248,12 @@ func (self *SGoogleClient) ecsGet(resource string, retval interface{}) error {
 }
 
 func (self *SGoogleClient) ecsList(resource string, params map[string]string) (jsonutils.JSONObject, error) {
+	return self._ecsList("GET", resource, params)
+}
+
+func (self *SGoogleClient) _ecsList(method, resource string, params map[string]string) (jsonutils.JSONObject, error) {
 	resource = fmt.Sprintf("projects/%s/%s", self.projectId, resource)
-	return jsonRequest(self.client, "GET", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, params, nil, self.debug)
+	return jsonRequest(self.client, httputils.THttpMethod(method), GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, params, nil, self.debug)
 }
 
 func (self *SGoogleClient) managerList(resource string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -320,6 +324,10 @@ func (self *SGoogleClient) iamListAll(resource string, params map[string]string,
 }
 
 func (self *SGoogleClient) ecsListAll(resource string, params map[string]string, retval interface{}) error {
+	return self._ecsListAll("GET", resource, params, retval)
+}
+
+func (self *SGoogleClient) _ecsListAll(method string, resource string, params map[string]string, retval interface{}) error {
 	if params == nil {
 		params = map[string]string{}
 	}
@@ -328,7 +336,7 @@ func (self *SGoogleClient) ecsListAll(resource string, params map[string]string,
 	params["maxResults"] = "500"
 	for {
 		params["pageToken"] = nextPageToken
-		resp, err := self.ecsList(resource, params)
+		resp, err := self._ecsList(method, resource, params)
 		if err != nil {
 			return errors.Wrap(err, "ecsList")
 		}
@@ -926,7 +934,7 @@ func (self *SGoogleClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_PROJECT,
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
-		// cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
+		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
 		cloudprovider.CLOUD_CAPABILITY_RDS,
 		// cloudprovider.CLOUD_CAPABILITY_CACHE,
