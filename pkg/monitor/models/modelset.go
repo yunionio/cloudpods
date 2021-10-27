@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apihelper"
+	compute_apis "yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	compute_models "yunion.io/x/onecloud/pkg/compute/models"
@@ -74,6 +75,7 @@ type Details struct {
 	ProjectDomain string
 	Ips           string
 	Account       string
+	compute_apis.MetadataResourceInfo
 }
 
 // +onecloud:swagger-gen-ignore

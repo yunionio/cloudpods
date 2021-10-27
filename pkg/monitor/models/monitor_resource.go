@@ -508,6 +508,7 @@ func (manager *SMonitorResourceManager) SyncResources(ctx context.Context, mss *
 					errs = append(errs, errors.Wrapf(err, "monitorResource:%s Update err", res[0].Name))
 					continue
 				}
+				res[0].PostUpdate(ctx, userCred, jsonutils.NewDict(), newMonitorResourceCreateInput(obj, typ))
 				continue
 			}
 			if len(res) != 0 {
@@ -544,6 +545,10 @@ func newMonitorResourceCreateInput(input jsonutils.JSONObject, typ string) jsonu
 	monitorResource.Add(jsonutils.NewString(id), "res_id")
 	monitorResource.Remove("id")
 	monitorResource.Add(jsonutils.NewString(typ), "res_type")
+	if monitorResource.Contains("metadata") {
+		metadata, _ := monitorResource.Get("metadata")
+		monitorResource.Add(metadata, "__meta__")
+	}
 
 	return monitorResource
 }
