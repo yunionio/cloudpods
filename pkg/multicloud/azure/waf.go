@@ -639,3 +639,18 @@ func (self *SAppGatewayWaf) GetCloudResources() ([]cloudprovider.SCloudResource,
 	}
 	return ret, nil
 }
+
+func (self *SAppGatewayWaf) SetTags(tags map[string]string, replace bool) error {
+	if !replace {
+		for k, v := range self.Tags {
+			if _, ok := tags[k]; !ok {
+				tags[k] = v
+			}
+		}
+	}
+	_, err := self.region.client.SetTags(self.ID, tags)
+	if err != nil {
+		return errors.Wrapf(err, "SetTags")
+	}
+	return nil
+}
