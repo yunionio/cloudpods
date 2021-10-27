@@ -40,7 +40,7 @@ type ModelBaseDetails struct {
 	CanUpdate bool `json:"can_update"`
 
 	// 资源不能更新的原因
-	UpdateFailReason string `json:"update_fail_reason"`
+	UpdateFailReason httperrors.Error `json:"update_fail_reason"`
 }
 
 type ModelBaseShortDescDetail struct {
