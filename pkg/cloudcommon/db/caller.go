@@ -298,6 +298,7 @@ func FetchCustomizeColumns(
 		jsonDict.Update(jsonutils.Marshal(objs[i]).(*jsonutils.JSONDict))
 		out := apis.ModelBaseDetails{
 			CanDelete: true,
+			CanUpdate: true,
 		}
 
 		err = ValidateDeleteCondition(objs[i].(IModel), ctx, jsonDict)
@@ -305,6 +306,13 @@ func FetchCustomizeColumns(
 			out.CanDelete = false
 			if showReason {
 				out.DeleteFailReason = httperrors.NewErrorFromGeneralError(ctx, err)
+			}
+		}
+		err = ValidateUpdateCondition(objs[i].(IModel), ctx)
+		if err != nil {
+			out.CanUpdate = false
+			if showReason {
+				out.UpdateFailReason = httperrors.NewErrorFromGeneralError(ctx, err)
 			}
 		}
 		jsonDict.Update(jsonutils.Marshal(out))
@@ -348,6 +356,17 @@ func ValidateDeleteCondition(model IModel, ctx context.Context, data jsonutils.J
 	}
 	if len(ret) != 1 {
 		return httperrors.NewInternalServerError("Invald ValidateDeleteCondition return value")
+	}
+	return ValueToError(ret[0])
+}
+
+func ValidateUpdateCondition(model IModel, ctx context.Context) error {
+	ret, err := call(model, "ValidateUpdateCondition", ctx)
+	if err != nil {
+		return httperrors.NewGeneralError(err)
+	}
+	if len(ret) != 1 {
+		return httperrors.NewInternalServerError("Invald ValidateUpdateCondition return value")
 	}
 	return ValueToError(ret[0])
 }
