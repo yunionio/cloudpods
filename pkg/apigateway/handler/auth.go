@@ -185,7 +185,22 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 
 	resp.Add(jsonutils.NewArray(retIdps...), "idps")
 
-	resp.Add(jsonutils.NewString(options.Options.ApiServer), "api_server")
+	// in case api_server changed but not synchronized from Keystone
+	// fetch this option directly from Keystone
+	var apiSrv string
+	commonCfg, err := modules.ServicesV3.GetSpecific(s, "common", "config", nil)
+	if err != nil {
+		log.Errorf("fetch common config error: %s", err)
+	} else {
+		apiSrv, err = commonCfg.GetString("config", "default", "api_server")
+		if err != nil {
+			log.Errorf("fetch api_server fail: %s (cfg: %s)", err, commonCfg)
+		}
+	}
+	if len(apiSrv) == 0 {
+		apiSrv = options.Options.ApiServer
+	}
+	resp.Add(jsonutils.NewString(apiSrv), "api_server")
 
 	return resp, nil
 }
