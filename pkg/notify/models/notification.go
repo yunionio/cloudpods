@@ -151,10 +151,11 @@ func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred
 	}
 	// hack
 	length := 10
-	if len(input.Topic) < 10 {
-		length = len(input.Topic)
+	topicRunes := []rune(input.Topic)
+	if len(topicRunes) < 10 {
+		length = len(topicRunes)
 	}
-	name := fmt.Sprintf("%s-%s-%s", input.Topic[:length], input.ContactType, nowStr)
+	name := fmt.Sprintf("%s-%s-%s", string(topicRunes[:length]), input.ContactType, nowStr)
 	var err error
 	input.Name, err = db.GenerateName(ctx, nm, ownerId, name)
 	if err != nil {
