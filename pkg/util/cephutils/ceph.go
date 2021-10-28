@@ -141,6 +141,9 @@ func (self *CephClient) GetCapacity() (*SCapacity, error) {
 			result.UsedCapacitySizeKb = int64(pool.Stats.KbUsed)
 		}
 	}
+	if result.CapacitySizeKb == 0 {
+		log.Warningf("cluster size is zero, output is: %s", resp)
+	}
 	return result, nil
 }
 
@@ -175,6 +178,13 @@ rados mon op timeout = 5
 rados osd_op timeout = 1200
 client mount timeout = 120
 `, strings.Join(monHosts, ","))
+	if len(client.key) == 0 {
+		conf = fmt.Sprintf(`%s
+auth_cluster_required = none
+auth_service_required = none
+auth_client_required = none
+`, conf)
+	}
 	client.cephConf, err = writeFile("ceph.*.conf", conf)
 	if err != nil {
 		return nil, errors.Wrapf(err, "write file")
