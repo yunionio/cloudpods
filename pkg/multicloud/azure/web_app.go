@@ -300,3 +300,18 @@ func (a *SApp) GetOsType() cloudprovider.TOsType {
 	}
 	return cloudprovider.OsTypeWindows
 }
+
+func (self *SApp) SetTags(tags map[string]string, replace bool) error {
+	if !replace {
+		for k, v := range self.Tags {
+			if _, ok := tags[k]; !ok {
+				tags[k] = v
+			}
+		}
+	}
+	_, err := self.region.client.SetTags(self.Id, tags)
+	if err != nil {
+		return errors.Wrapf(err, "SetTags")
+	}
+	return nil
+}
