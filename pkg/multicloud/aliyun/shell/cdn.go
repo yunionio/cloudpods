@@ -34,27 +34,30 @@ import (
 )
 
 func init() {
-	type CdnDomainList struct {
-		Origin string
+	type CdnDomainListOptions struct {
+		Domain     string
+		PageSize   int
+		PageNumber int
 	}
-	shellutils.R(&CdnDomainList{}, "cdn-domain-list", "List cdn domain", func(cli *aliyun.SRegion, args *CdnDomainList) error {
-		domainlist, e := cli.GetClient().DescribeDomainsBySource(args.Origin)
-		if e != nil {
-			return e
+	shellutils.R(&CdnDomainListOptions{}, "cdn-domain-list", "list cdn domain", func(cli *aliyun.SRegion, args *CdnDomainListOptions) error {
+		domains, _, err := cli.GetClient().DescribeUserDomains(args.Domain, args.PageSize, args.PageNumber)
+		if err != nil {
+			return err
 		}
-		printList(domainlist.DomainsData, len(domainlist.DomainsData), 1, len(domainlist.DomainsData), []string{})
+		printList(domains, 0, 0, 0, []string{})
 		return nil
 	})
 
-	type CdnDomainShow struct {
+	type CdnDomainShowOptions struct {
 		DOMAIN string
 	}
-	shellutils.R(&CdnDomainShow{}, "cdn-domain-show", "show cdn domain", func(cli *aliyun.SRegion, args *CdnDomainShow) error {
-		domainlist, e := cli.GetClient().DescribeUserDomains(args.DOMAIN)
-		if e != nil {
-			return e
+	shellutils.R(&CdnDomainShowOptions{}, "cdn-domain-show", "Show cdn domain", func(cli *aliyun.SRegion, args *CdnDomainShowOptions) error {
+		domain, err := cli.GetClient().GetCdnDomain(args.DOMAIN)
+		if err != nil {
+			return err
 		}
-		printList(domainlist.PageData, len(domainlist.PageData), 1, len(domainlist.PageData), []string{})
+		printObject(domain)
 		return nil
 	})
+
 }
