@@ -165,6 +165,9 @@ type SCloudaccount struct {
 	vmwareHostWireCache map[string][]SVs2Wire
 
 	SProjectMappingResourceBase
+
+	// 设置允许同步的账号及订阅
+	SubAccounts *cloudprovider.SubAccounts `nullable:"true" get:"user" create:"optional"`
 }
 
 func (self *SCloudaccount) GetCloudproviders() []SCloudprovider {
@@ -323,7 +326,7 @@ func (self *SCloudaccount) ValidateUpdateData(
 			// updated proxy setting, so do the check
 			proxyFunc := proxySetting.HttpTransportProxyFunc()
 			secret, _ := self.getPassword()
-			_, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
+			_, _, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
 				Vendor:    self.Provider,
 				URL:       self.AccessUrl,
 				Account:   self.Account,
@@ -500,7 +503,8 @@ func (manager *SCloudaccountManager) validateCreateData(
 		}
 		proxyFunc = proxySetting.HttpTransportProxyFunc()
 	}
-	accountId, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
+	provider, accountId, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
+		Name:      input.Name,
 		Vendor:    input.Provider,
 		URL:       input.AccessUrl,
 		Account:   input.Account,
@@ -515,6 +519,27 @@ func (manager *SCloudaccountManager) validateCreateData(
 		}
 		return input, httperrors.NewGeneralError(err)
 	}
+	if input.DryRun && input.ShowSubAccounts {
+		input.SubAccounts = &cloudprovider.SubAccounts{}
+		input.SubAccounts.Accounts, err = provider.GetSubAccounts()
+		if err != nil {
+			return input, err
+		}
+		regions := provider.GetIRegions()
+		for _, region := range regions {
+			input.SubAccounts.Cloudregions = append(input.SubAccounts.Cloudregions, struct {
+				Id     string
+				Name   string
+				Status string
+			}{
+				Id:     region.GetGlobalId(),
+				Name:   region.GetName(),
+				Status: region.GetStatus(),
+			})
+		}
+	}
+
+	log.Errorf("subaccounts: %s", jsonutils.Marshal(input.SubAccounts).PrettyString())
 
 	// check accountId uniqueness
 	if len(accountId) > 0 {
@@ -657,7 +682,7 @@ func (self *SCloudaccount) PerformTestConnectivity(ctx context.Context, userCred
 		return nil, err
 	}
 
-	_, err = cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
+	_, _, err = cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
 		URL:     self.AccessUrl,
 		Vendor:  self.Provider,
 		Account: account.Account,
@@ -736,7 +761,7 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		}
 	}
 
-	accountId, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
+	_, accountId, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
 		Vendor:    self.Provider,
 		URL:       self.AccessUrl,
 		Account:   account.Account,
@@ -2023,6 +2048,74 @@ func (account *SCloudaccount) importAllSubaccounts(ctx context.Context, userCred
 	return existProviders
 }
 
+func (self *SCloudaccount) setSubAccountStatus() error {
+	if self.SubAccounts == nil || len(self.SubAccounts.Accounts) == 0 || len(self.SubAccounts.Cloudregions) == 0 {
+		return nil
+	}
+	accounts := []string{}
+	accountNames := []string{}
+	regionIds := []string{}
+	for _, account := range self.SubAccounts.Accounts {
+		if len(account.Account) > 0 {
+			accounts = append(accounts, account.Account)
+		} else if len(account.Name) > 0 {
+			accountNames = append(accountNames, account.Name)
+		}
+	}
+	for _, region := range self.SubAccounts.Cloudregions {
+		if len(region.Id) > 0 {
+			regionIds = append(regionIds, region.Id)
+		}
+	}
+
+	q := CloudproviderRegionManager.Query()
+	providerQ := CloudproviderManager.Query().SubQuery()
+	conditions := []sqlchemy.ICondition{}
+	if len(accounts) > 0 {
+		conditions = append(conditions, sqlchemy.In(providerQ.Field("account"), accounts))
+	}
+	if len(accountNames) > 0 {
+		conditions = append(conditions, sqlchemy.In(providerQ.Field("name"), accountNames))
+	}
+	q = q.Join(providerQ, sqlchemy.Equals(providerQ.Field("id"), q.Field("cloudprovider_id"))).Filter(
+		sqlchemy.NOT(
+			sqlchemy.OR(
+				conditions...,
+			),
+		),
+	)
+	accountQ := CloudaccountManager.Query().SubQuery()
+	q = q.Join(accountQ, sqlchemy.Equals(providerQ.Field("cloudaccount_id"), accountQ.Field("id"))).Filter(
+		sqlchemy.Equals(accountQ.Field("id"), self.Id),
+	)
+	regionQ := CloudregionManager.Query().SubQuery()
+	q = q.Join(regionQ, sqlchemy.Equals(regionQ.Field("id"), q.Field("cloudregion_id"))).Filter(
+		sqlchemy.NOT(
+			sqlchemy.In(regionQ.Field("external_id"), regionIds),
+		),
+	)
+
+	cpcrs := []SCloudproviderregion{}
+	err := db.FetchModelObjects(CloudproviderRegionManager, q, &cpcrs)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+
+	for i := range cpcrs {
+		db.Update(&cpcrs[i], func() error {
+			cpcrs[i].Enabled = false
+			return nil
+		})
+	}
+
+	_, err = db.Update(self, func() error {
+		self.SubAccounts = nil
+		return nil
+	})
+
+	return err
+}
+
 func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mcclient.TokenCredential) error {
 	account.MarkSyncing(userCred)
 	subaccounts, err := account.probeAccountStatus(ctx, userCred)
@@ -2037,12 +2130,11 @@ func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mc
 		if providers[i].GetEnabled() {
 			_, err := providers[i].prepareCloudproviderRegions(ctx, userCred)
 			if err != nil {
-				log.Errorf("syncCloudproviderRegion fail %s", err)
-				return errors.Wrap(err, "providers[i].prepareCloudproviderRegions")
+				return errors.Wrapf(err, "prepareCloudproviderRegions for provider %s", providers[i].Name)
 			}
 		}
 	}
-	return nil
+	return account.setSubAccountStatus()
 }
 
 func (account *SCloudaccount) markAutoSync(userCred mcclient.TokenCredential) error {

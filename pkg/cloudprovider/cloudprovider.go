@@ -411,17 +411,16 @@ func IsSupported(provider string) bool {
 	return ok
 }
 
-func IsValidCloudAccount(cfg ProviderConfig) (string, error) {
+func IsValidCloudAccount(cfg ProviderConfig) (ICloudProvider, string, error) {
 	factory, ok := providerTable[cfg.Vendor]
 	if ok {
 		provider, err := factory.GetProvider(cfg)
 		if err != nil {
-			return "", err
+			return nil, "", err
 		}
-		return provider.GetAccountId(), nil
-	} else {
-		return "", ErrNoSuchProvder
+		return provider, provider.GetAccountId(), nil
 	}
+	return nil, "", ErrNoSuchProvder
 }
 
 type SBaseProvider struct {
