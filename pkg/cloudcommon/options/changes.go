@@ -53,6 +53,10 @@ func OnBaseOptionsChange(oOpts, nOpts interface{}) bool {
 	if oldOpts.EnableQuotaCheck != newOpts.EnableQuotaCheck {
 		consts.SetEnableQuotaCheck(newOpts.EnableQuotaCheck)
 	}
+	if oldOpts.ApiServer != newOpts.ApiServer {
+		log.Debugf("api_server changed from %d to %d", oldOpts.ApiServer, newOpts.ApiServer)
+		changed = true
+	}
 	return changed
 }
 
