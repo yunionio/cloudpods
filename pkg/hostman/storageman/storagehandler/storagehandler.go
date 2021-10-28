@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -115,6 +116,10 @@ func storageAttach(ctx context.Context, body jsonutils.JSONObject) (interface{},
 	storage.SetStoragecacheId(storagecacheId)
 	if err := storage.SetStorageInfo(storageId, storageName, storageConf); err != nil {
 		return nil, err
+	}
+	err = storage.SyncStorageSize()
+	if err != nil {
+		return nil, errors.Wrapf(err, "SyncStorageSize")
 	}
 	resp, err := storage.SyncStorageInfo()
 	if err != nil {
