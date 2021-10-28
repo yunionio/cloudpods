@@ -30,7 +30,6 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -852,20 +851,6 @@ func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.J
 		}
 	}
 	return items, nil
-}
-
-func getModelExtraDetails(item IModel, ctx context.Context, showReason bool) apis.ModelBaseDetails {
-	out := apis.ModelBaseDetails{
-		CanUpdate: true,
-	}
-	err := item.ValidateUpdateCondition(ctx)
-	if err != nil {
-		out.CanUpdate = false
-		if showReason {
-			out.UpdateFailReason = err.Error()
-		}
-	}
-	return out
 }
 
 func getModelItemDetails(manager IModelManager, item IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isHead bool) (jsonutils.JSONObject, error) {
