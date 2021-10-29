@@ -1146,6 +1146,28 @@ func (manager *SVpcManager) ListItemFilter(
 		}
 	}
 
+	if len(query.ZoneId) > 0 {
+		zoneObj, err := validators.ValidateModel(userCred, ZoneManager, &query.ZoneId)
+		if err != nil {
+			return nil, err
+		}
+		region, err := zoneObj.(*SZone).GetRegion()
+		if err != nil {
+			return nil, errors.Wrapf(err, "get zone %s region", zoneObj.GetName())
+		}
+		q = q.Equals("cloudregion_id", region.Id)
+		wires := WireManager.Query().SubQuery()
+		networks := NetworkManager.Query().SubQuery()
+		sq := wires.Query(wires.Field("vpc_id")).Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id"))).Filter(
+			sqlchemy.OR(
+				sqlchemy.Equals(wires.Field("zone_id"), query.ZoneId),
+				sqlchemy.IsNullOrEmpty(wires.Field("zone_id")),
+			),
+		)
+		q = q.In("id", sq.SubQuery())
+
+	}
+
 	if query.IsDefault != nil {
 		if *query.IsDefault {
 			q = q.IsTrue("is_default")

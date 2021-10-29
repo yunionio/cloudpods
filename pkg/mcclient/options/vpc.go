@@ -29,6 +29,7 @@ type VpcListOptions struct {
 	DnsZoneId          string `help:"Filter by DnsZone"`
 	InterVpcNetworkId  string `help:"Filter by InterVpcNetwork"`
 	ExternalAccessMode string `help:"Filter by external access mode" choices:"distgw|eip|eip-distgw"`
+	ZoneId             string `help:"Filter by zone which has networks"`
 }
 
 func (opts *VpcListOptions) GetContextId() string {
