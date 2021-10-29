@@ -308,13 +308,16 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 		return output, errors.Wrap(err, "unable to create Event")
 	}
 
-	// webconsole
-	err = nm.create(ctx, userCred, api.WEBCONSOLE, receiverIds, webconsoleContacts.UnsortedList(), input.Priority, event.Id)
-	if err != nil {
-		output.FailedList = append(output.FailedList, api.FailedElem{
-			ContactType: api.WEBCONSOLE,
-			Reason:      err.Error(),
-		})
+	if nm.needWebconsole(topics) {
+
+		// webconsole
+		err = nm.create(ctx, userCred, api.WEBCONSOLE, receiverIds, webconsoleContacts.UnsortedList(), input.Priority, event.Id)
+		if err != nil {
+			output.FailedList = append(output.FailedList, api.FailedElem{
+				ContactType: api.WEBCONSOLE,
+				Reason:      err.Error(),
+			})
+		}
 	}
 	// normal contact type
 	for _, ct := range contactTypes {
@@ -345,6 +348,15 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 		})
 	}
 	return output, nil
+}
+
+func (nm *SNotificationManager) needWebconsole(topics []STopic) bool {
+	for i := range topics {
+		if topics[i].WebconsoleDisable.IsFalse() {
+			return true
+		}
+	}
+	return false
 }
 
 func (nm *SNotificationManager) createWithWebhookRobots(ctx context.Context, userCred mcclient.TokenCredential, webhookRobotIds []string, priority, eventId string) error {
