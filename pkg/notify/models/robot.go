@@ -89,6 +89,8 @@ func (rm *SRobotManager) InitializeData() error {
 		robot.IsPublic = true
 		robot.PublicScope = string(rbacutils.ScopeSystem)
 		robot.DomainId = idenapi.DEFAULT_DOMAIN_ID
+		robot.ProjectId = "system"
+		robot.ProjectSrc = "local"
 		robot.Status = api.RECEIVER_STATUS_READY
 		switch configs[i].Type {
 		case api.FEISHU_ROBOT:
