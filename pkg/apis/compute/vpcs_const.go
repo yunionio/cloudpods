@@ -62,6 +62,9 @@ type VpcListInput struct {
 	UsableResourceListInput
 	UsableVpcResourceListInput
 
+	// 过滤vpc底下有指定zone的ip子网
+	ZoneId string `json:"zone_id"`
+
 	// filter by globalvpc
 	Globalvpc string `json:"globalvpc"`
 
