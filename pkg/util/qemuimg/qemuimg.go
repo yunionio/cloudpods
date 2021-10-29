@@ -117,6 +117,9 @@ func (img *SQemuImage) parse() error {
 		}
 		return jsonutils.Parse(output)
 	}()
+	if err != nil {
+		return err
+	}
 
 	info := struct {
 		VirtualSizeBytes      int64  `json:"virtual-size"`
