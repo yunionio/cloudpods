@@ -613,6 +613,12 @@ func (self *SRegion) Refresh() error {
 	return nil
 }
 
+// 容器
+func (self *SRegion) tkeRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	params["Region"] = self.Region
+	return self.client.tkeRequest(apiName, params)
+}
+
 func (self *SRegion) vpcRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	params["Region"] = self.Region
 	return self.client.vpcRequest(apiName, params)

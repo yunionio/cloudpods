@@ -189,6 +189,9 @@ type ICloudRegion interface {
 
 	GetICloudApps() ([]ICloudApp, error)
 	GetICloudAppById(id string) (ICloudApp, error)
+
+	GetICloudKubeClusters() ([]ICloudKubeCluster, error)
+	GetICloudKubeClusterById(id string) (ICloudKubeCluster, error)
 }
 
 type ICloudZone interface {
@@ -1512,4 +1515,25 @@ type ICloudCDNDomain interface {
 	GetOrigins() *SCdnOrigins
 
 	Delete() error
+}
+
+type ICloudKubeCluster interface {
+	ICloudEnabledResource
+
+	GetKubeConfig(private bool, expireMinutes int) (*SKubeconfig, error)
+
+	GetIKubeNodePools() ([]ICloudKubeNodePool, error)
+	GetIKubeNodes() ([]ICloudKubeNode, error)
+
+	Delete(isRetain bool) error
+}
+
+type ICloudKubeNode interface {
+	ICloudResource
+
+	GetINodePoolId() string
+}
+
+type ICloudKubeNodePool interface {
+	ICloudResource
 }

@@ -236,6 +236,10 @@ func InitHandlers(app *appsrv.Application) {
 		models.AppEnvironmentManager,
 
 		models.CDNDomainManager,
+
+		models.KubeClusterManager,
+		models.KubeNodeManager,
+		models.KubeNodePoolManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

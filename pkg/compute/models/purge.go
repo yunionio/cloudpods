@@ -2046,3 +2046,21 @@ func (manager *SKafkaManager) purgeAll(ctx context.Context, userCred mcclient.To
 	}
 	return nil
 }
+
+func (manager *SKubeClusterManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	clusters := []SKubeCluster{}
+	err := fetchByManagerId(manager, providerId, &clusters)
+	if err != nil {
+		return errors.Wrapf(err, "fetchByManagerId")
+	}
+	for i := range clusters {
+		lockman.LockObject(ctx, &clusters[i])
+		defer lockman.ReleaseObject(ctx, &clusters[i])
+
+		err := clusters[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "kube cluster delete")
+		}
+	}
+	return nil
+}

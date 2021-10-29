@@ -70,6 +70,7 @@ const (
 	ALIYUN_MONGO_DB_API_VERSION = "2015-12-01"
 	ALIYUN_ES_API_VERSION       = "2017-06-13"
 	ALIYUN_KAFKA_API_VERSION    = "2019-09-16"
+	ALIYUN_K8S_API_VERSION      = "2015-12-15"
 
 	ALIYUN_SERVICE_ECS      = "ecs"
 	ALIYUN_SERVICE_VPC      = "vpc"
@@ -269,6 +270,15 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 		req.Method = method
 	} else if strings.HasPrefix(domain, "alikafka") { //alikafka DeleteInstance必须显式指定Method
 		req.Method = requests.POST
+	} else if strings.HasPrefix(domain, "cs") { //容器
+		pathPattern, ok := params["PathPattern"]
+		if !ok {
+			return nil, errors.Errorf("Roa request missing pathPattern")
+		}
+		delete(params, "PathPattern")
+		req.PathPattern = pathPattern
+		req.Method = method
+		req.GetHeaders()["Content-Type"] = "application/json"
 	}
 
 	resp, err := processCommonRequest(client, req)
@@ -695,6 +705,7 @@ func (region *SAliyunClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_ES + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_KAFKA + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_CDN + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_CONTAINER + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
 }

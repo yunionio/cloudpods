@@ -70,6 +70,9 @@ type SCapabilities struct {
 	ObjectStorageBrands         []string `json:",allowempty"`
 	DisabledObjectStorageBrands []string `json:",allowempty"`
 
+	ContainerBrands         []string `json:",allowempty"`
+	DisabledContainerBrands []string `json:",allowempty"`
+
 	ReadOnlyBrands                           []string `json:",allowempty"`
 	ReadOnlyDisabledBrands                   []string `json:",allowempty"`
 	ReadOnlyComputeEngineBrands              []string `json:",allowempty"`
@@ -99,6 +102,9 @@ type SCapabilities struct {
 	ReadOnlyDisabledNetworkManageBrands []string `json:",allowempty"`
 	ReadOnlyObjectStorageBrands         []string `json:",allowempty"`
 	ReadOnlyDisabledObjectStorageBrands []string `json:",allowempty"`
+
+	ReadOnlyContainerBrands         []string `json:",allowempty"`
+	ReadOnlyDisabledContainerBrands []string `json:",allowempty"`
 
 	ResourceTypes      []string `json:",allowempty"`
 	StorageTypes       []string `json:",allowempty"` // going to remove on 2.14
@@ -423,6 +429,8 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabi
 				appendBrand(&capa.WafBrands, &capa.DisabledWafBrands, &capa.ReadOnlyWafBrands, &capa.ReadOnlyDisabledWafBrands, brand, capability, enabled, readOnly)
 			case cloudprovider.CLOUD_CAPABILITY_CDN:
 				appendBrand(&capa.CdnBrands, &capa.DisabledCdnBrands, &capa.ReadOnlyCdnBrands, &capa.ReadOnlyDisabledCdnBrands, brand, capability, enabled, readOnly)
+			case cloudprovider.CLOUD_CAPABILITY_CONTAINER:
+				appendBrand(&capa.ContainerBrands, &capa.DisabledContainerBrands, &capa.ReadOnlyContainerBrands, &capa.ReadOnlyDisabledContainerBrands, brand, capability, enabled, readOnly)
 			default:
 			}
 		}

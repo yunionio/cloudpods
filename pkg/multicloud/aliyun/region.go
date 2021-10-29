@@ -178,6 +178,14 @@ func (self *SRegion) rdsRequest(apiName string, params map[string]string) (jsonu
 	return jsonRequest(client, "rds.aliyuncs.com", ALIYUN_RDS_API_VERSION, apiName, params, self.client.debug)
 }
 
+func (self *SRegion) k8sRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	client, err := self.getSdkClient()
+	if err != nil {
+		return nil, err
+	}
+	return jsonRequest(client, fmt.Sprintf("cs.%s.aliyuncs.com", self.RegionId), ALIYUN_K8S_API_VERSION, apiName, params, self.client.debug)
+}
+
 func (self *SRegion) mongodbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	client, err := self.getSdkClient()
 	if err != nil {

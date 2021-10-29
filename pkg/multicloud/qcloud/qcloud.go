@@ -68,6 +68,7 @@ const (
 	QCLOUD_ES_API_VERSION        = "2018-04-16"
 	QCLOUD_DCDB_API_VERSION      = "2018-04-11"
 	QCLOUD_KAFKA_API_VERSION     = "2019-08-19"
+	QCLOUD_TKE_API_VERSION       = "2018-05-25"
 )
 
 type QcloudClientConfig struct {
@@ -154,6 +155,11 @@ func apiDomainByRegion(product, regionId string) string {
 func jsonRequest(client *common.Client, apiName string, params map[string]string, debug bool, retry bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("cvm", params)
 	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params, debug, retry)
+}
+
+func tkeRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	domain := "tke.tencentcloudapi.com"
+	return _jsonRequest(client, domain, QCLOUD_TKE_API_VERSION, apiName, params, debug, true)
 }
 
 func vpcRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
@@ -598,6 +604,14 @@ func (client *SQcloudClient) getVpcClient(regionId string) (*qvpc.Client, error)
 	cpf.HttpProfile.Endpoint = apiDomainByRegion("vpc", regionId)
 	vpcClient.WithProfile(cpf)
 	return vpcClient, nil
+}
+
+func (client *SQcloudClient) tkeRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return tkeRequest(cli, apiName, params, client.debug)
 }
 
 func (client *SQcloudClient) vpcRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -1101,6 +1115,7 @@ func (self *SQcloudClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_ES + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_KAFKA + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_CDN + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_CONTAINER + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
 }
