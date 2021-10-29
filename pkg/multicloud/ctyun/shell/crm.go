@@ -20,30 +20,17 @@ import (
 )
 
 func init() {
-	type VpcListOptions struct {
+	type VCrmUserOptions struct {
 		Type      string `json:"type"`
 		CrmBizId  string `json:"crm_biz_id"`
 		AccountId string `json:"account_id"`
 	}
-	shellutils.R(&VpcListOptions{}, "vpc-list", "List vpcs", func(cli *ctyun.SRegion, args *VpcListOptions) error {
-		vpcs, e := cli.GetVpcs(args.Type, args.CrmBizId, args.AccountId)
+	shellutils.R(&VCrmUserOptions{}, "crm-user-show", "Show crm user", func(cli *ctyun.SRegion, args *VCrmUserOptions) error {
+		user, e := cli.GetCrmUser(args.Type, args.CrmBizId, args.AccountId)
 		if e != nil {
 			return e
 		}
-		printList(vpcs, 0, 0, 0, nil)
-		return nil
-	})
-
-	type VpcCreateOptions struct {
-		NAME string `help:"vpc name"`
-		CIDR string `help:"10.0.0.0/8~10.255.255.0/24或者172.16.0.0/12 ~ 172.31.255.0/24或者192.168.0.0/16 ~ 192.168.255.0/24"`
-	}
-	shellutils.R(&VpcCreateOptions{}, "vpc-create", "Create vpc", func(cli *ctyun.SRegion, args *VpcCreateOptions) error {
-		vpc, e := cli.CreateVpc(args.NAME, args.CIDR)
-		if e != nil {
-			return e
-		}
-		printObject(vpc)
+		printObject(user)
 		return nil
 	})
 }
