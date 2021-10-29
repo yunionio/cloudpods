@@ -539,6 +539,20 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 		return nil, errors.Wrapf(err, "GuestDriver.RemoteDeployGuestForCreate.RetryUntil expect %d disks return %d disks", expect, ret)
 	}
 
+	// 回填IP
+	if len(desc.IpAddr) == 0 {
+		nics, _ := iVM.GetINics()
+		gns, _ := guest.GetNetworks("")
+		if len(nics) > 0 && len(gns) > 0 {
+			db.Update(&gns[0], func() error {
+				gns[0].IpAddr = nics[0].GetIP()
+				gns[0].MacAddr = nics[0].GetMAC()
+				gns[0].Driver = nics[0].GetDriver()
+				return nil
+			})
+		}
+	}
+
 	guest.GetDriver().RemoteActionAfterGuestCreated(ctx, userCred, guest, host, iVM, &desc)
 
 	data := fetchIVMinfo(desc, iVM, guest.Id, desc.Account, desc.Password, desc.PublicKey, "create")
