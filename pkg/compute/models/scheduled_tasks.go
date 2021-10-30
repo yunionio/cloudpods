@@ -576,9 +576,12 @@ func (stm *SScheduledTaskManager) timeScope(median time.Time, interval time.Dura
 	}
 }
 
-var timerQueue = make(chan struct{}, cop.Options.ScheduledTaskQueueSize)
+var timerQueue chan struct{}
 
 func (stm *SScheduledTaskManager) Timer(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	if timerQueue == nil {
+		timerQueue = make(chan struct{}, cop.Options.ScheduledTaskQueueSize)
+	}
 	// 60 is for fault tolerance
 	interval := 60 + 30
 	timeScope := stm.timeScope(time.Now(), time.Duration(interval)*time.Second)
