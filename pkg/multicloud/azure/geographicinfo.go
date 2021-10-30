@@ -20,51 +20,51 @@ import (
 )
 
 var AzureGeographicInfo = map[string]cloudprovider.SGeographicInfo{
-	"southafricanorth":   {City: api.CITY_PRETORIA, CountryCode: api.COUNTRY_CODE_ZA},      //比勒陀利亚, 南非
-	"southafricawest":    {City: api.CITY_CAPE_TOWN, CountryCode: api.COUNTRY_CODE_ZA},     //开普敦 南非
-	"australiacentral2":  {City: api.CITY_YARRALUMLA, CountryCode: api.COUNTRY_CODE_AU},    //亚拉伦拉 澳大利亚
-	"koreasouth":         {City: api.CITY_BUSAN, CountryCode: api.COUNTRY_CODE_KR},         //釜山 韩国
-	"canadacentral":      {City: api.CITY_TORONTO, CountryCode: api.COUNTRY_CODE_CA},       //加拿大 多伦多
-	"northeurope":        {City: api.CITY_DUBLIN, CountryCode: api.COUNTRY_CODE_IE},        //都柏林 爱尔兰
-	"australiacentral":   {City: api.CITY_YARRALUMLA, CountryCode: api.COUNTRY_CODE_AU},    //亚拉伦拉 澳大利亚
-	"francecentral":      {City: api.CITY_ALLIER, CountryCode: api.COUNTRY_CODE_FR},        //阿利埃河 法国
-	"westus":             {City: api.CITY_SAN_FRANCISCO, CountryCode: api.COUNTRY_CODE_US}, //旧金山 美国
-	"japanwest":          {City: api.CITY_OSAKA, CountryCode: api.COUNTRY_CODE_JP},         //大阪市 日本
-	"francesouth":        {City: api.CITY_TARN, CountryCode: api.COUNTRY_CODE_FR},          //塔恩 法国
-	"eastus":             {City: api.CITY_VIRGINIA, CountryCode: api.COUNTRY_CODE_US},      // 美国 弗吉尼亚
-	"westindia":          {City: api.CITY_MUMBAI, CountryCode: api.COUNTRY_CODE_IN},        //印度 孟买
-	"westcentralus":      {City: api.CITY_UTAH, CountryCode: api.COUNTRY_CODE_US},          //美国 犹他州
-	"southeastasia":      {City: api.CITY_SINGAPORE, CountryCode: api.COUNTRY_CODE_SG},     //新加坡
-	"eastasia":           {City: api.CITY_HONG_KONG, CountryCode: api.COUNTRY_CODE_CN},
-	"eastus2":            {City: api.CITY_VIRGINIA, CountryCode: api.COUNTRY_CODE_US},    // 美国 弗吉尼亚
-	"japaneast":          {City: api.CITY_TOKYO, CountryCode: api.COUNTRY_CODE_JP},       // 日本 东京
-	"ukwest":             {City: api.CITY_HALTON, CountryCode: api.COUNTRY_CODE_GB},      //英国 哈尔顿
-	"australiasoutheast": {City: api.CITY_MELBOURNE, CountryCode: api.COUNTRY_CODE_AU},   // 澳大利亚 墨尔本
-	"uksouth":            {City: api.CITY_WEST_SUSSEX, CountryCode: api.COUNTRY_CODE_GB}, //英国 西苏塞克斯
-	"westus2":            {City: api.CITY_WASHINGTON, CountryCode: api.COUNTRY_CODE_US},  //美国 华盛顿
-	"southcentralus":     {City: api.CITY_TEXAS, CountryCode: api.COUNTRY_CODE_US},       //美国 德克萨斯
-	"brazilsouth":        {City: api.CITY_SAO_PAULO, CountryCode: api.COUNTRY_CODE_BR},   //巴西 圣保罗
-	"koreacentral":       {City: api.CITY_SEOUL, CountryCode: api.COUNTRY_CODE_KR},       //韩国 汉城 -> 首尔
-	"centralindia":       {City: api.CITY_MAHARASHTRA, CountryCode: api.COUNTRY_CODE_IN}, //印度 马哈拉施特拉邦
-	"northcentralus":     {City: api.CITY_CHICAGO, CountryCode: api.COUNTRY_CODE_US},     //美国 芝加哥
-	"centralus":          {City: api.CITY_IOWA, CountryCode: api.COUNTRY_CODE_US},        //美国 爱荷华
-	"australiaeast":      {City: api.CITY_SYDNEY, CountryCode: api.COUNTRY_CODE_AU},      //澳大利亚 悉尼
-	"westeurope":         {City: api.CITY_HOLLAND, CountryCode: api.COUNTRY_CODE_NL},     //荷兰
-	"canadaeast":         {City: api.CITY_QUEBEC, CountryCode: api.COUNTRY_CODE_CA},      //加拿大 魁北克市
-	"southindia":         {City: api.CITY_KANCHIPURAM, CountryCode: api.COUNTRY_CODE_IN}, //印度 甘吉布勒姆
-	"uaenorth":           {City: api.CITY_DUBAI, CountryCode: api.COUNTRY_CODE_AE},
-	"uaecentral":         {City: api.CITY_DUBAI, CountryCode: api.COUNTRY_CODE_AE},
-	"switzerlandwest":    {City: api.CITY_GENEVA, CountryCode: api.COUNTRY_CODE_CH},      // 日内瓦
-	"switzerlandnorth":   {City: api.CITY_ZURICH, CountryCode: api.COUNTRY_CODE_CH},      // 苏黎世
-	"norwaywest":         {City: api.CITY_STAVANGER, CountryCode: api.COUNTRY_CODE_NO},   // 斯塔万格
-	"norwayeast":         {City: api.CITY_OSLO, CountryCode: api.COUNTRY_CODE_NO},        // 奥斯陆
-	"germanywestcentral": {City: api.CITY_FRANKFURT, CountryCode: api.COUNTRY_CODE_DE},   // 法兰克福
-	"germanynorth":       {City: api.CITY_DELMENHORST, CountryCode: api.COUNTRY_CODE_DE}, // 代尔门霍斯特
-	"westus3":            {City: api.CITY_PHOENIX, CountryCode: api.COUNTRY_CODE_US},
-	"brazilsoutheast":    {City: api.CITY_RIO_DE_JANEIRO, CountryCode: api.COUNTRY_CODE_BR},
+	"southafricanorth":   api.RegionPretoria,     //比勒陀利亚, 南非
+	"southafricawest":    api.RegionCapeTown,     //开普敦 南非
+	"australiacentral2":  api.RegionYarralumla,   //亚拉伦拉 澳大利亚
+	"koreasouth":         api.RegionBusan,        //釜山 韩国
+	"canadacentral":      api.RegionToronto,      //加拿大 多伦多
+	"northeurope":        api.RegionDublin,       //都柏林 爱尔兰
+	"australiacentral":   api.RegionYarralumla,   //亚拉伦拉 澳大利亚
+	"francecentral":      api.RegionAllier,       //阿利埃河 法国
+	"westus":             api.RegionSanFrancisco, //旧金山 美国
+	"japanwest":          api.RegionOsaka,        //大阪市 日本
+	"francesouth":        api.RegionTarn,         //塔恩 法国
+	"eastus":             api.RegionVirginia,     // 美国 弗吉尼亚
+	"westindia":          api.RegionMumbai,       //印度 孟买
+	"westcentralus":      api.RegionUtah,         //美国 犹他州
+	"southeastasia":      api.RegionSingapore,    //新加坡
+	"eastasia":           api.RegionHongkong,
+	"eastus2":            api.RegionVirginia,    // 美国 弗吉尼亚
+	"japaneast":          api.RegionTokyo,       // 日本 东京
+	"ukwest":             api.RegionHalton,      //英国 哈尔顿
+	"australiasoutheast": api.RegionMelbourne,   // 澳大利亚 墨尔本
+	"uksouth":            api.RegionSussex,      //英国 西苏塞克斯
+	"westus2":            api.RegionWashington,  //美国 华盛顿
+	"southcentralus":     api.RegionTexas,       //美国 德克萨斯
+	"brazilsouth":        api.RegionSaoPaulo,    //巴西 圣保罗
+	"koreacentral":       api.RegionSeoul,       //韩国 汉城 -> 首尔
+	"centralindia":       api.RegionMaharashtra, //印度 马哈拉施特拉邦
+	"northcentralus":     api.RegionChicago,     //美国 芝加哥
+	"centralus":          api.RegionIowa,        //美国 爱荷华
+	"australiaeast":      api.RegionSydney,      //澳大利亚 悉尼
+	"westeurope":         api.RegionHolland,     //荷兰
+	"canadaeast":         api.RegionQuebec,      //加拿大 魁北克市
+	"southindia":         api.RegionKanchipuram, //印度 甘吉布勒姆
+	"uaenorth":           api.RegionDubai,
+	"uaecentral":         api.RegionDubai,
+	"switzerlandwest":    api.RegionGeneva,      // 日内瓦
+	"switzerlandnorth":   api.RegionZurich,      // 苏黎世
+	"norwaywest":         api.RegionStavanger,   // 斯塔万格
+	"norwayeast":         api.RegionOslo,        // 奥斯陆
+	"germanywestcentral": api.RegionFrankfurt,   // 法兰克福
+	"germanynorth":       api.RegionDelmenhorst, // 代尔门霍斯特
+	"westus3":            api.RegionPhoenix,
+	"brazilsoutheast":    api.RegionRioDeJaneiro, // 里约热内卢
 
-	"chinaeast":   {City: api.CITY_SHANG_HAI, CountryCode: api.COUNTRY_CODE_CN},
-	"chinaeast2":  {City: api.CITY_SHANG_HAI, CountryCode: api.COUNTRY_CODE_CN},
-	"chinanorth":  {City: api.CITY_BEI_JING, CountryCode: api.COUNTRY_CODE_CN},
-	"chinanorth2": {City: api.CITY_BEI_JING, CountryCode: api.COUNTRY_CODE_CN},
+	"chinaeast":   api.RegionShanghai,
+	"chinaeast2":  api.RegionShanghai,
+	"chinanorth":  api.RegionBeijing,
+	"chinanorth2": api.RegionBeijing,
 }
