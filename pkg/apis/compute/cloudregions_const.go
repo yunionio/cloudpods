@@ -67,6 +67,7 @@ const (
 	CITY_XIA_MEN        = "XiaMen"       //厦门
 	CITY_HUAI_NAN       = "HuaiNan"      //淮南
 	CITY_SU_QIAN        = "SuQian"       //宿迁
+	CITY_DA_LIAN        = "Dalian"       //大连
 
 	// 日本
 	CITY_TOKYO = "Tokyo" //东京
@@ -101,6 +102,7 @@ const (
 	CITY_JAKARTA = "Jakarta" //雅加达
 
 	// 印度
+	CITY_DELHI       = "Delhi"       // 德里
 	CITY_MUMBAI      = "Mumbai"      //孟买
 	CITY_KANCHIPURAM = "Kanchipuram" //甘吉布勒姆
 	CITY_MAHARASHTRA = "Maharashtra" //马哈拉施特拉邦
@@ -158,6 +160,9 @@ const (
 
 	// 瑞典
 	CITY_STOCKHOLM = "Stockholm" //斯德哥尔摩
+
+	// 波兰
+	CITY_WARSAW = "Warsaw" // 华沙
 
 	// 巴西
 	CITY_SAO_PAULO      = "Sao Paulo"      //圣保罗
@@ -220,4 +225,7 @@ const (
 	COUNTRY_CODE_MX = "MX" //墨西哥
 	COUNTRY_CODE_CL = "CL" //智利
 	COUNTRY_CODE_BH = "BH" //巴林
+	COUNTRY_CODE_PL = "PL" //波兰
+	COUNTRY_CODE_FI = "FI" //芬兰
+	COUNTRY_CODE_BE = "BE" //比利时
 )
