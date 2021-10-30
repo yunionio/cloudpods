@@ -96,17 +96,22 @@ type IsolatedDeviceManager struct {
 	DetachedDevices []*CloudDeviceInfo
 }
 
-func NewManager(host IHost) (*IsolatedDeviceManager, error) {
+func NewManager(host IHost) *IsolatedDeviceManager {
 	man := &IsolatedDeviceManager{
 		host:            host,
 		Devices:         make([]IDevice, 0),
 		DetachedDevices: make([]*CloudDeviceInfo, 0),
 	}
-	err := man.fillPCIDevices()
-	return man, err
+	// Do probe laster - Qiu Jian
+	// err := man.fillPCIDevices()
+	return man
 }
 
-func (man *IsolatedDeviceManager) fillPCIDevices() error {
+func (man *IsolatedDeviceManager) ProbePCIDevices() error {
+	if len(man.Devices) > 0 {
+		// already probed, skip
+		return nil
+	}
 	// only support gpu by now
 	gpus, err := getPassthroughGPUS()
 	if err != nil {
