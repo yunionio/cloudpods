@@ -44,6 +44,13 @@ type GuestSshableOutput struct {
 	MethodTried []GuestSshableMethodData
 }
 
+type GuestHaveAgentInput struct {
+}
+
+type GuestHaveAgentOutput struct {
+	Have bool
+}
+
 type GuestMakeSshableInput struct {
 	User       string
 	PrivateKey string
