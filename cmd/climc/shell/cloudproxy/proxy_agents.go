@@ -28,4 +28,5 @@ func init() {
 	cmd.List(&options.ProxyAgentListOptions{})
 	cmd.Show(&options.ProxyAgentShowOptions{})
 	cmd.Delete(&options.ProxyAgentDeleteOptions{})
+	cmd.Perform("purge-forwards", &options.ProxyAgentPurgeForwardsOptions{})
 }
