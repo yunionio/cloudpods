@@ -71,11 +71,12 @@ type STopic struct {
 	db.SStandaloneResourceBase
 	db.SEnabledResourceBase
 
-	Type        string `width:"20" nullable:"false" create:"required" update:"user" list:"user"`
-	Resources   uint64 `nullable:"false"`
-	Actions     uint32 `nullable:"false"`
-	Results     uint8  `nullable:"false"`
-	AdvanceDays int    `nullable:"false"`
+	Type              string `width:"20" nullable:"false" create:"required" update:"user" list:"user"`
+	Resources         uint64 `nullable:"false"`
+	Actions           uint32 `nullable:"false"`
+	Results           uint8  `nullable:"false"`
+	AdvanceDays       int    `nullable:"false"`
+	WebconsoleDisable tristate.TriState
 }
 
 const (
@@ -260,6 +261,7 @@ func (sm *STopicManager) InitializeData() error {
 				notify.ActionSyncDelete,
 			)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.WebconsoleDisable = tristate.True
 		}
 		if topic == nil {
 			err := sm.TableSpec().Insert(ctx, t)
@@ -271,6 +273,7 @@ func (sm *STopicManager) InitializeData() error {
 				topic.Resources = t.Resources
 				topic.Actions = t.Actions
 				topic.Type = t.Type
+				topic.WebconsoleDisable = t.WebconsoleDisable
 				return nil
 			})
 			if err != nil {
