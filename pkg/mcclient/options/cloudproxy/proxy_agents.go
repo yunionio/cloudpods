@@ -55,6 +55,10 @@ type ProxyAgentDeleteOptions struct {
 	options.BaseIdOptions
 }
 
+type ProxyAgentPurgeForwardsOptions struct {
+	options.BaseIdOptions
+}
+
 type ProxyAgentListOptions struct {
 	options.BaseListOptions
 
