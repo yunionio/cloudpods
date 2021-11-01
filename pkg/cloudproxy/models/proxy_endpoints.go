@@ -244,6 +244,26 @@ func (proxyendpoint *SProxyEndpoint) ValidateDeleteCondition(ctx context.Context
 	}
 }
 
+func (proxyendpoint *SProxyEndpoint) AllowPerformPurgeForwards(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return proxyendpoint.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, proxyendpoint, "purge-forwards")
+}
+
+func (proxyendpoint *SProxyEndpoint) PerformPurgeForwards(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	q := ForwardManager.Query().Equals("proxy_endpoint_id", proxyendpoint.Id)
+	forwards := make([]SForward, 0)
+	err := db.FetchModelObjects(ForwardManager, q, &forwards)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to fetch all forwards for proxyendpoint %s", proxyendpoint.Id)
+	}
+	for i := range forwards {
+		err := forwards[i].Delete(ctx, userCred)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to delete forward %s", forwards[i].Id)
+		}
+	}
+	return nil, nil
+}
+
 func (proxyendpoint *SProxyEndpoint) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	var pms []SProxyMatch
 	q := ProxyMatchManager.Query().Equals("proxy_endpoint_id", proxyendpoint.Id)
