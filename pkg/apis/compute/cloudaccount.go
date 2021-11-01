@@ -483,3 +483,17 @@ type CloudaccountProjectMappingInput struct {
 	// 绑定同步策略要求当前云账号此刻未绑定其他同步策略
 	ProjectMappingId string `json:"project_mapping_id"`
 }
+
+type SyncRangeInput struct {
+	Force    bool `json:"force"`
+	FullSync bool `json:"full_sync"`
+	DeepSync bool `json:"deep_sync"`
+
+	Region []string `json:"region"`
+	Zone   []string `json:"zone"`
+	Host   []string `json:"host"`
+
+	// 按资源类型同步，可输入多个
+	// enmu: compute, loadbalancer, objectstore, rds, cache, nat, nas, waf, mongodb, es, kafka, app, container
+	Resources []string `json:"resources" choices:"compute|loadbalancer|objectstore|rds|cache|nat|nas|waf|mongodb|es|kafka|app|container"`
+}

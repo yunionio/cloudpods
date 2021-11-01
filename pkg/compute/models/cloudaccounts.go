@@ -618,7 +618,7 @@ func (self *SCloudaccount) AllowPerformSync(ctx context.Context, userCred mcclie
 	return db.IsAdminAllowPerform(userCred, self, "sync")
 }
 
-func (self *SCloudaccount) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SCloudaccount) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SyncRangeInput) (jsonutils.JSONObject, error) {
 	if !self.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Account disabled")
 	}
@@ -627,18 +627,14 @@ func (self *SCloudaccount) PerformSync(ctx context.Context, userCred mcclient.To
 		return nil, httperrors.NewInvalidStatusError("Account is not idle")
 	}
 
-	syncRange := SSyncRange{}
-	err := data.Unmarshal(&syncRange)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("invalid input %s", err)
-	}
-	if syncRange.FullSync || len(syncRange.Region) > 0 || len(syncRange.Zone) > 0 || len(syncRange.Host) > 0 {
+	syncRange := SSyncRange{SyncRangeInput: input}
+	if syncRange.FullSync || len(syncRange.Region) > 0 || len(syncRange.Zone) > 0 || len(syncRange.Host) > 0 || len(syncRange.Resources) > 0 {
 		syncRange.DeepSync = true
 	}
 	if self.CanSync() || syncRange.Force {
-		err = self.StartSyncCloudProviderInfoTask(ctx, userCred, &syncRange, "")
+		return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &syncRange, "")
 	}
-	return nil, err
+	return nil, nil
 }
 
 func (self *SCloudaccount) AllowPerformTestConnectivity(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -2096,7 +2092,11 @@ func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCre
 		} else {
 			syncCnt := 0
 			if err == nil && autoSync && account.GetEnabled() && account.EnableAutoSync {
-				syncRange := SSyncRange{FullSync: true}
+				syncRange := SSyncRange{
+					SyncRangeInput: api.SyncRangeInput{
+						FullSync: true,
+					},
+				}
 				account.markAutoSync(userCred)
 				providers := account.GetEnabledCloudproviders()
 				for i := range providers {
@@ -2238,7 +2238,11 @@ func (account *SCloudaccount) PerformPublic(ctx context.Context, userCred mcclie
 		return nil, errors.Wrap(err, "account.setShareMode")
 	}
 
-	syncRange := &SSyncRange{FullSync: true}
+	syncRange := &SSyncRange{
+		SyncRangeInput: api.SyncRangeInput{
+			FullSync: true,
+		},
+	}
 	account.StartSyncCloudProviderInfoTask(ctx, userCred, syncRange, "")
 
 	return nil, nil
@@ -2273,7 +2277,11 @@ func (account *SCloudaccount) PerformPrivate(ctx context.Context, userCred mccli
 		return nil, errors.Wrap(err, "account.setShareMode")
 	}
 
-	syncRange := &SSyncRange{FullSync: true}
+	syncRange := &SSyncRange{
+		SyncRangeInput: api.SyncRangeInput{
+			FullSync: true,
+		},
+	}
 	account.StartSyncCloudProviderInfoTask(ctx, userCred, syncRange, "")
 
 	return nil, nil

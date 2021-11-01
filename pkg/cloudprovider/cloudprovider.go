@@ -330,6 +330,10 @@ func IsSupportRds(prod ICloudProvider) bool {
 	return IsSupportCapability(prod, CLOUD_CAPABILITY_RDS)
 }
 
+func IsSupportNAS(prod ICloudProvider) bool {
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_NAS)
+}
+
 func IsSupportNAT(prod ICloudProvider) bool {
 	return IsSupportCapability(prod, CLOUD_CAPABILITY_NAT)
 }
