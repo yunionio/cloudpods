@@ -199,7 +199,13 @@ func (self *SManagedVirtualizedGuestDriver) RequestGuestCreateAllDisks(ctx conte
 	if storageCache == nil {
 		return fmt.Errorf("no valid storage cache")
 	}
-	return storageCache.StartImageCacheTask(ctx, task.GetUserCred(), imageId, diskCat.Root.DiskFormat, false, task.GetTaskId())
+	input := api.CacheImageInput{
+		ImageId:      imageId,
+		Format:       diskCat.Root.DiskFormat,
+		ParentTaskId: task.GetTaskId(),
+		ServerId:     guest.Id,
+	}
+	return storageCache.StartImageCacheTask(ctx, task.GetUserCred(), input)
 }
 
 func (self *SManagedVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {

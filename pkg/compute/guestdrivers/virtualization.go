@@ -302,7 +302,12 @@ func (self *SVirtualizedGuestDriver) CheckDiskTemplateOnStorage(ctx context.Cont
 	if cache == nil {
 		return fmt.Errorf("Cache is missing from storage")
 	}
-	return cache.StartImageCacheTask(ctx, userCred, imageId, format, false, task.GetTaskId())
+	input := api.CacheImageInput{
+		ImageId:      imageId,
+		Format:       format,
+		ParentTaskId: task.GetTaskId(),
+	}
+	return cache.StartImageCacheTask(ctx, userCred, input)
 }
 
 func (self *SVirtualizedGuestDriver) CanKeepDetachDisk() bool {

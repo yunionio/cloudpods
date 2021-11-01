@@ -25,6 +25,7 @@ const (
 	VM_CREATE_FAILED   = "create_fail"
 	VM_CREATE_DISK     = "disk"
 	VM_DISK_FAILED     = "disk_fail"
+	VM_IMAGE_CACHING   = "image_caching" // 缓存镜像中
 	VM_START_DEPLOY    = "start_deploy"
 	VM_DEPLOYING       = "deploying"
 	VM_DEPLOY_FAILED   = "deploy_fail"

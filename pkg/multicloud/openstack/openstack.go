@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/version"
 )
@@ -370,11 +371,12 @@ func (cli *SOpenStackClient) bsCreate(projectId, region, resource string, body i
 	return nil, errors.Wrap(ErrNoEndpoint, "cinder service")
 }
 
-func (cli *SOpenStackClient) imageUpload(region, url string, body io.Reader) (*http.Response, error) {
+func (cli *SOpenStackClient) imageUpload(region, url string, size int64, body io.Reader, callback func(progress float32)) (*http.Response, error) {
 	header := http.Header{}
 	header.Set("Content-Type", "application/octet-stream")
 	session := cli.getDefaultSession(region)
-	return session.RawRequest(OPENSTACK_SERVICE_IMAGE, "", httputils.PUT, url, header, body)
+	reader := multicloud.NewProgress(size, 99, body, callback)
+	return session.RawRequest(OPENSTACK_SERVICE_IMAGE, "", httputils.PUT, url, header, reader)
 }
 
 func (cli *SOpenStackClient) lbRequest(region string, method httputils.THttpMethod, resource string, query url.Values, body interface{}) (jsonutils.JSONObject, error) {

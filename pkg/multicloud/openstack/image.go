@@ -294,7 +294,7 @@ func (region *SRegion) GetImageByName(name string) (*SImage, error) {
 	return &images[0], nil
 }
 
-func (region *SRegion) CreateImage(imageName string, osType string, osDist string, minDiskGb int, minRam int, body io.Reader) (*SImage, error) {
+func (region *SRegion) CreateImage(imageName string, osType string, osDist string, minDiskGb int, minRam int, size int64, body io.Reader, callback func(progress float32)) (*SImage, error) {
 	params := map[string]interface{}{
 		"container_format":    "bare",
 		"disk_format":         string(qemuimg.QCOW2),
@@ -316,7 +316,7 @@ func (region *SRegion) CreateImage(imageName string, osType string, osDist strin
 		return nil, errors.Wrap(err, "resp.Unmarshal")
 	}
 	url := fmt.Sprintf("/v2/images/%s/file", image.Id)
-	err = region.imageUpload(url, body)
+	err = region.imageUpload(url, size, body, callback)
 	if err != nil {
 		return nil, errors.Wrap(err, "imageUpload")
 	}

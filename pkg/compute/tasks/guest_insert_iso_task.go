@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -49,7 +50,12 @@ func (self *GuestInsertIsoTask) prepareIsoImage(ctx context.Context, obj db.ISta
 
 	if storageCache != nil {
 		self.SetStage("OnIsoPrepareComplete", nil)
-		storageCache.StartImageCacheTask(ctx, self.UserCred, imageId, "iso", false, self.GetTaskId())
+		input := api.CacheImageInput{
+			ImageId:      imageId,
+			Format:       "iso",
+			ParentTaskId: self.GetTaskId(),
+		}
+		storageCache.StartImageCacheTask(ctx, self.UserCred, input)
 	} else {
 		guest.EjectIso(self.UserCred)
 		db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARE_FAIL, imageId, self.UserCred)
@@ -111,7 +117,12 @@ func (self *HaGuestInsertIsoTask) prepareIsoImage(ctx context.Context, obj db.IS
 	storageCache := storage.GetStoragecache()
 	if storageCache != nil {
 		self.SetStage("OnBackupIsoPrepareComplete", nil)
-		storageCache.StartImageCacheTask(ctx, self.UserCred, imageId, "iso", false, self.GetTaskId())
+		input := api.CacheImageInput{
+			ImageId:      imageId,
+			Format:       "iso",
+			ParentTaskId: self.GetTaskId(),
+		}
+		storageCache.StartImageCacheTask(ctx, self.UserCred, input)
 	} else {
 		guest.EjectIso(self.UserCred)
 		db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARE_FAIL, imageId, self.UserCred)

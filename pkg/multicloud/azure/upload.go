@@ -63,7 +63,7 @@ const oneMB = float64(1048576)
 // read from, the ranges of the stream to read, the destination blob and it's container, the client to communicate
 // with Azure storage and the number of parallel go-routines to use for upload.
 //
-func Upload(cxt *DiskUploadContext) error {
+func Upload(cxt *DiskUploadContext, callback func(float32)) error {
 	// Get the channel that contains stream of disk data to upload
 	dataWithRangeChan, streamReadErrChan := GetDataWithRanges(cxt.VhdStream, cxt.UploadableRanges)
 
@@ -87,7 +87,7 @@ func Upload(cxt *DiskUploadContext) error {
 	progressChan := uploadProgress.Run()
 
 	// read progress status from progress tracker and print it
-	go readAndPrintProgress(progressChan, cxt.Resume)
+	go readAndPrintProgress(progressChan, cxt.Resume, callback)
 
 	// listen for errors reported by workers and print it
 	var allWorkSucceeded = true
@@ -192,7 +192,7 @@ func GetDataWithRanges(stream *diskstream.DiskStream, ranges []*common.IndexRang
 // readAndPrintProgress reads the progress records from the given progress channel and output it. It reads the
 // progress record until the channel is closed.
 //
-func readAndPrintProgress(progressChan <-chan *progress.Record, resume bool) {
+func readAndPrintProgress(progressChan <-chan *progress.Record, resume bool, callback func(float32)) {
 	var spinChars = [4]rune{'\\', '|', '/', '-'}
 	s := time.Time{}
 	if resume {
@@ -214,6 +214,9 @@ func readAndPrintProgress(progressChan <-chan *progress.Record, resume bool) {
 			int(progressRecord.AverageThroughputMbPerSecond),
 			spinChars[i],
 		)
+		if callback != nil {
+			callback(33.0 + float32(progressRecord.PercentComplete*0.33))
+		}
 		i++
 	}
 }

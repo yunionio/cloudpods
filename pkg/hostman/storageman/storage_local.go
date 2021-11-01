@@ -378,7 +378,7 @@ func (s *SLocalStorage) CreateSnapshotFormUrl(
 ) error {
 	remoteFile := remotefile.NewRemoteFile(ctx, snapshotUrl, snapshotPath,
 		false, "", -1, nil, "", "")
-	err := remoteFile.Fetch()
+	err := remoteFile.Fetch(nil)
 	return errors.Wrapf(err, "fetch snapshot from %s", snapshotUrl)
 }
 

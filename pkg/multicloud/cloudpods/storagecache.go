@@ -16,18 +16,16 @@ package cloudpods
 
 import (
 	"context"
+	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	image_api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/multicloud"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SStoragecache struct {
@@ -79,22 +77,23 @@ func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imag
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, opts *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
-	if len(opts.ExternalId) > 0 {
-		image, err := self.region.GetImage(opts.ExternalId)
-		if err != nil {
-			if e, ok := errors.Cause(err).(*httputils.JSONClientError); ok && e.Code != 404 {
-				return "", errors.Wrapf(err, "GetImage(%s)", opts.ExternalId)
-			}
-			log.Errorf("GetImage %s error: %v", opts.ExternalId, err)
-		}
-		if image == nil || image.Status != image_api.IMAGE_STATUS_ACTIVE || isForce {
-			self.region.cli.delete(&modules.Images, opts.ExternalId)
-		} else {
-			return opts.ExternalId, nil
-		}
+func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, opts *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
+	id, err := self.region.UploadImage(ctx, userCred, opts, callback)
+	if err != nil {
+		return "", errors.Wrapf(err, "UploadImage")
 	}
-	return self.region.UploadImage(ctx, userCred, opts)
+	image, err := self.GetIImageById(id)
+	if err != nil {
+		return "", errors.Wrapf(err, "GetIImageById(%s)", id)
+	}
+	err = cloudprovider.WaitStatus(image, cloudprovider.IMAGE_STATUS_ACTIVE, time.Second*5, time.Minute*10)
+	if err != nil {
+		return "", errors.Wrapf(err, "WaitStatus")
+	}
+	if callback != nil {
+		callback(100)
+	}
+	return id, nil
 }
 
 func (self *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {

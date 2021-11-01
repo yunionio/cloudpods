@@ -138,7 +138,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		url, err := container.UploadFile(args.FILE)
+		url, err := container.UploadFile(args.FILE, nil)
 		if err != nil {
 			return err
 		}

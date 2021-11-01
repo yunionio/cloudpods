@@ -230,7 +230,7 @@ func (region *SRegion) GetBackupStorageUUID(zondId string) ([]string, error) {
 	return []string{servers[0].UUID}, nil
 }
 
-func (region *SRegion) CreateImage(zoneId string, imageName, format, osType, desc string, reader io.Reader, size int64) (*SImage, error) {
+func (region *SRegion) CreateImage(zoneId string, imageName, format, osType, desc string, reader io.Reader, size int64, callback func(progress float32)) (*SImage, error) {
 	backupStorageUUIDs, err := region.GetBackupStorageUUID(zoneId)
 	if err != nil {
 		return nil, err
@@ -281,7 +281,8 @@ func (region *SRegion) CreateImage(zoneId string, imageName, format, osType, des
 	header.Add("X-IMAGE-UUID", image.UUID)
 	header.Add("X-IMAGE-SIZE", fmt.Sprintf("%d", size))
 	header.Add("Content-Type", body.FormDataContentType())
-	resp, err := httputils.Request(httputils.GetTimeoutClient(0), context.Background(), "POST", image.BackupStorageRefs[0].InstallPath, header, body, false)
+	r := multicloud.NewProgress(size, 99, body, callback)
+	resp, err := httputils.Request(httputils.GetTimeoutClient(0), context.Background(), "POST", image.BackupStorageRefs[0].InstallPath, header, r, false)
 	if err != nil {
 		return nil, err
 	}

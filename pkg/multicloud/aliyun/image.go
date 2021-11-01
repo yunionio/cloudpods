@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -248,9 +249,18 @@ func (self *SRegion) ImportImage(name string, osArch string, osType string, osDi
 	if osDist == "RHEL" {
 		osDist = "CentOS"
 	}
-	params["Platform"] = osDist     // "Others Linux"
-	params["OSType"] = osType       // "linux"
-	params["Architecture"] = osArch // "x86_64"
+	params["Platform"] = osDist // "Others Linux"
+	params["OSType"] = osType   // "linux"
+	switch osArch {
+	case apis.OS_ARCH_I386, apis.OS_ARCH_X86_32:
+		params["Architecture"] = "i386"
+	case apis.OS_ARCH_X86, apis.OS_ARCH_X86_64:
+		params["Architecture"] = "x86_64"
+	case apis.OS_ARCH_ARM, apis.OS_ARCH_AARCH32, apis.OS_ARCH_AARCH64:
+		params["Architecture"] = "arm64"
+	default:
+		params["Architecture"] = osArch // "x86_64"
+	}
 	params["DiskDeviceMapping.1.OSSBucket"] = bucket
 	params["DiskDeviceMapping.1.OSSObject"] = key
 

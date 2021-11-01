@@ -572,7 +572,7 @@ func (self *SContainer) SignUrl(method string, key string, expire time.Duration)
 	return blobRef.GetSASURI(sas)
 }
 
-func (self *SContainer) UploadFile(filePath string) (string, error) {
+func (self *SContainer) UploadFile(filePath string, callback func(progress float32)) (string, error) {
 	blobService, err := self.storageaccount.getBlobServiceClient()
 	if err != nil {
 		return "", errors.Wrap(err, "getBlobServiceClient")
@@ -617,7 +617,7 @@ func (self *SContainer) UploadFile(filePath string) (string, error) {
 		MD5Hash:               []byte(""), //localMetaData.FileMetaData.MD5Hash,
 	}
 
-	if err := Upload(cxt); err != nil {
+	if err := Upload(cxt, callback); err != nil {
 		return "", err
 	}
 	return blobRef.GetURL(), nil
@@ -665,12 +665,12 @@ func (self *SContainer) setAcl(aclStr cloudprovider.TBucketACLType) error {
 	return nil
 }
 
-func (self *SStorageAccount) UploadFile(containerName string, filePath string) (string, error) {
+func (self *SStorageAccount) UploadFile(containerName string, filePath string, callback func(progress float32)) (string, error) {
 	container, err := self.getOrCreateContainer(containerName, true)
 	if err != nil {
 		return "", errors.Wrap(err, "getOrCreateContainer")
 	}
-	return container.UploadFile(filePath)
+	return container.UploadFile(filePath, callback)
 }
 
 func (self *SStorageAccount) getOrCreateContainer(containerName string, create bool) (*SContainer, error) {

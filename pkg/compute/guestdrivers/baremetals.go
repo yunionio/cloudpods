@@ -302,7 +302,12 @@ func (self *SBaremetalGuestDriver) RequestGuestCreateAllDisks(ctx context.Contex
 	if storageCache == nil {
 		return fmt.Errorf("no valid storage cache")
 	}
-	return storageCache.StartImageCacheTask(ctx, task.GetUserCred(), imageId, "qcow2", false, task.GetTaskId())
+	input := api.CacheImageInput{
+		ImageId:      imageId,
+		Format:       "qcow2",
+		ParentTaskId: task.GetTaskId(),
+	}
+	return storageCache.StartImageCacheTask(ctx, task.GetUserCred(), input)
 }
 
 func (self *SBaremetalGuestDriver) NeedRequestGuestHotAddIso(ctx context.Context, guest *models.SGuest) bool {
