@@ -377,6 +377,25 @@ func (guest *SGuest) sshableTry(
 	return ok
 }
 
+func (guest *SGuest) AllowPerformHaveAgent(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return guest.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, guest, "have-agent")
+}
+
+func (guest *SGuest) PerformHaveAgent(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input compute_api.GuestHaveAgentInput) (compute_api.GuestHaveAgentOutput, error) {
+	var output compute_api.GuestHaveAgentOutput
+	v := guest.GetMetadata("__monitor_agent", userCred)
+	if v == "true" {
+		output.Have = true
+		return output, nil
+	}
+	v = guest.GetMetadata("sys:monitor_agent", userCred)
+	if v == "true" {
+		output.Have = true
+		return output, nil
+	}
+	return output, nil
+}
+
 func (guest *SGuest) AllowPerformMakeSshable(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

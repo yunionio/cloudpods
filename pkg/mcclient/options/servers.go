@@ -1134,6 +1134,10 @@ func (opts *ServerSetSshportOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
 
+type ServerHaveAgentOptions struct {
+	BaseIdOptions
+}
+
 type ServerMigrateNetworkOptions struct {
 	BaseIdOptions
 
