@@ -878,7 +878,7 @@ func getModelItemDetails(manager IModelManager, item IModel, ctx context.Context
 }
 
 func GetItemDetails(manager IModelManager, item IModel, ctx context.Context, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
-	return getItemDetails(manager, item, ctx, userCred, nil)
+	return getItemDetails(manager, item, ctx, userCred, jsonutils.NewDict())
 }
 
 func getItemDetails(manager IModelManager, item IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
