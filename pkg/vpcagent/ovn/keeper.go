@@ -17,6 +17,7 @@ package ovn
 import (
 	"context"
 	"fmt"
+	"net"
 	"sort"
 	"strings"
 
@@ -27,7 +28,10 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	apis "yunion.io/x/onecloud/pkg/apis/compute"
+	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	agentmodels "yunion.io/x/onecloud/pkg/vpcagent/models"
+	"yunion.io/x/onecloud/pkg/vpcagent/options"
 	"yunion.io/x/onecloud/pkg/vpcagent/ovn/mac"
 	"yunion.io/x/onecloud/pkg/vpcagent/ovnutil"
 )
@@ -264,7 +268,7 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 	return keeper.cli.Must(ctx, "ClaimVpc", args)
 }
 
-func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *agentmodels.Network, mtu int) error {
+func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *agentmodels.Network, opts *options.Options) error {
 	var (
 		rpMac   = mac.HashSubnetRouterPortMac(network.Id)
 		dhcpMac = mac.HashSubnetDhcpMac(network.Id)
@@ -296,6 +300,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 		mdIp, "0.0.0.0",
 		"0.0.0.0/0", network.GuestGateway,
 	}
+	mtu := opts.OvnUnderlayMtu
 	mtu -= apis.VPC_OVN_ENCAP_COST
 	const (
 		leaseTime  = 86400 * 365 * 3
@@ -318,10 +323,38 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 			externalKeyOcRef: network.Id,
 		},
 	}
-	if network.GuestDns != "" {
-		dhcpopts.Options["dns_server"] = "{" + network.GuestDns + "}"
-	} else {
-		dhcpopts.Options["dns_server"] = "{223.5.5.5,223.6.6.6}"
+	{
+		dnsSrvs := ""
+		if network.GuestDns != "" {
+			dnsSrvs = network.GuestDns
+		} else {
+			dns, err := auth.GetDNSServers(opts.Region, "")
+			if err != nil {
+				log.Errorf("auth.GetDNSServers fail %s", err)
+			} else {
+				dnsSrvs = strings.Join(dns, ",")
+			}
+		}
+		if len(dnsSrvs) == 0 {
+			dnsSrvs = apis.DefaultDNSServers
+		}
+		dhcpopts.Options["dns_server"] = "{" + dnsSrvs + "}"
+	}
+	{
+		ntpSrvs := ""
+		if network.GuestNtp != "" {
+			ntpSrvs = network.GuestNtp
+		} else {
+			ntp, err := auth.GetNTPServers(opts.Region, "")
+			if err != nil {
+				log.Errorf("auth.GetNTPServers fail %s", err)
+			} else {
+				ntpSrvs = strings.Join(ntp, ",")
+			}
+		}
+		if len(ntpSrvs) > 0 {
+			dhcpopts.Options["ntp_server"] = "{" + ntpSrvs + "}"
+		}
 	}
 
 	var (

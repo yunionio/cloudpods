@@ -155,6 +155,7 @@ func (self *SNetInterface) networkToJson(ipAddr string, network *SNetwork, desc 
 		}
 		desc.Add(jsonutils.NewString(network.GetDNS()), "dns")
 		desc.Add(jsonutils.NewString(network.GetDomain()), "domain")
+		desc.Add(jsonutils.NewString(network.GetNTP()), "ntp")
 
 		routes := network.GetRoutes()
 		if routes != nil && len(routes) > 0 {

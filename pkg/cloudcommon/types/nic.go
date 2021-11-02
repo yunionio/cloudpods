@@ -65,6 +65,7 @@ type SServerNic struct {
 	BandWidth int      `json:"bw"`
 	Mtu       int      `json:"mtu,omitempty"`
 	Dns       string   `json:"dns"`
+	Ntp       string   `json:"ntp"`
 	Net       string   `json:"net"`
 	Interface string   `json:"interface"`
 	Gateway   string   `json:"gateway"`

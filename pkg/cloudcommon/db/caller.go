@@ -185,7 +185,7 @@ func ValueToJSONObject(out reflect.Value) jsonutils.JSONObject {
 	if obj, ok := isJSONObject(out); ok {
 		return obj
 	}
-	return jsonutils.Marshal(out.Interface())
+	return jsonutils.MarshalAll(out.Interface())
 }
 
 func ValueToJSONDict(out reflect.Value) *jsonutils.JSONDict {
@@ -207,8 +207,23 @@ func ValueToError(out reflect.Value) error {
 func mergeInputOutputData(data *jsonutils.JSONDict, resVal reflect.Value) *jsonutils.JSONDict {
 	retJson := ValueToJSONDict(resVal)
 	// preserve the input info not returned by caller
-	data.Update(retJson)
-	return data
+	log.Debugf("retJson: %s", retJson)
+	log.Debugf("data: %s", data)
+	output := data.Copy()
+	jsonMap, _ := retJson.GetMap()
+	for k, v := range jsonMap {
+		if output.Contains(k) {
+			if v == jsonutils.JSONNull || v.IsZero() {
+				output.Remove(k)
+			} else if !v.IsZero() {
+				output.Set(k, v)
+			}
+		} else if !v.IsZero() {
+			output.Add(v, k)
+		}
+	}
+	log.Debugf("output: %s", output)
+	return output
 }
 
 func ValidateCreateData(funcName string, manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

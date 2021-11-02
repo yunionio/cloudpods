@@ -32,6 +32,7 @@ const (
 	OptClasslessRouteWin OptionCode = 249
 )
 
+// http://www.networksorcery.com/enp/rfc/rfc2132.txt
 type ResponseConfig struct {
 	OsName        string
 	ServerIP      net.IP // OptServerIdentifier 54
@@ -43,8 +44,9 @@ type ResponseConfig struct {
 	BroadcastAddr net.IP        // OptBroadcastAddr 28
 	Hostname      string        // OptHostname 12
 	SubnetMask    net.IP        // OptSubnetMask 1
-	DNSServer     net.IP        // OptDNSServers
+	DNSServers    []net.IP      // OptDNSServers
 	Routes        [][]string    // TODO: 249 for windows, 121 for linux
+	NTPServers    []net.IP      // OptNTPServers 42
 
 	// TFTP config
 	BootServer string
@@ -62,6 +64,14 @@ func (conf ResponseConfig) GetHostname() string {
 
 func GetOptIP(ip net.IP) []byte {
 	return []byte(ip.To4())
+}
+
+func GetOptIPs(ips []net.IP) []byte {
+	buf := make([]byte, 0)
+	for _, ip := range ips {
+		buf = append(buf, []byte(ip.To4())...)
+	}
+	return buf
 }
 
 func GetOptTime(d time.Duration) []byte {
@@ -138,8 +148,11 @@ func makeDHCPReplyPacket(req Packet, conf *ResponseConfig, msgType MessageType) 
 	if conf.Hostname != "" {
 		opts = append(opts, Option{OptionHostName, []byte(conf.GetHostname())})
 	}
-	if conf.DNSServer != nil {
-		opts = append(opts, Option{OptionDomainNameServer, GetOptIP(conf.DNSServer)})
+	if len(conf.DNSServers) > 0 {
+		opts = append(opts, Option{OptionDomainNameServer, GetOptIPs(conf.DNSServers)})
+	}
+	if len(conf.NTPServers) > 0 {
+		opts = append(opts, Option{OptionNetworkTimeProtocolServers, GetOptIPs(conf.NTPServers)})
 	}
 	resp := ReplyPacket(req, msgType, conf.ServerIP, conf.ClientIP, conf.LeaseTime, opts)
 	if conf.BootServer != "" {

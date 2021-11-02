@@ -24,9 +24,11 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 
+	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	guestman "yunion.io/x/onecloud/pkg/hostman/guestman/types"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/dhcp"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
@@ -135,8 +137,19 @@ func (s *SGuestDHCPServer) getGuestConfig(guestDesc, guestNic jsonutils.JSONObje
 	conf.Routes = route
 
 	if len(nicdesc.Dns) > 0 {
-		conf.DNSServer = net.ParseIP(nicdesc.Dns)
+		conf.DNSServers = make([]net.IP, 0)
+		for _, dns := range strings.Split(nicdesc.Dns, ",") {
+			conf.DNSServers = append(conf.DNSServers, net.ParseIP(dns))
+		}
 	}
+
+	if len(nicdesc.NTPServers) > 0 {
+		conf.NTPServers = make([]net.IP, 0)
+		for _, ntp := range strings.Split(nicdesc.Ntp, ",") {
+			conf.NTPServers = append(conf.NTPServers, net.ParseIP(ntp))
+		}
+	}
+
 	conf.OsName, _ = guestDesc.GetString("os_name")
 	conf.LeaseTime = time.Duration(options.HostOptions.DhcpLeaseTime) * time.Second
 	conf.RenewalTime = time.Duration(options.HostOptions.DhcpRenewalTime) * time.Second

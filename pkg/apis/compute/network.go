@@ -99,6 +99,8 @@ type NetworkListInput struct {
 	GuestDns []string `json:"guest_dns"`
 	// allow multiple dhcp, seperated by ","
 	GuestDhcp []string `json:"guest_dhcp"`
+	// NTP
+	GuestNtp []string `json:"guest_ntp"`
 
 	GuestDomain []string `json:"guest_domain"`
 
@@ -172,12 +174,16 @@ type NetworkCreateInput struct {
 	GuestGateway string `json:"guest_gateway"`
 
 	// description: guest dns
-	// example: 114.114.114.114
+	// example: 114.114.114.114,8.8.8.8
 	GuestDns string `json:"guest_dns"`
 
 	// description: guest dhcp
 	// example: 192.168.222.1,192.168.222.4
 	GuestDHCP string `json:"guest_dhcp"`
+
+	// description: guest ntp
+	// example: cn.pool.ntp.org,0.cn.pool.ntp.org
+	GuestNtp string `json:"guest_ntp"`
 
 	// swagger:ignore
 	WireId string `json:"wire_id"`
@@ -349,6 +355,8 @@ type NetworkUpdateInput struct {
 	GuestDns string `json:"guest_dns"`
 	// allow multiple dhcp, seperated by ","
 	GuestDhcp string `json:"guest_dhcp"`
+	// NTP
+	GuestNtp string `json:"guest_ntp"`
 
 	GuestDomain string `json:"guest_domain"`
 
