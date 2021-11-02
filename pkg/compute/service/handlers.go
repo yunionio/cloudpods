@@ -90,7 +90,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.ScalingGroupGuestManager,
 		models.ScalingGroupNetworkManager,
 
-		models.ScheduledTaskLabelManager,
 		models.DnsRecordSetTrafficPolicyManager,
 		models.CloudimageManager,
 
@@ -195,9 +194,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.ScalingActivityManager,
 		models.PolicyDefinitionManager,
 		models.PolicyAssignmentManager,
-
-		models.ScheduledTaskManager,
-		models.ScheduledTaskActivityManager,
 
 		models.DnsZoneManager,
 		models.DnsZoneCacheManager,

@@ -164,8 +164,6 @@ func StartService() {
 
 		cron.AddJobEveryFewHour("InspectAllTemplate", 1, 0, 0, models.GuestTemplateManager.InspectAllTemplate, true)
 
-		cron.AddJobAtIntervalsWithStartRun("ScheduledTaskCheck", time.Duration(60)*time.Second, models.ScheduledTaskManager.Timer, true)
-
 		cron.AddJobEveryFewHour("CheckBillingResourceExpireAt", 1, 0, 0, models.CheckBillingResourceExpireAt, true)
 		go cron.Start2(ctx, electObj)
 
