@@ -1696,7 +1696,7 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 	}
 	if options.HostOptions.ManageNtpConfiguration {
 		ntpd := system_service.GetService("ntpd")
-		urls, _ := catalog.GetServiceURLs("ntp", options.HostOptions.Region, "", defaultEndpointType)
+		urls, _ := catalog.GetServiceURLs("ntp", options.HostOptions.Region, h.Zone, defaultEndpointType)
 		if len(urls) > 0 {
 			log.Infof("Get Ntp urls: %v", urls)
 		} else {

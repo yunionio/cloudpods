@@ -563,8 +563,9 @@ func (self *SGuestnetwork) getJsonDesc() *api.GuestnetworkJsonDesc {
 		desc.Ip = self.IpAddr
 	}
 	desc.Gateway = net.GuestGateway
-	desc.DNS = net.GetDNS()
+	desc.Dns = net.GetDNS()
 	desc.Domain = net.GetDomain()
+	desc.Ntp = net.GetNTP()
 
 	routes := net.GetRoutes()
 	if routes != nil && len(routes) > 0 {

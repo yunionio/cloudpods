@@ -111,10 +111,12 @@ type SNetwork struct {
 	GuestIpMask int8 `nullable:"false" list:"user" update:"user" create:"required"`
 	// 网关地址
 	GuestGateway string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
-	// DNS
-	GuestDns string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
+	// DNS, allow multiple dns, seperated by ","
+	GuestDns string `width:"64" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 	// allow multiple dhcp, seperated by ","
 	GuestDhcp string `width:"64" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
+	// allow mutiple ntp, seperated by ","
+	GuestNtp string `width:"64" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 
 	GuestDomain string `width:"128" charset:"ascii" nullable:"true" get:"user" update:"user"`
 
@@ -385,7 +387,10 @@ func (self *SNetwork) getFreeIP(addrTable map[string]bool, recentUsedAddrTable m
 	if len(self.AllocPolicy) > 0 && api.IPAllocationDirection(self.AllocPolicy) != api.IPAllocationNone {
 		allocDir = api.IPAllocationDirection(self.AllocPolicy)
 	}
-	if len(allocDir) == 0 || allocDir == api.IPAllocationStepdown {
+	if len(allocDir) == 0 {
+		allocDir = api.IPAllocationDirection(options.Options.DefaultIPAllocationDirection)
+	}
+	if allocDir == api.IPAllocationStepdown {
 		ip, _ := netutils.NewIPV4Addr(self.GuestIpEnd)
 		for iprange.Contains(ip) {
 			if !isIpUsed(ip.String(), addrTable, recentUsedAddrTable) {
@@ -457,7 +462,42 @@ func (self *SNetwork) GetDNS() string {
 	if len(self.GuestDns) > 0 {
 		return self.GuestDns
 	} else {
-		return options.Options.DNSServer
+		zoneName := ""
+		wire, _ := self.GetWire()
+		if wire != nil {
+			zone, _ := wire.GetZone()
+			if zone != nil {
+				zoneName = zone.Name
+			}
+		}
+		srvs, _ := auth.GetDNSServers(options.Options.Region, zoneName)
+		if len(srvs) > 0 {
+			return strings.Join(srvs, ",")
+		}
+		if len(options.Options.DNSServer) > 0 {
+			return options.Options.DNSServer
+		}
+		return api.DefaultDNSServers
+	}
+}
+
+func (self *SNetwork) GetNTP() string {
+	if len(self.GuestNtp) > 0 {
+		return self.GuestNtp
+	} else {
+		zoneName := ""
+		wire, _ := self.GetWire()
+		if wire != nil {
+			zone, _ := wire.GetZone()
+			if zone != nil {
+				zoneName = zone.Name
+			}
+		}
+		srvs, _ := auth.GetNTPServers(options.Options.Region, zoneName)
+		if len(srvs) > 0 {
+			return strings.Join(srvs, ",")
+		}
+		return ""
 	}
 }
 
@@ -1532,19 +1572,21 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		}
 	}
 
-	if len(input.GuestDns) == 0 {
-		input.GuestDns = options.Options.DNSServer
-	}
+	// do not set default dns
+	// if len(input.GuestDns) == 0 {
+	// 	input.GuestDns = options.Options.DNSServer
+	// }
 
 	for key, ipStr := range map[string]string{
 		"guest_gateway": input.GuestGateway,
 		"guest_dns":     input.GuestDns,
 		"guest_dhcp":    input.GuestDHCP,
+		"guest_ntp":     input.GuestNtp,
 	} {
 		if ipStr == "" {
 			continue
 		}
-		if key == "guest_dhcp" {
+		if key == "guest_dhcp" || key == "guest_dns" || key == "guest_ntp" {
 			ipList := strings.Split(ipStr, ",")
 			for _, ipstr := range ipList {
 				if !regutils.MatchIPAddr(ipstr) {
@@ -1737,11 +1779,12 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 		"guest_gateway": input.GuestGateway,
 		"guest_dns":     input.GuestDns,
 		"guest_dhcp":    input.GuestDhcp,
+		"guest_ntp":     input.GuestNtp,
 	} {
 		if ipStr == "" {
 			continue
 		}
-		if key == "guest_dhcp" {
+		if key == "guest_dhcp" || key == "guest_dns" || key == "guest_ntp" {
 			ipList := strings.Split(ipStr, ",")
 			for _, ipstr := range ipList {
 				if !regutils.MatchIPAddr(ipstr) {
@@ -1772,13 +1815,19 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 }
 
 func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.NetworkUpdateInput) (api.NetworkUpdateInput, error) {
-	if !self.isManaged() && !self.isOneCloudVpcNetwork() {
-		var err error
-		input, err = self.validateUpdateData(ctx, userCred, query, input)
-		if err != nil {
-			return input, errors.Wrap(err, "validateUpdateData")
+	if !self.isManaged() {
+		if !self.isOneCloudVpcNetwork() {
+			// classic network
+		} else {
+			// vpc network
+			input.GuestIpStart = ""
+			input.GuestIpEnd = ""
+			input.GuestIpMask = nil
+			input.GuestGateway = ""
+			input.GuestDhcp = ""
 		}
 	} else {
+		// managed network
 		input.GuestIpStart = ""
 		input.GuestIpEnd = ""
 		input.GuestIpMask = nil
@@ -1786,9 +1835,14 @@ func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 		input.GuestDns = ""
 		input.GuestDomain = ""
 		input.GuestDhcp = ""
+		input.GuestNtp = ""
+	}
+	var err error
+	input, err = self.validateUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		return input, errors.Wrap(err, "validateUpdateData")
 	}
 
-	var err error
 	input.SharableVirtualResourceBaseUpdateInput, err = self.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.SharableVirtualResourceBaseUpdateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "SSharableVirtualResourceBase.ValidateUpdateData")
@@ -2162,6 +2216,9 @@ func (manager *SNetworkManager) ListItemFilter(
 	if len(input.GuestDhcp) > 0 {
 		q = q.In("guest_dhcp", input.GuestDhcp)
 	}
+	if len(input.GuestNtp) > 0 {
+		q = q.In("guest_ntp", input.GuestNtp)
+	}
 	if len(input.GuestDomain) > 0 {
 		q = q.In("guest_domain", input.GuestDomain)
 	}
@@ -2534,6 +2591,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	network.GuestGateway = self.GuestGateway
 	network.GuestDns = self.GuestDns
 	network.GuestDhcp = self.GuestDhcp
+	network.GuestNtp = self.GuestNtp
 	network.GuestDomain = self.GuestDomain
 	network.VlanId = self.VlanId
 	network.WireId = self.WireId
@@ -2688,6 +2746,7 @@ func (manager *SNetworkManager) PerformTryCreateNetwork(ctx context.Context, use
 		newNetwork.GuestIpMask = int8(input.Mask)
 		newNetwork.GuestDns = nm.GuestDns
 		newNetwork.GuestDhcp = nm.GuestDhcp
+		newNetwork.GuestNtp = nm.GuestNtp
 		newNetwork.WireId = nm.WireId
 		newNetwork.ServerType = input.ServerType
 		newNetwork.IsPublic = nm.IsPublic
