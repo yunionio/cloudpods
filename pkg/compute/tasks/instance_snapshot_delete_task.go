@@ -96,6 +96,11 @@ func (self *InstanceSnapshotDeleteTask) OnKvmSnapshotDeleteFailed(
 }
 
 func (self *InstanceSnapshotDeleteTask) OnInstanceSnapshotDelete(ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
+	err := isp.Delete(ctx, self.UserCred)
+	if err != nil {
+		self.taskFail(ctx, isp, jsonutils.NewString(err.Error()))
+		return
+	}
 	self.taskComplete(ctx, isp, data)
 
 }
