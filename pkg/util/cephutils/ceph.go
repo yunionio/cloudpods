@@ -91,11 +91,36 @@ type SCapacity struct {
 
 func (self *CephClient) output(name string, opts []string) (jsonutils.JSONObject, error) {
 	opts = append([]string{"--format", "json"}, opts...)
-	resp, err := procutils.NewRemoteCommandAsFarAsPossible(name, opts...).Output()
+	proc := procutils.NewRemoteCommandAsFarAsPossible(name, opts...)
+	outb, err := proc.StdoutPipe()
 	if err != nil {
-		return nil, errors.Wrapf(err, "%s %s", name, string(resp))
+		return nil, errors.Wrap(err, "stdout pipe")
 	}
-	return jsonutils.Parse(resp)
+	defer outb.Close()
+
+	errb, err := proc.StderrPipe()
+	if err != nil {
+		return nil, errors.Wrap(err, "stderr pipe")
+	}
+	defer errb.Close()
+
+	if err := proc.Start(); err != nil {
+		return nil, errors.Wrap(err, "start ceph process")
+	}
+
+	stdoutPut, err := ioutil.ReadAll(outb)
+	if err != nil {
+		return nil, err
+	}
+	stderrPut, err := ioutil.ReadAll(errb)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := proc.Wait(); err != nil {
+		return nil, errors.Wrapf(err, "stderr %q", stderrPut)
+	}
+	return jsonutils.Parse(stdoutPut)
 }
 
 func (self *CephClient) run(name string, opts []string) error {

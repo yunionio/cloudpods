@@ -79,6 +79,7 @@ const (
 	ACT_EIP_CONVERT                  = "eip_convert"
 	ACT_CHANGE_BANDWIDTH             = "change_bandwidth"
 	ACT_DISK_CREATE_SNAPSHOT         = "disk_create_snapshot"
+	ACT_DISK_CHANGE_STORAGE          = "disk_change_storage"
 	ACT_LB_ADD_BACKEND               = "lb_add_backend"
 	ACT_LB_REMOVE_BACKEND            = "lb_remove_backend"
 	ACL_LB_SYNC_BACKEND_CONF         = "lb_sync_backend_conf"

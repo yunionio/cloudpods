@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -115,6 +116,11 @@ type IStorage interface {
 	CreateDiskByDiskinfo(context.Context, interface{}) (jsonutils.JSONObject, error)
 	SaveToGlance(context.Context, interface{}) (jsonutils.JSONObject, error)
 	CreateDiskFromSnapshot(context.Context, IDisk, *SDiskCreateByDiskinfo) error
+
+	// GetCloneTargetDiskPath generate target disk path by target disk id
+	GetCloneTargetDiskPath(ctx context.Context, targetDiskId string) string
+	// CloneDiskFromStorage clone disk from other storage
+	CloneDiskFromStorage(ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string) (*host.ServerCloneDiskFromStorageResponse, error)
 
 	CreateSnapshotFormUrl(ctx context.Context, snapshotUrl, diskId, snapshotPath string) error
 
@@ -362,6 +368,14 @@ func (s *SBaseStorage) DestinationPrepareMigrate(
 	disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool, diskinfo jsonutils.JSONObject,
 ) error {
 	return nil
+}
+
+func (s *SBaseStorage) GetCloneTargetDiskPath(ctx context.Context, targetDiskId string) string {
+	return ""
+}
+
+func (s *SBaseStorage) CloneDiskFromStorage(ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string) (*host.ServerCloneDiskFromStorageResponse, error) {
+	return nil, httperrors.ErrNotImplemented
 }
 
 /*************************Background delete snapshot job****************************/
