@@ -26,7 +26,7 @@ type GatewayOptions struct {
 
 	DisableModuleApiVersion bool `help:"Disable each modules default api version" default:"false"`
 
-	EnableTotp bool `help:"Enable two-factor authentication" default:"true"`
+	EnableTotp bool `help:"Enable two-factor authentication" default:"false"`
 
 	SsoRedirectUrl     string `help:"SSO idp redirect URL"`
 	SsoAuthCallbackUrl string `help:"SSO idp auth callback URL"`
