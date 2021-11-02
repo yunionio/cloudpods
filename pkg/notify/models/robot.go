@@ -163,6 +163,24 @@ func (rm *SRobotManager) InitializeData() error {
 			}
 		}
 	}
+	// init empty projectId robot
+	rq := RobotManager.Query().IsEmpty("tenant_id")
+	npRobots := make([]SRobot, 0)
+	err = db.FetchModelObjects(RobotManager, rq, &npRobots)
+	if err != nil {
+		return errors.Wrap(err, "unable to fetch robots without project")
+	}
+	for i := range npRobots {
+		robot := &npRobots[i]
+		_, err := db.Update(robot, func() error {
+			robot.ProjectId = "system"
+			robot.ProjectSrc = "local"
+			return nil
+		})
+		if err != nil {
+			return errors.Wrapf(err, "unable to update robot %s", robot.Id)
+		}
+	}
 	return nil
 }
 
