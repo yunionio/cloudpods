@@ -139,6 +139,8 @@ type SHostOptions struct {
 
 	DisableProbeKubelet bool   `help:"Disable probe kubelet config" default:"false"`
 	KubeletRunDirectory string `help:"Kubelet config file path" default:"/var/lib/kubelet"`
+
+	DisableGPU bool `help:"force disable GPU" default:"false" json:"disable_gpu"`
 }
 
 var (
