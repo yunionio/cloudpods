@@ -2047,6 +2047,24 @@ func (manager *SKafkaManager) purgeAll(ctx context.Context, userCred mcclient.To
 	return nil
 }
 
+func (manager *SCDNDomainManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	domains := []SCDNDomain{}
+	err := fetchByManagerId(manager, providerId, &domains)
+	if err != nil {
+		return errors.Wrapf(err, "fetchByManagerId")
+	}
+	for i := range domains {
+		lockman.LockObject(ctx, &domains[i])
+		defer lockman.ReleaseObject(ctx, &domains[i])
+
+		err := domains[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "cdn domain delete")
+		}
+	}
+	return nil
+}
+
 func (manager *SKubeClusterManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
 	clusters := []SKubeCluster{}
 	err := fetchByManagerId(manager, providerId, &clusters)
