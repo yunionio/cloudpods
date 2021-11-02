@@ -311,11 +311,7 @@ func (h *SHostInfo) parseConfig() error {
 		h.MasterNic = nil
 	}
 
-	if man, err := isolated_device.NewManager(h); err != nil {
-		return fmt.Errorf("NewIsolatedManager: %v", err)
-	} else {
-		h.IsolatedDeviceMan = man
-	}
+	h.IsolatedDeviceMan = isolated_device.NewManager(h)
 
 	return nil
 }
@@ -1473,7 +1469,15 @@ func (h *SHostInfo) uploadStorageInfo() {
 	go storageman.StartSyncStorageSizeTask(
 		time.Duration(options.HostOptions.SyncStorageInfoDurationSecond) * time.Second,
 	)
-	h.getIsolatedDevices()
+	var err error
+	if !options.HostOptions.DisableGPU {
+		err = h.IsolatedDeviceMan.ProbePCIDevices()
+	}
+	if err != nil {
+		h.onFail(errors.Wrap(err, "Probe PCI device failed"))
+	} else {
+		h.getIsolatedDevices()
+	}
 }
 
 func (h *SHostInfo) onSyncStorageInfoSucc(storage storageman.IStorage, storageInfo jsonutils.JSONObject) {
