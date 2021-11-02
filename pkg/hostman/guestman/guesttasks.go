@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/appctx"
@@ -1454,4 +1455,27 @@ func (task *SCancelBlockJobs) taskComplete() {
 	if task.ctx != nil {
 		hostutils.TaskComplete(task.ctx, nil)
 	}
+}
+
+type SGuestStorageCloneDiskTask struct {
+	guest  *SKVMGuestInstance
+	params *SStorageCloneDisk
+}
+
+func NewGuestStorageCloneDiskTask(guest *SKVMGuestInstance, params *SStorageCloneDisk) *SGuestStorageCloneDiskTask {
+	return &SGuestStorageCloneDiskTask{
+		guest:  guest,
+		params: params,
+	}
+}
+
+func (t *SGuestStorageCloneDiskTask) Start(ctx context.Context) {
+	resp, err := t.params.TargetStorage.CloneDiskFromStorage(ctx, t.params.SourceStorage, t.params.SourceDisk, t.params.TargetDiskId)
+	if err != nil {
+		hostutils.TaskFailed(
+			ctx,
+			errors.Wrapf(err, "Clone disk %s to storage %s", t.params.SourceDisk.GetPath(), t.params.TargetStorage.GetId()).Error())
+		return
+	}
+	hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
 }

@@ -1162,3 +1162,14 @@ type ServerDomainStatisticsOptions struct {
 	ServerListOptions
 	DomainStatisticsOptions
 }
+
+type ServerChangeDiskStorageOptions struct {
+	BaseIdOptions
+	DISKID         string `json:"disk_id" help:"Disk id or name"`
+	TARGETSTORAGE  string `json:"target_storage_id" help:"Target storage id or name"`
+	KeepOriginDisk bool   `json:"keep_origin_disk" help:"Keep origin disk when changed"`
+}
+
+func (o *ServerChangeDiskStorageOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}

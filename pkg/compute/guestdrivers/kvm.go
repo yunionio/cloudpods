@@ -775,3 +775,44 @@ func (self *SKVMGuestDriver) ValidateDetachNetwork(ctx context.Context, userCred
 	}
 	return nil
 }
+
+func (self *SKVMGuestDriver) ValidateChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input *api.ServerChangeDiskStorageInput) error {
+	// kvm guest must in ready status
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY}) {
+		return httperrors.NewBadRequestError("Cannot change disk storage in status %s", guest.Status)
+	}
+
+	// backup guest not supported
+	if guest.BackupHostId != "" {
+		return httperrors.NewBadRequestError("Cannot change disk storage in backup guest %s", guest.GetName())
+	}
+
+	// storage must attached on guest's host
+	host, err := guest.GetHost()
+	if err != nil {
+		return errors.Wrapf(err, "Get guest %s host", guest.GetName())
+	}
+	attachedStorages := host.GetAttachedEnabledHostStorages(nil)
+	foundStorage := false
+	for _, storage := range attachedStorages {
+		if storage.GetId() == input.TargetStorageId {
+			foundStorage = true
+		}
+	}
+	if !foundStorage {
+		return httperrors.NewBadRequestError("Storage %s not attached or enabled on host %s", input.TargetStorageId, host.GetName())
+	}
+	return nil
+}
+
+func (self *SKVMGuestDriver) RequestChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input *api.ServerChangeDiskStorageInternalInput, task taskman.ITask) error {
+	host, err := guest.GetHost()
+	if err != nil {
+		return err
+	}
+	body := jsonutils.Marshal(input)
+	header := self.getTaskRequestHeader(task)
+	url := fmt.Sprintf("%s/servers/%s/storage-clone-disk", host.ManagerUri, guest.GetId())
+	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+	return err
+}
