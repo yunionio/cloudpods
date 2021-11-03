@@ -423,3 +423,20 @@ func (self *SBaseGuestDriver) ValidateRebuildRoot(ctx context.Context, userCred 
 func (self *SBaseGuestDriver) ValidateDetachNetwork(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
 	return nil
 }
+
+func (self *SBaseGuestDriver) ValidateChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input *api.ServerChangeDiskStorageInput) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SBaseGuestDriver) StartChangeDiskStorageTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *api.ServerChangeDiskStorageInternalInput, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestChangeDiskStorageTask", guest, userCred, jsonutils.Marshal(params).(*jsonutils.JSONDict), parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SBaseGuestDriver) RequestChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input *api.ServerChangeDiskStorageInternalInput, task taskman.ITask) error {
+	return cloudprovider.ErrNotImplemented
+}

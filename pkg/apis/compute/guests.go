@@ -688,3 +688,15 @@ type GuestJsonDesc struct {
 		InstanceId         string `json:"instance_id"`
 	} `json:"instance_snapshot_info"`
 }
+
+type ServerChangeDiskStorageInput struct {
+	DiskId          string `json:"disk_id"`
+	TargetStorageId string `json:"target_storage_id"`
+	KeepOriginDisk  bool   `json:"keep_origin_disk"`
+}
+
+type ServerChangeDiskStorageInternalInput struct {
+	ServerChangeDiskStorageInput
+	StorageId    string `json:"storage_id"`
+	TargetDiskId string `json:"target_disk_id"`
+}

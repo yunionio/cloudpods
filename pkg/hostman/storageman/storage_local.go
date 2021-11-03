@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/util/timeutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
@@ -501,4 +502,25 @@ func (s *SLocalStorage) CreateDiskFromSnapshot(
 		return nil
 	}
 	return httperrors.NewUnsupportOperationError("Unsupport protocol %s for Local storage", info.Protocol)
+}
+
+func (s *SLocalStorage) GetCloneTargetDiskPath(ctx context.Context, targetDiskId string) string {
+	return path.Join(s.GetPath(), targetDiskId)
+}
+
+func (s *SLocalStorage) CloneDiskFromStorage(ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string) (*hostapi.ServerCloneDiskFromStorageResponse, error) {
+	srcDiskPath := srcDisk.GetPath()
+	srcImg, err := qemuimg.NewQemuImage(srcDiskPath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Get source image %q info", srcDiskPath)
+	}
+	accessPath := s.GetCloneTargetDiskPath(ctx, targetDiskId)
+	_, err = srcImg.Clone(s.GetCloneTargetDiskPath(ctx, targetDiskId), qemuimg.QCOW2, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "Clone source disk to target local storage")
+	}
+	return &hostapi.ServerCloneDiskFromStorageResponse{
+		TargetAccessPath: accessPath,
+		TargetFormat:     qemuimg.QCOW2.String(),
+	}, nil
 }

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build linux && cgo
 // +build linux,cgo
 
 package storageman
@@ -58,9 +59,7 @@ func (d *SRBDDisk) Probe() error {
 }
 
 func (d *SRBDDisk) getPath() string {
-	storageConf := d.Storage.GetStorageConf()
-	pool, _ := storageConf.GetString("pool")
-	return fmt.Sprintf("rbd:%s/%s", pool, d.Id)
+	return d.Storage.(*SRbdStorage).getDiskPath(d.Id)
 }
 
 func (d *SRBDDisk) GetPath() string {

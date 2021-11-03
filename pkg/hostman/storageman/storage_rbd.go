@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build linux && cgo
 // +build linux,cgo
 
 package storageman
@@ -29,6 +30,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
@@ -37,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/cephutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 )
 
@@ -519,6 +522,37 @@ func (s *SRbdStorage) DeleteSnapshots(ctx context.Context, params interface{}) (
 func (s *SRbdStorage) CreateDiskFromSnapshot(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) error {
 	info := input.DiskInfo
 	return disk.CreateFromRbdSnapshot(ctx, info.SnapshotUrl, info.SrcDiskId, info.SrcPool)
+}
+
+func (s *SRbdStorage) getDiskPath(diskId string) string {
+	storageConf := s.GetStorageConf()
+	pool, _ := storageConf.GetString("pool")
+	return fmt.Sprintf("rbd:%s/%s", pool, diskId)
+}
+
+func (s *SRbdStorage) GetDiskPath(diskId string) string {
+	return fmt.Sprintf("%s%s", s.getDiskPath(diskId), s.getStorageConfString())
+}
+
+func (s *SRbdStorage) GetCloneTargetDiskPath(ctx context.Context, targetDiskId string) string {
+	return s.GetDiskPath(targetDiskId)
+}
+
+func (s *SRbdStorage) CloneDiskFromStorage(ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string) (*hostapi.ServerCloneDiskFromStorageResponse, error) {
+	srcDiskPath := srcDisk.GetPath()
+	srcImg, err := qemuimg.NewQemuImage(srcDiskPath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Get source image %q info", srcDiskPath)
+	}
+	accessPath := s.GetCloneTargetDiskPath(ctx, targetDiskId)
+	_, err = srcImg.Clone(accessPath, qemuimg.RAW, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "Clone source disk to target rbd storage")
+	}
+	return &hostapi.ServerCloneDiskFromStorageResponse{
+		TargetAccessPath: accessPath,
+		TargetFormat:     qemuimg.RAW.String(),
+	}, nil
 }
 
 func (s *SRbdStorage) SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject) error {
