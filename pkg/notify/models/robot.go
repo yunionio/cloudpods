@@ -67,12 +67,44 @@ type SRobot struct {
 	Lang    string `width:"16" nullable:"false" create:"required" update:"user" get:"user" list:"user"`
 }
 
+func (rm *SRobotManager) fetchSystemProjectId(ctx context.Context) (string, error) {
+	tenant, err := db.TenantCacheManager.FetchTenantByName(ctx, "system")
+	if err != nil {
+		return "", err
+	}
+	return tenant.Id, nil
+}
+
 func (rm *SRobotManager) InitializeData() error {
 	log.Infof("start to init data for notify robot")
+	// init empty projectId robot
+	systemId, err := rm.fetchSystemProjectId(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "unable to fetch system project id")
+	}
+	rq := RobotManager.Query()
+	rq = rq.Filter(sqlchemy.OR(sqlchemy.IsEmpty(rq.Field("tenant_id")), sqlchemy.Equals(rq.Field("tenant_id"), "system")))
+	rq.DebugQuery()
+	npRobots := make([]SRobot, 0)
+	err = db.FetchModelObjects(RobotManager, rq, &npRobots)
+	if err != nil {
+		return errors.Wrap(err, "unable to fetch robots without project")
+	}
+	for i := range npRobots {
+		robot := &npRobots[i]
+		_, err := db.Update(robot, func() error {
+			robot.ProjectId = systemId
+			robot.ProjectSrc = "local"
+			return nil
+		})
+		if err != nil {
+			return errors.Wrapf(err, "unable to update robot %s", robot.Id)
+		}
+	}
 	// convert robot config
 	q := ConfigManager.Query().In("type", append(RobotContactTypes, api.WEBHOOK))
 	var configs []SConfig
-	err := db.FetchModelObjects(ConfigManager, q, &configs)
+	err = db.FetchModelObjects(ConfigManager, q, &configs)
 	if err != nil {
 		return err
 	}
@@ -89,7 +121,7 @@ func (rm *SRobotManager) InitializeData() error {
 		robot.IsPublic = true
 		robot.PublicScope = string(rbacutils.ScopeSystem)
 		robot.DomainId = idenapi.DEFAULT_DOMAIN_ID
-		robot.ProjectId = "system"
+		robot.ProjectId = systemId
 		robot.ProjectSrc = "local"
 		robot.Status = api.RECEIVER_STATUS_READY
 		switch configs[i].Type {
@@ -161,24 +193,6 @@ func (rm *SRobotManager) InitializeData() error {
 			if err != nil {
 				return errors.Wrapf(err, "unable to create subscriber %s", jsonutils.Marshal(subscriber))
 			}
-		}
-	}
-	// init empty projectId robot
-	rq := RobotManager.Query().IsEmpty("tenant_id")
-	npRobots := make([]SRobot, 0)
-	err = db.FetchModelObjects(RobotManager, rq, &npRobots)
-	if err != nil {
-		return errors.Wrap(err, "unable to fetch robots without project")
-	}
-	for i := range npRobots {
-		robot := &npRobots[i]
-		_, err := db.Update(robot, func() error {
-			robot.ProjectId = "system"
-			robot.ProjectSrc = "local"
-			return nil
-		})
-		if err != nil {
-			return errors.Wrapf(err, "unable to update robot %s", robot.Id)
 		}
 	}
 	return nil
