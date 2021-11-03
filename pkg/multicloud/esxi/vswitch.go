@@ -17,6 +17,7 @@ package esxi
 import (
 	"regexp"
 
+	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/vmware/govmomi/property"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
@@ -78,6 +79,10 @@ func (vs *SDistributedVirtualSwitch) FindNetworkByVlanID(vlanID int32) (IVMNetwo
 	}
 	dvpgs := make([]*SDistributedVirtualPortgroup, 0, len(modvpgs))
 	for i := range modvpgs {
+		if modvpgs[i].Config.Uplink != nil && *modvpgs[i].Config.Uplink {
+			log.Infof("dvpg %s is uplink, so skip", modvpgs[i].Name)
+			continue
+		}
 		dvpgs = append(dvpgs, NewDistributedVirtualPortgroup(vs.Host.manager, &modvpgs[i], nil))
 	}
 	for i := range dvpgs {
