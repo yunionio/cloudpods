@@ -638,6 +638,49 @@ func (self *SESXiGuestDriver) RequestLiveMigrate(ctx context.Context, guest *mod
 	return nil
 }
 
+func (self *SESXiGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
+	ivm, err := guest.GetIVM()
+	if err != nil {
+		return errors.Wrapf(err, "GetIVM")
+	}
+
+	result := jsonutils.NewDict()
+	if ivm.GetStatus() != api.VM_RUNNING {
+		err := ivm.StartVM(ctx)
+		if err != nil {
+			return errors.Wrapf(err, "StartVM")
+		}
+		err = cloudprovider.WaitStatus(ivm, api.VM_RUNNING, time.Second*5, time.Minute*10)
+		if err != nil {
+			return errors.Wrapf(err, "Wait vm running")
+		}
+		guest.SetStatus(userCred, api.VM_RUNNING, "StartOnHost")
+		return task.ScheduleRun(result)
+	}
+	return guest.SetStatus(userCred, api.VM_RUNNING, "StartOnHost")
+}
+
+func (self *SESXiGuestDriver) RequestStopOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		ivm, err := guest.GetIVM()
+		if err != nil {
+			return nil, errors.Wrapf(err, "guest.GetIVM")
+		}
+		opts := &cloudprovider.ServerStopOptions{}
+		task.GetParams().Unmarshal(opts)
+		err = ivm.StopVM(ctx, opts)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ivm.StopVM")
+		}
+		err = cloudprovider.WaitStatus(ivm, api.VM_READY, time.Second*3, time.Minute*5)
+		if err != nil {
+			return nil, errors.Wrapf(err, "wait server stop after 5 miniutes")
+		}
+		return nil, nil
+	})
+	return nil
+}
+
 func (self *SESXiGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
 	ihost, err := host.GetIHost()
 	if err != nil {
