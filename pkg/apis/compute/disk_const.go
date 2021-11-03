@@ -43,6 +43,9 @@ const (
 	DISK_POST_MIGRATE  = "post_migrate"
 	DISK_MIGRATING     = "migrating"
 
+	DISK_CLONE      = "clone"
+	DISK_CLONE_FAIL = "clone_failed"
+
 	DISK_START_SNAPSHOT       = "start_snapshot"
 	DISK_SNAPSHOTING          = "snapshoting"
 	DISK_APPLY_SNAPSHOT_FAIL  = "apply_snapshot_failed"

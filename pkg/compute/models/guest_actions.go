@@ -5321,3 +5321,79 @@ func (self *SGuest) PerformListForward(ctx context.Context, userCred mcclient.To
 	}
 	return resp.JSON(), nil
 }
+
+func (self *SGuest) AllowPerformChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "change-disk-storage")
+}
+
+func (self *SGuest) PerformChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ServerChangeDiskStorageInput) (*api.ServerChangeDiskStorageInput, error) {
+	// validate input
+	if input.DiskId == "" {
+		return nil, httperrors.NewNotEmptyError("Disk id is empty")
+	}
+	if input.TargetStorageId == "" {
+		return nil, httperrors.NewNotEmptyError("Storage id is empty")
+	}
+
+	// validate disk
+	disks, err := self.GetDisks()
+	if err != nil {
+		return nil, errors.Wrapf(err, "Get server %s disks", self.GetName())
+	}
+	var srcDisk *SDisk
+	for _, disk := range disks {
+		if input.DiskId == disk.GetId() || input.DiskId == disk.GetName() {
+			srcDisk = &disk
+			input.DiskId = disk.GetId()
+			break
+		}
+	}
+	if srcDisk == nil {
+		return nil, httperrors.NewNotFoundError("Disk %s not found on server %s", input.DiskId, self.GetName())
+	}
+
+	// validate storage
+	storageObj, err := StorageManager.FetchByIdOrName(userCred, input.TargetStorageId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Found storage by %s", input.TargetStorageId)
+	}
+	storage := storageObj.(*SStorage)
+	input.TargetStorageId = storage.GetId()
+
+	// driver validate
+	drv := self.GetDriver()
+	if err := drv.ValidateChangeDiskStorage(ctx, userCred, self, input); err != nil {
+		return nil, err
+	}
+
+	// create a disk on target storage from source disk
+	diskConf := &api.DiskConfig{
+		Index:    -1,
+		ImageId:  srcDisk.TemplateId,
+		Format:   srcDisk.DiskFormat,
+		SizeMb:   srcDisk.DiskSize,
+		Fs:       srcDisk.FsFormat,
+		DiskType: srcDisk.DiskType,
+	}
+
+	targetDisk, err := self.createDiskOnStorage(ctx, userCred, storage, diskConf, nil, true, true)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Create target disk on storage %s", storage.GetName())
+	}
+
+	internalInput := &api.ServerChangeDiskStorageInternalInput{
+		ServerChangeDiskStorageInput: *input,
+		StorageId:                    srcDisk.StorageId,
+		TargetDiskId:                 targetDisk.GetId(),
+	}
+
+	return nil, self.StartChangeDiskStorageTask(ctx, userCred, internalInput, "")
+}
+
+func (self *SGuest) StartChangeDiskStorageTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerChangeDiskStorageInternalInput, parentTaskId string) error {
+	reason := fmt.Sprintf("Change disk %s to storage %s", input.DiskId, input.TargetStorageId)
+	self.SetStatus(userCred, api.VM_DISK_CHANGE_STORAGE, reason)
+	return self.GetDriver().StartChangeDiskStorageTask(self, ctx, userCred, input, "")
+}

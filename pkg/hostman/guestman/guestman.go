@@ -1012,6 +1012,27 @@ func (m *SGuestManager) ExitGuestCleanup() {
 	}
 }
 
+type SStorageCloneDisk struct {
+	ServerId      string
+	SourceStorage storageman.IStorage
+	SourceDisk    storageman.IDisk
+	TargetStorage storageman.IStorage
+	TargetDiskId  string
+}
+
+func (m *SGuestManager) StorageCloneDisk(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	input := params.(*SStorageCloneDisk)
+	guest, _ := m.GetServer(input.ServerId)
+	if guest == nil {
+		return nil, httperrors.NewNotFoundError("Not found guest by id %s", input.ServerId)
+	}
+	if guest.IsRunning() || guest.IsSuspend() {
+		return nil, httperrors.NewBadRequestError("Cannot change disk storage on running/suspend guest")
+	}
+	NewGuestStorageCloneDiskTask(guest, input).Start(ctx)
+	return nil, nil
+}
+
 func (m *SGuestManager) GetHost() hostutils.IHost {
 	return m.host
 }

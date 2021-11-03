@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -81,6 +82,7 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			"open-forward":         guestOpenForward,
 			"list-forward":         guestListForward,
 			"close-forward":        guestCloseForward,
+			"storage-clone-disk":   guestStorageCloneDisk,
 		} {
 			app.AddHandler("POST",
 				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyWord, action),
@@ -565,5 +567,37 @@ func guestDeleteSnapshot(ctx context.Context, sid string, body jsonutils.JSONObj
 		params.PendingDelete = pendingDelete
 	}
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().DeleteSnapshot, params)
+	return nil, nil
+}
+
+func guestStorageCloneDisk(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	input := new(computeapi.ServerChangeDiskStorageInternalInput)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, err
+	}
+	srcStorage := storageman.GetManager().GetStorage(input.StorageId)
+	if srcStorage == nil {
+		return nil, httperrors.NewNotFoundError("Source storage %q not found", input.StorageId)
+	}
+	srcDisk, err := srcStorage.GetDiskById(input.DiskId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Get source disk %q on storage %q", input.DiskId, srcStorage.GetId())
+	}
+	targetStorage := storageman.GetManager().GetStorage(input.TargetStorageId)
+	if targetStorage == nil {
+		return nil, httperrors.NewNotFoundError("Target storage %s not found", input.TargetStorageId)
+	}
+	if input.TargetDiskId == "" {
+		return nil, httperrors.NewMissingParameterError("Target disk id is empty")
+	}
+
+	params := &guestman.SStorageCloneDisk{
+		ServerId:      sid,
+		SourceStorage: srcStorage,
+		SourceDisk:    srcDisk,
+		TargetStorage: targetStorage,
+		TargetDiskId:  input.TargetDiskId,
+	}
+	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().StorageCloneDisk, params)
 	return nil, nil
 }
