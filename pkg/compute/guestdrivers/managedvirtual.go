@@ -805,7 +805,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncstatusOnHost(ctx context.
 	return body, nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
+func (self *SManagedVirtualizedGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	ihost, err := host.GetIHost()
 	if err != nil {
 		return nil, err
@@ -817,14 +817,7 @@ func (self *SManagedVirtualizedGuestDriver) GetGuestVncInfo(ctx context.Context,
 		return nil, err
 	}
 
-	data, err := iVM.GetVNCInfo()
-	if err != nil {
-		return nil, err
-	}
-
-	dataDict := data.(*jsonutils.JSONDict)
-
-	return dataDict, nil
+	return iVM.GetVNCInfo(input)
 }
 
 func (self *SManagedVirtualizedGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {

@@ -24,7 +24,6 @@ import (
 	"github.com/jdcloud-api/jdcloud-sdk-go/services/vm/client"
 	"github.com/jdcloud-api/jdcloud-sdk-go/services/vm/models"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
@@ -309,7 +308,7 @@ func (in *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SMa
 	return cloudprovider.ErrNotImplemented
 }
 
-func (in *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
+func (in *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	region := in.host.zone.region
 	req := apis.NewDescribeInstanceVncUrlRequest(region.ID, in.InstanceId)
 	client := client.NewVmClient(region.Credential)
@@ -318,12 +317,13 @@ func (in *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 	if err != nil {
 		return nil, err
 	}
-	url := resp.Result.VncUrl
 
-	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.NewString(url), "url")
-	ret.Add(jsonutils.NewString("jdcloud"), "protocol")
-	ret.Add(jsonutils.NewString(in.GetId()), "instance_id")
+	ret := &cloudprovider.ServerVncOutput{
+		Url:        resp.Result.VncUrl,
+		Protocol:   "jdcloud",
+		InstanceId: in.GetId(),
+		Hypervisor: api.HYPERVISOR_JDCLOUD,
+	}
 	return ret, nil
 }
 

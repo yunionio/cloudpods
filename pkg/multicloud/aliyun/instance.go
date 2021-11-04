@@ -408,7 +408,7 @@ func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerSto
 	return cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
 }
 
-func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
+func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	url, err := self.host.zone.region.GetInstanceVNCUrl(self.InstanceId)
 	if err != nil {
 		return nil, err
@@ -418,11 +418,13 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.NewString(url), "url")
-	ret.Add(jsonutils.NewString(passwd), "password")
-	ret.Add(jsonutils.NewString("aliyun"), "protocol")
-	ret.Add(jsonutils.NewString(self.InstanceId), "instance_id")
+	ret := &cloudprovider.ServerVncOutput{
+		Url:        url,
+		Password:   passwd,
+		Protocol:   "aliyun",
+		InstanceId: self.InstanceId,
+		Hypervisor: api.HYPERVISOR_ALIYUN,
+	}
 	return ret, nil
 }
 

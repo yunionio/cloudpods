@@ -419,7 +419,7 @@ func (instance *SInstance) StopVM(ctx context.Context, opts *cloudprovider.Serve
 	return cloudprovider.WaitStatus(instance, api.VM_READY, 10*time.Second, 8*time.Minute)
 }
 
-func (region *SRegion) GetInstanceVNCUrl(instanceId string) (string, error) {
+func (region *SRegion) GetInstanceVNCUrl(instanceId string, origin bool) (*cloudprovider.ServerVncOutput, error) {
 	params := map[string]map[string]string{
 		"remote_console": {
 			"protocol": "vnc",
@@ -429,21 +429,36 @@ func (region *SRegion) GetInstanceVNCUrl(instanceId string) (string, error) {
 	resource := fmt.Sprintf("/servers/%s/remote-consoles", instanceId)
 	resp, err := region.ecsPost(resource, params)
 	if err != nil {
-		return "", errors.Wrap(err, "ecsPost")
+		return nil, errors.Wrap(err, "ecsPost")
 	}
-	return resp.GetString("remote_console", "url")
+	ret := &cloudprovider.ServerVncOutput{
+		Protocol:   "openstack",
+		InstanceId: instanceId,
+		Hypervisor: api.HYPERVISOR_OPENSTACK,
+	}
+
+	ret.Url, err = resp.GetString("remote_console", "url")
+	if err != nil {
+		return nil, errors.Wrapf(err, "remote_console")
+	}
+
+	if origin {
+		return ret, nil
+	}
+
+	token := string([]byte(ret.Url)[len(ret.Url)-36:])
+	vncUrl, _ := url.Parse(ret.Url)
+	ret.Url = fmt.Sprintf("ws://%s?token=%s", vncUrl.Host, token)
+	ret.Protocol = "vnc"
+	return ret, nil
 }
 
-func (instance *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
-	url, err := instance.host.zone.region.GetInstanceVNCUrl(instance.Id)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetInstanceVNCUrl")
+func (instance *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
+	origin := false
+	if input != nil {
+		origin = input.Origin
 	}
-	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.NewString(url), "url")
-	ret.Add(jsonutils.NewString("openstack"), "protocol")
-	ret.Add(jsonutils.NewString(instance.Id), "instance_id")
-	return ret, nil
+	return instance.host.zone.region.GetInstanceVNCUrl(instance.Id, origin)
 }
 
 func (instance *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {

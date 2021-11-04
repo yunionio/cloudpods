@@ -394,9 +394,8 @@ func (self *SClassicInstance) GetVmemSizeMB() int {
 	return 0
 }
 
-func (self *SClassicInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
-	ret := jsonutils.NewDict()
-	return ret, nil
+func (self *SClassicInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SClassicInstance) StartVM(ctx context.Context) error {

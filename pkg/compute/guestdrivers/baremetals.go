@@ -433,12 +433,12 @@ func (self *SBaremetalGuestDriver) GetJsonDescAtHost(ctx context.Context, userCr
 	return jsonutils.Marshal(desc), nil
 }
 
-func (self *SBaremetalGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
-	data := jsonutils.NewDict()
-	data.Add(jsonutils.NewString(host.Id), "host_id")
+func (self *SBaremetalGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
+	ret := &cloudprovider.ServerVncOutput{}
+	ret.HostId = host.Id
 	zone, _ := host.GetZone()
-	data.Add(jsonutils.NewString(zone.Name), "zone")
-	return data, nil
+	ret.Zone = zone.Name
+	return ret, nil
 }
 
 func (self *SBaremetalGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {

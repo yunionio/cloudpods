@@ -267,25 +267,19 @@ func (self *SInstance) ChangeConfig(ctx context.Context, opts *cloudprovider.SMa
 	return err
 }
 
-func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
+func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	s := self.host.zone.region.cli.s
 	resp, err := webconsole.WebConsole.DoServerConnect(s, self.Id, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "DoServerConnect")
 	}
-	data := struct {
-		ConnectParams string
-		ApiServer     string
-		Session       string
-		Protocol      string
-		InstanceId    string
-		InstanceName  string
-	}{
+	result := &cloudprovider.ServerVncOutput{
 		Protocol:     "cloudpods",
 		InstanceId:   self.Id,
 		InstanceName: self.Name,
+		Hypervisor:   api.HYPERVISOR_CLOUDPODS,
 	}
-	err = resp.Unmarshal(&data)
+	err = resp.Unmarshal(&result)
 	if err != nil {
 		return nil, errors.Wrapf(err, "resp.Unmarshal")
 	}
@@ -293,8 +287,8 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetSpecific")
 	}
-	data.ApiServer, _ = resp.GetString("config", "default", "api_server")
-	return jsonutils.Marshal(data), nil
+	result.ApiServer, _ = resp.GetString("config", "default", "api_server")
+	return result, nil
 }
 
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
