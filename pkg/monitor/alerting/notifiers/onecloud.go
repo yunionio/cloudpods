@@ -358,7 +358,8 @@ func (f *sendBodyFactory) newSendnotify(evalCtx *alerting.EvalContext, notifier 
 	def.evalCtx = *evalCtx
 	def.msg = message
 	def.config = config
-	if len(notifier.Setting.UserIds) == 0 {
+	// 系统内置报警处理
+	if len(notifier.Setting.UserIds) == 0 && len(notifier.Setting.RobotIds) == 0 {
 		sys := new(sendSysImpl)
 		sys.sendnotifyBase = def
 		return sys
