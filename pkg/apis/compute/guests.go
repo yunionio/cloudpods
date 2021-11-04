@@ -631,7 +631,7 @@ type GuestJsonDesc struct {
 	Cpu         int    `json:"cpu"`
 	Vga         string `json:"vga"`
 	Vdi         string `json:"vdi"`
-	Machine     string `json:"machie"`
+	Machine     string `json:"machine"`
 	Bios        string `json:"bios"`
 	BootOrder   string `json:"boot_order"`
 	SrcIpCheck  bool   `json:"src_ip_check"`
