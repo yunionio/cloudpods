@@ -32,6 +32,7 @@ type MonitorResourceJointListInput struct {
 	ResType           string  `json:"res_type"`
 	ResName           string  `json:"res_name"`
 	AlertName         string  `json:"alert_name"`
+	Level             string  `json:"level"`
 }
 
 type MonitorResourceJointCreateInput struct {
