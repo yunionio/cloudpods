@@ -255,7 +255,29 @@ func (self *SVirtualizedGuestDriver) RequestStopGuestForDelete(ctx context.Conte
 	return nil
 }
 
+func (self *SVirtualizedGuestDriver) ValidateMachineType(machine string) error {
+	if !utils.IsInStringArray(machine, []string{api.VM_MACHINE_TYPE_PC, api.VM_MACHINE_TYPE_Q35}) {
+		return httperrors.NewBadRequestError("Invalid machine %q", machine)
+	}
+	return nil
+}
+
 func (self *SVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	if input.Machine != "" {
+		if err := self.ValidateMachineType(input.Machine); err != nil {
+			return nil, err
+		}
+	}
+	return input, nil
+}
+
+func (self *SVirtualizedGuestDriver) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, input *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	machine, _ := input.GetString("machine")
+	if machine != "" {
+		if err := self.ValidateMachineType(machine); err != nil {
+			return nil, err
+		}
+	}
 	return input, nil
 }
 

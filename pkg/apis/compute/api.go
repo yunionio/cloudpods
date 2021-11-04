@@ -396,6 +396,10 @@ type ServerCreateInput struct {
 	// emulate: BIOS, UEFI
 	Bios string `json:"bios"`
 
+	// Machine类型
+	// emulate: pc, q35
+	Machine string `json:"machine"`
+
 	// 启动顺序
 	// c: cdrome
 	// d: disk
