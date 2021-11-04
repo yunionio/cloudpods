@@ -365,6 +365,7 @@ type ServerCreateOptionalOptions struct {
 	Vga              string   `help:"VGA driver" choices:"std|vmware|cirrus|qxl"`
 	Vdi              string   `help:"VDI protocool" choices:"vnc|spice"`
 	Bios             string   `help:"BIOS" choices:"BIOS|UEFI"`
+	Machine          string   `help:"Machine type" choices:"pc|q35"`
 	Desc             string   `help:"Description" metavar:"<DESCRIPTION>" json:"description"`
 	Boot             string   `help:"Boot device" metavar:"<BOOT_DEVICE>" choices:"disk|cdrom" json:"-"`
 	EnableCloudInit  bool     `help:"Enable cloud-init service"`
@@ -468,6 +469,7 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 		Vga:                opts.Vga,
 		Vdi:                opts.Vdi,
 		Bios:               opts.Bios,
+		Machine:            opts.Machine,
 		ShutdownBehavior:   opts.ShutdownBehavior,
 		AutoStart:          opts.AutoStart,
 		Duration:           opts.Duration,
@@ -583,6 +585,7 @@ type ServerUpdateOptions struct {
 	Boot             string `help:"Boot device" choices:"disk|cdrom"`
 	Delete           string `help:"Lock server to prevent from deleting" choices:"enable|disable" json:"-"`
 	ShutdownBehavior string `help:"Behavior after VM server shutdown" choices:"stop|terminate"`
+	Machine          string `help:"Machine type" choices:"q35|pc"`
 }
 
 func (opts *ServerUpdateOptions) Params() (jsonutils.JSONObject, error) {

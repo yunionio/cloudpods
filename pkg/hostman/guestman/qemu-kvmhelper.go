@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -120,7 +121,7 @@ func (s *SKVMGuestInstance) isWindows10() bool {
 func (s *SKVMGuestInstance) getMachine() string {
 	machine, err := s.Desc.GetString("machine")
 	if err != nil {
-		machine = "pc"
+		machine = api.VM_MACHINE_TYPE_PC
 	}
 	return machine
 }
@@ -134,7 +135,7 @@ func (s *SKVMGuestInstance) getBios() string {
 }
 
 func (s *SKVMGuestInstance) isQ35() bool {
-	return s.getMachine() == "q35"
+	return s.getMachine() == api.VM_MACHINE_TYPE_Q35
 }
 
 func (s *SKVMGuestInstance) GetVdiProtocol() string {
