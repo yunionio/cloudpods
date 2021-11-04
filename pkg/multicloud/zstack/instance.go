@@ -299,7 +299,7 @@ func (region *SRegion) StopVM(instanceId string, isForce bool) error {
 	return err
 }
 
-func (instance *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
+func (instance *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	info, err := instance.host.zone.region.GetInstanceConsoleInfo(instance.UUID)
 	if err != nil {
 		return nil, err
@@ -315,11 +315,13 @@ func (instance *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 	if len(password) > 0 {
 		url = url + fmt.Sprintf("&password=%s", password)
 	}
-	return jsonutils.Marshal(map[string]string{
-		"url":         url,
-		"protocol":    "zstack",
-		"instance_id": instance.UUID,
-	}), nil
+	ret := &cloudprovider.ServerVncOutput{
+		Url:        url,
+		Protocol:   "zstack",
+		InstanceId: instance.UUID,
+		Hypervisor: api.HYPERVISOR_ZSTACK,
+	}
+	return ret, nil
 }
 
 func (instance *SInstance) UpdateVM(ctx context.Context, name string) error {

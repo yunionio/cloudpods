@@ -71,21 +71,21 @@ func (self *SGuest) AllowGetDetailsVnc(ctx context.Context, userCred mcclient.To
 	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "vnc")
 }
 
-func (self *SGuest) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SGuest) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
+	ret := &cloudprovider.ServerVncOutput{}
 	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_BLOCK_STREAM}) {
-		host, _ := self.GetHost()
-		if host == nil {
-			return nil, httperrors.NewInternalServerError("Host missing")
+		host, err := self.GetHost()
+		if err != nil {
+			return nil, httperrors.NewInternalServerError(errors.Wrapf(err, "GetHost").Error())
 		}
-		retval, err := self.GetDriver().GetGuestVncInfo(ctx, userCred, self, host)
+		ret, err = self.GetDriver().GetGuestVncInfo(ctx, userCred, self, host, input)
 		if err != nil {
 			return nil, err
 		}
-		retval.Add(jsonutils.NewString(self.Id), "id")
-		return retval, nil
-	} else {
-		return jsonutils.NewDict(), nil
+		ret.Id = self.Id
+		return ret, nil
 	}
+	return ret, nil
 }
 
 func (self *SGuest) PreCheckPerformAction(
@@ -4150,13 +4150,13 @@ func (self *SGuest) GetDetailsVirtInstall(
 
 	host, _ := self.GetHost()
 	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_BLOCK_STREAM}) {
-		vncInfo, err := self.GetDriver().GetGuestVncInfo(ctx, userCred, self, host)
+		vncInfo, err := self.GetDriver().GetGuestVncInfo(ctx, userCred, self, host, nil)
 		if err != nil {
 			log.Errorln(err)
 			return nil, err
 		}
-		vdiProtocol, _ = vncInfo.GetString("protocol")
-		vdiListenPort, _ = vncInfo.Int("port")
+		vdiProtocol = vncInfo.Protocol
+		vdiListenPort = int64(vncInfo.Port)
 	}
 
 	extraCmdline, _ := query.GetArray("extra_cmdline")

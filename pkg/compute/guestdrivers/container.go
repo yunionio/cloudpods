@@ -127,7 +127,7 @@ func (self *SContainerDriver) CanKeepDetachDisk() bool {
 	return false
 }
 
-func (self *SContainerDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
+func (self *SContainerDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	return nil, self.newUnsupportOperationError("VNC")
 }
 

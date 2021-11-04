@@ -502,7 +502,7 @@ func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) e
 	return self.host.zone.region.ChangeVMConfig2(self.ZoneId, self.InstanceId, instanceType, nil)
 }
 
-func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
+func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 

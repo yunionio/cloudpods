@@ -66,7 +66,7 @@ func init() {
 	})
 
 	shellutils.R(&InstanceOptions{}, "instance-vnc", "Show instance vnc url", func(cli *openstack.SRegion, args *InstanceOptions) error {
-		url, err := cli.GetInstanceVNCUrl(args.ID)
+		url, err := cli.GetInstanceVNCUrl(args.ID, false)
 		if err != nil {
 			return err
 		}

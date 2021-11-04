@@ -951,9 +951,8 @@ func (self *SInstance) GetVmemSizeMB() int {
 	return int(self.vmSize.MemoryInMB)
 }
 
-func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
-	ret := jsonutils.NewDict()
-	return ret, nil
+func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SRegion) StartVM(instanceId string) error {

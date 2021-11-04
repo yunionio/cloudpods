@@ -597,15 +597,17 @@ func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.S
 }
 
 // http://ctyun-api-url/apiproxy/v3/queryVncUrl
-func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
+func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	url, err := self.host.zone.region.GetInstanceVNCUrl(self.GetId())
 	if err != nil {
 		return nil, err
 	}
-	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.NewString(url), "url")
-	ret.Add(jsonutils.NewString("ctyun"), "protocol")
-	ret.Add(jsonutils.NewString(self.GetId()), "instance_id")
+	ret := &cloudprovider.ServerVncOutput{
+		Url:        url,
+		Protocol:   "ctyun",
+		InstanceId: self.GetId(),
+		Hypervisor: api.HYPERVISOR_CTYUN,
+	}
 	return ret, nil
 }
 

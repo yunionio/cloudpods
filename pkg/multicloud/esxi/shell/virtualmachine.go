@@ -21,7 +21,6 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/multicloud/esxi"
-	"yunion.io/x/onecloud/pkg/util/printutils"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
@@ -300,11 +299,11 @@ func init() {
 		if err != nil {
 			return err
 		}
-		info, err := vm.GetVNCInfo()
+		info, err := vm.GetVNCInfo(nil)
 		if err != nil {
 			return err
 		}
-		printutils.PrintJSONObject(info)
+		printObject(info)
 		return nil
 	})
 
@@ -317,7 +316,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		printutils.PrintJSONObject(info)
+		printObject(info)
 		return nil
 	})
 
@@ -330,7 +329,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		printutils.PrintJSONObject(info)
+		printObject(info)
 		return nil
 	})
 

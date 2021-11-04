@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/webconsole/session"
@@ -54,9 +55,14 @@ func (s *ConnectionServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	var srv http.Handler
 	protocol := sessionObj.GetProtocol()
+	info := sessionObj.ISessionData.(*session.RemoteConsoleInfo)
 	switch protocol {
 	case session.VNC, session.SPICE:
-		srv, err = NewWebsockifyServer(sessionObj)
+		if info.Hypervisor == api.HYPERVISOR_OPENSTACK {
+			srv, err = NewWebsocketProxyServer(sessionObj)
+		} else {
+			srv, err = NewWebsockifyServer(sessionObj)
+		}
 	case session.WMKS:
 		srv, err = NewWebsocketProxyServer(sessionObj)
 	default:

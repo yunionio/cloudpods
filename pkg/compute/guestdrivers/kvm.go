@@ -162,7 +162,7 @@ func findVNCPort2(results string) int {
 	return -1
 }
 
-func (self *SKVMGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
+func (self *SKVMGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	url := fmt.Sprintf("/servers/%s/monitor", guest.Id)
 	body := jsonutils.NewDict()
 	var cmd string
@@ -174,14 +174,11 @@ func (self *SKVMGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mccli
 	body.Add(jsonutils.NewString(cmd), "cmd")
 	ret, err := host.Request(ctx, userCred, "POST", url, nil, body)
 	if err != nil {
-		err = fmt.Errorf("Fail to request VNC info %s", err)
-		log.Errorln(err)
-		return nil, err
+		return nil, errors.Wrapf(err, "Fail to request VNC info")
 	}
-	results, _ := ret.GetString("results")
+	results, err := ret.GetString("results")
 	if len(results) == 0 {
-		err = fmt.Errorf("Can't get vnc information from host.")
-		return nil, err
+		return nil, errors.Wrapf(err, "Can't get vnc information from host.")
 	}
 	// info_vnc = result['results'].split('\n')
 	// port = int(info_vnc[1].split(':')[-1].split()[0])
@@ -207,11 +204,13 @@ func (self *SKVMGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mccli
 		port = findVNCPort(results)
 	}
 
-	retval := jsonutils.NewDict()
-	retval.Add(jsonutils.NewString(host.AccessIp), "host")
-	retval.Add(jsonutils.NewString(guest.GetVdi()), "protocol")
-	retval.Add(jsonutils.NewInt(int64(port)), "port")
-	return retval, nil
+	result := &cloudprovider.ServerVncOutput{
+		Host:       host.AccessIp,
+		Protocol:   guest.GetVdi(),
+		Port:       int64(port),
+		Hypervisor: api.HYPERVISOR_ESXI,
+	}
+	return result, nil
 }
 
 func (self *SKVMGuestDriver) RequestStopOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {

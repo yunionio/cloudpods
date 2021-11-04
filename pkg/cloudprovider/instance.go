@@ -227,3 +227,39 @@ func (vmConfig *SManagedVMCreateConfig) InjectPasswordByCloudInit() error {
 	vmConfig.UserData = cloudconfig.UserData()
 	return nil
 }
+
+// +onecloud:model-api-gen
+type ServerVncInput struct {
+	// 是否使用原生vnc控制台，此选项仅对openstack有效
+	// default: false
+	Origin bool `json:"origin"`
+}
+
+// +onecloud:model-api-gen
+type ServerVncOutput struct {
+	Id string
+
+	// baremetal
+	HostId string
+	Zone   string
+
+	// kvm host ip
+	Host     string
+	Protocol string
+	Port     int64
+
+	Url          string
+	InstanceId   string
+	InstanceName string
+	Password     string
+	VncPassword  string
+
+	OsName string
+
+	// cloudpods
+	ApiServer     string
+	ConnectParams string
+	Session       string
+
+	Hypervisor string
+}
