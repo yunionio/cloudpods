@@ -500,7 +500,11 @@ func (region *SRegion) BillingListAll(resource string, params map[string]string,
 }
 
 func (region *SRegion) ListAll(resource string, params map[string]string, retval interface{}) error {
-	return region.client.ecsListAll(resource, params, retval)
+	return region.listAll("GET", resource, params, retval)
+}
+
+func (region *SRegion) listAll(method string, resource string, params map[string]string, retval interface{}) error {
+	return region.client._ecsListAll(method, resource, params, retval)
 }
 
 func (region *SRegion) List(resource string, params map[string]string, maxResults int, pageToken string, retval interface{}) error {
