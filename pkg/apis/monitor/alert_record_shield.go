@@ -15,6 +15,8 @@
 package monitor
 
 import (
+	"time"
+
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
@@ -37,6 +39,7 @@ type AlertRecordShieldDetails struct {
 	CommonAlertDetails
 	AlertName string `json:"alert_name"`
 	ResName   string `json:"res_name"`
+	Expired   bool   `json:"expired"`
 }
 
 type AlertRecordShieldListInput struct {
@@ -46,9 +49,11 @@ type AlertRecordShieldListInput struct {
 	apis.EnabledResourceBaseListInput
 	apis.StatusStandaloneResourceListInput
 
-	AlertName string `json:"alert_name"`
-	ResType   string `json:"res_type"`
-	ResName   string `json:"res_name"`
-	ResId     string `json:"res_id"`
-	AlertId   string `json:"alert_id"`
+	AlertName string     `json:"alert_name"`
+	ResType   string     `json:"res_type"`
+	ResName   string     `json:"res_name"`
+	ResId     string     `json:"res_id"`
+	AlertId   string     `json:"alert_id"`
+	StartTime *time.Time `json:"start_time"`
+	EndTime   *time.Time `json:"end_time"`
 }
