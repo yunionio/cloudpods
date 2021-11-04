@@ -363,7 +363,7 @@ type ICloudVM interface {
 
 	ChangeConfig(ctx context.Context, config *SManagedVMChangeConfig) error
 
-	GetVNCInfo() (jsonutils.JSONObject, error)
+	GetVNCInfo(input *ServerVncInput) (*ServerVncOutput, error)
 	AttachDisk(ctx context.Context, diskId string) error
 	DetachDisk(ctx context.Context, diskId string) error
 

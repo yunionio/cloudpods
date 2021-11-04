@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
 
@@ -307,15 +306,17 @@ func (in *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SMa
 	return errors.ErrNotImplemented
 }
 
-func (in *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
+func (in *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	url, err := in.host.zone.region.GetInstanceVNCUrl(in.GetId())
 	if err != nil {
 		return nil, err
 	}
-	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.NewString(url), "url")
-	ret.Add(jsonutils.NewString("ecloud"), "protocol")
-	ret.Add(jsonutils.NewString(in.GetId()), "instance_id")
+	ret := &cloudprovider.ServerVncOutput{
+		Url:        url,
+		Protocol:   "ecloud",
+		InstanceId: in.GetId(),
+		Hypervisor: api.HYPERVISOR_ECLOUD,
+	}
 	return ret, nil
 }
 

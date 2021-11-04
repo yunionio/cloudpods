@@ -19,7 +19,10 @@ import (
 	"net/url"
 	"os/exec"
 
+	"yunion.io/x/jsonutils"
+
 	api "yunion.io/x/onecloud/pkg/apis/webconsole"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/webconsole/options"
@@ -41,25 +44,10 @@ const (
 	CLOUDPODS = api.CLOUDPODS
 )
 
-type RemoteConsoleInfo struct {
-	Host        string `json:"host"`
-	Port        int64  `json:"port"`
-	Protocol    string `json:"protocol"`
-	Id          string `json:"id"`
-	OsName      string `json:"osName"`
-	VncPassword string `json:"vncPassword"`
+type RemoteConsoleInfo cloudprovider.ServerVncOutput
 
-	// used by aliyun server
-	InstanceId    string `json:"instance_id"`
-	InstanceName  string `json:"instance_name"`
-	Url           string `json:"url"`
-	Password      string `json:"password"`
-	ConnectParams string `json:"connect_params"`
-	ApiServer     string `json:"api_server"`
-}
-
-func NewRemoteConsoleInfoByCloud(s *mcclient.ClientSession, serverId string) (*RemoteConsoleInfo, error) {
-	ret, err := modules.Servers.GetSpecific(s, serverId, "vnc", nil)
+func NewRemoteConsoleInfoByCloud(s *mcclient.ClientSession, serverId string, query jsonutils.JSONObject) (*RemoteConsoleInfo, error) {
+	ret, err := modules.Servers.GetSpecific(s, serverId, "vnc", query)
 	if err != nil {
 		return nil, err
 	}

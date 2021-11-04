@@ -606,7 +606,7 @@ func (self *SVirtualMachine) doDetachDisk(ctx context.Context, vdisk *SVirtualDi
 	return vdisk.Delete(ctx)
 }
 
-func (self *SVirtualMachine) GetVNCInfo() (jsonutils.JSONObject, error) {
+func (self *SVirtualMachine) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	hostVer := self.GetIHost().GetVersion()
 	if version.GE(hostVer, "6.5") {
 		info, err := self.acquireWebmksTicket("webmks")
@@ -617,21 +617,20 @@ func (self *SVirtualMachine) GetVNCInfo() (jsonutils.JSONObject, error) {
 	return self.acquireVmrcUrl()
 }
 
-func (self *SVirtualMachine) GetVmrcInfo() (jsonutils.JSONObject, error) {
+func (self *SVirtualMachine) GetVmrcInfo() (*cloudprovider.ServerVncOutput, error) {
 	return self.acquireVmrcUrl()
 }
 
-func (self *SVirtualMachine) GetWebmksInfo() (jsonutils.JSONObject, error) {
+func (self *SVirtualMachine) GetWebmksInfo() (*cloudprovider.ServerVncOutput, error) {
 	return self.acquireWebmksTicket("webmks")
 }
 
-func (self *SVirtualMachine) acquireWebmksTicket(ticketType string) (jsonutils.JSONObject, error) {
+func (self *SVirtualMachine) acquireWebmksTicket(ticketType string) (*cloudprovider.ServerVncOutput, error) {
 	vm := object.NewVirtualMachine(self.manager.client.Client, self.getVirtualMachine().Self)
 	ticket, err := vm.AcquireTicket(self.manager.context, ticketType)
 	if err != nil {
 		return nil, err
 	}
-	ret := jsonutils.NewDict()
 
 	host := ticket.Host
 	if len(host) == 0 {
@@ -644,25 +643,27 @@ func (self *SVirtualMachine) acquireWebmksTicket(ticketType string) (jsonutils.J
 	if port == 0 {
 		port = 443
 	}
-	url := fmt.Sprintf("wss://%s:%d/ticket/%s", host, port, ticket.Ticket)
-	ret.Add(jsonutils.NewString("wmks"), "protocol")
-	ret.Add(jsonutils.NewString(url), "url")
+	ret := &cloudprovider.ServerVncOutput{
+		Url:        fmt.Sprintf("wss://%s:%d/ticket/%s", host, port, ticket.Ticket),
+		Protocol:   "wmks",
+		Hypervisor: api.HYPERVISOR_ESXI,
+	}
 	return ret, nil
 }
 
-func (self *SVirtualMachine) acquireVmrcUrl() (jsonutils.JSONObject, error) {
+func (self *SVirtualMachine) acquireVmrcUrl() (*cloudprovider.ServerVncOutput, error) {
 	ticket, err := self.manager.acquireCloneTicket()
 	if err != nil {
 		return nil, err
 	}
-	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.NewString("vmrc"), "protocol")
 	port := self.manager.port
 	if port == 0 {
 		port = 443
 	}
-	url := fmt.Sprintf("vmrc://clone:%s@%s:%d/?moid=%s", ticket, self.manager.host, port, self.GetId())
-	ret.Add(jsonutils.NewString(url), "url")
+	ret := &cloudprovider.ServerVncOutput{
+		Url:      fmt.Sprintf("vmrc://clone:%s@%s:%d/?moid=%s", ticket, self.manager.host, port, self.GetId()),
+		Protocol: "vmrc",
+	}
 	return ret, nil
 }
 

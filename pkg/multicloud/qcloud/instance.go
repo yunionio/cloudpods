@@ -427,15 +427,17 @@ func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerSto
 	return cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 8*time.Minute) // 8 mintues, 腾讯云有时关机比较慢
 }
 
-func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
+func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	url, err := self.host.zone.region.GetInstanceVNCUrl(self.InstanceId)
 	if err != nil {
 		return nil, err
 	}
-	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.NewString(url), "url")
-	ret.Add(jsonutils.NewString("qcloud"), "protocol")
-	ret.Add(jsonutils.NewString(self.InstanceId), "instance_id")
+	ret := &cloudprovider.ServerVncOutput{
+		Url:        url,
+		Protocol:   "qcloud",
+		InstanceId: self.InstanceId,
+		Hypervisor: api.HYPERVISOR_QCLOUD,
+	}
 	return ret, nil
 }
 

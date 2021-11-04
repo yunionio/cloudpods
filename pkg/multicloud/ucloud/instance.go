@@ -524,7 +524,7 @@ func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) e
 	return self.host.zone.region.ResizeVM(self.GetId(), i.CPU, i.MemoryMB)
 }
 
-func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
+func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	return self.host.zone.region.GetInstanceVNCUrl(self.GetId())
 }
 
@@ -566,7 +566,7 @@ func (self *SInstance) GetSecurityGroups() ([]SSecurityGroup, error) {
 }
 
 // https://docs.ucloud.cn/api/uhost-api/get_uhost_instance_vnc_info
-func (self *SRegion) GetInstanceVNCUrl(instanceId string) (jsonutils.JSONObject, error) {
+func (self *SRegion) GetInstanceVNCUrl(instanceId string) (*cloudprovider.ServerVncOutput, error) {
 	params := NewUcloudParams()
 	params.Set("UHostId", instanceId)
 	vnc := SVncInfo{}
@@ -575,13 +575,13 @@ func (self *SRegion) GetInstanceVNCUrl(instanceId string) (jsonutils.JSONObject,
 		return nil, err
 	}
 
-	vncInfo := jsonutils.NewDict()
-	vncInfo.Add(jsonutils.NewString(vnc.VNCIP), "host")
-	vncInfo.Add(jsonutils.NewInt(vnc.VNCPort), "port")
-	vncInfo.Add(jsonutils.NewString("vnc"), "protocol")
-	vncInfo.Add(jsonutils.NewString(vnc.VNCPassword), "vncPassword")
-	vncInfo.Add(jsonutils.NewString(vnc.VNCIP), "host")
-	return vncInfo, nil
+	ret := &cloudprovider.ServerVncOutput{
+		Host:       vnc.VNCIP,
+		Port:       vnc.VNCPort,
+		Password:   vnc.VNCPassword,
+		Hypervisor: api.HYPERVISOR_UCLOUD,
+	}
+	return ret, nil
 }
 
 // https://docs.ucloud.cn/api/unet-api/grant_firewall

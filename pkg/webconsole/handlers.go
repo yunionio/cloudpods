@@ -204,7 +204,7 @@ func handleServerRemoteConsole(ctx context.Context, w http.ResponseWriter, r *ht
 		return
 	}
 	srvId := env.Params["<id>"]
-	info, err := session.NewRemoteConsoleInfoByCloud(env.ClientSessin, srvId)
+	info, err := session.NewRemoteConsoleInfoByCloud(env.ClientSessin, srvId, env.Query)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return

@@ -687,7 +687,7 @@ func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.S
 }
 
 // todo:// 返回jsonobject感觉很诡异。不能直接知道内部细节
-func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
+func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	return self.host.zone.region.GetInstanceVNCUrl(self.GetId())
 }
 
@@ -1273,7 +1273,7 @@ func (self *SRegion) ChangeVMConfig(instanceId string, instanceType string) erro
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0142763126.html 微版本2.6及以上?
 // https://support.huaweicloud.com/api-ecs/ecs_02_0208.html
-func (self *SRegion) GetInstanceVNCUrl(instanceId string) (jsonutils.JSONObject, error) {
+func (self *SRegion) GetInstanceVNCUrl(instanceId string) (*cloudprovider.ServerVncOutput, error) {
 	params := jsonutils.NewDict()
 	vncObj := jsonutils.NewDict()
 	vncObj.Add(jsonutils.NewString("novnc"), "type")
@@ -1285,11 +1285,12 @@ func (self *SRegion) GetInstanceVNCUrl(instanceId string) (jsonutils.JSONObject,
 		return nil, err
 	}
 
-	if retDict, ok := ret.(*jsonutils.JSONDict); ok {
-		retDict.Set("protocol", jsonutils.NewString("huawei"))
+	result := &cloudprovider.ServerVncOutput{
+		Hypervisor: api.HYPERVISOR_HUAWEI,
 	}
-
-	return ret, nil
+	ret.Unmarshal(result)
+	result.Protocol = "huawei"
+	return result, nil
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0022472987.html

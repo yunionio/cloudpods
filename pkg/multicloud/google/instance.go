@@ -499,7 +499,7 @@ func (instance *SInstance) ChangeConfig(ctx context.Context, config *cloudprovid
 	return instance.host.zone.region.ChangeInstanceConfig(instance.SelfLink, instance.host.zone.Name, config.InstanceType, config.Cpu, config.MemoryMB)
 }
 
-func (instance *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
+func (instance *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
