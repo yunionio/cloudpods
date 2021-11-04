@@ -242,8 +242,9 @@ func (obj *SMonitorResourceAlert) getMoreDetails(detail monitor.MonitorResourceJ
 	}
 	detail.AlertName = alert.Name
 
+	now := time.Now()
 	shields, err := AlertRecordShieldManager.GetRecordShields(monitor.AlertRecordShieldListInput{ResId: obj.MonitorResourceId,
-		AlertId: obj.AlertId})
+		AlertId: obj.AlertId, EndTime: &now})
 	if err != nil {
 		log.Errorf("SMonitorResourceAlert get GetRecordShields by resId: %s,alertId: %s, err: %v",
 			obj.MonitorResourceId, obj.AlertId, err)
