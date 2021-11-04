@@ -332,6 +332,7 @@ const (
 	LB_SCHEDULER_SCH = "sch" // source-ip-based consistent hash
 	LB_SCHEDULER_TCH = "tch" // 4-tuple-based consistent hash
 	LB_SCHEDULER_QCH = "qch"
+	LB_SCHEDULER_MH  = "mh" // maglev consistent hash
 )
 
 var LB_SCHEDULER_TYPES = choices.NewChoices(
