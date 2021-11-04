@@ -133,6 +133,12 @@ func (manager *SAlertRecordShieldManager) shieldListByDetailsFeild(query *sqlche
 		query.Join(resQuery, sqlchemy.Equals(query.Field("res_id"), resQuery.Field("res_id"))).Filter(sqlchemy.Equals(
 			resQuery.Field("name"), input.ResName))
 	}
+	if input.StartTime != nil {
+		query.Filter(sqlchemy.LE(query.Field("start_time"), input.StartTime))
+	}
+	if input.EndTime != nil {
+		query.Filter(sqlchemy.GE(query.Field("end_time"), input.EndTime))
+	}
 	return query
 }
 
@@ -194,6 +200,9 @@ func (shield *SAlertRecordShield) GetMoreDetails(ctx context.Context, out monito
 	}
 	if len(resources) == 0 {
 		return out, nil
+	}
+	if shield.EndTime.Before(time.Now()) {
+		out.Expired = true
 	}
 	out.ResName = resources[0].Name
 	return out, nil

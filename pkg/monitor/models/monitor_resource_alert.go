@@ -180,9 +180,13 @@ func (m *SMonitorResourceAlertManager) ListItemFilter(ctx context.Context, q *sq
 		}
 		q.Filter(sqlchemy.In(q.Field("monitor_resource_id"), resQ.SubQuery()))
 	}
+	alertQuery := CommonAlertManager.Query("id")
 	if len(input.AlertName) != 0 {
-		alertQuery := CommonAlertManager.Query("id")
 		CommonAlertManager.FieldListFilter(alertQuery, monitor.CommonAlertListInput{Name: input.AlertName})
+		q.Filter(sqlchemy.In(q.Field(m.GetSlaveFieldName()), alertQuery.SubQuery()))
+	}
+	if len(input.Level) != 0 {
+		CommonAlertManager.FieldListFilter(alertQuery, monitor.CommonAlertListInput{Level: input.Level})
 		q.Filter(sqlchemy.In(q.Field(m.GetSlaveFieldName()), alertQuery.SubQuery()))
 	}
 
@@ -238,8 +242,9 @@ func (obj *SMonitorResourceAlert) getMoreDetails(detail monitor.MonitorResourceJ
 	}
 	detail.AlertName = alert.Name
 
+	now := time.Now()
 	shields, err := AlertRecordShieldManager.GetRecordShields(monitor.AlertRecordShieldListInput{ResId: obj.MonitorResourceId,
-		AlertId: obj.AlertId})
+		AlertId: obj.AlertId, EndTime: &now})
 	if err != nil {
 		log.Errorf("SMonitorResourceAlert get GetRecordShields by resId: %s,alertId: %s, err: %v",
 			obj.MonitorResourceId, obj.AlertId, err)
