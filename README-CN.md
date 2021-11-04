@@ -91,12 +91,12 @@ $ ssh root@10.168.26.216 "hostname"
 
 #### CentOS 7安装git和epel源
 ```bash
-yum install -y git epel-release
+yum install -y git epel-release ansible
 ```
 
 #### Debian 10安装git
 ```bash
-apt install -y git
+apt install -y git ansible
 ```
 
 ### 3. 安装Cloudpods
