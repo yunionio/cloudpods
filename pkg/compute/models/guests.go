@@ -1017,6 +1017,10 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		}
 	}
 
+	if err := self.GetDriver().ValidateUpdateData(ctx, userCred, input); err != nil {
+		return input, err
+	}
+
 	var err error
 	input.VirtualResourceBaseUpdateInput, err = self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
 	if err != nil {
