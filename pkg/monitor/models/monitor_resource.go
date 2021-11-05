@@ -461,6 +461,26 @@ func (manager *SMonitorResourceManager) GetResourceObj(id string) (bool, jsonuti
 	return false, nil
 }
 
+func (manager *SMonitorResourceManager) GetResourceObjByResType(typ string) (bool, []jsonutils.JSONObject) {
+	manager.GetModelSets()
+	for _, set := range manager.GetModelSets().ModelSetList() {
+		if _, ok := set.(IMonitorResModelSet); !ok {
+			continue
+		}
+		if set.(IMonitorResModelSet).GetResType() != typ {
+			continue
+		}
+		setRv := reflect.ValueOf(set)
+		objects := make([]jsonutils.JSONObject, 0)
+		for _, kRv := range setRv.MapKeys() {
+			mRv := setRv.MapIndex(kRv)
+			objects = append(objects, jsonutils.Marshal(mRv.Interface()))
+		}
+		return true, objects
+	}
+	return false, nil
+}
+
 func (manager *SMonitorResourceManager) SyncResources(ctx context.Context, mss *MonitorResModelSets) error {
 	userCred := auth.AdminCredential()
 	errs := make([]error, 0)
