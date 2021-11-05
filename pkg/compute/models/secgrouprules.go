@@ -345,6 +345,10 @@ func (self *SSecurityGroupRule) ValidateUpdateData(ctx context.Context, userCred
 		return output, httperrors.NewOutOfRangeError("Invalid priority %d, must be in range or 1 ~ 100", input.Priority)
 	}
 
+	if len(input.CIDR) == 0 {
+		input.CIDR = self.CIDR
+	}
+
 	if len(input.PeerSecgroupId) > 0 {
 		_, err := validators.ValidateModel(userCred, SecurityGroupManager, &input.PeerSecgroupId)
 		if err != nil {
