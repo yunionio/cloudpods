@@ -213,13 +213,29 @@ func mergeInputOutputData(data *jsonutils.JSONDict, resVal reflect.Value) *jsonu
 	jsonMap, _ := retJson.GetMap()
 	for k, v := range jsonMap {
 		if output.Contains(k) {
-			if v == jsonutils.JSONNull || v.IsZero() {
+			if v == jsonutils.JSONNull {
 				output.Remove(k)
-			} else if !v.IsZero() {
-				output.Set(k, v)
+			} else {
+				switch v.(type) {
+				case *jsonutils.JSONString:
+					if v.IsZero() {
+						output.Remove(k)
+					} else {
+						output.Set(k, v)
+					}
+				default:
+					output.Set(k, v)
+				}
 			}
-		} else if !v.IsZero() {
-			output.Add(v, k)
+		} else if v != jsonutils.JSONNull {
+			switch v.(type) {
+			case *jsonutils.JSONString:
+				if !v.IsZero() {
+					output.Add(v, k)
+				}
+			default:
+				output.Add(v, k)
+			}
 		}
 	}
 	log.Debugf("output: %s", output)

@@ -17,7 +17,6 @@ package ovn
 import (
 	"context"
 	"fmt"
-	"net"
 	"sort"
 	"strings"
 
@@ -28,7 +27,6 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	apis "yunion.io/x/onecloud/pkg/apis/compute"
-	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	agentmodels "yunion.io/x/onecloud/pkg/vpcagent/models"
 	"yunion.io/x/onecloud/pkg/vpcagent/options"
