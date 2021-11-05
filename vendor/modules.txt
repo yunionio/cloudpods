@@ -1168,7 +1168,7 @@ sigs.k8s.io/yaml
 yunion.io/x/executor/apis
 yunion.io/x/executor/client
 yunion.io/x/executor/server
-# yunion.io/x/jsonutils v0.0.0-20210709075951-798a67800349
+# yunion.io/x/jsonutils v0.0.0-20211105163012-d846c05a3c9a
 yunion.io/x/jsonutils
 # yunion.io/x/log v0.0.0-20201210064738-43181789dc74
 yunion.io/x/log

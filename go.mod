@@ -37,6 +37,7 @@ require (
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/c-bata/go-prompt v0.2.1
 	github.com/ceph/go-ceph v0.0.0-20181217221554-e32f9f0f2e94
+	github.com/cheggaaa/pb/v3 v3.0.8
 	github.com/coredns/coredns v1.3.0
 	github.com/coreos/go-systemd v0.0.0-20190620071333-e64a0ec8b42a // indirect
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f // indirect
@@ -149,8 +150,8 @@ require (
 	k8s.io/apimachinery v0.19.3
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
-	yunion.io/x/executor v0.0.0-20210310041834-3fcd1574f68e
-	yunion.io/x/jsonutils v0.0.0-20210709075951-798a67800349
+	yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
+	yunion.io/x/jsonutils v0.0.0-20211105163012-d846c05a3c9a
 	yunion.io/x/log v0.0.0-20201210064738-43181789dc74
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
 	yunion.io/x/pkg v0.0.0-20210918114143-ce839f862c5f
@@ -158,5 +159,3 @@ require (
 	yunion.io/x/sqlchemy v0.0.0-20210918113031-c1c107f37ada
 	yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
 )
-
-replace github.com/ceph/go-ceph v0.0.0-20181217221554-e32f9f0f2e94 => github.com/yunionio/go-ceph v0.0.0-20190912101231-6f05a06b3859
