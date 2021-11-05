@@ -207,8 +207,6 @@ func ValueToError(out reflect.Value) error {
 func mergeInputOutputData(data *jsonutils.JSONDict, resVal reflect.Value) *jsonutils.JSONDict {
 	retJson := ValueToJSONDict(resVal)
 	// preserve the input info not returned by caller
-	log.Debugf("retJson: %s", retJson)
-	log.Debugf("data: %s", data)
 	output := data.Copy()
 	jsonMap, _ := retJson.GetMap()
 	for k, v := range jsonMap {
@@ -238,7 +236,6 @@ func mergeInputOutputData(data *jsonutils.JSONDict, resVal reflect.Value) *jsonu
 			}
 		}
 	}
-	log.Debugf("output: %s", output)
 	return output
 }
 

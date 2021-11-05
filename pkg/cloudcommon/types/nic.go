@@ -31,6 +31,7 @@ type SNic struct {
 	Mtu     int64    `json:"mtu"`
 	Mac     string   `json:"mac"`
 	Dns     string   `json:"dns"`
+	Ntp     string   `json:"ntp"`
 	MaskLen int8     `json:"masklen"`
 	Net     string   `json:"net"`
 	Gateway string   `json:"gateway"`
@@ -96,6 +97,7 @@ func (n SServerNic) ToNic() SNic {
 		NetId:   n.NetId,
 		Mac:     n.Mac,
 		Dns:     n.Dns,
+		Ntp:     n.Ntp,
 		MaskLen: int8(n.Masklen),
 		Net:     n.Net,
 		Gateway: n.Gateway,

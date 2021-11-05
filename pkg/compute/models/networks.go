@@ -384,9 +384,11 @@ func (self *SNetwork) getFreeIP(addrTable map[string]bool, recentUsedAddrTable m
 			return candidate, nil
 		}
 	}
+	// If network's alloc_policy is not none, then use network's alloc_policy
 	if len(self.AllocPolicy) > 0 && api.IPAllocationDirection(self.AllocPolicy) != api.IPAllocationNone {
 		allocDir = api.IPAllocationDirection(self.AllocPolicy)
 	}
+	// if alloc_dir is not speicified, and network's alloc_policy is not either, use default
 	if len(allocDir) == 0 {
 		allocDir = api.IPAllocationDirection(options.Options.DefaultIPAllocationDirection)
 	}
@@ -1586,11 +1588,18 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		if ipStr == "" {
 			continue
 		}
-		if key == "guest_dhcp" || key == "guest_dns" || key == "guest_ntp" {
+		if key == "guest_dhcp" || key == "guest_dns" {
 			ipList := strings.Split(ipStr, ",")
 			for _, ipstr := range ipList {
 				if !regutils.MatchIPAddr(ipstr) {
 					return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipstr)
+				}
+			}
+		} else if key == "guest_ntp" {
+			ipList := strings.Split(ipStr, ",")
+			for _, ipstr := range ipList {
+				if !regutils.MatchDomainName(ipstr) && !regutils.MatchIPAddr(ipstr) {
+					return input, httperrors.NewInputParameterError("%s: Invalid domain name or IP address %s", key, ipstr)
 				}
 			}
 		} else if !regutils.MatchIPAddr(ipStr) {
@@ -1784,11 +1793,18 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 		if ipStr == "" {
 			continue
 		}
-		if key == "guest_dhcp" || key == "guest_dns" || key == "guest_ntp" {
+		if key == "guest_dhcp" || key == "guest_dns" {
 			ipList := strings.Split(ipStr, ",")
 			for _, ipstr := range ipList {
 				if !regutils.MatchIPAddr(ipstr) {
 					return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipstr)
+				}
+			}
+		} else if key == "guest_ntp" {
+			ipList := strings.Split(ipStr, ",")
+			for _, ipstr := range ipList {
+				if !regutils.MatchDomainName(ipstr) && !regutils.MatchIPAddr(ipstr) {
+					return input, httperrors.NewInputParameterError("%s: Invalid domain name or IP address  %s", key, ipstr)
 				}
 			}
 		} else if !regutils.MatchIPAddr(ipStr) {
