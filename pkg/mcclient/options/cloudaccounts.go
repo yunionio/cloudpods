@@ -110,7 +110,9 @@ type SCloudAccountCreateBaseOptions struct {
 
 	SamlAuth string `help:"Enable or disable saml auth" choices:"true|false"`
 
-	ProxySetting string `help:"proxy setting id or name" json:"proxy_setting"`
+	ProxySetting    string `help:"proxy setting id or name" json:"proxy_setting"`
+	DryRun          bool   `help:"test create cloudaccount params"`
+	ShowSubAccounts bool   `help:"test and show subaccount info"`
 }
 
 type SVMwareCloudAccountCreateOptions struct {

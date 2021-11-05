@@ -198,6 +198,12 @@ type CloudaccountCreateInput struct {
 
 	// VMware 账号有zone属性
 	Zone string `json:"zone"`
+
+	// 仅当show_sub_accounts=true并且dry_run=true时才返回sub accounts 信息, 且不会创建云账号
+	ShowSubAccounts bool `json:"show_sub_accounts"`
+
+	// swagger:ignore
+	SubAccounts *cloudprovider.SubAccounts
 }
 
 type CloudaccountShareModeInput struct {
