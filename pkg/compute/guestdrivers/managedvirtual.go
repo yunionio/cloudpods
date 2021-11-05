@@ -337,6 +337,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Conte
 		result.Add(jsonutils.NewBool(true), "is_running")
 	}
 
+	guest.SyncAllWithCloudVM(ctx, userCred, host, ivm)
 	return result, nil
 }
 
