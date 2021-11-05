@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -919,11 +920,8 @@ func (opts *CloudaccountUpdateCredentialOptions) Params() (jsonutils.JSONObject,
 
 type CloudaccountSyncOptions struct {
 	SCloudAccountIdOptions
-	Force    bool     `help:"Force sync no matter what"`
-	FullSync bool     `help:"Synchronize everything"`
-	Region   []string `help:"region to sync"`
-	Zone     []string `help:"region to sync"`
-	Host     []string `help:"region to sync"`
+
+	api.SyncRangeInput
 }
 
 func (opts *CloudaccountSyncOptions) Params() (jsonutils.JSONObject, error) {

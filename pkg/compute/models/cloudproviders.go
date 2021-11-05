@@ -470,14 +470,7 @@ func (self *SCloudprovider) saveProject(userCred mcclient.TokenCredential, domai
 }
 
 type SSyncRange struct {
-	Force    bool
-	FullSync bool
-	DeepSync bool
-	// ProjectSync bool
-
-	Region []string
-	Zone   []string
-	Host   []string
+	api.SyncRangeInput
 }
 
 func (sr *SSyncRange) GetRegionIds() ([]string, error) {
@@ -518,17 +511,18 @@ func (sr *SSyncRange) GetRegionIds() ([]string, error) {
 	return regionIds, nil
 }
 
+func (sr *SSyncRange) NeedSyncResource(res string) bool {
+	if len(sr.Resources) == 0 {
+		return true
+	}
+	return utils.IsInStringArray(res, sr.Resources)
+}
+
 func (sr *SSyncRange) NeedSyncInfo() bool {
 	if sr.FullSync {
 		return true
 	}
-	if sr.Region != nil && len(sr.Region) > 0 {
-		return true
-	}
-	if sr.Zone != nil && len(sr.Zone) > 0 {
-		return true
-	}
-	if sr.Host != nil && len(sr.Host) > 0 {
+	if len(sr.Region) > 0 || len(sr.Zone) > 0 || len(sr.Host) > 0 || len(sr.Resources) > 0 {
 		return true
 	}
 	return false
@@ -634,7 +628,7 @@ func (self *SCloudprovider) AllowPerformSync(ctx context.Context, userCred mccli
 	return db.IsAdminAllowPerform(userCred, self, "sync")
 }
 
-func (self *SCloudprovider) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SCloudprovider) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SyncRangeInput) (jsonutils.JSONObject, error) {
 	if !self.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Cloudprovider disabled")
 	}
@@ -645,18 +639,14 @@ func (self *SCloudprovider) PerformSync(ctx context.Context, userCred mcclient.T
 	if account.EnableAutoSync && self.SyncStatus != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
 		return nil, httperrors.NewInvalidStatusError("Cloudprovider is not idle")
 	}
-	syncRange := SSyncRange{}
-	err := data.Unmarshal(&syncRange)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("invalid input %s", err)
-	}
-	if syncRange.FullSync || len(syncRange.Region) > 0 || len(syncRange.Zone) > 0 || len(syncRange.Host) > 0 {
+	syncRange := SSyncRange{input}
+	if syncRange.FullSync || len(syncRange.Region) > 0 || len(syncRange.Zone) > 0 || len(syncRange.Host) > 0 || len(syncRange.Resources) > 0 {
 		syncRange.DeepSync = true
 	}
 	if self.CanSync() || syncRange.Force {
-		err = self.StartSyncCloudProviderInfoTask(ctx, userCred, &syncRange, "")
+		return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &syncRange, "")
 	}
-	return nil, err
+	return nil, nil
 }
 
 func (self *SCloudprovider) StartSyncCloudProviderInfoTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange, parentTaskId string) error {
@@ -741,7 +731,9 @@ func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred m
 		return nil, nil
 	}
 
-	return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &SSyncRange{FullSync: true, DeepSync: true}, "")
+	return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &SSyncRange{SyncRangeInput: api.SyncRangeInput{
+		FullSync: true, DeepSync: true,
+	}}, "")
 }
 
 func (self *SCloudprovider) markStartingSync(userCred mcclient.TokenCredential, syncRange *SSyncRange) error {
