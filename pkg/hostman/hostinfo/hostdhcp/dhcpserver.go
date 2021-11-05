@@ -24,11 +24,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 
-	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	guestman "yunion.io/x/onecloud/pkg/hostman/guestman/types"
 	"yunion.io/x/onecloud/pkg/hostman/options"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/dhcp"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
@@ -143,7 +141,7 @@ func (s *SGuestDHCPServer) getGuestConfig(guestDesc, guestNic jsonutils.JSONObje
 		}
 	}
 
-	if len(nicdesc.NTPServers) > 0 {
+	if len(nicdesc.Ntp) > 0 {
 		conf.NTPServers = make([]net.IP, 0)
 		for _, ntp := range strings.Split(nicdesc.Ntp, ",") {
 			conf.NTPServers = append(conf.NTPServers, net.ParseIP(ntp))
