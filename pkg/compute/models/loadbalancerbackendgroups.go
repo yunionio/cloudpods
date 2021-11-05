@@ -977,6 +977,10 @@ func (lbbg *SLoadbalancerBackendGroup) syncRemoveCloudLoadbalancerBackendgroup(c
 	lockman.LockObject(ctx, lbbg)
 	defer lockman.ReleaseObject(ctx, lbbg)
 
+	if lbbg.GetProviderName() == api.CLOUD_PROVIDER_GOOGLE {
+		return nil
+	}
+
 	err := lbbg.ValidateDeleteCondition(ctx, nil)
 	if err != nil { // cannot delete
 		err = lbbg.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
