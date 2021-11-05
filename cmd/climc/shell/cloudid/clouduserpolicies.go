@@ -16,7 +16,7 @@ package cloudid
 
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/cloudid"
 	"yunion.io/x/onecloud/pkg/mcclient/options/cloudid"
 )
 

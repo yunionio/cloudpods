@@ -18,7 +18,7 @@ import (
 	"encoding/base32"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 )
 
 const MAX_OTP_RETRY = 5 // totp验证最大重试次数

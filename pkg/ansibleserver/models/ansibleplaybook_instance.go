@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 	"yunion.io/x/onecloud/pkg/util/ansiblev2"
 )
@@ -124,7 +125,7 @@ func (ai *SAnsiblePlaybookInstance) runPlaybook(ctx context.Context, userCred mc
 		privateKey string
 		err        error
 	)
-	if privateKey, err = modules.Sshkeypairs.FetchPrivateKey(ctx, userCred); err != nil {
+	if privateKey, err = compute.Sshkeypairs.FetchPrivateKey(ctx, userCred); err != nil {
 		return err
 	}
 	_, err = db.Update(ai, func() error {
@@ -212,7 +213,7 @@ var PlaybookWorker *workmanager.SWorkManager
 func taskFailed(ctx context.Context, reason string) {
 	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
 		session := auth.GetAdminSessionWithInternal(ctx, "", "")
-		modules.TaskFailed(&modules.DevtoolTasks, session, taskId.(string), reason)
+		modules.TaskFailed(&compute.DevtoolTasks, session, taskId.(string), reason)
 	} else {
 		log.Warningf("Reqeuest task failed missing task id, with reason: %s", reason)
 	}
@@ -221,7 +222,7 @@ func taskFailed(ctx context.Context, reason string) {
 func taskCompleted(ctx context.Context, data jsonutils.JSONObject) {
 	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
 		session := auth.GetAdminSessionWithInternal(ctx, "", "")
-		modules.TaskComplete(&modules.DevtoolTasks, session, taskId.(string), data)
+		modules.TaskComplete(&compute.DevtoolTasks, session, taskId.(string), data)
 	} else {
 		log.Warningf("Reqeuest task failed missing task id, with data: %v", data)
 	}

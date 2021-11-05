@@ -28,7 +28,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 )
@@ -52,7 +52,7 @@ func getCommand(ctx context.Context, userCred mcclient.TokenCredential, ip strin
 		return "", nil, nil
 	}
 	s := auth.GetAdminSession(ctx, o.Options.Region, "v2")
-	key, err := modules.Sshkeypairs.GetById(s, userCred.GetProjectId(), jsonutils.Marshal(map[string]bool{"admin": true}))
+	key, err := compute.Sshkeypairs.GetById(s, userCred.GetProjectId(), jsonutils.Marshal(map[string]bool{"admin": true}))
 	if err != nil {
 		return "", nil, err
 	}

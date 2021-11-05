@@ -21,7 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	compute "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 type AnsibleHostsOptions struct {
@@ -60,7 +60,7 @@ func doList(s *mcclient.ClientSession, args *AnsibleHostsOptions) error {
 		params.Add(jsonutils.NewInt(int64(limit)), "limit")
 		params.Add(jsonutils.NewInt(int64(hosts.Size())), "offset")
 		params.Add(jsonutils.JSONTrue, "details")
-		retList, err := modules.Servers.List(s, params)
+		retList, err := compute.Servers.List(s, params)
 		if err != nil {
 			return err
 		}
@@ -100,7 +100,7 @@ func doList(s *mcclient.ClientSession, args *AnsibleHostsOptions) error {
 }
 
 func doHost(s *mcclient.ClientSession, host string, args *AnsibleHostsOptions) error {
-	srv, err := modules.Servers.Get(s, host, nil)
+	srv, err := compute.Servers.Get(s, host, nil)
 	if err != nil {
 		return err
 	}

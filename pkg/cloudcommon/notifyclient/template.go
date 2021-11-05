@@ -31,7 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	npk "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 )
 
@@ -65,7 +65,7 @@ func getUserLang(uids []string) (map[string]string, error) {
 		params.Set("details", jsonutils.JSONFalse)
 		params.Set("scope", jsonutils.NewString("system"))
 		params.Set("system", jsonutils.JSONTrue)
-		ret, err := modules.UsersV3.List(s, params)
+		ret, err := identity.UsersV3.List(s, params)
 		if err != nil {
 			return nil, err
 		}
@@ -88,7 +88,7 @@ func getRobotLang(robots []string) (map[string]string, error) {
 		params := jsonutils.NewDict()
 		params.Set("filter", jsonutils.NewString(fmt.Sprintf("id.in(%s)", strings.Join(robots, ","))))
 		params.Set("scope", jsonutils.NewString("system"))
-		ret, err := modules.NotifyRobot.List(s, params)
+		ret, err := npk.NotifyRobot.List(s, params)
 		if err != nil {
 			return nil, err
 		}

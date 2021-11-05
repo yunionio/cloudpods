@@ -18,7 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 

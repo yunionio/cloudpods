@@ -18,7 +18,8 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/logger"
 )
 
 func init() {
@@ -52,7 +53,7 @@ func init() {
 		CREATED  string `json:"created" help:"when event was created"`
 	}
 	R(&BaremetalEventCreateOptions{}, "baremetal-event-create", "Create baremetal event", func(s *mcclient.ClientSession, args *BaremetalEventCreateOptions) error {
-		host, err := modules.Hosts.Get(s, args.HOST, nil)
+		host, err := compute.Hosts.Get(s, args.HOST, nil)
 		if err != nil {
 			return err
 		}

@@ -27,7 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	mcclient_module "yunion.io/x/onecloud/pkg/mcclient/modules"
+	ansible_modules "yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 	ssh_util "yunion.io/x/onecloud/pkg/util/ssh"
 )
@@ -157,7 +157,7 @@ func (proxyendpoint *SProxyEndpoint) remoteConfigure(ctx context.Context, userCr
 	cliSess := auth.GetSession(ctx, userCred, "", "")
 	pbId := ""
 	pbName := "pe-remote-configure-" + proxyendpoint.Name
-	_, err := mcclient_module.AnsiblePlaybooks.UpdateOrCreatePbModel(
+	_, err := ansible_modules.AnsiblePlaybooks.UpdateOrCreatePbModel(
 		ctx, cliSess, pbId, pbName, pb,
 	)
 	if err != nil {

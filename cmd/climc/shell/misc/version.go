@@ -23,7 +23,9 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionagent"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -48,7 +50,7 @@ func init() {
 		params := map[string]interface{}{}
 		for {
 			params["offset"] = len(services)
-			resp, err := modules.ServicesV3.List(s, jsonutils.Marshal(params))
+			resp, err := identity.ServicesV3.List(s, jsonutils.Marshal(params))
 			if err != nil {
 				return err
 			}
@@ -85,7 +87,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		result, err := modules.Version.List(s, params)
+		result, err := yunionagent.Version.List(s, params)
 		if err != nil {
 			return err
 		}
@@ -94,7 +96,7 @@ func init() {
 	})
 
 	R(&options.VersionGetOptions{}, "yunionagent-version-show", "Show service version", func(s *mcclient.ClientSession, opts *options.VersionGetOptions) error {
-		result, err := modules.Version.Get(s, opts.Service, nil)
+		result, err := yunionagent.Version.Get(s, opts.Service, nil)
 		if err != nil {
 			return err
 		}

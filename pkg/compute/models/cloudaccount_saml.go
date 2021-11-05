@@ -27,7 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	cloudid_modules "yunion.io/x/onecloud/pkg/mcclient/modules/cloudid"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -60,7 +60,7 @@ func (account *SCloudaccount) GetDetailsSaml(ctx context.Context, userCred mccli
 		"cloudaccount_id": account.Id,
 		"status":          cloudid.SAML_PROVIDER_STATUS_AVAILABLE,
 	}
-	samlproviders, _ := modules.SAMLProviders.List(s, jsonutils.Marshal(params))
+	samlproviders, _ := cloudid_modules.SAMLProviders.List(s, jsonutils.Marshal(params))
 	for _, sp := range samlproviders.Data {
 		authUrl, _ := sp.GetString("auth_url")
 		if len(authUrl) > 0 {

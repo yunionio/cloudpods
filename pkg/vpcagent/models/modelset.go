@@ -23,7 +23,7 @@ import (
 	computeapis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	mcclient_modulebase "yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
+	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 type (

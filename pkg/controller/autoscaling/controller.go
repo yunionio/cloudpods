@@ -37,7 +37,8 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -411,7 +412,7 @@ func (asc *SASController) createInstances(session *mcclient.ClientSession, param
 	// forcast first
 	dict := params.(*jsonutils.JSONDict)
 	dict.Set("count", jsonutils.NewInt(int64(count)))
-	_, err := modules.SchedManager.DoForecast(session, dict)
+	_, err := scheduler.SchedManager.DoForecast(session, dict)
 	if err != nil {
 		clientErr := err.(*httputils.JSONClientError)
 		failedList = append(failedList, clientErr.Details)

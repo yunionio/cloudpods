@@ -19,7 +19,11 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/cloudevent"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/logger"
 )
 
 func init() {
@@ -31,15 +35,15 @@ func init() {
 		var err error
 		switch args.Service {
 		case "identity":
-			results, err = modules.IdentityLogs.Get(s, "splitable", nil)
+			results, err = identity.IdentityLogs.Get(s, "splitable", nil)
 		case "image":
-			results, err = modules.ImageLogs.Get(s, "splitable", nil)
+			results, err = image.ImageLogs.Get(s, "splitable", nil)
 		case "log":
-			results, err = modules.Actions.Get(s, "splitable", nil)
+			results, err = logger.Actions.Get(s, "splitable", nil)
 		case "cloudevent":
-			results, err = modules.Cloudevents.Get(s, "splitable", nil)
+			results, err = cloudevent.Cloudevents.Get(s, "splitable", nil)
 		default:
-			results, err = modules.Logs.Get(s, "splitable", nil)
+			results, err = compute.Logs.Get(s, "splitable", nil)
 		}
 		if err != nil {
 			return err
@@ -59,15 +63,15 @@ func init() {
 		var err error
 		switch args.Service {
 		case "identity":
-			results, err = modules.IdentityLogs.PerformClassAction(s, "purge-splitable", nil)
+			results, err = identity.IdentityLogs.PerformClassAction(s, "purge-splitable", nil)
 		case "image":
-			results, err = modules.ImageLogs.PerformClassAction(s, "purge-splitable", nil)
+			results, err = image.ImageLogs.PerformClassAction(s, "purge-splitable", nil)
 		case "log":
-			results, err = modules.Actions.PerformClassAction(s, "purge-splitable", nil)
+			results, err = logger.Actions.PerformClassAction(s, "purge-splitable", nil)
 		case "cloudevent":
-			results, err = modules.Cloudevents.PerformClassAction(s, "purge-splitable", nil)
+			results, err = cloudevent.Cloudevents.PerformClassAction(s, "purge-splitable", nil)
 		default:
-			results, err = modules.Logs.PerformClassAction(s, "purge-splitable", nil)
+			results, err = compute.Logs.PerformClassAction(s, "purge-splitable", nil)
 		}
 		if err != nil {
 			return err

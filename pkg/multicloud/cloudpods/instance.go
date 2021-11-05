@@ -26,7 +26,9 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/logger"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/webconsole"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -283,7 +285,7 @@ func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudpr
 	if err != nil {
 		return nil, errors.Wrapf(err, "resp.Unmarshal")
 	}
-	resp, err = modules.ServicesV3.GetSpecific(s, "common", "config", nil)
+	resp, err = identity.ServicesV3.GetSpecific(s, "common", "config", nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetSpecific")
 	}
@@ -333,7 +335,7 @@ func (self *SInstance) GetError() error {
 	if self.Status == api.VM_DEPLOY_FAILED {
 		params := map[string]interface{}{"obj_id": self.Id, "success": false}
 		actions := []apis.OpsLogDetails{}
-		self.host.zone.region.list(&modules.Actions, params, &actions)
+		self.host.zone.region.list(&logger.Actions, params, &actions)
 		if len(actions) > 0 {
 			return fmt.Errorf(actions[0].Notes)
 		}

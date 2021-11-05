@@ -40,7 +40,8 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/informer"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	notify_modules "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/notify/oldmodels"
 	"yunion.io/x/onecloud/pkg/notify/options"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -1009,7 +1010,7 @@ func (rm *SReceiverManager) PerformIntellijGet(ctx context.Context, userCred mcc
 	// try to get itself
 	s := auth.GetSession(ctx, userCred, "", "")
 	// modules.NotifyReceiver
-	ret, err := modules.NotifyReceiver.Get(s, input.UserId, getParam)
+	ret, err := notify_modules.NotifyReceiver.Get(s, input.UserId, getParam)
 	if err == nil {
 		return ret, nil
 	}

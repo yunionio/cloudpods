@@ -32,7 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 )
 
 type SSyncableBaseResource struct {
@@ -1003,7 +1003,7 @@ func syncSkusFromPrivateCloud(ctx context.Context, userCred mcclient.TokenCreden
 		return
 	}
 	s := auth.GetSession(ctx, userCred, "", "")
-	if _, err := modules.SchedManager.SyncSku(s, true); err != nil {
+	if _, err := scheduler.SchedManager.SyncSku(s, true); err != nil {
 		log.Errorf("Sync scheduler sku cache error: %v", err)
 	}
 }

@@ -52,7 +52,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 	"yunion.io/x/onecloud/pkg/multicloud/esxi"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -1089,7 +1089,7 @@ func (self *SHostManager) ClearSchedDescCache(hostId string) error {
 
 func (self *SHostManager) ClearSchedDescSessionCache(hostId, sessionId string) error {
 	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
-	return modules.SchedManager.CleanCache(s, hostId, sessionId, false)
+	return scheduler.SchedManager.CleanCache(s, hostId, sessionId, false)
 }
 
 func (self *SHost) ClearSchedDescCache() error {
@@ -1103,7 +1103,7 @@ func (self *SHost) ClearSchedDescSessionCache(sessionId string) error {
 // sync clear sched desc on scheduler side
 func (self *SHostManager) SyncClearSchedDescSessionCache(hostId, sessionId string) error {
 	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
-	return modules.SchedManager.CleanCache(s, hostId, sessionId, true)
+	return scheduler.SchedManager.CleanCache(s, hostId, sessionId, true)
 }
 
 func (self *SHost) SyncCleanSchedDescCache() error {

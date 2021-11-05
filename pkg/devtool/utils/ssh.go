@@ -27,8 +27,8 @@ import (
 	cloudproxy_api "yunion.io/x/onecloud/pkg/apis/cloudproxy"
 	comapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/cloudproxy"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 var ErrServerNotSshable = errors.Error("server is not sshable")

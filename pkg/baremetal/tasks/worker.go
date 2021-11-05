@@ -25,7 +25,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/baremetal/options"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 var baremetalTaskWorkerMan *appsrv.SWorkerManager

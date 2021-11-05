@@ -34,7 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
+	ansible_modules "yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
 	cloudproxy_module "yunion.io/x/onecloud/pkg/mcclient/modules/cloudproxy"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -511,7 +511,7 @@ func (guest *SGuest) PerformMakeSshable(
 	cliSess := auth.GetSession(ctx, userCred, "", "")
 	pbId := ""
 	pbName := "make-sshable-" + guest.Id
-	pbModel, err := mcclient_modules.AnsiblePlaybooks.UpdateOrCreatePbModel(
+	pbModel, err := ansible_modules.AnsiblePlaybooks.UpdateOrCreatePbModel(
 		ctx, cliSess, pbId, pbName, pb,
 	)
 	if err != nil {

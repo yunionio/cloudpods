@@ -32,7 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	npk "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -77,7 +77,7 @@ func notifyAll(ctx context.Context, recipientId []string, isGroup bool, priority
 		return err
 	}
 	params := jsonutils.NewDict()
-	result, err := modules.NotifyReceiver.PerformClassAction(s, "get-types", params)
+	result, err := npk.NotifyReceiver.PerformClassAction(s, "get-types", params)
 	if err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func genMsgViaLang(ctx context.Context, p sNotifyParams) ([]npk.SNotifyMessage, 
 		// fetch uid
 		uidSet := sets.NewString()
 		for _, gid := range p.recipientId {
-			users, err := modules.Groups.GetUsers(s, gid, nil)
+			users, err := identity.Groups.GetUsers(s, gid, nil)
 			if err != nil {
 				return nil, errors.Wrapf(err, "Groups.GetUsers for group %q", gid)
 			}
@@ -389,7 +389,7 @@ func (t *notifyTask) Run() {
 		receiverId := match[1]
 		createData := jsonutils.NewDict()
 		createData.Set("uid", jsonutils.NewString(receiverId))
-		_, err = modules.NotifyReceiver.Create(s, createData)
+		_, err = npk.NotifyReceiver.Create(s, createData)
 		if err != nil {
 			log.Errorf("try to create receiver %q, but failed: %v", receiverId, err)
 			break
@@ -448,7 +448,7 @@ func getIdentityId(s *mcclient.ClientSession, idName string, manager modulebase.
 		domainId, ok := domainCache[domain]
 		if !ok {
 			var err error
-			domainId, err = modules.Domains.GetId(s, domain, nil)
+			domainId, err = identity.Domains.GetId(s, domain, nil)
 			if err != nil {
 				log.Errorf("fail to find domainId for domain %s: %s", domain, err)
 				return "", err

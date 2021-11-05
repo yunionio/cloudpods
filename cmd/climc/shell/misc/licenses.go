@@ -22,7 +22,7 @@ import (
 	"os"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionagent"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -37,12 +37,12 @@ func init() {
 			return err
 		}
 
-		lics, err := modules.License.List(s, params)
+		lics, err := yunionagent.License.List(s, params)
 		if err != nil {
 			return err
 		}
 
-		printList(lics, modules.License.GetColumns(s))
+		printList(lics, yunionagent.License.GetColumns(s))
 		return nil
 	})
 
@@ -71,7 +71,7 @@ func init() {
 
 		header := http.Header{}
 		header.Set("Content-Type", contentType)
-		lic, err := modules.License.Upload(s, header, bodyBuf)
+		lic, err := yunionagent.License.Upload(s, header, bodyBuf)
 		if err != nil {
 			return err
 		}
@@ -85,7 +85,7 @@ func init() {
 	}
 
 	R(&LicenseShowOptions{}, "licenses-show", "show actived license", func(s *mcclient.ClientSession, args *LicenseShowOptions) error {
-		lic, e := modules.License.Get(s, args.SERVICE, nil)
+		lic, e := yunionagent.License.Get(s, args.SERVICE, nil)
 		if e != nil {
 			return e
 		}
@@ -99,7 +99,7 @@ func init() {
 	}
 
 	R(&LicenseStatusOptions{}, "licenses-usage", "show license usages status", func(s *mcclient.ClientSession, args *LicenseStatusOptions) error {
-		status, err := modules.License.GetSpecific(s, args.SERVICE, "status", nil)
+		status, err := yunionagent.License.GetSpecific(s, args.SERVICE, "status", nil)
 		if err != nil {
 			return err
 		}

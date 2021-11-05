@@ -32,7 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 	"yunion.io/x/onecloud/pkg/util/ansiblev2"
 )
@@ -180,7 +180,7 @@ func (apb *SAnsiblePlaybookV2) runPlaybook(ctx context.Context, userCred mcclien
 		}
 	}
 	// init private key
-	if privateKey, err = mcclient_modules.Sshkeypairs.FetchPrivateKey(ctx, userCred); err != nil {
+	if privateKey, err = compute.Sshkeypairs.FetchPrivateKey(ctx, userCred); err != nil {
 		return err
 	}
 

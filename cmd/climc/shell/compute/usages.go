@@ -18,7 +18,9 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 )
 
@@ -166,7 +168,7 @@ func init() {
 		if args.Scope != "" {
 			params.Add(jsonutils.NewString(args.Scope), "scope")
 		}
-		result, err := modules.Images.GetUsage(s, params)
+		result, err := image.Images.GetUsage(s, params)
 		if err != nil {
 			return err
 		}
@@ -177,7 +179,7 @@ func init() {
 	type IdentityUsageOptions struct {
 	}
 	R(&IdentityUsageOptions{}, "identity-usage", "Show general usage of identity", func(s *mcclient.ClientSession, args *IdentityUsageOptions) error {
-		result, err := modules.IdentityUsages.GetUsage(s, nil)
+		result, err := identity.IdentityUsages.GetUsage(s, nil)
 		if err != nil {
 			return err
 		}

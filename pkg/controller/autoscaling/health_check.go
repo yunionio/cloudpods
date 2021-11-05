@@ -28,7 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 var UnhealthStatus = []string{
@@ -115,7 +115,7 @@ func (asc *SASController) CheckInstanceHealth(ctx context.Context, userCred mccl
 			continue
 		}
 		removeParams.Set("scaling_group", jsonutils.NewString(ug.ScalngGroupId))
-		_, err := modules.Servers.PerformAction(session, ug.Id, "detach-scaling-group", removeParams)
+		_, err := compute.Servers.PerformAction(session, ug.Id, "detach-scaling-group", removeParams)
 		if err != nil {
 			log.Errorf("Request Detach Scaling Group failed: %s", err.Error())
 		}
@@ -141,7 +141,7 @@ func (asc *SASController) CheckInstanceHealth(ctx context.Context, userCred mccl
 
 			for _, id := range removeGuestList {
 				removeParams.Set("scaling_group", jsonutils.NewString(readyGuestMap[id]))
-				_, err := modules.Servers.PerformAction(session, id, "detach-scaling-group", removeParams)
+				_, err := compute.Servers.PerformAction(session, id, "detach-scaling-group", removeParams)
 				if err != nil {
 					log.Errorf("Request Detach Scaling Group failed: %s", err.Error())
 				}

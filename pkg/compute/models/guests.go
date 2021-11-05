@@ -55,7 +55,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
@@ -5460,7 +5460,7 @@ func (self *SGuestManager) checkGuestImage(ctx context.Context, input *api.Serve
 	params.Add(jsonutils.JSONTrue, "details")
 
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	ret, err := modules.GuestImages.Get(s, guestImageId, params)
+	ret, err := image.GuestImages.Get(s, guestImageId, params)
 	if err != nil {
 		return errors.Wrap(err, "get guest image from glance error")
 	}

@@ -26,7 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	mc "yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 )
 
 type DiskSaveTask struct {
@@ -118,6 +118,6 @@ func (self *DiskSaveTask) TaskFailed(ctx context.Context, reason jsonutils.JSONO
 	if imageId, err := self.GetParams().GetString("image_id"); err != nil && len(imageId) > 0 {
 		log.Errorf("save disk task failed, set image %s killed", imageId)
 		s := auth.GetAdminSession(ctx, options.Options.Region, "")
-		mc.Images.Update(s, imageId, jsonutils.Marshal(map[string]string{"status": "killed"}))
+		image.Images.Update(s, imageId, jsonutils.Marshal(map[string]string{"status": "killed"}))
 	}
 }

@@ -24,7 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 )
 
 func FetchAllRemoteDomainProjects(ctx context.Context) ([]*db.STenant, []*db.STenant, error) {
@@ -38,7 +38,7 @@ func FetchAllRemoteDomainProjects(ctx context.Context) ([]*db.STenant, []*db.STe
 		listParam.Add(jsonutils.NewString("system"), "scope")
 		listParam.Add(jsonutils.NewInt(0), "limit")
 		listParam.Add(jsonutils.NewInt(int64(count)), "offset")
-		result, err := modules.Projects.List(s, listParam)
+		result, err := identity.Projects.List(s, listParam)
 		if err != nil {
 			return domains, projects, errors.Wrap(err, "list projects from keystone")
 		}

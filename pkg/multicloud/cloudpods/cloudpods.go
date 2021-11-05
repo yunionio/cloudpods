@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 const (
@@ -117,7 +118,7 @@ func NewCloudpodsClient(cfg *CloudpodsClientConfig) (*SCloudpodsClient, error) {
 
 func (self *SCloudpodsClient) GetRegion(regionId string) (*SRegion, error) {
 	ret := &SRegion{cli: self}
-	return ret, self.get(&modules.Cloudregions, regionId, nil, ret)
+	return ret, self.get(&compute.Cloudregions, regionId, nil, ret)
 }
 
 func (self *SCloudpodsClient) get(manager ModelManager, id string, params map[string]string, retVal interface{}) error {
@@ -232,7 +233,7 @@ func (self *SCloudpodsClient) GetIRegions() []cloudprovider.ICloudRegion {
 
 func (self *SCloudpodsClient) GetRegions() ([]SRegion, error) {
 	ret := []SRegion{}
-	return ret, self.list(&modules.Cloudregions, nil, &ret)
+	return ret, self.list(&compute.Cloudregions, nil, &ret)
 }
 
 func (self *SCloudpodsClient) GetCapabilities() []string {

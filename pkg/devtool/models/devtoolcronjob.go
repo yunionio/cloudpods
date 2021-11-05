@@ -25,7 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
 )
 
 type SVSCronjob struct {
@@ -78,7 +78,7 @@ func RunAnsibleCronjob(id string, s *mcclient.ClientSession) cronman.TCronJobFun
 		item := obj.(*SCronjob)
 
 		log.Debugf("[RunAnsibleCronjob] perform ansible cronjob run: %s", item.AnsiblePlaybookID)
-		ret, err := modules.AnsiblePlaybooks.PerformAction(s, item.AnsiblePlaybookID, "run", nil)
+		ret, err := ansible.AnsiblePlaybooks.PerformAction(s, item.AnsiblePlaybookID, "run", nil)
 		if err != nil {
 			log.Errorf("AnsiblePlaybooks.PerformAction error: %s", err)
 		}
