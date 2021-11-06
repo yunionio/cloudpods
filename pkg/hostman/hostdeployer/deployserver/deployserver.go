@@ -97,7 +97,7 @@ func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsPara
 	// There will be some occasional unknown panic, so temporarily capture panic here.
 	defer func() {
 		if r := recover(); r != nil {
-			log.Errorf("DeployGuestFs: %s, stack:\n %s", debug.Stack())
+			log.Errorf("DeployGuestFs: %s, stack:\n %s", req.String(), debug.Stack())
 			msg := "panic: "
 			if str, ok := r.(fmt.Stringer); ok {
 				msg += str.String()
