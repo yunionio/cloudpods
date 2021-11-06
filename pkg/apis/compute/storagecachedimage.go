@@ -23,8 +23,8 @@ import (
 type StoragecachedimageDetails struct {
 	apis.JointResourceBaseDetails
 
-	// 存储缓存名称
-	Storagecache string `json:"storagecache"`
+	StoragecacheResourceInfo
+
 	// 缓存镜像名称
 	Cachedimage string `json:"cachedimage"`
 
@@ -44,11 +44,7 @@ type StoragecachedimageListInput struct {
 	apis.JointResourceBaseListInput
 	apis.ExternalizedResourceBaseListInput
 
-	// 以镜像缓存存储过滤
-	StoragecacheId string `json:"storagecache_id"`
-	// Deprecated
-	// swagger:ignore
-	Storagecache string `json:"storagecache" yunion-deprecated-by:"storagecache_id"`
+	StoragecacheFilterListInput
 
 	// 以镜像缓存过滤
 	CachedimageId string `json:"cachedimage_id"`

@@ -80,3 +80,36 @@ type CacheImageInput struct {
 	// swagger: ignore
 	Checksum string `json:"checksum"`
 }
+
+type StoragecacheResourceInput struct {
+	// 存储缓存（ID或Name）
+	StoragecacheId string `json:"storagecache_id"`
+	// swagger:ignore
+	// Deprecated
+	// filter by storagecache_id
+	Storagecache string `json:"storagecache" yunion-deprecated-by:"storagecache_id"`
+}
+
+type StoragecacheResourceInfo struct {
+	// 归属云订阅ID
+	ManagerId string `json:"manager_id"`
+
+	ManagedResourceInfo
+
+	// 存储缓存名称
+	Storagecache string `json:"storagecache"`
+}
+
+type StoragecacheFilterListInputBase struct {
+	StoragecacheResourceInput
+
+	// 以存储缓存名称排序
+	// pattern:asc|desc
+	OrderByStoragecache string `json:"order_by_storagecache"`
+}
+
+type StoragecacheFilterListInput struct {
+	StoragecacheFilterListInputBase
+
+	ManagedResourceListInput
+}
