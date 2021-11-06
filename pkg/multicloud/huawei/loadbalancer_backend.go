@@ -156,7 +156,7 @@ func (self *SRegion) getInstanceByIP(privateIP string) (*SInstance, error) {
 	if len(instances) == 1 {
 		return &instances[0], nil
 	} else if len(instances) > 1 {
-		log.Warningln("SRegion.getInstanceByIP %s result: multiple server find", privateIP)
+		log.Warningf("SRegion.getInstanceByIP %s result: multiple server find", privateIP)
 		return &instances[0], nil
 	}
 

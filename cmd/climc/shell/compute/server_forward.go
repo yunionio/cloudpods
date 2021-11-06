@@ -47,7 +47,7 @@ func dump(input jsonutils.JSONObject) (*forwardInfo, error) {
 	}
 
 	if ret.ProxyPort <= 0 {
-		return nil, errors.Errorf("invalid proxy_port %d", ret.ProxyAddr)
+		return nil, errors.Errorf("invalid proxy_port %d", ret.ProxyPort)
 	}
 
 	return ret, nil
