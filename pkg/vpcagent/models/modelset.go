@@ -94,7 +94,7 @@ func (ms Vpcs) joinRouteTables(subEntries RouteTables) bool {
 		}
 		subEntry.Vpc = m
 		if m.RouteTable != nil {
-			log.Warningf("vpc %s has more than 1 route table available, skipping %s(%s)",
+			log.Warningf("vpc %s(%s) has more than 1 route table available, skipping %s(%s)",
 				m.Name, m.Id, subEntry.Name, subEntry.Id)
 			correct = false
 			continue

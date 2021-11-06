@@ -250,7 +250,7 @@ func GetServiceUrl(ctx context.Context, serviceName string) (string, error) {
 		return "", err
 	}
 	log.Infof("params to list endpoint: %v", params)
-	log.Infof("ret to list endpoint: %s", ret)
+	log.Infof("ret to list endpoint: %s", jsonutils.Marshal(ret))
 	if len(ret.Data) == 0 {
 		return "", fmt.Errorf("no sucn endpoint with 'internal' interface and 'influxdb' service")
 	}
