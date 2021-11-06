@@ -636,7 +636,7 @@ func (self *SInstance) NextDeviceName() (string, error) {
 	}
 
 	for i := 0; i < 25; i++ {
-		device := fmt.Sprintf("/dev/%sd%s", prefix, string(98+i))
+		device := fmt.Sprintf("/dev/%sd%s", prefix, string([]byte{byte(98 + i)}))
 		if ok, _ := utils.InStringArray(device, currents); !ok {
 			return device, nil
 		}

@@ -213,7 +213,7 @@ func (l *SLocalImageCache) fetch(ctx context.Context, zone, srcUrl, format strin
 
 		bDesc, err := json.Marshal(l.Desc)
 		if err != nil {
-			return errors.Wrapf(err, "json.Marshal(%s)", l.Desc)
+			return errors.Wrapf(err, "json.Marshal(%#v)", l.Desc)
 		}
 
 		err = fileutils2.FilePutContents(l.GetInfPath(), string(bDesc), false)
