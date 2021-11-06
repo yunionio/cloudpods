@@ -145,7 +145,7 @@ func (storage *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, e
 		return nil, err
 	}
 	if disk.AvailabilityZone != storage.zone.ZoneName {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "disk %s not in zone %s", storage.zone.ZoneName)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "disk %s not in zone %s", disk.Name, storage.zone.ZoneName)
 	}
 	disk.storage = storage
 	return disk, nil
