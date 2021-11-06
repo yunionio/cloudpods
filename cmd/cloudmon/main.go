@@ -133,7 +133,7 @@ func main() {
 			for {
 				select {
 				case <-ticker.C:
-					log.Errorf("cmd: %s,provider: %v,end due to timeout: %s s", opts.SUBCOMMAND,
+					log.Errorf("cmd: %s,provider: %v,end due to timeout: %ds", opts.SUBCOMMAND,
 						suboptions.(*common.ReportOptions).Provider, suboptions.(*common.ReportOptions).Timeout)
 					os.Exit(3)
 				case <-endChan:

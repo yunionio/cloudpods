@@ -29,7 +29,7 @@ type SDiskCreateByDiskinfo struct {
 }
 
 func (i *SDiskCreateByDiskinfo) String() string {
-	return fmt.Sprintf("disk_id: %s, disk_info: %s", i.DiskId, i.DiskInfo)
+	return fmt.Sprintf("disk_id: %s, disk_info: %s", i.DiskId, jsonutils.Marshal(i.DiskInfo))
 }
 
 type SDiskReset struct {
