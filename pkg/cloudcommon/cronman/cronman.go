@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -36,6 +37,7 @@ import (
 var (
 	DefaultAdminSessionGenerator = auth.AdminCredential
 	ErrCronJobNameConflict       = errors.New("Cron job Name Conflict")
+	NoFoundJobByNameErr          = errors.New("no found job by name")
 )
 
 type TCronJobFunction func(ctx context.Context, userCred mcclient.TokenCredential, isStart bool)
@@ -78,6 +80,11 @@ type SCronJob struct {
 	Timer    ICronTimer
 	Next     time.Time
 	StartRun bool
+
+	allowDelay bool
+	DelayCount uint32
+	isRunning  *bool
+	dataLock   *sync.Mutex
 }
 
 type CronJobTimerHeap []*SCronJob
@@ -377,6 +384,33 @@ func (self *SCronJobManager) runJobs(now time.Time) {
 	}
 }
 
+func (self *SCronJobManager) SetJobDelayWhenRunning(names []string) error {
+	for _, name := range names {
+		job, err := self.GetJobByName(name)
+		if err != nil {
+			return errors.Wrapf(err, "job_name: %s", name)
+		}
+		if job.dataLock == nil {
+			job.dataLock = new(sync.Mutex)
+		}
+		job.dataLock.Lock()
+		defer job.dataLock.Unlock()
+
+		job.allowDelay = true
+	}
+
+	return nil
+}
+
+func (self *SCronJobManager) GetJobByName(name string) (*SCronJob, error) {
+	for i := 0; i < len(self.jobs); i++ {
+		if self.jobs[i].Name == name {
+			return self.jobs[i], nil
+		}
+	}
+	return nil, NoFoundJobByNameErr
+}
+
 func (job *SCronJob) Run() {
 	job.runJobInWorker(job.StartRun)
 }
@@ -387,6 +421,11 @@ func (job *SCronJob) Dump() string {
 
 func (job *SCronJob) runJob(isStart bool) {
 	job.StartRun = isStart
+	if job.runningCheckWhenAllowDelay() {
+		atomic.AddUint32(&job.DelayCount, 1)
+		log.Infof("%s delay count: %d", job.Name, job.DelayCount)
+		return
+	}
 	manager.workers.Run(job, nil, nil)
 }
 
@@ -397,6 +436,7 @@ func (job *SCronJob) runJobInWorker(isStart bool) {
 			debug.PrintStack()
 		}
 	}()
+	job.setRunningStateWhenAllowDelay(true)
 
 	log.Debugf("Cron job: %s started", job.Name)
 	ctx := context.Background()
@@ -404,4 +444,52 @@ func (job *SCronJob) runJobInWorker(isStart bool) {
 	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_TASKNAME, fmt.Sprintf("%s-%d", job.Name, time.Now().Unix()))
 	userCred := DefaultAdminSessionGenerator()
 	job.job(ctx, userCred, isStart)
+	job.finishRunningWhenAllowDelay()
+}
+
+func (job *SCronJob) runningCheckWhenAllowDelay() bool {
+	if !job.allowDelay {
+		return false
+	}
+	job.dataLock.Lock()
+	defer job.dataLock.Unlock()
+	return job.getRunningState()
+}
+
+func (job *SCronJob) getRunningState() bool {
+	if job.isRunning == nil {
+		return false
+	}
+	return *job.isRunning
+}
+
+func (job *SCronJob) setRunningStateWhenAllowDelay(state bool) {
+	if !job.allowDelay {
+		return
+	}
+	job.dataLock.Lock()
+	defer job.dataLock.Unlock()
+	if job.isRunning == nil {
+		job.isRunning = new(bool)
+	}
+	*job.isRunning = state
+}
+
+func (job *SCronJob) finishRunningWhenAllowDelay() {
+	if !job.allowDelay {
+		return
+	}
+	job.dataLock.Lock()
+	defer job.dataLock.Unlock()
+	if job.DelayCount == 0 {
+		return
+	}
+	intervalDur := job.Timer.Next(time.Now()).Sub(time.Now())
+	if job.Next.Sub(time.Now()) > intervalDur-time.Second*10 {
+		job.DelayCount--
+		job.runJobInWorker(false)
+	}
+
+	*job.isRunning = false
+	return
 }

@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -39,4 +41,22 @@ func TestSCronJobManager_AddRemoveJobs(t *testing.T) {
 	manager.AddJobAtIntervals("Test6", time.Second*100, testFunc)
 	manager.AddJobEveryFewDays("Test7", 1, 1, 1, 1, testFunc, false)
 	t.Logf("Jobs \n%s", manager.String())
+}
+
+func TestCronDelay(t *testing.T) {
+	manager := InitCronJobManager(false, 4)
+	testFunc := func(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	}
+	manager.AddJobAtIntervals("Test", time.Second*1, testFunc)
+	manager.SetJobDelayWhenRunning([]string{"Test"})
+	job, _ := manager.GetJobByName("Test")
+	job.setRunningStateWhenAllowDelay(true)
+	manager.Start()
+	for {
+		if job.DelayCount > 2 {
+			log.Infof("delay count: %d", job.DelayCount)
+			manager.Stop()
+			break
+		}
+	}
 }
