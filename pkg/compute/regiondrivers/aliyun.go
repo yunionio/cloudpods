@@ -322,7 +322,7 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerBackendData(ctx conte
 
 func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lbbg *models.SLoadbalancerBackendGroup) (*jsonutils.JSONDict, error) {
 	keyV := map[string]validators.IValidator{
-		"weight":     validators.NewRangeValidator("weight", 1, 100).Optional(true),
+		"weight":     validators.NewRangeValidator("weight", 0, 100).Optional(true),
 		"port":       validators.NewPortValidator("port").Optional(true),
 		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Optional(true),
 	}
