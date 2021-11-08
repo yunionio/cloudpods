@@ -52,6 +52,10 @@ const (
 	STATUS_UNKNOWN       = "unknown"
 	STATUS_CREATING      = "creating"
 	STATUS_CREATE_FAILED = "create_failed"
+
+	CLOUD_TAG_PREFIX     = "ext:"
+	USER_TAG_PREFIX      = "user:"
+	SYS_CLOUD_TAG_PREFIX = "sys:"
 )
 
 var (
