@@ -36,7 +36,8 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/cephutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
@@ -449,7 +450,7 @@ func (s *SRbdStorage) SaveToGlance(ctx context.Context, params interface{}) (jso
 func (s *SRbdStorage) onSaveToGlanceFailed(ctx context.Context, imageId string) {
 	params := jsonutils.NewDict()
 	params.Set("status", jsonutils.NewString("killed"))
-	_, err := modules.Images.Update(hostutils.GetImageSession(ctx, s.GetZoneName()),
+	_, err := image.Images.Update(hostutils.GetImageSession(ctx, s.GetZoneName()),
 		imageId, params)
 	if err != nil {
 		log.Errorln(err)
@@ -506,7 +507,7 @@ func (s *SRbdStorage) saveToGlance(ctx context.Context, imageId, imagePath strin
 	}
 	params.Set("image_id", jsonutils.NewString(imageId))
 
-	_, err = modules.Images.Upload(hostutils.GetImageSession(ctx, s.GetZoneName()),
+	_, err = image.Images.Upload(hostutils.GetImageSession(ctx, s.GetZoneName()),
 		params, f, size)
 	return err
 }

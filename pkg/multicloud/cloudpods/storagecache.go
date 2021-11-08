@@ -25,7 +25,8 @@ import (
 	image_api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -120,10 +121,10 @@ func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStorag
 
 func (self *SRegion) GetStoragecaches() ([]SStoragecache, error) {
 	caches := []SStoragecache{}
-	return caches, self.list(&modules.Storagecaches, nil, caches)
+	return caches, self.list(&compute.Storagecaches, nil, caches)
 }
 
 func (self *SRegion) GetStoragecache(id string) (*SStoragecache, error) {
 	cache := &SStoragecache{region: self}
-	return cache, self.cli.get(&modules.Storagecaches, id, nil, cache)
+	return cache, self.cli.get(&compute.Storagecaches, id, nil, cache)
 }

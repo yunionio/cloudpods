@@ -32,7 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -523,7 +523,7 @@ func FetchSkuResourcesMeta() (*SSkuResourcesMeta, error) {
 	transport := httputils.GetTransport(true)
 	transport.Proxy = options.Options.HttpTransportProxyFunc()
 	client := &http.Client{Transport: transport}
-	meta, err := modules.OfflineCloudmeta.GetSkuSourcesMeta(s, client)
+	meta, err := compute.OfflineCloudmeta.GetSkuSourcesMeta(s, client)
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchSkuSourceUrls.GetSkuSourcesMeta")
 	}

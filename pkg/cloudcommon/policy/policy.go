@@ -34,7 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/hashcache"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -408,7 +408,7 @@ func explainPolicy(userCred mcclient.TokenCredential, policyReq jsonutils.JSONOb
 
 func fetchPolicyDataByIdOrName(ctx context.Context, id string) (*sPolicyData, error) {
 	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
-	data, err := modules.Policies.Get(s, id, nil)
+	data, err := identity.Policies.Get(s, id, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "modules.Policies.Get")
 	}

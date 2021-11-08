@@ -32,7 +32,9 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/ssh"
@@ -245,7 +247,7 @@ func init() {
 			if err != nil {
 				return err
 			}
-			result, err := modules.SchedManager.Test(s, input)
+			result, err := scheduler.SchedManager.Test(s, input)
 			if err != nil {
 				return err
 			}
@@ -334,7 +336,7 @@ func init() {
 		ISO string `help:"Glance image ID of the ISO"`
 	}
 	R(&ServerInsertISOOptions{}, "server-insert-iso", "Insert an ISO image into server's cdrom", func(s *mcclient.ClientSession, opts *ServerInsertISOOptions) error {
-		img, err := modules.Images.Get(s, opts.ISO, nil)
+		img, err := image.Images.Get(s, opts.ISO, nil)
 		if err != nil {
 			return err
 		}

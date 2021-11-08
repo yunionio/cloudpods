@@ -43,7 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 	"yunion.io/x/onecloud/pkg/util/hashcache"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -400,7 +400,7 @@ func (self *SServerSku) GetPrivateCloudproviders() ([]SCloudprovider, error) {
 
 func (self *SServerSkuManager) ClearSchedDescCache(wait bool) error {
 	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
-	_, err := modules.SchedManager.SyncSku(s, true)
+	_, err := scheduler.SchedManager.SyncSku(s, true)
 	if err != nil {
 		return errors.Wrapf(err, "chedManager.SyncSku")
 	}
@@ -1242,7 +1242,7 @@ func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred m
 	}
 
 	// notfiy sched manager
-	_, err = modules.SchedManager.SyncSku(auth.GetAdminSession(ctx, options.Options.Region, ""), false)
+	_, err = scheduler.SchedManager.SyncSku(auth.GetAdminSession(ctx, options.Options.Region, ""), false)
 	if err != nil {
 		log.Errorf("SchedManager SyncSku %s", err)
 	}

@@ -19,7 +19,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -50,10 +50,10 @@ func init() {
 			result, err = yunionconf.Parameters.List(s, params)
 		} else if len(args.User) > 0 {
 			params.Add(jsonutils.NewString("system"), "scope")
-			result, err = yunionconf.Parameters.ListInContext(s, params, &modules.UsersV3, args.User)
+			result, err = yunionconf.Parameters.ListInContext(s, params, &identity.UsersV3, args.User)
 		} else if len(args.Service) > 0 {
 			params.Add(jsonutils.NewString("system"), "scope")
-			result, err = yunionconf.Parameters.ListInContext(s, params, &modules.ServicesV3, args.Service)
+			result, err = yunionconf.Parameters.ListInContext(s, params, &identity.ServicesV3, args.Service)
 		} else {
 			result, err = yunionconf.Parameters.List(s, params)
 		}
@@ -87,10 +87,10 @@ func init() {
 			parameter, err = yunionconf.Parameters.Get(s, args.NAME, params)
 		} else if len(args.User) > 0 {
 			params.Add(jsonutils.NewString("system"), "scope")
-			parameter, err = yunionconf.Parameters.GetInContext(s, args.NAME, params, &modules.UsersV3, args.User)
+			parameter, err = yunionconf.Parameters.GetInContext(s, args.NAME, params, &identity.UsersV3, args.User)
 		} else if len(args.Service) > 0 {
 			params.Add(jsonutils.NewString("system"), "scope")
-			parameter, err = yunionconf.Parameters.GetInContext(s, args.NAME, params, &modules.ServicesV3, args.Service)
+			parameter, err = yunionconf.Parameters.GetInContext(s, args.NAME, params, &identity.ServicesV3, args.Service)
 		} else {
 			parameter, err = yunionconf.Parameters.Get(s, args.NAME, params)
 		}
@@ -154,9 +154,9 @@ func init() {
 		}
 
 		if len(args.User) > 0 {
-			parameter, err = yunionconf.Parameters.PutInContext(s, args.NAME, params, &modules.UsersV3, args.User)
+			parameter, err = yunionconf.Parameters.PutInContext(s, args.NAME, params, &identity.UsersV3, args.User)
 		} else if len(args.Service) > 0 {
-			parameter, err = yunionconf.Parameters.PutInContext(s, args.NAME, params, &modules.ServicesV3, args.Service)
+			parameter, err = yunionconf.Parameters.PutInContext(s, args.NAME, params, &identity.ServicesV3, args.Service)
 		} else {
 			parameter, err = yunionconf.Parameters.Put(s, args.NAME, params)
 		}
@@ -180,9 +180,9 @@ func init() {
 		var parameter jsonutils.JSONObject
 		var err error
 		if len(args.User) > 0 {
-			parameter, err = yunionconf.Parameters.DeleteInContext(s, args.NAME, params, &modules.UsersV3, args.User)
+			parameter, err = yunionconf.Parameters.DeleteInContext(s, args.NAME, params, &identity.UsersV3, args.User)
 		} else if len(args.Service) > 0 {
-			parameter, err = yunionconf.Parameters.DeleteInContext(s, args.NAME, params, &modules.ServicesV3, args.Service)
+			parameter, err = yunionconf.Parameters.DeleteInContext(s, args.NAME, params, &identity.ServicesV3, args.Service)
 		} else {
 			parameter, err = yunionconf.Parameters.Delete(s, args.NAME, nil)
 		}

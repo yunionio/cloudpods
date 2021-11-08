@@ -21,7 +21,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	compute_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
+	compute_modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 type serverInfo struct {

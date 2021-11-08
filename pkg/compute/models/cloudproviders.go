@@ -43,7 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -408,7 +408,7 @@ func createTenant(ctx context.Context, name, domainId, desc string) (string, str
 	params.Add(jsonutils.NewString(domainId), "domain_id")
 	params.Add(jsonutils.NewString(desc), "description")
 
-	resp, err := modules.Projects.Create(s, params)
+	resp, err := identity.Projects.Create(s, params)
 	if err != nil {
 		return "", "", errors.Wrap(err, "Projects.Create")
 	}

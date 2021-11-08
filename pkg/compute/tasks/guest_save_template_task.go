@@ -26,7 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -64,7 +64,7 @@ func (self *GuestSaveTemplateTask) OnInit(ctx context.Context, obj db.IStandalon
 	dict.Set("description", jsonutils.NewString(fmt.Sprintf("Save from Guest '%s'", g.Name)))
 	dict.Set("content", jsonutils.Marshal(ci))
 	session := auth.GetSession(ctx, self.UserCred, "", "")
-	_, err := modules.GuestTemplate.Create(session, dict)
+	_, err := compute.GuestTemplate.Create(session, dict)
 	if err != nil {
 		self.taskFailed(ctx, g, jsonutils.NewString(err.Error()))
 		return

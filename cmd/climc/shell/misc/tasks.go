@@ -18,7 +18,8 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/itsm"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -36,11 +37,11 @@ func init() {
 
 			}
 		}
-		result, err := modules.Tasks.List(s, params)
+		result, err := itsm.Tasks.List(s, params)
 		if err != nil {
 			return err
 		}
-		printList(result, modules.Tasks.GetColumns(s))
+		printList(result, itsm.Tasks.GetColumns(s))
 		return nil
 	})
 
@@ -51,11 +52,11 @@ func init() {
 	}
 	R(&RegionTaskListOptions{}, "region-task-list", "List tasks on region server", func(s *mcclient.ClientSession, args *RegionTaskListOptions) error {
 		params := jsonutils.Marshal(args)
-		result, err := modules.ComputeTasks.List(s, params)
+		result, err := compute.ComputeTasks.List(s, params)
 		if err != nil {
 			return err
 		}
-		printList(result, modules.ComputeTasks.GetColumns(s))
+		printList(result, compute.ComputeTasks.GetColumns(s))
 		return nil
 	})
 
@@ -63,7 +64,7 @@ func init() {
 		ID string `help:"ID or name of the task"`
 	}
 	R(&TaskShowOptions{}, "region-task-show", "Show details of a region task", func(s *mcclient.ClientSession, args *TaskShowOptions) error {
-		result, err := modules.ComputeTasks.Get(s, args.ID, nil)
+		result, err := compute.ComputeTasks.Get(s, args.ID, nil)
 		if err != nil {
 			return err
 		}

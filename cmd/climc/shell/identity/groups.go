@@ -19,7 +19,8 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -204,7 +205,7 @@ func init() {
 			if err != nil {
 				return err
 			}
-			sp, err := modules.InstanceGroup.PerformAction(s, opts.ID, "bind-guests", params)
+			sp, err := compute.InstanceGroup.PerformAction(s, opts.ID, "bind-guests", params)
 			if err != nil {
 				return err
 			}
@@ -218,7 +219,7 @@ func init() {
 			if err != nil {
 				return err
 			}
-			sp, err := modules.InstanceGroup.PerformAction(s, opts.ID, "unbind-guests", params)
+			sp, err := compute.InstanceGroup.PerformAction(s, opts.ID, "unbind-guests", params)
 			if err != nil {
 				return err
 			}

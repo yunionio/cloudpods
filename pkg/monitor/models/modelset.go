@@ -24,7 +24,8 @@ import (
 	compute_models "yunion.io/x/onecloud/pkg/compute/models"
 	keystone_models "yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 )
 
 const (
@@ -136,7 +137,7 @@ type SProject struct {
 }
 
 func (s Servers) ModelManager() modulebase.IBaseManager {
-	return &mcclient_modules.Servers
+	return &compute.Servers
 }
 
 func (s Servers) NewModel() db.IModel {
@@ -174,7 +175,7 @@ func (h Hosts) Copy() apihelper.IModelSet {
 }
 
 func (h Hosts) ModelManager() modulebase.IBaseManager {
-	return &mcclient_modules.Hosts
+	return &compute.Hosts
 }
 
 func (h Hosts) NewModel() db.IModel {
@@ -196,7 +197,7 @@ func (s Hosts) ModelParamFilter() jsonutils.JSONObject {
 }
 
 func (r Rds) ModelManager() modulebase.IBaseManager {
-	return &mcclient_modules.DBInstance
+	return &compute.DBInstance
 }
 
 func (r Rds) NewModel() db.IModel {
@@ -221,7 +222,7 @@ func (s Rds) NeedSync() bool {
 }
 
 func (r Redis) ModelManager() modulebase.IBaseManager {
-	return &mcclient_modules.ElasticCache
+	return &compute.ElasticCache
 }
 
 func (r Redis) NewModel() db.IModel {
@@ -246,7 +247,7 @@ func (s Redis) NeedSync() bool {
 }
 
 func (o Oss) ModelManager() modulebase.IBaseManager {
-	return &mcclient_modules.Buckets
+	return &compute.Buckets
 }
 
 func (o Oss) NewModel() db.IModel {
@@ -271,7 +272,7 @@ func (s Oss) NeedSync() bool {
 }
 
 func (a Accounts) ModelManager() modulebase.IBaseManager {
-	return &mcclient_modules.Cloudaccounts
+	return &compute.Cloudaccounts
 }
 
 func (a Accounts) NewModel() db.IModel {
@@ -297,7 +298,7 @@ func (s Accounts) NeedSync() bool {
 }
 
 func (s Storages) ModelManager() modulebase.IBaseManager {
-	return &mcclient_modules.Storages
+	return &compute.Storages
 }
 
 func (s Storages) NewModel() db.IModel {
@@ -322,7 +323,7 @@ func (s Storages) NeedSync() bool {
 }
 
 func (d Domains) ModelManager() modulebase.IBaseManager {
-	return &mcclient_modules.Domains
+	return &identity.Domains
 }
 
 func (d Domains) NewModel() db.IModel {
@@ -347,7 +348,7 @@ func (d Domains) NeedSync() bool {
 }
 
 func (p Projects) ModelManager() modulebase.IBaseManager {
-	return &mcclient_modules.Projects
+	return &identity.Projects
 }
 
 func (p Projects) NewModel() db.IModel {

@@ -35,7 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionagent"
 	notifyv2 "yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/options"
 	"yunion.io/x/onecloud/pkg/notify/rpc/apis"
@@ -134,7 +134,7 @@ type SCompanyInfo struct {
 func (tm *STemplateManager) GetCompanyInfo(ctx context.Context) (SCompanyInfo, error) {
 	// fetch copyright and logo
 	session := auth.GetAdminSession(ctx, "", "")
-	obj, err := modules.Info.Get(session, "info", jsonutils.NewDict())
+	obj, err := yunionagent.Info.Get(session, "info", jsonutils.NewDict())
 	if err != nil {
 		return SCompanyInfo{}, err
 	}

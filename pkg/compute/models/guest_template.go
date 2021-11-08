@@ -35,7 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -460,7 +460,7 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 		}
 	case IMAGE_TYPE_GUEST:
 		s := auth.GetSession(ctx, userCred, options.Options.Region, "")
-		ret, err := modules.GuestImages.Get(s, gt.ImageId, jsonutils.JSONNull)
+		ret, err := image.GuestImages.Get(s, gt.ImageId, jsonutils.JSONNull)
 		if err != nil || !ret.Contains("id") {
 			configInfo.Image = gt.ImageId
 		} else {
@@ -555,7 +555,7 @@ func (gt *SGuestTemplate) PerformPublic(
 		isPublic, publicScope = image.IsPublic, image.PublicScope
 	case IMAGE_TYPE_GUEST:
 		s := auth.GetSession(ctx, userCred, options.Options.Region, "")
-		ret, err := modules.GuestImages.Get(s, gt.ImageId, jsonutils.JSONNull)
+		ret, err := image.GuestImages.Get(s, gt.ImageId, jsonutils.JSONNull)
 		if err != nil {
 			return nil, errors.Wrapf(err, "fail to fetch guest image %s descripted by guest template", gt.ImageId)
 		}

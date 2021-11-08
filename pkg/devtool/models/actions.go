@@ -25,7 +25,9 @@ import (
 	apiidentity "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	ansible_modules "yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/devtool"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -39,7 +41,7 @@ func getServerAttrs(ID string, s *mcclient.ClientSession) (map[string]string, er
 		"zone_id",
 	}
 	params := make(map[string]string)
-	result, err := modules.Servers.Get(s, ID, nil)
+	result, err := compute.Servers.Get(s, ID, nil)
 	if err != nil {
 		log.Errorf("Error show server: %s", err)
 		return nil, err
@@ -84,21 +86,21 @@ func renderExtraVars(vars map[string]string) {
 }
 
 func deleteAnsiblePlaybook(id string, s *mcclient.ClientSession) (jsonutils.JSONObject, error) {
-	apb, err := modules.AnsiblePlaybooks.Get(s, id, nil)
+	apb, err := ansible_modules.AnsiblePlaybooks.Get(s, id, nil)
 	if err != nil {
 		log.Errorf("[deleteAnsiblePlaybook] get Ansible playbook error %s", err)
 		return apb, err
 	}
 	status, _ := apb.GetString("status")
 	if status == apis.AnsiblePlaybookStatusRunning {
-		apb, err = modules.AnsiblePlaybooks.PerformAction(s, id, "stop", nil)
+		apb, err = ansible_modules.AnsiblePlaybooks.PerformAction(s, id, "stop", nil)
 		if err != nil {
 			log.Errorf("[deleteAnsiblePlaybook] stop Ansible playbook error %s", err)
 			return apb, err
 		}
 	}
 
-	apb, err = modules.AnsiblePlaybooks.Delete(s, id, nil)
+	apb, err = ansible_modules.AnsiblePlaybooks.Delete(s, id, nil)
 	if err != nil {
 		log.Errorf("[deleteAnsiblePlaybook] Delete Ansible playbook error %s", err)
 		return apb, err
@@ -147,7 +149,7 @@ func (obj *SDevtoolTemplate) Binding(ctx context.Context, userCred mcclient.Toke
 	newAnsiblPlaybookParams.Add(file, "playbook", "files")
 	newAnsiblPlaybookParams.Add(mod, "playbook", "modules")
 
-	apb, err := modules.AnsiblePlaybooks.Create(s, newAnsiblPlaybookParams)
+	apb, err := ansible_modules.AnsiblePlaybooks.Create(s, newAnsiblPlaybookParams)
 	if err != nil {
 		log.Errorf("TemplateBindingServers AnsiblePlaybooks.Create failed %s", err)
 		return nil, err
@@ -173,7 +175,7 @@ func (obj *SDevtoolTemplate) Binding(ctx context.Context, userCred mcclient.Toke
 	newCronjobParams.Add(jsonutils.NewString(template.Id), "template_id")
 	newCronjobParams.Add(jsonutils.NewString(ServerID), "server_id")
 
-	_, err = modules.DevToolCronjobs.Create(s, newCronjobParams)
+	_, err = devtool.DevToolCronjobs.Create(s, newCronjobParams)
 	if err != nil {
 		log.Errorf("TemplateBindingServers failed %s", err)
 		return nil, err
@@ -207,7 +209,7 @@ func (obj *SDevtoolTemplate) Unbinding(ctx context.Context, userCred mcclient.To
 		newCronjobName = newCronjobName[0:32]
 	}
 
-	_, err = modules.DevToolCronjobs.Delete(s, newCronjobName, nil)
+	_, err = devtool.DevToolCronjobs.Delete(s, newCronjobName, nil)
 	if err != nil {
 		log.Errorf("err: %+v", err)
 		log.Errorf("TemplateUnbindingServers failed %s", err)

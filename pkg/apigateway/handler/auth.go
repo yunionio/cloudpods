@@ -37,7 +37,8 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	compute_modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -240,7 +241,7 @@ func getStatsInfo(ctx context.Context, req *http.Request) (jsonutils.JSONObject,
 		Cloudaccounts int
 	}{}
 
-	accounts, err := modules.Cloudaccounts.List(s, params)
+	accounts, err := compute_modules.Cloudaccounts.List(s, params)
 	if err != nil {
 		return nil, err
 	}
@@ -767,7 +768,7 @@ func isLBAgentExists(s *mcclient.ClientSession) (bool, error) {
 	params.Add(jsonutils.NewString("hb_last_seen.isnotempty()"), "filter.0")
 	params.Add(jsonutils.NewInt(1), "limit")
 	params.Add(jsonutils.JSONFalse, "details")
-	agents, err := modules.LoadbalancerAgents.List(s, params)
+	agents, err := compute_modules.LoadbalancerAgents.List(s, params)
 	if err != nil {
 		return false, errors.Wrap(err, "modules.LoadbalancerAgents.List")
 	}
@@ -784,7 +785,7 @@ func isBaremetalAgentExists(s *mcclient.ClientSession) (bool, error) {
 	params.Add(jsonutils.NewString("agent_type.equals(baremetal)"), "filter.0")
 	params.Add(jsonutils.NewInt(1), "limit")
 	params.Add(jsonutils.JSONFalse, "details")
-	agents, err := modules.Baremetalagents.List(s, params)
+	agents, err := compute_modules.Baremetalagents.List(s, params)
 	if err != nil {
 		return false, errors.Wrap(err, "modules.Baremetalagents.List")
 	}
@@ -801,7 +802,7 @@ func isEsxiAgentExists(s *mcclient.ClientSession) (bool, error) {
 	params.Add(jsonutils.NewString("agent_type.equals(esxiagent)"), "filter.0")
 	params.Add(jsonutils.NewInt(1), "limit")
 	params.Add(jsonutils.JSONFalse, "details")
-	agents, err := modules.Baremetalagents.List(s, params)
+	agents, err := compute_modules.Baremetalagents.List(s, params)
 	if err != nil {
 		return false, errors.Wrap(err, "modules.Baremetalagents.List esxiagent")
 	}
@@ -820,7 +821,7 @@ func isHostAgentExists(s *mcclient.ClientSession) (bool, error) {
 	params.Add(jsonutils.NewString("system"), "scope")
 	params.Add(jsonutils.NewInt(1), "limit")
 	params.Add(jsonutils.JSONFalse, "details")
-	agents, err := modules.Hosts.List(s, params)
+	agents, err := compute_modules.Hosts.List(s, params)
 	if err != nil {
 		return false, errors.Wrap(err, "modules.LoadbalancerAgents.List")
 	}
@@ -1031,7 +1032,7 @@ func getUserInfo2(s *mcclient.ClientSession, uid string, pid string, loginIp str
 	params.Add(jsonutils.NewString("system"), "scope")
 	params.Add(jsonutils.JSONTrue, "usable")
 	params.Add(jsonutils.JSONTrue, "show_emulated")
-	cap, err := modules.Hosts.Get(s, "distinct-field", params)
+	cap, err := compute_modules.Hosts.Get(s, "distinct-field", params)
 	if err != nil {
 		log.Errorf("modules.Servers.Get distinct-field fail %s", err)
 	} else {

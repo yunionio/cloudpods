@@ -26,7 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	npk "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -242,7 +242,7 @@ func (t *eventTask) Run() {
 		log.Errorf("unable to get admin session: %v", err)
 		return
 	}
-	_, err = modules.Notification.PerformClassAction(s, "event-notify", jsonutils.Marshal(t.params))
+	_, err = npk.Notification.PerformClassAction(s, "event-notify", jsonutils.Marshal(t.params))
 	if err != nil {
 		log.Errorf("unable to EventNotify: %s", err)
 	}
@@ -342,7 +342,7 @@ func FetchNotifyAdminRecipients(ctx context.Context, region string, users []stri
 
 	notifyAdminUsers = make([]string, 0)
 	for _, u := range users {
-		uId, err := getIdentityId(s, u, &modules.UsersV3)
+		uId, err := getIdentityId(s, u, &identity.UsersV3)
 		if err != nil {
 			log.Warningf("fetch user %s fail: %s", u, err)
 		} else {
@@ -351,7 +351,7 @@ func FetchNotifyAdminRecipients(ctx context.Context, region string, users []stri
 	}
 	notifyAdminGroups = make([]string, 0)
 	for _, g := range groups {
-		gId, err := getIdentityId(s, g, &modules.Groups)
+		gId, err := getIdentityId(s, g, &identity.Groups)
 		if err != nil {
 			log.Warningf("fetch group %s fail: %s", g, err)
 		} else {

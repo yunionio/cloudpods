@@ -22,7 +22,8 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/devtool"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -75,7 +76,7 @@ func init() {
 		"devtoolcronjob-create",
 		"Create a cronjob repo component",
 		func(s *mcclient.ClientSession, args *CronjobCreateOptions) error {
-			result, err := modules.AnsiblePlaybooks.Get(s, args.NAME, nil)
+			result, err := ansible.AnsiblePlaybooks.Get(s, args.NAME, nil)
 			if err != nil {
 				return err
 			}

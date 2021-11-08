@@ -34,8 +34,9 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	mcclient_models "yunion.io/x/onecloud/pkg/mcclient/models"
-	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
+	ansible_model "yunion.io/x/onecloud/pkg/mcclient/models"
+	ansible_modules "yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
+	compute_modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -285,7 +286,7 @@ func (lbagent *SLoadbalancerAgent) validateHost(ctx context.Context, userCred mc
 			params := jsonutils.NewDict()
 			params.Set("src_ip_check", jsonutils.JSONFalse)
 			params.Set("src_mac_check", jsonutils.JSONFalse)
-			_, err := mcclient_modules.Servers.PerformAction(sess, guest.Id, "modify-src-check", params)
+			_, err := compute_modules.Servers.PerformAction(sess, guest.Id, "modify-src-check", params)
 			if err != nil {
 				return errors.Wrapf(err, "turn off src check of guest %s(%s)", guest.Name, guest.Id)
 			}
@@ -369,9 +370,9 @@ func (lbagent *SLoadbalancerAgent) updateOrCreatePbModel(ctx context.Context,
 	pbId string,
 	pbName string,
 	pb *ansible.Playbook,
-) (*mcclient_models.AnsiblePlaybook, error) {
+) (*ansible_model.AnsiblePlaybook, error) {
 	cliSess := auth.GetSession(ctx, userCred, "", "")
-	pbModel, err := mcclient_modules.AnsiblePlaybooks.UpdateOrCreatePbModel(
+	pbModel, err := ansible_modules.AnsiblePlaybooks.UpdateOrCreatePbModel(
 		ctx, cliSess, pbId, pbName, pb,
 	)
 	return pbModel, err

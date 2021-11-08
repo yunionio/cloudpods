@@ -29,7 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -163,7 +163,7 @@ func (sc *SServiceCatalog) PerformDeploy(ctx context.Context, userCred mcclient.
 	}
 	contentDict.Add(jsonutils.NewInt(int64(input.Count)), "count")
 	s := auth.GetSession(ctx, userCred, options.Options.Region, "")
-	_, err = modules.Servers.Create(s, content)
+	_, err = compute.Servers.Create(s, content)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create guest")
 	}

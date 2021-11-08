@@ -28,7 +28,8 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	mc_mds "yunion.io/x/onecloud/pkg/mcclient/modules"
+	mc_mds "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/monitor/alerting"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
@@ -582,9 +583,9 @@ func (c *QueryCondition) getOnecloudResources() ([]jsonutils.JSONObject, error) 
 		query.Add(jsonutils.NewBool(true), "enabled")
 		allResources, err = ListAllResources(&mc_mds.Cloudaccounts, query)
 	case monitor.METRIC_RES_TYPE_TENANT:
-		allResources, err = ListAllResources(&mc_mds.Projects, query)
+		allResources, err = ListAllResources(&identity.Projects, query)
 	case monitor.METRIC_RES_TYPE_DOMAIN:
-		allResources, err = ListAllResources(&mc_mds.Domains, query)
+		allResources, err = ListAllResources(&identity.Domains, query)
 	case monitor.METRIC_RES_TYPE_STORAGE:
 		query.Remove("status")
 		allResources, err = ListAllResources(&mc_mds.Storages, query)

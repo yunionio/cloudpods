@@ -21,7 +21,8 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/servicetree"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -56,7 +57,7 @@ func init() {
 		}
 		params.Add(jsonutils.NewInt(pid), "pid")
 		if len(args.Project) > 0 {
-			projId, err := modules.Projects.GetId(s, args.Project, nil)
+			projId, err := identity.Projects.GetId(s, args.Project, nil)
 			if err != nil {
 				return err
 			}
@@ -157,7 +158,7 @@ func init() {
 			params.Add(jsonutils.NewString(args.Name), "name")
 		}
 		if len(args.Project) > 0 {
-			projId, err := modules.Projects.GetId(s, args.Project, nil)
+			projId, err := identity.Projects.GetId(s, args.Project, nil)
 			if err != nil {
 				return err
 			}
