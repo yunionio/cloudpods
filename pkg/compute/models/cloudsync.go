@@ -1470,18 +1470,15 @@ func syncKubeClusters(ctx context.Context, userCred mcclient.TokenCredential, sy
 				return
 			}
 
-			err = syncKubeClusterNodePools(ctx, userCred, syncResults, &localClusters[i], remoteClusters[i])
-			if err != nil {
+			if err := syncKubeClusterNodePools(ctx, userCred, syncResults, &localClusters[i], remoteClusters[i]); err != nil {
 				log.Errorf("syncKubeClusterNodePools for %s error: %v", localClusters[i].Name, err)
 			}
 
-			err = syncKubeClusterNodes(ctx, userCred, syncResults, &localClusters[i], remoteClusters[i])
-			if err != nil {
+			if err := syncKubeClusterNodes(ctx, userCred, syncResults, &localClusters[i], remoteClusters[i]); err != nil {
 				log.Errorf("syncKubeClusterNodes for %s error: %v", localClusters[i].Name, err)
 			}
 
-			err = localClusters[i].Import(ctx, userCred, remoteClusters[i])
-			if err != nil {
+			if err := localClusters[i].ImportOrUpdate(ctx, userCred, remoteClusters[i]); err != nil {
 				log.Errorf("Import cluster %s error: %v", localClusters[i].Name, err)
 			}
 		}()
