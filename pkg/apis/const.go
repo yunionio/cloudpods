@@ -46,6 +46,10 @@ const (
 
 	STATUS_UPDATE_TAGS        = "update_tags"
 	STATUS_UPDATE_TAGS_FAILED = "update_tags_fail"
+
+	CLOUD_TAG_PREFIX     = "ext:"
+	USER_TAG_PREFIX      = "user:"
+	SYS_CLOUD_TAG_PREFIX = "sys:"
 )
 
 var (
