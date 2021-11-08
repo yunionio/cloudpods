@@ -210,8 +210,10 @@ func (self *SRegion) GetICloudKubeClusters() ([]cloudprovider.ICloudKubeCluster,
 	}
 	ret := []cloudprovider.ICloudKubeCluster{}
 	for i := range clusters {
-		clusters[i].region = self
-		ret = append(ret, &clusters[i])
+		if clusters[i].RegionId == self.RegionId {
+			clusters[i].region = self
+			ret = append(ret, &clusters[i])
+		}
 	}
 	return ret, nil
 }
@@ -220,6 +222,9 @@ func (self *SRegion) GetICloudKubeClusterById(id string) (cloudprovider.ICloudKu
 	cluster, err := self.GetKubeCluster(id)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetKubeCluster(%s)", id)
+	}
+	if cluster.RegionId != self.RegionId {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s at region %s", id, cluster.RegionId)
 	}
 	return cluster, nil
 }
