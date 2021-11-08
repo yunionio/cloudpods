@@ -1103,6 +1103,30 @@ func (manager *SVpcManager) ListItemFilter(
 		q = q.In("id", sq.SubQuery())
 	}
 
+	if len(query.UsableForInterVpcNetworkId) > 0 {
+		_interVpc, err := validators.ValidateModel(userCred, InterVpcNetworkManager, &query.UsableForInterVpcNetworkId)
+		if err != nil {
+			return nil, err
+		}
+		interVpc := _interVpc.(*SInterVpcNetwork)
+		sq := InterVpcNetworkVpcManager.Query("vpc_id").Equals("inter_vpc_network_id", interVpc.GetId())
+		q = q.NotIn("id", sq.SubQuery())
+		account := interVpc.GetCloudaccount()
+		if account == nil {
+			return nil, httperrors.NewNotSupportedError("not supported for inter vpc network %s", interVpc.Name)
+		}
+		vpcs := VpcManager.Query().SubQuery()
+		managers := CloudproviderManager.Query().SubQuery()
+		accounts := CloudaccountManager.Query().SubQuery()
+		vpcSQ := vpcs.Query(vpcs.Field("id")).Join(managers, sqlchemy.Equals(vpcs.Field("manager_id"), managers.Field("id"))).Join(accounts, sqlchemy.Equals(managers.Field("cloudaccount_id"), accounts.Field("id"))).Filter(
+			sqlchemy.AND(
+				sqlchemy.Equals(accounts.Field("provider"), account.Provider),
+				sqlchemy.Equals(accounts.Field("access_url"), account.AccessUrl),
+			),
+		)
+		q = q.In("id", vpcSQ.SubQuery())
+	}
+
 	if len(query.InterVpcNetworkId) > 0 {
 		vpcNetwork, err := InterVpcNetworkManager.FetchByIdOrName(userCred, query.InterVpcNetworkId)
 		if err != nil {
