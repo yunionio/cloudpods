@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/elasticache"
 
 	"yunion.io/x/jsonutils"
@@ -56,6 +57,9 @@ func (region *SRegion) DescribeElasticacheReplicationGroups(Id string) ([]*elast
 		}
 		out, err := ecClient.DescribeReplicationGroups(&input)
 		if err != nil {
+			if e, ok := err.(awserr.Error); ok && e.Code() == "ReplicationGroupNotFoundFault" {
+				return nil, errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
+			}
 			return nil, errors.Wrap(err, "ecClient.DescribeReplicationGroups")
 		}
 		replicaGroup = append(replicaGroup, out.ReplicationGroups...)
