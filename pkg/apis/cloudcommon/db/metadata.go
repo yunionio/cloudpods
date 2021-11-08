@@ -14,8 +14,10 @@
 
 package db
 
+import "yunion.io/x/onecloud/pkg/apis"
+
 const (
-	CLOUD_TAG_PREFIX     = "ext:"
-	USER_TAG_PREFIX      = "user:"
-	SYS_CLOUD_TAG_PREFIX = "sys:"
+	CLOUD_TAG_PREFIX     = apis.CLOUD_TAG_PREFIX
+	USER_TAG_PREFIX      = apis.USER_TAG_PREFIX
+	SYS_CLOUD_TAG_PREFIX = apis.SYS_CLOUD_TAG_PREFIX
 )
