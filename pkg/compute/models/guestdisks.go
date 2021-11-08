@@ -155,14 +155,18 @@ func (self *SGuestdisk) DoSave(ctx context.Context, driver string, cache string,
 		driver = "scsi"
 	}
 	if len(cache) == 0 {
-		cache = "none"
+		cache = "writeback"
 	}
 	if len(mountpoint) > 0 {
 		self.Mountpoint = mountpoint
 	}
 	self.Driver = driver
 	self.CacheMode = cache
-	self.AioMode = "native"
+	if cache == "none" {
+		self.AioMode = "native"
+	} else {
+		self.AioMode = "threads"
+	}
 	return GuestdiskManager.TableSpec().Insert(ctx, self)
 }
 
