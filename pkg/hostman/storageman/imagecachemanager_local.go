@@ -28,7 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
