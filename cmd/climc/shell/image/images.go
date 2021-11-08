@@ -20,6 +20,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cheggaaa/pb/v3"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -360,6 +362,7 @@ func init() {
 			return err
 		}
 		var sink io.Writer
+		showProgress := false
 		if len(args.Output) > 0 {
 			f, err := os.Create(args.Output)
 			if err != nil {
@@ -367,6 +370,7 @@ func init() {
 			}
 			defer f.Close()
 			sink = f
+			showProgress = true
 		} else {
 			sink = os.Stdout
 		}
@@ -374,9 +378,18 @@ func init() {
 		if err != nil {
 			return err
 		}
-		_, e := io.Copy(sink, src)
-		if e != nil {
-			return e
+		if !showProgress {
+			_, err = io.Copy(sink, src)
+			if err != nil {
+				return err
+			}
+		} else {
+			bar := pb.Full.Start64(size)
+			barReader := bar.NewProxyReader(src)
+			_, err = io.Copy(sink, barReader)
+			if err != nil {
+				return err
+			}
 		}
 		if len(args.Output) > 0 {
 			printObject(meta)
