@@ -361,6 +361,23 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	}
 }
 
+func (s *SKVMGuestInstance) extraOptions() string {
+	cmd := " "
+	extraOptions, _ := s.Desc.GetMap("extra_options")
+	for k, v := range extraOptions {
+		switch jsonV := v.(type) {
+		case *jsonutils.JSONArray:
+			for i := 0; i < jsonV.Size(); i++ {
+				vAtI, _ := jsonV.GetAt(i)
+				cmd += fmt.Sprintf(" -%s %s", k, vAtI.String())
+			}
+		default:
+			cmd += fmt.Sprintf(" -%s %s", k, v.String())
+		}
+	}
+	return cmd
+}
+
 func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (string, error) {
 	var (
 		uuid, _  = s.Desc.GetString("uuid")
@@ -671,10 +688,7 @@ function nic_mtu() {
 	}
 
 	cmd += fmt.Sprintf(" -pidfile %s", s.GetPidFilePath())
-	extraOptions, _ := s.Desc.GetMap("extra_options")
-	for k, v := range extraOptions {
-		cmd += fmt.Sprintf(" -%s %s", k, v.String())
-	}
+	cmd += s.extraOptions()
 
 	cmd += s.getQgaDesc()
 	if fileutils2.Exists("/dev/random") {
