@@ -985,43 +985,12 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		return input, httperrors.NewInputParameterError("name is too short")
 	}
 
-	if input.Vdi != nil {
-		if !utils.IsInStringArray(*input.Vdi, []string{"vnc", "spice"}) {
-			return input, httperrors.NewInputParameterError("unsupported vdi protocol")
-		}
-	}
-
-	if input.Vga != nil || input.Vdi != nil {
-		vdi := self.Vdi
-		if input.Vdi != nil {
-			vdi = *input.Vdi
-		}
-		if vdi != "vnc" && vdi != "spice" {
-			vdi = "vnc"
-			input.Vdi = &vdi
-		}
-		var candidateVga []string
-		switch vdi {
-		case "vnc":
-			candidateVga = []string{"std", "qxl", "virtio"}
-		case "spice":
-			candidateVga = []string{"qxl", "virtio"}
-		}
-		vga := self.Vga
-		if input.Vga != nil {
-			vga = *input.Vga
-		}
-		if !utils.IsInStringArray(vga, candidateVga) {
-			vga = candidateVga[0]
-			input.Vga = &vga
-		}
-	}
-
-	if err := self.GetDriver().ValidateUpdateData(ctx, userCred, input); err != nil {
-		return input, err
-	}
-
 	var err error
+	input, err = self.GetDriver().ValidateUpdateData(ctx, self, userCred, input)
+	if err != nil {
+		return input, errors.Wrap(err, "GetDriver().ValidateUpdateData")
+	}
+
 	input.VirtualResourceBaseUpdateInput, err = self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
