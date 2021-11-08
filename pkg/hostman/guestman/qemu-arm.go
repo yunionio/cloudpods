@@ -34,6 +34,11 @@ func (s *SKVMGuestInstance) getArmMachine() string {
 func (s *SKVMGuestInstance) getArmVdiskDesc(disk jsonutils.JSONObject) string {
 	diskIndex, _ := disk.Int("index")
 	diskDriver, _ := disk.GetString("driver")
+	numQueues, _ := disk.Int("num_queues")
+
+	if numQueues == 0 {
+		numQueues = 4
+	}
 
 	if diskDriver == DISK_DRIVER_IDE || diskDriver == DISK_DRIVER_SATA {
 		// unsupported configuration: IDE controllers are unsupported
@@ -47,6 +52,7 @@ func (s *SKVMGuestInstance) getArmVdiskDesc(disk jsonutils.JSONObject) string {
 	cmd += fmt.Sprintf(",drive=drive_%d", diskIndex)
 	if diskDriver == DISK_DRIVER_VIRTIO {
 		cmd += fmt.Sprintf(",bus=%s,addr=0x%x", s.GetPciBus(), s.GetDiskAddr(int(diskIndex)))
+		cmd += fmt.Sprintf(",num-queues=%d,vectors=%d,iothread=iothread0", numQueues, numQueues+1)
 	} else if utils.IsInStringArray(diskDriver, []string{DISK_DRIVER_SCSI, DISK_DRIVER_PVSCSI}) {
 		cmd += ",bus=scsi.0"
 	}
@@ -240,6 +246,8 @@ function nic_mtu() {
 		}
 	}
 
+	cmd += " -object iothread,id=iothread0"
+
 	var diskDrivers = []string{}
 	for _, disk := range disks {
 		diskDriver, _ := disk.GetString("driver")
@@ -253,7 +261,7 @@ function nic_mtu() {
 	}
 
 	if utils.IsInStringArray(DISK_DRIVER_SCSI, diskDrivers) {
-		cmd += " -device virtio-scsi-pci,id=scsi"
+		cmd += " -device virtio-scsi-pci,id=scsi,iothread=iothread0,num_queues=4,vectors=5"
 	} else if utils.IsInStringArray(DISK_DRIVER_PVSCSI, diskDrivers) {
 		cmd += " -device pvscsi,id=scsi"
 	}
