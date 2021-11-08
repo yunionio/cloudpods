@@ -239,6 +239,8 @@ type BaseListOptions struct {
 	PagingMarker string `help:"Marker for pagination" json:"paging_marker"`
 
 	OrderByTag string `help:"Order results by tag values, composed by a tag key and order, e.g user:部门:ASC"`
+
+	Delete string `help:"show deleted records"`
 }
 
 func (opts *BaseListOptions) addTag(prefix, tag string, idx int, params *jsonutils.JSONDict) error {
