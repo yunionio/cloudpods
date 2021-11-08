@@ -130,8 +130,14 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 	if len(disk.TemplateId) > 0 && isLocalStorage {
 		targetStorageCache := targetHost.GetLocalStoragecache()
 		if targetStorageCache != nil {
-			err := targetStorageCache.StartImageCacheTaskFromHost(
-				ctx, self.UserCred, disk.TemplateId, disk.DiskFormat, false, guest.HostId, self.GetTaskId())
+			input := api.CacheImageInput{
+				ImageId:      disk.TemplateId,
+				Format:       disk.DiskFormat,
+				IsForce:      false,
+				SourceHostId: guest.HostId,
+				ParentTaskId: self.GetTaskId(),
+			}
+			err := targetStorageCache.StartImageCacheTask(ctx, self.UserCred, input)
 			if err != nil {
 				self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 			}
@@ -150,7 +156,13 @@ func (self *GuestMigrateTask) OnCachedImageComplete(ctx context.Context, guest *
 		targetHost := models.HostManager.FetchHostById(targetHostId)
 		targetStorageCache := targetHost.GetLocalStoragecache()
 		if targetStorageCache != nil {
-			err := targetStorageCache.StartImageCacheTask(ctx, self.UserCred, cdrom.ImageId, "iso", false, self.GetTaskId())
+			input := api.CacheImageInput{
+				ImageId:      cdrom.ImageId,
+				Format:       "iso",
+				IsForce:      false,
+				ParentTaskId: self.GetTaskId(),
+			}
+			err := targetStorageCache.StartImageCacheTask(ctx, self.UserCred, input)
 			if err != nil {
 				self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 			}

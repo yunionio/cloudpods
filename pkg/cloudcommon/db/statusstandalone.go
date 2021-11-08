@@ -107,6 +107,19 @@ func (model *SStatusStandaloneResourceBase) SetStatus(userCred mcclient.TokenCre
 	return statusBaseSetStatus(model.GetIStatusStandaloneModel(), userCred, status, reason)
 }
 
+func (model *SStatusStandaloneResourceBase) SetProgress(progress float32) error {
+	return statusBaseSetProgress(model.GetIStatusStandaloneModel(), progress)
+}
+
+func (model *SStatusStandaloneResourceBase) PreUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	// 减少更新日志
+	progress, _ := data.Float("progress")
+	if progress > 0 {
+		model.SetProgress(float32(progress))
+	}
+	model.SStandaloneResourceBase.PreUpdate(ctx, userCred, query, data)
+}
+
 func (manager *SStatusStandaloneResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input apis.StatusStandaloneResourceCreateInput) (apis.StatusStandaloneResourceCreateInput, error) {
 	var err error
 	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)

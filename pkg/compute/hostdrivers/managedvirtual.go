@@ -42,12 +42,10 @@ type SManagedVirtualizationHostDriver struct {
 }
 
 func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
-	params := task.GetParams()
+	input := api.CacheImageInput{}
+	task.GetParams().Unmarshal(&input)
 	image := &cloudprovider.SImageCreateOption{}
-	err := params.Unmarshal(image)
-	if err != nil {
-		return err
-	}
+	task.GetParams().Unmarshal(&image)
 
 	if len(image.ImageId) == 0 {
 		return fmt.Errorf("no image_id params")
@@ -55,10 +53,9 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 
 	providerName := storageCache.GetProviderName()
 	if utils.IsInStringArray(providerName, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_UCLOUD}) {
-		image.OsVersion, _ = params.GetString("os_full_version")
+		image.OsVersion = input.OsFullVersion
 	}
 
-	isForce := jsonutils.QueryBoolean(params, "is_force", false)
 	userCred := task.GetUserCred()
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 
@@ -81,10 +78,46 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 
 		image.ExternalId = scimg.ExternalId
 		if cloudprovider.TImageType(cachedImage.ImageType) == cloudprovider.ImageTypeCustomized {
-			image.ExternalId, err = iStorageCache.UploadImage(ctx, userCred, image, isForce)
-			if err != nil {
-				return nil, errors.Wrap(err, "iStorageCache.UploadImage")
+			var guest *models.SGuest
+			if len(input.ServerId) > 0 {
+				server, _ := models.GuestManager.FetchById(input.ServerId)
+				if server != nil {
+					guest = server.(*models.SGuest)
+				}
 			}
+
+			callback := func(progress float32) {
+				guestInfo := ""
+				if guest != nil {
+					guest.SetProgress(progress)
+					guestInfo = fmt.Sprintf(" for server %s ", guest.Name)
+				}
+				log.Infof("Upload image %s from storagecache %s%s status: %.2f%%", image.ImageName, storageCache.Name, guestInfo, progress)
+			}
+
+			image.ExternalId, err = func() (string, error) {
+				if len(image.ExternalId) > 0 {
+					log.Debugf("UploadImage: Image external ID exists %s", image.ExternalId)
+					iImg, err := iStorageCache.GetIImageById(image.ExternalId)
+					if err != nil {
+						if errors.Cause(err) != cloudprovider.ErrNotFound {
+							return "", errors.Wrapf(err, "GetIImageById(%s)", image.ExternalId)
+						}
+						return iStorageCache.UploadImage(ctx, userCred, image, callback)
+					}
+					if iImg.GetImageStatus() == cloudprovider.IMAGE_STATUS_ACTIVE && !input.IsForce {
+						return image.ExternalId, nil
+					}
+					log.Debugf("UploadImage: %s status: %s is_force: %v", image.ExternalId, iImg.GetStatus(), input.IsForce)
+					err = iImg.Delete(ctx)
+					if err != nil {
+						log.Warningf("delete image %s(%s) error: %v", iImg.GetName(), iImg.GetGlobalId(), err)
+					}
+					return iStorageCache.UploadImage(ctx, userCred, image, callback)
+				}
+				log.Debugf("UploadImage: no external ID")
+				return iStorageCache.UploadImage(ctx, userCred, image, callback)
+			}()
 		} else {
 			_, err = iStorageCache.GetIImageById(cachedImage.ExternalId)
 			if err != nil {

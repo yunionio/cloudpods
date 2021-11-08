@@ -17,6 +17,7 @@ package storageman
 import (
 	"context"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 )
 
@@ -24,7 +25,7 @@ type IImageCache interface {
 	GetPath() string
 	GetName() string
 	Load() error
-	Acquire(ctx context.Context, zone, srcUrl, format, checksum string) error
+	Acquire(ctx context.Context, input api.CacheImageInput, callback func(progress float32)) error
 	Release()
 	Remove(ctx context.Context) error
 	GetImageId() string

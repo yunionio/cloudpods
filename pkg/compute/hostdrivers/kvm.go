@@ -154,38 +154,20 @@ func (self *SKVMHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb in
 }
 
 func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
-	params := task.GetParams()
-	imageId, err := params.GetString("image_id")
-	if err != nil {
-		return errors.Wrap(err, "Get image_id from params")
-	}
-	format, _ := params.GetString("format")
-	isForce := jsonutils.QueryBoolean(params, "is_force", false)
+	input := api.CacheImageInput{}
+	task.GetParams().Unmarshal(&input)
 
-	srcHostId, _ := params.GetString("source_host_id")
 	var srcHost *models.SHost
-	if srcHostId != "" {
-		srcHost = models.HostManager.FetchHostById(srcHostId)
+	if len(input.SourceHostId) > 0 {
+		srcHost = models.HostManager.FetchHostById(input.SourceHostId)
 		if srcHost == nil {
-			return errors.Errorf("Source host %s not found", srcHostId)
+			return errors.Errorf("Source host %s not found", input.SourceHostId)
 		}
 	}
 
-	type contentStruct struct {
-		ImageId        string
-		Format         string
-		SrcUrl         string
-		IsForce        bool
-		StoragecacheId string
-	}
-
-	content := contentStruct{}
-	content.ImageId = imageId
-	content.Format = format
-
-	obj, err := models.CachedimageManager.FetchById(imageId)
+	obj, err := models.CachedimageManager.FetchById(input.ImageId)
 	if err != nil {
-		return errors.Wrapf(err, "Fetch cached image by image_id %s", imageId)
+		return errors.Wrapf(err, "Fetch cached image by image_id %s", input.ImageId)
 	}
 	cacheImage := obj.(*models.SCachedimage)
 	zone, _ := host.GetZone()
@@ -207,18 +189,14 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mod
 		if err != nil {
 			return errors.Wrapf(err, "Get storage cached image %s host", srcHostCacheImage.GetId())
 		}
-		content.SrcUrl = fmt.Sprintf("%s/download/images/%s", srcHost.ManagerUri, imageId)
-
+		input.SrcUrl = fmt.Sprintf("%s/download/images/%s", srcHost.ManagerUri, input.ImageId)
 	}
 
 	url := fmt.Sprintf("%s/disks/image_cache", host.ManagerUri)
 
-	if isForce {
-		content.IsForce = true
-	}
-	content.StoragecacheId = storageCache.Id
+	input.StoragecacheId = storageCache.Id
 	body := jsonutils.NewDict()
-	body.Add(jsonutils.Marshal(&content), "disk")
+	body.Add(jsonutils.Marshal(&input), "disk")
 
 	header := task.GetTaskRequestHeader()
 

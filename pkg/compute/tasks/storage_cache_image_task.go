@@ -68,16 +68,23 @@ func (self *StorageCacheImageTask) OnRelinquishLeastUsedCachedImageComplete(ctx 
 	if err != nil {
 		errData := taskman.Error2TaskData(err)
 		self.OnImageCacheCompleteFailed(ctx, storageCache, errData)
-	} else if host != nil {
-		err := host.GetHostDriver().CheckAndSetCacheImage(ctx, host, storageCache, self)
-		if err != nil {
-			errData := taskman.Error2TaskData(err)
-			self.OnImageCacheCompleteFailed(ctx, storageCache, errData)
+		return
+	}
+
+	serverId, _ := self.Params.GetString("server_id")
+	if len(serverId) > 0 {
+		guest, _ := models.GuestManager.FetchById(serverId)
+		if guest != nil {
+			server := guest.(*models.SGuest)
+			server.SetStatus(self.GetUserCred(), api.VM_IMAGE_CACHING, "")
 		}
-	} else {
-		// host is nil, and err is nil
-		reason := jsonutils.NewString("storage cache failed get host")
-		self.OnImageCacheCompleteFailed(ctx, storageCache, reason)
+	}
+
+	err = host.GetHostDriver().CheckAndSetCacheImage(ctx, host, storageCache, self)
+	if err != nil {
+		errData := taskman.Error2TaskData(err)
+		self.OnImageCacheCompleteFailed(ctx, storageCache, errData)
+		return
 	}
 }
 

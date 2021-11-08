@@ -34,11 +34,16 @@ type SStatusResourceBaseManager struct{}
 type SStatusResourceBase struct {
 	// 资源状态
 	Status string `width:"36" charset:"ascii" nullable:"false" default:"init" list:"user" create:"optional" json:"status"`
+
+	// 操作进度0-100
+	Progress float32 `list:"user" update:"user" default:"100" json:"progress"`
 }
 
 type IStatusBase interface {
 	SetStatusValue(status string)
 	GetStatus() string
+	SetProgressValue(progress float32)
+	GetProgress() float32
 }
 
 type IStatusBaseModel interface {
@@ -48,14 +53,34 @@ type IStatusBaseModel interface {
 
 func (model *SStatusResourceBase) SetStatusValue(status string) {
 	model.Status = status
+	model.Progress = 0
+}
+
+func (model *SStatusResourceBase) SetProgressValue(progress float32) {
+	model.Progress = progress
 }
 
 func (model SStatusResourceBase) GetStatus() string {
 	return model.Status
 }
 
+func (model SStatusResourceBase) GetProgress() float32 {
+	return model.Progress
+}
+
 func StatusBaseSetStatus(model IStatusBaseModel, userCred mcclient.TokenCredential, status string, reason string) error {
 	return statusBaseSetStatus(model, userCred, status, reason)
+}
+
+func statusBaseSetProgress(model IStatusBaseModel, progress float32) error {
+	_, err := Update(model, func() error {
+		model.SetProgressValue(progress)
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "Update")
+	}
+	return nil
 }
 
 func statusBaseSetStatus(model IStatusBaseModel, userCred mcclient.TokenCredential, status string, reason string) error {
