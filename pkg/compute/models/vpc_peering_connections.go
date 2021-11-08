@@ -253,20 +253,21 @@ func (manager *SVpcPeeringConnectionManager) FetchCustomizeColumns(
 ) []api.VpcPeeringConnectionDetails {
 	rows := make([]api.VpcPeeringConnectionDetails, len(objs))
 	stdRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-	vpcIds := make([]string, len(objs))
+	vpcObjs := make([]interface{}, len(objs))
 	peerVpcIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.VpcPeeringConnectionDetails{
 			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
 		}
 		vpcPC := objs[i].(*SVpcPeeringConnection)
-		vpcIds[i] = vpcPC.VpcId
+		vpcObj := &SVpcResourceBase{VpcId: vpcPC.VpcId}
+		vpcObjs[i] = vpcObj
 		peerVpcIds[i] = vpcPC.PeerVpcId
 	}
 
-	vpcMap, err := db.FetchIdNameMap2(VpcManager, vpcIds)
-	if err != nil {
-		return rows
+	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, vpcObjs, fields, isList)
+	for i := range rows {
+		rows[i].VpcResourceInfo = vpcRows[i]
 	}
 	peerVpcMap, err := db.FetchIdNameMap2(VpcManager, peerVpcIds)
 	if err != nil {
@@ -274,7 +275,6 @@ func (manager *SVpcPeeringConnectionManager) FetchCustomizeColumns(
 	}
 
 	for i := range rows {
-		rows[i].VpcName, _ = vpcMap[vpcIds[i]]
 		rows[i].PeerVpcName, _ = peerVpcMap[peerVpcIds[i]]
 	}
 	return rows
@@ -341,6 +341,7 @@ func (manager *SVpcPeeringConnectionManager) ListItemExportKeys(ctx context.Cont
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ListItemExportKeys")
 	}
+
 	return q, nil
 }
 
