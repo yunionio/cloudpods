@@ -260,6 +260,7 @@ func syncRegionVPCs(ctx context.Context, userCred mcclient.TokenCredential, sync
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 	// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
+	globalVpcIds := []string{}
 	for j := 0; j < len(localVpcs); j += 1 {
 		func() {
 			// lock vpc
@@ -271,7 +272,12 @@ func syncRegionVPCs(ctx context.Context, userCred mcclient.TokenCredential, sync
 			}
 
 			syncVpcWires(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
-			if localRegion.GetDriver().IsSecurityGroupBelongVpc() || localRegion.GetDriver().IsSupportClassicSecurityGroup() || j == 0 { //有vpc属性的每次都同步,支持classic的vpc也同步，否则仅同步一次
+			if localRegion.GetDriver().IsSecurityGroupBelongVpc() ||
+				(localRegion.GetDriver().IsSecurityGroupBelongGlobalVpc() && !utils.IsInStringArray(localVpcs[j].GlobalvpcId, globalVpcIds)) ||
+				localRegion.GetDriver().IsSupportClassicSecurityGroup() || j == 0 { //有vpc属性的每次都同步,支持classic的vpc也同步，否则仅同步一次
+				if len(localVpcs[j].GlobalvpcId) > 0 {
+					globalVpcIds = append(globalVpcIds, localVpcs[j].GlobalvpcId)
+				}
 				syncVpcSecGroup(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
 			}
 			syncVpcNatgateways(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
