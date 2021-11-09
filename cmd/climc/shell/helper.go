@@ -160,7 +160,7 @@ func (cmd ResourceCmd) List(args IListOpt) {
 			ExportList(result, exportFile, args.GetExportKeys(), args.GetExportTexts(), man.GetColumns(s))
 			return nil
 		}
-		printList(result, man.GetColumns(s))
+		PrintList(result, man.GetColumns(s))
 		return nil
 	}
 	cmd.Run("list", args, callback)
@@ -184,7 +184,7 @@ func (cmd ResourceCmd) create(s *mcclient.ClientSession, args ICreateOpt) error 
 	if err != nil {
 		return err
 	}
-	printObject(ret)
+	PrintObject(ret)
 	return nil
 }
 
@@ -240,7 +240,7 @@ func (cmd ResourceCmd) GetProperty(args IPropertyOpt) {
 		if err != nil {
 			return err
 		}
-		printObject(ret)
+		PrintObject(ret)
 		return nil
 	}
 	cmd.RunWithDesc(args.Property(), fmt.Sprintf("Get property of a %s", man.GetKeyword()), args, callback)
@@ -257,7 +257,7 @@ func (cmd ResourceCmd) Show(args IShowOpt) {
 		if err != nil {
 			return err
 		}
-		printObject(ret)
+		PrintObject(ret)
 		return nil
 	}
 	cmd.RunWithDesc("show", fmt.Sprintf("Show details of a %s", man.GetKeyword()), args, callback)
@@ -274,7 +274,7 @@ func (cmd ResourceCmd) ClassShow(args IShowOpt) {
 		if err != nil {
 			return err
 		}
-		printObject(ret)
+		PrintObject(ret)
 		return nil
 	}
 	cmd.RunWithDesc(args.GetId(), fmt.Sprintf("Show %s of a %s", args.GetId(), man.GetKeyword()), args, callback)
@@ -320,7 +320,7 @@ func (cmd ResourceCmd) Custom(action TCustomAction, funcname string, args IGetAc
 		if reterr.IsNil() {
 			v, ok := retobj.Interface().(jsonutils.JSONObject)
 			if ok {
-				printObject(v)
+				PrintObject(v)
 				return nil
 			}
 		}
@@ -349,7 +349,7 @@ func (cmd ResourceCmd) Delete(args IDeleteOpt) {
 		if err != nil {
 			return err
 		}
-		printObject(ret)
+		PrintObject(ret)
 		return nil
 	}
 	cmd.RunWithDesc("delete", fmt.Sprintf("Delete %s", man.GetKeyword()), args, callback)
@@ -461,7 +461,7 @@ func (cmd ResourceCmd) GetWithCustomShow(specific string, show func(data jsonuti
 }
 
 func (cmd ResourceCmd) Get(specific string, args IGetOpt) {
-	cmd.GetWithCustomShow(specific, printObject, args)
+	cmd.GetWithCustomShow(specific, PrintObject, args)
 }
 
 type IUpdateOpt interface {
@@ -485,7 +485,7 @@ func (cmd ResourceCmd) UpdateWithKeyword(keyword string, args IUpdateOpt) {
 		if err != nil {
 			return err
 		}
-		printObject(ret)
+		PrintObject(ret)
 		return nil
 	}
 	cmd.Run(keyword, args, callback)
@@ -511,7 +511,7 @@ func (cmd ResourceCmd) GetMetadata(args IMetadataOpt) {
 		if err != nil {
 			return err
 		}
-		printObject(ret)
+		PrintObject(ret)
 		return nil
 	}
 	cmd.RunWithDesc("metadata", fmt.Sprintf("Show metadata of a %s", man.GetKeyword()), args, callback)
@@ -612,7 +612,7 @@ func (cmd JointCmd) List(args IJointListOpt) {
 		if err != nil {
 			return err
 		}
-		printList(result, man.GetColumns(s))
+		PrintList(result, man.GetColumns(s))
 		return nil
 	}
 	cmd.RunWithDesc("list", fmt.Sprintf("list %s %s pairs", man.MasterManager().KeyString(), man.SlaveManager().KeyString()), args, callback)
@@ -635,7 +635,7 @@ func (cmd JointCmd) Show(args IJointShowOpt) {
 		if err != nil {
 			return err
 		}
-		printObject(result)
+		PrintObject(result)
 		return nil
 	}
 	cmd.Run("show", args, callback)
