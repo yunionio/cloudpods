@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/ansible"
+	"yunion.io/x/onecloud/pkg/util/ssh"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 )
 
@@ -47,12 +48,15 @@ type SSHtoolSol struct {
 }
 
 func getCommand(ctx context.Context, userCred mcclient.TokenCredential, ip string, port int) (string, *BaseCommand, error) {
-	cmd := NewBaseCommand(o.Options.SshToolPath)
 	if !o.Options.EnableAutoLogin {
 		return "", nil, nil
 	}
 	s := auth.GetAdminSession(ctx, o.Options.Region, "v2")
 	key, err := compute.Sshkeypairs.GetById(s, userCred.GetProjectId(), jsonutils.Marshal(map[string]bool{"admin": true}))
+	if err != nil {
+		return "", nil, err
+	}
+	privKey, err := key.GetString("private_key")
 	if err != nil {
 		return "", nil, err
 	}
@@ -67,24 +71,31 @@ func getCommand(ctx context.Context, userCred mcclient.TokenCredential, ip strin
 		if err != nil {
 			return "", nil, err
 		}
-		privKey, err := key.GetString("private_key")
-		if err != nil {
-			return "", nil, err
-		}
 		_, err = file.Write([]byte(privKey))
 		if err != nil {
 			return "", nil, err
 		}
 	}
-	cmd.AppendArgs("-i", filename)
-	cmd.AppendArgs("-q")
-	cmd.AppendArgs("-o", "StrictHostKeyChecking=no")
-	cmd.AppendArgs("-o", "GlobalKnownHostsFile=/dev/null")
-	cmd.AppendArgs("-o", "UserKnownHostsFile=/dev/null")
-	cmd.AppendArgs("-o", "PasswordAuthentication=no")
-	cmd.AppendArgs("-o", "BatchMode=yes") // 强制禁止密码登录
-	cmd.AppendArgs("-p", fmt.Sprintf("%d", port))
-	cmd.AppendArgs(fmt.Sprintf("%s@%s", ansible.PUBLIC_CLOUD_ANSIBLE_USER, ip))
+
+	// try ssh without password login
+	var cmd *BaseCommand
+	user := ansible.PUBLIC_CLOUD_ANSIBLE_USER
+	if _, err := ssh.NewClient(ip, port, user, "", privKey); err != nil {
+		log.Warningf("try use %s without password login error: %v", user, err)
+		return "", nil, nil
+	} else {
+		cmd = NewBaseCommand(o.Options.SshToolPath)
+		cmd.AppendArgs("-i", filename)
+		cmd.AppendArgs("-q")
+		cmd.AppendArgs("-o", "StrictHostKeyChecking=no")
+		cmd.AppendArgs("-o", "GlobalKnownHostsFile=/dev/null")
+		cmd.AppendArgs("-o", "UserKnownHostsFile=/dev/null")
+		cmd.AppendArgs("-o", "PasswordAuthentication=no")
+		cmd.AppendArgs("-o", "BatchMode=yes") // 强制禁止密码登录
+		cmd.AppendArgs("-p", fmt.Sprintf("%d", port))
+		cmd.AppendArgs(fmt.Sprintf("%s@%s", user, ip))
+	}
+
 	return filename, cmd, nil
 }
 
@@ -95,6 +106,7 @@ func NewSSHtoolSolCommand(ctx context.Context, userCred mcclient.TokenCredential
 			port = int(_port)
 		}
 	}
+
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), time.Second*2)
 	if err != nil {
 		return nil, fmt.Errorf("IPAddress %s:%d not accessible", ip, port)
