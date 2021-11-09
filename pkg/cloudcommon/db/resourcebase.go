@@ -39,9 +39,9 @@ type SResourceBase struct {
 	// 资源被更新次数
 	UpdateVersion int `default:"0" nullable:"false" auto_version:"true" list:"user" json:"update_version"`
 	// 资源删除时间
-	DeletedAt time.Time `json:"deleted_at" list:"admin"`
+	DeletedAt time.Time `json:"deleted_at" list:"user"`
 	// 资源是否被删除
-	Deleted bool `nullable:"false" default:"false" json:"deleted" list:"admin"`
+	Deleted bool `nullable:"false" default:"false" json:"deleted" list:"user"`
 }
 
 type SResourceBaseManager struct {
