@@ -53,15 +53,7 @@ func PrintList(list *modulebase.ListResult, columns []string) {
 	}
 }
 
-func printList(list *modulebase.ListResult, columns []string) {
-	printutils.PrintJSONList(list, columns)
-}
-
 func PrintObject(obj jsonutils.JSONObject) {
-	printObject(obj)
-}
-
-func printObject(obj jsonutils.JSONObject) {
 	switch outputFormat {
 	case OUTPUT_FORMAT_TABLE:
 		printutils.PrintJSONObject(obj)
@@ -104,7 +96,7 @@ func printObjectFmtKv(obj jsonutils.JSONObject) {
 }
 
 func printObjectRecursive(obj jsonutils.JSONObject) {
-	printutils.PrintJSONObjectRecursive(obj)
+	PrintObject(obj)
 }
 
 func printObjectRecursiveEx(obj jsonutils.JSONObject, cb printutils.PrintJSONObjectRecursiveExFunc) {
