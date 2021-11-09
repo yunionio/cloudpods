@@ -21,8 +21,8 @@ import (
 
 var (
 	R                 = shell.R
-	printList         = printutils.PrintJSONList
-	printObject       = printutils.PrintJSONObject
+	printList         = shell.PrintList
+	printObject       = shell.PrintObject
 	printBatchResults = printutils.PrintJSONBatchResults
 
 	InvalidUpdateError   = shell.InvalidUpdateError

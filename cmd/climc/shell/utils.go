@@ -41,8 +41,24 @@ func OutputFormat(s string) {
 	outputFormat = s
 }
 
+func PrintList(list *modulebase.ListResult, columns []string) {
+	switch outputFormat {
+	case OUTPUT_FORMAT_TABLE:
+		printutils.PrintJSONList(list, columns)
+	case OUTPUT_FORMAT_JSON:
+		fmt.Print(jsonutils.Marshal(list).PrettyString())
+		fmt.Print("\n")
+	default:
+		fmt.Fprintf(os.Stderr, "unknown output format: %q\n", outputFormat)
+	}
+}
+
 func printList(list *modulebase.ListResult, columns []string) {
 	printutils.PrintJSONList(list, columns)
+}
+
+func PrintObject(obj jsonutils.JSONObject) {
+	printObject(obj)
 }
 
 func printObject(obj jsonutils.JSONObject) {
@@ -52,7 +68,7 @@ func printObject(obj jsonutils.JSONObject) {
 	case OUTPUT_FORMAT_KV:
 		printObjectFmtKv(obj)
 	case OUTPUT_FORMAT_JSON:
-		fmt.Print(obj.String())
+		fmt.Print(obj.PrettyString())
 		fmt.Print("\n")
 	case OUTPUT_FORMAT_FLATTEN_TABLE:
 		printObjectRecursive(obj)
