@@ -232,6 +232,10 @@ func (self *SLoadbalancerListener) GetStickySessionCookie() string {
 }
 
 func (self *SLoadbalancerListener) GetStickySessionCookieTimeout() int {
+	if len(self.backendService.ConsistentHash.HTTPCookie.TTL.Seconds) == 0 {
+		return 0
+	}
+
 	sec, err := strconv.Atoi(self.backendService.ConsistentHash.HTTPCookie.TTL.Seconds)
 	if err != nil {
 		log.Debugf("GetStickySessionCookieTimeout %s", err)

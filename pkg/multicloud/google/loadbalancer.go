@@ -67,7 +67,20 @@ func (self *SLoadbalancer) IsEmulated() bool {
 }
 
 func (self *SLoadbalancer) GetSysTags() map[string]string {
-	return nil
+	frs, err := self.GetForwardingRules()
+	if err != nil {
+		return nil
+	}
+
+	ips := []string{}
+	for i := range frs {
+		if len(frs[i].IPAddress) > 0 {
+			ips = append(ips, frs[i].IPAddress)
+		}
+	}
+	data := map[string]string{}
+	data["FrontendIPs"] = strings.Join(ips, ",")
+	return data
 }
 
 func (self *SLoadbalancer) GetTags() (map[string]string, error) {
@@ -139,6 +152,29 @@ func (self *SLoadbalancer) GetNetworkIds() []string {
 }
 
 func (self *SLoadbalancer) GetVpcId() string {
+	networkIds := self.GetNetworkIds()
+	if len(networkIds) == 0 {
+		return ""
+	}
+	if len(networkIds) >= 1 {
+		network, err := self.region.GetNetwork(networkIds[0])
+		if err == nil && network != nil {
+			wire := network.GetIWire()
+			if wire == nil {
+				return ""
+			}
+
+			vpc := wire.GetIVpc()
+			if vpc == nil {
+				return ""
+			}
+
+			return vpc.GetGlobalId()
+		}
+
+		log.Debugf("GetVpcId %s", err)
+	}
+
 	return ""
 }
 

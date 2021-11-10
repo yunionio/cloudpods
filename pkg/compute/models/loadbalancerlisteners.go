@@ -1134,7 +1134,8 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 			lblis.BackendGroupId = lb.BackendGroupId
 		} else if group, err := db.FetchByExternalIdAndManagerId(LoadbalancerBackendGroupManager, groupId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 			sq := LoadbalancerManager.Query().SubQuery()
-			return q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("loadbalancer_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), lb.ManagerId))
+			q = q.Join(sq, sqlchemy.Equals(sq.Field("id"), q.Field("loadbalancer_id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), lb.ManagerId))
+			return q.IsFalse("pending_deleted")
 		}); err == nil {
 			lblis.BackendGroupId = group.GetId()
 		}
