@@ -80,8 +80,9 @@ type GuestnetworkJsonDesc struct {
 	Virtual    bool                 `json:"virtual"`
 	Ip         string               `json:"ip"`
 	Gateway    string               `json:"gateway"`
-	DNS        string               `json:"dns"`
+	Dns        string               `json:"dns"`
 	Domain     string               `json:"domain"`
+	Ntp        string               `json:"ntp"`
 	Routes     jsonutils.JSONObject `json:"routes"`
 	Ifname     string               `json:"ifname"`
 	Masklen    int8                 `json:"masklen"`

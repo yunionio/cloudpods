@@ -36,7 +36,6 @@ require (
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/c-bata/go-prompt v0.2.1
-	github.com/ceph/go-ceph v0.0.0-20181217221554-e32f9f0f2e94
 	github.com/cheggaaa/pb/v3 v3.0.8
 	github.com/coredns/coredns v1.3.0
 	github.com/coreos/go-systemd v0.0.0-20190620071333-e64a0ec8b42a // indirect
@@ -60,7 +59,7 @@ require (
 	github.com/go-ole/go-ole v1.2.2 // indirect
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/go-yaml/yaml v2.1.0+incompatible
-	github.com/gofrs/uuid v3.2.0+incompatible // indirect
+	github.com/gofrs/uuid v4.1.0+incompatible // indirect
 	github.com/golang-plus/errors v1.0.0
 	github.com/golang-plus/testing v1.0.0 // indirect
 	github.com/golang-plus/uuid v1.0.0
@@ -152,7 +151,7 @@ require (
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
 	yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
-	yunion.io/x/jsonutils v0.0.0-20210709075951-798a67800349
+	yunion.io/x/jsonutils v0.0.0-20211105163012-d846c05a3c9a
 	yunion.io/x/log v0.0.0-20201210064738-43181789dc74
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
 	yunion.io/x/pkg v0.0.0-20210918114143-ce839f862c5f
@@ -160,5 +159,3 @@ require (
 	yunion.io/x/sqlchemy v0.0.0-20210918113031-c1c107f37ada
 	yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
 )
-
-replace github.com/ceph/go-ceph v0.0.0-20181217221554-e32f9f0f2e94 => github.com/yunionio/go-ceph v0.0.0-20190912101231-6f05a06b3859

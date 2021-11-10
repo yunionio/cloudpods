@@ -66,6 +66,7 @@ type NetworkUpdateOptions struct {
 	Dns         string `help:"IP of DNS server"`
 	Domain      string `help:"Domain"`
 	Dhcp        string `help:"DHCP server IP"`
+	Ntp         string `help:"Ntp server domain names"`
 	VlanId      int64  `help:"Vlan ID" default:"1"`
 	ExternalId  string `help:"External ID"`
 	AllocPolicy string `help:"Address allocation policy" choices:"none|stepdown|stepup|random"`
@@ -111,6 +112,13 @@ func (opts *NetworkUpdateOptions) Params() (jsonutils.JSONObject, error) {
 			params.Add(jsonutils.NewString(""), "guest_dhcp")
 		} else {
 			params.Add(jsonutils.NewString(opts.Dhcp), "guest_dhcp")
+		}
+	}
+	if len(opts.Ntp) > 0 {
+		if opts.Ntp == "none" {
+			params.Add(jsonutils.NewString(""), "guest_ntp")
+		} else {
+			params.Add(jsonutils.NewString(opts.Ntp), "guest_ntp")
 		}
 	}
 	if opts.VlanId > 0 {

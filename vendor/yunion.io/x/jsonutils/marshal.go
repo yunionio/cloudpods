@@ -33,13 +33,23 @@ import (
 	"yunion.io/x/pkg/util/timeutils"
 )
 
-func marshalSlice(val reflect.Value, info *reflectutils.SStructFieldInfo) JSONObject {
-	if val.Len() == 0 && info != nil && info.OmitEmpty {
-		return JSONNull
+func marshalSlice(val reflect.Value, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
+	if val.Kind() == reflect.Slice && val.IsNil() {
+		if !omitEmpty {
+			return JSONNull
+		} else {
+			return nil
+		}
 	}
-	objs := make([]JSONObject, val.Len())
+	if val.Len() == 0 && info != nil && info.OmitEmpty && omitEmpty {
+		return nil
+	}
+	objs := make([]JSONObject, 0)
 	for i := 0; i < val.Len(); i += 1 {
-		objs[i] = marshalValue(val.Index(i), nil)
+		val := marshalValue(val.Index(i), nil, omitEmpty)
+		if val != nil {
+			objs = append(objs, val)
+		}
 	}
 	arr := NewArray(objs...)
 	if info != nil && info.ForceString {
@@ -49,16 +59,23 @@ func marshalSlice(val reflect.Value, info *reflectutils.SStructFieldInfo) JSONOb
 	}
 }
 
-func marshalMap(val reflect.Value, info *reflectutils.SStructFieldInfo) JSONObject {
+func marshalMap(val reflect.Value, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
+	if val.IsNil() {
+		if !omitEmpty {
+			return JSONNull
+		} else {
+			return nil
+		}
+	}
 	keys := val.MapKeys()
-	if len(keys) == 0 && info != nil && info.OmitEmpty {
-		return JSONNull
+	if len(keys) == 0 && info != nil && info.OmitEmpty && omitEmpty {
+		return nil
 	}
 	objPairs := make([]JSONPair, 0)
 	for i := 0; i < len(keys); i += 1 {
 		key := keys[i]
-		val := marshalValue(val.MapIndex(key), nil)
-		if val != JSONNull {
+		val := marshalValue(val.MapIndex(key), nil, omitEmpty)
+		if val != nil {
 			objPairs = append(objPairs, JSONPair{key: fmt.Sprintf("%s", key), val: val})
 		}
 	}
@@ -70,10 +87,10 @@ func marshalMap(val reflect.Value, info *reflectutils.SStructFieldInfo) JSONObje
 	}
 }
 
-func marshalStruct(val reflect.Value, info *reflectutils.SStructFieldInfo) JSONObject {
-	objPairs := struct2JSONPairs(val)
-	if len(objPairs) == 0 && info != nil && info.OmitEmpty {
-		return JSONNull
+func marshalStruct(val reflect.Value, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
+	objPairs := struct2JSONPairs(val, omitEmpty)
+	if len(objPairs) == 0 && info != nil && info.OmitEmpty && omitEmpty {
+		return nil
 	}
 	dict := NewDict(objPairs...)
 	if info != nil && info.ForceString {
@@ -92,7 +109,7 @@ func findValueByKey(pairs []JSONPair, key string) JSONObject {
 	return nil
 }
 
-func struct2JSONPairs(val reflect.Value) []JSONPair {
+func struct2JSONPairs(val reflect.Value, omitEmpty bool) []JSONPair {
 	fields := reflectutils.FetchStructFieldValueSet(val)
 	objPairs := make([]JSONPair, 0, len(fields))
 	depFields := make(map[string]string)
@@ -106,8 +123,8 @@ func struct2JSONPairs(val reflect.Value) []JSONPair {
 			depFields[key] = deprecatedBy
 			continue
 		}
-		val := marshalValue(fields[i].Value, jsonInfo)
-		if val != nil && val != JSONNull {
+		val := marshalValue(fields[i].Value, jsonInfo, omitEmpty)
+		if val != nil {
 			objPair := JSONPair{key: key, val: val}
 			objPairs = append(objPairs, objPair)
 		}
@@ -140,9 +157,9 @@ func struct2JSONPairs(val reflect.Value) []JSONPair {
 	return objPairs
 }
 
-func marshalInt64(val int64, info *reflectutils.SStructFieldInfo) JSONObject {
-	if val == 0 && info != nil && info.OmitZero {
-		return JSONNull
+func marshalInt64(val int64, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
+	if val == 0 && info != nil && info.OmitZero && omitEmpty {
+		return nil
 	} else if info != nil && info.ForceString {
 		return NewString(fmt.Sprintf("%d", val))
 	} else {
@@ -150,9 +167,9 @@ func marshalInt64(val int64, info *reflectutils.SStructFieldInfo) JSONObject {
 	}
 }
 
-func marshalFloat64(val float64, info *reflectutils.SStructFieldInfo, bit int) JSONObject {
-	if val == 0.0 && info != nil && info.OmitZero {
-		return JSONNull
+func marshalFloat64(val float64, info *reflectutils.SStructFieldInfo, bit int, omitEmpty bool) JSONObject {
+	if val == 0.0 && info != nil && info.OmitZero && omitEmpty {
+		return nil
 	} else if info != nil && info.ForceString {
 		return NewString(fmt.Sprintf("%f", val))
 	} else {
@@ -160,9 +177,9 @@ func marshalFloat64(val float64, info *reflectutils.SStructFieldInfo, bit int) J
 	}
 }
 
-func marshalFloat32(val float32, info *reflectutils.SStructFieldInfo, bit int) JSONObject {
-	if val == 0.0 && info != nil && info.OmitZero {
-		return JSONNull
+func marshalFloat32(val float32, info *reflectutils.SStructFieldInfo, bit int, omitEmpty bool) JSONObject {
+	if val == 0.0 && info != nil && info.OmitZero && omitEmpty {
+		return nil
 	} else if info != nil && info.ForceString {
 		return NewString(fmt.Sprintf("%f", val))
 	} else {
@@ -170,9 +187,9 @@ func marshalFloat32(val float32, info *reflectutils.SStructFieldInfo, bit int) J
 	}
 }
 
-func marshalBoolean(val bool, info *reflectutils.SStructFieldInfo) JSONObject {
-	if !val && info != nil && info.OmitFalse {
-		return JSONNull
+func marshalBoolean(val bool, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
+	if !val && info != nil && info.OmitFalse && omitEmpty {
+		return nil
 	} else if info != nil && info.ForceString {
 		return NewString(fmt.Sprintf("%v", val))
 	} else {
@@ -184,28 +201,32 @@ func marshalBoolean(val bool, info *reflectutils.SStructFieldInfo) JSONObject {
 	}
 }
 
-func marshalTristate(val tristate.TriState, info *reflectutils.SStructFieldInfo) JSONObject {
+func marshalTristate(val tristate.TriState, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
 	if val.IsTrue() {
 		return JSONTrue
 	} else if val.IsFalse() {
 		return JSONFalse
 	} else {
-		return JSONNull
+		if omitEmpty {
+			return nil
+		} else {
+			return JSONNull
+		}
 	}
 }
 
-func marshalString(val string, info *reflectutils.SStructFieldInfo) JSONObject {
-	if len(val) == 0 && info != nil && info.OmitEmpty {
-		return JSONNull
+func marshalString(val string, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
+	if len(val) == 0 && info != nil && info.OmitEmpty && omitEmpty {
+		return nil
 	} else {
 		return NewString(val)
 	}
 }
 
-func marshalTime(val time.Time, info *reflectutils.SStructFieldInfo) JSONObject {
+func marshalTime(val time.Time, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
 	if val.IsZero() {
-		if info != nil && info.OmitEmpty {
-			return JSONNull
+		if info != nil && info.OmitEmpty && omitEmpty {
+			return nil
 		}
 		return NewString("")
 	} else {
@@ -222,123 +243,151 @@ func Marshal(obj interface{}) JSONObject {
 		return JSONNull
 	}
 	objValue := reflect.Indirect(val)
-	return marshalValue(objValue, nil)
+	mval := marshalValue(objValue, nil, true)
+	if mval == nil {
+		return JSONNull
+	}
+	return mval
 }
 
-func marshalValue(objValue reflect.Value, info *reflectutils.SStructFieldInfo) JSONObject {
+func marshalValue(objValue reflect.Value, info *reflectutils.SStructFieldInfo, omitEmpty bool) JSONObject {
 	switch objValue.Type() {
 	case JSONDictPtrType, JSONArrayPtrType, JSONBoolPtrType, JSONIntPtrType, JSONFloatPtrType, JSONStringPtrType, JSONObjectType:
 		if objValue.IsNil() {
-			return JSONNull
+			if omitEmpty {
+				return nil
+			} else {
+				return JSONNull
+			}
 		}
 		return objValue.Interface().(JSONObject)
 	case JSONDictType:
 		json, ok := objValue.Interface().(JSONDict)
 		if ok {
-			if len(json.data) == 0 && info != nil && info.OmitEmpty {
-				return JSONNull
+			if len(json.data) == 0 && info != nil && info.OmitEmpty && omitEmpty {
+				return nil
 			} else {
 				return &json
 			}
 		} else {
-			return JSONNull
+			return nil
 		}
 	case JSONArrayType:
 		json, ok := objValue.Interface().(JSONArray)
 		if ok {
-			if len(json.data) == 0 && info != nil && info.OmitEmpty {
-				return JSONNull
+			if len(json.data) == 0 && info != nil && info.OmitEmpty && omitEmpty {
+				return nil
 			} else {
 				return &json
 			}
 		} else {
-			return JSONNull
+			return nil
 		}
 	case JSONBoolType:
 		json, ok := objValue.Interface().(JSONBool)
 		if ok {
-			if !json.data && info != nil && info.OmitEmpty {
-				return JSONNull
+			if !json.data && info != nil && info.OmitEmpty && omitEmpty {
+				return nil
 			} else {
 				return &json
 			}
 		} else {
-			return JSONNull
+			return nil
 		}
 	case JSONIntType:
 		json, ok := objValue.Interface().(JSONInt)
 		if ok {
-			if json.data == 0 && info != nil && info.OmitEmpty {
-				return JSONNull
+			if json.data == 0 && info != nil && info.OmitEmpty && omitEmpty {
+				return nil
 			} else {
 				return &json
 			}
 		} else {
-			return JSONNull
+			return nil
 		}
 	case JSONFloatType:
 		json, ok := objValue.Interface().(JSONFloat)
 		if ok {
-			if json.data == 0.0 && info != nil && info.OmitEmpty {
-				return JSONNull
+			if json.data == 0.0 && info != nil && info.OmitEmpty && omitEmpty {
+				return nil
 			} else {
 				return &json
 			}
 		} else {
-			return JSONNull
+			return nil
 		}
 	case JSONStringType:
 		json, ok := objValue.Interface().(JSONString)
 		if ok {
-			if len(json.data) == 0 && info != nil && info.OmitEmpty {
-				return JSONNull
+			if len(json.data) == 0 && info != nil && info.OmitEmpty && omitEmpty {
+				return nil
 			} else {
 				return &json
 			}
 		} else {
-			return JSONNull
+			return nil
 		}
 	case tristate.TriStateType:
 		tri, ok := objValue.Interface().(tristate.TriState)
 		if ok {
-			return marshalTristate(tri, info)
+			return marshalTristate(tri, info, omitEmpty)
 		} else {
-			return JSONNull
+			return nil
 		}
 	}
 	switch objValue.Kind() {
 	case reflect.Slice, reflect.Array:
-		return marshalSlice(objValue, info)
+		return marshalSlice(objValue, info, omitEmpty)
 	case reflect.Struct:
 		if objValue.Type() == gotypes.TimeType {
-			return marshalTime(objValue.Interface().(time.Time), info)
+			return marshalTime(objValue.Interface().(time.Time), info, omitEmpty)
 		} else {
-			return marshalStruct(objValue, info)
+			return marshalStruct(objValue, info, omitEmpty)
 		}
 	case reflect.Map:
-		return marshalMap(objValue, info)
+		return marshalMap(objValue, info, omitEmpty)
 	case reflect.String:
 		strValue := objValue.Convert(gotypes.StringType)
-		return marshalString(strValue.Interface().(string), info)
+		return marshalString(strValue.Interface().(string), info, omitEmpty)
 	case reflect.Bool:
-		return marshalBoolean(objValue.Interface().(bool), info)
+		return marshalBoolean(objValue.Interface().(bool), info, omitEmpty)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		intValue := objValue.Convert(gotypes.Int64Type)
-		return marshalInt64(intValue.Interface().(int64), info)
+		return marshalInt64(intValue.Interface().(int64), info, omitEmpty)
 	case reflect.Float32:
 		floatVal := objValue.Convert(gotypes.Float32Type)
-		return marshalFloat32(floatVal.Interface().(float32), info, 32)
+		return marshalFloat32(floatVal.Interface().(float32), info, 32, omitEmpty)
 	case reflect.Float64:
 		floatVal := objValue.Convert(gotypes.Float64Type)
-		return marshalFloat64(floatVal.Interface().(float64), info, 64)
+		return marshalFloat64(floatVal.Interface().(float64), info, 64, omitEmpty)
 	case reflect.Interface, reflect.Ptr:
 		if objValue.IsNil() {
-			return JSONNull
+			if omitEmpty {
+				return nil
+			} else {
+				return JSONNull
+			}
 		}
-		return marshalValue(objValue.Elem(), info)
+		return marshalValue(objValue.Elem(), info, omitEmpty)
 	default:
 		log.Errorf("unsupport object %s %s", objValue.Type(), objValue.Interface())
 		return JSONNull
 	}
+}
+
+func MarshalAll(obj interface{}) JSONObject {
+	if obj == nil {
+		return JSONNull
+	}
+	val := reflect.ValueOf(obj)
+	if kind := val.Kind(); val.IsZero() && kind == reflect.Ptr {
+		return JSONNull
+	}
+	objValue := reflect.Indirect(val)
+	mval := marshalValue(objValue, nil, false)
+	if mval == nil {
+		return JSONNull
+	}
+	return mval
 }
