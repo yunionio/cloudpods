@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
+	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
@@ -39,8 +40,16 @@ func init() {
 type SAlertRecordHistoryFactory struct {
 }
 
+func (self *SAlertRecordHistoryFactory) MyRoutineInteval(monOptions options.CloudMonOptions) time.Duration {
+	return time.Duration(monOptions.AlertRecordHistoryInterval)
+}
+
+func (self *SAlertRecordHistoryFactory) MyRoutineFunc() common.RoutineFunc {
+	return common.MakePullMetricRoutineAtZeroPoint
+}
+
 func (self *SAlertRecordHistoryFactory) NewCloudReport(provider *common.SProvider, session *mcclient.ClientSession,
-	args *common.ReportOptions,
+	args *options.ReportOptions,
 	operatorType string) common.ICloudReport {
 	return &SAlertRecordHistoryReport{
 		common.CloudReportBase{

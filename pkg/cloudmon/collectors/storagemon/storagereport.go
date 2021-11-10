@@ -16,20 +16,22 @@ package storagemon
 
 import (
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
+	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 func init() {
-	factory := SCloudAccountFactory{}
+	factory := SStorageReportFactory{}
 	common.RegisterFactory(&factory)
 }
 
-type SCloudAccountFactory struct {
+type SStorageReportFactory struct {
+	common.CommonReportFactory
 }
 
-func (self *SCloudAccountFactory) NewCloudReport(provider *common.SProvider, session *mcclient.ClientSession,
-	args *common.ReportOptions,
+func (self *SStorageReportFactory) NewCloudReport(provider *common.SProvider, session *mcclient.ClientSession,
+	args *options.ReportOptions,
 	operatorType string) common.ICloudReport {
 	return &SStorageReport{
 		common.CloudReportBase{
@@ -41,7 +43,7 @@ func (self *SCloudAccountFactory) NewCloudReport(provider *common.SProvider, ses
 	}
 }
 
-func (S SCloudAccountFactory) GetId() string {
+func (S SStorageReportFactory) GetId() string {
 	return string(common.STORAGE)
 }
 

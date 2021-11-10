@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -39,7 +40,7 @@ import (
 type CloudReportBase struct {
 	SProvider *SProvider
 	Session   *mcclient.ClientSession
-	Args      *ReportOptions
+	Args      *options.ReportOptions
 	Operator  string
 }
 

@@ -16,6 +16,8 @@ package common
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws/request"
 
@@ -23,6 +25,7 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -32,10 +35,24 @@ func init() {
 	cloudReportTable = make(map[string]ICloudReportFactory)
 }
 
+type IRoutineFactory interface {
+	MyRoutineFunc() RoutineFunc
+}
+
 type ICloudReportFactory interface {
-	NewCloudReport(provider *SProvider, session *mcclient.ClientSession, args *ReportOptions,
+	NewCloudReport(provider *SProvider, session *mcclient.ClientSession, args *options.ReportOptions,
 		operatorType string) ICloudReport
 	GetId() string
+	MyRoutineInteval(monOptions options.CloudMonOptions) time.Duration
+}
+
+type CommonReportFactory struct {
+}
+
+func (co *CommonReportFactory) MyRoutineInteval(monOptions options.CloudMonOptions) time.Duration {
+	interval64, _ := strconv.ParseInt(monOptions.Interval, 10, 32)
+	duration := time.Duration(interval64) * time.Minute
+	return duration
 }
 
 type ICloudReport interface {

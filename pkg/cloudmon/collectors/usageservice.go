@@ -22,7 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
+	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
@@ -36,10 +36,10 @@ var config map[string]string = map[string]string{
 var measureMent string = "usage"
 
 func init() {
-	shellutils.R(&common.ReportOptions{}, "report-usage", "Report Usage", reportUsage)
+	shellutils.R(&options.ReportOptions{}, "report-usage", "Report Usage", reportUsage)
 }
 
-func reportUsage(session *mcclient.ClientSession, args *common.ReportOptions) error {
+func reportUsage(session *mcclient.ClientSession, args *options.ReportOptions) error {
 	dataList := make([]influxdb.SMetricData, 0)
 	nowTime := time.Now()
 	//镜像使用量信息

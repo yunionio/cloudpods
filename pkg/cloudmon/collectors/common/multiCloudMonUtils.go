@@ -28,9 +28,11 @@ import (
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	o "yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
@@ -47,6 +49,10 @@ const (
 	CLOUDACCOUNT MonType = "cloudaccount"
 	STORAGE      MonType = "storage"
 	ALERT_RECORD MonType = "alertRecord"
+
+	PING_PROBE MonType = "ping_probe"
+
+	ALL_RESOURCE MonType = "all"
 )
 
 const (
@@ -62,6 +68,16 @@ const (
 	TYPE_HOSTSYSTEM     = "HostSystem"
 )
 
+var (
+	SupportMetricBrands = []string{compute.CLOUD_PROVIDER_ALIYUN, compute.CLOUD_PROVIDER_VMWARE, compute.CLOUD_PROVIDER_APSARA,
+		compute.CLOUD_PROVIDER_QCLOUD, compute.CLOUD_PROVIDER_AZURE, compute.CLOUD_PROVIDER_AWS,
+		compute.CLOUD_PROVIDER_HUAWEI, compute.CLOUD_PROVIDER_HCSO, compute.CLOUD_PROVIDER_ZSTACK,
+		compute.CLOUD_PROVIDER_GOOGLE, compute.CLOUD_PROVIDER_ECLOUD, compute.CLOUD_PROVIDER_JDCLOUD}
+
+	ResMonTypeList       = []string{string(SERVER), string(HOST), string(REDIS), string(RDS), string(OSS), string(ELB)}
+	CustomizeMonTypeList = []string{string(CLOUDACCOUNT), string(STORAGE), string(ALERT_RECORD), string(PING_PROBE)}
+)
+
 var OtherVmTags = map[string]string{
 	"source":   "cloudmon",
 	"res_type": "guest",
@@ -72,24 +88,6 @@ var OtherHostTag = map[string]string{
 	"source":   "cloudmon",
 	"res_type": "host",
 	"is_vm":    "false",
-}
-
-type ReportOptions struct {
-	Batch          int      `help:"batch"`
-	Count          int      `help:"count" json:"count"`
-	Interval       string   `help:"interval"`
-	Timeout        int64    `help:"command timeout unit:second" default:"10"`
-	SinceTime      string   `help:"sinceTime"`
-	EndTime        string   `help:"endTime"`
-	Provider       []string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei|ZStack|Google|Apsara|JDcloud|Ecloud|HCSO" json:"provider,omitempty"`
-	MetricInterval string   `help:"metric interval eg:PT1M"`
-	PingProbeOptions
-}
-
-type PingProbeOptions struct {
-	Debug         bool `help:"debug"`
-	ProbeCount    int  `help:"probe count, default is 3" default:"3"`
-	TimeoutSecond int  `help:"probe timeout in second, default is 1 second" default:"1"`
 }
 
 var InstanceProviders = "Aliyun,Azure,Aws,Qcloud,VMWare,Huawei,Openstack,Ucloud,ZStack"
@@ -320,7 +318,7 @@ func ParseTimeStr(startTime, endTime string) (since, util time.Time, err error) 
 	return since, util, nil
 }
 
-func TimeRangeFromArgs(args *ReportOptions) (since, until time.Time, err error) {
+func TimeRangeFromArgs(args *o.ReportOptions) (since, until time.Time, err error) {
 	if args.SinceTime != "" && args.EndTime != "" {
 		since, until, err = ParseTimeStr(args.SinceTime, args.EndTime)
 		if err != nil {
@@ -414,7 +412,8 @@ func SendMetrics(s *mcclient.ClientSession, metrics []influxdb.SMetricData, debu
 	return influxdb.SendMetrics(urls, database, metrics, debug)
 }
 
-func ReportCloudMetricOfoperatorType(operatorType string, session *mcclient.ClientSession, args *ReportOptions) error {
+func ReportCloudMetricOfoperatorType(operatorType string, session *mcclient.ClientSession,
+	args *o.ReportOptions) error {
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewString("10"), KEY_LIMIT)
 	query.Add(jsonutils.NewString("true"), KEY_ADMIN)
@@ -475,11 +474,7 @@ func ReportCloudMetricOfoperatorType(operatorType string, session *mcclient.Clie
 	return providerGroup.Wait()
 }
 
-func newGroupFunc(func()) {
-
-}
-
-func ReportCustomizeCloudMetric(operatorType string, session *mcclient.ClientSession, args *ReportOptions) error {
+func ReportCustomizeCloudMetric(operatorType string, session *mcclient.ClientSession, args *o.ReportOptions) error {
 	cloudReportFactory, err := GetCloudReportFactory(operatorType)
 	if err != nil {
 		return errors.Wrap(err, "GetCloudReportFactory")
@@ -513,4 +508,109 @@ func CollectRegionMetricAsync(asynCount int, region cloudprovider.ICloudRegion,
 		}
 	}
 	return metricGroup.Wait()
+}
+
+func ReportConnectCloudproviderMetric(ctx context.Context, provider jsonutils.JSONObject,
+	closeChan chan struct{}) error {
+	status, err := provider.GetString("status")
+	if err != nil {
+		return errors.Errorf("provider get status error: %v", err)
+	}
+	if status != "connected" {
+		return errors.Errorf("provider status: %s expect: connected", status)
+	}
+	providerStruct := SProvider{}
+	err = provider.Unmarshal(&providerStruct)
+	if err != nil {
+		return errors.Errorf("provider.Unmarshal err: %v", provider)
+	}
+	err = (&providerStruct).Validate()
+	if err != nil {
+		return errors.Errorf("provider validate err: %v", err)
+	}
+	providerStr := providerStruct.Provider
+	cloudReportFactory, err := GetCloudReportFactory(providerStr)
+	if err != nil {
+		return errors.Wrap(err, "GetCloudReportFactory")
+	}
+
+	MakePullMetricRoutineWithDur(ctx, cloudReportFactory, &providerStruct, closeChan,
+		cloudReportFactory.MyRoutineInteval(o.Options),
+		cloudproviderRunfunc)
+	return nil
+}
+
+type RoutineFunc func(ctx context.Context, factory ICloudReportFactory, provider *SProvider, closeChan chan struct{},
+	interval time.Duration, run runFunc)
+
+func MakePullMetricRoutineWithDur(ctx context.Context, factory ICloudReportFactory, provider *SProvider, closeChan chan struct{}, interval time.Duration, run runFunc) {
+	go func() {
+		timer := time.NewTimer(0)
+		for {
+			session := auth.GetAdminSession(ctx, "", "")
+			select {
+			case <-closeChan:
+				log.Warningf("closed provider: %s,name: %s. pull metric", provider.Name, provider.Name)
+				return
+			case <-timer.C:
+				run(ctx, factory, provider, session)
+			}
+			timer.Reset(interval)
+		}
+	}()
+}
+
+func MakePullMetricRoutineAtZeroPoint(ctx context.Context, factory ICloudReportFactory, provider *SProvider,
+	closeChan chan struct{}, interval time.Duration, run runFunc) {
+	go func() {
+		timer := time.NewTimer(interval)
+		for {
+			now := time.Now()
+			next := now.Add(time.Hour * 24 * interval)
+			date := time.Date(next.Year(), next.Month(), next.Day(), 0, 0, 0, 0, next.Location())
+			timer.Reset(date.Sub(now))
+			session := auth.GetAdminSession(ctx, "", "")
+			select {
+			case <-closeChan:
+				log.Warningf("closed provider: %s,brand: %s. pull metric", provider.Name, provider.Brand)
+				return
+			case <-timer.C:
+				run(ctx, factory, provider, session)
+			}
+		}
+	}()
+}
+
+type runFunc func(ctx context.Context, factory ICloudReportFactory, provider *SProvider, session *mcclient.ClientSession)
+
+func cloudproviderRunfunc(ctx context.Context, factory ICloudReportFactory, provider *SProvider,
+	session *mcclient.ClientSession) {
+	opt := o.Options
+	group, _ := errgroup.WithContext(ctx)
+	for i, _ := range ResMonTypeList {
+		resType := ResMonTypeList[i]
+		group.Go(func() error {
+			log.Errorf("cloudprovider: %s,operator: %s start report().", provider.Name, resType)
+
+			err := factory.NewCloudReport(provider, session, &opt.ReportOptions, resType).Report()
+			if err != nil {
+				log.Errorf("provider: %s report metric err: %v", provider.Name, err)
+				return nil
+			}
+			log.Errorf("cloudprovider: %s,operator: %s report() end.", provider.Name, resType)
+			return nil
+		})
+	}
+	group.Wait()
+}
+
+func CustomizeRunFunc(ctx context.Context, factory ICloudReportFactory, provider *SProvider,
+	session *mcclient.ClientSession) {
+	opt := o.Options
+	err := factory.NewCloudReport(provider, session, &opt.ReportOptions, "").Report()
+	if err != nil {
+		log.Errorf("provider: %s report metric err: %v", provider.Name, err)
+		return
+	}
+	log.Errorf("operator: %s report() end.", factory.GetId())
 }

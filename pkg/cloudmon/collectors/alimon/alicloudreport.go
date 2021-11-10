@@ -19,8 +19,8 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
+	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 func init() {
@@ -29,10 +29,11 @@ func init() {
 }
 
 type SAliCloudReportFactory struct {
+	common.CommonReportFactory
 }
 
 func (self *SAliCloudReportFactory) NewCloudReport(provider *common.SProvider, session *mcclient.ClientSession,
-	args *common.ReportOptions, operatorType string) common.ICloudReport {
+	args *options.ReportOptions, operatorType string) common.ICloudReport {
 	return &SAliCloudReport{
 		common.CloudReportBase{
 			SProvider: provider,
@@ -54,18 +55,9 @@ type SAliCloudReport struct {
 func (self *SAliCloudReport) Report() error {
 	var servers []jsonutils.JSONObject
 	var err error
-	switch self.Operator {
-	case "redis":
-		servers, err = self.GetAllserverOfThisProvider(&modules.ElasticCache)
-	case "rds":
-		servers, err = self.GetAllserverOfThisProvider(&modules.DBInstance)
-	case "oss":
-		servers, err = self.GetAllserverOfThisProvider(&modules.Buckets)
-	case "elb":
-		servers, err = self.GetAllserverOfThisProvider(&modules.Loadbalancers)
-	default:
-		servers, err = self.GetAllserverOfThisProvider(&modules.Servers)
-	}
+
+	servers, err = self.GetResourceByOperator()
+
 	providerInstance, err := self.InitProviderInstance()
 	if err != nil {
 		return err
