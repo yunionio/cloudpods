@@ -47,7 +47,7 @@ type SHCSOEndpoints struct {
 	// 华为私有云Endpoint域名
 	// example: hcso.com.cn
 	// required:true
-	EndpointDomain string `default:"$HUAWEI_ENDPOINT_DOMAIN" metavar:"HUAWEI_ENDPOINT_DOMAIN"`
+	EndpointDomain string `default:"$HUAWEI_ENDPOINT_DOMAIN" metavar:"$HUAWEI_ENDPOINT_DOMAIN"`
 
 	// 可用区ID
 	// example: cn-north-2

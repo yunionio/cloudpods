@@ -46,7 +46,8 @@ const (
 )
 
 type CtyunClientConfig struct {
-	cpcfg cloudprovider.ProviderConfig
+	cpcfg   cloudprovider.ProviderConfig
+	options *cloudprovider.SCtyunExtraOptions
 
 	projectId    string
 	accessKey    string
@@ -55,10 +56,11 @@ type CtyunClientConfig struct {
 	debug bool
 }
 
-func NewSCtyunClientConfig(accessKey, accessSecret string) *CtyunClientConfig {
+func NewSCtyunClientConfig(accessKey, accessSecret string, options *cloudprovider.SCtyunExtraOptions) *CtyunClientConfig {
 	cfg := &CtyunClientConfig{
 		accessKey:    accessKey,
 		accessSecret: accessSecret,
+		options:      options,
 	}
 	return cfg
 }
@@ -165,6 +167,32 @@ func (client *SCtyunClient) DoPost(apiName string, params map[string]jsonutils.J
 	return formRequest(client, httputils.POST, apiName, nil, params)
 }
 
+func getCustiomInfo(t string, crmBizId string, accountId string) jsonutils.JSONObject {
+	if len(t) == 0 {
+		return nil
+	}
+
+	customeInfo := jsonutils.NewDict()
+	//customeInfo.Set("name", jsonutils.NewString(""))
+	//customeInfo.Set("email", jsonutils.NewString(""))
+	//customeInfo.Set("phone", jsonutils.NewString(""))
+	indentity := jsonutils.NewDict()
+	if len(crmBizId) > 0 {
+		indentity.Set("crmBizId", jsonutils.NewString(crmBizId))
+	}
+
+	if len(accountId) > 0 {
+		indentity.Set("accountId", jsonutils.NewString(accountId))
+	}
+
+	if len(t) > 0 {
+		customeInfo.Set("type", jsonutils.NewString(t))
+		customeInfo.Set("identity", indentity)
+	}
+
+	return customeInfo
+}
+
 func formRequest(client *SCtyunClient, method httputils.THttpMethod, apiName string, queries map[string]string, params map[string]jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	header := http.Header{}
 	// signer
@@ -199,6 +227,11 @@ func formRequest(client *SCtyunClient, method httputils.THttpMethod, apiName str
 		header.Set("hmac", hsum)
 		// 平台类型，整数类型，取值范围：2或3，传2表示2.0自营资源，传3表示3.0合营资源，该参数不需要加密。
 		header.Set("platform", "3")
+		// crm账号需要设置customInfo。目前发现只有VPC列表查询需要用到这个参数，其他的接口还没有发现此要求。为了简便对于crm 统一设置此项
+		if client.options != nil && len(client.options.CrmBizId) > 0 {
+			customInfo := getCustiomInfo("1", client.options.CrmBizId, "")
+			header.Set("customInfo", customInfo.String())
+		}
 	}
 
 	var reqbody string
