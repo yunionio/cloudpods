@@ -16,10 +16,15 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
+
+	"golang.org/x/net/http/httpproxy"
 
 	"yunion.io/x/structarg"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/qcloud"
 	_ "yunion.io/x/onecloud/pkg/multicloud/qcloud/shell"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -85,11 +90,27 @@ func newClient(options *BaseOptions) (*qcloud.SRegion, error) {
 		return nil, fmt.Errorf("Missing SecretID")
 	}
 
+	cfg := &httpproxy.Config{
+		HTTPProxy:  os.Getenv("HTTP_PROXY"),
+		HTTPSProxy: os.Getenv("HTTPS_PROXY"),
+		NoProxy:    os.Getenv("NO_PROXY"),
+	}
+	cfgProxyFunc := cfg.ProxyFunc()
+	proxyFunc := func(req *http.Request) (*url.URL, error) {
+		return cfgProxyFunc(req.URL)
+	}
+
 	if cli, err := qcloud.NewQcloudClient(
 		qcloud.NewQcloudClientConfig(
 			options.SecretID,
 			options.SecretKey,
-		).AppId(options.AppID).Debug(options.Debug),
+		).AppId(options.AppID).
+			Debug(options.Debug).
+			CloudproviderConfig(
+				cloudprovider.ProviderConfig{
+					ProxyFunc: proxyFunc,
+				},
+			),
 	); err != nil {
 		return nil, err
 	} else if region := cli.GetRegion(options.RegionId); region == nil {
