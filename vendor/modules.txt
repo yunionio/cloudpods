@@ -206,9 +206,9 @@ github.com/boombuler/barcode/utils
 github.com/bradfitz/iter
 # github.com/c-bata/go-prompt v0.2.1
 github.com/c-bata/go-prompt
-# github.com/ceph/go-ceph v0.0.0-20181217221554-e32f9f0f2e94 => github.com/yunionio/go-ceph v0.0.0-20190912101231-6f05a06b3859
-github.com/ceph/go-ceph/rados
-github.com/ceph/go-ceph/rbd
+# github.com/cheggaaa/pb/v3 v3.0.8
+github.com/cheggaaa/pb/v3
+github.com/cheggaaa/pb/v3/termutil
 # github.com/coredns/coredns v1.3.0
 github.com/coredns/coredns/core/dnsserver
 github.com/coredns/coredns/coremain
@@ -330,7 +330,7 @@ github.com/go-playground/validator/v10
 github.com/go-sql-driver/mysql
 # github.com/go-yaml/yaml v2.1.0+incompatible
 github.com/go-yaml/yaml
-# github.com/gofrs/uuid v3.2.0+incompatible
+# github.com/gofrs/uuid v4.1.0+incompatible
 github.com/gofrs/uuid
 # github.com/gogo/protobuf v1.3.1
 github.com/gogo/protobuf/gogoproto
