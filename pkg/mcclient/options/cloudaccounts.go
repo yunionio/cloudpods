@@ -348,6 +348,8 @@ func (opts *SXskyCloudAccountCreateOptions) Params() (jsonutils.JSONObject, erro
 type SCtyunCloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	SAccessKeyCredentialWithEnvironment
+
+	cloudprovider.SCtyunExtraOptions
 }
 
 func (opts *SCtyunCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -848,10 +850,21 @@ func (opts *SS3CloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error)
 
 type SCtyunCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
+
+	cloudprovider.SCtyunExtraOptions
 }
 
 func (opts *SCtyunCloudAccountUpdateOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(opts), nil
+	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+	options := jsonutils.NewDict()
+	if len(opts.SCtyunExtraOptions.CrmBizId) > 0 {
+		options.Add(jsonutils.NewString(opts.SCtyunExtraOptions.CrmBizId), "crm_biz_id")
+	}
+	if options.Size() > 0 {
+		params.Add(options, "options")
+	}
+
+	return params, nil
 }
 
 type SJDcloudCloudAccountUpdateOptions struct {
