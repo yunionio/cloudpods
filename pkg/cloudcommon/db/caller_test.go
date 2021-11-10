@@ -40,7 +40,7 @@ func Test_valueToJSONObject(t *testing.T) {
 		{
 			name: "struct2json",
 			args: &api.ServerRebuildRootInput{Image: "image"},
-			want: jsonutils.Marshal(api.ServerRebuildRootInput{Image: "image"}),
+			want: jsonutils.MarshalAll(api.ServerRebuildRootInput{Image: "image"}),
 		},
 	}
 	for _, tt := range tests {

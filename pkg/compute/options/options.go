@@ -177,6 +177,8 @@ type ComputeOptions struct {
 
 	GlobalMacPrefix string `help:"Global prefix of MAC address, default to 00:22" default:"00:22"`
 
+	DefaultIPAllocationDirection string `help:"default IP allocation direction" default:"stepdown"`
+
 	esxi.EsxiOptions
 }
 

@@ -206,9 +206,6 @@ github.com/boombuler/barcode/utils
 github.com/bradfitz/iter
 # github.com/c-bata/go-prompt v0.2.1
 github.com/c-bata/go-prompt
-# github.com/ceph/go-ceph v0.0.0-20181217221554-e32f9f0f2e94 => github.com/yunionio/go-ceph v0.0.0-20190912101231-6f05a06b3859
-github.com/ceph/go-ceph/rados
-github.com/ceph/go-ceph/rbd
 # github.com/coredns/coredns v1.3.0
 github.com/coredns/coredns/core/dnsserver
 github.com/coredns/coredns/coremain
@@ -290,7 +287,7 @@ github.com/edsrzf/mmap-go
 github.com/elgatito/upnp
 # github.com/farsightsec/golang-framestream v0.0.0-20181102145529-8a0cb8ba8710
 github.com/farsightsec/golang-framestream
-# github.com/fatih/color v1.7.0
+# github.com/fatih/color v1.10.0
 github.com/fatih/color
 # github.com/fernet/fernet-go v0.0.0-20180830025343-9eac43b88a5e
 github.com/fernet/fernet-go
@@ -310,8 +307,6 @@ github.com/gin-gonic/gin/internal/json
 github.com/gin-gonic/gin/render
 # github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2
 github.com/glycerine/go-unsnap-stream
-# github.com/go-ini/ini v1.62.0
-github.com/go-ini/ini
 # github.com/go-logfmt/logfmt v0.4.0
 github.com/go-logfmt/logfmt
 # github.com/go-logr/logr v0.2.0
@@ -330,7 +325,7 @@ github.com/go-playground/validator/v10
 github.com/go-sql-driver/mysql
 # github.com/go-yaml/yaml v2.1.0+incompatible
 github.com/go-yaml/yaml
-# github.com/gofrs/uuid v3.2.0+incompatible
+# github.com/gofrs/uuid v4.1.0+incompatible
 github.com/gofrs/uuid
 # github.com/gogo/protobuf v1.3.1
 github.com/gogo/protobuf/gogoproto
@@ -489,11 +484,11 @@ github.com/lestrrat/go-pdebug
 github.com/libvirt/libvirt-go-xml
 # github.com/ma314smith/signedxml v0.0.0-20200410192636-c342a2d0ae60
 github.com/ma314smith/signedxml
-# github.com/mattn/go-colorable v0.1.2
+# github.com/mattn/go-colorable v0.1.8
 github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.12
 github.com/mattn/go-isatty
-# github.com/mattn/go-runewidth v0.0.4
+# github.com/mattn/go-runewidth v0.0.12
 github.com/mattn/go-runewidth
 # github.com/mattn/go-sqlite3 v1.10.0
 github.com/mattn/go-sqlite3
@@ -517,12 +512,7 @@ github.com/mholt/caddy/startupshutdown
 # github.com/miekg/dns v1.1.25
 github.com/miekg/dns
 # github.com/minio/minio-go v6.0.14+incompatible
-github.com/minio/minio-go
-github.com/minio/minio-go/pkg/credentials
-github.com/minio/minio-go/pkg/encrypt
-github.com/minio/minio-go/pkg/s3signer
 github.com/minio/minio-go/pkg/s3utils
-github.com/minio/minio-go/pkg/set
 # github.com/minio/minio-go/v6 v6.0.33
 github.com/minio/minio-go/v6/pkg/credentials
 github.com/minio/minio-go/v6/pkg/encrypt
@@ -594,6 +584,8 @@ github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 # github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a
 github.com/rcrowley/go-metrics
+# github.com/rivo/uniseg v0.2.0
+github.com/rivo/uniseg
 # github.com/ryszard/goskiplist v0.0.0-20150312221310-2dfbae5fcf46
 github.com/ryszard/goskiplist/skiplist
 # github.com/satori/go.uuid v1.2.0
@@ -792,7 +784,7 @@ golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
 # golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f
+# golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57
 golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
@@ -1164,11 +1156,11 @@ k8s.io/utils/integer
 sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
-# yunion.io/x/executor v0.0.0-20210310041834-3fcd1574f68e
+# yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
 yunion.io/x/executor/apis
 yunion.io/x/executor/client
 yunion.io/x/executor/server
-# yunion.io/x/jsonutils v0.0.0-20210709075951-798a67800349
+# yunion.io/x/jsonutils v0.0.0-20211105163012-d846c05a3c9a
 yunion.io/x/jsonutils
 # yunion.io/x/log v0.0.0-20201210064738-43181789dc74
 yunion.io/x/log

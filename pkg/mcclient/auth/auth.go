@@ -17,7 +17,9 @@ package auth
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -28,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/syncman"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 var (
@@ -231,6 +234,31 @@ func (a *authManager) GetServiceURLs(service, region, zone, endpointType string)
 	return a.adminCredential.GetServiceURLs(service, region, zone, endpointType)
 }
 
+func (a *authManager) getServiceIPs(service, region, zone, endpointType string, needResolve bool) ([]string, error) {
+	urls, err := a.GetServiceURLs(service, region, zone, endpointType)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetServiceURLs")
+	}
+	ret := stringutils2.NewSortedStrings(nil)
+	for _, url := range urls {
+		slashIdx := strings.Index(url, "://")
+		if slashIdx >= 0 {
+			url = url[slashIdx+3:]
+		}
+		if needResolve {
+			addrs, err := net.LookupHost(url)
+			if err != nil {
+				log.Errorf("Lookup host %s fail: %s", url, err)
+			} else {
+				ret = ret.Append(addrs...)
+			}
+		} else {
+			ret = ret.Append(url)
+		}
+	}
+	return ret, nil
+}
+
 func (a *authManager) getTokenString() string {
 	return a.adminCredential.GetTokenString()
 }
@@ -271,6 +299,14 @@ func GetPublicServiceURL(service, region, zone string) (string, error) {
 
 func GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
 	return manager.GetServiceURLs(service, region, zone, endpointType)
+}
+
+func GetDNSServers(region, zone string) ([]string, error) {
+	return manager.getServiceIPs("dns", region, zone, identity.EndpointInterfacePublic, false)
+}
+
+func GetNTPServers(region, zone string) ([]string, error) {
+	return manager.getServiceIPs("ntp", region, zone, identity.EndpointInterfacePublic, true)
 }
 
 func GetTokenString() string {

@@ -124,7 +124,7 @@ func (w *Worker) run(ctx context.Context, mss *agentmodels.ModelSets) (err error
 			ovndb.ClaimVpcEipgw(ctx, vpc)
 		}
 		for _, network := range vpc.Networks {
-			ovndb.ClaimNetwork(ctx, network, w.opts.OvnUnderlayMtu)
+			ovndb.ClaimNetwork(ctx, network, w.opts)
 			for _, guestnetwork := range network.Guestnetworks {
 				if guestnetwork.Guest == nil {
 					continue
