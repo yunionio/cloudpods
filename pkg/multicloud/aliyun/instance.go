@@ -33,7 +33,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 const (
@@ -191,6 +190,10 @@ func (self *SInstance) GetName() string {
 	if len(self.InstanceName) > 0 {
 		return self.InstanceName
 	}
+	return self.InstanceId
+}
+
+func (self *SInstance) GetHostname() string {
 	return self.HostName
 }
 
@@ -532,7 +535,7 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	return &instances[0], nil
 }
 
-func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
+func (self *SRegion) CreateInstance(name, hostname string, imageId string, instanceType string, securityGroupId string,
 	zoneId string, desc string, passwd string, disks []SDisk, vSwitchId string, ipAddr string,
 	keypair string, userData string, bc *billing.SBillingCycle, projectId, osType string,
 	tags map[string]string, publicIp cloudprovider.SPublicIpInfo,
@@ -544,6 +547,9 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	params["SecurityGroupId"] = securityGroupId
 	params["ZoneId"] = zoneId
 	params["InstanceName"] = name
+	if len(hostname) > 0 {
+		params["HostName"] = hostname
+	}
 	params["Description"] = desc
 	params["InternetChargeType"] = "PayByTraffic"
 	params["InternetMaxBandwidthIn"] = "200"
@@ -554,7 +560,6 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	if publicIp.PublicIpChargeType == cloudprovider.ElasticipChargeTypeByBandwidth {
 		params["InternetChargeType"] = "PayByBandwidth"
 	}
-	params["HostName"] = stringutils2.GenerateHostName(name, osType)
 	if len(passwd) > 0 {
 		params["Password"] = passwd
 	} else {
@@ -797,7 +802,6 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 
 	if len(name) > 0 && instance.InstanceName != name {
 		params["InstanceName"] = name
-		params["HostName"] = stringutils2.GenerateHostName(name, instance.OSType)
 	}
 
 	if len(description) > 0 && instance.Description != description {
@@ -835,7 +839,6 @@ func (self *SRegion) UpdateVM(instanceId string, name, osType string) error {
 		    https://help.aliyun.com/document_detail/25503.html?spm=a2c4g.11186623.4.1.DrgpjW
 	*/
 	params := make(map[string]string)
-	params["HostName"] = stringutils2.GenerateHostName(name, osType)
 	params["InstanceName"] = name
 	return self.modifyInstanceAttribute(instanceId, params)
 }

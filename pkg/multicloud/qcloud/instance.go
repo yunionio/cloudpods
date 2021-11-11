@@ -35,7 +35,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 const (
@@ -193,6 +192,10 @@ func (self *SInstance) GetName() string {
 		return self.InstanceName
 	}
 	return self.InstanceId
+}
+
+func (self *SInstance) GetHostname() string {
+	return self.GetName()
 }
 
 func (self *SInstance) GetGlobalId() string {
@@ -537,7 +540,7 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	return &instances[0], nil
 }
 
-func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
+func (self *SRegion) CreateInstance(name, hostname string, imageId string, instanceType string, securityGroupId string,
 	zoneId string, desc string, passwd string, disks []SDisk, networkId string, ipAddr string,
 	keypair string, userData string, bc *billing.SBillingCycle, projectId string,
 	publicIpBw int, publicIpChargeType cloudprovider.TElasticipChargeType,
@@ -553,7 +556,9 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		params["Placement.ProjectId"] = projectId
 	}
 	params["InstanceName"] = name
-	params["HostName"] = stringutils2.GenerateHostName(name, osType)
+	if len(hostname) > 0 {
+		params["HostName"] = hostname
+	}
 
 	bandwidth := publicIpBw
 	if publicIpBw == 0 {

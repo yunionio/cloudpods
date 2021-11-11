@@ -106,6 +106,8 @@ type ServerStopOptions struct {
 
 type SManagedVMCreateConfig struct {
 	Name                string
+	NameEn              string
+	Hostname            string
 	ExternalImageId     string
 	ImageType           string
 	OsType              string

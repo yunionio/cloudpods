@@ -59,6 +59,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
+	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -77,6 +78,7 @@ type SGuestManager struct {
 	SDiskResourceBaseManager
 	SScalingGroupResourceBaseManager
 	db.SMultiArchResourceBaseManager
+	SHostnameResourceBaseManager
 }
 
 var GuestManager *SGuestManager
@@ -90,9 +92,9 @@ func init() {
 			"servers",
 		),
 	}
-	log.Infof("init GuestManager")
 	GuestManager.SetVirtualObject(GuestManager)
 	GuestManager.SetAlias("guest", "guests")
+	GuestManager.NameRequireAscii = false
 }
 
 type SGuest struct {
@@ -104,6 +106,7 @@ type SGuest struct {
 	SDeletePreventableResourceBase
 	db.SMultiArchResourceBase
 
+	SHostnameResourceBase
 	SHostResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" get:"user" index:"true"`
 
 	// CPU大小
@@ -638,6 +641,29 @@ func (manager *SGuestManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field 
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SGuestManager) initHostname() error {
+	guests := []SGuest{}
+	q := manager.Query().IsNullOrEmpty("hostname")
+	err := db.FetchModelObjects(manager, q, &guests)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range guests {
+		db.Update(&guests[i], func() error {
+			hostname, _ := manager.SHostnameResourceBaseManager.ValidateHostname(
+				guests[i].Hostname,
+				guests[i].OsType,
+				api.HostnameInput{
+					Hostname: guests[i].Name,
+				},
+			)
+			guests[i].Hostname = hostname.Hostname
+			return nil
+		})
+	}
+	return nil
+}
+
 func (manager *SGuestManager) InitializeData() error {
 	guests := make([]SGuest, 0, 10)
 	q := manager.Query().Equals("hypervisor", "esxi")
@@ -655,7 +681,7 @@ func (manager *SGuestManager) InitializeData() error {
 			return nil
 		})
 	}
-	return nil
+	return manager.initHostname()
 }
 
 func (guest *SGuest) GetHypervisor() string {
@@ -1491,6 +1517,10 @@ func (manager *SGuestManager) validateCreateData(
 	}
 
 	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
+	if err != nil {
+		return nil, err
+	}
+	input.HostnameInput, err = manager.SHostnameResourceBaseManager.ValidateHostname(input.Name, input.OsType, input.HostnameInput)
 	if err != nil {
 		return nil, err
 	}
@@ -2481,13 +2511,17 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		extVM.Refresh()
 		if options.NameSyncResources.Contains(self.Keyword()) && !recycle {
 			newName, _ := db.GenerateAlterName(self, extVM.GetName())
-			if len(newName) > 0 && newName != self.Name {
+			if len(newName) > 0 && newName != self.Name && extVM.GetName() != extVM.GetHostname() {
 				self.Name = newName
 			}
+		}
+		if extVM.GetName() != extVM.GetHostname() {
+			self.Hostname = extVM.GetHostname()
 		}
 		if !self.IsFailureStatus() {
 			self.Status = extVM.GetStatus()
 		}
+
 		self.VcpuCount = extVM.GetVcpuCount()
 		self.BootOrder = extVM.GetBootOrder()
 		self.Vga = extVM.GetVga()
@@ -2584,6 +2618,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.Bios = extVM.GetBios()
 	guest.Machine = extVM.GetMachine()
 	guest.Hypervisor = extVM.GetHypervisor()
+	guest.Hostname = extVM.GetHostname()
 
 	guest.IsEmulated = extVM.IsEmulated()
 
@@ -3506,7 +3541,7 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 	lockman.LockClass(ctx, QuotaManager, self.ProjectId)
 	defer lockman.ReleaseClass(ctx, QuotaManager, self.ProjectId)
 
-	diskName := fmt.Sprintf("vdisk-%s-%d", self.Name, time.Now().UnixNano())
+	diskName := fmt.Sprintf("vdisk-%s-%d", pinyinutils.Text2Pinyin(self.Name), time.Now().UnixNano())
 
 	billingType := billing_api.BILLING_TYPE_POSTPAID
 	billingCycle := ""
@@ -3957,6 +3992,7 @@ func (self *SGuest) GetIsolatedDevices() ([]SIsolatedDevice, error) {
 func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *api.GuestJsonDesc {
 	desc := &api.GuestJsonDesc{
 		Name:        self.Name,
+		Hostname:    self.Hostname,
 		Description: self.Description,
 		UUID:        self.Id,
 		Mem:         self.VmemSize,
@@ -5576,13 +5612,6 @@ var (
 	serverNameREG = regexp.MustCompile(`^[a-zA-Z$][a-zA-Z0-9-${}.]*$`)
 	hostnameREG   = regexp.MustCompile(`^[a-z$][a-z0-9-${}.]*$`)
 )
-
-func (manager *SGuestManager) ValidateName(name string) error {
-	if serverNameREG.MatchString(name) {
-		return nil
-	}
-	return httperrors.NewInputParameterError("name starts with letter, and contains letter, number and - only")
-}
 
 func (manager *SGuestManager) ValidateNameLoginAccount(name string) error {
 	if hostnameREG.MatchString(name) {

@@ -63,9 +63,9 @@ import (
 type SHostManager struct {
 	db.SEnabledStatusInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager
-	db.SHostNameValidatorManager
 	SZoneResourceBaseManager
 	SManagedResourceBaseManager
+	SHostnameResourceBaseManager
 }
 
 var HostManager *SHostManager
@@ -81,6 +81,7 @@ func init() {
 	}
 	HostManager.SetVirtualObject(HostManager)
 	HostManager.SetAlias("baremetal", "baremetals")
+	GuestManager.NameRequireAscii = false
 }
 
 type SHost struct {
@@ -89,6 +90,7 @@ type SHost struct {
 	SZoneResourceBase `update:""`
 	SManagedResourceBase
 	SBillingResourceBase
+	SHostnameResourceBase
 
 	// 机架
 	Rack string `width:"16" charset:"ascii" nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
@@ -3461,6 +3463,10 @@ func (manager *SHostManager) ValidateCreateData(
 	if err != nil {
 		return input, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ValidateCreateData")
 	}
+	input.HostnameInput, err = manager.SHostnameResourceBaseManager.ValidateHostname(input.Name, "", input.HostnameInput)
+	if err != nil {
+		return input, err
+	}
 
 	keys := GetHostQuotaKeysFromCreateInput(ownerId, input)
 	quota := SInfrasQuota{Host: 1}
@@ -6034,4 +6040,31 @@ func (host *SHost) IsAssignable(userCred mcclient.TokenCredential) error {
 	} else {
 		return httperrors.NewNotSufficientPrivilegeError("Only system admin can assign host")
 	}
+}
+
+func (manager *SHostManager) initHostname() error {
+	hosts := []SHost{}
+	q := manager.Query().IsNullOrEmpty("hostname")
+	err := db.FetchModelObjects(manager, q, &hosts)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range hosts {
+		db.Update(&hosts[i], func() error {
+			hostname, _ := manager.SHostnameResourceBaseManager.ValidateHostname(
+				hosts[i].Hostname,
+				"",
+				api.HostnameInput{
+					Hostname: hosts[i].Name,
+				},
+			)
+			hosts[i].Hostname = hostname.Hostname
+			return nil
+		})
+	}
+	return nil
+}
+
+func (manager *SHostManager) InitializeData() error {
+	return manager.initHostname()
 }

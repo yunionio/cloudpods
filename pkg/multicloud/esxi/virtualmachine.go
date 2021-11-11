@@ -140,6 +140,10 @@ func (self *SVirtualMachine) GetGlobalId() string {
 	return self.getUuid()
 }
 
+func (self *SVirtualMachine) GetHostname() string {
+	return self.GetName()
+}
+
 func (self *SVirtualMachine) GetStatus() string {
 	// err := self.CheckFileInfo(context.Background())
 	// if err != nil {

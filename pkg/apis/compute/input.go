@@ -171,3 +171,15 @@ type DnsRecordDetails struct {
 
 	SDnsRecord
 }
+
+type HostnameInput struct {
+	// 主机名
+	// 点号（.）和短横线（-）不能作为 HostName 的首尾字符，不能连续使用
+	// 字符长度2-60个字符
+	// Windows: 字符长度2-15, 允许大小写英文字母, 数字和短横线, 不支持点号（.），不能全是数字
+	// 若输入为空，则会根据资源名称自动生成主机名
+	// 输入不为空则会自动剔除不符合规则的字符, 并进行校验
+	// 若长度大于允许的最大长度，会自动截取
+	// required: false
+	Hostname string `json:"hostname"`
+}

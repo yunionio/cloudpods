@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/cloudinit"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 )
 
 type SManagedVirtualizedGuestDriver struct {
@@ -60,6 +61,8 @@ func (d SManagedVirtualizedGuestDriver) DoScheduleCloudproviderTagFilter() bool 
 func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
 	config := cloudprovider.SManagedVMCreateConfig{}
 	config.Name = guest.Name
+	config.NameEn = pinyinutils.Text2Pinyin(guest.Name)
+	config.Hostname = guest.Hostname
 	config.Cpu = int(guest.VcpuCount)
 	config.MemoryMB = guest.VmemSize
 	config.Description = guest.Description

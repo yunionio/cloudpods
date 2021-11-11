@@ -128,6 +128,10 @@ func (instance *SInstance) GetName() string {
 	return instance.Name
 }
 
+func (instance *SInstance) GetHostname() string {
+	return instance.Name
+}
+
 func (instance *SInstance) GetGlobalId() string {
 	return instance.GetId()
 }

@@ -45,6 +45,10 @@ func (self *SInstance) GetName() string {
 	return self.Name
 }
 
+func (self *SInstance) GetHostname() string {
+	return self.Hostname
+}
+
 func (self *SInstance) GetId() string {
 	return self.Id
 }
@@ -420,6 +424,7 @@ func (self *SRegion) CreateInstance(hostId, hypervisor string, opts *cloudprovid
 		ServerConfigs: &api.ServerConfigs{},
 	}
 	input.Name = opts.Name
+	input.Hostname = opts.Hostname
 	input.Description = opts.Description
 	input.InstanceType = opts.InstanceType
 	input.VcpuCount = opts.Cpu

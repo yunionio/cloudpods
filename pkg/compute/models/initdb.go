@@ -44,6 +44,7 @@ func InitDB() error {
 		NetworkManager,
 		NetworkAddressManager,
 		GuestManager,
+		HostManager,
 		LoadbalancerCertificateManager,
 		LoadbalancerAclManager,
 		LoadbalancerManager,
