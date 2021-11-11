@@ -200,36 +200,48 @@ func (self *SKubeCluster) syncRemoveCloudKubeCluster(ctx context.Context, userCr
 	return self.RealDelete(ctx, userCred)
 }
 
-func (self *SKubeCluster) Import(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudKubeCluster) error {
+func (self *SKubeCluster) ImportOrUpdate(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudKubeCluster) error {
 	if len(self.ExternalClusterId) == 0 {
-		config, err := ext.GetKubeConfig(false, 0)
-		if err != nil {
-			return errors.Wrapf(err, "GetKubeConfig")
-		}
-		params := map[string]interface{}{
-			"name":          self.Name,
-			"mode":          "import",
-			"provider":      "external",
-			"resource_type": "unknown",
-			"import_data": map[string]interface{}{
-				"kubeconfig": config.Config,
-			},
-		}
-		s := auth.GetAdminSession(ctx, options.Options.Region, "")
-		resp, err := k8s.KubeClusters.Create(s, jsonutils.Marshal(params))
-		if err != nil {
-			return errors.Wrapf(err, "Create")
-		}
-		id, err := resp.GetString("id")
-		if err != nil {
-			return errors.Wrapf(err, "resp.GetId")
-		}
-		_, err = db.Update(self, func() error {
-			self.ExternalClusterId = id
-			return nil
-		})
+		return self.doRemoteImport(ctx, userCred, ext)
+	}
+	return self.doRemoteUpdate(ctx, userCred, ext)
+}
+
+func (self *SKubeCluster) doRemoteImport(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudKubeCluster) error {
+	config, err := ext.GetKubeConfig(false, 0)
+	if err != nil {
+		return errors.Wrapf(err, "GetKubeConfig")
+	}
+
+	params := map[string]interface{}{
+		"name":                self.Name,
+		"mode":                "import",
+		"external_cluster_id": self.GetId(),
+		"resource_type":       "guest",
+		"import_data": map[string]interface{}{
+			"kubeconfig": config.Config,
+		},
+	}
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	resp, err := k8s.KubeClusters.Create(s, jsonutils.Marshal(params))
+	if err != nil {
+		return errors.Wrapf(err, "Create")
+	}
+	id, err := resp.GetString("id")
+	if err != nil {
+		return errors.Wrapf(err, "resp.GetId")
+	}
+	if _, err := db.Update(self, func() error {
+		self.ExternalClusterId = id
+		return nil
+	}); err != nil {
 		return errors.Wrapf(err, "db.Update")
 	}
+	return nil
+}
+
+func (self *SKubeCluster) doRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudKubeCluster) error {
+	// TODO
 	return nil
 }
 
