@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -111,6 +112,25 @@ func (manager *SInterVpcNetworkManager) ListItemFilter(
 	return q, nil
 }
 
+func (manager *SInterVpcNetworkManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SEnabledStatusInfrasResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	return q, nil
+}
+
 func (manager *SInterVpcNetworkManager) ValidateCreateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -141,10 +161,12 @@ func (manager *SInterVpcNetworkManager) FetchCustomizeColumns(
 ) []api.InterVpcNetworkDetails {
 	rows := make([]api.InterVpcNetworkDetails, len(objs))
 	stdRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	vpcNetworkIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.InterVpcNetworkDetails{
 			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
+			ManagedResourceInfo:                    manRows[i],
 		}
 		vpcNetwork := objs[i].(*SInterVpcNetwork)
 		vpcNetworkIds[i] = vpcNetwork.Id
@@ -264,13 +286,9 @@ func (self *SInterVpcNetwork) PerformAddvpc(ctx context.Context, userCred mcclie
 	if len(input.VpcId) == 0 {
 		return nil, httperrors.NewMissingParameterError("vpc_id")
 	}
-	// get vpc
-	_vpc, err := VpcManager.FetchByIdOrName(userCred, input.VpcId)
+	_vpc, err := validators.ValidateModel(userCred, VpcManager, &input.VpcId)
 	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError2("vpc", input.VpcId)
-		}
-		return nil, httperrors.NewGeneralError(err)
+		return nil, err
 	}
 	vpc := _vpc.(*SVpc)
 
