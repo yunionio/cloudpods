@@ -16,13 +16,17 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/net/http/httpproxy"
 
 	"yunion.io/x/log"
 	"yunion.io/x/structarg"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/jdcloud"
 	_ "yunion.io/x/onecloud/pkg/multicloud/jdcloud/shell"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -89,7 +93,22 @@ func newClient(options *Options) (*jdcloud.SRegion, error) {
 	if regionId == "" {
 		regionId = jdcloud.JDCLOUD_DEFAULT_REGION
 	}
-	region := jdcloud.NewRegion(regionId, options.AccessKey, options.AccessSecret, nil, options.Debug)
+
+	cfg := &httpproxy.Config{
+		HTTPProxy:  os.Getenv("HTTP_PROXY"),
+		HTTPSProxy: os.Getenv("HTTPS_PROXY"),
+		NoProxy:    os.Getenv("NO_PROXY"),
+	}
+	cfgProxyFunc := cfg.ProxyFunc()
+	proxyFunc := func(req *http.Request) (*url.URL, error) {
+		return cfgProxyFunc(req.URL)
+	}
+
+	cfcg := &cloudprovider.ProviderConfig{
+		ProxyFunc: proxyFunc,
+	}
+
+	region := jdcloud.NewRegion(regionId, options.AccessKey, options.AccessSecret, cfcg, options.Debug)
 	if region == nil {
 		return nil, fmt.Errorf("no such region %s", regionId)
 	}

@@ -16,10 +16,15 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
+
+	"golang.org/x/net/http/httpproxy"
 
 	"yunion.io/x/structarg"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/openstack"
 	_ "yunion.io/x/onecloud/pkg/multicloud/openstack/shell"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -93,6 +98,16 @@ func newClient(options *BaseOptions) (*openstack.SRegion, error) {
 		return nil, fmt.Errorf("Missing Password")
 	}
 
+	cfg := &httpproxy.Config{
+		HTTPProxy:  os.Getenv("HTTP_PROXY"),
+		HTTPSProxy: os.Getenv("HTTPS_PROXY"),
+		NoProxy:    os.Getenv("NO_PROXY"),
+	}
+	cfgProxyFunc := cfg.ProxyFunc()
+	proxyFunc := func(req *http.Request) (*url.URL, error) {
+		return cfgProxyFunc(req.URL)
+	}
+
 	cli, err := openstack.NewOpenStackClient(
 		openstack.NewOpenstackClientConfig(
 			options.AuthURL,
@@ -103,7 +118,12 @@ func newClient(options *BaseOptions) (*openstack.SRegion, error) {
 		).
 			EndpointType(options.EndpointType).
 			DomainName(options.DomainName).
-			Debug(options.Debug),
+			Debug(options.Debug).
+			CloudproviderConfig(
+				cloudprovider.ProviderConfig{
+					ProxyFunc: proxyFunc,
+				},
+			),
 	)
 	if err != nil {
 		return nil, err
