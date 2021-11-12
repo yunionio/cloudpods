@@ -659,11 +659,10 @@ func (self *SLoadbalancer) GetInstanceGroups() ([]SInstanceGroup, error) {
 			if fs, ok := zonesFilter[zoneId]; ok {
 				f := fmt.Sprintf(`(selfLink="%s")`, ig)
 				if !utils.IsInStringArray(f, fs) {
-					fs = append(fs, f)
+					zonesFilter[zoneId] = append(fs, f)
 				}
 			} else {
-				fs = []string{fmt.Sprintf(`(selfLink="%s")`, ig)}
-				zonesFilter[zoneId] = fs
+				zonesFilter[zoneId] = []string{fmt.Sprintf(`(selfLink="%s")`, ig)}
 			}
 		}
 	}

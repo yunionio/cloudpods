@@ -135,8 +135,19 @@ func (s *SGuestDHCPServer) getGuestConfig(guestDesc, guestNic jsonutils.JSONObje
 	conf.Routes = route
 
 	if len(nicdesc.Dns) > 0 {
-		conf.DNSServer = net.ParseIP(nicdesc.Dns)
+		conf.DNSServers = make([]net.IP, 0)
+		for _, dns := range strings.Split(nicdesc.Dns, ",") {
+			conf.DNSServers = append(conf.DNSServers, net.ParseIP(dns))
+		}
 	}
+
+	if len(nicdesc.Ntp) > 0 {
+		conf.NTPServers = make([]net.IP, 0)
+		for _, ntp := range strings.Split(nicdesc.Ntp, ",") {
+			conf.NTPServers = append(conf.NTPServers, net.ParseIP(ntp))
+		}
+	}
+
 	conf.OsName, _ = guestDesc.GetString("os_name")
 	conf.LeaseTime = time.Duration(options.HostOptions.DhcpLeaseTime) * time.Second
 	conf.RenewalTime = time.Duration(options.HostOptions.DhcpRenewalTime) * time.Second

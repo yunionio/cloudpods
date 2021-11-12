@@ -204,9 +204,12 @@ func (o K8SClusterCreateOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type KubeClusterImportOptions struct {
-	NAME       string `help:"Name of cluster"`
-	KUBECONFIG string `help:"Cluster kubeconfig file path"`
-	Distro     string `help:"Kubernetes distribution, e.g. openshift"`
+	NAME             string `help:"Name of cluster"`
+	KUBECONFIG       string `help:"Cluster kubeconfig file path"`
+	Distro           string `help:"Kubernetes distribution, e.g. openshift"`
+	Provider         string `help:"Provider type" choices:"external|aliyun|qcloud|azure"`
+	ResourceType     string `help:"Node resource type" choices:"unknown|guest"`
+	CloudKubeCluster string `help:"Cloud kube cluster id or name"`
 }
 
 func (o KubeClusterImportOptions) Params() (jsonutils.JSONObject, error) {
@@ -217,8 +220,14 @@ func (o KubeClusterImportOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(o.NAME), "name")
 	params.Add(jsonutils.NewString("import"), "mode")
-	params.Add(jsonutils.NewString("external"), "provider")
-	params.Add(jsonutils.NewString("unknown"), "resource_type")
+	params.Add(jsonutils.NewString(o.Provider), "provider")
+	if o.ResourceType == "" {
+		o.ResourceType = "unknown"
+	}
+	params.Add(jsonutils.NewString(o.ResourceType), "resource_type")
+	if o.CloudKubeCluster != "" {
+		params.Add(jsonutils.NewString(o.CloudKubeCluster), "external_cluster_id")
+	}
 
 	importData := jsonutils.NewDict()
 	importData.Add(jsonutils.NewString(string(kubeconfig)), "kubeconfig")

@@ -16,7 +16,11 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
+
+	"golang.org/x/net/http/httpproxy"
 
 	"yunion.io/x/structarg"
 
@@ -87,10 +91,25 @@ func newClient(options *BaseOptions) (*ctyun.SRegion, error) {
 		return nil, fmt.Errorf("Missing secret")
 	}
 
+	cfg := &httpproxy.Config{
+		HTTPProxy:  os.Getenv("HTTP_PROXY"),
+		HTTPSProxy: os.Getenv("HTTPS_PROXY"),
+		NoProxy:    os.Getenv("NO_PROXY"),
+	}
+	cfgProxyFunc := cfg.ProxyFunc()
+	proxyFunc := func(req *http.Request) (*url.URL, error) {
+		return cfgProxyFunc(req.URL)
+	}
+
 	cli, err := ctyun.NewSCtyunClient(
 		ctyun.NewSCtyunClientConfig(
 			options.AccessKey, options.Secret, &options.SCtyunExtraOptions,
-		).Debug(options.Debug),
+		).Debug(options.Debug).
+			CloudproviderConfig(
+				cloudprovider.ProviderConfig{
+					ProxyFunc: proxyFunc,
+				},
+			),
 	)
 	if err != nil {
 		return nil, err

@@ -52,7 +52,11 @@ func (this *ReservedIPManager) DoBatchReleaseReservedIps(s *mcclient.ClientSessi
 	}
 
 	// filter ip and network pairs.
-	ipFilterOps := jsonutils.NewDict()
+	originFilter, _ := params.Get("query")
+	if originFilter == nil {
+		originFilter = jsonutils.NewDict()
+	}
+	ipFilterOps := originFilter.(*jsonutils.JSONDict)
 	arr := jsonutils.NewArray()
 	filterCondition := "ip_addr.in(" + strings.Join(ips, ",") + ")"
 	arr.Add(jsonutils.NewString(filterCondition))

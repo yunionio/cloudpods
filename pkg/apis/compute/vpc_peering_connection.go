@@ -28,7 +28,8 @@ const (
 
 type VpcPeeringConnectionDetails struct {
 	apis.EnabledStatusInfrasResourceBaseDetails
-	VpcName     string
+	VpcResourceInfo
+
 	PeerVpcName string
 }
 
