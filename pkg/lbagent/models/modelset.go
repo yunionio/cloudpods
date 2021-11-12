@@ -21,7 +21,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient/models"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 type IModelSet interface {

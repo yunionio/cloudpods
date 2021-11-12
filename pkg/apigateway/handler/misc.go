@@ -38,7 +38,9 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/itsm"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -285,7 +287,7 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 		}
 	}
 
-	submitResult, err := modules.Hosts.BatchRegister(s, paramKeys, params)
+	submitResult, err := compute.Hosts.BatchRegister(s, paramKeys, params)
 	if err != nil {
 		e := httperrors.NewGeneralError(err)
 		httperrors.JsonClientError(ctx, w, e)
@@ -386,7 +388,7 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 				return
 			}
 
-			id, err := modules.Domains.GetId(adminS, domain, nil)
+			id, err := identity.Domains.GetId(adminS, domain, nil)
 			if err != nil {
 				httperrors.JsonClientError(ctx, w, httperrors.NewGeneralError(err))
 				return
@@ -404,7 +406,7 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 			names[name+"/"+domainId] = true
 			params := jsonutils.NewDict()
 			params.Set("domain_id", jsonutils.NewString(domainId))
-			_, err := modules.UsersV3.Get(s, name, params)
+			_, err := identity.UsersV3.Get(s, name, params)
 			if err == nil {
 				continue
 			}
@@ -433,7 +435,7 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 	for i := range users {
 		user := users[i]
 		userG.Go(func() error {
-			_, err := modules.UsersV3.Create(s, user)
+			_, err := identity.UsersV3.Create(s, user)
 			return err
 		})
 	}
@@ -513,7 +515,7 @@ func (mh *MiscHandler) postPIUploads(ctx context.Context, w http.ResponseWriter,
 	header := http.Header{}
 	header.Set("Content-Type", req.Header.Get("Content-Type"))
 	header.Set("Content-Length", req.Header.Get("Content-Length"))
-	resp, err := modules.ProcessInstance.Upload(s, header, req.Body)
+	resp, err := itsm.ProcessInstance.Upload(s, header, req.Body)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
@@ -569,7 +571,7 @@ func (mh *MiscHandler) postS3UploadHandler(ctx context.Context, w http.ResponseW
 
 	meta := http.Header{}
 	meta.Set("Content-Type", "application/octet-stream")
-	e = modules.Buckets.Upload(s, bucket_id, key, f, content_length, storage_class, acl, meta)
+	e = compute.Buckets.Upload(s, bucket_id, key, f, content_length, storage_class, acl, meta)
 	if e != nil {
 		httperrors.GeneralServerError(ctx, w, e)
 		return

@@ -46,7 +46,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -989,7 +989,7 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 	}
 	if len(input.GenerateName) == 0 {
 		s := auth.GetAdminSession(ctx, options.Options.Region, "")
-		imageList, err := modules.Images.List(s, jsonutils.Marshal(map[string]string{"name": input.Name, "admin": "true"}))
+		imageList, err := image.Images.List(s, jsonutils.Marshal(map[string]string{"name": input.Name, "admin": "true"}))
 		if err != nil {
 			return "", err
 		}
@@ -1020,11 +1020,11 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 		no need to check quota anymore
 		session := auth.GetSession(userCred, options.Options.Region, "v2")
 		quota := image_models.SQuota{Image: 1}
-		if _, err := modules.ImageQuotas.DoQuotaCheck(session, jsonutils.Marshal(&quota)); err != nil {
+		if _, err := image.ImageQuotas.DoQuotaCheck(session, jsonutils.Marshal(&quota)); err != nil {
 			return "", err
 		}*/
 	us := auth.GetSession(ctx, userCred, options.Options.Region, "")
-	result, err := modules.Images.Create(us, jsonutils.Marshal(opts))
+	result, err := image.Images.Create(us, jsonutils.Marshal(opts))
 	if err != nil {
 		return "", err
 	}

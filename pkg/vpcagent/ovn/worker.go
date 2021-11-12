@@ -27,7 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apihelper"
 	apis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
+	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	agentmodels "yunion.io/x/onecloud/pkg/vpcagent/models"
 	"yunion.io/x/onecloud/pkg/vpcagent/options"
 	"yunion.io/x/onecloud/pkg/vpcagent/ovnutil"
@@ -124,7 +124,7 @@ func (w *Worker) run(ctx context.Context, mss *agentmodels.ModelSets) (err error
 			ovndb.ClaimVpcEipgw(ctx, vpc)
 		}
 		for _, network := range vpc.Networks {
-			ovndb.ClaimNetwork(ctx, network, w.opts.OvnUnderlayMtu)
+			ovndb.ClaimNetwork(ctx, network, w.opts)
 			for _, guestnetwork := range network.Guestnetworks {
 				if guestnetwork.Guest == nil {
 					continue

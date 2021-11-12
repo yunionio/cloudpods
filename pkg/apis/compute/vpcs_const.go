@@ -58,6 +58,8 @@ type VpcListInput struct {
 	DnsZoneFilterListBase
 
 	InterVpcNetworkFilterListBase
+	// 过滤可以加入指定vpc互联的vpc
+	UsableForInterVpcNetworkId string `json:"usable_for_inter_vpc_network_id"`
 
 	UsableResourceListInput
 	UsableVpcResourceListInput

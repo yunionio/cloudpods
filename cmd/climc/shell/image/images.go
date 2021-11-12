@@ -20,11 +20,14 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cheggaaa/pb/v3"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -93,7 +96,7 @@ func addImageOptionalOptions(s *mcclient.ClientSession, params *jsonutils.JSONDi
 		params.Add(jsonutils.NewString(args.Status), "status")
 	}
 	if len(args.OwnerProject) > 0 {
-		projectId, e := modules.Projects.GetId(s, args.OwnerProject, nil)
+		projectId, e := identity.Projects.GetId(s, args.OwnerProject, nil)
 		if e != nil {
 			return e
 		}
@@ -170,7 +173,7 @@ func init() {
 			params.Add(jsonutils.JSONTrue, "uefi")
 		}
 		if len(args.Tenant) > 0 {
-			tid, e := modules.Projects.GetId(s, args.Tenant, nil)
+			tid, e := identity.Projects.GetId(s, args.Tenant, nil)
 			if e != nil {
 				return e
 			}
@@ -359,6 +362,7 @@ func init() {
 			return err
 		}
 		var sink io.Writer
+		showProgress := false
 		if len(args.Output) > 0 {
 			f, err := os.Create(args.Output)
 			if err != nil {
@@ -366,6 +370,7 @@ func init() {
 			}
 			defer f.Close()
 			sink = f
+			showProgress = true
 		} else {
 			sink = os.Stdout
 		}
@@ -373,9 +378,18 @@ func init() {
 		if err != nil {
 			return err
 		}
-		_, e := io.Copy(sink, src)
-		if e != nil {
-			return e
+		if !showProgress {
+			_, err = io.Copy(sink, src)
+			if err != nil {
+				return err
+			}
+		} else {
+			bar := pb.Full.Start64(size)
+			barReader := bar.NewProxyReader(src)
+			_, err = io.Copy(sink, barReader)
+			if err != nil {
+				return err
+			}
 		}
 		if len(args.Output) > 0 {
 			printObject(meta)
@@ -461,7 +475,7 @@ func init() {
 	R(&ImageChangeOwnerOptions{}, "image-change-owner", "Change owner project of an image", func(s *mcclient.ClientSession, opts *ImageChangeOwnerOptions) error {
 		params := jsonutils.NewDict()
 		if opts.RawId {
-			projid, err := modules.Projects.GetId(s, opts.PROJECT, nil)
+			projid, err := identity.Projects.GetId(s, opts.PROJECT, nil)
 			if err != nil {
 				return err
 			}

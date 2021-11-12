@@ -26,7 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 )
 
 func getServiceIdByType(s *mcclient.ClientSession, typeStr string, verStr string) (string, error) {
@@ -35,7 +35,7 @@ func getServiceIdByType(s *mcclient.ClientSession, typeStr string, verStr string
 		typeStr += "_" + verStr
 	}
 	params.Add(jsonutils.NewString(typeStr), "type")
-	result, err := modules.ServicesV3.List(s, params)
+	result, err := identity.ServicesV3.List(s, params)
 	if err != nil {
 		return "", errors.Wrap(err, "modules.ServicesV3.List")
 	}
@@ -48,7 +48,7 @@ func getServiceIdByType(s *mcclient.ClientSession, typeStr string, verStr string
 }
 
 func getServiceConfig(s *mcclient.ClientSession, serviceId string) (jsonutils.JSONObject, error) {
-	conf, err := modules.ServicesV3.GetSpecific(s, serviceId, "config", nil)
+	conf, err := identity.ServicesV3.GetSpecific(s, serviceId, "config", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "modules.ServicesV3.GetSpecific config")
 	}
@@ -120,12 +120,12 @@ func (s *mcclientServiceConfigSession) Upload() {
 	if len(s.serviceId) > 0 {
 		nconf := jsonutils.NewDict()
 		nconf.Add(s.config, "config", "default")
-		_, err := modules.ServicesV3.PerformAction(s.session, s.serviceId, "config", nconf)
+		_, err := identity.ServicesV3.PerformAction(s.session, s.serviceId, "config", nconf)
 		if err != nil {
 			// ignore the error
 			log.Errorf("fail to save config: %s", err)
 		}
-		_, err = modules.ServicesV3.PerformAction(s.session, s.commonServiceId, "config", nconf)
+		_, err = identity.ServicesV3.PerformAction(s.session, s.commonServiceId, "config", nconf)
 		if err != nil {
 			// ignore the error
 			log.Errorf("fail to save common config: %s", err)

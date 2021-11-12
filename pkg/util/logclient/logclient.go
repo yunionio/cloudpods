@@ -33,7 +33,8 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/logger"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/websocket"
 )
 
 type SessionGenerator func(ctx context.Context, token mcclient.TokenCredential, region, apiVersion string) *mcclient.ClientSession
@@ -68,20 +69,20 @@ type IModule interface {
 
 // save log to db.
 func AddSimpleActionLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
-	addLog(model, action, iNotes, userCred, success, time.Time{}, &modules.Actions)
+	addLog(model, action, iNotes, userCred, success, time.Time{}, &logger.Actions)
 }
 
 func AddActionLogWithContext(ctx context.Context, model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
-	addLog(model, action, iNotes, userCred, success, appctx.AppContextStartTime(ctx), &modules.Actions)
+	addLog(model, action, iNotes, userCred, success, appctx.AppContextStartTime(ctx), &logger.Actions)
 }
 
 func AddActionLogWithStartable(task cloudcommon.IStartable, model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
-	addLog(model, action, iNotes, userCred, success, task.GetStartTime(), &modules.Actions)
+	addLog(model, action, iNotes, userCred, success, task.GetStartTime(), &logger.Actions)
 }
 
 // add websocket log to notify active browser users
 func PostWebsocketNotify(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
-	addLog(model, action, iNotes, userCred, success, time.Time{}, &modules.Websockets)
+	addLog(model, action, iNotes, userCred, success, time.Time{}, &websocket.Websockets)
 }
 
 func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool, startTime time.Time, api IModule) {

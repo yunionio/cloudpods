@@ -26,7 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/esxi/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
@@ -168,7 +168,7 @@ func (self *SRegion) GetImage(id string) (*SImage, error) {
 	return image, self.cli.get(&modules.Images, id, nil, image)
 }
 
-func (self *SRegion) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, opts *cloudprovider.SImageCreateOption) (string, error) {
+func (self *SRegion) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, opts *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 
 	meta, reader, sizeByte, err := modules.Images.Download(s, opts.ImageId, string(qemuimg.QCOW2), false)
@@ -187,10 +187,10 @@ func (self *SRegion) UploadImage(ctx context.Context, userCred mcclient.TokenCre
 		},
 	}
 
-	resp, err := modules.Images.Upload(self.cli.s, jsonutils.Marshal(params), reader, sizeByte)
+	body := multicloud.NewProgress(sizeByte, 90, reader, callback)
+	resp, err := modules.Images.Upload(self.cli.s, jsonutils.Marshal(params), body, sizeByte)
 	if err != nil {
 		return "", err
 	}
-
 	return resp.GetString("id")
 }

@@ -32,7 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
@@ -104,16 +104,11 @@ func (self *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
-
+func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(float32)) (string, error) {
 	if len(image.ExternalId) > 0 {
 		status, err := self.region.GetImageStatus(image.ExternalId)
 		if err != nil {
 			log.Errorf("GetImageStatus error %s", err)
-		}
-		log.Debugf("UploadImage: Image external ID %s exists, status %s", image.ExternalId, status)
-		if status == ImageStatusAvailable && !isForce {
-			return image.ExternalId, nil
 		}
 		// 不能直接删除 ImageStatusCreating 状态的image ,需要先取消importImage Task
 		if status == ImageStatusCreating {
@@ -122,20 +117,11 @@ func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.To
 				log.Errorln(err)
 			}
 		}
-		if len(status) > 0 {
-			err = self.region.DeleteImage(image.ExternalId)
-			if err != nil {
-				log.Errorf("failed to delete image %s(%s) error: %v", image.ExternalId, status, err)
-			}
-		}
-	} else {
-		log.Debugf("UploadImage: no external ID")
 	}
-
-	return self.uploadImage(ctx, userCred, image, isForce)
+	return self.uploadImage(ctx, userCred, image, callback)
 }
 
-func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
+func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(float32)) (string, error) {
 	// first upload image to oss
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 
@@ -167,8 +153,8 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		return "", errors.Wrapf(err, "GetIBucketByName %s", bucketName)
 	}
 	log.Debugf("To upload image to bucket %s ...", bucketName)
-	err = cloudprovider.UploadObject(context.Background(), bucket, image.ImageId, 0, reader, sizeByte, "", "", nil, false)
-	// err = bucket.PutObject(image.ImageId, reader)
+	body := multicloud.NewProgress(sizeByte, 80, reader, callback)
+	err = cloudprovider.UploadObject(context.Background(), bucket, image.ImageId, 0, body, sizeByte, "", "", nil, false)
 	if err != nil {
 		return "", errors.Wrapf(err, "UploadObject %s", image.ImageId)
 	}
@@ -211,7 +197,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	}
 
 	// timeout: 1hour = 3600 seconds
-	err = self.region.waitTaskStatus(ImportImageTask, task.TaskId, TaskStatusFinished, 15*time.Second, 3600*time.Second)
+	err = self.region.WaitTaskStatus(ImportImageTask, task.TaskId, TaskStatusFinished, 15*time.Second, 3600*time.Second, 80, 100, callback)
 	if err != nil {
 		return task.ImageId, errors.Wrapf(err, "waitTaskStatus")
 	}

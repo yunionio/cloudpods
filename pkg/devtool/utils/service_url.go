@@ -31,8 +31,10 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	ansible_modules "yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/cloudproxy"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -129,7 +131,7 @@ func serviceUrlDirect(ctx context.Context, service Service, proxyEndpointId stri
 func GetServerInfo(ctx context.Context, serverId string) (sServerInfo, error) {
 	// check server
 	session := auth.GetAdminSession(ctx, "", "")
-	data, err := modules.Servers.Get(session, serverId, nil)
+	data, err := compute.Servers.Get(session, serverId, nil)
 	if err != nil {
 		if httputils.ErrorCode(err) == 404 {
 			return sServerInfo{}, httperrors.NewInputParameterError("no such server %s", serverId)
@@ -245,12 +247,12 @@ func GetServiceUrl(ctx context.Context, serviceName string) (string, error) {
 	params := jsonutils.NewDict()
 	params.Set("interface", jsonutils.NewString("public"))
 	params.Set("service", jsonutils.NewString(serviceName))
-	ret, err := modules.EndpointsV3.List(session, params)
+	ret, err := identity.EndpointsV3.List(session, params)
 	if err != nil {
 		return "", err
 	}
 	log.Infof("params to list endpoint: %v", params)
-	log.Infof("ret to list endpoint: %s", ret)
+	log.Infof("ret to list endpoint: %s", jsonutils.Marshal(ret))
 	if len(ret.Data) == 0 {
 		return "", fmt.Errorf("no sucn endpoint with 'internal' interface and 'influxdb' service")
 	}
@@ -356,13 +358,13 @@ func checkUrl(ctx context.Context, completeUrl string, expectedCode int, host *a
 		Name:     db.DefaultUUIDGenerator(),
 		Playbook: *playbook,
 	}
-	apb, err := modules.AnsiblePlaybooks.Create(session, apCreateInput.JSON(apCreateInput))
+	apb, err := ansible_modules.AnsiblePlaybooks.Create(session, apCreateInput.JSON(apCreateInput))
 	if err != nil {
 		return false, errors.Wrap(err, "create ansible playbook")
 	}
 	id, _ := apb.GetString("id")
 	defer func() {
-		_, err := modules.AnsiblePlaybooks.Delete(session, id, nil)
+		_, err := ansible_modules.AnsiblePlaybooks.Delete(session, id, nil)
 		if err != nil {
 			log.Errorf("unable to delete ansibleplaybook %s: %v", id, err)
 		}
@@ -372,7 +374,7 @@ func checkUrl(ctx context.Context, completeUrl string, expectedCode int, host *a
 		time.Sleep(waitTimes)
 		times++
 		waitTimes += time.Second * time.Duration(times)
-		apd, err := modules.AnsiblePlaybooks.GetSpecific(session, id, "status", nil)
+		apd, err := ansible_modules.AnsiblePlaybooks.GetSpecific(session, id, "status", nil)
 		if err != nil {
 			return false, errors.Wrapf(err, "unable to get ansibleplaybook %s status", id)
 		}

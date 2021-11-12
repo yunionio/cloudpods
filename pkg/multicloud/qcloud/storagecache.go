@@ -29,7 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
@@ -126,21 +126,8 @@ func (self *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
-	if len(image.ExternalId) > 0 {
-		status, err := self.region.GetImageStatus(image.ExternalId)
-		if err != nil {
-			log.Errorf("GetImageStatus error %s", err)
-		}
-		log.Debugf("ctx %p UploadImage: Image external ID %s exists, status %s", ctx, image.ExternalId, status)
-		if (status == ImageStatusNormal || status == ImageStatusUsing) && !isForce {
-			return image.ExternalId, nil
-		}
-		log.Debugf("image status: %s isForce: %v", status, isForce)
-	} else {
-		log.Debugf("ctx %s UploadImage: no external ID", ctx)
-	}
-	return self.uploadImage(ctx, userCred, image, isForce)
+func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
+	return self.uploadImage(ctx, userCred, image, callback)
 }
 
 func (self *SRegion) getCosUrl(bucket, object string) string {
@@ -148,7 +135,7 @@ func (self *SRegion) getCosUrl(bucket, object string) string {
 	return fmt.Sprintf("http://%s-%s.cos.%s.myqcloud.com/%s", bucket, self.client.appId, self.Region, object)
 }
 
-func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
+func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
 	// first upload image to oss
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 
@@ -178,7 +165,8 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return "", errors.Wrap(err, "GetIBucketByName")
 	}
-	err = cloudprovider.UploadObject(context.Background(), bucket, image.ImageId, 0, reader, sizeBytes, "", "", nil, false)
+	body := multicloud.NewProgress(sizeBytes, 80, reader, callback)
+	err = cloudprovider.UploadObject(context.Background(), bucket, image.ImageId, 0, body, sizeBytes, "", "", nil, false)
 	// err = bucket.PutObject(context.Background(), image.ImageId, reader, sizeBytes, "", "", "")
 	if err != nil {
 		log.Errorf("UploadObject error %s %s", image.ImageId, err)
@@ -217,6 +205,9 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	err = cloudprovider.WaitStatus(img, api.CACHED_IMAGE_STATUS_ACTIVE, 15*time.Second, 3600*time.Second)
 	if err != nil {
 		return "", err
+	}
+	if callback != nil {
+		callback(100)
 	}
 	return img.ImageId, nil
 }

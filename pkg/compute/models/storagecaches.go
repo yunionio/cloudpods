@@ -130,14 +130,12 @@ func (self *SStoragecache) GetHost() (*SHost, error) {
 		return nil, errors.Wrap(err, "self.getHostId")
 	}
 	if len(hostId) == 0 {
-		return nil, nil
+		return nil, errors.Errorf("failed to get any available host for storagecache %s", self.Name)
 	}
 
 	host, err := HostManager.FetchById(hostId)
 	if err != nil {
 		return nil, errors.Wrap(err, "HostManager.FetchById")
-	} else if host == nil {
-		return nil, nil
 	}
 	return host.(*SHost), nil
 }
@@ -380,45 +378,26 @@ func (self *SStoragecache) getCachedImageSize() int64 {
 	return size
 }
 
-func (self *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, format string, isForce bool, parentTaskId string) error {
-	return self.StartImageCacheTaskFromHost(ctx, userCred, imageId, format, isForce, "", parentTaskId)
-}
+func (self *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, input api.CacheImageInput) error {
+	StoragecachedimageManager.Register(ctx, userCred, self.Id, input.ImageId, "")
 
-func (self *SStoragecache) StartImageCacheTaskFromHost(ctx context.Context, userCred mcclient.TokenCredential, imageId string, format string, isForce bool, srcHostId string, parentTaskId string) error {
-	StoragecachedimageManager.Register(ctx, userCred, self.Id, imageId, "")
-	data := jsonutils.NewDict()
-	data.Add(jsonutils.NewString(imageId), "image_id")
-	if len(format) > 0 {
-		data.Add(jsonutils.NewString(format), "format")
-	}
-
-	image, _ := CachedimageManager.GetImageById(ctx, userCred, imageId, false)
-
+	image, _ := CachedimageManager.GetImageById(ctx, userCred, input.ImageId, false)
 	if image != nil {
 		imgInfo := imagetools.NormalizeImageInfo(image.Name, image.Properties["os_arch"], image.Properties["os_type"],
 			image.Properties["os_distribution"], image.Properties["os_version"])
-		data.Add(jsonutils.NewString(imgInfo.OsType), "os_type")
-		data.Add(jsonutils.NewString(imgInfo.OsArch), "os_arch")
-		data.Add(jsonutils.NewString(imgInfo.OsDistro), "os_distribution")
-		data.Add(jsonutils.NewString(imgInfo.OsVersion), "os_version")
-		data.Add(jsonutils.NewString(imgInfo.OsFullVersion), "os_full_version")
-		data.Add(jsonutils.NewString(image.Name), "image_name")
+		input.OsType = imgInfo.OsType
+		input.OsArch = imgInfo.OsArch
+		input.OsDistribution = imgInfo.OsDistro
+		input.OsVersion = imgInfo.OsVersion
+		input.OsFullVersion = imgInfo.OsFullVersion
+		input.ImageName = image.Name
 	}
-
-	if isForce {
-		data.Add(jsonutils.JSONTrue, "is_force")
-	}
-
-	if srcHostId != "" {
-		data.Add(jsonutils.NewString(srcHostId), "source_host_id")
-	}
-	task, err := taskman.TaskManager.NewTask(ctx, "StorageCacheImageTask", self, userCred, data, parentTaskId, "", nil)
+	data := jsonutils.Marshal(input).(*jsonutils.JSONDict)
+	task, err := taskman.TaskManager.NewTask(ctx, "StorageCacheImageTask", self, userCred, data, input.ParentTaskId, "", nil)
 	if err != nil {
-		log.Errorf("create StorageCacheImageTask fail %s", err)
-		return err
+		return errors.Wrapf(err, "NewTask")
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (self *SStoragecache) StartImageUncacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, isPurge bool, parentTaskId string) error {
@@ -606,27 +585,22 @@ func (self *SStoragecache) AllowPerformCacheImage(ctx context.Context, userCred 
 	return db.IsAdminAllowPerform(userCred, self, "cache-image")
 }
 
-func (self *SStoragecache) PerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	imageStr, _ := data.GetString("image")
-	if len(imageStr) == 0 {
-		return nil, httperrors.NewInputParameterError("missing image id or name")
+func (self *SStoragecache) PerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CacheImageInput) (jsonutils.JSONObject, error) {
+	if len(input.ImageId) == 0 {
+		return nil, httperrors.NewMissingParameterError("image_id")
 	}
-	isForce := jsonutils.QueryBoolean(data, "is_force", false)
 
-	image, err := CachedimageManager.getImageInfo(ctx, userCred, imageStr, isForce)
+	image, err := CachedimageManager.getImageInfo(ctx, userCred, input.ImageId, input.IsForce)
 	if err != nil {
-		log.Infof("image %s not found %s", imageStr, err)
-		return nil, httperrors.NewImageNotFoundError(imageStr)
+		return nil, httperrors.NewImageNotFoundError(input.ImageId)
 	}
 
 	if len(image.Checksum) == 0 {
 		return nil, httperrors.NewInvalidStatusError("Cannot cache image with no checksum")
 	}
 
-	format, _ := data.GetString("format")
-
-	err = self.StartImageCacheTask(ctx, userCred, image.Id, format, isForce, "")
-	return nil, err
+	input.ImageId = image.Id
+	return nil, self.StartImageCacheTask(ctx, userCred, input)
 }
 
 func (self *SStoragecache) SyncCloudImages(

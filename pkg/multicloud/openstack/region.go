@@ -340,8 +340,8 @@ func (region *SRegion) imageDelete(resource string) (jsonutils.JSONObject, error
 	return region.client.imageRequest(region.Name, httputils.DELETE, resource, nil, nil)
 }
 
-func (region *SRegion) imageUpload(url string, body io.Reader) error {
-	resp, err := region.client.imageUpload(region.Name, url, body)
+func (region *SRegion) imageUpload(url string, size int64, body io.Reader, callback func(progress float32)) error {
+	resp, err := region.client.imageUpload(region.Name, url, size, body, callback)
 	_, _, err = httputils.ParseResponse("", resp, err, region.client.debug)
 	return err
 }

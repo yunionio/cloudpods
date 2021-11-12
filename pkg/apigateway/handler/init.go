@@ -15,9 +15,9 @@
 package handler
 
 import (
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/cloudnet"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/cloudproxy"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/etcd"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/monitor"

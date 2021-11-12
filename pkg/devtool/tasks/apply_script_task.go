@@ -29,7 +29,8 @@ import (
 	"yunion.io/x/onecloud/pkg/devtool/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	ansible_modules "yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 type ApplyScriptTask struct {
@@ -156,7 +157,7 @@ func (self *ApplyScriptTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 	taskHeader := self.GetTaskRequestHeader()
 	session.Header.Set(mcclient.TASK_NOTIFY_URL, taskHeader.Get(mcclient.TASK_NOTIFY_URL))
 	session.Header.Set(mcclient.TASK_ID, taskHeader.Get(mcclient.TASK_ID))
-	_, err = modules.AnsiblePlaybookReference.PerformAction(session, s.PlaybookReferenceId, "run", params)
+	_, err = ansible_modules.AnsiblePlaybookReference.PerformAction(session, s.PlaybookReferenceId, "run", params)
 	if err != nil {
 		self.taskFailed(ctx, sa, sar, errors.Wrapf(err, "can't run ansible playbook reference %s", s.PlaybookReferenceId))
 		return
@@ -183,7 +184,7 @@ func (self *ApplyScriptTask) OnAnsiblePlaybookComplete(ctx context.Context, obj 
 	// try to set metadata for guest
 	metadata := jsonutils.NewDict()
 	metadata.Set(agentInstalledKey, jsonutils.NewString(agentInstalledValue))
-	_, err := modules.Servers.PerformAction(session, sa.GuestId, "metadata", metadata)
+	_, err := compute.Servers.PerformAction(session, sa.GuestId, "metadata", metadata)
 	if err != nil {
 		log.Errorf("set metadata '%s:%s' for guest %s failed: %v", agentInstalledKey, agentInstalledValue, sa.GuestId, err)
 	}

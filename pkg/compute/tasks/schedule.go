@@ -32,7 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -127,7 +127,7 @@ func doScheduleWithInput(
 	}
 	task.SetStage("OnScheduleComplete", params)
 	s := auth.GetSession(ctx, task.GetUserCred(), options.Options.Region, "")
-	return modules.SchedManager.DoSchedule(s, schedInput, count)
+	return scheduler.SchedManager.DoSchedule(s, schedInput, count)
 }
 
 func doScheduleObjects(

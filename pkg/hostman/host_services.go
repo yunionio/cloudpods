@@ -95,7 +95,7 @@ func (host *SHostService) RunService() {
 		log.Infof("Auth complete!!")
 
 		if err := host.initEtcdConfig(); err != nil {
-			log.Fatalln("Init etcd config: %v", err)
+			log.Fatalln("Init etcd config:", err)
 		}
 
 		hostInstance.StartRegister(2, func() {

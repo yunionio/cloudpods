@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 )
 
 type ParametersManager struct {
@@ -47,7 +48,7 @@ func (this *ParametersManager) GetGlobalSettings(s *mcclient.ClientSession, para
 	p := jsonutils.NewDict()
 	p.Add(jsonutils.NewString("system"), "scope")
 	p.Add(jsonutils.NewString("global-settings"), "name")
-	parameters, err := this.ListInContext(adminSession, p, &modules.ServicesV3, "yunionagent")
+	parameters, err := this.ListInContext(adminSession, p, &identity.ServicesV3, "yunionagent")
 	if err != nil {
 		return nil, err
 	}

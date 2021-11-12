@@ -42,7 +42,12 @@ func (self *HADiskCreateTask) OnStorageCacheImageComplete(
 	storagecache := storage.GetStoragecache()
 	imageId := disk.GetTemplateId()
 	self.SetStage("OnBackupStorageCacheImageComplete", nil)
-	storagecache.StartImageCacheTask(ctx, self.UserCred, imageId, disk.DiskFormat, false, self.GetTaskId())
+	input := api.CacheImageInput{
+		ImageId:      imageId,
+		Format:       disk.DiskFormat,
+		ParentTaskId: self.GetTaskId(),
+	}
+	storagecache.StartImageCacheTask(ctx, self.UserCred, input)
 }
 
 func (self *HADiskCreateTask) OnBackupStorageCacheImageComplete(
@@ -93,7 +98,12 @@ func (self *DiskCreateBackupTask) OnInit(ctx context.Context, obj db.IStandalone
 	imageId := disk.GetTemplateId()
 	if len(imageId) > 0 {
 		self.SetStage("OnBackupStorageCacheImageComplete", nil)
-		storagecache.StartImageCacheTask(ctx, self.UserCred, imageId, disk.DiskFormat, false, self.GetTaskId())
+		input := api.CacheImageInput{
+			ImageId:      imageId,
+			Format:       disk.DiskFormat,
+			ParentTaskId: self.GetTaskId(),
+		}
+		storagecache.StartImageCacheTask(ctx, self.UserCred, input)
 	} else {
 		self.OnBackupStorageCacheImageComplete(ctx, disk, nil)
 	}

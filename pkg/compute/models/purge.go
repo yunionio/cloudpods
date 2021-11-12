@@ -1936,6 +1936,21 @@ func (vpcPC *SVpcPeeringConnection) purge(ctx context.Context, userCred mcclient
 	return vpcPC.RealDelete(ctx, userCred)
 }
 
+func (manager *SInterVpcNetworkManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	networks := []SInterVpcNetwork{}
+	err := fetchByManagerId(manager, providerId, &networks)
+	if err != nil {
+		return errors.Wrapf(err, "fetchByManagerId")
+	}
+	for i := range networks {
+		err := networks[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "inter vpc network delete")
+		}
+	}
+	return nil
+}
+
 func (manager *SWafRuleGroupCacheManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
 	caches := []SWafRuleGroupCache{}
 	err := fetchByManagerId(manager, providerId, &caches)

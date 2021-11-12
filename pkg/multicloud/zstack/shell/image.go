@@ -53,7 +53,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		image, err := cli.CreateImage(args.ZONE, args.FILE, args.FORMAT, args.PLATFORM, args.Desc, f, finfo.Size())
+		image, err := cli.CreateImage(args.ZONE, args.FILE, args.FORMAT, args.PLATFORM, args.Desc, f, finfo.Size(), nil)
 		if err != nil {
 			return err
 		}

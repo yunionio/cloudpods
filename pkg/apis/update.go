@@ -38,6 +38,7 @@ type StandaloneResourceBaseUpdateInput struct {
 
 type StatusStandaloneResourceBaseUpdateInput struct {
 	StandaloneResourceBaseUpdateInput
+	Progress float32 `json:"progress"`
 }
 
 type EnabledStatusStandaloneResourceBaseUpdateInput struct {

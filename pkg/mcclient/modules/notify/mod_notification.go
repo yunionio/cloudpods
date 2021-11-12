@@ -21,7 +21,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 )
 
 var (
@@ -67,7 +67,7 @@ func (manager *NotificationManager) Send(s *mcclient.ClientSession, msg SNotifyM
 		// fetch uid
 		uidSet := sets.NewString()
 		for _, gid := range msg.Gid {
-			users, err := modules.Groups.GetUsers(s, gid, nil)
+			users, err := identity.Groups.GetUsers(s, gid, nil)
 			if err != nil {
 				return errors.Wrapf(err, "Groups.GetUsers for group %q", gid)
 			}
@@ -102,6 +102,6 @@ func (manager *NotificationManager) Send(s *mcclient.ClientSession, msg SNotifyM
 
 func init() {
 	Notifications = NotificationManager{
-		modules.Notification,
+		Notification,
 	}
 }

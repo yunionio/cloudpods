@@ -70,7 +70,7 @@ func init() {
 			return errors.Wrap(err, "os.Open")
 		}
 		defer file.Close()
-		image, err := cli.CreateImage(args.NAME, args.OsType, args.OsDistro, args.MinDiskSizeGB, args.MinRamMb, file)
+		image, err := cli.CreateImage(args.NAME, args.OsType, args.OsDistro, args.MinDiskSizeGB, args.MinRamMb, 0, file, nil)
 		if err != nil {
 			return err
 		}

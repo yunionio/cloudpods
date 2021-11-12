@@ -16,12 +16,12 @@ package misc
 
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionagent"
 	options "yunion.io/x/onecloud/pkg/mcclient/options/yunionagent"
 )
 
 func init() {
-	cmd := shell.NewResourceCmd(&modules.Notice).WithKeyword("notice")
+	cmd := shell.NewResourceCmd(&yunionagent.Notice).WithKeyword("notice")
 	cmd.List(&options.NoticeListOptions{})
 	cmd.Create(&options.NoticeCreateOptions{})
 	cmd.Update(&options.NoticesUpdateOptions{})

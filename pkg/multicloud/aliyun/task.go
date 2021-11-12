@@ -16,6 +16,7 @@ package aliyun
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,14 +54,18 @@ type STask struct {
 	CreationTime  time.Time
 }
 
-func (self *SRegion) waitTaskStatus(action TaskActionType, taskId string, targetStatus TaskStatusType, interval time.Duration, timeout time.Duration) error {
+func (self *SRegion) WaitTaskStatus(action TaskActionType, taskId string, targetStatus TaskStatusType, interval time.Duration, timeout time.Duration, min, max int8, progress func(float32)) error {
 	start := time.Now()
 	for time.Now().Sub(start) < timeout {
-		status, err := self.GetTaskStatus(action, taskId)
+		status, percent, err := self.GetTaskStatus(action, taskId)
 		if err != nil {
 			return err
 		}
+		if progress != nil {
+			progress(float32(min) + float32(float64(max-min)*float64(percent)/100))
+		}
 		if status == targetStatus {
+			progress(float32(max))
 			return nil
 		}
 		time.Sleep(interval)
@@ -68,12 +73,17 @@ func (self *SRegion) waitTaskStatus(action TaskActionType, taskId string, target
 	return fmt.Errorf("timeout for waitting task %s(%s) after %f minutes", taskId, action, timeout.Minutes())
 }
 
-func (self *SRegion) GetTaskStatus(action TaskActionType, taskId string) (TaskStatusType, error) {
+func (self *SRegion) waitTaskStatus(action TaskActionType, taskId string, targetStatus TaskStatusType, interval time.Duration, timeout time.Duration) error {
+	return self.WaitTaskStatus(action, taskId, targetStatus, interval, timeout, 0, 0, nil)
+}
+
+func (self *SRegion) GetTaskStatus(action TaskActionType, taskId string) (TaskStatusType, int8, error) {
 	task, err := self.GetTask(taskId)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
-	return task.TaskStatus, nil
+	progress, _ := strconv.Atoi(strings.TrimSuffix(task.TaskProcess, "%"))
+	return task.TaskStatus, int8(progress), nil
 }
 
 func (self *SRegion) GetTasks(action TaskActionType, taskId []string, taskStatus TaskStatusType, offset int, limit int) ([]STask, int, error) {

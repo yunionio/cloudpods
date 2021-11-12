@@ -36,7 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -311,7 +311,7 @@ func (manager *SCachedimageManager) GetImageById(ctx context.Context, userCred m
 		}
 	}
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	obj, err := modules.Images.Get(s, imageId, nil)
+	obj, err := image.Images.Get(s, imageId, nil)
 	if err != nil {
 		log.Errorf("GetImageById %s error %s", imageId, err)
 		return nil, errors.Wrap(err, "modules.Images.Get")
@@ -336,7 +336,7 @@ func (manager *SCachedimageManager) getImageByName(ctx context.Context, userCred
 		}
 	}
 	s := auth.GetSession(ctx, userCred, options.Options.Region, "")
-	obj, err := modules.Images.GetByName(s, imageId, nil)
+	obj, err := image.Images.GetByName(s, imageId, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "modules.Images.GetByName")
 	}

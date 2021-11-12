@@ -17,7 +17,6 @@ package google
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 	"unicode"
 
@@ -26,12 +25,11 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
@@ -97,27 +95,8 @@ func (cache *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (cache *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
-	if len(image.ExternalId) > 0 {
-		_image, err := cache.region.GetImage(image.ExternalId)
-		if err != nil {
-			log.Errorf("GetImage error: %v", err)
-		} else {
-			status := _image.GetStatus()
-			log.Debugf("UploadImage: Image external ID %s exists, status %s", image.ExternalId, status)
-			if status == api.CACHED_IMAGE_STATUS_ACTIVE {
-				return image.ExternalId, nil
-			}
-			err = cache.region.Delete(image.ExternalId)
-			if err != nil {
-				log.Errorf("failed to delete %s image %s", status, image.ExternalId)
-			}
-		}
-	} else {
-		log.Debugf("UploadImage: no external ID")
-	}
-
-	return cache.uploadImage(ctx, userCred, image, isForce)
+func (cache *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
+	return cache.uploadImage(ctx, userCred, image, callback)
 }
 
 func (region *SRegion) checkAndCreateBucket(bucketName string) (*SBucket, error) {
@@ -135,10 +114,10 @@ func (region *SRegion) checkAndCreateBucket(bucketName string) (*SBucket, error)
 	return bucket, nil
 }
 
-func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
+func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 
-	meta, reader, _, err := modules.Images.Download(s, image.ImageId, string(qemuimg.QCOW2), false)
+	meta, reader, sizeBytes, err := modules.Images.Download(s, image.ImageId, string(qemuimg.QCOW2), false)
 	if err != nil {
 		return "", err
 	}
@@ -160,9 +139,11 @@ func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.T
 
 	defer cache.region.DeleteBucket(bucket.Name)
 
-	err = cache.region.PutObject(bucketName, info.Name, reader, info.Size, cloudprovider.ACLPublicRead, http.Header{})
+	log.Debugf("To upload image to bucket %s ...", bucketName)
+	body := multicloud.NewProgress(sizeBytes, 80, reader, callback)
+	err = cloudprovider.UploadObject(context.Background(), bucket, image.ImageId, 0, body, sizeBytes, "", "", nil, false)
 	if err != nil {
-		return "", errors.Wrap(err, "region.PutObject")
+		return "", errors.Wrap(err, "UploadObjectWithProgress")
 	}
 
 	images, err := cache.region.GetImages(cache.region.GetProjectId(), 0, "")
@@ -194,6 +175,10 @@ func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.T
 	_image, err := cache.region.CreateImage(imageName, info.Description, bucketName, info.Name)
 	if err != nil {
 		return "", errors.Wrap(err, "region.CreateImage")
+	}
+
+	if callback != nil {
+		callback(100)
 	}
 
 	return _image.GetGlobalId(), nil

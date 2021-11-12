@@ -31,7 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
@@ -104,24 +104,12 @@ func (self *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
-	if len(image.ExternalId) > 0 {
-		log.Debugf("UploadImage: Image external ID exists %s", image.ExternalId)
-		status, err := self.region.GetImageStatus(image.ExternalId)
-		if err != nil {
-			log.Errorf("GetImageStatus error %s", err)
-		}
-		if status == ImageStatusAvailable && !isForce {
-			return image.ExternalId, nil
-		}
-	} else {
-		log.Debugf("UploadImage: no external ID")
-	}
+func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
 	err := os.MkdirAll(options.Options.TempPath, os.ModePerm)
 	if err != nil {
 		log.Warningf("failed to create tmp path %s error: %v", options.Options.TempPath, err)
 	}
-	return self.uploadImage(ctx, userCred, image, isForce, options.Options.TempPath)
+	return self.uploadImage(ctx, userCred, image, options.Options.TempPath, callback)
 }
 
 func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
@@ -154,7 +142,7 @@ func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
 	return storageaccount, nil
 }
 
-func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool, tmpPath string) (string, error) {
+func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, tmpPath string, callback func(progress float32)) (string, error) {
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 	meta, reader, sizeBytes, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VHD), false)
 	if err != nil {
@@ -196,7 +184,10 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		return "", errors.Wrap(err, "os.Create(tmpFile)")
 	}
 	defer f.Close()
-	if _, err := io.Copy(f, reader); err != nil {
+
+	// 下载占33%
+	r := multicloud.NewProgress(sizeBytes, 33, reader, callback)
+	if _, err := io.Copy(f, r); err != nil {
 		return "", errors.Wrap(err, "io.Copy(f, reader)")
 	}
 
@@ -205,7 +196,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		return "", errors.Wrap(err, "self.checkStorageAccount")
 	}
 
-	blobURI, err := storageaccount.UploadFile("image-cache", tmpFile)
+	blobURI, err := storageaccount.UploadFile("image-cache", tmpFile, callback)
 	if err != nil {
 		return "", errors.Wrap(err, "storageaccount.UploadFile")
 	}
@@ -215,6 +206,9 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	img, err := self.region.CreateImageByBlob(image.ImageId, image.OsType, blobURI, int32(sizeBytes>>30))
 	if err != nil {
 		return "", errors.Wrap(err, "CreateImageByBlob")
+	}
+	if callback != nil {
+		callback(100)
 	}
 	return img.GetGlobalId(), nil
 }

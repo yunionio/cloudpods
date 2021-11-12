@@ -32,7 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 )
 
 type SSyncableBaseResource struct {
@@ -260,6 +260,7 @@ func syncRegionVPCs(ctx context.Context, userCred mcclient.TokenCredential, sync
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 	// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
+	globalVpcIds := []string{}
 	for j := 0; j < len(localVpcs); j += 1 {
 		func() {
 			// lock vpc
@@ -271,7 +272,12 @@ func syncRegionVPCs(ctx context.Context, userCred mcclient.TokenCredential, sync
 			}
 
 			syncVpcWires(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
-			if localRegion.GetDriver().IsSecurityGroupBelongVpc() || localRegion.GetDriver().IsSupportClassicSecurityGroup() || j == 0 { //有vpc属性的每次都同步,支持classic的vpc也同步，否则仅同步一次
+			if localRegion.GetDriver().IsSecurityGroupBelongVpc() ||
+				(localRegion.GetDriver().IsSecurityGroupBelongGlobalVpc() && !utils.IsInStringArray(localVpcs[j].GlobalvpcId, globalVpcIds)) ||
+				localRegion.GetDriver().IsSupportClassicSecurityGroup() || j == 0 { //有vpc属性的每次都同步,支持classic的vpc也同步，否则仅同步一次
+				if len(localVpcs[j].GlobalvpcId) > 0 {
+					globalVpcIds = append(globalVpcIds, localVpcs[j].GlobalvpcId)
+				}
 				syncVpcSecGroup(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
 			}
 			syncVpcNatgateways(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
@@ -1003,7 +1009,7 @@ func syncSkusFromPrivateCloud(ctx context.Context, userCred mcclient.TokenCreden
 		return
 	}
 	s := auth.GetSession(ctx, userCred, "", "")
-	if _, err := modules.SchedManager.SyncSku(s, true); err != nil {
+	if _, err := scheduler.SchedManager.SyncSku(s, true); err != nil {
 		log.Errorf("Sync scheduler sku cache error: %v", err)
 	}
 }
@@ -1464,18 +1470,15 @@ func syncKubeClusters(ctx context.Context, userCred mcclient.TokenCredential, sy
 				return
 			}
 
-			err = syncKubeClusterNodePools(ctx, userCred, syncResults, &localClusters[i], remoteClusters[i])
-			if err != nil {
+			if err := syncKubeClusterNodePools(ctx, userCred, syncResults, &localClusters[i], remoteClusters[i]); err != nil {
 				log.Errorf("syncKubeClusterNodePools for %s error: %v", localClusters[i].Name, err)
 			}
 
-			err = syncKubeClusterNodes(ctx, userCred, syncResults, &localClusters[i], remoteClusters[i])
-			if err != nil {
+			if err := syncKubeClusterNodes(ctx, userCred, syncResults, &localClusters[i], remoteClusters[i]); err != nil {
 				log.Errorf("syncKubeClusterNodes for %s error: %v", localClusters[i].Name, err)
 			}
 
-			err = localClusters[i].Import(ctx, userCred, remoteClusters[i])
-			if err != nil {
+			if err := localClusters[i].ImportOrUpdate(ctx, userCred, remoteClusters[i]); err != nil {
 				log.Errorf("Import cluster %s error: %v", localClusters[i].Name, err)
 			}
 		}()
@@ -1732,21 +1735,21 @@ func syncPublicCloudProviderInfo(
 		SyncRegionNasSkus(ctx, userCred, localRegion.Id, true)
 	} else {
 		syncSkusFromPrivateCloud(ctx, userCred, syncResults, localRegion, remoteRegion)
-		if cloudprovider.IsSupportRds(driver) {
+		if cloudprovider.IsSupportRds(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_RDS) {
 			syncDBInstanceSkus(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 		}
-		if cloudprovider.IsSupportNAT(driver) {
+		if cloudprovider.IsSupportNAT(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NAT) {
 			syncNATSkus(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 		}
 	}
 
 	// no need to lock public cloud region as cloud region for public cloud is readonly
 
-	if cloudprovider.IsSupportObjectstore(driver) {
+	if cloudprovider.IsSupportObjectstore(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE) {
 		syncRegionBuckets(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
-	if cloudprovider.IsSupportCompute(driver) {
+	if cloudprovider.IsSupportCompute(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) {
 		// 需要先同步vpc，避免私有云eip找不到network
 		syncRegionVPCs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
@@ -1775,55 +1778,57 @@ func syncPublicCloudProviderInfo(
 		syncRegionSnapshots(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 	}
 
-	syncRegionAccessGroups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-	syncRegionFileSystems(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+	if cloudprovider.IsSupportNAS(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NAS) {
+		syncRegionAccessGroups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		syncRegionFileSystems(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+	}
 
-	if cloudprovider.IsSupportLoadbalancer(driver) {
+	if cloudprovider.IsSupportLoadbalancer(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_LOADBALANCER) {
 		syncRegionLoadbalancerAcls(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 		syncRegionLoadbalancerCertificates(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 		syncRegionLoadbalancers(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 	}
 
-	if cloudprovider.IsSupportCompute(driver) {
+	if cloudprovider.IsSupportCompute(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) {
 		syncRegionNetworkInterfaces(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 	}
 
-	if cloudprovider.IsSupportRds(driver) {
+	if cloudprovider.IsSupportRds(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_RDS) {
 		syncRegionDBInstances(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 		syncRegionDBInstanceBackups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 	}
 
-	if cloudprovider.IsSupportElasticCache(driver) {
+	if cloudprovider.IsSupportElasticCache(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_CACHE) {
 		syncElasticcaches(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 	}
 
-	if cloudprovider.IsSupportWaf(driver) {
+	if cloudprovider.IsSupportWaf(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_WAF) {
 		syncWafIPSets(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 		syncWafRegexSets(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 		syncWafInstances(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
-	if cloudprovider.IsSupportMongoDB(driver) {
+	if cloudprovider.IsSupportMongoDB(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_MONGO_DB) {
 		syncMongoDBs(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
-	if cloudprovider.IsSupportElasticSearch(driver) {
+	if cloudprovider.IsSupportElasticSearch(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_ES) {
 		syncElasticSearchs(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
-	if cloudprovider.IsSupportKafka(driver) {
+	if cloudprovider.IsSupportKafka(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_KAFKA) {
 		syncKafkas(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
-	if cloudprovider.IsSupportApp(driver) {
+	if cloudprovider.IsSupportApp(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_APP) {
 		syncApps(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
-	if cloudprovider.IsSupportContainer(driver) {
+	if cloudprovider.IsSupportContainer(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_CONTAINER) {
 		syncKubeClusters(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
-	if cloudprovider.IsSupportCompute(driver) {
+	if cloudprovider.IsSupportCompute(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) {
 		log.Debugf("storageCachePairs count %d", len(storageCachePairs))
 		for i := range storageCachePairs {
 			// always sync private cloud cached images
@@ -1934,12 +1939,12 @@ func syncOnPremiseCloudProviderInfo(
 
 	localRegion := CloudregionManager.FetchDefaultRegion()
 
-	if cloudprovider.IsSupportObjectstore(driver) {
+	if cloudprovider.IsSupportObjectstore(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE) {
 		syncRegionBuckets(ctx, userCred, syncResults, provider, localRegion, iregion)
 	}
 
 	var storageCachePairs []sStoragecacheSyncPair
-	if cloudprovider.IsSupportCompute(driver) {
+	if cloudprovider.IsSupportCompute(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) {
 		storageCachePairs = syncOnPremiseCloudProviderStorage(ctx, userCred, syncResults, provider, iregion, driver, syncRange)
 		ihosts, err := func() ([]cloudprovider.ICloudHost, error) {
 			defer syncResults.AddRequestCost(HostManager)()
@@ -1976,7 +1981,7 @@ func syncOnPremiseCloudProviderInfo(
 		}
 	}
 
-	if cloudprovider.IsSupportCompute(driver) {
+	if cloudprovider.IsSupportCompute(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) {
 		log.Debugf("storageCachePairs count %d", len(storageCachePairs))
 		for i := range storageCachePairs {
 			// alway sync on-premise cached images

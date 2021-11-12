@@ -43,7 +43,16 @@ func (self *DiskCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	imageId := disk.GetTemplateId()
 	if len(imageId) > 0 {
 		self.SetStage("OnStorageCacheImageComplete", nil)
-		storagecache.StartImageCacheTask(ctx, self.UserCred, imageId, disk.DiskFormat, false, self.GetTaskId())
+		input := api.CacheImageInput{
+			ImageId:      imageId,
+			Format:       disk.DiskFormat,
+			ParentTaskId: self.GetTaskId(),
+		}
+		guest := disk.GetGuest()
+		if guest != nil {
+			input.ServerId = guest.Id
+		}
+		storagecache.StartImageCacheTask(ctx, self.UserCred, input)
 	} else {
 		self.OnStorageCacheImageComplete(ctx, disk, nil)
 	}

@@ -28,7 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	"yunion.io/x/onecloud/pkg/monitor/options"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -107,7 +107,7 @@ func (man *SMeterAlertManager) getAllBillAccounts(ctx context.Context) ([]jsonut
 		q.Add(jsonutils.NewString("system"), "scope")
 		q.Add(jsonutils.NewInt(int64(len(results))), "offset")
 		q.Add(jsonutils.NewInt(2048), "limit")
-		ret, err := modules.Cloudaccounts.List(s, q)
+		ret, err := compute.Cloudaccounts.List(s, q)
 		if err != nil {
 			return nil, err
 		}

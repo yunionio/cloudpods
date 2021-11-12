@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -378,7 +379,13 @@ type CloudpodsTags struct {
 }
 
 func (self *CloudpodsTags) GetTags() (map[string]string, error) {
-	return self.Metadata, nil
+	metadatas := map[string]string{}
+	for k, v := range self.Metadata {
+		if strings.HasPrefix(k, apis.USER_TAG_PREFIX) {
+			metadatas[strings.TrimPrefix(k, apis.USER_TAG_PREFIX)] = v
+		}
+	}
+	return metadatas, nil
 }
 
 func (self *CloudpodsTags) GetSysTags() map[string]string {

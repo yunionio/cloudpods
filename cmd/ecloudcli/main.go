@@ -16,10 +16,15 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
+
+	"golang.org/x/net/http/httpproxy"
 
 	"yunion.io/x/structarg"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/ecloud"
 	_ "yunion.io/x/onecloud/pkg/multicloud/ecloud/shell"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -84,10 +89,25 @@ func newClient(options *Options) (*ecloud.SRegion, error) {
 		return nil, fmt.Errorf("Missing access secret")
 	}
 
+	cfg := &httpproxy.Config{
+		HTTPProxy:  os.Getenv("HTTP_PROXY"),
+		HTTPSProxy: os.Getenv("HTTPS_PROXY"),
+		NoProxy:    os.Getenv("NO_PROXY"),
+	}
+	cfgProxyFunc := cfg.ProxyFunc()
+	proxyFunc := func(req *http.Request) (*url.URL, error) {
+		return cfgProxyFunc(req.URL)
+	}
+
 	cli, err := ecloud.NewEcloudClient(
 		ecloud.NewEcloudClientConfig(
 			ecloud.NewRamRoleSigner(options.AccessKey, options.AccessSecret),
-		).SetDebug(options.Debug),
+		).SetDebug(options.Debug).
+			SetCloudproviderConfig(
+				cloudprovider.ProviderConfig{
+					ProxyFunc: proxyFunc,
+				},
+			),
 	)
 	if err != nil {
 		return nil, err

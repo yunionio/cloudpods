@@ -836,7 +836,7 @@ func (self *SQcloudRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 
 func (self *SQcloudRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lbbg *models.SLoadbalancerBackendGroup) (*jsonutils.JSONDict, error) {
 	keyV := map[string]validators.IValidator{
-		"weight":     validators.NewRangeValidator("weight", 1, 256).Optional(true),
+		"weight":     validators.NewRangeValidator("weight", 0, 100).Optional(true),
 		"port":       validators.NewPortValidator("port").Optional(true),
 		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Optional(true),
 	}

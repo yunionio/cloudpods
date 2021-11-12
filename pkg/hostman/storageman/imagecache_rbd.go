@@ -21,13 +21,15 @@ import (
 	"fmt"
 	"sync"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
@@ -71,8 +73,13 @@ func (r *SRbdImageCache) Load() error {
 	return fmt.Errorf("invalid rbd image %s at host %s", origin.String(), options.HostOptions.Hostname)
 }
 
-func (r *SRbdImageCache) Acquire(ctx context.Context, zone, srcUrl, format, checksum string) error {
-	localImageCache, err := storageManager.LocalStorageImagecacheManager.AcquireImage(ctx, r.imageId, zone, srcUrl, format, checksum)
+func (r *SRbdImageCache) Acquire(ctx context.Context, input api.CacheImageInput, callback func(progress float32)) error {
+	input.ImageId = r.imageId
+	localImageCache, err := storageManager.LocalStorageImagecacheManager.AcquireImage(ctx, input, func(percent float32) {
+		if len(input.ServerId) > 0 {
+			modules.Servers.Update(hostutils.GetComputeSession(context.Background()), input.ServerId, jsonutils.Marshal(map[string]float32{"progress": percent / 1.2}))
+		}
+	})
 	if err != nil {
 		return errors.Wrapf(err, "LocalStorage.AcquireImage")
 	}
@@ -83,6 +90,9 @@ func (r *SRbdImageCache) Acquire(ctx context.Context, zone, srcUrl, format, chec
 			"convert", "-W", "-m", "16", "-O", "raw", localImageCache.GetPath(), r.GetPath()).Run()
 		if err != nil {
 			return errors.Wrapf(err, "convert loca image %s to rbd pool %s at host %s", r.imageId, r.Manager.GetPath(), options.HostOptions.Hostname)
+		}
+		if len(input.ServerId) > 0 {
+			modules.Servers.Update(hostutils.GetComputeSession(context.Background()), input.ServerId, jsonutils.Marshal(map[string]float32{"progress": 100.0}))
 		}
 	}
 	return r.Load()

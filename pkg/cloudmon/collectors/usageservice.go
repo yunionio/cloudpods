@@ -24,7 +24,8 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -133,7 +134,7 @@ func packMetricList(session *mcclient.ClientSession, dataList []influxdb.SMetric
 
 //获得镜像使用量
 func getImageUsageFields(session *mcclient.ClientSession) (jsonutils.JSONObject, error) {
-	respObj, e := (&modules.ImageUsages).GetUsage(session, nil)
+	respObj, e := (&image.ImageUsages).GetUsage(session, nil)
 	if e != nil {
 		return nil, e
 	}

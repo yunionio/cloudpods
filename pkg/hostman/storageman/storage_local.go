@@ -38,7 +38,8 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
@@ -356,7 +357,7 @@ func (s *SLocalStorage) saveToGlance(ctx context.Context, imageId, imagePath str
 	}
 	params.Set("image_id", jsonutils.NewString(imageId))
 
-	_, err = modules.Images.Upload(hostutils.GetImageSession(ctx, s.GetZoneName()),
+	_, err = image.Images.Upload(hostutils.GetImageSession(ctx, s.GetZoneName()),
 		params, f, size)
 	return err
 }
@@ -365,7 +366,7 @@ func (s *SLocalStorage) onSaveToGlanceFailed(ctx context.Context, imageId string
 	params := jsonutils.NewDict()
 	params.Set("status", jsonutils.NewString("killed"))
 	params.Set("reason", jsonutils.NewString(reason))
-	_, err := modules.Images.PerformAction(
+	_, err := image.Images.PerformAction(
 		hostutils.GetImageSession(ctx, s.GetZoneName()),
 		imageId, "update-status", params,
 	)
@@ -379,7 +380,7 @@ func (s *SLocalStorage) CreateSnapshotFormUrl(
 ) error {
 	remoteFile := remotefile.NewRemoteFile(ctx, snapshotUrl, snapshotPath,
 		false, "", -1, nil, "", "")
-	err := remoteFile.Fetch()
+	err := remoteFile.Fetch(nil)
 	return errors.Wrapf(err, "fetch snapshot from %s", snapshotUrl)
 }
 

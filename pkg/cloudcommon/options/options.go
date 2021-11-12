@@ -114,7 +114,7 @@ const (
 type CommonOptions struct {
 	AuthURL            string `help:"Keystone auth URL" alias:"auth-uri"`
 	AdminUser          string `help:"Admin username"`
-	AdminDomain        string `help:"Admin user domain" default:"default"`
+	AdminDomain        string `help:"Admin user domain" default:"Default"`
 	AdminPassword      string `help:"Admin password" alias:"admin-passwd"`
 	AdminProject       string `help:"Admin project" default:"system" alias:"admin-tenant-name"`
 	AdminProjectDomain string `help:"Domain of Admin project" default:"default"`

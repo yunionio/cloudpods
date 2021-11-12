@@ -34,8 +34,10 @@ import (
 	_ "yunion.io/x/onecloud/cmd/climc/shell/misc"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/monitor"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/notifyv2"
+	_ "yunion.io/x/onecloud/cmd/climc/shell/scheduler"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/servicetree"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/suggestion"
+	_ "yunion.io/x/onecloud/cmd/climc/shell/vpcproxy"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/yunionconf"
 )
 

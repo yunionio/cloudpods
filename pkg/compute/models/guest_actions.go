@@ -58,8 +58,9 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -288,7 +289,7 @@ func (self *SGuest) PerformSaveGuestImage(ctx context.Context, userCred mcclient
 	kwargs.Add(images, "images")
 
 	s := auth.GetSession(ctx, userCred, options.Options.Region, "")
-	ret, err := modules.GuestImages.Create(s, kwargs)
+	ret, err := image.GuestImages.Create(s, kwargs)
 	if err != nil {
 		return nil, err
 	}
@@ -439,7 +440,7 @@ func (self *SGuest) PerformMigrateForecast(ctx context.Context, userCred mcclien
 
 	schedParams := self.GetSchedMigrateParams(userCred, input)
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	_, res, err := modules.SchedManager.DoScheduleForecast(s, schedParams, 1)
+	_, res, err := scheduler.SchedManager.DoScheduleForecast(s, schedParams, 1)
 	if err != nil {
 		return nil, errors.Wrap(err, "Do schedule migrate forecast")
 	}
@@ -2603,7 +2604,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	schedDesc := self.changeConfToSchedDesc(addCpu, addMem, schedInputDisks)
 	confs.Set("sched_desc", jsonutils.Marshal(schedDesc))
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	canChangeConf, res, err := modules.SchedManager.DoScheduleForecast(s, schedDesc, 1)
+	canChangeConf, res, err := scheduler.SchedManager.DoScheduleForecast(s, schedDesc, 1)
 	if err != nil {
 		return nil, err
 	}

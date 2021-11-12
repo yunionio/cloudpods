@@ -108,23 +108,14 @@ func (c *SRbdImageCacheManager) PrefetchImageCache(ctx context.Context, data int
 		return nil, hostutils.ParamsError
 	}
 
-	input := struct {
-		ImageId  string
-		Format   string
-		SrcUrl   string
-		Checksum string
-		Zone     string
-	}{}
-	err := body.Unmarshal(&input)
-	if err != nil {
-		return nil, errors.Wrapf(err, "input.Unmarshal")
-	}
+	input := api.CacheImageInput{}
+	body.Unmarshal(&input)
 
 	if len(input.ImageId) == 0 {
 		return nil, httperrors.NewMissingParameterError("image_id")
 	}
 
-	cache, err := c.AcquireImage(ctx, input.ImageId, input.Zone, input.SrcUrl, input.Format, input.Checksum)
+	cache, err := c.AcquireImage(ctx, input, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "AcquireImage")
 	}
@@ -167,17 +158,17 @@ func (c *SRbdImageCacheManager) removeImage(ctx context.Context, imageId string)
 	return nil
 }
 
-func (c *SRbdImageCacheManager) AcquireImage(ctx context.Context, imageId, zone, srcUrl, format, checksum string) (IImageCache, error) {
-	lockman.LockRawObject(ctx, "image-cache", imageId)
-	defer lockman.ReleaseRawObject(ctx, "image-cache", imageId)
+func (c *SRbdImageCacheManager) AcquireImage(ctx context.Context, input api.CacheImageInput, callback func(float32)) (IImageCache, error) {
+	lockman.LockRawObject(ctx, "image-cache", input.ImageId)
+	defer lockman.ReleaseRawObject(ctx, "image-cache", input.ImageId)
 
-	img, ok := c.cachedImages[imageId]
+	img, ok := c.cachedImages[input.ImageId]
 	if !ok {
-		img = NewRbdImageCache(imageId, c)
-		c.cachedImages[imageId] = img
+		img = NewRbdImageCache(input.ImageId, c)
+		c.cachedImages[input.ImageId] = img
 	}
 
-	return img, img.Acquire(ctx, zone, srcUrl, format, checksum)
+	return img, img.Acquire(ctx, input, callback)
 }
 
 func (c *SRbdImageCacheManager) ReleaseImage(ctx context.Context, imageId string) {

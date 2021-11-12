@@ -31,7 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 )
 
@@ -188,7 +188,7 @@ func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.
 	// init private key
 	pb := apb.Playbook.Copy()
 	if len(pb.PrivateKey) == 0 {
-		if k, err := mcclient_modules.Sshkeypairs.FetchPrivateKey(ctx, userCred); err != nil {
+		if k, err := compute.Sshkeypairs.FetchPrivateKey(ctx, userCred); err != nil {
 			return err
 		} else {
 			pb.PrivateKey = []byte(k)

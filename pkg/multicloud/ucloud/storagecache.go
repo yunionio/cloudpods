@@ -26,12 +26,11 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
@@ -106,25 +105,11 @@ func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imag
 }
 
 // https://docs.ucloud.cn/api/uhost-api/import_custom_image
-func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
-	if len(image.ExternalId) > 0 {
-		log.Debugf("UploadImage: Image external ID exists %s", image.ExternalId)
-
-		img, err := self.region.GetImage(image.ExternalId)
-		if err != nil {
-			log.Errorf("GetImageStatus error %s", err)
-		}
-		if img.GetStatus() == api.CACHED_IMAGE_STATUS_ACTIVE && !isForce {
-			return image.ExternalId, nil
-		}
-	} else {
-		log.Debugf("UploadImage: no external ID")
-	}
-
-	return self.uploadImage(ctx, userCred, image, isForce)
+func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
+	return self.uploadImage(ctx, userCred, image, callback)
 }
 
-func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
+func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
 	if len(image.OsVersion) == 0 {
 		return "", fmt.Errorf("uploadImage os version is empty")
 	}
@@ -174,7 +159,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	}
 	file := SFile{
 		bucket: bucket.(*SBucket),
-		file:   reader,
+		file:   multicloud.NewProgress(size, 98, reader, callback),
 
 		Size:     size,
 		FileName: image.ImageId,
@@ -233,6 +218,9 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	})
 	if err != nil {
 		return "", errors.Wrap(err, "UploadImage")
+	}
+	if callback != nil {
+		callback(100)
 	}
 	return imgId, err
 }

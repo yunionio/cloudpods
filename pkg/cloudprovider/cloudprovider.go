@@ -330,6 +330,10 @@ func IsSupportRds(prod ICloudProvider) bool {
 	return IsSupportCapability(prod, CLOUD_CAPABILITY_RDS)
 }
 
+func IsSupportNAS(prod ICloudProvider) bool {
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_NAS)
+}
+
 func IsSupportNAT(prod ICloudProvider) bool {
 	return IsSupportCapability(prod, CLOUD_CAPABILITY_NAT)
 }
@@ -415,17 +419,16 @@ func IsSupported(provider string) bool {
 	return ok
 }
 
-func IsValidCloudAccount(cfg ProviderConfig) (string, error) {
+func IsValidCloudAccount(cfg ProviderConfig) (ICloudProvider, string, error) {
 	factory, ok := providerTable[cfg.Vendor]
 	if ok {
 		provider, err := factory.GetProvider(cfg)
 		if err != nil {
-			return "", err
+			return nil, "", err
 		}
-		return provider.GetAccountId(), nil
-	} else {
-		return "", ErrNoSuchProvder
+		return provider, provider.GetAccountId(), nil
 	}
+	return nil, "", ErrNoSuchProvder
 }
 
 type SBaseProvider struct {

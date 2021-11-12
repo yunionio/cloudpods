@@ -18,7 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/websocket"
 )
 
 func init() {
@@ -32,7 +32,7 @@ func init() {
 			params.Add(jsonutils.JSONTrue, "cmp")
 		}
 
-		_, err := modules.Websockets.Create(s, params)
+		_, err := websocket.Websockets.Create(s, params)
 		if err != nil {
 			return err
 		}

@@ -25,7 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/syncman/watcher"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 )
 
 const (
@@ -78,7 +78,7 @@ func StartOptionManagerWithSessionDriver(options interface{}, refreshSeconds int
 	OptionManager.FirstSync()
 
 	if session.IsRemote() {
-		OptionManager.StartWatching(&modules.ServicesV3)
+		OptionManager.StartWatching(&identity.ServicesV3)
 	}
 }
 

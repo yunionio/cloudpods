@@ -29,7 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/websocket"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -205,7 +205,7 @@ func StartNotifyToWebsocketWorker() {
 			actionLog := <-logQueue
 			params := jsonutils.Marshal(actionLog)
 			s := auth.GetAdminSession(context.Background(), "", "")
-			_, err := modules.Websockets.PerformClassAction(s, "action-log", params)
+			_, err := websocket.Websockets.PerformClassAction(s, "action-log", params)
 			if err != nil {
 				log.Errorf("Send action log error %s", err)
 			}

@@ -26,7 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
 	"yunion.io/x/onecloud/pkg/util/ansiblev2"
 	"yunion.io/x/onecloud/pkg/util/rand"
 )
@@ -74,7 +74,7 @@ func (router *SRouter) realize(ctx context.Context, userCred mcclient.TokenCrede
 	params.Set("playbook", jsonutils.NewString(pb.String()))
 	params.Set("files", jsonutils.NewString(files))
 	cliSess := auth.GetSession(ctx, userCred, "", "")
-	if _, err := mcclient_modules.AnsiblePlaybooksV2.Create(cliSess, params); err != nil {
+	if _, err := ansible.AnsiblePlaybooksV2.Create(cliSess, params); err != nil {
 		return errors.WithMessagef(err, "create ansible task")
 	}
 	return nil

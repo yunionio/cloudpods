@@ -56,7 +56,11 @@ type InterVpcNetworkSyncstatusInput struct {
 }
 
 type InterVpcNetworkAddVpcInput struct {
-	VpcId string
+	// 待加入的vpc id
+	// vpc和当前vpc互联所必须是同一平台，且运营平台一致，例如aws中国区不能和aws国际区运营平台不一致
+	// 可以通过 /vpcs?usable_for_inter_vpc_network_id=<当前vpc互联id> 过滤可以加入的vpc列表
+	// required: true
+	VpcId string `json:"vpc_id"`
 }
 
 type InterVpcNetworkRemoveVpcInput struct {

@@ -41,12 +41,7 @@ func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imag
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
-	img, err := self.region.GetImage(image.ExternalId)
-	if err == nil {
-		return img.GetGlobalId(), nil
-	}
-
+func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, update func(progress float32)) (string, error) {
 	return "", cloudprovider.ErrNotSupported
 }
 

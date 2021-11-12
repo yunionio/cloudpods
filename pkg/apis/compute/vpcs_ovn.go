@@ -18,7 +18,11 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 )
 
-const VPC_OVN_ENCAP_COST = 58
+// IP: 20
+// UDP: 8
+// GENEVE HDR: 8 + 4x
+// total: 36 + 4x
+const VPC_OVN_ENCAP_COST = 60
 
 const (
 	VPC_EXTERNAL_ACCESS_MODE_DISTGW     = "distgw"     // distgw only

@@ -1275,13 +1275,13 @@ func (self *SStorage) GetStoragecache() *SStoragecache {
 	return obj.(*SStoragecache)
 }
 
-func (self *SStorage) PerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SStorage) PerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CacheImageInput) (jsonutils.JSONObject, error) {
 	cache := self.GetStoragecache()
 	if cache == nil {
 		return nil, httperrors.NewInternalServerError("storage cache is missing")
 	}
 
-	return cache.PerformCacheImage(ctx, userCred, query, data)
+	return cache.PerformCacheImage(ctx, userCred, query, input)
 }
 
 func (self *SStorage) AllowPerformUncacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

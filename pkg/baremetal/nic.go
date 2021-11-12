@@ -19,6 +19,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"yunion.io/x/pkg/util/netutils"
@@ -77,13 +78,35 @@ func GetNicDHCPConfig(
 		routes = append(routes, []string{route[0], route[1]})
 	}
 
+	parseIPs := func(ips string) []net.IP {
+		ret := make([]net.IP, 0)
+		iplist := strings.Split(ips, ",")
+		for _, ip := range iplist {
+			ret = append(ret, net.ParseIP(ip))
+		}
+		return ret
+	}
+
+	parseDomains := func(domains string) []net.IP {
+		ret := make([]net.IP, 0)
+		domainlist := strings.Split(domains, ",")
+		for _, domain := range domainlist {
+			addrs, _ := net.LookupHost(domain)
+			for _, addr := range addrs {
+				ret = append(ret, net.ParseIP(addr))
+			}
+		}
+		return ret
+	}
+
 	conf := &dhcp.ResponseConfig{
 		ServerIP:      net.ParseIP(serverIP),
 		ClientIP:      net.ParseIP(ipAddr.String()),
 		Gateway:       net.ParseIP(n.Gateway),
 		SubnetMask:    subnetMask,
 		BroadcastAddr: net.ParseIP(ipAddr.BroadcastAddr(n.MaskLen).String()),
-		DNSServer:     net.ParseIP(n.Dns),
+		DNSServers:    parseIPs(n.Dns),
+		NTPServers:    parseDomains(n.Ntp),
 		Domain:        n.Domain,
 		OsName:        "Linux",
 		Hostname:      hostName,

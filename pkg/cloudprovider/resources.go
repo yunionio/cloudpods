@@ -244,7 +244,7 @@ type ICloudStoragecache interface {
 
 	DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error)
 
-	UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *SImageCreateOption, isForce bool) (string, error)
+	UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *SImageCreateOption, callback func(float32)) (string, error)
 }
 
 type ICloudStorage interface {

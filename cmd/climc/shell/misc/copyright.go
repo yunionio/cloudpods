@@ -27,7 +27,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionagent"
 )
 
 func init() {
@@ -70,7 +70,7 @@ func init() {
 			params.Add(jsonutils.NewString(args.Email), "email")
 		}
 
-		r, err := modules.Copyright.Update(s, "copyright", params)
+		r, err := yunionagent.Copyright.Update(s, "copyright", params)
 		if err != nil {
 			return err
 		}
@@ -144,7 +144,7 @@ func init() {
 		header.Set("content-type", fmt.Sprintf("multipart/form-data; boundary=%s", w.Boundary()))
 		w.Close()
 
-		ret, err := modules.Info.Update(s, header, bufio.NewReader(&b))
+		ret, err := yunionagent.Info.Update(s, header, bufio.NewReader(&b))
 		if err != nil {
 			return err
 		}

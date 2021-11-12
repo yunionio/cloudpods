@@ -29,8 +29,9 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	mc_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
-	npk "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/websocket"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -485,7 +486,7 @@ func (manager *SAlertResourceManager) GetAdminRoleUsers(ctx context.Context, use
 	offset := 0
 	query := jsonutils.NewDict()
 	session := auth.GetAdminSession(ctx, "", "")
-	rid, err := mc_modules.RolesV3.GetId(session, "admin", jsonutils.NewDict())
+	rid, err := identity.RolesV3.GetId(session, "admin", jsonutils.NewDict())
 	if err != nil {
 		errors.Errorf("get role id error:%v", err)
 		return
@@ -493,7 +494,7 @@ func (manager *SAlertResourceManager) GetAdminRoleUsers(ctx context.Context, use
 	query.Add(jsonutils.NewString(rid), "role", "id")
 	for {
 		query.Set("offset", jsonutils.NewInt(int64(offset)))
-		result, err := mc_modules.RoleAssignments.List(session, query)
+		result, err := identity.RoleAssignments.List(session, query)
 		if err != nil {
 			errors.Errorf("get admin role list error:%v", err)
 			return
@@ -504,7 +505,7 @@ func (manager *SAlertResourceManager) GetAdminRoleUsers(ctx context.Context, use
 				log.Errorf("roleAssign:%v", roleAssign)
 				continue
 			}
-			//_, err = mc_modules.NotifyReceiver.GetById(session, userId, jsonutils.NewDict())
+			//_, err = .NotifyReceiver.GetById(session, userId, jsonutils.NewDict())
 			//if err != nil {
 			//	log.Errorf("Recipients GetById err:%v", err)
 			//	continue
@@ -527,12 +528,12 @@ func (manager *SAlertResourceManager) sendWebsocketInfo(uids []string, alertReso
 	params.Set("success", jsonutils.JSONTrue)
 	params.Set("action", jsonutils.NewString("alertResourceCount"))
 	params.Set("ignore_alert", jsonutils.JSONTrue)
-	params.Set("notes", jsonutils.NewString(fmt.Sprintf("priority=%s; content=%s", string(npk.NotifyPriorityCritical),
+	params.Set("notes", jsonutils.NewString(fmt.Sprintf("priority=%s; content=%s", string(notify.NotifyPriorityCritical),
 		jsonutils.Marshal(&alertResourceCount).String())))
 	for _, uid := range uids {
 		params.Set("user_id", jsonutils.NewString(uid))
 		params.Set("user", jsonutils.NewString(uid))
-		_, err := mc_modules.Websockets.Create(session, params)
+		_, err := websocket.Websockets.Create(session, params)
 		if err != nil {
 			log.Errorf("websocket send info err:%v", err)
 		}

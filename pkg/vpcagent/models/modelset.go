@@ -23,7 +23,7 @@ import (
 	computeapis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	mcclient_modulebase "yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
+	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 type (
@@ -94,7 +94,7 @@ func (ms Vpcs) joinRouteTables(subEntries RouteTables) bool {
 		}
 		subEntry.Vpc = m
 		if m.RouteTable != nil {
-			log.Warningf("vpc %s has more than 1 route table available, skipping %s(%s)",
+			log.Warningf("vpc %s(%s) has more than 1 route table available, skipping %s(%s)",
 				m.Name, m.Id, subEntry.Name, subEntry.Id)
 			correct = false
 			continue

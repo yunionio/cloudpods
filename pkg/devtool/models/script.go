@@ -27,7 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/devtool/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -85,7 +85,7 @@ func (sm *SScriptManager) InitializeData() error {
 func (sm *SScriptManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ScriptCreateInput) (api.ScriptCreateInput, error) {
 	// check ansible playbook reference
 	session := auth.GetSessionWithInternal(ctx, userCred, "", "")
-	pr, err := modules.AnsiblePlaybookReference.Get(session, input.PlaybookReference, nil)
+	pr, err := ansible.AnsiblePlaybookReference.Get(session, input.PlaybookReference, nil)
 	if err != nil {
 		return input, errors.Wrapf(err, "unable to get AnsiblePlaybookReference %q", input.PlaybookReference)
 	}

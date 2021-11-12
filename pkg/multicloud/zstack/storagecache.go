@@ -27,7 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
@@ -99,27 +99,11 @@ func (scache *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (scache *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
-	if len(image.ExternalId) > 0 {
-		log.Debugf("UploadImage: Image external ID exists %s", image.ExternalId)
-
-		img, err := scache.region.GetImage(image.ExternalId)
-		if err != nil {
-			log.Errorf("GetImageStatus error %s", err)
-		}
-		status := img.GetStatus()
-		if api.CACHED_IMAGE_STATUS_ACTIVE == status && !isForce {
-			return image.ExternalId, nil
-		}
-		log.Debugf("image %s status %s", image.ExternalId, status)
-	} else {
-		log.Debugf("UploadImage: no external ID")
-	}
-
-	return scache.uploadImage(ctx, userCred, image, isForce)
+func (scache *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
+	return scache.uploadImage(ctx, userCred, image, callback)
 }
 
-func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
+func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 
 	meta, reader, size, err := modules.Images.Download(s, image.ImageId, string(qemuimg.QCOW2), false)
@@ -129,7 +113,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	log.Infof("meta data %s", meta)
 
 	// size, _ := meta.Int("size")
-	img, err := self.region.CreateImage(self.ZoneId, image.ImageName, string(qemuimg.QCOW2), image.OsType, "", reader, size)
+	img, err := self.region.CreateImage(self.ZoneId, image.ImageName, string(qemuimg.QCOW2), image.OsType, "", reader, size, callback)
 	if err != nil {
 		return "", err
 	}
@@ -137,6 +121,9 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	err = cloudprovider.WaitStatus(img, api.CACHED_IMAGE_STATUS_ACTIVE, time.Second*5, time.Minute*20) //windows镜像转换比较慢，等待时间稍微设长一些
 	if err != nil {
 		log.Errorf("waitting for image %s(%s) status ready timeout", img.Name, img.UUID)
+	}
+	if callback != nil {
+		callback(100)
 	}
 	return img.UUID, err
 }

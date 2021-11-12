@@ -52,7 +52,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 	"yunion.io/x/onecloud/pkg/multicloud/esxi"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -1089,7 +1089,7 @@ func (self *SHostManager) ClearSchedDescCache(hostId string) error {
 
 func (self *SHostManager) ClearSchedDescSessionCache(hostId, sessionId string) error {
 	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
-	return modules.SchedManager.CleanCache(s, hostId, sessionId, false)
+	return scheduler.SchedManager.CleanCache(s, hostId, sessionId, false)
 }
 
 func (self *SHost) ClearSchedDescCache() error {
@@ -1103,7 +1103,7 @@ func (self *SHost) ClearSchedDescSessionCache(sessionId string) error {
 // sync clear sched desc on scheduler side
 func (self *SHostManager) SyncClearSchedDescSessionCache(hostId, sessionId string) error {
 	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
-	return modules.SchedManager.CleanCache(s, hostId, sessionId, true)
+	return scheduler.SchedManager.CleanCache(s, hostId, sessionId, true)
 }
 
 func (self *SHost) SyncCleanSchedDescCache() error {
@@ -4775,25 +4775,25 @@ func (self *SHost) AllowPerformCacheImage(ctx context.Context,
 	return db.IsAdminAllowPerform(userCred, self, "cache-image")
 }
 
-func (self *SHost) PerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SHost) PerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CacheImageInput) (jsonutils.JSONObject, error) {
 	if self.HostType == api.HOST_TYPE_BAREMETAL || self.HostStatus != api.HOST_ONLINE {
 		return nil, httperrors.NewInvalidStatusError("Cannot perform cache image in status %s", self.Status)
 	}
-	imageId, _ := data.GetString("image")
-	img, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
-	if err != nil {
-		log.Errorln(err)
-		return nil, httperrors.NewNotFoundError("image %s not found", imageId)
+	if len(input.ImageId) == 0 {
+		return nil, httperrors.NewMissingParameterError("image_id")
 	}
+	img, err := CachedimageManager.getImageInfo(ctx, userCred, input.ImageId, false)
+	if err != nil {
+		return nil, httperrors.NewNotFoundError("image %s not found", input.ImageId)
+	}
+	input.ImageId = img.Id
 	if len(img.Checksum) != 0 && regutils.MatchUUID(img.Checksum) {
 		return nil, httperrors.NewInvalidStatusError("Cannot cache image with no checksum")
 	}
-	isForce := jsonutils.QueryBoolean(data, "is_force", false)
-	format, _ := data.GetString("format")
-	return nil, self.StartImageCacheTask(ctx, userCred, img.Id, format, isForce)
+	return nil, self.StartImageCacheTask(ctx, userCred, input)
 }
 
-func (self *SHost) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, format string, isForce bool) error {
+func (self *SHost) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, input api.CacheImageInput) error {
 	var sc *SStoragecache
 	switch self.HostType {
 	case api.HOST_TYPE_BAREMETAL:
@@ -4805,7 +4805,7 @@ func (self *SHost) StartImageCacheTask(ctx context.Context, userCred mcclient.To
 	if sc == nil {
 		return errors.Wrap(errors.ErrNotSupported, "No associate storage cache found")
 	}
-	return sc.StartImageCacheTask(ctx, userCred, imageId, format, isForce, "")
+	return sc.StartImageCacheTask(ctx, userCred, input)
 }
 
 func (self *SHost) AllowPerformConvertHypervisor(ctx context.Context,

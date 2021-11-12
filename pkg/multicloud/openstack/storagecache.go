@@ -28,7 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
@@ -93,26 +93,14 @@ func (cache *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (cache *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
-	if len(image.ExternalId) > 0 {
-		log.Debugf("UploadImage: Image external ID exists %s", image.ExternalId)
-
-		statsu, err := cache.region.GetImageStatus(image.ExternalId)
-		if err != nil {
-			log.Errorf("GetImageStatus error %s", err)
-		}
-		if statsu == ACTIVE && !isForce {
-			return image.ExternalId, nil
-		}
-	}
-	log.Debugf("UploadImage: no external ID")
-	return cache.uploadImage(ctx, userCred, image, isForce)
+func (cache *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
+	return cache.uploadImage(ctx, userCred, image, callback)
 }
 
-func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
+func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 
-	meta, reader, _, err := modules.Images.Download(s, image.ImageId, string(qemuimg.QCOW2), false)
+	meta, reader, size, err := modules.Images.Download(s, image.ImageId, string(qemuimg.QCOW2), false)
 	if err != nil {
 		return "", err
 	}
@@ -144,14 +132,23 @@ func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.T
 		minDiskSizeGB += 1
 	}
 
-	img, err := cache.region.CreateImage(imageName, osType, osDist, int(minDiskSizeGB), int(minRamMb), reader)
+	img, err := cache.region.CreateImage(imageName, osType, osDist, int(minDiskSizeGB), int(minRamMb), size, reader, callback)
 	if err != nil {
 		return "", err
 	}
 
 	img.storageCache = cache
 
-	return img.Id, cloudprovider.WaitStatus(img, api.CACHED_IMAGE_STATUS_ACTIVE, 15*time.Second, 3600*time.Second)
+	err = cloudprovider.WaitStatus(img, api.CACHED_IMAGE_STATUS_ACTIVE, 15*time.Second, 3600*time.Second)
+	if err != nil {
+		return "", errors.Wrapf(err, "WaitStatus")
+	}
+
+	if callback != nil {
+		callback(100)
+	}
+
+	return img.Id, nil
 }
 
 func (cache *SStoragecache) CreateIImage(snapshoutId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {

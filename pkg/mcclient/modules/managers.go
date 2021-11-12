@@ -96,7 +96,7 @@ func NewJointCloudIdManager(keyword, keywordPlural string, columns, adminColumns
 		Slave:           slave}
 }
 
-func NewJointMonitorManager(keyword, keywordPlural string, columns, adminColumns []string, master, slave modulebase.Manager) modulebase.JointResourceManager {
+func NewJointServiceTreeManager(keyword, keywordPlural string, columns, adminColumns []string, master, slave modulebase.Manager) modulebase.JointResourceManager {
 	return modulebase.JointResourceManager{
 		ResourceManager: NewServiceTreeManager(keyword, keywordPlural, columns, adminColumns),
 		Master:          master,
