@@ -45,10 +45,11 @@ func (self *DetachAlertResourceTask) OnInit(ctx context.Context, obj db.IStandal
 		self.taskFail(ctx, alert, msg)
 		return
 	}
-	err := models.GetAlertResourceManager().NotifyAlertResourceCount(ctx)
-	if err != nil {
-		log.Errorf("DetachAlertResourceTask NotifyAlertResourceCount error:%v", err)
-	}
+	var err error
+	//err := models.GetAlertResourceManager().NotifyAlertResourceCount(ctx)
+	//if err != nil {
+	//	log.Errorf("DetachAlertResourceTask NotifyAlertResourceCount error:%v", err)
+	//}
 	// detach MonitorResourceJoint when alert disabel
 	err = models.MonitorResourceAlertManager.DetachJoint(ctx, self.GetUserCred(),
 		monitor.MonitorResourceJointListInput{AlertId: alert.GetId()})
