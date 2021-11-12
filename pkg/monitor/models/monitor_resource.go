@@ -299,7 +299,7 @@ func (self *SMonitorResource) RealDelete(ctx context.Context, userCred mcclient.
 	if err != nil {
 		return err
 	}
-	return self.SVirtualResourceBase.Delete(ctx, userCred)
+	return self.SVirtualResourceBase.Delete(ctx, nil)
 }
 
 func (self *SMonitorResource) DetachJoint(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -433,6 +433,13 @@ func (self *SMonitorResource) UpdateAttachJoint(alertRecord *SAlertRecord, match
 		return errors.Wrapf(err, "SMonitorResource:%s UpdateAttachJoint err", self.Name)
 	}
 	errs := make([]error, 0)
+	// 报警时发现没有进行关联，增加attach
+	if len(joints) == 0 {
+		self.AttachAlert(context.Background(), nil, alertRecord.AlertId)
+		joints, _ = MonitorResourceAlertManager.GetJoinsByListInput(monitor.
+			MonitorResourceJointListInput{MonitorResourceId: self.
+			ResId, AlertId: alertRecord.AlertId})
+	}
 	for _, joint := range joints {
 		err := joint.UpdateAlertRecordData(alertRecord, &match)
 		if err != nil {
