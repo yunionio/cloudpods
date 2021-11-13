@@ -19,32 +19,9 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/itsm"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
-	type TaskListOptions struct {
-		options.BaseListOptions
-	}
-	R(&TaskListOptions{}, "task-list", "List taskman", func(s *mcclient.ClientSession, suboptions *TaskListOptions) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = suboptions.BaseListOptions.Params()
-			if err != nil {
-				return err
-
-			}
-		}
-		result, err := itsm.Tasks.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(result, itsm.Tasks.GetColumns(s))
-		return nil
-	})
-
 	type RegionTaskListOptions struct {
 		ObjName  string `help:"object name"`
 		ObjId    string `help:"object id"`

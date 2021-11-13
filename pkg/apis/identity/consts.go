@@ -110,6 +110,8 @@ var (
 			"global_http_proxy",
 			"global_https_proxy",
 			"ignore_nonrunning_guests",
+			"platform_name",
+			"platform_names",
 		},
 	}
 

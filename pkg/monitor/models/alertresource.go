@@ -30,8 +30,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/websocket"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -432,7 +430,7 @@ func (res *SAlertResource) CustomizeDelete(
 	return nil
 }
 
-func (manager *SAlertResourceManager) NotifyAlertResourceCount(ctx context.Context) error {
+/*func (manager *SAlertResourceManager) NotifyAlertResourceCount(ctx context.Context) error {
 	log.Errorln("exec NotifyAlertResourceCount func")
 	cn, err := manager.getResourceCount()
 	if err != nil {
@@ -460,9 +458,9 @@ func (manager *SAlertResourceManager) NotifyAlertResourceCount(ctx context.Conte
 	//} else {
 	//	return fmt.Errorf("no find users in receivers has admin role")
 	//}
-	manager.sendWebsocketInfo(ids, alertResourceCount)
+	// manager.sendWebsocketInfo(ids, alertResourceCount)
 	return nil
-}
+}*/
 
 type resourceCount struct {
 	AlertResourceCount int `json:"alert_resource_count"`
@@ -519,6 +517,7 @@ func (manager *SAlertResourceManager) GetAdminRoleUsers(ctx context.Context, use
 	}
 }
 
+/*
 func (manager *SAlertResourceManager) sendWebsocketInfo(uids []string, alertResourceCount resourceCount) {
 	session := auth.GetAdminSession(context.Background(), "", "")
 	params := jsonutils.NewDict()
@@ -539,3 +538,4 @@ func (manager *SAlertResourceManager) sendWebsocketInfo(uids []string, alertReso
 		}
 	}
 }
+*/

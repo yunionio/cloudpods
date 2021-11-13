@@ -40,7 +40,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/itsm"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -95,7 +94,6 @@ func (h *MiscHandler) Bind(app *appsrv.Application) {
 	uploader := UploadHandlerInfo(POST, prefix+"uploads", FetchAuthToken(h.PostUploads))
 	app.AddHandler3(uploader)
 	app.AddHandler(GET, prefix+"downloads/<template_id>", FetchAuthToken(h.getDownloadsHandler))
-	app.AddHandler(POST, prefix+"piuploads", FetchAuthToken(h.postPIUploads)) // itsm process instances upload api
 	// download vm image by url (no auth token required). token 有效期24小时
 	imageDownloadByUrl := uploadHandlerInfo(GET, prefix+"imageutils/image/<image_name>", imageDownloadByUrlHandler)
 	app.AddHandler3(imageDownloadByUrl)
@@ -496,32 +494,6 @@ func (mh *MiscHandler) getDownloadsHandler(ctx context.Context, w http.ResponseW
 	w.Header().Set("Content-Disposition", "Attachment; filename=template.xlsx")
 	w.Write(content.Bytes())
 	return
-}
-
-func (mh *MiscHandler) postPIUploads(ctx context.Context, w http.ResponseWriter, req *http.Request) {
-	// 5 MB
-	var maxMemory int64 = 5 << 20
-	if req.ContentLength > maxMemory {
-		httperrors.InvalidInputError(ctx, w, "request body is too large.")
-		return
-	}
-
-	if !strings.Contains(req.Header.Get("Content-Type"), "multipart/form-data") {
-		httperrors.InvalidInputError(ctx, w, "invalid multipart form")
-		return
-	}
-
-	s := FetchSession(ctx, req, "")
-	header := http.Header{}
-	header.Set("Content-Type", req.Header.Get("Content-Type"))
-	header.Set("Content-Length", req.Header.Get("Content-Length"))
-	resp, err := itsm.ProcessInstance.Upload(s, header, req.Body)
-	if err != nil {
-		httperrors.GeneralServerError(ctx, w, err)
-		return
-	}
-
-	appsrv.SendJSON(w, resp)
 }
 
 func (mh *MiscHandler) postS3UploadHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {

@@ -52,7 +52,7 @@ func StartService() {
 	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
-	models.StartNotifyToWebsocketWorker()
+	// models.StartNotifyToWebsocketWorker()
 
 	app_common.ServeForever(app, baseOpts)
 }
