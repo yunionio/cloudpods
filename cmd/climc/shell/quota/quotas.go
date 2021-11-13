@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package quota
 
 import (
 	"yunion.io/x/jsonutils"
@@ -20,7 +20,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/quota"
 )
 
 type ComputeQuotaKeys struct {

@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
@@ -28,8 +27,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/websocket"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -198,20 +195,20 @@ func (man *SActionlogManager) GetI18N(ctx context.Context, idstr string, resObj 
 //		}
 //	}
 // }
-
-func StartNotifyToWebsocketWorker() {
-	go func() {
-		for {
-			actionLog := <-logQueue
-			params := jsonutils.Marshal(actionLog)
-			s := auth.GetAdminSession(context.Background(), "", "")
-			_, err := websocket.Websockets.PerformClassAction(s, "action-log", params)
-			if err != nil {
-				log.Errorf("Send action log error %s", err)
-			}
-		}
-	}()
-}
+//
+// func StartNotifyToWebsocketWorker() {
+// 	go func() {
+// 		for {
+// 			actionLog := <-logQueue
+// 			params := jsonutils.Marshal(actionLog)
+// 			s := auth.GetAdminSession(context.Background(), "", "")
+// 			_, err := websocket.Websockets.PerformClassAction(s, "action-log", params)
+// 			if err != nil {
+// 				log.Errorf("Send action log error %s", err)
+// 			}
+// 		}
+// 	}()
+// }
 
 func (manager *SActionlogManager) InitializeData() error {
 	fileds, err := db.DistinctFieldManager.GetObjectDistinctFields(manager.Keyword())

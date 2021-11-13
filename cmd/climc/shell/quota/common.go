@@ -12,25 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package servicetree
+package quota
 
 import (
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/onecloud/pkg/util/printutils"
 )
 
 var (
-	AlarmTemplateAlarms modulebase.JointResourceManager
+	R                 = shell.R
+	printList         = printutils.PrintJSONList
+	printObject       = printutils.PrintJSONObject
+	printBatchResults = printutils.PrintJSONBatchResults
+
+	InvalidUpdateError   = shell.InvalidUpdateError
+	printObjectRecursive = printutils.PrintJSONObjectRecursive
 )
-
-func init() {
-	AlarmTemplateAlarms = modules.NewJointServiceTreeManager(
-		"alarmtemplate_alarm",
-		"alarmtemplate_alarms",
-		[]string{"id", "alarm_template_name", "alarm_template_desc", "belongto", "status", "create_by", "update_by", "delete_by", "gmt_create", "gmt_modified", "gmt_delete", "is_deleted", "project_id", "remark"},
-		[]string{},
-		&AlarmTemplates,
-		&Alarms)
-
-	modules.Register(&AlarmTemplateAlarms)
-}
