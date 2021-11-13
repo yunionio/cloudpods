@@ -455,7 +455,7 @@ func (self *SAzureClient) _apiVersion(resource string, params url.Values) string
 			return "2020-11-01"
 		}
 		if utils.IsInStringArray("applicationgatewaywebapplicationfirewallpolicies", info) {
-			return "2020-11-01"
+			return "2021-01-01"
 		}
 		if utils.IsInStringArray("applicationgatewayavailablewafrulesets", info) {
 			return "2018-06-01"
