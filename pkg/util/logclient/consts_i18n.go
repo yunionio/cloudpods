@@ -703,10 +703,11 @@ func init() {
 		EN("Notify").
 		CN("通知服务"),
 	)
-	s.Set(apis.SERVICE_TYPE_SUGGESTION, i18n.NewTableEntry().
+	/*s.Set(apis.SERVICE_TYPE_SUGGESTION, i18n.NewTableEntry().
 		EN("Suggestion").
 		CN("优化建议"),
 	)
+	*/
 	s.Set(apis.SERVICE_TYPE_METER, i18n.NewTableEntry().
 		EN("Suggestion").
 		CN("计费服务"),
