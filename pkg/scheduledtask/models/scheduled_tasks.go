@@ -37,7 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 	sop "yunion.io/x/onecloud/pkg/scheduledtask/options"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -604,8 +604,8 @@ func (stm *SScheduledTaskManager) Timer(ctx context.Context, userCred mcclient.T
 }
 
 func init() {
-	Register(ResourceServer, modules.Servers.ResourceManager)
-	Register(ResourceCloudAccount, modules.Cloudaccounts)
+	Register(ResourceServer, compute.Servers.ResourceManager)
+	Register(ResourceCloudAccount, compute.Cloudaccounts)
 }
 
 // Modules describe the correspondence between Resource and modulebase.ResourceManager,
@@ -796,7 +796,7 @@ func (r SAction) Apply(id string) (success bool, failReason string) {
 				params.Add(jsonutils.NewString(id), "obj_id")
 				params.Add(jsonutils.NewStringArray([]string{fail.LogEvent}), "action")
 				params.Add(jsonutils.NewInt(1), "limit")
-				events, err := modules.Logs.List(r.session, params)
+				events, err := compute.Logs.List(r.session, params)
 				if err != nil {
 					log.Errorf("Logs.List failed: %s", err.Error())
 					<-ticker.C
