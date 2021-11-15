@@ -340,6 +340,7 @@ func (record *SAlertRecord) PostCreate(ctx context.Context, userCred mcclient.To
 		log.Errorf("Reconcile from alert record error: %v", err)
 		return
 	}
+
 	// err = GetAlertResourceManager().NotifyAlertResourceCount(ctx)
 	// if err != nil {
 	//	log.Errorf("NotifyAlertResourceCount error: %v", err)

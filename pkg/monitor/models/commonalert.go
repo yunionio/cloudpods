@@ -1346,6 +1346,11 @@ jointLoop:
 				continue jointLoop
 			}
 		}
+		// 排除近期有报警状态的情况：system.uptime
+		if joint.AlertState == monitor.MONITOR_RESOURCE_ALERT_STATUS_ALERTING && time.Now().Sub(joint.TriggerTime).
+			Minutes() < 30 {
+			continue
+		}
 		deleteJointIds = append(deleteJointIds, joint.RowId)
 	}
 	if len(resourceIds) == 0 {
