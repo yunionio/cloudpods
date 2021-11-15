@@ -59,7 +59,6 @@ func InitDB() error {
 		ServerSkuManager,
 		ElasticcacheSkuManager,
 
-		ScheduledTaskActivityManager,
 		ExternalProjectManager,
 		CachedimageManager,
 		StoragecachedimageManager,
