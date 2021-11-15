@@ -97,6 +97,31 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilter(
 	return q, nil
 }
 
+func (manager *SStandaloneResourceBaseManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SResourceBaseManager.ListItemExportKeys")
+	}
+
+	if keys.Contains("user_tags") {
+		userTagsQuery := Metadata.Query().Startswith("id", manager.keyword+"::").
+			Startswith("key", USER_TAG_PREFIX).GroupBy("id")
+		userTagsQuery.AppendField(sqlchemy.SubStr("resource_id", userTagsQuery.Field("id"), len(manager.keyword)+3, 0))
+		userTagsQuery.AppendField(
+			sqlchemy.GROUP_CONCAT("user_tags", sqlchemy.CONCAT("",
+				sqlchemy.SubStr("", userTagsQuery.Field("key"), len(USER_TAG_PREFIX)+1, 0),
+				sqlchemy.NewStringField(":"),
+				userTagsQuery.Field("value"),
+			)))
+		subQ := userTagsQuery.SubQuery()
+		q.LeftJoin(subQ, sqlchemy.Equals(q.Field("id"), subQ.Field("resource_id")))
+		q.AppendField(subQ.Field("user_tags"))
+	}
+
+	return q, nil
+}
+
 func (manager *SStandaloneResourceBaseManager) OrderByExtraFields(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
