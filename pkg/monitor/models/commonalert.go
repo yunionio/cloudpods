@@ -41,9 +41,9 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/yunionagent"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
 	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
+	"yunion.io/x/onecloud/pkg/monitor/options"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -1418,7 +1418,7 @@ type SCompanyInfo struct {
 }
 
 func GetCompanyInfo(ctx context.Context) (SCompanyInfo, error) {
-	info, err := getBrandFromCopyrightApi(ctx)
+	/* info, err := getBrandFromCopyrightApi(ctx)
 	if err == nil && len(info.Name) != 0 {
 		return *info, nil
 	}
@@ -1426,8 +1426,13 @@ func GetCompanyInfo(ctx context.Context) (SCompanyInfo, error) {
 		log.Errorf("getBrandFromCopyrightApi err:%v", err)
 	}
 	return getBrandFromInfoApi(ctx)
+	*/
+	return SCompanyInfo{
+		Name: options.Options.GetPlatformName(i18n.Lang(ctx)),
+	}, nil
 }
 
+/*
 func getBrandFromCopyrightApi(ctx context.Context) (*SCompanyInfo, error) {
 	session := auth.GetAdminSession(context.Background(), "", "")
 	obj, err := modules.Copyright.Update(session, "copyright", jsonutils.NewDict())
@@ -1467,3 +1472,4 @@ func getBrandFromInfoApi(ctx context.Context) (SCompanyInfo, error) {
 	}
 	return info, nil
 }
+*/

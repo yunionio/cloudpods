@@ -33,9 +33,9 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionagent"
 	notifyv2 "yunion.io/x/onecloud/pkg/notify"
 	"yunion.io/x/onecloud/pkg/notify/options"
 	"yunion.io/x/onecloud/pkg/notify/rpc/apis"
@@ -133,7 +133,7 @@ type SCompanyInfo struct {
 
 func (tm *STemplateManager) GetCompanyInfo(ctx context.Context) (SCompanyInfo, error) {
 	// fetch copyright and logo
-	session := auth.GetAdminSession(ctx, "", "")
+	/*session := auth.GetAdminSession(ctx, "", "")
 	obj, err := yunionagent.Info.Get(session, "info", jsonutils.NewDict())
 	if err != nil {
 		return SCompanyInfo{}, err
@@ -144,6 +144,10 @@ func (tm *STemplateManager) GetCompanyInfo(ctx context.Context) (SCompanyInfo, e
 		return SCompanyInfo{}, err
 	}
 	return info, nil
+	*/
+	return SCompanyInfo{
+		Name: options.Options.GetPlatformName(i18n.Lang(ctx)),
+	}, nil
 }
 
 var (

@@ -34,7 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/logger"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/websocket"
+	// "yunion.io/x/onecloud/pkg/mcclient/modules/websocket"
 )
 
 type SessionGenerator func(ctx context.Context, token mcclient.TokenCredential, region, apiVersion string) *mcclient.ClientSession
@@ -81,9 +81,9 @@ func AddActionLogWithStartable(task cloudcommon.IStartable, model IObject, actio
 }
 
 // add websocket log to notify active browser users
-func PostWebsocketNotify(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
-	addLog(model, action, iNotes, userCred, success, time.Time{}, &websocket.Websockets)
-}
+// func PostWebsocketNotify(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
+// 	addLog(model, action, iNotes, userCred, success, time.Time{}, &websocket.Websockets)
+// }
 
 func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool, startTime time.Time, api IModule) {
 	if !consts.OpsLogEnabled() {

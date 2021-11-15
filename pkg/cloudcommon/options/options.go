@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 
 	"golang.org/x/net/http/httpproxy"
+	"golang.org/x/text/language"
 
 	"yunion.io/x/log"
 	"yunion.io/x/log/hooks"
@@ -104,6 +105,9 @@ type BaseOptions struct {
 	GlobalHTTPSProxy string `help:"Global https proxy"`
 
 	IgnoreNonrunningGuests bool `default:"true" help:"Count memory for running guests only when do scheduling. Ignore memory allocation for non-running guests"`
+
+	PlatformName  string            `help:"identity name of this platform" default:"Cloudpods"`
+	PlatformNames map[string]string `help:"identity name of this platform by language"`
 }
 
 const (
@@ -334,4 +338,13 @@ func (self *BaseOptions) HttpTransportProxyFunc() httputils.TransportProxyFunc {
 	return func(req *http.Request) (*url.URL, error) {
 		return proxyFunc(req.URL)
 	}
+}
+
+func (opt *BaseOptions) GetPlatformName(lang language.Tag) string {
+	if len(opt.PlatformNames) > 0 {
+		if name, ok := opt.PlatformNames[lang.String()]; ok {
+			return name
+		}
+	}
+	return opt.PlatformName
 }

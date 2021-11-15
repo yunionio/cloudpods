@@ -12,12 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package quota
 
-type VersionListOptions struct {
-	Region string
-}
+import (
+	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/onecloud/pkg/util/printutils"
+)
 
-type VersionGetOptions struct {
-	Service string `choices:"cloud" default:"cloud"`
-}
+var (
+	R                 = shell.R
+	printList         = printutils.PrintJSONList
+	printObject       = printutils.PrintJSONObject
+	printBatchResults = printutils.PrintJSONBatchResults
+
+	InvalidUpdateError   = shell.InvalidUpdateError
+	printObjectRecursive = printutils.PrintJSONObjectRecursive
+)

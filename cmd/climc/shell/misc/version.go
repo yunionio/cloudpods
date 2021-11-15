@@ -25,8 +25,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionagent"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
@@ -44,7 +42,6 @@ func init() {
 
 	type VersionListOptions struct {
 	}
-
 	R(&VersionListOptions{}, "version-list", "query all backend service version", func(s *mcclient.ClientSession, args *VersionListOptions) error {
 		services := []jsonutils.JSONObject{}
 		params := map[string]interface{}{}
@@ -76,35 +73,6 @@ func init() {
 			}
 		}
 		printObject(jsonutils.Marshal(vers))
-		return nil
-	})
-
-	R(&options.VersionListOptions{}, "yunionagent-version-list", "show versions of backend services", func(s *mcclient.ClientSession, opts *options.VersionListOptions) error {
-		if len(opts.Region) == 0 {
-			opts.Region = s.GetRegion()
-		}
-		params, err := options.StructToParams(opts)
-		if err != nil {
-			return err
-		}
-		result, err := yunionagent.Version.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(result, []string{})
-		return nil
-	})
-
-	R(&options.VersionGetOptions{}, "yunionagent-version-show", "Show service version", func(s *mcclient.ClientSession, opts *options.VersionGetOptions) error {
-		result, err := yunionagent.Version.Get(s, opts.Service, nil)
-		if err != nil {
-			return err
-		}
-		ver, err := result.GetString()
-		if err != nil {
-			return err
-		}
-		fmt.Printf("%s\n", ver)
 		return nil
 	})
 }
