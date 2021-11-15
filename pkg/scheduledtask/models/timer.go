@@ -24,7 +24,7 @@ import (
 
 	"yunion.io/x/log"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
+	api "yunion.io/x/onecloud/pkg/apis/scheduledtask"
 	"yunion.io/x/onecloud/pkg/i18n"
 	"yunion.io/x/onecloud/pkg/util/bitmap"
 )
