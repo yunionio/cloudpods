@@ -27,6 +27,7 @@ import (
 )
 
 type SAppSite struct {
+	multicloud.SResourceBase
 	multicloud.AzureTags
 	region         *SRegion
 	appServicePlan *SAppServicePlan
@@ -215,8 +216,6 @@ func (as *SAppSite) GetProjectId() string {
 }
 
 type SApp struct {
-	multicloud.SResourceBase
-	multicloud.AzureTags
 	SAppSite
 }
 
