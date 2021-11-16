@@ -161,6 +161,7 @@ type SCloudaccount struct {
 	// 公有云子账号登录地址
 	IamLoginUrl string `width:"512" charset:"ascii" nullable:"false" list:"domain" update:"domain"`
 
+	ReadOnly            tristate.TriState `nullable:"false" get:"user" update:"domain" create:"optional" list:"user" default:"false"`
 	SAMLAuth            tristate.TriState `nullable:"false" get:"user" update:"domain" create:"optional" list:"user" default:"false"`
 	vmwareHostWireCache map[string][]SVs2Wire
 
@@ -959,6 +960,7 @@ func (self *SCloudaccount) getProviderInternal() (cloudprovider.ICloudProvider, 
 		Options:       self.Options,
 		DefaultRegion: defaultRegion,
 		ProxyFunc:     self.proxyFunc(),
+		ReadOnly:      self.ReadOnly.Bool(),
 	})
 }
 

@@ -20,6 +20,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
@@ -41,33 +42,35 @@ type SElb struct {
 	multicloud.SResourceBase
 	region *SRegion
 
-	Type                  string             `json:"Type"`
-	Scheme                string             `json:"Scheme"`
-	IPAddressType         string             `json:"IpAddressType"`
-	VpcID                 string             `json:"VpcId"`
-	AvailabilityZones     []AvailabilityZone `json:"AvailabilityZones"`
-	CreatedTime           string             `json:"CreatedTime"`
-	CanonicalHostedZoneID string             `json:"CanonicalHostedZoneId"`
-	DNSName               string             `json:"DNSName"`
-	SecurityGroups        []string           `json:"SecurityGroups"`
-	LoadBalancerName      string             `json:"LoadBalancerName"`
-	State                 State              `json:"State"`
-	LoadBalancerArn       string             `json:"LoadBalancerArn"`
+	AvailabilityZones     []AvailabilityZone `xml:"AvailabilityZones>member"`
+	CanonicalHostedZoneId string             `xml:"CanonicalHostedZoneId"`
+	CreatedTime           time.Time          `xml:"CreatedTime"`
+	CustomerOwnedIpv4Pool string             `xml:"CustomerOwnedIpv4Pool"`
+	DNSName               string             `xml:"DNSName"`
+	IpAddressType         string             `xml:"IpAddressType"`
+	LoadBalancerArn       string             `xml:"LoadBalancerArn"`
+	LoadBalancerName      string             `xml:"LoadBalancerName"`
+	Scheme                string             `xml:"Scheme"`
+	SecurityGroups        []string           `xml:"SecurityGroups"`
+	State                 LoadBalancerState  `xml:"State"`
+	Type                  string             `xml:"Type"`
+	VpcId                 string             `xml:"VpcId"`
+}
+
+type LoadBalancerState struct {
+	Code   string `xml:"Code"`
+	Reason string `xml:"Reason"`
 }
 
 type AvailabilityZone struct {
-	LoadBalancerAddresses []LoadBalancerAddress `json:"LoadBalancerAddresses"`
-	ZoneName              string                `json:"ZoneName"`
-	SubnetID              string                `json:"SubnetId"`
+	LoadBalancerAddresses []LoadBalancerAddress `xml:"LoadBalancerAddresses"`
+	ZoneName              string                `xml:"ZoneName"`
+	SubnetId              string                `xml:"SubnetId"`
 }
 
 type LoadBalancerAddress struct {
-	IPAddress    string `json:"IpAddress"`
-	AllocationID string `json:"AllocationId"`
-}
-
-type State struct {
-	Code string `json:"Code"`
+	IPAddress    string `xml:"IpAddress"`
+	AllocationId string `xml:"AllocationId"`
 }
 
 func (self *SElb) GetId() string {
@@ -162,14 +165,13 @@ func (self *SElb) GetNetworkType() string {
 func (self *SElb) GetNetworkIds() []string {
 	ret := []string{}
 	for i := range self.AvailabilityZones {
-		ret = append(ret, self.AvailabilityZones[i].SubnetID)
+		ret = append(ret, self.AvailabilityZones[i].SubnetId)
 	}
-
 	return ret
 }
 
 func (self *SElb) GetVpcId() string {
-	return self.VpcID
+	return self.VpcId
 }
 
 func (self *SElb) GetZoneId() string {
@@ -287,19 +289,10 @@ func (self *SElb) GetIEIP() (cloudprovider.ICloudEIP, error) {
 }
 
 func (self *SRegion) DeleteElb(elbId string) error {
-	client, err := self.GetElbV2Client()
-	if err != nil {
-		return errors.Wrap(err, "GetElbV2Client")
+	params := map[string]string{
+		"LoadBalancerArn": elbId,
 	}
-
-	params := &elbv2.DeleteLoadBalancerInput{}
-	params.SetLoadBalancerArn(elbId)
-	_, err = client.DeleteLoadBalancer(params)
-	if err != nil {
-		return errors.Wrap(err, "DeleteLoadBalancer")
-	}
-
-	return nil
+	return self.elbRequest("DeleteLoadBalancer", params, nil)
 }
 
 func (self *SRegion) GetElbBackendgroups(elbId string, backendgroupIds []string) ([]SElbBackendGroup, error) {
@@ -341,34 +334,24 @@ func (self *SRegion) GetElbBackendgroups(elbId string, backendgroupIds []string)
 }
 
 func (self *SRegion) GetElbBackendgroup(backendgroupId string) (*SElbBackendGroup, error) {
-	client, err := self.GetElbV2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetElbV2Client")
+	params := map[string]string{
+		"TargetGroupArns.member.1": backendgroupId,
 	}
-
-	params := &elbv2.DescribeTargetGroupsInput{}
-	params.SetTargetGroupArns([]*string{&backendgroupId})
-
-	ret, err := client.DescribeTargetGroups(params)
+	result := struct {
+		NextMarker string             `xml:"NextMarker"`
+		Groups     []SElbBackendGroup `xml:"TargetGroups>member"`
+	}{}
+	err := self.elbRequest("DescribeTargetGroups", params, &result)
 	if err != nil {
-		if strings.Contains(err.Error(), "TargetGroupNotFound") {
-			return nil, cloudprovider.ErrNotFound
+		return nil, errors.Wrapf(err, "DescribeTargetGroups")
+	}
+	for i := range result.Groups {
+		if result.Groups[i].GetId() == backendgroupId {
+			result.Groups[i].region = self
+			return &result.Groups[i], nil
 		}
-		return nil, errors.Wrap(err, "DescribeTargetGroups")
 	}
-
-	backendgroups := []SElbBackendGroup{}
-	err = unmarshalAwsOutput(ret, "TargetGroups", &backendgroups)
-	if err != nil {
-		return nil, errors.Wrap(err, "unmarshalAwsOutput.TargetGroups")
-	}
-
-	if len(backendgroups) == 1 {
-		backendgroups[0].region = self
-		return &backendgroups[0], nil
-	}
-
-	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetElbBackendgroup")
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, backendgroupId)
 }
 
 func ToAwsHealthCode(s string) string {
@@ -422,60 +405,48 @@ func ToOnecloudHealthCode(s string) string {
 
 // 目前只支持target type ：instance
 func (self *SRegion) CreateElbBackendgroup(group *cloudprovider.SLoadbalancerBackendGroup) (*SElbBackendGroup, error) {
-	params := &elbv2.CreateTargetGroupInput{}
-	params.SetProtocol(strings.ToUpper(group.ListenType))
-	params.SetPort(int64(group.ListenPort))
-	params.SetVpcId(group.VpcId)
-	params.SetName(group.Name)
-	params.SetTargetType("instance")
+	params := map[string]string{
+		"Protocol":   strings.ToUpper(group.ListenType),
+		"Port":       fmt.Sprintf("%d", group.ListenPort),
+		"VpcId":      group.VpcId,
+		"Name":       group.Name,
+		"TargetType": "instance",
+	}
 	if group.HealthCheck != nil {
-		params.SetHealthCheckPort("traffic-port")
-		params.SetHealthCheckProtocol(strings.ToUpper(group.HealthCheck.HealthCheckType))
-		params.SetHealthCheckIntervalSeconds(int64(group.HealthCheck.HealthCheckInterval))
-		params.SetHealthyThresholdCount(int64(group.HealthCheck.HealthCheckRise))
-
+		params["HealthCheckPort"] = "traffic-port"
+		params["HealthCheckProtocol"] = strings.ToUpper(group.HealthCheck.HealthCheckType)
+		params["HealthCheckIntervalSeconds"] = fmt.Sprintf("%d", group.HealthCheck.HealthCheckInterval)
+		params["HealthyThresholdCount"] = fmt.Sprintf("%d", group.HealthCheck.HealthCheckRise)
 		if len(group.HealthCheck.HealthCheckURI) > 0 {
-			params.SetHealthCheckPath(group.HealthCheck.HealthCheckURI)
+			params["HealthCheckPath"] = group.HealthCheck.HealthCheckURI
 		}
 
 		if utils.IsInStringArray(group.ListenType, []string{api.LB_HEALTH_CHECK_HTTP, api.LB_HEALTH_CHECK_HTTPS}) {
-			params.SetHealthCheckTimeoutSeconds(int64(group.HealthCheck.HealthCheckTimeout))
-			params.SetUnhealthyThresholdCount(int64(group.HealthCheck.HealthCheckFail))
-
+			params["HealthCheckTimeoutSeconds"] = fmt.Sprintf("%d", group.HealthCheck.HealthCheckTimeout)
+			params["UnhealthyThresholdCount"] = fmt.Sprintf("%d", group.HealthCheck.HealthCheckFail)
 			codes := ToAwsHealthCode(group.HealthCheck.HealthCheckHttpCode)
 			if len(codes) > 0 {
-				matcher := &elbv2.Matcher{}
-				matcher.SetHttpCode(codes)
-				params.SetMatcher(matcher)
+				params["Matcher.HttpCode"] = codes
 			}
 		} else {
 			// tcp & udp 健康检查阈值与不健康阈值需相同
-			params.SetUnhealthyThresholdCount(int64(group.HealthCheck.HealthCheckRise))
+			params["UnhealthyThresholdCount"] = fmt.Sprintf("%d", group.HealthCheck.HealthCheckRise)
 		}
 	}
 
-	client, err := self.GetElbV2Client()
+	result := struct {
+		Groups []SElbBackendGroup `xml:"TargetGroups>member"`
+	}{}
+	err := self.elbRequest("CreateTargetGroup", params, &result)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetElbV2Client")
+		return nil, errors.Wrapf(err, "CreateTargetGroup")
 	}
 
-	ret, err := client.CreateTargetGroup(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "CreateTargetGroup")
+	for i := range result.Groups {
+		result.Groups[i].region = self
+		return &result.Groups[i], nil
 	}
-
-	backendgroups := []SElbBackendGroup{}
-	err = unmarshalAwsOutput(ret, "TargetGroups", &backendgroups)
-	if err != nil {
-		return nil, errors.Wrap(err, "unmarshalAwsOutput.TargetGroups")
-	}
-
-	if len(backendgroups) == 1 {
-		backendgroups[0].region = self
-		return &backendgroups[0], nil
-	}
-
-	return nil, fmt.Errorf("CreateElbBackendgroup error: %#v", backendgroups)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after create")
 }
 
 func (self *SElb) SetTags(tags map[string]string, replace bool) error {
@@ -491,26 +462,27 @@ func (self *SElb) SetTags(tags map[string]string, replace bool) error {
 }
 
 func (self *SRegion) FetchElbTags(arn string) (map[string]string, error) {
-	client, err := self.GetElbV2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetElbV2Client")
+	params := map[string]string{
+		"ResourceArns.1": arn,
 	}
-	params := elbv2.DescribeTagsInput{}
-	params.SetResourceArns([]*string{&arn})
-	output, err := client.DescribeTags(&params)
+	result := struct {
+		TagDescriptions []struct {
+			ResourceArn string `xml:"ResourceArn"`
+			Tags        []struct {
+				Key   string `xml:"Key"`
+				Value string `xml:"Value"`
+			} `xml:"Tags>member"`
+		} `xml:"TagDescriptions>member"`
+	}{}
+	err := self.elbRequest("DescribeTags", params, &result)
 	if err != nil {
-		return nil, errors.Wrapf(err, "client.DescribeTags(%s)", jsonutils.Marshal(params).String())
+		return nil, errors.Wrapf(err, "DescribeTags")
 	}
-	result := map[string]string{}
-	for i := range output.TagDescriptions {
-		if output.TagDescriptions[i].ResourceArn != nil && *output.TagDescriptions[i].ResourceArn == arn {
-			for j := range output.TagDescriptions[i].Tags {
-				if output.TagDescriptions[i].Tags[j].Key != nil && output.TagDescriptions[i].Tags[j].Value != nil {
-					result[*output.TagDescriptions[i].Tags[j].Key] = *output.TagDescriptions[i].Tags[j].Value
-				}
-			}
-			return result, nil
+	ret := map[string]string{}
+	for _, desc := range result.TagDescriptions {
+		for _, tag := range desc.Tags {
+			ret[tag.Key] = tag.Value
 		}
 	}
-	return nil, cloudprovider.ErrNotFound
+	return ret, nil
 }

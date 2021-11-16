@@ -221,14 +221,36 @@ func (self *AzureTags) SetTags(tags map[string]string, replace bool) error {
 	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetTags")
 }
 
+type SAwsTag struct {
+	Key   string `xml:"key"`
+	Value string `xml:"value"`
+}
+
 type AwsTags struct {
-	TagSet []STag
+	TagSet []SAwsTag `xml:"tagSet>item"`
+}
+
+func (self *AwsTags) getValue(key string) string {
+	for _, tag := range self.TagSet {
+		if strings.ToLower(tag.Key) == strings.ToLower(key) {
+			return tag.Value
+		}
+	}
+	return ""
+}
+
+func (self *AwsTags) GetName() string {
+	return self.getValue("name")
+}
+
+func (self *AwsTags) GetDesc() string {
+	return self.getValue("description")
 }
 
 func (self *AwsTags) GetTags() (map[string]string, error) {
 	ret := map[string]string{}
 	for _, tag := range self.TagSet {
-		if tag.Key == "Name" || tag.Key == "Description" {
+		if strings.ToLower(tag.Key) == "name" || strings.ToLower(tag.Key) == "description" || strings.HasPrefix(tag.Key, "aws:") {
 			continue
 		}
 		ret[tag.Key] = tag.Value
@@ -237,7 +259,14 @@ func (self *AwsTags) GetTags() (map[string]string, error) {
 }
 
 func (self *AwsTags) GetSysTags() map[string]string {
-	return nil
+	ret := map[string]string{}
+	for _, tag := range self.TagSet {
+		if !strings.HasPrefix(tag.Key, "aws:") {
+			continue
+		}
+		ret[tag.Key] = tag.Value
+	}
+	return ret
 }
 
 func (self *AwsTags) SetTags(tags map[string]string, replace bool) error {

@@ -32,8 +32,6 @@ import (
 	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
 	"github.com/aws/aws-sdk-go/private/protocol/query"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/elasticache"
 	"github.com/aws/aws-sdk-go/service/s3"
 
 	"yunion.io/x/log"
@@ -186,62 +184,45 @@ func (client *SAwsClient) GetAccountId() string {
 	return client.ownerId
 }
 
-/*
-func (self *SAwsClient) UpdateAccount(accessKey, secret string) error {
-	if self.accessKey != accessKey || self.accessSecret != secret {
-		self.accessKey = accessKey
-		self.accessSecret = secret
-		self.iregions = nil
-		return self.fetchRegions()
-	} else {
-		return nil
-	}
-}
-*/
-
 var (
 	// cache for describeRegions
-	describeRegionResult        map[string]*ec2.DescribeRegionsOutput = map[string]*ec2.DescribeRegionsOutput{}
-	describeRegionResultCacheAt map[string]time.Time                  = map[string]time.Time{}
+	describeRegionResult        map[string][]SRegion = map[string][]SRegion{}
+	describeRegionResultCacheAt map[string]time.Time = map[string]time.Time{}
 )
 
 const (
 	describeRegionExpireHours = 2
 )
 
+func (self *SAwsClient) getRegions() ([]SRegion, error) {
+	ret := struct {
+		Regions []SRegion `xml:"regionInfo>item"`
+	}{}
+	return ret.Regions, self.ec2Request("", "DescribeRegions", map[string]string{}, &ret)
+}
+
 // 用于初始化region信息
 func (self *SAwsClient) fetchRegions() ([]SRegion, error) {
 	cacheTime, _ := describeRegionResultCacheAt[self.accessUrl]
 	if _, ok := describeRegionResult[self.accessUrl]; !ok || cacheTime.IsZero() || time.Now().After(cacheTime.Add(time.Hour*describeRegionExpireHours)) {
-		s, err := self.getDefaultSession(false)
-		if err != nil {
-			return nil, errors.Wrap(err, "getDefaultSession")
-		}
-		svc := ec2.New(s)
-		// https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.DescribeRegions
-		result, err := svc.DescribeRegions(&ec2.DescribeRegionsInput{})
+		regions, err := self.getRegions()
 		if err != nil {
 			if e, ok := err.(awserr.Error); ok && e.Code() == "AuthFailure" {
 				return nil, errors.Wrap(httperrors.ErrInvalidAccessKey, err.Error())
 			}
 			return nil, errors.Wrap(err, "DescribeRegions")
 		}
-		describeRegionResult[self.accessUrl] = result
+		describeRegionResult[self.accessUrl] = regions
 		describeRegionResultCacheAt[self.accessUrl] = time.Now()
 	}
 
 	self.iregions = []cloudprovider.ICloudRegion{}
 	regions := make([]SRegion, 0)
-	for _, region := range describeRegionResult[self.accessUrl].Regions {
-		name := *region.RegionName
-		endpoint := *region.Endpoint
-		sregion := SRegion{client: self, RegionId: name, RegionEndpoint: endpoint}
-		// 初始化region client
-		// sregion.getEc2Client()
-		regions = append(regions, sregion)
-		self.iregions = append(self.iregions, &sregion)
+	for i := range describeRegionResult[self.accessUrl] {
+		describeRegionResult[self.accessUrl][i].client = self
+		regions = append(regions, describeRegionResult[self.accessUrl][i])
+		self.iregions = append(self.iregions, &describeRegionResult[self.accessUrl][i])
 	}
-
 	return regions, nil
 }
 
@@ -290,15 +271,6 @@ func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*sess
 	return client.sessions[regionId][assumeRole], nil
 }
 
-func (region *SRegion) getAwsElasticacheClient() (*elasticache.ElastiCache, error) {
-	session, err := region.getAwsSession()
-	if err != nil {
-		return nil, errors.Wrap(err, "client.getDefaultSession")
-	}
-	session.ClientConfig(ELASTICACHE_SERVICE_NAME)
-	return elasticache.New(session), nil
-}
-
 func (client *SAwsClient) getAwsRoute53Session() (*session.Session, error) {
 	session, err := client.getDefaultSession(true)
 	if err != nil {
@@ -328,26 +300,6 @@ func (client *SAwsClient) fetchOwnerId() error {
 		return errors.Wrap(err, "GetCallerIdentity")
 	}
 	client.ownerId = ident.Account
-
-	/* s, err := client.getDefaultSession()
-	if err != nil {
-		return errors.Wrap(err, "getDefaultSession")
-	}
-	s3cli := s3.New(s)
-	output, err := s3cli.ListBuckets(&s3.ListBucketsInput{})
-	if err != nil {
-		return errors.Wrap(err, "ListBuckets")
-	}
-
-	if output.Owner != nil {
-		if output.Owner.ID != nil {
-			client.ownerId = *output.Owner.ID
-		}
-		if output.Owner.DisplayName != nil {
-			client.ownerName = *output.Owner.DisplayName
-		}
-	} */
-
 	return nil
 }
 
@@ -527,7 +479,39 @@ func (self *SAwsClient) GetAccessEnv() string {
 	}
 }
 
+func (self *SAwsClient) ec2Request(regionId, apiName string, params map[string]string, retval interface{}) error {
+	return self.request(regionId, EC2_SERVICE_NAME, EC2_SERVICE_ID, "2016-11-15", apiName, params, retval, true)
+}
+
+func (self *SAwsClient) redisRequest(regionId, apiName string, params map[string]string, retval interface{}) error {
+	return self.request(regionId, ELASTICACHE_SERVICE_NAME, ELASTICACHE_SERVICE_ID, "2015-02-02", apiName, params, retval, true)
+}
+
+func (self *SAwsClient) cloudwatchRequest(regionId, apiName string, params map[string]string, retval interface{}) error {
+	return self.request(regionId, CLOUDWATCH_SERVICE_NAME, CLOUDWATCH_SERVICE_ID, "2010-08-01", apiName, params, retval, true)
+}
+
+func (self *SAwsClient) elbRequest(regionId, apiName string, params map[string]string, retval interface{}) error {
+	return self.request(regionId, ELB_SERVICE_NAME, ELB_SERVICE_ID, "2015-12-01", apiName, params, retval, true)
+}
+
+func isReadOnly(apiName string) bool {
+	for _, prefix := range []string{
+		"Get",
+		"List",
+		"Describe",
+	} {
+		if strings.HasPrefix(apiName, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 func (self *SAwsClient) request(regionId, serviceName, serviceId, apiVersion string, apiName string, params map[string]string, retval interface{}, assumeRole bool) error {
+	if self.cpcfg.ReadOnly && !isReadOnly(apiName) {
+		return errors.Wrapf(cloudprovider.ErrReadOnly, apiName)
+	}
 	if len(regionId) == 0 {
 		regionId = self.getDefaultRegionId()
 	}
@@ -585,6 +569,7 @@ func jsonRequest(cli *client.Client, apiName string, params map[string]string, r
 	req := cli.NewRequest(op, params, retval)
 	err := req.Send()
 	if err != nil {
+		// InvalidInstanceID.NotFound
 		if e, ok := err.(awserr.RequestFailure); ok && e.StatusCode() == 404 {
 			return cloudprovider.ErrNotFound
 		}

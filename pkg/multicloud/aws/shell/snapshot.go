@@ -21,20 +21,16 @@ import (
 
 func init() {
 	type SnapshotListOptions struct {
-		DiskId      string   `help:"Disk ID"`
-		InstanceId  string   `help:"Instance ID"`
-		SnapshotIds []string `helo:"Snapshot ids"`
-		Name        string   `help:"Snapshot Name"`
-		Limit       int      `help:"page size"`
-		Offset      int      `help:"page offset"`
+		DiskId string   `help:"Disk ID"`
+		Ids    []string `helo:"Snapshot ids"`
 	}
 	shellutils.R(&SnapshotListOptions{}, "snapshot-list", "List snapshot", func(cli *aws.SRegion, args *SnapshotListOptions) error {
-		if snapshots, total, err := cli.GetSnapshots(args.InstanceId, args.DiskId, args.Name, args.SnapshotIds, args.Offset, args.Limit); err != nil {
+		snapshots, err := cli.GetSnapshots(args.DiskId, args.Ids)
+		if err != nil {
 			return err
-		} else {
-			printList(snapshots, total, args.Offset, args.Limit, []string{})
-			return nil
 		}
+		printList(snapshots, 0, 0, 0, []string{})
+		return nil
 	})
 
 	type SnapshotDeleteOptions struct {

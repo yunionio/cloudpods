@@ -167,19 +167,10 @@ func (self *SElbListenerRule) Delete(ctx context.Context) error {
 }
 
 func (self *SRegion) DeleteElbListenerRule(ruleId string) error {
-	client, err := self.GetElbV2Client()
-	if err != nil {
-		return err
+	params := map[string]string{
+		"RuleArn": ruleId,
 	}
-
-	params := &elbv2.DeleteRuleInput{}
-	params.SetRuleArn(ruleId)
-	_, err = client.DeleteRule(params)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return self.elbRequest("DeleteRule", params, nil)
 }
 
 func (self *SRegion) CreateElbListenerRule(listenerId string, config *cloudprovider.SLoadbalancerListenerRule) (*SElbListenerRule, error) {
@@ -187,23 +178,28 @@ func (self *SRegion) CreateElbListenerRule(listenerId string, config *cloudprovi
 	if err != nil {
 		return nil, errors.Wrap(err, "GetElbV2Client")
 	}
-
-	forward := "forward"
-	action := &elbv2.Action{
-		TargetGroupArn: &config.BackendGroupID,
-		Type:           &forward,
+	params := map[string]string{
+		"Actions.member.1.TargetGroupArn": config.BackendGroupID,
+		"Actions.member.1.Type":           "forward",
+		"ListenerArn":                     listenerId,
+		"Priority":                        "1",
 	}
 
-	condtions, err := parseConditions(config.Condition)
+	conditions, err := parseConditions(config.Condition)
 	if err != nil {
 		return nil, errors.Wrap(err, "parseConditions")
 	}
+	for i, condition := range conditions {
+		params[fmt.Sprintf("Conditions.member.%d", i+1)] = **condition.Field
+	}
 
-	params := &elbv2.CreateRuleInput{}
-	params.SetListenerArn(listenerId)
-	params.SetActions([]*elbv2.Action{action})
-	params.SetConditions(condtions)
-	params.SetPriority(int64(1))
+	/*
+		params := &elbv2.CreateRuleInput{}
+		params.SetListenerArn(listenerId)
+		params.SetActions([]*elbv2.Action{action})
+		params.SetConditions(condtions)
+		params.SetPriority(int64(1))
+	*/
 	ret, err := client.CreateRule(params)
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateRule")

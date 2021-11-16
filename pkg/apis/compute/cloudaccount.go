@@ -130,6 +130,12 @@ type CloudaccountResourceInfo struct {
 	Account string `json:"account,omitempty"`
 }
 
+type ReadOnlyInput struct {
+	// 是否只支持读操作
+	// default: false
+	ReadOnly bool
+}
+
 type CloudaccountCreateInput struct {
 	apis.EnabledStatusInfrasResourceBaseCreateInput
 
@@ -201,6 +207,8 @@ type CloudaccountCreateInput struct {
 
 	// 仅当show_sub_accounts=true并且dry_run=true时才返回sub accounts 信息, 且不会创建云账号
 	ShowSubAccounts bool `json:"show_sub_accounts"`
+
+	ReadOnlyInput
 
 	// swagger:ignore
 	SubAccounts *cloudprovider.SubAccounts
@@ -330,6 +338,7 @@ type CloudaccountUpdateInput struct {
 	// 带删除的options key
 	RemoveOptions []string `json:"remove_options"`
 
+	ReadOnlyInput
 	SAMLAuth *bool `json:"saml_auth"`
 
 	proxyapi.ProxySettingResourceInput

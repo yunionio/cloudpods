@@ -128,6 +128,7 @@ type SManagedVMCreateConfig struct {
 	Password            string
 	UserData            string
 	ProjectId           string
+	ZoneId              string
 
 	SPublicIpInfo
 

@@ -21,8 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/ec2"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -62,103 +60,219 @@ type SVpcAttributes struct {
 	VpcId            string
 }
 
+type GroupSet struct {
+	GroupId   string `xml:"groupId"`
+	GroupName string `xml:"groupName"`
+}
+
+type Association struct {
+	CarrierIp       string `xml:"carrierIp"`
+	CustomerOwnedIp string `xml:"customerOwnedIp"`
+	IpOwnerId       string `xml:"ipOwnerId"`
+	PublicDnsName   string `xml:"publicDnsName"`
+	PublicIp        string `xml:"publicIp"`
+}
+
+type BlockDeviceMapping struct {
+	DeviceName string `xml:"deviceName"`
+	Ebs        struct {
+		AttachTime          time.Time `xml:"attachTime"`
+		DeleteOnTermination bool      `xml:"deleteOnTermination"`
+		Status              string    `xml:"status"`
+		VolumeId            string    `xml:"volumeId"`
+		VolumeSize          int       `xml:"volumeSize"`
+	} `xml:"ebs"`
+}
+
+type ProductCode struct {
+	productCode string `xml:"productCode"`
+	Type        string `xml:"type"`
+}
+
+type StateReason struct {
+	Code    string `xml:"code"`
+	Message string `xml:"message"`
+}
+
 type SInstance struct {
 	multicloud.SInstanceBase
+	multicloud.AwsTags
 
-	host       *SHost
-	img        *SImage
-	RegionId   string
-	ZoneId     string
-	InstanceId string
-	ImageId    string
+	host *SHost
+	img  *SImage
 
-	HostName          string
-	InstanceName      string
-	InstanceType      string
-	Cpu               int
-	Memory            int // MB
-	IoOptimized       bool
-	KeyPairName       string
-	CreationTime      time.Time // LaunchTime
-	ExpiredTime       time.Time
-	ProductCodes      []string
-	PublicDNSName     string
-	InnerIpAddress    SIpAddress
-	PublicIpAddress   SIpAddress
-	RootDeviceName    string
-	Status            string // state
-	VlanId            string // subnet ID ?
-	VpcAttributes     SVpcAttributes
-	SecurityGroupIds  SSecurityGroupIds
-	NetworkInterfaces SNetworkInterfaces
-	EipAddress        SEipAddress
-	Disks             []string
-	DeviceNames       []string
-	OSName            string
-	OSType            string
-	Description       string
+	Architecture       string               `xml:"architecture"`
+	BlockDeviceMapping []BlockDeviceMapping `xml:"blockDeviceMapping"`
 
-	TagSpec TagSpec
+	BootMode              string `xml:"bootMode"`
+	CapacityReservationId string `xml:"capacityReservationId"`
 
-	// 这些貌似都没啥用
-	// AutoReleaseTime         string
-	// DeviceAvailable         bool
-	// GPUAmount               int
-	// GPUSpec                 string
-	// InstanceChargeType      InstanceChargeType
-	// InstanceNetworkType     string
-	// InstanceTypeFamily      string
-	// InternetChargeType      string
-	// InternetMaxBandwidthIn  int
-	// InternetMaxBandwidthOut int
-	// OperationLocks          SOperationLocks
-	// Recyclable              bool
-	// SerialNumber            string
-	// SpotPriceLimit          string
-	// SpotStrategy            string
-	// StartTime               time.Time
-	// StoppedMode             string
+	CapacityReservationSpecification struct {
+		CapacityReservationPreference string `xml:"capacityReservationPreference"`
+		CapacityReservationTarget     struct {
+			CapacityReservationId               string `xml:"capacityReservationId"`
+			CapacityReservationResourceGroupArn string `xml:"capacityReservationResourceGroupArn"`
+		} `xml:"capacityReservationTarget"`
+	} `xml:"capacityReservationSpecification"`
+
+	ClientToken string `xml:"clientToken"`
+	CpuOptions  struct {
+		CoreCount      int `xml:"coreCount"`
+		ThreadsPerCore int `xml:"threadsPerCore"`
+	} `xml:"cpuOptions"`
+	DnsName                  string `xml:"dnsName"`
+	EbsOptimized             bool   `xml:"ebsOptimized"`
+	ElasticGpuAssociationSet []struct {
+		ElasticGpuAssociationId    string `xml:"elasticGpuAssociationId"`
+		ElasticGpuAssociationState string `xml:"elasticGpuAssociationState"`
+		ElasticGpuAssociationTime  string `xml:"elasticGpuAssociationTime"`
+		ElasticGpuId               string `xml:"elasticGpuId"`
+	} `xml:"elasticGpuAssociationSet>item"`
+	ElasticInferenceAcceleratorAssociationSet []struct {
+		ElasticInferenceAcceleratorArn              string    `xml:"elasticInferenceAcceleratorArn"`
+		ElasticInferenceAcceleratorAssociationId    string    `xml:"elasticInferenceAcceleratorAssociationId"`
+		ElasticInferenceAcceleratorAssociationState string    `xml:"elasticInferenceAcceleratorAssociationState"`
+		ElasticInferenceAcceleratorAssociationTime  time.Time `xml:"elasticInferenceAcceleratorAssociationTime"`
+	} `xml:"elasticInferenceAcceleratorAssociationSet>item"`
+	EnaSupport     bool `xml:"enaSupport"`
+	EnclaveOptions struct {
+		Enabled bool `xml:"enabled"`
+	} `xml:"enclaveOptions"`
+	GroupSet           []GroupSet `xml:"groupSet"`
+	HibernationOptions struct {
+		Configured bool `xml:"configured"`
+	} `xml:"hibernationOptions"`
+	Hypervisor         string `xml:"hypervisor"`
+	IamInstanceProfile struct {
+		Arn string `xml:"arn"`
+		Id  string `xml:"id"`
+	} `xml:"iamInstanceProfile"`
+	ImageId           string `xml:"imageId"`
+	InstanceId        string `xml:"instanceId"`
+	InstanceLifecycle string `xml:"instanceLifecycle"`
+	InstanceState     struct {
+		Code int    `xml:"code"`
+		Name string `xml:"name"`
+	} `xml:"instanceState"`
+	InstanceType string    `xml:"instanceType"`
+	IpAddress    string    `xml:"ipAddress"`
+	KernelId     string    `xml:"kernelId"`
+	KeyName      string    `xml:"keyName"`
+	LaunchTime   time.Time `xml:"launchTime"`
+	LicenseSet   []struct {
+		LicenseConfigurationArn string `xml:"licenseConfigurationArn"`
+	} `xml:"licenseSet>item"`
+	MetadataOptions struct {
+		HttpEndpoint            string `xml:"httpEndpoint"`
+		HttpProtocolIpv6        string `xml:"httpProtocolIpv6"`
+		HttpPutResponseHopLimit int    `xml:"httpPutResponseHopLimit"`
+		HttpTokens              string `xml:"httpTokens"`
+		State                   string `xml:"state"`
+	} `xml:"metadataOptions"`
+	Monitoring struct {
+		State string `xml:"state"`
+	} `xml:"monitoring"`
+	NetworkInterfaceSet []struct {
+		Association Association `xml:"association"`
+		Attachment  struct {
+			AttachmentId        string    `xml:"attachmentId"`
+			AttachTime          time.Time `xml:"attachTime"`
+			DeleteOnTermination bool      `xml:"deleteOnTermination"`
+			DeviceIndex         int       `xml:"deviceIndex"`
+			NetworkCardIndex    int       `xml:"networkCardIndex"`
+			Status              string    `xml:"status"`
+		} `xml:"attachment"`
+		Description   string     `xml:"description"`
+		GroupSet      []GroupSet `xml:"groupSet"`
+		InterfaceType string     `xml:"interfaceType"`
+		Ipv4PrefixSet []struct {
+			Ipv4Prefix string `xml:"ipv4Prefix>item"`
+		} `xml:"ipv4PrefixSet"`
+		Ipv6AddressesSet []struct {
+			Ipv6Address string `xml:"ipv6Address"`
+		} `xml:"ipv6AddressesSet>item"`
+		MacAddress            string `xml:"macAddress"`
+		NetworkInterfaceId    string `xml:"networkInterfaceId"`
+		OwnerId               string `xml:"ownerId"`
+		PrivateDnsName        string `xml:"privateDnsName"`
+		PrivateIpAddress      string `xml:"privateIpAddress"`
+		PrivateIpAddressesSet []struct {
+			Association      Association `xml:"Association"`
+			Primary          bool        `xml:"primary"`
+			PrivateDnsName   string      `xml:"privateDnsName"`
+			PrivateIpAddress string      `xml:"privateIpAddress"`
+		} `xml:"privateIpAddressesSet>item"`
+		SourceDestCheck bool   `xml:"sourceDestCheck"`
+		Status          string `xml:"status"`
+		SubnetId        string `xml:"subnetId"`
+		VpcId           string `xml:"vpcId"`
+	} `xml:"networkInterfaceSet>item"`
+	OutpostArn string `xml:"outpostArn"`
+	Placement  struct {
+		Affinity             string `xml:"affinity"`
+		AvailabilityZone     string `xml:"availabilityZone"`
+		GroupName            string `xml:"groupName"`
+		HostId               string `xml:"hostId"`
+		HostResourceGroupArn string `xml:"hostResourceGroupArn"`
+		PartitionNumber      int    `xml:"partitionNumber"`
+		SpreadDomain         string `xml:"spreadDomain"`
+		Tenancy              string `xml:"tenancy"`
+	} `xml:"placement"`
+	Platform                 string        `xml:"platform"`
+	PlatformDetails          string        `xml:"platformDetails"`
+	PrivateDnsName           string        `xml:"privateDnsName"`
+	PrivateIpAddress         string        `xml:"privateIpAddress"`
+	ProductCodes             []ProductCode `xml:"productCodes>item"`
+	RamdiskId                string        `xml:"ramdiskId"`
+	Reason                   string        `xml:"reason"`
+	RootDeviceName           string        `xml:"rootDeviceName"`
+	RootDeviceType           string        `xml:"rootDeviceType"`
+	SourceDestCheck          bool          `xml:"sourceDestCheck"`
+	SpotInstanceRequestId    string        `xml:"spotInstanceRequestId"`
+	SriovNetSupport          string        `xml:"sriovNetSupport"`
+	StateReason              StateReason   `xml:"stateReason"`
+	SubnetId                 string        `xml:"subnetId"`
+	UsageOperation           string        `xml:"usageOperation"`
+	UsageOperationUpdateTime time.Time     `xml:"usageOperationUpdateTime"`
+	VirtualizationType       string        `xml:"virtualizationType"`
+	VpcId                    string        `xml:"vpcId"`
 }
 
 func (self *SInstance) UpdateUserData(userData string) error {
-	udata := &ec2.BlobAttributeValue{}
-	udata.SetValue([]byte(userData))
+	return self.host.zone.region.UpdateUserData(self.InstanceId, userData)
+}
 
-	input := &ec2.ModifyInstanceAttributeInput{}
-	input.SetUserData(udata)
-	input.SetInstanceId(self.GetId())
-	ec2Client, err := self.host.zone.region.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+func (self *SRegion) UpdateUserData(instanceId, userData string) error {
+	params := map[string]string{
+		"InstanceId":     instanceId,
+		"UserData.Value": base64.StdEncoding.EncodeToString([]byte(userData)),
 	}
-	_, err = ec2Client.ModifyInstanceAttribute(input)
-	if err != nil {
-		return errors.Wrap(err, "ModifyInstanceAttribute")
-	}
-
-	return nil
+	return self.ec2Request("ModifyInstanceAttribute", params, nil)
 }
 
 func (self *SInstance) GetUserData() (string, error) {
-	input := &ec2.DescribeInstanceAttributeInput{}
-	input.SetInstanceId(self.GetId())
-	input.SetAttribute("userData")
-	ec2Client, err := self.host.zone.region.getEc2Client()
-	if err != nil {
-		return "", errors.Wrap(err, "getEc2Client")
-	}
-	ret, err := ec2Client.DescribeInstanceAttribute(input)
-	if err != nil {
-		return "", err
-	}
+	return self.host.zone.region.GetUserData(self.InstanceId)
+}
 
-	d := StrVal(ret.UserData.Value)
-	udata, err := base64.StdEncoding.DecodeString(d)
-	if err != nil {
-		return "", fmt.Errorf("GetUserData decode user data %s", err)
+func (self *SRegion) GetUserData(instanceId string) (string, error) {
+	params := map[string]string{
+		"InstanceId": instanceId,
+		"Attribute":  "userData",
 	}
-
-	return string(udata), nil
+	ret := struct {
+		UserData struct {
+			Value string `xml:"value"`
+		} `xml:"userData"`
+	}{}
+	err := self.ec2Request("DescribeInstanceAttribute", params, &ret)
+	if err != nil {
+		return "", errors.Wrapf(err, "DescribeInstanceAttribute")
+	}
+	data, err := base64.StdEncoding.DecodeString(ret.UserData.Value)
+	if err != nil {
+		return "", errors.Wrapf(err, "DecodeString")
+	}
+	return string(data), nil
 }
 
 func (self *SInstance) GetId() string {
@@ -166,11 +280,11 @@ func (self *SInstance) GetId() string {
 }
 
 func (self *SInstance) GetName() string {
-	if len(self.InstanceName) > 0 {
-		return self.InstanceName
+	name := self.AwsTags.GetName()
+	if len(name) > 0 {
+		return name
 	}
-
-	return self.GetId()
+	return self.InstanceId
 }
 
 func (self *SInstance) GetHostname() string {
@@ -182,7 +296,7 @@ func (self *SInstance) GetGlobalId() string {
 }
 
 func (self *SInstance) GetStatus() string {
-	switch self.Status {
+	switch self.InstanceState.Name {
 	case InstanceStatusRunning:
 		return api.VM_RUNNING
 	case InstanceStatusPending: // todo: pending ?
@@ -204,37 +318,21 @@ func (self *SInstance) Refresh() error {
 	return jsonutils.Update(self, new)
 }
 
-func (self *SInstance) IsEmulated() bool {
-	return false
-}
-
 func (self *SInstance) GetInstanceType() string {
 	return self.InstanceType
 }
 
 func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
-	return self.SecurityGroupIds.SecurityGroupId, nil
-}
-
-func (self *SInstance) GetTags() (map[string]string, error) {
-	return self.TagSpec.GetTags()
-}
-
-func (self *SInstance) GetSysTags() map[string]string {
-	return map[string]string{}
+	return nil, nil
+	//return self.SecurityGroupIds.SecurityGroupId, nil
 }
 
 func (self *SInstance) GetBillingType() string {
-	// todo: implement me
 	return billing_api.BILLING_TYPE_POSTPAID
 }
 
 func (self *SInstance) GetCreatedAt() time.Time {
-	return self.CreationTime
-}
-
-func (self *SInstance) GetExpiredAt() time.Time {
-	return self.ExpiredTime
+	return self.LaunchTime
 }
 
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
@@ -242,15 +340,14 @@ func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
 }
 
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	disks, _, err := self.host.zone.region.GetDisks(self.InstanceId, "", "", nil, 0, 0)
+	disks, err := self.host.zone.region.GetDisks(self.InstanceId, "", "", nil)
 	if err != nil {
-		log.Errorf("fetchDisks fail %s", err)
 		return nil, errors.Wrap(err, "GetDisks")
 	}
 
 	idisks := make([]cloudprovider.ICloudDisk, len(disks))
 	for i := 0; i < len(disks); i += 1 {
-		store, err := self.host.zone.getStorageByCategory(disks[i].Category)
+		store, err := self.host.zone.getStorageByCategory(disks[i].VolumeType)
 		if err != nil {
 			return nil, errors.Wrap(err, "getStorageByCategory")
 		}
@@ -260,46 +357,61 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	return idisks, nil
 }
 
-func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
-	var (
-		networkInterfaces = self.NetworkInterfaces.NetworkInterface
-		nics              = make([]cloudprovider.ICloudNic, 0)
-	)
-	for _, networkInterface := range networkInterfaces {
-		nic := SInstanceNic{
-			instance: self,
-			id:       networkInterface.NetworkInterfaceId,
-			ipAddr:   networkInterface.PrivateIpAddress,
-			macAddr:  networkInterface.MacAddress,
-		}
-		nics = append(nics, &nic)
+func (self *SRegion) GetNetworkInterfaces(instanceId string) ([]SInstanceNic, error) {
+	params := map[string]string{}
+	if len(instanceId) > 0 {
+		params["Filter.1.attachment.instance-id"] = instanceId
 	}
-	return nics, nil
+
+	ret := []SInstanceNic{}
+	for {
+		result := struct {
+			Nics      []SInstanceNic `xml:"networkInterfaceSet>item"`
+			NextToken string         `xml:"nextToken"`
+		}{}
+		err := self.ec2Request("DescribeNetworkInterfaces", params, &result)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DescribeNetworkInterfaces")
+		}
+		ret = append(ret, result.Nics...)
+		if len(result.NextToken) == 0 || len(result.Nics) == 0 {
+			break
+		}
+		params["NextToken"] = result.NextToken
+	}
+	return ret, nil
+}
+
+func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
+	nics, err := self.host.zone.region.GetNetworkInterfaces(self.InstanceId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetNetworkInterfaces")
+	}
+	ret := []cloudprovider.ICloudNic{}
+	for i := range nics {
+		nics[i].region = self.host.zone.region
+		ret = append(ret, &nics[i])
+	}
+	return ret, nil
 }
 
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
-	if len(self.EipAddress.IpAddress) > 0 {
-		return self.host.zone.region.GetEipByIpAddress(self.EipAddress.IpAddress)
-	} else if len(self.PublicIpAddress.IpAddress) > 0 {
-		eip := SEipAddress{}
-		eip.region = self.host.zone.region
-		eip.IpAddress = self.PublicIpAddress.IpAddress[0]
-		eip.InstanceId = self.InstanceId
-		eip.AllocationId = self.InstanceId // fixed. AllocationId等于InstanceId即表示为 仿真EIP。
-		eip.Bandwidth = 10000
-		eip.Status = EIP_STATUS_INUSE
-		return &eip, nil
-	} else {
-		return nil, nil
+	eips, err := self.host.zone.region.GetEips(self.InstanceId, "", "")
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetEips")
 	}
+	for i := range eips {
+		return &eips[i], nil
+	}
+	return nil, nil
 }
 
 func (self *SInstance) GetVcpuCount() int {
-	return self.Cpu
+	return self.CpuOptions.CoreCount * self.CpuOptions.ThreadsPerCore
 }
 
 func (self *SInstance) GetVmemSizeMB() int {
-	return self.Memory
+	return 0 // self.Memory
 }
 
 func (self *SInstance) GetBootOrder() string {
@@ -315,11 +427,18 @@ func (self *SInstance) GetVdi() string {
 }
 
 func (self *SInstance) GetOsType() cloudprovider.TOsType {
-	return cloudprovider.TOsType(osprofile.NormalizeOSType(self.OSType))
+	if strings.Contains(self.PlatformDetails, "Linux") {
+		return cloudprovider.OsTypeLinux
+	}
+	return cloudprovider.OsTypeLinux
 }
 
 func (self *SInstance) GetOSName() string {
-	return self.OSName
+	img, _ := self.GetImage()
+	if img != nil {
+		return img.GetName()
+	}
+	return self.PlatformDetails
 }
 
 func (self *SInstance) GetBios() string {
@@ -347,54 +466,15 @@ func (self *SInstance) GetHypervisor() string {
 }
 
 func (self *SInstance) StartVM(ctx context.Context) error {
-	timeout := 300 * time.Second
-	interval := 15 * time.Second
-
-	startTime := time.Now()
-	for time.Now().Sub(startTime) < timeout {
-		err := self.Refresh()
-		if err != nil {
-			return err
-		}
-
-		if self.GetStatus() == api.VM_RUNNING {
-			return nil
-		} else if self.GetStatus() == api.VM_READY {
-			err := self.host.zone.region.StartVM(self.InstanceId)
-			if err != nil {
-				return err
-			}
-		}
-		time.Sleep(interval)
-	}
-	return cloudprovider.ErrTimeout
+	return self.host.zone.region.StartVM(self.InstanceId)
 }
 
 func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
-	err := self.host.zone.region.StopVM(self.InstanceId, opts.IsForce)
-	if err != nil {
-		return err
-	}
-	return cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
+	return self.host.zone.region.StopVM(self.InstanceId)
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
-	for {
-		err := self.host.zone.region.DeleteVM(self.InstanceId)
-		if err != nil && self.Status != InstanceStatusTerminated {
-			return err
-		} else {
-			break
-		}
-	}
-
-	params := &ec2.DescribeInstancesInput{InstanceIds: []*string{&self.InstanceId}}
-	ec2Client, err := self.host.zone.region.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-
-	return ec2Client.WaitUntilInstanceTerminated(params)
+	return self.host.zone.region.DeleteVM(self.InstanceId)
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
@@ -426,7 +506,7 @@ func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SMan
 	}
 
 	// upload keypair
-	keypairName := self.KeyPairName
+	keypairName := self.KeyName
 	if len(desc.PublicKey) > 0 {
 		keypairName, err = self.host.zone.region.syncKeypair(desc.PublicKey)
 		if err != nil {
@@ -495,15 +575,8 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, username strin
 	return self.host.zone.region.DeployVM(self.InstanceId, name, password, publicKey, deleteKeypair, description)
 }
 
-func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
-	if len(config.InstanceType) > 0 {
-		return self.ChangeConfig2(ctx, config.InstanceType)
-	}
-	return errors.Wrap(errors.ErrClient, "Instance.ChangeConfig.InstanceTypeIsEmpty")
-}
-
-func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
-	return self.host.zone.region.ChangeVMConfig2(self.ZoneId, self.InstanceId, instanceType, nil)
+func (self *SInstance) ChangeConfig(ctx context.Context, opts *cloudprovider.SManagedVMChangeConfig) error {
+	return self.host.zone.region.ChangeVMConfig(self.InstanceId, opts.InstanceType)
 }
 
 func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
@@ -531,13 +604,17 @@ func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
 	}
 
 	// mix in image block device names
-	for i := range img.BlockDevicesNames {
-		if !utils.IsInStringArray(img.BlockDevicesNames[i], self.DeviceNames) {
-			self.DeviceNames = append(self.DeviceNames, img.BlockDevicesNames[i])
+	deviceNames := []string{}
+	for _, device := range img.BlockDeviceMapping {
+		deviceNames = append(deviceNames, device.DeviceName)
+	}
+	for _, blockDevice := range self.BlockDeviceMapping {
+		if !utils.IsInStringArray(blockDevice.DeviceName, deviceNames) {
+			deviceNames = append(deviceNames, blockDevice.DeviceName)
 		}
 	}
 
-	name, err := NextDeviceName(self.DeviceNames)
+	name, err := NextDeviceName(deviceNames)
 	if err != nil {
 		return err
 	}
@@ -546,8 +623,6 @@ func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
 	if err != nil {
 		return err
 	}
-
-	self.DeviceNames = append(self.DeviceNames, name)
 	return nil
 }
 
@@ -555,328 +630,160 @@ func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
 	return self.host.zone.region.DetachDisk(self.InstanceId, diskId)
 }
 
-func (self *SInstance) getVpc() (*SVpc, error) {
-	return self.host.zone.region.getVpc(self.VpcAttributes.VpcId)
-}
-
-func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit int) ([]SInstance, int, error) {
-	params := &ec2.DescribeInstancesInput{}
-	filters := make([]*ec2.Filter, 0)
+func (self *SRegion) GetInstances(zoneId string, ids []string) ([]SInstance, error) {
+	params := map[string]string{}
+	idx := 1
+	// skip terminated instance
+	params[fmt.Sprintf("Filter.%d.Name", idx)] = "instance-state-name"
+	for i, state := range []string{"pending", "running", "shutting-down", "stopping", "stopped"} {
+		params[fmt.Sprintf("Filter.%d.Value.%d", idx, i+1)] = state
+	}
+	idx++
 	if len(zoneId) > 0 {
-		filters = AppendSingleValueFilter(filters, "availability-zone", zoneId)
+		params[fmt.Sprintf("Filter.%d.Name", idx)] = "availability-zone"
+		params[fmt.Sprintf("Filter.%d.Value.1", idx)] = zoneId
+		idx++
 	}
-
-	if len(ids) > 0 {
-		params = params.SetInstanceIds(ConvertedList(ids))
+	for i, id := range ids {
+		params[fmt.Sprintf("InstanceId.%d", i)] = id
 	}
-
-	if len(filters) > 0 {
-		params = params.SetFilters(filters)
-	}
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "getEc2Client")
-	}
-	res, err := ec2Client.DescribeInstances(params)
-	if err != nil {
-		if strings.Contains(err.Error(), "InvalidInstanceID.NotFound") {
-			return nil, 0, errors.Wrap(cloudprovider.ErrNotFound, "DescribeInstances")
-		} else {
-			return nil, 0, err
+	ret := []SInstance{}
+	for {
+		result := struct {
+			ReservationSet []struct {
+				ReservationId string      `xml:"reservationId"`
+				OwnerId       string      `xml:"ownerId"`
+				InstancesSet  []SInstance `xml:"instancesSet>item"`
+			} `xml:"reservationSet>item"`
+			NextToken string `xml:"nextToken"`
+		}{}
+		err := self.ec2Request("DescribeInstances", params, &result)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DescribeInstances")
 		}
-	}
-
-	instances := []SInstance{}
-	for _, reservation := range res.Reservations {
-		for _, instance := range reservation.Instances {
-			if err := FillZero(instance); err != nil {
-				return nil, 0, err
-			}
-
-			// 不同步已经terminated的主机
-			if *instance.State.Name == ec2.InstanceStateNameTerminated {
-				continue
-			}
-
-			tagspec := TagSpec{}
-			tagspec.LoadingEc2Tags(instance.Tags)
-
-			disks := []string{}
-			devicenames := []string{}
-			for _, d := range instance.BlockDeviceMappings {
-				if d.Ebs != nil && d.Ebs.VolumeId != nil {
-					disks = append(disks, *d.Ebs.VolumeId)
-					devicenames = append(devicenames, *d.DeviceName)
-				}
-			}
-
-			var secgroups SSecurityGroupIds
-			for _, s := range instance.SecurityGroups {
-				if s.GroupId != nil {
-					secgroups.SecurityGroupId = append(secgroups.SecurityGroupId, *s.GroupId)
-				}
-			}
-
-			var networkInterfaces SNetworkInterfaces
-			eipAddress := SEipAddress{}
-			for _, n := range instance.NetworkInterfaces {
-				i := SNetworkInterface{
-					MacAddress:         *n.MacAddress,
-					NetworkInterfaceId: *n.NetworkInterfaceId,
-					PrivateIpAddress:   *n.PrivateIpAddress,
-				}
-				networkInterfaces.NetworkInterface = append(networkInterfaces.NetworkInterface, i)
-
-				// todo: 可能有多个EIP的情况。目前只支持一个EIP
-				if n.Association != nil && StrVal(n.Association.IpOwnerId) != "amazon" {
-					if eipAddress.IpAddress == "" && len(StrVal(n.Association.PublicIp)) > 0 {
-						eipAddress.IpAddress = *n.Association.PublicIp
-					}
-				}
-			}
-
-			var vpcattr SVpcAttributes
-			vpcattr.VpcId = *instance.VpcId
-			vpcattr.PrivateIpAddress = SIpAddress{[]string{*instance.PrivateIpAddress}}
-			vpcattr.NetworkId = *instance.SubnetId
-
-			var productCodes []string
-			for _, p := range instance.ProductCodes {
-				productCodes = append(productCodes, *p.ProductCodeId)
-			}
-
-			publicIpAddress := SIpAddress{}
-			if len(*instance.PublicIpAddress) > 0 {
-				publicIpAddress.IpAddress = []string{*instance.PublicIpAddress}
-			}
-
-			innerIpAddress := SIpAddress{}
-			if len(*instance.PrivateIpAddress) > 0 {
-				innerIpAddress.IpAddress = []string{*instance.PrivateIpAddress}
-			}
-
-			szone, err := self.getZoneById(*instance.Placement.AvailabilityZone)
-			if err != nil {
-				log.Errorf("getZoneById %s fail %s", *instance.Placement.AvailabilityZone, err)
-				return nil, 0, err
-			}
-
-			osType := "Linux"
-			if instance.Platform != nil && len(*instance.Platform) > 0 {
-				osType = *instance.Platform
-			}
-
-			host := szone.getHost()
-			vcpu := int(*instance.CpuOptions.CoreCount) * int(*instance.CpuOptions.ThreadsPerCore)
-			sinstance := SInstance{
-				RegionId:          self.RegionId,
-				host:              host,
-				ZoneId:            *instance.Placement.AvailabilityZone,
-				InstanceId:        *instance.InstanceId,
-				ImageId:           *instance.ImageId,
-				InstanceType:      *instance.InstanceType,
-				Cpu:               vcpu,
-				IoOptimized:       *instance.EbsOptimized,
-				KeyPairName:       *instance.KeyName,
-				CreationTime:      *instance.LaunchTime,
-				PublicDNSName:     *instance.PublicDnsName,
-				RootDeviceName:    *instance.RootDeviceName,
-				Status:            *instance.State.Name,
-				InnerIpAddress:    innerIpAddress,
-				PublicIpAddress:   publicIpAddress,
-				EipAddress:        eipAddress,
-				InstanceName:      tagspec.GetNameTag(),
-				Description:       tagspec.GetDescTag(),
-				Disks:             disks,
-				DeviceNames:       devicenames,
-				SecurityGroupIds:  secgroups,
-				NetworkInterfaces: networkInterfaces,
-				VpcAttributes:     vpcattr,
-				ProductCodes:      productCodes,
-				OSName:            osType, // todo: 这里在model层回写OSName信息
-				OSType:            osType,
-
-				TagSpec: tagspec,
-				// ExpiredTime:
-				// VlanId:
-				// OSType:
-			}
-
-			instances = append(instances, sinstance)
+		for _, instances := range result.ReservationSet {
+			ret = append(ret, instances.InstancesSet...)
 		}
+		if len(result.NextToken) == 0 || len(result.ReservationSet) == 0 {
+			break
+		}
+		params["NextToken"] = result.NextToken
 	}
-
-	return instances, len(instances), nil
+	return ret, nil
 }
 
 func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
-	if len(instanceId) == 0 {
-		return nil, fmt.Errorf("GetInstance instanceId should not be empty.")
-	}
-
-	instances, _, err := self.GetInstances("", []string{instanceId}, 0, 1)
+	instances, err := self.GetInstances("", []string{instanceId})
 	if err != nil {
-		log.Errorf("GetInstances %s: %s", instanceId, err)
 		return nil, errors.Wrap(err, "GetInstances")
 	}
-	if len(instances) == 0 {
-		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetInstances")
+	for i := range instances {
+		if instances[i].InstanceId == instanceId {
+			return &instances[i], nil
+		}
 	}
-	return &instances[0], nil
+	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetInstances")
 }
 
-func (self *SRegion) GetInstanceIdByImageId(imageId string) (string, error) {
-	params := &ec2.DescribeInstancesInput{}
-	filters := []*ec2.Filter{}
-	filters = AppendSingleValueFilter(filters, "image-id", imageId)
-	params.SetFilters(filters)
-
-	ec2Client, err := self.getEc2Client()
+func (self *SRegion) CreateInstance(opts *cloudprovider.SManagedVMCreateConfig) (*SInstance, error) {
+	img, err := self.GetImage(opts.ExternalImageId)
 	if err != nil {
-		return "", errors.Wrap(err, "getEc2Client")
-	}
-	ret, err := ec2Client.DescribeInstances(params)
-	if err != nil {
-		return "", err
+		return nil, errors.Wrapf(err, "GetImage")
 	}
 
-	for _, item := range ret.Reservations {
-		for _, instance := range item.Instances {
-			return *instance.InstanceId, nil
+	if opts.SysDisk.SizeGB > 0 && opts.SysDisk.SizeGB < img.getRootDiskSizeGb() {
+		opts.SysDisk.SizeGB = img.getRootDiskSizeGb()
+	}
+
+	rootDeviceName := "/dev/sda1"
+	if len(img.RootDeviceName) > 0 {
+		rootDeviceName = img.RootDeviceName
+	}
+
+	deviceNames := []string{rootDeviceName}
+
+	params := map[string]string{
+		"TagSpecification.1.ResourceType": "instance",
+		"TagSpecification.1.Tags.1.Key":   "Name",
+		"TagSpecification.1.Tags.1.Value": opts.Name,
+		"TagSpecification.1.Tags.2.Key":   "Description",
+		"TagSpecification.1.Tags.2.Value": opts.Description,
+
+		"BlockDeviceMapping.1.DeviceName":              rootDeviceName,
+		"BlockDeviceMapping.1.Ebs.DeleteOnTermination": "true",
+		"BlockDeviceMapping.1.Ebs.VolumeSize":          fmt.Sprintf("%d", opts.SysDisk.SizeGB),
+		"BlockDeviceMapping.1.Ebs.VolumeType":          opts.SysDisk.StorageType,
+		"BlockDeviceMapping.1.Ebs.Iops":                fmt.Sprintf("%d", genDiskIops(opts.SysDisk.StorageType, opts.SysDisk.SizeGB)),
+
+		"ImageId":                    opts.ExternalImageId,
+		"InstanceType":               opts.InstanceType,
+		"MaxCount":                   "1",
+		"MinCount":                   "1",
+		"Placement.AvailabilityZone": opts.ZoneId,
+	}
+
+	idx := 3
+	for k, v := range opts.Tags {
+		params[fmt.Sprintf("TagSpecification.1.Tags.%d.Key", idx)] = k
+		params[fmt.Sprintf("TagSpecification.1.Tags.%d.Value", idx)] = v
+		idx++
+	}
+
+	for i, disk := range opts.DataDisks {
+		params[fmt.Sprintf("BlockDeviceMapping.%d.DeviceName", i+2)], err = NextDeviceName(deviceNames)
+		if err != nil {
+			return nil, errors.Wrapf(err, "NextDeviceName")
 		}
-	}
-	return "", fmt.Errorf("instance launch with image %s not found", imageId)
-}
-
-func (self *SRegion) CreateInstance(name string, image *SImage, instanceType string, SubnetId string, securityGroupId string,
-	zoneId string, desc string, disks []SDisk, ipAddr string,
-	keypair string, userData string, ntags map[string]string,
-) (string, error) {
-	var count int64 = 1
-	// disk
-	blockDevices := []*ec2.BlockDeviceMapping{}
-	for i := range disks {
-		var ebs ec2.EbsBlockDevice
-		var deviceName string
-		var err error
-		disk := disks[i]
-
-		if i == 0 {
-			var size int64
-			deleteOnTermination := true
-			size = int64(disk.Size)
-			ebs = ec2.EbsBlockDevice{
-				DeleteOnTermination: &deleteOnTermination,
-				// The st1 volume type cannot be used for boot volumes. Please use a supported boot volume type: standard,io1,gp2.
-				// the encrypted flag cannot be specified since device /dev/sda1 has a snapshot specified.
-				// Encrypted:           &disk.Encrypted,
-				VolumeSize: &size,
-				VolumeType: &disk.Category,
-			}
-
-			if len(image.RootDeviceName) > 0 {
-				deviceName = image.RootDeviceName
-			} else {
-				deviceName = fmt.Sprintf("/dev/sda1")
-			}
-		} else {
-			var size int64
-			size = int64(disk.Size)
-			ebs = ec2.EbsBlockDevice{
-				DeleteOnTermination: &disk.DeleteWithInstance,
-				Encrypted:           &disk.Encrypted,
-				VolumeSize:          &size,
-				VolumeType:          &disk.Category,
-			}
-
-			deviceName, err = NextDeviceName(image.BlockDevicesNames)
-			if err != nil {
-				return "", errors.Wrap(err, "NextDeviceName")
-			}
-		}
-
-		if iops := GenDiskIops(disk.Category, disk.Size); iops > 0 {
-			ebs.SetIops(iops)
-		}
-
-		blockDevice := &ec2.BlockDeviceMapping{
-			DeviceName: &deviceName,
-			Ebs:        &ebs,
-		}
-
-		blockDevices = append(blockDevices, blockDevice)
-	}
-
-	// tags
-	tags := TagSpec{ResourceType: "instance"}
-	tags.SetNameTag(name)
-	tags.SetDescTag(desc)
-
-	if len(ntags) > 0 {
-		for k, v := range ntags {
-			tags.SetTag(k, v)
-		}
-	}
-
-	ec2TagSpec, err := tags.GetTagSpecifications()
-	if err != nil {
-		return "", err
-	}
-
-	imgId := image.GetId()
-	params := ec2.RunInstancesInput{
-		ImageId:             &imgId,
-		InstanceType:        &instanceType,
-		MaxCount:            &count,
-		MinCount:            &count,
-		BlockDeviceMappings: blockDevices,
-		Placement:           &ec2.Placement{AvailabilityZone: &zoneId},
-		TagSpecifications:   []*ec2.TagSpecification{ec2TagSpec},
+		deviceNames = append(deviceNames, params[fmt.Sprintf("BlockDeviceMapping.%d.DeviceName", i+2)])
+		params[fmt.Sprintf("BlockDeviceMapping.%d.Ebs.DeleteOnTermination", i+2)] = "true"
+		params[fmt.Sprintf("BlockDeviceMapping.%d.Ebs.VolumeSize", i+2)] = fmt.Sprintf("%d", disk.SizeGB)
+		params[fmt.Sprintf("BlockDeviceMapping.%d.Ebs.VolumeType", i+2)] = disk.StorageType
+		params[fmt.Sprintf("BlockDeviceMapping.%d.Ebs.Iops", i+2)] = fmt.Sprintf("%d", genDiskIops(disk.StorageType, disk.SizeGB))
 	}
 
 	// keypair
-	if len(keypair) > 0 {
-		params.SetKeyName(keypair)
+	if len(opts.PublicKey) > 0 {
+		keyName, err := self.syncKeypair(opts.PublicKey)
+		if err != nil {
+			return nil, err
+		}
+		params["KeyName"] = keyName
 	}
 
 	// user data
-	if len(userData) > 0 {
-		params.SetUserData(userData)
+	if len(opts.UserData) > 0 {
+		params["UserData"] = base64.StdEncoding.EncodeToString([]byte(opts.UserData))
 	}
 
 	// ip address
-	if len(ipAddr) > 0 {
-		params.SetPrivateIpAddress(ipAddr)
+	if len(opts.IpAddr) > 0 {
+		params["PrivateIpAddress"] = opts.IpAddr
 	}
 
 	// subnet id
-	if len(SubnetId) > 0 {
-		params.SetSubnetId(SubnetId)
+	if len(opts.ExternalNetworkId) > 0 {
+		params["SubnetId"] = opts.ExternalNetworkId
 	}
 
 	// security group
-	if len(securityGroupId) > 0 {
-		params.SetSecurityGroupIds([]*string{&securityGroupId})
+	for i, id := range opts.ExternalSecgroupIds {
+		params[fmt.Sprintf("SecurityGroupId.%d", i+1)] = id
 	}
 
-	ec2Client, err := self.getEc2Client()
+	ret := struct {
+		Instances []SInstance `xml:"instancesSet>item"`
+	}{}
+
+	err = self.ec2Request("RunInstances", params, &ret)
 	if err != nil {
-		return "", errors.Wrap(err, "getEc2Client")
-	}
-	res, err := ec2Client.RunInstances(&params)
-	if err != nil {
-		log.Errorf("CreateInstance fail %s", err)
-		return "", err
+		return nil, errors.Wrapf(err, "RunInstances")
 	}
 
-	if len(res.Instances) == 1 {
-		return *res.Instances[0].InstanceId, nil
-	} else {
-		msg := fmt.Sprintf("CreateInstance fail: %d instance created. ", len(res.Instances))
-		log.Errorf(msg)
-		return "", fmt.Errorf(msg)
+	for i := range ret.Instances {
+		return &ret.Instances[i], nil
 	}
+
+	return nil, fmt.Errorf("no instance return after instance create")
 }
 
 func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
@@ -884,98 +791,48 @@ func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return instance.Status, nil
+	return instance.InstanceState.Name, nil
 }
 
 func (self *SRegion) StartVM(instanceId string) error {
-	params := &ec2.StartInstancesInput{}
-	params.SetInstanceIds([]*string{&instanceId})
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+	params := map[string]string{
+		"InstanceId.1": instanceId,
 	}
-	_, err = ec2Client.StartInstances(params)
-	return errors.Wrap(err, "StartInstances")
+	return self.ec2Request("StartInstances", params, nil)
 }
 
-func (self *SRegion) StopVM(instanceId string, isForce bool) error {
-	params := &ec2.StopInstancesInput{}
-	params.SetInstanceIds([]*string{&instanceId})
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+func (self *SRegion) StopVM(instanceId string) error {
+	params := map[string]string{
+		"InstanceId.1": instanceId,
 	}
-	_, err = ec2Client.StopInstances(params)
-	return errors.Wrap(err, "StopInstances")
+	return self.ec2Request("StopInstances", params, nil)
 }
 
 func (self *SRegion) DeleteVM(instanceId string) error {
-	// 检查删除保护状态.如果已开启则先关闭删除保护再进行删除操作
-	protect, err := self.deleteProtectStatusVM(instanceId)
-	if err != nil {
-		return err
+	self.DisableVMDetete(instanceId, false)
+	params := map[string]string{
+		"InstanceId.1": instanceId,
 	}
-
-	if protect {
-		log.Warningf("DeleteVM instance %s which termination protect is in open status", instanceId)
-		err = self.deleteProtectVM(instanceId, false)
-		if err != nil {
-			return err
-		}
-	}
-
-	params := &ec2.TerminateInstancesInput{}
-	params.SetInstanceIds([]*string{&instanceId})
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-	_, err = ec2Client.TerminateInstances(params)
-	return errors.Wrap(err, "TerminateInstances")
+	return self.ec2Request("TerminateInstances", params, nil)
 }
 
-func (self *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, deleteKeypair bool, description string) error {
-	params := &ec2.CreateTagsInput{}
-	params.SetResources([]*string{&instanceId})
-	tagspec := TagSpec{ResourceType: "instance"}
-
-	if len(keypairName) > 0 {
-		return fmt.Errorf("aws not support reset publickey")
+func (self *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, deleteKeypair bool, desc string) error {
+	params := map[string]string{
+		"ResourceId.1": instanceId,
 	}
-
-	if len(password) > 0 {
-		return fmt.Errorf("aws not support set password, use publickey instead")
-	}
-
-	if deleteKeypair {
-		return fmt.Errorf("aws not support delete publickey")
-	}
-
+	idx := 1
 	if len(name) > 0 {
-		tagspec.SetNameTag(name)
+		params[fmt.Sprintf("Tag.%d.Key", idx)] = "Name"
+		params[fmt.Sprintf("Tag.%d.Value", idx)] = name
+		idx++
+	}
+	if len(desc) > 0 {
+		params[fmt.Sprintf("Tag.%d.Key", idx)] = "Description"
+		params[fmt.Sprintf("Tag.%d.Value", idx)] = desc
+		idx++
 	}
 
-	if len(description) > 0 {
-		tagspec.SetDescTag(description)
-	}
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-
-	ec2Tag, _ := tagspec.GetTagSpecifications()
-	if len(ec2Tag.Tags) > 0 {
-		params.SetTags(ec2Tag.Tags)
-		_, err := ec2Client.CreateTags(params)
-		if err != nil {
-			return err
-		}
-	} else {
-		log.Debugf("no changes")
-	}
-
-	return nil
+	return self.ec2Request("CreateTags", params, nil)
 }
 
 func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
@@ -984,219 +841,156 @@ func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
 }
 
 func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, image *SImage, sysDiskSizeGB int, keypair string, userdata string) (string, error) {
-	instance, err := self.GetInstance(instanceId)
-	if err != nil {
-		return "", err
-	}
-	disks, _, err := self.GetDisks(instanceId, instance.ZoneId, "", nil, 0, 0)
-	if err != nil {
-		return "", err
-	}
-
-	var rootDisk *SDisk
-	for _, disk := range disks {
-		if disk.Type == api.DISK_TYPE_SYS {
-			rootDisk = &disk
-			break
+	/*
+		instance, err := self.GetInstance(instanceId)
+		if err != nil {
+			return "", err
 		}
-	}
+		disks, _, err := self.GetDisks(instanceId, instance.Placement.AvailabilityZone, "", nil, 0, 0)
+		if err != nil {
+			return "", err
+		}
 
-	if rootDisk == nil {
-		return "", fmt.Errorf("can not find root disk of instance %s", instanceId)
-	}
-	log.Debugf("ReplaceSystemDisk replace root disk %s", rootDisk.DiskId)
+		var rootDisk *SDisk
+		for _, disk := range disks {
+			if disk.Type == api.DISK_TYPE_SYS {
+				rootDisk = &disk
+				break
+			}
+		}
 
-	subnetId := ""
-	if len(instance.VpcAttributes.NetworkId) > 0 {
-		subnetId = instance.VpcAttributes.NetworkId
-	}
+		if rootDisk == nil {
+			return "", fmt.Errorf("can not find root disk of instance %s", instanceId)
+		}
+		log.Debugf("ReplaceSystemDisk replace root disk %s", rootDisk.DiskId)
 
-	// create tmp server
-	tempName := fmt.Sprintf("__tmp_%s", instance.GetName())
-	_id, err := self.CreateInstance(tempName,
-		image,
-		instance.InstanceType,
-		subnetId,
-		"",
-		instance.ZoneId,
-		instance.Description,
-		[]SDisk{{Size: sysDiskSizeGB, Category: rootDisk.Category}},
-		"",
-		keypair,
-		userdata,
-		nil,
-	)
-	if err == nil {
-		defer self.DeleteVM(_id)
-	} else {
-		log.Debugf("ReplaceSystemDisk create temp server failed. %s", err)
-		return "", fmt.Errorf("ReplaceSystemDisk create temp server failed.")
-	}
+		subnetId := ""
+		if len(instance.SubnetId) > 0 {
+			subnetId = instance.SubnetId
+		}
 
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return "", errors.Wrap(err, "getEc2Client")
-	}
+		// create tmp server
+		tempName := fmt.Sprintf("__tmp_%s", instance.GetName())
+		_id, err := self.CreateInstance(tempName,
+			image,
+			instance.InstanceType,
+			subnetId,
+			"",
+			instance.Placement.AvailabilityZone,
+			instance.GetDesc(),
+			[]SDisk{{Size: sysDiskSizeGB, Category: rootDisk.Category}},
+			"",
+			keypair,
+			userdata,
+			nil,
+		)
+		if err == nil {
+			defer self.DeleteVM(_id)
+		} else {
+			log.Debugf("ReplaceSystemDisk create temp server failed. %s", err)
+			return "", fmt.Errorf("ReplaceSystemDisk create temp server failed.")
+		}
 
-	ec2Client.WaitUntilInstanceRunning(&ec2.DescribeInstancesInput{InstanceIds: []*string{&_id}})
-	err = self.StopVM(_id, true)
-	if err != nil {
-		log.Debugf("ReplaceSystemDisk stop temp server failed %s", err)
-		return "", fmt.Errorf("ReplaceSystemDisk stop temp server failed")
-	}
-	ec2Client.WaitUntilInstanceStopped(&ec2.DescribeInstancesInput{InstanceIds: []*string{&_id}})
+		ec2Client, err := self.getEc2Client()
+		if err != nil {
+			return "", errors.Wrap(err, "getEc2Client")
+		}
 
-	// detach disks
-	tempInstance, err := self.GetInstance(_id)
-	if err != nil {
-		log.Debugf("ReplaceSystemDisk get temp server failed %s", err)
-		return "", fmt.Errorf("ReplaceSystemDisk get temp server failed")
-	}
+		ec2Client.WaitUntilInstanceRunning(&ec2.DescribeInstancesInput{InstanceIds: []*string{&_id}})
+		err = self.StopVM(_id, true)
+		if err != nil {
+			log.Debugf("ReplaceSystemDisk stop temp server failed %s", err)
+			return "", fmt.Errorf("ReplaceSystemDisk stop temp server failed")
+		}
+		ec2Client.WaitUntilInstanceStopped(&ec2.DescribeInstancesInput{InstanceIds: []*string{&_id}})
 
-	err = self.DetachDisk(instance.GetId(), rootDisk.DiskId)
-	if err != nil {
-		log.Debugf("ReplaceSystemDisk detach disk %s: %s", rootDisk.DiskId, err)
-		return "", err
-	}
+		// detach disks
+		tempInstance, err := self.GetInstance(_id)
+		if err != nil {
+			log.Debugf("ReplaceSystemDisk get temp server failed %s", err)
+			return "", fmt.Errorf("ReplaceSystemDisk get temp server failed")
+		}
 
-	err = self.DetachDisk(tempInstance.GetId(), tempInstance.Disks[0])
-	if err != nil {
-		log.Debugf("ReplaceSystemDisk detach disk %s: %s", tempInstance.Disks[0], err)
-		return "", err
-	}
-	ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&rootDisk.DiskId}})
-	ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&tempInstance.Disks[0]}})
+		err = self.DetachDisk(instance.GetId(), rootDisk.DiskId)
+		if err != nil {
+			log.Debugf("ReplaceSystemDisk detach disk %s: %s", rootDisk.DiskId, err)
+			return "", err
+		}
 
-	err = self.AttachDisk(instance.GetId(), tempInstance.Disks[0], rootDisk.Device)
-	if err != nil {
-		log.Debugf("ReplaceSystemDisk attach disk %s: %s", tempInstance.Disks[0], err)
-		return "", err
-	}
-	ec2Client.WaitUntilInstanceStopped(&ec2.DescribeInstancesInput{InstanceIds: []*string{&instanceId}})
-	ec2Client.WaitUntilVolumeInUse(&ec2.DescribeVolumesInput{VolumeIds: []*string{&tempInstance.Disks[0]}})
+		err = self.DetachDisk(tempInstance.GetId(), tempInstance.Disks[0])
+		if err != nil {
+			log.Debugf("ReplaceSystemDisk detach disk %s: %s", tempInstance.Disks[0], err)
+			return "", err
+		}
+		ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&rootDisk.DiskId}})
+		ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&tempInstance.Disks[0]}})
 
-	userdataText, err := base64.StdEncoding.DecodeString(userdata)
-	if err != nil {
-		return "", errors.Wrap(err, "SRegion.ReplaceSystemDisk.DecodeString")
-	}
-	err = instance.UpdateUserData(string(userdataText))
-	if err != nil {
-		log.Debugf("ReplaceSystemDisk update user data %s", err)
-		return "", fmt.Errorf("ReplaceSystemDisk update user data failed")
-	}
+		err = self.AttachDisk(instance.GetId(), tempInstance.Disks[0], rootDisk.Device)
+		if err != nil {
+			log.Debugf("ReplaceSystemDisk attach disk %s: %s", tempInstance.Disks[0], err)
+			return "", err
+		}
+		ec2Client.WaitUntilInstanceStopped(&ec2.DescribeInstancesInput{InstanceIds: []*string{&instanceId}})
+		ec2Client.WaitUntilVolumeInUse(&ec2.DescribeVolumesInput{VolumeIds: []*string{&tempInstance.Disks[0]}})
 
-	err = self.DeleteDisk(rootDisk.DiskId)
-	if err != nil {
-		log.Debugf("ReplaceSystemDisk delete old disk %s: %s", rootDisk.DiskId, err)
-	}
-	return tempInstance.Disks[0], nil
+		userdataText, err := base64.StdEncoding.DecodeString(userdata)
+		if err != nil {
+			return "", errors.Wrap(err, "SRegion.ReplaceSystemDisk.DecodeString")
+		}
+		err = instance.UpdateUserData(string(userdataText))
+		if err != nil {
+			log.Debugf("ReplaceSystemDisk update user data %s", err)
+			return "", fmt.Errorf("ReplaceSystemDisk update user data failed")
+		}
+
+		err = self.DeleteDisk(rootDisk.DiskId)
+		if err != nil {
+			log.Debugf("ReplaceSystemDisk delete old disk %s: %s", rootDisk.DiskId, err)
+		}
+		return tempInstance.Disks[0], nil
+	*/
+	return "", nil
 }
 
-func (self *SRegion) ChangeVMConfig2(zoneId string, instanceId string, instanceType string, disks []*SDisk) error {
-	params := &ec2.ModifyInstanceAttributeInput{}
-	params.SetInstanceId(instanceId)
-
-	t := &ec2.AttributeValue{Value: &instanceType}
-	params.SetInstanceType(t)
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+func (self *SRegion) ChangeVMConfig(instanceId string, instanceType string) error {
+	params := map[string]string{
+		"InstanceId":         instanceId,
+		"InstanceType.Value": instanceType,
 	}
-	_, err = ec2Client.ModifyInstanceAttribute(params)
-	if err != nil {
-		return fmt.Errorf("Failed to change vm config, specification not supported. %s", err.Error())
-	} else {
-		return nil
-	}
+	return self.ec2Request("ModifyInstanceAttribute", params, nil)
 }
 
 func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
-	params := &ec2.DetachVolumeInput{}
-	params.SetInstanceId(instanceId)
-	params.SetVolumeId(diskId)
-	log.Debugf("DetachDisk %s", params.String())
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+	params := map[string]string{
+		"InstanceId": instanceId,
+		"VolumeId":   diskId,
 	}
-
-	_, err = ec2Client.DetachVolume(params)
+	err := self.ec2Request("DetachVolume", params, nil)
 	if err != nil {
-		if strings.Contains(err.Error(), fmt.Sprintf("'%s'is in the 'available' state", diskId)) {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			return nil
 		}
-		//InvalidVolume.NotFound: The volume 'vol-0a9eeda0a70a8d7fe' does not exist
-		if strings.Contains(err.Error(), "InvalidVolume.NotFound") {
-			return nil
-		}
-		return errors.Wrap(err, "ec2Client.DetachVolume")
+		return err
 	}
 	return nil
 }
 
 func (self *SRegion) AttachDisk(instanceId string, diskId string, deviceName string) error {
-	params := &ec2.AttachVolumeInput{}
-	params.SetInstanceId(instanceId)
-	params.SetVolumeId(diskId)
-	params.SetDevice(deviceName)
-	log.Debugf("AttachDisk %s", params.String())
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+	params := map[string]string{
+		"InstanceId": instanceId,
+		"VolumeId":   diskId,
+		"Device":     deviceName,
 	}
-	_, err = ec2Client.AttachVolume(params)
-	return errors.Wrap(err, "AttachVolume")
+	return self.ec2Request("AttachVolume", params, nil)
 }
 
-func (self *SRegion) deleteProtectStatusVM(instanceId string) (bool, error) {
-	p := &ec2.DescribeInstanceAttributeInput{}
-	p.SetInstanceId(instanceId)
-	p.SetAttribute("disableApiTermination")
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return false, errors.Wrap(err, "getEc2Client")
+func (self *SRegion) DisableVMDetete(instanceId string, disableDelete bool) error {
+	params := map[string]string{
+		"InstanceId": instanceId,
+		"Attribute":  "disableApiTermination",
+		"Value":      fmt.Sprintf("%v", disableDelete),
 	}
-	ret, err := ec2Client.DescribeInstanceAttribute(p)
-	if err != nil {
-		return false, err
-	}
-
-	return *ret.DisableApiTermination.Value, nil
-}
-
-func (self *SRegion) deleteProtectVM(instanceId string, disableDelete bool) error {
-	p2 := &ec2.ModifyInstanceAttributeInput{
-		DisableApiTermination: &ec2.AttributeBooleanValue{Value: &disableDelete},
-		InstanceId:            &instanceId,
-	}
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-	_, err = ec2Client.ModifyInstanceAttribute(p2)
-	return errors.Wrap(err, "ModifyInstanceAttribute")
-}
-
-func (self *SRegion) getPasswordData(instanceId string) (string, error) {
-	params := &ec2.GetPasswordDataInput{}
-	params.SetInstanceId(instanceId)
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return "", errors.Wrap(err, "getEc2Client")
-	}
-	ret, err := ec2Client.GetPasswordData(params)
-	if err != nil {
-		return "", err
-	}
-
-	return *ret.PasswordData, nil
-}
-
-func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
-	return cloudprovider.ErrNotSupported
+	return self.ec2Request("ModifyInstanceAttribute", params, nil)
 }
 
 func (self *SInstance) Renew(bc billing.SBillingCycle) error {
@@ -1207,24 +1001,12 @@ func (self *SInstance) GetProjectId() string {
 	return ""
 }
 
-func (self *SInstance) GetError() error {
-	return nil
-}
-
 func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
-	ec2Client, err := self.host.zone.region.getEc2Client()
+	oldTags, err := self.host.zone.region.GetResourceTags(self.InstanceId)
 	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+		return errors.Wrapf(err, "GetResourceTags")
 	}
-	oldTagsJson, err := FetchTags(ec2Client, self.InstanceId)
-	if err != nil {
-		return errors.Wrapf(err, "FetchTags(self.host.zone.region.ec2Client, %s)", self.InstanceId)
-	}
-	oldTags := map[string]string{}
-	err = oldTagsJson.Unmarshal(oldTags)
-	if err != nil {
-		return errors.Wrapf(err, "(%s).Unmarshal(oldTags)", oldTagsJson.String())
-	}
+
 	addTags := map[string]string{}
 	for k, v := range tags {
 		if strings.HasPrefix(k, "aws:") {
@@ -1251,12 +1033,12 @@ func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
 	Arn := self.GetArn()
 	err = self.host.zone.region.UntagResources([]string{Arn}, delTags)
 	if err != nil {
-		return errors.Wrapf(err, "self.host.zone.region.UntagResources([]string{%s}, %s)", Arn, jsonutils.Marshal(delTags).String())
+		return errors.Wrapf(err, "UntagResources")
 	}
 	delete(addTags, "Name")
 	err = self.host.zone.region.TagResources([]string{Arn}, addTags)
 	if err != nil {
-		return errors.Wrapf(err, "self.host.zone.region.TagResources([]string{%s}, %s)", Arn, jsonutils.Marshal(addTags).String())
+		return errors.Wrapf(err, "TagResources")
 	}
 	return nil
 }

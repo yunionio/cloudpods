@@ -34,26 +34,16 @@ func init() {
 	})
 
 	type VpcPeeringConnectionListOptions struct {
-		VPCID string
+		AcceptId  string
+		RequestId string
+		Id        string
 	}
 	shellutils.R(&VpcPeeringConnectionListOptions{}, "vpc-peering-connection-list", "List vpcPeeringConnections", func(cli *aws.SRegion, args *VpcPeeringConnectionListOptions) error {
-		vpcPCs, err := cli.DescribeVpcPeeringConnections(args.VPCID)
+		vpcPCs, err := cli.DescribeVpcPeeringConnections(args.Id, args.AcceptId, args.RequestId)
 		if err != nil {
 			return err
 		}
 		printList(vpcPCs, len(vpcPCs), len(vpcPCs), len(vpcPCs), []string{})
-		return nil
-	})
-
-	type VpcPeeringConnectionShowOptions struct {
-		ID string
-	}
-	shellutils.R(&VpcPeeringConnectionShowOptions{}, "vpc-peering-connection-show", "show vpcPeeringConnections", func(cli *aws.SRegion, args *VpcPeeringConnectionShowOptions) error {
-		vpcPC, err := cli.GetVpcPeeringConnectionById(args.ID)
-		if err != nil {
-			return err
-		}
-		printObject(vpcPC)
 		return nil
 	})
 

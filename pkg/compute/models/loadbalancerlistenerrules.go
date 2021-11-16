@@ -72,9 +72,9 @@ type SLoadbalancerListenerRule struct {
 
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 
-	Domain    string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	Path      string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	Condition string `charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	Domain    string                          `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	Path      string                          `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	Condition *cloudprovider.AwsRuleConditons `charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	SLoadbalancerHealthCheck // 目前只有腾讯云HTTP、HTTPS类型的健康检查是和规则绑定的。
 	SLoadbalancerHTTPRateLimiter

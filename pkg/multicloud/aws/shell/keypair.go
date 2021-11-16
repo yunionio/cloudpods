@@ -21,15 +21,15 @@ import (
 
 func init() {
 	type KeyPairListOptions struct {
-		Limit  int `help:"page size"`
-		Offset int `help:"page offset"`
+		Finger string
+		Name   string
 	}
 	shellutils.R(&KeyPairListOptions{}, "keypair-list", "List keypairs", func(cli *aws.SRegion, args *KeyPairListOptions) error {
-		keypairs, total, e := cli.GetKeypairs("", "", args.Offset, args.Limit)
+		keypairs, e := cli.GetKeypairs(args.Finger, args.Name)
 		if e != nil {
 			return e
 		}
-		printList(keypairs, total, args.Offset, args.Limit, []string{})
+		printList(keypairs, 0, 0, 0, []string{})
 		return nil
 	})
 

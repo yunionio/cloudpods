@@ -35,6 +35,7 @@ const (
 	ErrTimeout        = errors.ErrTimeout
 	ErrNotImplemented = errors.ErrNotImplemented
 	ErrNotSupported   = errors.ErrNotSupported
+	ErrReadOnly       = errors.Error("Read Only Error")
 
 	ErrInvalidProvider     = httperrors.ErrInvalidProvider
 	ErrNoBalancePermission = httperrors.ErrNoBalancePermission

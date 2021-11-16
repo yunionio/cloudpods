@@ -22,8 +22,8 @@ import (
 func init() {
 	type ElasticacheClusterListOption struct {
 	}
-	shellutils.R(&ElasticacheClusterListOption{}, "elasticacheCluster-list", "List elasticacheCluster", func(cli *aws.SRegion, args *ElasticacheClusterListOption) error {
-		clusters, e := cli.DescribeElasticacheClusters()
+	shellutils.R(&ElasticacheClusterListOption{}, "elastic-cluster-list", "List elasticacheCluster", func(cli *aws.SRegion, args *ElasticacheClusterListOption) error {
+		clusters, e := cli.GetElasticacheClusters()
 		if e != nil {
 			return e
 		}
@@ -34,8 +34,8 @@ func init() {
 	type ElasticacheReplicaGroupListOption struct {
 		Id string
 	}
-	shellutils.R(&ElasticacheReplicaGroupListOption{}, "elasticacheReplicaGroup-list", "List elasticaReplicaGroup", func(cli *aws.SRegion, args *ElasticacheReplicaGroupListOption) error {
-		clusters, e := cli.DescribeElasticacheReplicationGroups(args.Id)
+	shellutils.R(&ElasticacheReplicaGroupListOption{}, "elastic-cache-list", "List elasticaReplicaGroup", func(cli *aws.SRegion, args *ElasticacheReplicaGroupListOption) error {
+		clusters, e := cli.GetElasticaches(args.Id)
 		if e != nil {
 			return e
 		}
@@ -46,8 +46,8 @@ func init() {
 	type ElasticacheSubnetGroupOption struct {
 		Id string `help:"subnetgroupId"`
 	}
-	shellutils.R(&ElasticacheSubnetGroupOption{}, "elasticacheSubnetGroup-show", "List elasticacheSubnetGroup", func(cli *aws.SRegion, args *ElasticacheSubnetGroupOption) error {
-		subnetGroups, e := cli.DescribeCacheSubnetGroups(args.Id)
+	shellutils.R(&ElasticacheSubnetGroupOption{}, "elastic-cache-subnetgroup-show", "List elasticacheSubnetGroup", func(cli *aws.SRegion, args *ElasticacheSubnetGroupOption) error {
+		subnetGroups, e := cli.GetCacheSubnetGroups(args.Id)
 		if e != nil {
 			return e
 		}
@@ -59,8 +59,8 @@ func init() {
 		ReplicaGroupId string `help:"replicaGroupId"`
 		SnapshotId     string `help:"SnapshotId"`
 	}
-	shellutils.R(&ElasticacheSnapshotOption{}, "elasticacheSnapshot-list", "List elasticacheSnapshot", func(cli *aws.SRegion, args *ElasticacheSnapshotOption) error {
-		snapshots, e := cli.DescribeSnapshots(args.ReplicaGroupId, args.SnapshotId)
+	shellutils.R(&ElasticacheSnapshotOption{}, "elastic-cache-subnetgroup-list", "List elasticacheSnapshot", func(cli *aws.SRegion, args *ElasticacheSnapshotOption) error {
+		snapshots, e := cli.GetElasticacheSnapshots(args.ReplicaGroupId, args.SnapshotId)
 		if e != nil {
 			return e
 		}
@@ -71,8 +71,8 @@ func init() {
 	type ElasticacheParameterOption struct {
 		ParameterGroupId string
 	}
-	shellutils.R(&ElasticacheParameterOption{}, "elasticacheParameter-list", "List elasticacheParameter", func(cli *aws.SRegion, args *ElasticacheParameterOption) error {
-		parameters, e := cli.DescribeCacheParameters(args.ParameterGroupId)
+	shellutils.R(&ElasticacheParameterOption{}, "elastic-cache-parameter-list", "List elasticacheParameter", func(cli *aws.SRegion, args *ElasticacheParameterOption) error {
+		parameters, e := cli.GetCacheParameters(args.ParameterGroupId)
 		if e != nil {
 			return e
 		}
@@ -83,8 +83,8 @@ func init() {
 	type ElasticacheUserOption struct {
 		Engine string `help:"redis"`
 	}
-	shellutils.R(&ElasticacheUserOption{}, "elasticacheUser-list", "List elasticacheUser", func(cli *aws.SRegion, args *ElasticacheUserOption) error {
-		users, e := cli.DescribeUsers(args.Engine)
+	shellutils.R(&ElasticacheUserOption{}, "elastic-cache-user-list", "List elasticacheUser", func(cli *aws.SRegion, args *ElasticacheUserOption) error {
+		users, e := cli.GetElasticacheUsers(args.Engine)
 		if e != nil {
 			return e
 		}

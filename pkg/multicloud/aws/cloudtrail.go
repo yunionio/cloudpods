@@ -172,7 +172,7 @@ func (self *SRegion) LookupEvents(start, end time.Time, withReadEvent bool) ([]S
 			if err != nil {
 				return nil, errors.Wrapf(err, "jsonutils.Update")
 			}
-			if strings.Contains(event.CloudTrailEvent, "awsRegion") && !strings.Contains(event.CloudTrailEvent, fmt.Sprintf(`"awsRegion":"%s"`, self.RegionId)) {
+			if strings.Contains(event.CloudTrailEvent, "awsRegion") && !strings.Contains(event.CloudTrailEvent, fmt.Sprintf(`"awsRegion":"%s"`, self.RegionName)) {
 				continue
 			}
 			events = append(events, event)

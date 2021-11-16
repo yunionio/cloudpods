@@ -21,18 +21,17 @@ import (
 
 func init() {
 	type DiskListOptions struct {
-		Instance string `help:"Instance ID"`
-		Zone     string `help:"Zone ID"`
-		Category string `help:"Disk category"`
-		Offset   int    `help:"List offset"`
-		Limit    int    `help:"List limit"`
+		Instance   string `help:"Instance ID"`
+		Zone       string `help:"Zone ID"`
+		Ids        []string
+		VolumeType string `help:"Disk category"`
 	}
 	shellutils.R(&DiskListOptions{}, "disk-list", "List disks", func(cli *aws.SRegion, args *DiskListOptions) error {
-		disks, total, e := cli.GetDisks(args.Instance, args.Zone, args.Category, nil, args.Offset, args.Limit)
+		disks, e := cli.GetDisks(args.Instance, args.Zone, args.VolumeType, args.Ids)
 		if e != nil {
 			return e
 		}
-		printList(disks, total, args.Offset, args.Limit, []string{})
+		printList(disks, 0, 0, 0, []string{})
 		return nil
 	})
 

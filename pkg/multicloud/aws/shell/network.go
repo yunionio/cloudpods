@@ -32,4 +32,22 @@ func init() {
 		printList(networks, 0, 0, 0, []string{})
 		return nil
 	})
+
+	type NetworkCreateOptions struct {
+		NAME string
+		ZONE string
+		VPC  string
+		CIDR string
+		Desc string
+	}
+
+	shellutils.R(&NetworkCreateOptions{}, "network-create", "Create network", func(cli *aws.SRegion, args *NetworkCreateOptions) error {
+		network, err := cli.CreateNetwork(args.ZONE, args.VPC, args.NAME, args.CIDR, args.Desc)
+		if err != nil {
+			return err
+		}
+		printObject(network)
+		return nil
+	})
+
 }

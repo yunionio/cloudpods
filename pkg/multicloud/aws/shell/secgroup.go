@@ -27,29 +27,16 @@ import (
 
 func init() {
 	type SecurityGroupListOptions struct {
-		VpcId  string `help:"VPC ID"`
-		Name   string `help:"Secgroup name"`
-		Limit  int    `help:"page size"`
-		Offset int    `help:"page offset"`
+		VpcId string `help:"VPC ID"`
+		Name  string `help:"Secgroup name"`
+		Id    string
 	}
 	shellutils.R(&SecurityGroupListOptions{}, "security-group-list", "List security group", func(cli *aws.SRegion, args *SecurityGroupListOptions) error {
-		secgrps, total, e := cli.GetSecurityGroups(args.VpcId, args.Name, "", args.Offset, args.Limit)
+		secgrps, e := cli.GetSecurityGroups(args.VpcId, args.Name, args.Id)
 		if e != nil {
 			return e
 		}
-		printList(secgrps, total, args.Offset, args.Limit, []string{})
-		return nil
-	})
-
-	type SecurityGroupShowOptions struct {
-		ID string `help:"ID or name of security group"`
-	}
-	shellutils.R(&SecurityGroupShowOptions{}, "security-group-show", "Show details of a security group", func(cli *aws.SRegion, args *SecurityGroupShowOptions) error {
-		secgrp, err := cli.GetSecurityGroupDetails(args.ID)
-		if err != nil {
-			return err
-		}
-		printObject(secgrp)
+		printList(secgrps, 0, 0, 0, []string{})
 		return nil
 	})
 

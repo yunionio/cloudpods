@@ -26,17 +26,15 @@ import (
 
 func init() {
 	type InstanceListOptions struct {
-		Id     []string `help:"IDs of instances to show"`
-		Zone   string   `help:"Zone ID"`
-		Limit  int      `help:"page size"`
-		Offset int      `help:"page offset"`
+		Id   []string `help:"IDs of instances to show"`
+		Zone string   `help:"Zone ID"`
 	}
 	shellutils.R(&InstanceListOptions{}, "instance-list", "List intances", func(cli *aws.SRegion, args *InstanceListOptions) error {
-		instances, total, e := cli.GetInstances(args.Zone, args.Id, args.Offset, args.Limit)
+		instances, e := cli.GetInstances(args.Zone, args.Id)
 		if e != nil {
 			return e
 		}
-		printList(instances, total, args.Offset, args.Limit, []string{})
+		printList(instances, 0, 0, 0, []string{})
 		return nil
 	})
 
@@ -90,9 +88,41 @@ func init() {
 		return nil
 	})
 
+	type InstanceUpdateOptions struct {
+		ID            string `help:"instance ID"`
+		UserData      string `help:"user data"`
+		DisableDelete string `help:"enabled or disable delete" choices:"true|false"`
+	}
+
+	shellutils.R(&InstanceUpdateOptions{}, "instance-update", "Update instance", func(cli *aws.SRegion, args *InstanceUpdateOptions) error {
+		if len(args.UserData) > 0 {
+			err := cli.UpdateUserData(args.ID, args.UserData)
+			if err != nil {
+				return err
+			}
+		}
+		if delete, ok := map[string]bool{"true": true, "false": false}[args.DisableDelete]; ok {
+			err := cli.DisableVMDetete(args.ID, delete)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
 	type InstanceOperationOptions struct {
 		ID string `help:"instance ID"`
 	}
+
+	shellutils.R(&InstanceOperationOptions{}, "instance-user-data", "Show instance userdata", func(cli *aws.SRegion, args *InstanceOperationOptions) error {
+		userData, err := cli.GetUserData(args.ID)
+		if err != nil {
+			return err
+		}
+		fmt.Println(userData)
+		return nil
+	})
+
 	shellutils.R(&InstanceOperationOptions{}, "instance-start", "Start a instance", func(cli *aws.SRegion, args *InstanceOperationOptions) error {
 		err := cli.StartVM(args.ID)
 		if err != nil {
@@ -102,11 +132,10 @@ func init() {
 	})
 
 	type InstanceStopOptions struct {
-		ID    string `help:"instance ID"`
-		Force bool   `help:"Force stop instance"`
+		ID string `help:"instance ID"`
 	}
 	shellutils.R(&InstanceStopOptions{}, "instance-stop", "Stop a instance", func(cli *aws.SRegion, args *InstanceStopOptions) error {
-		err := cli.StopVM(args.ID, args.Force)
+		err := cli.StopVM(args.ID)
 		if err != nil {
 			return err
 		}
@@ -165,23 +194,12 @@ func init() {
 	})
 
 	type InstanceChangeConfigOptions struct {
-		ID             string `help:"instance ID"`
-		InstanceTypeId string `help:"instance type"`
-		Disk           []int  `help:"Data disk sizes int GB"`
+		ID           string `help:"instance ID"`
+		InstanceType string `help:"instance type"`
 	}
 
 	shellutils.R(&InstanceChangeConfigOptions{}, "instance-change-config", "Deploy keypair/password to a stopped virtual server", func(cli *aws.SRegion, args *InstanceChangeConfigOptions) error {
-		instance, e := cli.GetInstance(args.ID)
-		if e != nil {
-			return e
-		}
-
-		// todo : add create disks
-		err := cli.ChangeVMConfig2(instance.ZoneId, args.ID, args.InstanceTypeId, nil)
-		if err != nil {
-			return err
-		}
-		return nil
+		return cli.ChangeVMConfig(args.ID, args.InstanceType)
 	})
 
 	type InstanceSaveImageOptions struct {

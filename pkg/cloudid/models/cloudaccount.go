@@ -471,6 +471,7 @@ type SCloudDelegate struct {
 	Id         string
 	Name       string
 	Enabled    bool
+	ReadOnly   bool
 	Status     string
 	SyncStatus string
 
@@ -574,6 +575,7 @@ func (account *SCloudDelegate) GetProvider() (cloudprovider.ICloudProvider, erro
 		Options:       options.(*jsonutils.JSONDict),
 
 		AccountId: account.Id,
+		ReadOnly:  account.ReadOnly,
 	})
 }
 

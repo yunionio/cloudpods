@@ -38,7 +38,7 @@ func init() {
 		case "system":
 			owners = aws.ImageOwnerSystem
 		}
-		images, e := cli.GetImages(aws.ImageStatusType(args.Status), owners, args.Id, args.Name, args.VirtualizationType, args.RawOwner, args.VolumeType, args.Latest)
+		images, e := cli.GetImages(args.Status, owners, args.Id, args.Name, args.VirtualizationType, args.RawOwner, args.VolumeType, args.Latest)
 		if e != nil {
 			return e
 		}

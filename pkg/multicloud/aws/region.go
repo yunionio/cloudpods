@@ -15,33 +15,23 @@
 package aws
 
 import (
-	"encoding/xml"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"net/url"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/client/metadata"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
 	"github.com/aws/aws-sdk-go/private/protocol/query"
-	"github.com/aws/aws-sdk-go/service/acm"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/organizations"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/wafv2"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -129,17 +119,18 @@ const (
 	ROUTE53_SERVICE_NAME = "route53"
 
 	ELASTICACHE_SERVICE_NAME = "elasticache"
+	ELASTICACHE_SERVICE_ID   = "ElastiCache"
+
+	ELB_SERVICE_NAME = "elasticloadbalancing"
+	ELB_SERVICE_ID   = "Elastic Load Balancing v2"
 )
 
 type SRegion struct {
 	multicloud.SRegion
 
 	client                 *SAwsClient
-	ec2Client              *ec2.EC2
-	iamClient              *iam.IAM
 	s3Client               *s3.S3
 	elbv2Client            *elbv2.ELBV2
-	acmClient              *acm.ACM
 	wafClient              *wafv2.WAFV2
 	organizationClient     *organizations.Organizations
 	resourceGroupTagClient *resourcegroupstaggingapi.ResourceGroupsTaggingAPI
@@ -149,8 +140,8 @@ type SRegion struct {
 
 	storageCache *SStoragecache
 
-	RegionEndpoint string
-	RegionId       string // 这里为保持一致沿用阿里云RegionId的叫法, 与AWS RegionName字段对应
+	RegionName     string `xml:"regionName"`
+	RegionEndpoint string `xml:"regionEndpoint"`
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -160,35 +151,7 @@ func (self *SRegion) GetClient() *SAwsClient {
 }
 
 func (self *SRegion) getAwsSession() (*session.Session, error) {
-	return self.client.getAwsSession(self.RegionId, true)
-}
-
-func (self *SRegion) getEc2Client() (*ec2.EC2, error) {
-	if self.ec2Client == nil {
-		s, err := self.getAwsSession()
-
-		if err != nil {
-			return nil, errors.Wrap(err, "getAwsSession")
-		}
-
-		self.ec2Client = ec2.New(s)
-	}
-
-	return self.ec2Client, nil
-}
-
-func (self *SRegion) getIamClient() (*iam.IAM, error) {
-	if self.iamClient == nil {
-		s, err := self.getAwsSession()
-
-		if err != nil {
-			return nil, errors.Wrap(err, "getAwsSession")
-		}
-
-		self.iamClient = iam.New(s)
-	}
-
-	return self.iamClient, nil
+	return self.client.getAwsSession(self.RegionName, true)
 }
 
 func (self *SRegion) getWafClient() (*wafv2.WAFV2, error) {
@@ -235,114 +198,24 @@ func (self *SRegion) getResourceGroupTagClient() (*resourcegroupstaggingapi.Reso
 	return self.resourceGroupTagClient, nil
 }
 
-var UnmarshalHandler = request.NamedHandler{Name: "yunion.query.Unmarshal", Fn: Unmarshal}
-
-func Unmarshal(r *request.Request) {
-	defer r.HTTPResponse.Body.Close()
-	if r.DataFilled() {
-		var decoder *xml.Decoder
-		if DEBUG {
-			body, err := ioutil.ReadAll(r.HTTPResponse.Body)
-			if err != nil {
-				r.Error = awserr.NewRequestFailure(
-					awserr.New("ioutil.ReadAll", "read response body", err),
-					r.HTTPResponse.StatusCode,
-					r.RequestID,
-				)
-				return
-			}
-			log.Debugf("response: \n%s", string(body))
-			decoder = xml.NewDecoder(strings.NewReader(string(body)))
-		} else {
-			decoder = xml.NewDecoder(r.HTTPResponse.Body)
-		}
-		if r.ClientInfo.ServiceID == EC2_SERVICE_ID {
-			err := decoder.Decode(r.Data)
-			if err != nil {
-				r.Error = awserr.NewRequestFailure(
-					awserr.New("SerializationError", "failed decoding EC2 Query response", err),
-					r.HTTPResponse.StatusCode,
-					r.RequestID,
-				)
-			}
-			return
-		}
-		for {
-			tok, err := decoder.Token()
-			if err != nil {
-				if err == io.EOF {
-					break
-				}
-				r.Error = awserr.NewRequestFailure(
-					awserr.New("decoder.Token()", "get token", err),
-					r.HTTPResponse.StatusCode,
-					r.RequestID,
-				)
-				return
-			}
-
-			if tok == nil {
-				break
-			}
-
-			switch typed := tok.(type) {
-			case xml.CharData:
-				continue
-			case xml.StartElement:
-				if typed.Name.Local == r.Operation.Name+"Result" {
-					err = decoder.DecodeElement(r.Data, &typed)
-					if err != nil {
-						r.Error = awserr.NewRequestFailure(
-							awserr.New("DecodeElement", "failed decoding Query response", err),
-							r.HTTPResponse.StatusCode,
-							r.RequestID,
-						)
-					}
-					return
-				}
-			case xml.EndElement:
-				break
-			}
-		}
-
-	}
-}
-
-var buildHandler = request.NamedHandler{Name: "yunion.query.Build", Fn: Build}
-
-func Build(r *request.Request) {
-	body := url.Values{
-		"Action":  {r.Operation.Name},
-		"Version": {r.ClientInfo.APIVersion},
-	}
-	if r.Params != nil {
-		if params, ok := r.Params.(map[string]string); ok {
-			for k, v := range params {
-				body.Add(k, v)
-			}
-		}
-	}
-
-	if DEBUG {
-		log.Debugf("params: %s", body.Encode())
-	}
-
-	if !r.IsPresigned() {
-		r.HTTPRequest.Method = "POST"
-		r.HTTPRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=utf-8")
-		r.SetBufferBody([]byte(body.Encode()))
-	} else { // This is a pre-signed request
-		r.HTTPRequest.Method = "GET"
-		r.HTTPRequest.URL.RawQuery = body.Encode()
-	}
-}
-
 func (self *SRegion) rdsRequest(apiName string, params map[string]string, retval interface{}) error {
-	return self.client.request(self.RegionId, RDS_SERVICE_NAME, RDS_SERVICE_ID, "2014-10-31", apiName, params, retval, true)
+	return self.client.request(self.RegionName, RDS_SERVICE_NAME, RDS_SERVICE_ID, "2014-10-31", apiName, params, retval, true)
 }
 
 func (self *SRegion) ec2Request(apiName string, params map[string]string, retval interface{}) error {
-	return self.client.request(self.RegionId, EC2_SERVICE_NAME, EC2_SERVICE_ID, "2016-11-15", apiName, params, retval, true)
+	return self.client.ec2Request(self.RegionName, apiName, params, retval)
+}
+
+func (self *SRegion) redisRequest(apiName string, params map[string]string, retval interface{}) error {
+	return self.client.redisRequest(self.RegionName, apiName, params, retval)
+}
+
+func (self *SRegion) cloudwatchRequest(apiName string, params map[string]string, retval interface{}) error {
+	return self.client.cloudwatchRequest(self.RegionName, apiName, params, retval)
+}
+
+func (self *SRegion) elbRequest(apiName string, params map[string]string, retval interface{}) error {
+	return self.client.elbRequest(self.RegionName, apiName, params, retval)
 }
 
 func (self *SRegion) cloudWatchRequest(apiName string, params *cloudwatch.GetMetricStatisticsInput,
@@ -389,74 +262,51 @@ func (self *SRegion) GetElbV2Client() (*elbv2.ELBV2, error) {
 }
 
 /////////////////////////////////////////////////////////////////////////////
+
+func (self *SRegion) DescribeAvailabilityZones() ([]SZone, error) {
+	params := map[string]string{
+		"Filter.1.region-name": self.RegionName,
+	}
+	ret := struct {
+		Zones []SZone `xml:"availabilityZoneInfo>item"`
+	}{}
+	return ret.Zones, self.ec2Request("DescribeAvailabilityZones", params, &ret)
+}
 func (self *SRegion) fetchZones() error {
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+	if len(self.izones) > 0 {
+		return nil
 	}
-	// todo: 这里将过滤出指定region下全部的zones。是否只过滤出可用的zone即可？ The state of the Availability Zone (available | information | impaired | unavailable)
-	zones, err := ec2Client.DescribeAvailabilityZones(&ec2.DescribeAvailabilityZonesInput{})
+	zones, err := self.DescribeAvailabilityZones()
 	if err != nil {
-		return errors.Wrap(err, "DescribeAvailabilityZones")
-	}
-	err = FillZero(zones)
-	if err != nil {
-		return err
+		return errors.Wrapf(err, "DescribeAvailabilityZones")
 	}
 
-	self.izones = make([]cloudprovider.ICloudZone, 0)
-	for _, zone := range zones.AvailabilityZones {
-		self.izones = append(self.izones, &SZone{ZoneId: *zone.ZoneName, State: *zone.State, LocalName: *zone.ZoneName, region: self})
+	self.izones = []cloudprovider.ICloudZone{}
+	for i := range zones {
+		zones[i].region = self
+		self.izones = append(self.izones, &zones[i])
 	}
 
 	return nil
 }
 
 func (self *SRegion) fetchIVpcs() error {
-	ec2Client, err := self.getEc2Client()
+	if len(self.ivpcs) > 0 {
+		return nil
+	}
+	vpcs, err := self.GetVpcs(nil)
 	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+		return errors.Wrapf(err, "GetVpcs")
 	}
-
-	vpcs, err := ec2Client.DescribeVpcs(&ec2.DescribeVpcsInput{})
-	if err != nil {
-		return err
+	self.ivpcs = []cloudprovider.ICloudVpc{}
+	for i := range vpcs {
+		vpcs[i].region = self
+		self.ivpcs = append(self.ivpcs, &vpcs[i])
 	}
-
-	self.ivpcs = make([]cloudprovider.ICloudVpc, 0)
-	for _, vpc := range vpcs.Vpcs {
-		cidrBlockAssociationSet := []string{}
-		for i := range vpc.CidrBlockAssociationSet {
-			cidr := vpc.CidrBlockAssociationSet[i]
-			if cidr.CidrBlockState.State != nil && *cidr.CidrBlockState.State == "associated" {
-				cidrBlockAssociationSet = append(cidrBlockAssociationSet, *cidr.CidrBlock)
-			}
-		}
-
-		tagspec := TagSpec{ResourceType: "vpc"}
-		tagspec.LoadingEc2Tags(vpc.Tags)
-		ivpc := &SVpc{region: self,
-			CidrBlock:               *vpc.CidrBlock,
-			CidrBlockAssociationSet: cidrBlockAssociationSet,
-			IsDefault:               *vpc.IsDefault,
-			RegionId:                self.RegionId,
-			Status:                  *vpc.State,
-			VpcId:                   *vpc.VpcId,
-			VpcName:                 tagspec.GetNameTag(),
-			InstanceTenancy:         *vpc.InstanceTenancy,
-		}
-		jsonutils.Update(&ivpc.AwsTags.TagSet, vpc.Tags)
-		self.ivpcs = append(self.ivpcs, ivpc)
-	}
-
 	return nil
 }
 
 func (self *SRegion) fetchInfrastructure() error {
-	if _, err := self.getEc2Client(); err != nil {
-		return err
-	}
-
 	if err := self.fetchZones(); err != nil {
 		return err
 	}
@@ -478,23 +328,23 @@ func (self *SRegion) fetchInfrastructure() error {
 }
 
 func (self *SRegion) GetId() string {
-	return self.RegionId
+	return self.RegionName
 }
 
 func (self *SRegion) GetName() string {
-	if localName, ok := RegionLocations[self.RegionId]; ok {
+	if localName, ok := RegionLocations[self.RegionName]; ok {
 		return fmt.Sprintf("%s %s", CLOUD_PROVIDER_AWS_CN, localName)
 	}
 
-	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_AWS_CN, self.RegionId)
+	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_AWS_CN, self.RegionName)
 }
 
 func (self *SRegion) GetI18n() cloudprovider.SModelI18nTable {
 	var en string
-	if localName, ok := RegionLocationsEN[self.RegionId]; ok {
+	if localName, ok := RegionLocationsEN[self.RegionName]; ok {
 		en = fmt.Sprintf("%s %s", CLOUD_PROVIDER_AWS_EN, localName)
 	} else {
-		en = fmt.Sprintf("%s %s", CLOUD_PROVIDER_AWS_EN, self.RegionId)
+		en = fmt.Sprintf("%s %s", CLOUD_PROVIDER_AWS_EN, self.RegionName)
 	}
 
 	table := cloudprovider.SModelI18nTable{}
@@ -503,7 +353,7 @@ func (self *SRegion) GetI18n() cloudprovider.SModelI18nTable {
 }
 
 func (self *SRegion) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", self.client.GetAccessEnv(), self.RegionId)
+	return fmt.Sprintf("%s/%s", self.client.GetAccessEnv(), self.RegionName)
 }
 
 func (self *SRegion) GetStatus() string {
@@ -519,7 +369,7 @@ func (self *SRegion) IsEmulated() bool {
 }
 
 func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
-	if info, ok := LatitudeAndLongitude[self.RegionId]; ok {
+	if info, ok := LatitudeAndLongitude[self.RegionName]; ok {
 		return info
 	}
 	return cloudprovider.SGeographicInfo{}
@@ -553,32 +403,28 @@ func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
 }
 
 func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	_, err := self.getEc2Client()
+	eips, err := self.GetEips("", "", "")
 	if err != nil {
-		return nil, errors.Wrap(err, "getEc2Client")
+		return nil, errors.Wrapf(err, "GetEips")
 	}
 
-	eips, total, err := self.GetEips("", "", 0, 0)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetEips")
-	}
-
-	ret := make([]cloudprovider.ICloudEIP, total)
+	ret := []cloudprovider.ICloudEIP{}
 	for i := 0; i < len(eips); i += 1 {
-		ret[i] = &eips[i]
+		eips[i].region = self
+		ret = append(ret, &eips[i])
 	}
 	return ret, nil
 }
 
 func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	snapshots, _, err := self.GetSnapshots("", "", "", []string{}, 0, 0)
+	snapshots, err := self.GetSnapshots("", nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetSnapshots")
+		return nil, errors.Wrapf(err, "GetSnapshots")
 	}
-
-	ret := make([]cloudprovider.ICloudSnapshot, len(snapshots))
+	ret := []cloudprovider.ICloudSnapshot{}
 	for i := 0; i < len(snapshots); i += 1 {
-		ret[i] = &snapshots[i]
+		snapshots[i].region = self
+		ret = append(ret, &snapshots[i])
 	}
 	return ret, nil
 }
@@ -693,58 +539,45 @@ func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStorag
 
 }
 
+func (self *SRegion) CreateVpc(name, desc, cidr string) (*SVpc, error) {
+	params := map[string]string{
+		"CidrBlock":                       cidr,
+		"TagSpecification.1.ResourceType": "vpc",
+		"TagSpecification.1.Tags.1.Key":   "Name",
+		"TagSpecification.1.Tags.1.Value": name,
+	}
+	if len(desc) > 0 {
+		params["TagSpecification.1.Tags.2.Key"] = "Description"
+		params["TagSpecification.1.Tags.2.Value"] = desc
+	}
+	ret := struct {
+		Vpc SVpc `xml:"vpc"`
+	}{}
+	ret.Vpc.region = self
+	return &ret.Vpc, self.ec2Request("CreateVpc", params, &ret)
+}
+
 func (self *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
-	tagspec := TagSpec{ResourceType: "vpc"}
-	if len(opts.NAME) > 0 {
-		tagspec.SetNameTag(opts.NAME)
-	}
-
-	if len(opts.Desc) > 0 {
-		tagspec.SetDescTag(opts.Desc)
-	}
-
-	spec, err := tagspec.GetTagSpecifications()
+	vpc, err := self.CreateVpc(opts.NAME, opts.Desc, opts.CIDR)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetTagSpecifications")
+		return nil, errors.Wrapf(err, "CreateVpc")
 	}
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "getEc2Client")
-	}
-
-	// start create vpc
-	vpc, err := ec2Client.CreateVpc(&ec2.CreateVpcInput{CidrBlock: &opts.CIDR})
-	if err != nil {
-		return nil, errors.Wrap(err, "CreateVpc")
-	}
-
-	tagsParams := &ec2.CreateTagsInput{Resources: []*string{vpc.Vpc.VpcId}, Tags: spec.Tags}
-	_, err = ec2Client.CreateTags(tagsParams)
-	if err != nil {
-		log.Debugf("CreateIVpc add tag failed %s", err.Error())
-	}
-
-	err = self.fetchInfrastructure()
-	if err != nil {
-		return nil, errors.Wrap(err, "fetchInfrastructure")
-	}
-	return self.GetIVpcById(*vpc.Vpc.VpcId)
+	self.ivpcs = nil
+	return vpc, nil
 }
 
 func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) {
-	eips, total, err := self.GetEips(eipId, "", 0, 0)
+	eips, err := self.GetEips("", eipId, "")
 	if err != nil {
-		log.Errorf("GetEips %s: %s", eipId, err)
-		return nil, errors.Wrap(err, "GetEips")
+		return nil, errors.Wrapf(err, "GetEips")
 	}
-	if total == 0 {
-		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetIEipById")
+	for i := range eips {
+		if eips[i].GetGlobalId() == eipId {
+			eips[i].region = self
+			return &eips[i], nil
+		}
 	}
-	if total > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
-	return &eips[0], nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetIEipById(%s)", eipId)
 }
 
 func (self *SRegion) GetProvider() string {
@@ -788,90 +621,75 @@ func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, me
 	return nil, fmt.Errorf("cannot find vswitch %s", networkId)
 }
 
+func (self *SRegion) GetLoadbalancers(ids []string) ([]SElb, error) {
+	params := map[string]string{}
+	for i, id := range ids {
+		params[fmt.Sprintf("LoadBalancerArns.member.%d", i+1)] = id
+	}
+	ret := []SElb{}
+	for {
+		result := struct {
+			NextMarker string `xml:"NextMarker"`
+			Elbs       []SElb `xml:"LoadBalancers>member"`
+		}{}
+		err := self.elbRequest("DescribeLoadBalancers", params, result)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DescribeLoadBalancers")
+		}
+		ret = append(ret, result.Elbs...)
+		if len(result.NextMarker) == 0 || len(result.Elbs) == 0 {
+			break
+		}
+		params["Marker"] = result.NextMarker
+	}
+	return ret, nil
+}
+
 func (self *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
-	client, err := self.GetElbV2Client()
+	elbs, err := self.GetLoadbalancers(nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetElbV2Client")
+		return nil, errors.Wrapf(err, "GetLoadbalancers")
 	}
-
-	params := &elbv2.DescribeLoadBalancersInput{}
-	ret, err := client.DescribeLoadBalancers(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "DescribeLoadBalancers")
+	ret := []cloudprovider.ICloudLoadbalancer{}
+	for i := range elbs {
+		elbs[i].region = self
+		ret = append(ret, &elbs[i])
 	}
-
-	result := make([]SElb, 0)
-	err = unmarshalAwsOutput(ret, "LoadBalancers", &result)
-	if err != nil {
-		return nil, errors.Wrap(err, "unmarshalAwsOutput.LoadBalancers")
-	}
-
-	ielbs := make([]cloudprovider.ICloudLoadbalancer, len(result))
-	for i := range result {
-		result[i].region = self
-		ielbs[i] = &result[i]
-	}
-
-	return ielbs, nil
+	return ret, nil
 }
 
-func (self *SRegion) GetILoadBalancerById(loadbalancerId string) (cloudprovider.ICloudLoadbalancer, error) {
-	client, err := self.GetElbV2Client()
+func (self *SRegion) GetILoadBalancerById(id string) (cloudprovider.ICloudLoadbalancer, error) {
+	elbs, err := self.GetLoadbalancers([]string{id})
 	if err != nil {
-		return nil, errors.Wrap(err, "GetElbV2Client")
+		return nil, errors.Wrapf(err, "GetLoadbalancers")
 	}
-
-	params := &elbv2.DescribeLoadBalancersInput{}
-	params.SetLoadBalancerArns([]*string{&loadbalancerId})
-	ret, err := client.DescribeLoadBalancers(params)
-	if err != nil {
-		if strings.Contains(err.Error(), "LoadBalancerNotFound") {
-			return nil, cloudprovider.ErrNotFound
+	for i := range elbs {
+		if elbs[i].GetGlobalId() == id {
+			elbs[i].region = self
+			return &elbs[i], nil
 		}
-
-		return nil, errors.Wrap(err, "DescribeLoadBalancers")
 	}
-
-	elbs := []SElb{}
-	err = unmarshalAwsOutput(ret, "LoadBalancers", &elbs)
-	if err != nil {
-		return nil, errors.Wrap(err, "unmarshalAwsOutput.LoadBalancers")
-	}
-
-	if len(elbs) == 1 {
-		elbs[0].region = self
-		return &elbs[0], nil
-	}
-
-	return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetILoadBalancerById")
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
-func (self *SRegion) getElbAttributesById(loadbalancerId string) (map[string]string, error) {
-	client, err := self.GetElbV2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetElbV2Client")
+func (self *SRegion) getElbAttributesById(id string) (map[string]string, error) {
+	params := map[string]string{
+		"LoadBalancerArn": id,
 	}
-
-	params := &elbv2.DescribeLoadBalancerAttributesInput{}
-	params.SetLoadBalancerArn(loadbalancerId)
-	output, err := client.DescribeLoadBalancerAttributes(params)
+	result := struct {
+		Attributes []struct {
+			Key   string `xml:"Key"`
+			Value string `xml:"Value"`
+		} `xml:"Attributes>member"`
+	}{}
+	err := self.elbRequest("DescribeLoadBalancerAttributes", params, &result)
 	if err != nil {
-		return nil, errors.Wrap(err, "DescribeLoadBalancerAttributes")
+		return nil, errors.Wrapf(err, "DescribeLoadBalancerAttributes")
 	}
-
-	attrs := []map[string]string{}
-	err = unmarshalAwsOutput(output, "Attributes", &attrs)
-	if err != nil {
-		return nil, errors.Wrap(err, "unmarshalAwsOutput.Attributes")
-	}
-
 	ret := map[string]string{}
-	for i := range attrs {
-		for k, v := range attrs[i] {
-			ret[k] = v
-		}
+	for _, attr := range result.Attributes {
+		ret[attr.Key] = attr.Value
 	}
-
 	return ret, nil
 }
 
@@ -895,23 +713,25 @@ func (self *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovid
 }
 
 func (self *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
-	client, err := self.getIamClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "region.CreateILoadBalancerCertificate.getIamClient")
+	params := map[string]string{
+		"ServerCertificateName": cert.Name,
+		"PrivateKey":            cert.PrivateKey,
+		"CertificateBody":       cert.Certificate,
 	}
 
-	params := &iam.UploadServerCertificateInput{}
-	params.SetServerCertificateName(cert.Name)
-	params.SetPrivateKey(cert.PrivateKey)
-	params.SetCertificateBody(cert.Certificate)
-	ret, err := client.UploadServerCertificate(params)
+	ret := struct {
+		ServerCertificateMetadata struct {
+			Arn string `xml:"Arn"`
+		} `xml:"ServerCertificateMetadata"`
+	}{}
+	err := self.client.iamRequest("UploadServerCertificate", params, &ret)
 	if err != nil {
-		return nil, errors.Wrap(err, "region.CreateILoadBalancerCertificate.UploadServerCertificate")
+		return nil, errors.Wrapf(err, "UploadServerCertificate")
 	}
 
 	// wait upload cert success
 	err = cloudprovider.Wait(5*time.Second, 30*time.Second, func() (bool, error) {
-		_, err := self.GetILoadBalancerCertificateById(*ret.ServerCertificateMetadata.Arn)
+		_, err := self.GetILoadBalancerCertificateById(ret.ServerCertificateMetadata.Arn)
 		if err == nil {
 			return true, nil
 		}
@@ -926,29 +746,38 @@ func (self *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbal
 		return nil, errors.Wrap(err, "region.CreateILoadBalancerCertificate.Wait")
 	}
 
-	return self.GetILoadBalancerCertificateById(*ret.ServerCertificateMetadata.Arn)
+	return self.GetILoadBalancerCertificateById(ret.ServerCertificateMetadata.Arn)
 }
 
 func (self *SRegion) GetILoadBalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
+func (self *SRegion) ListServerCertificates() ([]SElbCertificate, error) {
+	ret := []SElbCertificate{}
+	params := map[string]string{}
+	for {
+		result := struct {
+			Certs  []SElbCertificate `xml:"ServerCertificateMetadataList>member"`
+			Marker string            `xml:"Marker"`
+		}{}
+		err := self.client.iamRequest("ListServerCertificates", params, &result)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ListServerCertificates")
+		}
+		ret = append(ret, result.Certs...)
+		if len(result.Marker) == 0 || len(result.Certs) == 0 {
+			break
+		}
+		params["Marker"] = result.Marker
+	}
+	return ret, nil
+}
+
 func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
-	client, err := self.getIamClient()
+	certs, err := self.ListServerCertificates()
 	if err != nil {
-		return nil, errors.Wrap(err, "getIamClient")
-	}
-
-	params := &iam.ListServerCertificatesInput{}
-	ret, err := client.ListServerCertificates(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "ListServerCertificates")
-	}
-
-	certs := []SElbCertificate{}
-	err = unmarshalAwsOutput(ret, "ServerCertificateMetadataList", &certs)
-	if err != nil {
-		return nil, errors.Wrap(err, "unmarshalAwsOutput.ServerCertificateMetadataList")
+		return nil, errors.Wrapf(err, "ListServerCertificates")
 	}
 
 	icerts := make([]cloudprovider.ICloudLoadbalancerCertificate, len(certs))
@@ -960,59 +789,39 @@ func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadb
 	return icerts, nil
 }
 
-func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
-	client, err := self.GetElbV2Client()
+func (self *SRegion) CreateILoadBalancer(opts *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
+	params := map[string]string{
+		"Name":          opts.Name,
+		"Type":          opts.LoadbalancerSpec,
+		"IpAddressType": "ipv4",
+		"Scheme":        "internal",
+	}
+
+	if opts.AddressType == api.LB_ADDR_TYPE_INTERNET {
+		params["Scheme"] = "internet-facing"
+	}
+	for i, id := range opts.NetworkIDs {
+		params[fmt.Sprintf("Subnets.member.%d", i+1)] = id
+	}
+	idx := 1
+	for k, v := range opts.Tags {
+		params[fmt.Sprintf("Tags.member.%d.Key", idx)] = k
+		params[fmt.Sprintf("Tags.member.%d.Value", idx)] = v
+		idx++
+	}
+
+	result := struct {
+		Elb []SElb `xml:"LoadBalancers>member"`
+	}{}
+	err := self.elbRequest("CreateLoadBalancer", params, &result)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetElbV2Client")
+		return nil, errors.Wrapf(err, "CreateLoadBalancer")
 	}
-
-	params := &elbv2.CreateLoadBalancerInput{}
-	params.SetName(loadbalancer.Name)
-	params.SetType(loadbalancer.LoadbalancerSpec)
-	params.SetIpAddressType("ipv4")
-	if loadbalancer.AddressType == api.LB_ADDR_TYPE_INTERNET {
-		params.SetScheme("internet-facing")
-	} else {
-		params.SetScheme("internal")
+	for i := range result.Elb {
+		result.Elb[i].region = self
+		return &result.Elb[i], nil
 	}
-
-	// params.SetSecurityGroups()
-	params.SetSubnets(ConvertedList(loadbalancer.NetworkIDs))
-
-	tagInput := []*elbv2.Tag{}
-	keys := []string{}
-	values := []string{}
-	for k, v := range loadbalancer.Tags {
-		keys = append(keys, k)
-		values = append(values, v)
-	}
-	for i := range keys {
-		tagInput = append(tagInput, &elbv2.Tag{
-			Key:   &keys[i],
-			Value: &values[i],
-		})
-	}
-	if len(loadbalancer.Tags) > 0 {
-		params.SetTags(tagInput)
-	}
-
-	ret, err := client.CreateLoadBalancer(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "CreateLoadBalancer")
-	}
-
-	elbs := []SElb{}
-	err = unmarshalAwsOutput(ret, "LoadBalancers", &elbs)
-	if err != nil {
-		return nil, errors.Wrap(err, "unmarshalAwsOutput.LoadBalancers")
-	}
-
-	if len(elbs) == 1 {
-		elbs[0].region = self
-		return &elbs[0], nil
-	}
-
-	return nil, fmt.Errorf("CreateILoadBalancer error %#v", elbs)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after create")
 }
 
 func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
@@ -1152,31 +961,25 @@ func (self *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoad
 }
 
 func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, total, err := self.GetSecurityGroups("", "", secgroupId, 0, 1)
+	secgroup, err := self.getSecurityGroupById("", secgroupId)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetSecurityGroups")
 	}
-	if total == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	if total > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
-	return &secgroups[0], nil
+	return secgroup, nil
 }
 
 func (self *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroupFilterOptions) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, total, err := self.GetSecurityGroups(opts.VpcId, opts.Name, "", 0, 1)
+	secgroups, err := self.GetSecurityGroups(opts.VpcId, opts.Name, "")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetSecurityGroups")
 	}
-	if total == 0 {
-		return nil, cloudprovider.ErrNotFound
+	for i := range secgroups {
+		if secgroups[i].GetName() == opts.Name {
+			secgroups[i].region = self
+			return &secgroups[i], nil
+		}
 	}
-	if total > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
-	return &secgroups[0], nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, opts.Name)
 }
 
 func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
@@ -1191,23 +994,11 @@ func (region *SRegion) GetCapabilities() []string {
 	return region.client.GetCapabilities()
 }
 
-func (region *SRegion) CreateInternetGateway() (cloudprovider.ICloudInternetGateway, error) {
-	ec2Client, err := region.getEc2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "getEc2Client")
-	}
-	input := ec2.CreateInternetGatewayInput{}
-	output, err := ec2Client.CreateInternetGateway(&input)
-	if err != nil {
-		return nil, errors.Wrap(err, "CreateInternetGateway")
-	}
-
-	ret := &SInternetGateway{}
-	ret.region = region
-	err = unmarshalAwsOutput(output, "InternetGateway", ret)
-	if err != nil {
-		return nil, errors.Wrap(err, "unmarshalAwsOutput")
-	}
-
-	return ret, nil
+func (self *SRegion) CreateInternetGateway() (cloudprovider.ICloudInternetGateway, error) {
+	params := map[string]string{}
+	ret := struct {
+		Gateway SInternetGateway `xml:"internetGateway"`
+	}{}
+	ret.Gateway.region = self
+	return &ret.Gateway, self.ec2Request("CreateInternetGateway", params, &ret)
 }

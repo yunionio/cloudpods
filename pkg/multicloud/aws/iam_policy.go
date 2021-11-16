@@ -351,6 +351,21 @@ func (self *SAwsClient) DetachRolePolicy(roleName string, policyArn string) erro
 	return nil
 }
 
+type SRolePolicy struct {
+	PolicyDocument string `xml:"PolicyDocument"`
+	PolicyName     string `xml:"PolicyName"`
+	RoleName       string `xml:"RoleName"`
+}
+
+func (self *SAwsClient) GetRolePolicy(roleName string, policyName string) (*SRolePolicy, error) {
+	params := map[string]string{
+		"PolicyName": policyName,
+		"RoleName":   roleName,
+	}
+	ret := &SRolePolicy{}
+	return ret, self.iamRequest("GetRolePolicy", params, ret)
+}
+
 type SPolicyVersion struct {
 	Document         string    `xml:"Document"`
 	IsDefaultVersion bool      `xml:"IsDefaultVersion"`

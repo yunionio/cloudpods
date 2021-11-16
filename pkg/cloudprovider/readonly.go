@@ -12,23 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package shell
+package cloudprovider
 
-import (
-	"yunion.io/x/onecloud/pkg/multicloud/aws"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
+const (
+	READ_ONLY_KEY = "__read_only"
 )
-
-func init() {
-	type NetworkInterfaceListOptions struct {
-		InstanceId string
-	}
-	shellutils.R(&NetworkInterfaceListOptions{}, "network-interface-list", "List network interfaces", func(cli *aws.SRegion, args *NetworkInterfaceListOptions) error {
-		interfaces, err := cli.GetNetworkInterfaces(args.InstanceId)
-		if err != nil {
-			return err
-		}
-		printList(interfaces, 0, 0, 0, []string{})
-		return nil
-	})
-}

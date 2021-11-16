@@ -72,7 +72,7 @@ func (self *SWafIPSet) Delete() error {
 }
 
 func (self *SRegion) ListIPSets(scope string) ([]SWafIPSet, error) {
-	if scope == SCOPE_CLOUDFRONT && self.RegionId != "us-east-1" {
+	if scope == SCOPE_CLOUDFRONT && self.RegionName != "us-east-1" {
 		return []SWafIPSet{}, nil
 	}
 	client, err := self.getWafClient()

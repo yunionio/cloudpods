@@ -30,7 +30,7 @@ type SWafRuleGroup struct {
 }
 
 func (self *SRegion) ListAvailableManagedRuleGroups(scope string) ([]SWafRuleGroup, error) {
-	if scope == SCOPE_CLOUDFRONT && self.RegionId != "us-east-1" {
+	if scope == SCOPE_CLOUDFRONT && self.RegionName != "us-east-1" {
 		return []SWafRuleGroup{}, nil
 	}
 	client, err := self.getWafClient()
@@ -77,7 +77,7 @@ func (self *SRegion) DescribeManagedRuleGroup(name, scope, vendorName string) (*
 }
 
 func (self *SRegion) ListRuleGroups(scope string) ([]SWafRuleGroup, error) {
-	if scope == SCOPE_CLOUDFRONT && self.RegionId != "us-east-1" {
+	if scope == SCOPE_CLOUDFRONT && self.RegionName != "us-east-1" {
 		return []SWafRuleGroup{}, nil
 	}
 	client, err := self.getWafClient()

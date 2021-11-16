@@ -22,8 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/iam"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -39,12 +37,12 @@ type SElbCertificate struct {
 	region *SRegion
 	cert   *x509.Certificate
 
-	Path                  string    `json:"Path"`
-	ServerCertificateName string    `json:"ServerCertificateName"`
-	ServerCertificateID   string    `json:"ServerCertificateId"`
-	Arn                   string    `json:"Arn"`
-	UploadDate            time.Time `json:"UploadDate"`
-	Expiration            time.Time `json:"Expiration"`
+	Path                  string    `xml:"Path"`
+	ServerCertificateName string    `xml:"ServerCertificateName"`
+	ServerCertificateId   string    `xml:"ServerCertificateId"`
+	Arn                   string    `xml:"Arn"`
+	UploadDate            time.Time `xml:"UploadDate"`
+	Expiration            time.Time `xml:"Expiration"`
 	PublicKey             string
 }
 
@@ -167,33 +165,24 @@ func (self *SElbCertificate) ParsePublicKey() (*x509.Certificate, error) {
 }
 
 func (self *SRegion) getPublicKey(certName string) (string, error) {
-	client, err := self.getIamClient()
-	if err != nil {
-		return "", err
+	params := map[string]string{
+		"ServerCertificateName": certName,
 	}
-
-	params := &iam.GetServerCertificateInput{}
-	params.SetServerCertificateName(certName)
-	ret, err := client.GetServerCertificate(params)
+	ret := struct {
+		ServerCertificate struct {
+			CertificateBody string `xml:"CertificateBody"`
+		} `xml:"ServerCertificate"`
+	}{}
+	err := self.client.iamRequest("GetServerCertificate", params, &ret)
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "GetServerCertificate")
 	}
-
-	return StrVal(ret.ServerCertificate.CertificateBody), nil
+	return ret.ServerCertificate.CertificateBody, nil
 }
 
 func (self *SRegion) deleteElbCertificate(certName string) error {
-	client, err := self.getIamClient()
-	if err != nil {
-		return err
+	params := map[string]string{
+		"ServerCertificateName": certName,
 	}
-
-	params := &iam.DeleteServerCertificateInput{}
-	params.SetServerCertificateName(certName)
-	_, err = client.DeleteServerCertificate(params)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return self.client.iamRequest("DeleteServerCertificate", params, nil)
 }

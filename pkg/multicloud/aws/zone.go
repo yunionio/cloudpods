@@ -43,9 +43,20 @@ type SZone struct {
 	iwires    []cloudprovider.ICloudWire
 	istorages []cloudprovider.ICloudStorage
 
-	ZoneId    string // 沿用阿里云ZoneId,对应Aws ZoneName
 	LocalName string
 	State     string
+
+	GroupName          string `xml:"groupName"`
+	NetworkBorderGroup string `xml:"networkBorderGroup"`
+
+	OptInStatus    string `xml:"optInStatus"`
+	ParentZoneId   string `xml:"parentZoneId"`
+	ParentZoneName string `xml:"parentZoneName"`
+	RegionName     string `xml:"regionName"`
+	ZoneId         string `xml:"zoneId"`
+	ZoneName       string `xml:"zoneName"`
+	ZoneState      string `xml:"zoneState"`
+	ZoneType       string `xml:"zoneType"`
 
 	/* 支持的磁盘种类集合 */
 	storageTypes []string
@@ -125,20 +136,14 @@ func (self *SZone) GetGlobalId() string {
 	return fmt.Sprintf("%s/%s", self.region.GetGlobalId(), self.ZoneId)
 }
 
+// available | information | impaired | unavailable
 func (self *SZone) GetStatus() string {
-	if self.State == "unavailable" {
-		return api.ZONE_SOLDOUT
-	} else {
+	switch self.ZoneState {
+	case "available", "information":
 		return api.ZONE_ENABLE
+	default:
+		return api.ZONE_SOLDOUT
 	}
-}
-
-func (self *SZone) Refresh() error {
-	return nil
-}
-
-func (self *SZone) IsEmulated() bool {
-	return false
 }
 
 func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {

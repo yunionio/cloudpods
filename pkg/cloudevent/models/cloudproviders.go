@@ -323,6 +323,7 @@ type SCloudproviderDelegate struct {
 		cloudprovider.SHCSOEndpoints
 	}
 
+	ReadOnly     bool
 	ProxySetting proxyapi.SProxySetting
 }
 
@@ -337,16 +338,15 @@ func (self *SCloudprovider) GetDelegate() (*SCloudproviderDelegate, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "result.Unmarshal")
 	}
-	if provider.Provider == api.CLOUD_PROVIDER_APSARA || provider.Provider == api.CLOUD_PROVIDER_HCSO {
-		result, err := modules.Cloudaccounts.Get(s, provider.CloudaccountId, nil)
-		if err != nil {
-			return nil, errors.Wrapf(err, "modules.Cloudaccounts.Get")
-		}
-		err = result.Unmarshal(&provider.Options, "options")
-		if err != nil {
-			return nil, errors.Wrap(err, "result.Unmarshal")
-		}
+	result, err = modules.Cloudaccounts.Get(s, provider.CloudaccountId, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "modules.Cloudaccounts.Get")
 	}
+	err = result.Unmarshal(&provider.Options, "options")
+	if err != nil {
+		return nil, errors.Wrap(err, "result.Unmarshal")
+	}
+	result.Unmarshal(&provider.ReadOnly, "read_only")
 	return provider, nil
 }
 

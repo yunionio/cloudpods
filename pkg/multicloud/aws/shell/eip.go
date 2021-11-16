@@ -21,22 +21,25 @@ import (
 
 func init() {
 	type EipListOptions struct {
-		Offset int `help:"List offset"`
-		Limit  int `help:"List limit"`
+		InstanceId string
+		EipId      string
+		IpAddr     string
 	}
 	shellutils.R(&EipListOptions{}, "eip-list", "List eips", func(cli *aws.SRegion, args *EipListOptions) error {
-		eips, total, e := cli.GetEips("", "", args.Offset, args.Limit)
+		eips, e := cli.GetEips(args.InstanceId, args.EipId, args.IpAddr)
 		if e != nil {
 			return e
 		}
-		printList(eips, total, args.Offset, args.Limit, []string{})
+		printList(eips, 0, 0, 0, []string{})
 		return nil
 	})
 
 	type EipAllocateOptions struct {
+		NAME       string
+		DomainType string `choices:"vpc" defualt:"vpc"`
 	}
 	shellutils.R(&EipAllocateOptions{}, "eip-create", "Allocate an EIP", func(cli *aws.SRegion, args *EipAllocateOptions) error {
-		eip, err := cli.AllocateEIP("vpc")
+		eip, err := cli.AllocateEIP(args.NAME, args.DomainType)
 		if err != nil {
 			return err
 		}

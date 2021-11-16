@@ -74,3 +74,11 @@ func (self *SInstanceBase) AllocatePublicIpAddress() (string, error) {
 func (self *SInstanceBase) GetOSArch() string {
 	return ""
 }
+
+func (self *SInstanceBase) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SInstanceBase) GetError() error {
+	return nil
+}

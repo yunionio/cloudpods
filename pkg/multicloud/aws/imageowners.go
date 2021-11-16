@@ -21,8 +21,6 @@ import (
 	"strings"
 
 	"yunion.io/x/pkg/util/regutils"
-
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 func getSystemOwnerIds() []string {
@@ -74,7 +72,7 @@ var rhel = SAWSImagePublisherInfo{
 		return "RHEL"
 	},
 	GetOSVersion: func(image SImage) string {
-		parts := strings.Split(image.ImageName, "-")
+		parts := strings.Split(image.Name, "-")
 		if len(parts) >= 2 {
 			parts = strings.Split(parts[1], "_")
 			return parts[0]
@@ -82,7 +80,7 @@ var rhel = SAWSImagePublisherInfo{
 		return ""
 	},
 	GetOSBuildID: func(image SImage) string {
-		parts := strings.Split(image.ImageName, "-")
+		parts := strings.Split(image.Name, "-")
 		if len(parts) >= 2 {
 			return parts[2]
 		}
@@ -102,14 +100,14 @@ var debian = SAWSImagePublisherInfo{
 		return "Debian"
 	},
 	GetOSVersion: func(image SImage) string {
-		parts := strings.Split(image.ImageName, "-")
+		parts := strings.Split(image.Name, "-")
 		if len(parts) >= 5 {
 			return parts[1]
 		}
 		return ""
 	},
 	GetOSBuildID: func(image SImage) string {
-		dateStr := debianDatePattern.FindString(image.ImageName)
+		dateStr := debianDatePattern.FindString(image.Name)
 		if len(dateStr) > 2 {
 			return dateStr[1 : len(dateStr)-1]
 		}
@@ -126,28 +124,28 @@ var centos = SAWSImagePublisherInfo{
 		return "Linux"
 	},
 	GetOSDist: func(image SImage) string {
-		if strings.Index(image.ImageName, "Atomic") > 0 {
+		if strings.Index(image.Name, "Atomic") > 0 {
 			return "CentOS Atomic"
 		} else {
 			return "CentOS"
 		}
 	},
 	GetOSVersion: func(image SImage) string {
-		parts := strings.Split(image.ImageName, " ")
-		if strings.Index(image.ImageName, "Atomic") > 0 {
+		parts := strings.Split(image.Name, " ")
+		if strings.Index(image.Name, "Atomic") > 0 {
 			if regutils.MatchInteger(parts[3]) {
 				return parts[3]
 			} else {
 				return "7"
 			}
-		} else if strings.HasPrefix(image.ImageName, "CentOS Linux ") {
+		} else if strings.HasPrefix(image.Name, "CentOS Linux ") {
 			return parts[2]
 		} else {
 			return parts[1]
 		}
 	},
 	GetOSBuildID: func(image SImage) string {
-		build := centosDatePattern.FindString(image.ImageName)
+		build := centosDatePattern.FindString(image.Name)
 		build = strings.TrimSpace(build)
 		if strings.HasPrefix(build, "201") {
 			build = build[2:]
@@ -196,23 +194,23 @@ var ubuntu = SAWSImagePublisherInfo{
 		return "Linux"
 	},
 	GetOSDist: func(image SImage) string {
-		if strings.HasPrefix(image.ImageName, "ubuntu-minimal/") {
+		if strings.HasPrefix(image.Name, "ubuntu-minimal/") {
 			return "Ubuntu Minimal"
 		}
-		if strings.HasPrefix(image.ImageName, "ubuntu/") {
+		if strings.HasPrefix(image.Name, "ubuntu/") {
 			return "Ubuntu"
 		}
-		if strings.HasPrefix(image.ImageName, "ubuntu-rolling-") || strings.HasPrefix(image.ImageName, "ubuntu-core") || strings.Index(image.ImageName, "core-edge") > 0 {
+		if strings.HasPrefix(image.Name, "ubuntu-rolling-") || strings.HasPrefix(image.Name, "ubuntu-core") || strings.Index(image.Name, "core-edge") > 0 {
 			return "Ubuntu Core"
 		}
 		return "Ubuntu"
 	},
 	GetOSVersion: func(image SImage) string {
-		relStr := ubuntuReleasePattern.FindString(image.ImageName)
+		relStr := ubuntuReleasePattern.FindString(image.Name)
 		if len(relStr) > 2 {
 			return relStr[1 : len(relStr)-1]
 		}
-		parts := strings.Split(image.ImageName, "/")
+		parts := strings.Split(image.Name, "/")
 		if len(parts) >= 4 {
 			parts = strings.Split(parts[3], "-")
 			if len(parts) >= 2 {
@@ -224,8 +222,8 @@ var ubuntu = SAWSImagePublisherInfo{
 				}
 			}
 		}
-		if strings.HasPrefix(image.ImageName, "ubuntu-rolling-") {
-			parts := strings.Split(image.ImageName, "-")
+		if strings.HasPrefix(image.Name, "ubuntu-rolling-") {
+			parts := strings.Split(image.Name, "-")
 			if len(parts) > 3 {
 				return strings.ToLower(parts[2])
 			}
@@ -233,7 +231,7 @@ var ubuntu = SAWSImagePublisherInfo{
 		return ""
 	},
 	GetOSBuildID: func(image SImage) string {
-		parts := strings.Split(image.ImageName, "-")
+		parts := strings.Split(image.Name, "-")
 		return parts[len(parts)-1]
 	},
 }
@@ -273,101 +271,101 @@ var suse = SAWSImagePublisherInfo{
 	},
 	GetOSDist: func(image SImage) string {
 		switch {
-		case SUSE_SLES.MatchString(image.ImageName), SUSE_SLES_SP.MatchString(image.ImageName):
+		case SUSE_SLES.MatchString(image.Name), SUSE_SLES_SP.MatchString(image.Name):
 			return "SUSE Linux Enterpise Server"
-		case SUSE_SLES_RIGHTLINK.MatchString(image.ImageName), SUSE_SLES_RIGHTLINK_SP.MatchString(image.ImageName):
+		case SUSE_SLES_RIGHTLINK.MatchString(image.Name), SUSE_SLES_RIGHTLINK_SP.MatchString(image.Name):
 			return "SUSE Linux Enterpise Server with RightLink"
-		case SUSE_SLES_SAPCAL.MatchString(image.ImageName), SUSE_SLES_SAPCAL_SP.MatchString(image.ImageName):
+		case SUSE_SLES_SAPCAL.MatchString(image.Name), SUSE_SLES_SAPCAL_SP.MatchString(image.Name):
 			return "SUSE Linux Enterpise Server for SAP CAL"
-		case SUSE_SLES_BYOS.MatchString(image.ImageName), SUSE_SLES_BYOS_SP.MatchString(image.ImageName):
+		case SUSE_SLES_BYOS.MatchString(image.Name), SUSE_SLES_BYOS_SP.MatchString(image.Name):
 			return "SUSE Linux Enterpise Server BYOS"
-		case SUSE_SLES_SAP.MatchString(image.ImageName), SUSE_SLES_SAP_SP.MatchString(image.ImageName):
+		case SUSE_SLES_SAP.MatchString(image.Name), SUSE_SLES_SAP_SP.MatchString(image.Name):
 			return "SUSE Linux Enterpise Server for SAP Application"
-		case SUSE_SLES_SAP_BYOS.MatchString(image.ImageName), SUSE_SLES_SAP_BYOS_SP.MatchString(image.ImageName):
+		case SUSE_SLES_SAP_BYOS.MatchString(image.Name), SUSE_SLES_SAP_BYOS_SP.MatchString(image.Name):
 			return "SUSE Linux Enterpise Server for SAP Application BYOS"
-		case SUSE_CAASP_CLUSTER_BYOS.MatchString(image.ImageName):
+		case SUSE_CAASP_CLUSTER_BYOS.MatchString(image.Name):
 			return "SUSE CaaSP Cluster Node"
-		case SUSE_CAASP_ADMIN_BYOS.MatchString(image.ImageName):
+		case SUSE_CAASP_ADMIN_BYOS.MatchString(image.Name):
 			return "SUSE CaaSP Admin Node"
-		case SUSE_MANAGER_SERVER_BYOS.MatchString(image.ImageName):
+		case SUSE_MANAGER_SERVER_BYOS.MatchString(image.Name):
 			return "SUSE Manager Server"
-		case SUSE_MANAGER_PROXY_BYOS.MatchString(image.ImageName):
+		case SUSE_MANAGER_PROXY_BYOS.MatchString(image.Name):
 			return "SUSE Manager Proxy"
 		}
 		return "SUSE"
 	},
 	GetOSVersion: func(image SImage) string {
-		parts := strings.Split(image.ImageName, "-")
+		parts := strings.Split(image.Name, "-")
 		switch {
-		case SUSE_SLES.MatchString(image.ImageName):
+		case SUSE_SLES.MatchString(image.Name):
 			return parts[2]
-		case SUSE_SLES_SP.MatchString(image.ImageName):
+		case SUSE_SLES_SP.MatchString(image.Name):
 			return fmt.Sprintf("%s.%s", parts[2], parts[3][2:])
-		case SUSE_SLES_RIGHTLINK.MatchString(image.ImageName):
+		case SUSE_SLES_RIGHTLINK.MatchString(image.Name):
 			return parts[2]
-		case SUSE_SLES_RIGHTLINK_SP.MatchString(image.ImageName):
+		case SUSE_SLES_RIGHTLINK_SP.MatchString(image.Name):
 			return fmt.Sprintf("%s.%s", parts[2], parts[3][2:])
-		case SUSE_SLES_SAPCAL.MatchString(image.ImageName):
+		case SUSE_SLES_SAPCAL.MatchString(image.Name):
 			return parts[2]
-		case SUSE_SLES_SAPCAL_SP.MatchString(image.ImageName):
+		case SUSE_SLES_SAPCAL_SP.MatchString(image.Name):
 			return fmt.Sprintf("%s.%s", parts[2], parts[3][2:])
-		case SUSE_SLES_BYOS.MatchString(image.ImageName):
+		case SUSE_SLES_BYOS.MatchString(image.Name):
 			return parts[2]
-		case SUSE_SLES_BYOS_SP.MatchString(image.ImageName):
+		case SUSE_SLES_BYOS_SP.MatchString(image.Name):
 			return fmt.Sprintf("%s.%s", parts[2], parts[3][2:])
-		case SUSE_SLES_SAP.MatchString(image.ImageName):
+		case SUSE_SLES_SAP.MatchString(image.Name):
 			return parts[3]
-		case SUSE_SLES_SAP_SP.MatchString(image.ImageName):
+		case SUSE_SLES_SAP_SP.MatchString(image.Name):
 			return fmt.Sprintf("%s.%s", parts[3], parts[4][2:])
-		case SUSE_SLES_SAP_BYOS.MatchString(image.ImageName):
+		case SUSE_SLES_SAP_BYOS.MatchString(image.Name):
 			return parts[3]
-		case SUSE_SLES_SAP_BYOS_SP.MatchString(image.ImageName):
+		case SUSE_SLES_SAP_BYOS_SP.MatchString(image.Name):
 			return fmt.Sprintf("%s.%s", parts[3], parts[4][2:])
-		case SUSE_CAASP_CLUSTER_BYOS.MatchString(image.ImageName):
+		case SUSE_CAASP_CLUSTER_BYOS.MatchString(image.Name):
 			return fmt.Sprintf("%s.%s", parts[2], parts[3])
-		case SUSE_CAASP_ADMIN_BYOS.MatchString(image.ImageName):
+		case SUSE_CAASP_ADMIN_BYOS.MatchString(image.Name):
 			return fmt.Sprintf("%s.%s", parts[2], parts[3])
-		case SUSE_MANAGER_SERVER_BYOS.MatchString(image.ImageName):
+		case SUSE_MANAGER_SERVER_BYOS.MatchString(image.Name):
 			return fmt.Sprintf("%s.%s", parts[2], parts[3])
-		case SUSE_MANAGER_PROXY_BYOS.MatchString(image.ImageName):
+		case SUSE_MANAGER_PROXY_BYOS.MatchString(image.Name):
 			return fmt.Sprintf("%s.%s", parts[2], parts[3])
 		}
 		return ""
 	},
 	GetOSBuildID: func(image SImage) string {
-		parts := strings.Split(image.ImageName, "-")
+		parts := strings.Split(image.Name, "-")
 		switch {
-		case SUSE_SLES.MatchString(image.ImageName):
+		case SUSE_SLES.MatchString(image.Name):
 			return getBuildId(parts[3])
-		case SUSE_SLES_SP.MatchString(image.ImageName):
+		case SUSE_SLES_SP.MatchString(image.Name):
 			return getBuildId(parts[4])
-		case SUSE_SLES_RIGHTLINK.MatchString(image.ImageName):
+		case SUSE_SLES_RIGHTLINK.MatchString(image.Name):
 			return getBuildId(parts[4])
-		case SUSE_SLES_RIGHTLINK_SP.MatchString(image.ImageName):
+		case SUSE_SLES_RIGHTLINK_SP.MatchString(image.Name):
 			return getBuildId(parts[5])
-		case SUSE_SLES_SAPCAL.MatchString(image.ImageName):
+		case SUSE_SLES_SAPCAL.MatchString(image.Name):
 			return getBuildId(parts[4])
-		case SUSE_SLES_SAPCAL_SP.MatchString(image.ImageName):
+		case SUSE_SLES_SAPCAL_SP.MatchString(image.Name):
 			return getBuildId(parts[5])
-		case SUSE_SLES_BYOS.MatchString(image.ImageName):
+		case SUSE_SLES_BYOS.MatchString(image.Name):
 			return getBuildId(parts[4])
-		case SUSE_SLES_BYOS_SP.MatchString(image.ImageName):
+		case SUSE_SLES_BYOS_SP.MatchString(image.Name):
 			return getBuildId(parts[5])
-		case SUSE_SLES_SAP.MatchString(image.ImageName):
+		case SUSE_SLES_SAP.MatchString(image.Name):
 			return getBuildId(parts[4])
-		case SUSE_SLES_SAP_SP.MatchString(image.ImageName):
+		case SUSE_SLES_SAP_SP.MatchString(image.Name):
 			return getBuildId(parts[5])
-		case SUSE_SLES_SAP_BYOS.MatchString(image.ImageName):
+		case SUSE_SLES_SAP_BYOS.MatchString(image.Name):
 			return getBuildId(parts[5])
-		case SUSE_SLES_SAP_BYOS_SP.MatchString(image.ImageName):
+		case SUSE_SLES_SAP_BYOS_SP.MatchString(image.Name):
 			return getBuildId(parts[6])
-		case SUSE_CAASP_CLUSTER_BYOS.MatchString(image.ImageName):
+		case SUSE_CAASP_CLUSTER_BYOS.MatchString(image.Name):
 			return getBuildId(parts[6])
-		case SUSE_CAASP_ADMIN_BYOS.MatchString(image.ImageName):
+		case SUSE_CAASP_ADMIN_BYOS.MatchString(image.Name):
 			return getBuildId(parts[6])
-		case SUSE_MANAGER_SERVER_BYOS.MatchString(image.ImageName):
+		case SUSE_MANAGER_SERVER_BYOS.MatchString(image.Name):
 			return getBuildId(parts[6])
-		case SUSE_MANAGER_PROXY_BYOS.MatchString(image.ImageName):
+		case SUSE_MANAGER_PROXY_BYOS.MatchString(image.Name):
 			return getBuildId(parts[6])
 		}
 		return ""
@@ -388,12 +386,12 @@ var coreos = SAWSImagePublisherInfo{
 		return "CoreOS"
 	},
 	GetOSVersion: func(image SImage) string {
-		parts := strings.Split(image.ImageName, "-")
+		parts := strings.Split(image.Name, "-")
 		subparts := strings.Split(parts[2], ".")
 		return subparts[0]
 	},
 	GetOSBuildID: func(image SImage) string {
-		parts := strings.Split(image.ImageName, "-")
+		parts := strings.Split(image.Name, "-")
 		return fmt.Sprintf("%s-%s", parts[1], parts[2])
 	},
 	CompareBuilds: func(v1, v2 string) int {
@@ -424,7 +422,7 @@ var (
 
 var windowsServer = SAWSImagePublisherInfo{
 	GetOSType: func(image SImage) string {
-		if strings.HasPrefix(image.ImageName, "ubuntu-") || strings.HasPrefix(image.ImageName, "amzn-ami-") || strings.HasPrefix(image.ImageName, "amzn2-ami-") {
+		if strings.HasPrefix(image.Name, "ubuntu-") || strings.HasPrefix(image.Name, "amzn-ami-") || strings.HasPrefix(image.Name, "amzn2-ami-") {
 			return "Linux"
 		} else {
 			return "Windows"
@@ -432,17 +430,17 @@ var windowsServer = SAWSImagePublisherInfo{
 	},
 	GetOSDist: func(image SImage) string {
 		osStr := "Windows Server"
-		if strings.HasPrefix(image.ImageName, "ubuntu-") {
+		if strings.HasPrefix(image.Name, "ubuntu-") {
 			osStr = "Ubuntu"
-		} else if strings.HasPrefix(image.ImageName, "amzn-ami-") || strings.HasPrefix(image.ImageName, "amzn2-ami-") {
+		} else if strings.HasPrefix(image.Name, "amzn-ami-") || strings.HasPrefix(image.Name, "amzn2-ami-") {
 			osStr = "Amazon Linux"
 		}
 		apps := make([]string, 0)
-		matchApp := sqlServerPattern.FindStringSubmatch(image.ImageName)
+		matchApp := sqlServerPattern.FindStringSubmatch(image.Name)
 		if len(matchApp) > 0 {
 			apps = append(apps, fmt.Sprintf("SQL Server %s %s", matchApp[1], matchApp[2]))
 		}
-		if dotnetcorePattern.MatchString(image.ImageName) {
+		if dotnetcorePattern.MatchString(image.Name) {
 			apps = append(apps, ".Net Core")
 		}
 		if len(apps) > 0 {
@@ -451,23 +449,23 @@ var windowsServer = SAWSImagePublisherInfo{
 		return osStr
 	},
 	GetOSVersion: func(image SImage) string {
-		if strings.HasPrefix(image.ImageName, "ubuntu-") {
+		if strings.HasPrefix(image.Name, "ubuntu-") {
 			return ubuntu.GetOSVersion(image)
 		}
-		if strings.HasPrefix(image.ImageName, "amzn-ami-") || strings.HasPrefix(image.ImageName, "amzn2-ami-") {
+		if strings.HasPrefix(image.Name, "amzn-ami-") || strings.HasPrefix(image.Name, "amzn2-ami-") {
 			return amazon.GetOSVersion(image)
 		}
-		parts := strings.Split(image.ImageName, "-")
+		parts := strings.Split(image.Name, "-")
 		return strings.Join(parts[1:len(parts)-1], " ")
 	},
 	GetOSBuildID: func(image SImage) string {
-		if strings.HasPrefix(image.ImageName, "ubuntu-") {
+		if strings.HasPrefix(image.Name, "ubuntu-") {
 			return ubuntu.GetOSBuildID(image)
 		}
-		if strings.HasPrefix(image.ImageName, "amzn-ami-") || strings.HasPrefix(image.ImageName, "amzn2-ami-") {
+		if strings.HasPrefix(image.Name, "amzn-ami-") || strings.HasPrefix(image.Name, "amzn2-ami-") {
 			return amazon.GetOSBuildID(image)
 		}
-		parts := strings.Split(image.ImageName, "-")
+		parts := strings.Split(image.Name, "-")
 		return parts[len(parts)-1]
 	},
 }
@@ -482,31 +480,31 @@ var amazon = SAWSImagePublisherInfo{
 		return "Linux"
 	},
 	GetOSDist: func(image SImage) string {
-		if strings.HasPrefix(image.ImageName, "amzn-ami-minimal-") || strings.HasPrefix(image.ImageName, "amzn2-ami-minimal-") {
+		if strings.HasPrefix(image.Name, "amzn-ami-minimal-") || strings.HasPrefix(image.Name, "amzn2-ami-minimal-") {
 			return "Amazon Linux Minimal"
 		} else {
 			return "Amazon Linux"
 		}
 	},
 	GetOSVersion: func(image SImage) string {
-		verStrs := amazonVersionPattern2.FindStringSubmatch(image.ImageName)
+		verStrs := amazonVersionPattern2.FindStringSubmatch(image.Name)
 		if len(verStrs) > 3 {
 			return fmt.Sprintf("%s.%s.%s", verStrs[1], verStrs[2], verStrs[3][:6])
 		}
-		verStrs = amazonVersionPattern.FindStringSubmatch(image.ImageName)
+		verStrs = amazonVersionPattern.FindStringSubmatch(image.Name)
 		if len(verStrs) > 3 {
 			return fmt.Sprintf("%s.%s.%s", verStrs[1], verStrs[2], verStrs[3])
 		}
 		return ""
 	},
 	GetOSBuildID: func(image SImage) string {
-		verStrs := amazonVersionPattern2.FindStringSubmatch(image.ImageName)
+		verStrs := amazonVersionPattern2.FindStringSubmatch(image.Name)
 		if len(verStrs) > 5 && len(verStrs[5]) > 0 {
 			return fmt.Sprintf("%s.%s", verStrs[3], verStrs[5])
 		} else if len(verStrs) > 3 {
 			return verStrs[3]
 		}
-		verStrs = amazonVersionPattern.FindStringSubmatch(image.ImageName)
+		verStrs = amazonVersionPattern.FindStringSubmatch(image.Name)
 		if len(verStrs) > 5 {
 			return verStrs[5]
 		}
@@ -533,53 +531,10 @@ var awsImagePublishers = map[string]SAWSImagePublisherInfo{
 	"137112412989": amazon,        // international
 }
 
-func getImageOSType(image SImage) string {
-	ownerInfo, ok := awsImagePublishers[image.OwnerId]
-	if ok {
-		return ownerInfo.GetOSType(image)
-	}
-	return image.OSType
-}
-
-func getImageOSDist(image SImage) string {
-	ownerInfo, ok := awsImagePublishers[image.OwnerId]
-	if ok {
-		return ownerInfo.GetOSDist(image)
-	}
-	return ""
-}
-
-func getImageOSVersion(image SImage) string {
-	ownerInfo, ok := awsImagePublishers[image.OwnerId]
-	if ok {
-		return ownerInfo.GetOSVersion(image)
-	}
-	return ""
-}
-
-func getImageOSBuildID(image SImage) string {
-	ownerInfo, ok := awsImagePublishers[image.OwnerId]
-	if ok {
-		return ownerInfo.GetOSBuildID(image)
-	}
-	return ""
-}
-
 func comapreImageBuildIds(ver1 string, img2 SImage) int {
-	ownerInfo, ok := awsImagePublishers[img2.OwnerId]
+	ownerInfo, ok := awsImagePublishers[img2.ImageOwnerId]
 	if ok && ownerInfo.CompareBuilds != nil {
-		return ownerInfo.CompareBuilds(ver1, img2.OSBuildId)
+		return ownerInfo.CompareBuilds(ver1, img2.ImageOwnerId)
 	}
-	return strings.Compare(ver1, img2.OSBuildId)
-}
-
-func getImageType(image SImage) cloudprovider.TImageType {
-	_, ok := awsImagePublishers[image.OwnerId]
-	if ok {
-		return cloudprovider.ImageTypeSystem
-	}
-	if !image.Public {
-		return cloudprovider.ImageTypeCustomized
-	}
-	return cloudprovider.ImageTypeMarket
+	return strings.Compare(ver1, img2.GetOsBuildId())
 }

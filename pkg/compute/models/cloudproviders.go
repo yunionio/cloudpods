@@ -872,6 +872,7 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 
 		DefaultRegion: defaultRegion,
 		Options:       account.Options,
+		ReadOnly:      account.ReadOnly.Bool(),
 	})
 }
 

@@ -20,14 +20,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/s3"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -124,7 +123,7 @@ func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc
 }
 
 func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
-	return self.downloadImage(userCred, imageId, extId)
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
@@ -132,13 +131,13 @@ func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.To
 
 }
 
-func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
+func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, opts *cloudprovider.SImageCreateOption, callback func(progress float32)) (string, error) {
 	err := self.region.initVmimport()
 	if err != nil {
 		return "", errors.Wrap(err, "initVmimport")
 	}
 
-	bucketName := GetBucketName(self.region.GetId(), image.ImageId)
+	bucketName := GetBucketName(self.region.GetId(), opts.ImageId)
 
 	exist, err := self.region.IBucketExist(bucketName)
 	if err != nil {
@@ -155,7 +154,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	defer self.region.DeleteIBucket(bucketName)
 
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	meta, reader, sizeBytes, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
+	meta, reader, sizeBytes, err := modules.Images.Download(s, opts.ImageId, string(qemuimg.VMDK), false)
 	if err != nil {
 		return "", errors.Wrap(err, "Images.Download")
 	}
@@ -168,16 +167,16 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		return "", errors.Wrap(err, "GetIBucketByName")
 	}
 	body := multicloud.NewProgress(sizeBytes, 80, reader, callback)
-	err = cloudprovider.UploadObject(ctx, bucket, image.ImageId, 0, body, sizeBytes, "", "", nil, false)
+	err = cloudprovider.UploadObject(ctx, bucket, opts.ImageId, 0, body, sizeBytes, "", "", nil, false)
 	if err != nil {
 		return "", errors.Wrap(err, "cloudprovider.UploadObject")
 	}
 
-	defer bucket.DeleteObject(ctx, image.ImageId)
+	defer bucket.DeleteObject(ctx, opts.ImageId)
 
-	imageBaseName := image.ImageId
+	imageBaseName := opts.ImageId
 	if imageBaseName[0] >= '0' && imageBaseName[0] <= '9' {
-		imageBaseName = fmt.Sprintf("img%s", image.ImageId)
+		imageBaseName = fmt.Sprintf("img%s", opts.ImageId)
 	}
 	imageName := imageBaseName
 	nameIdx := 1
@@ -198,90 +197,22 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		log.Debugf("uploadImage Match remote name %s", imageName)
 	}
 
-	task, err := self.region.ImportImage(imageName, image.OsArch, image.OsType, image.OsDistribution, diskFormat, bucketName, image.ImageId)
+	image, err := self.region.ImportImage(imageName, opts.OsArch, opts.OsType, opts.OsDistribution, diskFormat, bucketName, opts.ImageId)
 
 	if err != nil {
-		log.Errorf("ImportImage error %s %s %s", image.ImageId, bucketName, err)
-		return "", err
+		return "", errors.Wrapf(err, "ImportImage")
 	}
 
-	err = cloudprovider.Wait(2*time.Minute, 4*time.Hour, func() (bool, error) {
-		status := task.GetStatus()
-		if status == ImageImportStatusDeleted {
-			return false, errors.Wrap(errors.ErrInvalidStatus, "SStoragecache.ImageImportStatusDeleted")
-		}
-
-		if status == ImageImportStatusCompleted {
-			return true, nil
-		}
-
-		return false, nil
-	})
+	image.storageCache = self
+	err = cloudprovider.WaitStatus(image, api.CACHED_IMAGE_STATUS_ACTIVE, time.Second*10, time.Minute*5)
 	if err != nil {
 		return "", errors.Wrap(err, "SStoragecache.Wait")
 	}
 
-	// add name tag
-	self.region.addTags(task.ImageId, "Name", image.ImageId)
 	if callback != nil {
 		callback(100)
 	}
-	return task.ImageId, nil
-}
-
-func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error) {
-	// aws 导出镜像限制比较多。https://docs.aws.amazon.com/zh_cn/vm-import/latest/userguide/vmexport.html
-	bucketName := GetBucketName(self.region.GetId(), imageId)
-	if err := self.region.checkBucket(bucketName); err != nil {
-		log.Errorf("checkBucket %s: %s", bucketName, err)
-		return nil, errors.Wrap(err, "checkBucket")
-	}
-
-	instanceId, err := self.region.GetInstanceIdByImageId(extId)
-	if err != nil {
-		log.Errorf("GetInstanceIdByImageId %s: %s", extId, err)
-		return nil, errors.Wrap(err, "GetInstanceIdByImageId")
-	}
-
-	ec2Client, err := self.region.getEc2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "getEc2Client")
-	}
-
-	task, err := self.region.ExportImage(instanceId, imageId)
-	if err != nil {
-		log.Errorf("ExportImage %s %s: %s", instanceId, imageId, err)
-		return nil, errors.Wrap(err, "ExportImage")
-	}
-
-	taskParams := &ec2.DescribeExportTasksInput{}
-	taskParams.SetExportTaskIds([]*string{&task.TaskId})
-	if err := ec2Client.WaitUntilExportTaskCompleted(taskParams); err != nil {
-		log.Errorf("WaitUntilExportTaskCompleted %#v %s", taskParams, err)
-		return nil, errors.Wrap(err, "WaitUntilExportTaskCompleted")
-	}
-
-	s3Client, err := self.region.GetS3Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetS3Client")
-	}
-
-	i := &s3.GetObjectInput{}
-	i.SetBucket(bucketName)
-	i.SetKey(fmt.Sprintf("%s.%s", task.TaskId, "ova"))
-	ret, err := s3Client.GetObject(i)
-	if err != nil {
-		log.Errorf("GetObject %#v: %s", i, err)
-		return nil, errors.Wrap(err, "GetObject")
-	}
-
-	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
-	params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
-	if result, err := modules.Images.Upload(s, params, ret.Body, IntVal(ret.ContentLength)); err != nil {
-		return nil, errors.Wrap(err, "Images.Images")
-	} else {
-		return result, nil
-	}
+	return image.ImageId, nil
 }
 
 func (self *SRegion) CheckBucket(bucketName string) error {
@@ -349,7 +280,7 @@ func (self *SRegion) GetARNPartition() string {
 		where partition is aws for most of the world and aws-cn for China.
 		It looks like the more common "arn:aws" is currently hardcoded in quite a few places.
 	*/
-	if strings.HasPrefix(self.RegionId, "cn-") {
+	if strings.HasPrefix(self.RegionName, "cn-") {
 		return "aws-cn"
 	} else {
 		return "aws"
@@ -357,21 +288,14 @@ func (self *SRegion) GetARNPartition() string {
 }
 
 func (self *SRegion) initVmimportRole() error {
-	/*需要api access token 具备iam Full access权限*/
-	iamClient, err := self.getIamClient()
-	if err != nil {
+	// search role vmimport
+	roleName := "vmimport"
+	_, err := self.client.GetRole(roleName)
+	if err == nil || (err != nil && errors.Cause(err) != cloudprovider.ErrNotFound) {
 		return err
 	}
-
-	// search role vmimport
-	rolename := "vmimport"
-	ret, _ := iamClient.GetRole(&iam.GetRoleInput{RoleName: &rolename})
-	// todo: 这里得区分是not found.还是其他错误
-	if ret.Role != nil && ret.Role.RoleId != nil {
-		return nil
-	} else {
-		// create it
-		roleDoc := `{
+	// create it
+	roleDoc := `{
    "Version": "2012-10-17",
    "Statement": [
       {
@@ -386,32 +310,23 @@ func (self *SRegion) initVmimportRole() error {
       }
    ]
 }`
-		params := &iam.CreateRoleInput{}
-		params.SetDescription("vmimport role for image import")
-		params.SetRoleName(rolename)
-		params.SetAssumeRolePolicyDocument(roleDoc)
-
-		_, err = iamClient.CreateRole(params)
-		return err
+	params := map[string]string{
+		"RoleName":                 roleName,
+		"Description":              "vmimport role for image import",
+		"AssumeRolePolicyDocument": roleDoc,
 	}
+	return self.client.iamRequest("CreateRole", params, nil)
 }
 
 func (self *SRegion) initVmimportRolePolicy() error {
-	/*需要api access token 具备iam Full access权限*/
-	iamClient, err := self.getIamClient()
-	if err != nil {
-		return err
-	}
-
-	partition := self.GetARNPartition()
 	roleName := "vmimport"
 	policyName := "vmimport"
-	ret, err := iamClient.GetRolePolicy(&iam.GetRolePolicyInput{RoleName: &roleName, PolicyName: &policyName})
-	// todo: 这里得区分是not found.还是其他错误.
-	if ret.PolicyName != nil {
-		return nil
-	} else {
-		rolePolicy := `{
+	_, err := self.client.GetRolePolicy(roleName, policyName)
+	if err == nil || (err != nil && errors.Cause(err) != cloudprovider.ErrNotFound) {
+		return err
+	}
+	partition := self.GetARNPartition()
+	rolePolicy := `{
    "Version":"2012-10-17",
    "Statement":[
       {
@@ -438,13 +353,12 @@ func (self *SRegion) initVmimportRolePolicy() error {
       }
    ]
 }`
-		params := &iam.PutRolePolicyInput{}
-		params.SetPolicyDocument(fmt.Sprintf(rolePolicy, partition, "imgcache-*"))
-		params.SetPolicyName(policyName)
-		params.SetRoleName(roleName)
-		_, err = iamClient.PutRolePolicy(params)
-		return err
+	params := map[string]string{
+		"PolicyName":     policyName,
+		"RoleName":       roleName,
+		"PolicyDocument": fmt.Sprintf(rolePolicy, partition, "imgcache-*"),
 	}
+	return self.client.iamRequest("PutRolePolicy", params, nil)
 }
 
 func (self *SRegion) initVmimport() error {
@@ -460,27 +374,17 @@ func (self *SRegion) initVmimport() error {
 }
 
 func (self *SRegion) createIImage(snapshotId, imageName, imageDesc string) (string, error) {
-	params := &ec2.CreateImageInput{}
-	params.SetDescription(imageDesc)
-	params.SetName(imageName)
-	block := &ec2.BlockDeviceMapping{}
-	block.SetDeviceName("/dev/sda1")
-	ebs := &ec2.EbsBlockDevice{}
-	ebs.SetSnapshotId(snapshotId)
-	ebs.SetDeleteOnTermination(true)
-	block.SetEbs(ebs)
-	blockList := []*ec2.BlockDeviceMapping{block}
-	params.SetBlockDeviceMappings(blockList)
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return "", errors.Wrap(err, "getEc2Client")
+	params := map[string]string{
+		"Description":                         imageDesc,
+		"Name":                                imageName,
+		"BlockDeviceMapping.1.DeviceName":     "/dev/sda1",
+		"BlockDeviceMapping.1.Ebs.SnapshotId": snapshotId,
+		"BlockDeviceMapping.1.Ebs.DeleteOnTermination": "true",
 	}
-	ret, err := ec2Client.CreateImage(params)
-	if err != nil {
-		return "", err
-	}
-	return *ret.ImageId, nil
+	ret := struct {
+		ImageId string `xml:"imageId"`
+	}{}
+	return ret.ImageId, self.ec2Request("CreateImage", params, &ret)
 }
 
 func (self *SRegion) getStoragecache() *SStoragecache {

@@ -15,13 +15,9 @@
 package aws
 
 import (
-	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/ec2"
-
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/billing"
@@ -30,27 +26,24 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
-const (
-	EIP_STATUS_INUSE     = "InUse"
-	EIP_STATUS_AVAILABLE = "Available"
-)
-
 type SEipAddress struct {
 	region *SRegion
 	multicloud.SEipBase
 	multicloud.AwsTags
 
-	AllocationId            string
-	Bandwidth               int
-	Status                  string
-	InstanceId              string
-	AssociationId           string
-	Domain                  string
-	NetworkInterfaceId      string
-	NetworkInterfaceOwnerId string
-	PrivateIpAddress        string
-	IpAddress               string
-	Name                    string
+	AllocationId            string `xml:"allocationId"`
+	AssociationId           string `xml:"associationId"`
+	CarrierIp               string `xml:"carrierIp"`
+	CustomerOwnedIp         string `xml:"customerOwnedIp"`
+	CustomerOwnedIpv4Pool   string `xml:"customerOwnedIpv4Pool"`
+	Domain                  string `xml:"domain"`
+	InstanceId              string `xml:"instanceId"`
+	NetworkBorderGroup      string `xml:"networkBorderGroup"`
+	NetworkInterfaceId      string `xml:"networkInterfaceId"`
+	NetworkInterfaceOwnerId string `xml:"networkInterfaceOwnerId"`
+	PrivateIpAddress        string `xml:"privateIpAddress"`
+	PublicIp                string `xml:"publicIp"`
+	PublicIpv4Pool          string `xml:"publicIpv4Pool"`
 }
 
 func (self *SEipAddress) GetId() string {
@@ -58,11 +51,11 @@ func (self *SEipAddress) GetId() string {
 }
 
 func (self *SEipAddress) GetName() string {
-	if len(self.Name) == 0 {
-		return self.IpAddress
+	name := self.AwsTags.GetName()
+	if len(name) > 0 {
+		return name
 	}
-
-	return self.Name
+	return self.AllocationId
 }
 
 func (self *SEipAddress) GetGlobalId() string {
@@ -70,48 +63,39 @@ func (self *SEipAddress) GetGlobalId() string {
 }
 
 func (self *SEipAddress) GetStatus() string {
-	switch self.Status {
-	// todo: EIP_STATUS_INUSE 对应READY？
-	case EIP_STATUS_AVAILABLE, EIP_STATUS_INUSE:
-		return api.EIP_STATUS_READY
-	default:
-		return api.EIP_STATUS_UNKNOWN
-	}
+	return api.EIP_STATUS_READY
 }
 
 func (self *SEipAddress) Refresh() error {
 	if self.IsEmulated() {
 		return nil
 	}
-	new, err := self.region.GetEip(self.AllocationId)
+	eip, err := self.region.GetEip(self.AllocationId)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(self, new)
+	return jsonutils.Update(self, eip)
 }
 
 func (self *SEipAddress) IsEmulated() bool {
 	if self.AllocationId == self.InstanceId {
 		return true
 	}
-
 	return false
 }
 
 func (self *SEipAddress) GetIpAddr() string {
-	return self.IpAddress
+	return self.PublicIp
 }
 
 func (self *SEipAddress) GetMode() string {
 	if self.InstanceId == self.AllocationId {
 		return api.EIP_MODE_INSTANCE_PUBLICIP
-	} else {
-		return api.EIP_MODE_STANDALONE_EIP
 	}
+	return api.EIP_MODE_STANDALONE_EIP
 }
 
 func (self *SEipAddress) GetAssociationType() string {
-	// todo : ?
 	return api.EIP_ASSOCIATE_TYPE_SERVER
 }
 
@@ -120,7 +104,7 @@ func (self *SEipAddress) GetAssociationExternalId() string {
 }
 
 func (self *SEipAddress) GetBandwidth() int {
-	return self.Bandwidth
+	return 0
 }
 
 func (self *SEipAddress) GetINetworkId() string {
@@ -128,7 +112,6 @@ func (self *SEipAddress) GetINetworkId() string {
 }
 
 func (self *SEipAddress) GetInternetChargeType() string {
-	// todo : implement me
 	return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 }
 
@@ -137,207 +120,101 @@ func (self *SEipAddress) Delete() error {
 }
 
 func (self *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
-	err := self.region.AssociateEip(self.AllocationId, conf.InstanceId)
-	if err != nil {
-		return err
-	}
-	err = cloudprovider.WaitStatusWithDelay(self, api.EIP_STATUS_READY, 5*time.Second, 10*time.Second, 180*time.Second)
-	return err
+	return self.region.AssociateEip(self.AllocationId, conf.InstanceId)
 }
 
 func (self *SEipAddress) Dissociate() error {
-	err := self.region.DissociateEip(self.AllocationId, self.InstanceId)
-	if err != nil {
-		return err
-	}
-	err = cloudprovider.WaitStatus(self, api.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
-	return err
+	return self.region.DissociateEip(self.AllocationId, self.AssociationId)
 }
 
 func (self *SEipAddress) ChangeBandwidth(bw int) error {
 	return self.region.UpdateEipBandwidth(self.AllocationId, bw)
 }
 
-func (self *SRegion) GetEips(eipId string, eipAddress string, offset int, limit int) ([]SEipAddress, int, error) {
-	params := ec2.DescribeAddressesInput{}
+func (self *SRegion) GetEips(instanceId, eipId string, eipAddress string) ([]SEipAddress, error) {
+	params := map[string]string{}
 	if len(eipId) > 0 {
-		params.SetAllocationIds([]*string{&eipId})
+		params["AllocationId.1"] = eipId
+	}
+
+	if len(instanceId) > 0 {
+		params["Filter.1.instance-id"] = instanceId
 	}
 
 	if len(eipAddress) > 0 {
-		params.SetPublicIps([]*string{&eipAddress})
+		params["PublicIp.1"] = eipAddress
 	}
 
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "getEc2Client")
-	}
-	res, err := ec2Client.DescribeAddresses(&params)
-	err = parseNotFoundError(err)
-	if err != nil {
-		log.Errorf("DescribeEipAddresses fail %s", err)
-		return nil, 0, err
-	}
+	ret := struct {
+		Eips []SEipAddress `xml:"addressesSet>item"`
+	}{}
 
-	eips := make([]SEipAddress, 0)
-	for _, ip := range res.Addresses {
-		if err := FillZero(ip); err != nil {
-			return nil, 0, err
-		}
-
-		tagspec := TagSpec{ResourceType: "eip"}
-		tagspec.LoadingEc2Tags(ip.Tags)
-
-		var status string
-		if len(*ip.AssociationId) > 0 {
-			status = EIP_STATUS_INUSE
-		} else {
-			status = EIP_STATUS_AVAILABLE
-		}
-
-		eip := SEipAddress{
-			region:                  self,
-			AllocationId:            *ip.AllocationId,
-			Status:                  status,
-			InstanceId:              *ip.InstanceId,
-			AssociationId:           *ip.AssociationId,
-			Domain:                  *ip.Domain,
-			NetworkInterfaceId:      *ip.NetworkInterfaceId,
-			NetworkInterfaceOwnerId: *ip.NetworkInterfaceOwnerId,
-			PrivateIpAddress:        *ip.PrivateIpAddress,
-			IpAddress:               *ip.PublicIp,
-			Name:                    tagspec.GetNameTag(),
-		}
-		jsonutils.Update(&eip.AwsTags.TagSet, ip.Tags)
-		eips = append(eips, eip)
-	}
-	return eips, len(eips), nil
+	return ret.Eips, self.ec2Request("DescribeAddresses", params, &ret)
 }
 
 func (self *SRegion) GetEip(eipId string) (*SEipAddress, error) {
-	// 这里必须强制要求eipId大于零。避免用户账号正好只有一个eip的情况，返回错误的eip。
-	if len(eipId) == 0 {
-		return nil, fmt.Errorf("GetEip eipId should not be emtpy.")
-	}
-
-	eips, total, err := self.GetEips(eipId, "", 0, 0)
+	eips, err := self.GetEips("", eipId, "")
 	if err != nil {
-		log.Errorf("GetEips %s: %s", eipId, err)
 		return nil, errors.Wrap(err, "GetEips")
 	}
-	if total != 1 {
-		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetEips")
+	for i := range eips {
+		if eips[i].GetId() == eipId {
+			return &eips[i], nil
+		}
 	}
-	return &eips[0], nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, eipId)
 }
 
 func (self *SRegion) GetEipByIpAddress(eipAddress string) (*SEipAddress, error) {
-	eips, total, err := self.GetEips("", eipAddress, 0, 0)
+	eips, err := self.GetEips("", "", eipAddress)
 	if err != nil {
-		log.Errorf("GetEips %s: %s", eipAddress, err)
 		return nil, errors.Wrap(err, "GetEips")
 	}
-
-	if total != 1 {
-		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetEips")
-	}
-	return &eips[0], nil
-}
-
-func (self *SRegion) AllocateEIP(domainType string) (*SEipAddress, error) {
-	params := &ec2.AllocateAddressInput{}
-	params.SetDomain(domainType)
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "getEc2Client")
-	}
-	eip, err := ec2Client.AllocateAddress(params)
-	if err != nil {
-		log.Errorf("AllocateEipAddress fail %s", err)
-		return nil, errors.Wrap(err, "AllocateAddress")
-	}
-
-	err = self.fetchInfrastructure()
-	if err != nil {
-		return nil, errors.Wrap(err, "fetchInfrastructure")
-	}
-	return self.GetEip(*eip.AllocationId)
-}
-
-func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "getEc2Client")
-	}
-	// todo: aws 不支持指定bwMbps, chargeType ？
-	log.Debugf("CreateEip: aws not support specific params name/bwMbps/chargeType.")
-	ieip, err := self.AllocateEIP("vpc")
-	if err == nil && len(eip.Name) > 0 {
-		eipId := ieip.GetId()
-		k := "Name"
-		nameTag := &ec2.Tag{Key: &k, Value: &eip.Name}
-		params := &ec2.CreateTagsInput{}
-		params.SetResources([]*string{&eipId})
-		params.SetTags([]*ec2.Tag{nameTag})
-
-		// name 创建成功与否不影响eip的正常使用
-		if _, e := ec2Client.CreateTags(params); e != nil {
-			log.Infof("CreateEIP create name tag failed: %s", e)
+	for i := range eips {
+		if eips[i].GetIpAddr() == eipAddress {
+			return &eips[i], nil
 		}
 	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, eipAddress)
+}
 
-	return ieip, err
+func (self *SRegion) AllocateEIP(name, domainType string) (*SEipAddress, error) {
+	params := map[string]string{
+		"TagSpecification.1.ResourceType": "elastic-ip",
+		"TagSpecification.1.Tags.1.Key":   "Name",
+		"TagSpecification.1.Tags.1.Value": name,
+	}
+	if len(domainType) > 0 {
+		params["Domain"] = domainType
+	}
+	ret := SEipAddress{region: self}
+	return &ret, self.ec2Request("AllocateAddress", params, &ret)
+}
+
+func (self *SRegion) CreateEIP(opts *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
+	return self.AllocateEIP(opts.Name, "vpc")
 }
 
 func (self *SRegion) DeallocateEIP(eipId string) error {
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+	params := map[string]string{
+		"AllocationId": eipId,
 	}
-	params := &ec2.ReleaseAddressInput{}
-	params.SetAllocationId(eipId)
-	_, err = ec2Client.ReleaseAddress(params)
-	return errors.Wrap(err, "ReleaseAddress")
+	return self.ec2Request("ReleaseAddress", params, nil)
 }
 
 func (self *SRegion) AssociateEip(eipId string, instanceId string) error {
-	params := &ec2.AssociateAddressInput{}
-	params.SetAllocationId(eipId)
-	params.SetInstanceId(instanceId)
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+	params := map[string]string{
+		"AllocationId": eipId,
+		"InstanceId":   instanceId,
 	}
-	_, err = ec2Client.AssociateAddress(params)
-	return errors.Wrap(err, "AssociateAddress")
+	return self.ec2Request("AssociateAddress", params, nil)
 }
 
-func (self *SRegion) DissociateEip(eipId string, instanceId string) error {
-	eip, err := self.GetEip(eipId)
-	if err != nil {
-		return err
+func (self *SRegion) DissociateEip(eipId string, associateId string) error {
+	params := map[string]string{
+		"AssociationId": associateId,
 	}
-
-	if len(eip.AssociationId) == 0 {
-		// 已经是解绑状态
-		return nil
-	}
-
-	if eip.InstanceId != instanceId {
-		return fmt.Errorf("eip %s associate with another instance %s", eipId, eip.InstanceId)
-	}
-
-	params := &ec2.DisassociateAddressInput{}
-	params.SetAssociationId(eip.AssociationId)
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-
-	_, err = ec2Client.DisassociateAddress(params)
-	return errors.Wrap(err, "DisassociateAddress")
+	return self.ec2Request("DisassociateAddress", params, nil)
 }
 
 func (self *SRegion) UpdateEipBandwidth(eipId string, bw int) error {

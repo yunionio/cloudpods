@@ -32,6 +32,7 @@ type SDBInstanceParameter struct {
 
 type SDBInstanceParameters struct {
 	Parameters []SDBInstanceParameter `xml:"Parameters>Parameter"`
+	Marker     string                 `xml:"Marker"`
 }
 
 func (param *SDBInstanceParameter) GetGlobalId() string {
@@ -51,11 +52,19 @@ func (param *SDBInstanceParameter) GetDescription() string {
 }
 
 func (region *SRegion) GetDBInstanceParameters(name string) ([]SDBInstanceParameter, error) {
-	param := map[string]string{"DBParameterGroupName": name}
-	parameters := SDBInstanceParameters{}
-	err := region.rdsRequest("DescribeDBParameters", param, &parameters)
-	if err != nil {
-		return nil, errors.Wrap(err, "DescribeDBParameters")
+	params := map[string]string{"DBParameterGroupName": name}
+	ret := []SDBInstanceParameter{}
+	for {
+		result := SDBInstanceParameters{}
+		err := region.rdsRequest("DescribeDBParameters", params, &result)
+		if err != nil {
+			return nil, errors.Wrap(err, "DescribeDBParameters")
+		}
+		ret = append(ret, result.Parameters...)
+		if len(result.Marker) == 0 || len(result.Parameters) == 0 {
+			break
+		}
+		params["Marker"] = result.Marker
 	}
-	return parameters.Parameters, nil
+	return ret, nil
 }

@@ -65,7 +65,7 @@ type SWebAcl struct {
 }
 
 func (self *SRegion) ListWebACLs(scope string) ([]SWebAcl, error) {
-	if scope == SCOPE_CLOUDFRONT && self.RegionId != "us-east-1" {
+	if scope == SCOPE_CLOUDFRONT && self.RegionName != "us-east-1" {
 		return []SWebAcl{}, nil
 	}
 	client, err := self.getWafClient()

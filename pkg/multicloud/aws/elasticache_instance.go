@@ -19,9 +19,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/elasticache"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -33,176 +30,302 @@ import (
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
-func (region *SRegion) DescribeElasticacheReplicationGroups(Id string) ([]*elasticache.ReplicationGroup, error) {
-	ecClient, err := region.getAwsElasticacheClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "client.getAwsElasticacheClient")
+func (self *SRegion) GetElasticaches(id string) ([]SElasticache, error) {
+	params := map[string]string{}
+	if len(id) > 0 {
+		params["ReplicationGroupId"] = id
 	}
 
-	input := elasticache.DescribeReplicationGroupsInput{}
-
-	replicaGroup := []*elasticache.ReplicationGroup{}
-
-	marker := ""
-	maxrecords := (int64)(100)
-	input.MaxRecords = &maxrecords
-
-	if len(Id) > 0 {
-		input.ReplicationGroupId = &Id
-	}
-
+	ret := []SElasticache{}
 	for {
-		if len(marker) >= 0 {
-			input.Marker = &marker
-		}
-		out, err := ecClient.DescribeReplicationGroups(&input)
+		result := struct {
+			Marker            string         `xml:"Marker"`
+			ReplicationGroups []SElasticache `xml:"ReplicationGroups>ReplicationGroup"`
+		}{}
+		err := self.redisRequest("DescribeReplicationGroups", params, &result)
 		if err != nil {
-			if e, ok := err.(awserr.Error); ok && e.Code() == "ReplicationGroupNotFoundFault" {
-				return nil, errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
-			}
-			return nil, errors.Wrap(err, "ecClient.DescribeReplicationGroups")
+			return nil, errors.Wrapf(err, "DescribeReplicationGroups")
 		}
-		replicaGroup = append(replicaGroup, out.ReplicationGroups...)
-
-		if out.Marker != nil && len(*out.Marker) > 0 {
-			marker = *out.Marker
-		} else {
+		ret = append(ret, result.ReplicationGroups...)
+		if len(result.Marker) == 0 || len(result.ReplicationGroups) == 0 {
 			break
 		}
+		params["Marker"] = result.Marker
 	}
-
-	return replicaGroup, nil
+	return ret, nil
 }
 
-func (region *SRegion) GetElasticaches() ([]SElasticache, error) {
-	replicaGroups, err := region.DescribeElasticacheReplicationGroups("")
+func (self *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, error) {
+	caches, err := self.GetElasticaches("")
 	if err != nil {
-		return nil, errors.Wrap(err, " region.DescribeElasticacheReplicationGroups")
-	}
-	result := []SElasticache{}
-	for i := range replicaGroups {
-		result = append(result, SElasticache{region: region, replicaGroup: replicaGroups[i]})
-	}
-	return result, nil
-}
-
-func (region *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, error) {
-	sElasticahes, err := region.GetElasticaches()
-	if err != nil {
-		return nil, errors.Wrap(err, "region.GetSElasticaches()")
+		return nil, errors.Wrap(err, "GetSElasticaches")
 	}
 	result := []cloudprovider.ICloudElasticcache{}
-	for i := range sElasticahes {
-		result = append(result, &sElasticahes[i])
+	for i := range caches {
+		caches[i].region = self
+		result = append(result, &caches[i])
 	}
 	return result, nil
 }
 
-func (region *SRegion) GetSElasticacheById(Id string) (*SElasticache, error) {
-	replicaGroups, err := region.DescribeElasticacheReplicationGroups(Id)
+func (self *SRegion) GetIElasticcacheById(id string) (cloudprovider.ICloudElasticcache, error) {
+	caches, err := self.GetElasticaches(id)
 	if err != nil {
-		return nil, errors.Wrap(err, " region.DescribeElasticacheReplicationGroups")
+		return nil, errors.Wrapf(err, "GetElasticCaches(%s)", id)
 	}
-	if len(replicaGroups) == 0 {
-		return nil, cloudprovider.ErrNotFound
+	for i := range caches {
+		if caches[i].GetGlobalId() == id {
+			caches[i].region = self
+			return &caches[i], nil
+		}
 	}
-	if len(replicaGroups) > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
-	return &SElasticache{region: region, replicaGroup: replicaGroups[0]}, nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
-func (region *SRegion) GetIElasticcacheById(id string) (cloudprovider.ICloudElasticcache, error) {
-	sElasticache, err := region.GetSElasticacheById(id)
-	if err != nil {
-		return nil, errors.Wrapf(err, "region.GetSElasticacheById(%s)", id)
-	}
-	return sElasticache, nil
+type CacheNode struct {
+	CacheNodeCreateTime      time.Time `xml:"CacheNodeCreateTime"`
+	CacheNodeId              string    `xml:"CacheNodeId"`
+	CacheNodeStatus          string    `xml:"CacheNodeStatus"`
+	CustomerAvailabilityZone string    `xml:"CustomerAvailabilityZone"`
+	CustomerOutpostArn       string    `xml:"CustomerOutpostArn"`
+	Endpoint                 Endpoint  `xml:"Endpoint"`
+	ParameterGroupStatus     string    `xml:"ParameterGroupStatus"`
+	SourceCacheNodeId        string    `xml:"SourceCacheNodeId"`
 }
 
-func (region *SRegion) DescribeElasticacheClusters() ([]*elasticache.CacheCluster, error) {
-	ecClient, err := region.getAwsElasticacheClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "client.getAwsElasticacheClient")
-	}
+type CacheParameterGroupStatus struct {
+	CacheNodeIdsToReboot    []string `xml:"CacheNodeIdsToReboot>CacheNodeId"`
+	CacheParameterGroupName string   `xml:"CacheParameterGroupName"`
+	ParameterApplyStatus    string   `xml:"ParameterApplyStatus"`
+}
 
-	input := elasticache.DescribeCacheClustersInput{}
+type CacheSecurityGroupMembership struct {
+	CacheSecurityGroupName string `xml:"CacheSecurityGroupName"`
+	Status                 string `xml:"Status"`
+}
 
-	clusters := []*elasticache.CacheCluster{}
-	marker := ""
-	maxrecords := (int64)(100)
-	input.MaxRecords = &maxrecords
+type NotificationConfiguration struct {
+	TopicArn    string `xml:"TopicArn"`
+	TopicStatus string `xml:"TopicStatus"`
+}
 
+type PendingModifiedValues struct {
+	AuthTokenStatus           string                            `xml:"AuthTokenStatus"`
+	CacheNodeIdsToRemove      []string                          `xml:"CacheNodeIdsToRemove>CacheNodeId"`
+	CacheNodeType             string                            `xml:"CacheNodeType"`
+	EngineVersion             string                            `xml:"EngineVersion"`
+	LogDeliveryConfigurations []PendingLogDeliveryConfiguration `xml:"LogDeliveryConfigurations>LogDeliveryConfiguration"`
+	NumCacheNodes             int64                             `xml:"NumCacheNodes"`
+}
+
+type SecurityGroupMembership struct {
+	SecurityGroupId string `xml:"SecurityGroupId"`
+	Status          string `xml:"Status"`
+}
+
+type SElasticacheCluster struct {
+	ARN                                string                         `xml:"ARN"`
+	AtRestEncryptionEnabled            bool                           `xml:"AuthTokenEnabled"`
+	AuthTokenEnabled                   bool                           `xml:"AuthTokenEnabled"`
+	AuthTokenLastModifiedDate          time.Time                      `xml:"AuthTokenLastModifiedDate"`
+	AutoMinorVersionUpgrade            bool                           `xml:"AutoMinorVersionUpgrade"`
+	CacheClusterCreateTime             time.Time                      `xml:"CacheClusterCreateTime"`
+	CacheClusterId                     string                         `xml:"CacheClusterId"`
+	CacheClusterStatus                 string                         `xml:"CacheClusterStatus"`
+	CacheNodeType                      string                         `xml:"CacheNodeType"`
+	CacheNodes                         []CacheNode                    `xml:"CacheNodes>CacheNode"`
+	CacheParameterGroup                CacheParameterGroupStatus      `xml:"CacheParameterGroup"`
+	CacheSecurityGroups                []CacheSecurityGroupMembership `xml:"CacheSecurityGroups>CacheSecurityGroup"`
+	CacheSubnetGroupName               string                         `xml:"CacheSubnetGroupName"`
+	ClientDownloadLandingPage          string                         `xml:"ClientDownloadLandingPage"`
+	ConfigurationEndpoint              Endpoint                       `xml:"ConfigurationEndpoint"`
+	Engine                             string                         `xml:"Engine"`
+	EngineVersion                      string                         `xml:"EngineVersion"`
+	LogDeliveryConfigurations          []LogDeliveryConfiguration     `xml:"LogDeliveryConfigurations>LogDeliveryConfiguration"`
+	NotificationConfiguration          NotificationConfiguration      `xml:"NotificationConfiguration"`
+	NumCacheNodes                      int64                          `xml:"NumCacheNodes"`
+	PendingModifiedValues              PendingModifiedValues          `xml:"PendingModifiedValues"`
+	PreferredAvailabilityZone          string                         `xml:"PreferredAvailabilityZone"`
+	PreferredMaintenanceWindow         string                         `xml:"PreferredMaintenanceWindow"`
+	PreferredOutpostArn                string                         `xml:"PreferredOutpostArn"`
+	ReplicationGroupId                 string                         `xml:"ReplicationGroupId"`
+	ReplicationGroupLogDeliveryEnabled bool                           `xml:"ReplicationGroupLogDeliveryEnabled"`
+	SecurityGroups                     []SecurityGroupMembership      `xml:"SecurityGroups"`
+	SnapshotRetentionLimit             int64                          `xml:"SnapshotRetentionLimit"`
+	SnapshotWindow                     string                         `xml:"SnapshotWindow"`
+	TransitEncryptionEnabled           bool                           `xml:"TransitEncryptionEnabled"`
+}
+
+func (self *SRegion) GetElasticacheClusters() ([]SElasticacheCluster, error) {
+	params := map[string]string{}
+	ret := []SElasticacheCluster{}
 	for {
-		if len(marker) >= 0 {
-			input.Marker = &marker
-		}
-		out, err := ecClient.DescribeCacheClusters(&input)
+		result := struct {
+			Marker   string                `xml:"Marker"`
+			Clusters []SElasticacheCluster `xml:"CacheClusters>CacheCluster"`
+		}{}
+		err := self.redisRequest("DescribeCacheClusters", params, &result)
 		if err != nil {
-			return nil, errors.Wrap(err, "ecClient.DescribeCacheClusters")
+			return nil, errors.Wrapf(err, "DescribeCacheClusters")
 		}
-		clusters = append(clusters, out.CacheClusters...)
-
-		if out.Marker != nil && len(*out.Marker) > 0 {
-			marker = *out.Marker
-		} else {
+		ret = append(ret, result.Clusters...)
+		if len(result.Marker) == 0 || len(result.Clusters) == 0 {
 			break
 		}
+		params["Marker"] = result.Marker
 	}
-
-	return clusters, nil
+	return ret, nil
 }
 
-func (region *SRegion) DescribeCacheSubnetGroups(Id string) ([]*elasticache.CacheSubnetGroup, error) {
-	ecClient, err := region.getAwsElasticacheClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "client.getAwsElasticacheClient")
-	}
-	input := elasticache.DescribeCacheSubnetGroupsInput{}
-	subnetGroups := []*elasticache.CacheSubnetGroup{}
+type ElasticacheSubnetGroup struct {
+	VpcId string `xml:"VpcId"`
+}
 
-	marker := ""
-	maxrecords := (int64)(100)
-	input.MaxRecords = &maxrecords
-	if len(Id) > 0 {
-		input.CacheSubnetGroupName = &Id
+func (self *SRegion) GetCacheSubnetGroups(name string) ([]ElasticacheSubnetGroup, error) {
+	params := map[string]string{}
+	if len(name) > 0 {
+		params["CacheSubnetGroupName"] = name
 	}
+	ret := []ElasticacheSubnetGroup{}
 	for {
-		if len(marker) >= 0 {
-			input.Marker = &marker
-		}
-		out, err := ecClient.DescribeCacheSubnetGroups(&input)
+		result := struct {
+			Marker string                   `xml:"Marker"`
+			Groups []ElasticacheSubnetGroup `xml:"CacheSubnetGroups>CacheSubnetGroup"`
+		}{}
+		err := self.redisRequest("DescribeCacheSubnetGroups", params, &result)
 		if err != nil {
-			return nil, errors.Wrap(err, "ecClient.DescribeCacheSubnetGroups")
+			return nil, errors.Wrapf(err, "DescribeCacheSubnetGroups")
 		}
-		subnetGroups = append(subnetGroups, out.CacheSubnetGroups...)
-
-		if out.Marker != nil && len(*out.Marker) > 0 {
-			marker = *out.Marker
-		} else {
+		ret = append(ret, result.Groups...)
+		if len(result.Marker) == 0 || len(result.Groups) == 0 {
 			break
 		}
+		params["Marker"] = result.Marker
 	}
+	return ret, nil
+}
 
-	return subnetGroups, nil
+type Endpoint struct {
+	Address string `xml:"Address"`
+	Port    int64  `xml:"Port"`
+}
+
+type GlobalReplicationGroupInfo struct {
+	GlobalReplicationGroupId         string `xml:"GlobalReplicationGroupId"`
+	GlobalReplicationGroupMemberRole string `xml:"GlobalReplicationGroupMemberRole"`
+}
+
+type LogDeliveryConfiguration struct {
+	DestinationDetails DestinationDetails `xml:"DestinationDetails"`
+	DestinationType    string             `xml:"DestinationType"`
+	LogFormat          string             `xml:"LogFormat"`
+	LogType            string             `xml:"LogType"`
+	Message            string             `xml:"Message"`
+	// | disabling | modifying | active | error
+	Status *string `xml:"Status"`
+}
+
+type CloudWatchLogsDestinationDetails struct {
+	LogGroup string `xml:"LogGroup"`
+}
+
+type KinesisFirehoseDestinationDetails struct {
+	DeliveryStream string `xml:"DeliveryStream"`
+}
+
+type DestinationDetails struct {
+	CloudWatchLogsDetails  CloudWatchLogsDestinationDetails  `xml:"CloudWatchLogsDetails"`
+	KinesisFirehoseDetails KinesisFirehoseDestinationDetails `xml:"KinesisFirehoseDetails"`
+}
+
+type NodeGroup struct {
+	NodeGroupId      string            `xml:"NodeGroupId"`
+	NodeGroupMembers []NodeGroupMember `xml:"NodeGroupMembers>NodeGroupMember"`
+	PrimaryEndpoint  Endpoint          `xml:"PrimaryEndpoint"`
+	ReaderEndpoint   Endpoint          `xml:"ReaderEndpoint"`
+	Slots            string            `xml:"Slots"`
+	Status           string            `xml:"Status"`
+}
+
+type NodeGroupMember struct {
+	CacheClusterId            string   `xml:"CacheClusterId"`
+	CacheNodeId               string   `xml:"CacheNodeId"`
+	CurrentRole               string   `xml:"CurrentRole"`
+	PreferredAvailabilityZone string   `xml:"PreferredAvailabilityZone"`
+	PreferredOutpostArn       string   `xml:"PreferredOutpostArn"`
+	ReadEndpoint              Endpoint `xml:"ReadEndpoint"`
+}
+
+type ReplicationGroupPendingModifiedValues struct {
+	AuthTokenStatus           string                            `xml:"AuthTokenStatus"`
+	AutomaticFailoverStatus   string                            `xml:"AutomaticFailoverStatus"`
+	LogDeliveryConfigurations []PendingLogDeliveryConfiguration `xml:"LogDeliveryConfigurations>PendingLogDeliveryConfiguration"`
+	PrimaryClusterId          string                            `xml:"PrimaryClusterId"`
+	Resharding                ReshardingStatus                  `xml:"Resharding"`
+	UserGroups                UserGroupsUpdateStatus            `xml:"UserGroups"`
+}
+
+type UserGroupsUpdateStatus struct {
+	UserGroupIdsToAdd    []string `xml:"UserGroupIdsToAdd"`
+	UserGroupIdsToRemove []string `xml:"UserGroupIdsToAdd"`
+}
+
+type ReshardingStatus struct {
+	SlotMigration SlotMigration `xml:"SlotMigration"`
+}
+
+type SlotMigration struct {
+	ProgressPercentage float64 `xml:"ProgressPercentage"`
+}
+
+type PendingLogDeliveryConfiguration struct {
+	DestinationDetails DestinationDetails `xml:"DestinationDetails"`
+	DestinationType    string             `xml:"DestinationType"`
+	LogFormat          string             `xml:"LogFormat"`
+	LogType            string             `xml:"LogType"`
 }
 
 type SElasticache struct {
 	multicloud.SElasticcacheBase
 	multicloud.AwsTags
 
-	region        *SRegion
-	replicaGroup  *elasticache.ReplicationGroup
-	cacheClusters []*elasticache.CacheCluster
-	subnetGroup   *elasticache.CacheSubnetGroup
+	region *SRegion
+
+	ARN                        string                                `xml:"ARN"`
+	AtRestEncryptionEnabled    bool                                  `xml:"AtRestEncryptionEnabled"`
+	AuthTokenEnabled           bool                                  `xml:"AuthTokenEnabled"`
+	AuthTokenLastModifiedDate  time.Time                             `xml:"AuthTokenLastModifiedDate"`
+	AutomaticFailover          string                                `xml:"AutomaticFailover"`
+	CacheNodeType              string                                `xml:"CacheNodeType"`
+	ClusterEnabled             bool                                  `xml:"ClusterEnabled"`
+	ConfigurationEndpoint      Endpoint                              `xml:"ConfigurationEndpoint"`
+	Description                string                                `xml:"Description"`
+	GlobalReplicationGroupInfo GlobalReplicationGroupInfo            `xml:"GlobalReplicationGroupInfo"`
+	KmsKeyId                   string                                `xml:"KmsKeyId"`
+	LogDeliveryConfigurations  []LogDeliveryConfiguration            `xml:"LogDeliveryConfigurations>LogDeliveryConfiguration"`
+	MemberClusters             []string                              `xml:"MemberClusters>locationNameList"`
+	MemberClustersOutpostArns  []string                              `xml:"MemberClustersOutpostArns>ReplicationGroupOutpostArn"`
+	MultiAZ                    string                                `xml:"MultiAZ"`
+	NodeGroups                 []NodeGroup                           `xml:"NodeGroups>NodeGroup"`
+	PendingModifiedValues      ReplicationGroupPendingModifiedValues `xml:"PendingModifiedValues"`
+	ReplicationGroupId         string                                `xml:"ReplicationGroupId"`
+	SnapshotRetentionLimit     int64                                 `xml:"SnapshotRetentionLimit"`
+	SnapshotWindow             string                                `xml:"SnapshotWindow"`
+	SnapshottingClusterId      string                                `xml:"SnapshottingClusterId"`
+	Status                     string                                `xml:"Status"`
+	TransitEncryptionEnabled   bool                                  `xml:"TransitEncryptionEnabled"`
+	UserGroupIds               []string                              `xml:"UserGroupIds"`
+
+	cacheClusters []SElasticacheCluster
+	subnetGroup   *ElasticacheSubnetGroup
 }
 
 func (self *SElasticache) GetId() string {
-	return *self.replicaGroup.ReplicationGroupId
+	return self.ReplicationGroupId
 }
 
 func (self *SElasticache) GetName() string {
-	return *self.replicaGroup.ReplicationGroupId
+	return self.ReplicationGroupId
 }
 
 func (self *SElasticache) GetGlobalId() string {
@@ -210,11 +333,8 @@ func (self *SElasticache) GetGlobalId() string {
 }
 
 func (self *SElasticache) GetStatus() string {
-	if self.replicaGroup.Status == nil {
-		return api.ELASTIC_CACHE_STATUS_UNKNOWN
-	}
 	// creating, available, modifying, deleting, create-failed, snapshotting
-	switch *self.replicaGroup.Status {
+	switch self.Status {
 	case "creating":
 		return api.ELASTIC_CACHE_STATUS_DEPLOYING
 	case "available":
@@ -233,27 +353,20 @@ func (self *SElasticache) GetStatus() string {
 }
 
 func (self *SElasticache) Refresh() error {
-	if self.replicaGroup.ReplicationGroupId == nil {
-		return errors.Wrap(cloudprovider.ErrNotFound, "replicationGroupId not found")
-	}
-	replica, err := self.region.DescribeElasticacheReplicationGroups(*self.replicaGroup.ReplicationGroupId)
-
+	caches, err := self.region.GetElasticaches(self.ReplicationGroupId)
 	if err != nil {
-		return errors.Wrapf(err, "self.region.DescribeElasticacheReplicationGroups(%s)", *self.replicaGroup.ReplicationGroupId)
+		return errors.Wrapf(err, "GetElasticaches")
 	}
 
-	if len(replica) == 0 {
-		return cloudprovider.ErrNotFound
-	}
-	if len(replica) > 1 {
-		return cloudprovider.ErrDuplicateId
-	}
-
-	self.replicaGroup = replica[0]
 	self.cacheClusters = nil
 	self.subnetGroup = nil
 
-	return nil
+	for i := range caches {
+		if caches[i].GetGlobalId() == self.ReplicationGroupId {
+			return jsonutils.Update(self, caches[i])
+		}
+	}
+	return errors.Wrapf(cloudprovider.ErrNotFound, self.ReplicationGroupId)
 }
 
 func (self *SElasticache) GetBillingType() string {
@@ -272,13 +385,13 @@ func (self *SElasticache) fetchClusters() error {
 	if self.cacheClusters != nil {
 		return nil
 	}
-	clusters, err := self.region.DescribeElasticacheClusters()
+	clusters, err := self.region.GetElasticacheClusters()
 	if err != nil {
-		return errors.Wrap(err, "self.region.DescribeElasticacheClusters")
+		return errors.Wrap(err, "GetElasticacheClusters")
 	}
-	self.cacheClusters = []*elasticache.CacheCluster{}
+	self.cacheClusters = []SElasticacheCluster{}
 	for i := range clusters {
-		if clusters[i].ReplicationGroupId != nil && *clusters[i].ReplicationGroupId == self.GetId() {
+		if clusters[i].ReplicationGroupId == self.GetId() {
 			self.cacheClusters = append(self.cacheClusters, clusters[i])
 		}
 	}
@@ -286,10 +399,7 @@ func (self *SElasticache) fetchClusters() error {
 }
 
 func (self *SElasticache) GetInstanceType() string {
-	if self.replicaGroup.CacheNodeType != nil {
-		return *self.replicaGroup.CacheNodeType
-	}
-	return ""
+	return self.CacheNodeType
 }
 
 func (self *SElasticache) GetCapacityMB() int {
@@ -297,7 +407,7 @@ func (self *SElasticache) GetCapacityMB() int {
 }
 
 func (self *SElasticache) GetArchType() string {
-	if self.replicaGroup.ClusterEnabled != nil && *self.replicaGroup.ClusterEnabled == true {
+	if self.ClusterEnabled {
 		return api.ELASTIC_CACHE_ARCH_TYPE_CLUSTER
 	}
 
@@ -310,13 +420,7 @@ func (self *SElasticache) GetArchType() string {
 }
 
 func (self *SElasticache) GetNodeType() string {
-	nodeGroupNums := 1
-	for _, nodeGroup := range self.replicaGroup.NodeGroups {
-		if nodeGroup != nil {
-			nodeGroupNums = len(nodeGroup.NodeGroupMembers)
-			break
-		}
-	}
+	nodeGroupNums := len(self.NodeGroups)
 	switch nodeGroupNums {
 	case 1:
 		return api.ELASTIC_CACHE_NODE_TYPE_SINGLE
@@ -338,9 +442,7 @@ func (self *SElasticache) GetNodeType() string {
 func (self *SElasticache) GetEngine() string {
 	self.fetchClusters()
 	for _, cluster := range self.cacheClusters {
-		if cluster != nil && cluster.Engine != nil {
-			return *cluster.Engine
-		}
+		return cluster.Engine
 	}
 	return ""
 }
@@ -348,9 +450,7 @@ func (self *SElasticache) GetEngine() string {
 func (self *SElasticache) GetEngineVersion() string {
 	self.fetchClusters()
 	for _, cluster := range self.cacheClusters {
-		if cluster != nil && cluster.EngineVersion != nil {
-			return *cluster.EngineVersion
-		}
+		return cluster.EngineVersion
 	}
 	return ""
 }
@@ -366,8 +466,8 @@ func (self *SElasticache) fetchSubnetGroup() error {
 
 	subnetGroupName := ""
 	for _, cluster := range self.cacheClusters {
-		if cluster != nil && cluster.CacheSubnetGroupName != nil {
-			subnetGroupName = *cluster.CacheSubnetGroupName
+		if len(cluster.CacheSubnetGroupName) > 0 {
+			subnetGroupName = cluster.CacheSubnetGroupName
 		}
 	}
 
@@ -375,9 +475,9 @@ func (self *SElasticache) fetchSubnetGroup() error {
 		return cloudprovider.ErrNotFound
 	}
 
-	subnetGroup, err := self.region.DescribeCacheSubnetGroups(subnetGroupName)
+	subnetGroup, err := self.region.GetCacheSubnetGroups(subnetGroupName)
 	if err != nil {
-		return errors.Wrapf(err, "self.region.DescribeCacheSubnetGroups(%s)", subnetGroupName)
+		return errors.Wrapf(err, "GetCacheSubnetGroups(%s)", subnetGroupName)
 	}
 
 	if len(subnetGroup) == 0 {
@@ -387,7 +487,7 @@ func (self *SElasticache) fetchSubnetGroup() error {
 		return cloudprovider.ErrDuplicateId
 	}
 
-	self.subnetGroup = subnetGroup[0]
+	self.subnetGroup = &subnetGroup[0]
 	return nil
 }
 
@@ -397,8 +497,8 @@ func (self *SElasticache) GetVpcId() string {
 		log.Errorf("Error:%s,self.fetchSubnetGroup()", err)
 		return ""
 	}
-	if self.subnetGroup != nil && self.subnetGroup.VpcId != nil {
-		return *self.subnetGroup.VpcId
+	if self.subnetGroup != nil {
+		return self.subnetGroup.VpcId
 	}
 	return ""
 }
@@ -420,9 +520,9 @@ func (self *SElasticache) GetNetworkId() string {
 
 // cluster mode(shard) 只有配置endpoint,no cluster mode 有primary/readonly endpoint
 func (self *SElasticache) GetPrivateDNS() string {
-	for _, nodeGroup := range self.replicaGroup.NodeGroups {
-		if nodeGroup != nil && nodeGroup.PrimaryEndpoint != nil && nodeGroup.PrimaryEndpoint.Address != nil {
-			return *nodeGroup.PrimaryEndpoint.Address
+	for _, nodeGroup := range self.NodeGroups {
+		if len(nodeGroup.PrimaryEndpoint.Address) > 0 {
+			return nodeGroup.PrimaryEndpoint.Address
 		}
 	}
 	return ""
@@ -433,9 +533,9 @@ func (self *SElasticache) GetPrivateIpAddr() string {
 }
 
 func (self *SElasticache) GetPrivateConnectPort() int {
-	for _, nodeGroup := range self.replicaGroup.NodeGroups {
-		if nodeGroup != nil && nodeGroup.PrimaryEndpoint != nil && nodeGroup.PrimaryEndpoint.Port != nil {
-			return int(*nodeGroup.PrimaryEndpoint.Port)
+	for _, nodeGroup := range self.NodeGroups {
+		if nodeGroup.PrimaryEndpoint.Port > 0 {
+			return int(nodeGroup.PrimaryEndpoint.Port)
 		}
 	}
 	return 0
@@ -457,8 +557,8 @@ func (self *SElasticache) GetMaintainStartTime() string {
 	self.fetchClusters()
 	window := ""
 	for _, cluster := range self.cacheClusters {
-		if cluster != nil && cluster.PreferredMaintenanceWindow != nil {
-			window = *cluster.PreferredMaintenanceWindow
+		if len(cluster.PreferredMaintenanceWindow) > 0 {
+			window = cluster.PreferredMaintenanceWindow
 			break
 		}
 	}
@@ -471,8 +571,8 @@ func (self *SElasticache) GetMaintainEndTime() string {
 	self.fetchClusters()
 	window := ""
 	for _, cluster := range self.cacheClusters {
-		if cluster != nil && cluster.PreferredMaintenanceWindow != nil {
-			window = *cluster.PreferredMaintenanceWindow
+		if len(cluster.PreferredMaintenanceWindow) > 0 {
+			window = cluster.PreferredMaintenanceWindow
 			break
 		}
 	}
@@ -484,39 +584,28 @@ func (self *SElasticache) GetMaintainEndTime() string {
 	return ""
 }
 
-func (self *SElasticache) GetUsers() ([]SElasticacheUser, error) {
-	result := []SElasticacheUser{}
-	users, err := self.region.DescribeUsers("")
-	if err != nil {
-		return nil, errors.Wrap(err, "self.region.DescribeUsers")
-	}
-	for i := range users {
-		result = append(result, SElasticacheUser{region: self.region, user: users[i]})
-	}
-	return result, nil
-}
-
 func (self *SElasticache) GetICloudElasticcacheAccounts() ([]cloudprovider.ICloudElasticcacheAccount, error) {
-	result := []cloudprovider.ICloudElasticcacheAccount{}
-	users, err := self.GetUsers()
+	users, err := self.region.GetElasticacheUsers("")
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetUsers()")
 	}
+	result := []cloudprovider.ICloudElasticcacheAccount{}
 	for i := range users {
+		users[i].cache = self
 		result = append(result, &users[i])
 	}
 	return result, nil
 }
 
 func (self *SElasticache) GetUserById(id string) (*SElasticacheUser, error) {
-	users, err := self.region.DescribeUsers("")
+	users, err := self.region.GetElasticacheUsers("")
 	if err != nil {
 		return nil, errors.Wrap(err, "self.region.DescribeUsers")
 	}
 	for i := range users {
-		temp := SElasticacheUser{region: self.region, user: users[i]}
-		if temp.GetId() == id {
-			return &temp, nil
+		if users[i].GetGlobalId() == id {
+			users[i].cache = self
+			return &users[i], nil
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
@@ -538,38 +627,26 @@ func (self *SElasticache) GetICloudElasticcacheAcl(aclId string) (cloudprovider.
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SElasticache) GetSnapshots() ([]SElasticacheSnapshop, error) {
-	result := []SElasticacheSnapshop{}
-	snapshots, err := self.region.DescribeSnapshots(self.GetName(), "")
-	if err != nil {
-		return nil, errors.Wrapf(err, " self.region.DescribeSnapshots(%s)", self.GetName())
-	}
-
-	for i := range snapshots {
-		result = append(result, SElasticacheSnapshop{region: self.region, snapshot: snapshots[i]})
-	}
-	return result, nil
-}
-
 func (self *SElasticache) GetICloudElasticcacheBackups() ([]cloudprovider.ICloudElasticcacheBackup, error) {
-	snapshots, err := self.GetSnapshots()
+	snapshots, err := self.region.GetElasticacheSnapshots(self.GetName(), "")
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetSnapshots()")
 	}
 	result := []cloudprovider.ICloudElasticcacheBackup{}
 	for i := range snapshots {
+		snapshots[i].cache = self
 		result = append(result, &snapshots[i])
 	}
 	return result, nil
 }
 
 func (self *SElasticache) GetICloudElasticcacheBackup(backupId string) (cloudprovider.ICloudElasticcacheBackup, error) {
-	snapshots, err := self.GetSnapshots()
+	snapshots, err := self.region.GetElasticacheSnapshots(self.ReplicationGroupId, backupId)
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetSnapshots()")
 	}
 	for i := range snapshots {
-		if snapshots[i].GetId() == backupId {
+		if snapshots[i].GetGlobalId() == backupId {
 			return &snapshots[i], nil
 		}
 	}
@@ -582,8 +659,8 @@ func (self *SElasticache) GetParameterGroupName() (string, error) {
 		return "", errors.Wrap(err, "self.fetchClusters()")
 	}
 	for _, cluster := range self.cacheClusters {
-		if cluster != nil && cluster.CacheParameterGroup != nil && cluster.CacheParameterGroup.CacheParameterGroupName != nil {
-			return *cluster.CacheParameterGroup.CacheParameterGroupName, nil
+		if len(cluster.CacheParameterGroup.CacheParameterGroupName) > 0 {
+			return cluster.CacheParameterGroup.CacheParameterGroupName, nil
 		}
 	}
 
@@ -595,17 +672,14 @@ func (self *SElasticache) GetParameters() ([]SElasticacheParameter, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "self.GetParameterGroupName()")
 	}
-	parameters, err := self.region.DescribeCacheParameters(groupName)
+	parameters, err := self.region.GetCacheParameters(groupName)
 	if err != nil {
-		return nil, errors.Wrapf(err, "self.region.DescribeCacheParameters(%s)", groupName)
+		return nil, errors.Wrapf(err, "GetCacheParameters", groupName)
 	}
-
-	result := []SElasticacheParameter{}
-
 	for i := range parameters {
-		result = append(result, SElasticacheParameter{parameterGroup: groupName, parameter: parameters[i]})
+		parameters[i].parameterGroup = groupName
 	}
-	return result, nil
+	return parameters, nil
 }
 
 func (self *SElasticache) GetICloudElasticcacheParameters() ([]cloudprovider.ICloudElasticcacheParameter, error) {
@@ -627,17 +701,14 @@ func (self *SElasticache) GetSecurityGroupIds() ([]string, error) {
 	}
 	result := []string{}
 	for _, cluster := range self.cacheClusters {
-		if cluster != nil {
-			for _, securityGroup := range cluster.SecurityGroups {
-				if securityGroup != nil && securityGroup.Status != nil && *securityGroup.Status == "active" {
-					if securityGroup.SecurityGroupId != nil {
-						result = append(result, *securityGroup.SecurityGroupId)
-					}
+		for _, securityGroup := range cluster.SecurityGroups {
+			if securityGroup.Status == "active" {
+				if len(securityGroup.SecurityGroupId) > 0 {
+					result = append(result, securityGroup.SecurityGroupId)
 				}
 			}
 		}
 	}
-
 	return result, nil
 }
 

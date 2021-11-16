@@ -17,63 +17,58 @@ package aws
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/service/elasticache"
-
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
-func (region *SRegion) DescribeCacheParameters(parameterGroupId string) ([]*elasticache.Parameter, error) {
-	ecClient, err := region.getAwsElasticacheClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "client.getAwsElasticacheClient")
+func (self *SRegion) GetCacheParameters(name string) ([]SElasticacheParameter, error) {
+	params := map[string]string{}
+	if len(name) > 0 {
+		params["CacheParameterGroupName"] = name
 	}
-
-	input := elasticache.DescribeCacheParametersInput{}
-	if len(parameterGroupId) > 0 {
-		input.CacheParameterGroupName = &parameterGroupId
-	}
-
-	marker := ""
-	maxrecords := (int64)(50)
-	input.MaxRecords = &maxrecords
-
-	parameters := []*elasticache.Parameter{}
+	ret := []SElasticacheParameter{}
 	for {
-		if len(marker) >= 0 {
-			input.Marker = &marker
-		}
-		out, err := ecClient.DescribeCacheParameters(&input)
+		result := struct {
+			Marker     string                  `xml:"Marker"`
+			Parameters []SElasticacheParameter `xml:"CacheNodeTypeSpecificParameters>CacheNodeTypeSpecificParameter"`
+		}{}
+		err := self.redisRequest("DescribeCacheParameters", params, &result)
 		if err != nil {
-			return nil, errors.Wrap(err, "ecClient.DescribeCacheParameters")
+			return nil, errors.Wrapf(err, "DescribeCacheParameters")
 		}
-		parameters = append(parameters, out.Parameters...)
-
-		if out.Marker != nil && len(*out.Marker) > 0 {
-			marker = *out.Marker
-		} else {
+		ret = append(ret, result.Parameters...)
+		if len(result.Marker) == 0 || len(result.Parameters) == 0 {
 			break
 		}
+		params["Marker"] = result.Marker
 	}
-
-	return parameters, nil
+	return ret, nil
 }
 
 type SElasticacheParameter struct {
 	multicloud.SElasticcacheParameterBase
 	multicloud.AwsTags
 	parameterGroup string
-	parameter      *elasticache.Parameter
+
+	AllowedValues        string `xml:"AllowedValues"`
+	ChangeType           string `xml:"ChangeType"`
+	DataType             string `xml:"DataType"`
+	Description          string `xml:"Description"`
+	IsModifiable         bool   `xml:"IsModifiable"`
+	MinimumEngineVersion string `xml:"MinimumEngineVersion"`
+	ParameterName        string `xml:"ParameterName"`
+	ParameterValue       string `xml:"ParameterValue"`
+	Source               string `xml:"Source"`
 }
 
 func (self *SElasticacheParameter) GetId() string {
-	return fmt.Sprintf("%s/%s", self.parameterGroup, *self.parameter.ParameterName)
+	return fmt.Sprintf("%s/%s", self.parameterGroup, self.ParameterName)
 }
 
 func (self *SElasticacheParameter) GetName() string {
-	return *self.parameter.ParameterName
+	return self.ParameterName
 }
 
 func (self *SElasticacheParameter) GetGlobalId() string {
@@ -85,46 +80,25 @@ func (self *SElasticacheParameter) GetStatus() string {
 }
 
 func (self *SElasticacheParameter) GetParameterKey() string {
-	if self.parameter == nil || self.parameter.ParameterName == nil {
-		return ""
-	}
-	return *self.parameter.ParameterName
+	return self.ParameterName
 }
 
 func (self *SElasticacheParameter) GetParameterValue() string {
-	if self.parameter == nil || self.parameter.ParameterValue == nil {
-		return ""
-	}
-	return *self.parameter.ParameterValue
+	return self.ParameterValue
 }
 
 func (self *SElasticacheParameter) GetParameterValueRange() string {
-	if self.parameter == nil || self.parameter.AllowedValues == nil {
-		return ""
-	}
-	return *self.parameter.AllowedValues
+	return self.AllowedValues
 }
 
 func (self *SElasticacheParameter) GetDescription() string {
-	if self.parameter == nil || self.parameter.Description == nil {
-		return ""
-	}
-	return *self.parameter.Description
+	return self.Description
 }
 
 func (self *SElasticacheParameter) GetModifiable() bool {
-	if self.parameter == nil || self.parameter.IsModifiable == nil {
-		return *self.parameter.IsModifiable
-	}
-	return false
+	return self.IsModifiable
 }
 
 func (self *SElasticacheParameter) GetForceRestart() bool {
-	if self.parameter == nil || self.parameter.ChangeType == nil {
-		return false
-	}
-	if *self.parameter.ChangeType == "requires-reboot" {
-		return true
-	}
-	return false
+	return self.ChangeType == "requires-reboot"
 }

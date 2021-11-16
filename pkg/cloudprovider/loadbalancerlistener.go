@@ -14,6 +14,13 @@
 
 package cloudprovider
 
+import (
+	"reflect"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/gotypes"
+)
+
 type SLoadbalancerListener struct {
 	Name                    string
 	LoadbalancerID          string
@@ -69,7 +76,7 @@ type SLoadbalancerListenerRule struct {
 	BackendGroupID   string
 	BackendGroupType string
 
-	Condition string // for aws only
+	Condition *AwsRuleConditons // for aws only
 
 	Scheduler           string // for qcloud only
 	HealthCheck         string // for qcloud only
@@ -91,4 +98,27 @@ type SLoadbalancerListenerRule struct {
 	RedirectScheme string `width:"16" nullable:"true" list:"user" create:"optional" update:"user"`               // 跳转uri scheme
 	RedirectHost   string `nullable:"true" list:"user" create:"optional" update:"user"`                          // 跳转时变更Host
 	RedirectPath   string `nullable:"true" list:"user" create:"optional" update:"user"`                          // 跳转时变更Path
+}
+
+type AwsRuleConditon struct {
+	//http-header, http-request-method, host-header, path-pattern, query-string, source-ip
+	Field          string
+	HttpHeaderName string
+	Values         []string
+}
+
+type AwsRuleConditons []AwsRuleConditon
+
+func (self AwsRuleConditons) IsZero() bool {
+	return len(AwsRuleConditons) == 0
+}
+
+func (self AwsRuleConditons) String() string {
+	return jsonutils.Marshal(self).String()
+}
+
+func int() {
+	gotypes.RegisterSerializable(reflect.TypeOf(&AwsRuleConditons{}), func() gotypes.ISerializable {
+		return &AwsRuleConditons{}
+	})
 }

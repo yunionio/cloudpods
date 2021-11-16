@@ -81,7 +81,7 @@ func (self *SWafRegexSet) Delete() error {
 }
 
 func (self *SRegion) ListRegexSets(scope string) ([]SWafRegexSet, error) {
-	if scope == SCOPE_CLOUDFRONT && self.RegionId != "us-east-1" {
+	if scope == SCOPE_CLOUDFRONT && self.RegionName != "us-east-1" {
 		return []SWafRegexSet{}, nil
 	}
 	client, err := self.getWafClient()

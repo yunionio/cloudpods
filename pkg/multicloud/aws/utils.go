@@ -23,12 +23,12 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type portRange struct {
@@ -213,27 +213,26 @@ func SecurityRuleSetToAllowSet(srs secrules.SecurityRuleSet) secrules.SecurityRu
 	return ret
 }
 
-func isAwsPermissionAllPorts(p ec2.IpPermission) bool {
-	if p.FromPort == nil || p.ToPort == nil {
+func isAwsPermissionAllPorts(p IpPermission) bool {
+	if p.FromPort == 0 || p.ToPort == 0 {
 		return false
 	}
 
 	//  全部端口范围： TCP/UDP （0，65535）    其他：（-1，-1）
-	if (*p.IpProtocol == "tcp" || *p.IpProtocol == "udp") && *p.FromPort == 0 && *p.ToPort == 65535 {
+	if (p.IpProtocol == "tcp" || p.IpProtocol == "udp") && p.FromPort == 0 && p.ToPort == 65535 {
 		return true
-	} else if *p.FromPort == -1 && *p.ToPort == -1 {
+	} else if p.FromPort == -1 && p.ToPort == -1 {
 		return true
 	} else {
 		return false
 	}
 }
 
-func awsProtocolToYunion(p ec2.IpPermission) string {
-	if p.IpProtocol != nil && *p.IpProtocol == "-1" {
+func awsProtocolToYunion(p IpPermission) string {
+	if p.IpProtocol == "-1" {
 		return secrules.PROTO_ANY
-	} else {
-		return *p.IpProtocol
 	}
+	return p.IpProtocol
 }
 
 func yunionProtocolToAws(r cloudprovider.SecurityRule) string {
@@ -298,9 +297,8 @@ func yunionPortRangeToAws(r cloudprovider.SecurityRule) []portRange {
 }
 
 // Security Rule Transform
-func AwsIpPermissionToYunion(direction secrules.TSecurityRuleDirection, p ec2.IpPermission) ([]cloudprovider.SecurityRule, error) {
-
-	if len(p.UserIdGroupPairs) > 0 {
+func AwsIpPermissionToYunion(direction secrules.TSecurityRuleDirection, p IpPermission) ([]cloudprovider.SecurityRule, error) {
+	if len(p.Groups) > 0 {
 		return nil, fmt.Errorf("AwsIpPermissionToYunion not supported aws rule: UserIdGroupPairs specified")
 	}
 
@@ -316,9 +314,9 @@ func AwsIpPermissionToYunion(direction secrules.TSecurityRuleDirection, p ec2.Ip
 	isAllPorts := isAwsPermissionAllPorts(p)
 	protocol := awsProtocolToYunion(p)
 	for _, ip := range p.IpRanges {
-		_, ipNet, err := net.ParseCIDR(*ip.CidrIp)
+		_, ipNet, err := net.ParseCIDR(ip.CidrIp)
 		if err != nil {
-			log.Errorf("ParseCIDR failed, ignored IPV4 rule: %s", *ip.CidrIp)
+			log.Errorf("ParseCIDR failed, ignored IPV4 rule: %s", ip.CidrIp)
 			continue
 		}
 
@@ -331,7 +329,7 @@ func AwsIpPermissionToYunion(direction secrules.TSecurityRuleDirection, p ec2.Ip
 					Protocol:    protocol,
 					Direction:   direction,
 					Priority:    1,
-					Description: StrVal(ip.Description),
+					Description: ip.Description,
 				},
 			}
 		} else {
@@ -342,16 +340,16 @@ func AwsIpPermissionToYunion(direction secrules.TSecurityRuleDirection, p ec2.Ip
 					Protocol:    protocol,
 					Direction:   direction,
 					Priority:    1,
-					Description: StrVal(ip.Description),
+					Description: ip.Description,
 				},
 			}
 
-			if p.FromPort != nil {
-				rule.PortStart = int(*p.FromPort)
+			if p.FromPort != 0 {
+				rule.PortStart = p.FromPort
 			}
 
-			if p.ToPort != nil {
-				rule.PortEnd = int(*p.ToPort)
+			if p.ToPort != 0 {
+				rule.PortEnd = p.ToPort
 			}
 		}
 
@@ -364,38 +362,28 @@ func AwsIpPermissionToYunion(direction secrules.TSecurityRuleDirection, p ec2.Ip
 
 // YunionSecRuleToAws 不能保证无损转换
 // 规则描述如果包含中文等字符，将被丢弃掉
-func YunionSecRuleToAws(rule cloudprovider.SecurityRule) ([]*ec2.IpPermission, error) {
+func YunionSecRuleToAws(rule cloudprovider.SecurityRule) (map[string]string, error) {
 	iprange := rule.IPNet.String()
 	if iprange == "<nil>" {
 		return nil, fmt.Errorf("YunionSecRuleToAws ignored  ipnet should not be empty")
 	}
 
-	ipranges := []*ec2.IpRange{}
-	ipranges = append(ipranges, &ec2.IpRange{CidrIp: &iprange})
-
 	portranges := yunionPortRangeToAws(rule)
 	protocol := yunionProtocolToAws(rule)
-	permissions := []*ec2.IpPermission{}
+	params := map[string]string{}
 	if rule.Protocol != secrules.PROTO_ANY {
-		for i := range portranges {
-			port := portranges[i]
-			permission := ec2.IpPermission{
-				FromPort:   &port.Start,
-				IpProtocol: &protocol,
-				IpRanges:   ipranges,
-				ToPort:     &port.End,
-			}
-
-			permissions = append(permissions, &permission)
+		for i, port := range portranges {
+			params[fmt.Sprintf("IpPermissions.%d.FromPort", i+1)] = fmt.Sprintf("%d", port.Start)
+			params[fmt.Sprintf("IpPermissions.%d.ToPort", i+1)] = fmt.Sprintf("%d", port.End)
+			params[fmt.Sprintf("IpPermissions.%d.IpProtocol", i+1)] = protocol
+			params[fmt.Sprintf("IpPermissions.%d.IpRanges.1.CidrIp", i+1)] = iprange
 		}
 	} else {
-		permissions = append(permissions, &ec2.IpPermission{
-			IpProtocol: &protocol,
-			IpRanges:   ipranges,
-		})
+		params["IpPermissions.1.IpProtocol"] = protocol
+		params["IpPermissions.1.IpRanges.1.CidrIp"] = iprange
 	}
 
-	return permissions, nil
+	return params, nil
 }
 
 // fill a pointer struct with zero value.
@@ -474,40 +462,28 @@ func NextDeviceName(curDeviceNames []string) (string, error) {
 }
 
 // fetch tags
-func FetchTags(client *ec2.EC2, resourceId string) (*jsonutils.JSONDict, error) {
-	result := jsonutils.NewDict()
-	params := &ec2.DescribeTagsInput{}
-	filters := []*ec2.Filter{}
-	if len(resourceId) == 0 {
-		return result, fmt.Errorf("resource id should not be empty")
+func (self *SRegion) GetResourceTags(resourceId string) (map[string]string, error) {
+	params := map[string]string{
+		"Filter.1.resource-id": resourceId,
 	}
-	// todo: add resource type filter
-	filters = AppendSingleValueFilter(filters, "resource-id", resourceId)
-	params.SetFilters(filters)
-
-	ret, err := client.DescribeTags(params)
-	if err != nil {
-		return result, err
-	}
-
-	for _, tag := range ret.Tags {
-		if tag.Key != nil && tag.Value != nil {
-			result.Set(*tag.Key, jsonutils.NewString(*tag.Value))
+	ret := map[string]string{}
+	for {
+		result := struct {
+			NextToken string `xml:"nextToken"`
+			multicloud.AwsTags
+		}{}
+		err := self.ec2Request("DescribeTags", params, &result)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DescribeTags")
 		}
+		tags, _ := result.AwsTags.GetTags()
+		for k, v := range tags {
+			ret[k] = v
+		}
+		if len(result.NextToken) == 0 || len(result.AwsTags.TagSet) == 0 {
+			break
+		}
+		params["NextToken"] = result.NextToken
 	}
-
-	return result, nil
-}
-
-// error
-func parseNotFoundError(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	if strings.Contains(err.Error(), ".NotFound") {
-		return errors.Wrap(cloudprovider.ErrNotFound, "parseNotFoundError")
-	} else {
-		return err
-	}
+	return ret, nil
 }

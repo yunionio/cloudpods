@@ -26,21 +26,26 @@ type SRoute struct {
 	multicloud.AwsTags
 	routetable *SRouteTable
 
-	DestinationCIDRBlock string `json:"DestinationCidrBlock"`
-	Origin               string `json:"Origin"`
-	State                string `json:"State"`
-	// only one exist
-	GatewayID              *string `json:"GatewayId,omitempty"`
-	NatGatewayID           *string `json:"NatGatewayId,omitempty"`
-	InstanceID             *string `json:"InstanceId,omitempty"`
-	LocalGatewayID         *string `json:"LocalGatewayId,omitempty"`
-	NetworkInterfaceID     *string `json:"NetworkInterfaceId,omitempty"`
-	TransitGatewayID       *string `json:"TransitGatewayId,omitempty"`
-	VpcPeeringConnectionID *string `json:"VpcPeeringConnectionId,omitempty"`
+	CarrierGatewayId            string `xml:"carrierGatewayId"`
+	CoreNetworkArn              string `xml:"coreNetworkArn"`
+	DestinationCidrBlock        string `xml:"destinationCidrBlock"`
+	DestinationIpv6CidrBlock    string `xml:"destinationIpv6CidrBlock"`
+	DestinationPrefixListId     string `xml:"destinationPrefixListId"`
+	EgressOnlyInternetGatewayId string `xml:"egressOnlyInternetGatewayId"`
+	GatewayId                   string `xml:"gatewayId"`
+	InstanceId                  string `xml:"instanceId"`
+	InstanceOwnerId             string `xml:"instanceOwnerId"`
+	LocalGatewayId              string `xml:"localGatewayId"`
+	NatGatewayId                string `xml:"natGatewayId"`
+	NetworkInterfaceId          string `xml:"networkInterfaceId"`
+	Origin                      string `xml:"origin"`
+	State                       string `xml:"state"`
+	TransitGatewayId            string `xml:"transitGatewayId"`
+	VpcPeeringConnectionId      string `xml:"vpcPeeringConnectionId"`
 }
 
 func (self *SRoute) GetId() string {
-	return self.DestinationCIDRBlock + ":" + self.GetNextHop()
+	return self.DestinationCidrBlock + ":" + self.GetNextHop()
 }
 
 func (self *SRoute) GetName() string {
@@ -58,14 +63,6 @@ func (self *SRoute) GetStatus() string {
 	return api.ROUTE_ENTRY_STATUS_UNKNOWN
 }
 
-func (self *SRoute) Refresh() error {
-	return nil
-}
-
-func (self *SRoute) IsEmulated() bool {
-	return false
-}
-
 func (self *SRoute) GetType() string {
 	switch self.Origin {
 	case "CreateRouteTable":
@@ -80,7 +77,7 @@ func (self *SRoute) GetType() string {
 }
 
 func (self *SRoute) GetCidr() string {
-	return self.DestinationCIDRBlock
+	return self.DestinationCidrBlock
 }
 
 func (self *SRoute) GetNextHopType() string {
@@ -110,27 +107,19 @@ func (self *SRoute) GetNextHopType() string {
 }
 
 func (self *SRoute) GetNextHop() string {
-	if self.NatGatewayID != nil {
-		return *self.NatGatewayID
+	for _, nextHop := range []string{
+		self.NatGatewayId,
+		self.GatewayId,
+		self.InstanceId,
+		self.LocalGatewayId,
+		self.NetworkInterfaceId,
+		self.TransitGatewayId,
+		self.VpcPeeringConnectionId,
+		self.EgressOnlyInternetGatewayId,
+	} {
+		if len(nextHop) > 0 {
+			return nextHop
+		}
 	}
-	if self.GatewayID != nil {
-		return *self.GatewayID
-	}
-	if self.InstanceID != nil {
-		return *self.InstanceID
-	}
-	if self.LocalGatewayID != nil {
-		return *self.LocalGatewayID
-	}
-	if self.NetworkInterfaceID != nil {
-		return *self.NetworkInterfaceID
-	}
-	if self.TransitGatewayID != nil {
-		return *self.TransitGatewayID
-	}
-	if self.VpcPeeringConnectionID != nil {
-		return *self.VpcPeeringConnectionID
-	}
-
 	return ""
 }

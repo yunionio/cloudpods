@@ -147,6 +147,7 @@ func (self *CloudReportBase) InitProviderInstance() (cloudprovider.ICloudProvide
 	if err != nil {
 		log.Errorf("get cloudAccout options err:%v", err)
 	}
+	readOnly, _ := cloudAccout.Bool("read_only")
 	cfg := cloudprovider.ProviderConfig{
 		Id:        self.SProvider.Id,
 		Name:      self.SProvider.Name,
@@ -155,6 +156,7 @@ func (self *CloudReportBase) InitProviderInstance() (cloudprovider.ICloudProvide
 		Secret:    secretDe,
 		Vendor:    self.SProvider.Provider,
 		ProxyFunc: proxyFunc,
+		ReadOnly:  readOnly,
 		Options:   options.(*jsonutils.JSONDict),
 	}
 	return cloudprovider.GetProvider(cfg)

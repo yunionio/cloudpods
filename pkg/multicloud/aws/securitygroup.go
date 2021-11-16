@@ -20,32 +20,54 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/ec2"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
+
+type IpPermission struct {
+	FromPort int `xml:"fromPort"`
+	Groups   []struct {
+		Description            string `xml:"description"`
+		GroupId                string `xml:"groupId"`
+		GroupName              string `xml:"groupName"`
+		PeeringStatus          string `xml:"peeringStatus"`
+		UserId                 string `xml:"userId"`
+		VpcId                  string `xml:"vpcId"`
+		VpcPeeringConnectionId string `xml:"vpcPeeringConnectionId"`
+	} `xml:"groups>item"`
+	PrefixListIds []struct {
+		Description  string `xml:"description"`
+		PrefixListId string `xml:"prefixListId"`
+	} `xml:"prefixListIds>item"`
+	IpProtocol string `xml:"ipProtocol"`
+	IpRanges   []struct {
+		CidrIp      string `xml:"cidrIp"`
+		Description string `xml:"description"`
+	} `xml:"ipRanges>item"`
+	Ipv6Ranges []struct {
+		CidrIpv6    string `xml:"cidrIpv6"`
+		Description string `xml:"description"`
+	} `xml:"ipv6Ranges>item"`
+	ToPort int `xml:"toPort"`
+}
 
 type SSecurityGroup struct {
 	multicloud.SSecurityGroup
 	multicloud.AwsTags
-	vpc *SVpc
+	region *SRegion
 
-	RegionId          string
-	VpcId             string
-	SecurityGroupId   string
-	Description       string
-	SecurityGroupName string
-	Permissions       []cloudprovider.SecurityRule
-
-	// CreationTime      time.Time
-	// InnerAccessPolicy string
+	GroupDescription    string         `xml:"groupDescription"`
+	GroupId             string         `xml:"groupId"`
+	GroupName           string         `xml:"groupName"`
+	OwnerId             string         `xml:"ownerId"`
+	VpcId               string         `xml:"vpcId"`
+	IpPermissions       []IpPermission `xml:"ipPermissions>item"`
+	IpPermissionsEgress []IpPermission `xml:"ipPermissionsEgress>item"`
 }
 
 func randomString(prefix string, length int) string {
@@ -59,7 +81,7 @@ func randomString(prefix string, length int) string {
 }
 
 func (self *SSecurityGroup) GetId() string {
-	return self.SecurityGroupId
+	return self.GroupId
 }
 
 func (self *SSecurityGroup) GetVpcId() string {
@@ -67,14 +89,14 @@ func (self *SSecurityGroup) GetVpcId() string {
 }
 
 func (self *SSecurityGroup) GetName() string {
-	if len(self.SecurityGroupName) > 0 {
-		return self.SecurityGroupName
+	if len(self.GroupName) > 0 {
+		return self.GroupName
 	}
-	return self.SecurityGroupId
+	return self.GroupId
 }
 
 func (self *SSecurityGroup) GetGlobalId() string {
-	return self.SecurityGroupId
+	return self.GroupId
 }
 
 func (self *SSecurityGroup) GetStatus() string {
@@ -82,11 +104,11 @@ func (self *SSecurityGroup) GetStatus() string {
 }
 
 func (self *SSecurityGroup) Refresh() error {
-	if new, err := self.vpc.region.GetSecurityGroupDetails(self.SecurityGroupId); err != nil {
+	group, err := self.region.getSecurityGroupById(self.VpcId, self.GroupId)
+	if err != nil {
 		return err
-	} else {
-		return jsonutils.Update(self, new)
 	}
+	return jsonutils.Update(self, group)
 }
 
 func (self *SSecurityGroup) IsEmulated() bool {
@@ -94,15 +116,11 @@ func (self *SSecurityGroup) IsEmulated() bool {
 }
 
 func (self *SSecurityGroup) GetDescription() string {
-	return self.Description
+	return self.GroupDescription
 }
 
 func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
-	secgrp, err := self.vpc.region.GetSecurityGroupDetails(self.SecurityGroupId)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetSecurityGroupDetails")
-	}
-	return secgrp.Permissions, nil
+	return getSecRules(self.IpPermissions, self.IpPermissionsEgress), nil
 }
 
 func (self *SRegion) addSecurityGroupRules(secGrpId string, rule cloudprovider.SecurityRule) error {
@@ -120,30 +138,18 @@ func (self *SRegion) addSecurityGroupRules(secGrpId string, rule cloudprovider.S
 }
 
 func (self *SRegion) addSecurityGroupRule(secGrpId string, rule cloudprovider.SecurityRule) error {
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-
-	ipPermissions, err := YunionSecRuleToAws(rule)
-	log.Debugf("Aws security group rule: %s", ipPermissions)
+	params, err := YunionSecRuleToAws(rule)
 	if err != nil {
 		return err
 	}
+	params["GroupId"] = secGrpId
+	err = func() error {
+		if rule.Direction == secrules.SecurityRuleIngress {
+			return self.ec2Request("AuthorizeSecurityGroupIngress", params, nil)
+		}
 
-	if rule.Direction == secrules.SecurityRuleIngress {
-		params := &ec2.AuthorizeSecurityGroupIngressInput{}
-		params.SetGroupId(secGrpId)
-		params.SetIpPermissions(ipPermissions)
-		_, err = ec2Client.AuthorizeSecurityGroupIngress(params)
-	}
-
-	if rule.Direction == secrules.SecurityRuleEgress {
-		params := &ec2.AuthorizeSecurityGroupEgressInput{}
-		params.SetGroupId(secGrpId)
-		params.SetIpPermissions(ipPermissions)
-		_, err = ec2Client.AuthorizeSecurityGroupEgress(params)
-	}
+		return self.ec2Request("AuthorizeSecurityGroupEgress", params, nil)
+	}()
 
 	if err != nil && strings.Contains(err.Error(), "InvalidPermission.Duplicate") {
 		log.Debugf("addSecurityGroupRule %s %s", rule.Direction, err.Error())
@@ -154,113 +160,36 @@ func (self *SRegion) addSecurityGroupRule(secGrpId string, rule cloudprovider.Se
 }
 
 func (self *SRegion) DelSecurityGroupRule(secGrpId string, rule cloudprovider.SecurityRule) error {
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-
-	ipPermissions, err := YunionSecRuleToAws(rule)
+	params, err := YunionSecRuleToAws(rule)
 	if err != nil {
 		return err
 	}
+
+	params["GroupId"] = secGrpId
 
 	if rule.Direction == secrules.SecurityRuleIngress {
-		params := &ec2.RevokeSecurityGroupIngressInput{}
-		params.SetGroupId(secGrpId)
-		params.SetIpPermissions(ipPermissions)
-		_, err = ec2Client.RevokeSecurityGroupIngress(params)
+		return self.ec2Request("RevokeSecurityGroupIngress", params, nil)
 	}
-
-	if rule.Direction == secrules.SecurityRuleEgress {
-		params := &ec2.RevokeSecurityGroupEgressInput{}
-		params.SetGroupId(secGrpId)
-		params.SetIpPermissions(ipPermissions)
-		_, err = ec2Client.RevokeSecurityGroupEgress(params)
-	}
-
-	if err != nil {
-		log.Debugf("delSecurityGroupRule %s %s", rule.Direction, err.Error())
-		return err
-	}
-	return nil
-}
-
-func (self *SRegion) updateSecurityGroupRuleDescription(secGrpId string, rule cloudprovider.SecurityRule) error {
-	ipPermissions, err := YunionSecRuleToAws(rule)
-	if err != nil {
-		return err
-	}
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-
-	if rule.Direction == secrules.SecurityRuleIngress {
-		params := &ec2.UpdateSecurityGroupRuleDescriptionsIngressInput{}
-		params.SetGroupId(secGrpId)
-		params.SetIpPermissions(ipPermissions)
-		ret, err := ec2Client.UpdateSecurityGroupRuleDescriptionsIngress(params)
-		if err != nil {
-			return err
-		} else if ret.Return != nil && *ret.Return == false {
-			log.Debugf("update security group %s rule description failed: %s", secGrpId, ipPermissions)
-		}
-	}
-
-	if rule.Direction == secrules.SecurityRuleEgress {
-		params := &ec2.UpdateSecurityGroupRuleDescriptionsEgressInput{}
-		params.SetGroupId(secGrpId)
-		params.SetIpPermissions(ipPermissions)
-		ret, err := ec2Client.UpdateSecurityGroupRuleDescriptionsEgress(params)
-		if err != nil {
-			return err
-		} else if ret.Return != nil && *ret.Return == false {
-			log.Debugf("update security group %s rule description failed: %s", secGrpId, ipPermissions)
-		}
-	}
-	return nil
+	return self.ec2Request("RevokeSecurityGroupEgress", params, nil)
 }
 
 func (self *SRegion) CreateSecurityGroup(vpcId string, name string, secgroupIdTag string, desc string) (string, error) {
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return "", errors.Wrap(err, "getEc2Client")
-	}
-
-	params := &ec2.CreateSecurityGroupInput{}
-	params.SetVpcId(vpcId)
 	// 这里的描述aws 上层代码拼接的描述。并非用户提交的描述，用户描述放置在Yunion本地数据库中。）
 	if len(desc) == 0 {
 		desc = "vpc default group"
 	}
-	params.SetDescription(desc)
 	if strings.ToLower(name) == "default" {
 		name = randomString(fmt.Sprintf("%s-", vpcId), 9)
 	}
-	params.SetGroupName(name)
-
-	group, err := ec2Client.CreateSecurityGroup(params)
-	if err != nil {
-		return "", err
+	params := map[string]string{
+		"VpcId":            vpcId,
+		"GroupName":        name,
+		"GroupDescription": desc,
 	}
-
-	tagspec := TagSpec{ResourceType: "security-group"}
-	if len(secgroupIdTag) > 0 {
-		tagspec.SetTag("id", secgroupIdTag)
-	}
-	tagspec.SetNameTag(name)
-	tagspec.SetDescTag(desc)
-	tags, _ := tagspec.GetTagSpecifications()
-	tagParams := &ec2.CreateTagsInput{}
-	tagParams.SetResources([]*string{group.GroupId})
-	tagParams.SetTags(tags.Tags)
-	_, err = ec2Client.CreateTags(tagParams)
-	if err != nil {
-		return "", err
-	}
-
-	return *group.GroupId, nil
+	ret := struct {
+		GroupId string `xml:"groupId"`
+	}{}
+	return ret.GroupId, self.ec2Request("CreateSecurityGroup", params, &ret)
 }
 
 func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
@@ -288,93 +217,25 @@ func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
 	return secId, nil
 }
 
-func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup, error) {
-	if len(secGroupId) == 0 {
-		return nil, fmt.Errorf("GetSecurityGroupDetails security group id should not be empty.")
-	}
-	params := &ec2.DescribeSecurityGroupsInput{}
-	params.SetGroupIds([]*string{&secGroupId})
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "getEc2Client")
-	}
-	ret, err := ec2Client.DescribeSecurityGroups(params)
-	err = parseNotFoundError(err)
-	if err != nil {
-		return nil, errors.Wrap(err, "DescribeSecurityGroups")
-	}
-
-	if len(ret.SecurityGroups) == 1 {
-		s := ret.SecurityGroups[0]
-		vpc, err := self.getVpc(*s.VpcId)
-		if err != nil {
-			return nil, fmt.Errorf("vpc %s not found", *s.VpcId)
-		}
-
-		permissions := self.getSecRules(s.IpPermissions, s.IpPermissionsEgress)
-
-		return &SSecurityGroup{
-			vpc:               vpc,
-			Description:       *s.Description,
-			SecurityGroupId:   *s.GroupId,
-			SecurityGroupName: *s.GroupName,
-			VpcId:             *s.VpcId,
-			Permissions:       permissions,
-			RegionId:          self.RegionId,
-		}, nil
-	} else {
-		return nil, fmt.Errorf("required one security group. but found: %d", len(ret.SecurityGroups))
-	}
-}
-
 func (self *SRegion) getSecurityGroupById(vpcId, secgroupId string) (*SSecurityGroup, error) {
-	if len(secgroupId) == 0 {
-		return nil, httperrors.NewInputParameterError("security group id should not be empty")
-	}
-
-	secgroups, total, err := self.GetSecurityGroups(vpcId, "", secgroupId, 0, 0)
+	secgroups, err := self.GetSecurityGroups(vpcId, "", secgroupId)
 	if err != nil {
-		log.Errorf("GetSecurityGroups vpc %s secgroupId %s: %s", vpcId, secgroupId, err)
 		return nil, errors.Wrap(err, "GetSecurityGroups")
 	}
 
-	if total != 1 {
-		log.Debugf("failed to find  SecurityGroup %s: %d found", secgroupId, total)
-		return nil, httperrors.NewNotFoundError("failed to find SecurityGroup %s", secgroupId)
+	for i := range secgroups {
+		if secgroups[i].GroupId == secgroupId {
+			secgroups[i].region = self
+			return &secgroups[i], nil
+		}
 	}
-	return &secgroups[0], nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, secgroupId)
 }
 
-func (self *SRegion) addTagToSecurityGroup(secgroupId, key, value string, index int) error {
-	return nil
-}
-
-func (self *SRegion) modifySecurityGroup(secGrpId string, name string, desc string) error {
-	tagspec := TagSpec{ResourceType: "security-group"}
-	tagspec.SetNameTag(name)
-	tagspec.SetDescTag(desc)
-	ec2Tags, _ := tagspec.GetTagSpecifications()
-	params := &ec2.CreateTagsInput{}
-	params.SetTags(ec2Tags.Tags)
-	params.SetResources([]*string{&secGrpId})
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
-	}
-	_, err = ec2Client.CreateTags(params)
-	if err != nil {
-		return errors.Wrap(err, "CreateTags")
-	}
-
-	return nil
-}
-
-func (self *SRegion) getSecRules(ingress []*ec2.IpPermission, egress []*ec2.IpPermission) []cloudprovider.SecurityRule {
+func getSecRules(ingress []IpPermission, egress []IpPermission) []cloudprovider.SecurityRule {
 	rules := []cloudprovider.SecurityRule{}
 	for _, p := range ingress {
-		ret, err := AwsIpPermissionToYunion(secrules.SecurityRuleIngress, *p)
+		ret, err := AwsIpPermissionToYunion(secrules.SecurityRuleIngress, p)
 		if err != nil {
 			log.Debugln(err)
 		}
@@ -385,7 +246,7 @@ func (self *SRegion) getSecRules(ingress []*ec2.IpPermission, egress []*ec2.IpPe
 	}
 
 	for _, p := range egress {
-		ret, err := AwsIpPermissionToYunion(secrules.SecurityRuleEgress, *p)
+		ret, err := AwsIpPermissionToYunion(secrules.SecurityRuleEgress, p)
 		if err != nil {
 			log.Debugln(err)
 		}
@@ -398,68 +259,42 @@ func (self *SRegion) getSecRules(ingress []*ec2.IpPermission, egress []*ec2.IpPe
 	return rules
 }
 
-func (self *SRegion) GetSecurityGroups(vpcId string, name string, secgroupId string, offset int, limit int) ([]SSecurityGroup, int, error) {
-	params := &ec2.DescribeSecurityGroupsInput{}
-	filters := make([]*ec2.Filter, 0)
+func (self *SRegion) GetSecurityGroups(vpcId string, name string, secgroupId string) ([]SSecurityGroup, error) {
+	params := map[string]string{}
+	idx := 1
 	if len(vpcId) > 0 {
-		filters = AppendSingleValueFilter(filters, "vpc-id", vpcId)
+		params[fmt.Sprintf("Filter.%d.vpc-id", idx)] = vpcId
+		idx++
 	}
 
 	if len(name) > 0 {
-		filters = AppendSingleValueFilter(filters, "group-name", name)
+		params[fmt.Sprintf("Filter.%d.group-name", idx)] = name
+		idx++
 	}
 
 	if len(secgroupId) > 0 {
-		params.SetGroupIds([]*string{&secgroupId})
+		params["GroupId.1"] = secgroupId
 	}
 
-	if len(filters) > 0 {
-		params.SetFilters(filters)
-	}
+	ret := []SSecurityGroup{}
+	for {
+		result := struct {
+			Secgroups []SSecurityGroup `xml:"securityGroupInfo>item"`
+			NextToken string           `xml:"nextToken"`
+		}{}
 
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "getEc2Client")
-	}
-	ret, err := ec2Client.DescribeSecurityGroups(params)
-	err = parseNotFoundError(err)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	securityGroups := []SSecurityGroup{}
-	for _, item := range ret.SecurityGroups {
-		if err := FillZero(item); err != nil {
-			return nil, 0, err
-		}
-
-		if len(*item.VpcId) == 0 {
-			log.Debugf("ingored: security group with no vpc binded")
-			continue
-		}
-
-		vpc, err := self.getVpc(*item.VpcId)
+		err := self.ec2Request("DescribeSecurityGroups", params, &result)
 		if err != nil {
-			log.Errorf("vpc %s not found", *item.VpcId)
-			continue
+			return nil, errors.Wrapf(err, "DescribeSecurityGroups")
 		}
-
-		permissions := self.getSecRules(item.IpPermissions, item.IpPermissionsEgress)
-		group := SSecurityGroup{
-			vpc:               vpc,
-			Description:       *item.Description,
-			SecurityGroupId:   *item.GroupId,
-			SecurityGroupName: *item.GroupName,
-			VpcId:             *item.VpcId,
-			Permissions:       permissions,
-			RegionId:          self.RegionId,
-			// Tags:              *item.Tags,
+		ret = append(ret, result.Secgroups...)
+		if len(result.NextToken) == 0 || len(result.Secgroups) == 0 {
+			break
 		}
-
-		securityGroups = append(securityGroups, group)
+		params["NextToken"] = result.NextToken
 	}
 
-	return securityGroups, len(securityGroups), nil
+	return ret, nil
 }
 
 func (self *SSecurityGroup) GetProjectId() string {
@@ -468,7 +303,7 @@ func (self *SSecurityGroup) GetProjectId() string {
 
 func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
 	for _, r := range append(inDels, outDels...) {
-		err := self.vpc.region.DelSecurityGroupRule(self.SecurityGroupId, r)
+		err := self.region.DelSecurityGroupRule(self.GroupId, r)
 		if err != nil {
 			if strings.Contains(err.Error(), "InvalidPermission.NotFound") {
 				continue
@@ -478,7 +313,7 @@ func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels [
 	}
 
 	for _, r := range append(inAdds, outAdds...) {
-		err := self.vpc.region.addSecurityGroupRules(self.SecurityGroupId, r)
+		err := self.region.addSecurityGroupRules(self.GroupId, r)
 		if err != nil {
 			return errors.Wrapf(err, "addSecurityGroupRules %d %s", r.Priority, r.String())
 		}
@@ -487,5 +322,5 @@ func (self *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels [
 }
 
 func (self *SSecurityGroup) Delete() error {
-	return self.vpc.region.DeleteSecurityGroup(self.SecurityGroupId)
+	return self.region.DeleteSecurityGroup(self.GroupId)
 }

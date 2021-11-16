@@ -17,13 +17,8 @@ package aws
 import (
 	"fmt"
 	"strconv"
-	"strings"
-	"time"
-
-	"github.com/aws/aws-sdk-go/service/ec2"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 
@@ -33,70 +28,82 @@ import (
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
+// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_Subnet.html
 type SNetwork struct {
 	multicloud.SResourceBase
 	multicloud.AwsTags
 	wire *SWire
 
-	AvailableIpAddressCount int
-	CidrBlock               string
-	CreationTime            time.Time
-	Description             string
-	IsDefault               bool
-	Status                  string
-	NetworkId               string
-	NetworkName             string
-	VpcId                   string
-	ZoneId                  string
+	AssignIpv6AddressOnCreation bool   `xml:"assignIpv6AddressOnCreation"`
+	AvailabilityZone            string `xml:"availabilityZone"`
+	AvailabilityZoneId          string `xml:"availabilityZoneId"`
+	AvailableIpAddressCount     int    `xml:"availableIpAddressCount"`
+	CidrBlock                   string `xml:"cidrBlock"`
+	CustomerOwnedIpv4Pools      string `xml:"customerOwnedIpv4Pool"`
+	DefaultForAz                bool   `xml:"defaultForAz"`
+	Ipv6CidrBlockAssociationSet []struct {
+		AssociationId      string `xml:"associationId"`
+		Ipv6CidrBlock      string `xml:"ipv6CidrBlock"`
+		Ipv6CidrBlockState struct {
+			State         string `xml:"state"`
+			StatusMessage string `xml:"statusMessage"`
+		}
+	} `xml:"ipv6CidrBlockAssociationSet>item"`
+	MapCustomerOwnedIpOnLaunch bool   `xml:"mapCustomerOwnedIpOnLaunch"`
+	MapPublicIpOnLaunch        bool   `xml:"mapPublicIpOnLaunch"`
+	OutpostArn                 string `xml:"outpostArn"`
+	OwnerId                    string `xml:"ownerId"`
+	State                      string `xml:"state"`
+	SubnetArn                  string `xml:"subnetArn"`
+	SubnetId                   string `xml:"subnetId"`
+	VpcId                      string `xml:"vpcId"`
 }
 
 func (self *SNetwork) GetId() string {
-	return self.NetworkId
+	return self.SubnetId
 }
 
 func (self *SNetwork) GetName() string {
-	if len(self.NetworkName) == 0 {
-		return self.NetworkId
+	name := self.AwsTags.GetName()
+	if len(name) > 0 {
+		return name
 	}
-
-	return self.NetworkName
+	return self.SubnetId
 }
 
 func (self *SNetwork) GetGlobalId() string {
-	return self.NetworkId
+	return self.SubnetId
 }
 
 func (self *SNetwork) GetStatus() string {
-	if self.wire != nil && self.wire.vpc != nil && self.wire.vpc.InstanceTenancy == "dedicated" {
-		return api.NETWORK_STATUS_UNAVAILABLE
+	switch self.State {
+	case "pending":
+		return api.NETWORK_STATUS_PENDING
+	case "available":
+		return api.NETWORK_STATUS_AVAILABLE
 	}
-
-	return strings.ToLower(self.Status)
+	return self.State
 }
 
 func (self *SNetwork) Refresh() error {
-	new, err := self.wire.zone.region.getNetwork(self.NetworkId)
+	net, err := self.wire.zone.region.GetNetwork(self.SubnetId)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(self, new)
-}
-
-func (self *SNetwork) IsEmulated() bool {
-	return false
+	return jsonutils.Update(self, net)
 }
 
 func (self *SNetwork) GetSysTags() map[string]string {
 	data := map[string]string{}
 	routes, _ := self.wire.vpc.region.GetRouteTablesByNetworkId(self.GetId())
 	if len(routes) == 0 {
-		routes, _ = self.wire.vpc.region.GetRouteTables(self.VpcId, true)
+		routes, _ = self.wire.vpc.region.GetRouteTables(self.VpcId, "", "", nil, true)
 	}
 
 	support_eip := false
 	if len(routes) >= 1 {
-		for i := range routes[0].Routes {
-			route := routes[0].Routes[i]
+		for i := range routes[0].RouteSet {
+			route := routes[0].RouteSet[i]
 			if route.GetNextHopType() == api.Next_HOP_TYPE_INTERNET {
 				support_eip = true
 			}
@@ -153,119 +160,82 @@ func (self *SNetwork) GetPublicScope() rbacutils.TRbacScope {
 }
 
 func (self *SNetwork) Delete() error {
-	return self.wire.zone.region.deleteNetwork(self.NetworkId)
+	return self.wire.zone.region.DeleteNetwork(self.SubnetId)
 }
 
 func (self *SNetwork) GetAllocTimeoutSeconds() int {
 	return 120 // 2 minutes
 }
 
-func (self *SRegion) createNetwork(zoneId string, vpcId string, name string, cidr string, desc string) (string, error) {
-	params := &ec2.CreateSubnetInput{}
-	params.SetAvailabilityZone(zoneId)
-	params.SetVpcId(vpcId)
-	params.SetCidrBlock(cidr)
+func (self *SRegion) CreateNetwork(zoneId string, vpcId string, name string, cidr string, desc string) (*SNetwork, error) {
+	params := map[string]string{
+		"AvailabilityZone":                zoneId,
+		"VpcId":                           vpcId,
+		"CidrBlock":                       cidr,
+		"TagSpecification.1.ResourceType": "subnet",
+		"TagSpecification.1.Tags.1.Key":   "Name",
+		"TagSpecification.1.Tags.1.Value": name,
+	}
+	if len(desc) > 0 {
+		params["TagSpecification.1.Tags.2.Key"] = "Description"
+		params["TagSpecification.1.Tags.2.Value"] = desc
+	}
 
-	ec2Client, err := self.getEc2Client()
+	ret := struct {
+		Network SNetwork `xml:"subnet"`
+	}{}
+	err := self.ec2Request("CreateSubnet", params, &ret)
 	if err != nil {
-		return "", errors.Wrap(err, "getEc2Client")
+		return nil, errors.Wrapf(err, "CreateSubnet")
 	}
-	ret, err := ec2Client.CreateSubnet(params)
-	if err != nil {
-		return "", err
-	} else {
-		paramsTags := &ec2.CreateTagsInput{}
-		tagspec := TagSpec{ResourceType: "subnet"}
-		tagspec.SetNameTag(name)
-		tagspec.SetDescTag(desc)
-		ec2Tag, _ := tagspec.GetTagSpecifications()
-		paramsTags.SetResources([]*string{ret.Subnet.SubnetId})
-		paramsTags.SetTags(ec2Tag.Tags)
-		_, err := ec2Client.CreateTags(paramsTags)
-		if err != nil {
-			log.Infof("createNetwork write tags failed:%s", err)
-		}
-		return *ret.Subnet.SubnetId, nil
-	}
+	return &ret.Network, nil
 }
 
-func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
-	if len(networkId) == 0 {
-		return nil, fmt.Errorf("GetNetwork networkId should not be empty.")
-	}
-	networks, err := self.GetNetwroks([]string{networkId}, "")
+func (self *SRegion) GetNetwork(id string) (*SNetwork, error) {
+	networks, err := self.GetNetwroks([]string{id}, "")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetNetwroks")
 	}
-	if len(networks) != 1 {
-		return nil, errors.Wrap(cloudprovider.ErrNotFound, "getNetwork")
+	for i := range networks {
+		if networks[i].SubnetId == id {
+			return &networks[i], nil
+		}
 	}
-	return &networks[0], nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
-func (self *SRegion) deleteNetwork(networkId string) error {
-	params := &ec2.DeleteSubnetInput{}
-	params.SetSubnetId(networkId)
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return errors.Wrap(err, "getEc2Client")
+func (self *SRegion) DeleteNetwork(id string) error {
+	params := map[string]string{
+		"SubnetId": id,
 	}
-	_, err = ec2Client.DeleteSubnet(params)
-	return errors.Wrap(err, "DeleteSubnet")
+	return self.ec2Request("DeleteSubnet", params, nil)
 }
 
 func (self *SRegion) GetNetwroks(ids []string, vpcId string) ([]SNetwork, error) {
-	params := &ec2.DescribeSubnetsInput{}
-	if len(ids) > 0 {
-		_ids := make([]*string, len(ids))
-		for _, id := range ids {
-			_ids = append(_ids, &id)
-		}
-		params.SetSubnetIds(_ids)
+	params := map[string]string{}
+	for i, id := range ids {
+		params[fmt.Sprintf("SubnetId.%d", i+1)] = id
 	}
-
 	if len(vpcId) > 0 {
-		filters := make([]*ec2.Filter, 1)
-		vpcFilter := &ec2.Filter{}
-		vpcFilter.SetName("vpc-id")
-		vpcFilter.SetValues([]*string{&vpcId})
-		filters = append(filters, vpcFilter)
-		params.SetFilters(filters)
+		params["Filter.1.vpc-id"] = vpcId
 	}
-
-	ec2Client, err := self.getEc2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "getEc2Client")
-	}
-
-	ret, err := ec2Client.DescribeSubnets(params)
-	err = parseNotFoundError(err)
-	if err != nil {
-		return nil, err
-	}
-
-	subnets := []SNetwork{}
-	for i := range ret.Subnets {
-		item := ret.Subnets[i]
-		if err := FillZero(item); err != nil {
-			return nil, err
+	ret := []SNetwork{}
+	for {
+		result := struct {
+			NextToken string     `xml:"nextToken"`
+			Networks  []SNetwork `xml:"subnetSet>item"`
+		}{}
+		err := self.ec2Request("DescribeSubnets", params, &result)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DescribeSubnets")
 		}
-
-		tagspec := TagSpec{ResourceType: "subnet"}
-		tagspec.LoadingEc2Tags(item.Tags)
-
-		subnet := SNetwork{}
-		subnet.CidrBlock = *item.CidrBlock
-		subnet.VpcId = *item.VpcId
-		subnet.Status = *item.State
-		subnet.ZoneId = *item.AvailabilityZone
-		subnet.IsDefault = *item.DefaultForAz
-		subnet.NetworkId = *item.SubnetId
-		subnet.NetworkName = tagspec.GetNameTag()
-		jsonutils.Update(&subnet.AwsTags.TagSet, item.Tags)
-		subnets = append(subnets, subnet)
+		ret = append(ret, result.Networks...)
+		if len(result.NextToken) == 0 || len(result.Networks) == 0 {
+			break
+		}
+		params["NextToken"] = result.NextToken
 	}
-	return subnets, nil
+	return ret, nil
 }
 
 func (self *SNetwork) GetProjectId() string {

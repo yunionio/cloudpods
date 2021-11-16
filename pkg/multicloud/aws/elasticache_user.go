@@ -15,8 +15,7 @@
 package aws
 
 import (
-	"github.com/aws/aws-sdk-go/service/elasticache"
-
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -24,54 +23,56 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
-func (region *SRegion) DescribeUsers(engine string) ([]*elasticache.User, error) {
-	ecClient, err := region.getAwsElasticacheClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "client.getAwsElasticacheClient")
-	}
-
-	input := elasticache.DescribeUsersInput{}
+func (self *SRegion) GetElasticacheUsers(engine string) ([]SElasticacheUser, error) {
+	params := map[string]string{}
 	if len(engine) > 0 {
-		input.Engine = &engine
+		params["Engine"] = engine
 	}
-	marker := ""
-	maxrecords := (int64)(50)
-	input.MaxRecords = &maxrecords
-
-	users := []*elasticache.User{}
+	ret := []SElasticacheUser{}
 	for {
-		if len(marker) >= 0 {
-			input.Marker = &marker
-		}
-		out, err := ecClient.DescribeUsers(&input)
+		result := struct {
+			Marker string
+			Users  []SElasticacheUser `xml:"Users>member"`
+		}{}
+		err := self.redisRequest("DescribeUsers", params, &result)
 		if err != nil {
-			return nil, errors.Wrap(err, "ecClient.DescribeCacheClusters")
+			return nil, errors.Wrapf(err, "DescribeUsers")
 		}
-		users = append(users, out.Users...)
-
-		if out.Marker != nil && len(*out.Marker) > 0 {
-			marker = *out.Marker
-		} else {
+		ret = append(ret, result.Users...)
+		if len(result.Marker) == 0 || len(result.Users) == 0 {
 			break
 		}
+		params["Marker"] = result.Marker
 	}
+	return ret, nil
+}
 
-	return users, nil
+type Authentication struct {
+	PasswordCount int64  `xml:"PasswordCount"`
+	Type          string `xml:"Type"`
 }
 
 type SElasticacheUser struct {
 	multicloud.SElasticcacheAccountBase
 	multicloud.AwsTags
-	region *SRegion
-	user   *elasticache.User
+	cache *SElasticache
+
+	ARN            string         `xml:"ARN"`
+	AccessString   string         `xml:"AccessString"`
+	Authentication Authentication `xml:"Authentication"`
+	Engine         string         `xml:"Engine"`
+	Status         string         `xml:"Status"`
+	UserGroupIds   []string       `xml:"UserGroupIds>member"`
+	UserId         string         `xml:"UserId"`
+	UserName       string         `xml:"UserName"`
 }
 
 func (self *SElasticacheUser) GetId() string {
-	return *self.user.UserId
+	return self.UserId
 }
 
 func (self *SElasticacheUser) GetName() string {
-	return *self.user.UserName
+	return self.UserName
 }
 
 func (self *SElasticacheUser) GetGlobalId() string {
@@ -79,11 +80,8 @@ func (self *SElasticacheUser) GetGlobalId() string {
 }
 
 func (self *SElasticacheUser) GetStatus() string {
-	if self.user == nil || self.user.Status == nil {
-		return ""
-	}
 	//  "active", "modifying" or "deleting"
-	switch *self.user.Status {
+	switch self.Status {
 	case "active":
 		return api.ELASTIC_CACHE_ACCOUNT_STATUS_AVAILABLE
 	case "modifying":
@@ -96,16 +94,16 @@ func (self *SElasticacheUser) GetStatus() string {
 }
 
 func (self *SElasticacheUser) Refresh() error {
-	users, err := self.region.DescribeUsers("")
+	users, err := self.cache.region.GetElasticacheUsers("")
 	if err != nil {
 		return errors.Wrap(err, "region.DescribeUsers")
 	}
 	for i := range users {
-		if users[i] != nil && users[i].UserId != nil && *users[i].UserId == self.GetId() {
-			self.user = users[i]
+		if users[i].UserId == self.GetId() {
+			return jsonutils.Update(self, users[i])
 		}
 	}
-	return nil
+	return errors.Wrapf(cloudprovider.ErrNotFound, self.UserId)
 }
 
 func (self *SElasticacheUser) GetAccountType() string {
@@ -113,10 +111,7 @@ func (self *SElasticacheUser) GetAccountType() string {
 }
 
 func (self *SElasticacheUser) GetAccountPrivilege() string {
-	if self.user != nil && self.user.AccessString != nil {
-		return *self.user.AccessString
-	}
-	return ""
+	return self.AccessString
 }
 
 func (self *SElasticacheUser) Delete() error {

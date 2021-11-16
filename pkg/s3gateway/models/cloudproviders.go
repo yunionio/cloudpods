@@ -93,12 +93,16 @@ type SCloudproviderDelegate struct {
 	Status     string
 	SyncStatus string
 
+	CloudaccountId string
+
 	AccessUrl string
 	Account   string
 	Secret    string
 
 	Provider string
 	Brand    string
+
+	ReadOnly bool
 
 	ProxySetting proxyapi.SProxySetting
 }
@@ -118,6 +122,11 @@ func (manager *SCloudproviderManagerDelegate) GetById(ctx context.Context, userC
 	if err != nil {
 		return nil, errors.Wrap(err, "result.Unmarshal")
 	}
+	result, err = modules.Cloudaccounts.Get(s, provider.CloudaccountId, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "modules.Cloudaccounts.Get")
+	}
+	result.Unmarshal(&provider.ReadOnly, "read_only")
 	manager.providers.AtomicSet(provider.Id, provider)
 	return provider, nil
 }
@@ -164,5 +173,7 @@ func (provider *SCloudproviderDelegate) GetProvider() (cloudprovider.ICloudProvi
 		Account:   provider.Account,
 		Secret:    passwd,
 		ProxyFunc: proxyFunc,
+
+		ReadOnly: provider.ReadOnly,
 	})
 }
