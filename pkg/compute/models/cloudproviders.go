@@ -1682,7 +1682,14 @@ func (provider *SCloudprovider) GetDetailsClirc(ctx context.Context, userCred mc
 	if err != nil {
 		return nil, err
 	}
-	rc, err := cloudprovider.GetClientRC(provider.Name, accessUrl, provider.Account, passwd, provider.Provider)
+
+	account := provider.GetCloudaccount()
+	var options *jsonutils.JSONDict
+	if account != nil {
+		options = account.Options
+	}
+
+	rc, err := cloudprovider.GetClientRC(provider.Name, accessUrl, provider.Account, passwd, provider.Provider, options)
 	if err != nil {
 		return nil, err
 	}

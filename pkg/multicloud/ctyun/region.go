@@ -88,6 +88,7 @@ func (self *SRegion) GetVpcs() ([]SVpc, error) {
 	params := map[string]string{
 		"regionId": self.GetId(),
 	}
+
 	resp, err := self.client.DoGet("/apiproxy/v3/getVpcs", params)
 	if err != nil {
 		return nil, err

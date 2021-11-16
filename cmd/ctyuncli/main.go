@@ -31,6 +31,8 @@ import (
 )
 
 type BaseOptions struct {
+	cloudprovider.SCtyunExtraOptions
+
 	Help       bool   `help:"Show help" default:"false"`
 	Debug      bool   `help:"Show debug" default:"false"`
 	AccessKey  string `help:"Access key" default:"$CTYUN_ACCESS_KEY"`
@@ -101,7 +103,7 @@ func newClient(options *BaseOptions) (*ctyun.SRegion, error) {
 
 	cli, err := ctyun.NewSCtyunClient(
 		ctyun.NewSCtyunClientConfig(
-			options.AccessKey, options.Secret,
+			options.AccessKey, options.Secret, &options.SCtyunExtraOptions,
 		).Debug(options.Debug).
 			CloudproviderConfig(
 				cloudprovider.ProviderConfig{
