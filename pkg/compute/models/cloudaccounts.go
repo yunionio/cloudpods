@@ -448,6 +448,10 @@ func (manager *SCloudaccountManager) validateCreateData(
 		endpointOptions = jsonutils.Marshal(input.SCloudaccountCredential.SHCSOEndpoints)
 	}
 
+	if input.SCloudaccountCredential.SCtyunExtraOptions != nil {
+		endpointOptions = jsonutils.Marshal(input.SCloudaccountCredential.SCtyunExtraOptions)
+	}
+
 	if endpointOptions != nil {
 		if input.Options == nil {
 			input.Options = jsonutils.NewDict()
