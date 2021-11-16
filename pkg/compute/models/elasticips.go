@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -1222,6 +1223,84 @@ func (self *SElasticip) getMoreDetails(out api.ElasticipDetails) api.ElasticipDe
 	return out
 }
 
+type SEipNetwork struct {
+	owner   mcclient.IIdentityProvider
+	user    mcclient.TokenCredential
+	freeCnt int
+	net     *SNetwork
+}
+
+func NewEipNetwork(net *SNetwork, owner mcclient.IIdentityProvider, user mcclient.TokenCredential, freecnt int) SEipNetwork {
+	return SEipNetwork{
+		owner:   owner,
+		user:    user,
+		freeCnt: freecnt,
+		net:     net,
+	}
+}
+
+func (en SEipNetwork) isOwnerProject() bool {
+	return en.owner.GetProjectId() == en.net.ProjectId
+}
+
+func (en SEipNetwork) isOwnerProjectDomain() bool {
+	return en.owner.GetProjectDomainId() == en.net.DomainId
+}
+
+func (en SEipNetwork) isUserProject() bool {
+	return en.user.GetProjectId() == en.net.ProjectId
+}
+
+func (en SEipNetwork) isUserProjectDomain() bool {
+	return en.user.GetProjectDomainId() == en.net.DomainId
+}
+
+func (en SEipNetwork) GetNetwork() *SNetwork {
+	return en.net
+}
+
+type SEipNetworks []SEipNetwork
+
+func (a SEipNetworks) Len() int {
+	return len(a)
+}
+
+func (a SEipNetworks) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
+}
+
+func (a SEipNetworks) Less(i, j int) bool {
+	if a[i].isOwnerProject() && !a[j].isOwnerProject() {
+		return true
+	} else if !a[i].isOwnerProject() && a[j].isOwnerProject() {
+		return false
+	}
+	if a[i].isOwnerProjectDomain() && !a[j].isOwnerProjectDomain() {
+		return true
+	} else if !a[i].isOwnerProjectDomain() && a[j].isOwnerProjectDomain() {
+		return false
+	}
+	if a[i].isUserProject() && !a[j].isUserProject() {
+		return true
+	} else if !a[i].isUserProject() && a[j].isUserProject() {
+		return false
+	}
+	if a[i].isUserProjectDomain() && !a[j].isUserProjectDomain() {
+		return true
+	} else if !a[i].isUserProjectDomain() && a[j].isUserProjectDomain() {
+		return false
+	}
+	if a[i].freeCnt > a[j].freeCnt {
+		return true
+	} else if a[i].freeCnt < a[j].freeCnt {
+		return false
+	}
+	if a[i].net.Id < a[j].net.Id {
+		return true
+	}
+	return false
+}
+
 type NewEipForVMOnHostArgs struct {
 	Bandwidth     int
 	BgpType       string
@@ -1274,13 +1353,14 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 	eip.Bandwidth = bw
 	eip.ChargeType = chargeType
 	eip.AutoDellocate = tristate.NewFromBool(autoDellocate)
+	ownerCred := userCred.(mcclient.IIdentityProvider)
 	if vm != nil {
-		eip.DomainId = vm.DomainId
-		eip.ProjectId = vm.ProjectId
-	} else {
-		eip.DomainId = userCred.GetProjectDomainId()
-		eip.ProjectId = userCred.GetProjectId()
+		ownerCred = vm.GetOwnerId()
+	} else if nat != nil {
+		ownerCred = nat.GetOwnerId()
 	}
+	eip.DomainId = ownerCred.GetProjectDomainId()
+	eip.ProjectId = ownerCred.GetProjectId()
 	eip.ProjectSrc = string(apis.OWNER_SOURCE_LOCAL)
 	if host != nil {
 		eip.ManagerId = host.ManagerId
@@ -1313,21 +1393,21 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 			return nil, errors.Wrapf(err, "fetch eip networks usable in host %s(%s)",
 				host.Name, host.Id)
 		}
-		var net *SNetwork
+		eipNets := make([]SEipNetwork, 0)
 		for i := range nets {
-			net = &nets[i]
-			cnt, err := net.GetFreeAddressCount()
-			if err != nil {
-				continue
-			}
+			net := &nets[i]
+			cnt, _ := net.GetFreeAddressCount()
 			if cnt > 0 {
-				break
+				eipNets = append(eipNets, NewEipNetwork(net, ownerCred, userCred, cnt))
 			}
 		}
-		if net == nil {
-			return nil, errors.Error("no usable eip network")
+		if len(eipNets) == 0 {
+			return nil, httperrors.NewNotFoundError("no usable eip network")
 		}
-		eip.NetworkId = net.Id
+		// prefer networks with identical project, domain, more free address, Id
+		sort.Sort(SEipNetworks(eipNets))
+		log.Debugf("eipnets: %s", jsonutils.Marshal(eipNets))
+		eip.NetworkId = eipNets[0].GetNetwork().Id
 	}
 
 	var err = func() error {
