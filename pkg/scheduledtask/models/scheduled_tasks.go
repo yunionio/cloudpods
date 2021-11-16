@@ -29,16 +29,17 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
-	api "yunion.io/x/onecloud/pkg/apis/compute"
+	comapi "yunion.io/x/onecloud/pkg/apis/compute"
+	api "yunion.io/x/onecloud/pkg/apis/scheduledtask"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
-	cop "yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	sop "yunion.io/x/onecloud/pkg/scheduledtask/options"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -101,7 +102,7 @@ func (stm *SScheduledTaskManager) ListItemFilter(ctx context.Context, q *sqlchem
 }
 
 func (stm *SScheduledTaskManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery,
-	userCred mcclient.TokenCredential, query api.ScalingPolicyListInput) (*sqlchemy.SQuery, error) {
+	userCred mcclient.TokenCredential, query api.ScheduledTaskListInput) (*sqlchemy.SQuery, error) {
 	return stm.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
 }
 
@@ -159,10 +160,10 @@ func (stm *SScheduledTaskManager) ValidateCreateData(ctx context.Context, userCr
 	if !utils.IsInStringArray(input.ScheduledType, []string{api.ST_TYPE_TIMING, api.ST_TYPE_CYCLE}) {
 		return input, httperrors.NewInputParameterError("unkown scheduled type '%s'", input.ScheduledType)
 	}
-	if !utils.IsInStringArray(input.ResourceType, []string{api.ST_RESOURCE_SERVER}) {
+	if !utils.IsInStringArray(input.ResourceType, []string{api.ST_RESOURCE_SERVER, api.ST_RESOURCE_CLOUDACCOUNT}) {
 		return input, httperrors.NewInputParameterError("unkown resource type '%s'", input.ResourceType)
 	}
-	if !utils.IsInStringArray(input.Operation, []string{api.ST_RESOURCE_OPERATION_RESTART, api.ST_RESOURCE_OPERATION_STOP, api.ST_RESOURCE_OPERATION_START}) {
+	if !utils.IsInStringArray(input.Operation, []string{api.ST_RESOURCE_OPERATION_RESTART, api.ST_RESOURCE_OPERATION_STOP, api.ST_RESOURCE_OPERATION_START, api.ST_RESOURCE_OPERATION_SYNC}) {
 		return input, httperrors.NewInputParameterError("unkown resource operation '%s'", input.Operation)
 	}
 	if !utils.IsInStringArray(input.LabelType, []string{api.ST_LABEL_ID, api.ST_LABEL_TAG}) {
@@ -483,10 +484,7 @@ func (st *SScheduledTask) Execute(ctx context.Context, userCred mcclient.TokenCr
 	}
 	failedReasons := make([]string, 0, 1)
 	succeedIds := make([]string, 0, 1)
-	displayStrs, err := st.id2displayStr(ids)
-	if err != nil {
-		return err
-	}
+	displayStrs := res
 	for _, ret := range results {
 		if ret.succeed {
 			succeedIds = append(succeedIds, displayStrs[ret.id])
@@ -506,30 +504,6 @@ func (st *SScheduledTask) Execute(ctx context.Context, userCred mcclient.TokenCr
 	reason := fmt.Sprintf("Some %ss %s successfully:\n\t%s\n\n. Some %ss %s failed:\n%s", st.ResourceType, st.Operation, strings.Join(succeedIds, ";"), st.ResourceType, st.Operation, strings.Join(failedReasons, ";\n"))
 	sa.PartFail(reason)
 	return nil
-}
-
-func (st *SScheduledTask) id2displayStr(ids []string) (map[string]string, error) {
-	ret := make(map[string]string, len(ids))
-	if st.ResourceType != api.ST_RESOURCE_SERVER {
-		for _, id := range ids {
-			ret[id] = id
-		}
-		return ret, nil
-	}
-	type idName struct {
-		Id   string
-		Name string
-	}
-	q := GuestManager.Query("id", "name").In("id", ids)
-	idNames := make([]idName, 0, len(ids))
-	err := q.All(&idNames)
-	if err != nil {
-		return nil, errors.Wrap(err, "SQuery.All")
-	}
-	for _, idName := range idNames {
-		ret[idName.Id] = fmt.Sprintf("%s(%s)", idName.Name, idName.Id)
-	}
-	return ret, nil
 }
 
 func (st *SScheduledTask) NewActivity(ctx context.Context, reject bool) (*SScheduledTaskActivity, error) {
@@ -575,8 +549,9 @@ var timerQueue chan struct{}
 
 func (stm *SScheduledTaskManager) Timer(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	if timerQueue == nil {
-		timerQueue = make(chan struct{}, cop.Options.ScheduledTaskQueueSize)
+		timerQueue = make(chan struct{}, sop.Options.ScheduledTaskQueueSize)
 	}
+	log.Infof("queueSize: %s", sop.Options.ScheduledTaskQueueSize)
 	// 60 is for fault tolerance
 	interval := 60 + 30
 	timeScope := stm.timeScope(time.Now(), time.Duration(interval)*time.Second)
@@ -630,6 +605,7 @@ func (stm *SScheduledTaskManager) Timer(ctx context.Context, userCred mcclient.T
 
 func init() {
 	Register(ResourceServer, compute.Servers.ResourceManager)
+	Register(ResourceCloudAccount, compute.Cloudaccounts)
 }
 
 // Modules describe the correspondence between Resource and modulebase.ResourceManager,
@@ -645,7 +621,8 @@ func Register(resource Resource, manager modulebase.ResourceManager) {
 type Resource string
 
 const (
-	ResourceServer Resource = api.ST_RESOURCE_SERVER
+	ResourceServer       Resource = api.ST_RESOURCE_SERVER
+	ResourceCloudAccount Resource = api.ST_RESOURCE_CLOUDACCOUNT
 )
 
 // ResourceOperation describe the operation for onecloud resource like create, update, delete and so on.
@@ -654,6 +631,7 @@ type ResourceOperation struct {
 	Operation     string
 	StatusSuccess []string
 	Fail          []ResourceOperationFail
+	Params        *jsonutils.JSONDict
 }
 
 type ResourceOperationFail struct {
@@ -662,37 +640,54 @@ type ResourceOperationFail struct {
 }
 
 // It is clearer to write each ResourceOperation as a constant
-var (
+func init() {
 	ServerStart = ResourceOperation{
 		Resource:      ResourceServer,
 		Operation:     api.ST_RESOURCE_OPERATION_START,
-		StatusSuccess: []string{api.VM_RUNNING},
+		StatusSuccess: []string{comapi.VM_RUNNING},
 		Fail: []ResourceOperationFail{
-			{api.VM_START_FAILED, db.ACT_START_FAIL},
+			{comapi.VM_START_FAILED, db.ACT_START_FAIL},
 		},
 	}
 	ServerStop = ResourceOperation{
 		Resource:      ResourceServer,
 		Operation:     api.ST_RESOURCE_OPERATION_STOP,
-		StatusSuccess: []string{api.VM_READY},
+		StatusSuccess: []string{comapi.VM_READY},
 		Fail: []ResourceOperationFail{
-			{api.VM_STOP_FAILED, db.ACT_STOP_FAIL},
+			{comapi.VM_STOP_FAILED, db.ACT_STOP_FAIL},
 		},
 	}
 	ServerRestart = ResourceOperation{
 		Resource:      ResourceServer,
 		Operation:     api.ST_RESOURCE_OPERATION_RESTART,
-		StatusSuccess: []string{api.VM_RUNNING},
+		StatusSuccess: []string{comapi.VM_RUNNING},
 		Fail: []ResourceOperationFail{
-			{api.VM_START_FAILED, db.ACT_START_FAIL},
-			{api.VM_STOP_FAILED, db.ACT_STOP_FAIL},
+			{comapi.VM_START_FAILED, db.ACT_START_FAIL},
+			{comapi.VM_STOP_FAILED, db.ACT_STOP_FAIL},
 		},
 	}
-	ResourceOperationMap = map[string]ResourceOperation{
-		fmt.Sprintf("%s.%s", ResourceServer, api.ST_RESOURCE_OPERATION_START):   ServerStart,
-		fmt.Sprintf("%s.%s", ResourceServer, api.ST_RESOURCE_OPERATION_STOP):    ServerStop,
-		fmt.Sprintf("%s.%s", ResourceServer, api.ST_RESOURCE_OPERATION_RESTART): ServerRestart,
+	paramsAccoutSync := jsonutils.NewDict()
+	paramsAccoutSync.Add(jsonutils.JSONTrue, "full_sync")
+	paramsAccoutSync.Add(jsonutils.JSONFalse, "force")
+	CloudAccountSync = ResourceOperation{
+		Resource:  ResourceCloudAccount,
+		Operation: api.ST_RESOURCE_OPERATION_SYNC,
+		Params:    paramsAccoutSync,
 	}
+	ResourceOperationMap = map[string]ResourceOperation{
+		fmt.Sprintf("%s.%s", ResourceServer, api.ST_RESOURCE_OPERATION_START):      ServerStart,
+		fmt.Sprintf("%s.%s", ResourceServer, api.ST_RESOURCE_OPERATION_STOP):       ServerStop,
+		fmt.Sprintf("%s.%s", ResourceServer, api.ST_RESOURCE_OPERATION_RESTART):    ServerRestart,
+		fmt.Sprintf("%s.%s", ResourceCloudAccount, api.ST_RESOURCE_OPERATION_SYNC): CloudAccountSync,
+	}
+}
+
+var (
+	ServerStart          ResourceOperation
+	ServerStop           ResourceOperation
+	ServerRestart        ResourceOperation
+	CloudAccountSync     ResourceOperation
+	ResourceOperationMap map[string]ResourceOperation
 )
 
 // Action itself is meaningless, a meaningful Action is generated by
@@ -703,10 +698,9 @@ var Action = SAction{timeout: 5 * time.Minute}
 
 // SAction encapsulates action to for onecloud resources
 type SAction struct {
-	operation    ResourceOperation
-	session      *mcclient.ClientSession
-	defautParams *jsonutils.JSONDict
-	timeout      time.Duration
+	operation ResourceOperation
+	session   *mcclient.ClientSession
+	timeout   time.Duration
 }
 
 func (r SAction) ResourceOperation(oper ResourceOperation) SAction {
@@ -721,11 +715,6 @@ func (r SAction) Session(session *mcclient.ClientSession) SAction {
 
 func (r SAction) Timeout(time time.Duration) SAction {
 	r.timeout = time
-	return r
-}
-
-func (r SAction) DefaultParams(dict *jsonutils.JSONDict) SAction {
-	r.defautParams = dict
 	return r
 }
 
@@ -771,7 +760,7 @@ func (r SAction) Apply(id string) (success bool, failReason string) {
 		_, err := resourceManager.PerformAction(session, id, action, params)
 		return err
 	}
-	err := requestFunc(r.session, id, r.defautParams)
+	err := requestFunc(r.session, id, r.operation.Params)
 	if err != nil {
 		clientErr, _ := err.(*httputils.JSONClientError)
 		return false, clientErr.Details

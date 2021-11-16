@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package scheduledtask
 
 import (
 	"time"
@@ -33,6 +33,28 @@ type ScheduledTaskDetails struct {
 	// 绑定的所有标示
 	Labels       []string      `json:"labels,allowempty"`
 	LabelDetails []LabelDetail `json:"label_details,allowempty"`
+}
+
+type TimerDetails struct {
+	// description: 执行时间
+	ExecTime time.Time `json:"exec_time"`
+}
+
+type CycleTimerDetails struct {
+	// description: 周期类型：按天/周/月
+	CycleType string `json:"cycle_type"`
+	// description: 分钟
+	Minute int `json:"minute"`
+	// description: 小时
+	Hour int `json:"hour"`
+	// description: 每周的几天
+	WeekDays []int `json:"week_days"`
+	// description: 每月的几天
+	MonthDays []int `json:"month_days"`
+	// description: 此周期任务的开始时间
+	StartTime time.Time `json:"start_time"`
+	// description: 此周期任务的截止时间
+	EndTime time.Time `json:"end_time"`
 }
 
 type LabelDetail struct {
@@ -85,6 +107,41 @@ type ScheduledTaskCreateInput struct {
 	// description: labels
 	// example: {g-12345}
 	Labels []string
+}
+
+type TimerCreateInput struct {
+
+	// description: 执行时间
+	ExecTime time.Time
+}
+
+type CycleTimerCreateInput struct {
+
+	// description: 周期类型
+	// enum: day,week,month
+	CycleType string `json:"cycle_type"`
+
+	// description: 分(0-59)
+	// example: 13
+	Minute int `json:"minute"`
+
+	// description: 时(0-23)
+	// example: 13
+	Hour int `json:"hour"`
+
+	// description: 每周的周几; 1-7, 1: Monday, 7: Sunday
+	// example: [1,3,5,7]
+	WeekDays []int `json:"week_days"`
+
+	// description: 每月的哪几天; 1-31
+	// example: [1,4,31]
+	MonthDays []int `json:"month_days"`
+
+	// description: 开始时间
+	StartTime time.Time `json:"start_time"`
+
+	// description: 截止时间
+	EndTime time.Time `json:"end_time"`
 }
 
 type ScheduledTaskResourceInfo struct {

@@ -26,34 +26,24 @@ var ScheduledTaskLabelManager *SScheduledTaskLabelManager
 func init() {
 	db.InitManager(func() {
 		ScheduledTaskLabelManager = &SScheduledTaskLabelManager{
-			SVirtualJointResourceBaseManager: db.NewVirtualJointResourceBaseManager(
+			SResourceBaseManager: db.NewResourceBaseManager(
 				SScheduledTaskLabel{},
 				"scheduledtasklabels_tbl",
 				"scheduledtasklabel",
 				"scheduledtasklabels",
-				ScheduledTaskManager,
-				GuestManager,
 			),
 		}
 	})
 }
 
 type SScheduledTaskLabelManager struct {
-	db.SVirtualJointResourceBaseManager
+	db.SResourceBaseManager
 }
 
 type SScheduledTaskLabel struct {
-	db.SVirtualJointResourceBase
+	db.SResourceBase
 	ScheduledTaskId string `width:"36" charset:"ascii" nullable:"false" index:"true"`
 	Label           string `width:"64" charset:"utf8" nullable:"false" index:"true"`
-}
-
-func (slm *SScheduledTaskLabelManager) GetMasterFieldName() string {
-	return "scheduled_task_id"
-}
-
-func (slm *SScheduledTaskLabelManager) GetSlaveFieldName() string {
-	return "label"
 }
 
 func (slm *SScheduledTaskLabelManager) Attach(ctx context.Context, taskId, label string) error {
@@ -65,5 +55,5 @@ func (slm *SScheduledTaskLabelManager) Attach(ctx context.Context, taskId, label
 }
 
 func (sl *SScheduledTaskLabel) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return db.DetachJoint(ctx, userCred, sl)
+	return sl.Delete(ctx, userCred)
 }

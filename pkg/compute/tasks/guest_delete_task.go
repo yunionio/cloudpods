@@ -206,7 +206,6 @@ func (self *GuestDeleteTask) OnSyncConfigComplete(ctx context.Context, obj db.IS
 		log.Debugf("XXXXXXX Do guest pending delete... XXXXXXX")
 		// pending detach
 		guest.PendingDetachScalingGroup()
-		guest.DetachScheduledTask(ctx, self.UserCred)
 		guestStatus, _ := self.Params.GetString("guest_status")
 		if !utils.IsInStringArray(guestStatus, []string{
 			api.VM_SCHEDULE_FAILED, api.VM_NETWORK_FAILED,

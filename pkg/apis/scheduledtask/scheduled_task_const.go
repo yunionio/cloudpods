@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package scheduledtask
 
 const (
 	ST_TYPE_TIMING = "timing" // 定时
@@ -21,11 +21,13 @@ const (
 	ST_STATUS_READY         = "ready"
 	ST_STATUS_CREATE_FAILED = "create_failed"
 
-	ST_RESOURCE_SERVER = "server"
+	ST_RESOURCE_SERVER       = "server"
+	ST_RESOURCE_CLOUDACCOUNT = "cloudaccount"
 
 	ST_RESOURCE_OPERATION_START   = "start"
 	ST_RESOURCE_OPERATION_STOP    = "stop"
 	ST_RESOURCE_OPERATION_RESTART = "restart"
+	ST_RESOURCE_OPERATION_SYNC    = "sync"
 
 	ST_LABEL_ID  = "id"
 	ST_LABEL_TAG = "tag"
@@ -35,4 +37,9 @@ const (
 	ST_ACTIVITY_STATUS_PART_SUCCEED = "part_succeed" // 部分成功
 	ST_ACTIVITY_STATUS_FAILED       = "failed"       // 失败
 	ST_ACTIVITY_STATUS_REJECT       = "reject"       // 拒绝
+
+	TIMER_TYPE_ONCE  = "once"
+	TIMER_TYPE_DAY   = "day"
+	TIMER_TYPE_WEEK  = "week"
+	TIMER_TYPE_MONTH = "month"
 )

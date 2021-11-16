@@ -37,6 +37,8 @@ const (
 	SERVICE_TYPE_ETCD     = "etcd"
 	SERVICE_TYPE_INFLUXDB = "influxdb"
 
+	SERVICE_TYPE_SCHEDULEDTASK = "scheduledtask"
+
 	STATUS_UPDATE_TAGS        = "update_tags"
 	STATUS_UPDATE_TAGS_FAILED = "update_tags_fail"
 

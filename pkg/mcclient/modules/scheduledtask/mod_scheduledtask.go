@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package scheduledtask
 
 import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -25,12 +25,12 @@ var (
 )
 
 func init() {
-	ScheduledTask = modules.NewComputeManager("scheduledtask", "scheduledtasks",
+	ScheduledTask = modules.NewScheduledtaskManager("scheduledtask", "scheduledtasks",
 		[]string{"ID", "Name", "Scheduled_Type", "Timer", "Cycle_Timer", "Resource_Type", "Operation", "Label_Type", "Labels", "Timer_Desc"}, []string{},
 	)
-	ScheduledTaskActivity = modules.NewComputeManager("scheudledtaskactivity", "scheduledtaskactivities",
+	ScheduledTaskActivity = modules.NewScheduledtaskManager("scheudledtaskactivity", "scheduledtaskactivities",
 		[]string{"ID", "Status", "Scheduled_Task_Id", "Start_Time", "End_Time", "Reason"}, []string{},
 	)
-	modules.RegisterCompute(&ScheduledTask)
-	modules.RegisterCompute(&ScheduledTaskActivity)
+	modules.Register(&ScheduledTask)
+	modules.Register(&ScheduledTaskActivity)
 }

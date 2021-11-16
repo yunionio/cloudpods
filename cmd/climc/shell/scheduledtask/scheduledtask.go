@@ -20,10 +20,18 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	apis "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/cmd/climc/shell"
+	apis "yunion.io/x/onecloud/pkg/apis/scheduledtask"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/scheduledtask"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/util/printutils"
+)
+
+var (
+	R           = shell.R
+	printList   = printutils.PrintJSONList
+	printObject = printutils.PrintJSONObject
 )
 
 func init() {
@@ -58,6 +66,20 @@ func init() {
 		printObject(task)
 		return nil
 	})
+
+	type Timer struct {
+		TimingExecTime string `help:"Exectime for 'timing' type trigger, format:'2006-01-02 15:04:05'" json:"exec_time"`
+	}
+
+	type CycleTimer struct {
+		CycleCycleType string `help:"Cycle type for cycle timer" json:"cycle_type" choices:"day|week|month"`
+		CycleMinute    int    `help:"Minute of cycle timer" json:"minute"`
+		CycleHour      int    `help:"Hour of cycle timer" json:"hour"`
+		CycleWeekdays  []int  `help:"Weekdays for cycle timer" json:"weekdays"`
+		CycleMonthDays []int  `help:"Month days for cycle timer" json:"month_days"`
+		CycleStartTime string `help:"Start time for cycle timer, format:'2006-01-02 15:04:05'" json:"start_time"`
+		CycleEndTime   string `help:"End time for cycle timer, format:'2006-01-02 15:04:05'" json:"end_time"`
+	}
 
 	type ScheduledTaskCreateOptions struct {
 		NAME          string `help:"ScheduledTask Name" json:"name"`
