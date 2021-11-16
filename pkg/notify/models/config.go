@@ -315,6 +315,10 @@ func (self *SConfigManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 	return q, nil
 }
 
+func (manager *SConfigManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
+	return manager.SStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+}
+
 func (cm *SConfigManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
