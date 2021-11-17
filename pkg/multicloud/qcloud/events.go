@@ -35,7 +35,7 @@ type SEvent struct {
 	EventNameCn     string
 	EventRegion     string
 	EventSource     string
-	EventTime       time.Time
+	EventTime       int64
 	RequestID       string
 	ResourceRegion  string
 	ResourceTypeCn  string
@@ -87,8 +87,7 @@ func (event *SEvent) IsSuccess() bool {
 }
 
 func (event *SEvent) GetCreatedAt() time.Time {
-	// 非UTC时间,需要往前提8个小时
-	return event.EventTime.Add(time.Hour * -8)
+	return time.Unix(event.EventTime, 0)
 }
 
 func (region *SRegion) GetICloudEvents(start time.Time, end time.Time, withReadEvent bool) ([]cloudprovider.ICloudEvent, error) {
