@@ -97,6 +97,12 @@ func (self *SLoadbalancer) GetProjectId() string {
 
 /*
 对应forwardingRules地址,存在多个前端IP的情况下，只展示按拉丁字母排序最前的一个地址。其他地址需要到详情中查看
+External
+Internal
+InternalManaged
+InternalSelfManaged
+Invalid
+UndefinedLoadBalancingScheme
 */
 func (self *SLoadbalancer) GetAddress() string {
 	frs, err := self.GetForwardingRules()
@@ -105,7 +111,8 @@ func (self *SLoadbalancer) GetAddress() string {
 	}
 
 	for i := range frs {
-		if frs[i].LoadBalancingScheme != "EXTERNAL" {
+		sche := strings.ToLower(frs[i].LoadBalancingScheme)
+		if !utils.IsInStringArray(sche, []string{"invalid", "undefinedloadbalancingscheme"}) {
 			return frs[i].IPAddress
 		}
 	}
@@ -114,13 +121,22 @@ func (self *SLoadbalancer) GetAddress() string {
 }
 
 func (self *SLoadbalancer) GetAddressType() string {
-	eip, err := self.GetIEIP()
+	frs, err := self.GetForwardingRules()
 	if err != nil {
 		return api.LB_ADDR_TYPE_INTRANET
 	}
-	if eip == nil {
-		return api.LB_ADDR_TYPE_INTRANET
+
+	for i := range frs {
+		sche := strings.ToLower(frs[i].LoadBalancingScheme)
+		if !utils.IsInStringArray(sche, []string{"invalid", "undefinedloadbalancingscheme"}) {
+			if sche == "external" {
+				return api.LB_ADDR_TYPE_INTERNET
+			} else {
+				return api.LB_ADDR_TYPE_INTRANET
+			}
+		}
 	}
+
 	return api.LB_ADDR_TYPE_INTERNET
 }
 
@@ -226,7 +242,7 @@ func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	}
 
 	for i := range frs {
-		if frs[i].LoadBalancingScheme == "EXTERNAL" {
+		if strings.ToLower(frs[i].LoadBalancingScheme) == "external" {
 			eips, err := self.region.GetEips(frs[i].IPAddress, 0, "")
 			if err != nil {
 				log.Errorf("GetEips %s", err)
