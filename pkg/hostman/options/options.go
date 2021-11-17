@@ -120,6 +120,7 @@ type SHostOptions struct {
 	SdnSocketPath     string `help:"sdnagent listen socket path" default:"/var/run/onecloud/sdnagent.sock"`
 	SdnEnableGuestMan bool   `help:"enable guest network manager in sdnagent" default:"$SDN_ENABLE_GUEST_MAN|true"`
 	SdnEnableEipMan   bool   `help:"enable eip network manager in sdnagent" default:"$SDN_ENABLE_EIP_MAN|false"`
+	SdnEnableTcMan    bool   `help:"enable TC manager in sdnagent" default:"$SDN_ENABLE_TC_MAN|true"`
 
 	SdnAllowConntrackInvalid bool `help:"allow packets marked by conntrack as INVALID to pass" default:"$SDN_ALLOW_CONNTRACK_INVALID|false"`
 
