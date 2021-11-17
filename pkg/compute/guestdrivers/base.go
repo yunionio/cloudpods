@@ -411,8 +411,12 @@ func (self *SBaseGuestDriver) RequestLiveMigrate(ctx context.Context, guest *mod
 	return fmt.Errorf("Not Implement RequestLiveMigrate")
 }
 
-func (self *SBaseGuestDriver) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerUpdateInput) error {
-	return nil
+func (self *SVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	return input, nil
+}
+
+func (self *SBaseGuestDriver) ValidateUpdateData(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.ServerUpdateInput) (api.ServerUpdateInput, error) {
+	return input, nil
 }
 
 func (self *SBaseGuestDriver) RequestRemoteUpdate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, replaceTags bool) error {
