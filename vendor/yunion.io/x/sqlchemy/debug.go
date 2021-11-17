@@ -15,33 +15,57 @@
 package sqlchemy
 
 import (
+	"fmt"
+	"strings"
+	"time"
+
 	"yunion.io/x/log"
 )
 
 var (
+	// DEBUG_SQLCHEMY is a global constant that indicates turn on SQL debug
 	DEBUG_SQLCHEMY = false
 )
 
+func sqlDebug(sqlstr string, variables []interface{}) {
+	for _, v := range variables {
+		switch v.(type) {
+		case bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
+			sqlstr = strings.Replace(sqlstr, "?", fmt.Sprintf(`%v`, v), 1)
+		case string, time.Time:
+			sqlstr = strings.Replace(sqlstr, "?", fmt.Sprintf(`"%s"`, v), 1)
+		default:
+			sqlstr = strings.Replace(sqlstr, "?", fmt.Sprintf(`"%v"`, v), 1)
+		}
+	}
+	log.Debugln("SQuery ", sqlstr)
+}
+
+// DebugQuery show the full query string for debug
 func (tq *SQuery) DebugQuery() {
 	sqlstr := tq.String()
 	vars := tq.Variables()
-	log.Debugf("SQuery %s with vars: %s", sqlstr, vars)
+	sqlDebug(sqlstr, vars)
 }
 
+// DebugQuery show the full query string for a subquery for debug
 func (sqf *SSubQuery) DebugQuery() {
 	sqlstr := sqf.Expression()
 	vars := sqf.query.Variables()
-	log.Debugf("SQuery %s with vars: %s", sqlstr, vars)
+	sqlDebug(sqlstr, vars)
 }
 
+// DebugInsert does insert with debug mode on
 func (t *STableSpec) DebugInsert(dt interface{}) error {
 	return t.insert(dt, false, true)
 }
 
+// DebugInsertOrUpdate does insertOrUpdate with debug mode on
 func (t *STableSpec) DebugInsertOrUpdate(dt interface{}) error {
 	return t.insert(dt, true, true)
 }
 
-func (ts *STableSpec) DebugUpdateFields(dt interface{}, fields map[string]interface{}) error {
-	return ts.updateFields(dt, fields, true)
+// DebugUpdateFields does update with debug mode on
+func (t *STableSpec) DebugUpdateFields(dt interface{}, fields map[string]interface{}) error {
+	return t.updateFields(dt, fields, true)
 }

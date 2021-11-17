@@ -24,7 +24,7 @@ import (
 	"yunion.io/x/pkg/util/reflectutils"
 )
 
-// fetch the values of a struct whose primary key values have been set
+// Fetch method fetches the values of a struct whose primary key values have been set
 // input is a pointer to the model to be populated
 func (ts *STableSpec) Fetch(dt interface{}) error {
 	q := ts.Query()
@@ -39,7 +39,7 @@ func (ts *STableSpec) Fetch(dt interface{}) error {
 	return q.First(dt)
 }
 
-// fetch the values of an array of structs whose primary key values have been set
+// FetchAll method fetches the values of an array of structs whose primary key values have been set
 // input is a pointer to the array of models to be populated
 func (ts *STableSpec) FetchAll(dest interface{}) error {
 	arrayType := reflect.TypeOf(dest).Elem()
@@ -56,7 +56,7 @@ func (ts *STableSpec) FetchAll(dest interface{}) error {
 	primaryCol := primaryCols[0]
 
 	keyValues := make([]interface{}, arrayValue.Len())
-	for i := 0; i < arrayValue.Len(); i += 1 {
+	for i := 0; i < arrayValue.Len(); i++ {
 		eleValue := arrayValue.Index(i)
 		fields := reflectutils.FetchStructFieldValueSet(eleValue)
 		keyValues[i], _ = fields.GetInterface(primaryCol.Name())
@@ -69,11 +69,11 @@ func (ts *STableSpec) FetchAll(dest interface{}) error {
 	}
 
 	tmpDestMapMap := make(map[string]map[string]string)
-	for i := 0; i < len(tmpDestMaps); i += 1 {
+	for i := 0; i < len(tmpDestMaps); i++ {
 		tmpDestMapMap[tmpDestMaps[i][primaryCol.Name()]] = tmpDestMaps[i]
 	}
 
-	for i := 0; i < arrayValue.Len(); i += 1 {
+	for i := 0; i < arrayValue.Len(); i++ {
 		keyValueStr := getStringValue(keyValues[i])
 		if tmpMap, ok := tmpDestMapMap[keyValueStr]; ok {
 			err = mapString2Struct(tmpMap, arrayValue.Index(i))

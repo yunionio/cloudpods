@@ -20,16 +20,20 @@ import (
 	"yunion.io/x/log"
 )
 
+// the global DB connection
 var _db *sql.DB
 
+// SetDB sets global DB instance
 func SetDB(db *sql.DB) {
 	_db = db
 }
 
+// GetDB get DB instance
 func GetDB() *sql.DB {
 	return _db
 }
 
+// CloseDB close DB connection
 func CloseDB() {
 	_db.Close()
 	_db = nil
@@ -39,6 +43,7 @@ type tableName struct {
 	Name string
 }
 
+// GetTables get all tables' name in database
 func GetTables() []string {
 	tables := make([]tableName, 0)
 	q := NewRawQuery("SHOW TABLES", "name")
@@ -54,6 +59,7 @@ func GetTables() []string {
 	return ret
 }
 
+// Exec execute a raw SQL query
 func Exec(sql string, args ...interface{}) (sql.Result, error) {
 	return _db.Exec(sql, args...)
 }
