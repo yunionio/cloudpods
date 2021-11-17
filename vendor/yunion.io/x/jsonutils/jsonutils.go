@@ -239,7 +239,7 @@ func parseString(str []byte, offset int) (string, bool, int, error) {
 ret2:
 	for i < len(str) {
 		switch str[i] {
-		case ' ', ':', ',', '\t', '\n', '}', ']':
+		case ' ', ':', ',', '\t', '\r', '\n', '}', ']':
 			break ret2
 		default:
 			i++

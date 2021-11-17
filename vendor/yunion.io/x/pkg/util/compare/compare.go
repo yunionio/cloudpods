@@ -69,12 +69,19 @@ func valueSet2Array(dbSet interface{}, field string) ([]valueElement, error) {
 	return ret, nil
 }
 
-func CompareSets(dbSet interface{}, extSet interface{}, removed interface{}, commonDB interface{}, commonExt interface{}, added interface{}) error {
-	dbSetArray, err := valueSet2Array(dbSet, "GetExternalId")
+type SCompareSet struct {
+	DBFunc  string
+	DBSet   interface{}
+	ExtFunc string
+	ExtSet  interface{}
+}
+
+func CompareSetsFunc(cs SCompareSet, removed interface{}, commonDB interface{}, commonExt interface{}, added interface{}) error {
+	dbSetArray, err := valueSet2Array(cs.DBSet, cs.DBFunc)
 	if err != nil {
 		return err
 	}
-	extSetArray, err := valueSet2Array(extSet, "GetGlobalId")
+	extSetArray, err := valueSet2Array(cs.ExtSet, cs.ExtFunc)
 	if err != nil {
 		return err
 	}
@@ -135,4 +142,14 @@ func CompareSets(dbSet interface{}, extSet interface{}, removed interface{}, com
 		}
 	}
 	return nil
+
+}
+
+func CompareSets(dbSet interface{}, extSet interface{}, removed interface{}, commonDB interface{}, commonExt interface{}, added interface{}) error {
+	return CompareSetsFunc(SCompareSet{
+		DBFunc:  "GetExternalId",
+		DBSet:   dbSet,
+		ExtFunc: "GetGlobalId",
+		ExtSet:  extSet,
+	}, removed, commonDB, commonExt, added)
 }

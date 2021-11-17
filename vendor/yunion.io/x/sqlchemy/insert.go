@@ -25,11 +25,12 @@ import (
 	"yunion.io/x/pkg/util/reflectutils"
 )
 
+// Insert perform a insert operation, the value of the record is store in dt
 func (t *STableSpec) Insert(dt interface{}) error {
 	return t.insert(dt, false, false)
 }
 
-//
+// InsertOrUpdate perform a insert or update operation, the value of the record is string in dt
 // MySQL: INSERT INTO ... ON DUPLICATE KEY UPDATE ...
 // works only for the cases that all values of primary keys are determeted before insert
 func (t *STableSpec) InsertOrUpdate(dt interface{}) error {
@@ -148,11 +149,28 @@ func (t *STableSpec) insertSqlPrep(dataFields reflectutils.SStructFieldValueSet,
 	return insertSql, values, nil
 }
 
-func (t *STableSpec) insert(data interface{}, update bool, debug bool) error {
-	beforeInsertFunc := reflect.ValueOf(data).MethodByName("BeforeInsert")
-	if beforeInsertFunc.IsValid() && !beforeInsertFunc.IsNil() {
-		beforeInsertFunc.Call([]reflect.Value{})
+func beforeInsert(val reflect.Value) {
+	switch val.Kind() {
+	case reflect.Struct:
+		structType := val.Type()
+		for i := 0; i < val.NumField(); i++ {
+			fieldType := structType.Field(i)
+			if fieldType.Anonymous {
+				beforeInsert(val.Field(i))
+			}
+		}
+		valPtr := val.Addr()
+		afterMarshalFunc := valPtr.MethodByName("BeforeInsert")
+		if afterMarshalFunc.IsValid() && !afterMarshalFunc.IsNil() {
+			afterMarshalFunc.Call([]reflect.Value{})
+		}
+	case reflect.Ptr:
+		beforeInsert(val.Elem())
 	}
+}
+
+func (t *STableSpec) insert(data interface{}, update bool, debug bool) error {
+	beforeInsert(reflect.ValueOf(data))
 
 	dataValue := reflect.ValueOf(data).Elem()
 	dataFields := reflectutils.FetchStructFieldValueSet(dataValue)
@@ -205,9 +223,8 @@ func (t *STableSpec) insert(data interface{}, update bool, debug bool) error {
 				lastId, err := results.LastInsertId()
 				if err != nil {
 					return errors.Wrap(err, "fetching lastInsertId failed")
-				} else {
-					q = q.Equals(c.Name(), lastId)
 				}
+				q = q.Equals(c.Name(), lastId)
 			} else {
 				priVal, _ := dataFields.GetInterface(c.Name())
 				if !gotypes.IsNil(priVal) {
