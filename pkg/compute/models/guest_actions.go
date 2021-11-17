@@ -3663,18 +3663,22 @@ func (self *SGuest) StartReconcileBackup(ctx context.Context, userCred mcclient.
 	return nil
 }
 
-func (self *SGuest) AllowPerformSetExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+func (self *SGuest) AllowPerformSetExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerSetExtraOptionInput) bool {
 	return db.IsAdminAllowPerform(userCred, self, "set-extra-option")
 }
 
-func (self *SGuest) PerformSetExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	key, err := data.GetString("key")
+func (self *SGuest) PerformSetExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerSetExtraOptionInput) (jsonutils.JSONObject, error) {
+	err := input.Validate()
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("key")
+		return nil, errors.Wrap(err, "input.Validate")
 	}
-	value, _ := data.GetString("value")
 	extraOptions := self.GetExtraOptions(userCred)
-	extraOptions.Set(key, jsonutils.NewString(value))
+	optVal := make([]string, 0)
+	extraOptions.Unmarshal(&optVal, input.Key)
+	if !utils.IsInStringArray(input.Value, optVal) {
+		optVal = append(optVal, input.Value)
+	}
+	extraOptions.Set(input.Key, jsonutils.Marshal(optVal))
 	return nil, self.SetExtraOptions(ctx, userCred, extraOptions)
 }
 
@@ -3691,17 +3695,31 @@ func (self *SGuest) SetExtraOptions(ctx context.Context, userCred mcclient.Token
 	return self.SetMetadata(ctx, "extra_options", extraOptions, userCred)
 }
 
-func (self *SGuest) AllowPerformDelExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+func (self *SGuest) AllowPerformDelExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerDelExtraOptionInput) bool {
 	return db.IsAdminAllowPerform(userCred, self, "del-extra-option")
 }
 
-func (self *SGuest) PerformDelExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	key, err := data.GetString("key")
+func (self *SGuest) PerformDelExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerDelExtraOptionInput) (jsonutils.JSONObject, error) {
+	err := input.Validate()
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("key")
+		return nil, errors.Wrap(err, "input.Validate")
 	}
 	extraOptions := self.GetExtraOptions(userCred)
-	extraOptions.Remove(key)
+	var newOpt []string
+	if len(input.Value) > 0 {
+		optVal := make([]string, 0)
+		extraOptions.Unmarshal(&optVal, input.Key)
+		for _, v := range optVal {
+			if v != input.Value {
+				newOpt = append(newOpt, v)
+			}
+		}
+	}
+	if len(newOpt) > 0 {
+		extraOptions.Set(input.Key, jsonutils.Marshal(newOpt))
+	} else if extraOptions.Contains(input.Key) {
+		extraOptions.Remove(input.Key)
+	}
 	return nil, self.SetExtraOptions(ctx, userCred, extraOptions)
 }
 

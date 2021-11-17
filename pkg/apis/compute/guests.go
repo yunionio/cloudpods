@@ -19,9 +19,11 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/billing"
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type ServerListInput struct {
@@ -699,4 +701,31 @@ type ServerChangeDiskStorageInternalInput struct {
 	ServerChangeDiskStorageInput
 	StorageId    string `json:"storage_id"`
 	TargetDiskId string `json:"target_disk_id"`
+}
+
+type ServerSetExtraOptionInput struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+func (o ServerSetExtraOptionInput) Validate() error {
+	if len(o.Key) == 0 {
+		return errors.Wrap(httperrors.ErrBadRequest, "empty key")
+	}
+	if len(o.Value) == 0 {
+		return errors.Wrap(httperrors.ErrBadRequest, "empty value")
+	}
+	return nil
+}
+
+type ServerDelExtraOptionInput struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+func (o ServerDelExtraOptionInput) Validate() error {
+	if len(o.Key) == 0 {
+		return errors.Wrap(httperrors.ErrBadRequest, "empty key")
+	}
+	return nil
 }

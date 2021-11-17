@@ -303,10 +303,7 @@ function nic_mtu() {
 	}
 
 	cmd += fmt.Sprintf(" -pidfile %s", s.GetPidFilePath())
-	extraOptions, _ := s.Desc.GetMap("extra_options")
-	for k, v := range extraOptions {
-		cmd += fmt.Sprintf(" -%s %s", k, v.String())
-	}
+	cmd += s.extraOptions()
 
 	// cmd += s.getQgaDesc()
 	if fileutils2.Exists("/dev/random") {
