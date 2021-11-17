@@ -49,11 +49,20 @@ func (rqf *SRawQueryField) Variables() []interface{} {
 
 // NewRawQuery returns an instance of SQuery with raw SQL query. e.g. show tables
 func NewRawQuery(sqlStr string, fields ...string) *SQuery {
+	return GetDefaultDB().NewRawQuery(sqlStr, fields...)
+}
+
+// NewRawQuery returns an instance of SQuery with raw SQL query for a database, e.g. show tables
+func (db *SDatabase) NewRawQuery(sqlStr string, fields ...string) *SQuery {
 	qfs := make([]IQueryField, len(fields))
 	for i, f := range fields {
 		rqf := SRawQueryField{name: f}
 		qfs[i] = &rqf
 	}
-	q := SQuery{rawSql: sqlStr, fields: qfs}
+	q := SQuery{
+		db:     db,
+		rawSql: sqlStr,
+		fields: qfs,
+	}
 	return &q
 }

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
@@ -47,9 +48,12 @@ func StartService() {
 	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
 	app := common_app.InitApp(baseOpts, false)
+
+	cloudcommon.InitDB(dbOpts)
+
 	InitHandlers(app)
 
-	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
+	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
 	err := saml.InitSAML(app, api.SAML_IDP_PREFIX)

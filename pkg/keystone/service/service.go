@@ -18,7 +18,7 @@ import (
 	"os"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
@@ -72,8 +72,11 @@ func StartService() {
 
 	app := app_common.InitApp(&opts.BaseOptions, true)
 
+	cloudcommon.InitDB(&opts.DBOptions)
+
 	InitHandlers(app)
-	db.EnsureAppInitSyncDB(app, &opts.DBOptions, models.InitDB)
+
+	db.EnsureAppSyncDB(app, &opts.DBOptions, models.InitDB)
 
 	app_common.InitBaseAuth(&opts.BaseOptions)
 

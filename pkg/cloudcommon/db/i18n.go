@@ -17,9 +17,8 @@ package db
 import (
 	"context"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 
 	"yunion.io/x/onecloud/pkg/i18n"
@@ -272,16 +271,20 @@ func (manager *SI18nManager) newFromI18n(ctx context.Context, userCred mcclient.
 }
 
 func (self *SI18n) updateFromI18n(ctx context.Context, userCred mcclient.TokenCredential, entry IModelI18nEntry) error {
-	_, err := Update(self, func() error {
-		self.KeyValue = entry.GetKeyValue()
-		self.Cn = entry.Lookup(i18n.I18N_TAG_CHINESE)
-		self.En = entry.Lookup(i18n.I18N_TAG_ENGLISH)
-
-		return nil
-	})
-	if err != nil {
-		log.Infof("updateFromI18n error %s", err)
-		return err
+	zh := entry.Lookup(i18n.I18N_TAG_CHINESE)
+	en := entry.Lookup(i18n.I18N_TAG_ENGLISH)
+	log.Debugf("updateFromI18n %#v %s %s", self, zh, en)
+	if self.Cn != zh || self.En != en {
+		_, err := Update(self, func() error {
+			self.KeyValue = entry.GetKeyValue()
+			self.Cn = zh
+			self.En = en
+			return nil
+		})
+		if err != nil {
+			log.Infof("updateFromI18n error %s", err)
+			return err
+		}
 	}
 
 	return nil

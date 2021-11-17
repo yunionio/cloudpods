@@ -592,12 +592,15 @@ func (self *STask) GetRequestContext() appctx.AppContextData {
 }
 
 func (self *STask) SaveRequestContext(data *appctx.AppContextData) {
+	jsonData := jsonutils.Marshal(data)
+	log.Debugf("SaveRequestContext %s param %s", jsonData, self.Params)
 	_, err := db.Update(self, func() error {
 		params := self.Params.CopyExcludes(REQUEST_CONTEXT_KEY)
-		params.Add(jsonutils.Marshal(data), REQUEST_CONTEXT_KEY)
+		params.Add(jsonData, REQUEST_CONTEXT_KEY)
 		self.Params = params
 		return nil
 	})
+	log.Debugf("Params: %s", self.Params)
 	if err != nil {
 		log.Errorf("save_request_context fail %s", err)
 	}

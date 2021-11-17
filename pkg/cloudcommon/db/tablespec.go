@@ -55,17 +55,19 @@ type sTableSpec struct {
 	sqlchemy.ITableSpec
 }
 
-func newTableSpec(model interface{}, tableName string, indexField string, dateField string, maxDuration time.Duration, maxSegments int) ITableSpec {
+func newTableSpec(model interface{}, tableName string, indexField string, dateField string, maxDuration time.Duration, maxSegments int, dbName sqlchemy.DBName) ITableSpec {
 	var itbl sqlchemy.ITableSpec
 	if len(indexField) > 0 && len(dateField) > 0 {
 		var err error
-		itbl, err = splitable.NewSplitTableSpec(model, tableName, indexField, dateField, maxDuration, maxSegments)
+		itbl, err = splitable.NewSplitTableSpec(model, tableName, indexField, dateField, maxDuration, maxSegments, dbName)
 		if err != nil {
 			log.Errorf("NewSplitTableSpec %s %s", tableName, err)
 			return nil
 		} else {
 			log.Debugf("table %s maxDuration %d hour maxSegements %d", tableName, maxDuration/time.Hour, maxSegments)
 		}
+	} else if len(dbName) > 0 {
+		itbl = sqlchemy.NewTableSpecFromStructWithDBName(model, tableName, dbName)
 	} else {
 		itbl = sqlchemy.NewTableSpecFromStruct(model, tableName)
 	}

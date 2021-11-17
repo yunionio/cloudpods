@@ -17,9 +17,8 @@ package service
 import (
 	"os"
 
-	_ "github.com/go-sql-driver/mysql"
-
 	"yunion.io/x/log"
+	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/logger"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
@@ -47,9 +46,12 @@ func StartService() {
 	})
 
 	app := app_common.InitApp(baseOpts, true)
+
+	cloudcommon.InitDB(dbOpts)
+
 	initHandlers(app)
 
-	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
+	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
 	// models.StartNotifyToWebsocketWorker()

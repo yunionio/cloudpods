@@ -281,6 +281,8 @@ type SWorkerManagerStates struct {
 	MaxWorkerCnt    int
 	ActiveWorkerCnt int
 	DetachWorkerCnt int
+	DbWorker        bool
+	AllowOverflow   bool
 }
 
 func (s SWorkerManagerStates) IsBusy() bool {
@@ -299,6 +301,8 @@ func (wm *SWorkerManager) getState() SWorkerManagerStates {
 	state.MaxWorkerCnt = wm.workerCount
 	state.ActiveWorkerCnt = wm.activeWorker.size()
 	state.DetachWorkerCnt = wm.detachedWorker.size()
+	state.DbWorker = wm.dbWorker
+	state.AllowOverflow = wm.ignoreOverflow
 
 	return state
 }

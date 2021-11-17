@@ -42,9 +42,12 @@ func StartService() {
 	})
 
 	applicaion := app.InitApp(baseOpts, true)
+
+	cloudcommon.InitDB(dbOpts)
+
 	InitHandlers(applicaion)
 
-	db.EnsureAppInitSyncDB(applicaion, dbOpts, nil)
+	db.EnsureAppSyncDB(applicaion, dbOpts, nil)
 	defer cloudcommon.CloseDB()
 
 	cron := cronman.InitCronJobManager(true, 4)

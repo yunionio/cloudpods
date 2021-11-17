@@ -17,9 +17,8 @@ package service
 import (
 	"os"
 
-	_ "github.com/go-sql-driver/mysql"
-
 	"yunion.io/x/log"
+	_ "yunion.io/x/sqlchemy/backends"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	common_app "yunion.io/x/onecloud/pkg/cloudcommon/app"
@@ -42,9 +41,12 @@ func StartService() {
 	baseOpts := &opts.BaseOptions
 
 	app := common_app.InitApp(baseOpts, false)
+
+	cloudcommon.InitDB(dbOpts)
+
 	InitHandlers(app)
 
-	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
+	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
 	common_app.ServeForever(app, baseOpts)

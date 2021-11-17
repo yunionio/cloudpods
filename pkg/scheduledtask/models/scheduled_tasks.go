@@ -551,7 +551,7 @@ func (stm *SScheduledTaskManager) Timer(ctx context.Context, userCred mcclient.T
 	if timerQueue == nil {
 		timerQueue = make(chan struct{}, sop.Options.ScheduledTaskQueueSize)
 	}
-	log.Infof("queueSize: %s", sop.Options.ScheduledTaskQueueSize)
+	log.Infof("queueSize: %d", sop.Options.ScheduledTaskQueueSize)
 	// 60 is for fault tolerance
 	interval := 60 + 30
 	timeScope := stm.timeScope(time.Now(), time.Duration(interval)*time.Second)

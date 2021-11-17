@@ -254,7 +254,7 @@ func CheckBillingResourceExpireAt(ctx context.Context, userCred mcclient.TokenCr
 
 			bq := BillingResourceCheckManager.Query("resource_id").Equals("resource_type", manager.Keyword()).Equals("advance_days", advanceDay).SubQuery()
 			q = q.LeftJoin(bq, sqlchemy.Equals(q.Field("id"), bq.Field("resource_id")))
-			q = q.IsNull("resource_id")
+			q = q.Filter(sqlchemy.IsNull(bq.Field("resource_id")))
 
 			vp := reflect.New(v.Type())
 			vp.Elem().Set(v)

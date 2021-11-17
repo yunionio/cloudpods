@@ -67,7 +67,7 @@ func (t *SSplitTableSpec) Insert(dt interface{}) error {
 			if lastMeta.StartDate.IsZero() {
 				indexCol := t.tableSpec.ColumnSpec(t.indexField)
 				_, err = t.metaSpec.Update(&lastMeta, func() error {
-					lastMeta.Start = indexCol.(*sqlchemy.SIntegerColumn).AutoIncrementOffset
+					lastMeta.Start = indexCol.AutoIncrementOffset()
 					lastMeta.StartDate = lastDate
 					return nil
 				})

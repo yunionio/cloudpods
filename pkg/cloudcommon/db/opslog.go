@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/stringutils"
+	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -77,6 +78,7 @@ var _ IModelManager = (*SOpsLogManager)(nil)
 var _ IModel = (*SOpsLog)(nil)
 
 var opslogQueryWorkerMan *appsrv.SWorkerManager
+var opslogWriteWorkerMan *appsrv.SWorkerManager
 
 func init() {
 	OpsLog = &SOpsLogManager{NewModelBaseManagerWithSplitable(
@@ -91,7 +93,8 @@ func init() {
 	)}
 	OpsLog.SetVirtualObject(OpsLog)
 
-	opslogQueryWorkerMan = appsrv.NewWorkerManager("opslog_query_worker", 2, 1024, true)
+	opslogQueryWorkerMan = appsrv.NewWorkerManager("opslog_query_worker", 2, 512, true)
+	opslogWriteWorkerMan = appsrv.NewWorkerManager("opslog_write_worker", 1, 2048, true)
 }
 
 func (manager *SOpsLogManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
@@ -188,10 +191,18 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 		}
 	}
 
-	err := manager.TableSpec().Insert(context.Background(), opslog)
+	opslogWriteWorkerMan.Run(opslog, nil, nil)
+}
+
+func (opslog *SOpsLog) Run() {
+	err := OpsLog.TableSpec().Insert(context.Background(), opslog)
 	if err != nil {
 		log.Errorf("fail to insert opslog: %s", err)
 	}
+}
+
+func (opslog *SOpsLog) Dump() string {
+	return fmt.Sprintf("[%s] %s %s", timeutils.CompactTime(opslog.OpsTime), opslog.Action, opslog.Notes)
 }
 
 func combineNotes(ctx context.Context, m2 IModel, notes jsonutils.JSONObject) *jsonutils.JSONDict {
