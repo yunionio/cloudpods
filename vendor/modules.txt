@@ -304,8 +304,6 @@ github.com/gin-gonic/gin/internal/json
 github.com/gin-gonic/gin/render
 # github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2
 github.com/glycerine/go-unsnap-stream
-# github.com/go-ini/ini v1.62.0
-github.com/go-ini/ini
 # github.com/go-logfmt/logfmt v0.4.0
 github.com/go-logfmt/logfmt
 # github.com/go-logr/logr v0.2.0
@@ -485,12 +483,7 @@ github.com/mholt/caddy/startupshutdown
 # github.com/miekg/dns v1.1.4
 github.com/miekg/dns
 # github.com/minio/minio-go v6.0.14+incompatible
-github.com/minio/minio-go
-github.com/minio/minio-go/pkg/credentials
-github.com/minio/minio-go/pkg/encrypt
-github.com/minio/minio-go/pkg/s3signer
 github.com/minio/minio-go/pkg/s3utils
-github.com/minio/minio-go/pkg/set
 # github.com/minio/minio-go/v6 v6.0.33
 github.com/minio/minio-go/v6/pkg/credentials
 github.com/minio/minio-go/v6/pkg/encrypt
@@ -1133,11 +1126,11 @@ k8s.io/utils/integer
 sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
-# yunion.io/x/executor v0.0.0-20210310041834-3fcd1574f68e
+# yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
 yunion.io/x/executor/apis
 yunion.io/x/executor/client
 yunion.io/x/executor/server
-# yunion.io/x/jsonutils v0.0.0-20210709075951-798a67800349
+# yunion.io/x/jsonutils v0.0.0-20211105163012-d846c05a3c9a
 yunion.io/x/jsonutils
 # yunion.io/x/log v0.0.0-20201210064738-43181789dc74
 yunion.io/x/log
@@ -1146,7 +1139,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v0.0.0-20210721081124-55078288ca4c
+# yunion.io/x/pkg v0.0.0-20211116020154-6a76ba2f7e97
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
 yunion.io/x/pkg/prettytable
@@ -1180,7 +1173,7 @@ yunion.io/x/pkg/util/workqueue
 yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v0.0.0-20210619142628-653684d2c4f8
+# yunion.io/x/sqlchemy v1.0.0
 yunion.io/x/sqlchemy
 # yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
 yunion.io/x/structarg
