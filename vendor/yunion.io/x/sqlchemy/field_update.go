@@ -51,6 +51,8 @@ func (ts *STableSpec) GetUpdateColumnValue(dataType reflect.Type, dataValue refl
 }
 */
 
+// UpdateFields update a record with the values provided by fields stringmap
+// params dt: model struct, fileds: {struct-field-name-string: update-value}
 func (ts *STableSpec) UpdateFields(dt interface{}, fields map[string]interface{}) error {
 	return ts.updateFields(dt, fields, false)
 }

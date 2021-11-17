@@ -25,11 +25,12 @@ import (
 	"yunion.io/x/pkg/util/reflectutils"
 )
 
+// Insert perform a insert operation, the value of the record is store in dt
 func (t *STableSpec) Insert(dt interface{}) error {
 	return t.insert(dt, false, false)
 }
 
-//
+// InsertOrUpdate perform a insert or update operation, the value of the record is string in dt
 // MySQL: INSERT INTO ... ON DUPLICATE KEY UPDATE ...
 // works only for the cases that all values of primary keys are determeted before insert
 func (t *STableSpec) InsertOrUpdate(dt interface{}) error {
@@ -222,9 +223,8 @@ func (t *STableSpec) insert(data interface{}, update bool, debug bool) error {
 				lastId, err := results.LastInsertId()
 				if err != nil {
 					return errors.Wrap(err, "fetching lastInsertId failed")
-				} else {
-					q = q.Equals(c.Name(), lastId)
 				}
+				q = q.Equals(c.Name(), lastId)
 			} else {
 				priVal, _ := dataFields.GetInterface(c.Name())
 				if !gotypes.IsNil(priVal) {
