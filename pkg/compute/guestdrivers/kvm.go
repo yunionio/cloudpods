@@ -815,3 +815,102 @@ func (self *SKVMGuestDriver) RequestChangeDiskStorage(ctx context.Context, userC
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
 	return err
 }
+
+func (self *SKVMGuestDriver) validateVdiProtocol(vdi string) error {
+	if !utils.IsInStringArray(vdi, []string{api.VM_VDI_PROTOCOL_VNC, api.VM_VDI_PROTOCOL_SPICE}) {
+		return httperrors.NewInputParameterError("unsupported vdi protocol")
+	}
+	return nil
+}
+
+func (self *SKVMGuestDriver) validateVGA(ovdi, ovga string, nvdi, nvga *string) (vdi, vga string) {
+	vdi = ovdi
+	if nvdi != nil {
+		vdi = *nvdi
+	}
+	if vdi != api.VM_VDI_PROTOCOL_VNC && vdi != api.VM_VDI_PROTOCOL_SPICE {
+		vdi = api.VM_VDI_PROTOCOL_VNC
+	}
+	var candidateVga []string
+	switch vdi {
+	case api.VM_VDI_PROTOCOL_VNC:
+		candidateVga = []string{api.VM_VIDEO_STANDARD, api.VM_VIDEO_QXL, api.VM_VIDEO_VIRTIO}
+	case api.VM_VDI_PROTOCOL_SPICE:
+		candidateVga = []string{api.VM_VIDEO_QXL, api.VM_VIDEO_VIRTIO}
+	}
+	vga = ovga
+	if nvga != nil {
+		vga = *nvga
+	}
+	if !utils.IsInStringArray(vga, candidateVga) {
+		vga = candidateVga[0]
+	}
+	return
+}
+
+func (self *SKVMGuestDriver) validateMachineType(machine string, osArch string) error {
+	var candidate []string
+	switch osArch {
+	case apis.OS_ARCH_AARCH64:
+		candidate = []string{api.VM_MACHINE_TYPE_ARM_VIRT}
+	default:
+		candidate = []string{api.VM_MACHINE_TYPE_PC, api.VM_MACHINE_TYPE_Q35}
+	}
+	if !utils.IsInStringArray(machine, candidate) {
+		return httperrors.NewInputParameterError("Invalid machine type %s", machine)
+	}
+	return nil
+}
+
+func (self *SKVMGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	input, err := self.SVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, input)
+	if err != nil {
+		return input, errors.Wrap(err, "SVirtualizedGuestDriver.ValidateCreateData")
+	}
+	if input.Vdi != "" {
+		err = self.validateVdiProtocol(input.Vdi)
+		if err != nil {
+			return nil, errors.Wrap(err, "validateVdiProtocol")
+		}
+	}
+
+	if input.Vdi != "" || input.Vga != "" {
+		input.Vdi, input.Vga = self.validateVGA("", "", &input.Vdi, &input.Vga)
+	}
+
+	if input.Machine != "" {
+		if err := self.validateMachineType(input.Machine, input.OsArch); err != nil {
+			return nil, errors.Wrap(err, "validateMachineType")
+		}
+	}
+	return input, nil
+}
+
+func (self *SKVMGuestDriver) ValidateUpdateData(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.ServerUpdateInput) (api.ServerUpdateInput, error) {
+	input, err := self.SVirtualizedGuestDriver.ValidateUpdateData(ctx, guest, userCred, input)
+	if err != nil {
+		return input, errors.Wrap(err, "SVirtualizedGuestDriver.ValidateUpdateData")
+	}
+
+	if input.Vdi != nil {
+		err = self.validateVdiProtocol(*input.Vdi)
+		if err != nil {
+			return input, errors.Wrap(err, "validateVdiProtocol")
+		}
+	}
+
+	if input.Vga != nil || input.Vdi != nil {
+		vdi, vga := self.validateVGA(guest.Vdi, guest.Vga, input.Vdi, input.Vga)
+		input.Vdi = &vdi
+		input.Vga = &vga
+	}
+
+	if input.Machine != nil {
+		err := self.validateMachineType(*input.Machine, guest.OsArch)
+		if err != nil {
+			return input, errors.Wrap(err, "ValidateMachineType")
+		}
+	}
+
+	return input, nil
+}
