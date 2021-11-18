@@ -75,6 +75,10 @@ type ScheduledTaskListInput struct {
 	// example: tag
 	LabelType string `json:"label_type"`
 
+	// description: filter scheduledtask binded with label
+	// example: g-12345
+	Label string `json:"label"`
+
 	// description: operation
 	// example: stop
 	// enum: start,stop,restart

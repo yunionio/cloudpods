@@ -98,6 +98,10 @@ func (stm *SScheduledTaskManager) ListItemFilter(ctx context.Context, q *sqlchem
 	if len(input.LabelType) > 0 {
 		q = q.Equals("label_type", input.LabelType)
 	}
+	if len(input.Label) > 0 {
+		sq := ScheduledTaskLabelManager.Query("scheduled_task_id").Equals("label", input.Label).SubQuery()
+		q = q.Join(sq, sqlchemy.Equals(q.Field("id"), sq.Field("scheduled_task_id")))
+	}
 	return q, nil
 }
 
