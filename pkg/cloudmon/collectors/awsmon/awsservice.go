@@ -34,7 +34,8 @@ func (self *SAwsCloudReport) CollectRegionMetric(region cloudprovider.ICloudRegi
 	servers []jsonutils.JSONObject) error {
 	var err error
 	switch self.Operator {
-	case string(common.SERVER):
+	default:
+
 		err = self.collectRegionMetricOfHost(region, servers)
 	}
 	return err
@@ -48,10 +49,13 @@ func (self *SAwsCloudReport) collectRegionMetricOfHost(region cloudprovider.IClo
 	if err != nil {
 		return err
 	}
-	for metricName, influxDbSpecs := range awsMetricSpecs {
+	namespace, specs := self.getMetricSpecs(nil)
+	for metricName, influxDbSpecs := range specs {
 		for i, server := range servers {
-			external_id, _ := servers[i].GetString("external_id")
-			rtnArray, err := awsRegion.GetMonitorData(metricName, "AWS/EC2", external_id, since, until)
+			//external_id, _ := servers[i].GetString("external_id")
+			name, val := self.getDimensionNameAndVal(servers[i])
+			rtnArray, err := awsRegion.GetMonitorDataByDimensionName(metricName, namespace, name, val,
+				since, until)
 			if err != nil {
 				log.Errorln(err)
 				continue
@@ -80,9 +84,38 @@ func (self *SAwsCloudReport) collectRegionMetricOfHost(region cloudprovider.IClo
 	return nil
 }
 
+func (self *SAwsCloudReport) getMetricSpecs(res jsonutils.JSONObject) (string, map[string][]string) {
+	switch common.MonType(self.Operator) {
+	case common.SERVER:
+		return SERVER_METRIC_NAMESPACE, awsMetricSpecs
+	case common.REDIS:
+		return REDIS_METRIC_NAMESPACE, awsRedisMetricsSpec
+	case common.RDS:
+		return RDS_METRIC_NAMESPACE, awsRdsMetricSpecs
+	default:
+		return SERVER_METRIC_NAMESPACE, awsMetricSpecs
+	}
+}
+
+func (self *SAwsCloudReport) getDimensionNameAndVal(res jsonutils.JSONObject) (string, string) {
+	external_id, _ := res.GetString("external_id")
+	switch common.MonType(self.Operator) {
+	case common.SERVER:
+		return "InstanceId", external_id
+	case common.REDIS:
+		external_id, _ = res.GetString("name")
+		return "CacheClusterId", external_id
+	case common.RDS:
+		external_id, _ = res.GetString("name")
+		return "DBInstanceIdentifier", external_id
+	default:
+		return "InstanceId", external_id
+	}
+}
+
 func (self *SAwsCloudReport) collectMetricFromThisServerForAws(server jsonutils.JSONObject, datapoint *cloudwatch.Datapoint,
 	influxDbSpecs []string) (metric influxdb.SMetricData, err error) {
-	metric, err = common.JsonToMetric(server.(*jsonutils.JSONDict), "", common.ServerTags, make([]string, 0))
+	metric, err = self.NewMetricFromJson(server)
 	if err != nil {
 		return metric, err
 	}
@@ -104,6 +137,9 @@ func (self *SAwsCloudReport) collectMetricFromThisServerForAws(server jsonutils.
 	if influxDbSpecs[1] == UNIT_MEM {
 		fieldValue = (fieldValue / float64(300) * 8)
 	}
+	if influxDbSpecs[1] == UNIT_BYTEPS {
+		fieldValue = (fieldValue * 8)
+	}
 	tag := common.SubstringAfter(influxDbSpec, ",")
 	if tag != "" && strings.Contains(influxDbSpec, "=") {
 		metric.Tags = append(metric.Tags, influxdb.SKeyValue{Key: common.SubstringBefore(tag, "="),
@@ -119,7 +155,6 @@ func (self *SAwsCloudReport) collectMetricFromThisServerForAws(server jsonutils.
 			influxdb.SKeyValue{Key: pairsKey,
 				Value: strconv.FormatFloat(fieldValue, 'E', -1, 64)})
 	}
-	self.AddMetricTag(&metric, common.OtherVmTags)
 	metric.Name = measurement
 	return metric, nil
 }
