@@ -192,9 +192,10 @@ func (f *ResourceHandlers) doList(ctx context.Context, session *mcclient.ClientS
 	var exportKeys []string
 	var exportTexts []string
 	export := struct {
-		ExportFormat string `json:"export"`
-		ExportKeys   string `json:"export_keys"`
-		ExportTexts  string `json:"export_texts"`
+		ExportFormat   string `json:"export"`
+		ExportFileName string `json:"export_file_name"`
+		ExportKeys     string `json:"export_keys"`
+		ExportTexts    string `json:"export_texts"`
 	}{}
 	query.Unmarshal(&export)
 	if len(export.ExportFormat) > 0 {
@@ -218,6 +219,7 @@ func (f *ResourceHandlers) doList(ctx context.Context, session *mcclient.ClientS
 		queryDict := query.(*jsonutils.JSONDict)
 		queryDict.Remove("export")
 		queryDict.Remove("export_texts")
+		queryDict.Remove("export_file_name")
 		keys := []string{}
 		for _, key := range exportKeys {
 			if !strings.Contains(key, ".") {
@@ -242,7 +244,11 @@ func (f *ResourceHandlers) doList(ctx context.Context, session *mcclient.ClientS
 		w.Header().Set("Content-Description", "File Transfer")
 		w.Header().Set("Content-Transfer-Encoding", "binary")
 		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"export-%s.xlsx\"", module.KeyString()))
+		fileName := fmt.Sprintf("export-%s", module.KeyString())
+		if len(export.ExportFileName) > 0 {
+			fileName = export.ExportFileName
+		}
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.xlsx\"", fileName))
 		excelutils.Export(ret.Data, exportKeys, exportTexts, w)
 		return
 	}
