@@ -332,7 +332,6 @@ func (self *SCloudregion) SyncWafInstances(ctx context.Context, userCred mcclien
 			result.UpdateError(err)
 			continue
 		}
-		syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 		localWafs = append(localWafs, commondb[i])
 		remoteWafs = append(remoteWafs, commonext[i])
 		result.Update()
@@ -344,7 +343,6 @@ func (self *SCloudregion) SyncWafInstances(ctx context.Context, userCred mcclien
 			result.AddError(err)
 			continue
 		}
-		syncMetadata(ctx, userCred, newWaf, added[i])
 		localWafs = append(localWafs, *newWaf)
 		remoteWafs = append(remoteWafs, added[i])
 		result.Add()
@@ -433,6 +431,7 @@ func (self *SWafInstance) SyncWithCloudWafInstance(ctx context.Context, userCred
 			Action: notifyclient.ActionSyncUpdate,
 		})
 	}
+	syncMetadata(ctx, userCred, self, ext)
 	return err
 }
 
@@ -461,6 +460,7 @@ func (self *SCloudregion) newFromCloudWafInstance(ctx context.Context, userCred 
 	if err != nil {
 		return nil, err
 	}
+	syncMetadata(ctx, userCred, waf, ext)
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
 		Obj:    waf,
 		Action: notifyclient.ActionSyncCreate,

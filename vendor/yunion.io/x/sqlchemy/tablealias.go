@@ -30,3 +30,9 @@ func getTableAliasName() string {
 	tableID++
 	return fmt.Sprintf("t%d", tableID)
 }
+
+func ResetTableID() {
+	tableIDLock.Lock()
+	defer tableIDLock.Unlock()
+	tableID = 0
+}

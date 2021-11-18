@@ -18,9 +18,8 @@ import (
 	"os"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
-
 	"yunion.io/x/log"
+	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/cloudevent"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
@@ -49,9 +48,10 @@ func StartService() {
 	baseOpts := &opts.BaseOptions
 
 	app := common_app.InitApp(baseOpts, false)
+	cloudcommon.InitDB(dbOpts)
 	InitHandlers(app)
 
-	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
+	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
 	if !opts.IsSlaveNode {

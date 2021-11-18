@@ -169,11 +169,11 @@ type LoadbalancerDetails struct {
 	apis.VirtualResourceDetails
 
 	ManagedResourceInfo
-	CloudregionResourceInfo
 
 	LoadbalancerClusterResourceInfo
 
 	VpcResourceInfoBase
+	CloudregionResourceInfo
 	ZoneResourceInfoBase
 	Zone1ResourceInfoBase
 	NetworkResourceInfoBase

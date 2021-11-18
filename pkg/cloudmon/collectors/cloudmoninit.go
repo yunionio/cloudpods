@@ -39,4 +39,5 @@ import (
 	_ "yunion.io/x/onecloud/pkg/multicloud/jdcloud/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/qcloud/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/zstack/provider"
+	// pingprobe default init
 )

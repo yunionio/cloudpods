@@ -20,34 +20,46 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/structarg"
 
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 type CloudMonOptions struct {
-	structarg.BaseOptions
+	common_options.CommonOptions
+	ReportOptions
 
-	Region       string `help:"Region name"`
 	EndpointType string `default:"internalURL" help:"Defaults to internalURL" choices:"publicURL|internalURL|adminURL"`
 	ApiVersion   string `help:"override default modules service api version"`
 
-	Debug    bool   `help:"Show debug information"`
-	Timeout  int    `default:"600" help:"Number of seconds to wait for a response"`
-	Insecure bool   `default:"true" help:"Allow skip server cert verification if URL is https" short-token:"k"`
-	CertFile string `help:"certificate file"`
-	KeyFile  string `help:"private key file"`
-
-	AuthURL            string `help:"Keystone auth URL" alias:"auth-uri"`
-	AdminUser          string `help:"Admin username"`
-	AdminDomain        string `help:"Admin user domain"`
-	AdminPassword      string `help:"Admin password" alias:"admin-passwd"`
-	AdminProject       string `help:"Admin project" default:"system" alias:"admin-tenant-name"`
-	AdminProjectDomain string `help:"Domain of Admin project"`
-
-	SessionEndpointType string `help:"Client session end point type"`
+	ReqTimeout int    `default:"600" help:"Number of seconds to wait for a response"`
+	Insecure   bool   `default:"true" help:"Allow skip server cert verification if URL is https" short-token:"k"`
+	CertFile   string `help:"certificate file"`
+	KeyFile    string `help:"private key file"`
 
 	InfluxDatabase string `help:"influxdb database name, default telegraf" default:"telegraf"`
 
-	SUBCOMMAND string `help:"climc subcommand" subcommand:"true"`
+	Subcommand string `help:"climc subcommand" subcommand:"false"`
+}
+
+type ReportOptions struct {
+	Batch                      int   `help:"batch"`
+	Count                      int   `help:"count" json:"count"`
+	CloudproviderSyncInterval  int64 `help:"CloudproviderSyncInterval unit:minute" default:"30"`
+	AlertRecordHistoryInterval int64 `help:"AlertRecordHistoryInterval unit:day"  default:"1"`
+	// 定时执行间隔，同时也会影响metric拉取间隔
+	Interval       string   `help:"interval" default:"6" unit:"minute"`
+	Timeout        int64    `help:"command timeout unit:second" default:"10"`
+	SinceTime      string   `help:"sinceTime"`
+	EndTime        string   `help:"endTime"`
+	Provider       []string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei|ZStack|Google|Apsara|JDcloud|Ecloud|HCSO" json:"provider,omitempty"`
+	MetricInterval string   `help:"metric interval eg:PT1M"`
+	PingProbeOptions
+}
+
+type PingProbeOptions struct {
+	Debug         bool `help:"debug"`
+	ProbeCount    int  `help:"probe count, default is 3" default:"3"`
+	TimeoutSecond int  `help:"probe timeout in second, default is 1 second" default:"1"`
 }
 
 func GetArgumentParser() (*structarg.ArgumentParser, error) {

@@ -138,8 +138,8 @@ func CheckSync(autoSync bool) bool {
 	return inSync
 }
 
-func EnsureAppInitSyncDB(app *appsrv.Application, opt *common_options.DBOptions, modelInitDBFunc func() error) {
-	cloudcommon.InitDB(opt)
+func EnsureAppSyncDB(app *appsrv.Application, opt *common_options.DBOptions, modelInitDBFunc func() error) {
+	// cloudcommon.InitDB(opt)
 
 	if !CheckSync(opt.AutoSyncTable) {
 		log.Fatalf("database schema not in sync!")

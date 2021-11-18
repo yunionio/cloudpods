@@ -537,5 +537,4 @@ func (manager *SAlertResourceManager) sendWebsocketInfo(uids []string, alertReso
 			log.Errorf("websocket send info err:%v", err)
 		}
 	}
-}
-*/
+}*/

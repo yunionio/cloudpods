@@ -99,6 +99,9 @@ type SCloudaccountCredential struct {
 
 	// Huawei Cloud Stack Online
 	*SHCSOEndpoints
+
+	// ctyun crm account extra info
+	*SCtyunExtraOptions
 }
 
 type SCloudaccount struct {
@@ -176,6 +179,7 @@ type SProviderInfo struct {
 	Url     string
 	Account string
 	Secret  string
+	Options *jsonutils.JSONDict
 }
 
 type ICloudProviderFactory interface {
@@ -400,7 +404,7 @@ func GetProvider(cfg ProviderConfig) (ICloudProvider, error) {
 	return driver.GetProvider(cfg)
 }
 
-func GetClientRC(name, accessUrl, account, secret, provider string) (map[string]string, error) {
+func GetClientRC(name, accessUrl, account, secret, provider string, options *jsonutils.JSONDict) (map[string]string, error) {
 	driver, err := GetProviderFactory(provider)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetProviderFactory")
@@ -410,6 +414,7 @@ func GetClientRC(name, accessUrl, account, secret, provider string) (map[string]
 		Url:     accessUrl,
 		Account: account,
 		Secret:  secret,
+		Options: options,
 	}
 	return driver.GetClientRC(info)
 }

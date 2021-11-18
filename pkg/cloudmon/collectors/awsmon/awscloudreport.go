@@ -17,6 +17,7 @@ package awsmon
 import (
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
+	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -26,10 +27,11 @@ func init() {
 }
 
 type SAwsCloudReportFactory struct {
+	common.CommonReportFactory
 }
 
 func (self *SAwsCloudReportFactory) NewCloudReport(provider *common.SProvider, session *mcclient.ClientSession,
-	args *common.ReportOptions, operatorType string) common.ICloudReport {
+	args *options.ReportOptions, operatorType string) common.ICloudReport {
 	return &SAwsCloudReport{
 		common.CloudReportBase{
 			SProvider: provider,

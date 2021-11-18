@@ -917,52 +917,6 @@ func (self *SKVMRegionDriver) ValidateEipChargeType(chargeType string) error {
 	return nil
 }
 
-type eipNetwork struct {
-	owner   mcclient.TokenCredential
-	freeCnt int
-	net     *models.SNetwork
-}
-
-func (en eipNetwork) isOwnerProject() bool {
-	return en.owner.GetProjectId() == en.net.ProjectId
-}
-
-func (en eipNetwork) isOwnerProjectDomain() bool {
-	return en.owner.GetProjectDomainId() == en.net.DomainId
-}
-
-type eipNetworks []eipNetwork
-
-func (a eipNetworks) Len() int {
-	return len(a)
-}
-
-func (a eipNetworks) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-
-func (a eipNetworks) Less(i, j int) bool {
-	if a[i].isOwnerProject() && !a[j].isOwnerProject() {
-		return true
-	} else if !a[i].isOwnerProject() && a[j].isOwnerProject() {
-		return false
-	}
-	if a[i].isOwnerProjectDomain() && !a[j].isOwnerProjectDomain() {
-		return true
-	} else if !a[i].isOwnerProjectDomain() && a[j].isOwnerProjectDomain() {
-		return false
-	}
-	if a[i].freeCnt > a[j].freeCnt {
-		return true
-	} else if a[i].freeCnt < a[j].freeCnt {
-		return false
-	}
-	if a[i].net.Id < a[j].net.Id {
-		return true
-	}
-	return false
-}
-
 func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SElasticipCreateInput) error {
 	if err := self.ValidateEipChargeType(input.ChargeType); err != nil {
 		return err
@@ -986,20 +940,21 @@ func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCre
 		if err := db.FetchModelObjects(models.NetworkManager, q, &nets); err != nil {
 			return err
 		}
-		eipNets := make([]eipNetwork, 0)
+		eipNets := make([]models.SEipNetwork, 0)
 		for i := range nets {
 			net := &nets[i]
 			cnt, _ := net.GetFreeAddressCount()
 			if cnt > 0 {
-				eipNets = append(eipNets, eipNetwork{net: net, freeCnt: cnt, owner: userCred})
+				eipNets = append(eipNets, models.NewEipNetwork(net, userCred, userCred, cnt))
 			}
 		}
 		if len(eipNets) == 0 {
 			return httperrors.NewNotFoundError("no available eip network")
 		}
 		// prefer networks with identical project, domain, more free address, Id
-		sort.Sort(eipNetworks(eipNets))
-		network = eipNets[0].net
+		sort.Sort(models.SEipNetworks(eipNets))
+		log.Debugf("eipnets: %s", jsonutils.Marshal(eipNets))
+		network = eipNets[0].GetNetwork()
 		input.NetworkId = network.Id
 	}
 	if network.ServerType != api.NETWORK_TYPE_EIP {

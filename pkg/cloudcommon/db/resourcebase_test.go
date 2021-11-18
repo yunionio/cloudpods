@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -32,6 +33,7 @@ func (tk *omniToken) IsAllow(scope rbacutils.TRbacScope, service string, resourc
 }
 
 func TestListFields(t *testing.T) {
+	sqlchemy.SetupMockDatabaseBackend()
 	man := NewResourceBaseManager(
 		&SResourceBase{},
 		"tbl",

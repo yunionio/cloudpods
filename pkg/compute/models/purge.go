@@ -390,14 +390,18 @@ func (lb *SLoadbalancer) purge(ctx context.Context, userCred mcclient.TokenCrede
 
 	lb.DeletePreventionOff(lb, userCred)
 
-	_, err := db.UpdateWithLock(ctx, lb, func() error {
-		//避免 purge backendgroups 时循环依赖
-		lb.BackendGroupId = ""
-		return nil
-	})
+	var err error
 
-	if err != nil {
-		return fmt.Errorf("loadbalancer %s(%s): clear up backend group error: %v", lb.Name, lb.Id, err)
+	if lb.BackendGroupId != "" {
+		_, err = db.UpdateWithLock(ctx, lb, func() error {
+			//避免 purge backendgroups 时循环依赖
+			lb.BackendGroupId = ""
+			return nil
+		})
+
+		if err != nil {
+			return fmt.Errorf("loadbalancer %s(%s): clear up backend group error: %v", lb.Name, lb.Id, err)
+		}
 	}
 
 	err = lb.detachAllNetworks(ctx, userCred)

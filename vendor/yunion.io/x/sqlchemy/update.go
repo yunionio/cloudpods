@@ -20,6 +20,8 @@ import (
 	"reflect"
 	"strings"
 
+	"yunion.io/x/pkg/util/timeutils"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -42,7 +44,7 @@ func (ts *STableSpec) prepareUpdate(dt interface{}) (*SUpdateSession, error) {
 	fields := reflectutils.FetchStructFieldValueSet(dataValue) //  fetchStructFieldNameValue(dataType, dataValue)
 
 	zeroPrimary := make([]string, 0)
-	for _, c := range ts.columns {
+	for _, c := range ts.Columns() {
 		k := c.Name()
 		ov, ok := fields.GetInterface(k)
 		if !ok {
@@ -96,11 +98,20 @@ func (uds UpdateDiffs) String() string {
 	return obj.String()
 }
 
-func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
+type sUpdateSQLResult struct {
+	sql       string
+	vars      []interface{}
+	setters   UpdateDiffs
+	primaries map[string]interface{}
+}
+
+func (us *SUpdateSession) saveUpdateSql(dt interface{}) (*sUpdateSQLResult, error) {
 	beforeUpdateFunc := reflect.ValueOf(dt).MethodByName("BeforeUpdate")
 	if beforeUpdateFunc.IsValid() && !beforeUpdateFunc.IsNil() {
 		beforeUpdateFunc.Call([]reflect.Value{})
 	}
+
+	now := timeutils.UtcNow()
 
 	// dataType := reflect.TypeOf(dt).Elem()
 	dataValue := reflect.ValueOf(dt).Elem()
@@ -111,7 +122,7 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 	updatedFields := make([]string, 0)
 	primaries := make(map[string]interface{})
 	setters := UpdateDiffs{}
-	for _, c := range us.tableSpec.columns {
+	for _, c := range us.tableSpec.Columns() {
 		k := c.Name()
 		of, _ := ofields.GetInterface(k)
 		nf, _ := fields.GetInterface(k)
@@ -125,13 +136,11 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 			}
 			continue
 		}
-		nc, ok := c.(*SIntegerColumn)
-		if ok && nc.IsAutoVersion {
+		if c.IsAutoVersion() {
 			versionFields = append(versionFields, k)
 			continue
 		}
-		dtc, ok := c.(*SDateTimeColumn)
-		if ok && dtc.IsUpdatedAt {
+		if c.IsUpdatedAt() {
 			updatedFields = append(updatedFields, k)
 			continue
 		}
@@ -146,6 +155,10 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 
 	if len(setters) == 0 {
 		return nil, ErrNoDataToUpdate
+	}
+
+	if len(primaries) == 0 {
+		return nil, ErrEmptyPrimaryKey
 	}
 
 	vars := make([]interface{}, 0)
@@ -169,13 +182,11 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 		buf.WriteString(fmt.Sprintf(", `%s` = `%s` + 1", versionField, versionField))
 	}
 	for _, updatedField := range updatedFields {
-		buf.WriteString(fmt.Sprintf(", `%s` = UTC_TIMESTAMP()", updatedField))
+		buf.WriteString(fmt.Sprintf(", `%s` = ?", updatedField))
+		vars = append(vars, now)
 	}
 	buf.WriteString(" WHERE ")
 	first = true
-	if len(primaries) == 0 {
-		return nil, ErrEmptyPrimaryKey
-	}
 	for k, v := range primaries {
 		if first {
 			first = false
@@ -189,47 +200,77 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 	if DEBUG_SQLCHEMY {
 		log.Infof("Update: %s %s", buf.String(), vars)
 	}
-	results, err := _db.Exec(buf.String(), vars...)
+
+	return &sUpdateSQLResult{
+		sql:       buf.String(),
+		vars:      vars,
+		setters:   setters,
+		primaries: primaries,
+	}, nil
+}
+
+func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
+	sqlResult, err := us.saveUpdateSql(dt)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "saveUpateSql")
 	}
-	aCnt, err := results.RowsAffected()
+
+	err = us.tableSpec.execUpdateSql(dt, sqlResult)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "execUpdateSql")
 	}
-	if aCnt > 1 {
-		return nil, errors.Wrapf(ErrUnexpectRowCount, "affected rows %d != 1", aCnt)
+
+	return sqlResult.setters, nil
+}
+
+func (ts *STableSpec) execUpdateSql(dt interface{}, result *sUpdateSQLResult) error {
+	results, err := ts.Database().TxExec(result.sql, result.vars...)
+	if err != nil {
+		return errors.Wrap(err, "TxExec")
 	}
-	q := us.tableSpec.Query()
-	for k, v := range primaries {
+
+	if ts.Database().backend.CanSupportRowAffected() {
+		aCnt, err := results.RowsAffected()
+		if err != nil {
+			return errors.Wrap(err, "results.RowsAffected")
+		}
+		if aCnt > 1 {
+			return errors.Wrapf(ErrUnexpectRowCount, "affected rows %d != 1", aCnt)
+		}
+	}
+	q := ts.Query()
+	for k, v := range result.primaries {
 		q = q.Equals(k, v)
 	}
 	err = q.First(dt)
 	if err != nil {
-		return nil, errors.Wrap(err, "query after update failed")
+		return errors.Wrap(err, "query after update failed")
 	}
-	return setters, nil
+	return nil
 }
 
 // Update method of STableSpec updates a record of a table,
 // dt is the point to the struct storing the record
 // doUpdate provides method to update the field of the record
 func (ts *STableSpec) Update(dt interface{}, doUpdate func() error) (UpdateDiffs, error) {
+	if !ts.Database().backend.CanUpdate() {
+		return nil, errors.ErrNotSupported
+	}
 	session, err := ts.prepareUpdate(dt)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "prepareUpdate")
 	}
 	err = doUpdate()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 	uds, err := session.saveUpdate(dt)
-	if err == ErrNoDataToUpdate {
+	if err != nil && errors.Cause(err) == ErrNoDataToUpdate {
 		return nil, nil
 	} else if err == nil {
 		if DEBUG_SQLCHEMY {
 			log.Debugf("Update diff: %s", uds)
 		}
 	}
-	return uds, err
+	return uds, errors.Wrap(err, "saveUpdate")
 }

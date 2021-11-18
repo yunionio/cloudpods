@@ -36,6 +36,8 @@ import (
 
 const (
 	MIN_DB_CONN_MAX = 5
+
+	ClickhouseDB = sqlchemy.DBName("clickhosue_db")
 )
 
 func InitDB(options *common_options.DBOptions) {
@@ -56,11 +58,26 @@ func InitDB(options *common_options.DBOptions) {
 	if err != nil {
 		log.Fatalf("Invalid SqlConnection string: %s error: %v", options.SqlConnection, err)
 	}
+	log.Infof("database dialect: %s sqlStr: %s", dialect, sqlStr)
 	dbConn, err := sql.Open(dialect, sqlStr)
 	if err != nil {
 		panic(err)
 	}
-	sqlchemy.SetDB(dbConn)
+	backend := sqlchemy.MySQLBackend
+	if dialect == "sqlite3" {
+		backend = sqlchemy.SQLiteBackend
+	}
+	sqlchemy.SetDBWithNameBackend(dbConn, sqlchemy.DefaultDB, backend)
+
+	dialect, sqlStr, err = options.GetClickhouseConnStr()
+	if err == nil {
+		// connect to clickcloud
+		click, err := sql.Open(dialect, sqlStr)
+		if err != nil {
+			panic(err)
+		}
+		sqlchemy.SetDBWithNameBackend(click, ClickhouseDB, sqlchemy.ClickhouseBackend)
+	}
 
 	switch options.LockmanMethod {
 	case common_options.LockMethodInMemory, "":

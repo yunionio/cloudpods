@@ -21,10 +21,9 @@ import (
 	"path/filepath"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
-
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
@@ -77,8 +76,11 @@ func StartService() {
 
 	app := app_common.InitApp(baseOpts, true)
 
+	cloudcommon.InitDB(dbOpts)
+
 	InitHandlers(app)
-	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
+
+	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
 	options.InitNameSyncResources()
@@ -139,7 +141,6 @@ func StartService() {
 		cron.AddJobAtIntervalsWithStartRun("CalculateDomainQuotaUsages", time.Duration(opts.CalculateQuotaUsageIntervalSeconds)*time.Second, models.DomainQuotaManager.CalculateQuotaUsages, true)
 		cron.AddJobAtIntervalsWithStartRun("CalculateInfrasQuotaUsages", time.Duration(opts.CalculateQuotaUsageIntervalSeconds)*time.Second, models.InfrasQuotaManager.CalculateQuotaUsages, true)
 
-		cron.AddJobAtIntervalsWithStartRun("AutoSyncCloudaccountTask", time.Duration(opts.CloudAutoSyncIntervalSeconds)*time.Second, models.CloudaccountManager.AutoSyncCloudaccountTask, true)
 		if opts.AutoReconcileBackupServers {
 			cron.AddJobAtIntervalsWithStartRun("ReconcileBackupGuests", time.Duration(opts.ReconcileGuestBackupIntervalSeconds)*time.Second, models.GuestManager.ReconcileBackupGuests, true)
 		}
@@ -163,8 +164,6 @@ func StartService() {
 		cron.AddJobEveryFewDays("SyncCloudImages", opts.SyncCloudImagesDay, opts.SyncCloudImagesHour, 0, 0, models.SyncPublicCloudImages, true)
 
 		cron.AddJobEveryFewHour("InspectAllTemplate", 1, 0, 0, models.GuestTemplateManager.InspectAllTemplate, true)
-
-		cron.AddJobAtIntervalsWithStartRun("ScheduledTaskCheck", time.Duration(60)*time.Second, models.ScheduledTaskManager.Timer, true)
 
 		cron.AddJobEveryFewHour("CheckBillingResourceExpireAt", 1, 0, 0, models.CheckBillingResourceExpireAt, true)
 		go cron.Start2(ctx, electObj)

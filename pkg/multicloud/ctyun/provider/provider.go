@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -85,9 +86,17 @@ func (self *SCtyunProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig)
 		account = segs[0]
 	}
 
+	options := cloudprovider.SCtyunExtraOptions{}
+	if cfg.Options != nil {
+		err := cfg.Options.Unmarshal(&options)
+		if err != nil {
+			log.Debugf("cfg.Options.Unmarshal %s", err)
+		}
+	}
+
 	client, err := ctyun.NewSCtyunClient(
 		ctyun.NewSCtyunClientConfig(
-			account, cfg.Secret,
+			account, cfg.Secret, &options,
 		).ProjectId(projectId).CloudproviderConfig(cfg),
 	)
 	if err != nil {
@@ -100,12 +109,25 @@ func (self *SCtyunProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig)
 }
 
 func (self *SCtyunProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
-	return map[string]string{
+	ret := map[string]string{
 		"CTYUN_ACCESS_URL": info.Url,
 		"CTYUN_ACCESS_KEY": info.Account,
 		"CTYUN_SECRET":     info.Secret,
 		"CTYUN_REGION":     ctyun.CTYUN_DEFAULT_REGION,
-	}, nil
+	}
+
+	options := cloudprovider.SCtyunExtraOptions{}
+	if info.Options != nil {
+		err := info.Options.Unmarshal(&options)
+		if err != nil {
+			log.Debugf("info.Options.Unmarshal %s", err)
+		}
+	}
+	if len(options.CrmBizId) > 0 {
+		ret["CTYUN_CRM_BIZ_ID"] = options.CrmBizId
+	}
+
+	return ret, nil
 }
 
 func init() {

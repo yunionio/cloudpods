@@ -33,6 +33,7 @@ import (
 	comapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/apis/notify"
 	api "yunion.io/x/onecloud/pkg/apis/notify"
+	schapi "yunion.io/x/onecloud/pkg/apis/scheduledtask"
 	"yunion.io/x/onecloud/pkg/i18n"
 	notifyv2 "yunion.io/x/onecloud/pkg/notify"
 	rpcapi "yunion.io/x/onecloud/pkg/notify/rpc/apis"
@@ -240,10 +241,12 @@ func init() {
 	spI18nTable.Set(comapi.UNIT_PERCENT, i18n.NewTableEntry().EN("%").CN("%"))
 
 	var stI18nTable = i18n.Table{}
-	stI18nTable.Set(comapi.ST_RESOURCE_SERVER, i18n.NewTableEntry().EN("virtual machine").CN("虚拟机"))
-	stI18nTable.Set(comapi.ST_RESOURCE_OPERATION_RESTART, i18n.NewTableEntry().EN("restart").CN("重启"))
-	stI18nTable.Set(comapi.ST_RESOURCE_OPERATION_STOP, i18n.NewTableEntry().EN("stop").CN("关机"))
-	stI18nTable.Set(comapi.ST_RESOURCE_OPERATION_START, i18n.NewTableEntry().EN("start").CN("开机"))
+	stI18nTable.Set(schapi.ST_RESOURCE_SERVER, i18n.NewTableEntry().EN("virtual machine").CN("虚拟机"))
+	stI18nTable.Set(schapi.ST_RESOURCE_CLOUDACCOUNT, i18n.NewTableEntry().EN("cloud account").CN("云账号"))
+	stI18nTable.Set(schapi.ST_RESOURCE_OPERATION_RESTART, i18n.NewTableEntry().EN("restart").CN("重启"))
+	stI18nTable.Set(schapi.ST_RESOURCE_OPERATION_STOP, i18n.NewTableEntry().EN("stop").CN("关机"))
+	stI18nTable.Set(schapi.ST_RESOURCE_OPERATION_START, i18n.NewTableEntry().EN("start").CN("开机"))
+	stI18nTable.Set(schapi.ST_RESOURCE_OPERATION_SYNC, i18n.NewTableEntry().EN("sync").CN("同步"))
 
 	specFieldTrans[notify.TOPIC_RESOURCE_SCALINGPOLICY] = spI18nTable
 	specFieldTrans[notify.TOPIC_RESOURCE_SCHEDULEDTASK] = stI18nTable

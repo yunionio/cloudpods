@@ -145,7 +145,7 @@ func listItemsQueryByColumn(manager IModelManager, q *sqlchemy.SQuery, userCred 
 					}
 				} else if len(arrV) > 1 {
 					for i := range arrV {
-						arrV[i] = colSpec.ConvertFromString(arrV[i])
+						arrV[i] = sqlchemy.GetStringValue(colSpec.ConvertFromString(arrV[i]))
 					}
 					q = q.In(fn, arrV)
 				} else if len(arrV) == 1 {
@@ -691,15 +691,17 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	if orderBy == nil {
 		orderBy = []string{}
 	}
-	if primaryCol != nil && primaryCol.IsNumeric() {
-		orderBy = append(orderBy, primaryCol.Name())
-	} else if manager.TableSpec().ColumnSpec("created_at") != nil {
-		orderBy = append(orderBy, "created_at")
-		if manager.TableSpec().ColumnSpec("name") != nil {
-			orderBy = append(orderBy, "name")
-		}
-		if primaryCol != nil {
+	if !q.IsGroupBy() {
+		if primaryCol != nil && primaryCol.IsNumeric() {
 			orderBy = append(orderBy, primaryCol.Name())
+		} else if manager.TableSpec().ColumnSpec("created_at") != nil {
+			orderBy = append(orderBy, "created_at")
+			if manager.TableSpec().ColumnSpec("name") != nil {
+				orderBy = append(orderBy, "name")
+			}
+			if primaryCol != nil {
+				orderBy = append(orderBy, primaryCol.Name())
+			}
 		}
 	}
 	for _, orderByField := range orderBy {

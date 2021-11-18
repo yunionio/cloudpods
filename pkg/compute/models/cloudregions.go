@@ -522,7 +522,7 @@ func (self *SCloudregion) syncWithCloudRegion(ctx context.Context, userCred mccl
 
 		return nil
 	})
-	if err != nil {
+	if err != nil && errors.Cause(err) != sqlchemy.ErrNoDataToUpdate {
 		log.Errorf("syncWithCloudRegion %s", err)
 		return err
 	}

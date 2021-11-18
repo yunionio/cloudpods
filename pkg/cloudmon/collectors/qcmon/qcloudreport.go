@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
+	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
@@ -29,10 +30,11 @@ func init() {
 }
 
 type SQCloudReportFactory struct {
+	common.CommonReportFactory
 }
 
 func (self *SQCloudReportFactory) NewCloudReport(provider *common.SProvider, session *mcclient.ClientSession,
-	args *common.ReportOptions, operatorType string) common.ICloudReport {
+	args *options.ReportOptions, operatorType string) common.ICloudReport {
 	return &SQCloudReport{
 		common.CloudReportBase{
 			SProvider: provider,

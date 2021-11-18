@@ -82,7 +82,7 @@ type sExprFunction struct {
 func (ff *sExprFunction) expression() string {
 	fieldRefs := make([]interface{}, 0)
 	for _, f := range ff.fields {
-		fieldRefs = append(fieldRefs, f.Reference())
+		fieldRefs = append(fieldRefs, f.Expression())
 	}
 	return fmt.Sprintf(ff.function, fieldRefs...)
 }
@@ -237,7 +237,12 @@ func CONCAT(name string, fields ...IQueryField) IQueryField {
 }
 
 // SubStr represents a SQL function SUBSTR
+// Deprecated
 func SubStr(name string, field IQueryField, pos, length int) IQueryField {
+	return SUBSTR(name, field, pos, length)
+}
+
+func SUBSTR(name string, field IQueryField, pos, length int) IQueryField {
 	var rightStr string
 	if length <= 0 {
 		rightStr = fmt.Sprintf("%d)", pos)
@@ -267,4 +272,8 @@ func INET_ATON(field IQueryField) IQueryField {
 // TimestampAdd represents a SQL function TimestampAdd
 func TimestampAdd(name string, field IQueryField, offsetSeconds int) IQueryField {
 	return NewFunctionField(name, `TIMESTAMPADD(SECOND, `+fmt.Sprintf("%d", offsetSeconds)+`, %s)`, field)
+}
+
+func CAST(field IQueryField, typeStr string, fieldname string) IQueryField {
+	return NewFunctionField(fieldname, `CAST(%s AS `+typeStr+`)`, field)
 }

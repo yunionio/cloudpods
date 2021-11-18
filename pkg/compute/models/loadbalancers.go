@@ -1190,6 +1190,10 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 		}
 		syncVirtualResourceMetadata(ctx, userCred, lb, extLb)
 
+		if lb.CloudregionId == "" {
+			lb.CloudregionId = region.GetId()
+		}
+
 		// classic vpc
 		if extLb.GetNetworkType() == api.LB_NETWORK_TYPE_CLASSIC {
 			if vpc, err := VpcManager.GetOrCreateVpcForClassicNetwork(ctx, provider, region); err == nil && vpc != nil {

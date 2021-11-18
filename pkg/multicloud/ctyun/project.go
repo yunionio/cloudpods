@@ -45,7 +45,7 @@ func (self *SProject) GetHealthStatus() string {
 func (self *SCtyunClient) FetchProjects() ([]SProject, error) {
 	client, err := NewSCtyunClient(
 		NewSCtyunClientConfig(
-			self.accessKey, self.accessSecret,
+			self.accessKey, self.accessSecret, self.options,
 		).Debug(self.debug),
 	)
 	if err != nil {

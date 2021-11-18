@@ -173,3 +173,9 @@ func NewCloudIdManager(keyword, keywordPlural string, columns, adminColumns []st
 		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_CLOUDID, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
+
+func NewScheduledtaskManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
+	return modulebase.ResourceManager{
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_SCHEDULEDTASK, "", "", columns, adminColumns),
+		Keyword:     keyword, KeywordPlural: keywordPlural}
+}
