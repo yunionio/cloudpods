@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	options "yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	fileutils2 "yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -100,12 +101,14 @@ func (s *SKVMGuestInstance) generateArmStartScript(data *jsonutils.JSONDict) (st
 	cmd += "sleep 1\n"
 	cmd += fmt.Sprintf("echo %d > %s\n", vncPort, s.GetVncFilePath())
 
-	for _, disk := range disks {
+	diskObjs := make([]storageman.IDisk, len(disks))
+	for idx, disk := range disks {
 		diskPath, _ := disk.GetString("path")
 		d, err := storageman.GetManager().GetDiskByPath(diskPath)
 		if err != nil {
 			return "", errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
 		}
+		diskObjs[idx] = d
 
 		diskIndex, _ := disk.Int("index")
 		cmd += d.GetDiskSetupScripts(int(diskIndex))
@@ -246,9 +249,11 @@ func (s *SKVMGuestInstance) generateArmStartScript(data *jsonutils.JSONDict) (st
 		cmd += " -device pvscsi,id=scsi"
 	}
 
-	for _, disk := range disks {
+	for idx, disk := range disks {
 		format, _ := disk.GetString("format")
-		cmd += s.getDriveDesc(disk, format, true)
+		obj := diskObjs[idx]
+		enableFileLocking := obj.GetType() == api.STORAGE_LOCAL
+		cmd += s.getDriveDesc(disk, format, enableFileLocking)
 		cmd += s.getArmVdiskDesc(disk)
 	}
 
