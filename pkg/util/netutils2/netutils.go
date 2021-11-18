@@ -346,12 +346,20 @@ func (n *SNetInterface) fetchConfig(expectIp string) {
 
 }
 
-func (n *SNetInterface) DisableGso() {
+// https://kris.io/2015/10/01/kvm-network-performance-tso-and-gso-turn-it-off/
+// General speaking, it is recommended to turn of GSO
+// however, this will degrade host network performance
+func (n *SNetInterface) SetupGso(on bool) {
+	onoff := "off"
+	if on {
+		onoff = "on"
+	}
 	procutils.NewCommand(
 		"ethtool", "-K", n.name,
-		"tso", "off", "gso", "off",
-		"gro", "off", "tx", "off",
-		"rx", "off", "sg", "off").Run()
+		"tso", onoff, "gso", onoff,
+		"ufo", onoff, "lro", onoff,
+		"gro", onoff, "tx", onoff,
+		"rx", onoff, "sg", onoff).Run()
 }
 
 func (n *SNetInterface) IsSecretInterface() bool {
