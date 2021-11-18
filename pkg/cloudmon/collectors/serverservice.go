@@ -16,15 +16,16 @@ package collectors
 
 import (
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
+	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
-	shellutils.R(&common.ReportOptions{}, "report-server", "Report Server", reportServer)
+	shellutils.R(&options.ReportOptions{}, "report-server", "Report Server", reportServer)
 }
 
 //入口函数[aliyun、huawei]
-func reportServer(session *mcclient.ClientSession, args *common.ReportOptions) error {
+func reportServer(session *mcclient.ClientSession, args *options.ReportOptions) error {
 	return common.ReportCloudMetricOfoperatorType(string(common.SERVER), session, args)
 }

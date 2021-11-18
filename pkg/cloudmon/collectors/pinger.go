@@ -25,6 +25,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
+	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
@@ -33,7 +34,43 @@ import (
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
-func pingProbeCoolector(s *mcclient.ClientSession, args *common.ReportOptions) error {
+func init() {
+	factory := PingProbeColectorFactory{}
+	common.RegisterFactory(&factory)
+}
+
+type PingProbeColectorFactory struct {
+	common.CommonReportFactory
+}
+
+func (p PingProbeColectorFactory) NewCloudReport(provider *common.SProvider, session *mcclient.ClientSession, args *options.ReportOptions, operatorType string) common.ICloudReport {
+	return &SPingProbeColectorReport{
+		common.CloudReportBase{
+			SProvider: nil,
+			Session:   session,
+			Args:      args,
+			Operator:  string(common.PING_PROBE),
+		},
+	}
+}
+
+func (p PingProbeColectorFactory) GetId() string {
+	return string(common.PING_PROBE)
+}
+
+type SPingProbeColectorReport struct {
+	common.CloudReportBase
+}
+
+func (self *SPingProbeColectorReport) Report() error {
+	err := pingProbeColector(self.Session, self.Args)
+	if err != nil {
+		return errors.Wrap(err, "pingProbeColector err")
+	}
+	return nil
+}
+
+func pingProbeColector(s *mcclient.ClientSession, args *options.ReportOptions) error {
 	isRoot := sysutils.IsRootPermission()
 	if !isRoot {
 		return errors.Error("require root permissions")
@@ -92,7 +129,7 @@ func getNetworkAddrMap(s *mcclient.ClientSession, netId string) (map[string]api.
 }
 
 func pingProbeNetwork(s *mcclient.ClientSession, data jsonutils.JSONObject,
-	args *common.PingProbeOptions) ([]influxdb.SMetricData, error) {
+	args *options.PingProbeOptions) ([]influxdb.SMetricData, error) {
 	metrics := make([]influxdb.SMetricData, 0)
 	net := &sNetwork{}
 	err := data.Unmarshal(&net)
@@ -218,5 +255,5 @@ func pingProbeNetwork(s *mcclient.ClientSession, data jsonutils.JSONObject,
 }
 
 func init() {
-	shellutils.R(&common.ReportOptions{}, "ping-probe", "Ping probe IPv4 address", pingProbeCoolector)
+	shellutils.R(&options.ReportOptions{}, "ping-probe", "Ping probe IPv4 address", pingProbeColector)
 }
