@@ -18,6 +18,7 @@ import (
 	"os"
 
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 type SHostOptions struct {
@@ -147,6 +148,8 @@ type SHostOptions struct {
 	DisableKVM bool `help:"force disable KVM" default:"false" json:"disable_kvm"`
 
 	DisableGPU bool `help:"force disable GPU" default:"false" json:"disable_gpu"`
+
+	EthtoolEnableGso bool `help:"use ethtool to turn on or off GSO(generic segment offloading)" default:"false" json:"ethtool_enable_gso"`
 }
 
 var (
@@ -155,7 +158,7 @@ var (
 
 func Parse() (hostOpts SHostOptions) {
 	common_options.ParseOptions(&hostOpts, os.Args, "host.conf", "host")
-	if len(hostOpts.CommonConfigFile) > 0 {
+	if len(hostOpts.CommonConfigFile) > 0 && fileutils2.Exists(hostOpts.CommonConfigFile) {
 		commonCfg := &common_options.HostCommonOptions{}
 		commonCfg.Config = hostOpts.CommonConfigFile
 		common_options.ParseOptions(commonCfg, []string{os.Args[0]}, "common.conf", "host")
