@@ -1177,6 +1177,7 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 
 	diff, err := db.Update(lb, func() error {
 		lb.Address = extLb.GetAddress()
+		lb.AddressType = extLb.GetAddressType()
 		lb.Status = extLb.GetStatus()
 		// lb.Name = extLb.GetName()
 		lb.LoadbalancerSpec = extLb.GetLoadbalancerSpec()
