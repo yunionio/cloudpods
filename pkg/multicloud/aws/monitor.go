@@ -23,15 +23,22 @@ import (
 
 func (self *SRegion) GetMonitorData(name string, ns string, instanceId string, since time.Time,
 	until time.Time) (*cloudwatch.GetMetricStatisticsOutput, error) {
+	return self.GetMonitorDataByDimensionName(name, ns, "InstanceId", instanceId, since, until)
+}
+
+func (self *SRegion) GetMonitorDataByDimensionName(name, ns, dimensionName, instanceId string, since time.Time,
+	until time.Time) (*cloudwatch.GetMetricStatisticsOutput, error) {
 	params := cloudwatch.GetMetricStatisticsInput{}
 	params.MetricName = &name
 	params.Namespace = &ns
 	params.Period = aws.Int64(int64(1))
 	params.Statistics = []*string{aws.String("Average")}
-	params.Dimensions = []*cloudwatch.Dimension{&cloudwatch.Dimension{
-		Name:  aws.String("InstanceId"),
-		Value: aws.String(instanceId),
-	}}
+	if len(dimensionName) != 0 {
+		params.Dimensions = []*cloudwatch.Dimension{&cloudwatch.Dimension{
+			Name:  aws.String(dimensionName),
+			Value: aws.String(instanceId),
+		}}
+	}
 	if !since.IsZero() {
 		params.StartTime = aws.Time(since)
 	}

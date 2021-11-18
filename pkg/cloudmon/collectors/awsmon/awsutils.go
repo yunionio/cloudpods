@@ -28,6 +28,10 @@ const (
 	UNIT_MSEC          = "ms"
 	UNIT_COUNT_SEC     = "count/s"
 
+	SERVER_METRIC_NAMESPACE = "AWS/EC2"
+	REDIS_METRIC_NAMESPACE  = "AWS/ElastiCache"
+	RDS_METRIC_NAMESPACE    = "AWS/RDS"
+
 	//ESC监控指标
 	INFLUXDB_FIELD_CPU_USAGE           = "vm_cpu.usage_active"
 	INFLUXDB_FIELD_MEM_USAGE           = "vm_mem.used_percent"
@@ -71,15 +75,16 @@ const (
 	INFLUXDB_FIELD_RDS_INNODB_WRITE_BPS = "rds_innodb.write_bps"
 
 	//REDIS监控指标
-	INFLUXDB_FIELD_REDIS_CPU_USAGE      = "dcs_cpu.usage_percent"
-	INFLUXDB_FIELD_REDIS_MEM_USAGE      = "dcs_mem.used_percent"
-	INFLUXDB_FIELD_REDIS_NET_BPS_RX     = "dcs_netio.bps_recv"
-	INFLUXDB_FIELD_REDIS_NET_BPS_TX     = "dcs_netio.bps_sent"
-	INFLUXDB_FIFLD_REDIS_CONN_USAGE     = "dcs_conn.used_conn"
-	INFLUXDB_FIFLD_REDIS_OPT_SES        = "dcs_instantopt.opt_sec"
-	INFLUXDB_FIFLD_REDIS_CACHE_KEYS     = "dcs_cachekeys.key_count"
-	INFLUXDB_FIFLD_REDIS_CACHE_EXP_KEYS = INFLUXDB_FIFLD_REDIS_CACHE_KEYS + ",exp=expire"
-	INFLUXDB_FIFLD_REDIS_DATA_MEM_USAGE = "dcs_datamem.used_byte"
+	INFLUXDB_FIELD_REDIS_CPU_USAGE          = "dcs_cpu.usage_percent"
+	INFLUXDB_FIELD_REDIS_MEM_USAGE          = "dcs_mem.used_percent"
+	INFLUXDB_FIELD_REDIS_NET_BPS_RX         = "dcs_netio.bps_recv"
+	INFLUXDB_FIELD_REDIS_NET_BPS_TX         = "dcs_netio.bps_sent"
+	INFLUXDB_FIFLD_REDIS_CONN_USAGE         = "dcs_conn.used_conn"
+	INFLUXDB_FIFLD_REDIS_OPT_SES            = "dcs_instantopt.opt_sec"
+	INFLUXDB_FIFLD_REDIS_CACHE_KEYS         = "dcs_cachekeys.key_count"
+	INFLUXDB_FIFLD_REDIS_CACHE_KEYS_PERCENT = "dcs_cachekeys.used_percent"
+	INFLUXDB_FIFLD_REDIS_CACHE_EXP_KEYS     = INFLUXDB_FIFLD_REDIS_CACHE_KEYS + ",exp=expire"
+	INFLUXDB_FIFLD_REDIS_DATA_MEM_USAGE     = "dcs_datamem.used_byte"
 
 	//对象存储OSS监控指标
 	INFLUXDB_FIELD_OSS_NET_BPS_RX          = "oss_netio.bps_recv"
@@ -136,4 +141,18 @@ var awsMetricSpecs = map[string][]string{
 	"EBSWriteBytes":  {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_DISK_WRITE_BPS_EBS},
 	"NetworkIn":      {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_NET_BPS_RX},
 	"NetworkOut":     {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_NET_BPS_TX},
+}
+
+var awsRdsMetricSpecs = map[string][]string{
+	"CPUUtilization":            {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_RDS_CPU_USAGE},
+	"NetworkReceiveThroughput":  {DEFAULT_STATISTICS, UNIT_BYTEPS, INFLUXDB_FIELD_RDS_NET_BPS_RX},
+	"NetworkTransmitThroughput": {DEFAULT_STATISTICS, UNIT_BYTEPS, INFLUXDB_FIELD_RDS_NET_BPS_TX},
+	"DatabaseConnections":       {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIELD_RDS_CONN_COUNT},
+}
+
+var awsRedisMetricsSpec = map[string][]string{
+	"CPUUtilization":  {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_REDIS_CPU_USAGE},
+	"CurrConnections": {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIFLD_REDIS_CONN_USAGE},
+	"Reclaimed":       {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIFLD_REDIS_CACHE_EXP_KEYS},
+	"CacheHitRate":    {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIFLD_REDIS_CACHE_KEYS_PERCENT},
 }

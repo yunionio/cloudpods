@@ -19,7 +19,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
 	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 func init() {
@@ -52,7 +51,8 @@ type SAwsCloudReport struct {
 }
 
 func (self *SAwsCloudReport) Report() error {
-	servers, err := self.GetAllserverOfThisProvider(&modules.Servers)
+	servers, err := self.GetResourceByOperator()
+	//servers, err := self.GetAllserverOfThisProvider(&modules.Servers)
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func (self *SAwsCloudReport) Report() error {
 	for _, region := range regionList {
 		servers := regionServerMap[region.GetGlobalId()]
 		switch self.Operator {
-		case "server":
+		default:
 			err = common.CollectRegionMetricAsync(self.Args.Batch, region, servers, self)
 			//err = self.collectRegionMetricOfHost(region, servers)
 			//case "redis":

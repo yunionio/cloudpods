@@ -212,7 +212,12 @@ func (self *CloudReportBase) AddMetricTag(metric *influxdb.SMetricData, tags map
 func (self *CloudReportBase) NewMetricFromJson(server jsonutils.JSONObject) (influxdb.SMetricData, error) {
 	switch MonType(self.Operator) {
 	case SERVER:
-		return JsonToMetric(server.(*jsonutils.JSONDict), "", ServerTags, make([]string, 0))
+		metric, err := JsonToMetric(server.(*jsonutils.JSONDict), "", ServerTags, make([]string, 0))
+		if err != nil {
+			return metric, err
+		}
+		self.AddMetricTag(&metric, OtherVmTags)
+		return metric, nil
 	case HOST:
 		return JsonToMetric(server.(*jsonutils.JSONDict), "", HostTags, make([]string, 0))
 	case REDIS:
