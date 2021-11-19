@@ -90,4 +90,9 @@ func init() {
 		[]string{},
 	)
 	modules.Register(&NotifySubscriber)
+
+	// important: Notifications' init must be behind Notication's init
+	Notifications = NotificationManager{
+		Notification,
+	}
 }
