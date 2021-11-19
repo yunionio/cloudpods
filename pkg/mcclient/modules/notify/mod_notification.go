@@ -99,9 +99,3 @@ func (manager *NotificationManager) Send(s *mcclient.ClientSession, msg SNotifyM
 	_, err := manager.Create(s, params)
 	return err
 }
-
-func init() {
-	Notifications = NotificationManager{
-		Notification,
-	}
-}
