@@ -31,7 +31,6 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/options"
-	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
@@ -164,10 +163,11 @@ func (s *SKVMGuestInstance) disablePvpanicDev() bool {
 	return val == "true"
 }
 
-func (s *SKVMGuestInstance) getDriveDesc(disk jsonutils.JSONObject, format string, fileLockingOff bool) string {
-	diskIndex, _ := disk.Int("index")
-	cacheMode, _ := disk.GetString("cache_mode")
-	aioMode, _ := disk.GetString("aio_mode")
+func (s *SKVMGuestInstance) getDriveDesc(disk api.GuestdiskJsonDesc, isArm bool) string {
+	format := disk.Format
+	diskIndex := disk.Index
+	cacheMode := disk.CacheMode
+	aioMode := disk.AioMode
 
 	cmd := " -drive"
 	cmd += fmt.Sprintf(" file=$DISK_%d", diskIndex)
@@ -179,11 +179,13 @@ func (s *SKVMGuestInstance) getDriveDesc(disk jsonutils.JSONObject, format strin
 		cmd += ",format=raw"
 	}
 	cmd += fmt.Sprintf(",cache=%s", cacheMode)
-	cmd += fmt.Sprintf(",aio=%s", aioMode)
-	if disk.Contains("url") { // # a remote file backed image
+	if disk.StorageType == api.STORAGE_LOCAL {
+		cmd += fmt.Sprintf(",aio=%s", aioMode)
+	}
+	if len(disk.Url) > 0 { // # a remote file backed image
 		cmd += ",copy-on-read=on"
 	}
-	if fileLockingOff {
+	if isArm && disk.StorageType == api.STORAGE_LOCAL {
 		cmd += ",file.locking=off"
 	}
 	// #cmd += ",media=disk"
@@ -212,14 +214,21 @@ func (s *SKVMGuestInstance) GetDiskDeviceModel(driver string) string {
 	}
 }
 
-func (s *SKVMGuestInstance) getVdiskDesc(disk jsonutils.JSONObject) string {
-	diskIndex, _ := disk.Int("index")
-	diskDriver, _ := disk.GetString("driver")
-	numQueues, _ := disk.Int("num_queues")
-	isSsd := jsonutils.QueryBoolean(disk, "is_ssd", false)
+func (s *SKVMGuestInstance) getVdiskDesc(disk api.GuestdiskJsonDesc, isArm bool) string {
+	diskIndex := disk.Index
+	diskDriver := disk.Driver
+	numQueues := disk.NumQueues
+	isSsd := disk.IsSSD
 
 	if numQueues == 0 {
 		numQueues = 4
+	}
+
+	if isArm && (diskDriver == DISK_DRIVER_IDE || diskDriver == DISK_DRIVER_SATA) {
+		// unsupported configuration: IDE controllers are unsupported
+		// for this QEMU binary or machine type
+		// replace with scsi
+		diskDriver = DISK_DRIVER_SCSI
 	}
 
 	var cmd = ""
@@ -380,15 +389,16 @@ func (s *SKVMGuestInstance) extraOptions() string {
 
 func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (string, error) {
 	var (
-		uuid, _  = s.Desc.GetString("uuid")
-		mem, _   = s.Desc.Int("mem")
-		cpu, _   = s.Desc.Int("cpu")
-		name, _  = s.Desc.GetString("name")
-		nics, _  = s.Desc.GetArray("nics")
-		disks, _ = s.Desc.GetArray("disks")
-		osname   = s.getOsname()
-		cmd      = ""
+		uuid, _ = s.Desc.GetString("uuid")
+		mem, _  = s.Desc.Int("mem")
+		cpu, _  = s.Desc.Int("cpu")
+		name, _ = s.Desc.GetString("name")
+		nics, _ = s.Desc.GetArray("nics")
+		osname  = s.getOsname()
+		cmd     = ""
 	)
+	disks := make([]api.GuestdiskJsonDesc, 0)
+	s.Desc.Unmarshal(&disks, "disks")
 
 	if osname == OS_NAME_MACOS {
 		s.Desc.Set("machine", jsonutils.NewString("q35"))
@@ -428,16 +438,11 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 	cmd += "sleep 1\n"
 	cmd += fmt.Sprintf("echo %d > %s\n", vncPort, s.GetVncFilePath())
 
-	for _, disk := range disks {
-		diskPath, _ := disk.GetString("path")
-		d, err := storageman.GetManager().GetDiskByPath(diskPath)
-		if err != nil {
-			return "", errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
-		}
-
-		diskIndex, _ := disk.Int("index")
-		cmd += d.GetDiskSetupScripts(int(diskIndex))
+	diskScripts, err := s.generateDiskSetupScripts(disks)
+	if err != nil {
+		return "", errors.Wrap(err, "generateDiskSetupScripts")
 	}
+	cmd += diskScripts
 
 	// cmd += fmt.Sprintf("STATE_FILE=`ls -d %s* | head -n 1`\n", s.getStateFilePathRootPrefix())
 	cmd += fmt.Sprintf("PID_FILE=%s\n", s.GetPidFilePath())
@@ -564,8 +569,7 @@ function nic_mtu() {
 	if osname == OS_NAME_MACOS {
 		cmd += " -device isa-applesmc,osk=ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc"
 		for i := 0; i < len(disks); i++ {
-			disk := disks[i].(*jsonutils.JSONDict)
-			disk.Set("driver", jsonutils.NewString(DISK_DRIVER_SATA))
+			disks[i].Driver = DISK_DRIVER_SATA
 		}
 		for i := 0; i < len(nics); i++ {
 			nic := nics[i].(*jsonutils.JSONDict)
@@ -628,23 +632,8 @@ function nic_mtu() {
 	}
 
 	cmd += " -object iothread,id=iothread0"
-	var diskDrivers = []string{}
-	for _, disk := range disks {
-		driver, _ := disk.GetString("driver")
-		diskDrivers = append(diskDrivers, driver)
-	}
 
-	if utils.IsInStringArray(DISK_DRIVER_SCSI, diskDrivers) {
-		cmd += " -device virtio-scsi-pci,id=scsi,iothread=iothread0,num_queues=4,vectors=5"
-	} else if utils.IsInStringArray(DISK_DRIVER_PVSCSI, diskDrivers) {
-		cmd += " -device pvscsi,id=scsi"
-	}
-
-	for _, disk := range disks {
-		format, _ := disk.GetString("format")
-		cmd += s.getDriveDesc(disk, format, false)
-		cmd += s.getVdiskDesc(disk)
-	}
+	cmd += s.generateDiskParams(disks, false)
 
 	if osname != OS_NAME_MACOS {
 		cmd += " -device ide-cd,drive=ide0-cd0,bus=ide.1"
