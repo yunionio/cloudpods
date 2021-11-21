@@ -23,8 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
@@ -605,6 +603,7 @@ func NewDateTimeColumn(name string, tagmap map[string]string, isPointer bool) SD
 // CompoundColumn represents a column of compound tye, e.g. a JSON, an Array, or a struct
 type CompoundColumn struct {
 	STextColumn
+	sqlchemy.SBaseCompoundColumn
 }
 
 // DefinitionString implementation of CompoundColumn for IColumnSpec
@@ -626,21 +625,16 @@ func (c *CompoundColumn) IsZero(val interface{}) bool {
 
 // ConvertFromString implementation of CompoundColumn for IColumnSpec
 func (c *CompoundColumn) ConvertFromString(str string) interface{} {
-	json, err := jsonutils.ParseString(str)
-	if err != nil {
-		log.Errorf("ParseString fail %s", err)
-		json = jsonutils.JSONNull
-	}
-	return json.String()
+	return c.SBaseCompoundColumn.ConvertFromString(str)
 }
 
 // ConvertFromValue implementation of CompoundColumn for IColumnSpec
 func (c *CompoundColumn) ConvertFromValue(val interface{}) interface{} {
-	return jsonutils.Marshal(val).String()
+	return c.SBaseCompoundColumn.ConvertFromValue(val)
 }
 
 // NewCompoundColumn returns an instance of CompoundColumn
 func NewCompoundColumn(name string, tagmap map[string]string, isPointer bool) CompoundColumn {
-	dtc := CompoundColumn{NewTextColumn(name, "String", tagmap, isPointer)}
+	dtc := CompoundColumn{STextColumn: NewTextColumn(name, "String", tagmap, isPointer)}
 	return dtc
 }
