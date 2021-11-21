@@ -22,11 +22,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	_ "github.com/go-sql-driver/mysql"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/prometheus"
 	"yunion.io/x/pkg/utils"
+	_ "yunion.io/x/sqlchemy/backends"
 
 	compute_api "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
