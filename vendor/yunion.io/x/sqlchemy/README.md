@@ -11,8 +11,8 @@ Features
 
 * Automatic creation and synchronization of table schema based on golang struct
 * Query syntax inpired by sqlalchemy
-* Support: MySQL/MariaDB with InnoDB engine/SQLITE(Exprimental)/ClickHouse(Exprimental) 
-* Support select, insert, update and insert or update
+* Support: MySQL/MariaDB with InnoDB engine / Sqlite (Exprimental) / ClickHouse (Exprimental) 
+* Support select, insert, update and insertOrupdate (no delete)
 
 Quick Examples
 ----------------
@@ -29,7 +29,7 @@ dbconn := sql.Open("mysql", "testgo:openstack@tcp(127.0.0.1:3306)/testgo?charset
 sqlchemy.SetDefaultDB(dbconn)
 ```
 
-### Setup database with MySQL with InnoDB
+### Setup database with MySQL with InnoDB explicitly
 
 ```go
 dbconn := sql.Open("mysql", "testgo:openstack@tcp(127.0.0.1:3306)/testgo?charset=utf8&parseTime")
@@ -44,7 +44,7 @@ dbconn := sql.Open("sqlite3", "file:mydb.s3db?cache=shared&mode=rwc")
 sqlchemy.SetDBWithNameBackend(dbconn, sqlchemy.DBName("sqlitedb"), sqlchemy.SQLiteBackend)
 ```
 
-### Setup database with clickhosue
+### Setup database with ClickHouse
 
 ```go
 dbconn := sql.Open("clickhouse", "tcp://host1:9000?username=user&password=qwerty&database=clicks")
@@ -71,7 +71,7 @@ type TestTable struct {
     Deleted   bool                 `nullable:"false" default:"false"`
     Notes     string               `default:"default notes"`
 }
-````
+```
 
 ## Table initialization
 
