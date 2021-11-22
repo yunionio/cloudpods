@@ -21,7 +21,7 @@ Quick Examples
 
 Before using sqlchemy, database connection should be setup first.
 
-### Setup database with default backend(MySQL with InnoDB)
+### Setup database of default backend(MySQL with InnoDB)
 
 ```go
 dbconn := sql.Open("mysql", "testgo:openstack@tcp(127.0.0.1:3306)/testgo?charset=utf8&parseTime")
@@ -29,14 +29,14 @@ dbconn := sql.Open("mysql", "testgo:openstack@tcp(127.0.0.1:3306)/testgo?charset
 sqlchemy.SetDefaultDB(dbconn)
 ```
 
-### Setup database with MySQL with InnoDB explicitly
+### Setup database of MySQL with InnoDB explicitly
 
 ```go
 dbconn := sql.Open("mysql", "testgo:openstack@tcp(127.0.0.1:3306)/testgo?charset=utf8&parseTime")
 
 sqlchemy.SetDBWithNameBackend(dbconn, sqlchemy.DBName("mysqldb"), sqlchemy.MySQLBackend)
 ```
-### Setup database with SQLite backend
+### Setup database of SQLite
 
 ```go
 dbconn := sql.Open("sqlite3", "file:mydb.s3db?cache=shared&mode=rwc")
@@ -44,7 +44,7 @@ dbconn := sql.Open("sqlite3", "file:mydb.s3db?cache=shared&mode=rwc")
 sqlchemy.SetDBWithNameBackend(dbconn, sqlchemy.DBName("sqlitedb"), sqlchemy.SQLiteBackend)
 ```
 
-### Setup database with ClickHouse
+### Setup database of ClickHouse
 
 ```go
 dbconn := sql.Open("clickhouse", "tcp://host1:9000?username=user&password=qwerty&database=clicks")
