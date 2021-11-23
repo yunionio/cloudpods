@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/scheduledtask"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
