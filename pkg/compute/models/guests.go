@@ -3079,15 +3079,21 @@ func (self *SGuest) AttachDisk(ctx context.Context, disk *SDisk, userCred mcclie
 func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string) error {
 	attached, err := self.isAttach2Disk(disk)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "isAttach2Disk")
 	}
 	if attached {
 		return fmt.Errorf("Guest has been attached to disk")
 	}
 
 	if len(driver) == 0 {
-		osProf := self.GetOSProfile()
-		driver = osProf.DiskDriver
+		// depends the last disk of this guest
+		existingDisks, _ := self.GetGuestDisks()
+		if len(existingDisks) > 0 {
+			driver = existingDisks[len(existingDisks)-1].Driver
+		} else {
+			osProf := self.GetOSProfile()
+			driver = osProf.DiskDriver
+		}
 	}
 	guestdisk := SGuestdisk{}
 	guestdisk.SetModelManager(GuestdiskManager, &guestdisk)

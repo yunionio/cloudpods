@@ -19,11 +19,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	options "yunion.io/x/onecloud/pkg/hostman/options"
-	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	fileutils2 "yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 )
@@ -32,47 +30,19 @@ func (s *SKVMGuestInstance) getArmMachine() string {
 	return "virt-2.12"
 }
 
-func (s *SKVMGuestInstance) getArmVdiskDesc(disk jsonutils.JSONObject) string {
-	diskIndex, _ := disk.Int("index")
-	diskDriver, _ := disk.GetString("driver")
-	numQueues, _ := disk.Int("num_queues")
-
-	if numQueues == 0 {
-		numQueues = 4
-	}
-
-	if diskDriver == DISK_DRIVER_IDE || diskDriver == DISK_DRIVER_SATA {
-		// unsupported configuration: IDE controllers are unsupported
-		// for this QEMU binary or machine type
-		// replace with scsi
-		diskDriver = DISK_DRIVER_SCSI
-	}
-
-	var cmd = ""
-	cmd += fmt.Sprintf(" -device %s", s.GetDiskDeviceModel(diskDriver))
-	cmd += fmt.Sprintf(",drive=drive_%d", diskIndex)
-	if diskDriver == DISK_DRIVER_VIRTIO {
-		cmd += fmt.Sprintf(",bus=%s,addr=0x%x", s.GetPciBus(), s.GetDiskAddr(int(diskIndex)))
-		cmd += fmt.Sprintf(",num-queues=%d,vectors=%d,iothread=iothread0", numQueues, numQueues+1)
-	} else if utils.IsInStringArray(diskDriver, []string{DISK_DRIVER_SCSI, DISK_DRIVER_PVSCSI}) {
-		cmd += ",bus=scsi.0"
-	}
-	cmd += fmt.Sprintf(",id=drive_%d", diskIndex)
-	return cmd
-}
-
 // arm cpu unsupport hackintosh
 func (s *SKVMGuestInstance) generateArmStartScript(data *jsonutils.JSONDict) (string, error) {
 	var (
-		uuid, _  = s.Desc.GetString("uuid")
-		mem, _   = s.Desc.Int("mem")
-		cpu, _   = s.Desc.Int("cpu")
-		name, _  = s.Desc.GetString("name")
-		nics, _  = s.Desc.GetArray("nics")
-		disks, _ = s.Desc.GetArray("disks")
-		osname   = s.getOsname()
-		cmd      = ""
+		uuid, _ = s.Desc.GetString("uuid")
+		mem, _  = s.Desc.Int("mem")
+		cpu, _  = s.Desc.Int("cpu")
+		name, _ = s.Desc.GetString("name")
+		nics, _ = s.Desc.GetArray("nics")
+		osname  = s.getOsname()
+		cmd     = ""
 	)
+	disks := make([]api.GuestdiskJsonDesc, 0)
+	s.Desc.Unmarshal(&disks, "disks")
 
 	vncPort, _ := data.Int("vnc_port")
 
@@ -107,18 +77,11 @@ func (s *SKVMGuestInstance) generateArmStartScript(data *jsonutils.JSONDict) (st
 	cmd += "sleep 1\n"
 	cmd += fmt.Sprintf("echo %d > %s\n", vncPort, s.GetVncFilePath())
 
-	diskObjs := make([]storageman.IDisk, len(disks))
-	for idx, disk := range disks {
-		diskPath, _ := disk.GetString("path")
-		d, err := storageman.GetManager().GetDiskByPath(diskPath)
-		if err != nil {
-			return "", errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
-		}
-		diskObjs[idx] = d
-
-		diskIndex, _ := disk.Int("index")
-		cmd += d.GetDiskSetupScripts(int(diskIndex))
+	diskScripts, err := s.generateDiskSetupScripts(disks)
+	if err != nil {
+		return "", errors.Wrap(err, "generateDiskSetupScripts")
 	}
+	cmd += diskScripts
 
 	cmd += fmt.Sprintf("STATE_FILE=`ls -d %s* | head -n 1`\n", s.getStateFilePathRootPrefix())
 	cmd += fmt.Sprintf("PID_FILE=%s\n", s.GetPidFilePath())
@@ -251,31 +214,7 @@ function nic_mtu() {
 
 	cmd += " -object iothread,id=iothread0"
 
-	var diskDrivers = []string{}
-	for _, disk := range disks {
-		diskDriver, _ := disk.GetString("driver")
-		if diskDriver == DISK_DRIVER_IDE || diskDriver == DISK_DRIVER_SATA {
-			// unsupported configuration: IDE controllers are unsupported
-			// for this QEMU binary or machine type
-			// replace with scsi
-			diskDriver = DISK_DRIVER_SCSI
-		}
-		diskDrivers = append(diskDrivers, diskDriver)
-	}
-
-	if utils.IsInStringArray(DISK_DRIVER_SCSI, diskDrivers) {
-		cmd += " -device virtio-scsi-pci,id=scsi,iothread=iothread0,num_queues=4,vectors=5"
-	} else if utils.IsInStringArray(DISK_DRIVER_PVSCSI, diskDrivers) {
-		cmd += " -device pvscsi,id=scsi"
-	}
-
-	for idx, disk := range disks {
-		format, _ := disk.GetString("format")
-		obj := diskObjs[idx]
-		enableFileLocking := obj.GetType() == api.STORAGE_LOCAL
-		cmd += s.getDriveDesc(disk, format, enableFileLocking)
-		cmd += s.getArmVdiskDesc(disk)
-	}
+	cmd += s.generateDiskParams(disks, true)
 
 	cdrom, _ := s.Desc.Get("cdrom")
 	if cdrom != nil && cdrom.Contains("path") {
