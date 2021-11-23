@@ -31,7 +31,7 @@ import (
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/apis/compute"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
@@ -469,7 +469,7 @@ func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 			if stype == "mirror" {
 				mirrorStatus := s.MirrorJobStatus()
 				if mirrorStatus.IsSucc() {
-					_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), compute.VM_RUNNING, "BLOCK_JOB_READY")
+					_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), api.VM_RUNNING, "BLOCK_JOB_READY")
 					if err != nil {
 						log.Errorf("onReceiveQMPEvent update server status error: %s", err)
 					}
@@ -560,12 +560,12 @@ func (s *SKVMGuestInstance) onMonitorDisConnect(err error) {
 
 func (s *SKVMGuestInstance) startDiskBackupMirror(ctx context.Context) {
 	if ctx == nil || len(appctx.AppContextTaskId(ctx)) == 0 {
-		status := compute.VM_RUNNING
+		status := api.VM_RUNNING
 		mirrorStatus := s.MirrorJobStatus()
 		if mirrorStatus.InProcess() {
-			status = compute.VM_BLOCK_STREAM
+			status = api.VM_BLOCK_STREAM
 		} else if mirrorStatus.IsFailed() {
-			status = compute.VM_BLOCK_STREAM_FAIL
+			status = api.VM_BLOCK_STREAM_FAIL
 			s.SyncMirrorJobFailed("mirror job missing")
 		}
 		hostutils.UpdateServerStatus(context.Background(), s.GetId(), status, "")
@@ -761,18 +761,18 @@ func (s *SKVMGuestInstance) SyncStatus(reason string) {
 }
 
 func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
-	var status = compute.VM_RUNNING
+	var status = api.VM_RUNNING
 	if jobs > 0 {
 		if s.IsMaster() {
 			mirrorStatus := s.MirrorJobStatus()
 			if mirrorStatus.InProcess() {
-				status = compute.VM_BLOCK_STREAM
+				status = api.VM_BLOCK_STREAM
 			} else if mirrorStatus.IsFailed() {
-				status = compute.VM_BLOCK_STREAM_FAIL
+				status = api.VM_BLOCK_STREAM_FAIL
 				s.SyncMirrorJobFailed("Block job missing")
 			}
 		} else {
-			status = compute.VM_BLOCK_STREAM
+			status = api.VM_BLOCK_STREAM
 		}
 	}
 	_, err := hostutils.UpdateServerStatus(context.Background(), s.Id, status, "")
@@ -807,7 +807,7 @@ func (s *SKVMGuestInstance) GetVpcNIC() jsonutils.JSONObject {
 	nics, _ := s.Desc.GetArray("nics")
 	for _, nic := range nics {
 		vpcProvider, _ := nic.GetString("vpc", "provider")
-		if vpcProvider == compute.VPC_PROVIDER_OVN {
+		if vpcProvider == api.VPC_PROVIDER_OVN {
 			if ip, _ := nic.GetString("ip"); ip != "" {
 				return nic
 			}
@@ -924,7 +924,7 @@ func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) erro
 		if disk.Contains("path") {
 			diskPath, _ := disk.GetString("path")
 			d, _ := storageman.GetManager().GetDiskByPath(diskPath)
-			if d != nil && d.GetType() == compute.STORAGE_LOCAL && migrated {
+			if d != nil && d.GetType() == api.STORAGE_LOCAL && migrated {
 				if err := d.DeleteAllSnapshot(); err != nil {
 					log.Errorln(err)
 					return err
@@ -1149,7 +1149,7 @@ func getNicBridge(nic jsonutils.JSONObject) string {
 	bridge, _ := nic.GetString("bridge")
 	if len(bridge) == 0 {
 		vpcProvider, _ := nic.GetString("vpc", "provider")
-		if vpcProvider == compute.VPC_PROVIDER_OVN {
+		if vpcProvider == api.VPC_PROVIDER_OVN {
 			bridge = options.HostOptions.OvnIntegrationBridge
 		}
 	}
@@ -1421,9 +1421,9 @@ func (s *SKVMGuestInstance) OnResumeSyncMetadataInfo() {
 		meta.Set("__hugepage", jsonutils.NewString("native"))
 	}
 	if !options.HostOptions.HostCpuPassthrough || s.getOsname() == OS_NAME_MACOS {
-		meta.Set("__cpu_mode", jsonutils.NewString(compute.CPU_MODE_QEMU))
+		meta.Set("__cpu_mode", jsonutils.NewString(api.CPU_MODE_QEMU))
 	} else {
-		meta.Set("__cpu_mode", jsonutils.NewString(compute.CPU_MODE_HOST))
+		meta.Set("__cpu_mode", jsonutils.NewString(api.CPU_MODE_HOST))
 	}
 	if s.syncMeta != nil {
 		meta.Update(s.syncMeta)
@@ -1596,7 +1596,7 @@ func (s *SKVMGuestInstance) PrepareMigrate(liveMigrage bool) (*jsonutils.JSONDic
 			if err != nil {
 				return nil, errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
 			}
-			if d.GetType() == compute.STORAGE_LOCAL {
+			if d.GetType() == api.STORAGE_LOCAL {
 				back, err := d.PrepareMigrate(liveMigrage)
 				if err != nil {
 					return nil, err
@@ -1630,9 +1630,49 @@ func (s *SKVMGuestInstance) IsSharedStorage() bool {
 			log.Errorf("failed find disk by path %s", diskPath)
 			return false
 		}
-		if !utils.IsInStringArray(disk.GetType(), compute.SHARED_STORAGE) {
+		if !utils.IsInStringArray(disk.GetType(), api.SHARED_STORAGE) {
 			return false
 		}
 	}
 	return true
+}
+
+func (s *SKVMGuestInstance) generateDiskSetupScripts(disks []api.GuestdiskJsonDesc) (string, error) {
+	cmd := " "
+	for _, disk := range disks {
+		diskPath := disk.Path
+		d, err := storageman.GetManager().GetDiskByPath(diskPath)
+		if err != nil {
+			return "", errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
+		}
+		if len(disk.StorageType) == 0 {
+			disk.StorageType = d.GetType()
+		}
+
+		diskIndex := disk.Index
+		cmd += d.GetDiskSetupScripts(int(diskIndex))
+	}
+	return cmd, nil
+}
+
+func (s *SKVMGuestInstance) generateDiskParams(disks []api.GuestdiskJsonDesc, isArm bool) string {
+	cmd := " "
+	firstDriver := make(map[string]bool)
+	for _, disk := range disks {
+		driver := disk.Driver
+		if driver == DISK_DRIVER_SCSI || driver == DISK_DRIVER_PVSCSI {
+			if _, ok := firstDriver[driver]; !ok {
+				switch driver {
+				case DISK_DRIVER_SCSI:
+					cmd += " -device virtio-scsi-pci,id=scsi,iothread=iothread0,num_queues=4,vectors=5"
+				case DISK_DRIVER_PVSCSI:
+					cmd += " -device pvscsi,id=scsi"
+				}
+				firstDriver[driver] = true
+			}
+		}
+		cmd += s.getDriveDesc(disk, isArm)
+		cmd += s.getVdiskDesc(disk, isArm)
+	}
+	return cmd
 }

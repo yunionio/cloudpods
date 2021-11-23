@@ -193,6 +193,7 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) *api.GuestdiskJsonDesc {
 	desc.TemplateId = disk.GetTemplateId()
 	if len(desc.TemplateId) > 0 {
 		storage, _ := disk.GetStorage()
+		desc.StorageType = storage.StorageType
 		storagecacheimg := StoragecachedimageManager.GetStoragecachedimage(storage.StoragecacheId, desc.TemplateId)
 		if storagecacheimg != nil {
 			desc.ImagePath = storagecacheimg.Path
