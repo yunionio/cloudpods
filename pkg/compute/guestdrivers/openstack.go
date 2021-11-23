@@ -228,7 +228,10 @@ func (self *SOpenStackGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.C
 		if err != nil {
 			return "", errors.Wrap(err, "guest.GetSystemDisk(")
 		}
-		storage, _ := sysDisk.GetStorage()
+		storage, err := sysDisk.GetStorage()
+		if err != nil {
+			return "", errors.Wrap(err, "sysDisk.GetStorage")
+		}
 		if storage.StorageType == api.STORAGE_OPENSTACK_NOVA { //不通过镜像创建磁盘的机器
 			conf := cloudprovider.SManagedVMRebuildRootConfig{
 				Account:   desc.Account,
@@ -256,11 +259,10 @@ func (self *SOpenStackGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.C
 				detachDisks = append(detachDisks, iDisk.GetGlobalId())
 			}
 		}
-		defer self.attachDisks(ctx, ihost, instanceId, detachDisks)
 
-		eip, err := guest.GetElasticIp()
-		if err == nil && eip != nil {
-			ieip, err := eip.GetIEip()
+		var ieip cloudprovider.ICloudEIP
+		if eip, err := guest.GetElasticIp(); eip != nil {
+			ieip, err = eip.GetIEip()
 			if err != nil {
 				return "", errors.Wrap(err, "eip.GetIEip")
 			}
@@ -268,12 +270,10 @@ func (self *SOpenStackGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.C
 			if err != nil {
 				return "", errors.Wrap(err, "ieip.Dissociate")
 			}
-			conf := &cloudprovider.AssociateConfig{
-				InstanceId:    instanceId,
-				AssociateType: api.EIP_ASSOCIATE_TYPE_SERVER,
-			}
-			defer ieip.Associate(conf)
+		} else if err != nil {
+			return "", err
 		}
+
 		err = iVM.DeleteVM(ctx)
 		if err != nil {
 			return "", errors.Wrap(err, "iVM.DeleteVM")
@@ -298,6 +298,17 @@ func (self *SOpenStackGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.C
 			IsForce: true,
 		}
 		iVM.StopVM(ctx, opts)
+
+		if ieip != nil {
+			conf := &cloudprovider.AssociateConfig{
+				InstanceId:    instanceId,
+				AssociateType: api.EIP_ASSOCIATE_TYPE_SERVER,
+			}
+			if err = ieip.Associate(conf); err != nil {
+				return "", errors.Wrap(err, "eip.Associate")
+			}
+		}
+		self.attachDisks(ctx, ihost, instanceId, detachDisks)
 
 		iDisks, err = iVM.GetIDisks()
 		if err != nil {
