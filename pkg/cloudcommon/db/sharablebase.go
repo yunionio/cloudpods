@@ -204,7 +204,8 @@ func SharableManagerValidateCreateData(
 		return input, errors.Wrap(httperrors.ErrInputParameter, "the resource is not sharable")
 	}
 	if input.IsPublic != nil && *input.IsPublic {
-		allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionPerform, "public")
+		// TODO: deal with policyTags
+		allowScope, _ := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionPerform, "public")
 		if reqScope.HigherThan(allowScope) {
 			return input, errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require %s allow %s", reqScope, allowScope)
 		}
@@ -468,13 +469,18 @@ func SharablePerformPublic(model ISharableBaseModel, ctx context.Context, userCr
 		}
 	}
 
-	allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.KeywordPlural(), policy.PolicyActionPerform, "public")
+	allowScope, policyTags := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.KeywordPlural(), policy.PolicyActionPerform, "public")
 	if targetScope.HigherThan(allowScope) {
 		return errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require %s allow %s", targetScope, allowScope)
 	}
 	requireScope := model.GetPublicScope()
 	if requireScope.HigherThan(allowScope) {
 		return errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require %s allow %s", requireScope, allowScope)
+	}
+
+	err = objectConfirmPolicyTags(ctx, userCred, model, policyTags)
+	if err != nil {
+		return errors.Wrap(err, "objectConfirmPolicyTags")
 	}
 
 	_, err = Update(model, func() error {
@@ -513,12 +519,17 @@ func SharablePerformPrivate(model ISharableBaseModel, ctx context.Context, userC
 	}
 
 	requireScope := model.GetPublicScope()
-	allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "private")
+	allowScope, policyTags := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "private")
 	if requireScope.HigherThan(allowScope) {
 		return errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require %s allow %s", requireScope, allowScope)
 	}
 
-	err := SharedResourceManager.CleanModelShares(ctx, userCred, model)
+	err := objectConfirmPolicyTags(ctx, userCred, model, policyTags)
+	if err != nil {
+		return errors.Wrap(err, "objectConfirmPolicyTags")
+	}
+
+	err = SharedResourceManager.CleanModelShares(ctx, userCred, model)
 	if err != nil {
 		return errors.Wrap(err, "CleanModelShares")
 	}
@@ -587,7 +598,7 @@ func SharableModelCustomizeCreate(model ISharableBaseModel, ctx context.Context,
 			if managedModel, ok := model.(IManagedResourceBase); ok {
 				isManaged = managedModel.IsManaged()
 			}
-			if !isManaged && IsAdminAllowPerform(userCred, model, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
+			if !isManaged && IsAdminAllowPerform(ctx, userCred, model, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
 				model.SetShare(rbacutils.ScopeSystem)
 				data.(*jsonutils.JSONDict).Set("public_scope", jsonutils.NewString(string(rbacutils.ScopeSystem)))
 			}

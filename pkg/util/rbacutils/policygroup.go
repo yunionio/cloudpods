@@ -21,33 +21,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
-/*
-type SPolicyInfo struct {
-	Id              string           `json:"id"`
-	Name            string           `json:"name"`
-	Enabled         bool             `json:"enabled"`
-	DomainId        string           `json:"domain_id"`
-	IsPublic        bool             `json:"is_public"`
-	PublicScope     string           `json:"public_scope"`
-	SharedDomainIds []string         `json:"shared_domain_ids"`
-	Scope           TRbacScope       `json:"scope"`
-	Policy          *SRbacPolicyCore `json:"policy"`
-}
-
-func GetMatchedPolicies(policies []SPolicyInfo, userCred IRbacIdentity) (TPolicySet, []string) {
-	matchedPolicies := make([]*SRbacPolicyCore, 0)
-	matchedNames := make([]string, 0)
-	for i := range policies {
-		isMatched, _ := policies[i].Policy.Match(userCred)
-		if !isMatched {
-			continue
-		}
-		matchedPolicies = append(matchedPolicies, policies[i].Policy)
-		matchedNames = append(matchedNames, policies[i].Name)
-	}
-	return matchedPolicies, matchedNames
-}*/
-
 type TPolicyGroup map[TRbacScope]TPolicySet
 
 func DecodePolicyGroup(json jsonutils.JSONObject) (TPolicyGroup, error) {
@@ -57,7 +30,8 @@ func DecodePolicyGroup(json jsonutils.JSONObject) (TPolicyGroup, error) {
 	}
 	group := TPolicyGroup{}
 	for k := range jmap {
-		group[TRbacScope(k)], err = DecodePolicySet(jmap[k])
+		scope := TRbacScope(k)
+		group[scope], err = DecodePolicySet(jmap[k])
 		if err != nil {
 			return nil, errors.Wrapf(err, "decode %s", k)
 		}

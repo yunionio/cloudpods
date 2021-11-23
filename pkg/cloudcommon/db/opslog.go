@@ -354,26 +354,6 @@ func (manager *SOpsLogManager) LogSyncUpdate(m IModel, uds sqlchemy.UpdateDiffs,
 	}
 }
 
-func (manager *SOpsLogManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
-func (manager *SOpsLogManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
-func (self *SOpsLog) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return IsAllowGet(rbacutils.ScopeSystem, userCred, self) || ((userCred.GetProjectDomainId() == self.OwnerDomainId || userCred.GetProjectDomainId() == self.ProjectDomainId) && IsAllowGet(rbacutils.ScopeDomain, userCred, self)) || userCred.GetProjectId() == self.ProjectId || userCred.GetProjectId() == self.OwnerProjectId
-}
-
-func (self *SOpsLog) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return false
-}
-
-func (self *SOpsLog) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
 func (self *SOpsLog) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	return httperrors.NewForbiddenError("not allow to delete log")
 }

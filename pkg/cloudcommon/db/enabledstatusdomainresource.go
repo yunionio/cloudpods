@@ -43,10 +43,6 @@ func NewEnabledStatusDomainLevelResourceBaseManager(dt interface{}, tableName st
 	}
 }
 
-func (self *SEnabledStatusDomainLevelResourceBase) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) bool {
-	return IsDomainAllowPerform(userCred, self, "enable")
-}
-
 // 启用资源
 func (self *SEnabledStatusDomainLevelResourceBase) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
 	err := EnabledPerformEnable(self, ctx, userCred, true)
@@ -54,10 +50,6 @@ func (self *SEnabledStatusDomainLevelResourceBase) PerformEnable(ctx context.Con
 		return nil, errors.Wrap(err, "EnabledPerformEnable")
 	}
 	return nil, nil
-}
-
-func (self *SEnabledStatusDomainLevelResourceBase) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) bool {
-	return IsDomainAllowPerform(userCred, self, "disable")
 }
 
 // 禁用资源

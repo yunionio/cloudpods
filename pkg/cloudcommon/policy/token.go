@@ -38,23 +38,13 @@ func (self *SPolicyTokenCredential) HasSystemAdminPrivilege() bool {
 	return self.TokenCredential.HasSystemAdminPrivilege()
 }
 
-func (self *SPolicyTokenCredential) IsAllow(targetScope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) bool {
+func (self *SPolicyTokenCredential) IsAllow(targetScope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
 	if consts.IsRbacEnabled() {
-		for _, scope := range []rbacutils.TRbacScope{
-			rbacutils.ScopeSystem,
-			rbacutils.ScopeDomain,
-			rbacutils.ScopeProject,
-			rbacutils.ScopeUser,
-		} {
-			if targetScope.HigherThan(scope) {
-				break
-			}
-			result := PolicyManager.Allow(scope, self.TokenCredential, service, resource, action, extra...)
-			if result == rbacutils.Allow {
-				return true
-			}
+		allowScope, result := PolicyManager.AllowScope(self.TokenCredential, service, resource, action, extra...)
+		if result.Result == rbacutils.Allow && !targetScope.HigherThan(allowScope) {
+			return result
 		}
-		return false
+		return rbacutils.PolicyDeny
 	}
 	return self.TokenCredential.IsAllow(targetScope, service, resource, action, extra...)
 }

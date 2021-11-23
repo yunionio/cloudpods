@@ -83,7 +83,7 @@ type TokenCredential interface {
 	// IsAdmin() bool
 	HasSystemAdminPrivilege() bool
 
-	IsAllow(scope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) bool
+	IsAllow(scope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult
 
 	GetRegions() []string
 

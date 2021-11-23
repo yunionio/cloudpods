@@ -78,26 +78,6 @@ func (manager *SStandaloneAnonResourceBaseManager) IsStandaloneManager() bool {
 	return true
 }
 
-func (self *SStandaloneAnonResourceBaseManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return IsAdminAllowList(userCred, self)
-}
-
-func (self *SStandaloneAnonResourceBaseManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SStandaloneAnonResourceBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return IsAdminAllowGet(userCred, self)
-}
-
-func (self *SStandaloneAnonResourceBase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SStandaloneAnonResourceBase) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return IsAdminAllowDelete(userCred, self)
-}
-
 func (manager *SStandaloneAnonResourceBaseManager) GetIStandaloneModelManager() IStandaloneModelManager {
 	return manager.GetVirtualObject().(IStandaloneModelManager)
 }
@@ -120,7 +100,8 @@ func (manager *SStandaloneAnonResourceBaseManager) FilterByHiddenSystemAttribute
 	if showEmulated {
 		var isAllow bool
 		if consts.IsRbacEnabled() {
-			allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList, "show_emulated")
+			// TODO, add tagfilter
+			allowScope, _ := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList, "show_emulated")
 			if !scope.HigherThan(allowScope) {
 				isAllow = true
 			}
@@ -224,12 +205,12 @@ func (model *SStandaloneAnonResourceBase) GetShortDescV2(ctx context.Context) *a
 /*
  * userCred: optional
  */
-func (model *SStandaloneAnonResourceBase) GetMetadata(key string, userCred mcclient.TokenCredential) string {
-	return Metadata.GetStringValue(model, key, userCred)
+func (model *SStandaloneAnonResourceBase) GetMetadata(ctx context.Context, key string, userCred mcclient.TokenCredential) string {
+	return Metadata.GetStringValue(ctx, model, key, userCred)
 }
 
-func (model *SStandaloneAnonResourceBase) GetMetadataJson(key string, userCred mcclient.TokenCredential) jsonutils.JSONObject {
-	return Metadata.GetJsonValue(model, key, userCred)
+func (model *SStandaloneAnonResourceBase) GetMetadataJson(ctx context.Context, key string, userCred mcclient.TokenCredential) jsonutils.JSONObject {
+	return Metadata.GetJsonValue(ctx, model, key, userCred)
 }
 
 func isUserMetadata(key string) bool {
@@ -322,11 +303,11 @@ func (model *SStandaloneAnonResourceBase) RemoveAllMetadata(ctx context.Context,
 }
 
 func (model *SStandaloneAnonResourceBase) GetAllMetadata(userCred mcclient.TokenCredential) (map[string]string, error) {
-	return Metadata.GetAll(model, nil, "", userCred)
+	return Metadata.GetAll(model, nil, "")
 }
 
 func (model *SStandaloneAnonResourceBase) GetAllUserMetadata() (map[string]string, error) {
-	meta, err := Metadata.GetAll(model, nil, USER_TAG_PREFIX, nil)
+	meta, err := Metadata.GetAll(model, nil, USER_TAG_PREFIX)
 	if err != nil {
 		return nil, errors.Wrap(err, "Metadata.GetAll")
 	}
@@ -338,7 +319,7 @@ func (model *SStandaloneAnonResourceBase) GetAllUserMetadata() (map[string]strin
 }
 
 func (model *SStandaloneAnonResourceBase) GetAllCloudMetadata() (map[string]string, error) {
-	meta, err := Metadata.GetAll(model, nil, CLOUD_TAG_PREFIX, nil)
+	meta, err := Metadata.GetAll(model, nil, CLOUD_TAG_PREFIX)
 	if err != nil {
 		return nil, errors.Wrap(err, "Metadata.GetAll")
 	}
@@ -349,13 +330,9 @@ func (model *SStandaloneAnonResourceBase) GetAllCloudMetadata() (map[string]stri
 	return ret, nil
 }
 
-func (model *SStandaloneAnonResourceBase) AllowGetDetailsMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return IsAllowGetSpec(rbacutils.ScopeSystem, userCred, model, "metadata")
-}
-
 // 获取资源标签（元数据）
 func (model *SStandaloneAnonResourceBase) GetDetailsMetadata(ctx context.Context, userCred mcclient.TokenCredential, input apis.GetMetadataInput) (apis.GetMetadataOutput, error) {
-	val, err := Metadata.GetAll(model, input.Field, input.Prefix, userCred)
+	val, err := Metadata.GetAll(model, input.Field, input.Prefix)
 	if err != nil {
 		return nil, errors.Wrap(err, "Metadata.GetAll")
 	}
@@ -370,16 +347,12 @@ func (model *SStandaloneAnonResourceBase) GetDetailsMetadata(ctx context.Context
 	return val, nil
 }
 
-func (model *SStandaloneAnonResourceBase) AllowPerformMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "metadata")
-}
-
 // +onecloud:swagger-gen-ignore
 func (model *SStandaloneAnonResourceBase) PerformMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformMetadataInput) (jsonutils.JSONObject, error) {
 	dictStore := make(map[string]interface{})
 	for k, v := range input {
 		// 已双下滑线开头的metadata是系统内置，普通用户不可添加，只能查看
-		if strings.HasPrefix(k, SYS_TAG_PREFIX) && (userCred == nil || !IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "metadata")) {
+		if strings.HasPrefix(k, SYS_TAG_PREFIX) && (userCred == nil || !IsAllowPerform(ctx, rbacutils.ScopeSystem, userCred, model, "metadata")) {
 			return nil, httperrors.NewForbiddenError("not allow to set system key, please remove the underscore at the beginning")
 		}
 		dictStore[k] = v
@@ -389,10 +362,6 @@ func (model *SStandaloneAnonResourceBase) PerformMetadata(ctx context.Context, u
 		return nil, errors.Wrap(err, "SetAllMetadata")
 	}
 	return nil, nil
-}
-
-func (model *SStandaloneAnonResourceBase) AllowPerformUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "user-metadata")
 }
 
 // 更新资源的用户标签
@@ -407,10 +376,6 @@ func (model *SStandaloneAnonResourceBase) PerformUserMetadata(ctx context.Contex
 		return nil, errors.Wrap(err, "SetUserMetadataValues")
 	}
 	return nil, nil
-}
-
-func (model *SStandaloneAnonResourceBase) AllowPerformSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "set-user-metadata")
 }
 
 // 全量替换资源的所有用户标签

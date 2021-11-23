@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 type SPolicyManager struct {
@@ -86,6 +87,15 @@ type SPolicy struct {
 
 	// 是否为系统权限
 	IsSystem tristate.TriState `nullable:"false" default:"false" list:"domain" update:"admin" create:"admin_optional"`
+
+	// 匹配的项目标签
+	ProjectTags tagutils.TTagSet `nullable:"true" list:"user" update:"domain" create:"domain_optional"`
+
+	// 匹配的域标签
+	DomainTags tagutils.TTagSet `nullable:"true" list:"user" update:"admin" create:"admin_optional"`
+
+	// 匹配的资源标签
+	ResourceTags tagutils.TTagSet `nullable:"true" list:"user" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SPolicyManager) InitializeData() error {
@@ -228,7 +238,7 @@ func (manager *SPolicyManager) FetchEnabledPolicies() ([]SPolicy, error) {
 	return policies, nil
 }
 
-func validatePolicyVioldatePrivilege(userCred mcclient.TokenCredential, policyScope rbacutils.TRbacScope, policy rbacutils.TPolicy) error {
+func validatePolicyVioldatePrivilege(userCred mcclient.TokenCredential, policyScope rbacutils.TRbacScope, policy *rbacutils.SPolicy) error {
 	if userCred.GetUserName() == api.SystemAdminUser && userCred.GetDomainId() == api.DEFAULT_DOMAIN_ID {
 		return nil
 	}
@@ -237,7 +247,7 @@ func validatePolicyVioldatePrivilege(userCred mcclient.TokenCredential, policySc
 		return errors.Wrap(err, "GetMatchPolicyGroup")
 	}
 	noViolate := false
-	assignPolicySet := rbacutils.TPolicySet{policy}
+	assignPolicySet := rbacutils.TPolicySet{*policy}
 	for _, scope := range []rbacutils.TRbacScope{
 		rbacutils.ScopeSystem,
 		rbacutils.ScopeDomain,
@@ -245,7 +255,7 @@ func validatePolicyVioldatePrivilege(userCred mcclient.TokenCredential, policySc
 	} {
 		isViolate := false
 		policySet, ok := policyGroup[scope]
-		if !ok || len(policySet) == 0 || policySet.ViolatedBy(assignPolicySet) {
+		if !ok || len(policySet) == 0 || !policySet.Contains(assignPolicySet) {
 			isViolate = true
 		}
 		if !isViolate {
@@ -276,7 +286,7 @@ func (manager *SPolicyManager) ValidateCreateData(
 		input.Name = input.Type
 	}
 
-	policy, err := rbacutils.DecodePolicyData(input.Blob)
+	policy, err := rbacutils.DecodePolicyData(input.DomainTags, input.ProjectTags, input.ResourceTags, input.Blob)
 	if err != nil {
 		return input, httperrors.NewInputParameterError("fail to decode policy data")
 	}
@@ -314,7 +324,7 @@ func (manager *SPolicyManager) ValidateCreateData(
 	if input.IsSystem != nil && *input.IsSystem {
 		requireScope = rbacutils.ScopeSystem
 	}
-	allowScope := policyman.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, manager.KeywordPlural(), policyman.PolicyActionCreate)
+	allowScope, _ := policyman.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, manager.KeywordPlural(), policyman.PolicyActionCreate)
 	if requireScope.HigherThan(allowScope) {
 		return input, errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require %s allow %s", requireScope, allowScope)
 	}
@@ -334,14 +344,27 @@ func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient
 	}
 
 	if len(requireScope) > 0 {
-		allowScope := policyman.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, policy.KeywordPlural(), policyman.PolicyActionUpdate)
+		allowScope, _ := policyman.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, policy.KeywordPlural(), policyman.PolicyActionUpdate)
 		if requireScope.HigherThan(allowScope) {
 			return input, errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require %s allow %s", requireScope, allowScope)
 		}
 	}
 
+	switch input.TagUpdatePolicy {
+	case api.TAG_UPDATE_POLICY_REMOVE:
+		input.DomainTags = policy.DomainTags.Remove(input.DomainTags...)
+		input.ProjectTags = policy.ProjectTags.Remove(input.ProjectTags...)
+		input.ObjectTags = policy.ResourceTags.Remove(input.ObjectTags...)
+	case api.TAG_UPDATE_POLICY_REPLACE:
+		// do nothing
+	default:
+		input.DomainTags = policy.DomainTags.Add(input.DomainTags)
+		input.ProjectTags = policy.ProjectTags.Add(input.ProjectTags)
+		input.ObjectTags = policy.ResourceTags.Add(input.ObjectTags)
+	}
+
 	if input.Blob != nil {
-		p, err := rbacutils.DecodePolicyData(input.Blob)
+		p, err := rbacutils.DecodePolicyData(input.DomainTags, input.ProjectTags, input.ObjectTags, input.Blob)
 		if err != nil {
 			return input, httperrors.NewInputParameterError("fail to decode policy data")
 		}
@@ -487,7 +510,8 @@ func (manager *SPolicyManager) ListItemFilter(
 		}
 	}
 	if len(query.Scope) == 0 {
-		query.Scope = string(policyman.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policyman.PolicyActionList))
+		allowScope, _ := policyman.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policyman.PolicyActionList)
+		query.Scope = string(allowScope)
 	}
 	switch query.Scope {
 	case string(rbacutils.ScopeProject):
@@ -573,8 +597,8 @@ func (policy *SPolicy) GetSharedDomains() []string {
 	return db.SharableGetSharedProjects(policy, db.SharedTargetDomain)
 }
 
-func (policy *SPolicy) getPolicy() (rbacutils.TPolicy, error) {
-	pc, err := rbacutils.DecodePolicyData(policy.Blob)
+func (policy *SPolicy) getPolicy() (*rbacutils.SPolicy, error) {
+	pc, err := rbacutils.DecodePolicyData(policy.DomainTags, policy.ProjectTags, policy.ResourceTags, policy.Blob)
 	if err != nil {
 		return nil, errors.Wrap(err, "Decode")
 	}

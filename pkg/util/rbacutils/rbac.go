@@ -45,6 +45,14 @@ const (
 	ScopeNone = TRbacScope("none")
 )
 
+func (r TRbacResult) IsAllow() bool {
+	return r == Allow
+}
+
+func (r TRbacResult) IsDeny() bool {
+	return r == Deny
+}
+
 var (
 	strictness = map[TRbacResult]int{
 		Deny:       0,

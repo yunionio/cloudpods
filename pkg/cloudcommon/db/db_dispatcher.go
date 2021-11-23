@@ -42,6 +42,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 type DBModelDispatcher struct {
@@ -253,10 +254,12 @@ func listItemQueryFiltersRaw(manager IModelManager,
 	doCheckRbac bool,
 	useRawQuery bool,
 ) (*sqlchemy.SQuery, error) {
-	ownerId, queryScope, err := FetchCheckQueryOwnerScope(ctx, userCred, query, manager, action, doCheckRbac)
+	ownerId, queryScope, err, policyTagFilters := FetchCheckQueryOwnerScope(ctx, userCred, query, manager, action, doCheckRbac)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
+
+	query.(*jsonutils.JSONDict).Update(policyTagFilters.Json())
 
 	if !useRawQuery {
 		// Specifically for joint resource, these filters will exclude
@@ -339,7 +342,8 @@ func mergeFields(metaFields, queryFields []string, isSysAdmin bool) stringutils2
 func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, query jsonutils.JSONObject, delayFetch bool) ([]jsonutils.JSONObject, error) {
 	metaFields, excludeFields := listFields(manager, userCred)
 	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
-	listF := mergeFields(metaFields, fieldFilter, IsAllowList(rbacutils.ScopeSystem, userCred, manager))
+	allowListResult := IsAllowList(rbacutils.ScopeSystem, userCred, manager)
+	listF := mergeFields(metaFields, fieldFilter, allowListResult.Result.IsAllow())
 	listExcludes, _, _ := stringutils2.Split(stringutils2.NewSortedStrings(excludeFields), listF)
 
 	showDetails := false
@@ -894,7 +898,7 @@ func getItemDetails(manager IModelManager, item IModel, ctx context.Context, use
 		return nil, errors.Wrap(err, "FetchCustomizeColumns")
 	}
 	if len(extraRows) == 1 {
-		getFields := mergeFields(metaFields, fieldFilter, IsAllowGet(rbacutils.ScopeSystem, userCred, item))
+		getFields := mergeFields(metaFields, fieldFilter, IsAllowGet(ctx, rbacutils.ScopeSystem, userCred, item))
 		excludes, _, _ := stringutils2.Split(stringutils2.NewSortedStrings(excludeFields), getFields)
 		return extraRows[0].CopyExcludes(excludes...), nil
 	}
@@ -914,7 +918,7 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 	}
 
 	if consts.IsRbacEnabled() {
-		_, _, err := FetchCheckQueryOwnerScope(ctx, userCred, query, dispatcher.modelManager, policy.PolicyActionList, true)
+		_, _, err, _ := FetchCheckQueryOwnerScope(ctx, userCred, query, dispatcher.modelManager, policy.PolicyActionList, true)
 		if err != nil {
 			return nil, err
 		}
@@ -981,7 +985,7 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 	}
 
 	if consts.IsRbacEnabled() {
-		err := isObjectRbacAllowed(model, userCred, policy.PolicyActionGet)
+		err := isObjectRbacAllowed(ctx, model, userCred, policy.PolicyActionGet)
 		if err != nil {
 			return nil, err
 		}
@@ -1013,7 +1017,7 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 	modelValue := reflect.ValueOf(model)
 
 	if consts.IsRbacEnabled() {
-		err := isObjectRbacAllowed(model, userCred, policy.PolicyActionGet, spec)
+		err := isObjectRbacAllowed(ctx, model, userCred, policy.PolicyActionGet, spec)
 		if err != nil {
 			return nil, err
 		}
@@ -1297,17 +1301,23 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		}
 	}
 
+	var requireTags tagutils.TTagSet
 	if consts.IsRbacEnabled() {
-		err := isClassRbacAllowed(dispatcher.modelManager, userCred, ownerId, policy.PolicyActionCreate)
+		requireTags, err = isClassRbacAllowed(ctx, dispatcher.modelManager, userCred, ownerId, policy.PolicyActionCreate)
 		if err != nil {
 			return nil, err
 		}
-	} else if !dispatcher.modelManager.AllowCreateItem(ctx, userCred, query, data) {
-		return nil, httperrors.NewForbiddenError("Not allow to create item")
 	}
 
 	if InitPendingUsagesInContext != nil {
 		ctx = InitPendingUsagesInContext(ctx)
+	}
+
+	if len(requireTags) > 0 {
+		// add requireTags to require data
+		for _, tag := range requireTags {
+			data.(*jsonutils.JSONDict).Add(jsonutils.NewString(tag.Value), "__meta__", tag.Key)
+		}
 	}
 
 	model, err := DoCreate(dispatcher.modelManager, ctx, userCred, query, data, ownerId)
@@ -1385,13 +1395,18 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		}
 	}
 
+	var requireTags tagutils.TTagSet
 	if consts.IsRbacEnabled() {
-		err := isClassRbacAllowed(manager, userCred, ownerId, policy.PolicyActionCreate)
+		requireTags, err = isClassRbacAllowed(ctx, manager, userCred, ownerId, policy.PolicyActionCreate)
 		if err != nil {
 			return nil, err
 		}
-	} else if !manager.AllowCreateItem(ctx, userCred, query, data) {
-		return nil, httperrors.NewForbiddenError("Not allow to create item")
+	}
+
+	if len(requireTags) > 0 {
+		for _, tag := range requireTags {
+			data.(*jsonutils.JSONDict).Add(jsonutils.NewString(tag.Value), "__meta__", tag.Key)
+		}
 	}
 
 	type sCreateResult struct {
@@ -1599,12 +1614,12 @@ func reflectDispatcherInternal(
 			if err != nil {
 				return nil, httperrors.NewGeneralError(err)
 			}
-			err = isClassRbacAllowed(dispatcher.modelManager, userCred, ownerId, operator, spec)
+			_, err = isClassRbacAllowed(ctx, dispatcher.modelManager, userCred, ownerId, operator, spec)
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			err := isObjectRbacAllowed(model, userCred, operator, spec)
+			err := isObjectRbacAllowed(ctx, model, userCred, operator, spec)
 			if err != nil {
 				return nil, err
 			}
@@ -1703,7 +1718,7 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 	}
 
 	if consts.IsRbacEnabled() {
-		err := isObjectRbacAllowed(model, userCred, policy.PolicyActionUpdate)
+		err := isObjectRbacAllowed(ctx, model, userCred, policy.PolicyActionUpdate)
 		if err != nil {
 			return nil, err
 		}
@@ -1798,7 +1813,7 @@ func (dispatcher *DBModelDispatcher) Delete(ctx context.Context, idstr string, q
 	}
 
 	if consts.IsRbacEnabled() {
-		err := isObjectRbacAllowed(model, userCred, policy.PolicyActionDelete)
+		err := isObjectRbacAllowed(ctx, model, userCred, policy.PolicyActionDelete)
 		if err != nil {
 			return nil, err
 		}

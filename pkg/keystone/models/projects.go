@@ -477,7 +477,7 @@ func validateJoinProject(userCred mcclient.TokenCredential, project *SProject, r
 	assignScope := assignPolicies.HighestScope()
 	if assignScope.HigherThan(opsScope) {
 		return errors.Wrap(httperrors.ErrNotSufficientPrivilege, "assigning roles requires higher privilege scope")
-	} else if assignScope == opsScope && opsPolicies[opsScope].ViolatedBy(assignPolicies[assignScope]) {
+	} else if assignScope == opsScope && !opsPolicies[opsScope].Contains(assignPolicies[assignScope]) {
 		return errors.Wrap(httperrors.ErrNotSufficientPrivilege, "assigning roles violates operator's policy")
 	}
 	return nil
@@ -488,7 +488,7 @@ func (project *SProject) AllowPerformJoin(ctx context.Context,
 	query jsonutils.JSONObject,
 	input api.SProjectAddUserGroupInput,
 ) bool {
-	return db.IsAdminAllowPerform(userCred, project, "join")
+	return db.IsAdminAllowPerform(ctx, userCred, project, "join")
 }
 
 // 将用户或组加入项目
@@ -574,7 +574,7 @@ func (project *SProject) AllowPerformLeave(ctx context.Context,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) bool {
-	return db.IsAdminAllowPerform(userCred, project, "leave")
+	return db.IsAdminAllowPerform(ctx, userCred, project, "leave")
 }
 
 // 将用户或组移出项目

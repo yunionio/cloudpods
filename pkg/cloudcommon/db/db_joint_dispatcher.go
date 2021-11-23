@@ -147,7 +147,7 @@ func (dispatcher *DBJointModelDispatcher) Get(ctx context.Context, id1 string, i
 		return nil, httperrors.NewGeneralError(err)
 	}
 	if consts.IsRbacEnabled() {
-		err := isJointObjectRbacAllowed(item, userCred, policy.PolicyActionGet)
+		err := isJointObjectRbacAllowed(ctx, item, userCred, policy.PolicyActionGet)
 		if err != nil {
 			return nil, err
 		}
@@ -159,11 +159,11 @@ func (dispatcher *DBJointModelDispatcher) Get(ctx context.Context, id1 string, i
 
 func attachItems(dispatcher *DBJointModelDispatcher, master IStandaloneModel, slave IStandaloneModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if consts.IsRbacEnabled() {
-		err := isObjectRbacAllowed(master, userCred, policy.PolicyActionPerform, "attach")
+		err := isObjectRbacAllowed(ctx, master, userCred, policy.PolicyActionPerform, "attach")
 		if err != nil {
 			return nil, err
 		}
-		err = isObjectRbacAllowed(slave, userCred, policy.PolicyActionPerform, "attach")
+		err = isObjectRbacAllowed(ctx, slave, userCred, policy.PolicyActionPerform, "attach")
 		if err != nil {
 			return nil, err
 		}
@@ -240,7 +240,7 @@ func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string
 	}
 
 	if consts.IsRbacEnabled() {
-		err := isJointObjectRbacAllowed(item, userCred, policy.PolicyActionUpdate)
+		err := isJointObjectRbacAllowed(ctx, item, userCred, policy.PolicyActionUpdate)
 		if err != nil {
 			return nil, err
 		}
@@ -263,11 +263,11 @@ func (dispatcher *DBJointModelDispatcher) Detach(ctx context.Context, id1 string
 	}
 
 	if consts.IsRbacEnabled() {
-		err := isObjectRbacAllowed(master, userCred, policy.PolicyActionPerform, "detach")
+		err := isObjectRbacAllowed(ctx, master, userCred, policy.PolicyActionPerform, "detach")
 		if err != nil {
 			return nil, err
 		}
-		err = isObjectRbacAllowed(slave, userCred, policy.PolicyActionPerform, "detach")
+		err = isObjectRbacAllowed(ctx, slave, userCred, policy.PolicyActionPerform, "detach")
 		if err != nil {
 			return nil, err
 		}

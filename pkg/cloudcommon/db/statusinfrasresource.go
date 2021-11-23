@@ -44,20 +44,8 @@ func NewStatusInfrasResourceBaseManager(dt interface{}, tableName string, keywor
 	}
 }
 
-func (model *SStatusInfrasResourceBase) AllowGetDetailsStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return model.IsOwner(userCred) || IsDomainAllowGetSpec(userCred, model, "status")
-}
-
-func (self *SStatusInfrasResourceBase) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) bool {
-	return IsDomainAllowPerform(userCred, self, "status")
-}
-
 func (self *SStatusInfrasResourceBase) GetIStatusInfrasModel() IStatusInfrasModel {
 	return self.GetVirtualObject().(IStatusInfrasModel)
-}
-
-func (manager *SStatusInfrasResourceBaseManager) AllowGetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return IsAdminAllowGetSpec(userCred, manager, "statistics")
 }
 
 func (manager *SStatusInfrasResourceBaseManager) GetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (map[string]apis.StatusStatistic, error) {

@@ -53,6 +53,15 @@ type STenant struct {
 	SKeystoneCacheObject
 }
 
+func (t *STenant) GetTags() map[string]string {
+	objType := "project"
+	if t.Domain == identityapi.KeystoneDomainRoot && t.DomainId == identityapi.KeystoneDomainRoot {
+		objType = "domain"
+	}
+	tags, _ := Metadata.rawGetAll(objType, t.Id, nil, "")
+	return tags
+}
+
 func NewTenant(idStr string, name string, domainId string, domainName string) STenant {
 	return STenant{SKeystoneCacheObject: NewKeystoneCacheObject(idStr, name, domainId, domainName)}
 }

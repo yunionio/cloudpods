@@ -50,7 +50,7 @@ func (policy TPolicy) GetMatchRule(service string, resource string, action strin
 	return GetMatchRule(policy, service, resource, action, extra...)
 }
 
-func DecodePolicy(policyJson jsonutils.JSONObject) (TPolicy, error) {
+func decodePolicy(policyJson jsonutils.JSONObject) (TPolicy, error) {
 	rules, err := json2Rules(policyJson)
 	if err != nil {
 		return nil, errors.Wrap(err, "json2Rules")
@@ -61,21 +61,21 @@ func DecodePolicy(policyJson jsonutils.JSONObject) (TPolicy, error) {
 	return rules, nil
 }
 
-func DecodePolicyData(input jsonutils.JSONObject) (TPolicy, error) {
+func DecodeRawPolicyData(input jsonutils.JSONObject) (TPolicy, error) {
 	policyData, err := input.Get("policy")
 	if err != nil || policyData == nil {
 		return nil, errors.Wrap(httperrors.ErrInvalidFormat, "invalid policy data")
 	}
-	return DecodePolicy(policyData)
+	return decodePolicy(policyData)
 }
 
-func (policy TPolicy) Encode() jsonutils.JSONObject {
+func (policy TPolicy) encode() jsonutils.JSONObject {
 	return rules2Json(policy)
 }
 
-func (policy TPolicy) EncodeData() jsonutils.JSONObject {
+func (policy TPolicy) EncodeRawData() jsonutils.JSONObject {
 	ret := jsonutils.NewDict()
-	ret.Add(policy.Encode(), "policy")
+	ret.Add(policy.encode(), "policy")
 	return ret
 }
 
@@ -90,4 +90,30 @@ func (policy TPolicy) Explain(request [][]string) [][]string {
 		}
 	}
 	return output
+}
+
+// Contains of TPolicy
+//    TPolicy p1 contains p2 means any action allowed by p2 is also allowed by p1
+//    and any action denied by p1 is also denied by p2
+func (policy1 TPolicy) Contains(policy2 TPolicy) bool {
+	for _, rule := range policy2 {
+		if rule.Result == Allow {
+			rule := policy1.GetMatchRule(rule.Service, rule.Resource, rule.Action, rule.Extra...)
+			if rule == nil {
+				return false
+			}
+			if rule.Result == Deny {
+				return false
+			}
+		}
+	}
+	for _, rule := range policy1 {
+		if rule.Result == Deny {
+			rule := policy2.GetMatchRule(rule.Service, rule.Resource, rule.Action, rule.Extra...)
+			if rule != nil && rule.Result == Allow {
+				return false
+			}
+		}
+	}
+	return true
 }

@@ -54,7 +54,7 @@ type IModelManager interface {
 	EnableGenerateName() bool
 
 	// list hooks
-	AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool
+	// AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool
 	ValidateListConditions(ctx context.Context, userCred mcclient.TokenCredential, query *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
 	// ListItemFilter dynamic called by dispatcher
 	// ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error)
@@ -85,7 +85,7 @@ type IModelManager interface {
 	FetchByIdOrName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error)
 
 	// create hooks
-	AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
+	// AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
 	// BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
 	// ValidateCreateData dynamic called by dispatcher
 	// ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
@@ -96,8 +96,8 @@ type IModelManager interface {
 	OnCreateFailed(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error
 
 	// allow perform action
-	AllowPerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
-	AllowPerformCheckCreateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
+	// AllowPerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
+	// AllowPerformCheckCreateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
 	PerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error)
 
 	// DoCreate(ctx context.Context, userCred mcclient.TokenCredential, kwargs jsonutils.JSONObject, data jsonutils.JSONObject, realManager IModelManager) (IModel, error)
@@ -278,8 +278,8 @@ type IStandaloneModel interface {
 	GetIStandaloneModel() IStandaloneModel
 	ClearSchedDescCache() error
 
-	GetMetadata(key string, userCred mcclient.TokenCredential) string
-	GetMetadataJson(key string, userCred mcclient.TokenCredential) jsonutils.JSONObject
+	GetMetadata(ctx context.Context, key string, userCred mcclient.TokenCredential) string
+	GetMetadataJson(ctx context.Context, key string, userCred mcclient.TokenCredential) jsonutils.JSONObject
 	SetMetadata(ctx context.Context, key string, value interface{}, userCred mcclient.TokenCredential) error
 	SetAllMetadata(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error
 	SetUserMetadataValues(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error

@@ -162,7 +162,7 @@ func (manager *STaskManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.II
 }
 
 func (self *STask) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self) || userCred.GetProjectId() == self.UserCred.GetProjectId()
+	return db.IsAdminAllowGet(ctx, userCred, self) || userCred.GetProjectId() == self.UserCred.GetProjectId()
 }
 
 func (self *STask) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {

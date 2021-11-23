@@ -19,7 +19,7 @@ import (
 	"sort"
 	"strconv"
 
-	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 const (
@@ -32,11 +32,11 @@ func tagValueKey(idx int) string {
 }
 
 type sTagValueTreeNode struct {
-	Key    string      `json:"key"`
-	Value  string      `json:"value"`
-	Count  int         `json:"count"`
-	Tags   []apis.STag `json:"tags"`
-	NoTags []apis.STag `json:"no_tags"`
+	Key    string           `json:"key"`
+	Value  string           `json:"value"`
+	Count  int              `json:"count"`
+	Tags   tagutils.TTagSet `json:"tags"`
+	NoTags tagutils.TTagSet `json:"no_tags"`
 
 	Children []*sTagValueTreeNode `json:"children"`
 }
@@ -74,8 +74,8 @@ func (node *sTagValueTreeNode) findChild(key, value string) *sTagValueTreeNode {
 	return child
 }
 
-func (node *sTagValueTreeNode) getTag() apis.STag {
-	return apis.STag{
+func (node *sTagValueTreeNode) getTag() tagutils.STag {
+	return tagutils.STag{
 		Key:   node.Key,
 		Value: node.Value,
 	}
@@ -92,7 +92,7 @@ func (node *sTagValueTreeNode) populateTags() {
 		}
 		if child.Value == otherValue {
 			// other node
-			child.NoTags = append(child.NoTags, apis.STag{Key: child.Key})
+			child.NoTags = append(child.NoTags, tagutils.STag{Key: child.Key})
 		} else {
 			// normal node
 			child.Tags = append(child.Tags, child.getTag())

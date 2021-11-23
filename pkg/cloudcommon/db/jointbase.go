@@ -97,14 +97,6 @@ func (manager *SJointResourceBaseManager) FilterByParams(q *sqlchemy.SQuery, par
 	return q
 }
 
-func (manager *SJointResourceBaseManager) AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, model IStandaloneModel, query jsonutils.JSONObject) bool {
-	return IsAllowList(rbacutils.ScopeSystem, userCred, manager)
-}
-
-func (manager *SJointResourceBaseManager) AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, master IStandaloneModel, slave IStandaloneModel) bool {
-	return IsAllowCreate(rbacutils.ScopeSystem, userCred, manager)
-}
-
 func JointModelExtra(jointModel IJointModel) (string, string) {
 	masterName, slaveName := "", ""
 	master := JointMaster(jointModel)
@@ -177,30 +169,6 @@ func JointSlave(joint IJointModel) IStandaloneModel {
 
 func (joint *SJointResourceBase) GetIJointModel() IJointModel {
 	return joint.GetVirtualObject().(IJointModel)
-}
-
-func (self *SJointResourceBase) AllowGetJointDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, item IJointModel) bool {
-	master := JointMaster(item)
-	switch master.(type) {
-	case IVirtualModel:
-		return master.(IVirtualModel).IsOwner(userCred) || IsAllowGet(rbacutils.ScopeSystem, userCred, master)
-	default: // case item implemented customized AllowGetDetails, eg hostjoints
-		return item.AllowGetDetails(ctx, userCred, query)
-	}
-}
-
-func (self *SJointResourceBase) AllowUpdateJointItem(ctx context.Context, userCred mcclient.TokenCredential, item IJointModel) bool {
-	master := JointMaster(item)
-	switch master.(type) {
-	case IVirtualModel:
-		return master.(IVirtualModel).IsOwner(userCred) || IsAllowUpdate(rbacutils.ScopeSystem, userCred, master)
-	default: // case item implemented customized AllowGetDetails, eg hostjoints
-		return item.AllowUpdateItem(ctx, userCred)
-	}
-}
-
-func (self *SJointResourceBase) AllowDetach(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
 }
 
 func (manager *SJointResourceBaseManager) ResourceScope() rbacutils.TRbacScope {

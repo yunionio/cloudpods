@@ -43,14 +43,6 @@ func NewStatusDomainLevelResourceBaseManager(dt interface{}, tableName string, k
 	}
 }
 
-func (model *SStatusDomainLevelResourceBase) AllowGetDetailsStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return model.IsOwner(userCred) || IsDomainAllowGetSpec(userCred, model, "status")
-}
-
-func (self *SStatusDomainLevelResourceBase) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) bool {
-	return IsDomainAllowPerform(userCred, self, "status")
-}
-
 func (self *SStatusDomainLevelResourceBase) GetIStatusDomainLevelModel() IStatusDomainLevelModel {
 	return self.GetVirtualObject().(IStatusDomainLevelModel)
 }

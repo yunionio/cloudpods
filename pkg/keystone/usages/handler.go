@@ -42,11 +42,11 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	isAdmin := false
 	if consts.IsRbacEnabled() {
 		if policy.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(),
-			"usages", policy.PolicyActionGet) == rbacutils.Allow {
+			"usages", policy.PolicyActionGet).Result.IsAllow() {
 			isAdmin = true
 		}
 	} else {
-		isAdmin = userCred.IsAllow(rbacutils.ScopeSystem, consts.GetServiceType(), "usages", policy.PolicyActionGet)
+		isAdmin = userCred.IsAllow(rbacutils.ScopeSystem, consts.GetServiceType(), "usages", policy.PolicyActionGet).Result.IsAllow()
 	}
 
 	var adminUsage map[string]int

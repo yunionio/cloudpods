@@ -154,7 +154,7 @@ func (service *SService) PostDelete(ctx context.Context, userCred mcclient.Token
 }
 
 func (service *SService) AllowGetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGetSpec(userCred, service, "config")
+	return db.IsAdminAllowGetSpec(ctx, userCred, service, "config")
 }
 
 func (service *SService) GetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -176,7 +176,7 @@ func (service *SService) GetDetailsConfig(ctx context.Context, userCred mcclient
 }
 
 func (service *SService) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PerformConfigInput) bool {
-	return db.IsAdminAllowUpdateSpec(userCred, service, "config")
+	return db.IsAdminAllowUpdateSpec(ctx, userCred, service, "config")
 }
 
 func (service *SService) isCommonService() bool {

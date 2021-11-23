@@ -205,7 +205,7 @@ func AddRefreshHandler(prefix string, app *appsrv.Application) {
 
 func refreshHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	userCred := auth.FetchUserCredential(ctx, nil)
-	if userCred == nil || !db.IsDomainAllowList(userCred, models.DomainManager) {
+	if userCred == nil || db.IsDomainAllowList(userCred, models.DomainManager).Result.IsDeny() {
 		httperrors.ForbiddenError(ctx, w, "not enough privilege")
 		return
 	}

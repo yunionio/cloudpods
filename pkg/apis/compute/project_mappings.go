@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 const (
@@ -33,14 +34,9 @@ const (
 	MAPPING_CONDITION_OR  = "or"
 )
 
-type STag struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
-
 type ProjectMappingRuleInfo struct {
 	// 标签列表, 不可为空
-	Tags []STag `json:"tags"`
+	Tags tagutils.TTagSet `json:"tags"`
 	// 条件表达式
 	// enmu: and, or
 	// default: and

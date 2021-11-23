@@ -532,7 +532,7 @@ func (domain *SDomain) AllowPerformUnlinkIdp(
 	query jsonutils.JSONObject,
 	input api.UserUnlinkIdpInput,
 ) bool {
-	return db.IsAdminAllowPerform(userCred, domain, "unlink-idp")
+	return db.IsAdminAllowPerform(ctx, userCred, domain, "unlink-idp")
 }
 
 // domain和IDP的指定entityId解除关联

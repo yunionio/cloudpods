@@ -188,9 +188,14 @@ func (manager *SSharedResourceManager) shareToTarget(
 		}
 	}
 
-	allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.KeywordPlural(), policy.PolicyActionPerform, "public")
+	allowScope, policyTags := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.KeywordPlural(), policy.PolicyActionPerform, "public")
 	if requireScope.HigherThan(allowScope) {
 		return nil, errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require %s allow %s", requireScope, allowScope)
+	}
+
+	err = objectConfirmPolicyTags(ctx, userCred, model, policyTags)
+	if err != nil {
+		return nil, errors.Wrap(err, "objectConfirmPolicyTags")
 	}
 
 	for _, targetId := range delIds {

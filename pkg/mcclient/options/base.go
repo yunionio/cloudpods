@@ -20,12 +20,13 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/util/tagutils"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	dbapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/db"
 )
 
@@ -262,7 +263,7 @@ func (opts *BaseListOptions) addNoTag(keyPrefix, tagstr string, idx int, params 
 }
 
 func (opts *BaseListOptions) addTagInternal(keyPrefix, tagName, tagstr string, idx int, params *jsonutils.JSONDict) error {
-	tags := opts.spliteTag(tagstr)
+	tags := SplitTag(tagstr)
 	if len(tags) == 0 {
 		return fmt.Errorf("empty tags")
 	}
@@ -273,15 +274,15 @@ func (opts *BaseListOptions) addTagInternal(keyPrefix, tagName, tagstr string, i
 	return nil
 }
 
-func (opts *BaseListOptions) spliteTag(tag string) []apis.STag {
-	tags := make([]apis.STag, 0)
+func SplitTag(tag string) tagutils.TTagSet {
+	tags := make(tagutils.TTagSet, 0)
 	tagInfoList := strings.Split(tag, ";")
 	for _, tagInfo := range tagInfoList {
 		if len(tagInfo) == 0 {
 			continue
 		}
 		tagInfo := strings.Split(tagInfo, "=")
-		tag := apis.STag{Key: tagInfo[0]}
+		tag := tagutils.STag{Key: tagInfo[0]}
 		if len(tagInfo) > 1 {
 			tag.Value = tagInfo[1]
 		}

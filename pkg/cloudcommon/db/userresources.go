@@ -58,7 +58,7 @@ func (manager *SUserResourceBaseManager) ListItemFilter(
 	if err != nil {
 		return nil, err
 	}
-	if ((query.Admin != nil && *query.Admin) || query.Scope == string(rbacutils.ScopeSystem)) && IsAdminAllowList(userCred, manager) {
+	if ((query.Admin != nil && *query.Admin) || query.Scope == string(rbacutils.ScopeSystem)) && IsAdminAllowList(userCred, manager).Result.IsAllow() {
 		user := query.UserId
 		if len(user) > 0 {
 			uc, _ := UserCacheManager.FetchUserByIdOrName(ctx, user)
@@ -167,26 +167,6 @@ func (manager *SUserResourceBaseManager) ValidateCreateData(ctx context.Context,
 		return input, errors.Wrap(err, "SStandaloneResourceBaseManager.ValidateCreateData")
 	}
 	return input, nil
-}
-
-func (manager *SUserResourceBaseManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
-func (manager *SUserResourceBaseManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return true
-}
-
-func (self *SUserResourceBase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return self.IsOwner(userCred) || IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SUserResourceBase) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || IsAdminAllowDelete(userCred, self)
-}
-
-func (self *SUserResourceBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || IsAdminAllowGet(userCred, self)
 }
 
 func (manager *SUserResourceBaseManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {

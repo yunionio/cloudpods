@@ -344,7 +344,7 @@ func (group *SGroup) AllowPerformJoin(ctx context.Context,
 	query jsonutils.JSONObject,
 	input api.SJoinProjectsInput,
 ) bool {
-	return db.IsAdminAllowPerform(userCred, group, "join")
+	return db.IsAdminAllowPerform(ctx, userCred, group, "join")
 }
 
 // 组加入项目
@@ -366,7 +366,7 @@ func (group *SGroup) AllowPerformLeave(ctx context.Context,
 	query jsonutils.JSONObject,
 	input api.SLeaveProjectsInput,
 ) bool {
-	return db.IsAdminAllowPerform(userCred, group, "leave")
+	return db.IsAdminAllowPerform(ctx, userCred, group, "leave")
 }
 
 // 组退出项目
@@ -454,7 +454,7 @@ func (group *SGroup) AllowPerformAddUsers(ctx context.Context,
 	query jsonutils.JSONObject,
 	input api.PerformGroupAddUsersInput,
 ) bool {
-	return db.IsDomainAllowPerform(userCred, group, "add-users")
+	return db.IsDomainAllowPerform(ctx, userCred, group, "add-users")
 }
 
 // 组添加用户
@@ -490,7 +490,7 @@ func (group *SGroup) AllowPerformRemoveUsers(ctx context.Context,
 	query jsonutils.JSONObject,
 	input api.PerformGroupRemoveUsersInput,
 ) bool {
-	return db.IsDomainAllowPerform(userCred, group, "remove-users")
+	return db.IsDomainAllowPerform(ctx, userCred, group, "remove-users")
 }
 
 // 组删除用户

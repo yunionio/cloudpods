@@ -189,7 +189,7 @@ func (manager *SQuotaBaseManager) getQuotaHandler(ctx context.Context, w http.Re
 		} else if len(projectId) > 0 {
 			data.Add(jsonutils.NewString(projectId), "project")
 		}
-		ownerId, scope, err = db.FetchCheckQueryOwnerScope(ctx, userCred, data, manager.GetIQuotaManager(), policy.PolicyActionGet, true)
+		ownerId, scope, err, _ = db.FetchCheckQueryOwnerScope(ctx, userCred, data, manager.GetIQuotaManager(), policy.PolicyActionGet, true)
 		if err != nil {
 			httperrors.GeneralServerError(ctx, w, err)
 			return
@@ -304,7 +304,7 @@ func (manager *SQuotaBaseManager) cleanPendingUsageHandler(ctx context.Context, 
 		} else if len(projectId) > 0 {
 			data.Add(jsonutils.NewString(projectId), "project")
 		}
-		ownerId, scope, err = db.FetchCheckQueryOwnerScope(ctx, userCred, data, manager, policy.PolicyActionGet, true)
+		ownerId, scope, err, _ = db.FetchCheckQueryOwnerScope(ctx, userCred, data, manager, policy.PolicyActionGet, true)
 		if err != nil {
 			httperrors.GeneralServerError(ctx, w, err)
 			return
@@ -417,8 +417,8 @@ func (manager *SQuotaBaseManager) setQuotaHandler(ctx context.Context, w http.Re
 	log.Debugf("is_new: %v action: %s origin: %s current: %s", isNew, action, jsonutils.Marshal(oquota), jsonutils.Marshal(quota))
 
 	// check rbac policy
-	ownerScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policyAction)
-	if requestScope.HigherThan(ownerScope) {
+	ownerScope, policyResult := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policyAction)
+	if policyResult.Result.IsAllow() && requestScope.HigherThan(ownerScope) {
 		httperrors.ForbiddenError(ctx, w, "not enough privilleges")
 		return
 	}
@@ -468,8 +468,8 @@ func (manager *SQuotaBaseManager) listDomainQuotaHandler(ctx context.Context, w 
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 
 	if consts.IsRbacEnabled() {
-		allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
-		if allowScope != rbacutils.ScopeSystem {
+		allowScope, policyResult := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
+		if policyResult.Result.IsAllow() && allowScope != rbacutils.ScopeSystem {
 			httperrors.ForbiddenError(ctx, w, "not allow to list domain quotas")
 			return
 		}
@@ -509,7 +509,7 @@ func (manager *SQuotaBaseManager) listProjectQuotaHandler(ctx context.Context, w
 	}
 
 	if consts.IsRbacEnabled() {
-		allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
+		allowScope, _ := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
 		if (allowScope == rbacutils.ScopeDomain && userCred.GetProjectDomainId() == owner.GetProjectDomainId()) || allowScope == rbacutils.ScopeSystem {
 		} else {
 			httperrors.ForbiddenError(ctx, w, "not allow to list project quotas")

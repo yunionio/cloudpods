@@ -125,6 +125,11 @@ func (manager *SDomainizedResourceBaseManager) ListItemFilter(
 		subq := meta.objIdQueryWithTags("domain", nil, query.NoDomainTags).SubQuery()
 		q = q.NotIn("domain_id", subq)
 	}
+	if len(query.PolicyDomainTags) > 0 {
+		meta := SMetadataResourceBaseModelManager{}
+		subq := meta.objIdQueryWithTags("domain", nil, query.PolicyDomainTags).SubQuery()
+		q = q.In("domain_id", subq)
+	}
 	return q, nil
 }
 

@@ -17,9 +17,10 @@ package db
 import (
 	"strings"
 
+	"yunion.io/x/onecloud/pkg/util/tagutils"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -30,28 +31,15 @@ import (
 
 type SMetadataResourceBaseModelManager struct{}
 
-func tagsToMap(oTags []apis.STag) map[string][]string {
-	tags := map[string][]string{}
-	for _, tag := range oTags {
-		if _, ok := tags[tag.Key]; !ok {
-			tags[tag.Key] = []string{}
-		}
-		if len(tag.Value) > 0 && !utils.IsInStringArray(tag.Value, tags[tag.Key]) {
-			tags[tag.Key] = append(tags[tag.Key], tag.Value)
-		}
-	}
-	return tags
-}
-
-func (meta *SMetadataResourceBaseModelManager) objIdQueryWithTags(modelName string, oTags []apis.STag, oMoreTags [][]apis.STag) *sqlchemy.SQuery {
+func (meta *SMetadataResourceBaseModelManager) objIdQueryWithTags(modelName string, oTags tagutils.TTagSet, oMoreTags tagutils.TTagSetList) *sqlchemy.SQuery {
 	metadataResQ := Metadata.Query().Equals("obj_type", modelName).SubQuery()
 
 	queries := make([]sqlchemy.IQuery, 0)
-	tagsList := make([][]apis.STag, 0, 1+len(oMoreTags))
+	tagsList := make(tagutils.TTagSetList, 0, 1+len(oMoreTags))
 	tagsList = append(tagsList, oTags)
 	tagsList = append(tagsList, oMoreTags...)
 	for _, t := range tagsList {
-		tags := tagsToMap(t)
+		tags := tagutils.Tagset2Map(t)
 		if len(tags) == 0 {
 			continue
 		}
@@ -99,6 +87,14 @@ func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
 			sqq := sq.SubQuery()
 			q = q.Join(sqq, sqlchemy.Equals(q.Field("id"), sqq.Field("obj_id")))
 			// q = q.Filter(sqlchemy.In(q.Field("id"), sq.SubQuery()))
+		}
+	}
+
+	if len(input.PolicyObjectTags) > 0 {
+		sq := meta.objIdQueryWithTags(manager.Keyword(), nil, input.PolicyObjectTags)
+		if sq != nil {
+			sqq := sq.SubQuery()
+			q = q.Join(sqq, sqlchemy.Equals(q.Field("id"), sqq.Field("obj_id")))
 		}
 	}
 

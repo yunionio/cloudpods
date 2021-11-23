@@ -16,6 +16,7 @@ package identity
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -410,6 +411,15 @@ type IdentityProviderUpdateInput struct {
 	IconUri string `json:"icon_uri"`
 }
 
+type PolicyTagInput struct {
+	// 匹配的资源标签
+	ObjectTags tagutils.TTagSet `json:"object_tags"`
+	// 匹配的项目标签
+	ProjectTags tagutils.TTagSet `json:"project_tags"`
+	// 匹配的域标签
+	DomainTags tagutils.TTagSet `json:"domain_tags"`
+}
+
 type PolicyUpdateInput struct {
 	EnabledIdentityBaseUpdateInput
 
@@ -425,7 +435,18 @@ type PolicyUpdateInput struct {
 
 	// 是否为系统权限
 	IsSystem *bool `json:"is_system"`
+
+	PolicyTagInput
+
+	// Policy tag更新策略，可能的值为：add|remove|remove，默认为add
+	TagUpdatePolicy string `json:"tag_update_policy"`
 }
+
+const (
+	TAG_UPDATE_POLICY_ADD     = "add"
+	TAG_UPDATE_POLICY_REMOVE  = "remove"
+	TAG_UPDATE_POLICY_REPLACE = "replace"
+)
 
 type ProjectUpdateInput struct {
 	IdentityBaseUpdateInput
@@ -516,6 +537,13 @@ type PolicyCreateInput struct {
 
 	// 是否为系统权限
 	IsSystem *bool `json:"is_system"`
+
+	// 匹配的资源标签
+	ResourceTags tagutils.TTagSet `json:"resource_tags"`
+	// 匹配的项目标签
+	ProjectTags tagutils.TTagSet `json:"project_tags"`
+	// 匹配的域标签
+	DomainTags tagutils.TTagSet `json:"domain_tags"`
 }
 
 type RoleCreateInput struct {
