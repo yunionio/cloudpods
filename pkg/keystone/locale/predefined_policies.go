@@ -26,6 +26,8 @@ const (
 	RoleSA            = "sa"
 	RoleProjectOwner  = "project_owner"
 	RoleDomainAdmin   = "domainadmin"
+	RoleDomainEditor  = "domain_editor"
+	RoleDomainViewer  = "domain_viewer"
 	RoleProjectEditor = "project_editor"
 	RoleProjectViewer = "project_viewer"
 
@@ -322,6 +324,30 @@ var (
 			},
 		},
 		{
+			Name:   "snapshotpolicy",
+			DescCN: "快照策略",
+			Desc:   "snapshot policy",
+			Scope:  rbacutils.ScopeDomain,
+			Services: map[string][]string{
+				"compute": {
+					"snapshotpolicies",
+					"snapshotpolicydisks",
+				},
+			},
+		},
+		{
+			Name:   "secgroup",
+			DescCN: "安全组",
+			Desc:   "security group",
+			Scope:  rbacutils.ScopeDomain,
+			Services: map[string][]string{
+				"compute": {
+					"secgroups",
+					"secgrouprules",
+				},
+			},
+		},
+		{
 			Name:   "meter",
 			DescCN: "计费计量分析服务相关资源",
 			Desc:   "resources of metering and billing service",
@@ -456,6 +482,31 @@ var (
 		},
 	}
 
+	adminPerformActions = map[string]map[string][]string{
+		"compute": map[string][]string{
+			"servers": []string{
+				"snapshot-and-clone",
+				"createdisk",
+				"create-eip",
+				"create-backup",
+				"save-image",
+				"delete-disk",
+				"delete-eip",
+				"delete-backup",
+			},
+			"buckets": []string{
+				"upload",
+				"delete",
+			},
+		},
+		"k8s": map[string][]string{
+			"kubeclusters": []string{
+				"add-machines",
+				"delete-machines",
+			},
+		},
+	}
+
 	RoleDefinitions = []SRoleDefiniton{
 		{
 			Name:          RoleAdmin,
@@ -516,12 +567,32 @@ var (
 			IsPublic: true,
 		},
 		{
+			Name:          RoleDomainEditor,
+			DescriptionCN: "域操作员",
+			Description:   "Domain operation administrator",
+			Policies: []string{
+				"domain-editor",
+				"domain-dashboard",
+			},
+			IsPublic: true,
+		},
+		{
 			Name:          RoleProjectEditor,
 			DescriptionCN: "项目操作员",
 			Description:   "Project operator",
 			Policies: []string{
 				"project-editor",
 				"project-dashboard",
+			},
+			IsPublic: true,
+		},
+		{
+			Name:          RoleDomainViewer,
+			DescriptionCN: "域只读管理员",
+			Description:   "Domain read-only administrator",
+			Policies: []string{
+				"domain-viewer",
+				"domain-dashboard",
 			},
 			IsPublic: true,
 		},
