@@ -27,3 +27,48 @@ type CDNDomainListOptions struct {
 func (opts *CDNDomainListOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(opts)
 }
+
+type CDNDomainCreateOptions struct {
+	DOMAIN       string `help:"Domain Name"`
+	MANAGER      string `help:"Cloudprovider Id"`
+	AREA         string `help:"Area" choices:"mainland|overseas|global"`
+	SERVICE_TYPE string `help:"Service Type" choices:"web|download|media"`
+	ORIGIN_TYPE  string `help:"Origin Type" choices:"domain|ip|bucket"`
+	ORIGIN       string `help:"Origin Addr"`
+}
+
+func (opts *CDNDomainCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(opts.DOMAIN), "name")
+	params.Add(jsonutils.NewString(opts.MANAGER), "cloudprovider_id")
+	params.Add(jsonutils.NewString(opts.AREA), "area")
+	params.Add(jsonutils.NewString(opts.SERVICE_TYPE), "service_type")
+	params.Add(jsonutils.Marshal([]interface{}{
+		map[string]string{
+			"origin": opts.ORIGIN,
+			"type":   opts.ORIGIN_TYPE,
+		},
+	}), "origins")
+	return params, nil
+}
+
+type CDNDomainUpdateOptions struct {
+	options.BaseIdOptions
+	Description string
+	Delete      string `help:"Lock or not lock cdn domain" choices:"enable|disable"`
+}
+
+func (opts *CDNDomainUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	params, err := options.StructToParams(opts)
+	if err != nil {
+		return nil, err
+	}
+	if len(opts.Delete) > 0 {
+		if opts.Delete == "disable" {
+			params.Add(jsonutils.JSONTrue, "disable_delete")
+		} else {
+			params.Add(jsonutils.JSONFalse, "disable_delete")
+		}
+	}
+	return params, nil
+}
