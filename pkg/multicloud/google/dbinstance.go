@@ -378,18 +378,6 @@ func (rds *SDBInstance) GetZone3Id() string {
 }
 
 func (rds *SDBInstance) GetIVpcId() string {
-	if len(rds.Settings.IpConfiguration.PrivateNetwork) > 0 {
-		globalnetwork, err := rds.region.client.GetGlobalNetwork(rds.Settings.IpConfiguration.PrivateNetwork)
-		if err != nil {
-			log.Errorf("failed to get global network %s error: %v", rds.Settings.IpConfiguration.PrivateNetwork, err)
-			return ""
-		}
-		vpc := &SVpc{
-			region:        rds.region,
-			globalnetwork: globalnetwork,
-		}
-		return vpc.GetGlobalId()
-	}
 	return ""
 }
 

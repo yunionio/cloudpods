@@ -197,8 +197,12 @@ func (manager *SCloudproviderQuotaManager) GetQuotas(provider *SCloudprovider, r
 }
 
 func (manager *SCloudproviderQuotaManager) SyncQuotas(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, region *SCloudregion, quotaRange string, iQuotas []cloudprovider.ICloudQuota) compare.SyncResult {
-	lockman.LockRawObject(ctx, "quotas", fmt.Sprintf("%s-%s", provider.Id, region.Id))
-	defer lockman.ReleaseRawObject(ctx, "quotas", fmt.Sprintf("%s-%s", provider.Id, region.Id))
+	key := provider.Id
+	if region != nil {
+		key = fmt.Sprintf("%s-%s", key, region.Id)
+	}
+	lockman.LockRawObject(ctx, manager.Keyword(), key)
+	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), key)
 	result := compare.SyncResult{}
 
 	dbQuotas, err := manager.GetQuotas(provider, region, quotaRange)

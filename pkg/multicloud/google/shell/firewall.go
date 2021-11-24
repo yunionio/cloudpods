@@ -26,7 +26,7 @@ func init() {
 		PageToken  string
 	}
 	shellutils.R(&FirewallListOptions{}, "firewall-list", "List firewalls", func(cli *google.SRegion, args *FirewallListOptions) error {
-		firewalls, err := cli.GetFirewalls(args.Network, args.MaxResults, args.PageToken)
+		firewalls, err := cli.GetClient().GetFirewalls(args.Network, args.MaxResults, args.PageToken)
 		if err != nil {
 			return err
 		}
@@ -38,7 +38,7 @@ func init() {
 		ID string
 	}
 	shellutils.R(&FirewallShowOptions{}, "firewall-show", "Show firewall", func(cli *google.SRegion, args *FirewallShowOptions) error {
-		firewall, err := cli.GetFirewall(args.ID)
+		firewall, err := cli.GetClient().GetFirewall(args.ID)
 		if err != nil {
 			return err
 		}

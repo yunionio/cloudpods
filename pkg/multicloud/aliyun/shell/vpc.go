@@ -15,6 +15,7 @@
 package shell
 
 import (
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/aliyun"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -40,7 +41,12 @@ func init() {
 	}
 
 	shellutils.R(&VpcCreateOptions{}, "vpc-create", "Create vpc", func(cli *aliyun.SRegion, args *VpcCreateOptions) error {
-		vpc, err := cli.CreateIVpc(args.Name, args.Desc, args.CIDR)
+		opts := cloudprovider.VpcCreateOptions{
+			NAME: args.Name,
+			CIDR: args.CIDR,
+			Desc: args.Desc,
+		}
+		vpc, err := cli.CreateIVpc(&opts)
 		if err != nil {
 			return err
 		}

@@ -41,5 +41,5 @@ func (region *SRegion) GetRegionStorages(maxResults int, pageToken string) ([]SR
 
 func (region *SRegion) GetRegionStorage(id string) (*SRegionStorage, error) {
 	storage := &SRegionStorage{region: region}
-	return storage, region.Get(id, storage)
+	return storage, region.GetBySelfId(id, storage)
 }

@@ -50,6 +50,7 @@ type VpcCreateOptions struct {
 	Desc               string `help:"Description of the VPC"`
 	Manager            string `help:"ID or Name of Cloud provider" json:"manager_id"`
 	ExternalAccessMode string `help:"Filter by external access mode" choices:"distgw|eip|eip-distgw" default:""`
+	GlobalvpcId        string `help:"Global vpc id, Only for Google Cloud"`
 }
 
 func (opts *VpcCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -71,6 +72,9 @@ func (opts *VpcCreateOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	if len(opts.Manager) > 0 {
 		params.Add(jsonutils.NewString(opts.Manager), "manager_id")
+	}
+	if len(opts.GlobalvpcId) > 0 {
+		params.Add(jsonutils.NewString(opts.GlobalvpcId), "globalvpc_id")
 	}
 	return params, nil
 }

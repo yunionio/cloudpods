@@ -154,8 +154,8 @@ func (self *SLoadbalancer) GetNetworkIds() []string {
 	selfLinks := make([]string, 0)
 	networkIds := make([]string, 0)
 	for i := range igs {
-		if utils.IsInStringArray(igs[i].Network, selfLinks) {
-			selfLinks = append(selfLinks, igs[i].Network)
+		if utils.IsInStringArray(igs[i].Subnetwork, selfLinks) {
+			selfLinks = append(selfLinks, igs[i].Subnetwork)
 			network := SResourceBase{
 				Name:     "",
 				SelfLink: igs[i].Network,
@@ -173,24 +173,11 @@ func (self *SLoadbalancer) GetVpcId() string {
 		return ""
 	}
 	if len(networkIds) >= 1 {
-		network, err := self.region.GetNetwork(networkIds[0])
-		if err == nil && network != nil {
-			wire := network.GetIWire()
-			if wire == nil {
-				return ""
-			}
-
-			vpc := wire.GetIVpc()
-			if vpc == nil {
-				return ""
-			}
-
+		vpc, err := self.region.GetVpc(networkIds[0])
+		if err == nil && vpc != nil {
 			return vpc.GetGlobalId()
 		}
-
-		log.Debugf("GetVpcId %s", err)
 	}
-
 	return ""
 }
 
@@ -428,7 +415,7 @@ func (self *SRegion) GetLoadbalancer(resourceId string) (SLoadbalancer, error) {
 	var err error
 	if strings.Contains(resourceId, "/urlMaps/") {
 		ret := SUrlMap{}
-		err = self.Get(resourceId, &ret)
+		err = self.GetBySelfId(resourceId, &ret)
 		lb.isHttpLb = true
 		lb.urlMap = &ret
 		lb.SResourceBase = SResourceBase{
@@ -437,7 +424,7 @@ func (self *SRegion) GetLoadbalancer(resourceId string) (SLoadbalancer, error) {
 		}
 	} else {
 		ret := SBackendServices{}
-		err = self.Get(resourceId, &ret)
+		err = self.GetBySelfId(resourceId, &ret)
 		lb.backendServices = []SBackendServices{ret}
 		lb.SResourceBase = SResourceBase{
 			Name:     ret.Name,

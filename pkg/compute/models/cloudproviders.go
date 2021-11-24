@@ -1411,6 +1411,7 @@ func (self *SCloudprovider) RealDelete(ctx context.Context, userCred mcclient.To
 		WafInstanceManager,
 		AppManager,
 		VpcManager,
+		GlobalVpcManager,
 		ElasticipManager,
 		MongoDBManager,
 		ElasticSearchManager,
@@ -1805,37 +1806,6 @@ func (self *SCloudprovider) SyncInterVpcNetwork(ctx context.Context, userCred mc
 	}
 
 	return localNetworks, remoteNetworks, result
-}
-
-func (self *SCloudprovider) SyncCallSyncCloudproviderInterVpcNetwork(ctx context.Context, userCred mcclient.TokenCredential) {
-	driver, err := self.GetProvider()
-	if err != nil {
-		log.Errorf("failed to get ICloudProvider from SCloudprovider:%s %s", self.GetName(), self.Id)
-		return
-	}
-	if cloudprovider.IsSupportInterVpcNetwork(driver) {
-		networks, err := driver.GetICloudInterVpcNetworks()
-		if err != nil {
-			log.Errorf("failed to get inter vpc network for Manager %s error: %v", self.Id, err)
-			return
-		} else {
-			localNetwork, remoteNetwork, result := self.SyncInterVpcNetwork(ctx, userCred, networks)
-			if result.IsError() {
-				return
-			}
-			for i := range localNetwork {
-				lockman.LockObject(ctx, &localNetwork[i])
-				defer lockman.ReleaseObject(ctx, &localNetwork[i])
-
-				if localNetwork[i].Deleted {
-					return
-				}
-				localNetwork[i].SyncInterVpcNetworkRouteSets(ctx, userCred, remoteNetwork[i])
-			}
-			log.Infof("Sync inter vpc network for cloudaccount %s result: %s", self.GetName(), result.Result())
-			return
-		}
-	}
 }
 
 func (manager *SCloudproviderManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {

@@ -848,6 +848,21 @@ func (manager *SVpcManager) purgeAll(ctx context.Context, userCred mcclient.Toke
 	return nil
 }
 
+func (manager *SGlobalVpcManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	gvpcs := make([]SGlobalVpc, 0)
+	err := fetchByManagerId(manager, providerId, &gvpcs)
+	if err != nil {
+		return err
+	}
+	for i := range gvpcs {
+		err := gvpcs[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (net *SNetwork) purgeGuestnetworks(ctx context.Context, userCred mcclient.TokenCredential) error {
 	q := GuestnetworkManager.Query().Equals("network_id", net.Id)
 	gns := make([]SGuestnetwork, 0)

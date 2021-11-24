@@ -693,14 +693,14 @@ func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStorag
 
 }
 
-func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
+func (self *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
 	tagspec := TagSpec{ResourceType: "vpc"}
-	if len(name) > 0 {
-		tagspec.SetNameTag(name)
+	if len(opts.NAME) > 0 {
+		tagspec.SetNameTag(opts.NAME)
 	}
 
-	if len(desc) > 0 {
-		tagspec.SetDescTag(desc)
+	if len(opts.Desc) > 0 {
+		tagspec.SetDescTag(opts.Desc)
 	}
 
 	spec, err := tagspec.GetTagSpecifications()
@@ -714,7 +714,7 @@ func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudpro
 	}
 
 	// start create vpc
-	vpc, err := ec2Client.CreateVpc(&ec2.CreateVpcInput{CidrBlock: &cidr})
+	vpc, err := ec2Client.CreateVpc(&ec2.CreateVpcInput{CidrBlock: &opts.CIDR})
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateVpc")
 	}

@@ -553,16 +553,16 @@ func (self *SRegion) ModifyInstanceVNCUrlPassword(instanceId string, passwd stri
 	return err
 }
 
-func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
+func (self *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
 	params := make(map[string]string)
-	if len(cidr) > 0 {
-		params["CidrBlock"] = cidr
+	if len(opts.CIDR) > 0 {
+		params["CidrBlock"] = opts.CIDR
 	}
-	if len(name) > 0 {
-		params["VpcName"] = name
+	if len(opts.NAME) > 0 {
+		params["VpcName"] = opts.NAME
 	}
-	if len(desc) > 0 {
-		params["Description"] = desc
+	if len(opts.Desc) > 0 {
+		params["Description"] = opts.Desc
 	}
 	params["ClientToken"] = utils.GenRequestId(20)
 	body, err := self.ecsRequest("CreateVpc", params)

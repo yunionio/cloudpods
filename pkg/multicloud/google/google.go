@@ -233,18 +233,51 @@ func jsonRequest(client *http.Client, method httputils.THttpMethod, domain, apiV
 	return _jsonRequest(client, method, _url, body, debug)
 }
 
-func (self *SGoogleClient) ecsGet(resource string, retval interface{}) error {
-	resp, err := jsonRequest(self.client, "GET", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, nil, nil, self.debug)
-	if err != nil {
-		return err
+func (self *SGoogleClient) ecsGet(resourceType, id string, retval interface{}) error {
+	params := map[string]string{
+		"filter": fmt.Sprintf(`id="%s"`, id),
 	}
-	if retval != nil {
-		err = resp.Unmarshal(retval)
-		if err != nil {
-			return errors.Wrap(err, "resp.Unmarshal")
+	resource := fmt.Sprintf("aggregated/%s", resourceType)
+	if strings.Contains(resourceType, "/") {
+		resource = resourceType
+	}
+	resp, err := self.ecsList(resource, params)
+	if err != nil {
+		return errors.Wrapf(err, "ecsList")
+	}
+	if resp.Contains("items") {
+		if strings.HasPrefix(resource, "aggregated/") {
+			items, err := resp.GetMap("items")
+			if err != nil {
+				return errors.Wrapf(err, "resp.GetMap(items)")
+			}
+			for _, values := range items {
+				if values.Contains(resourceType) {
+					arr, err := values.GetArray(resourceType)
+					if err != nil {
+						return errors.Wrapf(err, "v.GetArray(%s)", resourceType)
+					}
+					for i := range arr {
+						if _id, _ := arr[i].GetString("id"); _id == id {
+							return arr[i].Unmarshal(retval)
+						}
+					}
+
+				}
+			}
+		} else if strings.HasPrefix(resource, "global/") {
+			items, err := resp.GetArray("items")
+			if err != nil {
+				return errors.Wrapf(err, "resp.GetMap(items)")
+			}
+			for i := range items {
+				if _id, _ := items[i].GetString("id"); _id == id {
+					return items[i].Unmarshal(retval)
+				}
+			}
 		}
 	}
-	return nil
+	return errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SGoogleClient) ecsList(resource string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -940,6 +973,7 @@ func (self *SGoogleClient) GetCapabilities() []string {
 		// cloudprovider.CLOUD_CAPABILITY_CACHE,
 		// cloudprovider.CLOUD_CAPABILITY_EVENT,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
+		cloudprovider.CLOUD_CAPABILITY_QUOTA + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
 }

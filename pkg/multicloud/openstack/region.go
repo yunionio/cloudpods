@@ -105,8 +105,8 @@ func (region *SRegion) GetMaxVersion(service string) (string, error) {
 	return region.client.GetMaxVersion(region.Name, service)
 }
 
-func (region *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
-	vpc, err := region.CreateVpc(name, desc)
+func (region *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
+	vpc, err := region.CreateVpc(opts.NAME, opts.Desc)
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateVp")
 	}
