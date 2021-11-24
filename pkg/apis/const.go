@@ -46,6 +46,10 @@ const (
 
 	STATUS_UPDATE_TAGS        = "update_tags"
 	STATUS_UPDATE_TAGS_FAILED = "update_tags_fail"
+	STATUS_CREATING           = "creating"
+	STATUS_CREATE_FAILED      = "create_failed"
+	STATUS_DELETING           = "deleting"
+	STATUS_DELETE_FAILED      = "delete_failed"
 
 	CLOUD_TAG_PREFIX     = "ext:"
 	USER_TAG_PREFIX      = "user:"

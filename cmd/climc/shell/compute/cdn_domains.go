@@ -17,10 +17,15 @@ package compute
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
 	cmd := shell.NewResourceCmd(&modules.CDNDomains)
 	cmd.List(&compute.CDNDomainListOptions{})
+	cmd.Show(&options.BaseIdOptions{})
+	cmd.Update(&compute.CDNDomainUpdateOptions{})
+	cmd.Delete(&options.BaseIdOptions{})
+	cmd.Create(&compute.CDNDomainCreateOptions{})
 }
