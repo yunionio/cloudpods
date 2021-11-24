@@ -61,25 +61,25 @@ type SFirewall struct {
 type SSecurityGroup struct {
 	multicloud.SSecurityGroup
 	multicloud.GoogleTags
-	vpc *SVpc
+	gvpc *SGlobalNetwork
 
 	ServiceAccount string
 	Tag            string
 }
 
-func (region *SRegion) GetFirewalls(network string, maxResults int, pageToken string) ([]SFirewall, error) {
+func (self *SGoogleClient) GetFirewalls(network string, maxResults int, pageToken string) ([]SFirewall, error) {
 	firewalls := []SFirewall{}
 	params := map[string]string{"filter": "disabled = false"}
 	resource := "global/firewalls"
 	if len(network) > 0 {
 		params["filter"] = fmt.Sprintf(`(disabled = false) AND (network="%s")`, network)
 	}
-	return firewalls, region.List(resource, params, maxResults, pageToken, &firewalls)
+	return firewalls, self._ecsListAll("GET", resource, params, &firewalls)
 }
 
-func (region *SRegion) GetFirewall(id string) (*SFirewall, error) {
+func (self *SGoogleClient) GetFirewall(id string) (*SFirewall, error) {
 	firewall := &SFirewall{}
-	return firewall, region.Get(id, firewall)
+	return firewall, self.ecsGet("global/firewalls", id, firewall)
 }
 
 func (firewall *SFirewall) _toRules(action secrules.TSecurityRuleAction) ([]cloudprovider.SecurityRule, error) {
@@ -164,7 +164,7 @@ func (firewall *SFirewall) toRules() ([]cloudprovider.SecurityRule, error) {
 }
 
 func (secgroup *SSecurityGroup) GetId() string {
-	return secgroup.vpc.globalnetwork.GetGlobalId()
+	return secgroup.gvpc.GetGlobalId()
 }
 
 func (secgroup *SSecurityGroup) GetGlobalId() string {
@@ -188,7 +188,7 @@ func (secgroup *SSecurityGroup) GetName() string {
 	if len(secgroup.ServiceAccount) > 0 {
 		return secgroup.ServiceAccount
 	}
-	return secgroup.vpc.globalnetwork.Name
+	return secgroup.gvpc.Name
 }
 
 func (secgroup *SSecurityGroup) GetStatus() string {
@@ -209,7 +209,7 @@ func (secgroup *SSecurityGroup) Delete() error {
 		return errors.Wrap(err, "GetRules")
 	}
 	for _, rule := range rules {
-		err = secgroup.vpc.region.DeleteSecgroupRule(rule)
+		err = secgroup.gvpc.client.DeleteSecgroupRule(rule)
 		if err != nil {
 			return errors.Wrapf(err, "DeleteSecgroupRule(%s)", rule.Description)
 		}
@@ -222,11 +222,11 @@ func (secgroup *SSecurityGroup) GetProjectId() string {
 }
 
 func (secgroup *SSecurityGroup) GetVpcId() string {
-	return secgroup.vpc.GetGlobalId()
+	return secgroup.gvpc.GetGlobalId()
 }
 
 func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
-	_firewalls, err := self.vpc.region.GetFirewalls(self.vpc.globalnetwork.SelfLink, 0, "")
+	_firewalls, err := self.gvpc.client.GetFirewalls(self.gvpc.SelfLink, 0, "")
 	if err != nil {
 		return nil, err
 	}
@@ -253,8 +253,8 @@ func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
 	return rules, nil
 }
 
-func (region *SRegion) DeleteSecgroupRule(rule cloudprovider.SecurityRule) error {
-	firwall, err := region.GetFirewall(rule.ExternalId)
+func (self *SGoogleClient) DeleteSecgroupRule(rule cloudprovider.SecurityRule) error {
+	firwall, err := self.GetFirewall(rule.ExternalId)
 	if err != nil {
 		return errors.Wrap(err, "region.GetFirewall")
 	}
@@ -266,19 +266,19 @@ func (region *SRegion) DeleteSecgroupRule(rule cloudprovider.SecurityRule) error
 		for _, _rule := range currentRule {
 			if _rule.String() != rule.String() {
 				for _, tag := range firwall.TargetTags {
-					err = region.CreateSecurityGroupRule(_rule, firwall.Network, tag, "")
+					err = self.CreateSecurityGroupRule(_rule, firwall.Network, tag, "")
 					if err != nil {
 						return errors.Wrap(err, "region.CreateSecurityGroupRule")
 					}
 				}
 				for _, serviceAccount := range firwall.TargetServiceAccounts {
-					err = region.CreateSecurityGroupRule(_rule, firwall.Network, "", serviceAccount)
+					err = self.CreateSecurityGroupRule(_rule, firwall.Network, "", serviceAccount)
 					if err != nil {
 						return errors.Wrap(err, "region.CreateSecurityGroupRule")
 					}
 				}
 				if len(firwall.TargetTags)+len(firwall.TargetServiceAccounts) == 0 {
-					err = region.CreateSecurityGroupRule(_rule, firwall.Network, "", "")
+					err = self.CreateSecurityGroupRule(_rule, firwall.Network, "", "")
 					if err != nil {
 						return errors.Wrap(err, "region.CreateSecurityGroupRule")
 					}
@@ -286,18 +286,18 @@ func (region *SRegion) DeleteSecgroupRule(rule cloudprovider.SecurityRule) error
 			}
 		}
 	}
-	return region.Delete(firwall.SelfLink)
+	return self.ecsDelete(firwall.SelfLink, nil)
 }
 
 func (secgroup *SSecurityGroup) SyncRules(common, inAdds, outAdds, inDels, outDels []cloudprovider.SecurityRule) error {
 	for _, r := range append(inDels, outDels...) {
-		err := secgroup.vpc.region.DeleteSecgroupRule(r)
+		err := secgroup.gvpc.client.DeleteSecgroupRule(r)
 		if err != nil {
 			return errors.Wrap(err, "DeleteSecgroupRule")
 		}
 	}
 	for _, r := range append(inAdds, outAdds...) {
-		err := secgroup.vpc.region.CreateSecurityGroupRule(r, secgroup.vpc.globalnetwork.SelfLink, secgroup.Tag, secgroup.ServiceAccount)
+		err := secgroup.gvpc.client.CreateSecurityGroupRule(r, secgroup.gvpc.SelfLink, secgroup.Tag, secgroup.ServiceAccount)
 		if err != nil {
 			return errors.Wrapf(err, "CreateSecurityGroupRule(%s)", r.String())
 		}
@@ -343,7 +343,7 @@ func (region *SRegion) GetISecurityGroupByName(opts *cloudprovider.SecurityGroup
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (region *SRegion) CreateSecurityGroupRule(rule cloudprovider.SecurityRule, vpcId string, tag string, serviceAccount string) error {
+func (self *SGoogleClient) CreateSecurityGroupRule(rule cloudprovider.SecurityRule, vpcId string, tag string, serviceAccount string) error {
 	name := fmt.Sprintf("%s-%d", rule.String(), rule.Priority)
 	if len(tag) > 0 {
 		name = fmt.Sprintf("for-tag-%s-%s", tag, name)
@@ -405,7 +405,7 @@ func (region *SRegion) CreateSecurityGroupRule(rule cloudprovider.SecurityRule, 
 	}
 
 	firwall := &SFirewall{}
-	err := region.Insert("global/firewalls", jsonutils.Marshal(body), firwall)
+	err := self.Insert("global/firewalls", jsonutils.Marshal(body), firwall)
 	if err != nil {
 		if strings.Index(err.Error(), "already exists") >= 0 {
 			return nil
@@ -416,14 +416,11 @@ func (region *SRegion) CreateSecurityGroupRule(rule cloudprovider.SecurityRule, 
 }
 
 func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	conf.VpcId = fmt.Sprintf("%s/%s", region.GetGlobalId(), conf.VpcId)
-	ivpc, err := region.GetIVpcById(conf.VpcId)
+	gvpc, err := region.client.GetGlobalNetwork(conf.VpcId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "region.GetIVpcById(%s)", conf.VpcId)
 	}
 
-	vpc := ivpc.(*SVpc)
-
-	secgroup := &SSecurityGroup{vpc: vpc, Tag: strings.ToLower(conf.Name)}
+	secgroup := &SSecurityGroup{gvpc: gvpc, Tag: strings.ToLower(conf.Name)}
 	return secgroup, nil
 }

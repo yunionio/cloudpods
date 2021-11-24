@@ -44,11 +44,13 @@ type SImage struct {
 	multicloud.GoogleTags
 	storagecache *SStoragecache
 	SResourceBase
+	Name     string
+	SelfLink string
+	Id       string
 
 	// normalized image info
 	imgInfo *imagetools.ImageInfo
 
-	Id                string
 	CreationTimestamp time.Time
 	Description       string
 	SourceType        string
@@ -64,6 +66,18 @@ type SImage struct {
 	LicenseCodes      []string
 	StorageLocations  []string
 	Kind              string
+}
+
+func (self *SImage) GetId() string {
+	return self.SelfLink
+}
+
+func (self *SImage) GetGlobalId() string {
+	return strings.TrimPrefix(self.SelfLink, fmt.Sprintf("%s/%s/", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION))
+}
+
+func (self *SImage) GetName() string {
+	return self.Name
 }
 
 func (region *SRegion) SetProjectId(id string) {
@@ -112,7 +126,7 @@ func (region *SRegion) GetImages(project string, maxResults int, pageToken strin
 
 func (region *SRegion) GetImage(id string) (*SImage, error) {
 	image := &SImage{}
-	return image, region.Get(id, image)
+	return image, region.GetBySelfId(id, image)
 }
 
 func (image *SImage) GetMinRamSizeMb() int {

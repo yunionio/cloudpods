@@ -172,51 +172,39 @@ func (region *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error)
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (region *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
-	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
+	if utils.IsInStringArray(self.Name, MultiRegions) || utils.IsInStringArray(self.Name, DualRegions) {
 		return []cloudprovider.ICloudVpc{}, nil
 	}
-
-	globalnetworks, err := region.client.fetchGlobalNetwork()
+	vpcs, err := self.GetVpcs()
 	if err != nil {
-		return nil, errors.Wrap(err, "fetchGlobalNetwork")
+		return nil, errors.Wrapf(err, "GetVpcs")
 	}
-	ivpcs := []cloudprovider.ICloudVpc{}
-	for i := range globalnetworks {
-		vpc := SVpc{region: region, globalnetwork: &globalnetworks[i]}
-		ivpcs = append(ivpcs, &vpc)
+	ret := []cloudprovider.ICloudVpc{}
+	for i := range vpcs {
+		vpcs[i].region = self
+		ret = append(ret, &vpcs[i])
 	}
-	return ivpcs, nil
+	return ret, nil
 }
 
-func (region *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
-	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
-		return nil, cloudprovider.ErrNotFound
-	}
-
-	ivpcs, err := region.GetIVpcs()
+func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
+	vpc, err := self.GetVpc(id)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetVpc")
 	}
-	for i := range ivpcs {
-		if ivpcs[i].GetGlobalId() == id {
-			return ivpcs[i], nil
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
+	return vpc, nil
 }
 
-func (region *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
-	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+func (self *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
+	if utils.IsInStringArray(self.Name, MultiRegions) || utils.IsInStringArray(self.Name, DualRegions) {
 		return nil, cloudprovider.ErrNotSupported
 	}
-
-	globalnetwork, err := region.CreateGlobalNetwork(name, desc)
+	gvpc, err := self.client.GetGlobalNetwork(opts.GlobalVpcExternalId)
 	if err != nil {
-		return nil, errors.Wrap(err, "region.CreateGlobalNetwork")
+		return nil, errors.Wrapf(err, "GetGlobalNetwork")
 	}
-	vpc := &SVpc{region: region, globalnetwork: globalnetwork}
-	return vpc, nil
+	return self.CreateVpc(opts.NAME, gvpc.SelfLink, opts.CIDR, opts.Desc)
 }
 
 func (region *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
@@ -529,8 +517,23 @@ func (region *SRegion) List(resource string, params map[string]string, maxResult
 	return nil
 }
 
-func (region *SRegion) Get(id string, retval interface{}) error {
-	return region.client.ecsGet(id, retval)
+func (region *SRegion) Get(resourceType, id string, retval interface{}) error {
+	return region.client.ecsGet(resourceType, id, retval)
+}
+
+func (self *SGoogleClient) GetBySelfId(id string, retval interface{}) error {
+	resp, err := jsonRequest(self.client, "GET", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, id, nil, nil, self.debug)
+	if err != nil {
+		return err
+	}
+	if retval != nil {
+		return resp.Unmarshal(retval)
+	}
+	return nil
+}
+
+func (self *SRegion) GetBySelfId(id string, retval interface{}) error {
+	return self.client.GetBySelfId(id, retval)
 }
 
 func (region *SRegion) StorageListAll(resource string, params map[string]string, retval interface{}) error {
@@ -573,7 +576,7 @@ func (region *SRegion) StorageDo(id string, action string, params map[string]str
 		return err
 	}
 	if strings.Index(opId, "/operations/") > 0 {
-		_, err = region.WaitOperation(opId, id, action)
+		_, err = region.client.WaitOperation(opId, id, action)
 		return err
 	}
 	return nil
@@ -585,7 +588,7 @@ func (region *SRegion) Do(id string, action string, params map[string]string, bo
 		return err
 	}
 	if strings.Index(opId, "/operations/") > 0 {
-		_, err = region.WaitOperation(opId, id, action)
+		_, err = region.client.WaitOperation(opId, id, action)
 		return err
 	}
 	return nil
@@ -597,7 +600,7 @@ func (region *SRegion) Patch(id string, action string, params map[string]string,
 		return err
 	}
 	if strings.Index(opId, "/operations/") > 0 {
-		_, err = region.WaitOperation(opId, id, action)
+		_, err = region.client.WaitOperation(opId, id, action)
 		return err
 	}
 	return nil
@@ -613,7 +616,7 @@ func (region *SRegion) Delete(id string) error {
 	if err != nil {
 		return errors.Wrap(err, "client.ecsDelete")
 	}
-	_, err = region.WaitOperation(operation.SelfLink, id, "delete")
+	_, err = region.client.WaitOperation(operation.SelfLink, id, "delete")
 	if err != nil {
 		return errors.Wrapf(err, "region.WaitOperation(%s)", operation.SelfLink)
 	}
@@ -658,17 +661,21 @@ func (region *SRegion) cloudbuildGet(id string, retval interface{}) error {
 	return region.client.cloudbuildGet(id, retval)
 }
 
-func (region *SRegion) Insert(resource string, body jsonutils.JSONObject, retval interface{}) error {
+func (self *SGoogleClient) Insert(resource string, body jsonutils.JSONObject, retval interface{}) error {
 	operation := &SOperation{}
-	err := region.client.ecsInsert(resource, body, operation)
+	err := self.ecsInsert(resource, body, operation)
 	if err != nil {
 		return err
 	}
-	resourceId, err := region.WaitOperation(operation.SelfLink, resource, "insert")
+	resourceId, err := self.WaitOperation(operation.SelfLink, resource, "insert")
 	if err != nil {
 		return errors.Wrapf(err, "region.WaitOperation(%s)", operation.SelfLink)
 	}
-	return region.Get(resourceId, retval)
+	return self.GetBySelfId(resourceId, retval)
+}
+
+func (self *SRegion) Insert(resource string, body jsonutils.JSONObject, retval interface{}) error {
+	return self.client.Insert(resource, body, retval)
 }
 
 func (region *SRegion) fetchResourcePolicies() ([]SResourcePolicy, error) {
@@ -695,7 +702,7 @@ func (region *SRegion) GetISnapshotPolicies() ([]cloudprovider.ICloudSnapshotPol
 	ipolicies := []cloudprovider.ICloudSnapshotPolicy{}
 	for i := range policies {
 		policies[i].region = region
-		if strings.Contains(region.Name, policies[i].SnapshotSchedulePolicy.SnapshotProperties.StorageLocations[0]) {
+		if utils.IsInStringArray(region.Name, policies[i].SnapshotSchedulePolicy.SnapshotProperties.StorageLocations) {
 			ipolicies = append(ipolicies, &policies[i])
 		}
 	}

@@ -297,3 +297,15 @@ func (self *SGoogleProvider) CreateICloudpolicy(opts *cloudprovider.SCloudpolicy
 func (self *SGoogleProvider) GetSamlEntityId() string {
 	return cloudprovider.SAML_ENTITY_ID_GOOGLE
 }
+
+func (self *SGoogleProvider) GetICloudGlobalVpcs() ([]cloudprovider.ICloudGlobalVpc, error) {
+	return self.client.GetICloudGlobalVpcs()
+}
+
+func (self *SGoogleProvider) GetICloudGlobalVpcById(id string) (cloudprovider.ICloudGlobalVpc, error) {
+	return self.client.GetICloudGlobalVpcById(id)
+}
+
+func (self *SGoogleProvider) CreateICloudGlobalVpc(opts *cloudprovider.GlobalVpcCreateOptions) (cloudprovider.ICloudGlobalVpc, error) {
+	return self.client.CreateICloudGlobalVpc(opts)
+}

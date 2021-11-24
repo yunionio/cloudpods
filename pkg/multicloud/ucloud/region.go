@@ -234,11 +234,11 @@ func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreat
 // 绑定防火墙组的资源类型，默认为全部资源类型。枚举值为："unatgw"，NAT网关； "uhost"，云主机； "upm"，物理云主机； "hadoophost"，hadoop节点； "fortresshost"，堡垒机； "udhost"，私有专区主机；"udockhost"，容器；"dbaudit"，数据库审计.
 // todo: 是否需要过滤出仅绑定云主机的安全组？
 
-func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
+func (self *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
 	params := NewUcloudParams()
-	params.Set("Name", name)
-	params.Set("Remark", desc)
-	for i, cidr := range strings.Split(cidr, ",") {
+	params.Set("Name", opts.NAME)
+	params.Set("Remark", opts.Desc)
+	for i, cidr := range strings.Split(opts.CIDR, ",") {
 		params.Set(fmt.Sprintf("Network.%d", i), cidr)
 	}
 

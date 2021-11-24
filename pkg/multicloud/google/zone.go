@@ -39,7 +39,7 @@ type SZone struct {
 
 func (region *SRegion) GetZone(id string) (*SZone, error) {
 	zone := &SZone{}
-	return zone, region.Get(id, zone)
+	return zone, region.GetBySelfId(id, zone)
 }
 
 func (region *SRegion) GetZones(regionId string, maxResults int, pageToken string) ([]SZone, error) {

@@ -2087,8 +2087,7 @@ func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCre
 			defer cloudaccountPendingSyncsMutex.Unlock()
 			delete(cloudaccountPendingSyncs, account.Id)
 		}()
-
-		account.SyncAccountResources(ctx, userCred)
+		SyncCloudaccountResources(ctx, userCred, account, &SSyncRange{})
 		log.Debugf("syncAccountStatus %s %s", account.Id, account.Name)
 		err := account.syncAccountStatus(ctx, userCred)
 		if waitChan != nil {
@@ -2822,63 +2821,6 @@ func (self *SCloudaccount) SyncDnsZones(ctx context.Context, userCred mcclient.T
 	}
 
 	return localZones, remoteZones, result
-}
-
-func (self *SCloudaccount) SyncAccountResources(ctx context.Context, userCred mcclient.TokenCredential) error {
-	provider, err := self.GetProvider()
-	if err != nil {
-		return errors.Wrapf(err, "GetProvider")
-	}
-	if cloudprovider.IsSupportProject(provider) {
-		err = func() error {
-			lockman.LockRawObject(ctx, "projects", self.Id)
-			defer lockman.ReleaseRawObject(ctx, "projects", self.Id)
-
-			projects, err := provider.GetIProjects()
-			if err != nil {
-				return errors.Wrapf(err, "provider.GetIProjects")
-			}
-			result := ExternalProjectManager.SyncProjects(ctx, userCred, self, projects)
-			log.Infof("Sync project for cloudaccount %s result: %s", self.Name, result.Result())
-			return nil
-		}()
-		if err != nil {
-			log.Errorf("sync project for account %s error: %v", self.Name, err)
-		}
-	}
-
-	if cloudprovider.IsSupportDnsZone(provider) {
-		err = func() error {
-			lockman.LockRawObject(ctx, "dns_zones", self.Id)
-			defer lockman.ReleaseRawObject(ctx, "dns_zones", self.Id)
-
-			dnsZones, err := provider.GetICloudDnsZones()
-			if err != nil {
-				return errors.Wrapf(err, "GetICloudDnsZones")
-			}
-			localZones, remoteZones, result := self.SyncDnsZones(ctx, userCred, dnsZones)
-			log.Infof("Sync dns zones for cloudaccount %s result: %s", self.Name, result.Result())
-			for i := 0; i < len(localZones); i++ {
-				func() {
-					lockman.LockObject(ctx, &localZones[i])
-					defer lockman.ReleaseObject(ctx, &localZones[i])
-
-					if localZones[i].Deleted {
-						return
-					}
-
-					result := localZones[i].SyncDnsRecordSets(ctx, userCred, self.Provider, remoteZones[i])
-					log.Infof("Sync dns records for dns zone %s result: %s", localZones[i].GetName(), result.Result())
-				}()
-			}
-			return nil
-		}()
-		if err != nil {
-			log.Errorf("sync dns zone for account %s error: %v", self.Name, err)
-		}
-	}
-
-	return nil
 }
 
 type SVs2Wire struct {

@@ -49,5 +49,5 @@ func (region *SRegion) GetRegionDisks(storageType string, maxResults int, pageTo
 
 func (region *SRegion) GetRegionDisk(id string) (*SRegionDisk, error) {
 	disk := &SRegionDisk{}
-	return disk, region.Get(id, disk)
+	return disk, region.GetBySelfId(id, disk)
 }

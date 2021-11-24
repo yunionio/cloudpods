@@ -77,8 +77,6 @@ type SResourcePolicy struct {
 	SResourceBase
 	multicloud.GoogleTags
 
-	Id string
-
 	CreationTimestamp      time.Time
 	Region                 string
 	Status                 string
@@ -95,7 +93,7 @@ func (region *SRegion) GetResourcePolicies(maxResults int, pageToken string) ([]
 
 func (region *SRegion) GetResourcePolicy(id string) (*SResourcePolicy, error) {
 	policy := &SResourcePolicy{region: region}
-	return policy, region.Get(id, policy)
+	return policy, region.Get("resourcePolicies", id, policy)
 }
 
 func (policy *SResourcePolicy) GetStatus() string {
@@ -109,7 +107,7 @@ func (policy *SResourcePolicy) GetStatus() string {
 }
 
 func (policy *SResourcePolicy) Refresh() error {
-	_policy, err := policy.region.GetResourcePolicy(policy.SelfLink)
+	_policy, err := policy.region.GetResourcePolicy(policy.Id)
 	if err != nil {
 		return err
 	}

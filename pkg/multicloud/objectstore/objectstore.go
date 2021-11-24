@@ -254,7 +254,7 @@ func (cli *SObjectStoreClient) SyncSecurityGroup(secgroupId string, vpcId string
 	return "", cloudprovider.ErrNotSupported
 }
 
-func (cli *SObjectStoreClient) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
+func (cli *SObjectStoreClient) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 

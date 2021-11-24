@@ -537,6 +537,7 @@ func (region *SApsaraClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
 		cloudprovider.CLOUD_CAPABILITY_RDS,
 		cloudprovider.CLOUD_CAPABILITY_CACHE,
+		cloudprovider.CLOUD_CAPABILITY_QUOTA + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
 }

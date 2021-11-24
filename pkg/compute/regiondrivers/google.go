@@ -71,10 +71,6 @@ func (self *SGoogleRegionDriver) IsVpcBelongGlobalVpc() bool {
 	return true
 }
 
-func (self *SGoogleRegionDriver) IsVpcCreateNeedInputCidr() bool {
-	return false
-}
-
 func (self *SGoogleRegionDriver) RequestCreateVpc(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		provider := vpc.GetCloudprovider()
@@ -89,7 +85,17 @@ func (self *SGoogleRegionDriver) RequestCreateVpc(ctx context.Context, userCred 
 		if err != nil {
 			return nil, errors.Wrap(err, "vpc.GetIRegion")
 		}
-		ivpc, err := iregion.CreateIVpc(vpc.Name, vpc.Description, vpc.CidrBlock)
+		gvpc, err := vpc.GetGlobalVpc()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetGlobalVpc")
+		}
+		opts := &cloudprovider.VpcCreateOptions{
+			NAME:                vpc.Name,
+			CIDR:                vpc.CidrBlock,
+			GlobalVpcExternalId: gvpc.ExternalId,
+			Desc:                vpc.Description,
+		}
+		ivpc, err := iregion.CreateIVpc(opts)
 		if err != nil {
 			return nil, errors.Wrap(err, "iregion.CreateIVpc")
 		}
@@ -130,48 +136,15 @@ func (self *SGoogleRegionDriver) RequestDeleteVpc(ctx context.Context, userCred 
 		ivpc, err := region.GetIVpcById(vpc.GetExternalId())
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
-				err = vpc.Purge(ctx, userCred)
-				if err != nil {
-					return nil, errors.Wrap(err, "vpc.Purge")
-				}
 				return nil, nil
 			}
 			return nil, errors.Wrap(err, "region.GetIVpcById")
-		}
-
-		globalVpc, err := vpc.GetGlobalVpc()
-		if err != nil {
-			return nil, errors.Wrap(err, "vpc.GetGlobalVpc")
-		}
-
-		vpcs, err := globalVpc.GetVpcs()
-		if err != nil {
-			return nil, errors.Wrap(err, "globalVpc.GetVpcs")
-		}
-
-		for i := range vpcs {
-			if vpcs[i].Status == api.VPC_STATUS_AVAILABLE && vpcs[i].ManagerId == vpc.ManagerId {
-				err = vpc.ValidateDeleteCondition(ctx, nil)
-				if err != nil {
-					return nil, errors.Wrapf(err, "vpc %s(%s) not empty", vpc.Name, vpc.Id)
-				}
-			}
 		}
 
 		err = ivpc.Delete()
 		if err != nil {
 			return nil, errors.Wrap(err, "ivpc.Delete")
 		}
-
-		for i := range vpcs {
-			if vpcs[i].ManagerId == vpc.ManagerId && vpcs[i].Id != vpc.Id {
-				err = vpcs[i].Purge(ctx, userCred)
-				if err != nil {
-					return nil, errors.Wrapf(err, "vpc.Purge %s(%s)", vpc.Name, vpc.Id)
-				}
-			}
-		}
-
 		return nil, nil
 	})
 	return nil
@@ -276,6 +249,25 @@ func (self *SGoogleRegionDriver) ValidateCreateVpcData(ctx context.Context, user
 	}
 	if cidrV.Value.MaskLen < 8 || cidrV.Value.MaskLen > 29 {
 		return input, httperrors.NewInputParameterError("%s request the mask range should be between 8 and 29", self.GetProvider())
+	}
+	if len(input.GlobalvpcId) == 0 {
+		_manager, err := validators.ValidateModel(userCred, models.CloudproviderManager, &input.CloudproviderId)
+		if err != nil {
+			return input, err
+		}
+		manager := _manager.(*models.SCloudprovider)
+		globalVpcs, err := manager.GetGlobalVpcs()
+		if err != nil {
+			return input, errors.Wrapf(err, "GetGlobalVpcs")
+		}
+		if len(globalVpcs) != 1 {
+			return input, httperrors.NewMissingParameterError("globalvpc_id")
+		}
+		input.GlobalvpcId = globalVpcs[0].Id
+	}
+	_, err := validators.ValidateModel(userCred, models.GlobalVpcManager, &input.GlobalvpcId)
+	if err != nil {
+		return input, err
 	}
 	return input, nil
 }

@@ -46,6 +46,7 @@ const (
 
 	STATUS_UPDATE_TAGS        = "update_tags"
 	STATUS_UPDATE_TAGS_FAILED = "update_tags_fail"
+	STATUS_UNKNOWN            = "unknown"
 	STATUS_CREATING           = "creating"
 	STATUS_CREATE_FAILED      = "create_failed"
 	STATUS_DELETING           = "deleting"

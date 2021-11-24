@@ -29,7 +29,6 @@ type SSnapshot struct {
 	SResourceBase
 	multicloud.GoogleTags
 
-	Id                 string
 	CreationTimestamp  time.Time
 	Status             string
 	SourceDisk         string
@@ -56,7 +55,7 @@ func (region *SRegion) GetSnapshots(disk string, maxResults int, pageToken strin
 
 func (region *SRegion) GetSnapshot(id string) (*SSnapshot, error) {
 	snapshot := &SSnapshot{region: region}
-	return snapshot, region.Get(id, snapshot)
+	return snapshot, region.Get("global/snapshots", id, snapshot)
 }
 
 //CREATING, DELETING, FAILED, READY, or UPLOADING
@@ -80,7 +79,7 @@ func (snapshot *SSnapshot) IsEmulated() bool {
 }
 
 func (snapshot *SSnapshot) Refresh() error {
-	_snapshot, err := snapshot.region.GetSnapshot(snapshot.SelfLink)
+	_snapshot, err := snapshot.region.GetSnapshot(snapshot.Id)
 	if err != nil {
 		return err
 	}

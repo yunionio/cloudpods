@@ -19,12 +19,18 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SGlobalNetwork struct {
+	multicloud.GoogleTags
 	SResourceBase
 
-	Id                    string
+	client *SGoogleClient
+
 	CreationTimestamp     time.Time
 	Description           string
 	AutoCreateSubnetworks bool
@@ -33,9 +39,33 @@ type SGlobalNetwork struct {
 	Kind                  string
 }
 
+func (self *SGlobalNetwork) GetStatus() string {
+	return api.GLOBAL_VPC_STATUS_AVAILABLE
+}
+
+func (self *SGlobalNetwork) IsEmulated() bool {
+	return false
+}
+
+func (self *SGlobalNetwork) Delete() error {
+	return self.client.ecsDelete(self.SelfLink, nil)
+}
+
+func (self *SGlobalNetwork) Refresh() error {
+	gvpc, err := self.client.GetGlobalNetwork(self.Id)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(self, gvpc)
+}
+
 func (cli *SGoogleClient) GetGlobalNetwork(id string) (*SGlobalNetwork, error) {
-	net := &SGlobalNetwork{}
-	return net, cli.ecsGet(id, net)
+	net := &SGlobalNetwork{client: cli}
+	return net, cli.ecsGet("global/networks", id, net)
+}
+
+func (self *SGoogleClient) GetICloudGlobalVpcById(id string) (cloudprovider.ICloudGlobalVpc, error) {
+	return self.GetGlobalNetwork(id)
 }
 
 func (cli *SGoogleClient) GetGlobalNetworks(maxResults int, pageToken string) ([]SGlobalNetwork, error) {
@@ -62,15 +92,41 @@ func (cli *SGoogleClient) GetGlobalNetworks(maxResults int, pageToken string) ([
 	return networks, nil
 }
 
-func (region *SRegion) CreateGlobalNetwork(name string, desc string) (*SGlobalNetwork, error) {
-	body := map[string]string{
-		"name":        name,
-		"description": desc,
+func (self *SGoogleClient) CreateGlobalNetwork(name string, desc string) (*SGlobalNetwork, error) {
+	body := map[string]interface{}{
+		"name":                  name,
+		"description":           desc,
+		"autoCreateSubnetworks": false,
+		"mtu":                   1460,
+		"routingConfig": map[string]string{
+			"routingMode": "REGIONAL",
+		},
 	}
-	globalnetwork := &SGlobalNetwork{}
-	err := region.Insert("global/networks", jsonutils.Marshal(body), globalnetwork)
+	globalnetwork := &SGlobalNetwork{client: self}
+	err := self.Insert("global/networks", jsonutils.Marshal(body), globalnetwork)
 	if err != nil {
-		return nil, errors.Wrap(err, "region.Insert")
+		return nil, errors.Wrap(err, "self.Insert")
 	}
 	return globalnetwork, nil
+}
+
+func (self *SGoogleClient) CreateICloudGlobalVpc(opts *cloudprovider.GlobalVpcCreateOptions) (cloudprovider.ICloudGlobalVpc, error) {
+	gvpc, err := self.CreateGlobalNetwork(opts.NAME, opts.Desc)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateICloudGlobalVpc")
+	}
+	return gvpc, nil
+}
+
+func (self *SGoogleClient) GetICloudGlobalVpcs() ([]cloudprovider.ICloudGlobalVpc, error) {
+	gvpcs, err := self.GetGlobalNetworks(0, "")
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetGlobalNetworks")
+	}
+	ret := []cloudprovider.ICloudGlobalVpc{}
+	for i := range gvpcs {
+		gvpcs[i].client = self
+		ret = append(ret, &gvpcs[i])
+	}
+	return ret, nil
 }

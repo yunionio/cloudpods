@@ -165,14 +165,14 @@ func (self *SRegion) GetStatus() string {
 	return api.CLOUD_REGION_STATUS_INSERVER
 }
 
-func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
+func (self *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
 	vpc := SVpc{
 		region:   self,
-		Name:     name,
+		Name:     opts.NAME,
 		Location: self.Name,
 		Properties: VirtualNetworkPropertiesFormat{
 			AddressSpace: AddressSpace{
-				AddressPrefixes: []string{cidr},
+				AddressPrefixes: []string{opts.CIDR},
 			},
 		},
 		Type: "Microsoft.Network/virtualNetworks",

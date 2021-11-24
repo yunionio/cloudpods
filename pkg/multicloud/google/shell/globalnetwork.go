@@ -51,7 +51,7 @@ func init() {
 	}
 
 	shellutils.R(&GlobalNetworkCreateOptions{}, "global-network-create", "Create globalnetwork", func(cli *google.SRegion, args *GlobalNetworkCreateOptions) error {
-		globalnetwork, err := cli.CreateGlobalNetwork(args.NAME, args.Desc)
+		globalnetwork, err := cli.GetClient().CreateGlobalNetwork(args.NAME, args.Desc)
 		if err != nil {
 			return err
 		}

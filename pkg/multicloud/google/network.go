@@ -15,10 +15,6 @@
 package google
 
 import (
-	"fmt"
-	"time"
-
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/netutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -28,49 +24,28 @@ import (
 )
 
 type SNetwork struct {
-	wire *SWire
-	SResourceBase
 	multicloud.GoogleTags
-
-	Id                    string
-	CreationTimestamp     time.Time
-	Network               string
-	IpCidrRange           string
-	Region                string
-	GatewayAddress        string
-	Status                string
-	AvailableCpuPlatforms []string
-	PrivateIpGoogleAccess bool
-	Fingerprint           string
-	Purpose               string
-	Kind                  string
-}
-
-func (region *SRegion) GetNetworks(network string, maxResults int, pageToken string) ([]SNetwork, error) {
-	networks := []SNetwork{}
-	params := map[string]string{}
-	if len(network) > 0 {
-		params["filter"] = fmt.Sprintf(`network="%s"`, network)
-	}
-	resource := fmt.Sprintf("regions/%s/subnetworks", region.Name)
-	return networks, region.List(resource, params, maxResults, pageToken, &networks)
-}
-
-func (region *SRegion) GetNetwork(id string) (*SNetwork, error) {
-	network := &SNetwork{}
-	return network, region.Get(id, network)
+	wire *SWire
 }
 
 func (network *SNetwork) GetProjectId() string {
 	return network.wire.vpc.region.GetProjectId()
 }
 
-func (network *SNetwork) Refresh() error {
-	_network, err := network.wire.vpc.region.GetNetwork(network.SelfLink)
-	if err != nil {
-		return err
-	}
-	return jsonutils.Update(network, _network)
+func (self *SNetwork) GetName() string {
+	return self.wire.vpc.GetName()
+}
+
+func (self *SNetwork) GetId() string {
+	return self.wire.vpc.GetId()
+}
+
+func (self *SNetwork) GetGlobalId() string {
+	return self.wire.vpc.GetGlobalId()
+}
+
+func (self *SNetwork) Refresh() error {
+	return self.wire.vpc.Refresh()
 }
 
 func (network *SNetwork) IsEmulated() bool {
@@ -82,7 +57,7 @@ func (network *SNetwork) GetStatus() string {
 }
 
 func (network *SNetwork) Delete() error {
-	return network.wire.vpc.region.Delete(network.SelfLink)
+	return network.wire.vpc.Delete()
 }
 
 func (network *SNetwork) GetAllocTimeoutSeconds() int {
@@ -93,27 +68,27 @@ func (network *SNetwork) GetIWire() cloudprovider.ICloudWire {
 	return network.wire
 }
 
-func (network *SNetwork) GetIpStart() string {
-	pref, _ := netutils.NewIPV4Prefix(network.IpCidrRange)
+func (self *SNetwork) GetIpStart() string {
+	pref, _ := netutils.NewIPV4Prefix(self.wire.vpc.IpCidrRange)
 	startIp := pref.Address.NetAddr(pref.MaskLen) // 0
 	startIp = startIp.StepUp()                    // 1
 	return startIp.String()
 }
 
-func (network *SNetwork) GetIpEnd() string {
-	pref, _ := netutils.NewIPV4Prefix(network.IpCidrRange)
+func (self *SNetwork) GetIpEnd() string {
+	pref, _ := netutils.NewIPV4Prefix(self.wire.vpc.IpCidrRange)
 	endIp := pref.Address.BroadcastAddr(pref.MaskLen) // 255
 	endIp = endIp.StepDown()                          // 254
 	return endIp.String()
 }
 
-func (network *SNetwork) GetIpMask() int8 {
-	pref, _ := netutils.NewIPV4Prefix(network.IpCidrRange)
+func (self *SNetwork) GetIpMask() int8 {
+	pref, _ := netutils.NewIPV4Prefix(self.wire.vpc.IpCidrRange)
 	return pref.MaskLen
 }
 
-func (network *SNetwork) GetGateway() string {
-	return network.GatewayAddress
+func (self *SNetwork) GetGateway() string {
+	return self.wire.vpc.GatewayAddress
 }
 
 func (network *SNetwork) GetServerType() string {
@@ -126,20 +101,4 @@ func (network *SNetwork) GetIsPublic() bool {
 
 func (network *SNetwork) GetPublicScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeDomain
-}
-
-func (region *SRegion) CreateNetwork(name string, vpc string, cidr string, desc string) (*SNetwork, error) {
-	body := map[string]interface{}{
-		"name":        name,
-		"description": desc,
-		"network":     vpc,
-		"ipCidrRange": cidr,
-	}
-	resource := fmt.Sprintf("regions/%s/subnetworks", region.Name)
-	network := &SNetwork{}
-	err := region.Insert(resource, jsonutils.Marshal(body), network)
-	if err != nil {
-		return nil, err
-	}
-	return network, nil
 }

@@ -12,33 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package google
+package cloudprovider
 
-import (
-	"fmt"
-	"strings"
-)
-
-type SResourceBase struct {
-	Name     string
-	SelfLink string
-	Id       string
-}
-
-func (r *SResourceBase) GetId() string {
-	if len(r.Id) > 0 {
-		return r.Id
-	}
-	return r.SelfLink
-}
-
-func (r *SResourceBase) GetGlobalId() string {
-	if len(r.Id) > 0 {
-		return r.Id
-	}
-	return strings.TrimPrefix(r.SelfLink, fmt.Sprintf("%s/%s/", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION))
-}
-
-func (r *SResourceBase) GetName() string {
-	return r.Name
+type VpcCreateOptions struct {
+	NAME                string
+	CIDR                string
+	GlobalVpcExternalId string
+	Desc                string
 }

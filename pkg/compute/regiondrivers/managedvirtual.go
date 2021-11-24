@@ -1206,7 +1206,12 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateVpc(ctx context.Con
 		if err != nil {
 			return nil, errors.Wrap(err, "vpc.GetIRegion")
 		}
-		ivpc, err := iregion.CreateIVpc(vpc.Name, vpc.Description, vpc.CidrBlock)
+		opts := &cloudprovider.VpcCreateOptions{
+			NAME: vpc.Name,
+			CIDR: vpc.CidrBlock,
+			Desc: vpc.Description,
+		}
+		ivpc, err := iregion.CreateIVpc(opts)
 		if err != nil {
 			return nil, errors.Wrap(err, "iregion.CreateIVpc")
 		}
@@ -1512,7 +1517,11 @@ func (self *SManagedVirtualizationRegionDriver) RequestPreSnapshotPolicyApply(ct
 
 func (self *SManagedVirtualizationRegionDriver) GetSecurityGroupVpcId(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, host *models.SHost, vpc *models.SVpc, classic bool) (string, error) {
 	if region.GetDriver().IsSecurityGroupBelongGlobalVpc() {
-		return strings.TrimPrefix(vpc.ExternalId, region.ExternalId+"/"), nil
+		gvpc, err := vpc.GetGlobalVpc()
+		if err != nil {
+			return "", err
+		}
+		return gvpc.ExternalId, nil
 	} else if region.GetDriver().IsSupportClassicSecurityGroup() && (classic || (host != nil && strings.HasSuffix(host.Name, "-classic"))) {
 		return "classic", nil
 	} else if region.GetDriver().IsSecurityGroupBelongVpc() {
