@@ -656,10 +656,11 @@ func dataCleaning(tableName string) error {
 		monthsDaysAgo,
 	)
 	q := sqlchemy.NewRawQuery(sqlStr)
-	_, err := q.Rows()
+	rows, err := q.Rows()
 	if err != nil {
 		return errors.Wrapf(err, "unable to delete expired data in %q", tableName)
 	}
+	defer rows.Close()
 	log.Infof("delete expired data in %q successfully", tableName)
 	return nil
 }

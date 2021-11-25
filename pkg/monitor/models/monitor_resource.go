@@ -358,6 +358,7 @@ func (manager *SMonitorResourceManager) GetPropertyAlert(ctx context.Context, us
 		if err != nil {
 			return nil, errors.Wrap(err, "getMonitorResourceAlert query err")
 		}
+		defer rows.Close()
 		total := int64(0)
 		resTypeDict := jsonutils.NewDict()
 		for rows.Next() {
