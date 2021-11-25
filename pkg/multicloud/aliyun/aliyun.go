@@ -169,6 +169,13 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 		resp, err = _jsonRequest(client, domain, apiVersion, apiName, params)
 		retry := false
 		if err != nil {
+			for _, code := range []string{
+				"ErrorClusterNotFound",
+			} {
+				if strings.Contains(err.Error(), code) {
+					return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
+				}
+			}
 			if e, ok := errors.Cause(err).(*alierr.ServerError); ok {
 				code := e.ErrorCode()
 				switch code {
