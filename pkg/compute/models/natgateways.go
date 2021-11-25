@@ -250,6 +250,7 @@ func (self *SNatGateway) PerformSnatResources(ctx context.Context, userCred mccl
 	if err != nil {
 		return nil, errors.Wrapf(err, "fetch resource with natgateway_id %s error", self.Id)
 	}
+	defer rows.Close()
 	ipset, ip := make(map[string]struct{}), ""
 	networks, network := make([]string, 0), ""
 	for rows.Next() {
@@ -298,6 +299,7 @@ func (self *SNatGateway) extractEipAddr(q *sqlchemy.SQuery) ([]string, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "fetch resource with natgateway_id %s error", self.Id)
 	}
+	defer rows.Close()
 	ipset, ip := make(map[string]struct{}), ""
 	for rows.Next() {
 		err := rows.Scan(&ip)
