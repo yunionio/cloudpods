@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -82,6 +83,9 @@ func (self *SCdnDomain) GetCname() string {
 
 func (self *SCdnDomain) GetOrigins() *cloudprovider.SCdnOrigins {
 	ret := cloudprovider.SCdnOrigins{}
+	if self.Origin.OriginType == "cos" {
+		self.Origin.OriginType = api.CDN_DOMAIN_ORIGIN_TYPE_BUCKET
+	}
 	for _, org := range self.Origin.Origins {
 		ret = append(ret, cloudprovider.SCdnOrigin{
 			Type:       self.Origin.OriginType,
@@ -108,21 +112,33 @@ func (self *SCdnDomain) GetServiceType() string {
 	return self.ServiceType
 }
 
-func (self *SCdnDomain) Refresh() error {
-	domains, _, err := self.client.DescribeCdnDomains([]string{self.Domain}, nil, "", 0, 100)
+func (self *SQcloudClient) GetCdnDomain(domain string) (*SCdnDomain, error) {
+	domains, _, err := self.DescribeCdnDomains([]string{domain}, nil, "", 0, 100)
 	if err != nil {
-		return errors.Wrapf(err, "DescribeCdnDomains")
+		return nil, errors.Wrapf(err, "DescribeCdnDomains")
 	}
-	if len(domains) == 0 {
-		return errors.Wrapf(cloudprovider.ErrNotFound, self.Domain)
+	for i := range domains {
+		if domains[i].Domain == domain {
+			domains[i].client = self
+			return &domains[i], nil
+		}
 	}
-	if len(domains) > 1 {
-		return errors.Wrapf(cloudprovider.ErrDuplicateId, self.Domain)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, domain)
+}
+
+func (self *SCdnDomain) Refresh() error {
+	domain, err := self.client.GetCdnDomain(self.Domain)
+	if err != nil {
+		return err
 	}
-	return jsonutils.Update(self, domains[0])
+	return jsonutils.Update(self, domain)
 }
 
 func (self *SCdnDomain) Delete() error {
+	err := self.client.StopCdnDomain(self.Domain)
+	if err != nil {
+		return errors.Wrapf(err, "StopCdnDomain")
+	}
 	return self.client.DeleteCdnDomain(self.Domain)
 }
 
@@ -132,6 +148,22 @@ func (self *SCdnDomain) SetTags(tags map[string]string, replace bool) error {
 		return errors.Wrapf(err, "getDefaultRegion")
 	}
 	return region.SetResourceTags("cdn", "domain", []string{self.Domain}, tags, replace)
+}
+
+func (self *SQcloudClient) StopCdnDomain(domain string) error {
+	params := map[string]string{
+		"Domain": domain,
+	}
+	_, err := self.cdnRequest("StopCdnDomain", params)
+	return errors.Wrapf(err, "StopCdnDomain")
+}
+
+func (self *SQcloudClient) StartCdnDomain(domain string) error {
+	params := map[string]string{
+		"Domain": domain,
+	}
+	_, err := self.cdnRequest("StartCdnDomain", params)
+	return errors.Wrapf(err, "StartCdnDomain")
 }
 
 func (self *SQcloudClient) DeleteCdnDomain(domain string) error {
@@ -243,4 +275,43 @@ func (client *SQcloudClient) DescribeAllCdnDomains(domains, origins []string, do
 		}
 	}
 	return cdnDomains, nil
+}
+
+func (self *SQcloudClient) CreateCDNDomain(opts *cloudprovider.CdnCreateOptions) (*SCdnDomain, error) {
+	params := map[string]string{
+		"Domain":      opts.Domain,
+		"ServiceType": opts.ServiceType,
+	}
+	if len(opts.Area) > 0 {
+		params["Area"] = opts.Area
+	}
+	originTypes := map[string][]string{}
+	for _, origin := range opts.Origins {
+		_, ok := originTypes[origin.Type]
+		if !ok {
+			originTypes[origin.Type] = []string{}
+		}
+		originTypes[origin.Type] = append(originTypes[origin.Type], origin.Origin)
+	}
+	for _, origin := range opts.Origins {
+		params["Origin.OriginType"] = origin.Type
+		if origin.Type == api.CDN_DOMAIN_ORIGIN_TYPE_BUCKET {
+			params["Origin.OriginType"] = "cos"
+		}
+		params["Origin.ServerName"] = origin.ServerName
+		if len(origin.Protocol) > 0 {
+			params["Origin.OriginPullProtocol"] = origin.Protocol
+		}
+		origins, ok := originTypes[origin.Type]
+		if ok {
+			for i, origin := range origins {
+				params[fmt.Sprintf("Origin.Origins.%d", i)] = origin
+			}
+		}
+	}
+	_, err := self.cdnRequest("AddCdnDomain", params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "AddCdnDomain")
+	}
+	return self.GetCdnDomain(opts.Domain)
 }

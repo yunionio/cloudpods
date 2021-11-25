@@ -1884,3 +1884,36 @@ func (self *SQcloudRegionDriver) RequestElasticcacheAccountResetPassword(ctx con
 func (self *SQcloudRegionDriver) IsCertificateBelongToRegion() bool {
 	return false
 }
+
+func (self *SQcloudRegionDriver) ValidateCreateCdnData(ctx context.Context, userCred mcclient.TokenCredential, input api.CDNDomainCreateInput) (api.CDNDomainCreateInput, error) {
+	if !utils.IsInStringArray(input.ServiceType, []string{
+		api.CDN_SERVICE_TYPE_WEB,
+		api.CND_SERVICE_TYPE_DOWNLOAD,
+		api.CND_SERVICE_TYPE_MEDIA,
+	}) {
+		return input, httperrors.NewNotSupportedError("service_type %s", input.ServiceType)
+	}
+	if !utils.IsInStringArray(input.Area, []string{
+		api.CDN_DOMAIN_AREA_MAINLAND,
+		api.CDN_DOMAIN_AREA_OVERSEAS,
+		api.CDN_DOMAIN_AREA_GLOBAL,
+	}) {
+		return input, httperrors.NewNotSupportedError("area %s", input.Area)
+	}
+	if input.Origins == nil {
+		return input, httperrors.NewMissingParameterError("origins")
+	}
+	for _, origin := range *input.Origins {
+		if len(origin.Origin) == 0 {
+			return input, httperrors.NewMissingParameterError("origins.origin")
+		}
+		if !utils.IsInStringArray(origin.Type, []string{
+			api.CDN_DOMAIN_ORIGIN_TYPE_DOMAIN,
+			api.CDN_DOMAIN_ORIGIN_TYPE_IP,
+			api.CDN_DOMAIN_ORIGIN_TYPE_BUCKET,
+		}) {
+			return input, httperrors.NewInputParameterError("invalid origin type %s", origin.Type)
+		}
+	}
+	return input, nil
+}
