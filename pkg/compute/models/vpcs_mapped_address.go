@@ -53,6 +53,7 @@ func (man *SGuestnetworkManager) allocMappedIpAddr(ctx context.Context) (string,
 	if err != nil {
 		return "", err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		if err := rows.Scan(&ip); err != nil {
 			return "", errors.Wrap(err, "scan guest mapped ip")
@@ -90,6 +91,7 @@ func (man *SHostManager) allocOvnMappedIpAddr(ctx context.Context) (string, erro
 	if err != nil {
 		return "", err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		if err := rows.Scan(&ip); err != nil {
 			return "", errors.Wrap(err, "scan host mapped ip")

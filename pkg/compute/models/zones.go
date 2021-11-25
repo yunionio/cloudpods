@@ -477,6 +477,7 @@ func zoneUsableVpc(usableVpc bool, query *api.ZoneListInput) (map[string]map[str
 
 			results[id] = map[string]string{"id": id, "cloudregion_id": cloudregion_id}
 		}
+		rows.Close()
 	}
 
 	return results, nil
@@ -542,6 +543,7 @@ func filterResult(q *sqlchemy.SQuery) ([]string, error) {
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "filterResult.rows")
 	}
+	defer rows.Close()
 	results := make([]string, 0)
 	for rows.Next() {
 		var id string
