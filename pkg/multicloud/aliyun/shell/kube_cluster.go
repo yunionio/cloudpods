@@ -37,6 +37,15 @@ func init() {
 		ID string
 	}
 
+	shellutils.R(&KubeClusterIdOptions{}, "kube-cluster-show", "Show kube cluster", func(cli *aliyun.SRegion, args *KubeClusterIdOptions) error {
+		cluster, err := cli.GetKubeCluster(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(cluster)
+		return nil
+	})
+
 	shellutils.R(&KubeClusterIdOptions{}, "kube-cluster-delete", "Delete kube cluster", func(cli *aliyun.SRegion, args *KubeClusterIdOptions) error {
 		return cli.DeleteKubeCluster(args.ID, false)
 	})
