@@ -118,7 +118,7 @@ func (h *APIHelper) adminClientSession(ctx context.Context) *mcclient.ClientSess
 	if s != nil {
 		token := s.GetToken()
 		expires := token.GetExpires()
-		if time.Now().Add(time.Hour).After(expires) {
+		if time.Now().Add(time.Hour).Before(expires) {
 			return s
 		}
 	}
