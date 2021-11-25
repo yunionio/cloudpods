@@ -39,14 +39,22 @@ type SCdnDomain struct {
 
 // +onecloud:model-api-gen
 type SCdnOrigin struct {
-	Type       string
-	Origin     string
+	// 源站类型
+	// domain: 域名类型, cos：对象存储源站, ip：IP 列表作为源站
+	// enmu: domain, cos, ip
+	// required: true
+	Type string
+	// 源站地址
+	Origin string
+	// 回主源站时 Host 头部
 	ServerName string
-	Protocol   string
-	Path       string
-	Port       int
-	Enabled    string
-	Priority   int
+	// 回源协议
+	// enmu: http, follow, https
+	Protocol string
+	Path     string
+	Port     int
+	Enabled  string
+	Priority int
 }
 
 // +onecloud:model-api-gen
@@ -64,4 +72,12 @@ func init() {
 	gotypes.RegisterSerializable(reflect.TypeOf(&SCdnOrigins{}), func() gotypes.ISerializable {
 		return &SCdnOrigins{}
 	})
+}
+
+type CdnCreateOptions struct {
+	Domain      string
+	ServiceType string
+	Area        string
+
+	Origins SCdnOrigins
 }

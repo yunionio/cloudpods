@@ -449,3 +449,7 @@ func (self *SQcloudProvider) GetICloudCDNDomains() ([]cloudprovider.ICloudCDNDom
 func (self *SQcloudProvider) GetICloudCDNDomainByName(name string) (cloudprovider.ICloudCDNDomain, error) {
 	return self.client.GetICloudCDNDomainByName(name)
 }
+
+func (self *SQcloudProvider) CreateICloudCDNDomain(opts *cloudprovider.CdnCreateOptions) (cloudprovider.ICloudCDNDomain, error) {
+	return self.client.CreateCDNDomain(opts)
+}

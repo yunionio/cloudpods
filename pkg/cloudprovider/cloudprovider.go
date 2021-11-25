@@ -300,10 +300,15 @@ type ICloudProvider interface {
 
 	GetICloudCDNDomains() ([]ICloudCDNDomain, error)
 	GetICloudCDNDomainByName(name string) (ICloudCDNDomain, error)
+	CreateICloudCDNDomain(opts *CdnCreateOptions) (ICloudCDNDomain, error)
 }
 
 func IsSupportCapability(prod ICloudProvider, capa string) bool {
 	return utils.IsInStringArray(capa, prod.GetCapabilities()) || utils.IsInStringArray(capa+READ_ONLY_SUFFIX, prod.GetCapabilities())
+}
+
+func IsSupportCDN(prod ICloudProvider) bool {
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_CDN)
 }
 
 func IsSupportProject(prod ICloudProvider) bool {
@@ -574,6 +579,10 @@ func (self *SBaseProvider) GetICloudCDNDomains() ([]ICloudCDNDomain, error) {
 
 func (self *SBaseProvider) GetICloudCDNDomainByName(name string) (ICloudCDNDomain, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "GetICloudCDNDomainByName")
+}
+
+func (self *SBaseProvider) CreateICloudCDNDomain(opts *CdnCreateOptions) (ICloudCDNDomain, error) {
+	return nil, errors.Wrapf(ErrNotImplemented, "CreateICloudCDNDomain")
 }
 
 func NewBaseProvider(factory ICloudProviderFactory) SBaseProvider {
