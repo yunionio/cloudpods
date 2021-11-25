@@ -307,6 +307,10 @@ func (self *SClassicInstance) GetName() string {
 	return self.Name
 }
 
+func (self *SClassicInstance) GetHostname() string {
+	return self.Name
+}
+
 func (self *SClassicInstance) GetGlobalId() string {
 	return strings.ToLower(self.ID)
 }

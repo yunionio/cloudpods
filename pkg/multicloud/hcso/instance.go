@@ -203,6 +203,10 @@ func (self *SInstance) GetName() string {
 	return self.Name
 }
 
+func (self *SInstance) GetHostname() string {
+	return self.OSEXTSRVATTRHostname
+}
+
 func (self *SInstance) GetGlobalId() string {
 	return self.ID
 }

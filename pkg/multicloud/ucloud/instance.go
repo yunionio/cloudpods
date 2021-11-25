@@ -132,8 +132,11 @@ func (self *SInstance) GetName() string {
 	if len(self.Name) == 0 {
 		return self.GetId()
 	}
-
 	return self.Name
+}
+
+func (self *SInstance) GetHostname() string {
+	return self.GetName()
 }
 
 func (self *SInstance) GetGlobalId() string {

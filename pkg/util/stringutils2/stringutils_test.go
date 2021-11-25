@@ -17,8 +17,6 @@ package stringutils2
 import (
 	"reflect"
 	"testing"
-
-	"yunion.io/x/pkg/util/osprofile"
 )
 
 func TestEscapeString(t *testing.T) {
@@ -120,50 +118,6 @@ func TestEscapeEchoString(t *testing.T) {
 				t.Errorf("EscapeEchoString() = %v, want %v", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestGenerateHostName(t *testing.T) {
-	type input struct {
-		name     string
-		osType   string
-		hostName string
-	}
-	for _, pair := range []input{
-		input{
-			name:     "--test-host-name.......",
-			hostName: "test-host-name",
-		},
-		input{
-			name:     "--test-host-1234567890-name.......",
-			osType:   osprofile.OS_TYPE_WINDOWS,
-			hostName: "test-host-12345",
-		},
-		input{
-			name:     "--test-host-1234-67890-name.......",
-			osType:   osprofile.OS_TYPE_WINDOWS,
-			hostName: "test-host-1234",
-		},
-		input{
-			name:     "1234567890123456",
-			osType:   osprofile.OS_TYPE_WINDOWS,
-			hostName: "host-1234567890",
-		},
-		input{
-			name:     "001234567890123456",
-			osType:   osprofile.OS_TYPE_WINDOWS,
-			hostName: "host-0012345678",
-		},
-
-		input{
-			name:     "",
-			hostName: "hostname-for",
-		},
-	} {
-		hostName := GenerateHostName(pair.name, pair.osType)
-		if hostName != pair.hostName {
-			t.Fatalf("%s hostName should be %s, current is %s", pair.name, pair.hostName, hostName)
-		}
 	}
 }
 

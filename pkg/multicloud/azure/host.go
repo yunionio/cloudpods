@@ -61,7 +61,7 @@ func (self *SHost) Refresh() error {
 }
 
 func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	nic, err := self.zone.region.CreateNetworkInterface(desc.ProjectId, fmt.Sprintf("%s-ipconfig", desc.Name), desc.IpAddr, desc.ExternalNetworkId, desc.ExternalSecgroupId)
+	nic, err := self.zone.region.CreateNetworkInterface(desc.ProjectId, fmt.Sprintf("%s-ipconfig", desc.NameEn), desc.IpAddr, desc.ExternalNetworkId, desc.ExternalSecgroupId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "CreateNetworkInterface")
 	}
@@ -92,7 +92,7 @@ func (self *SRegion) _createVM(desc *cloudprovider.SManagedVMCreateConfig, nicId
 	if !utils.IsInStringArray(desc.OsType, []string{osprofile.OS_TYPE_LINUX, osprofile.OS_TYPE_WINDOWS}) {
 		desc.OsType = string(image.GetOsType())
 	}
-	computeName := desc.Name
+	computeName := desc.Hostname
 	for _, k := range "`~!@#$%^&*()=+_[]{}\\|;:.'\",<>/?" {
 		computeName = strings.Replace(computeName, string(k), "", -1)
 	}
@@ -108,7 +108,7 @@ func (self *SRegion) _createVM(desc *cloudprovider.SManagedVMCreateConfig, nicId
 		osProfile["CustomData"] = desc.UserData
 	}
 	params := jsonutils.Marshal(map[string]interface{}{
-		"Name":     desc.Name,
+		"Name":     desc.NameEn,
 		"Location": self.Name,
 		"Properties": map[string]interface{}{
 			"HardwareProfile": map[string]string{

@@ -842,8 +842,7 @@ func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.J
 
 	items, err := ListItems(dispatcher.modelManager, ctx, userCred, query, ctxIds)
 	if err != nil {
-		log.Errorf("Fail to list items: %s", err)
-		return nil, httperrors.NewGeneralError(err)
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "ListItems"))
 	}
 
 	if userCred != nil && userCred.HasSystemAdminPrivilege() && dispatcher.modelManager.ListSkipLog(ctx, userCred, query) {
@@ -858,7 +857,6 @@ func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.J
 func getModelItemDetails(manager IModelManager, item IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isHead bool) (jsonutils.JSONObject, error) {
 	appParams := appsrv.AppContextGetParams(ctx)
 	if appParams == nil && isHead {
-		log.Errorf("fail to get http response writer???")
 		return nil, httperrors.NewInternalServerError("fail to get http response writer from context")
 	}
 	hdrs := item.GetExtraDetailsHeaders(ctx, userCred, query)
@@ -900,8 +898,7 @@ func getItemDetails(manager IModelManager, item IModel, ctx context.Context, use
 		excludes, _, _ := stringutils2.Split(stringutils2.NewSortedStrings(excludeFields), getFields)
 		return extraRows[0].CopyExcludes(excludes...), nil
 	}
-	log.Errorf("FetchCustomizeColumns return incorrect number of objects %d", len(extraRows))
-	return nil, httperrors.NewInternalServerError("FetchCustomizeColumns returns incorrect results")
+	return nil, httperrors.NewInternalServerError("FetchCustomizeColumns returns incorrect results(expect 1 actual %d)", len(extraRows))
 }
 
 func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, property string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1177,8 +1174,7 @@ func _doCreateItem(
 
 	dataDict, ok := data.(*jsonutils.JSONDict)
 	if !ok {
-		log.Errorf("doCreateItem: fail to decode json data %s", data)
-		return nil, fmt.Errorf("fail to decode json data %s", data)
+		return nil, httperrors.NewGeneralError(fmt.Errorf("fail to decode json data %s", data))
 	}
 
 	var err error
@@ -1215,8 +1211,8 @@ func _doCreateItem(
 	if batchCreate {
 		funcName = "BatchCreateValidateCreateData"
 	}
-	dataDict, err = ValidateCreateData(funcName, manager, ctx, userCred, ownerId, query, dataDict)
 
+	dataDict, err = ValidateCreateData(funcName, manager, ctx, userCred, ownerId, query, dataDict)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -1293,13 +1289,11 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 	if len(ctxIds) > 0 {
 		dataDict, ok := data.(*jsonutils.JSONDict)
 		if !ok {
-			log.Errorf("fail to convert body into jsondict")
-			return nil, fmt.Errorf("fail to parse body")
+			return nil, httperrors.NewGeneralError(fmt.Errorf("fail to parse body %s", data))
 		}
 		data, err = fetchContextObjectsIds(dispatcher.modelManager, ctx, userCred, ctxIds, dataDict)
 		if err != nil {
-			log.Errorf("fail to find context object %s", ctxIds)
-			return nil, err
+			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "fetchContextObjectsIds"))
 		}
 	}
 
@@ -1318,16 +1312,15 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 
 	model, err := DoCreate(dispatcher.modelManager, ctx, userCred, query, data, ownerId)
 	if err != nil {
-		// log.Errorf("fail to doCreateItem %s", err)
 		if CancelPendingUsagesInContext != nil {
-			err := CancelPendingUsagesInContext(ctx, userCred)
-			if err != nil {
-				log.Errorf("CancelPendingUsagesInContext fail %s", err)
+			e := CancelPendingUsagesInContext(ctx, userCred)
+			if e != nil {
+				err = errors.Wrapf(err, e.Error())
 			}
 		}
 		failErr := manager.OnCreateFailed(ctx, userCred, ownerId, query, data)
 		if failErr != nil {
-			log.Errorf("manager.OnCreateFailed %s", failErr)
+			err = errors.Wrapf(err, failErr.Error())
 		}
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -1459,9 +1452,9 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 	if err != nil {
 		failErr := manager.OnCreateFailed(ctx, userCred, ownerId, query, data)
 		if failErr != nil {
-			log.Errorf("manager.OnCreateFailed %s", failErr)
+			err = errors.Wrapf(err, failErr.Error())
 		}
-		return nil, errors.Wrap(err, "createResults")
+		return nil, httperrors.NewGeneralError(errors.Wrap(err, "createResults"))
 	}
 
 	results := make([]modulebase.SubmitResult, count)
@@ -1499,44 +1492,13 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 	return results, nil
 }
 
-func managerPerformCheckCreateData(
-	manager IModelManager,
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	action string,
-	ownerId mcclient.IIdentityProvider,
-	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
-) (jsonutils.JSONObject, error) {
-	bodyDict := data.(*jsonutils.JSONDict)
-
-	if consts.IsRbacEnabled() {
-		err := isClassRbacAllowed(manager, userCred, ownerId, policy.PolicyActionPerform, action)
-		if err != nil {
-			return nil, err
-		}
-	} else if !manager.AllowPerformCheckCreateData(ctx, userCred, query, data) {
-		return nil, httperrors.NewForbiddenError("not allow to perform %s", action)
-	}
-
-	if InitPendingUsagesInContext != nil {
-		ctx = InitPendingUsagesInContext(ctx)
-
-		defer func() {
-			if CancelPendingUsagesInContext != nil {
-				err := CancelPendingUsagesInContext(ctx, userCred)
-				if err != nil {
-					log.Errorf("CancelPendingUsagesInContext fail %s", err)
-				}
-			}
-		}()
-	}
-
-	funcName := "ValidateCreateData"
-	return ValidateCreateData(funcName, manager, ctx, userCred, ownerId, query, bodyDict)
-}
-
 func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if action == "check-create-data" {
+		dataDict := data.(*jsonutils.JSONDict)
+		dataDict.Set("dry_run", jsonutils.JSONTrue)
+		return dispatcher.Create(ctx, query, dataDict, nil)
+	}
+
 	userCred := fetchUserCredential(ctx)
 	manager := dispatcher.modelManager
 
@@ -1547,11 +1509,6 @@ func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, act
 
 	lockman.LockClass(ctx, manager, GetLockClassKey(manager, ownerId))
 	defer lockman.ReleaseClass(ctx, manager, GetLockClassKey(manager, ownerId))
-
-	if action == "check-create-data" {
-		return managerPerformCheckCreateData(dispatcher.modelManager,
-			ctx, userCred, action, ownerId, query, data)
-	}
 
 	managerValue := reflect.ValueOf(dispatcher.modelManager)
 	return objectPerformAction(dispatcher, nil, managerValue, ctx, userCred, action, query, data)
@@ -1697,10 +1654,8 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 	var err error
 
 	err = item.ValidateUpdateCondition(ctx)
-
 	if err != nil {
-		log.Errorf("validate update condition error: %s", err)
-		return nil, httperrors.NewGeneralError(err)
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "ValidateUpdateCondition"))
 	}
 
 	dataDict, ok := data.(*jsonutils.JSONDict)
@@ -1710,9 +1665,7 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 
 	dataDict, err = ValidateUpdateData(item, ctx, userCred, query, dataDict)
 	if err != nil {
-		errMsg := fmt.Sprintf("validate update data error: %s", err)
-		log.Errorf(errMsg)
-		return nil, httperrors.NewGeneralError(err)
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "ValidateUpdateData"))
 	}
 
 	item.PreUpdate(ctx, userCred, query, dataDict)
@@ -1721,16 +1674,12 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 		filterData := dataDict.CopyIncludes(updateFields(manager, userCred)...)
 		err = filterData.Unmarshal(item)
 		if err != nil {
-			errMsg := fmt.Sprintf("unmarshal fail: %s", err)
-			log.Errorf(errMsg)
-			return httperrors.NewGeneralError(err)
+			return httperrors.NewGeneralError(errors.Wrapf(err, "filterData.Unmarshal"))
 		}
 		return nil
 	})
-
 	if err != nil {
-		log.Errorf("save update error: %s", err)
-		return nil, httperrors.NewGeneralError(err)
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "Update"))
 	}
 	OpsLog.LogEvent(item, ACT_UPDATE, diff, userCred)
 	logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, diff, userCred, true)
@@ -1797,15 +1746,12 @@ func objectUpdateSpec(dispatcher *DBModelDispatcher, model IModel, modelValue re
 }
 
 func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IModel) error {
-	// log.Debugf("Ready to delete %s %s %#v", jsonutils.Marshal(item), item, manager)
 	// cleanModelUsages(ctx, userCred, item)
 	_, err := Update(item, func() error {
 		return item.MarkDelete()
 	})
 	if err != nil {
-		msg := fmt.Sprintf("save update error %s", err)
-		log.Errorf(msg)
-		return httperrors.NewGeneralError(err)
+		return httperrors.NewGeneralError(errors.Wrapf(err, "db.Update"))
 	}
 	if userCred != nil {
 		OpsLog.LogEvent(item, ACT_DELETE, item.GetShortDesc(ctx), userCred)
@@ -1814,8 +1760,6 @@ func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IM
 }
 
 func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	// log.Debugf("deleteItem %s", jsonutils.Marshal(model))
-
 	err := ValidateDeleteCondition(model, ctx, nil)
 	if err != nil {
 		return nil, err
@@ -1823,14 +1767,12 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 
 	err = CustomizeDelete(model, ctx, userCred, query, data)
 	if err != nil {
-		log.Errorf("customize delete error: %s", err)
-		return nil, httperrors.NewGeneralError(err)
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "CustomizeDelete"))
 	}
 
 	details, err := getItemDetails(manager, model, ctx, userCred, query)
 	if err != nil {
-		log.Errorf("fail to get item detail before delete: %s", err)
-		return nil, httperrors.NewGeneralError(err)
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "getItemDetails"))
 	}
 
 	model.PreDelete(ctx, userCred)
@@ -1838,8 +1780,7 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 	// err = DeleteModel(ctx, userCred, model)
 	err = model.Delete(ctx, userCred)
 	if err != nil {
-		log.Errorf("Delete error %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "Delete")
 	}
 
 	model.PostDelete(ctx, userCred)
@@ -1855,7 +1796,6 @@ func (dispatcher *DBModelDispatcher) Delete(ctx context.Context, idstr string, q
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-	// log.Debugf("Delete %s", model.GetShortDesc(ctx))
 
 	if consts.IsRbacEnabled() {
 		err := isObjectRbacAllowed(model, userCred, policy.PolicyActionDelete)

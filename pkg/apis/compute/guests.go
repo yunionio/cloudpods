@@ -627,6 +627,7 @@ type ServerUpdateInput struct {
 
 type GuestJsonDesc struct {
 	Name        string `json:"name"`
+	Hostname    string `json:"hostname"`
 	Description string `json:"description"`
 	UUID        string `json:"uuid"`
 	Mem         int    `json:"mem"`

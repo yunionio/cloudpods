@@ -129,8 +129,8 @@ func (region *SRegion) GetInstance(id string) (*SInstance, error) {
 	return instance, region.Get(id, instance)
 }
 
-func (instnace *SInstance) IsEmulated() bool {
-	return false
+func (instance *SInstance) GetHostname() string {
+	return instance.GetName()
 }
 
 func (instance *SInstance) fetchMachineType() error {
@@ -660,7 +660,7 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 		networkInterface["networkIp"] = desc.IpAddr
 	}
 	params := map[string]interface{}{
-		"name":        desc.Name,
+		"name":        desc.NameEn,
 		"description": desc.Description,
 		"machineType": fmt.Sprintf("zones/%s/machineTypes/%s", zone, desc.InstanceType),
 		"networkInterfaces": []map[string]string{
