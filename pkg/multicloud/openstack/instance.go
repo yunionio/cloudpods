@@ -223,6 +223,10 @@ func (instance *SInstance) GetName() string {
 	return instance.Name
 }
 
+func (instance *SInstance) GetHostname() string {
+	return instance.Hostname
+}
+
 func (instance *SInstance) GetGlobalId() string {
 	return instance.Id
 }

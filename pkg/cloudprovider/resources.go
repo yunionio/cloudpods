@@ -319,6 +319,7 @@ type ICloudVM interface {
 
 	ConvertPublicIpToEip() error
 
+	GetHostname() string
 	GetIHost() ICloudHost
 	GetIHostId() string
 

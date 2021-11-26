@@ -49,4 +49,20 @@ func init() {
 		return nil
 	})
 
+	type DomainOptions struct {
+		DOMAIN string
+	}
+
+	shellutils.R(&DomainOptions{}, "cdn-domain-stop", "Stop cdn domain", func(cli *qcloud.SRegion, args *DomainOptions) error {
+		return cli.GetClient().StopCdnDomain(args.DOMAIN)
+	})
+
+	shellutils.R(&DomainOptions{}, "cdn-domain-start", "Start cdn domain", func(cli *qcloud.SRegion, args *DomainOptions) error {
+		return cli.GetClient().StartCdnDomain(args.DOMAIN)
+	})
+
+	shellutils.R(&DomainOptions{}, "cdn-domain-delete", "Stop cdn domain", func(cli *qcloud.SRegion, args *DomainOptions) error {
+		return cli.GetClient().DeleteCdnDomain(args.DOMAIN)
+	})
+
 }

@@ -25,9 +25,6 @@ import (
 var (
 	allowResult = jsonutils.NewString("allow")
 	denyResult  = jsonutils.NewString("deny")
-
-	editorAction = getEditActionPolicy()
-	viewerAction = getViewerActionPolicy()
 )
 
 func getAdminPolicy(services map[string][]string) jsonutils.JSONObject {
@@ -46,13 +43,20 @@ func getAdminPolicy(services map[string][]string) jsonutils.JSONObject {
 	return policy
 }
 
-func getEditActionPolicy() jsonutils.JSONObject {
+func getEditActionPolicy(service, resource string) jsonutils.JSONObject {
 	p := jsonutils.NewDict()
 	p.Add(denyResult, "create")
 	p.Add(denyResult, "delete")
 	perform := jsonutils.NewDict()
 	perform.Add(denyResult, "purge")
 	perform.Add(denyResult, "clone")
+	if resActions, ok := adminPerformActions[service]; ok {
+		if actions, ok := resActions[resource]; ok {
+			for _, action := range actions {
+				perform.Add(denyResult, action)
+			}
+		}
+	}
 	perform.Add(allowResult, "*")
 	p.Add(perform, "perform")
 	p.Add(allowResult, "*")
@@ -69,13 +73,38 @@ func getViewerActionPolicy() jsonutils.JSONObject {
 
 func getEditorPolicy(services map[string][]string) jsonutils.JSONObject {
 	policy := jsonutils.NewDict()
+	if len(services) == 1 {
+		for k := range services {
+			if k == "*" {
+				ns := make(map[string][]string)
+				ns[k] = services[k]
+				// expand adminPerformActions
+				for s, resActions := range adminPerformActions {
+					resList := make([]string, 0, len(resActions)+1)
+					resList = append(resList, "*")
+					for res := range resActions {
+						resList = append(resList, res)
+					}
+					ns[s] = resList
+				}
+				services = ns
+			}
+		}
+	}
 	for k, resList := range services {
+		resPolicy := jsonutils.NewDict()
 		if len(resList) == 0 {
 			resList = []string{"*"}
 		}
-		resPolicy := jsonutils.NewDict()
+		if len(resList) == 1 && resList[0] == "*" {
+			if resActions, ok := adminPerformActions[k]; ok {
+				for res := range resActions {
+					resList = append(resList, res)
+				}
+			}
+		}
 		for i := range resList {
-			resPolicy.Add(editorAction, resList[i])
+			resPolicy.Add(getEditActionPolicy(k, resList[i]), resList[i])
 		}
 		policy.Add(resPolicy, k)
 	}
@@ -90,7 +119,7 @@ func getViewerPolicy(services map[string][]string) jsonutils.JSONObject {
 		}
 		resPolicy := jsonutils.NewDict()
 		for i := range resList {
-			resPolicy.Add(viewerAction, resList[i])
+			resPolicy.Add(getViewerActionPolicy(), resList[i])
 		}
 		policy.Add(resPolicy, k)
 	}

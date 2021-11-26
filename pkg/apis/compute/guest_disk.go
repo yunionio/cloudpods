@@ -78,6 +78,7 @@ type GuestdiskJsonDesc struct {
 	TemplateId       string `json:"template_id"`
 	ImagePath        string `json:"image_path"`
 	StorageId        string `json:"storage_id"`
+	StorageType      string `json:"storage_type"`
 	Migrating        bool   `json:"migrating"`
 	Path             string `json:"path"`
 	Format           string `json:"format"`
@@ -88,6 +89,7 @@ type GuestdiskJsonDesc struct {
 	Mountpoint       string `json:"mountpoint"`
 	Dev              string `json:"dev"`
 	IsSSD            bool   `json:"is_ssd"`
+	NumQueues        uint8  `json:"num_queues"`
 
 	// esxi
 	ImageInfo struct {
@@ -97,4 +99,6 @@ type GuestdiskJsonDesc struct {
 	} `json:"image_info"`
 
 	TargetStorageId string `json:"target_storage_id"`
+
+	Url string `json:"url"`
 }

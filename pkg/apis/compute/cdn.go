@@ -14,7 +14,10 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+)
 
 const (
 	CDN_DOMAIN_STATUS_ONLINE        = "online"
@@ -31,6 +34,11 @@ const (
 	CDN_DOMAIN_ORIGIN_TYPE_DOMAIN = "domain"
 	CDN_DOMAIN_ORIGIN_TYPE_IP     = "ip"
 	CDN_DOMAIN_ORIGIN_TYPE_BUCKET = "bucket"
+
+	// Qcloud
+	CDN_SERVICE_TYPE_WEB      = "web"      // 静态加速
+	CND_SERVICE_TYPE_DOWNLOAD = "download" // 下载加速
+	CND_SERVICE_TYPE_MEDIA    = "media"    // 流媒体点播加速
 )
 
 type CdnDomain struct {
@@ -53,6 +61,23 @@ type CdnDomains struct {
 }
 
 type CDNDomainCreateInput struct {
+	apis.EnabledStatusInfrasResourceBaseCreateInput
+
+	// 源站信息
+	// required: true
+	Origins *cloudprovider.SCdnOrigins
+
+	// 服务类型
+	// required: true
+	// enmu: web, download, media
+	ServiceType string `json:"service_type"`
+	// 加速区域
+	// enmu: mainland, overseas, global
+	// requrired: true
+	Area string `json:"area"`
+
+	CloudproviderResourceInput
+	DeletePreventableCreateInput
 }
 
 type CDNDomainDetails struct {

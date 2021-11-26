@@ -348,6 +348,7 @@ type DeployConfig struct {
 type ServerCreateInput struct {
 	apis.VirtualResourceCreateInput
 	DeletePreventableCreateInput
+	HostnameInput
 
 	*ServerConfigs
 

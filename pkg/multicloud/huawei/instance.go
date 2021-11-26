@@ -200,6 +200,10 @@ func (self *SInstance) GetId() string {
 	return self.ID
 }
 
+func (self *SInstance) GetHostname() string {
+	return self.OSEXTSRVATTRHostname
+}
+
 func (self *SInstance) GetName() string {
 	return self.Name
 }
