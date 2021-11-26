@@ -110,6 +110,16 @@ func (manager *SProjectizedResourceBaseManager) ListItemFilter(
 		)).SubQuery()
 		q = q.In("tenant_id", subq)
 	}
+	if len(query.ProjectTags) > 0 {
+		meta := SMetadataResourceBaseModelManager{}
+		subq := meta.objIdQueryWithTags("project", nil, query.ProjectTags).SubQuery()
+		q = q.In("tenant_id", subq)
+	}
+	if len(query.NoProjectTags) > 0 {
+		meta := SMetadataResourceBaseModelManager{}
+		subq := meta.objIdQueryWithTags("project", nil, query.NoProjectTags).SubQuery()
+		q = q.NotIn("tenant_id", subq)
+	}
 	return q, nil
 }
 

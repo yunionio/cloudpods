@@ -554,3 +554,173 @@ func (model *SStandaloneAnonResourceBase) IsShared() bool {
 func (model *SStandaloneAnonResourceBase) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
 	// noop
 }
+
+type SGetResourceTagValuePairsInput struct {
+	apis.MetadataBaseFilterInput
+
+	// Return keys only
+	KeyOnly *bool `json:"key_only"`
+
+	// Order by key of tags
+	OrderByTagKey string `json:"order_by_tag_key"`
+}
+
+func (manager *SStandaloneAnonResourceBaseManager) GetPropertyTagValuePairs(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	return GetPropertyTagValuePairs(
+		manager.GetIStandaloneModelManager(),
+		manager.Keyword(),
+		"id",
+		ctx,
+		userCred,
+		query,
+	)
+}
+
+func GetPropertyTagValuePairs(
+	manager IModelManager,
+	tagObjType string,
+	tagIdField string,
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	input := SGetResourceTagValuePairsInput{}
+	err := query.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+
+	sq := Metadata.Query().SubQuery()
+	keyOnly := (input.KeyOnly != nil && *input.KeyOnly)
+	var q *sqlchemy.SQuery
+	var queryFields []sqlchemy.IQueryField
+	if keyOnly {
+		queryFields = []sqlchemy.IQueryField{
+			sq.Field("key"),
+			sqlchemy.COUNT("count", sq.Field("key")),
+		}
+	} else {
+		queryFields = []sqlchemy.IQueryField{
+			sq.Field("key"),
+			sq.Field("value"),
+			sqlchemy.COUNT("count", sq.Field("key")),
+		}
+	}
+	q = sq.Query(queryFields...)
+
+	objQ := manager.Query(tagIdField)
+	objQ, err = ListItemQueryFilters(manager, ctx, objQ, userCred, query, policy.PolicyActionList)
+	if err != nil {
+		return nil, errors.Wrap(err, "ListItemQueryFilters")
+	}
+	objSQ := objQ.SubQuery()
+	q = q.Join(objSQ, sqlchemy.AND(
+		sqlchemy.Equals(q.Field("obj_type"), tagObjType),
+		sqlchemy.Equals(q.Field("obj_id"), objSQ.Field(tagIdField)),
+	))
+
+	q = Metadata.metadataBaseFilter(q, input.MetadataBaseFilterInput)
+
+	if keyOnly {
+		q = q.GroupBy(q.Field("key"))
+	} else {
+		q = q.GroupBy(q.Field("key"), q.Field("value"))
+	}
+	if input.OrderByTagKey == string(sqlchemy.SQL_ORDER_DESC) {
+		q = q.Desc(q.Field("key"))
+		if !keyOnly {
+			q = q.Desc(q.Field("value"))
+		}
+	} else {
+		q = q.Asc(q.Field("key"))
+		if !keyOnly {
+			q = q.Asc(q.Field("value"))
+		}
+	}
+
+	metadatas := make([]struct {
+		Key   string
+		Value string
+		Count int64
+	}, 0)
+	err = q.All(&metadatas)
+	if err != nil {
+		return nil, errors.Wrap(err, "Query.All")
+	}
+
+	return jsonutils.Marshal(metadatas), nil
+}
+
+type SGetResourceTagValueTreeInput struct {
+	Keys    []string `json:"key"`
+	ShowMap *bool    `json:"show_map"`
+}
+
+func (manager *SStandaloneAnonResourceBaseManager) GetPropertyTagValueTree(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	return GetPropertyTagValueTree(
+		manager.GetIStandaloneModelManager(),
+		manager.Keyword(),
+		"id",
+		ctx,
+		userCred,
+		query,
+	)
+}
+
+func GetPropertyTagValueTree(
+	manager IModelManager,
+	tagObjType string,
+	tagIdField string,
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	input := SGetResourceTagValueTreeInput{}
+	err := query.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+
+	objSubQ := manager.Query().SubQuery()
+	objQ := objSubQ.Query(objSubQ.Field(tagIdField), sqlchemy.COUNT("_sub_count_"))
+	objQ, err = ListItemQueryFilters(manager, ctx, objQ, userCred, query, policy.PolicyActionList)
+	if err != nil {
+		return nil, errors.Wrap(err, "ListItemQueryFilters")
+	}
+	objQ = objQ.GroupBy(objSubQ.Field(tagIdField))
+	q := objQ.SubQuery().Query(sqlchemy.COUNT(tagValueCountKey, objQ.Field("_sub_count_")))
+	metadataSQ := Metadata.Query().Equals("obj_type", tagObjType).In("key", input.Keys).SubQuery()
+	groupBy := make([]interface{}, 0)
+	for i, key := range input.Keys {
+		valueFieldName := tagValueKey(i)
+		subq := metadataSQ.Query().Equals("key", key).SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field(tagIdField), subq.Field("obj_id")))
+		q = q.AppendField(
+			sqlchemy.NewFunction(
+				sqlchemy.NewCase().When(sqlchemy.IsNull(subq.Field("value")), sqlchemy.NewStringField(otherValue)).Else(subq.Field("value")),
+				valueFieldName,
+			),
+		)
+		groupBy = append(groupBy, q.Field(valueFieldName))
+	}
+	q = q.GroupBy(groupBy...)
+	valueMap, err := q.AllStringMap()
+	if err != nil {
+		return nil, errors.Wrap(err, "AllStringAmp")
+	}
+
+	if input.ShowMap != nil && *input.ShowMap {
+		return jsonutils.Marshal(valueMap), nil
+	}
+
+	tree := constructTree(valueMap, input.Keys)
+	return jsonutils.Marshal(tree), nil
+}

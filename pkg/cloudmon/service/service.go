@@ -41,7 +41,7 @@ func StartService() {
 		cutomizeOperatorChanmap[monType] = make(chan struct{})
 		cloudReportFactory, err := common.GetCloudReportFactory(monType)
 		if err != nil {
-			log.Errorf("CustomizeMonType: %s GetCloudReportFactory err: $v", monType, err)
+			log.Errorf("CustomizeMonType: %s GetCloudReportFactory err: %v", monType, err)
 			continue
 		}
 		if routineF, ok := cloudReportFactory.(common.IRoutineFactory); ok {

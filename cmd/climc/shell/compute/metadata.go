@@ -27,7 +27,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		result, err := modules.Metadatas.List(s, params)
+		result, err := modules.ComputeMetadatas.List(s, params)
 		if err != nil {
 			return err
 		}
@@ -36,11 +36,22 @@ func init() {
 	})
 
 	R(&options.TagListOptions{}, "tag-list", "List tags", func(s *mcclient.ClientSession, opts *options.TagListOptions) error {
+		var mod modulebase.IResourceManager
+		switch opts.Service {
+		case "compute":
+			mod = &modules.ComputeMetadatas
+		case "identity":
+			mod = &modules.IdentityMetadatas
+		case "image":
+			mod = &modules.ImageMetadatas
+		default:
+			mod = &modules.ComputeMetadatas
+		}
 		params, err := options.ListStructToParams(opts)
 		if err != nil {
 			return err
 		}
-		result, err := modules.Metadatas.Get(s, "tag-value-pairs", params)
+		result, err := mod.Get(s, "tag-value-pairs", params)
 		if err != nil {
 			return err
 		}

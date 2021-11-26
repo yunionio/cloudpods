@@ -21,9 +21,11 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	dbapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/db"
 )
 
@@ -221,10 +223,18 @@ type BaseListOptions struct {
 	ExportKeys string `help:"Export field keys"`
 	ExtraListOptions
 
-	Tags      []string `help:"Tags info, eg: hypervisor=aliyun, os_type=Linux, os_version" json:"-"`
-	NoTags    []string `help:"List resources without this tags, eg: os_type=Linux, os_version" json:"-"`
-	UserTags  []string `help:"UserTags info, eg: group=rd" json:"-"`
-	CloudTags []string `help:"CloudTags info, eg: price_key=cn-beijing" json:"-"`
+	Tags      []string `help:"filter by Tags, key and value separated by \"=\", keyvalue pairs separated by \";\", eg: \"hypervisor=aliyun;os_type=Linux;os_version\"" json:"-"`
+	NoTags    []string `help:"List resources without this tags, key and value separated by \"=\", keyvalue pairs separated by \";\", eg: os_type=Linux, os_version" json:"-"`
+	UserTags  []string `help:"UserTags info, key and value separated by \"=\", keyvalue pairs separated by \";\", eg: group=rd" json:"-"`
+	CloudTags []string `help:"CloudTags info, key and value separated by \"=\", keyvalue pairs separated by \";\", eg: price_key=cn-beijing" json:"-"`
+
+	NoUserTags  []string `help:"filter by without these UserTags, key and value separated by \"=\", keyvalue pairs separated by \";\", eg: group=rd" json:"-"`
+	NoCloudTags []string `help:"filter by no these CloudTags, key and value separated by \"=\", keyvalue pairs separated by \";\", eg: price_key=cn-beijing" json:"-"`
+
+	ProjectTags   []string `help:"filter by project tags, key and value separated by \"=\", keyvalue pairs separated by \";\"" json:"-"`
+	NoProjectTags []string `help:"filter by no these project tags, key and value separated by \"=\", keyvalue pairs separated by \";\"" json:"-"`
+	DomainTags    []string `help:"filter by domain project tags, key and value separated by \"=\", keyvalue pairs separated by \";\"" json:"-"`
+	NoDomainTags  []string `help:"filter by no these domain tags, key and value separated by \"=\", keyvalue pairs separated by \";\"" json:"-"`
 
 	Manager      string   `help:"List objects belonging to the cloud provider" json:"manager,omitempty"`
 	Account      string   `help:"List objects belonging to the cloud account" json:"account,omitempty"`
@@ -243,46 +253,41 @@ type BaseListOptions struct {
 	Delete string `help:"show deleted records"`
 }
 
-func (opts *BaseListOptions) addTag(prefix, tag string, idx int, params *jsonutils.JSONDict) error {
-	key, value, err := opts.spliteTag(tag)
-	if err != nil {
-		return err
+func (opts *BaseListOptions) addTag(keyPrefix, tagstr string, idx int, params *jsonutils.JSONDict) error {
+	return opts.addTagInternal(keyPrefix, "obj_tags", tagstr, idx, params)
+}
+
+func (opts *BaseListOptions) addNoTag(keyPrefix, tagstr string, idx int, params *jsonutils.JSONDict) error {
+	return opts.addTagInternal(keyPrefix, "no_obj_tags", tagstr, idx, params)
+}
+
+func (opts *BaseListOptions) addTagInternal(keyPrefix, tagName, tagstr string, idx int, params *jsonutils.JSONDict) error {
+	tags := opts.spliteTag(tagstr)
+	if len(tags) == 0 {
+		return fmt.Errorf("empty tags")
 	}
-	if len(key) == 0 {
-		return fmt.Errorf("Key must not be empty")
-	}
-	params.Add(jsonutils.NewString(prefix+key), fmt.Sprintf("tags.%d.key", idx))
-	if len(value) > 0 {
-		params.Add(jsonutils.NewString(value), fmt.Sprintf("tags.%d.value", idx))
+	for i, tag := range tags {
+		params.Add(jsonutils.NewString(keyPrefix+tag.Key), fmt.Sprintf("%s.%d.%d.key", tagName, idx, i))
+		params.Add(jsonutils.NewString(tag.Value), fmt.Sprintf("%s.%d.%d.value", tagName, idx, i))
 	}
 	return nil
 }
 
-func (opts *BaseListOptions) addNoTag(prefix, tag string, idx int, params *jsonutils.JSONDict) error {
-	key, value, err := opts.spliteTag(tag)
-	if err != nil {
-		return err
+func (opts *BaseListOptions) spliteTag(tag string) []apis.STag {
+	tags := make([]apis.STag, 0)
+	tagInfoList := strings.Split(tag, ";")
+	for _, tagInfo := range tagInfoList {
+		if len(tagInfo) == 0 {
+			continue
+		}
+		tagInfo := strings.Split(tagInfo, "=")
+		tag := apis.STag{Key: tagInfo[0]}
+		if len(tagInfo) > 1 {
+			tag.Value = tagInfo[1]
+		}
+		tags = append(tags, tag)
 	}
-	if len(key) == 0 {
-		return fmt.Errorf("Key must not be empty")
-	}
-	params.Add(jsonutils.NewString(prefix+key), fmt.Sprintf("no_tags.%d.key", idx))
-	if len(value) > 0 {
-		params.Add(jsonutils.NewString(value), fmt.Sprintf("no_tags.%d.value", idx))
-	}
-	return nil
-}
-
-func (opts *BaseListOptions) spliteTag(tag string) (key string, value string, err error) {
-	tagInfo := strings.Split(tag, "=")
-	if len(tagInfo) > 2 {
-		return "", "", fmt.Errorf("Too many equal characters %s", tag)
-	}
-	key = tagInfo[0]
-	if len(tagInfo) > 1 {
-		value = tagInfo[1]
-	}
-	return key, value, nil
+	return tags
 }
 
 func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
@@ -313,30 +318,76 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 	for _, tag := range opts.Tags {
 		err = opts.addTag("", tag, tagIdx, params)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Tags")
 		}
 		tagIdx++
 	}
 	for _, tag := range opts.NoTags {
 		err = opts.addNoTag("", tag, noTagIdx, params)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "NoTags")
 		}
 		noTagIdx++
 	}
 	for _, tag := range opts.UserTags {
 		err = opts.addTag(dbapi.USER_TAG_PREFIX, tag, tagIdx, params)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "UserTags")
 		}
 		tagIdx++
+	}
+	for _, tag := range opts.NoUserTags {
+		err = opts.addNoTag(dbapi.USER_TAG_PREFIX, tag, noTagIdx, params)
+		if err != nil {
+			return nil, errors.Wrap(err, "NoUserTags")
+		}
+		noTagIdx++
 	}
 	for _, tag := range opts.CloudTags {
 		err = opts.addTag(dbapi.CLOUD_TAG_PREFIX, tag, tagIdx, params)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "CloudTags")
 		}
 		tagIdx++
+	}
+	for _, tag := range opts.NoCloudTags {
+		err = opts.addNoTag(dbapi.CLOUD_TAG_PREFIX, tag, noTagIdx, params)
+		if err != nil {
+			return nil, errors.Wrap(err, "NoCloudTags")
+		}
+		noTagIdx++
+	}
+	projTagIdx := 0
+	for _, tag := range opts.ProjectTags {
+		err := opts.addTagInternal("", "project_tags", tag, projTagIdx, params)
+		if err != nil {
+			return nil, errors.Wrap(err, "ProjectTags")
+		}
+		projTagIdx++
+	}
+	noProjTagIdx := 0
+	for _, tag := range opts.NoProjectTags {
+		err := opts.addTagInternal("", "no_project_tags", tag, noProjTagIdx, params)
+		if err != nil {
+			return nil, errors.Wrap(err, "NoProjectTags")
+		}
+		noProjTagIdx++
+	}
+	domainTagIdx := 0
+	for _, tag := range opts.DomainTags {
+		err := opts.addTagInternal("", "domain_tags", tag, domainTagIdx, params)
+		if err != nil {
+			return nil, errors.Wrap(err, "DomainTags")
+		}
+		domainTagIdx++
+	}
+	noDomainTagIdx := 0
+	for _, tag := range opts.NoDomainTags {
+		err := opts.addTagInternal("", "no_domain_tags", tag, noDomainTagIdx, params)
+		if err != nil {
+			return nil, errors.Wrap(err, "NoDomainTags")
+		}
+		noDomainTagIdx++
 	}
 	return params, nil
 }

@@ -742,3 +742,33 @@ func (manager *SVirtualResourceBaseManager) GetExportExtraKeys(ctx context.Conte
 	}
 	return res
 }
+
+func (manager *SVirtualResourceBaseManager) GetPropertyProjectTagValuePairs(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	return GetPropertyTagValuePairs(
+		manager.GetIVirtualModelManager(),
+		"project",
+		"tenant_id",
+		ctx,
+		userCred,
+		query,
+	)
+}
+
+func (manager *SVirtualResourceBaseManager) GetPropertyProjectTagValueTree(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	return GetPropertyTagValueTree(
+		manager.GetIVirtualModelManager(),
+		"project",
+		"tenant_id",
+		ctx,
+		userCred,
+		query,
+	)
+}

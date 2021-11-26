@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
 import (
 	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type ServerOpenForwardOptions struct {
@@ -25,7 +27,7 @@ type ServerOpenForwardOptions struct {
 }
 
 func (o *ServerOpenForwardOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
+	return options.StructToParams(o)
 }
 
 type ServerCloseForwardOptions struct {
@@ -36,7 +38,7 @@ type ServerCloseForwardOptions struct {
 }
 
 func (o *ServerCloseForwardOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
+	return options.StructToParams(o)
 }
 
 type ServerListForwardOptions struct {
@@ -46,5 +48,5 @@ type ServerListForwardOptions struct {
 }
 
 func (o *ServerListForwardOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
+	return options.StructToParams(o)
 }

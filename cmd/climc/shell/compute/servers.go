@@ -35,7 +35,8 @@ import (
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )
@@ -94,6 +95,10 @@ func init() {
 	cmd.Perform("set-sshport", &options.ServerSetSshportOptions{})
 	cmd.Perform("have-agent", &options.ServerHaveAgentOptions{})
 	cmd.Perform("change-disk-storage", &options.ServerChangeDiskStorageOptions{})
+	cmd.PerformClass("batch-user-metadata", &options.ServerBatchMetadataOptions{})
+	cmd.PerformClass("batch-set-user-metadata", &options.ServerBatchMetadataOptions{})
+	cmd.Perform("user-metadata", &baseoptions.ResourceMetadataOptions{})
+	cmd.Perform("set-user-metadata", &baseoptions.ResourceMetadataOptions{})
 
 	cmd.Get("vnc", new(options.ServerIdOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))
@@ -107,6 +112,12 @@ func init() {
 	cmd.GetProperty(&options.ServerStatusStatisticsOptions{})
 	cmd.GetProperty(&options.ServerProjectStatisticsOptions{})
 	cmd.GetProperty(&options.ServerDomainStatisticsOptions{})
+	cmd.GetProperty(&options.ServerGetPropertyTagValuePairOptions{})
+	cmd.GetProperty(&options.ServerGetPropertyTagValueTreeOptions{})
+	cmd.GetProperty(&options.ServerGetPropertyProjectTagValuePairOptions{})
+	cmd.GetProperty(&options.ServerGetPropertyProjectTagValueTreeOptions{})
+	cmd.GetProperty(&options.ServerGetPropertyDomainTagValuePairOptions{})
+	cmd.GetProperty(&options.ServerGetPropertyDomainTagValueTreeOptions{})
 
 	type ServerTaskShowOptions struct {
 		ID       string `help:"ID or name of server" json:"-"`
@@ -115,7 +126,7 @@ func init() {
 		Complete bool   `help:"show tasks that has been completed" json:"-"`
 	}
 	R(&ServerTaskShowOptions{}, "server-tasks", "Show tasks of a server", func(s *mcclient.ClientSession, opts *ServerTaskShowOptions) error {
-		params, err := options.StructToParams(opts)
+		params, err := baseoptions.StructToParams(opts)
 		if err != nil {
 			return err
 		}
@@ -138,7 +149,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ServerBatchMetadataOptions{}, "server-batch-add-tag", "add tags for some server", func(s *mcclient.ClientSession, opts *options.ServerBatchMetadataOptions) error {
+	/*R(&options.ServerBatchMetadataOptions{}, "server-batch-update-user-tag", "add tags for some server", func(s *mcclient.ClientSession, opts *options.ServerBatchMetadataOptions) error {
 		params, err := opts.Params()
 		if err != nil {
 			return err
@@ -151,7 +162,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ServerBatchMetadataOptions{}, "server-batch-set-tag", "Set tags for some server", func(s *mcclient.ClientSession, opts *options.ServerBatchMetadataOptions) error {
+	R(&options.ServerBatchMetadataOptions{}, "server-batch-replace-user-tag", "Set tags for some server", func(s *mcclient.ClientSession, opts *options.ServerBatchMetadataOptions) error {
 		params, err := opts.Params()
 		if err != nil {
 			return err
@@ -164,7 +175,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ResourceMetadataOptions{}, "server-add-tag", "Set tag of a server", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
+	R(&options.ResourceMetadataOptions{}, "server-update-user-tag", "Set tag of a server", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
 		params, err := opts.Params()
 		if err != nil {
 			return err
@@ -177,7 +188,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ResourceMetadataOptions{}, "server-set-tag", "Set tag of a server", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
+	R(&options.ResourceMetadataOptions{}, "server-update-user-tag", "Set tag of a server", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
 		params, err := opts.Params()
 		if err != nil {
 			return err
@@ -189,8 +200,9 @@ func init() {
 		printObject(result)
 		return nil
 	})
+	*/
 
-	R(&options.ResourceMetadataOptions{}, "server-set-metadata", "Set raw metadata of a server", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
+	R(&baseoptions.ResourceMetadataOptions{}, "server-set-metadata", "Set raw metadata of a server", func(s *mcclient.ClientSession, opts *baseoptions.ResourceMetadataOptions) error {
 		params, err := opts.Params()
 		if err != nil {
 			return err
@@ -241,7 +253,7 @@ func init() {
 			return err
 		}
 		count := params.Count
-		if options.BoolV(opts.DryRun) {
+		if baseoptions.BoolV(opts.DryRun) {
 			listFields := []string{"id", "name", "capacity", "count", "score", "capacity_details", "score_details"}
 			input, err := opts.ToScheduleInput()
 			if err != nil {
@@ -253,7 +265,7 @@ func init() {
 			}
 			printList(modulebase.JSON2ListResult(result), listFields)
 		} else {
-			taskNotify := options.BoolV(opts.TaskNotify)
+			taskNotify := baseoptions.BoolV(opts.TaskNotify)
 			if taskNotify {
 				s.PrepareTask()
 			}
@@ -298,7 +310,7 @@ func init() {
 	})
 
 	R(&options.ServerMonitorOptions{}, "server-monitor", "Send commands to qemu monitor", func(s *mcclient.ClientSession, opts *options.ServerMonitorOptions) error {
-		params, err := options.StructToParams(opts)
+		params, err := baseoptions.StructToParams(opts)
 		if err != nil {
 			return err
 		}
@@ -663,7 +675,7 @@ func init() {
 	R(&ServerGroupsOptions{}, "server-join-groups", "Join multiple groups", func(s *mcclient.ClientSession,
 		opts *ServerGroupsOptions) error {
 
-		params, err := options.StructToParams(opts)
+		params, err := baseoptions.StructToParams(opts)
 		if err != nil {
 			return err
 		}
@@ -678,7 +690,7 @@ func init() {
 	R(&ServerGroupsOptions{}, "server-leave-groups", "Leave multiple groups", func(s *mcclient.ClientSession,
 		opts *ServerGroupsOptions) error {
 
-		params, err := options.StructToParams(opts)
+		params, err := baseoptions.StructToParams(opts)
 		if err != nil {
 			return err
 		}

@@ -100,6 +100,7 @@ func init() {
 		),
 	}
 	Metadata.SetVirtualObject(Metadata)
+	Metadata.TableSpec().AddIndex(false, "obj_type", "obj_id", "key", "deleted")
 }
 
 func (manager *SMetadataManager) InitializeData() error {
@@ -143,8 +144,12 @@ func (m *SMetadata) GetModelManager() IModelManager {
 	return Metadata
 }
 
-func GetObjectIdstr(model IModel) string {
-	return fmt.Sprintf("%s%s%s", model.GetModelManager().Keyword(), OBJECT_TYPE_ID_SEP, model.GetId())
+func getModelIdstr(model IModel) string {
+	return getObjectIdstr(model.GetModelManager().Keyword(), model.GetId())
+}
+
+func getObjectIdstr(objType, objId string) string {
+	return fmt.Sprintf("%s%s%s", objType, OBJECT_TYPE_ID_SEP, objId)
 }
 
 func (manager *SMetadataManager) Query(fields ...string) *sqlchemy.SQuery {
@@ -168,25 +173,63 @@ func (manager *SMetadataManager) AllowGetPropertyTagValuePairs(ctx context.Conte
 	return true
 }
 
-func (manager *SMetadataManager) GetPropertyTagValuePairs(
+func (manager *SMetadataManager) fetchKeyValueQuery(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
-	input apis.MetadataListInput,
-) (*modulebase.ListResult, error) {
+	input apis.MetaGetPropertyTagValuePairsInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
 	sq := manager.Query().SubQuery()
-	q := sq.Query(sq.Field("key"), sq.Field("value"), sqlchemy.COUNT("count", sq.Field("key")))
+	keyOnly := (input.KeyOnly != nil && *input.KeyOnly)
+	var q *sqlchemy.SQuery
+	var queryFields []sqlchemy.IQueryField
+	if keyOnly {
+		queryFields = []sqlchemy.IQueryField{
+			sq.Field("key"),
+			sqlchemy.COUNT("count", sq.Field("key")),
+		}
+	} else {
+		queryFields = []sqlchemy.IQueryField{
+			sq.Field("key"),
+			sq.Field("value"),
+			sqlchemy.COUNT("count", sq.Field("key")),
+		}
+	}
+	q = sq.Query(queryFields...)
 
-	q, err = manager.ListItemFilter(ctx, q, userCred, input)
+	q, err = manager.ListItemFilter(ctx, q, userCred, input.MetadataListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "ListItemFilter")
 	}
 
-	q = q.GroupBy(q.Field("key"), q.Field("value"))
-	if input.Order == string(sqlchemy.SQL_ORDER_DESC) {
-		q = q.Desc(q.Field("key")).Desc(q.Field("value"))
+	if keyOnly {
+		q = q.GroupBy(q.Field("key"))
 	} else {
-		q = q.Asc(q.Field("key")).Asc(q.Field("value"))
+		q = q.GroupBy(q.Field("key"), q.Field("value"))
+	}
+	if input.Order == string(sqlchemy.SQL_ORDER_DESC) {
+		q = q.Desc(q.Field("key"))
+		if !keyOnly {
+			q = q.Desc(q.Field("value"))
+		}
+	} else {
+		q = q.Asc(q.Field("key"))
+		if !keyOnly {
+			q = q.Asc(q.Field("value"))
+		}
+	}
+
+	return q, nil
+}
+
+func (manager *SMetadataManager) GetPropertyTagValuePairs(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input apis.MetaGetPropertyTagValuePairsInput,
+) (*modulebase.ListResult, error) {
+	q, err := manager.fetchKeyValueQuery(ctx, userCred, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchKeyValueQuery")
 	}
 
 	totalCnt, err := q.CountWithError()
@@ -199,7 +242,7 @@ func (manager *SMetadataManager) GetPropertyTagValuePairs(
 		return &emptyList, nil
 	}
 
-	var maxLimit int64 = consts.GetMaxPagingLimit()
+	maxLimit := consts.GetMaxPagingLimit()
 	limit := consts.GetDefaultPagingLimit()
 	if input.Limit != nil {
 		limit = int64(*input.Limit)
@@ -224,7 +267,7 @@ func (manager *SMetadataManager) GetPropertyTagValuePairs(
 		q = q.Offset(int(offset))
 	}
 
-	data, err := manager.metaDataQuery2List(ctx, q, userCred, input)
+	data, err := manager.metaDataQuery2List(ctx, q, userCred, input.MetadataListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "metadataQuery2List")
 	}
@@ -247,15 +290,15 @@ func (manager *SMetadataManager) metaDataQuery2List(ctx context.Context, q *sqlc
 	if err != nil {
 		return nil, errors.Wrap(err, "Query.All")
 	}
-	ciMap := map[string]string{}
+	// ciMap := map[string]string{}
 
 	ret := make([]jsonutils.JSONObject, len(metadatas))
 	for i := range metadatas {
-		if k, ok := ciMap[strings.ToLower(metadatas[i].Key)]; !ok {
+		/* if k, ok := ciMap[strings.ToLower(metadatas[i].Key)]; !ok {
 			ciMap[strings.ToLower(metadatas[i].Key)] = metadatas[i].Key
 		} else {
 			metadatas[i].Key = k
-		}
+		}*/
 		if input.Details != nil && *input.Details {
 			ret[i], err = manager.getKeyValueObjectCount(ctx, userCred, input, metadatas[i].Key, metadatas[i].Value, metadatas[i].Count)
 			if err != nil {
@@ -308,6 +351,38 @@ func (manager *SMetadataManager) AllowListItems(ctx context.Context, userCred mc
 	return true
 }
 
+func (manager *SMetadataManager) metadataBaseFilter(q *sqlchemy.SQuery, input apis.MetadataBaseFilterInput) *sqlchemy.SQuery {
+	if len(input.Key) > 0 {
+		q = q.In("key", input.Key)
+	}
+	if len(input.Value) > 0 {
+		q = q.In("value", input.Value)
+	}
+	if input.SysMeta != nil && *input.SysMeta {
+		q = q.Filter(sqlchemy.Startswith(q.Field("key"), SYS_TAG_PREFIX))
+	}
+	if input.CloudMeta != nil && *input.CloudMeta {
+		q = q.Filter(sqlchemy.Startswith(q.Field("key"), CLOUD_TAG_PREFIX))
+	}
+	if input.UserMeta != nil && *input.UserMeta {
+		q = q.Filter(sqlchemy.Startswith(q.Field("key"), USER_TAG_PREFIX))
+	}
+	withConditions := []sqlchemy.ICondition{}
+	if input.WithSysMeta != nil && *input.WithSysMeta {
+		withConditions = append(withConditions, sqlchemy.Startswith(q.Field("key"), SYS_TAG_PREFIX))
+	}
+	if input.WithCloudMeta != nil && *input.WithCloudMeta {
+		withConditions = append(withConditions, sqlchemy.Startswith(q.Field("key"), CLOUD_TAG_PREFIX))
+	}
+	if input.WithUserMeta != nil && *input.WithUserMeta {
+		withConditions = append(withConditions, sqlchemy.Startswith(q.Field("key"), USER_TAG_PREFIX))
+	}
+	if len(withConditions) > 0 {
+		q = q.Filter(sqlchemy.OR(withConditions...))
+	}
+	return q
+}
+
 // 元数据(标签)列表
 func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input apis.MetadataListInput) (*sqlchemy.SQuery, error) {
 	var err error
@@ -316,12 +391,8 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		return nil, errors.Wrap(err, "SModelBaseManager.ListItemFilter")
 	}
 
-	if len(input.Key) > 0 {
-		q = q.In("key", input.Key)
-	}
-	if len(input.Value) > 0 {
-		q = q.In("value", input.Value)
-	}
+	q = manager.metadataBaseFilter(q, input.MetadataBaseFilterInput)
+
 	if len(input.Search) > 0 {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.Contains(q.Field("key"), input.Search),
@@ -339,7 +410,7 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	for _, resource := range resources {
 		man, ok := globalTables[resource]
 		if !ok {
-			return nil, httperrors.NewInputParameterError("Not support resource %s tag filter", resource)
+			return nil, httperrors.NewNotFoundError("Not support resource %s tag filter", resource)
 		}
 		if !man.IsStandaloneManager() {
 			continue
@@ -360,42 +431,17 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		q = q.Filter(sqlchemy.OR(conditions...))
 	}
 
-	if input.SysMeta != nil && *input.SysMeta {
-		q = q.Filter(sqlchemy.Startswith(q.Field("key"), SYS_TAG_PREFIX))
-	}
-	if input.CloudMeta != nil && *input.CloudMeta {
-		q = q.Filter(sqlchemy.Startswith(q.Field("key"), CLOUD_TAG_PREFIX))
-	}
-	if input.UserMeta != nil && *input.UserMeta {
-		q = q.Filter(sqlchemy.Startswith(q.Field("key"), USER_TAG_PREFIX))
-	}
-
 	/*for args, prefix := range map[string]string{"sys_meta": SYS_TAG_PREFIX, "cloud_meta": CLOUD_TAG_PREFIX, "user_meta": USER_TAG_PREFIX} {
 		if jsonutils.QueryBoolean(query, args, false) {
 			q = q.Filter(sqlchemy.Startswith(q.Field("key"), prefix))
 		}
 	}*/
 
-	withConditions := []sqlchemy.ICondition{}
-	if input.WithSysMeta != nil && *input.WithSysMeta {
-		withConditions = append(withConditions, sqlchemy.Startswith(q.Field("key"), SYS_TAG_PREFIX))
-	}
-	if input.WithCloudMeta != nil && *input.WithCloudMeta {
-		withConditions = append(withConditions, sqlchemy.Startswith(q.Field("key"), CLOUD_TAG_PREFIX))
-	}
-	if input.WithUserMeta != nil && *input.WithUserMeta {
-		withConditions = append(withConditions, sqlchemy.Startswith(q.Field("key"), USER_TAG_PREFIX))
-	}
-
 	/*for args, prefix := range map[string]string{"with_sys_meta": SYS_TAG_PREFIX, "with_cloud_meta": CLOUD_TAG_PREFIX, "with_user_meta": USER_TAG_PREFIX} {
 		if jsonutils.QueryBoolean(query, args, false) {
 			withConditions = append(withConditions, sqlchemy.Startswith(q.Field("key"), prefix))
 		}
 	}*/
-
-	if len(withConditions) > 0 {
-		q = q.Filter(sqlchemy.OR(withConditions...))
-	}
 
 	return q, nil
 }
@@ -404,7 +450,7 @@ func (manager *SMetadataManager) GetStringValue(model IModel, key string, userCr
 	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAllowGetSpec(rbacutils.ScopeSystem, userCred, model, "metadata")) {
 		return ""
 	}
-	idStr := GetObjectIdstr(model)
+	idStr := getModelIdstr(model)
 	m := SMetadata{}
 	err := manager.Query().Equals("id", idStr).Equals("key", key).First(&m)
 	if err == nil {
@@ -417,7 +463,7 @@ func (manager *SMetadataManager) GetJsonValue(model IModel, key string, userCred
 	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAllowGetSpec(rbacutils.ScopeSystem, userCred, model, "metadata")) {
 		return nil
 	}
-	idStr := GetObjectIdstr(model)
+	idStr := getModelIdstr(model)
 	m := SMetadata{}
 	err := manager.Query().Equals("id", idStr).Equals("key", key).First(&m)
 	if err == nil {
@@ -434,7 +480,7 @@ type sMetadataChange struct {
 }
 
 func (manager *SMetadataManager) RemoveAll(ctx context.Context, model IModel, userCred mcclient.TokenCredential) error {
-	idStr := GetObjectIdstr(model)
+	idStr := getModelIdstr(model)
 	if len(idStr) == 0 {
 		return fmt.Errorf("invalid model")
 	}
@@ -462,12 +508,23 @@ func (manager *SMetadataManager) RemoveAll(ctx context.Context, model IModel, us
 	return nil
 }
 
+func infMap2StrMap(input map[string]interface{}) map[string]string {
+	output := make(map[string]string)
+	for k, v := range input {
+		output[k] = stringutils.Interface2String(v)
+	}
+	return output
+}
+
 func (manager *SMetadataManager) SetValue(ctx context.Context, obj IModel, key string, value interface{}, userCred mcclient.TokenCredential) error {
 	return manager.SetValuesWithLog(ctx, obj, map[string]interface{}{key: value}, userCred)
 }
 
 func (manager *SMetadataManager) SetValuesWithLog(ctx context.Context, obj IModel, store map[string]interface{}, userCred mcclient.TokenCredential) error {
-	changes, err := manager.setValues(ctx, obj, store, userCred)
+	lockman.LockObject(ctx, obj)
+	defer lockman.ReleaseObject(ctx, obj)
+
+	changes, err := manager.rawSetValues(ctx, obj.Keyword(), obj.GetId(), infMap2StrMap(store), false, "")
 	if err != nil {
 		return err
 	}
@@ -477,15 +534,13 @@ func (manager *SMetadataManager) SetValuesWithLog(ctx context.Context, obj IMode
 	return nil
 }
 
-func (manager *SMetadataManager) setValues(ctx context.Context, obj IModel, store map[string]interface{}, userCred mcclient.TokenCredential) ([]sMetadataChange, error) {
-	idStr := GetObjectIdstr(obj)
+func (manager *SMetadataManager) rawSetValues(ctx context.Context, objType string, objId string, store map[string]string, replace bool, replaceRange string) ([]sMetadataChange, error) {
+	idStr := getObjectIdstr(objType, objId)
 
-	// no need to lock
-	// lockman.LockObject(ctx, obj)
-	// defer lockman.ReleaseObject(ctx, obj)
-
+	keys := make([]string, 0, len(store))
 	changes := make([]sMetadataChange, 0)
 	for key, value := range store {
+		keys = append(keys, key)
 
 		record := SMetadata{}
 		record.SetModelManager(manager, &record)
@@ -502,12 +557,13 @@ func (manager *SMetadataManager) setValues(ctx context.Context, obj IModel, stor
 		newRecord := SMetadata{}
 		newRecord.SetModelManager(manager, &newRecord)
 
-		newRecord.ObjId = obj.GetId()
-		newRecord.ObjType = obj.GetModelManager().Keyword()
+		newRecord.ObjId = objId
+		newRecord.ObjType = objType
 		newRecord.Id = idStr
 		newRecord.Key = key
 
-		valStr := stringutils.Interface2String(value)
+		// valStr := stringutils.Interface2String(value)
+		valStr := value
 		valStrLower := strings.ToLower(valStr)
 		if valStrLower == "none" || valStrLower == "null" {
 			newRecord.Value = record.Value
@@ -550,46 +606,45 @@ func (manager *SMetadataManager) setValues(ctx context.Context, obj IModel, stor
 			changes = append(changes, sMetadataChange{Key: key, OValue: record.Value, NValue: valStr})
 		}
 	}
+	if replace {
+		records := []SMetadata{}
+		q := manager.Query().Equals("id", idStr).NotLike("key", `\_\_%`) //避免删除系统内置的metadata, _ 在mysql里面有特殊含义,需要转义
+		switch replaceRange {
+		case USER_TAG_PREFIX:
+			q = q.Startswith("key", USER_TAG_PREFIX)
+		case CLOUD_TAG_PREFIX:
+			q = q.Startswith("key", CLOUD_TAG_PREFIX)
+		case SYS_CLOUD_TAG_PREFIX:
+			q = q.Startswith("key", SYS_CLOUD_TAG_PREFIX)
+		}
+		q = q.Filter(sqlchemy.NOT(sqlchemy.In(q.Field("key"), keys)))
+		if err := FetchModelObjects(manager, q, &records); err != nil {
+			log.Errorf("failed to fetch metadata error: %v", err)
+		}
+		for _, rec := range records {
+			_, err := Update(&rec, func() error {
+				rec.Deleted = true
+				return nil
+			})
+			if err != nil {
+				log.Errorf("failed to delete metadata record %s %s %s", objType, objId, rec.Key)
+			} else {
+				changes = append(changes, sMetadataChange{Key: rec.Key, OValue: rec.Value})
+			}
+		}
+	}
 	return changes, nil
 }
 
 func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store map[string]interface{}, userCred mcclient.TokenCredential, delRange string) error {
-	changes, err := manager.setValues(ctx, obj, store, userCred)
+	lockman.LockObject(ctx, obj)
+	defer lockman.ReleaseObject(ctx, obj)
+
+	changes, err := manager.rawSetValues(ctx, obj.Keyword(), obj.GetId(), infMap2StrMap(store), true, delRange)
 	if err != nil {
 		return errors.Wrap(err, "setValues")
 	}
 
-	idStr := GetObjectIdstr(obj)
-
-	lockman.LockObject(ctx, obj)
-	defer lockman.ReleaseObject(ctx, obj)
-
-	keys := []string{}
-	for key := range store {
-		keys = append(keys, key)
-	}
-
-	records := []SMetadata{}
-	q := manager.Query().Equals("id", idStr).NotLike("key", `\_\_%`) //避免删除系统内置的metadata, _ 在mysql里面有特殊含义,需要转义
-	switch delRange {
-	case USER_TAG_PREFIX:
-		q = q.Startswith("key", USER_TAG_PREFIX)
-	case CLOUD_TAG_PREFIX:
-		q = q.Startswith("key", CLOUD_TAG_PREFIX)
-	case SYS_CLOUD_TAG_PREFIX:
-		q = q.Startswith("key", SYS_CLOUD_TAG_PREFIX)
-	}
-	q = q.Filter(sqlchemy.NOT(sqlchemy.In(q.Field("key"), keys)))
-	if err := FetchModelObjects(manager, q, &records); err != nil {
-		log.Errorf("failed to fetch metadata error: %v", err)
-	}
-	for _, rec := range records {
-		if err := rec.Delete(ctx, userCred); err != nil {
-			log.Errorf("failed to delete metadata error: %v", err)
-			continue
-		}
-		changes = append(changes, sMetadataChange{Key: rec.Key, OValue: rec.Value})
-	}
 	if len(changes) > 0 {
 		OpsLog.LogEvent(obj.GetIModel(), ACT_SET_METADATA, jsonutils.Marshal(changes), userCred)
 	}
@@ -597,7 +652,7 @@ func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store m
 }
 
 func (manager *SMetadataManager) GetAll(obj IModel, keys []string, keyPrefix string, userCred mcclient.TokenCredential) (map[string]string, error) {
-	idStr := GetObjectIdstr(obj)
+	idStr := getModelIdstr(obj)
 	records := make([]SMetadata, 0)
 	q := manager.Query().Equals("id", idStr)
 	if keys != nil && len(keys) > 0 {

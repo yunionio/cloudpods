@@ -30,7 +30,7 @@ import (
 
 type SMetadataResourceBaseModelManager struct{}
 
-func (meta *SMetadataResourceBaseModelManager) objIdQueryWithTags(modelName string, oTags ...apis.STag) *sqlchemy.SQuery {
+func tagsToMap(oTags []apis.STag) map[string][]string {
 	tags := map[string][]string{}
 	for _, tag := range oTags {
 		if _, ok := tags[tag.Key]; !ok {
@@ -40,10 +40,22 @@ func (meta *SMetadataResourceBaseModelManager) objIdQueryWithTags(modelName stri
 			tags[tag.Key] = append(tags[tag.Key], tag.Value)
 		}
 	}
+	return tags
+}
 
-	if len(tags) > 0 {
-		metadataResQ := Metadata.Query().Equals("obj_type", modelName).SubQuery()
-		metadataView := metadataResQ.Query()
+func (meta *SMetadataResourceBaseModelManager) objIdQueryWithTags(modelName string, oTags []apis.STag, oMoreTags [][]apis.STag) *sqlchemy.SQuery {
+	metadataResQ := Metadata.Query().Equals("obj_type", modelName).SubQuery()
+
+	queries := make([]sqlchemy.IQuery, 0)
+	tagsList := make([][]apis.STag, 0, 1+len(oMoreTags))
+	tagsList = append(tagsList, oTags)
+	tagsList = append(tagsList, oMoreTags...)
+	for _, t := range tagsList {
+		tags := tagsToMap(t)
+		if len(tags) == 0 {
+			continue
+		}
+		metadataView := metadataResQ.Query(metadataResQ.Field("obj_id"))
 		idx := 0
 		for key, values := range tags {
 			if idx == 0 {
@@ -61,10 +73,19 @@ func (meta *SMetadataResourceBaseModelManager) objIdQueryWithTags(modelName stri
 			}
 			idx++
 		}
-		metadatas := metadataView.SubQuery()
-		return metadatas.Query(metadatas.Field("obj_id")).Distinct()
+		queries = append(queries, metadataView.Distinct())
 	}
-	return nil
+	if len(queries) == 0 {
+		return nil
+	}
+	var query sqlchemy.IQuery
+	if len(queries) == 1 {
+		query = queries[0]
+	} else {
+		uq, _ := sqlchemy.UnionWithError(queries...)
+		query = uq.Query()
+	}
+	return query.SubQuery().Query()
 }
 
 func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
@@ -72,19 +93,19 @@ func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
 	q *sqlchemy.SQuery,
 	input apis.MetadataResourceListInput,
 ) *sqlchemy.SQuery {
-	if len(input.Tags) > 0 {
-		sq := meta.objIdQueryWithTags(manager.Keyword(), input.Tags...)
+	if len(input.Tags) > 0 || len(input.ObjTags) > 0 {
+		sq := meta.objIdQueryWithTags(manager.Keyword(), input.Tags, input.ObjTags)
 		if sq != nil {
-			q = q.Filter(sqlchemy.In(q.Field("id"), sq.SubQuery()))
+			sqq := sq.SubQuery()
+			q = q.Join(sqq, sqlchemy.Equals(q.Field("id"), sqq.Field("obj_id")))
+			// q = q.Filter(sqlchemy.In(q.Field("id"), sq.SubQuery()))
 		}
 	}
 
-	if len(input.NoTags) > 0 {
-		for _, tag := range input.NoTags {
-			sq := meta.objIdQueryWithTags(manager.Keyword(), tag)
-			if sq != nil {
-				q = q.Filter(sqlchemy.NotIn(q.Field("id"), sq.SubQuery()))
-			}
+	if len(input.NoTags) > 0 || len(input.NoObjTags) > 0 {
+		sq := meta.objIdQueryWithTags(manager.Keyword(), input.NoTags, input.NoObjTags)
+		if sq != nil {
+			q = q.Filter(sqlchemy.NotIn(q.Field("id"), sq.SubQuery()))
 		}
 	}
 
@@ -167,7 +188,7 @@ func (meta *SMetadataResourceBaseModelManager) FetchCustomizeColumns(
 	ret := make([]apis.MetadataResourceInfo, len(objs))
 	resIds := make([]string, len(objs))
 	for i := range objs {
-		resIds[i] = GetObjectIdstr(objs[i].(IModel))
+		resIds[i] = getModelIdstr(objs[i].(IModel))
 	}
 
 	if fields == nil || fields.Contains("__meta__") {

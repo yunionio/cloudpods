@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package compute
 
 import (
 	"errors"
@@ -28,6 +28,7 @@ import (
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 var ErrEmtptyUpdate = errors.New("No valid update data")
@@ -65,7 +66,7 @@ type ServerListOptions struct {
 
 	ScalingGroup string `help:"ScalingGroup's id or name'"`
 
-	BaseListOptions
+	options.BaseListOptions
 
 	VpcProvider string `help:"filter by vpc's provider" json:"vpc_provider"`
 
@@ -77,7 +78,7 @@ type ServerListOptions struct {
 }
 
 func (o *ServerListOptions) Params() (jsonutils.JSONObject, error) {
-	return ListStructToParams(o)
+	return options.ListStructToParams(o)
 }
 
 type ServerIdOptions struct {
@@ -133,7 +134,7 @@ func (o *ServerDeleteBackupOptions) GetId() string {
 }
 
 func (o *ServerDeleteBackupOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
+	return options.StructToParams(o)
 }
 
 type ServerSwitchToBackupOptions struct {
@@ -147,7 +148,7 @@ func (o *ServerSwitchToBackupOptions) GetId() string {
 }
 
 func (o *ServerSwitchToBackupOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
+	return options.StructToParams(o)
 }
 
 func (o *ServerSwitchToBackupOptions) Description() string {
@@ -155,11 +156,11 @@ func (o *ServerSwitchToBackupOptions) Description() string {
 }
 
 type ServerShowOptions struct {
-	BaseShowOptions `id->help:"ID or name of the server"`
+	options.BaseShowOptions `id->help:"ID or name of the server"`
 }
 
 func (o *ServerShowOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
+	return options.StructToParams(o)
 }
 
 func (o *ServerShowOptions) GetId() string {
@@ -526,12 +527,12 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 		params.UserData = string(userdata)
 	}
 
-	if BoolV(opts.AllowDelete) {
+	if options.BoolV(opts.AllowDelete) {
 		disableDelete := false
 		params.DisableDelete = &disableDelete
 	}
 
-	if BoolV(opts.DryRun) {
+	if options.BoolV(opts.DryRun) {
 		params.Suggestion = true
 	}
 
@@ -570,7 +571,7 @@ func (o *ServerStopOptions) GetIds() []string {
 }
 
 func (o *ServerStopOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
+	return options.StructToParams(o)
 }
 
 type ServerUpdateOptions struct {
@@ -589,7 +590,7 @@ type ServerUpdateOptions struct {
 }
 
 func (opts *ServerUpdateOptions) Params() (jsonutils.JSONObject, error) {
-	params, err := optionsStructToParams(opts)
+	params, err := options.StructToParams(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -623,7 +624,7 @@ type ServerDeleteOptions struct {
 }
 
 func (o *ServerDeleteOptions) QueryParams() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
+	return options.StructToParams(o)
 }
 
 type ServerCancelDeleteOptions struct {
@@ -680,7 +681,7 @@ func (o *ServerSecGroupOptions) GetId() string {
 }
 
 func (o *ServerSecGroupOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
+	return options.StructToParams(o)
 }
 
 type ServerSecGroupsOptions struct {
@@ -707,7 +708,7 @@ func (o *ServerModifySrcCheckOptions) GetId() string {
 }
 
 func (o *ServerModifySrcCheckOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
+	return options.StructToParams(o)
 }
 
 func (o *ServerModifySrcCheckOptions) Description() string {
@@ -725,7 +726,7 @@ func (o *ServerSendKeyOptions) GetId() string {
 }
 
 func (o *ServerSendKeyOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
+	return options.StructToParams(o)
 }
 
 func (o *ServerSendKeyOptions) Description() string {
@@ -749,7 +750,7 @@ type ServerSaveImageOptions struct {
 }
 
 func (o *ServerSaveImageOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
+	return options.StructToParams(o)
 }
 
 func (o *ServerSaveImageOptions) Description() string {
@@ -763,7 +764,7 @@ type ServerSaveGuestImageOptions struct {
 }
 
 func (o *ServerSaveGuestImageOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
+	return options.StructToParams(o)
 }
 
 func (o *ServerSaveGuestImageOptions) Description() string {
@@ -780,7 +781,7 @@ func (o *ServerChangeOwnerOptions) GetId() string {
 }
 
 func (o *ServerChangeOwnerOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
+	return options.StructToParams(o)
 }
 
 type ServerRebuildRootOptions struct {
@@ -798,7 +799,7 @@ func (o *ServerRebuildRootOptions) GetId() string {
 }
 
 func (o *ServerRebuildRootOptions) Params() (jsonutils.JSONObject, error) {
-	params, err := StructToParams(o)
+	params, err := options.StructToParams(o)
 	if err != nil {
 		return nil, err
 	}
@@ -822,7 +823,7 @@ type ServerChangeConfigOptions struct {
 }
 
 func (o *ServerChangeConfigOptions) Params() (jsonutils.JSONObject, error) {
-	params, err := StructToParams(o)
+	params, err := options.StructToParams(o)
 	if err != nil {
 		return nil, err
 	}
@@ -862,7 +863,7 @@ func (o *ServerResetOptions) GetIds() []string {
 }
 
 func (o *ServerResetOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
+	return options.StructToParams(o)
 }
 
 type ServerRestartOptions struct {
@@ -875,7 +876,7 @@ func (o *ServerRestartOptions) GetIds() []string {
 }
 
 func (o *ServerRestartOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
+	return options.StructToParams(o)
 }
 
 type ServerMigrateForecastOptions struct {
@@ -890,7 +891,7 @@ func (o *ServerMigrateForecastOptions) GetId() string {
 }
 
 func (o *ServerMigrateForecastOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
+	return options.StructToParams(o)
 }
 
 type ServerMigrateOptions struct {
@@ -905,7 +906,7 @@ func (o *ServerMigrateOptions) GetId() string {
 }
 
 func (o *ServerMigrateOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
+	return options.StructToParams(o)
 }
 
 type ServerLiveMigrateOptions struct {
@@ -919,34 +920,7 @@ func (o *ServerLiveMigrateOptions) GetId() string {
 }
 
 func (o *ServerLiveMigrateOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
-}
-
-type ResourceMetadataOptions struct {
-	ID   string   `help:"ID or name of resources" json:"-"`
-	TAGS []string `help:"Tags info, eg: hypervisor=aliyun、os_type=Linux、os_version"`
-}
-
-func (opts *ResourceMetadataOptions) GetId() string {
-	return opts.ID
-}
-
-func (opts *ResourceMetadataOptions) Params() (jsonutils.JSONObject, error) {
-	params := jsonutils.NewDict()
-	for _, tag := range opts.TAGS {
-		info := strings.Split(tag, "=")
-		if len(info) == 2 {
-			if len(info[0]) == 0 {
-				return nil, fmt.Errorf("invalidate tag info %s", tag)
-			}
-			params.Add(jsonutils.NewString(info[1]), info[0])
-		} else if len(info) == 1 {
-			params.Add(jsonutils.NewString(info[0]), info[0])
-		} else {
-			return nil, fmt.Errorf("invalidate tag info %s", tag)
-		}
-	}
-	return params, nil
+	return options.StructToParams(o)
 }
 
 type ServerBatchMetadataOptions struct {
@@ -954,7 +928,7 @@ type ServerBatchMetadataOptions struct {
 	TAGS   []string `help:"Tags info, eg: hypervisor=aliyun、os_type=Linux、os_version"`
 }
 
-func (opts *ServerBatchMetadataOptions) Params() (*jsonutils.JSONDict, error) {
+func (opts *ServerBatchMetadataOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 	if len(opts.Guests) == 0 {
 		return nil, fmt.Errorf("missing guest option")
@@ -999,7 +973,7 @@ type ServerDissociateEipOptions struct {
 }
 
 func (o *ServerDissociateEipOptions) Params() (jsonutils.JSONObject, error) {
-	return StructToParams(o)
+	return options.StructToParams(o)
 }
 
 func (o *ServerDissociateEipOptions) Description() string {
@@ -1099,7 +1073,7 @@ type ServerRemoteUpdateOptions struct {
 }
 
 type ServerCreateEipOptions struct {
-	BaseIdOptions
+	options.BaseIdOptions
 	Bandwidth  int     `help:"EIP bandwidth in Mbps" default:"5"`
 	BgpType    *string `help:"desired BGP type"`
 	ChargeType *string `help:"bandwidth charge type" choices:"traffic|bandwidth"`
@@ -1110,7 +1084,7 @@ func (opts *ServerCreateEipOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ServerMakeSshableOptions struct {
-	BaseIdOptions
+	options.BaseIdOptions
 
 	User       string `help:"ssh username for ssh connection" default:"root"`
 	PrivateKey string `help:"ssh privatekey for ssh connection"`
@@ -1128,7 +1102,7 @@ func (opts *ServerMakeSshableOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ServerSetSshportOptions struct {
-	BaseIdOptions
+	options.BaseIdOptions
 
 	Port int `help:"ssh port" default:"22"`
 }
@@ -1138,11 +1112,11 @@ func (opts *ServerSetSshportOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ServerHaveAgentOptions struct {
-	BaseIdOptions
+	options.BaseIdOptions
 }
 
 type ServerMigrateNetworkOptions struct {
-	BaseIdOptions
+	options.BaseIdOptions
 
 	computeapi.ServerMigrateNetworkInput
 }
@@ -1153,21 +1127,21 @@ func (opts *ServerMigrateNetworkOptions) Params() (jsonutils.JSONObject, error) 
 
 type ServerStatusStatisticsOptions struct {
 	ServerListOptions
-	StatusStatisticsOptions
+	options.StatusStatisticsOptions
 }
 
 type ServerProjectStatisticsOptions struct {
 	ServerListOptions
-	ProjectStatisticsOptions
+	options.ProjectStatisticsOptions
 }
 
 type ServerDomainStatisticsOptions struct {
 	ServerListOptions
-	DomainStatisticsOptions
+	options.DomainStatisticsOptions
 }
 
 type ServerChangeDiskStorageOptions struct {
-	BaseIdOptions
+	options.BaseIdOptions
 	DISKID         string `json:"disk_id" help:"Disk id or name"`
 	TARGETSTORAGE  string `json:"target_storage_id" help:"Target storage id or name"`
 	KeepOriginDisk bool   `json:"keep_origin_disk" help:"Keep origin disk when changed"`

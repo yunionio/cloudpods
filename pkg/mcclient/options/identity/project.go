@@ -21,73 +21,69 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
-type PolicyListOptions struct {
+type ProjectListOptions struct {
 	options.BaseListOptions
-	Type          string `help:"filter by type"`
-	IsSystem      *bool  `help:"filter by is_system" negative:"is_no_system"`
-	Format        string `help:"policy format, default to yaml" default:"yaml" choices:"yaml|json"`
 	OrderByDomain string `help:"order by domain name" choices:"asc|desc"`
-	Role          string `help:"filter by role"`
 }
 
-func (opts *PolicyListOptions) Params() (jsonutils.JSONObject, error) {
+func (opts *ProjectListOptions) Params() (jsonutils.JSONObject, error) {
 	return options.ListStructToParams(opts)
 }
 
-type PolicyGetPropertyTagValuePairOptions struct {
-	PolicyListOptions
+type ProjectGetPropertyTagValuePairOptions struct {
+	ProjectListOptions
 	options.TagValuePairsOptions
 }
 
-func (opts *PolicyGetPropertyTagValuePairOptions) Params() (jsonutils.JSONObject, error) {
-	params, err := opts.PolicyListOptions.Params()
+func (opts *ProjectGetPropertyTagValuePairOptions) Params() (jsonutils.JSONObject, error) {
+	params, err := opts.ProjectListOptions.Params()
 	if err != nil {
-		return nil, errors.Wrap(err, "PolicyListOptions.Params")
+		return nil, errors.Wrap(err, "ProjectListOptions.Params")
 	}
 	tagParams, _ := opts.TagValuePairsOptions.Params()
 	params.(*jsonutils.JSONDict).Update(tagParams)
 	return params, nil
 }
 
-type PolicyGetPropertyTagValueTreeOptions struct {
-	PolicyListOptions
+type ProjectGetPropertyTagValueTreeOptions struct {
+	ProjectListOptions
 	options.TagValueTreeOptions
 }
 
-func (opts *PolicyGetPropertyTagValueTreeOptions) Params() (jsonutils.JSONObject, error) {
-	params, err := opts.PolicyListOptions.Params()
+func (opts *ProjectGetPropertyTagValueTreeOptions) Params() (jsonutils.JSONObject, error) {
+	params, err := opts.ProjectListOptions.Params()
 	if err != nil {
-		return nil, errors.Wrap(err, "PolicyListOptions.Params")
+		return nil, errors.Wrap(err, "ProjectListOptions.Params")
 	}
 	tagParams, _ := opts.TagValueTreeOptions.Params()
 	params.(*jsonutils.JSONDict).Update(tagParams)
 	return params, nil
 }
 
-type PolicyGetPropertyDomainTagValuePairOptions struct {
-	PolicyListOptions
+type ProjectGetPropertyDomainTagValuePairOptions struct {
+	ProjectListOptions
 	options.DomainTagValuePairsOptions
 }
 
-func (opts *PolicyGetPropertyDomainTagValuePairOptions) Params() (jsonutils.JSONObject, error) {
-	params, err := opts.PolicyListOptions.Params()
+func (opts *ProjectGetPropertyDomainTagValuePairOptions) Params() (jsonutils.JSONObject, error) {
+	params, err := opts.ProjectListOptions.Params()
 	if err != nil {
-		return nil, errors.Wrap(err, "PolicyListOptions.Params")
+		return nil, errors.Wrap(err, "ProjectListOptions.Params")
 	}
 	tagParams, _ := opts.DomainTagValuePairsOptions.Params()
 	params.(*jsonutils.JSONDict).Update(tagParams)
 	return params, nil
 }
 
-type PolicyGetPropertyDomainTagValueTreeOptions struct {
-	PolicyListOptions
+type ProjectGetPropertyDomainTagValueTreeOptions struct {
+	ProjectListOptions
 	options.DomainTagValueTreeOptions
 }
 
-func (opts *PolicyGetPropertyDomainTagValueTreeOptions) Params() (jsonutils.JSONObject, error) {
-	params, err := opts.PolicyListOptions.Params()
+func (opts *ProjectGetPropertyDomainTagValueTreeOptions) Params() (jsonutils.JSONObject, error) {
+	params, err := opts.ProjectListOptions.Params()
 	if err != nil {
-		return nil, errors.Wrap(err, "PolicyListOptions.Params")
+		return nil, errors.Wrap(err, "ProjectListOptions.Params")
 	}
 	tagParams, _ := opts.DomainTagValueTreeOptions.Params()
 	params.(*jsonutils.JSONDict).Update(tagParams)

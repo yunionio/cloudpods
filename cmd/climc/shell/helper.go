@@ -240,7 +240,14 @@ func (cmd ResourceCmd) GetProperty(args IPropertyOpt) {
 		if err != nil {
 			return err
 		}
-		PrintObject(ret)
+		if _, ok := ret.(*jsonutils.JSONArray); ok {
+			data, _ := ret.GetArray()
+			PrintList(&modulebase.ListResult{
+				Data: data,
+			}, nil)
+		} else {
+			PrintObject(ret)
+		}
 		return nil
 	}
 	cmd.RunWithDesc(args.Property(), fmt.Sprintf("Get property of a %s", man.GetKeyword()), args, callback)

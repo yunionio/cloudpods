@@ -437,3 +437,33 @@ func (manager *SIdentityBaseResourceManager) ListItemExportKeys(ctx context.Cont
 	}
 	return q, nil
 }
+
+func (manager *SIdentityBaseResourceManager) GetPropertyDomainTagValuePairs(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	return db.GetPropertyTagValuePairs(
+		manager.GetIIdentityModelManager(),
+		"domain",
+		"domain_id",
+		ctx,
+		userCred,
+		query,
+	)
+}
+
+func (manager *SIdentityBaseResourceManager) GetPropertyDomainTagValueTree(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	return db.GetPropertyTagValueTree(
+		manager.GetIIdentityModelManager(),
+		"domain",
+		"domain_id",
+		ctx,
+		userCred,
+		query,
+	)
+}
