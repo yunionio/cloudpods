@@ -297,8 +297,11 @@ func (self *SQcloudClient) CreateCDNDomain(opts *cloudprovider.CdnCreateOptions)
 		params["Origin.OriginType"] = origin.Type
 		if origin.Type == api.CDN_DOMAIN_ORIGIN_TYPE_BUCKET {
 			params["Origin.OriginType"] = "cos"
+			params["Origin.ServerName"] = origin.Origin
 		}
-		params["Origin.ServerName"] = origin.ServerName
+		if len(origin.ServerName) > 0 {
+			params["Origin.ServerName"] = origin.ServerName
+		}
 		if len(origin.Protocol) > 0 {
 			params["Origin.OriginPullProtocol"] = origin.Protocol
 		}
