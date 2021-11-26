@@ -97,9 +97,8 @@ func (uq *SUnion) Expression() string {
 		if i != 0 {
 			buf.WriteString(uq.operator())
 		}
-		// buf.WriteByte('(')
-		buf.WriteString(uq.queries[i].String())
-		// buf.WriteByte(')')
+		subQ := uq.queries[i].SubQuery()
+		buf.WriteString(subQ.Query().String())
 	}
 	/*if uq.orderBy != nil && len(uq.orderBy) > 0 {
 		buf.WriteString(" ORDER BY ")

@@ -97,13 +97,18 @@ func mustCheckModelManager(modelMan IModelManager) {
 func CheckSync(autoSync bool) bool {
 	log.Infof("Start check database schema ...")
 	inSync := true
+	var err error
 	for modelName, modelMan := range globalTables {
 		tableSpec := modelMan.TableSpec()
 		dropFKSqls := tableSpec.DropForeignKeySQL()
 		if len(dropFKSqls) > 0 {
 			log.Infof("model %s drop foreign key constraints!!!", modelName)
 			if autoSync {
-				err := commitSqlDIffs(dropFKSqls)
+				if ts, ok := tableSpec.(*sTableSpec); ok {
+					err = commitSqlDiffWithName(dropFKSqls, ts.GetDBName())
+				} else {
+					err = commitSqlDIffs(dropFKSqls)
+				}
 				if err != nil {
 					log.Errorf("commit sql error %s", err)
 					return false
@@ -122,7 +127,11 @@ func CheckSync(autoSync bool) bool {
 		if len(sqls) > 0 {
 			log.Infof("model %s is not in SYNC!!!", modelName)
 			if autoSync {
-				err := commitSqlDIffs(sqls)
+				if ts, ok := tableSpec.(*sTableSpec); ok {
+					err = commitSqlDiffWithName(sqls, ts.GetDBName())
+				} else {
+					err = commitSqlDIffs(sqls)
+				}
 				if err != nil {
 					log.Errorf("commit sql error %s", err)
 					return false
@@ -171,6 +180,23 @@ func GetModelManager(keyword string) IModelManager {
 func commitSqlDIffs(sqls []string) error {
 	db := sqlchemy.GetDB()
 
+	for _, sql := range sqls {
+		log.Infof("Exec %s", sql)
+		_, err := db.Exec(sql)
+		if err != nil {
+			log.Errorf("Exec sql failed %s\n%s", sql, err)
+			return err
+		}
+	}
+	return nil
+}
+
+func commitSqlDiffWithName(sqls []string, dbName sqlchemy.DBName) error {
+	db := sqlchemy.GetDBWithName(dbName)
+	return execSqlDiffWithDb(sqls, db)
+}
+
+func execSqlDiffWithDb(sqls []string, db *sqlchemy.SDatabase) error {
 	for _, sql := range sqls {
 		log.Infof("Exec %s", sql)
 		_, err := db.Exec(sql)

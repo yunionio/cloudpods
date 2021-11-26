@@ -157,7 +157,12 @@ type SConstField struct {
 
 // Expression implementation of SConstField for IQueryField
 func (s *SConstField) Expression() string {
-	return fmt.Sprintf("%s AS `%s`", s.Reference(), s.Name())
+	name := s.Name()
+	if len(name) == 0 {
+		return s.Reference()
+	} else {
+		return fmt.Sprintf("%s AS `%s`", s.Reference(), name)
+	}
 }
 
 // Name implementation of SConstField for IQueryField
@@ -196,7 +201,12 @@ type SStringField struct {
 
 // Expression implementation of SStringField for IQueryField
 func (s *SStringField) Expression() string {
-	return fmt.Sprintf("%s AS `%s`", s.Reference(), s.Name())
+	name := s.Name()
+	if len(name) == 0 {
+		return s.Reference()
+	} else {
+		return fmt.Sprintf("%s AS `%s`", s.Reference(), name)
+	}
 }
 
 // Name implementation of SStringField for IQueryField

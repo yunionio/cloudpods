@@ -84,6 +84,15 @@ func (ts *sTableSpec) GetSplitTable() *splitable.SSplitTableSpec {
 	return nil
 }
 
+func (ts *sTableSpec) GetDBName() sqlchemy.DBName {
+	sts, ok := ts.ITableSpec.(*sqlchemy.STableSpec)
+	if ok {
+		dbName := sts.DBName()
+		return dbName
+	}
+	return sqlchemy.DefaultDB
+}
+
 func (ts *sTableSpec) newInformerModel(dt interface{}) (*informer.ModelObject, error) {
 	obj, ok := dt.(IModel)
 	if !ok {
