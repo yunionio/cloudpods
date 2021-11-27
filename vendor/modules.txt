@@ -506,7 +506,7 @@ github.com/mattn/go-colorable
 github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.13
 github.com/mattn/go-runewidth
-# github.com/mattn/go-sqlite3 v1.14.9
+# github.com/mattn/go-sqlite3 v1.10.0
 github.com/mattn/go-sqlite3
 # github.com/mattn/go-tty v0.0.0-20181127064339-e4f871175a2f
 github.com/mattn/go-tty
@@ -1223,7 +1223,7 @@ yunion.io/x/pkg/util/workqueue
 yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v0.0.0-20211122161511-49c4c457e2c4
+# yunion.io/x/sqlchemy v0.0.0-20211123042946-fe68fa6bbbc4
 yunion.io/x/sqlchemy
 yunion.io/x/sqlchemy/backends
 yunion.io/x/sqlchemy/backends/clickhouse

@@ -95,6 +95,10 @@ func (r *sDBReferer) Database() *SDatabase {
 	return r._db_cache
 }
 
+func (r *sDBReferer) DBName() DBName {
+	return r.dbName
+}
+
 // CloseDB close DB connection
 func CloseDB() {
 	names := make([]DBName, 0)
