@@ -1943,6 +1943,49 @@ func (self *SCloudaccount) CanSync() bool {
 	}
 }
 
+func (manager *SCloudaccountManager) AutoSyncCloudaccountStatusTask(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	if isStart && !options.Options.IsSlaveNode {
+		// mark all the records to be idle
+		CloudproviderRegionManager.initAllRecords()
+		CloudproviderManager.initAllRecords()
+		CloudaccountManager.initAllRecords()
+	}
+	q := manager.Query()
+
+	accounts := make([]SCloudaccount, 0)
+	err := db.FetchModelObjects(manager, q, &accounts)
+	if err != nil {
+		log.Errorf("Failed to fetch cloudaccount list to check status")
+		return
+	}
+
+	for i := range accounts {
+		if accounts[i].GetEnabled() && accounts[i].shouldProbeStatus() && accounts[i].needSync() && accounts[i].CanSync() {
+			id, name, account := accounts[i].Id, accounts[i].Name, &accounts[i]
+			cloudaccountPendingSyncsMutex.Lock()
+			if _, ok := cloudaccountPendingSyncs[id]; ok {
+				cloudaccountPendingSyncsMutex.Unlock()
+				continue
+			}
+			cloudaccountPendingSyncs[id] = struct{}{}
+			cloudaccountPendingSyncsMutex.Unlock()
+			RunSyncCloudAccountTask(ctx, func() {
+				defer func() {
+					cloudaccountPendingSyncsMutex.Lock()
+					defer cloudaccountPendingSyncsMutex.Unlock()
+					delete(cloudaccountPendingSyncs, id)
+				}()
+				log.Debugf("syncAccountStatus %s %s", id, name)
+				err := account.syncAccountStatus(ctx, userCred)
+				if err != nil {
+					log.Errorf("unable to syncAccountStatus for cloudaccount %s: %s", account.Id, err.Error())
+				}
+				account.markEndSync(userCred)
+			})
+		}
+	}
+}
+
 func (manager *SCloudaccountManager) AutoSyncCloudaccountTask(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	if isStart && !options.Options.IsSlaveNode {
 		// mark all the records to be idle
