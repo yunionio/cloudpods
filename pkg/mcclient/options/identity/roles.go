@@ -16,6 +16,7 @@ package identity
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -70,5 +71,65 @@ func (opts *RoleCreateOptions) Params() (jsonutils.JSONObject, error) {
 	if len(opts.PublicScope) > 0 {
 		params.Add(jsonutils.NewString(opts.PublicScope), "public_scope")
 	}
+	return params, nil
+}
+
+type RoleGetPropertyTagValuePairOptions struct {
+	RoleListOptions
+	options.TagValuePairsOptions
+}
+
+func (opts *RoleGetPropertyTagValuePairOptions) Params() (jsonutils.JSONObject, error) {
+	params, err := opts.RoleListOptions.Params()
+	if err != nil {
+		return nil, errors.Wrap(err, "RoleListOptions.Params")
+	}
+	tagParams, _ := opts.TagValuePairsOptions.Params()
+	params.(*jsonutils.JSONDict).Update(tagParams)
+	return params, nil
+}
+
+type RoleGetPropertyTagValueTreeOptions struct {
+	RoleListOptions
+	options.TagValueTreeOptions
+}
+
+func (opts *RoleGetPropertyTagValueTreeOptions) Params() (jsonutils.JSONObject, error) {
+	params, err := opts.RoleListOptions.Params()
+	if err != nil {
+		return nil, errors.Wrap(err, "RoleListOptions.Params")
+	}
+	tagParams, _ := opts.TagValueTreeOptions.Params()
+	params.(*jsonutils.JSONDict).Update(tagParams)
+	return params, nil
+}
+
+type RoleGetPropertyDomainTagValuePairOptions struct {
+	RoleListOptions
+	options.DomainTagValuePairsOptions
+}
+
+func (opts *RoleGetPropertyDomainTagValuePairOptions) Params() (jsonutils.JSONObject, error) {
+	params, err := opts.RoleListOptions.Params()
+	if err != nil {
+		return nil, errors.Wrap(err, "RoleListOptions.Params")
+	}
+	tagParams, _ := opts.DomainTagValuePairsOptions.Params()
+	params.(*jsonutils.JSONDict).Update(tagParams)
+	return params, nil
+}
+
+type RoleGetPropertyDomainTagValueTreeOptions struct {
+	RoleListOptions
+	options.DomainTagValueTreeOptions
+}
+
+func (opts *RoleGetPropertyDomainTagValueTreeOptions) Params() (jsonutils.JSONObject, error) {
+	params, err := opts.RoleListOptions.Params()
+	if err != nil {
+		return nil, errors.Wrap(err, "RoleListOptions.Params")
+	}
+	tagParams, _ := opts.DomainTagValueTreeOptions.Params()
+	params.(*jsonutils.JSONDict).Update(tagParams)
 	return params, nil
 }

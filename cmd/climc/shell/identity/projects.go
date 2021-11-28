@@ -17,30 +17,25 @@ package identity
 import (
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	identity_options "yunion.io/x/onecloud/pkg/mcclient/options/identity"
 )
 
 func init() {
-	type ProjectListOptions struct {
-		options.BaseListOptions
-		OrderByDomain string `help:"order by domain name" choices:"asc|desc"`
-	}
-	R(&ProjectListOptions{}, "project-list", "List projects", func(s *mcclient.ClientSession, args *ProjectListOptions) error {
-		params, err := options.ListStructToParams(args)
-		if err != nil {
-			return err
-		}
-		result, err := modules.Projects.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(result, modules.Projects.GetColumns(s))
-		return nil
-	})
+	cmd := shell.NewResourceCmd(&modules.Projects)
+	cmd.List(&identity_options.ProjectListOptions{})
+	cmd.Perform("user-metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("set-user-metadata", &options.ResourceMetadataOptions{})
+	cmd.GetProperty(&identity_options.ProjectGetPropertyTagValuePairOptions{})
+	cmd.GetProperty(&identity_options.ProjectGetPropertyTagValueTreeOptions{})
+	cmd.GetProperty(&identity_options.ProjectGetPropertyDomainTagValuePairOptions{})
+	cmd.GetProperty(&identity_options.ProjectGetPropertyDomainTagValueTreeOptions{})
+
 	type ProjectShowOptions struct {
 		ID     string `help:"ID or Name of project"`
 		Domain string `help:"Domain"`

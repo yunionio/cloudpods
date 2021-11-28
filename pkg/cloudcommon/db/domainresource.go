@@ -329,3 +329,33 @@ func (manager *SDomainLevelResourceBaseManager) ListItemExportKeys(ctx context.C
 	}
 	return q, nil
 }
+
+func (manager *SDomainLevelResourceBaseManager) GetPropertyDomainTagValuePairs(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	return GetPropertyTagValuePairs(
+		manager.GetIDomainLevelModelManager(),
+		"domain",
+		"domain_id",
+		ctx,
+		userCred,
+		query,
+	)
+}
+
+func (manager *SDomainLevelResourceBaseManager) GetPropertyDomainTagValueTree(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	return GetPropertyTagValueTree(
+		manager.GetIDomainLevelModelManager(),
+		"domain",
+		"domain_id",
+		ctx,
+		userCred,
+		query,
+	)
+}

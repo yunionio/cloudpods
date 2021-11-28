@@ -31,7 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
-	"yunion.io/x/onecloud/pkg/mcclient/options/identity"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/identity"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -76,7 +76,11 @@ func createPolicy(s *mcclient.ClientSession, name string, policy string, domain 
 
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Policies)
-	cmd.List(&identity.PolicyListOptions{})
+	cmd.List(&options.PolicyListOptions{})
+	cmd.GetProperty(&options.PolicyGetPropertyTagValuePairOptions{})
+	cmd.GetProperty(&options.PolicyGetPropertyTagValueTreeOptions{})
+	cmd.GetProperty(&options.PolicyGetPropertyDomainTagValuePairOptions{})
+	cmd.GetProperty(&options.PolicyGetPropertyDomainTagValueTreeOptions{})
 
 	type PolicyCreateOptions struct {
 		Domain   string `help:"domain of the policy"`

@@ -82,7 +82,7 @@ type sExprFunction struct {
 func (ff *sExprFunction) expression() string {
 	fieldRefs := make([]interface{}, 0)
 	for _, f := range ff.fields {
-		fieldRefs = append(fieldRefs, f.Expression())
+		fieldRefs = append(fieldRefs, f.Reference())
 	}
 	return fmt.Sprintf(ff.function, fieldRefs...)
 }

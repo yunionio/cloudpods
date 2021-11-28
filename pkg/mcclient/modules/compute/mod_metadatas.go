@@ -32,14 +32,24 @@ type MetadataManager struct {
 }
 
 var (
-	Metadatas MetadataManager
+	ComputeMetadatas  MetadataManager
+	IdentityMetadatas MetadataManager
+	ImageMetadatas    MetadataManager
 )
 
 func init() {
-	Metadatas = MetadataManager{modules.NewComputeManager("metadata", "metadatas",
+	ComputeMetadatas = MetadataManager{modules.NewComputeManager("metadata", "metadatas",
 		[]string{"id", "key", "value"},
 		[]string{})}
-	modules.RegisterCompute(&Metadatas)
+	// !!! Register computer metadata ONLY !!! QIUJIAN
+	modules.RegisterCompute(&ComputeMetadatas)
+
+	IdentityMetadatas = MetadataManager{modules.NewIdentityV3Manager("metadata", "metadatas",
+		[]string{"id", "key", "value"},
+		[]string{})}
+	ImageMetadatas = MetadataManager{modules.NewImageManager("metadata", "metadatas",
+		[]string{"id", "key", "value"},
+		[]string{})}
 }
 
 func (this *MetadataManager) getModule(session *mcclient.ClientSession, params jsonutils.JSONObject) (modulebase.Manager, error) {

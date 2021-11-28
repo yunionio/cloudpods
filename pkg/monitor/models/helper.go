@@ -38,21 +38,20 @@ func FetchAllRemoteDomainProjects(ctx context.Context) ([]*db.STenant, []*db.STe
 		listParam.Add(jsonutils.NewString("system"), "scope")
 		listParam.Add(jsonutils.NewInt(0), "limit")
 		listParam.Add(jsonutils.NewInt(int64(count)), "offset")
+		listParam.Add(jsonutils.JSONTrue, "details")
 		result, err := identity.Projects.List(s, listParam)
 		if err != nil {
 			return domains, projects, errors.Wrap(err, "list projects from keystone")
 		}
 		for _, data := range result.Data {
-			projectId, _ := data.GetString("id")
-			projectName, _ := data.GetString("name")
-			domainId, _ := data.GetString("domain_id")
-			domainName, _ := data.GetString("project_domain")
-			project, err := db.TenantCacheManager.Save(ctx, projectId, projectName, domainId, domainName)
+			item := db.SCachedTenant{}
+			data.Unmarshal(&item)
+			project, err := db.TenantCacheManager.Save(ctx, item, true)
 			if err != nil {
 				return nil, nil, errors.Wrapf(err, "save project %s to cache", data.String())
 			}
 			projects = append(projects, project)
-			domainMap[domainId] = domainName
+			domainMap[item.DomainId] = item.ProjectDomain
 		}
 		total := result.Total
 		count = count + len(result.Data)
@@ -61,7 +60,13 @@ func FetchAllRemoteDomainProjects(ctx context.Context) ([]*db.STenant, []*db.STe
 		}
 	}
 	for domainId, domainName := range domainMap {
-		domain, err := db.TenantCacheManager.Save(ctx, domainId, domainName, identityapi.KeystoneDomainRoot, identityapi.KeystoneDomainRoot)
+		item := db.SCachedTenant{
+			Id:            domainId,
+			Name:          domainName,
+			DomainId:      identityapi.KeystoneDomainRoot,
+			ProjectDomain: identityapi.KeystoneDomainRoot,
+		}
+		domain, err := db.TenantCacheManager.Save(ctx, item, false)
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "save domain %s:%s to cache", domainId, domainName)
 		}

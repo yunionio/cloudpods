@@ -21,19 +21,20 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
 
 	type GuestTemplateListOptions struct {
-		options.BaseListOptions
+		baseoptions.BaseListOptions
 	}
 
 	R(&GuestTemplateListOptions{}, "server-template-list", "List server template", func(s *mcclient.ClientSession,
 		opts *GuestTemplateListOptions) error {
 
-		params, err := options.ListStructToParams(opts)
+		params, err := baseoptions.ListStructToParams(opts)
 		if err != nil {
 			return err
 		}
@@ -58,7 +59,7 @@ func init() {
 			if err != nil {
 				return err
 			}
-			if options.BoolV(opts.DryRun) {
+			if baseoptions.BoolV(opts.DryRun) {
 				fmt.Println("no support operator")
 				return nil
 			}
@@ -91,7 +92,7 @@ func init() {
 			if err != nil {
 				return err
 			}
-			if options.BoolV(opts.DryRun) {
+			if baseoptions.BoolV(opts.DryRun) {
 				fmt.Println("no support operator")
 				return nil
 			}

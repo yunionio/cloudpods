@@ -45,14 +45,17 @@ func FetchDomainNames(ctx context.Context, domainMap map[string]string) (map[str
 	query.Add(jsonutils.NewString(fmt.Sprintf("id.equals(%s)", strings.Join(MapKeys(domainMap), ","))), "filter.0")
 	query.Add(jsonutils.NewInt(int64(len(domainMap))), "limit")
 	query.Add(jsonutils.NewString(string(rbacutils.ScopeSystem)), "scope")
+	query.Add(jsonutils.JSONTrue, "details")
 	results, err := modules.Domains.List(s, query)
 	if err == nil {
 		for i := range results.Data {
-			// update cache
-			domainId, _ := results.Data[i].GetString("id")
-			domainName, _ := results.Data[i].GetString("name")
-			db.TenantCacheManager.Save(ctx, domainId, domainName, identityapi.KeystoneDomainRoot, identityapi.KeystoneDomainRoot)
-			domainMap[domainId] = domainName
+			// update domain cache
+			item := db.SCachedTenant{}
+			results.Data[i].Unmarshal(&item)
+			item.ProjectDomain = identityapi.KeystoneDomainRoot
+			item.DomainId = identityapi.KeystoneDomainRoot
+			db.TenantCacheManager.Save(ctx, item, true)
+			domainMap[item.Id] = item.Name
 		}
 		for k, v := range domainMap {
 			if len(v) == 0 {
@@ -71,16 +74,15 @@ func FetchTenantNames(ctx context.Context, tenantMap map[string]string) (map[str
 	query.Add(jsonutils.NewString(fmt.Sprintf("id.equals(%s)", strings.Join(MapKeys(tenantMap), ","))), "filter.0")
 	query.Add(jsonutils.NewInt(int64(len(tenantMap))), "limit")
 	query.Add(jsonutils.NewString(string(rbacutils.ScopeSystem)), "scope")
+	query.Add(jsonutils.JSONTrue, "details")
 	results, err := modules.Projects.List(s, query)
 	if err == nil {
 		for i := range results.Data {
-			// update cache
-			projId, _ := results.Data[i].GetString("id")
-			projName, _ := results.Data[i].GetString("name")
-			projDomainId, _ := results.Data[i].GetString("domain_id")
-			projDomain, _ := results.Data[i].GetString("project_domain")
-			db.TenantCacheManager.Save(ctx, projId, projName, projDomainId, projDomain)
-			tenantMap[projId] = projName
+			// update project cache
+			item := db.SCachedTenant{}
+			results.Data[i].Unmarshal(&item)
+			db.TenantCacheManager.Save(ctx, item, true)
+			tenantMap[item.Id] = item.Name
 		}
 		for k, v := range tenantMap {
 			if len(v) == 0 {

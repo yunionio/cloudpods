@@ -32,6 +32,10 @@ func init() {
 	cmd.Create(&identity.RoleCreateOptions{})
 	cmd.Perform("public", &options.BaseIdOptions{})
 	cmd.Perform("private", &options.BaseIdOptions{})
+	cmd.GetProperty(&identity.RoleGetPropertyTagValuePairOptions{})
+	cmd.GetProperty(&identity.RoleGetPropertyTagValueTreeOptions{})
+	cmd.GetProperty(&identity.RoleGetPropertyDomainTagValuePairOptions{})
+	cmd.GetProperty(&identity.RoleGetPropertyDomainTagValueTreeOptions{})
 
 	type RoleUpdateOptions struct {
 		ID     string `help:"Role ID or Name"`

@@ -40,6 +40,11 @@ type DomainizedResourceListInput struct {
 	// 按domain名称排序，可能值为asc|desc
 	// pattern: asc|desc
 	OrderByDomain string `json:"order_by_domain"`
+
+	// filter by domain tags
+	DomainTags [][]STag `json:"domain_tags"`
+	// filter by domain tags
+	NoDomainTags [][]STag `json:"no_domain_tags"`
 }
 
 type ProjectizedResourceListInput struct {
@@ -59,6 +64,11 @@ type ProjectizedResourceListInput struct {
 	// swagger:ignore
 	// Deprecated
 	OrderByTenant string `json:"order_by_tenant" yunion-deprecated-by:"order_by_project"`
+
+	// filter by project tags
+	ProjectTags [][]STag `json:"project_tags"`
+	// filter by no project tags
+	NoProjectTags [][]STag `json:"no_project_tags"`
 }
 
 type StatusDomainLevelUserResourceListInput struct {
@@ -189,17 +199,23 @@ type AdminSharableVirtualResourceListInput struct {
 
 type STag struct {
 	// 标签key
-	Key string
+	Key string `json:"key"`
 	// 标签Value
-	Value string
+	Value string `json:"value"`
 }
 
 type MetadataResourceListInput struct {
 	// 通过标签过滤（包含这些标签）
 	Tags []STag `json:"tags"`
 
+	// 通过一组标签过滤（还包含这些标签，OR的关系）
+	ObjTags [][]STag `json:"obj_tags"`
+
 	// 通过标签过滤（不包含这些标签）
 	NoTags []STag `json:"no_tags"`
+
+	// 通过一组标签过滤（还不包含这些标签，AND的关系）
+	NoObjTags [][]STag `json:"no_obj_tags"`
 
 	// 通过标签排序
 	OrderByTag string `json:"order_by_tag"`

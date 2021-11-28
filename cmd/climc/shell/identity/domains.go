@@ -17,29 +17,20 @@ package identity
 import (
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	identity_options "yunion.io/x/onecloud/pkg/mcclient/options/identity"
 )
 
 func init() {
-	type DomainListOptions struct {
-		options.BaseListOptions
-		IdpId       string `help:"filter by idp_id"`
-		IdpEntityId string `help:"filter by idp_entity_id"`
-	}
-	R(&DomainListOptions{}, "domain-list", "List domains", func(s *mcclient.ClientSession, args *DomainListOptions) error {
-		params, err := options.ListStructToParams(args)
-		if err != nil {
-			return err
-		}
-		result, err := modules.Domains.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(result, modules.Domains.GetColumns(s))
-		return nil
-	})
+	cmd := shell.NewResourceCmd(&modules.Domains)
+	cmd.List(&identity_options.DomainListOptions{})
+	cmd.Perform("user-metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("set-user-metadata", &options.ResourceMetadataOptions{})
+	cmd.GetProperty(&identity_options.DomainGetPropertyTagValuePairOptions{})
+	cmd.GetProperty(&identity_options.DomainGetPropertyTagValueTreeOptions{})
 
 	type DomainDetailOptions struct {
 		ID string `help:"ID or domain"`
