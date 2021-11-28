@@ -328,7 +328,8 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 		} else {
 			dns, err := auth.GetDNSServers(opts.Region, "")
 			if err != nil {
-				log.Errorf("auth.GetDNSServers fail %s", err)
+				// ignore the error
+				// log.Errorf("auth.GetDNSServers fail %s", err)
 			} else {
 				dnsSrvs = strings.Join(dns, ",")
 			}
@@ -345,7 +346,8 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 		} else {
 			ntp, err := auth.GetNTPServers(opts.Region, "")
 			if err != nil {
-				log.Errorf("auth.GetNTPServers fail %s", err)
+				// ignore
+				// log.Errorf("auth.GetNTPServers fail %s", err)
 			} else {
 				ntpSrvs = strings.Join(ntp, ",")
 			}
