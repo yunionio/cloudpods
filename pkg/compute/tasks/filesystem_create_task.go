@@ -105,6 +105,14 @@ func (self *FileSystemCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 
 	cloudprovider.WaitMultiStatus(iFs, []string{api.NAS_STATUS_AVAILABLE, api.NAS_STATUS_CREATE_FAILED}, time.Second*5, time.Minute*10)
 
+	tags, _ := fs.GetAllUserMetadata()
+	if len(tags) > 0 {
+		err = iFs.SetTags(tags, true)
+		if err != nil {
+			logclient.AddActionLogWithStartable(self, fs, logclient.ACT_UPDATE, errors.Wrapf(err, "SetTags"), self.UserCred, false)
+		}
+	}
+
 	self.SetStage("OnSyncstatusComplete", nil)
 	fs.StartSyncstatus(ctx, self.GetUserCred(), self.GetTaskId())
 }
