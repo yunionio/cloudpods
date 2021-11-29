@@ -20,12 +20,14 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
@@ -95,6 +97,12 @@ func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, guest *mod
 }
 
 func (self *GuestDeleteTask) OnGuestStopCompleteFailed(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
+	if len(guest.ExternalId) > 0 {
+		_, e := guest.GetIVM()
+		if errors.Cause(e) == cloudprovider.ErrNotFound {
+			self.Params.Set("override_pending_delete", jsonutils.JSONTrue)
+		}
+	}
 	self.OnGuestStopComplete(ctx, guest, err) // ignore stop error
 }
 
