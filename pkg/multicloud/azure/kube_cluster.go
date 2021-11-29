@@ -49,12 +49,14 @@ type SKubeCluster struct {
 		} `json:"servicePrincipalProfile"`
 		AddonProfiles struct {
 			Azurepolicy struct {
-				Enabled bool        `json:"enabled"`
-				Config  interface{} `json:"config"`
+				Enabled bool   `json:"enabled"`
+				Config  string `json:"config"`
 			} `json:"azurepolicy"`
 			HTTPApplicationRouting struct {
-				Enabled bool        `json:"enabled"`
-				Config  interface{} `json:"config"`
+				Enabled bool `json:"enabled"`
+				Config  struct {
+					HTTPApplicationRoutingZoneName string `json:"HTTPApplicationRoutingZoneName"`
+				} `json:"config"`
 			} `json:"httpApplicationRouting"`
 			OmsAgent struct {
 				Enabled bool `json:"enabled"`
