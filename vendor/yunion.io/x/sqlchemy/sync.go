@@ -32,12 +32,12 @@ func compareColumnSpec(c1, c2 IColumnSpec) int {
 	return strings.Compare(c1.Name(), c2.Name())
 }
 
-type sUpdateColumnSpec struct {
-	oldCol IColumnSpec
-	newCol IColumnSpec
+type SUpdateColumnSpec struct {
+	OldCol IColumnSpec
+	NewCol IColumnSpec
 }
 
-func diffCols(tableName string, cols1 []IColumnSpec, cols2 []IColumnSpec) ([]IColumnSpec, []sUpdateColumnSpec, []IColumnSpec) {
+func DiffCols(tableName string, cols1 []IColumnSpec, cols2 []IColumnSpec) ([]IColumnSpec, []SUpdateColumnSpec, []IColumnSpec) {
 	sort.Slice(cols1, func(i, j int) bool {
 		return compareColumnSpec(cols1[i], cols1[j]) < 0
 	})
@@ -53,7 +53,7 @@ func diffCols(tableName string, cols1 []IColumnSpec, cols2 []IColumnSpec) ([]ICo
 	i := 0
 	j := 0
 	remove := make([]IColumnSpec, 0)
-	update := make([]sUpdateColumnSpec, 0)
+	update := make([]SUpdateColumnSpec, 0)
 	add := make([]IColumnSpec, 0)
 	for i < len(cols1) || j < len(cols2) {
 		if i < len(cols1) && j < len(cols2) {
@@ -61,9 +61,9 @@ func diffCols(tableName string, cols1 []IColumnSpec, cols2 []IColumnSpec) ([]ICo
 			if comp == 0 {
 				if cols1[i].DefinitionString() != cols2[j].DefinitionString() || cols1[i].IsPrimary() != cols2[j].IsPrimary() {
 					log.Infof("UPDATE %s: %s(primary:%v) => %s(primary:%v)", tableName, cols1[i].DefinitionString(), cols1[i].IsPrimary(), cols2[j].DefinitionString(), cols2[j].IsPrimary())
-					update = append(update, sUpdateColumnSpec{
-						oldCol: cols1[i],
-						newCol: cols2[j],
+					update = append(update, SUpdateColumnSpec{
+						OldCol: cols1[i],
+						NewCol: cols2[j],
 					})
 				}
 				i++
@@ -144,6 +144,17 @@ func (ts *STableSpec) Exists() bool {
 	return in
 }
 
+type STableChanges struct {
+	// indexes
+	RemvoeIndexes []STableIndex
+	AddIndexes    []STableIndex
+
+	// Columns
+	RemoveColumns  []IColumnSpec
+	UpdatedColumns []SUpdateColumnSpec
+	AddColumns     []IColumnSpec
+}
+
 // SyncSQL returns SQL statements that make table in database consistent with TableSpec definitions
 // by comparing table definition derived from TableSpec and that in database
 func (ts *STableSpec) SyncSQL() []string {
@@ -165,115 +176,21 @@ func (ts *STableSpec) SyncSQL() []string {
 		addIndexes, removeIndexes = diffIndexes(indexes, ts._indexes)
 	}
 
-	ret := make([]string, 0)
 	cols, err := ts.Database().backend.FetchTableColumnSpecs(ts)
 	if err != nil {
 		log.Errorf("fetchColumnDefs fail: %s", err)
 		return nil
 	}
 
-	for _, idx := range removeIndexes {
-		sql := templateEval(ts.Database().backend.DropIndexSQLTemplate(), struct {
-			Table string
-			Index string
-		}{
-			Table: ts.name,
-			Index: idx.name,
-		})
-		ret = append(ret, sql)
-		log.Infof("%s;", sql)
-	}
+	remove, update, add := DiffCols(ts.name, cols, ts.Columns())
 
-	alters := make([]string, 0)
-	remove, update, add := diffCols(ts.name, cols, ts.Columns())
-	// first check if primary key is modifed
-	changePrimary := false
-	for _, col := range remove {
-		if col.IsPrimary() {
-			changePrimary = true
-		}
-	}
-	for _, cols := range update {
-		if cols.oldCol.IsPrimary() != cols.newCol.IsPrimary() {
-			changePrimary = true
-		}
-	}
-	for _, col := range add {
-		if col.IsPrimary() {
-			changePrimary = true
-		}
-	}
-	if changePrimary {
-		oldHasPrimary := false
-		for _, c := range cols {
-			if c.IsPrimary() {
-				oldHasPrimary = true
-				break
-			}
-		}
-		if oldHasPrimary {
-			sql := fmt.Sprintf("DROP PRIMARY KEY")
-			alters = append(alters, sql)
-		}
-	}
-	/* IGNORE DROP STATEMENT */
-	for _, col := range remove {
-		sql := fmt.Sprintf("DROP COLUMN `%s`", col.Name())
-		log.Infof("ALTER TABLE %s %s;", ts.name, sql)
-		// alters = append(alters, sql)
-		// ignore drop statement
-		// if the column is auto_increment integer column,
-		// then need to drop auto_increment attribute
-		if col.IsAutoIncrement() {
-			// make sure the column is nullable
-			col.SetNullable(true)
-			log.Errorf("column %s is auto_increment, drop auto_inrement attribute", col.Name())
-			col.SetAutoIncrement(false)
-			sql := fmt.Sprintf("MODIFY COLUMN %s", col.DefinitionString())
-			alters = append(alters, sql)
-		}
-		// if the column is not nullable but no default
-		// then need to drop the not-nullable attribute
-		if !col.IsNullable() && col.Default() == "" {
-			col.SetNullable(true)
-			sql := fmt.Sprintf("MODIFY COLUMN %s", col.DefinitionString())
-			alters = append(alters, sql)
-			log.Errorf("column %s is not nullable but no default, drop not nullable attribute", col.Name())
-		}
-	}
-	for _, cols := range update {
-		sql := fmt.Sprintf("MODIFY COLUMN %s", cols.newCol.DefinitionString())
-		alters = append(alters, sql)
-	}
-	for _, col := range add {
-		sql := fmt.Sprintf("ADD COLUMN %s", col.DefinitionString())
-		alters = append(alters, sql)
-	}
-	if changePrimary {
-		primaries := make([]string, 0)
-		for _, c := range ts.Columns() {
-			if c.IsPrimary() {
-				primaries = append(primaries, fmt.Sprintf("`%s`", c.Name()))
-			}
-		}
-		if len(primaries) > 0 {
-			sql := fmt.Sprintf("ADD PRIMARY KEY(%s)", strings.Join(primaries, ", "))
-			alters = append(alters, sql)
-		}
-	}
-
-	if len(alters) > 0 {
-		sql := fmt.Sprintf("ALTER TABLE `%s` %s;", ts.name, strings.Join(alters, ", "))
-		ret = append(ret, sql)
-	}
-
-	for _, idx := range addIndexes {
-		sql := fmt.Sprintf("CREATE INDEX `%s` ON `%s` (%s)", idx.name, ts.name, strings.Join(idx.QuotedColumns(), ","))
-		ret = append(ret, sql)
-		log.Infof("%s;", sql)
-	}
-
-	return ret
+	return ts.Database().backend.CommitTableChangeSQL(ts, STableChanges{
+		RemvoeIndexes:  removeIndexes,
+		AddIndexes:     addIndexes,
+		RemoveColumns:  remove,
+		UpdatedColumns: update,
+		AddColumns:     add,
+	})
 }
 
 // Sync executes the SQLs to synchronize the DB definion of s SQL database
