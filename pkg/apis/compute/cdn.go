@@ -28,12 +28,13 @@ const (
 	CDN_DOMAIN_STATUS_REJECTED      = "rejected"
 	CDN_DOMAIN_STATUS_UNKNOWN       = "unknown"
 
-	CDN_DOMAIN_AREA_MAINLAND      = "mainland"
-	CDN_DOMAIN_AREA_OVERSEAS      = "overseas"
-	CDN_DOMAIN_AREA_GLOBAL        = "global"
-	CDN_DOMAIN_ORIGIN_TYPE_DOMAIN = "domain"
-	CDN_DOMAIN_ORIGIN_TYPE_IP     = "ip"
-	CDN_DOMAIN_ORIGIN_TYPE_BUCKET = "bucket"
+	CDN_DOMAIN_AREA_MAINLAND       = "mainland"
+	CDN_DOMAIN_AREA_OVERSEAS       = "overseas"
+	CDN_DOMAIN_AREA_GLOBAL         = "global"
+	CDN_DOMAIN_ORIGIN_TYPE_DOMAIN  = "domain"
+	CDN_DOMAIN_ORIGIN_TYPE_IP      = "ip"
+	CDN_DOMAIN_ORIGIN_TYPE_BUCKET  = "bucket"
+	CDN_DOMAIN_ORIGIN_THIRED_PARTY = "third_party"
 
 	// Qcloud
 	CDN_SERVICE_TYPE_WEB      = "web"      // 静态加速
