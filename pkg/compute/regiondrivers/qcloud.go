@@ -1911,6 +1911,7 @@ func (self *SQcloudRegionDriver) ValidateCreateCdnData(ctx context.Context, user
 			api.CDN_DOMAIN_ORIGIN_TYPE_DOMAIN,
 			api.CDN_DOMAIN_ORIGIN_TYPE_IP,
 			api.CDN_DOMAIN_ORIGIN_TYPE_BUCKET,
+			api.CDN_DOMAIN_ORIGIN_THIRED_PARTY,
 		}) {
 			return input, httperrors.NewInputParameterError("invalid origin type %s", origin.Type)
 		}
