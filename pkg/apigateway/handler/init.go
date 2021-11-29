@@ -23,6 +23,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/scheduledtask"
+	_ "yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/webconsole"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
 )
