@@ -86,7 +86,7 @@ require (
 	github.com/ma314smith/signedxml v0.0.0-20200410192636-c342a2d0ae60
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
-	github.com/mattn/go-sqlite3 v1.10.0
+	github.com/mattn/go-sqlite3 v1.14.9
 	github.com/mattn/go-tty v0.0.0-20181127064339-e4f871175a2f // indirect
 	github.com/mdlayher/arp v0.0.0-20190313224443-98a83c8a2717
 	github.com/mdlayher/ethernet v0.0.0-20190606142754-0394541c37b7

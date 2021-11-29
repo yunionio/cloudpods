@@ -543,8 +543,6 @@ func (manager *SCloudaccountManager) validateCreateData(
 		}
 	}
 
-	log.Errorf("subaccounts: %s", jsonutils.Marshal(input.SubAccounts).PrettyString())
-
 	// check accountId uniqueness
 	if len(accountId) > 0 {
 		cnt, err := manager.Query().Equals("account_id", accountId).CountWithError()
@@ -2094,7 +2092,7 @@ func (account *SCloudaccount) importAllSubaccounts(ctx context.Context, userCred
 }
 
 func (self *SCloudaccount) setSubAccountStatus() error {
-	if self.SubAccounts == nil || len(self.SubAccounts.Accounts) == 0 || len(self.SubAccounts.Cloudregions) == 0 {
+	if self.SubAccounts == nil || (len(self.SubAccounts.Accounts) == 0 && len(self.SubAccounts.Cloudregions) == 0) {
 		return nil
 	}
 	accounts := []string{}
@@ -2108,52 +2106,60 @@ func (self *SCloudaccount) setSubAccountStatus() error {
 		}
 	}
 	for _, region := range self.SubAccounts.Cloudregions {
-		if len(region.Id) > 0 {
+		if len(region.Id) > 0 && !strings.HasSuffix(region.Id, "/") {
 			regionIds = append(regionIds, region.Id)
 		}
 	}
-
-	q := CloudproviderRegionManager.Query()
-	providerQ := CloudproviderManager.Query().SubQuery()
-	conditions := []sqlchemy.ICondition{}
-	if len(accounts) > 0 {
-		conditions = append(conditions, sqlchemy.In(providerQ.Field("account"), accounts))
-	}
-	if len(accountNames) > 0 {
-		conditions = append(conditions, sqlchemy.In(providerQ.Field("name"), accountNames))
-	}
-	q = q.Join(providerQ, sqlchemy.Equals(providerQ.Field("id"), q.Field("cloudprovider_id"))).Filter(
-		sqlchemy.NOT(
-			sqlchemy.OR(
-				conditions...,
-			),
-		),
-	)
-	accountQ := CloudaccountManager.Query().SubQuery()
-	q = q.Join(accountQ, sqlchemy.Equals(providerQ.Field("cloudaccount_id"), accountQ.Field("id"))).Filter(
-		sqlchemy.Equals(accountQ.Field("id"), self.Id),
-	)
-	regionQ := CloudregionManager.Query().SubQuery()
-	q = q.Join(regionQ, sqlchemy.Equals(regionQ.Field("id"), q.Field("cloudregion_id"))).Filter(
-		sqlchemy.NOT(
-			sqlchemy.In(regionQ.Field("external_id"), regionIds),
-		),
-	)
-
-	cpcrs := []SCloudproviderregion{}
-	err := db.FetchModelObjects(CloudproviderRegionManager, q, &cpcrs)
-	if err != nil {
-		return errors.Wrapf(err, "db.FetchModelObjects")
+	providers := self.GetCloudproviders()
+	enabledIds := []string{}
+	if len(accounts) > 0 || len(accountNames) > 0 {
+		for i := range providers {
+			if !utils.IsInStringArray(providers[i].Name, accountNames) && !utils.IsInStringArray(providers[i].Account, accounts) {
+				_, err := db.Update(&providers[i], func() error {
+					providers[i].Enabled = tristate.False
+					return nil
+				})
+				if err != nil {
+					log.Errorf("db.Update %v", err)
+				}
+			} else {
+				enabledIds = append(enabledIds, providers[i].Id)
+			}
+		}
 	}
 
-	for i := range cpcrs {
-		db.Update(&cpcrs[i], func() error {
-			cpcrs[i].Enabled = false
-			return nil
-		})
+	if len(regionIds) > 0 {
+		q := CloudproviderRegionManager.Query()
+		providerQ := CloudproviderManager.Query().SubQuery()
+		q = q.Join(providerQ, sqlchemy.Equals(providerQ.Field("id"), q.Field("cloudprovider_id")))
+		if len(enabledIds) > 0 {
+			q = q.Filter(
+				sqlchemy.In(providerQ.Field("id"), enabledIds),
+			)
+		}
+		accountQ := CloudaccountManager.Query().Equals("id", self.Id).SubQuery()
+		q = q.Join(accountQ, sqlchemy.Equals(providerQ.Field("cloudaccount_id"), accountQ.Field("id")))
+		regionQ := CloudregionManager.Query().SubQuery()
+		q = q.Join(regionQ, sqlchemy.Equals(regionQ.Field("id"), q.Field("cloudregion_id"))).Filter(
+			sqlchemy.NotIn(regionQ.Field("external_id"), regionIds),
+		)
+
+		cpcrs := []SCloudproviderregion{}
+		err := db.FetchModelObjects(CloudproviderRegionManager, q, &cpcrs)
+		if err != nil {
+			return errors.Wrapf(err, "db.FetchModelObjects")
+		}
+
+		for i := range cpcrs {
+			db.Update(&cpcrs[i], func() error {
+				cpcrs[i].Enabled = false
+				return nil
+			})
+		}
+
 	}
 
-	_, err = db.Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.SubAccounts = nil
 		return nil
 	})
