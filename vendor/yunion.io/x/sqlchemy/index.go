@@ -53,6 +53,10 @@ func (cols TColumnNames) Less(i, j int) bool {
 	}
 }
 
+func (index *STableIndex) Name() string {
+	return index.name
+}
+
 func (index *STableIndex) IsIdentical(cols ...string) bool {
 	if len(index.columns) != len(cols) {
 		return false
