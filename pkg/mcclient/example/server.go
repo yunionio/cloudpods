@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	compute_options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 const (
@@ -88,7 +89,7 @@ func GetServerExample() error {
 	}
 
 	pendingDelete := true //回收站实例
-	opts := options.ServerListOptions{}
+	opts := compute_options.ServerListOptions{}
 	opts.PendingDelete = &pendingDelete
 
 	params, err := options.StructToParams(opts)
