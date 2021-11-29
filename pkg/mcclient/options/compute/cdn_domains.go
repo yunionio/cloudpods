@@ -33,8 +33,9 @@ type CDNDomainCreateOptions struct {
 	MANAGER      string `help:"Cloudprovider Id"`
 	AREA         string `help:"Area" choices:"mainland|overseas|global"`
 	SERVICE_TYPE string `help:"Service Type" choices:"web|download|media"`
-	ORIGIN_TYPE  string `help:"Origin Type" choices:"domain|ip|bucket"`
+	ORIGIN_TYPE  string `help:"Origin Type" choices:"domain|ip|bucket|third_party"`
 	ORIGIN       string `help:"Origin Addr"`
+	ServerName   string `help:"Cdn Server Name"`
 }
 
 func (opts *CDNDomainCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -45,8 +46,9 @@ func (opts *CDNDomainCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params.Add(jsonutils.NewString(opts.SERVICE_TYPE), "service_type")
 	params.Add(jsonutils.Marshal([]interface{}{
 		map[string]string{
-			"origin": opts.ORIGIN,
-			"type":   opts.ORIGIN_TYPE,
+			"origin":      opts.ORIGIN,
+			"type":        opts.ORIGIN_TYPE,
+			"server_name": opts.ServerName,
 		},
 	}), "origins")
 	return params, nil
