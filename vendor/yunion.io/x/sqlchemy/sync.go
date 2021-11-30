@@ -146,7 +146,7 @@ func (ts *STableSpec) Exists() bool {
 
 type STableChanges struct {
 	// indexes
-	RemvoeIndexes []STableIndex
+	RemoveIndexes []STableIndex
 	AddIndexes    []STableIndex
 
 	// Columns
@@ -185,7 +185,7 @@ func (ts *STableSpec) SyncSQL() []string {
 	remove, update, add := DiffCols(ts.name, cols, ts.Columns())
 
 	return ts.Database().backend.CommitTableChangeSQL(ts, STableChanges{
-		RemvoeIndexes:  removeIndexes,
+		RemoveIndexes:  removeIndexes,
 		AddIndexes:     addIndexes,
 		RemoveColumns:  remove,
 		UpdatedColumns: update,
