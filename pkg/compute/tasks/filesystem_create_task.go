@@ -113,16 +113,17 @@ func (self *FileSystemCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 		}
 	}
 
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    self,
+		Action: notifyclient.ActionCreate,
+	})
+
 	self.SetStage("OnSyncstatusComplete", nil)
 	fs.StartSyncstatus(ctx, self.GetUserCred(), self.GetTaskId())
 }
 
 func (self *FileSystemCreateTask) OnSyncstatusComplete(ctx context.Context, fs *models.SFileSystem, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
-	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
-		Obj:    self,
-		Action: notifyclient.ActionCreate,
-	})
 }
 
 func (self *FileSystemCreateTask) OnSyncstatusCompleteFailed(ctx context.Context, fs *models.SFileSystem, data jsonutils.JSONObject) {
