@@ -23,6 +23,21 @@ func TestTTagSetList_Contains(t *testing.T) {
 		contains bool
 	}{
 		{
+			tsl:      TTagSetList{},
+			ts:       TTagSet{},
+			contains: true,
+		},
+		{
+			tsl: TTagSetList{},
+			ts: TTagSet{
+				STag{
+					Key:   "project",
+					Value: "a",
+				},
+			},
+			contains: true,
+		},
+		{
 			tsl: TTagSetList{
 				nil,
 			},

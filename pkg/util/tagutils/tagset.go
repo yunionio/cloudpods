@@ -126,17 +126,6 @@ func Split(a, b TTagSet) (aNoB TTagSet, aAndB TTagSet, bNoA TTagSet) {
 	return
 }
 
-func (t1 TTagSet) Add(t2 TTagSet) TTagSet {
-	ret := TTagSet{}
-	for k, v := range t1 {
-		ret[k] = v
-	}
-	for k, v := range t2 {
-		ret[k] = v
-	}
-	return ret
-}
-
 func Map2Tagset(meta map[string]string) TTagSet {
 	ts := TTagSet{}
 	for k, v := range meta {

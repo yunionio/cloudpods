@@ -22,6 +22,9 @@ import (
 type TTagSetList []TTagSet
 
 func (t1 TTagSetList) Contains(t2 TTagSet) bool {
+	if len(t1) == 0 {
+		return true
+	}
 	for _, ts1 := range t1 {
 		if ts1.Contains(t2) {
 			return true

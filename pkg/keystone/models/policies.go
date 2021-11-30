@@ -358,9 +358,9 @@ func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient
 	case api.TAG_UPDATE_POLICY_REPLACE:
 		// do nothing
 	default:
-		input.DomainTags = policy.DomainTags.Add(input.DomainTags)
-		input.ProjectTags = policy.ProjectTags.Add(input.ProjectTags)
-		input.ObjectTags = policy.ResourceTags.Add(input.ObjectTags)
+		input.DomainTags = policy.DomainTags.Append(input.DomainTags...)
+		input.ProjectTags = policy.ProjectTags.Append(input.ProjectTags...)
+		input.ObjectTags = policy.ResourceTags.Append(input.ObjectTags...)
 	}
 
 	if input.Blob != nil {

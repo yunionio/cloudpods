@@ -35,6 +35,7 @@ import (
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 var (
@@ -53,13 +54,13 @@ type STenant struct {
 	SKeystoneCacheObject
 }
 
-func (t *STenant) GetTags() map[string]string {
+func (t *STenant) GetTags() tagutils.TTagSet {
 	objType := "project"
 	if t.Domain == identityapi.KeystoneDomainRoot && t.DomainId == identityapi.KeystoneDomainRoot {
 		objType = "domain"
 	}
 	tags, _ := Metadata.rawGetAll(objType, t.Id, nil, "")
-	return tags
+	return tagutils.Map2Tagset(tags)
 }
 
 func NewTenant(idStr string, name string, domainId string, domainName string) STenant {

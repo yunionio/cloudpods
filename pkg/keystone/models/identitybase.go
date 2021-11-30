@@ -130,16 +130,9 @@ func (manager *SIdentityBaseResourceManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
-	// override manager.SDomainizedResourceBaseManager.ListItemFilter()
-	if len(query.ProjectDomainIds) > 0 {
-		// make sure ids are not utf8 string
-		idList := stringutils2.RemoveUtf8Strings(query.ProjectDomainIds)
-		domains := DomainManager.Query().SubQuery()
-		subq := domains.Query(domains.Field("id")).Filter(sqlchemy.OR(
-			sqlchemy.In(domains.Field("id"), idList),
-			sqlchemy.In(domains.Field("name"), query.ProjectDomainIds),
-		))
-		q = q.In("domain_id", subq.SubQuery())
+	q, err = manager.SDomainizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DomainizedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDomainizedResourceBaseManager.ListItemFilter")
 	}
 	return q, nil
 }

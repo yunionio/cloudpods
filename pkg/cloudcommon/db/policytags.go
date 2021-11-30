@@ -17,16 +17,14 @@ package db
 import (
 	"context"
 
-	"yunion.io/x/onecloud/pkg/util/tagutils"
-
-	"yunion.io/x/sqlchemy"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 func objectConfirmPolicyTags(ctx context.Context, userCred mcclient.TokenCredential, model IModel, result rbacutils.SPolicyResult) error {
@@ -52,7 +50,7 @@ func objectConfirmPolicyTags(ctx context.Context, userCred mcclient.TokenCredent
 	if err != nil {
 		return errors.Wrap(err, "TenantCacheManager.FetchDomainById")
 	}
-	if !result.DomainTags.Contains(tagutils.Map2Tagset(domain.GetTags())) {
+	if !result.DomainTags.Contains(domain.GetTags()) {
 		return httperrors.NewNotSufficientPrivilegeError("domain tags not match (%s,require:%s)", jsonutils.Marshal(domain.GetTags()), result.DomainTags)
 	}
 
@@ -66,7 +64,7 @@ func objectConfirmPolicyTags(ctx context.Context, userCred mcclient.TokenCredent
 	if err != nil {
 		return errors.Wrap(err, "TenantCacheManager.FetchTenantById")
 	}
-	if !result.ProjectTags.Contains(tagutils.Map2Tagset(project.GetTags())) {
+	if !result.ProjectTags.Contains(project.GetTags()) {
 		return httperrors.NewNotSufficientPrivilegeError("project tags not match (%s,require:%s)", jsonutils.Marshal(project.GetTags()), result.ProjectTags)
 	}
 	// pass all checks, all
@@ -89,7 +87,7 @@ func classConfirmPolicyTags(ctx context.Context, userCred mcclient.TokenCredenti
 		if err != nil {
 			return nil, errors.Wrap(err, "TenantCacheManager.FetchDomainById")
 		}
-		if !result.DomainTags.Contains(tagutils.Map2Tagset(domain.GetTags())) {
+		if !result.DomainTags.Contains(domain.GetTags()) {
 			return nil, httperrors.NewNotSufficientPrivilegeError("domain tags not match (%s,require:%s)", jsonutils.Marshal(domain.GetTags()), result.DomainTags)
 		}
 	}
@@ -103,7 +101,7 @@ func classConfirmPolicyTags(ctx context.Context, userCred mcclient.TokenCredenti
 		if err != nil {
 			return nil, errors.Wrap(err, "TenantCacheManager.FetchTenantById")
 		}
-		if !result.ProjectTags.Contains(tagutils.Map2Tagset(project.GetTags())) {
+		if !result.ProjectTags.Contains(project.GetTags()) {
 			return nil, httperrors.NewNotSufficientPrivilegeError("project tags not match (%s,require:%s)", jsonutils.Marshal(project.GetTags()), result.ProjectTags)
 		}
 	}
