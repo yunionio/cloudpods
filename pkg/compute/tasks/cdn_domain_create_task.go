@@ -75,6 +75,12 @@ func (self *CDNDomainCreateTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		return
 	}
 
+	err = db.SetExternalId(domain, self.UserCred, iCdn.GetGlobalId())
+	if err != nil {
+		self.taskFailed(ctx, domain, errors.Wrapf(err, "unable to update externalId"))
+		return
+	}
+
 	cloudprovider.WaitMultiStatus(iCdn, []string{
 		api.CDN_DOMAIN_STATUS_ONLINE,
 		api.CDN_DOMAIN_STATUS_OFFLINE,
@@ -82,12 +88,27 @@ func (self *CDNDomainCreateTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		api.CDN_DOMAIN_STATUS_UNKNOWN,
 	}, time.Second*5, time.Minute*3)
 
-	domain.SyncWithCloudCDNDomain(ctx, self.GetUserCred(), iCdn)
+	tags, _ := domain.GetAllUserMetadata()
+	if len(tags) > 0 {
+		err = iCdn.SetTags(tags, true)
+		if err != nil {
+			logclient.AddActionLogWithStartable(self, domain, logclient.ACT_UPDATE, errors.Wrapf(err, "SetTags"), self.UserCred, false)
+		}
+	}
 
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
 		Obj:    domain,
 		Action: notifyclient.ActionCreate,
 	})
 
+	self.SetStage("OnSyncstatusComplete", nil)
+	domain.StartSyncstatus(ctx, self.GetUserCred(), self.GetTaskId())
+}
+
+func (self *CDNDomainCreateTask) OnSyncstatusComplete(ctx context.Context, domain *models.SCDNDomain, data jsonutils.JSONObject) {
 	self.taskComplete(ctx, domain)
+}
+
+func (self *CDNDomainCreateTask) OnSyncstatusCompleteFailed(ctx context.Context, domain *models.SCDNDomain, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, data)
 }
