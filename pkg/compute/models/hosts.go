@@ -443,6 +443,9 @@ func (manager *SHostManager) ListItemFilter(
 	if len(query.CpuArchitecture) > 0 {
 		q = q.Equals("cpu_architecture", query.CpuArchitecture)
 	}
+	if len(query.OsArch) > 0 {
+		q = db.ListQueryByArchitecture(q, "cpu_architecture", query.OsArch)
+	}
 
 	// for provider onecloud
 	if len(query.ServerIdForNetwork) > 0 {
