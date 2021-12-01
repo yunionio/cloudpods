@@ -29,7 +29,6 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/request"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/mholt/caddy"
 	"github.com/miekg/dns"
 	v1 "k8s.io/api/core/v1"
@@ -42,6 +41,7 @@ import (
 	ylog "yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
+	_ "yunion.io/x/sqlchemy/backends"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/models"
