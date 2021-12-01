@@ -857,7 +857,7 @@ func (self *SKVMGuestDriver) validateMachineType(machine string, osArch string) 
 		candidate = []string{api.VM_MACHINE_TYPE_PC, api.VM_MACHINE_TYPE_Q35}
 	}
 	if !utils.IsInStringArray(machine, candidate) {
-		return httperrors.NewInputParameterError("Invalid machine type %s", machine)
+		return httperrors.NewInputParameterError("Invalid machine type %q for arch %q", machine, osArch)
 	}
 	return nil
 }
