@@ -76,26 +76,6 @@ type SReservedip struct {
 	Status string `width:"12" charset:"ascii" nullable:"false" default:"unknown" list:"user" create:"optional" update:"user"`
 }
 
-func (manager *SReservedipManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, manager)
-}
-
-func (manager *SReservedipManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
-func (self *SReservedip) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return false
-}
-
-func (self *SReservedip) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return false
-}
-
-func (self *SReservedip) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
 func (manager *SReservedipManager) ReserveIP(userCred mcclient.TokenCredential, network *SNetwork, ip string, notes string) error {
 	return manager.ReserveIPWithDuration(userCred, network, ip, notes, 0)
 }

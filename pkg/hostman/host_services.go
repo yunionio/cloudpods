@@ -61,7 +61,7 @@ func (host *SHostService) InitService() {
 		log.Fatalf("missing deploy server socket path")
 	}
 
-	options.HostOptions.EnableRbac = false // disable rbac
+	// options.HostOptions.EnableRbac = false // disable rbac
 	// init base option for pid file
 	host.SServiceBase.O = &options.HostOptions.BaseOptions
 

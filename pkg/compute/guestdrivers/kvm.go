@@ -198,7 +198,7 @@ func (self *SKVMGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mccli
 
 	var port int
 
-	if guest.CheckQemuVersion(guest.GetMetadata("__qemu_version", userCred), "2.12.1") && strings.HasSuffix(cmd, "vnc") {
+	if guest.CheckQemuVersion(guest.GetMetadata(ctx, "__qemu_version", userCred), "2.12.1") && strings.HasSuffix(cmd, "vnc") {
 		port = findVNCPort2(results)
 	} else {
 		port = findVNCPort(results)
@@ -318,7 +318,7 @@ func (self *SKVMGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest 
 }
 
 func (self *SKVMGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential) error {
-	if ispId := guest.GetMetadata(api.BASE_INSTANCE_SNAPSHOT_ID, userCred); len(ispId) > 0 {
+	if ispId := guest.GetMetadata(ctx, api.BASE_INSTANCE_SNAPSHOT_ID, userCred); len(ispId) > 0 {
 		ispM, err := models.InstanceSnapshotManager.FetchById(ispId)
 		if err == nil {
 			isp := ispM.(*models.SInstanceSnapshot)
@@ -382,9 +382,9 @@ func (self *SKVMGuestDriver) RequestAssociateEip(ctx context.Context, userCred m
 	return nil
 }
 
-func (self *SKVMGuestDriver) NeedStopForChangeSpec(guest *models.SGuest, cpuChanged, memChanged bool) bool {
-	return guest.GetMetadata("hotplug_cpu_mem", nil) != "enable" ||
-		(memChanged && guest.GetMetadata("__hugepage", nil) == "native") ||
+func (self *SKVMGuestDriver) NeedStopForChangeSpec(ctx context.Context, guest *models.SGuest, cpuChanged, memChanged bool) bool {
+	return guest.GetMetadata(ctx, "hotplug_cpu_mem", nil) != "enable" ||
+		(memChanged && guest.GetMetadata(ctx, "__hugepage", nil) == "native") ||
 		apis.IsARM(guest.OsArch)
 }
 
@@ -636,7 +636,7 @@ func (self *SKVMGuestDriver) RequestSyncToBackup(ctx context.Context, guest *mod
 	}
 	body := jsonutils.NewDict()
 	body.Add(desc, "desc")
-	body.Set("backup_nbd_server_uri", jsonutils.NewString(guest.GetMetadata("backup_nbd_server_uri", task.GetUserCred())))
+	body.Set("backup_nbd_server_uri", jsonutils.NewString(guest.GetMetadata(ctx, "backup_nbd_server_uri", task.GetUserCred())))
 	url := fmt.Sprintf("%s/servers/%s/drive-mirror", host.ManagerUri, guest.Id)
 	header := self.getTaskRequestHeader(task)
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
@@ -690,20 +690,20 @@ func (self *SKVMGuestDriver) IsSupportLiveMigrate() bool {
 	return true
 }
 
-func checkAssignHost(userCred mcclient.TokenCredential, preferHost string) error {
+func checkAssignHost(ctx context.Context, userCred mcclient.TokenCredential, preferHost string) error {
 	iHost, _ := models.HostManager.FetchByIdOrName(userCred, preferHost)
 	if iHost == nil {
 		return httperrors.NewBadRequestError("Host %s not found", preferHost)
 	}
 	host := iHost.(*models.SHost)
-	err := host.IsAssignable(userCred)
+	err := host.IsAssignable(ctx, userCred)
 	if err != nil {
 		return errors.Wrap(err, "IsAssignable")
 	}
 	return nil
 }
 
-func (self *SKVMGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
+func (self *SKVMGuestDriver) CheckMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
 	if len(guest.BackupHostId) > 0 {
 		return httperrors.NewBadRequestError("Guest have backup, can't migrate")
 	}
@@ -731,7 +731,7 @@ func (self *SKVMGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclien
 		return httperrors.NewBadRequestError("Cannot migrate with isolated devices")
 	}
 	if len(input.PreferHost) > 0 {
-		err := checkAssignHost(userCred, input.PreferHost)
+		err := checkAssignHost(ctx, userCred, input.PreferHost)
 		if err != nil {
 			return errors.Wrap(err, "checkAssignHost")
 		}
@@ -739,7 +739,7 @@ func (self *SKVMGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclien
 	return nil
 }
 
-func (self *SKVMGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error {
+func (self *SKVMGuestDriver) CheckLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error {
 	if len(guest.BackupHostId) > 0 {
 		return httperrors.NewBadRequestError("Guest have backup, can't migrate")
 	}
@@ -759,7 +759,7 @@ func (self *SKVMGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcc
 			return httperrors.NewBadRequestError("Cannot do live migrate, too low qemu version")
 		}
 		if len(input.PreferHost) > 0 {
-			err := checkAssignHost(userCred, input.PreferHost)
+			err := checkAssignHost(ctx, userCred, input.PreferHost)
 			if err != nil {
 				return errors.Wrap(err, "checkAssignHost")
 			}
@@ -769,7 +769,7 @@ func (self *SKVMGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcc
 }
 
 func (self *SKVMGuestDriver) ValidateDetachNetwork(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
-	if guest.Status == api.VM_RUNNING && guest.GetMetadata("hot_remove_nic", nil) != "enable" {
+	if guest.Status == api.VM_RUNNING && guest.GetMetadata(ctx, "hot_remove_nic", nil) != "enable" {
 		return httperrors.NewBadRequestError("Guest %s can't hot remove nic", guest.GetName())
 	}
 	return nil

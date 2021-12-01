@@ -474,7 +474,7 @@ func (alert *SMeterAlert) setType(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (alert *SMeterAlert) getType() string {
-	return alert.GetMetadata(MeterAlertMetadataType, nil)
+	return alert.GetMetadata(context.Background(), MeterAlertMetadataType, nil)
 }
 
 func (alert *SMeterAlert) setProjectId(ctx context.Context, userCred mcclient.TokenCredential, id string) error {
@@ -482,7 +482,7 @@ func (alert *SMeterAlert) setProjectId(ctx context.Context, userCred mcclient.To
 }
 
 func (alert *SMeterAlert) getProjectId() string {
-	return alert.GetMetadata(MeterAlertMetadataProjectId, nil)
+	return alert.GetMetadata(context.Background(), MeterAlertMetadataProjectId, nil)
 }
 
 func (alert *SMeterAlert) setAccountId(ctx context.Context, userCred mcclient.TokenCredential, id string) error {
@@ -490,7 +490,7 @@ func (alert *SMeterAlert) setAccountId(ctx context.Context, userCred mcclient.To
 }
 
 func (alert *SMeterAlert) getAccountId() string {
-	return alert.GetMetadata(MeterAlertMetadataAccountId, nil)
+	return alert.GetMetadata(context.Background(), MeterAlertMetadataAccountId, nil)
 }
 
 func (alert *SMeterAlert) setProvider(ctx context.Context, userCred mcclient.TokenCredential, p string) error {
@@ -498,7 +498,7 @@ func (alert *SMeterAlert) setProvider(ctx context.Context, userCred mcclient.Tok
 }
 
 func (alert *SMeterAlert) getProvider() string {
-	return alert.GetMetadata(MeterAlertMetadataProvider, nil)
+	return alert.GetMetadata(context.Background(), MeterAlertMetadataProvider, nil)
 }
 
 func (alert *SMeterAlert) PostCreate(ctx context.Context,

@@ -217,10 +217,6 @@ func (manager *SElasticcacheAccountManager) FilterByUniqValues(q *sqlchemy.SQuer
 	return q
 }
 
-func (manager *SElasticcacheAccountManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, manager)
-}
-
 func (manager *SElasticcacheAccountManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	var region *SCloudregion
 	if id, _ := data.GetString("elasticcache"); len(id) > 0 {
@@ -462,10 +458,6 @@ func (self *SElasticcacheAccount) Delete(ctx context.Context, userCred mcclient.
 	return nil
 }
 
-func (self *SElasticcacheAccount) AllowPerformResetPassword(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "reset_password")
-}
-
 func (self *SElasticcacheAccount) ValidatorResetPasswordData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if reset, _ := data.Bool("reset_password"); reset {
 		if _, err := data.GetString("password"); err != nil {
@@ -507,10 +499,6 @@ func (self *SElasticcacheAccount) StartResetPasswordTask(ctx context.Context, us
 
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (self *SElasticcacheAccount) AllowGetDetailsLoginInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGetSpec(userCred, self, "login-info")
 }
 
 func (self *SElasticcacheAccount) GetDetailsLoginInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {

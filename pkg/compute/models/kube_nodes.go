@@ -97,13 +97,6 @@ func (self *SKubeNode) GetOwnerId() mcclient.IIdentityProvider {
 	return cluster.GetOwnerId()
 }
 
-func (manager *SKubeNodeManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	if jsonutils.QueryBoolean(query, "admin", false) && !db.IsAllowList(rbacutils.ScopeDomain, userCred, manager) {
-		return false
-	}
-	return true
-}
-
 func (manager *SKubeNodeManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	info := struct{ KubeClusterId string }{}
 	data.Unmarshal(&info)
@@ -129,18 +122,6 @@ func (manager *SKubeNodeManager) FilterByOwner(q *sqlchemy.SQuery, userCred mccl
 	return q
 }
 
-func (self *SKubeNodeManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SKubeNode) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SKubeNode) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsProjectAllowUpdate(userCred, self)
-}
-
 func (self *SKubeNode) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.KubeNodeUpdateInput) (api.KubeNodeUpdateInput, error) {
 	var err error
 	input.StatusStandaloneResourceBaseUpdateInput, err = self.SStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StatusStandaloneResourceBaseUpdateInput)
@@ -148,10 +129,6 @@ func (self *SKubeNode) ValidateUpdateData(ctx context.Context, userCred mcclient
 		return input, errors.Wrapf(err, "SStatusStandaloneResourceBase.ValidateUpdateData")
 	}
 	return input, nil
-}
-
-func (self *SKubeNode) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func (manager *SKubeNodeManager) FetchCustomizeColumns(

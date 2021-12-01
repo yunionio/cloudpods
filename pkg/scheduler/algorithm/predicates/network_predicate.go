@@ -15,6 +15,7 @@
 package predicates
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/pkg/errors"
@@ -203,9 +204,9 @@ func IsNetworkAvailable(
 		// project-wide share
 	} else if n.ProjectId == data.Project {
 		// owner
-	} else if db.IsAdminAllowGet(data.UserCred, n) {
+	} else if db.IsAdminAllowGet(context.Background(), data.UserCred, n) {
 		// system admin, can do anything
-	} else if db.IsDomainAllowGet(data.UserCred, n) && data.UserCred.GetProjectDomainId() == n.DomainId {
+	} else if db.IsDomainAllowGet(context.Background(), data.UserCred, n) && data.UserCred.GetProjectDomainId() == n.DomainId {
 		// domain admin, can do anything with domain network
 	} else {
 		return FailReason{

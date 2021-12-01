@@ -321,10 +321,6 @@ func (self *SAccessGroup) StartSyncRulesTask(ctx context.Context, userCred mccli
 	return nil
 }
 
-func (self *SAccessGroup) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowPerform(userCred, self, "syncstatus")
-}
-
 // 同步权限组状态
 func (self *SAccessGroup) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.MountTargetSyncstatusInput) (jsonutils.JSONObject, error) {
 	return nil, self.StartSyncstatus(ctx, userCred, "")

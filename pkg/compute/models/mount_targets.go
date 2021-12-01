@@ -75,28 +75,12 @@ func (manager *SMountTargetManager) ResourceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeDomain
 }
 
-func (manager *SMountTargetManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowCreate(userCred, manager)
-}
-
-func (manager *SMountTargetManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsDomainAllowList(userCred, manager)
-}
-
 func (self *SMountTarget) GetFileSystem() (*SFileSystem, error) {
 	fs, err := FileSystemManager.FetchById(self.FileSystemId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "FileSystemManager.FetchById(%s)", self.FileSystemId)
 	}
 	return fs.(*SFileSystem), nil
-}
-
-func (self *SMountTarget) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	fs, err := self.GetFileSystem()
-	if err != nil {
-		return false
-	}
-	return fs.AllowUpdateItem(ctx, userCred)
 }
 
 func (manager *SMountTargetManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.MountTargetCreateInput) (api.MountTargetCreateInput, error) {
@@ -525,10 +509,6 @@ func (self *SMountTarget) GetVpc() (*SVpc, error) {
 		return nil, errors.Wrapf(err, "VpcManager.FetchById(%s)", self.VpcId)
 	}
 	return vpc.(*SVpc), nil
-}
-
-func (self *SMountTarget) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowPerform(userCred, self, "syncstatus")
 }
 
 // 同步挂载点状态

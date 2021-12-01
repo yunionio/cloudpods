@@ -104,10 +104,6 @@ func (manager *SDnsZoneCacheManager) FilterByOwner(q *sqlchemy.SQuery, userCred 
 	return q.In("dns_zone_id", sq.SubQuery())
 }
 
-func (manager *SDnsZoneCacheManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsDomainAllowList(userCred, manager)
-}
-
 func (manager *SDnsZoneCacheManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,

@@ -292,7 +292,7 @@ func (self *SBaseGuestDriver) IsSupportPublicIp() bool {
 	return false
 }
 
-func (self *SBaseGuestDriver) NeedStopForChangeSpec(guest *models.SGuest, cpuChanged, memChanged bool) bool {
+func (self *SBaseGuestDriver) NeedStopForChangeSpec(ctx context.Context, guest *models.SGuest, cpuChanged, memChanged bool) bool {
 	return false
 }
 
@@ -396,11 +396,11 @@ func (self *SBaseGuestDriver) IsSupportLiveMigrate() bool {
 	return false
 }
 
-func (self *SBaseGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
+func (self *SBaseGuestDriver) CheckMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
 	return httperrors.NewNotAcceptableError("Not allow for hypervisor %s", guest.GetHypervisor())
 }
 
-func (self *SBaseGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error {
+func (self *SBaseGuestDriver) CheckLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error {
 	return httperrors.NewNotAcceptableError("Not allow for hypervisor %s", guest.GetHypervisor())
 }
 func (self *SBaseGuestDriver) RequestMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error {

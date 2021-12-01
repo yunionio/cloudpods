@@ -527,10 +527,6 @@ func (self *SCloudregion) newFromCloudFileSystem(ctx context.Context, userCred m
 	return fileSystem, nil
 }
 
-func (self *SFileSystem) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "syncstatus")
-}
-
 // 同步NAS状态
 func (self *SFileSystem) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.FileSystemSyncstatusInput) (jsonutils.JSONObject, error) {
 	var openTask = true
@@ -611,10 +607,6 @@ func (manager *SFileSystemManager) DeleteExpiredPostpaids(ctx context.Context, u
 		fss[i].DeletePreventionOff(&fss[i], userCred)
 		fss[i].StartDeleteTask(ctx, userCred, "")
 	}
-}
-
-func (self *SFileSystem) AllowPerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "remote-update")
 }
 
 func (self *SFileSystem) PerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.FileSystemRemoteUpdateInput) (jsonutils.JSONObject, error) {

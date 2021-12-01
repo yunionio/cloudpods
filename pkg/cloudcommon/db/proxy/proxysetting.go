@@ -125,10 +125,6 @@ func (ps *SProxySetting) ValidateDeleteCondition(ctx context.Context, info jsonu
 	return ps.SInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
-func (ps *SProxySetting) AllowPerformTest(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, ps, "test")
-}
-
 func (man *SProxySettingManager) test(ctx context.Context, urls map[string]string) (jsonutils.JSONObject, error) {
 	type TestURLResult struct {
 		Ok     bool   `json:"ok"`

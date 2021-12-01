@@ -351,20 +351,12 @@ func (r *SRobot) GetDomainId() string {
 	return r.DomainId
 }
 
-func (r *SRobot) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return r.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, r, "enable")
-}
-
 func (r *SRobot) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
 	err := db.EnabledPerformEnable(r, ctx, userCred, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "EnabledPerformEnable")
 	}
 	return nil, nil
-}
-
-func (r *SRobot) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return r.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, r, "disable")
 }
 
 func (r *SRobot) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {

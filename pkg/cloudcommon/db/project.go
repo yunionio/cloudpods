@@ -110,15 +110,15 @@ func (manager *SProjectizedResourceBaseManager) ListItemFilter(
 		)).SubQuery()
 		q = q.In("tenant_id", subq)
 	}
-	if len(query.ProjectTags) > 0 {
+	if !query.ProjectTags.IsEmpty() {
 		subq := objIdQueryWithTags("project", nil, query.ProjectTags).SubQuery()
 		q = q.In("tenant_id", subq)
 	}
-	if len(query.NoProjectTags) > 0 {
+	if !query.NoProjectTags.IsEmpty() {
 		subq := objIdQueryWithTags("project", nil, query.NoProjectTags).SubQuery()
 		q = q.NotIn("tenant_id", subq)
 	}
-	if len(query.PolicyProjectTags) > 0 {
+	if !query.PolicyProjectTags.IsEmpty() {
 		subq := objIdQueryWithTags("project", nil, query.PolicyProjectTags).SubQuery()
 		q = q.In("tenant_id", subq)
 	}

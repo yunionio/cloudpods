@@ -115,12 +115,12 @@ func (self *GuestSwitchToBackupTask) OnFail(ctx context.Context, guest *models.S
 }
 
 func (self *GuestSwitchToBackupTask) SetSwitchFiledGuestMetadata(ctx context.Context, guest *models.SGuest) {
-	if res := guest.GetMetadata("switch_backup", self.UserCred); len(res) == 0 {
+	if res := guest.GetMetadata(ctx, "switch_backup", self.UserCred); len(res) == 0 {
 		guest.SetMetadata(
 			ctx, "switch_backup", jsonutils.NewTimeString(time.Now().Add(time.Minute*1).UTC()), self.UserCred)
 		guest.SetMetadata(ctx, "switch_backup_count", jsonutils.NewInt(1), self.UserCred)
 	} else {
-		count := guest.GetMetadataJson("switch_backup_count", self.UserCred)
+		count := guest.GetMetadataJson(ctx, "switch_backup_count", self.UserCred)
 		cnt, _ := count.Int()
 		cnt += 1
 		dur := cnt
@@ -135,7 +135,7 @@ func (self *GuestSwitchToBackupTask) SetSwitchFiledGuestMetadata(ctx context.Con
 }
 
 func (self *GuestSwitchToBackupTask) CleanGuestMetadata(ctx context.Context, guest *models.SGuest) {
-	if res := guest.GetMetadata("switch_backup", self.UserCred); len(res) > 0 {
+	if res := guest.GetMetadata(ctx, "switch_backup", self.UserCred); len(res) > 0 {
 		guest.RemoveMetadata(ctx, "switch_backup", self.UserCred)
 		guest.RemoveMetadata(ctx, "switch_backup_count", self.UserCred)
 	}
@@ -176,7 +176,7 @@ func (self *GuestSwitchToBackupTask) failedStartCreateBackupTask(ctx context.Con
 
 func (self *GuestSwitchToBackupTask) OnCreatedBackup(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	oldStatus, _ := self.Params.GetString("old_status")
-	originStatus := guest.GetMetadata("origin_status", self.UserCred)
+	originStatus := guest.GetMetadata(ctx, "origin_status", self.UserCred)
 	if (!utils.IsInStringArray(guest.Status, api.VM_RUNNING_STATUS) && utils.IsInStringArray(oldStatus, api.VM_RUNNING_STATUS)) ||
 		utils.IsInStringArray(originStatus, api.VM_RUNNING_STATUS) {
 		self.SetStage("OnNewMastqerStarted", nil)
@@ -416,7 +416,7 @@ func (self *GuestCreateBackupTask) OnSyncToBackupFailed(ctx context.Context, gue
 func (self *GuestCreateBackupTask) TaskCompleted(ctx context.Context, guest *models.SGuest, reason string) {
 	db.OpsLog.LogEvent(guest, db.ACT_CREATE_BACKUP, reason, self.UserCred)
 
-	if res := guest.GetMetadata("create_backup", self.UserCred); len(res) > 0 {
+	if res := guest.GetMetadata(ctx, "create_backup", self.UserCred); len(res) > 0 {
 		guest.RemoveMetadata(ctx, "create_backup", self.UserCred)
 		guest.RemoveMetadata(ctx, "create_backup_count", self.UserCred)
 	}
@@ -429,12 +429,12 @@ func (self *GuestCreateBackupTask) TaskCompleted(ctx context.Context, guest *mod
 func (self *GuestCreateBackupTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
 	guest.SetStatus(self.UserCred, api.VM_BACKUP_CREATE_FAILED, reason.String())
 	if jsonutils.QueryBoolean(self.Params, "reconcile_backup", false) {
-		if res := guest.GetMetadata("create_backup", self.UserCred); len(res) == 0 {
+		if res := guest.GetMetadata(ctx, "create_backup", self.UserCred); len(res) == 0 {
 			guest.SetMetadata(
 				ctx, "create_backup", jsonutils.NewTimeString(time.Now().Add(time.Minute*1).UTC()), self.UserCred)
 			guest.SetMetadata(ctx, "create_backup_count", jsonutils.NewInt(1), self.UserCred)
 		} else {
-			count := guest.GetMetadataJson("create_backup_count", self.UserCred)
+			count := guest.GetMetadataJson(ctx, "create_backup_count", self.UserCred)
 			cnt, _ := count.Int()
 			cnt += 1
 			dur := cnt

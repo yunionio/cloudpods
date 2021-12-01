@@ -180,10 +180,6 @@ func (manager *SImageManager) InitializeData() error {
 	return nil
 }
 
-func (manager *SImageManager) AllowGetPropertyDetail(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
 func (manager *SImageManager) GetPropertyDetail(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	appParams := appsrv.AppContextGetParams(ctx)
 	appParams.OverrideResponseBodyWrapper = true
@@ -704,10 +700,10 @@ func (self *SImage) AllowDeleteItem(ctx context.Context, userCred mcclient.Token
 		overridePendingDelete = jsonutils.QueryBoolean(query, "override_pending_delete", false)
 		purge = jsonutils.QueryBoolean(query, "purge", false)
 	}
-	if (overridePendingDelete || purge) && !db.IsAdminAllowDelete(userCred, self) {
+	if (overridePendingDelete || purge) && !db.IsAdminAllowDelete(ctx, userCred, self) {
 		return false
 	}
-	return self.IsOwner(userCred) || db.IsAdminAllowDelete(userCred, self)
+	return self.IsOwner(userCred) || db.IsAdminAllowDelete(ctx, userCred, self)
 }
 
 func (self *SImage) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
@@ -821,10 +817,6 @@ func (self *SImage) StartPutImageTask(ctx context.Context, userCred mcclient.Tok
 	}
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (self *SImage) AllowPerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "cancel-delete") && self.IsGuestImage.IsFalse()
 }
 
 func (self *SImage) PerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1197,10 +1189,6 @@ func CheckImages() {
 	}
 }
 
-func (self *SImage) AllowGetDetailsSubformats(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "subformats")
-}
-
 func (self *SImage) GetDetailsSubformats(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	subimgs := ImageSubformatManager.GetAllSubImages(self.Id)
 	ret := make([]SImageSubformatDetails, len(subimgs))
@@ -1436,15 +1424,6 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 	}
 }
 
-func (self *SImage) AllowPerformMarkStandard(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
-) bool {
-	return db.IsAdminAllowPerform(userCred, self, "mark-standard") && self.IsGuestImage.IsFalse()
-}
-
 func (self *SImage) PerformMarkStandard(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -1481,10 +1460,6 @@ func (self *SImage) PerformMarkStandard(
 		db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
 	}
 	return nil, nil
-}
-
-func (self *SImage) AllowPerformUpdateTorrentStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsGuestImage.IsFalse()
 }
 
 func (self *SImage) PerformUpdateTorrentStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1538,10 +1513,6 @@ func (img *SImage) GetUsages() []db.IUsage {
 	return []db.IUsage{
 		&usage,
 	}
-}
-
-func (self *SImage) AllowPerformUpdateStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "update-status")
 }
 
 func (img *SImage) PerformUpdateStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ImageUpdateStatusInput) (jsonutils.JSONObject, error) {

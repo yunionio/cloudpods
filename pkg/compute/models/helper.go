@@ -72,7 +72,7 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 		}
 		baremetal := bmObj.(*SHost)
 
-		err = baremetal.IsAssignable(userCred)
+		err = baremetal.IsAssignable(ctx, userCred)
 		if err != nil {
 			return nil, errors.Wrap(err, "IsAssignable")
 		}

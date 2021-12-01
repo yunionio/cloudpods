@@ -67,10 +67,6 @@ type SCloudgroupcache struct {
 	CloudgroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" index:"true" json:"cloudgroup_id"`
 }
 
-func (manager *SCloudgroupcacheManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsDomainAllowList(userCred, manager)
-}
-
 // 公有云权限组缓存
 func (manager *SCloudgroupcacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CloudgroupcacheListInput) (*sqlchemy.SQuery, error) {
 	var err error
@@ -199,10 +195,6 @@ func (manager *SCloudgroupcacheManager) FetchCustomizeColumns(
 		}
 	}
 	return rows
-}
-
-func (self *SCloudgroupcache) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowPerform(userCred, self, "syncstatus")
 }
 
 // 同步权限组缓存状态

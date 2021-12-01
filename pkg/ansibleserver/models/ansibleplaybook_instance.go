@@ -100,10 +100,6 @@ func (aim *SAnsiblePlaybookInstanceManager) createInstance(ctx context.Context, 
 	return ai, nil
 }
 
-func (ai *SAnsiblePlaybookInstance) AllowPerformRun(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
 func (ai *SAnsiblePlaybookInstance) PerformRun(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return nil, ai.runPlaybook(ctx, userCred, nil)
 }

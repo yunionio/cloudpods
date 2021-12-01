@@ -315,7 +315,7 @@ func (self *SElasticip) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 
 	billingInfo.InternetChargeType = self.ChargeType
 
-	if priceKey := self.GetMetadata("ext:price_key", nil); len(priceKey) > 0 {
+	if priceKey := self.GetMetadata(ctx, "ext:price_key", nil); len(priceKey) > 0 {
 		billingInfo.PriceKey = priceKey
 	}
 
@@ -969,10 +969,6 @@ func (self *SElasticip) StartEipDeallocateTask(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (self *SElasticip) AllowPerformAssociate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "associate")
-}
-
 func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ElasticipAssociateInput) (api.ElasticipAssociateInput, error) {
 	if self.IsAssociated() {
 		return input, httperrors.NewConflictError("eip has been associated with instance")
@@ -1091,10 +1087,6 @@ func (self *SElasticip) StartEipAssociateTask(ctx context.Context, userCred mccl
 	return task.ScheduleRun(nil)
 }
 
-func (self *SElasticip) AllowPerformDissociate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "dissociate")
-}
-
 func (self *SElasticip) PerformDissociate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if len(self.AssociateId) == 0 {
 		return nil, nil // success
@@ -1106,7 +1098,7 @@ func (self *SElasticip) PerformDissociate(ctx context.Context, userCred mcclient
 		return nil, self.Dissociate(ctx, userCred)
 	}
 
-	err := db.IsObjectRbacAllowed(res, userCred, policy.PolicyActionGet)
+	err := db.IsObjectRbacAllowed(ctx, res, userCred, policy.PolicyActionGet)
 	if err != nil {
 		return nil, errors.Wrap(err, "associated resource is not accessible")
 	}
@@ -1162,10 +1154,6 @@ func (self *SElasticip) GetIEip() (cloudprovider.ICloudEIP, error) {
 	return iregion.GetIEipById(self.GetExternalId())
 }
 
-func (self *SElasticip) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "syncstatus")
-}
-
 // 同步弹性公网IP状态
 func (self *SElasticip) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ElasticipSyncstatusInput) (jsonutils.JSONObject, error) {
 	if self.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
@@ -1176,10 +1164,6 @@ func (self *SElasticip) PerformSyncstatus(ctx context.Context, userCred mcclient
 	} else {
 		return nil, self.SetStatus(userCred, api.EIP_STATUS_READY, "eip sync status")
 	}
-}
-
-func (self *SElasticip) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "sync")
 }
 
 func (self *SElasticip) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1381,7 +1365,7 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 	if host != nil && host.ManagerId == "" { // kvm
 
 		wireq := WireManager.Query().SubQuery()
-		scope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), NetworkManager.KeywordPlural(), policy.PolicyActionList)
+		scope, _ := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), NetworkManager.KeywordPlural(), policy.PolicyActionList)
 		q := NetworkManager.Query()
 		q = NetworkManager.FilterByOwner(q, userCred, scope)
 		q = q.Join(wireq, sqlchemy.Equals(wireq.Field("id"), q.Field("wire_id"))).
@@ -1464,10 +1448,6 @@ func (eip *SElasticip) AllocateAndAssociateInstance(ctx context.Context, userCre
 
 	db.StatusBaseSetStatus(ins, userCred, api.INSTANCE_ASSOCIATE_EIP, "allocate and associate EIP")
 	return eip.startEipAllocateTask(ctx, userCred, params, parentTaskId)
-}
-
-func (self *SElasticip) AllowPerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "change-bandwidth")
 }
 
 func (self *SElasticip) PerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1584,10 +1564,6 @@ func (manager *SElasticipManager) TotalCount(scope rbacutils.TRbacScope, ownerId
 	usage.EIPCount, _ = q2.CountWithError()
 	usage.EIPUsedCount, _ = q3.CountWithError()
 	return usage
-}
-
-func (self *SElasticip) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "purge")
 }
 
 func (self *SElasticip) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

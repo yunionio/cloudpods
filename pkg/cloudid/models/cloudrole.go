@@ -128,10 +128,6 @@ func (self *SCloudrole) StartCloudroleDeleteTask(ctx context.Context, userCred m
 	return nil
 }
 
-func (self *SCloudrole) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowPerform(userCred, self, "purge")
-}
-
 // 清除角色(不删除云上资源)
 func (self *SCloudrole) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudrolePurgeInput) (jsonutils.JSONObject, error) {
 	return nil, self.StartCloudroleDeleteTask(ctx, userCred, true, "")

@@ -468,10 +468,6 @@ func (self *SCloudregion) newFromCloudWafInstance(ctx context.Context, userCred 
 	return waf, nil
 }
 
-func (self *SWafInstance) AllowGetDetailsCloudResources(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsDomainAllowGetSpec(userCred, self, "cloud-resources")
-}
-
 // 获取WAF绑定的资源列表
 func (self *SWafInstance) GetDetailsCloudResources(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (cloudprovider.SCloudResources, error) {
 	ret := cloudprovider.SCloudResources{}
@@ -487,17 +483,9 @@ func (self *SWafInstance) GetDetailsCloudResources(ctx context.Context, userCred
 	return ret, nil
 }
 
-func (self *SWafInstance) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "syncstatus")
-}
-
 // 同步WAF状态
 func (self *SWafInstance) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.WafSyncstatusInput) (jsonutils.JSONObject, error) {
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "WafSyncstatusTask", "")
-}
-
-func (self *SWafInstance) AllowPerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "remote-update")
 }
 
 func (self *SWafInstance) PerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.MongoDBRemoteUpdateInput) (jsonutils.JSONObject, error) {

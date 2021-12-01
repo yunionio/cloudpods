@@ -27,6 +27,7 @@ import (
 )
 
 func objectConfirmPolicyTags(ctx context.Context, model IModel, result rbacutils.SPolicyResult) error {
+	model.GetModelManager().ResourceScope()
 	if _, ok := model.(IStandaloneModel); !ok {
 		// a plain resource
 		return nil

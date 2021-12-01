@@ -190,15 +190,9 @@ func (manager *SVirtualResourceBaseManager) FilterByHiddenSystemAttributes(q *sq
 	isSystem := jsonutils.QueryBoolean(query, "system", false)
 	if isSystem {
 		var isAllow bool
-		if consts.IsRbacEnabled() {
-			allowScope, result := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList, "system")
-			if result.Result.IsAllow() && !scope.HigherThan(allowScope) {
-				isAllow = true
-			}
-		} else {
-			if userCred.HasSystemAdminPrivilege() {
-				isAllow = true
-			}
+		allowScope, result := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList, "system")
+		if result.Result.IsAllow() && !scope.HigherThan(allowScope) {
+			isAllow = true
 		}
 		if !isAllow {
 			isSystem = false
@@ -237,15 +231,9 @@ func (manager *SVirtualResourceBaseManager) FilterBySystemAttributes(q *sqlchemy
 	pendingDeleteLower := strings.ToLower(pendingDelete)
 	if pendingDeleteLower == "all" || pendingDeleteLower == "any" || utils.ToBool(pendingDeleteLower) {
 		var isAllow bool
-		if consts.IsRbacEnabled() {
-			allowScope, result := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList, "pending_delete")
-			if result.Result.IsAllow() && !scope.HigherThan(allowScope) {
-				isAllow = true
-			}
-		} else {
-			if userCred.HasSystemAdminPrivilege() {
-				isAllow = true
-			}
+		allowScope, result := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList, "pending_delete")
+		if result.Result.IsAllow() && !scope.HigherThan(allowScope) {
+			isAllow = true
 		}
 		if !isAllow {
 			pendingDeleteLower = ""

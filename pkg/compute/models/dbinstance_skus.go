@@ -87,22 +87,6 @@ type SDBInstanceSku struct {
 	ZoneId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 }
 
-func (self *SDBInstanceSkuManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
-func (self *SDBInstanceSkuManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
-func (self *SDBInstanceSku) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
-func (self *SDBInstanceSku) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return false
-}
-
 func (manager *SDBInstanceSkuManager) fetchDBInstanceSkus(provider string, region *SCloudregion) ([]SDBInstanceSku, error) {
 	skus := []SDBInstanceSku{}
 	q := manager.Query().Equals("provider", provider).Equals("cloudregion_id", region.Id)
@@ -278,10 +262,6 @@ func (manager *SDBInstanceSkuManager) GetDBStringArray(q *sqlchemy.SQuery) ([]st
 	}
 	return array, err
 
-}
-
-func (manager *SDBInstanceSkuManager) AllowGetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
 }
 
 func (manager *SDBInstanceSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -674,16 +654,8 @@ func (self *SDBInstanceSku) GetZoneInfo() (cloudprovider.SZoneInfo, error) {
 	return zoneInfo, nil
 }
 
-func (manager *SDBInstanceSkuManager) AllowSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, manager, "sync-skus")
-}
-
 func (manager *SDBInstanceSkuManager) PerformSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SkuSyncInput) (jsonutils.JSONObject, error) {
 	return PerformActionSyncSkus(ctx, userCred, manager.Keyword(), input)
-}
-
-func (manager *SDBInstanceSkuManager) AllowGetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGetSpec(userCred, manager, "sync-tasks")
 }
 
 func (manager *SDBInstanceSkuManager) GetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query api.SkuTaskQueryInput) (jsonutils.JSONObject, error) {

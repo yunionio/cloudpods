@@ -372,10 +372,6 @@ func (p *SLoadbalancerAgentParams) IsZero() bool {
 	return false
 }
 
-func (man *SLoadbalancerAgentManager) AllowGetPropertyDefaultParams(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGetSpec(userCred, man, "default-params")
-}
-
 func (man *SLoadbalancerAgentManager) GetPropertyDefaultParams(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	params := SLoadbalancerAgentParams{}
 	params.initDefault(jsonutils.NewDict())
@@ -798,10 +794,6 @@ func (man *SLoadbalancerAgentManager) getByClusterId(clusterId string) ([]SLoadb
 	return r, nil
 }
 
-func (lbagent *SLoadbalancerAgent) AllowPerformHb(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
-	return db.IsAdminAllowPerform(userCred, lbagent, "hb")
-}
-
 func (lbagent *SLoadbalancerAgent) PerformHb(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	ipV := validators.NewIPv4AddrValidator("ip")
 	haStateV := validators.NewStringChoicesValidator("ha_state", api.LB_HA_STATES)
@@ -852,10 +844,6 @@ func (lbagent *SLoadbalancerAgent) IsActive() bool {
 		return false
 	}
 	return true
-}
-
-func (lbagent *SLoadbalancerAgent) AllowPerformParamsPatch(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
-	return db.IsAdminAllowPerform(userCred, lbagent, "params-patch")
 }
 
 func (lbagent *SLoadbalancerAgent) PerformParamsPatch(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

@@ -553,8 +553,8 @@ func (self *SKVMHostDriver) FinishUnconvert(ctx context.Context, userCred mcclie
 			}
 		}
 	}
-	onK8s := host.GetMetadata("on_kubernetes", userCred)
-	hostname := host.GetMetadata("hostname", userCred)
+	onK8s := host.GetMetadata(ctx, "on_kubernetes", userCred)
+	hostname := host.GetMetadata(ctx, "hostname", userCred)
 	if strings.ToLower(onK8s) == "true" {
 		if err := self.tryCleanKubernetesData(host, hostname); err != nil {
 			log.Errorf("try clean kubernetes data: %v", err)

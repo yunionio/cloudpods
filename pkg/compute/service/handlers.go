@@ -60,7 +60,6 @@ func InitHandlers(app *appsrv.Application) {
 		db.I18nManager,
 		models.GuestcdromManager,
 		models.NetInterfaceManager,
-		models.VCenterManager,
 
 		models.QuotaManager,
 		models.QuotaUsageManager,

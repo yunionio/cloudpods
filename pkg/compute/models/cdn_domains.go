@@ -440,10 +440,6 @@ func (manager *SCDNDomainManager) ListItemExportKeys(ctx context.Context,
 	return q, nil
 }
 
-func (self *SCDNDomain) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "syncstatus")
-}
-
 // 同步域名状态
 func (self *SCDNDomain) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.NatGatewaySyncstatusInput) (jsonutils.JSONObject, error) {
 	var openTask = true
@@ -460,10 +456,6 @@ func (self *SCDNDomain) PerformSyncstatus(ctx context.Context, userCred mcclient
 
 func (self *SCDNDomain) StartSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	return StartResourceSyncStatusTask(ctx, userCred, self, "CDNDomainSyncstatusTask", parentTaskId)
-}
-
-func (self *SCDNDomain) AllowPerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "remote-update")
 }
 
 func (self *SCDNDomain) PerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.MongoDBRemoteUpdateInput) (jsonutils.JSONObject, error) {

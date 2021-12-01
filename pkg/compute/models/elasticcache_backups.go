@@ -224,10 +224,6 @@ func (manager *SElasticcacheBackupManager) FilterByUniqValues(q *sqlchemy.SQuery
 	return q
 }
 
-func (manager *SElasticcacheBackupManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, manager)
-}
-
 func (manager *SElasticcacheBackupManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	var region *SCloudregion
 	var ec *SElasticcache
@@ -282,11 +278,6 @@ func (self *SElasticcacheBackup) StartElasticcacheBackupCreateTask(ctx context.C
 	}
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (self *SElasticcacheBackup) AllowPerformRestoreInstance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	// todo : fix me self.IsOwner(userCred) ||
-	return db.IsAdminAllowPerform(userCred, self, "restore_instance")
 }
 
 func (self *SElasticcacheBackup) ValidatorRestoreInstanceData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

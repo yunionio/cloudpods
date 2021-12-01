@@ -12,17 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package policy
+// +build !windows
+
+package ssh
 
 import (
-	"time"
-
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
-func EnableGlobalRbac(refreshInterval time.Duration, debug bool) {
-	if debug {
-		consts.EnableRbacDebug()
-	}
-	PolicyManager.init(refreshInterval)
+func setsignal(sigwinchCh chan os.Signal) {
+	signal.Notify(sigwinchCh, syscall.SIGWINCH)
 }

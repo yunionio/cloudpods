@@ -130,10 +130,6 @@ func (s *SScript) ApplyInfos() ([]api.SApplyInfo, error) {
 	return ai, nil
 }
 
-func (s *SScript) AllowPerformApply(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return s.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, s, "apply")
-}
-
 func (s *SScript) PerformApply(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ScriptApplyInput) (api.ScriptApplyOutput, error) {
 	output := api.ScriptApplyOutput{}
 	var argsGenerator string
@@ -150,10 +146,6 @@ func (s *SScript) PerformApply(ctx context.Context, userCred mcclient.TokenCrede
 	}
 	output.ScriptApplyId = sa.Id
 	return output, nil
-}
-
-func (s *SScript) AllowPerformBatchApply(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return s.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, s, "batch-apply")
 }
 
 func (s *SScript) PerformBatchApply(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ScriptBatchApplyInput) (api.ScriptBatchApplyOutput, error) {

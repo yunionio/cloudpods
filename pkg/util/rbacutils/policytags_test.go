@@ -35,9 +35,9 @@ func TestSPolicy_Contains(t *testing.T) {
 						Result:  Allow,
 					},
 				},
-				DomainTags:   nil,
-				ProjectTags:  nil,
-				ResourceTags: nil,
+				DomainTags:  nil,
+				ProjectTags: nil,
+				ObjectTags:  nil,
 			},
 			p2: SPolicy{
 				Rules: TPolicy{
@@ -53,7 +53,7 @@ func TestSPolicy_Contains(t *testing.T) {
 						Value: "a",
 					},
 				},
-				ResourceTags: nil,
+				ObjectTags: nil,
 			},
 			p1cp2: true,
 			p2cp1: false,
@@ -90,7 +90,7 @@ func TestSPolicy_Contains(t *testing.T) {
 						Value: "test",
 					},
 				},
-				ResourceTags: nil,
+				ObjectTags: nil,
 			},
 			p2: SPolicy{
 				Rules: TPolicy{
@@ -114,7 +114,7 @@ func TestSPolicy_Contains(t *testing.T) {
 						Value: "a",
 					},
 				},
-				ResourceTags: nil,
+				ObjectTags: nil,
 			},
 			p1cp2: false,
 			p2cp1: false,

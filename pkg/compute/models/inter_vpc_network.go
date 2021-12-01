@@ -254,10 +254,6 @@ func (self *SInterVpcNetwork) RealDelete(ctx context.Context, userCred mcclient.
 	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
-func (self *SInterVpcNetwork) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "syncstatus")
-}
-
 func (self *SInterVpcNetwork) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.InterVpcNetworkSyncstatusInput) (jsonutils.JSONObject, error) {
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "InterVpcNetworkSyncstatusTask", "")
 }
@@ -276,10 +272,6 @@ func (self *SInterVpcNetwork) StartInterVpcNetworkAddVpcTask(ctx context.Context
 	self.SetStatus(userCred, api.INTER_VPC_NETWORK_STATUS_ADDVPC, "")
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (self *SInterVpcNetwork) AllowPerformAddvpc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "addvpc")
 }
 
 func (self *SInterVpcNetwork) PerformAddvpc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.InterVpcNetworkAddVpcInput) (jsonutils.JSONObject, error) {
@@ -320,10 +312,6 @@ func (self *SInterVpcNetwork) PerformAddvpc(ctx context.Context, userCred mcclie
 	}
 
 	return nil, nil
-}
-
-func (self *SInterVpcNetwork) AllowPerformRemovevpc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "removevpc")
 }
 
 func (self *SInterVpcNetwork) StartInterVpcNetworkRemoveVpcTask(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc) error {

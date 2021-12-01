@@ -420,7 +420,7 @@ func (alert *SNodeAlert) CustomizeCreate(
 }
 
 func (alert *SNodeAlert) getNodeId() string {
-	return alert.GetMetadata(NodeAlertMetadataNodeId, nil)
+	return alert.GetMetadata(context.Background(), NodeAlertMetadataNodeId, nil)
 }
 
 func (alert *SNodeAlert) setNodeId(ctx context.Context, userCred mcclient.TokenCredential, id string) error {
@@ -428,7 +428,7 @@ func (alert *SNodeAlert) setNodeId(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (alert *SNodeAlert) getNodeName() string {
-	return alert.GetMetadata(NodeAlertMetadataNodeName, nil)
+	return alert.GetMetadata(context.Background(), NodeAlertMetadataNodeName, nil)
 }
 
 func (alert *SNodeAlert) setNodeName(ctx context.Context, userCred mcclient.TokenCredential, name string) error {
@@ -436,7 +436,7 @@ func (alert *SNodeAlert) setNodeName(ctx context.Context, userCred mcclient.Toke
 }
 
 func (alert *SNodeAlert) getType() string {
-	return alert.GetMetadata(NodeAlertMetadataType, nil)
+	return alert.GetMetadata(context.Background(), NodeAlertMetadataType, nil)
 }
 
 func (alert *SNodeAlert) setType(ctx context.Context, userCred mcclient.TokenCredential, typ string) error {

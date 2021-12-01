@@ -1870,7 +1870,7 @@ func (self *SOpenStackRegionDriver) ValidateCreateLoadbalancerBackendData(ctx co
 		basename = guest.Name
 		backend = backendV.Model
 	case api.LB_BACKEND_HOST:
-		if !db.IsAdminAllowCreate(userCred, man) {
+		if db.IsAdminAllowCreate(userCred, man).Result.IsDeny() {
 			return nil, fmt.Errorf("only sysadmin can specify host as backend")
 		}
 		backendV := validators.NewModelIdOrNameValidator("backend", "host", userCred)
@@ -1888,7 +1888,7 @@ func (self *SOpenStackRegionDriver) ValidateCreateLoadbalancerBackendData(ctx co
 		basename = host.Name
 		backend = backendV.Model
 	case api.LB_BACKEND_IP:
-		if !db.IsAdminAllowCreate(userCred, man) {
+		if db.IsAdminAllowCreate(userCred, man).Result.IsDeny() {
 			return nil, fmt.Errorf("only sysadmin can specify ip address as backend")
 		}
 		backendV := validators.NewIPv4AddrValidator("backend")

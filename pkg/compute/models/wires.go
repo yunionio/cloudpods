@@ -1105,10 +1105,6 @@ func (manager *SWireManager) GetOnPremiseWireOfIp(ipAddr string) (*SWire, error)
 	}
 }
 
-func (w *SWire) AllowPerformMergeNetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return w.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, w, "merge-network")
-}
-
 func (w *SWire) PerformMergeNetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.WireMergeNetworkInput) (jsonutils.JSONObject, error) {
 	return nil, w.StartMergeNetwork(ctx, userCred, "")
 }
@@ -1129,10 +1125,6 @@ func (sm *SWireManager) FetchByIdsOrNames(idOrNames []string) ([]SWire, error) {
 		return nil, err
 	}
 	return ret, nil
-}
-
-func (w *SWire) AllowPerformMergeFrom(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return w.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, w, "merge-from")
 }
 
 func (w *SWire) PerformMergeFrom(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.WireMergeFromInput) (ret jsonutils.JSONObject, err error) {
@@ -1187,10 +1179,6 @@ func (w *SWire) PerformMergeFrom(ctx context.Context, userCred mcclient.TokenCre
 		}
 	}
 	return
-}
-
-func (w *SWire) AllowPerformMergeTo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return w.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, w, "merge-to")
 }
 
 func (w *SWire) PerformMergeTo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.WireMergeInput) (ret jsonutils.JSONObject, err error) {
@@ -1436,7 +1424,7 @@ func (self *SWire) IsManaged() bool {
 func (model *SWire) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if !data.Contains("public_scope") {
 		vpc, _ := model.GetVpc()
-		if !model.IsManaged() && db.IsAdminAllowPerform(userCred, model, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() && vpc != nil && vpc.IsPublic && vpc.PublicScope == string(rbacutils.ScopeSystem) {
+		if !model.IsManaged() && db.IsAdminAllowPerform(ctx, userCred, model, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() && vpc != nil && vpc.IsPublic && vpc.PublicScope == string(rbacutils.ScopeSystem) {
 			model.SetShare(rbacutils.ScopeSystem)
 		} else {
 			model.SetShare(rbacutils.ScopeNone)

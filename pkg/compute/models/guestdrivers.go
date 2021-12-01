@@ -178,7 +178,7 @@ type IGuestDriver interface {
 	IsSupportPublicIp() bool
 	ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error
 
-	NeedStopForChangeSpec(guest *SGuest, cpuChanged, memChanged bool) bool
+	NeedStopForChangeSpec(ctx context.Context, guest *SGuest, cpuChanged, memChanged bool) bool
 
 	OnGuestChangeCpuMemFailed(ctx context.Context, guest *SGuest, data *jsonutils.JSONDict, task taskman.ITask) error
 	IsSupportGuestClone() bool
@@ -200,8 +200,8 @@ type IGuestDriver interface {
 	RequestSetAutoRenewInstance(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, autoRenew bool, task taskman.ITask) error
 	IsSupportMigrate() bool
 	IsSupportLiveMigrate() bool
-	CheckMigrate(guest *SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error
-	CheckLiveMigrate(guest *SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error
+	CheckMigrate(ctx context.Context, guest *SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error
+	CheckLiveMigrate(ctx context.Context, guest *SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error
 	RequestMigrate(ctx context.Context, guest *SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error
 	RequestLiveMigrate(ctx context.Context, guest *SGuest, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, task taskman.ITask) error
 

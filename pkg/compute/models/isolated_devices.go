@@ -105,21 +105,9 @@ type SIsolatedDevice struct {
 	ReservedStorage int `nullable:"true" default:"102400" list:"domain" update:"domain" create:"domain_optional"`
 }
 
-func (manager *SIsolatedDeviceManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	host, _ := query.GetString("host")
-	if len(host) > 0 && !db.IsAdminAllowList(userCred, manager) {
-		return false
-	}
-	return true
-}
-
 func (manager *SIsolatedDeviceManager) ExtraSearchConditions(ctx context.Context, q *sqlchemy.SQuery, like string) []sqlchemy.ICondition {
 	sq := HostManager.Query("id").Contains("name", like).SubQuery()
 	return []sqlchemy.ICondition{sqlchemy.In(q.Field("host_id"), sq)}
-}
-
-func (manager *SIsolatedDeviceManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, manager)
 }
 
 func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context,
@@ -153,10 +141,6 @@ func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context,
 		return input, httperrors.NewInputParameterError("reserved storage must >= 0")
 	}
 	return input, nil
-}
-
-func (self *SIsolatedDevice) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
 }
 
 func (self *SIsolatedDevice) ValidateUpdateData(
@@ -262,15 +246,6 @@ func (manager *SIsolatedDeviceManager) QueryDistinctExtraField(q *sqlchemy.SQuer
 	}
 	return q, httperrors.ErrNotFound
 }
-
-/*
-func (self *SIsolatedDevice) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return userCred.IsSystemAdmin()
-}
-
-func (self *SIsolatedDevice) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
-} */
 
 func (manager *SIsolatedDeviceManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
 	var err error
@@ -709,10 +684,6 @@ func (self *SIsolatedDevice) RealDelete(ctx context.Context, userCred mcclient.T
 		return err
 	}
 	return self.ClearSchedDescCache()
-}
-
-func (self *SIsolatedDevice) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "purge")
 }
 
 func (self *SIsolatedDevice) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

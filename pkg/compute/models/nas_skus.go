@@ -325,16 +325,8 @@ func SyncRegionNasSkus(ctx context.Context, userCred mcclient.TokenCredential, r
 	return nil
 }
 
-func (manager *SNasSkuManager) AllowSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, manager, "sync-skus")
-}
-
 func (manager *SNasSkuManager) PerformSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SkuSyncInput) (jsonutils.JSONObject, error) {
 	return PerformActionSyncSkus(ctx, userCred, manager.Keyword(), input)
-}
-
-func (manager *SNasSkuManager) AllowGetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGetSpec(userCred, manager, "sync-tasks")
 }
 
 func (manager *SNasSkuManager) GetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query api.SkuTaskQueryInput) (jsonutils.JSONObject, error) {

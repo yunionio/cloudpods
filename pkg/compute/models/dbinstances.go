@@ -565,7 +565,7 @@ func (manager *SDBInstanceManager) FetchCustomizeColumns(
 	}
 
 	q := SecurityGroupManager.Query()
-	ownerId, queryScope, err := db.FetchCheckQueryOwnerScope(ctx, userCred, query, SecurityGroupManager, policy.PolicyActionList, true)
+	ownerId, queryScope, err, _ := db.FetchCheckQueryOwnerScope(ctx, userCred, query, SecurityGroupManager, policy.PolicyActionList, true)
 	if err != nil {
 		log.Errorf("FetchCheckQueryOwnerScope error: %v", err)
 		return rows
@@ -810,10 +810,6 @@ func (self *SDBInstance) PerformChangeOwner(ctx context.Context, userCred mcclie
 	return self.SVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, input)
 }
 
-func (self *SDBInstance) AllowPerformRecovery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "recovery")
-}
-
 func (self *SDBInstance) PerformRecovery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SDBInstanceRecoveryConfigInput) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.DBINSTANCE_RUNNING}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot do recovery dbinstance in status %s required status %s", self.Status, api.DBINSTANCE_RUNNING)
@@ -888,18 +884,10 @@ func (self *SDBInstance) StartDBInstanceRecoveryTask(ctx context.Context, userCr
 	return nil
 }
 
-func (self *SDBInstance) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "purge")
-}
-
 func (self *SDBInstance) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 	params.Set("purge", jsonutils.JSONTrue)
 	return nil, self.StartDBInstanceDeleteTask(ctx, userCred, params, "")
-}
-
-func (self *SDBInstance) AllowPerformReboot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "reboot")
 }
 
 func (self *SDBInstance) PerformReboot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -910,10 +898,6 @@ func (self *SDBInstance) PerformReboot(ctx context.Context, userCred mcclient.To
 }
 
 //同步RDS实例状态
-func (self *SDBInstance) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "syncstatus")
-}
-
 func (self *SDBInstance) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	var openTask = true
 	count, err := taskman.TaskManager.QueryTasksOfObject(self, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
@@ -925,10 +909,6 @@ func (self *SDBInstance) PerformSyncstatus(ctx context.Context, userCred mcclien
 	}
 
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "DBInstanceSyncStatusTask", "")
-}
-
-func (self *SDBInstance) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "sync")
 }
 
 func (self *SDBInstance) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -944,10 +924,6 @@ func (self *SDBInstance) PerformSync(ctx context.Context, userCred mcclient.Toke
 	return nil, self.StartDBInstanceSyncTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
-func (self *SDBInstance) AllowPerformSyncStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "sync-status")
-}
-
 func (self *SDBInstance) PerformSyncStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	var openTask = true
 	count, err := taskman.TaskManager.QueryTasksOfObject(self, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
@@ -959,10 +935,6 @@ func (self *SDBInstance) PerformSyncStatus(ctx context.Context, userCred mcclien
 	}
 
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "DBInstanceSyncStatusTask", "")
-}
-
-func (self *SDBInstance) AllowPerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "renew")
 }
 
 func (self *SDBInstance) PerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -990,10 +962,6 @@ func (self *SDBInstance) PerformRenew(ctx context.Context, userCred mcclient.Tok
 	}
 
 	return nil, self.StartDBInstanceRenewTask(ctx, userCred, durationStr, "")
-}
-
-func (self *SDBInstance) AllowPerformSetAutoRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "set-auto-renew")
 }
 
 func (self *SDBInstance) SetAutoRenew(autoRenew bool) error {
@@ -1050,10 +1018,6 @@ func (self *SDBInstance) StartSetAutoRenewTask(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (self *SDBInstance) AllowPerformPublicConnection(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "public-connection")
-}
-
 func (self *SDBInstance) PerformPublicConnection(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	open := jsonutils.QueryBoolean(data, "open", true)
 	if open && len(self.ConnectionStr) > 0 {
@@ -1085,10 +1049,6 @@ func (self *SDBInstance) StartDBInstancePublicConnectionTask(ctx context.Context
 	}
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (self *SDBInstance) AllowPerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "change-config")
 }
 
 func (self *SDBInstance) PerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SDBInstanceChangeConfigInput) (jsonutils.JSONObject, error) {
@@ -1979,10 +1939,6 @@ func (manager *SDBInstanceManager) DeleteExpiredPostpaids(ctx context.Context, u
 	}
 }
 
-func (self *SDBInstance) AllowPerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "postpaid-expire")
-}
-
 func (self *SDBInstance) PerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PostpaidExpireInput) (jsonutils.JSONObject, error) {
 	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
 		return nil, httperrors.NewBadRequestError("dbinstance billing type is %s", self.BillingType)
@@ -1995,10 +1951,6 @@ func (self *SDBInstance) PerformPostpaidExpire(ctx context.Context, userCred mcc
 
 	err = self.SaveRenewInfo(ctx, userCred, bc, nil, billing_api.BILLING_TYPE_POSTPAID)
 	return nil, err
-}
-
-func (self *SDBInstance) AllowPerformCancelExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "cancel-expire")
 }
 
 func (self *SDBInstance) PerformCancelExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -2025,10 +1977,6 @@ func (self *SDBInstance) CancelExpireTime(ctx context.Context, userCred mcclient
 	}
 	db.OpsLog.LogEvent(self, db.ACT_RENEW, "dbinstance cancel expire time", userCred)
 	return nil
-}
-
-func (self *SDBInstance) AllowPerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "remote-update")
 }
 
 func (self *SDBInstance) PerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DBInstanceRemoteUpdateInput) (jsonutils.JSONObject, error) {
@@ -2062,10 +2010,6 @@ func (self *SDBInstance) OnMetadataUpdated(ctx context.Context, userCred mcclien
 	if err != nil {
 		log.Errorf("StartRemoteUpdateTask fail: %s", err)
 	}
-}
-
-func (self *SDBInstance) AllowPerformSetSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "set-secgroup")
 }
 
 func (self *SDBInstance) PerformSetSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DBInstanceSetSecgroupInput) (jsonutils.JSONObject, error) {

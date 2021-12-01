@@ -328,10 +328,6 @@ func (manager *SDBInstanceBackupManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (self *SDBInstanceBackup) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "syncstatus")
-}
-
 // 同步RDS备份状态
 func (self *SDBInstanceBackup) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DiskSyncstatusInput) (jsonutils.JSONObject, error) {
 	var openTask = true

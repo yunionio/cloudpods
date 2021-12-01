@@ -725,10 +725,6 @@ func (self *SDnsRecordSet) setTrafficPolicy(ctx context.Context, userCred mcclie
 	return DnsRecordSetTrafficPolicyManager.TableSpec().Insert(ctx, recordPolicy)
 }
 
-func (self *SDnsRecordSet) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DnsRecordEnableInput) bool {
-	return db.IsDomainAllowPerform(userCred, self, "enable")
-}
-
 // 启用
 func (self *SDnsRecordSet) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DnsRecordEnableInput) (jsonutils.JSONObject, error) {
 	_, err := self.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, input.PerformEnableInput)
@@ -743,10 +739,6 @@ func (self *SDnsRecordSet) PerformEnable(ctx context.Context, userCred mcclient.
 	return nil, nil
 }
 
-func (self *SDnsRecordSet) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DnsRecordDisableInput) bool {
-	return db.IsDomainAllowPerform(userCred, self, "disable")
-}
-
 // 禁用
 func (self *SDnsRecordSet) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DnsRecordDisableInput) (jsonutils.JSONObject, error) {
 	_, err := self.SEnabledStatusStandaloneResourceBase.PerformDisable(ctx, userCred, query, input.PerformDisableInput)
@@ -759,10 +751,6 @@ func (self *SDnsRecordSet) PerformDisable(ctx context.Context, userCred mcclient
 	}
 	dnsZone.DoSyncRecords(ctx, userCred)
 	return nil, nil
-}
-
-func (self *SDnsRecordSet) AllowPerformSetTrafficPolicies(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DnsRecordDisableInput) bool {
-	return db.IsDomainAllowPerform(userCred, self, "set-traffic-policies")
 }
 
 // 设置流量策略

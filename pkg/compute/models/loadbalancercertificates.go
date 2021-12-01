@@ -85,10 +85,6 @@ func (lbcert *SLoadbalancerCertificate) GetCachedCerts() ([]SCachedLoadbalancerC
 	return ret, nil
 }
 
-func (lbcert *SLoadbalancerCertificate) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
 func (lbcert *SLoadbalancerCertificate) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	if data.Contains("certificate") || data.Contains("private_key") {
 		return nil, httperrors.NewForbiddenError("not allowed update content of certificate")
@@ -147,7 +143,7 @@ func (manager *SLoadbalancerCertificateManager) FetchCustomizeColumns(
 
 	for i := range objs {
 		q := LoadbalancerListenerManager.Query().IsFalse("pending_deleted").Equals("certificate_id", objs[i].(*SLoadbalancerCertificate).GetId())
-		ownerId, queryScope, err := db.FetchCheckQueryOwnerScope(ctx, userCred, query, LoadbalancerListenerManager, policy.PolicyActionList, true)
+		ownerId, queryScope, err, _ := db.FetchCheckQueryOwnerScope(ctx, userCred, query, LoadbalancerListenerManager, policy.PolicyActionList, true)
 		if err != nil {
 			log.Errorf("FetchCheckQueryOwnerScope error: %v", err)
 			return rows
@@ -200,10 +196,6 @@ func (lbcert *SLoadbalancerCertificate) ValidateDeleteCondition(ctx context.Cont
 	}
 
 	return nil
-}
-
-func (lbcert *SLoadbalancerCertificate) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, lbcert, "purge")
 }
 
 func (lbcert *SLoadbalancerCertificate) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -339,9 +331,9 @@ func (man *SLoadbalancerCertificateManager) ValidateCreateData(ctx context.Conte
 
 func (lbcert *SLoadbalancerCertificate) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if !data.Contains("public_scope") {
-		if db.IsAdminAllowPerform(userCred, lbcert, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
+		if db.IsAdminAllowPerform(ctx, userCred, lbcert, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
 			lbcert.SetShare(rbacutils.ScopeSystem)
-		} else if db.IsDomainAllowPerform(userCred, lbcert, "public") && ownerId.GetProjectId() == userCred.GetProjectId() && consts.GetNonDefaultDomainProjects() {
+		} else if db.IsDomainAllowPerform(ctx, userCred, lbcert, "public") && ownerId.GetProjectId() == userCred.GetProjectId() && consts.GetNonDefaultDomainProjects() {
 			// only if non_default_domain_projects turned on, share to domain
 			lbcert.SetShare(rbacutils.ScopeDomain)
 		} else {

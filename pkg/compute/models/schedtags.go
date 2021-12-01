@@ -146,10 +146,6 @@ type SSchedtag struct {
 	ResourceType    string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"required"`                                 // Column(VARCHAR(16, charset='ascii'), nullable=True, default='')
 }
 
-func (manager *SSchedtagManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
 func (m *SSchedtagManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if userCred == nil {
 		return q
@@ -262,22 +258,6 @@ func (manager *SSchedtagManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fie
 	}
 
 	return q, httperrors.ErrNotFound
-}
-
-func (self *SSchedtag) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
-func (self *SSchedtagManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SSchedtag) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SSchedtag) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func (manager *SSchedtagManager) ValidateSchedtags(userCred mcclient.TokenCredential, schedtags []*api.SchedtagConfig) ([]*api.SchedtagConfig, error) {
@@ -583,10 +563,6 @@ func GetSchedtags(jointMan ISchedtagJointManager, masterId string) []SSchedtag {
 	return tags
 }
 
-func AllowPerformSetResourceSchedtag(obj db.IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, obj, "set-schedtag")
-}
-
 func PerformSetResourceSchedtag(obj IModelWithSchedtag, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	schedtags := jsonutils.GetArrayOfPrefix(data, "schedtag")
 	setTagsId := []string{}
@@ -667,10 +643,6 @@ func GetSchedtagsDetailsToResourceV2(obj IModelWithSchedtag, ctx context.Context
 		}
 	}
 	return info
-}
-
-func (s *SSchedtag) AllowPerformSetScope(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return true
 }
 
 func (s *SSchedtag) PerformSetScope(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

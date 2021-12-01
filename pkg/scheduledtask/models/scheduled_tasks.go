@@ -185,11 +185,6 @@ func (stm *SScheduledTaskManager) ValidateCreateData(ctx context.Context, userCr
 	return input, nil
 }
 
-func (st *SScheduledTask) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, input apis.PerformEnableInput) bool {
-	return true
-}
-
 func (st *SScheduledTask) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
 	err := db.EnabledPerformEnable(st, ctx, userCred, true)
@@ -197,11 +192,6 @@ func (st *SScheduledTask) PerformEnable(ctx context.Context, userCred mcclient.T
 		return nil, errors.Wrap(err, "EnabledPerformEnable")
 	}
 	return nil, nil
-}
-
-func (st *SScheduledTask) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, input apis.PerformDisableInput) bool {
-	return true
 }
 
 func (st *SScheduledTask) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
@@ -311,10 +301,6 @@ func (st *SScheduledTask) STLabels() ([]SScheduledTaskLabel, error) {
 	return labels, err
 }
 
-func (st *SScheduledTask) AllowPerformSetLabels(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ScheduledTaskSetLabelsInput) bool {
-	return st.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, st, "set-labels")
-}
-
 func (st *SScheduledTask) PerformSetLabels(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ScheduledTaskSetLabelsInput) (jsonutils.JSONObject, error) {
 	nowLabels, err := st.STLabels()
 	if err != nil {
@@ -352,10 +338,6 @@ func (st *SScheduledTask) PerformSetLabels(ctx context.Context, userCred mcclien
 		}
 	}
 	return nil, nil
-}
-
-func (st *SScheduledTask) AllowPerformTrigger(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ScheduledTaskTriggerInput) bool {
-	return st.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, st, "trigger")
 }
 
 func (st *SScheduledTask) PerformTrigger(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ScheduledTaskTriggerInput) (jsonutils.JSONObject, error) {

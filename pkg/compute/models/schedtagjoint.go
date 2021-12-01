@@ -66,14 +66,6 @@ func (manager *SSchedtagJointsManager) GetSlaveFieldName() string {
 	return "schedtag_id"
 }
 
-func (man *SSchedtagJointsManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, man)
-}
-
-func (man *SSchedtagJointsManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, man)
-}
-
 func (man *SSchedtagJointsManager) FetchSchedtagById(id string) *SSchedtag {
 	schedtagObj, _ := SchedtagManager.FetchById(id)
 	if schedtagObj == nil {
@@ -112,28 +104,8 @@ func (man *SSchedtagJointsManager) ValidateCreateData(ctx context.Context, userC
 	return data, nil
 }
 
-func (man *SSchedtagJointsManager) AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, model db.IStandaloneModel, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, man)
-}
-
 func (man *SSchedtagJointsManager) GetResourceIdKey(m db.IJointModelManager) string {
 	return fmt.Sprintf("%s_id", m.GetMasterManager().Keyword())
-}
-
-func (man *SSchedtagJointsManager) AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, master db.IStandaloneModel, slave db.IStandaloneModel) bool {
-	return db.IsAdminAllowCreate(userCred, man)
-}
-
-func (self *SSchedtagJointsBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SSchedtagJointsBase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SSchedtagJointsBase) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func (joint *SSchedtagJointsBase) GetSchedtagId() string {

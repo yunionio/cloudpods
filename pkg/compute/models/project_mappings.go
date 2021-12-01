@@ -298,10 +298,6 @@ func (self *SProjectMapping) refreshMapping() error {
 	return nil
 }
 
-func (self *SProjectMapping) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) bool {
-	return db.IsDomainAllowPerform(userCred, self, "enable")
-}
-
 // 启用资源映射
 func (self *SProjectMapping) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
 	_, err := self.SEnabledStatusInfrasResourceBase.PerformEnable(ctx, userCred, query, input)
@@ -309,10 +305,6 @@ func (self *SProjectMapping) PerformEnable(ctx context.Context, userCred mcclien
 		return nil, err
 	}
 	return nil, self.refreshMapping()
-}
-
-func (self *SProjectMapping) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) bool {
-	return db.IsDomainAllowPerform(userCred, self, "disable")
 }
 
 // 禁用资源映射

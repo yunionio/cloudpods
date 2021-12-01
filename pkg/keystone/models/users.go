@@ -448,15 +448,9 @@ func (manager *SUserManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, 
 	isSystem := jsonutils.QueryBoolean(query, "system", false)
 	if isSystem {
 		var isAllow bool
-		if consts.IsRbacEnabled() {
-			allowScope, _ := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList, "system")
-			if !scope.HigherThan(allowScope) {
-				isAllow = true
-			}
-		} else {
-			if userCred.HasSystemAdminPrivilege() {
-				isAllow = true
-			}
+		allowScope, _ := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList, "system")
+		if !scope.HigherThan(allowScope) {
+			isAllow = true
 		}
 		if !isAllow {
 			isSystem = false

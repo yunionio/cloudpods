@@ -62,10 +62,6 @@ type SCloudpolicycache struct {
 	CloudpolicyId string `width:"36" charset:"ascii" nullable:"true" list:"user" index:"true" json:"cloudpolicy_id"`
 }
 
-func (manager *SCloudpolicycacheManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
 // 公有云权限缓存列表
 func (manager *SCloudpolicycacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CloudpolicycacheListInput) (*sqlchemy.SQuery, error) {
 	var err error

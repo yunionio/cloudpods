@@ -22,7 +22,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -146,29 +145,21 @@ func (dispatcher *DBJointModelDispatcher) Get(ctx context.Context, id1 string, i
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-	if consts.IsRbacEnabled() {
-		err := isJointObjectRbacAllowed(ctx, item, userCred, policy.PolicyActionGet)
-		if err != nil {
-			return nil, err
-		}
-	} else if !item.AllowGetJointDetails(ctx, userCred, query, item) {
-		return nil, httperrors.NewForbiddenError("Not allow to get details")
+	err = isJointObjectRbacAllowed(ctx, item, userCred, policy.PolicyActionGet)
+	if err != nil {
+		return nil, err
 	}
 	return getItemDetails(dispatcher.JointModelManager(), item, ctx, userCred, query)
 }
 
 func attachItems(dispatcher *DBJointModelDispatcher, master IStandaloneModel, slave IStandaloneModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if consts.IsRbacEnabled() {
-		err := isObjectRbacAllowed(ctx, master, userCred, policy.PolicyActionPerform, "attach")
-		if err != nil {
-			return nil, err
-		}
-		err = isObjectRbacAllowed(ctx, slave, userCred, policy.PolicyActionPerform, "attach")
-		if err != nil {
-			return nil, err
-		}
-	} else if !dispatcher.JointModelManager().AllowAttach(ctx, userCred, master, slave) {
-		return nil, httperrors.NewForbiddenError("Not allow to attach")
+	err := isObjectRbacAllowed(ctx, master, userCred, policy.PolicyActionPerform, "attach")
+	if err != nil {
+		return nil, err
+	}
+	err = isObjectRbacAllowed(ctx, slave, userCred, policy.PolicyActionPerform, "attach")
+	if err != nil {
+		return nil, err
 	}
 	// ownerProjId, err := fetchOwnerId(ctx, dispatcher.JointModelManager(), userCred, data)
 	dataDict, ok := data.(*jsonutils.JSONDict)
@@ -239,13 +230,9 @@ func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	if consts.IsRbacEnabled() {
-		err := isJointObjectRbacAllowed(ctx, item, userCred, policy.PolicyActionUpdate)
-		if err != nil {
-			return nil, err
-		}
-	} else if !item.AllowUpdateJointItem(ctx, userCred, item) {
-		return nil, httperrors.NewForbiddenError("Not allow to update item")
+	err = isJointObjectRbacAllowed(ctx, item, userCred, policy.PolicyActionUpdate)
+	if err != nil {
+		return nil, err
 	}
 
 	lockman.LockJointObject(ctx, master, slave)
@@ -262,17 +249,13 @@ func (dispatcher *DBJointModelDispatcher) Detach(ctx context.Context, id1 string
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	if consts.IsRbacEnabled() {
-		err := isObjectRbacAllowed(ctx, master, userCred, policy.PolicyActionPerform, "detach")
-		if err != nil {
-			return nil, err
-		}
-		err = isObjectRbacAllowed(ctx, slave, userCred, policy.PolicyActionPerform, "detach")
-		if err != nil {
-			return nil, err
-		}
-	} else if !item.AllowDetach(ctx, userCred, query, data) {
-		return nil, httperrors.NewForbiddenError("Not allow to attach")
+	err = isObjectRbacAllowed(ctx, master, userCred, policy.PolicyActionPerform, "detach")
+	if err != nil {
+		return nil, err
+	}
+	err = isObjectRbacAllowed(ctx, slave, userCred, policy.PolicyActionPerform, "detach")
+	if err != nil {
+		return nil, err
 	}
 
 	lockman.LockJointObject(ctx, master, slave)

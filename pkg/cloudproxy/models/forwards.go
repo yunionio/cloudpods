@@ -29,7 +29,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -200,10 +199,6 @@ func (man *SForwardManager) validatePortReq(
 		data, err = validateOne(portReq)
 	}
 	return data, err
-}
-
-func (man *SForwardManager) AllowPerformCreateFromServer(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAllowClassPerform(rbacutils.ScopeProject, userCred, man, "create-from-server")
 }
 
 func (man *SForwardManager) PerformCreateFromServer(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *cloudproxy_api.ForwardCreateFromServerInput) (jsonutils.JSONObject, error) {
@@ -472,10 +467,6 @@ func (man *SForwardManager) FetchCustomizeColumns(
 	return r
 }
 
-func (man *SForwardManager) AllowPerformHeartbeat(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAllowClassPerform(rbacutils.ScopeProject, userCred, man, "heartbeat")
-}
-
 func (fwd *SForward) PerformHeartbeat(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *cloudproxy_api.ForwardHeartbeatInput) (jsonutils.JSONObject, error) {
 	if _, err := db.Update(fwd, func() error {
 		fwd.LastSeen = time.Now()
@@ -484,10 +475,6 @@ func (fwd *SForward) PerformHeartbeat(ctx context.Context, userCred mcclient.Tok
 		return nil, err
 	}
 	return nil, nil
-}
-
-func (fwd *SForward) AllowGetDetailsLastseen(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return fwd.IsOwner(userCred) || db.IsAllowGetSpec(rbacutils.ScopeSystem, userCred, fwd, "last_seen")
 }
 
 func (fwd *SForward) GetDetailsLastseen(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {

@@ -58,14 +58,6 @@ func (p *SLoadbalancerAgentDeployment) IsZero() bool {
 	return false
 }
 
-func (lbagent *SLoadbalancerAgent) AllowPerformDeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
-	return db.IsAdminAllowPerform(userCred, lbagent, "deploy")
-}
-
-func (lbagent *SLoadbalancerAgent) AllowPerformUndeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
-	return db.IsAdminAllowPerform(userCred, lbagent, "undeploy")
-}
-
 func (lbagent *SLoadbalancerAgent) deploy(ctx context.Context, userCred mcclient.TokenCredential, input *compute_apis.LoadbalancerAgentDeployInput) (*ansible.Playbook, error) {
 	pb := &ansible.Playbook{
 		Inventory: ansible.Inventory{

@@ -74,22 +74,6 @@ func (manager *SAccessGroupCacheManager) ResourceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeDomain
 }
 
-func (manager *SAccessGroupCacheManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
-func (manager *SAccessGroupCacheManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsDomainAllowList(userCred, manager)
-}
-
-func (self *SAccessGroupCache) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	group, err := self.GetAccessGroup()
-	if err != nil {
-		return false
-	}
-	return group.AllowUpdateItem(ctx, userCred)
-}
-
 func (manager *SAccessGroupCacheManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
@@ -632,10 +616,6 @@ func (self *SAccessGroupCache) SyncStatus(ctx context.Context, userCred mcclient
 		return err
 	}
 	return self.syncAccessGroupBaseInfo(ctx, userCred, iAccessGroup)
-}
-
-func (self *SAccessGroupCache) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowPerform(userCred, self, "syncstatus")
 }
 
 // 同步权限组缓存状态

@@ -12,17 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package policy
+package ssh
 
-import (
-	"time"
+import "os"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
-)
-
-func EnableGlobalRbac(refreshInterval time.Duration, debug bool) {
-	if debug {
-		consts.EnableRbacDebug()
-	}
-	PolicyManager.init(refreshInterval)
-}
+func setsignal(sigwinchCh chan os.Signal) {}

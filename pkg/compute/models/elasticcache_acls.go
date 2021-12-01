@@ -196,10 +196,6 @@ func (manager *SElasticcacheAclManager) FilterByUniqValues(q *sqlchemy.SQuery, v
 	return q
 }
 
-func (manager *SElasticcacheAclManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, manager)
-}
-
 func (manager *SElasticcacheAclManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	var region *SCloudregion
 	if id, _ := data.GetString("elasticcache"); len(id) > 0 {
@@ -260,11 +256,6 @@ func (self *SElasticcacheAcl) GetRegion() *SCloudregion {
 
 	region, _ := ieb.(*SElasticcache).GetRegion()
 	return region
-}
-
-func (self *SElasticcacheAcl) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	// todo: fix me self.IsOwner(userCred) ||
-	return db.IsAdminAllowUpdate(userCred, self)
 }
 
 func (self *SElasticcacheAcl) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

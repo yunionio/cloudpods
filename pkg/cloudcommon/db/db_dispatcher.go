@@ -78,11 +78,7 @@ func (dispatcher *DBModelDispatcher) ContextKeywordPlurals() [][]string {
 }
 
 func (dispatcher *DBModelDispatcher) Filter(f appsrv.FilterHandler) appsrv.FilterHandler {
-	if consts.IsRbacEnabled() {
-		return auth.AuthenticateWithDelayDecision(f, true)
-	} else {
-		return auth.Authenticate(f)
-	}
+	return auth.AuthenticateWithDelayDecision(f, true)
 }
 
 func (dispatcher *DBModelDispatcher) CustomizeHandlerInfo(handler *appsrv.SHandlerInfo) {
@@ -632,6 +628,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		return nil, errors.Wrap(err, "listItemQueryFiltersRaw")
 	}
 
+	log.Debugf("Query: %s", q.String(q.Field("id")))
 	var totalCnt int
 	if pagingConf == nil {
 		totalCnt, err = q.CountWithError()
@@ -908,7 +905,6 @@ func getItemDetails(manager IModelManager, item IModel, ctx context.Context, use
 func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, property string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
 	funcName := fmt.Sprintf("GetProperty%s", utils.Kebab2Camel(property, "-"))
-	allowFuncName := "Allow" + funcName
 	modelValue := reflect.ValueOf(dispatcher.modelManager)
 	params := []interface{}{ctx, userCred, query}
 
@@ -917,26 +913,9 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 		return nil, nil
 	}
 
-	if consts.IsRbacEnabled() {
-		_, _, err, _ := FetchCheckQueryOwnerScope(ctx, userCred, query, dispatcher.modelManager, policy.PolicyActionList, true)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		funcValue := modelValue.MethodByName(allowFuncName)
-		if !funcValue.IsValid() || funcValue.IsNil() {
-			return nil, nil
-		}
-		outs, err := callFunc(funcValue, allowFuncName, params...)
-		if err != nil {
-			return nil, httperrors.NewInternalServerError("reflect call %s fail %s", allowFuncName, err)
-		}
-		if len(outs) != 1 {
-			return nil, httperrors.NewInternalServerError("Invald %s return value", funcName)
-		}
-		if !outs[0].Bool() {
-			return nil, httperrors.NewForbiddenError("%s not allow to get property %s", dispatcher.Keyword(), property)
-		}
+	_, _, err, _ := FetchCheckQueryOwnerScope(ctx, userCred, query, dispatcher.modelManager, policy.PolicyActionList, true)
+	if err != nil {
+		return nil, err
 	}
 
 	outs, err := callFunc(funcValue, funcName, params...)
@@ -984,13 +963,9 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 		return nil, err
 	}
 
-	if consts.IsRbacEnabled() {
-		err := isObjectRbacAllowed(ctx, model, userCred, policy.PolicyActionGet)
-		if err != nil {
-			return nil, err
-		}
-	} else if !model.AllowGetDetails(ctx, userCred, query) {
-		return nil, httperrors.NewForbiddenError("Not allow to get details")
+	err = isObjectRbacAllowed(ctx, model, userCred, policy.PolicyActionGet)
+	if err != nil {
+		return nil, err
 	}
 
 	if userCred.HasSystemAdminPrivilege() && dispatcher.modelManager.GetSkipLog(ctx, userCred, query) {
@@ -1016,29 +991,9 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 	specCamel := utils.Kebab2Camel(spec, "-")
 	modelValue := reflect.ValueOf(model)
 
-	if consts.IsRbacEnabled() {
-		err := isObjectRbacAllowed(ctx, model, userCred, policy.PolicyActionGet, spec)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		funcName := fmt.Sprintf("AllowGetDetails%s", specCamel)
-
-		funcValue := modelValue.MethodByName(funcName)
-		if !funcValue.IsValid() || funcValue.IsNil() {
-			return nil, httperrors.NewSpecNotFoundError("%s %s %s not found", dispatcher.Keyword(), idStr, spec)
-		}
-
-		outs, err := callFunc(funcValue, funcName, params...)
-		if err != nil {
-			return nil, err
-		}
-		if len(outs) != 1 {
-			return nil, httperrors.NewInternalServerError("Invald %s return value", funcName)
-		}
-		if !outs[0].Bool() {
-			return nil, httperrors.NewForbiddenError("%s not allow to get spec %s", dispatcher.Keyword(), spec)
-		}
+	err = isObjectRbacAllowed(ctx, model, userCred, policy.PolicyActionGet, spec)
+	if err != nil {
+		return nil, err
 	}
 
 	funcName := fmt.Sprintf("GetDetails%s", specCamel)
@@ -1302,11 +1257,9 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 	}
 
 	var policyResult rbacutils.SPolicyResult
-	if consts.IsRbacEnabled() {
-		policyResult, err = isClassRbacAllowed(ctx, dispatcher.modelManager, userCred, ownerId, policy.PolicyActionCreate)
-		if err != nil {
-			return nil, errors.Wrap(err, "isClassRbacAllowed")
-		}
+	policyResult, err = isClassRbacAllowed(ctx, dispatcher.modelManager, userCred, ownerId, policy.PolicyActionCreate)
+	if err != nil {
+		return nil, errors.Wrap(err, "isClassRbacAllowed")
 	}
 
 	if InitPendingUsagesInContext != nil {
@@ -1391,11 +1344,9 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 	}
 
 	var policyResult rbacutils.SPolicyResult
-	if consts.IsRbacEnabled() {
-		policyResult, err = isClassRbacAllowed(ctx, manager, userCred, ownerId, policy.PolicyActionCreate)
-		if err != nil {
-			return nil, errors.Wrap(err, "isClassRbacAllowd")
-		}
+	policyResult, err = isClassRbacAllowed(ctx, manager, userCred, ownerId, policy.PolicyActionCreate)
+	if err != nil {
+		return nil, errors.Wrap(err, "isClassRbacAllowd")
 	}
 
 	data.(*jsonutils.JSONDict).Update(policyResult.Json())
@@ -1600,22 +1551,20 @@ func reflectDispatcherInternal(
 	}
 
 	var result rbacutils.SPolicyResult
-	if consts.IsRbacEnabled() {
-		if model == nil {
-			ownerId, err := fetchOwnerId(ctx, dispatcher.modelManager, userCred, data)
-			if err != nil {
-				return nil, httperrors.NewGeneralError(err)
-			}
-			_, err = isClassRbacAllowed(ctx, dispatcher.modelManager, userCred, ownerId, operator, spec)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			var err error
-			result, err = isObjectRbacAllowedResult(ctx, model, userCred, operator, spec)
-			if err != nil {
-				return nil, err
-			}
+	if model == nil {
+		ownerId, err := fetchOwnerId(ctx, dispatcher.modelManager, userCred, data)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+		_, err = isClassRbacAllowed(ctx, dispatcher.modelManager, userCred, ownerId, operator, spec)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		var err error
+		result, err = isObjectRbacAllowedResult(ctx, model, userCred, operator, spec)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -1701,15 +1650,11 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	if consts.IsRbacEnabled() {
-		result, err := isObjectRbacAllowedResult(ctx, model, userCred, policy.PolicyActionUpdate)
-		if err != nil {
-			return nil, err
-		}
-		data.(*jsonutils.JSONDict).Update(result.Json())
-	} else if !model.AllowUpdateItem(ctx, userCred) {
-		return nil, httperrors.NewForbiddenError("Not allow to update item")
+	result, err := isObjectRbacAllowedResult(ctx, model, userCred, policy.PolicyActionUpdate)
+	if err != nil {
+		return nil, err
 	}
+	data.(*jsonutils.JSONDict).Update(result.Json())
 
 	if len(ctxIds) > 0 {
 		ctxObjs, err := fetchContextObjects(dispatcher.modelManager, ctx, userCred, ctxIds)
@@ -1797,13 +1742,9 @@ func (dispatcher *DBModelDispatcher) Delete(ctx context.Context, idstr string, q
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	if consts.IsRbacEnabled() {
-		err := isObjectRbacAllowed(ctx, model, userCred, policy.PolicyActionDelete)
-		if err != nil {
-			return nil, err
-		}
-	} else if !model.AllowDeleteItem(ctx, userCred, query, data) {
-		return nil, httperrors.NewForbiddenError("%s(%s) not allow to delete", dispatcher.modelManager.KeywordPlural(), model.GetId())
+	err = isObjectRbacAllowed(ctx, model, userCred, policy.PolicyActionDelete)
+	if err != nil {
+		return nil, err
 	}
 
 	if len(ctxIds) > 0 {

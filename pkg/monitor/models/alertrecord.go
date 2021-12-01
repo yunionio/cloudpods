@@ -371,11 +371,6 @@ func (manager *SAlertRecordManager) DeleteRecordsOfThirtyDaysAgo(ctx context.Con
 	}
 }
 
-func (manager *SAlertRecordManager) AllowGetPropertyTotalAlert(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) bool {
-	return true
-}
-
 func (manager *SAlertRecordManager) GetPropertyTotalAlert(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	input := new(monitor.AlertRecordListInput)

@@ -28,10 +28,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
 
-func (lblis *SLoadbalancerListener) AllowGetDetailsBackendStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsProjectAllowGetSpec(userCred, lblis, "backend-status")
-}
-
 func (lblis *SLoadbalancerListener) GetDetailsBackendStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	provider := lblis.GetCloudprovider()
 	if provider != nil {
@@ -48,10 +44,6 @@ func (lblis *SLoadbalancerListener) GetDetailsBackendStatus(ctx context.Context,
 		pxname = fmt.Sprintf("backends_listener_default-%s", lblis.Id)
 	}
 	return lbGetBackendGroupCheckStatus(ctx, userCred, lblis.LoadbalancerId, pxname, lblis.BackendGroupId)
-}
-
-func (lbr *SLoadbalancerListenerRule) AllowGetDetailsBackendStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsProjectAllowGetSpec(userCred, lbr, "backend-status")
 }
 
 func (lbr *SLoadbalancerListenerRule) GetDetailsBackendStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {

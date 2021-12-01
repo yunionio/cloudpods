@@ -242,7 +242,7 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 				backends[i].Address = address
 				backendRegion, _ = host.GetRegion()
 			case api.LB_BACKEND_HOST:
-				if !db.IsAdminAllowCreate(userCred, man) {
+				if db.IsAdminAllowCreate(userCred, man).Result.IsDeny() {
 					return nil, httperrors.NewForbiddenError("only sysadmin can specify host as backend")
 				}
 				_host, err := HostManager.FetchByIdOrName(userCred, backends[i].ID)
@@ -418,10 +418,6 @@ func (man *SLoadbalancerBackendGroupManager) FilterZeroRefBackendGroup(q *sqlche
 	return q, nil
 }
 
-func (lbbg *SLoadbalancerBackendGroup) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
 func (lbbg *SLoadbalancerBackendGroup) isDefault(ctx context.Context) (bool, error) {
 	q := LoadbalancerManager.Query().Equals("backend_group_id", lbbg.GetId()).Equals("id", lbbg.LoadbalancerId)
 	count, err := q.CountWithError()
@@ -487,7 +483,7 @@ func (man *SLoadbalancerBackendGroupManager) FetchCustomizeColumns(
 
 	for i := range objs {
 		q := LoadbalancerListenerManager.Query().IsFalse("pending_deleted").Equals("backend_group_id", objs[i].(*SLoadbalancerBackendGroup).GetId())
-		ownerId, queryScope, err := db.FetchCheckQueryOwnerScope(ctx, userCred, query, LoadbalancerListenerManager, policy.PolicyActionList, true)
+		ownerId, queryScope, err, _ := db.FetchCheckQueryOwnerScope(ctx, userCred, query, LoadbalancerListenerManager, policy.PolicyActionList, true)
 		if err != nil {
 			log.Errorf("FetchCheckQueryOwnerScope error: %v", err)
 			return rows
@@ -577,10 +573,6 @@ func (lbbg *SLoadbalancerBackendGroup) pendingDeleteSubs(ctx context.Context, us
 	defer lockman.ReleaseClass(ctx, subMan, db.GetLockClassKey(subMan, ownerId))
 	q := subMan.Query().Equals("backend_group_id", lbbg.Id)
 	subMan.pendingDeleteSubs(ctx, userCred, q)
-}
-
-func (lbbg *SLoadbalancerBackendGroup) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, lbbg, "purge")
 }
 
 func (lbbg *SLoadbalancerBackendGroup) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

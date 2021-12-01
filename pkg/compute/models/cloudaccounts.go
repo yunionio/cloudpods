@@ -616,10 +616,6 @@ func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.Tok
 	}
 }
 
-func (ca *SCloudaccount) AllowPerformSyncVMwareNetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return ca.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, ca, "sync-vmware-network")
-}
-
 func (ca *SCloudaccount) PerformSyncVMwareNetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountSyncVMwareNetworkInput) (jsonutils.JSONObject, error) {
 	return nil, ca.StartSyncVMwareNetworkTask(ctx, userCred, "", input.Zone)
 }
@@ -641,10 +637,6 @@ func (self *SCloudaccount) getPassword() (string, error) {
 	return utils.DescryptAESBase64(self.Id, self.Secret)
 }
 
-func (self *SCloudaccount) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "sync")
-}
-
 func (self *SCloudaccount) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SyncRangeInput) (jsonutils.JSONObject, error) {
 	if !self.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Account disabled")
@@ -662,10 +654,6 @@ func (self *SCloudaccount) PerformSync(ctx context.Context, userCred mcclient.To
 		return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &syncRange, "")
 	}
 	return nil, nil
-}
-
-func (self *SCloudaccount) AllowPerformTestConnectivity(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "test-connectivity")
 }
 
 // 测试账号连通性(更新秘钥信息时)
@@ -693,10 +681,6 @@ func (self *SCloudaccount) PerformTestConnectivity(ctx context.Context, userCred
 	}
 
 	return nil, nil
-}
-
-func (self *SCloudaccount) AllowPerformUpdateCredential(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "update-credential")
 }
 
 func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1527,10 +1511,6 @@ func (self *SCloudaccount) GetBalance() (float64, error) {
 	return self.Balance, nil
 }
 
-func (self *SCloudaccount) AllowGetDetailsBalance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGetSpec(userCred, self, "balance")
-}
-
 func (self *SCloudaccount) GetDetailsBalance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	balance, err := self.GetBalance()
 	if err != nil {
@@ -1586,10 +1566,6 @@ func (self *SCloudaccount) GetVCenterAccessInfo(privateId string) (vcenter.SVCen
 // +onecloud:swagger-gen-ignore
 func (account *SCloudaccount) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeDomainOwnerInput) (jsonutils.JSONObject, error) {
 	return nil, errors.Wrap(httperrors.ErrForbidden, "can't change domain owner of cloudaccount, use PerformChangeProject instead")
-}
-
-func (self *SCloudaccount) AllowPerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) bool {
-	return db.IsAdminAllowPerform(userCred, self, "change-project")
 }
 
 func (self *SCloudaccount) PerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
@@ -1767,10 +1743,6 @@ func (manager *SCloudaccountManager) OrderByExtraFields(
 	return q, nil
 }
 
-func (self *SCloudaccount) AllowPerformEnableAutoSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "enable-auto-sync")
-}
-
 func (self *SCloudaccount) PerformEnableAutoSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountEnableAutoSyncInput) (jsonutils.JSONObject, error) {
 	if self.EnableAutoSync {
 		return nil, nil
@@ -1812,10 +1784,6 @@ func (self *SCloudaccount) resetAutoSync() {
 	for i := range providers {
 		providers[i].resetAutoSync()
 	}
-}
-
-func (self *SCloudaccount) AllowPerformDisableAutoSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "disable-auto-sync")
 }
 
 func (self *SCloudaccount) PerformDisableAutoSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -2338,10 +2306,6 @@ func (account *SCloudaccount) setShareMode(userCred mcclient.TokenCredential, mo
 	return nil
 }
 
-func (account *SCloudaccount) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountPerformPublicInput) bool {
-	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, account, "public")
-}
-
 func (account *SCloudaccount) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountPerformPublicInput) (jsonutils.JSONObject, error) {
 	if !account.CanSync() {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "cannot public in sync")
@@ -2395,10 +2359,6 @@ func (account *SCloudaccount) PerformPublic(ctx context.Context, userCred mcclie
 	return nil, nil
 }
 
-func (account *SCloudaccount) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) bool {
-	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, account, "private")
-}
-
 func (account *SCloudaccount) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
 	if !account.CanSync() {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "cannot private in sync")
@@ -2432,11 +2392,6 @@ func (account *SCloudaccount) PerformPrivate(ctx context.Context, userCred mccli
 	account.StartSyncCloudProviderInfoTask(ctx, userCred, syncRange, "")
 
 	return nil, nil
-}
-
-// Deprecated
-func (account *SCloudaccount) AllowPerformShareMode(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountShareModeInput) bool {
-	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, account, "share-mode")
 }
 
 // Deprecated
@@ -2582,10 +2537,6 @@ func guessBrandForHypervisor(hypervisor string) string {
 		return ""
 	}
 	return brands[0]
-}
-
-func (account *SCloudaccount) AllowPerformSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, account, "sync-skus")
 }
 
 func (account *SCloudaccount) PerformSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountSyncSkusInput) (jsonutils.JSONObject, error) {
@@ -2834,10 +2785,6 @@ func (self *SCloudaccount) SyncProject(ctx context.Context, userCred mcclient.To
 	return extProj.ExternalId, nil
 }
 
-func (self *SCloudaccount) AllowGetDetailsEnrollmentAccounts(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsDomainAllowGetSpec(userCred, self, "enrollment-accounts")
-}
-
 // 获取Azure Enrollment Accounts
 func (self *SCloudaccount) GetDetailsEnrollmentAccounts(ctx context.Context, userCred mcclient.TokenCredential, query api.EnrollmentAccountQuery) ([]cloudprovider.SEnrollmentAccount, error) {
 	if self.Provider != api.CLOUD_PROVIDER_AZURE {
@@ -2854,10 +2801,6 @@ func (self *SCloudaccount) GetDetailsEnrollmentAccounts(ctx context.Context, use
 	}
 
 	return result, nil
-}
-
-func (self *SCloudaccount) AllowPerformCreateSubscription(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowPerform(userCred, self, "create-subscription")
 }
 
 // 创建Azure订阅
@@ -3055,7 +2998,7 @@ func (cd *SCloudaccount) GetHost2Wire(ctx context.Context, userCred mcclient.Tok
 	if cd.vmwareHostWireCache != nil {
 		return cd.vmwareHostWireCache, nil
 	}
-	hwJson := cd.GetMetadataJson(METADATA_EXT_HOST2WIRE_KEY, userCred)
+	hwJson := cd.GetMetadataJson(ctx, METADATA_EXT_HOST2WIRE_KEY, userCred)
 	if hwJson == nil {
 		return nil, fmt.Errorf("The cloud account synchronization network may have failed, please check the operation log first and solve the synchronization network problem")
 	}
@@ -3066,10 +3009,6 @@ func (cd *SCloudaccount) GetHost2Wire(ctx context.Context, userCred mcclient.Tok
 	}
 	cd.vmwareHostWireCache = ret
 	return cd.vmwareHostWireCache, nil
-}
-
-func (self *SCloudaccount) AllowPerformProjectMapping(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "project-mapping")
 }
 
 // 绑定同步策略

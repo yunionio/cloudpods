@@ -21,6 +21,18 @@ import (
 
 type TTagSetList []TTagSet
 
+func (t1 TTagSetList) IsEmpty() bool {
+	if len(t1) == 0 {
+		return true
+	}
+	for i := range t1 {
+		if len(t1[i]) > 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func (t1 TTagSetList) Contains(t2 TTagSet) bool {
 	if len(t1) == 0 {
 		return true

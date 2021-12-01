@@ -101,16 +101,10 @@ func (manager *SStandaloneAnonResourceBaseManager) FilterByHiddenSystemAttribute
 	showEmulated := jsonutils.QueryBoolean(query, "show_emulated", false)
 	if showEmulated {
 		var isAllow bool
-		if consts.IsRbacEnabled() {
-			// TODO, add tagfilter
-			allowScope, _ := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList, "show_emulated")
-			if !scope.HigherThan(allowScope) {
-				isAllow = true
-			}
-		} else {
-			if userCred.HasSystemAdminPrivilege() {
-				isAllow = true
-			}
+		// TODO, add tagfilter
+		allowScope, _ := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList, "show_emulated")
+		if !scope.HigherThan(allowScope) {
+			isAllow = true
 		}
 		if !isAllow {
 			showEmulated = false

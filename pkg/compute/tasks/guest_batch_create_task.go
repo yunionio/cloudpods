@@ -109,7 +109,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 
 	if conditionparser.IsTemplate(guest.Name) {
 		guestInfo := guest.GetShortDesc(ctx)
-		generateName := guest.GetMetadata("generate_name", self.UserCred)
+		generateName := guest.GetMetadata(ctx, "generate_name", self.UserCred)
 		if len(generateName) == 0 {
 			generateName = guest.Name
 		}

@@ -116,15 +116,15 @@ func (manager *SDomainizedResourceBaseManager) ListItemFilter(
 		)).SubQuery()
 		q = q.In("domain_id", subq)
 	}
-	if len(query.DomainTags) > 0 {
+	if !query.DomainTags.IsEmpty() {
 		subq := objIdQueryWithTags("domain", nil, query.DomainTags).SubQuery()
 		q = q.In("domain_id", subq)
 	}
-	if len(query.NoDomainTags) > 0 {
+	if !query.NoDomainTags.IsEmpty() {
 		subq := objIdQueryWithTags("domain", nil, query.NoDomainTags).SubQuery()
 		q = q.NotIn("domain_id", subq)
 	}
-	if len(query.PolicyDomainTags) > 0 {
+	if !query.PolicyDomainTags.IsEmpty() {
 		subq := objIdQueryWithTags("domain", nil, query.PolicyDomainTags).SubQuery()
 		q = q.In("domain_id", subq)
 	}

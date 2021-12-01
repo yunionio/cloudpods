@@ -64,10 +64,6 @@ func (mn *SMeshNetwork) CustomizeDelete(ctx context.Context, userCred mcclient.T
 	return yerrors.NewAggregate(errs)
 }
 
-func (mn *SMeshNetwork) AllowPerformRealize(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, mn, "realize")
-}
-
 func (mn *SMeshNetwork) PerformRealize(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	members, err := MeshNetworkMemberManager.getMemebersByMeshNetwork(ctx, userCred, mn)
 	if err != nil {

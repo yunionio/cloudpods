@@ -407,10 +407,6 @@ func (sm *STopicManager) TopicsByEvent(eventStr string, advanceDays int) ([]STop
 	return topics, nil
 }
 
-func (t *STopic) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input notify.PerformEnableInput) bool {
-	return db.IsAdminAllowPerform(userCred, t, "enable")
-}
-
 func (t *STopic) PreCheckPerformAction(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	action string, query jsonutils.JSONObject, data jsonutils.JSONObject,
@@ -419,23 +415,11 @@ func (t *STopic) PreCheckPerformAction(
 		return err
 	}
 	if action == "enable" || action == "disable" {
-		if !db.IsAdminAllowPerform(userCred, t, action) {
+		if !db.IsAdminAllowPerform(ctx, userCred, t, action) {
 			return httperrors.NewForbiddenError("only allow admin to perform enable operations")
 		}
 	}
 	return nil
-}
-
-func (t *STopic) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input notify.PerformEnableInput) (jsonutils.JSONObject, error) {
-	err := db.EnabledPerformEnable(t, ctx, userCred, true)
-	if err != nil {
-		return nil, errors.Wrap(err, "EnabledPerformEnable")
-	}
-	return nil, nil
-}
-
-func (t *STopic) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input notify.PerformDisableInput) bool {
-	return db.IsAdminAllowPerform(userCred, t, "disable")
 }
 
 func (t *STopic) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input notify.PerformDisableInput) (jsonutils.JSONObject, error) {

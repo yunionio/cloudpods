@@ -319,18 +319,7 @@ func FetchCheckQueryOwnerScope(ctx context.Context, userCred mcclient.TokenCrede
 
 	resScope := manager.ResourceScope()
 
-	if consts.IsRbacEnabled() {
-		allowScope, policyTagFilters = policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), action)
-	} else {
-		if userCred.HasSystemAdminPrivilege() {
-			allowScope = rbacutils.ScopeSystem
-		} else {
-			allowScope = rbacutils.ScopeProject
-			if resScope == rbacutils.ScopeUser {
-				allowScope = rbacutils.ScopeUser
-			}
-		}
-	}
+	allowScope, policyTagFilters = policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), action)
 
 	ownerId, err := manager.FetchOwnerId(ctx, data)
 	if err != nil {

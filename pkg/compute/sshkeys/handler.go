@@ -41,7 +41,7 @@ func AddSshKeysHandler(prefix string, app *appsrv.Application) {
 func adminSshKeysHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	publicOnly := false
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
-	if !userCred.IsAllow(rbacutils.ScopeDomain, consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet) {
+	if !userCred.IsAllow(rbacutils.ScopeDomain, consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet).Result.IsAllow() {
 		publicOnly = true
 	}
 	params := appctx.AppContextParams(ctx)
@@ -85,7 +85,7 @@ func sshKeysHandler(ctx context.Context, w http.ResponseWriter, r *http.Request)
 func sendSshKey(ctx context.Context, w http.ResponseWriter, userCred mcclient.TokenCredential, projectId string, isAdmin bool, publicOnly bool) {
 	var privKey, pubKey string
 
-	if isAdmin && userCred.IsAllow(rbacutils.ScopeSystem, consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet) {
+	if isAdmin && userCred.IsAllow(rbacutils.ScopeSystem, consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet).Result.IsAllow() {
 		privKey, pubKey, _ = GetSshAdminKeypair(ctx)
 	} else {
 		privKey, pubKey, _ = GetSshProjectKeypair(ctx, projectId)

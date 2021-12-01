@@ -29,7 +29,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 // Add revision?
@@ -62,10 +61,6 @@ func init() {
 		),
 	}
 	ProxyEndpointManager.SetVirtualObject(ProxyEndpointManager)
-}
-
-func (man *SProxyEndpointManager) AllowPerformCreateFromServer(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAllowClassPerform(rbacutils.ScopeProject, userCred, man, "create-from-server")
 }
 
 func (man *SProxyEndpointManager) PerformCreateFromServer(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *cloudproxy_api.ProxyEndpointCreateFromServerInput) (jsonutils.JSONObject, error) {
@@ -252,10 +247,6 @@ func (proxyendpoint *SProxyEndpoint) ValidateDeleteCondition(ctx context.Context
 	} else {
 		return nil
 	}
-}
-
-func (proxyendpoint *SProxyEndpoint) AllowPerformPurgeForwards(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return proxyendpoint.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, proxyendpoint, "purge-forwards")
 }
 
 func (proxyendpoint *SProxyEndpoint) PerformPurgeForwards(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

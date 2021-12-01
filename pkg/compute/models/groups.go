@@ -220,11 +220,6 @@ func (group *SGroup) GetNetworks() ([]SGroupnetwork, error) {
 	return groupnets, nil
 }
 
-func (group *SGroup) AllowPerformBindGuests(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-
-	return group.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, group, "bind-guests")
-}
-
 func (group *SGroup) PerformBindGuests(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 
@@ -262,12 +257,6 @@ func (group *SGroup) PerformBindGuests(ctx context.Context, userCred mcclient.To
 	}
 	logclient.AddActionLogWithContext(ctx, group, logclient.ACT_VM_ASSOCIATE, nil, userCred, true)
 	return nil, nil
-}
-
-func (group *SGroup) AllowPerformUnbindGuests(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) bool {
-
-	return group.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, group, "unbind-guests")
 }
 
 func (group *SGroup) PerformUnbindGuests(ctx context.Context, userCred mcclient.TokenCredential,
@@ -337,20 +326,12 @@ func (group *SGroup) checkGuests(ctx context.Context, userCred mcclient.TokenCre
 	return
 }
 
-func (group *SGroup) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) bool {
-	return group.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, group, "enable")
-}
-
 func (group *SGroup) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
 	err := db.EnabledPerformEnable(group, ctx, userCred, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "EnabledPerformEnable")
 	}
 	return nil, nil
-}
-
-func (group *SGroup) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) bool {
-	return group.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, group, "disable")
 }
 
 func (group *SGroup) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {

@@ -131,12 +131,6 @@ func (scm *SServiceCatalogManager) ValidateCreateData(ctx context.Context, userC
 	return data, nil
 }
 
-func (sc *SServiceCatalog) AllowPerformDeploy(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-
-	return sc.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, sc, "deploy")
-}
-
 func (sc *SServiceCatalog) PerformDeploy(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, input *computeapis.ServiceCatalogDeploy) (jsonutils.JSONObject, error) {
 

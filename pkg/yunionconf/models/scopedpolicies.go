@@ -187,15 +187,6 @@ func (manager *SScopedPolicyManager) ListItemExportKeys(ctx context.Context,
 	return q, nil
 }
 
-func (policy *SScopedPolicy) AllowPerformBind(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	input api.ScopedPolicyBindInput,
-) bool {
-	return true
-}
-
 func (policy *SScopedPolicy) PerformBind(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

@@ -302,10 +302,6 @@ func (self *SVpcPeeringConnection) RealDelete(ctx context.Context, userCred mccl
 	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
-func (self *SVpcPeeringConnection) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "syncstatus")
-}
-
 // 同步状态
 func (self *SVpcPeeringConnection) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.VpcSyncstatusInput) (jsonutils.JSONObject, error) {
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "VpcPeeringConnectionSyncstatusTask", "")

@@ -153,20 +153,12 @@ func (apb *SAnsiblePlaybook) PostUpdate(ctx context.Context, userCred mcclient.T
 	}
 }
 
-func (apb *SAnsiblePlaybook) AllowPerformRun(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return apb.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, apb, "run")
-}
-
 func (apb *SAnsiblePlaybook) PerformRun(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	err := apb.runPlaybook(ctx, userCred)
 	if err != nil {
 		return nil, httperrors.NewConflictError("%s", err.Error())
 	}
 	return nil, nil
-}
-
-func (apb *SAnsiblePlaybook) AllowPerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return apb.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, apb, "stop")
 }
 
 func (apb *SAnsiblePlaybook) PerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

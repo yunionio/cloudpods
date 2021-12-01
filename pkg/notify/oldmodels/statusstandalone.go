@@ -23,7 +23,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SStatusStandaloneResourceBase struct {
@@ -62,10 +61,6 @@ func (model *SStatusStandaloneResourceBase) SetStatus(userCred mcclient.TokenCre
 	return nil
 }
 
-func (model *SStatusStandaloneResourceBase) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "status")
-}
-
 func (model *SStatusStandaloneResourceBase) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	status, err := data.GetString("status")
 	if err != nil {
@@ -78,10 +73,6 @@ func (model *SStatusStandaloneResourceBase) PerformStatus(ctx context.Context, u
 
 func (model *SStatusStandaloneResourceBase) IsInStatus(status ...string) bool {
 	return utils.IsInStringArray(model.Status, status)
-}
-
-func (model *SStatusStandaloneResourceBase) AllowGetDetailsStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAllowGetSpec(rbacutils.ScopeSystem, userCred, model, "status")
 }
 
 func (model *SStatusStandaloneResourceBase) GetDetailsStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {

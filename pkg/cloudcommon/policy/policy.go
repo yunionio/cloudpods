@@ -445,13 +445,6 @@ func explainPolicyInternal(userCred mcclient.TokenCredential, policyReq jsonutil
 
 	scopeStr, _ := policySeq[0].GetString()
 	scope := rbacutils.String2Scope(scopeStr)
-	if !consts.IsRbacEnabled() {
-		if scope == rbacutils.ScopeProject || (scope == rbacutils.ScopeSystem && userCred.HasSystemAdminPrivilege()) {
-			return scope, reqStrs, rbacutils.PolicyAllow, rbacutils.PolicyAllow, nil
-		} else {
-			return scope, reqStrs, rbacutils.PolicyDeny, rbacutils.PolicyDeny, httperrors.NewForbiddenError("operation not allowed")
-		}
-	}
 
 	userResult := PolicyManager.Allow(scope, userCred, service, resource, action, extra...)
 	result := userResult
@@ -506,16 +499,6 @@ func ExplainRpc(ctx context.Context, userCred mcclient.TokenCredential, params j
 }
 
 func (manager *SPolicyManager) IsScopeCapable(userCred mcclient.TokenCredential, scope rbacutils.TRbacScope) bool {
-	if !consts.IsRbacEnabled() {
-		if userCred.HasSystemAdminPrivilege() {
-			return true
-		}
-		if scope == rbacutils.ScopeProject {
-			return true
-		}
-		return false
-	}
-
 	policies, err := manager.fetchMatchedPolicies(userCred)
 	if err != nil {
 		log.Errorf("fetchMatchedPolicyGroup fail %s", err)

@@ -718,7 +718,7 @@ func (self *SAwsRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 		}
 		data.Set("address", jsonutils.NewString(address))
 	case api.LB_BACKEND_HOST:
-		if !db.IsAdminAllowCreate(userCred, man) {
+		if db.IsAdminAllowCreate(userCred, man).Result.IsDeny() {
 			return nil, fmt.Errorf("only sysadmin can specify host as backend")
 		}
 		backendV := validators.NewModelIdOrNameValidator("backend", "host", userCred)
@@ -736,7 +736,7 @@ func (self *SAwsRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 		basename = host.Name
 		backend = backendV.Model
 	case api.LB_BACKEND_IP:
-		if !db.IsAdminAllowCreate(userCred, man) {
+		if db.IsAdminAllowCreate(userCred, man).Result.IsDeny() {
 			return nil, fmt.Errorf("only sysadmin can specify ip address as backend")
 		}
 		backendV := validators.NewIPv4AddrValidator("backend")

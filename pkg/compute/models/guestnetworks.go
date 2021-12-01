@@ -189,14 +189,6 @@ func (manager *SGuestnetworkManager) fetchByRowId(
 	return &gns[0], nil
 }
 
-func (manager *SGuestnetworkManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
-func (gn *SGuestnetwork) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
 const MAX_TRIES = 10
 
 func (manager *SGuestnetworkManager) GenerateMac(netId string, suggestion string) (string, error) {

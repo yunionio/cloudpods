@@ -157,7 +157,7 @@ type IModel interface {
 	//GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict
 
 	// get hooks
-	AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool
+	// AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool
 	GetExtraDetailsHeaders(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) map[string]string
 
 	// create hooks
@@ -165,14 +165,14 @@ type IModel interface {
 	PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject)
 
 	// allow perform action
-	AllowPerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
+	// AllowPerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
 	PerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	PreCheckPerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) error
 
 	// update hooks
 	ValidateUpdateCondition(ctx context.Context) error
 
-	AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool
+	// AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool
 	// ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
 	PreUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject)
 	PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject)
@@ -180,7 +180,7 @@ type IModel interface {
 	UpdateInContext(ctx context.Context, userCred mcclient.TokenCredential, ctxObjs []IModel, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error)
 
 	// delete hooks
-	AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
+	// AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
 	// ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error
 	// CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error
 	PreDelete(ctx context.Context, userCred mcclient.TokenCredential)
@@ -228,8 +228,8 @@ type IJointModelManager interface {
 	// FetchByIds(masterId string, slaveId string, query jsonutils.JSONObject) (IJointModel, error)
 	FilterByParams(q *sqlchemy.SQuery, params jsonutils.JSONObject) *sqlchemy.SQuery
 
-	AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, model IStandaloneModel, query jsonutils.JSONObject) bool
-	AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, master IStandaloneModel, slave IStandaloneModel) bool
+	// AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, model IStandaloneModel, query jsonutils.JSONObject) bool
+	// AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, master IStandaloneModel, slave IStandaloneModel) bool
 }
 
 type IJointModel interface {
@@ -239,11 +239,11 @@ type IJointModel interface {
 
 	GetIJointModel() IJointModel
 
-	AllowDetach(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
+	// AllowDetach(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
 
 	Detach(ctx context.Context, userCred mcclient.TokenCredential) error
-	AllowGetJointDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, item IJointModel) bool
-	AllowUpdateJointItem(ctx context.Context, userCred mcclient.TokenCredential, item IJointModel) bool
+	// AllowGetJointDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, item IJointModel) bool
+	// AllowUpdateJointItem(ctx context.Context, userCred mcclient.TokenCredential, item IJointModel) bool
 }
 
 type IMetadataBaseModelManager interface {

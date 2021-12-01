@@ -60,10 +60,6 @@ type SCloudgroup struct {
 	Provider string `width:"64" charset:"ascii" list:"domain" create:"required"`
 }
 
-func (manager *SCloudgroupManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
 // 权限组列表
 func (manager *SCloudgroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CloudgroupListInput) (*sqlchemy.SQuery, error) {
 	var err error
@@ -452,10 +448,6 @@ func (self *SCloudgroup) GetProviderFactory() (cloudprovider.ICloudProviderFacto
 	return cloudprovider.GetProviderFactory(self.Provider)
 }
 
-func (self *SCloudgroup) AllowPerformAddUser(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowPerform(userCred, self, "add-user")
-}
-
 // 向权限组加入用户
 // 权限组状态必须为: available
 func (self *SCloudgroup) PerformAddUser(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudgroupAddUserInput) (jsonutils.JSONObject, error) {
@@ -503,10 +495,6 @@ func (self *SCloudgroup) StartCloudgroupSyncUsersTask(ctx context.Context, userC
 	return nil
 }
 
-func (self *SCloudgroup) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowPerform(userCred, self, "syncstatus")
-}
-
 func (self *SCloudgroup) StartCloudgroupSyncstatusTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "CloudgroupSyncstatusTask", self, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
@@ -520,10 +508,6 @@ func (self *SCloudgroup) StartCloudgroupSyncstatusTask(ctx context.Context, user
 // 恢复权限组状态
 func (self *SCloudgroup) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudgroupSyncstatusInput) (jsonutils.JSONObject, error) {
 	return nil, self.StartCloudgroupSyncstatusTask(ctx, userCred, "")
-}
-
-func (self *SCloudgroup) AllowPerformRemoveUser(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowPerform(userCred, self, "remove-user")
 }
 
 // 从权限组移除用户
@@ -567,10 +551,6 @@ func (self *SCloudgroup) addUser(userId string) error {
 	gu.ClouduserId = userId
 	gu.CloudgroupId = self.Id
 	return CloudgroupUserManager.TableSpec().Insert(context.Background(), gu)
-}
-
-func (self *SCloudgroup) AllowPerformSetUsers(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowPerform(userCred, self, "set-users")
 }
 
 // 设置权限组用户(全量覆盖)
@@ -640,10 +620,6 @@ func (self *SCloudgroup) PerformSetUsers(ctx context.Context, userCred mcclient.
 	}
 
 	return nil, self.StartCloudgroupSyncUsersTask(ctx, userCred, "")
-}
-
-func (self *SCloudgroup) AllowPerformSetPolicies(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowPerform(userCred, self, "set-policies")
 }
 
 // 设置权限组添权限(全量覆盖)
@@ -723,10 +699,6 @@ func (self *SCloudgroup) StartCloudgroupSyncPoliciesTask(ctx context.Context, us
 	return nil
 }
 
-func (self *SCloudgroup) AllowPerformAttachPolicy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowPerform(userCred, self, "attach-policy")
-}
-
 // 向权限组添加权限
 // 权限组状态必须为: available
 func (self *SCloudgroup) PerformAttachPolicy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudgroupAttachPolicyInput) (jsonutils.JSONObject, error) {
@@ -766,10 +738,6 @@ func (self *SCloudgroup) PerformAttachPolicy(ctx context.Context, userCred mccli
 
 	logclient.AddSimpleActionLog(self, logclient.ACT_ATTACH_POLICY, policy, userCred, true)
 	return nil, self.StartCloudgroupSyncPoliciesTask(ctx, userCred, "")
-}
-
-func (self *SCloudgroup) AllowPerformDetachPolicy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowPerform(userCred, self, "detach-policy")
 }
 
 // 从权限组移除权限

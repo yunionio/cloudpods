@@ -650,7 +650,7 @@ func (rm *SReceiverManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 	if len(input.VerifiedContactType) > 0 {
 		q = rm.VerifiedContactFilter(input.VerifiedContactType, q)
 	}
-	ownerId, queryScope, err := db.FetchCheckQueryOwnerScope(ctx, userCred, jsonutils.Marshal(input), rm, policy.PolicyActionList, true)
+	ownerId, queryScope, err, _ := db.FetchCheckQueryOwnerScope(ctx, userCred, jsonutils.Marshal(input), rm, policy.PolicyActionList, true)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -688,10 +688,6 @@ func (rm *SReceiverManager) findUserIdsWithProjectDomain(ctx context.Context, us
 		}
 	}
 	return userIds.UnsortedList(), nil
-}
-
-func (r *SReceiverManager) AllowPerformGetTypes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
 }
 
 func (rm *SReceiverManager) domainIdsFromReceivers(ctx context.Context, receivers []string) ([]string, error) {
@@ -849,7 +845,7 @@ func (r *SReceiver) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 	}
 	// 需求：管理后台新建的联系人，手机号和邮箱无需进行校验
 	// 方案：检查请求者对于创建联系人 是否具有system scope
-	allowScope := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
+	allowScope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
 	if allowScope == rbacutils.ScopeSystem {
 		if r.EnabledEmail.Bool() {
 			r.VerifiedEmail = tristate.True
@@ -918,7 +914,7 @@ func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCreden
 		log.Errorf("PushCache: %v", err)
 	}
 	// 管理后台修改联系人，如果修改或者启用手机号和邮箱，无需进行校验
-	allowScope := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
+	allowScope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
 	if allowScope == rbacutils.ScopeSystem {
 		// 修改并启用
 		if len(input.Email) != 0 && input.Email != r.Email && r.EnabledEmail.Bool() {
@@ -1000,10 +996,6 @@ func (r *SReceiver) IsOwner(userCred mcclient.TokenCredential) bool {
 	return r.Id == userCred.GetUserId()
 }
 
-func (rm *SReceiverManager) AllowPerformIntellijGet(_ context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject) bool {
-	return true
-}
-
 func (rm *SReceiverManager) PerformIntellijGet(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ReceiverIntellijGetInput) (jsonutils.JSONObject, error) {
 	getParam := jsonutils.NewDict()
 	getParam.Set("scope", jsonutils.NewString(input.Scope))
@@ -1050,10 +1042,6 @@ func (rm *SReceiverManager) PerformIntellijGet(ctx context.Context, userCred mcc
 	return rets[0], nil
 }
 
-func (r *SReceiver) AllowPerformTriggerVerify(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return r.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, r, "trigger_verify")
-}
-
 func (r *SReceiver) PerformTriggerVerify(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ReceiverTriggerVerifyInput) (jsonutils.JSONObject, error) {
 	if len(input.ContactType) == 0 {
 		return nil, httperrors.NewMissingParameterError("contact_type")
@@ -1083,10 +1071,6 @@ func (r *SReceiver) PerformTriggerVerify(ctx context.Context, userCred mcclient.
 		task.ScheduleRun(nil)
 	}
 	return nil, nil
-}
-
-func (r *SReceiver) AllowPerformVerify(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return r.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, r, "verify")
 }
 
 func (r *SReceiver) PerformVerify(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ReceiverVerifyInput) (jsonutils.JSONObject, error) {
@@ -1120,20 +1104,12 @@ func (r *SReceiver) PerformVerify(ctx context.Context, userCred mcclient.TokenCr
 	return nil, err
 }
 
-func (r *SReceiver) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) bool {
-	return r.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, r, "enable")
-}
-
 func (r *SReceiver) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
 	err := db.EnabledPerformEnable(r, ctx, userCred, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "EnabledPerformEnable")
 	}
 	return nil, nil
-}
-
-func (r *SReceiver) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) bool {
-	return r.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, r, "disable")
 }
 
 func (r *SReceiver) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
@@ -1343,10 +1319,6 @@ func (r *SReceiver) GetContact(cType string) (string, error) {
 
 func (r *SReceiver) GetDomainId() string {
 	return r.DomainId
-}
-
-func (r *SReceiver) AllowPerformEnableContactType(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return r.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, r, "enable-contact-type")
 }
 
 func (r *SReceiver) PerformEnableContactType(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ReceiverEnableContactTypeInput) (jsonutils.JSONObject, error) {

@@ -112,33 +112,6 @@ func (manager *SAccessGroupRuleManager) FilterByOwner(q *sqlchemy.SQuery, userCr
 	return q.In("access_group_id", sq.SubQuery())
 }
 
-func (manager *SAccessGroupRuleManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowCreate(userCred, manager)
-}
-
-func (manager *SAccessGroupRuleManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsDomainAllowList(userCred, manager)
-}
-
-func (self *SAccessGroupRule) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	if self.AccessGroupId == api.DEFAULT_ACCESS_GROUP {
-		return false
-	}
-	group, err := self.GetAccessGroup()
-	if err != nil {
-		return false
-	}
-	return group.AllowUpdateItem(ctx, userCred)
-}
-
-func (self *SAccessGroupRule) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	group, err := self.GetAccessGroup()
-	if err != nil {
-		return false
-	}
-	return group.AllowDeleteItem(ctx, userCred, query, data)
-}
-
 func (manager *SAccessGroupRuleManager) FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
 	return q.Equals("id", idStr)
 }

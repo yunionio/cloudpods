@@ -35,6 +35,7 @@ func ObjIdQueryWithTags(modelName string, oMoreTags tagutils.TTagSetList) *sqlch
 }
 
 func objIdQueryWithTags(modelName string, oTags tagutils.TTagSet, oMoreTags tagutils.TTagSetList) *sqlchemy.SQuery {
+	log.Debugf("tags: %#v otags: %#v", oTags, oMoreTags)
 	metadataResQ := Metadata.Query().Equals("obj_type", modelName).SubQuery()
 
 	queries := make([]sqlchemy.IQuery, 0)
@@ -84,7 +85,7 @@ func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
 	q *sqlchemy.SQuery,
 	input apis.MetadataResourceListInput,
 ) *sqlchemy.SQuery {
-	if len(input.Tags) > 0 || len(input.ObjTags) > 0 {
+	if len(input.Tags) > 0 || !input.ObjTags.IsEmpty() {
 		sq := objIdQueryWithTags(manager.Keyword(), input.Tags, input.ObjTags)
 		if sq != nil {
 			sqq := sq.SubQuery()
@@ -93,7 +94,7 @@ func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
 		}
 	}
 
-	if len(input.PolicyObjectTags) > 0 {
+	if !input.PolicyObjectTags.IsEmpty() {
 		sq := objIdQueryWithTags(manager.Keyword(), nil, input.PolicyObjectTags)
 		if sq != nil {
 			sqq := sq.SubQuery()
@@ -101,7 +102,7 @@ func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
 		}
 	}
 
-	if len(input.NoTags) > 0 || len(input.NoObjTags) > 0 {
+	if len(input.NoTags) > 0 || !input.NoObjTags.IsEmpty() {
 		sq := objIdQueryWithTags(manager.Keyword(), input.NoTags, input.NoObjTags)
 		if sq != nil {
 			q = q.Filter(sqlchemy.NotIn(q.Field("id"), sq.SubQuery()))

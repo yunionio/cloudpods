@@ -17,7 +17,6 @@ package predicates
 import (
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -40,7 +39,7 @@ func (p *DomainPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core
 	if getter.DomainId() == u.SchedInfo.Domain {
 	} else if getter.IsPublic() && getter.PublicScope() == string(rbacutils.ScopeSystem) {
 	} else if getter.IsPublic() && getter.PublicScope() == string(rbacutils.ScopeDomain) && utils.IsInStringArray(u.SchedInfo.Domain, getter.SharedDomains()) {
-	} else if db.IsAdminAllowGet(u.SchedInfo.UserCred, getter) {
+		// } else if db.IsAdminAllowGet(context.Background(), u.SchedInfo.UserCred, getter) {
 	} else {
 		h.Exclude("domain_ownership")
 	}

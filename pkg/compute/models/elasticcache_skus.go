@@ -492,10 +492,6 @@ func (manager *SElasticcacheSkuManager) newFromCloudSku(ctx context.Context, use
 	return manager.TableSpec().Insert(ctx, &extSku)
 }
 
-func (manager *SElasticcacheSkuManager) AllowGetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
 func (manager *SElasticcacheSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	q := manager.Query("memory_size_mb")
 	q, err := db.ListItemQueryFilters(manager, ctx, q, userCred, query, policy.PolicyActionList)
@@ -541,10 +537,6 @@ func (manager *SElasticcacheSkuManager) GetPropertyInstanceSpecs(ctx context.Con
 	ret := jsonutils.NewDict()
 	ret.Add(mems_mb, "mems_mb")
 	return ret, nil
-}
-
-func (manager *SElasticcacheSkuManager) AllowGetPropertyCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
 }
 
 func (manager *SElasticcacheSkuManager) GetPropertyCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -684,16 +676,8 @@ func (manager *SElasticcacheSkuManager) ListItemExportKeys(ctx context.Context,
 	return q, nil
 }
 
-func (manager *SElasticcacheSkuManager) AllowSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, manager, "sync-skus")
-}
-
 func (manager *SElasticcacheSkuManager) PerformSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SkuSyncInput) (jsonutils.JSONObject, error) {
 	return PerformActionSyncSkus(ctx, userCred, manager.Keyword(), input)
-}
-
-func (manager *SElasticcacheSkuManager) AllowGetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGetSpec(userCred, manager, "sync-tasks")
 }
 
 func (manager *SElasticcacheSkuManager) GetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query api.SkuTaskQueryInput) (jsonutils.JSONObject, error) {
