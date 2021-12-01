@@ -102,7 +102,7 @@ func (self *SResourceManager) ServiceType() string {
 }
 
 func (self *SResourceManager) GetEndpoint() string {
-	return self.cfg.GetEndpoints().GetEndpoint(self.ServiceType(), self.Region)
+	return self.cfg.GetEndpoints().GetEndpoint(self.cfg.GetDefaultRegion(), self.ServiceType(), self.Region)
 }
 
 func (self *SResourceManager) GetColumns() []string {

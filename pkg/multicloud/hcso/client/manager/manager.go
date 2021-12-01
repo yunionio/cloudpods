@@ -79,4 +79,6 @@ type IManagerConfig interface {
 	GetDomainId() string
 	GetProjectId() string
 	GetDebug() bool
+
+	GetDefaultRegion() string
 }

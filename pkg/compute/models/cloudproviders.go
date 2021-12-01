@@ -868,7 +868,7 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 	}
 
 	account := self.GetCloudaccount()
-
+	defaultRegion, _ := jsonutils.Marshal(account.Options).GetString("default_region")
 	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
 		Id:        self.Id,
 		Name:      self.Name,
@@ -878,7 +878,8 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 		Secret:    passwd,
 		ProxyFunc: account.proxyFunc(),
 
-		Options: account.Options,
+		DefaultRegion: defaultRegion,
+		Options:       account.Options,
 	})
 }
 

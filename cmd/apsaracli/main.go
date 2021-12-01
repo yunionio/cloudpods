@@ -38,6 +38,7 @@ type BaseOptions struct {
 	cloudprovider.SApsaraEndpoints `help:"Endpoints for Apsara"`
 	Endpoint                       string `help:"Apsara endpoint" default:"$APSARA_ENDPOINT" metavar:"APSARA_ENDPOINT"`
 	RegionId                       string `help:"RegionId" default:"$APSARA_REGION" metavar:"APSARA_REGION"`
+	DEFAULT_REGION                 string `help:"Default region" default:"$APSARA_DEFAULT_REGION"`
 	SUBCOMMAND                     string `help:"apsaracli subcommand" subcommand:"true"`
 }
 
@@ -110,7 +111,9 @@ func newClient(options *BaseOptions) (*apsara.SRegion, error) {
 		).Debug(options.Debug).
 			CloudproviderConfig(
 				cloudprovider.ProviderConfig{
-					ProxyFunc: proxyFunc,
+					ProxyFunc:     proxyFunc,
+					URL:           options.Endpoint,
+					DefaultRegion: options.DEFAULT_REGION,
 				},
 			),
 	)

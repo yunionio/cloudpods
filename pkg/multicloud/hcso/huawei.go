@@ -148,7 +148,7 @@ func (self *SHuaweiClient) initSigner() error {
 }
 
 func (self *SHuaweiClient) newRegionAPIClient(regionId string) (*client.Client, error) {
-	cli, err := client.NewClientWithAccessKey(regionId, self.ownerId, self.projectId, self.accessKey, self.accessSecret, self.debug, self.endpoints)
+	cli, err := client.NewClientWithAccessKey(regionId, self.ownerId, self.projectId, self.accessKey, self.accessSecret, self.debug, self.cpcfg.DefaultRegion, self.endpoints)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func (self *SHuaweiClient) newRegionAPIClient(regionId string) (*client.Client, 
 }
 
 func (self *SHuaweiClient) newGeneralAPIClient() (*client.Client, error) {
-	cli, err := client.NewClientWithAccessKey(self.endpoints.DefaultRegion, self.ownerId, "", self.accessKey, self.accessSecret, self.debug, self.endpoints)
+	cli, err := client.NewClientWithAccessKey(self.cpcfg.DefaultRegion, self.ownerId, "", self.accessKey, self.accessSecret, self.debug, self.cpcfg.DefaultRegion, self.endpoints)
 	if err != nil {
 		return nil, err
 	}
@@ -243,12 +243,12 @@ func getOBSEndpoint(regionId string) string {
 }
 
 func (client *SHuaweiClient) getOBSClient(regionId string) (*obs.ObsClient, error) {
-	endpoint := client.endpoints.GetEndpoint("obs", regionId)
+	endpoint := client.endpoints.GetEndpoint(client.cpcfg.DefaultRegion, "obs", regionId)
 	return obs.New(client.accessKey, client.accessSecret, endpoint)
 }
 
 func (self *SHuaweiClient) fetchBuckets() error {
-	obscli, err := self.getOBSClient(self.endpoints.DefaultRegion)
+	obscli, err := self.getOBSClient(self.cpcfg.DefaultRegion)
 	if err != nil {
 		return errors.Wrap(err, "getOBSClient")
 	}
@@ -367,7 +367,7 @@ func (self *SHuaweiClient) GetIRegionById(id string) (cloudprovider.ICloudRegion
 
 func (self *SHuaweiClient) GetRegion(regionId string) *SRegion {
 	if len(regionId) == 0 {
-		regionId = self.endpoints.DefaultRegion
+		regionId = self.cpcfg.DefaultRegion
 	}
 
 	for i := 0; i < len(self.iregions); i += 1 {

@@ -82,7 +82,6 @@ func NewApsaraClientConfig(accessKey, accessSecret string, endpoint string, endp
 		accessSecret: accessSecret,
 		endpoints:    endpoints,
 	}
-	cfg.cpcfg.URL = endpoint
 	return cfg
 }
 
@@ -174,8 +173,10 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 	if debug {
 		log.Debugf("request %s %s %s %s", domain, apiVersion, apiName, params)
 	}
+	var resp jsonutils.JSONObject
+	var err error
 	for i := 1; i < 4; i++ {
-		resp, err := _jsonRequest(client, domain, apiVersion, apiName, params)
+		resp, err = _jsonRequest(client, domain, apiVersion, apiName, params)
 		retry := false
 		if err != nil {
 			for _, code := range []string{
@@ -220,7 +221,7 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 		}
 		return resp, err
 	}
-	return nil, fmt.Errorf("timeout for request %s params: %s", apiName, params)
+	return resp, errors.Wrapf(err, "jsonRequest")
 }
 
 func _jsonRequest(client *sdk.Client, domain string, version string, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -265,9 +266,8 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 	return body, nil
 }
 
-func (self *SApsaraClient) getDefaultClient() (*sdk.Client, error) {
-	regionId := ""
-	if len(self.iregions) > 0 {
+func (self *SApsaraClient) getDefaultClient(regionId string) (*sdk.Client, error) {
+	if len(self.iregions) > 0 && len(regionId) == 0 {
 		regionId = self.iregions[0].GetId()
 	}
 	transport := httputils.GetTransport(true)
@@ -287,7 +287,7 @@ func (self *SApsaraClient) getDefaultClient() (*sdk.Client, error) {
 }
 
 func (self *SApsaraClient) ascmRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := self.getDefaultClient()
+	cli, err := self.getDefaultClient("")
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +295,7 @@ func (self *SApsaraClient) ascmRequest(apiName string, params map[string]string)
 }
 
 func (self *SApsaraClient) ecsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := self.getDefaultClient()
+	cli, err := self.getDefaultClient("")
 	if err != nil {
 		return nil, err
 	}
@@ -304,7 +304,7 @@ func (self *SApsaraClient) ecsRequest(apiName string, params map[string]string) 
 }
 
 func (self *SApsaraClient) trialRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := self.getDefaultClient()
+	cli, err := self.getDefaultClient("")
 	if err != nil {
 		return nil, err
 	}
@@ -314,8 +314,8 @@ func (self *SApsaraClient) trialRequest(apiName string, params map[string]string
 
 func (self *SApsaraClient) fetchRegions() error {
 	params := map[string]string{"AcceptLanguage": "zh-CN"}
-	if len(self.endpoints.DefaultRegion) > 0 {
-		params["RegionId"] = self.endpoints.DefaultRegion
+	if len(self.cpcfg.DefaultRegion) > 0 {
+		params["RegionId"] = self.cpcfg.DefaultRegion
 	}
 	body, err := self.ecsRequest("DescribeRegions", params)
 	if err != nil {
@@ -505,27 +505,6 @@ func (self *SApsaraClient) GetIStorageById(id string) (cloudprovider.ICloudStora
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
-}
-
-func (self *SApsaraClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
-	pageSize, pageNumber := 50, 1
-	resourceGroups := []SResourceGroup{}
-	for {
-		parts, total, err := self.GetResourceGroups(pageNumber, pageSize)
-		if err != nil {
-			return nil, errors.Wrap(err, "GetResourceGroups")
-		}
-		resourceGroups = append(resourceGroups, parts...)
-		if len(resourceGroups) >= total {
-			break
-		}
-		pageNumber += 1
-	}
-	ret := []cloudprovider.ICloudProject{}
-	for i := range resourceGroups {
-		ret = append(ret, &resourceGroups[i])
-	}
-	return ret, nil
 }
 
 func (region *SApsaraClient) GetCapabilities() []string {
