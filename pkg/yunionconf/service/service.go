@@ -17,9 +17,8 @@ package service
 import (
 	"os"
 
-	_ "github.com/go-sql-driver/mysql"
-
 	"yunion.io/x/log"
+	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/yunionconf"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
