@@ -16,11 +16,11 @@ package identity
 
 import (
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/util/tagutils"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 type IdentityBaseResourceCreateInput struct {
@@ -159,6 +159,9 @@ type ProjectListInput struct {
 
 	// 过滤出指定用户或者组可以加入的项目
 	Jointable *bool `json:"jointable"`
+
+	// project tags filter imposed by policy
+	PolicyProjectTags tagutils.TTagSetList `json:"policy_project_tags"`
 }
 
 type DomainListInput struct {
@@ -171,6 +174,9 @@ type DomainListInput struct {
 
 	// 按IDP_ENTITY_ID过滤
 	IdpEntityId string `json:"idp_entity_id"`
+
+	// domain tags filter imposed by policy
+	PolicyDomainTags tagutils.TTagSetList `json:"policy_domain_tags"`
 }
 
 type UserListInput struct {

@@ -14,7 +14,12 @@
 
 package tagutils
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+
+	"yunion.io/x/jsonutils"
+)
 
 func TestTTagSetList_Contains(t *testing.T) {
 	cases := []struct {
@@ -240,6 +245,50 @@ func TestTTagSetList_Append(t *testing.T) {
 		got := c.list.Append(c.tag)
 		if got.String() != c.want.String() {
 			t.Errorf("[%d] want %s got %s", i, c.want.String(), got.String())
+		}
+	}
+}
+
+func TestTTagSetList_Flattern(t *testing.T) {
+	cases := []struct {
+		tsl  TTagSetList
+		want TTagSet
+	}{
+		{
+			tsl: TTagSetList{
+				TTagSet{
+					STag{
+						Key:   "project",
+						Value: "a",
+					},
+					STag{
+						Key:   "env",
+						Value: "product",
+					},
+				},
+				TTagSet{
+					STag{
+						Key:   "project",
+						Value: "b",
+					},
+				},
+			},
+			want: TTagSet{
+				STag{
+					Key:   "project",
+					Value: "a",
+				},
+				STag{
+					Key:   "env",
+					Value: "product",
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		got := c.tsl.Flattern()
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("want %s got %s", jsonutils.Marshal(c.want), jsonutils.Marshal(got))
 		}
 	}
 }

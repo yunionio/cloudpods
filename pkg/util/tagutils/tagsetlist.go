@@ -85,12 +85,24 @@ func (tsl TTagSetList) String() string {
 	return "[" + strings.Join(tss, ",") + "]"
 }
 
-func (tsl TTagSetList) Flattern() TTagSet {
-	ret := TTagSet{}
-	for _, ts := range tsl {
-		for k, v := range ts {
-			ret[k] = v
-		}
+func (a TTagSetList) Len() int      { return len(a) }
+func (a TTagSetList) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a TTagSetList) Less(i, j int) bool {
+	if len(a[i]) < len(a[j]) {
+		return true
+	} else if len(a[i]) > len(a[j]) {
+		return false
 	}
-	return ret
+	if a[i].Contains(a[j]) {
+		return true
+	}
+	return false
+}
+
+func (tsl TTagSetList) Flattern() TTagSet {
+	if len(tsl) == 0 {
+		return TTagSet{}
+	}
+	sort.Sort(tsl)
+	return tsl[len(tsl)-1]
 }

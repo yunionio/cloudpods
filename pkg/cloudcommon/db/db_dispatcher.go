@@ -1301,11 +1301,11 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		}
 	}
 
-	var requireTags tagutils.TTagSet
+	var policyResult rbacutils.SPolicyResult
 	if consts.IsRbacEnabled() {
-		requireTags, err = isClassRbacAllowed(ctx, dispatcher.modelManager, userCred, ownerId, policy.PolicyActionCreate)
+		policyResult, err = isClassRbacAllowed(ctx, dispatcher.modelManager, userCred, ownerId, policy.PolicyActionCreate)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "isClassRbacAllowed")
 		}
 	}
 
@@ -1313,12 +1313,7 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		ctx = InitPendingUsagesInContext(ctx)
 	}
 
-	if len(requireTags) > 0 {
-		// add requireTags to require data
-		for _, tag := range requireTags {
-			data.(*jsonutils.JSONDict).Add(jsonutils.NewString(tag.Value), "__meta__", tag.Key)
-		}
-	}
+	data.(*jsonutils.JSONDict).Update(policyResult.Json())
 
 	model, err := DoCreate(dispatcher.modelManager, ctx, userCred, query, data, ownerId)
 	if err != nil {
@@ -1395,19 +1390,15 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		}
 	}
 
-	var requireTags tagutils.TTagSet
+	var policyResult rbacutils.SPolicyResult
 	if consts.IsRbacEnabled() {
-		requireTags, err = isClassRbacAllowed(ctx, manager, userCred, ownerId, policy.PolicyActionCreate)
+		policyResult, err = isClassRbacAllowed(ctx, manager, userCred, ownerId, policy.PolicyActionCreate)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "isClassRbacAllowd")
 		}
 	}
 
-	if len(requireTags) > 0 {
-		for _, tag := range requireTags {
-			data.(*jsonutils.JSONDict).Add(jsonutils.NewString(tag.Value), "__meta__", tag.Key)
-		}
-	}
+	data.(*jsonutils.JSONDict).Update(policyResult.Json())
 
 	type sCreateResult struct {
 		model IModel
@@ -1608,6 +1599,7 @@ func reflectDispatcherInternal(
 		params = []interface{}{ctx, userCred, query, data}
 	}
 
+	var result rbacutils.SPolicyResult
 	if consts.IsRbacEnabled() {
 		if model == nil {
 			ownerId, err := fetchOwnerId(ctx, dispatcher.modelManager, userCred, data)
@@ -1619,29 +1611,11 @@ func reflectDispatcherInternal(
 				return nil, err
 			}
 		} else {
-			err := isObjectRbacAllowed(ctx, model, userCred, operator, spec)
+			var err error
+			result, err = isObjectRbacAllowedResult(ctx, model, userCred, operator, spec)
 			if err != nil {
 				return nil, err
 			}
-		}
-	} else {
-		allowFuncName := "Allow" + funcName
-		allowFuncValue := modelValue.MethodByName(allowFuncName)
-		if !allowFuncValue.IsValid() || allowFuncValue.IsNil() {
-			return nil, httperrors.NewActionNotFoundError("%s allow %s %s not found",
-				dispatcher.Keyword(), operator, spec)
-		}
-
-		outs, err := callFunc(allowFuncValue, allowFuncName, params...)
-		if err != nil {
-			return nil, err
-		}
-		if len(outs) != 1 {
-			return nil, httperrors.NewInternalServerError("Invald %s return value", allowFuncName)
-		}
-
-		if !outs[0].Bool() {
-			return nil, httperrors.NewForbiddenError("%s not allow to %s %s", dispatcher.Keyword(), operator, spec)
 		}
 	}
 
@@ -1657,6 +1631,16 @@ func reflectDispatcherInternal(
 	if !gotypes.IsNil(errVal) {
 		return nil, errVal.(error)
 	} else {
+		if model != nil {
+			if _, ok := model.(IStandaloneModel); ok {
+				Metadata.rawSetValues(ctx, model.Keyword(), model.GetId(), tagutils.Tagset2MapString(result.ObjectTags.Flattern()), false, "")
+				if model.Keyword() == "project" {
+					Metadata.rawSetValues(ctx, model.Keyword(), model.GetId(), tagutils.Tagset2MapString(result.ProjectTags.Flattern()), false, "")
+				} else if model.Keyword() == "domain" {
+					Metadata.rawSetValues(ctx, model.Keyword(), model.GetId(), tagutils.Tagset2MapString(result.DomainTags.Flattern()), false, "")
+				}
+			}
+		}
 		if gotypes.IsNil(resVal.Interface()) {
 			return nil, nil
 		} else {
@@ -1718,10 +1702,11 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 	}
 
 	if consts.IsRbacEnabled() {
-		err := isObjectRbacAllowed(ctx, model, userCred, policy.PolicyActionUpdate)
+		result, err := isObjectRbacAllowedResult(ctx, model, userCred, policy.PolicyActionUpdate)
 		if err != nil {
 			return nil, err
 		}
+		data.(*jsonutils.JSONDict).Update(result.Json())
 	} else if !model.AllowUpdateItem(ctx, userCred) {
 		return nil, httperrors.NewForbiddenError("Not allow to update item")
 	}

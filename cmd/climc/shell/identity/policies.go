@@ -21,8 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/onecloud/pkg/util/tagutils"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
@@ -38,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 func createPolicy(s *mcclient.ClientSession, name string, policy string, domain string, enabled bool, disabled bool, desc string, scope string, isSystem *bool, objectags, projecttags, domaintags tagutils.TTagSet) error {

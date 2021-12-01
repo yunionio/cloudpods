@@ -193,7 +193,7 @@ func (manager *SSharedResourceManager) shareToTarget(
 		return nil, errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require %s allow %s", requireScope, allowScope)
 	}
 
-	err = objectConfirmPolicyTags(ctx, userCred, model, policyTags)
+	err = objectConfirmPolicyTags(ctx, model, policyTags)
 	if err != nil {
 		return nil, errors.Wrap(err, "objectConfirmPolicyTags")
 	}

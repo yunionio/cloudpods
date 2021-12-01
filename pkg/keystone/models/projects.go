@@ -221,6 +221,12 @@ func (manager *SProjectManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SIdentityBaseResourceManager.ListItemFilter")
 	}
 
+	if len(query.PolicyProjectTags) > 0 {
+		// aplly policy imposed project tag filters
+		subq := db.ObjIdQueryWithTags("project", query.PolicyProjectTags).SubQuery()
+		q = q.In("id", subq)
+	}
+
 	userStr := query.UserId
 	if len(userStr) > 0 {
 		userObj, err := UserManager.FetchById(userStr)

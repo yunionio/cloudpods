@@ -18,13 +18,13 @@ import (
 	"context"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
-	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 func IsObjectRbacAllowed(ctx context.Context, model IModel, userCred mcclient.TokenCredential, action string, extra ...string) error {
@@ -32,6 +32,11 @@ func IsObjectRbacAllowed(ctx context.Context, model IModel, userCred mcclient.To
 }
 
 func isObjectRbacAllowed(ctx context.Context, model IModel, userCred mcclient.TokenCredential, action string, extra ...string) error {
+	_, err := isObjectRbacAllowedResult(ctx, model, userCred, action, extra...)
+	return err
+}
+
+func isObjectRbacAllowedResult(ctx context.Context, model IModel, userCred mcclient.TokenCredential, action string, extra ...string) (rbacutils.SPolicyResult, error) {
 	manager := model.GetModelManager()
 	objOwnerId := model.GetOwnerId()
 
@@ -74,10 +79,14 @@ func isObjectRbacAllowed(ctx context.Context, model IModel, userCred mcclient.To
 
 	scope, result := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), action, extra...)
 
-	if !requireScope.HigherThan(scope) {
-		return objectConfirmPolicyTags(ctx, userCred, model, result)
+	if result.Result.IsAllow() && !requireScope.HigherThan(scope) {
+		err := objectConfirmPolicyTags(ctx, model, result)
+		if err != nil {
+			return rbacutils.PolicyDeny, errors.Wrap(err, "objectConfirmPolicyTags")
+		}
+		return result, nil
 	}
-	return httperrors.NewForbiddenError("not enough privilege (require:%s,allow:%s:resource:%s) [tags:%s]", requireScope, scope, resScope, result.String())
+	return rbacutils.PolicyDeny, httperrors.NewForbiddenError("not enough privilege (require:%s,allow:%s:resource:%s) [tags:%s]", requireScope, scope, resScope, result.String())
 }
 
 func isJointObjectRbacAllowed(ctx context.Context, item IJointModel, userCred mcclient.TokenCredential, action string, extra ...string) error {
@@ -89,7 +98,7 @@ func isJointObjectRbacAllowed(ctx context.Context, item IJointModel, userCred mc
 	return err1
 }
 
-func isClassRbacAllowed(ctx context.Context, manager IModelManager, userCred mcclient.TokenCredential, objOwnerId mcclient.IIdentityProvider, action string, extra ...string) (tagutils.TTagSet, error) {
+func isClassRbacAllowed(ctx context.Context, manager IModelManager, userCred mcclient.TokenCredential, objOwnerId mcclient.IIdentityProvider, action string, extra ...string) (rbacutils.SPolicyResult, error) {
 	var ownerId mcclient.IIdentityProvider
 	if userCred != nil {
 		ownerId = userCred
@@ -128,10 +137,14 @@ func isClassRbacAllowed(ctx context.Context, manager IModelManager, userCred mcc
 
 	allowScope, result := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), action, extra...)
 
-	if !requireScope.HigherThan(allowScope) {
-		return classConfirmPolicyTags(ctx, userCred, manager, objOwnerId, result)
+	if result.Result.IsAllow() && !requireScope.HigherThan(allowScope) {
+		err := classConfirmPolicyTags(ctx, manager, objOwnerId, result)
+		if err != nil {
+			return rbacutils.PolicyDeny, errors.Wrap(err, "classConfirmPolicyTags")
+		}
+		return result, nil
 	}
-	return nil, httperrors.NewForbiddenError("not enough privilege (require:%s,allow:%s)", requireScope, allowScope)
+	return rbacutils.PolicyDeny, httperrors.NewForbiddenError("not enough privilege (require:%s,allow:%s)", requireScope, allowScope)
 }
 
 type IResource interface {
@@ -200,7 +213,7 @@ func IsAllowGet(ctx context.Context, scope rbacutils.TRbacScope, userCred mcclie
 		return false
 	}
 	result := userCred.IsAllow(scope, consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionGet)
-	err := objectConfirmPolicyTags(ctx, userCred, obj, result)
+	err := objectConfirmPolicyTags(ctx, obj, result)
 	if err != nil {
 		log.Errorf("IsAllowGet %s", err)
 		return false
@@ -226,7 +239,7 @@ func IsAllowGetSpec(ctx context.Context, scope rbacutils.TRbacScope, userCred mc
 		return false
 	}
 	result := userCred.IsAllow(scope, consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionGet, spec)
-	err := objectConfirmPolicyTags(ctx, userCred, obj, result)
+	err := objectConfirmPolicyTags(ctx, obj, result)
 	if err != nil {
 		log.Errorf("IsAllowGetSpec %s", err)
 		return false
@@ -252,7 +265,7 @@ func IsAllowPerform(ctx context.Context, scope rbacutils.TRbacScope, userCred mc
 		return false
 	}
 	result := userCred.IsAllow(scope, consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionPerform, action)
-	err := objectConfirmPolicyTags(ctx, userCred, obj, result)
+	err := objectConfirmPolicyTags(ctx, obj, result)
 	if err != nil {
 		log.Errorf("IsAllowPerform %s", err)
 		return false
@@ -278,7 +291,7 @@ func IsAllowUpdate(ctx context.Context, scope rbacutils.TRbacScope, userCred mcc
 		return false
 	}
 	result := userCred.IsAllow(scope, consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionUpdate)
-	err := objectConfirmPolicyTags(ctx, userCred, obj, result)
+	err := objectConfirmPolicyTags(ctx, obj, result)
 	if err != nil {
 		log.Errorf("IsAllowUpdate %s", err)
 		return false
@@ -304,7 +317,7 @@ func IsAllowUpdateSpec(ctx context.Context, scope rbacutils.TRbacScope, userCred
 		return false
 	}
 	result := userCred.IsAllow(scope, consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionUpdate, spec)
-	err := objectConfirmPolicyTags(ctx, userCred, obj, result)
+	err := objectConfirmPolicyTags(ctx, obj, result)
 	if err != nil {
 		log.Errorf("IsAllowUpdateSpec %s", err)
 		return false
@@ -330,7 +343,7 @@ func IsAllowDelete(ctx context.Context, scope rbacutils.TRbacScope, userCred mcc
 		return false
 	}
 	result := userCred.IsAllow(scope, consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionDelete)
-	err := objectConfirmPolicyTags(ctx, userCred, obj, result)
+	err := objectConfirmPolicyTags(ctx, obj, result)
 	if err != nil {
 		log.Errorf("IsAllowDelete %s", err)
 		return false

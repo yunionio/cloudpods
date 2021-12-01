@@ -117,18 +117,15 @@ func (manager *SDomainizedResourceBaseManager) ListItemFilter(
 		q = q.In("domain_id", subq)
 	}
 	if len(query.DomainTags) > 0 {
-		meta := SMetadataResourceBaseModelManager{}
-		subq := meta.objIdQueryWithTags("domain", nil, query.DomainTags).SubQuery()
+		subq := objIdQueryWithTags("domain", nil, query.DomainTags).SubQuery()
 		q = q.In("domain_id", subq)
 	}
 	if len(query.NoDomainTags) > 0 {
-		meta := SMetadataResourceBaseModelManager{}
-		subq := meta.objIdQueryWithTags("domain", nil, query.NoDomainTags).SubQuery()
+		subq := objIdQueryWithTags("domain", nil, query.NoDomainTags).SubQuery()
 		q = q.NotIn("domain_id", subq)
 	}
 	if len(query.PolicyDomainTags) > 0 {
-		meta := SMetadataResourceBaseModelManager{}
-		subq := meta.objIdQueryWithTags("domain", nil, query.PolicyDomainTags).SubQuery()
+		subq := objIdQueryWithTags("domain", nil, query.PolicyDomainTags).SubQuery()
 		q = q.In("domain_id", subq)
 	}
 	return q, nil

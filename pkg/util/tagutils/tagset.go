@@ -17,6 +17,8 @@ package tagutils
 import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type TTagSet []STag
@@ -76,54 +78,22 @@ func (ts TTagSet) Remove(ele ...STag) TTagSet {
 	return ts
 }
 
+func contains(v1, v2 []string) bool {
+	vv1 := stringutils2.SSortedStrings(v1)
+	vv2 := stringutils2.SSortedStrings(v2)
+	return stringutils2.Contains(vv1, vv2)
+}
+
 func (a TTagSet) Contains(b TTagSet) bool {
-	aNoB, _, _ := Split(a, b)
-	if len(aNoB) == 0 {
-		return true
-	} else {
-		return false
-	}
-}
+	mapA := Tagset2Map(a)
+	mapB := Tagset2Map(b)
 
-func (a TTagSet) Equals(b TTagSet) bool {
-	aNoB, _, bNoA := Split(a, b)
-	if len(aNoB) == 0 && len(bNoA) == 0 {
-		return true
-	} else {
-		return false
-	}
-}
-
-func Split(a, b TTagSet) (aNoB TTagSet, aAndB TTagSet, bNoA TTagSet) {
-	a_b := make([]STag, 0)
-	b_a := make([]STag, 0)
-	anb := make([]STag, 0)
-	i := 0
-	j := 0
-	for i < len(a) && j < len(b) {
-		switch Compare(a[i], b[j]) {
-		case 0:
-			anb = append(anb, a[i])
-			i += 1
-			j += 1
-		case -1:
-			a_b = append(a_b, a[i])
-			i += 1
-		case 1:
-			b_a = append(b_a, b[j])
-			j += 1
+	for k, v := range mapA {
+		if vs, ok := mapB[k]; !ok || !contains(v, vs) {
+			return false
 		}
 	}
-	if i < len(a) {
-		a_b = append(a_b, a[i:]...)
-	}
-	if j < len(b) {
-		b_a = append(b_a, b[j:]...)
-	}
-	aNoB = a_b
-	aAndB = anb
-	bNoA = b_a
-	return
+	return true
 }
 
 func Map2Tagset(meta map[string]string) TTagSet {
@@ -144,7 +114,17 @@ func Tagset2Map(oTags TTagSet) map[string][]string {
 			tags[tag.Key] = []string{}
 		}
 		if len(tag.Value) > 0 && !utils.IsInStringArray(tag.Value, tags[tag.Key]) {
-			tags[tag.Key] = append(tags[tag.Key], tag.Value)
+			tags[tag.Key] = stringutils2.SSortedStrings(tags[tag.Key]).Append(tag.Value)
+		}
+	}
+	return tags
+}
+
+func Tagset2MapString(oTags TTagSet) map[string]string {
+	tags := map[string]string{}
+	for _, tag := range oTags {
+		if _, ok := tags[tag.Key]; !ok {
+			tags[tag.Key] = tag.Value
 		}
 	}
 	return tags

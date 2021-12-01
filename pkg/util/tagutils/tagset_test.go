@@ -52,6 +52,29 @@ func TestTTagSet_Contains(t *testing.T) {
 					Key:   "project",
 					Value: "a",
 				},
+				STag{
+					Key:   "project",
+					Value: "b",
+				},
+			},
+			t2: TTagSet{
+				STag{
+					Key:   "project",
+					Value: "a",
+				},
+				STag{
+					Key:   "env",
+					Value: "c",
+				},
+			},
+			contains: true,
+		},
+		{
+			t1: TTagSet{
+				STag{
+					Key:   "project",
+					Value: "a",
+				},
 			},
 			t2: TTagSet{
 				STag{

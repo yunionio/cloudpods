@@ -188,6 +188,12 @@ func (manager *SDomainManager) ListItemFilter(
 	}
 	q = q.NotEquals("id", api.KeystoneDomainRoot)
 
+	if len(query.PolicyDomainTags) > 0 {
+		// apply policy imposed domain tag filters
+		subq := db.ObjIdQueryWithTags("domain", query.PolicyDomainTags).SubQuery()
+		q = q.In("id", subq)
+	}
+
 	if query.Enabled != nil {
 		if *query.Enabled {
 			q = q.IsTrue("enabled")

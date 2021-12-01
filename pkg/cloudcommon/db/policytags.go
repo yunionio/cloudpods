@@ -19,7 +19,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -27,18 +26,26 @@ import (
 	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
-func objectConfirmPolicyTags(ctx context.Context, userCred mcclient.TokenCredential, model IModel, result rbacutils.SPolicyResult) error {
+func objectConfirmPolicyTags(ctx context.Context, model IModel, result rbacutils.SPolicyResult) error {
 	if _, ok := model.(IStandaloneModel); !ok {
 		// a plain resource
 		return nil
 	}
 	// now, its is a system resource
-	resTags, err := model.(IStandaloneModel).GetAllMetadata(userCred)
+
+	resTagsMap, err := Metadata.rawGetAll(model.Keyword(), model.GetId(), nil, "")
 	if err != nil {
 		return errors.Wrap(err, "Standalone model GetAllMetadata")
 	}
-	if !result.ObjectTags.Contains(tagutils.Map2Tagset(resTags)) {
-		return httperrors.NewNotSufficientPrivilegeError("resource tags not match (%s,require:%s)", jsonutils.Marshal(resTags), result.ObjectTags)
+	resTags := tagutils.Map2Tagset(resTagsMap)
+	if model.Keyword() == "domain" && !result.DomainTags.Contains(resTags) {
+		return httperrors.NewNotSufficientPrivilegeError("resource (domain) tags not match (tags:%s,require:%s)", jsonutils.Marshal(resTags), jsonutils.Marshal(result.DomainTags))
+	}
+	if model.Keyword() == "project" && !result.ProjectTags.Contains(resTags) {
+		return httperrors.NewNotSufficientPrivilegeError("resource (project) tags not match (tags:%s,require:%s)", jsonutils.Marshal(resTags), jsonutils.Marshal(result.ProjectTags))
+	}
+	if !result.ObjectTags.Contains(resTags) {
+		return httperrors.NewNotSufficientPrivilegeError("resource tags not match (tags:%s,require:%s)", jsonutils.Marshal(resTags), jsonutils.Marshal(result.ObjectTags))
 	}
 	if _, ok := model.(IDomainLevelModel); !ok {
 		// a system level resource
@@ -71,44 +78,38 @@ func objectConfirmPolicyTags(ctx context.Context, userCred mcclient.TokenCredent
 	return nil
 }
 
-func classConfirmPolicyTags(ctx context.Context, userCred mcclient.TokenCredential, manager IModelManager, objectOwnerId mcclient.IIdentityProvider, result rbacutils.SPolicyResult) (tagutils.TTagSet, error) {
+func classConfirmPolicyTags(ctx context.Context, manager IModelManager, objectOwnerId mcclient.IIdentityProvider, result rbacutils.SPolicyResult) error {
 	if _, ok := manager.(IStandaloneModelManager); !ok {
-		return nil, nil
+		return nil
 	}
 	// now, the manager is a standalone model manager
-	requireResourceTags := result.ObjectTags.Flattern()
 	if _, ok := manager.(IDomainLevelModelManager); !ok {
 		// a system level resource manager
-		return requireResourceTags, nil
+		return nil
 	}
 	// now the manager is a domain level manager, we should check domain tags
 	if objectOwnerId != nil && objectOwnerId.GetProjectDomainId() != "" {
 		domain, err := TenantCacheManager.FetchDomainById(ctx, objectOwnerId.GetProjectDomainId())
 		if err != nil {
-			return nil, errors.Wrap(err, "TenantCacheManager.FetchDomainById")
+			return errors.Wrap(err, "TenantCacheManager.FetchDomainById")
 		}
 		if !result.DomainTags.Contains(domain.GetTags()) {
-			return nil, httperrors.NewNotSufficientPrivilegeError("domain tags not match (%s,require:%s)", jsonutils.Marshal(domain.GetTags()), result.DomainTags)
+			return httperrors.NewNotSufficientPrivilegeError("domain tags not match (%s,require:%s)", jsonutils.Marshal(domain.GetTags()), result.DomainTags)
 		}
 	}
 	if _, ok := manager.(IVirtualModelManager); !ok {
 		// a domain level resource manager
-		return requireResourceTags, nil
+		return nil
 	}
 	// now the manager is project level manager, we should check project tags
 	if objectOwnerId != nil && objectOwnerId.GetProjectId() != "" {
 		project, err := TenantCacheManager.FetchTenantById(ctx, objectOwnerId.GetProjectId())
 		if err != nil {
-			return nil, errors.Wrap(err, "TenantCacheManager.FetchTenantById")
+			return errors.Wrap(err, "TenantCacheManager.FetchTenantById")
 		}
 		if !result.ProjectTags.Contains(project.GetTags()) {
-			return nil, httperrors.NewNotSufficientPrivilegeError("project tags not match (%s,require:%s)", jsonutils.Marshal(project.GetTags()), result.ProjectTags)
+			return httperrors.NewNotSufficientPrivilegeError("project tags not match (%s,require:%s)", jsonutils.Marshal(project.GetTags()), result.ProjectTags)
 		}
 	}
-	return requireResourceTags, nil
-}
-
-func filterByTagFilters(q *sqlchemy.SQuery, result rbacutils.SPolicyResult) *sqlchemy.SQuery {
-	// to do
-	return q
+	return nil
 }

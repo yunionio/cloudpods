@@ -478,7 +478,7 @@ func SharablePerformPublic(model ISharableBaseModel, ctx context.Context, userCr
 		return errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require %s allow %s", requireScope, allowScope)
 	}
 
-	err = objectConfirmPolicyTags(ctx, userCred, model, policyTags)
+	err = objectConfirmPolicyTags(ctx, model, policyTags)
 	if err != nil {
 		return errors.Wrap(err, "objectConfirmPolicyTags")
 	}
@@ -524,7 +524,7 @@ func SharablePerformPrivate(model ISharableBaseModel, ctx context.Context, userC
 		return errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require %s allow %s", requireScope, allowScope)
 	}
 
-	err := objectConfirmPolicyTags(ctx, userCred, model, policyTags)
+	err := objectConfirmPolicyTags(ctx, model, policyTags)
 	if err != nil {
 		return errors.Wrap(err, "objectConfirmPolicyTags")
 	}

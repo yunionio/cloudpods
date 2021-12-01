@@ -95,7 +95,7 @@ type SPolicy struct {
 	DomainTags tagutils.TTagSet `nullable:"true" list:"user" update:"admin" create:"admin_optional"`
 
 	// 匹配的资源标签
-	ResourceTags tagutils.TTagSet `nullable:"true" list:"user" update:"domain" create:"domain_optional"`
+	ObjectTags tagutils.TTagSet `nullable:"true" list:"user" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SPolicyManager) InitializeData() error {
@@ -354,13 +354,13 @@ func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient
 	case api.TAG_UPDATE_POLICY_REMOVE:
 		input.DomainTags = policy.DomainTags.Remove(input.DomainTags...)
 		input.ProjectTags = policy.ProjectTags.Remove(input.ProjectTags...)
-		input.ObjectTags = policy.ResourceTags.Remove(input.ObjectTags...)
+		input.ObjectTags = policy.ObjectTags.Remove(input.ObjectTags...)
 	case api.TAG_UPDATE_POLICY_REPLACE:
 		// do nothing
 	default:
 		input.DomainTags = policy.DomainTags.Append(input.DomainTags...)
 		input.ProjectTags = policy.ProjectTags.Append(input.ProjectTags...)
-		input.ObjectTags = policy.ResourceTags.Append(input.ObjectTags...)
+		input.ObjectTags = policy.ObjectTags.Append(input.ObjectTags...)
 	}
 
 	if input.Blob != nil {
@@ -403,7 +403,6 @@ func (policy *SPolicy) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 	if err != nil {
 		log.Errorf("CancelPendingUsage fail %s", err)
 	}
-
 	// policyman.PolicyManager.SyncOnce()
 }
 
@@ -598,7 +597,7 @@ func (policy *SPolicy) GetSharedDomains() []string {
 }
 
 func (policy *SPolicy) getPolicy() (*rbacutils.SPolicy, error) {
-	pc, err := rbacutils.DecodePolicyData(policy.DomainTags, policy.ProjectTags, policy.ResourceTags, policy.Blob)
+	pc, err := rbacutils.DecodePolicyData(policy.DomainTags, policy.ProjectTags, policy.ObjectTags, policy.Blob)
 	if err != nil {
 		return nil, errors.Wrap(err, "Decode")
 	}

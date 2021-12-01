@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
@@ -30,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 type UUIDGenerator func() string
@@ -397,6 +399,12 @@ func (model *SStandaloneAnonResourceBase) PerformSetUserMetadata(ctx context.Con
 	return nil, nil
 }
 
+type sPolicyTags struct {
+	PolicyObjectTags  tagutils.TTagSetList `json:"policy_object_tags"`
+	PolicyProjectTags tagutils.TTagSetList `json:"policy_project_tags"`
+	PolicyDomainTags  tagutils.TTagSetList `json:"policy_domain_tags"`
+}
+
 func (model *SStandaloneAnonResourceBase) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	model.SResourceBase.PostUpdate(ctx, userCred, query, data)
 
@@ -405,6 +413,8 @@ func (model *SStandaloneAnonResourceBase) PostUpdate(ctx context.Context, userCr
 	if err == nil {
 		model.PerformMetadata(ctx, userCred, nil, meta)
 	}
+
+	model.applyPolicyTags(ctx, userCred, data)
 }
 
 func (model *SStandaloneAnonResourceBase) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -414,6 +424,22 @@ func (model *SStandaloneAnonResourceBase) PostCreate(ctx context.Context, userCr
 	err := data.Unmarshal(&meta, "__meta__")
 	if err == nil {
 		model.PerformMetadata(ctx, userCred, nil, meta)
+	}
+
+	model.applyPolicyTags(ctx, userCred, data)
+}
+
+func (model *SStandaloneAnonResourceBase) applyPolicyTags(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) {
+	tags := sPolicyTags{}
+	data.Unmarshal(&tags)
+	log.Debugf("applyPolicyTags: %s", jsonutils.Marshal(tags))
+	if len(tags.PolicyObjectTags) > 0 {
+		model.PerformMetadata(ctx, userCred, nil, tagutils.Tagset2MapString(tags.PolicyObjectTags.Flattern()))
+	}
+	if model.Keyword() == "project" && len(tags.PolicyProjectTags) > 0 {
+		model.PerformMetadata(ctx, userCred, nil, tagutils.Tagset2MapString(tags.PolicyProjectTags.Flattern()))
+	} else if model.Keyword() == "domain" && len(tags.PolicyDomainTags) > 0 {
+		model.PerformMetadata(ctx, userCred, nil, tagutils.Tagset2MapString(tags.PolicyDomainTags.Flattern()))
 	}
 }
 

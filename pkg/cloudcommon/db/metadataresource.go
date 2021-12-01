@@ -17,8 +17,6 @@ package db
 import (
 	"strings"
 
-	"yunion.io/x/onecloud/pkg/util/tagutils"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
@@ -27,11 +25,16 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 type SMetadataResourceBaseModelManager struct{}
 
-func (meta *SMetadataResourceBaseModelManager) objIdQueryWithTags(modelName string, oTags tagutils.TTagSet, oMoreTags tagutils.TTagSetList) *sqlchemy.SQuery {
+func ObjIdQueryWithTags(modelName string, oMoreTags tagutils.TTagSetList) *sqlchemy.SQuery {
+	return objIdQueryWithTags(modelName, nil, oMoreTags)
+}
+
+func objIdQueryWithTags(modelName string, oTags tagutils.TTagSet, oMoreTags tagutils.TTagSetList) *sqlchemy.SQuery {
 	metadataResQ := Metadata.Query().Equals("obj_type", modelName).SubQuery()
 
 	queries := make([]sqlchemy.IQuery, 0)
@@ -82,7 +85,7 @@ func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
 	input apis.MetadataResourceListInput,
 ) *sqlchemy.SQuery {
 	if len(input.Tags) > 0 || len(input.ObjTags) > 0 {
-		sq := meta.objIdQueryWithTags(manager.Keyword(), input.Tags, input.ObjTags)
+		sq := objIdQueryWithTags(manager.Keyword(), input.Tags, input.ObjTags)
 		if sq != nil {
 			sqq := sq.SubQuery()
 			q = q.Join(sqq, sqlchemy.Equals(q.Field("id"), sqq.Field("obj_id")))
@@ -91,7 +94,7 @@ func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
 	}
 
 	if len(input.PolicyObjectTags) > 0 {
-		sq := meta.objIdQueryWithTags(manager.Keyword(), nil, input.PolicyObjectTags)
+		sq := objIdQueryWithTags(manager.Keyword(), nil, input.PolicyObjectTags)
 		if sq != nil {
 			sqq := sq.SubQuery()
 			q = q.Join(sqq, sqlchemy.Equals(q.Field("id"), sqq.Field("obj_id")))
@@ -99,7 +102,7 @@ func (meta *SMetadataResourceBaseModelManager) ListItemFilter(
 	}
 
 	if len(input.NoTags) > 0 || len(input.NoObjTags) > 0 {
-		sq := meta.objIdQueryWithTags(manager.Keyword(), input.NoTags, input.NoObjTags)
+		sq := objIdQueryWithTags(manager.Keyword(), input.NoTags, input.NoObjTags)
 		if sq != nil {
 			q = q.Filter(sqlchemy.NotIn(q.Field("id"), sq.SubQuery()))
 		}
