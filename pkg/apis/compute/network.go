@@ -78,6 +78,9 @@ type NetworkListInput struct {
 
 	UsableResourceListInput
 
+	// filter by route table which associate with it
+	RouteTableId string `json:"route_table_id"`
+
 	// description: Exact matching ip address in network.
 	// example: 10.168.222.1
 	Ip string `json:"ip"`
