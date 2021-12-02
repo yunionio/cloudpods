@@ -1,4 +1,4 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/ansibleserver-base:v1.0.5
+FROM registry.cn-beijing.aliyuncs.com/yunionio/ansibleserver-base:v1.0.5-2
 
 # install playbook and telegraf install pkg
 COPY --from=registry.cn-beijing.aliyuncs.com/yunionio/file-repo:v0.3.4 /opt/yunion/playbook /opt/yunion/playbook
