@@ -7,12 +7,12 @@ debian10-base:
 	docker buildx build --platform linux/arm64,linux/amd64 --push \
 		-t registry.cn-beijing.aliyuncs.com/yunionio/debian10-base:1.0 -f ./Dockerfile.debian-base .
 
-ONECLOUD_BASE_VERSION = v0.3.5
+ONECLOUD_BASE_VERSION = v0.3.5-1
 
 onecloud-base:
 	$(DOCKER_BUILDX)/onecloud-base:$(ONECLOUD_BASE_VERSION) -f ./Dockerfile.onecloud-base .
 
-ANSIBLESERVER_BASE = v1.0.5
+ANSIBLESERVER_BASE = v1.0.5-2
 
 ansibleserver-base:
 	$(DOCKER_BUILDX)/ansibleserver-base:$(ANSIBLESERVER_BASE) -f ./Dockerfile.ansibleserver-base .
@@ -22,6 +22,10 @@ CLIMC_BASE_VERSION = 20210901
 climc-base:
 	docker buildx build --platform linux/arm64,linux/amd64 --push \
 		-t registry.cn-beijing.aliyuncs.com/yunionio/climc-base:$(CLIMC_BASE_VERSION) -f ./Dockerfile.climc-base .
+
+WEBCONSOLE_BASE_VERSION = v0.2-1
+webconsole-base:
+	$(DOCKER_BUILDX)/webconsole-base:$(WEBCONSOLE_BASE_VERSION) -f ./Dockerfile.webconsole-base .
 
 BAREMETAL_BASE_VERSION = v0.3.3
 
