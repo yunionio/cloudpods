@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	comapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -137,7 +138,7 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByCopy(ctx context.Context, 
 	ret.Add(jsonutils.NewInt(dstVmdkInfo.Size()), "size")
 	ret.Add(jsonutils.NewString(dstPath), "path")
 	ret.Add(jsonutils.NewString(data.ImageId), "image_id")
-	_, err = hostutils.RemoteStoragecacheCacheImage(ctx, data.StoragecacheId, data.ImageId, "ready", dstPath)
+	_, err = hostutils.RemoteStoragecacheCacheImage(ctx, data.StoragecacheId, data.ImageId, comapi.CACHED_IMAGE_STATUS_ACTIVE, dstPath)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +211,7 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByUpload(ctx context.Context
 	remoteImg := localImage.(*jsonutils.JSONDict)
 	remoteImg.Add(jsonutils.NewString(remotePath), "path")
 
-	_, err = hostutils.RemoteStoragecacheCacheImage(ctx, data.StoragecacheId, data.ImageId, "ready", remotePath)
+	_, err = hostutils.RemoteStoragecacheCacheImage(ctx, data.StoragecacheId, data.ImageId, "active", remotePath)
 	if err != nil {
 		return nil, err
 	}
