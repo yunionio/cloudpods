@@ -43,6 +43,10 @@ func (self *SApsaraProviderFactory) IsMultiTenant() bool {
 	return true
 }
 
+func (self *SApsaraProviderFactory) IsNeedForceAutoCreateProject() bool {
+	return true
+}
+
 func (self *SApsaraProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
@@ -57,7 +61,7 @@ func (self *SApsaraProviderFactory) ValidateCreateCloudaccountData(ctx context.C
 		return output, httperrors.NewMissingParameterError("endpoint")
 	}
 	output.AccessUrl = input.Endpoint
-	if input.SApsaraEndpoints == nil || len(input.SApsaraEndpoints.DefaultRegion) == 0 {
+	if len(input.DefaultRegion) == 0 {
 		return output, httperrors.NewMissingParameterError("default_region")
 	}
 	return output, nil

@@ -32,13 +32,14 @@ import (
 
 type BaseOptions struct {
 	cloudprovider.SHCSOEndpoints
-	Help       bool   `help:"Show help" default:"false"`
-	Debug      bool   `help:"Show debug" default:"false"`
-	AccessKey  string `help:"Access key" default:"$HUAWEI_ACCESS_KEY" metavar:"HUAWEI_ACCESS_KEY"`
-	Secret     string `help:"Secret" default:"$HUAWEI_SECRET" metavar:"HUAWEI_SECRET"`
-	RegionId   string `help:"RegionId" default:"$HUAWEI_REGION" metavar:"HUAWEI_REGION"`
-	ProjectId  string `help:"ProjectId" default:"$HUAWEI_PROJECT" metavar:"HUAWEI_PROJECT"`
-	SUBCOMMAND string `help:"huaweicli subcommand" subcommand:"true"`
+	Help           bool   `help:"Show help" default:"false"`
+	Debug          bool   `help:"Show debug" default:"false"`
+	AccessKey      string `help:"Access key" default:"$HUAWEI_ACCESS_KEY" metavar:"HUAWEI_ACCESS_KEY"`
+	Secret         string `help:"Secret" default:"$HUAWEI_SECRET" metavar:"HUAWEI_SECRET"`
+	RegionId       string `help:"RegionId" default:"$HUAWEI_REGION" metavar:"HUAWEI_REGION"`
+	DEFAULT_REGION string `help:"Default Region" default:"$HUAWEI_DEFAULT_REGION" metavar:"HUAWEI_DEFAULT_REGION"`
+	ProjectId      string `help:"ProjectId" default:"$HUAWEI_PROJECT" metavar:"HUAWEI_PROJECT"`
+	SUBCOMMAND     string `help:"huaweicli subcommand" subcommand:"true"`
 }
 
 func getSubcommandParser() (*structarg.ArgumentParser, error) {
@@ -110,7 +111,8 @@ func newClient(options *BaseOptions) (*huawei.SRegion, error) {
 		).Debug(options.Debug).
 			CloudproviderConfig(
 				cloudprovider.ProviderConfig{
-					ProxyFunc: proxyFunc,
+					ProxyFunc:     proxyFunc,
+					DefaultRegion: options.DEFAULT_REGION,
 				},
 			),
 	)

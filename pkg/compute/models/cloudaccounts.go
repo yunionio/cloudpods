@@ -315,6 +315,7 @@ func (self *SCloudaccount) ValidateUpdateData(
 		return input, httperrors.NewNotSupportedError("%s not support saml auth", self.Provider)
 	}
 
+	defaultRegion, _ := jsonutils.Marshal(self.Options).GetString("default_region")
 	if len(input.ProxySettingId) > 0 {
 		var proxySetting *proxy.SProxySetting
 		proxySetting, input.ProxySettingResourceInput, err = proxy.ValidateProxySettingResourceInput(userCred, input.ProxySettingResourceInput)
@@ -327,11 +328,13 @@ func (self *SCloudaccount) ValidateUpdateData(
 			proxyFunc := proxySetting.HttpTransportProxyFunc()
 			secret, _ := self.getPassword()
 			_, _, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
-				Vendor:    self.Provider,
-				URL:       self.AccessUrl,
-				Account:   self.Account,
-				Secret:    secret,
-				ProxyFunc: proxyFunc,
+				Vendor:        self.Provider,
+				URL:           self.AccessUrl,
+				Account:       self.Account,
+				Secret:        secret,
+				DefaultRegion: defaultRegion,
+				ProxyFunc:     proxyFunc,
+				Options:       input.Options,
 			})
 			if err != nil {
 				return input, httperrors.NewInputParameterError("invalid proxy setting %s", err)
@@ -452,11 +455,14 @@ func (manager *SCloudaccountManager) validateCreateData(
 		endpointOptions = jsonutils.Marshal(input.SCloudaccountCredential.SCtyunExtraOptions)
 	}
 
-	if endpointOptions != nil {
-		if input.Options == nil {
-			input.Options = jsonutils.NewDict()
-		}
+	if input.Options == nil {
+		input.Options = jsonutils.NewDict()
+	}
+	if len(input.DefaultRegion) > 0 {
+		input.Options.Add(jsonutils.NewString(input.DefaultRegion), "default_region")
+	}
 
+	if endpointOptions != nil {
 		input.Options.Update(endpointOptions)
 	}
 
@@ -508,12 +514,13 @@ func (manager *SCloudaccountManager) validateCreateData(
 		proxyFunc = proxySetting.HttpTransportProxyFunc()
 	}
 	provider, accountId, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
-		Name:      input.Name,
-		Vendor:    input.Provider,
-		URL:       input.AccessUrl,
-		Account:   input.Account,
-		Secret:    input.Secret,
-		ProxyFunc: proxyFunc,
+		Name:          input.Name,
+		Vendor:        input.Provider,
+		URL:           input.AccessUrl,
+		Account:       input.Account,
+		Secret:        input.Secret,
+		DefaultRegion: input.DefaultRegion,
+		ProxyFunc:     proxyFunc,
 
 		Options: input.Options,
 	})
@@ -956,6 +963,7 @@ func (self *SCloudaccount) getProviderInternal() (cloudprovider.ICloudProvider, 
 	if err != nil {
 		return nil, fmt.Errorf("Invalid password %s", err)
 	}
+	defaultRegion, _ := jsonutils.Marshal(self.Options).GetString("default_region")
 	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
 		Id:      self.Id,
 		Name:    self.Name,
@@ -964,8 +972,9 @@ func (self *SCloudaccount) getProviderInternal() (cloudprovider.ICloudProvider, 
 		Account: self.Account,
 		Secret:  secret,
 
-		Options:   self.Options,
-		ProxyFunc: self.proxyFunc(),
+		Options:       self.Options,
+		DefaultRegion: defaultRegion,
+		ProxyFunc:     self.proxyFunc(),
 	})
 }
 

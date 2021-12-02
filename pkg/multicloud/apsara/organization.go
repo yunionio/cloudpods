@@ -16,8 +16,13 @@ package apsara
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/pkg/errors"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SResourceGroupList struct {
@@ -56,6 +61,30 @@ type SOrganizationTree struct {
 	ResourceGroupList []SResourceGroupList
 	SupportRegions    string
 	UUID              string
+}
+
+func (self *SOrganizationTree) GetProject(tags []string) []SProject {
+	ret := []SProject{}
+	if self.Name != "root" {
+		tags = append(tags, self.Name)
+	}
+	if len(self.Children) == 0 {
+		for _, resGrp := range self.ResourceGroupList {
+			if strings.HasPrefix(resGrp.ResourceGroupName, "ResourceSet(") {
+				continue
+			}
+			proj := SProject{
+				Id:   resGrp.Id,
+				Name: resGrp.ResourceGroupName,
+				Tags: tags,
+			}
+			ret = append(ret, proj)
+		}
+	}
+	for _, child := range self.Children {
+		ret = append(ret, child.GetProject(tags)...)
+	}
+	return ret
 }
 
 func (self *SApsaraClient) GetOrganizationTree(id int) (*SOrganizationTree, error) {
@@ -101,4 +130,70 @@ func (self *SOrganizationTree) ListProjects() []SResourceGroupList {
 		ret = append(ret, self.Children[i].ListProjects()...)
 	}
 	return ret
+}
+
+type SProject struct {
+	multicloud.SResourceBase
+
+	client *SApsaraClient
+	Id     string
+	Name   string
+	Tags   []string
+}
+
+func (self *SProject) GetId() string {
+	return self.Id
+}
+
+func (self *SProject) GetDomainId() string {
+	return ""
+}
+
+func (self *SProject) GetDomainName() string {
+	return ""
+}
+
+func (self *SProject) GetGlobalId() string {
+	return self.Id
+}
+
+func (self *SProject) GetName() string {
+	return self.Name
+}
+
+func (self *SProject) GetStatus() string {
+	return api.EXTERNAL_PROJECT_STATUS_AVAILABLE
+}
+
+func (self *SProject) GetSysTags() map[string]string {
+	return nil
+}
+
+func (self *SProject) SetTags(tags map[string]string, replace bool) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SProject) GetTags() (map[string]string, error) {
+	ret := map[string]string{}
+	for i, key := range self.Tags {
+		for j, value := range self.Tags {
+			if j-i == 1 {
+				ret[key] = value
+			}
+		}
+	}
+	return ret, nil
+}
+
+func (self *SApsaraClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	tree, err := self.GetOrganizationTree(1)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetOrganizationTree")
+	}
+	ret := []cloudprovider.ICloudProject{}
+	projects := tree.GetProject([]string{})
+	for i := range projects {
+		ret = append(ret, &projects[i])
+	}
+	return ret, nil
 }

@@ -559,6 +559,8 @@ func (account *SCloudDelegate) GetProvider() (cloudprovider.ICloudProvider, erro
 			return cfgProxyFunc(req.URL)
 		}
 	}
+	options := jsonutils.Marshal(account.Options)
+	defaultRegion, _ := options.GetString("default_region")
 	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
 		Id:        account.Id,
 		Name:      account.Name,
@@ -568,7 +570,8 @@ func (account *SCloudDelegate) GetProvider() (cloudprovider.ICloudProvider, erro
 		Secret:    passwd,
 		ProxyFunc: proxyFunc,
 
-		Options: jsonutils.Marshal(account.Options).(*jsonutils.JSONDict),
+		DefaultRegion: defaultRegion,
+		Options:       options.(*jsonutils.JSONDict),
 
 		AccountId: account.Id,
 	})

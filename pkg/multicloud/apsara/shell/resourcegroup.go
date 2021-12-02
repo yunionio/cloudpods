@@ -69,6 +69,8 @@ func init() {
 			return err
 		}
 		printObject(org)
+		projects := org.GetProject([]string{})
+		printList(projects, 0, 0, 0, nil)
 		return nil
 	})
 

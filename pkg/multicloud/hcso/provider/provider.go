@@ -97,7 +97,7 @@ func (self *SHCSOProviderFactory) ValidateCreateCloudaccountData(ctx context.Con
 		return output, errors.Wrap(httperrors.ErrMissingParameter, "cloud_stack_endpoints")
 	}
 
-	if len(input.SHCSOEndpoints.DefaultRegion) == 0 {
+	if len(input.DefaultRegion) == 0 {
 		return output, errors.Wrap(httperrors.ErrMissingParameter, "default_region")
 	}
 
@@ -120,7 +120,7 @@ func (self *SHCSOProviderFactory) ValidateUpdateCloudaccountCredential(ctx conte
 	}
 
 	if input.SHCSOEndpoints != nil {
-		if len(input.SHCSOEndpoints.DefaultRegion) == 0 {
+		if len(input.DefaultRegion) == 0 {
 			return output, errors.Wrap(httperrors.ErrMissingParameter, "default_region")
 		}
 

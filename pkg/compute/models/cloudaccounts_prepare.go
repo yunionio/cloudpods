@@ -168,12 +168,15 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		proxyFunc = proxySetting.HttpTransportProxyFunc()
 	}
 	provider, err := factory.GetProvider(cloudprovider.ProviderConfig{
-		Vendor:    input.Provider,
-		URL:       input.AccessUrl,
-		Account:   input.Account,
-		Secret:    input.Secret,
-		ProxyFunc: proxyFunc,
-		Name:      input.Name,
+		Vendor:        input.Provider,
+		URL:           input.AccessUrl,
+		Account:       input.Account,
+		Secret:        input.Secret,
+		ProxyFunc:     proxyFunc,
+		Name:          input.Name,
+		DefaultRegion: input.DefaultRegion,
+
+		Options: input.Options,
 	})
 	if err != nil {
 		return output, errors.Wrap(err, "factory.GetProvider")

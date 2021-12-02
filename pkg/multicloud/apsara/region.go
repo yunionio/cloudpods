@@ -70,11 +70,11 @@ func (self *SRegion) GetClient() *SApsaraClient {
 
 func (self *SRegion) getSdkClient() (*sdk.Client, error) {
 	if self.sdkClient == nil {
-		cli, err := sdk.NewClientWithAccessKey(self.RegionId, self.client.accessKey, self.client.accessSecret)
+		var err error
+		self.sdkClient, err = self.GetClient().getDefaultClient(self.RegionId)
 		if err != nil {
 			return nil, err
 		}
-		self.sdkClient = cli
 	}
 	return self.sdkClient, nil
 }

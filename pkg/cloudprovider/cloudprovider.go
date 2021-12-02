@@ -97,6 +97,11 @@ type SCloudaccountCredential struct {
 	// 阿里云专有云Endpoints
 	*SApsaraEndpoints
 
+	// 默认区域Id, Apara及HCSO需要此参数
+	// example: cn-north-2
+	// required: true
+	DefaultRegion string `default:"$DEFAULT_REGION" metavar:"$DEFAULT_REGION"`
+
 	// Huawei Cloud Stack Online
 	*SHCSOEndpoints
 
@@ -165,7 +170,8 @@ type ProviderConfig struct {
 
 	Options *jsonutils.JSONDict
 
-	ProxyFunc httputils.TransportProxyFunc
+	DefaultRegion string
+	ProxyFunc     httputils.TransportProxyFunc
 }
 
 func (cp *ProviderConfig) AdaptiveTimeoutHttpClient() *http.Client {

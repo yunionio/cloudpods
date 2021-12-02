@@ -90,11 +90,12 @@ type Client struct {
 }
 
 type SClientConfig struct {
-	signer    auth.Signer
-	endpoints *cloudprovider.SHCSOEndpoints
-	regionId  string
-	domainId  string
-	projectId string
+	signer        auth.Signer
+	endpoints     *cloudprovider.SHCSOEndpoints
+	regionId      string
+	domainId      string
+	projectId     string
+	defaultRegion string
 
 	debug bool
 }
@@ -105,6 +106,10 @@ func (self *SClientConfig) GetSigner() auth.Signer {
 
 func (self *SClientConfig) GetEndpoints() *cloudprovider.SHCSOEndpoints {
 	return self.endpoints
+}
+
+func (self *SClientConfig) GetDefaultRegion() string {
+	return self.defaultRegion
 }
 
 func (self *SClientConfig) GetRegionId() string {
@@ -181,7 +186,7 @@ func (self *Client) SetHttpClient(httpClient *http.Client) {
 	self.Services.SetHttpClient(httpClient)
 }
 
-func (self *Client) InitWithAccessKey(regionId, domainId, projectId, accessKey, secretKey string, debug bool, endpoints *cloudprovider.SHCSOEndpoints) error {
+func (self *Client) InitWithAccessKey(regionId, domainId, projectId, accessKey, secretKey string, debug bool, defaultRegion string, endpoints *cloudprovider.SHCSOEndpoints) error {
 	// accessKey signer
 	credential := &credentials.AccessKeyCredential{
 		AccessKeyId:     accessKey,
@@ -194,12 +199,13 @@ func (self *Client) InitWithAccessKey(regionId, domainId, projectId, accessKey, 
 		return err
 	}
 	self.cfg = &SClientConfig{
-		signer:    signer,
-		endpoints: endpoints,
-		regionId:  regionId,
-		domainId:  domainId,
-		projectId: projectId,
-		debug:     debug,
+		signer:        signer,
+		endpoints:     endpoints,
+		regionId:      regionId,
+		defaultRegion: defaultRegion,
+		domainId:      domainId,
+		projectId:     projectId,
+		debug:         debug,
 	}
 
 	// 初始化 resource manager
@@ -273,8 +279,8 @@ func (self *Client) initManagers() {
 	self.init = true
 }
 
-func NewClientWithAccessKey(regionId, domainId, projectId, accessKey, secretKey string, debug bool, endpoints *cloudprovider.SHCSOEndpoints) (*Client, error) {
+func NewClientWithAccessKey(regionId, domainId, projectId, accessKey, secretKey string, debug bool, defaultRegion string, endpoints *cloudprovider.SHCSOEndpoints) (*Client, error) {
 	c := &Client{}
-	err := c.InitWithAccessKey(regionId, domainId, projectId, accessKey, secretKey, debug, endpoints)
+	err := c.InitWithAccessKey(regionId, domainId, projectId, accessKey, secretKey, debug, defaultRegion, endpoints)
 	return c, err
 }

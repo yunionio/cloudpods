@@ -19,7 +19,7 @@ import (
 )
 
 func (self *SApsaraClient) stsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := self.getDefaultClient()
+	cli, err := self.getDefaultClient("")
 	if err != nil {
 		return nil, err
 	}
