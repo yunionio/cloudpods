@@ -176,11 +176,7 @@ func (self *SProject) SetTags(tags map[string]string, replace bool) error {
 func (self *SProject) GetTags() (map[string]string, error) {
 	ret := map[string]string{}
 	for i, key := range self.Tags {
-		for j, value := range self.Tags {
-			if j-i == 1 {
-				ret[key] = value
-			}
-		}
+		ret[fmt.Sprintf("L%d", i+1)] = key
 	}
 	return ret, nil
 }

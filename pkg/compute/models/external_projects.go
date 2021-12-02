@@ -254,7 +254,7 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 
 	tags, _ := ext.GetTags()
 	if len(tags) > 0 {
-		identity.Projects.PerformAction(s, self.ProjectId, "user-metadata", jsonutils.Marshal(tags))
+		identity.Projects.PerformAction(s, self.ProjectId, "set-user-metadata", jsonutils.Marshal(tags))
 	}
 	syncMetadata(ctx, userCred, self, ext)
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
@@ -351,7 +351,7 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 	tags, _ := extProject.GetTags()
 	if len(tags) > 0 {
 		s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
-		identity.Projects.PerformAction(s, project.ProjectId, "user-metadata", jsonutils.Marshal(tags))
+		identity.Projects.PerformAction(s, project.ProjectId, "set-user-metadata", jsonutils.Marshal(tags))
 	}
 
 	syncMetadata(ctx, userCred, &project, extProject)
