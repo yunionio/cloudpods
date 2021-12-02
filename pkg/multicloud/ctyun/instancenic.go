@@ -15,7 +15,6 @@
 package ctyun
 
 import (
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -61,14 +60,8 @@ func (self *SInstanceNic) InClassicNetwork() bool {
 	return false
 }
 
-func (self *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
-	network, err := self.instance.host.zone.region.GetNetwork(self.NetID)
-	if err != nil {
-		log.Errorf("SInstanceNic.GetINetwork %s", err)
-		return nil
-	}
-
-	return network
+func (self *SInstanceNic) GetINetworkId() string {
+	return self.NetID
 }
 
 func (self *SRegion) GetNics(vmId string) ([]SInstanceNic, error) {

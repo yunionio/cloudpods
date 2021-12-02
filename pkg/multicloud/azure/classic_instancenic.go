@@ -15,7 +15,8 @@
 package azure
 
 import (
-	"yunion.io/x/log"
+	"strings"
+
 	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -58,17 +59,6 @@ func (self *SClassicInstanceNic) InClassicNetwork() bool {
 	return true
 }
 
-func (self *SClassicInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
-	wires, err := self.instance.host.GetIWires()
-	if err != nil {
-		log.Errorf("GetINetwork error: %v", err)
-		return nil
-	}
-	for i := 0; i < len(wires); i++ {
-		wire := wires[i].(*SClassicWire)
-		if network := wire.getNetworkById(self.ID); network != nil {
-			return network
-		}
-	}
-	return nil
+func (self *SClassicInstanceNic) GetINetworkId() string {
+	return strings.ToLower(self.ID)
 }

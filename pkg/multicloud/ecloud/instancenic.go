@@ -17,8 +17,6 @@ package ecloud
 import (
 	"time"
 
-	"yunion.io/x/log"
-
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -84,20 +82,6 @@ func (in *SInstanceNic) InClassicNetwork() bool {
 	return false
 }
 
-func (in *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
-	net, err := in.instance.host.zone.region.GetNetworkById("", "", in.NetworkId)
-	if err != nil {
-		log.Errorf("unable to get Network %s", in.NetworkId)
-		return nil
-	}
-	vpc, err := in.instance.host.zone.region.getVpcByRouterId(in.RouterId)
-	if err != nil {
-		log.Errorf("unable to get Vpc by routerId %s", in.RouterId)
-	}
-	wire := &SWire{
-		vpc:  vpc,
-		zone: in.instance.host.zone,
-	}
-	net.wire = wire
-	return net
+func (in *SInstanceNic) GetINetworkId() string {
+	return in.NetworkId
 }

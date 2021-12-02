@@ -59,27 +59,16 @@ func (nic *SInstanceNic) InClassicNetwork() bool {
 	return false
 }
 
-func (nic *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
+func (nic *SInstanceNic) GetINetworkId() string {
 	networks, err := nic.instance.host.zone.region.GetNetworks(nic.instance.host.zone.UUID, "", nic.L3NetworkUUID, "")
 	if err != nil {
 		log.Errorf("failed to found networks for nic %v error: %v", jsonutils.Marshal(nic).String(), err)
-		return nil
+		return ""
 	}
 	for i := 0; i < len(networks); i++ {
 		if networks[i].Contains(nic.IP) {
-			l3Network, err := nic.instance.host.zone.region.GetL3Network(networks[i].L3NetworkUUID)
-			if err != nil {
-				log.Errorf("failed to found l3Network for network %v error: %v", jsonutils.Marshal(networks[i]).String(), err)
-				return nil
-			}
-			wire, err := nic.instance.host.zone.region.GetWire(l3Network.L2NetworkUUID)
-			if err != nil {
-				log.Errorf("failed to found wire for l3Network %v error: %v", jsonutils.Marshal(l3Network).String(), err)
-				return nil
-			}
-			networks[i].wire = wire
-			return &networks[i]
+			return networks[i].L3NetworkUUID
 		}
 	}
-	return nil
+	return ""
 }

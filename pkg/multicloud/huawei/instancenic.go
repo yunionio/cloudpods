@@ -83,26 +83,15 @@ func (self *SInstanceNic) InClassicNetwork() bool {
 	return false
 }
 
-func (self *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
+func (self *SInstanceNic) GetINetworkId() string {
 	instanceId := self.instance.GetId()
 	subnets, err := self.instance.host.zone.region.getSubnetIdsByInstanceId(instanceId)
 	if err != nil || len(subnets) == 0 {
 		log.Errorf("getSubnetIdsByInstanceId error: %s", err.Error())
-		return nil
+		return ""
 	}
 
-	wires, err := self.instance.host.GetIWires()
-	if err != nil {
-		return nil
-	}
-	for i := 0; i < len(wires); i += 1 {
-		wire := wires[i].(*SWire)
-		net := wire.getNetworkById(subnets[0])
-		if net != nil {
-			return net
-		}
-	}
-	return nil
+	return subnets[0]
 }
 
 func (self *SRegion) getSubnetIdsByInstanceId(instanceId string) ([]string, error) {

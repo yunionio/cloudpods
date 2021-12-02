@@ -49,18 +49,6 @@ func (self *SInstanceNic) InClassicNetwork() bool {
 	return self.classic
 }
 
-func (self *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
-	networkId := self.instance.VirtualPrivateCloud.SubnetId
-	wires, err := self.instance.host.GetIWires()
-	if err != nil {
-		return nil
-	}
-	for i := 0; i < len(wires); i++ {
-		wire := wires[i].(*SWire)
-		net := wire.getNetworkById(networkId)
-		if net != nil {
-			return net
-		}
-	}
-	return nil
+func (self *SInstanceNic) GetINetworkId() string {
+	return self.instance.VirtualPrivateCloud.SubnetId
 }
