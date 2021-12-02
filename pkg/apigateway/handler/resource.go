@@ -164,64 +164,65 @@ func (f *ResourceHandlers) listHandler(ctx context.Context, w http.ResponseWrite
 	jmod, _ := modulebase.GetJointModule(req.Session(), req.ResName())
 	if jmod != nil {
 		f.doList(ctx, req.Session(), jmod, req.Query(), w, r)
-	} else {
-		if err := req.WithMod1().Error(); err != nil {
-			httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	if err := req.WithMod1().Error(); err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	batchGet, err := req.Query().Bool("batchGet")
+	if err == nil && batchGet {
+		idlist := fetchIdList(ctx, req.Query(), w)
+		if idlist == nil {
 			return
 		}
-		batchGet, err := req.Query().Bool("batchGet")
-		if err == nil && batchGet {
-			idlist := fetchIdList(ctx, req.Query(), w)
-			if idlist == nil {
-				return
-			}
-			querydict, ok := req.Query().(*jsonutils.JSONDict)
-			if ok {
-				querydict.Remove("batchGet")
-				querydict.Remove("id")
-			}
-			ret := req.Mod1().BatchGet(req.Session(), idlist, req.Query())
-			appsrv.SendJSON(w, modulebase.ListResult2JSON(modulebase.SubmitResults2ListResult(ret)))
-		} else {
-			f.doList(ctx, req.Session(), req.Mod1(), req.Query(), w, r)
+		querydict, ok := req.Query().(*jsonutils.JSONDict)
+		if ok {
+			querydict.Remove("batchGet")
+			querydict.Remove("id")
 		}
+		ret := req.Mod1().BatchGet(req.Session(), idlist, req.Query())
+		appsrv.SendJSON(w, modulebase.ListResult2JSON(modulebase.SubmitResults2ListResult(ret)))
+		return
 	}
+	f.doList(ctx, req.Session(), req.Mod1(), req.Query(), w, r)
 }
 
-func (f *ResourceHandlers) doList(ctx context.Context, session *mcclient.ClientSession, module modulebase.IBaseManager, query jsonutils.JSONObject, w http.ResponseWriter, r *http.Request) {
-	var exportKeys []string
-	var exportTexts []string
-	export := struct {
-		ExportFormat   string `json:"export"`
-		ExportFileName string `json:"export_file_name"`
-		ExportKeys     string `json:"export_keys"`
-		ExportTexts    string `json:"export_texts"`
-	}{}
+type sExport struct {
+	ExportFormat   string `json:"export"`
+	ExportFileName string `json:"export_file_name"`
+	ExportKeys     string `json:"export_keys"`
+	ExportTexts    string `json:"export_texts"`
+	Keys           []string
+	Texts          []string
+}
+
+func (f *ResourceHandlers) fetchExportQuery(query jsonutils.JSONObject) (jsonutils.JSONObject, sExport, error) {
+	export := sExport{}
 	query.Unmarshal(&export)
+	export.Keys, export.Texts = []string{}, []string{}
 	if len(export.ExportFormat) > 0 {
 		if len(export.ExportKeys) > 0 {
-			exportKeys = strings.Split(export.ExportKeys, ",")
+			export.Keys = strings.Split(export.ExportKeys, ",")
 		}
 		if len(export.ExportTexts) > 0 {
-			exportTexts = strings.Split(export.ExportTexts, ",")
+			export.Texts = strings.Split(export.ExportTexts, ",")
 		}
-		if len(exportKeys) == 0 {
-			httperrors.InvalidInputError(ctx, w, "missing export keys")
-			return
+		if len(export.Keys) == 0 {
+			return nil, export, fmt.Errorf("missing export keys")
 		}
-		if len(exportTexts) == 0 {
-			exportTexts = exportKeys
+		if len(export.Texts) == 0 {
+			export.Texts = export.Keys
 		}
-		if len(exportKeys) != len(exportTexts) {
-			httperrors.InvalidInputError(ctx, w, "inconsistent export keys and texts")
-			return
+		if len(export.Keys) != len(export.Texts) {
+			return nil, export, fmt.Errorf("inconsistent export keys and texts") // httperrors.InvalidInputError(ctx, w, "inconsistent export keys and texts")
 		}
 		queryDict := query.(*jsonutils.JSONDict)
 		queryDict.Remove("export")
 		queryDict.Remove("export_texts")
 		queryDict.Remove("export_file_name")
 		keys := []string{}
-		for _, key := range exportKeys {
+		for _, key := range export.Keys {
 			if !strings.Contains(key, ".") {
 				keys = append(keys, key)
 				continue
@@ -233,6 +234,15 @@ func (f *ResourceHandlers) doList(ctx context.Context, session *mcclient.ClientS
 		}
 		queryDict.Set("export_keys", jsonutils.NewString(strings.Join(keys, ",")))
 		query = queryDict
+	}
+	return query, export, nil
+}
+
+func (f *ResourceHandlers) doList(ctx context.Context, session *mcclient.ClientSession, module modulebase.IBaseManager, query jsonutils.JSONObject, w http.ResponseWriter, r *http.Request) {
+	query, export, err := f.fetchExportQuery(query)
+	if err != nil {
+		httperrors.InvalidInputError(ctx, w, err.Error())
+		return
 	}
 
 	ret, e := module.List(session, query)
@@ -249,7 +259,7 @@ func (f *ResourceHandlers) doList(ctx context.Context, session *mcclient.ClientS
 			fileName = export.ExportFileName
 		}
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.xlsx\"", fileName))
-		excelutils.Export(ret.Data, exportKeys, exportTexts, w)
+		excelutils.Export(ret.Data, export.Keys, export.Texts, w)
 		return
 	}
 	appsrv.SendJSON(w, modulebase.ListResult2JSON(ret))
@@ -287,27 +297,44 @@ func (f *ResourceHandlers) getSpecHandler(ctx context.Context, w http.ResponseWr
 	query := req.Query()
 
 	module2, e := modulebase.GetModule(session, req.Spec())
-	if e == nil { // list in 1 context
-		jmod, e := modulebase.GetJointModule2(session, module, module2)
-		var ret *modulebase.ListResult
-		if e == nil { // joint module
-			ret, e = jmod.ListDescendent(session, req.ResID(), query)
-		} else {
-			ret, e = module2.ListInContext(session, query, module, req.ResID())
-		}
-		if e != nil {
-			httperrors.GeneralServerError(ctx, w, e)
-		} else {
-			appsrv.SendJSON(w, modulebase.ListResult2JSON(ret))
-		}
-	} else {
+	if e != nil {
 		obj, e := module.GetSpecific(session, req.ResID(), req.Spec(), query)
 		if e != nil {
 			httperrors.GeneralServerError(ctx, w, e)
-		} else {
-			appsrv.SendJSON(w, obj)
+			return
 		}
+		appsrv.SendJSON(w, obj)
 	}
+	// list in 1 context
+	query, export, err := f.fetchExportQuery(query)
+	if err != nil {
+		httperrors.InvalidInputError(ctx, w, err.Error())
+		return
+	}
+	jmod, e := modulebase.GetJointModule2(session, module, module2)
+	var ret *modulebase.ListResult
+	if e == nil { // joint module
+		ret, e = jmod.ListDescendent(session, req.ResID(), query)
+	} else {
+		ret, e = module2.ListInContext(session, query, module, req.ResID())
+	}
+	if e != nil {
+		httperrors.GeneralServerError(ctx, w, e)
+		return
+	}
+	if len(export.ExportFormat) > 0 {
+		w.Header().Set("Content-Description", "File Transfer")
+		w.Header().Set("Content-Transfer-Encoding", "binary")
+		w.Header().Set("Content-Type", "application/octet-stream")
+		fileName := fmt.Sprintf("export-%s", module.KeyString())
+		if len(export.ExportFileName) > 0 {
+			fileName = export.ExportFileName
+		}
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.xlsx\"", fileName))
+		excelutils.Export(ret.Data, export.Keys, export.Texts, w)
+		return
+	}
+	appsrv.SendJSON(w, modulebase.ListResult2JSON(ret))
 }
 
 // joint get
