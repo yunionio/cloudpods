@@ -116,6 +116,10 @@ func NormalLess(b1, b2 *ScoreBucket) bool {
 	return b1.normalScore.Total() < b2.normalScore.Total()
 }
 
+func NormalEqual(b1, b2 *ScoreBucket) bool {
+	return b1.normalScore.Total() == b2.normalScore.Total()
+}
+
 func (b *ScoreBucket) debugString(kind string, vals map[string]int) string {
 	return fmt.Sprintf("%s: %v", kind, vals)
 }
