@@ -8,4 +8,5 @@ RUN mkdir -p /opt/yunion/bin
 #ADD ./_output/bin/.baremetal-agent.bin /opt/yunion/bin/.baremetal-agent.bin
 #ADD ./_output/bin/bundles/baremetal-agent /opt/yunion/bin/bundles/baremetal-agent
 RUN apk add librados librbd
+ENV TZ UTC
 ADD ./_output/alpine-build/bin/baremetal-agent /opt/yunion/bin/baremetal-agent
