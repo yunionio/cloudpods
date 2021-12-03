@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 type SDomainManager struct {
@@ -189,9 +190,9 @@ func (manager *SDomainManager) ListItemFilter(
 	q = q.NotEquals("id", api.KeystoneDomainRoot)
 
 	if !query.PolicyDomainTags.IsEmpty() {
-		// apply policy imposed domain tag filters
-		subq := db.ObjIdQueryWithTags("domain", query.PolicyDomainTags).SubQuery()
-		q = q.In("id", subq)
+		policyFilters := tagutils.STagFilters{}
+		policyFilters.AddNoFilters(query.PolicyDomainTags)
+		q = db.ObjectIdQueryWithTagFilters(q, "id", "domain", policyFilters)
 	}
 
 	if query.Enabled != nil {

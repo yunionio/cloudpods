@@ -628,7 +628,6 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		return nil, errors.Wrap(err, "listItemQueryFiltersRaw")
 	}
 
-	log.Debugf("Query: %s", q.String(q.Field("id")))
 	var totalCnt int
 	if pagingConf == nil {
 		totalCnt, err = q.CountWithError()

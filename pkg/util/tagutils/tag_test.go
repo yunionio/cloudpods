@@ -13,3 +13,57 @@
 // limitations under the License.
 
 package tagutils
+
+import (
+	"testing"
+
+	"yunion.io/x/jsonutils"
+)
+
+func TestSTagCompare(t *testing.T) {
+	cases := []struct {
+		t1  STag
+		t2  STag
+		cmp int
+	}{
+		{
+			t1: STag{
+				Key:   "a",
+				Value: "1",
+			},
+			t2: STag{
+				Key:   "b",
+				Value: "2",
+			},
+			cmp: -1,
+		},
+		{
+			t1: STag{
+				Key:   "a",
+				Value: NoValue,
+			},
+			t2: STag{
+				Key:   "a",
+				Value: "1",
+			},
+			cmp: 1,
+		},
+		{
+			t1: STag{
+				Key:   "a",
+				Value: AnyValue,
+			},
+			t2: STag{
+				Key:   "a",
+				Value: "1",
+			},
+			cmp: -1,
+		},
+	}
+	for _, c := range cases {
+		got := Compare(c.t1, c.t2)
+		if got != c.cmp {
+			t.Errorf("Compare %s %s want %d got %d", jsonutils.Marshal(c.t1), jsonutils.Marshal(c.t2), c.cmp, got)
+		}
+	}
+}

@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 type SProjectManager struct {
@@ -222,9 +223,9 @@ func (manager *SProjectManager) ListItemFilter(
 	}
 
 	if !query.PolicyProjectTags.IsEmpty() {
-		// aplly policy imposed project tag filters
-		subq := db.ObjIdQueryWithTags("project", query.PolicyProjectTags).SubQuery()
-		q = q.In("id", subq)
+		policyFilters := tagutils.STagFilters{}
+		policyFilters.AddFilters(query.PolicyProjectTags)
+		q = db.ObjectIdQueryWithTagFilters(q, "id", "project", policyFilters)
 	}
 
 	userStr := query.UserId

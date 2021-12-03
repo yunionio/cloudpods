@@ -16,7 +16,6 @@ package tagutils
 
 import (
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -31,7 +30,7 @@ func (t TTagSet) IsZero() bool {
 	return len(t) == 0
 }
 
-func (ts TTagSet) Index(needle STag) (int, bool) {
+func (ts TTagSet) index(needle STag) (int, bool) {
 	i := 0
 	j := len(ts) - 1
 	for i <= j {
@@ -50,13 +49,40 @@ func (ts TTagSet) Index(needle STag) (int, bool) {
 
 func (ts TTagSet) Append(ele ...STag) TTagSet {
 	for _, e := range ele {
-		pos, find := ts.Index(e)
-		if find {
-			continue
+		ts = ts.add(e)
+	}
+	return ts
+}
+
+func (ts TTagSet) add(e STag) TTagSet {
+	if len(e.Value) == 0 {
+		e.Value = AnyValue
+	}
+	pos, find := ts.index(e)
+	if find {
+		return ts
+	}
+	ts = append(ts, e)
+	copy(ts[pos+1:], ts[pos:])
+	ts[pos] = e
+	if e.Value == AnyValue {
+		for i := pos + 1; i < len(ts); i++ {
+			if ts[i].Key != e.Key {
+				if i > pos+1 {
+					copy(ts[pos+1:], ts[i:])
+					ts = ts[:len(ts)-i+pos+1]
+				}
+				break
+			} else if ts[i].Value == NoValue {
+				// remove this key completely
+				copy(ts[pos:], ts[i+1:])
+				ts = ts[:len(ts)-i+pos-1]
+				break
+			}
 		}
-		ts = append(ts, e)
-		copy(ts[pos+1:], ts[pos:])
-		ts[pos] = e
+	} else if e.Value == NoValue && pos > 0 && ts[pos-1].Key == e.Key && ts[pos-1].Value == AnyValue {
+		copy(ts[pos-1:], ts[pos:])
+		ts = ts[:len(ts)-1]
 	}
 	return ts
 }
@@ -66,7 +92,10 @@ func (ts TTagSet) Remove(ele ...STag) TTagSet {
 		return ts
 	}
 	for _, e := range ele {
-		pos, find := ts.Index(e)
+		if len(e.Value) == 0 {
+			e.Value = AnyValue
+		}
+		pos, find := ts.index(e)
 		if !find {
 			continue
 		}
@@ -78,20 +107,41 @@ func (ts TTagSet) Remove(ele ...STag) TTagSet {
 	return ts
 }
 
-func contains(v1, v2 []string) bool {
-	vv1 := stringutils2.SSortedStrings(v1)
-	vv2 := stringutils2.SSortedStrings(v2)
-	return stringutils2.Contains(vv1, vv2)
+func (a TTagSet) Compact() TTagSet {
+	ret := make(TTagSet, 0, len(a))
+	ret = ret.Append(a...)
+	return ret
 }
 
 func (a TTagSet) Contains(b TTagSet) bool {
-	mapA := Tagset2Map(a)
-	mapB := Tagset2Map(b)
-
-	for k, v := range mapA {
-		if vs, ok := mapB[k]; !ok || !contains(v, vs) {
+	a = a.Compact()
+	b = b.Compact()
+	i := 0
+	j := 0
+	for i < len(a) && j < len(b) {
+		if a[i].Key < b[j].Key {
 			return false
+		} else if a[i].Key > b[j].Key {
+			j++
+		} else {
+			// a[i].Key == b[j].Key
+			if a[i].Value == b[j].Value {
+				i++
+				j++
+			} else {
+				if a[i].Value == AnyValue {
+					j++
+					if j >= len(b) || a[i].Key != b[j].Key {
+						i++
+					}
+				} else {
+					return false
+				}
+			}
 		}
+	}
+	if i < len(a) {
+		return false
 	}
 	return true
 }
@@ -99,7 +149,7 @@ func (a TTagSet) Contains(b TTagSet) bool {
 func Map2Tagset(meta map[string]string) TTagSet {
 	ts := TTagSet{}
 	for k, v := range meta {
-		ts = ts.Append(STag{
+		ts = ts.add(STag{
 			Key:   k,
 			Value: v,
 		})
@@ -107,24 +157,35 @@ func Map2Tagset(meta map[string]string) TTagSet {
 	return ts
 }
 
-func Tagset2Map(oTags TTagSet) map[string][]string {
+func tagset2Map(oTags TTagSet) map[string][]string {
+	oTags = oTags.Compact()
 	tags := map[string][]string{}
 	for _, tag := range oTags {
 		if _, ok := tags[tag.Key]; !ok {
 			tags[tag.Key] = []string{}
 		}
-		if len(tag.Value) > 0 && !utils.IsInStringArray(tag.Value, tags[tag.Key]) {
-			tags[tag.Key] = stringutils2.SSortedStrings(tags[tag.Key]).Append(tag.Value)
+		if tag.Value != AnyValue {
+			values := stringutils2.SSortedStrings(tags[tag.Key])
+			if !values.Contains(tag.Value) {
+				tags[tag.Key] = append(values, tag.Value)
+			}
 		}
 	}
 	return tags
 }
 
 func Tagset2MapString(oTags TTagSet) map[string]string {
+	oTags = oTags.Compact()
 	tags := map[string]string{}
 	for _, tag := range oTags {
 		if _, ok := tags[tag.Key]; !ok {
-			tags[tag.Key] = tag.Value
+			if tag.Value == AnyValue {
+				tags[tag.Key] = ""
+			} else if tag.Value == NoValue {
+				// no add
+			} else {
+				tags[tag.Key] = tag.Value
+			}
 		}
 	}
 	return tags

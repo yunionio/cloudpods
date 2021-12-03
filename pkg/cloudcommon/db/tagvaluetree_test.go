@@ -20,6 +20,8 @@ import (
 	"testing"
 
 	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 func TestTagValueTreeNodeSort(t *testing.T) {
@@ -30,7 +32,7 @@ func TestTagValueTreeNodeSort(t *testing.T) {
 		{
 			nodes: []*sTagValueTreeNode{
 				&sTagValueTreeNode{
-					Value: otherValue,
+					Value: tagutils.NoValue,
 					Count: 100,
 				},
 				&sTagValueTreeNode{
@@ -60,7 +62,7 @@ func TestTagValueTreeNodeSort(t *testing.T) {
 					Count: 10,
 				},
 				&sTagValueTreeNode{
-					Value: otherValue,
+					Value: tagutils.NoValue,
 					Count: 100,
 				},
 			},

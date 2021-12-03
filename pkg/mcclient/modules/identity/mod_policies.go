@@ -31,7 +31,10 @@ type SPolicyManager struct {
 var Policies SPolicyManager
 
 func policyReadFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	ss := s.(*jsonutils.JSONDict)
+	ss, ok := s.(*jsonutils.JSONDict)
+	if !ok {
+		return s, nil
+	}
 	ret := ss.CopyExcludes("blob", "type")
 	blobJson, _ := ss.Get("blob")
 	if blobJson != nil {

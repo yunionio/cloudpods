@@ -89,6 +89,8 @@ func createPolicy(s *mcclient.ClientSession, name string, policy string, domain 
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Policies)
 	cmd.List(&options.PolicyListOptions{})
+	cmd.Perform("user-metadata", &baseoptions.ResourceMetadataOptions{})
+	cmd.Perform("set-user-metadata", &baseoptions.ResourceMetadataOptions{})
 	cmd.GetProperty(&options.PolicyGetPropertyTagValuePairOptions{})
 	cmd.GetProperty(&options.PolicyGetPropertyTagValueTreeOptions{})
 	cmd.GetProperty(&options.PolicyGetPropertyDomainTagValuePairOptions{})

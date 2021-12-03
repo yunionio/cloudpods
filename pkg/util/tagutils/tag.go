@@ -14,6 +14,11 @@
 
 package tagutils
 
+const (
+	NoValue  = "___no_value__"
+	AnyValue = ""
+)
+
 type STag struct {
 	// 标签Kye
 	Key string `json:"key"`
@@ -27,10 +32,22 @@ func Compare(t1, t2 STag) int {
 	} else if t1.Key > t2.Key {
 		return 1
 	}
-	if t1.Value < t2.Value {
-		return -1
-	} else if t1.Value > t2.Value {
-		return 1
+	if t1.Value != t2.Value {
+		if t1.Value == AnyValue {
+			return -1
+		} else if t2.Value == AnyValue {
+			return 1
+		}
+		if t1.Value == NoValue {
+			return 1
+		} else if t2.Value == NoValue {
+			return -1
+		}
+		if t1.Value < t2.Value {
+			return -1
+		} else if t1.Value > t2.Value {
+			return 1
+		}
 	}
 	return 0
 }

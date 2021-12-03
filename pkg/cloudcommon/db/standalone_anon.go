@@ -581,32 +581,39 @@ func GetPropertyTagValuePairs(
 
 	sq := Metadata.Query().SubQuery()
 	keyOnly := (input.KeyOnly != nil && *input.KeyOnly)
-	var q *sqlchemy.SQuery
-	var queryFields []sqlchemy.IQueryField
-	if keyOnly {
-		queryFields = []sqlchemy.IQueryField{
-			sq.Field("key"),
-			sqlchemy.COUNT("count", sq.Field("key")),
-		}
-	} else {
-		queryFields = []sqlchemy.IQueryField{
-			sq.Field("key"),
-			sq.Field("value"),
-			sqlchemy.COUNT("count", sq.Field("key")),
-		}
-	}
-	q = sq.Query(queryFields...)
 
-	objQ := manager.Query(tagIdField)
+	queryKeys := []string{tagIdField}
+	if tagIdField != "id" {
+		queryKeys = append(queryKeys, "id")
+	}
+	objQ := manager.Query(queryKeys...)
 	objQ, err = ListItemQueryFilters(manager, ctx, objQ, userCred, query, policy.PolicyActionList)
 	if err != nil {
 		return nil, errors.Wrap(err, "ListItemQueryFilters")
 	}
 	objSQ := objQ.SubQuery()
+
+	var queryFields []sqlchemy.IQueryField
+	if keyOnly {
+		queryFields = []sqlchemy.IQueryField{
+			sq.Field("key"),
+			sqlchemy.COUNT("count", objSQ.Field("id")),
+		}
+	} else {
+		queryFields = []sqlchemy.IQueryField{
+			sq.Field("key"),
+			sq.Field("value"),
+			sqlchemy.COUNT("count", objSQ.Field("id")),
+		}
+	}
+	q := sq.Query()
+
 	q = q.Join(objSQ, sqlchemy.AND(
 		sqlchemy.Equals(q.Field("obj_type"), tagObjType),
 		sqlchemy.Equals(q.Field("obj_id"), objSQ.Field(tagIdField)),
 	))
+
+	q = q.AppendField(queryFields...)
 
 	q = Metadata.metadataBaseFilter(q, input.MetadataBaseFilterInput)
 
@@ -681,7 +688,7 @@ func GetPropertyTagValueTree(
 		return nil, errors.Wrap(err, "ListItemQueryFilters")
 	}
 	objQ = objQ.GroupBy(objSubQ.Field(tagIdField))
-	q := objQ.SubQuery().Query(sqlchemy.COUNT(tagValueCountKey, objQ.Field("_sub_count_")))
+	q := objQ.SubQuery().Query(sqlchemy.SUM(tagValueCountKey, objQ.Field("_sub_count_")))
 	metadataSQ := Metadata.Query().Equals("obj_type", tagObjType).In("key", input.Keys).SubQuery()
 	groupBy := make([]interface{}, 0)
 	for i, key := range input.Keys {
@@ -690,7 +697,7 @@ func GetPropertyTagValueTree(
 		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field(tagIdField), subq.Field("obj_id")))
 		q = q.AppendField(
 			sqlchemy.NewFunction(
-				sqlchemy.NewCase().When(sqlchemy.IsNull(subq.Field("value")), sqlchemy.NewStringField(otherValue)).Else(subq.Field("value")),
+				sqlchemy.NewCase().When(sqlchemy.IsNull(subq.Field("value")), sqlchemy.NewStringField(tagutils.NoValue)).Else(subq.Field("value")),
 				valueFieldName,
 			),
 		)

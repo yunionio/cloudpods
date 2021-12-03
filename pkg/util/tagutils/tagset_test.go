@@ -14,18 +14,187 @@
 
 package tagutils
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+
+	"yunion.io/x/jsonutils"
+)
+
+func TestTTagset_Add(t *testing.T) {
+	cases := []struct {
+		in   TTagSet
+		want TTagSet
+	}{
+		{
+			in: TTagSet{
+				STag{
+					Key:   "b",
+					Value: "1",
+				},
+				STag{
+					Key:   "a",
+					Value: "2",
+				},
+			},
+			want: TTagSet{
+				STag{
+					Key:   "a",
+					Value: "2",
+				},
+				STag{
+					Key:   "b",
+					Value: "1",
+				},
+			},
+		},
+		{
+			in: TTagSet{
+				STag{
+					Key:   "a",
+					Value: NoValue,
+				},
+				STag{
+					Key:   "a",
+					Value: AnyValue,
+				},
+			},
+			want: TTagSet{},
+		},
+		{
+			in: TTagSet{
+				STag{
+					Key:   "b",
+					Value: "1",
+				},
+				STag{
+					Key:   "a",
+					Value: "2",
+				},
+				STag{
+					Key:   "a",
+					Value: AnyValue,
+				},
+			},
+			want: TTagSet{
+				STag{
+					Key:   "a",
+					Value: AnyValue,
+				},
+				STag{
+					Key:   "b",
+					Value: "1",
+				},
+			},
+		},
+		{
+			in: TTagSet{
+				STag{
+					Key:   "b",
+					Value: "1",
+				},
+				STag{
+					Key:   "a",
+					Value: "2",
+				},
+				STag{
+					Key:   "a",
+					Value: NoValue,
+				},
+			},
+			want: TTagSet{
+				STag{
+					Key:   "a",
+					Value: "2",
+				},
+				STag{
+					Key:   "a",
+					Value: NoValue,
+				},
+				STag{
+					Key:   "b",
+					Value: "1",
+				},
+			},
+		},
+		{
+			in: TTagSet{
+				STag{
+					Key:   "b",
+					Value: "1",
+				},
+				STag{
+					Key:   "a",
+					Value: NoValue,
+				},
+				STag{
+					Key:   "a",
+					Value: "2",
+				},
+			},
+			want: TTagSet{
+				STag{
+					Key:   "a",
+					Value: "2",
+				},
+				STag{
+					Key:   "a",
+					Value: NoValue,
+				},
+				STag{
+					Key:   "b",
+					Value: "1",
+				},
+			},
+		},
+		{
+			in: TTagSet{
+				STag{
+					Key:   "b",
+					Value: "1",
+				},
+				STag{
+					Key:   "a",
+					Value: "2",
+				},
+				STag{
+					Key:   "a",
+					Value: NoValue,
+				},
+				STag{
+					Key:   "a",
+					Value: AnyValue,
+				},
+			},
+			want: TTagSet{
+				STag{
+					Key:   "b",
+					Value: "1",
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		got := TTagSet{}
+		got = got.Append(c.in...)
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("want %s got %s", jsonutils.Marshal(c.want), jsonutils.Marshal(got))
+		}
+	}
+}
 
 func TestTTagSet_Contains(t *testing.T) {
 	cases := []struct {
-		t1       TTagSet
-		t2       TTagSet
-		contains bool
+		t1    TTagSet
+		t2    TTagSet
+		t1ct2 bool
+		t2ct1 bool
 	}{
 		{
-			t1:       TTagSet{},
-			t2:       TTagSet{},
-			contains: true,
+			t1:    TTagSet{},
+			t2:    TTagSet{},
+			t1ct2: true,
+			t2ct1: true,
 		},
 		{
 			t1: TTagSet{
@@ -44,7 +213,23 @@ func TestTTagSet_Contains(t *testing.T) {
 					Value: "c",
 				},
 			},
-			contains: true,
+			t1ct2: true,
+			t2ct1: false,
+		},
+		{
+			t1: TTagSet{},
+			t2: TTagSet{
+				STag{
+					Key:   "project",
+					Value: "a",
+				},
+				STag{
+					Key:   "env",
+					Value: "c",
+				},
+			},
+			t1ct2: true,
+			t2ct1: false,
 		},
 		{
 			t1: TTagSet{
@@ -67,7 +252,8 @@ func TestTTagSet_Contains(t *testing.T) {
 					Value: "c",
 				},
 			},
-			contains: true,
+			t1ct2: false,
+			t2ct1: false,
 		},
 		{
 			t1: TTagSet{
@@ -82,13 +268,169 @@ func TestTTagSet_Contains(t *testing.T) {
 					Value: "b",
 				},
 			},
-			contains: false,
+			t1ct2: false,
+			t2ct1: false,
+		},
+		{
+			t1: TTagSet{
+				STag{
+					Key:   "project",
+					Value: AnyValue,
+				},
+				STag{
+					Key:   "zone",
+					Value: "a",
+				},
+			},
+			t2: TTagSet{
+				STag{
+					Key:   "project",
+					Value: "b",
+				},
+				STag{
+					Key:   "zone",
+					Value: "a",
+				},
+				STag{
+					Key:   "env",
+					Value: "c",
+				},
+			},
+			t1ct2: true,
+			t2ct1: false,
+		},
+		{
+			t1: TTagSet{
+				STag{
+					Key:   "project",
+					Value: AnyValue,
+				},
+			},
+			t2: TTagSet{
+				STag{
+					Key:   "project",
+					Value: "b",
+				},
+			},
+			t1ct2: true,
+			t2ct1: false,
 		},
 	}
 	for i, c := range cases {
-		got := c.t1.Contains(c.t2)
-		if got != c.contains {
-			t.Errorf("[%d] want: %v got: %v", i, c.contains, got)
+		got12 := c.t1.Contains(c.t2)
+		if got12 != c.t1ct2 {
+			t.Errorf("[%d] t1 contains t2 want: %v got: %v", i, c.t1ct2, got12)
+		}
+		got21 := c.t2.Contains(c.t1)
+		if got21 != c.t2ct1 {
+			t.Errorf("[%d] t2 contains t1 want: %v got: %v", i, c.t2ct1, got21)
+		}
+	}
+}
+
+func TestTagset2MapString(t *testing.T) {
+	cases := []struct {
+		ts   TTagSet
+		want map[string]string
+	}{
+		{
+			ts:   TTagSet{},
+			want: map[string]string{},
+		},
+		{
+			ts: TTagSet{
+				STag{
+					Key:   "project",
+					Value: "a",
+				},
+			},
+			want: map[string]string{
+				"project": "a",
+			},
+		},
+		{
+			ts: TTagSet{
+				STag{
+					Key:   "project",
+					Value: "b",
+				},
+				STag{
+					Key:   "project",
+					Value: "a",
+				},
+			},
+			want: map[string]string{
+				"project": "a",
+			},
+		},
+		{
+			ts: TTagSet{
+				STag{
+					Key:   "project",
+					Value: "b",
+				},
+				STag{
+					Key:   "project",
+					Value: AnyValue,
+				},
+			},
+			want: map[string]string{
+				"project": "",
+			},
+		},
+		{
+			ts: TTagSet{
+				STag{
+					Key:   "project",
+					Value: NoValue,
+				},
+				STag{
+					Key:   "project",
+					Value: AnyValue,
+				},
+			},
+			want: map[string]string{},
+		},
+		{
+			ts: TTagSet{
+				STag{
+					Key:   "project",
+					Value: NoValue,
+				},
+				STag{
+					Key:   "project",
+					Value: "a",
+				},
+			},
+			want: map[string]string{
+				"project": "a",
+			},
+		},
+		{
+			ts: TTagSet{
+				STag{
+					Key:   "project",
+					Value: NoValue,
+				},
+				STag{
+					Key:   "project",
+					Value: "a",
+				},
+				STag{
+					Key:   "env",
+					Value: "c",
+				},
+			},
+			want: map[string]string{
+				"project": "a",
+				"env":     "c",
+			},
+		},
+	}
+	for i, c := range cases {
+		got := Tagset2MapString(c.ts)
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("[%d] want %s got %s", i, jsonutils.Marshal(c.want), jsonutils.Marshal(got))
 		}
 	}
 }

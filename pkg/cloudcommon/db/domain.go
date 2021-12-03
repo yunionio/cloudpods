@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 type SDomainizedResourceBaseManager struct {
@@ -116,17 +117,18 @@ func (manager *SDomainizedResourceBaseManager) ListItemFilter(
 		)).SubQuery()
 		q = q.In("domain_id", subq)
 	}
+	tagFilters := tagutils.STagFilters{}
 	if !query.DomainTags.IsEmpty() {
-		subq := objIdQueryWithTags("domain", nil, query.DomainTags).SubQuery()
-		q = q.In("domain_id", subq)
+		tagFilters.AddFilters(query.DomainTags)
 	}
 	if !query.NoDomainTags.IsEmpty() {
-		subq := objIdQueryWithTags("domain", nil, query.NoDomainTags).SubQuery()
-		q = q.NotIn("domain_id", subq)
+		tagFilters.AddNoFilters(query.NoDomainTags)
 	}
+	q = ObjectIdQueryWithTagFilters(q, "domain_id", "domain", tagFilters)
 	if !query.PolicyDomainTags.IsEmpty() {
-		subq := objIdQueryWithTags("domain", nil, query.PolicyDomainTags).SubQuery()
-		q = q.In("domain_id", subq)
+		policyFilters := tagutils.STagFilters{}
+		policyFilters.AddFilters(query.PolicyDomainTags)
+		q = ObjectIdQueryWithTagFilters(q, "domain_id", "domain", policyFilters)
 	}
 	return q, nil
 }
