@@ -26,7 +26,6 @@ import (
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
-	"yunion.io/x/onecloud/pkg/scheduler/core/score"
 )
 
 func transToInstanceGroupSchedResult(result *SchedResultItemList, schedInfo *api.SchedInfo) *schedapi.ScheduleOutput {
@@ -123,15 +122,19 @@ func sortHosts(hosts []*sSchedResultItem, guestInfo *sGuestInfo, isBackup *bool)
 // scoreNormalization compare the value of s1 and s2.
 // If s1 is less than s2, return 1, 0 which means s2 is better than s1.
 func scoreNormalization(s1, s2 Score) (int64, int64) {
-	sb1, sb2 := s1.ScoreBucket, s2.ScoreBucket
-	preferLess := score.PreferLess(sb1, sb2)
-	avoidLess := score.AvoidLess(sb1, sb2)
-	normalLess := score.AvoidLess(sb1, sb2)
-	if preferLess || normalLess {
+	preferScore1, preferScore2 := s1.PreferScore()-s1.AvoidScore(), s2.PreferScore()-s2.AvoidScore()
+	normalScore1, normalScore2 := s1.NormalScore(), s2.NormalScore()
+	if preferScore1 < preferScore2 {
+		return 0, 1
+	}
+	if preferScore1 > preferScore2 {
 		return 1, 0
 	}
-	if avoidLess {
+	if normalScore1 < normalScore2 {
 		return 0, 1
+	}
+	if normalScore1 > normalScore2 {
+		return 1, 0
 	}
 	return 0, 0
 }
