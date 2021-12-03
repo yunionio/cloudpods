@@ -86,6 +86,8 @@ type SBaseMonitor struct {
 	OnMonitorConnected  MonitorSuccFunc
 	OnMonitorTimeout    MonitorErrorFunc
 
+	server string
+
 	QemuVersion string
 	connected   bool
 	timeout     bool
@@ -96,11 +98,12 @@ type SBaseMonitor struct {
 	reading bool
 }
 
-func NewBaseMonitor(OnMonitorConnected MonitorSuccFunc, OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc) *SBaseMonitor {
+func NewBaseMonitor(server string, OnMonitorConnected MonitorSuccFunc, OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc) *SBaseMonitor {
 	return &SBaseMonitor{
 		OnMonitorConnected:  OnMonitorConnected,
 		OnMonitorDisConnect: OnMonitorDisConnect,
 		OnMonitorTimeout:    OnMonitorTimeout,
+		server:              server,
 		timeout:             true,
 		mutex:               &sync.Mutex{},
 	}
