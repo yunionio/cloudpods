@@ -84,7 +84,8 @@ func (self *SStoragecache) getValidStorages() []SStorage {
 	q := StorageManager.Query()
 	q = q.Equals("storagecache_id", self.Id).
 		Filter(sqlchemy.In(q.Field("status"), []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE})).
-		Filter(sqlchemy.IsTrue(q.Field("enabled")))
+		Filter(sqlchemy.IsTrue(q.Field("enabled"))).
+		Filter(sqlchemy.IsFalse(q.Field("deleted")))
 	err := db.FetchModelObjects(StorageManager, q, &storages)
 	if err != nil {
 		return nil
