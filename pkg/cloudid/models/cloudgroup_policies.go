@@ -62,14 +62,6 @@ func (manager *SCloudgroupPolicyManager) GetSlaveFieldName() string {
 	return "cloudpolicy_id"
 }
 
-func (manager *SCloudgroupPolicyManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
-func (self *SCloudgroupPolicy) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
 // +onecloud:swagger-gen-ignore
 func (manager *SCloudgroupPolicyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return nil, httperrors.NewNotSupportedError("Not Supported")

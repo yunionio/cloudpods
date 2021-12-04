@@ -381,10 +381,6 @@ func (am *SAppManager) FetchCustomizeColumns(ctx context.Context, userCred mccli
 	return rows
 }
 
-func (a *SApp) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return a.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, a, "syncstatus")
-}
-
 func (a *SApp) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	var openTask = true
 	count, err := taskman.TaskManager.QueryTasksOfObject(a, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
@@ -419,10 +415,6 @@ func (a *SApp) GetIApp() (cloudprovider.ICloudApp, error) {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetIRegion")
 	}
 	return iRegion.GetICloudAppById(a.ExternalId)
-}
-
-func (self *SApp) AllowPerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "remote-update")
 }
 
 func (self *SApp) PerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.MongoDBRemoteUpdateInput) (jsonutils.JSONObject, error) {

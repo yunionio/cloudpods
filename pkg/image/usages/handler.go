@@ -39,7 +39,7 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	_, query, _ := appsrv.FetchEnv(ctx, w, r)
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 
-	ownerId, scope, err := db.FetchUsageOwnerScope(ctx, userCred, query)
+	ownerId, scope, err, _ := db.FetchUsageOwnerScope(ctx, userCred, query)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return

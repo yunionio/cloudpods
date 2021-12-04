@@ -366,15 +366,6 @@ func (sp *SScalingPolicy) Trigger(input *api.ScalingPolicyCreateInput) (IScaling
 	}
 }
 
-func (sp *SScalingPolicy) AllowPerformTrigger(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-
-	sg, err := sp.ScalingGroup()
-	if err != nil {
-		return false
-	}
-	return sg.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, sp, "trigger")
-}
-
 func (sp *SScalingPolicy) PerformTrigger(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 
 	if sp.Status != api.SP_STATUS_READY {

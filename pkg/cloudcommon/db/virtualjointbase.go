@@ -41,22 +41,6 @@ func NewVirtualJointResourceBaseManager(dt interface{}, tableName string, keywor
 	return SVirtualJointResourceBaseManager{SJointResourceBaseManager: NewJointResourceBaseManager(dt, tableName, keyword, keywordPlural, master, slave)}
 }
 
-func (manager *SVirtualJointResourceBaseManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	if jsonutils.QueryBoolean(query, "admin", false) && !IsAllowList(rbacutils.ScopeSystem, userCred, manager) {
-		return false
-	}
-	return true
-	// return manager.SJointResourceBaseManager.AllowListItems(ctx, userCred, query)
-}
-
-func (manager *SVirtualJointResourceBaseManager) AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, master IStandaloneModel, query jsonutils.JSONObject) bool {
-	masterVirtual := master.(IVirtualModel)
-	if masterVirtual.IsOwner(userCred) || IsAllowList(rbacutils.ScopeSystem, userCred, manager) {
-		return true
-	}
-	return false
-}
-
 func (manager *SVirtualJointResourceBaseManager) AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, master IStandaloneModel, slave IStandaloneModel) bool {
 	masterVirtual := master.(IVirtualModel)
 	slaveVirtual := slave.(IVirtualModel)

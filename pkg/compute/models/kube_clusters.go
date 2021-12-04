@@ -501,10 +501,6 @@ func (manager *SKubeClusterManager) OrderByExtraFields(
 	return q, nil
 }
 
-func (self *SKubeCluster) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "syncstatus")
-}
-
 // 同步Kube Cluster状态
 func (self *SKubeCluster) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.SyncstatusInput) (jsonutils.JSONObject, error) {
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "KubeClusterSyncstatusTask", "")
@@ -564,10 +560,6 @@ func (manager *SKubeClusterManager) ListItemExportKeys(ctx context.Context,
 		}
 	}
 	return q, nil
-}
-
-func (self *SKubeCluster) AllowGetDetailsKubeconfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "kubeconfig")
 }
 
 func (self *SKubeCluster) GetDetailsKubeconfig(ctx context.Context, userCred mcclient.TokenCredential, input api.GetKubeConfigInput) (*cloudprovider.SKubeconfig, error) {

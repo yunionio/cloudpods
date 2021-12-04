@@ -267,10 +267,6 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 	return region.GetDriver().ValidateCreateLoadbalancerBackendData(ctx, userCred, data, backendType, lb, backendGroup, backendModel)
 }
 
-func (lbb *SLoadbalancerBackend) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
 func (lbb *SLoadbalancerBackend) GetCloudproviderId() string {
 	lbbg, _ := lbb.GetLoadbalancerBackendGroup()
 	if lbbg != nil {
@@ -427,10 +423,6 @@ func (lbb *SLoadbalancerBackend) StartLoadBalancerBackendCreateTask(ctx context.
 
 func (lbb *SLoadbalancerBackend) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
-}
-
-func (lbb *SLoadbalancerBackend) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, lbb, "purge")
 }
 
 func (lbb *SLoadbalancerBackend) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

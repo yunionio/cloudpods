@@ -251,11 +251,11 @@ func (manager *SAssignmentManager) ProjectAddUser(ctx context.Context, userCred 
 		// if project.DomainId != api.DEFAULT_DOMAIN_ID && !options.Options.AllowJoinProjectsAcrossDomains {
 		//	return httperrors.NewInputParameterError("join user into project of default domain or identical domain")
 		// } else
-		if !db.IsAllowPerform(rbacutils.ScopeSystem, userCred, user, "join-project") {
+		if !db.IsAllowPerform(ctx, rbacutils.ScopeSystem, userCred, user, "join-project") {
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	} else {
-		if !db.IsAllowPerform(rbacutils.ScopeDomain, userCred, user, "join-project") {
+		if !db.IsAllowPerform(ctx, rbacutils.ScopeDomain, userCred, user, "join-project") {
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	}
@@ -326,11 +326,11 @@ func (manager *SAssignmentManager) projectRemoveUser(ctx context.Context, userCr
 		// if project.DomainId != api.DEFAULT_DOMAIN_ID {
 		//    return httperrors.NewInputParameterError("join user into project of default domain or identical domain")
 		// } else
-		if !db.IsAllowPerform(rbacutils.ScopeSystem, userCred, user, "leave-project") {
+		if !db.IsAllowPerform(ctx, rbacutils.ScopeSystem, userCred, user, "leave-project") {
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	} else {
-		if !db.IsAllowPerform(rbacutils.ScopeDomain, userCred, user, "leave-project") {
+		if !db.IsAllowPerform(ctx, rbacutils.ScopeDomain, userCred, user, "leave-project") {
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	}
@@ -352,11 +352,11 @@ func (manager *SAssignmentManager) projectAddGroup(ctx context.Context, userCred
 		// if project.DomainId != api.DEFAULT_DOMAIN_ID && !options.Options.AllowJoinProjectsAcrossDomains {
 		// 	return httperrors.NewInputParameterError("join group into project of default domain or identical domain")
 		// } else
-		if !db.IsAllowPerform(rbacutils.ScopeSystem, userCred, group, "join-project") {
+		if !db.IsAllowPerform(ctx, rbacutils.ScopeSystem, userCred, group, "join-project") {
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	} else {
-		if !db.IsAllowPerform(rbacutils.ScopeDomain, userCred, group, "join-project") {
+		if !db.IsAllowPerform(ctx, rbacutils.ScopeDomain, userCred, group, "join-project") {
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	}
@@ -374,11 +374,11 @@ func (manager *SAssignmentManager) projectRemoveGroup(ctx context.Context, userC
 		// if project.DomainId != api.DEFAULT_DOMAIN_ID {
 		//    return httperrors.NewInputParameterError("join group into project of default domain or identical domain")
 		// } else
-		if !db.IsAllowPerform(rbacutils.ScopeSystem, userCred, group, "leave-project") {
+		if !db.IsAllowPerform(ctx, rbacutils.ScopeSystem, userCred, group, "leave-project") {
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	} else {
-		if !db.IsAllowPerform(rbacutils.ScopeDomain, userCred, group, "leave-project") {
+		if !db.IsAllowPerform(ctx, rbacutils.ScopeDomain, userCred, group, "leave-project") {
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	}

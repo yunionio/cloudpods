@@ -52,10 +52,6 @@ func (manager *SSharableVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQ
 	return SharableManagerFilterByOwner(manager.GetISharableVirtualModelManager(), q, owner, scope)
 }
 
-func (model *SSharableVirtualResourceBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return model.IsOwner(userCred) || model.IsSharable(userCred) || IsAllowGet(rbacutils.ScopeSystem, userCred, model)
-}
-
 func (model *SSharableVirtualResourceBase) IsSharable(reqUsrId mcclient.IIdentityProvider) bool {
 	return SharableModelIsSharable(model.GetISharableVirtualModel(), reqUsrId)
 }

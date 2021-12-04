@@ -74,6 +74,7 @@ func searchMatchRoles(condstr string) []string {
 	return searchMatchStrings(roleContainsPattern, condstr)
 }
 
+// Deprecated
 func (policy *SRbacPolicy) Decode(policyJson jsonutils.JSONObject) error {
 	policy.Condition, _ = policyJson.GetString("condition")
 	if policyJson.Contains("projects") {
@@ -133,7 +134,7 @@ func (policy *SRbacPolicy) Decode(policyJson jsonutils.JSONObject) error {
 	if err != nil {
 		return errors.Wrap(err, "Get policy")
 	}
-	policy.Rules, err = DecodePolicy(policyBody)
+	policy.Rules, err = decodePolicy(policyBody)
 	if err != nil {
 		return errors.Wrap(err, "DecodePolicy")
 	}
@@ -166,7 +167,7 @@ func (policy *SRbacPolicy) Encode() jsonutils.JSONObject {
 
 	ret.Add(jsonutils.NewString(string(policy.Scope)), "scope")
 
-	ret.Add(policy.Rules.Encode(), "policy")
+	ret.Add(policy.Rules.encode(), "policy")
 
 	return ret
 }

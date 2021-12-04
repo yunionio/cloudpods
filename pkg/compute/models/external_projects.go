@@ -72,14 +72,6 @@ type SExternalProject struct {
 	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 }
 
-func (manager *SExternalProjectManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsDomainAllowList(userCred, manager)
-}
-
-func (self *SExternalProject) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return false
-}
-
 func (manager *SExternalProjectManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -357,10 +349,6 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 	syncMetadata(ctx, userCred, &project, extProject)
 	db.OpsLog.LogEvent(&project, db.ACT_CREATE, project.GetShortDesc(ctx), userCred)
 	return &project, nil
-}
-
-func (self *SExternalProject) AllowPerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "change-project")
 }
 
 func (self *SExternalProject) GetCloudaccount() (*SCloudaccount, error) {

@@ -58,10 +58,6 @@ func (manager *SInfrasResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, own
 	return SharableManagerFilterByOwner(manager.GetIInfrasModelManager(), q, owner, scope)
 }
 
-func (model *SInfrasResourceBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return ((model.IsOwner(userCred) || model.IsSharable(userCred)) && IsAllowGet(rbacutils.ScopeDomain, userCred, model)) || IsAllowGet(rbacutils.ScopeSystem, userCred, model)
-}
-
 func (model *SInfrasResourceBase) IsSharable(reqUsrId mcclient.IIdentityProvider) bool {
 	return SharableModelIsSharable(model.GetIInfrasModel(), reqUsrId)
 }

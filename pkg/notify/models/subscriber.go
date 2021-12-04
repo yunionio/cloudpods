@@ -113,12 +113,12 @@ func (sm *SSubscriberManager) ValidateCreateData(ctx context.Context, userCred m
 	switch input.Scope {
 	case sSystem:
 		allow := db.IsAdminAllowCreate(userCred, sm)
-		if !allow {
+		if allow.Result.IsDeny() {
 			return input, httperrors.NewForbiddenError("The scope %s and the role of the operator do not match", input.Scope)
 		}
 	case sDomain:
 		allow := db.IsDomainAllowCreate(userCred, sm)
-		if !allow {
+		if allow.Result.IsDeny() {
 			return input, httperrors.NewForbiddenError("The scope %s and the role of the operator do not match", input.Scope)
 		}
 	default:
@@ -250,17 +250,13 @@ func (s *SSubscriber) CustomizeCreate(ctx context.Context, userCred mcclient.Tok
 	return nil
 }
 
-func (s *SSubscriber) AllowPerformChange(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
 func (s *SSubscriber) PerformChange(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SubscriberChangeInput) (jsonutils.JSONObject, error) {
 	if s.Scope == string(rbacutils.ScopeSystem) {
-		if !db.IsAdminAllowUpdate(userCred, s) {
+		if !db.IsAdminAllowUpdate(ctx, userCred, s) {
 			return nil, httperrors.NewForbiddenError("")
 		}
 	} else {
-		if !db.IsDomainAllowUpdate(userCred, s) {
+		if !db.IsDomainAllowUpdate(ctx, userCred, s) {
 			return nil, httperrors.NewForbiddenError("")
 		}
 		if s.DomainId != userCred.GetProjectDomainId() {
@@ -313,12 +309,12 @@ func (sm *SSubscriberManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 	switch input.Scope {
 	case sSystem:
 		allow := db.IsAdminAllowList(userCred, sm)
-		if !allow {
+		if allow.Result.IsDeny() {
 			return nil, httperrors.NewForbiddenError("")
 		}
 	case sDomain:
 		allow := db.IsDomainAllowList(userCred, sm)
-		if !allow {
+		if allow.Result.IsDeny() {
 			return nil, httperrors.NewForbiddenError("")
 		}
 		q = q.Equals("domain_id", userCred.GetProjectDomainId())
@@ -371,11 +367,11 @@ func (s *SSubscriber) CustomizeDelete(ctx context.Context, userCred mcclient.Tok
 		return err
 	}
 	if s.Scope == string(rbacutils.ScopeSystem) {
-		if !db.IsAdminAllowDelete(userCred, s) {
+		if db.IsAdminAllowDelete(ctx, userCred, s) {
 			return httperrors.NewForbiddenError("")
 		}
 	} else {
-		if !db.IsDomainAllowDelete(userCred, s) {
+		if db.IsDomainAllowDelete(ctx, userCred, s) {
 			return httperrors.NewForbiddenError("")
 		}
 		if s.DomainId != userCred.GetProjectDomainId() {
@@ -591,10 +587,6 @@ func (sr *SSubscriber) SetReceivers(ctx context.Context, receiverIds []string) e
 	return nil
 }
 
-func (s *SSubscriber) AllowPerformSetReceiver(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, s, "set-receiver")
-}
-
 func (s *SSubscriber) PerformSetReceiver(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SubscriberSetReceiverInput) (jsonutils.JSONObject, error) {
 	reIds, err := SubscriberManager.validateReceivers(ctx, input.Receivers)
 	if err != nil {
@@ -603,20 +595,12 @@ func (s *SSubscriber) PerformSetReceiver(ctx context.Context, userCred mcclient.
 	return nil, s.SetReceivers(ctx, reIds)
 }
 
-func (s *SSubscriber) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, s, "enable")
-}
-
 func (s *SSubscriber) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	err := db.EnabledPerformEnable(s, ctx, userCred, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "EnabledPerformEnable")
 	}
 	return nil, nil
-}
-
-func (s *SSubscriber) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, s, "disable")
 }
 
 func (s *SSubscriber) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input jsonutils.JSONObject) (jsonutils.JSONObject, error) {

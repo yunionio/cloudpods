@@ -37,10 +37,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
-func (scm *SCloudaccountManager) AllowPerformPrepareNets(_ context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, scm, "prepare-nets")
-}
-
 type sNetworkInfo struct {
 	esxi.SNetworkInfo
 	prefix string

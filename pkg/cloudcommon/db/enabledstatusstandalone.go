@@ -43,10 +43,6 @@ func NewEnabledStatusStandaloneResourceBaseManager(dt interface{}, tableName str
 	}
 }
 
-func (self *SEnabledStatusStandaloneResourceBase) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) bool {
-	return IsAdminAllowPerform(userCred, self, "enable")
-}
-
 // 启用资源
 func (self *SEnabledStatusStandaloneResourceBase) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
 	err := EnabledPerformEnable(self, ctx, userCred, true)
@@ -54,10 +50,6 @@ func (self *SEnabledStatusStandaloneResourceBase) PerformEnable(ctx context.Cont
 		return nil, errors.Wrap(err, "EnabledPerformEnable")
 	}
 	return nil, nil
-}
-
-func (self *SEnabledStatusStandaloneResourceBase) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) bool {
-	return IsAdminAllowPerform(userCred, self, "disable")
 }
 
 // 禁用资源

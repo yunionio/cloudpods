@@ -92,12 +92,10 @@ func InitAuth(options *common_options.CommonOptions, authComplete auth.AuthCompl
 }
 
 func InitBaseAuth(options *common_options.BaseOptions) {
-	if options.EnableRbac {
-		policy.EnableGlobalRbac(
-			time.Second*time.Duration(options.RbacPolicyRefreshIntervalSeconds),
-			options.RbacDebug,
-		)
-	}
+	policy.EnableGlobalRbac(
+		time.Second*time.Duration(options.RbacPolicyRefreshIntervalSeconds),
+		options.RbacDebug,
+	)
 	consts.SetNonDefaultDomainProjects(options.NonDefaultDomainProjects)
 }
 

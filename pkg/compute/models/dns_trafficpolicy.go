@@ -87,10 +87,6 @@ func (manager *SDnsTrafficPolicyManager) ValidateCreateData(ctx context.Context,
 	return input, nil
 }
 
-func (manager *SDnsTrafficPolicyManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsDomainAllowList(userCred, manager)
-}
-
 // 列表
 func (manager *SDnsTrafficPolicyManager) ListItemFilter(
 	ctx context.Context,
@@ -110,10 +106,6 @@ func (manager *SDnsTrafficPolicyManager) ListItemFilter(
 		q = q.In("provider", query.Provider)
 	}
 	return q, nil
-}
-
-func (self *SDnsTrafficPolicy) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsDomainAllowUpdate(userCred, self)
 }
 
 // 详情

@@ -68,14 +68,6 @@ func (tryData *GuestSshableTryData) outputJSON() jsonutils.JSONObject {
 	return outJSON
 }
 
-func (guest *SGuest) AllowGetDetailsSshable(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-) bool {
-	return db.IsProjectAllowGetSpec(userCred, guest, "sshable")
-}
-
 func (guest *SGuest) GetDetailsSshable(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -139,7 +131,7 @@ func (guest *SGuest) sshableTryEach(
 	if tryData.Port != 0 {
 		sshPort = tryData.Port
 	} else {
-		sshPort = guest.GetSshPort(userCred)
+		sshPort = guest.GetSshPort(ctx, userCred)
 	}
 	tryData.Port = sshPort
 	var gnInfos []gnInfo
@@ -377,31 +369,19 @@ func (guest *SGuest) sshableTry(
 	return ok
 }
 
-func (guest *SGuest) AllowPerformHaveAgent(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return guest.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, guest, "have-agent")
-}
-
 func (guest *SGuest) PerformHaveAgent(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input compute_api.GuestHaveAgentInput) (compute_api.GuestHaveAgentOutput, error) {
 	var output compute_api.GuestHaveAgentOutput
-	v := guest.GetMetadata("__monitor_agent", userCred)
+	v := guest.GetMetadata(ctx, "__monitor_agent", userCred)
 	if v == "true" {
 		output.Have = true
 		return output, nil
 	}
-	v = guest.GetMetadata("sys:monitor_agent", userCred)
+	v = guest.GetMetadata(ctx, "sys:monitor_agent", userCred)
 	if v == "true" {
 		output.Have = true
 		return output, nil
 	}
 	return output, nil
-}
-
-func (guest *SGuest) AllowPerformMakeSshable(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-) bool {
-	return db.IsProjectAllowGetSpec(userCred, guest, "make-sshable")
 }
 
 func (guest *SGuest) PerformMakeSshable(
@@ -524,14 +504,6 @@ func (guest *SGuest) PerformMakeSshable(
 	return output, nil
 }
 
-func (guest *SGuest) AllowGetDetailsMakeSshableCmd(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-) bool {
-	return db.IsProjectAllowGetSpec(userCred, guest, "make-sshable-cmd")
-}
-
 func (guest *SGuest) GetDetailsMakeSshableCmd(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -582,8 +554,8 @@ fi
 	return output, nil
 }
 
-func (guest *SGuest) GetSshPort(userCred mcclient.TokenCredential) int {
-	portStr := guest.GetMetadata(compute_api.SSH_PORT, userCred)
+func (guest *SGuest) GetSshPort(ctx context.Context, userCred mcclient.TokenCredential) int {
+	portStr := guest.GetMetadata(ctx, compute_api.SSH_PORT, userCred)
 	if portStr == "" {
 		return 22
 	}
@@ -593,10 +565,6 @@ func (guest *SGuest) GetSshPort(userCred mcclient.TokenCredential) int {
 
 func (guest *SGuest) SetSshPort(ctx context.Context, userCred mcclient.TokenCredential, port int) error {
 	return guest.SetMetadata(ctx, compute_api.SSH_PORT, port, userCred)
-}
-
-func (guest *SGuest) AllowPerformSetSshport(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return guest.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, guest, "set-sshport")
 }
 
 func (guest *SGuest) PerformSetSshPort(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input compute_api.GuestSetSshPortInput) (jsonutils.JSONObject, error) {

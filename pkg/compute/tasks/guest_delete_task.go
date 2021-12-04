@@ -111,10 +111,10 @@ func (self *GuestDeleteTask) OnStartEipDissociateFailed(ctx context.Context, gue
 }
 
 func (self *GuestDeleteTask) OnStartEipDissociate(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	if sourceGuestId := guest.GetMetadata(api.SERVER_META_CONVERT_FROM_ESXI, self.UserCred); len(sourceGuestId) > 0 {
+	if sourceGuestId := guest.GetMetadata(ctx, api.SERVER_META_CONVERT_FROM_ESXI, self.UserCred); len(sourceGuestId) > 0 {
 		sourceGuest := models.GuestManager.FetchGuestById(sourceGuestId)
 		if sourceGuest != nil &&
-			sourceGuest.GetMetadata(api.SERVER_META_CONVERTED_SERVER, self.UserCred) == guest.Id {
+			sourceGuest.GetMetadata(ctx, api.SERVER_META_CONVERTED_SERVER, self.UserCred) == guest.Id {
 			err := guest.ConvertNetworks(sourceGuest)
 			if err != nil {
 				log.Errorf("Convert networks failed %s", err)

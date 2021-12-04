@@ -98,10 +98,6 @@ func (ar *SAnsiblePlaybookReference) ValidateUpdateData(ctx context.Context, use
 	return input, httperrors.NewForbiddenError("prohibited operation")
 }
 
-func (ar *SAnsiblePlaybookReference) AllowPerformRun(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return ar.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, ar, "run")
-}
-
 func (ar *SAnsiblePlaybookReference) PerformRun(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.AnsiblePlaybookReferenceRunInput) (api.AnsiblePlaybookReferenceRunOutput, error) {
 	output := api.AnsiblePlaybookReferenceRunOutput{}
 	ai, err := AnsiblePlaybookInstanceManager.createInstance(ctx, ar.Id, input.Host, input.Args)
@@ -114,10 +110,6 @@ func (ar *SAnsiblePlaybookReference) PerformRun(ctx context.Context, userCred mc
 		return output, errors.Wrap(err, "unable to runPlaybook")
 	}
 	return output, nil
-}
-
-func (ar *SAnsiblePlaybookReference) AllowPerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return ar.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, ar, "stop")
 }
 
 func (ar *SAnsiblePlaybookReference) PerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.AnsiblePlaybookReferenceStopInput) (jsonutils.JSONObject, error) {

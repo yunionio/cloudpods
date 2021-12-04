@@ -155,15 +155,6 @@ type SGuest struct {
 	SshableLastState tristate.TriState `nullable:"false" default:"false" list:"user"`
 }
 
-func (manager *SGuestManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	if query.Contains("host") || query.Contains("wire") || query.Contains("zone") {
-		if !db.IsAdminAllowList(userCred, manager) {
-			return false
-		}
-	}
-	return manager.SVirtualResourceBaseManager.AllowListItems(ctx, userCred, query)
-}
-
 // 云主机实例列表
 func (manager *SGuestManager) ListItemFilter(
 	ctx context.Context,
@@ -287,13 +278,9 @@ func (manager *SGuestManager) ListItemFilter(
 		}
 
 		isAdmin := false
-		admin := (query.VirtualResourceListInput.Admin != nil && *query.VirtualResourceListInput.Admin)
-		if consts.IsRbacEnabled() {
-			allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
-			if allowScope == rbacutils.ScopeSystem || allowScope == rbacutils.ScopeDomain {
-				isAdmin = true
-			}
-		} else if userCred.HasSystemAdminPrivilege() && admin {
+		// admin := (query.VirtualResourceListInput.Admin != nil && *query.VirtualResourceListInput.Admin)
+		allowScope, _ := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
+		if allowScope == rbacutils.ScopeSystem || allowScope == rbacutils.ScopeDomain {
 			isAdmin = true
 		}
 
@@ -1393,11 +1380,11 @@ func (manager *SGuestManager) validateCreateData(
 	}
 	netArray := input.Networks
 	for idx := 0; idx < len(netArray); idx += 1 {
-		netConfig, err := parseNetworkInfo(userCred, netArray[idx])
+		netConfig, err := parseNetworkInfo(ctx, userCred, netArray[idx])
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("parse network description error %s", err)
 		}
-		err = isValidNetworkInfo(userCred, netConfig, "")
+		err = isValidNetworkInfo(ctx, userCred, netConfig, "")
 		if err != nil {
 			return nil, err
 		}
@@ -1853,9 +1840,9 @@ func (guest *SGuest) SetCreateParams(ctx context.Context, userCred mcclient.Toke
 	}
 }
 
-func (guest *SGuest) GetCreateParams(userCred mcclient.TokenCredential) (*api.ServerCreateInput, error) {
+func (guest *SGuest) GetCreateParams(ctx context.Context, userCred mcclient.TokenCredential) (*api.ServerCreateInput, error) {
 	input := new(api.ServerCreateInput)
-	data := guest.GetMetadataJson(api.VM_METADATA_CREATE_PARAMS, userCred)
+	data := guest.GetMetadataJson(ctx, api.VM_METADATA_CREATE_PARAMS, userCred)
 	if data == nil {
 		return nil, fmt.Errorf("Not found %s %s in metadata", guest.Name, api.VM_METADATA_CREATE_PARAMS)
 	}
@@ -2250,7 +2237,7 @@ func (self *SGuest) GetOS() string {
 	if len(self.OsType) > 0 {
 		return self.OsType
 	}
-	return self.GetMetadata("os_name", nil)
+	return self.GetMetadata(context.Background(), "os_name", nil)
 }
 
 func (self *SGuest) IsLinux() bool {
@@ -2735,7 +2722,7 @@ func (self *SGuest) setOSProfile(ctx context.Context, userCred mcclient.TokenCre
 func (self *SGuest) GetOSProfile() osprofile.SOSProfile {
 	osName := self.GetOS()
 	osProf := osprofile.GetOSProfile(osName, self.Hypervisor)
-	val := self.GetMetadata("__os_profile__", nil)
+	val := self.GetMetadata(context.Background(), "__os_profile__", nil)
 	if len(val) > 0 {
 		jsonVal, _ := jsonutils.ParseString(val)
 		if jsonVal != nil {
@@ -3378,7 +3365,7 @@ func (self *SGuest) CreateNetworksOnHost(
 		return errors.Wrap(err, "self.attach2RandomNetwork")
 	}
 	for idx := range netArray {
-		netConfig, err := parseNetworkInfo(userCred, netArray[idx])
+		netConfig, err := parseNetworkInfo(ctx, userCred, netArray[idx])
 		if err != nil {
 			return errors.Wrapf(err, "parseNetworkInfo at %d", idx)
 		}
@@ -3775,10 +3762,10 @@ func (self *SGuest) AllowDeleteItem(ctx context.Context, userCred mcclient.Token
 		overridePendingDelete = jsonutils.QueryBoolean(query, "override_pending_delete", false)
 		purge = jsonutils.QueryBoolean(query, "purge", false)
 	}
-	if (overridePendingDelete || purge) && !db.IsAdminAllowDelete(userCred, self) {
+	if (overridePendingDelete || purge) && !db.IsAdminAllowDelete(ctx, userCred, self) {
 		return false
 	}
-	return self.IsOwner(userCred) || db.IsAdminAllowDelete(userCred, self)
+	return self.IsOwner(userCred) || db.IsAdminAllowDelete(ctx, userCred, self)
 }
 
 // 删除虚拟机
@@ -3947,11 +3934,11 @@ func (self *SGuest) getBios() string {
 }
 
 func (self *SGuest) getKvmOptions() string {
-	return self.GetMetadata("kvm", nil)
+	return self.GetMetadata(context.Background(), "kvm", nil)
 }
 
-func (self *SGuest) getExtraOptions() jsonutils.JSONObject {
-	return self.GetMetadataJson("extra_options", nil)
+func (self *SGuest) getExtraOptions(ctx context.Context) jsonutils.JSONObject {
+	return self.GetMetadataJson(ctx, "extra_options", nil)
 }
 
 func (self *SGuest) GetIsolatedDevices() ([]SIsolatedDevice, error) {
@@ -4012,7 +3999,7 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 	// disks
 	disks, _ := self.GetGuestDisks()
 	for _, disk := range disks {
-		diskDesc := disk.GetJsonDescAtHost(host)
+		diskDesc := disk.GetJsonDescAtHost(ctx, host)
 		desc.Disks = append(desc.Disks, diskDesc)
 	}
 
@@ -4044,7 +4031,7 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 	desc.SecurityRules = self.getSecurityGroupsRules()
 	desc.AdminSecurityRules = self.getAdminSecurityRules()
 
-	desc.ExtraOptions = self.getExtraOptions()
+	desc.ExtraOptions = self.getExtraOptions(ctx)
 
 	desc.Kvm = self.getKvmOptions()
 
@@ -4105,7 +4092,7 @@ func (self *SGuest) GetJsonDescAtBaremetal(ctx context.Context, host *SHost) *ap
 
 	disks, _ := self.GetGuestDisks()
 	for _, disk := range disks {
-		diskDesc := disk.GetJsonDescAtHost(host)
+		diskDesc := disk.GetJsonDescAtHost(ctx, host)
 		desc.Disks = append(desc.Disks, diskDesc)
 	}
 
@@ -4145,7 +4132,7 @@ func (self *SGuest) GetJsonDescAtBaremetal(ctx context.Context, host *SHost) *ap
 
 func (self *SGuest) getNetworkRoles() []string {
 	key := db.Metadata.GetSysadminKey("network_role")
-	roleStr := self.GetMetadata(key, auth.AdminCredential())
+	roleStr := self.GetMetadata(context.Background(), key, auth.AdminCredential())
 	if len(roleStr) > 0 {
 		return strings.Split(roleStr, ",")
 	}
@@ -4288,10 +4275,10 @@ func (self *SGuest) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	if len(self.OsType) > 0 {
 		desc.Add(jsonutils.NewString(self.OsType), "os_type")
 	}
-	if osDist := self.GetMetadata("os_distribution", nil); len(osDist) > 0 {
+	if osDist := self.GetMetadata(ctx, "os_distribution", nil); len(osDist) > 0 {
 		desc.Add(jsonutils.NewString(osDist), "os_distribution")
 	}
-	if osVer := self.GetMetadata("os_version", nil); len(osVer) > 0 {
+	if osVer := self.GetMetadata(ctx, "os_version", nil); len(osVer) > 0 {
 		desc.Add(jsonutils.NewString(osVer), "os_version")
 	}
 
@@ -4348,7 +4335,7 @@ func (self *SGuest) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 		}
 	}
 
-	if priceKey := self.GetMetadata("ext:price_key", nil); len(priceKey) > 0 {
+	if priceKey := self.GetMetadata(ctx, "ext:price_key", nil); len(priceKey) > 0 {
 		billingInfo.PriceKey = priceKey
 	}
 
@@ -4666,7 +4653,7 @@ func (self *SGuestManager) switchBackupGuests(ctx context.Context, userCred mccl
 	}
 	log.Debugf("Guests count %d need reconcile with switch backup", len(guests))
 	for i := 0; i < len(guests); i++ {
-		val := guests[i].GetMetadataJson("switch_backup", userCred)
+		val := guests[i].GetMetadataJson(ctx, "switch_backup", userCred)
 		t, err := val.GetTime()
 		if err != nil {
 			log.Errorf("failed get time from metadata switch_backup %s", err)
@@ -4705,7 +4692,7 @@ func (self *SGuestManager) createBackupGuests(ctx context.Context, userCred mccl
 	}
 	log.Infof("Guests count %d need reconcile with create bakcup", len(guests))
 	for i := 0; i < len(guests); i++ {
-		val := guests[i].GetMetadataJson("create_backup", userCred)
+		val := guests[i].GetMetadataJson(ctx, "create_backup", userCred)
 		t, err := val.GetTime()
 		if err != nil {
 			log.Errorf("failed get time from metadata create_backup %s", err)
@@ -4746,8 +4733,8 @@ func (self *SGuestManager) createBackupGuests(ctx context.Context, userCred mccl
 }
 
 func (self *SGuest) isInReconcile(userCred mcclient.TokenCredential) bool {
-	switchBackup := self.GetMetadata("switch_backup", userCred)
-	createBackup := self.GetMetadata("create_backup", userCred)
+	switchBackup := self.GetMetadata(context.Background(), "switch_backup", userCred)
+	createBackup := self.GetMetadata(context.Background(), "create_backup", userCred)
 	if len(switchBackup) > 0 || len(createBackup) > 0 {
 		return true
 	}
@@ -4976,7 +4963,7 @@ func (self *SGuest) getDefaultStorageType() string {
 }
 
 func (self *SGuest) GetApptags() []string {
-	tagsStr := self.GetMetadata(api.VM_METADATA_APP_TAGS, nil)
+	tagsStr := self.GetMetadata(context.Background(), api.VM_METADATA_APP_TAGS, nil)
 	if len(tagsStr) > 0 {
 		return strings.Split(tagsStr, ",")
 	}
@@ -5088,10 +5075,6 @@ func (self *SGuest) OnScheduleToHost(ctx context.Context, userCred mcclient.Toke
 	return host.ClearSchedDescCache()
 }
 
-func (guest *SGuest) AllowGetDetailsTasks(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGetSpec(userCred, guest, "tasks")
-}
-
 func (guest *SGuest) GetDetailsTasks(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	since := time.Time{}
 	if query.Contains("since") {
@@ -5116,9 +5099,9 @@ func (guest *SGuest) GetDynamicConditionInput() *jsonutils.JSONDict {
 	return guest.ToSchedDesc().ToConditionInput()
 }
 
-func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.ServerCreateInput {
+func (self *SGuest) ToCreateInput(ctx context.Context, userCred mcclient.TokenCredential) *api.ServerCreateInput {
 	genInput := self.toCreateInput()
-	userInput, err := self.GetCreateParams(userCred)
+	userInput, err := self.GetCreateParams(ctx, userCred)
 	if err != nil {
 		return genInput
 	}
@@ -5334,12 +5317,8 @@ func (self *SGuest) ToIsolatedDevicesConfig() []*api.IsolatedDeviceConfig {
 	return ret
 }
 
-func (self *SGuest) IsImport(userCred mcclient.TokenCredential) bool {
-	return self.GetMetadata("__is_import", userCred) == "true"
-}
-
-func (guest *SGuest) AllowGetDetailsRemoteNics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGetSpec(userCred, guest, "remote-nics")
+func (self *SGuest) IsImport(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return self.GetMetadata(ctx, "__is_import", userCred) == "true"
 }
 
 func (guest *SGuest) GetDetailsRemoteNics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {

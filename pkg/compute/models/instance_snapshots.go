@@ -89,12 +89,6 @@ type SInstanceSnapshotManager struct {
 
 var InstanceSnapshotManager *SInstanceSnapshotManager
 
-func (manager *SInstanceSnapshotManager) AllowCreateItem(
-	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject,
-) bool {
-	return false
-}
-
 // 主机快照列表
 func (manager *SInstanceSnapshotManager) ListItemFilter(
 	ctx context.Context,
@@ -191,10 +185,6 @@ func (manager *SInstanceSnapshotManager) QueryDistinctExtraField(q *sqlchemy.SQu
 	}
 
 	return q, httperrors.ErrNotFound
-}
-
-func (self *SInstanceSnapshot) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return false
 }
 
 func (self *SInstanceSnapshot) GetGuest() (*SGuest, error) {
@@ -296,7 +286,7 @@ func (self *SInstanceSnapshot) StartCreateInstanceSnapshotTask(
 	return nil
 }
 
-func (manager *SInstanceSnapshotManager) fillInstanceSnapshot(userCred mcclient.TokenCredential, guest *SGuest, instanceSnapshot *SInstanceSnapshot) {
+func (manager *SInstanceSnapshotManager) fillInstanceSnapshot(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, instanceSnapshot *SInstanceSnapshot) {
 	instanceSnapshot.SetModelManager(manager, instanceSnapshot)
 	instanceSnapshot.ProjectId = guest.ProjectId
 	instanceSnapshot.DomainId = guest.DomainId
@@ -325,8 +315,8 @@ func (manager *SInstanceSnapshotManager) fillInstanceSnapshot(userCred mcclient.
 		instanceSnapshot.KeypairId = guest.KeypairId
 	}
 	serverMetadata := jsonutils.NewDict()
-	if loginAccount := guest.GetMetadata("login_account", nil); len(loginAccount) > 0 {
-		loginKey := guest.GetMetadata("login_key", nil)
+	if loginAccount := guest.GetMetadata(ctx, "login_account", nil); len(loginAccount) > 0 {
+		loginKey := guest.GetMetadata(ctx, "login_key", nil)
 		if len(guest.KeypairId) == 0 && len(loginKey) > 0 {
 			passwd, e := utils.DescryptAESBase64(guest.Id, loginKey)
 			if e == nil {
@@ -338,16 +328,16 @@ func (manager *SInstanceSnapshotManager) fillInstanceSnapshot(userCred mcclient.
 			serverMetadata.Set("login_account", jsonutils.NewString(loginAccount))
 		}
 	}
-	if osArch := guest.GetMetadata("os_arch", nil); len(osArch) > 0 {
+	if osArch := guest.GetMetadata(ctx, "os_arch", nil); len(osArch) > 0 {
 		serverMetadata.Set("os_arch", jsonutils.NewString(osArch))
 	}
-	if osDist := guest.GetMetadata("os_distribution", nil); len(osDist) > 0 {
+	if osDist := guest.GetMetadata(ctx, "os_distribution", nil); len(osDist) > 0 {
 		serverMetadata.Set("os_distribution", jsonutils.NewString(osDist))
 	}
-	if osName := guest.GetMetadata("os_name", nil); len(osName) > 0 {
+	if osName := guest.GetMetadata(ctx, "os_name", nil); len(osName) > 0 {
 		serverMetadata.Set("os_name", jsonutils.NewString(osName))
 	}
-	if osVersion := guest.GetMetadata("os_version", nil); len(osVersion) > 0 {
+	if osVersion := guest.GetMetadata(ctx, "os_version", nil); len(osVersion) > 0 {
 		serverMetadata.Set("os_version", jsonutils.NewString(osVersion))
 	}
 	secs, _ := guest.GetSecgroups()
@@ -369,7 +359,7 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(ctx context.Cont
 	instanceSnapshot.SetModelManager(manager, instanceSnapshot)
 	instanceSnapshot.Name = name
 	instanceSnapshot.AutoDelete = autoDelete
-	manager.fillInstanceSnapshot(userCred, guest, instanceSnapshot)
+	manager.fillInstanceSnapshot(ctx, userCred, guest, instanceSnapshot)
 	// compute size of instanceSnapshot
 	instanceSnapshot.SizeMb = guest.getDiskSize()
 	err := manager.TableSpec().Insert(ctx, instanceSnapshot)
@@ -577,7 +567,7 @@ func (is *SInstanceSnapshot) syncRemoveCloudInstanceSnapshot(ctx context.Context
 func (is *SInstanceSnapshot) SyncWithCloudInstanceSnapshot(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudInstanceSnapshot, guest *SGuest) error {
 	diff, err := db.UpdateWithLock(ctx, is, func() error {
 		is.Status = ext.GetStatus()
-		InstanceSnapshotManager.fillInstanceSnapshot(userCred, guest, is)
+		InstanceSnapshotManager.fillInstanceSnapshot(ctx, userCred, guest, is)
 		return nil
 	})
 	if err != nil {
@@ -593,7 +583,7 @@ func (manager *SInstanceSnapshotManager) newFromCloudInstanceSnapshot(ctx contex
 
 	instanceSnapshot.ExternalId = extSnapshot.GetGlobalId()
 	instanceSnapshot.Status = extSnapshot.GetStatus()
-	manager.fillInstanceSnapshot(userCred, guest, &instanceSnapshot)
+	manager.fillInstanceSnapshot(ctx, userCred, guest, &instanceSnapshot)
 	var err = func() error {
 		lockman.LockClass(ctx, manager, "name")
 		defer lockman.ReleaseClass(ctx, manager, "name")

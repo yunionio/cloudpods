@@ -218,7 +218,7 @@ func verifyTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request)
 
 func verifyCommon(ctx context.Context, w http.ResponseWriter, tokenStr string) (*SAuthToken, error) {
 	adminToken := policy.FetchUserCredential(ctx)
-	if adminToken == nil || !adminToken.IsAllow(rbacutils.ScopeSystem, api.SERVICE_TYPE, "tokens", "perform", "auth") {
+	if adminToken == nil || adminToken.IsAllow(rbacutils.ScopeSystem, api.SERVICE_TYPE, "tokens", "perform", "auth").Result.IsDeny() {
 		return nil, httperrors.NewForbiddenError("not allow to auth")
 	}
 	token := SAuthToken{}

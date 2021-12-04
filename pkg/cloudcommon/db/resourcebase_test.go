@@ -28,8 +28,8 @@ type omniToken struct {
 	mcclient.SSimpleToken
 }
 
-func (tk *omniToken) IsAllow(scope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) bool {
-	return true
+func (tk *omniToken) IsAllow(scope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
+	return rbacutils.PolicyAllow
 }
 
 func TestListFields(t *testing.T) {

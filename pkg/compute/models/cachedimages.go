@@ -384,20 +384,12 @@ func (manager *SCachedimageManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (self *SCachedimage) AllowPerformRefresh(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "refresh")
-}
-
 func (self *SCachedimage) PerformRefresh(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	img, err := CachedimageManager.GetImageById(ctx, userCred, self.Id, true)
 	if err != nil {
 		return nil, err
 	}
 	return jsonutils.Marshal(img), nil
-}
-
-func (self *SCachedimage) AllowPerformUncacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "uncache-image")
 }
 
 // 清除镜像缓存

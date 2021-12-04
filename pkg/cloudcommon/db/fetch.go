@@ -299,7 +299,7 @@ func (m *sUsageManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObj
 	return FetchProjectInfo(ctx, data)
 }
 
-func FetchUsageOwnerScope(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) (mcclient.IIdentityProvider, rbacutils.TRbacScope, error) {
+func FetchUsageOwnerScope(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) (mcclient.IIdentityProvider, rbacutils.TRbacScope, error, rbacutils.SPolicyResult) {
 	return FetchCheckQueryOwnerScope(ctx, userCred, data, &sUsageManager{}, policy.PolicyActionGet, true)
 }
 
@@ -309,34 +309,21 @@ type IScopedResourceManager interface {
 	FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error)
 }
 
-func FetchCheckQueryOwnerScope(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, manager IScopedResourceManager, action string, doCheckRbac bool) (mcclient.IIdentityProvider, rbacutils.TRbacScope, error) {
+func FetchCheckQueryOwnerScope(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, manager IScopedResourceManager, action string, doCheckRbac bool) (mcclient.IIdentityProvider, rbacutils.TRbacScope, error, rbacutils.SPolicyResult) {
 	var scope rbacutils.TRbacScope
 
 	var allowScope rbacutils.TRbacScope
 	var requireScope rbacutils.TRbacScope
 	var queryScope rbacutils.TRbacScope
+	var policyTagFilters rbacutils.SPolicyResult
 
 	resScope := manager.ResourceScope()
 
-	if consts.IsRbacEnabled() {
-		allowScope = policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), action)
-	} else {
-		if userCred.HasSystemAdminPrivilege() {
-			allowScope = rbacutils.ScopeSystem
-		} else {
-			allowScope = rbacutils.ScopeProject
-			if resScope == rbacutils.ScopeUser {
-				allowScope = rbacutils.ScopeUser
-			}
-		}
-	}
-
-	// var ownerId mcclient.IIdentityProvider
-	// var err error
+	allowScope, policyTagFilters = policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), action)
 
 	ownerId, err := manager.FetchOwnerId(ctx, data)
 	if err != nil {
-		return nil, queryScope, err
+		return nil, queryScope, errors.Wrap(err, "FetchOwnerId"), policyTagFilters
 	}
 	if ownerId != nil {
 		switch resScope {
@@ -386,11 +373,11 @@ func FetchCheckQueryOwnerScope(ctx context.Context, userCred mcclient.TokenCrede
 		// }
 		requireScope = queryScope
 	}
-	if doCheckRbac && requireScope.HigherThan(allowScope) {
-		return nil, scope, httperrors.NewForbiddenError("not enough privilege (require:%s,allow:%s,query:%s)",
-			requireScope, allowScope, queryScope)
+	if doCheckRbac && (requireScope.HigherThan(allowScope) || policyTagFilters.Result.IsDeny()) {
+		return nil, scope, httperrors.NewForbiddenError("not enough privilege to dp %s (require:%s,allow:%s,query:%s)",
+			action, requireScope, allowScope, queryScope), policyTagFilters
 	}
-	return ownerId, queryScope, nil
+	return ownerId, queryScope, nil, policyTagFilters
 }
 
 func mapKeys(idMap map[string]string) []string {

@@ -91,26 +91,6 @@ func (manager *SStoragecachedimageManager) GetSlaveFieldName() string {
 	return "cachedimage_id"
 }
 
-func (self *SStoragecachedimageManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SStoragecachedimageManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SStoragecachedimage) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SStoragecachedimage) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SStoragecachedimage) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
-}
-
 func (self *SStoragecachedimage) getStorageHostId() (string, error) {
 	var s SStorage
 	storage := StorageManager.Query()
@@ -159,10 +139,6 @@ func (manager *SStoragecachedimageManager) FetchCustomizeColumns(
 	}
 
 	return rows
-}
-
-func (manager *SStoragecachedimageManager) AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, model db.IStandaloneModel, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, manager)
 }
 
 func (self *SStoragecachedimage) GetCachedimage() *SCachedimage {

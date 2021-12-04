@@ -628,10 +628,6 @@ func (manager *SKafkaManager) ListItemExportKeys(ctx context.Context,
 }
 
 //同步Kafka实例状态
-func (self *SKafka) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "syncstatus")
-}
-
 func (self *SKafka) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	var openTask = true
 	count, err := taskman.TaskManager.QueryTasksOfObject(self, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
@@ -643,10 +639,6 @@ func (self *SKafka) PerformSyncstatus(ctx context.Context, userCred mcclient.Tok
 	}
 
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "KafkaSyncstatusTask", "")
-}
-
-func (self *SKafka) AllowGetDetailsTopics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsDomainAllowGetSpec(userCred, self, "topics")
 }
 
 // 获取Kafka Topic列表

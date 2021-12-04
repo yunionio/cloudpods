@@ -19,12 +19,11 @@ import (
 	"sort"
 	"strconv"
 
-	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 const (
 	tagValueCountKey = "__count__"
-	otherValue       = "___other___"
 )
 
 func tagValueKey(idx int) string {
@@ -32,11 +31,10 @@ func tagValueKey(idx int) string {
 }
 
 type sTagValueTreeNode struct {
-	Key    string      `json:"key"`
-	Value  string      `json:"value"`
-	Count  int         `json:"count"`
-	Tags   []apis.STag `json:"tags"`
-	NoTags []apis.STag `json:"no_tags"`
+	Key   string           `json:"key"`
+	Value string           `json:"value"`
+	Count int              `json:"count"`
+	Tags  tagutils.TTagSet `json:"tags"`
 
 	Children []*sTagValueTreeNode `json:"children"`
 }
@@ -46,10 +44,10 @@ type sTagValueTreeNodeChildren []*sTagValueTreeNode
 func (a sTagValueTreeNodeChildren) Len() int      { return len(a) }
 func (a sTagValueTreeNodeChildren) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a sTagValueTreeNodeChildren) Less(i, j int) bool {
-	if a[i].Value == otherValue {
+	if a[i].Value == tagutils.NoValue {
 		return false
 	}
-	if a[j].Value == otherValue {
+	if a[j].Value == tagutils.NoValue {
 		return true
 	}
 	if a[i].Count > a[j].Count {
@@ -74,8 +72,8 @@ func (node *sTagValueTreeNode) findChild(key, value string) *sTagValueTreeNode {
 	return child
 }
 
-func (node *sTagValueTreeNode) getTag() apis.STag {
-	return apis.STag{
+func (node *sTagValueTreeNode) getTag() tagutils.STag {
+	return tagutils.STag{
 		Key:   node.Key,
 		Value: node.Value,
 	}
@@ -87,16 +85,7 @@ func (node *sTagValueTreeNode) populateTags() {
 		if len(node.Tags) > 0 {
 			child.Tags = append(child.Tags, node.Tags...)
 		}
-		if len(node.NoTags) > 0 {
-			child.NoTags = append(child.NoTags, node.NoTags...)
-		}
-		if child.Value == otherValue {
-			// other node
-			child.NoTags = append(child.NoTags, apis.STag{Key: child.Key})
-		} else {
-			// normal node
-			child.Tags = append(child.Tags, child.getTag())
-		}
+		child.Tags = append(child.Tags, child.getTag())
 		child.populateTags()
 	}
 }

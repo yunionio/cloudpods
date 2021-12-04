@@ -235,12 +235,6 @@ func (self *SNatGateway) StartNatGatewayCreateTask(ctx context.Context, userCred
 	return task.ScheduleRun(nil)
 }
 
-func (self *SNatGateway) AllowPerformSnatResources(ctx context.Context, userCred mcclient.TokenCredential,
-	qurey jsonutils.JSONObject) bool {
-
-	return true
-}
-
 func (self *SNatGateway) PerformSnatResources(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 
@@ -275,11 +269,6 @@ func (self *SNatGateway) PerformSnatResources(ctx context.Context, userCred mccl
 	return ret, nil
 }
 
-func (self *SNatGateway) AllowPerformDnatResources(ctx context.Context, userCred mcclient.TokenCredential,
-	qurey jsonutils.JSONObject) bool {
-
-	return true
-}
 func (self *SNatGateway) PerformDnatResources(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 
@@ -697,10 +686,6 @@ func (self *SNatGateway) SyncNatGatewayEips(ctx context.Context, userCred mcclie
 	return result
 }
 
-func (self *SNatGateway) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "syncstatus")
-}
-
 // 同步NAT网关状态
 func (self *SNatGateway) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.NatGatewaySyncstatusInput) (jsonutils.JSONObject, error) {
 	var openTask = true
@@ -884,10 +869,6 @@ func (manager *SNatEntryManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (self *SNatGateway) AllowPerformCancelExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "cancel-expire")
-}
-
 func (self *SNatGateway) PerformCancelExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return nil, self.CancelExpireTime(ctx, userCred)
 }
@@ -908,10 +889,6 @@ func (self *SNatGateway) CancelExpireTime(ctx context.Context, userCred mcclient
 	}
 	db.OpsLog.LogEvent(self, db.ACT_RENEW, "nat cancel expire time", userCred)
 	return nil
-}
-
-func (self *SNatGateway) AllowPerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "postpaid-expire")
 }
 
 func (self *SNatGateway) PerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PostpaidExpireInput) (jsonutils.JSONObject, error) {
@@ -954,10 +931,6 @@ func (self *SNatGateway) SaveRenewInfo(
 	return nil
 }
 
-func (self *SNatGateway) AllowPerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "renew")
-}
-
 func (self *SNatGateway) PerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.RenewInput) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.NAT_STAUTS_AVAILABLE}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot do renew nat gateway in status %s required status %s", self.Status, api.NAT_SKU_AVAILABLE)
@@ -989,10 +962,6 @@ func (self *SNatGateway) StartRenewTask(ctx context.Context, userCred mcclient.T
 	}
 	self.SetStatus(userCred, api.NAT_STATUS_RENEWING, "")
 	return task.ScheduleRun(nil)
-}
-
-func (self *SNatGateway) AllowPerformSetAutoRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "set-auto-renew")
 }
 
 func (self *SNatGateway) SetAutoRenew(autoRenew bool) error {
@@ -1108,10 +1077,6 @@ func (manager *SNatGatewayManager) DeleteExpiredPostpaids(ctx context.Context, u
 		nats[i].DeletePreventionOff(&nats[i], userCred)
 		nats[i].StartNatGatewayDeleteTask(ctx, userCred, nil)
 	}
-}
-
-func (self *SNatGateway) AllowPerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "remote-update")
 }
 
 func (self *SNatGateway) PerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.MongoDBRemoteUpdateInput) (jsonutils.JSONObject, error) {

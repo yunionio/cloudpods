@@ -453,10 +453,6 @@ func (rec *SDnsRecord) AddInfo(ctx context.Context, userCred mcclient.TokenCrede
 	return rec.SAdminSharableVirtualResourceBase.AddInfo(ctx, userCred, DnsRecordManager, rec, data)
 }
 
-func (rec *SDnsRecord) AllowPerformAddRecords(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return rec.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, rec, "add-records")
-}
-
 func (rec *SDnsRecord) PerformAddRecords(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	records, err := DnsRecordManager.ParseInputInfo(data.(*jsonutils.JSONDict))
 	if err != nil {
@@ -472,17 +468,9 @@ func (rec *SDnsRecord) PerformAddRecords(ctx context.Context, userCred mcclient.
 	return nil, err
 }
 
-func (rec *SDnsRecord) AllowPerformRemoveRecords(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return rec.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, rec, "remove-records")
-}
-
 func (rec *SDnsRecord) PerformRemoveRecords(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	err := rec.SAdminSharableVirtualResourceBase.RemoveInfo(ctx, userCred, DnsRecordManager, rec, data, false)
 	return nil, err
-}
-
-func (rec *SDnsRecord) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return rec.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, rec, "enable")
 }
 
 func (rec *SDnsRecord) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
@@ -491,10 +479,6 @@ func (rec *SDnsRecord) PerformEnable(ctx context.Context, userCred mcclient.Toke
 		return nil, errors.Wrap(err, "db.EnabledPerformEnable")
 	}
 	return nil, nil
-}
-
-func (rec *SDnsRecord) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return rec.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, rec, "disable")
 }
 
 func (rec *SDnsRecord) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {

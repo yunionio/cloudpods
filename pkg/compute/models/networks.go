@@ -156,10 +156,6 @@ func (manager *SNetworkManager) GetContextManagers() [][]db.IModelManager {
 	}
 }
 
-func (manager *SNetworkManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, manager)
-}
-
 func (self *SNetwork) getMtu() int {
 	baseMtu := options.Options.DefaultMtu
 
@@ -513,7 +509,7 @@ func (self *SNetwork) GetDomain() string {
 
 func (self *SNetwork) GetRoutes() [][]string {
 	ret := make([][]string, 0)
-	routes := self.GetMetadataJson("static_routes", nil)
+	routes := self.GetMetadataJson(context.Background(), "static_routes", nil)
 	if routes != nil {
 		routesMap, err := routes.GetMap()
 		if err != nil {
@@ -534,9 +530,9 @@ func (self *SNetwork) updateDnsRecord(nic *SGuestnetwork, isAdd bool) {
 
 func (self *SNetwork) _updateDnsRecord(name string, ipAddr string, isAdd bool) {
 	if len(self.GuestDns) > 0 && len(self.GuestDomain) > 0 && len(ipAddr) > 0 {
-		keyName := self.GetMetadata("dns_update_key_name", nil)
-		keySecret := self.GetMetadata("dns_update_key_secret", nil)
-		dnsSrv := self.GetMetadata("dns_update_server", nil)
+		keyName := self.GetMetadata(context.Background(), "dns_update_key_name", nil)
+		keySecret := self.GetMetadata(context.Background(), "dns_update_key_secret", nil)
+		dnsSrv := self.GetMetadata(context.Background(), "dns_update_server", nil)
 		if len(dnsSrv) == 0 || !regutils.MatchIPAddr(dnsSrv) {
 			dnsSrv = self.GuestDns
 		}
@@ -586,7 +582,7 @@ type DNSUpdateKeySecret struct {
 
 func (self *SNetwork) getDnsUpdateTargets() map[string][]DNSUpdateKeySecret {
 	targets := make(map[string][]DNSUpdateKeySecret)
-	targetsJson := self.GetMetadataJson(api.EXTRA_DNS_UPDATE_TARGETS, nil)
+	targetsJson := self.GetMetadataJson(context.Background(), api.EXTRA_DNS_UPDATE_TARGETS, nil)
 	if targetsJson == nil {
 		return nil
 	} else {
@@ -954,7 +950,7 @@ type SNicConfig struct {
 	Ifname string
 }
 
-func parseNetworkInfo(userCred mcclient.TokenCredential, info *api.NetworkConfig) (*api.NetworkConfig, error) {
+func parseNetworkInfo(ctx context.Context, userCred mcclient.TokenCredential, info *api.NetworkConfig) (*api.NetworkConfig, error) {
 	if info.Network != "" {
 		netObj, err := NetworkManager.FetchByIdOrName(userCred, info.Network)
 		if err != nil {
@@ -966,8 +962,8 @@ func parseNetworkInfo(userCred mcclient.TokenCredential, info *api.NetworkConfig
 		}
 		net := netObj.(*SNetwork)
 		if net.ProjectId == userCred.GetProjectId() ||
-			(db.IsDomainAllowGet(userCred, net) && net.DomainId == userCred.GetProjectDomainId()) ||
-			db.IsAdminAllowGet(userCred, net) ||
+			(db.IsDomainAllowGet(ctx, userCred, net) && net.DomainId == userCred.GetProjectDomainId()) ||
+			db.IsAdminAllowGet(ctx, userCred, net) ||
 			net.IsSharable(userCred) {
 			info.Network = netObj.GetId()
 		} else {
@@ -1001,7 +997,7 @@ func (self *SNetwork) getFreeAddressCount() (int, error) {
 	return self.getIPRange().AddressCount() - used, nil
 }
 
-func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *api.NetworkConfig, reuseAddr string) error {
+func isValidNetworkInfo(ctx context.Context, userCred mcclient.TokenCredential, netConfig *api.NetworkConfig, reuseAddr string) error {
 	if len(netConfig.Network) > 0 {
 		netObj, err := NetworkManager.FetchByIdOrName(userCred, netConfig.Network)
 		if err != nil {
@@ -1023,7 +1019,7 @@ func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *api.Networ
 			}
 			if netConfig.Reserved {
 				// the privilege to access reserved ip
-				if !db.IsAdminAllowList(userCred, ReservedipManager) {
+				if db.IsAdminAllowList(userCred, ReservedipManager).Result.IsDeny() {
 					return httperrors.NewForbiddenError("Only system admin allowed to use reserved ip")
 				}
 				if ReservedipManager.GetReservedIP(net, netConfig.Address) == nil {
@@ -1244,10 +1240,6 @@ func (nm *SNetworkManager) TotalNicCount(netIds []string) (map[string]api.SNetwo
 	return result, nil
 }
 
-func (self *SNetwork) AllowPerformReserveIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "reserve-ip")
-}
-
 // 预留IP
 // 预留的IP不会被调度使用
 func (self *SNetwork) PerformReserveIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkReserveIpInput) (jsonutils.JSONObject, error) {
@@ -1299,10 +1291,6 @@ func (self *SNetwork) reserveIpWithDurationAndStatus(ctx context.Context, userCr
 	return nil
 }
 
-func (self *SNetwork) AllowPerformReleaseReservedIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "release-reserved-ip")
-}
-
 // 释放预留IP
 func (self *SNetwork) PerformReleaseReservedIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkReleaseReservedIpInput) (jsonutils.JSONObject, error) {
 	if len(input.Ip) == 0 {
@@ -1314,10 +1302,6 @@ func (self *SNetwork) PerformReleaseReservedIp(ctx context.Context, userCred mcc
 	}
 	rip.Release(ctx, userCred, self)
 	return nil, nil
-}
-
-func (self *SNetwork) AllowGetDetailsReservedIps(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "reserved-ips")
 }
 
 func (self *SNetwork) GetDetailsReservedIps(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1903,9 +1887,9 @@ func (self *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.Tok
 	if !data.Contains("public_scope") {
 		if self.ServerType == api.NETWORK_TYPE_GUEST && !self.IsManaged() {
 			wire, _ := self.GetWire()
-			if db.IsAdminAllowPerform(userCred, self, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() && wire != nil && wire.IsPublic && wire.PublicScope == string(rbacutils.ScopeSystem) {
+			if db.IsAdminAllowPerform(ctx, userCred, self, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() && wire != nil && wire.IsPublic && wire.PublicScope == string(rbacutils.ScopeSystem) {
 				self.SetShare(rbacutils.ScopeSystem)
-			} else if db.IsDomainAllowPerform(userCred, self, "public") && ownerId.GetProjectId() == userCred.GetProjectId() && consts.GetNonDefaultDomainProjects() {
+			} else if db.IsDomainAllowPerform(ctx, userCred, self, "public") && ownerId.GetProjectId() == userCred.GetProjectId() && consts.GetNonDefaultDomainProjects() {
 				// only if non_default_domain_projects turned on, share to domain
 				self.SetShare(rbacutils.ScopeDomain)
 			} else {
@@ -2398,10 +2382,6 @@ func (self *SNetwork) PostUpdate(ctx context.Context, userCred mcclient.TokenCre
 	self.ClearSchedDescCache()
 }
 
-func (self *SNetwork) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "purge")
-}
-
 // 清除IP子网数据
 // 要求IP子网内没有被分配IP,若清除接入云,要求接入云账号处于禁用状态
 func (self *SNetwork) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkPurgeInput) (jsonutils.JSONObject, error) {
@@ -2418,14 +2398,6 @@ func (self *SNetwork) PerformPurge(ctx context.Context, userCred mcclient.TokenC
 	}
 	err = self.RealDelete(ctx, userCred)
 	return nil, err
-}
-
-func (self *SNetwork) AllowPerformSplit(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "split")
-}
-
-func (self *SNetwork) AllowPerformMerge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "merge")
 }
 
 func (manager *SNetworkManager) handleNetworkIdChange(ctx context.Context, args *networkIdChangeArgs) error {
@@ -2670,10 +2642,6 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	return nil, nil
 }
 
-func (manager *SNetworkManager) AllowPerformTryCreateNetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowClassPerform(userCred, manager, "try-create-network")
-}
-
 func (manager *SNetworkManager) PerformTryCreateNetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkTryCreateNetworkInput) (jsonutils.JSONObject, error) {
 	if len(input.Ip) == 0 {
 		return nil, httperrors.NewMissingParameterError("ip")
@@ -2808,10 +2776,6 @@ func (network *SNetwork) GetDynamicConditionInput() *jsonutils.JSONDict {
 	return jsonutils.Marshal(network).(*jsonutils.JSONDict)
 }
 
-func (network *SNetwork) AllowPerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return AllowPerformSetResourceSchedtag(network, ctx, userCred, query, data)
-}
-
 func (network *SNetwork) PerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return PerformSetResourceSchedtag(network, ctx, userCred, query, data)
 }
@@ -2835,10 +2799,6 @@ func (network *SNetwork) PerformChangeOwner(ctx context.Context, userCred mcclie
 	}
 	network.ClearSchedDescCache()
 	return ret, nil
-}
-
-func (network *SNetwork) AllowGetDetailsAddresses(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return network.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, network, "addresses")
 }
 
 func (network *SNetwork) getUsedAddressQuery(owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope, addrOnly bool) *sqlchemy.SQuery {
@@ -2871,7 +2831,7 @@ func (a SNetworkUsedAddressList) Less(i, j int) bool {
 func (network *SNetwork) GetDetailsAddresses(ctx context.Context, userCred mcclient.TokenCredential, input api.GetNetworkAddressesInput) (api.GetNetworkAddressesOutput, error) {
 	output := api.GetNetworkAddressesOutput{}
 
-	allowScope := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, network.KeywordPlural(), policy.PolicyActionGet, "addresses")
+	allowScope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, network.KeywordPlural(), policy.PolicyActionGet, "addresses")
 	scope := rbacutils.String2ScopeDefault(input.Scope, allowScope)
 	if scope.HigherThan(allowScope) {
 		return output, errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require %s allow %s", scope, allowScope)
@@ -2890,18 +2850,10 @@ func (network *SNetwork) GetDetailsAddresses(ctx context.Context, userCred mccli
 	return output, nil
 }
 
-func (net *SNetwork) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return net.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, net, "syncstatus")
-}
-
 // 同步接入云IP子网状态
 // 本地IDC不支持此操作
 func (net *SNetwork) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkSyncInput) (jsonutils.JSONObject, error) {
 	return net.PerformSync(ctx, userCred, query, input)
-}
-
-func (net *SNetwork) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return net.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, net, "sync")
 }
 
 // 同步接入云IP子网状态
@@ -2912,10 +2864,6 @@ func (net *SNetwork) PerformSync(ctx context.Context, userCred mcclient.TokenCre
 		return nil, StartResourceSyncStatusTask(ctx, userCred, net, "NetworkSyncstatusTask", "")
 	}
 	return nil, httperrors.NewUnsupportOperationError("on-premise network cannot sync status")
-}
-
-func (net *SNetwork) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) bool {
-	return net.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, net, "status")
 }
 
 // 更改IP子网状态
@@ -2966,19 +2914,8 @@ func (manager *SNetworkManager) ListItemExportKeys(ctx context.Context,
 }
 
 func (manager *SNetworkManager) AllowScope(userCred mcclient.TokenCredential) rbacutils.TRbacScope {
-	if consts.IsRbacEnabled() {
-		return policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, NetworkManager.KeywordPlural(), policy.PolicyActionGet)
-	} else {
-		if userCred.HasSystemAdminPrivilege() {
-			return rbacutils.ScopeSystem
-		} else {
-			return rbacutils.ScopeProject
-		}
-	}
-}
-
-func (self *SNetwork) AllowPerformSetBgpType(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "set-isp")
+	scope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, NetworkManager.KeywordPlural(), policy.PolicyActionGet)
+	return scope
 }
 
 func (self *SNetwork) PerformSetBgpType(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkSetBgpTypeInput) (jsonutils.JSONObject, error) {

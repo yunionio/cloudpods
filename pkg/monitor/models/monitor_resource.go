@@ -325,11 +325,6 @@ func (self *SMonitorResource) getMoreDetails(out monitor.MonitorResourceDetails)
 	return out
 }
 
-func (manager *SMonitorResourceManager) AllowGetPropertyAlert(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) bool {
-	return true
-}
-
 type AlertStatusCount struct {
 	CountId    int64
 	AlertState string

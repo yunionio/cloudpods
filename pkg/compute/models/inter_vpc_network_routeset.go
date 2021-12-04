@@ -250,10 +250,6 @@ func (manager *SInterVpcNetworkRouteSetManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (self *SInterVpcNetworkRouteSet) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.InterVpcNetworkRouteSetEnableInput) bool {
-	return db.IsDomainAllowPerform(userCred, self, "enable")
-}
-
 func (self *SInterVpcNetworkRouteSet) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.InterVpcNetworkRouteSetEnableInput) (jsonutils.JSONObject, error) {
 	_, err := self.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, input.PerformEnableInput)
 	if err != nil {
@@ -266,10 +262,6 @@ func (self *SInterVpcNetworkRouteSet) PerformEnable(ctx context.Context, userCre
 	err = network.StartInterVpcNetworkUpdateRoutesetTask(ctx, userCred, self, "enable")
 
 	return nil, err
-}
-
-func (self *SInterVpcNetworkRouteSet) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.InterVpcNetworkRouteSetDisableInput) bool {
-	return db.IsDomainAllowPerform(userCred, self, "disable")
 }
 
 func (self *SInterVpcNetworkRouteSet) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.InterVpcNetworkRouteSetDisableInput) (jsonutils.JSONObject, error) {

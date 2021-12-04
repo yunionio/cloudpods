@@ -89,10 +89,6 @@ func (self SCloudpolicy) GetGlobalId() string {
 	return self.ExternalId
 }
 
-func (manager *SCloudpolicyManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
 func (manager *SCloudpolicyManager) GetIVirtualModelManager() db.IVirtualModelManager {
 	return manager.GetVirtualObject().(db.IVirtualModelManager)
 }
@@ -158,10 +154,6 @@ func (manager *SCloudpolicyManager) ListItemFilter(ctx context.Context, q *sqlch
 	}
 
 	return q, nil
-}
-
-func (manager *SCloudpolicyManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowCreate(userCred, manager)
 }
 
 // 创建自定义策略
@@ -333,18 +325,10 @@ func (manager *SCloudpolicyManager) QueryDistinctExtraField(q *sqlchemy.SQuery, 
 	return q, httperrors.ErrNotFound
 }
 
-func (self *SCloudpolicy) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowPerform(userCred, self, "syncstatus")
-}
-
 // 恢复权限组状态
 func (self *SCloudpolicy) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudgroupSyncstatusInput) (jsonutils.JSONObject, error) {
 	self.SetStatus(userCred, api.CLOUD_POLICY_STATUS_AVAILABLE, "syncstatus")
 	return nil, nil
-}
-
-func (self *SCloudpolicy) AllowPerformLock(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "lock")
 }
 
 // 锁定权限(禁止使用此权限)
@@ -356,10 +340,6 @@ func (self *SCloudpolicy) PerformLock(ctx context.Context, userCred mcclient.Tok
 	return nil, err
 }
 
-func (self *SCloudpolicy) AllowPerformUnlock(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "unlock")
-}
-
 // 解锁权限(允许使用此权限)
 func (self *SCloudpolicy) PerformUnlock(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudpolicyAssignGroupInput) (jsonutils.JSONObject, error) {
 	_, err := db.Update(self, func() error {
@@ -367,10 +347,6 @@ func (self *SCloudpolicy) PerformUnlock(ctx context.Context, userCred mcclient.T
 		return nil
 	})
 	return nil, err
-}
-
-func (self *SCloudpolicy) AllowPerformAssignGroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowPerform(userCred, self, "assign-group")
 }
 
 // 将权限加入权限组
@@ -399,10 +375,6 @@ func (self *SCloudpolicy) PerformAssignGroup(ctx context.Context, userCred mccli
 	return nil, group.StartCloudgroupSyncPoliciesTask(ctx, userCred, "")
 }
 
-func (self *SCloudpolicy) AllowPerformRevokeGroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowPerform(userCred, self, "revoke-group")
-}
-
 // 将权限从权限组中移除
 func (self *SCloudpolicy) PerformRevokeGroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudpolicyRevokeGroupInput) (jsonutils.JSONObject, error) {
 	if len(input.CloudgroupId) == 0 {
@@ -427,10 +399,6 @@ func (self *SCloudpolicy) PerformRevokeGroup(ctx context.Context, userCred mccli
 	return nil, group.StartCloudgroupSyncPoliciesTask(ctx, userCred, "")
 }
 
-func (self *SCloudpolicy) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
 // 获取公有云权限详情
 func (manager *SCloudpolicyManager) FetchCustomizeColumns(
 	ctx context.Context,
@@ -451,10 +419,6 @@ func (manager *SCloudpolicyManager) FetchCustomizeColumns(
 		policyIds[i] = policy.Id
 	}
 	return rows
-}
-
-func (self *SCloudpolicy) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsDomainAllowDelete(userCred, self)
 }
 
 func (self *SCloudpolicy) SyncWithCloudpolicy(ctx context.Context, userCred mcclient.TokenCredential, iPolicy SCloudpolicy) error {

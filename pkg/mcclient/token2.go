@@ -207,7 +207,15 @@ func (this *TokenCredentialV2) HasSystemAdminPrivilege() bool {
 	return this.IsAdmin() && this.GetTenantName() == "system"
 }
 
-func (this *TokenCredentialV2) IsAllow(scope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) bool {
+func (this *TokenCredentialV2) IsAllow(scope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
+	if this.isAllow(scope, service, resource, action, extra...) {
+		return rbacutils.PolicyAllow
+	} else {
+		return rbacutils.PolicyDeny
+	}
+}
+
+func (this *TokenCredentialV2) isAllow(scope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) bool {
 	if scope == rbacutils.ScopeSystem || scope == rbacutils.ScopeDomain {
 		return this.HasSystemAdminPrivilege()
 	} else {

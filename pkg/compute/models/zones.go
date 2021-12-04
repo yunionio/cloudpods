@@ -79,10 +79,6 @@ func (manager *SZoneManager) GetContextManagers() [][]db.IModelManager {
 	}
 }
 
-func (manager *SZoneManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
 func (zone *SZone) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	usage := zone.GeneralUsage()
 	if !usage.IsEmpty() {
@@ -743,20 +739,12 @@ func (manager *SZoneManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field s
 	return q, httperrors.ErrNotFound
 }
 
-func (self *SZone) AllowGetDetailsCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
 func (self *SZone) GetDetailsCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	capa, err := GetCapabilities(ctx, userCred, query, nil, self)
 	if err != nil {
 		return nil, err
 	}
 	return jsonutils.Marshal(&capa), nil
-}
-
-func (self *SZone) AllowGetDetailsDiskCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
 }
 
 func (self *SZone) GetDetailsDiskCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -835,10 +823,6 @@ func (self *SZone) GetSchedtags() []SSchedtag {
 
 func (self *SZone) GetDynamicConditionInput() *jsonutils.JSONDict {
 	return jsonutils.Marshal(self).(*jsonutils.JSONDict)
-}
-
-func (self *SZone) AllowPerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return AllowPerformSetResourceSchedtag(self, ctx, userCred, query, data)
 }
 
 func (self *SZone) PerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

@@ -179,10 +179,6 @@ func (manager *SSchedpolicyManager) getNetworkEnabledPolicies() []SSchedpolicy {
 	return manager.getAllEnabledPoliciesByResource(NetworkManager.KeywordPlural())
 }
 
-func (self *SSchedpolicy) AllowPerformEvaluate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "evaluate")
-}
-
 func (self *SSchedpolicy) PerformEvaluate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	objectId := jsonutils.GetAnyString(data, []string{"object", "object_id"})
 	resType := jsonutils.GetAnyString(data, []string{"resource_type"})

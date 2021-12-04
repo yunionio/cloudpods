@@ -77,10 +77,6 @@ func (manager *SCachedLoadbalancerAclManager) GetResourceCount() ([]db.SScopeRes
 	return db.CalculateResourceCount(virts, "tenant_id")
 }
 
-func (lbacl *SCachedLoadbalancerAcl) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
 func (lbacl *SCachedLoadbalancerAcl) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	data, err := loadbalancerAclsValidateAclEntries(data, true)
 	if err != nil {
@@ -249,10 +245,6 @@ func (man *SCachedLoadbalancerAclManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (lbacl *SCachedLoadbalancerAcl) AllowPerformPatch(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
-	return lbacl.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, lbacl, "patch")
-}
-
 func (lbacl *SCachedLoadbalancerAcl) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	man := LoadbalancerListenerManager
 	t := man.TableSpec().Instance()
@@ -273,10 +265,6 @@ func (lbacl *SCachedLoadbalancerAcl) ValidateDeleteCondition(ctx context.Context
 		return httperrors.NewResourceBusyError("acl %s is still referred to by %d %s", lbaclId, n, man.KeywordPlural())
 	}
 	return nil
-}
-
-func (lbacl *SCachedLoadbalancerAcl) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, lbacl, "purge")
 }
 
 func (lbacl *SCachedLoadbalancerAcl) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

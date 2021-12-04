@@ -326,10 +326,6 @@ func (tm *STemplate) Execute(str string) (string, error) {
 	return buffer.String(), nil
 }
 
-func (tm *STemplateManager) AllowPerformSave(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, tm, "save")
-}
-
 func (tm *STemplateManager) PerformSave(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.TemplateManagerSaveInput) (jsonutils.JSONObject, error) {
 	q := tm.Query().Equals("contact_type", input.ContactType)
 	templates := []STemplate{}

@@ -76,14 +76,6 @@ func (manager *SGuestdiskManager) GetSlaveFieldName() string {
 	return "disk_id"
 }
 
-func (manager *SGuestdiskManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
-func (self *SGuestdisk) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
 func (self *SGuestdisk) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.GuestdiskUpdateInput) (api.GuestdiskUpdateInput, error) {
 	if input.Index != nil {
 		index := *input.Index
@@ -179,7 +171,7 @@ func (self *SGuestdisk) GetDisk() *SDisk {
 	return disk.(*SDisk)
 }
 
-func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) *api.GuestdiskJsonDesc {
+func (self *SGuestdisk) GetJsonDescAtHost(ctx context.Context, host *SHost) *api.GuestdiskJsonDesc {
 	disk := self.GetDisk()
 	desc := &api.GuestdiskJsonDesc{
 		DiskId:    self.DiskId,
@@ -214,12 +206,12 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) *api.GuestdiskJsonDesc {
 	desc.Index = self.Index
 
 	if len(disk.SnapshotId) > 0 {
-		needMerge := disk.GetMetadata("merge_snapshot", nil)
+		needMerge := disk.GetMetadata(ctx, "merge_snapshot", nil)
 		if needMerge == "true" {
 			desc.MergeSnapshot = true
 		}
 	}
-	if fpath := disk.GetMetadata(api.DISK_META_ESXI_FLAT_FILE_PATH, nil); len(fpath) > 0 {
+	if fpath := disk.GetMetadata(ctx, api.DISK_META_ESXI_FLAT_FILE_PATH, nil); len(fpath) > 0 {
 		desc.MergeSnapshot = true
 		desc.EsxiFlatFilePath = fpath
 	}

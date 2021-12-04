@@ -37,8 +37,8 @@ func _getKeys(ctx context.Context, tenantId string, privateKey, publicKey string
 	if err != nil {
 		return "", "", err
 	}
-	private := tenant.GetMetadata(privateKey, nil)
-	public := tenant.GetMetadata(publicKey, nil)
+	private := tenant.GetMetadata(ctx, privateKey, nil)
+	public := tenant.GetMetadata(ctx, publicKey, nil)
 	userCred := auth.AdminCredential()
 	if len(private) == 0 || len(public) == 0 {
 		private, public, _ = seclib2.GenerateRSASSHKeypair()

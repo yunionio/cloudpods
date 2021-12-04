@@ -87,13 +87,6 @@ func (self *SDBInstanceAccount) GetOwnerId() mcclient.IIdentityProvider {
 	return instance.GetOwnerId()
 }
 
-func (manager *SDBInstanceAccountManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	if jsonutils.QueryBoolean(query, "admin", false) && !db.IsAllowList(rbacutils.ScopeProject, userCred, manager) {
-		return false
-	}
-	return true
-}
-
 func (manager *SDBInstanceAccountManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	dbinstanceId, _ := data.GetString("dbinstance_id")
 	if len(dbinstanceId) > 0 {
@@ -121,18 +114,6 @@ func (manager *SDBInstanceAccountManager) FilterByOwner(q *sqlchemy.SQuery, user
 	return q
 }
 
-func (self *SDBInstanceAccountManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SDBInstanceAccount) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SDBInstanceAccount) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsProjectAllowUpdate(userCred, self)
-}
-
 func (self *SDBInstanceAccount) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DBInstanceAccountUpdateInput) (api.DBInstanceAccountUpdateInput, error) {
 	var err error
 	input.StatusStandaloneResourceBaseUpdateInput, err = self.SStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StatusStandaloneResourceBaseUpdateInput)
@@ -143,10 +124,6 @@ func (self *SDBInstanceAccount) ValidateUpdateData(ctx context.Context, userCred
 		return input, httperrors.NewForbiddenError("not allow update rds account name")
 	}
 	return input, nil
-}
-
-func (self *SDBInstanceAccount) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func (self *SDBInstanceAccount) getPrivilegesDetails() ([]api.DBInstancePrivilege, error) {
@@ -391,10 +368,6 @@ func (self *SDBInstanceAccount) StartDBInstanceAccountCreateTask(ctx context.Con
 	return nil
 }
 
-func (self *SDBInstanceAccount) AllowPerformGrantPrivilege(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "grant-privilege")
-}
-
 func (self *SDBInstanceAccount) PerformGrantPrivilege(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	instance, err := self.GetDBInstance()
 	if err != nil {
@@ -428,10 +401,6 @@ func (self *SDBInstanceAccount) PerformGrantPrivilege(ctx context.Context, userC
 	}
 
 	return nil, self.StartGrantPrivilegeTask(ctx, userCred, databaseStr, privilegeStr, "")
-}
-
-func (self *SDBInstanceAccount) AllowPerformSetPrivileges(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "set-privileges")
 }
 
 func (self *SDBInstanceAccount) PerformSetPrivileges(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -514,10 +483,6 @@ func (self *SDBInstanceAccount) StartGrantPrivilegeTask(ctx context.Context, use
 	return nil
 }
 
-func (self *SDBInstanceAccount) AllowPerformRevokePrivilege(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "revoke-privilege")
-}
-
 func (self *SDBInstanceAccount) PerformRevokePrivilege(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Status != api.DBINSTANCE_USER_AVAILABLE {
 		return nil, httperrors.NewInvalidStatusError("Account status is not %s current status is %s", api.DBINSTANCE_USER_AVAILABLE, self.Status)
@@ -563,10 +528,6 @@ func (self *SDBInstanceAccount) StartRevokePrivilegeTask(ctx context.Context, us
 	}
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (self *SDBInstanceAccount) AllowPerformResetPassword(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "reset-password")
 }
 
 func (self *SDBInstanceAccount) PerformResetPassword(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

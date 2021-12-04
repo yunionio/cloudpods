@@ -226,16 +226,8 @@ func skuRelatedGuestCount(self *SServerSku) (int, error) {
 	return q.CountWithError()
 }
 
-func (self *SServerSkuManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
 func (self SServerSku) GetGlobalId() string {
 	return self.ExternalId
-}
-
-func (self *SServerSku) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
 }
 
 func (self *SServerSku) getTotalGuestCount() int {
@@ -278,10 +270,6 @@ func (manager *SServerSkuManager) FetchCustomizeColumns(
 	}
 
 	return rows
-}
-
-func (manager *SServerSkuManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, manager)
 }
 
 func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ServerSkuCreateInput) (api.ServerSkuCreateInput, error) {
@@ -442,10 +430,6 @@ func (self *SServerSkuManager) FetchByZoneId(zoneId string, name string) (db.IMo
 	}
 }
 
-func (self *SServerSkuManager) AllowGetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
 // 四舍五入
 func round(n int, step int) int {
 	q := float64(n) / float64(step)
@@ -593,10 +577,6 @@ func (manager *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, 
 	return ret, nil
 }
 
-func (self *SServerSku) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return inWhiteList(self.Provider) && db.IsAdminAllowUpdate(userCred, self)
-}
-
 func (self *SServerSku) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerSkuUpdateInput) (api.ServerSkuUpdateInput, error) {
 	if len(input.Name) > 0 {
 		return input, httperrors.NewUnsupportOperationError("Cannot change server sku name")
@@ -609,10 +589,6 @@ func (self *SServerSku) ValidateUpdateData(ctx context.Context, userCred mcclien
 	}
 
 	return input, nil
-}
-
-func (self *SServerSku) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return inWhiteList(self.Provider) && db.IsAdminAllowDelete(userCred, self)
 }
 
 func (self *SServerSku) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -1424,16 +1400,8 @@ func (manager *SServerSkuManager) ListItemExportKeys(ctx context.Context,
 	return q, nil
 }
 
-func (manager *SServerSkuManager) AllowSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, manager, "sync-skus")
-}
-
 func (manager *SServerSkuManager) PerformSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SkuSyncInput) (jsonutils.JSONObject, error) {
 	return PerformActionSyncSkus(ctx, userCred, manager.Keyword(), input)
-}
-
-func (manager *SServerSkuManager) AllowGetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGetSpec(userCred, manager, "sync-tasks")
 }
 
 func (manager *SServerSkuManager) GetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query api.SkuTaskQueryInput) (jsonutils.JSONObject, error) {

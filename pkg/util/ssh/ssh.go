@@ -21,9 +21,7 @@ import (
 	"io"
 	"net"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -223,7 +221,7 @@ func (s *Client) Close() {
 
 func updateTermSize(session *ssh.Session, quit <-chan int) {
 	sigwinchCh := make(chan os.Signal, 1)
-	signal.Notify(sigwinchCh, syscall.SIGWINCH)
+	setsignal(sigwinchCh)
 
 	fd := int(os.Stdin.Fd())
 	width, height, err := terminal.GetSize(fd)

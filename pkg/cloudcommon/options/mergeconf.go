@@ -78,8 +78,8 @@ func (s *mcclientServiceConfigSession) Merge(opts interface{}, serviceType strin
 	merged := false
 	s.config = jsonutils.Marshal(opts).(*jsonutils.JSONDict)
 	region, _ := s.config.GetString("region")
-	epType, _ := s.config.GetString("session_endpoint_type")
-	s.session = auth.AdminSession(context.Background(), region, "", epType, "")
+	// epType, _ := s.config.GetString("session_endpoint_type")
+	s.session = auth.GetAdminSession(context.Background(), region, "")
 	s.serviceId, _ = getServiceIdByType(s.session, serviceType, serviceVersion)
 	if len(s.serviceId) > 0 {
 		serviceConf, err := getServiceConfig(s.session, s.serviceId)

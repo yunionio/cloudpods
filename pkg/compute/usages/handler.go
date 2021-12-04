@@ -101,13 +101,13 @@ func rangeObjHandler(
 			httperrors.NotFoundError(ctx, w, "%v", err)
 			return
 		}
-		ownerId, scope, err := db.FetchUsageOwnerScope(ctx, userCred, getQuery(r))
+		ownerId, scope, err, _ := db.FetchUsageOwnerScope(ctx, userCred, getQuery(r))
 		if err != nil {
 			httperrors.GeneralServerError(ctx, w, err)
 			return
 		}
 		isOwner := false
-		if scope == rbacutils.ScopeDomain && obj != nil && db.IsObjectRbacAllowed(obj, userCred, policy.PolicyActionGet, "usage") == nil {
+		if scope == rbacutils.ScopeDomain && obj != nil && db.IsObjectRbacAllowed(ctx, obj, userCred, policy.PolicyActionGet, "usage") == nil {
 			isOwner = true
 		}
 		log.Debugf("%s %v %s", ownerId, isOwner, scope)

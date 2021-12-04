@@ -25,7 +25,7 @@ import (
 func (mysql *SMySQLBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpec, changes sqlchemy.STableChanges) []string {
 	ret := make([]string, 0)
 
-	for _, idx := range changes.RemvoeIndexes {
+	for _, idx := range changes.RemoveIndexes {
 		sql := fmt.Sprintf("DROP INDEX `%s` ON `%s`", idx.Name(), ts.Name())
 		ret = append(ret, sql)
 		log.Infof("%s;", sql)

@@ -448,15 +448,9 @@ func (manager *SUserManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, 
 	isSystem := jsonutils.QueryBoolean(query, "system", false)
 	if isSystem {
 		var isAllow bool
-		if consts.IsRbacEnabled() {
-			allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList, "system")
-			if !scope.HigherThan(allowScope) {
-				isAllow = true
-			}
-		} else {
-			if userCred.HasSystemAdminPrivilege() {
-				isAllow = true
-			}
+		allowScope, _ := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList, "system")
+		if !scope.HigherThan(allowScope) {
+			isAllow = true
 		}
 		if !isAllow {
 			isSystem = false
@@ -958,7 +952,7 @@ func (user *SUser) AllowPerformJoin(ctx context.Context,
 	query jsonutils.JSONObject,
 	input api.SJoinProjectsInput,
 ) bool {
-	return db.IsAdminAllowPerform(userCred, user, "join")
+	return db.IsAdminAllowPerform(ctx, userCred, user, "join")
 }
 
 // 用户加入项目
@@ -1037,7 +1031,7 @@ func (user *SUser) AllowPerformLeave(ctx context.Context,
 	query jsonutils.JSONObject,
 	input api.SLeaveProjectsInput,
 ) bool {
-	return db.IsAdminAllowPerform(userCred, user, "leave")
+	return db.IsAdminAllowPerform(ctx, userCred, user, "leave")
 }
 
 // 用户退出项目
@@ -1129,7 +1123,7 @@ func (user *SUser) AllowPerformLinkIdp(
 	query jsonutils.JSONObject,
 	input api.UserLinkIdpInput,
 ) bool {
-	return db.IsAdminAllowPerform(userCred, user, "link-idp")
+	return db.IsAdminAllowPerform(ctx, userCred, user, "link-idp")
 }
 
 // 用户和IDP的指定entityId关联
@@ -1166,7 +1160,7 @@ func (user *SUser) AllowPerformUnlinkIdp(
 	query jsonutils.JSONObject,
 	input api.UserUnlinkIdpInput,
 ) bool {
-	return db.IsAdminAllowPerform(userCred, user, "unlink-idp")
+	return db.IsAdminAllowPerform(ctx, userCred, user, "unlink-idp")
 }
 
 // 用户和IDP的指定entityId解除关联

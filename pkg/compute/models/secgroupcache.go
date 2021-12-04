@@ -78,18 +78,6 @@ func init() {
 	SecurityGroupCacheManager.SetVirtualObject(SecurityGroupCacheManager)
 }
 
-func (manager *SSecurityGroupCacheManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
-func (manager *SSecurityGroupCacheManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsProjectAllowList(userCred, manager)
-}
-
-func (self *SSecurityGroupCache) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return false
-}
-
 func (self *SSecurityGroupCache) GetOwnerId() mcclient.IIdentityProvider {
 	sec, err := self.GetSecgroup()
 	if err != nil {
@@ -553,17 +541,9 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 	return localSecgroups, remoteSecgroups, syncResult
 }
 
-func (self *SSecurityGroupCache) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsProjectAllowPerform(userCred, self, "syncstatus")
-}
-
 // 同步安全组缓存状态
 func (self *SSecurityGroupCache) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DiskSyncstatusInput) (jsonutils.JSONObject, error) {
 	return nil, self.StartSyncstatusTask(ctx, userCred, "")
-}
-
-func (self *SSecurityGroupCache) AllowGetDetailsReferences(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGetSpec(userCred, self, "references")
 }
 
 // 获取引用信息

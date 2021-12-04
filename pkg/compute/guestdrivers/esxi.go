@@ -137,7 +137,7 @@ func (self *SESXiGuestDriver) ChooseHostStorage(host *models.SHost, guest *model
 		}
 		return self.SVirtualizedGuestDriver.ChooseHostStorage(host, guest, diskConfig, storageIds)
 	default:
-		ispId := guest.GetMetadata("__base_instance_snapshot_id", nil)
+		ispId := guest.GetMetadata(context.Background(), "__base_instance_snapshot_id", nil)
 		if len(ispId) == 0 {
 			return self.SVirtualizedGuestDriver.ChooseHostStorage(host, guest, diskConfig, storageIds)
 		}
@@ -290,7 +290,7 @@ func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mc
 	templateId := desc.Disks[0].TemplateId
 	if len(templateId) == 0 {
 		// try to check instance_snapshot_id
-		ispId := guest.GetMetadata("__base_instance_snapshot_id", userCred)
+		ispId := guest.GetMetadata(ctx, "__base_instance_snapshot_id", userCred)
 		if len(ispId) == 0 {
 			return jsonutils.Marshal(desc), nil
 		}
@@ -534,14 +534,14 @@ func (self *SESXiGuestDriver) IsSupportLiveMigrate() bool {
 	return true
 }
 
-func (self *SESXiGuestDriver) CheckMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
+func (self *SESXiGuestDriver) CheckMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
 	if len(input.PreferHost) == 0 {
 		return httperrors.NewBadRequestError("esxi guest migrate require prefer_host")
 	}
 	return nil
 }
 
-func (self *SESXiGuestDriver) CheckLiveMigrate(guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error {
+func (self *SESXiGuestDriver) CheckLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error {
 	if len(input.PreferHost) == 0 {
 		return httperrors.NewBadRequestError("esxi guest migrate require prefer_host")
 	}

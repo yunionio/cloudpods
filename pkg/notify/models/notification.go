@@ -83,7 +83,7 @@ func (nm *SNotificationManager) ValidateCreateData(ctx context.Context, userCred
 		return input, httperrors.NewInputParameterError("invalid tag")
 	}
 	if len(input.Contacts) > 0 {
-		if !userCred.IsAllow(rbacutils.ScopeSystem, api.SERVICE_TYPE, nm.KeywordPlural(), policy.PolicyActionPerform, SendByContact) {
+		if userCred.IsAllow(rbacutils.ScopeSystem, api.SERVICE_TYPE, nm.KeywordPlural(), policy.PolicyActionPerform, SendByContact).Result.IsDeny() {
 			return input, httperrors.NewForbiddenError("only admin can send notification by contact")
 		}
 		if len(input.Contacts) == 0 {
@@ -210,10 +210,6 @@ func (n *SNotification) PostCreate(ctx context.Context, userCred mcclient.TokenC
 	} else {
 		task.ScheduleRun(nil)
 	}
-}
-
-func (nm *SNotificationManager) AllowPerformEventNotify(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, nm, "event-notify")
 }
 
 // TODO: support project and domain
@@ -567,17 +563,6 @@ func (n *SNotification) Notification() (notifyv2.SNotification, error) {
 		Event:       e,
 		AdvanceDays: event.AdvanceDays,
 	}, nil
-}
-
-func (nm *SNotificationManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	if !data.Contains("contacts") {
-		return db.IsAdminAllowCreate(userCred, nm)
-	}
-	return true
-}
-
-func (nm *SNotificationManager) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
 }
 
 func (nm *SNotificationManager) ResourceScope() rbacutils.TRbacScope {

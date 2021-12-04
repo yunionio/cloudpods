@@ -125,20 +125,12 @@ func (apb *SAnsiblePlaybookV2) ValidateDeleteCondition(ctx context.Context, info
 	return nil
 }
 
-func (apb *SAnsiblePlaybookV2) AllowPerformRun(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return apb.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, apb, "run")
-}
-
 func (apb *SAnsiblePlaybookV2) PerformRun(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	err := apb.runPlaybook(ctx, userCred)
 	if err != nil {
 		return nil, httperrors.NewConflictError("%s", err.Error())
 	}
 	return nil, nil
-}
-
-func (apb *SAnsiblePlaybookV2) AllowPerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return apb.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, apb, "stop")
 }
 
 func (apb *SAnsiblePlaybookV2) PerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

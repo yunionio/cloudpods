@@ -654,10 +654,6 @@ func (sg *SScalingGroup) SetAllowScaleTime(t time.Time) {
 	return
 }
 
-func (sg *SScalingGroup) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) bool {
-	return sg.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, sg, "enable")
-}
-
 func (sg *SScalingGroup) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
 	err := db.EnabledPerformEnable(sg, ctx, userCred, true)
@@ -667,11 +663,6 @@ func (sg *SScalingGroup) PerformEnable(ctx context.Context, userCred mcclient.To
 	return nil, nil
 }
 
-func (sg *SScalingGroup) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, input apis.PerformDisableInput) bool {
-	return sg.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, sg, "disable")
-}
-
 func (sg *SScalingGroup) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
 	input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
 	err := db.EnabledPerformEnable(sg, ctx, userCred, false)
@@ -679,11 +670,6 @@ func (sg *SScalingGroup) PerformDisable(ctx context.Context, userCred mcclient.T
 		return nil, errors.Wrap(err, "EnabledPerformEnable")
 	}
 	return nil, nil
-}
-
-func (s *SGuest) AllowPerformDetachScalingGroup(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, input api.SGPerformDetachScalingGroupInput) bool {
-	return s.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, s, "detach-scaling-group")
 }
 
 func (s *SGuest) PerformDetachScalingGroup(ctx context.Context, userCred mcclient.TokenCredential,

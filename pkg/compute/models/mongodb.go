@@ -308,10 +308,6 @@ func (self *SMongoDB) GetIMongoDB() (cloudprovider.ICloudMongoDB, error) {
 }
 
 // 同步MongoDB实例状态
-func (self *SMongoDB) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "syncstatus")
-}
-
 func (self *SMongoDB) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	var openTask = true
 	count, err := taskman.TaskManager.QueryTasksOfObject(self, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
@@ -741,10 +737,6 @@ func (manager *SMongoDBManager) ListItemExportKeys(ctx context.Context,
 	return q, nil
 }
 
-func (self *SMongoDB) AllowPerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "postpaid-expire")
-}
-
 func (self *SMongoDB) PerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PostpaidExpireInput) (jsonutils.JSONObject, error) {
 	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
 		return nil, httperrors.NewBadRequestError("self billing type is %s", self.BillingType)
@@ -757,10 +749,6 @@ func (self *SMongoDB) PerformPostpaidExpire(ctx context.Context, userCred mcclie
 
 	err = self.SaveRenewInfo(ctx, userCred, bc, nil, billing_api.BILLING_TYPE_POSTPAID)
 	return nil, err
-}
-
-func (self *SMongoDB) AllowPerformCancelExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "cancel-expire")
 }
 
 func (self *SMongoDB) PerformCancelExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -787,10 +775,6 @@ func (self *SMongoDB) CancelExpireTime(ctx context.Context, userCred mcclient.To
 	}
 	db.OpsLog.LogEvent(self, db.ACT_RENEW, "self cancel expire time", userCred)
 	return nil
-}
-
-func (self *SMongoDB) AllowPerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "remote-update")
 }
 
 func (self *SMongoDB) PerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.MongoDBRemoteUpdateInput) (jsonutils.JSONObject, error) {
@@ -820,10 +804,6 @@ func (self *SMongoDB) OnMetadataUpdated(ctx context.Context, userCred mcclient.T
 	if err != nil {
 		log.Errorf("StartRemoteUpdateTask fail: %s", err)
 	}
-}
-
-func (self *SMongoDB) AllowGetDetailsBackups(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "backups")
 }
 
 // 获取备份列表

@@ -132,10 +132,6 @@ func (manager *SBaremetalagentManager) ValidateCreateData(ctx context.Context, u
 	return input, nil
 }
 
-func (self *SBaremetalagent) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "enable")
-}
-
 func (self *SBaremetalagent) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Status != api.BAREMETAL_AGENT_ENABLED {
 		db.Update(self, func() error {
@@ -145,10 +141,6 @@ func (self *SBaremetalagent) PerformEnable(ctx context.Context, userCred mcclien
 		db.OpsLog.LogEvent(self, db.ACT_ENABLE, "", userCred)
 	}
 	return nil, nil
-}
-
-func (self *SBaremetalagent) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "disable")
 }
 
 func (self *SBaremetalagent) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -162,10 +154,6 @@ func (self *SBaremetalagent) PerformDisable(ctx context.Context, userCred mcclie
 	return nil, nil
 }
 
-func (self *SBaremetalagent) AllowPerformOnline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "online")
-}
-
 func (self *SBaremetalagent) PerformOnline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Status == api.BAREMETAL_AGENT_OFFLINE {
 		db.Update(self, func() error {
@@ -175,10 +163,6 @@ func (self *SBaremetalagent) PerformOnline(ctx context.Context, userCred mcclien
 		db.OpsLog.LogEvent(self, db.ACT_ONLINE, "", userCred)
 	}
 	return nil, nil
-}
-
-func (self *SBaremetalagent) AllowPerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "offline")
 }
 
 func (self *SBaremetalagent) PerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

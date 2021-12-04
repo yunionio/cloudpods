@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 type SProjectManager struct {
@@ -219,6 +220,12 @@ func (manager *SProjectManager) ListItemFilter(
 	q, err = manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.IdentityBaseResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SIdentityBaseResourceManager.ListItemFilter")
+	}
+
+	if !query.PolicyProjectTags.IsEmpty() {
+		policyFilters := tagutils.STagFilters{}
+		policyFilters.AddFilters(query.PolicyProjectTags)
+		q = db.ObjectIdQueryWithTagFilters(q, "id", "project", policyFilters)
 	}
 
 	userStr := query.UserId
@@ -477,7 +484,7 @@ func validateJoinProject(userCred mcclient.TokenCredential, project *SProject, r
 	assignScope := assignPolicies.HighestScope()
 	if assignScope.HigherThan(opsScope) {
 		return errors.Wrap(httperrors.ErrNotSufficientPrivilege, "assigning roles requires higher privilege scope")
-	} else if assignScope == opsScope && opsPolicies[opsScope].ViolatedBy(assignPolicies[assignScope]) {
+	} else if assignScope == opsScope && !opsPolicies[opsScope].Contains(assignPolicies[assignScope]) {
 		return errors.Wrap(httperrors.ErrNotSufficientPrivilege, "assigning roles violates operator's policy")
 	}
 	return nil
@@ -488,7 +495,7 @@ func (project *SProject) AllowPerformJoin(ctx context.Context,
 	query jsonutils.JSONObject,
 	input api.SProjectAddUserGroupInput,
 ) bool {
-	return db.IsAdminAllowPerform(userCred, project, "join")
+	return db.IsAdminAllowPerform(ctx, userCred, project, "join")
 }
 
 // 将用户或组加入项目
@@ -574,7 +581,7 @@ func (project *SProject) AllowPerformLeave(ctx context.Context,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) bool {
-	return db.IsAdminAllowPerform(userCred, project, "leave")
+	return db.IsAdminAllowPerform(ctx, userCred, project, "leave")
 }
 
 // 将用户或组移出项目

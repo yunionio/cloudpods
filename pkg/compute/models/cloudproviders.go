@@ -624,10 +624,6 @@ func (sr *SSyncRange) Normalize() error {
 	return nil
 }
 
-func (self *SCloudprovider) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "sync")
-}
-
 func (self *SCloudprovider) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SyncRangeInput) (jsonutils.JSONObject, error) {
 	if !self.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Cloudprovider disabled")
@@ -669,10 +665,6 @@ func (self *SCloudprovider) StartSyncCloudProviderInfoTask(ctx context.Context, 
 	return nil
 }
 
-func (self *SCloudprovider) AllowPerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) bool {
-	return db.IsAdminAllowPerform(userCred, self, "change-project")
-}
-
 func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
 	project := input.ProjectId
 
@@ -687,7 +679,7 @@ func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred m
 
 	account := self.GetCloudaccount()
 	if self.DomainId != tenant.DomainId {
-		if !db.IsAdminAllowPerform(userCred, self, "change-project") {
+		if !db.IsAdminAllowPerform(ctx, userCred, self, "change-project") {
 			return nil, httperrors.NewForbiddenError("not allow to change project across domain")
 		}
 		if account.ShareMode == api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN && account.DomainId != tenant.DomainId {
@@ -1038,43 +1030,11 @@ func (manager *SCloudproviderManager) FetchCustomizeColumns(
 }
 
 func (manager *SCloudproviderManager) InitializeData() error {
-	// move vmware info from vcenter to cloudprovider
-	vcenters := make([]SVCenter, 0)
-	q := VCenterManager.Query()
-	err := db.FetchModelObjects(VCenterManager, q, &vcenters)
-	if err != nil {
-		return err
-	}
-	for _, vc := range vcenters {
-		_, err := CloudproviderManager.FetchById(vc.Id)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				err = manager.migrateVCenterInfo(&vc)
-				if err != nil {
-					log.Errorf("migrateVcenterInfo fail %s", err)
-					return err
-				}
-				_, err = db.Update(&vc, func() error {
-					return vc.MarkDelete()
-				})
-				if err != nil {
-					log.Errorf("delete vcenter record fail %s", err)
-					return err
-				}
-			} else {
-				log.Errorf("fetch cloudprovider fail %s", err)
-				return err
-			}
-		} else {
-			log.Debugf("vcenter info has been migrate into cloudprovider")
-		}
-	}
-
 	// fill empty projectId with system project ID
 	providers := make([]SCloudprovider, 0)
-	q = CloudproviderManager.Query()
+	q := CloudproviderManager.Query()
 	q = q.Filter(sqlchemy.OR(sqlchemy.IsEmpty(q.Field("tenant_id")), sqlchemy.IsNull(q.Field("tenant_id"))))
-	err = db.FetchModelObjects(CloudproviderManager, q, &providers)
+	err := db.FetchModelObjects(CloudproviderManager, q, &providers)
 	if err != nil {
 		log.Errorf("query cloudproviders with empty tenant_id fail %s", err)
 		return err
@@ -1092,26 +1052,6 @@ func (manager *SCloudproviderManager) InitializeData() error {
 	}
 
 	return nil
-}
-
-func (manager *SCloudproviderManager) migrateVCenterInfo(vc *SVCenter) error {
-	cp := SCloudprovider{}
-	cp.SetModelManager(manager, &cp)
-
-	newName, err := db.GenerateName(context.Background(), manager, nil, vc.Name)
-	if err != nil {
-		return err
-	}
-	cp.Id = vc.Id
-	cp.Name = newName
-	cp.Status = vc.Status
-	cp.AccessUrl = fmt.Sprintf("https://%s:%d", vc.Hostname, vc.Port)
-	cp.Account = vc.Account
-	cp.Secret = vc.Password
-	cp.LastSync = vc.LastSync
-	cp.Provider = api.CLOUD_PROVIDER_VMWARE
-
-	return manager.TableSpec().Insert(context.TODO(), &cp)
 }
 
 // 云订阅列表
@@ -1666,10 +1606,6 @@ func (manager *SCloudproviderManager) initAllRecords() {
 	}
 }
 
-func (provider *SCloudprovider) AllowGetDetailsClirc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGetSpec(userCred, provider, "client-rc")
-}
-
 func (provider *SCloudprovider) GetDetailsClirc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	accessUrl := provider.getAccessUrl()
 	passwd, err := provider.getPassword()
@@ -1692,14 +1628,6 @@ func (provider *SCloudprovider) GetDetailsClirc(ctx context.Context, userCred mc
 
 func (manager *SCloudproviderManager) ResourceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeDomain
-}
-
-func (provider *SCloudprovider) AllowGetDetailsStorageClasses(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-) bool {
-	return db.IsAdminAllowGetSpec(userCred, provider, "storage-classes")
 }
 
 func (provider *SCloudprovider) GetDetailsStorageClasses(
@@ -1725,14 +1653,6 @@ func (provider *SCloudprovider) GetDetailsStorageClasses(
 	}
 	output.StorageClasses = sc
 	return output, nil
-}
-
-func (provider *SCloudprovider) AllowGetDetailsCannedAcls(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-) bool {
-	return db.IsAdminAllowGetSpec(userCred, provider, "canned-acls")
 }
 
 func (provider *SCloudprovider) GetDetailsCannedAcls(
@@ -1772,10 +1692,6 @@ func (provider *SCloudprovider) IsSharable(reqUsrId mcclient.IIdentityProvider) 
 	return false
 }
 
-func (provider *SCloudprovider) AllowGetDetailsChangeOwnerCandidateDomains(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return provider.DomainId == userCred.GetProjectDomainId() || db.IsAdminAllowGetSpec(userCred, provider, "change-owner-candidate-domains")
-}
-
 func (provider *SCloudprovider) GetDetailsChangeOwnerCandidateDomains(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (apis.ChangeOwnerCandidateDomainsOutput, error) {
 	return db.IOwnerResourceBaseModelGetChangeOwnerCandidateDomains(provider)
 }
@@ -1807,10 +1723,6 @@ func (self *SCloudprovider) GetSchedtags() []SSchedtag {
 
 func (self *SCloudprovider) GetDynamicConditionInput() *jsonutils.JSONDict {
 	return jsonutils.Marshal(self).(*jsonutils.JSONDict)
-}
-
-func (self *SCloudprovider) AllowPerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return AllowPerformSetResourceSchedtag(self, ctx, userCred, query, data)
 }
 
 func (self *SCloudprovider) PerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1940,10 +1852,6 @@ func (manager *SCloudproviderManager) ListItemExportKeys(ctx context.Context, q 
 		return nil, errors.Wrapf(err, "SProjectMappingResourceBaseManager.ListItemExportKeys")
 	}
 	return q, nil
-}
-
-func (self *SCloudprovider) AllowPerformProjectMapping(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "project-mapping")
 }
 
 // 绑定同步策略

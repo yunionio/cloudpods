@@ -377,10 +377,6 @@ func (man *SLoadbalancerListenerManager) ValidateAcl(aclStatusV *validators.Vali
 	return nil
 }
 
-func (lblis *SLoadbalancerListener) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) bool {
-	return lblis.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, lblis, "status")
-}
-
 func (lblis *SLoadbalancerListener) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
 	if _, err := lblis.SVirtualResourceBase.PerformStatus(ctx, userCred, query, input); err != nil {
 		return nil, err
@@ -407,10 +403,6 @@ func (lblis *SLoadbalancerListener) StartLoadBalancerListenerStopTask(ctx contex
 	}
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (lblis *SLoadbalancerListener) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, lblis, "syncstatus")
 }
 
 func (lblis *SLoadbalancerListener) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -559,18 +551,10 @@ func (lblis *SLoadbalancerListener) StartLoadBalancerListenerCreateTask(ctx cont
 	return nil
 }
 
-func (lblis *SLoadbalancerListener) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, lblis, "purge")
-}
-
 func (lblis *SLoadbalancerListener) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	parasm := jsonutils.NewDict()
 	parasm.Add(jsonutils.JSONTrue, "purge")
 	return nil, lblis.StartLoadBalancerListenerDeleteTask(ctx, userCred, parasm, "")
-}
-
-func (lblis *SLoadbalancerListener) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, lblis, "sync")
 }
 
 func (lblis *SLoadbalancerListener) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

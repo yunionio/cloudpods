@@ -189,7 +189,7 @@ func (self *DiskDeleteTask) OnGuestDiskDeleteComplete(ctx context.Context, obj d
 		Obj:    disk,
 		Action: notifyclient.ActionDelete,
 	})
-	if len(disk.SnapshotId) > 0 && disk.GetMetadata("merge_snapshot", nil) == "true" {
+	if len(disk.SnapshotId) > 0 && disk.GetMetadata(ctx, "merge_snapshot", nil) == "true" {
 		models.SnapshotManager.AddRefCount(disk.SnapshotId, -1)
 	}
 	disk.RealDelete(ctx, self.UserCred)

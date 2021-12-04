@@ -526,10 +526,6 @@ func (self *SStoragecache) ValidateDeleteCondition(ctx context.Context, info jso
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
-func (self *SStoragecache) AllowPerformUncacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "uncache-image")
-}
-
 func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	imageStr, _ := data.GetString("image")
 	if len(imageStr) == 0 {
@@ -580,10 +576,6 @@ func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcc
 	err = self.StartImageUncacheTask(ctx, userCred, imageId, isForce, "")
 
 	return nil, err
-}
-
-func (self *SStoragecache) AllowPerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "cache-image")
 }
 
 func (self *SStoragecache) PerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CacheImageInput) (jsonutils.JSONObject, error) {

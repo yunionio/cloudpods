@@ -1038,10 +1038,6 @@ func (self *SVpc) containsIPV4Range(a netutils.IPV4AddrRange) bool {
 	return false
 }
 
-func (self *SVpc) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "purge")
-}
-
 func (self *SVpc) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	err := self.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
@@ -1318,17 +1314,9 @@ func (self *SVpc) SyncRemoteWires(ctx context.Context, userCred mcclient.TokenCr
 	return nil
 }
 
-func (vpc *SVpc) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, vpc, "syncstatus")
-}
-
 // 同步VPC状态
 func (vpc *SVpc) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.VpcSyncstatusInput) (jsonutils.JSONObject, error) {
 	return vpc.PerformSync(ctx, userCred, query, input)
-}
-
-func (vpc *SVpc) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, vpc, "sync")
 }
 
 func (vpc *SVpc) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.VpcSyncstatusInput) (jsonutils.JSONObject, error) {

@@ -343,10 +343,6 @@ func (self *SElasticcache) GetElasticcacheBackups() ([]SElasticcacheBackup, erro
 	return ret, nil
 }
 
-func (self *SElasticcache) AllowGetDetailsLoginInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "login-info")
-}
-
 func (self *SElasticcache) GetDetailsLoginInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	account, err := self.GetAdminAccount()
 	if err != nil {
@@ -771,10 +767,6 @@ func (manager *SElasticcacheManager) getElasticcachesByProviderId(providerId str
 	return instances, nil
 }
 
-func (manager *SElasticcacheManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, manager)
-}
-
 func (manager *SElasticcacheManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	_data := api.ElasticcacheCreateInput{}
 	err := data.Unmarshal(&_data)
@@ -1188,10 +1180,6 @@ func (self *SElasticcache) GetCreateQCloudElasticcacheParams(data *jsonutils.JSO
 	return input, nil
 }
 
-func (self *SElasticcache) AllowPerformRestart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "restart")
-}
-
 func (self *SElasticcache) PerformRestart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if utils.IsInStringArray(self.Status, []string{api.ELASTIC_CACHE_STATUS_RUNNING, api.ELASTIC_CACHE_STATUS_INACTIVE}) {
 		self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_RESTARTING, "")
@@ -1241,10 +1229,6 @@ func (self *SElasticcache) StartDeleteElasticcacheTask(ctx context.Context, user
 	}
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (self *SElasticcache) AllowPerformChangeSpec(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "change_spec")
 }
 
 func (self *SElasticcache) ValidatorChangeSpecData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1302,10 +1286,6 @@ func (self *SElasticcache) StartChangeSpecTask(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (self *SElasticcache) AllowPerformUpdateAuthMode(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "update_auth_mode")
-}
-
 func (self *SElasticcache) ValidatorUpdateAuthModeData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	region, _ := self.GetRegion()
 	if region == nil {
@@ -1355,10 +1335,6 @@ func (self *SElasticcache) StartUpdateAuthModeTask(ctx context.Context, userCred
 
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (self *SElasticcache) AllowPerformResetPassword(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "reset-password")
 }
 
 func (self *SElasticcache) ValidatorResetPasswordData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1421,10 +1397,6 @@ func (self *SElasticcache) StartResetPasswordTask(ctx context.Context, userCred 
 	return nil
 }
 
-func (self *SElasticcache) AllowPerformSetMaintainTime(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "set_maintain_time")
-}
-
 func (self *SElasticcache) ValidatorSetMaintainTimeData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	timeReg, _ := regexp.Compile("^(0[0-9]|1[0-9]|2[0-3]|[0-9]):[0-5][0-9]Z$")
 	startTimeV := validators.NewRegexpValidator("maintain_start_time", timeReg)
@@ -1472,10 +1444,6 @@ func (self *SElasticcache) StartSetMaintainTimeTask(ctx context.Context, userCre
 	return nil
 }
 
-func (self *SElasticcache) AllowPerformAllocatePublicConnection(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "allocate_public_connection")
-}
-
 func (self *SElasticcache) ValidatorAllocatePublicConnectionData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.PublicDNS != "" || self.PublicIpAddr != "" {
 		return nil, httperrors.NewConflictError("public connection aready allocated")
@@ -1513,10 +1481,6 @@ func (self *SElasticcache) StartAllocatePublicConnectionTask(ctx context.Context
 	return nil
 }
 
-func (self *SElasticcache) AllowPerformReleasePublicConnection(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "release_public_connection")
-}
-
 func (self *SElasticcache) ValidatorReleasePublicConnectionData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.PublicIpAddr == "" && self.PublicDNS == "" {
 		return nil, httperrors.NewConflictError("release public connection aready released")
@@ -1545,10 +1509,6 @@ func (self *SElasticcache) StartReleasePublicConnectionTask(ctx context.Context,
 	return nil
 }
 
-func (self *SElasticcache) AllowPerformFlushInstance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "flush_instance")
-}
-
 func (self *SElasticcache) PerformFlushInstance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_FLUSHING, "")
 	return nil, self.StartFlushInstanceTask(ctx, userCred, data.(*jsonutils.JSONDict), "")
@@ -1562,10 +1522,6 @@ func (self *SElasticcache) StartFlushInstanceTask(ctx context.Context, userCred 
 
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (self *SElasticcache) AllowPerformUpdateInstanceParameters(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "update_instance_parameters")
 }
 
 func (self *SElasticcache) ValidatorUpdateInstanceParametersData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1603,10 +1559,6 @@ func (self *SElasticcache) StartUpdateInstanceParametersTask(ctx context.Context
 
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (self *SElasticcache) AllowPerformUpdateBackupPolicy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "update_backup_policy")
 }
 
 func (self *SElasticcache) ValidatorUpdateBackupPolicyData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1652,10 +1604,6 @@ func (self *SElasticcache) StartUpdateBackupPolicyTask(ctx context.Context, user
 	return nil
 }
 
-func (self *SElasticcache) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "syncstatus")
-}
-
 // 同步弹性缓存状态
 func (self *SElasticcache) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ElasticcacheSyncstatusInput) (jsonutils.JSONObject, error) {
 	var openTask = true
@@ -1668,10 +1616,6 @@ func (self *SElasticcache) PerformSyncstatus(ctx context.Context, userCred mccli
 	}
 
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "ElasticcacheSyncstatusTask", "")
-}
-
-func (self *SElasticcache) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "sync")
 }
 
 func (self *SElasticcache) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1906,10 +1850,6 @@ func (manager *SElasticcacheManager) DeleteExpiredPostpaids(ctx context.Context,
 	}
 }
 
-func (self *SElasticcache) AllowPerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "postpaid-expire")
-}
-
 func (self *SElasticcache) PerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PostpaidExpireInput) (jsonutils.JSONObject, error) {
 	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
 		return nil, httperrors.NewBadRequestError("elasticcache billing type is %s", self.BillingType)
@@ -1922,10 +1862,6 @@ func (self *SElasticcache) PerformPostpaidExpire(ctx context.Context, userCred m
 
 	err = self.SaveRenewInfo(ctx, userCred, bc, nil, billing_api.BILLING_TYPE_POSTPAID)
 	return nil, err
-}
-
-func (self *SElasticcache) AllowPerformCancelExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "cancel-expire")
 }
 
 func (self *SElasticcache) PerformCancelExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1952,10 +1888,6 @@ func (self *SElasticcache) CancelExpireTime(ctx context.Context, userCred mcclie
 	}
 	db.OpsLog.LogEvent(self, db.ACT_RENEW, "elasticcache cancel expire time", userCred)
 	return nil
-}
-
-func (self *SElasticcache) AllowPerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "remote-update")
 }
 
 func (self *SElasticcache) PerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ElasticcacheRemoteUpdateInput) (jsonutils.JSONObject, error) {
@@ -2233,24 +2165,12 @@ func (self *SElasticcache) SyncSecgroup(ctx context.Context, userCred mcclient.T
 	return nil, self.StartSyncSecgroupsTask(ctx, userCred, nil, "")
 }
 
-func (self *SElasticcache) AllowPerformAddSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "add-secgroup")
-}
-
 func (self *SElasticcache) PerformAddSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ElasticcacheSecgroupsInput) (jsonutils.JSONObject, error) {
 	return self.SyncSecgroup(ctx, userCred, "add", input)
 }
 
-func (self *SElasticcache) AllowPerformRevokeSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "revoke-secgroup")
-}
-
 func (self *SElasticcache) PerformRevokeSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ElasticcacheSecgroupsInput) (jsonutils.JSONObject, error) {
 	return self.SyncSecgroup(ctx, userCred, "revoke", input)
-}
-
-func (self *SElasticcache) AllowPerformSetSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "set-secgroup")
 }
 
 func (self *SElasticcache) PerformSetSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ElasticcacheSecgroupsInput) (jsonutils.JSONObject, error) {
@@ -2289,10 +2209,6 @@ func (self *SElasticcache) StartSyncSecgroupsTask(ctx context.Context, userCred 
 
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (self *SElasticcache) AllowPerformSetAutoRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "set-auto-renew")
 }
 
 func (self *SElasticcache) SetAutoRenew(autoRenew bool) error {
@@ -2350,10 +2266,6 @@ func (self *SElasticcache) StartSetAutoRenewTask(ctx context.Context, userCred m
 	}
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (self *SElasticcache) AllowPerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "renew")
 }
 
 func (self *SElasticcache) PerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

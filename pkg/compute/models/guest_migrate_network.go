@@ -29,14 +29,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-func (guest *SGuest) AllowPerformMigrateNetwork(
-	ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	input api.ServerMigrateNetworkInput,
-) bool {
-	return db.IsAdminAllowPerform(userCred, guest, "migrate-network")
-}
-
 /*
  * Migrate a server from one network to another network, without change IP address
  * Scenerio: the server used to be in a VPC, migrate it to a underlay network without network interruption

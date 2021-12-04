@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 type SDomainManager struct {
@@ -187,6 +188,12 @@ func (manager *SDomainManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 	q = q.NotEquals("id", api.KeystoneDomainRoot)
+
+	if !query.PolicyDomainTags.IsEmpty() {
+		policyFilters := tagutils.STagFilters{}
+		policyFilters.AddNoFilters(query.PolicyDomainTags)
+		q = db.ObjectIdQueryWithTagFilters(q, "id", "domain", policyFilters)
+	}
 
 	if query.Enabled != nil {
 		if *query.Enabled {
@@ -532,7 +539,7 @@ func (domain *SDomain) AllowPerformUnlinkIdp(
 	query jsonutils.JSONObject,
 	input api.UserUnlinkIdpInput,
 ) bool {
-	return db.IsAdminAllowPerform(userCred, domain, "unlink-idp")
+	return db.IsAdminAllowPerform(ctx, userCred, domain, "unlink-idp")
 }
 
 // domain和IDP的指定entityId解除关联

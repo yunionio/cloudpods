@@ -569,14 +569,6 @@ func (self *SWafRule) GetICloudWafRule() (cloudprovider.ICloudWafRule, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "")
 }
 
-func (self *SWafRule) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	ins, _ := self.GetWafInstance()
-	if ins != nil {
-		return ins.IsOwner(userCred) || db.IsDomainAllowPerform(userCred, self, "syncstatus")
-	}
-	return db.IsDomainAllowPerform(userCred, self, "syncstatus")
-}
-
 // 同步WAF规则状态
 func (self *SWafRule) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.WafSyncstatusInput) (jsonutils.JSONObject, error) {
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "WafRuleSyncstatusTask", "")

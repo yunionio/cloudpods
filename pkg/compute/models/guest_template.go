@@ -749,11 +749,6 @@ func (manager *SGuestTemplateManager) ListItemExportKeys(ctx context.Context,
 	return q, nil
 }
 
-func (g *SGuest) AllowPerformSaveTemplate(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) bool {
-	return g.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, g, "")
-}
-
 func (g *SGuest) PerformSaveTemplate(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, input computeapis.GuestSaveToTemplateInput) (jsonutils.JSONObject, error) {
 	g.SetStatus(userCred, computeapis.VM_TEMPLATE_SAVING, "save to template")
@@ -768,10 +763,6 @@ func (g *SGuest) PerformSaveTemplate(ctx context.Context, userCred mcclient.Toke
 		task.ScheduleRun(nil)
 	}
 	return nil, nil
-}
-
-func (gt *SGuestTemplate) AllowPerformInspect(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return gt.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, gt, "inspect")
 }
 
 func (gt *SGuestTemplate) PerformInspect(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

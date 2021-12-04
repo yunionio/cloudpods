@@ -417,7 +417,7 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		}
 		sq := man.Query("id")
 		query := jsonutils.Marshal(input)
-		ownerId, queryScope, err := FetchCheckQueryOwnerScope(ctx, userCred, query, man, policy.PolicyActionList, true)
+		ownerId, queryScope, err, _ := FetchCheckQueryOwnerScope(ctx, userCred, query, man, policy.PolicyActionList, true)
 		if err != nil {
 			log.Warningf("FetchCheckQueryOwnerScope.%s error: %v", man.Keyword(), err)
 			continue
@@ -446,8 +446,8 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	return q, nil
 }
 
-func (manager *SMetadataManager) GetStringValue(model IModel, key string, userCred mcclient.TokenCredential) string {
-	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAllowGetSpec(rbacutils.ScopeSystem, userCred, model, "metadata")) {
+func (manager *SMetadataManager) GetStringValue(ctx context.Context, model IModel, key string, userCred mcclient.TokenCredential) string {
+	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAllowGetSpec(ctx, rbacutils.ScopeSystem, userCred, model, "metadata")) {
 		return ""
 	}
 	idStr := getModelIdstr(model)
@@ -459,8 +459,8 @@ func (manager *SMetadataManager) GetStringValue(model IModel, key string, userCr
 	return ""
 }
 
-func (manager *SMetadataManager) GetJsonValue(model IModel, key string, userCred mcclient.TokenCredential) jsonutils.JSONObject {
-	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAllowGetSpec(rbacutils.ScopeSystem, userCred, model, "metadata")) {
+func (manager *SMetadataManager) GetJsonValue(ctx context.Context, model IModel, key string, userCred mcclient.TokenCredential) jsonutils.JSONObject {
+	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAllowGetSpec(ctx, rbacutils.ScopeSystem, userCred, model, "metadata")) {
 		return nil
 	}
 	idStr := getModelIdstr(model)
@@ -651,8 +651,12 @@ func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store m
 	return nil
 }
 
-func (manager *SMetadataManager) GetAll(obj IModel, keys []string, keyPrefix string, userCred mcclient.TokenCredential) (map[string]string, error) {
-	idStr := getModelIdstr(obj)
+func (manager *SMetadataManager) GetAll(obj IModel, keys []string, keyPrefix string) (map[string]string, error) {
+	return manager.rawGetAll(obj.Keyword(), obj.GetId(), keys, keyPrefix)
+}
+
+func (manager *SMetadataManager) rawGetAll(objType, objId string, keys []string, keyPrefix string) (map[string]string, error) {
+	idStr := getObjectIdstr(objType, objId)
 	records := make([]SMetadata, 0)
 	q := manager.Query().Equals("id", idStr)
 	if keys != nil && len(keys) > 0 {
@@ -663,7 +667,7 @@ func (manager *SMetadataManager) GetAll(obj IModel, keys []string, keyPrefix str
 	}
 	err := FetchModelObjects(manager, q, &records)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "FetchModelObjects")
 	}
 	ret := make(map[string]string)
 	for _, rec := range records {

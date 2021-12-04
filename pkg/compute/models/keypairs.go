@@ -205,10 +205,6 @@ func (manager *SKeypairManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient
 	return q
 }
 
-func (keypair *SKeypair) AllowGetDetailsPrivatekey(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return keypair.OwnerId == userCred.GetUserId()
-}
-
 func (keypair *SKeypair) GetDetailsPrivatekey(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	retval := jsonutils.NewDict()
 	if len(keypair.PrivateKey) > 0 {

@@ -87,7 +87,7 @@ func (cm *SConfigManager) ValidateCreateData(ctx context.Context, userCred mccli
 		return input, httperrors.NewInputParameterError("invalid attribution, need %q or %q", api.CONFIG_ATTRIBUTION_SYSTEM, api.CONFIG_ATTRIBUTION_DOMAIN)
 	}
 	if input.Attribution == api.CONFIG_ATTRIBUTION_SYSTEM {
-		allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), ConfigManager.KeywordPlural(), policy.PolicyActionCreate)
+		allowScope, _ := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), ConfigManager.KeywordPlural(), policy.PolicyActionCreate)
 		if allowScope != rbacutils.ScopeSystem {
 			return input, httperrors.NewInputParameterError("No permission to set %q attribution", api.CONFIG_ATTRIBUTION_SYSTEM)
 		}
@@ -361,10 +361,6 @@ func (cm *SConfigManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQ
 	return q, nil
 }
 
-func (cm *SConfigManager) AllowPerformValidate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, cm, "validate")
-}
-
 func (cm *SConfigManager) PerformValidate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ConfigValidateInput) (api.ConfigValidateOutput, error) {
 	var (
 		output api.ConfigValidateOutput
@@ -524,22 +520,6 @@ func (cm *SConfigManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIden
 		}
 	}
 	return q
-}
-
-func (cm *SConfigManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, cm)
-}
-
-func (c *SConfig) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, c)
-}
-
-func (cm *SConfigManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, cm)
-}
-
-func (c *SConfig) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, c)
 }
 
 // Fetch all SConfig struct which type is contactType.

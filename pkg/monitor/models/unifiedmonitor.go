@@ -63,18 +63,9 @@ type SUnifiedMonitorManager struct {
 type SUnifiedMonitorModel struct {
 }
 
-func (self *SUnifiedMonitorManager) AllowGetPropertyDatabases(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) bool {
-	return true
-}
 func (self *SUnifiedMonitorManager) GetPropertyDatabases(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return DataSourceManager.GetDatabases()
-}
-
-func (self *SUnifiedMonitorManager) AllowGetPropertyMeasurements(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) bool {
-	return true
 }
 
 func (self *SUnifiedMonitorManager) GetPropertyMeasurements(ctx context.Context, userCred mcclient.TokenCredential,
@@ -172,12 +163,6 @@ func getProjectIdFilterByProject(projectId string) (string, error) {
 	return fmt.Sprintf(`"%s" =~ /%s/`, "tenant_id", projectId), nil
 }
 
-func (self *SUnifiedMonitorManager) AllowGetPropertyMetricMeasurement(ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) bool {
-	return true
-}
-
 func (self *SUnifiedMonitorManager) GetPropertyMetricMeasurement(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	metricFunc := monitor.MetricFunc{
@@ -196,11 +181,6 @@ func (self *SUnifiedMonitorManager) GetPropertyMetricMeasurement(ctx context.Con
 	}
 	rtn.(*jsonutils.JSONDict).Add(jsonutils.Marshal(&metricFunc), "func")
 	return rtn, nil
-}
-
-func (self *SUnifiedMonitorManager) AllowPerformQuery(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return true
 }
 
 func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

@@ -46,7 +46,7 @@ func (self *GuestSaveTemplateTask) taskFailed(ctx context.Context, g *models.SGu
 
 func (self *GuestSaveTemplateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	g := obj.(*models.SGuest)
-	ci := g.ToCreateInput(self.UserCred)
+	ci := g.ToCreateInput(ctx, self.UserCred)
 	// Information not to be saved：
 	// 1. Expiry release information
 	if ci.BillingType == billing_api.BILLING_TYPE_POSTPAID {

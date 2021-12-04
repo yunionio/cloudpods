@@ -268,11 +268,6 @@ func (manager *SAlertDashBoardManager) getDashboardByid(id string) (*SAlertDashB
 	return iModel.(*SAlertDashBoard), nil
 }
 
-func (dash *SAlertDashBoard) AllowPerformClonePanel(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return true
-}
-
 func (dash *SAlertDashBoard) PerformClonePanel(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, input monitor.AlertClonePanelInput) (jsonutils.JSONObject, error) {
 
@@ -293,11 +288,6 @@ func (dash *SAlertDashBoard) PerformClonePanel(ctx context.Context, userCred mcc
 	output.(*jsonutils.JSONDict).Update(jsonutils.Marshal(&panelDetails))
 
 	return output, nil
-}
-
-func (dash *SAlertDashBoard) AllowPerformCloneDashboard(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return true
 }
 
 func (dash *SAlertDashBoard) PerformCloneDashboard(ctx context.Context, userCred mcclient.TokenCredential,

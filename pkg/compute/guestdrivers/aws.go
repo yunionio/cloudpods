@@ -197,7 +197,7 @@ func (self *SAwsGuestDriver) ValidateCreateData(ctx context.Context, userCred mc
 				return nil, errors.Wrap(err, "SAwsGuestDriver.ValidateCreateData.Networks.FetchByIdOrName")
 			}
 
-			support_eip := inetwork.(*models.SNetwork).GetMetadataJson("ext:support_eip", nil)
+			support_eip := inetwork.(*models.SNetwork).GetMetadataJson(ctx, "ext:support_eip", nil)
 			if support_eip != nil {
 				if ok, _ := support_eip.Bool(); !ok {
 					return nil, httperrors.NewInputParameterError("network %s associated route table has no internet gateway attached.", inetwork.GetName())

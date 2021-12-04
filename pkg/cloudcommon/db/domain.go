@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
 type SDomainizedResourceBaseManager struct {
@@ -108,22 +109,26 @@ func (manager *SDomainizedResourceBaseManager) ListItemFilter(
 	if len(query.ProjectDomainIds) > 0 {
 		// make sure ids are not utf8 string
 		idList := stringutils2.RemoveUtf8Strings(query.ProjectDomainIds)
-		tenants := TenantCacheManager.GetDomainQuery().SubQuery()
+		tenants := DefaultDomainQuery().SubQuery()
+		// tenants := TenantCacheManager.GetDomainQuery().SubQuery()
 		subq := tenants.Query(tenants.Field("id")).Filter(sqlchemy.OR(
 			sqlchemy.In(tenants.Field("id"), idList),
 			sqlchemy.In(tenants.Field("name"), query.ProjectDomainIds),
 		)).SubQuery()
 		q = q.In("domain_id", subq)
 	}
-	if len(query.DomainTags) > 0 {
-		meta := SMetadataResourceBaseModelManager{}
-		subq := meta.objIdQueryWithTags("domain", nil, query.DomainTags).SubQuery()
-		q = q.In("domain_id", subq)
+	tagFilters := tagutils.STagFilters{}
+	if !query.DomainTags.IsEmpty() {
+		tagFilters.AddFilters(query.DomainTags)
 	}
-	if len(query.NoDomainTags) > 0 {
-		meta := SMetadataResourceBaseModelManager{}
-		subq := meta.objIdQueryWithTags("domain", nil, query.NoDomainTags).SubQuery()
-		q = q.NotIn("domain_id", subq)
+	if !query.NoDomainTags.IsEmpty() {
+		tagFilters.AddNoFilters(query.NoDomainTags)
+	}
+	q = ObjectIdQueryWithTagFilters(q, "domain_id", "domain", tagFilters)
+	if !query.PolicyDomainTags.IsEmpty() {
+		policyFilters := tagutils.STagFilters{}
+		policyFilters.AddFilters(query.PolicyDomainTags)
+		q = ObjectIdQueryWithTagFilters(q, "domain_id", "domain", policyFilters)
 	}
 	return q, nil
 }

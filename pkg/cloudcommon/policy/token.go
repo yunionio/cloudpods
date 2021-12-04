@@ -17,10 +17,8 @@ package policy
 import (
 	"context"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -32,31 +30,15 @@ type SPolicyTokenCredential struct {
 }
 
 func (self *SPolicyTokenCredential) HasSystemAdminPrivilege() bool {
-	if consts.IsRbacEnabled() {
-		return PolicyManager.IsScopeCapable(self.TokenCredential, rbacutils.ScopeSystem)
-	}
-	return self.TokenCredential.HasSystemAdminPrivilege()
+	return PolicyManager.IsScopeCapable(self.TokenCredential, rbacutils.ScopeSystem)
 }
 
-func (self *SPolicyTokenCredential) IsAllow(targetScope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) bool {
-	if consts.IsRbacEnabled() {
-		for _, scope := range []rbacutils.TRbacScope{
-			rbacutils.ScopeSystem,
-			rbacutils.ScopeDomain,
-			rbacutils.ScopeProject,
-			rbacutils.ScopeUser,
-		} {
-			if targetScope.HigherThan(scope) {
-				break
-			}
-			result := PolicyManager.Allow(scope, self.TokenCredential, service, resource, action, extra...)
-			if result == rbacutils.Allow {
-				return true
-			}
-		}
-		return false
+func (self *SPolicyTokenCredential) IsAllow(targetScope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
+	allowScope, result := PolicyManager.AllowScope(self.TokenCredential, service, resource, action, extra...)
+	if result.Result == rbacutils.Allow && !targetScope.HigherThan(allowScope) {
+		return result
 	}
-	return self.TokenCredential.IsAllow(targetScope, service, resource, action, extra...)
+	return rbacutils.PolicyDeny
 }
 
 func init() {
@@ -72,9 +54,6 @@ func init() {
 }
 
 func FilterPolicyCredential(token mcclient.TokenCredential) mcclient.TokenCredential {
-	if !consts.IsRbacEnabled() {
-		return token
-	}
 	switch token.(type) {
 	case *SPolicyTokenCredential:
 		return token
@@ -85,8 +64,5 @@ func FilterPolicyCredential(token mcclient.TokenCredential) mcclient.TokenCreden
 
 func FetchUserCredential(ctx context.Context) mcclient.TokenCredential {
 	token := auth.FetchUserCredential(ctx, FilterPolicyCredential)
-	if token == nil && !consts.IsRbacEnabled() {
-		log.Fatalf("user token credential not found?")
-	}
 	return token
 }

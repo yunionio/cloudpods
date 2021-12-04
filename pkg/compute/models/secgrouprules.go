@@ -107,28 +107,6 @@ func (manager *SSecurityGroupRuleManager) FilterByOwner(q *sqlchemy.SQuery, user
 	return q.In("secgroup_id", sq.SubQuery())
 }
 
-func (manager *SSecurityGroupRuleManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return true
-}
-
-func (manager *SSecurityGroupRuleManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
-func (self *SSecurityGroupRule) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	if secgroup := self.GetSecGroup(); secgroup != nil {
-		return secgroup.IsOwner(userCred) || db.IsAdminAllowUpdate(userCred, self)
-	}
-	return false
-}
-
-func (self *SSecurityGroupRule) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	if secgroup := self.GetSecGroup(); secgroup != nil {
-		return secgroup.IsOwner(userCred) || db.IsAdminAllowDelete(userCred, self)
-	}
-	return false
-}
-
 func (manager *SSecurityGroupRuleManager) FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
 	return q.Equals("id", idStr)
 }

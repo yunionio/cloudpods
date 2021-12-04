@@ -68,14 +68,6 @@ func (man *SAlertNotificationManager) GetSlaveFieldName() string {
 	return "notification_id"
 }
 
-func (man *SAlertNotificationManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
-func (man *SAlertNotificationManager) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
 func (man *SAlertNotificationManager) Get(alertId string, notiId string) (*SAlertnotification, error) {
 	q := man.Query().Equals("alert_id", alertId).Equals("notification_id", notiId)
 	obj := new(SAlertnotification)

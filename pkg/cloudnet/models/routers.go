@@ -169,10 +169,6 @@ func (router *SRouter) CustomizeDelete(ctx context.Context, userCred mcclient.To
 	return errors.NewAggregate(errs)
 }
 
-func (router *SRouter) AllowPerformJoinMeshNetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, router, "join-mesh-network")
-}
-
 func (router *SRouter) PerformJoinMeshNetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	mnV := validators.NewModelIdOrNameValidator("mesh_network", "meshnetwork", userCred)
 	advSubnetsV := validators.NewValidatorByActor("advertise_subnets",
@@ -204,10 +200,6 @@ func (router *SRouter) PerformJoinMeshNetwork(ctx context.Context, userCred mccl
 	return data, nil
 }
 
-func (router *SRouter) AllowPerformLeaveMeshNetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, router, "leave-mesh-network")
-}
-
 func (router *SRouter) PerformLeaveMeshNetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	jd, ok := data.(*jsonutils.JSONDict)
 	if !ok {
@@ -224,10 +216,6 @@ func (router *SRouter) PerformLeaveMeshNetwork(ctx context.Context, userCred mcc
 	return nil, nil
 }
 
-func (router *SRouter) AllowPerformRegisterIfname(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, router, "register-ifname")
-}
-
 func (router *SRouter) PerformRegisterIfname(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	jd, ok := data.(*jsonutils.JSONDict)
 	if !ok {
@@ -242,10 +230,6 @@ func (router *SRouter) PerformRegisterIfname(ctx context.Context, userCred mccli
 		return nil, err
 	}
 	return nil, nil
-}
-
-func (router *SRouter) AllowPerformUnregisterIfname(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, router, "unregister-ifname")
 }
 
 func (router *SRouter) PerformUnregisterIfname(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -294,10 +278,6 @@ func (router *SRouter) mustFindFreePort(ctx context.Context) int {
 
 func (router *SRouter) endpointIP() string {
 	return router.Host
-}
-
-func (router *SRouter) AllowPerformDeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, router, "deploy")
 }
 
 func (router *SRouter) PerformDeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

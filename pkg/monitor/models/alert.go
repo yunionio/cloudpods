@@ -176,7 +176,7 @@ func (alert *SAlert) SetTitle(ctx context.Context, t string) error {
 }
 
 func (alert *SAlert) GetTitle() string {
-	return alert.GetMetadata(AlertMetadataTitle, nil)
+	return alert.GetMetadata(context.Background(), AlertMetadataTitle, nil)
 }
 
 func (alert *SAlert) ShouldUpdateState(newState monitor.AlertStateType) bool {
@@ -401,20 +401,12 @@ func (alert *SAlert) CustomizeCreate(ctx context.Context, userCred mcclient.Toke
 	return alert.SScopedResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
-func (alert *SAlert) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) bool {
-	return db.IsProjectAllowPerform(userCred, alert, "enable")
-}
-
 func (alert *SAlert) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
 	err := db.EnabledPerformEnable(alert, ctx, userCred, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "EnabledPerformEnable")
 	}
 	return nil, nil
-}
-
-func (alert *SAlert) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) bool {
-	return db.IsProjectAllowPerform(userCred, alert, "disable")
 }
 
 func (alert *SAlert) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
@@ -594,15 +586,6 @@ func (alert *SAlert) SetFor(forTime time.Duration) error {
 	return err
 }
 
-func (alert *SAlert) AllowPerformTestRun(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
-) bool {
-	return db.IsProjectAllowPerform(userCred, alert, "test-run")
-}
-
 func (alert *SAlert) PerformTestRun(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -672,15 +655,6 @@ func (alert *SAlert) CustomizeDelete(
 		}
 	}
 	return nil
-}
-
-func (alert *SAlert) AllowPerformPause(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
-) bool {
-	return db.IsProjectAllowPerform(userCred, alert, "pause")
 }
 
 func (alert *SAlert) PerformPause(

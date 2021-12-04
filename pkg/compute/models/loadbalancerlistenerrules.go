@@ -529,10 +529,6 @@ func (lbr *SLoadbalancerListenerRule) StartLoadBalancerListenerRuleCreateTask(ct
 	return nil
 }
 
-func (lbr *SLoadbalancerListenerRule) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, lbr, "purge")
-}
-
 func (lbr *SLoadbalancerListenerRule) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	parasm := jsonutils.NewDict()
 	parasm.Add(jsonutils.JSONTrue, "purge")
@@ -551,10 +547,6 @@ func (lbr *SLoadbalancerListenerRule) StartLoadBalancerListenerRuleDeleteTask(ct
 	}
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (lbr *SLoadbalancerListenerRule) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return lbr.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, lbr, "status")
 }
 
 func (lbr *SLoadbalancerListenerRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

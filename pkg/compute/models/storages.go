@@ -110,22 +110,6 @@ func (manager *SStorageManager) GetContextManagers() [][]db.IModelManager {
 	}
 }
 
-func (manager *SStorageManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
-func (self *SStorageManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SStorage) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SStorage) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
 func (self *SStorage) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.StorageUpdateInput) (api.StorageUpdateInput, error) {
 	var err error
 	input.EnabledStatusInfrasResourceBaseUpdateInput, err = self.SEnabledStatusInfrasResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusInfrasResourceBaseUpdateInput)
@@ -168,10 +152,6 @@ func (self *SStorage) StartStorageUpdateTask(ctx context.Context, userCred mccli
 	}
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (self *SStorage) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func (self *SStorage) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -309,10 +289,6 @@ func (self *SStorage) SetStatus(userCred mcclient.TokenCredential, status string
 	return nil
 }
 
-func (self *SStorage) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "enable")
-}
-
 func (self *SStorage) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Enabled.IsFalse() {
 		_, err := db.Update(self, func() error {
@@ -327,10 +303,6 @@ func (self *SStorage) PerformEnable(ctx context.Context, userCred mcclient.Token
 		self.ClearSchedDescCache()
 	}
 	return nil, nil
-}
-
-func (self *SStorage) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "disable")
 }
 
 func (self *SStorage) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -349,10 +321,6 @@ func (self *SStorage) PerformDisable(ctx context.Context, userCred mcclient.Toke
 	return nil, nil
 }
 
-func (self *SStorage) AllowPerformOnline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "online")
-}
-
 func (self *SStorage) PerformOnline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Status != api.STORAGE_ONLINE {
 		err := self.SetStatus(userCred, api.STORAGE_ONLINE, "")
@@ -363,10 +331,6 @@ func (self *SStorage) PerformOnline(ctx context.Context, userCred mcclient.Token
 		self.ClearSchedDescCache()
 	}
 	return nil, nil
-}
-
-func (self *SStorage) AllowPerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "offline")
 }
 
 func (self *SStorage) PerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1262,10 +1226,6 @@ func (self *SStorage) SetStoragecache(userCred mcclient.TokenCredential, cache *
 	return nil
 }
 
-func (self *SStorage) AllowPerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "cache-image")
-}
-
 func (self *SStorage) GetStoragecache() *SStoragecache {
 	obj, err := StoragecacheManager.FetchById(self.StoragecacheId)
 	if err != nil {
@@ -1282,10 +1242,6 @@ func (self *SStorage) PerformCacheImage(ctx context.Context, userCred mcclient.T
 	}
 
 	return cache.PerformCacheImage(ctx, userCred, query, input)
-}
-
-func (self *SStorage) AllowPerformUncacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "uncache-image")
 }
 
 func (self *SStorage) PerformUncacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1597,10 +1553,6 @@ func (self *SStorage) GetDynamicConditionInput() *jsonutils.JSONDict {
 	return jsonutils.Marshal(self).(*jsonutils.JSONDict)
 }
 
-func (self *SStorage) AllowPerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return AllowPerformSetResourceSchedtag(self, ctx, userCred, query, data)
-}
-
 func (self *SStorage) PerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return PerformSetResourceSchedtag(self, ctx, userCred, query, data)
 }
@@ -1728,10 +1680,6 @@ func (manager *SStorageManager) ListItemExportKeys(ctx context.Context,
 		q = q.AppendField(subQT.Field("schedtag"))
 	}
 	return q, nil
-}
-
-func (storage *SStorage) AllowPerformForceDetachHost(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, storage, "force-detach-host")
 }
 
 func (storage *SStorage) PerformForceDetachHost(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.StorageForceDetachHostInput) (jsonutils.JSONObject, error) {

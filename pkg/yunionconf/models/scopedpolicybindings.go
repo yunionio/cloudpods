@@ -234,7 +234,7 @@ func (manager *SScopedPolicyBindingManager) ListItemFilter(
 		requireScope = rbacutils.ScopeSystem
 	}
 
-	allowScope := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, manager.KeywordPlural(), policy.PolicyActionList)
+	allowScope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, manager.KeywordPlural(), policy.PolicyActionList)
 	if requireScope.HigherThan(allowScope) {
 		return nil, errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require: %s allow: %s", requireScope, allowScope)
 	}

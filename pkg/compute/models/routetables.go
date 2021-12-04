@@ -166,10 +166,6 @@ func (man *SRouteTableManager) ValidateCreateData(
 	return input, nil
 }
 
-func (rt *SRouteTable) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, rt, "purge")
-}
-
 func (rt *SRouteTable) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	err := rt.ValidateDeleteCondition(ctx, nil)
 	if err != nil {
@@ -226,14 +222,6 @@ func (rt *SRouteTable) ValidateUpdateData(
 		return input, errors.Wrap(err, "SStatusInfrasResourceBase.ValidateUpdateData")
 	}
 	return input, nil
-}
-
-func (rt *SRouteTable) AllowPerformAddRoutes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
-	return rt.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, rt, "add-routes")
-}
-
-func (rt *SRouteTable) AllowPerformDelRoutes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
-	return rt.AllowPerformAddRoutes(ctx, userCred, query, data)
 }
 
 // PerformAddRoutes patches acl entries by adding then deleting the specified acls.
@@ -702,10 +690,6 @@ func (self *SRouteTable) getCloudProviderInfo() SCloudProviderInfo {
 	region, _ := self.getRegion()
 	provider := self.GetCloudprovider()
 	return MakeCloudProviderInfo(region, nil, provider)
-}
-
-func (self *SRouteTable) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "syncstatus")
 }
 
 func (self *SRouteTable) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.VpcSyncstatusInput) (jsonutils.JSONObject, error) {

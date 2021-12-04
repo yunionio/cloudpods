@@ -35,9 +35,6 @@ func OnBaseOptionsChange(oOpts, nOpts interface{}) bool {
 	if oldOpts.TimeZone != newOpts.TimeZone {
 		changed = true
 	}
-	if oldOpts.EnableRbac != newOpts.EnableRbac {
-		changed = true
-	}
 	if oldOpts.NonDefaultDomainProjects != newOpts.NonDefaultDomainProjects {
 		consts.SetNonDefaultDomainProjects(newOpts.NonDefaultDomainProjects)
 		changed = true

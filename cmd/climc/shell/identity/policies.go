@@ -31,14 +31,17 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
 	options "yunion.io/x/onecloud/pkg/mcclient/options/identity"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
 )
 
-func createPolicy(s *mcclient.ClientSession, name string, policy string, domain string, enabled bool, disabled bool, desc string, scope string, isSystem *bool) error {
+func createPolicy(s *mcclient.ClientSession, name string, policy string, domain string, enabled bool, disabled bool, desc string, scope string, isSystem *bool, objectags, projecttags, domaintags tagutils.TTagSet) error {
 	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(name), "name")
 	params.Add(jsonutils.NewString(name), "type")
 	params.Add(jsonutils.NewString(policy), "policy")
 	if len(domain) > 0 {
@@ -62,6 +65,15 @@ func createPolicy(s *mcclient.ClientSession, name string, policy string, domain 
 			params.Add(jsonutils.JSONFalse, "is_system")
 		}
 	}
+	if len(objectags) > 0 {
+		params.Add(jsonutils.Marshal(objectags), "object_tags")
+	}
+	if len(projecttags) > 0 {
+		params.Add(jsonutils.Marshal(projecttags), "project_tags")
+	}
+	if len(domaintags) > 0 {
+		params.Add(jsonutils.Marshal(domaintags), "domain_tags")
+	}
 
 	result, err := modules.Policies.Create(s, params)
 	if err != nil {
@@ -77,6 +89,8 @@ func createPolicy(s *mcclient.ClientSession, name string, policy string, domain 
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Policies)
 	cmd.List(&options.PolicyListOptions{})
+	cmd.Perform("user-metadata", &baseoptions.ResourceMetadataOptions{})
+	cmd.Perform("set-user-metadata", &baseoptions.ResourceMetadataOptions{})
 	cmd.GetProperty(&options.PolicyGetPropertyTagValuePairOptions{})
 	cmd.GetProperty(&options.PolicyGetPropertyTagValueTreeOptions{})
 	cmd.GetProperty(&options.PolicyGetPropertyDomainTagValuePairOptions{})
@@ -91,6 +105,10 @@ func init() {
 		Desc     string `help:"policy description"`
 		Scope    string `help:"scope of policy"`
 		IsSystem *bool  `help:"create system policy" negative:"no-system"`
+
+		ProjectTags string `help:"project tags"`
+		DomainTags  string `help:"domain tags"`
+		ObjectTags  string `help:"object tags"`
 	}
 	R(&PolicyCreateOptions{}, "policy-create", "Create a new policy", func(s *mcclient.ClientSession, args *PolicyCreateOptions) error {
 		policyBytes, err := ioutil.ReadFile(args.FILE)
@@ -98,7 +116,10 @@ func init() {
 			return err
 		}
 
-		return createPolicy(s, args.NAME, string(policyBytes), args.Domain, args.Enabled, args.Disabled, args.Desc, args.Scope, args.IsSystem)
+		objectTags := baseoptions.SplitTag(args.ObjectTags)
+		projectTags := baseoptions.SplitTag(args.ProjectTags)
+		domainTags := baseoptions.SplitTag(args.DomainTags)
+		return createPolicy(s, args.NAME, string(policyBytes), args.Domain, args.Enabled, args.Disabled, args.Desc, args.Scope, args.IsSystem, objectTags, projectTags, domainTags)
 	})
 
 	type PolicyCloneOptions struct {
@@ -116,7 +137,20 @@ func init() {
 		desc, _ := old.GetString("description")
 		scope, _ := old.GetString("scope")
 		isSystem, _ := old.Bool("is_system")
-		return createPolicy(s, args.NAME, policy, args.Domain, enabled, !enabled, desc, scope, &isSystem)
+		var objectTags, projectTags, domainTags tagutils.TTagSet
+		if old.Contains("object_tags") {
+			objectTags = make(tagutils.TTagSet, 0)
+			old.Unmarshal(&objectTags, "object_tags")
+		}
+		if old.Contains("project_tags") {
+			projectTags = make(tagutils.TTagSet, 0)
+			old.Unmarshal(&projectTags, "project_tags")
+		}
+		if old.Contains("domain_tags") {
+			domainTags = make(tagutils.TTagSet, 0)
+			old.Unmarshal(&domainTags, "domain_tags")
+		}
+		return createPolicy(s, args.NAME, policy, args.Domain, enabled, !enabled, desc, scope, &isSystem, objectTags, projectTags, domainTags)
 	})
 
 	type PolicyPatchOptions struct {
@@ -129,6 +163,12 @@ func init() {
 		IsSystem bool   `help:"is_system"`
 
 		IsNotSystem bool `help:"negative is_system"`
+
+		TagsAction string `help:"how to update tags" choices:"add|remove|replace"`
+
+		ProjectTags string `help:"project tags"`
+		DomainTags  string `help:"domain tags"`
+		ObjectTags  string `help:"object tags"`
 	}
 	updateFunc := func(s *mcclient.ClientSession, args *PolicyPatchOptions) error {
 		policyId, err := modules.Policies.GetId(s, args.ID, nil)
@@ -160,6 +200,24 @@ func init() {
 		if args.IsNotSystem {
 			params.Add(jsonutils.JSONFalse, "is_system")
 		}
+
+		if len(args.ObjectTags) > 0 {
+			tags := baseoptions.SplitTag(args.ObjectTags)
+			params.Add(jsonutils.Marshal(tags), "object_tags")
+		}
+		if len(args.ProjectTags) > 0 {
+			tags := baseoptions.SplitTag(args.ProjectTags)
+			params.Add(jsonutils.Marshal(tags), "project_tags")
+		}
+		if len(args.DomainTags) > 0 {
+			tags := baseoptions.SplitTag(args.DomainTags)
+			params.Add(jsonutils.Marshal(tags), "domain_tags")
+		}
+
+		if len(args.TagsAction) > 0 {
+			params.Add(jsonutils.NewString(args.TagsAction), "tag_update_policy")
+		}
+
 		result, err := modules.Policies.Update(s, policyId, params)
 		if err != nil {
 			return err

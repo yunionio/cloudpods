@@ -89,13 +89,6 @@ func (self *SDBInstanceDatabase) GetOwnerId() mcclient.IIdentityProvider {
 	return instance.GetOwnerId()
 }
 
-func (manager *SDBInstanceDatabaseManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	if jsonutils.QueryBoolean(query, "admin", false) && !db.IsAllowList(rbacutils.ScopeProject, userCred, manager) {
-		return false
-	}
-	return true
-}
-
 func (manager *SDBInstanceDatabaseManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	dbinstanceId, _ := data.GetString("dbinstance_id")
 	if len(dbinstanceId) > 0 {
@@ -121,10 +114,6 @@ func (manager *SDBInstanceDatabaseManager) FilterByOwner(q *sqlchemy.SQuery, use
 		}
 	}
 	return q
-}
-
-func (self *SDBInstanceDatabase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsProjectAllowUpdate(userCred, self)
 }
 
 func (self *SDBInstanceDatabase) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DBInstanceDatabaseUpdateInput) (api.DBInstanceDatabaseUpdateInput, error) {

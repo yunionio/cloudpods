@@ -258,7 +258,7 @@ func (alert *SCommonAlert) setAlertType(ctx context.Context, userCred mcclient.T
 }
 
 func (alert *SCommonAlert) getAlertType() string {
-	return alert.GetMetadata(CommonAlertMetadataAlertType, nil)
+	return alert.GetMetadata(context.Background(), CommonAlertMetadataAlertType, nil)
 }
 
 func (alert *SCommonAlert) setFieldOpt(ctx context.Context, userCred mcclient.TokenCredential, fieldOpt string) error {
@@ -266,7 +266,7 @@ func (alert *SCommonAlert) setFieldOpt(ctx context.Context, userCred mcclient.To
 }
 
 func (alert *SCommonAlert) getFieldOpt() string {
-	return alert.GetMetadata(CommonAlertMetadataFieldOpt, nil)
+	return alert.GetMetadata(context.Background(), CommonAlertMetadataFieldOpt, nil)
 }
 
 func (alert *SCommonAlert) setPointStr(ctx context.Context, userCred mcclient.TokenCredential, fieldOpt string) error {
@@ -274,7 +274,7 @@ func (alert *SCommonAlert) setPointStr(ctx context.Context, userCred mcclient.To
 }
 
 func (alert *SCommonAlert) getPointStr() string {
-	return alert.GetMetadata(CommonAlertMetadataPointStr, nil)
+	return alert.GetMetadata(context.Background(), CommonAlertMetadataPointStr, nil)
 }
 
 func (alert *SCommonAlert) setMetaName(ctx context.Context, userCred mcclient.TokenCredential, metaName string) error {
@@ -282,7 +282,7 @@ func (alert *SCommonAlert) setMetaName(ctx context.Context, userCred mcclient.To
 }
 
 func (alert *SCommonAlert) getMetaName() string {
-	return alert.GetMetadata(CommonAlertMetadataName, nil)
+	return alert.GetMetadata(context.Background(), CommonAlertMetadataName, nil)
 }
 
 func (alert *SCommonAlert) CustomizeCreate(
@@ -1132,11 +1132,6 @@ func (self *SCommonAlertManager) GetSystemAlerts() ([]SCommonAlert, error) {
 	return objs, nil
 }
 
-func (alert *SCommonAlert) AllowPerformSetScope(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return true
-}
-
 func (alert *SCommonAlert) PerformSetScope(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	domainId := jsonutils.GetAnyString(data, []string{"domain_id", "domain", "project_domain_id", "project_domain"})
 	projectId := jsonutils.GetAnyString(data, []string{"project_id", "project"})
@@ -1177,11 +1172,6 @@ func (manager *SCommonAlertManager) QueryDistinctExtraField(q *sqlchemy.SQuery, 
 		return resTypeQuery, nil
 	}
 	return q, httperrors.ErrNotFound
-}
-
-func (alert *SCommonAlert) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, alert, "config")
 }
 
 func (alert *SCommonAlert) PerformConfig(ctx context.Context, userCred mcclient.TokenCredential,
@@ -1232,10 +1222,6 @@ func PerformConfigLog(model db.IModel, userCred mcclient.TokenCredential) {
 	logclient.AddSimpleActionLog(model, logclient.ACT_UPDATE_RULE, nil, userCred, true)
 }
 
-func (alert *SCommonAlert) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) bool {
-	return db.IsProjectAllowPerform(userCred, alert, "enable")
-}
-
 func (alert *SCommonAlert) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
 	err := db.EnabledPerformEnable(alert, ctx, userCred, true)
 	if err != nil {
@@ -1243,10 +1229,6 @@ func (alert *SCommonAlert) PerformEnable(ctx context.Context, userCred mcclient.
 	}
 	alert.StartUpdateMonitorAlertJointTask(ctx, userCred)
 	return nil, nil
-}
-
-func (alert *SCommonAlert) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) bool {
-	return db.IsProjectAllowPerform(userCred, alert, "disable")
 }
 
 func (alert *SCommonAlert) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {

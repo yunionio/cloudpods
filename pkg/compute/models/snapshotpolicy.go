@@ -117,10 +117,6 @@ func (manager *SSnapshotPolicyManager) CustomizeFilterList(ctx context.Context, 
 	return filters, nil
 }
 
-func (sp *SSnapshotPolicy) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return false
-}
-
 // ==================================================== fetch ==========================================================
 func (manager *SSnapshotPolicyManager) GetSnapshotPoliciesAt(week, timePoint uint32) ([]string, error) {
 
@@ -234,13 +230,6 @@ func (manager *SSnapshotPolicyManager) OnCreateComplete(ctx context.Context, ite
 }
 
 // ==================================================== update =========================================================
-
-func (sp *SSnapshotPolicy) AllowPerformUpdate(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	// no fo now
-	return false
-	//return sp.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, sp, "update")
-}
 
 func (sp *SSnapshotPolicy) PerformUpdate(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -815,11 +804,6 @@ func (sp *SSnapshotPolicy) GenerateCreateSpParams() *cloudprovider.SnapshotPolic
 }
 
 // ==================================================== action =========================================================
-func (sp *SSnapshotPolicy) AllowPerformCache(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) bool {
-
-	return sp.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, sp, "cache")
-}
 
 func (sp *SSnapshotPolicy) PerformCache(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -838,12 +822,6 @@ func (sp *SSnapshotPolicy) PerformCache(ctx context.Context, userCred mcclient.T
 	}
 
 	return nil, nil
-}
-
-func (sp *SSnapshotPolicy) AllowPerformBindDisks(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) bool {
-
-	return sp.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, sp, "bind-disks")
 }
 
 func (sp *SSnapshotPolicy) PerformBindDisks(ctx context.Context, userCred mcclient.TokenCredential,
@@ -898,12 +876,6 @@ func (sp *SSnapshotPolicy) PerformBindDisks(ctx context.Context, userCred mcclie
 	}
 
 	return nil, nil
-}
-
-func (sp *SSnapshotPolicy) AllowPerformUnbindDisks(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) bool {
-
-	return sp.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, sp, "bind-disks")
 }
 
 func (sp *SSnapshotPolicy) PerformUnbindDisks(ctx context.Context, userCred mcclient.TokenCredential,

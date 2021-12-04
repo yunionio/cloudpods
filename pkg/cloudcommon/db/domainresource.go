@@ -56,26 +56,6 @@ type SDomainLevelResourceBase struct {
 	DomainSrc string `width:"10" charset:"ascii" nullable:"true" list:"user" default:"" json:"domain_src"`
 }
 
-func (self *SDomainLevelResourceBaseManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return IsDomainAllowList(userCred, self)
-}
-
-func (self *SDomainLevelResourceBaseManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return IsDomainAllowCreate(userCred, self)
-}
-
-func (self *SDomainLevelResourceBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return IsDomainAllowGet(userCred, self)
-}
-
-func (self *SDomainLevelResourceBase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return IsDomainAllowUpdate(userCred, self)
-}
-
-func (self *SDomainLevelResourceBase) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return IsDomainAllowDelete(userCred, self)
-}
-
 func (manager *SDomainLevelResourceBaseManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
@@ -129,10 +109,6 @@ func (model *SDomainLevelResourceBase) CustomizeCreate(ctx context.Context, user
 	return model.SStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
-func (model *SDomainLevelResourceBase) AllowPerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeDomainOwnerInput) bool {
-	return IsAdminAllowPerform(userCred, model, "change-owner")
-}
-
 func (model *SDomainLevelResourceBase) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeDomainOwnerInput) (jsonutils.JSONObject, error) {
 	if !consts.GetNonDefaultDomainProjects() {
 		return nil, errors.Wrap(httperrors.ErrForbidden, "not allow to change owner of domain resource if non_default_domain_projects is turned off")
@@ -172,7 +148,7 @@ func (model *SDomainLevelResourceBase) PerformChangeOwner(ctx context.Context, u
 		return nil, errors.Wrap(httperrors.ErrForbidden, "target domain not in change owner required list")
 	}
 
-	if !IsAdminAllowPerform(userCred, model, "change-owner") {
+	if !IsAdminAllowPerform(ctx, userCred, model, "change-owner") {
 		return nil, errors.Wrap(httperrors.ErrNotSufficientPrivilege, "require system privileges")
 	}
 
@@ -308,10 +284,6 @@ func (model *SDomainLevelResourceBase) ValidateUpdateData(
 		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
 	}
 	return input, nil
-}
-
-func (model *SDomainLevelResourceBase) AllowGetDetailsChangeOwnerCandidateDomains(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return model.IsOwner(userCred) || IsAdminAllowGetSpec(userCred, model, "change-owner-candidate-domains")
 }
 
 func (model *SDomainLevelResourceBase) GetDetailsChangeOwnerCandidateDomains(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (apis.ChangeOwnerCandidateDomainsOutput, error) {

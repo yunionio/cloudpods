@@ -18,44 +18,25 @@ import (
 	"sort"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-func allowAction(manager IResource, userCred mcclient.TokenCredential, action string, testfunc func(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, manager IResource) bool) bool {
-	if action == "user" {
-		return true
-	}
-	if action == "domain" && (testfunc(rbacutils.ScopeDomain, userCred, manager) || testfunc(rbacutils.ScopeSystem, userCred, manager)) {
-		return true
-	}
-	if action == "admin" && testfunc(rbacutils.ScopeSystem, userCred, manager) {
+func allowAction(manager IResource, userCred mcclient.TokenCredential, action string) bool {
+	if action == "user" || action == "domain" || action == "admin" {
 		return true
 	}
 	return false
 }
 
-func allowRequired(manager IResource, userCred mcclient.TokenCredential, action string, testfunc func(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, manager IResource) bool) bool {
-	if action == "required" {
-		return true
-	}
-	if action == "domain_required" && (testfunc(rbacutils.ScopeDomain, userCred, manager) || testfunc(rbacutils.ScopeSystem, userCred, manager)) {
-		return true
-	}
-	if action == "admin_required" && testfunc(rbacutils.ScopeSystem, userCred, manager) {
+func allowRequired(manager IResource, userCred mcclient.TokenCredential, action string) bool {
+	if action == "required" || action == "domain_required" || action == "admin_required" {
 		return true
 	}
 	return false
 }
 
-func allowOptional(manager IResource, userCred mcclient.TokenCredential, action string, testfunc func(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, manager IResource) bool) bool {
-	if action == "optional" {
-		return true
-	}
-	if action == "domain_optional" && (testfunc(rbacutils.ScopeDomain, userCred, manager) || testfunc(rbacutils.ScopeSystem, userCred, manager)) {
-		return true
-	}
-	if action == "admin_optional" && testfunc(rbacutils.ScopeSystem, userCred, manager) {
+func allowOptional(manager IResource, userCred mcclient.TokenCredential, action string) bool {
+	if action == "optional" || action == "domain_optional" || action == "admin_optional" {
 		return true
 	}
 	return false
@@ -76,7 +57,7 @@ func listFields(manager IModelManager, userCred mcclient.TokenCredential) ([]str
 	for _, col := range manager.TableSpec().Columns() {
 		tags := col.Tags()
 		list, _ := tags["list"]
-		if allowAction(manager, userCred, list, IsAllowList) {
+		if allowAction(manager, userCred, list) {
 			includes = append(includes, col.Name())
 		} else {
 			excludes = append(excludes, col.Name())
@@ -91,7 +72,7 @@ func searchFields(manager IModelManager, userCred mcclient.TokenCredential) stri
 		tags := col.Tags()
 		list := tags["list"]
 		search := tags["search"]
-		if allowAction(manager, userCred, list, IsAllowList) || allowAction(manager, userCred, search, IsAllowList) {
+		if allowAction(manager, userCred, list) || allowAction(manager, userCred, search) {
 			ret = append(ret, col.Name())
 		}
 	}
@@ -106,7 +87,7 @@ func GetDetailFields(manager IModelManager, userCred mcclient.TokenCredential) (
 		tags := col.Tags()
 		list := tags["list"]
 		get := tags["get"]
-		if allowAction(manager, userCred, list, IsAllowGet) || allowAction(manager, userCred, get, IsAllowGet) {
+		if allowAction(manager, userCred, list) || allowAction(manager, userCred, get) {
 			includes = append(includes, col.Name())
 		} else {
 			excludes = append(excludes, col.Name())
@@ -120,7 +101,7 @@ func createRequireFields(manager IModelManager, userCred mcclient.TokenCredentia
 	for _, col := range manager.TableSpec().Columns() {
 		tags := col.Tags()
 		create, _ := tags["create"]
-		if allowRequired(manager, userCred, create, IsAllowCreate) {
+		if allowRequired(manager, userCred, create) {
 			ret = append(ret, col.Name())
 		}
 	}
@@ -133,7 +114,7 @@ func createFields(manager IModelManager, userCred mcclient.TokenCredential) []st
 		tags := col.Tags()
 		create, _ := tags["create"]
 		update := tags["update"]
-		if allowRequired(manager, userCred, create, IsAllowCreate) || allowOptional(manager, userCred, create, IsAllowCreate) || allowAction(manager, userCred, update, IsAllowCreate) {
+		if allowRequired(manager, userCred, create) || allowOptional(manager, userCred, create) || allowAction(manager, userCred, update) {
 			ret = append(ret, col.Name())
 		}
 	}
@@ -145,7 +126,7 @@ func updateFields(manager IModelManager, userCred mcclient.TokenCredential) []st
 	for _, col := range manager.TableSpec().Columns() {
 		tags := col.Tags()
 		update := tags["update"]
-		if allowAction(manager, userCred, update, IsAllowUpdate) {
+		if allowAction(manager, userCred, update) {
 			ret = append(ret, col.Name())
 		}
 	}

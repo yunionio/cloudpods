@@ -258,10 +258,6 @@ func (manager *SModelBaseManager) PerformAction(ctx context.Context, userCred mc
 	return nil, httperrors.NewActionNotFoundError("Action %s not found", action)
 }
 
-func (manager *SModelBaseManager) AllowPerformCheckCreateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return IsAllowClassPerform(rbacutils.ScopeSystem, userCred, manager, "check-create-data")
-}
-
 func (manager *SModelBaseManager) InitializeData() error {
 	return nil
 }

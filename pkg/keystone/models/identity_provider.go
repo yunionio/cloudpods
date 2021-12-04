@@ -298,13 +298,13 @@ func (ident *SIdentityProvider) MarkDisconnected(ctx context.Context, userCred m
 }
 
 func (self *SIdentityProvider) AllowGetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGetSpec(userCred, self, "config")
+	return db.IsAdminAllowGetSpec(ctx, userCred, self, "config")
 }
 
 func (self *SIdentityProvider) GetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	sensitive := jsonutils.QueryBoolean(query, "sensitive", false)
 	if sensitive {
-		if !db.IsAdminAllowGetSpec(userCred, self, "config") {
+		if !db.IsAdminAllowGetSpec(ctx, userCred, self, "config") {
 			return nil, httperrors.NewNotSufficientPrivilegeError("get sensitive config requires admin priviliges")
 		}
 	}
@@ -323,7 +323,7 @@ func (ident *SIdentityProvider) getDriverClass() driver.IIdentityBackendClass {
 
 // 配置认证源
 func (ident *SIdentityProvider) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PerformConfigInput) bool {
-	return db.IsAdminAllowUpdateSpec(userCred, ident, "config")
+	return db.IsAdminAllowUpdateSpec(ctx, userCred, ident, "config")
 }
 
 // 配置认证源
@@ -415,10 +415,10 @@ func (manager *SIdentityProviderManager) ValidateCreateData(
 			}
 		}
 		input.OwnerDomainId = domain.Id
-		if domain.Id != ownerId.GetProjectDomainId() && !db.IsAdminAllowCreate(userCred, manager) {
+		if domain.Id != ownerId.GetProjectDomainId() && db.IsAdminAllowCreate(userCred, manager).Result.IsDeny() {
 			return input, errors.Wrap(httperrors.ErrNotSufficientPrivilege, "require system priviliges to specify owner_domain_id")
 		}
-	} else if !db.IsAdminAllowCreate(userCred, manager) {
+	} else if db.IsAdminAllowCreate(userCred, manager).Result.IsDeny() {
 		input.OwnerDomainId = ownerId.GetProjectDomainId()
 	}
 
@@ -434,14 +434,14 @@ func (manager *SIdentityProviderManager) ValidateCreateData(
 		}
 		input.TargetDomainId = domain.Id
 
-		if domain.Id != ownerId.GetProjectDomainId() && !db.IsAdminAllowCreate(userCred, manager) {
+		if domain.Id != ownerId.GetProjectDomainId() && db.IsAdminAllowCreate(userCred, manager).Result.IsDeny() {
 			return input, errors.Wrap(httperrors.ErrNotSufficientPrivilege, "require system priviliges to specify target_domain_id")
 		}
 
 		if len(input.OwnerDomainId) > 0 && input.OwnerDomainId != input.TargetDomainId {
 			return input, errors.Wrap(httperrors.ErrInputParameter, "inconsistent owner_domain_id and target_domain_id")
 		}
-	} else if !db.IsAdminAllowCreate(userCred, manager) {
+	} else if db.IsAdminAllowCreate(userCred, manager).Result.IsDeny() {
 		input.TargetDomainId = ownerId.GetProjectDomainId()
 	}
 
@@ -461,7 +461,7 @@ func (manager *SIdentityProviderManager) ValidateCreateData(
 
 func (ident *SIdentityProvider) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	ident.SetEnabled(true)
-	if !db.IsAdminAllowCreate(userCred, ident.GetModelManager()) {
+	if db.IsAdminAllowCreate(userCred, ident.GetModelManager()).Result.IsDeny() {
 		ident.DomainId = ownerId.GetProjectDomainId()
 		ident.TargetDomainId = ownerId.GetProjectDomainId()
 	} else {
@@ -572,7 +572,7 @@ func (self *SIdentityProvider) NeedSync() bool {
 }
 
 func (self *SIdentityProvider) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "sync")
+	return db.IsAdminAllowPerform(ctx, userCred, self, "sync")
 }
 
 // 手动同步认证源
@@ -1327,7 +1327,7 @@ func (idp *SIdentityProvider) TryUserJoinProject(attrConf api.SIdpAttributeOptio
 }
 
 func (idp *SIdentityProvider) AllowGetDetailsSamlMetadata(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSamlMetadataInput) bool {
-	return db.IsDomainAllowGetSpec(userCred, idp, "saml-metadata")
+	return db.IsDomainAllowGetSpec(ctx, userCred, idp, "saml-metadata")
 }
 
 func (idp *SIdentityProvider) GetDetailsSamlMetadata(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSamlMetadataInput) (api.GetIdpSamlMetadataOutput, error) {
@@ -1356,7 +1356,7 @@ func (idp *SIdentityProvider) GetDetailsSamlMetadata(ctx context.Context, userCr
 }
 
 func (idp *SIdentityProvider) AllowGetDetailsSsoRedirectUri(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSsoRedirectUriInput) bool {
-	return db.IsDomainAllowGetSpec(userCred, idp, "sso-redirect-uri")
+	return db.IsDomainAllowGetSpec(ctx, userCred, idp, "sso-redirect-uri")
 }
 
 func (idp *SIdentityProvider) GetDetailsSsoRedirectUri(ctx context.Context, userCred mcclient.TokenCredential, query api.GetIdpSsoRedirectUriInput) (api.GetIdpSsoRedirectUriOutput, error) {

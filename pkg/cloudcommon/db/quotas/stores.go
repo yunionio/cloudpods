@@ -49,7 +49,7 @@ func (store *SDBQuotaStore) GetQuota(ctx context.Context, scope rbacutils.TRbacS
 	if err != nil {
 		return err
 	}
-	quotaStr := tenant.GetMetadata(METADATA_KEY, nil)
+	quotaStr := tenant.GetMetadata(ctx, METADATA_KEY, nil)
 	quotaJson, _ := jsonutils.ParseString(quotaStr)
 	if quotaJson != nil {
 		return quotaJson.Unmarshal(quota)

@@ -22,7 +22,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -78,10 +77,6 @@ func (router *SRouter) realize(ctx context.Context, userCred mcclient.TokenCrede
 		return errors.WithMessagef(err, "create ansible task")
 	}
 	return nil
-}
-
-func (router *SRouter) AllowPerformRealize(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, router, "realize")
 }
 
 func (router *SRouter) PerformRealize(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

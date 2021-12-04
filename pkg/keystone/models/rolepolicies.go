@@ -425,9 +425,9 @@ func (manager *SRolePolicyManager) GetPolicyGroupByIds(policyIds []string, nameO
 				return nil, nil, errors.Wrap(err, "getPolicy")
 			}
 			if set, ok := group[policy.Scope]; !ok {
-				group[policy.Scope] = rbacutils.TPolicySet{data}
+				group[policy.Scope] = rbacutils.TPolicySet{*data}
 			} else {
-				group[policy.Scope] = append(set, data)
+				group[policy.Scope] = append(set, *data)
 			}
 		}
 	}

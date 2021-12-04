@@ -220,9 +220,9 @@ func (man *SLoadbalancerAclManager) ValidateCreateData(ctx context.Context, user
 
 func (lbacl *SLoadbalancerAcl) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if !data.Contains("public_scope") {
-		if db.IsAdminAllowPerform(userCred, lbacl, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
+		if db.IsAdminAllowPerform(ctx, userCred, lbacl, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
 			lbacl.SetShare(rbacutils.ScopeSystem)
-		} else if db.IsDomainAllowPerform(userCred, lbacl, "public") && ownerId.GetProjectId() == userCred.GetProjectId() && consts.GetNonDefaultDomainProjects() {
+		} else if db.IsDomainAllowPerform(ctx, userCred, lbacl, "public") && ownerId.GetProjectId() == userCred.GetProjectId() && consts.GetNonDefaultDomainProjects() {
 			// only if non_default_domain_projects turned on, share to domain
 			lbacl.SetShare(rbacutils.ScopeDomain)
 		} else {
@@ -233,10 +233,6 @@ func (lbacl *SLoadbalancerAcl) CustomizeCreate(ctx context.Context, userCred mcc
 	}
 
 	return lbacl.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
-}
-
-func (lbacl *SLoadbalancerAcl) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
 }
 
 func (lbacl *SLoadbalancerAcl) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -312,7 +308,7 @@ func (manager *SLoadbalancerAclManager) FetchCustomizeColumns(
 
 	for i := range objs {
 		q := LoadbalancerListenerManager.Query().IsFalse("pending_deleted").Equals("acl_id", objs[i].(*SLoadbalancerAcl).GetId())
-		ownerId, queryScope, err := db.FetchCheckQueryOwnerScope(ctx, userCred, query, LoadbalancerListenerManager, policy.PolicyActionList, true)
+		ownerId, queryScope, err, _ := db.FetchCheckQueryOwnerScope(ctx, userCred, query, LoadbalancerListenerManager, policy.PolicyActionList, true)
 		if err != nil {
 			log.Errorf("FetchCheckQueryOwnerScope error: %v", err)
 			return rows
@@ -328,10 +324,6 @@ func (manager *SLoadbalancerAclManager) FetchCustomizeColumns(
 	}
 
 	return rows
-}
-
-func (lbacl *SLoadbalancerAcl) AllowPerformPatch(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
-	return lbacl.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, lbacl, "patch")
 }
 
 // PerformPatch patches acl entries by adding then deleting the specified acls.
@@ -412,10 +404,6 @@ func (lbacl *SLoadbalancerAcl) ValidateDeleteCondition(ctx context.Context, info
 	}
 
 	return nil
-}
-
-func (lbacl *SLoadbalancerAcl) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, lbacl, "purge")
 }
 
 func (lbacl *SLoadbalancerAcl) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

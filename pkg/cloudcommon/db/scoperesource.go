@@ -136,12 +136,12 @@ func (m *SScopedResourceBaseManager) ValidateCreateData(man IScopedResourceManag
 	var allowCreate bool
 	switch rbacutils.TRbacScope(input.Scope) {
 	case rbacutils.ScopeSystem:
-		allowCreate = IsAdminAllowCreate(userCred, man)
+		allowCreate = IsAdminAllowCreate(userCred, man).Result.IsAllow()
 	case rbacutils.ScopeDomain:
-		allowCreate = IsDomainAllowCreate(userCred, man)
+		allowCreate = IsDomainAllowCreate(userCred, man).Result.IsAllow()
 		input.ProjectDomainId = ownerId.GetDomainId()
 	case rbacutils.ScopeProject:
-		allowCreate = IsProjectAllowCreate(userCred, man)
+		allowCreate = IsProjectAllowCreate(userCred, man).Result.IsAllow()
 		input.ProjectDomainId = ownerId.GetDomainId()
 		input.ProjectId = ownerId.GetProjectId()
 	}
@@ -240,11 +240,11 @@ func PerformSetScope(
 	var err error
 	switch scopeToSet {
 	case rbacutils.ScopeSystem:
-		err = setScopedResourceToSystem(obj, userCred)
+		err = setScopedResourceToSystem(ctx, obj, userCred)
 	case rbacutils.ScopeDomain:
-		err = setScopedResourceToDomain(obj, userCred, domainId)
+		err = setScopedResourceToDomain(ctx, obj, userCred, domainId)
 	case rbacutils.ScopeProject:
-		err = setScopedResourceToProject(obj, userCred, projectId)
+		err = setScopedResourceToProject(ctx, obj, userCred, projectId)
 	}
 	return nil, err
 }
@@ -260,8 +260,8 @@ func setScopedResourceIds(model IScopedResourceModel, userCred mcclient.TokenCre
 	return err
 }
 
-func setScopedResourceToSystem(model IScopedResourceModel, userCred mcclient.TokenCredential) error {
-	if !IsAdminAllowPerform(userCred, model, "set-scope") {
+func setScopedResourceToSystem(ctx context.Context, model IScopedResourceModel, userCred mcclient.TokenCredential) error {
+	if !IsAdminAllowPerform(ctx, userCred, model, "set-scope") {
 		return httperrors.NewForbiddenError("Not allow set scope to system")
 	}
 	if model.GetProjectId() == "" && model.GetDomainId() == "" {
@@ -270,8 +270,8 @@ func setScopedResourceToSystem(model IScopedResourceModel, userCred mcclient.Tok
 	return setScopedResourceIds(model, userCred, "", "")
 }
 
-func setScopedResourceToDomain(model IScopedResourceModel, userCred mcclient.TokenCredential, domainId string) error {
-	if !IsDomainAllowPerform(userCred, model, "set-scope") {
+func setScopedResourceToDomain(ctx context.Context, model IScopedResourceModel, userCred mcclient.TokenCredential, domainId string) error {
+	if !IsDomainAllowPerform(ctx, userCred, model, "set-scope") {
 		return httperrors.NewForbiddenError("Not allow set scope to domain %s", domainId)
 	}
 	if model.GetDomainId() == domainId && model.GetProjectId() == "" {
@@ -284,8 +284,8 @@ func setScopedResourceToDomain(model IScopedResourceModel, userCred mcclient.Tok
 	return setScopedResourceIds(model, userCred, domain.GetId(), "")
 }
 
-func setScopedResourceToProject(model IScopedResourceModel, userCred mcclient.TokenCredential, projectId string) error {
-	if !IsProjectAllowPerform(userCred, model, "set-scope") {
+func setScopedResourceToProject(ctx context.Context, model IScopedResourceModel, userCred mcclient.TokenCredential, projectId string) error {
+	if !IsProjectAllowPerform(ctx, userCred, model, "set-scope") {
 		return httperrors.NewForbiddenError("Not allow set scope to project %s", projectId)
 	}
 	if model.GetProjectId() == projectId {

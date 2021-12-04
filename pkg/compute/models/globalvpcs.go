@@ -54,10 +54,6 @@ type SGlobalVpc struct {
 	db.SEnabledStatusInfrasResourceBase
 }
 
-func (manager *SGlobalVpcManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, manager)
-}
-
 func (self *SGlobalVpc) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	vpcs, err := self.GetVpcs()
 	if err != nil {

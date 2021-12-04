@@ -22,7 +22,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/cloudid"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -30,10 +29,6 @@ import (
 	cloudid_modules "yunion.io/x/onecloud/pkg/mcclient/modules/cloudid"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
-
-func (account *SCloudaccount) AllowGetDetailsSaml(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsDomainAllowGetSpec(userCred, account, "saml")
-}
 
 func (account *SCloudaccount) GetDetailsSaml(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (api.GetCloudaccountSamlOutput, error) {
 	output := api.GetCloudaccountSamlOutput{}

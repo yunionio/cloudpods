@@ -21,11 +21,8 @@ import (
 )
 
 func EnableGlobalRbac(refreshInterval time.Duration, debug bool) {
-	if !consts.IsRbacEnabled() {
-		consts.EnableRbac()
-		if debug {
-			consts.EnableRbacDebug()
-		}
-		PolicyManager.init(refreshInterval)
+	if debug {
+		consts.EnableRbacDebug()
 	}
+	PolicyManager.init(refreshInterval)
 }

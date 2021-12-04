@@ -75,26 +75,6 @@ type SCloudregion struct {
 	Provider string `width:"64" charset:"ascii" list:"user" nullable:"false" default:"OneCloud"`
 }
 
-func (manager *SCloudregionManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
-func (self *SCloudregionManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SCloudregion) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SCloudregion) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SCloudregion) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
-}
-
 func (self *SCloudregion) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	idstr, _ := data.GetString("id")
 	if len(idstr) > 0 {
@@ -575,10 +555,6 @@ func (manager *SCloudregionManager) newFromCloudRegion(ctx context.Context, user
 	return &region, nil
 }
 
-func (self *SCloudregion) AllowPerformDefaultVpc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "default-vpc")
-}
-
 func (self *SCloudregion) PerformDefaultVpc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	vpcs, err := self.GetVpcs()
 	if err != nil {
@@ -995,10 +971,6 @@ func (self *SCloudregion) GetDynamicConditionInput() *jsonutils.JSONDict {
 	return jsonutils.Marshal(self).(*jsonutils.JSONDict)
 }
 
-func (self *SCloudregion) AllowPerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return AllowPerformSetResourceSchedtag(self, ctx, userCred, query, data)
-}
-
 func (self *SCloudregion) PerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return PerformSetResourceSchedtag(self, ctx, userCred, query, data)
 }
@@ -1142,24 +1114,12 @@ func (self *SCloudregion) newCloudimage(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
-func (manager *SCloudregionManager) AllowSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, manager, "sync-skus")
-}
-
 func (manager *SCloudregionManager) PerformSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudregionSkuSyncInput) (jsonutils.JSONObject, error) {
 	return PerformActionSyncSkus(ctx, userCred, input.Resource, input.SkuSyncInput)
 }
 
-func (manager *SCloudregionManager) AllowGetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGetSpec(userCred, manager, "sync-tasks")
-}
-
 func (manager *SCloudregionManager) GetPropertySyncTasks(ctx context.Context, userCred mcclient.TokenCredential, query api.SkuTaskQueryInput) (jsonutils.JSONObject, error) {
 	return GetPropertySkusSyncTasks(ctx, userCred, query)
-}
-
-func (self *SCloudregion) AllowSyncImages(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "sync-images")
 }
 
 func (self *SCloudregion) PerformSyncImages(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SyncImagesInput) (jsonutils.JSONObject, error) {

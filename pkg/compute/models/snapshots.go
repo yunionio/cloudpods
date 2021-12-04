@@ -100,10 +100,6 @@ func init() {
 	SnapshotManager.SetVirtualObject(SnapshotManager)
 }
 
-func (self *SSnapshotManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
 // 快照列表
 func (manager *SSnapshotManager) ListItemFilter(
 	ctx context.Context,
@@ -427,14 +423,6 @@ func (self *SSnapshot) StartSnapshotCreateTask(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (self *SSnapshot) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
-func (self *SSnapshot) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return false
-}
-
 func (self *SSnapshot) GetGuest() (*SGuest, error) {
 	iDisk, err := DiskManager.FetchById(self.DiskId)
 	if err != nil {
@@ -584,10 +572,6 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, owner mcclient
 	return snapshot, nil
 }
 
-func (self *SSnapshot) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowDelete(userCred, self)
-}
-
 func (self *SSnapshot) StartSnapshotDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, reloadDisk bool, parentTaskId string) error {
 	params := jsonutils.NewDict()
 	params.Set("reload_disk", jsonutils.NewBool(reloadDisk))
@@ -652,10 +636,6 @@ func (self *SSnapshot) CustomizeDelete(ctx context.Context, userCred mcclient.To
 	return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
 }
 
-func (self *SSnapshot) AllowPerformDeleted(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "deleted")
-}
-
 func (self *SSnapshot) PerformDeleted(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	_, err := db.Update(self, func() error {
 		self.OutOfChain = true
@@ -666,10 +646,6 @@ func (self *SSnapshot) PerformDeleted(ctx context.Context, userCred mcclient.Tok
 	}
 	err = self.StartSnapshotDeleteTask(ctx, userCred, true, "")
 	return nil, err
-}
-
-func (self *SSnapshot) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "syncstatus")
 }
 
 // 同步快照状态
@@ -684,10 +660,6 @@ func (self *SSnapshot) PerformSyncstatus(ctx context.Context, userCred mcclient.
 	}
 
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "SnapshotSyncstatusTask", "")
-}
-
-func (self *SSnapshotManager) AllowGetPropertyMaxCount(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
 }
 
 func (self *SSnapshotManager) GetPropertyMaxCount(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -708,10 +680,6 @@ func (self *SSnapshotManager) GetConvertSnapshot(deleteSnapshot *SSnapshot) (*SS
 		return nil, err
 	}
 	return dest, nil
-}
-
-func (self *SSnapshotManager) AllowPerformDeleteDiskSnapshots(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowClassPerform(userCred, self, "delete-disk-snapshots")
 }
 
 func (self *SSnapshotManager) PerformDeleteDiskSnapshots(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -755,7 +723,7 @@ func (self *SSnapshot) RealDelete(ctx context.Context, userCred mcclient.TokenCr
 			if disk != nil {
 				cnt, err := disk.GetGuestsCount()
 				if err == nil {
-					val := disk.GetMetadata("disk_delete_after_snapshots", userCred)
+					val := disk.GetMetadata(ctx, "disk_delete_after_snapshots", userCred)
 					if cnt == 0 && val == "true" {
 						disk.StartDiskDeleteTask(ctx, userCred, "", false, true, false)
 					}
@@ -1014,10 +982,6 @@ func (self *SSnapshot) GetISnapshotRegion() (cloudprovider.ICloudRegion, error) 
 		return nil, err
 	}
 	return provider.GetIRegionById(region.GetExternalId())
-}
-
-func (self *SSnapshot) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "purge")
 }
 
 func (self *SSnapshot) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

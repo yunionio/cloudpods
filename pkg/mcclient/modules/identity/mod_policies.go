@@ -31,7 +31,10 @@ type SPolicyManager struct {
 var Policies SPolicyManager
 
 func policyReadFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	ss := s.(*jsonutils.JSONDict)
+	ss, ok := s.(*jsonutils.JSONDict)
+	if !ok {
+		return s, nil
+	}
 	ret := ss.CopyExcludes("blob", "type")
 	blobJson, _ := ss.Get("blob")
 	if blobJson != nil {
@@ -39,11 +42,11 @@ func policyReadFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, q
 		if len(blobStr) > 0 {
 			blobJson, _ = jsonutils.ParseString(blobStr)
 		}
-		policy, err := rbacutils.DecodePolicyData(blobJson)
+		policy, err := rbacutils.DecodeRawPolicyData(blobJson)
 		if err != nil {
 			return nil, errors.Wrap(err, "rbacutils.DecodePolicyData")
 		}
-		blobJson = policy.EncodeData()
+		blobJson = policy.EncodeRawData()
 		var format string
 		if query != nil {
 			format, _ = query.GetString("format")

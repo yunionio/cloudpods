@@ -40,13 +40,9 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 
 	isAdmin := false
-	if consts.IsRbacEnabled() {
-		if policy.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(),
-			"usages", policy.PolicyActionGet) == rbacutils.Allow {
-			isAdmin = true
-		}
-	} else {
-		isAdmin = userCred.IsAllow(rbacutils.ScopeSystem, consts.GetServiceType(), "usages", policy.PolicyActionGet)
+	if policy.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(),
+		"usages", policy.PolicyActionGet).Result.IsAllow() {
+		isAdmin = true
 	}
 
 	var adminUsage map[string]int

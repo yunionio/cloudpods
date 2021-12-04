@@ -121,7 +121,7 @@ func (self *GuestConvertEsxiToKvmTask) SaveScheduleResult(ctx context.Context, o
 	err = self.Params.Unmarshal(input, "input")
 	if err != nil {
 		log.Errorf("fail to unmarshal params input")
-		input = guest.ToCreateInput(self.UserCred)
+		input = guest.ToCreateInput(ctx, self.UserCred)
 	}
 
 	//pendingUsage.Storage = guest.GetDisksSize()
@@ -196,13 +196,13 @@ func (self *GuestConvertEsxiToKvmTask) OnHostCreateGuestFailed(
 func (self *GuestConvertEsxiToKvmTask) TaskComplete(ctx context.Context, guest, targetGuest *models.SGuest) {
 	guest.SetMetadata(ctx, api.SERVER_META_CONVERTED_SERVER, targetGuest.Id, self.UserCred)
 	guest.SetStatus(self.UserCred, api.VM_CONVERTED, "")
-	if osProfile := guest.GetMetadata("__os_profile__", self.UserCred); len(osProfile) > 0 {
+	if osProfile := guest.GetMetadata(ctx, "__os_profile__", self.UserCred); len(osProfile) > 0 {
 		targetGuest.SetMetadata(ctx, "__os_profile__", osProfile, self.UserCred)
 	}
-	if account := guest.GetMetadata(api.VM_METADATA_LOGIN_ACCOUNT, self.UserCred); len(account) > 0 {
+	if account := guest.GetMetadata(ctx, api.VM_METADATA_LOGIN_ACCOUNT, self.UserCred); len(account) > 0 {
 		targetGuest.SetMetadata(ctx, api.VM_METADATA_LOGIN_ACCOUNT, account, self.UserCred)
 	}
-	if loginKey := guest.GetMetadata(api.VM_METADATA_LOGIN_KEY, self.UserCred); len(loginKey) > 0 {
+	if loginKey := guest.GetMetadata(ctx, api.VM_METADATA_LOGIN_KEY, self.UserCred); len(loginKey) > 0 {
 		passwd, _ := utils.DescryptAESBase64(guest.Id, loginKey)
 		if len(passwd) > 0 {
 			secret, err := utils.EncryptAESBase64(targetGuest.Id, passwd)

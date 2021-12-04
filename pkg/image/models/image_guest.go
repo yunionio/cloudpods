@@ -239,12 +239,6 @@ func (gi *SGuestImage) startDeleteTask(ctx context.Context, userCred mcclient.To
 	return nil
 }
 
-func (gi *SGuestImage) AllowPerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-
-	return db.IsAdminAllowPerform(userCred, gi, "cancel-delete")
-}
-
 func (gi *SGuestImage) PerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 
