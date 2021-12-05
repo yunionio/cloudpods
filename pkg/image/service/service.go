@@ -89,7 +89,7 @@ func StartService() {
 	trackers := torrent.GetTrackers()
 	if len(trackers) == 0 {
 		log.Errorf("no valid torrent-tracker")
-		return
+		// return
 	}
 
 	app := app_common.InitApp(baseOpts, true)
