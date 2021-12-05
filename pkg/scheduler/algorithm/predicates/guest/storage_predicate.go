@@ -130,6 +130,9 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	for _, disk := range d.Disks {
 		if isMigrate() && !isLocalhostBackend(disk.Backend) {
 			storeRequest[disk.Storage] = 1
+		} else if len(disk.DiskId) > 0 && len(disk.Storage) > 0 {
+			// server attach to an existing disk
+			storeRequest[disk.Storage] = 1
 		} else {
 			if _, ok := sizeRequest[disk.Backend]; !ok {
 				sizeRequest[disk.Backend] = map[string]int64{"max": -1, "total": 0}
