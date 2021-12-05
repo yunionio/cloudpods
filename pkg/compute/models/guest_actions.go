@@ -838,7 +838,7 @@ func (self *SGuest) EventNotify(ctx context.Context, userCred mcclient.TokenCred
 		if action != notifyclient.ActionCreate && action != notifyclient.ActionRebuildRoot && action != notifyclient.ActionResetPassword {
 			return
 		}
-		meta, err := self.GetAllMetadata(nil)
+		meta, err := self.GetAllMetadata(ctx, userCred)
 		if err != nil {
 			return
 		}
@@ -881,7 +881,7 @@ func (self *SGuest) NotifyServerEvent(
 	ctx context.Context, userCred mcclient.TokenCredential, event string, priority notify.TNotifyPriority,
 	loginInfo bool, kwargs *jsonutils.JSONDict, notifyAdmin bool,
 ) {
-	meta, err := self.GetAllMetadata(nil)
+	meta, err := self.GetAllMetadata(ctx, userCred)
 	if err != nil {
 		return
 	}

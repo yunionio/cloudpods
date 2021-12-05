@@ -298,12 +298,12 @@ func (model *SStandaloneAnonResourceBase) RemoveAllMetadata(ctx context.Context,
 	return nil
 }
 
-func (model *SStandaloneAnonResourceBase) GetAllMetadata(userCred mcclient.TokenCredential) (map[string]string, error) {
-	return Metadata.GetAll(model, nil, "")
+func (model *SStandaloneAnonResourceBase) GetAllMetadata(ctx context.Context, userCred mcclient.TokenCredential) (map[string]string, error) {
+	return Metadata.GetAll(ctx, model, nil, "", userCred)
 }
 
 func (model *SStandaloneAnonResourceBase) GetAllUserMetadata() (map[string]string, error) {
-	meta, err := Metadata.GetAll(model, nil, USER_TAG_PREFIX)
+	meta, err := Metadata.GetAll(nil, model, nil, USER_TAG_PREFIX, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "Metadata.GetAll")
 	}
@@ -315,7 +315,7 @@ func (model *SStandaloneAnonResourceBase) GetAllUserMetadata() (map[string]strin
 }
 
 func (model *SStandaloneAnonResourceBase) GetAllCloudMetadata() (map[string]string, error) {
-	meta, err := Metadata.GetAll(model, nil, CLOUD_TAG_PREFIX)
+	meta, err := Metadata.GetAll(nil, model, nil, CLOUD_TAG_PREFIX, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "Metadata.GetAll")
 	}
@@ -328,7 +328,7 @@ func (model *SStandaloneAnonResourceBase) GetAllCloudMetadata() (map[string]stri
 
 // 获取资源标签（元数据）
 func (model *SStandaloneAnonResourceBase) GetDetailsMetadata(ctx context.Context, userCred mcclient.TokenCredential, input apis.GetMetadataInput) (apis.GetMetadataOutput, error) {
-	val, err := Metadata.GetAll(model, input.Field, input.Prefix)
+	val, err := Metadata.GetAll(ctx, model, input.Field, input.Prefix, userCred)
 	if err != nil {
 		return nil, errors.Wrap(err, "Metadata.GetAll")
 	}

@@ -15,6 +15,7 @@
 package db
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
@@ -116,7 +117,7 @@ type MockMetadataModel struct {
 	SStandaloneResourceBase
 }
 
-func (m *MockMetadataModel) GetAllMetadata(userCred mcclient.TokenCredential) (map[string]string, error) {
+func (m *MockMetadataModel) GetAllMetadata(ctx context.Context, userCred mcclient.TokenCredential) (map[string]string, error) {
 	args := m.Called(userCred)
 	return args.Get(0).(map[string]string), args.Error(1)
 }
@@ -160,7 +161,7 @@ func TestGetVisiableMetadata(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetVisiableMetadata(tt.model, nil)
+			got, err := GetVisiableMetadata(nil, tt.model, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetVisiableMetadata() error = %v, wantErr %v", err, tt.wantErr)
 				return

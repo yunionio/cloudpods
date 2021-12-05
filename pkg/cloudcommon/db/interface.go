@@ -287,7 +287,7 @@ type IStandaloneModel interface {
 	SetCloudMetadataAll(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error
 	RemoveMetadata(ctx context.Context, key string, userCred mcclient.TokenCredential) error
 	RemoveAllMetadata(ctx context.Context, userCred mcclient.TokenCredential) error
-	GetAllMetadata(userCred mcclient.TokenCredential) (map[string]string, error)
+	GetAllMetadata(ctx context.Context, userCred mcclient.TokenCredential) (map[string]string, error)
 
 	IsShared() bool
 
