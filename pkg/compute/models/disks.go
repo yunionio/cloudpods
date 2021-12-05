@@ -1715,14 +1715,24 @@ func totalDiskSize(
 }
 
 func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info *api.DiskConfig) (*api.DiskConfig, error) {
+	if info.Storage != "" {
+		if err := fillDiskConfigByStorage(userCred, info, info.Storage); err != nil {
+			return nil, errors.Wrap(err, "fillDiskConfigByStorage")
+		}
+	}
+	if info.DiskId != "" {
+		if err := fillDiskConfigByDisk(userCred, info, info.DiskId); err != nil {
+			return nil, errors.Wrap(err, "fillDiskConfigByDisk")
+		}
+	}
 	if info.SnapshotId != "" {
 		if err := fillDiskConfigBySnapshot(userCred, info, info.SnapshotId); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "fillDiskConfigBySnapshot")
 		}
 	}
 	if info.ImageId != "" {
 		if err := fillDiskConfigByImage(ctx, userCred, info, info.ImageId); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "fillDiskConfigByImage")
 		}
 	}
 	// XXX: do not set default disk size here, set it by each hypervisor driver
@@ -1795,6 +1805,71 @@ func fillDiskConfigByImage(ctx context.Context, userCred mcclient.TokenCredentia
 			diskConfig.OsArch = image.Properties["os_arch"]
 		}
 	}
+	return nil
+}
+
+func fillDiskConfigByDisk(userCred mcclient.TokenCredential,
+	diskConfig *api.DiskConfig, diskId string) error {
+	diskObj, err := DiskManager.FetchByIdOrName(userCred, diskId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return httperrors.NewResourceNotFoundError2("disk", diskId)
+		} else {
+			return errors.Wrapf(err, "DiskManager.FetchByIdOrName %s", diskId)
+		}
+	}
+	disk := diskObj.(*SDisk)
+	if disk.Status != api.DISK_READY {
+		return errors.Wrapf(httperrors.ErrInvalidStatus, "disk status %s not ready", disk.Status)
+	}
+	guests := disk.GetGuests()
+	if len(guests) > 0 {
+		return errors.Wrapf(httperrors.ErrInvalidStatus, "disk %s has been used", diskId)
+	}
+
+	diskConfig.DiskId = disk.Id
+	diskConfig.SizeMb = disk.DiskSize
+	if disk.SnapshotId != "" {
+		diskConfig.SnapshotId = disk.SnapshotId
+	}
+	if disk.TemplateId != "" {
+		diskConfig.ImageId = disk.TemplateId
+	}
+	if disk.OsArch != "" {
+		diskConfig.OsArch = disk.OsArch
+	}
+	storage, err := disk.GetStorage()
+	if err != nil {
+		return errors.Wrap(err, "disk.GetStorage")
+	}
+	if !storage.Enabled.IsTrue() {
+		return errors.Wrap(httperrors.ErrInvalidStatus, "storage not enabled")
+	}
+	if storage.Status != api.STORAGE_ONLINE {
+		return errors.Wrap(httperrors.ErrInvalidStatus, "storage not online")
+	}
+	diskConfig.Storage = disk.StorageId
+	return nil
+}
+
+func fillDiskConfigByStorage(userCred mcclient.TokenCredential,
+	diskConfig *api.DiskConfig, storageId string) error {
+	storageObj, err := StorageManager.FetchByIdOrName(userCred, storageId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return httperrors.NewResourceNotFoundError2("storage", storageId)
+		} else {
+			return errors.Wrapf(err, "StorageManager.FetchByIdOrName %s", storageId)
+		}
+	}
+	storage := storageObj.(*SStorage)
+	if !storage.Enabled.IsTrue() {
+		return errors.Wrap(httperrors.ErrInvalidStatus, "storage not enabled")
+	}
+	if storage.Status != api.STORAGE_ONLINE {
+		return errors.Wrap(httperrors.ErrInvalidStatus, "storage not online")
+	}
+	diskConfig.Storage = storageObj.GetId()
 	return nil
 }
 
