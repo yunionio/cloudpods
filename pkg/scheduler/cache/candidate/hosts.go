@@ -995,7 +995,7 @@ func (b *HostBuilder) fillResidentGroups(desc *HostDesc, host *computemodels.SHo
 }*/
 
 func (b *HostBuilder) fillMetadata(desc *HostDesc, host *computemodels.SHost) error {
-	metadata, err := host.GetAllMetadata(nil)
+	metadata, err := host.GetAllMetadata(nil, nil)
 	if err != nil {
 		log.Errorf("Get host %s metadata: %v", desc.GetId(), err)
 		return nil

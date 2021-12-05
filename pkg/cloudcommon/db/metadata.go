@@ -144,7 +144,7 @@ func (m *SMetadata) GetModelManager() IModelManager {
 	return Metadata
 }
 
-func getModelIdstr(model IModel) string {
+func GetModelIdstr(model IModel) string {
 	return getObjectIdstr(model.GetModelManager().Keyword(), model.GetId())
 }
 
@@ -167,10 +167,6 @@ func (m *SMetadata) MarkDelete() error {
 
 func (m *SMetadata) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return DeleteModel(ctx, userCred, m)
-}
-
-func (manager *SMetadataManager) AllowGetPropertyTagValuePairs(ctx context.Context, userCred mcclient.TokenCredential, input apis.MetadataListInput) bool {
-	return true
 }
 
 func (manager *SMetadataManager) fetchKeyValueQuery(
@@ -347,10 +343,6 @@ func (manager *SMetadataManager) getKeyValueObjectCount(ctx context.Context, use
 	return data, nil
 }
 
-func (manager *SMetadataManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
-
 func (manager *SMetadataManager) metadataBaseFilter(q *sqlchemy.SQuery, input apis.MetadataBaseFilterInput) *sqlchemy.SQuery {
 	if len(input.Key) > 0 {
 		q = q.In("key", input.Key)
@@ -450,7 +442,7 @@ func (manager *SMetadataManager) GetStringValue(ctx context.Context, model IMode
 	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAllowGetSpec(ctx, rbacutils.ScopeSystem, userCred, model, "metadata")) {
 		return ""
 	}
-	idStr := getModelIdstr(model)
+	idStr := GetModelIdstr(model)
 	m := SMetadata{}
 	err := manager.Query().Equals("id", idStr).Equals("key", key).First(&m)
 	if err == nil {
@@ -463,7 +455,7 @@ func (manager *SMetadataManager) GetJsonValue(ctx context.Context, model IModel,
 	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAllowGetSpec(ctx, rbacutils.ScopeSystem, userCred, model, "metadata")) {
 		return nil
 	}
-	idStr := getModelIdstr(model)
+	idStr := GetModelIdstr(model)
 	m := SMetadata{}
 	err := manager.Query().Equals("id", idStr).Equals("key", key).First(&m)
 	if err == nil {
@@ -480,7 +472,7 @@ type sMetadataChange struct {
 }
 
 func (manager *SMetadataManager) RemoveAll(ctx context.Context, model IModel, userCred mcclient.TokenCredential) error {
-	idStr := getModelIdstr(model)
+	idStr := GetModelIdstr(model)
 	if len(idStr) == 0 {
 		return fmt.Errorf("invalid model")
 	}
@@ -651,8 +643,19 @@ func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store m
 	return nil
 }
 
-func (manager *SMetadataManager) GetAll(obj IModel, keys []string, keyPrefix string) (map[string]string, error) {
-	return manager.rawGetAll(obj.Keyword(), obj.GetId(), keys, keyPrefix)
+func (manager *SMetadataManager) GetAll(ctx context.Context, obj IModel, keys []string, keyPrefix string, userCred mcclient.TokenCredential) (map[string]string, error) {
+	meta, err := manager.rawGetAll(obj.Keyword(), obj.GetId(), keys, keyPrefix)
+	if err != nil {
+		return nil, errors.Wrap(err, "rawGetAll")
+	}
+	ret := make(map[string]string)
+	for k, v := range meta {
+		if strings.HasPrefix(k, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAllowGetSpec(ctx, rbacutils.ScopeSystem, userCred, obj, "metadata")) {
+			continue
+		}
+		ret[k] = v
+	}
+	return ret, nil
 }
 
 func (manager *SMetadataManager) rawGetAll(objType, objId string, keys []string, keyPrefix string) (map[string]string, error) {
@@ -698,8 +701,8 @@ func IsMetadataKeyVisiable(key string) bool {
 	return !(IsMetadataKeySysTag(key) || IsMetadataKeySystemAdmin(key))
 }
 
-func GetVisiableMetadata(model IStandaloneModel, userCred mcclient.TokenCredential) (map[string]string, error) {
-	metaData, err := model.GetAllMetadata(userCred)
+func GetVisiableMetadata(ctx context.Context, model IStandaloneModel, userCred mcclient.TokenCredential) (map[string]string, error) {
+	metaData, err := model.GetAllMetadata(ctx, userCred)
 	if err != nil {
 		return nil, err
 	}

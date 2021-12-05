@@ -4043,7 +4043,7 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 
 	desc.OsName = self.GetOS()
 
-	desc.Metadata, _ = self.GetAllMetadata(nil)
+	desc.Metadata, _ = self.GetAllMetadata(ctx, nil)
 
 	userData, _ := desc.Metadata["user_data"]
 	if len(userData) > 0 {
@@ -4122,7 +4122,7 @@ func (self *SGuest) GetJsonDescAtBaremetal(ctx context.Context, host *SHost) *ap
 	}
 
 	desc.OsName = self.GetOS()
-	desc.Metadata, _ = self.GetAllMetadata(nil)
+	desc.Metadata, _ = self.GetAllMetadata(ctx, nil)
 
 	desc.UserData, _ = desc.Metadata["user_data"]
 	desc.PendingDeleted = self.PendingDeleted

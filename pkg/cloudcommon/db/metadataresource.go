@@ -186,7 +186,7 @@ func (meta *SMetadataResourceBaseModelManager) FetchCustomizeColumns(
 	ret := make([]apis.MetadataResourceInfo, len(objs))
 	resIds := make([]string, len(objs))
 	for i := range objs {
-		resIds[i] = getModelIdstr(objs[i].(IModel))
+		resIds[i] = GetModelIdstr(objs[i].(IModel))
 	}
 
 	if fields == nil || fields.Contains("__meta__") {
