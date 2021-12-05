@@ -115,10 +115,14 @@ func ParseDiskConfig(diskStr string, idx int) (*compute.DiskConfig, error) {
 			diskConfig.SizeMb = -1
 		} else if utils.IsInStringArray(p, compute.STORAGE_ALL_TYPES) {
 			diskConfig.Backend = p
-		} else if strings.HasPrefix(p, "snapshot-") {
+		} else if strings.HasPrefix(p, "snapshot=") {
 			// HACK: use snapshot creat disk format snapshot-id
 			// example: snapshot-3140cecb-ccc4-4865-abae-3a5ba8c69d9b
-			diskConfig.SnapshotId = p[len("snapshot-"):]
+			diskConfig.SnapshotId = p[len("snapshot="):]
+		} else if strings.HasPrefix(p, "disk=") {
+			diskConfig.DiskId = p[len("disk="):]
+		} else if strings.HasPrefix(p, "storage=") {
+			diskConfig.Storage = p[len("storage="):]
 		} else if len(p) > 0 {
 			diskConfig.ImageId = p
 		}

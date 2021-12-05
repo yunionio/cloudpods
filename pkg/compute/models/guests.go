@@ -1713,6 +1713,10 @@ func getGuestResourceRequirements(
 	diskSize := 0
 
 	for _, diskConfig := range input.Disks {
+		if diskConfig.DiskId != "" {
+			// disk has been created, ignore resource requirement
+			continue
+		}
 		diskSize += diskConfig.SizeMb
 	}
 
@@ -3451,9 +3455,12 @@ func (self *SGuest) CreateDisksOnHost(
 	autoAttach bool,
 ) error {
 	for idx := 0; idx < len(disks); idx += 1 {
+		if len(disks[idx].DiskId) > 0 && len(disks[idx].Storage) > 0 {
+			continue
+		}
 		diskConfig, err := parseDiskInfo(ctx, userCred, disks[idx])
 		if err != nil {
-			return err
+			return errors.Wrap(err, "parseDiskInfo")
 		}
 		var candidateDisk *schedapi.CandidateDisk
 		var backupCandidateDisk *schedapi.CandidateDisk
