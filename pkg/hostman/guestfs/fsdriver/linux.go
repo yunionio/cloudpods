@@ -301,6 +301,35 @@ func (l *sLinuxRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*ty
 			return err
 		}
 	}
+	// deploy docker mtu
+	{
+		minMtu := -1
+		for _, nic := range nics {
+			if nic.Mtu > 0 && (minMtu > nic.Mtu || minMtu < 0) {
+				minMtu = nic.Mtu
+			}
+		}
+		const dockerDaemonConfPath = "/etc/docker/daemon.json"
+		var daemonConfJson jsonutils.JSONObject
+		if rootFs.Exists(dockerDaemonConfPath, false) {
+			content, _ := rootFs.FileGetContents(dockerDaemonConfPath, false)
+			if len(content) > 0 {
+				daemonConfJson, _ = jsonutils.Parse(content)
+			}
+		} else {
+			const modeRwxOwner = syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
+			if err := rootFs.Mkdir("/etc/docker", modeRwxOwner, false); err != nil {
+				return errors.Wrap(err, "mkdir /etc/docker fail")
+			}
+		}
+		if daemonConfJson == nil {
+			daemonConfJson = jsonutils.NewDict()
+		}
+		daemonConfJson.(*jsonutils.JSONDict).Set("mtu", jsonutils.NewInt(int64(minMtu)))
+		if err := rootFs.FilePutContents(dockerDaemonConfPath, daemonConfJson.PrettyString(), false, false); err != nil {
+			return errors.Wrapf(err, "write %s fail", dockerDaemonConfPath)
+		}
+	}
 	return nil
 }
 
