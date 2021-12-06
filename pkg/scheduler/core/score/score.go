@@ -104,20 +104,16 @@ func (b *ScoreBucket) SetScore(score SScore, prefer tristate.TriState) *ScoreBuc
 	return b
 }
 
-func PreferLess(b1, b2 *ScoreBucket) bool {
-	return b1.preferScore.Total() < b2.preferScore.Total()
+func (b *ScoreBucket) PreferScore() int {
+	return b.preferScore.Total()
 }
 
-func AvoidLess(b1, b2 *ScoreBucket) bool {
-	return b1.avoidScore.Total() < b2.avoidScore.Total()
+func (b *ScoreBucket) AvoidScore() int {
+	return b.avoidScore.Total()
 }
 
-func NormalLess(b1, b2 *ScoreBucket) bool {
-	return b1.normalScore.Total() < b2.normalScore.Total()
-}
-
-func NormalEqual(b1, b2 *ScoreBucket) bool {
-	return b1.normalScore.Total() == b2.normalScore.Total()
+func (b *ScoreBucket) NormalScore() int {
+	return b.normalScore.Total()
 }
 
 func (b *ScoreBucket) debugString(kind string, vals map[string]int) string {
