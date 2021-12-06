@@ -15,13 +15,21 @@
 package handler
 
 import (
+	_ "yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
+	_ "yunion.io/x/onecloud/pkg/mcclient/modules/cloudevent"
+	_ "yunion.io/x/onecloud/pkg/mcclient/modules/cloudid"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/cloudnet"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/cloudproxy"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	_ "yunion.io/x/onecloud/pkg/mcclient/modules/devtool"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/etcd"
+	_ "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	_ "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
+	_ "yunion.io/x/onecloud/pkg/mcclient/modules/logger"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
+	_ "yunion.io/x/onecloud/pkg/mcclient/modules/quota"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/scheduledtask"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/webconsole"

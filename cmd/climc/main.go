@@ -36,7 +36,6 @@ import (
 	_ "yunion.io/x/onecloud/cmd/climc/shell/quota"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/scheduledtask"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/scheduler"
-	_ "yunion.io/x/onecloud/cmd/climc/shell/vpcproxy"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/yunionconf"
 )
 
