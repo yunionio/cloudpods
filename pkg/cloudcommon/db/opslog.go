@@ -169,17 +169,29 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 		ObjName: objName,
 		Action:  action,
 		Notes:   stringutils.Interface2String(notes),
-
-		ProjectId:       userCred.GetProjectId(),
-		Project:         userCred.GetProjectName(),
-		ProjectDomainId: userCred.GetProjectDomainId(),
-		ProjectDomain:   userCred.GetProjectDomain(),
-
-		UserId:   userCred.GetUserId(),
-		User:     userCred.GetUserName(),
-		DomainId: userCred.GetDomainId(),
-		Domain:   userCred.GetDomainName(),
-		Roles:    strings.Join(userCred.GetRoles(), ","),
+	}
+	if userCred == nil {
+		log.Warningf("Log event with empty userCred: objType=%s objId=%s objName=%s action=%s", model.Keyword(), objId, objName, action)
+		const unknown = "unknown"
+		opslog.ProjectId = unknown
+		opslog.Project = unknown
+		opslog.ProjectDomainId = unknown
+		opslog.ProjectDomain = unknown
+		opslog.UserId = unknown
+		opslog.User = unknown
+		opslog.DomainId = unknown
+		opslog.Domain = unknown
+		opslog.Roles = unknown
+	} else {
+		opslog.ProjectId = userCred.GetProjectId()
+		opslog.Project = userCred.GetProjectName()
+		opslog.ProjectDomainId = userCred.GetProjectDomainId()
+		opslog.ProjectDomain = userCred.GetProjectDomain()
+		opslog.UserId = userCred.GetUserId()
+		opslog.User = userCred.GetUserName()
+		opslog.DomainId = userCred.GetDomainId()
+		opslog.Domain = userCred.GetDomainName()
+		opslog.Roles = strings.Join(userCred.GetRoles(), ",")
 	}
 	opslog.SetModelManager(OpsLog, opslog)
 
