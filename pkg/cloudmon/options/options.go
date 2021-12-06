@@ -38,7 +38,7 @@ type CloudMonOptions struct {
 
 	InfluxDatabase string `help:"influxdb database name, default telegraf" default:"telegraf"`
 
-	Subcommand string `help:"climc subcommand" subcommand:"false"`
+	Subcommand string `help:"climc subcommand" subcommand:"true"`
 }
 
 type ReportOptions struct {

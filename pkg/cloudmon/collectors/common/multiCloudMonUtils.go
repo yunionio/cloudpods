@@ -52,6 +52,11 @@ const (
 
 	PING_PROBE MonType = "ping_probe"
 
+	K8S        MonType = "k8s"
+	K8S_DEPLOY         = MonType(K8S_MODULE_DEPLOY)
+	K8S_POD            = MonType(K8S_MODULE_POD)
+	K8S_NODE           = MonType(K8S_MODULE_NODE)
+
 	ALL_RESOURCE MonType = "all"
 )
 
@@ -74,7 +79,8 @@ var (
 		compute.CLOUD_PROVIDER_HUAWEI, compute.CLOUD_PROVIDER_HCSO, compute.CLOUD_PROVIDER_ZSTACK,
 		compute.CLOUD_PROVIDER_GOOGLE, compute.CLOUD_PROVIDER_ECLOUD, compute.CLOUD_PROVIDER_JDCLOUD}
 
-	ResMonTypeList       = []string{string(SERVER), string(HOST), string(REDIS), string(RDS), string(OSS), string(ELB)}
+	ResMonTypeList = []string{string(SERVER), string(HOST), string(REDIS), string(RDS), string(OSS),
+		string(ELB), string(K8S)}
 	CustomizeMonTypeList = []string{string(CLOUDACCOUNT), string(STORAGE), string(ALERT_RECORD), string(PING_PROBE)}
 )
 
@@ -82,6 +88,9 @@ var OtherVmTags = map[string]string{
 	"source":   "cloudmon",
 	"res_type": "guest",
 	"is_vm":    "true",
+}
+var OtherTags = map[string]string{
+	"source": "cloudmon",
 }
 
 var OtherHostTag = map[string]string{
@@ -234,6 +243,24 @@ var StorageTags = map[string]string{
 	"cloudregion_id": "cloudregion_id",
 	"region_ext_id":  "region_ext_id",
 	"brand":          "brand",
+	"domain_id":      "domain_id",
+	"project_domain": "project_domain",
+}
+
+var K8sTags = map[string]string{
+	"id":             "id",
+	"name":           "name",
+	"zone":           "zone",
+	"zone_id":        "zone_id",
+	"zone_ext_id":    "zone_ext_id",
+	"status":         "status",
+	"cloudregion":    "cloudregion",
+	"cloudregion_id": "cloudregion_id",
+	"region_ext_id":  "region_ext_id",
+	"tenant":         "tenant",
+	"tenant_id":      "tenant_id",
+	"brand":          "brand",
+	"provider":       "provider",
 	"domain_id":      "domain_id",
 	"project_domain": "project_domain",
 }

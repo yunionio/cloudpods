@@ -21,7 +21,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
 	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 func init() {
@@ -56,18 +55,7 @@ type SApsaraCloudReport struct {
 func (self *SApsaraCloudReport) Report() error {
 	var servers []jsonutils.JSONObject
 	var err error
-	switch self.Operator {
-	case "redis":
-		servers, err = self.GetAllserverOfThisProvider(&modules.ElasticCache)
-	case "rds":
-		servers, err = self.GetAllserverOfThisProvider(&modules.DBInstance)
-	case "oss":
-		servers, err = self.GetAllserverOfThisProvider(&modules.Buckets)
-	case "elb":
-		servers, err = self.GetAllserverOfThisProvider(&modules.Loadbalancers)
-	default:
-		servers, err = self.GetAllserverOfThisProvider(&modules.Servers)
-	}
+	servers, err = self.GetResourceByOperator()
 	providerInstance, err := self.InitProviderInstance()
 	if err != nil {
 		return err

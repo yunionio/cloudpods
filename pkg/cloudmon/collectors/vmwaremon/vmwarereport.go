@@ -59,7 +59,7 @@ func (self *SEsxiCloudReport) Report() error {
 	switch self.Operator {
 	case string(common.SERVER):
 		//servers, err := self.getAllserverOfThisProvider(&modules.Servers)
-		servers, err := self.GetAllserverOfThisProvider(&modules.Servers)
+		servers, err := self.GetAllserverOfThisProvider(&modules.Servers, nil)
 		if err != nil {
 			return err
 		}

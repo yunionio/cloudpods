@@ -31,8 +31,26 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
+type K8sClusterModuleType string
+
+const (
+	K8S_MODULE_DEPLOY    = K8sClusterModuleType("deploy")
+	K8S_MODULE_POD       = K8sClusterModuleType("pod")
+	K8S_MODULE_CONTAINER = K8sClusterModuleType("container")
+	K8S_MODULE_NS        = K8sClusterModuleType("ns")
+	K8S_MODULE_NODE      = K8sClusterModuleType("node")
+	K8S_MODULE_DAEMONSET = K8sClusterModuleType("daemonset")
+)
+
+var (
+	cloudReportTable      map[string]ICloudReportFactory
+	k8sClusterHelperTable map[string]IK8sClusterMetricHelper
+)
+
 func init() {
 	cloudReportTable = make(map[string]ICloudReportFactory)
+
+	k8sClusterHelperTable = make(map[string]IK8sClusterMetricHelper)
 }
 
 type IRoutineFactory interface {
@@ -46,6 +64,47 @@ type ICloudReportFactory interface {
 	MyRoutineInteval(monOptions options.CloudMonOptions) time.Duration
 }
 
+type IK8sClusterMetricHelper interface {
+	HelperBrand() string
+	MyModuleHelper() map[K8sClusterModuleType]IK8sClusterModuleHelper
+	RegisterModuleHelper(helper IK8sClusterModuleHelper)
+}
+
+type K8sClusterMetricBaseHelper struct {
+	ModuleHelper map[K8sClusterModuleType]IK8sClusterModuleHelper
+}
+
+func (h *K8sClusterMetricBaseHelper) MyModuleHelper() map[K8sClusterModuleType]IK8sClusterModuleHelper {
+	return h.ModuleHelper
+}
+
+func (h *K8sClusterMetricBaseHelper) RegisterModuleHelper(helper IK8sClusterModuleHelper) {
+	h.ModuleHelper[helper.MyModuleType()] = helper
+}
+
+type IK8sClusterModuleHelper interface {
+	MyModuleType() K8sClusterModuleType
+	/**
+	DimensionId.LocalId 由「,」分割表示多个组装后Dimension
+	LocalId和ExtId 「,」分割长度需一致
+	*/
+	MyResDimensionId() DimensionId
+	MyNamespaceAndMetrics() (string, map[string][]string)
+	MyResourceFilterQuery(res jsonutils.JSONObject) jsonutils.JSONObject
+}
+
+type K8sClusterModuleQueryHelper struct {
+}
+
+func (q K8sClusterModuleQueryHelper) MyResourceFilterQuery(jsonutils.JSONObject) jsonutils.JSONObject {
+	return nil
+}
+
+type DimensionId struct {
+	LocalId string
+	ExtId   string
+}
+
 type CommonReportFactory struct {
 }
 
@@ -57,12 +116,19 @@ func (co *CommonReportFactory) MyRoutineInteval(monOptions options.CloudMonOptio
 
 type ICloudReport interface {
 	Report() error
-	GetAllserverOfThisProvider(manager modulebase.Manager) ([]jsonutils.JSONObject, error)
+	GetAllserverOfThisProvider(manager modulebase.Manager, query *jsonutils.JSONDict) ([]jsonutils.JSONObject, error)
 	InitProviderInstance() (cloudprovider.ICloudProvider, error)
 	GetAllRegionOfServers(servers []jsonutils.JSONObject, providerInstance cloudprovider.ICloudProvider) (
 		[]cloudprovider.ICloudRegion, map[string][]jsonutils.JSONObject, error)
 	CollectRegionMetric(region cloudprovider.ICloudRegion,
 		servers []jsonutils.JSONObject) error
+}
+
+type ICloudReportK8s interface {
+	CollectRegionMetricOfK8sModules(region cloudprovider.ICloudRegion,
+		clusters []jsonutils.JSONObject) error
+	CollectK8sModuleMetric(region cloudprovider.ICloudRegion, cluster jsonutils.JSONObject,
+		helper IK8sClusterModuleHelper) error
 }
 
 type SProvider struct {
@@ -74,8 +140,6 @@ type SProvider struct {
 	//Secret    string `json:"secret"`
 	//AccessUrl string `json:"access_url"`
 }
-
-var cloudReportTable map[string]ICloudReportFactory
 
 func RegisterFactory(factory ICloudReportFactory) {
 	cloudReportTable[factory.GetId()] = factory
@@ -114,4 +178,17 @@ func (s *SProvider) Validate() error {
 		return invalidParams
 	}
 	return nil
+}
+
+func RegisterK8sClusterHelper(helper IK8sClusterMetricHelper) {
+	k8sClusterHelperTable[helper.HelperBrand()] = helper
+}
+
+func GetK8sClusterHelper(brand string) (IK8sClusterMetricHelper, error) {
+	helper, ok := k8sClusterHelperTable[brand]
+	if ok {
+		return helper, nil
+	}
+	log.Errorf("brand %s not registerd", brand)
+	return nil, fmt.Errorf("No such K8sClusterMetricHelper %s", brand)
 }

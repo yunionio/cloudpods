@@ -21,7 +21,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
 	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 func init() {
@@ -56,12 +55,7 @@ type SJdCloudReport struct {
 func (self *SJdCloudReport) Report() error {
 	var servers []jsonutils.JSONObject
 	var err error
-	switch common.MonType(self.Operator) {
-	case common.RDS:
-		servers, err = self.GetAllserverOfThisProvider(&modules.DBInstance)
-	default:
-		servers, err = self.GetAllserverOfThisProvider(&modules.Servers)
-	}
+	servers, err = self.GetResourceByOperator()
 	if err != nil {
 		return err
 	}

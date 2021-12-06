@@ -152,3 +152,7 @@ func TestCron() {
 		showErrorAndExit(err)
 	}
 }
+
+//func main() {
+//	TestCron()
+//}

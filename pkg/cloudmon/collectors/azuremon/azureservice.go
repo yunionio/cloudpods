@@ -26,6 +26,7 @@ import (
 	com_api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/multicloud/azure"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
@@ -63,7 +64,7 @@ func (self *SAzureCloudReport) collectRegionMetricOfHost(region cloudprovider.IC
 		}
 		metricNames := strings.Join(metricNameArr, ",")
 		azureReg.GetClient().Debug(true)
-		rtnMetrics, err := azureReg.GetMonitorData(metricNames, ns, external_id, since, until, self.Args.MetricInterval)
+		rtnMetrics, err := azureReg.GetMonitorData(metricNames, ns, external_id, since, until, self.Args.MetricInterval, "")
 		if err != nil {
 			log.Errorf("get metrics for server %s error: %v", srvPrefix, err)
 			continue
@@ -127,8 +128,9 @@ func (self *SAzureCloudReport) collectMetricFromThisServer(server jsonutils.JSON
 				} else {
 					pairsKey = common.SubstringAfter(influxDbSpec, ".")
 				}
-				if influxDbSpecs[1] == UNIT_MEM {
-					fieldValue = fieldValue * 8 / PERIOD
+				if influxDbSpecs[1] == common.UNIT_MEM {
+					//fieldValue = fieldValue * 8 / common.PERIOD
+					fieldValue = fieldValue * 8
 				}
 				tag := common.SubstringAfter(influxDbSpec, ",")
 				if tag != "" && strings.Contains(influxDbSpec, "=") {
@@ -191,4 +193,87 @@ func (self *SAzureCloudReport) getRdsMetricSpecsByEngine(res jsonutils.JSONObjec
 	default:
 		return fmt.Sprintf("Microsoft.DBforMySQL/%s", suffix), azureRdsMetricsSpec
 	}
+}
+
+func (self *SAzureCloudReport) CollectK8sModuleMetric(region cloudprovider.ICloudRegion, cluster jsonutils.JSONObject,
+	helper common.IK8sClusterModuleHelper) error {
+	azureReg := region.(*azure.SRegion)
+	since, until, err := common.TimeRangeFromArgs(self.Args)
+	id, _ := cluster.GetString("id")
+	resources, err := self.getClusterModuleResourceByType(helper.MyModuleType(), id, self.Session, nil)
+	if err != nil {
+		log.Errorf("getClusterModuleResourceByType err: %v", err)
+		return err
+	}
+	external_id, _ := cluster.GetString("external_cloud_cluster_id")
+	namespace, metricSpecs := helper.MyNamespaceAndMetrics()
+
+	metricNameArr := make([]string, 0)
+	for metricName := range metricSpecs {
+		metricNameArr = append(metricNameArr, metricName)
+	}
+	metricNames := strings.Join(metricNameArr, ",")
+	azureReg.GetClient().Debug(true)
+	for _, resource := range resources {
+		parentName, _ := resource.GetString("name")
+		filter := helper.(ik8sModuleFilterHelper).filter(resource)
+		rtnMetrics, err := azureReg.GetMonitorData(metricNames, namespace, external_id, since, until,
+			self.Args.MetricInterval, filter)
+		if err != nil {
+			log.Errorf("get deploy/daemonset: %s metrics err %v", parentName, err)
+			continue
+		}
+		if rtnMetrics == nil || rtnMetrics.Value == nil {
+			log.Warningf("get deploy/daemonset: %s metrics is nil", parentName)
+			continue
+		}
+
+		dataList := make([]influxdb.SMetricData, 0)
+		for metricName, influxDbSpecs := range metricSpecs {
+			for _, value := range *rtnMetrics.Value {
+				if value.Name.LocalizedValue != nil {
+					if metricName == *(value.Name.LocalizedValue) || (value.Name.Value != nil && *value.Name.Value == metricName) {
+						if value.Timeseries != nil {
+							for _, timeserie := range *value.Timeseries {
+								serverMetric, err := self.collectMetricFromThisServer(resource, timeserie, influxDbSpecs)
+								if err != nil {
+									log.Errorf("collect pod: %s metric err: %v", parentName, err)
+								}
+								dataList = append(dataList, serverMetric...)
+							}
+						}
+					}
+				}
+			}
+		}
+		err = common.SendMetrics(self.Session, dataList, self.Args.Debug, "")
+		if err != nil {
+			log.Errorf("send resource: %s metrics error: %v", parentName, err)
+		}
+	}
+	return nil
+}
+
+func (self *SAzureCloudReport) getClusterModuleResourceByType(typ common.K8sClusterModuleType, clusterId string,
+	session *mcclient.ClientSession, query *jsonutils.JSONDict) ([]jsonutils.JSONObject, error) {
+	switch typ {
+	case common.K8S_MODULE_POD:
+		return self.getK8sClusterPods(clusterId, session, nil)
+	case common.K8S_MODULE_NODE:
+		return common.ListK8sClusterModuleResources(typ, clusterId, session, nil)
+	default:
+		return nil, errors.Errorf("unsupport the clusterModuleType: %s", string(typ))
+	}
+}
+
+func (self *SAzureCloudReport) getK8sClusterPods(clusterId string, session *mcclient.ClientSession, query *jsonutils.JSONDict) ([]jsonutils.JSONObject, error) {
+	deployRes, err := common.ListK8sClusterModuleResources(common.K8S_MODULE_DEPLOY, clusterId, session, query)
+	if err != nil {
+		return nil, errors.Wrapf(err, "List cluster: %s deploy err", clusterId)
+	}
+	daemonsetRes, err := common.ListK8sClusterModuleResources(common.K8S_MODULE_DAEMONSET, clusterId, session, query)
+	if err != nil {
+		return nil, errors.Wrapf(err, "List cluster: %s daemonset err", clusterId)
+	}
+	return append(daemonsetRes, deployRes...), nil
 }

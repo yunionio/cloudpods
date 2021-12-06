@@ -15,6 +15,10 @@
 package azuremon
 
 import (
+	"fmt"
+
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
 	"yunion.io/x/onecloud/pkg/cloudmon/options"
@@ -24,6 +28,15 @@ import (
 func init() {
 	factory := SAzureCloudReportFactory{}
 	common.RegisterFactory(&factory)
+
+	cluster := &AzureK8sClusterHelper{
+		&common.K8sClusterMetricBaseHelper{
+			map[common.K8sClusterModuleType]common.IK8sClusterModuleHelper{},
+		},
+	}
+	cluster.RegisterModuleHelper(new(AzureK8sClusterPodHelper))
+	cluster.RegisterModuleHelper(new(AzureK8sClusterNodeHelper))
+	common.RegisterK8sClusterHelper(cluster)
 }
 
 type SAzureCloudReportFactory struct {
@@ -65,22 +78,88 @@ func (self *SAzureCloudReport) Report() error {
 	}
 	for _, region := range regionList {
 		servers := regionServerMap[region.GetGlobalId()]
-		err = common.CollectRegionMetricAsync(self.Args.Batch, region, servers, self)
-		//switch self.Operator {
-		//case "server":
-		//	//err = self.collectRegionMetricOfHost(region, servers)
-		//	//case "redis":
-		//	//	err = self.collectRegionMetricOfRedis(region, servers)
-		//	//case "rds":
-		//	//	err = self.collectRegionMetricOfRds(region, servers)
-		//	//case "oss":
-		//	//	err = self.collectRegionMetricOfOss(region, servers)
-		//	//case "elb":
-		//	//	err = self.collectRegionMetricOfElb(region, servers)
-		//}
+		switch common.MonType(self.Operator) {
+		case common.K8S:
+			self.Impl = self
+			err = self.CollectRegionMetricOfK8sModules(region, servers)
+		default:
+			err = common.CollectRegionMetricAsync(self.Args.Batch, region, servers, self)
+
+		}
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+type AzureK8sClusterHelper struct {
+	*common.K8sClusterMetricBaseHelper
+}
+
+func (a AzureK8sClusterHelper) HelperBrand() string {
+	return compute.CLOUD_PROVIDER_AZURE
+}
+
+type ik8sModuleFilterHelper interface {
+	filter(object jsonutils.JSONObject) string
+}
+
+type AzureK8sClusterPodHelper struct {
+	common.K8sClusterModuleQueryHelper
+}
+
+func (a AzureK8sClusterPodHelper) filter(resource jsonutils.JSONObject) string {
+	parentName, _ := resource.GetString("name")
+	return fmt.Sprintf(`controllerName eq '%s'`, parentName)
+}
+
+func (a AzureK8sClusterPodHelper) MyModuleType() common.K8sClusterModuleType {
+	return common.K8S_MODULE_POD
+}
+
+func (a AzureK8sClusterPodHelper) MyResDimensionId() common.DimensionId {
+	return common.DimensionId{
+		LocalId: "",
+		ExtId:   "",
+	}
+}
+
+func (a AzureK8sClusterPodHelper) MyNamespaceAndMetrics() (string, map[string][]string) {
+	return K8S_POD_METRIC_NAMESPACE, azureK8SPodMetricSpecs
+}
+
+func (q AzureK8sClusterPodHelper) MyResourceFilterQuery(resource jsonutils.JSONObject) jsonutils.JSONObject {
+	query := jsonutils.NewDict()
+	parentName, _ := resource.GetString("name")
+	kind, _ := resource.GetString("kind")
+	namespace, _ := resource.GetString("namespace")
+	query.Set("owner_name", jsonutils.NewString(parentName))
+	query.Set("owner_kind", jsonutils.NewString(kind))
+	query.Set("namespace", jsonutils.NewString(namespace))
+	return query
+}
+
+type AzureK8sClusterNodeHelper struct {
+	common.K8sClusterModuleQueryHelper
+}
+
+func (a AzureK8sClusterNodeHelper) filter(resource jsonutils.JSONObject) string {
+	parentName, _ := resource.GetString("name")
+	return fmt.Sprintf(`node eq '%s'`, parentName)
+}
+
+func (a AzureK8sClusterNodeHelper) MyModuleType() common.K8sClusterModuleType {
+	return common.K8S_MODULE_NODE
+}
+
+func (a AzureK8sClusterNodeHelper) MyResDimensionId() common.DimensionId {
+	return common.DimensionId{
+		LocalId: "",
+		ExtId:   "",
+	}
+}
+
+func (a AzureK8sClusterNodeHelper) MyNamespaceAndMetrics() (string, map[string][]string) {
+	return K8S_NODE_METRIC_NAMESPACE, azureK8SNodeMetricSpecs
 }

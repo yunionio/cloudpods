@@ -26,6 +26,14 @@ import (
 func init() {
 	factory := SAliCloudReportFactory{}
 	common.RegisterFactory(&factory)
+	cluster := &AliK8sClusterHelper{
+		&common.K8sClusterMetricBaseHelper{
+			map[common.K8sClusterModuleType]common.IK8sClusterModuleHelper{},
+		},
+	}
+	cluster.RegisterModuleHelper(new(AliK8sClusterPodHelper))
+	cluster.RegisterModuleHelper(new(AliK8sClusterNodeHelper))
+	common.RegisterK8sClusterHelper(cluster)
 }
 
 type SAliCloudReportFactory struct {
@@ -68,21 +76,68 @@ func (self *SAliCloudReport) Report() error {
 	}
 	for _, region := range regionList {
 		servers := regionServerMap[region.GetGlobalId()]
-		switch self.Operator {
-		case "server":
-			err = self.collectRegionMetricOfHost(region, servers)
-		case "redis":
+		switch common.MonType(self.Operator) {
+		case common.REDIS:
 			err = self.collectRegionMetricOfRedis(region, servers)
-		case "rds":
-			err = self.collectRegionMetricOfRds(region, servers)
-		case "oss":
-			err = self.collectRegionMetricOfOss(region, servers)
-		case "elb":
-			err = self.collectRegionMetricOfElb(region, servers)
+		case common.K8S:
+			err = self.collectRegionMetricOfResource(region, servers)
+			if err != nil {
+				return err
+			}
+			self.Impl = self
+			err = self.CollectRegionMetricOfK8sModules(region, servers)
+		default:
+			err = self.collectRegionMetricOfResource(region, servers)
 		}
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+type AliK8sClusterHelper struct {
+	*common.K8sClusterMetricBaseHelper
+}
+
+func (a AliK8sClusterHelper) HelperBrand() string {
+	return compute.CLOUD_PROVIDER_ALIYUN
+}
+
+type AliK8sClusterPodHelper struct {
+	common.K8sClusterModuleQueryHelper
+}
+
+func (q AliK8sClusterPodHelper) MyModuleType() common.K8sClusterModuleType {
+	return common.K8S_MODULE_POD
+}
+
+func (q AliK8sClusterPodHelper) MyResDimensionId() common.DimensionId {
+	return common.DimensionId{
+		LocalId: "name",
+		ExtId:   "pod",
+	}
+}
+
+func (q AliK8sClusterPodHelper) MyNamespaceAndMetrics() (string, map[string][]string) {
+	return K8S_METRIC_NAMESPACE, aliK8SPodMetricSpecs
+}
+
+type AliK8sClusterNodeHelper struct {
+	common.K8sClusterModuleQueryHelper
+}
+
+func (a AliK8sClusterNodeHelper) MyModuleType() common.K8sClusterModuleType {
+	return common.K8S_MODULE_NODE
+}
+
+func (a AliK8sClusterNodeHelper) MyResDimensionId() common.DimensionId {
+	return common.DimensionId{
+		LocalId: "name",
+		ExtId:   "node",
+	}
+}
+
+func (a AliK8sClusterNodeHelper) MyNamespaceAndMetrics() (string, map[string][]string) {
+	return K8S_METRIC_NAMESPACE, aliK8SNodeMetricSpecs
 }

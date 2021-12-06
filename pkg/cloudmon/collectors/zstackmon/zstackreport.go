@@ -64,7 +64,7 @@ func (self *SZStackCloudReport) Report() error {
 }
 
 func (self *SZStackCloudReport) getServerMetrics() error {
-	servers, err := self.GetAllserverOfThisProvider(&modules.Servers)
+	servers, err := self.GetResourceByOperator()
 	if err != nil {
 		return err
 	}
