@@ -91,7 +91,7 @@ func (region *SFakeOnPremiseRegion) GetIEipById(id string) (ICloudEIP, error) {
 	return nil, ErrNotSupported
 }
 
-func (region *SFakeOnPremiseRegion) CreateIVpc(name string, desc string, cidr string) (ICloudVpc, error) {
+func (region *SFakeOnPremiseRegion) CreateIVpc(opts *VpcCreateOptions) (ICloudVpc, error) {
 	return nil, ErrNotSupported
 }
 

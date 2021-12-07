@@ -50,7 +50,7 @@ func (region *SRegion) GetStorages(zone string, maxResults int, pageToken string
 
 func (region *SRegion) GetStorage(id string) (*SStorage, error) {
 	storage := &SStorage{}
-	return storage, region.Get(id, storage)
+	return storage, region.GetBySelfId(id, storage)
 }
 
 func (storage *SStorage) GetName() string {

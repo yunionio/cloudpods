@@ -16,7 +16,9 @@ package google
 
 import (
 	"fmt"
+	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
@@ -28,25 +30,43 @@ import (
 type SVpc struct {
 	multicloud.SVpc
 	multicloud.GoogleTags
-	globalnetwork *SGlobalNetwork
+	SResourceBase
 
 	region *SRegion
+
+	CreationTimestamp     time.Time
+	Network               string
+	IpCidrRange           string
+	Region                string
+	GatewayAddress        string
+	Status                string
+	AvailableCpuPlatforms []string
+	PrivateIpGoogleAccess bool
+	Fingerprint           string
+	Purpose               string
+	Kind                  string
 }
 
-func (vpc *SVpc) GetName() string {
-	return fmt.Sprintf("%s(%s)", vpc.globalnetwork.Name, vpc.region.Name)
+func (self *SVpc) GetGlobalVpcId() string {
+	gvpc := &SGlobalNetwork{}
+	err := self.region.GetBySelfId(self.Network, gvpc)
+	if err != nil {
+		return ""
+	}
+	return gvpc.Id
 }
 
-func (vpc *SVpc) GetId() string {
-	return vpc.globalnetwork.GetGlobalId()
+func (self *SVpc) Refresh() error {
+	vpc, err := self.region.GetVpc(self.Id)
+	if err != nil {
+		return errors.Wrapf(err, "GetVpc")
+	}
+	return jsonutils.Update(self, vpc)
 }
 
-func (vpc *SVpc) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", vpc.region.GetGlobalId(), vpc.GetId())
-}
-
-func (vpc *SVpc) Refresh() error {
-	return nil
+func (self *SRegion) GetVpc(id string) (*SVpc, error) {
+	vpc := &SVpc{region: self}
+	return vpc, self.Get("subnetworks", id, vpc)
 }
 
 func (vpc *SVpc) GetStatus() string {
@@ -54,11 +74,11 @@ func (vpc *SVpc) GetStatus() string {
 }
 
 func (vpc *SVpc) Delete() error {
-	return vpc.region.Delete(vpc.globalnetwork.SelfLink)
+	return vpc.region.Delete(vpc.SelfLink)
 }
 
 func (vpc *SVpc) GetCidrBlock() string {
-	return ""
+	return vpc.IpCidrRange
 }
 
 func (vpc *SVpc) IsEmulated() bool {
@@ -82,23 +102,28 @@ func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudR
 }
 
 func (vpc *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	firewalls, err := vpc.region.GetFirewalls(vpc.globalnetwork.SelfLink, 0, "")
+	firewalls, err := vpc.region.client.GetFirewalls(vpc.Network, 0, "")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetFirewalls")
+	}
+	gvpc := &SGlobalNetwork{client: vpc.region.client}
+	err = vpc.region.GetBySelfId(vpc.Network, gvpc)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetGlobalNetwork")
 	}
 	isecgroups := []cloudprovider.ICloudSecurityGroup{}
 	allInstance := false
 	tags := []string{}
 	for _, firewall := range firewalls {
 		if len(firewall.TargetServiceAccounts) > 0 {
-			secgroup := &SSecurityGroup{vpc: vpc, ServiceAccount: firewall.TargetServiceAccounts[0]}
+			secgroup := &SSecurityGroup{gvpc: gvpc, ServiceAccount: firewall.TargetServiceAccounts[0]}
 			isecgroups = append(isecgroups, secgroup)
 		} else if len(firewall.TargetTags) > 0 && !utils.IsInStringArray(firewall.TargetTags[0], tags) {
-			secgroup := &SSecurityGroup{vpc: vpc, Tag: firewall.TargetTags[0]}
+			secgroup := &SSecurityGroup{gvpc: gvpc, Tag: firewall.TargetTags[0]}
 			tags = append(tags, firewall.TargetTags[0])
 			isecgroups = append(isecgroups, secgroup)
 		} else if !allInstance {
-			secgroup := &SSecurityGroup{vpc: vpc}
+			secgroup := &SSecurityGroup{gvpc: gvpc}
 			isecgroups = append(isecgroups, secgroup)
 			allInstance = true
 		}
@@ -120,4 +145,26 @@ func (vpc *SVpc) GetIWireById(id string) (cloudprovider.ICloudWire, error) {
 		return nil, cloudprovider.ErrNotFound
 	}
 	return &SWire{vpc: vpc}, nil
+}
+
+func (self *SRegion) CreateVpc(name string, gvpcId string, cidr string, desc string) (*SVpc, error) {
+	body := map[string]interface{}{
+		"name":        name,
+		"description": desc,
+		"network":     gvpcId,
+		"ipCidrRange": cidr,
+	}
+	resource := fmt.Sprintf("regions/%s/subnetworks", self.Name)
+	vpc := &SVpc{region: self}
+	err := self.Insert(resource, jsonutils.Marshal(body), vpc)
+	if err != nil {
+		return nil, err
+	}
+	return vpc, nil
+}
+
+func (self *SRegion) GetVpcs() ([]SVpc, error) {
+	vpcs := []SVpc{}
+	resource := fmt.Sprintf("regions/%s/subnetworks", self.Name)
+	return vpcs, self.List(resource, nil, 0, "", &vpcs)
 }

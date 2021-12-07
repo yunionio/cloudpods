@@ -17,6 +17,8 @@ package google
 import (
 	"fmt"
 
+	"yunion.io/x/pkg/errors"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -41,12 +43,7 @@ func (wire *SWire) GetName() string {
 }
 
 func (wire *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
-	network, err := wire.vpc.region.CreateNetwork(opts.Name, wire.vpc.globalnetwork.SelfLink, opts.Cidr, opts.Desc)
-	if err != nil {
-		return nil, err
-	}
-	network.wire = wire
-	return network, nil
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (wire *SWire) GetIVpc() cloudprovider.ICloudVpc {
@@ -57,29 +54,22 @@ func (wire *SWire) GetIZone() cloudprovider.ICloudZone {
 	return nil
 }
 
-func (wire *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
-	networks, err := wire.vpc.region.GetNetworks(wire.vpc.globalnetwork.SelfLink, 0, "")
-	if err != nil {
-		return nil, err
-	}
-	inetworks := []cloudprovider.ICloudNetwork{}
-	for i := range networks {
-		networks[i].wire = wire
-		inetworks = append(inetworks, &networks[i])
-	}
-	return inetworks, nil
+func (self *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
+	network := SNetwork{wire: self}
+	return []cloudprovider.ICloudNetwork{&network}, nil
 }
 
-func (wire *SWire) GetINetworkById(id string) (cloudprovider.ICloudNetwork, error) {
-	network, err := wire.vpc.region.GetNetwork(id)
+func (self *SWire) GetINetworkById(id string) (cloudprovider.ICloudNetwork, error) {
+	networks, err := self.GetINetworks()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetINetwork")
 	}
-	if network.Network != wire.vpc.globalnetwork.SelfLink {
-		return nil, cloudprovider.ErrNotFound
+	for i := range networks {
+		if networks[i].GetGlobalId() == id {
+			return networks[i], nil
+		}
 	}
-	network.wire = wire
-	return network, nil
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (wire *SWire) GetBandwidth() int {

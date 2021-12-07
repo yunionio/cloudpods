@@ -34,7 +34,6 @@ type SDisk struct {
 	multicloud.SDisk
 	multicloud.GoogleTags
 
-	Id                     string
 	CreationTimestamp      time.Time
 	SizeGB                 int
 	Zone                   string
@@ -67,7 +66,7 @@ func (region *SRegion) GetDisks(zone string, storageType string, maxResults int,
 
 func (region *SRegion) GetDisk(id string) (*SDisk, error) {
 	disk := &SDisk{}
-	return disk, region.Get(id, disk)
+	return disk, region.Get("disks", id, disk)
 }
 
 func (disk *SDisk) GetStatus() string {
@@ -92,7 +91,7 @@ func (disk *SDisk) IsEmulated() bool {
 }
 
 func (disk *SDisk) Refresh() error {
-	_disk, err := disk.storage.zone.region.GetDisk(disk.SelfLink)
+	_disk, err := disk.storage.zone.region.GetDisk(disk.Id)
 	if err != nil {
 		return err
 	}

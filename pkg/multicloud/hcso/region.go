@@ -552,8 +552,8 @@ func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreat
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090608.html
-func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
-	return self.CreateVpc(name, cidr, desc)
+func (self *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
+	return self.CreateVpc(opts.NAME, opts.CIDR, opts.Desc)
 }
 
 func (self *SRegion) CreateVpc(name, cidr, desc string) (*SVpc, error) {

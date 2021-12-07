@@ -47,6 +47,7 @@ type SSecurityGroupCacheManager struct {
 	SCloudregionResourceBaseManager
 	SVpcResourceBaseManager
 	SSecurityGroupResourceBaseManager
+	SGlobalVpcResourceBaseManager
 }
 
 type SSecurityGroupCache struct {
@@ -55,6 +56,7 @@ type SSecurityGroupCache struct {
 	SCloudregionResourceBase
 	SManagedResourceBase
 	SSecurityGroupResourceBase
+	SGlobalVpcResourceBase `width:"36" charset:"ascii" list:"user" json:"globalvpc_id"`
 
 	// 被其他安全组引用的次数
 	ReferenceCount int `nullable:"false" list:"user" json:"reference_count"`

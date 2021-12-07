@@ -16,16 +16,23 @@ package models
 
 import (
 	"context"
-	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -34,6 +41,8 @@ import (
 
 type SGlobalVpcManager struct {
 	db.SEnabledStatusInfrasResourceBaseManager
+	db.SExternalizedResourceBaseManager
+	SManagedResourceBaseManager
 }
 
 var GlobalVpcManager *SGlobalVpcManager
@@ -52,15 +61,18 @@ func init() {
 
 type SGlobalVpc struct {
 	db.SEnabledStatusInfrasResourceBase
+	db.SExternalizedResourceBase
+
+	SManagedResourceBase
 }
 
 func (self *SGlobalVpc) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	vpcs, err := self.GetVpcs()
 	if err != nil {
-		return errors.Wrap(err, "self.GetVpcs")
+		return httperrors.NewInternalServerError("GetVpcs fail %s", err)
 	}
 	if len(vpcs) > 0 {
-		return fmt.Errorf("not an empty globalvpc")
+		return httperrors.NewNotEmptyError("global vpc has associate %d vpcs", len(vpcs))
 	}
 	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
@@ -110,12 +122,20 @@ func (manager *SGlobalVpcManager) ValidateCreateData(
 	query jsonutils.JSONObject,
 	input api.GlobalVpcCreateInput,
 ) (api.GlobalVpcCreateInput, error) {
-	input.Status = api.GLOBAL_VPC_STATUS_AVAILABLE
+	input.Status = apis.STATUS_CREATING
 	var err error
 	input.EnabledStatusInfrasResourceBaseCreateInput, err = manager.SEnabledStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusInfrasResourceBaseCreateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "manager.SEnabledStatusInfrasResourceBaseManager.ValidateCreateData")
 	}
+	if len(input.CloudproviderId) == 0 {
+		return input, httperrors.NewMissingParameterError("cloudprovider_id")
+	}
+	_, err = validators.ValidateModel(userCred, CloudproviderManager, &input.CloudproviderId)
+	if err != nil {
+		return input, err
+	}
+	input.ManagerId = input.CloudproviderId
 	quota := &SDomainQuota{
 		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{
 			DomainId: ownerId.GetProjectDomainId(),
@@ -142,6 +162,15 @@ func (self *SGlobalVpc) PostCreate(ctx context.Context, userCred mcclient.TokenC
 	if err != nil {
 		log.Errorf("CancelPendingUsage %s", err)
 	}
+	self.StartCreateTask(ctx, userCred, "")
+}
+
+func (self *SGlobalVpc) StartCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "GlobalVpcCreateTask", self, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
+	}
+	return task.ScheduleRun(nil)
 }
 
 func (self *SGlobalVpc) ValidateUpdateData(
@@ -240,4 +269,146 @@ func (globalVpc *SGlobalVpc) GetChangeOwnerRequiredDomainIds() []string {
 		requires = stringutils2.Append(requires, vpcs[i].DomainId)
 	}
 	return requires
+}
+
+func (self *SCloudprovider) GetGlobalVpcs() ([]SGlobalVpc, error) {
+	q := GlobalVpcManager.Query().Equals("manager_id", self.Id)
+	vpcs := []SGlobalVpc{}
+	err := db.FetchModelObjects(GlobalVpcManager, q, &vpcs)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return vpcs, nil
+}
+
+func (self *SCloudprovider) SyncGlobalVpcs(ctx context.Context, userCred mcclient.TokenCredential, exts []cloudprovider.ICloudGlobalVpc) compare.SyncResult {
+	lockman.LockRawObject(ctx, GlobalVpcManager.Keyword(), self.Id)
+	defer lockman.ReleaseRawObject(ctx, GlobalVpcManager.Keyword(), self.Id)
+
+	result := compare.SyncResult{}
+
+	dbVpcs, err := self.GetGlobalVpcs()
+	if err != nil {
+		result.Error(err)
+		return result
+	}
+
+	removed := make([]SGlobalVpc, 0)
+	commondb := make([]SGlobalVpc, 0)
+	commonext := make([]cloudprovider.ICloudGlobalVpc, 0)
+	added := make([]cloudprovider.ICloudGlobalVpc, 0)
+
+	err = compare.CompareSets(dbVpcs, exts, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(err)
+		return result
+	}
+
+	for i := 0; i < len(removed); i += 1 {
+		err = removed[i].syncRemoveGlobalVpc(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
+
+	for i := 0; i < len(commondb); i += 1 {
+		err = commondb[i].SyncWithCloudGlobalVpc(ctx, userCred, commonext[i])
+		if err != nil {
+			result.UpdateError(err)
+			continue
+		}
+		result.Update()
+	}
+
+	for i := 0; i < len(added); i += 1 {
+		_, err := self.newFromCloudGlobalVpc(ctx, userCred, added[i])
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		result.Add()
+	}
+	return result
+}
+
+func (self *SGlobalVpc) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return nil
+}
+
+func (self *SGlobalVpc) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
+}
+
+func (self *SGlobalVpc) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	return self.StartDeleteTask(ctx, userCred, "")
+}
+
+func (self *SGlobalVpc) StartDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "GlobalVpcDeleteTask", self, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
+	}
+	self.SetStatus(userCred, apis.STATUS_DELETING, "")
+	return task.ScheduleRun(nil)
+}
+
+func (self *SGlobalVpc) GetICloudGlobalVpc() (cloudprovider.ICloudGlobalVpc, error) {
+	if len(self.ExternalId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
+	}
+	provider, err := self.GetDriver()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDriver")
+	}
+	return provider.GetICloudGlobalVpcById(self.ExternalId)
+}
+
+func (self *SGlobalVpc) syncRemoveGlobalVpc(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := self.ValidateDeleteCondition(ctx, nil)
+	if err != nil {
+		self.SetStatus(userCred, apis.STATUS_UNKNOWN, "sync remove")
+		return err
+	}
+	return self.RealDelete(ctx, userCred)
+}
+
+func (self *SGlobalVpc) SyncWithCloudGlobalVpc(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudGlobalVpc) error {
+	_, err := db.Update(self, func() error {
+		self.Status = ext.GetStatus()
+		return nil
+	})
+	return err
+}
+
+func (self *SCloudprovider) newFromCloudGlobalVpc(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudGlobalVpc) (*SGlobalVpc, error) {
+	gvpc := &SGlobalVpc{}
+	gvpc.SetModelManager(GlobalVpcManager, gvpc)
+	gvpc.Name = ext.GetName()
+	gvpc.Status = ext.GetStatus()
+	gvpc.ExternalId = ext.GetGlobalId()
+	gvpc.ManagerId = self.Id
+	gvpc.DomainId = self.DomainId
+	gvpc.Enabled = tristate.True
+
+	return gvpc, GlobalVpcManager.TableSpec().Insert(ctx, gvpc)
+}
+
+// 同步全局VPC状态
+func (self *SGlobalVpc) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.SyncstatusInput) (jsonutils.JSONObject, error) {
+	var openTask = true
+	count, err := taskman.TaskManager.QueryTasksOfObject(self, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
+	if err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, httperrors.NewBadRequestError("Globalvpc has %d task active, can't sync status", count)
+	}
+
+	return nil, self.StartSyncstatusTask(ctx, userCred, "")
+}
+
+func (self *SGlobalVpc) StartSyncstatusTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	return StartResourceSyncStatusTask(ctx, userCred, self, "GlobalVpcSyncstatusTask", parentTaskId)
 }

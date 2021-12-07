@@ -271,7 +271,6 @@ type ICloudProvider interface {
 	GetObjectCannedAcls(regionId string) []string
 
 	GetCapabilities() []string
-	GetICloudQuotas() ([]ICloudQuota, error)
 
 	IsClouduserSupportPassword() bool
 	GetICloudusers() ([]IClouduser, error)
@@ -300,6 +299,10 @@ type ICloudProvider interface {
 	GetICloudDnsZoneById(id string) (ICloudDnsZone, error)
 	CreateICloudDnsZone(opts *SDnsZoneCreateOptions) (ICloudDnsZone, error)
 
+	GetICloudGlobalVpcs() ([]ICloudGlobalVpc, error)
+	CreateICloudGlobalVpc(opts *GlobalVpcCreateOptions) (ICloudGlobalVpc, error)
+	GetICloudGlobalVpcById(id string) (ICloudGlobalVpc, error)
+
 	GetICloudInterVpcNetworks() ([]ICloudInterVpcNetwork, error)
 	GetICloudInterVpcNetworkById(id string) (ICloudInterVpcNetwork, error)
 	CreateICloudInterVpcNetwork(opts *SInterVpcNetworkCreateOptions) (ICloudInterVpcNetwork, error)
@@ -319,6 +322,10 @@ func IsSupportCDN(prod ICloudProvider) bool {
 
 func IsSupportProject(prod ICloudProvider) bool {
 	return IsSupportCapability(prod, CLOUD_CAPABILITY_PROJECT)
+}
+
+func IsSupportQuota(prod ICloudProvider) bool {
+	return IsSupportCapability(prod, CLOUD_CAPABILITY_QUOTA)
 }
 
 func IsSupportDnsZone(prod ICloudProvider) bool {
@@ -459,10 +466,6 @@ func (self *SBaseProvider) GetOnPremiseIRegion() (ICloudRegion, error) {
 	return nil, ErrNotImplemented
 }
 
-func (self *SBaseProvider) GetICloudQuotas() ([]ICloudQuota, error) {
-	return nil, ErrNotImplemented
-}
-
 func (self *SBaseProvider) GetIamLoginUrl() string {
 	return ""
 }
@@ -577,6 +580,18 @@ func (self *SBaseProvider) GetICloudInterVpcNetworkById(id string) (ICloudInterV
 
 func (self *SBaseProvider) CreateICloudInterVpcNetwork(opts *SInterVpcNetworkCreateOptions) (ICloudInterVpcNetwork, error) {
 	return nil, ErrNotImplemented
+}
+
+func (self *SBaseProvider) GetICloudGlobalVpcs() ([]ICloudGlobalVpc, error) {
+	return nil, errors.Wrapf(ErrNotImplemented, "GetICloudGlobalVpcs")
+}
+
+func (self *SBaseProvider) GetICloudGlobalVpcById(id string) (ICloudGlobalVpc, error) {
+	return nil, errors.Wrapf(ErrNotImplemented, "GetICloudGlobalVpcById")
+}
+
+func (self *SBaseProvider) CreateICloudGlobalVpc(opts *GlobalVpcCreateOptions) (ICloudGlobalVpc, error) {
+	return nil, errors.Wrapf(ErrNotImplemented, "CreateICloudGlobalVpc")
 }
 
 func (self *SBaseProvider) GetICloudCDNDomains() ([]ICloudCDNDomain, error) {

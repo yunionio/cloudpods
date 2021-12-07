@@ -90,7 +90,7 @@ type ICloudRegion interface {
 	GetISecurityGroupByName(opts *SecurityGroupFilterOptions) (ICloudSecurityGroup, error)
 	CreateISecurityGroup(conf *SecurityGroupCreateInput) (ICloudSecurityGroup, error)
 
-	CreateIVpc(name string, desc string, cidr string) (ICloudVpc, error)
+	CreateIVpc(opts *VpcCreateOptions) (ICloudVpc, error)
 	CreateInternetGateway() (ICloudInternetGateway, error)
 	CreateEIP(eip *SEip) (ICloudEIP, error)
 
@@ -547,10 +547,16 @@ type ICloudSnapshotPolicy interface {
 	GetTimePoints() ([]int, error)
 }
 
-type ICloudVpc interface {
-	// GetGlobalId() // 若vpc属于globalvpc,此函数返回格式必须是 'region.GetGlobalId()/vpc.GetGlobalId()'
+type ICloudGlobalVpc interface {
 	ICloudResource
 
+	Delete() error
+}
+
+type ICloudVpc interface {
+	ICloudResource
+
+	GetGlobalVpcId() string
 	IsSupportSetExternalAccess() bool // 是否支持Attach互联网网关.
 	GetExternalAccessMode() string
 	AttachInternetGateway(igwId string) error

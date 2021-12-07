@@ -16,13 +16,10 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -76,24 +73,10 @@ func (self *CloudProviderSyncInfoTask) OnInit(ctx context.Context, obj db.IStand
 
 	self.SetStage("OnSyncCloudProviderPreInfoComplete", nil)
 
+	syncRange := self.GetSyncRange()
+
 	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
-		p, err := provider.GetProvider()
-		if err != nil {
-			return nil, errors.Wrap(err, "GetProvider")
-		}
-		quotas, err := p.GetICloudQuotas()
-		if err == nil {
-			result := models.CloudproviderQuotaManager.SyncQuotas(ctx, self.GetUserCred(), provider.GetOwnerId(), provider, nil, api.CLOUD_PROVIDER_QUOTA_RANGE_CLOUDPROVIDER, quotas)
-			msg := result.Result()
-			notes := fmt.Sprintf("SyncQuotas for provider %s result: %s", provider.Name, msg)
-			log.Infof(notes)
-		}
-		domains, err := p.GetICloudCDNDomains()
-		if err == nil {
-			result := provider.SyncCDNDomains(ctx, self.GetUserCred(), domains)
-			log.Infof("Sync CDN for provider %s result: %s", provider.Name, result.Result())
-		}
-		return nil, nil
+		return nil, models.SyncCloudproviderResources(ctx, self.GetUserCred(), provider, &syncRange)
 	})
 }
 
@@ -106,7 +89,6 @@ func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderPreInfoComplete(ctx co
 
 	taskman.LocalTaskRunWithWorkers(self, func() (jsonutils.JSONObject, error) {
 		provider.SyncCallSyncCloudproviderRegions(ctx, self.UserCred, syncRange)
-		provider.SyncCallSyncCloudproviderInterVpcNetwork(ctx, self.UserCred)
 		return nil, nil
 	}, syncLocalTaskWorkerMan)
 }

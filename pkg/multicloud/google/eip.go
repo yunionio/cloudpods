@@ -35,7 +35,6 @@ type SAddress struct {
 	multicloud.SEipBase
 	multicloud.GoogleTags
 
-	Id                string
 	CreationTimestamp time.Time
 	Description       string
 	Address           string
@@ -59,7 +58,7 @@ func (region *SRegion) GetEips(address string, maxResults int, pageToken string)
 
 func (region *SRegion) GetEip(id string) (*SAddress, error) {
 	eip := &SAddress{region: region}
-	return eip, region.Get(id, eip)
+	return eip, region.Get("addresses", id, eip)
 }
 
 func (addr *SAddress) GetStatus() string {
@@ -99,15 +98,15 @@ func (addr *SAddress) GetBillingType() string {
 	return billing.BILLING_TYPE_POSTPAID
 }
 
-func (addr *SAddress) Refresh() error {
-	if addr.IsEmulated() {
+func (self *SAddress) Refresh() error {
+	if self.IsEmulated() {
 		return nil
 	}
-	_addr, err := addr.region.GetEip(addr.SelfLink)
+	addr, err := self.region.GetEip(self.Id)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(addr, _addr)
+	return jsonutils.Update(self, addr)
 }
 
 func (addr *SAddress) GetIpAddr() string {

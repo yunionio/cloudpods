@@ -122,11 +122,11 @@ func (self *SRegion) CreateWire(opts *cloudprovider.SWireCreateOptions, vpcId, d
 	return wire, self.create(&modules.Wires, input, wire)
 }
 
-func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
+func (self *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
 	input := api.VpcCreateInput{}
-	input.Name = name
-	input.Description = desc
-	input.CidrBlock = cidr
+	input.Name = opts.NAME
+	input.Description = opts.Desc
+	input.CidrBlock = opts.CIDR
 	input.CloudregionId = self.Id
 	vpc := &SVpc{region: self}
 	return vpc, self.create(&modules.Vpcs, input, vpc)

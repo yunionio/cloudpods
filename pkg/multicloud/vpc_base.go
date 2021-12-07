@@ -84,3 +84,7 @@ func (self *SVpc) CreateINatGateway(opts *cloudprovider.NatGatewayCreateOptions)
 func (self *SVpc) CreateIWire(opts *cloudprovider.SWireCreateOptions) (cloudprovider.ICloudWire, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateIWire")
 }
+
+func (self *SVpc) GetGlobalVpcId() string {
+	return ""
+}

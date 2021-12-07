@@ -500,6 +500,6 @@ type SyncRangeInput struct {
 	Host   []string `json:"host"`
 
 	// 按资源类型同步，可输入多个
-	// enmu: compute, loadbalancer, objectstore, rds, cache, nat, nas, waf, mongodb, es, kafka, app, container
+	// enmu: compute, loadbalancer, objectstore, rds, cache, nat, nas, waf, mongodb, es, kafka, app, container, quota, intervpcnetwork, cdn, dnszone
 	Resources []string `json:"resources" choices:"compute|loadbalancer|objectstore|rds|cache|nat|nas|waf|mongodb|es|kafka|app|container"`
 }

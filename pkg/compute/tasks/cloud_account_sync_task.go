@@ -84,7 +84,7 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncReady(ctx context.Contex
 	}
 
 	if syncRange.FullSync {
-		err := cloudaccount.SyncAccountResources(ctx, self.GetUserCred())
+		err := models.SyncCloudaccountResources(ctx, self.GetUserCred(), cloudaccount, &syncRange)
 		if err != nil {
 			log.Errorf("SyncAccountResources error: %v", err)
 		}

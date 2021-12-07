@@ -73,7 +73,6 @@ type SBucket struct {
 
 	Kind             string
 	SelfLink         string
-	Id               string
 	Name             string
 	ProjectNumber    string
 	Metageneration   string

@@ -77,6 +77,10 @@ type VpcCreateInput struct {
 	// CIDR_BLOCK
 	CidrBlock string `json:"cidr_block"`
 
+	// 仅对谷歌云有用，若谷歌云订阅只有一个全局VPC，此参数可不传
+	// 若有多个全局VPC，谷歌云需要指定其中一个全局VPC
+	GlobalvpcId string `json:"globalvpc_id"`
+
 	// Vpc外网访问模式
 	ExternalAccessMode string `json:"external_access_mode"`
 }

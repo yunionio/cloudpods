@@ -480,10 +480,6 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 		localVPCs = append(localVPCs, commondb[i])
 		remoteVPCs = append(remoteVPCs, commonext[i])
 		syncResult.Update()
-		err = commondb[i].SyncGlobalVpc(ctx, userCred, provider.GetOwnerId(), provider)
-		if err != nil {
-			log.Errorf("%s(%s) sync global vpc error: %v", commondb[i].Name, commondb[i].Id, err)
-		}
 	}
 	for i := 0; i < len(added); i += 1 {
 		newVpc, err := manager.newFromCloudVpc(ctx, userCred, added[i], provider, region)
@@ -495,10 +491,6 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 		localVPCs = append(localVPCs, *newVpc)
 		remoteVPCs = append(remoteVPCs, added[i])
 		syncResult.Add()
-		err = newVpc.SyncGlobalVpc(ctx, userCred, provider.GetOwnerId(), provider)
-		if err != nil {
-			log.Errorf("%s(%s) sync global vpc error: %v", newVpc.Name, newVpc.Id, err)
-		}
 	}
 
 	return localVPCs, remoteVPCs, syncResult
@@ -531,72 +523,6 @@ func (self *SVpc) syncRemoveCloudVpc(ctx context.Context, userCred mcclient.Toke
 	return err
 }
 
-func (self *SVpc) SyncGlobalVpc(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, provider *SCloudprovider) error {
-	if len(self.GlobalvpcId) > 0 {
-		gv, _ := self.GetGlobalVpc()
-		SyncCloudDomain(userCred, gv, ownerId)
-		gv.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
-		return nil
-	}
-	region, err := self.GetRegion()
-	if err != nil {
-		return errors.Wrap(err, "GetRegion")
-	}
-	if region.GetDriver().IsVpcBelongGlobalVpc() {
-		externalId := strings.Replace(self.ExternalId, region.ExternalId+"/", "", -1)
-		vpcs := []SVpc{}
-		sq := VpcManager.Query().SubQuery()
-		q := sq.Query().Filter(
-			sqlchemy.AND(
-				sqlchemy.Equals(sq.Field("manager_id"), self.ManagerId),
-				sqlchemy.NOT(sqlchemy.IsNullOrEmpty(sq.Field("globalvpc_id"))),
-				sqlchemy.Endswith(sq.Field("external_id"), externalId),
-			),
-		)
-		err := db.FetchModelObjects(VpcManager, q, &vpcs)
-		if err != nil {
-			return errors.Wrap(err, "db.FetchModelObjects")
-		}
-		globalvpcId := ""
-		if len(vpcs) > 0 {
-			globalvpcId = vpcs[0].GlobalvpcId
-		} else {
-			gv := &SGlobalVpc{}
-			gv.Name = self.Name
-			idx := strings.Index(gv.Name, "(")
-			if idx > 0 {
-				gv.Name = gv.Name[:idx]
-			}
-			gv.SetEnabled(true)
-			gv.Status = api.GLOBAL_VPC_STATUS_AVAILABLE
-			gv.SetModelManager(GlobalVpcManager, gv)
-			err = func() error {
-				lockman.LockRawObject(ctx, GlobalVpcManager.Keyword(), "name")
-				defer lockman.ReleaseRawObject(ctx, GlobalVpcManager.Keyword(), "name")
-
-				gv.Name, err = db.GenerateName(ctx, GlobalVpcManager, userCred, gv.Name)
-				if err != nil {
-					return errors.Wrap(err, "db.GenerateName")
-				}
-
-				return GlobalVpcManager.TableSpec().Insert(ctx, gv)
-			}()
-			if err != nil {
-				return errors.Wrap(err, "GlobalVpcManager.Insert")
-			}
-			SyncCloudDomain(userCred, gv, ownerId)
-			gv.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
-			globalvpcId = gv.Id
-		}
-		_, err = db.Update(self, func() error {
-			self.GlobalvpcId = globalvpcId
-			return nil
-		})
-		return err
-	}
-	return nil
-}
-
 func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenCredential, extVPC cloudprovider.ICloudVpc, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		extVPC.Refresh()
@@ -608,6 +534,17 @@ func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenC
 
 		self.IsEmulated = extVPC.IsEmulated()
 		self.ExternalAccessMode = extVPC.GetExternalAccessMode()
+
+		if gId := extVPC.GetGlobalVpcId(); len(gId) > 0 {
+			gVpc, err := db.FetchByExternalIdAndManagerId(GlobalVpcManager, gId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", self.ManagerId)
+			})
+			if err != nil {
+				log.Errorf("FetchGlobalVpc %s error: %v", gId, err)
+			} else {
+				self.GlobalvpcId = gVpc.GetId()
+			}
+		}
 
 		return nil
 	})
@@ -636,8 +573,17 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 	vpc.CidrBlock = extVPC.GetCidrBlock()
 	vpc.ExternalAccessMode = extVPC.GetExternalAccessMode()
 	vpc.CloudregionId = region.Id
-
 	vpc.ManagerId = provider.Id
+	if gId := extVPC.GetGlobalVpcId(); len(gId) > 0 {
+		gVpc, err := db.FetchByExternalIdAndManagerId(GlobalVpcManager, gId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("manager_id", provider.Id)
+		})
+		if err != nil {
+			log.Errorf("FetchGlobalVpc %s error: %v", gId, err)
+		} else {
+			vpc.GlobalvpcId = gVpc.GetId()
+		}
+	}
 
 	vpc.IsEmulated = extVPC.IsEmulated()
 
@@ -923,13 +869,11 @@ func (self *SVpc) GetIVpc() (cloudprovider.ICloudVpc, error) {
 		iregion, err = provider.GetIRegionById(region.ExternalId)
 	}
 	if err != nil {
-		log.Errorf("fail to find iregion: %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "find iregion")
 	}
 	ivpc, err := iregion.GetIVpcById(self.ExternalId)
 	if err != nil {
-		log.Errorf("fail to find ivpc by id %s %s", self.ExternalId, err)
-		return nil, err
+		return nil, errors.Wrapf(err, "GetIVpcById")
 	}
 	return ivpc, nil
 }
