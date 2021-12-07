@@ -2057,6 +2057,11 @@ func (manager *SNetworkManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SWireResourceBaseManager.ListItemFilter")
 	}
 
+	if len(input.RouteTableId) > 0 {
+		sq := RouteTableAssociationManager.Query("associated_resource_id").Equals("route_table_id", input.RouteTableId).Equals("association_type", string(cloudprovider.RouteTableAssociaToSubnet))
+		q = q.In("id", sq.SubQuery())
+	}
+
 	if input.Usable != nil && *input.Usable {
 		regions := CloudregionManager.Query("id").Equals("status", api.CLOUD_REGION_STATUS_INSERVER)
 		zones := ZoneManager.Query("id").Equals("status", api.ZONE_ENABLE).In("cloudregion_id", regions)
