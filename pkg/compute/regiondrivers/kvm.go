@@ -1206,7 +1206,11 @@ func (self *SKVMRegionDriver) RequestSyncDiskStatus(ctx context.Context, userCre
 		originStatus, _ := task.GetParams().GetString("origin_status")
 		status, _ := res.GetString("status")
 		if status == api.DISK_EXIST {
-			diskStatus = originStatus
+			if originStatus == api.DISK_UNKNOWN {
+				diskStatus = api.DISK_READY
+			} else {
+				diskStatus = originStatus
+			}
 		} else {
 			diskStatus = api.DISK_UNKNOWN
 		}
@@ -1229,7 +1233,11 @@ func (self *SKVMRegionDriver) RequestSyncSnapshotStatus(ctx context.Context, use
 		originStatus, _ := task.GetParams().GetString("origin_status")
 		status, _ := res.GetString("status")
 		if status == api.SNAPSHOT_EXIST {
-			snapshotStatus = originStatus
+			if originStatus == api.SNAPSHOT_UNKNOWN {
+				snapshotStatus = api.SNAPSHOT_READY
+			} else {
+				snapshotStatus = originStatus
+			}
 		} else {
 			snapshotStatus = api.SNAPSHOT_UNKNOWN
 		}
