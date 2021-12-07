@@ -44,19 +44,19 @@ type SOperation struct {
 	Kind          string
 }
 
-func (region *SRegion) GetOperation(id string) (*SOperation, error) {
+func (self *SGoogleClient) GetOperation(id string) (*SOperation, error) {
 	operation := &SOperation{}
-	err := region.Get(id, &operation)
+	err := self.GetBySelfId(id, &operation)
 	if err != nil {
 		return nil, err
 	}
 	return operation, nil
 }
 
-func (region *SRegion) WaitOperation(id string, resource, action string) (string, error) {
+func (self *SGoogleClient) WaitOperation(id string, resource, action string) (string, error) {
 	targetLink := ""
 	err := cloudprovider.Wait(time.Second*5, time.Minute*5, func() (bool, error) {
-		operation, err := region.GetOperation(id)
+		operation, err := self.GetOperation(id)
 		if err != nil {
 			return false, err
 		}

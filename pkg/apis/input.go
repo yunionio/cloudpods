@@ -382,3 +382,6 @@ type AutoRenewInput struct {
 type RenewInput struct {
 	Duration string `json:"duration"`
 }
+
+type SyncstatusInput struct {
+}

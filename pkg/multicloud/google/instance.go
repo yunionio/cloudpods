@@ -90,7 +90,6 @@ type SInstance struct {
 	host *SHost
 	SResourceBase
 
-	Id                 string
 	CreationTimestamp  time.Time
 	Description        string
 	Tags               SInstanceTag
@@ -126,7 +125,7 @@ func (region *SRegion) GetInstances(zone string, maxResults int, pageToken strin
 
 func (region *SRegion) GetInstance(id string) (*SInstance, error) {
 	instance := &SInstance{}
-	return instance, region.Get(id, instance)
+	return instance, region.Get("instances", id, instance)
 }
 
 func (instnace *SInstance) IsEmulated() bool {
@@ -147,16 +146,16 @@ func (instance *SInstance) fetchMachineType() error {
 	return nil
 }
 
-func (instance *SInstance) Refresh() error {
-	_instance, err := instance.host.zone.region.GetInstance(instance.SelfLink)
+func (self *SInstance) Refresh() error {
+	instance, err := self.host.zone.region.GetInstance(self.Id)
 	if err != nil {
 		return err
 	}
-	err = jsonutils.Update(instance, _instance)
+	err = jsonutils.Update(self, instance)
 	if err != nil {
 		return err
 	}
-	instance.Labels = _instance.Labels
+	instance.Labels = self.Labels
 	return nil
 }
 
@@ -211,7 +210,8 @@ func (instance *SInstance) GetIHostId() string {
 func (instance *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	idisks := []cloudprovider.ICloudDisk{}
 	for _, disk := range instance.Disks {
-		_disk, err := instance.host.zone.region.GetDisk(disk.Source)
+		_disk := &SDisk{}
+		err := instance.host.zone.region.GetBySelfId(disk.Source, _disk)
 		if err != nil {
 			return nil, errors.Wrap(err, "GetDisk")
 		}
@@ -252,10 +252,10 @@ func (instance *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 				}
 				eip := &SAddress{
 					region:  instance.host.zone.region,
-					Id:      instance.SelfLink,
 					Status:  "IN_USE",
 					Address: conf.NatIP,
 				}
+				eip.Id = instance.Id
 				eip.SelfLink = instance.SelfLink
 				return eip, nil
 			}
@@ -353,11 +353,10 @@ func (instance *SInstance) GetSecurityGroupIds() ([]string, error) {
 	secgroupIds := []string{}
 	isecgroups := []cloudprovider.ICloudSecurityGroup{}
 	for _, networkinterface := range instance.NetworkInterfaces {
-		globalnetwork, err := instance.host.zone.region.client.GetGlobalNetwork(networkinterface.Network)
+		vpc, err := instance.host.zone.region.GetVpc(networkinterface.Subnetwork)
 		if err != nil {
 			return nil, errors.Wrap(err, "GetGlobalNetwork")
 		}
-		vpc := &SVpc{globalnetwork: globalnetwork, region: instance.host.zone.region}
 		_isecgroups, err := vpc.GetISecurityGroups()
 		if err != nil {
 			return nil, errors.Wrap(err, "vpc.GetISecurityGroups")
@@ -367,7 +366,9 @@ func (instance *SInstance) GetSecurityGroupIds() ([]string, error) {
 			if len(instance.ServiceAccounts) > 0 && isecgroup.GetName() == instance.ServiceAccounts[0].Email {
 				secgroupIds = append(secgroupIds, isecgroup.GetGlobalId())
 			}
-			if isecgroup.GetName() == globalnetwork.Name && !strings.Contains(isecgroup.GetGlobalId(), fmt.Sprintf("/%s/", SECGROUP_TYPE_TAG)) {
+			gvpcInfo := strings.Split(vpc.Network, "/")
+			gvpcName := gvpcInfo[len(gvpcInfo)-1]
+			if isecgroup.GetName() == gvpcName && !strings.Contains(isecgroup.GetGlobalId(), fmt.Sprintf("/%s/", SECGROUP_TYPE_TAG)) {
 				secgroupIds = append(secgroupIds, isecgroup.GetGlobalId())
 			}
 		}
@@ -462,7 +463,7 @@ func (instance *SInstance) UpdateUserData(userData string) error {
 }
 
 func (instance *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
-	diskId, err := instance.host.zone.region.RebuildRoot(instance.SelfLink, desc.ImageId, desc.SysSizeGB)
+	diskId, err := instance.host.zone.region.RebuildRoot(instance.Id, desc.ImageId, desc.SysSizeGB)
 	if err != nil {
 		return "", errors.Wrap(err, "region.RebuildRoot")
 	}
@@ -609,7 +610,7 @@ func (region *SRegion) getSecgroupByIds(ids []string) (map[string][]string, erro
 }
 
 func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCreateConfig) (*SInstance, error) {
-	network, err := region.GetNetwork(desc.ExternalNetworkId)
+	vpc, err := region.GetVpc(desc.ExternalNetworkId)
 	if err != nil {
 		return nil, errors.Wrap(err, "region.GetNetwork")
 	}
@@ -653,8 +654,8 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 		})
 	}
 	networkInterface := map[string]string{
-		"network":    network.Network,
-		"subnetwork": network.SelfLink,
+		"network":    vpc.Network,
+		"subnetwork": vpc.SelfLink,
 	}
 	if len(desc.IpAddr) > 0 {
 		networkInterface["networkIp"] = desc.IpAddr
@@ -774,7 +775,7 @@ func (region *SRegion) getSerialPortOutput(id string, port int, start int) (stri
 		Start    int
 		Next     int
 	}{}
-	err := region.Get(resource, &result)
+	err := region.GetBySelfId(resource, &result)
 	if err != nil {
 		return "", result.Next, errors.Wrap(err, "")
 	}
@@ -843,7 +844,8 @@ func (region *SRegion) RebuildRoot(instanceId string, imageId string, sysDiskSiz
 	}
 
 	if len(oldDisk) > 0 {
-		disk, err := region.GetDisk(oldDisk)
+		disk := &SDisk{}
+		err := region.GetBySelfId(oldDisk, disk)
 		if err != nil {
 			return "", errors.Wrap(err, "region.GetDisk")
 		}

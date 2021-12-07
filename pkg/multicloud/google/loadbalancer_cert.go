@@ -145,7 +145,7 @@ func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadb
 
 func (self *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
 	ret := SLoadbalancerCertificate{}
-	err := self.Get(certId, &ret)
+	err := self.GetBySelfId(certId, &ret)
 	if err != nil {
 		return nil, errors.Wrap(err, "Get")
 	}

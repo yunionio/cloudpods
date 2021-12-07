@@ -246,13 +246,13 @@ func (self *SRegion) GetCloudEnv() string {
 	return ""
 }
 
-func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
+func (self *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
 	params := make(map[string]string)
-	if len(cidr) > 0 {
-		params["CidrBlock"] = cidr
+	if len(opts.CIDR) > 0 {
+		params["CidrBlock"] = opts.CIDR
 	}
-	if len(name) > 0 {
-		params["VpcName"] = name
+	if len(opts.NAME) > 0 {
+		params["VpcName"] = opts.NAME
 	}
 	body, err := self.vpcRequest("CreateVpc", params)
 	if err != nil {

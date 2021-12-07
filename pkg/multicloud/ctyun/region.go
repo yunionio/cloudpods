@@ -295,8 +295,8 @@ func (self *SRegion) DeleteSecurityGroup(securityGroupId string) error {
 	return nil
 }
 
-func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
-	return self.CreateVpc(name, cidr)
+func (self *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
+	return self.CreateVpc(opts.NAME, opts.CIDR)
 }
 
 func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {

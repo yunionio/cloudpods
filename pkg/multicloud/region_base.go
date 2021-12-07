@@ -253,7 +253,7 @@ func (self *SRegionZoneBase) GetIZoneById(id string) (cloudprovider.ICloudZone, 
 type SRegionVpcBase struct {
 }
 
-func (self *SRegionVpcBase) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
+func (self *SRegionVpcBase) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateIVpc")
 }
 

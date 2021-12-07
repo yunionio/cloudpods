@@ -56,6 +56,7 @@ const (
 	CLOUD_CAPABILITY_PUBLIC_IP       = "public_ip"
 	CLOUD_CAPABILITY_INTERVPCNETWORK = "intervpcnetwork"
 	CLOUD_CAPABILITY_SAML_AUTH       = "saml_auth" // 是否支持SAML 2.0
+	CLOUD_CAPABILITY_QUOTA           = "quota"     // 配额
 	CLOUD_CAPABILITY_NAT             = "nat"       // NAT网关
 	CLOUD_CAPABILITY_NAS             = "nas"       // NAS
 	CLOUD_CAPABILITY_WAF             = "waf"       // WAF

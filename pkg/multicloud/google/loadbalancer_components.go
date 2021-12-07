@@ -13,7 +13,6 @@ import (
 type SUrlMap struct {
 	SResourceBase
 
-	ID                string        `json:"id"`
 	CreationTimestamp string        `json:"creationTimestamp"`
 	HostRules         []HostRule    `json:"hostRules"`
 	PathMatchers      []PathMatcher `json:"pathMatchers"`
@@ -26,7 +25,6 @@ type SUrlMap struct {
 type SForwardingRule struct {
 	SResourceBase
 
-	ID                  string   `json:"id"`
 	CreationTimestamp   string   `json:"creationTimestamp"`
 	Description         string   `json:"description"`
 	Region              string   `json:"region"`
@@ -52,7 +50,6 @@ type SForwardingRule struct {
 type SBackendServices struct {
 	SResourceBase
 
-	ID                   string             `json:"id"`
 	CreationTimestamp    string             `json:"creationTimestamp"`
 	Description          string             `json:"description"`
 	Backends             []Backend          `json:"backends"`
@@ -81,7 +78,6 @@ type SBackendServices struct {
 type STargetHttpProxy struct {
 	SResourceBase
 
-	ID                string `json:"id"`
 	CreationTimestamp string `json:"creationTimestamp"`
 	Description       string `json:"description"`
 	URLMap            string `json:"urlMap"`
@@ -94,7 +90,6 @@ type STargetHttpProxy struct {
 type STargetHttpsProxy struct {
 	SResourceBase
 
-	ID                  string   `json:"id"`
 	CreationTimestamp   string   `json:"creationTimestamp"`
 	Description         string   `json:"description"`
 	URLMap              string   `json:"urlMap"`
@@ -114,7 +109,6 @@ type SInstanceGroup struct {
 	region    *SRegion
 	instances []SInstanceGroupInstance
 
-	ID                string      `json:"id"`
 	CreationTimestamp string      `json:"creationTimestamp"`
 	Description       string      `json:"description"`
 	NamedPorts        []NamedPort `json:"namedPorts"`
@@ -340,7 +334,6 @@ type ConnectionDraining struct {
 type HealthChecks struct {
 	SResourceBase
 
-	ID                 string          `json:"id"`
 	CreationTimestamp  string          `json:"creationTimestamp"`
 	Description        string          `json:"description"`
 	CheckIntervalSEC   int64           `json:"checkIntervalSec"`

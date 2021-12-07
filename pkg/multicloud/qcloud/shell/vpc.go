@@ -39,7 +39,11 @@ func init() {
 		CIDR string `help:"Cidr for vpc" choices:"10.0.0.0/16|172.16.0.0/12|192.168.0.0/16"`
 	}
 	shellutils.R(&VpcCreateOptions{}, "vpc-create", "Create vpc", func(cli *qcloud.SRegion, args *VpcCreateOptions) error {
-		vpc, err := cli.CreateIVpc(args.NAME, "", args.CIDR)
+		opts := &cloudprovider.VpcCreateOptions{
+			NAME: args.NAME,
+			CIDR: args.CIDR,
+		}
+		vpc, err := cli.CreateIVpc(opts)
 		if err != nil {
 			return err
 		}

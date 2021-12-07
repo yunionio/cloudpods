@@ -21,12 +21,9 @@ import (
 
 func init() {
 	type NetworkListOptions struct {
-		Network    string
-		MaxResults int
-		PageToken  string
 	}
-	shellutils.R(&NetworkListOptions{}, "network-list", "List networks", func(cli *google.SRegion, args *NetworkListOptions) error {
-		networks, err := cli.GetNetworks(args.Network, args.MaxResults, args.PageToken)
+	shellutils.R(&NetworkListOptions{}, "vpc-list", "List networks", func(cli *google.SRegion, args *NetworkListOptions) error {
+		networks, err := cli.GetVpcs()
 		if err != nil {
 			return err
 		}
@@ -38,16 +35,16 @@ func init() {
 		ID string
 	}
 
-	shellutils.R(&NetworkIdOptions{}, "network-show", "Show network", func(cli *google.SRegion, args *NetworkIdOptions) error {
-		network, err := cli.GetNetwork(args.ID)
+	shellutils.R(&NetworkIdOptions{}, "vpc-show", "Show network", func(cli *google.SRegion, args *NetworkIdOptions) error {
+		vpc, err := cli.GetVpc(args.ID)
 		if err != nil {
 			return err
 		}
-		printObject(network)
+		printObject(vpc)
 		return nil
 	})
 
-	shellutils.R(&NetworkIdOptions{}, "network-delete", "Delete network", func(cli *google.SRegion, args *NetworkIdOptions) error {
+	shellutils.R(&NetworkIdOptions{}, "vpc-delete", "Delete network", func(cli *google.SRegion, args *NetworkIdOptions) error {
 		return cli.Delete(args.ID)
 	})
 
@@ -58,8 +55,8 @@ func init() {
 		Desc string
 	}
 
-	shellutils.R(&NetworkCreateOptions{}, "network-create", "Create network", func(cli *google.SRegion, args *NetworkCreateOptions) error {
-		network, err := cli.CreateNetwork(args.NAME, args.VPC, args.CIDR, args.Desc)
+	shellutils.R(&NetworkCreateOptions{}, "vpc-create", "Create network", func(cli *google.SRegion, args *NetworkCreateOptions) error {
+		network, err := cli.CreateVpc(args.NAME, args.VPC, args.CIDR, args.Desc)
 		if err != nil {
 			return err
 		}

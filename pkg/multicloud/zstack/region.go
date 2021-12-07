@@ -240,7 +240,7 @@ func (region *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 	return region.ivpcs, nil
 }
 
-func (region *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
+func (region *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 

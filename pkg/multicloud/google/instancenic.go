@@ -15,7 +15,6 @@
 package google
 
 import (
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -57,12 +56,14 @@ func (nic *SNetworkInterface) InClassicNetwork() bool {
 }
 
 func (nic *SNetworkInterface) GetINetwork() cloudprovider.ICloudNetwork {
-	network, err := nic.instance.host.zone.region.GetNetwork(nic.Subnetwork)
+	vpc := &SVpc{region: nic.instance.host.zone.region}
+	err := nic.instance.host.zone.region.GetBySelfId(nic.Subnetwork, vpc)
 	if err != nil {
-		log.Errorf("failed to found network(%s) for nic error: %v", nic.Subnetwork, err)
 		return nil
 	}
-	wire := nic.instance.host.GetWire()
-	network.wire = wire
-	return network
+	networks, _ := vpc.getWire().GetINetworks()
+	for i := range networks {
+		return networks[i]
+	}
+	return nil
 }
