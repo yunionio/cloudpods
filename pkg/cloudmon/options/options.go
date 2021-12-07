@@ -37,7 +37,10 @@ type CloudMonOptions struct {
 	KeyFile    string `help:"private key file"`
 
 	InfluxDatabase string `help:"influxdb database name, default telegraf" default:"telegraf"`
+}
 
+type SubCloudMonOptions struct {
+	CloudMonOptions
 	Subcommand string `help:"climc subcommand" subcommand:"true"`
 }
 
@@ -63,7 +66,7 @@ type PingProbeOptions struct {
 }
 
 func GetArgumentParser() (*structarg.ArgumentParser, error) {
-	parse, e := structarg.NewArgumentParser(&Options,
+	parse, e := structarg.NewArgumentParser(&SubOptions,
 		"cloudmon",
 		`Command-line interface to collect cloud monitoring data.`,
 		`See "cloudmon help COMMAND" for help on a specific command.`)
@@ -97,5 +100,6 @@ func GetArgumentParser() (*structarg.ArgumentParser, error) {
 }
 
 var (
-	Options CloudMonOptions
+	Options    CloudMonOptions
+	SubOptions SubCloudMonOptions
 )
