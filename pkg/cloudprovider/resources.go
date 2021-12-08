@@ -1437,6 +1437,8 @@ type ICloudElasticSearch interface {
 	GetZoneId() string
 	IsMultiAz() bool
 
+	GetAccessInfo() (*ElasticSearchAccessInfo, error)
+
 	Delete() error
 }
 

@@ -12,20 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package cloudprovider
 
-import (
-	"yunion.io/x/onecloud/cmd/climc/shell"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
-)
-
-func init() {
-	cmd := shell.NewResourceCmd(&modules.ElasticSearchs)
-	cmd.List(&compute.ElasticSearchListOptions{})
-	cmd.Update(&compute.ElasticSearchUpdateOptions{})
-	cmd.Show(&compute.ElasticSearchIdOption{})
-	cmd.Delete(&compute.ElasticSearchIdOption{})
-	cmd.Perform("syncstatus", &compute.ElasticSearchIdOption{})
-	cmd.Get("access-info", &compute.ElasticSearchIdOption{})
+// +onecloud:model-api-gen
+type ElasticSearchAccessInfo struct {
+	Domain           string
+	PrivateDomain    string
+	Vip              string
+	Port             int
+	PrivatePort      int
+	KibanaUrl        string
+	KibanaPrivateUrl string
 }

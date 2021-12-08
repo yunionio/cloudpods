@@ -264,6 +264,17 @@ func (self *SElasticSearch) Delete() error {
 	return self.region.DeleteElasticSearch(self.InstanceId)
 }
 
+func (self *SElasticSearch) GetAccessInfo() (*cloudprovider.ElasticSearchAccessInfo, error) {
+	return &cloudprovider.ElasticSearchAccessInfo{
+		Port:             self.EsPort,
+		Vip:              self.EsVip,
+		Domain:           self.EsPublicUrl,
+		PrivateDomain:    self.EsDomain,
+		KibanaUrl:        self.KibanaUrl,
+		KibanaPrivateUrl: self.KibanaPrivateUrl,
+	}, nil
+}
+
 func (self *SRegion) GetIElasticSearchs() ([]cloudprovider.ICloudElasticSearch, error) {
 	ess := []SElasticSearch{}
 	for {

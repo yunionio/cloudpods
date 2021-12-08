@@ -49,3 +49,6 @@ type ElasticSearchListInput struct {
 	ManagedResourceListInput
 	VpcFilterListInput
 }
+
+type ElasticSearchAccessInfoInput struct {
+}
