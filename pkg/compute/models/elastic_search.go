@@ -641,3 +641,11 @@ func (self *SElasticSearch) PerformSyncstatus(ctx context.Context, userCred mccl
 
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "ElasticSearchSyncstatusTask", "")
 }
+
+func (self *SElasticSearch) GetDetailsAccessInfo(ctx context.Context, userCred mcclient.TokenCredential, input api.ElasticSearchAccessInfoInput) (*cloudprovider.ElasticSearchAccessInfo, error) {
+	iEs, err := self.GetIElasticSearch()
+	if err != nil {
+		return nil, err
+	}
+	return iEs.GetAccessInfo()
+}
