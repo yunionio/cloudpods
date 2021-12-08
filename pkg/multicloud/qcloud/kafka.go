@@ -17,6 +17,7 @@ package qcloud
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -97,6 +98,14 @@ func (self *SKafka) GetBillingType() string {
 	return billing_api.BILLING_TYPE_PREPAID
 }
 
+func (self *SKafka) GetCreatedAt() time.Time {
+	return time.Unix(int64(self.CreateTime), 0)
+}
+
+func (self *SKafka) GetExpiredAt() time.Time {
+	return time.Unix(int64(self.ExpireTime), 0)
+}
+
 func (self *SKafka) GetInstanceType() string {
 	return self.InstanceType
 }
@@ -114,11 +123,11 @@ func (self *SKafka) IsMultiAz() bool {
 }
 
 func (self *SKafka) GetBandwidthMb() int {
-	return self.Bandwidth
+	return self.Bandwidth / 8
 }
 
 func (self *SKafka) GetStorageType() string {
-	return ""
+	return self.DiskType
 }
 
 func (self *SKafka) GetEndpoint() string {
