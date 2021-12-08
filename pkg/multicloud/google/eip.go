@@ -16,7 +16,6 @@ package google
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -34,6 +33,7 @@ type SAddress struct {
 	SResourceBase
 	multicloud.SEipBase
 	multicloud.GoogleTags
+	instanceId string
 
 	CreationTimestamp time.Time
 	Description       string
@@ -80,10 +80,7 @@ func (addr *SAddress) GetProjectId() string {
 }
 
 func (addr *SAddress) IsEmulated() bool {
-	if addr.Id == addr.SelfLink {
-		return true
-	}
-	return false
+	return len(addr.instanceId) > 0
 }
 
 func (addr *SAddress) GetCreatedAt() time.Time {
@@ -129,8 +126,16 @@ func (addr *SAddress) GetAssociationType() string {
 }
 
 func (addr *SAddress) GetAssociationExternalId() string {
+	if len(addr.instanceId) > 0 {
+		return addr.instanceId
+	}
 	if len(addr.Users) > 0 {
-		return strings.TrimPrefix(addr.Users[0], fmt.Sprintf("%s/%s/", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION))
+		res := &SResourceBase{}
+		err := addr.region.GetBySelfId(addr.Users[0], res)
+		if err != nil {
+			return ""
+		}
+		return res.GetGlobalId()
 	}
 	return ""
 }
