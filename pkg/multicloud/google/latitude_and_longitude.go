@@ -50,6 +50,7 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"us-west2":                api.RegionLosAngeles,
 	"us-west3":                api.RegionSaltLakeCity,
 	"us-west4":                api.RegionLasVegas,
+	"southamerica-west1":      api.RegionSantiago,
 }
 
 var RegionNames = map[string]string{
@@ -76,7 +77,8 @@ var RegionNames = map[string]string{
 	"northamerica-northeast1": "蒙特利尔",
 	"northamerica-northeast2": "多伦多",
 	"southamerica-east1":      "圣保罗",
-	"us-central1":             "艾奥瓦",
+	"southamerica-west1":      "圣地亚哥",
+	"us-central1":             "爱荷华",
 	"us-east1":                "南卡罗来纳州",
 	"us-east4":                "北弗吉尼亚",
 	"us-west1":                "俄勒冈州",
