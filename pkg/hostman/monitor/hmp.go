@@ -36,9 +36,9 @@ type HmpMonitor struct {
 	callbackQueue []StringCallback
 }
 
-func NewHmpMonitor(OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc, OnMonitorConnected MonitorSuccFunc) *HmpMonitor {
+func NewHmpMonitor(server string, OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc, OnMonitorConnected MonitorSuccFunc) *HmpMonitor {
 	return &HmpMonitor{
-		SBaseMonitor:  *NewBaseMonitor(OnMonitorConnected, OnMonitorDisConnect, OnMonitorTimeout),
+		SBaseMonitor:  *NewBaseMonitor(server, OnMonitorConnected, OnMonitorDisConnect, OnMonitorTimeout),
 		commandQueue:  make([]string, 0),
 		callbackQueue: make([]StringCallback, 0),
 	}
@@ -76,6 +76,7 @@ func (m *HmpMonitor) read(r io.Reader) {
 		if len(res) == 0 {
 			continue
 		}
+		log.Infof("HMP Read %s: %s", m.server, res)
 		if m.connected {
 			go m.callBack(res)
 		} else {
@@ -87,10 +88,10 @@ func (m *HmpMonitor) read(r io.Reader) {
 			go m.OnMonitorConnected()
 		}
 	}
-	log.Errorln("Scan over ...")
+	log.Infof("Scan over %s ...", m.server)
 	err := scanner.Err()
 	if err != nil {
-		log.Infof("HMP Disconnected: %s", err)
+		log.Infof("HMP Disconnected %s: %s", m.server, err)
 	}
 	if m.timeout {
 		m.OnMonitorTimeout(err)
@@ -121,6 +122,7 @@ func (m *HmpMonitor) callBack(res string) {
 
 func (m *HmpMonitor) write(cmd []byte) error {
 	cmd = append(cmd, '\n')
+	log.Infof("HMP Write %s: %s", m.server, string(cmd))
 	length, index := len(cmd), 0
 	for index < length {
 		i, err := m.rwc.Write(cmd)
@@ -147,7 +149,7 @@ func (m *HmpMonitor) query() {
 		err := m.write([]byte(cmd))
 		m.mutex.Unlock()
 		if err != nil {
-			log.Errorf("Write %s to monitor error: %s", cmd, err)
+			log.Errorf("Write %s to monitor error %s: %s", cmd, m.server, err)
 			break
 		}
 	}
@@ -326,7 +328,7 @@ func (m *HmpMonitor) Migrate(
 
 func (m *HmpMonitor) GetMigrateStatus(callback StringCallback) {
 	cb := func(output string) {
-		log.Infof("Query migrate status: %s", output)
+		log.Infof("Query migrate status %s: %s", m.server, output)
 
 		var status string
 		for _, line := range strings.Split(strings.TrimSuffix(output, "\r\n"), "\r\n") {
@@ -398,7 +400,7 @@ func (m *HmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMod
 
 func (m *HmpMonitor) BlockStream(drive string, callback StringCallback) {
 	var (
-		speed = 100 // limit 100 MB/s
+		speed = 500 // limit 500 MB/s
 		cmd   = fmt.Sprintf("block_stream %s %d", drive, speed)
 	)
 	m.Query(cmd, callback)

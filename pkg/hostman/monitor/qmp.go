@@ -107,10 +107,10 @@ type QmpMonitor struct {
 	callbackQueue []qmpMonitorCallBack
 }
 
-func NewQmpMonitor(OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc,
+func NewQmpMonitor(server string, OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc,
 	OnMonitorConnected MonitorSuccFunc, qmpEventFunc qmpEventCallback) *QmpMonitor {
 	m := &QmpMonitor{
-		SBaseMonitor:  *NewBaseMonitor(OnMonitorConnected, OnMonitorDisConnect, OnMonitorTimeout),
+		SBaseMonitor:  *NewBaseMonitor(server, OnMonitorConnected, OnMonitorDisConnect, OnMonitorTimeout),
 		qmpEventFunc:  qmpEventFunc,
 		commandQueue:  make([]*Command, 0),
 		callbackQueue: make([]qmpMonitorCallBack, 0),
@@ -125,7 +125,7 @@ func NewQmpMonitor(OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc,
 
 func (m *QmpMonitor) actionResult(res *Response) string {
 	if res.ErrorVal != nil {
-		log.Errorf("Qmp Monitor action result %s", res.ErrorVal.Error())
+		log.Errorf("Qmp Monitor action result %s: %s", m.server, res.ErrorVal.Error())
 		return res.ErrorVal.Error()
 	} else {
 		return ""
@@ -145,7 +145,7 @@ func (m *QmpMonitor) callBack(res *Response) {
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Errorf("PANIC %s:\n%s", debug.Stack(), r)
+					log.Errorf("PANIC %s %s:\n%s", m.server, debug.Stack(), r)
 				}
 			}()
 			cb(res)
@@ -161,8 +161,9 @@ func (m *QmpMonitor) read(r io.Reader) {
 	for scanner.Scan() {
 		var objmap map[string]*json.RawMessage
 		b := scanner.Bytes()
+		log.Infof("QMP Read %s: %s", m.server, string(b))
 		if err := json.Unmarshal(b, &objmap); err != nil {
-			log.Errorln("Error, ", err.Error())
+			log.Errorf("Unmarshal %s error: %s", m.server, err.Error())
 			continue
 		}
 		if val, ok := objmap["error"]; ok {
@@ -211,10 +212,10 @@ func (m *QmpMonitor) read(r io.Reader) {
 		}
 	}
 
-	log.Infof("Scan over ...")
+	log.Infof("Scan over %s ...", m.server)
 	err := scanner.Err()
 	if err != nil {
-		log.Infof("QMP Disconnected: %s", err)
+		log.Infof("QMP Disconnected %s: %s", m.server, err)
 	}
 	if m.timeout {
 		m.OnMonitorTimeout(err)
@@ -227,7 +228,7 @@ func (m *QmpMonitor) read(r io.Reader) {
 
 func (m *QmpMonitor) watchEvent(event *Event) {
 	if !utils.IsInStringArray(event.Event, ignoreEvents) {
-		log.Infof(event.String())
+		log.Infof("QMP event %s: %s", m.server, event.String())
 	}
 	if m.qmpEventFunc != nil {
 		go m.qmpEventFunc(event)
@@ -235,7 +236,7 @@ func (m *QmpMonitor) watchEvent(event *Event) {
 }
 
 func (m *QmpMonitor) write(cmd []byte) error {
-	log.Infof("QMP Write: %s", string(cmd))
+	log.Infof("QMP Write %s: %s", m.server, string(cmd))
 	length, index := len(cmd), 0
 	for index < length {
 		i, err := m.rwc.Write(cmd)
@@ -265,7 +266,7 @@ func (m *QmpMonitor) query() {
 		err := m.write(c)
 		m.mutex.Unlock()
 		if err != nil {
-			log.Errorf("Write %s to monitor error: %s", c, err)
+			log.Errorf("Write %s to monitor %s error: %s", c, m.server, err)
 			break
 		}
 	}
@@ -341,7 +342,7 @@ func (m *QmpMonitor) HumanMonitorCommand(cmd string, callback StringCallback) {
 		}
 
 		cb = func(res *Response) {
-			log.Debugf("Monitor ret: %s", res.Return)
+			log.Debugf("Monitor %s ret: %s", m.server, res.Return)
 			if res.ErrorVal != nil {
 				callback(res.ErrorVal.Error())
 			} else {
@@ -407,7 +408,7 @@ func (m *QmpMonitor) GetBlocks(callback func(*jsonutils.JSONArray)) {
 		}
 		jr, err := jsonutils.Parse(res.Return)
 		if err != nil {
-			log.Errorf("Get block error %s", err)
+			log.Errorf("Get %s block error %s", m.server, err)
 			callback(nil)
 		}
 		jra, _ := jr.(*jsonutils.JSONArray)
@@ -623,10 +624,10 @@ func (m *QmpMonitor) GetMigrateStatus(callback StringCallback) {
 			} else {
 				ret, err := jsonutils.Parse(res.Return)
 				if err != nil {
-					log.Errorf("Parse qmp res error: %s", err)
+					log.Errorf("Parse qmp res error %s: %s", m.server, err)
 					callback("")
 				} else {
-					log.Infof("Query migrate status: %s", ret.String())
+					log.Infof("Query migrate status %s: %s", m.server, ret.String())
 					status, _ := ret.GetString("status")
 					callback(status)
 				}
@@ -639,12 +640,12 @@ func (m *QmpMonitor) GetMigrateStatus(callback StringCallback) {
 func (m *QmpMonitor) GetBlockJobCounts(callback func(jobs int)) {
 	var cb = func(res *Response) {
 		if res.ErrorVal != nil {
-			log.Errorln(res.ErrorVal.Error())
+			log.Errorf("GetBlockJobCounts error %s: %s", m.server, res.ErrorVal.Error())
 			callback(-1)
 		} else {
 			ret, err := jsonutils.Parse(res.Return)
 			if err != nil {
-				log.Errorf("Parse qmp res error: %s", err)
+				log.Errorf("Parse GetBlockJobCounts qmp res error %s: %s", m.server, err)
 				callback(-1)
 			} else {
 				jobs, _ := ret.GetArray()
@@ -658,12 +659,12 @@ func (m *QmpMonitor) GetBlockJobCounts(callback func(jobs int)) {
 func (m *QmpMonitor) GetBlockJobs(callback func(*jsonutils.JSONArray)) {
 	var cb = func(res *Response) {
 		if res.ErrorVal != nil {
-			log.Errorln(res.ErrorVal.Error())
+			log.Errorf("GetBlockJobs error %s: %s", m.server, res.ErrorVal.Error())
 			callback(nil)
 		} else {
 			ret, err := jsonutils.Parse(res.Return)
 			if err != nil {
-				log.Errorf("Parse qmp res error: %s", err)
+				log.Errorf("Parse GetBlockJobs qmp res error %s: %s", m.server, err)
 				callback(nil)
 			} else {
 				jobs, _ := ret.(*jsonutils.JSONArray)
@@ -718,7 +719,7 @@ func (m *QmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMod
 
 func (m *QmpMonitor) BlockStream(drive string, callback StringCallback) {
 	var (
-		speed = 100 * 1024 * 1024 // limit 100 MB/s
+		speed = 5 * 100 * 1024 * 1024 // limit 500 MB/s
 		cb    = func(res *Response) {
 			callback(m.actionResult(res))
 		}

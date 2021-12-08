@@ -743,7 +743,7 @@ func (s *SGuestStreamDisksTask) onBlockDrivesSucc(res *jsonutils.JSONArray) {
 			s.streamDevs = append(s.streamDevs, device)
 		}
 	}
-	log.Infof("Stream devices: %v", s.streamDevs)
+	log.Infof("Stream devices %s: %v", s.GetName(), s.streamDevs)
 	if len(s.streamDevs) == 0 {
 		s.taskComplete()
 	} else {
@@ -763,14 +763,14 @@ func (s *SGuestStreamDisksTask) startDoBlockStream() {
 }
 
 func (s *SGuestStreamDisksTask) startWaitBlockStream(res string) {
-	log.Infof("Block stream command res: %s", res)
+	log.Infof("Block stream command res %s: %q", s.GetName(), res)
 	s.c = make(chan struct{})
 	for {
 		select {
 		case <-s.c:
 			s.c = nil
 			return
-		case <-time.After(time.Second * 3):
+		case <-time.After(time.Second * 10):
 			s.Monitor.GetBlockJobCounts(s.checkStreamJobs)
 		}
 	}

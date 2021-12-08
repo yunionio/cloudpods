@@ -145,7 +145,7 @@ func (s *SKVMGuestInstance) getPid(pidFile, uuid string) int {
 	}
 	pidStr, err := fileutils2.FileGetContents(pidFile)
 	if err != nil {
-		log.Errorln(err)
+		log.Errorf("Get pid file %s error %s: %s", pidFile, s.GetName(), err)
 		return -2
 	}
 	pidStr = strings.TrimSpace(pidStr)
@@ -230,7 +230,7 @@ func (s *SKVMGuestInstance) DirtyServerRequestStart() {
 	_, err := modules.Servers.PerformClassAction(
 		hostutils.GetComputeSession(context.Background()), "dirty-server-start", body)
 	if err != nil {
-		log.Errorf("Dirty server request start error: %s", err)
+		log.Errorf("Dirty server request start error %s: %s", s.GetName(), err)
 	}
 }
 
@@ -266,10 +266,10 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 
 	finally:
 		if !isStarted {
-			log.Errorf("Start VM failed: %s", err)
+			log.Errorf("Start VM failed %s: %s", s.GetName(), err)
 			time.Sleep(time.Duration(1<<uint(tried-1)) * time.Second)
 		} else {
-			log.Infof("VM started ...")
+			log.Infof("VM started %s ...", s.GetName())
 		}
 	}
 
@@ -418,10 +418,11 @@ func (s *SKVMGuestInstance) GetMonitorPath() string {
 func (s *SKVMGuestInstance) StartMonitorWithImportGuestSocketFile(ctx context.Context, socketFile string) {
 	timeutils2.AddTimeout(100*time.Millisecond, func() {
 		s.Monitor = monitor.NewQmpMonitor(
-			s.onImportGuestMonitorDisConnect,                            // on monitor disconnect
+			s.GetName(),
+			s.onImportGuestMonitorDisConnect, // on monitor disconnect
 			func(err error) { s.onImportGuestMonitorTimeout(ctx, err) }, // on monitor timeout
 			func() { s.onImportGuestMonitorConnected(ctx) },             // on monitor connected
-			s.onReceiveQMPEvent,                                         // on reveive qmp event
+			s.onReceiveQMPEvent, // on reveive qmp event
 		)
 		s.Monitor.ConnectWithSocket(socketFile)
 	})
@@ -433,7 +434,8 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 		timeutils2.AddTimeout(100*time.Millisecond, func() {
 			var mon monitor.Monitor
 			mon = monitor.NewQmpMonitor(
-				s.onMonitorDisConnect,                            // on monitor disconnect
+				s.GetName(),
+				s.onMonitorDisConnect, // on monitor disconnect
 				func(err error) { s.onMonitorTimeout(ctx, err) }, // on monitor timeout
 				func() { s.onMonitorConnected(ctx) },             // on monitor connected
 				s.onReceiveQMPEvent,                              // on reveive qmp event
@@ -442,7 +444,8 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 			if err != nil {
 				log.Errorf("Guest %s qmp monitor connect failed %s, try hmp", s.GetName(), err)
 				mon = monitor.NewHmpMonitor(
-					s.onMonitorDisConnect,                            // on monitor disconnect
+					s.GetName(),
+					s.onMonitorDisConnect, // on monitor disconnect
 					func(err error) { s.onMonitorTimeout(ctx, err) }, // on monitor timeout
 					func() { s.onMonitorConnected(ctx) },             // on monitor connected
 				)
@@ -1494,7 +1497,7 @@ func (s *SKVMGuestInstance) GetFuseTmpPath() string {
 }
 
 func (s *SKVMGuestInstance) StreamDisks(ctx context.Context, callback func(), disksIdx []int) {
-	log.Infof("Start guest block stream task ...")
+	log.Infof("Start guest block stream task %s ...", s.GetName())
 	task := NewGuestStreamDisksTask(ctx, s, callback, disksIdx)
 	task.Start()
 }
@@ -1664,7 +1667,10 @@ func (s *SKVMGuestInstance) generateDiskParams(disks []api.GuestdiskJsonDesc, is
 			if _, ok := firstDriver[driver]; !ok {
 				switch driver {
 				case DISK_DRIVER_SCSI:
-					cmd += " -device virtio-scsi-pci,id=scsi,iothread=iothread0,num_queues=4,vectors=5"
+					// FIXME: iothread will make qemu-monitor hang
+					// REF: https://www.mail-archive.com/qemu-devel@nongnu.org/msg592729.html
+					// cmd += " -device virtio-scsi-pci,id=scsi,iothread=iothread0,num_queues=4,vectors=5"
+					cmd += " -device virtio-scsi-pci,id=scsi"
 				case DISK_DRIVER_PVSCSI:
 					cmd += " -device pvscsi,id=scsi"
 				}
