@@ -276,6 +276,16 @@ func (self *SElasticSearch) GetStatus() string {
 	}
 }
 
+func (self *SElasticSearch) GetAccessInfo() (*cloudprovider.ElasticSearchAccessInfo, error) {
+	return &cloudprovider.ElasticSearchAccessInfo{
+		Domain:        self.PublicDomain,
+		PrivateDomain: self.Domain,
+		Port:          self.PublicPort,
+		PrivatePort:   self.Port,
+		KibanaUrl:     self.KibanaDomain,
+	}, nil
+}
+
 func (self *SRegion) GetIElasticSearchs() ([]cloudprovider.ICloudElasticSearch, error) {
 	ret := []SElasticSearch{}
 	for {
