@@ -645,3 +645,15 @@ func (self *SElasticSearch) PerformSyncstatus(ctx context.Context, userCred mccl
 
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "ElasticSearchSyncstatusTask", "")
 }
+
+func (self *SElasticSearch) AllowGetDetailsAccessInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "access-info")
+}
+
+func (self *SElasticSearch) GetDetailsAccessInfo(ctx context.Context, userCred mcclient.TokenCredential, input api.ElasticSearchAccessInfoInput) (*cloudprovider.ElasticSearchAccessInfo, error) {
+	iEs, err := self.GetIElasticSearch()
+	if err != nil {
+		return nil, err
+	}
+	return iEs.GetAccessInfo()
+}
