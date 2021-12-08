@@ -136,7 +136,8 @@ func (instance *SInstance) fetchMachineType() error {
 	if instance.guestCpus > 0 || instance.memoryMb > 0 || len(instance.machineType) > 0 {
 		return nil
 	}
-	machinetype, err := instance.host.zone.region.GetMachineType(instance.MachineType)
+	machinetype := SMachineType{}
+	err := instance.host.zone.region.GetBySelfId(instance.MachineType, &machinetype)
 	if err != nil {
 		return err
 	}
@@ -251,9 +252,10 @@ func (instance *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 					return &eips[0], nil
 				}
 				eip := &SAddress{
-					region:  instance.host.zone.region,
-					Status:  "IN_USE",
-					Address: conf.NatIP,
+					region:     instance.host.zone.region,
+					Status:     "IN_USE",
+					Address:    conf.NatIP,
+					instanceId: instance.Id,
 				}
 				eip.Id = instance.Id
 				eip.SelfLink = instance.SelfLink
@@ -353,7 +355,8 @@ func (instance *SInstance) GetSecurityGroupIds() ([]string, error) {
 	secgroupIds := []string{}
 	isecgroups := []cloudprovider.ICloudSecurityGroup{}
 	for _, networkinterface := range instance.NetworkInterfaces {
-		vpc, err := instance.host.zone.region.GetVpc(networkinterface.Subnetwork)
+		vpc := SVpc{region: instance.host.zone.region}
+		err := instance.host.zone.region.GetBySelfId(networkinterface.Subnetwork, &vpc)
 		if err != nil {
 			return nil, errors.Wrap(err, "GetGlobalNetwork")
 		}
