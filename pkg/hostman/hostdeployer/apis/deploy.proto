@@ -1,5 +1,8 @@
 syntax = "proto3";
 
+// protoc --version=libprotoc 3.11.3
+// protoc-gen-go --version=v1.3.5
+// protoc --go_out=plugins=grpc:.  pkg/hostman/hostdeployer/apis/deploy.proto
 package apis;
 
 message GuestDesc {
@@ -12,6 +15,7 @@ message GuestDesc {
   repeated Disk disks = 6;
 
   string Hypervisor = 7;
+  string hostname = 8;
 }
 
 message Disk {

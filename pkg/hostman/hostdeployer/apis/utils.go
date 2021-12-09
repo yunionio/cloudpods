@@ -91,6 +91,7 @@ func GuestDescToDeployDesc(guestDesc *jsonutils.JSONDict) (*GuestDesc, error) {
 	ret.Name, _ = guestDesc.GetString("name")
 	ret.Domain, _ = guestDesc.GetString("domain")
 	ret.Uuid, _ = guestDesc.GetString("uuid")
+	ret.Hostname, _ = guestDesc.GetString("hostname")
 	jnics, _ := guestDesc.Get("nics")
 	jdisks, _ := guestDesc.Get("disks")
 	jnicsStandby, _ := guestDesc.Get("nics_standby")
