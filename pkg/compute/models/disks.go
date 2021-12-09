@@ -1464,7 +1464,6 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 	if provider.GetFactory().IsSupportPrepaidResources() && len(guests) == 1 && guests[0].IsPrepaidRecycle() {
 		recycle = true
 	}
-	extDisk.Refresh()
 
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.Name = extDisk.GetName()

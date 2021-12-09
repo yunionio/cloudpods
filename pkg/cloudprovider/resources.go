@@ -394,7 +394,7 @@ type ICloudNic interface {
 	GetMAC() string
 	InClassicNetwork() bool
 	GetDriver() string
-	GetINetwork() ICloudNetwork
+	GetINetworkId() string
 
 	// GetSubAddress returns non-primary/secondary/alias ipv4 addresses of
 	// the network interface
@@ -415,12 +415,12 @@ type DummyICloudNic struct{}
 
 var _ ICloudNic = DummyICloudNic{}
 
-func (d DummyICloudNic) GetId() string              { panic(errors.ErrNotImplemented) }
-func (d DummyICloudNic) GetIP() string              { panic(errors.ErrNotImplemented) }
-func (d DummyICloudNic) GetMAC() string             { panic(errors.ErrNotImplemented) }
-func (d DummyICloudNic) InClassicNetwork() bool     { panic(errors.ErrNotImplemented) }
-func (d DummyICloudNic) GetDriver() string          { panic(errors.ErrNotImplemented) }
-func (d DummyICloudNic) GetINetwork() ICloudNetwork { panic(errors.ErrNotImplemented) }
+func (d DummyICloudNic) GetId() string          { panic(errors.ErrNotImplemented) }
+func (d DummyICloudNic) GetIP() string          { panic(errors.ErrNotImplemented) }
+func (d DummyICloudNic) GetMAC() string         { panic(errors.ErrNotImplemented) }
+func (d DummyICloudNic) InClassicNetwork() bool { panic(errors.ErrNotImplemented) }
+func (d DummyICloudNic) GetDriver() string      { panic(errors.ErrNotImplemented) }
+func (d DummyICloudNic) GetINetworkId() string  { panic(errors.ErrNotImplemented) }
 func (d DummyICloudNic) GetSubAddress() ([]string, error) {
 	return nil, nil
 }

@@ -68,6 +68,6 @@ func (nic *SVirtualNIC) InClassicNetwork() bool {
 	return false
 }
 
-func (nic *SVirtualNIC) GetINetwork() cloudprovider.ICloudNetwork {
-	return nil
+func (nic *SVirtualNIC) GetINetworkId() string {
+	return ""
 }

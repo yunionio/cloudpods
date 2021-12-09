@@ -55,15 +55,11 @@ func (nic *SNetworkInterface) InClassicNetwork() bool {
 	return false
 }
 
-func (nic *SNetworkInterface) GetINetwork() cloudprovider.ICloudNetwork {
+func (nic *SNetworkInterface) GetINetworkId() string {
 	vpc := &SVpc{region: nic.instance.host.zone.region}
 	err := nic.instance.host.zone.region.GetBySelfId(nic.Subnetwork, vpc)
 	if err != nil {
-		return nil
+		return ""
 	}
-	networks, _ := vpc.getWire().GetINetworks()
-	for i := range networks {
-		return networks[i]
-	}
-	return nil
+	return vpc.Id
 }

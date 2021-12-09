@@ -17,8 +17,6 @@ package jdcloud
 import (
 	"github.com/jdcloud-api/jdcloud-sdk-go/services/vm/models"
 
-	"yunion.io/x/log"
-
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -49,11 +47,6 @@ func (in *SInstanceNic) InClassicNetwork() bool {
 	return false
 }
 
-func (in *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
-	net, err := in.instance.host.zone.region.GetNetworkById(in.SubnetId)
-	if err != nil {
-		log.Errorf("unable to get network %s: %v", in.SubnetId, err)
-		return nil
-	}
-	return net
+func (in *SInstanceNic) GetINetworkId() string {
+	return in.SubnetId
 }

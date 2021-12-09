@@ -68,12 +68,8 @@ func (self *SInstanceNic) UnassignAddress(IpAddrs []string) error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
-	network, err := self.ins.host.zone.region.GetNetwork(self.NetworkId)
-	if err != nil {
-		return nil
-	}
-	return network
+func (self *SInstanceNic) GetINetworkId() string {
+	return self.NetworkId
 }
 
 func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {

@@ -46,13 +46,11 @@ func (self *SInstanceNic) InClassicNetwork() bool {
 	return false
 }
 
-func (self *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
+func (self *SInstanceNic) GetINetworkId() string {
 	for _, ip := range self.instance.IPSet {
 		if ip.IP == self.ipAddr {
-			network, _ := self.instance.host.zone.region.getNetwork(ip.SubnetID)
-			return network
+			return ip.SubnetID
 		}
 	}
-
-	return nil
+	return ""
 }

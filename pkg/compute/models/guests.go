@@ -2466,9 +2466,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		recycle = true
 	}
 
-	// metaData := extVM.GetMetadata()
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
-		extVM.Refresh()
 		if options.NameSyncResources.Contains(self.Keyword()) && !recycle {
 			newName, _ := db.GenerateAlterName(self, extVM.GetName())
 			if len(newName) > 0 && newName != self.Name && extVM.GetName() != extVM.GetHostname() {
@@ -2930,8 +2928,8 @@ type sAddGuestnic struct {
 }
 
 func getCloudNicNetwork(ctx context.Context, vnic cloudprovider.ICloudNic, host *SHost, ipList []string, index int) (*SNetwork, error) {
-	vnet := vnic.GetINetwork()
-	if vnet == nil {
+	vnetId := vnic.GetINetworkId()
+	if len(vnetId) == 0 {
 		if vnic.InClassicNetwork() {
 			region, _ := host.GetRegion()
 			cloudprovider := host.GetCloudprovider()
@@ -2958,7 +2956,7 @@ func getCloudNicNetwork(ctx context.Context, vnic cloudprovider.ICloudNic, host 
 		// find network by IP
 		return host.getNetworkOfIPOnHost(ip)
 	}
-	localNetObj, err := db.FetchByExternalIdAndManagerId(NetworkManager, vnet.GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+	localNetObj, err := db.FetchByExternalIdAndManagerId(NetworkManager, vnetId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		vpc := VpcManager.Query().SubQuery()
 		wire := WireManager.Query().SubQuery()
 		return q.Join(wire, sqlchemy.Equals(q.Field("wire_id"), wire.Field("id"))).
@@ -2966,7 +2964,7 @@ func getCloudNicNetwork(ctx context.Context, vnic cloudprovider.ICloudNic, host 
 			Filter(sqlchemy.Equals(vpc.Field("manager_id"), host.ManagerId))
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Cannot find network of external_id %s: %v", vnet.GetGlobalId(), err)
+		return nil, fmt.Errorf("Cannot find network of external_id %s: %v", vnetId, err)
 	}
 	localNet := localNetObj.(*SNetwork)
 	return localNet, nil

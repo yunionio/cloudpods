@@ -1752,10 +1752,12 @@ func syncPublicCloudProviderInfo(
 	}
 
 	if cloudprovider.IsSupportCompute(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) {
-		// 需要先同步vpc，避免私有云eip找不到network
-		syncRegionVPCs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		if syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NETWORK) {
+			// 需要先同步vpc，避免私有云eip找不到network
+			syncRegionVPCs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
-		syncRegionEips(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			syncRegionEips(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		}
 		// sync snapshot policies before sync disks
 		syncRegionSnapshotPolicies(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 

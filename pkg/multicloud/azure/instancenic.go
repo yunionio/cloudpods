@@ -114,15 +114,11 @@ func (self *SInstanceNic) assignSecurityGroup(secgroupId string) error {
 	return self.updateSecurityGroup(secgroupId)
 }
 
-func (self *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
+func (self *SInstanceNic) GetINetworkId() string {
 	if len(self.Properties.IPConfigurations) > 0 {
-		network, err := self.instance.host.zone.region.GetNetwork(self.Properties.IPConfigurations[0].Properties.Subnet.ID)
-		if err != nil {
-			return nil
-		}
-		return network
+		return strings.ToLower(self.Properties.IPConfigurations[0].Properties.Subnet.ID)
 	}
-	return nil
+	return ""
 }
 
 func (self *SRegion) GetNetworkInterface(interfaceId string) (*SInstanceNic, error) {
