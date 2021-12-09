@@ -339,8 +339,14 @@ type GuestAutoRenewInput struct {
 	// default: false
 	// 自动续费分为本地和云上两种模式
 	// 若公有云本身支持自动续费功能, 则使用云上设置
-	// 若公有云本身不支持自动续费, 则在本地周期(默认三小时)检查快过期虚拟机并进行续费一个月
+	// 若公有云本身不支持自动续费, 则在本地周期(默认三小时)检查快过期虚拟机并进行续费,续费周期根据设置，请避免使用特殊的计费周期，避免续费失败
 	AutoRenew bool `json:"auto_renew"`
+	// 续费周期
+	// example: 1Y, 1M, 1W
+	// default: 1M
+	// 腾讯云仅支持1M
+	// 阿里云支持 1, 2, 3Y, 1, 2, 3, 6, 12M, 1, 2, 3, 4W
+	Duration string `json:"duration"`
 }
 
 type ConvertEsxiToKvmInput struct {

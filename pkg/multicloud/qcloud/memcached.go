@@ -107,7 +107,7 @@ func (self *SMemcached) GetExpiredAt() time.Time {
 	return time.Time{}
 }
 
-func (self *SMemcached) SetAutoRenew(autoRenew bool) error {
+func (self *SMemcached) SetAutoRenew(bc billing.SBillingCycle) error {
 	return cloudprovider.ErrNotSupported
 }
 
