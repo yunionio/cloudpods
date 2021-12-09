@@ -38,8 +38,9 @@ func (self *GuestSetAutoRenewTask) OnInit(ctx context.Context, obj db.IStandalon
 	guest := obj.(*models.SGuest)
 
 	self.SetStage("OnSetAutoRenewComplete", nil)
-	autoRenew, _ := self.GetParams().Bool("auto_renew")
-	err := guest.GetDriver().RequestSetAutoRenewInstance(ctx, self.UserCred, guest, autoRenew, self)
+	input := api.GuestAutoRenewInput{}
+	self.GetParams().Unmarshal(&input)
+	err := guest.GetDriver().RequestSetAutoRenewInstance(ctx, self.UserCred, guest, input, self)
 	if err != nil {
 		// msg := fmt.Sprintf("RequestSetAutoRenewInstance failed %s", err)
 		db.OpsLog.LogEvent(guest, db.ACT_SET_AUTO_RENEW_FAIL, err, self.UserCred)

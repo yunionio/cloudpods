@@ -755,6 +755,6 @@ func (self *SElasticcache) Renew(bc billing.SBillingCycle) error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (self *SElasticcache) SetAutoRenew(autoRenew bool) error {
+func (self *SElasticcache) SetAutoRenew(bc billing.SBillingCycle) error {
 	return cloudprovider.ErrNotSupported
 }

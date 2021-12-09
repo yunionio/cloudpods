@@ -59,7 +59,7 @@ type IBillingResource interface {
 	GetBillingType() string
 	GetCreatedAt() time.Time
 	GetExpiredAt() time.Time
-	SetAutoRenew(autoRenew bool) error
+	SetAutoRenew(bc billing.SBillingCycle) error
 	Renew(bc billing.SBillingCycle) error
 	IsAutoRenew() bool
 }

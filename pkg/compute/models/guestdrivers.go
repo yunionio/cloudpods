@@ -197,7 +197,7 @@ type IGuestDriver interface {
 	RequestConvertPublicipToEip(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, task taskman.ITask) error
 
 	IsSupportSetAutoRenew() bool
-	RequestSetAutoRenewInstance(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, autoRenew bool, task taskman.ITask) error
+	RequestSetAutoRenewInstance(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, input api.GuestAutoRenewInput, task taskman.ITask) error
 	IsSupportMigrate() bool
 	IsSupportLiveMigrate() bool
 	CheckMigrate(guest *SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error

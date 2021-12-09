@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/aliyun"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
@@ -201,10 +202,13 @@ func init() {
 	type InstanceSetAutoRenewOptions struct {
 		ID        string `help:"Instance ID"`
 		AutoRenew bool   `help:"Is auto renew instance"`
+		Duration  string
 	}
 
 	shellutils.R(&InstanceSetAutoRenewOptions{}, "instance-set-auto-renew", "Set instance auto renew", func(cli *aliyun.SRegion, args *InstanceSetAutoRenewOptions) error {
-		return cli.SetInstanceAutoRenew(args.ID, args.AutoRenew)
+		bc, _ := billing.ParseBillingCycle(args.Duration)
+		bc.AutoRenew = args.AutoRenew
+		return cli.SetInstanceAutoRenew(args.ID, bc)
 	})
 
 	type InstanceSaveImageOptions struct {

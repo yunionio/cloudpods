@@ -281,11 +281,11 @@ func (self *SElasticcache) GetExpiredAt() time.Time {
 }
 
 // https://cloud.tencent.com/document/product/239/31785
-func (self *SElasticcache) SetAutoRenew(autoRenew bool) error {
+func (self *SElasticcache) SetAutoRenew(bc billing.SBillingCycle) error {
 	params := map[string]string{}
 	params["Operation"] = "modifyAutoRenew"
 	params["InstanceIds.0"] = self.GetId()
-	if autoRenew {
+	if bc.AutoRenew {
 		params["AutoRenews.0"] = "1"
 	} else {
 		params["AutoRenews.0"] = "0"

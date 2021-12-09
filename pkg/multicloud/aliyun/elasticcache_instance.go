@@ -957,11 +957,11 @@ func (self *SElasticcache) Renew(bc billing.SBillingCycle) error {
 	return nil
 }
 
-func (self *SElasticcache) SetAutoRenew(autoRenew bool) error {
+func (self *SElasticcache) SetAutoRenew(bc billing.SBillingCycle) error {
 	params := map[string]string{}
 	params["DBInstanceId"] = self.GetId()
 	params["Duration"] = "1"
-	params["AutoRenew"] = fmt.Sprintf("%v", autoRenew)
+	params["AutoRenew"] = fmt.Sprintf("%v", bc.AutoRenew)
 	_, err := self.region.kvsRequest("ModifyInstanceAutoRenewalAttribute", params)
 	if err != nil {
 		return errors.Wrap(err, "ModifyInstanceAutoRenewalAttribute")
