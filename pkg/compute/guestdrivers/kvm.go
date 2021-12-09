@@ -851,10 +851,9 @@ func (self *SKVMGuestDriver) validateVGA(ovdi, ovga string, nvdi, nvga *string) 
 
 func (self *SKVMGuestDriver) validateMachineType(machine string, osArch string) error {
 	var candidate []string
-	switch osArch {
-	case apis.OS_ARCH_AARCH64:
+	if apis.IsARM(osArch) {
 		candidate = []string{api.VM_MACHINE_TYPE_ARM_VIRT}
-	default:
+	} else {
 		candidate = []string{api.VM_MACHINE_TYPE_PC, api.VM_MACHINE_TYPE_Q35}
 	}
 	if !utils.IsInStringArray(machine, candidate) {
