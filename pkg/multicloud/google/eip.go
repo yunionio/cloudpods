@@ -198,8 +198,9 @@ func (region *SRegion) AssociateInstanceEip(instanceId string, eip string) error
 	return fmt.Errorf("no valid networkinterface to associate")
 }
 
-func (region *SRegion) DissociateInstanceEip(instanceId string, eip string) error {
-	instance, err := region.GetInstance(instanceId)
+func (self *SRegion) DissociateInstanceEip(instanceId string, eip string) error {
+	instance := SInstance{}
+	err := self.GetBySelfId(instanceId, &instance)
 	if err != nil {
 		return errors.Wrap(err, "region.GetInstance")
 	}
@@ -211,7 +212,7 @@ func (region *SRegion) DissociateInstanceEip(instanceId string, eip string) erro
 					"networkInterface": networkInterface.Name,
 					"accessConfig":     accessConfig.Name,
 				}
-				return region.Do(instance.SelfLink, "deleteAccessConfig", params, jsonutils.Marshal(body))
+				return self.Do(instance.SelfLink, "deleteAccessConfig", params, jsonutils.Marshal(body))
 			}
 		}
 	}
