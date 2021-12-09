@@ -157,10 +157,12 @@ func (p *SKVMGuestLVMPartition) SetupDevice() bool {
 	if len(p.vgid) == 0 {
 		return false
 	}
-	if !p.vgRename(p.vgid, p.vgname) {
-		return false
+	if p.vgRename(p.vgid, p.vgname) {
+		p.needChangeName = true
+	} else {
+		p.vgname = p.originVgname
+		p.needChangeName = false
 	}
-	p.needChangeName = true
 	if p.vgActivate(true) {
 		return true
 	}
