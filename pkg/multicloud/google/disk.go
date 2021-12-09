@@ -255,14 +255,15 @@ func (region *SRegion) ResizeDisk(id string, sizeGb int) error {
 	return region.Do(id, "resize", nil, jsonutils.Marshal(body))
 }
 
-func (region *SRegion) CreateSnapshot(diskId string, name string, desc string) (*SSnapshot, error) {
+func (self *SRegion) CreateSnapshot(diskId string, name string, desc string) (*SSnapshot, error) {
 	body := map[string]string{
 		"name":        name,
 		"description": desc,
 	}
-	err := region.Do(diskId, "createSnapshot", nil, jsonutils.Marshal(body))
+	err := self.Do(diskId, "createSnapshot", nil, jsonutils.Marshal(body))
 	if err != nil {
 		return nil, err
 	}
-	return region.GetSnapshot(fmt.Sprintf("projects/%s/global/snapshots/%s", region.GetProjectId(), name))
+	snapshot := &SSnapshot{region: self}
+	return snapshot, self.GetBySelfId(fmt.Sprintf("projects/%s/global/snapshots/%s", self.GetProjectId(), name), snapshot)
 }
