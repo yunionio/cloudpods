@@ -69,6 +69,7 @@ func (click *SClickhouseBackend) GetCreateSQLs(ts sqlchemy.ITableSpec) []string 
 	primaries := make([]string, 0)
 	orderbys := make([]string, 0)
 	partitions := make([]string, 0)
+	var ttlCol IClickhouseColumnSpec
 	for _, c := range ts.Columns() {
 		cols = append(cols, c.DefinitionString())
 		if c.IsPrimary() {
@@ -81,6 +82,10 @@ func (click *SClickhouseBackend) GetCreateSQLs(ts sqlchemy.ITableSpec) []string 
 			partition := cc.PartitionBy()
 			if len(partition) > 0 && !utils.IsInStringArray(partition, partitions) {
 				partitions = append(partitions, partition)
+			}
+			ttlC, ttlU := cc.GetTTL()
+			if ttlC > 0 && len(ttlU) > 0 {
+				ttlCol = cc
 			}
 		}
 	}
@@ -98,6 +103,10 @@ func (click *SClickhouseBackend) GetCreateSQLs(ts sqlchemy.ITableSpec) []string 
 	}
 	if len(primaries) > 0 {
 		createSql += fmt.Sprintf("\nPRIMARY KEY (%s)", strings.Join(primaries, ", "))
+	}
+	if ttlCol != nil {
+		ttlCount, ttlUnit := ttlCol.GetTTL()
+		createSql += fmt.Sprintf("\nTTL `%s` + INTERVAL %d %s", ttlCol.Name(), ttlCount, ttlUnit)
 	}
 	createSql += "\nSETTINGS index_granularity=8192"
 	return []string{
@@ -127,7 +136,14 @@ func (click *SClickhouseBackend) FetchTableColumnSpecs(ts sqlchemy.ITableSpec) (
 	if err != nil {
 		return nil, errors.Wrap(err, "show create table")
 	}
-	primaries, orderbys, partition := parseCreateTable(defStr)
+	primaries, orderbys, partition, ttl := parseCreateTable(defStr)
+	var ttlCfg sColumnTTL
+	if len(ttl) > 0 {
+		ttlCfg, err = parseTTLExpression(ttl)
+		if err != nil {
+			return nil, errors.Wrap(err, "parseTTLExpression")
+		}
+	}
 	for _, spec := range specs {
 		if utils.IsInStringArray(spec.Name(), primaries) {
 			spec.SetPrimary(true)
@@ -138,6 +154,9 @@ func (click *SClickhouseBackend) FetchTableColumnSpecs(ts sqlchemy.ITableSpec) (
 			}
 			if strings.Contains(partition, clickSpec.Name()) {
 				clickSpec.SetPartitionBy(partition)
+			}
+			if ttlCfg.ColName == clickSpec.Name() {
+				clickSpec.SetTTL(ttlCfg.Count, ttlCfg.Unit)
 			}
 		}
 	}

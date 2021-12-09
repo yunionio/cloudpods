@@ -58,7 +58,7 @@ require (
 	github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2 // indirect
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/go-ole/go-ole v1.2.2 // indirect
-	github.com/go-sql-driver/mysql v1.5.0
+	github.com/go-sql-driver/mysql v1.5.0 // indirect
 	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/gofrs/uuid v4.1.0+incompatible // indirect
 	github.com/golang-plus/errors v1.0.0
@@ -152,11 +152,11 @@ require (
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
 	yunion.io/x/executor v0.0.0-20211018100936-39a2cd966656
-	yunion.io/x/jsonutils v0.0.0-20211105163012-d846c05a3c9a
+	yunion.io/x/jsonutils v0.0.0-20211130131136-1ecbe9b96761
 	yunion.io/x/log v0.0.0-20201210064738-43181789dc74
 	yunion.io/x/ovsdb v0.0.0-20200526071744-27bf0940cbc7
 	yunion.io/x/pkg v0.0.0-20211116020154-6a76ba2f7e97
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v0.0.0-20211130070008-dcf6791bb0e7
+	yunion.io/x/sqlchemy v0.0.0-20211209232407-29f10e47db1f
 	yunion.io/x/structarg v0.0.0-20200720093445-9f850fa222ce
 )

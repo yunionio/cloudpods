@@ -24,6 +24,9 @@ import (
 func initHandlers(app *appsrv.Application) {
 	db.InitAllManagers()
 
+	models.InitActionLog()
+	models.InitBaremetalEvent()
+
 	for _, manager := range []db.IModelManager{
 		db.UserCacheManager,
 		db.TenantCacheManager,

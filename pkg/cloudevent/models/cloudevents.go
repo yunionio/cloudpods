@@ -22,9 +22,11 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
+	"yunion.io/x/sqlchemy/backends/clickhouse"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/cloudevent"
+	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -40,18 +42,34 @@ type SCloudeventManager struct {
 
 var CloudeventManager *SCloudeventManager
 
-func init() {
-	CloudeventManager = &SCloudeventManager{
-		SModelBaseManager: db.NewModelBaseManagerWithSplitable(
-			SCloudevent{},
-			"cloudevents_tbl",
-			"cloudevent",
-			"cloudevents",
-			"event_id",
-			"created_at",
-			consts.SplitableMaxDuration(),
-			consts.SplitableMaxKeepSegments(),
-		),
+func InitCloudevent() {
+	if consts.OpsLogWithClickhouse {
+		CloudeventManager = &SCloudeventManager{
+			SModelBaseManager: db.NewModelBaseManagerWithDBName(
+				SCloudevent{},
+				"cloudevents_tbl",
+				"cloudevent",
+				"cloudevents",
+				cloudcommon.ClickhouseDB,
+			),
+		}
+		col := CloudeventManager.TableSpec().ColumnSpec("created_at")
+		if clickCol, ok := col.(clickhouse.IClickhouseColumnSpec); ok {
+			clickCol.SetTTL(consts.SplitableMaxKeepMonths(), "MONTH")
+		}
+	} else {
+		CloudeventManager = &SCloudeventManager{
+			SModelBaseManager: db.NewModelBaseManagerWithSplitable(
+				SCloudevent{},
+				"cloudevents_tbl",
+				"cloudevent",
+				"cloudevents",
+				"event_id",
+				"created_at",
+				consts.SplitableMaxDuration(),
+				consts.SplitableMaxKeepMonths(),
+			),
+		}
 	}
 	CloudeventManager.SetVirtualObject(CloudeventManager)
 }
@@ -60,7 +78,7 @@ type SCloudevent struct {
 	db.SModelBase
 	db.SDomainizedResourceBase
 
-	EventId      int64                `primary:"true" auto_increment:"true" list:"user"`
+	EventId      int64                `primary:"true" auto_increment:"true" list:"user" clickhouse_partition_by:"toInt64(divide(event_id,100000000000))`
 	Name         string               `width:"128" charset:"utf8" nullable:"false" index:"true" list:"user"`
 	Service      string               `width:"64" charset:"utf8" nullable:"true" list:"user"`
 	ResourceType string               `width:"64" charset:"utf8" nullable:"true" list:"user"`
@@ -69,12 +87,17 @@ type SCloudevent struct {
 	Request      jsonutils.JSONObject `charset:"utf8" nullable:"true" list:"user"`
 	Account      string               `width:"64" charset:"utf8" nullable:"true" list:"user"`
 	Success      bool                 `nullable:"false" list:"user"`
-	CreatedAt    time.Time            `nullable:"false" created_at:"true" index:"true" get:"user" list:"user"`
+	CreatedAt    time.Time            `nullable:"false" created_at:"true" index:"true" get:"user" list:"user" clickhouse_ttl:"6m"`
 
 	CloudproviderId string `width:"64" charset:"utf8" nullable:"true" list:"user"`
 	Manager         string `width:"128" charset:"utf8" nullable:"false" index:"true" list:"user"`
 	Provider        string `width:"64" charset:"ascii" nullable:"false" list:"user"`
 	Brand           string `width:"64" charset:"ascii" list:"domain"`
+}
+
+func (event *SCloudevent) BeforeInsert() {
+	t := time.Now().UTC()
+	event.EventId = db.CurrentTimestamp(t)
 }
 
 // 云平台操作日志列表

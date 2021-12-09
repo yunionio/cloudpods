@@ -11,16 +11,33 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+package db
 
-package clickhouse
+import (
+	"testing"
 
-const (
-	// TAG_PARTITION defines expression of PARTITION BY
-	TAG_PARTITION = "clickhouse_partition_by"
-
-	// TAG_ORDER defines fields of ORDER BY
-	TAG_ORDER = "clickhouse_order_by"
-
-	// TAG_TTL defines table TTL
-	TAG_TTL = "clickhouse_ttl"
+	"yunion.io/x/pkg/util/timeutils"
 )
+
+func TestCurrentTimestamp(t *testing.T) {
+	cases := []struct {
+		in   string
+		want int64
+	}{
+		{
+			in:   "2021-12-09 11:01:02",
+			want: 20211209110102000,
+		},
+	}
+	for _, c := range cases {
+		tm, err := timeutils.ParseTimeStr(c.in)
+		if err != nil {
+			t.Errorf("parseTime %s error %s", c.in, err)
+		} else {
+			got := CurrentTimestamp(tm)
+			if got != c.want {
+				t.Errorf("currentTimestamp %s want %d got %d", c.in, c.want, got)
+			}
+		}
+	}
+}

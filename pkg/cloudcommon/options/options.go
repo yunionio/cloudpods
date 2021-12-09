@@ -145,6 +145,8 @@ type DBOptions struct {
 
 	Clickhouse string `help:"Connection string for click house"`
 
+	OpsLogWithClickhouse bool `help:"store operation logs with clickhouse" default:"false"`
+
 	AutoSyncTable   bool `help:"Automatically synchronize table changes if differences are detected"`
 	ExitAfterDBInit bool `help:"Exit program after db initialization" default:"false"`
 
@@ -157,7 +159,7 @@ type DBOptions struct {
 
 	LockmanMethod string `help:"method for lock synchronization" choices:"inmemory|etcd" default:"inmemory"`
 
-	// SplitableMaxKeepSegments  int `help:"maximal segements of splitable to keep, default 6 segments" default:"6"`
+	OpsLogMaxKeepMonths int `help:"maximal months of logs to keep, default 6 months" default:"6"`
 	// SplitableMaxDurationHours int `help:"maximal number of hours that a splitable segement lasts, default 30 days" default:"720"`
 
 	EtcdOptions

@@ -21,9 +21,11 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
+	"yunion.io/x/sqlchemy/backends/clickhouse"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/logger"
+	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -57,21 +59,39 @@ type SActionlog struct {
 var ActionLog *SActionlogManager
 var logQueue = make(chan *SActionlog, 50)
 
-func init() {
+func InitActionLog() {
 	InitActionWhiteList()
-	ActionLog = &SActionlogManager{
-		SOpsLogManager: db.SOpsLogManager{
-			SModelBaseManager: db.NewModelBaseManagerWithSplitable(
-				SActionlog{},
-				"action_tbl",
-				"action",
-				"actions",
-				"id",
-				"start_time",
-				consts.SplitableMaxDuration(),
-				consts.SplitableMaxKeepSegments(),
-			),
-		},
+	if consts.OpsLogWithClickhouse {
+		ActionLog = &SActionlogManager{
+			SOpsLogManager: db.SOpsLogManager{
+				SModelBaseManager: db.NewModelBaseManagerWithDBName(
+					SActionlog{},
+					"action_tbl",
+					"action",
+					"actions",
+					cloudcommon.ClickhouseDB,
+				),
+			},
+		}
+		col := ActionLog.TableSpec().ColumnSpec("ops_time")
+		if clickCol, ok := col.(clickhouse.IClickhouseColumnSpec); ok {
+			clickCol.SetTTL(consts.SplitableMaxKeepMonths(), "MONTH")
+		}
+	} else {
+		ActionLog = &SActionlogManager{
+			SOpsLogManager: db.SOpsLogManager{
+				SModelBaseManager: db.NewModelBaseManagerWithSplitable(
+					SActionlog{},
+					"action_tbl",
+					"action",
+					"actions",
+					"id",
+					"start_time",
+					consts.SplitableMaxDuration(),
+					consts.SplitableMaxKeepMonths(),
+				),
+			},
+		}
 	}
 	ActionLog.SetVirtualObject(ActionLog)
 }

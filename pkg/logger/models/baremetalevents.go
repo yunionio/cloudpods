@@ -21,8 +21,10 @@ import (
 
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
+	"yunion.io/x/sqlchemy/backends/clickhouse"
 
 	api "yunion.io/x/onecloud/pkg/apis/logger"
+	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -36,7 +38,7 @@ type SBaremetalEventManager struct {
 type SBaremetalEvent struct {
 	db.SModelBase
 
-	Id       int64     `primary:"true" auto_increment:"true" list:"user"`
+	Id       int64     `primary:"true" auto_increment:"true" list:"user" clickhouse_partition_by:"toInt64(divide(id,100000000000))"`
 	HostId   string    `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
 	HostName string    `width:"64" charset:"utf8" nullable:"false" list:"user" create:"required"`
 	IpmiIp   string    `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
@@ -50,20 +52,41 @@ type SBaremetalEvent struct {
 
 var BaremetalEventManager *SBaremetalEventManager
 
-func init() {
-	BaremetalEventManager = &SBaremetalEventManager{
-		SModelBaseManager: db.NewModelBaseManagerWithSplitable(
-			SBaremetalEvent{},
-			"baremetal_event_tbl",
-			"baremetalevent",
-			"baremetalevents",
-			"id",
-			"created",
-			consts.SplitableMaxDuration(),
-			consts.SplitableMaxKeepSegments(),
-		),
+func InitBaremetalEvent() {
+	if consts.OpsLogWithClickhouse {
+		BaremetalEventManager = &SBaremetalEventManager{
+			SModelBaseManager: db.NewModelBaseManagerWithDBName(
+				SBaremetalEvent{},
+				"baremetal_event_tbl",
+				"baremetalevent",
+				"baremetalevents",
+				cloudcommon.ClickhouseDB,
+			),
+		}
+		col := BaremetalEventManager.TableSpec().ColumnSpec("ops_time")
+		if clickCol, ok := col.(clickhouse.IClickhouseColumnSpec); ok {
+			clickCol.SetTTL(consts.SplitableMaxKeepMonths(), "MONTH")
+		}
+	} else {
+		BaremetalEventManager = &SBaremetalEventManager{
+			SModelBaseManager: db.NewModelBaseManagerWithSplitable(
+				SBaremetalEvent{},
+				"baremetal_event_tbl",
+				"baremetalevent",
+				"baremetalevents",
+				"id",
+				"created",
+				consts.SplitableMaxDuration(),
+				consts.SplitableMaxKeepMonths(),
+			),
+		}
 	}
 	BaremetalEventManager.SetVirtualObject(BaremetalEventManager)
+}
+
+func (event *SBaremetalEvent) BeforeInsert() {
+	t := time.Now().UTC()
+	event.Id = db.CurrentTimestamp(t)
 }
 
 func (event *SBaremetalEvent) GetId() string {

@@ -115,6 +115,7 @@ const (
 	orderByPrefix     = "ORDER BY "
 	partitionByPrefix = "PARTITION BY "
 	setttingsPrefix   = "SETTINGS"
+	ttlPrefix         = "TTL "
 
 	paramPattern      = `(\w+|\([\w,\s]+\))`
 	primaryKeyPattern = primaryKeyPrefix + paramPattern
@@ -139,7 +140,27 @@ func parseKeys(keyStr string) []string {
 	return ret
 }
 
-func parseCreateTable(sqlStr string) (primaries []string, orderbys []string, partition string) {
+func findSegment(sqlStr string, prefix string) string {
+	partIdx := strings.Index(sqlStr, prefix)
+	if partIdx > 0 {
+		partIdx += len(prefix)
+		nextIdx := -1
+		for _, pattern := range []string{partitionByPrefix, primaryKeyPrefix, orderByPrefix, setttingsPrefix, ttlPrefix} {
+			idx := strings.Index(sqlStr[partIdx:], pattern)
+			if idx > 0 && (nextIdx < 0 || nextIdx > idx) {
+				nextIdx = idx
+			}
+		}
+		if nextIdx < 0 {
+			return strings.TrimSpace(sqlStr[partIdx:])
+		} else {
+			return strings.TrimSpace(sqlStr[partIdx:][:nextIdx])
+		}
+	}
+	return ""
+}
+
+func parseCreateTable(sqlStr string) (primaries []string, orderbys []string, partition string, ttl string) {
 	matches := primaryKeyRegexp.FindAllStringSubmatch(sqlStr, -1)
 	if len(matches) > 0 {
 		primaries = parseKeys(matches[0][1])
@@ -148,21 +169,7 @@ func parseCreateTable(sqlStr string) (primaries []string, orderbys []string, par
 	if len(matches) > 0 {
 		orderbys = parseKeys(matches[0][1])
 	}
-	partIdx := strings.Index(sqlStr, partitionByPrefix)
-	if partIdx > 0 {
-		partIdx += len(partitionByPrefix)
-		nextIdx := -1
-		for _, pattern := range []string{primaryKeyPrefix, orderByPrefix, setttingsPrefix} {
-			idx := strings.Index(sqlStr[partIdx:], pattern)
-			if nextIdx < 0 || nextIdx > idx {
-				nextIdx = idx
-			}
-		}
-		if nextIdx < 0 {
-			partition = strings.TrimSpace(sqlStr[partIdx:])
-		} else {
-			partition = strings.TrimSpace(sqlStr[partIdx:][:nextIdx])
-		}
-	}
+	partition = findSegment(sqlStr, partitionByPrefix)
+	ttl = findSegment(sqlStr, ttlPrefix)
 	return
 }

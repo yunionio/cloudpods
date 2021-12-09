@@ -16,4 +16,6 @@ package consts
 
 var (
 	QueryOffsetOptimization = false
+
+	OpsLogWithClickhouse = false
 )

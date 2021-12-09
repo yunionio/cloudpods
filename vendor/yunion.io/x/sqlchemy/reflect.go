@@ -157,6 +157,8 @@ func setValueBySQLString(value reflect.Value, val string) error {
 		if err != nil {
 			return errors.Wrap(err, "jsonV.GetArray")
 		}
+		sliceValue := reflect.MakeSlice(value.Type(), 0, len(jsonA))
+		value.Set(sliceValue)
 		for i := range jsonA {
 			elemValue := reflect.New(value.Type().Elem()).Elem()
 			jsonStr, _ := jsonA[i].GetString()
@@ -176,16 +178,14 @@ func setValueBySQLString(value reflect.Value, val string) error {
 		if err != nil {
 			return errors.Wrapf(err, "jsonV.GetMap")
 		}
+		mapValue := reflect.MakeMap(value.Type())
+		value.Set(mapValue)
 		for k, jsonV := range jsonM {
 			elemValue := reflect.New(value.Type().Elem()).Elem()
 			jsonStr, _ := jsonV.GetString()
 			err := setValueBySQLString(elemValue, jsonStr)
 			if err != nil {
 				return errors.Wrapf(err, "TestSetValueBySQLString %s", jsonV.String())
-			}
-			if value.IsNil() {
-				mapValue := reflect.MakeMap(value.Type())
-				value.Set(mapValue)
 			}
 			value.SetMapIndex(reflect.ValueOf(k), elemValue)
 		}

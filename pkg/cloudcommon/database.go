@@ -56,6 +56,10 @@ func InitDB(options *common_options.DBOptions) {
 		consts.DisableHistoricalUniqueName()
 	}
 
+	if options.OpsLogMaxKeepMonths > 0 {
+		consts.SetSplitableMaxKeepMonths(options.OpsLogMaxKeepMonths)
+	}
+
 	dialect, sqlStr, err := options.GetDBConnection()
 	if err != nil {
 		log.Fatalf("Invalid SqlConnection string: %s error: %v", options.SqlConnection, err)
@@ -87,6 +91,10 @@ func InitDB(options *common_options.DBOptions) {
 			panic(err)
 		}
 		sqlchemy.SetDBWithNameBackend(click, ClickhouseDB, sqlchemy.ClickhouseBackend)
+
+		if options.OpsLogWithClickhouse {
+			consts.OpsLogWithClickhouse = true
+		}
 	}
 
 	switch options.LockmanMethod {

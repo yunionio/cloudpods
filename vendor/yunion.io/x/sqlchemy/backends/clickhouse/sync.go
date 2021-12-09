@@ -18,9 +18,29 @@ import (
 	"fmt"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 )
+
+func findTtlColumn(cols []sqlchemy.IColumnSpec) sColumnTTL {
+	ret := sColumnTTL{}
+	for _, col := range cols {
+		if clickCol, ok := col.(IClickhouseColumnSpec); ok {
+			c, u := clickCol.GetTTL()
+			if c > 0 && len(u) > 0 {
+				ret = sColumnTTL{
+					ColName: clickCol.Name(),
+					sTTL: sTTL{
+						Count: c,
+						Unit:  u,
+					},
+				}
+			}
+		}
+	}
+	return ret
+}
 
 func (clickhouse *SClickhouseBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpec, changes sqlchemy.STableChanges) []string {
 	ret := make([]string, 0)
@@ -29,12 +49,14 @@ func (clickhouse *SClickhouseBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpe
 	// first check if primary key is modifed
 	changePrimary := false
 	oldHasPrimary := false
+
 	for _, col := range changes.RemoveColumns {
 		if col.IsPrimary() {
 			changePrimary = true
 			oldHasPrimary = true
 		}
 	}
+
 	for _, cols := range changes.UpdatedColumns {
 		if cols.OldCol.IsPrimary() != cols.NewCol.IsPrimary() {
 			changePrimary = true
@@ -94,6 +116,21 @@ func (clickhouse *SClickhouseBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpe
 		}
 		if len(primaries) > 0 {
 			sql := fmt.Sprintf("ADD PRIMARY KEY(%s)", strings.Join(primaries, ", "))
+			alters = append(alters, sql)
+		}
+	}
+
+	oldTtlSpec := findTtlColumn(changes.OldColumns)
+	newTtlSpec := findTtlColumn(ts.Columns())
+	log.Debugf("old: %s new: %s", jsonutils.Marshal(oldTtlSpec), jsonutils.Marshal(newTtlSpec))
+	if oldTtlSpec != newTtlSpec {
+		if oldTtlSpec.Count > 0 && newTtlSpec.Count == 0 {
+			// remove
+			sql := fmt.Sprintf("REMOVE TTL")
+			alters = append(alters, sql)
+		} else {
+			// alter
+			sql := fmt.Sprintf("MODIFY TTL `%s` + INTERVAL %d %s", newTtlSpec.ColName, newTtlSpec.Count, newTtlSpec.Unit)
 			alters = append(alters, sql)
 		}
 	}
