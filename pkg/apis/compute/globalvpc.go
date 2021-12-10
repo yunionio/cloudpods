@@ -27,6 +27,7 @@ type GlobalVpcCreateInput struct {
 
 type GlobalVpcDetails struct {
 	apis.EnabledStatusInfrasResourceBaseDetails
+	ManagedResourceInfo
 
 	SGlobalVpc
 
