@@ -720,7 +720,7 @@ func (s *SRbdStorage) SaveToGlance(ctx context.Context, params interface{}) (jso
 	}
 
 	rbdImageCache.LoadImageCache(imageId)
-	_, err := hostutils.RemoteStoragecacheCacheImage(ctx, rbdImageCache.GetId(), imageId, "ready", imagePath)
+	_, err := hostutils.RemoteStoragecacheCacheImage(ctx, rbdImageCache.GetId(), imageId, "active", imagePath)
 	if err != nil {
 		log.Errorf("Fail to remote cache image: %v", err)
 	}
