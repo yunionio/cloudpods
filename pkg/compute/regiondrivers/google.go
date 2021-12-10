@@ -127,29 +127,6 @@ func (self *SGoogleRegionDriver) RequestCreateVpc(ctx context.Context, userCred 
 	return nil
 }
 
-func (self *SGoogleRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		region, err := vpc.GetIRegion()
-		if err != nil {
-			return nil, errors.Wrap(err, "vpc.GetIRegion")
-		}
-		ivpc, err := region.GetIVpcById(vpc.GetExternalId())
-		if err != nil {
-			if errors.Cause(err) == cloudprovider.ErrNotFound {
-				return nil, nil
-			}
-			return nil, errors.Wrap(err, "region.GetIVpcById")
-		}
-
-		err = ivpc.Delete()
-		if err != nil {
-			return nil, errors.Wrap(err, "ivpc.Delete")
-		}
-		return nil, nil
-	})
-	return nil
-}
-
 func (self *SGoogleRegionDriver) IsSupportedDBInstance() bool {
 	return true
 }
