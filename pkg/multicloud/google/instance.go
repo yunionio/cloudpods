@@ -512,8 +512,15 @@ func (instance *SInstance) AttachDisk(ctx context.Context, diskId string) error 
 }
 
 func (instance *SInstance) DetachDisk(ctx context.Context, diskId string) error {
+	_disk, err := instance.host.zone.region.GetDisk(diskId)
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			return nil
+		}
+		return errors.Wrapf(err, "GetDisk(%s)", diskId)
+	}
 	for _, disk := range instance.Disks {
-		if strings.HasSuffix(disk.Source, diskId) {
+		if disk.Source == _disk.SelfLink {
 			return instance.host.zone.region.DetachDisk(instance.SelfLink, disk.DeviceName)
 		}
 	}
@@ -785,18 +792,20 @@ func (region *SRegion) getSerialPortOutput(id string, port int, start int) (stri
 	return result.Contents, result.Next, nil
 }
 
-func (region *SRegion) AttachDisk(instanceId, diskId string, boot bool) error {
-	diskId = strings.TrimPrefix(diskId, fmt.Sprintf("%s/%s/", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION))
-	diskId = fmt.Sprintf("%s/%s/%s", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, diskId)
+func (self *SRegion) AttachDisk(instanceId, diskId string, boot bool) error {
+	disk, err := self.GetDisk(diskId)
+	if err != nil {
+		return errors.Wrapf(err, "GetDisk(%s)", diskId)
+	}
 	body := map[string]interface{}{
-		"source": diskId,
+		"source": disk.SelfLink,
 		"boot":   boot,
 	}
 	if boot {
 		body["autoDelete"] = true
 	}
 	params := map[string]string{}
-	return region.Do(instanceId, "attachDisk", params, jsonutils.Marshal(body))
+	return self.Do(instanceId, "attachDisk", params, jsonutils.Marshal(body))
 }
 
 func (region *SRegion) ChangeInstanceConfig(id string, zone string, instanceType string, cpu int, memoryMb int) error {
@@ -870,17 +879,17 @@ func (region *SRegion) RebuildRoot(instanceId string, imageId string, sysDiskSiz
 	}
 
 	if len(deviceName) > 0 {
-		err = region.DetachDisk(instanceId, deviceName)
+		err = region.DetachDisk(instance.SelfLink, deviceName)
 		if err != nil {
 			defer region.Delete(disk.SelfLink)
 			return "", errors.Wrap(err, "region.DetachDisk")
 		}
 	}
 
-	err = region.AttachDisk(instanceId, disk.SelfLink, true)
+	err = region.AttachDisk(instance.SelfLink, disk.Id, true)
 	if err != nil {
 		if len(oldDisk) > 0 {
-			defer region.AttachDisk(instanceId, oldDisk, true)
+			defer region.AttachDisk(instance.SelfLink, oldDisk, true)
 		}
 		defer region.Delete(disk.SelfLink)
 		return "", errors.Wrap(err, "region.AttachDisk.newSystemDisk")
@@ -944,7 +953,7 @@ func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
 	if err != nil {
 		return errors.Wrap(err, "self.Refresh()")
 	}
-	err = self.host.zone.region.SetLabels(self.GetId(), tags, self.LabelFingerprint)
+	err = self.host.zone.region.SetLabels(self.SelfLink, tags, self.LabelFingerprint)
 	if err != nil {
 		return errors.Wrapf(err, ` self.host.zone.region.SsetLabels()`)
 	}
