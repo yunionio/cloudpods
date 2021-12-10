@@ -18,10 +18,9 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
@@ -69,6 +68,9 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 		partition   = rootfs.GetPartition()
 		releaseInfo = rootfs.GetReleaseInfo(partition)
 	)
+	if len(guestDesc.Hostname) > 0 {
+		hn = guestDesc.Hostname
+	}
 	for _, n := range nics {
 		var addr netutils.IPV4Addr
 		if addr, err = netutils.NewIPV4Addr(n.Ip); err != nil {
