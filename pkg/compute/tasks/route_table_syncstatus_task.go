@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -57,14 +58,15 @@ func (self *RouteTableSyncStatusTask) OnInit(ctx context.Context, obj db.IStanda
 	}
 	err = routeTable.SyncWithCloudRouteTable(ctx, self.GetUserCred(), vpc, iRouteTable, nil)
 	if err != nil {
-		self.taskFailed(ctx, routeTable, errors.Wrapf(err, "routeTable.GetICloudRouteTable()"))
+		self.taskFailed(ctx, routeTable, errors.Wrapf(err, "SyncWithCloudRouteTable"))
 		return
 	}
 	result := routeTable.SyncRouteTableRouteSets(ctx, self.GetUserCred(), iRouteTable, nil)
 	if result.IsError() {
-		self.taskFailed(ctx, routeTable, errors.Wrapf(result.AllError(), "routeTable.SyncRouteTableRouteSets()"))
+		self.taskFailed(ctx, routeTable, errors.Wrapf(result.AllError(), "SyncRouteTableRouteSets"))
 		return
 	}
+	log.Infof("sync route table for %s result: %s", routeTable.GetName(), result.Result())
 
 	result = routeTable.SyncRouteTableAssociations(ctx, self.GetUserCred(), iRouteTable, nil)
 	if result.IsError() {
