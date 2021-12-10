@@ -1252,17 +1252,13 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateVpc(ctx context.Con
 
 func (self *SManagedVirtualizationRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		region, err := vpc.GetIRegion()
-		if err != nil {
-			return nil, errors.Wrap(err, "vpc.GetIRegion")
-		}
-		ivpc, err := region.GetIVpcById(vpc.GetExternalId())
+		ivpc, err := vpc.GetIVpc()
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				// already deleted, do nothing
 				return nil, nil
 			}
-			return nil, errors.Wrap(err, "region.GetIVpcById")
+			return nil, errors.Wrap(err, "GetIVpc")
 		}
 		err = ivpc.Delete()
 		if err != nil {

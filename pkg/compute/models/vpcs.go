@@ -854,6 +854,9 @@ func (self *SVpc) GetIRegion() (cloudprovider.ICloudRegion, error) {
 }
 
 func (self *SVpc) GetIVpc() (cloudprovider.ICloudVpc, error) {
+	if len(self.ExternalId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty external id")
+	}
 	provider, err := self.GetDriver()
 	if err != nil {
 		return nil, errors.Wrapf(err, "vpc.GetDriver")
