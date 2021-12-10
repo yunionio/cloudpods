@@ -451,8 +451,9 @@ func (self *SInterVpcNetwork) SyncWithCloudInterVpcNetwork(ctx context.Context, 
 			if errors.Cause(err) != sql.ErrNoRows {
 				return errors.Wrapf(err, "vpc.FetchByExternalIdAndManagerId(%s)", externalVpcIds[i])
 			}
+		} else {
+			remoteVpcIds = append(remoteVpcIds, vpc.GetId())
 		}
-		remoteVpcIds = append(remoteVpcIds, vpc.GetId())
 	}
 
 	localVpcIdSet := set.New(set.ThreadSafe)
