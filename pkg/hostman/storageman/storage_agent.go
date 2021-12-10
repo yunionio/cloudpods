@@ -498,7 +498,7 @@ func (as *SAgentStorage) SaveToGlance(ctx context.Context, params interface{}) (
 		}
 		imagecacheManager.LoadImageCache(imageId)
 		_, err := hostutils.RemoteStoragecacheCacheImage(ctx,
-			imagecacheManager.GetId(), imageId, "ready", dstPath)
+			imagecacheManager.GetId(), imageId, "active", dstPath)
 		if err != nil {
 			log.Errorf("Fail to remote cache image: %s", err)
 		}
