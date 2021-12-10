@@ -86,7 +86,8 @@ type SZStackClient struct {
 }
 
 func getTime() string {
-	return time.Now().Format("Mon, 02 Jan 2006 15:04:05 MST")
+	zone, _ := time.LoadLocation("Asia/Shanghai")
+	return time.Now().In(zone).Format("Mon, 02 Jan 2006 15:04:05 MST")
 }
 
 func sign(accessId, accessKey, method, date, url string) string {
