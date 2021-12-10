@@ -232,7 +232,16 @@ func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
 }
 
 func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudRouteTable, error) {
-	return nil, cloudprovider.ErrNotSupported
+	tables, err := self.GetIRouteTables()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIRouteTables")
+	}
+	for i := range tables {
+		if tables[i].GetGlobalId() == routeTableId {
+			return tables[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, routeTableId)
 }
 
 func (self *SVpc) Delete() error {

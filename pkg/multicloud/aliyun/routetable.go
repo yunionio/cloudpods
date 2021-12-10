@@ -48,7 +48,7 @@ type SRouteEntry struct {
 }
 
 func (route *SRouteEntry) GetId() string {
-	return route.RouteEntryId
+	return fmt.Sprintf("%s-%s-%s", route.RouteTableId, route.DestinationCidrBlock, route.NextHopType)
 }
 
 func (route *SRouteEntry) GetName() string {
@@ -152,7 +152,7 @@ func (self *SRouteTable) GetDescription() string {
 }
 
 func (self *SRouteTable) GetId() string {
-	return self.GetGlobalId()
+	return self.RouteTableId
 }
 
 func (self *SRouteTable) GetGlobalId() string {
@@ -206,7 +206,7 @@ func (self *SRouteTable) Refresh() error {
 }
 
 func (self *SRouteTable) fetchRoutes() error {
-	routes := make([]*SRouteEntry, 0)
+	routes := []*SRouteEntry{}
 	for {
 		parts, total, err := self.RemoteGetRoutes(len(routes), 50)
 		if err != nil {
