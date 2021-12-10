@@ -1058,10 +1058,14 @@ func (manager *SVpcManager) ListItemFilter(
 		vpcs := VpcManager.Query().SubQuery()
 		managers := CloudproviderManager.Query().SubQuery()
 		accounts := CloudaccountManager.Query().SubQuery()
+		accUrl := sqlchemy.Equals(accounts.Field("access_url"), account.AccessUrl)
+		if len(account.AccessUrl) == 0 {
+			accUrl = sqlchemy.IsNullOrEmpty(accounts.Field("access_url"))
+		}
 		vpcSQ := vpcs.Query(vpcs.Field("id")).Join(managers, sqlchemy.Equals(vpcs.Field("manager_id"), managers.Field("id"))).Join(accounts, sqlchemy.Equals(managers.Field("cloudaccount_id"), accounts.Field("id"))).Filter(
 			sqlchemy.AND(
 				sqlchemy.Equals(accounts.Field("provider"), account.Provider),
-				sqlchemy.Equals(accounts.Field("access_url"), account.AccessUrl),
+				accUrl,
 			),
 		)
 		q = q.In("id", vpcSQ.SubQuery())
