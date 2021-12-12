@@ -77,6 +77,9 @@ func (info *sSqlColumnInfo) getTagmap() map[string]string {
 	}
 	defVal := info.getDefault()
 	if len(defVal) > 0 {
+		if info.getType() == "String" && defVal[0] == '\'' {
+			defVal = defVal[1 : len(defVal)-1]
+		}
 		tagmap[sqlchemy.TAG_DEFAULT] = defVal
 	}
 	return tagmap
