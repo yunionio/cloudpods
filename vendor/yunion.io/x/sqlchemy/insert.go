@@ -29,7 +29,7 @@ import (
 // Insert perform a insert operation, the value of the record is store in dt
 func (t *STableSpec) Insert(dt interface{}) error {
 	if !t.Database().backend.CanInsert() {
-		return errors.ErrNotSupported
+		return errors.Wrap(errors.ErrNotSupported, "Insert")
 	}
 	return t.insert(dt, false, false)
 }
@@ -39,7 +39,11 @@ func (t *STableSpec) Insert(dt interface{}) error {
 // works only for the cases that all values of primary keys are determeted before insert
 func (t *STableSpec) InsertOrUpdate(dt interface{}) error {
 	if !t.Database().backend.CanInsertOrUpdate() {
-		return errors.ErrNotSupported
+		if !t.Database().backend.CanUpdate() {
+			return t.insert(dt, false, false)
+		} else {
+			return errors.Wrap(errors.ErrNotSupported, "InsertOrUpdate")
+		}
 	}
 	return t.insert(dt, true, false)
 }

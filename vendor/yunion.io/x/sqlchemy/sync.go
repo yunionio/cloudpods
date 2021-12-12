@@ -153,6 +153,8 @@ type STableChanges struct {
 	RemoveColumns  []IColumnSpec
 	UpdatedColumns []SUpdateColumnSpec
 	AddColumns     []IColumnSpec
+
+	OldColumns []IColumnSpec
 }
 
 // SyncSQL returns SQL statements that make table in database consistent with TableSpec definitions
@@ -190,6 +192,7 @@ func (ts *STableSpec) SyncSQL() []string {
 		RemoveColumns:  remove,
 		UpdatedColumns: update,
 		AddColumns:     add,
+		OldColumns:     cols,
 	})
 }
 

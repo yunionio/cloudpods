@@ -18,8 +18,8 @@ import "time"
 
 var (
 	globalOpsLogEnabled       = true
-	splitableMaxDurationHours = 24 * 30 // 30 days
-	splitableMaxKeepSegments  = 6       // 6 * 30 days, half year
+	splitableMaxDurationHours = 24 * 30 // 30 days, 1month
+	splitableMaxKeepMonths    = 6       // 6 months, half year
 )
 
 func DisableOpsLog() {
@@ -30,16 +30,16 @@ func OpsLogEnabled() bool {
 	return globalOpsLogEnabled
 }
 
-func SetSplitableMaxKeepSegments(cnt int) {
-	splitableMaxKeepSegments = cnt
+func SetSplitableMaxKeepMonths(cnt int) {
+	splitableMaxKeepMonths = cnt
 }
 
 func SetSplitableMaxDurationHours(h int) {
 	splitableMaxDurationHours = h
 }
 
-func SplitableMaxKeepSegments() int {
-	return splitableMaxKeepSegments
+func SplitableMaxKeepMonths() int {
+	return splitableMaxKeepMonths
 }
 
 func SplitableMaxDuration() time.Duration {

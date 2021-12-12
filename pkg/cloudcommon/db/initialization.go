@@ -14,6 +14,10 @@
 
 package db
 
+import (
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+)
+
 var waitQueue []func()
 
 func InitManager(initfunc func()) {
@@ -21,6 +25,10 @@ func InitManager(initfunc func()) {
 }
 
 func InitAllManagers() {
+	if consts.OpsLogEnabled() {
+		InitOpsLog()
+	}
+
 	for _, f := range waitQueue {
 		f()
 	}

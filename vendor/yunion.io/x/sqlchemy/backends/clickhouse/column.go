@@ -46,6 +46,12 @@ type IClickhouseColumnSpec interface {
 
 	// SetPartitionBy set partitonby field
 	SetPartitionBy(expr string)
+
+	// GetTTL returns the ttl setting of a time column
+	GetTTL() (int, string)
+
+	// SetTTL sets the ttl parameters of a time column
+	SetTTL(int, string)
 }
 
 func columnDefinitionBuffer(c sqlchemy.IColumnSpec) bytes.Buffer {
@@ -108,6 +114,14 @@ func (c *SClickhouseBaseColumn) PartitionBy() string {
 
 func (c *SClickhouseBaseColumn) SetPartitionBy(expr string) {
 	c.partionBy = expr
+}
+
+func (c *SClickhouseBaseColumn) GetTTL() (int, string) {
+	return 0, ""
+}
+
+func (c *SClickhouseBaseColumn) SetTTL(int, string) {
+	// null ops
 }
 
 func NewClickhouseBaseColumn(name string, sqltype string, tagmap map[string]string, isPointer bool) SClickhouseBaseColumn {
@@ -521,6 +535,8 @@ func NewTextColumn(name string, sqlType string, tagmap map[string]string, isPoin
 // STimeTypeColumn represents a Detetime type of column, e.g. DateTime
 type STimeTypeColumn struct {
 	SClickhouseBaseColumn
+
+	ttl sTTL
 }
 
 // IsText implementation of STimeTypeColumn for IColumnSpec
@@ -550,10 +566,31 @@ func (c *STimeTypeColumn) ConvertFromString(str string) interface{} {
 	return tm
 }
 
+func (c *STimeTypeColumn) GetTTL() (int, string) {
+	return c.ttl.Count, c.ttl.Unit
+}
+
+func (c *STimeTypeColumn) SetTTL(cnt int, u string) {
+	c.ttl.Count = cnt
+	c.ttl.Unit = u
+}
+
 // NewTimeTypeColumn return an instance of STimeTypeColumn
 func NewTimeTypeColumn(name string, typeStr string, tagmap map[string]string, isPointer bool) STimeTypeColumn {
+	var ttlCfg sTTL
+	var ttl string
+	var ok bool
+	tagmap, ttl, ok = utils.TagPop(tagmap, TAG_TTL)
+	if ok {
+		var err error
+		ttlCfg, err = parseTTL(ttl)
+		if err != nil {
+			log.Warningf("invalid ttl %s: %s", ttl, err)
+		}
+	}
 	dc := STimeTypeColumn{
 		SClickhouseBaseColumn: NewClickhouseBaseColumn(name, typeStr, tagmap, isPointer),
+		ttl:                   ttlCfg,
 	}
 	return dc
 }
@@ -594,8 +631,9 @@ func NewDateTimeColumn(name string, tagmap map[string]string, isPointer bool) SD
 		updatedAt = utils.ToBool(v)
 	}
 	dtc := SDateTimeColumn{
-		NewTimeTypeColumn(name, "DateTime", tagmap, isPointer),
-		createdAt, updatedAt,
+		STimeTypeColumn: NewTimeTypeColumn(name, "DateTime", tagmap, isPointer),
+		isCreatedAt:     createdAt,
+		isUpdatedAt:     updatedAt,
 	}
 	return dtc
 }

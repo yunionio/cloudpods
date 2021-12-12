@@ -1172,7 +1172,7 @@ func _doCreateItem(
 
 	dataDict, err = ValidateCreateData(funcName, manager, ctx, userCred, ownerId, query, dataDict)
 	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
+		return nil, errors.Wrap(err, "ValidateCreateData")
 	}
 
 	if manager.HasName() {
@@ -1182,7 +1182,7 @@ func _doCreateItem(
 		if len(name) > 0 {
 			err = NewNameValidator(manager, ownerId, name, uniqValues)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "NewNameValidator")
 			}
 		}
 	}
