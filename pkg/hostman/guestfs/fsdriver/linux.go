@@ -928,23 +928,23 @@ func (d *SUbuntuRootFs) DisableSerialConcole(rootFs IDiskPartition) error {
 	return nil
 }
 
-type SKylinRootfs struct {
+type SUKylinRootfs struct {
 	*SUbuntuRootFs
 }
 
-func NewKylinRootfs(part IDiskPartition) *SKylinRootfs {
-	return &SKylinRootfs{SUbuntuRootFs: NewUbuntuRootFs(part).(*SUbuntuRootFs)}
+func NewUKylinRootfs(part IDiskPartition) *SUKylinRootfs {
+	return &SUKylinRootfs{SUbuntuRootFs: NewUbuntuRootFs(part).(*SUbuntuRootFs)}
 }
 
-func (d *SKylinRootfs) GetName() string {
-	return "Kylin"
+func (d *SUKylinRootfs) GetName() string {
+	return "UbuntuKylin"
 }
 
-func (d *SKylinRootfs) String() string {
-	return "KylinuRootFs"
+func (d *SUKylinRootfs) String() string {
+	return "UKylinuRootFs"
 }
 
-func (d *SKylinRootfs) RootSignatures() []string {
+func (d *SUKylinRootfs) RootSignatures() []string {
 	sig := d.sDebianLikeRootFs.RootSignatures()
 	return append([]string{"/etc/lsb-release", "/etc/kylin-build"}, sig...)
 }
@@ -1048,17 +1048,14 @@ func (r *sRedhatLikeRootFs) enableBondingModule(rootFs IDiskPartition, bondNics 
 	return rootFs.FilePutContents("/etc/modprobe.d/bonding.conf", content.String(), false, false)
 }
 
-func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic, relInfo *deployapi.ReleaseInfo) error {
+func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic, relInfo *deployapi.ReleaseInfo, forceEnableNM bool) error {
 	if err := r.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics); err != nil {
 		return err
 	}
 
 	ver := strings.Split(relInfo.Version, ".")
 	iv, err := strconv.ParseInt(ver[0], 10, 0)
-	if err != nil {
-		return fmt.Errorf("Failed to get release version: %v", err)
-	}
-	if iv < 6 {
+	if err == nil && iv < 6 {
 		err = r.Centos5DeployNetworkingScripts(rootFs, nics)
 	} else {
 		err = r.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics)
@@ -1092,10 +1089,10 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 		cmds.WriteString(nicDesc.Name)
 		cmds.WriteString("\n")
 		cmds.WriteString("ONBOOT=yes\n")
-		if iv < 8 {
-			cmds.WriteString("NM_CONTROLLED=no\n")
-		} else {
+		if iv >= 8 || forceEnableNM {
 			cmds.WriteString("NM_CONTROLLED=yes\n")
+		} else {
+			cmds.WriteString("NM_CONTROLLED=no\n")
 		}
 		cmds.WriteString("USERCTL=no\n")
 		if nicDesc.Mtu > 0 {
@@ -1272,7 +1269,7 @@ func (c *SCentosRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.Release
 
 func (c *SCentosRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	relInfo := c.GetReleaseInfo(rootFs)
-	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
+	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo, false); err != nil {
 		return err
 	}
 	var udevPath = "/etc/udev/rules.d/"
@@ -1335,7 +1332,7 @@ func (c *SFedoraRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.Release
 
 func (c *SFedoraRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	relInfo := c.GetReleaseInfo(rootFs)
-	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
+	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo, false); err != nil {
 		return err
 	}
 	return nil
@@ -1379,7 +1376,7 @@ func (d *SRhelRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.ReleaseIn
 
 func (d *SRhelRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	relInfo := d.GetReleaseInfo(rootFs)
-	if err := d.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
+	if err := d.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo, false); err != nil {
 		return err
 	}
 	return nil
@@ -1435,7 +1432,7 @@ func (c *SOpenEulerRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.Rele
 
 func (c *SOpenEulerRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	relInfo := c.GetReleaseInfo(rootFs)
-	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
+	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo, false); err != nil {
 		return err
 	}
 	return nil
