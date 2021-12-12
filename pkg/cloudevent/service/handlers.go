@@ -40,6 +40,8 @@ import (
 func InitHandlers(app *appsrv.Application) {
 	db.InitAllManagers()
 
+	models.InitCloudevent()
+
 	taskman.AddTaskHandler("v1", app)
 
 	for _, manager := range []db.IModelManager{
