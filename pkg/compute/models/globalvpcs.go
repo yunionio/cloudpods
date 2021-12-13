@@ -109,9 +109,11 @@ func (manager *SGlobalVpcManager) FetchCustomizeColumns(
 ) []api.GlobalVpcDetails {
 	rows := make([]api.GlobalVpcDetails, len(objs))
 	stdRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i] = api.GlobalVpcDetails{
 			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
+			ManagedResourceInfo:                    managerRows[i],
 		}
 		gv := objs[i].(*SGlobalVpc)
 		rows[i].VpcCount, _ = gv.GetVpcCount()
