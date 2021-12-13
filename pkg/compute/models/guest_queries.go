@@ -244,6 +244,7 @@ func fetchGuestDisksInfo(guestIds []string) map[string][]api.GuestDiskInfo {
 		guestdisks.Field("bps"),
 		disks.Field("template_id").Label("image_id"),
 		guestdisks.Field("guest_id"),
+		disks.Field("storage_id"),
 	)
 	q = q.Join(guestdisks, sqlchemy.Equals(guestdisks.Field("disk_id"), disks.Field("id")))
 	q = q.Join(storages, sqlchemy.Equals(disks.Field("storage_id"), storages.Field("id")))
