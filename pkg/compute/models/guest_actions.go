@@ -2656,6 +2656,7 @@ func (self *SGuest) changeConfToSchedDesc(addCpu, addMem int, schedInputDisks []
 			Project: self.ProjectId,
 			Domain:  self.DomainId,
 		},
+		OsArch:            self.OsArch,
 		ChangeConfig:      true,
 		HasIsolatedDevice: len(devs) > 0,
 	}
