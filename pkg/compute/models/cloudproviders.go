@@ -1848,3 +1848,33 @@ func (self *SCloudprovider) PerformProjectMapping(ctx context.Context, userCred 
 	}
 	return nil, refreshPmCaches()
 }
+
+func (self *SCloudprovider) PerformSetSyncing(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudproviderSync) (jsonutils.JSONObject, error) {
+	regionIds := []string{}
+	for i := range input.CloudregionIds {
+		_, err := validators.ValidateModel(userCred, CloudregionManager, &input.CloudregionIds[i])
+		if err != nil {
+			return nil, err
+		}
+		regionIds = append(regionIds, input.CloudregionIds[i])
+	}
+	if len(regionIds) == 0 {
+		return nil, nil
+	}
+	q := CloudproviderRegionManager.Query().Equals("cloudprovider_id", self.Id).In("cloudregion_id", regionIds)
+	cpcds := []SCloudproviderregion{}
+	err := db.FetchModelObjects(CloudproviderRegionManager, q, &cpcds)
+	if err != nil {
+		return nil, err
+	}
+	for i := range cpcds {
+		_, err := db.Update(&cpcds[i], func() error {
+			cpcds[i].Enabled = input.Enabled
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.Update")
+		}
+	}
+	return nil, nil
+}

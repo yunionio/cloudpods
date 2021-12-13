@@ -276,3 +276,11 @@ type CloudproviderGetCannedAclOutput struct {
 	// Object支持的预置ACL列表
 	ObjectCannedAcls []string `json:"object_canned_acls"`
 }
+
+type CloudproviderSync struct {
+	// 指定区域启用或禁用同步
+	// default: false
+	Enabled bool `json:"enabled"`
+	// 指定区域信息
+	CloudregionIds []string `json:"cloudregion_ids"`
+}

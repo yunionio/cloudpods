@@ -37,6 +37,7 @@ func init() {
 	cmd.Perform("disable", &options.BaseIdOptions{})
 	cmd.Perform("sync", &compute.CloudproviderSyncOptions{})
 	cmd.Perform("project-mapping", &compute.ClouproviderProjectMappingOptions{})
+	cmd.Perform("set-syncing", &compute.ClouproviderSetSyncingOptions{})
 
 	cmd.GetWithCustomShow("clirc", func(result jsonutils.JSONObject) {
 		rc := make(map[string]string)
