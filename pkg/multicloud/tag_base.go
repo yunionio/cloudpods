@@ -221,8 +221,22 @@ func (self *AzureTags) SetTags(tags map[string]string, replace bool) error {
 	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetTags")
 }
 
+type SAwsTag struct {
+	Key   string `xml:"key"`
+	Value string `xml:"value"`
+}
+
 type AwsTags struct {
-	TagSet []STag
+	TagSet []SAwsTag `xml:"tagSet>item"`
+}
+
+func (self AwsTags) GetName() string {
+	for _, tag := range self.TagSet {
+		if strings.ToLower(tag.Key) == "name" {
+			return tag.Value
+		}
+	}
+	return ""
 }
 
 func (self *AwsTags) GetTags() (map[string]string, error) {

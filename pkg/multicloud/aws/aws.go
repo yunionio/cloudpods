@@ -23,14 +23,10 @@ import (
 	sdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/client"
-	"github.com/aws/aws-sdk-go/aws/client/metadata"
-	"github.com/aws/aws-sdk-go/aws/corehandlers"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
-	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
-	"github.com/aws/aws-sdk-go/private/protocol/query"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elasticache"
@@ -186,19 +182,6 @@ func (client *SAwsClient) GetAccountId() string {
 	return client.ownerId
 }
 
-/*
-func (self *SAwsClient) UpdateAccount(accessKey, secret string) error {
-	if self.accessKey != accessKey || self.accessSecret != secret {
-		self.accessKey = accessKey
-		self.accessSecret = secret
-		self.iregions = nil
-		return self.fetchRegions()
-	} else {
-		return nil
-	}
-}
-*/
-
 var (
 	// cache for describeRegions
 	describeRegionResult        map[string]*ec2.DescribeRegionsOutput = map[string]*ec2.DescribeRegionsOutput{}
@@ -328,26 +311,6 @@ func (client *SAwsClient) fetchOwnerId() error {
 		return errors.Wrap(err, "GetCallerIdentity")
 	}
 	client.ownerId = ident.Account
-
-	/* s, err := client.getDefaultSession()
-	if err != nil {
-		return errors.Wrap(err, "getDefaultSession")
-	}
-	s3cli := s3.New(s)
-	output, err := s3cli.ListBuckets(&s3.ListBucketsInput{})
-	if err != nil {
-		return errors.Wrap(err, "ListBuckets")
-	}
-
-	if output.Owner != nil {
-		if output.Owner.ID != nil {
-			client.ownerId = *output.Owner.ID
-		}
-		if output.Owner.DisplayName != nil {
-			client.ownerName = *output.Owner.DisplayName
-		}
-	} */
-
 	return nil
 }
 
@@ -527,70 +490,12 @@ func (self *SAwsClient) GetAccessEnv() string {
 	}
 }
 
-func (self *SAwsClient) request(regionId, serviceName, serviceId, apiVersion string, apiName string, params map[string]string, retval interface{}, assumeRole bool) error {
-	if len(regionId) == 0 {
-		regionId = self.getDefaultRegionId()
-	}
-	session, err := self.getAwsSession(regionId, assumeRole)
-	if err != nil {
-		return err
-	}
-	c := session.ClientConfig(serviceName)
-	metadata := metadata.ClientInfo{
-		ServiceName:   serviceName,
-		ServiceID:     serviceId,
-		SigningName:   c.SigningName,
-		SigningRegion: c.SigningRegion,
-		Endpoint:      c.Endpoint,
-		APIVersion:    apiVersion,
-	}
-
-	if self.debug {
-		logLevel := aws.LogLevelType(uint(aws.LogDebugWithRequestErrors) + uint(aws.LogDebugWithHTTPBody))
-		c.Config.LogLevel = &logLevel
-	}
-
-	client := client.New(*c.Config, metadata, c.Handlers)
-	client.Handlers.Sign.PushBackNamed(v4.SignRequestHandler)
-	client.Handlers.Build.PushBackNamed(buildHandler)
-	client.Handlers.Unmarshal.PushBackNamed(UnmarshalHandler)
-	client.Handlers.UnmarshalMeta.PushBackNamed(query.UnmarshalMetaHandler)
-	client.Handlers.UnmarshalError.PushBackNamed(query.UnmarshalErrorHandler)
-	client.Handlers.Validate.Remove(corehandlers.ValidateEndpointHandler)
-	return jsonRequest(client, apiName, params, retval, true)
-
-}
-
 func (self *SAwsClient) iamRequest(apiName string, params map[string]string, retval interface{}) error {
 	return self.request("", IAM_SERVICE_NAME, IAM_SERVICE_ID, "2010-05-08", apiName, params, retval, true)
 }
 
 func (self *SAwsClient) stsRequest(apiName string, params map[string]string, retval interface{}) error {
 	return self.request("", STS_SERVICE_NAME, STS_SERVICE_ID, "2011-06-15", apiName, params, retval, false)
-}
-
-func jsonRequest(cli *client.Client, apiName string, params map[string]string, retval interface{}, debug bool) error {
-	op := &request.Operation{
-		Name:       apiName,
-		HTTPMethod: "POST",
-		HTTPPath:   "/",
-		Paginator: &request.Paginator{
-			InputTokens:     []string{"NextToken"},
-			OutputTokens:    []string{"NextToken"},
-			LimitToken:      "MaxResults",
-			TruncationToken: "",
-		},
-	}
-
-	req := cli.NewRequest(op, params, retval)
-	err := req.Send()
-	if err != nil {
-		if e, ok := err.(awserr.RequestFailure); ok && e.StatusCode() == 404 {
-			return cloudprovider.ErrNotFound
-		}
-		return err
-	}
-	return nil
 }
 
 func (self *SAwsClient) GetCapabilities() []string {

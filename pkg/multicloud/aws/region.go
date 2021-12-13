@@ -15,19 +15,13 @@
 package aws
 
 import (
-	"encoding/xml"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"net/url"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/client/metadata"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
 	"github.com/aws/aws-sdk-go/private/protocol/query"
@@ -233,108 +227,6 @@ func (self *SRegion) getResourceGroupTagClient() (*resourcegroupstaggingapi.Reso
 		self.resourceGroupTagClient = resourcegroupstaggingapi.New(s)
 	}
 	return self.resourceGroupTagClient, nil
-}
-
-var UnmarshalHandler = request.NamedHandler{Name: "yunion.query.Unmarshal", Fn: Unmarshal}
-
-func Unmarshal(r *request.Request) {
-	defer r.HTTPResponse.Body.Close()
-	if r.DataFilled() {
-		var decoder *xml.Decoder
-		if DEBUG {
-			body, err := ioutil.ReadAll(r.HTTPResponse.Body)
-			if err != nil {
-				r.Error = awserr.NewRequestFailure(
-					awserr.New("ioutil.ReadAll", "read response body", err),
-					r.HTTPResponse.StatusCode,
-					r.RequestID,
-				)
-				return
-			}
-			log.Debugf("response: \n%s", string(body))
-			decoder = xml.NewDecoder(strings.NewReader(string(body)))
-		} else {
-			decoder = xml.NewDecoder(r.HTTPResponse.Body)
-		}
-		if r.ClientInfo.ServiceID == EC2_SERVICE_ID {
-			err := decoder.Decode(r.Data)
-			if err != nil {
-				r.Error = awserr.NewRequestFailure(
-					awserr.New("SerializationError", "failed decoding EC2 Query response", err),
-					r.HTTPResponse.StatusCode,
-					r.RequestID,
-				)
-			}
-			return
-		}
-		for {
-			tok, err := decoder.Token()
-			if err != nil {
-				if err == io.EOF {
-					break
-				}
-				r.Error = awserr.NewRequestFailure(
-					awserr.New("decoder.Token()", "get token", err),
-					r.HTTPResponse.StatusCode,
-					r.RequestID,
-				)
-				return
-			}
-
-			if tok == nil {
-				break
-			}
-
-			switch typed := tok.(type) {
-			case xml.CharData:
-				continue
-			case xml.StartElement:
-				if typed.Name.Local == r.Operation.Name+"Result" {
-					err = decoder.DecodeElement(r.Data, &typed)
-					if err != nil {
-						r.Error = awserr.NewRequestFailure(
-							awserr.New("DecodeElement", "failed decoding Query response", err),
-							r.HTTPResponse.StatusCode,
-							r.RequestID,
-						)
-					}
-					return
-				}
-			case xml.EndElement:
-				break
-			}
-		}
-
-	}
-}
-
-var buildHandler = request.NamedHandler{Name: "yunion.query.Build", Fn: Build}
-
-func Build(r *request.Request) {
-	body := url.Values{
-		"Action":  {r.Operation.Name},
-		"Version": {r.ClientInfo.APIVersion},
-	}
-	if r.Params != nil {
-		if params, ok := r.Params.(map[string]string); ok {
-			for k, v := range params {
-				body.Add(k, v)
-			}
-		}
-	}
-
-	if DEBUG {
-		log.Debugf("params: %s", body.Encode())
-	}
-
-	if !r.IsPresigned() {
-		r.HTTPRequest.Method = "POST"
-		r.HTTPRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=utf-8")
-		r.SetBufferBody([]byte(body.Encode()))
-	} else { // This is a pre-signed request
-		r.HTTPRequest.Method = "GET"
-		r.HTTPRequest.URL.RawQuery = body.Encode()
-	}
 }
 
 func (self *SRegion) rdsRequest(apiName string, params map[string]string, retval interface{}) error {
@@ -553,19 +445,14 @@ func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
 }
 
 func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	_, err := self.getEc2Client()
-	if err != nil {
-		return nil, errors.Wrap(err, "getEc2Client")
-	}
-
-	eips, total, err := self.GetEips("", "", 0, 0)
+	eips, err := self.GetEips("", "", "")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetEips")
 	}
-
-	ret := make([]cloudprovider.ICloudEIP, total)
-	for i := 0; i < len(eips); i += 1 {
-		ret[i] = &eips[i]
+	ret := []cloudprovider.ICloudEIP{}
+	for i := range eips {
+		eips[i].region = self
+		ret = append(ret, &eips[i])
 	}
 	return ret, nil
 }
@@ -732,19 +619,12 @@ func (self *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprov
 	return self.GetIVpcById(*vpc.Vpc.VpcId)
 }
 
-func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) {
-	eips, total, err := self.GetEips(eipId, "", 0, 0)
+func (self *SRegion) GetIEipById(id string) (cloudprovider.ICloudEIP, error) {
+	eip, err := self.GetEip(id)
 	if err != nil {
-		log.Errorf("GetEips %s: %s", eipId, err)
-		return nil, errors.Wrap(err, "GetEips")
+		return nil, errors.Wrap(err, "GetEip")
 	}
-	if total == 0 {
-		return nil, errors.Wrap(cloudprovider.ErrNotFound, "GetIEipById")
-	}
-	if total > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
-	return &eips[0], nil
+	return eip, nil
 }
 
 func (self *SRegion) GetProvider() string {
