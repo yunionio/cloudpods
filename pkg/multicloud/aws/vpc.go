@@ -598,7 +598,7 @@ func (self *SRegion) assignSecurityGroups(secgroupIds []*string, instanceId stri
 		return errors.Wrap(err, "getEc2Client")
 	}
 
-	for _, eth := range instance.NetworkInterfaces.NetworkInterface {
+	for _, eth := range instance.NetworkInterfaces {
 		params := &ec2.ModifyNetworkInterfaceAttributeInput{}
 		params.SetNetworkInterfaceId(eth.NetworkInterfaceId)
 		params.SetGroups(secgroupIds)
