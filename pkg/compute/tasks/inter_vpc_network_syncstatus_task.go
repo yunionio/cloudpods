@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -57,10 +58,7 @@ func (self *InterVpcNetworkSyncstatusTask) OnInit(ctx context.Context, obj db.IS
 	}
 
 	result := snetwork.SyncInterVpcNetworkRouteSets(ctx, self.UserCred, inetwork)
-	if result.IsError() {
-		self.taskFail(ctx, snetwork, errors.Wrapf(result.AllError(), " snetwork.SyncInterVpcNetworkRouteSets"))
-		return
-	}
+	log.Infof("sync routes for %s result: %s", snetwork.GetName(), result.Result())
 
 	logclient.AddActionLogWithStartable(self, snetwork, logclient.ACT_SYNC_STATUS, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
