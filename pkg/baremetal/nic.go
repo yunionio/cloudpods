@@ -29,30 +29,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/dhcp"
 )
 
-const (
-	// ref: https://datatracker.ietf.org/doc/html/rfc4578#section-2.1
-	PXE_CLIENT_ARCH_INTEL_X86PC = iota
-	PXE_CLIENT_ARCH_NEC_PC98
-	PXE_CLIENT_ARCH_EFI_ITANIUM
-	PXE_CLIENT_ARCH_DEC_ALPHA
-	PXE_CLIENT_ARCH_ARC_X86
-	PXE_CLIENT_ARCH_INTEL_LEAN_CLIENT
-	PXE_CLIENT_ARCH_EFI_IA32
-	PXE_CLIENT_ARCH_EFI_BC
-	PXE_CLIENT_ARCH_EFI_XSCALE
-	PXE_CLIENT_ARCH_EFI_X86_64
-)
-
-func IsUEFIPxeArch(arch uint16) bool {
-	switch arch {
-	case PXE_CLIENT_ARCH_EFI_IA32:
-		return true
-	case PXE_CLIENT_ARCH_EFI_BC, PXE_CLIENT_ARCH_EFI_XSCALE, PXE_CLIENT_ARCH_EFI_X86_64:
-		return true
-	}
-	return false
-}
-
 func GetNicDHCPConfig(
 	n *types.SNic,
 	serverIP string,
@@ -118,17 +94,21 @@ func GetNicDHCPConfig(
 	if isPxe {
 		conf.BootServer = serverIP
 		switch arch {
-		case PXE_CLIENT_ARCH_EFI_BC, PXE_CLIENT_ARCH_EFI_X86_64:
-			conf.BootFile = "bootx64.efi"
-		case PXE_CLIENT_ARCH_EFI_IA32:
+		case dhcp.CLIENT_ARCH_EFI_BC, dhcp.CLIENT_ARCH_EFI_X86_64:
+			// conf.BootFile = "bootx64.efi"
+			conf.BootFile = "grub_bootx64.efi"
+		case dhcp.CLIENT_ARCH_EFI_IA32:
 			conf.BootFile = "bootia32.efi"
+		case dhcp.CLIENT_ARCH_EFI_ARM64:
+			conf.BootFile = "grub_arm64.efi"
 		default:
 			//if o.Options.EnableTftpHttpDownload {
 			// bootFile = "lpxelinux.0"
 			//}else {
 			// bootFile := "pxelinux.0"
 			//}
-			conf.BootFile = "lpxelinux.0"
+			// conf.BootFile = "lpxelinux.0"
+			conf.BootFile = "grub_booti386"
 		}
 		pxePath := filepath.Join(o.Options.TftpRoot, conf.BootFile)
 		if f, err := os.Open(pxePath); err != nil {

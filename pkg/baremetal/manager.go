@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/pkg/util/workqueue"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/baremetal/profiles"
@@ -48,6 +49,7 @@ import (
 	baremetaltypes "yunion.io/x/onecloud/pkg/baremetal/types"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/detect_storages"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/disktool"
+	"yunion.io/x/onecloud/pkg/baremetal/utils/grub"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
 	raiddrivers "yunion.io/x/onecloud/pkg/baremetal/utils/raid/drivers"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/uefi"
@@ -933,16 +935,41 @@ func (b *SBaremetalInstance) NeedPXEBoot() bool {
 		taskNeedPXEBoot = true
 	}
 	ret := false
-	if taskNeedPXEBoot || (task == nil && len(serverId) == 0 && b.GetHostType() == "baremetal") || (task == nil && b.IsMaintenance()) {
+	reason := ""
+	if taskNeedPXEBoot {
+		reason = fmt.Sprintf("Task %s need PXE boot", taskName)
+	}
+	emptyBmNoTask := false
+	if task == nil && len(serverId) == 0 && b.GetHostType() == "baremetal" {
+		emptyBmNoTask = true
+		reason = fmt.Sprintf("Baremetal %s is empty and no task executing", b.GetName())
+	}
+	noTaskInMaintenance := false
+	if task == nil && b.IsMaintenance() {
+		noTaskInMaintenance = true
+		reason = fmt.Sprintf("Baremetal %s no task executing but in maintenance", b.GetName())
+	}
+	if taskNeedPXEBoot || emptyBmNoTask || noTaskInMaintenance {
 		ret = true
 	}
-	log.Infof("Check task %s, server %s NeedPXEBoot: %v", taskName, serverId, ret)
+	log.Infof("Check task %s, server %s NeedPXEBoot: %v(%s)", taskName, serverId, ret, reason)
 	return ret
 }
 
 func (b *SBaremetalInstance) IsMaintenance() bool {
 	isMt, _ := b.desc.Bool("is_maintenance")
 	return isMt
+}
+
+func (b *SBaremetalInstance) GetArch() (string, error) {
+	cpuArch, err := b.desc.GetString("cpu_architecture")
+	if err != nil {
+		return "", errors.Wrap(err, "Get cpu_architecture from desc")
+	}
+	if cpuArch == "" {
+		return "", errors.Errorf("cpu_architecture is empty")
+	}
+	return cpuArch, nil
 }
 
 func (b *SBaremetalInstance) GetHostType() string {
@@ -1001,13 +1028,16 @@ func (b *SBaremetalInstance) getDHCPConfig(
 	if err != nil {
 		return nil, err
 	}
-	if isPxe && IsUEFIPxeArch(arch) && !b.NeedPXEBoot() {
-		// TODO: use chainloader boot UEFI firmware,
-		// currently not response PXE request,
-		// and let BIOS detect bootable device
-		b.ClearSSHConfig()
-		return nil, errors.Errorf("Baremetal %s not need UEFI PXE boot", b.GetName())
-	}
+	// if isPxe && IsUEFIPxeArch(arch) && !b.NeedPXEBoot() {
+	/*
+	 * if isPxe && !b.NeedPXEBoot() {
+	 * 	// TODO: use chainloader boot UEFI firmware,
+	 * 	// currently not response PXE request,
+	 * 	// and let BIOS detect bootable device
+	 * 	b.ClearSSHConfig()
+	 * 	return nil, errors.Errorf("Baremetal %s not need UEFI PXE boot", b.GetName())
+	 * }
+	 */
 	return GetNicDHCPConfig(nic, serverIP.String(), hostName, isPxe, arch)
 }
 
@@ -1045,7 +1075,8 @@ func (b *SBaremetalInstance) getBootIsoUrl() string {
 }
 
 func (b *SBaremetalInstance) GetTFTPResponse() string {
-	return b.getSyslinuxConf(true)
+	// return b.getSyslinuxConf(true)
+	return b.getGrubPXEConf(true)
 }
 
 func (b *SBaremetalInstance) getIsolinuxConf() string {
@@ -1076,6 +1107,68 @@ func (b *SBaremetalInstance) findAccessNetwork(accessIp string) (*types.SNetwork
 	network := types.SNetworkConfig{}
 	err = ret.Data[0].Unmarshal(&network)
 	return &network, err
+}
+
+func (b *SBaremetalInstance) getKernelArgs(isTftp bool, initramfs string) string {
+	args := []string{
+		fmt.Sprintf("token=%s", auth.GetTokenString()),
+		fmt.Sprintf("url=%s", b.GetNotifyUrl()),
+	}
+	bootmode := api.BOOT_MODE_PXE
+	if !isTftp {
+		adminNic := b.GetAdminNic()
+		var mac string
+		var addr string
+		var mask string
+		var gateway string
+		if adminNic != nil {
+			mac = adminNic.GetMac().String()
+			addr = adminNic.IpAddr
+			mask = adminNic.GetNetMask()
+			gateway = adminNic.Gateway
+		} else {
+			accessIp := b.GetAccessIp()
+			accessNet, _ := b.findAccessNetwork(accessIp)
+			if accessNet != nil {
+				addr = accessIp
+				mask = netutils.Masklen2Mask(int8(accessNet.GuestIpMask)).String()
+				gateway = accessNet.GuestGateway
+			}
+		}
+		serverIP, _ := b.manager.Agent.GetDHCPServerIP()
+		args = append(args, fmt.Sprintf("mac=%s", mac))
+		args = append(args, fmt.Sprintf("dest=%s", serverIP))
+		args = append(args, fmt.Sprintf("gateway=%s", gateway))
+		args = append(args, fmt.Sprintf("addr=%s", addr))
+		args = append(args, fmt.Sprintf("mask=%s", mask))
+		bootmode = api.BOOT_MODE_ISO
+	}
+	args = append(args, fmt.Sprintf("bootmod=%s", bootmode))
+	return strings.Join(args, " ")
+}
+
+func (b *SBaremetalInstance) getGrubPXEConf(isTftp bool) string {
+	arch, err := b.GetArch()
+	if err != nil {
+		log.Warningf("Get baremetal %s architecture error: %v", b.GetName(), err)
+		arch = apis.OS_ARCH_X86_64
+	}
+	kernel := "kernel"
+	initrd := "initramfs"
+	if arch == apis.OS_ARCH_AARCH64 {
+		kernel = "kernel_aarch64"
+		initrd = "initramfs_aarch64"
+	}
+	// TODO: support not tftp situation
+	kernelArgs := b.getKernelArgs(isTftp, initrd)
+	var resp string
+	if b.NeedPXEBoot() {
+		resp = grub.GetYunionOSConfig(3, kernel, kernelArgs, initrd)
+	} else {
+		resp = grub.GetAutoFindConfig()
+		b.ClearSSHConfig()
+	}
+	return resp
 }
 
 func (b *SBaremetalInstance) getSyslinuxConf(isTftp bool) string {

@@ -32,6 +32,7 @@ import (
 
 var (
 	PxeLinuxCfgPattern = `^pxelinux.cfg/01-(?P<mac>([0-9a-f]{2}-){5}[0-9a-f]{2})$`
+	GrubCfgPattern     = `grub/grub.cfg-01-(?P<mac>([0-9a-f]{2}-){5}[0-9a-f]{2})$`
 )
 
 type TFTPHandler struct {
@@ -51,15 +52,24 @@ func NewTFTPHandler(rootDir string, baremetalManager IBaremetalManager) (*TFTPHa
 
 // Handle is called when client starts file download from server
 func (h *TFTPHandler) Handle(filename string, clientAddr net.Addr) (io.ReadCloser, int64, error) {
-	regEx := regexp.MustCompile(PxeLinuxCfgPattern)
-	matches := regEx.FindStringSubmatch(filename)
+	regPxeEx := regexp.MustCompile(PxeLinuxCfgPattern)
+	pxeMatches := regPxeEx.FindStringSubmatch(filename)
 
-	if len(matches) != 0 {
+	regGrubEx := regexp.MustCompile(GrubCfgPattern)
+	grubMatches := regGrubEx.FindStringSubmatch(filename)
+
+	if len(pxeMatches) != 0 || len(grubMatches) != 0 {
 		paramsMap := make(map[string]string)
 		// pxelinux config matched
-		for i, name := range regEx.SubexpNames() {
-			if i > 0 && i <= len(matches) {
-				paramsMap[name] = matches[i]
+		for i, name := range regPxeEx.SubexpNames() {
+			if i > 0 && i <= len(pxeMatches) {
+				paramsMap[name] = pxeMatches[i]
+			}
+		}
+		// grub config matched
+		for i, name := range regGrubEx.SubexpNames() {
+			if i > 0 && i <= len(grubMatches) {
+				paramsMap[name] = grubMatches[i]
 			}
 		}
 		mac, ok := paramsMap["mac"]

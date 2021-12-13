@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
@@ -366,6 +367,21 @@ func (req *dhcpRequest) createOrUpdateBaremetal(session *mcclient.ClientSession)
 	return nil, fmt.Errorf("Found %d records match %s", len(ret.Data), req.ClientMac)
 }
 
+func (req *dhcpRequest) getArch() string {
+	switch req.ClientArch {
+	case dhcp.CLIENT_ARCH_EFI_BC, dhcp.CLIENT_ARCH_EFI_X86_64:
+		return apis.OS_ARCH_X86_64
+	case dhcp.CLIENT_ARCH_EFI_IA32:
+		return apis.OS_ARCH_X86_32
+	case dhcp.CLIENT_ARCH_EFI_ARM64:
+		return apis.OS_ARCH_AARCH64
+	case dhcp.CLIENT_ARCH_EFI_ARM32:
+		return apis.OS_ARCH_AARCH32
+	default:
+		return ""
+	}
+}
+
 func (req *dhcpRequest) createBaremetal(session *mcclient.ClientSession) (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 	mac := req.ClientMac.String()
@@ -376,6 +392,7 @@ func (req *dhcpRequest) createBaremetal(session *mcclient.ClientSession) (jsonut
 	params.Add(jsonutils.NewString("baremetal"), "host_type")
 	params.Add(jsonutils.JSONTrue, "is_baremetal")
 	params.Add(jsonutils.NewString(zoneId), "zone_id")
+	params.Add(jsonutils.NewString(req.getArch()), "cpu_architecture")
 	desc, err := modules.Hosts.Create(session, params)
 	if err != nil {
 		return nil, err
@@ -387,8 +404,13 @@ func (req *dhcpRequest) updateBaremetal(session *mcclient.ClientSession, id stri
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(req.ClientMac.String()), "access_mac")
 	params.Add(jsonutils.NewString(req.baremetalManager.GetZoneId()), "zone_id")
+	params.Add(jsonutils.NewString(req.getArch()), "cpu_architecture")
 	// params.Add(jsonutils.NewString("baremetal"), "host_type")
 	params.Add(jsonutils.JSONTrue, "is_baremetal")
+	if !dhcp.IsUEFIPxeArch(req.ClientArch) {
+		// clean uefi info
+		params.Add(jsonutils.NewDict(), "uefi_info")
+	}
 	desc, err := modules.Hosts.Update(session, id, params)
 	if err != nil {
 		return nil, err
