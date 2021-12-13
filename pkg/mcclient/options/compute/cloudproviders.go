@@ -143,3 +143,16 @@ type ClouproviderProjectMappingOptions struct {
 func (opts *ClouproviderProjectMappingOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(map[string]string{"project_mapping_id": opts.ProjectMappingId}), nil
 }
+
+type ClouproviderSetSyncingOptions struct {
+	options.BaseIdOptions
+	Enabled        bool     `help:"Enable or disable sync"`
+	CloudregionIds []string `help:"Cloudregion ids for sync"`
+}
+
+func (opts *ClouproviderSetSyncingOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(map[string]interface{}{
+		"enabled":         opts.Enabled,
+		"cloudregion_ids": opts.CloudregionIds,
+	}), nil
+}
