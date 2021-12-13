@@ -62,4 +62,7 @@ type GlobalvpcUpdateInput struct {
 
 type GlobalVpcListInput struct {
 	apis.EnabledStatusInfrasResourceBaseListInput
+	apis.ExternalizedResourceBaseListInput
+
+	ManagedResourceListInput
 }
