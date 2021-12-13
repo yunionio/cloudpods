@@ -384,7 +384,7 @@ func (self *SBaseGuestDriver) IsSupportSetAutoRenew() bool {
 	return false
 }
 
-func (self *SBaseGuestDriver) RequestSetAutoRenewInstance(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, autoRenew bool, task taskman.ITask) error {
+func (self *SBaseGuestDriver) RequestSetAutoRenewInstance(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input api.GuestAutoRenewInput, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestSetAutoRenewInstance")
 }
 

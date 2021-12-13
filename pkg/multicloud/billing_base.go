@@ -37,7 +37,7 @@ func (self *SBillingBase) GetExpiredAt() time.Time {
 	return time.Time{}
 }
 
-func (self *SBillingBase) SetAutoRenew(autoRenew bool) error {
+func (self *SBillingBase) SetAutoRenew(bc billing.SBillingCycle) error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "SetAutoRenew")
 }
 

@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -50,7 +51,9 @@ func (self *NatGatewaySetAutoRenewTask) OnInit(ctx context.Context, obj db.IStan
 		self.taskFailed(ctx, nat, errors.Wrapf(err, "GetINatGateway"))
 		return
 	}
-	err = iNat.SetAutoRenew(autoRenew)
+	bc := billing.SBillingCycle{}
+	bc.AutoRenew = autoRenew
+	err = iNat.SetAutoRenew(bc)
 	if err != nil {
 		self.taskFailed(ctx, nat, errors.Wrapf(err, "iNat.SetAutoRenew"))
 		return

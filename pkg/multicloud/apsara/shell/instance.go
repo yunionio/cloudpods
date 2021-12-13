@@ -205,6 +205,7 @@ func init() {
 	type InstanceSetAutoRenewOptions struct {
 		ID        string `help:"Instance ID"`
 		AutoRenew bool   `help:"Is auto renew instance"`
+		Duration  string
 	}
 
 	shellutils.R(&InstanceSetAutoRenewOptions{}, "instance-set-auto-renew", "Set instance auto renew", func(cli *apsara.SRegion, args *InstanceSetAutoRenewOptions) error {

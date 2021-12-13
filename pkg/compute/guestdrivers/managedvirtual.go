@@ -1231,18 +1231,23 @@ func (self *SManagedVirtualizedGuestDriver) RequestConvertPublicipToEip(ctx cont
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestSetAutoRenewInstance(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, autoRenew bool, task taskman.ITask) error {
+func (self *SManagedVirtualizedGuestDriver) RequestSetAutoRenewInstance(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input api.GuestAutoRenewInput, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iVM, err := guest.GetIVM()
 		if err != nil {
 			return nil, errors.Wrap(err, "guest.GetIVM")
 		}
-		err = iVM.SetAutoRenew(autoRenew)
+		bc, err := billing.ParseBillingCycle(input.Duration)
+		if err != nil {
+			return nil, errors.Wrapf(err, "billing.ParseBillingCycle")
+		}
+		bc.AutoRenew = input.AutoRenew
+		err = iVM.SetAutoRenew(bc)
 		if err != nil {
 			return nil, errors.Wrap(err, "iVM.SetAutoRenew")
 		}
 
-		return nil, guest.SetAutoRenew(autoRenew)
+		return nil, guest.SetAutoRenew(input.AutoRenew)
 	})
 	return nil
 }

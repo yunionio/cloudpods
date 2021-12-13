@@ -374,8 +374,8 @@ func (self *SMySQLInstance) GetBillingType() string {
 	return billingapi.BILLING_TYPE_POSTPAID
 }
 
-func (self *SMySQLInstance) SetAutoRenew(autoRenew bool) error {
-	return self.region.ModifyMySQLAutoRenewFlag([]string{self.InstanceId}, autoRenew)
+func (self *SMySQLInstance) SetAutoRenew(bc billing.SBillingCycle) error {
+	return self.region.ModifyMySQLAutoRenewFlag([]string{self.InstanceId}, bc.AutoRenew)
 }
 
 func (self *SMySQLInstance) IsAutoRenew() bool {
