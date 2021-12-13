@@ -27,7 +27,7 @@ WEBCONSOLE_BASE_VERSION = v0.2-1
 webconsole-base:
 	$(DOCKER_BUILDX)/webconsole-base:$(WEBCONSOLE_BASE_VERSION) -f ./Dockerfile.webconsole-base .
 
-BAREMETAL_BASE_VERSION = v0.3.3-2
+BAREMETAL_BASE_VERSION = v0.3.3-2-grub
 
 baremetal-base:
 	$(DOCKER_BUILDX)/baremetal-base:$(BAREMETAL_BASE_VERSION) -f ./Dockerfile.baremetal-base .

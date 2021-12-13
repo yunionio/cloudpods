@@ -1,10 +1,34 @@
-FROM --platform=linux/amd64 registry.cn-beijing.aliyuncs.com/yunionio/centos-build:1.1-4 as build
-RUN yum install -y https://iso.yunion.cn/vm-images/baremetal-pxerom-1.1.0-21092209.x86_64.rpm
+#FROM --platform=linux/amd64 registry.cn-beijing.aliyuncs.com/yunionio/centos-build:1.1-4 as build
+#RUN yum install -y https://iso.yunion.cn/vm-images/baremetal-pxerom-1.1.0-21092209.x86_64.rpm
 #RUN yum install -y http://192.168.23.50:8083/baremetal-pxerom-1.1.0-21092209.x86_64.rpm
+FROM registry.cn-beijing.aliyuncs.com/yunionio/yunionos:v0.1.1 as yunionos
+
+FROM centos:8 as grub-stage
+
+RUN dnf install -y grub2*
+
+# make grub_booti386 firmware
+RUN grub2-mkimage -d /usr/lib/grub/i386-pc/ -O i386-pc-pxe -o /root/grub_booti386 -p '/grub' pxe tftp boot linux ext2 xfs ntfs fat part_msdos part_gpt normal biosdisk
+# make grub_bootx64 firmware
+RUN grub2-mkimage -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi -o /root/grub_bootx64.efi -p '/grub' efinet tftp boot linux ext2 xfs ntfs fat part_msdos part_gpt normal efi_gop
+# make grub_arm64 firmware
+RUN grub2-mkimage -d /usr/lib/grub/arm64-efi/ -O arm64-efi -o /root/grub_arm64.efi -p '/grub' efinet tftp boot linux ext2 xfs ntfs fat part_msdos part_gpt normal efi_gop
+
+RUN mkdir -p /tftp/grub
+
+RUN cp /root/grub_booti386 /tftp
+RUN cp -rf /usr/lib/grub/i386-pc /tftp/grub
+
+RUN cp /root/grub_bootx64.efi /tftp
+RUN cp -rf /usr/lib/grub/x86_64-efi /tftp/grub
+
+RUN cp /root/grub_arm64.efi /tftp
+RUN cp -rf /usr/lib/grub/arm64-efi /tftp/grub
+
 
 FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.3-3.13.5
 
-MAINTAINER "Yaoqi Wan <wanyaoqi@yunionyun.com>"
+MAINTAINER "Zexi Li <zexi.li@icloud.com>"
 
 RUN mkdir -p /opt/yunion/bin
 
@@ -18,17 +42,45 @@ RUN mkdir -p /opt/cloud/yunion/baremetal
 RUN wget -O /opt/cloud/yunion/baremetal/pci.ids http://pci-ids.ucw.cz/v2.2/pci.ids
 
 # download baremetal-pxerom-*.x86_64.rpm and unpack rpm in current directory
-COPY --from=build /opt/cloud/yunion/baremetal/bootia32.efi /opt/cloud/yunion/baremetal
-COPY --from=build /opt/cloud/yunion/baremetal/bootx64.efi /opt/cloud/yunion/baremetal
-COPY --from=build /opt/cloud/yunion/baremetal/chain.c32 /opt/cloud/yunion/baremetal
-COPY --from=build ./opt/cloud/yunion/baremetal/initramfs /opt/cloud/yunion/baremetal
-COPY --from=build ./opt/cloud/yunion/baremetal/isolinux.bin /opt/cloud/yunion/baremetal
-COPY --from=build ./opt/cloud/yunion/baremetal/kernel /opt/cloud/yunion/baremetal
-COPY --from=build ./opt/cloud/yunion/baremetal/ldlinux.c32 /opt/cloud/yunion/baremetal
-COPY --from=build ./opt/cloud/yunion/baremetal/ldlinux.e32 /opt/cloud/yunion/baremetal
-COPY --from=build ./opt/cloud/yunion/baremetal/ldlinux.e64 /opt/cloud/yunion/baremetal
-COPY --from=build ./opt/cloud/yunion/baremetal/libcom32.c32 /opt/cloud/yunion/baremetal
-COPY --from=build ./opt/cloud/yunion/baremetal/libutil.c32 /opt/cloud/yunion/baremetal
-COPY --from=build ./opt/cloud/yunion/baremetal/lpxelinux.0 /opt/cloud/yunion/baremetal
-COPY --from=build ./opt/cloud/yunion/baremetal/menu.c32 /opt/cloud/yunion/baremetal
-COPY --from=build ./opt/cloud/yunion/baremetal/pxelinux.0 /opt/cloud/yunion/baremetal
+#COPY --from=build /opt/cloud/yunion/baremetal/bootia32.efi /opt/cloud/yunion/baremetal
+#COPY --from=build /opt/cloud/yunion/baremetal/bootx64.efi /opt/cloud/yunion/baremetal
+#COPY --from=build /opt/cloud/yunion/baremetal/chain.c32 /opt/cloud/yunion/baremetal
+#COPY --from=build ./opt/cloud/yunion/baremetal/initramfs /opt/cloud/yunion/baremetal
+#COPY --from=build ./opt/cloud/yunion/baremetal/isolinux.bin /opt/cloud/yunion/baremetal
+#COPY --from=build ./opt/cloud/yunion/baremetal/kernel /opt/cloud/yunion/baremetal
+#COPY --from=build ./opt/cloud/yunion/baremetal/ldlinux.c32 /opt/cloud/yunion/baremetal
+#COPY --from=build ./opt/cloud/yunion/baremetal/ldlinux.e32 /opt/cloud/yunion/baremetal
+#COPY --from=build ./opt/cloud/yunion/baremetal/ldlinux.e64 /opt/cloud/yunion/baremetal
+#COPY --from=build ./opt/cloud/yunion/baremetal/libcom32.c32 /opt/cloud/yunion/baremetal
+#COPY --from=build ./opt/cloud/yunion/baremetal/libutil.c32 /opt/cloud/yunion/baremetal
+#COPY --from=build ./opt/cloud/yunion/baremetal/lpxelinux.0 /opt/cloud/yunion/baremetal
+#COPY --from=build ./opt/cloud/yunion/baremetal/menu.c32 /opt/cloud/yunion/baremetal
+#COPY --from=build ./opt/cloud/yunion/baremetal/pxelinux.0 /opt/cloud/yunion/baremetal
+
+# copy grub file
+COPY --from=grub-stage /tftp/grub_booti386 /opt/cloud/yunion/baremetal
+COPY --from=grub-stage /tftp/grub_bootx64.efi /opt/cloud/yunion/baremetal
+COPY --from=grub-stage /tftp/grub_arm64.efi /opt/cloud/yunion/baremetal
+COPY --from=grub-stage /tftp/grub /opt/cloud/yunion/baremetal/grub
+
+# copy boot files from yunionos
+COPY --from=yunionos /yunionos/x86_64/kernel /opt/cloud/yunion/baremetal
+COPY --from=yunionos /yunionos/x86_64/initramfs /opt/cloud/yunion/baremetal
+COPY --from=yunionos /yunionos/aarch64/kernel /opt/cloud/yunion/baremetal/kernel_aarch64
+COPY --from=yunionos /yunionos/aarch64/initramfs /opt/cloud/yunion/baremetal/initramfs_aarch64
+
+# TODO: syslinux firmwares should removed in future
+COPY --from=yunionos /yunionos/x86_64/isolinux.bin /opt/cloud/yunion/baremetal
+COPY --from=yunionos /yunionos/x86_64/bootia32.efi /opt/cloud/yunion/baremetal
+COPY --from=yunionos /yunionos/x86_64/bootx64.efi /opt/cloud/yunion/baremetal
+COPY --from=yunionos /yunionos/x86_64/chain.c32 /opt/cloud/yunion/baremetal
+COPY --from=yunionos /yunionos/x86_64/initramfs /opt/cloud/yunion/baremetal
+COPY --from=yunionos /yunionos/x86_64/kernel /opt/cloud/yunion/baremetal
+COPY --from=yunionos /yunionos/x86_64/ldlinux.c32 /opt/cloud/yunion/baremetal
+COPY --from=yunionos /yunionos/x86_64/ldlinux.e32 /opt/cloud/yunion/baremetal
+COPY --from=yunionos /yunionos/x86_64/ldlinux.e64 /opt/cloud/yunion/baremetal
+COPY --from=yunionos /yunionos/x86_64/libcom32.c32 /opt/cloud/yunion/baremetal
+COPY --from=yunionos /yunionos/x86_64/libutil.c32 /opt/cloud/yunion/baremetal
+COPY --from=yunionos /yunionos/x86_64/lpxelinux.0 /opt/cloud/yunion/baremetal
+COPY --from=yunionos /yunionos/x86_64/menu.c32 /opt/cloud/yunion/baremetal
+COPY --from=yunionos /yunionos/x86_64/pxelinux.0 /opt/cloud/yunion/baremetal

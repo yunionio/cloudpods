@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/baremetal/profiles"
@@ -57,6 +58,7 @@ func newBaremetalPrepareTask(baremetal IBaremetal, userCred mcclient.TokenCreden
 }
 
 type baremetalPrepareInfo struct {
+	architecture        string
 	sysInfo             *types.SSystemInfo
 	cpuInfo             *types.SCPUInfo
 	dmiCpuInfo          *types.SDMICPUInfo
@@ -74,6 +76,11 @@ func (task *sBaremetalPrepareTask) GetStartTime() time.Time {
 
 func (task *sBaremetalPrepareTask) prepareBaremetalInfo(cli *ssh.Client) (*baremetalPrepareInfo, error) {
 	_, err := cli.Run("/lib/mos/sysinit.sh")
+	if err != nil {
+		return nil, err
+	}
+
+	arch, err := getArchitecture(cli)
 	if err != nil {
 		return nil, err
 	}
@@ -143,6 +150,7 @@ func (task *sBaremetalPrepareTask) prepareBaremetalInfo(cli *ssh.Client) (*barem
 	}
 
 	prepareInfo := &baremetalPrepareInfo{
+		architecture:        arch,
 		sysInfo:             sysInfo,
 		cpuInfo:             cpuInfo,
 		dmiCpuInfo:          dmiCPUInfo,
@@ -385,6 +393,7 @@ func (task *sBaremetalPrepareTask) updateBmInfo(cli *ssh.Client, i *baremetalPre
 	}
 	updateInfo["access_ip"] = adminNic.IpAddr
 	updateInfo["access_mac"] = adminNic.Mac
+	updateInfo["cpu_architecture"] = i.architecture
 	updateInfo["cpu_count"] = i.cpuInfo.Count
 	updateInfo["node_count"] = i.dmiCpuInfo.Nodes
 	updateInfo["cpu_desc"] = i.cpuInfo.Model
@@ -603,6 +612,25 @@ func (task *sBaremetalPrepareTask) getIPMIIPConfig(ipAddr string) (*ipmiIPConfig
 
 func (task *sBaremetalPrepareTask) getClientSession() *mcclient.ClientSession {
 	return task.baremetal.GetClientSession()
+}
+
+func getArchitecture(cli *ssh.Client) (string, error) {
+	ret, err := cli.Run("/bin/uname -m")
+	if err != nil {
+		return "", err
+	}
+	if len(ret) == 0 {
+		return "", errors.Errorf("/bin/uname not output")
+	}
+	arch := strings.ToLower(ret[0])
+	switch arch {
+	case apis.OS_ARCH_AARCH64:
+		return apis.OS_ARCH_AARCH64, nil
+	case apis.OS_ARCH_X86_64:
+		return apis.OS_ARCH_X86_64, nil
+	default:
+		return arch, nil
+	}
 }
 
 func getDMISysinfo(cli *ssh.Client) (*types.SSystemInfo, error) {
