@@ -196,7 +196,7 @@ func (l *SLocalImageCache) fetch(ctx context.Context, zone, srcUrl, format strin
 		l.remoteFile.Fetch() {
 		if len(l.Manager.GetId()) > 0 {
 			_, err := hostutils.RemoteStoragecacheCacheImage(ctx,
-				l.Manager.GetId(), l.imageId, "ready", l.GetPath())
+				l.Manager.GetId(), l.imageId, "active", l.GetPath())
 			if err != nil {
 				log.Errorf("Fail to update host cached image: %s", err)
 			}
