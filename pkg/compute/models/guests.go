@@ -4586,13 +4586,13 @@ func (manager *SGuestManager) AutoRenewPrepaidServer(ctx context.Context, userCr
 		return
 	}
 	for i := 0; i < len(guests); i += 1 {
-		if len(guests[i].ExternalId) > 0 {
+		if len(guests[i].ExternalId) > 0 && !guests[i].GetDriver().IsSupportSetAutoRenew() {
 			err := guests[i].doExternalSync(ctx, userCred)
 			if err == nil && guests[i].IsValidPrePaid() {
 				continue
 			}
 		}
-		guests[i].startGuestRenewTask(ctx, userCred, "1M", "")
+		guests[i].startGuestRenewTask(ctx, userCred, guests[i].BillingCycle, "")
 	}
 }
 

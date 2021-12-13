@@ -3024,7 +3024,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheSetAutoRenew(
 		return errors.Wrap(err, "GetIElasticcacheById")
 	}
 
-	err = iec.SetAutoRenew(autoRenew)
+	bc := billing.SBillingCycle{}
+	bc.AutoRenew = autoRenew
+	err = iec.SetAutoRenew(bc)
 	if err != nil {
 		return errors.Wrap(err, "SetAutoRenew")
 	}

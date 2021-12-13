@@ -997,8 +997,8 @@ func (self *SInstance) IsAutoRenew() bool {
 	return attr.AutoRenewEnabled
 }
 
-func (self *SInstance) SetAutoRenew(autoRenew bool) error {
-	return self.host.zone.region.SetInstanceAutoRenew(self.InstanceId, autoRenew)
+func (self *SInstance) SetAutoRenew(bc billing.SBillingCycle) error {
+	return self.host.zone.region.SetInstanceAutoRenew(self.InstanceId, bc.AutoRenew)
 }
 
 func (self *SInstance) SetTags(tags map[string]string, replace bool) error {

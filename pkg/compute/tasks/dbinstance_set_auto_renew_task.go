@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -50,7 +51,9 @@ func (self *DBInstanceSetAutoRenewTask) OnInit(ctx context.Context, obj db.IStan
 		self.taskFailed(ctx, rds, errors.Wrapf(err, "GetIDBInstance"))
 		return
 	}
-	err = iRds.SetAutoRenew(autoRenew)
+	bc := billing.SBillingCycle{}
+	bc.AutoRenew = autoRenew
+	err = iRds.SetAutoRenew(bc)
 	if err != nil {
 		self.taskFailed(ctx, rds, errors.Wrapf(err, "iRds.SetAutoRenew"))
 		return

@@ -819,8 +819,12 @@ func (rds *SDBInstance) Renew(bc billing.SBillingCycle) error {
 	return rds.region.RenewInstance(rds.DBInstanceId, bc)
 }
 
-func (rds *SDBInstance) SetAutoRenew(autoRenew bool) error {
-	return rds.region.ModifyInstanceAutoRenewalAttribute(rds.DBInstanceId, 1, autoRenew)
+func (rds *SDBInstance) SetAutoRenew(bc billing.SBillingCycle) error {
+	month := 1
+	if bc.GetMonths() > 0 {
+		month = bc.GetMonths()
+	}
+	return rds.region.ModifyInstanceAutoRenewalAttribute(rds.DBInstanceId, month, bc.AutoRenew)
 }
 
 func (region *SRegion) ModifyInstanceAutoRenewalAttribute(rdsId string, month int, autoRenew bool) error {

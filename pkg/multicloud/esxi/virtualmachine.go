@@ -1328,7 +1328,7 @@ func (self *SVirtualMachine) IsAutoRenew() bool {
 	return false
 }
 
-func (self *SVirtualMachine) SetAutoRenew(autoRenew bool) error {
+func (self *SVirtualMachine) SetAutoRenew(bc billing.SBillingCycle) error {
 	return cloudprovider.ErrNotSupported
 }
 

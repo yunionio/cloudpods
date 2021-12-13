@@ -5223,6 +5223,15 @@ func (self *SGuest) PerformSetAutoRenew(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewUnsupportOperationError("Only %s guest support this operation", billing_api.BILLING_TYPE_PREPAID)
 	}
 
+	if len(input.Duration) == 0 {
+		input.Duration = "1M"
+	}
+
+	_, err := billing.ParseBillingCycle(input.Duration)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("invalid duration %s: %s", input.Duration, err)
+	}
+
 	if self.AutoRenew == input.AutoRenew {
 		return nil, nil
 	}
@@ -5237,12 +5246,13 @@ func (self *SGuest) PerformSetAutoRenew(ctx context.Context, userCred mcclient.T
 		return nil, nil
 	}
 
-	return nil, self.StartSetAutoRenewTask(ctx, userCred, input.AutoRenew, "")
+	return nil, self.StartSetAutoRenewTask(ctx, userCred, input, "")
 }
 
-func (self *SGuest) StartSetAutoRenewTask(ctx context.Context, userCred mcclient.TokenCredential, autoRenew bool, parentTaskId string) error {
+func (self *SGuest) StartSetAutoRenewTask(ctx context.Context, userCred mcclient.TokenCredential, input api.GuestAutoRenewInput, parentTaskId string) error {
 	data := jsonutils.NewDict()
-	data.Set("auto_renew", jsonutils.NewBool(autoRenew))
+	data.Set("auto_renew", jsonutils.NewBool(input.AutoRenew))
+	data.Set("duration", jsonutils.NewString(input.Duration))
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestSetAutoRenewTask", self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrap(err, "NewTask")

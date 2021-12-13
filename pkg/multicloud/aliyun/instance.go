@@ -1052,13 +1052,24 @@ func (self *SRegion) VpcMoveResourceGroup(resType, groupId, resId string) error 
 	return errors.Wrapf(err, "MoveResourceGroup")
 }
 
-func (region *SRegion) SetInstanceAutoRenew(instanceId string, autoRenew bool) error {
+// https://help.aliyun.com/document_detail/52843.html
+func (region *SRegion) SetInstanceAutoRenew(instanceId string, bc billing.SBillingCycle) error {
 	params := make(map[string]string)
 	params["InstanceId"] = instanceId
 	params["RegionId"] = region.RegionId
-	if autoRenew {
+	if bc.AutoRenew {
 		params["RenewalStatus"] = "AutoRenewal"
-		params["Duration"] = "1"
+		switch bc.Unit {
+		case billing.BillingCycleYear:
+			params["Duration"] = fmt.Sprintf("%d", bc.GetYears())
+			params["PeriodUnit"] = "Year"
+		case billing.BillingCycleMonth:
+			params["Duration"] = fmt.Sprintf("%d", bc.GetMonths())
+			params["PeriodUnit"] = "Month"
+		case billing.BillingCycleWeek:
+			params["Duration"] = fmt.Sprintf("%d", bc.GetWeeks())
+			params["PeriodUnit"] = "Week"
+		}
 	} else {
 		params["RenewalStatus"] = "Normal"
 	}
@@ -1101,8 +1112,8 @@ func (self *SInstance) IsAutoRenew() bool {
 	return attr.AutoRenewEnabled
 }
 
-func (self *SInstance) SetAutoRenew(autoRenew bool) error {
-	return self.host.zone.region.SetInstanceAutoRenew(self.InstanceId, autoRenew)
+func (self *SInstance) SetAutoRenew(bc billing.SBillingCycle) error {
+	return self.host.zone.region.SetInstanceAutoRenew(self.InstanceId, bc)
 }
 
 func (self *SInstance) SetTags(tags map[string]string, replace bool) error {

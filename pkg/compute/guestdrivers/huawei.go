@@ -153,5 +153,5 @@ func (self *SHuaweiGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovi
 }
 
 func (self *SHuaweiGuestDriver) IsSupportSetAutoRenew() bool {
-	return true
+	return false
 }
