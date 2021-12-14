@@ -288,7 +288,7 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		s.StartMonitor(ctx, nil)
 		return nil, nil
 	}
-	log.Infof("Async start server %s failed: %s!!!", s.GetName(), err)
+	log.Errorf("Async start server %s failed: %s!!!", s.GetName(), err)
 	if ctx != nil && len(appctx.AppContextTaskId(ctx)) >= 0 {
 		hostutils.TaskFailed(ctx, fmt.Sprintf("Async start server failed: %s", err))
 	}
@@ -1785,35 +1785,6 @@ func (s *SKVMGuestInstance) generateDiskSetupScripts(disks []api.GuestdiskJsonDe
 		cmd += d.GetDiskSetupScripts(int(diskIndex))
 	}
 	return cmd, nil
-}
-
-func (s *SKVMGuestInstance) generateDiskParams(disks []api.GuestdiskJsonDesc, isArm bool) string {
-	cmd := " "
-	firstDriver := make(map[string]bool)
-	for _, disk := range disks {
-		driver := disk.Driver
-		if isArm && (driver == DISK_DRIVER_IDE || driver == DISK_DRIVER_SATA) {
-			// unsupported configuration: IDE controllers are unsupported
-			driver = DISK_DRIVER_SCSI
-		}
-		if driver == DISK_DRIVER_SCSI || driver == DISK_DRIVER_PVSCSI {
-			if _, ok := firstDriver[driver]; !ok {
-				switch driver {
-				case DISK_DRIVER_SCSI:
-					// FIXME: iothread will make qemu-monitor hang
-					// REF: https://www.mail-archive.com/qemu-devel@nongnu.org/msg592729.html
-					// cmd += " -device virtio-scsi-pci,id=scsi,iothread=iothread0,num_queues=4,vectors=5"
-					cmd += " -device virtio-scsi-pci,id=scsi,num_queues=4,vectors=5"
-				case DISK_DRIVER_PVSCSI:
-					cmd += " -device pvscsi,id=scsi"
-				}
-				firstDriver[driver] = true
-			}
-		}
-		cmd += s.getDriveDesc(disk, isArm)
-		cmd += s.getVdiskDesc(disk, isArm)
-	}
-	return cmd
 }
 
 func (s *SKVMGuestInstance) getQemuCmdline() (string, error) {

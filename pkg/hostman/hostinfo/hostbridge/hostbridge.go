@@ -337,8 +337,7 @@ func (d *SBaseBridgeDriver) saveFileExecutable(scriptPath, script string) error 
 func (d *SBaseBridgeDriver) generateIfdownScripts(driver IBridgeDriver, scriptPath string, nic jsonutils.JSONObject, isSlave bool) error {
 	script, err := driver.getDownScripts(nic, isSlave)
 	if err != nil {
-		log.Errorln(err)
-		return err
+		return errors.Wrap(err, "getDownScripts")
 	}
 	return d.saveFileExecutable(scriptPath, script)
 }
