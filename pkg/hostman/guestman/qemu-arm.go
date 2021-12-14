@@ -184,6 +184,7 @@ func (s *SKVMGuestInstance) generateArmStartScript(data *jsonutils.JSONDict) (st
 	// exceeds the recommended cpus supported by KVM (32)
 	cmd += fmt.Sprintf(" -smp %d,maxcpus=32", cpu)
 	cmd += fmt.Sprintf(" -name %s", name)
+	cmd += fmt.Sprintf(" -uuid %s", uuid)
 	cmd += fmt.Sprintf(" -m %dM,slots=4,maxmem=262144M", mem)
 
 	if options.HostOptions.HugepagesOption == "native" {
