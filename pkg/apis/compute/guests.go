@@ -254,6 +254,7 @@ type GuestDiskInfo struct {
 	Bps         int    `json:"bps"`
 	ImageId     string `json:"image_id,omitempty"`
 	Image       string `json:"image,omitemtpy"`
+	StorageId   string `json:"storage_id"`
 }
 
 func (self GuestDiskInfo) ShortDesc() string {
