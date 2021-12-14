@@ -171,7 +171,7 @@ func (self *DiskBatchCreateTask) startCreateDisk(ctx context.Context, disk *mode
 	quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &quotaStorage, true) // success
 	self.SetPendingUsage(&pendingUsage, 0)
 
-	disk.StartDiskCreateTask(ctx, self.GetUserCred(), false, "", self.GetTaskId())
+	disk.StartDiskCreateTask(ctx, self.GetUserCred(), false, disk.SnapshotId, self.GetTaskId())
 }
 
 func (self *DiskBatchCreateTask) OnScheduleComplete(ctx context.Context, items []db.IStandaloneModel, data *jsonutils.JSONDict) {
