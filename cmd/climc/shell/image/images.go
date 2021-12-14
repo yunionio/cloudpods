@@ -297,9 +297,6 @@ func init() {
 	R(&ImageUploadOptions{}, "image-upload", "Upload a local image", func(s *mcclient.ClientSession, args *ImageUploadOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.NAME), "name")
-		// if len(args.Format) == 0 {
-		// 	return fmt.Errorf("Please specify image format")
-		//}
 		err := addImageOptionalOptions(s, params, args.ImageOptionalOptions)
 		if err != nil {
 			return err
@@ -314,7 +311,9 @@ func init() {
 			return err
 		}
 		size := finfo.Size()
-		img, err := modules.Images.Upload(s, params, f, size)
+		bar := pb.Full.Start64(size)
+		barReader := bar.NewProxyReader(f)
+		img, err := modules.Images.Upload(s, params, barReader, size)
 		if err != nil {
 			return err
 		}
