@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -105,6 +106,7 @@ type QmpMonitor struct {
 	qmpEventFunc  qmpEventCallback
 	commandQueue  []*Command
 	callbackQueue []qmpMonitorCallBack
+	jobs          map[string]BlockJob
 }
 
 func NewQmpMonitor(server string, OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc,
@@ -114,6 +116,7 @@ func NewQmpMonitor(server string, OnMonitorDisConnect, OnMonitorTimeout MonitorE
 		qmpEventFunc:  qmpEventFunc,
 		commandQueue:  make([]*Command, 0),
 		callbackQueue: make([]qmpMonitorCallBack, 0),
+		jobs:          map[string]BlockJob{},
 	}
 
 	// On qmp init must set capabilities
@@ -658,40 +661,52 @@ func (m *QmpMonitor) MigrateStartPostcopy(callback StringCallback) {
 	m.Query(cmd, cb)
 }
 
+func (m *QmpMonitor) blockJobs(res *Response) ([]BlockJob, error) {
+	if res.ErrorVal != nil {
+		return nil, errors.Errorf("GetBlockJobs for %s %s", m.server, jsonutils.Marshal(res.ErrorVal).String())
+	}
+	ret, err := jsonutils.Parse(res.Return)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetBlockJobs for %s parse %s", m.server, res.Return)
+	}
+	jobs := []BlockJob{}
+	ret.Unmarshal(&jobs)
+	for i := range jobs {
+		job := jobs[i]
+		job.server = m.server
+		_job, ok := m.jobs[job.Device]
+		if !ok {
+			job.PreOffset(0)
+			m.jobs[job.Device] = job
+			continue
+		}
+		if _job.Status == "ready" {
+			delete(m.jobs, _job.Device)
+			continue
+		}
+		job.start, job.now = _job.start, _job.now
+		job.PreOffset(_job.Offset)
+		m.jobs[job.Device] = job
+	}
+	return jobs, nil
+}
+
 func (m *QmpMonitor) GetBlockJobCounts(callback func(jobs int)) {
 	var cb = func(res *Response) {
-		if res.ErrorVal != nil {
-			log.Errorf("GetBlockJobCounts error %s: %s", m.server, res.ErrorVal.Error())
+		jobs, err := m.blockJobs(res)
+		if err != nil {
 			callback(-1)
-		} else {
-			ret, err := jsonutils.Parse(res.Return)
-			if err != nil {
-				log.Errorf("Parse GetBlockJobCounts qmp res error %s: %s", m.server, err)
-				callback(-1)
-			} else {
-				jobs, _ := ret.GetArray()
-				callback(len(jobs))
-			}
+			return
 		}
+		callback(len(jobs))
 	}
 	m.Query(&Command{Execute: "query-block-jobs"}, cb)
 }
 
-func (m *QmpMonitor) GetBlockJobs(callback func(*jsonutils.JSONArray)) {
+func (m *QmpMonitor) GetBlockJobs(callback func([]BlockJob)) {
 	var cb = func(res *Response) {
-		if res.ErrorVal != nil {
-			log.Errorf("GetBlockJobs error %s: %s", m.server, res.ErrorVal.Error())
-			callback(nil)
-		} else {
-			ret, err := jsonutils.Parse(res.Return)
-			if err != nil {
-				log.Errorf("Parse GetBlockJobs qmp res error %s: %s", m.server, err)
-				callback(nil)
-			} else {
-				jobs, _ := ret.(*jsonutils.JSONArray)
-				callback(jobs)
-			}
-		}
+		jobs, _ := m.blockJobs(res)
+		callback(jobs)
 	}
 	m.Query(&Command{Execute: "query-block-jobs"}, cb)
 }

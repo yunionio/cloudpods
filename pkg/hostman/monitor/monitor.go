@@ -27,6 +27,63 @@ import (
 
 type StringCallback func(string)
 
+type BlockJob struct {
+	server string
+
+	Busy bool
+	// commit|
+	Type   string
+	Len    int64
+	Paused bool
+	Ready  bool
+	// running|ready
+	Status string
+	// ok|
+	IoStatus string `json:"io-status"`
+	Offset   int64
+	Device   string
+	Speed    int64
+
+	start     time.Time
+	preOffset int64
+	now       time.Time
+}
+
+type blockSizeByte int64
+
+func (self blockSizeByte) String() string {
+	size := map[string]float64{
+		"Kb": 1024,
+		"Mb": 1024 * 1024,
+		"Gb": 1024 * 1024 * 1024,
+		"TB": 1024 * 1024 * 1024 * 1024,
+	}
+	for _, unit := range []string{"TB", "Gb", "Mb", "Kb"} {
+		if int64(self)/int64(size[unit]) > 0 {
+			return fmt.Sprintf("%.2f%s", float64(self)/size[unit], unit)
+		}
+	}
+	return fmt.Sprintf("%d", int64(self))
+}
+
+func (self *BlockJob) PreOffset(preOffset int64) {
+	if self.start.IsZero() {
+		self.start = time.Now()
+		self.now = time.Now()
+		self.preOffset = preOffset
+		return
+	}
+	second := time.Now().Sub(self.now).Seconds()
+	if second > 0 {
+		speed := float64(self.Offset-preOffset) / second
+		avgSpeed := float64(self.Offset) / time.Now().Sub(self.start).Seconds()
+		log.Infof(`[%s / %s] server %s block job for %s speed: %s/s(avg: %s/s)`, blockSizeByte(self.Offset).String(), blockSizeByte(self.Len).String(), self.server, self.Device, blockSizeByte(speed).String(), blockSizeByte(avgSpeed).String())
+	}
+	self.preOffset = preOffset
+	self.now = time.Now()
+	return
+}
+
 type Monitor interface {
 	Connect(host string, port int) error
 	ConnectWithSocket(address string) error
@@ -40,7 +97,7 @@ type Monitor interface {
 	QueryStatus(StringCallback)
 	GetVersion(StringCallback)
 	GetBlockJobCounts(func(jobs int))
-	GetBlockJobs(func(*jsonutils.JSONArray))
+	GetBlockJobs(func([]BlockJob))
 
 	GetCpuCount(func(count int))
 	AddCpu(cpuIndex int, callback StringCallback)
