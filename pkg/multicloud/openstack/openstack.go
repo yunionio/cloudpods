@@ -206,8 +206,8 @@ func (v *sApiVersions) GetMaxVersion() string {
 	return maxVersion
 }
 
-func getApiVerion(token mcclient.TokenCredential, url string, debug bool) (string, error) {
-	client := httputils.NewJsonClient(httputils.GetDefaultClient())
+func (cli *SOpenStackClient) getApiVerion(token mcclient.TokenCredential, url string, debug bool) (string, error) {
+	client := httputils.NewJsonClient(cli.getDefaultClient().HttpClient())
 	req := httputils.NewJsonRequest(httputils.THttpMethod("GET"), strings.TrimSuffix(url, token.GetTenantId()), nil)
 	header := http.Header{}
 	header.Set("X-Auth-Token", token.GetTokenString())
@@ -229,10 +229,10 @@ func (cli *SOpenStackClient) GetMaxVersion(region, service string) (string, erro
 	}
 	header := http.Header{}
 	header.Set("X-Auth-Token", cli.tokenCredential.GetTokenString())
-	return getApiVerion(cli.tokenCredential, serviceUrl, cli.debug)
+	return cli.getApiVerion(cli.tokenCredential, serviceUrl, cli.debug)
 }
 
-func jsonReuest(token mcclient.TokenCredential, service, region, endpointType string, method httputils.THttpMethod, resource string, query url.Values, body interface{}, debug bool) (jsonutils.JSONObject, error) {
+func (cli *SOpenStackClient) jsonReuest(token mcclient.TokenCredential, service, region, endpointType string, method httputils.THttpMethod, resource string, query url.Values, body interface{}, debug bool) (jsonutils.JSONObject, error) {
 	serviceUrl, err := token.GetServiceURL(service, region, "", endpointType)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetServiceURL(%s, %s, %s)", service, region, endpointType)
@@ -241,7 +241,7 @@ func jsonReuest(token mcclient.TokenCredential, service, region, endpointType st
 	header.Set("X-Auth-Token", token.GetTokenString())
 	apiVersion := ""
 	if !utils.IsInStringArray(service, []string{OPENSTACK_SERVICE_IMAGE, OPENSTACK_SERVICE_IDENTITY}) {
-		apiVersion, err = getApiVerion(token, serviceUrl, debug)
+		apiVersion, err = cli.getApiVerion(token, serviceUrl, debug)
 		if err != nil {
 			log.Errorf("get service %s api version error: %v", service, err)
 		}
@@ -278,11 +278,11 @@ func jsonReuest(token mcclient.TokenCredential, service, region, endpointType st
 		requestUrl = fmt.Sprintf("%s?%s", requestUrl, query.Encode())
 	}
 
-	return _jsonRequest(method, requestUrl, header, body, debug)
+	return cli._jsonRequest(method, requestUrl, header, body, debug)
 }
 
-func _jsonRequest(method httputils.THttpMethod, url string, header http.Header, params interface{}, debug bool) (jsonutils.JSONObject, error) {
-	client := httputils.NewJsonClient(httputils.GetDefaultClient())
+func (cli *SOpenStackClient) _jsonRequest(method httputils.THttpMethod, url string, header http.Header, params interface{}, debug bool) (jsonutils.JSONObject, error) {
+	client := httputils.NewJsonClient(cli.getDefaultClient().HttpClient())
 	req := httputils.NewJsonRequest(method, url, params)
 	req.SetHeader(header)
 	oe := &OpenstackError{}
@@ -300,7 +300,7 @@ func (cli *SOpenStackClient) ecsRequest(region string, method httputils.THttpMet
 			return nil, errors.Wrapf(err, "getProjectTokenCredential(%s)", projectId)
 		}
 	}
-	return jsonReuest(token, OPENSTACK_SERVICE_COMPUTE, region, cli.endpointType, method, resource, query, body, cli.debug)
+	return cli.jsonReuest(token, OPENSTACK_SERVICE_COMPUTE, region, cli.endpointType, method, resource, query, body, cli.debug)
 }
 
 func (cli *SOpenStackClient) ecsCreate(projectId, region, resource string, body interface{}) (jsonutils.JSONObject, error) {
@@ -312,7 +312,7 @@ func (cli *SOpenStackClient) ecsCreate(projectId, region, resource string, body 
 			return nil, errors.Wrapf(err, "getProjectTokenCredential(%s)", projectId)
 		}
 	}
-	return jsonReuest(token, OPENSTACK_SERVICE_COMPUTE, region, cli.endpointType, httputils.POST, resource, nil, body, cli.debug)
+	return cli.jsonReuest(token, OPENSTACK_SERVICE_COMPUTE, region, cli.endpointType, httputils.POST, resource, nil, body, cli.debug)
 }
 
 func (cli *SOpenStackClient) ecsDo(projectId, region, resource string, body interface{}) (jsonutils.JSONObject, error) {
@@ -324,26 +324,26 @@ func (cli *SOpenStackClient) ecsDo(projectId, region, resource string, body inte
 			return nil, errors.Wrapf(err, "getProjectTokenCredential(%s)", projectId)
 		}
 	}
-	return jsonReuest(token, OPENSTACK_SERVICE_COMPUTE, region, cli.endpointType, httputils.POST, resource, nil, body, cli.debug)
+	return cli.jsonReuest(token, OPENSTACK_SERVICE_COMPUTE, region, cli.endpointType, httputils.POST, resource, nil, body, cli.debug)
 }
 
 func (cli *SOpenStackClient) iamRequest(region string, method httputils.THttpMethod, resource string, query url.Values, body interface{}) (jsonutils.JSONObject, error) {
-	return jsonReuest(cli.tokenCredential, OPENSTACK_SERVICE_IDENTITY, region, cli.endpointType, method, resource, query, body, cli.debug)
+	return cli.jsonReuest(cli.tokenCredential, OPENSTACK_SERVICE_IDENTITY, region, cli.endpointType, method, resource, query, body, cli.debug)
 }
 
 func (cli *SOpenStackClient) vpcRequest(region string, method httputils.THttpMethod, resource string, query url.Values, body interface{}) (jsonutils.JSONObject, error) {
-	return jsonReuest(cli.tokenCredential, OPENSTACK_SERVICE_NETWORK, region, cli.endpointType, method, resource, query, body, cli.debug)
+	return cli.jsonReuest(cli.tokenCredential, OPENSTACK_SERVICE_NETWORK, region, cli.endpointType, method, resource, query, body, cli.debug)
 }
 
 func (cli *SOpenStackClient) imageRequest(region string, method httputils.THttpMethod, resource string, query url.Values, body interface{}) (jsonutils.JSONObject, error) {
-	return jsonReuest(cli.tokenCredential, OPENSTACK_SERVICE_IMAGE, region, cli.endpointType, method, resource, query, body, cli.debug)
+	return cli.jsonReuest(cli.tokenCredential, OPENSTACK_SERVICE_IMAGE, region, cli.endpointType, method, resource, query, body, cli.debug)
 }
 
 func (cli *SOpenStackClient) bsRequest(region string, method httputils.THttpMethod, resource string, query url.Values, body interface{}) (jsonutils.JSONObject, error) {
 	for _, service := range []string{OPENSTACK_SERVICE_VOLUMEV3, OPENSTACK_SERVICE_VOLUMEV2, OPENSTACK_SERVICE_VOLUME} {
 		_, err := cli.tokenCredential.GetServiceURL(service, region, "", cli.endpointType)
 		if err == nil {
-			return jsonReuest(cli.tokenCredential, service, region, cli.endpointType, method, resource, query, body, cli.debug)
+			return cli.jsonReuest(cli.tokenCredential, service, region, cli.endpointType, method, resource, query, body, cli.debug)
 		}
 	}
 	return nil, errors.Wrap(ErrNoEndpoint, "cinder service")
@@ -361,7 +361,7 @@ func (cli *SOpenStackClient) bsCreate(projectId, region, resource string, body i
 	for _, service := range []string{OPENSTACK_SERVICE_VOLUMEV3, OPENSTACK_SERVICE_VOLUMEV2, OPENSTACK_SERVICE_VOLUME} {
 		_, err := token.GetServiceURL(service, region, "", cli.endpointType)
 		if err == nil {
-			return jsonReuest(token, service, region, cli.endpointType, httputils.POST, resource, nil, body, cli.debug)
+			return cli.jsonReuest(token, service, region, cli.endpointType, httputils.POST, resource, nil, body, cli.debug)
 		}
 	}
 	return nil, errors.Wrap(ErrNoEndpoint, "cinder service")
@@ -375,7 +375,7 @@ func (cli *SOpenStackClient) imageUpload(region, url string, body io.Reader) (*h
 }
 
 func (cli *SOpenStackClient) lbRequest(region string, method httputils.THttpMethod, resource string, query url.Values, body interface{}) (jsonutils.JSONObject, error) {
-	return jsonReuest(cli.tokenCredential, OPENSTACK_SERVICE_LOADBALANCER, region, cli.endpointType, method, resource, query, body, cli.debug)
+	return cli.jsonReuest(cli.tokenCredential, OPENSTACK_SERVICE_LOADBALANCER, region, cli.endpointType, method, resource, query, body, cli.debug)
 }
 
 func (cli *SOpenStackClient) fetchToken() error {
