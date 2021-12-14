@@ -280,7 +280,7 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		s.StartMonitor(ctx)
 		return nil, nil
 	}
-	log.Infof("Async start server %s failed: %s!!!", s.GetName(), err)
+	log.Errorf("Async start server %s failed: %s!!!", s.GetName(), err)
 	if ctx != nil && len(appctx.AppContextTaskId(ctx)) >= 0 {
 		hostutils.TaskFailed(ctx, fmt.Sprintf("Async start server failed: %s", err))
 	}

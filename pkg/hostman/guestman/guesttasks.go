@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/qemu"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
@@ -313,7 +314,7 @@ func (d *SGuestDiskSyncTask) onAddDiskSucc(disk jsonutils.JSONObject, results st
 	var (
 		diskIndex, _  = disk.Int("index")
 		diskDirver, _ = disk.GetString("driver")
-		dev           = d.guest.GetDiskDeviceModel(diskDirver)
+		dev           = qemu.GetDiskDeviceModel(diskDirver)
 	)
 
 	var params = map[string]interface{}{
