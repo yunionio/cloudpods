@@ -521,7 +521,7 @@ function nic_mtu() {
 	// #cmd += " -g 800x600"
 	cmd += fmt.Sprintf(" -smp %d,maxcpus=255", cpu)
 	cmd += fmt.Sprintf(" -name %s", name)
-	// #cmd += fmt.Sprintf(" -uuid %s", self.desc["uuid"])
+	cmd += fmt.Sprintf(" -uuid %s", uuid)
 	cmd += fmt.Sprintf(" -m %dM,slots=4,maxmem=524288M", mem)
 
 	if s.manager.host.IsHugepagesEnabled() {
