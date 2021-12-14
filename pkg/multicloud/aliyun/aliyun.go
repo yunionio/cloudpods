@@ -188,6 +188,8 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 					return nil, errors.Wrapf(httperrors.ErrInvalidAccessKey, err.Error())
 				case "404 Not Found", "InstanceNotFound":
 					return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
+				case "OperationDenied.NoStock":
+					return nil, errors.Wrapf(err, "所请求的套餐在指定的区域内已售罄;尝试其他套餐或选择其他区域和可用区。")
 				case "InvalidInstance.NotSupported",
 					"SignatureNonceUsed",                  // SignatureNonce 重复。每次请求的 SignatureNonce 在 15 分钟内不能重复。
 					"BackendServer.configuring",           // 负载均衡的前一个配置项正在配置中，请稍后再试。
