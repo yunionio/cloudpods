@@ -364,29 +364,26 @@ func (m *HmpMonitor) GetBlockJobCounts(callback func(jobs int)) {
 	m.Query("info block-jobs", cb)
 }
 
-func (m *HmpMonitor) GetBlockJobs(callback func(*jsonutils.JSONArray)) {
+func (m *HmpMonitor) GetBlockJobs(callback func([]BlockJob)) {
 	cb := func(output string) {
 		lines := strings.Split(strings.TrimSuffix(output, "\r\n"), "\r\n")
 		if lines[0] == "No active jobs" {
 			callback(nil)
-		} else {
-			res := jsonutils.NewArray()
-			re := regexp.MustCompile(`Type (?P<type>\w+), device (?P<device>\w+)`)
-			for i := 0; i < len(lines); i++ {
-				m := regutils2.GetParams(re, lines[i])
-				if len(m) > 0 {
-					jobType, _ := m["type"]
-					device, _ := m["device"]
-					jobInfo := jsonutils.NewDict()
-					jobInfo.Set("type", jsonutils.NewString(jobType))
-					jobInfo.Set("device", jsonutils.NewString(device))
-					res.Add(jobInfo)
-				}
-			}
-			callback(res)
+			return
 		}
+		jobs := []BlockJob{}
+		re := regexp.MustCompile(`Type (?P<type>\w+), device (?P<device>\w+)`)
+		for i := 0; i < len(lines); i++ {
+			m := regutils2.GetParams(re, lines[i])
+			if len(m) > 0 {
+				job := BlockJob{}
+				job.Type, _ = m["type"]
+				job.Device, _ = m["device"]
+				jobs = append(jobs, job)
+			}
+		}
+		callback(jobs)
 	}
-
 	m.Query("info block-jobs", cb)
 }
 

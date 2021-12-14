@@ -648,49 +648,41 @@ func (ms MirrorJob) InProcess() bool {
 }
 
 func (s *SKVMGuestInstance) MirrorJobStatus() MirrorJob {
-	res := make(chan *jsonutils.JSONArray)
-	s.Monitor.GetBlockJobs(func(jobs *jsonutils.JSONArray) {
+	res := make(chan []monitor.BlockJob)
+	s.Monitor.GetBlockJobs(func(jobs []monitor.BlockJob) {
 		res <- jobs
 	})
 	select {
 	case <-time.After(time.Second * 3):
 		return 0
 	case v := <-res:
-		if v != nil && v.Length() >= s.DiskCount() {
+		if len(v) >= s.DiskCount() {
 			mirrorSuccCount := 0
-			vs, _ := v.GetArray()
-			for _, val := range vs {
-				jobType, _ := val.GetString("type")
-				jobStatus, _ := val.GetString("status")
-				if jobType == "mirror" && jobStatus == "ready" {
+			for _, job := range v {
+				if job.Type == "mirror" && job.Status == "ready" {
 					mirrorSuccCount += 1
 				}
 			}
 			if mirrorSuccCount == s.DiskCount() {
 				return 1
-			} else {
-				return 0
 			}
-		} else {
-			return -1
+			return 0
 		}
+		return -1
 	}
 }
 
 func (s *SKVMGuestInstance) BlockJobsCount() int {
-	res := make(chan *jsonutils.JSONArray)
-	s.Monitor.GetBlockJobs(func(jobs *jsonutils.JSONArray) {
+	res := make(chan []monitor.BlockJob)
+	s.Monitor.GetBlockJobs(func(jobs []monitor.BlockJob) {
 		res <- jobs
 	})
 	select {
 	case <-time.After(time.Second * 3):
 		return -1
 	case v := <-res:
-		if v != nil && v.Length() > 0 {
-			return v.Length()
-		}
+		return len(v)
 	}
-	return 0
 }
 
 func (s *SKVMGuestInstance) CleanStartupTask() {
