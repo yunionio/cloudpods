@@ -185,7 +185,7 @@ func (s *SKVMGuestInstance) getDriveDesc(disk api.GuestdiskJsonDesc, isArm bool)
 	if len(disk.Url) > 0 { // # a remote file backed image
 		cmd += ",copy-on-read=on"
 	}
-	if isArm && disk.StorageType == api.STORAGE_LOCAL {
+	if disk.StorageType == api.STORAGE_LOCAL {
 		cmd += ",file.locking=off"
 	}
 	// #cmd += ",media=disk"
