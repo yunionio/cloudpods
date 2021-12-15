@@ -228,10 +228,14 @@ func (self *SVpc) GetSVpcPeeringConnections() ([]SVpcPC, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "self.region.GetAllVpcPeeringConnections(%s)", self.GetId())
 	}
+	ret := []SVpcPC{}
 	for i := range svpcPCs {
-		svpcPCs[i].vpc = self
+		if svpcPCs[i].UnVpcID == self.VpcId {
+			svpcPCs[i].vpc = self
+			ret = append(ret, svpcPCs[i])
+		}
 	}
-	return svpcPCs, nil
+	return ret, nil
 }
 
 func (self *SVpc) GetAccepterSVpcPeeringConnections() ([]SVpcPC, error) {

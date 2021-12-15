@@ -188,6 +188,15 @@ func (manager *SRouteTableRouteSetManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SRouteTableResourceBaseManager.ListItemFilter")
 	}
+	if len(query.Type) > 0 {
+		q = q.Equals("type", query.Type)
+	}
+	if len(query.NextHopType) > 0 {
+		q = q.Equals("next_hop_type", query.NextHopType)
+	}
+	if len(query.NextHopId) > 0 {
+		q = q.Equals("next_hop_id", query.NextHopId)
+	}
 	return q, nil
 }
 
