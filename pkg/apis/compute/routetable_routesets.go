@@ -70,4 +70,7 @@ type RouteTableRouteSetListInput struct {
 	apis.StatusStandaloneResourceListInput
 	apis.ExternalizedResourceBaseListInput
 	RouteTableFilterList
+	Type        string `json:"type"`
+	NextHopType string `json:"next_hop_type"`
+	NextHopId   string `json:"next_hop_id"`
 }
