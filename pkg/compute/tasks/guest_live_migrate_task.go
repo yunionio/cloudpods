@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -211,13 +212,14 @@ func (self *GuestMigrateTask) OnSrcPrepareComplete(ctx context.Context, guest *m
 	targetHostId, _ := self.Params.GetString("target_host_id")
 	targetHost := models.HostManager.FetchHostById(targetHostId)
 	var body *jsonutils.JSONDict
-	var hasError bool
+	var err error
 	if jsonutils.QueryBoolean(self.Params, "is_local_storage", false) {
-		body, hasError = self.localStorageMigrateConf(ctx, guest, targetHost, data)
+		body, err = self.localStorageMigrateConf(ctx, guest, targetHost, data)
 	} else {
-		body, hasError = self.sharedStorageMigrateConf(ctx, guest, targetHost)
+		body, err = self.sharedStorageMigrateConf(ctx, guest, targetHost)
 	}
-	if hasError {
+	if err != nil {
+		self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
 	guestStatus, _ := self.Params.GetString("guest_status")
@@ -229,7 +231,7 @@ func (self *GuestMigrateTask) OnSrcPrepareComplete(ctx context.Context, guest *m
 
 	url := fmt.Sprintf("%s/servers/%s/dest-prepare-migrate", targetHost.ManagerUri, guest.Id)
 	self.SetStage("OnMigrateConfAndDiskComplete", nil)
-	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(),
+	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(),
 		ctx, "POST", url, headers, body, false)
 	if err != nil {
 		self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
@@ -289,17 +291,17 @@ func (self *GuestMigrateTask) OnGuestStartSuccFailed(ctx context.Context, guest 
 	self.TaskFailed(ctx, guest, data)
 }
 
-func (self *GuestMigrateTask) sharedStorageMigrateConf(ctx context.Context, guest *models.SGuest, targetHost *models.SHost) (*jsonutils.JSONDict, bool) {
+func (self *GuestMigrateTask) sharedStorageMigrateConf(ctx context.Context, guest *models.SGuest, targetHost *models.SHost) (*jsonutils.JSONDict, error) {
 	body := jsonutils.NewDict()
 	body.Set("is_local_storage", jsonutils.JSONFalse)
 	body.Set("qemu_version", jsonutils.NewString(guest.GetQemuVersion(self.UserCred)))
 	targetDesc := guest.GetJsonDescAtHypervisor(ctx, targetHost)
 	body.Set("desc", jsonutils.Marshal(targetDesc))
-	return body, false
+	return body, nil
 }
 
 func (self *GuestMigrateTask) localStorageMigrateConf(ctx context.Context,
-	guest *models.SGuest, targetHost *models.SHost, data jsonutils.JSONObject) (*jsonutils.JSONDict, bool) {
+	guest *models.SGuest, targetHost *models.SHost, data jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 	body := jsonutils.NewDict()
 	if data != nil {
 		body.Update(data.(*jsonutils.JSONDict))
@@ -327,18 +329,21 @@ func (self *GuestMigrateTask) localStorageMigrateConf(ctx context.Context,
 	body.Set("qemu_version", jsonutils.NewString(guest.GetQemuVersion(self.UserCred)))
 	targetDesc := guest.GetJsonDescAtHypervisor(ctx, targetHost)
 	if len(targetDesc.Disks) == 0 {
-		self.TaskFailed(ctx, guest, jsonutils.NewString("Get disksDesc error"))
-		return nil, true
+		return nil, errors.Errorf("Get disksDesc error")
 	}
 	targetStorages, _ := self.Params.GetArray("target_storages")
 	for i := 0; i < len(disks); i++ {
-		targetDesc.Disks[i].TargetStorageId = targetStorages[i].String()
+		targetStorageId, err := targetStorages[i].GetString()
+		if err != nil {
+			return nil, errors.Wrapf(err, "Get disk %d target storage id", i)
+		}
+		targetDesc.Disks[i].TargetStorageId = targetStorageId
 	}
 
 	body.Set("desc", jsonutils.Marshal(targetDesc))
 	body.Set("rebase_disks", jsonutils.JSONTrue)
 	body.Set("is_local_storage", jsonutils.JSONTrue)
-	return body, false
+	return body, nil
 }
 
 func (self *GuestLiveMigrateTask) OnStartDestComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
