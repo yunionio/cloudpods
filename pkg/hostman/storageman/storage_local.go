@@ -459,7 +459,8 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 		// download disk form remote url
 		diskUrl := fmt.Sprintf("%s/%s/%s", disksUri, diskStorageId, diskId)
 		if err := disk.CreateFromUrl(ctx, diskUrl, 0); err != nil {
-			log.Errorln(err)
+			log.Errorf("CreateFromUrl %q: %v", diskUrl, err)
+			err = errors.Wrap(err, "CreateFromUrl")
 			return err
 		}
 	}
