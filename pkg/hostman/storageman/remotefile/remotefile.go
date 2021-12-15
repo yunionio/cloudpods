@@ -95,7 +95,7 @@ func (r *SRemoteFile) Fetch() error {
 		}
 		return nil
 	}
-	log.Infof("Fetch remote file %s to %s", r.downloadUrl, r.tmpPath)
+	log.Infof("Fetch remote file %q to %q", r.downloadUrl, r.tmpPath)
 	return r.fetch("")
 }
 
@@ -145,10 +145,12 @@ func (r *SRemoteFile) fetch(preChksum string) error {
 				if r.chksum != localChksum {
 					return fmt.Errorf("remote checksum %s != local checksum %s", r.chksum, localChksum)
 				}
-				syscall.Unlink(r.localPath)
-				return syscall.Rename(r.tmpPath, r.localPath)
+				if r.localPath != r.tmpPath {
+					syscall.Unlink(r.localPath)
+					return syscall.Rename(r.tmpPath, r.localPath)
+				}
 			}
-			break
+			return nil
 		}
 	}
 	return errors.Wrapf(err, "download")
