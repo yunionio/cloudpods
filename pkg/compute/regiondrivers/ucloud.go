@@ -37,6 +37,14 @@ func init() {
 	models.RegisterRegionDriver(&driver)
 }
 
+func (self *SUcloudRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
+	return false
+}
+
+func (self *SUcloudRegionDriver) GenerateSecurityGroupName(name string) string {
+	return name
+}
+
 func (self *SUcloudRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
 	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
 }

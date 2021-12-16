@@ -38,6 +38,14 @@ func (self *SCloudpodsRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_CLOUDPODS
 }
 
+func (self *SCloudpodsRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
+	return false
+}
+
+func (self *SCloudpodsRegionDriver) GenerateSecurityGroupName(name string) string {
+	return name
+}
+
 func (self *SCloudpodsRegionDriver) IsSupportPeerSecgroup() bool {
 	return false
 }

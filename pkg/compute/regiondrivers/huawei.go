@@ -54,6 +54,17 @@ func init() {
 	models.RegisterRegionDriver(&driver)
 }
 
+func (self *SHuaWeiRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
+	return true
+}
+
+func (self *SHuaWeiRegionDriver) GenerateSecurityGroupName(name string) string {
+	if strings.ToLower(name) == "default" {
+		return "DefaultGroup"
+	}
+	return name
+}
+
 func (self *SHuaWeiRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
 	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
 }
