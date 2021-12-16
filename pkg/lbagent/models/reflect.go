@@ -110,6 +110,7 @@ func GetModels(opts *GetModelsOptions) error {
 		},
 		OrderBy:   []string{"updated_at", "id"},
 		Order:     "asc",
+		Provider:  []string{"OneCloud"},
 		IsManaged: &isManaged,
 		Limit:     options.Int(opts.BatchListSize),
 		Offset:    options.Int(0),
