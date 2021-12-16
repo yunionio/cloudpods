@@ -18,6 +18,8 @@ import (
 	"time"
 
 	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SGroupSet struct {
@@ -60,16 +62,39 @@ type SNetworkInterface struct {
 	InterfaceType         string              `xml:"interfaceType"`
 }
 
-type SNetworkInterfaces struct {
-	NetworkInterface []SNetworkInterface `xml:"networkInterfaceSet>item"`
+func (self *SRegion) GetNetworkInterface(id string) (*SNetworkInterface, error) {
+	nets, err := self.GetNetworkInterfaces(id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetNetworkInterface")
+	}
+	for i := range nets {
+		if nets[i].NetworkInterfaceId == id {
+			return &nets[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
-func (region *SRegion) GetNetworkInterfaces() ([]SNetworkInterface, error) {
+func (self *SRegion) GetNetworkInterfaces(id string) ([]SNetworkInterface, error) {
 	params := map[string]string{}
-	interfaces := SNetworkInterfaces{}
-	err := region.ec2Request("DescribeNetworkInterfaces", params, &interfaces)
-	if err != nil {
-		return nil, errors.Wrap(err, "DescribeNetworkInterfaces")
+	if len(id) > 0 {
+		params["NetworkInterfaceId.1"] = id
 	}
-	return interfaces.NetworkInterface, nil
+	ret := []SNetworkInterface{}
+	for {
+		result := struct {
+			NetworkInterfaceSet []SNetworkInterface `xml:"networkInterfaceSet>item"`
+			NextToken           string              `xml:"nextToken"`
+		}{}
+		err := self.ec2Request("DescribeNetworkInterfaces", params, &result)
+		if err != nil {
+			return nil, errors.Wrap(err, "DescribeNetworkInterfaces")
+		}
+		ret = append(ret, result.NetworkInterfaceSet...)
+		if len(result.NextToken) == 0 || len(result.NetworkInterfaceSet) == 0 {
+			break
+		}
+		params["NextToken"] = result.NextToken
+	}
+	return ret, nil
 }
