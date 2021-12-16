@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/choices"
+	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -50,6 +51,14 @@ type SAwsRegionDriver struct {
 func init() {
 	driver := SAwsRegionDriver{}
 	models.RegisterRegionDriver(&driver)
+}
+
+func (self *SAwsRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
+	return true
+}
+
+func (self *SAwsRegionDriver) GenerateSecurityGroupName(name string) string {
+	return pinyinutils.Text2Pinyin(name)
 }
 
 func (self *SAwsRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {

@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 )
 
 type SAzureRegionDriver struct {
@@ -39,6 +40,14 @@ func init() {
 
 func (self *SAzureRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_AZURE
+}
+
+func (self *SAzureRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
+	return false
+}
+
+func (self *SAzureRegionDriver) GenerateSecurityGroupName(name string) string {
+	return pinyinutils.Text2Pinyin(name)
 }
 
 func (self *SAzureRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, owerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

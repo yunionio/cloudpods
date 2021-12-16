@@ -17,6 +17,7 @@ package regiondrivers
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -32,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 )
 
 type SGoogleRegionDriver struct {
@@ -41,6 +43,24 @@ type SGoogleRegionDriver struct {
 func init() {
 	driver := SGoogleRegionDriver{}
 	models.RegisterRegionDriver(&driver)
+}
+
+func (self *SGoogleRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
+	return false
+}
+
+// 名称必须以小写字母开头，后面最多可跟 62 个小写字母、数字或连字符，但不能以连字符结尾
+func (self *SGoogleRegionDriver) GenerateSecurityGroupName(name string) string {
+	ret := ""
+	for _, s := range strings.ToLower(pinyinutils.Text2Pinyin(name)) {
+		if (s >= 'a' && s <= 'z') || (s >= '0' && s <= '9') || (s == '-') {
+			ret = fmt.Sprintf("%s%s", ret, string(s))
+		}
+	}
+	if len(ret) > 0 && (ret[0] < 'a' || ret[0] > 'z') {
+		ret = fmt.Sprintf("sg-%s", ret)
+	}
+	return ret
 }
 
 func (self *SGoogleRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {

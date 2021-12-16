@@ -72,6 +72,14 @@ func (self *SKVMRegionDriver) IsSupportPeerSecgroup() bool {
 	return true
 }
 
+func (self *SKVMRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
+	return false
+}
+
+func (self *SKVMRegionDriver) GenerateSecurityGroupName(name string) string {
+	return name
+}
+
 func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
 	addressV := validators.NewIPv4AddrValidator("address")
