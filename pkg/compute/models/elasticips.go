@@ -1535,9 +1535,11 @@ func (self *SElasticip) DoChangeBandwidth(userCred mcclient.TokenCredential, ban
 }
 
 type EipUsage struct {
-	PublicIPCount int
-	EIPCount      int
-	EIPUsedCount  int
+	PublicIPCount     int
+	PublicIpBandwidth int
+	EIPCount          int
+	EipBandwidth      int
+	EIPUsedCount      int
 }
 
 func (u EipUsage) Total() int {
@@ -1560,11 +1562,22 @@ func (manager *SElasticipManager) usageQ(q *sqlchemy.SQuery, rangeObjs []db.ISta
 
 func (manager *SElasticipManager) TotalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) EipUsage {
 	usage := EipUsage{}
-	q1 := manager.Query().Equals("mode", api.EIP_MODE_INSTANCE_PUBLICIP)
+	q1sq := manager.Query().SubQuery()
+	q1 := q1sq.Query(
+		sqlchemy.COUNT("public_ip_count", q1sq.Field("id")),
+		sqlchemy.SUM("public_ip_bandwidth", q1sq.Field("bandwidth")),
+	).Equals("mode", api.EIP_MODE_INSTANCE_PUBLICIP)
 	q1 = manager.usageQ(q1, rangeObjs, providers, brands, cloudEnv)
-	q2 := manager.Query().Equals("mode", api.EIP_MODE_STANDALONE_EIP)
+	q2sq := manager.Query().SubQuery()
+	q2 := q2sq.Query(
+		sqlchemy.COUNT("eip_count", q2sq.Field("id")),
+		sqlchemy.SUM("eip_bandwidth", q2sq.Field("bandwidth")),
+	).Equals("mode", api.EIP_MODE_STANDALONE_EIP)
 	q2 = manager.usageQ(q2, rangeObjs, providers, brands, cloudEnv)
-	q3 := manager.Query().Equals("mode", api.EIP_MODE_STANDALONE_EIP).IsNotEmpty("associate_id")
+	q3sq := manager.Query().SubQuery()
+	q3 := q3sq.Query(
+		sqlchemy.COUNT("eip_used_count", q3sq.Field("id")),
+	).Equals("mode", api.EIP_MODE_STANDALONE_EIP).IsNotEmpty("associate_id")
 	q3 = manager.usageQ(q3, rangeObjs, providers, brands, cloudEnv)
 	switch scope {
 	case rbacutils.ScopeSystem:
@@ -1578,9 +1591,18 @@ func (manager *SElasticipManager) TotalCount(scope rbacutils.TRbacScope, ownerId
 		q2 = q2.Equals("tenant_id", ownerId.GetProjectId())
 		q3 = q3.Equals("tenant_id", ownerId.GetProjectId())
 	}
-	usage.PublicIPCount, _ = q1.CountWithError()
-	usage.EIPCount, _ = q2.CountWithError()
-	usage.EIPUsedCount, _ = q3.CountWithError()
+	err := q1.First(&usage)
+	if err != nil {
+		log.Errorf("q.First error: %v", err)
+	}
+	err = q2.First(&usage)
+	if err != nil {
+		log.Errorf("q.First error: %v", err)
+	}
+	err = q3.First(&usage)
+	if err != nil {
+		log.Errorf("q.First error: %v", err)
+	}
 	return usage
 }
 
