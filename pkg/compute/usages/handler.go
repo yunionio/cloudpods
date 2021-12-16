@@ -610,14 +610,32 @@ func StorageUsage(
 		true,
 	)
 	count[sPrefix] = result.Capacity
+	for s, capa := range result.StorageTypeCapacity {
+		count[fmt.Sprintf("%s.storage_type.%s", sPrefix, s)] = capa
+	}
+	for m, capa := range result.MediumeCapacity {
+		count[fmt.Sprintf("%s.medium_type.%s", sPrefix, m)] = capa
+	}
 	count[fmt.Sprintf("%s.virtual", sPrefix)] = result.CapacityVirtual
 	count[fmt.Sprintf("%s.owner", dPrefix)] = result.CapacityUsed
 	count[fmt.Sprintf("%s.count.owner", dPrefix)] = result.CountUsed
 	count[fmt.Sprintf("%s.unready.owner", dPrefix)] = result.CapacityUnready
 	count[fmt.Sprintf("%s.unready.count.owner", dPrefix)] = result.CountUnready
 	count[fmt.Sprintf("%s.attached.owner", dPrefix)] = result.AttachedCapacity
+	for s, capa := range result.AttachedStorageTypeCapacity {
+		count[fmt.Sprintf("%s.attached.owner.storage_type.%s", dPrefix, s)] = capa
+	}
+	for m, capa := range result.AttachedMediumeCapacity {
+		count[fmt.Sprintf("%s.attached.owner.medium_type.%s", dPrefix, m)] = capa
+	}
 	count[fmt.Sprintf("%s.attached.count.owner", dPrefix)] = result.CountAttached
 	count[fmt.Sprintf("%s.detached.owner", dPrefix)] = result.DetachedCapacity
+	for s, capa := range result.DetachedStorageTypeCapacity {
+		count[fmt.Sprintf("%s.detached.owner.storage_type.%s", dPrefix, s)] = capa
+	}
+	for m, capa := range result.DetachedMediumeCapacity {
+		count[fmt.Sprintf("%s.detached.owner.medium_type.%s", dPrefix, m)] = capa
+	}
 	count[fmt.Sprintf("%s.detached.count.owner", dPrefix)] = result.CountDetached
 	count[fmt.Sprintf("%s.mounted.owner", dPrefix)] = result.AttachedCapacity
 	count[fmt.Sprintf("%s.mounted.count.owner", dPrefix)] = result.CountAttached
@@ -640,12 +658,30 @@ func StorageUsage(
 	)
 
 	count[fmt.Sprintf("%s", dPrefix)] = result.CapacityUsed
+	for s, capa := range result.StorageTypeCapacity {
+		count[fmt.Sprintf("%s.storage_type.%s", dPrefix, s)] = capa
+	}
+	for m, capa := range result.MediumeCapacity {
+		count[fmt.Sprintf("%s.medium_type.%s", dPrefix, m)] = capa
+	}
 	count[fmt.Sprintf("%s.count", dPrefix)] = result.CountUsed
 	count[fmt.Sprintf("%s.unready", dPrefix)] = result.CapacityUnready
 	count[fmt.Sprintf("%s.unready.count", dPrefix)] = result.CountUnready
 	count[fmt.Sprintf("%s.attached", dPrefix)] = result.AttachedCapacity
+	for s, capa := range result.AttachedStorageTypeCapacity {
+		count[fmt.Sprintf("%s.attached.storage_type.%s", dPrefix, s)] = capa
+	}
+	for m, capa := range result.AttachedMediumeCapacity {
+		count[fmt.Sprintf("%s.attached.medium_type.%s", dPrefix, m)] = capa
+	}
 	count[fmt.Sprintf("%s.attached.count", dPrefix)] = result.CountAttached
 	count[fmt.Sprintf("%s.detached", dPrefix)] = result.DetachedCapacity
+	for s, capa := range result.DetachedStorageTypeCapacity {
+		count[fmt.Sprintf("%s.detached.storage_type.%s", dPrefix, s)] = capa
+	}
+	for m, capa := range result.DetachedMediumeCapacity {
+		count[fmt.Sprintf("%s.detached.medium_type.%s", dPrefix, m)] = capa
+	}
 	count[fmt.Sprintf("%s.detached.count", dPrefix)] = result.CountDetached
 	count[fmt.Sprintf("%s.mounted", dPrefix)] = result.AttachedCapacity
 	count[fmt.Sprintf("%s.mounted.count", dPrefix)] = result.CountAttached
@@ -924,6 +960,9 @@ func EipUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, ra
 	count := make(map[string]interface{})
 	count[getKey(scope, "eip")] = eipUsage.Total()
 	count[getKey(scope, "eip.public_ip")] = eipUsage.PublicIPCount
+	count[getKey(scope, "eip.public_ip.bandwidth.mb")] = eipUsage.PublicIpBandwidth
+	count[getKey(scope, "eip.floating_ip")] = eipUsage.EIPCount
+	count[getKey(scope, "eip.floating_ip.bandwidth.mb")] = eipUsage.EipBandwidth
 	count[getKey(scope, "eip.floating_ip")] = eipUsage.EIPCount
 	count[getKey(scope, "eip.floating_ip.used")] = eipUsage.EIPUsedCount
 	count[getKey(scope, "eip.used")] = eipUsage.EIPUsedCount + eipUsage.PublicIPCount
