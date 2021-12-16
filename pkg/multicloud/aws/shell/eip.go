@@ -15,28 +15,32 @@
 package shell
 
 import (
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/aws"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
 	type EipListOptions struct {
-		Offset int `help:"List offset"`
-		Limit  int `help:"List limit"`
+		Id          string
+		Addr        string
+		AssociateId string
 	}
 	shellutils.R(&EipListOptions{}, "eip-list", "List eips", func(cli *aws.SRegion, args *EipListOptions) error {
-		eips, total, e := cli.GetEips("", "", args.Offset, args.Limit)
-		if e != nil {
-			return e
+		eips, err := cli.GetEips(args.Id, args.Addr, args.AssociateId)
+		if err != nil {
+			return err
 		}
-		printList(eips, total, args.Offset, args.Limit, []string{})
+		printList(eips, 0, 0, 0, []string{})
 		return nil
 	})
 
 	type EipAllocateOptions struct {
+		Name string
 	}
 	shellutils.R(&EipAllocateOptions{}, "eip-create", "Allocate an EIP", func(cli *aws.SRegion, args *EipAllocateOptions) error {
-		eip, err := cli.AllocateEIP("vpc")
+		opts := cloudprovider.SEip{Name: args.Name}
+		eip, err := cli.AllocateEIP(&opts)
 		if err != nil {
 			return err
 		}
@@ -60,8 +64,13 @@ func init() {
 		err := cli.AssociateEip(args.ID, args.INSTANCE)
 		return err
 	})
-	shellutils.R(&EipAssociateOptions{}, "eip-dissociate", "Dissociate an EIP", func(cli *aws.SRegion, args *EipAssociateOptions) error {
-		err := cli.DissociateEip(args.ID, args.INSTANCE)
+
+	type EipDissociateOptions struct {
+		INSTANCE string `help:"Instance ID"`
+	}
+
+	shellutils.R(&EipDissociateOptions{}, "eip-dissociate", "Dissociate an EIP", func(cli *aws.SRegion, args *EipDissociateOptions) error {
+		err := cli.DissociateEip(args.INSTANCE)
 		return err
 	})
 }

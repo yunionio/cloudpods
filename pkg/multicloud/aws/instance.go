@@ -90,7 +90,7 @@ type SInstance struct {
 	VlanId            string // subnet ID ?
 	VpcAttributes     SVpcAttributes
 	SecurityGroupIds  SSecurityGroupIds
-	NetworkInterfaces SNetworkInterfaces
+	NetworkInterfaces []SNetworkInterface
 	EipAddress        SEipAddress
 	Disks             []string
 	DeviceNames       []string
@@ -262,7 +262,7 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 
 func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	var (
-		networkInterfaces = self.NetworkInterfaces.NetworkInterface
+		networkInterfaces = self.NetworkInterfaces
 		nics              = make([]cloudprovider.ICloudNic, 0)
 	)
 	for _, networkInterface := range networkInterfaces {
@@ -278,20 +278,18 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 }
 
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
-	if len(self.EipAddress.IpAddress) > 0 {
-		return self.host.zone.region.GetEipByIpAddress(self.EipAddress.IpAddress)
-	} else if len(self.PublicIpAddress.IpAddress) > 0 {
-		eip := SEipAddress{}
+	if len(self.EipAddress.PublicIp) > 0 {
+		return self.host.zone.region.GetEipByIpAddress(self.EipAddress.PublicIp)
+	}
+	if len(self.PublicIpAddress.IpAddress) > 0 {
+		eip := SEipAddress{region: self.host.zone.region}
 		eip.region = self.host.zone.region
-		eip.IpAddress = self.PublicIpAddress.IpAddress[0]
+		eip.PublicIp = self.PublicIpAddress.IpAddress[0]
 		eip.InstanceId = self.InstanceId
 		eip.AllocationId = self.InstanceId // fixed. AllocationId等于InstanceId即表示为 仿真EIP。
-		eip.Bandwidth = 10000
-		eip.Status = EIP_STATUS_INUSE
 		return &eip, nil
-	} else {
-		return nil, nil
 	}
+	return nil, nil
 }
 
 func (self *SInstance) GetVcpuCount() int {
@@ -618,7 +616,7 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				}
 			}
 
-			var networkInterfaces SNetworkInterfaces
+			networkInterfaces := []SNetworkInterface{}
 			eipAddress := SEipAddress{}
 			for _, n := range instance.NetworkInterfaces {
 				i := SNetworkInterface{
@@ -626,12 +624,12 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 					NetworkInterfaceId: *n.NetworkInterfaceId,
 					PrivateIpAddress:   *n.PrivateIpAddress,
 				}
-				networkInterfaces.NetworkInterface = append(networkInterfaces.NetworkInterface, i)
+				networkInterfaces = append(networkInterfaces, i)
 
 				// todo: 可能有多个EIP的情况。目前只支持一个EIP
 				if n.Association != nil && StrVal(n.Association.IpOwnerId) != "amazon" {
-					if eipAddress.IpAddress == "" && len(StrVal(n.Association.PublicIp)) > 0 {
-						eipAddress.IpAddress = *n.Association.PublicIp
+					if eipAddress.PublicIp == "" && len(StrVal(n.Association.PublicIp)) > 0 {
+						eipAddress.PublicIp = *n.Association.PublicIp
 					}
 				}
 			}

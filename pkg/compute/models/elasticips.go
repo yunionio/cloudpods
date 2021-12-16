@@ -1087,7 +1087,7 @@ func (self *SElasticip) StartEipAssociateTask(ctx context.Context, userCred mccl
 	return task.ScheduleRun(nil)
 }
 
-func (self *SElasticip) PerformDissociate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SElasticip) PerformDissociate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ElasticDissociateInput) (jsonutils.JSONObject, error) {
 	if len(self.AssociateId) == 0 {
 		return nil, nil // success
 	}
@@ -1111,9 +1111,7 @@ func (self *SElasticip) PerformDissociate(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewUnsupportOperationError("fixed public eip cannot be dissociated")
 	}
 
-	autoDelete := jsonutils.QueryBoolean(data, "auto_delete", false)
-
-	err = self.StartEipDissociateTask(ctx, userCred, autoDelete, "")
+	err = self.StartEipDissociateTask(ctx, userCred, input.AutoDelete, "")
 	return nil, err
 }
 
