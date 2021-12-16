@@ -1676,9 +1676,6 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 	if !attached {
 		return nil, nil
 	}
-	if disk.DiskType == api.DISK_TYPE_SYS {
-		return nil, httperrors.NewUnsupportOperationError("Cannot detach sys disk")
-	}
 	detachDiskStatus, err := self.GetDriver().GetDetachDiskStatus()
 	if err != nil {
 		return nil, err
