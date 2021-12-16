@@ -1265,7 +1265,7 @@ func (h *SHostInfo) uploadNetworkInfo() {
 
 				wireInfo, err := hostutils.GetWireOfIp(context.Background(), kwargs)
 				if err != nil {
-					h.onFail(err)
+					h.onFail(errors.Wrapf(err, "GetWireOfIp args: %s", kwargs.String()))
 				} else {
 					nic.Network, _ = wireInfo.GetString("name")
 					h.doUploadNicInfo(nic)
