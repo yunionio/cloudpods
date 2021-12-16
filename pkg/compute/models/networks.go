@@ -1820,22 +1820,22 @@ func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 			// classic network
 		} else {
 			// vpc network
-			input.GuestIpStart = ""
-			input.GuestIpEnd = ""
-			input.GuestIpMask = nil
-			input.GuestGateway = ""
-			input.GuestDhcp = ""
+			input.GuestIpStart = self.GuestIpStart
+			input.GuestIpEnd = self.GuestIpEnd
+			input.GuestIpMask = &self.GuestIpMask
+			input.GuestGateway = self.GuestGateway
+			input.GuestDhcp = self.GuestDhcp
 		}
 	} else {
 		// managed network
-		input.GuestIpStart = ""
-		input.GuestIpEnd = ""
-		input.GuestIpMask = nil
-		input.GuestGateway = ""
-		input.GuestDns = ""
-		input.GuestDomain = ""
-		input.GuestDhcp = ""
-		input.GuestNtp = ""
+		input.GuestIpStart = self.GuestIpStart
+		input.GuestIpEnd = self.GuestIpEnd
+		input.GuestIpMask = &self.GuestIpMask
+		input.GuestGateway = self.GuestGateway
+		input.GuestDns = self.GuestDns
+		input.GuestDomain = self.GuestDomain
+		input.GuestDhcp = self.GuestDhcp
+		input.GuestNtp = self.GuestNtp
 	}
 	var err error
 	input, err = self.validateUpdateData(ctx, userCred, query, input)

@@ -204,39 +204,21 @@ func ValueToError(out reflect.Value) error {
 	return nil
 }
 
-func mergeInputOutputData(data *jsonutils.JSONDict, resVal reflect.Value) *jsonutils.JSONDict {
-	retJson := ValueToJSONDict(resVal)
+func mergeInputOutputData(input *jsonutils.JSONDict, resVal reflect.Value) *jsonutils.JSONDict {
+	output := ValueToJSONDict(resVal)
 	// preserve the input info not returned by caller
-	output := data.Copy()
-	jsonMap, _ := retJson.GetMap()
+	ret := input.Copy()
+	jsonMap, _ := output.GetMap()
 	for k, v := range jsonMap {
-		if output.Contains(k) {
-			if v == jsonutils.JSONNull {
-				output.Remove(k)
-			} else {
-				switch v.(type) {
-				case *jsonutils.JSONString:
-					if v.IsZero() {
-						output.Remove(k)
-					} else {
-						output.Set(k, v)
-					}
-				default:
-					output.Set(k, v)
-				}
-			}
-		} else if v != jsonutils.JSONNull {
-			switch v.(type) {
-			case *jsonutils.JSONString:
-				if !v.IsZero() {
-					output.Add(v, k)
-				}
-			default:
-				output.Add(v, k)
-			}
+		if input.Contains(k) && v == jsonutils.JSONNull {
+			ret.Remove(k)
+			continue
+		}
+		if v != jsonutils.JSONNull && !v.IsZero() {
+			ret.Set(k, v)
 		}
 	}
-	return output
+	return ret
 }
 
 func ValidateCreateData(funcName string, manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
