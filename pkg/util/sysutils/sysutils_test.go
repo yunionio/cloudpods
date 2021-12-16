@@ -159,6 +159,25 @@ func TestParseCPUInfo(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "arm",
+			args: args{lines: []string{
+				"processor\t: 62",
+				"BogoMIPS\t: 200.00",
+				"Features\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma dcpop",
+				"CPU implementer\t: 0x48",
+				"CPU architecture: 8",
+				"CPU variant\t: 0x1",
+				"CPU part\t: 0xd01",
+				"CPU revision\t: 0",
+			}},
+			want: &types.SCPUInfo{
+				Model:     "0xd01",
+				Microcode: "0",
+				Count:     1,
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

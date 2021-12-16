@@ -83,6 +83,8 @@ func ParseCPUInfo(lines []string) (*types.SCPUInfo, error) {
 		freq      string
 		cache     string
 		microcode string
+		part      string
+		revision  string
 	)
 	lv := func(line string) string {
 		return strings.TrimSpace(line[strings.Index(line, ":")+1:])
@@ -100,9 +102,18 @@ func ParseCPUInfo(lines []string) (*types.SCPUInfo, error) {
 		if len(microcode) == 0 && strings.HasPrefix(line, "microcode") {
 			microcode = lv(line)
 		}
+		if len(part) == 0 && strings.HasPrefix(line, "CPU part") {
+			part = lv(line)
+		}
+		if len(revision) == 0 && strings.HasPrefix(line, "CPU revision") {
+			revision = lv(line)
+		}
 		if strings.HasPrefix(line, "processor") {
 			cnt += 1
 		}
+	}
+	if len(model) == 0 {
+		model = part
 	}
 	if len(model) == 0 {
 		log.Errorf("Failed to get cpu model")
@@ -112,6 +123,9 @@ func ParseCPUInfo(lines []string) (*types.SCPUInfo, error) {
 	}
 	if len(cache) == 0 {
 		log.Errorf("Failed to get cpu cache size")
+	}
+	if len(microcode) == 0 {
+		microcode = revision
 	}
 	model = strings.TrimSpace(model)
 	info := &types.SCPUInfo{
