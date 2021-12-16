@@ -68,6 +68,7 @@ type SKVMGuestInstance struct {
 	Monitor     monitor.Monitor
 	manager     *SGuestManager
 	startupTask *SGuestResumeTask
+	migrateTask *SGuestLiveMigrateTask
 	stopping    bool
 	syncMeta    *jsonutils.JSONDict
 }
@@ -503,6 +504,11 @@ func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 		// 	modules.Servers.PerformAction(
 		// 		hostutils.GetComputeSession(context.Background()),
 		// 		s.GetId(), "event", params)
+	case event.Event == `"STOP"`:
+		if s.migrateTask != nil {
+			// migrating complete
+			s.migrateTask.migrateComplete()
+		}
 	}
 }
 
@@ -538,7 +544,7 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 	} else if s.IsMaster() {
 		s.startDiskBackupMirror(ctx)
 		if ctx != nil && len(appctx.AppContextTaskId(ctx)) > 0 {
-			s.DoResumeTask(ctx)
+			s.DoResumeTask(ctx, false)
 		} else {
 			if options.HostOptions.SetVncPassword {
 				s.SetVncPassword()
@@ -546,7 +552,7 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 			s.OnResumeSyncMetadataInfo()
 		}
 	} else {
-		s.DoResumeTask(ctx)
+		s.DoResumeTask(ctx, true)
 	}
 }
 
@@ -745,8 +751,8 @@ func (s *SKVMGuestInstance) saveVncPort(port int) error {
 	return fileutils2.FilePutContents(s.GetVncFilePath(), fmt.Sprintf("%d", port), false)
 }
 
-func (s *SKVMGuestInstance) DoResumeTask(ctx context.Context) {
-	s.startupTask = NewGuestResumeTask(ctx, s)
+func (s *SKVMGuestInstance) DoResumeTask(ctx context.Context, isTimeout bool) {
+	s.startupTask = NewGuestResumeTask(ctx, s, isTimeout)
 	s.startupTask.Start()
 }
 

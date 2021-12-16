@@ -925,7 +925,7 @@ func (m *SGuestManager) DeleteSnapshot(ctx context.Context, params interface{}) 
 
 func (m *SGuestManager) Resume(ctx context.Context, sid string, isLiveMigrate bool) (jsonutils.JSONObject, error) {
 	guest, _ := m.GetServer(sid)
-	resumeTask := NewGuestResumeTask(ctx, guest)
+	resumeTask := NewGuestResumeTask(ctx, guest, !isLiveMigrate)
 	if isLiveMigrate {
 		guest.StartPresendArp()
 	}
