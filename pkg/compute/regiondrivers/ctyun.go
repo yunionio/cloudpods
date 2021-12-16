@@ -16,6 +16,7 @@ package regiondrivers
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/secrules"
@@ -35,6 +36,17 @@ type SCtyunRegionDriver struct {
 func init() {
 	driver := SCtyunRegionDriver{}
 	models.RegisterRegionDriver(&driver)
+}
+
+func (self *SCtyunRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
+	return true
+}
+
+func (self *SCtyunRegionDriver) GenerateSecurityGroupName(name string) string {
+	if strings.ToLower(name) == "default" {
+		return "DefaultGroup"
+	}
+	return name
 }
 
 func (self *SCtyunRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {

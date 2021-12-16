@@ -18,7 +18,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -195,10 +194,11 @@ func (self *SSecurityGroupCache) GetIRegion() (cloudprovider.ICloudRegion, error
 	if err != nil {
 		return nil, err
 	}
-	if region := CloudregionManager.FetchRegionById(self.CloudregionId); region != nil {
-		return provider.GetIRegionById(region.ExternalId)
+	region, err := self.GetRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegion")
 	}
-	return nil, fmt.Errorf("failed to find iregion for secgroupcache %s vpc: %s externalId: %s", self.Id, self.VpcId, self.ExternalId)
+	return provider.GetIRegionById(region.ExternalId)
 }
 
 func (manager *SSecurityGroupCacheManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
@@ -709,32 +709,40 @@ func (self *SSecurityGroupCache) CreateISecurityGroup() (cloudprovider.ICloudSec
 		return nil, errors.Wrapf(err, "self.GetIRegion")
 	}
 
-	if strings.ToLower(self.Name) == "default" { //避免有些云不支持default关键字
-		self.Name = "DefaultGroup"
+	regionDriver, err := self.GetRegionDriver()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegionDriver")
 	}
+
+	self.Name = regionDriver.GenerateSecurityGroupName(self.Name)
+
 	// 避免有的云不支持重名安全组
-	randomString := func(prefix string, length int) string {
-		return fmt.Sprintf("%s-%s", prefix, rand.String(length))
-	}
-	opts := &cloudprovider.SecurityGroupFilterOptions{
-		Name:      randomString(self.Name, 1),
-		VpcId:     self.VpcId,
-		ProjectId: self.ExternalProjectId,
-	}
-	for i := 2; i < 30; i++ {
-		_, err := iRegion.GetISecurityGroupByName(opts)
-		if err != nil {
-			if errors.Cause(err) == cloudprovider.ErrNotFound {
-				break
-			}
-			if errors.Cause(err) != cloudprovider.ErrDuplicateId {
-				return nil, errors.Wrapf(err, "GetISecurityGroupByName")
-			}
+	if !regionDriver.IsAllowSecurityGroupNameRepeat() {
+		randomString := func(prefix string, length int) string {
+			return fmt.Sprintf("%s-%s", prefix, rand.String(length))
 		}
-		opts.Name = randomString(self.Name, i)
+		opts := &cloudprovider.SecurityGroupFilterOptions{
+			Name:      randomString(self.Name, 1),
+			VpcId:     self.VpcId,
+			ProjectId: self.ExternalProjectId,
+		}
+		for i := 2; i < 30; i++ {
+			_, err := iRegion.GetISecurityGroupByName(opts)
+			if err != nil {
+				if errors.Cause(err) == cloudprovider.ErrNotFound {
+					break
+				}
+				if errors.Cause(err) != cloudprovider.ErrDuplicateId {
+					return nil, errors.Wrapf(err, "GetISecurityGroupByName")
+				}
+			}
+			opts.Name = randomString(self.Name, i)
+		}
+		self.Name = opts.Name
 	}
+
 	conf := &cloudprovider.SecurityGroupCreateInput{
-		Name:      opts.Name,
+		Name:      self.Name,
 		Desc:      self.Description,
 		VpcId:     self.VpcId,
 		ProjectId: self.ExternalProjectId,

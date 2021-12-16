@@ -64,7 +64,6 @@ func init() {
 		),
 	}
 	SecurityGroupManager.NameLength = 128
-	SecurityGroupManager.NameRequireAscii = true
 	SecurityGroupManager.SetVirtualObject(SecurityGroupManager)
 }
 
