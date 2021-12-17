@@ -45,91 +45,43 @@ func (self *SQCloudReport) collectRegionMetricOfHost(region cloudprovider.ICloud
 	if err != nil {
 		return err
 	}
-	dimensions := make([]qcloud.SQcMetricDimension, 0)
-	for _, server := range servers {
-		external_id, _ := server.GetString("external_id")
-		dimensions = append(dimensions, qcloud.SQcMetricDimension{
-			Name:  "InstanceId",
-			Value: external_id,
-		})
-	}
+	dimensions := self.getDimensions(servers)
 	//dimensions := []qcloud.SQcMetricDimension{qcloud.SQcMetricDimension{Name: "InstanceId", Value: external_id}}
-	for metricName, influxDbSpecs := range tecentMetricSpecs {
+	namespace, metricSpecs := self.getMetricSpecs(servers)
+	for metricName, influxDbSpecs := range metricSpecs {
 		for index, tmp := 0, 0; index < len(dimensions); index += 10 {
 			tmp = index + 10
 			if tmp > len(dimensions) {
 				tmp = len(dimensions)
 			}
-			rtnArray, err := tecentReg.GetMonitorData(metricName, "QCE/CVM", since, until,
+			rtnArray, err := tecentReg.GetMonitorData(metricName, namespace, since, until,
 				dimensions[index:tmp])
 			if err != nil {
 				log.Errorln(err)
 				continue
 			}
 			for _, rtnMetric := range rtnArray {
-				for _, server := range servers {
-					external_id, _ := server.GetString("external_id")
-					if external_id == rtnMetric.Dimensions[0].Value {
-						metric, err := common.FillVMCapacity(server.(*jsonutils.JSONDict))
-						if err != nil {
-							return err
-						}
-						dataList = append(dataList, metric)
-						if len(rtnMetric.Timestamps) == 0 {
-							break
-						}
-						serverMetric, err := self.collectMetricFromThisServer(server, rtnMetric, influxDbSpecs)
-						if err != nil {
-							return err
-						}
-						dataList = append(dataList, serverMetric...)
-					}
+				if len(rtnMetric.Timestamps) == 0 {
+					break
 				}
-			}
-		}
-	}
-	return common.SendMetrics(self.Session, dataList, self.Args.Debug, "")
-}
-
-func (self *SQCloudReport) collectRegionMetricOfRedis(region cloudprovider.ICloudRegion, servers []jsonutils.JSONObject) error {
-	dataList := make([]influxdb.SMetricData, 0)
-	tecentReg := region.(*qcloud.SRegion)
-	since, until, err := common.TimeRangeFromArgs(self.Args)
-	if err != nil {
-		return err
-	}
-	dimensions := make([]qcloud.SQcMetricDimension, 0)
-	for _, server := range servers {
-		external_id, _ := server.GetString("external_id")
-		dimensions = append(dimensions, qcloud.SQcMetricDimension{
-			Name:  "instanceid",
-			Value: external_id,
-		})
-	}
-	//dimensions := []qcloud.SQcMetricDimension{qcloud.SQcMetricDimension{Name: "InstanceId", Value: external_id}}
-	for metricName, influxDbSpecs := range tecentRedisMetricSpecs {
-		for index, tmp := 0, 0; index < len(dimensions); index += 10 {
-			tmp = index + 10
-			if tmp > len(dimensions) {
-				tmp = len(dimensions)
-			}
-			rtnArray, err := tecentReg.GetMonitorData(metricName, "QCE/REDIS", since, until,
-				dimensions[index:tmp])
-			if err != nil {
-				log.Errorln(err)
-				continue
-			}
-			for _, rtnMetric := range rtnArray {
 				for _, server := range servers {
+					name, _ := server.GetString("name")
 					external_id, _ := server.GetString("external_id")
 					if external_id == rtnMetric.Dimensions[0].Value {
+						if self.Operator == string(common.SERVER) {
+							metric, err := common.FillVMCapacity(server.(*jsonutils.JSONDict))
+							if err != nil {
+								log.Errorf("provider: %s FillVMCapacity: %s, err: %#v", self.SProvider.Name, name, err)
+							} else {
+								dataList = append(dataList, metric)
+							}
+						}
 						if len(rtnMetric.Timestamps) == 0 {
 							break
 						}
 						serverMetric, err := self.collectMetricFromThisServer(server, rtnMetric, influxDbSpecs)
 						if err != nil {
-							serverName, _ := server.Get("name")
-							log.Errorf("redis:%s,collectMetricFromThisServer err:%v", serverName, err)
+							log.Errorf("provider: %s collectMetricFromThisServer: %s, err: %#v", self.SProvider.Name, name, err)
 							continue
 						}
 						dataList = append(dataList, serverMetric...)
@@ -141,57 +93,60 @@ func (self *SQCloudReport) collectRegionMetricOfRedis(region cloudprovider.IClou
 	return common.SendMetrics(self.Session, dataList, self.Args.Debug, "")
 }
 
-func (self *SQCloudReport) collectRegionMetricOfRds(region cloudprovider.ICloudRegion, servers []jsonutils.JSONObject) error {
-	dataList := make([]influxdb.SMetricData, 0)
+func (self *SQCloudReport) collectRegionMetricOfK8S(region cloudprovider.ICloudRegion, servers []jsonutils.JSONObject) error {
 	tecentReg := region.(*qcloud.SRegion)
 	since, until, err := common.TimeRangeFromArgs(self.Args)
 	if err != nil {
 		return err
 	}
-	dimensions := make([]qcloud.SQcMetricDimension, 0)
-	for _, server := range servers {
-		external_id, _ := server.GetString("external_id")
-		dimensions = append(dimensions, qcloud.SQcMetricDimension{
-			Name:  "InstanceId",
-			Value: external_id,
-		})
+	namespace, metricSpecs := self.getMetricSpecs(servers)
+	metricNames := make([]string, 0)
+	for metricName, _ := range metricSpecs {
+		metricNames = append(metricNames, metricName)
 	}
-	//dimensions := []qcloud.SQcMetricDimension{qcloud.SQcMetricDimension{Name: "InstanceId", Value: external_id}}
-	for metricName, influxDbSpecs := range tecentRdsMetricSpecs {
-		for index, tmp := 0, 0; index < len(dimensions); index += 10 {
-			tmp = index + 10
-			if tmp > len(dimensions) {
-				tmp = len(dimensions)
-			}
-			rtnArray, err := tecentReg.GetMonitorData(metricName, "QCE/CDB", since, until,
-				dimensions[index:tmp])
-			if err != nil {
-				log.Errorln(err)
-				continue
-			}
-			for _, rtnMetric := range rtnArray {
-				for _, server := range servers {
-					external_id, _ := server.GetString("external_id")
-					if external_id == rtnMetric.Dimensions[0].Value {
-						if len(rtnMetric.Timestamps) == 0 {
-							break
-						}
-						serverMetric, err := self.collectMetricFromThisServer(server, rtnMetric, influxDbSpecs)
-						if err != nil {
-							serverName, _ := server.Get("name")
-							log.Errorf("redis:%s,collectMetricFromThisServer err:%v", serverName, err)
-							continue
-						}
-						dataList = append(dataList, serverMetric...)
+	for i, _ := range servers {
+		dataList := make([]influxdb.SMetricData, 0)
+		server := servers[i]
+		name, _ := server.GetString("name")
+		dimensionId := self.getDimensionId()
+		id, _ := server.GetString(dimensionId.LocalId)
+		dimensions := []qcloud.SQcMetricDimension{
+			qcloud.SQcMetricDimension{
+				Name:  dimensionId.ExtId,
+				Value: id,
+			},
+		}
+		rtnArray, err := tecentReg.GetK8sMonitorData(metricNames, namespace, since, until, dimensions)
+		if err != nil {
+			log.Errorln(err)
+			continue
+		}
+		if len(rtnArray) == 0 {
+			continue
+		}
+		for _, data := range rtnArray {
+			for metricName, influxDbSpecs := range metricSpecs {
+				if data.MetricName == metricName {
+					serverMetric, err := self.collectMetricFromThisK8s(server, data, influxDbSpecs)
+					if err != nil {
+						log.Errorf("provider: %s collectK8s:%s metric err: %#v", self.SProvider.Name, name, err)
+						continue
 					}
+					dataList = append(dataList, serverMetric...)
 				}
 			}
 		}
+		err = common.SendMetrics(self.Session, dataList, self.Args.Debug, "")
+		if err != nil {
+			log.Errorf("K8s: %s SendMetrics err: %#v", name, err)
+			continue
+		}
 	}
-	return common.SendMetrics(self.Session, dataList, self.Args.Debug, "")
+	return nil
 }
 
-func (self *SQCloudReport) collectMetricFromThisServer(server jsonutils.JSONObject, rtnMetric qcloud.SDataPoint, influxDbSpecs []string) ([]influxdb.SMetricData, error) {
+func (self *SQCloudReport) collectMetricFromThisServer(server jsonutils.JSONObject, rtnMetric qcloud.SDataPoint,
+	influxDbSpecs []string) ([]influxdb.SMetricData, error) {
 	datas := make([]influxdb.SMetricData, 0)
 	for index, timestamp := range rtnMetric.Timestamps {
 		metric, err := self.NewMetricFromJson(server)
@@ -224,7 +179,7 @@ func (self *SQCloudReport) collectMetricFromThisServer(server jsonutils.JSONObje
 		}
 		metric.Timestamp = time.Unix(int64(timestamp), 0)
 		fieldValue := rtnMetric.Values[index]
-		if influxDbSpecs[1] == UNIT_MBPS {
+		if influxDbSpecs[1] == common.UNIT_MBPS {
 			fieldValue = fieldValue * 1000 * 1000
 		}
 		metric.Metrics = append(metric.Metrics, influxdb.SKeyValue{
@@ -235,4 +190,184 @@ func (self *SQCloudReport) collectMetricFromThisServer(server jsonutils.JSONObje
 		datas = append(datas, metric)
 	}
 	return datas, nil
+}
+
+func (self *SQCloudReport) collectMetricFromThisK8s(server jsonutils.JSONObject, rtnMetric qcloud.SK8SDataPoint,
+	influxDbSpecs []string) ([]influxdb.SMetricData, error) {
+	datas := make([]influxdb.SMetricData, 0)
+	for index, _ := range rtnMetric.Points {
+		for _, pointVal := range rtnMetric.Points[index].Values {
+
+			metric, err := self.NewMetricFromJson(server)
+			if err != nil {
+				return nil, err
+			}
+			//根据条件拼装metric的tag和metirc信息
+			influxDbSpec := influxDbSpecs[2]
+			measurement := common.SubstringBefore(influxDbSpec, ".")
+			metric.Name = measurement
+			var pairsKey string
+			if strings.Contains(influxDbSpec, ",") {
+				pairsKey = common.SubstringBetween(influxDbSpec, ".", ",")
+			} else {
+				pairsKey = common.SubstringAfter(influxDbSpec, ".")
+			}
+			tag := common.SubstringAfter(influxDbSpec, ",")
+			if tag != "" && strings.Contains(influxDbSpec, "=") {
+				metric.Tags = append(metric.Tags, influxdb.SKeyValue{
+					Key:   common.SubstringBefore(tag, "="),
+					Value: common.SubstringAfter(tag, "="),
+				})
+			}
+			metric.Timestamp = time.Unix(int64(pointVal.Timestamp), 0)
+			fieldValue := pointVal.Value
+			if influxDbSpecs[1] == common.UNIT_MBPS {
+				fieldValue = fieldValue * 1000 * 1000
+			}
+			metric.Metrics = append(metric.Metrics, influxdb.SKeyValue{
+				Key:   pairsKey,
+				Value: strconv.FormatFloat(fieldValue, 'E', -1, 64),
+			})
+			self.AddMetricTag(&metric, map[string]string{
+				"source": "cloudmon",
+			})
+			datas = append(datas, metric)
+		}
+	}
+	return datas, nil
+}
+
+func (self *SQCloudReport) CollectK8sModuleMetric(region cloudprovider.ICloudRegion, cluster jsonutils.JSONObject,
+	helper common.IK8sClusterModuleHelper) error {
+	tecentReg := region.(*qcloud.SRegion)
+	since, until, err := common.TimeRangeFromArgs(self.Args)
+	id, _ := cluster.GetString("id")
+	resources, err := common.ListK8sClusterModuleResources(helper.MyModuleType(), id, self.Session, nil)
+	if err != nil {
+		log.Errorf("ListK8sClusterModuleResources err: %v", err)
+		return err
+	}
+	ext_id, _ := cluster.GetString("external_cloud_cluster_id")
+	namespace, metricSpecs := helper.MyNamespaceAndMetrics()
+	metricNames := make([]string, 0)
+	for metricName, _ := range metricSpecs {
+		metricNames = append(metricNames, metricName)
+	}
+	for i, _ := range resources {
+		dataList := make([]influxdb.SMetricData, 0)
+		resource := resources[i]
+		name, _ := resource.GetString("name")
+		dimensions := self.getK8sModuleDimensions(helper, resource, ext_id)
+		rtnArray, err := tecentReg.GetK8sMonitorData(metricNames, namespace, since, until, dimensions)
+		if err != nil {
+			log.Errorln(err)
+			continue
+		}
+		if len(rtnArray) == 0 {
+			continue
+		}
+		for _, data := range rtnArray {
+			for metricName, influxDbSpecs := range metricSpecs {
+				if data.MetricName == metricName {
+					serverMetric, err := self.collectMetricFromThisK8s(resource, data, influxDbSpecs)
+					if err != nil {
+						log.Errorf("provider: %s collectK8s:%s metric err: %#v", self.SProvider.Name, name, err)
+						continue
+					}
+					dataList = append(dataList, serverMetric...)
+				}
+			}
+		}
+		err = common.SendMetrics(self.Session, dataList, self.Args.Debug, "")
+		if err != nil {
+			log.Errorf("K8s: %s SendMetrics err: %#v", name, err)
+			continue
+		}
+	}
+	return nil
+}
+
+func (self *SQCloudReport) getDimensions(res []jsonutils.JSONObject) []qcloud.SQcInstanceMetricDimension {
+	dimensions := make([]qcloud.SQcInstanceMetricDimension, 0)
+	dimensionId := self.getDimensionId()
+	if dimensionId == nil {
+		return dimensions
+	}
+	for _, server := range res {
+		external_id, _ := server.GetString(dimensionId.LocalId)
+		dimensions = append(dimensions, qcloud.SQcInstanceMetricDimension{
+			[]qcloud.SQcMetricDimension{qcloud.SQcMetricDimension{
+				Name:  dimensionId.ExtId,
+				Value: external_id,
+			}},
+		})
+	}
+	return dimensions
+}
+
+func (self *SQCloudReport) getK8sModuleDimensions(helper common.IK8sClusterModuleHelper, module jsonutils.JSONObject,
+	clusterId string) []qcloud.SQcMetricDimension {
+	dimensions := make([]qcloud.SQcMetricDimension, 0)
+	dimensionId := helper.MyResDimensionId()
+
+	localIds := strings.Split(dimensionId.LocalId, ",")
+	extIds := strings.Split(dimensionId.ExtId, ",")
+	if len(localIds) != len(extIds) {
+		return dimensions
+	}
+	dimensions = append(dimensions, qcloud.SQcMetricDimension{
+		Name:  "tke_cluster_instance_id",
+		Value: clusterId,
+	})
+	for index, localId := range localIds {
+		localIdKey := strings.Split(localId, ".")
+		val, _ := module.GetString(localIdKey...)
+		dimensions = append(dimensions, qcloud.SQcMetricDimension{
+			Name:  extIds[index],
+			Value: val,
+		})
+
+	}
+	return dimensions
+}
+
+func (self *SQCloudReport) getDimensionId() *common.DimensionId {
+	switch common.MonType(self.Operator) {
+	case common.SERVER:
+		return &common.DimensionId{
+			LocalId: "external_id",
+			ExtId:   "InstanceId",
+		}
+	case common.REDIS:
+		return &common.DimensionId{
+			LocalId: "external_id",
+			ExtId:   "instanceid",
+		}
+	case common.RDS:
+		return &common.DimensionId{
+			LocalId: "external_id",
+			ExtId:   "InstanceId",
+		}
+	case common.K8S:
+		return &common.DimensionId{
+			LocalId: "external_cloud_cluster_id",
+			ExtId:   "tke_cluster_instance_id",
+		}
+	}
+	return nil
+}
+
+func (self *SQCloudReport) getMetricSpecs(res []jsonutils.JSONObject) (string, map[string][]string) {
+	switch common.MonType(self.Operator) {
+	case common.SERVER:
+		return SERVER_METRIC_NAMESPACE, tecentMetricSpecs
+	case common.REDIS:
+		return REDIS_METRIC_NAMESPACE, tecentRedisMetricSpecs
+	case common.RDS:
+		return RDS_METRIC_NAMESPACE, tecentRdsMetricSpecs
+	case common.K8S:
+		return K8S_METRIC_NAMESPACE, tecentK8SClusterMetricSpecs
+	default:
+		return SERVER_METRIC_NAMESPACE, tecentMetricSpecs
+	}
 }

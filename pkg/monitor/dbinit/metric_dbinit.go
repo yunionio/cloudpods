@@ -455,4 +455,29 @@ func init() {
 			newMetricFieldCreateInput("messages", "messages", monitor.METRIC_UNIT_COUNT, 4),
 		})
 
+	// k8s
+	// pod
+	RegistryMetricCreateInput("k8s_pod", "k8s pod",
+		monitor.METRIC_RES_TYPE_K8S, monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("cpu_used_percent", "CPU active state utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("mem_used_percent", "Used memory rate", monitor.METRIC_UNIT_PERCENT, 2),
+			newMetricFieldCreateInput("restart_total", "pod restart count", monitor.METRIC_UNIT_COUNT, 3),
+		})
+	// deploy/daemonset
+	RegistryMetricCreateInput("k8s_deploy", "k8s deploy",
+		monitor.METRIC_RES_TYPE_K8S, monitor.METRIC_DATABASE_TELE, 2, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("pod_oom_total", "oom pod count", monitor.METRIC_UNIT_COUNT, 1),
+			newMetricFieldCreateInput("pod_restarting_total", "restarting pod count", monitor.METRIC_UNIT_COUNT, 2),
+		})
+	// node
+	RegistryMetricCreateInput("k8s_node", "k8s node",
+		monitor.METRIC_RES_TYPE_K8S, monitor.METRIC_DATABASE_TELE, 3, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("cpu_used_percent", "CPU active state utilization rate", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("mem_used_percent", "Used memory rate", monitor.METRIC_UNIT_PERCENT, 2),
+			newMetricFieldCreateInput("disk_used_percent", "Percentage of used disks", monitor.METRIC_UNIT_PERCENT, 3),
+			newMetricFieldCreateInput("bps_sent", "Send traffic per second", monitor.METRIC_UNIT_BPS, 3),
+			newMetricFieldCreateInput("bps_recv", "Received traffic per second", monitor.METRIC_UNIT_BPS, 4),
+			newMetricFieldCreateInput("pod_restart_total", "pod restart count in node", monitor.METRIC_UNIT_COUNT, 4),
+		})
+
 }

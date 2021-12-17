@@ -21,12 +21,24 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
 	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 func init() {
 	factory := SQCloudReportFactory{}
 	common.RegisterFactory(&factory)
+
+	cluster := &QcloudK8sClusterHelper{
+		&common.K8sClusterMetricBaseHelper{
+			map[common.K8sClusterModuleType]common.IK8sClusterModuleHelper{},
+		},
+	}
+	cluster.RegisterModuleHelper(new(QcloudK8sClusterDeployHelper))
+	//cluster.RegisterModuleHelper(new(QcloudK8sClusterContainerHelper))
+	cluster.RegisterModuleHelper(new(QcloudK8sClusterPodHelper))
+	cluster.RegisterModuleHelper(new(QcloudK8sClusterNodeHelper))
+
+	common.RegisterK8sClusterHelper(cluster)
+
 }
 
 type SQCloudReportFactory struct {
@@ -56,18 +68,7 @@ type SQCloudReport struct {
 func (self *SQCloudReport) Report() error {
 	var servers []jsonutils.JSONObject
 	var err error
-	switch self.Operator {
-	case "redis":
-		servers, err = self.GetAllserverOfThisProvider(&modules.ElasticCache)
-	case "rds":
-		servers, err = self.GetAllserverOfThisProvider(&modules.DBInstance)
-	case "oss":
-		servers, err = self.GetAllserverOfThisProvider(&modules.Buckets)
-	case "elb":
-		servers, err = self.GetAllserverOfThisProvider(&modules.Loadbalancers)
-	default:
-		servers, err = self.GetAllserverOfThisProvider(&modules.Servers)
-	}
+	servers, err = self.GetResourceByOperator()
 	if err != nil {
 		return err
 	}
@@ -81,21 +82,105 @@ func (self *SQCloudReport) Report() error {
 	}
 	for _, region := range regionList {
 		servers := regionServerMap[region.GetGlobalId()]
-		switch self.Operator {
-		case "server":
+		var err error
+		switch common.MonType(self.Operator) {
+		case common.K8S:
+			err = self.collectRegionMetricOfK8S(region, servers)
+			if err != nil {
+				return err
+			}
+			self.Impl = self
+			err = self.CollectRegionMetricOfK8sModules(region, servers)
+		default:
 			err = self.collectRegionMetricOfHost(region, servers)
-		case "redis":
-			err = self.collectRegionMetricOfRedis(region, servers)
-		case "rds":
-			err = self.collectRegionMetricOfRds(region, servers)
-		case "oss":
-			//err = self.collectRegionMetricOfOss(region, servers)
-		case "elb":
-			//err = self.collectRegionMetricOfElb(region, servers)
 		}
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+type QcloudK8sClusterHelper struct {
+	*common.K8sClusterMetricBaseHelper
+}
+
+func (q QcloudK8sClusterHelper) HelperBrand() string {
+	return compute.CLOUD_PROVIDER_QCLOUD
+}
+
+type QcloudK8sClusterDeployHelper struct {
+	common.K8sClusterModuleQueryHelper
+}
+
+func (q QcloudK8sClusterDeployHelper) MyModuleType() common.K8sClusterModuleType {
+	return common.K8S_MODULE_DEPLOY
+}
+
+func (q QcloudK8sClusterDeployHelper) MyResDimensionId() common.DimensionId {
+	return common.DimensionId{
+		LocalId: "name",
+		ExtId:   "workload_name",
+	}
+}
+
+func (q QcloudK8sClusterDeployHelper) MyNamespaceAndMetrics() (string, map[string][]string) {
+	return K8S_METRIC_NAMESPACE, tecentK8SDeployMetricSpecs
+}
+
+type QcloudK8sClusterPodHelper struct {
+	common.K8sClusterModuleQueryHelper
+}
+
+func (q QcloudK8sClusterPodHelper) MyNamespaceAndMetrics() (string, map[string][]string) {
+	return K8S_METRIC_NAMESPACE, tecentK8SPodMetricSpecs
+}
+
+func (q QcloudK8sClusterPodHelper) MyModuleType() common.K8sClusterModuleType {
+	return common.K8S_MODULE_POD
+}
+
+func (q QcloudK8sClusterPodHelper) MyResDimensionId() common.DimensionId {
+	return common.DimensionId{
+		LocalId: "nodeName,name",
+		ExtId:   "node,pod_name",
+	}
+}
+
+type QcloudK8sClusterContainerHelper struct {
+	common.K8sClusterModuleQueryHelper
+}
+
+func (q QcloudK8sClusterContainerHelper) MyNamespaceAndMetrics() (string, map[string][]string) {
+	return K8S_METRIC_NAMESPACE, tecentK8SContainerMetricSpecs
+}
+
+func (q QcloudK8sClusterContainerHelper) MyModuleType() common.K8sClusterModuleType {
+	return common.K8S_MODULE_CONTAINER
+}
+
+func (q QcloudK8sClusterContainerHelper) MyResDimensionId() common.DimensionId {
+	return common.DimensionId{
+		LocalId: "labels.k8s-app,name",
+		ExtId:   "workload_name,container_name",
+	}
+}
+
+type QcloudK8sClusterNodeHelper struct {
+	common.K8sClusterModuleQueryHelper
+}
+
+func (q QcloudK8sClusterNodeHelper) MyModuleType() common.K8sClusterModuleType {
+	return common.K8S_MODULE_NODE
+}
+
+func (q QcloudK8sClusterNodeHelper) MyResDimensionId() common.DimensionId {
+	return common.DimensionId{
+		LocalId: "name",
+		ExtId:   "node",
+	}
+}
+
+func (q QcloudK8sClusterNodeHelper) MyNamespaceAndMetrics() (string, map[string][]string) {
+	return K8S_METRIC_NAMESPACE, tecentK8SNodeMetricSpecs
 }

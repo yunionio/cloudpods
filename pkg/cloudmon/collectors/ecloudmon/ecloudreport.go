@@ -19,7 +19,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
 	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 func init() {
@@ -52,7 +51,7 @@ type SECloudReport struct {
 }
 
 func (self *SECloudReport) Report() error {
-	servers, err := self.GetAllserverOfThisProvider(&modules.Servers)
+	servers, err := self.GetResourceByOperator()
 	if err != nil {
 		return err
 	}

@@ -137,7 +137,7 @@ func (r *SRegion) FetchMetrics(ns string) ([]SMetricMeta, error) {
 	return metrics, nil
 }
 
-func (r *SRegion) DescribeMetricList(name string, ns string, since time.Time, until time.Time, nextToken string) ([]jsonutils.JSONObject, string, error) {
+func (r *SRegion) DescribeMetricList(name string, ns string, since time.Time, until time.Time, nextToken string, dimensions []SResourceLabel) ([]jsonutils.JSONObject, string, error) {
 	params := make(map[string]string)
 	params["MetricName"] = name
 	params["Namespace"] = ns
@@ -150,6 +150,11 @@ func (r *SRegion) DescribeMetricList(name string, ns string, since time.Time, un
 	}
 	if !until.IsZero() {
 		params["EndTime"] = strconv.FormatInt(until.Unix()*1000, 10)
+	}
+	if len(dimensions) > 0 {
+		for _, dimension := range dimensions {
+			params[dimension.Name] = dimension.Value
+		}
 	}
 	body, err := r.metricsRequest("DescribeMetricList", params)
 	if err != nil {
@@ -175,7 +180,7 @@ func (r *SRegion) FetchMetricData(name string, ns string, since time.Time, until
 	data := make([]jsonutils.JSONObject, 0)
 	nextToken := ""
 	for {
-		datArray, next, err := r.DescribeMetricList(name, ns, since, until, nextToken)
+		datArray, next, err := r.DescribeMetricList(name, ns, since, until, nextToken, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "r.DescribeMetricList")
 		}

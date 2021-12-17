@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	k8s_modules "yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
@@ -42,6 +43,7 @@ type CloudReportBase struct {
 	Session   *mcclient.ClientSession
 	Args      *options.ReportOptions
 	Operator  string
+	Impl      ICloudReportK8s
 }
 
 func (self *CloudReportBase) Report() error {
@@ -53,27 +55,35 @@ func (self *CloudReportBase) GetResourceByOperator() ([]jsonutils.JSONObject, er
 	var err error
 	switch MonType(self.Operator) {
 	case REDIS:
-		servers, err = self.GetAllserverOfThisProvider(&modules.ElasticCache)
+		servers, err = self.GetAllserverOfThisProvider(&modules.ElasticCache, nil)
 	case RDS:
-		servers, err = self.GetAllserverOfThisProvider(&modules.DBInstance)
+		servers, err = self.GetAllserverOfThisProvider(&modules.DBInstance, nil)
 	case OSS:
-		servers, err = self.GetAllserverOfThisProvider(&modules.Buckets)
+		servers, err = self.GetAllserverOfThisProvider(&modules.Buckets, nil)
 	case ELB:
-		servers, err = self.GetAllserverOfThisProvider(&modules.Loadbalancers)
+		servers, err = self.GetAllserverOfThisProvider(&modules.Loadbalancers, nil)
+	case K8S:
+		query := jsonutils.NewDict()
+		query.Add(jsonutils.NewString("0"), KEY_LIMIT)
+		query.Add(jsonutils.NewString("true"), KEY_ADMIN)
+		query.Add(jsonutils.NewString(self.SProvider.Provider), "provider")
+		query.Add(jsonutils.NewString(self.SProvider.Id), "manager")
+		servers, err = self.GetAllserverOfThisProvider(k8s_modules.KubeClusters, query)
 	default:
-		servers, err = self.GetAllserverOfThisProvider(&modules.Servers)
+		servers, err = self.GetAllserverOfThisProvider(&modules.Servers, nil)
 	}
 	return servers, err
 }
 
-func (self *CloudReportBase) GetAllserverOfThisProvider(manager modulebase.Manager) ([]jsonutils.JSONObject, error) {
-	query := jsonutils.NewDict()
-
-	query.Add(jsonutils.NewStringArray([]string{"running", "ready"}), "status")
-	query.Add(jsonutils.NewString("0"), KEY_LIMIT)
-	query.Add(jsonutils.NewString("true"), KEY_ADMIN)
-	query.Add(jsonutils.NewString(self.SProvider.Provider), "provider")
-	query.Add(jsonutils.NewString(self.SProvider.Id), "manager")
+func (self *CloudReportBase) GetAllserverOfThisProvider(manager modulebase.Manager, query *jsonutils.JSONDict) ([]jsonutils.JSONObject, error) {
+	if query == nil {
+		query = jsonutils.NewDict()
+		query.Add(jsonutils.NewStringArray([]string{"running", "ready"}), "status")
+		query.Add(jsonutils.NewString("0"), KEY_LIMIT)
+		query.Add(jsonutils.NewString("true"), KEY_ADMIN)
+		query.Add(jsonutils.NewString(self.SProvider.Provider), "provider")
+		query.Add(jsonutils.NewString(self.SProvider.Id), "manager")
+	}
 	return self.ListAllResources(manager, query)
 }
 
@@ -177,7 +187,11 @@ func (self *CloudReportBase) GetAllRegionOfServers(servers []jsonutils.JSONObjec
 	for i, server := range servers {
 		region_external_id, err := server.GetString("region_external_id")
 		if err != nil {
-			return nil, nil, err
+			cloudregionExternalId := self.getCloudregionExternalId(server)
+			if cloudregionExternalId == nil {
+				return nil, nil, err
+			}
+			region_external_id = *cloudregionExternalId
 		}
 		if _, ok := extranleIdMap[region_external_id]; !ok {
 			extranleIdMap[region_external_id] = ""
@@ -198,6 +212,16 @@ func (self *CloudReportBase) GetAllRegionOfServers(servers []jsonutils.JSONObjec
 		}
 	}
 	return regionServerList, regionServerMap, nil
+}
+
+func (self *CloudReportBase) getCloudregionExternalId(res jsonutils.JSONObject) *string {
+	cloudregionId, _ := res.GetString("cloudregion_id")
+	cloudregion, err := self.GetResourceById(cloudregionId, &modules.Cloudregions)
+	if err != nil {
+		return nil
+	}
+	external_id, _ := cloudregion.GetString("external_id")
+	return &external_id
 }
 
 func (self *CloudReportBase) AddMetricTag(metric *influxdb.SMetricData, tags map[string]string) {
@@ -234,6 +258,8 @@ func (self *CloudReportBase) NewMetricFromJson(server jsonutils.JSONObject) (inf
 		return JsonToMetric(server.(*jsonutils.JSONDict), "", StorageTags, make([]string, 0))
 	case ALERT_RECORD:
 		return JsonToMetric(server.(*jsonutils.JSONDict), "", AlertRecordHistoryTags, AlertRecordHistoryFields)
+	case K8S:
+		return JsonToMetric(server.(*jsonutils.JSONDict), "", K8sTags, make([]string, 0))
 	}
 	return influxdb.SMetricData{}, fmt.Errorf("no found report operator")
 }
@@ -273,4 +299,46 @@ func ListAllResources(manager modulebase.Manager, session *mcclient.ClientSessio
 		}
 	}
 	return resources, nil
+}
+
+func ListK8sClusterModuleResources(typ K8sClusterModuleType, clusterId string, session *mcclient.ClientSession, query *jsonutils.JSONDict) ([]jsonutils.JSONObject, error) {
+	var manager modulebase.Manager
+	switch typ {
+	case K8S_MODULE_POD:
+		manager = k8s_modules.Pods
+	case K8S_MODULE_DEPLOY:
+		manager = k8s_modules.Deployments
+	case K8S_MODULE_NODE:
+		manager = k8s_modules.K8sNodes
+	case K8S_MODULE_DAEMONSET:
+		manager = k8s_modules.DaemonSets
+	default:
+		return nil, fmt.Errorf("K8sClusterModuleType: %s is not support", string(typ))
+	}
+	if query == nil {
+		query = jsonutils.NewDict()
+	}
+	query.Set("cluster", jsonutils.NewString(clusterId))
+	query.Set("scope", jsonutils.NewString("system"))
+	return ListAllResources(manager, session, query)
+}
+
+func (self *CloudReportBase) CollectRegionMetricOfK8sModules(region cloudprovider.ICloudRegion,
+	clusters []jsonutils.JSONObject) error {
+	errs := make([]error, 0)
+	for _, cluster := range clusters {
+		helper, err := GetK8sClusterHelper(self.SProvider.Provider)
+		if err != nil {
+			log.Errorf("GetK8sClusterHelper err: %v", err)
+			return err
+		}
+		moduleHelpers := helper.MyModuleHelper()
+		for _, moduleHelper := range moduleHelpers {
+			err := self.Impl.CollectK8sModuleMetric(region, cluster, moduleHelper)
+			if err != nil {
+				errs = append(errs, errors.Errorf("k8s moduleType: %s collectK8sModuleMetric err: %v", moduleHelper.MyModuleType(), err))
+			}
+		}
+	}
+	return errors.NewAggregate(errs)
 }

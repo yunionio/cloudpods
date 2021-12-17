@@ -75,7 +75,7 @@ func TestCron() {
 
 	err = parser.ParseArgs2(os.Args[1:], false, false)
 
-	opts := parser.Options().(*options.CloudMonOptions)
+	opts := parser.Options().(*options.SubCloudMonOptions)
 
 	if opts.Help {
 		fmt.Println(parser.HelpString())
@@ -141,7 +141,7 @@ func TestCron() {
 		}()
 
 		var session *mcclient.ClientSession
-		session, err = newClientSession(opts)
+		session, err = newClientSession(&opts.CloudMonOptions)
 		if err != nil {
 			showErrorAndExit(err)
 		}
@@ -152,3 +152,7 @@ func TestCron() {
 		showErrorAndExit(err)
 	}
 }
+
+//func main() {
+//	TestCron()
+//}

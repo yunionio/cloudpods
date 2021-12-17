@@ -14,118 +14,7 @@
 
 package azuremon
 
-const (
-	PERIOD             = 60
-	UNIT_AVERAGE       = "Average"
-	DEFAULT_STATISTICS = "Average,Minimum,Maximum"
-	UNIT_PERCENT       = "Percent"
-	UNIT_BPS           = "bps"
-	UNIT_MBPS          = "Mbps"
-	UNIT_BYTEPS        = "Bps"
-	UNIT_CPS           = "cps"
-	UNIT_COUNT         = "count"
-	UNIT_MEM           = "byte"
-	UNIT_MSEC          = "ms"
-	UNIT_COUNT_SEC     = "count/s"
-	UNIT_BYTES         = "byte"
-
-	//ESC监控指标
-	INFLUXDB_FIELD_CPU_USAGE           = "vm_cpu.usage_active"
-	INFLUXDB_FIELD_MEM_USAGE           = "vm_mem.used_percent"
-	INFLUXDB_FIELD_DISK_READ_BPS       = "vm_diskio.read_bps"
-	INFLUXDB_FIELD_DISK_WRITE_BPS      = "vm_diskio.write_bps"
-	INFLUXDB_FIELD_DISK_READ_IOPS      = "vm_diskio.read_iops"
-	INFLUXDB_FIELD_DISK_WRITE_IOPS     = "vm_diskio.write_iops"
-	INFLUXDB_FIELD_NET_BPS_RX          = "vm_netio.bps_recv"
-	INFLUXDB_FIELD_NET_BPS_RX_INTERNET = INFLUXDB_FIELD_NET_BPS_RX + ",net_type=internet"
-	INFLUXDB_FIELD_NET_BPS_RX_INTRANET = INFLUXDB_FIELD_NET_BPS_RX + ",net_type=intranet"
-	INFLUXDB_FIELD_NET_BPS_TX          = "vm_netio.bps_sent"
-	INFLUXDB_FIELD_NET_BPS_TX_INTERNET = INFLUXDB_FIELD_NET_BPS_TX + ",net_type=internet"
-	INFLUXDB_FIELD_NET_BPS_TX_INTRANET = INFLUXDB_FIELD_NET_BPS_TX + ",net_type=intranet"
-	INFLUXDB_FIELD_WANOUTTRAFFIC       = "vm_eipio.bps_out"
-	INFLUXDB_FIELD_WANINTRAFFIC        = "vm_eipio.bps_in"
-	INFLUXDB_FIELD_WANOUTPKG           = "vm_eipio.pps_out"
-	INFLUXDB_FIELD_WANINPKG            = "vm_eipio.pps_in"
-
-	//RDS监控指标
-	INFLUXDB_FIELD_RDS_CPU_USAGE            = "rds_cpu.usage_active"
-	INFLUXDB_FIELD_RDS_MEM_USAGE            = "rds_mem.used_percent"
-	INFLUXDB_FIELD_RDS_NET_BPS_RX           = "rds_netio.bps_recv"
-	INFLUXDB_FIELD_RDS_NET_BPS_RX_MYSQL     = INFLUXDB_FIELD_RDS_NET_BPS_RX + ",server_type=mysql"
-	INFLUXDB_FIELD_RDS_NET_BPS_RX_SQLSERVER = INFLUXDB_FIELD_RDS_NET_BPS_RX + ",server_type=sqlserver"
-	INFLUXDB_FIELD_RDS_NET_BPS_TX           = "rds_netio.bps_send"
-	INFLUXDB_FIELD_RDS_NET_BPS_TX_MYSQL     = INFLUXDB_FIELD_RDS_NET_BPS_TX + ",server_type=mysql"
-	INFLUXDB_FIELD_RDS_NET_BPS_TX_SQLSERVER = INFLUXDB_FIELD_RDS_NET_BPS_TX + ",server_type=sqlserver"
-	INFLUXDB_FIELD_RDS_DISK_USAGE           = "rds_disk.used_percent"
-	INFLUXDB_FIELD_RDS_DISK_READ_BPS        = "rds_diskio.read_bps"
-	INFLUXDB_FIELD_RDS_DISK_WRITE_BPS       = "rds_diskio.write_bps"
-	INFLUXDB_FIELD_RDS_DISK_IO_PERSENT      = "rds_diskio.used_percent"
-	INFLUXDB_FIELD_RDS_CONN_COUNT           = "rds_conn.used_count"
-	INFLUXDB_FIELD_RDS_CONN_USAGE           = "rds_conn.used_percent"
-	INFLUXDB_FIELD_RDS_CONN_ACTIVE          = "rds_conn.active_count"
-	INFLUXDB_FIELD_RDS_CONN_FAILED          = "rds_conn.failed_count"
-
-	INFLUXDB_FIELD_RDS_QPS              = "rds_qps.query_qps"
-	INFLUXDB_FIELD_RDS_TPS              = "rds_tps.trans_qps"
-	INFLUXDB_FIELD_RDS_INNODB_REDA_BPS  = "rds_innodb.read_bps"
-	INFLUXDB_FIELD_RDS_INNODB_WRITE_BPS = "rds_innodb.write_bps"
-
-	//REDIS监控指标
-	INFLUXDB_FIELD_REDIS_CPU_USAGE      = "dcs_cpu.usage_percent"
-	INFLUXDB_FIELD_REDIS_MEM_USAGE      = "dcs_mem.used_percent"
-	INFLUXDB_FIELD_REDIS_NET_BPS_RX     = "dcs_netio.bps_recv"
-	INFLUXDB_FIELD_REDIS_NET_BPS_TX     = "dcs_netio.bps_sent"
-	INFLUXDB_FIFLD_REDIS_CONN_USAGE     = "dcs_conn.used_conn"
-	INFLUXDB_FIFLD_REDIS_OPT_SES        = "dcs_instantopt.opt_sec"
-	INFLUXDB_FIFLD_REDIS_CACHE_KEYS     = "dcs_cachekeys.key_count"
-	INFLUXDB_FIFLD_REDIS_CACHE_EXP_KEYS = INFLUXDB_FIFLD_REDIS_CACHE_KEYS + ",exp=expire"
-	INFLUXDB_FIFLD_REDIS_DATA_MEM_USAGE = "dcs_datamem.used_byte"
-	INFLUXDB_FIFLD_REDIS_SERVER_LOAD    = "dcs_cpu.server_load"
-	INFLUXDB_FIFLD_REDIS_CONN_ERRORS    = "dcs_conn.errors"
-
-	//对象存储OSS监控指标
-	INFLUXDB_FIELD_OSS_NET_BPS_RX          = "oss_netio.bps_recv"
-	INFLUXDB_FIELD_OSS_NET_BPS_RX_INTERNET = INFLUXDB_FIELD_OSS_NET_BPS_RX + ",net_type=internet"
-	INFLUXDB_FIELD_OSS_NET_BPS_RX_INTRANET = INFLUXDB_FIELD_OSS_NET_BPS_RX + ",net_type=intranet"
-	INFLUXDB_FIELD_OSS_NET_BPS_TX          = "oss_netio.bps_sent"
-	INFLUXDB_FIELD_OSS_NET_BPS_TX_INTERNET = INFLUXDB_FIELD_OSS_NET_BPS_TX + ",net_type=internet"
-	INFLUXDB_FIELD_OSS_NET_BPS_TX_INTRANET = INFLUXDB_FIELD_OSS_NET_BPS_TX + ",net_type=intranet"
-	INFLUXDB_FIELD_OSS_LATECY              = "oss_latency.req_late"
-	INFLUXDB_FIELD_OSS_LATECY_GET          = INFLUXDB_FIELD_OSS_LATECY + ",request=get"
-	INFLUXDB_FIELD_OSS_LATECY_POST         = INFLUXDB_FIELD_OSS_LATECY + ",request=post"
-	INFLUXDB_FIELD_OSS_REQ_COUNT           = "oss_req.req_count"
-	INFLUXDB_FIELD_OSS_REQ_COUNT_GET       = INFLUXDB_FIELD_OSS_REQ_COUNT + ",request=get"
-	INFLUXDB_FIELD_OSS_REQ_COUNT_POST      = INFLUXDB_FIELD_OSS_REQ_COUNT + ",request=post"
-	INFLUXDB_FIELD_OSS_REQ_COUNT_5XX       = INFLUXDB_FIELD_OSS_REQ_COUNT + ",request=5xx"
-	INFLUXDB_FIELD_OSS_REQ_COUNT_4XX       = INFLUXDB_FIELD_OSS_REQ_COUNT + ",request=4xx"
-
-	//负载均衡监控指标
-	INFLUXDB_FIELD_ELB_NET_BPS_RX      = "haproxy.bin"
-	INFLUXDB_FIELD_ELB_NET_BPS_TX      = "haproxy.bout"
-	INFLUXDB_FIELD_ELB_REQ_RATE        = "haproxy.req_rate,request=http"
-	INFLUXDB_FIELD_ELB_CONN_RATE       = "haproxy.conn_rate,request=tcp"
-	INFLUXDB_FIELD_ELB_DREQ_COUNT      = "haproxy.dreq,request=http"
-	INFLUXDB_FIELD_ELB_DCONN_COUNT     = "haproxy.dcon,request=tcp"
-	INFLUXDB_FIELD_ELB_HRSP_COUNT      = "haproxy.hrsp_Nxx"
-	INFLUXDB_FIELD_ELB_HRSP_COUNT_2XX  = INFLUXDB_FIELD_ELB_HRSP_COUNT + ",request=2xx"
-	INFLUXDB_FIELD_ELB_HRSP_COUNT_3XX  = INFLUXDB_FIELD_ELB_HRSP_COUNT + ",request=3xx"
-	INFLUXDB_FIELD_ELB_HRSP_COUNT_4XX  = INFLUXDB_FIELD_ELB_HRSP_COUNT + ",request=4xx"
-	INFLUXDB_FIELD_ELB_HRSP_COUNT_5XX  = INFLUXDB_FIELD_ELB_HRSP_COUNT + ",request=5xx"
-	INFLUXDB_FIELD_ELB_CHC_STATUS      = "haproxy.check_status"
-	INFLUXDB_FIELD_ELB_CHC_CODE        = "haproxy.check_code"
-	INFLUXDB_FIELD_ELB_LAST_CHC        = "haproxy.last_chk"
-	INFLUXDB_FIELD_ELB_SNAT_PORT       = "haproxy.used_snat_port"
-	INFLUXDB_FIELD_ELB_SNAT_CONN_COUNT = "haproxy.snat_conn_count"
-
-	KEY_VMS   = "vms"
-	KEY_CPUS  = "cpus"
-	KEY_MEMS  = "mems"
-	KEY_DISKS = "disks"
-
-	KEY_LIMIT  = "limit"
-	KEY_ADMIN  = "admin"
-	KEY_USABLE = "usable"
-)
+import "yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
 
 // multiCloud查询指标列表组装
 const (
@@ -142,63 +31,85 @@ const (
 	MetricKeyClassicDiskReadBPS  = "Disk Read Bytes/Sec"
 	MetricKeyClassicDiskWriteBPS = "Disk Write Bytes/Sec"
 
-	SERVER_METRIC_NAMESPACE = "Microsoft.Compute/virtualMachines"
-	REDIS_METRIC_NAMESPACE  = "Microsoft.Cache/redis"
-	ELB_METRIC_NAMESPACE    = "Microsoft.Network/loadBalancers"
+	SERVER_METRIC_NAMESPACE   = "Microsoft.Compute/virtualMachines"
+	REDIS_METRIC_NAMESPACE    = "Microsoft.Cache/redis"
+	ELB_METRIC_NAMESPACE      = "Microsoft.Network/loadBalancers"
+	K8S_NODE_METRIC_NAMESPACE = "Microsoft.ContainerService/managedClusters"
+
+	// pricing metric
+	K8S_POD_METRIC_NAMESPACE = "insights.container/pods"
 )
 
 var azureMetricSpecs = map[string][]string{
-	MetricKeyPercentageCPU:   {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_CPU_USAGE},
-	MetricKeyNetworkInTotal:  {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_NET_BPS_RX},
-	MetricKeyNetworkOutTotal: {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_NET_BPS_TX},
-	MetricKeyDiskReadBytes:   {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_DISK_READ_BPS},
-	MetricKeyDiskWriteBytes:  {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_DISK_WRITE_BPS},
-	MetricKeyDiskReadOPS:     {DEFAULT_STATISTICS, UNIT_COUNT_SEC, INFLUXDB_FIELD_DISK_READ_IOPS},
-	MetricKeyDiskWriteOPS:    {DEFAULT_STATISTICS, UNIT_COUNT_SEC, INFLUXDB_FIELD_DISK_WRITE_IOPS},
+	MetricKeyPercentageCPU:   {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_CPU_USAGE},
+	MetricKeyNetworkInTotal:  {common.DEFAULT_STATISTICS, common.UNIT_MEM, common.INFLUXDB_FIELD_NET_BPS_RX},
+	MetricKeyNetworkOutTotal: {common.DEFAULT_STATISTICS, common.UNIT_MEM, common.INFLUXDB_FIELD_NET_BPS_TX},
+	MetricKeyDiskReadBytes:   {common.DEFAULT_STATISTICS, common.UNIT_MEM, common.INFLUXDB_FIELD_DISK_READ_BPS},
+	MetricKeyDiskWriteBytes:  {common.DEFAULT_STATISTICS, common.UNIT_MEM, common.INFLUXDB_FIELD_DISK_WRITE_BPS},
+	MetricKeyDiskReadOPS:     {common.DEFAULT_STATISTICS, common.UNIT_COUNT_SEC, common.INFLUXDB_FIELD_DISK_READ_IOPS},
+	MetricKeyDiskWriteOPS:    {common.DEFAULT_STATISTICS, common.UNIT_COUNT_SEC, common.INFLUXDB_FIELD_DISK_WRITE_IOPS},
 }
 
 var azureClassicMetricsSpec = map[string][]string{
-	MetricKeyPercentageCPU:       {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_CPU_USAGE},
-	MetricKeyClassicNetworkIn:    {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_NET_BPS_RX},
-	MetricKeyClassicNetworkOut:   {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_NET_BPS_TX},
-	MetricKeyClassicDiskReadBPS:  {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_DISK_READ_BPS},
-	MetricKeyClassicDiskWriteBPS: {DEFAULT_STATISTICS, UNIT_MEM, INFLUXDB_FIELD_DISK_WRITE_BPS},
-	MetricKeyDiskReadOPS:         {DEFAULT_STATISTICS, UNIT_COUNT_SEC, INFLUXDB_FIELD_DISK_READ_IOPS},
-	MetricKeyDiskWriteOPS:        {DEFAULT_STATISTICS, UNIT_COUNT_SEC, INFLUXDB_FIELD_DISK_WRITE_IOPS},
+	MetricKeyPercentageCPU:       {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_CPU_USAGE},
+	MetricKeyClassicNetworkIn:    {common.DEFAULT_STATISTICS, common.UNIT_MEM, common.INFLUXDB_FIELD_NET_BPS_RX},
+	MetricKeyClassicNetworkOut:   {common.DEFAULT_STATISTICS, common.UNIT_MEM, common.INFLUXDB_FIELD_NET_BPS_TX},
+	MetricKeyClassicDiskReadBPS:  {common.DEFAULT_STATISTICS, common.UNIT_MEM, common.INFLUXDB_FIELD_DISK_READ_BPS},
+	MetricKeyClassicDiskWriteBPS: {common.DEFAULT_STATISTICS, common.UNIT_MEM, common.INFLUXDB_FIELD_DISK_WRITE_BPS},
+	MetricKeyDiskReadOPS:         {common.DEFAULT_STATISTICS, common.UNIT_COUNT_SEC, common.INFLUXDB_FIELD_DISK_READ_IOPS},
+	MetricKeyDiskWriteOPS:        {common.DEFAULT_STATISTICS, common.UNIT_COUNT_SEC, common.INFLUXDB_FIELD_DISK_WRITE_IOPS},
 }
 
 var azureRedisMetricsSpec = map[string][]string{
-	"percentProcessorTime": {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_REDIS_CPU_USAGE},
-	"usedmemorypercentage": {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_REDIS_MEM_USAGE},
-	"connectedclients":     {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIFLD_REDIS_CONN_USAGE},
-	"operationsPerSecond":  {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIFLD_REDIS_OPT_SES},
-	"alltotalkeys":         {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIFLD_REDIS_CACHE_KEYS},
-	"expiredkeys":          {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIFLD_REDIS_CACHE_EXP_KEYS},
-	"usedmemory":           {DEFAULT_STATISTICS, UNIT_BYTES, INFLUXDB_FIFLD_REDIS_DATA_MEM_USAGE},
-	"serverLoad":           {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIFLD_REDIS_SERVER_LOAD},
-	"errors":               {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIFLD_REDIS_CONN_ERRORS},
+	"percentProcessorTime": {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_REDIS_CPU_USAGE},
+	"usedmemorypercentage": {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_REDIS_MEM_USAGE},
+	"connectedclients":     {common.DEFAULT_STATISTICS, common.UNIT_COUNT, common.INFLUXDB_FIFLD_REDIS_CONN_USAGE},
+	"operationsPerSecond":  {common.DEFAULT_STATISTICS, common.UNIT_COUNT, common.INFLUXDB_FIFLD_REDIS_OPT_SES},
+	"alltotalkeys":         {common.DEFAULT_STATISTICS, common.UNIT_COUNT, common.INFLUXDB_FIFLD_REDIS_CACHE_KEYS},
+	"expiredkeys":          {common.DEFAULT_STATISTICS, common.UNIT_COUNT, common.INFLUXDB_FIFLD_REDIS_CACHE_EXP_KEYS},
+	"usedmemory":           {common.DEFAULT_STATISTICS, common.UNIT_BYTES, common.INFLUXDB_FIFLD_REDIS_DATA_MEM_USAGE},
+	"serverLoad":           {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIFLD_REDIS_SERVER_LOAD},
+	"errors":               {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIFLD_REDIS_CONN_ERRORS},
 }
 
 //mariadb,mysql,postgresql
 var azureRdsMetricsSpec = map[string][]string{
-	"cpu_percent":            {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_RDS_CPU_USAGE},
-	"memory_percent":         {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_RDS_MEM_USAGE},
-	"storage_percent":        {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_RDS_DISK_USAGE},
-	"network_bytes_ingress":  {DEFAULT_STATISTICS, UNIT_BYTES, INFLUXDB_FIELD_RDS_NET_BPS_RX},
-	"network_bytes_egress":   {DEFAULT_STATISTICS, UNIT_BYTES, INFLUXDB_FIELD_RDS_NET_BPS_TX},
-	"io_consumption_percent": {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_RDS_DISK_IO_PERSENT},
-	"active_connections":     {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIELD_RDS_CONN_ACTIVE},
-	"connections_failed":     {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIELD_RDS_CONN_FAILED},
+	"cpu_percent":            {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_RDS_CPU_USAGE},
+	"memory_percent":         {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_RDS_MEM_USAGE},
+	"storage_percent":        {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_RDS_DISK_USAGE},
+	"network_bytes_ingress":  {common.DEFAULT_STATISTICS, common.UNIT_BYTES, common.INFLUXDB_FIELD_RDS_NET_BPS_RX},
+	"network_bytes_egress":   {common.DEFAULT_STATISTICS, common.UNIT_BYTES, common.INFLUXDB_FIELD_RDS_NET_BPS_TX},
+	"io_consumption_percent": {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_RDS_DISK_IO_PERSENT},
+	"connections_failed":     {common.DEFAULT_STATISTICS, common.UNIT_COUNT, common.INFLUXDB_FIELD_RDS_CONN_FAILED},
+	"active_connections":     {common.DEFAULT_STATISTICS, common.UNIT_COUNT, common.INFLUXDB_FIELD_RDS_CONN_ACTIVE},
 }
 
 var azureRdsMetricsSpecSqlserver = map[string][]string{
-	"cpu_percent":          {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_RDS_CPU_USAGE},
-	"memory_usage_percent": {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_RDS_MEM_USAGE},
-	"storage_percent":      {DEFAULT_STATISTICS, UNIT_PERCENT, INFLUXDB_FIELD_RDS_DISK_USAGE},
-	"connections_failed":   {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIELD_RDS_CONN_FAILED},
+	"cpu_percent":          {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_RDS_CPU_USAGE},
+	"memory_usage_percent": {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_RDS_MEM_USAGE},
+	"storage_percent":      {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_RDS_DISK_USAGE},
+	"connections_failed":   {common.DEFAULT_STATISTICS, common.UNIT_COUNT, common.INFLUXDB_FIELD_RDS_CONN_FAILED},
 }
 
 var azureElbMetricSpecs = map[string][]string{
-	"SnatConnectionCount": {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIELD_ELB_SNAT_PORT},
-	"UsedSnatPorts":       {DEFAULT_STATISTICS, UNIT_COUNT, INFLUXDB_FIELD_ELB_SNAT_CONN_COUNT},
+	"SnatConnectionCount": {common.DEFAULT_STATISTICS, common.UNIT_COUNT, common.INFLUXDB_FIELD_ELB_SNAT_PORT},
+	"UsedSnatPorts":       {common.DEFAULT_STATISTICS, common.UNIT_COUNT, common.INFLUXDB_FIELD_ELB_SNAT_CONN_COUNT},
 }
+
+// insights.container/pods
+var azureK8SPodMetricSpecs = map[string][]string{
+	"oomKilledContainerCount":  {common.DEFAULT_STATISTICS, common.UNIT_COUNT, common.INFLUXDB_FIELD_K8S_POD_OOM_CONTAINER_COUNT},
+	"restartingContainerCount": {common.DEFAULT_STATISTICS, common.UNIT_COUNT, common.INFLUXDB_FIELD_K8S_POD_RESTARTING_CONTAINER_COUNT},
+}
+
+// Microsoft.ContainerService/managedClusters
+var azureK8SNodeMetricSpecs = map[string][]string{
+	"node_cpu_usage_percentage":  {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_K8S_NODE_CPU_USAGE},
+	"node_memory_rss_percentage": {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_K8S_NODE_MEM_USAGE},
+	//磁盘已用百分比
+	"node_disk_usage_percentage": {common.DEFAULT_STATISTICS, common.UNIT_PERCENT, common.INFLUXDB_FIELD_K8S_NODE_DISK_USAGE},
+	"node_network_in_bytes":      {common.DEFAULT_STATISTICS, common.UNIT_BYTEPS, common.INFLUXDB_FIELD_K8S_NODE_NET_BPS_RX},
+	"node_network_out_bytes":     {common.DEFAULT_STATISTICS, common.UNIT_BYTEPS, common.INFLUXDB_FIELD_K8S_NODE_NET_BPS_TX},
+}
+
+// insights.container/persistentvolumes
