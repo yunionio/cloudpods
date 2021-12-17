@@ -129,10 +129,11 @@ func refreshScopeResourceCount(ctx context.Context) error {
 }
 
 func syncScopeResourceCount(ctx context.Context, regionId string, serviceId string, projResCnt map[string][]db.SScopeResourceCount) {
-	projList := make([]string, 0)
-	domainList := []string{}
-	ownerList := []string{}
 	for res, resCnts := range projResCnt {
+		projList := make([]string, 0)
+		domainList := []string{}
+		ownerList := []string{}
+
 		for i := range resCnts {
 			if len(resCnts[i].TenantId) == 0 && len(resCnts[i].DomainId) == 0 && len(resCnts[i].OwnerId) == 0 {
 				continue
