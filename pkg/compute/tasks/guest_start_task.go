@@ -50,7 +50,6 @@ func (self *GuestStartTask) RequestStart(ctx context.Context, guest *models.SGue
 		self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
-	self.OnStartComplete(ctx, guest, nil)
 }
 
 func (self *GuestStartTask) OnStartComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
