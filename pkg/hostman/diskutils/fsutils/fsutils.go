@@ -199,15 +199,7 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 		if label == "msdos" && end >= 4294967296 {
 			end = 4294967295
 		}
-		cmds = []string{"parted", "-a", "none", "-s", diskPath, "--",
-			"unit", "s", "rm", part[0], "mkpart", part[5]}
-		if len(part[6]) > 0 {
-			cmds = append(cmds, part[6])
-		}
-		cmds = append(cmds, part[2], fmt.Sprintf("%ds", end))
-		if len(part[1]) > 0 {
-			cmds = append(cmds, "set", part[0], "boot", "on")
-		}
+		cmds := []string{"parted", "-a", "none", "-s", diskPath, "--", "resizepart", part[0], fmt.Sprintf("%ds", end)}
 		log.Infof("resize disk partition: %s", cmds)
 		output, err := procutils.NewCommand(cmds[0], cmds[1:]...).Output()
 		if err != nil {
