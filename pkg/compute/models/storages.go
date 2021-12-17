@@ -1061,6 +1061,8 @@ func (manager *SStorageManager) totalCapacityQ(
 		storages.Field("capacity"),
 		storages.Field("reserved"),
 		storages.Field("cmtbound"),
+		storages.Field("storage_type"),
+		storages.Field("medium_type"),
 		stmt.Field("used_capacity"),
 		stmt.Field("used_count"),
 		stmt2.Field("failed_capacity"),
@@ -1106,6 +1108,8 @@ type StorageStat struct {
 	Capacity             int
 	Reserved             int
 	Cmtbound             float32
+	StorageType          string
+	MediumType           string
 	UsedCapacity         int
 	UsedCount            int
 	FailedCapacity       int
@@ -1127,6 +1131,15 @@ type StoragesCapacityStat struct {
 	CountAttached    int
 	DetachedCapacity int64
 	CountDetached    int
+
+	MediumeCapacity             map[string]int64
+	StorageTypeCapacity         map[string]int64
+	MediumeCapacityUsed         map[string]int64
+	StorageTypeCapacityUsed     map[string]int64
+	AttachedMediumeCapacity     map[string]int64
+	AttachedStorageTypeCapacity map[string]int64
+	DetachedMediumeCapacity     map[string]int64
+	DetachedStorageTypeCapacity map[string]int64
 }
 
 func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCapacityStat {
@@ -1146,33 +1159,65 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 		atCount int     = 0
 		dtCapa  int64   = 0
 		dtCount int     = 0
+
+		mCapa   = map[string]int64{}
+		sCapa   = map[string]int64{}
+		mFailed = map[string]int64{}
+		sFailed = map[string]int64{}
+		matCapa = map[string]int64{}
+		satCapa = map[string]int64{}
+		mdtCapa = map[string]int64{}
+		sdtCapa = map[string]int64{}
 	)
+	var add = func(m, s map[string]int64, mediumType, storageType string, capa int64) (map[string]int64, map[string]int64) {
+		_, ok := m[mediumType]
+		if !ok {
+			m[mediumType] = 0
+		}
+		m[mediumType] += capa
+		_, ok = s[storageType]
+		if !ok {
+			s[storageType] = 0
+		}
+		s[storageType] += capa
+		return m, s
+	}
 	for _, stat := range stats {
 		tCapa += int64(stat.Capacity - stat.Reserved)
 		if stat.Cmtbound == 0 {
 			stat.Cmtbound = options.Options.DefaultStorageOvercommitBound
 		}
+		mCapa, sCapa = add(mCapa, sCapa, stat.MediumType, stat.StorageType, int64(stat.Capacity-stat.Reserved))
 		tVCapa += float64(stat.Capacity-stat.Reserved) * float64(stat.Cmtbound)
 		tUsed += int64(stat.UsedCapacity)
 		cUsed += stat.UsedCount
 		tFailed += int64(stat.FailedCapacity)
+		mFailed, sFailed = add(mFailed, sFailed, stat.MediumType, stat.StorageType, int64(stat.FailedCapacity))
 		cFailed += stat.FailedCount
 		atCapa += int64(stat.AttachedUsedCapacity)
+		matCapa, satCapa = add(matCapa, satCapa, stat.MediumType, stat.StorageType, int64(stat.AttachedUsedCapacity))
 		atCount += stat.AttachedCount
 		dtCapa += int64(stat.DetachedUsedCapacity)
+		mdtCapa, sdtCapa = add(mdtCapa, sdtCapa, stat.MediumType, stat.StorageType, int64(stat.DetachedUsedCapacity))
 		dtCount += stat.DetachedCount
 	}
 	return StoragesCapacityStat{
-		Capacity:         tCapa,
-		CapacityVirtual:  tVCapa,
-		CapacityUsed:     tUsed,
-		CountUsed:        cUsed,
-		CapacityUnready:  tFailed,
-		CountUnready:     cFailed,
-		AttachedCapacity: atCapa,
-		CountAttached:    atCount,
-		DetachedCapacity: dtCapa,
-		CountDetached:    dtCount,
+		Capacity:                    tCapa,
+		MediumeCapacity:             mCapa,
+		StorageTypeCapacity:         sCapa,
+		CapacityVirtual:             tVCapa,
+		CapacityUsed:                tUsed,
+		CountUsed:                   cUsed,
+		CapacityUnready:             tFailed,
+		CountUnready:                cFailed,
+		AttachedCapacity:            atCapa,
+		AttachedMediumeCapacity:     matCapa,
+		AttachedStorageTypeCapacity: satCapa,
+		CountAttached:               atCount,
+		DetachedCapacity:            dtCapa,
+		DetachedMediumeCapacity:     mdtCapa,
+		DetachedStorageTypeCapacity: sdtCapa,
+		CountDetached:               dtCount,
 	}
 }
 
