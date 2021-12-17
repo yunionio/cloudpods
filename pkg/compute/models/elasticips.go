@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -1355,9 +1356,9 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 	}
 	eip.CloudregionId = region.Id
 	if vm != nil {
-		eip.Name = fmt.Sprintf("eip-for-%s", vm.GetName())
+		eip.Name = fmt.Sprintf("eip-for-%s", pinyinutils.Text2Pinyin(vm.GetName()))
 	} else if nat != nil {
-		eip.Name = fmt.Sprintf("eip-for-%s", nat.GetName())
+		eip.Name = fmt.Sprintf("eip-for-%s", pinyinutils.Text2Pinyin(nat.GetName()))
 	}
 
 	if host != nil && host.ManagerId == "" { // kvm
