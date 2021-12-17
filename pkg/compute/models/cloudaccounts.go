@@ -2884,6 +2884,16 @@ func (self *SCloudaccount) RealDelete(ctx context.Context, userCred mcclient.Tok
 			return errors.Wrapf(err, "project %s Delete", projects[i].Id)
 		}
 	}
+	caches, err := self.GetDnsZoneCaches()
+	if err != nil {
+		return errors.Wrapf(err, "GetDnsZoneCaches")
+	}
+	for i := range caches {
+		err = caches[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "dns zone cache %s delete", caches[i].Id)
+		}
+	}
 	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
