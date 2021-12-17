@@ -164,11 +164,6 @@ func (self *SAliCloudReport) collectMetricFromThisServer(server jsonutils.JSONOb
 		Key:   pairsKey,
 		Value: strconv.FormatFloat(fieldValue, 'E', -1, 64),
 	})
-	if common.MonType(self.Operator) == common.SERVER {
-		self.AddMetricTag(&metric, common.OtherVmTags)
-	} else {
-		self.AddMetricTag(&metric, common.OtherTags)
-	}
 	metric.Name = measurement
 	return metric, nil
 }

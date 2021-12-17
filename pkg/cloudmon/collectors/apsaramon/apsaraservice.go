@@ -27,6 +27,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudmon/collectors/common"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	iden_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/multicloud/apsara"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
@@ -91,6 +92,24 @@ func (self *SApsaraCloudReport) collectRegionMetricOfHost(region cloudprovider.I
 					if err != nil {
 						log.Errorf("collect %s error: %v", metricName, err)
 						continue
+					}
+
+					project, err := self.GetResourceById(server.ProjectId, &iden_modules.Projects)
+					if err != nil {
+						log.Errorf("server: %s getProject: %s err: %v", server.Name, server.ProjectId, err)
+						continue
+					}
+					metaMap, _ := project.GetMap("metadata")
+					if len(metaMap) > 0 {
+						for key, valObj := range metaMap {
+							if strings.Contains(key, "user:") {
+								val, _ := valObj.GetString()
+								serverMetric.Tags = append(serverMetric.Tags, influxdb.SKeyValue{
+									Key:   key,
+									Value: val,
+								})
+							}
+						}
 					}
 					dataList = append(dataList, serverMetric)
 				}
@@ -301,7 +320,6 @@ func (self *SApsaraCloudReport) collectMetricFromThisServer(server jsonutils.JSO
 		Key:   pairsKey,
 		Value: strconv.FormatFloat(fieldValue, 'E', -1, 64),
 	})
-	self.AddMetricTag(&metric, common.OtherVmTags)
 	metric.Name = measurement
 	return metric, nil
 }

@@ -422,6 +422,22 @@ func JsonToMetric(obj *jsonutils.JSONDict, name string, tags map[string]string, 
 				Key: k, Value: val,
 			})
 		}
+		//if k == "metadata" {
+		//	mValMap, err := v.GetMap()
+		//	if err != nil {
+		//		log.Errorf("get metadata value err: %v", err)
+		//		continue
+		//	}
+		//	for mKey, mValObj := range mValMap {
+		//		if strings.Contains(mKey, "sys") {
+		//			mVal, _ := mValObj.GetString()
+		//			tagPairs = append(tagPairs, influxdb.SKeyValue{
+		//				Key:   mKey,
+		//				Value: mVal,
+		//			})
+		//		}
+		//	}
+		//}
 	}
 	metric.Tags = tagPairs
 	metric.Metrics = metricPairs

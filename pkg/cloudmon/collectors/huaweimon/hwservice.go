@@ -336,7 +336,6 @@ func (self *SHwCloudReport) collectMetricFromThisServer(server jsonutils.JSONObj
 		Value: strconv.FormatFloat(fieldValue, 'E', -1, 64),
 	})
 	metric.Name = measurement
-	self.AddMetricTag(&metric, common.OtherVmTags)
 	return metric, nil
 }
 
