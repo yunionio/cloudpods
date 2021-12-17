@@ -434,7 +434,7 @@ func (region *SRegion) CreateInstance(desc *cloudprovider.SManagedVMCreateConfig
 	for offerName, offerId := range offerings {
 		params := map[string]interface{}{
 			"params": map[string]interface{}{
-				"name":                 desc.Name,
+				"name":                 desc.NameEn,
 				"description":          desc.Description,
 				"instanceOfferingUuid": offerId,
 				"imageUuid":            desc.ExternalImageId,
