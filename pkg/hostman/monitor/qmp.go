@@ -645,10 +645,10 @@ func (m *QmpMonitor) MigrateStartPostcopy(callback StringCallback) {
 			} else {
 				ret, err := jsonutils.Parse(res.Return)
 				if err != nil {
-					log.Errorf("Parse qmp res error %s: %s", m.server, err)
+					log.Errorf("Parse qmp res error: %s", err)
 					callback("MigrateStartPostcopy error")
 				} else {
-					log.Infof("MigrateStartPostcopy %s: %s", m.server, ret.String())
+					log.Infof("MigrateStartPostcopy: %s", ret.String())
 					callback("")
 				}
 			}

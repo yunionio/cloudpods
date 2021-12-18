@@ -343,7 +343,7 @@ func (m *HmpMonitor) GetMigrateStatus(callback StringCallback) {
 
 func (m *HmpMonitor) MigrateStartPostcopy(callback StringCallback) {
 	cb := func(output string) {
-		log.Infof("MigrateStartPostcopy %s: %s", m.server, output)
+		log.Infof("MigrateStartPostcopy: %s", output)
 		callback(output)
 	}
 	m.Query("migrate_start_postcopy", cb)
