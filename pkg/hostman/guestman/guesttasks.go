@@ -475,12 +475,17 @@ type SGuestLiveMigrateTask struct {
 	params *SLiveMigrate
 
 	c chan struct{}
+
+	timeoutAt        time.Time
+	doTimeoutMigrate bool
 }
 
 func NewGuestLiveMigrateTask(
 	ctx context.Context, guest *SKVMGuestInstance, params *SLiveMigrate,
 ) *SGuestLiveMigrateTask {
-	return &SGuestLiveMigrateTask{SKVMGuestInstance: guest, ctx: ctx, params: params}
+	task := &SGuestLiveMigrateTask{SKVMGuestInstance: guest, ctx: ctx, params: params}
+	task.migrateTask = task
+	return task
 }
 
 func (s *SGuestLiveMigrateTask) Start() {
@@ -489,18 +494,27 @@ func (s *SGuestLiveMigrateTask) Start() {
 
 func (s *SGuestLiveMigrateTask) onSetZeroBlocks(res string) {
 	if strings.Contains(strings.ToLower(res), "error") {
-		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate set capability error: %s", res))
+		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate set capability zero-blocks error: %s", res))
 		return
 	}
+	// https://wiki.qemu.org/Features/AutoconvergeLiveMigration
 	s.Monitor.MigrateSetCapability("auto-converge", "on", s.startMigrate)
 }
 
 func (s *SGuestLiveMigrateTask) startMigrate(res string) {
 	if strings.Contains(strings.ToLower(res), "error") {
-		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate set capability error: %s", res))
+		s.migrateTask = nil
+		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate set capability auto-converge error: %s", res))
 		return
 	}
 
+	memMb, _ := s.Desc.Int("mem")
+	migSeconds := int(memMb) / options.HostOptions.MigrateExpectRate
+	if migSeconds < options.HostOptions.MinMigrateTimeoutSeconds {
+		migSeconds = options.HostOptions.MinMigrateTimeoutSeconds
+	}
+	log.Infof("migrate timeout seconds: %d", migSeconds)
+	s.timeoutAt = time.Now().Add(time.Second * time.Duration(migSeconds))
 	var copyIncremental = false
 	if s.params.IsLocal {
 		copyIncremental = true
@@ -511,6 +525,7 @@ func (s *SGuestLiveMigrateTask) startMigrate(res string) {
 
 func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(res string) {
 	if strings.Contains(strings.ToLower(res), "error") {
+		s.migrateTask = nil
 		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate error: %s", res))
 		return
 	}
@@ -521,7 +536,7 @@ func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(res string) {
 		case <-s.c: // on c close
 			s.c = nil
 			break
-		case <-time.After(time.Second * 1):
+		case <-time.After(time.Second * 5):
 			s.Monitor.GetMigrateStatus(s.onGetMigrateStatus)
 		}
 	}
@@ -529,12 +544,38 @@ func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(res string) {
 
 func (s *SGuestLiveMigrateTask) onGetMigrateStatus(status string) {
 	if status == "completed" {
-		close(s.c)
-		hostutils.TaskComplete(s.ctx, nil)
+		s.migrateComplete()
 	} else if status == "failed" {
+		s.migrateTask = nil
 		close(s.c)
 		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Query migrate got status: %s", status))
+	} else if !s.doTimeoutMigrate {
+		if s.timeoutAt.After(time.Now()) {
+			log.Warningf("migrate timeout, force stop to finish migrate")
+			// timeout, start memory postcopy
+			// https://wiki.qemu.org/Features/PostCopyLiveMigration
+			s.Monitor.SimpleCommand("stop", s.onMigrateStartPostcopy)
+			s.doTimeoutMigrate = true
+		}
 	}
+}
+
+func (s *SGuestLiveMigrateTask) onMigrateStartPostcopy(res string) {
+	if strings.Contains(strings.ToLower(res), "error") {
+		s.migrateTask = nil
+		close(s.c)
+		hostutils.TaskFailed(s.ctx, fmt.Sprintf("onMigrateStartPostcopy error: %s", res))
+		return
+	} else {
+		log.Infof("onMigrateStartPostcopy success")
+	}
+}
+
+func (s *SGuestLiveMigrateTask) migrateComplete() {
+	s.migrateTask = nil
+	close(s.c)
+	s.Monitor.Disconnect()
+	hostutils.TaskComplete(s.ctx, nil)
 }
 
 /**
@@ -546,12 +587,15 @@ type SGuestResumeTask struct {
 
 	ctx       context.Context
 	startTime time.Time
+
+	isTimeout bool
 }
 
-func NewGuestResumeTask(ctx context.Context, s *SKVMGuestInstance) *SGuestResumeTask {
+func NewGuestResumeTask(ctx context.Context, s *SKVMGuestInstance, isTimeout bool) *SGuestResumeTask {
 	return &SGuestResumeTask{
 		SKVMGuestInstance: s,
 		ctx:               ctx,
+		isTimeout:         isTimeout,
 	}
 }
 
@@ -578,10 +622,16 @@ func (s *SGuestResumeTask) onConfirmRunning(status string) {
 	} else if strings.Contains(status, "paused") {
 		s.Monitor.GetBlocks(s.onGetBlockInfo)
 	} else {
-		if time.Now().Sub(s.startTime) >= time.Second*60 {
+		memMb, _ := s.Desc.Int("mem")
+		migSeconds := int(memMb) / options.HostOptions.MigrateExpectRate
+		if migSeconds < options.HostOptions.MinMigrateTimeoutSeconds {
+			migSeconds = options.HostOptions.MinMigrateTimeoutSeconds
+		}
+		log.Infof("start guest timeout seconds: %d", migSeconds)
+		if s.isTimeout && time.Now().Sub(s.startTime) >= time.Second*time.Duration(migSeconds) {
 			s.taskFailed("Timeout")
 		} else {
-			time.Sleep(time.Second * 1)
+			time.Sleep(time.Second * 3)
 			s.confirmRunning()
 		}
 	}

@@ -20,10 +20,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 )
 
 type StringCallback func(string)
@@ -65,6 +64,7 @@ type Monitor interface {
 	MigrateSetCapability(capability, state string, callback StringCallback)
 	Migrate(destStr string, copyIncremental, copyFull bool, callback StringCallback)
 	GetMigrateStatus(callback StringCallback)
+	MigrateStartPostcopy(callback StringCallback)
 
 	ReloadDiskBlkdev(device, path string, callback StringCallback)
 	SetVncPassword(proto, password string, callback StringCallback)

@@ -636,6 +636,27 @@ func (m *QmpMonitor) GetMigrateStatus(callback StringCallback) {
 	m.Query(cmd, cb)
 }
 
+func (m *QmpMonitor) MigrateStartPostcopy(callback StringCallback) {
+	var (
+		cmd = &Command{Execute: "migrate-start-postcopy"}
+		cb  = func(res *Response) {
+			if res.ErrorVal != nil {
+				callback(res.ErrorVal.Error())
+			} else {
+				ret, err := jsonutils.Parse(res.Return)
+				if err != nil {
+					log.Errorf("Parse qmp res error: %s", err)
+					callback("MigrateStartPostcopy error")
+				} else {
+					log.Infof("MigrateStartPostcopy: %s", ret.String())
+					callback("")
+				}
+			}
+		}
+	)
+	m.Query(cmd, cb)
+}
+
 func (m *QmpMonitor) GetBlockJobCounts(callback func(jobs int)) {
 	var cb = func(res *Response) {
 		if res.ErrorVal != nil {
