@@ -343,6 +343,14 @@ func (m *HmpMonitor) GetMigrateStatus(callback StringCallback) {
 	m.Query("info migrate", cb)
 }
 
+func (m *HmpMonitor) MigrateStartPostcopy(callback StringCallback) {
+	cb := func(output string) {
+		log.Infof("MigrateStartPostcopy %s: %s", m.server, output)
+		callback(output)
+	}
+	m.Query("migrate_start_postcopy", cb)
+}
+
 func (m *HmpMonitor) GetBlockJobCounts(callback func(jobs int)) {
 	cb := func(output string) {
 		lines := strings.Split(strings.TrimSuffix(output, "\r\n"), "\r\n")

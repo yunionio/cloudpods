@@ -97,7 +97,11 @@ type SHostOptions struct {
 	PingRegionInterval     int      `default:"60" help:"interval to ping region, deefault is 1 minute"`
 	ManageNtpConfiguration bool     `default:"true"`
 	LogSystemdUnits        []string `help:"Systemd units log collected by fluent-bit"`
-	BandwidthLimit         int      `default:"50" help:"Bandwidth upper bound when migrating disk image in MB/sec"`
+	// 更改默认带宽限速为400GBps, qiujian
+	BandwidthLimit int `default:"400000" help:"Bandwidth upper bound when migrating disk image in MB/sec, default 400GBps"`
+	// 热迁移带宽，预期不低于8MBps, 1G Memory takes 128 seconds
+	MigrateExpectRate        int `default:"8" help:"Expected memory migration rate in MB/sec, default 8MBps"`
+	MinMigrateTimeoutSeconds int `default:"30" help:"minimal timeout for a migration process, default 30 seconds"`
 
 	SnapshotDirSuffix  string `help:"Snapshot dir name equal diskId concat snapshot dir suffix" default:"_snap"`
 	SnapshotRecycleDay int    `default:"1" help:"Snapshot Recycle delete Duration day"`

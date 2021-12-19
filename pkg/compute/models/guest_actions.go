@@ -115,7 +115,7 @@ func (self *SGuest) PerformMonitor(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
-	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_BLOCK_STREAM}) {
+	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_BLOCK_STREAM, api.VM_MIGRATING}) {
 		cmd, err := data.GetString("command")
 		if err != nil {
 			return nil, httperrors.NewMissingParameterError("command")
