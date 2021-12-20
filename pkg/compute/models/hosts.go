@@ -185,10 +185,10 @@ type SHost struct {
 	// 主机UUID
 	Uuid string `width:"64" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
-	// 主机启动模式, 可能值位PXE和ISO
+	// 主机启动模式, 可能值为PXE和ISO
 	BootMode string `width:"8" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
-	// IPv4地址，作为么有云vpc访问外网时的网关
+	// IPv4地址，作为私有云vpc访问外网时的网关
 	OvnMappedIpAddr string `width:"16" charset:"ascii" nullable:"true" list:"user"`
 
 	// UEFI详情
