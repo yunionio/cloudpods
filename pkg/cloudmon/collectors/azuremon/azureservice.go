@@ -150,7 +150,6 @@ func (self *SAzureCloudReport) collectMetricFromThisServer(server jsonutils.JSON
 					Key:   pairsKey,
 					Value: strconv.FormatFloat(fieldValue, 'E', -1, 64),
 				})
-				self.AddMetricTag(&metric, common.OtherVmTags)
 				datas = append(datas, metric)
 			}
 		}

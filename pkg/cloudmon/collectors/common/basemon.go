@@ -165,7 +165,12 @@ func (self *CloudReportBase) InitProviderInstance() (cloudprovider.ICloudProvide
 		Secret:    secretDe,
 		Vendor:    self.SProvider.Provider,
 		ProxyFunc: proxyFunc,
-		Options:   options.(*jsonutils.JSONDict),
+	}
+	if options != nil {
+		cfg.Options = options.(*jsonutils.JSONDict)
+		defaultRegion, _ := options.GetString("default_region")
+		cfg.DefaultRegion = defaultRegion
+
 	}
 	return cloudprovider.GetProvider(cfg)
 }

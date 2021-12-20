@@ -132,7 +132,6 @@ func (self *SJdCloudReport) collectMetricFromThisServer(server jsonutils.JSONObj
 				Value: strconv.FormatFloat(fieldValue, 'E', -1, 64),
 			})
 			metric.Name = measurement
-			self.AddMetricTag(&metric, common.OtherVmTags)
 			datas = append(datas, metric)
 		}
 	}

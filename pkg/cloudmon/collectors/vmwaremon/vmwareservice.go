@@ -227,7 +227,6 @@ func (self *SEsxiCloudReport) collectMetricFromThisServer_(server jsonutils.JSON
 			if monType == common.TYPE_HOSTSYSTEM {
 				self.AddMetricTag(&metric, common.OtherHostTag)
 			} else {
-				self.AddMetricTag(&metric, common.OtherVmTags)
 			}
 			datas = append(datas, metric)
 		}
