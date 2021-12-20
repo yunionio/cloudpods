@@ -37,6 +37,14 @@ func init() {
 	models.RegisterRegionDriver(&driver)
 }
 
+func (self *SZStackRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
+	return true
+}
+
+func (self *SZStackRegionDriver) GenerateSecurityGroupName(name string) string {
+	return name
+}
+
 func (self *SZStackRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
 	return cloudprovider.SecurityRule{SecurityRule: *secrules.MustParseSecurityRule("in:deny any")}
 }

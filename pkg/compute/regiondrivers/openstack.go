@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -46,6 +47,17 @@ type SOpenStackRegionDriver struct {
 func init() {
 	driver := SOpenStackRegionDriver{}
 	models.RegisterRegionDriver(&driver)
+}
+
+func (self *SOpenStackRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
+	return true
+}
+
+func (self *SOpenStackRegionDriver) GenerateSecurityGroupName(name string) string {
+	if strings.ToLower(name) == "default" {
+		return "DefaultGroup"
+	}
+	return name
 }
 
 func (self *SOpenStackRegionDriver) GetDefaultSecurityGroupInRule() cloudprovider.SecurityRule {
