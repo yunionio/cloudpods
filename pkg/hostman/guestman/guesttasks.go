@@ -966,7 +966,6 @@ func (s *SGuestReloadDiskTask) onResumeSucc(results string) {
 }
 
 func (s *SGuestReloadDiskTask) taskFailed(reason string) {
-	log.Errorf("SGuestReloadDiskTask error: %s", reason)
 	hostutils.TaskFailed(s.ctx, reason)
 }
 
@@ -1000,20 +999,21 @@ func (s *SGuestDiskSnapshotTask) startSnapshot(device string) {
 func (s *SGuestDiskSnapshotTask) onReloadBlkdevSucc(res string) {
 	var cb = s.onResumeSucc
 	if len(res) > 0 {
-		log.Errorf("Monitor reload blkdev error: %s", res)
-		cb = s.onSnapshotBlkdevFail
+		cb = func(string) {
+			s.onSnapshotBlkdevFail(fmt.Sprintf("onReloadBlkdevFail: %s", res))
+		}
 	}
 	s.Monitor.SimpleCommand("cont", cb)
 }
 
-func (s *SGuestDiskSnapshotTask) onSnapshotBlkdevFail(string) {
+func (s *SGuestDiskSnapshotTask) onSnapshotBlkdevFail(reason string) {
 	snapshotDir := s.disk.GetSnapshotDir()
 	snapshotPath := path.Join(snapshotDir, s.snapshotId)
 	output, err := procutils.NewCommand("mv", "-f", snapshotPath, s.disk.GetPath()).Output()
 	if err != nil {
 		log.Errorf("mv %s to %s failed: %s, %s", snapshotPath, s.disk.GetPath(), err, output)
 	}
-	hostutils.TaskFailed(s.ctx, "Reload blkdev error")
+	hostutils.TaskFailed(s.ctx, fmt.Sprintf("Reload blkdev error: %s", reason))
 }
 
 func (s *SGuestDiskSnapshotTask) onResumeSucc(res string) {
@@ -1098,8 +1098,9 @@ func (s *SGuestSnapshotDeleteTask) doReloadDisk(device string) {
 func (s *SGuestSnapshotDeleteTask) onReloadBlkdevSucc(err string) {
 	var callback = s.onResumeSucc
 	if len(err) > 0 {
-		log.Errorf("Reload blkdev failed: %s", err)
-		callback = s.onSnapshotBlkdevFail
+		callback = func(string) {
+			s.onSnapshotBlkdevFail(fmt.Sprintf("onReloadBlkdevFail %s", err))
+		}
 	}
 	s.Monitor.SimpleCommand("cont", callback)
 }
@@ -1109,7 +1110,7 @@ func (s *SGuestSnapshotDeleteTask) onSnapshotBlkdevFail(res string) {
 	if output, err := procutils.NewCommand("mv", "-f", s.tmpPath, snapshotPath).Output(); err != nil {
 		log.Errorf("mv %s to %s failed: %s, %s", s.tmpPath, snapshotPath, err, output)
 	}
-	s.taskFailed("Reload blkdev failed")
+	s.taskFailed(fmt.Sprintf("Reload blkdev failed %s", res))
 }
 
 func (s *SGuestSnapshotDeleteTask) onResumeSucc(res string) {
