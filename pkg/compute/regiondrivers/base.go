@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -220,6 +221,14 @@ func (self *SBaseRegionDriver) RequestCreateVpc(ctx context.Context, userCred mc
 
 func (self *SBaseRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, task taskman.ITask) error {
 	return fmt.Errorf("Not implement RequestDeleteVpc")
+}
+
+func (self *SBaseRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
+	return false
+}
+
+func (self *SBaseRegionDriver) GenerateSecurityGroupName(name string) string {
+	return pinyinutils.Text2Pinyin(name)
 }
 
 func (self *SBaseRegionDriver) RequestCacheSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, secgroup *models.SSecurityGroup, classic bool, remoteProjectId string, task taskman.ITask) error {

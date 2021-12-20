@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -46,6 +47,14 @@ import (
 
 type SManagedVirtualizationRegionDriver struct {
 	SVirtualizationRegionDriver
+}
+
+func (self *SManagedVirtualizationRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
+	return true
+}
+
+func (self *SManagedVirtualizationRegionDriver) GenerateSecurityGroupName(name string) string {
+	return pinyinutils.Text2Pinyin(name)
 }
 
 func (self *SManagedVirtualizationRegionDriver) IsSupportedElasticcacheSecgroup() bool {
