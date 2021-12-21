@@ -2095,7 +2095,7 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 	}
 	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_CHANGE_NIC, notes, userCred, true)
 
-	err = self.StartSyncTask(ctx, userCred, true, "")
+	err = self.StartSyncTask(ctx, userCred, false, "")
 	return nil, err
 }
 
