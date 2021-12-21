@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/appctx"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/util/atexit"
@@ -60,6 +61,7 @@ func main() {
 
 		wg := &sync.WaitGroup{}
 		ctx = context.WithValue(ctx, "wg", wg)
+		ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, "vpcagent")
 		wg.Add(1)
 		go w.Start(ctx)
 

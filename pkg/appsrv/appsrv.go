@@ -236,7 +236,14 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		skipLog = true
 	}
 	if !skipLog {
-		log.Infof("%s %d %s %s %s (%s) %.2fms", app.hostId, lrw.status, rid, r.Method, r.URL, r.RemoteAddr, duration)
+		peerServiceName := r.Header.Get("X-Yunion-Peer-Service-Name")
+		var remote string
+		if len(peerServiceName) > 0 {
+			remote = fmt.Sprintf("%s:%s", r.RemoteAddr, peerServiceName)
+		} else {
+			remote = r.RemoteAddr
+		}
+		log.Infof("%s %d %s %s %s (%s) %.2fms", app.hostId, lrw.status, rid, r.Method, r.URL, remote, duration)
 	}
 }
 
