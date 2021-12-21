@@ -54,6 +54,17 @@ func (self *GuestSyncConfTask) OnSyncComplete(ctx context.Context, obj db.IStand
 	guest := obj.(*models.SGuest)
 	if fwOnly, _ := self.GetParams().Bool("fw_only"); fwOnly {
 		db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF, nil, self.UserCred)
+		if restart, _ := self.Params.Bool("restart_network"); !restart {
+			self.SetStageComplete(ctx, nil)
+			return
+		}
+		prevIp, err := self.Params.GetString("prev_ip")
+		if err != nil {
+			log.Errorf("unable to get prev_ip when restart_network is true when sync guest")
+			self.SetStageComplete(ctx, nil)
+			return
+		}
+		guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp)
 		self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
 	} else if data.Contains("task") {
 		// XXX this is only applied to KVM, which will call task_complete twice
