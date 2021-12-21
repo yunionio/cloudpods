@@ -1,0 +1,9 @@
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.3.5-1
+
+RUN mkdir -p /opt/yunion/bin
+
+ENV TZ UTC
+
+ADD ./_output/bin/host-image /opt/yunion/bin/host-image
+ADD ./_output/bin/.host-image.bin /opt/yunion/bin/.host-image.bin
+ADD ./_output/bin/bundles/host-image /opt/yunion/bin/bundles/host-image

@@ -28,8 +28,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
-const DEFAULT_BLOCKSIZE = 8
-
 func MountFusefs(fetcherfsPath, url, tmpdir, token, mntpath string, blocksize int) error {
 	var metaPath = path.Join(mntpath, "meta")
 	if f, err := os.OpenFile(metaPath, os.O_RDONLY, 0644); err == nil {
