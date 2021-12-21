@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pierrec/lz4"
+	"github.com/pierrec/lz4/v4"
 
 	"yunion.io/x/log"
 
@@ -42,6 +42,8 @@ type SHostImageOptions struct {
 	LocalImagePath    []string `help:"Local Image Paths"`
 	SnapshotDirSuffix string   `help:"Snapshot dir name equal diskId concat snapshot dir suffix" default:"_snap"`
 	CommonConfigFile  string   `help:"common config file for container"`
+	StreamChunkSize   int      `help:"Download stream chunk size KB" default:"4096"`
+	Lz4ChecksumOff    bool     `help:"Turn off lz4 checksum option"`
 }
 
 var (
@@ -229,11 +231,28 @@ func streamHeader(w http.ResponseWriter, f IImage, startPos, endPos int64) {
 }
 
 func startStream(w http.ResponseWriter, f IImage, startPos, endPos, rateLimit int64) {
-	var CHUNK_SIZE int64 = 4 * 1024
+	var CHUNK_SIZE int64 = int64(HostImageOptions.StreamChunkSize * 1024)
 	var readSize int64 = CHUNK_SIZE
 	var sendBytes int64
 	var lz4Writer = lz4.NewWriter(w)
 	var startTime = time.Now()
+
+	opts := []lz4.Option{
+		lz4.BlockSizeOption(lz4.Block4Mb),
+		lz4.ConcurrencyOption(-1),
+		lz4.CompressionLevelOption(lz4.Fast),
+	}
+	if HostImageOptions.Lz4ChecksumOff {
+		log.Infof("Turn off lz4 checksum")
+		opts = append(opts,
+			lz4.BlockChecksumOption(false),
+			lz4.ChecksumOption(false),
+		)
+	}
+	if err := lz4Writer.Apply(opts...); err != nil {
+		log.Errorf("lz4Writer.Apply options error: %v", err)
+		goto fail
+	}
 
 	for startPos < endPos {
 		if endPos-startPos < CHUNK_SIZE {

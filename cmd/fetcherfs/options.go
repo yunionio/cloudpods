@@ -30,6 +30,7 @@ type Options struct {
 	Blocksize  int    `help:"block size of content file system(MB)"`
 	MountPoint string `help:"mount path of fuse fs" required:"true"`
 	Debug      bool   `help:"enable debug go fuse"`
+	Foreground bool   `help:"run in foreground"`
 }
 
 var opt = &Options{}
