@@ -108,6 +108,10 @@ func (self SGuestnetwork) GetIP() string {
 	return self.IpAddr
 }
 
+func (self SGuestnetwork) GetMAC() string {
+	return self.MacAddr
+}
+
 func (manager *SGuestnetworkManager) GetSlaveFieldName() string {
 	return "network_id"
 }

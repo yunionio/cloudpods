@@ -2964,9 +2964,9 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 	commonext := make([]cloudprovider.ICloudNic, 0)
 	added := make([]cloudprovider.ICloudNic, 0)
 	set := compare.SCompareSet{
-		DBFunc:  "GetIP",
+		DBFunc:  "GetMAC",
 		DBSet:   nics,
-		ExtFunc: "GetIP",
+		ExtFunc: "GetMAC",
 		ExtSet:  vnics,
 	}
 	err = compare.CompareSetsFunc(set, &removed, &commondb, &commonext, &added)
@@ -2991,7 +2991,9 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 			continue
 		}
 		db.Update(&commondb[i], func() error {
-			commondb[i].MacAddr = commonext[i].GetMAC()
+			if len(commonext[i].GetIP()) > 0 {
+				commondb[i].IpAddr = commonext[i].GetIP()
+			}
 			commondb[i].Driver = commonext[i].GetDriver()
 			return nil
 		})
@@ -3011,10 +3013,16 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 			Ifname: "",
 		}
 
+		ip := added[i].GetIP()
+		// vmware, may be sync fix ip
+		if len(ip) == 0 && len(ipList) > 0 {
+			ip = ipList[0]
+		}
+
 		// always try allocate from reserved pool
 		guestnetworks, err := self.Attach2Network(ctx, userCred, Attach2NetworkArgs{
 			Network:             localNet,
-			IpAddr:              added[i].GetIP(),
+			IpAddr:              ip,
 			NicDriver:           added[i].GetDriver(),
 			TryReserved:         true,
 			AllocDir:            api.IPAllocationDefault,
