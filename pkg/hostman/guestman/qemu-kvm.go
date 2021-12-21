@@ -1181,6 +1181,28 @@ func onNicChange(oldNic, newNic jsonutils.JSONObject) error {
 		} else {
 			log.Errorf("cannot change both bridge(%s!=%s) and ifname(%s!=%s)!!!!!", oldbr, newbr, oldifname, newifname)
 		}
+	} else {
+		// bridge not changed
+		if oldifname == newifname {
+			if newvlan > 1 {
+				output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "set", "port", newifname, fmt.Sprintf("tag=%d", newvlan)).Output()
+				if err != nil {
+					return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible change vlan tag to %d: %s", newvlan, output)
+				}
+			} else {
+				// clear vlan
+				output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "get", "port", newifname, "tag").Output()
+				if err != nil {
+					return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible get vlan tag: %s", output)
+				}
+				tagStr := strings.TrimSpace(string(output))
+				if tag, err := strconv.Atoi(tagStr); err == nil && tag > 1 {
+					if output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "remove", "port", newifname, "tag", tagStr).Output(); err != nil {
+						return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible remove vlan tag %s: %s", tagStr, output)
+					}
+				}
+			}
+		}
 	}
 	return nil
 }
