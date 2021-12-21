@@ -184,7 +184,7 @@ func (d *SLocalDisk) CreateFromImageFuse(ctx context.Context, url string, size i
 	}
 	if !newImg.IsValid() || newImg.IsChained() {
 		if err := fuseutils.MountFusefs(options.HostOptions.FetcherfsPath, url, localPath,
-			auth.GetTokenString(), mntPath, fuseutils.DEFAULT_BLOCKSIZE); err != nil {
+			auth.GetTokenString(), mntPath, options.HostOptions.FetcherfsBlockSize); err != nil {
 			log.Errorln(err)
 			return err
 		}

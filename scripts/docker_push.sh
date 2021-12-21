@@ -63,11 +63,11 @@ build_bin() {
     local BUILD_ARCH=$2
     local BUILD_CGO=$3
     case "$1" in
-        # baremetal-agent)
-            # rm -vf _output/bin/$1
-            # rm -rvf _output/bin/bundles/$1
-            # GOOS=linux make cmd/$1
-            # ;;
+        host-image)
+            rm -vf _output/bin/$1
+            rm -rvf _output/bin/bundles/$1
+            GOOS=linux make cmd/$1
+            ;;
         climc)
              if [[  "$BUILD_ARCH" == *arm64 ]]; then
                 # exclude rbdcli for arm64
@@ -87,7 +87,7 @@ build_bin() {
 
 
 build_bundle_libraries() {
-    for bundle_component in 'baremetal-agent'; do
+    for bundle_component in 'host-image'; do
         if [ $1 == $bundle_component ]; then
             $CUR_DIR/bundle_libraries.sh _output/bin/bundles/$1 _output/bin/$1
             break
@@ -205,14 +205,15 @@ for component in $COMPONENTS; do
         echo "Please build image for climc"
         continue
     fi
+
     echo "Start to build component: $component"
-    # if [[ $component == baremetal-agent ]]; then
-        # if [[ "$ARCH" == "arm64" ]]; then
-            # continue
-        # fi
-        # build_process $component
-        # continue
-    # fi
+    if [[ $component == host-image ]]; then
+        if [[ "$arch" == "arm64" ]]; then
+            continue
+        fi
+        build_process $component $arch "false"
+        continue
+    fi
 
     case "$ARCH" in
         all)
