@@ -781,8 +781,29 @@ func (self *SGuest) PerformAttachdisk(ctx context.Context, userCred mcclient.Tok
 	return nil, self.GetDriver().StartGuestAttachDiskTask(ctx, userCred, self, taskData, "")
 }
 
-func (self *SGuest) StartSyncTask(ctx context.Context, userCred mcclient.TokenCredential, firewallOnly bool,
-	parentTaskId string) error {
+func (self *SGuest) StartRestartNetworkTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, ip string) error {
+	data := jsonutils.NewDict()
+	data.Set("ip", jsonutils.NewString(ip))
+	if task, err := taskman.TaskManager.NewTask(ctx, "GuestRestartNetworkTask", self, userCred, data, parentTaskId, "", nil); err != nil {
+		log.Errorln(err)
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
+func (self *SGuest) startSyncTask(ctx context.Context, userCred mcclient.TokenCredential, firewallOnly bool, parentTaskId string, data *jsonutils.JSONDict) error {
+	if firewallOnly {
+		data.Add(jsonutils.JSONTrue, "fw_only")
+	} else if err := self.SetStatus(userCred, api.VM_SYNC_CONFIG, ""); err != nil {
+		log.Errorln(err)
+		return err
+	}
+	return self.doSyncTask(ctx, data, userCred, parentTaskId)
+}
+
+func (self *SGuest) StartSyncTask(ctx context.Context, userCred mcclient.TokenCredential, firewallOnly bool, parentTaskId string) error {
 
 	data := jsonutils.NewDict()
 	if firewallOnly {
@@ -2227,8 +2248,14 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 	}
 	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_CHANGE_NIC, notes, userCred, true)
 
-	err = self.StartSyncTask(ctx, userCred, false, "")
-	return nil, err
+	restartNetwork, _ := data.Bool("restart_network")
+
+	taskData := jsonutils.NewDict()
+	if self.Hypervisor == api.HYPERVISOR_KVM && restartNetwork {
+		taskData.Set("restart_network", jsonutils.JSONTrue)
+		taskData.Set("prev_ip", jsonutils.NewString(gn.IpAddr))
+	}
+	return nil, self.startSyncTask(ctx, userCred, true, "", taskData)
 }
 
 func (self *SGuest) AllowPerformDetachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
