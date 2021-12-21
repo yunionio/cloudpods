@@ -114,10 +114,6 @@ func (manager *SSecurityGroupCacheManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
 	}
-	q, err = manager.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VpcFilterListInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
-	}
 	q, err = manager.SSecurityGroupResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SecgroupFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SSecurityGroupResourceBaseManager.ListItemFilter")
