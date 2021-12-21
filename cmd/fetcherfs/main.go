@@ -23,23 +23,40 @@ import (
 	"github.com/sevlyar/go-daemon"
 
 	"yunion.io/x/log"
+	"yunion.io/x/log/hooks"
 	"yunion.io/x/pkg/util/signalutils"
 )
 
 func main() {
-	cntxt := &daemon.Context{
-		WorkDir: "./",
-		Umask:   027,
+	if !opt.Foreground {
+		cntxt := &daemon.Context{
+			WorkDir: "./",
+			Umask:   027,
+		}
+
+		d, err := cntxt.Reborn()
+		if err != nil {
+			log.Fatalf("Unable to run: %s", err)
+		}
+		if d != nil {
+			return
+		}
+		defer cntxt.Release()
 	}
 
-	d, err := cntxt.Reborn()
-	if err != nil {
-		log.Fatalf("Unable to run: %s", err)
+	if opt.Debug {
+		logFileHook := hooks.LogFileRotateHook{
+			LogFileHook: hooks.LogFileHook{
+				FileDir:  "/tmp",
+				FileName: "fetcherfs.log",
+			},
+			RotateNum:  10,
+			RotateSize: 4096,
+		}
+		logFileHook.Init()
+		defer logFileHook.DeInit()
+		log.Logger().AddHook(&logFileHook)
 	}
-	if d != nil {
-		return
-	}
-	defer cntxt.Release()
 
 	fetcherFs, err := initFetcherFs()
 	if err != nil {
@@ -50,6 +67,9 @@ func main() {
 		opt.MountPoint,
 		fuse.FSName("fetcherfs"),
 		fuse.Subtype("fetcher"),
+		// https://github.com/bazil/fuse/issues/175
+		// fuse.MaxReadahead(128*1024),
+		fuse.MaxReadahead(uint32(opt.Blocksize*1024*1024)),
 	)
 	if err != nil {
 		log.Fatalln(err)

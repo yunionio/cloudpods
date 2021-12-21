@@ -28,7 +28,7 @@ import (
 	"syscall"
 
 	"bazil.org/fuse/fs"
-	"github.com/pierrec/lz4"
+	"github.com/pierrec/lz4/v4"
 	"github.com/pkg/errors"
 
 	"yunion.io/x/log"
@@ -227,6 +227,9 @@ func (fs *FetcherFs) doFetchData(idx int64) error {
 	}
 
 	var lz4Reader = lz4.NewReader(res.Body)
+	if err := lz4Reader.Apply(lz4.ConcurrencyOption(-1)); err != nil {
+		return errors.Errorf("Apply lz4 option: %v", err)
+	}
 
 	buf, err := ioutil.ReadAll(lz4Reader)
 	if len(buf) != int(end-start+1) {
