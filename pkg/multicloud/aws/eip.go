@@ -167,9 +167,6 @@ func (self *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
 }
 
 func (self *SEipAddress) Dissociate() error {
-	if len(self.InstanceId) > 0 {
-		return self.region.DissociateEip(self.InstanceId)
-	}
 	return self.region.DissociateEip(self.AssociationId)
 }
 
