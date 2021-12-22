@@ -513,8 +513,8 @@ func (s *SGuestLiveMigrateTask) startMigrate(res string) {
 	if migSeconds < options.HostOptions.MinMigrateTimeoutSeconds {
 		migSeconds = options.HostOptions.MinMigrateTimeoutSeconds
 	}
-	log.Infof("migrate timeout seconds: %d", migSeconds)
 	s.timeoutAt = time.Now().Add(time.Second * time.Duration(migSeconds))
+	log.Infof("migrate timeout seconds: %d now: %v expectfinial: %v", migSeconds, time.Now(), s.timeoutAt)
 	var copyIncremental = false
 	if s.params.IsLocal {
 		copyIncremental = true
@@ -549,8 +549,8 @@ func (s *SGuestLiveMigrateTask) onGetMigrateStatus(status string) {
 		s.migrateTask = nil
 		close(s.c)
 		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Query migrate got status: %s", status))
-	} else if !s.doTimeoutMigrate {
-		if s.timeoutAt.After(time.Now()) {
+	} else if !s.params.IsLocal && !s.doTimeoutMigrate {
+		if s.timeoutAt.Before(time.Now()) {
 			log.Warningf("migrate timeout, force stop to finish migrate")
 			// timeout, start memory postcopy
 			// https://wiki.qemu.org/Features/PostCopyLiveMigration
