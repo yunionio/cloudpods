@@ -66,6 +66,10 @@ build_bin() {
         host-image)
             rm -vf _output/bin/$1
             rm -rvf _output/bin/bundles/$1
+            if [ -z "$LIBQEMUIO_PATH" ]; then
+                echo "Need set \$LIBQEMUIO_PATH env to build host-image"
+                exit 1
+            fi
             GOOS=linux make cmd/$1
             ;;
         climc)
@@ -117,7 +121,7 @@ get_image_name() {
     local arch=$2
     local is_all_arch=$3
     local img_name="$REGISTRY/$component:$TAG"
-    if [[ "$is_all_arch" == "true" || "$arch" == arm64 ]]; then
+    if [[ "$is_all_arch" == "true" || "$arch" == arm64 || "$component" == host-image ]]; then
         img_name="${img_name}-$arch"
     fi
     echo $img_name
@@ -208,10 +212,7 @@ for component in $COMPONENTS; do
 
     echo "Start to build component: $component"
     if [[ $component == host-image ]]; then
-        if [[ "$arch" == "arm64" ]]; then
-            continue
-        fi
-        build_process $component $arch "false"
+        build_process $component $ARCH "false"
         continue
     fi
 
