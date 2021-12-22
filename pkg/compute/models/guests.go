@@ -1476,7 +1476,11 @@ func (manager *SGuestManager) validateCreateData(
 	if err != nil {
 		return nil, err
 	}
-	input.HostnameInput, err = manager.SHostnameResourceBaseManager.ValidateHostname(input.Name, input.OsType, input.HostnameInput)
+	name := input.Name
+	if len(name) == 0 {
+		name = input.GenerateName
+	}
+	input.HostnameInput, err = manager.SHostnameResourceBaseManager.ValidateHostname(name, input.OsType, input.HostnameInput)
 	if err != nil {
 		return nil, err
 	}
