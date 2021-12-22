@@ -85,6 +85,7 @@ const (
 	DefaultResourceUpdate          = "resource update"
 	DefaultResourceReleaseDue1Day  = "resource release due 1 day"
 	DefaultResourceReleaseDue3Day  = "resource release due 3 day"
+	DefaultResourceReleaseDue30Day = "resource release due 30 day"
 	DefaultScheduledTaskExecute    = "scheduled task execute"
 	DefaultScalingPolicyExecute    = "scaling policy execute"
 	DefaultSnapshotPolicyExecute   = "snapshot policy execute"
@@ -99,6 +100,7 @@ func (sm *STopicManager) InitializeData() error {
 		DefaultResourceUpdate,
 		DefaultResourceReleaseDue1Day,
 		DefaultResourceReleaseDue3Day,
+		DefaultResourceReleaseDue30Day,
 		DefaultScheduledTaskExecute,
 		DefaultScalingPolicyExecute,
 		DefaultSnapshotPolicyExecute,
@@ -153,6 +155,9 @@ func (sm *STopicManager) InitializeData() error {
 				notify.TOPIC_RESOURCE_KAFKA,
 				notify.TOPIC_RESOURCE_ELASTICSEARCH,
 				notify.TOPIC_RESOURCE_MONGODB,
+				notify.TOPIC_RESOURCE_DNSZONE,
+				notify.TOPIC_RESOURCE_DNSRECORDSET,
+				notify.TOPIC_RESOURCE_LOADBALANCERLISTENER,
 			)
 			t.addAction(
 				notify.ActionCreate,
@@ -203,6 +208,16 @@ func (sm *STopicManager) InitializeData() error {
 			t.addAction(notify.ActionExpiredRelease)
 			t.Type = notify.TOPIC_TYPE_RESOURCE
 			t.AdvanceDays = 3
+		case DefaultResourceReleaseDue30Day:
+			t.addResources(
+				notify.TOPIC_RESOURCE_SERVER,
+				notify.TOPIC_RESOURCE_LOADBALANCER,
+				notify.TOPIC_RESOURCE_DBINSTANCE,
+				notify.TOPIC_RESOURCE_ELASTICCACHE,
+			)
+			t.addAction(notify.ActionExpiredRelease)
+			t.Type = notify.TOPIC_TYPE_RESOURCE
+			t.AdvanceDays = 30
 		case DefaultScheduledTaskExecute:
 			t.addResources(notify.TOPIC_RESOURCE_SCHEDULEDTASK)
 			t.addAction(notify.ActionExecute)
@@ -254,6 +269,8 @@ func (sm *STopicManager) InitializeData() error {
 				notify.TOPIC_RESOURCE_KAFKA,
 				notify.TOPIC_RESOURCE_ELASTICSEARCH,
 				notify.TOPIC_RESOURCE_MONGODB,
+				notify.TOPIC_RESOURCE_DNSRECORDSET,
+				notify.TOPIC_RESOURCE_LOADBALANCERLISTENER,
 			)
 			t.addAction(
 				notify.ActionSyncCreate,
@@ -468,6 +485,8 @@ func init() {
 			notify.TOPIC_RESOURCE_KAFKA:                   26,
 			notify.TOPIC_RESOURCE_ELASTICSEARCH:           27,
 			notify.TOPIC_RESOURCE_MONGODB:                 28,
+			notify.TOPIC_RESOURCE_DNSRECORDSET:            29,
+			notify.TOPIC_RESOURCE_LOADBALANCERLISTENER:    30,
 		},
 	)
 	converter.registerAction(

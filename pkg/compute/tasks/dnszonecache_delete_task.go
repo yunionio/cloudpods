@@ -51,7 +51,10 @@ func (self *DnsZoneCacheDeleteTask) taskComplete(ctx context.Context, cache *mod
 	}
 	cache.RealDelete(ctx, self.GetUserCred())
 	if err == nil {
-		notifyclient.NotifyWebhook(ctx, self.UserCred, dnsZone, notifyclient.ActionUpdate)
+		notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+			Obj:    self,
+			Action: notifyclient.ActionDelete,
+		})
 	}
 	self.SetStageComplete(ctx, nil)
 }

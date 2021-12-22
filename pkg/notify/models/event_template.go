@@ -408,6 +408,11 @@ func init() {
 			"负载均衡证书",
 		},
 		sI18nElme{
+			api.TOPIC_RESOURCE_LOADBALANCERLISTENER,
+			"loadbalancer listener",
+			"负载均衡监听",
+		},
+		sI18nElme{
 			api.TOPIC_RESOURCE_BUCKET,
 			"object storage bucket",
 			"对象存储桶",
@@ -446,6 +451,11 @@ func init() {
 			api.TOPIC_RESOURCE_DNSZONE,
 			"DNS zone",
 			"DNS zone",
+		},
+		sI18nElme{
+			api.TOPIC_RESOURCE_DNSRECORDSET,
+			"DNS record",
+			"DNS 记录",
 		},
 		sI18nElme{
 			api.TOPIC_RESOURCE_NATGATEWAY,

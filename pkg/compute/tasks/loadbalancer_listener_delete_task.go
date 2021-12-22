@@ -63,7 +63,10 @@ func (self *LoadbalancerListenerDeleteTask) OnInit(ctx context.Context, obj db.I
 func (self *LoadbalancerListenerDeleteTask) OnLoadbalancerListenerDeleteComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(lblis, db.ACT_DELETE, lblis.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_DELOCATE, nil, self.UserCred, true)
-	notifyclient.NotifyWebhook(ctx, self.UserCred, lblis, notifyclient.ActionDelete)
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    lblis,
+		Action: notifyclient.ActionDelete,
+	})
 	lblis.LBPendingDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
