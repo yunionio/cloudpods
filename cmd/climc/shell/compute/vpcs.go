@@ -36,6 +36,7 @@ func init() {
 	cmd.Perform("public", &options.BasePublicOptions{})
 	cmd.Perform("change-owner", &options.VpcChangeOwnerOptions{})
 	cmd.Get("vpc-change-owner-candidate-domains", &options.VpcIdOptions{})
+	cmd.Get("topology", &options.VpcIdOptions{})
 
 	R(&options.ResourceMetadataOptions{}, "vpc-set-user-metadata", "Set metadata of a vpc", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
 		params, err := opts.Params()

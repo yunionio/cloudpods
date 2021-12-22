@@ -1112,7 +1112,10 @@ func (wire *SWire) purge(ctx context.Context, userCred mcclient.TokenCredential)
 }
 
 func (vpc *SVpc) purgeWires(ctx context.Context, userCred mcclient.TokenCredential) error {
-	wires := vpc.GetWires()
+	wires, err := vpc.GetWires()
+	if err != nil {
+		return errors.Wrapf(err, "GetWres for vpc %s", vpc.Id)
+	}
 	for i := range wires {
 		err := wires[i].purge(ctx, userCred)
 		if err != nil {
