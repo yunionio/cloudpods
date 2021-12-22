@@ -80,7 +80,10 @@ func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) OnLoadbalancerBacken
 	lbbg.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lbbg, db.ACT_ALLOCATE, lbbg.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_CREATE, nil, self.UserCred, true)
-	notifyclient.NotifyWebhook(ctx, self.UserCred, lbbg, notifyclient.ActionCreate)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    lbbg,
+		Action: notifyclient.ActionCreate,
+	})
 	self.SetStageComplete(ctx, nil)
 }
 

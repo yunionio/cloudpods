@@ -253,7 +253,7 @@ func EventNotify(ctx context.Context, userCred mcclient.TokenCredential, ep SEve
 	if ep.Action == ActionDelete || ep.Action == ActionSyncDelete {
 		objDetails = jsonutils.Marshal(ep.Obj).(*jsonutils.JSONDict)
 	} else {
-		ret, err := db.FetchCustomizeColumns(ep.Obj.GetModelManager(), ctx, userCred, jsonutils.NewDict(), []interface{}{ep.Obj}, stringutils2.SSortedStrings{}, false)
+		ret, err := db.FetchCustomizeColumns(ep.Obj.GetModelManager(), ctx, userCred, jsonutils.NewDict(), []interface{}{ep.Obj}, nil, false)
 		if err != nil {
 			log.Errorf("unable to FetchCustomizeColumns: %v", err)
 			return

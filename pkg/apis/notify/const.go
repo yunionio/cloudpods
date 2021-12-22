@@ -116,6 +116,8 @@ const (
 	TOPIC_RESOURCE_KAFKA                   = "kafka"
 	TOPIC_RESOURCE_ELASTICSEARCH           = "elastic_search"
 	TOPIC_RESOURCE_MONGODB                 = "mongodb"
+	TOPIC_RESOURCE_DNSRECORDSET            = "dns_recordset"
+	TOPIC_RESOURCE_LOADBALANCERLISTENER    = "loadbalancerlistener"
 
 	SUBSCRIBER_TYPE_ROLE     = "role"
 	SUBSCRIBER_TYPE_ROBOT    = "robot"

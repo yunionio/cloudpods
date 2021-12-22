@@ -67,7 +67,10 @@ func (self *LoadbalancerBackendDeleteTask) OnLoadbalancerBackendDeleteComplete(c
 	if lbbg != nil {
 		logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_LB_REMOVE_BACKEND, nil, self.UserCred, true)
 	}
-	notifyclient.NotifyWebhook(ctx, self.UserCred, lbb, notifyclient.ActionDelete)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    lbb,
+		Action: notifyclient.ActionDelete,
+	})
 	self.SetStageComplete(ctx, nil)
 }
 
