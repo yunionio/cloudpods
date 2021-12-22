@@ -55,9 +55,9 @@ func (s *ConnectionServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	var srv http.Handler
 	protocol := sessionObj.GetProtocol()
-	info := sessionObj.ISessionData.(*session.RemoteConsoleInfo)
 	switch protocol {
 	case session.VNC, session.SPICE:
+		info := sessionObj.ISessionData.(*session.RemoteConsoleInfo)
 		if info.Hypervisor == api.HYPERVISOR_OPENSTACK {
 			srv, err = NewWebsocketProxyServer(sessionObj)
 		} else {
