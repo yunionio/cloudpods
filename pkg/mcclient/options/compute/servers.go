@@ -541,6 +541,8 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 	// set description
 	params.Description = opts.Desc
 
+	params.IsSystem = &opts.System
+
 	return params, nil
 }
 
