@@ -85,14 +85,39 @@ func checkSshableForOtherCloud(session *mcclient.ClientSession, serverId string)
 	return sshable, nil
 }
 
-func checkSshableForYunionCloud(session *mcclient.ClientSession, serverDetail *comapi.ServerDetails) (sshable SSHable, clean bool, err error) {
-	if serverDetail.IPs == "" {
-		err = fmt.Errorf("empty ips for server %s", serverDetail.Id)
+type SServerInfo struct {
+	Id         string
+	Ip         string
+	VpcId      string
+	Hypervisor string
+}
+
+func CheckSshableForYunionCloud(session *mcclient.ClientSession, serverInfo SServerInfo) (sshable SSHable, cleanFunc func() error, err error) {
+	sshable, clean, err := checkSshableForYunionCloud(session, serverInfo)
+	if err != nil {
 		return
 	}
-	ips := strings.Split(serverDetail.IPs, ",")
-	ip := strings.TrimSpace(ips[0])
-	if serverDetail.Hypervisor == comapi.HYPERVISOR_BAREMETAL || serverDetail.VpcId == "" || serverDetail.VpcId == comapi.DEFAULT_VPC_ID {
+	if clean {
+		cleanFunc = func() error {
+			proxyAddr := sshable.Host
+			proxyPort := sshable.Port
+			params := jsonutils.NewDict()
+			params.Set("proto", jsonutils.NewString("tcp"))
+			params.Set("proxy_addr", jsonutils.NewString(proxyAddr))
+			params.Set("proxy_port", jsonutils.NewInt(int64(proxyPort)))
+			_, err := modules.Servers.PerformAction(session, serverInfo.Id, "close-forward", params)
+			if err != nil {
+				return errors.Wrapf(err, "unable to close forward(addr %q, port %d, proto %q) for server %s", proxyAddr, proxyPort, "tcp", serverInfo.Id)
+			}
+			return nil
+		}
+	}
+	return
+}
+
+func checkSshableForYunionCloud(session *mcclient.ClientSession, serverInfo SServerInfo) (sshable SSHable, clean bool, err error) {
+	ip := serverInfo.Ip
+	if serverInfo.Hypervisor == comapi.HYPERVISOR_BAREMETAL || serverInfo.VpcId == "" || serverInfo.VpcId == comapi.DEFAULT_VPC_ID {
 		sshable = SSHable{
 			Ok:   true,
 			User: "cloudroot",
@@ -105,9 +130,9 @@ func checkSshableForYunionCloud(session *mcclient.ClientSession, serverDetail *c
 	lfParams.Set("proto", jsonutils.NewString("tcp"))
 	lfParams.Set("port", jsonutils.NewInt(22))
 	lfParams.Set("addr", jsonutils.NewString(ip))
-	data, err := modules.Servers.PerformAction(session, serverDetail.Id, "list-forward", lfParams)
+	data, err := modules.Servers.PerformAction(session, serverInfo.Id, "list-forward", lfParams)
 	if err != nil {
-		err = errors.Wrapf(err, "unable to List Forward for server %s", serverDetail.Id)
+		err = errors.Wrapf(err, "unable to List Forward for server %s", serverInfo.Id)
 		return
 	}
 	var openForward bool
@@ -125,9 +150,9 @@ func checkSshableForYunionCloud(session *mcclient.ClientSession, serverDetail *c
 
 	var forward jsonutils.JSONObject
 	if openForward {
-		forward, err = modules.Servers.PerformAction(session, serverDetail.Id, "open-forward", lfParams)
+		forward, err = modules.Servers.PerformAction(session, serverInfo.Id, "open-forward", lfParams)
 		if err != nil {
-			err = errors.Wrapf(err, "unable to Open Forward for server %s", serverDetail.Id)
+			err = errors.Wrapf(err, "unable to Open Forward for server %s", serverInfo.Id)
 			return
 		}
 		clean = true
@@ -144,6 +169,21 @@ func checkSshableForYunionCloud(session *mcclient.ClientSession, serverDetail *c
 		Port: int(proxyPort),
 	}
 	return
+}
+
+func checkSshableForYunionCloudWithDetail(session *mcclient.ClientSession, serverDetail *comapi.ServerDetails) (sshable SSHable, clean bool, err error) {
+	if serverDetail.IPs == "" {
+		err = fmt.Errorf("empty ips for server %s", serverDetail.Id)
+		return
+	}
+	ips := strings.Split(serverDetail.IPs, ",")
+	ip := strings.TrimSpace(ips[0])
+	return checkSshableForYunionCloud(session, SServerInfo{
+		Ip:         ip,
+		Id:         serverDetail.Id,
+		Hypervisor: serverDetail.Hypervisor,
+		VpcId:      serverDetail.VpcId,
+	})
 }
 
 func CheckSSHable(session *mcclient.ClientSession, serverId string) (sshable SSHable, cleanFunc func() error, err error) {
@@ -164,7 +204,7 @@ func CheckSSHable(session *mcclient.ClientSession, serverId string) (sshable SSH
 	// check sshable
 	var clean bool
 	if serverDetail.Hypervisor == comapi.HYPERVISOR_KVM || serverDetail.Hypervisor == comapi.HYPERVISOR_BAREMETAL {
-		sshable, clean, err = checkSshableForYunionCloud(session, &serverDetail)
+		sshable, clean, err = checkSshableForYunionCloudWithDetail(session, &serverDetail)
 		if err != nil {
 			return
 		}

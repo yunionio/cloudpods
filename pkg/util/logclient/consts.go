@@ -207,4 +207,6 @@ const (
 	ACT_CLOUDACCOUNT_SYNC_NETWORK = "sync_network"
 
 	ACT_MERGE_NETWORK = "merge_network"
+
+	ACT_RESTART_NETWORK = "restart_network"
 )
