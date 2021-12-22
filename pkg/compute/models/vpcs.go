@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -259,15 +260,14 @@ func (self *SVpc) GetWireCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (self *SVpc) GetWires() []SWire {
+func (self *SVpc) GetWires() ([]SWire, error) {
 	wires := make([]SWire, 0)
 	q := self.getWireQuery()
 	err := db.FetchModelObjects(WireManager, q, &wires)
 	if err != nil {
-		log.Errorf("getWires fail %s", err)
-		return nil
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
-	return wires
+	return wires, nil
 }
 
 func (manager *SVpcManager) getVpcExternalIdForClassicNetwork(regionId, cloudproviderId string) string {
@@ -616,7 +616,7 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 }
 
 func (self *SVpc) markAllNetworksUnknown(userCred mcclient.TokenCredential) error {
-	wires := self.GetWires()
+	wires, _ := self.GetWires()
 	if wires == nil || len(wires) == 0 {
 		return nil
 	}
@@ -1389,7 +1389,7 @@ func (vpc *SVpc) GetChangeOwnerCandidateDomainIds() []string {
 
 func (vpc *SVpc) GetChangeOwnerRequiredDomainIds() []string {
 	requires := stringutils2.SSortedStrings{}
-	wires := vpc.GetWires()
+	wires, _ := vpc.GetWires()
 	for i := range wires {
 		requires = stringutils2.Append(requires, wires[i].DomainId)
 	}
@@ -1397,7 +1397,7 @@ func (vpc *SVpc) GetChangeOwnerRequiredDomainIds() []string {
 }
 
 func (vpc *SVpc) GetRequiredSharedDomainIds() []string {
-	wires := vpc.GetWires()
+	wires, _ := vpc.GetWires()
 	if len(wires) == 0 {
 		return vpc.SEnabledStatusInfrasResourceBase.GetRequiredSharedDomainIds()
 	}
@@ -1466,7 +1466,7 @@ func (vpc *SVpc) PerformPublic(ctx context.Context, userCred mcclient.TokenCrede
 		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.PerformPublic")
 	}
 	// perform public for all emulated wires
-	wires := vpc.GetWires()
+	wires, _ := vpc.GetWires()
 	for i := range wires {
 		if wires[i].IsEmulated {
 			_, err := wires[i].PerformPublic(ctx, userCred, query, input)
@@ -1504,7 +1504,7 @@ func (vpc *SVpc) PerformPrivate(ctx context.Context, userCred mcclient.TokenCred
 	}
 	// perform private for all emulated wires
 	emptyNets := true
-	wires := vpc.GetWires()
+	wires, _ := vpc.GetWires()
 	for i := range wires {
 		if wires[i].DomainId == vpc.DomainId {
 			nets, _ := wires[i].getNetworks(nil, rbacutils.ScopeNone)
@@ -1561,7 +1561,7 @@ func (vpc *SVpc) PerformChangeOwner(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.PerformChangeOwner")
 	}
-	wires := vpc.GetWires()
+	wires, _ := vpc.GetWires()
 	for i := range wires {
 		if wires[i].IsEmulated {
 			_, err := wires[i].PerformChangeOwner(ctx, userCred, query, input)
@@ -1732,4 +1732,64 @@ func (self *SVpc) IsSupportAssociateEip() bool {
 	}
 
 	return false
+}
+
+func (self *SVpc) AllowGetDetailsTopology(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "topology")
+}
+
+func (self *SVpc) GetDetailsTopology(ctx context.Context, userCred mcclient.TokenCredential, input *api.VpcTopologyInput) (*api.VpcTopologyOutput, error) {
+	ret := &api.VpcTopologyOutput{
+		Name:   self.Name,
+		Status: self.Status,
+		Wires:  []api.WireTopologyOutput{},
+	}
+	wires, err := self.GetWires()
+	if err != nil {
+		return ret, errors.Wrapf(err, "GetWires")
+	}
+	for i := range wires {
+		wire := api.WireTopologyOutput{
+			Name:      wires[i].Name,
+			Status:    wires[i].Status,
+			Bandwidth: wires[i].Bandwidth,
+			Networks:  []api.NetworkTopologyOutput{},
+		}
+		if len(wires[i].ZoneId) > 0 {
+			zone, _ := wires[i].GetZone()
+			if zone != nil {
+				wire.Zone = zone.Name
+			}
+		}
+		networks, err := wires[i].GetNetworks(nil, rbacutils.ScopeSystem)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetNetworks")
+		}
+		for j := range networks {
+			network := api.NetworkTopologyOutput{
+				Name:         networks[j].Name,
+				Status:       networks[j].Status,
+				GuestIpStart: networks[j].GuestIpStart,
+				GuestIpEnd:   networks[j].GuestIpEnd,
+				GuestIpMask:  networks[j].GuestIpMask,
+				ServerType:   networks[j].ServerType,
+				VlanId:       networks[j].VlanId,
+				Address:      []api.SNetworkUsedAddress{},
+			}
+
+			netAddrs := make([]api.SNetworkUsedAddress, 0)
+
+			q := networks[j].getUsedAddressQuery(userCred, rbacutils.ScopeDomain, false)
+			err = q.All(&netAddrs)
+			if err != nil {
+				return nil, errors.Wrapf(err, "q.All")
+			}
+
+			sort.Sort(SNetworkUsedAddressList(netAddrs))
+			network.Address = netAddrs
+			wire.Networks = append(wire.Networks, network)
+		}
+		ret.Wires = append(ret.Wires, wire)
+	}
+	return ret, nil
 }
