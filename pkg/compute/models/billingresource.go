@@ -237,7 +237,7 @@ func (bm *SBillingResourceCheckManager) Create(ctx context.Context, resourceId, 
 	return bm.TableSpec().Insert(ctx, &bc)
 }
 
-var advanceDays []int = []int{1, 3}
+var advanceDays []int = []int{1, 3, 30}
 
 func CheckBillingResourceExpireAt(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	billingResourceManagers := []db.IModelManager{
