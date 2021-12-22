@@ -369,7 +369,7 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []cloudprovider.
 				params[fmt.Sprintf("SecurityGroupPolicySet.Ingress.%d.PolicyIndex", idx)] = fmt.Sprintf("%d", rule.PolicyIndex)
 			}
 		}
-		if len(ruleSet.Egress)+len(ruleSet.Ingress) > 0 {
+		if len(params) > 1 {
 			_, err = self.vpcRequest("DeleteSecurityGroupPolicies", params)
 			if err != nil {
 				return errors.Wrapf(err, "DeleteSecurityGroupPolicies")
