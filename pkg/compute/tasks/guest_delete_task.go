@@ -357,7 +357,7 @@ func (self *GuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGue
 		if !isPendingDeleted {
 			self.NotifyServerDeleted(ctx, guest)
 		} else {
-			notifyclient.NotifyWebhook(ctx, self.UserCred, guest, notifyclient.ActionDelete)
+			guest.EventNotify(ctx, self.UserCred, notifyclient.ActionDelete)
 		}
 	}
 	models.HostManager.ClearSchedDescCache(guest.HostId)

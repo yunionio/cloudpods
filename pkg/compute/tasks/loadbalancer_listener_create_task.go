@@ -203,7 +203,10 @@ func (self *LoadbalancerListenerCreateTask) OnLoadbalancerListenerCreateComplete
 
 func (self *LoadbalancerListenerCreateTask) OnLoadbalancerListenerStartComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
 	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
-	notifyclient.NotifyWebhook(ctx, self.UserCred, lblis, notifyclient.ActionCreate)
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    lblis,
+		Action: notifyclient.ActionCreate,
+	})
 	self.SetStageComplete(ctx, nil)
 }
 

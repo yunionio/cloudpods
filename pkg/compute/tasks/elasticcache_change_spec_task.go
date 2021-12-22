@@ -69,7 +69,10 @@ func (self *ElasticcacheChangeSpecTask) OnInit(ctx context.Context, obj db.IStan
 func (self *ElasticcacheChangeSpecTask) OnElasticcacheChangeSpecComplete(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
 	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RUNNING, "")
 	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_VM_CHANGE_FLAVOR, "", self.UserCred, true)
-	notifyclient.NotifyWebhook(ctx, self.UserCred, elasticcache, notifyclient.ActionChangeConfig)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    elasticcache,
+		Action: notifyclient.ActionChangeConfig,
+	})
 	self.SetStageComplete(ctx, nil)
 }
 

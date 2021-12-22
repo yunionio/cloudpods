@@ -692,6 +692,11 @@ func (self *SDnsZone) newFromCloudDnsRecordSet(ctx context.Context, userCred mcc
 		return nil, errors.Wrapf(err, "Insert")
 	}
 
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    record,
+		Action: notifyclient.ActionSyncCreate,
+	})
+
 	record.setTrafficPolicy(ctx, userCred, provider, ext.PolicyType, ext.PolicyValue, ext.PolicyOptions)
 	return record, nil
 }

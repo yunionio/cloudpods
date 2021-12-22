@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -1226,6 +1227,10 @@ func (lblis *SLoadbalancerListener) syncRemoveCloudLoadbalancerListener(ctx cont
 	if err != nil { // cannot delete
 		err = lblis.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    lblis,
+			Action: notifyclient.ActionSyncDelete,
+		})
 		lblis.LBPendingDelete(ctx, userCred)
 	}
 	return err
@@ -1238,6 +1243,13 @@ func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx contex
 	})
 	if err != nil {
 		return err
+	}
+
+	if len(diff) > 0 {
+		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+			Obj:    lblis,
+			Action: notifyclient.ActionSyncUpdate,
+		})
 	}
 
 	err = lblis.updateCachedLoadbalancerBackendGroupAssociate(ctx, extListener, lb.ManagerId)
@@ -1283,6 +1295,11 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 	}
 
 	SyncCloudProject(userCred, lblis, syncOwnerId, extListener, provider.Id)
+
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:    lblis,
+		Action: notifyclient.ActionSyncCreate,
+	})
 
 	db.OpsLog.LogEvent(lblis, db.ACT_CREATE, lblis.GetShortDesc(ctx), userCred)
 
