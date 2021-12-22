@@ -516,7 +516,7 @@ func (self *SVpc) syncRemoveCloudVpc(ctx context.Context, userCred mcclient.Toke
 		if err == nil {
 			notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
 				Obj:    self,
-				Action: notifyclient.ActionDelete,
+				Action: notifyclient.ActionSyncDelete,
 			})
 		}
 	}
