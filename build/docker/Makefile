@@ -37,3 +37,15 @@ FILE_REPO_VERSION = v0.3.3
 
 file-repo:
 	$(DOCKER_BUILDX)/file-repo:$(FILE_REPO_VERSION) -f ./Dockerfile.file-repo .
+
+HOST_IMAGE_VERSION ?= v1.0.2
+HOST_IMAGE_NAME = $(REGISTRY)/host-image:$(HOST_IMAGE_VERSION)
+host-image:
+	docker pull $(HOST_IMAGE_NAME)-amd64 --platform amd64
+	docker pull $(HOST_IMAGE_NAME)-arm64 --platform arm64
+	docker manifest create $(HOST_IMAGE_NAME) \
+		$(HOST_IMAGE_NAME)-amd64 \
+		$(HOST_IMAGE_NAME)-arm64
+	docker manifest annotate $(HOST_IMAGE_NAME) $(HOST_IMAGE_NAME)-amd64 --arch amd64
+	docker manifest annotate $(HOST_IMAGE_NAME) $(HOST_IMAGE_NAME)-arm64 --arch arm64
+	docker manifest push $(HOST_IMAGE_NAME)
