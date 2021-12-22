@@ -494,14 +494,18 @@ func requestInternal(client sClient, ctx context.Context, method THttpMethod, ur
 	}
 	ctxData := appctx.FetchAppContextData(ctx)
 	var clientTrace *trace.STrace
-	if !ctxData.Trace.IsZero() {
+	if len(ctxData.ServiceName) > 0 {
+		if !ctxData.Trace.IsZero() {
+			clientTrace = &ctxData.Trace
+		}
 		addr, port, err := GetAddrPort(urlStr)
 		if err != nil {
 			return nil, nil, err
 		}
-		clientTrace = trace.StartClientTrace(&ctxData.Trace, addr, port, ctxData.ServiceName)
+		clientTrace = trace.StartClientTrace(clientTrace, addr, port, ctxData.ServiceName)
 		clientTrace.AddClientRequestHeader(header)
 	}
+
 	if len(ctxData.RequestId) > 0 {
 		header.Set("X-Request-Id", ctxData.RequestId)
 	}
