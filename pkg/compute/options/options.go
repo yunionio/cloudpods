@@ -118,6 +118,9 @@ type ComputeOptions struct {
 
 	EnablePreAllocateIpAddr bool `help:"Enable private and public cloud private ip pre allocate, default false" default:"false"`
 
+	// 创建虚拟机失败后, 自动使用其他相同配置套餐
+	EnableAutoSwitchServerSku bool `help:"If the vm creation fails, use the same configuration server sku"`
+
 	DefaultImageCacheDir string `default:"image_cache"`
 
 	SnapshotCreateDiskProtocol string `help:"Snapshot create disk protocol" choices:"url|fuse" default:"fuse"`
