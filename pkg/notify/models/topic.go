@@ -153,6 +153,9 @@ func (sm *STopicManager) InitializeData() error {
 				notify.TOPIC_RESOURCE_KAFKA,
 				notify.TOPIC_RESOURCE_ELASTICSEARCH,
 				notify.TOPIC_RESOURCE_MONGODB,
+				notify.TOPIC_RESOURCE_DNSZONE,
+				notify.TOPIC_RESOURCE_DNSRECORDSET,
+				notify.TOPIC_RESOURCE_LOADBALANCERLISTENER,
 			)
 			t.addAction(
 				notify.ActionCreate,
@@ -254,6 +257,8 @@ func (sm *STopicManager) InitializeData() error {
 				notify.TOPIC_RESOURCE_KAFKA,
 				notify.TOPIC_RESOURCE_ELASTICSEARCH,
 				notify.TOPIC_RESOURCE_MONGODB,
+				notify.TOPIC_RESOURCE_DNSRECORDSET,
+				notify.TOPIC_RESOURCE_LOADBALANCERLISTENER,
 			)
 			t.addAction(
 				notify.ActionSyncCreate,
@@ -484,6 +489,8 @@ func init() {
 			notify.TOPIC_RESOURCE_KAFKA:                   26,
 			notify.TOPIC_RESOURCE_ELASTICSEARCH:           27,
 			notify.TOPIC_RESOURCE_MONGODB:                 28,
+			notify.TOPIC_RESOURCE_DNSRECORDSET:            29,
+			notify.TOPIC_RESOURCE_LOADBALANCERLISTENER:    30,
 		},
 	)
 	converter.registerAction(
