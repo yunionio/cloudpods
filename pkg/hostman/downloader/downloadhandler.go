@@ -55,13 +55,21 @@ func AddDownloadHandler(prefix string, app *appsrv.Application) {
 			nil, "snapshot_download", nil)
 		customizeHandlerInfo(hi)
 
-		app.AddHandler("HEAD", fmt.Sprintf("%s/%s/disks/<storageId>/<diskId>",
-			prefix, kerword), auth.Authenticate(diskHead))
-		app.AddHandler("HEAD",
+		hi = app.AddHandler2("HEAD", fmt.Sprintf("%s/%s/disks/<storageId>/<diskId>",
+			prefix, kerword), auth.Authenticate(diskHead),
+			nil, "head_disk_download", nil)
+		customizeHandlerInfo(hi)
+
+		hi = app.AddHandler2("HEAD",
 			fmt.Sprintf("%s/%s/snapshots/<storageId>/<diskId>/<snapshotId>",
-				prefix, kerword), auth.Authenticate(snapshotHead))
-		app.AddHandler("HEAD",
-			fmt.Sprintf("%s/%s/images/<id>", prefix, kerword), auth.Authenticate(imageCacheHead))
+				prefix, kerword), auth.Authenticate(snapshotHead),
+			nil, "head_snapshot_download", nil)
+		customizeHandlerInfo(hi)
+
+		hi = app.AddHandler2("HEAD",
+			fmt.Sprintf("%s/%s/images/<id>", prefix, kerword), auth.Authenticate(imageCacheHead),
+			nil, "head_image", nil)
+		customizeHandlerInfo(hi)
 	}
 }
 

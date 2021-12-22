@@ -167,9 +167,11 @@ function nic_mtu() {
 
 	// warning: Number of hotpluggable cpus requested (128)
 	// exceeds the recommended cpus supported by KVM (32)
-	cmd += fmt.Sprintf(" -smp %d,maxcpus=32", cpu)
+	cmd += fmt.Sprintf(" -smp cpus=%d,sockets=2,cores=64,maxcpus=128", cpu)
 	cmd += fmt.Sprintf(" -name %s", name)
-	cmd += fmt.Sprintf(" -uuid %s", uuid)
+	if options.HostOptions.EnableVmUuid {
+		cmd += fmt.Sprintf(" -uuid %s", uuid)
+	}
 	cmd += fmt.Sprintf(" -m %dM,slots=4,maxmem=262144M", mem)
 
 	if options.HostOptions.HugepagesOption == "native" {
