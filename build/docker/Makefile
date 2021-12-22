@@ -7,7 +7,7 @@ debian10-base:
 	docker buildx build --platform linux/arm64,linux/amd64 --push \
 		-t registry.cn-beijing.aliyuncs.com/yunionio/debian10-base:1.0 -f ./Dockerfile.debian-base .
 
-ONECLOUD_BASE_VERSION = v0.3.5-1
+ONECLOUD_BASE_VERSION = v0.3-3.13.5
 
 onecloud-base:
 	$(DOCKER_BUILDX)/onecloud-base:$(ONECLOUD_BASE_VERSION) -f ./Dockerfile.onecloud-base .
@@ -27,7 +27,7 @@ WEBCONSOLE_BASE_VERSION = v0.2-1
 webconsole-base:
 	$(DOCKER_BUILDX)/webconsole-base:$(WEBCONSOLE_BASE_VERSION) -f ./Dockerfile.webconsole-base .
 
-BAREMETAL_BASE_VERSION = v0.3.3
+BAREMETAL_BASE_VERSION = v0.3.3-2
 
 baremetal-base:
 	$(DOCKER_BUILDX)/baremetal-base:$(BAREMETAL_BASE_VERSION) -f ./Dockerfile.baremetal-base .

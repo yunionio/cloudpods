@@ -2,14 +2,14 @@ FROM --platform=linux/amd64 registry.cn-beijing.aliyuncs.com/yunionio/centos-bui
 RUN yum install -y https://iso.yunion.cn/vm-images/baremetal-pxerom-1.1.0-21092209.x86_64.rpm
 #RUN yum install -y http://192.168.23.50:8083/baremetal-pxerom-1.1.0-21092209.x86_64.rpm
 
-FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.3.5
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.3-3.13.5
 
 MAINTAINER "Yaoqi Wan <wanyaoqi@yunionyun.com>"
 
 RUN mkdir -p /opt/yunion/bin
 
 RUN apk update && \
-    apk add --no-cache ipmitool ethtool tzdata ca-certificates cdrkit coreutils && \
+    apk add --no-cache ipmitool ethtool tzdata ca-certificates cdrkit coreutils librados librbd && \
     rm -rf /var/cache/apk/*
 
 RUN mkdir -p /opt/cloud/yunion/baremetal
