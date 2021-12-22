@@ -79,7 +79,7 @@ func (manager *SGroupguestManager) FetchCustomizeColumns(
 		rows[i] = api.GroupguestDetails{
 			GroupJointResourceDetails: groupRows[i],
 		}
-		guestIds[i] = objs[i].(SGroupguest).GuestId
+		guestIds[i] = objs[i].(*SGroupguest).GuestId
 	}
 
 	guestIdMaps, err := db.FetchIdNameMap2(GuestManager, guestIds)

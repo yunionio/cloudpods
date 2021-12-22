@@ -15,113 +15,28 @@
 package compute
 
 import (
-	"yunion.io/x/jsonutils"
-
-	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
-	type InstanceGroupListOptions struct {
-		options.BaseListOptions
+	cmd := shell.NewResourceCmd(&modules.InstanceGroups)
+	cmd.List(&compute.InstanceGroupListOptions{})
+	cmd.Show(&options.BaseShowOptions{})
+	cmd.GetMetadata(&options.BaseIdOptions{})
+	cmd.Create(&compute.InstanceGroupCreateOptions{})
+	cmd.Update(&compute.InstanceGroupUpdateOptions{})
+	cmd.Delete(&options.BaseIdOptions{})
 
-		ServiceType string `help:"Service Type"`
-		ParentId    string `help:"Parent ID"`
-		ZoneId      string `help:"Zone ID"`
-		Server      string `help:"Guest ID or Name"`
-	}
+	cmd.Perform("bind-guests", &compute.InstanceGroupBindGuestsOptions{})
+	cmd.Perform("unbind-guests", &compute.InstanceGroupBindGuestsOptions{})
 
-	R(&InstanceGroupListOptions{}, "instance-group-list", "List instance group", func(s *mcclient.ClientSession,
-		args *InstanceGroupListOptions) error {
+	cmd.Perform("attachnetwork", &compute.InstanceGroupAttachnetworkOptions{})
+	cmd.Perform("detachnetwork", &compute.InstanceGroupDetachnetworkOptions{})
 
-		params, err := options.ListStructToParams(args)
-		if err != nil {
-			return err
-		}
-		result, err := modules.InstanceGroup.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(result, modules.InstanceGroup.GetColumns(s))
-		return nil
-	})
-
-	type InstanceGroupShowOptions struct {
-		ID string `help:"ID or Name of instance group"`
-	}
-	R(&InstanceGroupShowOptions{}, "instance-group-show", "Show details of a instance group",
-		func(s *mcclient.ClientSession, args *InstanceGroupShowOptions) error {
-
-			result, err := modules.InstanceGroup.GetById(s, args.ID, nil)
-			if err != nil {
-				return err
-			}
-			printObject(result)
-			return nil
-		})
-
-	type InstanceGroupCreateOptions struct {
-		NAME string `help:"name of instance group"`
-
-		ZoneId          string `help:"zone id" json:"zone_id"`
-		ServiceType     string `help:"service type"`
-		ParentId        string `help:"parent id"`
-		SchedStrategy   string `help:"scheduler strategy"`
-		Granularity     string `help:"the upper limit number of guests with this group in a host"`
-		ForceDispersion bool   `help:"force to make guest dispersion"`
-	}
-
-	R(&InstanceGroupCreateOptions{}, "instance-group-create", "Create a instance group",
-		func(s *mcclient.ClientSession, args *InstanceGroupCreateOptions) error {
-			params, err := options.StructToParams(args)
-			if err != nil {
-				return err
-			}
-			result, err := modules.InstanceGroup.Create(s, params)
-			if err != nil {
-				return err
-			}
-			printObject(result)
-			return nil
-		},
-	)
-
-	R(&InstanceGroupShowOptions{}, "instance-group-delete", "delete a instance group",
-		func(s *mcclient.ClientSession, args *InstanceGroupShowOptions) error {
-			result, err := modules.InstanceGroup.Delete(s, args.ID, nil)
-			if err != nil {
-				return err
-			}
-			printObject(result)
-			return nil
-		},
-	)
-
-	type InstanceGroupUpdateOptions struct {
-		ID              string `help:"ID or Name of servers to update" json:"-"`
-		Name            string `help:"New name to change"`
-		Granularity     string `help:"the upper limit number of guests with this group in a host"`
-		ForceDispersion string `help:"force to make guest dispersion" choices:"yes|no" json:"-"`
-	}
-
-	R(&InstanceGroupUpdateOptions{}, "instance-group-update", "update a instance group",
-		func(s *mcclient.ClientSession, args *InstanceGroupUpdateOptions) error {
-			params, err := options.StructToParams(args)
-			if err != nil {
-				return err
-			}
-			if args.ForceDispersion == "yes" {
-				params.Set("force_dispersion", jsonutils.JSONTrue)
-			} else {
-				params.Set("force_dispersion", jsonutils.JSONFalse)
-			}
-			ret, err := modules.InstanceGroup.Update(s, args.ID, params)
-			if err != nil {
-				return err
-			}
-			printObject(ret)
-			return nil
-		})
-
+	cmd.Perform("create-eip", &compute.InstanceGroupCreateEipOptions{})
+	cmd.Perform("associate-eip", &compute.InstanceGroupAssociateEipOptions{})
+	cmd.Perform("dissociate-eip", &compute.InstanceGroupDissociateEipOptions{})
 }

@@ -2883,8 +2883,7 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot be associated")
 	}
 
-	eipVm := eip.GetAssociateVM()
-	if eipVm != nil {
+	if eip.IsAssociated() {
 		return nil, httperrors.NewConflictError("eip has been associated")
 	}
 
@@ -2927,6 +2926,9 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 	params.Add(jsonutils.NewString(self.ExternalId), "instance_external_id")
 	params.Add(jsonutils.NewString(self.Id), "instance_id")
 	params.Add(jsonutils.NewString(api.EIP_ASSOCIATE_TYPE_SERVER), "instance_type")
+	if len(input.IpAddr) > 0 {
+		params.Add(jsonutils.NewString(input.IpAddr), "ip_addr")
+	}
 
 	err = eip.StartEipAssociateTask(ctx, userCred, params, "")
 
@@ -2960,16 +2962,16 @@ func (self *SGuest) PerformDissociateEip(ctx context.Context, userCred mcclient.
 	return nil, nil
 }
 
-func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerCreateEipInput) (jsonutils.JSONObject, error) {
 	var (
 		host, _      = self.GetHost()
 		region, _    = host.GetRegion()
 		regionDriver = region.GetDriver()
 
-		bw            int64
-		chargeType    string
-		bgpType       string
-		autoDellocate bool
+		bw            = input.Bandwidth
+		chargeType    = input.ChargeType
+		bgpType       = input.BgpType
+		autoDellocate = (input.AutoDellocate != nil && *input.AutoDellocate)
 	)
 
 	err := ValidateAssociateEip(self)
@@ -2977,21 +2979,17 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 		return nil, err
 	}
 
-	chargeType, _ = data.GetString("charge_type")
 	if chargeType == "" {
 		chargeType = regionDriver.GetEipDefaultChargeType()
 	}
 
-	bw, _ = data.Int("bandwidth")
 	if chargeType == api.EIP_CHARGE_TYPE_BY_BANDWIDTH {
 		if bw == 0 {
 			return nil, httperrors.NewMissingParameterError("bandwidth")
 		}
 	}
-	bgpType, _ = data.GetString("bgp_type")
-	autoDellocate, _ = data.Bool("auto_dellocate")
 
-	err = self.GetDriver().ValidateCreateEip(ctx, userCred, data)
+	err = self.GetDriver().ValidateCreateEip(ctx, userCred, input)
 	if err != nil {
 		return nil, err
 	}

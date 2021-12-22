@@ -80,8 +80,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.InfrasUsageManager,
 		models.InfrasPendingUsageManager,
 
-		models.GroupguestManager,
-
 		models.CloudproviderCapabilityManager,
 
 		models.ScalingTimerManager,
@@ -256,6 +254,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.LoadbalancernetworkManager,
 		models.GuestdiskManager,
 		models.GroupnetworkManager,
+		models.GroupguestManager,
 		models.StoragecachedimageManager,
 		models.CloudproviderRegionManager,
 		models.DBInstanceNetworkManager,

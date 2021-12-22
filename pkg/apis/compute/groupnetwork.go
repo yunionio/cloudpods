@@ -20,7 +20,10 @@ type GroupnetworkDetails struct {
 	SGroupnetwork
 
 	// IP子网名称
-	Network string
+	Network string `json:"network"`
+
+	// EipAddr if eip is associated with this groupnetwork
+	EipAddr string `json:"eip_addr"`
 }
 
 type GroupnetworkListInput struct {
@@ -30,4 +33,26 @@ type GroupnetworkListInput struct {
 
 	// IP地址
 	IpAddr []string `json:"ip_addr"`
+}
+
+type GroupAttachNetworkInput struct {
+	// network id or name
+	NetworkId string `json:"network_id" help:"The network to attach, optional"`
+
+	// candidate IPaddr
+	IpAddr string `json:"ip_addr" help:"The ip address to use, optional"`
+
+	// Allocation direction
+	AllocDir IPAllocationDirection `json:"alloc_dir" help:"ip allocation direction, optional"`
+
+	// Reserved
+	Reserved *bool `json:"reserved" help:"the address is allocated from reserved addresses"`
+
+	// Required Designed IP
+	RequireDesignatedIp *bool `json:"require_designated_ip" help:"fail if the designed ip is not available"`
+}
+
+type GroupDetachNetworkInput struct {
+	// candidate IPaddr
+	IpAddr string `json:"ip_addr" help:"Ip address to detach, empty if detach all networks"`
 }

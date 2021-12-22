@@ -20,14 +20,19 @@ import (
 )
 
 var (
-	InstanceGroups modulebase.ResourceManager
+	InstancegroupNetworks modulebase.JointResourceManager
 )
 
 func init() {
-	InstanceGroups = modules.NewComputeManager("instancegroup", "instancegroups",
-		[]string{"ID", "Name", "Service_Type", "Parent_Id", "Zone_Id", "Sched_Strategy", "Domain_Id", "Project_Id",
-			"Granularity", "Is_Froced_Sep", "ips", "eip"},
-		[]string{})
-
-	modules.RegisterCompute(&InstanceGroups)
+	InstancegroupNetworks = modules.NewJointComputeManager(
+		"groupnetwork",
+		"groupnetworks",
+		[]string{"Group_ID", "Instance_Group",
+			"Network_ID", "Network",
+			"Ip_Addr",
+		},
+		[]string{},
+		&InstanceGroups,
+		&Networks)
+	modules.RegisterCompute(&InstancegroupNetworks)
 }

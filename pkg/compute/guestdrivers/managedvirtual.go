@@ -219,7 +219,7 @@ func (self *SManagedVirtualizedGuestDriver) ValidateCreateData(ctx context.Conte
 	return input, nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+func (self *SManagedVirtualizedGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerCreateEipInput) error {
 	return nil
 }
 

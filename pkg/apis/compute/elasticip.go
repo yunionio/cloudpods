@@ -103,6 +103,9 @@ type ElasticipAssociateInput struct {
 	// enmu: server, natgateway
 	// default: server
 	InstanceType string `json:"instance_type"`
+
+	// EIP映射的内网IP地址，可选
+	IpAddr string `json:"ip_addr"`
 }
 
 type ElasticDissociateInput struct {

@@ -36,6 +36,9 @@ type ModelSetsMaxUpdatedAt struct {
 	DnsRecords time.Time
 
 	RouteTables time.Time
+
+	Groupguests   time.Time
+	Groupnetworks time.Time
 }
 
 func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
@@ -55,6 +58,9 @@ func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
 		DnsRecords: apihelper.PseudoZeroTime,
 
 		RouteTables: apihelper.PseudoZeroTime,
+
+		Groupguests:   apihelper.PseudoZeroTime,
+		Groupnetworks: apihelper.PseudoZeroTime,
 	}
 }
 
@@ -74,6 +80,10 @@ type ModelSets struct {
 	DnsRecords DnsRecords
 
 	RouteTables RouteTables
+
+	Groupguests   Groupguests
+	Groupnetworks Groupnetworks
+	Groups        Groups
 }
 
 func NewModelSets() *ModelSets {
@@ -93,6 +103,10 @@ func NewModelSets() *ModelSets {
 		DnsRecords: DnsRecords{},
 
 		RouteTables: RouteTables{},
+
+		Groupguests:   Groupguests{},
+		Groupnetworks: Groupnetworks{},
+		Groups:        Groups{},
 	}
 }
 
@@ -114,6 +128,9 @@ func (mss *ModelSets) ModelSetList() []apihelper.IModelSet {
 		mss.DnsRecords,
 
 		mss.RouteTables,
+
+		mss.Groupguests,
+		mss.Groupnetworks,
 	}
 }
 
@@ -138,6 +155,9 @@ func (mss *ModelSets) copy_() *ModelSets {
 		DnsRecords: mss.DnsRecords.Copy().(DnsRecords),
 
 		RouteTables: mss.RouteTables.Copy().(RouteTables),
+
+		Groupguests:   mss.Groupguests.Copy().(Groupguests),
+		Groupnetworks: mss.Groupnetworks.Copy().(Groupnetworks),
 	}
 	return mssCopy
 }
@@ -174,6 +194,7 @@ func (mss *ModelSets) ApplyUpdates(mssNews apihelper.IModelSets) apihelper.Model
 
 func (mss *ModelSets) join() bool {
 	mss.Guests.initJoin()
+	mss.Groups = Groups{}
 	var p []bool
 	p = append(p, mss.Vpcs.joinWires(mss.Wires))
 	p = append(p, mss.Vpcs.joinRouteTables(mss.RouteTables))
@@ -184,11 +205,14 @@ func (mss *ModelSets) join() bool {
 	p = append(p, mss.Networks.joinElasticips(mss.Elasticips))
 	p = append(p, mss.Guests.joinHosts(mss.Hosts))
 	p = append(p, mss.Guests.joinSecurityGroups(mss.SecurityGroups))
+	p = append(p, mss.Guests.joinGroupguests(mss.Groups, mss.Groupguests))
 	p = append(p, mss.SecurityGroups.joinSecurityGroupRules(mss.SecurityGroupRules))
 	p = append(p, mss.Guestsecgroups.join(mss.SecurityGroups, mss.Guests))
 	p = append(p, mss.Guestnetworks.joinGuests(mss.Guests))
 	p = append(p, mss.Guestnetworks.joinElasticips(mss.Elasticips))
 	p = append(p, mss.Guestnetworks.joinNetworkAddresses(mss.NetworkAddresses))
+	p = append(p, mss.Groups.joinGroupnetworks(mss.Groupnetworks, mss.Networks))
+	p = append(p, mss.Groupnetworks.joinElasticips(mss.Elasticips))
 	for _, b := range p {
 		if !b {
 			return false

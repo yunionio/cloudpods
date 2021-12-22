@@ -149,7 +149,7 @@ func (manager *SElasticipManager) ListItemFilter(
 		case api.EIP_ASSOCIATE_TYPE_SERVER:
 			serverObj, err := GuestManager.FetchByIdOrName(userCred, associateId)
 			if err != nil {
-				if err == sql.ErrNoRows {
+				if errors.Cause(err) == sql.ErrNoRows {
 					return nil, httperrors.NewResourceNotFoundError("server %s not found", associateId)
 				}
 				return nil, httperrors.NewGeneralError(err)
@@ -176,6 +176,32 @@ func (manager *SElasticipManager) ListItemFilter(
 			} else {
 				q = q.IsNullOrEmpty("manager_id")
 			}
+		case api.EIP_ASSOCIATE_TYPE_INSTANCE_GROUP:
+			groupObj, err := GroupManager.FetchByIdOrName(userCred, associateId)
+			if err != nil {
+				if errors.Cause(err) == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError2(GroupManager.Keyword(), associateId)
+				}
+				return nil, httperrors.NewGeneralError(err)
+			}
+			group := groupObj.(*SGroup)
+			net, err := group.getAttachedNetwork()
+			if err != nil {
+				return nil, errors.Wrap(err, "group.getAttachedNetwork")
+			}
+			if net == nil {
+				return nil, errors.Wrap(httperrors.ErrInvalidStatus, "group is not attached to network")
+			}
+
+			zone, _ := net.GetZone()
+			networks := NetworkManager.Query().SubQuery()
+			wires := WireManager.Query().SubQuery()
+
+			sq := networks.Query(networks.Field("id")).Join(wires, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id"))).
+				Filter(sqlchemy.Equals(wires.Field("zone_id"), zone.Id)).SubQuery()
+			q = q.Filter(sqlchemy.In(q.Field("network_id"), sq))
+			q = q.Filter(sqlchemy.NotEquals(q.Field("network_id"), net.Id))
+			q = q.IsNullOrEmpty("manager_id")
 		case api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY:
 			_nat, err := validators.ValidateModel(userCred, NatGatewayManager, &query.UsableEipForAssociateId)
 			if err != nil {
@@ -430,6 +456,9 @@ func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred m
 			manager = NatGatewayManager
 		case api.EIP_ASSOCIATE_TYPE_LOADBALANCER:
 			manager = LoadbalancerManager
+		// case api.EIP_ASSOCIATE_TYPE_INSTANCE_GROUP:
+		// not supported
+		// 	manager = GroupManager
 		default:
 			return errors.Error("unsupported association type")
 		}
@@ -632,12 +661,26 @@ func (self *SElasticip) IsAssociated() bool {
 	if self.GetAssociateNatGateway() != nil {
 		return true
 	}
+	if self.GetAssociateInstanceGroup() != nil {
+		return true
+	}
 	return false
 }
 
 func (self *SElasticip) GetAssociateVM() *SGuest {
 	if self.AssociateType == api.EIP_ASSOCIATE_TYPE_SERVER && len(self.AssociateId) > 0 {
 		return GuestManager.FetchGuestById(self.AssociateId)
+	}
+	return nil
+}
+
+func (self *SElasticip) GetAssociateInstanceGroup() *SGroup {
+	if self.AssociateType == api.EIP_ASSOCIATE_TYPE_INSTANCE_GROUP && len(self.AssociateId) > 0 {
+		_grp, err := GroupManager.FetchById(self.AssociateId)
+		if err != nil {
+			return nil
+		}
+		return _grp.(*SGroup)
 	}
 	return nil
 }
@@ -678,6 +721,9 @@ func (self *SElasticip) GetAssociateResource() db.IModel {
 	if nat := self.GetAssociateNatGateway(); nat != nil {
 		return nat
 	}
+	if grp := self.GetAssociateInstanceGroup(); grp != nil {
+		return grp
+	}
 	return nil
 }
 
@@ -688,6 +734,7 @@ func (self *SElasticip) Dissociate(ctx context.Context, userCred mcclient.TokenC
 	var vm *SGuest
 	var nat *SNatGateway
 	var lb *SLoadbalancer
+	var grp *SGroup
 	switch self.AssociateType {
 	case api.EIP_ASSOCIATE_TYPE_SERVER:
 		vm = self.GetAssociateVM()
@@ -703,6 +750,11 @@ func (self *SElasticip) Dissociate(ctx context.Context, userCred mcclient.TokenC
 		lb = self.GetAssociateLoadbalancer()
 		if lb == nil {
 			log.Errorf("dissociate loadbalancer not exists???")
+		}
+	case api.EIP_ASSOCIATE_TYPE_INSTANCE_GROUP:
+		grp = self.GetAssociateInstanceGroup()
+		if grp == nil {
+			log.Errorf("dissociate instance_group not exists???")
 		}
 	}
 
@@ -730,6 +782,12 @@ func (self *SElasticip) Dissociate(ctx context.Context, userCred mcclient.TokenC
 		db.OpsLog.LogDetachEvent(ctx, lb, self, userCred, self.GetShortDesc(ctx))
 		db.OpsLog.LogEvent(self, db.ACT_EIP_DETACH, lb.GetShortDesc(ctx), userCred)
 		db.OpsLog.LogEvent(lb, db.ACT_EIP_DETACH, self.GetShortDesc(ctx), userCred)
+	}
+
+	if grp != nil {
+		db.OpsLog.LogDetachEvent(ctx, grp, self, userCred, self.GetShortDesc(ctx))
+		db.OpsLog.LogEvent(self, db.ACT_EIP_DETACH, grp.GetShortDesc(ctx), userCred)
+		db.OpsLog.LogEvent(grp, db.ACT_EIP_DETACH, self.GetShortDesc(ctx), userCred)
 	}
 
 	if self.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
@@ -771,6 +829,36 @@ func (self *SElasticip) AssociateInstance(ctx context.Context, userCred mcclient
 		vm := ins.(*SGuest)
 		if vm.PendingDeleted || vm.Deleted {
 			return fmt.Errorf("vm is deleted")
+		}
+	}
+	if len(self.AssociateType) > 0 && len(self.AssociateId) > 0 {
+		if self.AssociateType == insType && self.AssociateId == ins.GetId() {
+			return nil
+		}
+		return fmt.Errorf("EIP has been associated!!")
+	}
+	_, err := db.Update(self, func() error {
+		self.AssociateType = insType
+		self.AssociateId = ins.GetId()
+		return nil
+	})
+	if err != nil {
+		return errors.Wrapf(err, "db.Update")
+	}
+
+	db.OpsLog.LogAttachEvent(ctx, ins, self, userCred, self.GetShortDesc(ctx))
+	db.OpsLog.LogEvent(self, db.ACT_EIP_ATTACH, ins.GetShortDesc(ctx), userCred)
+	db.OpsLog.LogEvent(ins, db.ACT_EIP_ATTACH, self.GetShortDesc(ctx), userCred)
+
+	return nil
+}
+
+func (self *SElasticip) AssociateInstanceGroup(ctx context.Context, userCred mcclient.TokenCredential, insType string, ins db.IStatusStandaloneModel) error {
+	switch insType {
+	case api.EIP_ASSOCIATE_TYPE_INSTANCE_GROUP:
+		vm := ins.(*SGroup)
+		if vm.PendingDeleted || vm.Deleted {
+			return fmt.Errorf("group is deleted")
 		}
 	}
 	if len(self.AssociateType) > 0 && len(self.AssociateId) > 0 {
@@ -1290,6 +1378,7 @@ type NewEipForVMOnHostArgs struct {
 	ChargeType    string
 	AutoDellocate bool
 
+	Group        *SGroup
 	Guest        *SGuest
 	Host         *SHost
 	Natgateway   *SNatGateway
@@ -1302,6 +1391,7 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 		bgpType       = args.BgpType
 		chargeType    = args.ChargeType
 		autoDellocate = args.AutoDellocate
+		grp           = args.Group
 		vm            = args.Guest
 		host          = args.Host
 		nat           = args.Natgateway
@@ -1314,6 +1404,9 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 		region, _ = host.GetRegion()
 	} else if nat != nil {
 		region, _ = nat.GetRegion()
+	} else if grp != nil {
+		net, _ := grp.getAttachedNetwork()
+		region, _ = net.GetRegion()
 	} else {
 		return nil, fmt.Errorf("invalid host or nat")
 	}
@@ -1359,18 +1452,31 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 		eip.Name = fmt.Sprintf("eip-for-%s", pinyinutils.Text2Pinyin(vm.GetName()))
 	} else if nat != nil {
 		eip.Name = fmt.Sprintf("eip-for-%s", pinyinutils.Text2Pinyin(nat.GetName()))
+	} else if grp != nil {
+		eip.Name = fmt.Sprintf("eip-for-%s", pinyinutils.Text2Pinyin(grp.GetName()))
 	}
 
-	if host != nil && host.ManagerId == "" { // kvm
+	if (host != nil && host.ManagerId == "") || grp != nil { // kvm
+		q := NetworkManager.Query()
+
+		var zoneId string
+		if host != nil {
+			zoneId = host.ZoneId
+		} else if grp != nil {
+			net, _ := grp.getAttachedNetwork()
+			zone, _ := net.GetZone()
+			zoneId = zone.Id
+		}
 
 		wireq := WireManager.Query().SubQuery()
 		scope, _ := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), NetworkManager.KeywordPlural(), policy.PolicyActionList)
-		q := NetworkManager.Query()
 		q = NetworkManager.FilterByOwner(q, userCred, scope)
 		q = q.Join(wireq, sqlchemy.Equals(wireq.Field("id"), q.Field("wire_id"))).
-			Filter(sqlchemy.Equals(wireq.Field("zone_id"), host.ZoneId))
+			Filter(sqlchemy.Equals(wireq.Field("zone_id"), zoneId))
+
 		q = q.Equals("server_type", api.NETWORK_TYPE_EIP)
 		q = q.Equals("bgp_type", bgpType)
+
 		var nets []SNetwork
 		if err := db.FetchModelObjects(NetworkManager, q, &nets); err != nil {
 			return nil, errors.Wrapf(err, "fetch eip networks usable in host %s(%s)",
@@ -1415,6 +1521,8 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 		ownerId = vm.GetOwnerId()
 	} else if nat != nil {
 		ownerId = nat.GetOwnerId()
+	} else if grp != nil {
+		ownerId = grp.GetOwnerId()
 	}
 
 	var provider *SCloudprovider = nil

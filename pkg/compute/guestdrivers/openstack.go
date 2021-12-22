@@ -157,7 +157,7 @@ func (self *SOpenStackGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{api.VM_RUNNING}, nil
 }
 
-func (self *SOpenStackGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+func (self *SOpenStackGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerCreateEipInput) error {
 	return httperrors.NewInputParameterError("%s not support create eip, it only support bind eip", self.GetHypervisor())
 }
 

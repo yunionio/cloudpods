@@ -42,6 +42,18 @@ type InstanceGroupDetail struct {
 
 	// 云主机数量
 	GuestCount int `json:"guest_count"`
+
+	// VIP
+	Vips []string `json:"vips"`
+
+	// EIP
+	Eip string `json:"eip"`
+
+	// Attached NetworkId
+	NetworkId string `json:"network_id"`
+
+	// Attached Network
+	Network string `json:"network"`
 }
 
 type GroupResourceInput struct {

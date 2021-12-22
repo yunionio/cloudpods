@@ -43,6 +43,10 @@ type (
 	DnsRecords map[string]*DnsRecord
 
 	RouteTables map[string]*RouteTable
+
+	Groupguests   map[string]*Groupguest
+	Groupnetworks map[string]*Groupnetwork
+	Groups        map[string]*Group
 )
 
 func (set Vpcs) ModelManager() mcclient_modulebase.IBaseManager {
@@ -259,6 +263,29 @@ func (set Guests) joinSecurityGroups(subEntries SecurityGroups) bool {
 	return correct
 }
 
+func (set Guests) joinGroupguests(groups Groups, groupGuests Groupguests) bool {
+	for _, gg := range groupGuests {
+		if guest, ok := set[gg.GuestId]; ok {
+			if guest.Groups == nil {
+				guest.Groups = Groups{}
+			}
+			if _, ok := groups[gg.GroupId]; !ok {
+				grp := &Group{}
+				grp.Id = gg.GroupId
+				grp.Groupguests = Groupguests{}
+				grp.Groupnetworks = Groupnetworks{}
+				groups.AddModel(grp)
+			}
+			grp := groups[gg.GroupId]
+			grp.Groupguests.AddModel(gg)
+			guest.Groups.AddModel(grp)
+			gg.Guest = guest
+			gg.Group = grp
+		}
+	}
+	return true
+}
+
 func (set Hosts) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.Hosts
 }
@@ -304,6 +331,7 @@ func (set Networks) Copy() apihelper.IModelSet {
 func (ms Networks) joinGuestnetworks(subEntries Guestnetworks) bool {
 	for _, m := range ms {
 		m.Guestnetworks = Guestnetworks{}
+		m.Groupnetworks = Groupnetworks{}
 	}
 	for _, subEntry := range subEntries {
 		netId := subEntry.NetworkId
@@ -680,4 +708,108 @@ func (set RouteTables) Copy() apihelper.IModelSet {
 		setCopy[id] = el.Copy()
 	}
 	return setCopy
+}
+
+func (set Groupguests) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.InstanceGroupGuests
+}
+
+func (set Groupguests) NewModel() db.IModel {
+	return &Groupguest{}
+}
+
+func (set Groupguests) AddModel(i db.IModel) {
+	m := i.(*Groupguest)
+	k := fmt.Sprintf("%d", m.RowId)
+	set[k] = m
+}
+
+func (set Groupguests) Copy() apihelper.IModelSet {
+	setCopy := Groupguests{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
+}
+
+func (set Groupnetworks) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.InstancegroupNetworks
+}
+
+func (set Groupnetworks) NewModel() db.IModel {
+	return &Groupnetwork{}
+}
+
+func (set Groupnetworks) AddModel(i db.IModel) {
+	m := i.(*Groupnetwork)
+	k := fmt.Sprintf("%d", m.RowId)
+	set[k] = m
+}
+
+func (set Groupnetworks) Copy() apihelper.IModelSet {
+	setCopy := Groupnetworks{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
+}
+
+func (set Groupnetworks) joinElasticips(subEntries Elasticips) bool {
+	correct := true
+	for _, gn := range set {
+		eipId := gn.EipId
+		if eipId == "" {
+			continue
+		}
+		eip, ok := subEntries[eipId]
+		if !ok {
+			log.Warningf("groupnetwork %s: eip %s not found", gn.GroupId, eipId)
+			correct = false
+			continue
+		}
+		if eip.Groupnetwork != nil {
+			if eip.Groupnetwork != gn {
+				log.Errorf("eip %s associated to more than 1 groupnetwork: %s(%s), %s(%s)", eipId,
+					eip.Groupnetwork.GroupId, eip.Groupnetwork.IpAddr, gn.GroupId, gn.IpAddr)
+				correct = false
+			}
+			continue
+		}
+		eip.Groupnetwork = gn
+		gn.Elasticip = eip
+	}
+	return correct
+}
+
+func (set Groups) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.InstanceGroups
+}
+
+func (set Groups) NewModel() db.IModel {
+	return &Group{}
+}
+
+func (set Groups) AddModel(i db.IModel) {
+	m := i.(*Group)
+	set[m.Id] = m
+}
+
+func (set Groups) Copy() apihelper.IModelSet {
+	setCopy := Groups{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
+}
+
+func (set Groups) joinGroupnetworks(subEntries Groupnetworks, networks Networks) bool {
+	for _, gn := range subEntries {
+		gn.Network = networks[gn.NetworkId]
+		if group, ok := set[gn.GroupId]; ok {
+			gn.Group = group
+			group.Groupnetworks.AddModel(gn)
+		}
+		gn.Network.Groupnetworks.AddModel(gn)
+	}
+	return true
 }

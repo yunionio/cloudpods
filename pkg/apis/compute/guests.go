@@ -445,6 +445,26 @@ type ServerAssociateEipInput struct {
 	Eip string `json:"eip" yunion-deprecated-by:"eip_id"`
 	// 弹性公网IP的ID
 	EipId string `json:"eip_id"`
+
+	// 弹性IP映射的内网IP地址，可选
+	IpAddr string `json:"ip_addr"`
+}
+
+type ServerCreateEipInput struct {
+	// 计费方式，traffic or bandwidth
+	ChargeType string `json:"charge_type"`
+
+	// Bandwidth
+	Bandwidth int64 `json:"bandwidth"`
+
+	// bgp_type
+	BgpType string `json:"bgp_type"`
+
+	// auto_dellocate
+	AutoDellocate *bool `json:"auto_dellocate"`
+
+	// 弹性IP映射的内网IP地址，可选
+	IpAddr string `json:"ip_addr"`
 }
 
 type ServerDissociateEipInput struct {

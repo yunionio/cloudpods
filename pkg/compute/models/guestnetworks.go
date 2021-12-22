@@ -128,6 +128,7 @@ func (manager *SGuestnetworkManager) FetchCustomizeColumns(
 
 	guestRows := manager.SGuestJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	netIds := make([]string, len(rows))
+	eipIds := make([]string, len(rows))
 	for i := range rows {
 		rows[i] = api.GuestnetworkDetails{
 			GuestJointResourceDetails: guestRows[i],
@@ -136,6 +137,7 @@ func (manager *SGuestnetworkManager) FetchCustomizeColumns(
 		iNet, _ := NetworkManager.FetchById(netIds[i])
 		net := iNet.(*SNetwork)
 		rows[i].WireId = net.WireId
+		eipIds[i] = objs[i].(*SGuestnetwork).EipId
 	}
 
 	netIdMaps, err := db.FetchIdNameMap2(NetworkManager, netIds)
@@ -147,6 +149,18 @@ func (manager *SGuestnetworkManager) FetchCustomizeColumns(
 	for i := range rows {
 		if name, ok := netIdMaps[netIds[i]]; ok {
 			rows[i].Network = name
+		}
+	}
+
+	eipIdMaps, err := db.FetchIdFieldMap2(ElasticipManager, "ip_addr", eipIds)
+	if err != nil {
+		log.Errorf("FetchIdFieldMap2 fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if ip, ok := eipIdMaps[eipIds[i]]; ok {
+			rows[i].EipAddr = ip
 		}
 	}
 
@@ -640,6 +654,9 @@ func (self *SGuestnetwork) ValidateUpdateData(
 func (manager *SGuestnetworkManager) DeleteGuestNics(ctx context.Context, userCred mcclient.TokenCredential, gns []SGuestnetwork, reserve bool) error {
 	for i := range gns {
 		gn := gns[i]
+		if len(gn.EipId) > 0 {
+			return errors.Wrapf(httperrors.ErrInvalidStatus, "eip associate with %s", gn.IpAddr)
+		}
 		guest := gn.GetGuest()
 		net := gn.GetNetwork()
 		if regutils.MatchIP4Addr(gn.IpAddr) || regutils.MatchIP6Addr(gn.Ip6Addr) {
@@ -916,21 +933,26 @@ func (manager *SGuestnetworkManager) FetchByIdsAndIpMac(guestId string, netId st
 	return ign.(*SGuestnetwork), nil
 }
 
-func (manager *SGuestnetworkManager) FetchByGuestIdIndex(guestId string, index int8) (*SGuestnetwork, error) {
+func (manager *SGuestnetworkManager) FetchByGuestId(guestId string) ([]SGuestnetwork, error) {
 	q := manager.Query().
-		Equals("guest_id", guestId).
-		Equals("index", index)
+		Equals("guest_id", guestId)
+	q = q.Asc(q.Field("index"))
 	var rets []SGuestnetwork
 	if err := db.FetchModelObjects(manager, q, &rets); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "FetchModelObjects")
 	}
-	if len(rets) > 1 {
-		return nil, errors.Errorf("guest %s has conflict nic index (%d)", guestId, index)
+	return rets, nil
+}
+
+func (manager *SGuestnetworkManager) FetchByGuestIdIndex(guestId string, index int8) (*SGuestnetwork, error) {
+	rets, err := manager.FetchByGuestId(guestId)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchByGuestId")
 	}
-	if len(rets) == 0 {
-		return nil, errors.ErrNotFound
+	if index >= 0 && int(index) < len(rets) {
+		return &rets[index], nil
 	}
-	return &rets[0], nil
+	return nil, errors.ErrNotFound
 }
 
 func (self *SGuestnetwork) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
