@@ -485,6 +485,7 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		subIPs = append(subIPs, na.IpAddr)
 		subIPms = append(subIPms, fmt.Sprintf("%s/%d", na.IpAddr, na.Network.GuestIpMask))
 	}
+	subIPms = append(subIPms, guestnetwork.Guest.GetVips()...)
 	sort.Strings(subIPs[1:])
 	sort.Strings(subIPms[1:])
 	gnp := &ovn_nb.LogicalSwitchPort{
@@ -806,6 +807,136 @@ func (keeper *OVNNorthboundKeeper) ClaimDnsRecords(ctx context.Context, vpcs age
 		args = append(args, "--", "add", "Logical_Switch", netLsName(networkId), "dns_records", "@dns")
 	}
 	return keeper.cli.Must(ctx, "ClaimDnsRecords", args)
+}
+
+func (keeper *OVNNorthboundKeeper) ClaimGroupnetwork(ctx context.Context, groupnetwork *agentmodels.Groupnetwork) error {
+	var (
+		network = groupnetwork.Network
+		vpc     = network.Vpc
+		eip     = groupnetwork.Elasticip
+
+		lportName       = vipName(groupnetwork.NetworkId, groupnetwork.GroupId, groupnetwork.IpAddr)
+		ocVersion       = fmt.Sprintf("vip.%s.%d", groupnetwork.UpdatedAt, groupnetwork.UpdateVersion)
+		ocGnrDefaultRef = fmt.Sprintf("gnrDefault-vip/%s/%s/%s", vpc.Id, groupnetwork.GroupId, groupnetwork.IpAddr)
+		ocAclRef        = fmt.Sprintf("acl-eip/%s/%s/%s", network.Id, groupnetwork.GroupId, groupnetwork.IpAddr)
+		ocQosEipRef     = fmt.Sprintf("qos-eip-vip/%s/%s/%s/v2", vpc.Id, groupnetwork.GroupId, groupnetwork.IpAddr)
+	)
+
+	gns := groupnetwork.GetGuestNetworks()
+	gnsNames := make([]string, len(gns))
+	for i, gn := range gns {
+		gnsNames[i] = gnpName(gn.NetworkId, gn.Ifname)
+	}
+	sort.Strings(gnsNames)
+	gnp := &ovn_nb.LogicalSwitchPort{
+		Name: lportName,
+		Type: "virtual",
+		Options: map[string]string{
+			"virtual-ip":      groupnetwork.IpAddr,
+			"virtual-parents": strings.Join(gnsNames, ","),
+		},
+		PortSecurity: []string{},
+	}
+
+	var (
+		gnrDefault *ovn_nb.LogicalRouterStaticRoute
+		qosEipIn   *ovn_nb.QoS
+		qosEipOut  *ovn_nb.QoS
+		hasQoSEip  bool
+	)
+	{
+		gnrDefaultPolicy := "src-ip"
+		if eip != nil && vpcHasEipgw(vpc) {
+			log.Infof("groupnetwork %s has eip %s", groupnetwork.IpAddr, eip.IpAddr)
+			gnrDefault = &ovn_nb.LogicalRouterStaticRoute{
+				Policy:     &gnrDefaultPolicy,
+				IpPrefix:   groupnetwork.IpAddr + "/32",
+				Nexthop:    apis.VpcEipGatewayIP3().String(),
+				OutputPort: ptr(vpcRepName(vpc.Id)),
+				ExternalIds: map[string]string{
+					externalKeyOcRef: ocGnrDefaultRef,
+				},
+			}
+			if bwMbps := eip.Bandwidth; bwMbps > 0 {
+				var (
+					kbps     = int64(bwMbps * 1000)
+					kbur     = int64(kbps * 2)
+					eipgwVip = apis.VpcEipGatewayIP3().String()
+				)
+				hasQoSEip = true
+				qosEipIn = &ovn_nb.QoS{
+					Priority:  2000,
+					Direction: "from-lport",
+					Match:     fmt.Sprintf("inport == %q && ip4 && ip4.dst == %s", vpcEipLspName(vpc.Id, eipgwVip), groupnetwork.IpAddr),
+					Bandwidth: map[string]int64{
+						"rate":  kbps,
+						"burst": kbur,
+					},
+					ExternalIds: map[string]string{
+						externalKeyOcRef: ocQosEipRef,
+					},
+				}
+				qosEipOut = &ovn_nb.QoS{
+					Priority:  3000,
+					Direction: "from-lport",
+					Match:     fmt.Sprintf("inport == %q && ip4 && ip4.src == %s", vpcErpName(vpc.Id), groupnetwork.IpAddr),
+					Bandwidth: map[string]int64{
+						"rate":  kbps,
+						"burst": kbur,
+					},
+					ExternalIds: map[string]string{
+						externalKeyOcRef: ocQosEipRef,
+					},
+				}
+			}
+		}
+	}
+
+	var acl *ovn_nb.ACL
+	{
+		acl = &ovn_nb.ACL{
+			Priority:  1,
+			Direction: aclDirToLport,
+			Match:     fmt.Sprintf(`is_chassis_resident("%s") && ip4`, gnp.Name),
+			Action:    "allow-related",
+			ExternalIds: map[string]string{
+				externalKeyOcRef: ocAclRef,
+			},
+		}
+	}
+
+	irows := []types.IRow{
+		gnp,
+		acl,
+	}
+	if gnrDefault != nil {
+		irows = append(irows, gnrDefault)
+	}
+	if hasQoSEip {
+		irows = append(irows, qosEipIn, qosEipOut)
+	}
+	allFound, args := cmp(&keeper.DB, ocVersion, irows...)
+	if allFound {
+		return nil
+	}
+
+	args = append(args, ovnCreateArgs(gnp, gnp.Name)...)
+	args = append(args, "--", "add", "Logical_Switch", netLsName(groupnetwork.NetworkId), "ports", "@"+gnp.Name)
+	aclRef := "vipacl"
+	args = append(args, ovnCreateArgs(acl, aclRef)...)
+	args = append(args, "--", "add", "Logical_Switch", netLsName(groupnetwork.NetworkId), "acls", "@"+aclRef)
+	if gnrDefault != nil {
+		args = append(args, ovnCreateArgs(gnrDefault, "vipGnrDefault")...)
+		args = append(args, "--", "add", "Logical_Router", vpcExtLrName(vpc.Id), "static_routes", "@vipGnrDefault")
+	}
+	if hasQoSEip {
+		args = append(args, ovnCreateArgs(qosEipIn, "vipQosEipIn")...)
+		args = append(args, "--", "add", "Logical_Switch", vpcEipLsName(vpc.Id), "qos_rules", "@vipQosEipIn")
+		args = append(args, ovnCreateArgs(qosEipOut, "vipQosEipOut")...)
+		args = append(args, "--", "add", "Logical_Switch", vpcEipLsName(vpc.Id), "qos_rules", "@vipQosEipOut")
+	}
+
+	return keeper.cli.Must(ctx, "ClaimGroupnetworks", args)
 }
 
 func (keeper *OVNNorthboundKeeper) Mark(ctx context.Context) {

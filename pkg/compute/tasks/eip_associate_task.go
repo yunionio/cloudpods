@@ -79,6 +79,13 @@ func (self *EipAssociateTask) GetAssociateObj() (db.IStatusStandaloneModel, api.
 		nat := natObj.(*models.SNatGateway)
 		input.InstanceExternalId = nat.ExternalId
 		return nat, input, nil
+	case api.EIP_ASSOCIATE_TYPE_INSTANCE_GROUP:
+		grpObj, err := models.GroupManager.FetchById(input.InstanceId)
+		if err != nil {
+			return nil, input, errors.Wrapf(err, "GroupManager.FetchById(%s)", input.InstanceId)
+		}
+		grp := grpObj.(*models.SGroup)
+		return grp, input, nil
 	default:
 		return nil, input, fmt.Errorf("invalid instance type %s", input.InstanceType)
 	}
@@ -122,6 +129,10 @@ func (self *EipAssociateTask) OnAssociateEipComplete(ctx context.Context, obj db
 		case api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY:
 			nat := ins.(*models.SNatGateway)
 			nat.StartSyncstatus(ctx, self.UserCred, "")
+			logclient.AddActionLogWithStartable(self, eip, logclient.ACT_NATGATEWAY_ASSOCIATE, ins, self.UserCred, true)
+		case api.EIP_ASSOCIATE_TYPE_INSTANCE_GROUP:
+			grp := ins.(*models.SGroup)
+			grp.SetStatus(self.UserCred, "init", "success")
 			logclient.AddActionLogWithStartable(self, eip, logclient.ACT_NATGATEWAY_ASSOCIATE, ins, self.UserCred, true)
 		}
 		logclient.AddActionLogWithStartable(self, ins, logclient.ACT_EIP_ASSOCIATE, nil, self.UserCred, true)

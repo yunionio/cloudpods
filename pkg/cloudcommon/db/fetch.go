@@ -412,7 +412,19 @@ func FetchIdNameMap2(manager IStandaloneModelManager, ids []string) (map[string]
 }
 
 func FetchIdNameMap(manager IStandaloneModelManager, idMap map[string]string) (map[string]string, error) {
-	q := manager.Query("id", "name").In("id", mapKeys(idMap))
+	return FetchIdFieldMap(manager, "name", idMap)
+}
+
+func FetchIdFieldMap2(manager IStandaloneModelManager, field string, ids []string) (map[string]string, error) {
+	idMap := make(map[string]string, len(ids))
+	for _, id := range ids {
+		idMap[id] = ""
+	}
+	return FetchIdFieldMap(manager, field, idMap)
+}
+
+func FetchIdFieldMap(manager IStandaloneModelManager, field string, idMap map[string]string) (map[string]string, error) {
+	q := manager.Query("id", field).In("id", mapKeys(idMap))
 	rows, err := q.Rows()
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {

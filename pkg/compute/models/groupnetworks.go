@@ -60,7 +60,7 @@ type SGroupnetwork struct {
 
 	Index int8 `nullable:"false" default:"0" list:"user" list:"user" update:"user" create:"optional"` // Column(TINYINT, nullable=False, default=0)
 
-	EipId string `width:"36" charset:"ascii" nullable:"true"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
+	EipId string `width:"36" charset:"ascii" nullable:"true" list:"user"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
 }
 
 func (manager *SGroupnetworkManager) GetSlaveFieldName() string {
@@ -79,11 +79,13 @@ func (manager *SGroupnetworkManager) FetchCustomizeColumns(
 
 	groupRows := manager.SGroupJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	netIds := make([]string, len(rows))
+	eipIds := make([]string, len(rows))
 	for i := range rows {
 		rows[i] = api.GroupnetworkDetails{
 			GroupJointResourceDetails: groupRows[i],
 		}
 		netIds[i] = objs[i].(*SGroupnetwork).NetworkId
+		eipIds[i] = objs[i].(*SGroupnetwork).EipId
 	}
 
 	netIdMaps, err := db.FetchIdNameMap2(NetworkManager, netIds)
@@ -95,6 +97,16 @@ func (manager *SGroupnetworkManager) FetchCustomizeColumns(
 	for i := range rows {
 		if name, ok := netIdMaps[netIds[i]]; ok {
 			rows[i].Network = name
+		}
+	}
+
+	eipIdMaps, err := db.FetchIdFieldMap2(ElasticipManager, "ip_addr", eipIds)
+	if err != nil {
+		return rows
+	}
+	for i := range rows {
+		if name, ok := eipIdMaps[eipIds[i]]; ok {
+			rows[i].EipAddr = name
 		}
 	}
 
@@ -181,4 +193,26 @@ func (manager *SGroupnetworkManager) ListItemExportKeys(ctx context.Context,
 	}
 
 	return q, nil
+}
+
+func (manager *SGroupnetworkManager) FetchByGroupId(groupId string) ([]SGroupnetwork, error) {
+	q := manager.Query().
+		Equals("group_id", groupId)
+	var rets []SGroupnetwork
+	if err := db.FetchModelObjects(manager, q, &rets); err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return rets, nil
+}
+
+func (manager *SGroupnetworkManager) getVips(groupId string) ([]string, error) {
+	gns, err := manager.FetchByGroupId(groupId)
+	if err != nil {
+		return nil, errors.Wrap(err, "manager.FetchByGroupId")
+	}
+	ret := make([]string, len(gns))
+	for i := range gns {
+		ret[i] = gns[i].IpAddr
+	}
+	return ret, nil
 }

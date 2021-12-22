@@ -170,7 +170,7 @@ func (self *SBaseGuestDriver) ValidateDetachDisk(ctx context.Context, userCred m
 	return nil
 }
 
-func (self *SBaseGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+func (self *SBaseGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerCreateEipInput) error {
 	return httperrors.NewInputParameterError("Not Implement ValidateCreateEip")
 }
 

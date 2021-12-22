@@ -193,39 +193,6 @@ func init() {
 		return nil
 	})
 
-	type GroupBindGuestsOptions struct {
-		ID    string   `help:"ID"`
-		Guest []string `help:"ID or Name of Guest"`
-	}
-
-	R(&GroupBindGuestsOptions{}, "instance-group-bind-guests", "bind instancegroup to guests",
-		func(s *mcclient.ClientSession, opts *GroupBindGuestsOptions) error {
-			params, err := options.StructToParams(opts)
-			if err != nil {
-				return err
-			}
-			sp, err := modules.InstanceGroup.PerformAction(s, opts.ID, "bind-guests", params)
-			if err != nil {
-				return err
-			}
-			printObject(sp)
-			return nil
-		})
-
-	R(&GroupBindGuestsOptions{}, "instance-group-unbind-guests", "bind instancegroup to guests",
-		func(s *mcclient.ClientSession, opts *GroupBindGuestsOptions) error {
-			params, err := options.StructToParams(opts)
-			if err != nil {
-				return err
-			}
-			sp, err := modules.InstanceGroup.PerformAction(s, opts.ID, "unbind-guests", params)
-			if err != nil {
-				return err
-			}
-			printObject(sp)
-			return nil
-		})
-
 	type GroupAddUsersOptions struct {
 		GROUP string   `help:"group Id or Name" json:"-"`
 		USER  []string `help:"list of user id or name" json:"user"`
