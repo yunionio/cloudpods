@@ -117,3 +117,31 @@ type VpcFilterListInput struct {
 	RegionalFilterListInput
 	ManagedResourceListInput
 }
+
+type VpcTopologyInput struct {
+}
+
+type NetworkTopologyOutput struct {
+	Name         string                `json:"name"`
+	Status       string                `json:"status"`
+	GuestIpStart string                `json:"guest_ip_start"`
+	GuestIpEnd   string                `json:"guest_ip_end"`
+	GuestIpMask  int8                  `json:"guest_ip_mask"`
+	ServerType   string                `json:"server_type"`
+	VlanId       int                   `json:"vlan_id"`
+	Address      []SNetworkUsedAddress `json:"address"`
+}
+
+type WireTopologyOutput struct {
+	Name      string                  `json:"name"`
+	Status    string                  `json:"status"`
+	Bandwidth int                     `json:"bandwidth"`
+	Zone      string                  `json:"zone"`
+	Networks  []NetworkTopologyOutput `json:"networks"`
+}
+
+type VpcTopologyOutput struct {
+	Name   string               `json:"name"`
+	Status string               `json:"status"`
+	Wires  []WireTopologyOutput `json:"wires"`
+}
