@@ -16,6 +16,7 @@ package qcloud
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -239,6 +240,9 @@ func (self *SVpcPC) GetPeerVpcId() string {
 }
 
 func (self *SVpcPC) GetPeerAccountId() string {
+	if strings.Contains(self.PeerUin, ".") {
+		return strings.Split(self.PeerUin, ".")[0]
+	}
 	return self.PeerUin
 }
 
