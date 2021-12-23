@@ -2341,7 +2341,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
-		err := commondb[i].syncWithCloudVM(ctx, userCred, iprovider, self, commonext[i], syncOwnerId)
+		err := commondb[i].syncWithCloudVM(ctx, userCred, iprovider, self, commonext[i], syncOwnerId, true)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -2379,7 +2379,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 				continue
 			}
 			host := _host.(*SHost)
-			err = guest.syncWithCloudVM(ctx, userCred, iprovider, host, added[i], syncOwnerId)
+			err = guest.syncWithCloudVM(ctx, userCred, iprovider, host, added[i], syncOwnerId, true)
 			if err != nil {
 				syncResult.UpdateError(err)
 			} else {

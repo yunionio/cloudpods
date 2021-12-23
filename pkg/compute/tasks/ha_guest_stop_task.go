@@ -37,7 +37,7 @@ func (self *HAGuestStopTask) OnGuestStopTaskComplete(
 ) {
 	host := models.HostManager.FetchHostById(guest.BackupHostId)
 	self.SetStage("OnSlaveGuestStopTaskComplete", nil)
-	err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self)
+	err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self, true)
 	if err != nil {
 		log.Errorf("RequestStopOnHost fail %s", err)
 		self.OnGuestStopTaskCompleteFailed(
