@@ -591,6 +591,11 @@ func (self *SServerSku) ValidateUpdateData(ctx context.Context, userCred mcclien
 	return input, nil
 }
 
+func (self *SServerSku) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	ServerSkuManager.ClearSchedDescCache(true)
+	self.SEnabledStatusStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
+}
+
 func (self *SServerSku) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	log.Infof("SServerSku delete do nothing")
 	return nil
