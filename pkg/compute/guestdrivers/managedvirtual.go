@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
@@ -495,7 +496,32 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 		lockman.LockObject(ctx, guest)
 		defer lockman.ReleaseObject(ctx, guest)
 
-		iVM, err := ihost.CreateVM(&desc)
+		iVM, err := func() (cloudprovider.ICloudVM, error) {
+			iVM, err := ihost.CreateVM(&desc)
+			if err == nil || !options.Options.EnableAutoSwitchServerSku {
+				return iVM, err
+			}
+			skus, e := models.ServerSkuManager.GetSkus(host.GetProviderName(), guest.VcpuCount, guest.VmemSize)
+			if e != nil {
+				return iVM, errors.Wrapf(e, "GetSkus")
+			}
+			oldSku := desc.InstanceType
+			for i := range skus {
+				if skus[i].Name != oldSku {
+					desc.InstanceType = skus[i].Name
+					log.Infof("try switch server sku from %s to %s for create %s", oldSku, desc.InstanceType, guest.Name)
+					iVM, err = ihost.CreateVM(&desc)
+					if err == nil {
+						db.Update(guest, func() error {
+							guest.InstanceType = desc.InstanceType
+							return nil
+						})
+						return iVM, nil
+					}
+				}
+			}
+			return iVM, err
+		}()
 		if err != nil {
 			return nil, err
 		}
