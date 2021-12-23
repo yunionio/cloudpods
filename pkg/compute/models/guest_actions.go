@@ -2251,9 +2251,10 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 	restartNetwork, _ := data.Bool("restart_network")
 
 	taskData := jsonutils.NewDict()
-	if self.Hypervisor == api.HYPERVISOR_KVM && restartNetwork {
+	if self.Hypervisor == api.HYPERVISOR_KVM && restartNetwork && self.Status == api.VM_RUNNING {
 		taskData.Set("restart_network", jsonutils.JSONTrue)
 		taskData.Set("prev_ip", jsonutils.NewString(gn.IpAddr))
+		self.SetStatus(userCred, api.VM_RESTART_NETWORK, "restart network")
 	}
 	return nil, self.startSyncTask(ctx, userCred, true, "", taskData)
 }
@@ -5312,7 +5313,9 @@ func (self *SGuest) PerformOpenForward(ctx context.Context, userCred mcclient.To
 	}
 	for _, nicDesc := range self.fetchNICShortDesc(ctx) {
 		if nicDesc.VpcId != api.DEFAULT_VPC_ID {
-			req.Addr = nicDesc.IpAddr
+			if req.Addr == "" {
+				req.Addr = nicDesc.IpAddr
+			}
 			req.NetworkId = nicDesc.NetworkId
 		}
 	}
@@ -5363,7 +5366,9 @@ func (self *SGuest) PerformListForward(ctx context.Context, userCred mcclient.To
 	}
 	for _, nicDesc := range self.fetchNICShortDesc(ctx) {
 		if nicDesc.VpcId != api.DEFAULT_VPC_ID {
-			req.Addr = nicDesc.IpAddr
+			if req.Addr == "" {
+				req.Addr = nicDesc.IpAddr
+			}
 			req.NetworkId = nicDesc.NetworkId
 		}
 	}
