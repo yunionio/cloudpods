@@ -163,6 +163,14 @@ func (s *SKVMGuestInstance) disablePvpanicDev() bool {
 	return val == "true"
 }
 
+func isLocalStorage(disk api.GuestdiskJsonDesc) bool {
+	if disk.StorageType == api.STORAGE_LOCAL || len(disk.StorageType) == 0 {
+		return true
+	} else {
+		return false
+	}
+}
+
 func (s *SKVMGuestInstance) getDriveDesc(disk api.GuestdiskJsonDesc, isArm bool) string {
 	format := disk.Format
 	diskIndex := disk.Index
@@ -179,13 +187,13 @@ func (s *SKVMGuestInstance) getDriveDesc(disk api.GuestdiskJsonDesc, isArm bool)
 		cmd += ",format=raw"
 	}
 	cmd += fmt.Sprintf(",cache=%s", cacheMode)
-	if disk.StorageType == api.STORAGE_LOCAL {
+	if isLocalStorage(disk) {
 		cmd += fmt.Sprintf(",aio=%s", aioMode)
 	}
 	if len(disk.Url) > 0 { // # a remote file backed image
 		cmd += ",copy-on-read=on"
 	}
-	if disk.StorageType == api.STORAGE_LOCAL {
+	if isLocalStorage(disk) {
 		cmd += ",file.locking=off"
 	}
 	// #cmd += ",media=disk"
@@ -548,7 +556,9 @@ function nic_mtu() {
 	// #cmd += " -g 800x600"
 	cmd += fmt.Sprintf(" -smp cpus=%d,sockets=2,cores=64,maxcpus=128", cpu)
 	cmd += fmt.Sprintf(" -name %s", name)
-	cmd += fmt.Sprintf(" -uuid %s", uuid)
+	if options.HostOptions.EnableVmUuid {
+		cmd += fmt.Sprintf(" -uuid %s", uuid)
+	}
 	cmd += fmt.Sprintf(" -m %dM,slots=4,maxmem=524288M", mem)
 
 	if s.manager.host.IsHugepagesEnabled() {

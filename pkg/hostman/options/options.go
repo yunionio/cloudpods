@@ -155,6 +155,8 @@ type SHostOptions struct {
 	DisableGPU bool `help:"force disable GPU" default:"false" json:"disable_gpu"`
 
 	EthtoolEnableGso bool `help:"use ethtool to turn on or off GSO(generic segment offloading)" default:"false" json:"ethtool_enable_gso"`
+
+	EnableVmUuid bool `help:"enable vm UUID" default:"true" json:"enable_vm_uuid"`
 }
 
 var (
