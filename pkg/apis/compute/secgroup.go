@@ -321,3 +321,15 @@ type SecgroupJsonDesc struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`
 }
+
+type SSecurityGroupRef struct {
+	GuestCnt      int `json:"guest_cnt"`
+	AdminGuestCnt int `json:"admin_guest_cnt"`
+	RdsCnt        int `json:"rds_cnt"`
+	RedisCnt      int `json:"redis_cnt"`
+	TotalCnt      int `json:"total_cnt"`
+}
+
+func (self *SSecurityGroupRef) Sum() {
+	self.TotalCnt = self.GuestCnt + self.AdminGuestCnt + self.RdsCnt + self.RedisCnt
+}

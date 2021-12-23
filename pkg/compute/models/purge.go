@@ -1800,13 +1800,6 @@ func (manager *SElasticcacheManager) purgeAll(ctx context.Context, userCred mccl
 	return nil
 }
 
-func (cache *SSecurityGroupCache) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, cache)
-	defer lockman.ReleaseObject(ctx, cache)
-
-	return cache.RealDelete(ctx, userCred)
-}
-
 func (manager *SSecurityGroupCacheManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
 	caches := []SSecurityGroupCache{}
 	err := fetchByManagerId(manager, providerId, &caches)
