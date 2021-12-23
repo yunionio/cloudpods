@@ -604,3 +604,11 @@ func (self *SKVMHostDriver) GetJsonFromHost(ctx context.Context, host *models.SH
 	}
 	return desc
 }
+
+func (driver *SKVMHostDriver) RequestProbeIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, input jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	url := fmt.Sprintf("%s/hosts/%s/probe-isolated-devices", host.ManagerUri, host.GetId())
+	httpClient := httputils.GetDefaultClient()
+	header := mcclient.GetTokenHeaders(userCred)
+	_, respBody, err := httputils.JSONRequest(httpClient, ctx, "POST", url, header, input, false)
+	return respBody, err
+}

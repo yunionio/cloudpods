@@ -265,3 +265,7 @@ func (driver *SBaseHostDriver) RequestDeallocateBackupDiskOnHost(ctx context.Con
 func (driver *SBaseHostDriver) RequestSyncOnHost(ctx context.Context, host *models.SHost, task taskman.ITask) error {
 	return nil
 }
+
+func (driver *SBaseHostDriver) RequestProbeIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, input jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return nil, nil
+}

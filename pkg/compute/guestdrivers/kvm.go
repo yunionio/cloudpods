@@ -913,3 +913,7 @@ func (self *SKVMGuestDriver) ValidateUpdateData(ctx context.Context, guest *mode
 
 	return input, nil
 }
+
+func (self *SKVMGuestDriver) RequestSyncIsolatedDevice(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
+}

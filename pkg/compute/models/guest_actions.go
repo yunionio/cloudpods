@@ -763,7 +763,6 @@ func (self *SGuest) StartSyncTaskWithoutSyncstatus(ctx context.Context, userCred
 
 func (self *SGuest) doSyncTask(ctx context.Context, data *jsonutils.JSONDict, userCred mcclient.TokenCredential, parentTaskId string) error {
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSyncConfTask", self, userCred, data, parentTaskId, "", nil); err != nil {
-		log.Errorln(err)
 		return err
 	} else {
 		task.ScheduleRun(nil)
@@ -1741,8 +1740,8 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 	if self.Hypervisor != api.HYPERVISOR_KVM {
 		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.Hypervisor)
 	}
-	if self.Status != api.VM_READY {
-		msg := "Only allowed to attach isolated device when guest is ready"
+	if !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_RUNNING}) {
+		msg := fmt.Sprintf("Can't detach isolated device when guest is %s", self.GetStatus())
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
 		return nil, httperrors.NewInvalidStatusError(msg)
 	}
@@ -1770,10 +1769,7 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 			}
 		}
 	}
-	if jsonutils.QueryBoolean(data, "auto_start", false) {
-		return self.PerformStart(ctx, userCred, query, data)
-	}
-	return nil, nil
+	return nil, self.startIsolatedDevicesSyncTask(ctx, userCred, jsonutils.QueryBoolean(data, "auto_start", false), "")
 }
 
 func (self *SGuest) startDetachIsolateDevice(ctx context.Context, userCred mcclient.TokenCredential, device string) error {
@@ -1785,6 +1781,9 @@ func (self *SGuest) startDetachIsolateDevice(ctx context.Context, userCred mccli
 		return httperrors.NewBadRequestError(msgFmt, device)
 	}
 	dev := iDev.(*SIsolatedDevice)
+	if dev.IsGPU() && self.GetStatus() != api.VM_READY {
+		return httperrors.NewInvalidStatusError("Can't detach GPU when status is %q", self.GetStatus())
+	}
 	host, _ := self.GetHost()
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
@@ -1813,15 +1812,16 @@ func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mc
 	if self.Hypervisor != api.HYPERVISOR_KVM {
 		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.Hypervisor)
 	}
-	if self.Status != api.VM_READY {
-		msg := "Only allowed to attach isolated device when guest is ready"
+	if !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_RUNNING}) {
+		msg := fmt.Sprintf("Can't attach isolated device when guest is %s", self.GetStatus())
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, false)
 		return nil, httperrors.NewInvalidStatusError(msg)
 	}
 	var err error
+	autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
 	if data.Contains("device") {
 		device, _ := data.GetString("device")
-		err = self.startAttachIsolatedDevice(ctx, userCred, device)
+		err = self.StartAttachIsolatedDevice(ctx, userCred, device, autoStart)
 	} else if data.Contains("model") {
 		vmodel, _ := data.GetString("model")
 		var count int64 = 1
@@ -1831,7 +1831,7 @@ func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mc
 		if count < 1 {
 			return nil, httperrors.NewBadRequestError("guest attach gpu count must > 0")
 		}
-		err = self.startAttachIsolatedDevices(ctx, userCred, vmodel, int(count))
+		err = self.StartAttachIsolatedDevices(ctx, userCred, vmodel, int(count), autoStart)
 	} else {
 		return nil, httperrors.NewMissingParameterError("device||model")
 	}
@@ -1839,17 +1839,22 @@ func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mc
 	if err != nil {
 		return nil, err
 	}
-	if jsonutils.QueryBoolean(data, "auto_start", false) {
-		return self.PerformStart(ctx, userCred, query, data)
-	}
 	return nil, nil
 }
 
-func (self *SGuest) startAttachIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, gpuModel string, count int) error {
+func (self *SGuest) StartAttachIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, devModel string, count int, autoStart bool) error {
+	if err := self.startAttachIsolatedDevices(ctx, userCred, devModel, count); err != nil {
+		return err
+	}
+	// perform post attach task
+	return self.startIsolatedDevicesSyncTask(ctx, userCred, autoStart, "")
+}
+
+func (self *SGuest) startAttachIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, devModel string, count int) error {
 	host, _ := self.GetHost()
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
-	devs, err := IsolatedDeviceManager.GetDevsOnHost(host.Id, gpuModel, count)
+	devs, err := IsolatedDeviceManager.GetDevsOnHost(host.Id, devModel, count)
 	if err != nil {
 		return httperrors.NewInternalServerError("fetch gpu failed %s", err)
 	}
@@ -1866,6 +1871,14 @@ func (self *SGuest) startAttachIsolatedDevices(ctx context.Context, userCred mcc
 	return nil
 }
 
+func (self *SGuest) StartAttachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, device string, autoStart bool) error {
+	if err := self.startAttachIsolatedDevice(ctx, userCred, device); err != nil {
+		return err
+	}
+	// perform post attach task
+	return self.startIsolatedDevicesSyncTask(ctx, userCred, autoStart, "")
+}
+
 func (self *SGuest) startAttachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, device string) error {
 	iDev, err := IsolatedDeviceManager.FetchByIdOrName(userCred, device)
 	if err != nil {
@@ -1875,6 +1888,9 @@ func (self *SGuest) startAttachIsolatedDevice(ctx context.Context, userCred mccl
 		return httperrors.NewBadRequestError(msgFmt, device)
 	}
 	dev := iDev.(*SIsolatedDevice)
+	if dev.IsGPU() && self.GetStatus() != api.VM_READY {
+		return httperrors.NewInvalidStatusError("Can't attach GPU when status is %q", self.GetStatus())
+	}
 	host, _ := self.GetHost()
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
@@ -1893,7 +1909,9 @@ func (self *SGuest) attachIsolatedDevice(ctx context.Context, userCred mcclient.
 	if len(dev.GuestId) > 0 {
 		return fmt.Errorf("Isolated device already attached to another guest: %s", dev.GuestId)
 	}
-	if dev.HostId != self.HostId {
+	if dev.HostId !=
+
+		self.HostId {
 		return fmt.Errorf("Isolated device and guest are not located in the same host")
 	}
 	_, err := db.Update(dev, func() error {
@@ -1911,8 +1929,8 @@ func (self *SGuest) PerformSetIsolatedDevice(ctx context.Context, userCred mccli
 	if self.Hypervisor != api.HYPERVISOR_KVM {
 		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.Hypervisor)
 	}
-	if self.Status != api.VM_READY {
-		return nil, httperrors.NewInvalidStatusError("Only allowed to attach isolated device when guest is ready")
+	if !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_RUNNING}) {
+		return nil, httperrors.NewInvalidStatusError("Can't set isolated device when guest is %s", self.GetStatus())
 	}
 	var addDevs []string
 	{
@@ -1953,10 +1971,21 @@ func (self *SGuest) PerformSetIsolatedDevice(ctx context.Context, userCred mccli
 			return nil, err
 		}
 	}
-	if jsonutils.QueryBoolean(data, "auto_start", false) {
-		return self.PerformStart(ctx, userCred, query, data)
+	return nil, self.startIsolatedDevicesSyncTask(ctx, userCred, jsonutils.QueryBoolean(data, "auto_start", false), "")
+}
+
+func (self *SGuest) startIsolatedDevicesSyncTask(ctx context.Context, userCred mcclient.TokenCredential, autoStart bool, parenetId string) error {
+	if self.GetStatus() == api.VM_RUNNING {
+		autoStart = false
 	}
-	return nil, nil
+	data := jsonutils.Marshal(map[string]interface{}{
+		"auto_start": autoStart,
+	}).(*jsonutils.JSONDict)
+	if task, err := taskman.TaskManager.NewTask(ctx, "GuestIsolatedDeviceSyncTask", self, userCred, data, parenetId, "", nil); err != nil {
+		return err
+	} else {
+		return task.ScheduleRun(nil)
+	}
 }
 
 func (self *SGuest) findGuestnetworkByInfo(ipStr string, macStr string, index int64) (*SGuestnetwork, error) {
