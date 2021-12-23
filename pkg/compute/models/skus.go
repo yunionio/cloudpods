@@ -621,6 +621,11 @@ func (self *SServerSku) AllowDeleteItem(ctx context.Context, userCred mcclient.T
 	return inWhiteList(self.Provider) && db.IsAdminAllowDelete(userCred, self)
 }
 
+func (self *SServerSku) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	ServerSkuManager.ClearSchedDescCache(true)
+	self.SEnabledStatusStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
+}
+
 func (self *SServerSku) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	log.Infof("SServerSku delete do nothing")
 	return nil
