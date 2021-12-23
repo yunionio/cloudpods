@@ -1690,6 +1690,7 @@ func (h *SHostInfo) unregister() {
 
 func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) {
 	// TODO: dynamic probe endpoint type
+	svcs := os.Getenv("HOST_SYSTEM_SERVICES_OFF")
 	defaultEndpointType := options.HostOptions.SessionEndpointType
 	if len(defaultEndpointType) == 0 {
 		defaultEndpointType = identityapi.EndpointInterfacePublic
@@ -1706,7 +1707,7 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 				"ntp://2.cn.pool.ntp.org",
 				"ntp://3.cn.pool.ntp.org"}
 		}
-		if !reflect.DeepEqual(ntpd.GetConf(), urls) && !ntpd.IsActive() {
+		if !reflect.DeepEqual(ntpd.GetConf(), urls) || (!strings.Contains(svcs, "ntpd") && !ntpd.IsActive()) {
 			ntpd.SetConf(urls)
 			ntpd.BgReload(map[string]interface{}{"servers": urls})
 		}
@@ -1737,10 +1738,9 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 	if len(urls) > 0 {
 		conf["influxdb"] = map[string]interface{}{"url": urls, "database": "telegraf"}
 	}
-	log.Debugf("telegraf config: %s", conf)
-	if !reflect.DeepEqual(telegraf.GetConf(), conf) || !telegraf.IsActive() {
+	if !reflect.DeepEqual(telegraf.GetConf(), conf) || (!strings.Contains(svcs, "telegraf") && !telegraf.IsActive()) {
+		log.Debugf("telegraf config: %s", conf)
 		telegraf.SetConf(conf)
-		svcs := os.Getenv("HOST_SYSTEM_SERVICES_OFF")
 		if !strings.Contains(svcs, "telegraf") {
 			telegraf.BgReload(conf)
 		} else {

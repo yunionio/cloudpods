@@ -74,10 +74,10 @@ func AddDownloadHandler(prefix string, app *appsrv.Application) {
 }
 
 func customizeHandlerInfo(info *appsrv.SHandlerInfo) {
-	switch info.GetName(nil) {
-	case "disk_download", "download", "snapshot_download":
-		info.SetProcessNoTimeout().SetWorkerManager(streamingWorkerMan)
-	}
+	// switch info.GetName(nil) {
+	// case "disk_download", "download", "snapshot_download":
+	info.SetProcessNoTimeout().SetWorkerManager(streamingWorkerMan)
+	// }
 }
 
 func isCompress(r *http.Request) bool {
