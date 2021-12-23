@@ -15,7 +15,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/devtool/utils"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	ansible_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/ansiblev2"
@@ -44,21 +43,10 @@ func (self *GuestRestartNetworkTask) taskFailed(ctx context.Context, guest *mode
 
 func (self *GuestRestartNetworkTask) OnCloseIpMacSrcCheckComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.GetUserCred(), api.VM_RESTART_NETWORK, "restart network")
 
-	vpc, err := guest.GetVpc()
-	if err != nil {
-		self.taskFailed(ctx, guest, nil, err)
-		return
-	}
 	ip, _ := self.Params.GetString("ip")
 	session := auth.GetAdminSession(ctx, "", "")
-	sshable, clean, err := utils.CheckSshableForYunionCloud(session, utils.SServerInfo{
-		Id:         guest.GetId(),
-		Ip:         ip,
-		Hypervisor: guest.Hypervisor,
-		VpcId:      vpc.GetId(),
-	})
+	sshable, clean, err := self.checkSshable(ctx, guest, ip)
 	log.Infof("start to CheckSshableForYunionCloud")
 	if err != nil {
 		self.taskFailed(ctx, guest, clean, err)
@@ -161,7 +149,7 @@ Loop:
 		return
 	}
 	self.SetStage("OnResumeIpMacSrcCheckComplete", nil)
-	err = guest.StartSyncTask(ctx, self.GetUserCred(), false, self.Id)
+	err = guest.StartSyncTask(ctx, self.GetUserCred(), true, self.Id)
 	if err != nil {
 		self.taskFailed(ctx, guest, nil, err)
 	}
@@ -184,6 +172,7 @@ func (self *GuestRestartNetworkTask) OnCloseIpMacSrcCheckCompleteFailed(ctx cont
 
 func (self *GuestRestartNetworkTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
+	guest.SetStatus(self.GetUserCred(), api.VM_RESTART_NETWORK, "restart network")
 	if guest.SrcIpCheck.IsTrue() || guest.SrcMacCheck.IsTrue() {
 		data := jsonutils.NewDict()
 		data.Set("src_ip_check", jsonutils.NewBool(guest.SrcIpCheck.Bool()))
@@ -198,7 +187,7 @@ func (self *GuestRestartNetworkTask) OnInit(ctx context.Context, obj db.IStandal
 			return
 		}
 		self.SetStage("OnCloseIpMacSrcCheckComplete", data)
-		err = guest.StartSyncTask(ctx, self.GetUserCred(), false, self.Id)
+		err = guest.StartSyncTask(ctx, self.GetUserCred(), true, self.Id)
 		if err != nil {
 			self.taskFailed(ctx, guest, nil, err)
 			return
@@ -206,4 +195,66 @@ func (self *GuestRestartNetworkTask) OnInit(ctx context.Context, obj db.IStandal
 	} else {
 		self.OnCloseIpMacSrcCheckComplete(ctx, obj, data)
 	}
+}
+
+type SSHable struct {
+	Ok     bool
+	Reason string
+
+	User string
+	Host string
+	Port int
+}
+
+func (self *GuestRestartNetworkTask) checkSshable(ctx context.Context, guest *models.SGuest, ip string) (sshable SSHable, cleanFunc func() error, err error) {
+	vpc, err := guest.GetVpc()
+	if err != nil {
+		self.taskFailed(ctx, guest, nil, err)
+		return
+	}
+	vpcId := vpc.GetId()
+	if vpcId == "" || vpcId == api.DEFAULT_VPC_ID {
+		sshable = SSHable{
+			Ok:   true,
+			User: "cloudroot",
+			Host: ip,
+			Port: 22,
+		}
+		return
+	}
+	lfParams := jsonutils.NewDict()
+	lfParams.Set("proto", jsonutils.NewString("tcp"))
+	lfParams.Set("port", jsonutils.NewInt(22))
+	lfParams.Set("addr", jsonutils.NewString(ip))
+
+	var forward jsonutils.JSONObject
+	forward, err = guest.PerformOpenForward(ctx, self.UserCred, nil, lfParams)
+	if err != nil {
+		err = errors.Wrapf(err, "unable to Open Forward for server %s", guest.Id)
+		return
+	}
+	cleanFunc = func() error {
+		proxyAddr := sshable.Host
+		proxyPort := sshable.Port
+		params := jsonutils.NewDict()
+		params.Set("proto", jsonutils.NewString("tcp"))
+		params.Set("proxy_addr", jsonutils.NewString(proxyAddr))
+		params.Set("proxy_port", jsonutils.NewInt(int64(proxyPort)))
+		_, err := guest.PerformCloseForward(ctx, self.UserCred, nil, params)
+		if err != nil {
+			return errors.Wrapf(err, "unable to close forward(addr %q, port %d, proto %q) for server %s", proxyAddr, proxyPort, "tcp", guest.Id)
+		}
+		return nil
+	}
+
+	proxyAddr, _ := forward.GetString("proxy_addr")
+	proxyPort, _ := forward.Int("proxy_port")
+	// register
+	sshable = SSHable{
+		Ok:   true,
+		User: "cloudroot",
+		Host: proxyAddr,
+		Port: int(proxyPort),
+	}
+	return
 }
