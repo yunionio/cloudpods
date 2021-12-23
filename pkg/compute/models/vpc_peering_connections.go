@@ -359,11 +359,23 @@ func (self *SVpcPeeringConnection) syncRemove(ctx context.Context, userCred mccl
 }
 
 func (self *SVpcPeeringConnection) SyncWithCloudPeerConnection(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudVpcPeeringConnection, provider *SCloudprovider) error {
-	_, err := db.Update(self, func() error {
+	vpc, err := self.GetVpc()
+	if err != nil {
+		return errors.Wrapf(err, "GetVpc")
+	}
+	_, err = db.Update(self, func() error {
 		self.Status = ext.GetStatus()
 		self.ExternalId = ext.GetGlobalId()
 		self.ExtPeerVpcId = ext.GetPeerVpcId()
 		self.ExtPeerAccountId = ext.GetPeerAccountId()
+		peerVpc, _ := db.FetchByExternalIdAndManagerId(VpcManager, self.ExtPeerVpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			managerQ := CloudproviderManager.Query("id").Equals("provider", vpc.GetProviderName())
+			return q.In("manager_id", managerQ.SubQuery())
+		})
+		if peerVpc != nil {
+			self.PeerVpcId = peerVpc.GetId()
+		}
+
 		return nil
 	})
 	if err != nil {
