@@ -76,12 +76,12 @@ func init() {
 		return nil
 	})
 
-	R(&DeviceShowOptions{}, "isolated-device-delete", "Delete a isolated device", func(s *mcclient.ClientSession, args *DeviceShowOptions) error {
-		result, err := modules.IsolatedDevices.Delete(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
+	type DeviceDeleteOptions struct {
+		IDS []string `help:"IDs of the isolated device"`
+	}
+	R(&DeviceDeleteOptions{}, "isolated-device-delete", "Delete a isolated device", func(s *mcclient.ClientSession, args *DeviceDeleteOptions) error {
+		result := modules.IsolatedDevices.BatchDelete(s, args.IDS, nil)
+		printBatchResults(result, modules.IsolatedDevices.GetColumns(s))
 		return nil
 	})
 

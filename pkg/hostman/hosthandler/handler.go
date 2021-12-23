@@ -40,7 +40,8 @@ func AddHostHandler(prefix string, app *appsrv.Application) {
 			auth.Authenticate(setOnHostDown))
 
 		for action, f := range map[string]actionFunc{
-			"sync": hostSync,
+			"sync":                   hostSync,
+			"probe-isolated-devices": hostProbeIsolatedDevices,
 		} {
 			app.AddHandler("POST",
 				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyword, action),
@@ -76,6 +77,10 @@ func hostActions(f actionFunc) appsrv.FilterHandler {
 	}
 }
 
-func hostSync(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	return hostinfo.Instance().UpdateSyncInfo(sid, body)
+func hostSync(ctx context.Context, hostId string, body jsonutils.JSONObject) (interface{}, error) {
+	return hostinfo.Instance().UpdateSyncInfo(hostId, body)
+}
+
+func hostProbeIsolatedDevices(ctx context.Context, hostId string, body jsonutils.JSONObject) (interface{}, error) {
+	return hostinfo.Instance().ProbeSyncIsolatedDevices(hostId, body)
 }

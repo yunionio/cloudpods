@@ -95,14 +95,14 @@ type SIsolatedDevice struct {
 
 	VendorDeviceId string `width:"16" charset:"ascii" nullable:"true" list:"domain" create:"domain_optional"`
 
-	// reserved memory size for isolated device, default 8G
-	ReservedMemory int `nullable:"true" default:"8192" list:"domain" update:"domain" create:"domain_optional"`
+	// reserved memory size for isolated device
+	ReservedMemory int `nullable:"true" efault:"0" list:"domain" update:"domain" create:"domain_optional"`
 
-	// reserved cpu count for isolated device, default 8
-	ReservedCpu int `nullable:"true" default:"8" list:"domain" update:"domain" create:"domain_optional"`
+	// reserved cpu count for isolated device
+	ReservedCpu int `nullable:"true" default:"0" list:"domain" update:"domain" create:"domain_optional"`
 
-	// reserved storage size for isolated device, default 100G
-	ReservedStorage int `nullable:"true" default:"102400" list:"domain" update:"domain" create:"domain_optional"`
+	// reserved storage size for isolated device
+	ReservedStorage int `nullable:"true" default:"0" list:"domain" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SIsolatedDeviceManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -138,11 +138,35 @@ func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context,
 		input.Name = fmt.Sprintf("dev_%s_%d", host.GetName(), time.Now().UnixNano())
 	}
 
+	//  validate DevType
+	if input.DevType == "" {
+		return input, httperrors.NewNotEmptyError("dev_type is empty")
+	}
+	if !utils.IsInStringArray(input.DevType, []string{api.GPU_HPC_TYPE, api.GPU_VGA_TYPE, api.USB_TYPE, api.NIC_TYPE}) {
+		return input, httperrors.NewInputParameterError("device type %q not supported", input.DevType)
+	}
+
 	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "SStandaloneResourceBaseManager.ValidateCreateData")
 	}
 
+	// validate reserverd resource
+	// inject default reserverd resource for gpu:
+	if utils.IsInStringArray(input.DevType, []string{api.GPU_HPC_TYPE, api.GPU_VGA_TYPE}) {
+		defaultCPU := 8        // 8
+		defaultMem := 8192     // 8g
+		defaultStore := 102400 // 100g
+		if input.ReservedCpu == nil {
+			input.ReservedCpu = &defaultCPU
+		}
+		if input.ReservedMemory == nil {
+			input.ReservedMemory = &defaultMem
+		}
+		if input.ReservedStorage == nil {
+			input.ReservedStorage = &defaultStore
+		}
+	}
 	if input.ReservedCpu != nil && *input.ReservedCpu < 0 {
 		return input, httperrors.NewInputParameterError("reserved cpu must >= 0")
 	}
@@ -356,7 +380,7 @@ func (self *SIsolatedDevice) getVendor() string {
 	}
 }
 
-func (self *SIsolatedDevice) isGpu() bool {
+func (self *SIsolatedDevice) IsGPU() bool {
 	return strings.HasPrefix(self.DevType, "GPU")
 }
 
@@ -395,7 +419,7 @@ func (manager *SIsolatedDeviceManager) parseDeviceInfo(userCred mcclient.TokenCr
 		devConfig.Model = dev.Model
 		devConfig.DevType = dev.DevType
 		devConfig.Vendor = dev.getVendor()
-		if dev.isGpu() && len(devType) > 0 {
+		if dev.IsGPU() && len(devType) > 0 {
 			if !utils.IsInStringArray(devType, VALID_GPU_TYPES) {
 				return nil, fmt.Errorf("%s not valid for GPU device", devType)
 			}

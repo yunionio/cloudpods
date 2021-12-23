@@ -1081,6 +1081,31 @@ func (s *SKVMGuestInstance) compareDescDisks(newDesc jsonutils.JSONObject) ([]js
 	return delDisks, addDisks
 }
 
+func (s *SKVMGuestInstance) compareDescIsolatedDevices(newDesc jsonutils.JSONObject) ([]jsonutils.JSONObject, []jsonutils.JSONObject) {
+	var delDevs, addDevs = []jsonutils.JSONObject{}, []jsonutils.JSONObject{}
+	newDevs, _ := newDesc.GetArray("isolated_devices")
+	for _, dev := range newDevs {
+		addDevs = append(addDevs, dev)
+	}
+	oldDevs, _ := s.Desc.GetArray("isolated_devices")
+	for _, oldDev := range oldDevs {
+		var find = false
+		oVendorDevId, _ := oldDev.GetString("vendor_device_id")
+		for idx, addDev := range addDevs {
+			nVendorDevId, _ := addDev.GetString("vendor_device_id")
+			if oVendorDevId == nVendorDevId {
+				addDevs = append(addDevs[:idx], addDevs[idx+1:]...)
+				find = true
+				break
+			}
+		}
+		if !find {
+			delDevs = append(delDevs, oldDev)
+		}
+	}
+	return delDevs, addDevs
+}
+
 func (s *SKVMGuestInstance) compareDescCdrom(newDesc jsonutils.JSONObject) *string {
 	if !s.Desc.Contains("cdrom") && !newDesc.Contains("cdrom") {
 		return nil
@@ -1211,7 +1236,7 @@ func onNicChange(oldNic, newNic jsonutils.JSONObject) error {
 }
 
 func (s *SKVMGuestInstance) SyncConfig(ctx context.Context, desc jsonutils.JSONObject, fwOnly bool) (jsonutils.JSONObject, error) {
-	var delDisks, addDisks, delNetworks, addNetworks []jsonutils.JSONObject
+	var delDisks, addDisks, delNetworks, addNetworks, delDevs, addDevs []jsonutils.JSONObject
 	var changedNetworks [][]jsonutils.JSONObject
 	var cdrom *string
 
@@ -1219,6 +1244,7 @@ func (s *SKVMGuestInstance) SyncConfig(ctx context.Context, desc jsonutils.JSONO
 		delDisks, addDisks = s.compareDescDisks(desc)
 		cdrom = s.compareDescCdrom(desc)
 		delNetworks, addNetworks, changedNetworks = s.compareDescNetworks(desc)
+		delDevs, addDevs = s.compareDescIsolatedDevices(desc)
 	}
 
 	if len(changedNetworks) > 0 && s.IsRunning() {
@@ -1275,6 +1301,12 @@ func (s *SKVMGuestInstance) SyncConfig(ctx context.Context, desc jsonutils.JSONO
 	if len(delNetworks)+len(addNetworks) > 0 {
 		task := NewGuestNetworkSyncTask(s, delNetworks, addNetworks)
 		runTaskNames = append(runTaskNames, jsonutils.NewString("networksync"))
+		tasks = append(tasks, task)
+	}
+
+	if len(delDevs)+len(addDevs) > 0 {
+		task := NewGuestIsolatedDeviceSyncTask(s, delDevs, addDevs)
+		runTaskNames = append(runTaskNames, jsonutils.NewString("isolated_device_sync"))
 		tasks = append(tasks, task)
 	}
 

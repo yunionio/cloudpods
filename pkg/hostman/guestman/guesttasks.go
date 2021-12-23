@@ -29,7 +29,9 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -463,6 +465,146 @@ func (n *SGuestNetworkSyncTask) onDeviceAdd(nic jsonutils.JSONObject) {
 
 func NewGuestNetworkSyncTask(guest *SKVMGuestInstance, delNics, addNics []jsonutils.JSONObject) *SGuestNetworkSyncTask {
 	return &SGuestNetworkSyncTask{guest, delNics, addNics, make([]error, 0), nil}
+}
+
+/**
+ *  GuestIsolatedDeviceSyncTask
+**/
+
+type SGuestIsolatedDeviceSyncTask struct {
+	guest   *SKVMGuestInstance
+	delDevs []jsonutils.JSONObject
+	addDevs []jsonutils.JSONObject
+	errors  []error
+
+	callback func(...error)
+}
+
+func NewGuestIsolatedDeviceSyncTask(guest *SKVMGuestInstance, delDevs, addDevs []jsonutils.JSONObject) *SGuestIsolatedDeviceSyncTask {
+	return &SGuestIsolatedDeviceSyncTask{guest, delDevs, addDevs, make([]error, 0), nil}
+}
+
+func (t *SGuestIsolatedDeviceSyncTask) Start(cb func(...error)) {
+	t.callback = cb
+	t.syncDevice()
+}
+
+func (t *SGuestIsolatedDeviceSyncTask) syncDevice() {
+	if len(t.delDevs) > 0 {
+		dev := t.delDevs[len(t.delDevs)-1]
+		t.delDevs = t.delDevs[:len(t.delDevs)-1]
+		t.removeDevice(dev)
+	} else if len(t.addDevs) > 0 {
+		dev := t.addDevs[len(t.addDevs)-1]
+		t.addDevs = t.addDevs[:len(t.addDevs)-1]
+		t.addDevice(dev)
+	} else {
+		t.callback(t.errors...)
+	}
+}
+
+func (t *SGuestIsolatedDeviceSyncTask) removeDevice(dev jsonutils.JSONObject) {
+	cb := func(res string) {
+		if len(res) > 0 {
+			t.errors = append(t.errors, fmt.Errorf("device del failed: %s", res))
+		} else {
+			t.syncDevice()
+		}
+	}
+
+	vendorDevId, err := dev.GetString("vendor_device_id")
+	if err != nil {
+		cb(err.Error())
+		return
+	}
+	addr, err := dev.GetString("addr")
+	if err != nil {
+		cb(err.Error())
+		return
+	}
+
+	devObj := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByIdent(vendorDevId, addr)
+	if devObj == nil {
+		cb(fmt.Sprintf("Not found host isolated_device by %s %s", vendorDevId, addr))
+		return
+	}
+
+	opts, err := devObj.GetHotUnplugOptions()
+	if err != nil {
+		cb(errors.Wrap(err, "GetHotPlugOptions").Error())
+		return
+	}
+
+	t.delDeviceCallBack(opts, 0, cb)
+}
+
+func (t *SGuestIsolatedDeviceSyncTask) addDevice(dev jsonutils.JSONObject) {
+	cb := func(res string) {
+		if len(res) > 0 {
+			t.errors = append(t.errors, fmt.Errorf("device add failed: %s", res))
+		} else {
+			t.syncDevice()
+		}
+	}
+
+	vendorDevId, err := dev.GetString("vendor_device_id")
+	if err != nil {
+		cb(err.Error())
+		return
+	}
+	addr, err := dev.GetString("addr")
+	if err != nil {
+		cb(err.Error())
+		return
+	}
+
+	devObj := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByIdent(vendorDevId, addr)
+	if devObj == nil {
+		cb(fmt.Sprintf("Not found host isolated_device by %s %s", vendorDevId, addr))
+		return
+	}
+
+	opts, err := devObj.GetHotPlugOptions()
+	if err != nil {
+		cb(errors.Wrap(err, "GetHotPlugOptions").Error())
+		return
+	}
+
+	// TODO: support GPU
+	t.addDeviceCallBack(opts, 0, cb)
+}
+
+func (t *SGuestIsolatedDeviceSyncTask) addDeviceCallBack(opts []*isolated_device.HotPlugOption, idx int, onAddFinish func(string)) {
+	if idx >= len(opts) {
+		onAddFinish("")
+		return
+	}
+
+	opt := opts[idx]
+	t.guest.Monitor.DeviceAdd(opt.Device, opt.Options, func(err string) {
+		if err != "" {
+			onAddFinish(fmt.Sprintf("monitor add %d device: %s", idx, err))
+			return
+		}
+		t.addDeviceCallBack(opts, idx+1, onAddFinish)
+	})
+}
+
+func (t *SGuestIsolatedDeviceSyncTask) delDeviceCallBack(opts []*isolated_device.HotUnplugOption, idx int, onDelFinish func(string)) {
+	if idx >= len(opts) {
+		onDelFinish("")
+		return
+	}
+
+	opt := opts[idx]
+
+	t.guest.Monitor.DeviceDel(opt.Id, func(err string) {
+		if err != "" {
+			onDelFinish(fmt.Sprintf("monitor del %d device: %s", idx, err))
+			return
+		}
+		t.delDeviceCallBack(opts, idx+1, onDelFinish)
+	})
 }
 
 /**

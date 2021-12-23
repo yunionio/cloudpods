@@ -79,7 +79,7 @@ type SHostInfo struct {
 	enableHugePages bool
 	onHostDown      string
 
-	IsolatedDeviceMan *isolated_device.IsolatedDeviceManager
+	IsolatedDeviceMan isolated_device.IsolatedDeviceManager
 
 	MasterNic *netutils2.SNetInterface
 	Nics      []*SNIC
@@ -100,7 +100,7 @@ type SHostInfo struct {
 	IoScheduler string
 }
 
-func (h *SHostInfo) GetIsolatedDeviceManager() *isolated_device.IsolatedDeviceManager {
+func (h *SHostInfo) GetIsolatedDeviceManager() isolated_device.IsolatedDeviceManager {
 	return h.IsolatedDeviceMan
 }
 
@@ -1001,6 +1001,13 @@ func (h *SHostInfo) UpdateSyncInfo(hostId string, body jsonutils.JSONObject) (in
 	return nil, nil
 }
 
+func (h *SHostInfo) ProbeSyncIsolatedDevices(hostId string, body jsonutils.JSONObject) (interface{}, error) {
+	if h.GetHostId() != hostId {
+		return nil, nil
+	}
+	return h.probeSyncIsolatedDevices()
+}
+
 func (h *SHostInfo) setHostname(name string) {
 	h.FullName = name
 	err := sysutils.SetHostname(name)
@@ -1148,7 +1155,7 @@ func (h *SHostInfo) onUpdateHostInfoSucc(hostbody jsonutils.JSONObject) {
 	}
 
 	if options.HostOptions.HugepagesOption == "native" {
-		if h.isInit && len(h.IsolatedDeviceMan.Devices) > 0 {
+		if h.isInit && len(h.IsolatedDeviceMan.GetDevices()) > 0 {
 			meta := jsonutils.NewDict()
 			meta.Set("__enable_hugepages", jsonutils.NewString("true"))
 			_, err := modules.Hosts.SetMetadata(h.GetSession(), h.HostId, meta)
@@ -1504,16 +1511,7 @@ func (h *SHostInfo) uploadStorageInfo() {
 	go storageman.StartSyncStorageSizeTask(
 		time.Duration(options.HostOptions.SyncStorageInfoDurationSecond) * time.Second,
 	)
-	var err error
-	if !options.HostOptions.DisableGPU {
-		err = h.IsolatedDeviceMan.ProbePCIDevices()
-	}
-	if err != nil {
-		h.onFail(errors.Wrap(err, "Probe PCI device failed"))
-		return
-	} else {
-		h.getIsolatedDevices()
-	}
+	h.probeSyncIsolatedDevicesStep()
 }
 
 func (h *SHostInfo) onSyncStorageInfoSucc(storage storageman.IStorage, storageInfo jsonutils.JSONObject) {
@@ -1541,7 +1539,7 @@ func (h *SHostInfo) attachStorage(storage storageman.IStorage) {
 	}
 }
 
-func (h *SHostInfo) getIsolatedDevices() {
+func (h *SHostInfo) getRemoteIsolatedDevices() ([]jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 	params.Set("details", jsonutils.JSONTrue)
 	params.Set("limit", jsonutils.NewInt(0))
@@ -1549,18 +1547,34 @@ func (h *SHostInfo) getIsolatedDevices() {
 	params.Set("scope", jsonutils.NewString("system"))
 	res, err := modules.IsolatedDevices.List(h.GetSession(), params)
 	if err != nil {
-		h.onFail(fmt.Sprintf("getIsolatedDevices: %v", err))
-		return
+		return nil, err
 	}
-	h.onGetIsolatedDeviceSucc(res.Data)
+	return res.Data, nil
 }
 
-func (h *SHostInfo) onGetIsolatedDeviceSucc(objs []jsonutils.JSONObject) {
+func (h *SHostInfo) probeSyncIsolatedDevicesStep() {
+	_, err := h.probeSyncIsolatedDevices()
+	if err != nil {
+		h.onFail(errors.Wrap(err, "probeSyncIsolatedDevices"))
+		return
+	}
+
+	h.deployAdminAuthorizedKeys()
+}
+
+func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
+	if err := h.IsolatedDeviceMan.ProbePCIDevices(options.HostOptions.DisableGPU, options.HostOptions.DisableUSB); err != nil {
+		return nil, errors.Wrap(err, "ProbePCIDevices")
+	}
+
+	objs, err := h.getRemoteIsolatedDevices()
+	if err != nil {
+		return nil, errors.Wrap(err, "getRemoteIsolatedDevices")
+	}
 	for _, obj := range objs {
 		info := isolated_device.CloudDeviceInfo{}
 		if err := obj.Unmarshal(&info); err != nil {
-			h.onFail(fmt.Sprintf("unmarshal isolated device to cloud device info failed %s", err))
-			return
+			return nil, errors.Wrapf(err, "unmarshal isolated device %s to cloud device info", obj)
 		}
 		dev := h.IsolatedDeviceMan.GetDeviceByIdent(info.VendorDeviceId, info.Addr)
 		if dev != nil {
@@ -1572,21 +1586,19 @@ func (h *SHostInfo) onGetIsolatedDeviceSucc(objs []jsonutils.JSONObject) {
 	}
 	h.IsolatedDeviceMan.StartDetachTask()
 	if err := h.IsolatedDeviceMan.BatchCustomProbe(); err != nil {
-		h.onFail(fmt.Sprintf("Device probe error: %v", err))
-		return
+		return nil, errors.Wrap(err, "Device probe")
 	}
-	h.uploadIsolatedDevices()
-}
 
-func (h *SHostInfo) uploadIsolatedDevices() {
-	for _, dev := range h.IsolatedDeviceMan.Devices {
-		if err := dev.SyncDeviceInfo(h.GetSession(), h.HostId); err != nil {
-			h.onFail(fmt.Sprintf("Sync device %s: %v", dev.String(), err))
-			return
+	// sync each isolated device found
+	updateDevs := jsonutils.NewArray()
+	for _, dev := range h.IsolatedDeviceMan.GetDevices() {
+		if obj, err := isolated_device.SyncDeviceInfo(h.GetSession(), h.HostId, dev); err != nil {
+			return nil, errors.Wrapf(err, "Sync device %s", dev)
+		} else {
+			updateDevs.Add(obj)
 		}
 	}
-
-	h.deployAdminAuthorizedKeys()
+	return updateDevs, nil
 }
 
 func (h *SHostInfo) deployAdminAuthorizedKeys() {

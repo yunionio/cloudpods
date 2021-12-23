@@ -48,7 +48,7 @@ func init() {
 	R(&ServerDetachDeviceOptions{}, "server-detach-isolated-device", "Detach a isolated device from a virtual server", func(s *mcclient.ClientSession, args *ServerDetachDeviceOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.DEVICE), "device")
-		srv, err := modules.Servers.PerformAction(s, args.SERVER, "detach-isolated_device", params)
+		srv, err := modules.Servers.PerformAction(s, args.SERVER, "detach-isolated-device", params)
 		if err != nil {
 			return err
 		}

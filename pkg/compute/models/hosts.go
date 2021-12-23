@@ -6038,3 +6038,7 @@ func (host *SHost) IsAssignable(userCred mcclient.TokenCredential) error {
 		return httperrors.NewNotSufficientPrivilegeError("Only system admin can assign host")
 	}
 }
+
+func (self *SHost) PerformProbeIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return self.GetHostDriver().RequestProbeIsolatedDevices(ctx, userCred, self, data)
+}
