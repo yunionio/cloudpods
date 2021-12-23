@@ -412,9 +412,14 @@ func (m *SGuestManager) OpenForward(ctx context.Context, sid string, req *hostap
 	if netId == "" {
 		return nil, httperrors.NewBadRequestError("no network id")
 	}
-	ip, _ := nic.GetString("ip")
-	if ip == "" {
-		return nil, httperrors.NewBadRequestError("no vpc ip")
+	var ip string
+	if req.Addr != "" {
+		ip = req.Addr
+	} else {
+		ip, _ := nic.GetString("ip")
+		if ip == "" {
+			return nil, httperrors.NewBadRequestError("no vpc ip")
+		}
 	}
 	pbreq := &fwdpb.OpenRequest{
 		NetId:      netId,

@@ -45,10 +45,12 @@ func NewOpenForwardRequestFromJSON(data jsonutils.JSONObject) (*OpenForwardReque
 	var (
 		protoV = validators.NewStringChoicesValidator("proto", compute_api.GuestForwardProtoChoices)
 		portV  = validators.NewPortValidator("port")
+		addrV  = validators.NewIPv4AddrValidator("addr")
 	)
 	for _, v := range []validators.IValidator{
 		protoV.Default(compute_api.GuestForwardProtoTCP),
 		portV,
+		addrV.Optional(true),
 	} {
 		if err := v.Validate(dict); err != nil {
 			return nil, err
@@ -57,6 +59,9 @@ func NewOpenForwardRequestFromJSON(data jsonutils.JSONObject) (*OpenForwardReque
 	req := &OpenForwardRequest{
 		Proto: protoV.Value,
 		Port:  int(portV.Value),
+	}
+	if addrV.IP != nil && addrV.IP.String() != "" {
+		req.Addr = addrV.IP.String()
 	}
 	return req, nil
 }
@@ -129,10 +134,12 @@ func NewListForwardRequestFromJSON(data jsonutils.JSONObject) (*ListForwardReque
 	var (
 		protoV = validators.NewStringChoicesValidator("proto", compute_api.GuestForwardProtoChoices)
 		portV  = validators.NewPortValidator("port")
+		addrV  = validators.NewIPv4AddrValidator("addr")
 	)
 	for _, v := range []validators.IValidator{
 		protoV.Optional(true),
 		portV.Optional(true),
+		addrV.Optional(true),
 	} {
 		if err := v.Validate(dict); err != nil {
 			return nil, err
@@ -141,6 +148,9 @@ func NewListForwardRequestFromJSON(data jsonutils.JSONObject) (*ListForwardReque
 	req := &ListForwardRequest{
 		Proto: protoV.Value,
 		Port:  int(portV.Value),
+	}
+	if addrV.IP != nil && addrV.IP.String() != "" {
+		req.Addr = addrV.IP.String()
 	}
 	return req, nil
 }
