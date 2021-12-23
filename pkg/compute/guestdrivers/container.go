@@ -100,7 +100,7 @@ func (self *SContainerDriver) RequestStartOnHost(ctx context.Context, guest *mod
 	return httperrors.NewUnsupportOperationError("")
 }
 
-func (self *SContainerDriver) RequestStopOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+func (self *SContainerDriver) RequestStopOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask, syncStatus bool) error {
 	return containerUseKubectlError
 }
 

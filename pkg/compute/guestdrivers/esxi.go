@@ -660,7 +660,7 @@ func (self *SESXiGuestDriver) RequestStartOnHost(ctx context.Context, guest *mod
 	return guest.SetStatus(userCred, api.VM_RUNNING, "StartOnHost")
 }
 
-func (self *SESXiGuestDriver) RequestStopOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+func (self *SESXiGuestDriver) RequestStopOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask, syncStatus bool) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		ivm, err := guest.GetIVM()
 		if err != nil {
@@ -709,7 +709,7 @@ func (self *SESXiGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest
 		}
 		ivm = vm
 	}
-	err = guest.SyncAllWithCloudVM(ctx, userCred, host, ivm)
+	err = guest.SyncAllWithCloudVM(ctx, userCred, host, ivm, true)
 	if err != nil {
 		return nil, err
 	}
