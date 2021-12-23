@@ -2119,9 +2119,10 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 	restartNetwork, _ := data.Bool("restart_network")
 
 	taskData := jsonutils.NewDict()
-	if self.Hypervisor == api.HYPERVISOR_KVM && restartNetwork {
+	if self.Hypervisor == api.HYPERVISOR_KVM && restartNetwork && self.Status == api.VM_RUNNING {
 		taskData.Set("restart_network", jsonutils.JSONTrue)
 		taskData.Set("prev_ip", jsonutils.NewString(gn.IpAddr))
+		self.SetStatus(userCred, api.VM_RESTART_NETWORK, "restart network")
 	}
 	return nil, self.startSyncTask(ctx, userCred, true, "", taskData)
 }
