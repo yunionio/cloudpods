@@ -24,6 +24,7 @@ type ServerOpenForwardOptions struct {
 	ServerIdOptions
 	Proto string `json:"proto" help:"protocol" choices:"tcp|udp" default:"tcp"`
 	Port  int    `json:"port" help:"port" required:"true"`
+	Addr  string `json:"addr"`
 }
 
 func (o *ServerOpenForwardOptions) Params() (jsonutils.JSONObject, error) {
@@ -45,6 +46,7 @@ type ServerListForwardOptions struct {
 	ServerIdOptions
 	Proto *string `json:"proto" help:"protocol" choices:"tcp|udp"`
 	Port  *int    `json:"port" help:"port"`
+	Addr  *string `json:"addr"`
 }
 
 func (o *ServerListForwardOptions) Params() (jsonutils.JSONObject, error) {
