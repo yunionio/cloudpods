@@ -615,6 +615,7 @@ func (s *SGuestResumeTask) confirmRunning() {
 }
 
 func (s *SGuestResumeTask) onConfirmRunning(status string) {
+	log.Debugf("onConfirmRunning status %s", status)
 	if status == "running" || status == "paused (suspended)" || status == "paused (perlaunch)" {
 		s.onStartRunning()
 	} else if strings.Contains(status, "error") {
@@ -649,6 +650,7 @@ func (s *SGuestResumeTask) taskFailed(reason string) {
 }
 
 func (s *SGuestResumeTask) onGetBlockInfo(results *jsonutils.JSONArray) {
+	log.Debugf("onGetBlockInfo %s", results)
 	// for _, drv := range results.GetArray() {
 	// 	// encryption not work
 	// }
