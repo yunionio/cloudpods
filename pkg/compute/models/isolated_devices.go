@@ -328,8 +328,13 @@ func (manager *SIsolatedDeviceManager) fuzzyMatchModel(fuzzyStr string) *SIsolat
 	dev := SIsolatedDevice{}
 	dev.SetModelManager(manager, &dev)
 
-	q := manager.Query().Contains("model", fuzzyStr)
-	err := q.First(&dev)
+	q := manager.Query().Equals("model", fuzzyStr)
+	cnt, err := q.CountWithError()
+	if err != nil || cnt == 0 {
+		q = manager.Query().Contains("model", fuzzyStr)
+	}
+
+	err = q.First(&dev)
 	if err == nil {
 		return &dev
 	}
@@ -379,7 +384,6 @@ func (manager *SIsolatedDeviceManager) parseDeviceInfo(userCred mcclient.TokenCr
 		} else {
 			devConfig.Vendor = matchDev.getVendorId()
 		}
-
 	} else {
 		devObj, err := manager.FetchById(devId)
 		if err != nil {
