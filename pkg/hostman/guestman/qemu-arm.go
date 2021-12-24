@@ -167,7 +167,7 @@ function nic_mtu() {
 
 	// warning: Number of hotpluggable cpus requested (128)
 	// exceeds the recommended cpus supported by KVM (32)
-	cmd += fmt.Sprintf(" -smp cpus=%d,sockets=2,cores=64,maxcpus=128", cpu)
+	cmd += fmt.Sprintf(" -smp cpus=%d,sockets=2,cores=32,maxcpus=64", cpu)
 	cmd += fmt.Sprintf(" -name %s", name)
 	if options.HostOptions.EnableVmUuid {
 		cmd += fmt.Sprintf(" -uuid %s", uuid)
