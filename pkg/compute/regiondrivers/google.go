@@ -76,7 +76,7 @@ func (self *SGoogleRegionDriver) GetSecurityGroupRuleMaxPriority() int {
 }
 
 func (self *SGoogleRegionDriver) GetSecurityGroupRuleMinPriority() int {
-	return 65535
+	return 65534
 }
 
 func (self *SGoogleRegionDriver) GetProvider() string {
