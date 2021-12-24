@@ -420,6 +420,7 @@ func (s *SKVMGuestInstance) StartMonitorWithImportGuestSocketFile(ctx context.Co
 	timeutils2.AddTimeout(100*time.Millisecond, func() {
 		s.Monitor = monitor.NewQmpMonitor(
 			s.GetName(),
+			s.Id,
 			s.onImportGuestMonitorDisConnect, // on monitor disconnect
 			func(err error) { s.onImportGuestMonitorTimeout(ctx, err) }, // on monitor timeout
 			func() { s.onImportGuestMonitorConnected(ctx) },             // on monitor connected
@@ -436,6 +437,7 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 			var mon monitor.Monitor
 			mon = monitor.NewQmpMonitor(
 				s.GetName(),
+				s.Id,
 				s.onMonitorDisConnect, // on monitor disconnect
 				func(err error) { s.onMonitorTimeout(ctx, err) }, // on monitor timeout
 				func() { s.onMonitorConnected(ctx) },             // on monitor connected
@@ -446,6 +448,7 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 				log.Errorf("Guest %s qmp monitor connect failed %s, try hmp", s.GetName(), err)
 				mon = monitor.NewHmpMonitor(
 					s.GetName(),
+					s.Id,
 					s.onMonitorDisConnect, // on monitor disconnect
 					func(err error) { s.onMonitorTimeout(ctx, err) }, // on monitor timeout
 					func() { s.onMonitorConnected(ctx) },             // on monitor connected

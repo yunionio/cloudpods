@@ -47,6 +47,7 @@ type BlockJob struct {
 	start     time.Time
 	preOffset int64
 	now       time.Time
+	speedMbps float64
 }
 
 type blockSizeByte int64
@@ -76,6 +77,7 @@ func (self *BlockJob) PreOffset(preOffset int64) {
 	second := time.Now().Sub(self.now).Seconds()
 	if second > 0 {
 		speed := float64(self.Offset-preOffset) / second
+		self.speedMbps = speed / 1024 / 1024
 		avgSpeed := float64(self.Offset) / time.Now().Sub(self.start).Seconds()
 		log.Infof(`[%s / %s] server %s block job for %s speed: %s/s(avg: %s/s)`, blockSizeByte(self.Offset).String(), blockSizeByte(self.Len).String(), self.server, self.Device, blockSizeByte(speed).String(), blockSizeByte(avgSpeed).String())
 	}
@@ -144,6 +146,7 @@ type SBaseMonitor struct {
 	OnMonitorTimeout    MonitorErrorFunc
 
 	server string
+	sid    string
 
 	QemuVersion string
 	connected   bool
@@ -155,12 +158,13 @@ type SBaseMonitor struct {
 	reading bool
 }
 
-func NewBaseMonitor(server string, OnMonitorConnected MonitorSuccFunc, OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc) *SBaseMonitor {
+func NewBaseMonitor(server, sid string, OnMonitorConnected MonitorSuccFunc, OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc) *SBaseMonitor {
 	return &SBaseMonitor{
 		OnMonitorConnected:  OnMonitorConnected,
 		OnMonitorDisConnect: OnMonitorDisConnect,
 		OnMonitorTimeout:    OnMonitorTimeout,
 		server:              server,
+		sid:                 sid,
 		timeout:             true,
 		mutex:               &sync.Mutex{},
 	}
