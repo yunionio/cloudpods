@@ -244,6 +244,9 @@ func (self *SSecurityGroup) GetRules() ([]cloudprovider.SecurityRule, error) {
 	}
 	rules := []cloudprovider.SecurityRule{}
 	for _, firewall := range firewalls {
+		if firewall.Priority == 65535 { // skip 65535 rule, because it not work
+			continue
+		}
 		_rules, err := firewall.toRules()
 		if err != nil {
 			return nil, err
