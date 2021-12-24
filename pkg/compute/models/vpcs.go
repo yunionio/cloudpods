@@ -882,25 +882,25 @@ func (manager *SVpcManager) ValidateCreateData(
 
 func (self *SVpc) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	input := api.VpcCreateInput{}
-	err := data.Unmarshal(&input)
-	if err != nil {
-		log.Errorf("input unmarshal error %s", err)
-	} else {
-		pendingUsage := &SInfrasQuota{Vpc: 1}
-		keys := GetVpcQuotaKeysFromCreateInput(ownerId, input)
-		pendingUsage.SetKeys(keys)
-		quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage, true)
-	}
+	data.Unmarshal(&input)
+	pendingUsage := &SInfrasQuota{Vpc: 1}
+	keys := GetVpcQuotaKeysFromCreateInput(ownerId, input)
+	pendingUsage.SetKeys(keys)
+	quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage, true)
+
+	defer func() {
+		self.SEnabledStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	}()
 
 	if len(self.ManagerId) == 0 {
 		return
 	}
 	task, err := taskman.TaskManager.NewTask(ctx, "VpcCreateTask", self, userCred, nil, "", "", nil)
 	if err != nil {
-		log.Errorf("VpcCreateTask newTask error %s", err)
-	} else {
-		task.ScheduleRun(nil)
+		self.SetStatus(userCred, api.VPC_STATUS_FAILED, errors.Wrapf(err, "NewTask").Error())
+		return
 	}
+	task.ScheduleRun(nil)
 }
 
 func (self *SVpc) GetIRegion() (cloudprovider.ICloudRegion, error) {
