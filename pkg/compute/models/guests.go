@@ -124,6 +124,9 @@ type SGuest struct {
 	// 备份机所在宿主机Id
 	BackupHostId string `width:"36" charset:"ascii" nullable:"true" list:"user" get:"user"`
 
+	// 迁移或克隆的速度
+	ProgressMbps float64 `nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
+
 	Vga     string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 	Vdi     string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 	Machine string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
@@ -978,6 +981,17 @@ func ValidateMemCpuData(vmemSize, vcpuCount int, hypervisor string) (int, int, e
 		return 0, 0, err
 	}
 	return vmemSize, vcpuCount, nil
+}
+
+func (self *SGuest) PreUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	// 减少更新日志
+	if data.Contains("progress_mbps") {
+		db.Update(self, func() error {
+			self.ProgressMbps, _ = data.Float("progress_mbps")
+			return nil
+		})
+	}
+	self.SVirtualResourceBase.PreUpdate(ctx, userCred, query, data)
 }
 
 func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerUpdateInput) (api.ServerUpdateInput, error) {

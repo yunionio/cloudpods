@@ -148,6 +148,14 @@ func UpdateServerStatus(ctx context.Context, sid, status, reason string) (jsonut
 	return modules.Servers.PerformAction(GetComputeSession(ctx), sid, "status", stats)
 }
 
+func UpdateServerProgress(ctx context.Context, sid string, progress, progressMbps float64) (jsonutils.JSONObject, error) {
+	params := map[string]float64{
+		"progress":      progress,
+		"progress_mbps": progressMbps,
+	}
+	return modules.Servers.Update(GetComputeSession(ctx), sid, jsonutils.Marshal(params))
+}
+
 func ResponseOk(ctx context.Context, w http.ResponseWriter) {
 	Response(ctx, w, map[string]string{"result": "ok"})
 }
