@@ -36,9 +36,9 @@ type HmpMonitor struct {
 	callbackQueue []StringCallback
 }
 
-func NewHmpMonitor(server string, OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc, OnMonitorConnected MonitorSuccFunc) *HmpMonitor {
+func NewHmpMonitor(server, sid string, OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc, OnMonitorConnected MonitorSuccFunc) *HmpMonitor {
 	return &HmpMonitor{
-		SBaseMonitor:  *NewBaseMonitor(server, OnMonitorConnected, OnMonitorDisConnect, OnMonitorTimeout),
+		SBaseMonitor:  *NewBaseMonitor(server, sid, OnMonitorConnected, OnMonitorDisConnect, OnMonitorTimeout),
 		commandQueue:  make([]string, 0),
 		callbackQueue: make([]StringCallback, 0),
 	}
