@@ -24,10 +24,14 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/net/context"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 )
 
 // https://github.com/qemu/qemu/blob/master/docs/interop/qmp-spec.txt
@@ -109,10 +113,10 @@ type QmpMonitor struct {
 	jobs          map[string]BlockJob
 }
 
-func NewQmpMonitor(server string, OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc,
+func NewQmpMonitor(server, sid string, OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc,
 	OnMonitorConnected MonitorSuccFunc, qmpEventFunc qmpEventCallback) *QmpMonitor {
 	m := &QmpMonitor{
-		SBaseMonitor:  *NewBaseMonitor(server, OnMonitorConnected, OnMonitorDisConnect, OnMonitorTimeout),
+		SBaseMonitor:  *NewBaseMonitor(server, sid, OnMonitorConnected, OnMonitorDisConnect, OnMonitorTimeout),
 		qmpEventFunc:  qmpEventFunc,
 		commandQueue:  make([]*Command, 0),
 		callbackQueue: make([]qmpMonitorCallBack, 0),
@@ -671,6 +675,21 @@ func (m *QmpMonitor) blockJobs(res *Response) ([]BlockJob, error) {
 	}
 	jobs := []BlockJob{}
 	ret.Unmarshal(&jobs)
+	defer func() {
+		mbps, progress := 0.0, 0.0
+		totalSize, totalOffset := int64(1), int64(0)
+		for _, job := range m.jobs {
+			mbps += job.speedMbps
+			totalSize += job.Len
+			totalOffset += job.Offset
+		}
+		if len(m.jobs) == 0 && len(jobs) == 0 {
+			progress = 100.0
+		} else {
+			progress = float64(totalOffset) / float64(totalSize) * 100
+		}
+		hostutils.UpdateServerProgress(context.Background(), m.sid, progress, mbps)
+	}()
 	for i := range jobs {
 		job := jobs[i]
 		job.server = m.server
