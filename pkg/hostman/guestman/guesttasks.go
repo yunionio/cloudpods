@@ -495,11 +495,26 @@ func (s *SGuestLiveMigrateTask) Start() {
 
 func (s *SGuestLiveMigrateTask) onSetZeroBlocks(res string) {
 	if strings.Contains(strings.ToLower(res), "error") {
+		s.migrateTask = nil
 		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate set capability zero-blocks error: %s", res))
 		return
 	}
 	// https://wiki.qemu.org/Features/AutoconvergeLiveMigration
 	s.Monitor.MigrateSetCapability("auto-converge", "on", s.startMigrate)
+}
+
+func (s *SGuestLiveMigrateTask) startTimeout() {
+	if !s.timeoutAt.IsZero() {
+		// timeout has been set
+		return
+	}
+	memMb, _ := s.Desc.Int("mem")
+	migSeconds := int(memMb) / options.HostOptions.MigrateExpectRate
+	if migSeconds < options.HostOptions.MinMigrateTimeoutSeconds {
+		migSeconds = options.HostOptions.MinMigrateTimeoutSeconds
+	}
+	s.timeoutAt = time.Now().Add(time.Second * time.Duration(migSeconds))
+	log.Infof("migrate timeout seconds: %d now: %v expectfinial: %v", migSeconds, time.Now(), s.timeoutAt)
 }
 
 func (s *SGuestLiveMigrateTask) startMigrate(res string) {
@@ -509,15 +524,9 @@ func (s *SGuestLiveMigrateTask) startMigrate(res string) {
 		return
 	}
 
-	memMb, _ := s.Desc.Int("mem")
-	migSeconds := int(memMb) / options.HostOptions.MigrateExpectRate
-	if migSeconds < options.HostOptions.MinMigrateTimeoutSeconds {
-		migSeconds = options.HostOptions.MinMigrateTimeoutSeconds
-	}
-	s.timeoutAt = time.Now().Add(time.Second * time.Duration(migSeconds))
-	log.Infof("migrate timeout seconds: %d now: %v expectfinial: %v", migSeconds, time.Now(), s.timeoutAt)
 	var copyIncremental = false
 	if s.params.IsLocal {
+		// copy disk data
 		copyIncremental = true
 	}
 	s.Monitor.Migrate(fmt.Sprintf("tcp:%s:%d", s.params.DestIp, s.params.DestPort),
