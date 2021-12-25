@@ -629,13 +629,36 @@ func (m *QmpMonitor) GetMigrateStatus(callback StringCallback) {
 			if res.ErrorVal != nil {
 				callback(res.ErrorVal.Error())
 			} else {
+				/*
+					{"expected-downtime":300,"ram":{"dirty-pages-rate":0,"dirty-sync-count":1,"duplicate":2966538,"mbps":268.5672,"normal":148629,"normal-bytes":608784384,"page-size":4096,"postcopy-requests":0,"remaining":142815232,"skipped":0,"total":12902539264,"transferred":636674057},"setup-time":65,"status":"active","total-time":20002}
+					{"disk":{"dirty-pages-rate":0,"dirty-sync-count":0,"duplicate":0,"mbps":0,"normal":0,"normal-bytes":0,"page-size":0,"postcopy-requests":0,"remaining":0,"skipped":0,"total":139586437120,"transferred":139586437120},"expected-downtime":300,"ram":{"dirty-pages-rate":0,"dirty-sync-count":1,"duplicate":193281,"mbps":268.44264,"normal":62311,"normal-bytes":255225856,"page-size":4096,"postcopy-requests":0,"remaining":44474368,"skipped":0,"total":1091379200,"transferred":257555032},"setup-time":15,"status":"active","total-time":10002}
+				*/
 				ret, err := jsonutils.Parse(res.Return)
 				if err != nil {
 					log.Errorf("Parse qmp res error %s: %s", m.server, err)
 					callback("")
 				} else {
 					log.Infof("Query migrate status %s: %s", m.server, ret.String())
+
 					status, _ := ret.GetString("status")
+					if status == "active" {
+						ramTotal, _ := ret.Int("ram", "total")
+						ramRemain, _ := ret.Int("ram", "remaining")
+						ramMbps, _ := ret.Float("ram", "mbps")
+						diskTotal, _ := ret.Int("disk", "total")
+						diskRemain, _ := ret.Int("disk", "remaining")
+						diskMbps, _ := ret.Float("disk", "mbps")
+						if diskRemain > 0 {
+							status = "migrate_disk_copy"
+						} else if ramRemain > 0 {
+							status = "migrate_ram_copy"
+						}
+						mbps := ramMbps + diskMbps
+						progress := (1 - float64(diskRemain+ramRemain)/float64(diskTotal+ramTotal)) * 100.0
+						log.Debugf("progress: %f mbps: %f", progress, mbps)
+						hostutils.UpdateServerProgress(context.Background(), m.sid, progress, mbps)
+					}
+
 					callback(status)
 				}
 			}

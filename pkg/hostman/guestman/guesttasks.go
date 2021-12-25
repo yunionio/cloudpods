@@ -503,7 +503,7 @@ func (s *SGuestLiveMigrateTask) onSetZeroBlocks(res string) {
 	s.Monitor.MigrateSetCapability("auto-converge", "on", s.startMigrate)
 }
 
-func (s *SGuestLiveMigrateTask) startTimeout() {
+func (s *SGuestLiveMigrateTask) startRamMigrateTimeout() {
 	if !s.timeoutAt.IsZero() {
 		// timeout has been set
 		return
@@ -559,8 +559,12 @@ func (s *SGuestLiveMigrateTask) onGetMigrateStatus(status string) {
 		s.migrateTask = nil
 		close(s.c)
 		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Query migrate got status: %s", status))
-	} else if !s.params.IsLocal && !s.doTimeoutMigrate {
-		if s.timeoutAt.Before(time.Now()) {
+	} else if status == "migrate_disk_copy" {
+		// do nothing, simply wait
+	} else if status == "migrate_ram_copy" {
+		if s.timeoutAt.IsZero() {
+			s.startRamMigrateTimeout()
+		} else if !s.doTimeoutMigrate && s.timeoutAt.Before(time.Now()) {
 			log.Warningf("migrate timeout, force stop to finish migrate")
 			// timeout, start memory postcopy
 			// https://wiki.qemu.org/Features/PostCopyLiveMigration
