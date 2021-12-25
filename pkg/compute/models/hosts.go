@@ -158,7 +158,7 @@ type SHost struct {
 	HostType string `width:"36" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_required"`
 
 	// host服务软件版本
-	Version string `width:"64" charset:"ascii" list:"domain" update:"domain" create:"domain_optional"`
+	Version string `width:"128" charset:"ascii" list:"domain" update:"domain" create:"domain_optional"`
 	// OVN软件版本
 	OvnVersion string `width:"64" charset:"ascii" list:"domain" update:"domain" create:"domain_optional"`
 
