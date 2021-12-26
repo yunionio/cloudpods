@@ -3413,7 +3413,11 @@ func (manager *SHostManager) ValidateCreateData(
 	if err != nil {
 		return input, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ValidateCreateData")
 	}
-	input.HostnameInput, err = manager.SHostnameResourceBaseManager.ValidateHostname(input.Name, "", input.HostnameInput)
+	name := input.Name
+	if len(name) == 0 {
+		name = input.GenerateName
+	}
+	input.HostnameInput, err = manager.SHostnameResourceBaseManager.ValidateHostname(name, "", input.HostnameInput)
 	if err != nil {
 		return input, err
 	}
