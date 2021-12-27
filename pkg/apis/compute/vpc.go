@@ -132,12 +132,26 @@ type NetworkTopologyOutput struct {
 	Address      []SNetworkUsedAddress `json:"address"`
 }
 
+type HostnetworkTopologyOutput struct {
+	IpAddr  string `json:"ip_addr"`
+	MacAddr string `json:"mac_addr"`
+}
+
+type HostTopologyOutput struct {
+	Name       string                      `json:"name"`
+	Status     string                      `json:"status"`
+	HostStatus string                      `json:"host_status"`
+	HostType   string                      `json:"host_type"`
+	Networks   []HostnetworkTopologyOutput `json:"networks"`
+}
+
 type WireTopologyOutput struct {
 	Name      string                  `json:"name"`
 	Status    string                  `json:"status"`
 	Bandwidth int                     `json:"bandwidth"`
 	Zone      string                  `json:"zone"`
 	Networks  []NetworkTopologyOutput `json:"networks"`
+	Hosts     []HostTopologyOutput    `json:"hosts"`
 }
 
 type VpcTopologyOutput struct {
