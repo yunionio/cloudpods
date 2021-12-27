@@ -59,6 +59,9 @@ func (s repullFailedReason) String() string {
 func (self *RepullSuncontactTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	config := obj.(*models.SConfig)
 	if !utils.IsInStringArray(config.Type, PullContactType) {
+		if del, _ := self.GetParams().Bool("deleted"); del {
+			config.RealDelete(ctx, self.GetUserCred())
+		}
 		self.SetStageComplete(ctx, nil)
 		return
 	}
