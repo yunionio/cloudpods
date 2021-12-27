@@ -46,7 +46,7 @@ func (self *GuestSwitchToBackupTask) OnInit(ctx context.Context, obj db.IStandal
 	host, _ := guest.GetHost()
 	self.Params.Set("is_force", jsonutils.JSONTrue)
 	self.SetStage("OnEnsureMasterGuestStoped", nil)
-	err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self)
+	err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self, true)
 	if err != nil {
 		// In case of master host crash
 		self.OnEnsureMasterGuestStoped(ctx, guest, nil)
@@ -57,7 +57,7 @@ func (self *GuestSwitchToBackupTask) OnEnsureMasterGuestStoped(ctx context.Conte
 	backupHost := models.HostManager.FetchHostById(guest.BackupHostId)
 	self.Params.Set("is_force", jsonutils.JSONTrue)
 	self.SetStage("OnBackupGuestStoped", nil)
-	err := guest.GetDriver().RequestStopOnHost(ctx, guest, backupHost, self)
+	err := guest.GetDriver().RequestStopOnHost(ctx, guest, backupHost, self, true)
 	if err != nil {
 		self.OnFail(ctx, guest, jsonutils.NewString(err.Error()))
 	}

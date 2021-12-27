@@ -361,7 +361,7 @@ func (self *SBaremetalGuestDriver) RequestStopGuestForDelete(ctx context.Context
 	return nil
 }
 
-func (self *SBaremetalGuestDriver) RequestStopOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+func (self *SBaremetalGuestDriver) RequestStopOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask, syncStatus bool) error {
 	body := jsonutils.NewDict()
 	timeout, err := task.GetParams().Int("timeout")
 	if err != nil {

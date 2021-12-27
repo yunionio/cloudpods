@@ -345,7 +345,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Conte
 			return errors.Wrapf(err, "Wait vm running")
 		}
 		// 虚拟机开机，公网ip自动生成
-		guest.SyncAllWithCloudVM(ctx, userCred, host, ivm)
+		guest.SyncAllWithCloudVM(ctx, userCred, host, ivm, true)
 		return task.ScheduleRun(result)
 	}
 	return guest.SetStatus(userCred, api.VM_RUNNING, "StartOnHost")
@@ -795,7 +795,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestStopOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+func (self *SManagedVirtualizedGuestDriver) RequestStopOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask, syncStatus bool) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		ivm, err := guest.GetIVM()
 		if err != nil {
@@ -812,7 +812,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestStopOnHost(ctx context.Contex
 			return nil, errors.Wrapf(err, "wait server stop after 5 miniutes")
 		}
 		// 公有云关机，公网ip会释放
-		guest.SyncAllWithCloudVM(ctx, task.GetUserCred(), host, ivm)
+		guest.SyncAllWithCloudVM(ctx, task.GetUserCred(), host, ivm, syncStatus)
 		return nil, nil
 	})
 	return nil
@@ -829,7 +829,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncstatusOnHost(ctx context.
 		return nil, err
 	}
 
-	err = guest.SyncAllWithCloudVM(ctx, userCred, host, ivm)
+	err = guest.SyncAllWithCloudVM(ctx, userCred, host, ivm, true)
 	if err != nil {
 		return nil, err
 	}
