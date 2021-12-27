@@ -109,7 +109,7 @@ type IGuestDriver interface {
 
 	RequestStartOnHost(ctx context.Context, guest *SGuest, host *SHost, userCred mcclient.TokenCredential, task taskman.ITask) error
 
-	RequestStopOnHost(ctx context.Context, guest *SGuest, host *SHost, task taskman.ITask) error
+	RequestStopOnHost(ctx context.Context, guest *SGuest, host *SHost, task taskman.ITask, syncStatus bool) error
 
 	StartDeleteGuestTask(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, params *jsonutils.JSONDict, parentTaskId string) error
 

@@ -673,7 +673,7 @@ func (host *SHost) RebuildRecycledGuest(ctx context.Context, userCred mcclient.T
 		return err
 	}
 
-	err = guest.syncWithCloudVM(ctx, userCred, iprovider, &oHost, extVM, nil)
+	err = guest.syncWithCloudVM(ctx, userCred, iprovider, &oHost, extVM, nil, true)
 	if err != nil {
 		log.Errorf("guest.syncWithCloudVM fail %s", err)
 		return err

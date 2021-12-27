@@ -53,7 +53,7 @@ func (self *GuestStopTask) stopGuest(ctx context.Context, guest *models.SGuest) 
 		guest.SetStatus(self.GetUserCred(), api.VM_STOPPING, "")
 	}
 	self.SetStage("OnGuestStopTaskComplete", nil)
-	err = guest.GetDriver().RequestStopOnHost(ctx, guest, host, self)
+	err = guest.GetDriver().RequestStopOnHost(ctx, guest, host, self, !self.IsSubtask())
 	if err != nil {
 		self.OnGuestStopTaskCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}
@@ -62,7 +62,7 @@ func (self *GuestStopTask) stopGuest(ctx context.Context, guest *models.SGuest) 
 func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(guest, db.ACT_STOP, guest.GetShortDesc(ctx), self.UserCred)
 	models.HostManager.ClearSchedDescCache(guest.HostId)
-	if guest.Status != api.VM_READY { // for kvm
+	if guest.Status != api.VM_READY && !self.IsSubtask() { // for kvm
 		guest.SetStatus(self.GetUserCred(), api.VM_READY, "")
 	}
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP, "success", self.UserCred, true)

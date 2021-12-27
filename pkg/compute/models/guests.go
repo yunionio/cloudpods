@@ -2431,7 +2431,7 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 	return nil
 }
 
-func (guest *SGuest) SyncAllWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, extVM cloudprovider.ICloudVM) error {
+func (guest *SGuest) SyncAllWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, extVM cloudprovider.ICloudVM, syncStatus bool) error {
 	if host == nil {
 		return errors.Error("guest has no host")
 	}
@@ -2446,7 +2446,7 @@ func (guest *SGuest) SyncAllWithCloudVM(ctx context.Context, userCred mcclient.T
 		return errors.Wrap(err, "provider.GetProvider")
 	}
 
-	err = guest.syncWithCloudVM(ctx, userCred, driver, host, extVM, provider.GetOwnerId())
+	err = guest.syncWithCloudVM(ctx, userCred, driver, host, extVM, provider.GetOwnerId(), syncStatus)
 	if err != nil {
 		return errors.Wrap(err, "guest.syncWithCloudVM")
 	}
@@ -2456,7 +2456,7 @@ func (guest *SGuest) SyncAllWithCloudVM(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
-func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider) error {
+func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider, syncStatus bool) error {
 	recycle := false
 
 	if provider.GetFactory().IsSupportPrepaidResources() && self.IsPrepaidRecycle() {
@@ -2472,7 +2472,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 				self.Name = newName
 			}
 		}
-		if !self.IsFailureStatus() {
+		if !self.IsFailureStatus() && syncStatus {
 			self.Status = extVM.GetStatus()
 		}
 		self.VcpuCount = extVM.GetVcpuCount()
@@ -4576,7 +4576,7 @@ func (self *SGuest) doExternalSync(ctx context.Context, userCred mcclient.TokenC
 	if err != nil {
 		return err
 	}
-	return self.syncWithCloudVM(ctx, userCred, iprovider, host, iVM, nil)
+	return self.syncWithCloudVM(ctx, userCred, iprovider, host, iVM, nil, true)
 }
 
 func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
