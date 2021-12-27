@@ -514,8 +514,11 @@ function nic_mtu() {
 			cpuType = "Penryn,vendor=GenuineIntel"
 		} else if options.HostOptions.HostCpuPassthrough {
 			cpuType = "host"
+			// https://unix.stackexchange.com/questions/216925/nmi-received-for-unknown-reason-20-do-you-have-a-strange-power-saving-mode-ena
+			cpuType += ",+kvm_pv_eoi"
 		} else {
 			cpuType = "qemu64"
+			cpuType += ",+kvm_pv_eoi"
 			if sysutils.IsProcessorIntel() {
 				cpuType += ",+vmx"
 				cpuType += ",+ssse3,+sse4.1,+sse4.2,-x2apic,+aes,+avx"
