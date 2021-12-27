@@ -1754,12 +1754,34 @@ func (self *SVpc) GetDetailsTopology(ctx context.Context, userCred mcclient.Toke
 			Status:    wires[i].Status,
 			Bandwidth: wires[i].Bandwidth,
 			Networks:  []api.NetworkTopologyOutput{},
+			Hosts:     []api.HostTopologyOutput{},
 		}
 		if len(wires[i].ZoneId) > 0 {
 			zone, _ := wires[i].GetZone()
 			if zone != nil {
 				wire.Zone = zone.Name
 			}
+		}
+		hosts, err := wires[i].GetHosts()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetHosts for wire %s", wires[i].Id)
+		}
+		for i := range hosts {
+			hns := hosts[i].GetBaremetalnetworks()
+			host := api.HostTopologyOutput{
+				Name:       hosts[i].Name,
+				Status:     hosts[i].Status,
+				HostStatus: hosts[i].HostStatus,
+				HostType:   hosts[i].HostType,
+				Networks:   []api.HostnetworkTopologyOutput{},
+			}
+			for j := range hns {
+				host.Networks = append(host.Networks, api.HostnetworkTopologyOutput{
+					IpAddr:  hns[j].IpAddr,
+					MacAddr: hns[j].MacAddr,
+				})
+			}
+			wire.Hosts = append(wire.Hosts, host)
 		}
 		networks, err := wires[i].GetNetworks(nil, rbacutils.ScopeSystem)
 		if err != nil {
