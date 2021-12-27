@@ -252,7 +252,7 @@ func (wire *SWire) GetHostwires() ([]SHostwire, error) {
 }
 
 func (self *SWire) GetHosts() ([]SHost, error) {
-	networks := NetworkManager.Query().SubQuery()
+	networks := NetworkManager.Query().Equals("wire_id", self.Id).SubQuery()
 	hns := HostnetworkManager.Query("baremetal_id")
 	sq := hns.Join(networks, sqlchemy.Equals(hns.Field("network_id"), networks.Field("id"))).SubQuery()
 	q := HostManager.Query().In("id", sq)
