@@ -495,11 +495,26 @@ func (s *SGuestLiveMigrateTask) Start() {
 
 func (s *SGuestLiveMigrateTask) onSetZeroBlocks(res string) {
 	if strings.Contains(strings.ToLower(res), "error") {
+		s.migrateTask = nil
 		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate set capability zero-blocks error: %s", res))
 		return
 	}
 	// https://wiki.qemu.org/Features/AutoconvergeLiveMigration
 	s.Monitor.MigrateSetCapability("auto-converge", "on", s.startMigrate)
+}
+
+func (s *SGuestLiveMigrateTask) startRamMigrateTimeout() {
+	if !s.timeoutAt.IsZero() {
+		// timeout has been set
+		return
+	}
+	memMb, _ := s.Desc.Int("mem")
+	migSeconds := int(memMb) / options.HostOptions.MigrateExpectRate
+	if migSeconds < options.HostOptions.MinMigrateTimeoutSeconds {
+		migSeconds = options.HostOptions.MinMigrateTimeoutSeconds
+	}
+	s.timeoutAt = time.Now().Add(time.Second * time.Duration(migSeconds))
+	log.Infof("migrate timeout seconds: %d now: %v expectfinial: %v", migSeconds, time.Now(), s.timeoutAt)
 }
 
 func (s *SGuestLiveMigrateTask) startMigrate(res string) {
@@ -509,15 +524,9 @@ func (s *SGuestLiveMigrateTask) startMigrate(res string) {
 		return
 	}
 
-	memMb, _ := s.Desc.Int("mem")
-	migSeconds := int(memMb) / options.HostOptions.MigrateExpectRate
-	if migSeconds < options.HostOptions.MinMigrateTimeoutSeconds {
-		migSeconds = options.HostOptions.MinMigrateTimeoutSeconds
-	}
-	s.timeoutAt = time.Now().Add(time.Second * time.Duration(migSeconds))
-	log.Infof("migrate timeout seconds: %d now: %v expectfinial: %v", migSeconds, time.Now(), s.timeoutAt)
 	var copyIncremental = false
 	if s.params.IsLocal {
+		// copy disk data
 		copyIncremental = true
 	}
 	s.Monitor.Migrate(fmt.Sprintf("tcp:%s:%d", s.params.DestIp, s.params.DestPort),
@@ -550,8 +559,12 @@ func (s *SGuestLiveMigrateTask) onGetMigrateStatus(status string) {
 		s.migrateTask = nil
 		close(s.c)
 		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Query migrate got status: %s", status))
-	} else if !s.params.IsLocal && !s.doTimeoutMigrate {
-		if s.timeoutAt.Before(time.Now()) {
+	} else if status == "migrate_disk_copy" {
+		// do nothing, simply wait
+	} else if status == "migrate_ram_copy" {
+		if s.timeoutAt.IsZero() {
+			s.startRamMigrateTimeout()
+		} else if !s.doTimeoutMigrate && s.timeoutAt.Before(time.Now()) {
 			log.Warningf("migrate timeout, force stop to finish migrate")
 			// timeout, start memory postcopy
 			// https://wiki.qemu.org/Features/PostCopyLiveMigration
