@@ -48,6 +48,7 @@ func init() {
 	cmd.Perform("reset", &options.BaseIdOptions{})
 	cmd.BatchDelete(&options.BaseIdsOptions{})
 	cmd.Perform("remove-all-netifs", &options.BaseIdOptions{})
+	cmd.Perform("probe-isolated-devices", &options.BaseIdOptions{})
 
 	cmd.BatchPerform("enable", &options.BaseIdsOptions{})
 	cmd.BatchPerform("disable", &options.BaseIdsOptions{})

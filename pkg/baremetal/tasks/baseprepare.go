@@ -834,7 +834,7 @@ func (task *sBaremetalPrepareTask) sendIsolatedDevicesInfo(
 	}
 
 	for i := 0; i < len(gpuDevs); i++ {
-		if err := gpuDevs[i].SyncDeviceInfo(session, task.baremetal.GetId()); err != nil {
+		if _, err := isolated_device.SyncDeviceInfo(session, task.baremetal.GetId(), gpuDevs[i]); err != nil {
 			return errors.Wrap(err, "sync device info")
 		}
 	}
