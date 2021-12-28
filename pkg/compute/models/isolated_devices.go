@@ -85,7 +85,7 @@ type SIsolatedDevice struct {
 	DevType string `width:"16" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required" update:"domain"`
 
 	// # Specific device name read from lspci command, e.g. `Tesla K40m` ...
-	Model string `width:"32" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required" update:"domain"`
+	Model string `width:"512" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required" update:"domain"`
 
 	// 云主机Id
 	GuestId string `width:"36" charset:"ascii" nullable:"true" index:"true" list:"domain"`
