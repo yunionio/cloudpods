@@ -87,6 +87,7 @@ type SNetworkUsedAddress struct {
 	MacAddr       string
 	Owner         string
 	OwnerId       string
+	OwnerStatus   string
 	OwnerType     string
 	AssociateId   string
 	AssociateType string
