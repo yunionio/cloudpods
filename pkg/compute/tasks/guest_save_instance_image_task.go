@@ -41,21 +41,22 @@ func (self *GuestSaveGuestImageTask) OnInit(ctx context.Context, obj db.IStandal
 
 	self.SetStage("OnSaveRootImageComplete", nil)
 	disks := guest.CategorizeDisks()
-	imageIds, _ := self.Params.GetArray("image_ids")
+	imageIds := []string{}
+	self.Params.Unmarshal(&imageIds, "image_ids")
 	self.Params.Remove("image_ids")
 
 	// data disk
 	for index, dataDisk := range disks.Data {
 		params := jsonutils.DeepCopy(self.Params).(*jsonutils.JSONDict)
-		params.Add(imageIds[index], "image_id")
-		opts := api.DiskSaveInput{ImageId: imageIds[index].String()}
+		params.Add(jsonutils.NewString(imageIds[index]), "image_id")
+		opts := api.DiskSaveInput{ImageId: imageIds[index]}
 		if err := dataDisk.StartDiskSaveTask(ctx, self.UserCred, opts, self.GetTaskId()); err != nil {
 			self.taskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		}
 	}
 
-	self.Params.Add(imageIds[len(imageIds)-1], "image_id")
-	opts := api.DiskSaveInput{ImageId: imageIds[len(imageIds)-1].String()}
+	self.Params.Add(jsonutils.NewString(imageIds[len(imageIds)-1]), "image_id")
+	opts := api.DiskSaveInput{ImageId: imageIds[len(imageIds)-1]}
 	if err := disks.Root.StartDiskSaveTask(ctx, self.UserCred, opts, self.GetTaskId()); err != nil {
 		self.taskFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}
