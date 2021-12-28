@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -1513,4 +1514,74 @@ func (manager *SWireManager) ListItemExportKeys(ctx context.Context,
 		}
 	}
 	return q, nil
+}
+
+func (self *SWire) AllowGetDetailsTopology(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "topology")
+}
+
+func (self *SWire) GetDetailsTopology(ctx context.Context, userCred mcclient.TokenCredential, input *api.WireTopologyInput) (*api.WireTopologyOutput, error) {
+	ret := &api.WireTopologyOutput{
+		Name:      self.Name,
+		Status:    self.Status,
+		Bandwidth: self.Bandwidth,
+		Networks:  []api.NetworkTopologyOutput{},
+		Hosts:     []api.HostTopologyOutput{},
+	}
+	if len(self.ZoneId) > 0 {
+		zone, _ := self.GetZone()
+		if zone != nil {
+			ret.Zone = zone.Name
+		}
+	}
+	hosts, err := self.GetHosts()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetHosts for wire %s", self.Id)
+	}
+	for i := range hosts {
+		hns := hosts[i].GetBaremetalnetworks()
+		host := api.HostTopologyOutput{
+			Name:       hosts[i].Name,
+			Status:     hosts[i].Status,
+			HostStatus: hosts[i].HostStatus,
+			HostType:   hosts[i].HostType,
+			Networks:   []api.HostnetworkTopologyOutput{},
+		}
+		for j := range hns {
+			host.Networks = append(host.Networks, api.HostnetworkTopologyOutput{
+				IpAddr:  hns[j].IpAddr,
+				MacAddr: hns[j].MacAddr,
+			})
+		}
+		ret.Hosts = append(ret.Hosts, host)
+	}
+	networks, err := self.GetNetworks(nil, rbacutils.ScopeSystem)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetNetworks")
+	}
+	for j := range networks {
+		network := api.NetworkTopologyOutput{
+			Name:         networks[j].Name,
+			Status:       networks[j].Status,
+			GuestIpStart: networks[j].GuestIpStart,
+			GuestIpEnd:   networks[j].GuestIpEnd,
+			GuestIpMask:  networks[j].GuestIpMask,
+			ServerType:   networks[j].ServerType,
+			VlanId:       networks[j].VlanId,
+			Address:      []api.SNetworkUsedAddress{},
+		}
+
+		netAddrs := make([]api.SNetworkUsedAddress, 0)
+
+		q := networks[j].getUsedAddressQuery(userCred, rbacutils.ScopeDomain, false)
+		err = q.All(&netAddrs)
+		if err != nil {
+			return nil, errors.Wrapf(err, "q.All")
+		}
+
+		sort.Sort(SNetworkUsedAddressList(netAddrs))
+		network.Address = netAddrs
+		ret.Networks = append(ret.Networks, network)
+	}
+	return ret, nil
 }

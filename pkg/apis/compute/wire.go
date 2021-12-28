@@ -115,3 +115,6 @@ type WireMergeFromInput struct {
 
 type WireMergeNetworkInput struct {
 }
+
+type WireTopologyInput struct {
+}
