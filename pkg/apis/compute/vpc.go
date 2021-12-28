@@ -139,6 +139,7 @@ type HostnetworkTopologyOutput struct {
 
 type HostTopologyOutput struct {
 	Name       string                      `json:"name"`
+	Id         string                      `json:"id"`
 	Status     string                      `json:"status"`
 	HostStatus string                      `json:"host_status"`
 	HostType   string                      `json:"host_type"`
