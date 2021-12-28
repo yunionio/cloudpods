@@ -101,39 +101,35 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 	}
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATING, fmt.Sprintf("guest start migrate from host %s to %s", guest.HostId, targetHostId), self.UserCred)
 
-	body := jsonutils.NewDict()
-	body.Set("target_host_id", jsonutils.NewString(targetHostId))
-	// for params notes
-	body.Set("target_host_name", jsonutils.NewString(targetHost.Name))
 	srcHost := models.HostManager.FetchHostById(guest.HostId)
-	body.Set("source_host_name", jsonutils.NewString(srcHost.Name))
-	body.Set("source_host_id", jsonutils.NewString(srcHost.Id))
+
+	opts := api.ServerMigrateOptions{
+		TargetHostId: targetHostId,
+		// for params notes
+		TargetHostName: targetHost.Name,
+		SourceHostName: srcHost.Name,
+		SourceHostId:   srcHost.Id,
+
+		TargetStorages: []string{},
+	}
 
 	disks, _ := guest.GetGuestDisks()
 	disk := disks[0].GetDisk()
 	storage, _ := disk.GetStorage()
-	isLocalStorage := utils.IsInStringArray(storage.StorageType,
-		api.STORAGE_LOCAL_TYPES)
-	if isLocalStorage {
-		targetStorages := jsonutils.NewArray()
+	opts.IsLocalStorage = utils.IsInStringArray(storage.StorageType, api.STORAGE_LOCAL_TYPES)
+	if opts.IsLocalStorage {
 		for i := 0; i < len(disks); i++ {
-			var targetStroage string
 			if len(target.Disks[i].StorageIds) == 0 {
-				targetStroage = targetHost.GetLeastUsedStorage(storage.StorageType).Id
+				opts.TargetStorages = append(opts.TargetStorages, targetHost.GetLeastUsedStorage(storage.StorageType).Id)
 			} else {
-				targetStroage = target.Disks[i].StorageIds[0]
+				opts.TargetStorages = append(opts.TargetStorages, target.Disks[i].StorageIds[0])
 			}
-			targetStorages.Add(jsonutils.NewString(targetStroage))
 		}
-		body.Set("target_storages", targetStorages)
-		body.Set("is_local_storage", jsonutils.JSONTrue)
-	} else {
-		body.Set("is_local_storage", jsonutils.JSONFalse)
 	}
 
-	self.SetStage("OnCachedImageComplete", body)
+	self.SetStage("OnCachedImageComplete", jsonutils.Marshal(opts).(*jsonutils.JSONDict))
 	// prepare disk for migration
-	if len(disk.TemplateId) > 0 && isLocalStorage {
+	if len(disk.TemplateId) > 0 && opts.IsLocalStorage {
 		targetStorageCache := targetHost.GetLocalStoragecache()
 		if targetStorageCache != nil {
 			input := api.CacheImageInput{
@@ -156,10 +152,10 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 // For local storage get disk info
 func (self *GuestMigrateTask) OnCachedImageComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStage("OnCachedCdromComplete", nil)
-	isLocalStorage, _ := self.Params.Bool("is_local_storage")
-	if cdrom := guest.GetCdrom(); cdrom != nil && len(cdrom.ImageId) > 0 && isLocalStorage {
-		targetHostId, _ := self.Params.GetString("target_host_id")
-		targetHost := models.HostManager.FetchHostById(targetHostId)
+	opts := api.ServerMigrateOptions{}
+	self.Params.Unmarshal(&opts)
+	if cdrom := guest.GetCdrom(); cdrom != nil && len(cdrom.ImageId) > 0 && opts.IsLocalStorage {
+		targetHost := models.HostManager.FetchHostById(opts.TargetHostId)
 		targetStorageCache := targetHost.GetLocalStoragecache()
 		if targetStorageCache != nil {
 			input := api.CacheImageInput{
@@ -214,14 +210,14 @@ func (self *GuestMigrateTask) OnSrcPrepareCompleteFailed(ctx context.Context, gu
 }
 
 func (self *GuestMigrateTask) OnSrcPrepareComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	targetHostId, _ := self.Params.GetString("target_host_id")
-	targetHost := models.HostManager.FetchHostById(targetHostId)
-	var body *jsonutils.JSONDict
+	opts := &api.ServerMigrateOptions{}
+	self.Params.Unmarshal(opts)
+	targetHost := models.HostManager.FetchHostById(opts.TargetHostId)
 	var err error
-	if jsonutils.QueryBoolean(self.Params, "is_local_storage", false) {
-		body, err = self.localStorageMigrateConf(ctx, guest, targetHost, data)
+	if opts.IsLocalStorage {
+		opts, err = self.localStorageMigrateConf(ctx, guest, targetHost, opts)
 	} else {
-		body, err = self.sharedStorageMigrateConf(ctx, guest, targetHost)
+		opts, err = self.sharedStorageMigrateConf(ctx, guest, targetHost)
 	}
 	if err != nil {
 		self.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
@@ -229,12 +225,13 @@ func (self *GuestMigrateTask) OnSrcPrepareComplete(ctx context.Context, guest *m
 	}
 	guestStatus, _ := self.Params.GetString("guest_status")
 	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
-		body.Set("live_migrate", jsonutils.JSONTrue)
+		opts.LiveMigrate = true
 	}
 
 	headers := self.GetTaskRequestHeader()
 
 	url := fmt.Sprintf("%s/servers/%s/dest-prepare-migrate", targetHost.ManagerUri, guest.Id)
+	body := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
 	self.SetStage("OnMigrateConfAndDiskComplete", body)
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(),
 		ctx, "POST", url, headers, body, false)
@@ -296,75 +293,62 @@ func (self *GuestMigrateTask) OnGuestStartSuccFailed(ctx context.Context, guest 
 	self.TaskFailed(ctx, guest, data)
 }
 
-func (self *GuestMigrateTask) sharedStorageMigrateConf(ctx context.Context, guest *models.SGuest, targetHost *models.SHost) (*jsonutils.JSONDict, error) {
-	body := jsonutils.NewDict()
-	body.Set("is_local_storage", jsonutils.JSONFalse)
-	body.Set("qemu_version", jsonutils.NewString(guest.GetQemuVersion(self.UserCred)))
-	targetDesc := guest.GetJsonDescAtHypervisor(ctx, targetHost)
-	body.Set("desc", jsonutils.Marshal(targetDesc))
-	return body, nil
+func (self *GuestMigrateTask) sharedStorageMigrateConf(ctx context.Context, guest *models.SGuest, targetHost *models.SHost) (*api.ServerMigrateOptions, error) {
+	return &api.ServerMigrateOptions{
+		IsLocalStorage: false,
+		QemuVersion:    guest.GetQemuVersion(self.UserCred),
+		Desc:           guest.GetJsonDescAtHypervisor(ctx, targetHost),
+	}, nil
 }
 
 func (self *GuestMigrateTask) localStorageMigrateConf(ctx context.Context,
-	guest *models.SGuest, targetHost *models.SHost, data jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	body := jsonutils.NewDict()
-	if data != nil {
-		body.Update(data.(*jsonutils.JSONDict))
-	}
-	params := jsonutils.NewDict()
+	guest *models.SGuest, targetHost *models.SHost, input *api.ServerMigrateOptions) (*api.ServerMigrateOptions, error) {
 	disks, _ := guest.GetGuestDisks()
+
+	input.SrcSnapshots = map[string][]string{}
+	input.TotalSnapshotSizeMb = 0
 	for i := 0; i < len(disks); i++ {
 		snapshots := models.SnapshotManager.GetDiskSnapshots(disks[i].DiskId)
-		snapshotIds := jsonutils.NewArray()
+		snapshotIds := []string{}
 		for j := 0; j < len(snapshots); j++ {
-			snapshotIds.Add(jsonutils.NewString(snapshots[j].Id))
+			snapshotIds = append(snapshotIds, snapshots[j].Id)
+			input.TotalSnapshotSizeMb += int64(snapshots[j].Size)
 		}
-		params.Set(disks[i].DiskId, snapshotIds)
+		input.SrcSnapshots[disks[i].DiskId] = snapshotIds
 	}
 
 	sourceHost, _ := guest.GetHost()
-	snapshotsUri := fmt.Sprintf("%s/download/snapshots/", sourceHost.ManagerUri)
-	disksUri := fmt.Sprintf("%s/download/disks/", sourceHost.ManagerUri)
-	serverUrl := fmt.Sprintf("%s/download/servers/%s", sourceHost.ManagerUri, guest.Id)
+	input.SnapshotsUri = fmt.Sprintf("%s/download/snapshots/", sourceHost.ManagerUri)
+	input.DisksUri = fmt.Sprintf("%s/download/disks/", sourceHost.ManagerUri)
+	input.ServerUrl = fmt.Sprintf("%s/download/servers/%s", sourceHost.ManagerUri, guest.Id)
+	input.QemuVersion = guest.GetQemuVersion(self.UserCred)
 
-	body.Set("src_snapshots", params)
-	body.Set("snapshots_uri", jsonutils.NewString(snapshotsUri))
-	body.Set("disks_uri", jsonutils.NewString(disksUri))
-	body.Set("server_url", jsonutils.NewString(serverUrl))
-	body.Set("qemu_version", jsonutils.NewString(guest.GetQemuVersion(self.UserCred)))
-	targetDesc := guest.GetJsonDescAtHypervisor(ctx, targetHost)
-	if len(targetDesc.Disks) == 0 {
+	input.Desc = guest.GetJsonDescAtHypervisor(ctx, targetHost)
+	if len(input.Desc.Disks) == 0 {
 		return nil, errors.Errorf("Get disksDesc error")
 	}
-	targetStorages, _ := self.Params.GetArray("target_storages")
+
 	for i := 0; i < len(disks); i++ {
-		targetStorageId, err := targetStorages[i].GetString()
-		if err != nil {
-			return nil, errors.Wrapf(err, "Get disk %d target storage id", i)
-		}
-		targetDesc.Disks[i].TargetStorageId = targetStorageId
+		input.Desc.Disks[i].TargetStorageId = input.TargetStorages[i]
 	}
 
-	body.Set("desc", jsonutils.Marshal(targetDesc))
-	body.Set("rebase_disks", jsonutils.JSONTrue)
-	body.Set("is_local_storage", jsonutils.JSONTrue)
-	return body, nil
+	input.RebaseDisks = true
+	return input, nil
 }
 
 func (self *GuestLiveMigrateTask) OnStartDestComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	liveMigrateDestPort, err := data.Get("live_migrate_dest_port")
-	if err != nil {
-		self.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Get migrate port error: %s", err)))
+	opts := &api.ServerMigrateOptions{}
+	data.Unmarshal(&opts)
+	if opts.LiveMigrateDestPort == 0 {
+		self.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Missing migrate port error")))
 		return
 	}
 
-	targetHostId, _ := self.Params.GetString("target_host_id")
-	targetHost := models.HostManager.FetchHostById(targetHostId)
+	targetHost := models.HostManager.FetchHostById(opts.TargetHostId)
 
 	body := jsonutils.NewDict()
-	isLocalStorage, _ := self.Params.Get("is_local_storage")
-	body.Set("is_local_storage", isLocalStorage)
-	body.Set("live_migrate_dest_port", liveMigrateDestPort)
+	body.Set("is_local_storage", jsonutils.NewBool(opts.IsLocalStorage))
+	body.Set("live_migrate_dest_port", jsonutils.NewInt(opts.LiveMigrateDestPort))
 	body.Set("dest_ip", jsonutils.NewString(targetHost.AccessIp))
 
 	headers := self.GetTaskRequestHeader()
@@ -372,7 +356,7 @@ func (self *GuestLiveMigrateTask) OnStartDestComplete(ctx context.Context, guest
 	host, _ := guest.GetHost()
 	url := fmt.Sprintf("%s/servers/%s/live-migrate", host.ManagerUri, guest.Id)
 	self.SetStage("OnLiveMigrateComplete", nil)
-	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(),
+	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(),
 		ctx, "POST", url, headers, body, false)
 	if err != nil {
 		self.OnLiveMigrateCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
@@ -386,21 +370,22 @@ func (self *GuestLiveMigrateTask) OnStartDestCompleteFailed(ctx context.Context,
 }
 
 func (self *GuestMigrateTask) setGuest(ctx context.Context, guest *models.SGuest) error {
+	opts := &api.ServerMigrateOptions{}
+	self.Params.Unmarshal(&opts)
 	targetHostId, _ := self.Params.GetString("target_host_id")
-	if jsonutils.QueryBoolean(self.Params, "is_local_storage", false) {
-		targetStorages, _ := self.Params.GetArray("target_storages")
+	if opts.IsLocalStorage {
 		disks, _ := guest.GetDisks()
 		for i := 0; i < len(disks); i++ {
 			disk := &disks[i]
 			db.Update(disk, func() error {
 				disk.Status = api.DISK_READY
-				disk.StorageId, _ = targetStorages[i].GetString()
+				disk.StorageId = opts.TargetStorages[i]
 				return nil
 			})
 			snapshots := models.SnapshotManager.GetDiskSnapshots(disk.Id)
 			for _, snapshot := range snapshots {
 				db.Update(&snapshot, func() error {
-					snapshot.StorageId, _ = targetStorages[i].GetString()
+					snapshot.StorageId = opts.TargetStorages[i]
 					return nil
 				})
 			}

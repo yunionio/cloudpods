@@ -778,46 +778,39 @@ func (m *SGuestManager) SrcPrepareMigrate(ctx context.Context, params interface{
 	if err != nil {
 		return nil, err
 	}
-	if disksPrepare.Length() > 0 {
+	if len(disksPrepare) > 0 {
 		ret := jsonutils.NewDict()
-		ret.Set("disks_back", disksPrepare)
+		ret.Set("disks_back", jsonutils.Marshal(disksPrepare))
 		return ret, nil
 	}
 	return nil, nil
 }
 
 func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	migParams, ok := params.(*SDestPrepareMigrate)
+	migParams, ok := params.(*compute.ServerMigrateOptions)
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
 
-	guest, _ := m.GetServer(migParams.Sid)
-	if err := guest.CreateFromDesc(migParams.Desc); err != nil {
+	guest, _ := m.GetServer(migParams.ServerId)
+	if err := guest.CreateFromDesc(jsonutils.Marshal(migParams.Desc)); err != nil {
 		return nil, err
 	}
 
-	disks, _ := migParams.Desc.GetArray("disks")
-	if len(migParams.TargetStorageIds) > 0 {
-		for i := 0; i < len(migParams.TargetStorageIds); i++ {
-			iStorage := storageman.GetManager().GetStorage(migParams.TargetStorageIds[i])
-			if iStorage == nil {
-				return nil, fmt.Errorf("Target storage %s not found", migParams.TargetStorageIds[i])
-			}
-
-			err := iStorage.DestinationPrepareMigrate(
-				ctx, migParams.LiveMigrate, migParams.DisksUri, migParams.SnapshotsUri,
-				migParams.DisksBackingFile, migParams.SrcSnapshots, migParams.RebaseDisks, disks[i],
-			)
-			if err != nil {
-				return nil, fmt.Errorf("dest prepare migrate failed %s", err)
-			}
-		}
-		if err := guest.SaveDesc(migParams.Desc); err != nil {
-			log.Errorln(err)
-			return nil, err
+	for i := 0; i < len(migParams.TargetStorages); i++ {
+		iStorage := storageman.GetManager().GetStorage(migParams.TargetStorages[i])
+		if iStorage == nil {
+			return nil, fmt.Errorf("Target storage %s not found", migParams.TargetStorages[i])
 		}
 
+		err := iStorage.DestinationPrepareMigrate(ctx, migParams, migParams.Desc.Disks[i])
+		if err != nil {
+			return nil, fmt.Errorf("dest prepare migrate failed %s", err)
+		}
+	}
+	if err := guest.SaveDesc(jsonutils.Marshal(migParams.Desc)); err != nil {
+		log.Errorln(err)
+		return nil, err
 	}
 
 	if migParams.LiveMigrate {

@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -77,7 +76,7 @@ func (c *SLocalImageCacheManager) LoadImageCache(imageId string) {
 	}
 }
 
-func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, input api.CacheImageInput, callback func(progress float32)) (IImageCache, error) {
+func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, input api.CacheImageInput, callback func(progress, progressMbps float32, totalSizeMb int64)) (IImageCache, error) {
 	c.lock.LockRawObject(ctx, "image-cache", input.ImageId)
 	defer c.lock.ReleaseRawObject(ctx, "image-cache", input.ImageId)
 
@@ -87,9 +86,9 @@ func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, input api.Ca
 		c.cachedImages[input.ImageId] = img
 	}
 	if callback == nil && len(input.ServerId) > 0 {
-		callback = func(progress float32) {
+		callback = func(progress, progressMbps float32, totalSizeMb int64) {
 			if len(input.ServerId) > 0 {
-				modules.Servers.Update(hostutils.GetComputeSession(context.Background()), input.ServerId, jsonutils.Marshal(map[string]float32{"progress": progress}))
+				hostutils.UpdateServerProgress(context.Background(), input.ServerId, float64(progress), float64(progressMbps))
 			}
 		}
 	}

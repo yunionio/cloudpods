@@ -29,6 +29,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -122,15 +124,14 @@ type IStorage interface {
 	// CloneDiskFromStorage clone disk from other storage
 	CloneDiskFromStorage(ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string) (*host.ServerCloneDiskFromStorageResponse, error)
 
-	CreateSnapshotFormUrl(ctx context.Context, snapshotUrl, diskId, snapshotPath string) error
+	CreateSnapshotFormUrl(ctx context.Context, snapshotUrl, diskId, snapshotPath string, callback func(progress, progressMbps float32, GetTotalSizeMb int64)) error
 
 	DeleteDiskfile(diskPath string) error
 	GetFuseTmpPath() string
 	GetFuseMountPath() string
 	GetImgsaveBackupPath() string
 
-	DestinationPrepareMigrate(ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
-		disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool, diskDesc jsonutils.JSONObject) error
+	DestinationPrepareMigrate(ctx context.Context, opts *compute.ServerMigrateOptions, diskInfo *compute.GuestdiskJsonDesc) error
 
 	Accessible() error
 	Detach() error
@@ -363,10 +364,7 @@ func (s *SBaseStorage) CreateDiskFromSnpashot(ctx context.Context, disk IDisk, i
 	return disk.GetDiskDesc(), nil
 }
 
-func (s *SBaseStorage) DestinationPrepareMigrate(
-	ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
-	disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool, diskinfo jsonutils.JSONObject,
-) error {
+func (s *SBaseStorage) DestinationPrepareMigrate(ctx context.Context, opts *api.ServerMigrateOptions, diskinfo *api.GuestdiskJsonDesc) error {
 	return nil
 }
 

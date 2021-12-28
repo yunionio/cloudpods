@@ -737,3 +737,31 @@ func (o ServerDelExtraOptionInput) Validate() error {
 	}
 	return nil
 }
+
+type ServerMigrateOptions struct {
+	TargetHostId   string
+	TargetHostName string
+	SourceHostName string
+	SourceHostId   string
+	TargetStorages []string
+	IsLocalStorage bool
+
+	SrcSnapshots        map[string][]string
+	SnapshotsUri        string
+	TotalSnapshotSizeMb int64
+	DisksUri            string
+	ServerUrl           string
+	QemuVersion         string
+
+	Desc *GuestJsonDesc
+
+	RebaseDisks bool
+	LiveMigrate bool
+
+	LiveMigrateDestPort int64
+	DestIp              string
+
+	ServerId string
+
+	DisksBack map[string]string
+}

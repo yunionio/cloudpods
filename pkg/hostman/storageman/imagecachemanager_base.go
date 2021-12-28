@@ -53,7 +53,7 @@ type IImageCacheManger interface {
 	PrefetchImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error)
 	DeleteImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error)
 
-	AcquireImage(ctx context.Context, input api.CacheImageInput, callback func(progress float32)) (IImageCache, error)
+	AcquireImage(ctx context.Context, input api.CacheImageInput, callback func(progress, progressMbps float32, totalSizeMb int64)) (IImageCache, error)
 	ReleaseImage(ctx context.Context, imageId string)
 	LoadImageCache(imageId string)
 }

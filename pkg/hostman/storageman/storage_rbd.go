@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build linux && cgo
-// +build linux,cgo
-
 package storageman
 
 import (
@@ -512,7 +509,7 @@ func (s *SRbdStorage) saveToGlance(ctx context.Context, imageId, imagePath strin
 	return err
 }
 
-func (s *SRbdStorage) CreateSnapshotFormUrl(ctx context.Context, snapshotUrl, diskId, snapshotPath string) error {
+func (s *SRbdStorage) CreateSnapshotFormUrl(ctx context.Context, snapshotUrl, diskId, snapshotPath string, callback func(progress, progressMbps float32, totalSizeMb int64)) error {
 	return fmt.Errorf("Not support")
 }
 

@@ -51,7 +51,7 @@ type IDisk interface {
 	CleanupSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 
 	PrepareMigrate(liveMigrate bool) (string, error)
-	CreateFromUrl(ctx context.Context, url string, size int64) error
+	CreateFromUrl(ctx context.Context, url string, size int64, callback func(progress, progressMbps float32, totalSizeMb int64)) error
 	CreateFromTemplate(context.Context, string, string, int64) (jsonutils.JSONObject, error)
 	CreateFromSnapshotLocation(ctx context.Context, location string, size int64) error
 	CreateFromRbdSnapshot(ctx context.Context, snapshotId, srcDiskId, srcPool string) error
@@ -97,7 +97,7 @@ func (d *SBaseDisk) OnRebuildRoot(ctx context.Context, params api.DiskAllocateIn
 	return fmt.Errorf("Not implemented")
 }
 
-func (d *SBaseDisk) CreateFromUrl(ctx context.Context, url string, size int64) error {
+func (d *SBaseDisk) CreateFromUrl(ctx context.Context, url string, size int64, callback func(progress, progressMbps float32, totalSizeMb int64)) error {
 	return fmt.Errorf("Not implemented")
 }
 

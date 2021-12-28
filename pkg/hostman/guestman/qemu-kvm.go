@@ -476,32 +476,28 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 
 func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 	switch {
-	case event.Event == `"BLOCK_JOB_READY"` && s.IsMaster():
-		if itype, ok := event.Data["type"]; ok {
-			stype, _ := itype.(string)
-			if stype == "mirror" {
-				mirrorStatus := s.MirrorJobStatus()
-				if mirrorStatus.IsSucc() {
-					_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), api.VM_RUNNING, "BLOCK_JOB_READY")
-					if err != nil {
-						log.Errorf("onReceiveQMPEvent update server status error: %s", err)
-					}
-				} else if mirrorStatus.IsFailed() {
-					s.SyncMirrorJobFailed("Block job missing")
+	case event.Event == "BLOCK_JOB_READY" && s.IsMaster():
+		if event.Data.Type != nil && *event.Data.Type == "mirror" {
+			mirrorStatus := s.MirrorJobStatus()
+			if mirrorStatus.IsSucc() {
+				_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), api.VM_RUNNING, "BLOCK_JOB_READY")
+				if err != nil {
+					log.Errorf("onReceiveQMPEvent update server status error: %s", err)
 				}
+			} else if mirrorStatus.IsFailed() {
+				s.SyncMirrorJobFailed("Block job missing")
 			}
 		}
-	case event.Event == `"BLOCK_JOB_ERROR"`:
+	case event.Event == "BLOCK_JOB_ERROR":
 		s.SyncMirrorJobFailed("BLOCK_JOB_ERROR")
-	case event.Event == `"GUEST_PANICKED"`:
+	case event.Event == "GUEST_PANICKED":
 		// qemu runc state event source qemu/src/qapi/run-state.json
 		params := jsonutils.NewDict()
-		if action, ok := event.Data["action"]; ok {
-			sAction, _ := action.(string)
-			params.Set("action", jsonutils.NewString(sAction))
+		if event.Data.Action != nil && len(*event.Data.Action) > 0 {
+			params.Set("action", jsonutils.NewString(*event.Data.Action))
 		}
-		if info, ok := event.Data["info"]; ok {
-			params.Set("info", jsonutils.Marshal(info))
+		if event.Data.Info != nil && len(*event.Data.Info) > 0 {
+			params.Set("info", jsonutils.NewString(*event.Data.Info))
 		}
 		params.Set("event", jsonutils.NewString(strings.Trim(event.Event, "\"")))
 		modules.Servers.PerformAction(
@@ -513,12 +509,12 @@ func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 		// 	modules.Servers.PerformAction(
 		// 		hostutils.GetComputeSession(context.Background()),
 		// 		s.GetId(), "event", params)
-	case event.Event == `"STOP"`:
+	case event.Event == "STOP":
 		if s.migrateTask != nil {
 			// migrating complete
 			s.migrateTask.migrateComplete()
 		}
-	case event.Event == `"BLOCK_JOB_COMPLETED"`:
+	case event.Event == "BLOCK_JOB_COMPLETED":
 		hostutils.UpdateServerProgress(context.Background(), s.Id, 0.0, 0)
 	}
 }
@@ -1662,8 +1658,8 @@ func (s *SKVMGuestInstance) deleteStaticSnapshotFile(
 	return res, nil
 }
 
-func (s *SKVMGuestInstance) PrepareMigrate(liveMigrage bool) (*jsonutils.JSONDict, error) {
-	disksBackFile := jsonutils.NewDict()
+func (s *SKVMGuestInstance) PrepareMigrate(liveMigrage bool) (map[string]string, error) {
+	disksBack := map[string]string{}
 	disks, _ := s.Desc.GetArray("disks")
 	for _, disk := range disks {
 		if disk.Contains("path") {
@@ -1679,12 +1675,12 @@ func (s *SKVMGuestInstance) PrepareMigrate(liveMigrage bool) (*jsonutils.JSONDic
 				}
 				if len(back) > 0 {
 					diskId, _ := disk.GetString("disk_id")
-					disksBackFile.Set(diskId, jsonutils.NewString(back))
+					disksBack[diskId] = back
 				}
 			}
 		}
 	}
-	return disksBackFile, nil
+	return disksBack, nil
 }
 
 func (s *SKVMGuestInstance) onlineResizeDisk(ctx context.Context, diskId string, sizeMB int64) {

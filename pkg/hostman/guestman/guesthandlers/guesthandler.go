@@ -288,73 +288,9 @@ func guestDestPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSO
 	if !guestman.GetGuestManager().CanMigrate(sid) {
 		return nil, httperrors.NewBadRequestError("Guest exist")
 	}
-	desc, err := body.Get("desc")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("desc")
-	}
-	qemuVersion, err := body.GetString("qemu_version")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("qemu_version")
-	}
-	liveMigrate := jsonutils.QueryBoolean(body, "live_migrate", false)
-	isLocal, err := body.Bool("is_local_storage")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("is_local_storage")
-	}
-	var params = &guestman.SDestPrepareMigrate{}
-	params.Sid = sid
-	params.Desc = desc
-	params.QemuVersion = qemuVersion
-	params.LiveMigrate = liveMigrate
-	if isLocal {
-		serverUrl, err := body.GetString("server_url")
-		if err != nil {
-			return nil, httperrors.NewMissingParameterError("server_url")
-		} else {
-			params.ServerUrl = serverUrl
-		}
-		snapshotsUri, err := body.GetString("snapshots_uri")
-		if err != nil {
-			return nil, httperrors.NewMissingParameterError("snapshots_uri")
-		} else {
-			params.SnapshotsUri = snapshotsUri
-		}
-		disksUri, err := body.GetString("disks_uri")
-		if err != nil {
-			return nil, httperrors.NewMissingParameterError("disks_uri")
-		} else {
-			params.DisksUri = disksUri
-		}
-		srcSnapshots, err := body.Get("src_snapshots")
-		if err != nil {
-			return nil, httperrors.NewMissingParameterError("src_snapshots")
-		} else {
-			params.SrcSnapshots = srcSnapshots
-		}
-		disksBack, err := body.Get("disks_back")
-		if err != nil {
-			params.DisksBackingFile = jsonutils.NewDict()
-		} else {
-			params.DisksBackingFile = disksBack
-		}
-		disks, err := desc.GetArray("disks")
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("Get desc disks error")
-		} else {
-			targetStorageIds := []string{}
-			for i := 0; i < len(disks); i++ {
-				targetStorageId, _ := disks[i].GetString("target_storage_id")
-				if len(targetStorageId) == 0 {
-					return nil, httperrors.NewMissingParameterError("target_storage_id")
-				}
-				targetStorageIds = append(targetStorageIds, targetStorageId)
-				// params.TargetStorageId = targetStorageId
-				params.TargetStorageIds = targetStorageIds
-			}
-
-		}
-		params.RebaseDisks = jsonutils.QueryBoolean(body, "rebase_disks", false)
-	}
+	params := &computeapi.ServerMigrateOptions{}
+	body.Unmarshal(params)
+	params.ServerId = sid
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().DestPrepareMigrate, params)
 	return nil, nil
 }
@@ -363,20 +299,16 @@ func guestLiveMigrate(ctx context.Context, sid string, body jsonutils.JSONObject
 	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
-	destPort, err := body.Int("live_migrate_dest_port")
-	if err != nil {
+	opts := &computeapi.ServerMigrateOptions{}
+	body.Unmarshal(&opts)
+	if opts.LiveMigrateDestPort == 0 {
 		return nil, httperrors.NewMissingParameterError("live_migrate_dest_port")
 	}
-	destIp, err := body.GetString("dest_ip")
-	if err != nil {
+	if len(opts.DestIp) == 0 {
 		return nil, httperrors.NewMissingParameterError("dest_ip")
 	}
-	isLocal, err := body.Bool("is_local_storage")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("is_local_storage")
-	}
 	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().LiveMigrate, &guestman.SLiveMigrate{
-		Sid: sid, DestPort: int(destPort), DestIp: destIp, IsLocal: isLocal,
+		Sid: sid, DestPort: int(opts.LiveMigrateDestPort), DestIp: opts.DestIp, IsLocal: opts.IsLocalStorage,
 	})
 	return nil, nil
 }

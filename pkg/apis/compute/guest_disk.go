@@ -98,6 +98,7 @@ type GuestdiskJsonDesc struct {
 		StorageCacheHostIp string `json:"storage_cache_host_ip"`
 	} `json:"image_info"`
 
+	// 迁移时需要
 	TargetStorageId string `json:"target_storage_id"`
 
 	Url string `json:"url"`

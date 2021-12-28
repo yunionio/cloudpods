@@ -50,25 +50,284 @@ Not support oob yet
      "package": "v3.0.0"}, "capabilities": [] } }
 */
 
-var ignoreEvents = []string{`"RTC_CHANGE"`}
+var ignoreEvents = []string{"RTC_CHANGE"}
 
 type qmpMonitorCallBack func(*Response)
 type qmpEventCallback func(*Event)
 
 type Response struct {
-	Return   []byte
+	Return   jsonutils.JSONObject
 	ErrorVal *Error
 	Id       string
 }
 
 type Event struct {
-	Event     string                 `json:"event"`
-	Data      map[string]interface{} `json:"data"`
-	Timestamp *Timestamp             `json:"timestamp"`
+	Event string `json:"event"`
+	Data  struct {
+		// ACPI_DEVICE_OST
+		Device   *string
+		Slot     *string
+		SlotType *string `json:"slot-type"`
+		Source   *string
+		Status   *string
+
+		// BALLOON_CHANGE
+		Actual *int64 // "actual": actual level of the guest memory balloon in bytes (json-number)
+
+		// BLOCK_IMAGE_CORRUPTED
+		/*
+			- "device":    Device name (json-string)
+			- "node-name": Node name (json-string, optional)
+			- "msg":       Informative message (e.g., reason for the corruption)
+			               (json-string)
+			- "offset":    If the corruption resulted from an image access, this
+			               is the host's access offset into the image
+			               (json-int, optional)
+			- "size":      If the corruption resulted from an image access, this
+			               is the access size (json-int, optional)
+		*/
+		NodeName *string `json:"node-name"`
+		Msg      *string `json:"msg"`
+		Offset   *int64
+		Size     *int64
+
+		// BLOCK_IO_ERROR
+		/*
+			- "device": device name (json-string)
+			- "operation": I/O operation (json-string, "read" or "write")
+			- "action": action that has been taken, it's one of the following (json-string):
+			    "ignore": error has been ignored
+				"report": error has been reported to the device
+				"stop": the VM is going to stop because of the error
+		*/
+		Operation *string `json:"operation"`
+		Action    *string `json:"action"`
+
+		// BLOCK_JOB_CANCELLED
+		/*
+			- "type":     Job type (json-string; "stream" for image streaming
+			                                     "commit" for block commit)
+			- "device":   Job identifier. Originally the device name but other
+			              values are allowed since QEMU 2.7 (json-string)
+			- "len":      Maximum progress value (json-int)
+			- "offset":   Current progress value (json-int)
+			              On success this is equal to len.
+			              On failure this is less than len.
+			- "speed":    Rate limit, bytes per second (json-int)
+		*/
+		Type  *string
+		Len   *int64
+		Speed *int64
+
+		// BLOCK_JOB_COMPLETED
+		/*
+			- "type":     Job type (json-string; "stream" for image streaming
+			                                     "commit" for block commit)
+			- "device":   Job identifier. Originally the device name but other
+			              values are allowed since QEMU 2.7 (json-string)
+			- "len":      Maximum progress value (json-int)
+			- "offset":   Current progress value (json-int)
+			              On success this is equal to len.
+			              On failure this is less than len.
+			- "speed":    Rate limit, bytes per second (json-int)
+			- "error":    Error message (json-string, optional)
+			              Only present on failure.  This field contains a human-readable
+			              error message.  There are no semantics other than that streaming
+			              has failed and clients should not try to interpret the error
+			              string.
+		*/
+		Error *string
+
+		// BLOCK_JOB_ERROR
+		/*
+			- "device": Job identifier. Originally the device name but other
+			            values are allowed since QEMU 2.7 (json-string)
+			- "operation": I/O operation (json-string, "read" or "write")
+			- "action": action that has been taken, it's one of the following (json-string):
+			    "ignore": error has been ignored, the job may fail later
+			    "report": error will be reported and the job canceled
+			    "stop": error caused job to be paused
+		*/
+		// BLOCK_JOB_READY
+		/*
+			- "type":     Job type (json-string; "stream" for image streaming
+			                                     "commit" for block commit)
+			- "device":   Job identifier. Originally the device name but other
+			              values are allowed since QEMU 2.7 (json-string)
+			- "len":      Maximum progress value (json-int)
+			- "offset":   Current progress value (json-int)
+			              On success this is equal to len.
+			              On failure this is less than len.
+			- "speed":    Rate limit, bytes per second (json-int)
+		*/
+		// DEVICE_DELETED
+		/*
+			- "device": device name (json-string, optional)
+			- "path": device path (json-string)
+		*/
+		Path *string
+
+		// DEVICE_TRAY_MOVED
+		/*
+			- "device": device name (json-string)
+			- "tray-open": true if the tray has been opened or false if it has been closed
+			               (json-bool)
+		*/
+		TryOpen *bool `json:"try-open"`
+
+		// DUMP_COMPLETED
+		/*
+			- "result": DumpQueryResult type described in qapi-schema.json
+			- "error": Error message when dump failed. This is only a
+			  human-readable string provided when dump failed. It should not be
+			  parsed in any way (json-string, optional)
+		*/
+		Result *struct {
+			Total     int64
+			Status    string
+			completed int64
+		}
+
+		// GUEST_PANICKED
+		/*
+			- "action": Action that has been taken (json-string, currently always "pause").
+		*/
+
+		Info *string //????
+
+		// MEM_UNPLUG_ERROR
+		/*
+			- "device": device name (json-string)
+			- "msg": Informative message (e.g., reason for the error) (json-string)
+		*/
+
+		// NIC_RX_FILTER_CHANGED
+		/*
+			- "name": net client name (json-string)
+			- "path": device path (json-string)
+		*/
+		Name *string
+
+		// POWERDOWN
+
+		// QUORUM_FAILURE
+		/*
+			- "reference":     device name if defined else node name.
+			- "sector-num":    Number of the first sector of the failed read operation.
+			- "sectors-count": Failed read operation sector count.
+		*/
+		Reference    *string
+		SectorNum    *int64 `json:"sector-num"`
+		SectorsCount *int64 `json:"sectors-count"`
+
+		// QUORUM_REPORT_BAD
+		/*
+			- "type":          Quorum operation type
+			- "error":         Error message (json-string, optional)
+			                   Only present on failure.  This field contains a human-readable
+			                   error message.  There are no semantics other than that the
+			                   block layer reported an error and clients should not try to
+			                   interpret the error string.
+			- "node-name":     The graph node name of the block driver state.
+			- "sector-num":    Number of the first sector of the failed read operation.
+			- "sectors-count": Failed read operation sector count.
+		*/
+
+		// RESET
+
+		// RESUME
+
+		// RTC_CHANGE
+		/*
+			- "offset": Offset between base RTC clock (as specified by -rtc base), and
+			new RTC clock value (json-number)
+		*/
+
+		// SHUTDOWN
+
+		// SPICE_DISCONNECTED
+		/*
+			- "server": Server information (json-object)
+			  - "host": IP address (json-string)
+			  - "port": port number (json-string)
+			  - "family": address family (json-string, "ipv4" or "ipv6")
+			- "client": Client information (json-object)
+			  - "host": IP address (json-string)
+			  - "port": port number (json-string)
+			  - "family": address family (json-string, "ipv4" or "ipv6")
+		*/
+		Server *struct {
+			Port   string
+			Host   string
+			Family string
+			Auth   string
+		}
+		Client *struct {
+			Port         string
+			Host         string
+			Family       string
+			ConnectionId string `json:"connection-id"`
+			ChannelType  string `json:"channel-type"`
+			ChannelId    string `json:"channel-id"`
+			Tls          bool
+		}
+
+		// SPICE_INITIALIZED
+
+		// SPICE_INITIALIZED
+		/*
+			- "server": Server information (json-object)
+			  - "host": IP address (json-string)
+			  - "port": port number (json-string)
+			  - "family": address family (json-string, "ipv4" or "ipv6")
+			  - "auth": authentication method (json-string, optional)
+			- "client": Client information (json-object)
+			  - "host": IP address (json-string)
+			  - "port": port number (json-string)
+			  - "family": address family (json-string, "ipv4" or "ipv6")
+			  - "connection-id": spice connection id.  All channels with the same id
+			                     belong to the same spice session (json-int)
+			  - "channel-type": channel type.  "1" is the main control channel, filter for
+			                    this one if you want track spice sessions only (json-int)
+			  - "channel-id": channel id.  Usually "0", might be different needed when
+			                  multiple channels of the same type exist, such as multiple
+			                  display channels in a multihead setup (json-int)
+			  - "tls": whevener the channel is encrypted (json-bool)
+		*/
+
+		// SPICE_MIGRATE_COMPLETED
+
+		// MIGRATION
+		/*
+			- "status": migration status
+				See MigrationStatus in ~/qapi-schema.json for possible values
+		*/
+
+		// MIGRATION_PASS
+
+		// STOP
+
+		// SUSPEND
+
+		// SUSPEND_DISK
+
+		// VNC_CONNECTED
+
+		// VNC_DISCONNECTED
+
+		// VNC_INITIALIZED
+
+		// VSERPORT_CHANGE
+
+		// WAKEUP
+
+		// WATCHDOG
+	} `json:"data"`
+	Timestamp *Timestamp `json:"timestamp"`
 }
 
 func (e *Event) String() string {
-	return fmt.Sprintf("QMP Event result: %#v", e)
+	return fmt.Sprintf("QMP Event %s result: %s", e.Event, jsonutils.Marshal(e.Data).String())
 }
 
 type Timestamp struct {
@@ -166,49 +425,37 @@ func (m *QmpMonitor) read(r io.Reader) {
 	}
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
-		var objmap map[string]*json.RawMessage
+		obj := struct {
+			Error  *Error
+			Return jsonutils.JSONObject
+			Id     string
+			Event  string
+			Qmp    *struct {
+				Version Version
+			}
+		}{}
 		b := scanner.Bytes()
-		log.Infof("QMP Read %s: %s", m.server, string(b))
-		if err := json.Unmarshal(b, &objmap); err != nil {
-			log.Errorf("Unmarshal %s error: %s", m.server, err.Error())
+		log.Debugf("QMP Read %s: %s", m.server, string(b))
+		jobj, err := jsonutils.Parse(b)
+		if err != nil {
+			log.Errorf("Parse %s %s error: %s", m.server, string(b), err.Error())
 			continue
 		}
-		if val, ok := objmap["error"]; ok {
-			var res = &Response{}
-			res.ErrorVal = &Error{}
-			json.Unmarshal(*val, res.ErrorVal)
-			if id, ok := objmap["id"]; ok {
-				res.Id = string(*id)
+		jobj.Unmarshal(&obj)
+		if obj.Error != nil || obj.Return != nil {
+			var res = &Response{
+				Return:   obj.Return,
+				Id:       obj.Id,
+				ErrorVal: obj.Error,
 			}
 			m.callBack(res)
-		} else if val, ok := objmap["return"]; ok {
-			var res = &Response{}
-			res.Return = []byte(*val)
-			if id, ok := objmap["id"]; ok {
-				res.Id = string(*id)
-			}
-			m.callBack(res)
-		} else if val, ok := objmap["event"]; ok {
-			var event = &Event{
-				Event:     string(*val),
-				Data:      make(map[string]interface{}, 0),
-				Timestamp: new(Timestamp),
-			}
-			if data, ok := objmap["data"]; ok {
-				json.Unmarshal(*data, &event.Data)
-			}
-			if timestamp, ok := objmap["timestamp"]; ok {
-				json.Unmarshal(*timestamp, event.Timestamp)
-			}
+		} else if len(obj.Event) > 0 {
+			event := &Event{}
+			jobj.Unmarshal(event)
 			m.watchEvent(event)
-		} else if val, ok := objmap["QMP"]; ok {
+		} else if obj.Qmp != nil {
 			// On qmp connected
-			json.Unmarshal(*val, &objmap)
-			if val, ok = objmap["version"]; ok {
-				var version Version
-				json.Unmarshal(*val, &version)
-				m.QemuVersion = version.String()
-			}
+			m.QemuVersion = obj.Qmp.Version.String()
 
 			// remove reader timeout
 			m.rwc.SetReadDeadline(time.Time{})
@@ -333,7 +580,7 @@ func (m *QmpMonitor) SimpleCommand(cmd string, callback StringCallback) {
 			if res.ErrorVal != nil {
 				callback(res.ErrorVal.Error())
 			} else {
-				callback(string(res.Return))
+				callback(res.Return.String())
 			}
 		}
 	}
@@ -353,7 +600,7 @@ func (m *QmpMonitor) HumanMonitorCommand(cmd string, callback StringCallback) {
 			if res.ErrorVal != nil {
 				callback(res.ErrorVal.Error())
 			} else {
-				callback(strings.Trim(string(res.Return), `""`))
+				callback(strings.Trim(res.Return.String(), `""`))
 			}
 		}
 	)
@@ -371,18 +618,15 @@ func (m *QmpMonitor) parseStatus(callback StringCallback) qmpMonitorCallBack {
 			callback("unknown")
 			return
 		}
-		var val map[string]interface{}
-		err := json.Unmarshal(res.Return, &val)
-		if err != nil {
-			callback("unknown")
+		status := struct {
+			Status string
+		}{}
+		res.Return.Unmarshal(&status)
+		if len(status.Status) > 0 {
+			callback(status.Status)
 			return
 		}
-		if status, ok := val["status"]; !ok {
-			callback("unknown")
-		} else {
-			str, _ := status.(string)
-			callback(str)
-		}
+		callback("unknown")
 	}
 }
 
@@ -398,13 +642,13 @@ func (m *QmpMonitor) parseVersion(callback StringCallback) qmpMonitorCallBack {
 			callback("")
 			return
 		}
-		var version Version
-		err := json.Unmarshal(res.Return, &version)
-		if err != nil {
-			callback("")
-		} else {
+		version := Version{}
+		res.Return.Unmarshal(&version)
+		if version.QEMU.Major > 0 {
 			callback(version.String())
+			return
 		}
+		callback("")
 	}
 }
 
@@ -413,12 +657,7 @@ func (m *QmpMonitor) GetBlocks(callback func(*jsonutils.JSONArray)) {
 		if res.ErrorVal != nil {
 			callback(nil)
 		}
-		jr, err := jsonutils.Parse(res.Return)
-		if err != nil {
-			log.Errorf("Get %s block error %s", m.server, err)
-			callback(nil)
-		}
-		jra, _ := jr.(*jsonutils.JSONArray)
+		jra, _ := res.Return.(*jsonutils.JSONArray)
 		callback(jra)
 	}
 
@@ -628,40 +867,43 @@ func (m *QmpMonitor) GetMigrateStatus(callback StringCallback) {
 		cb  = func(res *Response) {
 			if res.ErrorVal != nil {
 				callback(res.ErrorVal.Error())
-			} else {
-				/*
-					{"expected-downtime":300,"ram":{"dirty-pages-rate":0,"dirty-sync-count":1,"duplicate":2966538,"mbps":268.5672,"normal":148629,"normal-bytes":608784384,"page-size":4096,"postcopy-requests":0,"remaining":142815232,"skipped":0,"total":12902539264,"transferred":636674057},"setup-time":65,"status":"active","total-time":20002}
-					{"disk":{"dirty-pages-rate":0,"dirty-sync-count":0,"duplicate":0,"mbps":0,"normal":0,"normal-bytes":0,"page-size":0,"postcopy-requests":0,"remaining":0,"skipped":0,"total":139586437120,"transferred":139586437120},"expected-downtime":300,"ram":{"dirty-pages-rate":0,"dirty-sync-count":1,"duplicate":193281,"mbps":268.44264,"normal":62311,"normal-bytes":255225856,"page-size":4096,"postcopy-requests":0,"remaining":44474368,"skipped":0,"total":1091379200,"transferred":257555032},"setup-time":15,"status":"active","total-time":10002}
-				*/
-				ret, err := jsonutils.Parse(res.Return)
-				if err != nil {
-					log.Errorf("Parse qmp res error %s: %s", m.server, err)
-					callback("")
-				} else {
-					log.Infof("Query migrate status %s: %s", m.server, ret.String())
-
-					status, _ := ret.GetString("status")
-					if status == "active" {
-						ramTotal, _ := ret.Int("ram", "total")
-						ramRemain, _ := ret.Int("ram", "remaining")
-						ramMbps, _ := ret.Float("ram", "mbps")
-						diskTotal, _ := ret.Int("disk", "total")
-						diskRemain, _ := ret.Int("disk", "remaining")
-						diskMbps, _ := ret.Float("disk", "mbps")
-						if diskRemain > 0 {
-							status = "migrate_disk_copy"
-						} else if ramRemain > 0 {
-							status = "migrate_ram_copy"
-						}
-						mbps := ramMbps + diskMbps
-						progress := (1 - float64(diskRemain+ramRemain)/float64(diskTotal+ramTotal)) * 100.0
-						log.Debugf("progress: %f mbps: %f", progress, mbps)
-						hostutils.UpdateServerProgress(context.Background(), m.sid, progress, mbps)
-					}
-
-					callback(status)
-				}
+				return
 			}
+			/*
+				{"expected-downtime":300,"ram":{"dirty-pages-rate":0,"dirty-sync-count":1,"duplicate":2966538,"mbps":268.5672,"normal":148629,"normal-bytes":608784384,"page-size":4096,"postcopy-requests":0,"remaining":142815232,"skipped":0,"total":12902539264,"transferred":636674057},"setup-time":65,"status":"active","total-time":20002}
+				{"disk":{"dirty-pages-rate":0,"dirty-sync-count":0,"duplicate":0,"mbps":0,"normal":0,"normal-bytes":0,"page-size":0,"postcopy-requests":0,"remaining":0,"skipped":0,"total":139586437120,"transferred":139586437120},"expected-downtime":300,"ram":{"dirty-pages-rate":0,"dirty-sync-count":1,"duplicate":193281,"mbps":268.44264,"normal":62311,"normal-bytes":255225856,"page-size":4096,"postcopy-requests":0,"remaining":44474368,"skipped":0,"total":1091379200,"transferred":257555032},"setup-time":15,"status":"active","total-time":10002}
+			*/
+
+			ret := struct {
+				Status string
+				Ram    struct {
+					Total     int64
+					Remaining int64
+					Mbps      float64
+				}
+				Disk struct {
+					Total     int64
+					Remaining int64
+					Mbps      float64
+				}
+			}{}
+			res.Return.Unmarshal(&ret)
+
+			log.Infof("Query migrate status %s: %s", m.server, ret.Status)
+
+			status := ret.Status
+			if status == "active" {
+				if ret.Disk.Remaining > 0 {
+					status = "migrate_disk_copy"
+				} else if ret.Ram.Remaining > 0 {
+					status = "migrate_ram_copy"
+				}
+				mbps := ret.Disk.Mbps + ret.Ram.Mbps
+				progress := 50 + (1.0-float64(ret.Disk.Remaining+ret.Ram.Remaining)/float64(ret.Disk.Total+ret.Ram.Total))*100.0*0.5
+				log.Debugf("progress: %f mbps: %f", progress, mbps)
+				hostutils.UpdateServerProgress(context.Background(), m.sid, progress, mbps)
+			}
+			callback(status)
 		}
 	)
 	m.Query(cmd, cb)
@@ -673,16 +915,9 @@ func (m *QmpMonitor) MigrateStartPostcopy(callback StringCallback) {
 		cb  = func(res *Response) {
 			if res.ErrorVal != nil {
 				callback(res.ErrorVal.Error())
-			} else {
-				ret, err := jsonutils.Parse(res.Return)
-				if err != nil {
-					log.Errorf("Parse qmp res error %s: %s", m.server, err)
-					callback("MigrateStartPostcopy error")
-				} else {
-					log.Infof("MigrateStartPostcopy %s: %s", m.server, ret.String())
-					callback("")
-				}
+				return
 			}
+			callback("")
 		}
 	)
 	m.Query(cmd, cb)
@@ -692,12 +927,8 @@ func (m *QmpMonitor) blockJobs(res *Response) ([]BlockJob, error) {
 	if res.ErrorVal != nil {
 		return nil, errors.Errorf("GetBlockJobs for %s %s", m.server, jsonutils.Marshal(res.ErrorVal).String())
 	}
-	ret, err := jsonutils.Parse(res.Return)
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetBlockJobs for %s parse %s", m.server, res.Return)
-	}
 	jobs := []BlockJob{}
-	ret.Unmarshal(&jobs)
+	res.Return.Unmarshal(&jobs)
 	defer func() {
 		mbps, progress := 0.0, 0.0
 		totalSize, totalOffset := int64(1), int64(0)

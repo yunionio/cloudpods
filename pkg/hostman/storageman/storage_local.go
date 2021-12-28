@@ -377,10 +377,11 @@ func (s *SLocalStorage) onSaveToGlanceFailed(ctx context.Context, imageId string
 
 func (s *SLocalStorage) CreateSnapshotFormUrl(
 	ctx context.Context, snapshotUrl, diskId, snapshotPath string,
+	callback func(progress, progressMbps float32, totalSizeMb int64),
 ) error {
 	remoteFile := remotefile.NewRemoteFile(ctx, snapshotUrl, snapshotPath,
 		false, "", -1, nil, "", "")
-	err := remoteFile.Fetch(nil)
+	err := remoteFile.Fetch(callback)
 	return errors.Wrapf(err, "fetch snapshot from %s", snapshotUrl)
 }
 
@@ -397,12 +398,10 @@ func (s *SLocalStorage) DeleteSnapshots(ctx context.Context, params interface{})
 	return nil, nil
 }
 
-func (s *SLocalStorage) DestinationPrepareMigrate(
-	ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
-	disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool, diskinfo jsonutils.JSONObject) error {
+func (s *SLocalStorage) DestinationPrepareMigrate(ctx context.Context, opts *api.ServerMigrateOptions, diskinfo *api.GuestdiskJsonDesc) error {
 	var (
-		diskId, _    = diskinfo.GetString("disk_id")
-		snapshots, _ = srcSnapshots.GetArray(diskId)
+		diskId       = diskinfo.DiskId
+		snapshots, _ = opts.SrcSnapshots[diskId]
 		disk         = s.CreateDisk(diskId)
 	)
 
@@ -411,7 +410,7 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 			"Storage %s create disk %s failed", s.GetId(), diskId)
 	}
 
-	templateId, _ := diskinfo.GetString("template_id")
+	templateId := diskinfo.TemplateId
 	// prepare disk snapshot dir
 	if len(snapshots) > 0 && !fileutils2.Exists(disk.GetSnapshotDir()) {
 		output, err := procutils.NewCommand("mkdir", "-p", disk.GetSnapshotDir()).Output()
@@ -422,16 +421,23 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 
 	// create snapshots form remote url
 	var (
-		diskStorageId, _ = diskinfo.GetString("storage_id")
-		baseImagePath    string
+		diskStorageId = diskinfo.StorageId
+		baseImagePath string
 	)
 	for i, snapshotId := range snapshots {
-		snapId, _ := snapshotId.GetString()
 		snapshotUrl := fmt.Sprintf("%s/%s/%s/%s",
-			snapshotsUri, diskStorageId, diskId, snapId)
-		snapshotPath := path.Join(disk.GetSnapshotDir(), snapId)
-		log.Infof("Disk %s snapshot %s url: %s", diskId, snapId, snapshotUrl)
-		if err := s.CreateSnapshotFormUrl(ctx, snapshotUrl, diskId, snapshotPath); err != nil {
+			opts.SnapshotsUri, diskStorageId, diskId, snapshotId)
+		snapshotPath := path.Join(disk.GetSnapshotDir(), snapshotId)
+		log.Infof("Disk %s snapshot %s url: %s", diskId, snapshotId, snapshotUrl)
+		if err := s.CreateSnapshotFormUrl(ctx, snapshotUrl, diskId, snapshotPath, func(progress, progressMbps float32, totalSizeMb int64) {
+			log.Infof("[%.2f / %d Mbps] migrate %s from %s to %s %.2f speed: %.2f", float32(totalSizeMb)*progress/100, totalSizeMb, snapshotPath, opts.SourceHostName, opts.TargetHostName, progress, progressMbps)
+			if len(opts.ServerId) > 0 {
+				newProgress := float64(progress) * float64(totalSizeMb) / float64(opts.TotalSnapshotSizeMb)
+				log.Infof("[%.2f / %d Mbps] migrate snapshots for server %s from %s to %s %.2f speed: %.2f", float64(opts.TotalSnapshotSizeMb)*newProgress/100, opts.TotalSnapshotSizeMb, opts.ServerId, opts.SourceHostName, opts.TargetHostName, newProgress, progressMbps)
+				hostutils.UpdateServerProgress(ctx, opts.ServerId, newProgress*0.5, float64(progressMbps))
+			}
+			return
+		}); err != nil {
 			return errors.Wrap(err, "create from snapshot url failed")
 		}
 		if i == 0 && len(templateId) > 0 {
@@ -439,7 +445,7 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 			if err := doRebaseDisk(snapshotPath, templatePath); err != nil {
 				return err
 			}
-		} else if rebaseDisks && len(baseImagePath) > 0 {
+		} else if opts.RebaseDisks && len(baseImagePath) > 0 {
 			if err := doRebaseDisk(snapshotPath, baseImagePath); err != nil {
 				return err
 			}
@@ -447,35 +453,44 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 		baseImagePath = snapshotPath
 	}
 
-	if liveMigrate {
+	if opts.LiveMigrate {
 		// create local disk
-		backingFile, _ := disksBackingFile.GetString(diskId)
-		size, _ := diskinfo.Int("size")
+		backingFile, _ := opts.DisksBack[diskId]
+		size := diskinfo.Size
 		_, err := disk.CreateRaw(ctx, int(size), "qcow2", "", false, "", backingFile)
 		if err != nil {
 			log.Errorln(err)
 			return err
 		}
 	} else {
+		disksTotalSize := 0
+		for i := range opts.Desc.Disks {
+			disksTotalSize += opts.Desc.Disks[i].Size
+		}
 		// download disk form remote url
-		diskUrl := fmt.Sprintf("%s/%s/%s", disksUri, diskStorageId, diskId)
-		if err := disk.CreateFromUrl(ctx, diskUrl, 0); err != nil {
-			log.Errorf("CreateFromUrl %q: %v", diskUrl, err)
-			err = errors.Wrap(err, "CreateFromUrl")
-			return err
+		diskUrl := fmt.Sprintf("%s/%s/%s", opts.DisksUri, diskStorageId, diskId)
+		err := disk.CreateFromUrl(ctx, diskUrl, 0, callback func(progress, progressMbps float32, totalSizeMb int64) {
+			log.Infof("[%.2f / %d Mbps] migrate %s from %s to %s %.2f speed: %.2f", float32(totalSizeMb)*progress/100, totalSizeMb, diskInfo.Name, opts.SourceHostName, opts.TargetHostName, progress, progressMbps)
+				newProgress := float64(progress) * float64(totalSizeMb) / float64(disksTotalSize)
+				log.Infof("[%.2f / %d Mbps] migrate disks for server %s from %s to %s %.2f speed: %.2f", float64()*newProgress/100, opts.TotalSnapshotSizeMb, opts.ServerId, opts.SourceHostName, opts.TargetHostName, newProgress, progressMbps)
+				hostutils.UpdateServerProgress(ctx, opts.ServerId, newProgress, float64(progressMbps))
+
+		})
+		if err != nil {
+			return errors.Wrapf(err, "CreateFromUrl")
 		}
 	}
-	if rebaseDisks && len(templateId) > 0 && len(baseImagePath) == 0 {
+	if opts.RebaseDisks && len(templateId) > 0 && len(baseImagePath) == 0 {
 		templatePath := path.Join(storageManager.LocalStorageImagecacheManager.GetPath(), templateId)
 		if err := doRebaseDisk(disk.GetPath(), templatePath); err != nil {
 			return err
 		}
-	} else if rebaseDisks && len(baseImagePath) > 0 {
+	} else if opts.RebaseDisks && len(baseImagePath) > 0 {
 		if err := doRebaseDisk(disk.GetPath(), baseImagePath); err != nil {
 			return err
 		}
 	}
-	diskDesc, _ := diskinfo.(*jsonutils.JSONDict)
+	diskDesc, _ := jsonutils.Marshal(diskinfo).(*jsonutils.JSONDict)
 	diskDesc.Set("path", jsonutils.NewString(disk.GetPath()))
 	return nil
 }
