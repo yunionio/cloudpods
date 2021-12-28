@@ -46,7 +46,6 @@ type SSecurityGroupCacheManager struct {
 	SCloudregionResourceBaseManager
 	SVpcResourceBaseManager
 	SSecurityGroupResourceBaseManager
-	SGlobalVpcResourceBaseManager
 }
 
 type SSecurityGroupCache struct {
@@ -55,7 +54,6 @@ type SSecurityGroupCache struct {
 	SCloudregionResourceBase
 	SManagedResourceBase
 	SSecurityGroupResourceBase
-	SGlobalVpcResourceBase `width:"36" charset:"ascii" list:"user" json:"globalvpc_id"`
 
 	// 被其他安全组引用的次数
 	ReferenceCount int `nullable:"false" list:"user" json:"reference_count"`
@@ -361,7 +359,7 @@ func (manager *SSecurityGroupCacheManager) getSecgroupcachesByProvider(provider 
 func (self *SSecurityGroupCache) GetSecgroup() (*SSecurityGroup, error) {
 	model, err := SecurityGroupManager.FetchById(self.SecgroupId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch secgroup by %s", self.SecgroupId)
+		return nil, errors.Wrapf(err, "SecurityGroupManager.FetchById(%s)", self.SecgroupId)
 	}
 	return model.(*SSecurityGroup), nil
 }
@@ -572,6 +570,26 @@ func (self *SSecurityGroupCache) Delete(ctx context.Context, userCred mcclient.T
 
 func (self *SSecurityGroupCache) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return self.SStatusStandaloneResourceBase.Delete(ctx, userCred)
+}
+
+func (self *SSecurityGroupCache) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	if secgroup, _ := self.GetSecgroup(); secgroup != nil {
+		caches, err := secgroup.GetSecurityGroupCaches()
+		if err != nil {
+			return errors.Wrapf(err, "secgroup.GetSecurityGroupCaches")
+		}
+		if len(caches) == 1 {
+			err := secgroup.ValidateDeleteCondition(ctx, nil)
+			if err == nil {
+				secgroup.RealDelete(ctx, userCred)
+			}
+		}
+	}
+
+	return self.RealDelete(ctx, userCred)
 }
 
 func (self *SSecurityGroupCache) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
