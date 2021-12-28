@@ -5806,3 +5806,7 @@ func (manager *SHostManager) initHostname() error {
 func (manager *SHostManager) InitializeData() error {
 	return manager.initHostname()
 }
+
+func (self *SHost) PerformProbeIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return self.GetHostDriver().RequestProbeIsolatedDevices(ctx, userCred, self, data)
+}

@@ -683,6 +683,8 @@ function nic_mtu() {
 		cmd += s.getVnicDesc(nics[i], true)
 	}
 
+	// USB 3.0
+	cmd += " -device qemu-xhci,id=usb"
 	if isolatedDevsParams != nil {
 		for _, each := range isolatedDevsParams.Devices {
 			cmd += each

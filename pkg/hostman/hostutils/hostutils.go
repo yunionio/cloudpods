@@ -52,7 +52,7 @@ type IHost interface {
 	StartDHCPServer()
 
 	GetBridgeDev(bridge string) hostbridge.IBridgeDriver
-	GetIsolatedDeviceManager() *isolated_device.IsolatedDeviceManager
+	GetIsolatedDeviceManager() isolated_device.IsolatedDeviceManager
 
 	SyncRootPartitionUsedCapacity() error
 
