@@ -54,7 +54,7 @@ func init() {
 }
 
 func (self *SAwsRegionDriver) IsAllowSecurityGroupNameRepeat() bool {
-	return true
+	return false
 }
 
 func (self *SAwsRegionDriver) GenerateSecurityGroupName(name string) string {
