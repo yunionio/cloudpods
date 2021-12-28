@@ -291,7 +291,6 @@ func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.T
 	var rootImage api.SubImageInfo
 	for i := range images {
 		image := images[i]
-		out.ImageIds = append(out.ImageIds, image.Id)
 		size += image.Size
 		if !image.IsData.IsTrue() {
 			rootImage = api.SubImageInfo{

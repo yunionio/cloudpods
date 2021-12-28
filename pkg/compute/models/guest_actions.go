@@ -260,19 +260,26 @@ func (self *SGuest) PerformSaveGuestImage(ctx context.Context, userCred mcclient
 	if err != nil {
 		return nil, err
 	}
-	imageIds, err := ret.Get("image_ids")
-	if err != nil {
-		return nil, fmt.Errorf("something wrong in glance")
-	}
-	tmp := imageIds.(*jsonutils.JSONArray)
-	if tmp.Length() != len(disks.Data)+1 {
+	guestImageInfo := struct {
+		RootImage  imageapi.SubImageInfo
+		DataImages []imageapi.SubImageInfo
+	}{}
+	ret.Unmarshal(&guestImageInfo)
+
+	if len(guestImageInfo.DataImages) != len(disks.Data) {
 		return nil, fmt.Errorf("create subimage of guest image error")
 	}
+	imageIds := make([]string, 0, len(guestImageInfo.DataImages)+1)
+	for _, info := range guestImageInfo.DataImages {
+		imageIds = append(imageIds, info.ID)
+	}
+	imageIds = append(imageIds, guestImageInfo.RootImage.ID)
 	taskParams := jsonutils.NewDict()
 	if restart, _ := kwargs.Bool("auto_start"); restart {
 		taskParams.Add(jsonutils.JSONTrue, "auto_start")
 	}
-	taskParams.Add(imageIds, "image_ids")
+	taskParams.Add(jsonutils.Marshal(imageIds), "image_ids")
+	log.Infof("before StartGuestSaveGuestImage image_ids: %s", imageIds)
 	return nil, self.StartGuestSaveGuestImage(ctx, userCred, taskParams, "")
 }
 
