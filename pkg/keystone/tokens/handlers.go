@@ -19,7 +19,6 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
@@ -218,14 +217,16 @@ func verifyTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request)
 
 func verifyCommon(ctx context.Context, w http.ResponseWriter, tokenStr string) (*SAuthToken, error) {
 	adminToken := policy.FetchUserCredential(ctx)
-	if adminToken == nil || adminToken.IsAllow(rbacutils.ScopeSystem, api.SERVICE_TYPE, "tokens", "perform", "auth").Result.IsDeny() {
-		return nil, httperrors.NewForbiddenError("not allow to auth")
+	if adminToken == nil || len(tokenStr) == 0 {
+		return nil, httperrors.NewForbiddenError("missing auth token")
+	}
+	if adminToken.IsAllow(rbacutils.ScopeSystem, api.SERVICE_TYPE, "tokens", "perform", "auth").Result.IsDeny() {
+		return nil, httperrors.NewForbiddenError("%s not allow to auth", adminToken.GetUserName())
 	}
 	token := SAuthToken{}
 	err := token.ParseFernetToken(tokenStr)
 	if err != nil {
-		log.Errorf("ParseFernetToken %s fail: %s", tokenStr, err)
-		return nil, httperrors.NewInvalidCredentialError("invalid token")
+		return nil, httperrors.NewInvalidCredentialError(errors.Wrapf(err, "invalid token").Error())
 	}
 	return &token, nil
 }

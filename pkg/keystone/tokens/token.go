@@ -162,14 +162,14 @@ func (t *SAuthToken) Encode() ([]byte, error) {
 func (t *SAuthToken) ParseFernetToken(tokenStr string) error {
 	tk := keys.TokenKeysManager.Decrypt([]byte(tokenStr)) // , time.Duration(options.Options.TokenExpirationSeconds)*time.Second)
 	if tk == nil {
-		return ErrExpiredToken
+		return errors.Wrapf(ErrInvalidToken, tokenStr)
 	}
 	err := t.Decode(tk)
 	if err != nil {
 		return errors.Wrap(err, "decode error")
 	}
 	if t.ExpiresAt.Before(time.Now()) {
-		return ErrExpiredToken
+		return errors.Wrapf(ErrExpiredToken, "expires_at %s", t.ExpiresAt.String())
 	}
 	return nil
 }

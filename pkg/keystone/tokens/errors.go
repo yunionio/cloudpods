@@ -20,6 +20,7 @@ const (
 	ErrVerMismatch        = errors.Error("version mismatch")
 	ErrProjectDisabled    = errors.Error("project disabled")
 	ErrUserDisabled       = errors.Error("user disabled")
+	ErrInvalidToken       = errors.Error("invalid token")
 	ErrExpiredToken       = errors.Error("expired token")
 	ErrInvalidFernetToken = errors.Error("invalid fernet token")
 	ErrInvalidAuthMethod  = errors.Error("invalid auth methods")
