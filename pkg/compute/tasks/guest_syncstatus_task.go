@@ -54,6 +54,11 @@ func (self *GuestSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	self.OnGetStatusSucc(ctx, guest, body)
 }
 
+func (self *GuestSyncstatusTask) getOriginStatus() string {
+	os, _ := self.GetParams().GetString("origin_status")
+	return os
+}
+
 func (self *GuestSyncstatusTask) OnGetStatusSucc(ctx context.Context, guest *models.SGuest, body jsonutils.JSONObject) {
 	statusStr, _ := body.GetString("status")
 	switch statusStr {
@@ -67,6 +72,15 @@ func (self *GuestSyncstatusTask) OnGetStatusSucc(ctx context.Context, guest *mod
 		break
 	default:
 		statusStr = api.VM_UNKNOWN
+	}
+	if !self.HasParentTask() {
+		// migrating status hack
+		// not change migrating when:
+		//   guest.Status is migrating and task not has parent task
+		os := self.getOriginStatus()
+		if os == api.VM_MIGRATING && statusStr == api.VM_RUNNING {
+			statusStr = os
+		}
 	}
 	blockJobsCount, err := body.Int("block_jobs_count")
 	if err != nil {
