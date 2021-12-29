@@ -507,9 +507,8 @@ func (t *SGuestIsolatedDeviceSyncTask) removeDevice(dev jsonutils.JSONObject) {
 	cb := func(res string) {
 		if len(res) > 0 {
 			t.errors = append(t.errors, fmt.Errorf("device del failed: %s", res))
-		} else {
-			t.syncDevice()
 		}
+		t.syncDevice()
 	}
 
 	vendorDevId, err := dev.GetString("vendor_device_id")
@@ -542,9 +541,8 @@ func (t *SGuestIsolatedDeviceSyncTask) addDevice(dev jsonutils.JSONObject) {
 	cb := func(res string) {
 		if len(res) > 0 {
 			t.errors = append(t.errors, fmt.Errorf("device add failed: %s", res))
-		} else {
-			t.syncDevice()
 		}
+		t.syncDevice()
 	}
 
 	vendorDevId, err := dev.GetString("vendor_device_id")

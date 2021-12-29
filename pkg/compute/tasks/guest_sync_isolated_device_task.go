@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -39,7 +40,8 @@ func (self *GuestIsolatedDeviceSyncTask) needStart() bool {
 
 func (self *GuestIsolatedDeviceSyncTask) onTaskFail(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
 	self.SetStageFailed(ctx, err)
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_SYNC_CONF, err, self.GetUserCred(), false)
+	guest.SetStatus(self.GetUserCred(), api.VM_SYNC_ISOLATED_DEVICE_FAILED, err.String())
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_SYNC_ISOLATED_DEVICE, err, self.GetUserCred(), false)
 }
 
 func (self *GuestIsolatedDeviceSyncTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
