@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rand"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -77,6 +78,21 @@ func (man *SLoadbalancerBackendGroupManager) pendingDeleteSubs(ctx context.Conte
 	for _, lbbg := range lbbgs {
 		lbbg.LBPendingDelete(ctx, userCred)
 	}
+}
+
+func (man *SLoadbalancerBackendGroupManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if userCred != nil {
+		sq := LoadbalancerManager.Query("id")
+		switch scope {
+		case rbacutils.ScopeProject:
+			sq = sq.Equals("tenant_id", userCred.GetProjectId())
+			return q.In("loadbalancer_id", sq.SubQuery())
+		case rbacutils.ScopeDomain:
+			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
+			return q.In("loadbalancer_id", sq.SubQuery())
+		}
+	}
+	return q
 }
 
 // 负载均衡后端服务器组列表
