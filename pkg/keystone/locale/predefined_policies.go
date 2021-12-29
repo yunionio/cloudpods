@@ -138,6 +138,10 @@ var (
 					"unifiedmonitors": {
 						"perform",
 					},
+					"monitorresourcealerts": {
+						"list",
+						"get",
+					},
 				},
 				"log": {
 					"actions": {
