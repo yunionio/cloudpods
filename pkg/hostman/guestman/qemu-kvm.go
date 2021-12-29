@@ -1697,17 +1697,16 @@ func (s *SKVMGuestInstance) IsSharedStorage() bool {
 
 func (s *SKVMGuestInstance) generateDiskSetupScripts(disks []api.GuestdiskJsonDesc) (string, error) {
 	cmd := " "
-	for _, disk := range disks {
-		diskPath := disk.Path
+	for i := range disks {
+		diskPath := disks[i].Path
 		d, err := storageman.GetManager().GetDiskByPath(diskPath)
 		if err != nil {
 			return "", errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
 		}
-		if len(disk.StorageType) == 0 {
-			disk.StorageType = d.GetType()
+		if len(disks[i].StorageType) == 0 {
+			disks[i].StorageType = d.GetType()
 		}
-
-		diskIndex := disk.Index
+		diskIndex := disks[i].Index
 		cmd += d.GetDiskSetupScripts(int(diskIndex))
 	}
 	return cmd, nil
