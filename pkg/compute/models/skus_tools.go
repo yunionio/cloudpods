@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	v "yunion.io/x/pkg/util/version"
+	"yunion.io/x/pkg/utils"
 
 	apis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -89,6 +90,8 @@ func (self *SSkuResourcesMeta) GetDBInstanceSkusByRegionExternalId(regionExterna
 	if err != nil {
 		return nil, errors.Wrapf(err, "getSkusByRegion")
 	}
+
+	noZoneIds, cnt := []string{}, 0
 	for _, obj := range objs {
 		sku := SDBInstanceSku{}
 		sku.SetModelManager(DBInstanceSkuManager, &sku)
@@ -99,7 +102,10 @@ func (self *SSkuResourcesMeta) GetDBInstanceSkusByRegionExternalId(regionExterna
 		if len(sku.Zone1) > 0 {
 			zoneId := self.getZoneIdBySuffix(zoneMaps, sku.Zone1) // Huawei rds sku zone1 maybe is cn-north-4f
 			if len(zoneId) == 0 {
-				log.Warningf("invalid sku %s(%s) %s zone1: %s", sku.Name, sku.Id, sku.CloudregionId, sku.Zone1)
+				if !utils.IsInStringArray(sku.Zone1, noZoneIds) {
+					noZoneIds = append(noZoneIds, sku.Zone1)
+				}
+				cnt++
 				continue
 			}
 			sku.Zone1 = zoneId
@@ -108,7 +114,10 @@ func (self *SSkuResourcesMeta) GetDBInstanceSkusByRegionExternalId(regionExterna
 		if len(sku.Zone2) > 0 {
 			zoneId := self.getZoneIdBySuffix(zoneMaps, sku.Zone2)
 			if len(zoneId) == 0 {
-				log.Warningf("invalid sku %s(%s) %s zone2: %s", sku.Name, sku.Id, sku.CloudregionId, sku.Zone2)
+				if !utils.IsInStringArray(sku.Zone2, noZoneIds) {
+					noZoneIds = append(noZoneIds, sku.Zone2)
+				}
+				cnt++
 				continue
 			}
 			sku.Zone2 = zoneId
@@ -117,7 +126,10 @@ func (self *SSkuResourcesMeta) GetDBInstanceSkusByRegionExternalId(regionExterna
 		if len(sku.Zone3) > 0 {
 			zoneId := self.getZoneIdBySuffix(zoneMaps, sku.Zone3)
 			if len(zoneId) == 0 {
-				log.Warningf("invalid sku %s(%s) %s zone3: %s", sku.Name, sku.Id, sku.CloudregionId, sku.Zone3)
+				if !utils.IsInStringArray(sku.Zone3, noZoneIds) {
+					noZoneIds = append(noZoneIds, sku.Zone3)
+				}
+				cnt++
 				continue
 			}
 			sku.Zone3 = zoneId
@@ -127,6 +139,9 @@ func (self *SSkuResourcesMeta) GetDBInstanceSkusByRegionExternalId(regionExterna
 		sku.CloudregionId = regionId
 
 		result = append(result, sku)
+	}
+	if len(noZoneIds) > 0 {
+		log.Warningf("can not fetch rds sku %d zone %s for %s", cnt, noZoneIds, regionExternalId)
 	}
 	return result, nil
 }
@@ -141,6 +156,7 @@ func (self *SSkuResourcesMeta) GetNatSkusByRegionExternalId(regionExternalId str
 	if err != nil {
 		return nil, errors.Wrapf(err, "getSkusByRegion")
 	}
+	noZoneIds, cnt := []string{}, 0
 	for _, obj := range objs {
 		sku := SNatSku{}
 		sku.SetModelManager(NatSkuManager, &sku)
@@ -153,7 +169,10 @@ func (self *SSkuResourcesMeta) GetNatSkusByRegionExternalId(regionExternalId str
 			for _, zoneExtId := range strings.Split(sku.ZoneIds, ",") {
 				zoneId := self.getZoneIdBySuffix(zoneMaps, zoneExtId) // Huawei rds sku zone1 maybe is cn-north-4f
 				if len(zoneId) == 0 {
-					log.Warningf("invalid nat sku %s(%s) %s zone: %s", sku.Name, sku.Id, sku.CloudregionId, zoneExtId)
+					if !utils.IsInStringArray(zoneExtId, noZoneIds) {
+						noZoneIds = append(noZoneIds, zoneExtId)
+					}
+					cnt++
 					continue
 				}
 				zoneIds = append(zoneIds, zoneId)
@@ -162,8 +181,10 @@ func (self *SSkuResourcesMeta) GetNatSkusByRegionExternalId(regionExternalId str
 		}
 		sku.Id = ""
 		sku.CloudregionId = regionId
-
 		result = append(result, sku)
+	}
+	if len(noZoneIds) > 0 {
+		log.Warningf("can not fetch nat sku %d zone %s for %s", cnt, noZoneIds, regionExternalId)
 	}
 	return result, nil
 }
@@ -178,6 +199,7 @@ func (self *SSkuResourcesMeta) GetNasSkusByRegionExternalId(regionExternalId str
 	if err != nil {
 		return nil, errors.Wrapf(err, "getSkusByRegion")
 	}
+	noZoneIds, cnt := []string{}, 0
 	for _, obj := range objs {
 		sku := SNasSku{}
 		sku.SetModelManager(NasSkuManager, &sku)
@@ -190,7 +212,10 @@ func (self *SSkuResourcesMeta) GetNasSkusByRegionExternalId(regionExternalId str
 			for _, zoneExtId := range strings.Split(sku.ZoneIds, ",") {
 				zoneId := self.getZoneIdBySuffix(zoneMaps, zoneExtId) // Huawei rds sku zone1 maybe is cn-north-4f
 				if len(zoneId) == 0 {
-					log.Warningf("invalid nat sku %s(%s) %s zone: %s", sku.Name, sku.Id, sku.CloudregionId, zoneExtId)
+					if !utils.IsInStringArray(zoneExtId, noZoneIds) {
+						noZoneIds = append(noZoneIds, zoneExtId)
+					}
+					cnt++
 					continue
 				}
 				zoneIds = append(zoneIds, zoneId)
@@ -199,8 +224,10 @@ func (self *SSkuResourcesMeta) GetNasSkusByRegionExternalId(regionExternalId str
 		}
 		sku.Id = ""
 		sku.CloudregionId = regionId
-
 		result = append(result, sku)
+	}
+	if len(noZoneIds) > 0 {
+		log.Warningf("can not fetch nas sku %d zone %s for %s", cnt, noZoneIds, regionExternalId)
 	}
 	return result, nil
 }
@@ -239,6 +266,7 @@ func (self *SSkuResourcesMeta) GetServerSkusByRegionExternalId(regionExternalId 
 	if err != nil {
 		return nil, errors.Wrap(err, "getSkusByRegion")
 	}
+	noZoneIds, cnt := []string{}, 0
 	for _, obj := range objs {
 		sku := SServerSku{}
 		sku.SetModelManager(ServerSkuManager, &sku)
@@ -249,13 +277,20 @@ func (self *SSkuResourcesMeta) GetServerSkusByRegionExternalId(regionExternalId 
 		if len(sku.ZoneId) > 0 {
 			zoneId := self.getZoneIdBySuffix(zoneMaps, sku.ZoneId)
 			if len(zoneId) == 0 {
-				return nil, fmt.Errorf("invalid sku %s %s zoneId: %s", sku.Id, sku.CloudregionId, sku.ZoneId)
+				if !utils.IsInStringArray(sku.ZoneId, noZoneIds) {
+					noZoneIds = append(noZoneIds, sku.ZoneId)
+				}
+				cnt++
+				continue
 			}
 			sku.ZoneId = zoneId
 		}
 		sku.Id = ""
 		sku.CloudregionId = regionId
 		result = append(result, sku)
+	}
+	if len(noZoneIds) > 0 {
+		log.Warningf("can not fetch server sku %d zone id %s for region %s", cnt, noZoneIds, regionExternalId)
 	}
 	return result, nil
 }
@@ -287,6 +322,8 @@ func (self *SSkuResourcesMeta) GetElasticCacheSkusByRegionExternalId(regionExter
 	}
 	result := []SElasticcacheSku{}
 
+	noZoneIds, cnt := []string{}, 0
+
 	// aliyun finance cloud
 	remoteRegion := getElaticCacheSkuRegionExtId(regionExternalId)
 	objs, err := self.getObjsByRegion(self.ElasticCacheBase, remoteRegion)
@@ -303,20 +340,31 @@ func (self *SSkuResourcesMeta) GetElasticCacheSkusByRegionExternalId(regionExter
 		if len(sku.ZoneId) > 0 {
 			zoneId := self.getZoneIdBySuffix(zoneMaps, getElaticCacheSkuZoneId(sku.ZoneId))
 			if len(zoneId) == 0 {
-				return nil, fmt.Errorf("invalid sku %s %s master zoneId: %s", sku.Id, sku.CloudregionId, getElaticCacheSkuZoneId(sku.ZoneId))
+				if !utils.IsInStringArray(sku.ZoneId, noZoneIds) {
+					noZoneIds = append(noZoneIds, sku.ZoneId)
+				}
+				cnt++
+				continue
 			}
 			sku.ZoneId = zoneId
 		}
 		if len(sku.SlaveZoneId) > 0 {
 			zoneId := self.getZoneIdBySuffix(zoneMaps, getElaticCacheSkuZoneId(sku.SlaveZoneId))
 			if len(zoneId) == 0 {
-				return nil, fmt.Errorf("invalid sku %s %s slave zoneId: %s", sku.Id, sku.CloudregionId, getElaticCacheSkuZoneId(sku.SlaveZoneId))
+				if !utils.IsInStringArray(sku.SlaveZoneId, noZoneIds) {
+					noZoneIds = append(noZoneIds, sku.SlaveZoneId)
+				}
+				cnt++
+				continue
 			}
 			sku.SlaveZoneId = zoneId
 		}
 		sku.Id = ""
 		sku.CloudregionId = regionId
 		result = append(result, sku)
+	}
+	if len(noZoneIds) > 0 {
+		log.Warningf("can not fetch redis sku %d zone %s for %s", cnt, noZoneIds, regionExternalId)
 	}
 	return result, nil
 }
