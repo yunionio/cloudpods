@@ -23,7 +23,7 @@ import (
 type GuestTemplateInput struct {
 	// description: the content of guest template
 	// required: true
-	Content jsonutils.JSONObject `json:"content"`
+	Content *jsonutils.JSONDict `json:"content"`
 
 	VmemSize      int    `json:"vmem_size"`
 	VcpuCount     int    `json:"vcpu_count"`
