@@ -26,8 +26,6 @@ type GuestImageDetails struct {
 	apis.SharableVirtualResourceDetails
 	SGuestImage
 
-	ImageIds []string `json:"image_ids"`
-
 	//Status     string               `json:"status"`
 	Size       int64          `json:"size"`
 	MinRamMb   int32          `json:"min_ram_mb"`
