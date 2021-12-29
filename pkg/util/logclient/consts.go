@@ -100,6 +100,7 @@ const (
 	ACT_VM_CONVERT                   = "vm_convert"
 	ACT_FREEZE                       = "freeze"
 	ACT_UNFREEZE                     = "unfreeze"
+	ACT_VM_SYNC_ISOLATED_DEVICE      = "vm_sync_isolated_device"
 
 	ACT_CACHED_IMAGE = "cached_image"
 
