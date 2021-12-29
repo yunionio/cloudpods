@@ -148,6 +148,8 @@ const (
 	VM_RESTART_NETWORK        = "restart_network"
 	VM_RESTART_NETWORK_FAILED = "restart_network_failed"
 
+	VM_SYNC_ISOLATED_DEVICE_FAILED = "sync_isolated_device_failed"
+
 	SHUTDOWN_STOP      = "stop"
 	SHUTDOWN_TERMINATE = "terminate"
 
