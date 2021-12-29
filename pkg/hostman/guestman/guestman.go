@@ -375,6 +375,9 @@ func (m *SGuestManager) PrepareDeploy(sid string) error {
 func (m *SGuestManager) Monitor(sid, cmd string, callback func(string)) error {
 	if guest, ok := m.GetServer(sid); ok {
 		if guest.IsRunning() {
+			if guest.Monitor == nil {
+				return httperrors.NewBadRequestError("Monitor disconnected??")
+			}
 			guest.Monitor.HumanMonitorCommand(cmd, callback)
 			return nil
 		} else {
@@ -930,6 +933,13 @@ func (m *SGuestManager) DeleteSnapshot(ctx context.Context, params interface{}) 
 
 func (m *SGuestManager) Resume(ctx context.Context, sid string, isLiveMigrate bool) (jsonutils.JSONObject, error) {
 	guest, _ := m.GetServer(sid)
+	if guest.IsStopping() || guest.IsStopped() {
+		return nil, httperrors.NewInvalidStatusError("resume stopped server???")
+	}
+	if guest.Monitor == nil {
+		guest.StartMonitor(ctx)
+		return nil, nil
+	}
 	resumeTask := NewGuestResumeTask(ctx, guest, !isLiveMigrate)
 	if isLiveMigrate {
 		guest.StartPresendArp()

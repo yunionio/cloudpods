@@ -729,6 +729,7 @@ func (s *SGuestLiveMigrateTask) migrateComplete() {
 	s.migrateTask = nil
 	close(s.c)
 	s.Monitor.Disconnect()
+	s.Monitor = nil
 	hostutils.TaskComplete(s.ctx, nil)
 }
 
@@ -754,6 +755,7 @@ func NewGuestResumeTask(ctx context.Context, s *SKVMGuestInstance, isTimeout boo
 }
 
 func (s *SGuestResumeTask) Start() {
+	log.Debugf("GuestResumeTask start")
 	s.startTime = time.Now()
 	s.confirmRunning()
 }
@@ -761,10 +763,16 @@ func (s *SGuestResumeTask) Start() {
 func (s *SGuestResumeTask) Stop() {
 	// TODO
 	// stop stream disk
+	s.taskFailed("qemu quit unexpectedly on resume")
 }
 
 func (s *SGuestResumeTask) confirmRunning() {
-	s.Monitor.QueryStatus(s.onConfirmRunning)
+	if s.Monitor != nil {
+		log.Debugf("GuestResumeTask QueryStatus")
+		s.Monitor.QueryStatus(s.onConfirmRunning)
+	} else {
+		s.taskFailed("qemu quit unexpectedly on resume confirmRunning")
+	}
 }
 
 func (s *SGuestResumeTask) onConfirmRunning(status string) {
@@ -776,6 +784,8 @@ func (s *SGuestResumeTask) onConfirmRunning(status string) {
 		s.taskFailed(status)
 	} else if strings.Contains(status, "paused") {
 		s.Monitor.GetBlocks(s.onGetBlockInfo)
+	} else if status == "postmigrate" {
+		s.resumeGuest()
 	} else {
 		memMb, _ := s.Desc.Int("mem")
 		migSeconds := int(memMb) / options.HostOptions.MigrateExpectRate
