@@ -113,6 +113,10 @@ func (gtm *SGuestTemplateManager) ValidateCreateData(
 		return input, httperrors.NewMissingParameterError("content")
 	}
 
+	if !input.Content.Contains("name") {
+		input.Content.Set("name", jsonutils.NewString(input.Name))
+	}
+
 	input.GuestTemplateInput, err = gtm.validateData(ctx, userCred, ownerId, query, input.GuestTemplateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "gtm.validateData")
@@ -272,15 +276,14 @@ func (gtm *SGuestTemplateManager) validateData(
 	}
 
 	// hide some properties
-	contentDict := content.(*jsonutils.JSONDict)
-	contentDict.Remove("name")
-	contentDict.Remove("generate_name")
+	content.Remove("name")
+	content.Remove("generate_name")
 	// "__count__" was converted to "count" by apigateway
-	contentDict.Remove("count")
-	contentDict.Remove("project_id")
-	contentDict.Remove("__count__")
+	content.Remove("count")
+	content.Remove("project_id")
+	content.Remove("__count__")
 
-	cinput.Content = contentDict
+	cinput.Content = content
 	// data.Add(contentDict, "content")
 	return cinput, nil
 }
