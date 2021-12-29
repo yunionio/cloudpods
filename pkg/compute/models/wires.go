@@ -1526,6 +1526,7 @@ func (self *SWire) GetDetailsTopology(ctx context.Context, userCred mcclient.Tok
 		hns := hosts[i].GetBaremetalnetworks()
 		host := api.HostTopologyOutput{
 			Name:       hosts[i].Name,
+			Id:         hosts[i].Id,
 			Status:     hosts[i].Status,
 			HostStatus: hosts[i].HostStatus,
 			HostType:   hosts[i].HostType,
@@ -1557,7 +1558,7 @@ func (self *SWire) GetDetailsTopology(ctx context.Context, userCred mcclient.Tok
 
 		netAddrs := make([]api.SNetworkUsedAddress, 0)
 
-		q := networks[j].getUsedAddressQuery(userCred, rbacutils.ScopeDomain, false)
+		q := networks[j].getUsedAddressQuery(userCred, rbacutils.ScopeSystem, false)
 		err = q.All(&netAddrs)
 		if err != nil {
 			return nil, errors.Wrapf(err, "q.All")
