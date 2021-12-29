@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -208,6 +209,21 @@ func (man *SLoadbalancerListenerManager) pendingDeleteSubs(ctx context.Context, 
 	for _, sub := range subs {
 		sub.LBPendingDelete(ctx, userCred)
 	}
+}
+
+func (man *SLoadbalancerListenerManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if userCred != nil {
+		sq := LoadbalancerManager.Query("id")
+		switch scope {
+		case rbacutils.ScopeProject:
+			sq = sq.Equals("tenant_id", userCred.GetProjectId())
+			return q.In("loadbalancer_id", sq.SubQuery())
+		case rbacutils.ScopeDomain:
+			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
+			return q.In("loadbalancer_id", sq.SubQuery())
+		}
+	}
+	return q
 }
 
 // 负载均衡监听器Listener列表
