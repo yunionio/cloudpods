@@ -22,7 +22,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	options "yunion.io/x/onecloud/pkg/hostman/options"
-	fileutils2 "yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 )
 
@@ -153,6 +153,9 @@ function nic_mtu() {
 	}
 
 	cmd += fmt.Sprintf(" -cpu %s", cpuType)
+	if options.HostOptions.LogLevel == "debug" {
+		cmd += fmt.Sprintf(" -D %s -d all", s.getQemuLogPath())
+	}
 
 	cmd += s.getMonitorDesc("hmqmon", s.GetHmpMonitorPort(int(vncPort)), MODE_READLINE)
 	if options.HostOptions.EnableQmpMonitor {
@@ -253,7 +256,7 @@ function nic_mtu() {
 	cmd += s.extraOptions()
 
 	// cmd += s.getQgaDesc()
-	if fileutils2.Exists("/dev/random") {
+	if options.HostOptions.EnableVirtioRngDevice && fileutils2.Exists("/dev/random") {
 		cmd += " -object rng-random,filename=/dev/random,id=rng0"
 		cmd += " -device virtio-rng-pci,rng=rng0,max-bytes=1024,period=1000"
 	}

@@ -543,6 +543,10 @@ function nic_mtu() {
 
 	cmd += fmt.Sprintf(" -cpu %s", cpuType)
 
+	if options.HostOptions.LogLevel == "debug" {
+		cmd += fmt.Sprintf(" -D %s -d all", s.getQemuLogPath())
+	}
+
 	// TODO hmp - -
 	cmd += s.getMonitorDesc("hmqmon", s.GetHmpMonitorPort(int(vncPort)), MODE_READLINE)
 	if options.HostOptions.EnableQmpMonitor {
@@ -695,7 +699,13 @@ function nic_mtu() {
 	cmd += s.extraOptions()
 
 	cmd += s.getQgaDesc()
-	if fileutils2.Exists("/dev/random") {
+	/*
+		QIU Jian
+		virtio-rng device may cause live migration failure
+		qemu-system-x86_64: Unknown savevm section or instance '0000:00:05.0/virtio-rng' 0
+		qemu-system-x86_64: load of migration failed: Invalid argument
+	*/
+	if options.HostOptions.EnableVirtioRngDevice && fileutils2.Exists("/dev/random") {
 		cmd += " -object rng-random,filename=/dev/random,id=rng0"
 		cmd += " -device virtio-rng-pci,rng=rng0,max-bytes=1024,period=1000"
 	}
