@@ -266,6 +266,6 @@ func (driver *SBaseHostDriver) RequestSyncOnHost(ctx context.Context, host *mode
 	return nil
 }
 
-func (driver *SBaseHostDriver) RequestProbeIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, input jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (driver *SBaseHostDriver) RequestProbeIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, input jsonutils.JSONObject) (*jsonutils.JSONArray, error) {
 	return nil, nil
 }

@@ -99,6 +99,7 @@ func init() {
 	cmd.PerformClass("batch-set-user-metadata", &options.ServerBatchMetadataOptions{})
 	cmd.Perform("user-metadata", &baseoptions.ResourceMetadataOptions{})
 	cmd.Perform("set-user-metadata", &baseoptions.ResourceMetadataOptions{})
+	cmd.Perform("probe-isolated-devices", &options.ServerIdOptions{})
 
 	cmd.Get("vnc", new(options.ServerIdOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))
