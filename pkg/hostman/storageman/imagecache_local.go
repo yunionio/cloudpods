@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
@@ -148,18 +149,18 @@ func (l *SLocalImageCache) Release() {
 	l.consumerCount -= 1
 }
 
-func (l *SLocalImageCache) Acquire(ctx context.Context, zone, srcUrl, format, preChksum string) error {
-	isOk, err := l.prepare(ctx, zone, srcUrl, format, preChksum)
+func (l *SLocalImageCache) Acquire(ctx context.Context, input api.CacheImageInput, callback func(progress, progressMbps float64, totalSizeMb int64)) error {
+	isOk, err := l.prepare(ctx, input)
 	if err != nil {
 		return errors.Wrapf(err, "prepare")
 	}
 	if isOk {
 		return nil
 	}
-	return l.fetch(ctx, zone, srcUrl, format)
+	return l.fetch(ctx, input, callback)
 }
 
-func (l *SLocalImageCache) prepare(ctx context.Context, zone, srcUrl, format, preChksum string) (bool, error) {
+func (l *SLocalImageCache) prepare(ctx context.Context, input api.CacheImageInput) (bool, error) {
 	l.cond.L.Lock()
 	defer l.cond.L.Unlock()
 
@@ -171,22 +172,22 @@ func (l *SLocalImageCache) prepare(ctx context.Context, zone, srcUrl, format, pr
 		l.consumerCount++
 		return true, nil
 	}
-	url, err := auth.GetServiceURL(apis.SERVICE_TYPE_IMAGE, "", zone, "")
+	url, err := auth.GetServiceURL(apis.SERVICE_TYPE_IMAGE, "", input.Zone, "")
 	if err != nil {
 		return false, errors.Wrapf(err, "GetServiceURL(%s)", apis.SERVICE_TYPE_IMAGE)
 	}
 	url += fmt.Sprintf("/images/%s", l.imageId)
-	if len(format) == 0 {
-		format = "qcow2"
+	if len(input.Format) == 0 {
+		input.Format = "qcow2"
 	}
-	url += fmt.Sprintf("?format=%s&scope=system", format)
+	url += fmt.Sprintf("?format=%s&scope=system", input.Format)
 
 	l.remoteFile = remotefile.NewRemoteFile(ctx, url,
-		l.GetPath(), false, preChksum, -1, nil, l.GetTmpPath(), srcUrl)
+		l.GetPath(), false, input.Checksum, -1, nil, l.GetTmpPath(), input.SrcUrl)
 	return false, nil
 }
 
-func (l *SLocalImageCache) fetch(ctx context.Context, zone, srcUrl, format string) error {
+func (l *SLocalImageCache) fetch(ctx context.Context, input api.CacheImageInput, callback func(progress, progressMbps float64, totalSizeMb int64)) error {
 	var _fetch = func() error {
 		if len(l.Manager.GetId()) > 0 {
 			_, err := hostutils.RemoteStoragecacheCacheImage(ctx,
@@ -222,10 +223,10 @@ func (l *SLocalImageCache) fetch(ctx context.Context, zone, srcUrl, format strin
 		}
 		return nil
 	}
-	if fileutils2.Exists(l.GetPath()) && l.remoteFile.VerifyIntegrity() == nil {
+	if fileutils2.Exists(l.GetPath()) && l.remoteFile.VerifyIntegrity(callback) == nil {
 		return _fetch()
 	}
-	err := l.remoteFile.Fetch()
+	err := l.remoteFile.Fetch(callback)
 	if err != nil {
 		return errors.Wrapf(err, "remoteFile.Fetch")
 	}

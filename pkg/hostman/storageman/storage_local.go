@@ -379,7 +379,7 @@ func (s *SLocalStorage) CreateSnapshotFormUrl(
 ) error {
 	remoteFile := remotefile.NewRemoteFile(ctx, snapshotUrl, snapshotPath,
 		false, "", -1, nil, "", "")
-	err := remoteFile.Fetch()
+	err := remoteFile.Fetch(nil)
 	return errors.Wrapf(err, "fetch snapshot from %s", snapshotUrl)
 }
 
@@ -398,7 +398,7 @@ func (s *SLocalStorage) DeleteSnapshots(ctx context.Context, params interface{})
 
 func (s *SLocalStorage) DestinationPrepareMigrate(
 	ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
-	disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool, diskinfo jsonutils.JSONObject) error {
+	disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool, diskinfo jsonutils.JSONObject, serverId string, idx, totalDiskCount int) error {
 	var (
 		diskId, _    = diskinfo.GetString("disk_id")
 		snapshots, _ = srcSnapshots.GetArray(diskId)
@@ -458,10 +458,16 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 	} else {
 		// download disk form remote url
 		diskUrl := fmt.Sprintf("%s/%s/%s", disksUri, diskStorageId, diskId)
-		if err := disk.CreateFromUrl(ctx, diskUrl, 0); err != nil {
-			log.Errorf("CreateFromUrl %q: %v", diskUrl, err)
-			err = errors.Wrap(err, "CreateFromUrl")
-			return err
+		err := disk.CreateFromUrl(ctx, diskUrl, 0, func(progress, progressMbps float64, totalSizeMb int64) {
+			log.Debugf("[%.2f / %d] disk %s create %.2f with speed %.2fMbps", progress*float64(totalSizeMb)/100, totalSizeMb, disk.GetId(), progress, progressMbps)
+			newProgress := float64(idx-1)/float64(totalDiskCount)*100.0 + 1/float64(totalDiskCount)*progress
+			if len(serverId) > 0 {
+				log.Debugf("server %s migrate %.2f with speed %.2fMbps", serverId, newProgress, progressMbps)
+				hostutils.UpdateServerProgress(context.Background(), serverId, newProgress, progressMbps)
+			}
+		})
+		if err != nil {
+			return errors.Wrap(err, "CreateFromUrl")
 		}
 	}
 	if rebaseDisks && len(templateId) > 0 && len(baseImagePath) == 0 {

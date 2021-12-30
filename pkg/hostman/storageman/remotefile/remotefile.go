@@ -21,6 +21,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -82,21 +83,21 @@ func NewRemoteFile(
 	}
 }
 
-func (r *SRemoteFile) Fetch() error {
+func (r *SRemoteFile) Fetch(callback func(progress, progressMbps float64, totalSizeMb int64)) error {
 	if len(r.preChksum) > 0 {
 		log.Infof("Fetch remote file with precheck sum: %s", r.preChksum)
-		return r.fetch(r.preChksum)
+		return r.fetch(r.preChksum, callback)
 	}
 	if fileutils2.Exists(r.localPath) {
-		err := r.VerifyIntegrity()
+		err := r.VerifyIntegrity(callback)
 		if err != nil {
 			log.Warningf("Local path %s file mistmatch, refetch", r.localPath)
-			return r.fetch("")
+			return r.fetch("", callback)
 		}
 		return nil
 	}
 	log.Infof("Fetch remote file %q to %q", r.downloadUrl, r.tmpPath)
-	return r.fetch("")
+	return r.fetch("", callback)
 }
 
 func (r *SRemoteFile) GetInfo() (*SImageDesc, error) {
@@ -114,7 +115,7 @@ func (r *SRemoteFile) GetInfo() (*SImageDesc, error) {
 	}, nil
 }
 
-func (r *SRemoteFile) VerifyIntegrity() error {
+func (r *SRemoteFile) VerifyIntegrity(callback func(progress, progressMbps float64, totalSizeMb int64)) error {
 	localChksum, err := fileutils2.MD5(r.localPath)
 	if err != nil {
 		return errors.Wrapf(err, "fileutils2.MD5(%s)", r.localPath)
@@ -124,18 +125,18 @@ func (r *SRemoteFile) VerifyIntegrity() error {
 			return nil
 		}
 	}
-	err = r.download(false, "")
+	err = r.download(false, "", callback)
 	if err == nil && localChksum == r.chksum {
 		return nil
 	}
 	log.Warningf("Integrity mistmatch, fetch from remote")
-	return r.fetch("")
+	return r.fetch("", callback)
 }
 
-func (r *SRemoteFile) fetch(preChksum string) error {
+func (r *SRemoteFile) fetch(preChksum string, callback func(progress, progressMbps float64, totalSizeMb int64)) error {
 	var err error
 	for i := 0; i < 3; i++ {
-		err = r.download(true, preChksum)
+		err = r.download(true, preChksum, callback)
 		if err == nil {
 			if len(r.chksum) > 0 && fileutils2.Exists(r.tmpPath) {
 				localChksum, err := fileutils2.MD5(r.tmpPath)
@@ -157,15 +158,15 @@ func (r *SRemoteFile) fetch(preChksum string) error {
 }
 
 // retry download
-func (r *SRemoteFile) download(getData bool, preChksum string) error {
+func (r *SRemoteFile) download(getData bool, preChksum string, callback func(progress, progressMbps float64, totalSizeMb int64)) error {
 	if getData {
 		// fetch image headers and set resource properties
-		err := r.downloadInternal(false, preChksum)
+		err := r.downloadInternal(false, preChksum, callback)
 		if err != nil {
 			log.Errorf("fetch image properties failed %v", err)
 		}
 	}
-	err := r.downloadInternal(getData, preChksum)
+	err := r.downloadInternal(getData, preChksum, callback)
 	if err == nil {
 		return nil
 	}
@@ -173,15 +174,15 @@ func (r *SRemoteFile) download(getData bool, preChksum string) error {
 	r.downloadUrl = ""
 	if getData {
 		// fetch image headers and set resource properties
-		err = r.downloadInternal(false, preChksum)
+		err = r.downloadInternal(false, preChksum, callback)
 		if err != nil {
 			log.Errorf("fetch image properties failed error: %v", err)
 		}
 	}
-	return r.downloadInternal(getData, preChksum)
+	return r.downloadInternal(getData, preChksum, callback)
 }
 
-func (r *SRemoteFile) downloadInternal(getData bool, preChksum string) error {
+func (r *SRemoteFile) downloadInternal(getData bool, preChksum string, callback func(progress, progressMbps float64, totalSizeMb int64)) error {
 	var header = http.Header{}
 	header.Set("X-Auth-Token", auth.GetTokenString())
 	if len(preChksum) > 0 {
@@ -209,6 +210,7 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string) error {
 	if err != nil {
 		return errors.Wrapf(err, "request %s %s", method, url)
 	}
+	totalSize, _ := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
 	defer resp.Body.Close()
 	if resp.StatusCode < 300 {
 		if getData {
@@ -232,6 +234,7 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string) error {
 			var finishChan = make(chan struct{})
 			go func() {
 				defer recover()
+				preSizeMb := int64(0)
 				for {
 					select {
 					case <-time.After(10 * time.Second):
@@ -240,8 +243,20 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string) error {
 							log.Errorf("failed stat file %s", r.tmpPath)
 							return
 						}
-						log.Infof("written file %s size %dM", r.tmpPath, info.Size()/1024/1024)
+						percentInfo, percent := "", 0.0
+						if totalSize > 0 {
+							percent = float64(info.Size()) / float64(totalSize) * 100
+							percentInfo = fmt.Sprintf("(%.2f%%)", percent)
+						}
+						log.Infof("written file %s size %dM%s", r.tmpPath, info.Size()/1024/1024, percentInfo)
+						if callback != nil && percent > 0 {
+							callback(percent, float64(info.Size()-preSizeMb)/1024/1024, totalSize/1024/1024)
+						}
+						preSizeMb = info.Size()
 					case <-finishChan:
+						if callback != nil {
+							callback(100, 0, totalSize/1024/1024)
+						}
 						return
 					}
 				}

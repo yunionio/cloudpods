@@ -19,6 +19,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type IImageCacheMangerFactory interface {
@@ -51,7 +53,7 @@ type IImageCacheManger interface {
 	PrefetchImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error)
 	DeleteImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error)
 
-	AcquireImage(ctx context.Context, imageId, zone, srcUrl, format, checksum string) (IImageCache, error)
+	AcquireImage(ctx context.Context, input api.CacheImageInput, callback func(progress, progressMbps float64, totalSizeMb int64)) (IImageCache, error)
 	ReleaseImage(ctx context.Context, imageId string)
 	LoadImageCache(imageId string)
 }

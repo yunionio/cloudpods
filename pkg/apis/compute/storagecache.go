@@ -45,3 +45,38 @@ type StoragecacheListInput struct {
 	// 路径过滤
 	Path []string `json:"path"`
 }
+
+type CacheImageInput struct {
+	Image   string `json:"image" yunion-deprecated-by:"image_id"`
+	ImageId string `json:"image_id"`
+	IsForce bool   `json:"is_force"`
+	Format  string `json:"format"`
+
+	// swagger: ignore
+	Zone string `json:"zone"`
+	// swagger: ignore
+	OsType string `json:"os_type"`
+	// swagger: ignore
+	OsArch string `json:"os_arch"`
+	// swagger: ignore
+	OsDistribution string `json:"os_distribution"`
+	// swagger: ignore
+	OsFullVersion string `json:"os_full_version"`
+	// swagger: ignore
+	OsVersion string `json:"os_version"`
+	// swagger: ignore
+	ImageName string `json:"image_name"`
+
+	// swagger: ignore
+	ServerId string `json:"server_id"`
+	// swagger: ignore
+	ParentTaskId string `json:"parent_task_id"`
+	// swagger: ignore
+	SourceHostId string `json:"source_host_id"`
+	// swagger: ignore
+	SrcUrl string `json:"src_url"`
+	// swagger: ignore
+	StoragecacheId string `json:"storagecache_id"`
+	// swagger: ignore
+	Checksum string `json:"checksum"`
+}
