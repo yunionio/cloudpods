@@ -60,6 +60,7 @@ const (
 	ACT_VM_START                     = "vm_start"
 	ACT_VM_STOP                      = "vm_stop"
 	ACT_VM_RESTART                   = "vm_restart"
+	ACT_VM_RESUME                    = "vm_resume"
 	ACT_VM_SYNC_CONF                 = "vm_sync_conf"
 	ACT_VM_SYNC_STATUS               = "vm_sync_status"
 	ACT_VM_UNBIND_KEYPAIR            = "vm_unbind_keypair"

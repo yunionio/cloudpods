@@ -158,6 +158,8 @@ type SHostOptions struct {
 	EthtoolEnableGso bool `help:"use ethtool to turn on or off GSO(generic segment offloading)" default:"false" json:"ethtool_enable_gso"`
 
 	EnableVmUuid bool `help:"enable vm UUID" default:"true" json:"enable_vm_uuid"`
+
+	EnableVirtioRngDevice bool `help:"enable qemu virtio-rng device" default:"false"`
 }
 
 var (

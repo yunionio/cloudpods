@@ -99,6 +99,10 @@ func (s *SKVMGuestInstance) getStateFilePathRootPrefix() string {
 	return path.Join(s.HomeDir(), STATE_FILE_PREFIX)
 }
 
+func (s *SKVMGuestInstance) getQemuLogPath() string {
+	return path.Join(s.HomeDir(), "qemu.log")
+}
+
 func (s *SKVMGuestInstance) IsLoaded() bool {
 	return s.Desc != nil
 }
@@ -440,8 +444,11 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 				s.Id,
 				s.onMonitorDisConnect, // on monitor disconnect
 				func(err error) { s.onMonitorTimeout(ctx, err) }, // on monitor timeout
-				func() { s.onMonitorConnected(ctx) },             // on monitor connected
-				s.onReceiveQMPEvent,                              // on reveive qmp event
+				func() {
+					s.Monitor = mon
+					s.onMonitorConnected(ctx)
+				}, // on monitor connected
+				s.onReceiveQMPEvent, // on reveive qmp event
 			)
 			err := mon.Connect("127.0.0.1", s.GetQmpMonitorPort(-1))
 			if err != nil {
@@ -459,7 +466,6 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 					log.Errorf("Guest %s hmp monitor connect failed %s, something wrong", s.GetName(), err)
 				}
 			}
-			s.Monitor = mon
 		})
 	} else if monitorPath := s.GetMonitorPath(); len(monitorPath) > 0 {
 		s.StartMonitorWithImportGuestSocketFile(ctx, monitorPath)
@@ -689,10 +695,12 @@ func (s *SKVMGuestInstance) BlockJobsCount() int {
 }
 
 func (s *SKVMGuestInstance) CleanStartupTask() {
-	log.Infof("Clean startup task ...")
 	if s.startupTask != nil {
+		log.Infof("Clean startup task ... stop task ...")
 		s.startupTask.Stop()
 		s.startupTask = nil
+	} else {
+		log.Infof("Clean startup task ... no task")
 	}
 }
 
@@ -963,10 +971,13 @@ func (s *SKVMGuestInstance) delFlatFiles(ctx context.Context) error {
 
 func (s *SKVMGuestInstance) Delete(ctx context.Context, migrated bool) error {
 	if err := s.delTmpDisks(ctx, migrated); err != nil {
-		return err
+		return errors.Wrap(err, "delTmpDisks")
 	}
 	if err := s.delFlatFiles(ctx); err != nil {
-		return err
+		return errors.Wrap(err, "delFlatFiles")
+	}
+	if fileutils2.Exists(s.getQemuLogPath()) {
+		procutils.NewRemoteCommandAsFarAsPossible("mv", s.getQemuLogPath(), fmt.Sprintf("/tmp/%s-qemu.log", s.GetId())).Run()
 	}
 	output, err := procutils.NewCommand("rm", "-rf", s.HomeDir()).Output()
 	if err != nil {
