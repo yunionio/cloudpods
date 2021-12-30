@@ -2879,6 +2879,11 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 		return nil, err
 	}
 
+	db.Update(self, func() error {
+		self.Progress = 0
+		return nil
+	})
+
 	status := input.Status
 	if len(self.BackupHostId) > 0 && status == api.VM_RUNNING && input.BlockJobsCount > 0 {
 		self.SetMetadata(ctx, api.MIRROR_JOB, api.MIRROR_JOB_READY, userCred)
