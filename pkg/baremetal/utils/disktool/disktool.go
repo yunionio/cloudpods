@@ -100,22 +100,22 @@ func (p *Partition) Format(fs string, uuid string) error {
 	cmdUUID := []string{}
 	switch fs {
 	case "swap":
-		cmd = []string{"/sbin/mkswap", "-U", uuid}
+		cmd = []string{"mkswap", "-U", uuid}
 	case "ext2":
-		cmd = []string{"/usr/sbin/mkfs.ext2"}
-		cmdUUID = []string{"/usr/sbin/tune2fs", "-U", uuid}
+		cmd = []string{"mkfs.ext2"}
+		cmdUUID = []string{"tune2fs", "-U", uuid}
 	case "ext3":
-		cmd = []string{"/usr/sbin/mkfs.ext3"}
-		cmdUUID = []string{"/usr/sbin/tune2fs", "-U", uuid}
+		cmd = []string{"mkfs.ext3"}
+		cmdUUID = []string{"tune2fs", "-U", uuid}
 	case "ext4":
 		// for baremetal, force 64bit support large disks
-		cmd = []string{"/usr/sbin/mkfs.ext4", "-O", "64bit", "-E", "lazy_itable_init=1", "-T", "largefile"}
-		cmdUUID = []string{"/usr/sbin/tune2fs", "-U", uuid}
+		cmd = []string{"mkfs.ext4", "-O", "64bit", "-E", "lazy_itable_init=1", "-T", "largefile"}
+		cmdUUID = []string{"tune2fs", "-U", uuid}
 	case "ext4dev":
-		cmd = []string{"/usr/sbin/mkfs.ext4dev", "-E", "lazy_itable_init=1"}
-		cmdUUID = []string{"/usr/sbin/tune2fs", "-U", uuid}
+		cmd = []string{"mkfs.ext4dev", "-E", "lazy_itable_init=1"}
+		cmdUUID = []string{"tune2fs", "-U", uuid}
 	case "xfs":
-		cmd = []string{"/sbin/mkfs.xfs", "-f", "-m", "crc=0", "-i", "projid32bit=0", "-n", "ftype=0"}
+		cmd = []string{"mkfs.xfs", "-f", "-m", "crc=0", "-i", "projid32bit=0", "-n", "ftype=0"}
 		cmdUUID = []string{"PATH=/bin:/sbin:/usr/bin:/usr/sbin /usr/sbin/xfs_admin", "-U", uuid}
 	default:
 		return fmt.Errorf("Unsupported filesystem %s", fs)
@@ -136,9 +136,9 @@ func (p *Partition) Fsck() error {
 	}
 	cmd := []string{}
 	if strings.HasPrefix(p.fs, "ext") {
-		cmd = []string{fmt.Sprintf("/usr/sbin/fsck.%s", p.fs), "-f", "-p"}
+		cmd = []string{fmt.Sprintf("fsck.%s", p.fs), "-f", "-p"}
 	} else if p.fs == "xfs" {
-		cmd = []string{"/sbin/fsck.xfs"}
+		cmd = []string{"fsck.xfs"}
 	} else {
 		return fmt.Errorf("Unsupported fsck filesystem: %s", p.fs)
 	}
@@ -157,12 +157,12 @@ func (p *Partition) ResizeFs() error {
 	}
 	cmd := []string{}
 	if strings.HasPrefix(p.fs, "linux-swap") {
-		cmd = []string{"/sbin/mkswap", p.dev}
+		cmd = []string{"mkswap", p.dev}
 	} else if strings.HasPrefix(p.fs, "ext") {
 		if err := p.Fsck(); err != nil {
 			log.Warningf("FSCK error: %v", err)
 		}
-		cmd = []string{"/usr/sbin/resize2fs", p.dev}
+		cmd = []string{"resize2fs", p.dev}
 	} else if p.fs == "xfs" {
 		return p.ResizeXfs()
 	}
@@ -178,7 +178,7 @@ func (p *Partition) ResizeXfs() error {
 	cmds := []string{
 		fmt.Sprintf("mkdir -p %s", mountPath),
 		fmt.Sprintf("mount -t xfs %s %s", p.dev, mountPath),
-		fmt.Sprintf("/usr/sbin/xfs_growfs -d %s", mountPath),
+		fmt.Sprintf("xfs_growfs -d %s", mountPath),
 		fmt.Sprintf("umount %s", mountPath),
 		fmt.Sprintf("rm -fr %s", mountPath),
 	}
@@ -326,7 +326,7 @@ func (ps *DiskPartitions) GetDevName() string {
 
 func (ps *DiskPartitions) RetrievePartitionInfo() error {
 	ps.partitions = make([]*Partition, 0)
-	cmd := []string{"/usr/sbin/parted", "-s", ps.dev, "--", "unit", "s", "print"}
+	cmd := []string{"parted", "-s", ps.dev, "--", "unit", "s", "print"}
 	ret, err := ps.Run(strings.Join(cmd, " "))
 	if err != nil {
 		return err
@@ -360,8 +360,8 @@ func (ps *DiskPartitions) FsToTypeCode(fs string) string {
 func (ps *DiskPartitions) doResize(dev string, cmd string) error {
 	cmds := []string{}
 	cmds = append(cmds, cmd)
-	cmds = append(cmds, fmt.Sprintf("/sbin/hdparm -f %s", dev))
-	cmds = append(cmds, fmt.Sprintf("/sbin/hdparm -z %s", dev))
+	cmds = append(cmds, fmt.Sprintf("hdparm -f %s", dev))
+	cmds = append(cmds, fmt.Sprintf("hdparm -z %s", dev))
 	_, err := ps.tool.Run(cmds...)
 	if err != nil {
 		return err
@@ -382,7 +382,7 @@ func (ps *DiskPartitions) ResizePartition(offsetMB int64) error {
 		part := ps.partitions[len(ps.partitions)-1]
 		if part.diskType == "extended" {
 			log.Infof("Find last partition an empty extended partition, removed it")
-			cmd := fmt.Sprintf("/usr/sbin/parted -a none -s %s -- rm %d", part.disk.dev, part.index)
+			cmd := fmt.Sprintf("parted -a none -s %s -- rm %d", part.disk.dev, part.index)
 			if err := ps.doResize(part.disk.dev, cmd); err != nil {
 				return fmt.Errorf("Fail to remove empty extended partition: %v", err)
 			}
@@ -415,7 +415,7 @@ func (ps *DiskPartitions) ResizePartition(offsetMB int64) error {
 			if extendIdx < 0 {
 				return fmt.Errorf("To resize logical parition, but fail to find extend partiton")
 			}
-			cmd = fmt.Sprintf("/usr/sbin/parted -a none -s %s -- unit s", part.disk.dev)
+			cmd = fmt.Sprintf("parted -a none -s %s -- unit s", part.disk.dev)
 			partsLen := len(ps.partitions)
 			for i := partsLen - 1; i > extendIdx-1; i-- {
 				cmd = fmt.Sprintf("%s rm %d", cmd, ps.partitions[i].index)
@@ -432,7 +432,7 @@ func (ps *DiskPartitions) ResizePartition(offsetMB int64) error {
 				cmd = fmt.Sprintf("%s %s", cmd, cmdLet)
 			}
 		} else {
-			cmd = fmt.Sprintf("/usr/sbin/parted -a none -s %s -- unit s rm %d mkpart %s", part.disk.dev, part.index, part.diskType)
+			cmd = fmt.Sprintf("parted -a none -s %s -- unit s rm %d mkpart %s", part.disk.dev, part.index, part.diskType)
 			cmd = fmt.Sprintf("%s %d %d", cmd, part.start, end)
 			if part.bootable {
 				cmd = fmt.Sprintf("%s set %d boot on", cmd, part.index)
@@ -440,7 +440,7 @@ func (ps *DiskPartitions) ResizePartition(offsetMB int64) error {
 		}
 	} else {
 		// gpt
-		cmd = fmt.Sprintf("/usr/sbin/sgdisk --set-alignment=1 --delete=%d", part.index)
+		cmd = fmt.Sprintf("sgdisk --set-alignment=1 --delete=%d", part.index)
 		cmd = fmt.Sprintf("%s --new=%d:%d:%d", cmd, part.index, part.start, end)
 		if len(part.diskType) != 0 {
 			cmd = fmt.Sprintf("%s --change-name=%d:\"%s\"", cmd, part.index, part.diskType)
@@ -481,7 +481,7 @@ func (ps *DiskPartitions) MakeLabel() error {
 
 func (ps *DiskPartitions) makeLabel(label string) error {
 	ps.label = label
-	cmd := fmt.Sprintf("/usr/sbin/parted -s %s -- mklabel %s", ps.dev, ps.label)
+	cmd := fmt.Sprintf("parted -s %s -- mklabel %s", ps.dev, ps.label)
 	// cmd = ['/usr/sbin/sgdisk', '-og', self.dev]
 	_, err := ps.Run(cmd)
 	return err
@@ -540,13 +540,13 @@ func (ps *DiskPartitions) CreatePartition(sizeMB int64, fs string, doformat bool
 		} else {
 			return fmt.Errorf("Too many partitions on a MSDOS disk")
 		}
-		cmd = fmt.Sprintf("/usr/sbin/parted -a none -s %s -- unit s mkpart %s", ps.dev, diskType)
+		cmd = fmt.Sprintf("parted -a none -s %s -- unit s mkpart %s", ps.dev, diskType)
 		if len(fs) != 0 {
 			cmd = fmt.Sprintf("%s %s", cmd, fileutils.FsFormatToDiskType(fs))
 		}
 		cmd = fmt.Sprintf("%s %d %d", cmd, start, end)
 	} else {
-		cmd = fmt.Sprintf("/usr/sbin/sgdisk --set-alignment=1 --new=%d:%d:%d", partIdx, start, end)
+		cmd = fmt.Sprintf("sgdisk --set-alignment=1 --new=%d:%d:%d", partIdx, start, end)
 		if len(fs) != 0 {
 			cmd = fmt.Sprintf("%s --typecode=%d:%s", cmd, partIdx, ps.FsToTypeCode(fs))
 		}
