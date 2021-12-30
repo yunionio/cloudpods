@@ -694,13 +694,18 @@ func (s *SKVMGuestInstance) BlockJobsCount() int {
 	}
 }
 
+func (s *SKVMGuestInstance) detachStartupTask() {
+	log.Infof("[%s] detachStartupTask", s.GetId())
+	s.startupTask = nil
+}
+
 func (s *SKVMGuestInstance) CleanStartupTask() {
 	if s.startupTask != nil {
-		log.Infof("Clean startup task ... stop task ...")
+		log.Infof("[%s] Clean startup task ... stop task ...", s.GetId())
 		s.startupTask.Stop()
 		s.startupTask = nil
 	} else {
-		log.Infof("Clean startup task ... no task")
+		log.Infof("[%s] Clean startup task ... no task", s.GetId())
 	}
 }
 
