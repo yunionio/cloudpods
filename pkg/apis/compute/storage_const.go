@@ -112,8 +112,9 @@ const (
 const (
 	STORAGE_ENABLED = "enabled"
 	// STORAGE_DISABLED = "disabled"
-	STORAGE_OFFLINE = "offline"
-	STORAGE_ONLINE  = "online"
+	STORAGE_OFFLINE = "offline" // 离线
+	STORAGE_ONLINE  = "online"  // 在线
+	STORAGE_UNMOUNT = "unmount" // 待挂载
 
 	DISK_TYPE_ROTATE = "rotate"
 	DISK_TYPE_SSD    = "ssd"
