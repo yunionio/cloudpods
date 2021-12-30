@@ -92,6 +92,7 @@ func init() {
 	cmd.Perform("set-sshport", &options.ServerSetSshportOptions{})
 	cmd.Perform("have-agent", &options.ServerHaveAgentOptions{})
 	cmd.Perform("change-disk-storage", &options.ServerChangeDiskStorageOptions{})
+	cmd.Perform("probe-isolated-devices", &options.ServerIdOptions{})
 
 	cmd.Get("vnc", new(options.ServerIdOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))
