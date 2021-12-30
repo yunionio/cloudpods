@@ -5494,3 +5494,34 @@ func (self *SGuest) StartChangeDiskStorageTask(ctx context.Context, userCred mcc
 	self.SetStatus(userCred, api.VM_DISK_CHANGE_STORAGE, reason)
 	return self.GetDriver().StartChangeDiskStorageTask(self, ctx, userCred, input, "")
 }
+
+func (self *SGuest) PerformProbeIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	host, err := self.GetHost()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetHost")
+	}
+	hostDevs, err := host.GetHostDriver().RequestProbeIsolatedDevices(ctx, userCred, host, data)
+	if err != nil {
+		return nil, errors.Wrap(err, "RequestProbeIsolatedDevices")
+	}
+	objs, err := hostDevs.GetArray()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetArray from %q", hostDevs)
+	}
+	devs := make([]*SIsolatedDevice, 0)
+	for _, obj := range objs {
+		id, err := obj.GetString("id")
+		if err != nil {
+			return nil, errors.Wrapf(err, "device %s", obj)
+		}
+		devObj, err := IsolatedDeviceManager.FetchById(id)
+		if err != nil {
+			return nil, errors.Wrapf(err, "FetchById %q", id)
+		}
+		dev := devObj.(*SIsolatedDevice)
+		if dev.GuestId == "" {
+			devs = append(devs, dev)
+		}
+	}
+	return jsonutils.Marshal(devs), nil
+}
