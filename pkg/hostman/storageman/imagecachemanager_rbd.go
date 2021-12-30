@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build linux,cgo
-
 package storageman
 
 import (
@@ -158,7 +156,7 @@ func (c *SRbdImageCacheManager) removeImage(ctx context.Context, imageId string)
 	return nil
 }
 
-func (c *SRbdImageCacheManager) AcquireImage(ctx context.Context, input api.CacheImageInput, callback func(float32)) (IImageCache, error) {
+func (c *SRbdImageCacheManager) AcquireImage(ctx context.Context, input api.CacheImageInput, callback func(float64, float64, int64)) (IImageCache, error) {
 	lockman.LockRawObject(ctx, "image-cache", input.ImageId)
 	defer lockman.ReleaseRawObject(ctx, "image-cache", input.ImageId)
 

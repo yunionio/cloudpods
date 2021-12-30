@@ -83,7 +83,7 @@ func NewRemoteFile(
 	}
 }
 
-func (r *SRemoteFile) Fetch(callback func(progress float32)) error {
+func (r *SRemoteFile) Fetch(callback func(progress, progressMbps float64, totalSizeMb int64)) error {
 	if len(r.preChksum) > 0 {
 		log.Infof("Fetch remote file with precheck sum: %s", r.preChksum)
 		return r.fetch(r.preChksum, callback)
@@ -115,7 +115,7 @@ func (r *SRemoteFile) GetInfo() (*SImageDesc, error) {
 	}, nil
 }
 
-func (r *SRemoteFile) VerifyIntegrity(callback func(progress float32)) error {
+func (r *SRemoteFile) VerifyIntegrity(callback func(progress, progressMbps float64, totalSizeMb int64)) error {
 	localChksum, err := fileutils2.MD5(r.localPath)
 	if err != nil {
 		return errors.Wrapf(err, "fileutils2.MD5(%s)", r.localPath)
@@ -133,7 +133,7 @@ func (r *SRemoteFile) VerifyIntegrity(callback func(progress float32)) error {
 	return r.fetch("", callback)
 }
 
-func (r *SRemoteFile) fetch(preChksum string, callback func(progress float32)) error {
+func (r *SRemoteFile) fetch(preChksum string, callback func(progress, progressMbps float64, totalSizeMb int64)) error {
 	var err error
 	for i := 0; i < 3; i++ {
 		err = r.download(true, preChksum, callback)
@@ -158,7 +158,7 @@ func (r *SRemoteFile) fetch(preChksum string, callback func(progress float32)) e
 }
 
 // retry download
-func (r *SRemoteFile) download(getData bool, preChksum string, callback func(progress float32)) error {
+func (r *SRemoteFile) download(getData bool, preChksum string, callback func(progress, progressMbps float64, totalSizeMb int64)) error {
 	if getData {
 		// fetch image headers and set resource properties
 		err := r.downloadInternal(false, preChksum, callback)
@@ -182,7 +182,7 @@ func (r *SRemoteFile) download(getData bool, preChksum string, callback func(pro
 	return r.downloadInternal(getData, preChksum, callback)
 }
 
-func (r *SRemoteFile) downloadInternal(getData bool, preChksum string, callback func(progress float32)) error {
+func (r *SRemoteFile) downloadInternal(getData bool, preChksum string, callback func(progress, progressMbps float64, totalSizeMb int64)) error {
 	var header = http.Header{}
 	header.Set("X-Auth-Token", auth.GetTokenString())
 	if len(preChksum) > 0 {
@@ -234,6 +234,7 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string, callback 
 			var finishChan = make(chan struct{})
 			go func() {
 				defer recover()
+				preSizeMb := int64(0)
 				for {
 					select {
 					case <-time.After(1 * time.Second):
@@ -249,11 +250,12 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string, callback 
 						}
 						log.Infof("written file %s size %dM%s", r.tmpPath, info.Size()/1024/1024, percentInfo)
 						if callback != nil && percent > 0 {
-							callback(float32(percent))
+							callback(percent, float64(info.Size()-preSizeMb)/1024/1024, totalSize/1024/1024)
 						}
+						preSizeMb = info.Size()
 					case <-finishChan:
 						if callback != nil {
-							callback(100)
+							callback(100, 0, totalSize/1024/1024)
 						}
 						return
 					}
