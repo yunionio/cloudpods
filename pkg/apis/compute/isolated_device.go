@@ -56,6 +56,9 @@ type IsolatedDeviceListInput struct {
 
 	// 展示物理机的上的设备
 	ShowBaremetalIsolatedDevices bool `json:"show_baremetal_isolated_devices"`
+
+	// 列出虚拟机上挂载的设备
+	GuestId string `json:"guest_id"`
 }
 
 type IsolatedDeviceCreateInput struct {

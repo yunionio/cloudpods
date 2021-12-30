@@ -253,6 +253,14 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(
 		q = q.In("host_id", sq)
 	}
 
+	if query.GuestId != "" {
+		obj, err := GuestManager.FetchByIdOrName(userCred, query.GuestId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Fetch guest by %q", query.GuestId)
+		}
+		q = q.Equals("guest_id", obj.GetId())
+	}
+
 	return q, nil
 }
 
