@@ -96,7 +96,7 @@ type SIsolatedDevice struct {
 	VendorDeviceId string `width:"16" charset:"ascii" nullable:"true" list:"domain" create:"domain_optional"`
 
 	// reserved memory size for isolated device
-	ReservedMemory int `nullable:"true" efault:"0" list:"domain" update:"domain" create:"domain_optional"`
+	ReservedMemory int `nullable:"true" default:"0" list:"domain" update:"domain" create:"domain_optional"`
 
 	// reserved cpu count for isolated device
 	ReservedCpu int `nullable:"true" default:"0" list:"domain" update:"domain" create:"domain_optional"`
