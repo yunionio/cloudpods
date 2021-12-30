@@ -148,7 +148,7 @@ func (self *SStorage) PostUpdate(ctx context.Context, userCred mcclient.TokenCre
 	self.SEnabledStatusInfrasResourceBase.PostUpdate(ctx, userCred, query, data)
 
 	if data.Contains("cmtbound") || data.Contains("capacity") {
-		hosts := self.GetAttachedHosts()
+		hosts, _ := self.GetAttachedHosts()
 		for _, host := range hosts {
 			if err := host.ClearSchedDescCache(); err != nil {
 				log.Errorf("clear host %s sched cache failed %v", host.GetName(), err)
@@ -246,7 +246,7 @@ func (manager *SStorageManager) ValidateCreateData(
 
 func (self *SStorage) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	self.SetEnabled(true)
-	self.SetStatus(userCred, api.STORAGE_OFFLINE, "CustomizeCreate")
+	self.SetStatus(userCred, api.STORAGE_UNMOUNT, "CustomizeCreate")
 	return self.SEnabledStatusInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
@@ -602,7 +602,7 @@ func (self *SStorage) GetFreeCapacity() int64 {
 	return int64(float32(self.GetCapacity())*self.GetOvercommitBound()) - self.GetUsedCapacity(tristate.None)
 }
 
-func (self *SStorage) GetAttachedHosts() []SHost {
+func (self *SStorage) GetAttachedHosts() ([]SHost, error) {
 	hosts := HostManager.Query().SubQuery()
 	hoststorages := HoststorageManager.Query().SubQuery()
 
@@ -613,15 +613,14 @@ func (self *SStorage) GetAttachedHosts() []SHost {
 	hostList := make([]SHost, 0)
 	err := db.FetchModelObjects(HostManager, q, &hostList)
 	if err != nil {
-		log.Errorf("GetAttachedHosts fail %s", err)
-		return nil
+		return nil, errors.Wrapf(err, "GetAttachedHosts")
 	}
-	return hostList
+	return hostList, nil
 }
 
 func (self *SStorage) SyncStatusWithHosts() {
-	hosts := self.GetAttachedHosts()
-	if hosts == nil {
+	hosts, err := self.GetAttachedHosts()
+	if err != nil {
 		return
 	}
 	total := 0
@@ -649,6 +648,9 @@ func (self *SStorage) SyncStatusWithHosts() {
 		status = api.STORAGE_OFFLINE
 	} else {
 		status = api.STORAGE_OFFLINE
+	}
+	if len(hosts) == 0 {
+		status = api.STORAGE_UNMOUNT
 	}
 	if status != self.Status {
 		self.SetStatus(nil, status, "SyncStatusWithHosts")
@@ -1398,7 +1400,7 @@ func (manager *SStorageManager) InitializeData() error {
 	for _, s := range storages {
 		if len(s.ZoneId) == 0 {
 			zoneId := ""
-			hosts := s.GetAttachedHosts()
+			hosts, _ := s.GetAttachedHosts()
 			if hosts != nil && len(hosts) > 0 {
 				zoneId = hosts[0].ZoneId
 			} else {
@@ -1627,7 +1629,7 @@ func (self *SStorage) IsPrepaidRecycleResource() bool {
 	if !self.IsLocal() {
 		return false
 	}
-	hosts := self.GetAttachedHosts()
+	hosts, _ := self.GetAttachedHosts()
 	if len(hosts) != 1 {
 		return false
 	}
@@ -1689,7 +1691,7 @@ func (self *SStorage) StartDeleteRbdDisks(ctx context.Context, userCred mcclient
 func (storage *SStorage) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeDomainOwnerInput) (jsonutils.JSONObject, error) {
 	// not allow to perform public for locally connected storage
 	if storage.IsLocal() {
-		hosts := storage.GetAttachedHosts()
+		hosts, _ := storage.GetAttachedHosts()
 		if len(hosts) > 0 {
 			return nil, errors.Wrap(httperrors.ErrForbidden, "not allow to change owner for local storage")
 		}
@@ -1713,7 +1715,7 @@ func (storage *SStorage) GetChangeOwnerRequiredDomainIds() []string {
 func (storage *SStorage) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) (jsonutils.JSONObject, error) {
 	// not allow to perform public for locally connected storage
 	if storage.IsLocal() {
-		hosts := storage.GetAttachedHosts()
+		hosts, _ := storage.GetAttachedHosts()
 		if len(hosts) > 0 {
 			return nil, errors.Wrap(httperrors.ErrForbidden, "not allow to perform public for local storage")
 		}
@@ -1728,7 +1730,7 @@ func (storage *SStorage) performPublicInternal(ctx context.Context, userCred mcc
 func (storage *SStorage) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
 	// not allow to perform private for locally conencted storage
 	if storage.IsLocal() {
-		hosts := storage.GetAttachedHosts()
+		hosts, _ := storage.GetAttachedHosts()
 		if len(hosts) > 0 {
 			return nil, errors.Wrap(httperrors.ErrForbidden, "not allow to perform private for local storage")
 		}

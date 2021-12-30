@@ -231,7 +231,8 @@ func (self *SHoststorage) PostDelete(ctx context.Context, userCred mcclient.Toke
 func (self *SHoststorage) SyncStorageStatus(userCred mcclient.TokenCredential) {
 	storage := self.GetStorage()
 	status := api.STORAGE_OFFLINE
-	for _, host := range storage.GetAttachedHosts() {
+	hosts, _ := storage.GetAttachedHosts()
+	for _, host := range hosts {
 		if host.HostStatus == api.HOST_ONLINE {
 			status = api.STORAGE_ONLINE
 		}
