@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build linux,cgo
-
 package storageman
 
 import (
@@ -24,6 +22,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
@@ -71,8 +70,13 @@ func (r *SRbdImageCache) Load() error {
 	return fmt.Errorf("invalid rbd image %s at host %s", origin.String(), options.HostOptions.Hostname)
 }
 
-func (r *SRbdImageCache) Acquire(ctx context.Context, zone, srcUrl, format, checksum string) error {
-	localImageCache, err := storageManager.LocalStorageImagecacheManager.AcquireImage(ctx, r.imageId, zone, srcUrl, format, checksum)
+func (r *SRbdImageCache) Acquire(ctx context.Context, input api.CacheImageInput, callback func(progress, progressMbps float64, totalSizeMb int64)) error {
+	input.ImageId = r.imageId
+	localImageCache, err := storageManager.LocalStorageImagecacheManager.AcquireImage(ctx, input, func(progress, progressMbps float64, totalSizeMb int64) {
+		if len(input.ServerId) > 0 {
+			hostutils.UpdateServerProgress(context.Background(), input.ServerId, progress/1.2, progressMbps)
+		}
+	})
 	if err != nil {
 		return errors.Wrapf(err, "LocalStorage.AcquireImage")
 	}

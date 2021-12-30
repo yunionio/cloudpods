@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -75,16 +76,23 @@ func (c *SLocalImageCacheManager) LoadImageCache(imageId string) {
 	}
 }
 
-func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, imageId, zone, srcUrl, format, checksum string) (IImageCache, error) {
-	c.lock.LockRawObject(ctx, "image-cache", imageId)
-	defer c.lock.ReleaseRawObject(ctx, "image-cache", imageId)
+func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, input api.CacheImageInput, callback func(progress, progressMbps float64, totalSizeMb int64)) (IImageCache, error) {
+	c.lock.LockRawObject(ctx, "image-cache", input.ImageId)
+	defer c.lock.ReleaseRawObject(ctx, "image-cache", input.ImageId)
 
-	img, ok := c.cachedImages[imageId]
+	img, ok := c.cachedImages[input.ImageId]
 	if !ok {
-		img = NewLocalImageCache(imageId, c)
-		c.cachedImages[imageId] = img
+		img = NewLocalImageCache(input.ImageId, c)
+		c.cachedImages[input.ImageId] = img
 	}
-	return img, img.Acquire(ctx, zone, srcUrl, format, checksum)
+	if callback == nil && len(input.ServerId) > 0 {
+		callback = func(progress, progressMbps float64, totalSizeMb int64) {
+			if len(input.ServerId) > 0 {
+				hostutils.UpdateServerProgress(context.Background(), input.ServerId, progress, progressMbps)
+			}
+		}
+	}
+	return img, img.Acquire(ctx, input, callback)
 }
 
 func (c *SLocalImageCacheManager) ReleaseImage(ctx context.Context, imageId string) {
@@ -123,15 +131,12 @@ func (c *SLocalImageCacheManager) PrefetchImageCache(ctx context.Context, data i
 		return nil, hostutils.ParamsError
 	}
 
-	input := struct {
-		ImageId  string
-		Format   string
-		SrcUrl   string
-		Checksum string
-	}{}
-	err := body.Unmarshal(&input)
-	if err != nil {
-		return nil, errors.Wrapf(err, "input.Unmarshal")
+	input := api.CacheImageInput{}
+	body.Unmarshal(&input)
+	input.Zone = c.GetStorageManager().GetZoneName()
+
+	if len(input.Image) > 0 {
+		input.ImageId = input.Image
 	}
 
 	if len(input.ImageId) == 0 {
@@ -145,7 +150,7 @@ func (c *SLocalImageCacheManager) PrefetchImageCache(ctx context.Context, data i
 		Size    int64
 	}{}
 
-	imgCache, err := c.AcquireImage(ctx, input.ImageId, c.GetStorageManager().GetZoneName(), input.SrcUrl, input.Format, input.Checksum)
+	imgCache, err := c.AcquireImage(ctx, input, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "AcquireImage")
 	}

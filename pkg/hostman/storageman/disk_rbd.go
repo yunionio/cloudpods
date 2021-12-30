@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build linux && cgo
-// +build linux,cgo
-
 package storageman
 
 import (
@@ -181,7 +178,11 @@ func (d *SRBDDisk) createFromTemplate(ctx context.Context, imageId, format strin
 	if imageCacheManager == nil {
 		return nil, fmt.Errorf("failed to find image cache manger for storage %s", d.Storage.GetStorageName())
 	}
-	imageCache, err := imageCacheManager.AcquireImage(ctx, imageId, d.GetZoneName(), "", "", "")
+	input := api.CacheImageInput{
+		ImageId: imageId,
+		Zone:    d.GetZoneName(),
+	}
+	imageCache, err := imageCacheManager.AcquireImage(ctx, input, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "AcquireImage")
 	}

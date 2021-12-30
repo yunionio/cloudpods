@@ -16,6 +16,7 @@ package downloader
 
 import (
 	"compress/zlib"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -23,6 +24,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 )
 
 const (
@@ -68,10 +70,15 @@ func (d *SDownloadProvider) Start(
 	}
 	fi, err := os.Open(downloadFilePath)
 	if err != nil {
-		log.Errorln(err)
-		return err
+		return errors.Wrapf(err, "os.Open(%s)", downloadFilePath)
 	}
 	defer fi.Close()
+
+	stat, err := fi.Stat()
+	if err != nil {
+		return errors.Wrapf(err, "fi.Stat")
+	}
+	d.w.Header().Set("Content-Length", fmt.Sprintf("%d", stat.Size()))
 
 	var (
 		end                  = false

@@ -218,7 +218,11 @@ func (d *SLocalDisk) CreateFromTemplate(ctx context.Context, imageId, format str
 func (d *SLocalDisk) createFromTemplate(
 	ctx context.Context, imageId, format string, imageCacheManager IImageCacheManger,
 ) (jsonutils.JSONObject, error) {
-	imageCache, err := imageCacheManager.AcquireImage(ctx, imageId, d.GetZoneName(), "", "", "")
+	input := api.CacheImageInput{
+		ImageId: imageId,
+		Zone:    d.GetZoneName(),
+	}
+	imageCache, err := imageCacheManager.AcquireImage(ctx, input, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "AcquireImage")
 	}
@@ -244,9 +248,9 @@ func (d *SLocalDisk) createFromTemplate(
 	return d.GetDiskDesc(), nil
 }
 
-func (d *SLocalDisk) CreateFromUrl(ctx context.Context, url string, size int64) error {
+func (d *SLocalDisk) CreateFromUrl(ctx context.Context, url string, size int64, callback func(progress, progressMbps float64, totalSizeMb int64)) error {
 	remoteFile := remotefile.NewRemoteFile(ctx, url, d.getPath(), false, "", -1, nil, "", "")
-	err := remoteFile.Fetch()
+	err := remoteFile.Fetch(callback)
 	if err != nil {
 		return errors.Wrapf(err, "fetch image from %s", url)
 	}
