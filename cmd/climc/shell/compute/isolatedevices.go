@@ -30,6 +30,7 @@ func init() {
 		Host   string `help:"Host ID or Name"`
 		Region string `help:"Cloudregion ID or Name"`
 		Zone   string `help:"Zone ID or Name"`
+		Server string `help:"Server ID or Name"`
 	}
 	R(&DeviceListOptions{}, "isolated-device-list", "List isolated devices like GPU", func(s *mcclient.ClientSession, args *DeviceListOptions) error {
 		var params *jsonutils.JSONDict
@@ -55,6 +56,9 @@ func init() {
 		}
 		if args.Zone != "" {
 			params.Add(jsonutils.NewString(args.Zone), "zone")
+		}
+		if args.Server != "" {
+			params.Add(jsonutils.NewString(args.Server), "guest_id")
 		}
 		result, err := modules.IsolatedDevices.List(s, params)
 		if err != nil {
