@@ -1751,35 +1751,38 @@ func syncPublicCloudProviderInfo(
 		syncRegionBuckets(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
-	if cloudprovider.IsSupportCompute(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) {
+	if cloudprovider.IsSupportCompute(driver) {
 		if syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NETWORK) {
 			// 需要先同步vpc，避免私有云eip找不到network
 			syncRegionVPCs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
 			syncRegionEips(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 		}
-		// sync snapshot policies before sync disks
-		syncRegionSnapshotPolicies(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
-		for j := 0; j < len(localZones); j += 1 {
+		if syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) {
+			// sync snapshot policies before sync disks
+			syncRegionSnapshotPolicies(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
-			if len(syncRange.Zone) > 0 && !utils.IsInStringArray(localZones[j].Id, syncRange.Zone) {
-				continue
-			}
-			// no need to lock zone as public cloud zone is read-only
+			for j := 0; j < len(localZones); j += 1 {
 
-			newPairs := syncZoneStorages(ctx, userCred, syncResults, provider, driver, &localZones[j], remoteZones[j], syncRange, storageCachePairs)
-			if len(newPairs) > 0 {
-				storageCachePairs = append(storageCachePairs, newPairs...)
+				if len(syncRange.Zone) > 0 && !utils.IsInStringArray(localZones[j].Id, syncRange.Zone) {
+					continue
+				}
+				// no need to lock zone as public cloud zone is read-only
+
+				newPairs := syncZoneStorages(ctx, userCred, syncResults, provider, driver, &localZones[j], remoteZones[j], syncRange, storageCachePairs)
+				if len(newPairs) > 0 {
+					storageCachePairs = append(storageCachePairs, newPairs...)
+				}
+				newPairs = syncZoneHosts(ctx, userCred, syncResults, provider, driver, &localZones[j], remoteZones[j], syncRange, storageCachePairs)
+				if len(newPairs) > 0 {
+					storageCachePairs = append(storageCachePairs, newPairs...)
+				}
 			}
-			newPairs = syncZoneHosts(ctx, userCred, syncResults, provider, driver, &localZones[j], remoteZones[j], syncRange, storageCachePairs)
-			if len(newPairs) > 0 {
-				storageCachePairs = append(storageCachePairs, newPairs...)
-			}
+
+			// sync snapshots after sync disks
+			syncRegionSnapshots(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 		}
-
-		// sync snapshots after sync disks
-		syncRegionSnapshots(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 	}
 
 	if cloudprovider.IsSupportNAS(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NAS) {
@@ -2270,6 +2273,9 @@ func syncInterVpcNetworks(ctx context.Context, userCred mcclient.TokenCredential
 func syncGlobalVpcs(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, driver cloudprovider.ICloudProvider) error {
 	gvpcs, err := driver.GetICloudGlobalVpcs()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return nil
+		}
 		return err
 	}
 
