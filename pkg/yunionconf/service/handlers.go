@@ -36,6 +36,7 @@ func InitHandlers(app *appsrv.Application) {
 	}
 
 	for _, manager := range []db.IModelManager{
+		db.Metadata,
 		models.ParameterManager,
 		models.ScopedPolicyBindingManager,
 		models.ScopedPolicyManager,
