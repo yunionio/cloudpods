@@ -25,7 +25,7 @@ type IImageCache interface {
 	GetPath() string
 	GetName() string
 	Load() error
-	Acquire(ctx context.Context, input api.CacheImageInput, callback func(progress float32)) error
+	Acquire(ctx context.Context, input api.CacheImageInput, callback func(progress, progressMbps float64, totalSizeMb int64)) error
 	Release()
 	Remove(ctx context.Context) error
 	GetImageId() string

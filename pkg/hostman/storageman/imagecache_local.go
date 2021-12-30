@@ -149,7 +149,7 @@ func (l *SLocalImageCache) Release() {
 	l.consumerCount -= 1
 }
 
-func (l *SLocalImageCache) Acquire(ctx context.Context, input api.CacheImageInput, callback func(progress float32)) error {
+func (l *SLocalImageCache) Acquire(ctx context.Context, input api.CacheImageInput, callback func(progress, progressMbps float64, totalSizeMb int64)) error {
 	isOk, err := l.prepare(ctx, input)
 	if err != nil {
 		return errors.Wrapf(err, "prepare")
@@ -187,7 +187,7 @@ func (l *SLocalImageCache) prepare(ctx context.Context, input api.CacheImageInpu
 	return false, nil
 }
 
-func (l *SLocalImageCache) fetch(ctx context.Context, input api.CacheImageInput, callback func(progress float32)) error {
+func (l *SLocalImageCache) fetch(ctx context.Context, input api.CacheImageInput, callback func(progress, progressMbps float64, totalSizeMb int64)) error {
 	var _fetch = func() error {
 		if len(l.Manager.GetId()) > 0 {
 			_, err := hostutils.RemoteStoragecacheCacheImage(ctx,

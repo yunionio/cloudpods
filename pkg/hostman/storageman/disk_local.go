@@ -248,9 +248,9 @@ func (d *SLocalDisk) createFromTemplate(
 	return d.GetDiskDesc(), nil
 }
 
-func (d *SLocalDisk) CreateFromUrl(ctx context.Context, url string, size int64) error {
+func (d *SLocalDisk) CreateFromUrl(ctx context.Context, url string, size int64, callback func(progress, progressMbps float64, totalSizeMb int64)) error {
 	remoteFile := remotefile.NewRemoteFile(ctx, url, d.getPath(), false, "", -1, nil, "", "")
-	err := remoteFile.Fetch(nil)
+	err := remoteFile.Fetch(callback)
 	if err != nil {
 		return errors.Wrapf(err, "fetch image from %s", url)
 	}

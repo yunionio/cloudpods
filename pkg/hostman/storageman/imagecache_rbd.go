@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build linux,cgo
-
 package storageman
 
 import (
@@ -73,11 +71,11 @@ func (r *SRbdImageCache) Load() error {
 	return fmt.Errorf("invalid rbd image %s at host %s", origin.String(), options.HostOptions.Hostname)
 }
 
-func (r *SRbdImageCache) Acquire(ctx context.Context, input api.CacheImageInput, callback func(progress float32)) error {
+func (r *SRbdImageCache) Acquire(ctx context.Context, input api.CacheImageInput, callback func(progress, progressMbps float64, totalSizeMb int64)) error {
 	input.ImageId = r.imageId
-	localImageCache, err := storageManager.LocalStorageImagecacheManager.AcquireImage(ctx, input, func(percent float32) {
+	localImageCache, err := storageManager.LocalStorageImagecacheManager.AcquireImage(ctx, input, func(progress, progressMbps float64, totalSizeMb int64) {
 		if len(input.ServerId) > 0 {
-			modules.Servers.Update(hostutils.GetComputeSession(context.Background()), input.ServerId, jsonutils.Marshal(map[string]float32{"progress": percent / 1.2}))
+			hostutils.UpdateServerProgress(context.Background(), input.ServerId, progress/1.2, progressMbps)
 		}
 	})
 	if err != nil {

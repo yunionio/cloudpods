@@ -807,7 +807,7 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 
 			err := iStorage.DestinationPrepareMigrate(
 				ctx, migParams.LiveMigrate, migParams.DisksUri, migParams.SnapshotsUri,
-				migParams.DisksBackingFile, migParams.SrcSnapshots, migParams.RebaseDisks, disks[i],
+				migParams.DisksBackingFile, migParams.SrcSnapshots, migParams.RebaseDisks, disks[i], migParams.Sid, i+1, len(disks),
 			)
 			if err != nil {
 				return nil, fmt.Errorf("dest prepare migrate failed %s", err)
@@ -825,6 +825,8 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 		startParams.Set("qemu_version", jsonutils.NewString(migParams.QemuVersion))
 		startParams.Set("need_migrate", jsonutils.JSONTrue)
 		hostutils.DelayTaskWithoutReqctx(ctx, guest.asyncScriptStart, startParams)
+	} else {
+		hostutils.UpdateServerProgress(context.Background(), migParams.Sid, 100.0, 0)
 	}
 
 	return nil, nil
