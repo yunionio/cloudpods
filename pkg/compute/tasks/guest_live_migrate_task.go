@@ -441,7 +441,31 @@ func (self *GuestLiveMigrateTask) OnResumeDestGuestCompleteFailed(ctx context.Co
 	guest *models.SGuest, data jsonutils.JSONObject) {
 	targetHostId, _ := self.Params.GetString("target_host_id")
 
+	self.markFailed(ctx, guest, data)
+
 	guest.StartUndeployGuestTask(ctx, self.UserCred, "", targetHostId)
+
+	self.SetStage("OnResumeSourceGuestComplete", nil)
+	sourceHost := models.HostManager.FetchHostById(guest.HostId)
+	headers := self.GetTaskRequestHeader()
+	body := jsonutils.NewDict()
+	url := fmt.Sprintf("%s/servers/%s/resume", sourceHost.ManagerUri, guest.Id)
+	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(),
+		ctx, "POST", url, headers, body, false)
+	if err != nil {
+		self.OnResumeSourceGuestCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+	}
+}
+
+func (self *GuestLiveMigrateTask) OnResumeSourceGuestCompleteFailed(ctx context.Context,
+	guest *models.SGuest, data jsonutils.JSONObject) {
+	db.OpsLog.LogEvent(guest, db.ACT_RESUME_FAIL, data, self.UserCred)
+	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_VM_RESUME, data, self.UserCred, false)
+	self.TaskFailed(ctx, guest, data)
+}
+
+func (self *GuestLiveMigrateTask) OnResumeSourceGuestComplete(ctx context.Context,
+	guest *models.SGuest, data jsonutils.JSONObject) {
 	self.TaskFailed(ctx, guest, data)
 }
 
@@ -481,10 +505,14 @@ func (self *GuestMigrateTask) TaskComplete(ctx context.Context, guest *models.SG
 }
 
 func (self *GuestMigrateTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
+	self.markFailed(ctx, guest, reason)
+	self.SetStageFailed(ctx, reason)
+}
+
+func (self *GuestMigrateTask) markFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
 	guest.SetStatus(self.UserCred, api.VM_MIGRATE_FAILED, reason.String())
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, reason, self.UserCred, false)
-	self.SetStageFailed(ctx, reason)
 	notifyclient.NotifySystemErrorWithCtx(ctx, guest.Id, guest.Name, api.VM_MIGRATE_FAILED, reason.String())
 	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
 		Obj:    guest,
