@@ -755,7 +755,7 @@ func NewGuestResumeTask(ctx context.Context, s *SKVMGuestInstance, isTimeout boo
 }
 
 func (s *SGuestResumeTask) Start() {
-	log.Debugf("GuestResumeTask start")
+	log.Debugf("[%s] GuestResumeTask start", s.GetId())
 	s.startTime = time.Now()
 	s.confirmRunning()
 }
@@ -763,20 +763,19 @@ func (s *SGuestResumeTask) Start() {
 func (s *SGuestResumeTask) Stop() {
 	// TODO
 	// stop stream disk
-	s.taskFailed("qemu quit unexpectedly on resume")
+	s.taskFailed(fmt.Sprintf("[%s] qemu quit unexpectedly on resume", s.GetId()))
 }
 
 func (s *SGuestResumeTask) confirmRunning() {
 	if s.Monitor != nil {
-		log.Debugf("GuestResumeTask QueryStatus")
 		s.Monitor.QueryStatus(s.onConfirmRunning)
 	} else {
-		s.taskFailed("qemu quit unexpectedly on resume confirmRunning")
+		s.taskFailed(fmt.Sprintf("[%s] qemu quit unexpectedly on resume confirmRunning", s.GetId()))
 	}
 }
 
 func (s *SGuestResumeTask) onConfirmRunning(status string) {
-	log.Debugf("onConfirmRunning status %s", status)
+	log.Debugf("[%s] onConfirmRunning status %s", s.GetId(), status)
 	if status == "running" || status == "paused (suspended)" || status == "paused (perlaunch)" {
 		s.onStartRunning()
 	} else if strings.Contains(status, "error") {
@@ -870,7 +869,7 @@ func (s *SGuestResumeTask) doBlockIoThrottle() {
 
 func (s *SGuestResumeTask) startStreamDisks(disksIdx []int) {
 	s.startTime = time.Time{}
-	s.CleanStartupTask()
+	s.detachStartupTask()
 	if s.IsMonitorAlive() {
 		s.StreamDisks(s.ctx, func() { s.onStreamComplete(disksIdx) }, disksIdx)
 	}
