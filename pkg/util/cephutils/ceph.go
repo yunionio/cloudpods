@@ -21,14 +21,14 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -87,6 +87,10 @@ type cephStats struct {
 type SCapacity struct {
 	CapacitySizeKb     int64
 	UsedCapacitySizeKb int64
+}
+
+func (self *CephClient) Output(name string, opts []string) (jsonutils.JSONObject, error) {
+	return self.output(name, opts)
 }
 
 func (self *CephClient) output(name string, opts []string) (jsonutils.JSONObject, error) {
@@ -186,6 +190,22 @@ func writeFile(pattern string, content string) (string, error) {
 	return name, nil
 }
 
+func (cli *CephClient) ShowConf() error {
+	conf, err := fileutils2.FileGetContents(cli.cephConf)
+	if err != nil {
+		return errors.Errorf("fail to open conf file")
+	}
+	key, err := fileutils2.FileGetContents(cli.keyConf)
+	if err != nil {
+		return errors.Errorf("fail to open key file")
+	}
+	fmt.Println("ceph.conf")
+	fmt.Println(conf)
+	fmt.Println("key.conf")
+	fmt.Println(key)
+	return nil
+}
+
 func NewClient(monHost, key, pool string) (*CephClient, error) {
 	client := &CephClient{
 		monHost: monHost,
@@ -193,6 +213,15 @@ func NewClient(monHost, key, pool string) (*CephClient, error) {
 		pool:    pool,
 	}
 	var err error
+	if len(client.key) > 0 {
+		keyring := fmt.Sprintf(`[client.admin]
+	key = %s
+`, client.key)
+		client.keyConf, err = writeFile("ceph.*.keyring", keyring)
+		if err != nil {
+			return nil, errors.Wrapf(err, "write keyring")
+		}
+	}
 	monHosts := []string{}
 	for _, monHost := range strings.Split(client.monHost, ",") {
 		monHosts = append(monHosts, fmt.Sprintf(`[%s]`, monHost))
@@ -209,19 +238,14 @@ auth_cluster_required = none
 auth_service_required = none
 auth_client_required = none
 `, conf)
+	} else {
+		conf = fmt.Sprintf(`%s
+keyring = %s
+`, conf, client.keyConf)
 	}
 	client.cephConf, err = writeFile("ceph.*.conf", conf)
 	if err != nil {
 		return nil, errors.Wrapf(err, "write file")
-	}
-	if len(client.key) > 0 {
-		keyring := fmt.Sprintf(`[client.admin]
-	key = %s 
-`, client.key)
-		client.keyConf, err = writeFile("ceph.*.keyring", keyring)
-		if err != nil {
-			return nil, errors.Wrapf(err, "write keyring")
-		}
 	}
 	return client, nil
 }

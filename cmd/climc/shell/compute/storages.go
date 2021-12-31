@@ -15,10 +15,17 @@
 package compute
 
 import (
+	"fmt"
+	"strings"
+
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
+	"yunion.io/x/onecloud/pkg/util/cephutils"
 )
 
 func init() {
@@ -38,4 +45,55 @@ func init() {
 	cmd.Perform("force-detach-host", &compute.StorageForceDetachHost{})
 	cmd.Perform("public", &options.BasePublicOptions{})
 	cmd.Perform("private", &options.BaseIdOptions{})
+
+	type StorageCephRunOptions struct {
+		ID     string `help:"ID or name of ceph storage"`
+		SUBCMD string `help:"ceph subcommand"`
+	}
+	R(&StorageCephRunOptions{}, "storage-ceph-run", "Run ceph command against a ceph storage", func(s *mcclient.ClientSession, args *StorageCephRunOptions) error {
+		result, err := modules.Storages.Get(s, args.ID, nil)
+		if err != nil {
+			return errors.Wrap(err, "Get")
+		}
+		info := struct {
+			StorageType string `json:"storage_type"`
+			StorageConf struct {
+				Key     string `json:"key"`
+				MonHost string `json:"mon_host"`
+				Pool    string `json:"pool"`
+			}
+		}{}
+		err = result.Unmarshal(&info)
+		if err != nil {
+			return errors.Wrap(err, "Unmarshal")
+		}
+		if info.StorageType != "rbd" {
+			return errors.Errorf("invalid storage_type %s", info.StorageType)
+		}
+		cli, err := cephutils.NewClient(
+			info.StorageConf.MonHost,
+			info.StorageConf.Key,
+			info.StorageConf.Pool,
+		)
+		if err != nil {
+			return errors.Wrap(err, "cephutils.NewClient")
+		}
+		defer cli.Close()
+
+		if args.SUBCMD == "showconf" {
+			cli.ShowConf()
+			return nil
+		}
+
+		opts := strings.Split(args.SUBCMD, " ")
+		if len(opts) == 0 {
+			return errors.Errorf("empty command")
+		}
+		output, err := cli.Output(opts[0], opts[1:])
+		if err != nil {
+			return errors.Wrap(err, "Run")
+		}
+		fmt.Println(output.PrettyString())
+		return nil
+	})
 }
