@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	sdkerrors "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	"github.com/tencentyun/cos-go-sdk-v5"
 
 	"yunion.io/x/jsonutils"
@@ -130,16 +131,51 @@ func (self *SRegion) GetILoadBalancerAclById(aclId string) (cloudprovider.ICloud
 // todo: 1. 支持跨地域绑定负载均衡 及 https://cloud.tencent.com/document/product/214/12014
 // todo: 2. 支持指定Project。 ProjectId可以通过 DescribeProject 接口获取。不填则属于默认项目。
 func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
-	LoadBalancerType := "INTERNAL"
-	if loadbalancer.AddressType == api.LB_ADDR_TYPE_INTERNET {
-		LoadBalancerType = "OPEN"
-
-	}
 	params := map[string]string{
-		"LoadBalancerType": LoadBalancerType,
 		"LoadBalancerName": loadbalancer.Name,
 		"VpcId":            loadbalancer.VpcID,
 	}
+
+	LoadBalancerType := "INTERNAL"
+	if loadbalancer.AddressType == api.LB_ADDR_TYPE_INTERNET {
+		LoadBalancerType = "OPEN"
+		switch loadbalancer.ChargeType {
+		case api.LB_CHARGE_TYPE_BY_BANDWIDTH:
+			pkgs, _, err := self.GetBandwidthPackages([]string{}, 0, 50)
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetBandwidthPackages")
+			}
+			bps := loadbalancer.EgressMbps
+			if bps == 0 {
+				bps = 200
+			}
+			if len(pkgs) > 0 {
+				pkgId := pkgs[0].BandwidthPackageId
+				for _, pkg := range pkgs {
+					if len(pkg.ResourceSet) < 100 {
+						pkgId = pkg.BandwidthPackageId
+						break
+					}
+				}
+				params["BandwidthPackageId"] = pkgId
+				params["InternetAccessible.InternetChargeType"] = "BANDWIDTH_PACKAGE"
+				params["InternetAccessible.InternetMaxBandwidthOut"] = "2048"
+			} else {
+				params["InternetAccessible.InternetChargeType"] = "BANDWIDTH_POSTPAID_BY_HOUR"
+				params["InternetAccessible.InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bps)
+			}
+		default:
+			bps := loadbalancer.EgressMbps
+			if bps == 0 {
+				bps = 200
+			}
+			params["InternetAccessible.InternetChargeType"] = "TRAFFIC_POSTPAID_BY_HOUR"
+			params["InternetAccessible.InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bps)
+
+		}
+	}
+
+	params["LoadBalancerType"] = LoadBalancerType
 
 	if len(loadbalancer.ProjectId) > 0 {
 		params["ProjectId"] = loadbalancer.ProjectId
@@ -164,7 +200,18 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 		i++
 	}
 
-	resp, err := self.clbRequest("CreateLoadBalancer", params)
+	resp, err := func() (jsonutils.JSONObject, error) {
+		_resp, err := self.clbRequest("CreateLoadBalancer", params)
+		if err != nil {
+			// 兼容不支持指定zone的账号
+			if e, ok := err.(*sdkerrors.TencentCloudSDKError); ok && e.Code == "InvalidParameterValue" {
+				delete(params, "ZoneId")
+				delete(params, "MasterZoneId")
+				return self.clbRequest("CreateLoadBalancer", params)
+			}
+		}
+		return _resp, err
+	}()
 	if err != nil {
 		return nil, err
 	}

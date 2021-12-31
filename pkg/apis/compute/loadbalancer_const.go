@@ -402,13 +402,11 @@ var LB_BACKEND_ROLES = choices.NewChoices(
 const (
 	LB_CHARGE_TYPE_BY_TRAFFIC   = "traffic"
 	LB_CHARGE_TYPE_BY_BANDWIDTH = "bandwidth"
-	LB_CHARGE_TYPE_POSTPAID     = "postpaid"
 )
 
 var LB_CHARGE_TYPES = choices.NewChoices(
 	LB_CHARGE_TYPE_BY_TRAFFIC,
 	LB_CHARGE_TYPE_BY_BANDWIDTH,
-	LB_CHARGE_TYPE_POSTPAID,
 )
 
 const (

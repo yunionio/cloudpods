@@ -270,7 +270,7 @@ func (self *SLoadbalancer) GetLoadbalancerSpec() string {
 }
 
 func (self *SLoadbalancer) GetChargeType() string {
-	return api.LB_CHARGE_TYPE_POSTPAID
+	return api.LB_CHARGE_TYPE_BY_TRAFFIC
 }
 
 func (self *SLoadbalancer) GetEgressMbps() int {

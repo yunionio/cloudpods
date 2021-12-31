@@ -56,24 +56,28 @@ type SLoadbalancer struct {
 	multicloud.QcloudTags
 	region *SRegion
 
-	Status           int64     `json:"Status"` // 0：创建中，1：正常运行
-	Domain           string    `json:"Domain"`
-	VpcID            string    `json:"VpcId"`
-	Log              string    `json:"Log"`
-	ProjectID        int64     `json:"ProjectId"`
-	Snat             bool      `json:"Snat"`
-	LoadBalancerID   string    `json:"LoadBalancerId"`
-	LoadBalancerVips []string  `json:"LoadBalancerVips"`
-	LoadBalancerType string    `json:"LoadBalancerType"` // 负载均衡实例的网络类型： OPEN：公网属性， INTERNAL：内网属性。
-	LoadBalancerName string    `json:"LoadBalancerName"`
-	Forward          LB_TYPE   `json:"Forward"` // 应用型负载均衡标识，1：应用型负载均衡，0：传统型的负载均衡。
-	StatusTime       time.Time `json:"StatusTime"`
-	OpenBGP          int64     `json:"OpenBgp"` // 高防 LB 的标识，1：高防负载均衡 0：非高防负载均衡。
-	CreateTime       time.Time `json:"CreateTime"`
-	Isolation        int64     `json:"Isolation"` // 0：表示未被隔离，1：表示被隔离。
-	SubnetId         string    `json:"SubnetId"`
-	BackupZoneSet    []ZoneSet `json:"BackupZoneSet"`
-	MasterZone       ZoneSet   `json:"MasterZone"`
+	Status            int64     `json:"Status"` // 0：创建中，1：正常运行
+	Domain            string    `json:"Domain"`
+	VpcID             string    `json:"VpcId"`
+	Log               string    `json:"Log"`
+	ProjectID         int64     `json:"ProjectId"`
+	Snat              bool      `json:"Snat"`
+	LoadBalancerID    string    `json:"LoadBalancerId"`
+	LoadBalancerVips  []string  `json:"LoadBalancerVips"`
+	LoadBalancerType  string    `json:"LoadBalancerType"` // 负载均衡实例的网络类型： OPEN：公网属性， INTERNAL：内网属性。
+	LoadBalancerName  string    `json:"LoadBalancerName"`
+	Forward           LB_TYPE   `json:"Forward"` // 应用型负载均衡标识，1：应用型负载均衡，0：传统型的负载均衡。
+	StatusTime        time.Time `json:"StatusTime"`
+	OpenBGP           int64     `json:"OpenBgp"` // 高防 LB 的标识，1：高防负载均衡 0：非高防负载均衡。
+	CreateTime        time.Time `json:"CreateTime"`
+	Isolation         int64     `json:"Isolation"` // 0：表示未被隔离，1：表示被隔离。
+	SubnetId          string    `json:"SubnetId"`
+	BackupZoneSet     []ZoneSet `json:"BackupZoneSet"`
+	MasterZone        ZoneSet   `json:"MasterZone"`
+	NetworkAttributes struct {
+		InternetChargeType      string
+		InternetMaxBandwidthOut int
+	}
 }
 
 type ZoneSet struct {
@@ -87,11 +91,14 @@ func (self *SLoadbalancer) GetLoadbalancerSpec() string {
 }
 
 func (self *SLoadbalancer) GetChargeType() string {
-	return api.LB_CHARGE_TYPE_POSTPAID
+	if len(self.NetworkAttributes.InternetChargeType) > 0 && self.NetworkAttributes.InternetChargeType != "TRAFFIC_POSTPAID_BY_HOUR" {
+		return api.LB_CHARGE_TYPE_BY_BANDWIDTH
+	}
+	return api.LB_CHARGE_TYPE_BY_TRAFFIC
 }
 
 func (self *SLoadbalancer) GetEgressMbps() int {
-	return 0
+	return self.NetworkAttributes.InternetMaxBandwidthOut
 }
 
 // https://cloud.tencent.com/document/product/214/30689
