@@ -408,7 +408,7 @@ func (m *QmpMonitor) parseVersion(callback StringCallback) qmpMonitorCallBack {
 	}
 }
 
-func (m *QmpMonitor) GetBlocks(callback func(*jsonutils.JSONArray)) {
+func (m *QmpMonitor) GetBlocks(callback func([]QemuBlock)) {
 	var cb = func(res *Response) {
 		if res.ErrorVal != nil {
 			callback(nil)
@@ -418,8 +418,9 @@ func (m *QmpMonitor) GetBlocks(callback func(*jsonutils.JSONArray)) {
 			log.Errorf("Get %s block error %s", m.server, err)
 			callback(nil)
 		}
-		jra, _ := jr.(*jsonutils.JSONArray)
-		callback(jra)
+		blocks := []QemuBlock{}
+		jr.Unmarshal(&blocks)
+		callback(blocks)
 	}
 
 	cmd := &Command{Execute: "query-block"}
