@@ -55,7 +55,7 @@ func (self *ImageCopyFromUrlTask) OnInit(ctx context.Context, obj db.IStandalone
 			return nil, err
 		}
 		defer resp.Body.Close()
-		err = image.SaveImageFromStream(resp.Body, false)
+		err = image.SaveImageFromStream(resp.Body, resp.ContentLength, false)
 		if err != nil {
 			return nil, err
 		}
