@@ -451,7 +451,7 @@ func (self *SImage) saveFailed(userCred mcclient.TokenCredential, msg jsonutils.
 	db.OpsLog.LogEvent(self, db.ACT_SAVE_FAIL, msg, userCred)
 }
 
-func (self *SImage) saveImageFromStream(localPath string, reader io.Reader, calChecksum bool) (*streamutils.SStreamProperty, error) {
+func (self *SImage) saveImageFromStream(localPath string, reader io.Reader, totalSize int64, calChecksum bool) (*streamutils.SStreamProperty, error) {
 	fp, err := os.Create(localPath)
 	if err != nil {
 		return nil, err
@@ -461,15 +461,18 @@ func (self *SImage) saveImageFromStream(localPath string, reader io.Reader, calC
 	return streamutils.StreamPipe(reader, fp, calChecksum, func(saved int64) {
 		now := time.Now()
 		if now.Sub(lastSaveTime) > 5*time.Second {
-			self.saveSize(saved)
+			self.saveSize(saved, totalSize)
 			lastSaveTime = now
 		}
 	})
 }
 
-func (self *SImage) saveSize(newSize int64) error {
+func (self *SImage) saveSize(newSize, totalSize int64) error {
 	_, err := db.Update(self, func() error {
 		self.Size = newSize
+		if totalSize > 0 {
+			self.Progress = float32(float64(newSize) / float64(totalSize) * 100.0)
+		}
 		return nil
 	})
 	if err != nil {
@@ -479,10 +482,10 @@ func (self *SImage) saveSize(newSize int64) error {
 }
 
 //Image always do probe and customize after save from stream
-func (self *SImage) SaveImageFromStream(reader io.Reader, calChecksum bool) error {
+func (self *SImage) SaveImageFromStream(reader io.Reader, totalSize int64, calChecksum bool) error {
 	localPath := self.GetPath("")
 
-	sp, err := self.saveImageFromStream(localPath, reader, calChecksum)
+	sp, err := self.saveImageFromStream(localPath, reader, totalSize, calChecksum)
 	if err != nil {
 		log.Errorf("saveImageFromStream fail %s", err)
 		return err
@@ -571,7 +574,7 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 		db.OpsLog.LogEvent(self, db.ACT_SAVING, "create upload", userCred)
 		self.SetStatus(userCred, api.IMAGE_STATUS_SAVING, "create upload")
 
-		err := self.SaveImageFromStream(appParams.Request.Body, false)
+		err := self.SaveImageFromStream(appParams.Request.Body, appParams.Request.ContentLength, false)
 		if err != nil {
 			self.OnSaveFailed(ctx, userCred, jsonutils.NewString(fmt.Sprintf("create upload fail %s", err)))
 			return
@@ -633,7 +636,8 @@ func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 				self.SetStatus(userCred, api.IMAGE_STATUS_SAVING, "update start upload")
 				// If isProbe is true calculating checksum is not necessary wheng saving from stream,
 				// otherwise, it is needed.
-				err := self.SaveImageFromStream(appParams.Request.Body, !isProbe)
+
+				err := self.SaveImageFromStream(appParams.Request.Body, appParams.Request.ContentLength, !isProbe)
 				if err != nil {
 					self.OnSaveFailed(ctx, userCred, jsonutils.NewString(fmt.Sprintf("update upload failed %s", err)))
 					return nil, httperrors.NewGeneralError(err)
