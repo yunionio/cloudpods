@@ -183,6 +183,10 @@ func (img *SQemuImage) doConvert(name string, format TImageFormat, options []str
 	if compact {
 		cmdline = append(cmdline, "-c")
 	}
+	// https://bugzilla.redhat.com/show_bug.cgi?id=1969848
+	// https://bugs.launchpad.net/qemu/+bug/1805256
+	// qemu-img convert may hang on aarch64, fix: add -m 1
+	cmdline = append(cmdline, "-m", "1")
 	cmdline = append(cmdline, "-f", img.Format.String(), "-O", format.String())
 	if len(password) > 0 {
 		if options == nil {
