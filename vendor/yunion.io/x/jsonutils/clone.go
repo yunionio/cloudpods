@@ -115,6 +115,9 @@ func DeepCopy(obj JSONObject) JSONObject {
 			vc.Set(mk, mvc)
 		}
 		return vc
+	case *JSONValue:
+		vc := *v
+		return &vc
 	}
 	return nil
 }

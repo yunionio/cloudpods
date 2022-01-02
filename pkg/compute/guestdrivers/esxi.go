@@ -249,7 +249,7 @@ func (self *SESXiGuestDriver) ValidateCreateData(ctx context.Context, userCred m
 	return data, nil
 }
 
-func (self *SESXiGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+func (self *SESXiGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerCreateEipInput) error {
 	return httperrors.NewInputParameterError("%s not support create eip", self.GetHypervisor())
 }
 

@@ -12,19 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package modules
+package compute
 
-import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
-
-var (
-	InstanceGroups modulebase.ResourceManager
+import (
+	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
-	InstanceGroups = NewComputeManager("instancegroup", "instancegroups",
-		[]string{"ID", "Name", "Service_Type", "Parent_Id", "Zone_Id", "Sched_Strategy", "Domain_Id", "Project_Id",
-			"Granularity", "Is_Froced_Sep", "ips", "eip"},
-		[]string{})
-
-	registerCompute(&InstanceGroups)
+	cmd := shell.NewJointCmd(&modules.InstancegroupNetworks)
+	cmd.List(&compute.InstanceGroupNetworkListOptions{})
 }

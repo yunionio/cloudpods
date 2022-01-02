@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -52,6 +53,9 @@ func (self *EipDissociateTask) TaskFail(ctx context.Context, eip *models.SElasti
 		case *models.SLoadbalancer:
 			srv.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg.String())
 			logOp = logclient.ACT_LOADBALANCER_DISSOCIATE
+		case *models.SGroup:
+			srv.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg.String())
+			logOp = logclient.ACT_INSTANCE_GROUP_DISSOCIATE
 		}
 		db.OpsLog.LogEvent(model, db.ACT_EIP_DETACH, msg, self.GetUserCred())
 		logclient.AddActionLogWithStartable(self, model, logclient.ACT_EIP_DISSOCIATE, msg, self.UserCred, false)
@@ -80,6 +84,9 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		} else if nat := eip.GetAssociateNatGateway(); nat != nil {
 			model = nat
 			logOp = logclient.ACT_NATGATEWAY_DISSOCIATE
+		} else if grp := eip.GetAssociateInstanceGroup(); grp != nil {
+			model = grp
+			logOp = logclient.ACT_INSTANCE_GROUP_DISSOCIATE
 		} else {
 			self.TaskFail(ctx, eip, jsonutils.NewString("unsupported associate type"), nil)
 			return
@@ -103,24 +110,48 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 				}
 			}
 		} else {
-			var guestnics []models.SGuestnetwork
-			q := models.GuestnetworkManager.Query().
-				Equals("guest_id", model.GetId()).
-				Equals("eip_id", eip.Id)
-			if err := db.FetchModelObjects(models.GuestnetworkManager, q, &guestnics); err != nil {
-				msg := errors.Wrapf(err, "fetch guest nic associated with eip %s(%s)", eip.Name, eip.Id).Error()
-				self.TaskFail(ctx, eip, jsonutils.NewString(msg), model)
-				return
-			}
 			var errs []error
-			for i := range guestnics {
-				guestnic := &guestnics[i]
-				if _, err := db.Update(guestnic, func() error {
-					guestnic.EipId = ""
-					return nil
-				}); err != nil {
-					errs = append(errs, errors.Wrapf(err, "nic %s", guestnic.Ifname))
+			switch eip.AssociateType {
+			case api.EIP_ASSOCIATE_TYPE_SERVER:
+				var guestnics []models.SGuestnetwork
+				q := models.GuestnetworkManager.Query().
+					Equals("guest_id", model.GetId()).
+					Equals("eip_id", eip.Id)
+				if err := db.FetchModelObjects(models.GuestnetworkManager, q, &guestnics); err != nil {
+					msg := errors.Wrapf(err, "fetch guest nic associated with eip %s(%s)", eip.Name, eip.Id).Error()
+					self.TaskFail(ctx, eip, jsonutils.NewString(msg), model)
+					return
 				}
+				for i := range guestnics {
+					guestnic := &guestnics[i]
+					if _, err := db.Update(guestnic, func() error {
+						guestnic.EipId = ""
+						return nil
+					}); err != nil {
+						errs = append(errs, errors.Wrapf(err, "nic %s", guestnic.Ifname))
+					}
+				}
+			case api.EIP_ASSOCIATE_TYPE_INSTANCE_GROUP:
+				var groupnics []models.SGroupnetwork
+				q := models.GroupnetworkManager.Query().
+					Equals("group_id", model.GetId()).
+					Equals("eip_id", eip.Id)
+				if err := db.FetchModelObjects(models.GroupnetworkManager, q, &groupnics); err != nil {
+					msg := errors.Wrapf(err, "fetch group nic associated with eip %s(%s)", eip.Name, eip.Id).Error()
+					self.TaskFail(ctx, eip, jsonutils.NewString(msg), model)
+					return
+				}
+				for i := range groupnics {
+					groupnic := &groupnics[i]
+					if _, err := db.Update(groupnic, func() error {
+						groupnic.EipId = ""
+						return nil
+					}); err != nil {
+						errs = append(errs, errors.Wrapf(err, "nic %s", groupnic.IpAddr))
+					}
+				}
+			default:
+				errs = append(errs, errors.Wrapf(httperrors.ErrNotSupported, "%s not supported type", eip.AssociateType))
 			}
 			if len(errs) > 0 {
 				err := errors.NewAggregate(errs)
@@ -145,6 +176,8 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 			switch srv := model.(type) {
 			case *models.SGuest:
 				srv.StartSyncstatus(ctx, self.UserCred, "")
+			case *models.SGroup:
+				srv.SetStatus(self.UserCred, "init", "success")
 			}
 		}
 	}

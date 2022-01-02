@@ -176,7 +176,7 @@ type IGuestDriver interface {
 
 	IsSupportEip() bool
 	IsSupportPublicIp() bool
-	ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error
+	ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerCreateEipInput) error
 
 	NeedStopForChangeSpec(guest *SGuest, cpuChanged, memChanged bool) bool
 

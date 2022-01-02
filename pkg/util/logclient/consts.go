@@ -98,6 +98,7 @@ const (
 	ACT_VM_SNAPSHOT_AND_CLONE        = "vm_snapshot_and_clone"
 	ACT_VM_BLOCK_STREAM              = "vm_block_stream"
 	ACT_ATTACH_NETWORK               = "attach_network"
+	ACT_DETACH_NETWORK               = "detach_network"
 	ACT_VM_CONVERT                   = "vm_convert"
 	ACT_FREEZE                       = "freeze"
 	ACT_UNFREEZE                     = "unfreeze"
@@ -157,6 +158,8 @@ const (
 	ACT_NATGATEWAY_ASSOCIATE    = "natgateway_associate"
 	ACT_NATGATEWAY_DISSOCIATE   = "natgateway_dissociate"
 	ACT_LOADBALANCER_DISSOCIATE = "loadbalancer_dissociate"
+
+	ACT_INSTANCE_GROUP_DISSOCIATE = "instancegroup_dissociate"
 
 	ACT_PREPARE = "prepare"
 	ACT_PROBE   = "probe"
