@@ -103,3 +103,7 @@ func netMdpName(netId string) string {
 func gnpName(netId string, ifname string) string {
 	return fmt.Sprintf("iface-%s-%s", netId, ifname)
 }
+
+func vipName(netId string, groupId string, ipaddr string) string {
+	return fmt.Sprintf("vip-%s-%s-%s", netId, groupId, ipaddr)
+}

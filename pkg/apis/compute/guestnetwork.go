@@ -25,6 +25,9 @@ type GuestnetworkDetails struct {
 	Network string `json:"network"`
 	// 所属Wire
 	WireId string `json:"wire_id"`
+
+	// EipAddr associate with this guestnetwork
+	EipAddr string `json:"eip_addr"`
 }
 
 type GuestnetworkShortDesc struct {

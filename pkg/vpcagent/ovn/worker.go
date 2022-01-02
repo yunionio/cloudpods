@@ -43,9 +43,12 @@ type Worker struct {
 func NewWorker(opts *options.Options) worker.IWorker {
 	modelSets := agentmodels.NewModelSets()
 	apiOpts := &apihelper.Options{
-		CommonOptions: opts.CommonOptions,
-		SyncInterval:  opts.APISyncInterval,
-		ListBatchSize: opts.APIListBatchSize,
+		CommonOptions:  opts.CommonOptions,
+		SyncInterval:   opts.APISyncInterval,
+		ListBatchSize:  opts.APIListBatchSize,
+		IncludeDetails: false,
+
+		IncludeOtherCloudEnv: false,
 	}
 	apih, err := apihelper.NewAPIHelper(apiOpts, modelSets)
 	if err != nil {
@@ -162,6 +165,9 @@ func (w *Worker) run(ctx context.Context, mss *agentmodels.ModelSets) (err error
 					ovndb.ClaimVpcHost(ctx, vpc, host)
 				}
 				ovndb.ClaimGuestnetwork(ctx, guestnetwork)
+			}
+			for _, groupnetwork := range network.Groupnetworks {
+				ovndb.ClaimGroupnetwork(ctx, groupnetwork)
 			}
 		}
 		routes := resolveRoutes(vpc, mss)

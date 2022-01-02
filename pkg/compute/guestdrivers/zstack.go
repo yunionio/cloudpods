@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -120,7 +119,7 @@ func (self *SZStackGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *m
 	return nil
 }
 
-func (self *SZStackGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+func (self *SZStackGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerCreateEipInput) error {
 	return httperrors.NewInputParameterError("%s not support create eip, it only support bind eip", self.GetHypervisor())
 }
 

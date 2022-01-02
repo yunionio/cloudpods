@@ -27,6 +27,8 @@ const (
 	EIP_ASSOCIATE_TYPE_LOADBALANCER = "loadbalancer"
 	EIP_ASSOCIATE_TYPE_UNKNOWN      = "unknown"
 
+	EIP_ASSOCIATE_TYPE_INSTANCE_GROUP = "instancegroup"
+
 	EIP_STATUS_READY           = "ready"
 	EIP_STATUS_UNKNOWN         = "unknown"
 	EIP_STATUS_ALLOCATE        = "allocate"

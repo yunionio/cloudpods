@@ -15,19 +15,12 @@
 package compute
 
 import (
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
-)
-
-var (
-	InstanceGroups modulebase.ResourceManager
+	"yunion.io/x/onecloud/cmd/climc/shell"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
-	InstanceGroups = modules.NewComputeManager("instancegroup", "instancegroups",
-		[]string{"ID", "Name", "Service_Type", "Parent_Id", "Zone_Id", "Sched_Strategy", "Domain_Id", "Project_Id",
-			"Granularity", "Is_Froced_Sep", "ips", "eip"},
-		[]string{})
-
-	modules.RegisterCompute(&InstanceGroups)
+	cmd := shell.NewJointCmd(&modules.InstancegroupNetworks)
+	cmd.List(&compute.InstanceGroupNetworkListOptions{})
 }

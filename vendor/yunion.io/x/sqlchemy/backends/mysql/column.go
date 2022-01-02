@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/timeutils"
@@ -169,8 +170,10 @@ func (c *STristateColumn) IsZero(val interface{}) bool {
 // NewTristateColumn return an instance of STristateColumn
 func NewTristateColumn(name string, tagmap map[string]string, isPointer bool) STristateColumn {
 	if _, ok := tagmap[sqlchemy.TAG_NULLABLE]; ok {
+		// simply warning, for backward compatiblity reason
 		// tristate always nullable
-		delete(tagmap, sqlchemy.TAG_NULLABLE)
+		// delete(tagmap, sqlchemy.TAG_NULLABLE)
+		log.Warningf("TristateColumn should have no nullable tag")
 	}
 	bc := STristateColumn{SBaseWidthColumn: sqlchemy.NewBaseWidthColumn(name, "TINYINT", tagmap, isPointer)}
 	return bc
