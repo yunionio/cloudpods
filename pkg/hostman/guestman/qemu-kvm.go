@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appctx"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
@@ -314,6 +315,14 @@ func (s *SKVMGuestInstance) GetStopScriptPath() string {
 }
 
 func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
+	// verify host_id consistency
+	hostId, _ := s.Desc.GetString("host_id")
+	if hostId != hostinfo.Instance().HostId {
+		// fix host_id
+		s.Desc.Set("host_id", jsonutils.NewString(hostinfo.Instance().HostId))
+		s.SaveDesc(s.Desc)
+	}
+
 	s.manager.SaveServer(s.Id, s)
 	s.manager.RemoveCandidateServer(s)
 
