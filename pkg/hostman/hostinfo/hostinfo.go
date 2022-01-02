@@ -602,7 +602,9 @@ func (h *SHostInfo) PreventArpFlux() {
 // Any system wide optimizations
 // set swappiness=0 to avoid swap
 func (h *SHostInfo) TuneSystem() {
-	kv := map[string]string{"/proc/sys/vm/swappiness": "0",
+	kv := map[string]string{
+		"/proc/sys/vm/swappiness":                        "0",
+		"/proc/sys/net/ipv4/tcp_mtu_probing":             "2",
 		"/sys/module/kvm/parameters/ignore_msrs":         "1",
 		"/sys/module/kvm/parameters/report_ignored_msrs": "0",
 	}

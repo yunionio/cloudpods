@@ -15,6 +15,8 @@
 package compute
 
 import (
+	"fmt"
+
 	"yunion.io/x/pkg/util/netutils"
 )
 
@@ -180,4 +182,8 @@ func VpcMappedIPStart() netutils.IPV4Addr {
 
 func VpcMappedIPEnd() netutils.IPV4Addr {
 	return vpcMappedIPEnd
+}
+
+func VpcOvnEncapCostStr() string {
+	return fmt.Sprintf("%d", VPC_OVN_ENCAP_COST)
 }
