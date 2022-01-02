@@ -53,6 +53,7 @@ type ComputeOptions struct {
 
 	DefaultBandwidth int `default:"1000" help:"Default bandwidth"`
 	DefaultMtu       int `default:"1500" help:"Default network mtu"`
+	OvnUnderlayMtu   int `help:"mtu of ovn underlay network" default:"1500"`
 
 	DefaultServerQuota           int `default:"50" help:"Common Server quota per tenant, default 50"`
 	DefaultCpuQuota              int `default:"200" help:"Common CPU quota per tenant, default 200"`
