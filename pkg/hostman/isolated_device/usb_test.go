@@ -142,3 +142,42 @@ func Test_isUSBLinuxRootHub(t *testing.T) {
 		})
 	}
 }
+
+func Test_getUSBDevQemuOptions(t *testing.T) {
+	type args struct {
+		vendorId string
+		deviceId string
+		bus      string
+		addr     string
+	}
+	tests := []struct {
+		name string
+		args args
+		want map[string]interface{}
+	}{
+		{
+			name: "",
+			args: args{
+				vendorId: "1d6b",
+				deviceId: "0001",
+				bus:      "001",
+				addr:     "009",
+			},
+			want: map[string]interface{}{
+				"id":        "dev_1d6b_0001-001_009",
+				"bus":       "usb.0",
+				"vendorid":  "0x1d6b",
+				"productid": "0x0001",
+				"hostbus":   "1",
+				"hostaddr":  "9",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got, _ := getUSBDevQemuOptions(tt.args.vendorId, tt.args.deviceId, tt.args.bus, tt.args.addr); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getUSBDevQemuOptions() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

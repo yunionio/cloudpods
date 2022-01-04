@@ -16,6 +16,7 @@ package isolated_device
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -54,16 +55,24 @@ func GetUSBDevId(vendorId, devId, bus, addr string) string {
 	return fmt.Sprintf("dev_%s_%s-%s_%s", vendorId, devId, bus, addr)
 }
 
-func getUSBDevQemuOptions(vendorId, deviceId string, bus, addr string) map[string]interface{} {
+func getUSBDevQemuOptions(vendorId, deviceId string, bus, addr string) (map[string]interface{}, error) {
 	id := GetUSBDevId(vendorId, deviceId, bus, addr)
+	busI, err := strconv.Atoi(bus)
+	if err != nil {
+		return nil, errors.Wrapf(err, "parse bus to int %q", bus)
+	}
+	addrI, err := strconv.Atoi(addr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "parse addr to int %q", bus)
+	}
 	return map[string]interface{}{
 		"id":        id,
 		"bus":       "usb.0",
 		"vendorid":  fmt.Sprintf("0x%s", vendorId),
 		"productid": fmt.Sprintf("0x%s", deviceId),
-		"hostbus":   bus,
-		"hostaddr":  addr,
-	}
+		"hostbus":   fmt.Sprintf("%d", busI),
+		"hostaddr":  fmt.Sprintf("%d", addrI),
+	}, nil
 }
 
 func GetUSBDevQemuOptions(vendorDevId string, addr string) (map[string]interface{}, error) {
@@ -81,7 +90,7 @@ func GetUSBDevQemuOptions(vendorDevId string, addr string) (map[string]interface
 	hostBus := addrParts[0]
 	hostAddr := addrParts[1]
 
-	return getUSBDevQemuOptions(vendorId, productId, hostBus, hostAddr), nil
+	return getUSBDevQemuOptions(vendorId, productId, hostBus, hostAddr)
 }
 
 func (dev *sUSBDevice) GetKernelDriver() (string, error) {
