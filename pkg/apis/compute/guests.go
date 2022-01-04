@@ -630,6 +630,9 @@ type ServerUpdateInput struct {
 	SrcMacCheck *bool `json:"src_mac_check"`
 
 	SshPort int `json:"ssh_port"`
+
+	// swagger: ignore
+	ProgressMbps float32 `json:"progress_mbps"`
 }
 
 type GuestJsonDesc struct {

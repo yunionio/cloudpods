@@ -36,7 +36,7 @@ type SStatusResourceBase struct {
 	Status string `width:"36" charset:"ascii" nullable:"false" default:"init" list:"user" create:"optional" json:"status"`
 
 	// 操作进度0-100
-	Progress float32 `list:"user" update:"user" default:"100" json:"progress"`
+	Progress float32 `list:"user" update:"user" default:"100" json:"progress" log:"skip"`
 }
 
 type IStatusBase interface {

@@ -171,7 +171,7 @@ type Monitor interface {
 	DriveAdd(bus string, params map[string]string, callback StringCallback)
 	DeviceAdd(dev string, params map[string]interface{}, callback StringCallback)
 
-	BlockStream(drive string, callback StringCallback)
+	BlockStream(drive string, idx, blkCnt int, callback StringCallback)
 	DriveMirror(callback StringCallback, drive, target, syncMode string, unmap, blockReplication bool)
 
 	MigrateSetCapability(capability, state string, callback StringCallback)
