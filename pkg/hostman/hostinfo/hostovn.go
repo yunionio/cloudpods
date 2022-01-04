@@ -51,10 +51,20 @@ func (oh *OvnHelper) Init() (err error) {
 		}
 	}()
 	oh.mustPrepOvsdbConfig()
+	oh.mustConfigBridgeMtu()
 	if _, ok := ovnContainerImageTag(); !ok {
 		oh.mustPrepService()
 	}
 	return nil
+}
+
+func (oh *OvnHelper) mustConfigBridgeMtu() {
+	opts := &options.HostOptions
+	args := []string{"set", "Interface", opts.OvnIntegrationBridge, fmt.Sprintf("mtu_request=%d", opts.OvnUnderlayMtu)}
+	output, err := procutils.NewCommand("ovs-vsctl", args...).Output()
+	if err != nil {
+		panic(errors.Wrapf(err, "configuring ovn-controller: %s", string(output)))
+	}
 }
 
 func (oh *OvnHelper) mustPrepOvsdbConfig() {
