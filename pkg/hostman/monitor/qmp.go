@@ -111,6 +111,11 @@ type QmpMonitor struct {
 	commandQueue  []*Command
 	callbackQueue []qmpMonitorCallBack
 	jobs          map[string]BlockJob
+
+	blkStream struct {
+		idx    int
+		blkCnt int
+	}
 }
 
 func NewQmpMonitor(server, sid string, OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc,
@@ -712,6 +717,9 @@ func (m *QmpMonitor) blockJobs(res *Response) ([]BlockJob, error) {
 		} else {
 			progress = float64(totalOffset) / float64(totalSize) * 100
 		}
+		if m.blkStream.blkCnt > 0 {
+			progress = float64(m.blkStream.idx-1)/float64(m.blkStream.blkCnt)*100.0 + 1.0/float64(m.blkStream.blkCnt)*progress
+		}
 		hostutils.UpdateServerProgress(context.Background(), m.sid, progress, mbps)
 	}()
 	for i := range jobs {
@@ -796,7 +804,7 @@ func (m *QmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMod
 	m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) BlockStream(drive string, callback StringCallback) {
+func (m *QmpMonitor) BlockStream(drive string, idx, blkCnt int, callback StringCallback) {
 	var (
 		speed = 5 * 100 * 1024 * 1024 // limit 500 MB/s
 		cb    = func(res *Response) {
@@ -810,6 +818,8 @@ func (m *QmpMonitor) BlockStream(drive string, callback StringCallback) {
 			},
 		}
 	)
+	m.blkStream.idx = idx
+	m.blkStream.blkCnt = blkCnt
 	m.Query(cmd, cb)
 }
 

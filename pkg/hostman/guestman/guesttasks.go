@@ -958,7 +958,7 @@ func (s *SGuestStreamDisksTask) startDoBlockStream() {
 	if len(s.streamDevs) > 0 {
 		dev := s.streamDevs[0]
 		s.streamDevs = s.streamDevs[1:]
-		s.Monitor.BlockStream(dev, s.startWaitBlockStream)
+		s.Monitor.BlockStream(dev, len(s.disksIdx)-len(s.streamDevs), len(s.disksIdx), s.startWaitBlockStream)
 	} else {
 		s.taskComplete()
 	}
@@ -986,6 +986,7 @@ func (s *SGuestStreamDisksTask) checkStreamJobs(jobs int) {
 }
 
 func (s *SGuestStreamDisksTask) taskComplete() {
+	hostutils.UpdateServerProgress(context.Background(), s.Id, 100.0, 0.0)
 	s.SyncStatus("")
 
 	// XXX: region disk post-migrate not implement
@@ -1373,7 +1374,7 @@ func (task *SGuestOnlineResizeDiskTask) Start() {
 }
 
 func (task *SGuestOnlineResizeDiskTask) OnGetBlocksSucc(blocks []monitor.QemuBlock) {
-	for i := 0; i < blocks; i += 1 {
+	for i := 0; i < len(blocks); i += 1 {
 		image := ""
 		if strings.HasPrefix(blocks[i].Inserted.File, "json:") {
 			//RBD磁盘格式如下

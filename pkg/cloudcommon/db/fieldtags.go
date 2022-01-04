@@ -16,6 +16,7 @@ package db
 
 import (
 	"sort"
+	"strings"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -68,6 +69,7 @@ func allowOptional(manager IResource, userCred mcclient.TokenCredential, action 
  *  get: user | domain | admin
  *  create: required | optional | domain_required | domain_optional | admin_required | admin_optional
  *  update: user | domain | admin
+ *  log: skip
  *
  */
 func listFields(manager IModelManager, userCred mcclient.TokenCredential) ([]string, []string) {
@@ -83,6 +85,19 @@ func listFields(manager IModelManager, userCred mcclient.TokenCredential) ([]str
 		}
 	}
 	return includes, excludes
+}
+
+func skipLogFields(manager IModelManager) stringutils2.SSortedStrings {
+	ret := make([]string, 0)
+	for _, col := range manager.TableSpec().Columns() {
+		tags := col.Tags()
+		if log, ok := tags["log"]; ok && strings.ToLower(log) == "skip" {
+			ret = append(ret, col.Name())
+		}
+	}
+	sort.Strings(ret)
+	return stringutils2.SSortedStrings(ret)
+
 }
 
 func searchFields(manager IModelManager, userCred mcclient.TokenCredential) stringutils2.SSortedStrings {
