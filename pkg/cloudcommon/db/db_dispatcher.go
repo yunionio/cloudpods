@@ -1730,6 +1730,9 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 		log.Errorf("save update error: %s", err)
 		return nil, httperrors.NewGeneralError(err)
 	}
+	for _, skip := range skipLogFields(manager) {
+		delete(diff, skip)
+	}
 	OpsLog.LogEvent(item, ACT_UPDATE, diff, userCred)
 	logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, diff, userCred, true)
 

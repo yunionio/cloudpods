@@ -128,7 +128,7 @@ type SGuest struct {
 	Progress float32 `list:"user" update:"user" default:"100" json:"progress"`
 
 	// 迁移或克隆的速度
-	ProgressMbps float64 `nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
+	ProgressMbps float64 `nullable:"false" default:"0" list:"user" create:"optional" update:"user" log:"skip"`
 
 	Vga     string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 	Vdi     string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
@@ -993,19 +993,6 @@ func (self *SGuest) SetStatus(userCred mcclient.TokenCredential, status string, 
 		return nil
 	})
 	return self.SVirtualResourceBase.SetStatus(userCred, status, reason)
-}
-
-func (self *SGuest) PreUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	// 减少更新日志
-	if data.Contains("progress_mbps") || data.Contains("progress") {
-		db.Update(self, func() error {
-			self.ProgressMbps, _ = data.Float("progress_mbps")
-			progress, _ := data.Float("progress")
-			self.Progress = float32(progress)
-			return nil
-		})
-	}
-	self.SVirtualResourceBase.PreUpdate(ctx, userCred, query, data)
 }
 
 func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerUpdateInput) (api.ServerUpdateInput, error) {

@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
+	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -191,17 +192,11 @@ func (d *SGuestDiskSyncTask) changeCdrom() {
 	d.guest.Monitor.GetBlocks(d.onGetBlockInfo)
 }
 
-func (d *SGuestDiskSyncTask) onGetBlockInfo(results *jsonutils.JSONArray) {
-	if results == nil {
-		return
-	}
-
+func (d *SGuestDiskSyncTask) onGetBlockInfo(blocks []monitor.QemuBlock) {
 	var cdName string
-	rs, _ := results.GetArray()
-	for _, r := range rs {
-		device, _ := r.GetString("device")
-		if regexp.MustCompile(`^ide\d+-cd\d+$`).MatchString(device) {
-			cdName = device
+	for _, r := range blocks {
+		if regexp.MustCompile(`^ide\d+-cd\d+$`).MatchString(r.Device) {
+			cdName = r.Device
 			break
 		}
 	}
@@ -811,8 +806,8 @@ func (s *SGuestResumeTask) taskFailed(reason string) {
 	}
 }
 
-func (s *SGuestResumeTask) onGetBlockInfo(results *jsonutils.JSONArray) {
-	log.Debugf("onGetBlockInfo %s", results)
+func (s *SGuestResumeTask) onGetBlockInfo(blocks []monitor.QemuBlock) {
+	log.Debugf("onGetBlockInfo %s", blocks)
 	// for _, drv := range results.GetArray() {
 	// 	// encryption not work
 	// }
@@ -933,19 +928,12 @@ func (s *SGuestStreamDisksTask) checkBlockDrives() {
 	s.Monitor.GetBlocks(s.onBlockDrivesSucc)
 }
 
-func (s *SGuestStreamDisksTask) onBlockDrivesSucc(res *jsonutils.JSONArray) {
+func (s *SGuestStreamDisksTask) onBlockDrivesSucc(blocks []monitor.QemuBlock) {
 	s.streamDevs = []string{}
-	drvs, _ := res.GetArray()
-	for _, drv := range drvs {
-		device, err := drv.GetString("device")
-		if err != nil {
-			log.Errorln(err)
-			continue
-		}
-		inserted, err := drv.Get("inserted")
-		if err == nil && inserted.Contains("file") && inserted.Contains("backing_file") {
+	for _, block := range blocks {
+		if len(block.Inserted.File) > 0 && len(block.Inserted.BackingFile) > 0 {
 			var stream = false
-			idx := device[len(device)-1] - '0'
+			idx := block.Device[len(block.Device)-1] - '0'
 			for i := 0; i < len(s.disksIdx); i++ {
 				if int(idx) == s.disksIdx[i] {
 					stream = true
@@ -954,7 +942,7 @@ func (s *SGuestStreamDisksTask) onBlockDrivesSucc(res *jsonutils.JSONArray) {
 			if !stream {
 				continue
 			}
-			s.streamDevs = append(s.streamDevs, device)
+			s.streamDevs = append(s.streamDevs, block.Device)
 		}
 	}
 	log.Infof("Stream devices %s: %v", s.GetName(), s.streamDevs)
@@ -970,7 +958,7 @@ func (s *SGuestStreamDisksTask) startDoBlockStream() {
 	if len(s.streamDevs) > 0 {
 		dev := s.streamDevs[0]
 		s.streamDevs = s.streamDevs[1:]
-		s.Monitor.BlockStream(dev, s.startWaitBlockStream)
+		s.Monitor.BlockStream(dev, len(s.disksIdx)-len(s.streamDevs), len(s.disksIdx), s.startWaitBlockStream)
 	} else {
 		s.taskComplete()
 	}
@@ -998,6 +986,7 @@ func (s *SGuestStreamDisksTask) checkStreamJobs(jobs int) {
 }
 
 func (s *SGuestStreamDisksTask) taskComplete() {
+	hostutils.UpdateServerProgress(context.Background(), s.Id, 100.0, 0.0)
 	s.SyncStatus("")
 
 	// XXX: region disk post-migrate not implement
@@ -1070,14 +1059,13 @@ func (s *SGuestReloadDiskTask) Start() {
 }
 
 func (s *SGuestReloadDiskTask) fetchDisksInfo(callback func(string)) {
-	s.Monitor.GetBlocks(func(res *jsonutils.JSONArray) { s.onGetBlocksSucc(res, callback) })
+	s.Monitor.GetBlocks(func(blocks []monitor.QemuBlock) { s.onGetBlocksSucc(blocks, callback) })
 }
 
-func (s *SGuestReloadDiskTask) onGetBlocksSucc(res *jsonutils.JSONArray, callback func(string)) {
+func (s *SGuestReloadDiskTask) onGetBlocksSucc(blocks []monitor.QemuBlock, callback func(string)) {
 	var device string
-	devs, _ := res.GetArray()
-	for _, d := range devs {
-		device = s.getDiskOfDrive(d)
+	for i := range blocks {
+		device = s.getDiskOfDrive(blocks[i])
 		if len(device) > 0 {
 			callback(device)
 			break
@@ -1089,18 +1077,12 @@ func (s *SGuestReloadDiskTask) onGetBlocksSucc(res *jsonutils.JSONArray, callbac
 	}
 }
 
-func (s *SGuestReloadDiskTask) getDiskOfDrive(d jsonutils.JSONObject) string {
-	inserted, err := d.Get("inserted")
-	if err != nil {
+func (s *SGuestReloadDiskTask) getDiskOfDrive(block monitor.QemuBlock) string {
+	if len(block.Inserted.File) == 0 {
 		return ""
 	}
-	file, err := inserted.GetString("file")
-	if err != nil {
-		return ""
-	}
-	if file == s.disk.GetPath() {
-		drive, _ := d.GetString("device")
-		return drive
+	if block.Inserted.File == s.disk.GetPath() {
+		return block.Device
 	}
 	return ""
 }
@@ -1391,24 +1373,21 @@ func (task *SGuestOnlineResizeDiskTask) Start() {
 	task.Monitor.GetBlocks(task.OnGetBlocksSucc)
 }
 
-func (task *SGuestOnlineResizeDiskTask) OnGetBlocksSucc(results *jsonutils.JSONArray) {
-	for i := 0; i < results.Size(); i += 1 {
-		result, _ := results.GetAt(i)
-		fileStr, _ := result.GetString("inserted", "file")
+func (task *SGuestOnlineResizeDiskTask) OnGetBlocksSucc(blocks []monitor.QemuBlock) {
+	for i := 0; i < len(blocks); i += 1 {
 		image := ""
-		if strings.HasPrefix(fileStr, "json:") {
+		if strings.HasPrefix(blocks[i].Inserted.File, "json:") {
 			//RBD磁盘格式如下
 			//json:{"driver": "raw", "file": {"pool": "testpool01", "image": "952636e3-73ed-4a19-8648-05e69e6bb57a", "driver": "rbd", "=keyvalue-pairs": "[\"mon_host\", \"10.127.10.230;10.127.10.237;10.127.10.238\", \"key\", \"AQBZ/Ddd0j5BCxAAfuvl5oHWsmuTGer6T9LzeQ==\", \"rados_mon_op_timeout\", \"5\", \"rados_osd_op_timeout\", \"1200\", \"client_mount_timeout\", \"120\"]"}
-			fileJson, err := jsonutils.ParseString(fileStr[5:])
+			fileJson, err := jsonutils.ParseString(blocks[i].Inserted.File[5:])
 			if err != nil {
-				hostutils.TaskFailed(task.ctx, fmt.Sprintf("parse file json %s error: %v", fileStr, err))
+				hostutils.TaskFailed(task.ctx, fmt.Sprintf("parse file json %s error: %v", blocks[i].Inserted.File, err))
 				return
 			}
 			image, _ = fileJson.GetString("file", "image")
 		}
-		if len(fileStr) > 0 && strings.HasSuffix(fileStr, task.diskId) || image == task.diskId {
-			driveName, _ := result.GetString("device")
-			task.Monitor.ResizeDisk(driveName, task.sizeMB, task.OnResizeSucc)
+		if len(blocks[i].Inserted.File) > 0 && strings.HasSuffix(blocks[i].Inserted.File, task.diskId) || image == task.diskId {
+			task.Monitor.ResizeDisk(blocks[i].Device, task.sizeMB, task.OnResizeSucc)
 			return
 		}
 	}
@@ -1568,17 +1547,11 @@ func (task *SGuestBlockIoThrottleTask) findBlockDevices() {
 	task.Monitor.GetBlocks(task.onBlockDriversSucc)
 }
 
-func (task *SGuestBlockIoThrottleTask) onBlockDriversSucc(res *jsonutils.JSONArray) {
+func (task *SGuestBlockIoThrottleTask) onBlockDriversSucc(blocks []monitor.QemuBlock) {
 	drivers := make([]string, 0)
-	for i := 0; i < res.Length(); i++ {
-		device, err := res.GetAt(i)
-		if err == nil {
-			driver, err := device.GetString("device")
-			if err == nil {
-				if strings.HasPrefix(driver, "drive_") {
-					drivers = append(drivers, driver)
-				}
-			}
+	for i := 0; i < len(blocks); i++ {
+		if strings.HasPrefix(blocks[i].Device, "drive_") {
+			drivers = append(drivers, blocks[i].Device)
 		}
 	}
 	log.Infof("Drivers %s do io throttle bps %d iops %d", drivers, task.bps, task.iops)
@@ -1634,17 +1607,11 @@ func (task *SCancelBlockJobs) findBlockDevices() {
 	task.Monitor.GetBlocks(task.onBlockDriversSucc)
 }
 
-func (task *SCancelBlockJobs) onBlockDriversSucc(res *jsonutils.JSONArray) {
+func (task *SCancelBlockJobs) onBlockDriversSucc(blocks []monitor.QemuBlock) {
 	drivers := make([]string, 0)
-	for i := 0; i < res.Length(); i++ {
-		device, err := res.GetAt(i)
-		if err == nil {
-			driver, err := device.GetString("device")
-			if err == nil {
-				if strings.HasPrefix(driver, "drive_") {
-					drivers = append(drivers, driver)
-				}
-			}
+	for i := 0; i < len(blocks); i++ {
+		if strings.HasPrefix(blocks[i].Device, "drive_") {
+			drivers = append(drivers, blocks[i].Device)
 		}
 	}
 	task.StartCancelBlockJobs(drivers)

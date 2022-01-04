@@ -528,8 +528,6 @@ func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 			s.migrateTask.migrateComplete()
 		}
 		hostutils.UpdateServerProgress(context.Background(), s.Id, 0.0, 0)
-	case event.Event == `"BLOCK_JOB_COMPLETED"`:
-		hostutils.UpdateServerProgress(context.Background(), s.Id, 0.0, 0)
 	}
 }
 
