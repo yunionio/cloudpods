@@ -3997,7 +3997,7 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 		BootOrder:   self.BootOrder,
 		SrcIpCheck:  self.SrcIpCheck.Bool(),
 		SrcMacCheck: self.SrcMacCheck.Bool(),
-		HostId:      self.HostId,
+		HostId:      host.Id,
 	}
 
 	if len(self.BackupHostId) > 0 {
