@@ -1280,7 +1280,7 @@ func (vpc *SVpc) PerformSync(ctx context.Context, userCred mcclient.TokenCredent
 func (self *SVpc) initWire(ctx context.Context, zone *SZone, externalId string) (*SWire, error) {
 	wire := &SWire{
 		Bandwidth: 10000,
-		Mtu:       1500,
+		Mtu:       options.Options.OvnUnderlayMtu,
 	}
 	wire.VpcId = self.Id
 	wire.ZoneId = zone.Id

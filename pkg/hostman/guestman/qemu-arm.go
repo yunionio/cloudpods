@@ -129,7 +129,7 @@ function nic_mtu() {
     if [ "$?" -eq "0" ]; then
         local origmtu="$(<"/sys/class/net/$bridge/mtu")"
         if [ -n "$origmtu" -a "$origmtu" -gt 576 ]; then
-            echo ",host_mtu=$(($origmtu - 58))"
+            echo ",host_mtu=$(($origmtu - ` + api.VpcOvnEncapCostStr() + `))"
         fi
     fi
 }

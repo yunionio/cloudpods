@@ -346,7 +346,7 @@ func NewNIC(desc string) (*SNIC, error) {
 	} else {
 		log.Infof("Confirm to configuration!!")
 	}
-	if err := nic.BridgeDev.PersistentMac(); err != nil {
+	if err := nic.BridgeDev.PersistentConfig(); err != nil {
 		return nil, err
 	}
 	if isDHCP, err := nic.BridgeDev.DisableDHCPClient(); err != nil {
