@@ -416,7 +416,7 @@ func (h *SHostInfo) prepareEnv() error {
 	}
 
 	h.PreventArpFlux()
-	h.TuneSystem()
+	h.tuneSystem()
 	return nil
 }
 
@@ -601,10 +601,13 @@ func (h *SHostInfo) PreventArpFlux() {
 
 // Any system wide optimizations
 // set swappiness=0 to avoid swap
-func (h *SHostInfo) TuneSystem() {
+func (h *SHostInfo) tuneSystem() {
 	kv := map[string]string{
 		"/proc/sys/vm/swappiness":                        "0",
 		"/proc/sys/net/ipv4/tcp_mtu_probing":             "2",
+		"/proc/sys/net/ipv4/neigh/default/gc_thresh1":    "1024",
+		"/proc/sys/net/ipv4/neigh/default/gc_thresh2":    "4096",
+		"/proc/sys/net/ipv4/neigh/default/gc_thresh3":    "8192",
 		"/sys/module/kvm/parameters/ignore_msrs":         "1",
 		"/sys/module/kvm/parameters/report_ignored_msrs": "0",
 	}
