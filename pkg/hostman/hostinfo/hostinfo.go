@@ -168,21 +168,22 @@ func (h *SHostInfo) Init() error {
 
 	log.Infof("Start detectHostInfo")
 	if err := h.detectHostInfo(); err != nil {
-		return err
+		return errors.Wrap(err, "detectHostInfo")
 	}
 
 	if err := hostbridge.Prepare(options.HostOptions.BridgeDriver); err != nil {
+		err := errors.Errorf("Prepare host bridge %q error: %v", options.HostOptions.BridgeDriver, err)
 		log.Errorln(err)
 		return err
 	}
 
 	log.Infof("Start parseConfig")
 	if err := h.parseConfig(); err != nil {
-		return err
+		return errors.Wrap(err, "parseConfig")
 	}
 	if HasOvnSupport() {
 		if err := h.setupOvnChassis(); err != nil {
-			return err
+			return errors.Wrap(err, "Setup OVN Chassis")
 		}
 	}
 
@@ -686,7 +687,7 @@ func (h *SHostInfo) detectOsDist() {
 func (h *SHostInfo) detectKernelVersion() {
 	out, err := procutils.NewCommand("uname", "-r").Output()
 	if err != nil {
-		log.Errorln(err)
+		log.Errorf("detectKernelVersion error: %v", err)
 	}
 	h.sysinfo.KernelVersion = strings.TrimSpace(string(out))
 }
@@ -1096,7 +1097,7 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	content.Set("storage_size", jsonutils.NewInt(int64(storageman.GetManager().GetTotalCapacity())))
 
 	// TODO optimize content data struct
-	content.Set("sys_info", jsonutils.Marshal(h.sysinfo))
+	content.Set("sys_info", jsonutils.Marshal(h.getSysInfo()))
 	content.Set("sn", jsonutils.NewString(h.sysinfo.SN))
 	content.Set("host_type", jsonutils.NewString(options.HostOptions.HostType))
 	if len(options.HostOptions.Rack) > 0 {
