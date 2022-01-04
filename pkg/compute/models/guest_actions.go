@@ -436,6 +436,11 @@ func (self *SGuest) GetSchedMigrateParams(
 			schedDesc.CpuMode = api.CPU_MODE_QEMU
 		}
 		schedDesc.SkipCpuCheck = &input.SkipCpuCheck
+		host, _ := self.GetHost()
+		if host != nil {
+			schedDesc.TargetHostKernel, _ = host.SysInfo.GetString("kernel_version")
+			schedDesc.SkipKernelCheck = &input.SkipKernelCheck
+		}
 	}
 	schedDesc.ReuseNetwork = true
 	return schedDesc
