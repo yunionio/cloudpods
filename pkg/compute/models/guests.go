@@ -1654,10 +1654,12 @@ func (manager *SGuestManager) validateEip(userCred mcclient.TokenCredential, inp
 			input.Eip = eipObj.GetId()
 
 			eipCloudprovider := eip.GetCloudprovider()
-			if len(preferManagerId) > 0 && preferManagerId != eipCloudprovider.Id {
-				return httperrors.NewConflictError("cannot assoicate with eip %s: different cloudprovider", eipStr)
+			if eipCloudprovider != nil {
+				if len(preferManagerId) > 0 && preferManagerId != eipCloudprovider.Id {
+					return httperrors.NewConflictError("cannot assoicate with eip %s: different cloudprovider", eipStr)
+				}
+				input.PreferManager = eipCloudprovider.Id
 			}
-			input.PreferManager = eipCloudprovider.Id
 
 			eipRegion, err := eip.GetRegion()
 			if err != nil {
