@@ -1628,6 +1628,9 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 	if err != nil {
 		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "Update"))
 	}
+	for _, skip := range skipLogFields(manager) {
+		delete(diff, skip)
+	}
 	OpsLog.LogEvent(item, ACT_UPDATE, diff, userCred)
 	logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, diff, userCred, true)
 

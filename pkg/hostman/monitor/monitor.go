@@ -20,7 +20,6 @@ import (
 	"sync"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 )
@@ -48,6 +47,61 @@ type BlockJob struct {
 	preOffset int64
 	now       time.Time
 	speedMbps float64
+}
+
+type QemuBlock struct {
+	IoStatus  string `json:"io-status"`
+	Device    string
+	Locked    bool
+	Removable bool
+	Qdev      string
+	TrayOpen  bool
+	Type      string
+	Inserted  struct {
+		Ro               bool
+		Drv              string
+		Encrypted        bool
+		File             string
+		BackingFile      string
+		BackingFileDepth int
+		Bps              int64
+		BpsRd            int64
+		BpsWr            int
+		Iops             int64
+		IopsRd           int
+		IopsWr           int
+		BpsMax           int64
+		BpsRdMax         int64
+		BpsWrMax         int64
+		IopsMax          int
+		IopsRdMax        int
+		IopsWrMax        int
+		IopsSize         int64
+		DetectZeroes     string
+		WriteThreshold   int
+		Image            struct {
+			Filename              string
+			Format                string
+			VirtualSize           int64 `json:"virtual-size"`
+			BackingFile           string
+			FullBackingFilename   string `json:"full-backing-filename"`
+			BackingFilenameFormat string `json:"backing-filename-format"`
+			Snapshots             []struct {
+				Id          string
+				Name        string
+				VmStateSize int   `json:"vm-state-size"`
+				DateSec     int64 `json:"date-sec"`
+				DateNsec    int   `json:"date-nsec"`
+				VmClockSec  int   `json:"vm-clock-sec"`
+				VmClockNsec int   `json:"vm-clock-nsec"`
+			}
+			BackingImage struct {
+				filename    string
+				format      string
+				VirtualSize int64 `json:"virtual-size"`
+			} `json:"backing-image"`
+		}
+	}
 }
 
 type blockSizeByte int64
@@ -105,7 +159,7 @@ type Monitor interface {
 	AddCpu(cpuIndex int, callback StringCallback)
 	GeMemtSlotIndex(func(index int))
 
-	GetBlocks(callback func(*jsonutils.JSONArray))
+	GetBlocks(callback func([]QemuBlock))
 	EjectCdrom(dev string, callback StringCallback)
 	ChangeCdrom(dev string, path string, callback StringCallback)
 
@@ -117,7 +171,7 @@ type Monitor interface {
 	DriveAdd(bus string, params map[string]string, callback StringCallback)
 	DeviceAdd(dev string, params map[string]interface{}, callback StringCallback)
 
-	BlockStream(drive string, callback StringCallback)
+	BlockStream(drive string, idx, blkCnt int, callback StringCallback)
 	DriveMirror(callback StringCallback, drive, target, syncMode string, unmap, blockReplication bool)
 
 	MigrateSetCapability(capability, state string, callback StringCallback)

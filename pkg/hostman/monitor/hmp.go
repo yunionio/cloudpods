@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/util/regutils2"
@@ -222,7 +221,7 @@ func (m *HmpMonitor) GetVersion(callback StringCallback) {
 	m.Query("info version", _cb)
 }
 
-func (m *HmpMonitor) GetBlocks(callback func(*jsonutils.JSONArray)) {
+func (m *HmpMonitor) GetBlocks(callback func([]QemuBlock)) {
 	var cb = func(output string) {
 		var lines = strings.Split(strings.TrimSuffix(output, "\r\n"), "\r\n")
 		var mergedOutput = []string{}
@@ -240,34 +239,30 @@ func (m *HmpMonitor) GetBlocks(callback func(*jsonutils.JSONArray)) {
 		}
 
 		// parse to json
-		var outputJson = jsonutils.NewArray()
+		ret := []QemuBlock{}
 		for _, line := range mergedOutput {
 			parts := regexp.MustCompile(`\s+`).Split(line, -1)
 			if strings.HasSuffix(parts[0], ":") ||
 				regexp.MustCompile(`\(#block\d+\):`).MatchString(parts[1]) {
-
-				drv := jsonutils.NewDict()
+				block := QemuBlock{}
 				if strings.HasSuffix(parts[0], ":") {
-					drv.Set("device", jsonutils.NewString(parts[0][:len(parts[0])-1]))
+					block.Device = parts[0][:len(parts[0])-1]
 				} else {
-					drv.Set("device", jsonutils.NewString(parts[0]))
+					block.Device = parts[0]
 				}
 				if regexp.MustCompile(`\(#block\d+\):`).MatchString(parts[1]) {
-					inserted := jsonutils.NewDict()
-					inserted.Set("file", jsonutils.NewString(parts[2]))
+					block.Inserted.File = parts[2]
 					for i := 0; i < len(parts)-2; i++ {
 						if parts[i] == "Backing" && parts[i+1] == "file:" {
-							inserted.Set("backing_file", jsonutils.NewString(parts[i+2]))
+							block.Inserted.BackingFile = parts[i+2]
 							break
 						}
 					}
-					drv.Set("inserted", inserted)
 				}
-				outputJson.Add(drv)
+				ret = append(ret, block)
 			}
 		}
-
-		callback(outputJson)
+		callback(ret)
 	}
 
 	m.Query("info block", cb)
@@ -403,7 +398,7 @@ func (m *HmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMod
 	m.Query(cmd, callback)
 }
 
-func (m *HmpMonitor) BlockStream(drive string, callback StringCallback) {
+func (m *HmpMonitor) BlockStream(drive string, _, _ int, callback StringCallback) {
 	var (
 		speed = 500 // limit 500 MB/s
 		cmd   = fmt.Sprintf("block_stream %s %d", drive, speed)
