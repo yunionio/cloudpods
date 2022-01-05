@@ -121,8 +121,7 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 		} else {
 			_, err = iStorageCache.GetIImageById(cachedImage.ExternalId)
 			if err != nil {
-				log.Errorf("remote image fetch error %s", err)
-				return nil, errors.Wrap(err, "iStorageCache.GetIImageById")
+				return nil, errors.Wrapf(err, "iStorageCache.GetIImageById(%s) for %s", cachedImage.ExternalId, iStorageCache.GetGlobalId())
 			}
 			image.ExternalId = cachedImage.ExternalId
 		}
