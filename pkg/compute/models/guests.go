@@ -1162,33 +1162,23 @@ func (manager *SGuestManager) validateCreateData(
 	var osProf osprofile.SOSProfile
 	hypervisor = input.Hypervisor
 	if hypervisor != api.HYPERVISOR_CONTAINER {
-		if len(input.Disks) == 0 {
-			return nil, httperrors.NewInputParameterError("No disk information provided")
+		if len(input.Disks) == 0 && input.Cdrom == "" {
+			return nil, httperrors.NewInputParameterError("No bootable disk information provided")
 		}
-		diskConfig := input.Disks[0]
-		diskConfig, err = parseDiskInfo(ctx, userCred, diskConfig)
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
+		var imgProperties map[string]string
+
+		if len(input.Disks) > 0 {
+			diskConfig := input.Disks[0]
+			diskConfig, err = parseDiskInfo(ctx, userCred, diskConfig)
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
+			}
+			input.Disks[0] = diskConfig
+			imgProperties = diskConfig.ImageProperties
+			if imgProperties[imageapi.IMAGE_DISK_FORMAT] == "iso" {
+				return nil, httperrors.NewInputParameterError("System disk does not support iso image, please consider using cdrom parameter")
+			}
 		}
-
-		// if len(diskConfig.Backend) == 0 {
-		// 	diskConfig.Backend = STORAGE_LOCAL
-		// }
-		// rootStorageType = diskConfig.Backend
-
-		input.Disks[0] = diskConfig
-
-		imgProperties := diskConfig.ImageProperties
-		imgSupportUEFI := imgProperties[imageapi.IMAGE_UEFI_SUPPORT] == "true"
-		imgIsWindows := imgProperties[imageapi.IMAGE_OS_TYPE] == "Windows"
-		if imgSupportUEFI && imgIsWindows && len(input.IsolatedDevices) > 0 {
-			input.Bios = "UEFI" // windows gpu passthrough
-		}
-
-		if imgProperties[imageapi.IMAGE_DISK_FORMAT] == "iso" {
-			return nil, httperrors.NewInputParameterError("System disk does not support iso image, please consider using cdrom parameter")
-		}
-
 		if input.Cdrom != "" {
 			cdromStr := input.Cdrom
 			image, err := parseIsoInfo(ctx, userCred, cdromStr)
@@ -1198,6 +1188,25 @@ func (manager *SGuestManager) validateCreateData(
 			input.Cdrom = image.Id
 			if len(imgProperties) == 0 {
 				imgProperties = image.Properties
+			}
+		}
+
+		imgSupportUEFI := imgProperties[imageapi.IMAGE_UEFI_SUPPORT] == "true"
+		// imgIsWindows := imgProperties[imageapi.IMAGE_OS_TYPE] == "Windows"
+		// if imgSupportUEFI && imgIsWindows && len(input.IsolatedDevices) > 0 {
+		// 	input.Bios = "UEFI" // windows gpu passthrough
+		// }
+
+		if imgSupportUEFI {
+			if len(input.Bios) == 0 {
+				input.Bios = "UEFI"
+			} else if input.Bios != "UEFI" {
+				return nil, httperrors.NewInputParameterError("UEFI image requires UEFI boot mode")
+			}
+		} else {
+			// not UEFI or not detectable
+			if input.Bios == "UEFI" {
+				return nil, httperrors.NewInputParameterError("UEFI boot mode requires UEFI image")
 			}
 		}
 
