@@ -21,8 +21,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -193,7 +195,13 @@ func (man *isolatedDeviceManager) StartDetachTask() {
 		for _, dev := range man.DetachedDevices {
 			for {
 				log.Infof("Start delete cloud device %s", jsonutils.Marshal(dev))
-				if _, err := modules.IsolatedDevices.PerformAction(man.getSession(), dev.Id, "purge", nil); err != nil {
+				if _, err := modules.IsolatedDevices.PerformAction(man.getSession(), dev.Id, "purge",
+					jsonutils.Marshal(map[string]interface{}{
+						"purge": true,
+					})); err != nil {
+					if errors.Cause(err) == httperrors.ErrResourceNotFound {
+						break
+					}
 					log.Errorf("Detach device %s failed: %v, try again later", dev.Id, err)
 					time.Sleep(30 * time.Second)
 					continue
