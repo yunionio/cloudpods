@@ -111,11 +111,7 @@ func (man *isolatedDeviceManager) GetDevices() []IDevice {
 }
 
 func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs bool) error {
-	if len(man.devices) > 0 {
-		// already probed, skip
-		return nil
-	}
-
+	man.devices = make([]IDevice, 0)
 	if !skipGPUs {
 		gpus, err := getPassthroughGPUS()
 		if err != nil {
@@ -196,6 +192,7 @@ func (man *isolatedDeviceManager) StartDetachTask() {
 	go func() {
 		for _, dev := range man.DetachedDevices {
 			for {
+				log.Infof("Start delete cloud device %s", jsonutils.Marshal(dev))
 				if _, err := modules.IsolatedDevices.PerformAction(man.getSession(), dev.Id, "purge", nil); err != nil {
 					log.Errorf("Detach device %s failed: %v, try again later", dev.Id, err)
 					time.Sleep(30 * time.Second)
