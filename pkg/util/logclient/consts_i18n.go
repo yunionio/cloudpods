@@ -348,6 +348,10 @@ func init() {
 		EN("Attach Network").
 		CN("绑定网卡"),
 	)
+	t.Set(ACT_DETACH_NETWORK, i18n.NewTableEntry().
+		EN("Detach Network").
+		CN("解绑网卡"),
+	)
 	t.Set(ACT_VM_CONVERT, i18n.NewTableEntry().
 		EN("Vm Convert").
 		CN("虚拟机转换Hypervisor"),
