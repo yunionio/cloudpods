@@ -125,7 +125,7 @@ type SGuest struct {
 	BackupHostId string `width:"36" charset:"ascii" nullable:"true" list:"user" get:"user"`
 
 	// 操作进度0-100
-	Progress float32 `list:"user" update:"user" default:"100" json:"progress"`
+	Progress float32 `list:"user" update:"user" default:"100" json:"progress" log:"skip"`
 
 	// 迁移或克隆的速度
 	ProgressMbps float64 `nullable:"false" default:"0" list:"user" create:"optional" update:"user" log:"skip"`
