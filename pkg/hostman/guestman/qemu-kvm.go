@@ -39,6 +39,8 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
+	"yunion.io/x/onecloud/pkg/hostman/monitor/hmp"
+	"yunion.io/x/onecloud/pkg/hostman/monitor/qmp"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
@@ -368,6 +370,10 @@ func (s *SKVMGuestInstance) IsSuspend() bool {
 	return false
 }
 
+func (s *SKVMGuestInstance) GetMonitor() monitor.Monitor {
+	return s.Monitor
+}
+
 func (s *SKVMGuestInstance) IsMonitorAlive() bool {
 	return s.Monitor != nil && s.Monitor.IsConnected()
 }
@@ -431,7 +437,7 @@ func (s *SKVMGuestInstance) GetMonitorPath() string {
 
 func (s *SKVMGuestInstance) StartMonitorWithImportGuestSocketFile(ctx context.Context, socketFile string) {
 	timeutils2.AddTimeout(100*time.Millisecond, func() {
-		s.Monitor = monitor.NewQmpMonitor(
+		s.Monitor = qmp.NewQmpMonitor(
 			s.GetName(),
 			s.Id,
 			s.onImportGuestMonitorDisConnect, // on monitor disconnect
@@ -448,7 +454,7 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 		// try qmp first, if qmp connect failed, use hmp
 		timeutils2.AddTimeout(100*time.Millisecond, func() {
 			var mon monitor.Monitor
-			mon = monitor.NewQmpMonitor(
+			mon = qmp.NewQmpMonitor(
 				s.GetName(),
 				s.Id,
 				s.onMonitorDisConnect, // on monitor disconnect
@@ -462,7 +468,7 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 			err := mon.Connect("127.0.0.1", s.GetQmpMonitorPort(-1))
 			if err != nil {
 				log.Errorf("Guest %s qmp monitor connect failed %s, try hmp", s.GetName(), err)
-				mon = monitor.NewHmpMonitor(
+				mon = hmp.NewHmpMonitor(
 					s.GetName(),
 					s.Id,
 					s.onMonitorDisConnect, // on monitor disconnect
@@ -483,7 +489,7 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 	}
 }
 
-func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
+func (s *SKVMGuestInstance) onReceiveQMPEvent(event *qmp.Event) {
 	switch {
 	case event.Event == `"BLOCK_JOB_READY"` && s.IsMaster():
 		if itype, ok := event.Data["type"]; ok {

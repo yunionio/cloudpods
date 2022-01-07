@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package monitor
+package qmp
 
 import (
 	"bufio"
@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/monitor"
 )
 
 // https://github.com/qemu/qemu/blob/master/docs/interop/qmp-spec.txt
@@ -105,12 +106,12 @@ func (e *Error) Error() string {
 }
 
 type QmpMonitor struct {
-	SBaseMonitor
+	monitor.SBaseMonitor
 
 	qmpEventFunc  qmpEventCallback
 	commandQueue  []*Command
 	callbackQueue []qmpMonitorCallBack
-	jobs          map[string]BlockJob
+	jobs          map[string]monitor.BlockJob
 
 	blkStream struct {
 		idx    int
@@ -118,14 +119,14 @@ type QmpMonitor struct {
 	}
 }
 
-func NewQmpMonitor(server, sid string, OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc,
-	OnMonitorConnected MonitorSuccFunc, qmpEventFunc qmpEventCallback) *QmpMonitor {
+func NewQmpMonitor(server, sid string, OnMonitorDisConnect, OnMonitorTimeout monitor.MonitorErrorFunc,
+	OnMonitorConnected monitor.MonitorSuccFunc, qmpEventFunc qmpEventCallback) *QmpMonitor {
 	m := &QmpMonitor{
-		SBaseMonitor:  *NewBaseMonitor(server, sid, OnMonitorConnected, OnMonitorDisConnect, OnMonitorTimeout),
+		SBaseMonitor:  *monitor.NewBaseMonitor(server, sid, OnMonitorConnected, OnMonitorDisConnect, OnMonitorTimeout),
 		qmpEventFunc:  qmpEventFunc,
 		commandQueue:  make([]*Command, 0),
 		callbackQueue: make([]qmpMonitorCallBack, 0),
-		jobs:          map[string]BlockJob{},
+		jobs:          map[string]monitor.BlockJob{},
 	}
 
 	// On qmp init must set capabilities
@@ -137,7 +138,7 @@ func NewQmpMonitor(server, sid string, OnMonitorDisConnect, OnMonitorTimeout Mon
 
 func (m *QmpMonitor) actionResult(res *Response) string {
 	if res.ErrorVal != nil {
-		log.Errorf("Qmp Monitor action result %s: %s", m.server, res.ErrorVal.Error())
+		log.Errorf("Qmp Monitor action result %s: %s", m.GetServer(), res.ErrorVal.Error())
 		return res.ErrorVal.Error()
 	} else {
 		return ""
@@ -145,19 +146,19 @@ func (m *QmpMonitor) actionResult(res *Response) string {
 }
 
 func (m *QmpMonitor) callBack(res *Response) {
-	m.mutex.Lock()
+	m.Lock()
 	if len(m.callbackQueue) == 0 {
-		m.mutex.Unlock()
+		m.Unlock()
 		return
 	}
 	cb := m.callbackQueue[0]
 	m.callbackQueue = m.callbackQueue[1:]
-	m.mutex.Unlock()
+	m.Unlock()
 	if cb != nil {
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Errorf("PANIC %s %s:\n%s", m.server, debug.Stack(), r)
+					log.Errorf("PANIC %s %s:\n%s", m.GetServer(), debug.Stack(), r)
 				}
 			}()
 			cb(res)
@@ -166,16 +167,16 @@ func (m *QmpMonitor) callBack(res *Response) {
 }
 
 func (m *QmpMonitor) read(r io.Reader) {
-	if !m.checkReading() {
+	if !m.CheckReading() {
 		return
 	}
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		var objmap map[string]*json.RawMessage
 		b := scanner.Bytes()
-		log.Infof("QMP Read %s: %s", m.server, string(b))
+		log.Infof("QMP Read %s: %s", m.GetServer(), string(b))
 		if err := json.Unmarshal(b, &objmap); err != nil {
-			log.Errorf("Unmarshal %s error: %s", m.server, err.Error())
+			log.Errorf("Unmarshal %s error: %s", m.GetServer(), err.Error())
 			continue
 		}
 		if val, ok := objmap["error"]; ok {
@@ -216,31 +217,31 @@ func (m *QmpMonitor) read(r io.Reader) {
 			}
 
 			// remove reader timeout
-			m.rwc.SetReadDeadline(time.Time{})
-			m.connected = true
-			m.timeout = false
+			m.GetConn().SetReadDeadline(time.Time{})
+			m.SetConnected(true)
+			m.SetTimeout(false)
 			go m.query()
 			go m.OnMonitorConnected()
 		}
 	}
 
-	log.Infof("Scan over %s ...", m.server)
+	log.Infof("Scan over %s ...", m.GetServer())
 	err := scanner.Err()
 	if err != nil {
-		log.Infof("QMP Disconnected %s: %s", m.server, err)
+		log.Infof("QMP Disconnected %s: %s", m.GetServer(), err)
 	}
-	if m.timeout {
+	if m.IsTimeout() {
 		m.OnMonitorTimeout(err)
-	} else if m.connected {
-		m.connected = false
+	} else if m.IsConnected() {
+		m.SetConnected(false)
 		m.OnMonitorDisConnect(err)
 	}
-	m.reading = false
+	m.SetReading(false)
 }
 
 func (m *QmpMonitor) watchEvent(event *Event) {
 	if !utils.IsInStringArray(event.Event, ignoreEvents) {
-		log.Infof("QMP event %s: %s", m.server, event.String())
+		log.Infof("QMP event %s: %s", m.GetServer(), event.String())
 	}
 	if m.qmpEventFunc != nil {
 		go m.qmpEventFunc(event)
@@ -248,10 +249,10 @@ func (m *QmpMonitor) watchEvent(event *Event) {
 }
 
 func (m *QmpMonitor) write(cmd []byte) error {
-	log.Infof("QMP Write %s: %s", m.server, string(cmd))
+	log.Infof("QMP Write %s: %s", m.GetServer(), string(cmd))
 	length, index := len(cmd), 0
 	for index < length {
-		i, err := m.rwc.Write(cmd)
+		i, err := m.GetConn().Write(cmd)
 		if err != nil {
 			return err
 		}
@@ -261,7 +262,7 @@ func (m *QmpMonitor) write(cmd []byte) error {
 }
 
 func (m *QmpMonitor) query() {
-	if !m.checkWriting() {
+	if !m.CheckWriting() {
 		return
 	}
 	for {
@@ -270,53 +271,53 @@ func (m *QmpMonitor) query() {
 		}
 
 		// pop cmd
-		m.mutex.Lock()
+		m.Lock()
 		cmd := m.commandQueue[0]
 		m.commandQueue = m.commandQueue[1:]
 
 		c, _ := json.Marshal(cmd)
 		err := m.write(c)
-		m.mutex.Unlock()
+		m.Unlock()
 		if err != nil {
-			log.Errorf("Write %s to monitor %s error: %s", c, m.server, err)
+			log.Errorf("Write %s to monitor %s error: %s", c, m.GetServer(), err)
 			break
 		}
 	}
-	m.writing = false
+	m.SetWriting(false)
 }
 
 func (m *QmpMonitor) Query(cmd *Command, cb qmpMonitorCallBack) {
 	// push cmd
-	m.mutex.Lock()
+	m.Lock()
 	m.commandQueue = append(m.commandQueue, cmd)
 	m.callbackQueue = append(m.callbackQueue, cb)
-	m.mutex.Unlock()
+	m.Unlock()
 
-	if m.connected {
-		if !m.writing {
+	if m.IsConnected() {
+		if !m.IsWriting() {
 			go m.query()
 		}
-		if !m.reading {
-			go m.read(m.rwc)
+		if !m.IsReading() {
+			go m.read(m.GetConn())
 		}
 	}
 }
 
 func (m *QmpMonitor) ConnectWithSocket(address string) error {
-	err := m.SBaseMonitor.connect("unix", address)
+	err := m.SBaseMonitor.ConnectProto("unix", address)
 	if err != nil {
 		return err
 	}
-	go m.read(m.rwc)
+	go m.read(m.GetConn())
 	return nil
 }
 
 func (m *QmpMonitor) Connect(host string, port int) error {
-	err := m.SBaseMonitor.connect("tcp", fmt.Sprintf("%s:%d", host, port))
+	err := m.SBaseMonitor.ConnectProto("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		return err
 	}
-	go m.read(m.rwc)
+	go m.read(m.GetConn())
 	return nil
 }
 
@@ -330,7 +331,7 @@ func (m *QmpMonitor) parseCmd(cmd string) string {
 	}
 }
 
-func (m *QmpMonitor) SimpleCommand(cmd string, callback StringCallback) {
+func (m *QmpMonitor) SimpleCommand(cmd string, callback monitor.StringCallback) {
 	cmd = m.parseCmd(cmd)
 	var cb func(res *Response)
 	if callback != nil {
@@ -346,7 +347,7 @@ func (m *QmpMonitor) SimpleCommand(cmd string, callback StringCallback) {
 	m.Query(c, cb)
 }
 
-func (m *QmpMonitor) HumanMonitorCommand(cmd string, callback StringCallback) {
+func (m *QmpMonitor) HumanMonitorCommand(cmd string, callback monitor.StringCallback) {
 	var (
 		c = &Command{
 			Execute: "human-monitor-command",
@@ -354,7 +355,7 @@ func (m *QmpMonitor) HumanMonitorCommand(cmd string, callback StringCallback) {
 		}
 
 		cb = func(res *Response) {
-			log.Debugf("Monitor %s ret: %s", m.server, res.Return)
+			log.Debugf("Monitor %s ret: %s", m.GetServer(), res.Return)
 			if res.ErrorVal != nil {
 				callback(res.ErrorVal.Error())
 			} else {
@@ -365,12 +366,12 @@ func (m *QmpMonitor) HumanMonitorCommand(cmd string, callback StringCallback) {
 	m.Query(c, cb)
 }
 
-func (m *QmpMonitor) QueryStatus(callback StringCallback) {
+func (m *QmpMonitor) QueryStatus(callback monitor.StringCallback) {
 	cmd := &Command{Execute: "query-status"}
 	m.Query(cmd, m.parseStatus(callback))
 }
 
-func (m *QmpMonitor) parseStatus(callback StringCallback) qmpMonitorCallBack {
+func (m *QmpMonitor) parseStatus(callback monitor.StringCallback) qmpMonitorCallBack {
 	return func(res *Response) {
 		if res.ErrorVal != nil {
 			callback("unknown")
@@ -392,12 +393,12 @@ func (m *QmpMonitor) parseStatus(callback StringCallback) qmpMonitorCallBack {
 }
 
 // If get version error, callback with empty string
-func (m *QmpMonitor) GetVersion(callback StringCallback) {
+func (m *QmpMonitor) GetVersion(callback monitor.StringCallback) {
 	cmd := &Command{Execute: "query-version"}
 	m.Query(cmd, m.parseVersion(callback))
 }
 
-func (m *QmpMonitor) parseVersion(callback StringCallback) qmpMonitorCallBack {
+func (m *QmpMonitor) parseVersion(callback monitor.StringCallback) qmpMonitorCallBack {
 	return func(res *Response) {
 		if res.ErrorVal != nil {
 			callback("")
@@ -413,17 +414,17 @@ func (m *QmpMonitor) parseVersion(callback StringCallback) qmpMonitorCallBack {
 	}
 }
 
-func (m *QmpMonitor) GetBlocks(callback func([]QemuBlock)) {
+func (m *QmpMonitor) GetBlocks(callback func([]monitor.QemuBlock)) {
 	var cb = func(res *Response) {
 		if res.ErrorVal != nil {
 			callback(nil)
 		}
 		jr, err := jsonutils.Parse(res.Return)
 		if err != nil {
-			log.Errorf("Get %s block error %s", m.server, err)
+			log.Errorf("Get %s block error %s", m.GetServer(), err)
 			callback(nil)
 		}
-		blocks := []QemuBlock{}
+		blocks := []monitor.QemuBlock{}
 		jr.Unmarshal(&blocks)
 		callback(blocks)
 	}
@@ -432,7 +433,7 @@ func (m *QmpMonitor) GetBlocks(callback func([]QemuBlock)) {
 	m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) ChangeCdrom(dev string, path string, callback StringCallback) {
+func (m *QmpMonitor) ChangeCdrom(dev string, path string, callback monitor.StringCallback) {
 	m.HumanMonitorCommand(fmt.Sprintf("change %s %s", dev, path), callback)
 	// var (
 	// 	args = map[string]interface{}{
@@ -454,7 +455,7 @@ func (m *QmpMonitor) ChangeCdrom(dev string, path string, callback StringCallbac
 	// m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) EjectCdrom(dev string, callback StringCallback) {
+func (m *QmpMonitor) EjectCdrom(dev string, callback monitor.StringCallback) {
 	m.HumanMonitorCommand(fmt.Sprintf("eject -f %s", dev), callback)
 	// XXX: 同下
 	// var (
@@ -477,7 +478,7 @@ func (m *QmpMonitor) EjectCdrom(dev string, callback StringCallback) {
 	// m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) DriveDel(idstr string, callback StringCallback) {
+func (m *QmpMonitor) DriveDel(idstr string, callback monitor.StringCallback) {
 	m.HumanMonitorCommand(fmt.Sprintf("drive_del %s", idstr), callback)
 	// XXX: 同下
 	// var (
@@ -499,7 +500,7 @@ func (m *QmpMonitor) DriveDel(idstr string, callback StringCallback) {
 	// m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) DeviceDel(idstr string, callback StringCallback) {
+func (m *QmpMonitor) DeviceDel(idstr string, callback monitor.StringCallback) {
 	m.HumanMonitorCommand(fmt.Sprintf("device_del %s", idstr), callback)
 	// XXX: 同下
 	// var (
@@ -521,11 +522,11 @@ func (m *QmpMonitor) DeviceDel(idstr string, callback StringCallback) {
 	// m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) ObjectDel(idstr string, callback StringCallback) {
+func (m *QmpMonitor) ObjectDel(idstr string, callback monitor.StringCallback) {
 	m.HumanMonitorCommand(fmt.Sprintf("object_del %s", idstr), callback)
 }
 
-func (m *QmpMonitor) DriveAdd(bus string, params map[string]string, callback StringCallback) {
+func (m *QmpMonitor) DriveAdd(bus string, params map[string]string, callback monitor.StringCallback) {
 	var paramsKvs = []string{}
 	for k, v := range params {
 		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%s", k, v))
@@ -553,7 +554,7 @@ func (m *QmpMonitor) DriveAdd(bus string, params map[string]string, callback Str
 	// m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) DeviceAdd(dev string, params map[string]interface{}, callback StringCallback) {
+func (m *QmpMonitor) DeviceAdd(dev string, params map[string]interface{}, callback monitor.StringCallback) {
 	var paramsKvs = []string{}
 	for k, v := range params {
 		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%v", k, v))
@@ -582,7 +583,7 @@ func (m *QmpMonitor) DeviceAdd(dev string, params map[string]interface{}, callba
 	// m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) MigrateSetCapability(capability, state string, callback StringCallback) {
+func (m *QmpMonitor) MigrateSetCapability(capability, state string, callback monitor.StringCallback) {
 	var (
 		cb = func(res *Response) {
 			callback(m.actionResult(res))
@@ -609,7 +610,7 @@ func (m *QmpMonitor) MigrateSetCapability(capability, state string, callback Str
 }
 
 func (m *QmpMonitor) Migrate(
-	destStr string, copyIncremental, copyFull bool, callback StringCallback,
+	destStr string, copyIncremental, copyFull bool, callback monitor.StringCallback,
 ) {
 	var (
 		cb = func(res *Response) {
@@ -628,7 +629,7 @@ func (m *QmpMonitor) Migrate(
 	m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) GetMigrateStatus(callback StringCallback) {
+func (m *QmpMonitor) GetMigrateStatus(callback monitor.StringCallback) {
 	var (
 		cmd = &Command{Execute: "query-migrate"}
 		cb  = func(res *Response) {
@@ -641,10 +642,10 @@ func (m *QmpMonitor) GetMigrateStatus(callback StringCallback) {
 				*/
 				ret, err := jsonutils.Parse(res.Return)
 				if err != nil {
-					log.Errorf("Parse qmp res error %s: %s", m.server, err)
+					log.Errorf("Parse qmp res error %s: %s", m.GetServer(), err)
 					callback("")
 				} else {
-					log.Infof("Query migrate status %s: %s", m.server, ret.String())
+					log.Infof("Query migrate status %s: %s", m.GetServer(), ret.String())
 
 					status, _ := ret.GetString("status")
 					if status == "active" {
@@ -662,7 +663,7 @@ func (m *QmpMonitor) GetMigrateStatus(callback StringCallback) {
 						mbps := ramMbps + diskMbps
 						progress := (1 - float64(diskRemain+ramRemain)/float64(diskTotal+ramTotal)) * 100.0
 						log.Debugf("progress: %f mbps: %f", progress, mbps)
-						hostutils.UpdateServerProgress(context.Background(), m.sid, progress, mbps)
+						hostutils.UpdateServerProgress(context.Background(), m.GetServerId(), progress, mbps)
 					}
 
 					callback(status)
@@ -673,7 +674,7 @@ func (m *QmpMonitor) GetMigrateStatus(callback StringCallback) {
 	m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) MigrateStartPostcopy(callback StringCallback) {
+func (m *QmpMonitor) MigrateStartPostcopy(callback monitor.StringCallback) {
 	var (
 		cmd = &Command{Execute: "migrate-start-postcopy"}
 		cb  = func(res *Response) {
@@ -682,10 +683,10 @@ func (m *QmpMonitor) MigrateStartPostcopy(callback StringCallback) {
 			} else {
 				ret, err := jsonutils.Parse(res.Return)
 				if err != nil {
-					log.Errorf("Parse qmp res error %s: %s", m.server, err)
+					log.Errorf("Parse qmp res error %s: %s", m.GetServer(), err)
 					callback("MigrateStartPostcopy error")
 				} else {
-					log.Infof("MigrateStartPostcopy %s: %s", m.server, ret.String())
+					log.Infof("MigrateStartPostcopy %s: %s", m.GetServer(), ret.String())
 					callback("")
 				}
 			}
@@ -694,21 +695,21 @@ func (m *QmpMonitor) MigrateStartPostcopy(callback StringCallback) {
 	m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) blockJobs(res *Response) ([]BlockJob, error) {
+func (m *QmpMonitor) blockJobs(res *Response) ([]monitor.BlockJob, error) {
 	if res.ErrorVal != nil {
-		return nil, errors.Errorf("GetBlockJobs for %s %s", m.server, jsonutils.Marshal(res.ErrorVal).String())
+		return nil, errors.Errorf("GetBlockJobs for %s %s", m.GetServer(), jsonutils.Marshal(res.ErrorVal).String())
 	}
 	ret, err := jsonutils.Parse(res.Return)
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetBlockJobs for %s parse %s", m.server, res.Return)
+		return nil, errors.Wrapf(err, "GetBlockJobs for %s parse %s", m.GetServer(), res.Return)
 	}
-	jobs := []BlockJob{}
+	jobs := []monitor.BlockJob{}
 	ret.Unmarshal(&jobs)
 	defer func() {
 		mbps, progress := 0.0, 0.0
 		totalSize, totalOffset := int64(1), int64(0)
 		for _, job := range m.jobs {
-			mbps += job.speedMbps
+			mbps += job.GetSpeedMbps()
 			totalSize += job.Len
 			totalOffset += job.Offset
 		}
@@ -720,11 +721,11 @@ func (m *QmpMonitor) blockJobs(res *Response) ([]BlockJob, error) {
 		if m.blkStream.blkCnt > 0 {
 			progress = float64(m.blkStream.idx-1)/float64(m.blkStream.blkCnt)*100.0 + 1.0/float64(m.blkStream.blkCnt)*progress
 		}
-		hostutils.UpdateServerProgress(context.Background(), m.sid, progress, mbps)
+		hostutils.UpdateServerProgress(context.Background(), m.GetServerId(), progress, mbps)
 	}()
 	for i := range jobs {
 		job := jobs[i]
-		job.server = m.server
+		job.SetServer(m.GetServer())
 		_job, ok := m.jobs[job.Device]
 		if !ok {
 			job.PreOffset(0)
@@ -735,7 +736,8 @@ func (m *QmpMonitor) blockJobs(res *Response) ([]BlockJob, error) {
 			delete(m.jobs, _job.Device)
 			continue
 		}
-		job.start, job.now = _job.start, _job.now
+		job.SetStart(_job.GetStart())
+		job.SetNow(_job.GetNow())
 		job.PreOffset(_job.Offset)
 		m.jobs[job.Device] = job
 	}
@@ -754,7 +756,7 @@ func (m *QmpMonitor) GetBlockJobCounts(callback func(jobs int)) {
 	m.Query(&Command{Execute: "query-block-jobs"}, cb)
 }
 
-func (m *QmpMonitor) GetBlockJobs(callback func([]BlockJob)) {
+func (m *QmpMonitor) GetBlockJobs(callback func([]monitor.BlockJob)) {
 	var cb = func(res *Response) {
 		jobs, _ := m.blockJobs(res)
 		callback(jobs)
@@ -762,7 +764,7 @@ func (m *QmpMonitor) GetBlockJobs(callback func([]BlockJob)) {
 	m.Query(&Command{Execute: "query-block-jobs"}, cb)
 }
 
-func (m *QmpMonitor) ReloadDiskBlkdev(device, path string, callback StringCallback) {
+func (m *QmpMonitor) ReloadDiskBlkdev(device, path string, callback monitor.StringCallback) {
 	var (
 		cb = func(res *Response) {
 			callback(m.actionResult(res))
@@ -780,7 +782,7 @@ func (m *QmpMonitor) ReloadDiskBlkdev(device, path string, callback StringCallba
 	m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMode string, unmap, blockReplication bool) {
+func (m *QmpMonitor) DriveMirror(callback monitor.StringCallback, drive, target, syncMode string, unmap, blockReplication bool) {
 	var (
 		cb = func(res *Response) {
 			callback(m.actionResult(res))
@@ -804,7 +806,7 @@ func (m *QmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMod
 	m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) BlockStream(drive string, idx, blkCnt int, callback StringCallback) {
+func (m *QmpMonitor) BlockStream(drive string, idx, blkCnt int, callback monitor.StringCallback) {
 	var (
 		speed = 5 * 100 * 1024 * 1024 // limit 500 MB/s
 		cb    = func(res *Response) {
@@ -823,7 +825,7 @@ func (m *QmpMonitor) BlockStream(drive string, idx, blkCnt int, callback StringC
 	m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) SetVncPassword(proto, password string, callback StringCallback) {
+func (m *QmpMonitor) SetVncPassword(proto, password string, callback monitor.StringCallback) {
 	if len(password) > 8 {
 		password = password[:8]
 	}
@@ -842,7 +844,7 @@ func (m *QmpMonitor) SetVncPassword(proto, password string, callback StringCallb
 	m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) StartNbdServer(port int, exportAllDevice, writable bool, callback StringCallback) {
+func (m *QmpMonitor) StartNbdServer(port int, exportAllDevice, writable bool, callback monitor.StringCallback) {
 	var cmd = "nbd_server_start"
 	if exportAllDevice {
 		cmd += " -a"
@@ -854,7 +856,7 @@ func (m *QmpMonitor) StartNbdServer(port int, exportAllDevice, writable bool, ca
 	m.HumanMonitorCommand(cmd, callback)
 }
 
-func (m *QmpMonitor) ResizeDisk(driveName string, sizeMB int64, callback StringCallback) {
+func (m *QmpMonitor) ResizeDisk(driveName string, sizeMB int64, callback monitor.StringCallback) {
 	cmd := fmt.Sprintf("block_resize %s %d", driveName, sizeMB)
 	m.HumanMonitorCommand(cmd, callback)
 }
@@ -873,7 +875,7 @@ func (m *QmpMonitor) GetCpuCount(callback func(count int)) {
 	m.HumanMonitorCommand("info cpus", cb)
 }
 
-func (m *QmpMonitor) AddCpu(cpuIndex int, callback StringCallback) {
+func (m *QmpMonitor) AddCpu(cpuIndex int, callback monitor.StringCallback) {
 	var (
 		cb = func(res *Response) {
 			callback(m.actionResult(res))
@@ -886,7 +888,7 @@ func (m *QmpMonitor) AddCpu(cpuIndex int, callback StringCallback) {
 	m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) ObjectAdd(objectType string, params map[string]string, callback StringCallback) {
+func (m *QmpMonitor) ObjectAdd(objectType string, params map[string]string, callback monitor.StringCallback) {
 	var paramsKvs = []string{}
 	for k, v := range params {
 		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%s", k, v))
@@ -909,12 +911,12 @@ func (m *QmpMonitor) GeMemtSlotIndex(callback func(index int)) {
 	m.HumanMonitorCommand("info memory-devices", cb)
 }
 
-func (m *QmpMonitor) BlockIoThrottle(driveName string, bps, iops int64, callback StringCallback) {
+func (m *QmpMonitor) BlockIoThrottle(driveName string, bps, iops int64, callback monitor.StringCallback) {
 	cmd := fmt.Sprintf("block_set_io_throttle %s %d 0 0 %d 0 0", driveName, bps, iops)
 	m.HumanMonitorCommand(cmd, callback)
 }
 
-func (m *QmpMonitor) CancelBlockJob(driveName string, force bool, callback StringCallback) {
+func (m *QmpMonitor) CancelBlockJob(driveName string, force bool, callback monitor.StringCallback) {
 	cmd := "block_job_cancel "
 	if force {
 		cmd += "-f "
@@ -923,7 +925,7 @@ func (m *QmpMonitor) CancelBlockJob(driveName string, force bool, callback Strin
 	m.HumanMonitorCommand(cmd, callback)
 }
 
-func (m *QmpMonitor) NetdevAdd(id, netType string, params map[string]string, callback StringCallback) {
+func (m *QmpMonitor) NetdevAdd(id, netType string, params map[string]string, callback monitor.StringCallback) {
 	cmd := fmt.Sprintf("netdev_add %s,id=%s", netType, id)
 	for k, v := range params {
 		cmd += fmt.Sprintf(",%s=%s", k, v)
@@ -931,7 +933,7 @@ func (m *QmpMonitor) NetdevAdd(id, netType string, params map[string]string, cal
 	m.HumanMonitorCommand(cmd, callback)
 }
 
-func (m *QmpMonitor) NetdevDel(id string, callback StringCallback) {
+func (m *QmpMonitor) NetdevDel(id string, callback monitor.StringCallback) {
 	cmd := fmt.Sprintf("netdev_del %s", id)
 	m.HumanMonitorCommand(cmd, callback)
 }

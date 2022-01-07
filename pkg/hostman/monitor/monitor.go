@@ -121,6 +121,30 @@ func (self blockSizeByte) String() string {
 	return fmt.Sprintf("%d", int64(self))
 }
 
+func (self *BlockJob) SetServer(s string) {
+	self.server = s
+}
+
+func (self *BlockJob) GetSpeedMbps() float64 {
+	return self.speedMbps
+}
+
+func (self *BlockJob) GetStart() time.Time {
+	return self.start
+}
+
+func (self *BlockJob) SetStart(s time.Time) {
+	self.start = s
+}
+
+func (self *BlockJob) GetNow() time.Time {
+	return self.now
+}
+
+func (self *BlockJob) SetNow(n time.Time) {
+	self.now = n
+}
+
 func (self *BlockJob) PreOffset(preOffset int64) {
 	if self.start.IsZero() {
 		self.start = time.Now()
@@ -224,7 +248,7 @@ func NewBaseMonitor(server, sid string, OnMonitorConnected MonitorSuccFunc, OnMo
 	}
 }
 
-func (m *SBaseMonitor) connect(protocol, address string) error {
+func (m *SBaseMonitor) ConnectProto(protocol, address string) error {
 	conn, err := net.Dial(protocol, address)
 	if err != nil {
 		return errors.Errorf("Connect to %s %s failed %s", protocol, address, err)
@@ -241,12 +265,16 @@ func (m *SBaseMonitor) onConnectSuccess(conn net.Conn) {
 	m.rwc = conn
 }
 
+func (m *SBaseMonitor) GetConn() net.Conn {
+	return m.rwc
+}
+
 func (m *SBaseMonitor) Connect(host string, port int) error {
-	return m.connect("tcp", fmt.Sprintf("%s:%d", host, port))
+	return m.ConnectProto("tcp", fmt.Sprintf("%s:%d", host, port))
 }
 
 func (m *SBaseMonitor) ConnectWithSocket(address string) error {
-	return m.connect("unix", address)
+	return m.ConnectProto("unix", address)
 }
 
 func (m *SBaseMonitor) Disconnect() {
@@ -256,11 +284,31 @@ func (m *SBaseMonitor) Disconnect() {
 	}
 }
 
+func (m *SBaseMonitor) GetServerId() string {
+	return m.sid
+}
+
+func (m *SBaseMonitor) GetServer() string {
+	return m.server
+}
+
+func (m *SBaseMonitor) SetConnected(c bool) {
+	m.connected = c
+}
+
+func (m *SBaseMonitor) SetTimeout(t bool) {
+	m.timeout = t
+}
+
+func (m *SBaseMonitor) IsTimeout() bool {
+	return m.timeout
+}
+
 func (m *SBaseMonitor) IsConnected() bool {
 	return m.connected
 }
 
-func (m *SBaseMonitor) checkReading() bool {
+func (m *SBaseMonitor) CheckReading() bool {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	if m.reading {
@@ -271,7 +319,23 @@ func (m *SBaseMonitor) checkReading() bool {
 	return true
 }
 
-func (m *SBaseMonitor) checkWriting() bool {
+func (m *SBaseMonitor) SetReading(r bool) {
+	m.reading = r
+}
+
+func (m *SBaseMonitor) IsReading() bool {
+	return m.reading
+}
+
+func (m *SBaseMonitor) Lock() {
+	m.mutex.Lock()
+}
+
+func (m *SBaseMonitor) Unlock() {
+	m.mutex.Unlock()
+}
+
+func (m *SBaseMonitor) CheckWriting() bool {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	if m.writing {
@@ -280,4 +344,12 @@ func (m *SBaseMonitor) checkWriting() bool {
 		m.writing = true
 	}
 	return true
+}
+
+func (m *SBaseMonitor) IsWriting() bool {
+	return m.writing
+}
+
+func (m *SBaseMonitor) SetWriting(w bool) {
+	m.writing = w
 }

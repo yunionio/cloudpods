@@ -17,6 +17,7 @@ package isolated_device
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -24,6 +25,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
@@ -47,6 +49,17 @@ type CloudDeviceInfo struct {
 type IHost interface {
 	GetHostId() string
 	GetSession() *mcclient.ClientSession
+}
+
+type IGuestManager interface {
+	IsLoaded() bool
+	GetIsolatedDeviceServer(sId string) (IGuest, bool)
+}
+
+type IGuest interface {
+	GetName() string
+	IsRunning() bool
+	GetMonitor() monitor.Monitor
 }
 
 type HotPlugOption struct {
@@ -83,6 +96,7 @@ type IDevice interface {
 }
 
 type IsolatedDeviceManager interface {
+	SetGuestManager(man IGuestManager)
 	GetDevices() []IDevice
 	GetDeviceByIdent(vendorDevId string, addr string) IDevice
 	ProbePCIDevices(skipGPUs, skipUSBs bool) error
@@ -92,20 +106,53 @@ type IsolatedDeviceManager interface {
 	GetQemuParams(devAddrs []string) *QemuParams
 }
 
+type iDeviceDriver interface {
+	GetType() string
+	GetQemuMonitorDeviceId(*CloudDeviceInfo) (string, error)
+}
+
 type isolatedDeviceManager struct {
 	host            IHost
+	guestMan        IGuestManager
 	devices         []IDevice
-	DetachedDevices []*CloudDeviceInfo
+	detachedDevices []*CloudDeviceInfo
+	drivers         *sync.Map
 }
 
 func NewManager(host IHost) IsolatedDeviceManager {
 	man := &isolatedDeviceManager{
 		host:            host,
 		devices:         make([]IDevice, 0),
-		DetachedDevices: make([]*CloudDeviceInfo, 0),
+		detachedDevices: make([]*CloudDeviceInfo, 0),
+		drivers:         new(sync.Map),
 	}
 	// Do probe laster - Qiu Jian
+	for _, drv := range []iDeviceDriver{
+		newUSBDriver(),
+	} {
+		man.registerDriver(drv)
+	}
 	return man
+}
+
+func (man *isolatedDeviceManager) registerDriver(drv iDeviceDriver) {
+	_, ok := man.drivers.Load(drv.GetType())
+	if ok {
+		log.Fatalf("Driver %q already registered", drv.GetType())
+	}
+	man.drivers.Store(drv.GetType(), drv)
+}
+
+func (man *isolatedDeviceManager) getDriver(devType string) (iDeviceDriver, bool) {
+	val, ok := man.drivers.Load(devType)
+	if !ok {
+		return nil, ok
+	}
+	return val.(iDeviceDriver), true
+}
+
+func (man *isolatedDeviceManager) SetGuestManager(m IGuestManager) {
+	man.guestMan = m
 }
 
 func (man *isolatedDeviceManager) GetDevices() []IDevice {
@@ -184,17 +231,54 @@ func (man *isolatedDeviceManager) BatchCustomProbe() error {
 
 func (man *isolatedDeviceManager) AppendDetachedDevice(dev *CloudDeviceInfo) {
 	dev.DetectedOnHost = false
-	man.DetachedDevices = append(man.DetachedDevices, dev)
+	man.detachedDevices = append(man.detachedDevices, dev)
+}
+
+func (man *isolatedDeviceManager) GetQemuMonitorDeviceId(dev *CloudDeviceInfo) (string, error) {
+	drv, ok := man.getDriver(dev.DevType)
+	if !ok {
+		return "", errors.Errorf("Not found driver by type %q", dev.DevType)
+	}
+	return drv.GetQemuMonitorDeviceId(dev)
 }
 
 func (man *isolatedDeviceManager) StartDetachTask() {
-	if len(man.DetachedDevices) == 0 {
+	if len(man.detachedDevices) == 0 {
 		return
 	}
 	go func() {
-		for _, dev := range man.DetachedDevices {
+		for {
+			if man.guestMan == nil || !man.guestMan.IsLoaded() {
+				log.Warningf("GuestManager is not loaded, waiting it....")
+				time.Sleep(10 * time.Second)
+			} else {
+				break
+			}
+		}
+		for _, dev := range man.detachedDevices {
 			for {
 				log.Infof("Start delete cloud device %s", jsonutils.Marshal(dev))
+				// remove guest plugged device
+				vm, ok := man.guestMan.GetIsolatedDeviceServer(dev.GuestId)
+				if !ok {
+					log.Warningf("GetIsolatedDeviceServer %q not found", dev.GuestId)
+				} else {
+					if vm.IsRunning() {
+						devName, err := man.GetQemuMonitorDeviceId(dev)
+						if err != nil {
+							log.Warningf("GetQemuMonitorDeviceId for %s error: %v", jsonutils.Marshal(dev), err)
+						} else {
+							vm.GetMonitor().DeviceDel(devName, func(err string) {
+								if err != "" {
+									log.Errorf("Delete server %q device %q error: %v", vm.GetName(), devName, err)
+								} else {
+									log.Infof("Delete server %q device %q success", vm.GetName(), devName)
+								}
+							})
+						}
+					}
+				}
+				// remove cloud record
 				if _, err := modules.IsolatedDevices.PerformAction(man.getSession(), dev.Id, "purge",
 					jsonutils.Marshal(map[string]interface{}{
 						"purge": true,
@@ -209,7 +293,7 @@ func (man *isolatedDeviceManager) StartDetachTask() {
 				break
 			}
 		}
-		man.DetachedDevices = nil
+		man.detachedDevices = nil
 	}()
 }
 

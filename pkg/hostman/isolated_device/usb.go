@@ -27,6 +27,28 @@ import (
 	"yunion.io/x/onecloud/pkg/util/regutils2"
 )
 
+type usbDriver struct{}
+
+func newUSBDriver() iDeviceDriver {
+	return new(usbDriver)
+}
+
+func (d usbDriver) GetType() string {
+	return api.USB_TYPE
+}
+
+func (d usbDriver) GetQemuMonitorDeviceId(info *CloudDeviceInfo) (string, error) {
+	ret, err := GetUSBDevQemuOptions(info.VendorDeviceId, info.Addr)
+	if err != nil {
+		return "", errors.Wrap(err, "GetUSBDevQemuOptions")
+	}
+	id, ok := ret["id"]
+	if !ok {
+		return "", errors.Errorf("Not found id in %#v", ret)
+	}
+	return id.(string), nil
+}
+
 type sUSBDevice struct {
 	*sBaseDevice
 }

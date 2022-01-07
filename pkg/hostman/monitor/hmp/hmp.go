@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package monitor
+package hmp
 
 import (
 	"bufio"
@@ -25,21 +25,22 @@ import (
 
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
 )
 
 type HmpMonitor struct {
-	SBaseMonitor
+	monitor.SBaseMonitor
 
 	commandQueue  []string
-	callbackQueue []StringCallback
+	callbackQueue []monitor.StringCallback
 }
 
-func NewHmpMonitor(server, sid string, OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc, OnMonitorConnected MonitorSuccFunc) *HmpMonitor {
+func NewHmpMonitor(server, sid string, OnMonitorDisConnect, OnMonitorTimeout monitor.MonitorErrorFunc, OnMonitorConnected monitor.MonitorSuccFunc) *HmpMonitor {
 	return &HmpMonitor{
-		SBaseMonitor:  *NewBaseMonitor(server, sid, OnMonitorConnected, OnMonitorDisConnect, OnMonitorTimeout),
+		SBaseMonitor:  *monitor.NewBaseMonitor(server, sid, OnMonitorConnected, OnMonitorDisConnect, OnMonitorTimeout),
 		commandQueue:  make([]string, 0),
-		callbackQueue: make([]StringCallback, 0),
+		callbackQueue: make([]monitor.StringCallback, 0),
 	}
 }
 
@@ -65,7 +66,7 @@ func (m *HmpMonitor) actionResult(res string) string {
 }
 
 func (m *HmpMonitor) read(r io.Reader) {
-	if !m.checkReading() {
+	if !m.CheckReading() {
 		return
 	}
 	scanner := bufio.NewScanner(r)
@@ -75,41 +76,41 @@ func (m *HmpMonitor) read(r io.Reader) {
 		if len(res) == 0 {
 			continue
 		}
-		log.Infof("HMP Read %s: %s", m.server, res)
-		if m.connected {
+		log.Infof("HMP Read %s: %s", m.GetServer(), res)
+		if m.IsConnected() {
 			go m.callBack(res)
 		} else {
 			// remove reader timeout
-			m.connected = true
-			m.timeout = false
-			m.rwc.SetReadDeadline(time.Time{})
+			m.SetConnected(true)
+			m.SetTimeout(false)
+			m.GetConn().SetReadDeadline(time.Time{})
 			go m.query()
 			go m.OnMonitorConnected()
 		}
 	}
-	log.Infof("Scan over %s ...", m.server)
+	log.Infof("Scan over %s ...", m.GetServer())
 	err := scanner.Err()
 	if err != nil {
-		log.Infof("HMP Disconnected %s: %s", m.server, err)
+		log.Infof("HMP Disconnected %s: %s", m.GetServer(), err)
 	}
-	if m.timeout {
+	if m.IsTimeout() {
 		m.OnMonitorTimeout(err)
-	} else if m.connected {
-		m.connected = false
+	} else if m.IsConnected() {
+		m.SetConnected(false)
 		m.OnMonitorDisConnect(err)
 	}
-	m.reading = false
+	m.SetReading(false)
 }
 
 func (m *HmpMonitor) callBack(res string) {
-	m.mutex.Lock()
+	m.Lock()
 	if len(m.callbackQueue) == 0 {
-		m.mutex.Unlock()
+		m.Unlock()
 		return
 	}
 	cb := m.callbackQueue[0]
 	m.callbackQueue = m.callbackQueue[1:]
-	m.mutex.Unlock()
+	m.Unlock()
 	if cb != nil {
 		pos := strings.Index(res, "\r\n")
 		if pos > 0 {
@@ -121,10 +122,10 @@ func (m *HmpMonitor) callBack(res string) {
 
 func (m *HmpMonitor) write(cmd []byte) error {
 	cmd = append(cmd, '\n')
-	log.Infof("HMP Write %s: %s", m.server, string(cmd))
+	log.Infof("HMP Write %s: %s", m.GetServer(), string(cmd))
 	length, index := len(cmd), 0
 	for index < length {
-		i, err := m.rwc.Write(cmd)
+		i, err := m.GetConn().Write(cmd)
 		if err != nil {
 			return err
 		}
@@ -134,7 +135,7 @@ func (m *HmpMonitor) write(cmd []byte) error {
 }
 
 func (m *HmpMonitor) query() {
-	if !m.checkWriting() {
+	if !m.CheckWriting() {
 		return
 	}
 	for {
@@ -142,58 +143,58 @@ func (m *HmpMonitor) query() {
 			break
 		}
 		//pop
-		m.mutex.Lock()
+		m.Lock()
 		cmd := m.commandQueue[0]
 		m.commandQueue = m.commandQueue[1:]
 		err := m.write([]byte(cmd))
-		m.mutex.Unlock()
+		m.Unlock()
 		if err != nil {
-			log.Errorf("Write %s to monitor error %s: %s", cmd, m.server, err)
+			log.Errorf("Write %s to monitor error %s: %s", cmd, m.GetServer(), err)
 			break
 		}
 	}
-	m.writing = false
+	m.SetWriting(false)
 }
 
-func (m *HmpMonitor) Query(cmd string, cb StringCallback) {
+func (m *HmpMonitor) Query(cmd string, cb monitor.StringCallback) {
 	// push
-	m.mutex.Lock()
+	m.Lock()
 	m.commandQueue = append(m.commandQueue, cmd)
 	m.callbackQueue = append(m.callbackQueue, cb)
-	m.mutex.Unlock()
-	if m.connected {
-		if !m.writing {
+	m.Unlock()
+	if m.IsConnected() {
+		if !m.IsWriting() {
 			go m.query()
 		}
-		if !m.reading {
-			go m.read(m.rwc)
+		if !m.IsReading() {
+			go m.read(m.GetConn())
 		}
 	}
 }
 
 func (m *HmpMonitor) ConnectWithSocket(address string) error {
-	err := m.SBaseMonitor.connect("unix", address)
+	err := m.SBaseMonitor.ConnectProto("unix", address)
 	if err != nil {
 		return err
 	}
-	go m.read(m.rwc)
+	go m.read(m.GetConn())
 	return nil
 }
 
 func (m *HmpMonitor) Connect(host string, port int) error {
-	err := m.SBaseMonitor.connect("tcp", fmt.Sprintf("%s:%d", host, port))
+	err := m.SBaseMonitor.ConnectProto("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		return err
 	}
-	go m.read(m.rwc)
+	go m.read(m.GetConn())
 	return nil
 }
 
-func (m *HmpMonitor) QueryStatus(callback StringCallback) {
+func (m *HmpMonitor) QueryStatus(callback monitor.StringCallback) {
 	m.Query("info status", m.parseStatus(callback))
 }
 
-func (m *HmpMonitor) parseStatus(callback StringCallback) StringCallback {
+func (m *HmpMonitor) parseStatus(callback monitor.StringCallback) monitor.StringCallback {
 	return func(output string) {
 		strs := strings.Split(strings.TrimSuffix(output, "\r\n"), "\r\n")
 		for _, str := range strs {
@@ -205,15 +206,15 @@ func (m *HmpMonitor) parseStatus(callback StringCallback) StringCallback {
 	}
 }
 
-func (m *HmpMonitor) SimpleCommand(cmd string, callback StringCallback) {
+func (m *HmpMonitor) SimpleCommand(cmd string, callback monitor.StringCallback) {
 	m.Query(cmd, callback)
 }
 
-func (m *HmpMonitor) HumanMonitorCommand(cmd string, callback StringCallback) {
+func (m *HmpMonitor) HumanMonitorCommand(cmd string, callback monitor.StringCallback) {
 	m.Query(cmd, callback)
 }
 
-func (m *HmpMonitor) GetVersion(callback StringCallback) {
+func (m *HmpMonitor) GetVersion(callback monitor.StringCallback) {
 	_cb := func(versionStr string) {
 		versionStr = strings.TrimSpace(versionStr)
 		callback(versionStr)
@@ -221,7 +222,7 @@ func (m *HmpMonitor) GetVersion(callback StringCallback) {
 	m.Query("info version", _cb)
 }
 
-func (m *HmpMonitor) GetBlocks(callback func([]QemuBlock)) {
+func (m *HmpMonitor) GetBlocks(callback func([]monitor.QemuBlock)) {
 	var cb = func(output string) {
 		var lines = strings.Split(strings.TrimSuffix(output, "\r\n"), "\r\n")
 		var mergedOutput = []string{}
@@ -239,12 +240,12 @@ func (m *HmpMonitor) GetBlocks(callback func([]QemuBlock)) {
 		}
 
 		// parse to json
-		ret := []QemuBlock{}
+		ret := []monitor.QemuBlock{}
 		for _, line := range mergedOutput {
 			parts := regexp.MustCompile(`\s+`).Split(line, -1)
 			if strings.HasSuffix(parts[0], ":") ||
 				regexp.MustCompile(`\(#block\d+\):`).MatchString(parts[1]) {
-				block := QemuBlock{}
+				block := monitor.QemuBlock{}
 				if strings.HasSuffix(parts[0], ":") {
 					block.Device = parts[0][:len(parts[0])-1]
 				} else {
@@ -268,27 +269,27 @@ func (m *HmpMonitor) GetBlocks(callback func([]QemuBlock)) {
 	m.Query("info block", cb)
 }
 
-func (m *HmpMonitor) EjectCdrom(dev string, callback StringCallback) {
+func (m *HmpMonitor) EjectCdrom(dev string, callback monitor.StringCallback) {
 	m.Query(fmt.Sprintf("eject -f %s", dev), callback)
 }
 
-func (m *HmpMonitor) ChangeCdrom(dev string, path string, callback StringCallback) {
+func (m *HmpMonitor) ChangeCdrom(dev string, path string, callback monitor.StringCallback) {
 	m.Query(fmt.Sprintf("change %s %s", dev, path), callback)
 }
 
-func (m *HmpMonitor) DriveDel(idstr string, callback StringCallback) {
+func (m *HmpMonitor) DriveDel(idstr string, callback monitor.StringCallback) {
 	m.Query(fmt.Sprintf("drive_del %s", idstr), callback)
 }
 
-func (m *HmpMonitor) DeviceDel(idstr string, callback StringCallback) {
+func (m *HmpMonitor) DeviceDel(idstr string, callback monitor.StringCallback) {
 	m.Query(fmt.Sprintf("device_del %s", idstr), callback)
 }
 
-func (m *HmpMonitor) ObjectDel(idstr string, callback StringCallback) {
+func (m *HmpMonitor) ObjectDel(idstr string, callback monitor.StringCallback) {
 	m.Query(fmt.Sprintf("object_del %s", idstr), callback)
 }
 
-func (m *HmpMonitor) DriveAdd(bus string, params map[string]string, callback StringCallback) {
+func (m *HmpMonitor) DriveAdd(bus string, params map[string]string, callback monitor.StringCallback) {
 	var paramsKvs = []string{}
 	for k, v := range params {
 		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%s", k, v))
@@ -296,7 +297,7 @@ func (m *HmpMonitor) DriveAdd(bus string, params map[string]string, callback Str
 	m.Query(fmt.Sprintf("drive_add %s %s", bus, strings.Join(paramsKvs, ",")), callback)
 }
 
-func (m *HmpMonitor) DeviceAdd(dev string, params map[string]interface{}, callback StringCallback) {
+func (m *HmpMonitor) DeviceAdd(dev string, params map[string]interface{}, callback monitor.StringCallback) {
 	var paramsKvs = []string{}
 	for k, v := range params {
 		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%v", k, v))
@@ -304,12 +305,12 @@ func (m *HmpMonitor) DeviceAdd(dev string, params map[string]interface{}, callba
 	m.Query(fmt.Sprintf("device_add %s,%s", dev, strings.Join(paramsKvs, ",")), callback)
 }
 
-func (m *HmpMonitor) MigrateSetCapability(capability, state string, callback StringCallback) {
+func (m *HmpMonitor) MigrateSetCapability(capability, state string, callback monitor.StringCallback) {
 	m.Query(fmt.Sprintf("migrate_set_capability %s %s", capability, state), callback)
 }
 
 func (m *HmpMonitor) Migrate(
-	destStr string, copyIncremental, copyFull bool, callback StringCallback,
+	destStr string, copyIncremental, copyFull bool, callback monitor.StringCallback,
 ) {
 	cmd := "migrate -d"
 	if copyIncremental {
@@ -321,9 +322,9 @@ func (m *HmpMonitor) Migrate(
 	m.Query(cmd, callback)
 }
 
-func (m *HmpMonitor) GetMigrateStatus(callback StringCallback) {
+func (m *HmpMonitor) GetMigrateStatus(callback monitor.StringCallback) {
 	cb := func(output string) {
-		log.Infof("Query migrate status %s: %s", m.server, output)
+		log.Infof("Query migrate status %s: %s", m.GetServer(), output)
 
 		var status string
 		for _, line := range strings.Split(strings.TrimSuffix(output, "\r\n"), "\r\n") {
@@ -338,9 +339,9 @@ func (m *HmpMonitor) GetMigrateStatus(callback StringCallback) {
 	m.Query("info migrate", cb)
 }
 
-func (m *HmpMonitor) MigrateStartPostcopy(callback StringCallback) {
+func (m *HmpMonitor) MigrateStartPostcopy(callback monitor.StringCallback) {
 	cb := func(output string) {
-		log.Infof("MigrateStartPostcopy %s: %s", m.server, output)
+		log.Infof("MigrateStartPostcopy %s: %s", m.GetServer(), output)
 		callback(output)
 	}
 	m.Query("migrate_start_postcopy", cb)
@@ -359,19 +360,19 @@ func (m *HmpMonitor) GetBlockJobCounts(callback func(jobs int)) {
 	m.Query("info block-jobs", cb)
 }
 
-func (m *HmpMonitor) GetBlockJobs(callback func([]BlockJob)) {
+func (m *HmpMonitor) GetBlockJobs(callback func([]monitor.BlockJob)) {
 	cb := func(output string) {
 		lines := strings.Split(strings.TrimSuffix(output, "\r\n"), "\r\n")
 		if lines[0] == "No active jobs" {
 			callback(nil)
 			return
 		}
-		jobs := []BlockJob{}
+		jobs := []monitor.BlockJob{}
 		re := regexp.MustCompile(`Type (?P<type>\w+), device (?P<device>\w+)`)
 		for i := 0; i < len(lines); i++ {
 			m := regutils2.GetParams(re, lines[i])
 			if len(m) > 0 {
-				job := BlockJob{}
+				job := monitor.BlockJob{}
 				job.Type, _ = m["type"]
 				job.Device, _ = m["device"]
 				jobs = append(jobs, job)
@@ -382,11 +383,11 @@ func (m *HmpMonitor) GetBlockJobs(callback func([]BlockJob)) {
 	m.Query("info block-jobs", cb)
 }
 
-func (m *HmpMonitor) ReloadDiskBlkdev(device, path string, callback StringCallback) {
+func (m *HmpMonitor) ReloadDiskBlkdev(device, path string, callback monitor.StringCallback) {
 	m.Query(fmt.Sprintf("reload_disk_snapshot_blkdev -n %s %s", device, path), callback)
 }
 
-func (m *HmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMode string, unmap, blockReplication bool) {
+func (m *HmpMonitor) DriveMirror(callback monitor.StringCallback, drive, target, syncMode string, unmap, blockReplication bool) {
 	cmd := "drive_mirror -n"
 	if blockReplication {
 		cmd += " -c"
@@ -398,7 +399,7 @@ func (m *HmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMod
 	m.Query(cmd, callback)
 }
 
-func (m *HmpMonitor) BlockStream(drive string, _, _ int, callback StringCallback) {
+func (m *HmpMonitor) BlockStream(drive string, _, _ int, callback monitor.StringCallback) {
 	var (
 		speed = 500 // limit 500 MB/s
 		cmd   = fmt.Sprintf("block_stream %s %d", drive, speed)
@@ -406,14 +407,14 @@ func (m *HmpMonitor) BlockStream(drive string, _, _ int, callback StringCallback
 	m.Query(cmd, callback)
 }
 
-func (m *HmpMonitor) SetVncPassword(proto, password string, callback StringCallback) {
+func (m *HmpMonitor) SetVncPassword(proto, password string, callback monitor.StringCallback) {
 	if len(password) > 8 {
 		password = password[:8]
 	}
 	m.Query(fmt.Sprintf("set_password %s %s", proto, password), callback)
 }
 
-func (m *HmpMonitor) StartNbdServer(port int, exportAllDevice, writable bool, callback StringCallback) {
+func (m *HmpMonitor) StartNbdServer(port int, exportAllDevice, writable bool, callback monitor.StringCallback) {
 	var cmd = "nbd_server_start"
 	if exportAllDevice {
 		cmd += " -a"
@@ -425,7 +426,7 @@ func (m *HmpMonitor) StartNbdServer(port int, exportAllDevice, writable bool, ca
 	m.Query(cmd, callback)
 }
 
-func (m *HmpMonitor) ResizeDisk(driveName string, sizeMB int64, callback StringCallback) {
+func (m *HmpMonitor) ResizeDisk(driveName string, sizeMB int64, callback monitor.StringCallback) {
 	cmd := fmt.Sprintf("block_resize %s %d", driveName, sizeMB)
 	m.Query(cmd, callback)
 }
@@ -438,7 +439,7 @@ func (m *HmpMonitor) GetCpuCount(callback func(count int)) {
 	m.Query("info cpus", cb)
 }
 
-func (m *HmpMonitor) AddCpu(cpuIndex int, callback StringCallback) {
+func (m *HmpMonitor) AddCpu(cpuIndex int, callback monitor.StringCallback) {
 	m.Query(fmt.Sprintf("cpu-add %d", cpuIndex), callback)
 }
 
@@ -456,7 +457,7 @@ func (m *HmpMonitor) GeMemtSlotIndex(callback func(index int)) {
 	m.Query("info memory-devices", cb)
 }
 
-func (m *HmpMonitor) ObjectAdd(objectType string, params map[string]string, callback StringCallback) {
+func (m *HmpMonitor) ObjectAdd(objectType string, params map[string]string, callback monitor.StringCallback) {
 	var paramsKvs = []string{}
 	for k, v := range params {
 		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%s", k, v))
@@ -465,12 +466,12 @@ func (m *HmpMonitor) ObjectAdd(objectType string, params map[string]string, call
 	m.Query(cmd, callback)
 }
 
-func (m *HmpMonitor) BlockIoThrottle(driveName string, bps, iops int64, callback StringCallback) {
+func (m *HmpMonitor) BlockIoThrottle(driveName string, bps, iops int64, callback monitor.StringCallback) {
 	cmd := fmt.Sprintf("block_set_io_throttle %s %d 0 0 %d 0 0", driveName, bps, iops)
 	m.Query(cmd, callback)
 }
 
-func (m *HmpMonitor) CancelBlockJob(driveName string, force bool, callback StringCallback) {
+func (m *HmpMonitor) CancelBlockJob(driveName string, force bool, callback monitor.StringCallback) {
 	cmd := "block_job_cancel "
 	if force {
 		cmd += "-f "
@@ -479,7 +480,7 @@ func (m *HmpMonitor) CancelBlockJob(driveName string, force bool, callback Strin
 	m.Query(cmd, callback)
 }
 
-func (m *HmpMonitor) NetdevAdd(id, netType string, params map[string]string, callback StringCallback) {
+func (m *HmpMonitor) NetdevAdd(id, netType string, params map[string]string, callback monitor.StringCallback) {
 	cmd := fmt.Sprintf("netdev_add %s,id=%s", netType, id)
 	for k, v := range params {
 		cmd += fmt.Sprintf(",%s=%s", k, v)
@@ -487,7 +488,7 @@ func (m *HmpMonitor) NetdevAdd(id, netType string, params map[string]string, cal
 	m.Query(cmd, callback)
 }
 
-func (m *HmpMonitor) NetdevDel(id string, callback StringCallback) {
+func (m *HmpMonitor) NetdevDel(id string, callback monitor.StringCallback) {
 	cmd := fmt.Sprintf("netdev_del %s", id)
 	m.Query(cmd, callback)
 }

@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestman/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -105,6 +106,10 @@ func (m *SGuestManager) GetServer(sid string) (*SKVMGuestInstance, bool) {
 	} else {
 		return nil, ok
 	}
+}
+
+func (m *SGuestManager) GetIsolatedDeviceServer(sId string) (isolated_device.IGuest, bool) {
+	return m.GetServer(sId)
 }
 
 func (m *SGuestManager) GetUnknownServer(sid string) (*SKVMGuestInstance, bool) {
