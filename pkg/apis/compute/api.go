@@ -556,14 +556,16 @@ type GuestBatchMigrateRequest struct {
 	PreferHostId string `json:"prefer_host_id"`
 	// Deprecated
 	// swagger:ignore
-	PreferHost string `json:"prefer_host" yunion-deprecated-by:"prefer_host_id"`
+	PreferHost   string `json:"prefer_host" yunion-deprecated-by:"prefer_host_id"`
+	SkipCpuCheck bool   `json:"skip_cpu_check"`
 }
 
 type GuestBatchMigrateParams struct {
-	Id          string
-	LiveMigrate bool
-	RescueMode  bool
-	OldStatus   string
+	Id           string
+	LiveMigrate  bool
+	SkipCpuCheck bool
+	RescueMode   bool
+	OldStatus    string
 }
 
 type HostLoginInfo struct {
