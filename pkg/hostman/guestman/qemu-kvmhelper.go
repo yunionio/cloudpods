@@ -614,24 +614,7 @@ function nic_mtu() {
 	}
 
 	if s.IsVdiSpice() {
-		cmd += " -device qxl-vga,id=video0,ram_size=141557760,vram_size=141557760"
-		cmd += " -device intel-hda,id=sound0"
-		cmd += " -device hda-duplex,id=sound0-codec0,bus=sound0.0,cad=0"
-		cmd += fmt.Sprintf(" -spice port=%d,password=87654312,seamless-migration=on", 5900+vncPort)
-		// # ,streaming-video=all,playback-compression=on,jpeg-wan-compression=always,zlib-glz-wan-compression=always,image-compression=glz" % (5900+vnc_port)
-		cmd += fmt.Sprintf(" -device virtio-serial-pci,id=virtio-serial0,max_ports=16,bus=%s", s.GetPciBus())
-		cmd += " -chardev spicevmc,name=vdagent,id=vdagent"
-		cmd += " -device virtserialport,nr=1,bus=virtio-serial0.0,chardev=vdagent,name=com.redhat.spice.0"
-
-		// # usb redirect
-		cmd += " -device ich9-usb-ehci1,id=usb"
-		cmd += " -device ich9-usb-uhci1,masterbus=usb.0,firstport=0,multifunction=on"
-		cmd += " -device ich9-usb-uhci2,masterbus=usb.0,firstport=2"
-		cmd += " -device ich9-usb-uhci3,masterbus=usb.0,firstport=4"
-		cmd += " -chardev spicevmc,name=usbredir,id=usbredirchardev1"
-		cmd += " -device usb-redir,chardev=usbredirchardev1,id=usbredirdev1"
-		cmd += " -chardev spicevmc,name=usbredir,id=usbredirchardev2"
-		cmd += " -device usb-redir,chardev=usbredirchardev2,id=usbredirdev2"
+		cmd += s.generateSpiceArgs(vncPort)
 	} else {
 		if isolatedDevsParams != nil && len(isolatedDevsParams.Vga) > 0 {
 			cmd += isolatedDevsParams.Vga
