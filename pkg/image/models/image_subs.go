@@ -73,15 +73,20 @@ type SImageSubformat struct {
 
 func (manager *SImageSubformatManager) FetchSubImage(id string, format string) *SImageSubformat {
 	q := manager.Query().Equals("image_id", id).Equals("format", format)
-	subImg := SImageSubformat{}
-	err := q.First(&subImg)
+	subImgObj, err := db.NewModelObject(manager)
+	if err != nil {
+		log.Errorf("new subformatfail %s", err)
+		return nil
+	}
+	subImg := subImgObj.(*SImageSubformat)
+	err = q.First(subImg)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			log.Errorf("query subimage fail! %s", err)
 		}
 		return nil
 	}
-	return &subImg
+	return subImg
 }
 
 func (manager *SImageSubformatManager) GetAllSubImages(id string) []SImageSubformat {
