@@ -47,6 +47,13 @@ type SVMwareCredentialWithEnvironment struct {
 	Port string `help:"VMware VCenter/ESXi host port" default:"443"`
 }
 
+type SNutanixCredentialWithEnvironment struct {
+	SUserPasswordCredential
+
+	Host string `help:"Nutanix host" positional:"true"`
+	Port string `help:"Nutanix host port" default:"9440"`
+}
+
 type SAzureCredential struct {
 	ClientID     string `help:"Azure client_id" positional:"true"`
 	ClientSecret string `help:"Azure clinet_secret" positional:"true"`
@@ -1038,4 +1045,28 @@ type ClouaccountProjectMappingOptions struct {
 
 func (opts *ClouaccountProjectMappingOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(map[string]string{"project_mapping_id": opts.ProjectMappingId}), nil
+}
+
+type SNutanixCloudAccountCreateOptions struct {
+	SCloudAccountCreateBaseOptions
+	SNutanixCredentialWithEnvironment
+}
+
+func (opts *SNutanixCloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(opts)
+	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Nutanix"), "provider")
+	return params, nil
+}
+
+type SNutanixCloudAccountUpdateCredentialOptions struct {
+	SCloudAccountIdOptions
+	SUserPasswordCredential
+}
+
+func (opts *SNutanixCloudAccountUpdateCredentialOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts.SUserPasswordCredential), nil
+}
+
+type SNutanixCloudAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
 }

@@ -48,6 +48,7 @@ func init() {
 	cmd.CreateWithKeyword("create-ecloud", &options.SEcloudCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-jdcloud", &options.SJDcloudCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-cloudpods", &options.SCloudpodsCloudAccountCreateOptions{})
+	cmd.CreateWithKeyword("create-nutanix", &options.SNutanixCloudAccountCreateOptions{})
 
 	cmd.UpdateWithKeyword("update-vmware", &options.SVMwareCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-aliyun", &options.SAliyunCloudAccountUpdateOptions{})
@@ -64,6 +65,7 @@ func init() {
 	cmd.UpdateWithKeyword("update-ctyun", &options.SCtyunCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-jdcloud", &options.SJDcloudCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-cloudpods", &options.SCloudpodsCloudAccountUpdateOptions{})
+	cmd.UpdateWithKeyword("update-nutanix", &options.SNutanixCloudAccountUpdateOptions{})
 
 	cmd.Perform("update-credential", &options.CloudaccountUpdateCredentialOptions{})
 
@@ -82,6 +84,7 @@ func init() {
 	cmd.PerformWithKeyword("update-credential-ctyun", "update-credential", &options.SCtyunCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("update-credential-jdcloud", "update-credential", &options.SJDcloudCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("update-credential-cloudpods", "update-credential", &options.SCloudpodsCloudAccountUpdateCredentialOptions{})
+	cmd.PerformWithKeyword("update-credential-nutanix", "update-credential", &options.SNutanixCloudAccountUpdateCredentialOptions{})
 
 	cmd.PerformWithKeyword("test-connectivity-google", "test-connectivity", &options.SGoogleCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("test-connectivity-vmware", "test-connectivity", &options.SVMwareCloudAccountUpdateCredentialOptions{})
