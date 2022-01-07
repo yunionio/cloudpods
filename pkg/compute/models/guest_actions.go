@@ -4435,10 +4435,11 @@ func (manager *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred 
 	var hostGuests = map[string][]*api.GuestBatchMigrateParams{}
 	for i := 0; i < len(guests); i++ {
 		bmp := &api.GuestBatchMigrateParams{
-			Id:          guests[i].Id,
-			LiveMigrate: guests[i].Status == api.VM_RUNNING,
-			RescueMode:  guests[i].Status == api.VM_UNKNOWN,
-			OldStatus:   guests[i].Status,
+			Id:           guests[i].Id,
+			LiveMigrate:  guests[i].Status == api.VM_RUNNING,
+			RescueMode:   guests[i].Status == api.VM_UNKNOWN,
+			OldStatus:    guests[i].Status,
+			SkipCpuCheck: params.SkipCpuCheck,
 		}
 		guests[i].SetStatus(userCred, api.VM_START_MIGRATE, "batch migrate")
 		if _, ok := hostGuests[guests[i].HostId]; ok {

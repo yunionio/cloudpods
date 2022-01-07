@@ -49,7 +49,7 @@ func (self *HostGuestsMigrateTask) OnInit(ctx context.Context, obj db.IStandalon
 		guest := models.GuestManager.FetchGuestById(guests[i].Id)
 		if guests[i].LiveMigrate {
 			err := guest.StartGuestLiveMigrateTask(
-				ctx, self.UserCred, guests[i].OldStatus, preferHostId, nil, self.Id)
+				ctx, self.UserCred, guests[i].OldStatus, preferHostId, &guests[i].SkipCpuCheck, self.Id)
 			if err != nil {
 				log.Errorln(err)
 				continue
