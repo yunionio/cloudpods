@@ -33,7 +33,6 @@ func InitDB() error {
 		proxy.ProxySettingManager,
 
 		CloudproviderManager,
-		CloudeventManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {
