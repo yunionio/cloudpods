@@ -38,6 +38,7 @@ const (
 	HOST_TYPE_ECLOUD    = "ecloud"
 	HOST_TYPE_JDCLOUD   = "jdcloud"
 	HOST_TYPE_CLOUDPODS = "cloudpods"
+	HOST_TYPE_NUTANIX   = "nutanix"
 
 	HOST_TYPE_DEFAULT = HOST_TYPE_HYPERVISOR
 

@@ -656,16 +656,18 @@ func (manager *SGuestManager) initHostname() error {
 
 func (manager *SGuestManager) InitializeData() error {
 	guests := make([]SGuest, 0, 10)
-	q := manager.Query().Equals("hypervisor", "esxi")
+	q := manager.Query()
+	q = q.In("hypervisor", []string{api.HYPERVISOR_ESXI, api.HYPERVISOR_NUTANIX}).Filter(
+		sqlchemy.NOT(
+			sqlchemy.IsNullOrEmpty(q.Field("secgrp_id")),
+		),
+	)
 	err := db.FetchModelObjects(manager, q, &guests)
 	if err != nil {
 		return errors.Wrap(err, "db.FetchModelObjects")
 	}
-	// remove secgroup for esxi guest
+	// remove secgroup for esxi nutanix guest
 	for i := range guests {
-		if len(guests[i].SecgrpId) == 0 {
-			continue
-		}
 		db.Update(&guests[i], func() error {
 			guests[i].SecgrpId = ""
 			return nil
@@ -4902,6 +4904,16 @@ func getSecgroupsBySecgroupExternalIds(managerId string, externalIds []string) (
 }
 
 func (self *SGuest) SyncVMSecgroups(ctx context.Context, userCred mcclient.TokenCredential, externalIds []string) error {
+	// clear secgroup if vm not support security group
+	if self.GetDriver().GetMaxSecurityGroupCount() == 0 && (len(self.SecgrpId) > 0 || len(self.AdminSecgrpId) > 0) {
+		_, err := db.Update(self, func() error {
+			self.SecgrpId = ""
+			self.AdminSecgrpId = ""
+			return nil
+		})
+		return err
+	}
+
 	secgroups, err := self.getSecgroupsBySecgroupExternalIds(externalIds)
 	if err != nil {
 		return errors.Wrap(err, "getSecgroupsBySecgroupExternalIds")
