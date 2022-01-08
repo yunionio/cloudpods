@@ -16,24 +16,64 @@ package diskutils
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	cloudconsts "yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils/libguestfs"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils/nbd"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/consts"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 type SKVMGuestDisk struct {
-	deployer IDeployer
+	readOnly     bool
+	kvmImagePath string
+	topImagePath string
+	deployer     IDeployer
 }
 
-func NewKVMGuestDisk(imagePath, driver string) *SKVMGuestDisk {
+func NewKVMGuestDisk(imagePath, driver string, readOnly bool) (*SKVMGuestDisk, error) {
+	originImage := imagePath
+	if readOnly {
+		// if readonly, create a top image over the original image, open device as RW
+		tmpFileDir, err := ioutil.TempDir(cloudconsts.DeployTempDir(), "kvm_disks")
+		if err != nil {
+			log.Errorf("fail to obtain tempFile for readonly kvm disk: %s", err)
+			return nil, errors.Wrap(err, "ioutil.TempDir")
+		}
+		tmpFileName := filepath.Join(tmpFileDir, "disk")
+		img, err := qemuimg.NewQemuImage(tmpFileName)
+		if err != nil {
+			log.Errorf("fail to init qemu image %s", tmpFileName)
+			return nil, errors.Wrap(err, "NewQemuImage")
+		}
+		err = img.CreateQcow2(0, false, imagePath, "", "", "")
+		if err != nil {
+			log.Errorf("fail to create overlay qcow2 for kvm disk readonly access")
+			return nil, errors.Wrap(err, "CreateQcow2")
+		}
+		originImage = imagePath
+		imagePath = tmpFileName
+	}
 	return &SKVMGuestDisk{
-		deployer: newDeployer(imagePath, driver),
+		readOnly:     readOnly,
+		kvmImagePath: originImage,
+		topImagePath: imagePath,
+		deployer:     newDeployer(imagePath, driver),
+	}, nil
+}
+
+func (d *SKVMGuestDisk) Cleanup() {
+	if d.readOnly {
+		// if readonly, discard the top image when cleanup
+		os.RemoveAll(filepath.Dir(d.topImagePath))
 	}
 }
 

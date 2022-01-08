@@ -30,6 +30,7 @@ const (
 	IMAGE_STATUS_SAVED      = "saved"
 	IMAGE_STATUS_ACTIVE     = "active"
 	IMAGE_STATUS_CONVERTING = "converting"
+	IMAGE_STATUS_PROBING    = "probing"
 
 	IMAGE_ENCRYPT_STATUS_UNENCRYPTED = ""
 	IMAGE_ENCRYPT_STATUS_ENCRYPTED   = "encrypted"

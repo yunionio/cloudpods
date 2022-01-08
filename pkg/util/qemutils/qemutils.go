@@ -16,13 +16,14 @@ package qemutils
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"path"
 	"regexp"
 	"sort"
 	"strings"
 
+	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/version"
 )
 
@@ -59,17 +60,23 @@ func getQemuCmd(cmd, version string) string {
 
 func getQemuCmdByVersion(cmd, version string) string {
 	p := path.Join(fmt.Sprintf("/usr/local/qemu-%s/bin", version), cmd)
-	if _, err := os.Stat(p); !os.IsNotExist(err) {
+	if _, err := procutils.RemoteStat(p); err == nil {
 		return p
+	} else {
+		log.Errorf("stat %s: %s", p, err)
 	}
 	cmd = cmd + "_" + version
 	p = path.Join(USER_LOCAL_BIN, cmd)
-	if _, err := os.Stat(p); !os.IsNotExist(err) {
+	if _, err := procutils.RemoteStat(p); err == nil {
 		return p
+	} else {
+		log.Errorf("stat %s: %s", p, err)
 	}
 	p = path.Join(USER_BIN, cmd)
-	if _, err := os.Stat(p); !os.IsNotExist(err) {
+	if _, err := procutils.RemoteStat(p); err == nil {
 		return p
+	} else {
+		log.Errorf("stat %s: %s", p, err)
 	}
 	return ""
 }
@@ -92,7 +99,7 @@ func getCmdVersion(cmd string) string {
 
 func getQemuDefaultCmd(cmd string) string {
 	var qemus = make([]string, 0)
-	if files, err := ioutil.ReadDir("/usr/local"); err == nil {
+	if files, err := procutils.RemoteReadDir("/usr/local"); err == nil {
 		for i := 0; i < len(files); i++ {
 			if strings.HasPrefix(files[i].Name(), "qemu-") {
 				qemus = append(qemus, files[i].Name())
@@ -104,15 +111,17 @@ func getQemuDefaultCmd(cmd string) string {
 					getQemuVersion(qemus[j]))
 			})
 			p := fmt.Sprintf("/usr/local/%s/bin/%s", qemus[len(qemus)-1], cmd)
-			if _, err := os.Stat(p); !os.IsNotExist(err) {
+			if _, err := procutils.RemoteStat(p); err == nil {
 				return p
+			} else {
+				log.Errorf("stat %s: %s", p, err)
 			}
 		}
 	}
 
 	cmds := make([]string, 0)
 	for _, dir := range []string{USER_LOCAL_BIN, USER_BIN} {
-		if files, err := ioutil.ReadDir(dir); err == nil {
+		if files, err := procutils.RemoteReadDir(dir); err == nil {
 			for i := 0; i < len(files); i++ {
 				if strings.HasPrefix(files[i].Name(), cmd) {
 					cmds = append(cmds, files[i].Name())
@@ -124,8 +133,10 @@ func getQemuDefaultCmd(cmd string) string {
 						getCmdVersion(cmds[j]))
 				})
 				p := path.Join(dir, cmds[len(cmds)-1])
-				if _, err := os.Stat(p); !os.IsNotExist(err) {
+				if _, err := procutils.RemoteStat(p); err == nil {
 					return p
+				} else {
+					log.Errorf("stat %s: %s", p, err)
 				}
 			}
 		}
