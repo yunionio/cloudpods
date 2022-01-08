@@ -63,10 +63,11 @@ type VDDKDisk struct {
 	Pid      int
 
 	kvmDisk      *SKVMGuestDisk
+	readOnly     bool
 	deployDriver string
 }
 
-func NewVDDKDisk(vddkInfo *apis.VDDKConInfo, diskPath, deployDriver string) *VDDKDisk {
+func NewVDDKDisk(vddkInfo *apis.VDDKConInfo, diskPath, deployDriver string, readOnly bool) (*VDDKDisk, error) {
 	return &VDDKDisk{
 		Host:         vddkInfo.Host,
 		Port:         int(vddkInfo.Port),
@@ -75,7 +76,8 @@ func NewVDDKDisk(vddkInfo *apis.VDDKConInfo, diskPath, deployDriver string) *VDD
 		VmRef:        vddkInfo.Vmref,
 		DiskPath:     diskPath,
 		deployDriver: deployDriver,
-	}
+		readOnly:     readOnly,
+	}, nil
 }
 
 type Command struct {
@@ -137,12 +139,22 @@ func logpath(pid int) string {
 	return fmt.Sprintf("%s/vixDiskLib-%d.log", TMPDIR, pid)
 }
 
+func (vd *VDDKDisk) Cleanup() {
+	if vd.kvmDisk != nil {
+		vd.kvmDisk.Cleanup()
+		vd.kvmDisk = nil
+	}
+}
+
 func (vd *VDDKDisk) Connect() error {
 	flatFile, err := vd.ConnectBlockDevice()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "ConnectBlockDevice")
 	}
-	vd.kvmDisk = NewKVMGuestDisk(flatFile, vd.deployDriver)
+	vd.kvmDisk, err = NewKVMGuestDisk(flatFile, vd.deployDriver, vd.readOnly)
+	if err != nil {
+		return errors.Wrap(err, "NewKVMGuestDisk")
+	}
 	return vd.kvmDisk.Connect()
 }
 
@@ -151,6 +163,8 @@ func (vd *VDDKDisk) Disconnect() error {
 		if err := vd.kvmDisk.Disconnect(); err != nil {
 			log.Errorf("kvm disk disconnect failed %s", err)
 		}
+		vd.kvmDisk.Cleanup()
+		vd.kvmDisk = nil
 	}
 	return vd.DisconnectBlockDevice()
 }

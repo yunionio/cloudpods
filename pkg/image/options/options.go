@@ -20,7 +20,7 @@ import (
 )
 
 type SImageOptions struct {
-	common_options.CommonOptions
+	common_options.HostCommonOptions
 
 	common_options.DBOptions
 
@@ -40,7 +40,7 @@ type SImageOptions struct {
 
 	TorrentClientPath string `help:"path to torrent executable" default:"/opt/yunion/bin/torrent"`
 
-	DeployServerSocketPath string `help:"Deploy server listen socket path" default:"/var/run/onecloud/deploy.sock"`
+	// DeployServerSocketPath string `help:"Deploy server listen socket path" default:"/var/run/onecloud/deploy.sock"`
 
 	StorageDriver string `help:"image backend storage" default:"local" choices:"s3|local"`
 

@@ -26,6 +26,7 @@ type IDisk interface {
 	MountRootfs() (fsdriver.IRootFsDriver, error)
 	UmountRootfs(driver fsdriver.IRootFsDriver) error
 	ResizePartition() error
+	Cleanup()
 }
 
 type DiskParams struct {
@@ -34,15 +35,15 @@ type DiskParams struct {
 	VddkInfo   *apis.VDDKConInfo
 }
 
-func GetIDisk(params DiskParams, driver string) IDisk {
+func GetIDisk(params DiskParams, driver string, readOnly bool) (IDisk, error) {
 	hypervisor := params.Hypervisor
 	switch hypervisor {
 	case comapi.HYPERVISOR_KVM:
-		return NewKVMGuestDisk(params.DiskPath, driver)
+		return NewKVMGuestDisk(params.DiskPath, driver, readOnly)
 	case comapi.HYPERVISOR_ESXI:
-		return NewVDDKDisk(params.VddkInfo, params.DiskPath, driver)
+		return NewVDDKDisk(params.VddkInfo, params.DiskPath, driver, readOnly)
 	default:
-		return NewKVMGuestDisk(params.DiskPath, driver)
+		return NewKVMGuestDisk(params.DiskPath, driver, readOnly)
 	}
 }
 

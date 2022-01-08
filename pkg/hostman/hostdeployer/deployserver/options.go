@@ -17,18 +17,24 @@ package deployserver
 import (
 	"os"
 
+	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 type SDeployOptions struct {
 	common_options.HostCommonOptions
 
-	PrivatePrefixes      []string `help:"IPv4 private prefixes"`
-	ChntpwPath           string   `help:"path to chntpw tool" default:"/usr/local/bin/chntpw.static"`
-	EnableRemoteExecutor bool     `help:"Enable remote executor" default:"false"`
-	CloudrootDir         string   `help:"User cloudroot home dir" default:"/opt"`
-	ImageDeployDriver    string   `help:"Image deploy driver" default:"nbd" choices:"nbd|libguestfs"`
-	CommonConfigFile     string   `help:"common config file for container"`
+	PrivatePrefixes []string `help:"IPv4 private prefixes"`
+	ChntpwPath      string   `help:"path to chntpw tool" default:"/usr/local/bin/chntpw.static"`
+
+	CloudrootDir      string `help:"User cloudroot home dir" default:"/opt"`
+	ImageDeployDriver string `help:"Image deploy driver" default:"nbd" choices:"nbd|libguestfs"`
+	CommonConfigFile  string `help:"common config file for container"`
+
+	DeployTempDir string `help:"temp dir for deployer" default:"/opt/cloud/workspace/run/deploy"`
 }
 
 var DeployOption SDeployOptions
@@ -44,6 +50,14 @@ func Parse() (hostOpts SDeployOptions) {
 		// keep base options
 		hostOpts.BaseOptions.BaseOptions = baseOpt
 	}
+	if !fileutils2.Exists(hostOpts.DeployTempDir) {
+		err := os.MkdirAll(hostOpts.DeployTempDir, 0755)
+		if err != nil {
+			log.Fatalf("fail to create %s: %s", hostOpts.DeployTempDir, err)
+			return
+		}
+	}
+	consts.SetDeployTempDir(hostOpts.DeployTempDir)
 	return hostOpts
 }
 
