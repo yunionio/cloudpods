@@ -807,7 +807,7 @@ func (s *SGuestResumeTask) taskFailed(reason string) {
 }
 
 func (s *SGuestResumeTask) onGetBlockInfo(blocks []monitor.QemuBlock) {
-	log.Debugf("onGetBlockInfo %s", blocks)
+	log.Debugf("onGetBlockInfo %v", blocks)
 	// for _, drv := range results.GetArray() {
 	// 	// encryption not work
 	// }

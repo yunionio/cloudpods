@@ -178,6 +178,10 @@ func (p *param) convert() (reflect.Value, error) {
 }
 
 func ValueToJSONObject(out reflect.Value) jsonutils.JSONObject {
+	return _valueToJSONObject(out, false)
+}
+
+func _valueToJSONObject(out reflect.Value, allFields bool) jsonutils.JSONObject {
 	if gotypes.IsNil(out.Interface()) {
 		return nil
 	}
@@ -185,11 +189,19 @@ func ValueToJSONObject(out reflect.Value) jsonutils.JSONObject {
 	if obj, ok := isJSONObject(out); ok {
 		return obj
 	}
-	return jsonutils.MarshalAll(out.Interface())
+	if allFields {
+		return jsonutils.MarshalAll(out.Interface())
+	} else {
+		return jsonutils.Marshal(out.Interface())
+	}
 }
 
 func ValueToJSONDict(out reflect.Value) *jsonutils.JSONDict {
-	jsonObj := ValueToJSONObject(out)
+	return _valueToJSONDict(out, false)
+}
+
+func _valueToJSONDict(out reflect.Value, allFields bool) *jsonutils.JSONDict {
+	jsonObj := _valueToJSONObject(out, allFields)
 	if jsonObj == nil {
 		return nil
 	}
@@ -205,7 +217,7 @@ func ValueToError(out reflect.Value) error {
 }
 
 func mergeInputOutputData(input *jsonutils.JSONDict, resVal reflect.Value) *jsonutils.JSONDict {
-	output := ValueToJSONDict(resVal)
+	output := _valueToJSONDict(resVal, true)
 	// preserve the input info not returned by caller
 	ret := input.Copy()
 	jsonMap, _ := output.GetMap()

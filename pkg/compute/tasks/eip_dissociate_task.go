@@ -151,7 +151,7 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 					}
 				}
 			default:
-				errs = append(errs, errors.Wrapf(httperrors.ErrNotSupported, "%s not supported type", eip.AssociateType))
+				errs = append(errs, errors.Wrapf(httperrors.ErrNotSupported, "not supported type %s", eip.AssociateType))
 			}
 			if len(errs) > 0 {
 				err := errors.NewAggregate(errs)
