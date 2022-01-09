@@ -21,12 +21,14 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/image/models"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -79,8 +81,22 @@ func (self *ImageProbeTask) StartImageProbe(ctx context.Context, image *models.S
 	}
 }
 
-func (self *ImageProbeTask) doProbe(ctx context.Context, image *models.SImage) error {
+func imageGetPath(image *models.SImage) string {
 	diskPath := image.GetPath("")
+	if !fileutils2.Exists(diskPath) {
+		diskPath = image.GetPath(image.DiskFormat)
+		if !fileutils2.Exists(diskPath) {
+			return ""
+		}
+	}
+	return diskPath
+}
+
+func (self *ImageProbeTask) doProbe(ctx context.Context, image *models.SImage) error {
+	diskPath := imageGetPath(image)
+	if len(diskPath) == 0 {
+		return errors.Wrap(httperrors.ErrNotFound, "disk file not found")
+	}
 	if deployclient.GetDeployClient() == nil {
 		return fmt.Errorf("deploy client not init")
 	}
@@ -95,7 +111,10 @@ func (self *ImageProbeTask) doProbe(ctx context.Context, image *models.SImage) e
 func (self *ImageProbeTask) updateImageMetadata(
 	ctx context.Context, image *models.SImage,
 ) error {
-	imagePath := image.GetPath("")
+	imagePath := imageGetPath(image)
+	if len(imagePath) == 0 {
+		return errors.Wrap(httperrors.ErrNotFound, "image file not found")
+	}
 	fp, err := os.Open(imagePath)
 	if err != nil {
 		return err
@@ -124,8 +143,23 @@ func (self *ImageProbeTask) updateImageMetadata(
 		return nil
 	})
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Update image")
 	}
+
+	// also update the corresponding subformats
+	subimg := models.ImageSubformatManager.FetchSubImage(image.Id, image.DiskFormat)
+	if subimg != nil {
+		_, err = db.Update(subimg, func() error {
+			subimg.Size = stat.Size()
+			subimg.Checksum = chksum
+			subimg.FastHash = fastchksum
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "Update subformat")
+		}
+	}
+
 	return nil
 }
 

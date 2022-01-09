@@ -105,3 +105,6 @@ type ImageUpdateStatusInput struct {
 	// 更新镜像状态原因
 	Reason string `json:"reason"`
 }
+
+type PerformProbeInput struct {
+}

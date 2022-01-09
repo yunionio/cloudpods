@@ -1562,3 +1562,14 @@ func (img *SImage) PerformPrivate(ctx context.Context, userCred mcclient.TokenCr
 	}
 	return img.performPrivate(ctx, userCred, query, input)
 }
+
+func (img *SImage) PerformProbe(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PerformProbeInput) (jsonutils.JSONObject, error) {
+	if img.Status != api.IMAGE_STATUS_ACTIVE {
+		return nil, httperrors.NewInvalidStatusError("cannot probe in status %s", img.Status)
+	}
+	err := img.ImageProbeAndCustomization(ctx, userCred, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "ImageProbeAndCustomization")
+	}
+	return nil, nil
+}
