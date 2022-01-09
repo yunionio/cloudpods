@@ -141,11 +141,14 @@ func (r *SRemoteFile) fetch(preChksum string, callback func(progress, progressMb
 			if len(r.chksum) > 0 && fileutils2.Exists(r.tmpPath) {
 				localChksum, err := fileutils2.MD5(r.tmpPath)
 				if err != nil {
+					log.Errorf("TmpPath MD5 %s fail %s", r.tmpPath, err)
 					return errors.Wrapf(err, "TmpPath fileutils2.MD5(%s)", r.tmpPath)
 				}
 				if r.chksum != localChksum {
+					log.Errorf("remote checksume %s != local checksum %s", r.chksum, localChksum)
 					return fmt.Errorf("remote checksum %s != local checksum %s", r.chksum, localChksum)
 				}
+				log.Debugf("localPath %s tmpPath %s", r.localPath, r.tmpPath)
 				if r.localPath != r.tmpPath {
 					syscall.Unlink(r.localPath)
 					return syscall.Rename(r.tmpPath, r.localPath)

@@ -477,4 +477,16 @@ func init() {
 		printObject(srv)
 		return nil
 	})
+
+	type ImageProbeOptions struct {
+		ID string `help:"ID or name of image to probe"`
+	}
+	R(&ImageProbeOptions{}, "image-probe", "Start image probe task", func(s *mcclient.ClientSession, opts *ImageProbeOptions) error {
+		img, err := modules.Images.PerformAction(s, opts.ID, "probe", nil)
+		if err != nil {
+			return err
+		}
+		printObject(img)
+		return nil
+	})
 }
