@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -222,6 +223,11 @@ func (w *SWindowsRootFs) DeployHostname(part IDiskPartition, hostname, domain st
 		"NV Domain":   domain,
 	} {
 		lines = append(lines, w.regAdd(TCPIP_PARAM_KEY, k, v, "REG_SZ"))
+	}
+	// windows allow a maximal length of 15
+	// http://support.microsoft.com/kb/909264
+	if len(hostname) > api.MAX_WINDOWS_COMPUTER_NAME_LENGTH {
+		hostname = hostname[:api.MAX_WINDOWS_COMPUTER_NAME_LENGTH]
 	}
 	lines = append(lines, w.regAdd(ACTIVE_COMPUTER_NAME_KEY, "ComputerName", hostname, "REG_SZ"))
 	lines = append(lines, w.regAdd(COMPUTER_NAME_KEY, "ComputerName", hostname, "REG_SZ"))
