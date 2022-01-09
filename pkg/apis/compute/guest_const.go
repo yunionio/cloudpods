@@ -326,3 +326,7 @@ func Hypervisors2HostTypes(hypervisors []string) []string {
 	}
 	return hostTypes
 }
+
+// windows allow a maximal length of 15
+// http://support.microsoft.com/kb/909264
+const MAX_WINDOWS_COMPUTER_NAME_LENGTH = 15

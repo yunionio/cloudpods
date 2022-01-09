@@ -64,8 +64,9 @@ func (manager *SHostnameResourceBaseManager) ValidateHostname(name string, osTyp
 			return input, httperrors.NewInputParameterError("hostname cannot be number %d", num)
 		}
 		input.Hostname = strings.ReplaceAll(input.Hostname, ".", "")
-		if len(input.Hostname) > 15 {
-			input.Hostname = input.Hostname[:15]
+		if len(input.Hostname) > api.MAX_WINDOWS_COMPUTER_NAME_LENGTH {
+			return input, httperrors.NewInputParameterError("Windows hostname cannot be longer than %d characters", api.MAX_WINDOWS_COMPUTER_NAME_LENGTH)
+			// input.Hostname = input.Hostname[:15]
 		}
 	}
 	if len(input.Hostname) < 2 {
