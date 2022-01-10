@@ -112,12 +112,9 @@ func guestActions(f actionFunc) appsrv.FilterHandler {
 
 func getStatus(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, _ := appsrv.FetchEnv(ctx, w, r)
-	var status, blockJobsCount = guestman.GetGuestManager().StatusWithBlockJobsCount(params["<sid>"])
-	res := map[string]interface{}{
-		"status":           status,
-		"block_jobs_count": blockJobsCount,
-	}
-	appsrv.SendStruct(w, res)
+	sid := params["<sid>"]
+	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().StatusWithBlockJobsCount, sid)
+	hostutils.ResponseOk(ctx, w)
 }
 
 func cpusetBalance(ctx context.Context, w http.ResponseWriter, r *http.Request) {
