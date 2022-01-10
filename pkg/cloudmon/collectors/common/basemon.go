@@ -146,6 +146,9 @@ func (self *CloudReportBase) InitProviderInstance() (cloudprovider.ICloudProvide
 	if err != nil {
 		log.Errorf("get cloudAccout options err:%v", err)
 	}
+	if options == nil || options.Interface() == nil {
+		options = jsonutils.NewDict()
+	}
 	cfg := cloudprovider.ProviderConfig{
 		Id:        self.SProvider.Id,
 		Name:      self.SProvider.Name,
