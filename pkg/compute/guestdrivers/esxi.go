@@ -681,43 +681,46 @@ func (self *SESXiGuestDriver) RequestStopOnHost(ctx context.Context, guest *mode
 	return nil
 }
 
-func (self *SESXiGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
-	ihost, err := host.GetIHost()
-	if err != nil {
-		return nil, err
-	}
-	ivm, err := ihost.GetIVMById(guest.GetExternalId())
-	if err != nil && errors.Cause(err) != errors.ErrNotFound {
-		return nil, err
-	}
-	// VM may be migrated by Vcenter, try to find VM from whole datacenter.
-	if err != nil {
-		ehost := ihost.(*esxi.SHost)
-		dc, err := ehost.GetDatacenter()
+func (self *SESXiGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		ihost, err := host.GetIHost()
 		if err != nil {
-			return nil, errors.Wrapf(err, "ehost.GetDatacenter")
+			return nil, errors.Wrap(err, "host.GetIHost")
 		}
-		vm, err := dc.FetchVMById(guest.GetExternalId())
+		ivm, err := ihost.GetIVMById(guest.GetExternalId())
 		if err != nil {
-			log.Errorf("fail to find ivm by id %q in dc %q: %v", guest.GetExternalId(), dc.GetName(), err)
-			return nil, err
+			if errors.Cause(err) != errors.ErrNotFound {
+				return nil, errors.Wrap(err, "ihost.GetIVMById")
+			}
+			// VM may be migrated by Vcenter, try to find VM from whole datacenter.
+			ehost := ihost.(*esxi.SHost)
+			dc, err := ehost.GetDatacenter()
+			if err != nil {
+				return nil, errors.Wrapf(err, "ehost.GetDatacenter")
+			}
+			vm, err := dc.FetchVMById(guest.GetExternalId())
+			if err != nil {
+				log.Errorf("fail to find ivm by id %q in dc %q: %v", guest.GetExternalId(), dc.GetName(), err)
+				return nil, errors.Wrap(err, "dc.FetchVMById")
+			}
+			ihost = vm.GetIHost()
+			host = models.HostManager.FetchHostByExtId(ihost.GetGlobalId())
+			if host == nil {
+				return nil, errors.Wrapf(errors.ErrNotFound, "find ivm %q in ihost %q which is not existed here", guest.GetExternalId(), ihost.GetGlobalId())
+			}
+			ivm = vm
 		}
-		ihost = vm.GetIHost()
-		host = models.HostManager.FetchHostByExtId(ihost.GetGlobalId())
-		if host == nil {
-			return nil, errors.Wrapf(errors.ErrNotFound, "find ivm %q in ihost %q which is not existed here", guest.GetExternalId(), ihost.GetGlobalId())
+		err = guest.SyncAllWithCloudVM(ctx, userCred, host, ivm, true)
+		if err != nil {
+			return nil, errors.Wrap(err, "guest.SyncAllWithCloudVM")
 		}
-		ivm = vm
-	}
-	err = guest.SyncAllWithCloudVM(ctx, userCred, host, ivm, true)
-	if err != nil {
-		return nil, err
-	}
 
-	status := GetCloudVMStatus(ivm)
-	body := jsonutils.NewDict()
-	body.Add(jsonutils.NewString(status), "status")
-	return body, nil
+		status := GetCloudVMStatus(ivm)
+		body := jsonutils.NewDict()
+		body.Add(jsonutils.NewString(status), "status")
+		return body, nil
+	})
+	return nil
 }
 
 func (self *SESXiGuestDriver) ValidateRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input *api.ServerRebuildRootInput) (*api.ServerRebuildRootInput, error) {

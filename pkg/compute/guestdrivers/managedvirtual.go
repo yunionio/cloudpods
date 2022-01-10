@@ -818,26 +818,29 @@ func (self *SManagedVirtualizedGuestDriver) RequestStopOnHost(ctx context.Contex
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
-	ihost, err := host.GetIHost()
-	if err != nil {
-		return nil, err
-	}
-	ivm, err := ihost.GetIVMById(guest.ExternalId)
-	if err != nil {
-		log.Errorf("fail to find ivm by id %s", err)
-		return nil, err
-	}
+func (self *SManagedVirtualizedGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		ihost, err := host.GetIHost()
+		if err != nil {
+			return nil, errors.Wrap(err, "host.GetIHost")
+		}
+		ivm, err := ihost.GetIVMById(guest.ExternalId)
+		if err != nil {
+			log.Errorf("fail to find ivm by id %s", err)
+			return nil, errors.Wrap(err, "ihost.GetIVMById")
+		}
 
-	err = guest.SyncAllWithCloudVM(ctx, userCred, host, ivm, true)
-	if err != nil {
-		return nil, err
-	}
+		err = guest.SyncAllWithCloudVM(ctx, userCred, host, ivm, true)
+		if err != nil {
+			return nil, errors.Wrap(err, "guest.SyncAllWithCloudVM")
+		}
 
-	status := GetCloudVMStatus(ivm)
-	body := jsonutils.NewDict()
-	body.Add(jsonutils.NewString(status), "status")
-	return body, nil
+		status := GetCloudVMStatus(ivm)
+		body := jsonutils.NewDict()
+		body.Add(jsonutils.NewString(status), "status")
+		return body, nil
+	})
+	return nil
 }
 
 func (self *SManagedVirtualizedGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
