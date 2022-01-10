@@ -17,6 +17,8 @@ package modulebase
 import (
 	"io/ioutil"
 
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -32,4 +34,23 @@ func GetVersion(s *mcclient.ClientSession, serviceType string) (string, error) {
 		return "", err
 	}
 	return string(body), nil
+}
+
+func ListWorkers(s *mcclient.ClientSession, serviceType string) (*ListResult, error) {
+	man := NewBaseManager(serviceType, "", "", nil, nil)
+	resp, err := man.rawBaseUrlRequest(s, "GET", "/worker_stats", nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	ret := ListResult{}
+	if workers, _ := jsonutils.Parse(body); workers != nil {
+		workers.Unmarshal(&ret.Data, "workers")
+		ret.Total = len(ret.Data)
+	}
+	return &ret, nil
 }

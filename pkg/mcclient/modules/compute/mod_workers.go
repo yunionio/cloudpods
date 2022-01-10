@@ -17,6 +17,7 @@ package compute
 import (
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -30,14 +31,18 @@ var (
 	Workers WorkerManager
 )
 
-func (this *WorkerManager) List(s *mcclient.ClientSession, params jsonutils.JSONObject) (*modulebase.ListResult, error) {
-	return modulebase.List(this.ResourceManager, s, this.KeywordPlural, this.Keyword)
-}
-
 func init() {
 	Workers = WorkerManager{modules.NewComputeManager("workers", "worker_stats",
 		[]string{"name", "queue_cnt", "active_worker_cnt", "backlog", "detach_worker_cnt", "max_worker_cnt"},
 		[]string{})}
 
 	modules.RegisterCompute(&Workers)
+}
+
+func (this *WorkerManager) List(s *mcclient.ClientSession, params jsonutils.JSONObject) (*modulebase.ListResult, error) {
+	serviceType := apis.SERVICE_TYPE_REGION + "_v2"
+	if params.Contains("service_type") {
+		serviceType, _ = params.GetString("service_type")
+	}
+	return modulebase.ListWorkers(s, serviceType)
 }

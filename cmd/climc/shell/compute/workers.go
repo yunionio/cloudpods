@@ -15,15 +15,18 @@
 package compute
 
 import (
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 func init() {
 	type WorkerListOptions struct {
+		ServiceType string `choices:"image|cloudid|cloudevent|devtool|ansible|identity|notify|log|compute|compute_v2"`
 	}
 	R(&WorkerListOptions{}, "worker-list", "List workers", func(s *mcclient.ClientSession, args *WorkerListOptions) error {
-		result, err := modules.Workers.List(s, nil)
+		result, err := modules.Workers.List(s, jsonutils.Marshal(args))
 		if err != nil {
 			return err
 		}
