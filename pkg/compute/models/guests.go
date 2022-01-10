@@ -1688,7 +1688,7 @@ func (self *SGuest) PostUpdate(ctx context.Context, userCred mcclient.TokenCrede
 
 	self.StartSyncTask(ctx, userCred, true, "")
 
-	if data.Contains("name") || data.Contains("__meta__") {
+	if len(self.ExternalId) > 0 && (data.Contains("name") || data.Contains("__meta__")) {
 		err := self.StartRemoteUpdateTask(ctx, userCred, false, "")
 		if err != nil {
 			log.Errorf("StartRemoteUpdateTask fail: %s", err)
