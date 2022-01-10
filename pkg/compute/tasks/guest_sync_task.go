@@ -64,7 +64,7 @@ func (self *GuestSyncConfTask) OnSyncComplete(ctx context.Context, obj db.IStand
 			self.SetStageComplete(ctx, nil)
 			return
 		}
-		if guest.Status == api.VM_BLOCK_STREAM {
+		if inBlockStream := jsonutils.QueryBoolean(self.Params, "in_block_stream", false); inBlockStream {
 			guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp, true)
 		} else {
 			guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp, false)
