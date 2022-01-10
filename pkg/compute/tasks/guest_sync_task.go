@@ -64,7 +64,11 @@ func (self *GuestSyncConfTask) OnSyncComplete(ctx context.Context, obj db.IStand
 			self.SetStageComplete(ctx, nil)
 			return
 		}
-		guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp)
+		if guest.Status == api.VM_BLOCK_STREAM {
+			guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp, true)
+		} else {
+			guest.StartRestartNetworkTask(ctx, self.UserCred, "", prevIp, false)
+		}
 		self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
 	} else if data.Contains("task") {
 		// XXX this is only applied to KVM, which will call task_complete twice

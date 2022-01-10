@@ -123,7 +123,11 @@ Loop:
 		}
 	}
 
-	guest.SetStatus(self.GetUserCred(), api.VM_RUNNING, "")
+	if inBlockStream := jsonutils.QueryBoolean(self.Params, "in_block_stream", false); inBlockStream {
+		guest.SetStatus(self.GetUserCred(), api.VM_BLOCK_STREAM, "")
+	} else {
+		guest.SetStatus(self.GetUserCred(), api.VM_RUNNING, "")
+	}
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RESTART_NETWORK, "", self.UserCred, true)
 	if clean != nil {
 		err := clean()
