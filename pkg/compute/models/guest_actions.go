@@ -727,9 +727,10 @@ func (self *SGuest) PerformAttachdisk(ctx context.Context, userCred mcclient.Tok
 	return nil, self.GetDriver().StartGuestAttachDiskTask(ctx, userCred, self, taskData, "")
 }
 
-func (self *SGuest) StartRestartNetworkTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, ip string) error {
+func (self *SGuest) StartRestartNetworkTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, ip string, inBlockStream bool) error {
 	data := jsonutils.NewDict()
 	data.Set("ip", jsonutils.NewString(ip))
+	data.Set("in_block_stream", jsonutils.NewBool(inBlockStream))
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestRestartNetworkTask", self, userCred, data, parentTaskId, "", nil); err != nil {
 		log.Errorln(err)
 		return err
@@ -2044,7 +2045,7 @@ func (self *SGuest) getReuseAddr(gn *SGuestnetwork) string {
 // first detach the network, then attach a network with identity mac address but different IP configurations
 // TODO change IP address of a teaming NIC may fail!!
 func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status != api.VM_READY && self.Status != api.VM_RUNNING {
+	if self.Status != api.VM_READY && self.Status != api.VM_RUNNING && self.Status != api.VM_BLOCK_STREAM {
 		return nil, httperrors.NewInvalidStatusError("Cannot change network ip_addr in status %s", self.Status)
 	}
 
@@ -2155,7 +2156,7 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 	restartNetwork, _ := data.Bool("restart_network")
 
 	taskData := jsonutils.NewDict()
-	if self.Hypervisor == api.HYPERVISOR_KVM && restartNetwork && self.Status == api.VM_RUNNING {
+	if self.Hypervisor == api.HYPERVISOR_KVM && restartNetwork && (self.Status == api.VM_RUNNING || self.Status == api.VM_BLOCK_STREAM) {
 		taskData.Set("restart_network", jsonutils.JSONTrue)
 		taskData.Set("prev_ip", jsonutils.NewString(gn.IpAddr))
 		self.SetStatus(userCred, api.VM_RESTART_NETWORK, "restart network")
