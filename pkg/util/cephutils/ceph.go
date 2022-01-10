@@ -509,6 +509,10 @@ func (self *SImage) Clone(ctx context.Context, pool, name string) error {
 	}
 
 	_pool := self.client.pool
+
+	// use current pool
+	self.client.SetPool(pool)
+	// recover previous pool
 	defer self.client.SetPool(_pool)
 
 	img, err := self.client.GetImage(name)
