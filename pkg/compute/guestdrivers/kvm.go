@@ -17,9 +17,9 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -304,17 +304,24 @@ func (self *SKVMGuestDriver) RequestStartOnHost(ctx context.Context, guest *mode
 	return nil
 }
 
-func (self *SKVMGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
-	header := http.Header{}
-	header.Set(mcclient.AUTH_TOKEN, userCred.GetTokenString())
-	header.Set(mcclient.REGION_VERSION, "v2")
+func (self *SKVMGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
+	header := self.getTaskRequestHeader(task)
 
 	url := fmt.Sprintf("%s/servers/%s/status", host.ManagerUri, guest.Id)
 	_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", url, header, nil, true)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return res, nil
+	statusStr, _ := res.GetString("status")
+	if len(statusStr) > 0 {
+		// may be an old version host, use sync request
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+			// delay response to ensure event order
+			time.Sleep(time.Second)
+			return res, nil
+		})
+	}
+	return nil
 }
 
 func (self *SKVMGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential) error {
