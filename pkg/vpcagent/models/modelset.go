@@ -804,12 +804,18 @@ func (set Groups) Copy() apihelper.IModelSet {
 
 func (set Groups) joinGroupnetworks(subEntries Groupnetworks, networks Networks) bool {
 	for _, gn := range subEntries {
-		gn.Network = networks[gn.NetworkId]
+		if network, ok := networks[gn.NetworkId]; ok {
+			gn.Network = network
+			gn.Network.Groupnetworks.AddModel(gn)
+		} else {
+			log.Errorf("Network %s not found for vip %s", gn.NetworkId, gn.IpAddr)
+		}
 		if group, ok := set[gn.GroupId]; ok {
 			gn.Group = group
 			group.Groupnetworks.AddModel(gn)
+		} else {
+			log.Errorf("Network %s not found for vip %s", gn.GroupId, gn.IpAddr)
 		}
-		gn.Network.Groupnetworks.AddModel(gn)
 	}
 	return true
 }
