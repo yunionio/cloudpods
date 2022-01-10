@@ -37,10 +37,10 @@ func init() {
 		return nil
 	})
 
-	type TaskShowOptions struct {
+	type RegionTaskShowOptions struct {
 		ID string `help:"ID or name of the task"`
 	}
-	R(&TaskShowOptions{}, "region-task-show", "Show details of a region task", func(s *mcclient.ClientSession, args *TaskShowOptions) error {
+	R(&RegionTaskShowOptions{}, "region-task-show", "Show details of a region task", func(s *mcclient.ClientSession, args *RegionTaskShowOptions) error {
 		result, err := compute.ComputeTasks.Get(s, args.ID, nil)
 		if err != nil {
 			return err
@@ -48,4 +48,38 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type TaskListOptions struct {
+		ObjName     string `help:"object name"`
+		ObjId       string `help:"object id"`
+		TaskName    string `help:"task name"`
+		ServiceType string `choices:"image|cloudid|cloudevent|devtool|ansible|identity|notify|log|compute|compute_v2"`
+	}
+	R(&TaskListOptions{}, "task-list", "List tasks", func(s *mcclient.ClientSession, args *TaskListOptions) error {
+		params := jsonutils.Marshal(args)
+		man := compute.TasksManager{}
+		result, err := man.List(s, params)
+		if err != nil {
+			return err
+		}
+		printList(result, man.GetColumns(s))
+		return nil
+	})
+
+	type TaskShowOptions struct {
+		ID          string `help:"ID or name of the task"`
+		ServiceType string `choices:"image|cloudid|cloudevent|devtool|ansible|identity|notify|log|compute|compute_v2"`
+	}
+
+	R(&TaskShowOptions{}, "task-show", "Show details of a task", func(s *mcclient.ClientSession, args *TaskShowOptions) error {
+		man := compute.TasksManager{}
+		params := jsonutils.Marshal(args)
+		result, err := man.Get(s, args.ID, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 }
