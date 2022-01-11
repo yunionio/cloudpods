@@ -2878,9 +2878,13 @@ func (self *SGuest) isNotRunningStatus(status string) bool {
 
 func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
 	preStatus := self.Status
+
+	if len(self.BackupHostId) == 0 && input.Status == api.VM_RUNNING && input.BlockJobsCount > 0 {
+		input.Status = api.VM_BLOCK_STREAM
+	}
 	_, err := self.SVirtualResourceBase.PerformStatus(ctx, userCred, query, input)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SVirtualResourceBase.PerformStatus")
 	}
 
 	db.Update(self, func() error {
@@ -2888,8 +2892,7 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 		return nil
 	})
 
-	status := input.Status
-	if len(self.BackupHostId) > 0 && status == api.VM_RUNNING && input.BlockJobsCount > 0 {
+	if len(self.BackupHostId) > 0 && input.Status == api.VM_RUNNING && input.BlockJobsCount > 0 {
 		self.SetMetadata(ctx, api.MIRROR_JOB, api.MIRROR_JOB_READY, userCred)
 	} else if ispId := self.GetMetadata(api.BASE_INSTANCE_SNAPSHOT_ID, userCred); len(ispId) > 0 {
 		ispM, err := InstanceSnapshotManager.FetchById(ispId)

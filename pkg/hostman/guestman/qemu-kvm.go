@@ -283,7 +283,7 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 	if isStarted {
 		log.Infof("Async start server %s success!", s.GetName())
 		s.syncMeta = s.CleanImportMetadata()
-		s.StartMonitor(ctx)
+		s.StartMonitor(ctx, nil)
 		return nil, nil
 	}
 	log.Infof("Async start server %s failed: %s!!!", s.GetName(), err)
@@ -339,7 +339,7 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 	if s.IsRunning() {
 		log.Infof("%s is running, pending_delete=%t", s.GetName(), pendingDelete)
 		if !pendingDelete {
-			s.StartMonitor(context.Background())
+			s.StartMonitor(context.Background(), nil)
 		}
 	} else {
 		var action = "stopped"
@@ -429,21 +429,28 @@ func (s *SKVMGuestInstance) GetMonitorPath() string {
 	return monitorPath
 }
 
-func (s *SKVMGuestInstance) StartMonitorWithImportGuestSocketFile(ctx context.Context, socketFile string) {
+func (s *SKVMGuestInstance) StartMonitorWithImportGuestSocketFile(ctx context.Context, socketFile string, cb func()) {
 	timeutils2.AddTimeout(100*time.Millisecond, func() {
-		s.Monitor = monitor.NewQmpMonitor(
+		var mon monitor.Monitor
+		mon = monitor.NewQmpMonitor(
 			s.GetName(),
 			s.Id,
 			s.onImportGuestMonitorDisConnect, // on monitor disconnect
 			func(err error) { s.onImportGuestMonitorTimeout(ctx, err) }, // on monitor timeout
-			func() { s.onImportGuestMonitorConnected(ctx) },             // on monitor connected
+			func() {
+				s.Monitor = mon
+				s.onImportGuestMonitorConnected(ctx)
+				if cb != nil {
+					cb()
+				}
+			}, // on monitor connected
 			s.onReceiveQMPEvent, // on reveive qmp event
 		)
-		s.Monitor.ConnectWithSocket(socketFile)
+		mon.ConnectWithSocket(socketFile)
 	})
 }
 
-func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
+func (s *SKVMGuestInstance) StartMonitor(ctx context.Context, cb func()) {
 	if options.HostOptions.EnableQmpMonitor && s.GetQmpMonitorPort(-1) > 0 {
 		// try qmp first, if qmp connect failed, use hmp
 		timeutils2.AddTimeout(100*time.Millisecond, func() {
@@ -456,6 +463,9 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 				func() {
 					s.Monitor = mon
 					s.onMonitorConnected(ctx)
+					if cb != nil {
+						cb()
+					}
 				}, // on monitor connected
 				s.onReceiveQMPEvent, // on reveive qmp event
 			)
@@ -467,7 +477,13 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 					s.Id,
 					s.onMonitorDisConnect, // on monitor disconnect
 					func(err error) { s.onMonitorTimeout(ctx, err) }, // on monitor timeout
-					func() { s.onMonitorConnected(ctx) },             // on monitor connected
+					func() {
+						s.Monitor = mon
+						s.onMonitorConnected(ctx)
+						if cb != nil {
+							cb()
+						}
+					}, // on monitor connected
 				)
 				err = mon.Connect("127.0.0.1", s.GetHmpMonitorPort(-1))
 				if err != nil {
@@ -477,7 +493,7 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 			}
 		})
 	} else if monitorPath := s.GetMonitorPath(); len(monitorPath) > 0 {
-		s.StartMonitorWithImportGuestSocketFile(ctx, monitorPath)
+		s.StartMonitorWithImportGuestSocketFile(ctx, monitorPath, cb)
 	} else {
 		log.Errorf("Guest start monitor failed, can't get qmp monitor port or monitor path")
 	}
@@ -693,13 +709,16 @@ func (s *SKVMGuestInstance) MirrorJobStatus() MirrorJob {
 
 func (s *SKVMGuestInstance) BlockJobsCount() int {
 	res := make(chan []monitor.BlockJob)
+	log.Debugf("BlockJobsCount start...")
 	s.Monitor.GetBlockJobs(func(jobs []monitor.BlockJob) {
 		res <- jobs
 	})
 	select {
-	case <-time.After(time.Second * 3):
+	case <-time.After(time.Second * 30):
+		log.Debugf("BlockJobsCount timeout")
 		return -1
 	case v := <-res:
+		log.Debugf("BlockJobsCount %d", len(v))
 		return len(v)
 	}
 }

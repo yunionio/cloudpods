@@ -624,47 +624,48 @@ func (m *SGuestManager) CpusetBalance(ctx context.Context, params interface{}) (
 }
 
 func (m *SGuestManager) Status(sid string) string {
-	status := m.GetStatus(sid)
-	if status == GUEST_RUNNING {
-		guest, _ := m.GetServer(sid)
-		if guest.Monitor == nil && !guest.IsStopping() {
-			guest.StartMonitor(context.Background())
-		}
-	}
+	status := m.getStatus(sid)
 	return status
 }
 
-func (m *SGuestManager) StatusWithBlockJobsCount(sid string) (string, int) {
-	status := m.GetStatus(sid)
-	blockJobsCount := 0
+func (m *SGuestManager) StatusWithBlockJobsCount(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	sid := params.(string)
+	status := m.getStatus(sid)
 	if status == GUEST_RUNNING {
 		guest, _ := m.GetServer(sid)
-		if guest.Monitor == nil && !guest.IsStopping() {
-			guest.StartMonitor(context.Background())
+		var runCb = func() {
+			if guest.IsMaster() {
+				mirrorStatus := guest.MirrorJobStatus()
+				if mirrorStatus.InProcess() {
+					status = GUEST_BLOCK_STREAM
+				} else if mirrorStatus.IsFailed() {
+					timeutils2.AddTimeout(1*time.Second,
+						func() { guest.SyncMirrorJobFailed("Block job missing") })
+					status = GUEST_BLOCK_STREAM_FAIL
+				}
+			}
+			blockJobsCount := guest.BlockJobsCount()
+			body := jsonutils.NewDict()
+			body.Set("status", jsonutils.NewString(status))
+			body.Set("block_jobs_count", jsonutils.NewInt(int64(blockJobsCount)))
+			hostutils.TaskComplete(ctx, body)
 		}
-		blockJobsCount = guest.BlockJobsCount()
+		if guest.Monitor == nil && !guest.IsStopping() {
+			guest.StartMonitor(context.Background(), runCb)
+		} else {
+			runCb()
+		}
+		return nil, nil
 	}
-	return status, blockJobsCount
+	body := jsonutils.NewDict()
+	body.Set("status", jsonutils.NewString(status))
+	hostutils.TaskComplete(ctx, body)
+	return nil, nil
 }
 
-func (m *SGuestManager) GetStatus(sid string) string {
+func (m *SGuestManager) getStatus(sid string) string {
 	if guest, ok := m.GetServer(sid); ok {
-		if guest.IsRunning() && guest.Monitor != nil && guest.IsMaster() {
-			mirrorStatus := guest.MirrorJobStatus()
-			if mirrorStatus.InProcess() {
-				return GUEST_BLOCK_STREAM
-			} else if mirrorStatus.IsFailed() {
-				timeutils2.AddTimeout(1*time.Second,
-					func() { guest.SyncMirrorJobFailed("Block job missing") })
-				return GUEST_BLOCK_STREAM_FAIL
-			} else {
-				return GUEST_RUNNING
-			}
-		}
 		if guest.IsRunning() {
-			if guest.Monitor != nil && guest.BlockJobsCount() > 0 {
-				return GUEST_BLOCK_STREAM
-			}
 			return GUEST_RUNNING
 		} else if guest.IsSuspend() {
 			return GUEST_SUSPEND
@@ -937,15 +938,19 @@ func (m *SGuestManager) Resume(ctx context.Context, sid string, isLiveMigrate bo
 	if guest.IsStopping() || guest.IsStopped() {
 		return nil, httperrors.NewInvalidStatusError("resume stopped server???")
 	}
+	var cb = func() {
+		resumeTask := NewGuestResumeTask(ctx, guest, !isLiveMigrate)
+		if isLiveMigrate {
+			guest.StartPresendArp()
+		}
+		resumeTask.Start()
+	}
 	if guest.Monitor == nil {
-		guest.StartMonitor(ctx)
+		guest.StartMonitor(ctx, cb)
 		return nil, nil
+	} else {
+		cb()
 	}
-	resumeTask := NewGuestResumeTask(ctx, guest, !isLiveMigrate)
-	if isLiveMigrate {
-		guest.StartPresendArp()
-	}
-	resumeTask.Start()
 	return nil, nil
 }
 
@@ -991,7 +996,7 @@ func (m *SGuestManager) CancelBlockJobs(ctx context.Context, params interface{})
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	status := m.GetStatus(sid)
+	status := m.getStatus(sid)
 	if status == GUSET_STOPPED {
 		hostutils.TaskComplete(ctx, nil)
 		return nil, nil

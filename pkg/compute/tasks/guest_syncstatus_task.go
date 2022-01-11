@@ -45,13 +45,13 @@ func (self *GuestSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		self.SetStageComplete(ctx, nil)
 		return
 	}
-	body, err := guest.GetDriver().RequestSyncstatusOnHost(ctx, guest, host, self.UserCred)
+	self.SetStage("OnGetStatusComplete", nil)
+	err := guest.GetDriver().RequestSyncstatusOnHost(ctx, guest, host, self.UserCred, self)
 	if err != nil {
 		log.Errorf("request_syncstatus_on_host: %s", err)
-		self.OnGetStatusFail(ctx, guest, err)
+		self.OnGetStatusCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
-	self.OnGetStatusSucc(ctx, guest, body)
 }
 
 func (self *GuestSyncstatusTask) getOriginStatus() string {
@@ -59,7 +59,9 @@ func (self *GuestSyncstatusTask) getOriginStatus() string {
 	return os
 }
 
-func (self *GuestSyncstatusTask) OnGetStatusSucc(ctx context.Context, guest *models.SGuest, body jsonutils.JSONObject) {
+func (self *GuestSyncstatusTask) OnGetStatusComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	log.Debugf("OnGetStatusSucc guest %s(%s) status %s", guest.Name, guest.Id, body)
 	statusStr, _ := body.GetString("status")
 	switch statusStr {
 	case cloudprovider.CloudVMStatusRunning:
@@ -95,8 +97,9 @@ func (self *GuestSyncstatusTask) OnGetStatusSucc(ctx context.Context, guest *mod
 	// logclient.AddActionLog(guest, logclient.ACT_VM_SYNC_STATUS, "", self.UserCred, true)
 }
 
-func (self *GuestSyncstatusTask) OnGetStatusFail(ctx context.Context, guest *models.SGuest, err error) {
-	guest.SetStatus(self.UserCred, api.VM_UNKNOWN, err.Error())
+func (self *GuestSyncstatusTask) OnGetStatusCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	guest.SetStatus(self.UserCred, api.VM_UNKNOWN, err.String())
 	self.SetStageComplete(ctx, nil)
 	// logclient.AddActionLog(guest, logclient.ACT_VM_SYNC_STATUS, err, self.UserCred, false)
 }
