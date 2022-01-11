@@ -836,7 +836,6 @@ func parseStorcliControllers(jsonStr string) (*StorcliControllersInfo, error) {
 
 func (a *StorcliAdaptor) getPhyDevs(getCmd func(...string) string, term raid.IExecTerm) ([]*StorcliPhysicalDrive, error) {
 	cmd := getCmd(fmt.Sprintf("/c%d/eall/sall show J", a.Controller))
-	log.Errorf("----term %#v, cmd: %q", term, cmd)
 	lines, err := term.Run(cmd)
 	if err != nil {
 		return nil, errors.Wrap(err, "Get storcli PDList json output")

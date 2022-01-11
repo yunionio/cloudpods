@@ -93,7 +93,7 @@ func storcliBuildJBOD(
 		if err != nil {
 			return errors.Wrapf(err, "getCmd for dev %#v", d)
 		}
-		cmd = fmt.Sprintf("%s/e%d/s%d", d.Enclosure, d.Slot)
+		cmd = fmt.Sprintf("%s/e%d/s%d", cmd, d.Enclosure, d.Slot)
 		cmds = append(cmds, cmd)
 	}
 	log.Infof("storcliBuildJBOD cmds: %v", cmds)
