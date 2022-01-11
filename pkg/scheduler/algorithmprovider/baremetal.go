@@ -44,5 +44,6 @@ func baremetalPredicates() sets.String {
 		factory.RegisterFitPredicate("n-CloudproviderschedtagFilter", predicates.NewCloudproviderSchedtagPredicate()),
 		factory.RegisterFitPredicate("o-CloudregionschedtagFilter", predicates.NewCloudregionSchedtagPredicate()),
 		factory.RegisterFitPredicate("p-ZoneschedtagFilter", predicates.NewZoneSchedtagPredicate()),
+		factory.RegisterFitPredicate("q-UEFIFilter", &predicatebm.UEFIImagePredicate{}),
 	)
 }
