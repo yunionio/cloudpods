@@ -78,7 +78,7 @@ func (m *SGuestManager) GuestCreateFromLibvirt(
 	if len(createConfig.MonitorPath) > 0 {
 		if pid := findGuestProcessPid(guest.getOriginId(), "monitor.sock"); len(pid) > 0 {
 			fileutils2.FilePutContents(guest.GetPidFilePath(), pid, false)
-			guest.StartMonitorWithImportGuestSocketFile(ctx, createConfig.MonitorPath)
+			guest.StartMonitorWithImportGuestSocketFile(ctx, createConfig.MonitorPath, nil)
 			stopScript := guest.generateStopScript(nil)
 			if err := fileutils2.FilePutContents(guest.GetStopScriptPath(), stopScript, false); err != nil {
 				return nil, fmt.Errorf("Save stop script error %s", err)

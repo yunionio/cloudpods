@@ -702,6 +702,7 @@ func (m *QmpMonitor) blockJobs(res *Response) ([]BlockJob, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetBlockJobs for %s parse %s", m.server, res.Return)
 	}
+	log.Debugf("blockJobs response %s", ret)
 	jobs := []BlockJob{}
 	ret.Unmarshal(&jobs)
 	defer func() {

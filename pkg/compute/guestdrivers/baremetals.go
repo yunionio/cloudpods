@@ -392,8 +392,8 @@ func (self *SBaremetalGuestDriver) RequestUndeployGuestOnHost(ctx context.Contex
 	return err
 }
 
-func (self *SBaremetalGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
-	return nil, fmt.Errorf("baremetal doesn't support RequestSyncstatusOnHost")
+func (self *SBaremetalGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
+	return errors.Wrap(httperrors.ErrNotSupported, "baremetal doesn't support RequestSyncstatusOnHost")
 }
 
 func (self *SBaremetalGuestDriver) StartGuestSyncstatusTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
