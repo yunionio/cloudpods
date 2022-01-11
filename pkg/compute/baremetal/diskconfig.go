@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
@@ -426,6 +427,8 @@ func CheckDisksAllocable(layouts []Layout, disks []*api.DiskConfig) (bool, []*ap
 					storeFreeSize = -1
 				}
 			} else {
+				store := layouts[storeIndex]
+				log.Warningf("Disk size %dMB large than storage size %dMB, skip storage %s", disk.SizeMb, storeFreeSize, jsonutils.Marshal(store).PrettyString())
 				storeIndex++
 				storeFreeSize = -1
 			}
