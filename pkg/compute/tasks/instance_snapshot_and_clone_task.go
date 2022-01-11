@@ -55,7 +55,7 @@ func (self *InstanceSnapshotAndCloneTask) taskComplete(
 	guest.StartSyncstatus(ctx, self.UserCred, "")
 	db.OpsLog.LogEvent(guest, db.ACT_VM_SNAPSHOT_AND_CLONE, "", self.UserCred)
 	logclient.AddActionLogWithContext(
-		ctx, guest, logclient.ACT_VM_SNAPSHOT_AND_CLONE, "", self.UserCred, true)
+		ctx, guest, logclient.ACT_VM_SNAPSHOT_AND_CLONE, self.Params, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
