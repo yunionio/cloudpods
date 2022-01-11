@@ -116,11 +116,14 @@ func (self *SContainerDriver) RequestDetachDisk(ctx context.Context, guest *mode
 	return containerUseKubectlError
 }
 
-func (self *SContainerDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
-	// always return running
-	status := jsonutils.NewDict()
-	status.Add(jsonutils.NewString("running"), "status")
-	return status, nil
+func (self *SContainerDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		// always return running
+		status := jsonutils.NewDict()
+		status.Add(jsonutils.NewString("running"), "status")
+		return status, nil
+	})
+	return nil
 }
 
 func (self *SContainerDriver) CanKeepDetachDisk() bool {
