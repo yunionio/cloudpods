@@ -46,17 +46,29 @@ func (p *MigratePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		return h.GetResult()
 	}
 
-	if schedData.LiveMigrate && schedData.CpuMode != compute.CPU_MODE_QEMU && (schedData.SkipCpuCheck == nil || *schedData.SkipCpuCheck == false) {
+	// live migrate check
+	if schedData.LiveMigrate {
 		host := c.Getter().Host()
-		if schedData.CpuDesc != host.CpuDesc {
-			h.Exclude(predicates.ErrHostCpuModelIsNotMatchForLiveMigrate)
-			return h.GetResult()
+		// target host cpu check
+		if schedData.CpuMode != compute.CPU_MODE_QEMU && (schedData.SkipCpuCheck == nil || *schedData.SkipCpuCheck == false) {
+			if schedData.CpuDesc != host.CpuDesc {
+				h.Exclude(predicates.ErrHostCpuModelIsNotMatchForLiveMigrate)
+				return h.GetResult()
+			}
+			if len(schedData.CpuMicrocode) > 0 && schedData.CpuMicrocode != host.CpuMicrocode {
+				h.Exclude(predicates.ErrHostCpuMicrocodeNotMatchForLiveMigrate)
+				return h.GetResult()
+			}
 		}
-		if len(schedData.CpuMicrocode) > 0 && schedData.CpuMicrocode != host.CpuMicrocode {
-			h.Exclude(predicates.ErrHostCpuMicrocodeNotMatchForLiveMigrate)
-			return h.GetResult()
+
+		// target host kernel check
+		if schedData.SkipKernelCheck != nil && !*schedData.SkipKernelCheck {
+			kv, _ := host.SysInfo.GetString("kernel_version")
+			if schedData.TargetHostKernel != "" && schedData.TargetHostKernel != kv {
+				h.Exclude2(predicates.ErrHostCpuMicrocodeNotMatchForLiveMigrate, kv, schedData.TargetHostKernel)
+				return h.GetResult()
+			}
 		}
 	}
-
 	return h.GetResult()
 }

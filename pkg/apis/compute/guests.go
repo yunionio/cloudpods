@@ -548,9 +548,10 @@ type ServerDetachnetworkInput struct {
 type ServerMigrateForecastInput struct {
 	PreferHostId string `json:"prefer_host_id"`
 	// Deprecated
-	PreferHost   string `json:"prefer_host" yunion-deprecated-by:"prefer_host_id"`
-	LiveMigrate  bool   `json:"live_migrate"`
-	SkipCpuCheck bool   `josn:"skip_cpu_check"`
+	PreferHost      string `json:"prefer_host" yunion-deprecated-by:"prefer_host_id"`
+	LiveMigrate     bool   `json:"live_migrate"`
+	SkipCpuCheck    bool   `json:"skip_cpu_check"`
+	SkipKernelCheck bool   `json:"skip_kernel_check"`
 }
 
 type ServerResizeDiskInput struct {

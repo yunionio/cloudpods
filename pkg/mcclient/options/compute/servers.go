@@ -882,10 +882,11 @@ func (o *ServerRestartOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ServerMigrateForecastOptions struct {
-	ID           string `help:"ID of server" json:"-"`
-	PreferHost   string `help:"Server migration prefer host id or name" json:"prefer_host"`
-	LiveMigrate  *bool  `help:"Use live migrate"`
-	SkipCpuCheck *bool  `help:"Skip check CPU mode of the target host" json:"skip_cpu_check"`
+	ID              string `help:"ID of server" json:"-"`
+	PreferHost      string `help:"Server migration prefer host id or name" json:"prefer_host"`
+	LiveMigrate     *bool  `help:"Use live migrate"`
+	SkipCpuCheck    *bool  `help:"Skip check CPU mode of the target host" json:"skip_cpu_check"`
+	SkipKernelCheck *bool  `help:"Skip target kernel version check" json:"skip_kernel_check"`
 }
 
 func (o *ServerMigrateForecastOptions) GetId() string {
@@ -912,9 +913,10 @@ func (o *ServerMigrateOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ServerLiveMigrateOptions struct {
-	ID           string `help:"ID of server" json:"-"`
-	PreferHost   string `help:"Server migration prefer host id or name" json:"prefer_host"`
-	SkipCpuCheck *bool  `help:"Skip check CPU mode of the target host" json:"skip_cpu_check"`
+	ID              string `help:"ID of server" json:"-"`
+	PreferHost      string `help:"Server migration prefer host id or name" json:"prefer_host"`
+	SkipCpuCheck    *bool  `help:"Skip check CPU mode of the target host" json:"skip_cpu_check"`
+	SkipKernelCheck *bool  `help:"Skip target kernel version check" json:"skip_kernel_check"`
 }
 
 func (o *ServerLiveMigrateOptions) GetId() string {
