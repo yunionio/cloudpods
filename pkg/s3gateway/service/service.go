@@ -18,6 +18,7 @@ import (
 	"os"
 
 	"yunion.io/x/log"
+	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/s3gateway"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
@@ -49,7 +50,7 @@ func StartService() {
 		cron.Start()
 	}*/
 
-	cloudcommon.AppDBInit(app)
+	//cloudcommon.AppDBInit(app)
 	app_common.ServeForeverWithCleanup(app, baseOpts, func() {
 		cloudcommon.CloseDB()
 
