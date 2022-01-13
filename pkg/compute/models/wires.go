@@ -46,9 +46,8 @@ import (
 )
 
 type SWireManager struct {
-	db.SInfrasResourceBaseManager
+	db.SStatusInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager
-	db.SStatusResourceBaseManager
 	SManagedResourceBaseManager
 	SVpcResourceBaseManager
 	SZoneResourceBaseManager
@@ -58,7 +57,7 @@ var WireManager *SWireManager
 
 func init() {
 	WireManager = &SWireManager{
-		SInfrasResourceBaseManager: db.NewInfrasResourceBaseManager(
+		SStatusInfrasResourceBaseManager: db.NewStatusInfrasResourceBaseManager(
 			SWire{},
 			"wires_tbl",
 			"wire",
@@ -69,11 +68,9 @@ func init() {
 }
 
 type SWire struct {
-	db.SInfrasResourceBase
+	db.SStatusInfrasResourceBase
 	db.SExternalizedResourceBase
-	db.SStatusResourceBase
 
-	// SManagedResourceBase
 	SVpcResourceBase  `wdith:"36" charset:"ascii" nullable:"false" list:"domain" create:"domain_required" update:""`
 	SZoneResourceBase `width:"36" charset:"ascii" nullable:"true" list:"domain" create:"domain_required" update:""`
 
@@ -139,15 +136,11 @@ func (manager *SWireManager) ValidateCreateData(
 		return input, errors.Wrap(err, "ValidateZoneResourceInput")
 	}
 
-	input.InfrasResourceBaseCreateInput, err = manager.SInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.InfrasResourceBaseCreateInput)
+	input.StatusInfrasResourceBaseCreateInput, err = manager.SStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusInfrasResourceBaseCreateInput)
 	if err != nil {
 		return input, err
 	}
 	return input, nil
-}
-
-func (wire *SWire) SetStatus(userCred mcclient.TokenCredential, status string, reason string) error {
-	return db.StatusBaseSetStatus(wire, userCred, status, reason)
 }
 
 func (wire *SWire) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.WireUpdateInput) (api.WireUpdateInput, error) {
@@ -1291,9 +1284,9 @@ func (manager *SWireManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = manager.SInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.InfrasResourceBaseListInput)
+	q, err = manager.SStatusInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SInfrasResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SStatusInfrasResourceBaseManager.ListItemFilter")
 	}
 
 	hostStr := query.HostId
@@ -1327,7 +1320,7 @@ func (manager *SWireManager) OrderByExtraFields(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SInfrasResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.InfrasResourceBaseListInput)
+	q, err = manager.SStatusInfrasResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusInfrasResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SInfrasResourceBaseManager.OrderByExtraFields")
 	}
@@ -1349,7 +1342,7 @@ func (manager *SWireManager) OrderByExtraFields(
 func (manager *SWireManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SInfrasResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = manager.SStatusInfrasResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -1365,21 +1358,6 @@ func (manager *SWireManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field s
 	return q, httperrors.ErrNotFound
 }
 
-/*func (self *SWire) getRegion() *SCloudregion {
-	zone := self.GetZone()
-	if zone != nil {
-		return zone.GetRegion()
-	}
-
-	vpc := self.getVpc()
-	if vpc != nil {
-		region, _ := vpc.GetRegion()
-		return region
-	}
-
-	return nil
-}*/
-
 func (manager *SWireManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -1390,15 +1368,15 @@ func (manager *SWireManager) FetchCustomizeColumns(
 ) []api.WireDetails {
 	rows := make([]api.WireDetails, len(objs))
 
-	stdRows := manager.SInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	stdRows := manager.SStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.WireDetails{
-			InfrasResourceBaseDetails: stdRows[i],
-			VpcResourceInfo:           vpcRows[i],
-			ZoneResourceInfoBase:      zoneRows[i].ZoneResourceInfoBase,
+			StatusInfrasResourceBaseDetails: stdRows[i],
+			VpcResourceInfo:                 vpcRows[i],
+			ZoneResourceInfoBase:            zoneRows[i].ZoneResourceInfoBase,
 		}
 		wire := objs[i].(*SWire)
 		rows[i].Networks, _ = wire.NetworkCount()
@@ -1485,9 +1463,9 @@ func (manager *SWireManager) ListItemExportKeys(ctx context.Context,
 	keys stringutils2.SSortedStrings,
 ) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = manager.SInfrasResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	q, err = manager.SStatusInfrasResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 	if err != nil {
-		return nil, errors.Wrap(err, "SInfrasResourceBaseManager.ListItemExportKeys")
+		return nil, errors.Wrap(err, "SStatusInfrasResourceBaseManager.ListItemExportKeys")
 	}
 	if keys.ContainsAny(manager.SZoneResourceBaseManager.GetExportKeys()...) {
 		q, err = manager.SZoneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
