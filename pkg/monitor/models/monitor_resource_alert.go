@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -47,6 +48,7 @@ func init() {
 
 type SMonitorResourceAlertManager struct {
 	db.SJointResourceBaseManager
+	SMonitorScopedResourceManager
 }
 
 type SMonitorResourceAlert struct {
@@ -163,6 +165,7 @@ func (m *SMonitorResourceAlertManager) ListItemFilter(ctx context.Context, q *sq
 		if err != nil {
 			return q, errors.Wrap(err, "Get monitor in Query err")
 		}
+		m.SMonitorScopedResourceManager.FilterByOwner(resQ, userCred, rbacutils.TRbacScope(input.Scope))
 		q.Filter(sqlchemy.In(q.Field("monitor_resource_id"), resQ.SubQuery()))
 	}
 	if len(input.SendState) != 0 {
@@ -181,6 +184,7 @@ func (m *SMonitorResourceAlertManager) ListItemFilter(ctx context.Context, q *sq
 		q.Filter(sqlchemy.In(q.Field("monitor_resource_id"), resQ.SubQuery()))
 	}
 	alertQuery := CommonAlertManager.Query("id")
+	m.SMonitorScopedResourceManager.FilterByOwner(alertQuery, userCred, rbacutils.TRbacScope(input.Scope))
 	if len(input.AlertName) != 0 {
 		CommonAlertManager.FieldListFilter(alertQuery, monitor.CommonAlertListInput{Name: input.AlertName})
 		q.Filter(sqlchemy.In(q.Field(m.GetSlaveFieldName()), alertQuery.SubQuery()))
@@ -189,7 +193,8 @@ func (m *SMonitorResourceAlertManager) ListItemFilter(ctx context.Context, q *sq
 		CommonAlertManager.FieldListFilter(alertQuery, monitor.CommonAlertListInput{Level: input.Level})
 		q.Filter(sqlchemy.In(q.Field(m.GetSlaveFieldName()), alertQuery.SubQuery()))
 	}
-
+	q.Filter(sqlchemy.In(q.Field(m.GetSlaveFieldName()), alertQuery.SubQuery()))
+	q.Filter(sqlchemy.In(q.Field("alert_record_id"), AlertRecordManager.Query("id").SubQuery()))
 	return q, nil
 }
 
@@ -254,4 +259,20 @@ func (obj *SMonitorResourceAlert) getMoreDetails(detail monitor.MonitorResourceJ
 		detail.IsSetShield = true
 	}
 	return detail
+}
+
+func (manager *SMonitorResourceAlertManager) ResourceScope() rbacutils.TRbacScope {
+	return manager.SScopedResourceBaseManager.ResourceScope()
+}
+
+func (manager *SMonitorResourceAlertManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
+	q, err := manager.SScopedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SScopedResourceBaseManager.ListItemExportKeys")
+	}
+	return q, nil
+}
+
+func (m *SMonitorResourceAlertManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	return q
 }
