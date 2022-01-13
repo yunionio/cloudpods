@@ -984,8 +984,6 @@ func syncVMEip(ctx context.Context, userCred mcclient.TokenCredential, provider 
 func syncVMSecgroups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localVM *SGuest, remoteVM cloudprovider.ICloudVM) error {
 	secgroupIds, err := remoteVM.GetSecurityGroupIds()
 	if err != nil {
-		// msg := fmt.Sprintf("GetSecurityGroupIds for VM %s failed %s", remoteVM.GetName(), err)
-		// log.Errorf(msg)
 		return errors.Wrap(err, "remoteVM.GetSecurityGroupIds")
 	}
 	return localVM.SyncVMSecgroups(ctx, userCred, secgroupIds)
