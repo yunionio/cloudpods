@@ -22,3 +22,7 @@ import (
 func GetVersion(s *mcclient.ClientSession, serviceType string) (string, error) {
 	return modulebase.GetVersion(s, serviceType)
 }
+
+func ListWorkers(s *mcclient.ClientSession, serviceType string) (*modulebase.ListResult, error) {
+	return modulebase.ListWorkers(s, serviceType)
+}
