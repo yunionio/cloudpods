@@ -24,6 +24,7 @@ import (
 
 type MonitorResourceJointListInput struct {
 	apis.JointResourceBaseListInput
+	apis.VirtualResourceListInput
 	MonitorResourceId string  `json:"monitor_resource_id"`
 	AlertId           string  `json:"alert_id"`
 	JointId           []int64 `json:"joint_id"`
