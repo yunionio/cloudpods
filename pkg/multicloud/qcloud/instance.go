@@ -945,10 +945,6 @@ func (self *SInstance) UpdateUserData(userData string) error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
-	return cloudprovider.ErrNotSupported
-}
-
 func (self *SInstance) Renew(bc billing.SBillingCycle) error {
 	return self.host.zone.region.RenewInstances([]string{self.InstanceId}, bc)
 }

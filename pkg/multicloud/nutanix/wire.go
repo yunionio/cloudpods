@@ -15,6 +15,8 @@
 package nutanix
 
 import (
+	"yunion.io/x/pkg/errors"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -39,8 +41,16 @@ func (self *SWire) GetGlobalId() string {
 	return self.vpc.GetGlobalId()
 }
 
+func (self *SWire) IsEmulated() bool {
+	return true
+}
+
 func (self *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	network, err := self.vpc.region.CreateNetwork(self.vpc.UUID, opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateNetwork")
+	}
+	return network, nil
 }
 
 func (self *SWire) GetBandwidth() int {

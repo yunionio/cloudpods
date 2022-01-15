@@ -1283,7 +1283,8 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 		}
 		uuid := params.Disks[i].DiskId
 		driver := params.Disks[i].Driver
-		err := vm.CreateDisk(ctx, int(size), uuid, driver)
+		opts := &cloudprovider.GuestDiskCreateOptions{SizeMb: int(size), UUID: uuid, Driver: driver}
+		_, err := vm.CreateDisk(ctx, opts)
 		if err != nil {
 			log.Errorf("unable to add No.%d disk for vm %s", i, vm.GetId())
 			return vm, nil

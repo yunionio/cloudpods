@@ -16,8 +16,11 @@ package nutanix
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -68,7 +71,7 @@ func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreat
 }
 
 func (self *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
-	return nil, cloudprovider.ErrNotSupported
+	return self.CreateVpc(opts)
 }
 
 func (self *SRegion) GetCapabilities() []string {
@@ -195,4 +198,25 @@ func (self *SRegion) get(res, id string, params url.Values, retVal interface{}) 
 
 func (self *SRegion) listAll(res string, params url.Values, retVal interface{}) error {
 	return self.cli.listAll(res, params, retVal)
+}
+
+func (self *SRegion) post(res string, body jsonutils.JSONObject, retVal interface{}) error {
+	return self.cli.post(res, body, retVal)
+}
+
+func (self *SRegion) delete(res string, id string) error {
+	return self.cli.delete(res, id)
+}
+
+func (self *SRegion) update(res string, id string, body jsonutils.JSONObject, retVal interface{}) error {
+	return self.cli.update(res, id, body, retVal)
+}
+
+func (self *SRegion) upload(res string, id string, header http.Header, body io.Reader) (jsonutils.JSONObject, error) {
+	return self.cli.upload(res, id, header, body)
+}
+
+func (self *SRegion) getTask(id string) (*STask, error) {
+	task := &STask{}
+	return task, self.get("tasks", id, nil, task)
 }

@@ -508,10 +508,6 @@ func (self *SClassicInstance) UpdateUserData(userData string) error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (self *SClassicInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
-	return cloudprovider.ErrNotSupported
-}
-
 func (self *SClassicInstance) Renew(bc billing.SBillingCycle) error {
 	return cloudprovider.ErrNotSupported
 }

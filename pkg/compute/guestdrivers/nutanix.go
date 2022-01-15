@@ -86,8 +86,16 @@ func (self *SNutanixGuestDriver) GetDefaultSysDiskBackend() string {
 	return ""
 }
 
+func (self *SNutanixGuestDriver) GetUserDataType() string {
+	return cloudprovider.CLOUD_SHELL
+}
+
+func (self *SNutanixGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool {
+	return true
+}
+
 func (self *SNutanixGuestDriver) ChooseHostStorage(host *models.SHost, guest *models.SGuest, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return self.chooseHostStorage(self, host, diskConfig.Backend, storageIds), nil
 }
 
 func (self *SNutanixGuestDriver) GetMinimalSysDiskSizeGb() int {
@@ -103,12 +111,21 @@ func (self *SNutanixGuestDriver) GetMaxSecurityGroupCount() int {
 	return 0
 }
 
+func (self *SNutanixGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	subtask, err := taskman.TaskManager.NewTask(ctx, "NutanixGuestCreateDiskTask", guest, task.GetUserCred(), task.GetParams(), task.GetTaskId(), "", nil)
+	if err != nil {
+		return err
+	}
+	subtask.ScheduleRun(nil)
+	return nil
+}
+
 func (self *SNutanixGuestDriver) GetDetachDiskStatus() ([]string, error) {
-	return []string{api.VM_READY, api.VM_RUNNING}, nil
+	return []string{api.VM_READY}, nil
 }
 
 func (self *SNutanixGuestDriver) GetAttachDiskStatus() ([]string, error) {
-	return []string{api.VM_READY, api.VM_RUNNING}, nil
+	return []string{api.VM_READY}, nil
 }
 
 func (self *SNutanixGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
@@ -120,7 +137,7 @@ func (self *SNutanixGuestDriver) CanKeepDetachDisk() bool {
 }
 
 func (self *SNutanixGuestDriver) GetRebuildRootStatus() ([]string, error) {
-	return []string{api.VM_READY}, nil
+	return []string{}, cloudprovider.ErrNotSupported
 }
 
 func (self *SNutanixGuestDriver) GetDeployStatus() ([]string, error) {

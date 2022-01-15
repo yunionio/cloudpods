@@ -15,6 +15,7 @@
 package shell
 
 import (
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/nutanix"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -37,6 +38,30 @@ func init() {
 
 	shellutils.R(&VpcIdOptions{}, "vpc-show", "show vpc", func(cli *nutanix.SRegion, args *VpcIdOptions) error {
 		vpc, err := cli.GetVpc(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(vpc)
+		return nil
+	})
+
+	shellutils.R(&VpcIdOptions{}, "vpc-delete", "delete vpc", func(cli *nutanix.SRegion, args *VpcIdOptions) error {
+		return cli.DeleteVpc(args.ID)
+	})
+
+	type VpcCreateOptions struct {
+		Name string
+		Desc string
+		CIDR string
+	}
+
+	shellutils.R(&VpcCreateOptions{}, "vpc-create", "Create vpc", func(cli *nutanix.SRegion, args *VpcCreateOptions) error {
+		opts := cloudprovider.VpcCreateOptions{
+			NAME: args.Name,
+			CIDR: args.CIDR,
+			Desc: args.Desc,
+		}
+		vpc, err := cli.CreateVpc(&opts)
 		if err != nil {
 			return err
 		}

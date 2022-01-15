@@ -275,8 +275,94 @@ func (self *SHost) GetGlobalId() string {
 	return self.UUID
 }
 
-func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
+	image, err := self.zone.region.GetImage(opts.ExternalImageId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetImage")
+	}
+	disks := []map[string]interface{}{
+		{
+			"disk_address": map[string]interface{}{
+				"device_bus":   "ide",
+				"device_index": 0,
+			},
+			"is_cdrom": true,
+			"is_empty": true,
+		},
+		{
+			"disk_address": map[string]interface{}{
+				"device_bus":   "scsi",
+				"device_index": 0,
+			},
+			"is_cdrom": false,
+			"vm_disk_clone": map[string]interface{}{
+				"disk_address": map[string]string{
+					"vmdisk_uuid": image.VMDiskID,
+				},
+				"minimum_size": image.VMDiskSize,
+			},
+		},
+	}
+	for i, disk := range opts.DataDisks {
+		disks = append(disks, map[string]interface{}{
+			"disk_address": map[string]interface{}{
+				"device_bus":   "scsi",
+				"device_index": i + 1,
+			},
+			"is_cdrom": false,
+			"vm_disk_create": map[string]interface{}{
+				"size":                   disk.SizeGB * 1024 * 1024 * 1024,
+				"storage_container_uuid": disk.StorageExternalId,
+			},
+		})
+	}
+	nic := map[string]interface{}{
+		"network_uuid": opts.ExternalVpcId,
+	}
+	if len(opts.IpAddr) > 0 {
+		nic["requested_ip_address"] = opts.IpAddr
+	}
+	params := map[string]interface{}{
+		"boot": map[string]interface{}{
+			"boot_device_order": []string{"CDROM", "DISK", "NIC"},
+			"uefi_boot":         false,
+		},
+		"description":        opts.Description,
+		"hypervisor_type":    "ACROPOLIS",
+		"memory_mb":          opts.MemoryMB,
+		"name":               opts.Name,
+		"num_cores_per_vcpu": 1,
+		"num_vcpus":          opts.Cpu,
+		"timezone":           "UTC",
+		"vm_customization_config": map[string]interface{}{
+			"files_to_inject_list": []string{},
+			"userdata":             opts.UserData,
+		},
+		"vm_disks": disks,
+		"vm_features": map[string]interface{}{
+			"AGENT_VM": false,
+		},
+		"vm_nics": []map[string]interface{}{
+			nic,
+		},
+	}
+	ret := struct {
+		TaskUUID string
+	}{}
+	err = self.zone.region.post("vms", jsonutils.Marshal(params), &ret)
+	if err != nil {
+		return nil, err
+	}
+	resId, err := self.zone.region.cli.wait(ret.TaskUUID)
+	if err != nil {
+		return nil, err
+	}
+	vm, err := self.zone.region.GetInstance(resId)
+	if err != nil {
+		return nil, err
+	}
+	vm.host = self
+	return vm, nil
 }
 
 func (self *SHost) GetAccessIp() string {
@@ -410,5 +496,17 @@ func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 }
 
 func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	vpcs, err := self.zone.region.GetIVpcs()
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudWire{}
+	for i := range vpcs {
+		wires, err := vpcs[i].GetIWires()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetIWires")
+		}
+		ret = append(ret, wires...)
+	}
+	return ret, nil
 }
