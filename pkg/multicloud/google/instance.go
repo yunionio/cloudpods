@@ -527,10 +527,6 @@ func (instance *SInstance) DetachDisk(ctx context.Context, diskId string) error 
 	return nil
 }
 
-func (instance *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
-	return cloudprovider.ErrNotImplemented
-}
-
 func (instance *SInstance) Renew(bc billing.SBillingCycle) error {
 	return cloudprovider.ErrNotSupported
 }
