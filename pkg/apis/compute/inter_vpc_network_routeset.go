@@ -39,4 +39,5 @@ type InterVpcNetworkRouteSetListInput struct {
 	apis.ExternalizedResourceBaseListInput
 	VpcFilterListInput
 	InterVpcNetworkId string
+	Cidr              string `json:"cidr"`
 }

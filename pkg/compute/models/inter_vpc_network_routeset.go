@@ -115,6 +115,9 @@ func (manager *SInterVpcNetworkRouteSetManager) ListItemFilter(
 		}
 		q = q.Equals("inter_vpc_network_id", vpcNetwork.GetId())
 	}
+	if len(query.Cidr) > 0 {
+		q = q.Equals("cidr", query.Cidr)
+	}
 	return q, nil
 }
 
