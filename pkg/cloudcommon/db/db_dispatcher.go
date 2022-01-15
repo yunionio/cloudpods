@@ -265,10 +265,6 @@ func listItemQueryFiltersRaw(manager IModelManager,
 		q = manager.FilterBySystemAttributes(q, userCred, query, queryScope)
 		q = manager.FilterByHiddenSystemAttributes(q, userCred, query, queryScope)
 	}
-	q, err = ListItemFilter(manager, ctx, q, userCred, query)
-	if err != nil {
-		return nil, err
-	}
 	if query.Contains("export_keys") {
 		exportKeys, _ := query.GetString("export_keys")
 		keys := stringutils2.NewSortedStrings(strings.Split(exportKeys, ","))
@@ -305,6 +301,10 @@ func listItemQueryFiltersRaw(manager IModelManager,
 		if err != nil {
 			return nil, err
 		}
+	}
+	q, err = ListItemFilter(manager, ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
 	}
 	return q, nil
 }
