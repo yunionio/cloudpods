@@ -86,6 +86,13 @@ type SDiskInfo struct {
 	Name              string
 }
 
+type GuestDiskCreateOptions struct {
+	SizeMb    int
+	UUID      string
+	Driver    string
+	StorageId string
+}
+
 const (
 	CLOUD_SHELL                 = "cloud-shell"
 	CLOUD_SHELL_WITHOUT_ENCRYPT = "cloud-shell-without-encrypt"
@@ -117,6 +124,7 @@ type SManagedVMCreateConfig struct {
 	Cpu                 int
 	MemoryMB            int
 	ExternalNetworkId   string
+	ExternalVpcId       string
 	IpAddr              string
 	Description         string
 	SysDisk             SDiskInfo

@@ -74,3 +74,7 @@ func (self *SInstanceBase) AllocatePublicIpAddress() (string, error) {
 func (self *SInstanceBase) GetOSArch() string {
 	return ""
 }
+
+func (self *SInstanceBase) CreateDisk(ctx context.Context, opts *cloudprovider.GuestDiskCreateOptions) (string, error) {
+	return "", errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateDisk")
+}

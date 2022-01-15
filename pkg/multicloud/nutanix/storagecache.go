@@ -18,11 +18,16 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/esxi/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 type SStoragecache struct {
@@ -74,9 +79,6 @@ func (self *SStoragecache) GetIImageById(id string) (cloudprovider.ICloudImage, 
 	if err != nil {
 		return nil, err
 	}
-	if image.StorageContainerUUID != self.storage.GetGlobalId() {
-		return nil, cloudprovider.ErrNotFound
-	}
 	image.cache = self
 	return image, nil
 }
@@ -93,8 +95,23 @@ func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imag
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, callback func(float32)) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, opts *cloudprovider.SImageCreateOption, callback func(float32)) (string, error) {
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+
+	meta, reader, size, err := modules.Images.Download(s, opts.ImageId, string(qemuimg.QCOW2), false)
+	if err != nil {
+		return "", err
+	}
+	log.Infof("meta data %s", meta)
+	image, err := self.region.CreateImage(self.storage.StorageContainerUUID, opts, size, reader, callback)
+	if err != nil {
+		return "", err
+	}
+	if callback != nil {
+		callback(100.0)
+	}
+	image.cache = self
+	return image.GetGlobalId(), nil
 }
 
 func (self *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
