@@ -197,6 +197,9 @@ func (manager *SRouteTableRouteSetManager) ListItemFilter(
 	if len(query.NextHopId) > 0 {
 		q = q.Equals("next_hop_id", query.NextHopId)
 	}
+	if len(query.Cidr) > 0 {
+		q = q.Equals("cidr", query.Cidr)
+	}
 	return q, nil
 }
 
