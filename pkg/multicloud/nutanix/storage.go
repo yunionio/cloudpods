@@ -316,3 +316,17 @@ func (self *SStorage) GetStorageType() string {
 func (self *SStorage) IsSysDiskStore() bool {
 	return true
 }
+
+func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
+	zones, err := self.GetIZones()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIZones")
+	}
+	for i := range zones {
+		storage, err := zones[i].GetIStorageById(id)
+		if err == nil && storage != nil {
+			return storage, nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+}

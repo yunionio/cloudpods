@@ -16,10 +16,15 @@ package nutanix
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -156,4 +161,71 @@ func (self *SRegion) GetImage(id string) (*SImage, error) {
 	params.Set("include_vm_disk_sizes", "true")
 	params.Set("include_vm_disk_paths", "true")
 	return image, self.get("images", id, params, image)
+}
+
+func (self *SRegion) CreateImage(storageId string, opts *cloudprovider.SImageCreateOption, sizeBytes int64, body io.Reader, callback func(float32)) (*SImage, error) {
+	params := map[string]interface{}{
+		"image_type": "DISK_IMAGE",
+		"name":       opts.ImageName,
+		"annotation": opts.OsDistribution,
+	}
+	ret := struct {
+		TaskUUID string
+	}{}
+	err := self.post("images", jsonutils.Marshal(params), &ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "create image")
+	}
+	imageId := ""
+	err = cloudprovider.Wait(time.Second*5, time.Minute*3, func() (bool, error) {
+		task, err := self.GetTask(ret.TaskUUID)
+		if err != nil {
+			return false, err
+		}
+		for _, entity := range task.EntityList {
+			imageId = entity.EntityID
+		}
+		log.Debugf("task %s %s status: %s", task.OperationType, task.UUID, task.ProgressStatus)
+		if task.ProgressStatus == "Succeeded" {
+			for _, entity := range task.EntityList {
+				imageId = entity.EntityID
+			}
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	header := http.Header{}
+	header.Set("X-Nutanix-Destination-Container", storageId)
+	header.Set("Content-Type", "application/octet-stream")
+	header.Set("Content-Length", fmt.Sprintf("%d", sizeBytes))
+	reader := multicloud.NewProgress(sizeBytes, 90, body, callback)
+	resp, err := self.upload("images", fmt.Sprintf("%s/upload", imageId), header, reader)
+	if err != nil {
+		return nil, errors.Wrapf(err, "upload")
+	}
+	resp.Unmarshal(&ret)
+	err = cloudprovider.Wait(time.Second*5, time.Minute*10, func() (bool, error) {
+		task, err := self.GetTask(ret.TaskUUID)
+		if err != nil {
+			return false, err
+		}
+		if callback != nil {
+			callback(90 + float32(task.PercentageComplete)*0.1)
+		}
+		log.Debugf("task %s %s status: %s", task.OperationType, task.UUID, task.ProgressStatus)
+		if task.ProgressStatus == "Succeeded" {
+			for _, entity := range task.EntityList {
+				imageId = entity.EntityID
+			}
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "wait image ready")
+	}
+	return self.GetImage(imageId)
 }

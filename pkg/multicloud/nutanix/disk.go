@@ -16,8 +16,12 @@ package nutanix
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strings"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -204,11 +208,11 @@ func (self *SDisk) GetGlobalId() string {
 }
 
 func (self *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SDisk) Delete(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SDisk) GetAccessPath() string {
@@ -262,15 +266,38 @@ func (self *SDisk) GetStatus() string {
 }
 
 func (self *SDisk) Rebuild(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+	return "", cloudprovider.ErrNotSupported
 }
 
 func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
-	return cloudprovider.ErrNotImplemented
+	ins, err := self.storage.zone.region.GetInstance(self.AttachedVMUUID)
+	if err != nil {
+		return errors.Wrapf(err, "GetInstance(%s)", self.AttachedVMUUID)
+	}
+	for _, disk := range ins.VMDiskInfo {
+		if disk.DiskAddress.VmdiskUUID == self.UUID {
+			params := map[string]interface{}{
+				"vm_disks": []map[string]interface{}{
+					{
+						"disk_address":       disk.DiskAddress,
+						"flash_mode_enabled": disk.FlashModeEnabled,
+						"is_cdrom":           disk.IsCdrom,
+						"is_empty":           disk.IsEmpty,
+						"vm_disk_create": map[string]interface{}{
+							"storage_container_uuid": disk.StorageContainerUUID,
+							"size":                   sizeMb * 1024 * 1024,
+						},
+					},
+				},
+			}
+			return self.storage.zone.region.update("vms", fmt.Sprintf("%s/disks/update", self.AttachedVMUUID), jsonutils.Marshal(params), nil)
+		}
+	}
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SDisk) GetTemplateId() string {
