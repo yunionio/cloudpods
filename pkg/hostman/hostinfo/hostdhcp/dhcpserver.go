@@ -151,6 +151,10 @@ func (s *SGuestDHCPServer) getGuestConfig(guestDesc, guestNic jsonutils.JSONObje
 		}
 	}
 
+	if nicdesc.Mtu > 0 {
+		conf.MTU = uint16(nicdesc.Mtu)
+	}
+
 	conf.OsName, _ = guestDesc.GetString("os_name")
 	conf.LeaseTime = time.Duration(options.HostOptions.DhcpLeaseTime) * time.Second
 	conf.RenewalTime = time.Duration(options.HostOptions.DhcpRenewalTime) * time.Second
