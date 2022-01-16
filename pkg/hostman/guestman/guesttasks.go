@@ -682,7 +682,14 @@ func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(res string) {
 			s.c = nil
 			break
 		case <-time.After(time.Second * 5):
-			s.Monitor.GetMigrateStatus(s.onGetMigrateStatus)
+			if s.Monitor != nil {
+				s.Monitor.GetMigrateStatus(s.onGetMigrateStatus)
+			} else {
+				log.Errorf("server %s(%s) migrate stopped unexpectedly", s.GetId(), s.GetName())
+				s.migrateTask = nil
+				hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate error: %s", res))
+				return
+			}
 		}
 	}
 }
@@ -690,7 +697,7 @@ func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(res string) {
 func (s *SGuestLiveMigrateTask) onGetMigrateStatus(status string) {
 	if status == "completed" {
 		s.migrateComplete()
-	} else if status == "failed" {
+	} else if status == "failed" || status == "cancelled" {
 		s.migrateTask = nil
 		close(s.c)
 		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Query migrate got status: %s", status))
