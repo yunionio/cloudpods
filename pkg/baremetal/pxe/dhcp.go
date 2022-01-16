@@ -88,6 +88,12 @@ func (h *DHCPHandler) ServeDHCP(pkt dhcp.Packet, _ *net.UDPAddr, _ *net.Interfac
 	if conf == nil {
 		return nil, nil, fmt.Errorf("Empty packet config")
 	}
+	// handle Option 82 relay information
+	// https://datatracker.ietf.org/doc/html/rfc3046
+	if relayInfo := pkt.GetOptionValue(dhcp.OptionRelayAgentInformation); relayInfo != nil {
+		// return relay information transparently
+		conf.RelayInfo = relayInfo
+	}
 	pkg, err := dhcp.MakeReplyPacket(pkt, conf)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "dhcp.MakeReplyPacket")
