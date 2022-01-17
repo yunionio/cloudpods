@@ -47,6 +47,10 @@ type ResponseConfig struct {
 	DNSServers    []net.IP      // OptDNSServers
 	Routes        [][]string    // TODO: 249 for windows, 121 for linux
 	NTPServers    []net.IP      // OptNTPServers 42
+	MTU           uint16        // OptMTU 26
+
+	// Relay Info https://datatracker.ietf.org/doc/html/rfc3046
+	RelayInfo []byte
 
 	// TFTP config
 	BootServer string
@@ -60,6 +64,12 @@ func (conf ResponseConfig) GetHostname() string {
 		hostname = fmt.Sprintf("%s.%s", hostname, conf.Domain)
 	}
 	return hostname
+}
+
+func GetOptUint16(val uint16) []byte {
+	opts := []byte{0, 0}
+	binary.BigEndian.PutUint16(opts, val)
+	return opts
 }
 
 func GetOptIP(ip net.IP) []byte {
@@ -153,6 +163,12 @@ func makeDHCPReplyPacket(req Packet, conf *ResponseConfig, msgType MessageType) 
 	}
 	if len(conf.NTPServers) > 0 {
 		opts = append(opts, Option{OptionNetworkTimeProtocolServers, GetOptIPs(conf.NTPServers)})
+	}
+	if conf.MTU > 0 {
+		opts = append(opts, Option{OptionInterfaceMTU, GetOptUint16(conf.MTU)})
+	}
+	if conf.RelayInfo != nil {
+		opts = append(opts, Option{OptionRelayAgentInformation, conf.RelayInfo})
 	}
 	resp := ReplyPacket(req, msgType, conf.ServerIP, conf.ClientIP, conf.LeaseTime, opts)
 	if conf.BootServer != "" {
