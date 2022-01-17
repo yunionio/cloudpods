@@ -117,6 +117,8 @@ func StartService() {
 	}
 
 	if !opts.IsSlaveNode {
+		db.StartTenantCacheSync(app.GetContext(), opts.TenantCacheExpireSeconds)
+
 		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount)
 		cron.AddJobAtIntervals("CleanPendingDeleteServers", time.Duration(opts.PendingDeleteCheckSeconds)*time.Second, models.GuestManager.CleanPendingDeleteServers)
 		cron.AddJobAtIntervals("CleanPendingDeleteDisks", time.Duration(opts.PendingDeleteCheckSeconds)*time.Second, models.DiskManager.CleanPendingDeleteDisks)

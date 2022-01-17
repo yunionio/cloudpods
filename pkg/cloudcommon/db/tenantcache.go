@@ -336,6 +336,9 @@ func (manager *STenantCacheManager) Save(ctx context.Context, item SCachedTenant
 				obj.LastCheck = now
 				return nil
 			})
+			if saveMeta {
+				Metadata.rawSetValues(ctx, item.objType(), item.Id, item.Metadata, true, "")
+			}
 			return obj, nil
 		}
 		_, err = Update(obj, func() error {
