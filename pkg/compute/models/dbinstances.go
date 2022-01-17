@@ -1787,15 +1787,19 @@ func (man *SDBInstanceManager) TotalCount(
 	ownerId mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel,
 	providers []string, brands []string, cloudEnv string,
+	policyResult rbacutils.SPolicyResult,
 ) (SRdsCountStat, error) {
-	sq := man.Query().SubQuery()
+	dbq := man.Query()
+	dbq = scopeOwnerIdFilter(dbq, scope, ownerId)
+	dbq = CloudProviderFilter(dbq, dbq.Field("manager_id"), providers, brands, cloudEnv)
+	dbq = RangeObjectsFilter(dbq, rangeObjs, dbq.Field("cloudregion_id"), nil, dbq.Field("manager_id"), nil, nil)
+	dbq = db.ObjectIdQueryWithPolicyResult(dbq, man, policyResult)
+
+	sq := dbq.SubQuery()
+
 	q := sq.Query(sqlchemy.COUNT("total_rds_count"),
 		sqlchemy.SUM("total_cpu_count", sq.Field("vcpu_count")),
 		sqlchemy.SUM("total_mem_size_mb", sq.Field("vmem_size_mb")))
-
-	q = scopeOwnerIdFilter(q, scope, ownerId)
-	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
-	q = RangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"), nil, nil)
 
 	stat := SRdsCountStat{}
 	row := q.Row()

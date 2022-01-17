@@ -39,7 +39,7 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	_, query, _ := appsrv.FetchEnv(ctx, w, r)
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 
-	ownerId, scope, err, _ := db.FetchUsageOwnerScope(ctx, userCred, query)
+	ownerId, scope, err, result := db.FetchUsageOwnerScope(ctx, userCred, query)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
@@ -47,23 +47,23 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 
 	usages := jsonutils.NewDict()
 	if scope == rbacutils.ScopeSystem {
-		adminUsage := models.ImageManager.Usage(rbacutils.ScopeSystem, ownerId, "all")
+		adminUsage := models.ImageManager.Usage(rbacutils.ScopeSystem, ownerId, "all", result)
 		usages.Update(jsonutils.Marshal(adminUsage))
-		adminUsage = models.GuestImageManager.Usage(rbacutils.ScopeSystem, ownerId, "all")
+		adminUsage = models.GuestImageManager.Usage(rbacutils.ScopeSystem, ownerId, "all", result)
 		usages.Update(jsonutils.Marshal(adminUsage))
 	}
 
 	if scope.HigherEqual(rbacutils.ScopeDomain) {
-		domainUsage := models.ImageManager.Usage(rbacutils.ScopeDomain, ownerId, "domain")
+		domainUsage := models.ImageManager.Usage(rbacutils.ScopeDomain, ownerId, "domain", result)
 		usages.Update(jsonutils.Marshal(domainUsage))
-		domainUsage = models.GuestImageManager.Usage(rbacutils.ScopeDomain, ownerId, "domain")
+		domainUsage = models.GuestImageManager.Usage(rbacutils.ScopeDomain, ownerId, "domain", result)
 		usages.Update(jsonutils.Marshal(domainUsage))
 	}
 
 	if scope.HigherEqual(rbacutils.ScopeProject) {
-		projectUsage := models.ImageManager.Usage(rbacutils.ScopeProject, ownerId, "")
+		projectUsage := models.ImageManager.Usage(rbacutils.ScopeProject, ownerId, "", result)
 		usages.Update(jsonutils.Marshal(projectUsage))
-		projectUsage = models.GuestImageManager.Usage(rbacutils.ScopeProject, ownerId, "")
+		projectUsage = models.GuestImageManager.Usage(rbacutils.ScopeProject, ownerId, "", result)
 		usages.Update(jsonutils.Marshal(projectUsage))
 	}
 
