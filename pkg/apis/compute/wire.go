@@ -23,6 +23,9 @@ type WireCreateInput struct {
 	// default: 0
 	Bandwidth int `json:"bandwidth"`
 
+	// Deprecated
+	Bw int `json:"bw" yunion-deprecated-by:"bandwidth"`
+
 	// mtu
 	// minimum: 0
 	// maximum: 1000000
